@@ -89,10 +89,6 @@ type VolumeSource struct {
 	Secret    *ResourceRefVol `json:"secret" yaml:"secret"`
 }
 
-type validator interface {
-	Validate(string) error
-}
-
 // Validate validates VolumeSource.
 func (vs VolumeSource) Validate(name string) error {
 	nonNilSource := 0

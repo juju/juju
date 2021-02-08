@@ -5,9 +5,7 @@ package deployer_test
 
 import (
 	"github.com/juju/names/v4"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/model"
@@ -66,25 +64,6 @@ func (mock *mockConfig) Value(_ string) string {
 
 func agentConfig(tag names.Tag, datadir, logdir string) agent.Config {
 	return &mockConfig{tag: tag, datadir: datadir, logdir: logdir}
-}
-
-// assertContains asserts a needle is contained within haystack
-func assertContains(c *gc.C, haystack []string, needle string) {
-	c.Assert(contains(haystack, needle), jc.IsTrue)
-}
-
-// assertNotContains asserts a needle is not contained within haystack
-func assertNotContains(c *gc.C, haystack []string, needle string) {
-	c.Assert(contains(haystack, needle), gc.Not(jc.IsTrue))
-}
-
-func contains(haystack []string, needle string) bool {
-	for _, e := range haystack {
-		if e == needle {
-			return true
-		}
-	}
-	return false
 }
 
 type fakeMonitorStatePurger struct {

@@ -1374,14 +1374,6 @@ func closeClient(c *gc.C, client *rpc.Conn, srvDone <-chan error) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type encoder interface {
-	Encode(e interface{}) error
-}
-
-type decoder interface {
-	Decode(e interface{}) error
-}
-
 // testCodec wraps an rpc.Codec with extra error checking code.
 type testCodec struct {
 	role connRole

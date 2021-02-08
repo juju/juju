@@ -72,19 +72,6 @@ var (
 			migration.ControllerDialOpts(),
 		},
 	}
-	apiOpenModelCall = jujutesting.StubCall{
-		"apiOpen",
-		[]interface{}{
-			&api.Info{
-				Addrs:    []string{"1.2.3.4:5"},
-				CACert:   "cert",
-				Tag:      names.NewUserTag("admin"),
-				Password: "secret",
-				ModelTag: modelTag,
-			},
-			migration.ControllerDialOpts(),
-		},
-	}
 	importCall = jujutesting.StubCall{
 		"MigrationTarget.Import",
 		[]interface{}{

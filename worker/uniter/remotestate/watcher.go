@@ -23,7 +23,9 @@ import (
 
 // Logger is here to stop the desire of creating a package level Logger.
 // Don't do this, instead use the one in the RemoteStateWatcher.
-var logger interface{}
+type logger interface{}
+
+var _ logger = struct{}{}
 
 // Logger represents the logging methods used in this package.
 type Logger interface {

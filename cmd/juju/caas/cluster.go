@@ -29,14 +29,6 @@ func (*defaultRunner) RunCommands(run exec.RunParams) (*exec.ExecResponse, error
 	return exec.RunCommands(run)
 }
 
-func getEnv(key string) string {
-	result := os.Getenv(strings.ToUpper(key))
-	if result == "" {
-		result = os.Getenv(strings.ToLower(key))
-	}
-	return result
-}
-
 func collapseRunError(result *exec.ExecResponse, err error) error {
 	if err != nil {
 		return errors.Trace(err)

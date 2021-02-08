@@ -15,8 +15,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type statusHistoryFunc func(int) ([]status.StatusInfo, error)
-
 type statusSetter interface {
 	SetStatus(status.StatusInfo) error
 }

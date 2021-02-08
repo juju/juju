@@ -199,7 +199,7 @@ func (c *lock) writeLogEntry() {
 		MaxBackups: 5,
 		Compress:   true,
 	}
-	defer writer.Close()
+	defer func() { _ = writer.Close() }()
 
 	if c.startMessage != "" {
 		_, err := fmt.Fprintln(writer, c.startMessage)

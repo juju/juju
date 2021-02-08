@@ -48,13 +48,6 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-// deploymentLogger is used to notify clients about the bundle deployment
-// progress.
-type deploymentLogger interface {
-	// Infof formats and logs the given message.
-	Infof(string, ...interface{})
-}
-
 type bundleDeploySpec struct {
 	ctx        *cmd.Context
 	filesystem modelcmd.Filesystem

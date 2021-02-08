@@ -5,7 +5,6 @@ package machineundertaker
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -15,8 +14,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.machineundertaker")
 
 // API implements the API facade used by the machine undertaker.
 type API struct {

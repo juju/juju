@@ -686,7 +686,6 @@ const (
 	loggingConfigUpdaterName = "logging-config-updater"
 	instanceMutaterName      = "instance-mutater"
 
-	caasAdmissionName              = "caas-admission"
 	caasFirewallerNameLegacy       = "caas-firewaller-legacy"
 	caasFirewallerNameEmbedded     = "caas-firewaller-embedded"
 	caasModelOperatorName          = "caas-model-operator"

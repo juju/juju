@@ -11,14 +11,12 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/charmrepo/v6"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/juju/osenv"
 )
 
 type refresherFactorySuite struct{}
@@ -513,13 +511,6 @@ func (s *charmHubCharmRefresherSuite) TestAllowedError(c *gc.C) {
 	allowed, err := task.Allowed(cfg)
 	c.Assert(err, gc.ErrorMatches, "trap")
 	c.Assert(allowed, jc.IsFalse)
-}
-
-func setFeatureFlags(flags string) {
-	if err := os.Setenv(osenv.JujuFeatureFlagEnvKey, flags); err != nil {
-		panic(err)
-	}
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func basicRefresherConfig(curl *charm.URL, ref string) RefresherConfig {

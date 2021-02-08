@@ -81,7 +81,7 @@ func doHttpGet(url string, timeout time.Duration) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, errors.Errorf("invalid response code from registry: %v", response.StatusCode)

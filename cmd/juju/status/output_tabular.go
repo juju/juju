@@ -314,8 +314,6 @@ func printRelations(tw *ansiterm.TabWriter, relations []relationStatus) {
 	endSection(tw)
 }
 
-type offerItems []offerStatus
-
 // printOffers prints a tabular summary of the offers.
 func printOffers(tw *ansiterm.TabWriter, offers map[string]offerStatus) error {
 	if len(offers) == 0 {

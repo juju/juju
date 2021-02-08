@@ -19,7 +19,9 @@ import (
 
 // Logger is here to stop the desire of creating a package level Logger.
 // Don't do this, instead pass a Logger in to the required functions.
-var logger interface{}
+type logger interface{}
+
+var _ logger = struct{}{}
 
 // Logger represents the logging methods used in this package.
 type Logger interface {

@@ -16,7 +16,9 @@ import (
 
 // logger is here to stop the desire of creating a package level logger.
 // Don't do this, instead use the one passed as manifold config.
-var logger interface{}
+type logger interface{}
+
+var _ logger = struct{}{}
 
 // ConfigObserver exposes a model configuration and a watch constructor
 // that allows clients to be informed of changes to the configuration.

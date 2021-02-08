@@ -760,20 +760,6 @@ func makeActionQuery(actionID string, receiverType string, receiverTag names.Tag
 	}
 }
 
-func makeActionReference(mock mockResponse, actionID string) actionapi.ActionReference {
-	var receiverTag string
-	if mock.unitTag != "" {
-		receiverTag = mock.unitTag
-	} else {
-		receiverTag = mock.machineTag
-	}
-	return actionapi.ActionReference{
-		ID:       actionID,
-		Receiver: receiverTag,
-		Error:    mock.error,
-	}
-}
-
 func makeActionResult(mock mockResponse, actionID string) actionapi.ActionResult {
 	var receiverTag string
 	if mock.unitTag != "" {

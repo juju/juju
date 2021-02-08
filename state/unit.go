@@ -68,14 +68,6 @@ const (
 	ResolvedNoHooks    ResolvedMode = "no-hooks"
 )
 
-// port identifies a network port number for a particular protocol.
-// TODO(mue) Not really used anymore, se bellow. Can be removed when
-// cleaning unitDoc.
-type port struct {
-	Protocol string `bson:"protocol"`
-	Number   int    `bson:"number"`
-}
-
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in core/multiwatcher.
 type unitDoc struct {

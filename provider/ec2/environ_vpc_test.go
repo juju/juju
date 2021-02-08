@@ -716,7 +716,6 @@ func (s *vpcSuite) TestGetVPCSubnetIDsForAvailabilityZoneSuccess(c *gc.C) {
 
 const (
 	notDefaultVPC = false
-	defaultVPC    = true
 
 	notMainRouteTable = false
 	mainRouteTable    = true

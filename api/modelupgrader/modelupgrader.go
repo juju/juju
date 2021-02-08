@@ -5,7 +5,6 @@ package modelupgrader
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
@@ -14,8 +13,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
-
-var logger = loggo.GetLogger("juju.api.modelupgrader")
 
 // Client provides methods that the Juju client command uses to interact
 // with models stored in the Juju Server.

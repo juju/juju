@@ -5,13 +5,10 @@ package credentialmanager
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
-
-var logger = loggo.GetLogger("juju.api.credentialmanager")
 
 // Client allows access to the credential management API end point.
 type Client struct {

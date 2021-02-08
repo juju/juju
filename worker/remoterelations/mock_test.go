@@ -440,17 +440,6 @@ type mockRelationUnitsWatcher struct {
 	changes chan watcher.RelationUnitsChange
 }
 
-func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {
-	w := &mockRelationUnitsWatcher{
-		changes: make(chan watcher.RelationUnitsChange, 1),
-	}
-	w.Tomb.Go(func() error {
-		<-w.Tomb.Dying()
-		return nil
-	})
-	return w
-}
-
 func (w *mockRelationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 	w.MethodCall(w, "Changes")
 	return w.changes

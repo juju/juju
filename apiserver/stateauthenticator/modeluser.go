@@ -15,15 +15,6 @@ import (
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
-// loginEntity defines the interface needed to log in as a user.
-// Notable implementations are *state.User and *modelUserEntity.
-type loginEntity interface {
-	state.Entity
-	state.Authenticator
-	LastLogin() (time.Time, error)
-	UpdateLastLogin() error
-}
-
 // modelUserEntityFinder implements state.EntityFinder by returning
 // an Entity value for model users, ensuring that the user exists in
 // the state's current model, while also supporting external users.

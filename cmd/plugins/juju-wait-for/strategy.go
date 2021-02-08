@@ -131,13 +131,6 @@ type GenericScope struct {
 	scopes map[string]interface{}
 }
 
-// NewGenericScope creates a new GenericScope
-func NewGenericScope() *GenericScope {
-	return &GenericScope{
-		scopes: make(map[string]interface{}),
-	}
-}
-
 // GetIdents returns the names of all the available idents.
 func (m *GenericScope) GetIdents() []string {
 	var results []string
@@ -168,7 +161,7 @@ func (m *GenericScope) GetIdentValue(name string) (query.Box, error) {
 			case reflect.Int64:
 				return query.NewInteger(data.(int64)), nil
 			case reflect.Float64:
-				return query.NewFloat(float64(data.(float64))), nil
+				return query.NewFloat(data.(float64)), nil
 			case reflect.String:
 				return query.NewString(data.(string)), nil
 			case reflect.Bool:

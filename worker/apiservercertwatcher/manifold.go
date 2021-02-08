@@ -5,7 +5,6 @@ package apiservercertwatcher
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 	"gopkg.in/tomb.v2"
@@ -13,8 +12,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/pki"
 )
-
-var logger = loggo.GetLogger("juju.worker.apiservercertwatcher")
 
 type AuthorityWorker interface {
 	Authority() pki.Authority

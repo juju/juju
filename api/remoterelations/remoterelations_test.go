@@ -426,8 +426,6 @@ func (s *remoteRelationsSuite) TestSetRemoteApplicationStatus(c *gc.C) {
 	c.Check(callCount, gc.Equals, 1)
 }
 
-type facadeCallFunc = func(objType string, version int, id, request string, arg, result interface{}) error
-
 func (s *remoteRelationsSuite) TestUpdateControllerForModelResultCount(c *gc.C) {
 	apiCaller := testing.APICallerFunc(
 		func(objType string, version int, id, request string, arg, result interface{}) error {

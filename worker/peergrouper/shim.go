@@ -73,10 +73,6 @@ func (*cloudServiceShim) SetStatus(status.StatusInfo) error {
 	return nil
 }
 
-type spaceShim struct {
-	*state.Space
-}
-
 // MongoSessionShim wraps a *mgo.Session to conform to the
 // MongoSession interface.
 type MongoSessionShim struct {

@@ -17,7 +17,6 @@ import (
 )
 
 var (
-	logger            = loggo.GetLogger("juju.cmd.jujud.util")
 	EnsureMongoServer = mongo.EnsureServer
 )
 

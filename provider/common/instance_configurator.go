@@ -14,10 +14,6 @@ import (
 	"github.com/juju/juju/network/iptables"
 )
 
-const (
-	iptablesComment = "managed by juju"
-)
-
 // Implementations of this interface should provide a way to configure external
 // IP allocation and add firewall functionality.
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/instance_configurator.go github.com/juju/juju/provider/common InstanceConfigurator

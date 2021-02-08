@@ -37,10 +37,12 @@ const (
 	defaultSocketName = "metrics-collect.socket"
 )
 
+// Logger is here to stop the desire of creating a package level Logger.
+// Don't do this, instead use the logger passed into the manifold.
+type logger interface{}
+
 var (
-	// Logger is here to stop the desire of creating a package level Logger.
-	// Don't do this, instead use the logger passed into the manifold.
-	logger interface{}
+	_ logger = struct{}{}
 
 	defaultPeriod = 5 * time.Minute
 

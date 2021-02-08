@@ -59,8 +59,6 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
-const statusPollInterval = 5 * time.Second
-
 var (
 	ReleaseNodes         = releaseNodes
 	DeploymentStatusCall = deploymentStatusCall

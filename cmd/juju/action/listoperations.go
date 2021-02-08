@@ -247,17 +247,6 @@ func (c *listOperationsCommand) formatTabular(writer io.Writer, value interface{
 	return tw.Flush()
 }
 
-func operationDisplayTime(r params.OperationResult) time.Time {
-	timestamp := r.Completed
-	if timestamp.IsZero() {
-		timestamp = r.Started
-	}
-	if timestamp.IsZero() {
-		timestamp = r.Enqueued
-	}
-	return timestamp
-}
-
 func actionOperationLinesFromResults(results []actionapi.Operation) []operationLine {
 	var operationLines []operationLine
 	for _, r := range results {
