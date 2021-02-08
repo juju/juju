@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
+	"github.com/juju/os/series"
 	"github.com/juju/retry"
 	"github.com/juju/schema"
 	"github.com/juju/utils/arch"
@@ -459,13 +460,33 @@ func parseMemValue(v string) (uint64, error) {
 }
 
 func (e *environ) findInstanceSpec(controller bool, allImages []*imagemetadata.ImageMetadata, instanceTypes []instances.InstanceType, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
-	// TODO: remove this when we image discovery via streams works
-	suitableImages := []*imagemetadata.ImageMetadata{
-		{
-			Id:   "ubuntu_18_04",
-			Arch: arch.AMD64,
-		},
+	version, err := series.UbuntuSeriesVersion(ic.Series)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+
+	oss, _, err := e.packetClient.OperatingSystems.List()
+	if err != nil {
+		return nil, err
+	}
+	suitableImages := []*imagemetadata.ImageMetadata{}
+
+	for _, it := range instanceTypes {
+		for _, os := range oss {
+			if os.Distro == "ubuntu" && os.Version == version {
+				for _, p := range os.ProvisionableOn {
+					if p == it.Name {
+						image := &imagemetadata.ImageMetadata{
+							Id:   os.Slug,
+							Arch: arch.AMD64,
+						}
+						suitableImages = append(suitableImages, image)
+					}
+				}
+			}
+		}
+	}
+
 	images := instances.ImageMetadataToImages(suitableImages)
 	return instances.FindInstanceSpec(images, ic, instanceTypes)
 }
