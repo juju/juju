@@ -5,8 +5,10 @@ package common
 
 import (
 	"github.com/juju/juju/api/base"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/watcher"
 )
 
 // ControllerConfigAPI provides common client-side API functions
@@ -29,4 +31,15 @@ func (e *ControllerConfigAPI) ControllerConfig() (controller.Config, error) {
 		return nil, err
 	}
 	return controller.Config(result.Config), nil
+}
+
+// WatchForControllerConfigChanges returns a NotifyWatcher waiting for the
+// controller configuration to change.
+func (e *ControllerConfigAPI) WatchForControllerConfigChanges() (watcher.NotifyWatcher, error) {
+	var result params.NotifyWatchResult
+	err := e.facade.FacadeCall("WatchForControllerConfigChanges", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	return apiwatcher.NewNotifyWatcher(e.facade.RawAPICaller(), result), nil
 }

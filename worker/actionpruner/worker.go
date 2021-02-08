@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api/action"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/worker/pruner"
 )
@@ -25,12 +26,13 @@ type Worker struct {
 	pruner.PrunerWorker
 }
 
+// NewFacade returns a new pruner facade.
 func NewFacade(caller base.APICaller) pruner.Facade {
-	return action.NewFacade(caller)
+	return action.NewPruner(caller)
 }
 
 func (w *Worker) loop() error {
-	return w.Work(func(config *config.Config) (time.Duration, uint) {
+	return w.Work(func(_ controller.Config, config *config.Config) (time.Duration, uint) {
 		return config.MaxActionResultsAge(), config.MaxActionResultsSizeMB()
 	})
 }

@@ -4,6 +4,8 @@
 package statushistory
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -14,23 +16,36 @@ import (
 // API is the concrete implementation of the Pruner endpoint.
 type API struct {
 	*common.ModelWatcher
+	cancel     <-chan struct{}
 	st         *state.State
 	authorizer facade.Authorizer
 }
 
 // NewAPI returns an API Instance.
-func NewAPI(st *state.State, r facade.Resources, auth facade.Authorizer) (*API, error) {
-	m, err := st.Model()
+func NewAPI(ctx facade.Context) (*API, error) {
+	m, err := Model(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &API{
+		ModelWatcher: common.NewModelWatcher(m, ctx.Resources(), ctx.Auth()),
+		st:           ctx.State(),
+		authorizer:   ctx.Auth(),
+		cancel:       ctx.Cancel(),
+	}, nil
+}
+
+// Model returns the model for a context (override for tests).
+var Model = func(ctx facade.Context) (state.ModelAccessor, error) {
+	m, err := ctx.State().Model()
 	if err != nil {
 		return nil, err
 	}
-
-	return &API{
-		ModelWatcher: common.NewModelWatcher(m, r, auth),
-		st:           st,
-		authorizer:   auth,
-	}, nil
+	return m, nil
 }
+
+// Prune performs the status history pruner operation (override for tests).
+var Prune = state.PruneStatusHistory
 
 // Prune endpoint removes status history entries until
 // only the ones newer than now - p.MaxHistoryTime remain and
@@ -39,5 +54,5 @@ func (api *API) Prune(p params.StatusHistoryPruneArgs) error {
 	if !api.authorizer.AuthController() {
 		return apiservererrors.ErrPerm
 	}
-	return state.PruneStatusHistory(api.st, p.MaxHistoryTime, p.MaxHistoryMB)
+	return Prune(api.st, p.MaxHistoryTime, p.MaxHistoryMB)
 }
