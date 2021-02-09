@@ -289,7 +289,7 @@ func gatherAvailabilityZones(instances []instances.Instance) []string {
 				zones = append(zones, *t.i.Placement.AvailabilityZone)
 			}
 		default:
-			logger.Tracef("unexpected instance type %T when getting availability zones", inst)
+			logger.Errorf("unexpected instance type %T when getting availability zones", inst)
 		}
 	}
 	return zones
