@@ -1380,6 +1380,14 @@ func buildModelRepresentation(
 	for bundleMachine, modelMachine := range bundleMachines {
 		machineMap[bundleMachine] = modelMachine
 	}
+
+	offersByApplication := make(map[string][]string)
+	for _, offer := range status.Offers {
+		appOffers := offersByApplication[offer.ApplicationName]
+		appOffers = append(appOffers, offer.OfferName)
+		offersByApplication[offer.ApplicationName] = appOffers
+	}
+
 	applications := make(map[string]*bundlechanges.Application)
 	for name, appStatus := range status.Applications {
 		app := &bundlechanges.Application{
@@ -1389,6 +1397,7 @@ func buildModelRepresentation(
 			Exposed:       appStatus.Exposed,
 			Series:        appStatus.Series,
 			SubordinateTo: appStatus.SubordinateTo,
+			Offers:        offersByApplication[name],
 		}
 		for unitName, unit := range appStatus.Units {
 			app.Units = append(app.Units, bundlechanges.Unit{
