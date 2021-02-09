@@ -161,7 +161,13 @@ func (api *OffersAPI) Offer(all params.AddApplicationOffers) (params.ErrorResult
 			result[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		_, err = api.GetApplicationOffers(backend).AddOffer(applicationOfferParams)
+
+		offerBackend := api.GetApplicationOffers(backend)
+		if _, err = offerBackend.ApplicationOffer(applicationOfferParams.OfferName); err == nil {
+			_, err = offerBackend.UpdateOffer(applicationOfferParams)
+		} else {
+			_, err = offerBackend.AddOffer(applicationOfferParams)
+		}
 		result[i].Error = apiservererrors.ServerError(err)
 	}
 	return params.ErrorResults{Results: result}, nil
