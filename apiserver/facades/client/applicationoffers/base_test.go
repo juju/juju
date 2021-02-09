@@ -23,8 +23,9 @@ import (
 )
 
 const (
-	addOffersBackendCall  = "addOffersCall"
-	listOffersBackendCall = "listOffersCall"
+	addOffersBackendCall   = "addOffersCall"
+	updateOfferBackendCall = "updateOfferCall"
+	listOffersBackendCall  = "listOffersCall"
 )
 
 type baseSuite struct {
