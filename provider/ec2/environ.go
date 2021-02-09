@@ -335,7 +335,7 @@ func (e *environ) parsePlacement(ctx context.ProviderCallContext, placement stri
 		matcher := CreateSubnetMatcher(value)
 		// Get all known subnets, look for a match
 		allSubnets := []string{}
-		subnetResp, vpcId, err := e.subnetsForVPC(ctx)
+		subnetResp, vpcID, err := e.subnetsForVPC(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -360,7 +360,7 @@ func (e *environ) parsePlacement(ctx context.ProviderCallContext, placement stri
 				logger.Debugf("found a matching subnet (%v) but couldn't find the AZ", subnet)
 			}
 		}
-		logger.Debugf("searched for subnet %q, did not find it in all subnets %v for vpc-id %q", value, allSubnets, vpcId)
+		logger.Debugf("searched for subnet %q, did not find it in all subnets %v for vpc-id %q", value, allSubnets, vpcID)
 	}
 	return nil, fmt.Errorf("unknown placement directive: %v", placement)
 }
@@ -969,7 +969,7 @@ func tagResources(e *amzec2.EC2, ctx context.ProviderCallContext, tags map[strin
 	}
 	ec2Tags := make([]amzec2.Tag, 0, len(tags))
 	for k, v := range tags {
-		ec2Tags = append(ec2Tags, amzec2.Tag{k, v})
+		ec2Tags = append(ec2Tags, amzec2.Tag{Key: k, Value: v})
 	}
 	var err error
 	for a := shortAttempt.Start(); a.Next(); {
@@ -985,7 +985,7 @@ func tagRootDisk(e *amzec2.EC2, ctx context.ProviderCallContext, tags map[string
 	if len(tags) == 0 {
 		return nil
 	}
-	findVolumeId := func(inst *amzec2.Instance) string {
+	findVolumeID := func(inst *amzec2.Instance) string {
 		for _, m := range inst.BlockDeviceMappings {
 			if m.DeviceName != inst.RootDeviceName {
 				continue
@@ -996,13 +996,13 @@ func tagRootDisk(e *amzec2.EC2, ctx context.ProviderCallContext, tags map[string
 	}
 	// Wait until the instance has an associated EBS volume in the
 	// block-device-mapping.
-	volumeId := findVolumeId(inst)
+	volumeID := findVolumeID(inst)
 	// TODO(katco): 2016-08-09: lp:1611427
 	waitRootDiskAttempt := utils.AttemptStrategy{
 		Total: 5 * time.Minute,
 		Delay: 5 * time.Second,
 	}
-	for a := waitRootDiskAttempt.Start(); volumeId == "" && a.Next(); {
+	for a := waitRootDiskAttempt.Start(); volumeID == "" && a.Next(); {
 		resp, err := e.Instances([]string{inst.InstanceId}, nil)
 		if err != nil {
 			err = errors.Annotate(maybeConvertCredentialError(err, ctx), "cannot fetch instance information")
@@ -1015,13 +1015,13 @@ func tagRootDisk(e *amzec2.EC2, ctx context.ProviderCallContext, tags map[string
 		}
 		if len(resp.Reservations) > 0 && len(resp.Reservations[0].Instances) > 0 {
 			inst = &resp.Reservations[0].Instances[0]
-			volumeId = findVolumeId(inst)
+			volumeID = findVolumeID(inst)
 		}
 	}
-	if volumeId == "" {
+	if volumeID == "" {
 		return errors.New("timed out waiting for EBS volume to be associated")
 	}
-	return tagResources(e, ctx, tags, volumeId)
+	return tagResources(e, ctx, tags, volumeID)
 }
 
 var runInstances = _runInstances
