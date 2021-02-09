@@ -44,8 +44,10 @@ type stubApplicationOffers struct {
 	jtesting.Stub
 	jujucrossmodel.ApplicationOffers
 
-	addOffer   func(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error)
-	listOffers func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error)
+	applicationOffer func(name string) (*jujucrossmodel.ApplicationOffer, error)
+	addOffer         func(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error)
+	updateOffer      func(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error)
+	listOffers       func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error)
 }
 
 func (m *stubApplicationOffers) AddOffer(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error) {
@@ -60,7 +62,7 @@ func (m *stubApplicationOffers) ListOffers(filters ...jujucrossmodel.Application
 
 func (m *stubApplicationOffers) UpdateOffer(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error) {
 	m.AddCall(updateOfferCall)
-	panic("not implemented")
+	return m.updateOffer(offer)
 }
 
 func (m *stubApplicationOffers) Remove(url string, force bool) error {
@@ -70,7 +72,7 @@ func (m *stubApplicationOffers) Remove(url string, force bool) error {
 
 func (m *stubApplicationOffers) ApplicationOffer(name string) (*jujucrossmodel.ApplicationOffer, error) {
 	m.AddCall(offerCall)
-	panic("not implemented")
+	return m.applicationOffer(name)
 }
 
 func (m *stubApplicationOffers) ApplicationOfferForUUID(uuid string) (*jujucrossmodel.ApplicationOffer, error) {

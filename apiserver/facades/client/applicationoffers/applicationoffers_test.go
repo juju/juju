@@ -36,7 +36,13 @@ var _ = gc.Suite(&applicationOffersSuite{})
 
 func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
-	s.applicationOffers = &stubApplicationOffers{}
+	s.applicationOffers = &stubApplicationOffers{
+		// Ensure that calls to "Offer" made by the test suite call
+		// AddOffer by default.
+		applicationOffer: func(string) (*jujucrossmodel.ApplicationOffer, error) {
+			return nil, errors.NotFoundf("offer")
+		},
+	}
 	getApplicationOffers := func(interface{}) jujucrossmodel.ApplicationOffers {
 		return s.applicationOffers
 	}
@@ -110,12 +116,49 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 		return
 	}
 	c.Assert(errs.Results[0].Error, gc.IsNil)
-	s.applicationOffers.CheckCallNames(c, addOffersBackendCall)
+	s.applicationOffers.CheckCallNames(c, offerCall, addOffersBackendCall)
 }
 
 func (s *applicationOffersSuite) TestOffer(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("admin")
 	s.assertOffer(c, nil)
+}
+
+func (s *applicationOffersSuite) TestAddOfferUpdatesExistingOffer(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("admin")
+	applicationName := "test"
+	s.addApplication(c, applicationName)
+	one := params.AddApplicationOffer{
+		ModelTag:        testing.ModelTag.String(),
+		OfferName:       "offer-test",
+		ApplicationName: applicationName,
+		Endpoints:       map[string]string{"db": "db"},
+	}
+	all := params.AddApplicationOffers{Offers: []params.AddApplicationOffer{one}}
+	s.applicationOffers.applicationOffer = func(name string) (*jujucrossmodel.ApplicationOffer, error) {
+		c.Assert(name, gc.Equals, one.OfferName)
+		return &jujucrossmodel.ApplicationOffer{}, nil
+	}
+	s.applicationOffers.addOffer = func(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error) {
+		return nil, errors.BadRequestf("unexpected call to AddOffer; expected a call to UpdateOffer instead")
+	}
+	s.applicationOffers.updateOffer = func(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error) {
+		c.Assert(offer.OfferName, gc.Equals, one.OfferName)
+		c.Assert(offer.ApplicationName, gc.Equals, one.ApplicationName)
+		c.Assert(offer.ApplicationDescription, gc.Equals, "A pretty popular blog engine")
+		c.Assert(offer.Owner, gc.Equals, "admin")
+		c.Assert(offer.HasRead, gc.DeepEquals, []string{"everyone@external"})
+		return &jujucrossmodel.ApplicationOffer{}, nil
+	}
+	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
+	s.mockState.applications = map[string]crossmodel.Application{
+		applicationName: &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
+	}
+	errs, err := s.api.Offer(all)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
+	c.Assert(errs.Results[0].Error, gc.IsNil)
+	s.applicationOffers.CheckCallNames(c, offerCall, updateOfferBackendCall)
 }
 
 func (s *applicationOffersSuite) TestOfferPermission(c *gc.C) {
@@ -173,7 +216,7 @@ func (s *applicationOffersSuite) TestOfferSomeFail(c *gc.C) {
 	c.Assert(errs.Results[3].Error, gc.IsNil)
 	c.Assert(errs.Results[1].Error, gc.ErrorMatches, `getting offered application notthere: application "notthere" not found`)
 	c.Assert(errs.Results[2].Error, gc.ErrorMatches, `params fail`)
-	s.applicationOffers.CheckCallNames(c, addOffersBackendCall, addOffersBackendCall, addOffersBackendCall)
+	s.applicationOffers.CheckCallNames(c, offerCall, addOffersBackendCall, offerCall, addOffersBackendCall, offerCall, addOffersBackendCall)
 }
 
 func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
@@ -202,7 +245,7 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
-	s.applicationOffers.CheckCallNames(c, addOffersBackendCall)
+	s.applicationOffers.CheckCallNames(c, offerCall, addOffersBackendCall)
 }
 
 func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error, expectedCIDRS []string) {
