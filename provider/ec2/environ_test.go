@@ -6,6 +6,7 @@ package ec2
 import (
 	"strings"
 
+	"github.com/aws/aws-sdk-go/service/ec2"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 )
 
@@ -406,4 +408,38 @@ func (*Suite) TestGetValidSubnetZoneMapIntersectionSelectsCorrectIndex(c *gc.C) 
 	subnetZones, err := getValidSubnetZoneMap(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(subnetZones, gc.DeepEquals, allSubnetZones[1])
+}
+
+func (*Suite) TestGatherNilAZ(c *gc.C) {
+	az := gatherAvailabilityZones(nil)
+	c.Assert(az, gc.HasLen, 0)
+}
+
+func (*Suite) TestGatherEmptyAZ(c *gc.C) {
+	instances := []instances.Instance{}
+	az := gatherAvailabilityZones(instances)
+	c.Assert(az, gc.HasLen, 0)
+}
+
+func (*Suite) TestGatherAZ(c *gc.C) {
+	instances := []instances.Instance{
+		&amzInstance{
+			Instance: &amzec2.Instance{
+				AvailZone: "aaa",
+			},
+		},
+		&sdkInstance{
+			i: &ec2.Instance{
+				Placement: &ec2.Placement{
+					AvailabilityZone: ptrString("bbb"),
+				},
+			},
+		},
+	}
+	az := gatherAvailabilityZones(instances)
+	c.Assert(az, gc.DeepEquals, []string{"aaa", "bbb"})
+}
+
+func ptrString(s string) *string {
+	return &s
 }

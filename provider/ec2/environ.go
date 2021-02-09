@@ -269,16 +269,30 @@ func (e *environ) AvailabilityZones(ctx context.ProviderCallContext) (corenetwor
 func (e *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
 	instances, err := e.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	zones := make([]string, len(instances))
-	for i, inst := range instances {
+
+	return gatherAvailabilityZones(instances), nil
+}
+
+func gatherAvailabilityZones(instances []instances.Instance) []string {
+	zones := make([]string, 0)
+	for _, inst := range instances {
 		if inst == nil {
 			continue
 		}
-		zones[i] = inst.(*amzInstance).AvailZone
+		switch t := inst.(type) {
+		case *amzInstance:
+			zones = append(zones, t.AvailZone)
+		case *sdkInstance:
+			if t.i != nil && t.i.Placement != nil && t.i.Placement.AvailabilityZone != nil {
+				zones = append(zones, *t.i.Placement.AvailabilityZone)
+			}
+		default:
+			logger.Tracef("unexpected instance type %T when getting availability zones", inst)
+		}
 	}
-	return zones, err
+	return zones
 }
 
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
