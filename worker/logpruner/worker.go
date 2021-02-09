@@ -1,7 +1,7 @@
-// Copyright 2017 Canonical Ltd.
+// Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package statushistorypruner
+package logpruner
 
 import (
 	"time"
@@ -11,7 +11,7 @@ import (
 	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/statushistory"
+	"github.com/juju/juju/api/logpruner"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/worker/pruner"
@@ -26,18 +26,18 @@ type Worker struct {
 	pruner.PrunerWorker
 }
 
-// NewClient returns a new status history facade.
+// NewClient returns a new log pruner facade.
 func NewClient(caller base.APICaller) pruner.Facade {
-	return statushistory.NewClient(caller)
+	return logpruner.NewClient(caller)
 }
 
 func (w *Worker) loop() error {
-	return w.Work(func(_ controller.Config, config *config.Config) (time.Duration, uint) {
-		return config.MaxStatusHistoryAge(), config.MaxStatusHistorySizeMB()
+	return w.Work(func(config controller.Config, _ *config.Config) (time.Duration, uint) {
+		return 0, uint(config.ModelLogsSizeMB())
 	})
 }
 
-// New creates a new status history pruner.
+// New creates a new log pruner worker
 func New(conf pruner.Config) (worker.Worker, error) {
 	if err := conf.Validate(); err != nil {
 		return nil, errors.Trace(err)

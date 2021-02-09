@@ -39,7 +39,7 @@ func (s *ManifoldConfigSuite) validConfig() pruner.ManifoldConfig {
 		APICallerName: "api-caller",
 		Clock:         clock.WallClock,
 		NewWorker:     func(pruner.Config) (worker.Worker, error) { return nil, nil },
-		NewFacade:     func(caller base.APICaller) pruner.Facade { return nil },
+		NewClient:     func(caller base.APICaller) pruner.Facade { return nil },
 		Logger:        loggo.GetLogger("test"),
 	}
 }
@@ -63,9 +63,9 @@ func (s *ManifoldConfigSuite) TestMissingNewWorker(c *gc.C) {
 	s.checkNotValid(c, "nil NewWorker not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingNewFacade(c *gc.C) {
-	s.config.NewFacade = nil
-	s.checkNotValid(c, "nil NewFacade not valid")
+func (s *ManifoldConfigSuite) TestMissingNewClient(c *gc.C) {
+	s.config.NewClient = nil
+	s.checkNotValid(c, "nil NewClient not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingLogger(c *gc.C) {

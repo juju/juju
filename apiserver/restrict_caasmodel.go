@@ -34,6 +34,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"LeadershipService",
 	"LifeFlag",
 	"Logger",
+	"LogPruner",
 	"MeterStatus",
 	"MigrationFlag",
 	"MigrationMaster",

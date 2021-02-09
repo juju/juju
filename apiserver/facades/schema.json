@@ -545,7 +545,7 @@
     },
     {
         "Name": "ActionPruner",
-        "Description": "",
+        "Description": "API provides access to the action pruner API.",
         "Version": 1,
         "AvailableTo": [
             "controller-machine-agent",
@@ -571,7 +571,8 @@
                         "Params": {
                             "$ref": "#/definitions/ActionPruneArgs"
                         }
-                    }
+                    },
+                    "description": "Prune endpoint removes action entries until\nonly the ones newer than now - p.MaxHistoryTime remain and\nthe history is smaller than p.MaxHistoryMB."
                 },
                 "WatchForModelConfigChanges": {
                     "type": "object",
