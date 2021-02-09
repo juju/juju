@@ -368,7 +368,7 @@ func (s *ConfigSuite) TestAPIPortDefaults(c *gc.C) {
 func (s *ConfigSuite) TestLogConfigDefaults(c *gc.C) {
 	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.ModelLogsSizeMB(), gc.Equals, 20)
+	c.Assert(cfg.ModelLogsSizeMB(), gc.Equals, uint(20))
 }
 
 func (s *ConfigSuite) TestLogConfigValues(c *gc.C) {
@@ -384,7 +384,7 @@ func (s *ConfigSuite) TestLogConfigValues(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.ModelLogsSizeMB(), gc.Equals, 35)
+	c.Assert(cfg.ModelLogsSizeMB(), gc.Equals, uint(35))
 }
 
 func (s *ConfigSuite) TestTxnLogConfigDefault(c *gc.C) {

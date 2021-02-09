@@ -43,7 +43,7 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	return &Facade{
 		CloudSpecAPI:        cloudSpecAPI,
 		ModelWatcher:        common.NewModelWatcher(model, resources, authorizer),
-		ControllerConfigAPI: common.NewStateControllerConfig(ctx.State()),
+		ControllerConfigAPI: common.NewStateControllerConfig(ctx.State(), ctx.Resources()),
 		auth:                authorizer,
 		resources:           resources,
 	}, nil

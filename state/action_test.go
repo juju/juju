@@ -1334,7 +1334,9 @@ func (s *ActionPruningSuite) TestPruneOperationsBySize(c *gc.C) {
 	ops, err := s.Model.AllOperations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ops, gc.HasLen, numOperationEntries)
-	err = state.PruneOperations(s.State, 0, maxLogSize)
+
+	var stop <-chan struct{}
+	err = state.PruneOperations(stop, s.State, 0, maxLogSize)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actions, err = unit.Actions()
@@ -1377,7 +1379,8 @@ func (s *ActionPruningSuite) TestPruneOperationsBySizeOldestFirst(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ops, gc.HasLen, numOperationEntries)
 
-	err = state.PruneOperations(s.State, 0, maxLogSize)
+	var stop <-chan struct{}
+	err = state.PruneOperations(stop, s.State, 0, maxLogSize)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actions, err = unit.Actions()
@@ -1436,7 +1439,8 @@ func (s *ActionPruningSuite) TestPruneOperationsBySizeKeepsIncomplete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ops, gc.HasLen, numOperationEntries)
 
-	err = state.PruneOperations(s.State, 0, maxLogSize)
+	var stop <-chan struct{}
+	err = state.PruneOperations(stop, s.State, 0, maxLogSize)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actions, err = unit.Actions()
@@ -1493,7 +1497,8 @@ func (s *ActionPruningSuite) TestPruneOperationsByAge(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ops, gc.HasLen, numCurrentOperationEntries+numExpiredOperationEntries)
 
-	err = state.PruneOperations(s.State, 1*time.Hour, 0)
+	var stop <-chan struct{}
+	err = state.PruneOperations(stop, s.State, 1*time.Hour, 0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actions, err = unit.Actions()
@@ -1525,7 +1530,8 @@ func (s *ActionPruningSuite) TestDoNotPruneIncompleteOperations(c *gc.C) {
 	_, err = s.Model.AllOperations()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = state.PruneOperations(s.State, 1*time.Hour, 0)
+	var stop <-chan struct{}
+	err = state.PruneOperations(stop, s.State, 1*time.Hour, 0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actions, err := unit.Actions()
@@ -1560,7 +1566,8 @@ func (s *ActionPruningSuite) TestPruneLegacyActions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ops, gc.HasLen, numCurrentOperationEntries+numExpiredOperationEntries)
 
-	err = state.PruneOperations(s.State, 1*time.Hour, 0)
+	var stop <-chan struct{}
+	err = state.PruneOperations(stop, s.State, 1*time.Hour, 0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actions, err = unit.Actions()

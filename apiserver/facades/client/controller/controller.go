@@ -199,7 +199,7 @@ func NewControllerAPI(
 		return nil, errors.Trace(err)
 	}
 	return &ControllerAPI{
-		ControllerConfigAPI: common.NewStateControllerConfig(st),
+		ControllerConfigAPI: common.NewStateControllerConfig(st, resources),
 		ModelStatusAPI: common.NewModelStatusAPI(
 			common.NewModelManagerBackend(model, pool),
 			authorizer,

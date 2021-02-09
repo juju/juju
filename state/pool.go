@@ -138,6 +138,7 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 
 	session := args.MongoSession.Copy()
 	st, err := open(
+		args.ControllerTag,
 		args.ControllerModelTag,
 		session,
 		args.InitDatabaseFunc,
@@ -165,7 +166,7 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 			return nil, errors.Trace(mongo.MaybeUnauthorizedf(err, "cannot read model %s", args.ControllerModelTag.Id()))
 		}
 	}
-	if err = st.start(args.ControllerTag, pool.hub); err != nil {
+	if err = st.startWorkers(pool.hub); err != nil {
 		return nil, errors.Trace(err)
 	}
 	pool.systemState = st
@@ -267,6 +268,7 @@ func (p *StatePool) openState(modelUUID string) (*State, error) {
 	modelTag := names.NewModelTag(modelUUID)
 	session := p.systemState.session.Copy()
 	newSt, err := newState(
+		p.systemState.controllerTag,
 		modelTag, p.systemState.controllerModelTag,
 		session, p.systemState.newPolicy, p.systemState.stateClock,
 		p.systemState.runTransactionObserver,
@@ -274,7 +276,7 @@ func (p *StatePool) openState(modelUUID string) (*State, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := newSt.start(p.systemState.controllerTag, p.hub); err != nil {
+	if err := newSt.startWorkers(p.hub); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return newSt, nil
@@ -489,4 +491,10 @@ func (p *StatePool) Report() map[string]interface{} {
 // TxnWatcher has fully started.
 func (p *StatePool) TxnWatcherStarted() <-chan struct{} {
 	return p.watcherStarted
+}
+
+// StartWorkers is used by factory.NewModel in tests.
+// TODO(wallyworld) refactor to remove this dependency.
+func (p *StatePool) StartWorkers(st *State) error {
+	return st.startWorkers(p.hub)
 }

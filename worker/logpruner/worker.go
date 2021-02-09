@@ -33,7 +33,7 @@ func NewClient(caller base.APICaller) pruner.Facade {
 
 func (w *Worker) loop() error {
 	return w.Work(func(config controller.Config, _ *config.Config) (time.Duration, uint) {
-		return 0, uint(config.ModelLogsSizeMB())
+		return 0, config.ModelLogsSizeMB()
 	})
 }
 

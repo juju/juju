@@ -572,19 +572,20 @@ func (op *DestroyUnitOperation) Done(err error) error {
 }
 
 func (op *DestroyUnitOperation) eraseHistory() error {
-	if err := eraseStatusHistory(op.unit.st, op.unit.globalKey()); err != nil {
+	var stop <-chan struct{} // stop not used here yet.
+	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalKey()); err != nil {
 		one := errors.Annotate(err, "workload")
 		if op.FatalError(one) {
 			return one
 		}
 	}
-	if err := eraseStatusHistory(op.unit.st, op.unit.globalAgentKey()); err != nil {
+	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalAgentKey()); err != nil {
 		one := errors.Annotate(err, "agent")
 		if op.FatalError(one) {
 			return one
 		}
 	}
-	if err := eraseStatusHistory(op.unit.st, op.unit.globalWorkloadVersionKey()); err != nil {
+	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalWorkloadVersionKey()); err != nil {
 		one := errors.Annotate(err, "version")
 		if op.FatalError(one) {
 			return one

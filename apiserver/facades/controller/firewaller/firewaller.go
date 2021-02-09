@@ -92,7 +92,7 @@ func NewStateFirewallerAPIV4(context facade.Context) (*FirewallerAPIV4, error) {
 		return nil, err
 	}
 	return &FirewallerAPIV4{
-		ControllerConfigAPI: common.NewStateControllerConfig(context.State()),
+		ControllerConfigAPI: common.NewStateControllerConfig(context.State(), context.Resources()),
 		FirewallerAPIV3:     facadev3,
 	}, nil
 }
@@ -108,7 +108,7 @@ func NewStateFirewallerAPIV5(context facade.Context) (*FirewallerAPIV5, error) {
 	}, nil
 }
 
-// NewStateFirewallerAPIV5 creates a new server-side FirewallerAPIV6 facade.
+// NewStateFirewallerAPIV6 creates a new server-side FirewallerAPIV6 facade.
 func NewStateFirewallerAPIV6(context facade.Context) (*FirewallerAPIV6, error) {
 	facadev5, err := NewStateFirewallerAPIV5(context)
 	if err != nil {
@@ -333,7 +333,7 @@ func (f *FirewallerAPIV3) getMachine(canAccess common.AuthFunc, tag names.Machin
 // connections will originate for the relation, change.
 // Each event contains the entire set of addresses which are required for ingress for the relation.
 func (f *FirewallerAPIV4) WatchEgressAddressesForRelations(relations params.Entities) (params.StringsWatchResults, error) {
-	return firewall.WatchEgressAddressesForRelations(f.resources, f.st, relations)
+	return firewall.WatchEgressAddressesForRelations(f.FirewallerAPIV3.resources, f.FirewallerAPIV3.st, relations)
 }
 
 // WatchIngressAddressesForRelations creates a watcher that returns the ingress networks
@@ -344,13 +344,13 @@ func (f *FirewallerAPIV4) WatchIngressAddressesForRelations(relations params.Ent
 	}
 
 	one := func(tag string) (id string, changes []string, _ error) {
-		logger.Debugf("Watching ingress addresses for %+v from model %v", tag, f.st.ModelUUID())
+		logger.Debugf("Watching ingress addresses for %+v from model %v", tag, f.FirewallerAPIV3.st.ModelUUID())
 
 		relationTag, err := names.ParseRelationTag(tag)
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}
-		rel, err := f.st.KeyRelation(relationTag.Id())
+		rel, err := f.FirewallerAPIV3.st.KeyRelation(relationTag.Id())
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}
@@ -359,7 +359,7 @@ func (f *FirewallerAPIV4) WatchIngressAddressesForRelations(relations params.Ent
 		if !ok {
 			return "", nil, apiservererrors.ServerError(watcher.EnsureErr(w))
 		}
-		return f.resources.Register(w), changes, nil
+		return f.FirewallerAPIV3.resources.Register(w), changes, nil
 	}
 
 	for i, e := range relations.Entities {
@@ -384,7 +384,7 @@ func (f *FirewallerAPIV4) MacaroonForRelations(args params.Entities) (params.Mac
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		mac, err := f.st.GetMacaroon(relationTag)
+		mac, err := f.FirewallerAPIV3.st.GetMacaroon(relationTag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -404,7 +404,7 @@ func (f *FirewallerAPIV4) SetRelationsStatus(args params.SetStatus) (params.Erro
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		rel, err := f.st.KeyRelation(relationTag.Id())
+		rel, err := f.FirewallerAPIV3.st.KeyRelation(relationTag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -422,7 +422,7 @@ func (f *FirewallerAPIV4) SetRelationsStatus(args params.SetStatus) (params.Erro
 func (f *FirewallerAPIV4) FirewallRules(args params.KnownServiceArgs) (params.ListFirewallRulesResults, error) {
 	var result params.ListFirewallRulesResults
 	for _, knownService := range args.KnownServices {
-		rule, err := f.st.FirewallRule(corefirewall.WellKnownServiceType(knownService))
+		rule, err := f.FirewallerAPIV3.st.FirewallRule(corefirewall.WellKnownServiceType(knownService))
 		if err != nil && !errors.IsNotFound(err) {
 			return result, apiservererrors.ServerError(err)
 		}
@@ -715,11 +715,11 @@ func (f *FirewallerAPIV6) WatchSubnets(args params.Entities) (params.StringsWatc
 }
 
 func (f *FirewallerAPIV6) watchModelSubnets(filterFn func(interface{}) bool) (string, []string, error) {
-	watch := f.st.WatchSubnets(filterFn)
+	watch := f.FirewallerAPIV3.st.WatchSubnets(filterFn)
 
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
-		return f.resources.Register(watch), changes, nil
+		return f.FirewallerAPIV3.resources.Register(watch), changes, nil
 	}
 	return "", nil, watcher.EnsureErr(watch)
 }

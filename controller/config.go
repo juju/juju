@@ -743,10 +743,11 @@ func (c Config) ModelLogfileMaxSizeMB() int {
 	return c.sizeMBOrDefault(ModelLogfileMaxSize, DefaultModelLogfileMaxSize)
 }
 
-// ModelLogsSizeMB is the size of the capped collection used to store the model
+// ModelLogsSizeMB is the size of the collection used to store the model
 // logs. Total size on disk will be ModelLogsSizeMB * number of models.
-func (c Config) ModelLogsSizeMB() int {
-	return c.sizeMBOrDefault(ModelLogsSize, DefaultModelLogsSizeMB)
+func (c Config) ModelLogsSizeMB() uint {
+	val := c.sizeMBOrDefault(ModelLogsSize, DefaultModelLogsSizeMB)
+	return uint(val)
 }
 
 // MaxDebugLogDuration is the maximum time a debug-log session is allowed
@@ -1287,7 +1288,7 @@ they don't have any access rights to the controller itself`,
 	},
 	MaxTxnLogSize: {
 		Type:        environschema.Tstring,
-		Description: `The maximum size the of capped txn log collection`,
+		Description: `The maximum size the of txn log collection`,
 	},
 	MaxPruneTxnBatchSize: {
 		Type:        environschema.Tint,
@@ -1307,7 +1308,7 @@ they don't have any access rights to the controller itself`,
 	},
 	ModelLogsSize: {
 		Type:        environschema.Tstring,
-		Description: `The size of the capped collections used to hold the logs for the models`,
+		Description: `The maximum size of the collections used to hold the logs for the models`,
 	},
 	PruneTxnQueryCount: {
 		Type:        environschema.Tint,

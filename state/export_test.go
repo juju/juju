@@ -315,10 +315,6 @@ func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 	return sch
 }
 
-func init() {
-	txnLogSize = txnLogSizeTests
-}
-
 // TxnRevno returns the txn-revno field of the document
 // associated with the given Id in the given collection.
 func TxnRevno(st *State, collName string, id interface{}) (int64, error) {
@@ -1029,7 +1025,7 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 	if db, ok := st.database.(*database); ok {
 		db.clock = clock
 	}
-	err = st.start(st.controllerTag, hub)
+	err = st.startWorkers(hub)
 	if err != nil {
 		return errors.Trace(err)
 	}

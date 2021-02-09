@@ -50,5 +50,5 @@ func (api *API) Prune(p params.StatusHistoryPruneArgs) error {
 	if !api.authorizer.AuthController() {
 		return apiservererrors.ErrPerm
 	}
-	return Prune(api.st, p.MaxHistoryTime, p.MaxHistoryMB)
+	return Prune(api.cancel, api.st, p.MaxHistoryTime, p.MaxHistoryMB)
 }

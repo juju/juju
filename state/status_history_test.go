@@ -53,7 +53,8 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
 	c.Assert(history, gc.HasLen, initialHistory+1)
 
 	// Prune down to 1MB.
-	err = state.PruneStatusHistory(s.State, 0, 1)
+	var stop <-chan struct{}
+	err = state.PruneStatusHistory(stop, s.State, 0, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	history, err = unit.StatusHistory(filter)
@@ -80,7 +81,8 @@ func (s *StatusHistorySuite) TestPruneStatusBySizeOnlyForController(c *gc.C) {
 	c.Logf("%d\n", len(history))
 	c.Assert(history, gc.HasLen, 20001)
 
-	err = state.PruneStatusHistory(st, 0, 1)
+	var stop <-chan struct{}
+	err = state.PruneStatusHistory(stop, st, 0, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	history, err = unit.StatusHistory(status.StatusHistoryFilter{Size: 25000})
@@ -135,7 +137,8 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 		checkPrimedUnitStatus(c, statusInfo, 9-i, 24*time.Hour)
 	}
 
-	err = state.PruneStatusHistory(s.State, 10*time.Hour, 1024)
+	var stop <-chan struct{}
+	err = state.PruneStatusHistory(stop, s.State, 10*time.Hour, 1024)
 	c.Assert(err, jc.ErrorIsNil)
 
 	history, err = units[0].StatusHistory(status.StatusHistoryFilter{Size: 50})

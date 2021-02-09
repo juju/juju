@@ -14,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
 // Register the state tracker as a new profile.
@@ -83,6 +84,7 @@ func OpenController(args OpenParams) (*Controller, error) {
 }
 
 func open(
+	controllerTag names.ControllerTag,
 	controllerModelTag names.ModelTag,
 	session *mgo.Session,
 	initDatabase InitDatabaseFunc,
@@ -91,7 +93,7 @@ func open(
 	clock clock.Clock,
 	runTransactionObserver RunTransactionObserverFunc,
 ) (*State, error) {
-	st, err := newState(controllerModelTag, controllerModelTag, session, newPolicy, clock, runTransactionObserver)
+	st, err := newState(controllerTag, controllerModelTag, controllerModelTag, session, newPolicy, clock, runTransactionObserver)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -106,14 +108,14 @@ func open(
 	return st, nil
 }
 
-// newState creates an incomplete *State, with no running workers or
-// controllerTag. You must start() the returned *State before it will
-// function correctly.
+// newState creates an incomplete *State, with no running workers.
+// You must start() the returned *State before it will function correctly.
 // modelTag is used to filter all queries and transactions.
 //
 // newState takes responsibility for the supplied *mgo.Session, and will
 // close it if it cannot be returned under the aegis of a *State.
 func newState(
+	controllerTag names.ControllerTag,
 	modelTag, controllerModelTag names.ModelTag,
 	session *mgo.Session,
 	newPolicy NewPolicyFunc,
@@ -168,6 +170,13 @@ func newState(
 	}
 	// Record this State instance with the global tracker.
 	profileTracker.Add(st, 1)
+
+	st.controllerTag = controllerTag
+	logger.Infof("creating cloud image metadata storage")
+	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(
+		cloudimagemetadataC,
+		&environMongo{st},
+	)
 	return st, nil
 }
 

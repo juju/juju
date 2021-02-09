@@ -4,18 +4,10 @@
 package state
 
 import (
-	"github.com/juju/juju/state/cloudimagemetadata"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state/bakerystorage"
-)
-
-// The capped collection used for transaction logs defaults to 10MB.
-// It's tweaked in export_test.go to 1MB to avoid the overhead of
-// creating and deleting the large file repeatedly in tests.
-var (
-	txnLogSize      = 10000000
-	txnLogSizeTests = 1000000
+	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
 // allCollections should be the single source of truth for information about
@@ -71,10 +63,6 @@ func allCollections() CollectionSchema {
 			// to, and interpreted by, both state and the multiwatcher.
 			global:    true,
 			rawAccess: true,
-			explicitCreate: &mgo.CollectionInfo{
-				Capped:   true,
-				MaxBytes: txnLogSize,
-			},
 		},
 
 		// ------------------
