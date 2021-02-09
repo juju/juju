@@ -53,6 +53,10 @@ func (st *mockState) ControllerConfig() (controller.Config, error) {
 	return nil, errors.NotImplementedf("ControllerConfig")
 }
 
+func (st *mockState) WatchForControllerConfigChanges() state.NotifyWatcher {
+	return nil
+}
+
 func (st *mockState) ControllerInfo(modelUUID string) ([]string, string, error) {
 	if info, ok := st.controllerInfo[modelUUID]; !ok {
 		return nil, "", errors.NotFoundf("controller info for %v", modelUUID)

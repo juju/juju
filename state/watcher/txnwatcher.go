@@ -173,8 +173,7 @@ func (config TxnWatcherConfig) Validate() error {
 	return nil
 }
 
-// New returns a new Watcher observing the changelog collection,
-// which must be a capped collection maintained by mgo/txn.
+// NewTxnWatcher returns a new Watcher observing the changelog collection.
 func NewTxnWatcher(config TxnWatcherConfig) (*TxnWatcher, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Annotate(err, "new TxnWatcher invalid config")

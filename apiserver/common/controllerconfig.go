@@ -8,26 +8,30 @@ import (
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
 
 // ControllerConfigAPI implements two common methods for use by various
 // facades - eg Provisioner and ControllerConfig.
 type ControllerConfigAPI struct {
-	st state.ControllerAccessor
+	st        state.ControllerAccessor
+	resources facade.Resources
 }
 
 // NewStateControllerConfig returns a new NewControllerConfigAPI.
-func NewStateControllerConfig(st *state.State) *ControllerConfigAPI {
-	return NewControllerConfig(&controllerStateShim{st})
+func NewStateControllerConfig(st *state.State, resources facade.Resources) *ControllerConfigAPI {
+	return NewControllerConfig(&controllerStateShim{st}, resources)
 }
 
 // NewControllerConfig returns a new NewControllerConfigAPI.
-func NewControllerConfig(st state.ControllerAccessor) *ControllerConfigAPI {
+func NewControllerConfig(st state.ControllerAccessor, resources facade.Resources) *ControllerConfigAPI {
 	return &ControllerConfigAPI{
-		st: st,
+		st:        st,
+		resources: resources,
 	}
 }
 
@@ -39,6 +43,26 @@ func (s *ControllerConfigAPI) ControllerConfig() (params.ControllerConfigResult,
 		return result, err
 	}
 	result.Config = params.ControllerConfig(config)
+	return result, nil
+}
+
+// WatchForControllerConfigChanges returns a NotifyWatcher that observes
+// changes to the controller configuration.
+// Note that although the NotifyWatchResult contains an Error field,
+// it's not used because we are only returning a single watcher,
+// so we use the regular error return.
+func (s *ControllerConfigAPI) WatchForControllerConfigChanges() (params.NotifyWatchResult, error) {
+	result := params.NotifyWatchResult{}
+	watch := s.st.WatchForControllerConfigChanges()
+	// Consume the initial event. Technically, API
+	// calls to Watch 'transmit' the initial event
+	// in the Watch response. But NotifyWatchers
+	// have no state to transmit.
+	if _, ok := <-watch.Changes(); ok {
+		result.NotifyWatcherId = s.resources.Register(watch)
+	} else {
+		return result, watcher.EnsureErr(watch)
+	}
 	return result, nil
 }
 
@@ -65,6 +89,11 @@ func (s *ControllerConfigAPI) ControllerAPIInfoForModels(args params.Entities) (
 
 type controllerStateShim struct {
 	*state.State
+}
+
+// WatchForControllerConfigChanges returns a watcher for controller config changes.
+func (s *controllerStateShim) WatchForControllerConfigChanges() state.NotifyWatcher {
+	return s.State.WatchControllerConfig()
 }
 
 // ControllerInfo returns the external controller details for the specified model.

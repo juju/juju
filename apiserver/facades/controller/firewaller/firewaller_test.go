@@ -183,8 +183,10 @@ func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 
 	apiv5 := &firewaller.FirewallerAPIV5{
 		&firewaller.FirewallerAPIV4{
-			FirewallerAPIV3:     s.firewaller,
-			ControllerConfigAPI: common.NewControllerConfig(newMockState(coretesting.ModelTag.Id())),
+			FirewallerAPIV3: s.firewaller,
+			ControllerConfigAPI: common.NewControllerConfig(
+				newMockState(coretesting.ModelTag.Id()),
+				common.NewResources()),
 		}}
 
 	result, err := apiv5.AreManuallyProvisioned(args)
@@ -210,8 +212,10 @@ func (s *firewallerSuite) TestGetExposeInfo(c *gc.C) {
 	apiv6 := &firewaller.FirewallerAPIV6{
 		&firewaller.FirewallerAPIV5{
 			&firewaller.FirewallerAPIV4{
-				FirewallerAPIV3:     s.firewaller,
-				ControllerConfigAPI: common.NewControllerConfig(newMockState(coretesting.ModelTag.Id())),
+				FirewallerAPIV3: s.firewaller,
+				ControllerConfigAPI: common.NewControllerConfig(
+					newMockState(coretesting.ModelTag.Id()),
+					common.NewResources()),
 			},
 		},
 	}
@@ -240,8 +244,10 @@ func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
 	apiv6 := &firewaller.FirewallerAPIV6{
 		&firewaller.FirewallerAPIV5{
 			&firewaller.FirewallerAPIV4{
-				FirewallerAPIV3:     s.firewaller,
-				ControllerConfigAPI: common.NewControllerConfig(newMockState(coretesting.ModelTag.Id())),
+				FirewallerAPIV3: s.firewaller,
+				ControllerConfigAPI: common.NewControllerConfig(
+					newMockState(coretesting.ModelTag.Id()),
+					common.NewResources()),
 			},
 		},
 	}

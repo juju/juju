@@ -760,6 +760,8 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		EnvironVersion:          params.EnvironVersion,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	err = factory.pool.StartWorkers(st)
+	c.Assert(err, jc.ErrorIsNil)
 	return st
 }
 

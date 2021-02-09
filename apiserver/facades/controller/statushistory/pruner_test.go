@@ -50,7 +50,7 @@ func (s *StatusHistoryPrunerSuite) TestPruneNonController(c *gc.C) {
 
 func (s *StatusHistoryPrunerSuite) TestPrune(c *gc.C) {
 	called := false
-	s.PatchValue(&statushistory.Prune, func(st *state.State, maxHistoryTime time.Duration, maxHistoryMB int) error {
+	s.PatchValue(&statushistory.Prune, func(_ <-chan struct{}, st *state.State, maxHistoryTime time.Duration, maxHistoryMB int) error {
 		c.Assert(maxHistoryTime, gc.Equals, time.Hour)
 		c.Assert(maxHistoryMB, gc.Equals, 666)
 		called = true

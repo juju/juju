@@ -759,13 +759,15 @@ func (st *State) matchingActionsByReceiverAndStatus(tag names.Tag, statusConditi
 // PruneOperations removes operation entries and their sub-tasks until
 // only logs newer than <maxLogTime> remain and also ensures
 // that the actions collection is smaller than <maxLogsMB> after the deletion.
-func PruneOperations(st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
+func PruneOperations(stop <-chan struct{}, st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
 	// There may be older actions without parent operations so try those first.
 	hasNoOperation := bson.D{{"$or", []bson.D{
 		{{"operation", ""}},
 		{{"operation", bson.D{{"$exists", false}}}},
 	}}}
-	err := pruneCollection(st, maxHistoryTime, maxHistoryMB, actionsC, "completed", hasNoOperation, GoTime)
+	coll, closer := st.db().GetRawCollection(actionsC)
+	defer closer()
+	err := pruneCollection(stop, st, maxHistoryTime, maxHistoryMB, coll, "completed", hasNoOperation, GoTime)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -788,6 +790,6 @@ func PruneOperations(st *State, maxHistoryTime time.Duration, maxHistoryMB int) 
 	}
 	sizeFactor := float64(actionsCount) / float64(operationsCount)
 
-	err = pruneCollectionAndChildren(st, maxHistoryTime, maxHistoryMB, operationsC, "completed", actionsC, "operation", nil, sizeFactor, GoTime)
+	err = pruneCollectionAndChildren(stop, st, maxHistoryTime, maxHistoryMB, operationsColl, actionsColl, "completed", "operation", nil, sizeFactor, GoTime)
 	return errors.Trace(err)
 }

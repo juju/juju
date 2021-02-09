@@ -44,7 +44,7 @@ func NewAPIv1(ctx facade.Context) (*APIv1, error) {
 func NewAPI(ctx facade.Context) (*API, error) {
 	return NewRemoteRelationsAPI(
 		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
-		common.NewStateControllerConfig(ctx.State()),
+		common.NewStateControllerConfig(ctx.State(), ctx.Resources()),
 		ctx.Resources(), ctx.Auth(),
 	)
 }

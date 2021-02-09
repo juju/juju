@@ -52,5 +52,5 @@ func (api *API) Prune(p params.ActionPruneArgs) error {
 		return apiservererrors.ErrPerm
 	}
 
-	return Prune(api.st, p.MaxHistoryTime, p.MaxHistoryMB)
+	return Prune(api.cancel, api.st, p.MaxHistoryTime, p.MaxHistoryMB)
 }

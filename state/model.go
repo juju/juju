@@ -380,6 +380,7 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 	uuid := args.Config.UUID()
 	session := st.session.Copy()
 	newSt, err := newState(
+		st.controllerTag,
 		names.NewModelTag(uuid),
 		controllerInfo.ModelTag,
 		session,
@@ -444,11 +445,6 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 
-	err = newSt.start(st.controllerTag, ctlr.pool.hub)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "could not start state for new model")
-	}
-
 	newModel, err := newSt.Model()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -462,12 +458,7 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
 	}
 
-	config, err := st.ControllerConfig()
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "unable to get controller config")
-	}
-
-	if err := InitDbLogsForModel(session, uuid, config.ModelLogsSizeMB()); err != nil {
+	if err := InitDbLogsForModel(session, uuid); err != nil {
 		return nil, nil, errors.Annotate(err, "initialising model logs collection")
 	}
 	return newModel, newSt, nil

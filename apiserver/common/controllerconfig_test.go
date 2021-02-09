@@ -37,6 +37,10 @@ type fakeControllerAccessor struct {
 	controllerConfigError error
 }
 
+func (s *fakeControllerAccessor) WatchForControllerConfigChanges() state.NotifyWatcher {
+	return nil
+}
+
 func (f *fakeControllerAccessor) ControllerConfig() (controller.Config, error) {
 	if f.controllerConfigError != nil {
 		return nil, f.controllerConfigError
@@ -64,6 +68,7 @@ func (s *controllerConfigSuite) TearDownTest(c *gc.C) {
 func (*controllerConfigSuite) TestControllerConfigSuccess(c *gc.C) {
 	cc := common.NewControllerConfig(
 		&fakeControllerAccessor{},
+		common.NewResources(),
 	)
 	result, err := cc.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -80,6 +85,7 @@ func (*controllerConfigSuite) TestControllerConfigFetchError(c *gc.C) {
 		&fakeControllerAccessor{
 			controllerConfigError: fmt.Errorf("pow"),
 		},
+		common.NewResources(),
 	)
 	_, err := cc.ControllerConfig()
 	c.Assert(err, gc.ErrorMatches, "pow")
@@ -88,6 +94,7 @@ func (*controllerConfigSuite) TestControllerConfigFetchError(c *gc.C) {
 func (*controllerConfigSuite) TestControllerInfo(c *gc.C) {
 	cc := common.NewControllerConfig(
 		&fakeControllerAccessor{},
+		common.NewResources(),
 	)
 	results, err := cc.ControllerAPIInfoForModels(params.Entities{
 		Entities: []params.Entity{{Tag: testing.ModelTag.String()}}})
@@ -118,7 +125,7 @@ func (s *controllerInfoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {
-	cc := common.NewStateControllerConfig(s.State)
+	cc := common.NewStateControllerConfig(s.State, common.NewResources())
 	results, err := cc.ControllerAPIInfoForModels(params.Entities{
 		Entities: []params.Entity{{Tag: s.localModel.ModelTag().String()}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -140,7 +147,7 @@ func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
 	}
 	_, err := ec.Save(info, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	cc := common.NewStateControllerConfig(s.State)
+	cc := common.NewStateControllerConfig(s.State, common.NewResources())
 	results, err := cc.ControllerAPIInfoForModels(params.Entities{
 		Entities: []params.Entity{{Tag: names.NewModelTag(modelUUID).String()}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -150,7 +157,7 @@ func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
 }
 
 func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *gc.C) {
-	cc := common.NewStateControllerConfig(s.State)
+	cc := common.NewStateControllerConfig(s.State, common.NewResources())
 	modelState := s.Factory.MakeModel(c, &factory.ModelParams{})
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)

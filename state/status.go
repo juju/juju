@@ -485,7 +485,7 @@ func statusHistoryExists(db Database, historyDoc *historicalStatusDoc) (bool, bs
 // to avoid locking the status history collection for extended
 // periods of time, preventing status history being recorded
 // for other entities.
-func eraseStatusHistory(mb modelBackend, globalKey string) error {
+func eraseStatusHistory(stop <-chan struct{}, mb modelBackend, globalKey string) error {
 	// TODO(axw) restructure status history so we have one
 	// document per global key, and sub-documents per status
 	// recording. This method would then become a single
@@ -501,6 +501,7 @@ func eraseStatusHistory(mb modelBackend, globalKey string) error {
 
 	logFormat := "deleted %d status history documents for " + fmt.Sprintf("%q", globalKey)
 	deleted, err := deleteInBatches(
+		stop,
 		history.Writeable().Underlying(), nil, "", iter,
 		logFormat, loggo.DEBUG,
 		noEarlyFinish,
@@ -585,7 +586,11 @@ func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
 	return results, nil
 }
 
-func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
-	err := pruneCollection(st, maxHistoryTime, maxHistoryMB, statusesHistoryC, "updated", nil, NanoSeconds)
+// PruneStatusHistory prunes the status history collection.
+func PruneStatusHistory(stop <-chan struct{}, st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
+	coll, closer := st.db().GetRawCollection(statusesHistoryC)
+	defer closer()
+
+	err := pruneCollection(stop, st, maxHistoryTime, maxHistoryMB, coll, "updated", nil, NanoSeconds)
 	return errors.Trace(err)
 }

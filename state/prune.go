@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/loggo"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+
+	"github.com/juju/juju/mongo"
 )
 
 // pruneCollection removes collection entries until
@@ -19,36 +20,25 @@ import (
 // that the collection is smaller than <maxLogsMB> after the
 // deletion.
 func pruneCollection(
+	stop <-chan struct{},
 	mb modelBackend, maxHistoryTime time.Duration, maxHistoryMB int,
-	collectionName string, ageField string, filter bson.D,
+	coll *mgo.Collection, ageField string, filter bson.D,
 	timeUnit TimeUnit,
 ) error {
-	return pruneCollectionAndChildren(mb, maxHistoryTime, maxHistoryMB, collectionName, ageField, "", "", filter, 1, timeUnit)
+	return pruneCollectionAndChildren(stop, mb, maxHistoryTime, maxHistoryMB, coll, nil, ageField, "", filter, 1, timeUnit)
 }
 
 // pruneCollectionAndChildren removes collection entries until
 // only entries newer than <maxLogTime> remain and also ensures
 // that the collection (or child collection if specified) is smaller
 // than <maxLogsMB> after the deletion.
-func pruneCollectionAndChildren(mb modelBackend, maxHistoryTime time.Duration, maxHistoryMB int,
-	collectionName, ageField, childCollectionName, parentRefField string,
+func pruneCollectionAndChildren(stop <-chan struct{}, mb modelBackend, maxHistoryTime time.Duration, maxHistoryMB int,
+	coll, childColl *mgo.Collection, ageField, parentRefField string,
 	filter bson.D, sizeFactor float64, timeUnit TimeUnit,
 ) error {
-	// NOTE(axw) we require a raw collection to obtain the size of the
-	// collection. Take care to include model-uuid in queries where
-	// appropriate.
-	entries, closer := mb.db().GetRawCollection(collectionName)
-	defer closer()
-	var childColl *mgo.Collection
-	if childCollectionName != "" {
-		coll, closer := mb.db().GetRawCollection(childCollectionName)
-		defer closer()
-		childColl = coll
-	}
-
 	p := collectionPruner{
 		st:              mb,
-		coll:            entries,
+		coll:            coll,
 		childColl:       childColl,
 		parentRefField:  parentRefField,
 		childCountRatio: sizeFactor,
@@ -61,13 +51,13 @@ func pruneCollectionAndChildren(mb modelBackend, maxHistoryTime time.Duration, m
 	if err := p.validate(); err != nil {
 		return errors.Trace(err)
 	}
-	if err := p.pruneByAge(); err != nil {
+	if err := p.pruneByAge(stop); err != nil {
 		return errors.Trace(err)
 	}
 	// First try pruning, excluding any items that
 	// have an age field that is not yet set.
 	// ie only prune completed items.
-	if err := p.pruneBySize(); err != nil {
+	if err := p.pruneBySize(stop); err != nil {
 		return errors.Trace(err)
 	}
 	if ageField == "" {
@@ -76,7 +66,7 @@ func pruneCollectionAndChildren(mb modelBackend, maxHistoryTime time.Duration, m
 	// If needed, prune additional incomplete items to
 	// get under the size limit.
 	p.ageField = ""
-	return errors.Trace(p.pruneBySize())
+	return errors.Trace(p.pruneBySize(stop))
 }
 
 const historyPruneBatchSize = 1000
@@ -127,7 +117,7 @@ func (p *collectionPruner) validate() error {
 	return nil
 }
 
-func (p *collectionPruner) pruneByAge() error {
+func (p *collectionPruner) pruneByAge(stop <-chan struct{}) error {
 	if p.maxAge == 0 {
 		return nil
 	}
@@ -157,7 +147,7 @@ func (p *collectionPruner) pruneByAge() error {
 		return errors.Trace(err)
 	}
 	logTemplate := fmt.Sprintf("%s age pruning (%s): %%d rows deleted", p.coll.Name, modelName)
-	deleted, err := deleteInBatches(p.coll, p.childColl, p.parentRefField, iter, logTemplate, loggo.INFO, noEarlyFinish)
+	deleted, err := deleteInBatches(stop, p.coll, p.childColl, p.parentRefField, iter, logTemplate, loggo.INFO, noEarlyFinish)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -185,9 +175,6 @@ func (*collectionPruner) toDeleteCalculator(coll *mgo.Collection, maxSize int, c
 	// For large numbers of items we are making an assumption that the size of
 	// items can be averaged to give a reasonable number of items to drop to
 	// reach the goal size.
-	// Note: Capped collections are not used for this because they, currently
-	// at least, lack a way to be resized and the size is expected to change
-	// as real life data of the history usage is gathered.
 	sizePerItem := float64(collMB) / float64(count)
 	if sizePerItem == 0 {
 		return 0, errors.Errorf("unexpected result calculating %s entry size", coll.Name)
@@ -195,7 +182,7 @@ func (*collectionPruner) toDeleteCalculator(coll *mgo.Collection, maxSize int, c
 	return int(float64(collMB-maxSize) / (sizePerItem * countRatio)), nil
 }
 
-func (p *collectionPruner) pruneBySize() error {
+func (p *collectionPruner) pruneBySize(stop <-chan struct{}) error {
 	if !p.st.isController() {
 		// Only prune by size in the controller. Otherwise we might
 		// find that multiple pruners are trying to delete the latest
@@ -248,7 +235,7 @@ func (p *collectionPruner) pruneBySize() error {
 	defer iter.Close()
 
 	template := fmt.Sprintf("%s size pruning: deleted %%d of %d (estimated)", p.coll.Name, toDelete)
-	deleted, err := deleteInBatches(p.coll, p.childColl, p.parentRefField, iter, template, loggo.INFO, func() (bool, error) {
+	deleted, err := deleteInBatches(stop, p.coll, p.childColl, p.parentRefField, iter, template, loggo.INFO, func() (bool, error) {
 		// Check that we still need to delete more
 		collMB, err := getCollectionMB(p.coll)
 		if err != nil {
@@ -270,6 +257,7 @@ func (p *collectionPruner) pruneBySize() error {
 }
 
 func deleteInBatches(
+	stop <-chan struct{},
 	coll *mgo.Collection,
 	childColl *mgo.Collection,
 	childField string,
@@ -290,6 +278,11 @@ func deleteInBatches(
 	lastUpdate := time.Now()
 	deleted := 0
 	for iter.Next(&doc) {
+		select {
+		case <-stop:
+			return deleted, nil
+		default:
+		}
 		parentId := doc["_id"]
 		chunk.Remove(bson.D{{"_id", parentId}})
 		chunkSize++
