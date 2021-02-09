@@ -37,11 +37,7 @@ func NewAPI(ctx facade.Context) (*API, error) {
 
 // Model returns the model for a context (override for tests).
 var Model = func(ctx facade.Context) (state.ModelAccessor, error) {
-	m, err := ctx.State().Model()
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
+	return ctx.State().Model()
 }
 
 // Prune performs the status history pruner operation (override for tests).

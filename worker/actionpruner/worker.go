@@ -26,8 +26,8 @@ type Worker struct {
 	pruner.PrunerWorker
 }
 
-// NewFacade returns a new pruner facade.
-func NewFacade(caller base.APICaller) pruner.Facade {
+// NewClient returns a new pruner facade.
+func NewClient(caller base.APICaller) pruner.Facade {
 	return action.NewPruner(caller)
 }
 

@@ -26,9 +26,9 @@ type Worker struct {
 	pruner.PrunerWorker
 }
 
-// NewFacade returns a new status history facade.
-func NewFacade(caller base.APICaller) pruner.Facade {
-	return statushistory.NewFacade(caller)
+// NewClient returns a new status history facade.
+func NewClient(caller base.APICaller) pruner.Facade {
+	return statushistory.NewClient(caller)
 }
 
 func (w *Worker) loop() error {

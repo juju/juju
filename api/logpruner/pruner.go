@@ -17,22 +17,22 @@ import (
 
 const apiName = "LogPruner"
 
-// Facade allows calls to "LogPruner" endpoints.
-type Facade struct {
+// Client allows calls to "LogPruner" endpoints.
+type Client struct {
 	facade base.FacadeCaller
 	*common.ControllerConfigAPI
 }
 
-// NewFacade returns a "LogPruner" Facade.
-func NewFacade(caller base.APICaller) *Facade {
+// NewClient returns a "LogPruner" Client.
+func NewClient(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, apiName)
-	return &Facade{facade: facadeCaller,
+	return &Client{facade: facadeCaller,
 		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
 	}
 }
 
 // Prune calls "LogPruner.Prune".
-func (s *Facade) Prune(maxLogTime time.Duration, maxLogMB int) error {
+func (s *Client) Prune(maxLogTime time.Duration, maxLogMB int) error {
 	p := params.LogPruneArgs{
 		MaxLogTime: maxLogTime,
 		MaxLogMB:   maxLogMB,
@@ -40,12 +40,12 @@ func (s *Facade) Prune(maxLogTime time.Duration, maxLogMB int) error {
 	return s.facade.FacadeCall("Prune", p, nil)
 }
 
-// WatchForModelConfigChanges implements worker.pruner.Facade but is not used for logs.
-func (s *Facade) WatchForModelConfigChanges() (watcher.NotifyWatcher, error) {
+// WatchForModelConfigChanges implements worker.pruner.Client but is not used for logs.
+func (s *Client) WatchForModelConfigChanges() (watcher.NotifyWatcher, error) {
 	return nil, errors.NotSupportedf("WatchForModelConfigChanges")
 }
 
-// ModelConfig implements worker.pruner.Facade but is not used for logs.
-func (s *Facade) ModelConfig() (*config.Config, error) {
+// ModelConfig implements worker.pruner.Client but is not used for logs.
+func (s *Client) ModelConfig() (*config.Config, error) {
 	return nil, errors.NotSupportedf("ModelConfig")
 }

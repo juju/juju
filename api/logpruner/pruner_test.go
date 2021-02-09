@@ -37,7 +37,7 @@ func (s *prunerSuite) TestPrune(c *gc.C) {
 			return nil
 		},
 	)
-	client := logpruner.NewFacade(apiCaller)
+	client := logpruner.NewClient(apiCaller)
 	err := client.Prune(time.Hour, 666)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)

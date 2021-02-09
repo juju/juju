@@ -4,6 +4,8 @@
 package common
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -39,7 +41,7 @@ func (e *ControllerConfigAPI) WatchForControllerConfigChanges() (watcher.NotifyW
 	var result params.NotifyWatchResult
 	err := e.facade.FacadeCall("WatchForControllerConfigChanges", nil, &result)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return apiwatcher.NewNotifyWatcher(e.facade.RawAPICaller(), result), nil
 }
