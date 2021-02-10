@@ -53,6 +53,10 @@ type applicationOfferDoc struct {
 
 	// Endpoints are the charm endpoints supported by the application.
 	Endpoints map[string]string `bson:"endpoints"`
+
+	// TxnRevno is used to assert the collection have not changed since this
+	// document was fetched.
+	TxnRevno int64 `bson:"txn-revno,omitempty"`
 }
 
 var _ crossmodel.ApplicationOffers = (*applicationOffers)(nil)
@@ -101,14 +105,22 @@ func (s *applicationOffers) offerQuery(query bson.D) (*applicationOfferDoc, erro
 
 // ApplicationOffer returns the named application offer.
 func (s *applicationOffers) ApplicationOffer(offerName string) (*crossmodel.ApplicationOffer, error) {
+	offerDoc, err := s.applicationOfferDoc(offerName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return s.makeApplicationOffer(*offerDoc)
+}
+
+func (s *applicationOffers) applicationOfferDoc(offerName string) (*applicationOfferDoc, error) {
 	offerDoc, err := s.offerQuery(bson.D{{"_id", offerName}})
 	if err != nil {
 		if err == mgo.ErrNotFound {
-			return nil, errors.NotFoundf("application offer %q", offerName)
+			return nil, errors.NotFoundf("offer %q", offerName)
 		}
 		return nil, errors.Annotatef(err, "cannot load application offer %q", offerName)
 	}
-	return s.makeApplicationOffer(*offerDoc)
+	return offerDoc, nil
 }
 
 // ApplicationOfferForUUID returns the application offer for the UUID.
@@ -116,7 +128,7 @@ func (s *applicationOffers) ApplicationOfferForUUID(offerUUID string) (*crossmod
 	offerDoc, err := s.offerQuery(bson.D{{"offer-uuid", offerUUID}})
 	if err != nil {
 		if err == mgo.ErrNotFound {
-			return nil, errors.NotFoundf("application offer %q", offerUUID)
+			return nil, errors.NotFoundf("offer %q", offerUUID)
 		}
 		return nil, errors.Annotatef(err, "cannot load application offer %q", offerUUID)
 	}
@@ -480,7 +492,7 @@ func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArg
 
 // UpdateOffer replaces an existing offer at the same URL.
 func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOfferArgs) (_ *crossmodel.ApplicationOffer, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot update application offer %q", offerArgs.ApplicationName)
+	defer errors.DeferredAnnotatef(&err, "cannot update application offer %q", offerArgs.OfferName)
 
 	if err := s.validateOfferArgs(offerArgs); err != nil {
 		return nil, err
@@ -492,25 +504,7 @@ func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOffer
 		return nil, errors.Errorf("model is no longer alive")
 	}
 
-	offer, err := s.ApplicationOffer(offerArgs.OfferName)
-	if err != nil {
-		// This will either be NotFound or some other error.
-		// In either case, we return the error.
-		return nil, errors.Trace(err)
-	}
-	doc := s.makeApplicationOfferDoc(s.st, offer.OfferUUID, offerArgs)
-	var refOps []txn.Op
-	if offerArgs.ApplicationName != offer.ApplicationName {
-		incRefOp, err := incApplicationOffersRefOp(s.st, offerArgs.ApplicationName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		decRefOp, err := decApplicationOffersRefOp(s.st, offer.ApplicationName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		refOps = append(refOps, incRefOp, decRefOp)
-	}
+	var doc applicationOfferDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// model may have been destroyed.
@@ -518,30 +512,100 @@ func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOffer
 			if err := checkModelActive(s.st); err != nil {
 				return nil, errors.Trace(err)
 			}
-			_, err := s.ApplicationOffer(offerArgs.OfferName)
+		}
+
+		// Load fresh copy of the offer and setup the update document.
+		curOfferDoc, err := s.applicationOfferDoc(offerArgs.OfferName)
+		if err != nil {
+			// This will either be NotFound or some other error.
+			// In either case, we return the error.
+			return nil, errors.Trace(err)
+		}
+		doc = s.makeApplicationOfferDoc(s.st, curOfferDoc.OfferUUID, offerArgs)
+
+		var ops []txn.Op
+		if offerArgs.ApplicationName != curOfferDoc.ApplicationName {
+			incRefOp, err := incApplicationOffersRefOp(s.st, offerArgs.ApplicationName)
 			if err != nil {
-				// This will either be NotFound or some other error.
-				// In either case, we return the error.
 				return nil, errors.Trace(err)
 			}
+			decRefOp, err := decApplicationOffersRefOp(s.st, curOfferDoc.ApplicationName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, incRefOp, decRefOp)
+		} else {
+			// Figure out if we are trying to remove any endpoints from the
+			// current offer instance.
+			existingEndpoints := set.NewStrings()
+			for _, ep := range curOfferDoc.Endpoints {
+				existingEndpoints.Add(ep)
+			}
+
+			updatedEndpoints := set.NewStrings()
+			for _, ep := range offerArgs.Endpoints {
+				updatedEndpoints.Add(ep)
+			}
+
+			// If the update removes any existing endpoints ensure that they
+			// are not currently in use and return an error if that's the
+			// case. This prevents users from accidentally breaking saas
+			// consumers.
+			goneEndpoints := existingEndpoints.Difference(updatedEndpoints)
+			if err := s.ensureEndpointsNotInUse(curOfferDoc.ApplicationName, curOfferDoc.OfferUUID, goneEndpoints); err != nil {
+				return nil, err
+			}
 		}
-		ops := []txn.Op{
+
+		return append(ops,
 			model.assertActiveOp(),
-			{
+			txn.Op{
 				C:      applicationOffersC,
 				Id:     doc.DocID,
-				Assert: txn.DocExists,
+				Assert: bson.D{{"txn-revno", curOfferDoc.TxnRevno}},
 				Update: bson.M{"$set": doc},
 			},
-		}
-		ops = append(ops, refOps...)
-		return ops, nil
+		), nil
 	}
 	err = s.st.db().Run(buildTxn)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return s.makeApplicationOffer(doc)
+}
+
+func (s *applicationOffers) ensureEndpointsNotInUse(appName, offerUUID string, endpoints set.Strings) error {
+	if len(endpoints) == 0 {
+		return nil
+	}
+
+	connections, err := s.st.OfferConnections(offerUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	inUse := set.NewStrings()
+	for _, conn := range connections {
+		for _, part := range strings.Fields(conn.RelationKey()) {
+			tokens := strings.Split(part, ":")
+			if len(tokens) != 2 {
+				return errors.New("malformed relation key")
+			}
+
+			if tokens[0] == appName && endpoints.Contains(tokens[1]) {
+				inUse.Add(tokens[1])
+			}
+		}
+	}
+
+	switch len(inUse) {
+	case 0:
+		return nil
+	case 1:
+		return errors.Errorf("application endpoint %q has active consumers", inUse.Values()[0])
+	default:
+		return errors.Errorf("application endpoints %q have active consumers", strings.Join(inUse.SortedValues(), ", "))
+	}
 }
 
 func (s *applicationOffers) makeApplicationOfferDoc(mb modelBackend, uuid string, offer crossmodel.AddApplicationOfferArgs) applicationOfferDoc {
