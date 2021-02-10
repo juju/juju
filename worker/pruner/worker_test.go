@@ -14,11 +14,9 @@ import (
 	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/logpruner"
 	"github.com/juju/juju/worker/pruner"
 	"github.com/juju/juju/worker/statushistorypruner"
 )
@@ -39,7 +37,6 @@ func (s *PrunerSuite) setupPruner(c *gc.C, newPruner newPrunerFunc) (*fakeFacade
 	cfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	facade.modelConfig = cfg
-	facade.controllerConfig = coretesting.FakeControllerConfig()
 
 	testClock := testclock.NewClock(time.Time{})
 	conf := pruner.Config{
@@ -56,7 +53,6 @@ func (s *PrunerSuite) setupPruner(c *gc.C, newPruner newPrunerFunc) (*fakeFacade
 	})
 
 	facade.modelChangesWatcher.changes <- struct{}{}
-	facade.controllerChangesWatcher.changes <- struct{}{}
 
 	return facade, testClock
 }
@@ -105,24 +101,10 @@ func (s *PrunerSuite) TestModelConfigChange(c *gc.C) {
 	s.assertWorkerCallsPrune(c, facade, clock, 4)
 }
 
-func (s *PrunerSuite) TestControllerConfigChange(c *gc.C) {
-	facade, clock := s.setupPruner(c, logpruner.New)
-	s.assertWorkerCallsPrune(c, facade, clock, 1)
-
-	var err error
-	facade.controllerConfig["model-logs-size"] = "2M"
-	c.Assert(err, jc.ErrorIsNil)
-	facade.controllerChangesWatcher.changes <- struct{}{}
-
-	s.assertWorkerCallsPrune(c, facade, clock, 2)
-}
-
 type fakeFacade struct {
-	pruned                   chan pruneParams
-	modelChangesWatcher      *mockNotifyWatcher
-	controllerChangesWatcher *mockNotifyWatcher
-	modelConfig              *config.Config
-	controllerConfig         controller.Config
+	pruned              chan pruneParams
+	modelChangesWatcher *mockNotifyWatcher
+	modelConfig         *config.Config
 }
 
 type pruneParams struct {
@@ -132,9 +114,8 @@ type pruneParams struct {
 
 func newFakeFacade() *fakeFacade {
 	return &fakeFacade{
-		pruned:                   make(chan pruneParams, 1),
-		modelChangesWatcher:      newMockNotifyWatcher(),
-		controllerChangesWatcher: newMockNotifyWatcher(),
+		pruned:              make(chan pruneParams, 1),
+		modelChangesWatcher: newMockNotifyWatcher(),
 	}
 }
 
@@ -156,16 +137,6 @@ func (f *fakeFacade) WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
 // ModelConfig implements Facade
 func (f *fakeFacade) ModelConfig() (*config.Config, error) {
 	return f.modelConfig, nil
-}
-
-// WatchForControllerConfigChanges implements Facade
-func (f *fakeFacade) WatchForControllerConfigChanges() (watcher.NotifyWatcher, error) {
-	return f.controllerChangesWatcher, nil
-}
-
-// ControllerConfig implements Facade
-func (f *fakeFacade) ControllerConfig() (controller.Config, error) {
-	return f.controllerConfig, nil
 }
 
 func newMockWatcher() *mockWatcher {

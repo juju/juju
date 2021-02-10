@@ -64,7 +64,6 @@ import (
 	"github.com/juju/juju/worker/instancemutater"
 	leasemanager "github.com/juju/juju/worker/lease/manifold"
 	"github.com/juju/juju/worker/logger"
-	"github.com/juju/juju/worker/logpruner"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machineactions"
 	"github.com/juju/juju/worker/machiner"
@@ -76,7 +75,6 @@ import (
 	"github.com/juju/juju/worker/peergrouper"
 	prworker "github.com/juju/juju/worker/presence"
 	"github.com/juju/juju/worker/proxyupdater"
-	"github.com/juju/juju/worker/pruner"
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/raft"
 	"github.com/juju/juju/worker/raft/raftbackstop"
@@ -217,10 +215,6 @@ type ManifoldsConfig struct {
 	// ControllerLeaseDuration defines for how long this agent will ask
 	// for controller administration rights.
 	ControllerLeaseDuration time.Duration
-
-	// LogPruneInterval defines how frequently logs are pruned from
-	// the database.
-	LogPruneInterval time.Duration
 
 	// TransactionPruneInterval defines how frequently mgo/txn transactions
 	// are pruned from the database.
@@ -644,17 +638,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 				StateName:     stateName,
 				PruneInterval: config.TransactionPruneInterval,
 				NewWorker:     txnpruner.New,
-			},
-		))),
-
-		logPrunerName: ifNotMigrating(ifPrimaryController(pruner.Manifold(
-			pruner.ManifoldConfig{
-				APICallerName: apiCallerName,
-				Clock:         config.Clock,
-				NewWorker:     logpruner.New,
-				NewClient:     logpruner.NewClient,
-				PruneInterval: config.LogPruneInterval,
-				Logger:        loggo.GetLogger("juju.worker.pruner.log"),
 			},
 		))),
 
@@ -1135,7 +1118,6 @@ const (
 	isControllerFlagName          = "is-controller-flag"
 	instanceMutaterName           = "instance-mutater"
 	txnPrunerName                 = "transaction-pruner"
-	logPrunerName                 = "log-pruner"
 	certificateWatcherName        = "certificate-watcher"
 	modelCacheName                = "model-cache"
 	modelCacheInitializedFlagName = "model-cache-initialized-flag"

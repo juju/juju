@@ -109,7 +109,7 @@ func open(
 }
 
 // newState creates an incomplete *State, with no running workers.
-// You must start() the returned *State before it will function correctly.
+// You must startWorkers() the returned *State before it will function correctly.
 // modelTag is used to filter all queries and transactions.
 //
 // newState takes responsibility for the supplied *mgo.Session, and will

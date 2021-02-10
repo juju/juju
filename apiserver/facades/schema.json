@@ -1067,15 +1067,6 @@
                     },
                     "description": "WatchCredentials watches for changes to the specified credentials."
                 },
-                "WatchForControllerConfigChanges": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/NotifyWatchResult"
-                        }
-                    },
-                    "description": "WatchForControllerConfigChanges returns a NotifyWatcher that observes\nchanges to the controller configuration.\nNote that although the NotifyWatchResult contains an Error field,\nit's not used because we are only returning a single watcher,\nso we use the regular error return."
-                },
                 "WatchForModelConfigChanges": {
                     "type": "object",
                     "properties": {
@@ -5804,15 +5795,6 @@
                         }
                     },
                     "description": "ControllerConfig returns the controller's configuration."
-                },
-                "WatchForControllerConfigChanges": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/NotifyWatchResult"
-                        }
-                    },
-                    "description": "WatchForControllerConfigChanges returns a NotifyWatcher that observes\nchanges to the controller configuration.\nNote that although the NotifyWatchResult contains an Error field,\nit's not used because we are only returning a single watcher,\nso we use the regular error return."
                 }
             },
             "definitions": {
@@ -5922,21 +5904,6 @@
                         "message",
                         "code"
                     ]
-                },
-                "NotifyWatchResult": {
-                    "type": "object",
-                    "properties": {
-                        "NotifyWatcherId": {
-                            "type": "string"
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "NotifyWatcherId"
-                    ]
                 }
             }
         }
@@ -6019,15 +5986,6 @@
                         }
                     },
                     "description": "WatchCloudSpecsChanges returns a watcher for cloud spec changes."
-                },
-                "WatchForControllerConfigChanges": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/NotifyWatchResult"
-                        }
-                    },
-                    "description": "WatchForControllerConfigChanges returns a NotifyWatcher that observes\nchanges to the controller configuration.\nNote that although the NotifyWatchResult contains an Error field,\nit's not used because we are only returning a single watcher,\nso we use the regular error return."
                 },
                 "WatchForModelConfigChanges": {
                     "type": "object",
@@ -17535,15 +17493,6 @@
                     },
                     "description": "WatchCloudSpecsChanges returns a watcher for cloud spec changes."
                 },
-                "WatchForControllerConfigChanges": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/NotifyWatchResult"
-                        }
-                    },
-                    "description": "WatchForControllerConfigChanges returns a NotifyWatcher that observes\nchanges to the controller configuration.\nNote that although the NotifyWatchResult contains an Error field,\nit's not used because we are only returning a single watcher,\nso we use the regular error return."
-                },
                 "WatchModelSummaries": {
                     "type": "object",
                     "properties": {
@@ -21130,15 +21079,6 @@
                         }
                     },
                     "description": "WatchEgressAddressesForRelations creates a watcher that notifies when addresses, from which\nconnections will originate for the relation, change.\nEach event contains the entire set of addresses which are required for ingress for the relation."
-                },
-                "WatchForControllerConfigChanges": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/NotifyWatchResult"
-                        }
-                    },
-                    "description": "WatchForControllerConfigChanges returns a NotifyWatcher that observes\nchanges to the controller configuration.\nNote that although the NotifyWatchResult contains an Error field,\nit's not used because we are only returning a single watcher,\nso we use the regular error return."
                 },
                 "WatchForModelConfigChanges": {
                     "type": "object",
@@ -24917,201 +24857,6 @@
                     "additionalProperties": false,
                     "required": [
                         "params"
-                    ]
-                }
-            }
-        }
-    },
-    {
-        "Name": "LogPruner",
-        "Description": "API is the log pruner API.",
-        "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
-        "Schema": {
-            "type": "object",
-            "properties": {
-                "ControllerAPIInfoForModels": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ControllerAPIInfoResults"
-                        }
-                    },
-                    "description": "ControllerAPIInfoForModels returns the controller api connection details for the specified models."
-                },
-                "ControllerConfig": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/ControllerConfigResult"
-                        }
-                    },
-                    "description": "ControllerConfig returns the controller's configuration."
-                },
-                "Prune": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/LogPruneArgs"
-                        }
-                    },
-                    "description": "Prune prunes the logs collection."
-                },
-                "WatchForControllerConfigChanges": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/NotifyWatchResult"
-                        }
-                    },
-                    "description": "WatchForControllerConfigChanges returns a NotifyWatcher that observes\nchanges to the controller configuration.\nNote that although the NotifyWatchResult contains an Error field,\nit's not used because we are only returning a single watcher,\nso we use the regular error return."
-                }
-            },
-            "definitions": {
-                "ControllerAPIInfoResult": {
-                    "type": "object",
-                    "properties": {
-                        "addresses": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "cacert": {
-                            "type": "string"
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "addresses",
-                        "cacert"
-                    ]
-                },
-                "ControllerAPIInfoResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ControllerAPIInfoResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "ControllerConfigResult": {
-                    "type": "object",
-                    "properties": {
-                        "config": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "config"
-                    ]
-                },
-                "Entities": {
-                    "type": "object",
-                    "properties": {
-                        "entities": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Entity"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "entities"
-                    ]
-                },
-                "Entity": {
-                    "type": "object",
-                    "properties": {
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag"
-                    ]
-                },
-                "Error": {
-                    "type": "object",
-                    "properties": {
-                        "code": {
-                            "type": "string"
-                        },
-                        "info": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "message": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "message",
-                        "code"
-                    ]
-                },
-                "LogPruneArgs": {
-                    "type": "object",
-                    "properties": {
-                        "max-log-mb": {
-                            "type": "integer"
-                        },
-                        "max-log-time": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "max-log-time",
-                        "max-log-mb"
-                    ]
-                },
-                "NotifyWatchResult": {
-                    "type": "object",
-                    "properties": {
-                        "NotifyWatcherId": {
-                            "type": "string"
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "NotifyWatcherId"
                     ]
                 }
             }
@@ -32688,15 +32433,6 @@
                     },
                     "description": "WatchContainers starts a StringsWatcher to watch containers deployed to\nany machine passed in args."
                 },
-                "WatchForControllerConfigChanges": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/NotifyWatchResult"
-                        }
-                    },
-                    "description": "WatchForControllerConfigChanges returns a NotifyWatcher that observes\nchanges to the controller configuration.\nNote that although the NotifyWatchResult contains an Error field,\nit's not used because we are only returning a single watcher,\nso we use the regular error return."
-                },
                 "WatchForModelConfigChanges": {
                     "type": "object",
                     "properties": {
@@ -35657,15 +35393,6 @@
                     },
                     "description": "UpdateControllersForModels changes the external controller records for the\nassociated model entities. This is used when the remote relations worker gets\nredirected following migration of an offering model."
                 },
-                "WatchForControllerConfigChanges": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/NotifyWatchResult"
-                        }
-                    },
-                    "description": "WatchForControllerConfigChanges returns a NotifyWatcher that observes\nchanges to the controller configuration.\nNote that although the NotifyWatchResult contains an Error field,\nit's not used because we are only returning a single watcher,\nso we use the regular error return."
-                },
                 "WatchLocalRelationChanges": {
                     "type": "object",
                     "properties": {
@@ -35959,21 +35686,6 @@
                 "Macaroon": {
                     "type": "object",
                     "additionalProperties": false
-                },
-                "NotifyWatchResult": {
-                    "type": "object",
-                    "properties": {
-                        "NotifyWatcherId": {
-                            "type": "string"
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "NotifyWatcherId"
-                    ]
                 },
                 "RemoteApplication": {
                     "type": "object",

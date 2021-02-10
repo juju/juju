@@ -1033,9 +1033,3 @@ type ContainerTypeResult struct {
 	Type  instance.ContainerType `json:"container-type"`
 	Error *Error                 `json:"error"`
 }
-
-// LogPruneArgs holds parameters used to prune logs.
-type LogPruneArgs struct {
-	MaxLogTime time.Duration `json:"max-log-time"`
-	MaxLogMB   int           `json:"max-log-mb"`
-}

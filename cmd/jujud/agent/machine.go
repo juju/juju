@@ -588,7 +588,6 @@ func (a *MachineAgent) makeEngineCreator(
 				return a.statusSetter(apiConn)
 			},
 			ControllerLeaseDuration:           time.Minute,
-			LogPruneInterval:                  5 * time.Minute,
 			TransactionPruneInterval:          time.Hour,
 			MachineLock:                       a.machineLock,
 			SetStatePool:                      statePoolReporter.Set,

@@ -104,7 +104,6 @@ type ModelAccessor interface {
 type ControllerAccessor interface {
 	ControllerConfig() (controller.Config, error)
 	ControllerInfo(modelUUID string) (addrs []string, CACert string, _ error)
-	WatchForControllerConfigChanges() NotifyWatcher
 }
 
 // UnitsWatcher defines the methods needed to retrieve an entity (a

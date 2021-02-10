@@ -47,9 +47,7 @@ func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
 	s.st = newMockState(coretesting.ModelTag.Id())
 	api, err := firewaller.NewFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &firewaller.FirewallerAPIV4{
-		FirewallerAPIV3:     api,
-		ControllerConfigAPI: common.NewControllerConfig(s.st, common.NewResources())}
+	s.api = &firewaller.FirewallerAPIV4{FirewallerAPIV3: api, ControllerConfigAPI: common.NewControllerConfig(s.st)}
 }
 
 func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *gc.C) {
@@ -166,10 +164,8 @@ func (s *FirewallerSuite) SetUpTest(c *gc.C) {
 	s.api = &firewaller.FirewallerAPIV6{
 		&firewaller.FirewallerAPIV5{
 			&firewaller.FirewallerAPIV4{
-				FirewallerAPIV3: api,
-				ControllerConfigAPI: common.NewControllerConfig(
-					newMockState(coretesting.ModelTag.Id()),
-					common.NewResources()),
+				FirewallerAPIV3:     api,
+				ControllerConfigAPI: common.NewControllerConfig(newMockState(coretesting.ModelTag.Id())),
 			},
 		},
 	}

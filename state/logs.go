@@ -19,11 +19,13 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/mongo"
 )
 
@@ -78,6 +80,20 @@ func logCollectionName(modelUUID string) string {
 // indexes for the logs collection. It should be called as state is opened. It
 // is idempotent.
 func InitDbLogs(session *mgo.Session) error {
+	// Read the capped collection size from controller config.
+	size, err := modelLogsSize(session)
+	if errors.Cause(err) == mgo.ErrNotFound {
+		// We are in early stages of database initialization, so nothing to do
+		// here. The controller model and the default model (most likely) will
+		// be initialized during bootstrap, and when the machine agent starts
+		// properly, the logs collections will be either created for them,
+		// or converted to capped collections.
+		logger.Infof("controller settings not found, early stage initialization assumed")
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
 	models, err := modelUUIDs(session)
 	if err != nil {
 		return err
@@ -85,7 +101,7 @@ func InitDbLogs(session *mgo.Session) error {
 
 	encounteredError := false
 	for _, uuid := range models {
-		if err := InitDbLogsForModel(session, uuid); err != nil {
+		if err := InitDbLogsForModel(session, uuid, size); err != nil {
 			encounteredError = true
 			logger.Errorf("unable to initialize model logs: %v", err)
 		}
@@ -95,6 +111,32 @@ func InitDbLogs(session *mgo.Session) error {
 		return errors.New("one or more errors initializing logs")
 	}
 	return nil
+}
+
+// modelLogsSize reads the model-logs-size value from the controller
+// config document and returns it. If the value isn't found the default
+// size value is returned.
+func modelLogsSize(session *mgo.Session) (int, error) {
+	// This is executed very early in the opening of the database, so there
+	// is no State, Controller, nor StatePool objects just now. Use low level
+	// mgo to access the settings.
+	var doc settingsDoc
+	err := session.DB(jujuDB).C(controllersC).FindId(ControllerSettingsGlobalKey).One(&doc)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	// During initial migration there is no guarantee that the value exists
+	// in the settings document.
+	if value, ok := doc.Settings[controller.ModelLogsSize]; ok {
+		if s, ok := value.(string); ok {
+			size, _ := utils.ParseSize(s)
+			if size > 0 {
+				// If the value is there we know it fits in an int without wrapping.
+				return int(size), nil
+			}
+		}
+	}
+	return controller.DefaultModelLogsSizeMB, nil
 }
 
 // modelUUIDs returns the UUIDs of all models currently stored in the database.
@@ -117,19 +159,43 @@ func modelUUIDs(session *mgo.Session) ([]string, error) {
 // specified model. It should be called as state is opened. It is idempotent.
 // This function also ensures that the logs collection is capped at the right
 // size.
-func InitDbLogsForModel(session *mgo.Session, modelUUID string) error {
+func InitDbLogsForModel(session *mgo.Session, modelUUID string, size int) error {
 	// Get the collection from the logs DB.
 	logsColl := session.DB(logsDB).C(logCollectionName(modelUUID))
-	_, err := logsColl.Indexes()
+
+	capped, maxSize, err := getCollectionCappedInfo(logsColl)
 	if errors.IsNotFound(err) {
-		logger.Infof("creating logs collection for %s", modelUUID)
-		err := logsColl.Create(&mgo.CollectionInfo{})
+		// Create the collection as a capped collection.
+		logger.Infof("creating logs collection for %s, capped at %v MiB", modelUUID, size)
+		err := logsColl.Create(&mgo.CollectionInfo{
+			Capped:   true,
+			MaxBytes: size * humanize.MiByte,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	} else if capped {
+		if maxSize == size {
+			// The logs collection size matches, so nothing to do here.
+			logger.Tracef("logs collection for %s already capped at %v MiB", modelUUID, size)
+			return nil
+		} else {
+			logger.Infof("resizing logs collection for %s from %d to %v MiB", modelUUID, maxSize, size)
+			err := convertToCapped(logsColl, size)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+	} else {
+		logger.Infof("converting logs collection for %s to capped with max size %v MiB", modelUUID, size)
+		err := convertToCapped(logsColl, size)
 		if err != nil {
 			return errors.Trace(err)
 		}
 	}
 
-	// Ensure all the right indices are created.
+	// Ensure all the right indices are created. When converting to a capped
+	// collection, the indices are dropped.
 	for _, key := range logIndexes {
 		err := logsColl.EnsureIndex(mgo.Index{Key: key})
 		if err != nil {
@@ -876,6 +942,44 @@ func collStats(coll *mgo.Collection) (bson.M, error) {
 	return result, nil
 }
 
+func convertToCapped(coll *mgo.Collection, maxSizeMB int) error {
+	if maxSizeMB < 1 {
+		return errors.NotValidf("non-positive maxSize %v", maxSizeMB)
+	}
+	maxSizeMB *= humanize.MiByte
+	var result bson.M
+	err := coll.Database.Run(bson.D{
+		{"convertToCapped", coll.Name},
+		{"size", maxSizeMB},
+	}, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// getCollectionCappedInfo returns whether or not the collection is
+// capped, and the max size in MB.
+func getCollectionCappedInfo(coll *mgo.Collection) (bool, int, error) {
+	stats, err := collStats(coll)
+	if err != nil {
+		return false, 0, errors.Trace(err)
+	}
+	capped, _ := stats["capped"].(bool)
+	if !capped {
+		return false, 0, nil
+	}
+	value, found := stats["maxSize"]
+	if !found {
+		return false, 0, errors.NotValidf("no maxSize value")
+	}
+	maxSize, ok := value.(int)
+	if !ok {
+		return false, 0, errors.NotValidf("size value is not an int")
+	}
+	return true, maxSize, nil
+}
+
 // getCollectionMB returns the size of a MongoDB collection (in
 // megabytes), excluding space used by indexes.
 func getCollectionMB(coll *mgo.Collection) (int, error) {
@@ -897,33 +1001,4 @@ func removeModelLogs(session *mgo.Session, modelUUID string) error {
 	trackersColl := logsDB.C(forwardedC)
 	_, err := trackersColl.RemoveAll(bson.M{"model-uuid": modelUUID})
 	return errors.Trace(err)
-}
-
-// PruneLogs prunes the logs collection.
-func PruneLogs(stop <-chan struct{}, controllerSt *State, maxLogMB int) error {
-	allModels, err := controllerSt.AllModelUUIDs()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	session, logsDB := initLogsSessionDB(controllerSt)
-	defer session.Close()
-
-	for _, modelUUID := range allModels {
-		select {
-		case <-stop:
-			return nil
-		default:
-		}
-
-		logsColl := logsDB.C(logCollectionName(modelUUID))
-		err = pruneCollection(stop, controllerSt, 0, maxLogMB, logsColl, "", nil, "")
-		if errors.IsNotFound(err) {
-			continue
-		}
-		if err != nil {
-			return errors.Annotatef(err, "pruning logs for model %q", modelUUID)
-		}
-	}
-	return nil
 }

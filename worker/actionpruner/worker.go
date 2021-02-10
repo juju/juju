@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/api/action"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/worker/pruner"
 )
@@ -32,7 +31,7 @@ func NewClient(caller base.APICaller) pruner.Facade {
 }
 
 func (w *Worker) loop() error {
-	return w.Work(func(_ controller.Config, config *config.Config) (time.Duration, uint) {
+	return w.Work(func(config *config.Config) (time.Duration, uint) {
 		return config.MaxActionResultsAge(), config.MaxActionResultsSizeMB()
 	})
 }
