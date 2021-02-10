@@ -1964,7 +1964,7 @@ func (b *mockBroker) AvailabilityZones(ctx context.ProviderCallContext) (corenet
 	return b.Environ.(providercommon.ZonedEnviron).AvailabilityZones(ctx)
 }
 
-func (b *mockBroker) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+func (b *mockBroker) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 	return b.Environ.(providercommon.ZonedEnviron).InstanceAvailabilityZoneNames(ctx, ids)
 }
 

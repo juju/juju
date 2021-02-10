@@ -596,7 +596,7 @@ func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller) *mocks
 	broker := mocks.NewMockZonedEnviron(ctrl)
 	exp := broker.EXPECT()
 	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil)
-	exp.InstanceAvailabilityZoneNames(s.callCtx, instanceIds).Return([]string{}, nil)
+	exp.InstanceAvailabilityZoneNames(s.callCtx, instanceIds).Return(map[instance.Id]string{}, nil)
 	exp.AvailabilityZones(s.callCtx).Return(zones, nil)
 	return broker
 }

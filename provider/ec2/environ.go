@@ -275,22 +275,27 @@ func (e *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext,
 	return gatherAvailabilityZones(instances), nil
 }
 
+// AvailabilityZoner defines a institute interface for getting an az from an
+// instance.
+type AvailabilityZoner interface {
+	AvailabilityZone() (string, bool)
+}
+
 func gatherAvailabilityZones(instances []instances.Instance) map[instance.Id]string {
 	zones := make(map[instance.Id]string, 0)
 	for _, inst := range instances {
 		if inst == nil {
 			continue
 		}
-		switch t := inst.(type) {
-		case *amzInstance:
-			zones[inst.Id()] = t.AvailZone
-		case *sdkInstance:
-			if t.i != nil && t.i.Placement != nil && t.i.Placement.AvailabilityZone != nil {
-				zones[inst.Id()] = *t.i.Placement.AvailabilityZone
-			}
-		default:
-			logger.Errorf("unexpected instance type %T when getting availability zones", inst)
+		t, ok := inst.(AvailabilityZoner)
+		if !ok {
+			continue
 		}
+		az, ok := t.AvailabilityZone()
+		if !ok {
+			continue
+		}
+		zones[inst.Id()] = az
 	}
 	return zones
 }

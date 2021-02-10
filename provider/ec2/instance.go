@@ -37,6 +37,14 @@ func (inst *amzInstance) Id() instance.Id {
 	return instance.Id(inst.InstanceId)
 }
 
+// AvailabilityZone returns the underlying az for an instance.
+func (inst *amzInstance) AvailabilityZone() (string, bool) {
+	if inst.Instance == nil {
+		return "", false
+	}
+	return inst.Instance.AvailZone, true
+}
+
 // Status returns the status of this EC2 instance.
 func (inst *amzInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	// pending | running | shutting-down | terminated | stopping | stopped
@@ -143,6 +151,15 @@ func (inst *sdkInstance) String() string {
 // Id returns the EC2 identifier for the Instance.
 func (inst *sdkInstance) Id() instance.Id {
 	return instance.Id(*inst.i.InstanceId)
+}
+
+// AvailabilityZone returns the underlying az for an instance.
+func (inst *sdkInstance) AvailabilityZone() (string, bool) {
+	if inst.i == nil || inst.i.Placement == nil ||
+		inst.i.Placement.AvailabilityZone == nil {
+		return "", false
+	}
+	return *inst.i.Placement.AvailabilityZone, true
 }
 
 // Status returns the status of this EC2 instance.
