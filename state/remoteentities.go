@@ -159,11 +159,18 @@ func (r *RemoteEntities) ImportRemoteEntity(entity names.Tag, token string) erro
 			if remoteEntity.Token == token {
 				return nil, jujutxn.ErrNoOperations
 			}
-			// Token already exists, so remove first.
-			ops = append(ops, r.removeRemoteEntityOps(entity)...)
+			// Token already exists; update.
+			return []txn.Op{{
+				C:      remoteEntitiesC,
+				Id:     entity.String(),
+				Assert: txn.DocExists,
+				Update: bson.D{
+					{"$set", bson.D{{"token", token}}},
+					{"$unset", bson.D{{"macaroon", nil}}},
+				},
+			}}, nil
 		}
-		ops = append(ops, r.importRemoteEntityOps(entity, token)...)
-		return ops, nil
+		return r.importRemoteEntityOps(entity, token), nil
 	}
 	err := r.st.db().Run(buildTxn)
 	return errors.Annotatef(err, "recording reference to %s", names.ReadableString(entity))
