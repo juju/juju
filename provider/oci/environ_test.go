@@ -307,13 +307,14 @@ func (e *environSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 		context.Background(), e.listInstancesRequest).Return(
 		e.listInstancesResponse, nil).Times(2)
 
+	id := instance.Id("fakeInstance1")
 	req := []instance.Id{
-		instance.Id("fakeInstance1"),
+		id,
 	}
 	zones, err := e.env.InstanceAvailabilityZoneNames(nil, req)
 	c.Assert(err, gc.IsNil)
 	c.Check(len(zones), gc.Equals, 1)
-	c.Assert(zones[0], gc.Equals, "fakeZone1")
+	c.Assert(zones[id], gc.Equals, "fakeZone1")
 
 	req = []instance.Id{
 		instance.Id("fakeInstance1"),

@@ -582,22 +582,26 @@ func (env *maasEnviron) availabilityZones2(ctx context.ProviderCallContext) (cor
 
 // InstanceAvailabilityZoneNames returns the availability zone names for each
 // of the specified instances.
-func (env *maasEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+func (env *maasEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 	instances, err := env.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
 		return nil, err
 	}
-	zones := make([]string, len(instances))
-	for i, inst := range instances {
+	zones := make(map[instance.Id]string, 0)
+	for _, inst := range instances {
 		if inst == nil {
 			continue
 		}
-		z, err := inst.(maasInstance).zone()
+		mInst, ok := inst.(maasInstance)
+		if !ok {
+			continue
+		}
+		z, err := mInst.zone()
 		if err != nil {
 			logger.Errorf("could not get availability zone %v", err)
 			continue
 		}
-		zones[i] = z
+		zones[inst.Id()] = z
 	}
 	return zones, nil
 }

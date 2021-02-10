@@ -98,7 +98,7 @@ func (env *mockEnviron) StorageProvider(t jujustorage.ProviderType) (jujustorage
 }
 
 type availabilityZonesFunc func(context.ProviderCallContext) (network.AvailabilityZones, error)
-type instanceAvailabilityZoneNamesFunc func(context.ProviderCallContext, []instance.Id) ([]string, error)
+type instanceAvailabilityZoneNamesFunc func(context.ProviderCallContext, []instance.Id) (map[instance.Id]string, error)
 type deriveAvailabilityZonesFunc func(context.ProviderCallContext, environs.StartInstanceParams) ([]string, error)
 
 type mockZonedEnviron struct {
@@ -112,7 +112,7 @@ func (env *mockZonedEnviron) AvailabilityZones(ctx context.ProviderCallContext) 
 	return env.availabilityZones(ctx)
 }
 
-func (env *mockZonedEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+func (env *mockZonedEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 	return env.instanceAvailabilityZoneNames(ctx, ids)
 }
 

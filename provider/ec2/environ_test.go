@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
@@ -425,19 +426,29 @@ func (*Suite) TestGatherAZ(c *gc.C) {
 	instances := []instances.Instance{
 		&amzInstance{
 			Instance: &amzec2.Instance{
-				AvailZone: "aaa",
+				InstanceId: "id1",
+				AvailZone:  "aaa",
 			},
 		},
 		&sdkInstance{
 			i: &ec2.Instance{
+				InstanceId: ptrString("id2"),
 				Placement: &ec2.Placement{
 					AvailabilityZone: ptrString("bbb"),
 				},
 			},
 		},
+		&sdkInstance{
+			i: &ec2.Instance{
+				InstanceId: ptrString("id3"),
+			},
+		},
 	}
 	az := gatherAvailabilityZones(instances)
-	c.Assert(az, gc.DeepEquals, []string{"aaa", "bbb"})
+	c.Assert(az, gc.DeepEquals, map[instance.Id]string{
+		"id1": "aaa",
+		"id2": "bbb",
+	})
 }
 
 func ptrString(s string) *string {

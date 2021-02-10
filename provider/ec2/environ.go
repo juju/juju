@@ -266,7 +266,7 @@ func (e *environ) AvailabilityZones(ctx context.ProviderCallContext) (corenetwor
 
 // InstanceAvailabilityZoneNames returns the availability zone names for each
 // of the specified instances.
-func (e *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+func (e *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 	instances, err := e.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
 		return nil, errors.Trace(err)
@@ -275,18 +275,18 @@ func (e *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext,
 	return gatherAvailabilityZones(instances), nil
 }
 
-func gatherAvailabilityZones(instances []instances.Instance) []string {
-	zones := make([]string, 0)
+func gatherAvailabilityZones(instances []instances.Instance) map[instance.Id]string {
+	zones := make(map[instance.Id]string, 0)
 	for _, inst := range instances {
 		if inst == nil {
 			continue
 		}
 		switch t := inst.(type) {
 		case *amzInstance:
-			zones = append(zones, t.AvailZone)
+			zones[inst.Id()] = t.AvailZone
 		case *sdkInstance:
 			if t.i != nil && t.i.Placement != nil && t.i.Placement.AvailabilityZone != nil {
-				zones = append(zones, *t.i.Placement.AvailabilityZone)
+				zones[inst.Id()] = *t.i.Placement.AvailabilityZone
 			}
 		default:
 			logger.Errorf("unexpected instance type %T when getting availability zones", inst)
