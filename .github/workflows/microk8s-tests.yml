@@ -20,11 +20,16 @@ on:
 
 env: 
   DOCKER_USERNAME: jujuqabot
+  JUJU_BUILD_NUMBER: 888
 
 jobs:
   build:
     name: Test Kubeflow
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        microk8s: [latest/stable]
 
     steps:
     - name: Set up Go 1.14 for building juju
@@ -44,13 +49,13 @@ jobs:
 
     - uses: balchua/microk8s-actions@v0.2.2
       with:
-        channel: 1.18/stable
+        channel: '${{ matrix.microk8s }}'
         # enable now to give microk8s more time to settle down.
         addons: '["dns", "storage", "dashboard", "ingress", "metallb:10.64.140.43-10.64.140.49"]'
 
     - name: Install Dependencies
       run: |
-        set -euxo pipefail
+        set -eux
         for snap in charm juju-helpers juju-wait; do
             sudo snap install $snap --classic
         done
@@ -63,8 +68,9 @@ jobs:
       run: |
         sg microk8s <<EOF
           set -eux
-          DOCKER_USERNAME=$DOCKER_USERNAME make microk8s-operator-update
+          JUJU_BUILD_NUMBER=$JUJU_BUILD_NUMBER DOCKER_USERNAME=$DOCKER_USERNAME make microk8s-operator-update
           microk8s.ctr images list | grep juju
+          juju version --all
 
           # clean up disk space because the runner only has 14G which is not enough.
           go clean -cache -modcache -i -r
@@ -85,6 +91,8 @@ jobs:
           python3 ./scripts/cli.py microk8s setup --test-mode --config caas-image-repo=$DOCKER_USERNAME
           # KUBEFLOW_AUTH_PASSWORD=foobar python3 ./scripts/cli.py --debug deploy-to uk8s --cloud microk8s --bundle lite --channel edge
           KUBEFLOW_AUTH_PASSWORD=foobar python3 ./scripts/cli.py --debug deploy-to uk8s --cloud microk8s --build --bundle edge
+          
+          microk8s kubectl get pods -l 'juju-operator' -A -o custom-columns='Name:metadata.name,Image:spec.containers[0].image'
         EOF
 
     - name: Test kubeflow
@@ -110,7 +118,6 @@ jobs:
     - name: Get MicroK8s pods
       run: |
         sudo microk8s kubectl get pods -A -o wide
-        df -h
       if: failure()
 
     - name: Describe MicroK8s pods
