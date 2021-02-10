@@ -88,9 +88,10 @@ jobs:
           cp -r canonical-osm/charms/interfaces/juju-relation-mysql mysql
 
           sudo pip3 install -r requirements.txt -r test-requirements.txt
-          python3 ./scripts/cli.py microk8s setup --test-mode --config caas-image-repo=$DOCKER_USERNAME
-          # KUBEFLOW_AUTH_PASSWORD=foobar python3 ./scripts/cli.py --debug deploy-to uk8s --cloud microk8s --bundle lite --channel edge
-          KUBEFLOW_AUTH_PASSWORD=foobar python3 ./scripts/cli.py --debug deploy-to uk8s --cloud microk8s --build --bundle edge
+          python3 ./scripts/cli.py microk8s setup --test-mode --config caas-image-repo=$DOCKER_USERNAME --services ''
+          # TODO: switch to deploy remote bundle rather local built one.
+          KUBEFLOW_AUTH_PASSWORD=foobar python3 ./scripts/cli.py --debug deploy-to uk8s --cloud microk8s --bundle edge --channel stable
+          # KUBEFLOW_AUTH_PASSWORD=foobar python3 ./scripts/cli.py --debug deploy-to uk8s --cloud microk8s --build --bundle edge
           
           microk8s kubectl get pods -l 'juju-operator' -A -o custom-columns='Name:metadata.name,Image:spec.containers[0].image'
         EOF
