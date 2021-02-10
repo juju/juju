@@ -1213,10 +1213,7 @@ func (h *bundleHandler) createOffer(change *bundlechanges.CreateOfferChange) err
 	if err == nil && len(result) > 0 && result[0].Error != nil {
 		err = result[0].Error
 	}
-	if err != nil {
-		return errors.Annotatef(err, "cannot create offer %s", p.OfferName)
-	}
-	return nil
+	return err
 }
 
 // consumeOffer consumes an existing offer
