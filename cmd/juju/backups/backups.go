@@ -76,9 +76,6 @@ func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {
 
 // Init implements Command.SetFlags.
 func (c *CommandBase) Init(args []string) error {
-	if err := c.ModelCommandBase.Init(args); err != nil {
-		return errors.Trace(err)
-	}
 	c.fs.Visit(func(flag *gnuflag.Flag) {
 		if flag.Name == "verbose" {
 			c.verbose = true
