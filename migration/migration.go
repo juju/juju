@@ -219,7 +219,10 @@ func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err er
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	tempFile.Seek(0, 0)
+	_, err = tempFile.Seek(0, 0)
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "potentially corrupt binary")
+	}
 	rmTempFile := func() {
 		filename := tempFile.Name()
 		tempFile.Close()

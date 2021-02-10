@@ -143,6 +143,6 @@ func (h *modelRestHandler) byteSender(w http.ResponseWriter, ext string, content
 	}
 	w.Header().Set("Content-Length", strconv.Itoa(len(contents)))
 	w.WriteHeader(http.StatusOK)
-	io.Copy(w, bytes.NewReader(contents))
+	_, _ = io.Copy(w, bytes.NewReader(contents))
 	return nil
 }

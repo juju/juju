@@ -36,7 +36,7 @@ func handleDebugLogDBRequest(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer tailer.Stop()
+	defer func() { _ = tailer.Stop() }()
 
 	// Indicate that all is well.
 	socket.sendOk()

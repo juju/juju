@@ -43,7 +43,7 @@ func newWorkers(st *State, hub *pubsub.SimpleHub) (*workers, error) {
 			Clock:        st.clock(),
 		}),
 	}
-	ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
+	_ = ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
 		return watcher.NewHubWatcher(watcher.HubWatcherConfig{
 			Hub:       hub,
 			Clock:     st.clock(),

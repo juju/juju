@@ -45,7 +45,7 @@ func NewShowTaskCommand() cmd.Command {
 type showOutputCommand struct {
 	ActionCommandBase
 	out         cmd.Output
-	requestedId string
+	requestedID string
 	fullSchema  bool
 	// TODO(juju3) - remove legacyWait
 	legacyWait string
@@ -158,7 +158,7 @@ func (c *showOutputCommand) Init(args []string) error {
 		}
 		return errors.New("no task ID specified")
 	case 1:
-		c.requestedId = args[0]
+		c.requestedID = args[0]
 		return nil
 	default:
 		return cmd.CheckEmpty(args[1:])
@@ -185,7 +185,7 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 
 	shouldWatch := c.wait.Nanoseconds() >= 0
 	if shouldWatch {
-		result, err := fetchResult(api, c.requestedId, c.compat)
+		result, err := fetchResult(api, c.requestedID, c.compat)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -194,7 +194,7 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if shouldWatch && api.BestAPIVersion() >= 5 {
-		logsWatcher, err = api.WatchActionProgress(c.requestedId)
+		logsWatcher, err = api.WatchActionProgress(c.requestedID)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -206,13 +206,13 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 
 	var result actionapi.ActionResult
 	if shouldWatch {
-		result, err = GetActionResult(api, c.requestedId, wait, c.compat)
+		result, err = GetActionResult(api, c.requestedID, wait, c.compat)
 	} else {
-		result, err = fetchResult(api, c.requestedId, c.compat)
+		result, err = fetchResult(api, c.requestedID, c.compat)
 	}
 	close(actionDone)
 	if logsWatcher != nil {
-		logsWatcher.Wait()
+		_ = logsWatcher.Wait()
 	}
 	if haveLogs {
 		// Make the logs a bit separate in the output.
@@ -222,31 +222,31 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	formatted := FormatActionResult(c.requestedId, result, c.utc, c.compat)
+	formatted := FormatActionResult(c.requestedID, result, c.utc, c.compat)
 	if c.out.Name() != "plain" {
 		return c.out.Write(ctx, formatted)
 	}
 	info := make(map[string]interface{})
-	info[c.requestedId] = formatted
+	info[c.requestedID] = formatted
 	return c.out.Write(ctx, info)
 }
 
 // GetActionResult tries to repeatedly fetch an action until it is
 // in a completed state and then it returns it.
 // It waits for a maximum of "wait" before returning with the latest action status.
-func GetActionResult(api APIClient, requestedId string, wait *time.Timer, compat bool) (actionapi.ActionResult, error) {
+func GetActionResult(api APIClient, requestedID string, wait *time.Timer, compat bool) (actionapi.ActionResult, error) {
 
 	// tick every two seconds, to delay the loop timer.
 	// TODO(fwereade): 2016-03-17 lp:1558657
 	tick := time.NewTimer(2 * time.Second)
 
-	return timerLoop(api, requestedId, wait, tick, compat)
+	return timerLoop(api, requestedID, wait, tick, compat)
 }
 
 // timerLoop loops indefinitely to query the given API, until "wait" times
 // out, using the "tick" timer to delay the API queries.  It writes the
 // result to the given output.
-func timerLoop(api APIClient, requestedId string, wait, tick *time.Timer, compat bool) (actionapi.ActionResult, error) {
+func timerLoop(api APIClient, requestedID string, wait, tick *time.Timer, compat bool) (actionapi.ActionResult, error) {
 	var (
 		result actionapi.ActionResult
 		err    error
@@ -255,7 +255,7 @@ func timerLoop(api APIClient, requestedId string, wait, tick *time.Timer, compat
 	// Loop over results until we get "failed" or "completed".  Wait for
 	// timer, and reset it each time.
 	for {
-		result, err = fetchResult(api, requestedId, compat)
+		result, err = fetchResult(api, requestedID, compat)
 		if err != nil {
 			return result, err
 		}
@@ -285,10 +285,10 @@ func timerLoop(api APIClient, requestedId string, wait, tick *time.Timer, compat
 
 // fetchResult queries the given API for the given Action ID prefix, and
 // makes sure the results are acceptable, returning an error if they are not.
-func fetchResult(api APIClient, requestedId string, compat bool) (actionapi.ActionResult, error) {
+func fetchResult(api APIClient, requestedID string, compat bool) (actionapi.ActionResult, error) {
 	none := actionapi.ActionResult{}
 
-	actionTag, err := getActionTagByPrefix(api, requestedId)
+	actionTag, err := getActionTagByPrefix(api, requestedID)
 	if err != nil {
 		return none, err
 	}
@@ -304,10 +304,10 @@ func fetchResult(api APIClient, requestedId string, compat bool) (actionapi.Acti
 		task = "action"
 	}
 	if numActionResults == 0 {
-		return none, errors.Errorf("no results for %s %s", task, requestedId)
+		return none, errors.Errorf("no results for %s %s", task, requestedID)
 	}
 	if numActionResults != 1 {
-		return none, errors.Errorf("too many results for %s %s", task, requestedId)
+		return none, errors.Errorf("too many results for %s %s", task, requestedID)
 	}
 
 	result := actionResults[0]

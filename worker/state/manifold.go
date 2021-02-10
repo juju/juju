@@ -145,7 +145,7 @@ func (w *stateWorker) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer w.stTracker.Done()
+	defer func() { _ = w.stTracker.Done() }()
 
 	systemState := pool.SystemState()
 
@@ -153,7 +153,7 @@ func (w *stateWorker) loop() error {
 	defer w.setStatePool(nil)
 
 	modelWatcher := systemState.WatchModelLives()
-	w.catacomb.Add(modelWatcher)
+	_ = w.catacomb.Add(modelWatcher)
 
 	wrenchTimer := time.NewTimer(30 * time.Second)
 	defer wrenchTimer.Stop()
@@ -201,7 +201,7 @@ func (w *stateWorker) processModelLifeChange(
 			w.Kill()
 			delete(modelStateWorkers, modelUUID)
 		}
-		pool.Remove(modelUUID)
+		_, _ = pool.Remove(modelUUID)
 	}
 
 	model, hp, err := pool.GetModel(modelUUID)
@@ -226,7 +226,7 @@ func (w *stateWorker) processModelLifeChange(
 	if modelStateWorkers[modelUUID] == nil {
 		mw := newModelStateWorker(pool, modelUUID, w.pingInterval)
 		modelStateWorkers[modelUUID] = mw
-		w.catacomb.Add(mw)
+		_ = w.catacomb.Add(mw)
 	}
 
 	return nil
@@ -281,7 +281,7 @@ func (w *modelStateWorker) loop() error {
 	}
 	defer func() {
 		st.Release()
-		w.pool.Remove(w.modelUUID)
+		_, _ = w.pool.Remove(w.modelUUID)
 	}()
 
 	for {

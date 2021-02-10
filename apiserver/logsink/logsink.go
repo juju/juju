@@ -209,17 +209,17 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		// respond to ping control messages, so don't try.
 		var tickChannel <-chan time.Time
 		if endpointVersion > 0 {
-			socket.SetReadDeadline(time.Now().Add(websocket.PongDelay))
+			_ = socket.SetReadDeadline(time.Now().Add(websocket.PongDelay))
 			socket.SetPongHandler(func(string) error {
 				logger.Tracef("pong logsink %p", socket)
-				socket.SetReadDeadline(time.Now().Add(websocket.PongDelay))
+				_ = socket.SetReadDeadline(time.Now().Add(websocket.PongDelay))
 				return nil
 			})
 			ticker := time.NewTicker(websocket.PingPeriod)
 			defer ticker.Stop()
 			tickChannel = ticker.C
 		} else {
-			socket.SetReadDeadline(time.Now().Add(vZeroDelay))
+			_ = socket.SetReadDeadline(time.Now().Add(vZeroDelay))
 		}
 
 		stopReceiving, closer := h.newStopChannel()
@@ -323,7 +323,7 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn,
 				// care that much.
 				h.mu.Lock()
 				defer h.mu.Unlock()
-				socket.WriteMessage(gorillaws.CloseMessage, []byte{})
+				_ = socket.WriteMessage(gorillaws.CloseMessage, []byte{})
 				return
 			}
 

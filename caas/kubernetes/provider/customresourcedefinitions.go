@@ -309,7 +309,7 @@ func ensureCustomResource(api dynamic.ResourceInterface, cr *unstructured.Unstru
 	logger.Debugf("creating custom resource %q", cr.GetName())
 	if out, err = api.Create(context.TODO(), cr, metav1.CreateOptions{}); err == nil {
 		cleanUps = append(cleanUps, func() {
-			deleteCustomResourceDefinition(api, out.GetName(), out.GetUID())
+			_ = deleteCustomResourceDefinition(api, out.GetName(), out.GetUID())
 		})
 		return out, cleanUps, nil
 	}

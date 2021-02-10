@@ -166,7 +166,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	}
 	defer func() {
 		if err != nil {
-			stTracker.Done()
+			_ = stTracker.Done()
 		}
 	}()
 

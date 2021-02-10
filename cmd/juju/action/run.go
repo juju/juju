@@ -203,7 +203,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("juju run action not supported on this version of Juju")
 	}
 
-	operationId, results, err := c.enqueueActions(ctx)
+	operationID, results, err := c.enqueueActions(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -213,7 +213,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		if numTasks > 1 {
 			plural = "s"
 		}
-		ctx.Infof("Running operation %s with %d task%s", operationId, numTasks, plural)
+		ctx.Infof("Running operation %s with %d task%s", operationID, numTasks, plural)
 	}
 
 	var actionID string
@@ -237,13 +237,13 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 	ctx.Infof("")
 	if c.background {
 		if numTasks == 1 {
-			ctx.Infof("Scheduled operation %s with task %s", operationId, actionID)
-			ctx.Infof("Check operation status with 'juju show-operation %s'", operationId)
+			ctx.Infof("Scheduled operation %s with task %s", operationID, actionID)
+			ctx.Infof("Check operation status with 'juju show-operation %s'", operationID)
 			ctx.Infof("Check task status with 'juju show-task %s'", actionID)
 		} else {
-			ctx.Infof("Scheduled operation %s with %d tasks", operationId, numTasks)
-			cmd.FormatYaml(ctx.Stdout, info)
-			ctx.Infof("Check operation status with 'juju show-operation %s'", operationId)
+			ctx.Infof("Scheduled operation %s with %d tasks", operationID, numTasks)
+			_ = cmd.FormatYaml(ctx.Stdout, info)
+			ctx.Infof("Check operation status with 'juju show-operation %s'", operationID)
 			ctx.Infof("Check task status with 'juju show-task <id>'")
 		}
 		return nil
@@ -279,7 +279,7 @@ func (c *runCommand) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, info
 	waitForWatcher := func() {
 		close(actionDone)
 		if logsWatcher != nil {
-			logsWatcher.Wait()
+			_ = logsWatcher.Wait()
 		}
 	}
 

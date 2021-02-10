@@ -186,7 +186,7 @@ func (h *charmsHandler) archiveEntrySender(filePath string, serveIcon bool) bund
 		}
 		w.Header().Set("Content-Length", strconv.Itoa(len(contents)))
 		w.WriteHeader(http.StatusOK)
-		io.Copy(w, bytes.NewReader(contents))
+		_, _ = io.Copy(w, bytes.NewReader(contents))
 		return nil
 	}
 }

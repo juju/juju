@@ -31,7 +31,7 @@ func (h *localLoginHandlers) AddLegacyHandlers(mux *apiserverhttp.Mux, discharge
 				httpbakery.WriteError(context.TODO(), w, err)
 				return
 			}
-			httprequest.WriteJSON(w, http.StatusOK, val)
+			_ = httprequest.WriteJSON(w, http.StatusOK, val)
 		})
 	}
 	dischargeMux.Handle(
@@ -62,8 +62,8 @@ func (h *localLoginHandlers) serveLoginPost(response http.ResponseWriter, req *h
 	if err := req.ParseForm(); err != nil {
 		return nil, err
 	}
-	waitId := req.Form.Get("waitid")
-	if waitId == "" {
+	waitID := req.Form.Get("waitid")
+	if waitID == "" {
 		return nil, errors.NotValidf("missing waitid")
 	}
 	username := req.Form.Get("user")
@@ -82,11 +82,11 @@ func (h *localLoginHandlers) serveLoginPost(response http.ResponseWriter, req *h
 	}); err != nil {
 		// Mark the interaction as done (but failed),
 		// unblocking a pending "/auth/wait" request.
-		if err := h.authCtxt.localUserInteractions.Done(waitId, userTag, err); err != nil {
+		if err := h.authCtxt.localUserInteractions.Done(waitID, userTag, err); err != nil {
 			if !errors.IsNotFound(err) {
 				logger.Warningf(
 					"failed to record completion of interaction %q for %q",
-					waitId, userTag.Id(),
+					waitID, userTag.Id(),
 				)
 			}
 		}
@@ -109,7 +109,7 @@ func (h *localLoginHandlers) serveLoginPost(response http.ResponseWriter, req *h
 	// Mark the interaction as done, unblocking a pending
 	// "/auth/wait" request.
 	if err := h.authCtxt.localUserInteractions.Done(
-		waitId, userTag, nil,
+		waitID, userTag, nil,
 	); err != nil {
 		if errors.IsNotFound(err) {
 			err = errors.New("login timed out")
@@ -141,11 +141,11 @@ func (h *localLoginHandlers) serveWait(_ http.ResponseWriter, req *http.Request)
 	if req.Method != "GET" {
 		return nil, errors.Errorf("unsupported method %q", req.Method)
 	}
-	waitId := req.Form.Get("waitid")
-	if waitId == "" {
+	waitID := req.Form.Get("waitid")
+	if waitID == "" {
 		return nil, errors.NotValidf("missing waitid")
 	}
-	interaction, err := h.authCtxt.localUserInteractions.Wait(waitId, nil)
+	interaction, err := h.authCtxt.localUserInteractions.Wait(waitID, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -165,7 +165,7 @@ func (h *localLoginHandlers) serveWait(_ http.ResponseWriter, req *http.Request)
 	if err != nil {
 		return nil, errors.Annotate(err, "discharging macaroon")
 	}
-	return httpbakery.WaitResponse{mac}, nil
+	return httpbakery.WaitResponse{Macaroon: mac}, nil
 }
 
 type macaroonAuthContext struct {

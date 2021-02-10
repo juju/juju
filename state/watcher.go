@@ -4236,8 +4236,8 @@ func hashSettings(db Database, id string, name string) (string, error) {
 		return "", errors.Trace(err)
 	}
 	hash := sha256.New()
-	hash.Write([]byte(name))
-	hash.Write(data)
+	_, _ = hash.Write([]byte(name))
+	_, _ = hash.Write(data)
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
@@ -4278,10 +4278,10 @@ func hashServiceAddresses(a *Application, firstCall bool) (string, error) {
 	}
 	address := addresses[0]
 	hash := sha256.New()
-	hash.Write([]byte(address.Value))
-	hash.Write([]byte(address.Type))
-	hash.Write([]byte(address.Scope))
-	hash.Write([]byte(address.SpaceID))
+	_, _ = hash.Write([]byte(address.Value))
+	_, _ = hash.Write([]byte(address.Type))
+	_, _ = hash.Write([]byte(address.Scope))
+	_, _ = hash.Write([]byte(address.SpaceID))
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
