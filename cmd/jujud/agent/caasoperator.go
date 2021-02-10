@@ -206,7 +206,7 @@ func (op *CaasOperatorAgent) Run(ctx *cmd.Context) (err error) {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
 
-	op.runner.StartWorker("api", op.Workers)
+	_ = op.runner.StartWorker("api", op.Workers)
 	return cmdutil.AgentDone(logger, op.runner.Wait())
 }
 
@@ -221,7 +221,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 
 	agentConfig := op.AgentConf.CurrentConfig()
 	manifoldConfig := caasoperator.ManifoldsConfig{
-		Agent:                agent.APIHostPortsSetter{op},
+		Agent:                agent.APIHostPortsSetter{Agent: op},
 		AgentConfigChanged:   op.configChangedVal,
 		Clock:                clock.WallClock,
 		LogSource:            op.bufferedLogger.Logs(),

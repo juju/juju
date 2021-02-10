@@ -74,8 +74,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	worker := config.NewWorker(statePool.SystemState(), config.PruneInterval, clock)
 	go func() {
-		worker.Wait()
-		stTracker.Done()
+		_ = worker.Wait()
+		_ = stTracker.Done()
 	}()
 	return worker, nil
 }

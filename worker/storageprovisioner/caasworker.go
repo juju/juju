@@ -114,27 +114,27 @@ func (p *provisioner) loop() error {
 				return errors.New("watcher closed channel")
 			}
 			appTags := make([]names.Tag, len(apps))
-			for i, appId := range apps {
-				appTags[i] = names.NewApplicationTag(appId)
+			for i, appID := range apps {
+				appTags[i] = names.NewApplicationTag(appID)
 			}
 			appsLife, err := p.config.Life.Life(appTags)
 			if err != nil {
 				return errors.Annotate(err, "getting application life")
 			}
-			for i, appId := range apps {
+			for i, appID := range apps {
 				appLifeResult := appsLife[i]
 				if appLifeResult.Error != nil && params.IsCodeNotFound(appLifeResult.Error) {
-					p.config.Logger.Debugf("app %v not found", appId)
-					_, ok := p.getApplicationWorker(appId)
+					p.config.Logger.Debugf("app %v not found", appID)
+					_, ok := p.getApplicationWorker(appID)
 					if ok {
 						if err := worker.Stop(w); err != nil {
-							p.config.Logger.Errorf("stopping application storage worker for %v: %v", appId, err)
+							p.config.Logger.Errorf("stopping application storage worker for %v: %v", appID, err)
 						}
-						p.deleteApplicationWorker(appId)
+						p.deleteApplicationWorker(appID)
 					}
 					continue
 				}
-				if _, ok := p.getApplicationWorker(appId); ok || appLifeResult.Life == life.Dead {
+				if _, ok := p.getApplicationWorker(appID); ok || appLifeResult.Life == life.Dead {
 					// Already watching the application. or we're
 					// not yet watching it and it's dead.
 					continue
@@ -145,8 +145,8 @@ func (p *provisioner) loop() error {
 				if err != nil {
 					return errors.Trace(err)
 				}
-				p.saveApplicationWorker(appId, w)
-				p.catacomb.Add(w)
+				p.saveApplicationWorker(appID, w)
+				_ = p.catacomb.Add(w)
 			}
 		}
 	}

@@ -100,7 +100,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 
 	if fs.Storage != nil {
-		storage.FormatStorageListForStatusTabular(tw, *fs.Storage)
+		_ = storage.FormatStorageListForStatusTabular(tw, *fs.Storage)
 	}
 
 	endSection(tw)
@@ -108,7 +108,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 }
 
 func startSection(tw *ansiterm.TabWriter, top bool, headers ...interface{}) output.Wrapper {
-	w := output.Wrapper{tw}
+	w := output.Wrapper{TabWriter: tw}
 	if !top {
 		w.Println()
 	}

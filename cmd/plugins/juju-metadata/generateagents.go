@@ -110,8 +110,8 @@ func (c *generateAgentsCommand) Run(context *cmd.Context) error {
 	writer := loggo.NewMinimumLevelWriter(
 		cmd.NewCommandLogWriter("juju.environs.tools", context.Stdout, context.Stderr),
 		loggo.INFO)
-	loggo.RegisterWriter("toolsmetadata", writer)
-	defer loggo.RemoveWriter("toolsmetadata")
+	_ = loggo.RegisterWriter("toolsmetadata", writer)
+	defer func() { _, _ = loggo.RemoveWriter("toolsmetadata") }()
 	if c.metadataDir == "" {
 		c.metadataDir = osenv.JujuXDGDataHomeDir()
 	} else {

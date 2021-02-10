@@ -143,10 +143,12 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 	// Update the 'upgradedToVersion' in the agent.conf file if it is
 	// different to the current version.
 	if conf.UpgradedToVersion() != jujuversion.Current {
-		unit.ChangeConfig(func(setter agent.ConfigSetter) error {
+		if err := unit.ChangeConfig(func(setter agent.ConfigSetter) error {
 			setter.SetUpgradedToVersion(jujuversion.Current)
 			return nil
-		})
+		}); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	return unit, nil
 }
@@ -213,7 +215,7 @@ func (a *UnitAgent) start() (worker.Worker, error) {
 	a.mu.Unlock()
 	go func() {
 		// Wait for the worker to finish, then mark not running.
-		engine.Wait()
+		_ = engine.Wait()
 		a.mu.Lock()
 		a.workerRunning = false
 		a.mu.Unlock()

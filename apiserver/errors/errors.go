@@ -194,7 +194,7 @@ func singletonCode(err error) (string, bool) {
 	// that by catching the panic if we try to look up
 	// a non-hashable type.
 	defer func() {
-		recover()
+		_ = recover()
 	}()
 	code, ok := singletonErrorCodes[err]
 	return code, ok

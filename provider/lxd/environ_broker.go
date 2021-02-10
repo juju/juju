@@ -40,7 +40,7 @@ func (env *environ) StartInstance(
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		if args.StatusCallback != nil {
-			args.StatusCallback(status.ProvisioningError, err.Error(), nil)
+			_ = args.StatusCallback(status.ProvisioningError, err.Error(), nil)
 		}
 		return nil, errors.Trace(err)
 	}
@@ -96,7 +96,7 @@ func (env *environ) newContainer(
 	longestMsg := 0
 	statusCallback := func(currentStatus status.Status, msg string, data map[string]interface{}) error {
 		if args.StatusCallback != nil {
-			args.StatusCallback(currentStatus, msg, nil)
+			_ = args.StatusCallback(currentStatus, msg, nil)
 		}
 		if len(msg) > longestMsg {
 			longestMsg = len(msg)
@@ -105,7 +105,7 @@ func (env *environ) newContainer(
 	}
 	cleanupCallback := func() {
 		if args.CleanupCallback != nil {
-			args.CleanupCallback(strings.Repeat(" ", longestMsg))
+			_ = args.CleanupCallback(strings.Repeat(" ", longestMsg))
 		}
 	}
 	defer cleanupCallback()
@@ -126,12 +126,12 @@ func (env *environ) newContainer(
 		return nil, errors.Trace(err)
 	}
 
-	statusCallback(status.Allocating, "Creating container", nil)
+	_ = statusCallback(status.Allocating, "Creating container", nil)
 	container, err := target.CreateContainerFromSpec(cSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	statusCallback(status.Running, "Container started", nil)
+	_ = statusCallback(status.Running, "Container started", nil)
 	return container, nil
 }
 

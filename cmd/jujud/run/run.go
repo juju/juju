@@ -227,8 +227,8 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	ctx.Stdout.Write(result.Stdout)
-	ctx.Stderr.Write(result.Stderr)
+	_, _ = ctx.Stdout.Write(result.Stdout)
+	_, _ = ctx.Stderr.Write(result.Stderr)
 	return cmd.NewRcPassthroughError(result.Code)
 }
 

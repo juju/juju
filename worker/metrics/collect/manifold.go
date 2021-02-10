@@ -226,7 +226,7 @@ type collect struct {
 
 func (w *collect) stop() {
 	if w.listener != nil {
-		w.listener.Stop()
+		_ = w.listener.Stop()
 	}
 }
 

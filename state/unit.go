@@ -463,7 +463,7 @@ func (op *UpdateUnitOperation) Done(err error) error {
 	// We can't include in the ops slice the necessary status history updates,
 	// so as with existing practice, do a best effort update of status history.
 	for key, doc := range op.setStatusDocs {
-		probablyUpdateStatusHistory(op.unit.st.db(), key, doc)
+		_, _ = probablyUpdateStatusHistory(op.unit.st.db(), key, doc)
 	}
 	return nil
 }

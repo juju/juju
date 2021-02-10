@@ -443,7 +443,7 @@ func (e *environ) StartInstance(
 			return
 		}
 		if err := e.StopInstances(ctx, inst.Id()); err != nil {
-			callback(status.Error, fmt.Sprintf("error stopping failed instance: %v", err), nil)
+			_ = callback(status.Error, fmt.Sprintf("error stopping failed instance: %v", err), nil)
 			logger.Errorf("error stopping failed instance: %v", err)
 		}
 	}()
@@ -1015,10 +1015,10 @@ var runInstances = _runInstances
 // runInstances calls ec2.RunInstances for a fixed number of attempts until
 // RunInstances returns an error code that does not indicate an error that
 // may be caused by eventual consistency.
-func _runInstances(e *amzec2.EC2, ctx context.ProviderCallContext, ri *amzec2.RunInstances, c environs.StatusCallbackFunc) (resp *amzec2.RunInstancesResp, err error) {
+func _runInstances(e *amzec2.EC2, ctx context.ProviderCallContext, ri *amzec2.RunInstances, callback environs.StatusCallbackFunc) (resp *amzec2.RunInstancesResp, err error) {
 	try := 1
 	for a := shortAttempt.Start(); a.Next(); {
-		c(status.Allocating, fmt.Sprintf("Start instance attempt %d", try), nil)
+		_ = callback(status.Allocating, fmt.Sprintf("Start instance attempt %d", try), nil)
 		resp, err = e.RunInstances(ri)
 		if err == nil || !isNotFoundError(err) {
 			break

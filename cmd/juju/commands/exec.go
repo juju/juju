@@ -410,8 +410,8 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 		if c.compat {
 			codeKey = "ReturnCode"
 		}
-		ctx.Stdout.Write(formatOutput(result, stdoutKey, c.compat))
-		ctx.Stderr.Write(formatOutput(result, stderrKey, c.compat))
+		_, _ = ctx.Stdout.Write(formatOutput(result, stdoutKey, c.compat))
+		_, _ = ctx.Stderr.Write(formatOutput(result, stderrKey, c.compat))
 		if code, ok := result[codeKey].(int); ok && code != 0 {
 			return cmd.NewRcPassthroughError(code)
 		}
@@ -421,7 +421,7 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 			messageKey = "Message"
 		}
 		if res, ok := result[messageKey].(string); ok && res != "" {
-			ctx.Stderr.Write([]byte(res))
+			_, _ = ctx.Stderr.Write([]byte(res))
 		}
 
 		return nil

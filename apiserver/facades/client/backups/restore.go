@@ -51,7 +51,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	}
 	// Any abnormal termination of this function will mark restore as failed,
 	// successful termination will call Exit and never run this.
-	defer info.SetStatus(state.RestoreFailed)
+	defer func() { _ = info.SetStatus(state.RestoreFailed) }()
 
 	instanceId, err := machine.InstanceId()
 	if err != nil {

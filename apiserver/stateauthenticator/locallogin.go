@@ -50,10 +50,10 @@ func (h *localLoginHandlers) AddHandlers(mux *apiserverhttp.Mux) {
 		localUserIdentityLocationPath+formURL,
 		http.HandlerFunc(h.formHandler),
 	)
-	mux.AddHandler("POST", localUserIdentityLocationPath+"/discharge", dischargeMux)
-	mux.AddHandler("GET", localUserIdentityLocationPath+"/publickey", dischargeMux)
-	mux.AddHandler("GET", localUserIdentityLocationPath+"/form", dischargeMux)
-	mux.AddHandler("POST", localUserIdentityLocationPath+"/form", dischargeMux)
+	_ = mux.AddHandler("POST", localUserIdentityLocationPath+"/discharge", dischargeMux)
+	_ = mux.AddHandler("GET", localUserIdentityLocationPath+"/publickey", dischargeMux)
+	_ = mux.AddHandler("GET", localUserIdentityLocationPath+"/form", dischargeMux)
+	_ = mux.AddHandler("POST", localUserIdentityLocationPath+"/form", dischargeMux)
 
 	h.AddLegacyHandlers(mux, dischargeMux)
 }

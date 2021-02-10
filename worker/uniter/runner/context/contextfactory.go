@@ -299,7 +299,7 @@ func (f *contextFactory) getContextRelations() map[int]*ContextRelation {
 // to via hooks. Furthermore, the fact that we make multiple API calls at this
 // time, rather than grabbing everything we need in one go, is unforgivably yucky.
 func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
-	defer errors.Trace(err)
+	defer func() { err = errors.Trace(err) }()
 
 	ctx.apiAddrs, err = f.state.APIAddresses()
 	if err != nil {

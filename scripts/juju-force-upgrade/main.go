@@ -117,7 +117,7 @@ func main() {
 	checkErr("open model", err)
 	defer func() {
 		modelSt.Release()
-		statePool.Remove(modelUUID)
+		_, _ = statePool.Remove(modelUUID)
 	}()
 
 	checkErr("set model agent version", modelSt.SetModelAgentVersion(agentVersion, true))

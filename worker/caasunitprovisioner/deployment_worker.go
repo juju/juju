@@ -75,7 +75,7 @@ func (w *deploymentWorker) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	w.catacomb.Add(appScaleWatcher)
+	_ = w.catacomb.Add(appScaleWatcher)
 
 	var (
 		pw            watcher.NotifyWatcher
@@ -109,7 +109,7 @@ func (w *deploymentWorker) loop() error {
 				if err != nil {
 					return errors.Trace(err)
 				}
-				w.catacomb.Add(pw)
+				_ = w.catacomb.Add(pw)
 				provisionChan = pw.Changes()
 			}
 		case _, ok := <-provisionChan:

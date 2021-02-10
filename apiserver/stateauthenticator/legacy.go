@@ -42,9 +42,9 @@ func (h *localLoginHandlers) AddLegacyHandlers(mux *apiserverhttp.Mux, discharge
 		localUserIdentityLocationPath+"/wait",
 		makeHandler(h.serveWait),
 	)
-	mux.AddHandler("GET", localUserIdentityLocationPath+"/wait", dischargeMux)
-	mux.AddHandler("GET", localUserIdentityLocationPath+"/login", dischargeMux)
-	mux.AddHandler("POST", localUserIdentityLocationPath+"/login", dischargeMux)
+	_ = mux.AddHandler("GET", localUserIdentityLocationPath+"/wait", dischargeMux)
+	_ = mux.AddHandler("GET", localUserIdentityLocationPath+"/login", dischargeMux)
+	_ = mux.AddHandler("POST", localUserIdentityLocationPath+"/login", dischargeMux)
 }
 
 func (h *localLoginHandlers) serveLogin(response http.ResponseWriter, req *http.Request) (interface{}, error) {

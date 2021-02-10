@@ -352,7 +352,7 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn,
 				// If the remote end does not support ping/pong, we bump
 				// the read deadline everytime a message is received.
 				if endpointVersion == 0 {
-					socket.SetReadDeadline(time.Now().Add(vZeroDelay))
+					_ = socket.SetReadDeadline(time.Now().Add(vZeroDelay))
 				}
 			}
 		}

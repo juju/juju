@@ -43,7 +43,7 @@ func (s *ServerSession) DebugAt() string {
 // This is a var so it can be replaced for testing.
 var waitClientExit = func(s *ServerSession) {
 	path := s.ClientExitFileLock()
-	exec.Command("flock", path, "-c", "true").Run()
+	_ = exec.Command("flock", path, "-c", "true").Run()
 }
 
 // RunHook "runs" the hook with the specified name via debug-hooks. The hookRunner

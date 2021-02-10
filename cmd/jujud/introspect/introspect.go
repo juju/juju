@@ -163,7 +163,7 @@ func (c *IntrospectCommand) Run(ctx *cmd.Context) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		io.Copy(ctx.Stderr, resp.Body)
+		_, _ = io.Copy(ctx.Stderr, resp.Body)
 		return errors.Errorf(
 			"response returned %d (%s)",
 			resp.StatusCode,

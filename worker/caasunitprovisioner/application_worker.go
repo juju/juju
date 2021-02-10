@@ -91,7 +91,7 @@ func (aw *applicationWorker) loop() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		aw.catacomb.Add(deploymentWorker)
+		_ = aw.catacomb.Add(deploymentWorker)
 	}
 
 	var (
@@ -109,13 +109,13 @@ func (aw *applicationWorker) loop() error {
 	// workers unbounded, use a defer to stop the running worker.
 	defer func() {
 		if brokerUnitsWatcher != nil {
-			worker.Stop(brokerUnitsWatcher)
+			_ = worker.Stop(brokerUnitsWatcher)
 		}
 		if appOperatorWatcher != nil {
-			worker.Stop(appOperatorWatcher)
+			_ = worker.Stop(appOperatorWatcher)
 		}
 		if appDeploymentWatcher != nil {
-			worker.Stop(appDeploymentWatcher)
+			_ = worker.Stop(appDeploymentWatcher)
 		}
 	}()
 

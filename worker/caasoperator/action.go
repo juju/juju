@@ -68,7 +68,7 @@ func remoteExecute(logger Logger,
 
 	readBytes := func(r io.Reader) []byte {
 		var o bytes.Buffer
-		o.ReadFrom(r)
+		_, _ = o.ReadFrom(r)
 		return o.Bytes()
 	}
 	exitCode := func(exitErr error) int {

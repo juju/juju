@@ -516,7 +516,7 @@ func (api *CrossModelRelationsAPI) WatchRelationsSuspendedStatus(
 			if err != nil {
 				results.Results[i].Error = apiservererrors.ServerError(err)
 				changesParams = nil
-				w.Stop()
+				_ = w.Stop()
 				break
 			}
 			changesParams[j] = *change
@@ -593,7 +593,7 @@ func (api *CrossModelRelationsAPI) WatchOfferStatus(
 		change, err := commoncrossmodel.GetOfferStatusChange(api.model, api.st, arg.OfferUUID, w.OfferName())
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
-			w.Stop()
+			_ = w.Stop()
 			break
 		}
 		results.Results[i].Changes = []params.OfferStatusChange{*change}

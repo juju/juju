@@ -167,7 +167,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) (err error) {
 	}
 	agentconf.SetupAgentLogging(loggo.DefaultContext(), a.CurrentConfig())
 
-	a.runner.StartWorker("api", a.APIWorkers)
+	_ = a.runner.StartWorker("api", a.APIWorkers)
 	err = cmdutil.AgentDone(logger, a.runner.Wait())
 	return err
 }
@@ -196,7 +196,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	}
 
 	manifolds := unitManifolds(unit.ManifoldsConfig{
-		Agent:                agent.APIHostPortsSetter{a},
+		Agent:                agent.APIHostPortsSetter{Agent: a},
 		LogSource:            a.bufferedLogger.Logs(),
 		LeadershipGuarantee:  30 * time.Second,
 		AgentConfigChanged:   a.configChangedVal,

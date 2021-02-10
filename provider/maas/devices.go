@@ -625,6 +625,6 @@ func (env *maasEnviron) checkForExistingDevice(params deviceCreatorParams) (goma
 	}
 	logger.Debugf("found existing MAAS device for container %q but interfaces did not match, removing device", params.Name)
 	// We found a device, but it doesn't match what we need. remove it and we'll create again.
-	device.Delete()
+	_ = device.Delete()
 	return nil, nil
 }
