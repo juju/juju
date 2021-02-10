@@ -6,13 +6,9 @@ package action
 import (
 	"time"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/watcher"
 )
 
 const apiName = "ActionPruner"
@@ -36,14 +32,4 @@ func (s *Facade) Prune(maxHistoryTime time.Duration, maxHistoryMB int) error {
 		MaxHistoryMB:   maxHistoryMB,
 	}
 	return s.facade.FacadeCall("Prune", p, nil)
-}
-
-// WatchForControllerConfigChanges implements worker.pruner.Facade but is not used for actions.
-func (s *Facade) WatchForControllerConfigChanges() (watcher.NotifyWatcher, error) {
-	return nil, errors.NotSupportedf("WatchForControllerConfigChanges")
-}
-
-// ControllerConfig implements worker.pruner.Facade but is not used for actions.
-func (s *Facade) ControllerConfig() (controller.Config, error) {
-	return nil, errors.NotSupportedf("ControllerConfig")
 }

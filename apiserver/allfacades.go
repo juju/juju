@@ -92,7 +92,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	"github.com/juju/juju/apiserver/facades/controller/lifeflag"
 	"github.com/juju/juju/apiserver/facades/controller/logfwd"
-	"github.com/juju/juju/apiserver/facades/controller/logpruner"
 	"github.com/juju/juju/apiserver/facades/controller/machineundertaker"
 	"github.com/juju/juju/apiserver/facades/controller/metricsmanager"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
@@ -240,7 +239,6 @@ func AllFacades() *facade.Registry {
 	reg("LifeFlag", 1, lifeflag.NewExternalFacade)
 	reg("Logger", 1, loggerapi.NewLoggerAPI)
 	reg("LogForwarding", 1, logfwd.NewFacade)
-	reg("LogPruner", 1, logpruner.NewAPI)
 	reg("MachineActions", 1, machineactions.NewExternalFacade)
 
 	reg("MachineManager", 2, machinemanager.NewFacade)

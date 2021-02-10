@@ -5,13 +5,11 @@
 package mocks
 
 import (
-	reflect "reflect"
-	time "time"
-
 	gomock "github.com/golang/mock/gomock"
-	controller "github.com/juju/juju/controller"
 	watcher "github.com/juju/juju/core/watcher"
 	config "github.com/juju/juju/environs/config"
+	reflect "reflect"
+	time "time"
 )
 
 // MockFacade is a mock of Facade interface
@@ -35,21 +33,6 @@ func NewMockFacade(ctrl *gomock.Controller) *MockFacade {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockFacade) EXPECT() *MockFacadeMockRecorder {
 	return m.recorder
-}
-
-// ControllerConfig mocks base method
-func (m *MockFacade) ControllerConfig() (controller.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
-	ret0, _ := ret[0].(controller.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ControllerConfig indicates an expected call of ControllerConfig
-func (mr *MockFacadeMockRecorder) ControllerConfig() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockFacade)(nil).ControllerConfig))
 }
 
 // ModelConfig mocks base method
@@ -79,21 +62,6 @@ func (m *MockFacade) Prune(arg0 time.Duration, arg1 int) error {
 func (mr *MockFacadeMockRecorder) Prune(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prune", reflect.TypeOf((*MockFacade)(nil).Prune), arg0, arg1)
-}
-
-// WatchForControllerConfigChanges mocks base method
-func (m *MockFacade) WatchForControllerConfigChanges() (watcher.NotifyWatcher, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchForControllerConfigChanges")
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchForControllerConfigChanges indicates an expected call of WatchForControllerConfigChanges
-func (mr *MockFacadeMockRecorder) WatchForControllerConfigChanges() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchForControllerConfigChanges", reflect.TypeOf((*MockFacade)(nil).WatchForControllerConfigChanges))
 }
 
 // WatchForModelConfigChanges mocks base method

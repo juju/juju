@@ -973,7 +973,8 @@ func SplitLogCollections(pool *StatePool) error {
 		newLogs := db.C(newCollName)
 
 		if !seen.Contains(newCollName) {
-			if err := InitDbLogsForModel(session, modelUUID); err != nil {
+			// There is no setting for the size, so use the default.
+			if err := InitDbLogsForModel(session, modelUUID, controller.DefaultModelLogsSizeMB); err != nil {
 				return errors.Annotatef(err, "failed to init new logs collection %q", newCollName)
 			}
 			seen.Add(newCollName)

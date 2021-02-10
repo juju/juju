@@ -458,7 +458,12 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
 	}
 
-	if err := InitDbLogsForModel(session, uuid); err != nil {
+	config, err := st.ControllerConfig()
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "unable to get controller config")
+	}
+
+	if err := InitDbLogsForModel(session, uuid, config.ModelLogsSizeMB()); err != nil {
 		return nil, nil, errors.Annotate(err, "initialising model logs collection")
 	}
 	return newModel, newSt, nil

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2/catacomb"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 )
@@ -26,8 +25,6 @@ type Facade interface {
 	Prune(time.Duration, int) error
 	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
 	ModelConfig() (*config.Config, error)
-	WatchForControllerConfigChanges() (watcher.NotifyWatcher, error)
-	ControllerConfig() (controller.Config, error)
 }
 
 // PrunerWorker prunes status history or action records at regular intervals.
@@ -57,99 +54,53 @@ func (w *PrunerWorker) Config() *Config {
 }
 
 // Work is the main body of generic pruner loop.
-func (w *PrunerWorker) Work(getPrunerConfig func(controller.Config, *config.Config) (time.Duration, uint)) error {
+func (w *PrunerWorker) Work(getPrunerConfig func(*config.Config) (time.Duration, uint)) error {
+	modelConfigWatcher, err := w.config.Facade.WatchForModelConfigChanges()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = w.catacomb.Add(modelConfigWatcher)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	var (
-		maxAge                  time.Duration
-		maxCollectionMB         uint
-		controllerConfigChanges watcher.NotifyChannel
-		modelConfigChanges      watcher.NotifyChannel
+		maxAge             time.Duration
+		maxCollectionMB    uint
+		modelConfigChanges = modelConfigWatcher.Changes()
 		// We will also get an initial event, but need to ensure that event is
 		// received before doing any pruning.
 	)
 
-	modelConfigWatcher, err := w.config.Facade.WatchForModelConfigChanges()
-	if err != nil && !errors.IsNotSupported(err) {
-		return errors.Trace(err)
-	}
-	if err == nil {
-		err = w.catacomb.Add(modelConfigWatcher)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		modelConfigChanges = modelConfigWatcher.Changes()
-	}
-	controllerConfigWatcher, err := w.config.Facade.WatchForControllerConfigChanges()
-	if err != nil && !errors.IsNotSupported(err) {
-		return errors.Trace(err)
-	}
-	if err == nil {
-		err = w.catacomb.Add(controllerConfigWatcher)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		controllerConfigChanges = controllerConfigWatcher.Changes()
-	}
-
 	var timer clock.Timer
 	var timerCh <-chan time.Time
-
-	updateWorkerConfig := func() error {
-		var (
-			err              error
-			controllerConfig controller.Config
-			modelConfig      *config.Config
-		)
-		if controllerConfigWatcher != nil {
-			controllerConfig, err = w.config.Facade.ControllerConfig()
-			if err != nil {
-				return errors.Annotate(err, "cannot load controller configuration")
-			}
-		}
-		if modelConfigWatcher != nil {
-			modelConfig, err = w.config.Facade.ModelConfig()
-			if err != nil {
-				return errors.Annotate(err, "cannot load model configuration")
-			}
-		}
-
-		newMaxAge, newMaxCollectionMB := getPrunerConfig(controllerConfig, modelConfig)
-
-		if newMaxAge != maxAge || newMaxCollectionMB != maxCollectionMB {
-			if modelConfig != nil {
-				w.config.Logger.Infof("pruner config: max age: %v, max collection size %dM for %s (%s)",
-					newMaxAge, newMaxCollectionMB, modelConfig.Name(), modelConfig.UUID())
-			} else {
-				w.config.Logger.Infof("pruner config: max age: %v, max collection size %dM",
-					newMaxAge, newMaxCollectionMB)
-			}
-			maxAge = newMaxAge
-			maxCollectionMB = newMaxCollectionMB
-		}
-		if timer == nil {
-			timer = w.config.Clock.NewTimer(w.config.PruneInterval)
-			timerCh = timer.Chan()
-		}
-		return nil
-	}
-
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case _, ok := <-controllerConfigChanges:
-			if !ok {
-				return errors.New("controller configuration watcher closed")
-			}
-			if err := updateWorkerConfig(); err != nil {
-				return errors.Trace(err)
-			}
+
 		case _, ok := <-modelConfigChanges:
 			if !ok {
 				return errors.New("model configuration watcher closed")
 			}
-			if err := updateWorkerConfig(); err != nil {
-				return errors.Trace(err)
+			modelConfig, err := w.config.Facade.ModelConfig()
+			if err != nil {
+				return errors.Annotate(err, "cannot load model configuration")
 			}
+
+			newMaxAge, newMaxCollectionMB := getPrunerConfig(modelConfig)
+
+			if newMaxAge != maxAge || newMaxCollectionMB != maxCollectionMB {
+				w.config.Logger.Infof("pruner config: max age: %v, max collection size %dM for %s (%s)",
+					newMaxAge, newMaxCollectionMB, modelConfig.Name(), modelConfig.UUID())
+				maxAge = newMaxAge
+				maxCollectionMB = newMaxCollectionMB
+			}
+			if timer == nil {
+				timer = w.config.Clock.NewTimer(w.config.PruneInterval)
+				timerCh = timer.Chan()
+			}
+
 		case <-timerCh:
 			err := w.config.Facade.Prune(maxAge, int(maxCollectionMB))
 			if err != nil {
