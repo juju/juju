@@ -132,7 +132,7 @@ func (w *deploymentWorker) loop() error {
 
 		if desiredScale == 0 {
 			if pw != nil {
-				worker.Stop(pw)
+				_ = worker.Stop(pw)
 				provisionChan = nil
 			}
 			logger.Debugf("no units for %v", w.application)

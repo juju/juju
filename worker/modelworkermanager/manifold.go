@@ -118,8 +118,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		ErrorDelay:     jworker.RestartDelay,
 	})
 	if err != nil {
-		stTracker.Done()
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
-	return common.NewCleanupWorker(w, func() { stTracker.Done() }), nil
+	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
 }

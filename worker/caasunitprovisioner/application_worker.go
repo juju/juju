@@ -171,7 +171,7 @@ func (aw *applicationWorker) loop() error {
 			logger.Debugf("units changed: %#v", ok)
 			if !ok {
 				logger.Debugf("%v", brokerUnitsWatcher.Wait())
-				worker.Stop(brokerUnitsWatcher)
+				_ = worker.Stop(brokerUnitsWatcher)
 				brokerUnitsWatcher = nil
 				continue
 			}
@@ -188,7 +188,7 @@ func (aw *applicationWorker) loop() error {
 			logger.Debugf("deployment changed: %#v", ok)
 			if !ok {
 				logger.Debugf("%v", appDeploymentWatcher.Wait())
-				worker.Stop(appDeploymentWatcher)
+				_ = worker.Stop(appDeploymentWatcher)
 				appDeploymentWatcher = nil
 				continue
 			}
@@ -233,7 +233,7 @@ func (aw *applicationWorker) loop() error {
 		case _, ok := <-appOperatorChannel:
 			if !ok {
 				logger.Debugf("%v", appOperatorWatcher.Wait())
-				worker.Stop(appOperatorWatcher)
+				_ = worker.Stop(appOperatorWatcher)
 				appOperatorWatcher = nil
 				continue
 			}

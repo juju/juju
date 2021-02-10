@@ -987,8 +987,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			estate.modelCacheWorker = modelCache
 			err = modelcache.ExtractCacheController(modelCache, &estate.controller)
 			if err != nil {
-				worker.Stop(modelCache)
-				worker.Stop(multiWatcherWorker)
+				_ = worker.Stop(modelCache)
+				_ = worker.Stop(multiWatcherWorker)
 				return errors.Trace(err)
 			}
 

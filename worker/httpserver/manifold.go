@@ -200,5 +200,5 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return common.NewCleanupWorker(w, func() { stTracker.Done() }), nil
+	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
 }
