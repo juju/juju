@@ -5,6 +5,7 @@ run_go() {
       exit 1
   fi
   golangci-lint run -c .github/golangci-lint.config.yaml
+  golangci-lint run -c .github/golangci-lint.config.experimental.yaml
 }
 
 run_go_tidy() {
