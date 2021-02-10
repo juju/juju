@@ -468,7 +468,7 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferNotFound(c *gc.C) {
 		ApplicationName: "foo",
 		Owner:           owner.Name(),
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot update application offer "foo": application offer "hosted-mysql" not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot update application offer "hosted-mysql": offer "hosted-mysql" not found`)
 }
 
 func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovedAfterInitial(c *gc.C) {
@@ -492,7 +492,7 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovedAfterInitial(c
 		ApplicationName: "mysql",
 		Owner:           owner.Name(),
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot update application offer "mysql": application offer "hosted-mysql" not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot update application offer "hosted-mysql": offer "hosted-mysql" not found`)
 }
 
 func (s *applicationOffersSuite) addOfferConnection(c *gc.C, offerUUID string) *state.RemoteApplication {
@@ -521,6 +521,43 @@ func (s *applicationOffersSuite) addOfferConnection(c *gc.C, offerUUID string) *
 	c.Assert(err, jc.ErrorIsNil)
 
 	return app
+}
+
+func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovingEndpointsInUse(c *gc.C) {
+	owner := s.Factory.MakeUser(c, nil).Name()
+	sd := state.NewApplicationOffers(s.State)
+	offer, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "mysql",
+		Owner:           owner,
+		Endpoints: map[string]string{
+			"server":       "server",
+			"server-admin": "server-admin",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		SourceModelUUID: testing.ModelTag.Id(),
+		RelationId:      1,
+		RelationKey:     "remote:server mysql:server",
+		Username:        "admin",
+		OfferUUID:       offer.OfferUUID,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "mysql",
+		Owner:           owner,
+		Endpoints: map[string]string{
+			// We are attempting to remove the "server" endpoint
+			// from the offer which is currently connected to an
+			// active consumer
+			"server-admin": "server-admin",
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot update application offer "hosted-mysql": application endpoint "server" has active consumers`)
 }
 
 func (s *applicationOffersSuite) TestRemoveOffersSucceedsWithZeroConnections(c *gc.C) {
