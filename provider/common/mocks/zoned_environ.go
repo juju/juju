@@ -217,10 +217,10 @@ func (mr *MockZonedEnvironMockRecorder) DestroyController(arg0, arg1 interface{}
 }
 
 // InstanceAvailabilityZoneNames mocks base method
-func (m *MockZonedEnviron) InstanceAvailabilityZoneNames(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]string, error) {
+func (m *MockZonedEnviron) InstanceAvailabilityZoneNames(arg0 context.ProviderCallContext, arg1 []instance.Id) (map[instance.Id]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InstanceAvailabilityZoneNames", arg0, arg1)
-	ret0, _ := ret[0].([]string)
+	ret0, _ := ret[0].(map[instance.Id]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

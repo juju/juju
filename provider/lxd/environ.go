@@ -301,7 +301,7 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) (network.
 // For containers, this means the LXD server node names where they reside.
 func (env *environ) InstanceAvailabilityZoneNames(
 	ctx context.ProviderCallContext, ids []instance.Id,
-) ([]string, error) {
+) (map[instance.Id]string, error) {
 	instances, err := env.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
 		return nil, err
@@ -311,18 +311,18 @@ func (env *environ) InstanceAvailabilityZoneNames(
 	// represented by the single server.
 	server := env.server()
 	if !server.IsClustered() {
-		zones := make([]string, len(ids))
+		zones := make(map[instance.Id]string, len(ids))
 		n := server.Name()
-		for i := range zones {
-			zones[i] = n
+		for _, id := range ids {
+			zones[id] = n
 		}
 		return zones, nil
 	}
 
-	zones := make([]string, len(instances))
-	for i, ins := range instances {
+	zones := make(map[instance.Id]string, len(instances))
+	for _, ins := range instances {
 		if ei, ok := ins.(*environInstance); ok {
-			zones[i] = ei.container.Location
+			zones[ins.Id()] = ei.container.Location
 		}
 	}
 	return zones, nil

@@ -37,7 +37,7 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) (network.
 // InstanceAvailabilityZoneNames returns the names of the availability
 // zones for the specified instances. The error returned follows the same
 // rules as Environ.Instances.
-func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 	instances, err := env.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances && err != environs.ErrNoInstances {
 		return nil, errors.Trace(err)
@@ -46,14 +46,14 @@ func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContex
 	// not use errors.Trace in that case since callers may not call
 	// errors.Cause.
 
-	results := make([]string, len(ids))
-	for i, inst := range instances {
-		if eInst := inst.(*environInstance); eInst != nil {
-			results[i] = eInst.base.ZoneName
+	results := make(map[instance.Id]string, len(ids))
+	for _, inst := range instances {
+		if eInst, ok := inst.(*environInstance); ok && eInst != nil {
+			results[inst.Id()] = eInst.base.ZoneName
 		}
 	}
 
-	return results, err
+	return results, nil
 }
 
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.

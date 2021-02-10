@@ -64,11 +64,14 @@ func (s *environAZSuite) TestAvailabilityZonesAPI(c *gc.C) {
 func (s *environAZSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 	s.FakeEnviron.Insts = []instances.Instance{s.Instance}
 
-	ids := []instance.Id{instance.Id("spam")}
+	id := instance.Id("spam")
+	ids := []instance.Id{id}
 	zones, err := s.Env.InstanceAvailabilityZoneNames(s.CallCtx, ids)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(zones, jc.DeepEquals, []string{"home-zone"})
+	c.Check(zones, jc.DeepEquals, map[instance.Id]string{
+		id: "home-zone",
+	})
 }
 
 func (s *environAZSuite) TestInstanceAvailabilityZoneNamesAPIs(c *gc.C) {

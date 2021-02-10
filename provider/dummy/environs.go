@@ -1520,7 +1520,7 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) (corenetw
 }
 
 // InstanceAvailabilityZoneNames implements environs.ZonedEnviron.
-func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 	if err := env.checkBroken("InstanceAvailabilityZoneNames"); err != nil {
 		return nil, errors.NotSupportedf("instance availability zones")
 	}
@@ -1530,17 +1530,17 @@ func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContex
 	}
 	azMaxIndex := len(availabilityZones) - 1
 	azIndex := 0
-	returnValue := make([]string, len(ids))
-	for i := range ids {
+	returnValue := make(map[instance.Id]string, 0)
+	for _, id := range ids {
 		if availabilityZones[azIndex].Available() {
-			returnValue[i] = availabilityZones[azIndex].Name()
+			returnValue[id] = availabilityZones[azIndex].Name()
 		} else {
 			// Based on knowledge of how the AZs are setup above
 			// in AvailabilityZones()
-			azIndex += 1
-			returnValue[i] = availabilityZones[azIndex].Name()
+			azIndex++
+			returnValue[id] = availabilityZones[azIndex].Name()
 		}
-		azIndex += 1
+		azIndex++
 		if azIndex == azMaxIndex {
 			azIndex = 0
 		}
