@@ -608,8 +608,13 @@ func (u *Uniter) charmState() (bool, *corecharm.URL, int, error) {
 	}
 
 	if _, err := corecharm.ReadCharmDir(u.paths.State.CharmDir); err != nil {
+		// use appCharmURL to avoid double upgrade.
+		appCharmURL, _, err := app.CharmURL()
+		if err != nil {
+			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+		}
 		u.logger.Debugf("start to re-download charm because charm dir has gone which is usually caused by operator pod re-scheduling")
-		op, err := u.operationFactory.NewUpgrade(charmURL)
+		op, err := u.operationFactory.NewUpgrade(appCharmURL)
 		if err != nil {
 			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
 		}
