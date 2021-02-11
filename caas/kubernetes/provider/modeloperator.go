@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v4"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
+	rbac "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -32,17 +33,37 @@ type ModelOperatorBroker interface {
 	// EnsureConfigMap ensures the supplied kubernetes config map exists in the
 	// targeted cluster. Error returned if this action is not able to be
 	// performed.
-	EnsureConfigMap(*core.ConfigMap) error
+	EnsureConfigMap(*core.ConfigMap) ([]func(), error)
+
+	// EnsureClusterRole ensures that the provided cluster role exists in the
+	// Kubernetes cluster
+	EnsureClusterRole(*rbac.ClusterRole) ([]func(), error)
+
+	// EnsureClusterRoleBinding ensures that the provided cluster role binding
+	// exists in the Kubernetes cluster
+	EnsureClusterRoleBinding(*rbac.ClusterRoleBinding) ([]func(), error)
 
 	// EnsureDeployment ensures the supplied kubernetes deployment object exists
 	// in the targeted cluster. Error returned if this action is not able to be
 	// performed.
-	EnsureDeployment(*apps.Deployment) error
+	EnsureDeployment(*apps.Deployment) ([]func(), error)
+
+	// EnsureRole ensures the supplied kubernetes role object exists in the
+	// targeted clusters namespace
+	EnsureRole(*rbac.Role) ([]func(), error)
+
+	// EnsureRoleBinding ensures the supplied kubernetes role binding object
+	// exists in the targetes clusters namespace
+	EnsureRoleBinding(*rbac.RoleBinding) ([]func(), error)
 
 	// EnsureService ensures the spplied kubernetes service object exists in the
 	// targeted cluster. Error returned if the action is not able to be
 	// performed.
-	EnsureService(*core.Service) error
+	EnsureService(*core.Service) ([]func(), error)
+
+	// EnsureServiceAccount ensures the supplied the kubernetes service account
+	// exists in the targets cluster.
+	EnsureServiceAccount(*core.ServiceAccount) ([]func(), error)
 
 	// Namespace returns the current default namespace targeted by this broker.
 	Namespace() string
@@ -54,11 +75,16 @@ type ModelOperatorBroker interface {
 // modelOperatorBrokerBridge provides a pluggable struct of funcs to implement
 // the ModelOperatorBroker interface
 type modelOperatorBrokerBridge struct {
-	ensureConfigMap  func(*core.ConfigMap) error
-	ensureDeployment func(*apps.Deployment) error
-	ensureService    func(*core.Service) error
-	namespace        func() string
-	isLegacyLabels   func() bool
+	ensureClusterRole        func(*rbac.ClusterRole) ([]func(), error)
+	ensureClusterRoleBinding func(*rbac.ClusterRoleBinding) ([]func(), error)
+	ensureConfigMap          func(*core.ConfigMap) ([]func(), error)
+	ensureDeployment         func(*apps.Deployment) ([]func(), error)
+	ensureRole               func(*rbac.Role) ([]func(), error)
+	ensureRoleBinding        func(*rbac.RoleBinding) ([]func(), error)
+	ensureService            func(*core.Service) ([]func(), error)
+	ensureServiceAccount     func(*core.ServiceAccount) ([]func(), error)
+	namespace                func() string
+	isLegacyLabels           func() bool
 }
 
 const (
@@ -75,28 +101,70 @@ var (
 	modelOperatorName = "modeloperator"
 )
 
+//EnsureClusterRole implements ModelOperatorBroker
+func (m *modelOperatorBrokerBridge) EnsureClusterRole(cr *rbac.ClusterRole) ([]func(), error) {
+	if m.ensureClusterRole == nil {
+		return []func(){}, errors.NotImplementedf("ensure cluster role bridge")
+	}
+	return m.ensureClusterRole(cr)
+}
+
+// EnsureClusterRoleBinding implements ModelOperatorBroker
+func (m *modelOperatorBrokerBridge) EnsureClusterRoleBinding(
+	crb *rbac.ClusterRoleBinding,
+) ([]func(), error) {
+	if m.ensureClusterRoleBinding == nil {
+		return []func(){}, errors.NotImplementedf("ensure cluster role binding bridge")
+	}
+	return m.ensureClusterRoleBinding(crb)
+}
+
 // EnsureConfigMap implements ModelOperatorBroker
-func (m *modelOperatorBrokerBridge) EnsureConfigMap(c *core.ConfigMap) error {
+func (m *modelOperatorBrokerBridge) EnsureConfigMap(c *core.ConfigMap) ([]func(), error) {
 	if m.ensureConfigMap == nil {
-		return errors.New("ensure config map bridge not configured")
+		return []func(){}, errors.NotImplementedf("ensure config map bridge")
 	}
 	return m.ensureConfigMap(c)
 }
 
 // EnsureDeployment implements ModelOperatorBroker
-func (m *modelOperatorBrokerBridge) EnsureDeployment(d *apps.Deployment) error {
+func (m *modelOperatorBrokerBridge) EnsureDeployment(d *apps.Deployment) ([]func(), error) {
 	if m.ensureDeployment == nil {
-		return errors.New("ensure deployment bridge not configured")
+		return []func(){}, errors.NotImplementedf("ensure deployment bridge")
 	}
 	return m.ensureDeployment(d)
 }
 
+// EnsureRole implements ModelOperatorBroker
+func (m *modelOperatorBrokerBridge) EnsureRole(r *rbac.Role) ([]func(), error) {
+	if m.ensureRole == nil {
+		return []func(){}, errors.NotImplementedf("ensure role bridge")
+	}
+	return m.ensureRole(r)
+}
+
+// EnsureRoleBinding implements ModelOperatorBroker
+func (m *modelOperatorBrokerBridge) EnsureRoleBinding(r *rbac.RoleBinding) ([]func(), error) {
+	if m.ensureRoleBinding == nil {
+		return []func(){}, errors.NotImplementedf("ensure role binding bridge")
+	}
+	return m.ensureRoleBinding(r)
+}
+
 // EnsureService implements ModelOperatorBroker
-func (m *modelOperatorBrokerBridge) EnsureService(s *core.Service) error {
+func (m *modelOperatorBrokerBridge) EnsureService(s *core.Service) ([]func(), error) {
 	if m.ensureService == nil {
-		return errors.New("ensure service bridge not configured")
+		return []func(){}, errors.NotImplementedf("ensure service bridge")
 	}
 	return m.ensureService(s)
+}
+
+// EnsureServiceAccount implements ModelOperatorBroker
+func (m *modelOperatorBrokerBridge) EnsureServiceAccount(s *core.ServiceAccount) ([]func(), error) {
+	if m.ensureServiceAccount == nil {
+		return []func(){}, errors.NotImplementedf("ensure service account bridge")
+	}
+	return m.ensureServiceAccount(s)
 }
 
 // Namespace implements ModelOperatorBroker
@@ -118,7 +186,7 @@ func ensureModelOperator(
 	modelUUID,
 	agentPath string,
 	config *caas.ModelOperatorConfig,
-	broker ModelOperatorBroker) error {
+	broker ModelOperatorBroker) (err error) {
 
 	operatorName := modelOperatorName
 	modelTag := names.NewModelTag(modelUUID)
@@ -129,13 +197,22 @@ func ensureModelOperator(
 		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
 	}
 
+	cleanUpFuncs := []func(){}
+	defer func() {
+		if err != nil {
+			utils.RunCleanUps(cleanUpFuncs)
+		}
+	}()
+
 	configMap := modelOperatorConfigMap(
 		broker.Namespace(),
 		operatorName,
 		labels,
 		config.AgentConf)
 
-	if err := broker.EnsureConfigMap(configMap); err != nil {
+	c, err := broker.EnsureConfigMap(configMap)
+	cleanUpFuncs = append(cleanUpFuncs, c...)
+	if err != nil {
 		return errors.Annotate(err, "ensuring model operator config map")
 	}
 
@@ -164,9 +241,23 @@ func ensureModelOperator(
 		},
 	}
 
+	saName, c, err := ensureModelOperatorRBAC(
+		broker,
+		operatorName,
+		broker.Namespace(),
+		labels,
+	)
+	cleanUpFuncs = append(cleanUpFuncs, c...)
+	if err != nil {
+		err = errors.Trace(err)
+		return
+	}
+
 	service := modelOperatorService(
 		operatorName, broker.Namespace(), labels, selectorLabels, config.Port)
-	if err := broker.EnsureService(service); err != nil {
+	c, err = broker.EnsureService(service)
+	cleanUpFuncs = append(cleanUpFuncs, c...)
+	if err != nil {
 		return errors.Annotate(err, "ensuring model operater service")
 	}
 
@@ -179,13 +270,20 @@ func ensureModelOperator(
 		config.Port,
 		modelUUID,
 		service.Name,
+		saName,
 		volumes,
 		volumeMounts)
 	if err != nil {
 		return errors.Annotate(err, "building juju model operator deployment")
 	}
 
-	return broker.EnsureDeployment(deployment)
+	c, err = broker.EnsureDeployment(deployment)
+	cleanUpFuncs = append(cleanUpFuncs, c...)
+	if err != nil {
+		return errors.Annotate(err, "ensuring juju model operator deployment")
+	}
+
+	return nil
 }
 
 // EnsureModelOperator implements caas broker's interface. Function ensures that
@@ -196,14 +294,36 @@ func (k *kubernetesClient) EnsureModelOperator(
 	config *caas.ModelOperatorConfig,
 ) error {
 	bridge := &modelOperatorBrokerBridge{
-		ensureConfigMap: func(c *core.ConfigMap) error {
-			_, err := k.ensureConfigMap(c)
-			return err
+		ensureClusterRole: func(cr *rbac.ClusterRole) ([]func(), error) {
+			_, c, err := k.ensureClusterRole(cr)
+			return c, err
 		},
-		ensureDeployment: k.ensureDeployment,
-		ensureService: func(svc *core.Service) error {
-			_, err := k.ensureK8sService(svc)
-			return err
+		ensureClusterRoleBinding: func(crb *rbac.ClusterRoleBinding) ([]func(), error) {
+			_, c, err := k.ensureClusterRoleBinding(crb)
+			return c, err
+		},
+		ensureConfigMap: func(c *core.ConfigMap) ([]func(), error) {
+			cleanUp, err := k.ensureConfigMap(c)
+			return []func(){cleanUp}, err
+		},
+		ensureDeployment: func(d *apps.Deployment) ([]func(), error) {
+			return []func(){}, k.ensureDeployment(d)
+		},
+		ensureRole: func(r *rbac.Role) ([]func(), error) {
+			_, c, err := k.ensureRole(r)
+			return c, err
+		},
+		ensureRoleBinding: func(rb *rbac.RoleBinding) ([]func(), error) {
+			_, c, err := k.ensureRoleBinding(rb)
+			return c, err
+		},
+		ensureService: func(svc *core.Service) ([]func(), error) {
+			c, err := k.ensureK8sService(svc)
+			return []func(){c}, err
+		},
+		ensureServiceAccount: func(sa *core.ServiceAccount) ([]func(), error) {
+			_, c, err := k.ensureServiceAccount(sa)
+			return c, err
 		},
 		namespace:      func() string { return k.namespace },
 		isLegacyLabels: k.IsLegacyLabels,
@@ -265,8 +385,9 @@ func modelOperatorDeployment(
 	selectorLabels map[string]string,
 	operatorImagePath string,
 	port int32,
-	modelUUID string,
-	serviceName string,
+	modelUUID,
+	serviceName,
+	serviceAccountName string,
 	volumes []core.Volume,
 	volumeMounts []core.VolumeMount,
 ) (*apps.Deployment, error) {
@@ -335,7 +456,9 @@ func modelOperatorDeployment(
 						},
 						VolumeMounts: volumeMounts,
 					}},
-					Volumes: volumes,
+					ServiceAccountName:           serviceAccountName,
+					AutomountServiceAccountToken: boolPtr(true),
+					Volumes:                      volumes,
 				},
 			},
 		},
@@ -398,6 +521,139 @@ func modelOperatorService(
 			},
 		},
 	}
+}
+
+func ensureModelOperatorRBAC(
+	broker ModelOperatorBroker,
+	operatorName,
+	namespace string,
+	labels map[string]string,
+) (string, []func(), error) {
+	cleanUpFuncs := []func(){}
+
+	sa := &core.ServiceAccount{
+		ObjectMeta: meta.ObjectMeta{
+			Name:      operatorName,
+			Namespace: namespace,
+			Labels:    labels,
+		},
+		AutomountServiceAccountToken: boolPtr(true),
+	}
+
+	c, err := broker.EnsureServiceAccount(sa)
+	cleanUpFuncs = append(cleanUpFuncs, c...)
+	if err != nil {
+		return sa.Name, cleanUpFuncs, errors.Annotate(err, "ensuring service account")
+	}
+
+	clusterRole := &rbac.ClusterRole{
+		ObjectMeta: meta.ObjectMeta{
+			Name:   operatorName,
+			Labels: labels,
+		},
+		Rules: []rbac.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Resources: []string{"namespaces"},
+				Verbs:     []string{"get"},
+			},
+		},
+	}
+
+	c, err = broker.EnsureClusterRole(clusterRole)
+	cleanUpFuncs = append(cleanUpFuncs, c...)
+	if err != nil {
+		return sa.Name, cleanUpFuncs, errors.Annotate(err, "ensuring cluster role")
+	}
+
+	clusterRoleBinding := &rbac.ClusterRoleBinding{
+		ObjectMeta: meta.ObjectMeta{
+			Name:   operatorName,
+			Labels: labels,
+		},
+		RoleRef: rbac.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     clusterRole.Name,
+		},
+		Subjects: []rbac.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      sa.Name,
+				Namespace: sa.Namespace,
+			},
+		},
+	}
+
+	c, err = broker.EnsureClusterRoleBinding(clusterRoleBinding)
+	cleanUpFuncs = append(cleanUpFuncs, c...)
+	if err != nil {
+		return sa.Name, cleanUpFuncs, errors.Annotate(err, "ensuring cluster role binding")
+	}
+
+	role := &rbac.Role{
+		ObjectMeta: meta.ObjectMeta{
+			Name:      operatorName,
+			Namespace: namespace,
+			Labels:    labels,
+		},
+		Rules: []rbac.PolicyRule{
+			{
+				APIGroups: []string{"admissionregistration.k8s.io"},
+				Resources: []string{"mutatingwebhookconfigurations"},
+				Verbs: []string{
+					"create",
+					"delete",
+					"get",
+					"list",
+					"update",
+				},
+			},
+			{
+				APIGroups: []string{""},
+				Resources: []string{"serviceaccounts"},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+				},
+			},
+		},
+	}
+
+	c, err = broker.EnsureRole(role)
+	cleanUpFuncs = append(cleanUpFuncs, c...)
+	if err != nil {
+		return sa.Name, cleanUpFuncs, errors.Annotate(err, "ensuring role")
+	}
+
+	roleBinding := &rbac.RoleBinding{
+		ObjectMeta: meta.ObjectMeta{
+			Name:      operatorName,
+			Namespace: namespace,
+			Labels:    labels,
+		},
+		RoleRef: rbac.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     role.Name,
+		},
+		Subjects: []rbac.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      sa.Name,
+				Namespace: sa.Namespace,
+			},
+		},
+	}
+
+	c, err = broker.EnsureRoleBinding(roleBinding)
+	cleanUpFuncs = append(cleanUpFuncs, c...)
+	if err != nil {
+		return sa.Name, cleanUpFuncs, errors.Annotate(err, "ensuring role binding")
+	}
+
+	return sa.Name, cleanUpFuncs, nil
 }
 
 func modelOperatorConfigMapAgentConfKey(operatorName string) string {
