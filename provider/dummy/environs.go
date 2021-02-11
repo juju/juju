@@ -437,7 +437,7 @@ func (state *environState) destroyLocked() {
 
 	if mongoAlive() {
 		logger.Debugf("resetting MgoServer")
-		gitjujutesting.MgoServer.Reset()
+		_ = gitjujutesting.MgoServer.Reset()
 	}
 }
 
@@ -934,7 +934,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			// a dummy provider for anything other than testing, so logging the password
 			// here is fine.
 			logger.Debugf("setting password for %q to %q", owner.Name(), icfg.APIInfo.Password)
-			owner.SetPassword(icfg.APIInfo.Password)
+			_ = owner.SetPassword(icfg.APIInfo.Password)
 			statePool := controller.StatePool()
 			stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, clock.WallClock)
 			if err != nil {
@@ -987,8 +987,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			estate.modelCacheWorker = modelCache
 			err = modelcache.ExtractCacheController(modelCache, &estate.controller)
 			if err != nil {
-				worker.Stop(modelCache)
-				worker.Stop(multiWatcherWorker)
+				_ = worker.Stop(modelCache)
+				_ = worker.Stop(multiWatcherWorker)
 				return errors.Trace(err)
 			}
 
@@ -1035,7 +1035,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			go stateAuthenticator.Maintain(abort)
 			go func(apiServer *apiserver.Server) {
 				defer close(abort)
-				apiServer.Wait()
+				_ = apiServer.Wait()
 			}(estate.apiServer)
 		}
 		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, InstanceConfig: icfg}

@@ -98,7 +98,7 @@ func (lf *LogForwarder) processNewConfig(currentSender SendCloser) (SendCloser, 
 	// Get the new config and set up log forwarding if enabled.
 	cfg, ok, err := lf.args.LogForwardConfig.LogForwardConfig()
 	if err != nil {
-		closeExisting()
+		_ = closeExisting()
 		return nil, errors.Trace(err)
 	}
 	if !ok || !cfg.Enabled {

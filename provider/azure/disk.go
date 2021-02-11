@@ -295,7 +295,7 @@ func (env *azureEnviron) deleteVault(stdCtx stdcontext.Context, ctx context.Prov
 	}
 	result, err := vaultClient.Delete(stdCtx, env.resourceGroup, vaultName)
 	if err != nil {
-		errorutils.HandleCredentialError(err, ctx)
+		err = errorutils.HandleCredentialError(err, ctx)
 		if !isNotFoundResult(result) {
 			return errors.Annotatef(err, "deleting vault key %q", vaultName)
 		}

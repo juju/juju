@@ -470,7 +470,7 @@ func (w *Worker) doVALIDATION(status coremigration.MigrationStatus) (coremigrati
 	if err != nil {
 		return coremigration.UNKNOWN, errors.Trace(err)
 	}
-	defer closer()
+	defer func() { _ = closer() }()
 
 	// Check that the provider and target controller agree about what
 	// machines belong to the migrated model.

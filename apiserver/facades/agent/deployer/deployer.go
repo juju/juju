@@ -116,7 +116,7 @@ func getAllUnits(st *state.State, tag names.Tag) ([]string, error) {
 	}
 	// Start a watcher on machine's units, read the initial event and stop it.
 	watch := machine.WatchUnits()
-	defer watch.Stop()
+	defer func() { _ = watch.Stop() }()
 	if units, ok := <-watch.Changes(); ok {
 		return units, nil
 	}

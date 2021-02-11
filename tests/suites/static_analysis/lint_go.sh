@@ -1,10 +1,11 @@
 run_go() {
   VER=$(golangci-lint --version | tr -s ' ' | cut -d ' ' -f 4 | cut -d '.' -f 1,2)
-  if [ "${VER}" != "1.35" ]; then
-      (>&2 echo -e "\\nError: golangci-lint version does not match 1.35")
+  if [ "${VER}" != "1.36" ]; then
+      (>&2 echo -e "\\nError: golangci-lint version does not match 1.36. Please upgrade/downgrade to the right version.")
       exit 1
   fi
   golangci-lint run -c .github/golangci-lint.config.yaml
+  golangci-lint run -c .github/golangci-lint.config.experimental.yaml
 }
 
 run_go_tidy() {

@@ -30,7 +30,7 @@ type ContextUnit struct {
 // UnitName implements jujuc.ContextUnit.
 func (c *ContextUnit) UnitName() string {
 	c.stub.AddCall("UnitName")
-	c.stub.NextErr()
+	_ = c.stub.NextErr()
 
 	return c.info.Name
 }

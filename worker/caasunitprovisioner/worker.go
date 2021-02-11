@@ -188,7 +188,7 @@ func (p *provisioner) loop() error {
 					if err != nil {
 						return errors.Trace(err)
 					}
-					p.catacomb.Add(uw)
+					_ = p.catacomb.Add(uw)
 					continue
 				}
 				if _, ok := p.getApplicationWorker(appId); ok || appLife == life.Dead {
@@ -216,7 +216,7 @@ func (p *provisioner) loop() error {
 					return errors.Trace(err)
 				}
 				p.saveApplicationWorker(appId, w)
-				p.catacomb.Add(w)
+				_ = p.catacomb.Add(w)
 			}
 		}
 	}

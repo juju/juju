@@ -24,7 +24,7 @@ type ContextStorageAttachment struct {
 // Tag implements jujuc.StorageAttachement.
 func (c *ContextStorageAttachment) Tag() names.StorageTag {
 	c.stub.AddCall("Tag")
-	c.stub.NextErr()
+	_ = c.stub.NextErr()
 
 	return c.info.Tag
 }
@@ -32,7 +32,7 @@ func (c *ContextStorageAttachment) Tag() names.StorageTag {
 // Kind implements jujuc.StorageAttachement.
 func (c *ContextStorageAttachment) Kind() storage.StorageKind {
 	c.stub.AddCall("Kind")
-	c.stub.NextErr()
+	_ = c.stub.NextErr()
 
 	return c.info.Kind
 }
@@ -40,7 +40,7 @@ func (c *ContextStorageAttachment) Kind() storage.StorageKind {
 // Location implements jujuc.StorageAttachement.
 func (c *ContextStorageAttachment) Location() string {
 	c.stub.AddCall("Location")
-	c.stub.NextErr()
+	_ = c.stub.NextErr()
 
 	return c.info.Location
 }

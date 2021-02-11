@@ -65,7 +65,7 @@ type restoreWorker struct {
 
 func (w *restoreWorker) loop() error {
 	rw := w.config.RestoreInfoWatcher.WatchRestoreInfoChanges()
-	w.catacomb.Add(rw)
+	_ = w.catacomb.Add(rw)
 	for {
 		select {
 		case <-w.catacomb.Dying():

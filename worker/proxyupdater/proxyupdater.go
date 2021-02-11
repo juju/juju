@@ -347,7 +347,7 @@ func (w *proxyWorker) TearDown() error {
 
 const noStdIn = ""
 
-// Execute the command specified with the args with optional stdin.
+// RunWithStdIn executes the command specified with the args with optional stdin.
 func RunWithStdIn(input string, command string, args ...string) (string, error) {
 	cmd := stdexec.Command(command, args...)
 
@@ -359,7 +359,7 @@ func RunWithStdIn(input string, command string, args ...string) (string, error) 
 
 		go func() {
 			defer stdin.Close()
-			io.WriteString(stdin, input)
+			_, _ = io.WriteString(stdin, input)
 		}()
 	}
 

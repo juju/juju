@@ -191,7 +191,7 @@ func (stor *maas1Storage) Remove(name string) error {
 	// The only thing that can go wrong here, really, is that the file
 	// does not exist.  But deletion is idempotent: deleting a file that
 	// is no longer there anyway is success, not failure.
-	stor.maasClient.GetSubObject(name).Delete()
+	_ = stor.maasClient.GetSubObject(name).Delete()
 	return nil
 }
 

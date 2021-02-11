@@ -70,12 +70,12 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		RestoreInfoWatcher: RestoreInfoWatcherShim{st},
 	})
 	if err != nil {
-		stTracker.Done()
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	return &cleanupWorker{
 		RestoreStatusWorker: w,
-		cleanup:             func() { stTracker.Done() },
+		cleanup:             func() { _ = stTracker.Done() },
 	}, nil
 }
 

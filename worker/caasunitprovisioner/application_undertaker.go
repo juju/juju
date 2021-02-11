@@ -77,10 +77,10 @@ func (au *applicationUndertaker) loop() (err error) {
 	// workers unbounded, use a defer to stop the running worker.
 	defer func() {
 		if brokerUnitsWatcher != nil {
-			worker.Stop(brokerUnitsWatcher)
+			_ = worker.Stop(brokerUnitsWatcher)
 		}
 		if appOperatorWatcher != nil {
-			worker.Stop(appOperatorWatcher)
+			_ = worker.Stop(appOperatorWatcher)
 		}
 	}()
 
@@ -134,7 +134,7 @@ func (au *applicationUndertaker) loop() (err error) {
 			return au.catacomb.ErrDying()
 		case _, ok := <-brokerUnitsChannel:
 			if !ok {
-				worker.Stop(brokerUnitsWatcher)
+				_ = worker.Stop(brokerUnitsWatcher)
 				brokerUnitsWatcher = nil
 				continue
 			}
@@ -148,7 +148,7 @@ func (au *applicationUndertaker) loop() (err error) {
 			continue
 		case _, ok := <-appOpertatorChannel:
 			if !ok {
-				worker.Stop(appOperatorWatcher)
+				_ = worker.Stop(appOperatorWatcher)
 				appOperatorWatcher = nil
 				continue
 			}

@@ -38,8 +38,8 @@ func addOfferAuthHandlers(offerAuthCtxt *crossmodel.AuthContext, mux *apiserverh
 		})
 	discharger.AddMuxHandlers(appOfferDischargeMux, localOfferAccessLocationPath)
 
-	mux.AddHandler("POST", localOfferAccessLocationPath+"/discharge", appOfferDischargeMux)
-	mux.AddHandler("GET", localOfferAccessLocationPath+"/publickey", appOfferDischargeMux)
+	_ = mux.AddHandler("POST", localOfferAccessLocationPath+"/discharge", appOfferDischargeMux)
+	_ = mux.AddHandler("GET", localOfferAccessLocationPath+"/publickey", appOfferDischargeMux)
 }
 
 func newOfferAuthcontext(pool *state.StatePool) (*crossmodel.AuthContext, error) {

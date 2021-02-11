@@ -141,7 +141,7 @@ func (w *wrapper) forwarderConnect(topic string, data forwarder.OriginTarget, er
 	}
 	w.logger.Tracef("request presence info from %s", request)
 	msg := apiserver.OriginTarget{Target: request}
-	w.hub.Publish(apiserver.PresenceRequestTopic, msg)
+	_, _ = w.hub.Publish(apiserver.PresenceRequestTopic, msg)
 	w.logger.Tracef("request sent")
 }
 

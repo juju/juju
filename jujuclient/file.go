@@ -60,7 +60,7 @@ type store struct {
 // contention in tests.
 func generateStoreLockName() string {
 	h := sha256.New()
-	h.Write([]byte(JujuControllersPath()))
+	_, _ = h.Write([]byte(JujuControllersPath()))
 	fullHash := fmt.Sprintf("%x", h.Sum(nil))
 	return fmt.Sprintf("store-lock-%x", fullHash[:8])
 }

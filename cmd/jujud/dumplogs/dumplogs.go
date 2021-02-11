@@ -197,7 +197,7 @@ func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, statePool *state.Stat
 		if !ok {
 			break
 		}
-		writer.WriteString(c.format(
+		_, _ = writer.WriteString(c.format(
 			rec.Time,
 			rec.Level,
 			rec.Entity,

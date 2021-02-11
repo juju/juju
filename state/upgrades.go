@@ -1431,8 +1431,11 @@ func CreateMissingApplicationConfig(pool *StatePool) error {
 	var applicationConfigIDs []struct {
 		ID string `bson:"_id"`
 	}
-	settingsColl.Find(bson.M{
+	err := settingsColl.Find(bson.M{
 		"_id": bson.M{"$regex": bson.RegEx{"#application$", ""}}}).All(&applicationConfigIDs)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	allIDs := set.NewStrings()
 	for _, id := range applicationConfigIDs {
@@ -1446,7 +1449,9 @@ func CreateMissingApplicationConfig(pool *StatePool) error {
 		Name      string `bson:"name"`
 		ModelUUID string `bson:"model-uuid"`
 	}
-	appsColl.Find(nil).All(&applicationNames)
+	if err = appsColl.Find(nil).All(&applicationNames); err != nil {
+		return errors.Trace(err)
+	}
 
 	var newAppConfigOps []txn.Op
 	emptySettings := make(map[string]interface{})
@@ -1460,7 +1465,7 @@ func CreateMissingApplicationConfig(pool *StatePool) error {
 			newAppConfigOps = append(newAppConfigOps, newOp)
 		}
 	}
-	err := st.db().RunRawTransaction(newAppConfigOps)
+	err = st.db().RunRawTransaction(newAppConfigOps)
 	if err != nil {
 		return errors.Annotate(err, "writing application configs")
 	}

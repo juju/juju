@@ -510,10 +510,10 @@ func (srv *Server) loop(ready chan struct{}) error {
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
 	for _, ep := range srv.endpoints() {
-		srv.mux.AddHandler(ep.Method, ep.Pattern, ep.Handler)
+		_ = srv.mux.AddHandler(ep.Method, ep.Pattern, ep.Handler)
 		defer srv.mux.RemoveHandler(ep.Method, ep.Pattern)
 		if ep.Method == "GET" {
-			srv.mux.AddHandler("HEAD", ep.Pattern, ep.Handler)
+			_ = srv.mux.AddHandler("HEAD", ep.Pattern, ep.Handler)
 			defer srv.mux.RemoveHandler("HEAD", ep.Pattern)
 		}
 	}

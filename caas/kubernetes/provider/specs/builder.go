@@ -83,7 +83,7 @@ func (ri *resourceInfo) withNamespace(namespace string) *resourceInfo {
 		logger.Debugf("namespace is force set from %q to %q", ri.namespace, namespace)
 	}
 	ri.namespace = namespace
-	metadataAccessor.SetNamespace(ri.content.Object, ri.namespace)
+	_ = metadataAccessor.SetNamespace(ri.content.Object, ri.namespace)
 	return ri
 }
 

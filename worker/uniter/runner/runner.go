@@ -643,7 +643,7 @@ func (runner *runner) runCharmProcessOnLocal(hook, hookName, charmDir string, en
 			go func() {
 				select {
 				case <-cancel:
-					ps.Process.Kill()
+					_ = ps.Process.Kill()
 				case <-done:
 				}
 			}()
@@ -709,7 +709,7 @@ func (runner *runner) startJujucServer(token string, rMode runMode) (*jujuc.Serv
 	if err != nil {
 		return nil, errors.Annotate(err, "starting jujuc server")
 	}
-	go srv.Run()
+	go func() { _ = srv.Run() }()
 	return srv, nil
 }
 

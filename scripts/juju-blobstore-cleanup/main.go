@@ -451,7 +451,7 @@ func (b *BlobstoreCleaner) cleanupFiles() {
 	for _, path := range b.unreferencedFiles {
 		logger.Debugf("removing blobstore file: %q", path)
 		tick()
-		gridfs.Remove(path)
+		_ = gridfs.Remove(path)
 	}
 	tickDone()
 }

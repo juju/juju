@@ -69,7 +69,7 @@ type ContextRelation struct {
 // Id implements jujuc.ContextRelation.
 func (r *ContextRelation) Id() int {
 	r.stub.AddCall("Id")
-	r.stub.NextErr()
+	_ = r.stub.NextErr()
 
 	return r.info.Id
 }
@@ -77,7 +77,7 @@ func (r *ContextRelation) Id() int {
 // Name implements jujuc.ContextRelation.
 func (r *ContextRelation) Name() string {
 	r.stub.AddCall("Name")
-	r.stub.NextErr()
+	_ = r.stub.NextErr()
 
 	return r.info.Name
 }
@@ -85,7 +85,7 @@ func (r *ContextRelation) Name() string {
 // FakeId implements jujuc.ContextRelation.
 func (r *ContextRelation) FakeId() string {
 	r.stub.AddCall("FakeId")
-	r.stub.NextErr()
+	_ = r.stub.NextErr()
 
 	return fmt.Sprintf("%s:%d", r.info.Name, r.info.Id)
 }
@@ -93,7 +93,7 @@ func (r *ContextRelation) FakeId() string {
 // Life implements jujuc.ContextRelation.
 func (r *ContextRelation) Life() life.Value {
 	r.stub.AddCall("Life")
-	r.stub.NextErr()
+	_ = r.stub.NextErr()
 
 	return r.info.Life
 }
@@ -125,7 +125,7 @@ func (r *ContextRelation) ApplicationSettings() (jujuc.Settings, error) {
 // UnitNames implements jujuc.ContextRelation.
 func (r *ContextRelation) UnitNames() []string {
 	r.stub.AddCall("UnitNames")
-	r.stub.NextErr()
+	_ = r.stub.NextErr()
 
 	var s []string // initially nil to match the true context.
 	for name := range r.info.Units {

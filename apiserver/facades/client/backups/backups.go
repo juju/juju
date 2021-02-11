@@ -202,6 +202,6 @@ func MetadataFromResult(result params.BackupsMetadataResult) *backups.Metadata {
 		MachineInstanceID: result.ControllerMachineInstanceID,
 		HANodes:           result.HANodes,
 	}
-	meta.SetFileInfo(result.Size, result.Checksum, result.ChecksumFormat)
+	_ = meta.SetFileInfo(result.Size, result.Checksum, result.ChecksumFormat)
 	return meta
 }

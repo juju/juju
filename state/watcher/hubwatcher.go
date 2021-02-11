@@ -278,7 +278,7 @@ func (w *HubWatcher) Watch(collection string, id interface{}, ch chan<- Change) 
 	// We use a value of -2 to indicate that we don't know the state of the document.
 	// -1 would indicate that we think the document is deleted (and won't trigger
 	// a change event if the document really is deleted).
-	w.sendAndWaitReq(reqWatch{
+	_ = w.sendAndWaitReq(reqWatch{
 		key: watchKey{collection, id},
 		info: watchInfo{
 			ch:     ch,
@@ -302,7 +302,7 @@ func (w *HubWatcher) WatchCollection(collection string, ch chan<- Change) {
 // to change after a transaction is applied for any document in the collection, so long as the
 // specified filter function returns true when called with the document id value.
 func (w *HubWatcher) WatchCollectionWithFilter(collection string, ch chan<- Change, filter func(interface{}) bool) {
-	w.sendAndWaitReq(reqWatch{
+	_ = w.sendAndWaitReq(reqWatch{
 		key: watchKey{collection, nil},
 		info: watchInfo{
 			ch:     ch,

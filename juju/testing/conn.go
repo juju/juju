@@ -156,7 +156,7 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	if s.InitialLoggingConfig != "" {
-		loggo.ConfigureLoggers(s.InitialLoggingConfig)
+		_ = loggo.ConfigureLoggers(s.InitialLoggingConfig)
 	}
 
 	// This needs to be a pointer as there are other Mixin structures
@@ -654,7 +654,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		APIPort:      s.ControllerConfig.APIPort(),
 		StatePort:    s.ControllerConfig.StatePort(),
 	}
-	s.State.SetStateServingInfo(servingInfo)
+	_ = s.State.SetStateServingInfo(servingInfo)
 }
 
 // AddToolsToState adds tools to tools storage.

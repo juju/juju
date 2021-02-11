@@ -109,20 +109,20 @@ func (m *containerManager) CreateContainer(
 	storageConfig *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
 ) (instances.Instance, *instance.HardwareCharacteristics, error) {
-	callback(status.Provisioning, "Creating container spec", nil)
+	_ = callback(status.Provisioning, "Creating container spec", nil)
 	spec, err := m.getContainerSpec(instanceConfig, cons, series, networkConfig, storageConfig, callback)
 	if err != nil {
-		callback(status.ProvisioningError, fmt.Sprintf("Creating container spec: %v", err), nil)
+		_ = callback(status.ProvisioningError, fmt.Sprintf("Creating container spec: %v", err), nil)
 		return nil, nil, errors.Trace(err)
 	}
 
-	callback(status.Provisioning, "Creating container", nil)
+	_ = callback(status.Provisioning, "Creating container", nil)
 	c, err := m.server.CreateContainerFromSpec(spec)
 	if err != nil {
-		callback(status.ProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
+		_ = callback(status.ProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
 		return nil, nil, errors.Trace(err)
 	}
-	callback(status.Running, "Container started", nil)
+	_ = callback(status.Running, "Container started", nil)
 
 	return &lxdInstance{c.Name, m.server.ContainerServer},
 		&instance.HardwareCharacteristics{AvailabilityZone: &m.availabilityZone}, nil

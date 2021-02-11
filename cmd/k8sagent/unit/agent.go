@@ -325,7 +325,7 @@ func (c *k8sUnitAgent) Run(ctx *cmd.Context) (err error) {
 		ctx.Warningf("developer feature flags enabled: %s", flags)
 	}
 
-	c.runner.StartWorker("unit", c.workers)
+	_ = c.runner.StartWorker("unit", c.workers)
 	return AgentDone(logger, c.runner.Wait())
 }
 
