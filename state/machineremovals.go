@@ -10,6 +10,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -26,17 +27,13 @@ func (m *Machine) markForRemovalOps() ([]txn.Op, error) {
 		return nil, errors.Errorf("machine is not dead")
 	}
 	ops := []txn.Op{{
-		C:  machinesC,
-		Id: m.doc.DocID,
-		// Check that the machine is still dead (and implicitly that
-		// it still exists).
+		C:      machinesC,
+		Id:     m.doc.DocID,
 		Assert: isDeadDoc,
 	}, {
 		C:      machineRemovalsC,
 		Id:     m.globalKey(),
 		Insert: &machineRemovalDoc{MachineID: m.Id()},
-		// No assert here - it's ok if the machine has already been
-		// marked. The id will prevent duplicates.
 	}}
 	return ops, nil
 }
@@ -45,15 +42,26 @@ func (m *Machine) markForRemovalOps() ([]txn.Op, error) {
 // needed provider-level cleanup is done.
 func (m *Machine) MarkForRemoval() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove machine %s", m.doc.Id)
-	// Local variable so we can refresh the machine if needed.
-	machine := m
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// Check if it has already been marked first.
+		// If so, we just do nothing and return success.
+		col, close := m.st.db().GetCollection(machineRemovalsC)
+		defer close()
+
+		remCount, err := col.FindId(m.globalKey()).Count()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if remCount > 0 {
+			return nil, jujutxn.ErrNoOperations
+		}
+
 		if attempt != 0 {
-			if machine, err = machine.st.Machine(machine.Id()); err != nil {
+			if err := m.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
-		ops, err := machine.markForRemovalOps()
+		ops, err := m.markForRemovalOps()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
