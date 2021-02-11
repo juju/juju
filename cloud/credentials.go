@@ -199,7 +199,10 @@ func (s CredentialSchema) Finalize(
 		return nil, errors.Trace(err)
 	}
 
-	resultMap := result.(map[string]interface{})
+	resultMap, ok := result.(map[string]interface{})
+	if !ok {
+		return nil, errors.Errorf("invalid result type %T", result)
+	}
 	newAttrs := make(map[string]string)
 
 	// Construct the final credential attributes map, reading values from files as necessary.
@@ -230,7 +233,10 @@ func (s CredentialSchema) Finalize(
 			}
 		}
 		if val, ok := resultMap[name]; ok {
-			newAttrs[name] = val.(string)
+			newAttrs[name], ok = val.(string)
+			if !ok {
+				return nil, errors.Errorf("invalid result value type %T", val)
+			}
 		}
 	}
 	return newAttrs, nil
@@ -265,7 +271,10 @@ func (s CredentialSchema) processFileAttrValue(
 				name, field.FileAttr,
 			)
 		}
-		newAttrs[name] = fieldVal.(string)
+		newAttrs[name], ok = fieldVal.(string)
+		if !ok {
+			return errors.Errorf("unexpected field attr type %T", fieldVal)
+		}
 		return nil
 	}
 	fieldVal, ok := resultMap[field.FileAttr]
@@ -368,15 +377,24 @@ func (c cloudCredentialChecker) Coerce(v interface{}, path []string) (interface{
 	if err != nil {
 		return nil, err
 	}
-	mapv := v.(map[string]interface{})
+	mapv, ok := v.(map[string]interface{})
+	if !ok {
+		return nil, errors.Errorf("unexpected value type %T", v)
+	}
 	for k, v := range mapv {
 		switch k {
 		case "default-region":
-			out.DefaultRegion = v.(string)
+			if out.DefaultRegion, ok = v.(string); !ok {
+				return nil, errors.Errorf("unexpected default-region type %T", v)
+			}
 		case "default-credential":
-			out.DefaultCredential = v.(string)
+			if out.DefaultCredential, ok = v.(string); !ok {
+				return nil, errors.Errorf("unexpected default-credential type %T", v)
+			}
 		default:
-			out.AuthCredentials[k] = v.(Credential)
+			if out.AuthCredentials[k], ok = v.(Credential); !ok {
+				return nil, errors.Errorf("unexpected credential type %T", v)
+			}
 		}
 	}
 	return out, nil
@@ -394,7 +412,10 @@ func (c cloudCredentialValueChecker) Coerce(v interface{}, path []string) (inter
 	if err != nil {
 		return nil, err
 	}
-	mapv := v.(map[string]interface{})
+	mapv, ok := v.(map[string]interface{})
+	if !ok {
+		return nil, errors.Errorf("unexpected value type %T", v)
+	}
 
 	authType, _ := mapv["auth-type"].(string)
 	if authType == "" {
@@ -404,7 +425,10 @@ func (c cloudCredentialValueChecker) Coerce(v interface{}, path []string) (inter
 	attrs := make(map[string]string)
 	delete(mapv, "auth-type")
 	for k, v := range mapv {
-		attrs[k] = v.(string)
+		attrs[k], ok = v.(string)
+		if !ok {
+			return nil, errors.Errorf("unexpected attribute type %T", v)
+		}
 	}
 	if len(attrs) == 0 {
 		attrs = nil

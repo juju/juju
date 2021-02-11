@@ -111,7 +111,11 @@ func (a *store) All() []EntityInfo {
 
 	entities := make([]EntityInfo, 0, a.list.Len())
 	for e := a.list.Front(); e != nil; e = e.Next() {
-		entry := e.Value.(*entityEntry)
+		entry, ok := e.Value.(*entityEntry)
+		if !ok {
+			a.logger.Criticalf("programming error: unexpected value type %T", e.Value)
+			continue
+		}
 		if entry.removed {
 			continue
 		}

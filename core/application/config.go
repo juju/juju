@@ -45,7 +45,11 @@ func (c *Config) setAttributes(attrs map[string]interface{}) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	c.attributes = result.(map[string]interface{})
+	attributes, ok := result.(map[string]interface{})
+	if !ok {
+		return errors.Errorf("invalid result %T", result)
+	}
+	c.attributes = attributes
 	return nil
 }
 

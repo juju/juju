@@ -1132,27 +1132,27 @@ func (c *Config) LogFwdSyslog() (*syslog.RawConfig, bool) {
 
 	if s, ok := c.defined[LogForwardEnabled]; ok {
 		partial = true
-		lfCfg.Enabled = s.(bool)
+		lfCfg.Enabled = castBool(s)
 	}
 
 	if s, ok := c.defined[LogFwdSyslogHost]; ok && s != "" {
 		partial = true
-		lfCfg.Host = s.(string)
+		lfCfg.Host = castString(s)
 	}
 
 	if s, ok := c.defined[LogFwdSyslogCACert]; ok && s != "" {
 		partial = true
-		lfCfg.CACert = s.(string)
+		lfCfg.CACert = castString(s)
 	}
 
 	if s, ok := c.defined[LogFwdSyslogClientCert]; ok && s != "" {
 		partial = true
-		lfCfg.ClientCert = s.(string)
+		lfCfg.ClientCert = castString(s)
 	}
 
 	if s, ok := c.defined[LogFwdSyslogClientKey]; ok && s != "" {
 		partial = true
-		lfCfg.ClientKey = s.(string)
+		lfCfg.ClientKey = castString(s)
 	}
 
 	if !partial {
@@ -1186,7 +1186,9 @@ func (c *Config) AgentVersion() (version.Number, bool) {
 // and whether it has been set.
 func (c *Config) AgentMetadataURL() (string, bool) {
 	if url, ok := c.defined[AgentMetadataURLKey]; ok && url != "" {
-		return url.(string), true
+		if u, ok := url.(string); ok {
+			return u, true
+		}
 	}
 	return "", false
 }
@@ -2193,4 +2195,20 @@ where possible. (default "")`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
+}
+
+func castBool(i interface{}) bool {
+	v, ok := i.(bool)
+	if !ok {
+		panic(errors.Errorf("invalid bool %T %v", i, i))
+	}
+	return v
+}
+
+func castString(i interface{}) string {
+	v, ok := i.(string)
+	if !ok {
+		panic(errors.Errorf("invalid string %T %v", i, i))
+	}
+	return v
 }

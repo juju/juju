@@ -206,9 +206,12 @@ func (e *Environ) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallConte
 		providerCommon.HandleCredentialError(err, ctx)
 		return nil, err
 	}
-	zones := []string{}
+	var zones []string
 	for _, inst := range instances {
-		oInst := inst.(*ociInstance)
+		oInst, ok := inst.(*ociInstance)
+		if !ok {
+			return nil, errors.Errorf("unexpected instance type %T", inst)
+		}
 		zones = append(zones, oInst.availabilityZone())
 	}
 	if len(zones) < len(ids) {

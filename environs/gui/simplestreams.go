@@ -34,7 +34,7 @@ func init() {
 	simplestreams.RegisterStructTags(Metadata{})
 }
 
-// DataSource creates and returns a new simplestreams signed data source for
+// NewDataSource creates and returns a new simplestreams signed data source for
 // fetching Juju GUI archives, at the given URL.
 func NewDataSource(baseURL string) simplestreams.DataSource {
 	return simplestreams.NewDataSource(
@@ -72,7 +72,10 @@ func FetchMetadata(stream string, major, minor int, sources ...simplestreams.Dat
 	}
 	allMeta := make([]*Metadata, len(items))
 	for i, item := range items {
-		allMeta[i] = item.(*Metadata)
+		var ok bool
+		if allMeta[i], ok = item.(*Metadata); !ok {
+			return nil, errors.Errorf("unexpected metadata type %T", item)
+		}
 	}
 	sort.Sort(byVersion(allMeta))
 	return allMeta, nil

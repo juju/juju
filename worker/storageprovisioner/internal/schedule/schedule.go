@@ -46,9 +46,13 @@ func (s *Schedule) Next() <-chan time.Time {
 func (s *Schedule) Ready(now time.Time) []interface{} {
 	var ready []interface{}
 	for len(s.items) > 0 && !s.items[0].t.After(now) {
-		item := heap.Pop(&s.items).(*scheduleItem)
-		delete(s.m, item.key)
-		ready = append(ready, item.value)
+		item := heap.Pop(&s.items)
+		sItem, ok := item.(*scheduleItem)
+		if !ok {
+			panic(errors.Errorf("invalid schedule item %T", item))
+		}
+		delete(s.m, sItem.key)
+		ready = append(ready, sItem.value)
 	}
 	return ready
 }
@@ -98,7 +102,10 @@ func (s scheduleItems) Swap(i, j int) {
 }
 
 func (s *scheduleItems) Push(x interface{}) {
-	item := x.(*scheduleItem)
+	item, ok := x.(*scheduleItem)
+	if !ok {
+		panic(errors.Errorf("invalid schedule item %T", x))
+	}
 	item.i = len(*s)
 	*s = append(*s, item)
 }

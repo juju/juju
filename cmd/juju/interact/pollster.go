@@ -559,12 +559,21 @@ func (p *Pollster) queryArray(schema *jsonschema.Schema) (interface{}, error) {
 		}
 		return nil, errors.Errorf("unsupported schema for an array: %s", b)
 	}
-	var def string
+	var (
+		ok  bool
+		def string
+	)
 	if schema.Default != nil {
-		def = schema.Default.(string)
+		def, ok = schema.Default.(string)
+		if !ok {
+			return nil, errors.Errorf("unexpected schema default type %T", schema.Default)
+		}
 	}
 	if schema.PromptDefault != nil {
-		def = schema.PromptDefault.(string)
+		def, ok = schema.PromptDefault.(string)
+		if !ok {
+			return nil, errors.Errorf("unexpected prompt default type %T", schema.Default)
+		}
 	}
 	var array []string
 	if def != "" {

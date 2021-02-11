@@ -134,7 +134,10 @@ func (p *provisioner) loop() error {
 				}
 
 				if existingWorker != nil {
-					worker := existingWorker.(appNotifyWorker)
+					worker, ok := existingWorker.(appNotifyWorker)
+					if !ok {
+						return errors.Errorf("unexpected notifier type %T", existingWorker)
+					}
 					worker.Notify()
 					continue
 				}

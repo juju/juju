@@ -77,8 +77,16 @@ func (h *localLoginHandlers) formHandler(w http.ResponseWriter, req *http.Reques
 			return
 		}
 
-		username := loginRequest.Body.Form["user"].(string)
-		password := loginRequest.Body.Form["password"].(string)
+		username, ok := loginRequest.Body.Form["user"].(string)
+		if !ok {
+			h.bakeryError(w, errors.BadRequestf("username type"))
+			return
+		}
+		password, ok := loginRequest.Body.Form["password"].(string)
+		if !ok {
+			h.bakeryError(w, errors.BadRequestf("password type"))
+			return
+		}
 		userTag := names.NewUserTag(username)
 		if !userTag.IsLocal() {
 			h.bakeryError(w, errors.NotValidf("non-local username %q", username))

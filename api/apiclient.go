@@ -893,7 +893,10 @@ func verifyCAMulti(ctx context.Context, addrs []string, opts *dialOpts) error {
 
 	// Try to verify CA cert using the system roots. If the verification
 	// succeeds then we are done; tls connections will work out of the box.
-	res := result.(caRetrieveRes)
+	res, ok := result.(caRetrieveRes)
+	if !ok {
+		return errors.Errorf("unexpected CA certificate result %T", result)
+	}
 	if _, err = res.caCert.Verify(x509.VerifyOptions{}); err == nil {
 		logger.Debugf("remote CA certificate trusted by system roots")
 		return nil

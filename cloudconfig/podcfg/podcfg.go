@@ -218,7 +218,12 @@ func (cfg *ControllerPodConfig) GetPodName() string {
 func (cfg *ControllerPodConfig) GetHostedModel() (string, bool) {
 	hasHostedModel := len(cfg.Bootstrap.HostedModelConfig) > 0
 	if hasHostedModel {
-		modelName := cfg.Bootstrap.HostedModelConfig[config.NameKey].(string)
+		name := cfg.Bootstrap.HostedModelConfig[config.NameKey]
+		modelName, ok := name.(string)
+		if !ok {
+			logger.Errorf("unexpected hosted model type %T", name)
+			return "", false
+		}
 		logger.Debugf("configured hosted model %q for bootstrapping", modelName)
 		return modelName, true
 	}

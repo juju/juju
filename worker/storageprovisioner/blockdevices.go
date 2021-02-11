@@ -135,7 +135,10 @@ func processPendingVolumeBlockDevices(ctx *context) error {
 	}
 	volumeTags := make([]names.VolumeTag, len(ctx.pendingVolumeBlockDevices))
 	for i, tag := range ctx.pendingVolumeBlockDevices.SortedValues() {
-		volumeTags[i] = tag.(names.VolumeTag)
+		var ok bool
+		if volumeTags[i], ok = tag.(names.VolumeTag); !ok {
+			return errors.Errorf("unexpected volume tag type %T", tag)
+		}
 	}
 	// Clear out the pending set, so we don't force-refresh again.
 	ctx.pendingVolumeBlockDevices = names.NewSet()

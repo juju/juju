@@ -21,6 +21,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/version"
+	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/filestorage"
@@ -172,15 +173,18 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string
 	for _, mc := range cloudMetadata.Products {
 		for _, items := range mc.Items {
 			for key, item := range items.Items {
-				toolsMetadata := item.(*tools.ToolsMetadata)
+				toolsMetadata, ok := item.(*tools.ToolsMetadata)
+				if !ok {
+					panic(errors.Errorf("unexpected tool type %T", item))
+				}
 				toolsMetadataMap[key] = toolsMetadata
 				toolsVersions.Add(key)
 				seriesVersion, err := series.SeriesVersion(toolsMetadata.Release)
 				if err != nil {
 					c.Assert(err, jc.Satisfies, series.IsUnknownSeriesVersionError)
 				}
-				productId := fmt.Sprintf("com.ubuntu.juju:%s:%s", seriesVersion, toolsMetadata.Arch)
-				expectedProductIds.Add(productId)
+				productID := fmt.Sprintf("com.ubuntu.juju:%s:%s", seriesVersion, toolsMetadata.Arch)
+				expectedProductIds.Add(productID)
 			}
 		}
 	}

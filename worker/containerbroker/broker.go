@@ -88,7 +88,11 @@ func NewTracker(config Config) (*Tracker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	machineTag := config.AgentConfig.Tag().(names.MachineTag)
+	tag := config.AgentConfig.Tag()
+	machineTag, ok := tag.(names.MachineTag)
+	if !ok {
+		return nil, errors.Errorf("unexpected machine tag %T", tag)
+	}
 	provisioner := config.NewStateFunc(config.APICaller)
 	result, err := provisioner.Machines(machineTag)
 	if err != nil {

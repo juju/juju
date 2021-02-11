@@ -545,7 +545,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	environ := bootstrapEnviron.(environs.Environ)
+	environ, ok := bootstrapEnviron.(environs.Environ)
+	if !ok {
+		c.Fatalf("unexpected bootstrap environ type %T", bootstrapEnviron)
+	}
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Config().Name(), gc.Equals, "controller")
 	s.PatchValue(&dummy.DataDir, s.DataDir())

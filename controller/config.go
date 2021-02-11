@@ -454,7 +454,11 @@ func NewConfig(controllerUUID, caCert string, attrs map[string]interface{}) (Con
 	if err != nil {
 		return Config{}, errors.Trace(err)
 	}
-	attrs = coerced.(map[string]interface{})
+	var ok bool
+	attrs, ok = coerced.(map[string]interface{})
+	if !ok {
+		return Config{}, errors.Errorf("invalid coerced type %T", coerced)
+	}
 	attrs[ControllerUUIDKey] = controllerUUID
 	attrs[CACertKey] = caCert
 	config := Config(attrs)
@@ -616,9 +620,12 @@ func (c Config) AuditLogMaxBackups() int {
 // containing only these will be excluded from the audit log.
 func (c Config) AuditLogExcludeMethods() set.Strings {
 	if value, ok := c[AuditLogExcludeMethods]; ok {
-		value := value.([]interface{})
+		v, ok := value.([]interface{})
+		if !ok {
+			panic(errors.Errorf("invalid AuditLogExcludeMethods type %T", value))
+		}
 		items := set.NewStrings()
-		for _, item := range value {
+		for _, item := range v {
 			items.Add(item.(string))
 		}
 		return items
@@ -630,7 +637,10 @@ func (c Config) AuditLogExcludeMethods() set.Strings {
 func (c Config) Features() set.Strings {
 	features := set.NewStrings()
 	if value, ok := c[Features]; ok {
-		value := value.([]interface{})
+		value, ok := value.([]interface{})
+		if !ok {
+			panic(errors.Errorf("invalid Featrues type %T", value))
+		}
 		for _, item := range value {
 			features.Add(item.(string))
 		}

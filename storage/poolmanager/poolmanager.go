@@ -121,9 +121,8 @@ func (pm *poolManager) Get(name string) (*storage.Config, error) {
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NotFoundf("pool %q", name)
-		} else {
-			return nil, errors.Annotatef(err, "reading pool %q", name)
 		}
+		return nil, errors.Annotatef(err, "reading pool %q", name)
 	}
 	return pm.configFromSettings(settings)
 }
@@ -147,7 +146,10 @@ func (pm *poolManager) List() ([]*storage.Config, error) {
 
 func (pm *poolManager) configFromSettings(settings map[string]interface{}) (*storage.Config, error) {
 	providerType := storage.ProviderType(settings[Type].(string))
-	name := settings[Name].(string)
+	name, ok := settings[Name].(string)
+	if !ok {
+		return nil, errors.Errorf("invalid settings type %T", settings[Name])
+	}
 	// Ensure returned attributes are stripped of name and type,
 	// as these are not user-specified attributes.
 	delete(settings, Name)

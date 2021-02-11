@@ -308,7 +308,10 @@ func ServerError(err error) *params.Error {
 	case stateerrors.IsIncompatibleSeriesError(err):
 		code = params.CodeIncompatibleSeries
 	case IsDischargeRequiredError(err):
-		dischErr := errors.Cause(err).(*DischargeRequiredError)
+		dischErr, ok := errors.Cause(err).(*DischargeRequiredError)
+		if !ok {
+			panic(errors.Annotatef(err, "invalid error %T", err))
+		}
 		code = params.CodeDischargeRequired
 		info = params.DischargeRequiredErrorInfo{
 			Macaroon:       dischErr.LegacyMacaroon,
@@ -317,12 +320,18 @@ func ServerError(err error) *params.Error {
 			MacaroonPath: "/",
 		}.AsMap()
 	case IsUpgradeSeriesValidationError(err):
-		rawErr := errors.Cause(err).(*UpgradeSeriesValidationError)
+		rawErr, ok := errors.Cause(err).(*UpgradeSeriesValidationError)
+		if !ok {
+			panic(errors.Annotatef(err, "invalid error %T", err))
+		}
 		info = params.UpgradeSeriesValidationErrorInfo{
 			Status: rawErr.Status,
 		}.AsMap()
 	case IsRedirectError(err):
-		redirErr := errors.Cause(err).(*RedirectError)
+		redirErr, ok := errors.Cause(err).(*RedirectError)
+		if !ok {
+			panic(errors.Annotatef(err, "invalid error %T", err))
+		}
 		code = params.CodeRedirect
 
 		// Check for a zero-value tag. We don't send it over the wire if it is.
@@ -341,7 +350,10 @@ func ServerError(err error) *params.Error {
 		code = params.CodeQuotaLimitExceeded
 	case params.IsIncompatibleClientError(err):
 		code = params.CodeIncompatibleClient
-		rawErr := errors.Cause(err).(*params.IncompatibleClientError)
+		rawErr, ok := errors.Cause(err).(*params.IncompatibleClientError)
+		if !ok {
+			panic(errors.Annotatef(err, "invalid error %T", err))
+		}
 		info = rawErr.AsMap()
 	default:
 		code = params.ErrCode(err)

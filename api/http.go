@@ -194,7 +194,10 @@ func bakeryError(err error) error {
 	if params.ErrCode(err) != params.CodeDischargeRequired {
 		return err
 	}
-	errResp := errors.Cause(err).(*params.Error)
+	errResp, ok := errors.Cause(err).(*params.Error)
+	if !ok {
+		return errors.Errorf("unexpected error type %T", err)
+	}
 	if errResp.Info == nil {
 		return errors.Annotate(err, "no error info found in discharge-required response error")
 	}

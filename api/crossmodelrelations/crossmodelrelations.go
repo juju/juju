@@ -50,7 +50,10 @@ func (c *Client) handleError(apiErr error) (macaroon.Slice, error) {
 	if params.ErrCode(apiErr) != params.CodeDischargeRequired {
 		return nil, apiErr
 	}
-	errResp := errors.Cause(apiErr).(*params.Error)
+	errResp, ok := errors.Cause(apiErr).(*params.Error)
+	if !ok {
+		return nil, errors.Errorf("unexpected error type %T", apiErr)
+	}
 	if errResp.Info == nil {
 		return nil, errors.Annotatef(apiErr, "no error info found in discharge-required response error")
 	}

@@ -1796,7 +1796,10 @@ func (inst *dummyInstance) Status(ctx context.ProviderCallContext) instance.Stat
 // SetInstanceAddresses sets the addresses associated with the given
 // dummy instance.
 func SetInstanceAddresses(inst instances.Instance, addrs []corenetwork.ProviderAddress) {
-	inst0 := inst.(*dummyInstance)
+	inst0, ok := inst.(*dummyInstance)
+	if !ok {
+		panic(errors.Errorf("invalid instance %T", inst))
+	}
 	inst0.mu.Lock()
 	inst0.addresses = append(inst0.addresses[:0], addrs...)
 	logger.Debugf("setting instance %q addresses to %v", inst0.Id(), addrs)
@@ -1806,7 +1809,10 @@ func SetInstanceAddresses(inst instances.Instance, addrs []corenetwork.ProviderA
 // SetInstanceStatus sets the status associated with the given
 // dummy instance.
 func SetInstanceStatus(inst instances.Instance, status string) {
-	inst0 := inst.(*dummyInstance)
+	inst0, ok := inst.(*dummyInstance)
+	if !ok {
+		panic(errors.Errorf("invalid instance %T", inst))
+	}
 	inst0.mu.Lock()
 	inst0.status = status
 	inst0.mu.Unlock()
@@ -1815,7 +1821,10 @@ func SetInstanceStatus(inst instances.Instance, status string) {
 // SetInstanceBroken marks the named methods of the instance as broken.
 // Any previously broken methods not in the set will no longer be broken.
 func SetInstanceBroken(inst instances.Instance, methods ...string) {
-	inst0 := inst.(*dummyInstance)
+	inst0, ok := inst.(*dummyInstance)
+	if !ok {
+		panic(errors.Errorf("invalid instance %T", inst))
+	}
 	inst0.mu.Lock()
 	inst0.broken = methods
 	inst0.mu.Unlock()

@@ -84,7 +84,10 @@ func ParseStorageConfig(attrs map[string]interface{}) (*StorageConfig, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "validating storage config")
 	}
-	coerced := out.(map[string]interface{})
+	coerced, ok := out.(map[string]interface{})
+	if !ok {
+		return nil, errors.Errorf("unexpected attribute type %T", out)
+	}
 	storageConfig := &StorageConfig{}
 	if storageClassName, ok := coerced[k8sconstants.StorageClass].(string); ok {
 		storageConfig.StorageClass = storageClassName
@@ -140,7 +143,10 @@ func ParseStorageMode(attrs map[string]interface{}) (*corev1.PersistentVolumeAcc
 	if err != nil {
 		return nil, errors.Annotate(err, "validating storage mode")
 	}
-	coerced := out.(map[string]interface{})
+	coerced, ok := out.(map[string]interface{})
+	if !ok {
+		return nil, errors.Errorf("unexpected storage mode type %T", out)
+	}
 	return parseMode(coerced[k8sconstants.StorageMode].(string))
 }
 

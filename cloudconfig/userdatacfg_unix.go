@@ -249,11 +249,16 @@ func (w *unixConfigure) ConfigureJuju() error {
 	// To keep postruncmd at the end of any runcmd's that juju adds,
 	// this block must stay at the top.
 	if postruncmds, ok := w.icfg.CloudInitUserData["postruncmd"].([]interface{}); ok {
-		cmds := make([]string, len(postruncmds))
-		for i, v := range postruncmds {
-			cmds[i] = v.(string)
+		var commands []string
+		for _, prc := range postruncmds {
+			c, ok := prc.(string)
+			if !ok {
+				logger.Errorf("unexpected postruncmd type %T; value %v", prc, prc)
+				continue
+			}
+			commands = append(commands, c)
 		}
-		defer w.conf.AddScripts(cmds...)
+		defer w.conf.AddScripts(commands...)
 	}
 
 	// Initialise progress reporting. We need to do separately for runcmd

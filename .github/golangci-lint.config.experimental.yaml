@@ -1,6 +1,6 @@
 linters-settings:
   errcheck:
-    check-type-assertions: false
+    check-type-assertions: true
 linters:
   disable-all: true
   enable:
