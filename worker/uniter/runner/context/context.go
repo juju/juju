@@ -1233,6 +1233,11 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 	}
 
 	callErr := ctx.state.ActionFinish(tag, actionStatus, results, message)
+	// Prevent the unit agent from looping if it's impossible to finalise the action.
+	if params.IsCodeNotFoundOrCodeUnauthorized(callErr) || params.IsCodeAlreadyExists(callErr) {
+		ctx.logger.Warningf("error finalising action %v: %v", tag.Id(), callErr)
+		callErr = nil
+	}
 	if callErr != nil {
 		unhandledErr = errors.Wrap(unhandledErr, callErr)
 	}
