@@ -44,7 +44,7 @@ func (s *UtilsSuite) TestSupportsIPv6OK(c *gc.C) {
 }
 
 func (*UtilsSuite) TestParseInterfaceType(c *gc.C) {
-	fakeSysPath := filepath.Join(c.MkDir(), network.SysClassNetPath)
+	fakeSysPath := filepath.Join(c.MkDir(), corenetwork.SysClassNetPath)
 	err := os.MkdirAll(fakeSysPath, 0700)
 	c.Check(err, jc.ErrorIsNil)
 
@@ -94,7 +94,7 @@ func (*UtilsSuite) TestParseInterfaceType(c *gc.C) {
 }
 
 func (*UtilsSuite) TestGetBridgePorts(c *gc.C) {
-	fakeSysPath := filepath.Join(c.MkDir(), network.SysClassNetPath)
+	fakeSysPath := filepath.Join(c.MkDir(), corenetwork.SysClassNetPath)
 	err := os.MkdirAll(fakeSysPath, 0700)
 	c.Check(err, jc.ErrorIsNil)
 
