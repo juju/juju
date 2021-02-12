@@ -27,11 +27,6 @@ func SupportsIPv6() bool {
 	return true
 }
 
-// SysClassNetRoot is the full Linux SYSFS path containing information about
-// each network interface on the system. Used as argument to
-// ParseInterfaceType().
-const SysClassNetPath = "/sys/class/net"
-
 // ParseInterfaceType parses the DEVTYPE attribute from the Linux kernel
 // userspace SYSFS location "<sysPath/<interfaceName>/uevent" and returns it as
 // InterfaceType. SysClassNetPath should be passed as sysPath. Returns

@@ -16,59 +16,6 @@ import (
 
 var logger = loggo.GetLogger("juju.api.common")
 
-// NetworkConfigSource defines the necessary calls to obtain the network
-// configuration of a machine.
-type NetworkConfigSource interface {
-	// SysClassNetPath returns the Linux kernel userspace SYSFS path used by
-	// this source. DefaultNetworkConfigSource() uses network.SysClassNetPath.
-	SysClassNetPath() string
-
-	// Interfaces returns information about all network interfaces on the
-	// machine as []net.Interface.
-	Interfaces() ([]net.Interface, error)
-
-	// InterfaceAddresses returns information about all addresses assigned to
-	// the network interface with the given name.
-	InterfaceAddresses(name string) ([]net.Addr, error)
-
-	// DefaultRoute returns the gateway IP address and device name of the
-	// default route on the machine. If there is no default route (known),
-	// then zero values are returned.
-	DefaultRoute() (net.IP, string, error)
-}
-
-type netPackageConfigSource struct{}
-
-// SysClassNetPath implements NetworkConfigSource.
-func (n *netPackageConfigSource) SysClassNetPath() string {
-	return network.SysClassNetPath
-}
-
-// Interfaces implements NetworkConfigSource.
-func (n *netPackageConfigSource) Interfaces() ([]net.Interface, error) {
-	return net.Interfaces()
-}
-
-// InterfaceAddresses implements NetworkConfigSource.
-func (n *netPackageConfigSource) InterfaceAddresses(name string) ([]net.Addr, error) {
-	iface, err := net.InterfaceByName(name)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return iface.Addrs()
-}
-
-// DefaultRoute implements NetworkConfigSource.
-func (n *netPackageConfigSource) DefaultRoute() (net.IP, string, error) {
-	return corenetwork.GetDefaultRoute()
-}
-
-// DefaultNetworkConfigSource returns a NetworkConfigSource backed by the net
-// package, to be used with GetObservedNetworkConfig().
-func DefaultNetworkConfigSource() NetworkConfigSource {
-	return &netPackageConfigSource{}
-}
-
 // GetObservedNetworkConfig uses the given source to find all available network
 // interfaces and their assigned addresses, and returns the result as
 // []params.NetworkConfig. In addition to what the source returns, a few
@@ -87,7 +34,7 @@ func DefaultNetworkConfigSource() NetworkConfigSource {
 //
 // Result entries will be grouped by InterfaceName, in the same order they are
 // returned by the given source.
-func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfig, error) {
+func GetObservedNetworkConfig(source corenetwork.ConfigSource) ([]params.NetworkConfig, error) {
 	logger.Tracef("discovering observed machine network config...")
 
 	interfaces, err := source.Interfaces()
