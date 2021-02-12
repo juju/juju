@@ -280,6 +280,10 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 					Value: constants.AgentHTTPProbePort,
 				},
 			},
+			SecurityContext: &corev1.SecurityContext{
+				RunAsUser:  int64Ptr(0),
+				RunAsGroup: int64Ptr(0),
+			},
 			LivenessProbe: &corev1.Probe{
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
@@ -1019,6 +1023,10 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *gc.C)
 								Name:  "HTTP_PROBE_PORT",
 								Value: "3856",
 							}},
+							SecurityContext: &corev1.SecurityContext{
+								RunAsUser:  int64Ptr(0),
+								RunAsGroup: int64Ptr(0),
+							},
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
@@ -1145,6 +1153,10 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *gc.C) 
 								Name:  "HTTP_PROBE_PORT",
 								Value: "3856",
 							}},
+							SecurityContext: &corev1.SecurityContext{
+								RunAsUser:  int64Ptr(0),
+								RunAsGroup: int64Ptr(0),
+							},
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
@@ -1267,6 +1279,10 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdateContainerPorts(c *gc.C) {
 							WorkingDir:      "/var/lib/juju",
 							Command:         []string{"/charm/bin/containeragent"},
 							Args:            []string{"unit", "--data-dir", "/var/lib/juju", "--append-env", "PATH=$PATH:/charm/bin"},
+							SecurityContext: &corev1.SecurityContext{
+								RunAsUser:  int64Ptr(0),
+								RunAsGroup: int64Ptr(0),
+							},
 						}, {
 							Name:            "gitlab",
 							ImagePullPolicy: corev1.PullIfNotPresent,
@@ -1663,4 +1679,8 @@ func (c *fakeCharm) Actions() *charm.Actions {
 
 func (c *fakeCharm) Revision() int {
 	return 0
+}
+
+func int64Ptr(a int64) *int64 {
+	return &a
 }
