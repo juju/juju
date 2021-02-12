@@ -158,32 +158,25 @@ func updateParentForBridgePorts(bridgeName, sysClassNetPath string, nameToConfig
 	}
 }
 
-func interfaceAddressToNetworkConfig(interfaceName, configType string, address net.Addr) (params.NetworkConfig, error) {
+func interfaceAddressToNetworkConfig(
+	interfaceName, configType string, addr corenetwork.ConfigSourceAddr,
+) (params.NetworkConfig, error) {
 	config := params.NetworkConfig{
 		ConfigType: configType,
 	}
 
-	cidrAddress := address.String()
-	if cidrAddress == "" {
-		return config, nil
+	ip := addr.IP()
+	if ip == nil {
+		return config, errors.Errorf("cannot parse IP address %q on interface %q", addr.String(), interfaceName)
 	}
 
-	ip, ipNet, err := net.ParseCIDR(cidrAddress)
-	if err != nil {
-		logger.Tracef("cannot parse %q on interface %q as CIDR, trying as IP address: %v", cidrAddress, interfaceName, err)
-		if ip = net.ParseIP(cidrAddress); ip == nil {
-			return config, errors.Errorf("cannot parse IP address %q on interface %q", cidrAddress, interfaceName)
-		} else {
-			ipNet = &net.IPNet{IP: ip}
-		}
-	}
 	if ip.To4() == nil && ip.IsLinkLocalUnicast() {
 		// TODO(macgreagoir) IPv6. Skip link-local for now until we decide how to handle them.
 		logger.Tracef("skipping observed IPv6 link-local address %q on %q", ip, interfaceName)
 		return config, nil
 	}
 
-	if ipNet.Mask != nil {
+	if ipNet := addr.IPNet(); ipNet != nil && ipNet.Mask != nil {
 		config.CIDR = ipNet.String()
 	}
 	config.Address = ip.String()
@@ -191,8 +184,7 @@ func interfaceAddressToNetworkConfig(interfaceName, configType string, address n
 		config.ConfigType = string(corenetwork.ConfigStatic)
 	}
 
-	// TODO(dimitern): Add DNS servers, search domains, and gateway
-	// later.
+	// TODO(dimitern): Add DNS servers, search domains, and gateway.
 
 	return config, nil
 }
