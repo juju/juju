@@ -790,38 +790,6 @@ var fourSubnets = []network.SubnetInfo{
 	},
 }
 
-var spaceOne = []network.SpaceInfo{
-	{
-		Name:       "space1",
-		ProviderId: "1",
-		Subnets:    twoSubnets,
-	},
-}
-var spaceOneAndIgnored = []network.SpaceInfo{
-	{
-		Name:       "space1",
-		ProviderId: "1",
-		Subnets:    twoSubnetsAndIgnored,
-	},
-}
-var spaceTwo = []network.SpaceInfo{
-	{
-		Name:       "space2",
-		ProviderId: "2",
-		Subnets:    anotherTwoSubnets,
-	},
-}
-
-var spaceThree = []network.SpaceInfo{
-	{
-		Name:       "space3",
-		ProviderId: "3",
-		Subnets:    []network.SubnetInfo{},
-	},
-}
-
-var twoSpaces = []network.SpaceInfo{spaceOne[0], spaceTwo[0]}
-
 var twoSubnetsAfterFAN = []network.SubnetInfo{
 	{
 		ProviderId:        "1",
@@ -837,14 +805,6 @@ var twoSubnetsAfterFAN = []network.SubnetInfo{
 		ProviderId:        corenetwork.Id(fmt.Sprintf("2-%s-10-100-30-0-24", corenetwork.InFan)),
 		AvailabilityZones: []string{"3", "4"},
 		CIDR:              "253.30.0.0/16",
-	},
-}
-
-var spaceOneAfterFAN = []network.SpaceInfo{
-	{
-		Name:       "space1",
-		ProviderId: "1",
-		Subnets:    twoSubnetsAfterFAN,
 	},
 }
 

@@ -6,6 +6,25 @@ package transport
 // The following contains all the common DTOs for a gathering information from
 // a given store.
 
+// Type represents the type of payload is expected from the API
+type Type string
+
+// Matches attempts to match a string to a given source.
+func (t Type) Matches(o string) bool {
+	return string(t) == o
+}
+
+func (t Type) String() string {
+	return string(t)
+}
+
+const (
+	// CharmType represents the charm payload.
+	CharmType Type = "charm"
+	// BundleType represents the bundle payload.
+	BundleType Type = "bundle"
+)
+
 // Channel defines a unique permutation that corresponds to the track, risk
 // and platform. There can be multiple channels of the same track and risk, but
 // with different platforms.

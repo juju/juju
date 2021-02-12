@@ -71,7 +71,7 @@ func (c payloads) registerHookContext() {
 		return
 	}
 
-	unitercontext.RegisterComponentFunc(payload.ComponentName,
+	_ = unitercontext.RegisterComponentFunc(payload.ComponentName,
 		func(config unitercontext.ComponentConfig) (jujuc.ContextComponent, error) {
 			hctxClient := c.newUnitFacadeClient(config.APICaller)
 			// TODO(ericsnow) Pass the unit's tag through to the component?

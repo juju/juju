@@ -99,10 +99,10 @@ func (iw infoWriter) writeOpenChanneltoBuffer(w *UnicodeWriter, channel Channel)
 func (iw infoWriter) writeClosedChannelToBuffer(w *UnicodeWriter, name string, hasOpenChannel bool) {
 	w.Printf("%s:", name)
 	if hasOpenChannel {
-		w.PrintlnUnicode(UnicodeUpArrow)
+		_, _ = w.PrintlnUnicode(UnicodeUpArrow)
 		return
 	}
-	w.PrintlnUnicode(UnicodeDash)
+	_, _ = w.PrintlnUnicode(UnicodeDash)
 }
 
 type bundleInfoOutput struct {

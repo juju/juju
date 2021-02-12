@@ -102,10 +102,8 @@ func (c *SubnetCommandBase) RunWithAPI(ctx *cmd.Context, toRun RunOnAPI) error {
 
 // Common errors shared between subcommands.
 var (
-	errNoCIDR     = errors.New("CIDR is required")
 	errNoCIDROrID = errors.New("either CIDR or provider ID is required")
 	errNoSpace    = errors.New("space name is required")
-	errNoZones    = errors.New("at least one zone is required")
 )
 
 // CheckNumArgs is a helper used to validate the number of arguments

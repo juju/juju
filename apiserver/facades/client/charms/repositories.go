@@ -4,7 +4,6 @@
 package charms
 
 import (
-	"bytes"
 	"strings"
 
 	"github.com/juju/charm/v9"
@@ -71,22 +70,6 @@ func sanitizeCoreCharmOrigin(received, requested corecharm.Origin) (corecharm.Or
 // Metadata represents the return type for both charm types (charm and bundles)
 type Metadata interface {
 	ComputedSeries() []string
-}
-
-func unmarshalCharmMetadata(metadataYAML string) (Metadata, error) {
-	meta, err := charm.ReadMeta(bytes.NewBufferString(metadataYAML))
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return meta, nil
-}
-
-func unmarshalBundleMetadata(bundleYAML string) (Metadata, error) {
-	meta, err := charm.ReadBundleData(bytes.NewBufferString(bundleYAML))
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return bundleMetadata{BundleData: meta}, nil
 }
 
 type bundleMetadata struct {

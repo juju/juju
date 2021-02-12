@@ -69,6 +69,6 @@ func (s *applicationScopeSuite) TestGetIdentValueError(c *gc.C) {
 		ApplicationInfo: &params.ApplicationInfo{},
 	}
 	result, err := scope.GetIdentValue("bad")
-	c.Assert(err, gc.ErrorMatches, `Runtime Error: identifier "bad" not found on ApplicationInfo: invalid identifer`)
+	c.Assert(err, gc.ErrorMatches, `Runtime Error: identifier "bad" not found on ApplicationInfo: invalid identifier`)
 	c.Assert(result, gc.IsNil)
 }

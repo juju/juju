@@ -82,7 +82,7 @@ func (nw *notifyWorker) loop() error {
 		if w != nil {
 			// We don't bother to propagate an error, because we
 			// already have an error
-			w.Stop()
+			_ = w.Stop()
 		}
 		return err
 	}

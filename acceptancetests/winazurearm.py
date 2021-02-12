@@ -73,13 +73,13 @@ class ARMClient:
         self.credentials = ServicePrincipalCredentials(
             client_id=self.client_id, secret=self.secret, tenant=self.tenant)
         self.storage = StorageManagementClient(
-            credential=self.credentials, subscription_id=self.subscription_id)
+            self.credentials, self.subscription_id)
         self.resource = ResourceManagementClient(
-            credential=self.credentials, subscription_id=self.subscription_id)
+            self.credentials, self.subscription_id)
         self.compute = ComputeManagementClient(
-            credential=self.credentials, subscription_id=self.subscription_id)
+            self.credentials, self.subscription_id)
         self.network = NetworkManagementClient(
-            credential=self.credentials, subscription_id=self.subscription_id)
+            self.credentials, self.subscription_id)
 
 
 class ResourceGroupDetails:

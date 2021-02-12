@@ -34,31 +34,6 @@ func paramsFromProviderSpaceInfo(info *environs.ProviderSpaceInfo) params.Remote
 	return result
 }
 
-// providerSpaceInfoFromParams converts a params.RemoteSpace to the
-// equivalent ProviderSpaceInfo.
-func providerSpaceInfoFromParams(space params.RemoteSpace) *environs.ProviderSpaceInfo {
-	result := &environs.ProviderSpaceInfo{
-		CloudType:          space.CloudType,
-		ProviderAttributes: space.ProviderAttributes,
-		SpaceInfo: network.SpaceInfo{
-			Name:       network.SpaceName(space.Name),
-			ProviderId: network.Id(space.ProviderId),
-		},
-	}
-	for _, subnet := range space.Subnets {
-		resultSubnet := network.SubnetInfo{
-			CIDR:              subnet.CIDR,
-			ProviderId:        network.Id(subnet.ProviderId),
-			ProviderNetworkId: network.Id(subnet.ProviderNetworkId),
-			ProviderSpaceId:   network.Id(subnet.ProviderSpaceId),
-			VLANTag:           subnet.VLANTag,
-			AvailabilityZones: subnet.Zones,
-		}
-		result.Subnets = append(result.Subnets, resultSubnet)
-	}
-	return result
-}
-
 // spaceInfoFromState converts a state.Space into the equivalent
 // network.SpaceInfo.
 func spaceInfoFromState(space Space) (*network.SpaceInfo, error) {

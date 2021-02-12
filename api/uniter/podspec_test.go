@@ -21,10 +21,6 @@ type podSpecSuite struct {
 
 var _ = gc.Suite(&podSpecSuite{})
 
-func strPtr(s string) *string {
-	return &s
-}
-
 func (s *podSpecSuite) TestGetPodSpec(c *gc.C) {
 	expected := params.Entities{
 		Entities: []params.Entity{{

@@ -14,13 +14,10 @@ import (
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/resource"
 )
-
-var logger = loggo.GetLogger("juju.cmd.juju.application.utils")
 
 // GetMetaResources retrieves metadata resources for the given
 // charm.URL.

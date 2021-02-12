@@ -18,7 +18,9 @@ import (
 
 // logger is here to stop the desire of creating a package level logger.
 // Don't do this, instead use the one passed as manifold config.
-var logger interface{}
+type logger interface{}
+
+var _ logger = struct{}{}
 
 // LogStream streams log entries from a log source (e.g. the Juju controller).
 type LogStream interface {
@@ -96,7 +98,7 @@ func (lf *LogForwarder) processNewConfig(currentSender SendCloser) (SendCloser, 
 	// Get the new config and set up log forwarding if enabled.
 	cfg, ok, err := lf.args.LogForwardConfig.LogForwardConfig()
 	if err != nil {
-		closeExisting()
+		_ = closeExisting()
 		return nil, errors.Trace(err)
 	}
 	if !ok || !cfg.Enabled {

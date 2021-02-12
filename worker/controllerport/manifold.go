@@ -100,7 +100,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer stTracker.Done()
+	defer func() { _ = stTracker.Done() }()
 
 	systemState := statePool.SystemState()
 	controllerConfig, err := config.GetControllerConfig(systemState)

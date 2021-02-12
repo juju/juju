@@ -26,7 +26,6 @@ type NewBrokerFunc func(Config) (environs.InstanceBroker, error)
 
 var (
 	systemNetworkInterfacesFile = "/etc/network/interfaces"
-	systemSbinIfup              = "/sbin/ifup"
 	systemNetplanDirectory      = "/etc/netplan"
 	activateBridgesTimeout      = 5 * time.Minute
 )

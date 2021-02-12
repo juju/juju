@@ -362,22 +362,22 @@ func (env *maasEnviron) createAndPopulateDevice(params deviceCreatorParams) (gom
 	}
 	defer func() {
 		if err != nil {
-			device.Delete()
+			_ = device.Delete()
 		}
 	}()
-	interface_set := device.InterfaceSet()
-	if len(interface_set) != 1 {
+	interfaces := device.InterfaceSet()
+	if len(interfaces) != 1 {
 		// Shouldn't be possible as machine.CreateDevice always
 		// returns a device with one interface.
-		names := make([]string, len(interface_set))
-		for i, iface := range interface_set {
+		names := make([]string, len(interfaces))
+		for i, iface := range interfaces {
 			names[i] = iface.Name()
 		}
 		err = errors.Errorf("unexpected number of interfaces "+
 			"in response from creating device: %v", names)
 		return nil, err
 	}
-	primaryNIC := interface_set[0]
+	primaryNIC := interfaces[0]
 	primaryNICVLAN := primaryNIC.VLAN()
 
 	interfaceCreated := false
@@ -425,9 +425,8 @@ func (env *maasEnviron) createAndPopulateDevice(params deviceCreatorParams) (gom
 
 		if err := createdNIC.LinkSubnet(linkArgs); err != nil {
 			return nil, errors.Annotatef(err, "linking NIC %v to subnet %v", nic.InterfaceName, subnet.CIDR())
-		} else {
-			logger.Debugf("linked device interface to subnet: %+v", createdNIC)
 		}
+		logger.Debugf("linked device interface to subnet: %+v", createdNIC)
 	}
 	// If we have created any secondary interfaces we need to reload device from maas
 	// so that the changes are reflected in structure.
@@ -626,6 +625,6 @@ func (env *maasEnviron) checkForExistingDevice(params deviceCreatorParams) (goma
 	}
 	logger.Debugf("found existing MAAS device for container %q but interfaces did not match, removing device", params.Name)
 	// We found a device, but it doesn't match what we need. remove it and we'll create again.
-	device.Delete()
+	_ = device.Delete()
 	return nil, nil
 }

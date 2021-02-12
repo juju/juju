@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,8 +17,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.modelgeneration")
 
 // API is the concrete implementation of the API endpoint.
 type API struct {

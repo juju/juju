@@ -1815,7 +1815,7 @@ func (env *azureEnviron) deleteResourceGroup(ctx context.ProviderCallContext, sd
 	client := resources.GroupsClient{env.resources}
 	future, err := client.Delete(sdkCtx, resourceGroup)
 	if err != nil {
-		errorutils.HandleCredentialError(err, ctx)
+		err = errorutils.HandleCredentialError(err, ctx)
 		if !isNotFoundResponse(future.Response()) {
 			return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
 		}

@@ -191,7 +191,7 @@ func Bootstrap(config Config) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer worker.Stop(w)
+	defer func() { _ = worker.Stop(w) }()
 
 	r, err := w.Raft()
 	if err != nil {

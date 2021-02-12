@@ -42,8 +42,8 @@ func init() {
 			Name: file.Name,
 			Size: int64(len(file.Body)),
 		}
-		tw.WriteHeader(hdr)
-		tw.Write([]byte(file.Body))
+		_ = tw.WriteHeader(hdr)
+		_, _ = tw.Write([]byte(file.Body))
 	}
 	tw.Close()
 	fakeOva = buf.Bytes()

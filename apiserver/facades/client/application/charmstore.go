@@ -231,7 +231,7 @@ func openCSClient(args OpenCSRepoParams) (*csclient.Client, error) {
 		// as a cookie in the HTTP client.
 		// TODO(cmars) discharge any third party caveats in the macaroon.
 		ms := []*macaroon.Macaroon{args.CharmStoreMacaroon}
-		httpbakery.SetCookie(csParams.BakeryClient.Jar, csURL, charmstore.MacaroonNamespace, ms)
+		_ = httpbakery.SetCookie(csParams.BakeryClient.Jar, csURL, charmstore.MacaroonNamespace, ms)
 	}
 	csClient := csclient.New(csParams)
 	channel := csparams.Channel(args.Channel)

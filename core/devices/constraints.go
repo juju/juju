@@ -8,10 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 )
-
-var logger = loggo.GetLogger("juju.core.devices")
 
 var deviceParseErr = errors.Errorf("cannot parse device constraints string, supported format is [<count>,]<device-class>|<vendor/type>[,<key>=<value>;...]")
 

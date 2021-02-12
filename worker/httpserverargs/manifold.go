@@ -72,12 +72,12 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	abort := make(chan struct{})
 	authenticator, err := config.NewStateAuthenticator(statePool, mux, clock, abort)
 	if err != nil {
-		stTracker.Done()
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	w := newWorker(mux, authenticator, func() {
 		close(abort)
-		stTracker.Done()
+		_ = stTracker.Done()
 	})
 	return w, nil
 }

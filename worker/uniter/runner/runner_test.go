@@ -15,7 +15,6 @@ import (
 	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/proxy"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/exec"
@@ -34,8 +33,6 @@ type RunCommandSuite struct {
 }
 
 var _ = gc.Suite(&RunCommandSuite{})
-
-var noProxies = proxy.Settings{}
 
 func (s *RunCommandSuite) TestRunCommandsEnvStdOutAndErrAndRC(c *gc.C) {
 	// TODO(bogdanteleaga): powershell throws another exit status code when

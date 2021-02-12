@@ -32,8 +32,6 @@ import (
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
 )
 
-var apiAddrs = []string{"a1:123", "a2:123"}
-
 type ContextSuite struct {
 	testing.JujuConnSuite
 

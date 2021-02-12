@@ -37,7 +37,9 @@ import (
 
 // Logger is here to stop the desire of creating a package level Logger.
 // Don't do this, instead use xxx.
-var logger interface{}
+type logger interface{}
+
+var _ logger = struct{}{}
 
 // Paths exposes the paths needed by Context.
 type Paths interface {

@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/juju/charm/v9"
-	"github.com/juju/clock"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -55,11 +54,9 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/state/stateenvirons"
 	statestorage "github.com/juju/juju/state/storage"
 	statetesting "github.com/juju/juju/state/testing"
 	statewatcher "github.com/juju/juju/state/watcher"
@@ -159,7 +156,7 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	if s.InitialLoggingConfig != "" {
-		loggo.ConfigureLoggers(s.InitialLoggingConfig)
+		_ = loggo.ConfigureLoggers(s.InitialLoggingConfig)
 	}
 
 	// This needs to be a pointer as there are other Mixin structures
@@ -657,7 +654,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		APIPort:      s.ControllerConfig.APIPort(),
 		StatePort:    s.ControllerConfig.StatePort(),
 	}
-	s.State.SetStateServingInfo(servingInfo)
+	_ = s.State.SetStateServingInfo(servingInfo)
 }
 
 // AddToolsToState adds tools to tools storage.
@@ -682,58 +679,6 @@ func (s *JujuConnSuite) AddToolsToState(c *gc.C, versions ...version.Binary) {
 func (s *JujuConnSuite) AddDefaultToolsToState(c *gc.C) {
 	versions := DefaultVersions(s.Environ.Config())
 	s.AddToolsToState(c, versions...)
-}
-
-// TODO(katco): 2016-08-09: lp:1611427
-var redialStrategy = utils.AttemptStrategy{
-	Total: 60 * time.Second,
-	Delay: 250 * time.Millisecond,
-}
-
-// newState returns a new State that uses the given environment.
-// The environment must have already been bootstrapped.
-func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.StatePool, error) {
-	if controllerUUID == "" {
-		return nil, errors.New("missing controller UUID")
-	}
-	config := environ.Config()
-	modelTag := names.NewModelTag(config.UUID())
-
-	mongoInfo.Password = AdminSecret
-	opts := mongotest.DialOpts()
-	session, err := mongo.DialWithInfo(*mongoInfo, opts)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer session.Close()
-
-	newPolicyFunc := stateenvirons.GetNewPolicyFunc()
-	controllerTag := names.NewControllerTag(controllerUUID)
-	args := state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      controllerTag,
-		ControllerModelTag: modelTag,
-		MongoSession:       session,
-		NewPolicy:          newPolicyFunc,
-	}
-	pool, err := state.OpenStatePool(args)
-	if errors.IsUnauthorized(errors.Cause(err)) {
-		// We try for a while because we might succeed in
-		// connecting to mongo before the state has been
-		// initialized and the initial password set.
-		for a := redialStrategy.Start(); a.Next(); {
-			pool, err = state.OpenStatePool(args)
-			if !errors.IsUnauthorized(errors.Cause(err)) {
-				break
-			}
-		}
-		if err != nil {
-			return nil, err
-		}
-	} else if err != nil {
-		return nil, err
-	}
-	return pool, nil
 }
 
 // PutCharm uploads the given charm to provider storage, and adds a

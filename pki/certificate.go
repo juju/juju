@@ -5,7 +5,6 @@ package pki
 
 import (
 	"crypto/rand"
-	"crypto/sha1"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"math/big"
@@ -46,12 +45,6 @@ func assetTagCertificate(cert *x509.Certificate) error {
 	cert.SerialNumber = serialNumber
 	cert.Subject.SerialNumber = uuid.String()
 	return nil
-}
-
-func bigIntHash(n *big.Int) []byte {
-	h := sha1.New()
-	h.Write(n.Bytes())
-	return h.Sum(nil)
 }
 
 // MakeX509NameFromDefaults constructs a new x509 name from the merging of a

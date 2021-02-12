@@ -24,12 +24,6 @@ type ModelUpgraderSuite struct {
 	coretesting.BaseSuite
 }
 
-var nullAPICaller = testing.APICallerFunc(
-	func(objType string, version int, id, request string, arg, result interface{}) error {
-		return nil
-	},
-)
-
 func (s *ModelUpgraderSuite) TestModelEnvironVersion(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "ModelUpgrader")

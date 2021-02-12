@@ -3,18 +3,14 @@
 
 // Package bundle provides access to the bundle api facade.
 // This facade contains api calls that are specific to bundles.
-
 package bundle
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
-
-var logger = loggo.GetLogger("juju.api.bundle")
 
 // Client allows access to the bundle API end point.
 type Client struct {

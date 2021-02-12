@@ -444,12 +444,6 @@ versions:
     sha256: aaaa059f4cb8e83405fe6daabaa3ae62ead64ff841e0c26064c3e111c857e1fb
 `[1:]
 
-	noMatchVersionFile = `
-versions:
-  - version: 1.2.4-xenial-amd64
-    sha256: aaaa059f4cb8e83405fe6daabaa3ae62ead64ff841e0c26064c3e111c857e1fb
-`[1:]
-
 	seriesArchMatchVersionFile = `
 versions:
   - version: 1.2.3-quantal-arm64

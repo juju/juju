@@ -158,7 +158,7 @@ func (w *socketListener) serve() {
 	logger.Debugf("stats worker now serving")
 	defer logger.Debugf("stats worker serving finished")
 	defer close(w.done)
-	srv.Serve(w.listener)
+	_ = srv.Serve(w.listener)
 }
 
 func (w *socketListener) run() error {
@@ -246,7 +246,7 @@ func (h depengineHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	fmt.Fprint(w, "Dependency Engine Report\n\n")
-	w.Write(bytes)
+	_, _ = w.Write(bytes)
 }
 
 type machineLockHandler struct {
@@ -313,7 +313,7 @@ func (h presenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	tw := output.TabWriter(w)
-	wrapper := output.Wrapper{tw}
+	wrapper := output.Wrapper{TabWriter: tw}
 
 	// Could be smart here and switch on the request accept header.
 	connections := h.presence.Connections()
@@ -419,11 +419,10 @@ func (h unitsHandler) publishAndAwaitResponse(w http.ResponseWriter, topic, resp
 			http.Error(w, fmt.Sprintf("error: %v", err), http.StatusInternalServerError)
 			return
 		}
-		w.Write(bytes)
+		_, _ = w.Write(bytes)
 	case <-h.done:
 		http.Error(w, "introspection worker stopping", http.StatusServiceUnavailable)
 	case <-h.clock.After(10 * time.Second):
 		http.Error(w, "response timed out", http.StatusInternalServerError)
-
 	}
 }

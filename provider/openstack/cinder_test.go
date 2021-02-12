@@ -1018,7 +1018,7 @@ func (s *cinderVolumeSourceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.env = mocks.NewMockZonedEnviron(ctrl)
 	s.env.EXPECT().InstanceAvailabilityZoneNames(
 		s.callCtx, []instance.Id{mockServerId},
-	).Return([]string{"zone-1"}, nil).AnyTimes()
+	).Return(map[instance.Id]string{mockServerId: "zone-1"}, nil).AnyTimes()
 
 	return ctrl
 }

@@ -1,0 +1,12 @@
+linters-settings:
+  errcheck:
+    check-type-assertions: false
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+run:
+  timeout: 20m
+  tests: false
+skip-dirs:
+  - acceptancetests

@@ -23,7 +23,9 @@ import (
 
 // Logger is here to stop the desire of creating a package level Logger.
 // Don't do this, instead use the one in the RemoteStateWatcher.
-var logger interface{}
+type logger interface{}
+
+var _ logger = struct{}{}
 
 // Logger represents the logging methods used in this package.
 type Logger interface {
@@ -838,7 +840,7 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 		} else if err != nil {
 			return errors.Trace(err)
 		} else {
-			w.ensureRelationUnits(rel)
+			return w.ensureRelationUnits(rel)
 		}
 	}
 	return nil
@@ -1026,7 +1028,7 @@ func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 		} else if params.IsCodeNotFound(result.Error) {
 			if watcher, ok := w.storageAttachmentWatchers[tag]; ok {
 				// already under catacomb management, any error tracked already
-				worker.Stop(watcher)
+				_ = worker.Stop(watcher)
 				delete(w.storageAttachmentWatchers, tag)
 			}
 			delete(w.current.Storage, tag)

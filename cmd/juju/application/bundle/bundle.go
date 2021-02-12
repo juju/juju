@@ -11,7 +11,6 @@ import (
 	"github.com/juju/bundlechanges/v5"
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/params"
@@ -23,8 +22,6 @@ import (
 
 // This file contains functionality required by both the application
 // package and the application/deployer package.
-
-var logger = loggo.GetLogger("juju.cmd.juju.application.bundle")
 
 // BuildModelRepresentation creates a buildchanges.Model, representing
 // the existing deployment, to be used while deploying or diffing a bundle.
@@ -52,6 +49,14 @@ func BuildModelRepresentation(
 			machineMap[id] = id
 		}
 	}
+
+	offersByApplication := make(map[string][]string)
+	for _, offer := range status.Offers {
+		appOffers := offersByApplication[offer.ApplicationName]
+		appOffers = append(appOffers, offer.OfferName)
+		offersByApplication[offer.ApplicationName] = appOffers
+	}
+
 	// Now iterate over the bundleMachines that the user specified.
 	for bundleMachine, modelMachine := range bundleMachines {
 		machineMap[bundleMachine] = modelMachine
@@ -65,6 +70,7 @@ func BuildModelRepresentation(
 			Exposed:       appStatus.Exposed,
 			Series:        appStatus.Series,
 			SubordinateTo: appStatus.SubordinateTo,
+			Offers:        offersByApplication[name],
 		}
 		if len(appStatus.ExposedEndpoints) != 0 {
 			app.ExposedEndpoints = make(map[string]bundlechanges.ExposedEndpoint)

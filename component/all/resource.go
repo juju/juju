@@ -57,7 +57,7 @@ func (r resources) registerHookContext() {
 		return
 	}
 
-	unitercontext.RegisterComponentFunc(
+	_ = unitercontext.RegisterComponentFunc(
 		resource.ComponentName,
 		func(config unitercontext.ComponentConfig) (jujuc.ContextComponent, error) {
 			unitID := names.NewUnitTag(config.UnitName).String()

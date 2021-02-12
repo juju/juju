@@ -113,7 +113,7 @@ func (s *sender) Handle(c net.Conn, _ <-chan struct{}) (err error) {
 
 func (s *sender) stop() {
 	if s.listener != nil {
-		s.listener.Stop()
+		_ = s.listener.Stop()
 	}
 }
 

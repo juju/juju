@@ -15,7 +15,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v2"
-	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"
@@ -25,13 +24,6 @@ import (
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/wrench"
 )
-
-type unitInitializer struct {
-	catacomb catacomb.Catacomb
-
-	config  initializeUnitParams
-	unitTag names.UnitTag
-}
 
 // initializeUnitParams contains parameters and dependencies for initializing
 // a unit.

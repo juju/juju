@@ -315,7 +315,7 @@ func (c *sshMachine) generateKnownHosts(targets []*resolvedTarget) (string, erro
 	}
 	defer f.Close()
 	c.knownHostsPath = f.Name() // Record for later deletion
-	if knownHosts.write(f); err != nil {
+	if err := knownHosts.write(f); err != nil {
 		return "", errors.Trace(err)
 	}
 	return c.knownHostsPath, nil

@@ -16,7 +16,12 @@ import (
 // Pull these from authoritative sources (see
 // github.com/juju/juju/juju/paths, etc.):
 const (
+<<<<<<< HEAD
 	sshDir = "/home/ubuntu/.ssh"
+=======
+	dataDir = "/var/lib/juju"
+	sshDir  = "/home/ubuntu/.ssh"
+>>>>>>> 2.9
 
 	agentsDir   = "agents"
 	agentsConfs = "machine-*"

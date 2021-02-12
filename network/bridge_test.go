@@ -27,11 +27,6 @@ type BridgeSuite struct {
 
 var _ = gc.Suite(&BridgeSuite{})
 
-const echoArgsScript = `
-import sys
-for arg in sys.argv[1:]: print(arg)
-`
-
 func (s *BridgeSuite) SetUpSuite(c *gc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 	if runtime.GOOS == "windows" {

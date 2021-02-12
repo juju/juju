@@ -76,7 +76,7 @@ func (j *macaroonJar) Activate(cURL *charm.URL) error {
 		return errors.Trace(err)
 	}
 	if m != nil {
-		httpbakery.SetCookie(j.underlying, j.serverURL, MacaroonNamespace, m)
+		_ = httpbakery.SetCookie(j.underlying, j.serverURL, MacaroonNamespace, m)
 	}
 	return nil
 }

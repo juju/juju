@@ -41,10 +41,7 @@ const (
 )
 
 var (
-	tcpProtocolNumber  = "6"
-	udpProtocolNumber  = "17"
-	icmpProtocolNumber = "1"
-	allProtocols       = "all"
+	allProtocols = "all"
 
 	resourcePollTimeout = 5 * time.Minute
 )

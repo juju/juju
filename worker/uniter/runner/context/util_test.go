@@ -33,7 +33,6 @@ import (
 
 var noProxies = proxy.Settings{}
 var apiAddrs = []string{"a1:123", "a2:123"}
-var expectedAPIAddrs = strings.Join(apiAddrs, " ")
 
 // HookContextSuite contains shared setup for various other test suites. Test
 // methods should not be added to this type, because they'll get run repeatedly.

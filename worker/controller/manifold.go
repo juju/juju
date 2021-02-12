@@ -117,7 +117,7 @@ func (w *controllerWorker) loop() error {
 	if err != nil {
 		return errors.Annotate(err, "failed to obtain controller")
 	}
-	defer w.tracker.Done()
+	defer func() { _ = w.tracker.Done() }()
 
 	for {
 		select {

@@ -52,8 +52,6 @@ var (
 	userAgentValue = "Juju/" + version.Current.String()
 )
 
-const defaultMinMultipartUploadSize = 5 * 1024 * 1024
-
 // Logger is a in place interface to represent a logger for consuming.
 type Logger interface {
 	IsTraceEnabled() bool

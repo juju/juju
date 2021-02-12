@@ -206,7 +206,7 @@ func (a *machineAgentCmd) Init(args []string) error {
 	// models that have been upgraded, we need to explicitly remove the
 	// file writer if one has been added, otherwise we will get duplicate
 	// lines of all logging in the log file.
-	loggo.RemoveWriter("logfile")
+	_, _ = loggo.RemoveWriter("logfile")
 
 	if a.machineId != "" {
 		a.agentTag = names.NewMachineTag(a.machineId)
@@ -508,7 +508,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
 		return err
 	}
-	a.runner.StartWorker("engine", createEngine)
+	_ = a.runner.StartWorker("engine", createEngine)
 
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
@@ -730,7 +730,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		}
 	}
 	if !isController {
-		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
+		_ = runner.StartWorker("stateconverter", func() (worker.Worker, error) {
 			// TODO(fwereade): this worker needs its own facade.
 			facade := apimachiner.NewState(apiConn)
 			handler := conv2state.New(facade, a)

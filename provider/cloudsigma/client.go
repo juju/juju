@@ -164,9 +164,9 @@ func (c *environClient) newInstance(
 			return
 		}
 		if srv != nil {
-			srv.Remove(gosigma.RecurseAllDrives)
+			_ = srv.Remove(gosigma.RecurseAllDrives)
 		} else if drv != nil {
-			drv.Remove()
+			_ = drv.Remove()
 		}
 		srv = nil
 		drv = nil

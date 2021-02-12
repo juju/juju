@@ -27,14 +27,6 @@ const (
 	// the tests run faster at the expense of making them
 	// fail more often on heavily loaded or slow hardware.
 	justLongEnough = testing.ShortWait
-
-	// fastPeriod specifies the period of the watcher for
-	// tests where the timing is not critical.
-	fastPeriod = 10 * time.Millisecond
-
-	// slowPeriod specifies the period of the watcher
-	// for tests where the timing is important.
-	slowPeriod = 1 * time.Second
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -59,15 +51,5 @@ func assertNoChange(c *gc.C, watch <-chan watcher.Change) {
 	case got := <-watch:
 		c.Fatalf("watch reported %v, want nothing", got)
 	case <-time.After(justLongEnough):
-	}
-}
-
-func assertOrder(c *gc.C, revnos ...int64) {
-	last := int64(-2)
-	for _, revno := range revnos {
-		if revno <= last {
-			c.Fatalf("got bad revno sequence: %v", revnos)
-		}
-		last = revno
 	}
 }

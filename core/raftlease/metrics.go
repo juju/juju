@@ -20,7 +20,7 @@ type metricsCollector struct {
 func newMetricsCollector() *metricsCollector {
 	return &metricsCollector{
 		requests: prometheus.NewSummaryVec(prometheus.SummaryOpts{
-			Namespace: "juju_raftlease",
+			Namespace: metricsNamespace,
 			Name:      "request",
 			Help:      "Request times for lease store operations in ms",
 			Objectives: map[float64]float64{

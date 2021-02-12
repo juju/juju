@@ -279,10 +279,6 @@ type fakeEnviron struct {
 	environs.NetworkingEnviron
 }
 
-type fakeNoNetworkingEnviron struct {
-	environs.Environ
-}
-
 type fakeReleaser struct {
 	*testing.Stub
 }

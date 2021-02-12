@@ -167,6 +167,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 	}
 	defer c.api.Close()
 
+<<<<<<< HEAD
 	results, err := c.enqueueActions(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -175,6 +176,122 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *runCommand) enqueueActions(ctx *cmd.Context) (*actionapi.EnqueuedActions, error) {
+=======
+	// juju run action is behind a feature flag so we are
+	// free to not support running against an older controller
+	if c.api.BestAPIVersion() < 6 {
+		return errors.Errorf("juju run action not supported on this version of Juju")
+	}
+
+	operationID, results, err := c.enqueueActions(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	numTasks := len(results)
+	if !c.background {
+		var plural string
+		if numTasks > 1 {
+			plural = "s"
+		}
+		ctx.Infof("Running operation %s with %d task%s", operationID, numTasks, plural)
+	}
+
+	var actionID string
+	info := make(map[string]interface{}, numTasks)
+	for i, result := range results {
+		if result.err != nil {
+			return result.err
+		}
+		if result.task == "" {
+			return errors.Errorf("operation failed to enqueue on %q", result.receiver)
+		}
+		actionID = result.task
+
+		if !c.background {
+			ctx.Infof("  - task %s on %s", result.task, c.unitReceivers[i])
+		}
+		info[result.receiver] = map[string]string{
+			"id": result.task,
+		}
+	}
+	ctx.Infof("")
+	if c.background {
+		if numTasks == 1 {
+			ctx.Infof("Scheduled operation %s with task %s", operationID, actionID)
+			ctx.Infof("Check operation status with 'juju show-operation %s'", operationID)
+			ctx.Infof("Check task status with 'juju show-task %s'", actionID)
+		} else {
+			ctx.Infof("Scheduled operation %s with %d tasks", operationID, numTasks)
+			_ = cmd.FormatYaml(ctx.Stdout, info)
+			ctx.Infof("Check operation status with 'juju show-operation %s'", operationID)
+			ctx.Infof("Check task status with 'juju show-task <id>'")
+		}
+		return nil
+	}
+	return c.waitForTasks(ctx, results, info)
+}
+
+func (c *runCommand) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, info map[string]interface{}) error {
+	var wait *time.Timer
+	if c.maxWait < 0 {
+		// Indefinite wait. Discard the tick.
+		wait = time.NewTimer(0 * time.Second)
+		_ = <-wait.C
+	} else {
+		wait = time.NewTimer(c.maxWait)
+	}
+
+	actionDone := make(chan struct{})
+	var logsWatcher watcher.StringsWatcher
+	haveLogs := false
+	if len(tasks) == 1 {
+		var err error
+		logsWatcher, err = c.api.WatchActionProgress(tasks[0].task)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		processLogMessages(logsWatcher, actionDone, ctx, c.utc, func(ctx *cmd.Context, msg string) {
+			haveLogs = true
+			c.logMessageHandler(ctx, msg)
+		})
+	}
+
+	waitForWatcher := func() {
+		close(actionDone)
+		if logsWatcher != nil {
+			_ = logsWatcher.Wait()
+		}
+	}
+
+	for i, result := range tasks {
+		ctx.Infof("Waiting for task %v...\n", result.task)
+		actionResult, err := GetActionResult(c.api, result.task, wait, false)
+		if i == 0 {
+			waitForWatcher()
+			if haveLogs {
+				// Make the logs a bit separate in the output.
+				ctx.Infof("\n")
+			}
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+		d := FormatActionResult(result.task, actionResult, c.utc, false)
+		d["id"] = result.task // Action ID is required in case we timed out.
+		info[result.receiver] = d
+	}
+
+	return c.out.Write(ctx, info)
+}
+
+type enqueuedAction struct {
+	task     string
+	receiver string
+	err      error
+}
+
+func (c *runCommand) enqueueActions(ctx *cmd.Context) (string, []enqueuedAction, error) {
+>>>>>>> 2.9
 	actionParams := map[string]interface{}{}
 	if c.paramsYAML.Path != "" {
 		b, err := c.paramsYAML.Read(ctx)

@@ -3171,7 +3171,6 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 type initFlag int
 
 const (
-	noFlag     initFlag = 0
 	assignUnit initFlag = 1
 	openPorts  initFlag = 2
 	closePorts initFlag = 4
@@ -3692,24 +3691,6 @@ func (s entityInfoSlice) Less(i, j int) bool {
 		return id0.ModelUUID < id1.ModelUUID
 	}
 	return id0.ID < id1.ID
-}
-
-func checkDeltasEqual(c *gc.C, d0, d1 []multiwatcher.Delta) {
-	// Deltas are returned in arbitrary order, so we compare them as maps.
-	c.Check(deltaMap(d0), jc.DeepEquals, deltaMap(d1))
-}
-
-func deltaMap(deltas []multiwatcher.Delta) map[interface{}]multiwatcher.EntityInfo {
-	m := make(map[interface{}]multiwatcher.EntityInfo)
-	for _, d := range deltas {
-		id := d.Entity.EntityID()
-		if d.Removed {
-			m[id] = nil
-		} else {
-			m[id] = d.Entity
-		}
-	}
-	return m
 }
 
 func makeActionInfo(a Action, st *State) multiwatcher.ActionInfo {
