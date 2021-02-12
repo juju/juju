@@ -114,9 +114,9 @@ func finishNetworkConfig(bridgeDevice string, interfaces corenetwork.InterfaceIn
 // configuration. Currently the only rule that is implemented is that common
 // configuration files are parsed until a configuration is found that is not a
 // loopback address (i.e systemd/resolved stub address).
-func findDNSServerConfig() (*network.DNSConfig, error) {
+func findDNSServerConfig() (*corenetwork.DNSConfig, error) {
 	for _, dnsConfigFile := range resolvConfFiles {
-		dnsConfig, err := network.ParseResolvConf(dnsConfigFile)
+		dnsConfig, err := corenetwork.ParseResolvConf(dnsConfigFile)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
