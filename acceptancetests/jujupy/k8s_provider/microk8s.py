@@ -70,7 +70,7 @@ class MicroK8s(Base):
             f.write(kubeconfig_content)
 
     def _ensure_cluster_config(self):
-        self.__enable_addons()
+        self.enable_microk8s_addons()
         try:
             self.__tmp_fix_patch_coredns()
         except Exception as e:
@@ -88,9 +88,9 @@ class MicroK8s(Base):
             self.sh(*args), Loader=yaml.Loader,
         )
 
-    def __enable_addons(self):
+    def enable_microk8s_addons(self, addons=None):
         # addons are required to be enabled.
-        addons = ['storage', 'dns', 'ingress']
+        addons = addons or ['storage', 'dns', 'ingress']
 
         def wait_until_ready(timeout, checker):
             for _ in until_timeout(timeout):
