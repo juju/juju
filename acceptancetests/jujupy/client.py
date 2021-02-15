@@ -805,6 +805,10 @@ class ModelClient:
     def model_name(self):
         return self.env.environment
 
+    @property
+    def controller_name(self):
+        return self.env.controller.name
+
     def _shell_environ(self):
         """Generate a suitable shell environment.
 
