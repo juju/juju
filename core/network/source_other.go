@@ -70,7 +70,7 @@ func (n *netPackageConfigSource) SysClassNetPath() string {
 
 // Interfaces returns the network interfaces on the machine.
 func (n *netPackageConfigSource) Interfaces() ([]net.Interface, error) {
-	return net.Interfaces()
+	return n.interfaces()
 }
 
 // InterfaceAddresses the addresses associated with the network

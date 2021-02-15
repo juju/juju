@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -151,31 +152,24 @@ var exampleObservedInterfaces = []net.Interface{{
 	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
 }}
 
-type fakeAddr string
-
-func (f fakeAddr) Network() string { return "" }
-func (f fakeAddr) String() string  { return string(f) }
-
-var _ net.Addr = (*fakeAddr)(nil)
-
-var exampleObservedInterfaceAddrs = map[string][]net.Addr{
-	"eth0":        {fakeAddr("fe80::5054:ff:fedd:eef0/64")},
-	"eth1":        {fakeAddr("fe80::5054:ff:fedd:eef1/64")},
-	"eth0.50":     {fakeAddr("fe80::5054:ff:fedd:eef0:50/64")},
-	"eth0.100":    {fakeAddr("fe80::5054:ff:fedd:eef0:100/64")},
-	"eth0.25":     {fakeAddr("fe80::5054:ff:fedd:eef0:25/64")},
-	"eth1.11":     {fakeAddr("fe80::5054:ff:fedd:eef1:11/64")},
-	"eth1.12":     {fakeAddr("fe80::5054:ff:fedd:eef1:12/64")},
-	"eth1.13":     {fakeAddr("fe80::5054:ff:fedd:eef1:13/64")},
-	"lo":          {fakeAddr("127.0.0.1/8"), fakeAddr("::1/128")},
-	"br-eth0":     {fakeAddr("10.20.19.100/24"), fakeAddr("10.20.19.123/24"), fakeAddr("fe80::5054:ff:fedd:eef0/64")},
-	"br-eth1":     {fakeAddr("10.20.19.105/24"), fakeAddr("fe80::5054:ff:fedd:eef1/64")},
-	"br-eth0.50":  {fakeAddr("10.50.19.100/24"), fakeAddr("fe80::5054:ff:fedd:eef0/64")},
-	"br-eth0.100": {fakeAddr("10.100.19.100/24"), fakeAddr("fe80::5054:ff:fedd:eef0/64")},
-	"br-eth0.250": {fakeAddr("10.250.19.100/24"), fakeAddr("fe80::5054:ff:fedd:eef0/64")},
-	"br-eth1.11":  {fakeAddr("10.11.19.101/24"), fakeAddr("fe80::5054:ff:fedd:eef1/64")},
-	"br-eth1.12":  {fakeAddr("10.12.19.101/24"), fakeAddr("fe80::5054:ff:fedd:eef1/64")},
-	"br-eth1.13":  {fakeAddr("10.13.19.101/24"), fakeAddr("fe80::5054:ff:fedd:eef1/64")},
+var exampleObservedInterfaceAddrs = map[string][]network.ConfigSourceAddr{
+	"eth0":        {network.NewNetAddr("fe80::5054:ff:fedd:eef0/64")},
+	"eth1":        {network.NewNetAddr("fe80::5054:ff:fedd:eef1/64")},
+	"eth0.50":     {network.NewNetAddr("fe80::5054:ff:fedd:eef0:50/64")},
+	"eth0.100":    {network.NewNetAddr("fe80::5054:ff:fedd:eef0:100/64")},
+	"eth0.25":     {network.NewNetAddr("fe80::5054:ff:fedd:eef0:25/64")},
+	"eth1.11":     {network.NewNetAddr("fe80::5054:ff:fedd:eef1:11/64")},
+	"eth1.12":     {network.NewNetAddr("fe80::5054:ff:fedd:eef1:12/64")},
+	"eth1.13":     {network.NewNetAddr("fe80::5054:ff:fedd:eef1:13/64")},
+	"lo":          {network.NewNetAddr("127.0.0.1/8"), network.NewNetAddr("::1/128")},
+	"br-eth0":     {network.NewNetAddr("10.20.19.100/24"), network.NewNetAddr("10.20.19.123/24"), network.NewNetAddr("fe80::5054:ff:fedd:eef0/64")},
+	"br-eth1":     {network.NewNetAddr("10.20.19.105/24"), network.NewNetAddr("fe80::5054:ff:fedd:eef1/64")},
+	"br-eth0.50":  {network.NewNetAddr("10.50.19.100/24"), network.NewNetAddr("fe80::5054:ff:fedd:eef0/64")},
+	"br-eth0.100": {network.NewNetAddr("10.100.19.100/24"), network.NewNetAddr("fe80::5054:ff:fedd:eef0/64")},
+	"br-eth0.250": {network.NewNetAddr("10.250.19.100/24"), network.NewNetAddr("fe80::5054:ff:fedd:eef0/64")},
+	"br-eth1.11":  {network.NewNetAddr("10.11.19.101/24"), network.NewNetAddr("fe80::5054:ff:fedd:eef1/64")},
+	"br-eth1.12":  {network.NewNetAddr("10.12.19.101/24"), network.NewNetAddr("fe80::5054:ff:fedd:eef1/64")},
+	"br-eth1.13":  {network.NewNetAddr("10.13.19.101/24"), network.NewNetAddr("fe80::5054:ff:fedd:eef1/64")},
 }
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigInterfacesError(c *gc.C) {
@@ -205,7 +199,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigInterfaceAddressesError(c *gc
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigNoInterfaceAddresses(c *gc.C) {
 	s.stubConfigSource.interfaces = exampleObservedInterfaces[3:4] // only br-eth1
-	s.stubConfigSource.interfaceAddrs = make(map[string][]net.Addr)
+	s.stubConfigSource.interfaceAddrs = make(map[string][]network.ConfigSourceAddr)
 	s.stubConfigSource.makeSysClassNetInterfacePath(c, "br-eth1", "bridge")
 
 	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
@@ -256,10 +250,10 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigLoopbackInferred(c *gc.C) {
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigVLANInferred(c *gc.C) {
 	s.stubConfigSource.interfaces = exampleObservedInterfaces[6:7] // only eth0.100
-	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
+	s.stubConfigSource.interfaceAddrs = map[string][]network.ConfigSourceAddr{
 		"eth0.100": {
-			fakeAddr("fe80::5054:ff:fedd:eef0:100/64"),
-			fakeAddr("10.100.19.123/24"),
+			network.NewNetAddr("fe80::5054:ff:fedd:eef0:100/64"),
+			network.NewNetAddr("10.100.19.123/24"),
 		},
 	}
 	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0.100", "vlan")
@@ -409,8 +403,8 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigAddressNotInCIDRFormat(c *gc.
 	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
 	// Simulate running on Windows, where net.InterfaceAddrs() returns
 	// non-CIDR-formatted addresses.
-	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
-		"eth0": {fakeAddr("10.20.19.42")},
+	s.stubConfigSource.interfaceAddrs = map[string][]network.ConfigSourceAddr{
+		"eth0": {network.NewNetAddr("10.20.19.42")},
 	}
 
 	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
@@ -430,34 +424,11 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigAddressNotInCIDRFormat(c *gc.
 	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "eth0")
 }
 
-func (s *NetworkSuite) TestGetObservedNetworkConfigEmptyAddressValue(c *gc.C) {
-	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
-	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
-	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
-		"eth0": {fakeAddr("")},
-	}
-
-	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
-		DeviceIndex:   2,
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		MTU:           1500,
-		InterfaceName: "eth0",
-		InterfaceType: "ethernet",
-		ConfigType:    "manual",
-		NetworkOrigin: "machine",
-	}})
-
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "eth0")
-}
-
 func (s *NetworkSuite) TestGetObservedNetworkConfigInvalidAddressValue(c *gc.C) {
 	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
 	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
-	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
-		"eth0": {fakeAddr("invalid")},
+	s.stubConfigSource.interfaceAddrs = map[string][]network.ConfigSourceAddr{
+		"eth0": {network.NewNetAddr("invalid")},
 	}
 
 	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
@@ -473,7 +444,7 @@ type stubNetworkConfigSource struct {
 
 	fakeSysClassNetPath   string
 	interfaces            []net.Interface
-	interfaceAddrs        map[string][]net.Addr
+	interfaceAddrs        map[string][]network.ConfigSourceAddr
 	defaultRouteGatewayIP net.IP
 	defaultRouteDevice    string
 }
@@ -537,7 +508,7 @@ func (s *stubNetworkConfigSource) Interfaces() ([]net.Interface, error) {
 }
 
 // InterfaceAddresses implements NetworkConfigSource.
-func (s *stubNetworkConfigSource) InterfaceAddresses(name string) ([]net.Addr, error) {
+func (s *stubNetworkConfigSource) InterfaceAddresses(name string) ([]network.ConfigSourceAddr, error) {
 	s.AddCall("InterfaceAddresses", name)
 	if err := s.NextErr(); err != nil {
 		return nil, err
