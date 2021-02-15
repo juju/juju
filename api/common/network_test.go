@@ -284,7 +284,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigVLANInferred(c *gc.C) {
 	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "eth0.100")
 }
 
-func (s *NetworkSuite) TestGetObservedNetworkConfigEthernetInfrerred(c *gc.C) {
+func (s *NetworkSuite) TestGetObservedNetworkConfigEthernetInferred(c *gc.C) {
 	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
 	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
 
@@ -424,7 +424,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigAddressNotInCIDRFormat(c *gc.
 	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "eth0")
 }
 
-func (s *NetworkSuite) TestGetObservedNetworkConfigInvalidAddressValue(c *gc.C) {
+func (s *NetworkSuite) TestGetObservedNetworkConfigInvalidAddressError(c *gc.C) {
 	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
 	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
 	s.stubConfigSource.interfaceAddrs = map[string][]network.ConfigSourceAddr{
@@ -433,6 +433,21 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigInvalidAddressValue(c *gc.C) 
 
 	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
 	c.Check(err, gc.ErrorMatches, `cannot parse IP address "invalid" on interface "eth0"`)
+	c.Check(observedConfig, gc.IsNil)
+
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "eth0")
+}
+
+func (s *NetworkSuite) TestGetObservedNetworkConfigNilAddressError(c *gc.C) {
+	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
+	s.stubConfigSource.interfaceAddrs = map[string][]network.ConfigSourceAddr{
+		"eth0": {nil},
+	}
+
+	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, gc.ErrorMatches, `cannot parse nil address on interface "eth0"`)
 	c.Check(observedConfig, gc.IsNil)
 
 	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")

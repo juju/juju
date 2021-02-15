@@ -165,6 +165,9 @@ func interfaceAddressToNetworkConfig(
 		ConfigType: configType,
 	}
 
+	if addr == nil {
+		return config, errors.Errorf("cannot parse nil address on interface %q", interfaceName)
+	}
 	ip := addr.IP()
 	if ip == nil {
 		return config, errors.Errorf("cannot parse IP address %q on interface %q", addr.String(), interfaceName)
