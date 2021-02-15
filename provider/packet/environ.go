@@ -388,7 +388,10 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 
 // supportedInstanceTypes returns the instance types supported by packet.
 func (e *environ) supportedInstanceTypes() ([]instances.InstanceType, error) {
-	plans, _, err := e.packetClient.Plans.List(new(packngo.ListOptions))
+	opt := &packngo.ListOptions{
+		Includes: []string{"available_in"},
+	}
+	plans, _, err := e.packetClient.Plans.List(opt)
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving supported instance types")
 	}
@@ -396,13 +399,7 @@ func (e *environ) supportedInstanceTypes() ([]instances.InstanceType, error) {
 	var instTypes []instances.InstanceType
 nextPlan:
 	for _, plan := range plans {
-		if !validPlan(plan) {
-			continue
-		}
-
-		// TODO: Only work with this plan type for now to avoid
-		// spinning up more expensive instances while testing.
-		if plan.Name != "t1.small.x86" {
+		if !validPlan(plan, e.cloud.Region) {
 			continue
 		}
 
@@ -439,8 +436,15 @@ nextPlan:
 	return instTypes, nil
 }
 
-func validPlan(plan packngo.Plan) bool {
-	isInvalid := plan.Pricing == nil ||
+func validPlan(plan packngo.Plan, region string) bool {
+	notAvailable := true
+	for _, a := range plan.AvailableIn {
+		if a.Code == region {
+			notAvailable = false
+			break
+		}
+	}
+	isInvalid := notAvailable || plan.Pricing == nil ||
 		plan.Specs == nil ||
 		plan.Specs.Memory == nil ||
 		len(plan.Specs.Cpus) == 0 || plan.Specs.Cpus[0].Count == 0
@@ -460,10 +464,10 @@ func parseMemValue(v string) (uint64, error) {
 }
 
 func (e *environ) findInstanceSpec(controller bool, allImages []*imagemetadata.ImageMetadata, instanceTypes []instances.InstanceType, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
-	version, err := series.UbuntuSeriesVersion(ic.Series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	// version, err := series.UbuntuSeriesVersion(ic.Series)
+	// if err != nil {
+	// 	return nil, errors.Trace(err)
+	// }
 
 	oss, _, err := e.packetClient.OperatingSystems.List()
 	if err != nil {
@@ -472,16 +476,36 @@ func (e *environ) findInstanceSpec(controller bool, allImages []*imagemetadata.I
 	suitableImages := []*imagemetadata.ImageMetadata{}
 
 	for _, it := range instanceTypes {
+	nextImage:
 		for _, os := range oss {
-			if os.Distro == "ubuntu" && os.Version == version {
-				for _, p := range os.ProvisionableOn {
-					if p == it.Name {
-						image := &imagemetadata.ImageMetadata{
-							Id:   os.Slug,
-							Arch: arch.AMD64,
-						}
-						suitableImages = append(suitableImages, image)
+
+			switch os.Distro {
+			case "ubuntu":
+				series, err := series.VersionSeries(os.Version)
+				if err != nil || ic.Series != series {
+					continue nextImage
+				}
+			case "centos":
+				series, err := series.CentOSVersionSeries(os.Version)
+				if err != nil || ic.Series != series {
+					continue nextImage
+				}
+			case "windows":
+				series, err := series.WindowsVersionSeries(os.Version)
+				if err != nil || ic.Series != series {
+					continue nextImage
+				}
+			default:
+				continue nextImage
+			}
+
+			for _, p := range os.ProvisionableOn {
+				if p == it.Name {
+					image := &imagemetadata.ImageMetadata{
+						Id:   os.Slug,
+						Arch: arch.AMD64,
 					}
+					suitableImages = append(suitableImages, image)
 				}
 			}
 		}

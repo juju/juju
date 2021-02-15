@@ -6,7 +6,6 @@ package packet
 import (
 	"fmt"
 	"net"
-	"strconv"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/instance"
@@ -21,59 +20,59 @@ var _ environs.Networking = (*environ)(nil)
 // Subnets returns basic information about subnets known by the provider for
 // the environment.
 func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, subnetIDs []network.Id) ([]network.SubnetInfo, error) {
-	subnets := []network.SubnetInfo{}
 
-	if inst != instance.UnknownId {
-		device, _, err := e.packetClient.Devices.Get(string(inst), nil)
+	projectID := e.cloud.Credential.Attributes()["project-id"]
+	ips, _, err := e.packetClient.ProjectIPs.List(projectID, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var projectSubnets []network.SubnetInfo
+	for _, ipblock := range ips {
+		subnetID, cidr, err := makeSubnetIDForNetwork("subnet-"+ipblock.ID, ipblock.Network, ipblock.CIDR)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		subnet := network.SubnetInfo{
+			ProviderId:        network.Id(subnetID),
+			ProviderNetworkId: network.Id(ipblock.ID), //TODO: figure out what the network ID should be???
+			CIDR:              cidr,
+			VLANTag:           0,
+		}
+		projectSubnets = append(projectSubnets, subnet)
+	}
+
+	if inst == instance.UnknownId {
+		return projectSubnets, nil
+	}
+
+	device, _, err := e.packetClient.Devices.Get(string(inst), nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var instanceSubnets []network.SubnetInfo
+nextSubnet: //API client limitation since we can't get the actual blocks for individual instance we have to do this
+	for _, psub := range projectSubnets {
+		_, ipnet, err := net.ParseCIDR(psub.CIDR)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		for _, n := range device.Network {
-			subnetID, cidr, err := makeSubnetIDForNetwork("device-"+device.Hostname, n.Address, strconv.Itoa(n.CIDR))
-			if err != nil {
-				return nil, errors.Trace(err)
+			if ipnet.Contains(net.ParseIP(n.Address)) {
+				instanceSubnets = append(instanceSubnets, psub)
+				continue nextSubnet
 			}
-
-			subnet := network.SubnetInfo{
-				ProviderId:        network.Id(subnetID),
-				ProviderNetworkId: network.Id(n.ID),
-				CIDR:              cidr,
-				VLANTag:           0,
-			}
-
-			subnets = append(subnets, subnet)
 		}
-	} else {
-		projectID := e.cloud.Credential.Attributes()["project-id"]
-		ips, _, err := e.packetClient.ProjectIPs.List(projectID, nil)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		for _, ip := range ips {
-			subnetID, cidr, err := makeSubnetIDForNetwork("project-"+projectID, ip.Address, strconv.Itoa(ip.CIDR))
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			subnet := network.SubnetInfo{
-				ProviderId:        network.Id(subnetID),
-				ProviderNetworkId: network.Id(ip.ID), //TODO: figure out what the network ID should be???
-				CIDR:              cidr,
-				VLANTag:           0,
-			}
-			subnets = append(subnets, subnet)
-
-		}
-
 	}
 
-	return subnets, nil
+	return instanceSubnets, nil
 }
 
-func makeSubnetIDForNetwork(networkName, address, mask string) (string, string, error) {
-	_, netCIDR, err := net.ParseCIDR(fmt.Sprintf("%s/%s", address, mask))
+func makeSubnetIDForNetwork(networkName, address string, mask int) (string, string, error) {
+	_, netCIDR, err := net.ParseCIDR(fmt.Sprintf("%s/%d", address, mask))
 	if err != nil {
 		return "", "", errors.Annotatef(err, "calculating CIDR for network %q", networkName)
 	}
