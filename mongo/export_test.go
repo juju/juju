@@ -21,7 +21,12 @@ var (
 
 	DefaultOplogSize = defaultOplogSize
 	FsAvailSpace     = fsAvailSpace
+
+	MaybeUseLegacyMongo = maybeUseLegacyMongo
+	NewService          = &newService
 )
+
+type MongoService = mongoService
 
 func SysctlEditableEnsureServer(args EnsureServerParams, sysctlFiles map[string]string) error {
 	return ensureServer(args, sysctlFiles)

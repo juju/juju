@@ -234,6 +234,17 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// We may have upgraded from 2.9 using an earlier
+	// version on mongo so we need to keep using that.
+	err = maybeUseLegacyMongo(args, &OSSearchTools{})
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Annotate(err, "checking legacy mongo")
+	}
+	if err == nil {
+		return nil
+	}
+
 	mongoDep := dependency.Mongo(args.JujuDBSnapChannel)
 	if args.DataDir == "" {
 		args.DataDir = dataPathForJujuDbSnap
