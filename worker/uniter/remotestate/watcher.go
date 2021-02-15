@@ -826,6 +826,11 @@ func (w *RemoteStateWatcher) leadershipChanged(isLeader bool) {
 func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+
+	// NOTE (stickupkid): Any return nil or early exit during the iteration of
+	// the keys that is non-exhaustive can cause units (subordinates) to
+	// commit suicide.
+
 	for _, key := range keys {
 		relationTag := names.NewRelationTag(key)
 		rel, err := w.st.Relation(relationTag)
@@ -839,8 +844,8 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 			}
 		} else if err != nil {
 			return errors.Trace(err)
-		} else {
-			return w.ensureRelationUnits(rel)
+		} else if relErr := w.ensureRelationUnits(rel); relErr != nil {
+			return errors.Trace(relErr)
 		}
 	}
 	return nil
