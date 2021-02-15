@@ -29,7 +29,7 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 
 	var projectSubnets []network.SubnetInfo
 	for _, ipblock := range ips {
-		subnetID, cidr, err := makeSubnetIDForNetwork("subnet-"+ipblock.ID, ipblock.Network, ipblock.CIDR)
+		subnetID, cidr, err := makeSubnetIDForNetwork(ipblock.ID, ipblock.Network, ipblock.CIDR)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
