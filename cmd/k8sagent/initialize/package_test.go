@@ -29,6 +29,7 @@ func (*importSuite) TestImports(c *gc.C) {
 
 	expected := set.NewStrings(
 		"agent",
+		"agent/tools",
 		"api",
 		"api/agent",
 		"api/base",
@@ -79,6 +80,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"environs/context",
 		"environs/tags",
 		"feature",
+		"juju/names",
 		"juju/osenv",
 		"logfwd",
 		"logfwd/syslog",
@@ -94,9 +96,12 @@ func (*importSuite) TestImports(c *gc.C) {
 		"resource",
 		"rpc",
 		"rpc/jsoncodec",
+		"service",
 		"service/common",
 		"service/snap",
 		"service/systemd",
+		"service/upstart",
+		"service/windows",
 		"state/errors",
 		"storage",
 		"tools",
