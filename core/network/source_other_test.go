@@ -8,13 +8,13 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-type sourceSuite struct {
+type sourceOtherSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&sourceSuite{})
+var _ = gc.Suite(&sourceOtherSuite{})
 
-func (s *sourceSuite) TestNewNetAddr(c *gc.C) {
+func (s *sourceOtherSuite) TestNewNetAddr(c *gc.C) {
 	nic := NewNetAddr("192.168.20.1/24")
 	c.Check(nic.String(), gc.Equals, "192.168.20.1/24")
 	c.Assert(nic.IP(), gc.NotNil)
