@@ -2751,11 +2751,20 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			continue
 		}
 
+		var channel string
+		origin := app.CharmOrigin()
+		if origin != nil && origin.Channel != nil {
+			ch := origin.Channel
+			channel = corecharm.MakePermissiveChannel(ch.Track, ch.Risk, ch.Branch).String()
+		} else {
+			channel = details.Channel
+		}
+
 		out[i].Result = &params.ApplicationResult{
 			Tag:              tag.String(),
 			Charm:            details.Charm,
 			Series:           details.Series,
-			Channel:          details.Channel,
+			Channel:          channel,
 			Constraints:      details.Constraints,
 			Principal:        app.IsPrincipal(),
 			Exposed:          app.IsExposed(),
