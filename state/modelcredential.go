@@ -4,6 +4,9 @@
 package state
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
@@ -31,21 +34,30 @@ func (st *State) InvalidateModelCredential(reason string) error {
 	if err := st.InvalidateCloudCredential(tag, reason); err != nil {
 		return errors.Trace(err)
 	}
-	if err := st.suspendCredentialModels(tag); err != nil {
+	if err := st.suspendCredentialModels(tag, reason); err != nil {
 		// These updates are optimistic. If they fail, it's unfortunate but we are not going to stop the call.
 		logger.Warningf("could not suspend models that use credential %v: %v", tag.Id(), err)
 	}
 	return nil
 }
 
-func (st *State) suspendCredentialModels(tag names.CloudCredentialTag) error {
+func (st *State) suspendCredentialModels(tag names.CloudCredentialTag, reason string) error {
 	models, err := st.modelsWithCredential(tag)
 	if err != nil {
 		return errors.Annotatef(err, "could not determine what models use credential %v", tag.Id())
 	}
+	infos := make([]string, len(models))
+	for i, m := range models {
+		infos[i] = fmt.Sprintf("%s (%s)", m.Name, m.UUID)
+	}
+	logger.Warningf("suspending these models:\n%s\n because their credential has become invalid:\n%s",
+		strings.Join(infos, " - "),
+		reason)
+	status := modelStatusInvalidCredential(reason)
 	doc := statusDoc{
-		Status:     status.Suspended,
-		StatusInfo: "suspended since cloud credential is not valid",
+		Status:     status.Status,
+		StatusInfo: status.Message,
+		StatusData: status.Data,
 		Updated:    timeOrNow(nil, st.clock()).UnixNano(),
 	}
 	for _, m := range models {

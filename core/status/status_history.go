@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/life"
 )
 
 // StatusHistoryFilter holds arguments that can be use to filter a status history backlog.
@@ -60,10 +59,6 @@ type DetailedStatus struct {
 	Data   map[string]interface{}
 	Since  *time.Time
 	Kind   HistoryKind
-	// TODO(perrito666) make sure this is not used and remove.
-	Version string
-	Life    life.Value
-	Err     error
 }
 
 // History holds many DetailedStatus,
@@ -80,6 +75,8 @@ type HistoryKind string
 // * AllHistoryKind()
 // * command help for 'show-status-log' describing these kinds.
 const (
+	// KindModel represents the model itself.
+	KindModel HistoryKind = "model"
 	// KindUnit represents agent and workload combined.
 	KindUnit HistoryKind = "unit"
 	// KindUnitAgent represent a unit agent status history entry.
@@ -104,7 +101,7 @@ func (k HistoryKind) String() string {
 // Valid will return true if the current kind is a valid one.
 func (k HistoryKind) Valid() bool {
 	switch k {
-	case KindUnit, KindUnitAgent, KindWorkload,
+	case KindModel, KindUnit, KindUnitAgent, KindWorkload,
 		KindMachineInstance, KindMachine,
 		KindContainerInstance, KindContainer:
 		return true
@@ -115,6 +112,7 @@ func (k HistoryKind) Valid() bool {
 // AllHistoryKind will return all valid HistoryKinds.
 func AllHistoryKind() map[HistoryKind]string {
 	return map[HistoryKind]string{
+		KindModel:             "statuses for the model itself",
 		KindUnit:              "statuses for specified unit and its workload",
 		KindUnitAgent:         "statuses from the agent that is managing a unit",
 		KindWorkload:          "statuses for unit's workload",

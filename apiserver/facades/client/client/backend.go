@@ -60,7 +60,7 @@ type Backend interface {
 	LatestMigration() (state.ModelMigration, error)
 	LatestPlaceholderCharm(*charm.URL) (*state.Charm, error)
 	Machine(string) (*state.Machine, error)
-	Model() (*state.Model, error)
+	Model() (Model, error)
 	ModelConfig() (*config.Config, error)
 	ModelConfigValues() (config.ConfigValues, error)
 	ModelConstraints() (constraints.Value, error)
@@ -84,7 +84,23 @@ type MongoSession interface {
 
 // Model contains the state.Model methods used in this package.
 type Model interface {
+	Name() string
+	Type() state.ModelType
+	UUID() string
+	Life() state.Life
+	CloudName() string
+	CloudRegion() string
+	CloudCredentialTag() (names.CloudCredentialTag, bool)
+	Config() (*config.Config, error)
+	Owner() names.UserTag
 	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
+	Users() ([]permission.UserAccess, error)
+	StatusHistory(status.StatusHistoryFilter) ([]status.StatusInfo, error)
+	SLAOwner() string
+	SLALevel() string
+	LatestToolsVersion() version.Number
+	MeterStatus() state.MeterStatus
+	Status() (status.StatusInfo, error)
 }
 
 // Pool contains the StatePool functionality used in this package.
@@ -170,6 +186,14 @@ func (s stateShim) ModelTag() names.ModelTag {
 	return names.NewModelTag(s.State.ModelUUID())
 }
 
+func (s stateShim) Model() (Model, error) {
+	m, err := s.State.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &modelShim{m}, nil
+}
+
 func (s stateShim) ControllerNodes() ([]state.ControllerNode, error) {
 	nodes, err := s.State.ControllerNodes()
 	if err != nil {
@@ -187,6 +211,10 @@ func (s stateShim) MongoSession() MongoSession {
 		return s.session
 	}
 	return MongoSessionShim{s.State.MongoSession()}
+}
+
+type modelShim struct {
+	*state.Model
 }
 
 // MongoSessionShim wraps a *mgo.Session to conform to the

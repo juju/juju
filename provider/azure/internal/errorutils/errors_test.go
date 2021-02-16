@@ -59,7 +59,7 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
 	ctx := context.NewCloudCallContext()
 	called := false
 	ctx.InvalidateCredentialFunc = func(msg string) error {
-		c.Assert(msg, gc.DeepEquals, "azure cloud denied access")
+		c.Assert(msg, gc.Matches, "azure cloud denied access: .*")
 		called = true
 		return nil
 	}

@@ -505,7 +505,7 @@ func (p *modelSummaryProcessor) substituteModelStatusForInvalidCredentials(crede
 					continue
 				}
 				details := &p.summaries[idx]
-				details.Status = modelStatusInvalidCredential()
+				details.Status = modelStatusInvalidCredential(doc.InvalidReason)
 			}
 		}
 	}
