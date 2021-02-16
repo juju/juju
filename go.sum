@@ -356,7 +356,6 @@ github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a/go.mod h1:UJSiEoRfvx
 github.com/juju/bundlechanges/v4 v4.0.0-20210209150014-ceff3e0a516a h1:db0bO4H9RHo4uSCG6fhZMIkiKFFntwiMjCqKlyv4ZM4=
 github.com/juju/bundlechanges/v4 v4.0.0-20210209150014-ceff3e0a516a/go.mod h1:J4ERN6z0gqR0VXtVlZD+DVJoh1aUd4XbL/F/AJFBZbM=
 github.com/juju/charm/v8 v8.0.0-20201117030444-62c13a9fe0f0/go.mod h1:3gMi15p+v4CxEquVduhcOoPLWM7IaRB+OZB6bT3Glww=
-github.com/juju/charm/v8 v8.0.0-20201117030444-62c13a9fe0f0/go.mod h1:3gMi15p+v4CxEquVduhcOoPLWM7IaRB+OZB6bT3Glww=
 github.com/juju/charm/v8 v8.0.0-20210115142305-1eb0c22cff4e h1:qIK2VhlqGdlQyp3kI+e5qUP4jS1FPCRPdyTxqCqhJQg=
 github.com/juju/charm/v8 v8.0.0-20210115142305-1eb0c22cff4e/go.mod h1:3gMi15p+v4CxEquVduhcOoPLWM7IaRB+OZB6bT3Glww=
 github.com/juju/charmrepo/v6 v6.0.0-20201118043529-e9fbdc1a746f h1:esltimJsCcUSaC9ahxBpC70Gumqnnmgm0Ah+BLVQBTY=

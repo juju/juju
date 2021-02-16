@@ -118,7 +118,9 @@ func (h *handler) Handle(_ <-chan struct{}, actionsSlice []string) error {
 		} else {
 			finishErr = h.config.Facade.ActionFinish(actionTag, params.ActionCompleted, results, "")
 		}
-		if finishErr != nil {
+		if finishErr != nil &&
+			!params.IsCodeAlreadyExists(finishErr) &&
+			!params.IsCodeNotFoundOrCodeUnauthorized(finishErr) {
 			return errors.Trace(finishErr)
 		}
 	}

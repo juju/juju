@@ -11,12 +11,12 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 )
@@ -31,7 +31,7 @@ var (
 )
 
 // NetConfigFunc returns a slice of NetworkConfig from a source config.
-type NetConfigFunc func(common.NetworkConfigSource) ([]params.NetworkConfig, error)
+type NetConfigFunc func(corenetwork.ConfigSource) ([]params.NetworkConfig, error)
 
 // Config describes the resources used by the instance broker.
 type Config struct {
@@ -145,7 +145,7 @@ func acquireLock(config Config) func(string, <-chan struct{}) (func(), error) {
 
 func observeNetwork(config Config) func() ([]params.NetworkConfig, error) {
 	return func() ([]params.NetworkConfig, error) {
-		return config.GetNetConfig(common.DefaultNetworkConfigSource())
+		return config.GetNetConfig(corenetwork.DefaultNetworkConfigSource())
 	}
 }
 

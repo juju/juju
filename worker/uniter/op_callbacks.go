@@ -106,7 +106,7 @@ func (opc *operationCallbacks) FailAction(actionId, message string) error {
 	}
 	tag := names.NewActionTag(actionId)
 	err := opc.u.st.ActionFinish(tag, params.ActionFailed, nil, message)
-	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
+	if params.IsCodeNotFoundOrCodeUnauthorized(err) || params.IsCodeAlreadyExists(err) {
 		err = nil
 	}
 	return err

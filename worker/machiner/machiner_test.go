@@ -16,7 +16,6 @@ import (
 	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
@@ -53,7 +52,7 @@ func (s *MachinerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(machiner.InterfaceAddrs, func() ([]net.Addr, error) {
 		return s.addresses, nil
 	})
-	s.PatchValue(machiner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(_ corenetwork.ConfigSource) ([]params.NetworkConfig, error) {
 		return nil, nil
 	})
 }
@@ -389,7 +388,7 @@ func (s *MachinerSuite) TestMachineAddressesWithClearFlag(c *gc.C) {
 }
 
 func (s *MachinerSuite) TestGetObservedNetworkConfigEmpty(c *gc.C) {
-	s.PatchValue(machiner.GetObservedNetworkConfig, func(common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) ([]params.NetworkConfig, error) {
 		return []params.NetworkConfig{}, nil
 	})
 
@@ -408,7 +407,7 @@ func (s *MachinerSuite) TestGetObservedNetworkConfigEmpty(c *gc.C) {
 }
 
 func (s *MachinerSuite) TestSetObservedNetworkConfig(c *gc.C) {
-	s.PatchValue(machiner.GetObservedNetworkConfig, func(common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) ([]params.NetworkConfig, error) {
 		return []params.NetworkConfig{{}}, nil
 	})
 
@@ -428,7 +427,7 @@ func (s *MachinerSuite) TestSetObservedNetworkConfig(c *gc.C) {
 }
 
 func (s *MachinerSuite) TestAliveErrorGetObservedNetworkConfig(c *gc.C) {
-	s.PatchValue(machiner.GetObservedNetworkConfig, func(common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) ([]params.NetworkConfig, error) {
 		return nil, errors.New("no config!")
 	})
 

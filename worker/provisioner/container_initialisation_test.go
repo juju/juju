@@ -20,7 +20,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	apimocks "github.com/juju/juju/api/base/mocks"
-	"github.com/juju/juju/api/common"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	provisionermocks "github.com/juju/juju/api/provisioner/mocks"
 	"github.com/juju/juju/apiserver/params"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -168,7 +168,7 @@ func (s *containerSetupSuite) setUpContainerWorker(c *gc.C) (watcher.StringsHand
 	// Stub out network config getter.
 	handler := provisioner.NewContainerSetupHandler(args)
 	handler.(*provisioner.ContainerSetup).SetGetNetConfig(
-		func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+		func(_ network.ConfigSource) ([]params.NetworkConfig, error) {
 			return nil, nil
 		})
 

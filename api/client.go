@@ -95,15 +95,11 @@ func (c *Client) StatusHistory(kind status.HistoryKind, tag names.Tag, filter st
 	}
 	for i, h := range results.Results[0].History.Statuses {
 		history[i] = status.DetailedStatus{
-			Status:  status.Status(h.Status),
-			Info:    h.Info,
-			Data:    h.Data,
-			Since:   h.Since,
-			Kind:    status.HistoryKind(h.Kind),
-			Version: h.Version,
-			// TODO(perrito666) make sure these are still used.
-			Life: h.Life,
-			Err:  h.Err,
+			Status: status.Status(h.Status),
+			Info:   h.Info,
+			Data:   h.Data,
+			Since:  h.Since,
+			Kind:   status.HistoryKind(h.Kind),
 		}
 		// TODO(perrito666) https://launchpad.net/bugs/1577589
 		if !history[i].Kind.Valid() {

@@ -36,6 +36,7 @@ func NewStatusHistoryCommand() cmd.Command {
 // HistoryAPI is the API surface for the show-status-log command.
 type HistoryAPI interface {
 	StatusHistory(kind status.HistoryKind, tag names.Tag, filter status.StatusHistoryFilter) (status.History, error)
+	BestAPIVersion() int
 	Close() error
 }
 
@@ -103,6 +104,12 @@ func (c *statusHistoryCommand) SetFlags(f *gnuflag.FlagSet) {
 	// TODO (anastasiamac 2018-04-11) Remove at the next major release, say Juju 2.5+ or Juju 3.x.
 	// the functionality is no longer there since a fix for lp#1530840
 	f.BoolVar(&c.includeStatusUpdates, "include-status-updates", false, "Deprecated, has no effect for 2.3+ controllers: Include update status hook messages in the returned logs")
+
+	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
+		"yaml":    cmd.FormatYaml,
+		"json":    cmd.FormatJson,
+		"tabular": c.formatTabular,
+	})
 }
 
 func (c *statusHistoryCommand) Init(args []string) error {
@@ -110,7 +117,9 @@ func (c *statusHistoryCommand) Init(args []string) error {
 	case len(args) > 1:
 		return errors.Errorf("unexpected arguments after entity name.")
 	case len(args) == 0:
-		return errors.Errorf("entity name is missing.")
+		if c.outputContent != status.KindModel.String() {
+			return errors.Errorf("entity name is missing.")
+		}
 	default:
 		c.entityName = args[0]
 	}
@@ -149,6 +158,18 @@ func (c *statusHistoryCommand) Init(args []string) error {
 	return errors.Errorf("unexpected status type %q", c.outputContent)
 }
 
+// DetailedStatus holds status info about a machine or unit agent.
+type DetailedStatus struct {
+	Status  status.Status          `yaml:"status,omitempty" json:"status,omitempty"`
+	Message string                 `yaml:"message,omitempty" json:"message,omitempty"`
+	Data    map[string]interface{} `yaml:"data,omitempty" json:"data,omitempty"`
+	Since   *time.Time             `yaml:"since,omitempty" json:"since,omitempty"`
+	Kind    status.HistoryKind     `yaml:"type,omitempty" json:"type,omitempty"`
+}
+
+// History holds the status results.
+type History []DetailedStatus
+
 const runningHookMSG = "running update-status hook"
 
 func (c *statusHistoryCommand) getAPI() (HistoryAPI, error) {
@@ -184,6 +205,15 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 	}
 	var tag names.Tag
 	switch kind {
+	case status.KindModel:
+		if apiclient.BestAPIVersion() < 3 {
+			return errors.Errorf("model status history not supported on this version of Juju")
+		}
+		_, details, err := c.ModelDetails()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		tag = names.NewModelTag(details.ModelUUID)
 	case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
 		if !names.IsValidUnit(c.entityName) {
 			return errors.Errorf("%q is not a valid name for a %s", c.entityName, kind)
@@ -209,11 +239,29 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("no status history available")
 	}
 
-	c.writeTabular(ctx.Stdout, statuses)
+	history := make(History, len(statuses))
+	for i, h := range statuses {
+		history[i] = DetailedStatus{
+			Status:  h.Status,
+			Message: h.Info,
+			Data:    h.Data,
+			Since:   h.Since,
+			Kind:    h.Kind,
+		}
+	}
+	return c.out.Write(ctx, history)
+}
+
+func (c *statusHistoryCommand) formatTabular(writer io.Writer, value interface{}) error {
+	h, ok := value.(History)
+	if !ok {
+		return errors.Errorf("expected value of type %T, got %T", History{}, value)
+	}
+	c.writeTabular(writer, h)
 	return nil
 }
 
-func (c *statusHistoryCommand) writeTabular(writer io.Writer, statuses status.History) {
+func (c *statusHistoryCommand) writeTabular(writer io.Writer, statuses History) {
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
 
@@ -221,7 +269,7 @@ func (c *statusHistoryCommand) writeTabular(writer io.Writer, statuses status.Hi
 	for _, v := range statuses {
 		w.Print(common.FormatTime(v.Since, c.isoTime), v.Kind)
 		w.PrintStatus(v.Status)
-		w.Println(v.Info)
+		w.Println(v.Message)
 	}
 	tw.Flush()
 }

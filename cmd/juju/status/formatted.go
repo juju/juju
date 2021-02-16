@@ -278,6 +278,7 @@ type statusInfoContents struct {
 	Err     error         `json:"-" yaml:",omitempty"`
 	Current status.Status `json:"current,omitempty" yaml:"current,omitempty"`
 	Message string        `json:"message,omitempty" yaml:"message,omitempty"`
+	Reason  string        `json:"reason,omitempty" yaml:"reason,omitempty"`
 	Since   string        `json:"since,omitempty" yaml:"since,omitempty"`
 	Version string        `json:"version,omitempty" yaml:"version,omitempty"`
 	Life    string        `json:"life,omitempty" yaml:"life,omitempty"`
