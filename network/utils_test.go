@@ -11,7 +11,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -41,56 +40,6 @@ func (s *UtilsSuite) TestSupportsIPv6OK(c *gc.C) {
 		return &mockListener{}, nil
 	})
 	c.Check(network.SupportsIPv6(), jc.IsTrue)
-}
-
-func (*UtilsSuite) TestParseInterfaceType(c *gc.C) {
-	fakeSysPath := filepath.Join(c.MkDir(), corenetwork.SysClassNetPath)
-	err := os.MkdirAll(fakeSysPath, 0700)
-	c.Check(err, jc.ErrorIsNil)
-
-	writeFakeUEvent := func(interfaceName string, lines ...string) string {
-		fakeInterfacePath := filepath.Join(fakeSysPath, interfaceName)
-		err := os.MkdirAll(fakeInterfacePath, 0700)
-		c.Check(err, jc.ErrorIsNil)
-
-		fakeUEventPath := filepath.Join(fakeInterfacePath, "uevent")
-		contents := strings.Join(lines, "\n")
-		err = ioutil.WriteFile(fakeUEventPath, []byte(contents), 0644)
-		c.Check(err, jc.ErrorIsNil)
-		return fakeUEventPath
-	}
-
-	result := network.ParseInterfaceType(fakeSysPath, "missing")
-	c.Check(result, gc.Equals, corenetwork.UnknownInterface)
-
-	writeFakeUEvent("eth0", "IFINDEX=1", "INTERFACE=eth0")
-	result = network.ParseInterfaceType(fakeSysPath, "eth0")
-	c.Check(result, gc.Equals, corenetwork.UnknownInterface)
-
-	fakeUEventPath := writeFakeUEvent("eth0.42", "DEVTYPE=vlan")
-	result = network.ParseInterfaceType(fakeSysPath, "eth0.42")
-	c.Check(result, gc.Equals, corenetwork.VLAN_8021QInterface)
-
-	os.Chmod(fakeUEventPath, 0000) // permission denied error is OK
-	result = network.ParseInterfaceType(fakeSysPath, "eth0.42")
-	c.Check(result, gc.Equals, corenetwork.UnknownInterface)
-
-	writeFakeUEvent("bond0", "DEVTYPE=bond")
-	result = network.ParseInterfaceType(fakeSysPath, "bond0")
-	c.Check(result, gc.Equals, corenetwork.BondInterface)
-
-	writeFakeUEvent("br-ens4", "DEVTYPE=bridge")
-	result = network.ParseInterfaceType(fakeSysPath, "br-ens4")
-	c.Check(result, gc.Equals, corenetwork.BridgeInterface)
-
-	// First DEVTYPE found wins.
-	writeFakeUEvent("foo", "DEVTYPE=vlan", "DEVTYPE=bridge")
-	result = network.ParseInterfaceType(fakeSysPath, "foo")
-	c.Check(result, gc.Equals, corenetwork.VLAN_8021QInterface)
-
-	writeFakeUEvent("fake", "DEVTYPE=warp-drive")
-	result = network.ParseInterfaceType(fakeSysPath, "fake")
-	c.Check(result, gc.Equals, corenetwork.UnknownInterface)
 }
 
 func (*UtilsSuite) TestGetBridgePorts(c *gc.C) {

@@ -69,7 +69,7 @@ func GetObservedNetworkConfig(source corenetwork.ConfigSource) ([]params.Network
 			virtualPortType = corenetwork.OvsPort
 		}
 
-		nicType := network.ParseInterfaceType(sysClassNetPath, nic.Name)
+		nicType := corenetwork.ParseInterfaceType(sysClassNetPath, nic.Name)
 		nicConfig := interfaceToNetworkConfig(nic, nicType, virtualPortType, corenetwork.OriginMachine)
 		if nicConfig.InterfaceName == defaultRouteDevice {
 			nicConfig.IsDefaultGateway = true

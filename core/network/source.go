@@ -4,7 +4,10 @@
 package network
 
 import (
+	"io/ioutil"
 	"net"
+	"path/filepath"
+	"strings"
 
 	"github.com/juju/collections/set"
 )
@@ -58,4 +61,46 @@ type ConfigSource interface {
 	// OvsManagedBridges returns the names of network interfaces that
 	// correspond to OVS-managed bridges.
 	OvsManagedBridges() (set.Strings, error)
+}
+
+// ParseInterfaceType parses the DEVTYPE attribute from the Linux kernel
+// userspace SYSFS location "<sysPath/<interfaceName>/uevent" and returns it as
+// InterfaceType. SysClassNetPath should be passed as sysPath. Returns
+// UnknownInterface if the type cannot be reliably determined for any reason.
+// Example call: network.ParseInterfaceType(network.SysClassNetPath, "br-eth1")
+// TODO (manadart 2021-02-12): As with SysClassNetPath above, specific
+// implementations should be sought for this that are OS-dependent.
+func ParseInterfaceType(sysPath, interfaceName string) InterfaceType {
+	const deviceType = "DEVTYPE="
+	location := filepath.Join(sysPath, interfaceName, "uevent")
+
+	data, err := ioutil.ReadFile(location)
+	if err != nil {
+		logger.Debugf("ignoring error reading %q: %v", location, err)
+		return UnknownInterface
+	}
+
+	devtype := ""
+	lines := strings.Fields(string(data))
+	for _, line := range lines {
+		if !strings.HasPrefix(line, deviceType) {
+			continue
+		}
+
+		devtype = strings.TrimPrefix(line, deviceType)
+		switch devtype {
+		case "bridge":
+			return BridgeInterface
+		case "vlan":
+			return VLAN_8021QInterface
+		case "bond":
+			return BondInterface
+		case "":
+			// DEVTYPE is not present for some types, like Ethernet and loopback
+			// interfaces, so if missing do not try to guess.
+			break
+		}
+	}
+
+	return UnknownInterface
 }

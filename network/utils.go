@@ -4,12 +4,8 @@
 package network
 
 import (
-	"io/ioutil"
 	"net"
 	"path/filepath"
-	"strings"
-
-	"github.com/juju/juju/core/network"
 )
 
 var netListen = net.Listen
@@ -25,47 +21,6 @@ func SupportsIPv6() bool {
 	}
 	ln.Close()
 	return true
-}
-
-// ParseInterfaceType parses the DEVTYPE attribute from the Linux kernel
-// userspace SYSFS location "<sysPath/<interfaceName>/uevent" and returns it as
-// InterfaceType. SysClassNetPath should be passed as sysPath. Returns
-// UnknownInterface if the type cannot be reliably determined for any reason.
-//
-// Example call: network.ParseInterfaceType(network.SysClassNetPath, "br-eth1")
-func ParseInterfaceType(sysPath, interfaceName string) network.InterfaceType {
-	const deviceType = "DEVTYPE="
-	location := filepath.Join(sysPath, interfaceName, "uevent")
-
-	data, err := ioutil.ReadFile(location)
-	if err != nil {
-		logger.Debugf("ignoring error reading %q: %v", location, err)
-		return network.UnknownInterface
-	}
-
-	devtype := ""
-	lines := strings.Fields(string(data))
-	for _, line := range lines {
-		if !strings.HasPrefix(line, deviceType) {
-			continue
-		}
-
-		devtype = strings.TrimPrefix(line, deviceType)
-		switch devtype {
-		case "bridge":
-			return network.BridgeInterface
-		case "vlan":
-			return network.VLAN_8021QInterface
-		case "bond":
-			return network.BondInterface
-		case "":
-			// DEVTYPE is not present for some types, like Ethernet and loopback
-			// interfaces, so if missing do not try to guess.
-			break
-		}
-	}
-
-	return network.UnknownInterface
 }
 
 // GetBridgePorts extracts and returns the names of all interfaces configured as
