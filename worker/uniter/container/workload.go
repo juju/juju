@@ -1,4 +1,4 @@
-// Copyright 2020 Canonical Ltd.
+// Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package container
@@ -24,17 +24,23 @@ type Logger interface {
 	Warningf(string, ...interface{})
 }
 
+// WorkloadEventType is used to distinguish between each event type triggered
+// by the workload.
 type WorkloadEventType int
 
 const (
+	// ReadyEvent is triggered when the container/pebble starts up.
 	ReadyEvent WorkloadEventType = iota
 )
 
+// WorkloadEvent contains information about the event type and data associated with
+// the event.
 type WorkloadEvent struct {
 	Type         WorkloadEventType
 	WorkloadName string
 }
 
+// WorkloadEventCallback is the type used to callback when an event has been processed.
 type WorkloadEventCallback func(err error)
 
 // WorkloadEvents is an interface providing a means of storing and retrieving
@@ -68,6 +74,7 @@ type workloadEventItem struct {
 	cb WorkloadEventCallback
 }
 
+// NewWorkloadEvents returns a new workload event queue.
 func NewWorkloadEvents() WorkloadEvents {
 	return &workloadEvents{pending: make(map[string]workloadEventItem)}
 }

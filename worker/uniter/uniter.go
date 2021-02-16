@@ -6,7 +6,6 @@ package uniter
 import (
 	"fmt"
 	"os"
-	"runtime/debug"
 	"sync"
 
 	corecharm "github.com/juju/charm/v8"
@@ -143,7 +142,7 @@ type Uniter struct {
 	// isRemoteUnit is true when the unit is remotely deployed.
 	isRemoteUnit bool
 
-	// containerNames will have a list of the sidecar containers created alongside this
+	// containerNames will have a list of the workload containers created alongside this
 	// unit agent.
 	containerNames []string
 
@@ -289,9 +288,6 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	defer func() {
-		if r := recover(); r != nil {
-			err = errors.Errorf("panic: %v\n%v", r, string(debug.Stack()))
-		}
 		// If this is a CAAS unit, then dead errors are fairly normal ways to exit
 		// the uniter main loop, but the parent operator agent needs to keep running.
 		errorString := "<unknown>"

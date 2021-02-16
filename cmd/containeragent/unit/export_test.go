@@ -17,11 +17,11 @@ import (
 )
 
 type (
-	ManifoldsConfig = manifoldsConfig
-	K8sUnitAgent    = k8sUnitAgent
+	ManifoldsConfig    = manifoldsConfig
+	ContainerUnitAgent = containerUnitAgent
 )
 
-type K8sUnitAgentTest interface {
+type ContainerUnitAgentTest interface {
 	cmd.Command
 	DataDir() string
 	SetAgentConf(cfg agentconf.AgentConf)
@@ -37,8 +37,8 @@ func NewForTest(
 	configChangedVal *voyeur.Value,
 	fileReaderWriter utils.FileReaderWriter,
 	environment utils.Environment,
-) K8sUnitAgentTest {
-	return &k8sUnitAgent{
+) ContainerUnitAgentTest {
+	return &containerUnitAgent{
 		ctx:              ctx,
 		AgentConf:        agentconf.NewAgentConf(""),
 		bufferedLogger:   bufferedLogger,
@@ -48,10 +48,10 @@ func NewForTest(
 	}
 }
 
-func (c *k8sUnitAgent) SetAgentConf(cfg agentconf.AgentConf) {
+func (c *containerUnitAgent) SetAgentConf(cfg agentconf.AgentConf) {
 	c.AgentConf = cfg
 }
 
-func (c *k8sUnitAgent) DataDir() string {
+func (c *containerUnitAgent) DataDir() string {
 	return c.AgentConf.DataDir()
 }

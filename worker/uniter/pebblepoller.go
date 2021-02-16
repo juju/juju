@@ -17,10 +17,13 @@ import (
 	"github.com/juju/juju/worker/uniter/container"
 )
 
+// PebbleClient describes the subset of github.com/canonical/pebble/client.Client that we
+// need for the PebblePoller.
 type PebbleClient interface {
 	SysInfo() (*client.SysInfo, error)
 }
 
+// NewPebbleClientFunc is the function type used to create a PebbleClient.
 type NewPebbleClientFunc func(*client.Config) PebbleClient
 
 type pebblePoller struct {

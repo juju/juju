@@ -26,8 +26,7 @@ type ContextWorkloadHook struct {
 // WorkloadName implements jujuc.WorkloadHookContext.
 func (c *ContextWorkloadHook) WorkloadName() (string, error) {
 	c.stub.AddCall("WorkloadName")
-	c.stub.NextErr()
-	var err error
+	err := c.stub.NextErr()
 	if c.info.WorkloadName == "" {
 		err = errors.NotFoundf("workload name")
 	}

@@ -44,7 +44,7 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.containeragent.unit")
 
-type k8sUnitAgent struct {
+type containerUnitAgent struct {
 	cmd.CommandBase
 	agentconf.AgentConf
 
@@ -74,7 +74,7 @@ func New(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (cmd.Com
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &k8sUnitAgent{
+	return &containerUnitAgent{
 		AgentConf:          agentconf.NewAgentConf(""),
 		configChangedVal:   voyeur.NewValue(true),
 		ctx:                ctx,
@@ -88,7 +88,7 @@ func New(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (cmd.Com
 }
 
 // Info returns a description of the command.
-func (c *k8sUnitAgent) Info() *cmd.Info {
+func (c *containerUnitAgent) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "unit",
 		Purpose: "Start containeragent.",
@@ -96,17 +96,17 @@ func (c *k8sUnitAgent) Info() *cmd.Info {
 }
 
 // SetFlags implements Command.
-func (c *k8sUnitAgent) SetFlags(f *gnuflag.FlagSet) {
+func (c *containerUnitAgent) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
 	f.IntVar(&c.charmModifiedVersion, "charm-modified-version", -1, "charm modified version to validate downloaded charm is for the provided infrastructure")
 	f.Var(cmd.NewAppendStringsValue(&c.envVars), "append-env", "can be specified multiple times and with the form ENV_VAR=VALUE where VALUE can be empty or contain unexpanded variables using $OTHER_ENV")
 }
 
-func (c *k8sUnitAgent) CharmModifiedVersion() int {
+func (c *containerUnitAgent) CharmModifiedVersion() int {
 	return c.charmModifiedVersion
 }
 
-func (c *k8sUnitAgent) ensureAgentConf(dataDir string) error {
+func (c *containerUnitAgent) ensureAgentConf(dataDir string) error {
 	templateConfigPath := path.Join(dataDir, k8sconstants.TemplateFileNameAgentConf)
 	logger.Debugf("template config path %s", templateConfigPath)
 	config, err := agent.ReadConfig(templateConfigPath)
@@ -135,7 +135,7 @@ func (c *k8sUnitAgent) ensureAgentConf(dataDir string) error {
 }
 
 // Init initializes the command for running.
-func (c *k8sUnitAgent) Init(args []string) error {
+func (c *containerUnitAgent) Init(args []string) error {
 	if err := c.AgentConf.CheckArgs(args); err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func (c *k8sUnitAgent) Init(args []string) error {
 	return nil
 }
 
-func (c *k8sUnitAgent) ensureToolSymlinks(srcPath, dataDir string, unitTag names.UnitTag) error {
+func (c *containerUnitAgent) ensureToolSymlinks(srcPath, dataDir string, unitTag names.UnitTag) error {
 	// Setup tool symlinks
 	uniterPaths := uniterworker.NewPaths(dataDir, unitTag, nil)
 	toolsDir := uniterPaths.GetToolsDir()
@@ -223,37 +223,37 @@ func (c *k8sUnitAgent) ensureToolSymlinks(srcPath, dataDir string, unitTag names
 }
 
 // Wait waits for the k8s unit agent to finish.
-func (c *k8sUnitAgent) Wait() error {
+func (c *containerUnitAgent) Wait() error {
 	<-c.dead
 	return c.errReason
 }
 
 // Stop implements Worker.
-func (c *k8sUnitAgent) Stop() error {
+func (c *containerUnitAgent) Stop() error {
 	c.runner.Kill()
 	return c.Wait()
 }
 
 // Done signals the machine agent is finished
-func (c *k8sUnitAgent) Done(err error) {
+func (c *containerUnitAgent) Done(err error) {
 	c.errReason = err
 	close(c.dead)
 }
 
 // Tag implements Agent.
-func (c *k8sUnitAgent) Tag() names.UnitTag {
+func (c *containerUnitAgent) Tag() names.UnitTag {
 	return c.CurrentConfig().Tag().(names.UnitTag)
 }
 
 // ChangeConfig implements Agent.
-func (c *k8sUnitAgent) ChangeConfig(mutate agent.ConfigMutator) error {
+func (c *containerUnitAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	err := c.AgentConf.ChangeConfig(mutate)
 	c.configChangedVal.Set(true)
 	return errors.Trace(err)
 }
 
 // Workers returns a dependency.Engine running the k8s unit agent's responsibilities.
-func (c *k8sUnitAgent) workers() (worker.Worker, error) {
+func (c *containerUnitAgent) workers() (worker.Worker, error) {
 	probePort := os.Getenv(k8sconstants.EnvAgentHTTPProbePort)
 	if probePort == "" {
 		return nil, errors.NotValidf("env %s missing", k8sconstants.EnvAgentHTTPProbePort)
@@ -311,7 +311,7 @@ func (c *k8sUnitAgent) workers() (worker.Worker, error) {
 	return engine, nil
 }
 
-func (c *k8sUnitAgent) Run(ctx *cmd.Context) (err error) {
+func (c *containerUnitAgent) Run(ctx *cmd.Context) (err error) {
 	defer c.Done(err)
 	ctx.Infof("starting containeragent unit command")
 
@@ -340,7 +340,7 @@ func (c *k8sUnitAgent) Run(ctx *cmd.Context) (err error) {
 
 // validateMigration is called by the migrationminion to help check
 // that the agent will be ok when connected to a new controller.
-func (c *k8sUnitAgent) validateMigration(apiCaller base.APICaller) error {
+func (c *containerUnitAgent) validateMigration(apiCaller base.APICaller) error {
 	// TODO(mjs) - more extensive checks to come.
 	tag := c.CurrentConfig().Tag()
 	unitTag, ok := tag.(names.UnitTag)

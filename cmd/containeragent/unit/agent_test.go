@@ -29,17 +29,17 @@ import (
 	"github.com/juju/juju/worker/logsender"
 )
 
-type k8sUnitAgentSuite struct {
+type containerUnitAgentSuite struct {
 	coretesting.BaseSuite
 
 	rootDir          string
 	dataDir          string
 	fileReaderWriter *utilsmocks.MockFileReaderWriter
 	environment      *utilsmocks.MockEnvironment
-	cmd              unit.K8sUnitAgentTest
+	cmd              unit.ContainerUnitAgentTest
 }
 
-var _ = gc.Suite(&k8sUnitAgentSuite{})
+var _ = gc.Suite(&containerUnitAgentSuite{})
 
 var agentConfigContents = `
 # format 2.0
@@ -54,7 +54,7 @@ apiaddresses:
 apiport: 17070
 `[1:]
 
-func (s *k8sUnitAgentSuite) SetUpTest(c *gc.C) {
+func (s *containerUnitAgentSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.rootDir = c.MkDir()
@@ -63,12 +63,12 @@ func (s *k8sUnitAgentSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *k8sUnitAgentSuite) TearDownTest(c *gc.C) {
+func (s *containerUnitAgentSuite) TearDownTest(c *gc.C) {
 	s.dataDir = ""
 	s.fileReaderWriter = nil
 }
 
-func (s *k8sUnitAgentSuite) setupCommand(c *gc.C, configChangedVal *voyeur.Value) *gomock.Controller {
+func (s *containerUnitAgentSuite) setupCommand(c *gc.C, configChangedVal *voyeur.Value) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.fileReaderWriter = utilsmocks.NewMockFileReaderWriter(ctrl)
 	s.environment = utilsmocks.NewMockEnvironment(ctrl)
@@ -76,20 +76,20 @@ func (s *k8sUnitAgentSuite) setupCommand(c *gc.C, configChangedVal *voyeur.Value
 	return ctrl
 }
 
-func (s *k8sUnitAgentSuite) prepareAgentConf(c *gc.C, appName string) string {
+func (s *containerUnitAgentSuite) prepareAgentConf(c *gc.C, appName string) string {
 	fPath := filepath.Join(s.dataDir, k8sconstants.TemplateFileNameAgentConf)
 	err := ioutil.WriteFile(fPath, []byte(fmt.Sprintf(agentConfigContents, appName)), 0600)
 	c.Assert(err, gc.IsNil)
 	return fPath
 }
 
-func (s *k8sUnitAgentSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
+func (s *containerUnitAgentSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
 	logger := logsender.NewBufferedLogWriter(1024)
 	s.AddCleanup(func(*gc.C) { logger.Close() })
 	return logger
 }
 
-func (s *k8sUnitAgentSuite) TestParseSuccess(c *gc.C) {
+func (s *containerUnitAgentSuite) TestParseSuccess(c *gc.C) {
 	ctrl := s.setupCommand(c, nil)
 	defer ctrl.Finish()
 
@@ -124,7 +124,7 @@ func (s *k8sUnitAgentSuite) TestParseSuccess(c *gc.C) {
 	c.Assert(s.cmd.CharmModifiedVersion(), gc.Equals, 10)
 }
 
-func (s *k8sUnitAgentSuite) TestParseUnknown(c *gc.C) {
+func (s *containerUnitAgentSuite) TestParseUnknown(c *gc.C) {
 	ctrl := s.setupCommand(c, nil)
 	defer ctrl.Finish()
 
@@ -134,7 +134,7 @@ func (s *k8sUnitAgentSuite) TestParseUnknown(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `unrecognized args: \["thundering typhoons"\]`)
 }
 
-func (s *k8sUnitAgentSuite) TestChangeConfig(c *gc.C) {
+func (s *containerUnitAgentSuite) TestChangeConfig(c *gc.C) {
 	config := FakeAgentConfig{}
 	configChanged := voyeur.NewValue(true)
 

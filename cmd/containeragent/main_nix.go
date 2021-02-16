@@ -40,7 +40,7 @@ func init() {
 var containerAgentDoc = `
 juju provides easy, intelligent service orchestration on top of models
 such as OpenStack, Amazon AWS, or bare metal. containeragent is a component
-of juju for managing k8s workloads.
+of juju for managing container workloads.
 
 https://juju.is/
 
