@@ -113,6 +113,7 @@ func (s *ipAddressesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C) {
 		DNSSearchDomains: []string{"example.com", "example.org"},
 		GatewayAddress:   "10.20.30.1",
 		IsShadow:         true,
+		IsSecondary:      true,
 	}
 	result := s.newIPAddressWithDummyState(doc)
 
@@ -126,4 +127,5 @@ func (s *ipAddressesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C) {
 	c.Check(result.GatewayAddress(), gc.Equals, "10.20.30.1")
 	c.Check(result.NetworkAddress(), jc.DeepEquals, network.NewSpaceAddress(result.Value()))
 	c.Check(result.IsShadow(), jc.IsTrue)
+	c.Check(result.IsSecondary(), jc.IsTrue)
 }
