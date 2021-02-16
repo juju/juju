@@ -316,9 +316,9 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigForOVSDevices(c *gc.C) {
 			Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
 		},
 	}
-	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
+	s.stubConfigSource.interfaceAddrs = map[string][]network.ConfigSourceAddr{
 		"ovsbr0": {
-			fakeAddr("10.100.19.123/24"),
+			network.NewNetAddr("10.100.19.123/24"),
 		},
 	}
 	s.stubConfigSource.ovsBridges = set.NewStrings("ovsbr0")
