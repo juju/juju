@@ -1220,10 +1220,7 @@ func (h *bundleHandler) createOffer(change *bundlechanges.CreateOfferChange) err
 	if err == nil && len(result) > 0 && result[0].Error != nil {
 		err = result[0].Error
 	}
-	if err != nil {
-		return errors.Annotatef(err, "cannot create offer %s", p.OfferName)
-	}
-	return nil
+	return err
 }
 
 // consumeOffer consumes an existing offer
@@ -1447,7 +1444,7 @@ func resolve(placeholder string, results map[string]string) string {
 }
 
 // applicationRequiresTrust returns true if this app requires the operator to
-// explicitly trust it. trust requirements may be either specified as an option
+// explicitly trust it. Trust requirements may be either specified as an option
 // or via the "trust" field at the application spec level
 func applicationRequiresTrust(appSpec *charm.ApplicationSpec) bool {
 	optRequiresTrust := appSpec.Options != nil && appSpec.Options["trust"] == true
