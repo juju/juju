@@ -27,7 +27,7 @@ type pebblePollerSuite struct{}
 var _ = gc.Suite(&pebblePollerSuite{})
 
 const (
-	pebbleSocketPathRegexpString = "/charm/containers/([^/]+)/pebble/.pebble.socket"
+	pebbleSocketPathRegexpString = "/charm/containers/([^/]+)/pebble.socket"
 )
 
 var (

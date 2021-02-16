@@ -964,6 +964,10 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				Name:  "JUJU_CONTAINER_NAME",
 				Value: v.Name,
 			}, {
+				Name:  "PEBBLE_SOCKET",
+				Value: "/charm/container/pebble.socket",
+			}, {
+				// TODO(embedded): remove and let pebble use default.
 				Name:  "PEBBLE",
 				Value: "/charm/container/pebble",
 			}},

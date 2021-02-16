@@ -100,7 +100,7 @@ func (p *pebblePoller) run(containerName string) error {
 
 func (p *pebblePoller) poll(containerName string) error {
 	config := &client.Config{
-		Socket: path.Join("/charm/containers", containerName, "pebble", ".pebble.socket"),
+		Socket: path.Join("/charm/containers", containerName, "pebble.socket"),
 	}
 	pc := p.newPebbleClient(config)
 	info, err := pc.SysInfo()

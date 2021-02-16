@@ -354,6 +354,10 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 					Value: "gitlab",
 				},
 				{
+					Name:  "PEBBLE_SOCKET",
+					Value: "/charm/container/pebble.socket",
+				},
+				{
 					Name:  "PEBBLE",
 					Value: "/charm/container/pebble",
 				},
