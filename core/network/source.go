@@ -24,8 +24,34 @@ import (
 // introduced for Windows.
 const SysClassNetPath = "/sys/class/net"
 
-// ConfigSourceAddr indirects addresses obtained
-// from local machine network interfaces.
+// ConfigSourceNIC describes a network interface detected on the local machine
+// by an implementation of ConfigSource.
+type ConfigSourceNIC interface {
+	// Name returns the name of the network interface; E.g. "eth0".
+	Name() string
+
+	// Type returns the type of the interface - Ethernet, VLAN, Loopback etc.
+	Type() InterfaceType
+
+	// Index returns the index of the interface.
+	Index() int
+
+	// HardwareAddr returns the hardware address of the interface.
+	// It is the MAC address for ethernet devices.
+	HardwareAddr() net.HardwareAddr
+
+	// Addresses returns IP addresses associated with the network interface.
+	Addresses() ([]ConfigSourceAddr, error)
+
+	// MTU returns the maximum transmission unit for the interface.
+	MTU() int
+
+	// IsUp returns true if the interface is in the "up" state.
+	IsUp() bool
+}
+
+// ConfigSourceAddr describes addresses detected on a network interface
+// represented by an implementation of ConfigSourceAddr.
 type ConfigSourceAddr interface {
 	// IP returns the address in net.IP form.
 	IP() net.IP
@@ -47,11 +73,7 @@ type ConfigSource interface {
 
 	// Interfaces returns information about all
 	// network interfaces on the machine.
-	Interfaces() ([]net.Interface, error)
-
-	// InterfaceAddresses returns information about all addresses
-	// assigned to the network interface with the given name.
-	InterfaceAddresses(name string) ([]ConfigSourceAddr, error)
+	Interfaces() ([]ConfigSourceNIC, error)
 
 	// DefaultRoute returns the gateway IP address and device name of the
 	// default route on the machine. If there is no default route (known),

@@ -4,8 +4,6 @@
 package common
 
 import (
-	"net"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -65,23 +63,24 @@ func GetObservedNetworkConfig(source corenetwork.ConfigSource) ([]params.Network
 	sysClassNetPath := source.SysClassNetPath()
 	for _, nic := range interfaces {
 		virtualPortType := corenetwork.NonVirtualPort
-		if knownOVSBridges.Contains(nic.Name) {
+		if knownOVSBridges.Contains(nic.Name()) {
 			virtualPortType = corenetwork.OvsPort
 		}
 
-		nicType := corenetwork.ParseInterfaceType(sysClassNetPath, nic.Name)
+		nicType := nic.Type()
 		nicConfig := interfaceToNetworkConfig(nic, nicType, virtualPortType, corenetwork.OriginMachine)
+
 		if nicConfig.InterfaceName == defaultRouteDevice {
 			nicConfig.IsDefaultGateway = true
 			nicConfig.GatewayAddress = defaultRoute.String()
 		}
 
 		if nicType == corenetwork.BridgeInterface {
-			updateParentForBridgePorts(nic.Name, sysClassNetPath, nameToConfigs)
+			updateParentForBridgePorts(nic.Name(), sysClassNetPath, nameToConfigs)
 		}
 
 		seenSoFar := false
-		if existing, ok := nameToConfigs[nic.Name]; ok {
+		if existing, ok := nameToConfigs[nic.Name()]; ok {
 			nicConfig.ParentInterfaceName = existing[0].ParentInterfaceName
 			// If only ParentInterfaceName was set in a previous iteration (e.g.
 			// if the bridge appeared before the port), treat the interface as
@@ -90,23 +89,23 @@ func GetObservedNetworkConfig(source corenetwork.ConfigSource) ([]params.Network
 		}
 
 		if !seenSoFar {
-			nameToConfigs[nic.Name] = []params.NetworkConfig(nil)
-			namesOrder = append(namesOrder, nic.Name)
+			nameToConfigs[nic.Name()] = []params.NetworkConfig(nil)
+			namesOrder = append(namesOrder, nic.Name())
 		}
 
-		addrs, err := source.InterfaceAddresses(nic.Name)
+		addrs, err := nic.Addresses()
 		if err != nil {
-			return nil, errors.Annotatef(err, "cannot get interface %q addresses", nic.Name)
+			return nil, errors.Annotatef(err, "retrieving interface %q addresses", nic.Name)
 		}
 
 		if len(addrs) == 0 {
 			logger.Infof("no addresses observed on interface %q", nic.Name)
-			nameToConfigs[nic.Name] = append(nameToConfigs[nic.Name], nicConfig)
+			nameToConfigs[nic.Name()] = append(nameToConfigs[nic.Name()], nicConfig)
 			continue
 		}
 
 		for _, addr := range addrs {
-			addressConfig, err := interfaceAddressToNetworkConfig(nic.Name, nicConfig.ConfigType, addr)
+			addressConfig, err := interfaceAddressToNetworkConfig(nic.Name(), nicConfig.ConfigType, addr)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -117,7 +116,7 @@ func GetObservedNetworkConfig(source corenetwork.ConfigSource) ([]params.Network
 			nicConfigCopy.Address = addressConfig.Address
 			nicConfigCopy.CIDR = addressConfig.CIDR
 			nicConfigCopy.ConfigType = addressConfig.ConfigType
-			nameToConfigs[nic.Name] = append(nameToConfigs[nic.Name], nicConfigCopy)
+			nameToConfigs[nic.Name()] = append(nameToConfigs[nic.Name()], nicConfigCopy)
 		}
 	}
 
@@ -130,30 +129,24 @@ func GetObservedNetworkConfig(source corenetwork.ConfigSource) ([]params.Network
 	return observedConfig, nil
 }
 
-func interfaceToNetworkConfig(nic net.Interface,
+func interfaceToNetworkConfig(nic corenetwork.ConfigSourceNIC,
 	nicType corenetwork.InterfaceType,
 	virtualPortType corenetwork.VirtualPortType,
 	networkOrigin corenetwork.Origin,
 ) params.NetworkConfig {
-	configType := corenetwork.ConfigManual // assume manual initially, until we parse the address.
-	isUp := nic.Flags&net.FlagUp > 0
-	isLoopback := nic.Flags&net.FlagLoopback > 0
-	isUnknown := nicType == corenetwork.UnknownInterface
-
-	switch {
-	case isUnknown && isLoopback:
-		nicType = corenetwork.LoopbackInterface
+	configType := corenetwork.ConfigManual
+	if nicType == corenetwork.LoopbackInterface {
 		configType = corenetwork.ConfigLoopback
-	case isUnknown:
-		nicType = corenetwork.EthernetInterface
 	}
 
+	isUp := nic.IsUp()
+
 	return params.NetworkConfig{
-		DeviceIndex:     nic.Index,
-		MACAddress:      nic.HardwareAddr.String(),
+		DeviceIndex:     nic.Index(),
+		MACAddress:      nic.HardwareAddr().String(),
 		ConfigType:      string(configType),
-		MTU:             nic.MTU,
-		InterfaceName:   nic.Name,
+		MTU:             nic.MTU(),
+		InterfaceName:   nic.Name(),
 		InterfaceType:   string(nicType),
 		NoAutoStart:     !isUp,
 		Disabled:        !isUp,
@@ -185,11 +178,8 @@ func interfaceAddressToNetworkConfig(
 	if addr == nil {
 		return config, errors.Errorf("cannot parse nil address on interface %q", interfaceName)
 	}
-	ip := addr.IP()
-	if ip == nil {
-		return config, errors.Errorf("cannot parse IP address %q on interface %q", addr.String(), interfaceName)
-	}
 
+	ip := addr.IP()
 	if ip.To4() == nil && ip.IsLinkLocalUnicast() {
 		// TODO(macgreagoir) IPv6. Skip link-local for now until we decide how to handle them.
 		logger.Tracef("skipping observed IPv6 link-local address %q on %q", ip, interfaceName)
