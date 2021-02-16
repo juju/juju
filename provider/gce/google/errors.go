@@ -13,6 +13,7 @@ import (
 	"google.golang.org/api/googleapi"
 
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/provider/common"
 )
 
 // InvalidConfigValueError indicates that one of the config values failed validation.
@@ -77,7 +78,8 @@ func maybeInvalidateCredential(err error, ctx context.ProviderCallContext) bool 
 		return false
 	}
 
-	invalidateErr := ctx.InvalidateCredential("google cloud denied access")
+	converted := common.CredentialNotValidf(err, "google cloud denied access")
+	invalidateErr := ctx.InvalidateCredential(converted.Error())
 	if invalidateErr != nil {
 		logger.Warningf("could not invalidate stored google cloud credential on the controller: %v", invalidateErr)
 	}

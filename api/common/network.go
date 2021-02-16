@@ -6,7 +6,6 @@ package common
 import (
 	"net"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -16,69 +15,6 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.api.common")
-
-// NetworkConfigSource defines the necessary calls to obtain the network
-// configuration of a machine.
-type NetworkConfigSource interface {
-	// SysClassNetPath returns the Linux kernel userspace SYSFS path used by
-	// this source. DefaultNetworkConfigSource() uses network.SysClassNetPath.
-	SysClassNetPath() string
-
-	// Interfaces returns information about all network interfaces on the
-	// machine as []net.Interface.
-	Interfaces() ([]net.Interface, error)
-
-	// InterfaceAddresses returns information about all addresses assigned to
-	// the network interface with the given name.
-	InterfaceAddresses(name string) ([]net.Addr, error)
-
-	// DefaultRoute returns the gateway IP address and device name of the
-	// default route on the machine. If there is no default route (known),
-	// then zero values are returned.
-	DefaultRoute() (net.IP, string, error)
-
-	// OvsManagedBridges returns the names of network interfaces that
-	// correspond to OVS-managed bridges.
-	OvsManagedBridges() (set.Strings, error)
-}
-
-type netPackageConfigSource struct{}
-
-// SysClassNetPath implements NetworkConfigSource.
-func (n *netPackageConfigSource) SysClassNetPath() string {
-	return network.SysClassNetPath
-}
-
-// Interfaces implements NetworkConfigSource.
-func (n *netPackageConfigSource) Interfaces() ([]net.Interface, error) {
-	return net.Interfaces()
-}
-
-// InterfaceAddresses implements NetworkConfigSource.
-func (n *netPackageConfigSource) InterfaceAddresses(name string) ([]net.Addr, error) {
-	iface, err := net.InterfaceByName(name)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return iface.Addrs()
-}
-
-// DefaultRoute implements NetworkConfigSource.
-func (n *netPackageConfigSource) DefaultRoute() (net.IP, string, error) {
-	return corenetwork.GetDefaultRoute()
-}
-
-// OvsManagedBridges returns the names of network interfaces that
-// correspond to OVS-managed bridges.
-func (n *netPackageConfigSource) OvsManagedBridges() (set.Strings, error) {
-	return corenetwork.OvsManagedBridges()
-}
-
-// DefaultNetworkConfigSource returns a NetworkConfigSource backed by the net
-// package, to be used with GetObservedNetworkConfig().
-func DefaultNetworkConfigSource() NetworkConfigSource {
-	return &netPackageConfigSource{}
-}
 
 // GetObservedNetworkConfig uses the given source to find all available network
 // interfaces and their assigned addresses, and returns the result as
@@ -101,7 +37,7 @@ func DefaultNetworkConfigSource() NetworkConfigSource {
 //
 // Result entries will be grouped by InterfaceName, in the same order they are
 // returned by the given source.
-func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfig, error) {
+func GetObservedNetworkConfig(source corenetwork.ConfigSource) ([]params.NetworkConfig, error) {
 	logger.Tracef("discovering observed machine network config...")
 
 	interfaces, err := source.Interfaces()
@@ -239,32 +175,28 @@ func updateParentForBridgePorts(bridgeName, sysClassNetPath string, nameToConfig
 	}
 }
 
-func interfaceAddressToNetworkConfig(interfaceName, configType string, address net.Addr) (params.NetworkConfig, error) {
+func interfaceAddressToNetworkConfig(
+	interfaceName, configType string, addr corenetwork.ConfigSourceAddr,
+) (params.NetworkConfig, error) {
 	config := params.NetworkConfig{
 		ConfigType: configType,
 	}
 
-	cidrAddress := address.String()
-	if cidrAddress == "" {
-		return config, nil
+	if addr == nil {
+		return config, errors.Errorf("cannot parse nil address on interface %q", interfaceName)
+	}
+	ip := addr.IP()
+	if ip == nil {
+		return config, errors.Errorf("cannot parse IP address %q on interface %q", addr.String(), interfaceName)
 	}
 
-	ip, ipNet, err := net.ParseCIDR(cidrAddress)
-	if err != nil {
-		logger.Tracef("cannot parse %q on interface %q as CIDR, trying as IP address: %v", cidrAddress, interfaceName, err)
-		if ip = net.ParseIP(cidrAddress); ip == nil {
-			return config, errors.Errorf("cannot parse IP address %q on interface %q", cidrAddress, interfaceName)
-		} else {
-			ipNet = &net.IPNet{IP: ip}
-		}
-	}
 	if ip.To4() == nil && ip.IsLinkLocalUnicast() {
 		// TODO(macgreagoir) IPv6. Skip link-local for now until we decide how to handle them.
 		logger.Tracef("skipping observed IPv6 link-local address %q on %q", ip, interfaceName)
 		return config, nil
 	}
 
-	if ipNet.Mask != nil {
+	if ipNet := addr.IPNet(); ipNet != nil && ipNet.Mask != nil {
 		config.CIDR = ipNet.String()
 	}
 	config.Address = ip.String()
@@ -272,8 +204,7 @@ func interfaceAddressToNetworkConfig(interfaceName, configType string, address n
 		config.ConfigType = string(corenetwork.ConfigStatic)
 	}
 
-	// TODO(dimitern): Add DNS servers, search domains, and gateway
-	// later.
+	// TODO(dimitern): Add DNS servers, search domains, and gateway.
 
 	return config, nil
 }

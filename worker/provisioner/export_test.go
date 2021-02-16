@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/version"
 
-	"github.com/juju/juju/api/common"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -65,6 +65,6 @@ func SetupToStartMachine(p ProvisionerTask, machine apiprovisioner.MachineProvis
 	return p.(*provisionerTask).setupToStartMachine(machine, version)
 }
 
-func (cs *ContainerSetup) SetGetNetConfig(getNetConf func(common.NetworkConfigSource) ([]params.NetworkConfig, error)) {
+func (cs *ContainerSetup) SetGetNetConfig(getNetConf func(network.ConfigSource) ([]params.NetworkConfig, error)) {
 	cs.getNetConfig = getNetConf
 }

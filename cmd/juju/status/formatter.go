@@ -458,6 +458,7 @@ func (sf *statusFormatter) getStatusInfoContents(inst params.DetailedStatus) sta
 		// NOTE: why use a status.Status here, but a string for Life?
 		Current: status.Status(inst.Status),
 		Message: inst.Info,
+		Reason:  common.ModelStatusReason(inst.Data),
 		Version: inst.Version,
 		Life:    string(inst.Life),
 	}
