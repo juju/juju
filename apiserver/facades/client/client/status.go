@@ -104,6 +104,20 @@ func (c *Client) machineStatusHistory(machineTag names.MachineTag, filter status
 	return agentStatusFromStatusInfo(sInfo, kind), nil
 }
 
+// modelStatusHistory returns status history for the current model.
+func (c *Client) modelStatusHistory(filter status.StatusHistoryFilter) ([]params.DetailedStatus, error) {
+	m, err := c.api.stateAccessor.Model()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get model")
+	}
+
+	sInfo, err := m.StatusHistory(filter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return agentStatusFromStatusInfo(sInfo, status.KindModel), nil
+}
+
 // StatusHistory returns a slice of past statuses for several entities.
 func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.StatusHistoryResults {
 	results := params.StatusHistoryResults{}
@@ -139,6 +153,8 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 		)
 		kind := status.HistoryKind(request.Kind)
 		switch kind {
+		case status.KindModel:
+			hist, err = c.modelStatusHistory(filter)
 		case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
 			var u names.UnitTag
 			if u, err = names.ParseUnitTag(request.Tag); err == nil {
@@ -185,7 +201,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	}
 	context.providerType = cfg.Type()
 
-	if context.model, err = c.api.stateAccessor.Model(); err != nil {
+	if context.model, err = c.api.state().Model(); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch model")
 	}
 	if context.status, err = context.model.LoadModelStatus(); err != nil {

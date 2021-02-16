@@ -3660,6 +3660,37 @@ var statusTests = []testCase{
 			},
 		},
 	),
+	test( // 28
+		"suspended model",
+		setModelSuspended{"invalid credential", "bad password"},
+		expect{
+			what: "suspend a model due to bad credential",
+			output: M{
+				"model": M{
+					"name":       "controller",
+					"type":       "iaas",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"region":     "dummy-region",
+					"version":    "1.2.3",
+					"model-status": M{
+						"current": "suspended",
+						"message": "invalid credential",
+						"reason":  "bad password",
+						"since":   "01 Apr 15 01:23+10:00",
+					},
+					"sla": "unsupported",
+				},
+				"machines":     M{},
+				"applications": M{},
+				"storage":      M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
+			},
+			stderr: "Model \"controller\" is empty.\n",
+		},
+	),
 }
 
 func mysqlCharm(extras M) M {
@@ -3756,6 +3787,24 @@ type setSLA struct {
 
 func (s setSLA) step(c *gc.C, ctx *context) {
 	err := ctx.st.SetSLA(s.level, "test-user", []byte(""))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type setModelSuspended struct {
+	message string
+	reason  string
+}
+
+func (s setModelSuspended) step(c *gc.C, ctx *context) {
+	m, err := ctx.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetStatus(status.StatusInfo{
+		Status:  status.Suspended,
+		Message: s.message,
+		Data: map[string]interface{}{
+			"reason": s.reason,
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

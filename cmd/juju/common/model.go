@@ -5,6 +5,7 @@ package common
 
 import (
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -53,6 +54,7 @@ type ModelMachineInfo struct {
 type ModelStatus struct {
 	Current        status.Status `json:"current,omitempty" yaml:"current,omitempty"`
 	Message        string        `json:"message,omitempty" yaml:"message,omitempty"`
+	Reason         string        `json:"reason,omitempty" yaml:"reason,omitempty"`
 	Since          string        `json:"since,omitempty" yaml:"since,omitempty"`
 	Migration      string        `json:"migration,omitempty" yaml:"migration,omitempty"`
 	MigrationStart string        `json:"migration-start,omitempty" yaml:"migration-start,omitempty"`
@@ -82,6 +84,12 @@ type ModelCredential struct {
 	Owner    string `json:"owner" yaml:"owner"`
 	Cloud    string `json:"cloud" yaml:"cloud"`
 	Validity string `json:"validity-check,omitempty" yaml:"validity-check,omitempty"`
+}
+
+// ModelStatusReason extracts the reason, if any, from a status data bag.
+func ModelStatusReason(data map[string]interface{}) string {
+	reason, _ := data["reason"].(string)
+	return strings.Trim(reason, "\n")
 }
 
 // ModelInfoFromParams translates a params.ModelInfo to ModelInfo.
@@ -116,6 +124,7 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 		modelInfo.Status = &ModelStatus{
 			Current: info.Status.Status,
 			Message: info.Status.Info,
+			Reason:  ModelStatusReason(info.Status.Data),
 			Since:   FriendlyDuration(info.Status.Since, now),
 		}
 	}

@@ -82,6 +82,11 @@ type Client struct {
 
 // ClientV1 serves the (v1) client-specific API methods.
 type ClientV1 struct {
+	*ClientV2
+}
+
+// ClientV2 serves the (v2) client-specific API methods.
+type ClientV2 struct {
 	*Client
 }
 
@@ -140,11 +145,20 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 
 // NewFacadeV1 creates a version 1 Client facade to handle API requests.
 func NewFacadeV1(ctx facade.Context) (*ClientV1, error) {
-	client, err := newFacade(ctx)
+	client, err := NewFacadeV2(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &ClientV1{client}, nil
+}
+
+// NewFacadeV2 creates a version 2 Client facade to handle API requests.
+func NewFacadeV2(ctx facade.Context) (*ClientV2, error) {
+	client, err := newFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ClientV2{client}, nil
 }
 
 func newFacade(ctx facade.Context) (*Client, error) {
@@ -251,7 +265,7 @@ func (c *Client) WatchAll() (params.AllWatcherId, error) {
 	if err := c.checkCanRead(); err != nil {
 		return params.AllWatcherId{}, err
 	}
-	model, err := c.api.stateAccessor.Model()
+	model, err := c.api.state().Model()
 	if err != nil {
 		return params.AllWatcherId{}, errors.Trace(err)
 	}
