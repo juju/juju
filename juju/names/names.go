@@ -9,7 +9,7 @@ const (
 	Juju           = "juju"
 	Jujuc          = "jujuc"
 	Jujud          = "jujud"
-	K8sAgent       = "k8sagent"
+	ContainerAgent = "containeragent"
 	JujudVersions  = "jujud-versions.yaml"
 	JujuRun        = "juju-run"
 	JujuDumpLogs   = "juju-dumplogs"

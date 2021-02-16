@@ -10,17 +10,8 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/environschema.v1"
 
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/environs/config"
-)
-
-const (
-	// WorkloadStorageKey is the model config attribute used to specify
-	// the storage class for provisioning workload storage.
-	WorkloadStorageKey = "workload-storage"
-
-	// OperatorStorageKey is the model config attribute used to specify
-	// the storage class for provisioning operator storage.
-	OperatorStorageKey = "operator-storage"
 )
 
 var (
@@ -36,12 +27,12 @@ func RequireOperatorStorage(charmMinJujuVersion version.Number) bool {
 }
 
 var configSchema = environschema.Fields{
-	WorkloadStorageKey: {
+	k8sconstants.WorkloadStorageKey: {
 		Description: "The preferred storage class used to provision workload storage.",
 		Type:        environschema.Tstring,
 		Group:       environschema.AccountGroup,
 	},
-	OperatorStorageKey: {
+	k8sconstants.OperatorStorageKey: {
 		Description: "The storage class used to provision operator storage.",
 		Type:        environschema.Tstring,
 		Group:       environschema.AccountGroup,
@@ -58,8 +49,8 @@ var providerConfigFields = func() schema.Fields {
 }()
 
 var providerConfigDefaults = schema.Defaults{
-	WorkloadStorageKey: "",
-	OperatorStorageKey: "",
+	k8sconstants.WorkloadStorageKey: "",
+	k8sconstants.OperatorStorageKey: "",
 }
 
 type brokerConfig struct {
@@ -68,11 +59,11 @@ type brokerConfig struct {
 }
 
 func (c *brokerConfig) storage() string {
-	return c.attrs[WorkloadStorageKey].(string)
+	return c.attrs[k8sconstants.WorkloadStorageKey].(string)
 }
 
 func (c *brokerConfig) operatorStorage() string {
-	return c.attrs[OperatorStorageKey].(string)
+	return c.attrs[k8sconstants.OperatorStorageKey].(string)
 }
 
 func (p kubernetesEnvironProvider) Validate(cfg, old *config.Config) (*config.Config, error) {

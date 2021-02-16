@@ -45,6 +45,9 @@ type Info struct {
 	// DepartingUnit is the name of the unit that goes away. It is only set
 	// when Kind indicates a relation-departed hook.
 	DepartingUnit string `yaml:"departee,omitempty"`
+
+	// WorkloadName is the name of the sidecar container or workload relevant to the hook.
+	WorkloadName string `yaml:"workload-name,omitempty"`
 }
 
 // Validate returns an error if the info is not valid.
@@ -65,6 +68,11 @@ func (hi Info) Validate() error {
 		}
 		if hi.RemoteApplication == "" {
 			return fmt.Errorf("%q hook has a remote unit but no application", hi.Kind)
+		}
+		return nil
+	case hooks.WorkloadReady:
+		if hi.WorkloadName == "" {
+			return fmt.Errorf("%q hook requires a workload name", hi.Kind)
 		}
 		return nil
 	case hooks.Install, hooks.Remove, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationCreated, hooks.RelationBroken,

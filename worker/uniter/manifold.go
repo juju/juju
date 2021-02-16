@@ -52,6 +52,7 @@ type ManifoldConfig struct {
 	Logger                       Logger
 	Embedded                     bool
 	EnforcedCharmModifiedVersion int
+	ContainerNames               []string
 }
 
 // Validate ensures all the required values for the config are set.
@@ -146,6 +147,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Logger:                       config.Logger,
 				Embedded:                     config.Embedded,
 				EnforcedCharmModifiedVersion: config.EnforcedCharmModifiedVersion,
+				ContainerNames:               config.ContainerNames,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

@@ -29,6 +29,12 @@ import (
 	"github.com/juju/juju/pubsub/apiserver"
 )
 
+var (
+	// ShutdownTimeout is how long the http server will wait for active connections
+	// to close.
+	ShutdownTimeout = 30 * time.Second
+)
+
 // Config is the configuration required for running an API server worker.
 type Config struct {
 	AgentName            string
@@ -169,9 +175,11 @@ func (w *Worker) loop() error {
 		}
 	}()
 	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
+		defer cancel()
 		w.logger.Infof("shutting down HTTP server")
 		// Shutting down the server will also close listener.
-		err := server.Shutdown(context.Background())
+		err := server.Shutdown(ctx)
 		// Release the holdable listener to unblock any pending accepts.
 		w.holdable.release()
 		w.catacomb.Kill(err)

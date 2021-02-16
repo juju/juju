@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/uniter/runner/jujuc/mocks"
 )
 
 type JujuLogSuite struct {
@@ -32,13 +33,13 @@ func (s *JujuLogSuite) newJujuLogCommand(c *gc.C) cmd.Command {
 	return jujuc.NewJujucCommandWrappedForTest(cmd)
 }
 
-func (s *JujuLogSuite) newJujuLogCommandWithMocks(ctrl *gomock.Controller, name string) (cmd.Command, *jujuc.MockJujuLogContext, *jujuc.MockJujuLogCommandLogger) {
-	logger := jujuc.NewMockJujuLogCommandLogger(ctrl)
+func (s *JujuLogSuite) newJujuLogCommandWithMocks(ctrl *gomock.Controller, name string) (cmd.Command, *mocks.MockJujuLogContext, *mocks.MockJujuLogCommandLogger) {
+	logger := mocks.NewMockJujuLogCommandLogger(ctrl)
 
-	factory := jujuc.NewMockJujuLogCommandLoggerFactory(ctrl)
+	factory := mocks.NewMockJujuLogCommandLoggerFactory(ctrl)
 	factory.EXPECT().GetLogger(fmt.Sprintf("unit.%s.juju-log", name)).Return(logger)
 
-	ctx := jujuc.NewMockJujuLogContext(ctrl)
+	ctx := mocks.NewMockJujuLogContext(ctrl)
 
 	cmd := jujuc.NewJujuLogCommandWithMocks(ctx, factory)
 	return jujuc.NewJujucCommandWrappedForTest(cmd), ctx, logger
@@ -84,7 +85,7 @@ func (s *JujuLogSuite) TestRunWithNoErrorsLogsOnRun(c *gc.C) {
 	cmd, context, logger := s.newJujuLogCommandWithMocks(ctrl, "")
 	logger.EXPECT().Logf(loggo.INFO, "%s%s", ": ", strings.Join(messages, " "))
 
-	relation := jujuc.NewMockContextRelation(ctrl)
+	relation := mocks.NewMockContextRelation(ctrl)
 	relation.EXPECT().FakeId().Return("")
 
 	context.EXPECT().HookRelation().Return(relation, nil)

@@ -42,6 +42,10 @@ type baseResolverSuite struct {
 
 	clearResolved   func() error
 	reportHookError func(hook.Info) error
+
+	workloadEvents        container.WorkloadEvents
+	firstOptionalResolver *fakeResolver
+	lastOptionalResolver  *fakeResolver
 }
 
 type resolverSuite struct {
@@ -92,6 +96,10 @@ func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType, reboot
 	attachments, err := storage.NewAttachments(&dummyStorageAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	logger := loggo.GetLogger("test")
+
+	s.workloadEvents = container.NewWorkloadEvents()
+	s.firstOptionalResolver = &fakeResolver{}
+	s.lastOptionalResolver = &fakeResolver{}
 	s.resolverConfig = uniter.ResolverConfig{
 		ClearResolved:       func() error { return s.clearResolved() },
 		ReportHookError:     func(info hook.Info) error { return s.reportHookError(info) },
@@ -108,8 +116,13 @@ func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType, reboot
 		Storage:             storage.NewResolver(logger, attachments, modelType),
 		Commands:            nopResolver{},
 		ModelType:           modelType,
-		Container:           container.NewResolver(),
-		Logger:              logger,
+		OptionalResolvers: []resolver.Resolver{
+			s.firstOptionalResolver,
+			container.NewRemoteContainerInitResolver(),
+			container.NewWorkloadHookResolver(logger, s.workloadEvents, nil),
+			s.lastOptionalResolver,
+		},
+		Logger: logger,
 	}
 
 	s.stub = testing.Stub{}
@@ -494,6 +507,53 @@ func (s *resolverSuite) TestContinueUpgradeOperation(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, fmt.Sprintf("upgrade to %s", s.charmURL))
 }
 
+func (s *resolverSuite) TestNoOperationWithOptionalResolvers(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmURL: s.charmURL,
+		State: operation.State{
+			Kind:          operation.Continue,
+			Installed:     true,
+			Started:       true,
+			ConfigHash:    "config",
+			TrustHash:     "trust",
+			AddressesHash: "addresses",
+		},
+	}
+	s.remoteState.ConfigHash = "config"
+	s.remoteState.TrustHash = "trust"
+	s.remoteState.AddressesHash = "addresses"
+
+	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	c.Assert(s.firstOptionalResolver.callCount, gc.Equals, 1)
+	c.Assert(s.lastOptionalResolver.callCount, gc.Equals, 1)
+}
+
+func (s *resolverSuite) TestOperationWithOptionalResolvers(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmURL: s.charmURL,
+		State: operation.State{
+			Kind:          operation.Continue,
+			Installed:     true,
+			Started:       true,
+			ConfigHash:    "config",
+			TrustHash:     "trust",
+			AddressesHash: "addresses",
+		},
+	}
+	s.remoteState.ConfigHash = "config"
+	s.remoteState.TrustHash = "trust"
+	s.remoteState.AddressesHash = "addresses"
+
+	s.firstOptionalResolver.op = &fakeNoOp{}
+
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op, gc.Equals, s.firstOptionalResolver.op)
+	c.Assert(s.firstOptionalResolver.callCount, gc.Equals, 1)
+	c.Assert(s.lastOptionalResolver.callCount, gc.Equals, 0)
+}
+
 func (s *iaasResolverSuite) TestContinueUpgradeOperationVerifyCPFail(c *gc.C) {
 	opFactory := setupUpgradeOpFactory()
 	localState := resolver.LocalState{
@@ -747,4 +807,25 @@ func (m *fakeDeployer) Stage(_ unitercharm.BundleInfo, _ <-chan struct{}) error 
 
 func (m *fakeDeployer) Deploy() error {
 	return nil
+}
+
+type fakeResolver struct {
+	callCount int
+	op        operation.Operation
+}
+
+func (r *fakeResolver) NextOp(
+	localState resolver.LocalState,
+	remoteState remotestate.Snapshot,
+	opFactory operation.Factory,
+) (operation.Operation, error) {
+	r.callCount++
+	if r.op != nil {
+		return r.op, nil
+	}
+	return nil, resolver.ErrNoOperation
+}
+
+type fakeNoOp struct {
+	operation.Operation
 }

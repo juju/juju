@@ -5,9 +5,6 @@
 package mocks
 
 import (
-	reflect "reflect"
-	time "time"
-
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
 	params "github.com/juju/juju/apiserver/params"
@@ -15,6 +12,8 @@ import (
 	network "github.com/juju/juju/core/network"
 	jujuc "github.com/juju/juju/worker/uniter/runner/jujuc"
 	names "github.com/juju/names/v4"
+	reflect "reflect"
+	time "time"
 )
 
 // MockContext is a mock of Context interface
@@ -694,6 +693,21 @@ func (m *MockContext) UpdateActionResults(arg0 []string, arg1 string) error {
 func (mr *MockContextMockRecorder) UpdateActionResults(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateActionResults", reflect.TypeOf((*MockContext)(nil).UpdateActionResults), arg0, arg1)
+}
+
+// WorkloadName mocks base method
+func (m *MockContext) WorkloadName() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WorkloadName")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WorkloadName indicates an expected call of WorkloadName
+func (mr *MockContextMockRecorder) WorkloadName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WorkloadName", reflect.TypeOf((*MockContext)(nil).WorkloadName))
 }
 
 // WriteLeaderSettings mocks base method

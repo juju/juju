@@ -65,6 +65,34 @@ type Operation interface {
 	RemoteStateChanged(snapshot remotestate.Snapshot)
 }
 
+// WrappedOperation extends Operation to provide access to the wrapped operation.
+type WrappedOperation interface {
+	Operation
+
+	WrappedOperation() Operation
+}
+
+// Unwrap peels back one layer of a wrapped operation.
+func Unwrap(op Operation) Operation {
+	if op == nil {
+		return nil
+	}
+	if wrapped, ok := op.(WrappedOperation); ok {
+		return wrapped.WrappedOperation()
+	}
+	return op
+}
+
+// UnwrapAll peels back all operation wrappers.
+func UnwrapAll(op Operation) Operation {
+	unwrapped := Unwrap(op)
+	for unwrapped != nil && unwrapped != op {
+		op = unwrapped
+		unwrapped = Unwrap(op)
+	}
+	return unwrapped
+}
+
 // Executor records and exposes uniter state, and applies suitable changes as
 // operations are run or skipped.
 type Executor interface {

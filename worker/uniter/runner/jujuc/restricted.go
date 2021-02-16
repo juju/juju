@@ -215,3 +215,8 @@ func (*RestrictedContext) UnitWorkloadVersion() (string, error) {
 func (*RestrictedContext) SetUnitWorkloadVersion(string) error {
 	return ErrRestrictedContext
 }
+
+// WorkloadName implements hooks.Context.
+func (*RestrictedContext) WorkloadName() (string, error) {
+	return "", ErrRestrictedContext
+}

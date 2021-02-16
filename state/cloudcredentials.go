@@ -192,7 +192,7 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 			if err := m.maybeRevertModelStatus(); err != nil {
 				logger.Warningf("could not revert status for model %v: %v", m.UUID(), err)
 			}
-			defer func() { _ = closer() }()
+			defer func(closer func() error) { _ = closer() }(closer)
 		}
 	}
 	return nil

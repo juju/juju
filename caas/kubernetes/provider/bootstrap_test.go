@@ -25,6 +25,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
 	"github.com/juju/juju/cloudconfig/podcfg"
@@ -56,9 +57,9 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
-		config.NameKey:              "controller-1",
-		provider.OperatorStorageKey: "",
-		provider.WorkloadStorageKey: "",
+		config.NameKey:                  "controller-1",
+		k8sconstants.OperatorStorageKey: "",
+		k8sconstants.WorkloadStorageKey: "",
 	}))
 	c.Assert(err, jc.ErrorIsNil)
 	s.cfg = cfg

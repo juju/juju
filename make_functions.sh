@@ -52,8 +52,8 @@ build_operator_image() {
     # Populate docker build context
     cp "${JUJUD_BIN_DIR}/jujud" "${WORKDIR}/"
     cp "${JUJUD_BIN_DIR}/jujuc" "${WORKDIR}/"
-    cp "${JUJUD_BIN_DIR}/k8sagent" "${WORKDIR}/"
-    cp "${JUJUD_BIN_DIR}/juju-fake-init" "${WORKDIR}/pebble"
+    cp "${JUJUD_BIN_DIR}/containeragent" "${WORKDIR}/"
+    cp "${JUJUD_BIN_DIR}/pebble" "${WORKDIR}/"
     cp "${PROJECT_DIR}/caas/Dockerfile" "${WORKDIR}/"
     cp "${PROJECT_DIR}/caas/requirements.txt" "${WORKDIR}/"
 

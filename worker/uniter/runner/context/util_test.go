@@ -347,6 +347,17 @@ func (s *HookContextSuite) AssertNotRelationContext(c *gc.C, ctx *context.HookCo
 	c.Assert(err, gc.ErrorMatches, ".*")
 }
 
+func (s *HookContextSuite) AssertWorkloadContext(c *gc.C, ctx *context.HookContext, workloadName string) {
+	actualWorkloadName, _ := ctx.WorkloadName()
+	c.Assert(actualWorkloadName, gc.Equals, workloadName)
+}
+
+func (s *HookContextSuite) AssertNotWorkloadContext(c *gc.C, ctx *context.HookContext) {
+	workloadName, err := ctx.WorkloadName()
+	c.Assert(err, gc.NotNil)
+	c.Assert(workloadName, gc.Equals, "")
+}
+
 type BlockHelper struct {
 	blockClient *block.Client
 }

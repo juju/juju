@@ -873,7 +873,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Image:           config.CharmBaseImage.RegistryPath,
 		WorkingDir:      jujuDataDir,
-		Command:         []string{"/charm/bin/k8sagent"},
+		Command:         []string{"/charm/bin/containeragent"},
 		Args: []string{
 			"unit",
 			"--data-dir", jujuDataDir,
@@ -889,6 +889,10 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				Name:  constants.EnvAgentHTTPProbePort,
 				Value: constants.AgentHTTPProbePort,
 			},
+		},
+		SecurityContext: &corev1.SecurityContext{
+			RunAsUser:  int64Ptr(0),
+			RunAsGroup: int64Ptr(0),
 		},
 		LivenessProbe: &corev1.Probe{
 			Handler: corev1.Handler{
@@ -953,13 +957,19 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			Image:           v.Image.RegistryPath,
 			Command:         []string{"/charm/bin/pebble"},
 			Args: []string{
-				"listen",
-				"--socket", "/charm/container/pebble.sock",
-				"--append-env", "PATH=$PATH:/charm/bin",
+				"run",
+				"--hold",
 			},
 			Env: []corev1.EnvVar{{
 				Name:  "JUJU_CONTAINER_NAME",
 				Value: v.Name,
+			}, {
+				Name:  "PEBBLE_SOCKET",
+				Value: "/charm/container/pebble.socket",
+			}, {
+				// TODO(embedded): remove and let pebble use default.
+				Name:  "PEBBLE",
+				Value: "/charm/container/pebble",
 			}},
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -986,7 +996,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           config.AgentImagePath,
 			WorkingDir:      jujuDataDir,
-			Command:         []string{"/opt/k8sagent"},
+			Command:         []string{"/opt/containeragent"},
 			Args:            []string{"init", "--data-dir", jujuDataDir, "--bin-dir", "/charm/bin"},
 			Env: []corev1.EnvVar{
 				{

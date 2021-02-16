@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8sannotations "github.com/juju/juju/core/annotations"
@@ -210,8 +210,8 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 			Ports: []core.ServicePort{
 				{
 					Protocol:   core.ProtocolTCP,
-					Port:       caasconstants.JujuRunServerSocketPort,
-					TargetPort: intstr.FromInt(caasconstants.JujuRunServerSocketPort),
+					Port:       k8sconstants.JujuRunServerSocketPort,
+					TargetPort: intstr.FromInt(k8sconstants.JujuRunServerSocketPort),
 				},
 			},
 		},
@@ -368,7 +368,7 @@ func (k *kubernetesClient) operatorVolumeClaim(
 }
 
 func (k *kubernetesClient) validateOperatorStorage() (string, error) {
-	storageClass, _ := k.Config().AllAttrs()[OperatorStorageKey].(string)
+	storageClass, _ := k.Config().AllAttrs()[k8sconstants.OperatorStorageKey].(string)
 	if storageClass == "" {
 		return "", errors.NewNotValid(nil, "config without operator-storage value not valid.\nRun juju add-k8s to reimport your k8s cluster.")
 	}
@@ -758,9 +758,9 @@ func operatorPod(
 				},
 				Env: []core.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
-					{Name: caasconstants.OperatorServiceIPEnvName, Value: operatorServiceIP},
+					{Name: k8sconstants.OperatorServiceIPEnvName, Value: operatorServiceIP},
 					{
-						Name: caasconstants.OperatorPodIPEnvName,
+						Name: k8sconstants.OperatorPodIPEnvName,
 						ValueFrom: &core.EnvVarSource{
 							FieldRef: &core.ObjectFieldSelector{
 								FieldPath: "status.podIP",
@@ -768,7 +768,7 @@ func operatorPod(
 						},
 					},
 					{
-						Name: caasconstants.OperatorNamespaceEnvName,
+						Name: k8sconstants.OperatorNamespaceEnvName,
 						ValueFrom: &core.EnvVarSource{
 							FieldRef: &core.ObjectFieldSelector{
 								FieldPath: "metadata.namespace",

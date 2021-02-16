@@ -21,7 +21,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/caas"
-	k8s "github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -1833,7 +1833,7 @@ func updateKubernetesStorageConfig(st *State) error {
 	if err != nil {
 		return errors.Annotate(err, "getting cloud config")
 	}
-	operatorStorage, haveDefaultOperatorStorage := defaults[k8s.OperatorStorageKey]
+	operatorStorage, haveDefaultOperatorStorage := defaults[k8sconstants.OperatorStorageKey]
 	if !haveDefaultOperatorStorage {
 		cloudSpec, err := cloudSpec(st, model.CloudName(), model.CloudRegion(), cred)
 		if err != nil {
@@ -1852,8 +1852,8 @@ func updateKubernetesStorageConfig(st *State) error {
 		}
 		operatorStorage = metadata.NominatedStorageClass.Name
 		err = st.updateConfigDefaults(model.CloudName(), cloud.Attrs{
-			k8s.OperatorStorageKey: operatorStorage,
-			k8s.WorkloadStorageKey: operatorStorage, // use same storage for both
+			k8sconstants.OperatorStorageKey: operatorStorage,
+			k8sconstants.WorkloadStorageKey: operatorStorage, // use same storage for both
 		}, nil)
 		if err != nil {
 			return errors.Trace(err)
@@ -1861,11 +1861,11 @@ func updateKubernetesStorageConfig(st *State) error {
 	}
 
 	attrs := make(map[string]interface{})
-	if _, ok := cfg.AllAttrs()[k8s.OperatorStorageKey]; !ok {
-		attrs[k8s.OperatorStorageKey] = operatorStorage
+	if _, ok := cfg.AllAttrs()[k8sconstants.OperatorStorageKey]; !ok {
+		attrs[k8sconstants.OperatorStorageKey] = operatorStorage
 	}
-	if _, ok := cfg.AllAttrs()[k8s.WorkloadStorageKey]; !ok {
-		attrs[k8s.WorkloadStorageKey] = operatorStorage
+	if _, ok := cfg.AllAttrs()[k8sconstants.WorkloadStorageKey]; !ok {
+		attrs[k8sconstants.WorkloadStorageKey] = operatorStorage
 
 	}
 

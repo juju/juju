@@ -213,6 +213,11 @@ func (op onCommitWrapper) Commit(state operation.State) (*operation.State, error
 	return st, nil
 }
 
+// WrappedOperation is part of the WrappedOperation interface.
+func (op onCommitWrapper) WrappedOperation() operation.Operation {
+	return op.Operation
+}
+
 type onPrepareWrapper struct {
 	operation.Operation
 	onPrepare func()
@@ -225,4 +230,9 @@ func (op onPrepareWrapper) Prepare(state operation.State) (*operation.State, err
 	}
 	op.onPrepare()
 	return st, nil
+}
+
+// WrappedOperation is part of the WrappedOperation interface.
+func (op onPrepareWrapper) WrappedOperation() operation.Operation {
+	return op.Operation
 }

@@ -119,3 +119,8 @@ func (c *commandCompleter) Commit(st operation.State) (*operation.State, error) 
 	}
 	return result, err
 }
+
+// WrappedOperation is part of the WrappedOperation interface.
+func (c *commandCompleter) WrappedOperation() operation.Operation {
+	return c.Operation
+}

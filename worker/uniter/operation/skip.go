@@ -37,3 +37,8 @@ func (op *skipOperation) Execute(state State) (*State, error) {
 // of the operation.
 func (op *skipOperation) RemoteStateChanged(snapshot remotestate.Snapshot) {
 }
+
+// WrappedOperation is part of the WrappedOperation interface.
+func (op *skipOperation) WrappedOperation() Operation {
+	return op.Operation
+}

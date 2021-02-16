@@ -242,6 +242,10 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 		}
 		hookName = fmt.Sprintf("%s-%s", storageName, hookName)
 	}
+	if hookInfo.Kind.IsWorkload() {
+		ctx.workloadName = hookInfo.WorkloadName
+		hookName = fmt.Sprintf("%s-%s", hookInfo.WorkloadName, hookName)
+	}
 	ctx.id = f.newId(hookName)
 	ctx.hookName = hookName
 	return ctx, nil
