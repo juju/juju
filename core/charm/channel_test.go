@@ -4,7 +4,9 @@
 package charm_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/charm"
@@ -16,7 +18,8 @@ type channelSuite struct {
 
 var _ = gc.Suite(&channelSuite{})
 
-func (s channelSuite) TestParseChannel(c *gc.C) {
+func (s channelSuite) TestParseChannelNormalize(c *gc.C) {
+	// ParseChannelNoramlize tests ParseChannel as well.
 	tests := []struct {
 		Name        string
 		Value       string
@@ -111,6 +114,10 @@ func (s channelSuite) TestString(c *gc.C) {
 		Name:     "track, risk and branch",
 		Value:    "1.0/edge/foo",
 		Expected: "1.0/edge/foo",
+	}, {
+		Name:     "latest, risk and branch",
+		Value:    "latest/edge/foo",
+		Expected: "edge/foo",
 	}}
 	for k, test := range tests {
 		c.Logf("test %q at %d", test.Name, k)
@@ -118,4 +125,70 @@ func (s channelSuite) TestString(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		c.Assert(ch.String(), gc.DeepEquals, test.Expected)
 	}
+}
+
+func (s channelSuite) TestMakeChannel(c *gc.C) {
+	tests := []struct {
+		Name      string
+		Track     string
+		Risk      string
+		Branch    string
+		Expected  string
+		ErrorType func(err error) bool
+	}{{
+		Name:      "track, risk, branch not normalized",
+		Track:     "latest",
+		Risk:      "beta",
+		Branch:    "bar",
+		Expected:  "latest/beta/bar",
+		ErrorType: nil,
+	}, {
+		Name:      "",
+		Track:     "",
+		Risk:      "testme",
+		Branch:    "",
+		ErrorType: errors.IsNotValid,
+	}}
+	for k, test := range tests {
+		c.Logf("test %q at %d", test.Name, k)
+		ch, err := charm.MakeChannel(test.Track, test.Risk, test.Branch)
+		if test.ErrorType == nil {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(ch, gc.DeepEquals, charm.Channel{
+				Track:  test.Track,
+				Risk:   charm.Risk(test.Risk),
+				Branch: test.Branch,
+			})
+		} else {
+			c.Assert(err, jc.Satisfies, errors.IsNotValid)
+		}
+	}
+}
+
+func (s channelSuite) TestMakePermissiveChannelAndEmpty(c *gc.C) {
+	tests := []struct {
+		Name     string
+		Track    string
+		Risk     string
+		Expected string
+	}{{
+		Name:     "latest track, risk",
+		Track:    "latest",
+		Risk:     "beta",
+		Expected: "beta",
+	}, {
+		Name:     "risk not valid",
+		Track:    "",
+		Risk:     "testme",
+		Expected: "testme",
+	}}
+	for k, test := range tests {
+		c.Logf("test %q at %d", test.Name, k)
+		ch := charm.MakePermissiveChannel(test.Track, test.Risk, "")
+		c.Assert(ch.String(), gc.Equals, test.Expected)
+	}
+}
+
+func (s channelSuite) TestEmpty(c *gc.C) {
+	c.Assert(charm.Channel{}.Empty(), jc.IsTrue)
 }
