@@ -763,6 +763,7 @@ series: trusty
 applications:
   ubuntu:
     charm: cs:trusty/ubuntu
+    channel: stable
     num_units: 1
     to:
     - "0"
@@ -805,6 +806,7 @@ series: trusty
 applications:
   ubuntu:
     charm: cs:trusty/ubuntu
+    channel: stable
     num_units: 1
     to:
     - "0"
@@ -868,6 +870,7 @@ series: trusty
 applications:
   foo:
     charm: cs:trusty/ubuntu
+    channel: stable
     options:
       key: value
     bindings:
@@ -875,6 +878,7 @@ applications:
       juju-info: vlan2
   ubuntu:
     charm: cs:trusty/ubuntu
+    channel: stable
     num_units: 1
     to:
     - "0"
@@ -1014,6 +1018,7 @@ series: trusty
 applications:
   foo:
     charm: cs:trusty/ubuntu
+    channel: stable
     options:
       key: value
     bindings:
@@ -1021,6 +1026,7 @@ applications:
       juju-info: vlan2
   ubuntu:
     charm: cs:trusty/ubuntu
+    channel: stable
     num_units: 1
     to:
     - "0"
@@ -1144,6 +1150,7 @@ saas:
 applications:
   ubuntu:
     charm: cs:trusty/ubuntu
+    channel: stable
     num_units: 1
     to:
     - "0"
@@ -1382,6 +1389,7 @@ series: zesty
 applications:
   magic:
     charm: cs:zesty/magic
+    channel: stable
     expose: true
     options:
       key: value
@@ -1437,10 +1445,12 @@ func (s *bundleSuite) TestExportBundleNoEndpointBindingsPrinted(c *gc.C) {
 applications:
   magic:
     charm: cs:zesty/magic
+    channel: stable
     series: zesty
     expose: true
   ubuntu:
     charm: cs:trusty/ubuntu
+    channel: stable
     series: trusty
     options:
       key: value
@@ -1457,6 +1467,7 @@ func (s *bundleSuite) TestExportBundleEndpointBindingsPrinted(c *gc.C) {
 applications:
   magic:
     charm: cs:zesty/magic
+    channel: stable
     series: zesty
     expose: true
     bindings:
@@ -1464,6 +1475,7 @@ applications:
       rel-name: alpha
   ubuntu:
     charm: cs:trusty/ubuntu
+    channel: stable
     series: trusty
     options:
       key: value
@@ -1505,6 +1517,7 @@ series: zesty
 applications:
   magic:
     charm: cs:zesty/magic
+    channel: stable
     expose: true
     options:
       key: value
@@ -1889,6 +1902,7 @@ series: focal
 applications:
   magic:
     charm: cs:focal/magic
+    channel: stable
     expose: true
     bindings:
       hat: some-space
@@ -1909,6 +1923,7 @@ series: focal
 applications:
   magic:
     charm: cs:focal/magic
+    channel: stable
     expose: true
     bindings:
       hat: some-space
@@ -1933,6 +1948,7 @@ series: focal
 applications:
   magic:
     charm: cs:focal/magic
+    channel: stable
     bindings:
       hat: some-space
       rabbit: alpha
