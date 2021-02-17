@@ -239,6 +239,7 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		osInfo = application.Series
 	}
 	var (
+		charmAlias  = ""
 		charmOrigin = ""
 		charmName   = ""
 		charmRev    = 0
@@ -251,20 +252,24 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		switch curl.Schema {
 		case "ch":
 			charmOrigin = "charmhub"
+			charmAlias = curl.Name
 		case "cs":
 			charmOrigin = "charmstore"
+			charmAlias = application.Charm
 		case "local":
 			charmOrigin = "local"
+			charmAlias = application.Charm
 		default:
 			charmOrigin = "unknown"
+			charmAlias = application.Charm
 		}
-		charmName = curl.Name
 		charmRev = curl.Revision
+		charmName = curl.Name
 	}
 
 	out := applicationStatus{
 		Err:              typedNilCheck(application.Err),
-		Charm:            application.Charm,
+		Charm:            charmAlias,
 		Series:           application.Series,
 		OS:               osInfo,
 		CharmOrigin:      charmOrigin,
@@ -272,6 +277,7 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		CharmRev:         charmRev,
 		CharmVersion:     application.CharmVersion,
 		CharmProfile:     application.CharmProfile,
+		CharmChannel:     application.CharmChannel,
 		Exposed:          application.Exposed,
 		Life:             string(application.Life),
 		Scale:            application.Scale,

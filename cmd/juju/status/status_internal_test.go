@@ -5094,10 +5094,10 @@ controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
 SAAS         Status   Store  URL
 hosted-riak  unknown  local  me/model.riak
 
-App        Version          Status       Scale  Charm      Store       Rev  OS      Message
-logging    a bit too lo...  error            2  logging    charmstore    1  ubuntu  somehow lost in all those logs
-mysql      5.7.13           maintenance    1/2  mysql      charmstore    1  ubuntu  installing all the things
-wordpress  4.5.3            active           1  wordpress  charmhub      3  ubuntu  
+App        Version          Status       Scale  Charm      Store       Channel  Rev  OS      Message
+logging    a bit too lo...  error            2  logging    charmstore             1  ubuntu  somehow lost in all those logs
+mysql      5.7.13           maintenance    1/2  mysql      charmstore             1  ubuntu  installing all the things
+wordpress  4.5.3            active           1  wordpress  charmhub               3  ubuntu  
 
 Unit          Workload     Agent  Machine  Public address  Ports  Message
 mysql/0*      maintenance  idle   2        10.0.2.1               installing all the things
@@ -5202,8 +5202,8 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version  Status  Scale  Charm  Store  Rev  OS  Message
-foo                       2                  0      
+App  Version  Status  Scale  Charm  Store  Channel  Rev  OS  Message
+foo                       2                           0      
 
 Unit   Workload     Agent      Machine  Public address  Ports  Message
 foo/0  maintenance  executing                                  (config-changed) doing some work
@@ -5250,8 +5250,8 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version  Status  Scale  Charm  Store  Rev  OS  Address    Message
-foo                     1/2                  0      54.32.1.2  
+App  Version  Status  Scale  Charm  Store  Channel  Rev  OS  Address    Message
+foo                     1/2                           0      54.32.1.2  
 
 Unit   Workload  Agent       Address   Ports   Message
 foo/0  active    allocating                    
@@ -5293,8 +5293,8 @@ func (s *StatusSuite) TestFormatTabularStatusMessage(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version  Status  Scale  Charm  Store  Rev  OS  Address    Message
-foo                     0/1                  0      54.32.1.2  Error: ImagePullBackOff
+App  Version  Status  Scale  Charm  Store  Channel  Rev  OS  Address    Message
+foo                     0/1                           0      54.32.1.2  Error: ImagePullBackOff
 
 Unit   Workload  Agent       Address   Ports   Message
 foo/0  waiting   allocating  10.0.0.1  80/TCP  
@@ -5357,8 +5357,8 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version  Status  Scale  Charm  Store  Rev  OS  Message
-foo                     0/2                  0      
+App  Version  Status  Scale  Charm  Store  Channel  Rev  OS  Message
+foo                     0/2                           0      
 
 Unit   Workload  Agent  Machine  Public address  Ports  Message
 foo/0                                                   
