@@ -50,7 +50,8 @@ class MicroK8s(Base):
         self.default_storage_class_name = 'microk8s-hostpath'
 
     def _ensure_cluster_stack(self):
-        self.__ensure_microk8s_installed()
+        # self.__ensure_microk8s_installed()
+        pass
 
     def _tear_down_substrate(self):
         # No need to tear down microk8s.
@@ -72,7 +73,8 @@ class MicroK8s(Base):
     def _ensure_cluster_config(self):
         self.enable_microk8s_addons()
         try:
-            self.__tmp_fix_patch_coredns()
+            # self.__tmp_fix_patch_coredns()
+            pass
         except Exception as e:
             logger.error(e)
 
@@ -119,6 +121,7 @@ class MicroK8s(Base):
         # install microk8s.
         self.sh('sudo', 'snap', 'install', 'microk8s', '--classic', '--stable')
         logger.info("microk8s installed successfully")
+        self.sh('sudo', 'usermod', '-a', '-G', 'microk8s', os.environ['USER'])
 
         logger.info(
             "microk8s status \n%s",
