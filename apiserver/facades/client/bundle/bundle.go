@@ -505,27 +505,36 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 		}
 		exposedFlag := application.Exposed() && len(exposedEndpoints) == 0
 
+		// We need to correctly handle charmhub urls. The internal
+		// representation of a charm url is not the same as a external
+		// representation, in that only the application name should be rendered.
+		curl, err := charm.ParseURL(application.CharmURL())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		charmURL := application.CharmURL()
+		if charm.CharmHub.Matches(curl.Schema) {
+			charmURL = curl.Name
+		}
+
 		if application.Subordinate() {
 			newApplication = &charm.ApplicationSpec{
-				Charm:            application.CharmURL(),
+				Charm:            charmURL,
+				Channel:          application.Channel(),
 				Expose:           exposedFlag,
 				ExposedEndpoints: exposedEndpoints,
 				Options:          application.CharmConfig(),
 				Annotations:      application.Annotations(),
 				EndpointBindings: endpointsWithSpaceNames,
 			}
-			if appSeries != defaultSeries {
-				newApplication.Series = appSeries
-			}
-			if result := b.constraints(application.Constraints()); len(result) != 0 {
-				newApplication.Constraints = strings.Join(result, " ")
-			}
 		} else {
-			ut := []string{}
-			placement := ""
-			numUnits := 0
-			scale := 0
-
+			var (
+				numUnits  int
+				scale     int
+				placement string
+				ut        []string
+			)
 			if isCAAS {
 				placement = application.Placement()
 				scale = len(application.Units())
@@ -546,7 +555,8 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 			}
 
 			newApplication = &charm.ApplicationSpec{
-				Charm:            application.CharmURL(),
+				Charm:            charmURL,
+				Channel:          application.Channel(),
 				NumUnits:         numUnits,
 				Scale_:           scale,
 				Placement_:       placement,
@@ -557,13 +567,13 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 				Annotations:      application.Annotations(),
 				EndpointBindings: endpointsWithSpaceNames,
 			}
+		}
 
-			if appSeries != defaultSeries {
-				newApplication.Series = appSeries
-			}
-			if result := b.constraints(application.Constraints()); len(result) != 0 {
-				newApplication.Constraints = strings.Join(result, " ")
-			}
+		if appSeries != defaultSeries {
+			newApplication.Series = appSeries
+		}
+		if result := b.constraints(application.Constraints()); len(result) != 0 {
+			newApplication.Constraints = strings.Join(result, " ")
 		}
 
 		// If this application has been trusted by the operator, set the
@@ -646,7 +656,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	}
 
 	for _, relation := range model.Relations() {
-		endpointRelation := []string{}
+		var endpointRelation []string
 		for _, endpoint := range relation.Endpoints() {
 			// skipping the 'peer' role which is not of concern in exporting the current model configuration.
 			if endpoint.Role() == "peer" {
