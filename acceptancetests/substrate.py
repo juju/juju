@@ -622,14 +622,16 @@ class MAASAccount:
 
     def _maas(self, *args):
         """Call maas api with given arguments and parse json result."""
-        try:
-            command = ('maas',) + args
-            output = subprocess.check_output(command, stderr=subprocess.STDOUT)
-            if not output:
+        command = ('maas',) + args
+        res = subprocess.run(command, shell=True, capture_output=True,
+                             text=True)
+        if res.returncode == 0:
+            if not res.stdout:
                 return None
-            return json.loads(output)
-        except subprocess.CalledProcessError as e:
-            raise Exception('%s failed:\n %s' % (command, e.output))
+            return json.loads(res.stdout)
+
+        raise Exception('%s failed:\n %s%s' % (command, res.stdout,
+                                               res.stderr))
 
     def login(self):
         """Login with the maas cli."""
