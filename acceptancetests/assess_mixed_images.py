@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Assess mixed deployment of images from two sets of simplestreams."""
 
 from __future__ import print_function

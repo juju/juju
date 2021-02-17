@@ -154,14 +154,12 @@ class JujuData:
             self.lxd = (self._config.get('container') == 'lxd' or provider == 'lxd')
             self.kvm = (bool(self._config.get('container') == 'kvm'))
             self.maas = bool(provider == 'maas')
-            self.joyent = bool(provider == 'joyent')
             self.logging_config = self._config.get('logging-config')
             self.provider_type = provider
         else:
             self.lxd = False
             self.kvm = False
             self.maas = False
-            self.joyent = False
             self.logging_config = None
             self.provider_type = None
         self.credentials = {}
@@ -192,7 +190,6 @@ class JujuData:
         result.lxd = self.lxd
         result.kvm = self.kvm
         result.maas = self.maas
-        result.joyent = self.joyent
         result.user_name = self.user_name
         result.credentials = deepcopy(self.credentials)
         result.clouds = deepcopy(self.clouds)
@@ -377,8 +374,7 @@ class JujuData:
     def set_region(self, region):
         """Assign the region to a 1.x-style config.
 
-        This requires translating Azure's and Joyent's conventions for
-        specifying region.
+        This requires translating Azure's conventions for specifying region.
 
         It means that endpoint, rather than region, should be updated if the
         cloud (not the provider) is named "lxd" or "manual".
@@ -393,9 +389,6 @@ class JujuData:
             cloud_is_provider = False
         if provider == 'azure':
             self._config['location'] = region
-        elif provider == 'joyent':
-            self._config['sdc-url'] = (
-                'https://{}.api.joyentcloud.com'.format(region))
         elif cloud_is_provider:
             self._set_config_endpoint(region)
         elif provider == 'maas':
@@ -474,8 +467,7 @@ class JujuData:
     def get_region(self):
         """Determine the region from a 1.x-style config.
 
-        This requires translating Azure's and Joyent's conventions for
-        specifying region.
+        This requires translating Azure's conventions for specifying region.
 
         It means that endpoint, rather than region, should be supplied if the
         cloud (not the provider) is named "lxd" or "manual".
@@ -488,9 +480,6 @@ class JujuData:
             if 'tenant-id' not in self._config:
                 return self._config['location'].replace(' ', '').lower()
             return self._config['location']
-        elif provider == 'joyent':
-            matcher = re.compile('https://(.*).api.joyentcloud.com')
-            return matcher.match(self._config['sdc-url']).group(1)
         elif provider == 'maas':
             return None
         # In 2.x, certain providers can be specified on the commandline in
@@ -564,7 +553,6 @@ def describe_substrate(env):
         return {
             'ec2': 'AWS',
             'rackspace': 'Rackspace',
-            'joyent': 'Joyent',
             'azure': 'Azure',
             'maas': 'MAAS',
         }[env.provider]
@@ -575,9 +563,12 @@ def describe_substrate(env):
 def get_stripped_version_number(version_string):
     return get_version_string_parts(version_string)[0]
 
-
 def get_version_string_parts(version_string):
     # strip the series and arch from the built version.
+    # Note:
+    if isinstance(version_string, bytes):
+        version_string = str(version_string, 'utf-8')
+
     version_parts = version_string.split('-')
     if len(version_parts) == 4:
         # Version contains "-<patchname>", reconstruct it after the split.
@@ -865,9 +856,10 @@ class ModelClient:
 
     def get_bootstrap_args(
             self, upload_tools, config_filename, bootstrap_series=None,
-            credential=None, auto_upgrade=False, metadata_source=None,
-            no_gui=False, agent_version=None, db_snap_path=None,
-            db_snap_asserts_path=None, force=False, config_options=None):
+            arch=None, credential=None, auto_upgrade=False,
+            metadata_source=None, no_gui=False, agent_version=None,
+            db_snap_path=None, db_snap_asserts_path=None, force=False,
+            config_options=None):
         """Return the bootstrap arguments for the substrate."""
         cloud_region = self.get_cloud_region(self.env.get_cloud(),
                                              self.env.get_region())
@@ -880,7 +872,7 @@ class ModelClient:
             return tuple(args)
 
         args += [
-            '--constraints', self._get_substrate_constraints(),
+            '--constraints', self._get_substrate_constraints(arch),
             '--default-model', self.env.environment
         ]
         if force:
@@ -1006,11 +998,11 @@ class ModelClient:
     def update_user_name(self):
         self.env.user_name = 'admin'
 
-    def bootstrap(self, upload_tools=False, bootstrap_series=None,
+    def bootstrap(self, upload_tools=False, bootstrap_series=None, arch=None,
                   credential=None, auto_upgrade=False, metadata_source=None,
                   no_gui=False, agent_version=None, db_snap_path=None,
-                  db_snap_asserts_path=None, mongo_memory_profile=None, caas_image_repo=None, force=False,
-                  config_options=None):
+                  db_snap_asserts_path=None, mongo_memory_profile=None,
+                  caas_image_repo=None, force=False, config_options=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config(
@@ -1020,6 +1012,7 @@ class ModelClient:
                 upload_tools=upload_tools,
                 config_filename=config_filename,
                 bootstrap_series=bootstrap_series,
+                arch=arch,
                 credential=credential,
                 auto_upgrade=auto_upgrade,
                 metadata_source=metadata_source,
@@ -1098,6 +1091,12 @@ class ModelClient:
         :raises: subprocess.CalledProcessError if the operation fails.
         :return: Tuple: Subprocess's exit code, CommandComplete object.
         """
+
+        # Before destroying the controller, get the backend to stop tracking
+        # all of the models connected to it.
+        # This prevents calling status on dying/dead models.
+        self.untrack_models()
+
         args = (self.env.controller.name, '-y')
         if all_models:
             args += ('--destroy-all-models',)
@@ -1128,6 +1127,11 @@ class ModelClient:
             else:
                 logging.warning(message)
             raise
+
+    def untrack_models(self):
+        """Untrack models for this client's controller."""
+        for client in self.iter_model_clients():
+            self._backend.untrack_model(client)
 
     def get_juju_output(self, command, *args, **kwargs):
         """Call a juju command and return the output.
@@ -1172,7 +1176,7 @@ class ModelClient:
                 return self.status_class.from_text(
                     self.get_juju_output(
                         self._show_status, '--format', 'yaml',
-                        controller=controller).decode('utf-8'))
+                        controller=controller))
             except subprocess.CalledProcessError:
                 pass
         raise StatusTimeout(
@@ -1186,7 +1190,7 @@ class ModelClient:
                     self.get_juju_output(
                         self._show_controller, '--format', 'yaml',
                         include_e=False,
-                    ).decode('utf-8'),
+                    ),
                 )
             except subprocess.CalledProcessError:
                 pass
@@ -1203,7 +1207,7 @@ class ModelClient:
                         '--controller', controller_name,
                         '--format', 'yaml',
                         include_e=False,
-                    ).decode('utf-8'),
+                    ),
                 )
             except subprocess.CalledProcessError:
                 pass
@@ -1252,7 +1256,7 @@ class ModelClient:
     def get_env_option(self, option):
         """Return the value of the environment's configured option."""
         return self.get_juju_output(
-            'model-config', option).decode(getpreferredencoding())
+            'model-config', option)
 
     def set_env_option(self, option, value):
         """Set the value of the option in the environment."""
@@ -1493,20 +1497,19 @@ class ModelClient:
     def _maas_spaces_enabled():
         return not os.environ.get("JUJU_CI_SPACELESSNESS")
 
-    def _get_substrate_constraints(self):
-        if self.env.joyent:
-            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
-            return 'cores=1'
-        elif self.env.maas and self._maas_spaces_enabled():
+    def _get_substrate_constraints(self, arch):
+        cons = []
+        if arch is not None:
+            cons.append("arch={}".format(arch))
+        if self.env.maas and self._maas_spaces_enabled():
             # For now only maas support spaces in a meaningful way.
-            return 'spaces={}'.format(','.join(
-                '^' + space for space in sorted(self.excluded_spaces)))
+            cons.append('spaces={}'.format(','.join(
+                '^' + space for space in sorted(self.excluded_spaces))))
         elif self.env.lxd:
             # LXD should be constrained by memory when running in HA, otherwise
             # mongo just eats everything.
-            return 'mem=6G'
-        else:
-            return ''
+            cons.append('mem=6G')
+        return ' '.join(cons)
 
     def quickstart(self, bundle_template, upload_tools=False):
         bundle = self.format_bundle(bundle_template)

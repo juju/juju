@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Testing Juju's persistent storage feature."""
 
 from __future__ import print_function
@@ -113,7 +113,7 @@ def assert_storage_count(storage_list, expected):
 
 def assert_single_blk_existence(storage_list, storage_id):
     log.info(
-        'Checking existence of single block device storage.'.format(
+        'Checking existence of single block device storage {}.'.format(
             storage_id))
     if storage_id not in storage_list:
         raise JujuAssertionError(
@@ -124,7 +124,8 @@ def assert_single_blk_existence(storage_list, storage_id):
 
 def assert_single_blk_removal(storage_list, storage_id):
     log.info(
-        'Checking removal of single block device storage.'.format(storage_id))
+        'Checking removal of single block device storage {}.'.format(
+            storage_id))
     if storage_id in storage_list:
         raise JujuAssertionError(
             '{} still exists in storage list.'.format(storage_id))

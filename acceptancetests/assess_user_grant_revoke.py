@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """This testsuite is intended to test basic user permissions. Users
    can be granted read or full privileges by model. Revoking those
    privileges should remove them.
@@ -69,8 +69,6 @@ def _generate_random_string():
 
 
 def assert_equal(found, expected):
-    found = sorted(found)
-    expected = sorted(expected)
     if found != expected:
         raise JujuAssertionError(
             'Found: {}\nExpected: {}'.format(found, expected))
@@ -112,7 +110,7 @@ def list_shares(client):
         client.get_juju_output(
             'show-model', '--format', 'json', include_e=False))
     share_list = model_data[client.model_name]['users']
-    for key, value in share_list.iteritems():
+    for key, value in iter(share_list.items()):
         value.pop("last-connection", None)
     return share_list
 
@@ -196,20 +194,20 @@ def assert_user_permissions(user, user_client, controller_client):
     """Test if users' permissions are within expectations"""
     expect = iter(user.expect)
     permission = user.permissions
-    assert_read_model(user_client, permission, expect.next())
-    assert_write_model(user_client, permission, expect.next())
+    assert_read_model(user_client, permission, next(expect))
+    assert_write_model(user_client, permission, next(expect))
     assert_admin_model(
-        controller_client, user_client, permission, expect.next())
+        controller_client, user_client, permission, next(expect))
 
     log.info("Revoking {} permission from {}".format(
         user.permissions, user.name))
     controller_client.revoke(user.name, permissions=user.permissions)
     log.info('Revoke accepted')
 
-    assert_read_model(user_client, permission, expect.next())
-    assert_write_model(user_client, permission, expect.next())
+    assert_read_model(user_client, permission, next(expect))
+    assert_write_model(user_client, permission, next(expect))
     assert_admin_model(
-        controller_client, user_client, permission, expect.next())
+        controller_client, user_client, permission, next(expect))
 
 
 def assert_change_password(client, user, password):

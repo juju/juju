@@ -3,7 +3,7 @@ machines:
     series: trusty
   "2":
     series: trusty
-services:
+applications:
   apache2:
     charm: "cs:trusty/apache2-19"
     num_units: 1
@@ -14,7 +14,7 @@ services:
     num_units: 0
   haproxy:
     series: trusty
-    charm: "haproxy"
+    charm: "cs:haproxy"
     num_units: 1
     to:
       - "2"

@@ -1,9 +1,13 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from argparse import ArgumentParser
 import logging
 from textwrap import dedent
 import yaml
 
+from utility import (
+    add_basic_testing_arguments,
+    configure_logging,
+    )
 from deploy_stack import (
     BootstrapManager,
     )
@@ -15,10 +19,6 @@ from jujupy import (
     )
 from jujupy.wait_condition import (
     ConditionList,
-    )
-from utility import (
-    add_basic_testing_arguments,
-    configure_logging,
     )
 
 
@@ -103,9 +103,8 @@ def assess_cloud_kill_controller(bs_manager):
         # We expect juju to die with a connection error (because we just
         # stopped its jujud).  This would normally be seen as a bug, so we
         # suppress it.
-        controller_client.juju('run', (
-            '--machine', '0', 'sudo service jujud-machine-0 stop'),
-            check=False, suppress_err=True)
+        cmd = ('--machine', '0', 'sudo service jujud-machine-0 stop')
+        controller_client.juju('run', cmd, check=False, suppress_err=True)
         bs_manager.has_controller = False
 
 
