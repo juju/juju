@@ -13,6 +13,7 @@ import argparse
 import json
 import shutil
 import logging
+import os
 import time
 import yaml
 import sys
@@ -25,7 +26,6 @@ from deploy_stack import BootstrapManager
 from utility import (
     JujuAssertionError, add_basic_testing_arguments, configure_logging,
 )
-
 from jujupy.k8s_provider import K8sProviderType, providers
 from jujupy.utility import until_timeout
 
@@ -35,16 +35,41 @@ log = logging.getLogger("assess_caas_kubeflow_deployment")
 
 KUBEFLOW_REPO_NAME = "bundle-kubeflow"
 KUBEFLOW_REPO_URI = f"https://github.com/juju-solutions/{KUBEFLOW_REPO_NAME}.git"
+KUBEFLOW_DIR = os.path.join(os.getcwd(), KUBEFLOW_REPO_NAME)
 OSM_REPO_URI = "git://git.launchpad.net/canonical-osm"
 
 
-def kubectl_exists(kubectl_path, resource):
+def run(*args):
+    subprocess.check_call(
+        list(args),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def retry(is_ok, do, timeout=300, should_raise=False):
+    for _ in until_timeout(timeout):
+        if is_ok():
+            try:
+                return do()
+            except Exception:
+                if should_raise:
+                    raise
+        sleep(3)
+    raise JujuAssertionError('retry timeout after %s' % timeout)
+
+
+def kubectl_exists(caas_client, resource):
     try:
-        subprocess.check_call(
-            [kubectl_path, 'get', resource],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        run(*(caas_client._kubectl_bin + ('get', resource)))
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
+def application_exists(k8s_model, application):
+    try:
+        k8s_model.juju('show-application', (application, ))
         return True
     except subprocess.CalledProcessError:
         return False
@@ -54,43 +79,65 @@ def deploy_kubeflow(caas_client, k8s_model):
     start = time.time()
 
     caas_client.kubectl('label', 'namespace', k8s_model.model_name, 'istio-injection=enabled')
+    k8s_model.deploy(
+        # charm="kubeflow",
+        charm="kubeflow-edge",
+        channel="stable",
+    )
+    # k8s_model.juju(
+    #     'bundle',
+    #     (
+    #         'deploy',
+    #         '--bundle', f'{KUBEFLOW_DIR}/bundle-lite.yaml',
+    #         '--build',
+    #         # f'{KUBEFLOW_DIR}',
+    #     ),
+    #     include_e=False,
+    # )
 
-    k8s_model.deploy(charm="kubeflow", channel="stable")
-
-    if kubectl_exists(caas_client._kubectl_bin, 'role/istio-ingressgateway-operator'):
-        caas_client.kubectl(
-            'patch',
-            'role/istio-ingressgateway-operator',
-            '-p',
-            yaml.dump(
-                {
-                    "apiVersion": "rbac.authorization.k8s.io/v1",
-                    "kind": "Role",
-                    "metadata": {"name": "istio-ingressgateway-operator"},
-                    "rules": [{"apiGroups": ["*"], "resources": ["*"], "verbs": ["*"]}],
-                }
+    if application_exists(k8s_model, 'istio-ingressgateway'):
+        retry(
+            lambda: True,
+            lambda: caas_client.kubectl(
+                'patch',
+                'role/istio-ingressgateway-operator',
+                '-p',
+                yaml.dump(
+                    {
+                        "apiVersion": "rbac.authorization.k8s.io/v1",
+                        "kind": "Role",
+                        "metadata": {"name": "istio-ingressgateway-operator"},
+                        "rules": [{"apiGroups": ["*"], "resources": ["*"], "verbs": ["*"]}],
+                    }
+                ),
             ),
+            timeout=60,
         )
 
     k8s_model.wait_for_workloads(timeout=600)
 
-    if kubectl_exists(caas_client._kubectl_bin, 'service/pipelines-api'):
-        caas_client.kubectl_apply(
-            yaml.dump(
-                {
-                    'apiVersion': 'v1',
-                    'kind': 'Service',
-                    'metadata': {'labels': {'juju-app': 'pipelines-api'}, 'name': 'ml-pipeline'},
-                    'spec': {
-                        'ports': [
-                            {'name': 'grpc', 'port': 8887, 'protocol': 'TCP', 'targetPort': 8887},
-                            {'name': 'http', 'port': 8888, 'protocol': 'TCP', 'targetPort': 8888},
-                        ],
-                        'selector': {'juju-app': 'pipelines-api'},
-                        'type': 'ClusterIP',
+    if application_exists(k8s_model, 'pipelines-api'):
+        retry(
+            lambda: True,
+            lambda: caas_client.kubectl_apply(
+                yaml.dump(
+                    {
+                        'apiVersion': 'v1',
+                        'kind': 'Service',
+                        'metadata': {'labels': {'juju-app': 'pipelines-api'}, 'name': 'ml-pipeline'},
+                        'spec': {
+                            'ports': [
+                                {'name': 'grpc', 'port': 8887, 'protocol': 'TCP', 'targetPort': 8887},
+                                {'name': 'http', 'port': 8888, 'protocol': 'TCP', 'targetPort': 8888},
+                            ],
+                            'selector': {'juju-app': 'pipelines-api'},
+                            'type': 'ClusterIP',
+                        },
                     },
-                },
+                ),
             ),
+            timeout=60,
+            should_raise=True,
         )
 
     caas_client.kubectl(
@@ -103,26 +150,28 @@ def deploy_kubeflow(caas_client, k8s_model):
     )
 
     pub_addr = get_pub_addr(caas_client)
-    # if application_exists('dex-auth'):
-    #     juju('config', 'dex-auth', f'public-url=http://{pub_addr}:80')
-    #     juju('config', 'dex-auth', f'static-password={password}')
+    password = "foobar"
+    if application_exists(k8s_model, 'dex-auth'):
+        log.info("configuring dex-auth application")
+        k8s_model.set_config('dex-auth', {'public-url': f'http://{pub_addr}:80'})
+        k8s_model.set_config('dex-auth', {'static-password': f'{password}'})
 
-    # if application_exists('oidc-gatekeeper'):
-    #     juju('config', 'oidc-gatekeeper', f'public-url=http://{pub_addr}:80')
+    if application_exists(k8s_model, 'oidc-gatekeeper'):
+        log.info("configuring oidc-gatekeeper application")
+        k8s_model.set_config('oidc-gatekeeper', {'public-url': f'http://{pub_addr}:80'})
 
-    # click.echo("Waiting for Kubeflow to become ready")
+    log.info("Waiting for Kubeflow to become ready")
 
-    # juju('wait', '-wv', '-m', model, '-t', str(10 * 60))
-    # juju(
-    #     "kubectl",
-    #     "wait",
-    #     "--for=condition=available",
-    #     "-n",
-    #     model,
-    #     "deployment",
-    #     "--all",
-    #     "--timeout=10m",
-    # )
+    k8s_model.wait_for_workloads(timeout=600)
+    caas_client.kubectl(
+        "wait",
+        "--for=condition=available",
+        "-n",
+        k8s_model.model_name,
+        "deployment",
+        "--all",
+        "--timeout=10m",
+    )
 
     log.info(
         f'\nCongratulations, Kubeflow is now available. Took {int(time.time() - start)} seconds.',
@@ -153,7 +202,7 @@ def kubeflow_info(controller_name: str, model_name: str, pub_addr: str):
 
         To tear down Kubeflow, run this command:
 
-            # Run `juju destroy-_name --help` for a full listing of options,
+            # Run `juju destroy-model --help` for a full listing of options,
             # such as how to release storage instead of destroying it.
             juju destroy-model {controller_name}:{model_name} --destroy-storage
 
@@ -199,35 +248,39 @@ def get_pub_addr(caas_client):
 def prepare(caas_client, caas_provider):
     if caas_provider == K8sProviderType.MICROK8S.name:
         caas_client.enable_microk8s_addons(
-            ["dns", "storage", "dashboard", "ingress", "metallb:10.64.140.43-10.64.140.49"],
+            [
+                "dns", "storage", "dashboard", "ingress", "metallb:10.64.140.43-10.64.140.49",
+                # "rbac",
+            ],
         )
-        caas_client.sh(
-            "microk8s", "kubectl", "wait", "--for=condition=available",
+        caas_client.kubectl(
+            "wait", "--for=condition=available",
             "-nkube-system", "deployment/coredns", "deployment/hostpath-provisioner", "--timeout=10m",
         )
 
-    for dep in [
-        # "charm", "juju-helpers",
-        "juju-wait",
-    ]:
-        if shutil.which(dep):
-            continue
-        caas_client.sh('sudo', 'snap', 'install', dep, '--classic')
+    # for dep in [
+    #     "charm",
+    #     "juju-helpers",
+    #     # "juju-wait",
+    # ]:
+    #     if shutil.which(dep):
+    #         continue
+    #     caas_client.sh('sudo', 'snap', 'install', dep, '--classic')
 
-    caas_client.sh('sudo', 'apt', 'update')
-    caas_client.sh('sudo', 'apt', 'install', '-y', 'libssl-dev', 'python3-setuptools')
+    # caas_client.sh('sudo', 'apt', 'update')
+    # caas_client.sh('sudo', 'apt', 'install', '-y', 'libssl-dev', 'python3-setuptools')
 
-    caas_client.sh('git', 'clone', KUBEFLOW_REPO_URI)
-    caas_client.sh(
-        'pip3', 'install',
-        '-r', f'./{KUBEFLOW_REPO_NAME}/requirements.txt',
-        '-r', f'./{KUBEFLOW_REPO_NAME}/test-requirements.txt',
-    )
+    caas_client.sh('rm', '-rf', f'{KUBEFLOW_DIR}')  # remove!!
+    caas_client.sh('git', 'clone', KUBEFLOW_REPO_URI, KUBEFLOW_DIR)
+    # caas_client.sh(
+    #     'pip3', 'install',
+    #     '-r', f'{KUBEFLOW_DIR}/requirements.txt',
+    #     '-r', f'{KUBEFLOW_DIR}/test-requirements.txt',
+    # )
 
 
 def run_test():
-    # TODO
-    pass
+    run("sg", "microk8s", "-c", f"{KUBEFLOW_DIR}/tests/run.sh -m edge")
 
 
 def assess_caas_kubeflow_deployment(caas_client, caas_provider):
@@ -238,24 +291,32 @@ def assess_caas_kubeflow_deployment(caas_client, caas_provider):
     k8s_model = caas_client.add_model(model_name)
 
     def success_hook():
-        log.info(caas_client.kubectl('get', 'all', '--all-namespaces', '-o', 'wide'))
+        log.info(caas_client.kubectl('get', 'all,pv,pvc,ing', '--all-namespaces', '-o', 'wide'))
 
     def fail_hook():
         success_hook()
-        ns_dumps = caas_client.kubectl('get', 'all', '-n', model_name, '-o', 'json')
+        ns_dumps = caas_client.kubectl('get', 'all,pv,pvc,ing', '-n', model_name, '-o', 'json')
         log.info('all resources in namespace %s -> %s', model_name, pformat(json.loads(ns_dumps)))
-        log.info(caas_client.kubectl('get', 'pv,pvc', '-n', model_name))
+
+        log.info(
+            'describing pods in %s ->\n%s',
+            model_name, caas_client.kubectl('describe', 'pods', f'-n{model_name}'),
+        )
         caas_client.ensure_cleanup()
 
     try:
-        prepare(caas_client, caas_provider, model_name)
+        prepare(caas_client, caas_provider)
         deploy_kubeflow(caas_client, k8s_model)
         log.info("sleeping for 30 seconds to let everything start up")
         sleep(30)
+        print('sleeping 3000!!!!!!!!!!!!!!!!!!!')  # remove me !!!
+        sleep(3000)  # remove me !!!
         run_test()
         k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
+        success_hook()
     except:  # noqa: E722
         # run cleanup steps then raise.
+        sleep(1800)  # remove me !!!!!!!
         fail_hook()
         raise
 
