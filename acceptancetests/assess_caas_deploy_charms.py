@@ -99,11 +99,11 @@ def assess_caas_charm_deployment(caas_client, caas_provider):
     k8s_model = caas_client.add_model(model_name)
 
     def success_hook():
-        log.info(caas_client.kubectl('get', 'all', '--all-namespaces', '-o', 'wide'))
+        log.info(caas_client.kubectl('get', 'all,pv,pvc,ing', '--all-namespaces', '-o', 'wide'))
 
     def fail_hook():
         success_hook()
-        ns_dumps = caas_client.kubectl('get', 'all', '-n', model_name, '-o', 'json')
+        ns_dumps = caas_client.kubectl('get', 'all,pv,pvc,ing', '-n', model_name, '-o', 'json')
         log.info('all resources in namespace %s -> %s', model_name, pformat(json.loads(ns_dumps)))
         log.info(caas_client.kubectl('get', 'pv,pvc', '-n', model_name))
         caas_client.ensure_cleanup()

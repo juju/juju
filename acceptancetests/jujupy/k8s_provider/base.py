@@ -180,21 +180,16 @@ class Base(object):
         )
         logger.debug('added caas cloud, now all clouds are -> \n%s', self.client.list_clouds(format='yaml'))
 
-    def check_cluster_healthy(self, timeout=0):
-        def check():
+    def check_cluster_healthy(self, timeout=60):
+        err = None
+        for _ in until_timeout(timeout):
             try:
-                cluster_info = self.kubectl('cluster-info', '--request-timeout=3s')
-                logger.debug('cluster_info -> \n%s', cluster_info)
-                nodes_info = self.kubectl('get', 'nodes')
-                logger.debug('nodes_info -> \n%s', pformat(nodes_info))
+                self.kubectl('cluster-info', '--request-timeout=3s')
                 return True
             except subprocess.CalledProcessError as e:
-                logger.error('error -> %s', e)
-                return False
-        for remaining in until_timeout(timeout):
-            if check():
-                return True
-            sleep(3)
+                err = e
+                sleep(3)
+        logger.error(err)
         return False
 
     def kubectl(self, *args):
