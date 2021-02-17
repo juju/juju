@@ -183,7 +183,7 @@ func (s *stateTrackerSuite) TestPrepareHookNotFound(c *gc.C) {
 		RelationId: 1,
 	}
 	_, err = rst.PrepareHook(info)
-	c.Assert(err, gc.ErrorMatches, "unknown relation: 1")
+	c.Assert(err, gc.ErrorMatches, "operation already executed")
 }
 
 func (s *stateTrackerSuite) TestPrepareHookOnlyRelationHooks(c *gc.C) {
@@ -234,7 +234,7 @@ func (s *stateTrackerSuite) TestCommitHookNotFound(c *gc.C) {
 		RelationId: 1,
 	}
 	err = rst.CommitHook(info)
-	c.Assert(err, gc.ErrorMatches, "unknown relation: 1")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *stateTrackerSuite) TestCommitHookRelationCreated(c *gc.C) {
