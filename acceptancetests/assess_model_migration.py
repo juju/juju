@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Tests for the Model Migration feature"""
 
 from __future__ import print_function
@@ -12,6 +12,15 @@ import sys
 from time import sleep
 import yaml
 
+from remote import remote_from_address
+from utility import (
+    JujuAssertionError,
+    add_basic_testing_arguments,
+    configure_logging,
+    qualified_model_name,
+    temp_dir,
+    until_timeout,
+)
 from assess_user_grant_revoke import User
 from deploy_stack import (
     BootstrapManager,
@@ -26,15 +35,6 @@ from jujupy.workloads import (
     deploy_dummy_source_to_new_model,
     deploy_simple_server_to_new_model,
 )
-from remote import remote_from_address
-from utility import (
-    JujuAssertionError,
-    add_basic_testing_arguments,
-    configure_logging,
-    qualified_model_name,
-    temp_dir,
-    until_timeout,
-)
 
 
 __metaclass__ = type
@@ -45,8 +45,6 @@ log = logging.getLogger("assess_model_migration")
 
 def assess_model_migration(bs1, bs2, args):
     with bs1.booted_context(args.upload_tools):
-        bs1.client.enable_feature('migration')
-        bs2.client.enable_feature('migration')
         bs2.client.env.juju_home = bs1.client.env.juju_home
         with bs2.existing_booted_context(args.upload_tools):
             source_client = bs2.client
@@ -62,31 +60,12 @@ def assess_model_migration(bs1, bs2, args):
             ensure_model_logs_are_migrated(source_client, dest_client)
             ensure_api_login_redirects(source_client, dest_client)
 
-            # TODO - adding a new user with lxc cloud fails due to missing creds
-            # TODO - local lxd creds need to be added to controller by running
-            # TODO - autoload-credentials and then update-credentials
-            # assess_user_permission_model_migrations(source_client, dest_client)
-
-            # TODO - fix 'migration in progress' error
-            # ensure_migration_rolls_back_on_failure(source_client, dest_client)
-
         # Continue test where we ensure that a migrated model continues to
         # work after it's originating controller has been destroyed.
         assert_model_migrated_successfully(
             migrated_client, application, resource_contents)
         log.info(
             'SUCCESS: Model operational after origin controller destroyed')
-
-
-def assess_user_permission_model_migrations(source_client, dest_client):
-    """Run migration tests for user permissions."""
-    with temp_dir() as temp:
-        ensure_migrating_with_insufficient_user_permissions_fails(
-            source_client, dest_client, temp)
-        ensure_migrating_with_superuser_user_permissions_succeeds(
-            source_client, dest_client, temp)
-        ensure_superuser_can_migrate_other_user_models(
-            source_client, dest_client, temp)
 
 
 def parse_args(argv):
@@ -127,6 +106,12 @@ def wait_until_model_disappears(client, model_name, timeout=600):
     def model_check(client):
         try:
             models = client.get_controller_client().get_models()
+
+            # 2.2-rc1 introduced new model listing output name/short-name.
+            all_model_names = [
+                m.get('short-name', m['name']) for m in models['models']]
+            if model_name not in all_model_names:
+                return True
         except CalledProcessError as e:
             # It's possible that we've tried to get status from the model as
             # it's being removed.
@@ -134,12 +119,6 @@ def wait_until_model_disappears(client, model_name, timeout=600):
             # error and the model is no longer in the output.
             if 'cannot get model details' not in e.stderr:
                 raise
-        else:
-            # 2.2-rc1 introduced new model listing output name/short-name.
-            all_model_names = [
-                m.get('short-name', m['name']) for m in models['models']]
-            if model_name not in all_model_names:
-                return True
 
     try:
         wait_for_model_check(client, model_check, timeout)
@@ -289,35 +268,6 @@ def assert_model_migrated_successfully(
     assert_deployed_charm_is_responding(client, resource_contents)
     ensure_model_is_functional(client, application)
 
-
-def ensure_superuser_can_migrate_other_user_models(
-        source_client, dest_client, tmp_dir):
-
-    norm_source_client, norm_dest_client = create_user_on_controllers(
-        source_client, dest_client, tmp_dir, 'normaluser', 'add-model')
-
-    attempt_client = deploy_dummy_source_to_new_model(
-        norm_source_client, 'supernormal-test')
-
-    log.info('Showing all models available.')
-    source_client.controller_juju('models', ('--all',))
-
-    user_qualified_model_name = qualified_model_name(
-        attempt_client.env.environment,
-        attempt_client.env.user_name)
-
-    migration_client = source_client.migrate(
-        user_qualified_model_name, user_qualified_model_name, attempt_client, dest_client,
-        include_e=False)
-
-    wait_for_model(
-        migration_client, user_qualified_model_name)
-    migration_client.wait_for_started()
-    wait_until_model_disappears(source_client, user_qualified_model_name)
-
-    migration_client.destroy_model()
-
-
 def migrate_model_to_controller(
         source_model, source_client, dest_client, include_user_name=False):
     log.info('Initiating migration process')
@@ -365,10 +315,10 @@ def get_full_model_name(client, include_user_name):
             client.env.controller.name,
             client.env.user_name,
             client.env.environment)
-    else:
-        return '{}:{}'.format(
-            client.env.controller.name,
-            client.env.environment)
+
+    return '{}:{}'.format(
+        client.env.controller.name,
+        client.env.environment)
 
 
 def ensure_model_is_functional(client, application):
@@ -450,146 +400,6 @@ def assert_logs_appear_in_client_model(client, expected_logs, timeout):
         sleep(1)
     raise JujuAssertionError(
         'Logs failed to be migrated after {}'.format(timeout))
-
-
-def ensure_migration_rolls_back_on_failure(source_client, dest_client):
-    """Must successfully roll back migration when migration fails.
-
-    If the target controller becomes unavailable for the migration to complete
-    the migration must roll back and continue to be available on the source
-    controller.
-    """
-    test_model, application = deploy_simple_server_to_new_model(
-        source_client, 'rollmeback')
-    test_model.migrate(
-        test_model.env.environment, test_model.env.environment, test_model, dest_client,
-        include_e=False)
-    # Once migration has started interrupt it
-    wait_for_migrating(test_model)
-    log.info('Disrupting target controller to force rollback')
-    with disable_apiserver(dest_client.get_controller_client()):
-        # Wait for model to be back and working on the original controller.
-        log.info('Waiting for migration rollback to complete.')
-        wait_for_model(test_model, test_model.env.environment)
-        test_model.wait_for_started()
-        assert_deployed_charm_is_responding(test_model)
-        ensure_model_is_functional(test_model, application)
-    test_model.remove_application(application)
-    log.info('SUCCESS: migration rolled back.')
-
-    test_model.destroy_model()
-
-
-@contextmanager
-def disable_apiserver(admin_client, machine_number='0'):
-    """Disable the api server on the machine number provided.
-
-    For the duration of the context manager stop the apiserver process on the
-    controller machine.
-    """
-    rem_client = get_remote_for_controller(admin_client)
-    try:
-        rem_client.run(
-            'sudo service jujud-machine-{} stop'.format(machine_number))
-        yield
-    finally:
-        rem_client.run(
-            'sudo service jujud-machine-{} start'.format(machine_number))
-
-
-def get_remote_for_controller(admin_client):
-    """Get a remote client to the controller machine of `admin_client`.
-
-    :return: remote.SSHRemote object for the controller machine.
-    """
-    status = admin_client.get_status()
-    controller_ip = status.get_machine_dns_name('0')
-    return remote_from_address(controller_ip)
-
-
-def ensure_migrating_with_insufficient_user_permissions_fails(
-        source_client, dest_client, tmp_dir):
-    """Ensure migration fails when a user does not have the right permissions.
-
-    A non-superuser on a controller cannot migrate their models between
-    controllers.
-    """
-    user_source_client, user_dest_client = create_user_on_controllers(
-        source_client, dest_client, tmp_dir, 'failuser', 'add-model')
-    user_new_model = deploy_dummy_source_to_new_model(
-        user_source_client, 'user-fail')
-    log.info('Attempting migration process')
-    expect_migration_attempt_to_fail(user_new_model, user_dest_client)
-    # Migration fails, so destroy the source model to clean up.
-    user_new_model.destroy_model()
-
-
-def ensure_migrating_with_superuser_user_permissions_succeeds(
-        source_client, dest_client, tmp_dir):
-    """Ensure migration succeeds when a user has superuser permissions
-
-    A user with superuser permissions is able to migrate between controllers.
-    """
-    user_source_client, user_dest_client = create_user_on_controllers(
-        source_client, dest_client, tmp_dir, 'passuser', 'superuser')
-    user_new_model = deploy_dummy_source_to_new_model(
-        user_source_client, 'super-permissions')
-    log.info('Attempting migration process')
-    migrated_client = migrate_model_to_controller(
-        user_new_model, source_client, user_dest_client, include_user_name=True)
-    log.info('SUCCESS: superuser migrated other user model.')
-    migrated_client.destroy_model()
-
-
-def create_user_on_controllers(source_client, dest_client,
-                               tmp_dir, username, permission):
-    """Create a user on both supplied controller with the permissions supplied.
-
-    :param source_client: ModelClient object to create user on.
-    :param dest_client: ModelClient object to create user on.
-    :param tmp_dir: Path to base new users JUJU_DATA directory in.
-    :param username: String of username to use.
-    :param permission: String for permissions to grant user on both
-      controllers. Valid values are `ModelClient.controller_permissions`.
-    """
-    new_user_home = os.path.join(tmp_dir, username)
-    os.makedirs(new_user_home)
-    new_user = User(username, 'write', [])
-    source_user_client = source_client.register_user(new_user, new_user_home)
-    source_client.grant(new_user.name, permission)
-    second_controller_name = '{}_controllerb'.format(new_user.name)
-    dest_user_client = dest_client.register_user(
-        new_user,
-        new_user_home,
-        controller_name=second_controller_name)
-    dest_client.grant(new_user.name, permission)
-
-    return source_user_client, dest_user_client
-
-
-def expect_migration_attempt_to_fail(source_client, dest_client):
-    """Ensure that the migration attempt fails due to permissions.
-
-    As we're capturing the stderr output it after we're done with it so it
-    appears in test logs.
-    """
-    try:
-        args = [
-            '{}:{}'.format(
-                source_client.env.controller.name,
-                source_client.env.environment),
-            dest_client.env.controller.name
-        ]
-        log_output = source_client.get_juju_output(
-            'migrate', *args, merge_stderr=True, include_e=False)
-    except CalledProcessError as e:
-        print(e.output, file=sys.stderr)
-        if 'permission denied' not in e.output:
-            raise
-        log.info('SUCCESS: Migrate command failed as expected.')
-    else:
-        print(log_output, file=sys.stderr)
-        raise JujuAssertionError('Migration did not fail as expected.')
 
 
 def main(argv=None):

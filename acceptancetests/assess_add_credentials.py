@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Assess proper functionality of juju add-credential."""
 
 from __future__ import print_function
@@ -6,10 +6,10 @@ from __future__ import print_function
 import argparse
 import logging
 import os
-import pexpect
 import shutil
 import sys
 import yaml
+import pexpect
 
 from deploy_stack import (
     BootstrapManager,
@@ -47,8 +47,9 @@ def assess_add_credentials(args):
     else:
         env = args.env.split('parallel-')[1]
 
-    # If no cloud-city path is given, we grab the credentials from env juju_home.
-    # Else we override the path where we read the credentials yaml for testing purposes.
+    # If no cloud-city path is given, we grab the credentials from env
+    # juju_home.  Else we override the path where we read the credentials yaml
+    # for testing purposes.
     if args.juju_home is not None:
         cred = get_credentials(env, args.juju_home)
     else:
@@ -79,7 +80,6 @@ def verify_add_credentials(args, env, cred):
         'google': add_gce,
         'rackspace': add_rackspace,
         'maas': add_maas,
-        'joyent': add_joyent,
         'azure': add_azure
     }
 
@@ -235,33 +235,6 @@ def add_maas(child, env, cred):
     child.sendline(maas_oauth)
     end_session(child)
     log.info('Added MaaS credential')
-
-
-def add_joyent(child, env, cred):
-    """Adds credentials for Joyent to test client using real credentials.
-
-    :param child: pexpect.spawn object of the juju add-credential command
-    :param env: String environment name
-    :param cred: Dict of credential information
-    """
-    algorithm = cred['credentials']['algorithm']
-    sdc_user = cred['credentials']['sdc-user']
-    sdc_key_id = cred['credentials']['sdc-key-id']
-    private_key_path = os.path.join(
-        os.environ['HOME'], 'cloud-city', 'joyent-key')
-
-    child.expect('Enter credential name:')
-    child.sendline(env)
-    child.expect('Enter sdc-user:')
-    child.sendline(sdc_user)
-    child.expect('Enter sdc-key-id:')
-    child.sendline(sdc_key_id)
-    child.expect('Enter private-key-path:')
-    child.sendline(private_key_path)
-    child.expect(',rsa-sha512]:')
-    child.sendline(algorithm)
-    end_session(child)
-    log.info('Added Joyent credential')
 
 
 def add_azure(child, env, cred):

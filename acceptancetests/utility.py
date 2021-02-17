@@ -87,7 +87,7 @@ def _clean_dir(maybe_dir):
             # we don't raise this error due to tests abusing /tmp/logs
             logging.warning('Not a directory {}'.format(maybe_dir))
         if e.errno == errno.EEXIST:
-            logging.warnings('Directory {} already exists'.format(maybe_dir))
+            logging.warning('Directory {} already exists'.format(maybe_dir))
     else:
         if contents and contents != ["empty"]:
             logging.warning(
@@ -142,7 +142,7 @@ def wait_for_port(host, port, closed=False, timeout=30):
         except socket.gaierror as e:
             print_now(str(e))
         except Exception as e:
-            print_now('Unexpected {!r}: {}'.format((type(e), e)))
+            print_now('Unexpected {!r}: {}'.format(type(e), e))
             raise
         else:
             conn.close()
@@ -268,7 +268,7 @@ def add_basic_testing_arguments(
                         default=None)
     parser.add_argument('temp_env_name', nargs='?',
                         help='A temporary test environment name. By default, '
-                             ' this will generate an enviroment name using the '
+                             ' this will generate an enviroment name using the'
                              ' timestamp and testname. '
                              ' test_name_timestamp_temp_env',
                         default=_generate_default_temp_env_name())
@@ -288,22 +288,28 @@ def add_basic_testing_arguments(
                         help='Stream for retrieving agent binaries.')
     parser.add_argument('--series', action='store', default=None,
                         help='Name of the Ubuntu series to use.')
+    parser.add_argument('--arch', action='store', default=None,
+                        help='Name of the architecture to use.')
     if not using_jes:
         parser.add_argument('--upload-tools', action='store_true',
                             help='upload local version of tools to bootstrap.')
     parser.add_argument('--bootstrap-host',
                         help='The host to use for bootstrap.')
     parser.add_argument('--machine', help='A machine to add or when used with '
-                                          'KVM based MaaS, a KVM image to start.',
+                                          'KVM based MaaS, a KVM image to '
+                                          'start.',
                         action='append', default=[])
     parser.add_argument('--keep-env', action='store_true',
                         help='Keep the Juju environment after the test'
                              ' completes.')
     parser.add_argument('--logging-config',
-                        help="Override logging configuration for a deployment.",
+                        help="Override logging configuration for a "
+                             "deployment.",
                         default="<root>=INFO;unit=INFO")
-    parser.add_argument('--juju-home', help="Directory of juju home. It is not used during integration test runs. "
-                                            "One can override this arg for local runs.", default=None)
+    parser.add_argument('--juju-home', help="Directory of juju home. It is not"
+                                            " used during integration test "
+                                            "runs. One can override this arg "
+                                            "for local runs.", default=None)
 
     if existing:
         parser.add_argument(
@@ -434,10 +440,18 @@ def assert_dict_is_subset(sub_dict, super_dict):
     :raises JujuAssertionError: when sub_dict items are missing.
     :return: True when when sub_dict is a subset of super_dict
     """
-    if not all(item in super_dict.items() for item in sub_dict.items()):
+    if not is_subset(sub_dict, super_dict):
         raise JujuAssertionError(
             'Found: {} \nExpected: {}'.format(super_dict, sub_dict))
     return True
+
+def is_subset(subset, superset):
+    """ Recursively check that subset is indeed a subset of superset """
+    if isinstance(subset, dict):
+        return all(key in superset and is_subset(val, superset[key]) for key, val in iter(subset.items()))
+    if isinstance(subset, list) or isinstance(subset, set):
+        return all(any(is_subset(subitem, superitem) for superitem in superset) for subitem in subset)
+    return subset == superset
 
 
 def add_model(client):
@@ -479,7 +493,7 @@ def list_models(client):
     """
     try:
         raw = client.get_juju_output('list-models', '--format', 'json',
-                                     include_e=False).decode('utf-8')
+                                     include_e=False)
     except subprocess.CalledProcessError as e:
         log.error('Failed to list current models due to error: {}'.format(e))
         raise e
@@ -511,7 +525,8 @@ def subordinate_machines_from_app_info(app_data, apps):
     for sub_name in app_data['subordinate-to']:
         for app_name, prim_app_data in apps.items():
             if sub_name == app_name:
-                machines.extend(application_machines_from_app_info(prim_app_data))
+                machines.extend(application_machines_from_app_info(
+                    prim_app_data))
     return machines
 
 

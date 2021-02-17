@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Test relations between primary and subordinates are cleanedup correctly"""
 
 from __future__ import print_function
