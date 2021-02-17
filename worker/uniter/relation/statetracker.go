@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -378,7 +379,12 @@ func (r *relationStateTracker) PrepareHook(hookInfo hook.Info) (string, error) {
 	}
 	relationer, found := r.relationers[hookInfo.RelationId]
 	if !found {
-		return "", errors.Errorf("unknown relation: %d", hookInfo.RelationId)
+		// There may have been a hook queued prior to a restart
+		// and the relation has since been deleted.
+		// There's nothing to prepare so allow the uniter
+		// to continue with the next operation.
+		r.logger.Warningf("preparing hook %v for %v, relation %d has been removed", hookInfo.Kind, r.principalName, hookInfo.RelationId)
+		return "", operation.ErrSkipExecute
 	}
 	return relationer.PrepareHook(hookInfo)
 }
@@ -403,7 +409,12 @@ func (r *relationStateTracker) CommitHook(hookInfo hook.Info) (err error) {
 	}
 	relationer, found := r.relationers[hookInfo.RelationId]
 	if !found {
-		return errors.Errorf("unknown relation: %d", hookInfo.RelationId)
+		// There may have been a hook queued prior to a restart
+		// and the relation has since been deleted.
+		// There's nothing to commit so allow the uniter
+		// to continue with the next operation.
+		r.logger.Warningf("committing hook %v for %v, relation %d has been removed", hookInfo.Kind, r.principalName, hookInfo.RelationId)
+		return nil
 	}
 	return relationer.CommitHook(hookInfo)
 }
