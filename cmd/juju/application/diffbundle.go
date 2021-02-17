@@ -330,7 +330,7 @@ Consider using a CharmStore bundle instead.`
 	// GetBundle creates the directory so we actually want to create a temp
 	// directory then add a namespace (bundle name) so that charmhub get
 	// bundle can create it.
-	dir, err := ioutil.TempDir("", "bundle-diff-")
+	dir, err := ioutil.TempDir("", "diff-bundle-")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

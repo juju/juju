@@ -63,9 +63,22 @@ func BuildModelRepresentation(
 	}
 	applications := make(map[string]*bundlechanges.Application)
 	for name, appStatus := range status.Applications {
+		curl, err := charm.ParseURL(appStatus.Charm)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		// CharmAlias is used to ensure that we use the name of the charm and
+		// not the full path of the charm url, exposing the internal
+		// representation of the charm URL.
+		charmAlias := appStatus.Charm
+		if charm.CharmHub.Matches(curl.Schema) {
+			charmAlias = curl.Name
+		}
+
 		app := &bundlechanges.Application{
 			Name:          name,
-			Charm:         appStatus.Charm,
+			Charm:         charmAlias,
 			Scale:         appStatus.Scale,
 			Exposed:       appStatus.Exposed,
 			Series:        appStatus.Series,
