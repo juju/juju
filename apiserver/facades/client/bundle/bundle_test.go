@@ -1172,15 +1172,18 @@ func (s *bundleSuite) addApplicationToModel(model description.Model, name string
 		series = "kubernetes"
 	}
 	var charmURL string
+	var channel string
 	if strings.HasPrefix(name, "ch:") {
 		charmURL = name
 		name = name[3:]
+		channel = "stable"
 	} else {
 		charmURL = "cs:" + name
 	}
 	application := model.AddApplication(description.ApplicationArgs{
 		Tag:                names.NewApplicationTag(name),
 		CharmURL:           charmURL,
+		Channel:            channel,
 		Series:             series,
 		CharmConfig:        map[string]interface{}{},
 		LeadershipSettings: map[string]interface{}{},
@@ -1907,11 +1910,13 @@ series: xenial
 applications:
   mysql:
     charm: mysql
+    channel: stable
     num_units: 1
     to:
     - "0"
   wordpress:
     charm: wordpress
+    channel: stable
     num_units: 2
     to:
     - "0"
