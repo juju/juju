@@ -496,7 +496,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		Clock:              c.clock,
 	}
 
-	newCloud, newcredential, err := provider.CloudFromKubeConfig(rdr, config)
+	newCloud, newCredential, err := provider.CloudFromKubeConfig(rdr, config)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -506,7 +506,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		}
 		logger.Warningf("k8s cloud %v is configured to skip server certificate validity checks", newCloud.Name)
 	}
-	newcredential, err = ensureCredentialUID(credentialName, credentialUID, newcredential)
+	newCredential, err = ensureCredentialUID(credentialName, credentialUID, newCredential)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -518,13 +518,13 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	broker, err := c.brokerGetter(newCloud, newcredential)
+	broker, err := c.brokerGetter(newCloud, newCredential)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	var storageMsg string
 	if c.skipStorage {
-		storageMsg = " with no configured storage provisioning capability."
+		storageMsg = " with no configured storage provisioning capability"
 	} else {
 		storageParams := provider.KubeCloudStorageParams{
 			WorkloadStorage:        c.workloadStorage,
@@ -575,12 +575,27 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	if newCloud.HostCloudRegion == "" {
 		newCloud.HostCloudRegion = caas.K8sCloudOther
 	}
+
+	var returnErr error
 	if c.Client {
-		if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
+		personal, err := c.cloudMetadataStore.PersonalCloudMetadata()
+		if err != nil {
 			return errors.Trace(err)
 		}
-		if err := c.addCredentialToLocal(c.credentialStoreAPI, cloudName, newcredential, credentialName); err != nil {
-			return errors.Trace(err)
+		for name := range personal {
+			if name == newCloud.Name {
+				returnErr = errors.AlreadyExistsf("use `update-k8s %s --client` to override known local definition: k8s %q", newCloud.Name, newCloud.Name)
+				break
+			}
+		}
+		if returnErr == nil {
+			if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
+				returnErr = err
+			} else {
+				if err := c.addCredentialToLocal(c.credentialStoreAPI, cloudName, newCredential, credentialName); err != nil {
+					returnErr = err
+				}
+			}
 		}
 	}
 
@@ -592,30 +607,44 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	successMsg := fmt.Sprintf("k8s substrate %sadded as cloud %q%s", clusterName, c.caasName, storageMsg)
 	var msgDisplayed bool
-	if c.Client {
+	if c.Client && returnErr == nil {
 		msgDisplayed = true
-		successMsg += fmt.Sprintf("\nYou can now bootstrap to this cloud by running 'juju bootstrap %s'.", c.caasName)
+		successMsg += fmt.Sprintf(".\nYou can now bootstrap to this cloud by running 'juju bootstrap %s'.", c.caasName)
 		fmt.Fprintln(ctx.Stdout, successMsg)
 	}
 	if c.ControllerName != "" {
-		if err := jujuclient.ValidateControllerName(c.ControllerName); err != nil {
-			return errors.Trace(err)
+		// If there was an error adding locally, adjust the success message.
+		if returnErr != nil {
+			successMsg += "."
+		} else {
+			successMsg += fmt.Sprintf(" on controller %s.", c.ControllerName)
 		}
-		cloudClient, err := c.addCloudAPIFunc()
-		if err != nil {
-			return errors.Trace(err)
+		if err := c.addRemoteCloud(newCloud, newCredential, credentialName); err == nil {
+			if !msgDisplayed {
+				fmt.Fprintln(ctx.Stdout, successMsg)
+			}
+		} else {
+			returnErr = errors.Annotate(err, "could not upload k8s cloud to a controller")
 		}
-		defer cloudClient.Close()
+	}
+	return returnErr
+}
 
-		if err := addCloudToController(cloudClient, newCloud); err != nil {
-			return errors.Trace(err)
-		}
-		if err := c.addCredentialToController(cloudClient, newcredential, cloudName, credentialName); err != nil {
-			return errors.Trace(err)
-		}
-		if !msgDisplayed {
-			fmt.Fprintln(ctx.Stdout, successMsg)
-		}
+func (c *AddCAASCommand) addRemoteCloud(newCloud jujucloud.Cloud, newCredential jujucloud.Credential, credentialName string) error {
+	if err := jujuclient.ValidateControllerName(c.ControllerName); err != nil {
+		return errors.Trace(err)
+	}
+	cloudClient, err := c.addCloudAPIFunc()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer cloudClient.Close()
+
+	if err := addCloudToController(cloudClient, newCloud); err != nil {
+		return errors.Trace(err)
+	}
+	if err := c.addCredentialToController(cloudClient, newCredential, newCloud.Name, credentialName); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

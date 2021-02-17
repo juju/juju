@@ -37,6 +37,7 @@ import (
 type addCAASSuite struct {
 	jujutesting.IsolationSuite
 	dir                           string
+	publicCloudMap                map[string]cloud.Cloud
 	initialCloudMap               map[string]cloud.Cloud
 	fakeCloudAPI                  *fakeAddCloudAPI
 	fakeK8sClusterMetadataChecker *fakeK8sClusterMetadataChecker
@@ -282,13 +283,16 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(defaultClusterMetadata, nil)
 	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(nil)
 
+	s.publicCloudMap = map[string]cloud.Cloud{
+		"publiccloud": {Name: "publiccloud", Type: "ec2"},
+	}
 	s.initialCloudMap = map[string]cloud.Cloud{
 		"mrcloud1": {Name: "mrcloud1", Type: "kubernetes"},
 		"mrcloud2": {Name: "mrcloud2", Type: "kubernetes"},
 	}
 
 	s.cloudMetadataStore.Call("PersonalCloudMetadata").Returns(s.initialCloudMap, nil)
-	s.cloudMetadataStore.Call("PublicCloudMetadata", []string(nil)).Returns(s.initialCloudMap, false, nil)
+	s.cloudMetadataStore.Call("PublicCloudMetadata", []string(nil)).Returns(s.publicCloudMap, false, nil)
 	s.cloudMetadataStore.Call("WritePersonalCloudMetadata", s.initialCloudMap).Returns(nil)
 }
 
@@ -435,10 +439,16 @@ func (s *addCAASSuite) TestEmptyKubeConfigFileWithoutStdin(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `No k8s cluster definitions found in config`)
 }
 
-func (s *addCAASSuite) TestAddNameClash(c *gc.C) {
+func (s *addCAASSuite) TestPublicCloudAddNameClash(c *gc.C) {
+	command := s.makeCommand(c, true, false, true)
+	_, err := s.runCommand(c, nil, command, "publiccloud", "--controller", "foo", "--client")
+	c.Assert(err, gc.ErrorMatches, `"publiccloud" is the name of a public cloud`)
+}
+
+func (s *addCAASSuite) TestLocalCloudExists(c *gc.C) {
 	command := s.makeCommand(c, true, false, true)
 	_, err := s.runCommand(c, nil, command, "mrcloud1", "--controller", "foo", "--client")
-	c.Assert(err, gc.ErrorMatches, `"mrcloud1" is the name of a public cloud`)
+	c.Assert(err, gc.ErrorMatches, "use `update-k8s mrcloud1 --client` to override known local definition: k8s \"mrcloud1\" already exists")
 }
 
 func (s *addCAASSuite) TestMissingName(c *gc.C) {
@@ -658,7 +668,7 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 	command := s.makeCommand(c, true, false, true)
 	_, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--client")
 	c.Assert(err, jc.ErrorIsNil)
-	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
+	s.cloudMetadataStore.CheckCall(c, 3, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
 			"mrcloud1": {
 				Name:             "mrcloud1",
@@ -763,7 +773,7 @@ MIIDBDCCAeygAwIBAgIJAPUHbpCysNxyMA0GCSqGSIb3DQEBCwUAMBcxFTATBgNV`[1:],
 		s.fakeCloudAPI.CheckCall(c, 0, "AddCloud", expectedCloudToAdd, false)
 	}
 	if t.client {
-		s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
+		s.cloudMetadataStore.CheckCall(c, 3, "WritePersonalCloudMetadata",
 			map[string]cloud.Cloud{
 				"mrcloud1": {
 					Name:             "mrcloud1",
@@ -954,7 +964,7 @@ func (s *addCAASSuite) TestSkipStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 	out = strings.Replace(out, "\n", " ", -1)
-	c.Assert(out, gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s" with no configured storage provisioning capability.`)
+	c.Assert(out, gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s" with no configured storage provisioning capability on controller foo.`)
 }
 
 func (s *addCAASSuite) assertCreateDefaultStorageProvisioner(c *gc.C, expectedMsg string, t testData, additionalArgs ...string) {
@@ -1011,7 +1021,7 @@ func (s *addCAASSuite) TestCreateDefaultStorageProvisionerClientOnly(c *gc.C) {
 
 func (s *addCAASSuite) TestCreateDefaultStorageProvisionerControllerOnly(c *gc.C) {
 	s.assertCreateDefaultStorageProvisioner(c,
-		`k8s substrate "mrcloud2" added as cloud "myk8s" with gce disk default storage provisioned by the existing "mystorage" storage class.`,
+		`k8s substrate "mrcloud2" added as cloud "myk8s" with gce disk default storage provisioned by the existing "mystorage" storage class on controller foo.`,
 		testData{controller: true})
 }
 
@@ -1214,7 +1224,7 @@ func (s *addCAASSuite) TestGivenRegionMismatch(c *gc.C) {
 }
 
 func (s *addCAASSuite) assertStoreClouds(c *gc.C, hostCloud string) {
-	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
+	s.cloudMetadataStore.CheckCall(c, 3, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
 			"myk8s": {
 				Name:             "myk8s",
@@ -1271,7 +1281,7 @@ func (s *addCAASSuite) TestCorrectUseCurrentContext(c *gc.C) {
 	command := s.makeCommand(c, true, false, true)
 	_, err := s.runCommand(c, nil, command, "-c", "foo", "myk8s", "--client")
 	c.Assert(err, jc.ErrorIsNil)
-	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
+	s.cloudMetadataStore.CheckCall(c, 3, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
 			"mrcloud1": {
 				Name:             "mrcloud1",
@@ -1324,7 +1334,7 @@ func (s *addCAASSuite) TestCorrectSelectContext(c *gc.C) {
 	command := s.makeCommand(c, true, false, true)
 	_, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--client")
 	c.Assert(err, jc.ErrorIsNil)
-	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
+	s.cloudMetadataStore.CheckCall(c, 3, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
 			"mrcloud1": {
 				Name:             "mrcloud1",

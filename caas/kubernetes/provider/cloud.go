@@ -107,14 +107,13 @@ func updateK8sCloud(k8sCloud *cloud.Cloud, clusterMetadata *caas.ClusterMetadata
 	// Record the operator storage to use.
 	if clusterMetadata.OperatorStorageClass != nil {
 		operatorSC = clusterMetadata.OperatorStorageClass.Name
-		storageMsg += "."
 	} else {
 		if storageMsg == "" {
 			storageMsg += "\nwith "
 		} else {
 			storageMsg += "\nand "
 		}
-		storageMsg += fmt.Sprintf("operator storage provisioned by the workload storage class.")
+		storageMsg += fmt.Sprintf("operator storage provisioned by the workload storage class")
 	}
 
 	if clusterMetadata.NominatedStorageClass != nil {
