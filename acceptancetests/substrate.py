@@ -623,8 +623,8 @@ class MAASAccount:
     def _maas(self, *args):
         """Call maas api with given arguments and parse json result."""
         command = ('maas',) + args
-        res = subprocess.run(command, shell=True, capture_output=True,
-                             text=True)
+        res = subprocess.run(command, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, universal_newlines=True)
         if res.returncode == 0:
             if not res.stdout:
                 return None
