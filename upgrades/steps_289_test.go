@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/upgrades"
 )
 
-var v2810 = version.MustParse("2.8.10")
+var v289 = version.MustParse("2.8.9")
 
 type steps2810Suite struct {
 	testing.BaseSuite
@@ -21,6 +21,6 @@ type steps2810Suite struct {
 var _ = gc.Suite(&steps2810Suite{})
 
 func (s *steps2810Suite) TestTranslateK8sServiceTypes(c *gc.C) {
-	step := findStateStep(c, v2810, "translate k8s service types")
+	step := findStateStep(c, v289, "translate k8s service types")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
