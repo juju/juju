@@ -539,7 +539,7 @@ func makeAPIResponsesWithRelations(relations []params.RelationStatus) map[string
 					},
 				},
 				"grafana": {
-					Charm:  "cs:grafana-19",
+					Charm:  "ch:grafana-19",
 					Series: "bionic",
 					Life:   "alive",
 					Units: map[string]params.UnitStatus{
@@ -808,7 +808,7 @@ applications:
     to:
       - 0
   grafana:
-    charm: 'cs:grafana-19'
+    charm: 'grafana'
     num_units: 1
     constraints: 'cores=3'
     options:

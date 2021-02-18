@@ -518,10 +518,18 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 			charmURL = curl.Name
 		}
 
+		var channel string
+		if origin := application.CharmOrigin(); origin != nil {
+			channel = origin.Channel()
+		}
+		if channel == "" {
+			channel = application.Channel()
+		}
+
 		if application.Subordinate() {
 			newApplication = &charm.ApplicationSpec{
 				Charm:            charmURL,
-				Channel:          application.Channel(),
+				Channel:          channel,
 				Expose:           exposedFlag,
 				ExposedEndpoints: exposedEndpoints,
 				Options:          application.CharmConfig(),
@@ -556,7 +564,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 
 			newApplication = &charm.ApplicationSpec{
 				Charm:            charmURL,
-				Channel:          application.Channel(),
+				Channel:          channel,
 				NumUnits:         numUnits,
 				Scale_:           scale,
 				Placement_:       placement,

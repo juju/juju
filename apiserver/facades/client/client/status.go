@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/cache"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
@@ -1193,14 +1194,27 @@ func (context *statusContext) processApplication(application *state.Application)
 		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 	}
 
+	var channel string
+	if origin := application.CharmOrigin(); origin != nil && origin.Channel != nil {
+		stChannel := origin.Channel
+		channel = (corecharm.Channel{
+			Track:  stChannel.Track,
+			Risk:   corecharm.Risk(stChannel.Risk),
+			Branch: stChannel.Branch,
+		}).Normalize().String()
+	} else {
+		channel = string(application.Channel())
+	}
+
 	var processedStatus = params.ApplicationStatus{
 		Charm:            applicationCharm.URL().String(),
+		CharmVersion:     applicationCharm.Version(),
+		CharmProfile:     charmProfileName,
+		CharmChannel:     channel,
 		Series:           application.Series(),
 		Exposed:          application.IsExposed(),
 		ExposedEndpoints: mappedExposedEndpoints,
 		Life:             processLife(application),
-		CharmVersion:     applicationCharm.Version(),
-		CharmProfile:     charmProfileName,
 	}
 
 	if latestCharm, ok := context.allAppsUnitsCharmBindings.latestCharms[*applicationCharm.URL().WithRevision(-1)]; ok && latestCharm != nil {

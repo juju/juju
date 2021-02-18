@@ -155,6 +155,7 @@ type ApplicationStatus struct {
 	WorkloadVersion  string                     `json:"workload-version"`
 	CharmVersion     string                     `json:"charm-version"`
 	CharmProfile     string                     `json:"charm-profile"`
+	CharmChannel     string                     `json:"charm-channel,omitempty"`
 	EndpointBindings map[string]string          `json:"endpoint-bindings"`
 
 	// The following are for CAAS models.
@@ -163,8 +164,8 @@ type ApplicationStatus struct {
 	PublicAddress string `json:"public-address"`
 }
 
-// TODO(wallyworld) - remove in Juju 3
 // MarshalJSON marshals a status with a typo left in for compatibility.
+// TODO(wallyworld) - remove in Juju 3
 func (as ApplicationStatus) MarshalJSON() ([]byte, error) {
 	type Alias ApplicationStatus
 	return json.Marshal(&struct {

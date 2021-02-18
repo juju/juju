@@ -82,6 +82,7 @@ func BuildModelRepresentation(
 			Scale:         appStatus.Scale,
 			Exposed:       appStatus.Exposed,
 			Series:        appStatus.Series,
+			Channel:       appStatus.CharmChannel,
 			SubordinateTo: appStatus.SubordinateTo,
 			Offers:        offersByApplication[name],
 		}
