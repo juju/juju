@@ -907,7 +907,6 @@ func (s *ApplicationSuite) TestDeployCAASInvalidServiceType(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 			Config:          map[string]string{"kubernetes-service-type": "ClusterIP", "intOption": "2"},
 		}},

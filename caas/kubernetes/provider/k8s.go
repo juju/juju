@@ -1793,15 +1793,8 @@ func (k *kubernetesClient) deleteVolumeClaims(appName string, p *core.Pod) ([]st
 	return deletedClaimVolumes, nil
 }
 
-func caasServiceToK8s(in caas.ServiceType) (core.ServiceType, error) {
-	// TODO(juju4): remove k8s compatibility fallback
-	// There was no validation at deploy so the raw k8s types may have been used.
-	switch string(in) {
-	case string(core.ServiceTypeClusterIP),
-		string(core.ServiceTypeLoadBalancer),
-		string(core.ServiceTypeExternalName):
-		return core.ServiceType(in), nil
-	}
+// CaasServiceToK8s translates a caas service type to a k8s one.
+func CaasServiceToK8s(in caas.ServiceType) (core.ServiceType, error) {
 	serviceType := defaultServiceType
 	if in != "" {
 		switch in {
@@ -1848,7 +1841,7 @@ func (k *kubernetesClient) configureService(
 	}
 
 	serviceType := caas.ServiceType(config.GetString(ServiceTypeConfigKey, string(params.Deployment.ServiceType)))
-	k8sServiceType, err := caasServiceToK8s(serviceType)
+	k8sServiceType, err := CaasServiceToK8s(serviceType)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -563,13 +563,9 @@ func caasPrecheck(
 			return errors.Errorf("block storage %q is not supported for k8s charms", s.Name)
 		}
 	}
-	serviceType, ok := args.Config[k8s.ServiceTypeConfigKey]
-	if ok {
-		switch caas.ServiceType(serviceType) {
-		case caas.ServiceCluster, caas.ServiceLoadBalancer, caas.ServiceExternal, caas.ServiceOmit:
-		default:
-			return errors.NotValidf("service type %q", serviceType)
-		}
+	serviceType := args.Config[k8s.ServiceTypeConfigKey]
+	if _, err := k8s.CaasServiceToK8s(caas.ServiceType(serviceType)); err != nil {
+		return errors.NotValidf("service type %q", serviceType)
 	}
 
 	cfg, err := model.ModelConfig()

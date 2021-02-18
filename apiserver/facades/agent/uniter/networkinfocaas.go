@@ -5,7 +5,6 @@ package uniter
 
 import (
 	"github.com/juju/errors"
-	k8score "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -112,10 +111,8 @@ func (n *NetworkInfoCAAS) getRelationNetworkInfo(
 
 	var pollAddr bool
 	svcType := cfg.GetString(k8sprovider.ServiceTypeConfigKey, "")
-	switch svcType {
-	case string(caas.ServiceLoadBalancer), string(caas.ServiceExternal),
-		// TODO(juju4): remove k8s compatibility fallback
-		string(k8score.ServiceTypeLoadBalancer), string(k8score.ServiceTypeExternalName):
+	switch caas.ServiceType(svcType) {
+	case caas.ServiceLoadBalancer, caas.ServiceExternal:
 		pollAddr = true
 	}
 
