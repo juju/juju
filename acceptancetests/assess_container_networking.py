@@ -318,7 +318,7 @@ def _assess_container_networking(client, types, hosts, containers):
 
 
 def get_uptime(client, host):
-    uptime_pattern = re.compile(r'.*(\d+)')
+    uptime_pattern = re.compile(r'.*?([\d]+)')
     uptime_output = ssh(client, host, 'uptime -p')
     log.info('uptime -p: {}'.format(uptime_output))
     match = uptime_pattern.match(uptime_output)
