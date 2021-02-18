@@ -28,7 +28,7 @@ run_charmstore_deploy() {
     wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
     juju refresh ubuntu
-    wait_for "ubuntu" "$(idle_condition_for_rev "ubuntu" "7")"
+    wait_for "ubuntu" "$(idle_condition_for_rev "ubuntu" "9")"
 
     destroy_model "test-charmstore-deploy"
 }

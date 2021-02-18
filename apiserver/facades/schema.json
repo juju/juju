@@ -14454,6 +14454,9 @@
                         "charm": {
                             "type": "string"
                         },
+                        "charm-channel": {
+                            "type": "string"
+                        },
                         "charm-profile": {
                             "type": "string"
                         },
