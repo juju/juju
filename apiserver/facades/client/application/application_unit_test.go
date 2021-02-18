@@ -1016,14 +1016,14 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 			Config:          map[string]string{"kubernetes-service-annotations": "a=b c="},
-			ConfigYAML:      "foo:\n  stringOption: fred\n  kubernetes-service-type: NodeIP",
+			ConfigYAML:      "foo:\n  stringOption: fred\n  kubernetes-service-type: loadbalancer",
 		}, {
 			ApplicationName: "foobar",
 			CharmURL:        "local:foobar-0",
 			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
-			Config:          map[string]string{"kubernetes-service-type": "ClusterIP", "intOption": "2"},
-			ConfigYAML:      "foobar:\n  intOption: 1\n  kubernetes-service-type: NodeIP\n  kubernetes-ingress-ssl-redirect: true",
+			Config:          map[string]string{"kubernetes-service-type": "cluster", "intOption": "2"},
+			ConfigYAML:      "foobar:\n  intOption: 1\n  kubernetes-service-type: loadbalancer\n  kubernetes-ingress-ssl-redirect: true",
 		}, {
 			ApplicationName: "bar",
 			CharmURL:        "local:bar-0",
@@ -1046,12 +1046,38 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	c.Assert(results.Results[2].Error, gc.ErrorMatches, "AttachStorage may not be specified for k8s models")
 	c.Assert(results.Results[3].Error, gc.ErrorMatches, "only 1 placement directive is supported for k8s models, got 2")
 
-	c.Assert(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "NodeIP")
+	c.Assert(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "loadbalancer")
 	// Check parsing of k8s service annotations.
 	c.Assert(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-annotations"], jc.DeepEquals, map[string]string{"a": "b", "c": ""})
-	c.Assert(s.deployParams["foobar"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "ClusterIP")
+	c.Assert(s.deployParams["foobar"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "cluster")
 	c.Assert(s.deployParams["foobar"].ApplicationConfig.Attributes()["kubernetes-ingress-ssl-redirect"], gc.Equals, true)
 	c.Assert(s.deployParams["foobar"].CharmConfig, jc.DeepEquals, charm.Settings{"intOption": int64(2)})
+}
+
+func (s *ApplicationSuite) TestDeployCAASInvalidServiceType(c *gc.C) {
+	s.model.modelType = state.ModelTypeCAAS
+	s.backend.charm = &mockCharm{
+		meta: &charm.Meta{},
+		config: &charm.Config{
+			Options: map[string]charm.Option{
+				"stringOption": {Type: "string"},
+				"intOption":    {Type: "int", Default: int(123)},
+			},
+		},
+	}
+
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+			Config:          map[string]string{"kubernetes-service-type": "ClusterIP", "intOption": "2"},
+		}},
+	}
+	result, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.OneError(), gc.ErrorMatches, `service type "ClusterIP" not valid`)
 }
 
 func (s *ApplicationSuite) TestDeployCAASBlockStorageRejected(c *gc.C) {

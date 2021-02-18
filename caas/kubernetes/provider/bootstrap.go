@@ -438,7 +438,7 @@ func (c *controllerStack) getControllerSvcSpec(cloudType string, cfg *podcfg.Boo
 		return spec, nil
 	}
 	if len(cfg.ControllerServiceType) > 0 {
-		if spec.ServiceType, err = caasServiceToK8s(caas.ServiceType(cfg.ControllerServiceType)); err != nil {
+		if spec.ServiceType, err = CaasServiceToK8s(caas.ServiceType(cfg.ControllerServiceType)); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
