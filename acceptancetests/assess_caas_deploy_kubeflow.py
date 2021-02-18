@@ -40,12 +40,14 @@ KUBEFLOW_DIR = os.path.join(os.getcwd(), KUBEFLOW_REPO_NAME)
 OSM_REPO_URI = "git://git.launchpad.net/canonical-osm"
 
 
-def run(*args):
-    subprocess.check_call(
-        list(args),
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+def run(*args, silence=False):
+    if silence:
+        return subprocess.check_call(
+            list(args),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    return subprocess.check_call(list(args))
 
 
 def retry(is_ok, do, timeout=300, should_raise=False):
@@ -72,7 +74,7 @@ def jump_dir(path):
 
 def kubectl_exists(caas_client, resource):
     try:
-        run(*(caas_client._kubectl_bin + ('get', resource)))
+        run(*(caas_client._kubectl_bin + ('get', resource)), silence=True)
         return True
     except subprocess.CalledProcessError:
         return False
@@ -305,12 +307,24 @@ def prepare(caas_client, caas_provider):
     # )
 
 
-def run_test(caas_provider, bundle):
+def run_test(caas_provider, k8s_model, bundle):
     if caas_provider != K8sProviderType.MICROK8S.name:
         # tests/run.sh only works for microk8s.
         return
+    # inject `JUJU_DATA` for running tests.
+    os.environ['JUJU_DATA'] = k8s_model.env.juju_home
+
+    print('1 ---->', os.getcwd())
     with jump_dir(KUBEFLOW_DIR):
-        run("sg", "microk8s", "-c", f"{KUBEFLOW_DIR}/tests/run.sh -m {bundle}")
+        print('2 ---->', os.getcwd())
+        try:
+            print('os.environ ---->', os.environ)
+            run("sg", "microk8s", "-c", f"{KUBEFLOW_DIR}/tests/run.sh -m {bundle}")
+        except Exception as e:
+            print('run_test err ---->', e)
+            print('sleeping 3000!!!!!!!!!!!!!!!!!!!')  # remove me !!!
+            sleep(3000)  # remove me !!!
+    print('3 ---->', os.getcwd())
 
 
 def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle):
@@ -339,14 +353,15 @@ def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle):
         deploy_kubeflow(caas_client, k8s_model, bundle)
         log.info("sleeping for 30 seconds to let everything start up")
         sleep(30)
-        print('sleeping 3000!!!!!!!!!!!!!!!!!!!')  # remove me !!!
-        sleep(3000)  # remove me !!!
-        run_test(caas_provider, bundle)
+        # print('sleeping 3000!!!!!!!!!!!!!!!!!!!')  # remove me !!!
+        # sleep(3000)  # remove me !!!
+
+        run_test(caas_provider, k8s_model, bundle)
         k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
         success_hook()
     except:  # noqa: E722
         # run cleanup steps then raise.
-        sleep(1800)  # remove me !!!!!!!
+        # sleep(1800)  # remove me !!!!!!!
         fail_hook()
         raise
 
