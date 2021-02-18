@@ -1793,7 +1793,8 @@ func (k *kubernetesClient) deleteVolumeClaims(appName string, p *core.Pod) ([]st
 	return deletedClaimVolumes, nil
 }
 
-func caasServiceToK8s(in caas.ServiceType) (core.ServiceType, error) {
+// CaasServiceToK8s translates a caas service type to a k8s one.
+func CaasServiceToK8s(in caas.ServiceType) (core.ServiceType, error) {
 	serviceType := defaultServiceType
 	if in != "" {
 		switch in {
@@ -1839,11 +1840,11 @@ func (k *kubernetesClient) configureService(
 		})
 	}
 
-	serviceType, err := caasServiceToK8s(params.Deployment.ServiceType)
+	serviceType := caas.ServiceType(config.GetString(ServiceTypeConfigKey, string(params.Deployment.ServiceType)))
+	k8sServiceType, err := CaasServiceToK8s(serviceType)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	serviceType = core.ServiceType(config.GetString(ServiceTypeConfigKey, string(serviceType)))
 	annotations, err := config.GetStringMap(serviceAnnotationsKey, nil)
 	if err != nil {
 		return errors.Annotatef(err, "unexpected annotations: %#v", config.Get(serviceAnnotationsKey, nil))
@@ -1856,7 +1857,7 @@ func (k *kubernetesClient) configureService(
 		},
 		Spec: core.ServiceSpec{
 			Selector:                 LabelsForApp(appName),
-			Type:                     serviceType,
+			Type:                     k8sServiceType,
 			Ports:                    ports,
 			ExternalIPs:              config.Get(serviceExternalIPsConfigKey, []string(nil)).([]string),
 			LoadBalancerIP:           config.GetString(serviceLoadBalancerIPKey, ""),
