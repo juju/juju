@@ -13,6 +13,7 @@ import argparse
 import json
 import shutil
 import logging
+import contextlib
 import os
 import time
 import yaml
@@ -57,6 +58,16 @@ def retry(is_ok, do, timeout=300, should_raise=False):
                     raise
         sleep(3)
     raise JujuAssertionError('retry timeout after %s' % timeout)
+
+
+@contextlib.contextmanager
+def jump_dir(path):
+    old_path = os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(old_path)
 
 
 def kubectl_exists(caas_client, resource):
@@ -294,8 +305,12 @@ def prepare(caas_client, caas_provider):
     # )
 
 
-def run_test(bundle):
-    run("sg", "microk8s", "-c", f"{KUBEFLOW_DIR}/tests/run.sh -m {bundle}")
+def run_test(caas_provider, bundle):
+    if caas_provider != K8sProviderType.MICROK8S.name:
+        # tests/run.sh only works for microk8s.
+        return
+    with jump_dir(KUBEFLOW_DIR):
+        run("sg", "microk8s", "-c", f"{KUBEFLOW_DIR}/tests/run.sh -m {bundle}")
 
 
 def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle):
@@ -326,7 +341,7 @@ def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle):
         sleep(30)
         print('sleeping 3000!!!!!!!!!!!!!!!!!!!')  # remove me !!!
         sleep(3000)  # remove me !!!
-        run_test(bundle)
+        run_test(caas_provider, bundle)
         k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
         success_hook()
     except:  # noqa: E722
