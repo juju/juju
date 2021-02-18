@@ -8,6 +8,7 @@ import (
 	k8score "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
@@ -111,8 +112,10 @@ func (n *NetworkInfoCAAS) getRelationNetworkInfo(
 
 	var pollAddr bool
 	svcType := cfg.GetString(k8sprovider.ServiceTypeConfigKey, "")
-	switch k8score.ServiceType(svcType) {
-	case k8score.ServiceTypeLoadBalancer, k8score.ServiceTypeExternalName:
+	switch svcType {
+	case string(caas.ServiceLoadBalancer), string(caas.ServiceExternal),
+		// TODO(juju4): remove k8s compatibility fallback
+		string(k8score.ServiceTypeLoadBalancer), string(k8score.ServiceTypeExternalName):
 		pollAddr = true
 	}
 

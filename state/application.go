@@ -2536,7 +2536,7 @@ func (a *Application) ApplicationConfig() (application.ConfigAttributes, error) 
 	} else if err != nil {
 		return nil, errors.Annotatef(err, "application config for application %q", a.doc.Name)
 	}
-	return application.ConfigAttributes(config.Map()), nil
+	return config.Map(), nil
 }
 
 // UpdateApplicationConfig changes an application's config settings.

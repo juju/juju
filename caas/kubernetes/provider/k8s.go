@@ -1794,6 +1794,14 @@ func (k *kubernetesClient) deleteVolumeClaims(appName string, p *core.Pod) ([]st
 }
 
 func caasServiceToK8s(in caas.ServiceType) (core.ServiceType, error) {
+	// TODO(juju4): remove k8s compatibility fallback
+	// There was no validation at deploy so the raw k8s types may have been used.
+	switch string(in) {
+	case string(core.ServiceTypeClusterIP),
+		string(core.ServiceTypeLoadBalancer),
+		string(core.ServiceTypeExternalName):
+		return core.ServiceType(in), nil
+	}
 	serviceType := defaultServiceType
 	if in != "" {
 		switch in {
@@ -1839,11 +1847,11 @@ func (k *kubernetesClient) configureService(
 		})
 	}
 
-	serviceType, err := caasServiceToK8s(params.Deployment.ServiceType)
+	serviceType := caas.ServiceType(config.GetString(ServiceTypeConfigKey, string(params.Deployment.ServiceType)))
+	k8sServiceType, err := caasServiceToK8s(serviceType)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	serviceType = core.ServiceType(config.GetString(ServiceTypeConfigKey, string(serviceType)))
 	annotations, err := config.GetStringMap(serviceAnnotationsKey, nil)
 	if err != nil {
 		return errors.Annotatef(err, "unexpected annotations: %#v", config.Get(serviceAnnotationsKey, nil))
@@ -1856,7 +1864,7 @@ func (k *kubernetesClient) configureService(
 		},
 		Spec: core.ServiceSpec{
 			Selector:                 LabelsForApp(appName),
-			Type:                     serviceType,
+			Type:                     k8sServiceType,
 			Ports:                    ports,
 			ExternalIPs:              config.Get(serviceExternalIPsConfigKey, []string(nil)).([]string),
 			LoadBalancerIP:           config.GetString(serviceLoadBalancerIPKey, ""),
