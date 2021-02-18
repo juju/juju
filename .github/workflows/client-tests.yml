@@ -1,5 +1,22 @@
 name: "Client Tests"
-on: [push, pull_request]
+on: 
+  push:
+    paths-ignore:
+      - 'acceptancetests/**'
+      - 'doc/**'
+      - 'snap/**'
+      - 'testcharms/**'
+      - 'testing/**'
+      - 'tests/**'
+  pull_request:
+    paths-ignore:
+      - 'acceptancetests/**'
+      - 'doc/**'
+      - 'snap/**'
+      - 'testcharms/**'
+      - 'testing/**'
+      - 'tests/**'
+
 jobs:
 
   test-client-ubuntu:
