@@ -75,20 +75,35 @@ def application_exists(k8s_model, application):
         return False
 
 
-def deploy_kubeflow(caas_client, k8s_model):
+bundle_info = {
+    'full': {
+        'file_name': 'bundle.yaml',
+        'uri': 'kubeflow',
+    },
+    'lite': {
+        'file_name': 'bundle-lite.yaml',
+        'uri': 'kubeflow-lite',
+    },
+    'edge': {
+        'file_name': 'bundle-edge.yaml',
+        'uri': 'kubeflow-edge',
+    },
+}
+
+
+def deploy_kubeflow(caas_client, k8s_model, bundle):
     start = time.time()
 
     caas_client.kubectl('label', 'namespace', k8s_model.model_name, 'istio-injection=enabled')
     k8s_model.deploy(
-        # charm="kubeflow",
-        charm="kubeflow-edge",
+        charm=bundle_info[bundle]['uri'],
         channel="stable",
     )
     # k8s_model.juju(
     #     'bundle',
     #     (
     #         'deploy',
-    #         '--bundle', f'{KUBEFLOW_DIR}/bundle-lite.yaml',
+    #         '--bundle', f'{KUBEFLOW_DIR}/{bundle_info[bundle]['file_name']}',
     #         '--build',
     #         # f'{KUBEFLOW_DIR}',
     #     ),
@@ -279,11 +294,11 @@ def prepare(caas_client, caas_provider):
     # )
 
 
-def run_test():
-    run("sg", "microk8s", "-c", f"{KUBEFLOW_DIR}/tests/run.sh -m edge")
+def run_test(bundle):
+    run("sg", "microk8s", "-c", f"{KUBEFLOW_DIR}/tests/run.sh -m {bundle}")
 
 
-def assess_caas_kubeflow_deployment(caas_client, caas_provider):
+def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle):
     if not caas_client.check_cluster_healthy(timeout=60):
         raise JujuAssertionError('k8s cluster is not healthy because kubectl is not accessible')
 
@@ -306,12 +321,12 @@ def assess_caas_kubeflow_deployment(caas_client, caas_provider):
 
     try:
         prepare(caas_client, caas_provider)
-        deploy_kubeflow(caas_client, k8s_model)
+        deploy_kubeflow(caas_client, k8s_model, bundle)
         log.info("sleeping for 30 seconds to let everything start up")
         sleep(30)
         print('sleeping 3000!!!!!!!!!!!!!!!!!!!')  # remove me !!!
         sleep(3000)  # remove me !!!
-        run_test()
+        run_test(bundle)
         k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
         success_hook()
     except:  # noqa: E722
@@ -362,7 +377,7 @@ def main(argv=None):
             if not args.k8s_controller:
                 # add-k8s to controller
                 caas_client.add_k8s(False)
-            assess_caas_kubeflow_deployment(caas_client, args.caas_provider)
+            assess_caas_kubeflow_deployment(caas_client, args.caas_provider, 'edge')
         return 0
 
 
