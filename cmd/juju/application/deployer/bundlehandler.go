@@ -347,7 +347,14 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			return errors.Annotatef(err, "cannot resolve charm or bundle %q", ch.Name)
 		}
 		if charm.CharmHub.Matches(url.Schema) {
-			url = url.WithSeries("")
+			// Although we've resolved the charm URL, we actually don't want the
+			// whole URL (architecture, series and revision), only the name is
+			// verified that it exists.
+			url = &charm.URL{
+				Schema:   charm.CharmHub.String(),
+				Name:     url.Name,
+				Revision: -1,
+			}
 			origin = origin.WithSeries("")
 		}
 
