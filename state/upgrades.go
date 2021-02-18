@@ -19,8 +19,10 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cloud"
@@ -3348,5 +3350,48 @@ func RemoveUnusedLinkLayerDeviceProviderIDs(pool *StatePool) error {
 	}
 
 	logger.Infof("deleted %d unused link-layer device provider IDs", before-after)
+	return nil
+}
+
+// TranslateK8sServiceTypes converts any existing app config using the
+// native k8s service types to the Juju values.
+func TranslateK8sServiceTypes(pool *StatePool) error {
+	st := pool.SystemState()
+	var ops []txn.Op
+	coll, closer := st.db().GetRawCollection(settingsC)
+	defer closer()
+	iter := coll.Find(bson.M{"_id": bson.M{"$regex": "^.*:a#.*"}}).Iter()
+	defer iter.Close()
+	var doc settingsDoc
+	for iter.Next(&doc) {
+		serviceTypeVal := doc.Settings[k8s.ServiceTypeConfigKey]
+		serviceType, ok := serviceTypeVal.(string)
+		if !ok {
+			continue
+		}
+		switch core.ServiceType(serviceType) {
+		case core.ServiceTypeClusterIP:
+			serviceType = string(caas.ServiceCluster)
+		case core.ServiceTypeLoadBalancer:
+			serviceType = string(caas.ServiceLoadBalancer)
+		case core.ServiceTypeExternalName:
+			serviceType = string(caas.ServiceExternal)
+		default:
+			continue
+		}
+		doc.Settings[k8s.ServiceTypeConfigKey] = serviceType
+		ops = append(ops, txn.Op{
+			C:      settingsC,
+			Id:     doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+		})
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
 	return nil
 }
