@@ -35,9 +35,9 @@ log = logging.getLogger("assess_caas_kubeflow_deployment")
 KUBEFLOW_REPO_NAME = "bundle-kubeflow"
 KUBEFLOW_REPO_URI = f"https://github.com/juju-solutions/{KUBEFLOW_REPO_NAME}.git"
 KUBEFLOW_DIR = os.path.join(os.getcwd(), KUBEFLOW_REPO_NAME)
+CHARM_INTERFACES_DIR = KUBEFLOW_DIR
 OSM_REPO_NAME = "canonical-osm"
 OSM_REPO_URI = f"git://git.launchpad.net/{OSM_REPO_NAME}"
-
 
 bundle_info = {
     'full': {
@@ -109,15 +109,16 @@ def deploy_kubeflow(caas_client, k8s_model, bundle, build):
 
     caas_client.kubectl('label', 'namespace', k8s_model.model_name, 'istio-injection=enabled')
     if build:
-        k8s_model.juju(
-            'bundle',
-            (
-                'deploy',
-                '--bundle', f'{KUBEFLOW_DIR}/{bundle_info[bundle]["file_name"]}',
-                '--build',
-            ),
-            include_e=False,
-        )
+        with jump_dir(KUBEFLOW_DIR):
+            k8s_model.juju(
+                'bundle',
+                (
+                    'deploy',
+                    '--bundle', f'{KUBEFLOW_DIR}/{bundle_info[bundle]["file_name"]}',
+                    '--build',
+                ),
+                include_e=False,
+            )
     else:
         k8s_model.deploy(
             charm=bundle_info[bundle]['uri'],
@@ -314,12 +315,16 @@ def prepare(caas_client, caas_provider, build):
     # )
     print("build ---> ", build)
     if build:
+        # When we're building the charms locally instead of deploying them from the charm store,
+        # we'll need to include a particular mysql interface.
+        # - https://github.com/canonical/bundle-kubeflow/issues/291
+        os.environ['CHARM_INTERFACES_DIR'] = CHARM_INTERFACES_DIR
         print('cloning OSM_REPO_URI -> ', OSM_REPO_URI)
         caas_client.sh('git', 'clone', OSM_REPO_URI, f'{KUBEFLOW_DIR}/{OSM_REPO_NAME}')
         caas_client.sh(
             'cp', '-r',
             f'{KUBEFLOW_DIR}/{OSM_REPO_NAME}/charms/interfaces/juju-relation-mysql',
-            f'{KUBEFLOW_DIR}/mysql',
+            f'{CHARM_INTERFACES_DIR}/mysql',
         )
         caas_client.sh('ls', '-al', f'{KUBEFLOW_DIR}')  # remove me !!!
 
