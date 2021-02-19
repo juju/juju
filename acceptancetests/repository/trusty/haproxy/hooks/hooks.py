@@ -211,7 +211,7 @@ def get_monitoring_password(haproxy_config_file="/etc/haproxy/haproxy.cfg"):
     haproxy_config = load_haproxy_config(haproxy_config_file)
     if haproxy_config is None:
         return None
-    m = re.search("stats auth\s+(\w+):(\w+)", haproxy_config)
+    m = re.search(r"stats auth\s+(\w+):(\w+)", haproxy_config)
     if m is not None:
         return m.group(2)
     else:
@@ -239,14 +239,14 @@ def get_listen_stanzas(haproxy_config_file="/etc/haproxy/haproxy.cfg"):
     if haproxy_config is None:
         return ()
     listen_stanzas = re.findall(
-        "listen\s+([^\s]+)\s+([^:]+):(.*)",
+        r"listen\s+([^\s]+)\s+([^:]+):(.*)",
         haproxy_config)
     # Match bind stanzas like:
     #
     # bind 1.2.3.5:234
     # bind 1.2.3.4:123 ssl crt /foo/bar
     bind_stanzas = re.findall(
-        "\s+bind\s+([^:]+):(\d+).*\n\s+default_backend\s+([^\s]+)",
+        r"\s+bind\s+([^:]+):(\d+).*\n\s+default_backend\s+([^\s]+)",
         haproxy_config, re.M)
     return (tuple(((service, addr, int(port))
                    for service, addr, port in listen_stanzas)) +
@@ -417,7 +417,7 @@ def _append_backend(service_config, name, options, errorfiles, server_entries):
             server_line = "    server %s %s:%s" % \
                 (server_name, server_ip, server_port)
             if server_options is not None:
-                if isinstance(server_options, basestring):
+                if isinstance(server_options, str):
                     server_line += " " + server_options
                 else:
                     server_line += " " + " ".join(server_options)
@@ -446,7 +446,7 @@ def create_monitoring_stanza(service_name="haproxy_monitoring"):
     monitoring_config.append("http-request deny unless allowed_cidr")
     monitoring_config.append("stats enable")
     monitoring_config.append("stats uri /")
-    monitoring_config.append("stats realm Haproxy\ Statistics")
+    monitoring_config.append(r"stats realm Haproxy\ Statistics")
     monitoring_config.append("stats auth %s:%s" %
                              (config_data['monitoring_username'],
                               monitoring_password))
@@ -487,7 +487,7 @@ def parse_services_yaml(services, yaml_data):
             services[None] = {"service_name": service_name}
 
         if "service_options" in service:
-            if isinstance(service["service_options"], basestring):
+            if isinstance(service["service_options"], str):
                 service["service_options"] = comma_split(
                     service["service_options"])
 
@@ -496,7 +496,7 @@ def parse_services_yaml(services, yaml_data):
                 service["service_options"].append("option forwardfor")
 
         if (("server_options" in service and
-             isinstance(service["server_options"], basestring))):
+             isinstance(service["server_options"], str))):
             service["server_options"] = comma_split(service["server_options"])
 
         services[service_name] = merge_service(
@@ -1236,7 +1236,7 @@ def is_selfsigned_cert_stale(cert_file, key_file):
                 extension.get_data(), asn1Spec=rfc2459.SubjectAltName())[0]
             for name in names:
                 cert_addresses.add(str(name.getComponent()))
-        except:
+        except Exception:
             pass
     if cert_addresses != unit_addresses:
         log('subjAltName: Cert (%s) != Unit (%s), assuming stale' % (
@@ -1351,6 +1351,7 @@ def main(hook_name):
     else:
         print("Unknown hook")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     hook_name = os.path.basename(sys.argv[0])

@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/local/sbin/charm-env python3
 import subprocess
 import os
 import sys

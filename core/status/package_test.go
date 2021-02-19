@@ -6,7 +6,6 @@ package status_test
 import (
 	"testing"
 
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
@@ -22,6 +21,5 @@ var _ = gc.Suite(&ImportTest{})
 
 func (*ImportTest) TestImports(c *gc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/status")
-
-	c.Assert(found, jc.SameContents, []string{"core/life"})
+	c.Assert(found, gc.HasLen, 0)
 }

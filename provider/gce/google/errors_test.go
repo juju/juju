@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -51,7 +52,8 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
 	ctx := context.NewCloudCallContext()
 	called := false
 	ctx.InvalidateCredentialFunc = func(msg string) error {
-		c.Assert(msg, gc.DeepEquals, "google cloud denied access")
+		c.Assert(msg, gc.Matches,
+			regexp.QuoteMeta(`google cloud denied access: Get "http://notforreal.com/": 40`)+".*")
 		called = true
 		return nil
 	}

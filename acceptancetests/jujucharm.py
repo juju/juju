@@ -3,10 +3,9 @@
 from contextlib import contextmanager
 import logging
 import os
-import pexpect
 import re
 import subprocess
-
+import pexpect
 import yaml
 
 from utility import (
@@ -139,13 +138,13 @@ class CharmCommand:
         try:
             command = pexpect.spawn(
                 self.charm_bin, ['login'], env=self._get_env())
-            command.expect('(?i)Login to Ubuntu SSO')
-            command.expect('(?i)Press return to select.*\.')
-            command.expect('(?i)E-Mail:')
+            command.expect(r'(?i)Login to Ubuntu SSO')
+            command.expect(r'(?i)Press return to select.*\.')
+            command.expect(r'(?i)E-Mail:')
             command.sendline(user_email)
-            command.expect('(?i)Password')
+            command.expect(r'(?i)Password')
             command.sendline(password)
-            command.expect('(?i)Two-factor auth')
+            command.expect(r'(?i)Two-factor auth')
             command.sendline()
             command.expect(pexpect.EOF)
             if command.isalive():

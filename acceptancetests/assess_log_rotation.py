@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from __future__ import print_function
 
 from argparse import ArgumentParser
@@ -8,6 +8,9 @@ import re
 
 import yaml
 
+from utility import (
+    add_basic_testing_arguments,
+)
 from deploy_stack import (
     boot_context,
     update_env,
@@ -18,9 +21,6 @@ from jujucharm import (
 from jujupy import (
     client_from_config,
     juju_home_path,
-)
-from utility import (
-    add_basic_testing_arguments,
 )
 
 
@@ -77,7 +77,8 @@ def assess_machine_rotation(client):
                   "machine={}".format(machine_id))
 
 
-def test_rotation(client, logfile, prefix, fill_action, size_action, log_size, *args):
+def test_rotation(client, logfile, prefix, fill_action, size_action, log_size,
+                  *args):
     """A reusable help for testing log rotation.log
 
     Deploys the fill-logs charm and uses it to fill the machine or unit log and
@@ -94,7 +95,8 @@ def test_rotation(client, logfile, prefix, fill_action, size_action, log_size, *
     def run_fill_log_action():
         """Using fill action to fill logs, returns resulting output."""
         for _ in range(log_size//single_megs):
-            client.action_do_fetch("fill-logs/0", fill_action, FILL_TIMEOUT, *args)
+            client.action_do_fetch("fill-logs/0", fill_action, FILL_TIMEOUT,
+                                   *args)
         # Need to give the disk sometime to actually move files before
         # requesting resulting output.
         sleep(10)
@@ -157,7 +159,7 @@ def check_expected_backup(key, logprefix, action_output):
         raise LogRotateError(
             "Missing backup log '{}' after rotation.".format(key))
 
-    backup_pattern = "/var/log/juju/%s-(.+?)\.log.gz" % logprefix
+    backup_pattern = r"/var/log/juju/%s-(.+?)\.log.gz" % logprefix
 
     log_name = log["name"]
     matches = re.match(backup_pattern, log_name)
@@ -234,7 +236,8 @@ def main():
     with boot_context(args.temp_env_name, client,
                       bootstrap_host=args.bootstrap_host,
                       machines=args.machine, series=args.series,
-                      agent_url=args.agent_url, agent_stream=args.agent_stream,
+                      arch=args.arch, agent_url=args.agent_url,
+                      agent_stream=args.agent_stream,
                       log_dir=args.logs, keep_env=args.keep_env,
                       upload_tools=args.upload_tools,
                       region=args.region):

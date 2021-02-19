@@ -64,6 +64,16 @@ func (s *ModelCredentialSuite) TestInvalidateModelCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(invalidated.IsValid(), jc.IsFalse)
 	c.Assert(invalidated.InvalidReason, gc.DeepEquals, reason)
+
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	info, err := m.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, status.StatusInfo{
+		Status:  "suspended",
+		Message: "suspended since cloud credential is not valid",
+		Data:    map[string]interface{}{"reason": "special invalidation"},
+	})
 }
 
 func (s *ModelCredentialSuite) TestValidateCloudCredentialWrongCloud(c *gc.C) {

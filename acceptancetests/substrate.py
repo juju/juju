@@ -363,66 +363,6 @@ class OpenStackAccount:
         return uncleaned_resource
 
 
-class JoyentAccount:
-    """Represent a Joyent account."""
-
-    def __init__(self, client):
-        self.client = client
-
-    @classmethod
-    @contextmanager
-    def from_boot_config(cls, boot_config):
-        """Create a ContextManager for a JoyentAccount.
-
-         Using a JujuData object, the private key is written to
-         a tmp file. Then, the Joyent client is inited with the path to the
-         tmp key. The key is removed when done.
-         """
-        from joyent import Client
-        config = get_config(boot_config)
-        with temp_dir() as key_dir:
-            key_path = os.path.join(key_dir, 'joyent.key')
-            open(key_path, 'w').write(config['private-key'])
-            client = Client(
-                config['sdc-url'], config['manta-user'],
-                config['manta-key-id'], key_path, '')
-            yield cls(client)
-
-    def terminate_instances(self, instance_ids):
-        """Terminate the specified instances."""
-        provisioning = []
-        for instance_id in instance_ids:
-            machine_info = self.client._list_machines(instance_id)
-            if machine_info['state'] == 'provisioning':
-                provisioning.append(instance_id)
-                continue
-            self._terminate_instance(instance_id)
-        if len(provisioning) > 0:
-            raise StillProvisioning(provisioning)
-
-    def _terminate_instance(self, machine_id):
-        log.info('Stopping instance {}'.format(machine_id))
-        self.client.stop_machine(machine_id)
-        for ignored in until_timeout(30):
-            stopping_machine = self.client._list_machines(machine_id)
-            if stopping_machine['state'] == 'stopped':
-                break
-            sleep(3)
-        else:
-            raise Exception('Instance did not stop: {}'.format(machine_id))
-        log.info('Terminating instance {}'.format(machine_id))
-        self.client.delete_machine(machine_id)
-
-    def ensure_cleanup(self, resource_details):
-        """
-        Do Joyent specific clean-up activity.
-        :param resource_details: The list of resource to be cleaned up
-        :return: list of resources that were not cleaned up
-        """
-        uncleaned_resource = []
-        return uncleaned_resource
-
-
 def convert_to_azure_ids(client, instance_ids):
     """Return a list of ARM ids from a list juju machine instance-ids.
 
@@ -530,8 +470,9 @@ class AzureARMAccount:
             if m.get('short-name', m['name']) == client.model_name][0]
         resource_group = 'juju-{}-model-{}'.format(
             model.get('short-name', model['name']), model['model-uuid'])
-        resources = winazurearm.list_resources(
-            self.arm_client, glob=resource_group, recursive=True)
+        # NOTE(achilleasa): resources was not used in this func
+        # resources = winazurearm.list_resources(
+        #    self.arm_client, glob=resource_group, recursive=True)
         vm_ids = []
         for machine_name in instance_ids:
             rgd, vm = winazurearm.find_vm_deployment(
@@ -681,14 +622,16 @@ class MAASAccount:
 
     def _maas(self, *args):
         """Call maas api with given arguments and parse json result."""
-        try:
-            command = ('maas',) + args
-            output = subprocess.check_output(command, stderr=subprocess.STDOUT)
-            if not output:
+        command = ('maas',) + args
+        res = subprocess.run(command, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, universal_newlines=True)
+        if res.returncode == 0:
+            if not res.stdout:
                 return None
-            return json.loads(output)
-        except subprocess.CalledProcessError as e:
-            raise Exception('%s failed:\n %s' % (command, e.output))
+            return json.loads(res.stdout)
+
+        raise Exception('%s failed:\n %s%s' % (command, res.stdout,
+                                               res.stderr))
 
     def login(self):
         """Login with the maas cli."""
@@ -956,11 +899,7 @@ class LXDAccount:
 
 def get_config(boot_config):
     config = boot_config.make_config_copy()
-    if boot_config.provider not in (
-        'lxd',
-        'manual',
-        'kubernetes',
-    ):
+    if boot_config.provider not in ('lxd', 'manual', 'kubernetes'):
         config.update(boot_config.get_cloud_credentials())
     return config
 
@@ -976,7 +915,6 @@ def make_substrate_manager(boot_config):
         'ec2': AWSAccount.from_boot_config,
         'openstack': OpenStackAccount.from_boot_config,
         'rackspace': OpenStackAccount.from_boot_config,
-        'joyent': JoyentAccount.from_boot_config,
         'azure': AzureAccount.from_boot_config,
         'azure-arm': AzureARMAccount.from_boot_config,
         'lxd': LXDAccount.from_boot_config,
@@ -1004,7 +942,7 @@ def start_libvirt_domain(uri, domain):
     try:
         subprocess.check_output(command, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
-        if 'already active' in e.output:
+        if 'already active' in e.output.decode('utf-8'):
             return '%s is already running; nothing to do.' % domain
         raise Exception('%s failed:\n %s' % (command, e.output))
     sleep(30)
@@ -1026,7 +964,7 @@ def stop_libvirt_domain(uri, domain):
     try:
         subprocess.check_output(command, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
-        if 'domain is not running' in e.output:
+        if 'domain is not running' in e.output.decode('utf-8'):
             return ('%s is not running; nothing to do.' % domain)
         raise Exception('%s failed:\n %s' % (command, e.output))
     sleep(30)

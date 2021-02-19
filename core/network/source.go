@@ -17,6 +17,21 @@ import "net"
 // introduced for Windows.
 const SysClassNetPath = "/sys/class/net"
 
+// ConfigSourceAddr indirects addresses obtained
+// from local machine network interfaces.
+type ConfigSourceAddr interface {
+	// IP returns the address in net.IP form.
+	IP() net.IP
+
+	// IPNet returns the subnet corresponding with the address
+	// provided that it can be determined.
+	IPNet() *net.IPNet
+
+	// String returns the address in string form,
+	// including the subnet mask if known.
+	String() string
+}
+
 // ConfigSource defines the necessary calls to obtain
 // the network configuration of a machine.
 type ConfigSource interface {
@@ -29,7 +44,7 @@ type ConfigSource interface {
 
 	// InterfaceAddresses returns information about all addresses
 	// assigned to the network interface with the given name.
-	InterfaceAddresses(name string) ([]net.Addr, error)
+	InterfaceAddresses(name string) ([]ConfigSourceAddr, error)
 
 	// DefaultRoute returns the gateway IP address and device name of the
 	// default route on the machine. If there is no default route (known),

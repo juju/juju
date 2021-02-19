@@ -90,7 +90,7 @@ def extract_module_logs(client, module):
         '--no-tail', '--replay', '-l', 'TRACE',
         '--include-module', module,
     )
-    return deploy_logs.decode('utf-8')
+    return deploy_logs
 
 
 def extract_txn_metrics(logs, module):
@@ -133,7 +133,7 @@ def calc_stats(prefix, values, include_count=False, test_duration=0):
     if include_count:
         stats[prefix+'count'] = len(values)
 
-    if test_duration is not 0:
+    if test_duration != 0:
         stats[prefix+'rate'] = float(len(values)) / float(test_duration)
 
     return stats
@@ -314,12 +314,11 @@ def main(argv=None):
 
     begin = time.time()
     bs_manager = BootstrapManager.from_args(args)
-    with bs_manager.booted_context(
-        args.upload_tools,
-        db_snap_path=db_snap_path,
-        db_snap_asserts_path=db_snap_asserts_path,
-        mongo_memory_profile=args.mongo_memory_profile,
-    ):
+    with bs_manager.booted_context(args.upload_tools,
+                                   db_snap_path=db_snap_path,
+                                   db_snap_asserts_path=db_snap_asserts_path,
+                                   mongo_memory_profile=args.
+                                   mongo_memory_profile):
         client = bs_manager.client
         mongo_version, mongo_profile = extract_mongo_details(client)
         log.info("MongoVersion used for deployment: {} (profile: {})".format(

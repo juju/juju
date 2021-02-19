@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from argparse import ArgumentParser
 from contextlib import contextmanager
@@ -7,24 +7,25 @@ from textwrap import dedent
 from subprocess import CalledProcessError
 import sys
 
+from utility import (
+    configure_logging,
+    until_timeout,
+)
+from jujuci import add_credential_args
 from jujucharm import (
     local_charm_path,
 )
-from jujupy import (
-    client_from_config,
-    fake_juju_client,
-    JujuData,
-    )
 from deploy_stack import (
     BootstrapManager,
     check_token,
     get_random_string,
     )
-from jujuci import add_credential_args
-from utility import (
-    configure_logging,
-    until_timeout,
-)
+
+from jujupy import (
+    client_from_config,
+    fake_juju_client,
+    JujuData,
+    )
 
 
 def prepare_dummy_env(client):
@@ -47,9 +48,9 @@ def get_clients(initial, other, base_env, debug, agent_url):
         environment = JujuData.from_config(base_env)
         client = fake_juju_client(env=environment)
         return client, client, client
-    else:
-        initial_client = client_from_config(base_env, initial, debug=debug)
-        environment = initial_client.env
+
+    initial_client = client_from_config(base_env, initial, debug=debug)
+    environment = initial_client.env
     if agent_url is None:
         environment.discard_option('tools-metadata-url')
     other_client = initial_client.clone_from_path(other)
@@ -74,9 +75,9 @@ def assess_heterogeneous(initial, other, base_env, environment_name, log_dir,
         initial, other, base_env, debug, agent_url)
     bs_manager = BootstrapManager(
         environment_name, initial_client, teardown_client,
-        bootstrap_host=None, machines=[], series=series, agent_url=agent_url,
-        agent_stream=agent_stream, region=None, log_dir=log_dir,
-        keep_env=False)
+        bootstrap_host=None, machines=[], series=series, arch=None,
+        agent_url=agent_url, agent_stream=agent_stream, region=None,
+        log_dir=log_dir, keep_env=False)
     test_control_heterogeneous(bs_manager, other_client, upload_tools)
 
 
@@ -91,7 +92,7 @@ def run_context(bs_manager, other, upload_tools):
         # Test clean shutdown of an environment.
         callback_with_fallback(other, bs_manager.tear_down_client,
                                nice_tear_down)
-    except:
+    except Exception:
         bs_manager.tear_down()
         raise
 
@@ -203,8 +204,8 @@ def wait_until_removed(client, agent_id):
     for ignored in until_timeout(240):
         if not has_agent(client, agent_id):
             return
-    else:
-        raise AssertionError('Machine not destroyed: {}.'.format(agent_id))
+
+    raise AssertionError('Machine not destroyed: {}.'.format(agent_id))
 
 
 def check_series(client, machine='0', series=None):

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from __future__ import print_function
 
@@ -87,7 +87,7 @@ def push_resource(client, resource_name, finger_print, size, agent_timeout,
 def fill_dummy_file(file_path, size):
     with open(file_path, "wb") as f:
         f.seek(size - 1)
-        f.write('\0')
+        f.write(b'\0')
 
 
 def large_assess(client, agent_timeout, resource_timeout):

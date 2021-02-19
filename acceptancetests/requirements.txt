@@ -15,6 +15,7 @@ azure-mgmt-redis>=0.30.0rc3
 azure-mgmt-resource>=0.30.0rc3
 azure-mgmt-scheduler>=0.30.0rc3
 azure-mgmt-storage>=0.30.0rc3
+azure-mgmt-containerservice>=0.30.0rc3
 azure-mgmt-web>=0.30.0rc3
 azure-nspkg>=1.0.0
 azure-servicebus>=0.20.1

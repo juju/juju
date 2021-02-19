@@ -246,8 +246,6 @@ func (c *Client) ListModelSummaries(user string, all bool) ([]base.UserModelSumm
 			Data:   make(map[string]interface{}),
 			Since:  summary.Status.Since,
 		}
-		//TODO (anastasiamac 2017-11-24) do we need status data for summaries?
-		// we do not translate it at cmd/presentation layer and is it really a summary?...
 		for k, v := range summary.Status.Data {
 			summaries[i].Status.Data[k] = v
 		}
