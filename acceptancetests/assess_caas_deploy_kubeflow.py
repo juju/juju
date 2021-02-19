@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" Test caas k8s cluster bootstrap
+""" Test caas k8s cluster bootstrap then deploy kubeflow
 
     1. spin up k8s cluster and assert the cluster is `healthy`;
     2. deploy kubeflow bundle to caas model;
@@ -72,9 +72,8 @@ def retry(is_ok, do, timeout=300, should_raise=False):
             try:
                 return do()
             except Exception as e:
-                print('retry err -> ', e)
                 if should_raise:
-                    raise
+                    raise e
         sleep(3)
     raise JujuAssertionError('retry timeout after %s' % timeout)
 
@@ -378,7 +377,7 @@ def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle, build=Fa
 
 def parse_args(argv):
     """Parse all arguments."""
-    parser = argparse.ArgumentParser(description="CAAS charm deployment CI test")
+    parser = argparse.ArgumentParser(description="CAAS kubeflow CI test")
     parser.add_argument(
         '--caas-image-repo', action='store', default='jujuqabot',
         help='CAAS operator docker image repo to use.'
@@ -402,6 +401,11 @@ def parse_args(argv):
         '--k8s-controller',
         action='store_true',
         help='Bootstrap to k8s cluster or not.'
+    )
+    parser.add_argument(
+        '--enable-rbac',
+        action='store_true',
+        help='Deploy kubeflow with RBAC enabled.'
     )
 
     add_basic_testing_arguments(parser, existing=False)
