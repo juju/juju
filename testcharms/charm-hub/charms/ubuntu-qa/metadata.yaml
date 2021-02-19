@@ -1,10 +1,20 @@
 # Copyright 2020 juju-qa@canonical.com
 # See LICENSE file for licensing details.
 name: ubuntu-qa
-description: |
-  juju-qa version of the ubuntu charm.
+maintainer: juju-qa@canonical.com
 summary: |
-  juju-qa version of the ubuntu charm.
-series: [focal, bionic, xenial]
+  A charm used in testing juju.
+description: |
+  A charm used in testing juju.  It has config, actions, resources, and a relation.
+series: [focal, groovy, bionic, xenial]
+requires:
+  info:
+    interface: juju-info
+    scope: container
+resources:
+  foo-file:
+    type: file
+    filename: foo.txt
+    description: "foo resource."
 
 
