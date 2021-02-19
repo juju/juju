@@ -40,7 +40,7 @@ require (
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
 	github.com/imdario/mergo v0.3.10 // indirect
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
-	github.com/juju/bundlechanges/v4 v4.0.0-20210218105210-47b5b054f5f1
+	github.com/juju/bundlechanges/v4 v4.0.0-20210222102016-889cd226f514
 	github.com/juju/charm/v8 v8.0.0-20210115142305-1eb0c22cff4e
 	github.com/juju/charmrepo/v6 v6.0.0-20201118043529-e9fbdc1a746f
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
@@ -105,11 +105,11 @@ require (
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
-	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
-	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
+	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
+	golang.org/x/net v0.0.0-20210220033124-5f55cee0dc0d
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	golang.org/x/sys v0.0.0-20210218085108-9555bcde0c6a
+	golang.org/x/sys v0.0.0-20210220050731-9a76102bfb43
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools v0.0.0-20200725200936-102e7d357031
 	google.golang.org/api v0.29.0

@@ -48,6 +48,13 @@ import (
 	"github.com/juju/juju/storage"
 )
 
+// localCharmChannel is used to identify a standard channel that all local
+// charms will adhere to. THis isn't actually required, but it makes things a
+// lot simpler when using a selecting algorithm based on channels for charms.
+var localCharmChannel = corecharm.Channel{
+	Risk: corecharm.Risk("stable"),
+}
+
 type bundleDeploySpec struct {
 	ctx        *cmd.Context
 	filesystem modelcmd.Filesystem
@@ -182,7 +189,10 @@ type bundleHandler struct {
 	model *bundlechanges.Model
 
 	macaroons map[charm.URL]*macaroon.Macaroon
-	origins   map[charm.URL]commoncharm.Origin
+
+	// origins holds a different origins based on the charm URL and channels for
+	// each origin.
+	origins map[charm.URL]map[string]commoncharm.Origin
 
 	// watcher holds an environment mega-watcher used to keep the environment
 	// status up to date.
@@ -236,7 +246,7 @@ func makeBundleHandler(bundleData *charm.BundleData, spec bundleDeploySpec) *bun
 		bundleURL:            spec.bundleURL,
 		unitStatus:           make(map[string]string),
 		macaroons:            make(map[charm.URL]*macaroon.Macaroon),
-		origins:              make(map[charm.URL]commoncharm.Origin),
+		origins:              make(map[charm.URL]map[string]commoncharm.Origin),
 
 		targetModelName: spec.targetModelName,
 		targetModelUUID: spec.targetModelUUID,
@@ -370,7 +380,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		// charm origins as well as any potential new ones.
 		// Specifically this happens when a bundle is re-using a charm from
 		// another application, but giving it a new name.
-		h.origins[*url] = origin
+		h.addOrigin(*url, channel, origin)
 	}
 
 	// TODO(thumper): the InferEndpoints code is deeply wedged in the
@@ -378,6 +388,54 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 	// effort, so for now the bundle handling is doing no implicit endpoint
 	// handling.
 	return nil
+}
+
+func (h *bundleHandler) resolveCharmRevision(charmURL, charmSeries, charmChannel, arch string) (int, error) {
+	curl, err := charm.ParseURL(charmURL)
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
+	if curl.Revision >= 0 {
+		return curl.Revision, nil
+	}
+
+	ch, err := resolveAndValidateCharmURL(charmURL)
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
+
+	var channel corecharm.Channel
+	if charmChannel != "" {
+		channel, err = corecharm.ParseChannelNormalize(charmChannel)
+		if err != nil {
+			return -1, errors.Trace(err)
+		}
+	}
+
+	var cons constraints.Value
+	if arch != "" {
+		cons = constraints.Value{Arch: &arch}
+	}
+
+	platform, err := utils.DeducePlatform(cons, charmSeries, h.modelConstraints)
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
+
+	origin, err := utils.DeduceOrigin(ch, channel, platform)
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
+
+	_, origin, _, err = h.bundleResolver.ResolveCharm(ch, origin)
+	if err != nil {
+		return -1, errors.Annotatef(err, "cannot resolve charm or bundle %q", ch.Name)
+	}
+	if rev := origin.Revision; rev != nil {
+		fmt.Println("!!", *rev)
+		return *rev, nil
+	}
+	return -1, nil
 }
 
 func (h *bundleHandler) getChanges() error {
@@ -401,7 +459,9 @@ func (h *bundleHandler) getChanges() error {
 		BundleURL:        bundleURL,
 		Model:            h.model,
 		ConstraintGetter: addCharmConstraintsParser,
+		RevisionGetter:   h.resolveCharmRevision,
 		Logger:           logger,
+		Force:            h.force,
 	}
 	logger.Tracef("bundlechanges.ChangesConfig.Bundle %s", pretty.Sprint(cfg.Bundle))
 	logger.Tracef("bundlechanges.ChangesConfig.BundleURL %s", pretty.Sprint(cfg.BundleURL))
@@ -535,9 +595,9 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 			// We know we're a local charm and local charms don't require an
 			// explicit tailored origin. Instead we can just use a placeholder
 			// to ensure correctness for later on in addApplication.
-			h.origins[*curl] = commoncharm.Origin{
+			h.addOrigin(*curl, localCharmChannel, commoncharm.Origin{
 				Source: commoncharm.OriginLocal,
-			}
+			})
 			return nil
 		}
 	}
@@ -596,10 +656,11 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Errorf("unexpected charm URL %q", ch.Name)
 	}
 
-	logger.Debugf("added charm %s", url)
-	h.results[id] = url.String()
+	logger.Debugf("added charm %s for channel %s", url, channel)
+	charmAlias := url.String()
+	h.results[id] = charmAlias
 	h.macaroons[*url] = macaroon
-	h.origins[*url] = charmOrigin
+	h.addOrigin(*url, channel, charmOrigin)
 	return nil
 }
 
@@ -633,22 +694,23 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 
 	p := change.Params
-	cURL, err := resolveCharmURL(resolve(p.Charm, h.results))
+	curl, err := resolveCharmURL(resolve(p.Charm, h.results))
 	if err != nil {
 		return errors.Trace(err)
-	} else if cURL == nil {
+	} else if curl == nil {
 		return errors.Errorf("unexpected application charm URL %q", p.Charm)
 	}
 
-	origin, ok := h.origins[*cURL]
-	if !ok {
+	channel, err := constructNormalizedChannel(p.Channel)
+	if err != nil {
 		// This should never happen, essentially we have a charm url that has
 		// never been deployed previously, or has never been added with
 		// setCharm.
-		// TODO (stickupkid): We could in theory deduce the origin, but that
-		// will be ok for charmstore and local, but will be horribly wrong
-		// for charmhub.
-		return errors.Annotatef(err, "unexpected charm %q, charm not found for application %q", cURL.Name, p.Application)
+		return errors.Trace(err)
+	}
+	origin, ok := h.getOrigin(*curl, channel)
+	if !ok {
+		return errors.Errorf("unexpected charm %q, charm not found for application %q", curl.Name, p.Application)
 	}
 
 	// Handle application constraints.
@@ -658,17 +720,17 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Annotate(err, "invalid constraints for application")
 	}
 
-	if charm.CharmHub.Matches(cURL.Schema) {
+	if charm.CharmHub.Matches(curl.Schema) {
 		if cons.HasArch() && *cons.Arch != origin.Architecture {
 			return errors.Errorf("unexpected %s application architecture (%s), charm already exists with architecture (%s)", p.Application, *cons.Arch, origin.Architecture)
 		}
 	}
 
 	chID := application.CharmID{
-		URL:    cURL,
+		URL:    curl,
 		Origin: origin,
 	}
-	macaroon := h.macaroons[*cURL]
+	macaroon := h.macaroons[*curl]
 
 	h.results[change.Id()] = p.Application
 	ch := chID.URL.String()
@@ -778,7 +840,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		fromBundle:          true,
 	}
 	series, err := selector.charmSeries()
-	if err = charmValidationError(series, cURL.Name, errors.Trace(err)); err != nil {
+	if err = charmValidationError(series, curl.Name, errors.Trace(err)); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1047,20 +1109,34 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	}
 
 	p := change.Params
-	cURL, err := resolveAndValidateCharmURL(resolve(p.Charm, h.results))
+	resolvedCharm := resolve(p.Charm, h.results)
+	curl, err := resolveCharmURL(resolvedCharm)
 	if err != nil {
 		return errors.Trace(err)
-	} else if cURL == nil {
+	}
+	if curl == nil {
 		return errors.Errorf("unexpected upgrade charm URL %q", p.Charm)
 	}
 
-	chID := application.CharmID{
-		URL:    cURL,
-		Origin: h.origins[*cURL],
+	channel, err := constructNormalizedChannel(p.Channel)
+	if err != nil {
+		// This should never happen, essentially we have a charm url that has
+		// never been deployed previously, or has never been added with
+		// setCharm.
+		return errors.Trace(err)
 	}
-	macaroon := h.macaroons[*cURL]
+	origin, ok := h.getOrigin(*curl, channel)
+	if !ok {
+		return errors.Errorf("unexpected charm %q, charm not found for application %q", curl.Name, p.Application)
+	}
 
-	meta, err := utils.GetMetaResources(cURL, h.deployAPI)
+	chID := application.CharmID{
+		URL:    curl,
+		Origin: origin,
+	}
+	macaroon := h.macaroons[*curl]
+
+	meta, err := utils.GetMetaResources(curl, h.deployAPI)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1409,6 +1485,33 @@ func (h *bundleHandler) topLevelMachine(id string) string {
 	}
 	tag := names.NewMachineTag(id)
 	return tag.Parent().Id()
+}
+
+func (h *bundleHandler) addOrigin(curl charm.URL, channel corecharm.Channel, origin commoncharm.Origin) {
+	if _, ok := h.origins[curl]; !ok {
+		h.origins[curl] = make(map[string]commoncharm.Origin)
+	}
+	h.origins[curl][channel.Normalize().String()] = origin
+}
+
+func (h *bundleHandler) getOrigin(curl charm.URL, channel corecharm.Channel) (commoncharm.Origin, bool) {
+	c, ok := h.origins[curl]
+	if !ok {
+		return commoncharm.Origin{}, false
+	}
+	o, ok := c[channel.Normalize().String()]
+	return o, ok
+}
+
+func constructNormalizedChannel(channel string) (corecharm.Channel, error) {
+	if channel == "" {
+		return corecharm.Channel{}, errors.NotValidf("empty channel")
+	}
+	ch, err := corecharm.ParseChannelNormalize(channel)
+	if err != nil {
+		return corecharm.Channel{}, errors.Trace(err)
+	}
+	return ch, nil
 }
 
 // resolveRelation returns the relation name resolving the included application

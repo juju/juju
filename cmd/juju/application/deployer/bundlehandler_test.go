@@ -13,6 +13,7 @@ import (
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	macaroon "gopkg.in/macaroon.v2"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -35,6 +37,8 @@ import (
 )
 
 type BundleDeployRepositorySuite struct {
+	testing.IsolationSuite
+
 	allWatcher     *mocks.MockAllWatch
 	bundleResolver *mocks.MockResolver
 	deployerAPI    *mocks.MockDeployerAPI
@@ -1056,8 +1060,7 @@ func (s *BundleDeployRepositorySuite) expectAddLocalCharm(curl *charm.URL, force
 	s.deployerAPI.EXPECT().AddLocalCharm(gomock.AssignableToTypeOf(&charm.URL{}), charmInterfaceMatcher{}, force).Return(curl, nil)
 }
 
-type charmInterfaceMatcher struct {
-}
+type charmInterfaceMatcher struct{}
 
 func (m charmInterfaceMatcher) Matches(arg interface{}) bool {
 	_, ok := arg.(charm.Charm)
@@ -1127,4 +1130,47 @@ func (s *BundleDeployRepositorySuite) expectAddOneUnit(name, directive, unit str
 		Placement:       placement,
 	}
 	s.deployerAPI.EXPECT().AddUnits(args).Return([]string{name + "/" + unit}, nil)
+}
+
+type BundleHandlerOriginSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&BundleHandlerOriginSuite{})
+
+func (s *BundleHandlerOriginSuite) TestAddOrigin(c *gc.C) {
+	handler := &bundleHandler{
+		origins: make(map[charm.URL]map[string]commoncharm.Origin),
+	}
+
+	curl := charm.MustParseURL("ch:mysql")
+	channel := corecharm.MustParseChannel("stable")
+	origin := commoncharm.Origin{
+		Risk: "stable",
+	}
+
+	handler.addOrigin(*curl, channel, origin)
+	res, found := handler.getOrigin(*curl, channel)
+	c.Assert(found, jc.IsTrue)
+	c.Assert(res, gc.DeepEquals, origin)
+}
+
+func (s *BundleHandlerOriginSuite) TestGetOriginNotFound(c *gc.C) {
+	handler := &bundleHandler{
+		origins: make(map[charm.URL]map[string]commoncharm.Origin),
+	}
+
+	curl := charm.MustParseURL("ch:mysql")
+	channel := corecharm.MustParseChannel("stable")
+	origin := commoncharm.Origin{
+		Risk: "stable",
+	}
+
+	_, found := handler.getOrigin(*curl, channel)
+	c.Assert(found, jc.IsFalse)
+
+	channelB := corecharm.MustParseChannel("edge")
+	handler.addOrigin(*curl, channelB, origin)
+	_, found = handler.getOrigin(*curl, channel)
+	c.Assert(found, jc.IsFalse)
 }
