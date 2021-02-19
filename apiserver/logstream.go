@@ -214,7 +214,7 @@ func (h *logStreamRequestHandler) serveWebsocket(stop <-chan struct{}) {
 }
 
 func (h *logStreamRequestHandler) close() {
-	h.tailer.Stop()
+	_ = h.tailer.Stop()
 	h.poolHelper.Release()
 }
 

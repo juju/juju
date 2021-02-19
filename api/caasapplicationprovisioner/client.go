@@ -68,7 +68,7 @@ func (c *Client) SetPassword(appName string, password string) error {
 		return errors.Errorf("invalid number of results %d expected 1", len(result.Results))
 	}
 	if result.Results[0].Error != nil {
-		return errors.Trace(result.Results[0].Error)
+		return errors.Trace(maybeNotFound(result.Results[0].Error))
 	}
 	return nil
 }
@@ -135,7 +135,7 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 	}
 	r := result.Results[0]
 	if err := r.Error; err != nil {
-		return ProvisioningInfo{}, errors.Trace(err)
+		return ProvisioningInfo{}, errors.Trace(maybeNotFound(err))
 	}
 
 	info := ProvisioningInfo{
@@ -221,7 +221,7 @@ func (c *Client) ApplicationCharmURL(appName string) (*charm.URL, error) {
 	}
 	res := result.Results[0]
 	if res.Error != nil {
-		return nil, errors.Annotatef(res.Error, "unable to fetch charm url for %s", appName)
+		return nil, errors.Annotatef(maybeNotFound(res.Error), "unable to fetch charm url for %s", appName)
 	}
 	url, err := charm.ParseURL(res.Result)
 	if err != nil {
@@ -258,7 +258,7 @@ func (c *Client) Units(appName string) ([]names.Tag, error) {
 	}
 	res := result.Results[0]
 	if res.Error != nil {
-		return nil, errors.Annotatef(res.Error, "unable to fetch units for %s", appName)
+		return nil, errors.Annotatef(maybeNotFound(res.Error), "unable to fetch units for %s", appName)
 	}
 	tags := make([]names.Tag, 0, len(res.Entities))
 	for _, v := range res.Entities {
@@ -312,7 +312,7 @@ func (c *Client) ApplicationOCIResources(appName string) (map[string]resources.D
 	}
 	res := result.Results[0]
 	if res.Error != nil {
-		return nil, errors.Annotatef(res.Error, "unable to fetch OCI image resources for %s", appName)
+		return nil, errors.Annotatef(maybeNotFound(res.Error), "unable to fetch OCI image resources for %s", appName)
 	}
 	if res.Result == nil {
 		return nil, errors.Errorf("missing result")

@@ -67,7 +67,7 @@ type SimpleSnapshot struct {
 // Persist is part of the raft.FSMSnapshot interface.
 func (snap *SimpleSnapshot) Persist(sink raft.SnapshotSink) error {
 	if err := gob.NewEncoder(sink).Encode(snap.logs[:snap.n]); err != nil {
-		sink.Cancel()
+		_ = sink.Cancel()
 		return err
 	}
 	return sink.Close()

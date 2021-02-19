@@ -3045,8 +3045,6 @@ func assertLogCount(c *gc.C, st *state.State, expected int) {
 	c.Assert(actual, gc.Equals, expected)
 }
 
-type attrs map[string]interface{}
-
 func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
 	cur := jujuversion.Current
 	err := statetesting.SetAgentVersion(s.State, cur)
@@ -3216,12 +3214,6 @@ func testSetPassword(c *gc.C, getEntity func() (state.Authenticator, error)) {
 			return e.SetPassword("arble-farble-dying-yarble")
 		})
 	}
-}
-
-type entity interface {
-	state.Entity
-	state.Lifer
-	state.Authenticator
 }
 
 type findEntityTest struct {

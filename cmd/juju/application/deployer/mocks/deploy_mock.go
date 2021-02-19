@@ -18,7 +18,7 @@ import (
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	names "github.com/juju/names/v4"
 	httprequest "gopkg.in/httprequest.v1"
-	macaroon "gopkg.in/macaroon.v2"
+	"gopkg.in/macaroon.v2"
 	http "net/http"
 	url "net/url"
 	reflect "reflect"

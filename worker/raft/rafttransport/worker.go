@@ -162,7 +162,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		ModelUUID: w.config.APIInfo.ModelTag.Id(),
 	}
 
-	w.config.Mux.AddHandler("GET", w.config.Path, h)
+	_ = w.config.Mux.AddHandler("GET", w.config.Path, h)
 
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,

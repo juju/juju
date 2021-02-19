@@ -134,7 +134,7 @@ func (st *State) modelsToRevert(tag names.CloudCredentialTag) (map[*Model]func()
 			continue
 		}
 		// We still need to close models that did not make the cut.
-		defer closer()
+		defer func() { _ = closer() }()
 	}
 	return revert, nil
 }
@@ -192,7 +192,7 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 			if err := m.maybeRevertModelStatus(); err != nil {
 				logger.Warningf("could not revert status for model %v: %v", m.UUID(), err)
 			}
-			defer closer()
+			defer func(closer func() error) { _ = closer() }(closer)
 		}
 	}
 	return nil

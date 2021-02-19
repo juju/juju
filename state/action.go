@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -50,6 +51,12 @@ const (
 
 	// ActionAborted indicates the Action was aborted.
 	ActionAborted ActionStatus = "aborted"
+)
+
+var activeStatus = set.NewStrings(
+	string(ActionPending),
+	string(ActionRunning),
+	string(ActionAborting),
 )
 
 type actionNotificationDoc struct {
@@ -399,6 +406,19 @@ func (a *action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 func (a *action) removeAndLogBuildTxn(finalStatus ActionStatus, results map[string]interface{}, message string,
 	m *Model, parentOperation Operation, completedTime time.Time) jujutxn.TransactionSource {
 	return func(attempt int) ([]txn.Op, error) {
+		// If the action is already finished, return an error.
+		if a.Status() == finalStatus {
+			return nil, errors.NewAlreadyExists(nil, fmt.Sprintf("action %v already has status %q", a.Id(), finalStatus))
+		}
+		if attempt > 0 {
+			err := a.Refresh()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if !activeStatus.Contains(string(a.Status())) {
+				return nil, errors.NewAlreadyExists(nil, fmt.Sprintf("action %v is already finished with status %q", a.Id(), finalStatus))
+			}
+		}
 		assertNotComplete := bson.D{{"status", bson.D{
 			{"$nin", []interface{}{
 				ActionCompleted,
@@ -423,7 +443,7 @@ func (a *action) removeAndLogBuildTxn(finalStatus ActionStatus, results map[stri
 			var numComplete int
 			for _, status := range tasks {
 				statusStats.Add(string(status))
-				if status != ActionPending && status != ActionRunning {
+				if !activeStatus.Contains(string(status)) {
 					numComplete++
 				}
 			}
@@ -452,9 +472,9 @@ func (a *action) removeAndLogBuildTxn(finalStatus ActionStatus, results map[stri
 				updateOperationOp = &txn.Op{
 					C:      operationsC,
 					Id:     a.st.docID(parentOperation.Id()),
-					Assert: bson.D{{"complete-task-count", parentOperation.(*operation).doc.CompleteTaskCount}},
-					Update: bson.D{{"$set", bson.D{
-						{"complete-task-count", numComplete + 1},
+					Assert: bson.D{{"complete-task-count", bson.D{{"$lt", len(tasks) - 1}}}},
+					Update: bson.D{{"$inc", bson.D{
+						{"complete-task-count", 1},
 					}}},
 				}
 			}

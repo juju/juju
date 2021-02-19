@@ -16,7 +16,11 @@ import (
 
 // logger is here to stop the desire of creating a package level logger.
 // Don't do this, instead pass one through as config to the worker.
-var logger interface{}
+type logger interface{}
+
+var (
+	_ logger = struct{}{}
+)
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mocks_facade.go github.com/juju/juju/worker/pruner Facade
 

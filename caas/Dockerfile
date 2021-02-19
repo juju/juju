@@ -16,8 +16,6 @@ RUN apt-get update \
     # below apt dependencies are required by controller pod.
     iproute2 \
     curl \
-    # TODO(new-charms): remove when pebble/initer is complete.
-    openssh-client \
     && pip3 install --upgrade pip setuptools \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /root/.cache
@@ -33,7 +31,7 @@ RUN pip3 install -r /tmp/wheelhouse/requirements.txt
 WORKDIR /var/lib/juju
 COPY jujud /opt/
 COPY jujuc /opt/
-COPY k8sagent /opt/
+COPY containeragent /opt/
 COPY pebble /opt/
 
 ENTRYPOINT ["sh", "-c"]

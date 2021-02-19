@@ -387,7 +387,7 @@ func (v *azureVolumeSource) listBlobs(ctx context.ProviderCallContext) ([]intern
 	//           longest common prefix to pass in the parameters
 	blobs, err := vhdContainer.Blobs()
 	if err != nil {
-		errorutils.HandleCredentialError(err, ctx)
+		err = errorutils.HandleCredentialError(err, ctx)
 		if err, ok := err.(azurestorage.AzureStorageServiceError); ok {
 			switch err.Code {
 			case "ContainerNotFound":

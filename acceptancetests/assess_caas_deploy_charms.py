@@ -85,7 +85,7 @@ def deploy_test_workloads(caas_client, k8s_model, caas_provider):
     else:
         k8s_model.deploy(
             charm="cs:~juju/mediawiki-k8s-4",
-            config='kubernetes-service-type=LoadBalancer',
+            config='kubernetes-service-type=loadbalancer',
         )
         svc_type = 'LoadBalancer'
 

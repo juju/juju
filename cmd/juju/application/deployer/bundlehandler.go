@@ -48,13 +48,6 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-// deploymentLogger is used to notify clients about the bundle deployment
-// progress.
-type deploymentLogger interface {
-	// Infof formats and logs the given message.
-	Infof(string, ...interface{})
-}
-
 type bundleDeploySpec struct {
 	ctx        *cmd.Context
 	filesystem modelcmd.Filesystem
@@ -354,7 +347,14 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			return errors.Annotatef(err, "cannot resolve charm or bundle %q", ch.Name)
 		}
 		if charm.CharmHub.Matches(url.Schema) {
-			url = url.WithSeries("")
+			// Although we've resolved the charm URL, we actually don't want the
+			// whole URL (architecture, series and revision), only the name is
+			// verified that it exists.
+			url = &charm.URL{
+				Schema:   charm.CharmHub.String(),
+				Name:     url.Name,
+				Revision: -1,
+			}
 			origin = origin.WithSeries("")
 		}
 

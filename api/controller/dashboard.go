@@ -69,7 +69,7 @@ func (c *Client) SelectDashboardVersion(vers version.Number) error {
 		Version: vers,
 	})
 	if err != nil {
-		errors.Annotate(err, "cannot marshal request body")
+		return errors.Annotate(err, "cannot marshal request body")
 	}
 	req, err := http.NewRequest("PUT", dashboardVersionPath, bytes.NewReader(content))
 	if err != nil {

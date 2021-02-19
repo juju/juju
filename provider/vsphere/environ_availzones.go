@@ -124,7 +124,7 @@ func makeAvailZoneName(hostFolder, crPath, poolPath string) string {
 }
 
 // InstanceAvailabilityZoneNames is part of the common.ZonedEnviron interface.
-func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (names []string, err error) {
+func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (names map[instance.Id]string, err error) {
 	err = env.withSession(ctx, func(env *sessionEnviron) error {
 		names, err = env.InstanceAvailabilityZoneNames(ctx, ids)
 		return err
@@ -133,7 +133,7 @@ func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContex
 }
 
 // InstanceAvailabilityZoneNames is part of the common.ZonedEnviron interface.
-func (env *sessionEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+func (env *sessionEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 	zones, err := env.AvailabilityZones(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -148,20 +148,26 @@ func (env *sessionEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCal
 		return nil, errors.Trace(err)
 	}
 
-	results := make([]string, len(ids))
-	for i, inst := range instances {
+	results := make(map[instance.Id]string, 0)
+	for _, inst := range instances {
 		if inst == nil {
 			continue
 		}
-		vm := inst.(*environInstance).base
+		vInst, ok := inst.(*environInstance)
+		if !ok {
+			continue
+		}
+		vm := vInst.base
 		for _, zone := range zones {
 			pool := zone.(*vmwareAvailZone).pool
 			if pool.Reference().Value == vm.ResourcePool.Value {
-				results[i] = zone.Name()
+				results[inst.Id()] = zone.Name()
 				break
 			}
 		}
 	}
+	// Don't be tempted to change this err to nil, it actually bubbles up
+	// environs.ErrPartialInstances from the above switch.
 	return results, err
 }
 

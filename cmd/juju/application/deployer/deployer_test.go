@@ -15,7 +15,6 @@ import (
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -30,7 +29,6 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -280,13 +278,6 @@ func (s *deployerSuite) TestResolveAndValidateCharmURL(c *gc.C) {
 			c.Assert(url, gc.DeepEquals, test.url)
 		}
 	}
-}
-
-func setFeatureFlags(flags string) {
-	if err := os.Setenv(osenv.JujuFeatureFlagEnvKey, flags); err != nil {
-		panic(err)
-	}
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *deployerSuite) makeBundleDir(c *gc.C, content string) string {

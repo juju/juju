@@ -96,6 +96,6 @@ func (s *unitScopeSuite) TestGetIdentValueError(c *gc.C) {
 		UnitInfo: &params.UnitInfo{},
 	}
 	result, err := scope.GetIdentValue("bad")
-	c.Assert(err, gc.ErrorMatches, `Runtime Error: identifier "bad" not found on UnitInfo: invalid identifer`)
+	c.Assert(err, gc.ErrorMatches, `Runtime Error: identifier "bad" not found on UnitInfo: invalid identifier`)
 	c.Assert(result, gc.IsNil)
 }

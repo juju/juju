@@ -23,7 +23,7 @@ type ZonedEnviron interface {
 	// InstanceAvailabilityZoneNames returns the names of the availability
 	// zones for the specified instances. The error returned follows the same
 	// rules as Environ.Instances.
-	InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error)
+	InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error)
 
 	// DeriveAvailabilityZones attempts to derive availability zones from
 	// the specified StartInstanceParams.
@@ -114,8 +114,8 @@ func AvailabilityZoneAllocations(
 		return nil, nil
 	}
 
-	for i, id := range group {
-		zone := instanceZones[i]
+	for _, id := range group {
+		zone := instanceZones[id]
 		if zone == "" {
 			continue
 		}

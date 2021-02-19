@@ -8,14 +8,12 @@ import (
 	"errors"
 	"io"
 
-	"github.com/juju/loggo"
 	"github.com/juju/utils/v2/winrm"
 
 	"github.com/juju/juju/apiserver/params"
 )
 
 var (
-	logger = loggo.GetLogger("juju.environs.manual")
 	// ErrProvisioned is returned by ProvisionMachine if the target
 	// machine has an existing machine agent.
 	ErrProvisioned = errors.New("machine is already provisioned")

@@ -96,7 +96,7 @@ func (c *ContextNetworking) ClosePortRange(endpoint string, portRange network.Po
 // OpenedPortRanges implements jujuc.ContextNetworking.
 func (c *ContextNetworking) OpenedPortRanges() network.GroupedPortRanges {
 	c.stub.AddCall("OpenedPortRanges")
-	c.stub.NextErr()
+	_ = c.stub.NextErr()
 
 	return c.info.PortRangesByEndpoint
 }

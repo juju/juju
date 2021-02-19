@@ -106,7 +106,9 @@ func NewRunListener(socket sockets.Socket, logger Logger) (*RunListener, error) 
 	if err := runListener.server.Register(&JujuExecServer{runListener, logger}); err != nil {
 		return nil, errors.Trace(err)
 	}
-	go runListener.Run()
+	// TODO (stickupkid) - We should probably log out when an accept fails, so
+	// we can at least track it.
+	go func() { _ = runListener.Run() }()
 	return runListener, nil
 }
 

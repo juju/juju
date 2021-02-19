@@ -59,7 +59,7 @@ func (c *CommandBase) NewAPIClient() (APIClient, error) {
 	return newAPIClient(c)
 }
 
-// NewAPIClient returns a client for the backups api endpoint.
+// NewGetAPI returns a client for the backups api endpoint.
 func (c *CommandBase) NewGetAPI() (APIClient, int, error) {
 	return getAPI(c)
 }
@@ -72,7 +72,6 @@ func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {
 
 // Init implements Command.SetFlags.
 func (c *CommandBase) Init(args []string) error {
-	c.ModelCommandBase.Init(args)
 	c.fs.Visit(func(flag *gnuflag.Flag) {
 		if flag.Name == "verbose" {
 			c.verbose = true
@@ -181,7 +180,7 @@ func (c *CommandBase) metadata(result *params.BackupsMetadataResult) string {
 	}
 	t := template.Must(template.New("template").Parse(backupMetadataTemplate))
 	content := bytes.Buffer{}
-	t.Execute(&content, m)
+	_ = t.Execute(&content, m)
 	return content.String()
 }
 

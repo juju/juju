@@ -12,21 +12,15 @@ import (
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
-	network "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
-
-type mockCloudSpecAPI struct {
-	// TODO - implement when remaining firewaller tests become unit tests
-	cloudspec.CloudSpecAPI
-}
 
 type mockState struct {
 	// TODO - implement when remaining firewaller tests become unit tests

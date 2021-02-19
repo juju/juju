@@ -7,7 +7,6 @@ package sshclient
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -18,8 +17,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state/stateenvirons"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.sshclient")
 
 // Facade implements the API required by the sshclient worker.
 type Facade struct {

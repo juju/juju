@@ -145,7 +145,7 @@ func (c *helpToolCommand) Run(ctx *cmd.Context) error {
 		info := c.Info()
 		f := gnuflag.NewFlagSetWithFlagKnownAs(info.Name, gnuflag.ContinueOnError, cmd.FlagAlias(c, "option"))
 		c.SetFlags(f)
-		ctx.Stdout.Write(info.Help(f))
+		_, _ = ctx.Stdout.Write(info.Help(f))
 	}
 	return nil
 }

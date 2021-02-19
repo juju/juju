@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/mocks"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
@@ -165,9 +166,9 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	// init config for each test for easier changing config inside test.
 	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
-		config.NameKey:              "test",
-		provider.OperatorStorageKey: "",
-		provider.WorkloadStorageKey: "",
+		config.NameKey:                  "test",
+		k8sconstants.OperatorStorageKey: "",
+		k8sconstants.WorkloadStorageKey: "",
 	}))
 	c.Assert(err, jc.ErrorIsNil)
 	s.cfg = cfg

@@ -21,7 +21,9 @@ import (
 
 // logger is here to stop the desire of creating a package level logger.
 // Don't do this, instead pass one through as config to the worker.
-var logger interface{}
+type logger interface{}
+
+var _ logger = struct{}{}
 
 // Deployer is responsible for deploying and recalling unit agents, according
 // to changes in a set of state units; and for the final removal of its agents'

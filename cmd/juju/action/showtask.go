@@ -162,7 +162,7 @@ func (c *showTaskCommand) Run(ctx *cmd.Context) error {
 	}
 	close(actionDone)
 	if logsWatcher != nil {
-		logsWatcher.Wait()
+		_ = logsWatcher.Wait()
 	}
 	if haveLogs {
 		// Make the logs a bit separate in the output.

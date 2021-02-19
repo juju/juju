@@ -17,13 +17,13 @@ define MAIN_PACKAGES
   github.com/juju/juju/cmd/juju
   github.com/juju/juju/cmd/jujuc
   github.com/juju/juju/cmd/jujud
-  github.com/juju/juju/cmd/k8sagent
+  github.com/juju/juju/cmd/containeragent
   github.com/juju/juju/cmd/plugins/juju-metadata
   github.com/juju/juju/cmd/plugins/juju-wait-for
 endef
 
 ifeq ($(GOOS),linux)
-	MAIN_PACKAGES += github.com/hpidcock/juju-fake-init
+	MAIN_PACKAGES += github.com/canonical/pebble/cmd/pebble
 endif
 
 # Allow the tests to take longer on restricted platforms.

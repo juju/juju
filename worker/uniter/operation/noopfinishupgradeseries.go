@@ -21,3 +21,8 @@ func (op *noOpFinishUpgradeSeries) Commit(state State) (*State, error) {
 	// make no change to state
 	return &state, nil
 }
+
+// WrappedOperation is part of the WrappedOperation interface.
+func (op *noOpFinishUpgradeSeries) WrappedOperation() Operation {
+	return op.Operation
+}

@@ -272,15 +272,6 @@ type PredicateStringsWatcher struct {
 	fn predicateFunc
 }
 
-// newChangeWatcher provides a PredicateStringsWatcher which notifies
-// with all strings passed to it.
-func newChangeWatcher(values ...string) *PredicateStringsWatcher {
-	return &PredicateStringsWatcher{
-		stringsWatcherBase: newStringsWatcherBase(values...),
-		fn:                 func(string) bool { return true },
-	}
-}
-
 func regexpPredicate(compiled *regexp.Regexp) func(string) bool {
 	return func(value string) bool { return compiled.MatchString(value) }
 }

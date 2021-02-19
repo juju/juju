@@ -314,7 +314,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 
 	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "1")
 	c.Assert(inst1, gc.NotNil)
-	defer t.Env.StopInstances(t.ProviderCallContext, inst1.Id())
+	defer func() { _ = t.Env.StopInstances(t.ProviderCallContext, inst1.Id()) }()
 	fwInst1, ok := inst1.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
@@ -329,7 +329,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.HasLen, 0)
-	defer t.Env.StopInstances(t.ProviderCallContext, inst2.Id())
+	defer func() { _ = t.Env.StopInstances(t.ProviderCallContext, inst2.Id()) }()
 
 	// Open some ports and check they're there.
 	err = fwInst1.OpenPorts(t.ProviderCallContext,
@@ -508,7 +508,7 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 
 	// Create instances and check open ports on both instances.
 	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "1")
-	defer t.Env.StopInstances(t.ProviderCallContext, inst1.Id())
+	defer func() { _ = t.Env.StopInstances(t.ProviderCallContext, inst1.Id()) }()
 
 	fwEnv, ok := t.Env.(environs.Firewaller)
 	c.Assert(ok, gc.Equals, true)
@@ -521,7 +521,7 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	rules, err = fwEnv.IngressRules(t.ProviderCallContext)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.HasLen, 0)
-	defer t.Env.StopInstances(t.ProviderCallContext, inst2.Id())
+	defer func() { _ = t.Env.StopInstances(t.ProviderCallContext, inst2.Id()) }()
 
 	err = fwEnv.OpenPorts(t.ProviderCallContext,
 		firewall.IngressRules{
@@ -669,7 +669,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(status.Machines["0"].InstanceId, gc.Equals, string(instId0))
 
 	mw0 := newMachineToolWaiter(m0)
-	defer mw0.Stop()
+	defer func() { _ = mw0.Stop() }()
 
 	// If the series has not been specified, we expect the most recent Ubuntu LTS release to be used.
 	expectedVersion := version.Binary{
@@ -699,7 +699,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	m1, err := st.Machine(mid1)
 	c.Assert(err, jc.ErrorIsNil)
 	mw1 := newMachineToolWaiter(m1)
-	defer mw1.Stop()
+	defer func() { _ = mw1.Stop() }()
 	waitAgentTools(c, mw1, mtools0.Version)
 
 	err = m1.Refresh()
@@ -707,7 +707,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	instId1, err := m1.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
 	uw := newUnitToolWaiter(unit)
-	defer uw.Stop()
+	defer func() { _ = uw.Stop() }()
 	utools := waitAgentTools(c, uw, expectedVersion)
 
 	// Check that we can upgrade the environment.
@@ -732,7 +732,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 
 	// Wait until unit is dead
 	uwatch := unit.Watch()
-	defer uwatch.Stop()
+	defer func() { _ = uwatch.Stop() }()
 	for unit.Life() != state.Dead {
 		c.Logf("waiting for unit change")
 		<-uwatch.Changes()
@@ -963,7 +963,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		args,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	defer e.(environs.Environ).Destroy(t.ProviderCallContext)
+	defer func() { _ = e.(environs.Environ).Destroy(t.ProviderCallContext) }()
 
 	t.Destroy(c)
 
@@ -976,7 +976,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		t.ControllerStore,
 		args)
 	c.Assert(err, jc.ErrorIsNil)
-	defer environs.Destroy("livetests", env, t.ProviderCallContext, t.ControllerStore)
+	defer func() { _ = environs.Destroy("livetests", env, t.ProviderCallContext, t.ControllerStore) }()
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, t.ProviderCallContext, t.bootstrapParams())
 	c.Assert(err, jc.ErrorIsNil)
@@ -987,7 +987,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	m0, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	mw0 := newMachineToolWaiter(m0)
-	defer mw0.Stop()
+	defer func() { _ = mw0.Stop() }()
 
 	waitAgentTools(c, mw0, other)
 }
@@ -997,7 +997,7 @@ func (t *LiveTests) TestIngressRulesWithPartiallyMatchingCIDRs(c *gc.C) {
 
 	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "1")
 	c.Assert(inst1, gc.NotNil)
-	defer t.Env.StopInstances(t.ProviderCallContext, inst1.Id())
+	defer func() { _ = t.Env.StopInstances(t.ProviderCallContext, inst1.Id()) }()
 	fwInst1, ok := inst1.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 

@@ -149,7 +149,7 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 
 	oneProvisioningInfo := func(storageRequired bool) params.OperatorProvisioningInfo {
 		var charmStorageParams *params.KubernetesFilesystemParams
-		storageClassName, _ := modelConfig.AllAttrs()[provider.OperatorStorageKey].(string)
+		storageClassName, _ := modelConfig.AllAttrs()[k8sconstants.OperatorStorageKey].(string)
 		if storageRequired {
 			if storageClassName == "" {
 				return params.OperatorProvisioningInfo{

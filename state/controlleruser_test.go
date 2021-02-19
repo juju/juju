@@ -19,10 +19,6 @@ type ControllerUserSuite struct {
 
 var _ = gc.Suite(&ControllerUserSuite{})
 
-type accessAwareUser interface {
-	Access() permission.Access
-}
-
 func (s *ControllerUserSuite) TestDefaultAccessControllerUser(c *gc.C) {
 	user := s.Factory.MakeUser(c,
 		&factory.UserParams{

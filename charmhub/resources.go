@@ -49,14 +49,3 @@ func (c *ResourcesClient) ListResourceRevisions(ctx context.Context, charm, reso
 	c.logger.Tracef("ListResourceRevisions(%s, %s) unmarshalled: %s", charm, resource, pretty.Sprint(resp.Revisions))
 	return resp.Revisions, nil
 }
-
-var resourceFilter = []string{
-	"download.hash-sha-384",
-	"download.size",
-	"download.url",
-	"name",
-	"revision",
-	"filename",
-	"description",
-	"type",
-}

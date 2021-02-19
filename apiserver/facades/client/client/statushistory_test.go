@@ -226,10 +226,37 @@ func (s *statusHistoryTestSuite) TestStatusHistoryCombined(c *gc.C) {
 	checkStatusInfo(c, h.Results[0].History.Statuses, expected)
 }
 
+func (s *statusHistoryTestSuite) TestStatusHistoryModelOnly(c *gc.C) {
+	s.st.modelHistory = statusInfoWithDates([]status.StatusInfo{
+		{
+			Status:  status.Active,
+			Message: "all ok",
+		},
+		{
+			Status:  status.Suspended,
+			Message: "invalid creds",
+		},
+	})
+	h := s.api.StatusHistory(params.StatusHistoryRequests{
+		Requests: []params.StatusHistoryRequest{{
+			Tag:    "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			Kind:   status.KindModel.String(),
+			Filter: params.StatusHistoryFilter{Size: 10},
+		}}})
+	c.Assert(h.Results, gc.HasLen, 1)
+	c.Assert(h.Results[0].Error, gc.IsNil)
+	checkStatusInfo(c, h.Results[0].History.Statuses, reverseStatusInfo(s.st.modelHistory))
+}
+
 type mockState struct {
 	client.Backend
 	unitHistory  []status.StatusInfo
 	agentHistory []status.StatusInfo
+	modelHistory []status.StatusInfo
+}
+
+func (m *mockState) Model() (client.Model, error) {
+	return &mockModel{status: m.modelHistory}, nil
 }
 
 func (m *mockState) ModelUUID() string {
@@ -252,6 +279,15 @@ func (m *mockState) Unit(name string) (client.Unit, error) {
 		status: m.unitHistory,
 		agent:  &mockUnitAgent{m.agentHistory},
 	}, nil
+}
+
+type mockModel struct {
+	status statuses
+	client.Model
+}
+
+func (m mockModel) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	return m.status.StatusHistory(filter)
 }
 
 type mockUnit struct {

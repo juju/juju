@@ -41,7 +41,6 @@ type maasInterfaceLink struct {
 type maasInterfaceType string
 
 const (
-	typeUnknown  maasInterfaceType = ""
 	typePhysical maasInterfaceType = "physical"
 	typeVLAN     maasInterfaceType = "vlan"
 	typeBond     maasInterfaceType = "bond"

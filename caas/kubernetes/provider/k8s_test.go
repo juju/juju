@@ -664,7 +664,7 @@ var basicServiceArg = &core.Service{
 		Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()}},
 	Spec: core.ServiceSpec{
 		Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
-		Type:     "nodeIP",
+		Type:     "LoadBalancer",
 		Ports: []core.ServicePort{
 			{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
 			{Port: 8080, Protocol: "TCP", Name: "fred"},
@@ -2106,7 +2106,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
-			Type:     "nodeIP",
+			Type:     "LoadBalancer",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
 				{Port: 8080, Protocol: "TCP", Name: "fred"},
@@ -2147,7 +2147,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 		},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
@@ -2226,7 +2226,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
-			Type:     "nodeIP",
+			Type:     "LoadBalancer",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
 				{Port: 8080, Protocol: "TCP", Name: "fred"},
@@ -2267,7 +2267,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.
 		},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
@@ -2306,7 +2306,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceStatelessWithScalePolicyInvalid(c *gc.
 		},
 	}
 	err := s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
@@ -2418,7 +2418,7 @@ password: shhhh`[1:],
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
-			Type:     "nodeIP",
+			Type:     "LoadBalancer",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
 				{Port: 8080, Protocol: "TCP", Name: "fred"},
@@ -2555,7 +2555,7 @@ password: shhhh`[1:],
 		},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
@@ -2667,7 +2667,7 @@ password: shhhh`[1:],
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
-			Type:     "nodeIP",
+			Type:     "LoadBalancer",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
 				{Port: 8080, Protocol: "TCP", Name: "fred"},
@@ -2815,7 +2815,7 @@ password: shhhh`[1:],
 		OperatorImagePath: "operator/image-path",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
@@ -3452,7 +3452,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
-			Type:     "nodeIP",
+			Type:     "LoadBalancer",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
 				{Port: 8080, Protocol: "TCP", Name: "fred"},
@@ -3550,7 +3550,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 		OperatorImagePath: "operator/image-path",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
@@ -3612,7 +3612,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
-			Type:     "nodeIP",
+			Type:     "LoadBalancer",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
 				{Port: 8080, Protocol: "TCP", Name: "fred"},
@@ -3723,7 +3723,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 	errChan := make(chan error)
 	go func() {
 		errChan <- s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-			"kubernetes-service-type":            "nodeIP",
+			"kubernetes-service-type":            "loadbalancer",
 			"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 			"kubernetes-service-externalname":    "ext-name",
 			"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
@@ -3810,7 +3810,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
-			Type:     "nodeIP",
+			Type:     "LoadBalancer",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
 				{Port: 8080, Protocol: "TCP", Name: "fred"},
@@ -3908,7 +3908,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 		OperatorImagePath: "operator/image-path",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
@@ -3986,7 +3986,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
-			Type:     "nodeIP",
+			Type:     "LoadBalancer",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
 				{Port: 8080, Protocol: "TCP", Name: "fred"},
@@ -4097,7 +4097,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 	errChan := make(chan error)
 	go func() {
 		errChan <- s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-			"kubernetes-service-type":            "nodeIP",
+			"kubernetes-service-type":            "loadbalancer",
 			"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 			"kubernetes-service-externalname":    "ext-name",
 			"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
@@ -4196,7 +4196,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
-			Type:     "nodeIP",
+			Type:     "LoadBalancer",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
 				{Port: 8080, Protocol: "TCP", Name: "fred"},
@@ -4355,7 +4355,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		OperatorImagePath: "operator/image-path",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
@@ -4456,7 +4456,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
-			Type:     "nodeIP",
+			Type:     "LoadBalancer",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
 				{Port: 8080, Protocol: "TCP", Name: "fred"},
@@ -4625,7 +4625,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		OperatorImagePath: "operator/image-path",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
@@ -4734,7 +4734,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
-			Type:     "nodeIP",
+			Type:     "LoadBalancer",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
 				{Port: 8080, Protocol: "TCP", Name: "fred"},
@@ -4947,7 +4947,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		OperatorImagePath: "operator/image-path",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
@@ -5044,7 +5044,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 		}},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
@@ -5147,7 +5147,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc
 		}},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
@@ -5242,7 +5242,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 		},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
@@ -5390,7 +5390,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C
 		}},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
@@ -5540,7 +5540,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C
 		}},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
@@ -5716,7 +5716,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
@@ -5899,7 +5899,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C
 		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
@@ -6075,7 +6075,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C)
 		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
@@ -6192,7 +6192,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsC
 		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
@@ -6314,7 +6314,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsU
 		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
@@ -6398,7 +6398,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 		},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
@@ -6473,7 +6473,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 		Constraints: constraints.MustParse("mem=64 cpu-power=500"),
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
@@ -6561,7 +6561,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
@@ -6641,7 +6641,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 		Constraints: constraints.MustParse(`zones=a,b,c`),
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})

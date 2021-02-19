@@ -29,6 +29,7 @@ type Context interface {
 	relationHookContext
 	actionHookContext
 	unitCharmStateContext
+	workloadHookContext
 }
 
 // HookContext represents the information and functionality that is
@@ -96,6 +97,17 @@ type actionHookContext interface {
 
 	// LogActionMessage records a progress message for the Action.
 	LogActionMessage(string) error
+}
+
+// WorkloadHookContext is the context for a workload hook.
+type WorkloadHookContext interface {
+	HookContext
+	workloadHookContext
+}
+
+type workloadHookContext interface {
+	// WorkloadName returns the name of the container/workload for workload hooks.
+	WorkloadName() (string, error)
 }
 
 // unitCharmStateContext provides helper for interacting with the charm state
@@ -279,7 +291,7 @@ type ContextComponent interface {
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.
-//go:generate go run github.com/golang/mock/mockgen -package jujuc -destination context_mock_test.go github.com/juju/juju/worker/uniter/runner/jujuc ContextRelation
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/context_relation_mock.go github.com/juju/juju/worker/uniter/runner/jujuc ContextRelation
 type ContextRelation interface {
 
 	// Id returns an integer which uniquely identifies the relation.

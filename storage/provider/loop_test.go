@@ -19,8 +19,6 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-const stubMachineId = "machine101"
-
 var _ = gc.Suite(&loopSuite{})
 
 type loopSuite struct {

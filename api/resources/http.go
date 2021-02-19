@@ -95,5 +95,8 @@ func SendHTTPStatusAndJSON(w http.ResponseWriter, statusCode int, response inter
 	w.Header().Set("Content-Type", params.ContentTypeJSON)
 	w.Header().Set("Content-Length", fmt.Sprint(len(body)))
 	w.WriteHeader(statusCode)
-	w.Write(body)
+	_, err = w.Write(body)
+	if err != nil {
+		logger.Errorf("%v", err)
+	}
 }

@@ -610,6 +610,10 @@ func caasPrecheck(
 			return errors.Errorf("block storage %q is not supported for k8s charms", s.Name)
 		}
 	}
+	serviceType := args.Config[k8s.ServiceTypeConfigKey]
+	if _, err := k8s.CaasServiceToK8s(caas.ServiceType(serviceType)); err != nil {
+		return errors.NotValidf("service type %q", serviceType)
+	}
 
 	cfg, err := model.ModelConfig()
 	if err != nil {
@@ -618,7 +622,7 @@ func caasPrecheck(
 
 	// For older charms, operator-storage model config is mandatory.
 	if k8s.RequireOperatorStorage(ch.Meta().MinJujuVersion) {
-		storageClassName, _ := cfg.AllAttrs()[k8s.OperatorStorageKey].(string)
+		storageClassName, _ := cfg.AllAttrs()[k8sconstants.OperatorStorageKey].(string)
 		if storageClassName == "" {
 			return errors.New(
 				"deploying a Kubernetes application requires a suitable storage class.\n" +
@@ -632,7 +636,7 @@ func caasPrecheck(
 			return errors.Annotatef(err, "getting operator storage params for %q", args.ApplicationName)
 		}
 		if sp.Provider != string(k8sconstants.StorageProviderType) {
-			poolName := cfg.AllAttrs()[k8s.OperatorStorageKey]
+			poolName := cfg.AllAttrs()[k8sconstants.OperatorStorageKey]
 			return errors.Errorf(
 				"the %q storage pool requires a provider type of %q, not %q", poolName, k8sconstants.StorageProviderType, sp.Provider)
 		}
@@ -641,7 +645,7 @@ func caasPrecheck(
 		}
 	}
 
-	workloadStorageClass, _ := cfg.AllAttrs()[k8s.WorkloadStorageKey].(string)
+	workloadStorageClass, _ := cfg.AllAttrs()[k8sconstants.WorkloadStorageKey].(string)
 	for storageName, cons := range args.Storage {
 		if cons.Pool == "" && workloadStorageClass == "" {
 			return errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
@@ -2799,11 +2803,20 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			continue
 		}
 
+		var channel string
+		origin := app.CharmOrigin()
+		if origin != nil && origin.Channel != nil {
+			ch := origin.Channel
+			channel = corecharm.MakePermissiveChannel(ch.Track, ch.Risk, ch.Branch).String()
+		} else {
+			channel = details.Channel
+		}
+
 		out[i].Result = &params.ApplicationResult{
 			Tag:              tag.String(),
 			Charm:            details.Charm,
 			Series:           details.Series,
-			Channel:          details.Channel,
+			Channel:          channel,
 			Constraints:      details.Constraints,
 			Principal:        app.IsPrincipal(),
 			Exposed:          app.IsExposed(),

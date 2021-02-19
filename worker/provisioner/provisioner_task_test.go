@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/names/v4"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -596,7 +596,7 @@ func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller) *mocks
 	broker := mocks.NewMockZonedEnviron(ctrl)
 	exp := broker.EXPECT()
 	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil)
-	exp.InstanceAvailabilityZoneNames(s.callCtx, instanceIds).Return([]string{}, nil)
+	exp.InstanceAvailabilityZoneNames(s.callCtx, instanceIds).Return(map[instance.Id]string{}, nil)
 	exp.AvailabilityZones(s.callCtx).Return(zones, nil)
 	return broker
 }

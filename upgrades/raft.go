@@ -233,7 +233,7 @@ func MigrateLegacyLeases(context Context) error {
 	defer sink.Close()
 	err = newSnapshot.Persist(sink)
 	if err != nil {
-		sink.Cancel()
+		_ = sink.Cancel()
 		return errors.Annotate(err, "persisting snapshot")
 	}
 

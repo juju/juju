@@ -1254,7 +1254,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return ops, nil
 	}
 	// At the last moment before inserting the application, prime status history.
-	probablyUpdateStatusHistory(st.db(), app.globalKey(), statusDoc)
+	_, _ = probablyUpdateStatusHistory(st.db(), app.globalKey(), statusDoc)
 
 	if err = st.db().Run(buildTxn); err == nil {
 		// Refresh to pick the txn-revno.

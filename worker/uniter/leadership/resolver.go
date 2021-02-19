@@ -15,7 +15,9 @@ import (
 
 // Logger is here to stop the desire of creating a package level Logger.
 // Don't do this, instead use the one passed into the NewResolver as needed.
-var logger interface{}
+type logger interface{}
+
+var _ logger = struct{}{}
 
 // Logger defines the logging methods used by the leadership package.
 type Logger interface {

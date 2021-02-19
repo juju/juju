@@ -658,7 +658,7 @@ type parallelHostChecker struct {
 	stderr         io.Writer
 	wg             sync.WaitGroup
 
-	// active is a map of adresses to channels for addresses actively
+	// active is a map of addresses to channels for addresses actively
 	// being tested. The goroutine testing the address will continue
 	// to attempt connecting to the address until it succeeds, the Try
 	// is killed, or the corresponding channel in this map is closed.
@@ -690,7 +690,7 @@ func (p *parallelHostChecker) UpdateAddresses(addrs []network.ProviderAddress) {
 		}
 		p.wg.Add(1)
 		p.active[addr] = closed
-		p.Start(hc.loop)
+		_ = p.Start(hc.loop)
 	}
 }
 

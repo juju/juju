@@ -6,7 +6,7 @@ package peergrouper
 import (
 	"github.com/juju/errors"
 	"github.com/juju/replicaset"
-	"gopkg.in/mgo.v2"
+	mgo "gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
@@ -71,10 +71,6 @@ func (*cloudServiceShim) Status() (status.StatusInfo, error) {
 func (*cloudServiceShim) SetStatus(status.StatusInfo) error {
 	// We don't record the status of a cloud service entity.
 	return nil
-}
-
-type spaceShim struct {
-	*state.Space
 }
 
 // MongoSessionShim wraps a *mgo.Session to conform to the

@@ -15,6 +15,7 @@ require (
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
 	github.com/aws/aws-sdk-go v1.36.2
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
+	github.com/canonical/pebble v0.0.0
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
 	github.com/dnaeon/go-vcr v1.0.1 // indirect
@@ -24,6 +25,7 @@ require (
 	github.com/flosch/pongo2 v0.0.0-20141028000813-5e81b817a0c4 // indirect
 	github.com/go-logr/logr v0.2.0
 	github.com/golang/mock v1.4.3
+	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/google/go-cmp v0.5.1 // indirect
 	github.com/google/go-querystring v1.0.0
 	github.com/googleapis/gnostic v0.4.1
@@ -36,10 +38,9 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/raft v2.0.0-20200420012049-88ad3b3f0a54+incompatible
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
-	github.com/hpidcock/juju-fake-init v0.0.0-20201026041434-e95018795575
 	github.com/imdario/mergo v0.3.10 // indirect
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
-	github.com/juju/bundlechanges/v5 v5.0.0-20210209144148-1bde07afeabe
+	github.com/juju/bundlechanges/v5 v5.0.0-20210218110005-a3a216cd308e
 	github.com/juju/charm/v9 v9.0.0-20210125110411-23fabd67cb4c
 	github.com/juju/charmrepo/v7 v7.0.0-20210125112315-0c95be42cafc
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
@@ -104,16 +105,18 @@ require (
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
-	golang.org/x/crypto v0.0.0-20201208171446-5f87f3452ae9
-	golang.org/x/net v0.0.0-20201209123823-ac852fbbde11
+	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
+	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	golang.org/x/sys v0.0.0-20201119102817-f84b799fce68
+	golang.org/x/sys v0.0.0-20210218085108-9555bcde0c6a
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools v0.0.0-20200725200936-102e7d357031
 	google.golang.org/api v0.29.0
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20200726014623-da3ae01ef02d // indirect
+	google.golang.org/grpc v1.33.1 // indirect
+	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/amz.v3 v3.0.0-20201001071545-24fc1eceb27b
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/goose.v2 v2.0.1
@@ -133,7 +136,7 @@ require (
 	gopkg.in/robfig/cron.v2 v2.0.0-20150107220207-be2e0b0deed5 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637
 	gopkg.in/yaml.v2 v2.4.0
-	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	k8s.io/api v0.19.6
 	k8s.io/apiextensions-apiserver v0.19.6
 	k8s.io/apimachinery v0.19.6
@@ -161,3 +164,5 @@ replace (
 	k8s.io/apimachinery v0.0.0 => k8s.io/apimachinery v0.19.6
 	k8s.io/client-go v0.0.0 => k8s.io/client-go v0.19.6
 )
+
+replace github.com/canonical/pebble v0.0.0 => github.com/hpidcock/pebble v0.0.0-20210216034042-e91a98784399

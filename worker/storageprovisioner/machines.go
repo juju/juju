@@ -40,7 +40,7 @@ func refreshMachine(ctx *context, tag names.MachineTag) error {
 		return errors.Errorf("machine %s is not being watched", tag.Id())
 	}
 	stopAndRemove := func() error {
-		worker.Stop(w)
+		_ = worker.Stop(w)
 		delete(ctx.machines, tag)
 		return nil
 	}

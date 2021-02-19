@@ -111,6 +111,7 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithSubordi
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"wordpress": {
+				Charm:  "wordpress",
 				Series: "bionic",
 				Life:   life.Alive,
 				Units: map[string]params.UnitStatus{
@@ -118,6 +119,7 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithSubordi
 				},
 			},
 			"sub": {
+				Charm:         "sub",
 				Series:        "bionic",
 				Life:          life.Alive,
 				SubordinateTo: []string{"wordpress"},
@@ -271,6 +273,7 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithExposed
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"wordpress": {
+				Charm:  "wordpress",
 				Series: "bionic",
 				Life:   life.Alive,
 				Units: map[string]params.UnitStatus{

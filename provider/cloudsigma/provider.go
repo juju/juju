@@ -23,10 +23,6 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.cloudsigma")
 
-const (
-	providerType = "cloudsigma"
-)
-
 func getImageSource(env environs.Environ) (simplestreams.DataSource, error) {
 	e, ok := env.(*environ)
 	if !ok {

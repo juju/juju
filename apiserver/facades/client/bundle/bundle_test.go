@@ -5,6 +5,7 @@ package bundle_test
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/description/v2"
 	"github.com/juju/names/v4"
@@ -758,11 +759,12 @@ func (s *bundleSuite) TestExportBundleWithApplication(c *gc.C) {
 
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedResult := params.StringResult{nil, `
+	expectedResult := params.StringResult{Result: `
 series: trusty
 applications:
   ubuntu:
     charm: cs:trusty/ubuntu
+    channel: stable
     num_units: 1
     to:
     - "0"
@@ -800,11 +802,12 @@ func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *gc.C) {
 
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedResult := params.StringResult{nil, `
+	expectedResult := params.StringResult{Result: `
 series: trusty
 applications:
   ubuntu:
     charm: cs:trusty/ubuntu
+    channel: stable
     num_units: 1
     to:
     - "0"
@@ -863,11 +866,12 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedResult := params.StringResult{nil, `
+	expectedResult := params.StringResult{Result: `
 series: trusty
 applications:
   foo:
     charm: cs:trusty/ubuntu
+    channel: stable
     options:
       key: value
     bindings:
@@ -875,6 +879,7 @@ applications:
       juju-info: vlan2
   ubuntu:
     charm: cs:trusty/ubuntu
+    channel: stable
     num_units: 1
     to:
     - "0"
@@ -1009,11 +1014,12 @@ UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
 
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedResult := params.StringResult{nil, `
+	expectedResult := params.StringResult{Result: `
 series: trusty
 applications:
   foo:
     charm: cs:trusty/ubuntu
+    channel: stable
     options:
       key: value
     bindings:
@@ -1021,6 +1027,7 @@ applications:
       juju-info: vlan2
   ubuntu:
     charm: cs:trusty/ubuntu
+    channel: stable
     num_units: 1
     to:
     - "0"
@@ -1136,7 +1143,7 @@ func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
 
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedResult := params.StringResult{nil, `
+	expectedResult := params.StringResult{Result: `
 series: trusty
 saas:
   awesome:
@@ -1144,6 +1151,7 @@ saas:
 applications:
   ubuntu:
     charm: cs:trusty/ubuntu
+    channel: stable
     num_units: 1
     to:
     - "0"
@@ -1158,14 +1166,24 @@ applications:
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) addApplicationToModel(model description.Model, name string, numUnits int) description.Application {
+func (s *bundleSuite) addApplicationToModel(model description.Model, name string, numUnits int) string {
 	series := "xenial"
 	if model.Type() == "caas" {
 		series = "kubernetes"
 	}
+	var charmURL string
+	var channel string
+	if strings.HasPrefix(name, "ch:") {
+		charmURL = name
+		name = name[3:]
+		channel = "stable"
+	} else {
+		charmURL = "cs:" + name
+	}
 	application := model.AddApplication(description.ApplicationArgs{
 		Tag:                names.NewApplicationTag(name),
-		CharmURL:           "cs:" + name,
+		CharmURL:           charmURL,
+		Channel:            channel,
 		Series:             series,
 		CharmConfig:        map[string]interface{}{},
 		LeadershipSettings: map[string]interface{}{},
@@ -1183,7 +1201,7 @@ func (s *bundleSuite) addApplicationToModel(model description.Model, name string
 		unit.SetAgentStatus(minimalStatusArgs())
 	}
 
-	return application
+	return name
 }
 
 func (s *bundleSuite) setEndpointSettings(ep description.Endpoint, units ...string) {
@@ -1204,8 +1222,8 @@ func (s *bundleSuite) newModel(modelType string, app1 string, app2 string) descr
 		},
 		CloudRegion: "some-region"})
 
-	s.addApplicationToModel(s.st.model, app1, 2)
-	s.addApplicationToModel(s.st.model, app2, 1)
+	appName1 := s.addApplicationToModel(s.st.model, app1, 2)
+	appName2 := s.addApplicationToModel(s.st.model, app2, 1)
 
 	// Add a relation between wordpress and mysql.
 	rel := s.st.model.AddRelation(description.RelationArgs{
@@ -1215,18 +1233,18 @@ func (s *bundleSuite) newModel(modelType string, app1 string, app2 string) descr
 	rel.SetStatus(minimalStatusArgs())
 
 	app1Endpoint := rel.AddEndpoint(description.EndpointArgs{
-		ApplicationName: app1,
+		ApplicationName: appName1,
 		Name:            "db",
 		// Ignoring other aspects of endpoints.
 	})
-	s.setEndpointSettings(app1Endpoint, app1+"/0", app1+"/1")
+	s.setEndpointSettings(app1Endpoint, appName1+"/0", appName1+"/1")
 
 	app2Endpoint := rel.AddEndpoint(description.EndpointArgs{
 		ApplicationName: "mysql",
 		Name:            "mysql",
 		// Ignoring other aspects of endpoints.
 	})
-	s.setEndpointSettings(app2Endpoint, app2+"/0")
+	s.setEndpointSettings(app2Endpoint, appName2+"/0")
 
 	return s.st.model
 }
@@ -1259,7 +1277,7 @@ relations:
 - - wordpress:db
   - mysql:mysql
 `[1:]
-	expectedResult := params.StringResult{nil, output}
+	expectedResult := params.StringResult{Result: output}
 
 	c.Assert(result, gc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
@@ -1305,7 +1323,7 @@ func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedResult := params.StringResult{nil, `
+	expectedResult := params.StringResult{Result: `
 series: xenial
 applications:
   mysql:
@@ -1377,11 +1395,12 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedResult := params.StringResult{nil, `
+	expectedResult := params.StringResult{Result: `
 series: zesty
 applications:
   magic:
     charm: cs:zesty/magic
+    channel: stable
     expose: true
     options:
       key: value
@@ -1433,14 +1452,16 @@ func (s *bundleSuite) TestExportBundleNoEndpointBindingsPrinted(c *gc.C) {
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedResult := params.StringResult{nil, `
+	expectedResult := params.StringResult{Result: `
 applications:
   magic:
     charm: cs:zesty/magic
+    channel: stable
     series: zesty
     expose: true
   ubuntu:
     charm: cs:trusty/ubuntu
+    channel: stable
     series: trusty
     options:
       key: value
@@ -1453,10 +1474,11 @@ func (s *bundleSuite) TestExportBundleEndpointBindingsPrinted(c *gc.C) {
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedResult := params.StringResult{nil, `
+	expectedResult := params.StringResult{Result: `
 applications:
   magic:
     charm: cs:zesty/magic
+    channel: stable
     series: zesty
     expose: true
     bindings:
@@ -1464,6 +1486,7 @@ applications:
       rel-name: alpha
   ubuntu:
     charm: cs:trusty/ubuntu
+    channel: stable
     series: trusty
     options:
       key: value
@@ -1500,11 +1523,12 @@ func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) 
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedResult := params.StringResult{nil, `
+	expectedResult := params.StringResult{Result: `
 series: zesty
 applications:
   magic:
     charm: cs:zesty/magic
+    channel: stable
     expose: true
     options:
       key: value
@@ -1550,7 +1574,7 @@ func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
 
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedResult := params.StringResult{nil, `
+	expectedResult := params.StringResult{Result: `
 series: xenial
 applications:
   mediawiki:
@@ -1606,7 +1630,7 @@ func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *gc.C) {
 
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedResult := params.StringResult{nil, `
+	expectedResult := params.StringResult{Result: `
 series: xenial
 applications:
   mysql:
@@ -1695,7 +1719,7 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedResult := params.StringResult{nil, `
+	expectedResult := params.StringResult{Result: `
 series: xenial
 applications:
   mysql:
@@ -1759,7 +1783,7 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedResult := params.StringResult{nil, `
+	expectedResult := params.StringResult{Result: `
 series: xenial
 applications:
   magic:
@@ -1823,7 +1847,7 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedResult := params.StringResult{nil, `
+	expectedResult := params.StringResult{Result: `
 applications:
   magic:
     charm: cs:xenial/magic
@@ -1868,7 +1892,43 @@ relations:
 - - wordpress:db
   - mysql:mysql
 `[1:]
-	expectedResult := params.StringResult{nil, output}
+	expectedResult := params.StringResult{Result: output}
+
+	c.Assert(result, gc.Equals, expectedResult)
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) TestExportCharmhubBundle(c *gc.C) {
+	model := s.newModel("iaas", "ch:wordpress", "ch:mysql")
+	model.SetStatus(description.StatusArgs{Value: "available"})
+
+	result, err := s.facade.ExportBundle()
+	c.Assert(err, jc.ErrorIsNil)
+
+	output := `
+series: xenial
+applications:
+  mysql:
+    charm: mysql
+    channel: stable
+    num_units: 1
+    to:
+    - "0"
+  wordpress:
+    charm: wordpress
+    channel: stable
+    num_units: 2
+    to:
+    - "0"
+    - "1"
+machines:
+  "0": {}
+  "1": {}
+relations:
+- - wordpress:db
+  - mysql:mysql
+`[1:]
+	expectedResult := params.StringResult{Result: output}
 
 	c.Assert(result, gc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
@@ -1889,6 +1949,7 @@ series: focal
 applications:
   magic:
     charm: cs:focal/magic
+    channel: stable
     expose: true
     bindings:
       hat: some-space
@@ -1909,6 +1970,7 @@ series: focal
 applications:
   magic:
     charm: cs:focal/magic
+    channel: stable
     expose: true
     bindings:
       hat: some-space
@@ -1933,6 +1995,7 @@ series: focal
 applications:
   magic:
     charm: cs:focal/magic
+    channel: stable
     bindings:
       hat: some-space
       rabbit: alpha

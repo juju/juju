@@ -62,6 +62,6 @@ func (s *modelScopeSuite) TestGetIdentValueError(c *gc.C) {
 		ModelInfo: &params.ModelUpdate{},
 	}
 	result, err := scope.GetIdentValue("bad")
-	c.Assert(err, gc.ErrorMatches, `Runtime Error: identifier "bad" not found on ModelInfo: invalid identifer`)
+	c.Assert(err, gc.ErrorMatches, `Runtime Error: identifier "bad" not found on ModelInfo: invalid identifier`)
 	c.Assert(result, gc.IsNil)
 }

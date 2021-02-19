@@ -98,7 +98,7 @@ func (l *loggerWorker) setLogging() {
 			// validated by the original Config before it gets here.
 			logger.Warningf("configure loggers failed: %v", err)
 			// Try to reset to what we had before
-			context.ConfigureLoggers(l.lastConfig)
+			_ = context.ConfigureLoggers(l.lastConfig)
 			return
 		}
 		mgo.ConfigureMgoLogging()

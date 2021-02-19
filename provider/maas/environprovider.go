@@ -71,9 +71,6 @@ func (MaasEnvironProvider) Open(args environs.OpenParams) (environs.Environ, err
 	return env, nil
 }
 
-var errAgentNameAlreadySet = errors.New(
-	"maas-agent-name is already set; this should not be set by hand")
-
 // CloudSchema returns the schema for adding new clouds of this type.
 func (p MaasEnvironProvider) CloudSchema() *jsonschema.Schema {
 	return cloudSchema

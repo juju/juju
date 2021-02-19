@@ -242,7 +242,7 @@ func (c *validateAgentsMetadataCommand) Run(context *cmd.Context) error {
 			"Matching Tools Versions": versions,
 			"Resolve Metadata":        *resolveInfo,
 		}
-		c.out.Write(context, metadata)
+		_ = c.out.Write(context, metadata)
 	} else {
 		var sources []string
 		for _, s := range params.Sources {

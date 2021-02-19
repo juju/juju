@@ -437,7 +437,7 @@ func (state *environState) destroyLocked() {
 
 	if mongoAlive() {
 		logger.Debugf("resetting MgoServer")
-		gitjujutesting.MgoServer.Reset()
+		_ = gitjujutesting.MgoServer.Reset()
 	}
 }
 
@@ -934,7 +934,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			// a dummy provider for anything other than testing, so logging the password
 			// here is fine.
 			logger.Debugf("setting password for %q to %q", owner.Name(), icfg.APIInfo.Password)
-			owner.SetPassword(icfg.APIInfo.Password)
+			_ = owner.SetPassword(icfg.APIInfo.Password)
 			statePool := controller.StatePool()
 			stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, clock.WallClock)
 			if err != nil {
@@ -987,8 +987,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			estate.modelCacheWorker = modelCache
 			err = modelcache.ExtractCacheController(modelCache, &estate.controller)
 			if err != nil {
-				worker.Stop(modelCache)
-				worker.Stop(multiWatcherWorker)
+				_ = worker.Stop(modelCache)
+				_ = worker.Stop(multiWatcherWorker)
 				return errors.Trace(err)
 			}
 
@@ -1032,7 +1032,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			go stateAuthenticator.Maintain(abort)
 			go func(apiServer *apiserver.Server) {
 				defer close(abort)
-				apiServer.Wait()
+				_ = apiServer.Wait()
 			}(estate.apiServer)
 		}
 		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, InstanceConfig: icfg}
@@ -1517,7 +1517,7 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) (corenetw
 }
 
 // InstanceAvailabilityZoneNames implements environs.ZonedEnviron.
-func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 	if err := env.checkBroken("InstanceAvailabilityZoneNames"); err != nil {
 		return nil, errors.NotSupportedf("instance availability zones")
 	}
@@ -1527,17 +1527,17 @@ func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContex
 	}
 	azMaxIndex := len(availabilityZones) - 1
 	azIndex := 0
-	returnValue := make([]string, len(ids))
-	for i := range ids {
+	returnValue := make(map[instance.Id]string, 0)
+	for _, id := range ids {
 		if availabilityZones[azIndex].Available() {
-			returnValue[i] = availabilityZones[azIndex].Name()
+			returnValue[id] = availabilityZones[azIndex].Name()
 		} else {
 			// Based on knowledge of how the AZs are setup above
 			// in AvailabilityZones()
-			azIndex += 1
-			returnValue[i] = availabilityZones[azIndex].Name()
+			azIndex++
+			returnValue[id] = availabilityZones[azIndex].Name()
 		}
-		azIndex += 1
+		azIndex++
 		if azIndex == azMaxIndex {
 			azIndex = 0
 		}

@@ -368,7 +368,7 @@ func (k *kubernetesClient) operatorVolumeClaim(
 }
 
 func (k *kubernetesClient) validateOperatorStorage() (string, error) {
-	storageClass, _ := k.Config().AllAttrs()[OperatorStorageKey].(string)
+	storageClass, _ := k.Config().AllAttrs()[constants.OperatorStorageKey].(string)
 	if storageClass == "" {
 		return "", errors.NewNotValid(nil, "config without operator-storage value not valid.\nRun juju add-k8s to reimport your k8s cluster.")
 	}
@@ -758,9 +758,9 @@ func operatorPod(
 				},
 				Env: []core.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
-					{Name: caasconstants.OperatorServiceIPEnvName, Value: operatorServiceIP},
+					{Name: constants.OperatorServiceIPEnvName, Value: operatorServiceIP},
 					{
-						Name: caasconstants.OperatorPodIPEnvName,
+						Name: constants.OperatorPodIPEnvName,
 						ValueFrom: &core.EnvVarSource{
 							FieldRef: &core.ObjectFieldSelector{
 								FieldPath: "status.podIP",
@@ -768,7 +768,7 @@ func operatorPod(
 						},
 					},
 					{
-						Name: caasconstants.OperatorNamespaceEnvName,
+						Name: constants.OperatorNamespaceEnvName,
 						ValueFrom: &core.EnvVarSource{
 							FieldRef: &core.ObjectFieldSelector{
 								FieldPath: "metadata.namespace",

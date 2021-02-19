@@ -29,8 +29,8 @@ type FactoryMaker struct {
 	Register  FactoryRegister
 }
 
-// Returns a raw config for a given proxy type that can be used to unmarshal
-// against.
+// Config returns a raw config for a given proxy type that can be used to
+// unmarshal against.
 func (f *FactoryMaker) Config() interface{} {
 	if f.RawConfig == nil {
 		f.RawConfig = f.Register.ConfigFn()

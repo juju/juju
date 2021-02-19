@@ -8,12 +8,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 )
-
-const k8sSeries = constants.CAASProviderType
 
 // PrecheckInstance performs a preflight check on the specified
 // series and constraints, ensuring that they are possibly valid for

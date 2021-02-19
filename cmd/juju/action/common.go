@@ -71,7 +71,7 @@ func (c *runCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
 }
 
-func (c *runCommandBase) Init(args []string) error {
+func (c *runCommandBase) Init(_ []string) error {
 	if c.background && c.wait > 0 {
 		return errors.New("cannot specify both --wait and --background")
 	}
@@ -140,7 +140,7 @@ func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *acti
 			ctx.Infof("Check task status with 'juju show-task %s'", actionID)
 		} else {
 			ctx.Infof("Scheduled operation %s with %d tasks", operationID, numTasks)
-			cmd.FormatYaml(ctx.Stdout, info)
+			_ = cmd.FormatYaml(ctx.Stdout, info)
 			ctx.Infof("Check operation status with 'juju show-operation %s'", operationID)
 			ctx.Infof("Check task status with 'juju show-task <id>'")
 		}
@@ -177,7 +177,7 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, 
 	waitForWatcher := func() {
 		close(actionDone)
 		if logsWatcher != nil {
-			logsWatcher.Wait()
+			_ = logsWatcher.Wait()
 		}
 	}
 

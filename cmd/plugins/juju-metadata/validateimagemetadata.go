@@ -142,7 +142,7 @@ func (c *validateImageMetadataCommand) Run(context *cmd.Context) error {
 		return err
 	}
 
-	image_ids, resolveInfo, err := imagemetadata.ValidateImageMetadata(params)
+	images, resolveInfo, err := imagemetadata.ValidateImageMetadata(params)
 	if err != nil {
 		if resolveInfo != nil {
 			metadata := map[string]interface{}{
@@ -155,13 +155,13 @@ func (c *validateImageMetadataCommand) Run(context *cmd.Context) error {
 		}
 		return err
 	}
-	if len(image_ids) > 0 {
+	if len(images) > 0 {
 		metadata := map[string]interface{}{
-			"ImageIds":         image_ids,
+			"ImageIds":         images,
 			"Region":           params.Region,
 			"Resolve Metadata": *resolveInfo,
 		}
-		c.out.Write(context, metadata)
+		_ = c.out.Write(context, metadata)
 	} else {
 		var sources []string
 		for _, s := range params.Sources {

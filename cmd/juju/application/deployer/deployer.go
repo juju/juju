@@ -62,7 +62,7 @@ func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, reso
 		func() (Deployer, error) { return d.maybeReadLocalCharm(getter) },
 		d.maybePredeployedLocalCharm,
 		func() (Deployer, error) { return d.maybeReadRepositoryBundle(resolver) },
-		d.respositoryCharm, // This always returns a Deployer
+		d.repositoryCharm, // This always returns a Deployer
 	}
 	for _, d := range maybeDeployers {
 		if deploy, err := d(); err != nil {
@@ -448,8 +448,8 @@ func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error)
 	return &repositoryBundle{deployBundle: db}, nil
 }
 
-func (d *factory) respositoryCharm() (Deployer, error) {
-	// Validate we have a charm store change
+func (d *factory) repositoryCharm() (Deployer, error) {
+	// Validate we have a charm store change.
 	userRequestedURL, err := resolveAndValidateCharmURL(d.charmOrBundle)
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -163,10 +163,10 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		PrometheusRegisterer: s.config.PrometheusRegisterer,
 	})
 	if err != nil {
-		stTracker.Done()
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
-	return common.NewCleanupWorker(w, func() { stTracker.Done() }), nil
+	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
 }
 
 func (s *manifoldState) output(in worker.Worker, out interface{}) error {

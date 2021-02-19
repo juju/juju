@@ -63,7 +63,7 @@ func GetMockBuildTools(c *gc.C) sync.BuildAgentTarballFunc {
 		toolsDir, err := ioutil.TempDir("", "juju-tools-"+stream)
 		c.Assert(err, jc.ErrorIsNil)
 		name := "name"
-		ioutil.WriteFile(filepath.Join(toolsDir, name), tgz, 0777)
+		_ = ioutil.WriteFile(filepath.Join(toolsDir, name), tgz, 0777)
 
 		return &sync.BuiltAgent{
 			Dir:         toolsDir,

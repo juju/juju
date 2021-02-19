@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
@@ -35,6 +36,8 @@ type WatcherSuite struct {
 	applicationWatcher   *mockNotifyWatcher
 	runningStatusWatcher *mockNotifyWatcher
 	running              *remotestate.ContainerRunningStatus
+
+	workloadEventChannel chan string
 }
 
 type WatcherSuiteIAAS struct {
@@ -118,6 +121,8 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.clock = testclock.NewClock(time.Now())
+
+	s.workloadEventChannel = make(chan string)
 }
 
 func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {
@@ -178,6 +183,7 @@ func (s *WatcherSuite) setupWatcherConfig() remotestate.WatcherConfig {
 		UnitTag:                      s.st.unit.tag,
 		UpdateStatusChannel:          statusTicker,
 		CanApplyCharmProfile:         s.modelType == model.IAAS,
+		WorkloadEventChannel:         s.workloadEventChannel,
 	}
 }
 
@@ -1054,4 +1060,26 @@ func (s *WatcherSuiteEmbeddedCharmModVer) TestSnapshot(c *gc.C) {
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 	})
+}
+
+func (s *WatcherSuite) TestWorkloadSignal(c *gc.C) {
+	s.signalAll()
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	snap := s.watcher.Snapshot()
+	c.Assert(snap.WorkloadEvents, gc.HasLen, 0)
+
+	select {
+	case s.workloadEventChannel <- "0":
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting to signal workload event channel")
+	}
+
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	snap = s.watcher.Snapshot()
+	c.Assert(snap.WorkloadEvents, gc.DeepEquals, []string{"0"})
+
+	s.watcher.WorkloadEventCompleted("0")
+	snap = s.watcher.Snapshot()
+	c.Assert(snap.WorkloadEvents, gc.HasLen, 0)
 }

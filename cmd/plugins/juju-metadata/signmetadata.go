@@ -68,8 +68,8 @@ func (c *signMetadataCommand) Run(context *cmd.Context) error {
 	writer := loggo.NewMinimumLevelWriter(
 		cmd.NewCommandLogWriter("juju.plugins.metadata", context.Stdout, context.Stderr),
 		loggo.INFO)
-	loggo.RegisterWriter("signmetadata", writer)
-	defer loggo.RemoveWriter("signmetadata")
+	_ = loggo.RegisterWriter("signmetadata", writer)
+	defer func() { _, _ = loggo.RemoveWriter("signmetadata") }()
 	keyData, err := ioutil.ReadFile(c.keyFile)
 	if err != nil {
 		return err

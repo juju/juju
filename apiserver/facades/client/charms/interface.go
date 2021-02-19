@@ -74,12 +74,6 @@ type storeCharmShim struct {
 	*charm.CharmArchive
 }
 
-func newStoreCharmShim(archive *charm.CharmArchive) *storeCharmShim {
-	return &storeCharmShim{
-		CharmArchive: archive,
-	}
-}
-
 // LXDProfile implements core.lxdprofile.LXDProfiler
 func (p *storeCharmShim) LXDProfile() *charm.LXDProfile {
 	if p.CharmArchive == nil {
@@ -104,12 +98,6 @@ type StoreCharm interface {
 // inside of the core package.
 type storeCharmLXDProfiler struct {
 	StoreCharm
-}
-
-func makeStoreCharmLXDProfiler(shim StoreCharm) storeCharmLXDProfiler {
-	return storeCharmLXDProfiler{
-		StoreCharm: shim,
-	}
 }
 
 // LXDProfile implements core.lxdprofile.LXDProfiler

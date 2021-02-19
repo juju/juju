@@ -233,13 +233,13 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		EmbeddedCommand:                   execEmbeddedCommand,
 	})
 	if err != nil {
-		stTracker.Done()
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	mux.AddClient()
 	return common.NewCleanupWorker(w, func() {
 		mux.ClientDone()
-		stTracker.Done()
+		_ = stTracker.Done()
 
 		// clean up the metrics for the worker, so the next time a worker is
 		// created we can safely register the metrics again.

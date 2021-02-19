@@ -388,6 +388,22 @@ func (s *UniterSuite) TestNoUniterUpdateStatusHookInError(c *gc.C) {
 	})
 }
 
+func (s *UniterSuite) TestUniterWorkloadReadyHook(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"update status hook runs on timer",
+			createCharm{},
+			serveCharm{},
+			injectTestContainer{"test"},
+			createUniter{},
+			waitHooks(startupHooks(false)),
+			waitUnitAgent{status: status.Idle},
+			activateTestContainer{"test"},
+			waitHooks{"test-workload-ready"},
+		),
+	})
+}
+
 func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(

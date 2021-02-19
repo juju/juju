@@ -221,7 +221,7 @@ func (r *remoteServer) connect() bool {
 
 	var connection MessageWriter
 	r.logger.Debugf("connecting to %s", r.target)
-	retry.Call(retry.CallArgs{
+	_ = retry.Call(retry.CallArgs{
 		Func: func() error {
 			r.logger.Debugf("open api to %s: %v", r.target, r.info.Addrs)
 			conn, err := r.newWriter(r.info)

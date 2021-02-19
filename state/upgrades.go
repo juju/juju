@@ -19,10 +19,12 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -1432,8 +1434,11 @@ func CreateMissingApplicationConfig(pool *StatePool) error {
 	var applicationConfigIDs []struct {
 		ID string `bson:"_id"`
 	}
-	settingsColl.Find(bson.M{
+	err := settingsColl.Find(bson.M{
 		"_id": bson.M{"$regex": bson.RegEx{"#application$", ""}}}).All(&applicationConfigIDs)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	allIDs := set.NewStrings()
 	for _, id := range applicationConfigIDs {
@@ -1447,7 +1452,9 @@ func CreateMissingApplicationConfig(pool *StatePool) error {
 		Name      string `bson:"name"`
 		ModelUUID string `bson:"model-uuid"`
 	}
-	appsColl.Find(nil).All(&applicationNames)
+	if err = appsColl.Find(nil).All(&applicationNames); err != nil {
+		return errors.Trace(err)
+	}
 
 	var newAppConfigOps []txn.Op
 	emptySettings := make(map[string]interface{})
@@ -1461,7 +1468,7 @@ func CreateMissingApplicationConfig(pool *StatePool) error {
 			newAppConfigOps = append(newAppConfigOps, newOp)
 		}
 	}
-	err := st.db().RunRawTransaction(newAppConfigOps)
+	err = st.db().RunRawTransaction(newAppConfigOps)
 	if err != nil {
 		return errors.Annotate(err, "writing application configs")
 	}
@@ -1834,7 +1841,7 @@ func updateKubernetesStorageConfig(st *State) error {
 	if err != nil {
 		return errors.Annotate(err, "getting cloud config")
 	}
-	operatorStorage, haveDefaultOperatorStorage := defaults[k8sprovider.OperatorStorageKey]
+	operatorStorage, haveDefaultOperatorStorage := defaults[k8sconstants.OperatorStorageKey]
 	if !haveDefaultOperatorStorage {
 		cloudSpec, err := cloudSpec(st, model.CloudName(), model.CloudRegion(), cred)
 		if err != nil {
@@ -1859,8 +1866,8 @@ func updateKubernetesStorageConfig(st *State) error {
 		}
 		operatorStorage = metadata.NominatedStorageClass.Name
 		err = st.updateConfigDefaults(model.CloudName(), cloud.Attrs{
-			k8sprovider.OperatorStorageKey: operatorStorage,
-			k8sprovider.WorkloadStorageKey: operatorStorage, // use same storage for both
+			k8sconstants.OperatorStorageKey: operatorStorage,
+			k8sconstants.WorkloadStorageKey: operatorStorage, // use same storage for both
 		}, nil)
 		if err != nil {
 			return errors.Trace(err)
@@ -1868,11 +1875,11 @@ func updateKubernetesStorageConfig(st *State) error {
 	}
 
 	attrs := make(map[string]interface{})
-	if _, ok := cfg.AllAttrs()[k8sprovider.OperatorStorageKey]; !ok {
-		attrs[k8sprovider.OperatorStorageKey] = operatorStorage
+	if _, ok := cfg.AllAttrs()[k8sconstants.OperatorStorageKey]; !ok {
+		attrs[k8sconstants.OperatorStorageKey] = operatorStorage
 	}
-	if _, ok := cfg.AllAttrs()[k8sprovider.WorkloadStorageKey]; !ok {
-		attrs[k8sprovider.WorkloadStorageKey] = operatorStorage
+	if _, ok := cfg.AllAttrs()[k8sconstants.WorkloadStorageKey]; !ok {
+		attrs[k8sconstants.WorkloadStorageKey] = operatorStorage
 
 	}
 
@@ -3361,5 +3368,48 @@ func RemoveUnusedLinkLayerDeviceProviderIDs(pool *StatePool) error {
 	}
 
 	logger.Infof("deleted %d unused link-layer device provider IDs", before-after)
+	return nil
+}
+
+// TranslateK8sServiceTypes converts any existing app config using the
+// native k8s service types to the Juju values.
+func TranslateK8sServiceTypes(pool *StatePool) error {
+	st := pool.SystemState()
+	var ops []txn.Op
+	coll, closer := st.db().GetRawCollection(settingsC)
+	defer closer()
+	iter := coll.Find(bson.M{"_id": bson.M{"$regex": "^.*:a#.*"}}).Iter()
+	defer iter.Close()
+	var doc settingsDoc
+	for iter.Next(&doc) {
+		serviceTypeVal := doc.Settings[k8sprovider.ServiceTypeConfigKey]
+		serviceType, ok := serviceTypeVal.(string)
+		if !ok {
+			continue
+		}
+		switch core.ServiceType(serviceType) {
+		case core.ServiceTypeClusterIP:
+			serviceType = string(caas.ServiceCluster)
+		case core.ServiceTypeLoadBalancer:
+			serviceType = string(caas.ServiceLoadBalancer)
+		case core.ServiceTypeExternalName:
+			serviceType = string(caas.ServiceExternal)
+		default:
+			continue
+		}
+		doc.Settings[k8sprovider.ServiceTypeConfigKey] = serviceType
+		ops = append(ops, txn.Op{
+			C:      settingsC,
+			Id:     doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+		})
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
 	return nil
 }

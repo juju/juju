@@ -22,6 +22,7 @@ import (
 	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -49,7 +50,7 @@ type ContainerSetup struct {
 	// been started, the container watcher can be stopped.
 	numberProvisioners int32
 	credentialAPI      workercommon.CredentialAPI
-	getNetConfig       func(common.NetworkConfigSource) ([]params.NetworkConfig, error)
+	getNetConfig       func(network.ConfigSource) ([]params.NetworkConfig, error)
 }
 
 // ContainerSetupParams are used to initialise a container setup handler.
@@ -237,7 +238,7 @@ func (cs *ContainerSetup) initContainerDependencies(abort <-chan struct{}, conta
 }
 
 func (cs *ContainerSetup) observeNetwork() ([]params.NetworkConfig, error) {
-	return cs.getNetConfig(common.DefaultNetworkConfigSource())
+	return cs.getNetConfig(network.DefaultNetworkConfigSource())
 }
 
 func (cs *ContainerSetup) acquireLock(comment string, abort <-chan struct{}) (func(), error) {

@@ -510,7 +510,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceLoginErrorInvalidatesCreds(c
 	}
 	_, err := s.env.StartInstance(ctx, s.createStartInstanceArgs(c))
 	c.Assert(err, gc.ErrorMatches, "dialing client: ServerFaultCode: You passed an incorrect user name or password, bucko.")
-	c.Assert(passedReason, gc.Equals, "cloud denied access")
+	c.Assert(passedReason, gc.Equals, "cloud denied access: ServerFaultCode: You passed an incorrect user name or password, bucko.")
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstancePermissionError(c *gc.C) {

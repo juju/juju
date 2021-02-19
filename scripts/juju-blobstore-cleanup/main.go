@@ -40,8 +40,6 @@ const (
 	blobstoreChunksC = "blobstore.chunks"
 )
 
-type ContentType string
-
 var loggingConfig = gnuflag.String("logging-config", defaultLoggingConfig, "specify log levels for modules")
 var human = gnuflag.Bool("h", false, "print human readable values")
 var verbose = gnuflag.Bool("v", false, "print more detailed information about found references")
@@ -453,7 +451,7 @@ func (b *BlobstoreCleaner) cleanupFiles() {
 	for _, path := range b.unreferencedFiles {
 		logger.Debugf("removing blobstore file: %q", path)
 		tick()
-		gridfs.Remove(path)
+		_ = gridfs.Remove(path)
 	}
 	tickDone()
 }

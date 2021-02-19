@@ -556,7 +556,7 @@ func (conn *Conn) runRequest(
 		if panicResult := recover(); panicResult != nil {
 			logger.Criticalf(
 				"panic running request %+v with arg %+v: %v\n%v", req, arg, panicResult, string(debug.Stack()))
-			conn.writeErrorResponse(&req.hdr, errors.Errorf("%v", panicResult), recorder)
+			_ = conn.writeErrorResponse(&req.hdr, errors.Errorf("%v", panicResult), recorder)
 		}
 	}()
 	defer conn.srvPending.Done()

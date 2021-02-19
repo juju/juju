@@ -142,6 +142,15 @@ type Uniter struct {
 	// isRemoteUnit is true when the unit is remotely deployed.
 	isRemoteUnit bool
 
+	// containerNames will have a list of the workload containers created alongside this
+	// unit agent.
+	containerNames []string
+
+	workloadEvents       container.WorkloadEvents
+	workloadEventChannel chan string
+
+	newPebbleClient NewPebbleClientFunc
+
 	// hookRetryStrategy represents configuration for hook retries
 	hookRetryStrategy params.RetryStrategy
 
@@ -188,6 +197,8 @@ type UniterParams struct {
 	Logger                       Logger
 	Embedded                     bool
 	EnforcedCharmModifiedVersion int
+	ContainerNames               []string
+	NewPebbleClient              NewPebbleClientFunc
 }
 
 // NewOperationExecutorFunc is a func which returns an operations.Executor.
@@ -253,6 +264,8 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			logger:                        uniterParams.Logger,
 			embedded:                      uniterParams.Embedded,
 			enforcedCharmModifiedVersion:  uniterParams.EnforcedCharmModifiedVersion,
+			containerNames:                uniterParams.ContainerNames,
+			newPebbleClient:               uniterParams.NewPebbleClient,
 		}
 		plan := catacomb.Plan{
 			Site: &u.catacomb,
@@ -284,6 +297,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		if errors.Cause(err) == ErrCAASUnitDead {
 			err = nil
 			errorString = "caas unit dead"
+		} else if u.embedded {
+			err = jworker.ErrRestartAgent
 		}
 		if u.runListener != nil {
 			u.runListener.UnregisterRunner(unitTag.Id())
@@ -372,6 +387,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				CanApplyCharmProfile:          canApplyCharmProfile,
 				Embedded:                      u.embedded,
 				EnforcedCharmModifiedVersion:  u.enforcedCharmModifiedVersion,
+				WorkloadEventChannel:          u.workloadEventChannel,
 			})
 		if err != nil {
 			return errors.Trace(err)
@@ -457,7 +473,14 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			Logger: u.logger,
 		}
 		if u.modelType == model.CAAS && u.isRemoteUnit {
-			cfg.Container = container.NewResolver()
+			cfg.OptionalResolvers = append(cfg.OptionalResolvers, container.NewRemoteContainerInitResolver())
+		}
+		if len(u.containerNames) > 0 {
+			cfg.OptionalResolvers = append(cfg.OptionalResolvers, container.NewWorkloadHookResolver(
+				u.logger.Child("workload"),
+				u.workloadEvents,
+				watcher.WorkloadEventCompleted),
+			)
 		}
 		uniterResolver := NewUniterResolver(cfg)
 
@@ -624,8 +647,13 @@ func (u *Uniter) charmState() (bool, *corecharm.URL, int, error) {
 	}
 
 	if _, err := corecharm.ReadCharmDir(u.paths.State.CharmDir); err != nil {
+		// use appCharmURL to avoid double upgrade.
+		appCharmURL, _, err := app.CharmURL()
+		if err != nil {
+			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+		}
 		u.logger.Debugf("start to re-download charm because charm dir has gone which is usually caused by operator pod re-scheduling")
-		op, err := u.operationFactory.NewUpgrade(charmURL)
+		op, err := u.operationFactory.NewUpgrade(appCharmURL)
 		if err != nil {
 			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
 		}
@@ -855,6 +883,15 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	u.localRunListener.RegisterRunner(u.unit.Name(), commandRunner)
 	if u.runListener != nil {
 		u.runListener.RegisterRunner(u.unit.Name(), commandRunner)
+	}
+
+	u.workloadEvents = container.NewWorkloadEvents()
+	u.workloadEventChannel = make(chan string)
+	if len(u.containerNames) > 0 {
+		pebblePoller := NewPebblePoller(u.logger, u.clock, u.containerNames, u.workloadEventChannel, u.workloadEvents, u.newPebbleClient)
+		if err := u.catacomb.Add(pebblePoller); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }

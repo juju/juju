@@ -97,7 +97,7 @@ func (c *StatusGetCommand) ApplicationStatus(ctx *cmd.Context) error {
 	}
 	details["units"] = units
 	statusDetails["application-status"] = details
-	c.out.Write(ctx, statusDetails)
+	_ = c.out.Write(ctx, statusDetails)
 
 	return nil
 
@@ -120,7 +120,7 @@ func (c *StatusGetCommand) unitOrApplicationStatus(ctx *cmd.Context) error {
 	if !c.includeData && c.out.Name() == "smart" {
 		return c.out.Write(ctx, unitStatus.Status)
 	}
-	c.out.Write(ctx, toDetails(*unitStatus, c.includeData))
+	_ = c.out.Write(ctx, toDetails(*unitStatus, c.includeData))
 	return nil
 }
 

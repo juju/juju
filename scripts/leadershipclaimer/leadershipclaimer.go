@@ -18,9 +18,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/leadership"
-	"github.com/juju/juju/apiserver/params"
 	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 )
@@ -139,6 +137,8 @@ func connect(info *api.Info) (api.Connection, error) {
 	return conn, nil
 }
 
+/*
+Deadcode that isn't used, but seems useful
 func leaderSet(facadeCaller base.FacadeCaller, holderTag names.UnitTag, keys map[string]string) error {
 	appId, err := names.UnitApplication(holderTag.Id())
 	if err != nil {
@@ -163,7 +163,7 @@ func leaderSet(facadeCaller base.FacadeCaller, holderTag names.UnitTag, keys map
 	}
 	return nil
 }
-
+*/
 func claimLoop(holderTag names.UnitTag, claimer coreleadership.Claimer, claimDuration, renewDuration time.Duration) {
 	next := time.After(0)
 	leaseName, err := names.UnitApplication(holderTag.Id())
