@@ -14,6 +14,7 @@ import json
 import logging
 import contextlib
 import os
+import shutil
 import time
 import sys
 import textwrap
@@ -286,7 +287,7 @@ def prepare(caas_client, caas_provider, build):
         caas_client.enable_microk8s_addons(
             [
                 "dns", "storage", "dashboard", "ingress", "metallb:10.64.140.43-10.64.140.49",
-                # "rbac",
+                # "rbac",  # TODO: enable `RBAC`?
             ],
         )
         caas_client.kubectl(
@@ -294,59 +295,48 @@ def prepare(caas_client, caas_provider, build):
             "-nkube-system", "deployment/coredns", "deployment/hostpath-provisioner", "--timeout=10m",
         )
 
-    # for dep in [
-    #     "charm",
-    #     "juju-helpers",
-    #     # "juju-wait",
-    # ]:
-    #     if shutil.which(dep):
-    #         continue
-    #     caas_client.sh('sudo', 'snap', 'install', dep, '--classic')
+    for dep in [
+        "charm",
+        "juju-helpers",
+    ]:
+        if shutil.which(dep):
+            continue
+        caas_client.sh('sudo', 'snap', 'install', dep, '--classic')
 
-    # caas_client.sh('sudo', 'apt', 'update')
-    # caas_client.sh('sudo', 'apt', 'install', '-y', 'libssl-dev', 'python3-setuptools')
+    caas_client.sh('sudo', 'apt', 'update')
+    caas_client.sh('sudo', 'apt', 'install', '-y', 'libssl-dev', 'python3-setuptools')
 
-    caas_client.sh('rm', '-rf', f'{KUBEFLOW_DIR}')  # remove!!
+    caas_client.sh('rm', '-rf', f'{KUBEFLOW_DIR}')
     caas_client.sh('git', 'clone', KUBEFLOW_REPO_URI, KUBEFLOW_DIR)
-    # caas_client.sh(
-    #     'pip3', 'install',
-    #     '-r', f'{KUBEFLOW_DIR}/requirements.txt',
-    #     '-r', f'{KUBEFLOW_DIR}/test-requirements.txt',
-    # )
-    print("build ---> ", build)
+    caas_client.sh(
+        'pip3', 'install',
+        '-r', f'{KUBEFLOW_DIR}/requirements.txt',
+        '-r', f'{KUBEFLOW_DIR}/test-requirements.txt',
+    )
+
     if build:
         # When we're building the charms locally instead of deploying them from the charm store,
         # we'll need to include a particular mysql interface.
         # - https://github.com/canonical/bundle-kubeflow/issues/291
         os.environ['CHARM_INTERFACES_DIR'] = CHARM_INTERFACES_DIR
-        print('cloning OSM_REPO_URI -> ', OSM_REPO_URI)
         caas_client.sh('git', 'clone', OSM_REPO_URI, f'{KUBEFLOW_DIR}/{OSM_REPO_NAME}')
         caas_client.sh(
             'cp', '-r',
             f'{KUBEFLOW_DIR}/{OSM_REPO_NAME}/charms/interfaces/juju-relation-mysql',
             f'{CHARM_INTERFACES_DIR}/mysql',
         )
-        caas_client.sh('ls', '-al', f'{KUBEFLOW_DIR}')  # remove me !!!
 
 
 def run_test(caas_provider, k8s_model, bundle):
     if caas_provider != K8sProviderType.MICROK8S.name:
         # tests/run.sh only works for microk8s.
+        log.info("%s/tests/run.sh skipped for %s k8s provider", KUBEFLOW_DIR, caas_provider)
         return
     # inject `JUJU_DATA` for running tests.
     os.environ['JUJU_DATA'] = k8s_model.env.juju_home
 
-    print('1 ---->', os.getcwd())
     with jump_dir(KUBEFLOW_DIR):
-        print('2 ---->', os.getcwd())
-        try:
-            print('os.environ ---->', os.environ)
-            run("sg", "microk8s", "-c", f"{KUBEFLOW_DIR}/tests/run.sh -m {bundle}")
-        except Exception as e:
-            print('run_test err ---->', e)
-            print('sleeping 3000!!!!!!!!!!!!!!!!!!!')  # remove me !!!
-            sleep(3000)  # remove me !!!
-    print('3 ---->', os.getcwd())
+        run("sg", "microk8s", "-c", f"{KUBEFLOW_DIR}/tests/run.sh -m {bundle}")
 
 
 def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle, build=False):
@@ -358,6 +348,7 @@ def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle, build=Fa
 
     def success_hook():
         log.info(caas_client.kubectl('get', 'all,pv,pvc,ing', '--all-namespaces', '-o', 'wide'))
+        log.info(caas_client.kubectl('get', 'sa,roles,clusterroles,rolebindings,clusterrolebindings', '-oyaml', '-A'))
 
     def fail_hook():
         success_hook()
@@ -375,15 +366,12 @@ def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle, build=Fa
         deploy_kubeflow(caas_client, k8s_model, bundle, build)
         log.info("sleeping for 30 seconds to let everything start up")
         sleep(30)
-        # print('sleeping 3000!!!!!!!!!!!!!!!!!!!')  # remove me !!!
-        # sleep(3000)  # remove me !!!
 
         run_test(caas_provider, k8s_model, bundle)
         k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
         success_hook()
     except:  # noqa: E722
         # run cleanup steps then raise.
-        sleep(3600)  # remove me !!!!!!!
         fail_hook()
         raise
 
@@ -423,7 +411,6 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    print('args --> ', args)
 
     k8s_provider = providers[args.caas_provider]
     bs_manager = BootstrapManager.from_args(args)
