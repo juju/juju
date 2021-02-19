@@ -40,6 +40,22 @@ KUBEFLOW_DIR = os.path.join(os.getcwd(), KUBEFLOW_REPO_NAME)
 OSM_REPO_URI = "git://git.launchpad.net/canonical-osm"
 
 
+bundle_info = {
+    'full': {
+        'file_name': 'bundle.yaml',
+        'uri': 'kubeflow',
+    },
+    'lite': {
+        'file_name': 'bundle-lite.yaml',
+        'uri': 'kubeflow-lite',
+    },
+    'edge': {
+        'file_name': 'bundle-edge.yaml',
+        'uri': 'kubeflow-edge',
+    },
+}
+
+
 def run(*args, silence=False):
     if silence:
         return subprocess.check_call(
@@ -55,7 +71,8 @@ def retry(is_ok, do, timeout=300, should_raise=False):
         if is_ok():
             try:
                 return do()
-            except Exception:
+            except Exception as e:
+                print('retry err -> ', e)
                 if should_raise:
                     raise
         sleep(3)
@@ -88,40 +105,25 @@ def application_exists(k8s_model, application):
         return False
 
 
-bundle_info = {
-    'full': {
-        'file_name': 'bundle.yaml',
-        'uri': 'kubeflow',
-    },
-    'lite': {
-        'file_name': 'bundle-lite.yaml',
-        'uri': 'kubeflow-lite',
-    },
-    'edge': {
-        'file_name': 'bundle-edge.yaml',
-        'uri': 'kubeflow-edge',
-    },
-}
-
-
-def deploy_kubeflow(caas_client, k8s_model, bundle):
+def deploy_kubeflow(caas_client, k8s_model, bundle, build):
     start = time.time()
 
     caas_client.kubectl('label', 'namespace', k8s_model.model_name, 'istio-injection=enabled')
-    k8s_model.deploy(
-        charm=bundle_info[bundle]['uri'],
-        channel="stable",
-    )
-    # k8s_model.juju(
-    #     'bundle',
-    #     (
-    #         'deploy',
-    #         '--bundle', f'{KUBEFLOW_DIR}/{bundle_info[bundle]['file_name']}',
-    #         '--build',
-    #         # f'{KUBEFLOW_DIR}',
-    #     ),
-    #     include_e=False,
-    # )
+    if build:
+        k8s_model.juju(
+            'bundle',
+            (
+                'deploy',
+                '--bundle', f'{KUBEFLOW_DIR}/{bundle_info[bundle]["file_name"]}',
+                '--build',
+            ),
+            include_e=False,
+        )
+    else:
+        k8s_model.deploy(
+            charm=bundle_info[bundle]['uri'],
+            channel="stable",
+        )
 
     if application_exists(k8s_model, 'istio-ingressgateway'):
         retry(
@@ -129,6 +131,7 @@ def deploy_kubeflow(caas_client, k8s_model, bundle):
             lambda: caas_client.kubectl(
                 'patch',
                 'role/istio-ingressgateway-operator',
+                f'-n {k8s_model.model_name}',
                 '-p',
                 yaml.dump(
                     {
@@ -163,6 +166,7 @@ def deploy_kubeflow(caas_client, k8s_model, bundle):
                         },
                     },
                 ),
+                namespace=k8s_model.model_name,
             ),
             timeout=60,
             should_raise=True,
@@ -327,7 +331,7 @@ def run_test(caas_provider, k8s_model, bundle):
     print('3 ---->', os.getcwd())
 
 
-def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle):
+def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle, build=False):
     if not caas_client.check_cluster_healthy(timeout=60):
         raise JujuAssertionError('k8s cluster is not healthy because kubectl is not accessible')
 
@@ -350,7 +354,7 @@ def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle):
 
     try:
         prepare(caas_client, caas_provider)
-        deploy_kubeflow(caas_client, k8s_model, bundle)
+        deploy_kubeflow(caas_client, k8s_model, bundle, build)
         log.info("sleeping for 30 seconds to let everything start up")
         sleep(30)
         # print('sleeping 3000!!!!!!!!!!!!!!!!!!!')  # remove me !!!
@@ -361,7 +365,7 @@ def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle):
         success_hook()
     except:  # noqa: E722
         # run cleanup steps then raise.
-        # sleep(1800)  # remove me !!!!!!!
+        sleep(3600)  # remove me !!!!!!!
         fail_hook()
         raise
 
@@ -379,6 +383,16 @@ def parse_args(argv):
         help='Specify K8s cloud provider to use for CAAS tests.'
     )
     parser.add_argument(
+        '--bundle', action='store', default='edge',
+        choices=bundle_info.keys(),
+        help='Specify the kubeflow bundle version to deploy.'
+    )
+    parser.add_argument(
+        '--build',
+        action='store_true',
+        help='Build local kubeflow charms and deploy local bundle or deploy bundle in charmstore.'
+    )
+    parser.add_argument(
         '--k8s-controller',
         action='store_true',
         help='Bootstrap to k8s cluster or not.'
@@ -391,11 +405,12 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
+    print('args --> ', args)
 
     k8s_provider = providers[args.caas_provider]
     bs_manager = BootstrapManager.from_args(args)
 
-    with k8s_provider(bs_manager).substrate_context() as caas_client:
+    with k8s_provider(bs_manager, cluster_name=args.temp_env_name).substrate_context() as caas_client:
         # add-k8s --local
         if args.k8s_controller and args.caas_provider != K8sProviderType.MICROK8S.name:
             # microk8s is built-in cloud, no need run add-k8s for bootstrapping.
@@ -407,7 +422,7 @@ def main(argv=None):
             if not args.k8s_controller:
                 # add-k8s to controller
                 caas_client.add_k8s(False)
-            assess_caas_kubeflow_deployment(caas_client, args.caas_provider, 'edge')
+            assess_caas_kubeflow_deployment(caas_client, args.caas_provider, args.bundle, args.build)
         return 0
 
 

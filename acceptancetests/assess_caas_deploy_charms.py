@@ -153,7 +153,7 @@ def main(argv=None):
     k8s_provider = providers[args.caas_provider]
     bs_manager = BootstrapManager.from_args(args)
 
-    with k8s_provider(bs_manager).substrate_context() as caas_client:
+    with k8s_provider(bs_manager, cluster_name=args.temp_env_name).substrate_context() as caas_client:
         # add-k8s --local
         if args.k8s_controller and args.caas_provider != K8sProviderType.MICROK8S.name:
             # microk8s is built-in cloud, no need run add-k8s for bootstrapping.
