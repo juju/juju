@@ -362,6 +362,10 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 					Value: "/charm/container/pebble",
 				},
 			},
+			SecurityContext: &corev1.SecurityContext{
+				RunAsUser:  int64Ptr(0),
+				RunAsGroup: int64Ptr(0),
+			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      "charm-data",
