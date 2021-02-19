@@ -254,6 +254,72 @@ func TestPodConditionListJujuStatus(t *testing.T) {
 			Message: "crash loop backoff: I am broken",
 		},
 		{
+			// We want to  test here the pod container creating message for init
+			// containers. This addresses lp-1914088
+			Name: "pod container status creating init",
+			Pod: core.Pod{
+				Status: core.PodStatus{
+					Conditions: []core.PodCondition{
+						{
+							Type:   core.PodScheduled,
+							Status: core.ConditionTrue,
+						},
+						{
+							Type:    core.PodInitialized,
+							Status:  core.ConditionFalse,
+							Reason:  PodReasonContainersNotInitialized,
+							Message: "initializing containers",
+						},
+					},
+					InitContainerStatuses: []core.ContainerStatus{
+						{
+							Name: "test-container",
+							State: core.ContainerState{
+								Waiting: &core.ContainerStateWaiting{
+									Reason: PodReasonContainerCreating,
+								},
+							},
+						},
+					},
+				},
+			},
+			Status:  status.Maintenance,
+			Message: "initializing containers",
+		},
+		{
+			// We want to  test here the pod container creating message on pod
+			// containers. This addresses lp-1914088
+			Name: "pod container status creating",
+			Pod: core.Pod{
+				Status: core.PodStatus{
+					Conditions: []core.PodCondition{
+						{
+							Type:   core.PodScheduled,
+							Status: core.ConditionTrue,
+						},
+						{
+							Type:    core.ContainersReady,
+							Status:  core.ConditionFalse,
+							Reason:  PodReasonContainersNotReady,
+							Message: "creating containers",
+						},
+					},
+					ContainerStatuses: []core.ContainerStatus{
+						{
+							Name: "test-container",
+							State: core.ContainerState{
+								Waiting: &core.ContainerStateWaiting{
+									Reason: PodReasonContainerCreating,
+								},
+							},
+						},
+					},
+				},
+			},
+			Status:  status.Maintenance,
+			Message: "creating containers",
+		},
+		{
 			// We want to test that when the container reason is unknown we
 			// report Juju status of error and propagate the message
 			Name: "pod container unknown reason",

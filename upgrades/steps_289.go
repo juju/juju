@@ -3,8 +3,8 @@
 
 package upgrades
 
-// stateStepsFor2810 returns database upgrade steps for Juju 2.8.10.
-func stateStepsFor2810() []Step {
+// stateStepsFor289 returns database upgrade steps for Juju 2.8.9.
+func stateStepsFor289() []Step {
 	return []Step{
 		&upgradeStep{
 			description: "translate k8s service types",
