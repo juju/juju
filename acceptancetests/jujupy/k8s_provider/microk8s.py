@@ -50,8 +50,7 @@ class MicroK8s(Base):
         self.default_storage_class_name = 'microk8s-hostpath'
 
     def _ensure_cluster_stack(self):
-        # self.__ensure_microk8s_installed()
-        pass
+        self.__ensure_microk8s_installed()
 
     def _tear_down_substrate(self):
         # No need to tear down microk8s.
@@ -73,8 +72,8 @@ class MicroK8s(Base):
     def _ensure_cluster_config(self):
         self.enable_microk8s_addons()
         try:
-            # self.__tmp_fix_patch_coredns()
-            pass
+            # TODO: remove this tmp patch once we run test in public cloud.
+            self.__tmp_fix_patch_coredns()
         except Exception as e:
             logger.error(e)
 

@@ -88,7 +88,7 @@ def jump_dir(path):
         os.chdir(old_path)
 
 
-def kubectl_exists(caas_client, resource):
+def k8s_resource_exists(caas_client, resource):
     try:
         run(*(caas_client._kubectl_bin + ('get', resource)), silence=True)
         return True

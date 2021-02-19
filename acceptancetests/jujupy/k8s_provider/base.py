@@ -123,7 +123,7 @@ class Base(object):
         self.cluster_name = cluster_name or self.client.env.controller.name  # use controller name for cluster name
         suffix = os.environ.get('BUILD_NUMBER', None)
         if suffix is not None:
-            self.cluster_name += '-%s' % suffix
+            self.cluster_name += f'-{suffix}'
 
         self.timeout = timeout
         old_environment = bs_manager.client.env.environment
