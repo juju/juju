@@ -146,7 +146,7 @@ def deploy_kubeflow(caas_client, k8s_model, bundle, build):
             timeout=60,
         )
 
-    k8s_model.wait_for_workloads(timeout=600)
+    k8s_model.wait_for_workloads(timeout=60*30)
 
     if application_exists(k8s_model, 'pipelines-api'):
         retry(
@@ -197,7 +197,7 @@ def deploy_kubeflow(caas_client, k8s_model, bundle, build):
 
     log.info("Waiting for Kubeflow to become ready")
 
-    k8s_model.wait_for_workloads(timeout=600)
+    k8s_model.wait_for_workloads(timeout=60*10)
     caas_client.kubectl(
         "wait",
         "--for=condition=available",
@@ -312,13 +312,16 @@ def prepare(caas_client, caas_provider, build):
     #     '-r', f'{KUBEFLOW_DIR}/requirements.txt',
     #     '-r', f'{KUBEFLOW_DIR}/test-requirements.txt',
     # )
+    print("build ---> ", build)
     if build:
+        print('cloning OSM_REPO_URI -> ', OSM_REPO_URI)
         caas_client.sh('git', 'clone', OSM_REPO_URI, f'{KUBEFLOW_DIR}/{OSM_REPO_NAME}')
         caas_client.sh(
             'cp', '-r',
             f'{KUBEFLOW_DIR}/{OSM_REPO_NAME}/charms/interfaces/juju-relation-mysql',
             f'{KUBEFLOW_DIR}/mysql',
         )
+        caas_client.sh('ls', '-al', f'{KUBEFLOW_DIR}')  # remove me !!!
 
 
 def run_test(caas_provider, k8s_model, bundle):
