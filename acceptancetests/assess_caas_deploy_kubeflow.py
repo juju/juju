@@ -11,12 +11,10 @@ from __future__ import print_function
 
 import argparse
 import json
-import shutil
 import logging
 import contextlib
 import os
 import time
-import yaml
 import sys
 import textwrap
 import subprocess
@@ -37,7 +35,8 @@ log = logging.getLogger("assess_caas_kubeflow_deployment")
 KUBEFLOW_REPO_NAME = "bundle-kubeflow"
 KUBEFLOW_REPO_URI = f"https://github.com/juju-solutions/{KUBEFLOW_REPO_NAME}.git"
 KUBEFLOW_DIR = os.path.join(os.getcwd(), KUBEFLOW_REPO_NAME)
-OSM_REPO_URI = "git://git.launchpad.net/canonical-osm"
+OSM_REPO_NAME = "canonical-osm"
+OSM_REPO_URI = f"git://git.launchpad.net/{OSM_REPO_NAME}"
 
 
 bundle_info = {
@@ -128,19 +127,21 @@ def deploy_kubeflow(caas_client, k8s_model, bundle, build):
     if application_exists(k8s_model, 'istio-ingressgateway'):
         retry(
             lambda: True,
-            lambda: caas_client.kubectl(
-                'patch',
-                'role/istio-ingressgateway-operator',
-                f'-n {k8s_model.model_name}',
-                '-p',
-                yaml.dump(
-                    {
-                        "apiVersion": "rbac.authorization.k8s.io/v1",
-                        "kind": "Role",
-                        "metadata": {"name": "istio-ingressgateway-operator"},
-                        "rules": [{"apiGroups": ["*"], "resources": ["*"], "verbs": ["*"]}],
-                    }
-                ),
+            lambda: print(
+                'patching role/istio-ingressgateway-operator ->', caas_client.kubectl(
+                    'patch',
+                    'role/istio-ingressgateway-operator',
+                    '-n', k8s_model.model_name,
+                    '-p',
+                    json.dumps(
+                        {
+                            "apiVersion": "rbac.authorization.k8s.io/v1",
+                            "kind": "Role",
+                            "metadata": {"name": "istio-ingressgateway-operator"},
+                            "rules": [{"apiGroups": ["*"], "resources": ["*"], "verbs": ["*"]}],
+                        }
+                    ),
+                )
             ),
             timeout=60,
         )
@@ -150,23 +151,25 @@ def deploy_kubeflow(caas_client, k8s_model, bundle, build):
     if application_exists(k8s_model, 'pipelines-api'):
         retry(
             lambda: True,
-            lambda: caas_client.kubectl_apply(
-                yaml.dump(
-                    {
-                        'apiVersion': 'v1',
-                        'kind': 'Service',
-                        'metadata': {'labels': {'juju-app': 'pipelines-api'}, 'name': 'ml-pipeline'},
-                        'spec': {
-                            'ports': [
-                                {'name': 'grpc', 'port': 8887, 'protocol': 'TCP', 'targetPort': 8887},
-                                {'name': 'http', 'port': 8888, 'protocol': 'TCP', 'targetPort': 8888},
-                            ],
-                            'selector': {'juju-app': 'pipelines-api'},
-                            'type': 'ClusterIP',
+            lambda: print(
+                'applying service/ml-pipeline ->', caas_client.kubectl_apply(
+                    json.dumps(
+                        {
+                            'apiVersion': 'v1',
+                            'kind': 'Service',
+                            'metadata': {'labels': {'juju-app': 'pipelines-api'}, 'name': 'ml-pipeline'},
+                            'spec': {
+                                'ports': [
+                                    {'name': 'grpc', 'port': 8887, 'protocol': 'TCP', 'targetPort': 8887},
+                                    {'name': 'http', 'port': 8888, 'protocol': 'TCP', 'targetPort': 8888},
+                                ],
+                                'selector': {'juju-app': 'pipelines-api'},
+                                'type': 'ClusterIP',
+                            },
                         },
-                    },
-                ),
-                namespace=k8s_model.model_name,
+                    ),
+                    namespace=k8s_model.model_name,
+                )
             ),
             timeout=60,
             should_raise=True,
@@ -277,7 +280,7 @@ def get_pub_addr(caas_client):
     return 'localhost'
 
 
-def prepare(caas_client, caas_provider):
+def prepare(caas_client, caas_provider, build):
     if caas_provider == K8sProviderType.MICROK8S.name:
         caas_client.enable_microk8s_addons(
             [
@@ -309,6 +312,13 @@ def prepare(caas_client, caas_provider):
     #     '-r', f'{KUBEFLOW_DIR}/requirements.txt',
     #     '-r', f'{KUBEFLOW_DIR}/test-requirements.txt',
     # )
+    if build:
+        caas_client.sh('git', 'clone', OSM_REPO_URI, f'{KUBEFLOW_DIR}/{OSM_REPO_NAME}')
+        caas_client.sh(
+            'cp', '-r',
+            f'{KUBEFLOW_DIR}/{OSM_REPO_NAME}/charms/interfaces/juju-relation-mysql',
+            f'{KUBEFLOW_DIR}/mysql',
+        )
 
 
 def run_test(caas_provider, k8s_model, bundle):
@@ -353,7 +363,7 @@ def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle, build=Fa
         caas_client.ensure_cleanup()
 
     try:
-        prepare(caas_client, caas_provider)
+        prepare(caas_client, caas_provider, build)
         deploy_kubeflow(caas_client, k8s_model, bundle, build)
         log.info("sleeping for 30 seconds to let everything start up")
         sleep(30)
