@@ -41,16 +41,11 @@ class EKS(Base):
 
     name = K8sProviderType.EKS
     location = None
-    cluster_name = None
     parameters = None
 
-    def __init__(self, bs_manager, timeout=1800):
-        super().__init__(bs_manager, timeout)
-
-        self.cluster_name = self.client.env.controller.name  # use controller name for cluster name
-        suffix = os.environ.get('BUILD_NUMBER', None)
-        if suffix is not None:
-            self.cluster_name += '-%s' % suffix
+    def __init__(self, bs_manager, cluster_name=None, timeout=1800):
+        super().__init__(bs_manager, cluster_name, timeout)
+        
         self._eksctl_bin = os.path.join(self.juju_home, 'eksctl')
         self._ensure_eksctl_bin()
         self.default_storage_class_name = ''

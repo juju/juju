@@ -72,6 +72,7 @@ KUBE_CONFIG_PATH_ENV_VAR = 'KUBECONFIG'
 class Base(object):
 
     name = None
+    cluster_name = None
 
     cloud_name = 'k8cloud'
 
@@ -113,11 +114,16 @@ class Base(object):
         """
         raise NotImplementedError()
 
-    def __init__(self, bs_manager, timeout=1800):
+    def __init__(self, bs_manager, cluster_name=None, timeout=1800):
         self.client = bs_manager.client
         self.bs_manager = bs_manager
         # register cleanup_hook.
         bs_manager.cleanup_hook = self.ensure_cleanup
+
+        self.cluster_name = cluster_name or self.client.env.controller.name  # use controller name for cluster name
+        suffix = os.environ.get('BUILD_NUMBER', None)
+        if suffix is not None:
+            self.cluster_name += '-%s' % suffix
 
         self.timeout = timeout
         old_environment = bs_manager.client.env.environment
@@ -232,11 +238,13 @@ class Base(object):
     def _kubectl_bin(self):
         return (self.kubectl_path, '--kubeconfig', self.kube_config_path,)
 
-    def kubectl_apply(self, stdin):
+    def kubectl_apply(self, stdin, namespace=None):
+        cmd_args = self._kubectl_bin + ('apply', '-f', '-')
+        if namespace is not None:
+            cmd_args = self._kubectl_bin + ('-n', namespace, 'apply', '-f', '-')
         with subprocess.Popen(('echo', stdin), stdout=subprocess.PIPE) as echo:
             o = subprocess.check_output(
-                self._kubectl_bin + ('apply', '-f', '-'),
-                stdin=echo.stdout,
+                cmd_args, stdin=echo.stdout,
             ).decode('UTF-8').strip()
             logger.debug(o)
 
