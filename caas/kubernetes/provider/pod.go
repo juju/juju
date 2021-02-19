@@ -18,6 +18,7 @@ type EventGetter func() ([]core.Event, error)
 
 const (
 	PodReasonCompleted                = "Completed"
+	PodReasonContainerCreating        = "ContainerCreating"
 	PodReasonContainersNotInitialized = "ContainersNotInitialized"
 	PodReasonContainersNotReady       = "ContainersNotReady"
 	PodReasonCrashLoopBackoff         = "CrashLoopBackOff"
@@ -186,6 +187,8 @@ func interrogatePodContainerStatus(containers []core.ContainerStatus) (string, b
 // description and false.
 func isContainerReasonError(reason string) (string, bool) {
 	switch reason {
+	case PodReasonContainerCreating:
+		return "creating pod container(s)", false
 	case PodReasonError:
 		return "container error", true
 	case PodReasonImagePull:
