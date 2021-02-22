@@ -231,13 +231,13 @@ func (s *SSHMachineSuite) getMachineForUnit(c *gc.C, u *state.Unit) *state.Machi
 }
 
 func (s *SSHMachineSuite) setAddresses(c *gc.C, m *state.Machine) {
-	addrPub := network.NewScopedSpaceAddress(
+	addrPub := network.NewSpaceAddress(
 		fmt.Sprintf("%s.public", m.Id()),
-		network.ScopePublic,
+		network.WithScope(network.ScopePublic),
 	)
-	addrPriv := network.NewScopedSpaceAddress(
+	addrPriv := network.NewSpaceAddress(
 		fmt.Sprintf("%s.private", m.Id()),
-		network.ScopeCloudLocal,
+		network.WithScope(network.ScopeCloudLocal),
 	)
 	err := m.SetProviderAddresses(addrPub, addrPriv)
 	c.Assert(err, jc.ErrorIsNil)
@@ -268,8 +268,8 @@ func (s *SSHMachineSuite) setLinkLayerDevicesAddresses(c *gc.C, m *state.Machine
 }
 
 func (s *SSHMachineSuite) setAddresses6(c *gc.C, m *state.Machine) {
-	addrPub := network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic)
-	addrPriv := network.NewScopedSpaceAddress("fc00:bbb::1", network.ScopeCloudLocal)
+	addrPub := network.NewSpaceAddress("2001:db8::1", network.WithScope(network.ScopePublic))
+	addrPriv := network.NewSpaceAddress("fc00:bbb::1", network.WithScope(network.ScopeCloudLocal))
 	err := m.SetProviderAddresses(addrPub, addrPriv)
 	c.Assert(err, jc.ErrorIsNil)
 }
