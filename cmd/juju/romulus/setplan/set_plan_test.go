@@ -58,7 +58,21 @@ func (s *setPlanCommandSuite) SetUpTest(c *gc.C) {
 	}
 	dummyCharm, err := s.State.AddCharm(charmInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddTestingApplication(c, "mysql", dummyCharm)
+	rev := ch.Revision()
+	appOrigin := state.CharmOrigin{
+		Source:   "local",
+		Revision: &rev,
+		Channel: &state.Channel{
+			Track: "latest",
+			Risk:  "stable",
+		},
+		Platform: &state.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Series:       "focal",
+		},
+	}
+	s.AddTestingApplicationWithOrigin(c, "mysql", dummyCharm, &appOrigin)
 
 	mockAPI, err := newMockAPI()
 	c.Assert(err, jc.ErrorIsNil)

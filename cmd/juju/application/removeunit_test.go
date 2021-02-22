@@ -37,12 +37,7 @@ type fakeApplicationRemoveUnitAPI struct {
 	units          []string
 	scale          int
 	destroyStorage bool
-	bestAPIVersion int
 	err            error
-}
-
-func (f *fakeApplicationRemoveUnitAPI) BestAPIVersion() int {
-	return f.bestAPIVersion
 }
 
 func (f *fakeApplicationRemoveUnitAPI) Close() error {
@@ -106,8 +101,7 @@ func (f *fakeApplicationRemoveUnitAPI) ScaleApplication(args apiapplication.Scal
 func (s *RemoveUnitSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fake = &fakeApplicationRemoveUnitAPI{
-		bestAPIVersion: 5,
-		scale:          5,
+		scale: 5,
 	}
 	s.store = jujuclienttesting.MinimalStore()
 }

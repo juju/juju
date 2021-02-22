@@ -198,7 +198,6 @@ func (c *addUnitCommand) validateArgsByModelType() error {
 // applicationAddUnitAPI defines the methods on the client API
 // that the application add-unit command calls.
 type applicationAddUnitAPI interface {
-	BestAPIVersion() int
 	Close() error
 	ModelUUID() string
 	AddUnits(application.AddUnitsParams) ([]string, error)
@@ -251,12 +250,6 @@ func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 			common.PermissionsMessage(ctx.Stderr, "scale an application")
 		}
 		return block.ProcessBlockedError(err, block.BlockChange)
-	}
-
-	if len(c.AttachStorage) > 0 && apiclient.BestAPIVersion() < 5 {
-		// AddUnitsPArams.AttachStorage is only supported from
-		// Application API version 5 and onwards.
-		return errors.New("this juju controller does not support --attach-storage")
 	}
 
 	for i, p := range c.Placement {

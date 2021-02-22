@@ -4,8 +4,6 @@
 package application
 
 import (
-	"regexp"
-
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jtesting "github.com/juju/testing"
@@ -29,11 +27,6 @@ type AddRemoteRelationSuiteNewAPI struct {
 
 var _ = gc.Suite(&AddRemoteRelationSuiteNewAPI{})
 
-func (s *AddRemoteRelationSuiteNewAPI) SetUpTest(c *gc.C) {
-	s.baseAddRemoteRelationSuite.SetUpTest(c)
-	s.mockAPI.version = 5
-}
-
 func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationNoRemoteApplications(c *gc.C) {
 	err := s.runAddRelation(c, "applicationname2", "applicationname")
 	c.Assert(err, jc.ErrorIsNil)
@@ -47,8 +40,8 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationRemoteApplications(c *gc.C
 
 func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationToOneRemoteApplication(c *gc.C) {
 	s.assertAddedRelation(c, "applicationname", "othermodel.applicationname2")
-	s.mockAPI.CheckCall(c, 1, "GetConsumeDetails", "othermodel.applicationname2")
-	s.mockAPI.CheckCall(c, 2, "Consume",
+	s.mockAPI.CheckCall(c, 0, "GetConsumeDetails", "othermodel.applicationname2")
+	s.mockAPI.CheckCall(c, 1, "Consume",
 		crossmodel.ConsumeApplicationArgs{
 			Offer: params.ApplicationOfferDetails{
 				OfferName: "hosted-mysql",
@@ -63,13 +56,13 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationToOneRemoteApplication(c *
 				CACert:        testing.CACert,
 			},
 		})
-	s.mockAPI.CheckCall(c, 4, "AddRelation", []string{"applicationname", "applicationname2"}, []string(nil))
+	s.mockAPI.CheckCall(c, 3, "AddRelation", []string{"applicationname", "applicationname2"}, []string(nil))
 }
 
 func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationAnyRemoteApplication(c *gc.C) {
 	s.assertAddedRelation(c, "othermodel.applicationname2", "applicationname")
-	s.mockAPI.CheckCall(c, 1, "GetConsumeDetails", "othermodel.applicationname2")
-	s.mockAPI.CheckCall(c, 2, "Consume",
+	s.mockAPI.CheckCall(c, 0, "GetConsumeDetails", "othermodel.applicationname2")
+	s.mockAPI.CheckCall(c, 1, "Consume",
 		crossmodel.ConsumeApplicationArgs{
 			Offer: params.ApplicationOfferDetails{
 				OfferName: "hosted-mysql",
@@ -84,7 +77,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationAnyRemoteApplication(c *gc
 				CACert:        testing.CACert,
 			},
 		})
-	s.mockAPI.CheckCall(c, 4, "AddRelation", []string{"applicationname2", "applicationname"}, []string(nil))
+	s.mockAPI.CheckCall(c, 3, "AddRelation", []string{"applicationname2", "applicationname"}, []string(nil))
 }
 
 func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationFailure(c *gc.C) {
@@ -95,54 +88,21 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationFailure(c *gc.C) {
 
 	err := s.runAddRelation(c, "othermodel.applicationname2", "applicationname")
 	c.Assert(err, gc.ErrorMatches, msg)
-	s.mockAPI.CheckCallNames(c, "BestAPIVersion", "GetConsumeDetails", "Consume", "Close", "AddRelation", "Close")
+	s.mockAPI.CheckCallNames(c, "GetConsumeDetails", "Consume", "Close", "AddRelation", "Close")
 }
 
 func (s *AddRemoteRelationSuiteNewAPI) TestAddedRelationVia(c *gc.C) {
 	err := s.runAddRelation(c, "othermodel.applicationname2", "applicationname", "--via", "192.168.1.0/16, 10.0.0.0/16")
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockAPI.CheckCallNames(c, "BestAPIVersion", "GetConsumeDetails", "Consume", "Close", "AddRelation", "Close")
-	s.mockAPI.CheckCall(c, 4, "AddRelation",
+	s.mockAPI.CheckCallNames(c, "GetConsumeDetails", "Consume", "Close", "AddRelation", "Close")
+	s.mockAPI.CheckCall(c, 3, "AddRelation",
 		[]string{"applicationname2", "applicationname"}, []string{"192.168.1.0/16", "10.0.0.0/16"})
 }
 
 func (s *AddRemoteRelationSuiteNewAPI) assertAddedRelation(c *gc.C, args ...string) {
 	err := s.runAddRelation(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockAPI.CheckCallNames(c, "BestAPIVersion", "GetConsumeDetails", "Consume", "Close", "AddRelation", "Close")
-}
-
-// AddRemoteRelationSuiteOldAPI only needs to check that we have fallen through to the old api
-// since best facade version is 0...
-// This old api is tested in another suite.
-type AddRemoteRelationSuiteOldAPI struct {
-	baseAddRemoteRelationSuite
-}
-
-var _ = gc.Suite(&AddRemoteRelationSuiteOldAPI{})
-
-func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationRemoteApplications(c *gc.C) {
-	s.assertFailAddRelationTwoRemoteApplications(c)
-}
-
-func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationToOneRemoteApplication(c *gc.C) {
-	err := s.runAddRelation(c, "applicationname", "othermodel.applicationname2")
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("cannot add relation to othermodel.applicationname2: remote endpoints not supported"))
-}
-
-func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationNoRemoteApplicationsVia(c *gc.C) {
-	err := s.runAddRelation(c, "applicationname", "applicationname2", "--via", "192.168.0.0/16")
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("the --via option can only be used when relating to offers in a different model"))
-}
-
-func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationViaBadCidr(c *gc.C) {
-	err := s.runAddRelation(c, "applicationname", "othermodel.applicationname2", "--via", "bad.cidr")
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`invalid CIDR address: bad.cidr`))
-}
-
-func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationViaDisallowedCidr(c *gc.C) {
-	err := s.runAddRelation(c, "applicationname", "othermodel.applicationname2", "--via", "0.0.0.0/0")
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`CIDR "0.0.0.0/0" not allowed`))
+	s.mockAPI.CheckCallNames(c, "GetConsumeDetails", "Consume", "Close", "AddRelation", "Close")
 }
 
 // AddRelationValidationSuite has input validation tests.
@@ -227,9 +187,6 @@ type mockAddRelationAPI struct {
 	// addRelation can be defined by tests to test different add-relation outcomes.
 	addRelation func(endpoints, viaCidrs []string) (*params.AddRelationResults, error)
 
-	// version can be overwritten by tests interested in different behaviour based on client version.
-	version int
-
 	mac *macaroon.Macaroon
 }
 
@@ -241,11 +198,6 @@ func (m *mockAddRelationAPI) AddRelation(endpoints, viaCIDRs []string) (*params.
 func (m *mockAddRelationAPI) Close() error {
 	m.AddCall("Close")
 	return nil
-}
-
-func (m *mockAddRelationAPI) BestAPIVersion() int {
-	m.AddCall("BestAPIVersion")
-	return m.version
 }
 
 func (m *mockAddRelationAPI) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) {

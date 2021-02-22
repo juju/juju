@@ -11,6 +11,7 @@ import (
 	"github.com/juju/charmrepo/v7"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
+
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"

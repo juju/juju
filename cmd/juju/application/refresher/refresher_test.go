@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v9"
+	"github.com/juju/charm/v9"
 	"github.com/juju/charmrepo/v7"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"

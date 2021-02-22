@@ -92,7 +92,6 @@ func (c *showApplicationCommand) SetFlags(f *gnuflag.FlagSet) {
 // ApplicationsInfoAPI defines the API methods that show-application command uses.
 type ApplicationsInfoAPI interface {
 	Close() error
-	BestAPIVersion() int
 	ApplicationsInfo([]names.ApplicationTag) ([]params.ApplicationInfoResult, error)
 }
 
@@ -110,11 +109,6 @@ func (c *showApplicationCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-
-	if v := client.BestAPIVersion(); v < 9 {
-		// old client does not support showing applications.
-		return errors.NotSupportedf("show applications on API server version %v", v)
-	}
 
 	tags, err := c.getApplicationTags()
 	if err != nil {

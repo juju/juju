@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -393,45 +392,6 @@ func (s *ApplicationSuite) TestDeployCAASOperatorProtectedByFlag(c *gc.C) {
 	c.Assert(msg, gc.Matches, `feature flag "k8s-operators" is required for deploying k8s operator charms`)
 }
 
-func (s *ApplicationSuite) TestUpdateCAASApplicationSettings(c *gc.C) {
-	s.model.modelType = state.ModelTypeCAAS
-	s.setAPIUser(c, names.NewUserTag("admin"))
-	s.backend.charm = &mockCharm{
-		meta: &charm.Meta{
-			Deployment: &charm.Deployment{
-				DeploymentMode: charm.ModeOperator,
-			},
-		},
-	}
-
-	// Update settings for the application.
-	args := params.ApplicationUpdate{
-		ApplicationName: "postgresql",
-		SettingsYAML:    "postgresql:\n  stringOption: bar\n  juju-external-hostname: foo",
-	}
-	api := &application.APIv12{s.api}
-	err := api.Update(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	pgApp := s.backend.applications["postgresql"]
-	pgApp.CheckCall(c, 2, "UpdateCharmConfig", "master", charm.Settings{
-		"stringOption": "bar",
-	})
-
-	appDefaults := caas.ConfigDefaults(k8s.ConfigDefaults())
-	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
-	c.Assert(err, jc.ErrorIsNil)
-	appCfgSchema, appDefaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, appDefaults)
-	c.Assert(err, jc.ErrorIsNil)
-
-	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
-		"juju-external-hostname": "foo",
-	}, appCfgSchema, appDefaults)
-	c.Assert(err, jc.ErrorIsNil)
-
-	pgApp.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
-}
-
 func (s *ApplicationSuite) TestSetCAASConfigSettings(c *gc.C) {
 	s.model.modelType = state.ModelTypeCAAS
 	s.setAPIUser(c, names.NewUserTag("admin"))
@@ -469,27 +429,6 @@ func (s *ApplicationSuite) TestSetCAASConfigSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	pgApp.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
-}
-
-func (s *ApplicationSuite) TestUpdateCAASApplicationSettingsInIAASModelTriggersError(c *gc.C) {
-	s.model.modelType = state.ModelTypeIAAS
-	s.setAPIUser(c, names.NewUserTag("admin"))
-	s.backend.charm = &mockCharm{
-		meta: &charm.Meta{
-			Deployment: &charm.Deployment{
-				DeploymentMode: charm.ModeOperator,
-			},
-		},
-	}
-
-	// Update settings for the application.
-	args := params.ApplicationUpdate{
-		ApplicationName: "postgresql",
-		SettingsYAML:    "postgresql:\n  stringOption: bar\n  juju-external-hostname: foo",
-	}
-	api := &application.APIv12{s.api}
-	err := api.Update(args)
-	c.Assert(err, gc.ErrorMatches, `.*unknown option "juju-external-hostname"`, gc.Commentf("expected to get an error when attempting to set CAAS-specific app setting in IAAS model"))
 }
 
 func (s *ApplicationSuite) TestSetCAASConfigSettingsInIAASModelTriggersError(c *gc.C) {
@@ -1890,85 +1829,6 @@ func (s *ApplicationSuite) TestRemoteRelationDisAllowedCIDR(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `CIDR "0.0.0.0/0" not allowed`)
 }
 
-func (s *ApplicationSuite) TestSetApplicationConfigExplicitMaster(c *gc.C) {
-	s.testSetApplicationConfig(c, model.GenerationMaster)
-}
-
-func (s *ApplicationSuite) TestSetApplicationConfigEmptyUsesMaster(c *gc.C) {
-	s.testSetApplicationConfig(c, "")
-}
-
-func (s *ApplicationSuite) testSetApplicationConfig(c *gc.C, branchName string) {
-	application.SetModelType(s.api, state.ModelTypeCAAS)
-	api := &application.APIv12{s.api}
-	result, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
-		Args: []params.ApplicationConfigSet{{
-			ApplicationName: "postgresql",
-			Config: map[string]string{
-				"juju-external-hostname": "value",
-				"stringOption":           "stringVal",
-			},
-			Generation: branchName,
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "Application")
-	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "Charm", "Name", "UpdateCharmConfig", "UpdateApplicationConfig")
-
-	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
-	c.Assert(err, jc.ErrorIsNil)
-	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
-	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
-	c.Assert(err, jc.ErrorIsNil)
-
-	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
-		"juju-external-hostname": "value",
-	}, appCfgSchema, defaults)
-	c.Assert(err, jc.ErrorIsNil)
-
-	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
-	app.CheckCall(c, 2, "UpdateCharmConfig", model.GenerationMaster, charm.Settings{"stringOption": "stringVal"})
-
-	// We should never have accessed the generation.
-	c.Check(s.backend.generation, gc.IsNil)
-}
-
-func (s *ApplicationSuite) TestSetApplicationConfigBranch(c *gc.C) {
-	application.SetModelType(s.api, state.ModelTypeCAAS)
-	api := &application.APIv12{s.api}
-	result, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
-		Args: []params.ApplicationConfigSet{{
-			ApplicationName: "postgresql",
-			Config: map[string]string{
-				"juju-external-hostname": "value",
-				"stringOption":           "stringVal",
-			},
-			Generation: "new-branch",
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "Application")
-	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "Charm", "Name", "UpdateCharmConfig", "UpdateApplicationConfig", "Name")
-
-	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
-	c.Assert(err, jc.ErrorIsNil)
-	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
-	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
-	c.Assert(err, jc.ErrorIsNil)
-
-	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
-		"juju-external-hostname": "value",
-	}, appCfgSchema, defaults)
-	c.Assert(err, jc.ErrorIsNil)
-
-	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
-	app.CheckCall(c, 2, "UpdateCharmConfig", "new-branch", charm.Settings{"stringOption": "stringVal"})
-
-	s.backend.generation.CheckCall(c, 0, "AssignApplication", "postgresql")
-}
-
 func (s *ApplicationSuite) TestSetConfigBranch(c *gc.C) {
 	application.SetModelType(s.api, state.ModelTypeCAAS)
 	result, err := s.api.SetConfigs(params.ConfigSetArgs{
@@ -2001,26 +1861,6 @@ func (s *ApplicationSuite) TestSetConfigBranch(c *gc.C) {
 	app.CheckCall(c, 2, "UpdateCharmConfig", "new-branch", charm.Settings{"stringOption": "stringVal"})
 
 	s.backend.generation.CheckCall(c, 0, "AssignApplication", "postgresql")
-}
-
-func (s *ApplicationSuite) TestBlockSetApplicationConfig(c *gc.C) {
-	s.blockChecker.SetErrors(errors.New("blocked"))
-	api := &application.APIv12{s.api}
-	_, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{})
-	c.Assert(err, gc.ErrorMatches, "blocked")
-	s.blockChecker.CheckCallNames(c, "ChangeAllowed")
-	s.relation.CheckNoCalls(c)
-}
-
-func (s *ApplicationSuite) TestSetApplicationConfigPermissionDenied(c *gc.C) {
-	s.setAPIUser(c, names.NewUserTag("fred"))
-	api := &application.APIv12{s.api}
-	_, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
-		Args: []params.ApplicationConfigSet{{
-			ApplicationName: "postgresql",
-		}}})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	s.application.CheckNoCalls(c)
 }
 
 func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {

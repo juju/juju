@@ -109,11 +109,6 @@ func (s mockAddAPI) AddRelation(endpoints, viaCIDRs []string) (*params.AddRelati
 	return s.addRelationFunc(endpoints, viaCIDRs)
 }
 
-func (s mockAddAPI) BestAPIVersion() int {
-	s.MethodCall(s, "BestAPIVersion")
-	return 4
-}
-
 func (mockAddAPI) Consume(crossmodel.ConsumeApplicationArgs) (string, error) {
 	return "", errors.New("unexpected method call: Consume")
 }

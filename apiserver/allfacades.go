@@ -139,22 +139,7 @@ func AllFacades() *facade.Registry {
 	reg("AgentTools", 1, agenttools.NewFacade)
 	reg("Annotations", 2, annotations.NewAPI)
 
-	// Application facade versions 1-4 share NewFacadeV4 as
-	// the newer methodology for versioning wasn't started with
-	// Application until version 5.
-	reg("Application", 1, application.NewFacadeV4)
-	reg("Application", 2, application.NewFacadeV4)
-	reg("Application", 3, application.NewFacadeV4)
-	reg("Application", 4, application.NewFacadeV4)
-	reg("Application", 5, application.NewFacadeV5) // adds AttachStorage & UpdateApplicationSeries & SetRelationStatus
-	reg("Application", 6, application.NewFacadeV6)
-	reg("Application", 7, application.NewFacadeV7)
-	reg("Application", 8, application.NewFacadeV8)
-	reg("Application", 9, application.NewFacadeV9)   // ApplicationInfo; generational config; Force on App, Relation and Unit Removal.
-	reg("Application", 10, application.NewFacadeV10) // --force and --no-wait parameters
-	reg("Application", 11, application.NewFacadeV11) // Get call returns the endpoint bindings
-	reg("Application", 12, application.NewFacadeV12) // Adds UnitsInfo()
-	reg("Application", 13, application.NewFacadeV13) // Adds CharmOrigin to Deploy
+	reg("Application", 13, application.NewFacadeV13)
 
 	reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
 	reg("ApplicationOffers", 2, applicationoffers.NewOffersAPIV2)

@@ -9,11 +9,11 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/application"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/application"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -30,7 +30,7 @@ var _ = gc.Suite(&RemoveSaasSuite{})
 
 func (s *RemoveSaasSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.mockAPI = &mockRemoveSaasAPI{Stub: &testing.Stub{}, version: 5}
+	s.mockAPI = &mockRemoveSaasAPI{Stub: &testing.Stub{}}
 }
 
 func (s *RemoveSaasSuite) runRemoveSaas(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -82,17 +82,9 @@ func (s *RemoveSaasSuite) TestInvalidArgs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid SAAS application name "invalid:name"`)
 }
 
-func (s *RemoveSaasSuite) TestRemoveSaasOldServer(c *gc.C) {
-	s.mockAPI.version = 4
-	_, err := s.runRemoveSaas(c, "foo")
-	c.Assert(err, gc.ErrorMatches, "remove-saas is not supported by this version of Juju")
-	s.mockAPI.CheckCall(c, 0, "Close")
-}
-
 type mockRemoveSaasAPI struct {
 	*testing.Stub
-	version int
-	err     error
+	err error
 }
 
 func (s mockRemoveSaasAPI) Close() error {
@@ -109,8 +101,4 @@ func (s mockRemoveSaasAPI) DestroyConsumedApplication(destroyParams application.
 		result[i].Error = apiservererrors.ServerError(s.err)
 	}
 	return result, s.NextErr()
-}
-
-func (s mockRemoveSaasAPI) BestAPIVersion() int {
-	return s.version
 }

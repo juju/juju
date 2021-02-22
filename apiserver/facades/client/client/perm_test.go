@@ -85,12 +85,8 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		op:    opClientStatus,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Application.Set",
-		op:    opClientServiceSet,
-		allow: []names.Tag{userAdmin, userOther},
-	}, {
 		about: "Application.Get",
-		op:    opClientServiceGet,
+		op:    opClientApplicationGet,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Client.Resolved",
@@ -98,15 +94,15 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Application.Expose",
-		op:    opClientServiceExpose,
+		op:    opClientApplicationExpose,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Application.Unexpose",
-		op:    opClientServiceUnexpose,
+		op:    opClientApplicationUnexpose,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Application.SetCharm",
-		op:    opClientServiceSetCharm,
+		op:    opClientApplicationSetCharm,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Annotations.GetAnnotations",
@@ -118,11 +114,11 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Application.AddUnits",
-		op:    opClientAddServiceUnits,
+		op:    opClientAddApplicationUnits,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Application.DestroyUnits",
-		op:    opClientDestroyServiceUnits,
+		op:    opClientDestroyApplicationUnits,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Application.DestroyUnit",
@@ -130,7 +126,7 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Application.Destroy",
-		op:    opClientServiceDestroy,
+		op:    opClientApplicationDestroy,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Application.DestroyApplication",
@@ -138,15 +134,15 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Application.GetConstraints",
-		op:    opClientGetServiceConstraints,
+		op:    opClientGetApplicationConstraints,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Application.SetConstraints",
-		op:    opClientSetServiceConstraints,
+		op:    opClientSetApplicationConstraints,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Client.SetModelConstraints",
-		op:    opClientSetEnvironmentConstraints,
+		op:    opClientSetModelConstraints,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Client.ModelGet",
@@ -222,26 +218,7 @@ func opClientStatus(c *gc.C, st api.Connection, mst *state.State) (func(), error
 	return func() {}, nil
 }
 
-func resetBlogTitle(c *gc.C, st api.Connection) func() {
-	return func() {
-		err := application.NewClient(st).Set("wordpress", map[string]string{
-			"blog-title": "",
-		})
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
-func opClientServiceSet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := application.NewClient(st).Set("wordpress", map[string]string{
-		"blog-title": "foo",
-	})
-	if err != nil {
-		return func() {}, err
-	}
-	return resetBlogTitle(c, st), nil
-}
-
-func opClientServiceGet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
+func opClientApplicationGet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	_, err := application.NewClient(st).Get(model.GenerationMaster, "wordpress")
 	if err != nil {
 		return func() {}, err
@@ -249,7 +226,7 @@ func opClientServiceGet(c *gc.C, st api.Connection, mst *state.State) (func(), e
 	return func() {}, nil
 }
 
-func opClientServiceExpose(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
+func opClientApplicationExpose(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	err := application.NewClient(st).Expose("wordpress", nil)
 	if err != nil {
 		return func() {}, err
@@ -262,7 +239,7 @@ func opClientServiceExpose(c *gc.C, st api.Connection, mst *state.State) (func()
 	}, nil
 }
 
-func opClientServiceUnexpose(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
+func opClientApplicationUnexpose(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	err := application.NewClient(st).Unexpose("wordpress", nil)
 	if err != nil {
 		return func() {}, err
@@ -319,7 +296,7 @@ func opClientSetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(
 	}, nil
 }
 
-func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
+func opClientApplicationSetCharm(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	cfg := application.SetCharmConfig{
 		ApplicationName: "nosuch",
 		CharmID: application.CharmID{
@@ -333,7 +310,7 @@ func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func
 	return func() {}, err
 }
 
-func opClientAddServiceUnits(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
+func opClientAddApplicationUnits(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	_, err := application.NewClient(st).AddUnits(application.AddUnitsParams{
 		ApplicationName: "nosuch",
 		NumUnits:        1,
@@ -344,8 +321,9 @@ func opClientAddServiceUnits(c *gc.C, st api.Connection, mst *state.State) (func
 	return func() {}, err
 }
 
-func opClientDestroyServiceUnits(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := application.NewClient(st).DestroyUnitsDeprecated("wordpress/99")
+func opClientDestroyApplicationUnits(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
+	_, err := application.NewClient(st).DestroyUnits(
+		application.DestroyUnitsParams{Units: []string{"wordpress/99"}})
 	if err != nil && strings.HasPrefix(err.Error(), "no units were destroyed") {
 		err = nil
 	}
@@ -359,8 +337,9 @@ func opClientDestroyUnit(c *gc.C, st api.Connection, mst *state.State) (func(), 
 	return func() {}, err
 }
 
-func opClientServiceDestroy(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := application.NewClient(st).DestroyDeprecated("non-existent")
+func opClientApplicationDestroy(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
+	_, err := application.NewClient(st).DestroyApplications(
+		application.DestroyApplicationsParams{Applications: []string{"non-existent"}})
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}
@@ -374,12 +353,12 @@ func opClientDestroyApplication(c *gc.C, st api.Connection, mst *state.State) (f
 	return func() {}, err
 }
 
-func opClientGetServiceConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
+func opClientGetApplicationConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	_, err := application.NewClient(st).GetConstraints("wordpress")
 	return func() {}, err
 }
 
-func opClientSetServiceConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
+func opClientSetApplicationConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	nullConstraints := constraints.Value{}
 	err := application.NewClient(st).SetConstraints("wordpress", nullConstraints)
 	if err != nil {
@@ -388,7 +367,7 @@ func opClientSetServiceConstraints(c *gc.C, st api.Connection, mst *state.State)
 	return func() {}, nil
 }
 
-func opClientSetEnvironmentConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
+func opClientSetModelConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	nullConstraints := constraints.Value{}
 	err := st.Client().SetModelConstraints(nullConstraints)
 	if err != nil {

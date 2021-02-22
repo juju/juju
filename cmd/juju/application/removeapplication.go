@@ -23,7 +23,7 @@ import (
 // NewRemoveApplicationCommand returns a command which removes an application.
 func NewRemoveApplicationCommand() cmd.Command {
 	c := &removeApplicationCommand{}
-	c.newAPIFunc = func() (RemoveApplicationAPI, int, error) {
+	c.newAPIFunc = func() (RemoveApplicationAPI, error) {
 		return c.getAPI()
 	}
 	return modelcmd.Wrap(c)
@@ -33,7 +33,7 @@ func NewRemoveApplicationCommand() cmd.Command {
 type removeApplicationCommand struct {
 	modelcmd.ModelCommandBase
 
-	newAPIFunc func() (RemoveApplicationAPI, int, error)
+	newAPIFunc func() (RemoveApplicationAPI, error)
 
 	ApplicationNames []string
 	DestroyStorage   bool
@@ -107,11 +107,8 @@ type RemoveApplicationAPI interface {
 	Close() error
 	ScaleApplication(application.ScaleApplicationParams) (params.ScaleApplicationResult, error)
 	DestroyApplications(application.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error)
-	DestroyDeprecated(appName string) error
 	DestroyUnits(application.DestroyUnitsParams) ([]params.DestroyUnitResult, error)
-	DestroyUnitsDeprecated(unitNames ...string) error
 	ModelUUID() string
-	BestAPIVersion() int
 }
 
 type storageAPI interface {
@@ -119,13 +116,12 @@ type storageAPI interface {
 	ListStorageDetails() ([]params.StorageDetails, error)
 }
 
-func (c *removeApplicationCommand) getAPI() (RemoveApplicationAPI, int, error) {
+func (c *removeApplicationCommand) getAPI() (RemoveApplicationAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, -1, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	version := root.BestFacadeVersion("Application")
-	return application.NewClient(root), version, nil
+	return application.NewClient(root), nil
 }
 
 func (c *removeApplicationCommand) getStorageAPI() (storageAPI, error) {
@@ -184,34 +180,13 @@ func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
 		return errors.NotValidf("--no-wait without --force")
 	}
 
-	client, apiVersion, err := c.newAPIFunc()
+	client, err := c.newAPIFunc()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	if apiVersion < 4 {
-		return c.removeApplicationsDeprecated(ctx, client)
-	}
-	if c.DestroyStorage && apiVersion < 5 {
-		return errors.New("--destroy-storage is not supported by this controller")
-	}
 	return c.removeApplications(ctx, client)
-}
-
-// TODO(axw) 2017-03-16 #1673323
-// Drop this in Juju 3.0.
-func (c *removeApplicationCommand) removeApplicationsDeprecated(
-	ctx *cmd.Context,
-	client RemoveApplicationAPI,
-) error {
-	for _, name := range c.ApplicationNames {
-		err := client.DestroyDeprecated(name)
-		if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
 }
 
 func (c *removeApplicationCommand) removeApplications(

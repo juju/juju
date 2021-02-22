@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v9"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -101,7 +100,6 @@ type spacesClient struct {
 }
 
 type deployAPIAdapter struct {
-	charmsAPIVersion int
 	api.Connection
 	*apiClient
 	*charmsClient
@@ -145,17 +143,11 @@ func (a *deployAPIAdapter) GetAnnotations(tags []string) ([]apiparams.Annotation
 }
 
 func (a *deployAPIAdapter) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
-	if a.charmsAPIVersion > 2 {
-		return a.charmsClient.AddCharm(curl, origin, force)
-	}
-	return origin, a.apiClient.AddCharm(curl, csparams.Channel(origin.Risk), force)
+	return a.charmsClient.AddCharm(curl, origin, force)
 }
 
 func (a *deployAPIAdapter) AddCharmWithAuthorization(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon, force bool) (commoncharm.Origin, error) {
-	if a.charmsAPIVersion > 2 {
-		return a.charmsClient.AddCharmWithAuthorization(curl, origin, mac, force)
-	}
-	return origin, a.apiClient.AddCharmWithAuthorization(curl, csparams.Channel(origin.Risk), mac, force)
+	return a.charmsClient.AddCharmWithAuthorization(curl, origin, mac, force)
 }
 
 // NewDeployCommand returns a command to deploy applications.
@@ -220,7 +212,6 @@ func newDeployCommand() *DeployCommand {
 			Connection:        apiRoot,
 			apiClient:         &apiClient{Client: apiRoot.Client()},
 			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
-			charmsAPIVersion:  apiRoot.BestFacadeVersion("Charms"),
 			applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
 			modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
 			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},

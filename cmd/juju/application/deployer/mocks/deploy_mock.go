@@ -18,7 +18,7 @@ import (
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	names "github.com/juju/names/v4"
 	httprequest "gopkg.in/httprequest.v1"
-	"gopkg.in/macaroon.v2"
+	macaroon "gopkg.in/macaroon.v2"
 	http "net/http"
 	url "net/url"
 	reflect "reflect"
@@ -617,20 +617,6 @@ func (m *MockDeployerAPI) Status(arg0 []string) (*params.FullStatus, error) {
 func (mr *MockDeployerAPIMockRecorder) Status(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockDeployerAPI)(nil).Status), arg0)
-}
-
-// Update mocks base method
-func (m *MockDeployerAPI) Update(arg0 params.ApplicationUpdate) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Update", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Update indicates an expected call of Update
-func (mr *MockDeployerAPIMockRecorder) Update(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockDeployerAPI)(nil).Update), arg0)
 }
 
 // WatchAll mocks base method

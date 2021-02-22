@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -37,11 +36,7 @@ type applicationSuite struct {
 var _ = gc.Suite(&applicationSuite{})
 
 func newClient(f basetesting.APICallerFunc) *application.Client {
-	return newClientWithVersion(f, 13)
-}
-
-func newClientWithVersion(f basetesting.APICallerFunc, version int) *application.Client {
-	return application.NewClient(basetesting.BestVersionCaller{APICallerFunc: f, BestVersion: version})
+	return application.NewClient(f)
 }
 
 func (s *applicationSuite) TestSetApplicationMetricCredentials(c *gc.C) {
@@ -85,36 +80,33 @@ func (s *applicationSuite) TestSetApplicationMetricCredentialsFails(c *gc.C) {
 
 func (s *applicationSuite) TestDeploy(c *gc.C) {
 	var called bool
-	client := application.NewClient(basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, response interface{}) error {
-				called = true
-				c.Assert(request, gc.Equals, "Deploy")
-				args, ok := a.(params.ApplicationsDeploy)
-				c.Assert(ok, jc.IsTrue)
-				c.Assert(args.Applications, gc.HasLen, 1)
-				app := args.Applications[0]
-				c.Assert(app.CharmURL, gc.Equals, "cs:trusty/a-charm-1")
-				c.Assert(app.CharmOrigin, gc.DeepEquals, &params.CharmOrigin{Source: "charm-store"})
-				c.Assert(app.ApplicationName, gc.Equals, "applicationA")
-				c.Assert(app.Series, gc.Equals, "series")
-				c.Assert(app.NumUnits, gc.Equals, 1)
-				c.Assert(app.ConfigYAML, gc.Equals, "configYAML")
-				c.Assert(app.Config, gc.DeepEquals, map[string]string{"foo": "bar"})
-				c.Assert(app.Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
-				c.Assert(app.Placement, gc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
-				c.Assert(app.EndpointBindings, gc.DeepEquals, map[string]string{"foo": "bar"})
-				c.Assert(app.Storage, gc.DeepEquals, map[string]storage.Constraints{"data": {Pool: "pool"}})
-				c.Assert(app.AttachStorage, gc.DeepEquals, []string{"storage-data-0"})
-				c.Assert(app.Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
+	client := application.NewClient(basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			called = true
+			c.Assert(request, gc.Equals, "Deploy")
+			args, ok := a.(params.ApplicationsDeploy)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.Applications, gc.HasLen, 1)
+			app := args.Applications[0]
+			c.Assert(app.CharmURL, gc.Equals, "cs:trusty/a-charm-1")
+			c.Assert(app.CharmOrigin, gc.DeepEquals, &params.CharmOrigin{Source: "charm-store"})
+			c.Assert(app.ApplicationName, gc.Equals, "applicationA")
+			c.Assert(app.Series, gc.Equals, "series")
+			c.Assert(app.NumUnits, gc.Equals, 1)
+			c.Assert(app.ConfigYAML, gc.Equals, "configYAML")
+			c.Assert(app.Config, gc.DeepEquals, map[string]string{"foo": "bar"})
+			c.Assert(app.Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
+			c.Assert(app.Placement, gc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
+			c.Assert(app.EndpointBindings, gc.DeepEquals, map[string]string{"foo": "bar"})
+			c.Assert(app.Storage, gc.DeepEquals, map[string]storage.Constraints{"data": {Pool: "pool"}})
+			c.Assert(app.AttachStorage, gc.DeepEquals, []string{"storage-data-0"})
+			c.Assert(app.Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
 
-				result := response.(*params.ErrorResults)
-				result.Results = make([]params.ErrorResult, 1)
-				return nil
-			},
-		),
-		BestVersion: 5,
-	})
+			result := response.(*params.ErrorResults)
+			result.Results = make([]params.ErrorResult, 1)
+			return nil
+		},
+	))
 
 	args := application.DeployArgs{
 		CharmID: application.CharmID{
@@ -140,26 +132,6 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *applicationSuite) TestDeployAttachStorageV4(c *gc.C) {
-	var called bool
-	client := application.NewClient(basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, response interface{}) error {
-				called = true
-				return nil
-			},
-		),
-		BestVersion: 4, // v4 does not support AttachStorage
-	})
-	args := application.DeployArgs{
-		NumUnits:      1,
-		AttachStorage: []string{"data/0"},
-	}
-	err := client.Deploy(args)
-	c.Assert(err, gc.ErrorMatches, "this juju controller does not support AttachStorage")
-	c.Assert(called, jc.IsFalse)
-}
-
 func (s *applicationSuite) TestDeployAttachStorageMultipleUnits(c *gc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
@@ -176,23 +148,20 @@ func (s *applicationSuite) TestDeployAttachStorageMultipleUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestAddUnits(c *gc.C) {
-	client := application.NewClient(basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, response interface{}) error {
-				c.Assert(request, gc.Equals, "AddUnits")
-				args, ok := a.(params.AddApplicationUnits)
-				c.Assert(ok, jc.IsTrue)
-				c.Assert(args.ApplicationName, gc.Equals, "foo")
-				c.Assert(args.NumUnits, gc.Equals, 1)
-				c.Assert(args.Placement, jc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
-				c.Assert(args.AttachStorage, jc.DeepEquals, []string{"storage-data-0"})
-				result := response.(*params.AddApplicationUnitsResults)
-				result.Units = []string{"foo/0"}
-				return nil
-			},
-		),
-		BestVersion: 5,
-	})
+	client := application.NewClient(basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "AddUnits")
+			args, ok := a.(params.AddApplicationUnits)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.ApplicationName, gc.Equals, "foo")
+			c.Assert(args.NumUnits, gc.Equals, 1)
+			c.Assert(args.Placement, jc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
+			c.Assert(args.AttachStorage, jc.DeepEquals, []string{"storage-data-0"})
+			result := response.(*params.AddApplicationUnitsResults)
+			result.Units = []string{"foo/0"}
+			return nil
+		},
+	))
 
 	units, err := client.AddUnits(application.AddUnitsParams{
 		ApplicationName: "foo",
@@ -202,26 +171,6 @@ func (s *applicationSuite) TestAddUnits(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, jc.DeepEquals, []string{"foo/0"})
-}
-
-func (s *applicationSuite) TestAddUnitsAttachStorageV4(c *gc.C) {
-	var called bool
-	client := application.NewClient(basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, response interface{}) error {
-				called = true
-				return nil
-			},
-		),
-		BestVersion: 4, // v4 does not support AttachStorage
-	})
-
-	_, err := client.AddUnits(application.AddUnitsParams{
-		NumUnits:      1,
-		AttachStorage: []string{"data/0"},
-	})
-	c.Assert(err, gc.ErrorMatches, "this juju controller does not support AttachStorage")
-	c.Assert(called, jc.IsFalse)
 }
 
 func (s *applicationSuite) TestAddUnitsAttachStorageMultipleUnits(c *gc.C) {
@@ -236,26 +185,6 @@ func (s *applicationSuite) TestAddUnitsAttachStorageMultipleUnits(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, "cannot attach existing storage when more than one unit is requested")
 	c.Assert(called, jc.IsFalse)
-}
-
-func (s *applicationSuite) TestApplicationGetCharmURL(c *gc.C) {
-	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
-		called = true
-		c.Assert(request, gc.Equals, "GetCharmURL")
-		args, ok := a.(params.ApplicationGet)
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(args.ApplicationName, gc.Equals, "application")
-		c.Assert(args.BranchName, gc.Equals, newBranchName)
-
-		result := response.(*params.StringResult)
-		result.Result = "cs:curl"
-		return nil
-	})
-	curl, err := client.GetCharmURL(newBranchName, "application")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("cs:curl"))
-	c.Assert(called, jc.IsTrue)
 }
 
 func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
@@ -280,29 +209,6 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("cs:curl"))
 	c.Assert(origin, gc.DeepEquals, apicharm.Origin{
 		Risk: "edge",
-	})
-	c.Assert(called, jc.IsTrue)
-}
-
-func (s *applicationSuite) TestApplicationGetCharmURLOriginWithOlderAPIVersion(c *gc.C) {
-	var called bool
-	client := newClientWithVersion(func(objType string, version int, id, request string, a, response interface{}) error {
-		called = true
-		c.Assert(request, gc.Equals, "GetCharmURL")
-		args, ok := a.(params.ApplicationGet)
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(args.ApplicationName, gc.Equals, "application")
-		c.Assert(args.BranchName, gc.Equals, newBranchName)
-
-		result := response.(*params.StringResult)
-		result.Result = "cs:curl"
-		return nil
-	}, 12)
-	curl, origin, err := client.GetCharmURLOrigin(newBranchName, "application")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("cs:curl"))
-	c.Assert(origin, gc.DeepEquals, apicharm.Origin{
-		Source: apicharm.OriginCharmStore,
 	})
 	c.Assert(called, jc.IsTrue)
 }
@@ -368,36 +274,6 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *applicationSuite) TestDestroyDeprecated(c *gc.C) {
-	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
-		called = true
-		c.Assert(request, gc.Equals, "Destroy")
-		c.Assert(a, jc.DeepEquals, params.ApplicationDestroy{
-			ApplicationName: "foo",
-		})
-		return nil
-	})
-	err := client.DestroyDeprecated("foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
-}
-
-func (s *applicationSuite) TestDestroyUnitsDeprecated(c *gc.C) {
-	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
-		called = true
-		c.Assert(request, gc.Equals, "DestroyUnits")
-		c.Assert(a, jc.DeepEquals, params.DestroyApplicationUnits{
-			UnitNames: []string{"foo/0", "bar/1"},
-		})
-		return nil
-	})
-	err := client.DestroyUnitsDeprecated("foo/0", "bar/1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
-}
-
 func (s *applicationSuite) TestDestroyApplications(c *gc.C) {
 	expectedResults := []params.DestroyApplicationResult{{
 		Error: &params.Error{Message: "boo"},
@@ -431,36 +307,6 @@ func (s *applicationSuite) TestDestroyApplications(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
 
-func (s *applicationSuite) TestDestroyApplicationsV4(c *gc.C) {
-	expectedResults := []params.DestroyApplicationResult{{
-		Error: &params.Error{Message: "boo"},
-	}, {
-		Info: &params.DestroyApplicationInfo{
-			DestroyedStorage: []params.Entity{{Tag: "storage-pgdata-0"}},
-			DetachedStorage:  []params.Entity{{Tag: "storage-pgdata-1"}},
-			DestroyedUnits:   []params.Entity{{Tag: "unit-bar-1"}},
-		},
-	}}
-	client := newClientWithVersion(func(objType string, version int, id, request string, a, response interface{}) error {
-		c.Assert(request, gc.Equals, "DestroyApplication")
-		c.Assert(a, jc.DeepEquals, params.Entities{
-			Entities: []params.Entity{
-				{Tag: "application-foo"},
-				{Tag: "application-bar"},
-			},
-		})
-		c.Assert(response, gc.FitsTypeOf, &params.DestroyApplicationResults{})
-		out := response.(*params.DestroyApplicationResults)
-		*out = params.DestroyApplicationResults{expectedResults}
-		return nil
-	}, 4) // use version 4
-	results, err := client.DestroyApplications(application.DestroyApplicationsParams{
-		Applications: []string{"foo", "bar"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, expectedResults)
-}
-
 func (s *applicationSuite) TestDestroyApplicationsArity(c *gc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		return nil
@@ -489,31 +335,6 @@ func (s *applicationSuite) TestDestroyApplicationsInvalidIds(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
 
-func (s *applicationSuite) TestDestroyConsumedApplicationsV8(c *gc.C) {
-	expectedResults := []params.ErrorResult{{
-		Error: &params.Error{Message: "boo"},
-	}, {}}
-	client := newClientWithVersion(func(objType string, version int, id, request string, a, response interface{}) error {
-		c.Assert(request, gc.Equals, "DestroyConsumedApplications")
-		c.Assert(a, jc.DeepEquals, params.DestroyConsumedApplicationsParams{
-			Applications: []params.DestroyConsumedApplicationParams{
-				{ApplicationTag: "application-foo"},
-				{ApplicationTag: "application-bar"},
-			},
-		})
-		c.Assert(response, gc.FitsTypeOf, &params.ErrorResults{})
-		out := response.(*params.ErrorResults)
-		*out = params.ErrorResults{expectedResults}
-		return nil
-	}, 8) // use V8
-	destroyParams := application.DestroyConsumedApplicationParams{
-		[]string{"foo", "bar"}, false, nil,
-	}
-	results, err := client.DestroyConsumedApplication(destroyParams)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, expectedResults)
-}
-
 func (s *applicationSuite) TestDestroyConsumedApplicationsArity(c *gc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		return nil
@@ -525,72 +346,27 @@ func (s *applicationSuite) TestDestroyConsumedApplicationsArity(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `expected 1 result\(s\), got 0`)
 }
 
-func (s *applicationSuite) TestDestroyConsumedApplicationsForcev9(c *gc.C) {
+func (s *applicationSuite) TestDestroyConsumedApplications(c *gc.C) {
 	var called bool
-	client := application.NewClient(basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, response interface{}) error {
-				c.Assert(request, gc.Equals, "DestroyConsumedApplications")
-				c.Assert(a, jc.DeepEquals, params.DestroyConsumedApplicationsParams{
-					Applications: []params.DestroyConsumedApplicationParams{
-						{ApplicationTag: "application-foo"}, // check that Force and MaxWait are not supplied to the controller
-					},
-				})
-				called = true
-				return nil
-			},
-		),
-		BestVersion: 9, // v9 does not support --force or --no-wait
-	})
-	destroyParams := application.DestroyConsumedApplicationParams{
-		[]string{"foo"}, true, nil,
-	}
-	results, err := client.DestroyConsumedApplication(destroyParams)
-	c.Check(err, gc.ErrorMatches, "this controller does not support --force")
-	c.Check(results, gc.HasLen, 0)
-	c.Assert(called, jc.IsFalse)
-
-	noWait := time.Minute * 0
-	destroyParams = application.DestroyConsumedApplicationParams{
-		[]string{"foo"}, false, &noWait,
-	}
-	results, err = client.DestroyConsumedApplication(destroyParams)
-	c.Check(err, gc.ErrorMatches, "this controller does not support --no-wait")
-	c.Check(results, gc.HasLen, 0)
-	c.Assert(called, jc.IsFalse)
-
-	destroyParams = application.DestroyConsumedApplicationParams{
-		[]string{"foo"}, false, nil,
-	}
-	_, err = client.DestroyConsumedApplication(destroyParams)
-	c.Check(err, gc.NotNil)
-	c.Assert(called, jc.IsTrue)
-}
-
-func (s *applicationSuite) TestDestroyConsumedApplicationsForcev10(c *gc.C) {
-	var called bool
-	noWait := 0 * time.Minute
+	noWait := 1 * time.Minute
 	force := true
 	expectedResults := []params.ErrorResult{{}, {}}
-	client := application.NewClient(basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, response interface{}) error {
-				c.Assert(request, gc.Equals, "DestroyConsumedApplications")
-				c.Assert(a, jc.DeepEquals, params.DestroyConsumedApplicationsParams{
-					Applications: []params.DestroyConsumedApplicationParams{
-						{ApplicationTag: "application-foo", Force: &force, MaxWait: &noWait},
-						{ApplicationTag: "application-bar", Force: &force, MaxWait: &noWait},
-					},
-				})
-				called = true
-				c.Assert(response, gc.FitsTypeOf, &params.ErrorResults{})
-				out := response.(*params.ErrorResults)
-				*out = params.ErrorResults{expectedResults}
-				return nil
-			},
-		),
-		BestVersion: 10,
-	})
+	client := application.NewClient(basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "DestroyConsumedApplications")
+			c.Assert(a, jc.DeepEquals, params.DestroyConsumedApplicationsParams{
+				Applications: []params.DestroyConsumedApplicationParams{
+					{ApplicationTag: "application-foo", Force: &force, MaxWait: &noWait},
+					{ApplicationTag: "application-bar", Force: &force, MaxWait: &noWait},
+				},
+			})
+			called = true
+			c.Assert(response, gc.FitsTypeOf, &params.ErrorResults{})
+			out := response.(*params.ErrorResults)
+			*out = params.ErrorResults{expectedResults}
+			return nil
+		},
+	))
 
 	destroyParams := application.DestroyConsumedApplicationParams{
 		[]string{"foo"}, false, &noWait,
@@ -636,35 +412,6 @@ func (s *applicationSuite) TestDestroyUnits(c *gc.C) {
 		Units:   []string{"foo/0", "bar/1"},
 		Force:   true,
 		MaxWait: &delay,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, expectedResults)
-}
-
-func (s *applicationSuite) TestDestroyUnitsV4(c *gc.C) {
-	expectedResults := []params.DestroyUnitResult{{
-		Error: &params.Error{Message: "boo"},
-	}, {
-		Info: &params.DestroyUnitInfo{
-			DestroyedStorage: []params.Entity{{Tag: "storage-pgdata-0"}},
-			DetachedStorage:  []params.Entity{{Tag: "storage-pgdata-1"}},
-		},
-	}}
-	client := newClientWithVersion(func(objType string, version int, id, request string, a, response interface{}) error {
-		c.Assert(request, gc.Equals, "DestroyUnit")
-		c.Assert(a, jc.DeepEquals, params.Entities{
-			Entities: []params.Entity{
-				{Tag: "unit-foo-0"},
-				{Tag: "unit-bar-1"},
-			},
-		})
-		c.Assert(response, gc.FitsTypeOf, &params.DestroyUnitResults{})
-		out := response.(*params.DestroyUnitResults)
-		*out = params.DestroyUnitResults{expectedResults}
-		return nil
-	}, 4) // use V4
-	results, err := client.DestroyUnits(application.DestroyUnitsParams{
-		Units: []string{"foo/0", "bar/1"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)
@@ -906,25 +653,11 @@ func (s *applicationSuite) TestAddRelation(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestGetConfigV5(c *gc.C) {
-	args := params.Entities{Entities: []params.Entity{{"application-foo"}, {"application-bar"}}}
-	s.assertGetConfig(c, 5, "GetConfig", args)
-}
-
-func (s *applicationSuite) TestGetConfigV6(c *gc.C) {
-	args := params.Entities{Entities: []params.Entity{{"application-foo"}, {"application-bar"}}}
-	s.assertGetConfig(c, 6, "CharmConfig", args)
-}
-
-func (s *applicationSuite) TestGetConfigV9(c *gc.C) {
-	args := params.ApplicationGetArgs{Args: []params.ApplicationGet{
+func (s *applicationSuite) TestGetConfig(c *gc.C) {
+	expArgs := params.ApplicationGetArgs{Args: []params.ApplicationGet{
 		{ApplicationName: "foo", BranchName: newBranchName},
 		{ApplicationName: "bar", BranchName: newBranchName},
 	}}
-	s.assertGetConfig(c, 9, "CharmConfig", args)
-}
-
-func (s *applicationSuite) assertGetConfig(c *gc.C, version int, method string, expArgs interface{}) {
 	fooConfig := map[string]interface{}{
 		"outlook": map[string]interface{}{
 			"description": "No default outlook.",
@@ -954,22 +687,19 @@ func (s *applicationSuite) assertGetConfig(c *gc.C, version int, method string, 
 		},
 	}
 
-	client := application.NewClient(basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, args, response interface{}) error {
-				c.Assert(request, gc.Equals, method)
-				c.Assert(args, jc.DeepEquals, expArgs)
+	client := application.NewClient(basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, response interface{}) error {
+			c.Assert(request, gc.Equals, "CharmConfig")
+			c.Assert(args, jc.DeepEquals, expArgs)
 
-				result, ok := response.(*params.ApplicationGetConfigResults)
-				c.Assert(ok, jc.IsTrue)
-				result.Results = []params.ConfigResult{
-					{Config: fooConfig}, {Config: barConfig},
-				}
-				return nil
-			},
-		),
-		BestVersion: version,
-	})
+			result, ok := response.(*params.ApplicationGetConfigResults)
+			c.Assert(ok, jc.IsTrue)
+			result.Results = []params.ConfigResult{
+				{Config: fooConfig}, {Config: barConfig},
+			}
+			return nil
+		},
+	))
 
 	results, err := client.GetConfig(newBranchName, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
@@ -978,118 +708,28 @@ func (s *applicationSuite) assertGetConfig(c *gc.C, version int, method string, 
 	})
 }
 
-func (s *applicationSuite) TestGetConfigAPIv4(c *gc.C) {
-	fooConfig := map[string]interface{}{
-		"outlook": map[string]interface{}{
-			"default":     true,
-			"description": "No default outlook.",
-			"type":        "string",
-		},
-		"skill-level": map[string]interface{}{
-			"description": "A number indicating skill.",
-			"type":        "int",
-			"value":       42,
-		}}
-	barConfig := map[string]interface{}{
-		"title": map[string]interface{}{
-			"description": "A descriptive title used for the application.",
-			"type":        "string",
-			"value":       "bar",
-		},
-		"username": map[string]interface{}{
-			"default":     true,
-			"description": "The name of the initial account (given admin permissions).",
-			"type":        "string",
-			"value":       "admin001",
-		},
-	}
-
-	client := application.NewClient(basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, response interface{}) error {
-				c.Assert(request, gc.Equals, "Get")
-				args, ok := a.(params.ApplicationGet)
-				c.Assert(ok, jc.IsTrue)
-				c.Assert(args.BranchName, gc.Equals, newBranchName)
-
-				result, ok := response.(*params.ApplicationGetResults)
-				c.Assert(ok, jc.IsTrue)
-
-				switch args.ApplicationName {
-				case "foo":
-					result.CharmConfig = fooConfig
-				case "bar":
-					result.CharmConfig = barConfig
-				default:
-					return errors.New("unexpected app name")
-				}
-				return nil
-			},
-		),
-		BestVersion: 4,
-	})
-
-	expectedFooConfig := map[string]interface{}{
-		"outlook": map[string]interface{}{
-			"description": "No default outlook.",
-			"source":      "unset",
-			"type":        "string",
-		},
-		"skill-level": map[string]interface{}{
-			"description": "A number indicating skill.",
-			"source":      "user",
-			"type":        "int",
-			"value":       42,
-		}}
-	expectedBarConfig := map[string]interface{}{
-		"title": map[string]interface{}{
-			// We can't infer the charm default.
-			"description": "A descriptive title used for the application.",
-			"source":      "user",
-			"type":        "string",
-			"value":       "bar",
-		},
-		"username": map[string]interface{}{
-			"default":     "admin001",
-			"description": "The name of the initial account (given admin permissions).",
-			"source":      "default",
-			"type":        "string",
-			"value":       "admin001",
-		},
-	}
-
-	results, err := client.GetConfig(newBranchName, "foo", "bar")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []map[string]interface{}{
-		expectedFooConfig, expectedBarConfig,
-	})
-}
-
 func (s *applicationSuite) TestGetConstraints(c *gc.C) {
 	fooConstraints := constraints.MustParse("mem=4G")
 	barConstraints := constraints.MustParse("mem=128G", "cores=64")
 
-	client := application.NewClient(basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, response interface{}) error {
-				c.Assert(request, gc.Equals, "GetConstraints")
-				args, ok := a.(params.Entities)
-				c.Assert(ok, jc.IsTrue)
-				c.Assert(args, jc.DeepEquals, params.Entities{
-					Entities: []params.Entity{
-						{"application-foo"}, {"application-bar"},
-					}})
+	client := application.NewClient(basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "GetConstraints")
+			args, ok := a.(params.Entities)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, jc.DeepEquals, params.Entities{
+				Entities: []params.Entity{
+					{"application-foo"}, {"application-bar"},
+				}})
 
-				result, ok := response.(*params.ApplicationGetConstraintsResults)
-				c.Assert(ok, jc.IsTrue)
-				result.Results = []params.ApplicationConstraint{
-					{Constraints: fooConstraints}, {Constraints: barConstraints},
-				}
-				return nil
-			},
-		),
-		BestVersion: 5,
-	})
+			result, ok := response.(*params.ApplicationGetConstraintsResults)
+			c.Assert(ok, jc.IsTrue)
+			result.Results = []params.ApplicationConstraint{
+				{Constraints: fooConstraints}, {Constraints: barConstraints},
+			}
+			return nil
+		},
+	))
 
 	results, err := client.GetConstraints("foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1101,114 +741,29 @@ func (s *applicationSuite) TestGetConstraints(c *gc.C) {
 func (s *applicationSuite) TestGetConstraintsError(c *gc.C) {
 	fooConstraints := constraints.MustParse("mem=4G")
 
-	client := application.NewClient(basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, response interface{}) error {
-				c.Assert(request, gc.Equals, "GetConstraints")
-				args, ok := a.(params.Entities)
-				c.Assert(ok, jc.IsTrue)
-				c.Assert(args, jc.DeepEquals, params.Entities{
-					Entities: []params.Entity{
-						{"application-foo"}, {"application-bar"},
-					}})
+	client := application.NewClient(basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "GetConstraints")
+			args, ok := a.(params.Entities)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, jc.DeepEquals, params.Entities{
+				Entities: []params.Entity{
+					{"application-foo"}, {"application-bar"},
+				}})
 
-				result, ok := response.(*params.ApplicationGetConstraintsResults)
-				c.Assert(ok, jc.IsTrue)
-				result.Results = []params.ApplicationConstraint{
-					{Constraints: fooConstraints},
-					{Error: &params.Error{Message: "oh no"}},
-				}
-				return nil
-			},
-		),
-		BestVersion: 5,
-	})
+			result, ok := response.(*params.ApplicationGetConstraintsResults)
+			c.Assert(ok, jc.IsTrue)
+			result.Results = []params.ApplicationConstraint{
+				{Constraints: fooConstraints},
+				{Error: &params.Error{Message: "oh no"}},
+			}
+			return nil
+		},
+	))
 
 	results, err := client.GetConstraints("foo", "bar")
 	c.Assert(err, gc.ErrorMatches, `unable to get constraints for "bar": oh no`)
 	c.Assert(results, gc.IsNil)
-}
-
-func (s *applicationSuite) TestGetConstraintsAPIv4(c *gc.C) {
-	fooConstraints := constraints.MustParse("mem=4G")
-	barConstraints := constraints.MustParse("mem=128G", "cores=64")
-
-	client := application.NewClient(basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, response interface{}) error {
-				c.Assert(request, gc.Equals, "GetConstraints")
-				args, ok := a.(params.GetApplicationConstraints)
-				c.Assert(ok, jc.IsTrue)
-
-				result, ok := response.(*params.GetConstraintsResults)
-				c.Assert(ok, jc.IsTrue)
-
-				switch args.ApplicationName {
-				case "foo":
-					result.Constraints = fooConstraints
-				case "bar":
-					result.Constraints = barConstraints
-				default:
-					return errors.New("unexpected app name")
-				}
-				return nil
-			},
-		),
-		BestVersion: 4,
-	})
-
-	results, err := client.GetConstraints("foo", "bar")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []constraints.Value{
-		fooConstraints, barConstraints,
-	})
-}
-
-func (s *applicationSuite) TestSetApplicationConfig(c *gc.C) {
-	fooConfig := map[string]string{
-		"foo":   "bar",
-		"level": "high",
-	}
-
-	client := application.NewClient(basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, response interface{}) error {
-				c.Assert(request, gc.Equals, "SetApplicationsConfig")
-				args, ok := a.(params.ApplicationConfigSetArgs)
-				c.Assert(ok, jc.IsTrue)
-				c.Assert(args, jc.DeepEquals, params.ApplicationConfigSetArgs{
-					Args: []params.ApplicationConfigSet{{
-						ApplicationName: "foo",
-						Config:          fooConfig,
-						Generation:      newBranchName,
-					}}})
-				result, ok := response.(*params.ErrorResults)
-				c.Assert(ok, jc.IsTrue)
-				result.Results = []params.ErrorResult{
-					{Error: &params.Error{Message: "FAIL"}},
-				}
-				return nil
-			},
-		),
-		BestVersion: 6,
-	})
-
-	err := client.SetApplicationConfig(newBranchName, "foo", fooConfig)
-	c.Assert(err, gc.ErrorMatches, "FAIL")
-}
-
-func (s *applicationSuite) TestSetApplicationConfigNoSupported(c *gc.C) {
-	fooConfig := map[string]string{
-		"foo":   "bar",
-		"level": "high",
-	}
-
-	client := application.NewClient(basetesting.BestVersionCaller{
-		BestVersion: 13,
-	})
-
-	err := client.SetApplicationConfig(newBranchName, "foo", fooConfig)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *applicationSuite) TestSetConfig(c *gc.C) {
@@ -1218,103 +773,54 @@ func (s *applicationSuite) TestSetConfig(c *gc.C) {
 	}
 	fooConfigYaml := "foo"
 
-	client := application.NewClient(basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, response interface{}) error {
-				c.Assert(request, gc.Equals, "SetConfigs")
-				args, ok := a.(params.ConfigSetArgs)
-				c.Assert(ok, jc.IsTrue)
-				c.Assert(args, jc.DeepEquals, params.ConfigSetArgs{
-					Args: []params.ConfigSet{{
-						ApplicationName: "foo",
-						Config:          fooConfig,
-						ConfigYAML:      fooConfigYaml,
-						Generation:      newBranchName,
-					}}})
-				result, ok := response.(*params.ErrorResults)
-				c.Assert(ok, jc.IsTrue)
-				result.Results = []params.ErrorResult{
-					{Error: &params.Error{Message: "FAIL"}},
-				}
-				return nil
-			},
-		),
-		BestVersion: 13,
-	})
+	client := application.NewClient(basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "SetConfigs")
+			args, ok := a.(params.ConfigSetArgs)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, jc.DeepEquals, params.ConfigSetArgs{
+				Args: []params.ConfigSet{{
+					ApplicationName: "foo",
+					Config:          fooConfig,
+					ConfigYAML:      fooConfigYaml,
+					Generation:      newBranchName,
+				}}})
+			result, ok := response.(*params.ErrorResults)
+			c.Assert(ok, jc.IsTrue)
+			result.Results = []params.ErrorResult{
+				{Error: &params.Error{Message: "FAIL"}},
+			}
+			return nil
+		},
+	))
 
 	err := client.SetConfig(newBranchName, "foo", fooConfigYaml, fooConfig)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
-}
-
-func (s *applicationSuite) TestSetConfigNotSupported(c *gc.C) {
-	fooConfig := map[string]string{
-		"foo":   "bar",
-		"level": "high",
-	}
-	fooConfigYaml := "foo"
-
-	client := application.NewClient(basetesting.BestVersionCaller{
-		BestVersion: 12,
-	})
-
-	err := client.SetConfig(newBranchName, "foo", fooConfigYaml, fooConfig)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *applicationSuite) TestUnsetApplicationConfig(c *gc.C) {
-	client := application.NewClient(basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, response interface{}) error {
-				c.Assert(request, gc.Equals, "UnsetApplicationsConfig")
-				args, ok := a.(params.ApplicationConfigUnsetArgs)
-				c.Assert(ok, jc.IsTrue)
-				c.Assert(args, jc.DeepEquals, params.ApplicationConfigUnsetArgs{
-					Args: []params.ApplicationUnset{{
-						ApplicationName: "foo",
-						Options:         []string{"option"},
-						BranchName:      newBranchName,
-					}}})
-				result, ok := response.(*params.ErrorResults)
-				c.Assert(ok, jc.IsTrue)
-				result.Results = []params.ErrorResult{
-					{Error: &params.Error{Message: "FAIL"}},
-				}
-				return nil
-			},
-		),
-		BestVersion: 6,
-	})
+	client := application.NewClient(basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "UnsetApplicationsConfig")
+			args, ok := a.(params.ApplicationConfigUnsetArgs)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, jc.DeepEquals, params.ApplicationConfigUnsetArgs{
+				Args: []params.ApplicationUnset{{
+					ApplicationName: "foo",
+					Options:         []string{"option"},
+					BranchName:      newBranchName,
+				}}})
+			result, ok := response.(*params.ErrorResults)
+			c.Assert(ok, jc.IsTrue)
+			result.Results = []params.ErrorResult{
+				{Error: &params.Error{Message: "FAIL"}},
+			}
+			return nil
+		},
+	))
 
 	err := client.UnsetApplicationConfig(newBranchName, "foo", []string{"option"})
 	c.Assert(err, gc.ErrorMatches, "FAIL")
-}
-
-func (s *applicationSuite) TestSetApplicationConfigAPIv5(c *gc.C) {
-	client := application.NewClient(basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, response interface{}) error {
-				c.Fail()
-				return errors.NotSupportedf("")
-			}),
-		BestVersion: 5,
-	})
-
-	err := client.SetApplicationConfig(model.GenerationMaster, "foo", map[string]string{})
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-}
-
-func (s *applicationSuite) TestUnsetApplicationConfigAPIv5(c *gc.C) {
-	client := application.NewClient(basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, response interface{}) error {
-				c.Fail()
-				return errors.NotSupportedf("")
-			}),
-		BestVersion: 5,
-	})
-
-	err := client.UnsetApplicationConfig(model.GenerationMaster, "foo", []string{})
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *applicationSuite) TestResolveUnitErrors(c *gc.C) {
@@ -1559,39 +1065,16 @@ func (s *applicationSuite) TestScaleApplicationCallError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *applicationSuite) TestApplicationsInfoPriorV9(c *gc.C) {
-	called := false
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, a, response interface{}) error {
-			called = true
-			c.Assert(request, gc.Equals, "ApplicationsInfo")
-			return nil
-		},
-	)
-	client := application.NewClient(apiCaller)
-	_, err := client.ApplicationsInfo(nil)
-	c.Assert(err, gc.ErrorMatches, "ApplicationsInfo for Application facade v0 not supported")
-	c.Assert(called, jc.IsFalse)
-}
-
-func apiForApplicationsInfo(f basetesting.APICallerFunc) basetesting.BestVersionCaller {
-	return basetesting.BestVersionCaller{
-		BestVersion:   9,
-		APICallerFunc: f,
-	}
-}
-
 func (s *applicationSuite) TestApplicationsInfoCallError(c *gc.C) {
 	called := false
-	apiCaller := basetesting.APICallerFunc(
+	client := application.NewClient(basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, a, response interface{}) error {
 			called = true
 			c.Assert(request, gc.Equals, "ApplicationsInfo")
 			return errors.New("boom")
 		},
-	)
+	))
 
-	client := application.NewClient(apiForApplicationsInfo(apiCaller))
 	_, err := client.ApplicationsInfo(nil)
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(called, jc.IsTrue)
@@ -1599,7 +1082,7 @@ func (s *applicationSuite) TestApplicationsInfoCallError(c *gc.C) {
 
 func (s *applicationSuite) TestApplicationsInfo(c *gc.C) {
 	called := false
-	apiCaller := basetesting.APICallerFunc(
+	client := application.NewClient(basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, a, response interface{}) error {
 			called = true
 			c.Assert(request, gc.Equals, "ApplicationsInfo")
@@ -1630,9 +1113,8 @@ func (s *applicationSuite) TestApplicationsInfo(c *gc.C) {
 			}
 			return nil
 		},
-	)
+	))
 
-	client := application.NewClient(apiForApplicationsInfo(apiCaller))
 	results, err := client.ApplicationsInfo(
 		[]names.ApplicationTag{
 			names.NewApplicationTag("foo"),
@@ -1659,7 +1141,7 @@ func (s *applicationSuite) TestApplicationsInfo(c *gc.C) {
 
 func (s *applicationSuite) TestApplicationsInfoResultMismatch(c *gc.C) {
 	called := false
-	apiCaller := basetesting.APICallerFunc(
+	client := application.NewClient(basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, a, response interface{}) error {
 			called = true
 			c.Assert(request, gc.Equals, "ApplicationsInfo")
@@ -1673,9 +1155,8 @@ func (s *applicationSuite) TestApplicationsInfoResultMismatch(c *gc.C) {
 			}
 			return nil
 		},
-	)
+	))
 
-	client := application.NewClient(apiForApplicationsInfo(apiCaller))
 	_, err := client.ApplicationsInfo(
 		[]names.ApplicationTag{
 			names.NewApplicationTag("foo"),
@@ -1686,39 +1167,16 @@ func (s *applicationSuite) TestApplicationsInfoResultMismatch(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "expected 2 results, got 3")
 }
 
-func (s *applicationSuite) TestUnitsInfoBotSupported(c *gc.C) {
-	called := false
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, a, response interface{}) error {
-			called = true
-			c.Assert(request, gc.Equals, "UnitsInfo")
-			return nil
-		},
-	)
-	client := application.NewClient(apiCaller)
-	_, err := client.UnitsInfo(nil)
-	c.Assert(err, gc.ErrorMatches, "UnitsInfo for Application facade v0 not supported")
-	c.Assert(called, jc.IsFalse)
-}
-
-func apiForUnitsInfo(f basetesting.APICallerFunc) basetesting.BestVersionCaller {
-	return basetesting.BestVersionCaller{
-		BestVersion:   12,
-		APICallerFunc: f,
-	}
-}
-
 func (s *applicationSuite) TestUnitsInfoCallError(c *gc.C) {
 	called := false
-	apiCaller := basetesting.APICallerFunc(
+	client := application.NewClient(basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, a, response interface{}) error {
 			called = true
 			c.Assert(request, gc.Equals, "UnitsInfo")
 			return errors.New("boom")
 		},
-	)
+	))
 
-	client := application.NewClient(apiForUnitsInfo(apiCaller))
 	_, err := client.UnitsInfo(nil)
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(called, jc.IsTrue)
@@ -1726,7 +1184,7 @@ func (s *applicationSuite) TestUnitsInfoCallError(c *gc.C) {
 
 func (s *applicationSuite) TestUnitsInfo(c *gc.C) {
 	called := false
-	apiCaller := basetesting.APICallerFunc(
+	client := application.NewClient(basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, a, response interface{}) error {
 			called = true
 			c.Assert(request, gc.Equals, "UnitsInfo")
@@ -1768,9 +1226,8 @@ func (s *applicationSuite) TestUnitsInfo(c *gc.C) {
 			}
 			return nil
 		},
-	)
+	))
 
-	client := application.NewClient(apiForUnitsInfo(apiCaller))
 	results, err := client.UnitsInfo(
 		[]names.UnitTag{
 			names.NewUnitTag("foo/0"),
@@ -1808,7 +1265,7 @@ func (s *applicationSuite) TestUnitsInfo(c *gc.C) {
 }
 
 func (s *applicationSuite) TestUnitsInfoResultMismatch(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(
+	client := application.NewClient(basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, a, response interface{}) error {
 			c.Assert(request, gc.Equals, "UnitsInfo")
 
@@ -1819,9 +1276,8 @@ func (s *applicationSuite) TestUnitsInfoResultMismatch(c *gc.C) {
 			}
 			return nil
 		},
-	)
+	))
 
-	client := application.NewClient(apiForUnitsInfo(apiCaller))
 	_, err := client.UnitsInfo(
 		[]names.UnitTag{
 			names.NewUnitTag("foo/0"),
@@ -1831,119 +1287,58 @@ func (s *applicationSuite) TestUnitsInfoResultMismatch(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "expected 2 results, got 3")
 }
 
-func (s *applicationSuite) TestExposeVersionChecks(c *gc.C) {
-	specs := []struct {
-		descr            string
-		facadeVersion    int
-		exposedEndpoints map[string]params.ExposedEndpoint
-		expErr           string
-	}{
-		{
-			descr:         "use expose parameters with pre 2.9 controller",
-			facadeVersion: 12,
-			exposedEndpoints: map[string]params.ExposedEndpoint{
-				"foo": {
-					ExposeToSpaces: []string{"outer"},
+func (s *applicationSuite) TestExpose(c *gc.C) {
+	called := false
+	client := application.NewClient(basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			called = true
+			c.Assert(request, gc.Equals, "Expose")
+			args, ok := a.(params.ApplicationExpose)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, jc.DeepEquals, params.ApplicationExpose{
+				ApplicationName: "foo",
+				ExposedEndpoints: map[string]params.ExposedEndpoint{
+					"": {
+						ExposeToCIDRs: []string{"0.0.0.0/0"},
+					},
+					"foo": {
+						ExposeToSpaces: []string{"outer"},
+					},
 				},
-			},
-			expErr: "controller does not support granular expose parameters; applying this change would make all open application ports accessible from 0.0.0.0/0",
-		},
-		{
-			descr:         "use expose parameters with pre 2.9 controller but expose all endpoints to 0.0.0.0/0",
-			facadeVersion: 12,
-			exposedEndpoints: map[string]params.ExposedEndpoint{
-				"": {
-					ExposeToCIDRs: []string{"0.0.0.0/0"},
-				},
-			},
-			expErr: "",
-		},
-		{
-			descr:         "use expose parameters with pre 2.9 controller but expose all endpoints to 0.0.0.0/0 and ::/0",
-			facadeVersion: 12,
-			exposedEndpoints: map[string]params.ExposedEndpoint{
-				"": {
-					ExposeToCIDRs: []string{"0.0.0.0/0", "::/0"},
-				},
-			},
-			expErr: "",
-		},
-		{
-			descr:            "don't use expose parameters",
-			facadeVersion:    12,
-			exposedEndpoints: nil,
-			expErr:           "",
-		},
-		{
-			descr:         "use expose parameters with 2.9 controller",
-			facadeVersion: 13,
-			exposedEndpoints: map[string]params.ExposedEndpoint{
-				"": {
-					ExposeToCIDRs: []string{"0.0.0.0/0"},
-				},
-				"foo": {
-					ExposeToSpaces: []string{"outer"},
-				},
-			},
-			expErr: "",
-		},
-	}
-
-	for i, spec := range specs {
-		c.Logf("%d. %s", i, spec.descr)
-
-		client := newClientWithVersion(func(objType string, version int, id, request string, a, response interface{}) error {
+			})
 			return nil
-		}, spec.facadeVersion)
+		},
+	))
 
-		err := client.Expose("foo", spec.exposedEndpoints)
-		if spec.expErr == "" {
-			c.Assert(err, jc.ErrorIsNil)
-		} else {
-			c.Assert(err, gc.ErrorMatches, spec.expErr)
-		}
-	}
+	err := client.Expose("foo", map[string]params.ExposedEndpoint{
+		"": {
+			ExposeToCIDRs: []string{"0.0.0.0/0"},
+		},
+		"foo": {
+			ExposeToSpaces: []string{"outer"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
 }
 
-func (s *applicationSuite) TestUnexposeVersionChecks(c *gc.C) {
-	specs := []struct {
-		descr            string
-		facadeVersion    int
-		exposedEndpoints []string
-		expErr           string
-	}{
-		{
-			descr:            "use exposed endpoints with pre 2.9 controller",
-			facadeVersion:    12,
-			exposedEndpoints: []string{"foo"},
-			expErr:           "controller does not support granular expose parameters; applying this change would unexpose the application",
-		},
-		{
-			descr:            "don't use expose parameters",
-			facadeVersion:    12,
-			exposedEndpoints: nil,
-			expErr:           "",
-		},
-		{
-			descr:            "use exposed endpoints with 2.9 controller",
-			facadeVersion:    13,
-			exposedEndpoints: []string{"foo"},
-			expErr:           "",
-		},
-	}
-
-	for i, spec := range specs {
-		c.Logf("%d. %s", i, spec.descr)
-
-		client := newClientWithVersion(func(objType string, version int, id, request string, a, response interface{}) error {
+func (s *applicationSuite) TestUnexpose(c *gc.C) {
+	called := false
+	client := application.NewClient(basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			called = true
+			c.Assert(request, gc.Equals, "Unexpose")
+			args, ok := a.(params.ApplicationUnexpose)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, jc.DeepEquals, params.ApplicationUnexpose{
+				ApplicationName:  "foo",
+				ExposedEndpoints: []string{"foo"},
+			})
 			return nil
-		}, spec.facadeVersion)
+		},
+	))
 
-		err := client.Unexpose("foo", spec.exposedEndpoints)
-		if spec.expErr == "" {
-			c.Assert(err, jc.ErrorIsNil)
-		} else {
-			c.Assert(err, gc.ErrorMatches, spec.expErr)
-		}
-	}
+	err := client.Unexpose("foo", []string{"foo"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
 }
