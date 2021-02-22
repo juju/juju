@@ -197,13 +197,6 @@ func (k *kubernetesClient) deleteMutatingWebhookConfigurationsForApp(appName str
 	return errors.Trace(k.deleteMutatingWebhookConfigurations(selector))
 }
 
-func toValidatingWebhook(i []k8sspecs.K8sValidatingWebhookSpec) (o []admissionregistrationv1beta1.ValidatingWebhook) {
-	for _, v := range i {
-		o = append(o, v.SpecV1Beta1)
-	}
-	return o
-}
-
 func (k *kubernetesClient) ensureValidatingWebhookConfigurations(
 	appName string, annotations k8sannotations.Annotation, cfgs []k8sspecs.K8sValidatingWebhook,
 ) (cleanUps []func(), err error) {

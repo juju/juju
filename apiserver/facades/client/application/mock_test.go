@@ -89,6 +89,7 @@ type mockApplication struct {
 
 	bindings         map[string]string
 	charm            *mockCharm
+	charmOrigin      *state.CharmOrigin
 	curl             *charm.URL
 	endpoints        []state.Endpoint
 	exposedEndpoints map[string]state.ExposedEndpoint
@@ -269,6 +270,11 @@ func (a *mockApplication) Relations() ([]application.Relation, error) {
 	return []application.Relation{
 		&mockRelation{},
 	}, nil
+}
+
+func (a *mockApplication) CharmOrigin() *state.CharmOrigin {
+	a.MethodCall(a, "CharmOrigin")
+	return a.charmOrigin
 }
 
 type mockBindings struct {

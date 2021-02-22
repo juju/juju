@@ -549,7 +549,7 @@ func (op *terminateRemoteApplicationOperation) Done(err error) error {
 	if err != nil {
 		return errors.Annotatef(err, "updating unit %q", op.app.Name())
 	}
-	probablyUpdateStatusHistory(op.app.st.db(), op.app.globalKey(), op.doc)
+	_, _ = probablyUpdateStatusHistory(op.app.st.db(), op.app.globalKey(), op.doc)
 	return nil
 }
 

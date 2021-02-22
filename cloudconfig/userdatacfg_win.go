@@ -28,7 +28,8 @@ import (
 type aclType string
 
 const (
-	fileSystem    aclType = "FileSystem"
+	// Deadcode, seems like we should remove this.
+	// fileSystem    aclType = "FileSystem"
 	registryEntry aclType = "Registry"
 )
 

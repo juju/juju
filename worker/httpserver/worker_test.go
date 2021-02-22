@@ -159,7 +159,9 @@ func (s *WorkerSuite) makeRequest(c *gc.C, url string) {
 		Transport: &http.Transport{
 			TLSClientConfig: s.config.TLSConfig,
 		},
+		Timeout: testing.LongWait,
 	}
+	defer client.CloseIdleConnections()
 	resp, err := client.Get(url + "/hello/world")
 	c.Assert(err, jc.ErrorIsNil)
 	defer resp.Body.Close()
@@ -269,7 +271,9 @@ func (s *WorkerSuite) TestHeldListener(c *gc.C) {
 			Transport: &http.Transport{
 				TLSClientConfig: s.config.TLSConfig,
 			},
+			Timeout: testing.LongWait,
 		}
+		defer client.CloseIdleConnections()
 		_, err := client.Get(url + "/quick")
 		quickErr <- err
 	}
@@ -359,7 +363,9 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *gc.C) {
 			Transport: &http.Transport{
 				TLSClientConfig: s.config.TLSConfig,
 			},
+			Timeout: testing.LongWait,
 		}
+		defer client.CloseIdleConnections()
 		_, err := client.Get(url + "/quick")
 		return err
 	}
@@ -460,7 +466,9 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelayShutdown(c *gc.
 			Transport: &http.Transport{
 				TLSClientConfig: s.config.TLSConfig,
 			},
+			Timeout: testing.LongWait,
 		}
+		defer client.CloseIdleConnections()
 		_, err := client.Get(url + "/quick")
 		return err
 	}

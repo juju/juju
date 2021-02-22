@@ -151,7 +151,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 	tag := p.agentConfig.Tag()
 	machineTag, ok := tag.(names.MachineTag)
 	if !ok {
-		errors.Errorf("expected names.MachineTag, got %T", tag)
+		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
 
 	modelCfg, err := p.st.ModelConfig()

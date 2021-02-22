@@ -23,8 +23,6 @@ import (
 
 var _ = gc.Suite(&listAgreementsSuite{})
 
-var testTermsAndConditions = "Test Terms and Conditions"
-
 type listAgreementsSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	client *mockClient

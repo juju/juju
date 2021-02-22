@@ -430,7 +430,7 @@ func (s *StorageProvisionerAPIv3) WatchVolumeAttachmentPlans(args params.Entitie
 		if stringChanges, ok := <-w.Changes(); ok {
 			changes, err := storagecommon.ParseVolumeAttachmentIds(stringChanges)
 			if err != nil {
-				w.Stop()
+				_ = w.Stop()
 				return "", nil, err
 			}
 			return s.resources.Register(w), changes, nil
@@ -514,7 +514,7 @@ func (s *StorageProvisionerAPIv3) watchAttachments(
 		if stringChanges, ok := <-w.Changes(); ok {
 			changes, err := parseAttachmentIds(stringChanges)
 			if err != nil {
-				w.Stop()
+				_ = w.Stop()
 				return "", nil, err
 			}
 			return s.resources.Register(w), changes, nil

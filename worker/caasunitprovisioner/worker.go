@@ -15,7 +15,9 @@ import (
 
 // Logger is here to stop the desire of creating a package level Logger.
 // Don't do this, instead use the one passed as manifold config.
-var logger interface{}
+type logger interface{}
+
+var _ logger = struct{}{}
 
 // Config holds configuration for the CAAS unit provisioner worker.
 type Config struct {
@@ -186,7 +188,7 @@ func (p *provisioner) loop() error {
 					if err != nil {
 						return errors.Trace(err)
 					}
-					p.catacomb.Add(uw)
+					_ = p.catacomb.Add(uw)
 					continue
 				}
 				if _, ok := p.getApplicationWorker(appId); ok || appLife == life.Dead {
@@ -214,7 +216,7 @@ func (p *provisioner) loop() error {
 					return errors.Trace(err)
 				}
 				p.saveApplicationWorker(appId, w)
-				p.catacomb.Add(w)
+				_ = p.catacomb.Add(w)
 			}
 		}
 	}

@@ -65,7 +65,7 @@ func (h *leaseHandler) list(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Write(bytes)
+	_, _ = w.Write(bytes)
 }
 
 type leases struct {

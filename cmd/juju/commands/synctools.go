@@ -124,8 +124,8 @@ func (c *syncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 	writer := loggo.NewMinimumLevelWriter(
 		cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr),
 		loggo.INFO)
-	loggo.RegisterWriter("syncagentbinaries", writer)
-	defer loggo.RemoveWriter("syncagentbinaries")
+	_ = loggo.RegisterWriter("syncagentbinaries", writer)
+	defer func() { _, _ = loggo.RemoveWriter("syncagentbinaries") }()
 
 	sctx := &sync.SyncContext{
 		AllVersions:  c.allVersions,

@@ -94,7 +94,7 @@ func (dl *Download) run(req Request) {
 		logger.Infof("download complete (%q)", req.URL)
 		err = verifyDownload(filename, req)
 		if err != nil {
-			os.Remove(filename)
+			_ = os.Remove(filename)
 			filename = ""
 		}
 	}
@@ -119,9 +119,9 @@ func (dl *Download) download(req Request) (filename string, err error) {
 		return "", errors.Trace(err)
 	}
 	defer func() {
-		tempFile.Close()
+		_ = tempFile.Close()
 		if err != nil {
-			os.Remove(tempFile.Name())
+			_ = os.Remove(tempFile.Name())
 		}
 	}()
 
@@ -129,7 +129,7 @@ func (dl *Download) download(req Request) (filename string, err error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	defer blobReader.Close()
+	defer func() { _ = blobReader.Close() }()
 
 	reader := &abortableReader{blobReader, req.Abort}
 	_, err = io.Copy(tempFile, reader)
@@ -166,7 +166,7 @@ func verifyDownload(filename string, req Request) error {
 	if err != nil {
 		return errors.Annotate(err, "opening for verify")
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	if err := req.Verify(file); err != nil {
 		return errors.Trace(err)

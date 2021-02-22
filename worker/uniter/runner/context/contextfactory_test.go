@@ -203,6 +203,21 @@ func (s *ContextFactorySuite) TestRelationHookContext(c *gc.C) {
 	s.AssertNotActionContext(c, ctx)
 	s.AssertRelationContext(c, ctx, 1, "", "")
 	s.AssertNotStorageContext(c, ctx)
+	s.AssertNotWorkloadContext(c, ctx)
+}
+
+func (s *ContextFactorySuite) TestWorkloadHookContext(c *gc.C) {
+	hi := hook.Info{
+		Kind:         hooks.WorkloadReady,
+		WorkloadName: "test",
+	}
+	ctx, err := s.factory.HookContext(hi)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AssertCoreContext(c, ctx)
+	s.AssertWorkloadContext(c, ctx, "test")
+	s.AssertNotActionContext(c, ctx)
+	s.AssertNotRelationContext(c, ctx)
+	s.AssertNotStorageContext(c, ctx)
 }
 
 func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
@@ -555,6 +570,7 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
 	s.AssertNotStorageContext(c, ctx)
+	s.AssertNotWorkloadContext(c, ctx)
 }
 
 func (s *ContextFactorySuite) TestActionContext(c *gc.C) {
@@ -578,6 +594,7 @@ func (s *ContextFactorySuite) TestActionContext(c *gc.C) {
 	s.AssertActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
 	s.AssertNotStorageContext(c, ctx)
+	s.AssertNotWorkloadContext(c, ctx)
 }
 
 func (s *ContextFactorySuite) TestCommandContext(c *gc.C) {
@@ -588,6 +605,7 @@ func (s *ContextFactorySuite) TestCommandContext(c *gc.C) {
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
 	s.AssertNotStorageContext(c, ctx)
+	s.AssertNotWorkloadContext(c, ctx)
 }
 
 func (s *ContextFactorySuite) TestCommandContextNoRelation(c *gc.C) {
@@ -597,6 +615,7 @@ func (s *ContextFactorySuite) TestCommandContextNoRelation(c *gc.C) {
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
 	s.AssertNotStorageContext(c, ctx)
+	s.AssertNotWorkloadContext(c, ctx)
 }
 
 func (s *ContextFactorySuite) TestNewCommandContextForceNoRemoteUnit(c *gc.C) {
@@ -608,6 +627,7 @@ func (s *ContextFactorySuite) TestNewCommandContextForceNoRemoteUnit(c *gc.C) {
 	s.AssertNotActionContext(c, ctx)
 	s.AssertRelationContext(c, ctx, 0, "", "")
 	s.AssertNotStorageContext(c, ctx)
+	s.AssertNotWorkloadContext(c, ctx)
 }
 
 func (s *ContextFactorySuite) TestNewCommandContextForceRemoteUnitMissing(c *gc.C) {
@@ -620,6 +640,7 @@ func (s *ContextFactorySuite) TestNewCommandContextForceRemoteUnitMissing(c *gc.
 	s.AssertNotActionContext(c, ctx)
 	s.AssertRelationContext(c, ctx, 0, "blah/123", "")
 	s.AssertNotStorageContext(c, ctx)
+	s.AssertNotWorkloadContext(c, ctx)
 }
 
 func (s *ContextFactorySuite) TestNewCommandContextInferRemoteUnit(c *gc.C) {
@@ -631,6 +652,7 @@ func (s *ContextFactorySuite) TestNewCommandContextInferRemoteUnit(c *gc.C) {
 	s.AssertNotActionContext(c, ctx)
 	s.AssertRelationContext(c, ctx, 0, "foo/2", "")
 	s.AssertNotStorageContext(c, ctx)
+	s.AssertNotWorkloadContext(c, ctx)
 }
 
 func (s *ContextFactorySuite) TestNewHookContextPrunesNonMemberCaches(c *gc.C) {
@@ -685,6 +707,7 @@ func (s *ContextFactorySuite) TestNewHookContextRelationJoinedUpdatesRelationCon
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotStorageContext(c, ctx)
+	s.AssertNotWorkloadContext(c, ctx)
 	rel := s.AssertRelationContext(c, ctx, 1, "r/0", "r")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0"})
 	cached0, member := s.getCache(1, "r/0")
@@ -711,6 +734,7 @@ func (s *ContextFactorySuite) TestNewHookContextRelationChangedUpdatesRelationCo
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotStorageContext(c, ctx)
+	s.AssertNotWorkloadContext(c, ctx)
 	rel := s.AssertRelationContext(c, ctx, 1, "r/4", "r")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0", "r/4"})
 	cached0, member := s.getCache(1, "r/0")
@@ -750,6 +774,7 @@ func (s *ContextFactorySuite) TestNewHookContextRelationChangedUpdatesRelationCo
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotStorageContext(c, ctx)
+	s.AssertNotWorkloadContext(c, ctx)
 	rel := s.AssertRelationContext(c, ctx, 1, "", "r")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0"})
 	cached0, member := s.getCache(1, "r/0")
@@ -782,6 +807,7 @@ func (s *ContextFactorySuite) TestNewHookContextRelationDepartedUpdatesRelationC
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotStorageContext(c, ctx)
+	s.AssertNotWorkloadContext(c, ctx)
 	rel := s.AssertRelationContext(c, ctx, 1, "r/0", "")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/4"})
 	cached0, member := s.getCache(1, "r/0")

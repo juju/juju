@@ -24,6 +24,7 @@ type ContextInfo struct {
 	RelationHook
 	ActionHook
 	Version
+	WorkloadHook
 }
 
 // Context returns a Context that wraps the info.
@@ -70,6 +71,7 @@ type Context struct {
 	ContextRelationHook
 	ContextActionHook
 	ContextVersion
+	ContextWorkloadHook
 }
 
 // NewContext builds a jujuc.Context test double.
@@ -101,5 +103,7 @@ func NewContext(stub *testing.Stub, info *ContextInfo) *Context {
 	ctx.ContextVersion.info = &info.Version
 	ctx.ContextUnitCharmState.stub = stub
 	ctx.ContextUnitCharmState.info = &info.UnitCharmState
+	ctx.ContextWorkloadHook.stub = stub
+	ctx.ContextWorkloadHook.info = &info.WorkloadHook
 	return &ctx
 }

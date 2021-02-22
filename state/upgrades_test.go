@@ -4954,6 +4954,48 @@ func (s *upgradesSuite) TestRemoveUnusedLinkLayerDeviceProviderIDs(c *gc.C) {
 	}))
 }
 
+func (s *upgradesSuite) TestTranslateK8sServiceTypes(c *gc.C) {
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = settingsColl.Insert(bson.M{
+		"_id": "modelXXX:a#foo",
+		"settings": bson.M{
+			"kubernetes-service-type": "loadbalancer"},
+	}, bson.M{
+		"_id": "modelXXX:a#bar",
+		"settings": bson.M{
+			"kubernetes-service-type": "LoadBalancer"},
+	}, bson.M{
+		"_id": "modelXXX:a#baz",
+		"settings": bson.M{
+			"kubernetes-service-type": "LoadBalancer",
+			"another-setting":         "anothervalue"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSettings := []bson.M{
+		{
+			"_id": "modelXXX:a#bar",
+			"settings": bson.M{
+				"kubernetes-service-type": "loadbalancer"},
+		}, {
+			"_id": "modelXXX:a#baz",
+			"settings": bson.M{
+				"kubernetes-service-type": "loadbalancer",
+				"another-setting":         "anothervalue"},
+		}, {
+			"_id": "modelXXX:a#foo",
+			"settings": bson.M{
+				"kubernetes-service-type": "loadbalancer"},
+		}}
+
+	s.assertUpgradedData(c, TranslateK8sServiceTypes,
+		upgradedData(settingsColl, expectedSettings),
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

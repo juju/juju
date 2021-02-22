@@ -439,7 +439,7 @@ func (c *controllerStack) getControllerSvcSpec(cloudType string, cfg *podcfg.Boo
 		return spec, nil
 	}
 	if len(cfg.ControllerServiceType) > 0 {
-		if spec.ServiceType, err = caasServiceToK8s(caas.ServiceType(cfg.ControllerServiceType)); err != nil {
+		if spec.ServiceType, err = CaasServiceToK8s(caas.ServiceType(cfg.ControllerServiceType)); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -547,7 +547,7 @@ func (c *controllerStack) createControllerService() error {
 
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q", svcName)
-		c.broker.deleteService(svcName)
+		_ = c.broker.deleteService(svcName)
 	})
 
 	publicAddressPoller := func() error {
@@ -599,7 +599,7 @@ func (c *controllerStack) createControllerSecretSharedSecret() error {
 	logger.Debugf("ensuring shared secret: \n%+v", secret)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q shared-secret", secret.Name)
-		c.broker.deleteSecret(secret.GetName(), secret.GetUID())
+		_ = c.broker.deleteSecret(secret.GetName(), secret.GetUID())
 	})
 	return c.broker.updateSecret(secret)
 }
@@ -620,7 +620,7 @@ func (c *controllerStack) createControllerSecretServerPem() error {
 	logger.Debugf("ensuring server.pem secret: \n%+v", secret)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q server.pem", secret.Name)
-		c.broker.deleteSecret(secret.GetName(), secret.GetUID())
+		_ = c.broker.deleteSecret(secret.GetName(), secret.GetUID())
 	})
 	return c.broker.updateSecret(secret)
 }
@@ -779,7 +779,7 @@ func (c *controllerStack) createControllerStatefulset() error {
 	logger.Debugf("creating controller statefulset: \n%+v", spec)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q statefulset", spec.Name)
-		c.broker.deleteStatefulSet(spec.Name)
+		_ = c.broker.deleteStatefulSet(spec.Name)
 	})
 	w, err := c.broker.WatchUnits(c.resourceNameStatefulSet, caas.ModeWorkload)
 	if err != nil {
@@ -902,11 +902,11 @@ func (c *controllerStack) waitForPod(podWatcher watcher.NotifyWatcher, podName s
 		return false, nil
 	}
 
-	printPodEvents()
+	_ = printPodEvents()
 	for {
 		select {
 		case <-podWatcher.Changes():
-			printPodEvents()
+			_ = printPodEvents()
 			pod, err := c.broker.getPod(podName)
 			if errors.IsNotFound(err) {
 				logger.Debugf("pod %q is not provisioned yet", podName)
@@ -924,7 +924,7 @@ func (c *controllerStack) waitForPod(podWatcher watcher.NotifyWatcher, podName s
 				return nil
 			}
 		case <-podEventWatcher.Changes():
-			printPodEvents()
+			_ = printPodEvents()
 		case <-timeout.Chan():
 			err := pendingReason()
 			if err != nil {

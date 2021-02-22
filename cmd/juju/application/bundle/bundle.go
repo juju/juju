@@ -11,7 +11,6 @@ import (
 	"github.com/juju/bundlechanges/v5"
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/params"
@@ -23,8 +22,6 @@ import (
 
 // This file contains functionality required by both the application
 // package and the application/deployer package.
-
-var logger = loggo.GetLogger("juju.cmd.juju.application.bundle")
 
 // BuildModelRepresentation creates a buildchanges.Model, representing
 // the existing deployment, to be used while deploying or diffing a bundle.
@@ -66,12 +63,26 @@ func BuildModelRepresentation(
 	}
 	applications := make(map[string]*bundlechanges.Application)
 	for name, appStatus := range status.Applications {
+		curl, err := charm.ParseURL(appStatus.Charm)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		// CharmAlias is used to ensure that we use the name of the charm and
+		// not the full path of the charm url, exposing the internal
+		// representation of the charm URL.
+		charmAlias := appStatus.Charm
+		if charm.CharmHub.Matches(curl.Schema) {
+			charmAlias = curl.Name
+		}
+
 		app := &bundlechanges.Application{
 			Name:          name,
-			Charm:         appStatus.Charm,
+			Charm:         charmAlias,
 			Scale:         appStatus.Scale,
 			Exposed:       appStatus.Exposed,
 			Series:        appStatus.Series,
+			Channel:       appStatus.CharmChannel,
 			SubordinateTo: appStatus.SubordinateTo,
 			Offers:        offersByApplication[name],
 		}

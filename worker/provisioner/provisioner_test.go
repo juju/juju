@@ -913,62 +913,6 @@ type machineClassificationTest struct {
 	classification provisioner.MachineClassification
 }
 
-var machineClassificationTests = []machineClassificationTest{{
-	description:    "Dead machine is dead",
-	life:           life.Dead,
-	status:         status.Started,
-	classification: provisioner.Dead,
-}, {
-	description:    "Dying machine can carry on dying",
-	life:           life.Dying,
-	status:         status.Started,
-	classification: provisioner.None,
-}, {
-	description:    "Dying unprovisioned machine is ensured dead",
-	life:           life.Dying,
-	status:         status.Started,
-	classification: provisioner.Dead,
-	idErr:          params.CodeNotProvisioned,
-}, {
-	description:    "Can't load provisioned dying machine",
-	life:           life.Dying,
-	status:         status.Started,
-	classification: provisioner.None,
-	idErr:          params.CodeNotFound,
-	expectErrCode:  params.CodeNotFound,
-	expectErrFmt:   "failed to load dying machine id:%s.*",
-}, {
-	description:    "Alive machine is not provisioned - pending",
-	life:           life.Alive,
-	status:         status.Pending,
-	classification: provisioner.Pending,
-	idErr:          params.CodeNotProvisioned,
-	expectErrFmt:   "found machine pending provisioning id:%s.*",
-}, {
-	description:    "Alive, pending machine not found",
-	life:           life.Alive,
-	status:         status.Pending,
-	classification: provisioner.None,
-	idErr:          params.CodeNotFound,
-	expectErrCode:  params.CodeNotFound,
-	expectErrFmt:   "failed to load machine id:%s.*",
-}, {
-	description:    "Cannot get unprovisioned machine status",
-	life:           life.Alive,
-	classification: provisioner.None,
-	statusErr:      params.CodeNotFound,
-	idErr:          params.CodeNotProvisioned,
-}, {
-	description:    "Dying machine fails to ensure dead",
-	life:           life.Dying,
-	status:         status.Started,
-	classification: provisioner.None,
-	idErr:          params.CodeNotProvisioned,
-	expectErrCode:  params.CodeNotFound,
-	ensureDeadErr:  params.CodeNotFound,
-	expectErrFmt:   "failed to ensure machine dead id:%s.*",
-}}
-
 var machineClassificationTestsNoMaintenance = machineClassificationTest{
 	description:    "Machine doesn't need maintaining",
 	life:           life.Alive,
@@ -1964,7 +1908,7 @@ func (b *mockBroker) AvailabilityZones(ctx context.ProviderCallContext) (corenet
 	return b.Environ.(providercommon.ZonedEnviron).AvailabilityZones(ctx)
 }
 
-func (b *mockBroker) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+func (b *mockBroker) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 	return b.Environ.(providercommon.ZonedEnviron).InstanceAvailabilityZoneNames(ctx, ids)
 }
 

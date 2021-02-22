@@ -50,29 +50,28 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 	}
 
 	for _, device := range params.Devices {
-		var deviceId string
-		deviceId, deviceType, err := netplan.FindDeviceByNameOrMAC(device.DeviceName, device.MACAddress)
+		deviceID, deviceType, err := netplan.FindDeviceByNameOrMAC(device.DeviceName, device.MACAddress)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		switch deviceType {
 		case TypeEthernet:
-			err = netplan.BridgeEthernetById(deviceId, device.BridgeName)
+			err = netplan.BridgeEthernetById(deviceID, device.BridgeName)
 			if err != nil {
 				return nil, err
 			}
 		case TypeBond:
-			err = netplan.BridgeBondById(deviceId, device.BridgeName)
+			err = netplan.BridgeBondById(deviceID, device.BridgeName)
 			if err != nil {
 				return nil, err
 			}
 		case TypeVLAN:
-			err = netplan.BridgeVLANById(deviceId, device.BridgeName)
+			err = netplan.BridgeVLANById(deviceID, device.BridgeName)
 			if err != nil {
 				return nil, err
 			}
 		default:
-			return nil, errors.Errorf("unable to create bridge for %q, unknown device type %q", deviceId, deviceType)
+			return nil, errors.Errorf("unable to create bridge for %q, unknown device type %q", deviceID, deviceType)
 		}
 	}
 	_, err = netplan.Write("")
@@ -82,7 +81,7 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 
 	err = netplan.MoveYamlsToBak()
 	if err != nil {
-		netplan.Rollback()
+		_ = netplan.Rollback()
 		return nil, err
 	}
 
@@ -102,11 +101,11 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 	logger.Debugf("Netplan activation result %q %q %d", result.Stderr, result.Stdout, result.Code)
 
 	if err != nil {
-		netplan.Rollback()
+		_ = netplan.Rollback()
 		return &activationResult, errors.Errorf("bridge activation error: %s", err)
 	}
 	if result.Code != 0 {
-		netplan.Rollback()
+		_ = netplan.Rollback()
 		return &activationResult, errors.Errorf("bridge activation error code %d", result.Code)
 	}
 	return nil, nil

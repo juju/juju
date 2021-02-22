@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/status"
@@ -389,7 +389,7 @@ func filesystemParams(
 	}
 	filesystemTags[tags.JujuStorageOwner] = app.Name()
 
-	storageClassName, _ := modelConfig.AllAttrs()[provider.WorkloadStorageKey].(string)
+	storageClassName, _ := modelConfig.AllAttrs()[k8sconstants.WorkloadStorageKey].(string)
 	if cons.Pool == "" && storageClassName == "" {
 		return nil, errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
 	}

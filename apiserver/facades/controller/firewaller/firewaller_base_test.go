@@ -257,7 +257,6 @@ func (s *firewallerBaseSuite) testWatchSubnets(
 }
 
 const (
-	canWatchUnits    = true
 	cannotWatchUnits = false
 )
 

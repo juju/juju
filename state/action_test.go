@@ -6,7 +6,10 @@ package state_test
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -384,6 +387,51 @@ func (s *ActionSuite) TestLastActionFinishCompletesOperation(c *gc.C) {
 	// Failed task precedence over completed.
 	c.Assert(operation.Status(), gc.Equals, state.ActionFailed)
 	c.Assert(operation.Completed(), gc.Equals, anAction2.Completed())
+}
+
+func (s *ActionSuite) TestLastActionFinishCompletesOperationMany(c *gc.C) {
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+
+	numActions := 50
+
+	wg := sync.WaitGroup{}
+	var actions []state.Action
+	for i := 0; i < numActions; i++ {
+		anAction, err := s.unit.AddAction(operationID, "snapshot", nil, nil, nil)
+		c.Assert(err, jc.ErrorIsNil)
+
+		anAction, err = anAction.Begin()
+		c.Assert(err, jc.ErrorIsNil)
+		actions = append(actions, anAction)
+		wg.Add(1)
+	}
+
+	completeCount := int32(0)
+	for i := 0; i < numActions; i++ {
+		go func(a int) {
+			defer func() {
+				atomic.AddInt32(&completeCount, 1)
+				wg.Done()
+			}()
+			time.Sleep(time.Millisecond * time.Duration(rand.Intn(5)))
+			if atomic.LoadInt32(&completeCount) < int32(numActions) {
+				operation, err := s.model.Operation(operationID)
+				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(operation.Status(), gc.Not(gc.Equals), state.ActionCompleted)
+			}
+
+			_, err = actions[a].Finish(state.ActionResults{
+				Status: state.ActionCompleted,
+			})
+			c.Assert(err, jc.ErrorIsNil)
+		}(i)
+	}
+	wg.Wait()
+
+	operation, err := s.model.Operation(operationID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operation.Status(), gc.Equals, state.ActionCompleted)
 }
 
 func (s *ActionSuite) TestLastActionFinishCompletesOperationRace(c *gc.C) {
@@ -1018,15 +1066,16 @@ func (s *ActionSuite) TestActionStatusWatcher(c *gc.C) {
 		receiver state.ActionReceiver
 		name     string
 		status   state.ActionStatus
+		err      string
 	}{
-		{s.unit, "snapshot", state.ActionCancelled},
-		{s.unit2, "snapshot", state.ActionCancelled},
-		{s.unit, "snapshot", state.ActionPending},
-		{s.unit2, "snapshot", state.ActionPending},
-		{s.unit, "snapshot", state.ActionFailed},
-		{s.unit2, "snapshot", state.ActionFailed},
-		{s.unit, "snapshot", state.ActionCompleted},
-		{s.unit2, "snapshot", state.ActionCompleted},
+		{s.unit, "snapshot", state.ActionCancelled, ""},
+		{s.unit2, "snapshot", state.ActionCancelled, ""},
+		{s.unit, "snapshot", state.ActionPending, `.* already has status "pending"`},
+		{s.unit2, "snapshot", state.ActionPending, `.* already has status "pending"`},
+		{s.unit, "snapshot", state.ActionFailed, ""},
+		{s.unit2, "snapshot", state.ActionFailed, ""},
+		{s.unit, "snapshot", state.ActionCompleted, ""},
+		{s.unit2, "snapshot", state.ActionCompleted, ""},
 	}
 
 	w1 := state.NewActionStatusWatcher(s.State, []state.ActionReceiver{s.unit})
@@ -1065,7 +1114,11 @@ func (s *ActionSuite) TestActionStatusWatcher(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		_, err = action.Finish(state.ActionResults{Status: tcase.status})
-		c.Assert(err, jc.ErrorIsNil)
+		if tcase.err == "" {
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, tcase.err)
+		}
 
 		if tcase.receiver == s.unit {
 			expect[tcase.status] = append(expect[tcase.status], action)

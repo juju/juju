@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"

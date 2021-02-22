@@ -94,6 +94,17 @@ func MakeChannel(track, risk, branch string) (Channel, error) {
 	}, nil
 }
 
+// MakePermissiveChannel creates a normalized core charm channel which
+// never fails.  It assumes that the risk has been prechecked.
+func MakePermissiveChannel(track, risk, branch string) Channel {
+	ch := Channel{
+		Track:  track,
+		Risk:   Risk(risk),
+		Branch: branch,
+	}
+	return ch.Normalize()
+}
+
 // MustParseChannel parses a given string or returns a panic.
 func MustParseChannel(s string) Channel {
 	c, err := ParseChannelNormalize(s)

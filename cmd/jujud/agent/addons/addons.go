@@ -80,10 +80,10 @@ func StartIntrospection(cfg IntrospectionConfig) error {
 		return errors.Trace(err)
 	}
 	go func() {
-		cfg.Engine.Wait()
+		_ = cfg.Engine.Wait()
 		logger.Debugf("engine stopped, stopping introspection")
 		w.Kill()
-		w.Wait()
+		_ = w.Wait()
 		logger.Debugf("introspection stopped")
 	}()
 

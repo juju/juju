@@ -80,7 +80,7 @@ func (s *ErrorSuite) checkMaasPermissionHandling(c *gc.C, handled bool) {
 	ctx := context.NewCloudCallContext()
 	called := false
 	ctx.InvalidateCredentialFunc = func(msg string) error {
-		c.Assert(msg, gc.DeepEquals, "cloud denied access")
+		c.Assert(msg, gc.Matches, "cloud denied access:.*")
 		called = true
 		return nil
 	}

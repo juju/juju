@@ -5,7 +5,6 @@ package crosscontroller
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -14,8 +13,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.crosscontroller")
 
 type localControllerInfoFunc func() ([]string, string, error)
 type publicDNSAddressFunc func() (string, error)

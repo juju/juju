@@ -23,7 +23,9 @@ import (
 
 // Logger is here to stop the desire of creating a package level Logger.
 // Don't do this, instead use the one in the RemoteStateWatcher.
-var logger interface{}
+type logger interface{}
+
+var _ logger = struct{}{}
 
 // Logger represents the logging methods used in this package.
 type Logger interface {
@@ -55,6 +57,7 @@ type RemoteStateWatcher struct {
 	containerRunningStatusChannel watcher.NotifyChannel
 	containerRunningStatusFunc    ContainerRunningStatusFunc
 	canApplyCharmProfile          bool
+	workloadEventChannel          <-chan string
 
 	catacomb catacomb.Catacomb
 
@@ -92,6 +95,7 @@ type WatcherConfig struct {
 	EnforcedCharmModifiedVersion  int
 	Logger                        Logger
 	CanApplyCharmProfile          bool
+	WorkloadEventChannel          <-chan string
 }
 
 func (w WatcherConfig) validate() error {
@@ -149,6 +153,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		},
 		embedded:                     config.Embedded,
 		enforcedCharmModifiedVersion: config.EnforcedCharmModifiedVersion,
+		workloadEventChannel:         config.WorkloadEventChannel,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -204,6 +209,8 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	copy(snapshot.ActionsPending, w.current.ActionsPending)
 	snapshot.Commands = make([]string, len(w.current.Commands))
 	copy(snapshot.Commands, w.current.Commands)
+	snapshot.WorkloadEvents = make([]string, len(w.current.WorkloadEvents))
+	copy(snapshot.WorkloadEvents, w.current.WorkloadEvents)
 	snapshot.ActionChanged = make(map[string]int)
 	for k, v := range w.current.ActionChanged {
 		snapshot.ActionChanged[k] = v
@@ -227,6 +234,21 @@ func (w *RemoteStateWatcher) CommandCompleted(completed string) {
 		w.current.Commands = append(
 			w.current.Commands[:i],
 			w.current.Commands[i+1:]...,
+		)
+		break
+	}
+}
+
+func (w *RemoteStateWatcher) WorkloadEventCompleted(workloadEventID string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for i, id := range w.current.WorkloadEvents {
+		if id != workloadEventID {
+			continue
+		}
+		w.current.WorkloadEvents = append(
+			w.current.WorkloadEvents[:i],
+			w.current.WorkloadEvents[i+1:]...,
 		)
 		break
 	}
@@ -658,6 +680,13 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			w.logger.Debugf("command enqueued for %s: %v", w.unit.Tag().Id(), id)
 			w.commandsChanged(id)
 
+		case id, ok := <-w.workloadEventChannel:
+			if !ok {
+				return errors.New("workloadEventChannel closed")
+			}
+			w.logger.Debugf("workloadEvent enqueued for %s: %v", w.unit.Tag().Id(), id)
+			w.workloadEventsChanged(id)
+
 		case _, ok := <-w.retryHookChannel:
 			if !ok {
 				return errors.New("retryHookChannel closed")
@@ -714,6 +743,13 @@ func (w *RemoteStateWatcher) updateStatusChanged() {
 func (w *RemoteStateWatcher) commandsChanged(id string) {
 	w.mu.Lock()
 	w.current.Commands = append(w.current.Commands, id)
+	w.mu.Unlock()
+}
+
+// workloadEventsChanged is called when a container event is enqueued.
+func (w *RemoteStateWatcher) workloadEventsChanged(id string) {
+	w.mu.Lock()
+	w.current.WorkloadEvents = append(w.current.WorkloadEvents, id)
 	w.mu.Unlock()
 }
 
@@ -824,6 +860,11 @@ func (w *RemoteStateWatcher) leadershipChanged(isLeader bool) {
 func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+
+	// NOTE (stickupkid): Any return nil or early exit during the iteration of
+	// the keys that is non-exhaustive can cause units (subordinates) to
+	// commit suicide.
+
 	for _, key := range keys {
 		relationTag := names.NewRelationTag(key)
 		rel, err := w.st.Relation(relationTag)
@@ -837,8 +878,8 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 			}
 		} else if err != nil {
 			return errors.Trace(err)
-		} else {
-			w.ensureRelationUnits(rel)
+		} else if relErr := w.ensureRelationUnits(rel); relErr != nil {
+			return errors.Trace(relErr)
 		}
 	}
 	return nil
@@ -1026,7 +1067,7 @@ func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 		} else if params.IsCodeNotFound(result.Error) {
 			if watcher, ok := w.storageAttachmentWatchers[tag]; ok {
 				// already under catacomb management, any error tracked already
-				worker.Stop(watcher)
+				_ = worker.Stop(watcher)
 				delete(w.storageAttachmentWatchers, tag)
 			}
 			delete(w.current.Storage, tag)

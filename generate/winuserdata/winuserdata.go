@@ -114,7 +114,7 @@ func main() {
 	addJujuUser = strings.Replace(addJujuUser, "`", "` + \"`\" + `", -1)
 	winpowershell = strings.Replace(winpowershell, "`", "` + \"`\" + `", -1)
 
-	t.Execute(&buf, content{
+	_ = t.Execute(&buf, content{
 		AddJujuUser:             fmt.Sprintf("`%s`", addJujuUser),
 		WindowsPowershellHelper: fmt.Sprintf("`%s`", winpowershell),
 		Pkgname:                 os.Args[3],

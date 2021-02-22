@@ -59,9 +59,9 @@ func (h *embeddedCLIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request)
 		// Here we configure the ping/pong handling for the websocket so
 		// the server can notice when the client goes away.
 		// See the long note in logsink.go for the rationale.
-		socket.SetReadDeadline(time.Now().Add(websocket.PongDelay))
+		_ = socket.SetReadDeadline(time.Now().Add(websocket.PongDelay))
 		socket.SetPongHandler(func(string) error {
-			socket.SetReadDeadline(time.Now().Add(websocket.PongDelay))
+			_ = socket.SetReadDeadline(time.Now().Add(websocket.PongDelay))
 			return nil
 		})
 		ticker := time.NewTicker(websocket.PingPeriod)

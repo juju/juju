@@ -23,6 +23,9 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
+// Overridden by tests
+var getHostOS = os.HostOS
+
 type Config struct {
 	SupportLegacyValues bool
 	RegistryPath        string
@@ -151,7 +154,7 @@ func (w *proxyWorker) saveProxySettingsToRegistry() error {
 }
 
 func (w *proxyWorker) saveProxySettings() error {
-	switch os.HostOS() {
+	switch getHostOS() {
 	case os.Windows:
 		return w.saveProxySettingsToRegistry()
 	default:
@@ -208,8 +211,8 @@ func getPackageCommander() (commands.PackageCommander, error) {
 }
 
 func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, storeAssertions, storeProxyURL string) {
-	if os.HostOS() == os.Windows {
-		w.config.Logger.Tracef("no snap proxies on windows")
+	if hostOS := getHostOS(); hostOS == os.Windows || hostOS == os.CentOS {
+		w.config.Logger.Tracef("no snap proxies on %s", hostOS)
 		return
 	}
 	if w.config.RunFunc == nil {
@@ -284,6 +287,11 @@ func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, store
 }
 
 func (w *proxyWorker) handleAptProxyValues(aptSettings proxy.Settings) error {
+	if hostOS := getHostOS(); hostOS == os.Windows || hostOS == os.CentOS {
+		w.config.Logger.Tracef("no apt proxies on %s", hostOS)
+		return nil
+	}
+
 	if aptSettings != w.aptProxy || w.first {
 		w.config.Logger.Debugf("new apt proxy settings %#v", aptSettings)
 		paccmder, err := getPackageCommander()
@@ -339,7 +347,7 @@ func (w *proxyWorker) TearDown() error {
 
 const noStdIn = ""
 
-// Execute the command specified with the args with optional stdin.
+// RunWithStdIn executes the command specified with the args with optional stdin.
 func RunWithStdIn(input string, command string, args ...string) (string, error) {
 	cmd := stdexec.Command(command, args...)
 
@@ -351,7 +359,7 @@ func RunWithStdIn(input string, command string, args ...string) (string, error) 
 
 		go func() {
 			defer stdin.Close()
-			io.WriteString(stdin, input)
+			_, _ = io.WriteString(stdin, input)
 		}()
 	}
 

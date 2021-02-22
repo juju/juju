@@ -242,6 +242,10 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 		}
 		hookName = fmt.Sprintf("%s-%s", storageName, hookName)
 	}
+	if hookInfo.Kind.IsWorkload() {
+		ctx.workloadName = hookInfo.WorkloadName
+		hookName = fmt.Sprintf("%s-%s", hookInfo.WorkloadName, hookName)
+	}
 	ctx.id = f.newId(hookName)
 	ctx.hookName = hookName
 	return ctx, nil
@@ -299,7 +303,7 @@ func (f *contextFactory) getContextRelations() map[int]*ContextRelation {
 // to via hooks. Furthermore, the fact that we make multiple API calls at this
 // time, rather than grabbing everything we need in one go, is unforgivably yucky.
 func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
-	defer errors.Trace(err)
+	defer func() { err = errors.Trace(err) }()
 
 	ctx.apiAddrs, err = f.state.APIAddresses()
 	if err != nil {

@@ -53,10 +53,14 @@ func (s *AvailabilityZoneSuite) SetUpSuite(c *gc.C) {
 
 func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstances(c *gc.C) {
 	var called int
-	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 		c.Assert(ids, gc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
 		called++
-		return []string{"az0", "az1", "az2"}, nil
+		return map[instance.Id]string{
+			"inst0": "az0",
+			"inst1": "az1",
+			"inst2": "az2",
+		}, nil
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, s.callCtx, nil)
 	c.Assert(called, gc.Equals, 1)
@@ -84,10 +88,10 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstanc
 
 func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsPartialInstances(c *gc.C) {
 	var called int
-	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 		c.Assert(ids, gc.DeepEquals, []instance.Id{"nichts", "inst1", "null", "inst2"})
 		called++
-		return []string{"", "az1", "", "az1"}, environs.ErrPartialInstances
+		return map[instance.Id]string{"inst1": "az1", "inst2": "az1"}, environs.ErrPartialInstances
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, s.callCtx, []instance.Id{"nichts", "inst1", "null", "inst2"})
 	c.Assert(called, gc.Equals, 1)
@@ -104,7 +108,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsPartialInstances(
 func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabilityZonesErrors(c *gc.C) {
 	returnErr := fmt.Errorf("whatever")
 	var called int
-	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 		called++
 		return nil, returnErr
 	})
@@ -116,7 +120,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabil
 
 func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabilityZonesNoInstances(c *gc.C) {
 	var called int
-	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 		called++
 		return nil, environs.ErrNoInstances
 	})
@@ -128,10 +132,10 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabil
 
 func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsNoZones(c *gc.C) {
 	var calls []string
-	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 		c.Assert(ids, gc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
 		calls = append(calls, "InstanceAvailabilityZoneNames")
-		return []string{"", "", ""}, nil
+		return make(map[instance.Id]string, 3), nil
 	})
 	s.PatchValue(&s.env.availabilityZones, func(context.ProviderCallContext) (network.AvailabilityZones, error) {
 		calls = append(calls, "AvailabilityZones")
@@ -145,10 +149,10 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsNoZones(c *gc.C) 
 
 func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsErrors(c *gc.C) {
 	var calls []string
-	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 		c.Assert(ids, gc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
 		calls = append(calls, "InstanceAvailabilityZoneNames")
-		return []string{"", "", ""}, nil
+		return make(map[instance.Id]string, 3), nil
 	})
 	resultErr := fmt.Errorf("u can haz no az")
 	s.PatchValue(&s.env.availabilityZones, func(context.ProviderCallContext) (network.AvailabilityZones, error) {

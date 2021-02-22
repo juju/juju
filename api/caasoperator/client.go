@@ -89,13 +89,6 @@ func (c *Client) SetStatus(
 	return result.OneError()
 }
 
-func convertNotFound(err error) error {
-	if params.IsCodeNotFound(err) {
-		return errors.NewNotFound(err, "")
-	}
-	return err
-}
-
 // CharmInfo holds info about the charm for an application.
 type CharmInfo struct {
 	// URL holds the URL of the charm assigned to the

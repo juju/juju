@@ -125,7 +125,11 @@ func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 	zonedEnviron := s.env.(common.ZonedEnviron)
 	zones, err := zonedEnviron.InstanceAvailabilityZoneNames(s.callCtx, ids)
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
-	c.Assert(zones, jc.DeepEquals, []string{"z2", "z1", "", "z3/child", ""})
+	c.Assert(zones, jc.DeepEquals, map[instance.Id]string{
+		"inst-0": "z2",
+		"inst-1": "z1",
+		"inst-3": "z3/child",
+	})
 }
 
 func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNamesNoInstances(c *gc.C) {

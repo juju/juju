@@ -1052,7 +1052,7 @@ func lookupIPAddr(ctx context.Context, host string, resolver IPAddrResolver) ([]
 // logic even for errors that happen before we start a try.
 func recordTryError(try *parallel.Try, err error) {
 	logger.Infof("%v", err)
-	try.Start(func(_ <-chan struct{}) (io.Closer, error) {
+	_ = try.Start(func(_ <-chan struct{}) (io.Closer, error) {
 		return nil, errors.Trace(err)
 	})
 }

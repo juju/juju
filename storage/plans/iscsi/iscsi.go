@@ -37,8 +37,8 @@ const (
 )
 
 var (
-	sysfsBlock        = "/sys/block"
-	sysfsClass        = "/sys/class"
+	sysfsBlock = "/sys/block"
+
 	sysfsiSCSIHost    = "/sys/class/iscsi_host"
 	sysfsiSCSISession = "/sys/class/iscsi_session"
 

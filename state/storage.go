@@ -319,7 +319,7 @@ func (sb *storageBackend) RemoveStoragePool(poolName string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	operatorStorage, ok := cfg.AllAttrs()[k8sprovider.OperatorStorageKey]
+	operatorStorage, ok := cfg.AllAttrs()[k8sconstants.OperatorStorageKey]
 	if sb.modelType == ModelTypeCAAS && ok && operatorStorage == poolName {
 		apps, err := sb.allApplications()
 		if err != nil {

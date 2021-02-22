@@ -36,8 +36,7 @@ within the same model:
     juju relate <application> <application> 
 
 Occasionally, more explicit syntax is required. Juju is able to relate 
-units that span models, controllers and clouds. This functionality requires
-more complex.
+units that span models, controllers and clouds, as described below.
 
 
 Relating applications in the same model

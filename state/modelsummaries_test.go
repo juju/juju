@@ -325,10 +325,12 @@ func (s *ModelSummariesSuite) TestContainsModelStatusSuspended(c *gc.C) {
 		"shared": {
 			Status:  status.Suspended,
 			Message: "suspended since cloud credential is not valid",
+			Data:    map[string]interface{}{"reason": "test"},
 		},
 		"user1model": {
 			Status:  status.Busy,
 			Message: "human message",
+			Data:    map[string]interface{}{},
 		},
 	}
 	shared, err := s.StatePool.Get(modelNameToUUID["shared"])
@@ -351,7 +353,6 @@ func (s *ModelSummariesSuite) TestContainsModelStatusSuspended(c *gc.C) {
 		// empty map to a nil map
 		st := summary.Status
 		st.Since = nil
-		st.Data = nil
 		statuses[summary.Name] = st
 	}
 	c.Check(statuses, jc.DeepEquals, expectedStatus)

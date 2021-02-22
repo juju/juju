@@ -82,7 +82,7 @@ func (env *sessionEnviron) StartInstance(ctx context.ProviderCallContext, args e
 
 	vm, hw, err := env.newRawInstance(ctx, args, img)
 	if err != nil {
-		args.StatusCallback(status.ProvisioningError, fmt.Sprint(err), nil)
+		_ = args.StatusCallback(status.ProvisioningError, fmt.Sprint(err), nil)
 		return nil, errors.Trace(err)
 	}
 
@@ -203,7 +203,7 @@ func (env *sessionEnviron) newRawInstance(
 		updateProgressInterval = bootstrapUpdateProgressInterval
 	}
 	updateProgress := func(message string) {
-		args.StatusCallback(status.Provisioning, message, nil)
+		_ = args.StatusCallback(status.Provisioning, message, nil)
 	}
 
 	readOVA := func() (string, io.ReadCloser, error) {

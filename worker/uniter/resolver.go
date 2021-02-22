@@ -36,7 +36,7 @@ type ResolverConfig struct {
 	Relations           resolver.Resolver
 	Storage             resolver.Resolver
 	Commands            resolver.Resolver
-	Container           resolver.Resolver
+	OptionalResolvers   []resolver.Resolver
 	Logger              Logger
 }
 
@@ -114,8 +114,8 @@ func (s *uniterResolver) NextOp(
 		return op, err
 	}
 
-	if s.config.Container != nil {
-		op, err = s.config.Container.NextOp(localState, remoteState, opFactory)
+	for _, r := range s.config.OptionalResolvers {
+		op, err = r.NextOp(localState, remoteState, opFactory)
 		if errors.Cause(err) != resolver.ErrNoOperation {
 			return op, err
 		}

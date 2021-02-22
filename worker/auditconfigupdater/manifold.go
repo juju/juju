@@ -69,7 +69,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	}
 	defer func() {
 		if err != nil {
-			stTracker.Done()
+			_ = stTracker.Done()
 		}
 	}()
 
@@ -92,7 +92,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return common.NewCleanupWorker(w, func() { stTracker.Done() }), nil
+	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
 }
 
 type withCurrentConfig interface {

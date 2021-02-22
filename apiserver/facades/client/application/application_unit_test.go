@@ -240,6 +240,30 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 				},
 				agentTools: agentTools,
 			},
+			"test-app-info": {
+				name:        "test-app-info",
+				series:      "quantal",
+				subordinate: false,
+				charm: &mockCharm{
+					config: &charm.Config{
+						Options: map[string]charm.Option{
+							"stringOption": {Type: "string"},
+							"intOption":    {Type: "int", Default: int(123)},
+						},
+					},
+					meta:       &charm.Meta{Name: "charm-test-app-info"},
+					lxdProfile: lxdProfile,
+				},
+				constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
+				channel:     csparams.DevelopmentChannel,
+				charmOrigin: &state.CharmOrigin{Channel: &state.Channel{
+					Track: "2.0",
+					Risk:  "candidate",
+				}},
+				bindings: map[string]string{
+					"juju-info": "myspace",
+				},
+			},
 		},
 		remoteApplications: map[string]application.RemoteApplication{
 			"hosted-db2": &mockRemoteApplication{},
@@ -992,14 +1016,14 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 			Config:          map[string]string{"kubernetes-service-annotations": "a=b c="},
-			ConfigYAML:      "foo:\n  stringOption: fred\n  kubernetes-service-type: NodeIP",
+			ConfigYAML:      "foo:\n  stringOption: fred\n  kubernetes-service-type: loadbalancer",
 		}, {
 			ApplicationName: "foobar",
 			CharmURL:        "local:foobar-0",
 			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
-			Config:          map[string]string{"kubernetes-service-type": "ClusterIP", "intOption": "2"},
-			ConfigYAML:      "foobar:\n  intOption: 1\n  kubernetes-service-type: NodeIP\n  kubernetes-ingress-ssl-redirect: true",
+			Config:          map[string]string{"kubernetes-service-type": "cluster", "intOption": "2"},
+			ConfigYAML:      "foobar:\n  intOption: 1\n  kubernetes-service-type: loadbalancer\n  kubernetes-ingress-ssl-redirect: true",
 		}, {
 			ApplicationName: "bar",
 			CharmURL:        "local:bar-0",
@@ -1022,12 +1046,38 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	c.Assert(results.Results[2].Error, gc.ErrorMatches, "AttachStorage may not be specified for k8s models")
 	c.Assert(results.Results[3].Error, gc.ErrorMatches, "only 1 placement directive is supported for k8s models, got 2")
 
-	c.Assert(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "NodeIP")
+	c.Assert(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "loadbalancer")
 	// Check parsing of k8s service annotations.
 	c.Assert(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-annotations"], jc.DeepEquals, map[string]string{"a": "b", "c": ""})
-	c.Assert(s.deployParams["foobar"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "ClusterIP")
+	c.Assert(s.deployParams["foobar"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "cluster")
 	c.Assert(s.deployParams["foobar"].ApplicationConfig.Attributes()["kubernetes-ingress-ssl-redirect"], gc.Equals, true)
 	c.Assert(s.deployParams["foobar"].CharmConfig, jc.DeepEquals, charm.Settings{"intOption": int64(2)})
+}
+
+func (s *ApplicationSuite) TestDeployCAASInvalidServiceType(c *gc.C) {
+	s.model.modelType = state.ModelTypeCAAS
+	s.backend.charm = &mockCharm{
+		meta: &charm.Meta{},
+		config: &charm.Config{
+			Options: map[string]charm.Option{
+				"stringOption": {Type: "string"},
+				"intOption":    {Type: "int", Default: int(123)},
+			},
+		},
+	}
+
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+			Config:          map[string]string{"kubernetes-service-type": "ClusterIP", "intOption": "2"},
+		}},
+	}
+	result, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.OneError(), gc.ErrorMatches, `service type "ClusterIP" not valid`)
 }
 
 func (s *ApplicationSuite) TestDeployCAASBlockStorageRejected(c *gc.C) {
@@ -2095,23 +2145,23 @@ func (s *ApplicationSuite) TestCAASExposeWithHostname(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
-	entities := []params.Entity{{Tag: "application-postgresql"}}
+	entities := []params.Entity{{Tag: "application-test-app-info"}}
 	result, err := s.api.ApplicationsInfo(params.Entities{entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
-		Tag:         "application-postgresql",
-		Charm:       "charm-postgresql",
+		Tag:         "application-test-app-info",
+		Charm:       "charm-test-app-info",
 		Series:      "quantal",
-		Channel:     "development",
+		Channel:     "2.0/candidate",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
 		EndpointBindings: map[string]string{
 			"juju-info": "myspace",
 		},
 	})
-	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "ExposedEndpoints", "IsPrincipal", "IsExposed", "IsRemote")
+	app := s.backend.applications["test-app-info"]
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "ExposedEndpoints", "CharmOrigin", "IsPrincipal", "IsExposed", "IsRemote")
 }
 
 func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) {
@@ -2150,7 +2200,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) 
 			},
 		},
 	})
-	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "ExposedEndpoints", "IsPrincipal", "IsExposed", "IsRemote")
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "ExposedEndpoints", "CharmOrigin", "IsPrincipal", "IsExposed", "IsRemote")
 }
 
 func (s *ApplicationSuite) TestApplicationsInfoDetailsErr(c *gc.C) {
@@ -2201,7 +2251,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	c.Assert(result.Results[1].Error, gc.ErrorMatches, `application "wordpress" not found`)
 	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"unit-postgresql-0" is not a valid application tag`)
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "ExposedEndpoints", "IsPrincipal", "IsExposed", "IsRemote")
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "ExposedEndpoints", "CharmOrigin", "IsPrincipal", "IsExposed", "IsRemote")
 }
 
 func (s *ApplicationSuite) TestApplicationMergeBindingsErr(c *gc.C) {

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/cache"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
@@ -106,6 +107,20 @@ func (c *Client) machineStatusHistory(machineTag names.MachineTag, filter status
 	return agentStatusFromStatusInfo(sInfo, kind), nil
 }
 
+// modelStatusHistory returns status history for the current model.
+func (c *Client) modelStatusHistory(filter status.StatusHistoryFilter) ([]params.DetailedStatus, error) {
+	m, err := c.api.stateAccessor.Model()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get model")
+	}
+
+	sInfo, err := m.StatusHistory(filter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return agentStatusFromStatusInfo(sInfo, status.KindModel), nil
+}
+
 // StatusHistory returns a slice of past statuses for several entities.
 func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.StatusHistoryResults {
 	results := params.StatusHistoryResults{}
@@ -141,6 +156,8 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 		)
 		kind := status.HistoryKind(request.Kind)
 		switch kind {
+		case status.KindModel:
+			hist, err = c.modelStatusHistory(filter)
 		case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
 			var u names.UnitTag
 			if u, err = names.ParseUnitTag(request.Tag); err == nil {
@@ -190,7 +207,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if context.spaceInfos, err = c.api.stateAccessor.AllSpaceInfos(); err != nil {
 		return noStatus, errors.Annotate(err, "cannot obtain space information")
 	}
-	if context.model, err = c.api.stateAccessor.Model(); err != nil {
+	if context.model, err = c.api.state().Model(); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch model")
 	}
 	if context.status, err = context.model.LoadModelStatus(); err != nil {
@@ -1177,14 +1194,27 @@ func (context *statusContext) processApplication(application *state.Application)
 		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 	}
 
+	var channel string
+	if origin := application.CharmOrigin(); origin != nil && origin.Channel != nil {
+		stChannel := origin.Channel
+		channel = (corecharm.Channel{
+			Track:  stChannel.Track,
+			Risk:   corecharm.Risk(stChannel.Risk),
+			Branch: stChannel.Branch,
+		}).Normalize().String()
+	} else {
+		channel = string(application.Channel())
+	}
+
 	var processedStatus = params.ApplicationStatus{
 		Charm:            applicationCharm.URL().String(),
+		CharmVersion:     applicationCharm.Version(),
+		CharmProfile:     charmProfileName,
+		CharmChannel:     channel,
 		Series:           application.Series(),
 		Exposed:          application.IsExposed(),
 		ExposedEndpoints: mappedExposedEndpoints,
 		Life:             processLife(application),
-		CharmVersion:     applicationCharm.Version(),
-		CharmProfile:     charmProfileName,
 	}
 
 	if latestCharm, ok := context.allAppsUnitsCharmBindings.latestCharms[*applicationCharm.URL().WithRevision(-1)]; ok && latestCharm != nil {

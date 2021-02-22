@@ -12,7 +12,7 @@ import (
 	charms "github.com/juju/juju/api/charms"
 	charm0 "github.com/juju/juju/api/common/charm"
 	charmhub "github.com/juju/juju/charmhub"
-	macaroon "gopkg.in/macaroon.v2"
+	"gopkg.in/macaroon.v2"
 	url "net/url"
 	reflect "reflect"
 )

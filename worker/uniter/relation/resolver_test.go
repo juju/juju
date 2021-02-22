@@ -357,15 +357,6 @@ func relationJoinedAndDepartedAPICalls() []apiCall {
 	return append(apiCalls, uniterAPICall("State", unitEntity, unitStateResults, nil))
 }
 
-func relationJoinedAndDepartedAPICallsEmptyState() []apiCall {
-	apiCalls := relationJoinedAndDepartedAPICallsNoState()
-	unitEntity := params.Entities{Entities: []params.Entity{{Tag: "unit-wordpress-0"}}}
-	unitStateResults := params.UnitStateResults{Results: []params.UnitStateResult{{
-		RelationState: map[int]string{},
-	}}}
-	return append(apiCalls, uniterAPICall("State", unitEntity, unitStateResults, nil))
-}
-
 func relationJoinedAndDepartedAPICallsNoState() []apiCall {
 	apiCalls := relationJoinedAPICalls()
 

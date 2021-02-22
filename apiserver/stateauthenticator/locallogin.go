@@ -50,10 +50,10 @@ func (h *localLoginHandlers) AddHandlers(mux *apiserverhttp.Mux) {
 		localUserIdentityLocationPath+formURL,
 		http.HandlerFunc(h.formHandler),
 	)
-	mux.AddHandler("POST", localUserIdentityLocationPath+"/discharge", dischargeMux)
-	mux.AddHandler("GET", localUserIdentityLocationPath+"/publickey", dischargeMux)
-	mux.AddHandler("GET", localUserIdentityLocationPath+"/form", dischargeMux)
-	mux.AddHandler("POST", localUserIdentityLocationPath+"/form", dischargeMux)
+	_ = mux.AddHandler("POST", localUserIdentityLocationPath+"/discharge", dischargeMux)
+	_ = mux.AddHandler("GET", localUserIdentityLocationPath+"/publickey", dischargeMux)
+	_ = mux.AddHandler("GET", localUserIdentityLocationPath+"/form", dischargeMux)
+	_ = mux.AddHandler("POST", localUserIdentityLocationPath+"/form", dischargeMux)
 
 	h.AddLegacyHandlers(mux, dischargeMux)
 }
@@ -93,7 +93,7 @@ func (h *localLoginHandlers) formHandler(w http.ResponseWriter, req *http.Reques
 			return
 		}
 
-		token, err := newId()
+		token, err := newID()
 		if err != nil {
 			h.bakeryError(w, errors.Annotate(err, "cannot generate token"))
 			return
@@ -106,13 +106,13 @@ func (h *localLoginHandlers) formHandler(w http.ResponseWriter, req *http.Reques
 				Value: []byte(token),
 			},
 		}
-		httprequest.WriteJSON(w, http.StatusOK, loginResponse)
+		_ = httprequest.WriteJSON(w, http.StatusOK, loginResponse)
 	default:
 		http.Error(w, fmt.Sprintf("%s method not allowed", req.Method), http.StatusMethodNotAllowed)
 	}
 }
 
-func newId() (string, error) {
+func newID() (string, error) {
 	var id [12]byte
 	if _, err := rand.Read(id[:]); err != nil {
 		return "", fmt.Errorf("cannot read random id: %v", err)
@@ -133,15 +133,15 @@ func (h *localLoginHandlers) checkThirdPartyCaveat(stdCtx context.Context, req *
 		err2.SetInteraction("juju_userpass", form.InteractionInfo{URL: localUserIdentityLocationPath + formURL})
 
 		// TODO(juju3) - remove legacy client support
-		waitId, err := h.authCtxt.localUserInteractions.Start(
+		waitID, err := h.authCtxt.localUserInteractions.Start(
 			cavInfo.Caveat,
 			h.authCtxt.clock.Now().Add(authentication.LocalLoginInteractionTimeout),
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		visitURL := localUserIdentityLocationPath + "/login?waitid=" + waitId
-		waitURL := localUserIdentityLocationPath + "/wait?waitid=" + waitId
+		visitURL := localUserIdentityLocationPath + "/login?waitid=" + waitID
+		waitURL := localUserIdentityLocationPath + "/wait?waitid=" + waitID
 		httpbakery.SetLegacyInteraction(err2, visitURL, waitURL)
 		return nil, err2
 	}

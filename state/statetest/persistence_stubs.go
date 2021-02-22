@@ -111,7 +111,7 @@ func (s *StubPersistence) ApplicationExistsOps(applicationID string) []txn.Op {
 	s.AddCall("ApplicationExistsOps", applicationID)
 	// pop off an error so num errors == num calls, even though this call
 	// doesn't actually use the error.
-	s.NextErr()
+	_ = s.NextErr()
 
 	return s.ReturnApplicationExistsOps
 }
@@ -120,7 +120,7 @@ func (s *StubPersistence) IncCharmModifiedVersionOps(applicationID string) []txn
 	s.AddCall("IncCharmModifiedVersionOps", applicationID)
 	// pop off an error so num errors == num calls, even though this call
 	// doesn't actually use the error.
-	s.NextErr()
+	_ = s.NextErr()
 
 	return s.ReturnIncCharmModifiedVersionOps
 }

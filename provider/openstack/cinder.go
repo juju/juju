@@ -332,7 +332,10 @@ func (s *cinderVolumeSource) availabilityZoneForVolume(
 		return "", nil
 	}
 	// Only choose an AZ from the instance if there's a matching volume AZ.
-	az := aZones[0]
+	var az string
+	for _, az = range aZones {
+		break
+	}
 	if vZones.Contains(az) {
 		logger.Debugf("using availability zone %q to create cinder volume %q", az, volName)
 		return az, nil

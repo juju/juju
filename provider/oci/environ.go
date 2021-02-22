@@ -200,16 +200,19 @@ func (e *Environ) AvailabilityZones(ctx envcontext.ProviderCallContext) (network
 }
 
 // InstanceAvailabilityZoneNames implements common.ZonedEnviron.
-func (e *Environ) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]string, error) {
+func (e *Environ) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 	instances, err := e.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
 		providerCommon.HandleCredentialError(err, ctx)
 		return nil, err
 	}
-	zones := []string{}
+	zones := make(map[instance.Id]string, 0)
 	for _, inst := range instances {
-		oInst := inst.(*ociInstance)
-		zones = append(zones, oInst.availabilityZone())
+		oInst, ok := inst.(*ociInstance)
+		if !ok {
+			continue
+		}
+		zones[inst.Id()] = oInst.availabilityZone()
 	}
 	if len(zones) < len(ids) {
 		return zones, environs.ErrPartialInstances

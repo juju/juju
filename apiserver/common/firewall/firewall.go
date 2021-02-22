@@ -4,13 +4,11 @@
 package firewall
 
 import (
-	"net"
-
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/charm/v9"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -121,6 +119,7 @@ func localApplication(st State, relationTag names.RelationTag) (*localEndpointIn
 }
 
 // TODO(wallyworld) - this is unused until we query subnets again
+/*
 func includeAsEgressSubnet(cidr string) (bool, error) {
 	ip, _, err := net.ParseCIDR(cidr)
 	if err != nil {
@@ -135,3 +134,4 @@ func includeAsEgressSubnet(cidr string) (bool, error) {
 	}
 	return true, nil
 }
+*/

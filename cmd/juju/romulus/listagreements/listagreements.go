@@ -51,11 +51,6 @@ func NewListAgreementsCommand() modelcmd.ControllerCommand {
 	return modelcmd.WrapController(&listAgreementsCommand{})
 }
 
-type term struct {
-	name     string
-	revision int
-}
-
 var _ cmd.Command = (*listAgreementsCommand)(nil)
 
 // listAgreementsCommand creates a user agreement to the specified

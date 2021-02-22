@@ -337,14 +337,3 @@ func mustOpenPortRanges(c *gc.C, st *state.State, u *state.Unit, endpointName st
 
 	c.Assert(st.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
 }
-
-func mustClosePortRanges(c *gc.C, st *state.State, u *state.Unit, endpointName string, portRanges []network.PortRange) {
-	unitPortRanges, err := u.OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
-
-	for _, pr := range portRanges {
-		unitPortRanges.Close(endpointName, pr)
-	}
-
-	c.Assert(st.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
-}

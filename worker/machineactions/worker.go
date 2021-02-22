@@ -128,7 +128,9 @@ func (h *handler) Handle(abort <-chan struct{}, actionsSlice []string) error {
 				} else {
 					finishErr = h.config.Facade.ActionFinish(actionTag, params.ActionCompleted, results, "")
 				}
-				if finishErr != nil {
+				if finishErr != nil &&
+					!params.IsCodeAlreadyExists(finishErr) &&
+					!params.IsCodeNotFoundOrCodeUnauthorized(finishErr) {
 					logger.Errorf("could not finish action %s: %v", action.Name(), finishErr)
 				}
 

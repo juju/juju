@@ -439,10 +439,6 @@ func (s *NestedContextSuite) TestReport(c *gc.C) {
 
 }
 
-type fakeClock struct {
-	clock.Clock
-}
-
 type fakeRebootMonitor struct {
 	c   *gc.C
 	tag names.UnitTag

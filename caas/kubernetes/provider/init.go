@@ -27,8 +27,6 @@ var (
 
 	// LifecycleModelTeardownSelector is the label selector for removing global resources for model teardown.
 	lifecycleModelTeardownSelector k8slabels.Selector
-
-	k8sStorageBaseDir string
 )
 
 func init() {

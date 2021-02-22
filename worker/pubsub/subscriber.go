@@ -232,7 +232,7 @@ func (s *subscriber) apiServerChanges(topic string, details apiserver.Details, e
 				continue
 			}
 			s.servers[target] = server
-			s.catacomb.Add(server)
+			_ = s.catacomb.Add(server)
 		}
 	}
 	for name, server := range s.servers {

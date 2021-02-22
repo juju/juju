@@ -31,10 +31,6 @@ type KillerForTesting interface {
 	KillForTesting() error
 }
 
-func assertKill(c *gc.C, killer KillerForTesting) {
-	c.Assert(killer.KillForTesting(), gc.IsNil)
-}
-
 func assertEnableHA(c *gc.C, s *jujutesting.JujuConnSuite) {
 	m, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)

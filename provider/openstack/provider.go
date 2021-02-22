@@ -638,20 +638,24 @@ func (e *Environ) AvailabilityZones(ctx context.ProviderCallContext) (corenetwor
 
 // InstanceAvailabilityZoneNames returns the availability zone names for each
 // of the specified instances.
-func (e *Environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+func (e *Environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 	instances, err := e.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
 		handleCredentialError(err, ctx)
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	zones := make([]string, len(instances))
-	for i, inst := range instances {
+	zones := make(map[instance.Id]string, 0)
+	for _, inst := range instances {
 		if inst == nil {
 			continue
 		}
-		zones[i] = inst.(*openstackInstance).serverDetail.AvailabilityZone
+		oInst, ok := inst.(*openstackInstance)
+		if !ok {
+			continue
+		}
+		zones[inst.Id()] = oInst.serverDetail.AvailabilityZone
 	}
-	return zones, err
+	return zones, nil
 }
 
 type openstackPlacement struct {

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/mutex"
 	cookiejar "github.com/juju/persistent-cookiejar"
 
@@ -28,8 +27,6 @@ import (
 
 var (
 	_ ClientStore = (*store)(nil)
-
-	logger = loggo.GetLogger("juju.jujuclient")
 
 	// A second should be enough to write or read any files. But
 	// some disks are slow when under load, so lets give the disk a
@@ -63,7 +60,7 @@ type store struct {
 // contention in tests.
 func generateStoreLockName() string {
 	h := sha256.New()
-	h.Write([]byte(JujuControllersPath()))
+	_, _ = h.Write([]byte(JujuControllersPath()))
 	fullHash := fmt.Sprintf("%x", h.Sum(nil))
 	return fmt.Sprintf("store-lock-%x", fullHash[:8])
 }

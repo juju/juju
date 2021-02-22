@@ -69,8 +69,7 @@ func (conn *Conn) SendInitialErrorV0(err error) error {
 
 	body, err := json.Marshal(wrapped)
 	if err != nil {
-		errors.Annotatef(err, "cannot marshal error %#v", wrapped)
-		return err
+		return errors.Annotatef(err, "cannot marshal error %#v", wrapped)
 	}
 	body = append(body, '\n')
 
@@ -83,7 +82,7 @@ func (conn *Conn) SendInitialErrorV0(err error) error {
 
 	if wrapped.Error != nil {
 		// Tell the other end we are closing.
-		conn.WriteMessage(websocket.CloseMessage, []byte{})
+		_ = conn.WriteMessage(websocket.CloseMessage, []byte{})
 	}
 
 	return errors.Trace(err)

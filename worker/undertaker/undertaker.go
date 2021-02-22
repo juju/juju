@@ -206,7 +206,7 @@ func (u *Undertaker) processDyingModel() error {
 				return errors.Trace(err)
 			}
 			// Retry once there are changes to the model's resources.
-			u.setStatus(
+			_ = u.setStatus(
 				status.Destroying,
 				fmt.Sprintf("attempt %d to destroy model failed (will retry):  %v", attempt, err),
 			)

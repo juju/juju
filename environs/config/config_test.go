@@ -16,7 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
+	environschema "gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/environs/config"
@@ -610,10 +610,6 @@ var configTests = []configTest{
 		}),
 		err: `charm-hub url "meshuggah" not valid`,
 	},
-}
-
-type testFile struct {
-	name, data string
 }
 
 func (s *ConfigSuite) TestConfig(c *gc.C) {

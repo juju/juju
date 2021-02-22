@@ -91,6 +91,7 @@ type StateBackend interface {
 	ExposeWildcardEndpointForExposedApplications() error
 	RemoveLinkLayerDevicesRefsCollection() error
 	RemoveUnusedLinkLayerDeviceProviderIDs() error
+	TranslateK8sServiceTypes() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -382,4 +383,8 @@ func (s stateBackend) RemoveLinkLayerDevicesRefsCollection() error {
 
 func (s stateBackend) RemoveUnusedLinkLayerDeviceProviderIDs() error {
 	return state.RemoveUnusedLinkLayerDeviceProviderIDs(s.pool)
+}
+
+func (s stateBackend) TranslateK8sServiceTypes() error {
+	return state.TranslateK8sServiceTypes(s.pool)
 }

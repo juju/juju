@@ -5,7 +5,6 @@ package remotestate
 
 import (
 	"github.com/juju/charm/v9"
-
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -103,6 +102,10 @@ type Snapshot struct {
 
 	// CharmProfileRequired is true if the charm has a lxdprofile.yaml.
 	CharmProfileRequired bool
+
+	// WorkloadEvents is a list of IDs of workload events that need to be
+	// processed.
+	WorkloadEvents []string
 }
 
 // RelationSnapshot tracks the state of a relationship from the viewpoint of the local unit.

@@ -43,7 +43,7 @@ func (c *ContextRelationHook) HookRelation() (jujuc.ContextRelation, error) {
 // RemoteUnitName implements jujuc.RelationHookContext.
 func (c *ContextRelationHook) RemoteUnitName() (string, error) {
 	c.stub.AddCall("RemoteUnitName")
-	c.stub.NextErr()
+	_ = c.stub.NextErr()
 	var err error
 	if c.info.RemoteUnitName == "" {
 		err = errors.NotFoundf("remote unit")
@@ -55,7 +55,7 @@ func (c *ContextRelationHook) RemoteUnitName() (string, error) {
 // RemoteApplicationName implements jujuc.RelationHookContext.
 func (c *ContextRelationHook) RemoteApplicationName() (string, error) {
 	c.stub.AddCall("RemoteApplicationName")
-	c.stub.NextErr()
+	_ = c.stub.NextErr()
 	var err error
 	if c.info.RemoteApplicationName == "" {
 		err = errors.NotFoundf("remote application")

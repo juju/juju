@@ -153,7 +153,7 @@ type sourcecidrs []string
 func (s sourcecidrs) key() string {
 	src := strings.Join(s.sorted(), ",")
 	hash := sha256.New()
-	hash.Write([]byte(src))
+	_, _ = hash.Write([]byte(src))
 	hashStr := fmt.Sprintf("%x", hash.Sum(nil))
 	return hashStr[:10]
 }

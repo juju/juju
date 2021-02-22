@@ -238,7 +238,7 @@ func (s *charmHubRepositoriesSuite) expectCharmRefresh(c *gc.C) {
 			ID:          "charmCHARMcharmCHARMcharmCHARM01",
 			InstanceKey: id,
 			Entity: transport.RefreshEntity{
-				Type:     "charm",
+				Type:     transport.CharmType,
 				ID:       "charmCHARMcharmCHARMcharmCHARM01",
 				Name:     "wordpress",
 				Revision: 16,
@@ -260,7 +260,7 @@ func (s *charmHubRepositoriesSuite) expectBundleRefresh(c *gc.C) {
 			ID:          "bundleBUNDLEbundleBUNDLE01",
 			InstanceKey: id,
 			Entity: transport.RefreshEntity{
-				Type:     "bundle",
+				Type:     transport.BundleType,
 				ID:       "bundleBUNDLEbundleBUNDLE01",
 				Name:     "core-kubernetes",
 				Revision: 17,

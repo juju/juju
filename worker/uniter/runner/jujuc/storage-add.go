@@ -63,6 +63,5 @@ func (s *StorageAddCommand) Init(args []string) error {
 }
 
 func (s *StorageAddCommand) Run(ctx *cmd.Context) error {
-	s.ctx.AddUnitStorage(s.all)
-	return nil
+	return s.ctx.AddUnitStorage(s.all)
 }

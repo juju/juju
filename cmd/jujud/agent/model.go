@@ -116,7 +116,7 @@ func (m *ModelCommand) Run(ctx *cmd.Context) error {
 
 	m.upgradeComplete = upgradesteps.NewLock(m.CurrentConfig())
 
-	m.runner.StartWorker("modeloperator", m.Workers)
+	_ = m.runner.StartWorker("modeloperator", m.Workers)
 	return cmdutil.AgentDone(logger, m.runner.Wait())
 }
 

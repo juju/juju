@@ -7,7 +7,6 @@ package machine
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,8 +17,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/state"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.machine")
 
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
 // from the next version of this facade.

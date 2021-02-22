@@ -33,8 +33,8 @@ import_subdir_files() {
 
 import_subdir_files includes
 
-# If adding a test suite, then ensure to add it here to be picked up! (Please
-# keep these in alphabetic order.)
+# If adding a test suite, then ensure to add it here to be picked up!
+# Please keep these in alphabetic order.
 TEST_NAMES="agents \
             appdata \
             backup \
@@ -55,7 +55,9 @@ TEST_NAMES="agents \
             relations \
             smoke \
             spaces_ec2 \
-            static_analysis"
+            static_analysis \
+            unit \
+            upgrade"
 
 # Show test suites, can be used to test if a test suite is available or not.
 show_test_suites() {

@@ -13,7 +13,6 @@ import (
 const (
 	msgUserRequestedSeries = "with the user specified series %q"
 	msgBundleSeries        = "with the series %q defined by the bundle"
-	msgDefaultCharmSeries  = "with the default charm metadata series %q"
 	msgDefaultModelSeries  = "with the configured model default series %q"
 	msgLatestLTSSeries     = "with the latest LTS series %q"
 )

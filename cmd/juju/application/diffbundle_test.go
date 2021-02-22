@@ -249,6 +249,24 @@ machines:
 `[1:])
 }
 
+func (s *diffSuite) TestCharmSeriesBundle(c *gc.C) {
+	bundleData, err := charm.ReadBundleData(strings.NewReader(withSeries))
+	c.Assert(err, jc.ErrorIsNil)
+	s.charmStore.url = &charm.URL{
+		Schema: "cs",
+		Name:   "my-bundle",
+		Series: "bundle",
+	}
+	s.charmStore.bundle = &mockBundle{data: bundleData}
+
+	ctx, err := s.runDiffBundle(c, "my-bundle")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+{}
+`[1:])
+}
+
 func (s *diffSuite) TestBundleNotFound(c *gc.C) {
 	s.charmStore.stub.SetErrors(errors.NotFoundf(`cannot resolve URL "cs:my-bundle": charm or bundle`))
 	_, err := s.runDiffBundle(c, "cs:my-bundle")
@@ -521,7 +539,7 @@ func makeAPIResponsesWithRelations(relations []params.RelationStatus) map[string
 					},
 				},
 				"grafana": {
-					Charm:  "cs:grafana-19",
+					Charm:  "ch:grafana-19",
 					Series: "bionic",
 					Life:   "alive",
 					Units: map[string]params.UnitStatus{
@@ -776,5 +794,34 @@ applications:
 relations:
 - - prometheus:juju-info
   - grafana
+`
+	withSeries = `
+series: bionic
+applications:
+  prometheus:
+    charm: 'cs:prometheus2-7'
+    num_units: 1
+    series: xenial
+    constraints: 'cores=3'
+    options:
+      ontology: kant
+    to:
+      - 0
+  grafana:
+    charm: 'grafana'
+    num_units: 1
+    constraints: 'cores=3'
+    options:
+      ontology: kant
+    to:
+      - 1
+machines:
+  "0":
+    series: xenial
+  "1": {}
+relations:
+bundle-additions:
+- - prometheus:juju-info
+  - telegraf:info
 `
 )
