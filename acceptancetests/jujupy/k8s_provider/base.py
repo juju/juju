@@ -72,6 +72,7 @@ KUBE_CONFIG_PATH_ENV_VAR = 'KUBECONFIG'
 class Base(object):
 
     name = None
+    cluster_name = None
 
     cloud_name = 'k8cloud'
 
@@ -113,11 +114,16 @@ class Base(object):
         """
         raise NotImplementedError()
 
-    def __init__(self, bs_manager, timeout=1800):
+    def __init__(self, bs_manager, cluster_name=None, timeout=1800):
         self.client = bs_manager.client
         self.bs_manager = bs_manager
         # register cleanup_hook.
         bs_manager.cleanup_hook = self.ensure_cleanup
+
+        self.cluster_name = cluster_name or self.client.env.controller.name  # use controller name for cluster name
+        suffix = os.environ.get('BUILD_NUMBER', None)
+        if suffix is not None:
+            self.cluster_name += f'-{suffix}'
 
         self.timeout = timeout
         old_environment = bs_manager.client.env.environment
@@ -180,21 +186,16 @@ class Base(object):
         )
         logger.debug('added caas cloud, now all clouds are -> \n%s', self.client.list_clouds(format='yaml'))
 
-    def check_cluster_healthy(self, timeout=0):
-        def check():
+    def check_cluster_healthy(self, timeout=60):
+        err = None
+        for _ in until_timeout(timeout):
             try:
-                cluster_info = self.kubectl('cluster-info', '--request-timeout=3s')
-                logger.debug('cluster_info -> \n%s', cluster_info)
-                nodes_info = self.kubectl('get', 'nodes')
-                logger.debug('nodes_info -> \n%s', pformat(nodes_info))
+                self.kubectl('cluster-info', '--request-timeout=3s')
                 return True
             except subprocess.CalledProcessError as e:
-                logger.error('error -> %s', e)
-                return False
-        for remaining in until_timeout(timeout):
-            if check():
-                return True
-            sleep(3)
+                err = e
+                sleep(3)
+        logger.error(err)
         return False
 
     def kubectl(self, *args):
@@ -237,11 +238,13 @@ class Base(object):
     def _kubectl_bin(self):
         return (self.kubectl_path, '--kubeconfig', self.kube_config_path,)
 
-    def kubectl_apply(self, stdin):
+    def kubectl_apply(self, stdin, namespace=None):
+        cmd_args = self._kubectl_bin + ('apply', '-f', '-')
+        if namespace is not None:
+            cmd_args = self._kubectl_bin + ('-n', namespace, 'apply', '-f', '-')
         with subprocess.Popen(('echo', stdin), stdout=subprocess.PIPE) as echo:
             o = subprocess.check_output(
-                self._kubectl_bin + ('apply', '-f', '-'),
-                stdin=echo.stdout,
+                cmd_args, stdin=echo.stdout,
             ).decode('UTF-8').strip()
             logger.debug(o)
 
