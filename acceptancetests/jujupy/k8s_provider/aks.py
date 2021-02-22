@@ -24,7 +24,7 @@ import os
 from pprint import pformat
 
 import yaml
-from azure.common.client_factory import get_client_from_json_dict
+from azure.identity import ClientSecretCredential
 from azure.mgmt import containerservice
 from msrestazure import azure_exceptions
 
@@ -52,7 +52,7 @@ class AKS(Base):
         self.__init_client(bs_manager.client.env)
 
     def __init_client(self, env):
-        credential = {
+        config = {
             'clientId': env._config['application-id'],
             'clientSecret': env._config['application-password'],
             'subscriptionId': env._config['subscription-id'],
@@ -66,11 +66,18 @@ class AKS(Base):
         }
         self.location = env._config['location']
         self.resource_group = env._config.pop('resource-group')  # pop for unknown config for juju.
-        self.driver = get_client_from_json_dict(containerservice.ContainerServiceClient, credential)
-        self.parameters = self.get_parameters(
+        self.driver = containerservice.ContainerServiceClient(
+            credential=ClientSecretCredential(
+                tenant_id=config['tenantId'],
+                client_id=config['clientId'],
+                client_secret=config['clientSecret'],
+            ),
+            subscription_id=config['subscriptionId']
+        )
+        self.parameters = self._get_parameters(
             location=self.location,
-            client_id=credential['clientId'],
-            client_secret=credential['clientSecret']
+            client_id=config['clientId'],
+            client_secret=config['clientSecret']
         )
 
         # list all running clusters
@@ -85,7 +92,7 @@ class AKS(Base):
     def _tear_down_substrate(self):
         logger.info("Deleting the AKS instance {0}".format(self.cluster_name))
         try:
-            poller = self.driver.managed_clusters.delete(self.resource_group, self.cluster_name)
+            poller = self.driver.managed_clusters.begin_delete(self.resource_group, self.cluster_name)
             r = get_poller_result(poller)
             if r is not None:
                 logger.info("cluster has been deleted -> \n%s", pformat(r.as_dict()))
@@ -93,7 +100,7 @@ class AKS(Base):
             logger.error(e)
             raise
 
-    def get_parameters(
+    def _get_parameters(
         self, location, client_id, client_secret,
         kubernetes_version=None,
         pub_ssh_key_path=os.path.expanduser('~/.ssh/id_rsa.pub'),
@@ -108,6 +115,10 @@ class AKS(Base):
             name='default',
             count=2,
             vm_size='Standard_D2_v2',
+            min_count=2,
+            max_count=10,
+            enable_auto_scaling=True,
+            mode='System',
         )
 
         with open(pub_ssh_key_path, 'r') as pub_ssh_file_fd:
@@ -163,7 +174,7 @@ class AKS(Base):
         # provision cluster.
         logger.info('creating cluster -> %s', self.cluster_name)
         try:
-            poller = self.driver.managed_clusters.create_or_update(
+            poller = self.driver.managed_clusters.begin_create_or_update(
                 self.resource_group,
                 self.cluster_name,
                 self.parameters,
