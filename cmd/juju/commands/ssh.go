@@ -6,12 +6,14 @@ package commands
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
@@ -225,3 +227,35 @@ func (b *autoBoolValue) String() string {
 }
 
 func (b *autoBoolValue) IsBoolFlag() bool { return true }
+
+// StatusAPI is implemented by types that can query the full status of a model.
+type StatusAPI interface {
+	Status([]string) (*params.FullStatus, error)
+	Close() error
+}
+
+func maybeResolveLeaderUnit(statusAPIGetter func() (StatusAPI, error), target string) (string, error) {
+	if !strings.HasSuffix(target, "/leader") {
+		return target, nil
+	}
+
+	api, err := statusAPIGetter()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer func() { _ = api.Close() }()
+
+	app := strings.Split(target, "/")[0]
+	res, err := api.Status([]string{app})
+	if err != nil {
+		return "", errors.Annotatef(err, "unable to resolve leader unit for application %q", app)
+	}
+
+	for unitName, unitStatus := range res.Applications[app].Units {
+		if unitStatus.Leader {
+			return unitName, nil
+		}
+	}
+
+	return "", errors.Errorf("unable to resolve leader unit for application %q", app)
+}
