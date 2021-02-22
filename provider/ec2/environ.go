@@ -1367,7 +1367,8 @@ func mapNetworkInterface(iface amzec2.NetworkInterface, subnet amzec2.Subnet) co
 		if privAddr.Association.PublicIP != "" {
 			ni.ShadowAddresses = append(
 				ni.ShadowAddresses,
-				corenetwork.NewProviderAddress(iface.PrivateIPAddress, corenetwork.WithScope(corenetwork.ScopePublic)),
+				corenetwork.NewProviderAddress(
+					privAddr.Association.PublicIP, corenetwork.WithScope(corenetwork.ScopePublic)),
 			)
 		}
 

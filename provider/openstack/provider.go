@@ -514,7 +514,7 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 			if address.Version == 6 {
 				addrType = corenetwork.IPv6Address
 			}
-			machineAddr := corenetwork.NewProviderAddress(publicIP, corenetwork.WithScope(networkScope))
+			machineAddr := corenetwork.NewProviderAddress(address.Address, corenetwork.WithScope(networkScope))
 			if machineAddr.Type != addrType {
 				logger.Warningf("derived address type %v, nova reports %v", machineAddr.Type, addrType)
 			}
