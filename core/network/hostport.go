@@ -365,18 +365,18 @@ func SpaceAddressesWithPort(addrs SpaceAddresses, port int) SpaceHostPorts {
 	return hps
 }
 
-type hostPortsPreferringIPv4Slice []SpaceHostPort
+type hostPortsPreferringIPv4 []SpaceHostPort
 
-func (hp hostPortsPreferringIPv4Slice) Len() int      { return len(hp) }
-func (hp hostPortsPreferringIPv4Slice) Swap(i, j int) { hp[i], hp[j] = hp[j], hp[i] }
-func (hp hostPortsPreferringIPv4Slice) Less(i, j int) bool {
+func (hp hostPortsPreferringIPv4) Len() int      { return len(hp) }
+func (hp hostPortsPreferringIPv4) Swap(i, j int) { hp[i], hp[j] = hp[j], hp[i] }
+func (hp hostPortsPreferringIPv4) Less(i, j int) bool {
 	return hp[i].Less(hp[j])
 }
 
 // SortHostPorts sorts the given SpaceHostPort slice according to the sortOrder of
 // each SpaceHostPort's embedded Address. See Address.sortOrder() for more info.
 func SortHostPorts(hps []SpaceHostPort) {
-	sort.Sort(hostPortsPreferringIPv4Slice(hps))
+	sort.Sort(hostPortsPreferringIPv4(hps))
 }
 
 // APIHostPortsToNoProxyString converts list of lists of NetAddrs() to

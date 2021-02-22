@@ -747,11 +747,11 @@ func scopeMatchHierarchy() []ScopeMatch {
 	}
 }
 
-type addressesPreferringIPv4Slice []SpaceAddress
+type addressesPreferringIPv4 []SpaceAddress
 
-func (a addressesPreferringIPv4Slice) Len() int      { return len(a) }
-func (a addressesPreferringIPv4Slice) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a addressesPreferringIPv4Slice) Less(i, j int) bool {
+func (a addressesPreferringIPv4) Len() int      { return len(a) }
+func (a addressesPreferringIPv4) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a addressesPreferringIPv4) Less(i, j int) bool {
 	addr1 := a[i]
 	addr2 := a[j]
 	order1 := addr1.sortOrder()
@@ -765,7 +765,7 @@ func (a addressesPreferringIPv4Slice) Less(i, j int) bool {
 // SortAddresses sorts the given Address slice according to the sortOrder of
 // each address. See Address.sortOrder() for more info.
 func SortAddresses(addrs []SpaceAddress) {
-	sort.Sort(addressesPreferringIPv4Slice(addrs))
+	sort.Sort(addressesPreferringIPv4(addrs))
 }
 
 // MergedAddresses provides a single list of addresses without duplicates
