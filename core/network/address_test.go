@@ -63,7 +63,7 @@ func (s *AddressSuite) TestNewScopedAddressIPv4(c *gc.C) {
 
 	for i, t := range tests {
 		c.Logf("test %d: %s %s", i, t.value, t.scope)
-		addr := network.NewScopedSpaceAddress(t.value, t.scope)
+		addr := network.NewSpaceAddress(t.value, network.WithScope(t.scope))
 		c.Check(addr.Value, gc.Equals, t.value)
 		c.Check(addr.Type, gc.Equals, network.IPv4Address)
 		c.Check(addr.Scope, gc.Equals, t.expectedScope)
@@ -112,7 +112,7 @@ func (s *AddressSuite) TestNewScopedAddressIPv6(c *gc.C) {
 	}
 	for i, test := range testAddresses {
 		c.Logf("test %d: %q -> %q", i, test.value, test.scope)
-		addr := network.NewScopedSpaceAddress(test.value, network.ScopeUnknown)
+		addr := network.NewSpaceAddress(test.value)
 		c.Check(addr.Value, gc.Equals, test.value)
 		c.Check(addr.Type, gc.Equals, network.IPv6Address)
 		c.Check(addr.Scope, gc.Equals, test.scope)
@@ -161,30 +161,22 @@ func (s *AddressSuite) TestNewProviderAddressesInSpace(c *gc.C) {
 
 func (s *AddressSuite) TestNewAddressIPv4(c *gc.C) {
 	value := "0.1.2.3"
-	addr1 := network.NewScopedSpaceAddress(value, network.ScopeUnknown)
-	addr2 := network.NewSpaceAddress(value)
-	addr3 := network.NewScopedSpaceAddress(value, network.ScopeLinkLocal)
-	// NewSpaceAddress behaves exactly like NewScopedSpaceAddress with ScopeUnknown
-	c.Assert(addr1, jc.DeepEquals, addr2)
-	c.Assert(addr2.Scope, gc.Equals, network.ScopePublic) // derived from value
-	c.Assert(addr2.Value, gc.Equals, value)
-	c.Assert(addr2.Type, gc.Equals, network.IPv4Address)
-	c.Assert(addr2.Scope, gc.Not(gc.Equals), addr3.Scope) // different scope
-	c.Assert(addr3.Scope, gc.Equals, network.ScopeLinkLocal)
+	addr1 := network.NewSpaceAddress(value)
+	addr2 := network.NewSpaceAddress(value, network.WithScope(network.ScopeLinkLocal))
+	c.Assert(addr1.Scope, gc.Equals, network.ScopePublic) // derived from value
+	c.Assert(addr1.Value, gc.Equals, value)
+	c.Assert(addr1.Type, gc.Equals, network.IPv4Address)
+	c.Assert(addr2.Scope, gc.Equals, network.ScopeLinkLocal)
 }
 
 func (s *AddressSuite) TestNewAddressIPv6(c *gc.C) {
 	value := "2001:db8::1"
-	addr1 := network.NewScopedSpaceAddress(value, network.ScopeUnknown)
-	addr2 := network.NewSpaceAddress(value)
-	addr3 := network.NewScopedSpaceAddress(value, network.ScopeLinkLocal)
-	// NewSpaceAddress behaves exactly like NewScopedSpaceAddress with ScopeUnknown
-	c.Assert(addr1, jc.DeepEquals, addr2)
-	c.Assert(addr2.Scope, gc.Equals, network.ScopePublic) // derived from value
-	c.Assert(addr2.Value, gc.Equals, value)
-	c.Assert(addr2.Type, gc.Equals, network.IPv6Address)
-	c.Assert(addr2.Scope, gc.Not(gc.Equals), addr3.Scope) // different scope
-	c.Assert(addr3.Scope, gc.Equals, network.ScopeLinkLocal)
+	addr1 := network.NewSpaceAddress(value)
+	addr2 := network.NewSpaceAddress(value, network.WithScope(network.ScopeLinkLocal))
+	c.Assert(addr1.Scope, gc.Equals, network.ScopePublic) // derived from value
+	c.Assert(addr1.Value, gc.Equals, value)
+	c.Assert(addr1.Type, gc.Equals, network.IPv6Address)
+	c.Assert(addr2.Scope, gc.Equals, network.ScopeLinkLocal)
 }
 
 func (s *AddressSuite) TestNewAddresses(c *gc.C) {
@@ -247,11 +239,11 @@ func (s *AddressSuite) TestNewAddresses(c *gc.C) {
 }
 
 func (s *AddressSuite) TestNewScopedAddressHostname(c *gc.C) {
-	addr := network.NewScopedSpaceAddress("localhost", network.ScopeUnknown)
+	addr := network.NewSpaceAddress("localhost")
 	c.Check(addr.Value, gc.Equals, "localhost")
 	c.Check(addr.Type, gc.Equals, network.HostName)
 	c.Check(addr.Scope, gc.Equals, network.ScopeUnknown)
-	addr = network.NewScopedSpaceAddress("example.com", network.ScopeUnknown)
+	addr = network.NewSpaceAddress("example.com")
 	c.Check(addr.Value, gc.Equals, "example.com")
 	c.Check(addr.Type, gc.Equals, network.HostName)
 	c.Check(addr.Scope, gc.Equals, network.ScopeUnknown)
@@ -278,77 +270,77 @@ var selectPublicTests = []selectTest{{
 }, {
 	"a public IPv4 address is selected",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic),
+		network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)),
 	},
 	0,
 }, {
 	"a public IPv6 address is selected",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic),
+		network.NewSpaceAddress("2001:db8::1", network.WithScope(network.ScopePublic)),
 	},
 	0,
 }, {
 	"first public address is selected",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic),
-		network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic),
+		network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("2001:db8::1", network.WithScope(network.ScopePublic)),
 	},
 	0,
 }, {
 	"the first public address is selected when cloud local fallbacks exist",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("172.16.1.1", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic),
-		network.NewScopedSpaceAddress("fc00:1", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic),
+		network.NewSpaceAddress("172.16.1.1", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("fc00:1", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("2001:db8::1", network.WithScope(network.ScopePublic)),
 	},
 	1,
 }, {
 	"the cloud local address is selected when a fan-local fallback exists",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("243.1.1.1", network.ScopeFanLocal),
-		network.NewScopedSpaceAddress("172.16.1.1", network.ScopeCloudLocal),
+		network.NewSpaceAddress("243.1.1.1", network.WithScope(network.ScopeFanLocal)),
+		network.NewSpaceAddress("172.16.1.1", network.WithScope(network.ScopeCloudLocal)),
 	},
 	1,
 },
 	{
 		"a machine IPv4 local address is not selected",
 		[]network.SpaceAddress{
-			network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
+			network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
 		},
 		-1,
 	}, {
 		"a machine IPv6 local address is not selected",
 		[]network.SpaceAddress{
-			network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal),
+			network.NewSpaceAddress("::1", network.WithScope(network.ScopeMachineLocal)),
 		},
 		-1,
 	}, {
 		"a link-local IPv4 address is not selected",
 		[]network.SpaceAddress{
-			network.NewScopedSpaceAddress("169.254.1.1", network.ScopeLinkLocal),
+			network.NewSpaceAddress("169.254.1.1", network.WithScope(network.ScopeLinkLocal)),
 		},
 		-1,
 	}, {
 		"a link-local (multicast or not) IPv6 address is not selected",
 		[]network.SpaceAddress{
-			network.NewScopedSpaceAddress("fe80::1", network.ScopeLinkLocal),
-			network.NewScopedSpaceAddress("ff01::2", network.ScopeLinkLocal),
-			network.NewScopedSpaceAddress("ff02::1:1", network.ScopeLinkLocal),
+			network.NewSpaceAddress("fe80::1", network.WithScope(network.ScopeLinkLocal)),
+			network.NewSpaceAddress("ff01::2", network.WithScope(network.ScopeLinkLocal)),
+			network.NewSpaceAddress("ff02::1:1", network.WithScope(network.ScopeLinkLocal)),
 		},
 		-1,
 	}, {
 		"a public name is preferred to an unknown or cloud local address",
 		[]network.SpaceAddress{
-			network.NewScopedSpaceAddress("127.0.0.1", network.ScopeUnknown),
-			network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal),
-			network.NewScopedSpaceAddress("fc00::1", network.ScopeCloudLocal),
-			network.NewScopedSpaceAddress("public.invalid.testing", network.ScopePublic),
+			network.NewSpaceAddress("127.0.0.1"),
+			network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("fc00::1", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("public.invalid.testing", network.WithScope(network.ScopePublic)),
 		},
 		3,
 	}, {
 		"first unknown address selected",
-		// NOTE(dimitern): Not using NewScopedSpaceAddress() below as it derives the
+		// NOTE(dimitern): Not using NewSpaceAddress() below as it derives the
 		// scope internally from the value when given ScopeUnknown.
 		[]network.SpaceAddress{
 			{
@@ -368,23 +360,23 @@ var selectPublicTests = []selectTest{{
 	}, {
 		"public IP address is picked when both public IPs and public hostnames exist",
 		[]network.SpaceAddress{
-			network.NewScopedSpaceAddress("10.0.0.1", network.ScopeUnknown),
-			network.NewScopedSpaceAddress("example.com", network.ScopePublic),
-			network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic),
+			network.NewSpaceAddress("10.0.0.1"),
+			network.NewSpaceAddress("example.com", network.WithScope(network.ScopePublic)),
+			network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)),
 		},
 		2,
 	}, {
 		"hostname is picked over cloud local address",
 		[]network.SpaceAddress{
-			network.NewScopedSpaceAddress("10.0.0.1", network.ScopeUnknown),
-			network.NewScopedSpaceAddress("example.com", network.ScopePublic),
+			network.NewSpaceAddress("10.0.0.1"),
+			network.NewSpaceAddress("example.com", network.WithScope(network.ScopePublic)),
 		},
 		1,
 	}, {
 		"IPv4 preferred over IPv6",
 		[]network.SpaceAddress{
-			network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic),
-			network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic),
+			network.NewSpaceAddress("2001:db8::1", network.WithScope(network.ScopePublic)),
+			network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)),
 		},
 		1,
 	}}
@@ -406,51 +398,51 @@ var selectInternalTests = []selectTest{{
 }, {
 	"a public IPv4 address is selected",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic),
+		network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)),
 	},
 	0,
 }, {
 	"a public IPv6 address is selected",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic),
+		network.NewSpaceAddress("2001:db8::1", network.WithScope(network.ScopePublic)),
 	},
 	0,
 }, {
 	"a cloud local IPv4 address is selected",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic),
-		network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal),
+		network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
 	},
 	1,
 }, {
 	"a cloud local IPv6 address is selected",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("fc00::1", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic),
+		network.NewSpaceAddress("fc00::1", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("2001:db8::1", network.WithScope(network.ScopePublic)),
 	},
 	0,
 }, {
 	"a machine local or link-local address is not selected",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
-		network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal),
-		network.NewScopedSpaceAddress("fe80::1", network.ScopeLinkLocal),
+		network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
+		network.NewSpaceAddress("::1", network.WithScope(network.ScopeMachineLocal)),
+		network.NewSpaceAddress("fe80::1", network.WithScope(network.ScopeLinkLocal)),
 	},
 	-1,
 }, {
 	"a cloud local address is preferred to a public address",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic),
-		network.NewScopedSpaceAddress("fc00::1", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic),
+		network.NewSpaceAddress("2001:db8::1", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("fc00::1", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)),
 	},
 	1,
 }, {
 	"an IPv6 cloud local address is preferred to a public address if the former appears first",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic),
-		network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic),
-		network.NewScopedSpaceAddress("fc00::1", network.ScopeCloudLocal),
+		network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("2001:db8::1", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("fc00::1", network.WithScope(network.ScopeCloudLocal)),
 	},
 	2,
 }}
@@ -468,76 +460,76 @@ func (s *AddressSuite) TestSelectInternalAddress(c *gc.C) {
 var selectInternalMachineTests = []selectTest{{
 	"first cloud local IPv4 address is selected",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("fc00::1", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic),
-		network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic),
+		network.NewSpaceAddress("fc00::1", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("2001:db8::1", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)),
 	},
 	2,
 }, {
 	"first cloud local address is selected",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("fc00::1", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic),
-		network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic),
+		network.NewSpaceAddress("fc00::1", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("2001:db8::1", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)),
 	},
 	0,
 }, {
 	"first cloud local hostname is selected",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("example.com", network.ScopePublic),
-		network.NewScopedSpaceAddress("cloud1.internal", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("cloud2.internal", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("example.org", network.ScopePublic),
+		network.NewSpaceAddress("example.com", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("cloud1.internal", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("cloud2.internal", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("example.org", network.WithScope(network.ScopePublic)),
 	},
 	1,
 }, {
 	"first machine local address is selected",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
-		network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal),
+		network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
+		network.NewSpaceAddress("::1", network.WithScope(network.ScopeMachineLocal)),
 	},
 	0,
 }, {
 	"first machine local IPv4 address is selected even with public/cloud hostnames",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("public.example.com", network.ScopePublic),
-		network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal),
-		network.NewScopedSpaceAddress("unknown.example.com", network.ScopeUnknown),
-		network.NewScopedSpaceAddress("cloud.internal", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
-		network.NewScopedSpaceAddress("fe80::1", network.ScopeLinkLocal),
-		network.NewScopedSpaceAddress("127.0.0.2", network.ScopeMachineLocal),
+		network.NewSpaceAddress("public.example.com", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("::1", network.WithScope(network.ScopeMachineLocal)),
+		network.NewSpaceAddress("unknown.example.com"),
+		network.NewSpaceAddress("cloud.internal", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
+		network.NewSpaceAddress("fe80::1", network.WithScope(network.ScopeLinkLocal)),
+		network.NewSpaceAddress("127.0.0.2", network.WithScope(network.ScopeMachineLocal)),
 	},
 	4,
 }, {
 	"first machine local non-IPv4 address is selected even with public/cloud hostnames",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("public.example.com", network.ScopePublic),
-		network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal),
-		network.NewScopedSpaceAddress("unknown.example.com", network.ScopeUnknown),
-		network.NewScopedSpaceAddress("cloud.internal", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("fe80::1", network.ScopeLinkLocal),
+		network.NewSpaceAddress("public.example.com", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("::1", network.WithScope(network.ScopeMachineLocal)),
+		network.NewSpaceAddress("unknown.example.com"),
+		network.NewSpaceAddress("cloud.internal", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("fe80::1", network.WithScope(network.ScopeLinkLocal)),
 	},
 	1,
 }, {
 	"cloud local IPv4 is selected even with other machine/cloud addresses",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("169.254.1.1", network.ScopeLinkLocal),
-		network.NewScopedSpaceAddress("cloud-unknown.internal", network.ScopeUnknown),
-		network.NewScopedSpaceAddress("cloud-local.internal", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("fc00::1", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
-		network.NewScopedSpaceAddress("127.0.0.2", network.ScopeMachineLocal),
+		network.NewSpaceAddress("169.254.1.1", network.WithScope(network.ScopeLinkLocal)),
+		network.NewSpaceAddress("cloud-unknown.internal"),
+		network.NewSpaceAddress("cloud-local.internal", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("fc00::1", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
+		network.NewSpaceAddress("127.0.0.2", network.WithScope(network.ScopeMachineLocal)),
 	},
 	4,
 }, {
 	"first cloud local hostname is selected even with other machine/cloud addresses",
 	[]network.SpaceAddress{
-		network.NewScopedSpaceAddress("169.254.1.1", network.ScopeLinkLocal),
-		network.NewScopedSpaceAddress("cloud-unknown.internal", network.ScopeUnknown),
-		network.NewScopedSpaceAddress("cloud-local.internal", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("fc00::1", network.ScopeCloudLocal),
+		network.NewSpaceAddress("169.254.1.1", network.WithScope(network.ScopeLinkLocal)),
+		network.NewSpaceAddress("cloud-unknown.internal"),
+		network.NewSpaceAddress("cloud-local.internal", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("fc00::1", network.WithScope(network.ScopeCloudLocal)),
 	},
 	2,
 }}
@@ -563,36 +555,36 @@ var selectInternalAddressesTests = []selectInternalAddressesTest{
 	{
 		about: "machine/cloud-local addresses are selected when machineLocal is true",
 		addresses: []network.SpaceAddress{
-			network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
-			network.NewScopedSpaceAddress("10.0.0.9", network.ScopeCloudLocal),
-			network.NewScopedSpaceAddress("fc00::1", network.ScopePublic),
+			network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
+			network.NewSpaceAddress("10.0.0.9", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("fc00::1", network.WithScope(network.ScopePublic)),
 		},
 		matcher: network.ScopeMatchMachineOrCloudLocal,
 		expected: []network.SpaceAddress{
-			network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
-			network.NewScopedSpaceAddress("10.0.0.9", network.ScopeCloudLocal),
+			network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
+			network.NewSpaceAddress("10.0.0.9", network.WithScope(network.ScopeCloudLocal)),
 		},
 	},
 	{
 		about: "cloud-local addresses are selected when machineLocal is false",
 		addresses: []network.SpaceAddress{
-			network.NewScopedSpaceAddress("169.254.1.1", network.ScopeLinkLocal),
-			network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
-			network.NewScopedSpaceAddress("cloud-local.internal", network.ScopeCloudLocal),
-			network.NewScopedSpaceAddress("cloud-local2.internal", network.ScopeCloudLocal),
-			network.NewScopedSpaceAddress("fc00::1", network.ScopePublic),
+			network.NewSpaceAddress("169.254.1.1", network.WithScope(network.ScopeLinkLocal)),
+			network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
+			network.NewSpaceAddress("cloud-local.internal", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("cloud-local2.internal", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("fc00::1", network.WithScope(network.ScopePublic)),
 		},
 		matcher: network.ScopeMatchCloudLocal,
 		expected: []network.SpaceAddress{
-			network.NewScopedSpaceAddress("cloud-local.internal", network.ScopeCloudLocal),
-			network.NewScopedSpaceAddress("cloud-local2.internal", network.ScopeCloudLocal),
+			network.NewSpaceAddress("cloud-local.internal", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("cloud-local2.internal", network.WithScope(network.ScopeCloudLocal)),
 		},
 	},
 	{
 		about: "nil is returned when no cloud-local addresses are found",
 		addresses: []network.SpaceAddress{
-			network.NewScopedSpaceAddress("169.254.1.1", network.ScopeLinkLocal),
-			network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
+			network.NewSpaceAddress("169.254.1.1", network.WithScope(network.ScopeLinkLocal)),
+			network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
 		},
 		matcher:  network.ScopeMatchCloudLocal,
 		expected: nil,
@@ -737,13 +729,13 @@ func (*AddressSuite) TestSortAddresses(c *gc.C) {
 func (*AddressSuite) TestExactScopeMatch(c *gc.C) {
 	var addr network.Address
 
-	addr = network.NewScopedMachineAddress("10.0.0.2", network.ScopeCloudLocal)
+	addr = network.NewMachineAddress("10.0.0.2", network.WithScope(network.ScopeCloudLocal))
 	match := network.ExactScopeMatch(addr, network.ScopeCloudLocal)
 	c.Assert(match, jc.IsTrue)
 	match = network.ExactScopeMatch(addr, network.ScopePublic)
 	c.Assert(match, jc.IsFalse)
 
-	addr = network.NewScopedProviderAddress("8.8.8.8", network.ScopePublic)
+	addr = network.NewProviderAddress("8.8.8.8", network.WithScope(network.ScopePublic))
 	match = network.ExactScopeMatch(addr, network.ScopeCloudLocal)
 	c.Assert(match, jc.IsFalse)
 	match = network.ExactScopeMatch(addr, network.ScopePublic)

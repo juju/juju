@@ -284,13 +284,13 @@ func (s *loginSuite) assertAgentLogin(c *gc.C, info *api.Info, mgmtSpace *state.
 	// After storing APIHostPorts in state, Login should return the list
 	// filtered for agents along with the address we connected to.
 	server1Addresses := network.SpaceAddresses{
-		network.NewScopedSpaceAddress("server-1", network.ScopePublic),
-		network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal),
+		network.NewSpaceAddress("server-1", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
 	}
 	server1Addresses[1].SpaceID = mgmtSpace.Id()
 
 	server2Addresses := network.SpaceAddresses{
-		network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal),
+		network.NewSpaceAddress("::1", network.WithScope(network.ScopeMachineLocal)),
 	}
 
 	err = s.State.SetAPIHostPorts([]network.SpaceHostPorts{
@@ -319,13 +319,13 @@ func (s *loginSuite) TestLoginAddressesForClients(c *gc.C) {
 	info = s.infoForNewUser(c, info)
 
 	server1Addresses := network.SpaceAddresses{
-		network.NewScopedSpaceAddress("server-1", network.ScopePublic),
-		network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal),
+		network.NewSpaceAddress("server-1", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
 	}
 	server1Addresses[1].SpaceID = mgmtSpace.Id()
 
 	server2Addresses := network.SpaceAddresses{
-		network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal),
+		network.NewSpaceAddress("::1", network.WithScope(network.ScopeMachineLocal)),
 	}
 
 	newAPIHostPorts := []network.SpaceHostPorts{
@@ -338,16 +338,16 @@ func (s *loginSuite) TestLoginAddressesForClients(c *gc.C) {
 	exp := []network.MachineHostPorts{
 		{
 			{
-				MachineAddress: network.NewScopedMachineAddress("server-1", network.ScopePublic),
+				MachineAddress: network.NewMachineAddress("server-1", network.WithScope(network.ScopePublic)),
 				NetPort:        123,
 			},
 			{
-				MachineAddress: network.NewScopedMachineAddress("10.0.0.1", network.ScopeCloudLocal),
+				MachineAddress: network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
 				NetPort:        123,
 			},
 		}, {
 			{
-				MachineAddress: network.NewScopedMachineAddress("::1", network.ScopeMachineLocal),
+				MachineAddress: network.NewMachineAddress("::1", network.WithScope(network.ScopeMachineLocal)),
 				NetPort:        456,
 			},
 		},

@@ -255,7 +255,7 @@ var netAddrTests = []struct {
 	port:   9999,
 	expect: "example.com:9999",
 }, {
-	addr:   network.NewScopedSpaceAddress("example.com", network.ScopePublic),
+	addr:   network.NewSpaceAddress("example.com", network.WithScope(network.ScopePublic)),
 	port:   1234,
 	expect: "example.com:1234",
 }, {
@@ -416,32 +416,32 @@ var prioritizeInternalHostPortsTests = []selectInternalHostPortsTest{{
 }, {
 	"a public IPv4 address is selected",
 	[]network.SpaceHostPort{
-		{network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic), 9999},
+		{network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)), 9999},
 	},
 	[]string{"8.8.8.8:9999"},
 }, {
 	"cloud local IPv4 addresses are selected",
 	[]network.SpaceHostPort{
-		{network.NewScopedSpaceAddress("10.1.0.1", network.ScopeCloudLocal), 8888},
-		{network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic), 123},
-		{network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal), 1234},
+		{network.NewSpaceAddress("10.1.0.1", network.WithScope(network.ScopeCloudLocal)), 8888},
+		{network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)), 123},
+		{network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)), 1234},
 	},
 	[]string{"10.1.0.1:8888", "10.0.0.1:1234", "8.8.8.8:123"},
 }, {
 	"a machine local or link-local address is not selected",
 	[]network.SpaceHostPort{
-		{network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal), 111},
-		{network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal), 222},
-		{network.NewScopedSpaceAddress("fe80::1", network.ScopeLinkLocal), 333},
+		{network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)), 111},
+		{network.NewSpaceAddress("::1", network.WithScope(network.ScopeMachineLocal)), 222},
+		{network.NewSpaceAddress("fe80::1", network.WithScope(network.ScopeLinkLocal)), 333},
 	},
 	[]string{},
 }, {
 	"cloud local addresses are preferred to a public addresses",
 	[]network.SpaceHostPort{
-		{network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic), 123},
-		{network.NewScopedSpaceAddress("fc00::1", network.ScopeCloudLocal), 123},
-		{network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic), 123},
-		{network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal), 4444},
+		{network.NewSpaceAddress("2001:db8::1", network.WithScope(network.ScopePublic)), 123},
+		{network.NewSpaceAddress("fc00::1", network.WithScope(network.ScopeCloudLocal)), 123},
+		{network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)), 123},
+		{network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)), 4444},
 	},
 	[]string{"10.0.0.1:4444", "[fc00::1]:123", "8.8.8.8:123", "[2001:db8::1]:123"},
 }}
@@ -461,40 +461,40 @@ var selectInternalHostPortsTests = []selectInternalHostPortsTest{{
 }, {
 	"a public IPv4 address is selected",
 	[]network.SpaceHostPort{
-		{network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic), 9999},
+		{network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)), 9999},
 	},
 	[]string{"8.8.8.8:9999"},
 }, {
 	"cloud local IPv4 addresses are selected",
 	[]network.SpaceHostPort{
-		{network.NewScopedSpaceAddress("10.1.0.1", network.ScopeCloudLocal), 8888},
-		{network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic), 123},
-		{network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal), 1234},
+		{network.NewSpaceAddress("10.1.0.1", network.WithScope(network.ScopeCloudLocal)), 8888},
+		{network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)), 123},
+		{network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)), 1234},
 	},
 	[]string{"10.1.0.1:8888", "10.0.0.1:1234"},
 }, {
 	"a machine local or link-local address is not selected",
 	[]network.SpaceHostPort{
-		{network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal), 111},
-		{network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal), 222},
-		{network.NewScopedSpaceAddress("fe80::1", network.ScopeLinkLocal), 333},
+		{network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)), 111},
+		{network.NewSpaceAddress("::1", network.WithScope(network.ScopeMachineLocal)), 222},
+		{network.NewSpaceAddress("fe80::1", network.WithScope(network.ScopeLinkLocal)), 333},
 	},
 	[]string{},
 }, {
 	"cloud local IPv4 addresses are preferred to a public addresses",
 	[]network.SpaceHostPort{
-		{network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic), 123},
-		{network.NewScopedSpaceAddress("fc00::1", network.ScopeCloudLocal), 123},
-		{network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic), 123},
-		{network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal), 4444},
+		{network.NewSpaceAddress("2001:db8::1", network.WithScope(network.ScopePublic)), 123},
+		{network.NewSpaceAddress("fc00::1", network.WithScope(network.ScopeCloudLocal)), 123},
+		{network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)), 123},
+		{network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)), 4444},
 	},
 	[]string{"10.0.0.1:4444"},
 }, {
 	"cloud local IPv6 addresses are preferred to a public addresses",
 	[]network.SpaceHostPort{
-		{network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic), 123},
-		{network.NewScopedSpaceAddress("fc00::1", network.ScopeCloudLocal), 123},
-		{network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic), 123},
+		{network.NewSpaceAddress("2001:db8::1", network.WithScope(network.ScopePublic)), 123},
+		{network.NewSpaceAddress("fc00::1", network.WithScope(network.ScopeCloudLocal)), 123},
+		{network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)), 123},
 	},
 	[]string{"[fc00::1]:123"},
 }}

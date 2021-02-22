@@ -347,7 +347,7 @@ func spaceAddressesFromNetworkInfo(netInfos []params.NetworkInfo) network.SpaceA
 		}
 
 		for _, addr := range nwInfo.Addresses {
-			addrs = append(addrs, network.NewScopedSpaceAddress(addr.Address, scope))
+			addrs = append(addrs, network.NewSpaceAddress(addr.Address, network.WithScope(scope)))
 		}
 	}
 	return addrs
