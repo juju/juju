@@ -40,6 +40,8 @@ type sshMachine struct {
 	knownHostsPath  string
 	hostChecker     jujussh.ReachableChecker
 	forceAPIv1      bool
+
+	statusAPIGetter func() (StatusAPI, error)
 }
 
 const jujuSSHClientForceAPIv1 = "JUJU_SSHCLIENT_API_V1"
@@ -368,6 +370,12 @@ func (c *sshMachine) setProxyCommand(options *ssh.Options) error {
 }
 
 func (c *sshMachine) ensureAPIClient(mc ModelCommand) error {
+	if c.statusAPIGetter == nil {
+		c.statusAPIGetter = func() (StatusAPI, error) {
+			return mc.NewAPIClient()
+		}
+	}
+
 	if c.apiClient != nil {
 		return nil
 	}
@@ -386,7 +394,14 @@ func (c *sshMachine) initAPIClient(mc ModelCommand) error {
 }
 
 func (c *sshMachine) resolveTarget(target string) (*resolvedTarget, error) {
-	out, ok := c.resolveAsAgent(target)
+	// If the user specified a leader unit, try to resolve it to the
+	// appropriate unit name and override the requested target name.
+	resolvedTargetName, err := maybeResolveLeaderUnit(c.statusAPIGetter, target)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	out, ok := c.resolveAsAgent(resolvedTargetName)
 	if !ok {
 		// Not a machine or unit agent target - use directly.
 		return out, nil
