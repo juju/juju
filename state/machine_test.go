@@ -2826,12 +2826,12 @@ func (s *MachineSuite) TestWatchAddresses(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Set provider addresses eclipsing machine addresses: reported.
-	err = machine.SetProviderAddresses(network.NewScopedSpaceAddress("abc", network.ScopePublic))
+	err = machine.SetProviderAddresses(network.NewSpaceAddress("abc", network.WithScope(network.ScopePublic)))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set same machine eclipsed by provider addresses: not reported.
-	err = machine.SetMachineAddresses(network.NewScopedSpaceAddress("abc", network.ScopeCloudLocal))
+	err = machine.SetMachineAddresses(network.NewSpaceAddress("abc", network.WithScope(network.ScopeCloudLocal)))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -2841,7 +2841,7 @@ func (s *MachineSuite) TestWatchAddresses(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Set different provider addresses: reported.
-	err = machine.SetMachineAddresses(network.NewScopedSpaceAddress("def", network.ScopePublic))
+	err = machine.SetMachineAddresses(network.NewSpaceAddress("def", network.WithScope(network.ScopePublic)))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 

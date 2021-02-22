@@ -754,7 +754,7 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = caasModel.SetPodSpec(nil, application.ApplicationTag(), strPtr("pod spec"))
 	c.Assert(err, jc.ErrorIsNil)
-	addr := network.NewScopedSpaceAddress("192.168.1.1", network.ScopeCloudLocal)
+	addr := network.NewSpaceAddress("192.168.1.1", network.WithScope(network.ScopeCloudLocal))
 	addr.SpaceID = "0"
 	err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
 	c.Assert(err, jc.ErrorIsNil)
@@ -830,7 +830,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = caasModel.SetPodSpec(nil, application.ApplicationTag(), strPtr("pod spec"))
 	c.Assert(err, jc.ErrorIsNil)
-	addr := network.NewScopedSpaceAddress("192.168.1.1", network.ScopeCloudLocal)
+	addr := network.NewSpaceAddress("192.168.1.1", network.WithScope(network.ScopeCloudLocal))
 	err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1212,7 +1212,7 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(containerInfo.ProviderId(), gc.Equals, "provider-id")
 		c.Assert(containerInfo.Ports(), jc.DeepEquals, []string{"80"})
-		addr := network.NewScopedSpaceAddress("192.168.1.2", network.ScopeMachineLocal)
+		addr := network.NewSpaceAddress("192.168.1.2", network.WithScope(network.ScopeMachineLocal))
 		addr.SpaceID = "0"
 		c.Assert(containerInfo.Address(), jc.DeepEquals, &addr)
 	}
