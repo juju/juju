@@ -6,6 +6,7 @@ package commands
 import (
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/cmd"
@@ -40,6 +41,10 @@ type debugHooksCommand struct {
 const debugHooksDoc = `
 Interactively debug hooks or actions remotely on an application unit.
 
+Valid unit identifiers are:
+  a standard unit ID, such as mysql/0 or;
+  leader syntax of the form <application>/leader, such as mysql/leader.
+
 See the "juju help ssh" for information about SSH related options
 accepted by the debug-hooks command.
 `
@@ -63,7 +68,7 @@ func (c *debugHooksCommand) Init(args []string) error {
 	}
 
 	c.provider.setTarget(args[0])
-	if !names.IsValidUnit(c.provider.getTarget()) {
+	if target := c.provider.getTarget(); !(names.IsValidUnit(target) || strings.HasSuffix(target, "/leader")) {
 		return errors.Errorf("%q is not a valid unit name", c.provider.getTarget())
 	}
 
@@ -122,7 +127,21 @@ func (c *debugHooksCommand) validateHooksOrActions() error {
 	if len(c.hooks) == 0 {
 		return nil
 	}
-	appName, err := names.UnitApplication(c.provider.getTarget())
+
+	var (
+		appName string
+		err     error
+	)
+
+	// If the unit/leader syntax is used, we need to manually extract the
+	// application name from the target parameter.
+	target := c.provider.getTarget()
+	if strings.HasSuffix(target, "/leader") {
+		appName = strings.TrimSuffix(target, "/leader")
+	} else {
+		appName, err = names.UnitApplication(target)
+	}
+
 	if err != nil {
 		return err
 	}
@@ -208,7 +227,17 @@ func (c *debugHooksCommand) commonRun(
 	if err != nil {
 		return err
 	}
-	debugctx := unitdebug.NewHooksContext(target)
+
+	// If the unit/leader syntax is used, we first need to resolve it into
+	// the unit name that corresponds to the current leader.
+	resolvedTargetName, err := maybeResolveLeaderUnit(func() (StatusAPI, error) {
+		return c.ModelCommandBase.NewAPIClient()
+	}, target)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	debugctx := unitdebug.NewHooksContext(resolvedTargetName)
 	clientScript := unitdebug.ClientScript(debugctx, hooks, debugAt)
 	b64Script := base64.StdEncoding.EncodeToString([]byte(clientScript))
 	innercmd := fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, b64Script)
