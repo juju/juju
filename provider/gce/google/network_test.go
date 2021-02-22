@@ -90,7 +90,7 @@ func (s *networkSuite) TestExtractAddresses(c *gc.C) {
 	addresses := google.ExtractAddresses(&s.NetworkInterface)
 
 	c.Check(addresses, jc.DeepEquals, []network.ProviderAddress{
-		network.NewScopedProviderAddress("10.0.0.1", network.ScopeCloudLocal),
+		network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
 	})
 }
 
@@ -100,7 +100,7 @@ func (s *networkSuite) TestExtractAddressesExternal(c *gc.C) {
 	addresses := google.ExtractAddresses(&s.NetworkInterface)
 
 	c.Check(addresses, jc.DeepEquals, []network.ProviderAddress{
-		network.NewScopedProviderAddress("8.8.8.8", network.ScopePublic),
+		network.NewProviderAddress("8.8.8.8", network.WithScope(network.ScopePublic)),
 	})
 }
 

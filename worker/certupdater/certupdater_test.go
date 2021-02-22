@@ -88,8 +88,8 @@ type mockAPIHostGetter struct{}
 
 func (g *mockAPIHostGetter) APIHostPortsForClients() ([]network.SpaceHostPorts, error) {
 	return []network.SpaceHostPorts{{
-		{SpaceAddress: network.NewScopedSpaceAddress("192.168.1.1", network.ScopeCloudLocal), NetPort: 17070},
-		{SpaceAddress: network.NewScopedSpaceAddress("10.1.1.1", network.ScopeMachineLocal), NetPort: 17070},
+		{SpaceAddress: network.NewSpaceAddress("192.168.1.1", network.WithScope(network.ScopeCloudLocal)), NetPort: 17070},
+		{SpaceAddress: network.NewSpaceAddress("10.1.1.1", network.WithScope(network.ScopeMachineLocal)), NetPort: 17070},
 	}}, nil
 }
 
