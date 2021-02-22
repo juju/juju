@@ -260,8 +260,8 @@ func (s *NetworkSuite) TestPortRangeConvenience(c *gc.C) {
 
 func (s *NetworkSuite) TestProviderAddressConversion(c *gc.C) {
 	pAddrs := network.ProviderAddresses{
-		network.NewScopedProviderAddress("1.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedProviderAddress("2.3.4.5", network.ScopePublic),
+		network.NewProviderAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
+		network.NewProviderAddress("2.3.4.5", network.WithScope(network.ScopePublic)),
 	}
 	pAddrs[0].SpaceName = "test-space"
 	pAddrs[0].ProviderSpaceID = "666"
@@ -272,8 +272,8 @@ func (s *NetworkSuite) TestProviderAddressConversion(c *gc.C) {
 
 func (s *NetworkSuite) TestMachineAddressConversion(c *gc.C) {
 	mAddrs := []network.MachineAddress{
-		network.NewScopedMachineAddress("1.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedMachineAddress("2.3.4.5", network.ScopePublic),
+		network.NewMachineAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
+		network.NewMachineAddress("2.3.4.5", network.WithScope(network.ScopePublic)),
 	}
 
 	exp := []params.Address{
@@ -287,17 +287,17 @@ func (s *NetworkSuite) TestProviderHostPortConversion(c *gc.C) {
 	pHPs := []network.ProviderHostPorts{
 		{
 			{
-				ProviderAddress: network.NewScopedProviderAddress("1.2.3.4", network.ScopeCloudLocal),
+				ProviderAddress: network.NewProviderAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 				NetPort:         1234,
 			},
 			{
-				ProviderAddress: network.NewScopedProviderAddress("2.3.4.5", network.ScopePublic),
+				ProviderAddress: network.NewProviderAddress("2.3.4.5", network.WithScope(network.ScopePublic)),
 				NetPort:         2345,
 			},
 		},
 		{
 			{
-				ProviderAddress: network.NewScopedProviderAddress("3.4.5.6", network.ScopeCloudLocal),
+				ProviderAddress: network.NewProviderAddress("3.4.5.6", network.WithScope(network.ScopeCloudLocal)),
 				NetPort:         3456,
 			},
 		},
@@ -344,17 +344,17 @@ func (s *NetworkSuite) TestMachineHostPortConversion(c *gc.C) {
 	exp := []network.MachineHostPorts{
 		{
 			{
-				MachineAddress: network.NewScopedMachineAddress("1.2.3.4", network.ScopeCloudLocal),
+				MachineAddress: network.NewMachineAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 				NetPort:        1234,
 			},
 			{
-				MachineAddress: network.NewScopedMachineAddress("2.3.4.5", network.ScopePublic),
+				MachineAddress: network.NewMachineAddress("2.3.4.5", network.WithScope(network.ScopePublic)),
 				NetPort:        2345,
 			},
 		},
 		{
 			{
-				MachineAddress: network.NewScopedMachineAddress("3.4.5.6", network.ScopeCloudLocal),
+				MachineAddress: network.NewMachineAddress("3.4.5.6", network.WithScope(network.ScopeCloudLocal)),
 				NetPort:        3456,
 			},
 		},
@@ -367,17 +367,17 @@ func (s *NetworkSuite) TestHostPortConversion(c *gc.C) {
 	mHPs := []network.MachineHostPorts{
 		{
 			{
-				MachineAddress: network.NewScopedMachineAddress("1.2.3.4", network.ScopeCloudLocal),
+				MachineAddress: network.NewMachineAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 				NetPort:        1234,
 			},
 			{
-				MachineAddress: network.NewScopedMachineAddress("2.3.4.5", network.ScopePublic),
+				MachineAddress: network.NewMachineAddress("2.3.4.5", network.WithScope(network.ScopePublic)),
 				NetPort:        2345,
 			},
 		},
 		{
 			{
-				MachineAddress: network.NewScopedMachineAddress("3.4.5.6", network.ScopeCloudLocal),
+				MachineAddress: network.NewMachineAddress("3.4.5.6", network.WithScope(network.ScopeCloudLocal)),
 				NetPort:        3456,
 			},
 		},
