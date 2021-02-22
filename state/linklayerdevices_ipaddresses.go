@@ -82,6 +82,13 @@ type ipAddressDoc struct {
 	// address assigned to a NIC by a provider rather than being associated
 	// directly with a device on-machine.
 	IsShadow bool `bson:"is-shadow,omitempty"`
+
+	// IsSecondary if true, indicates that this address is not the primary
+	// address associated with the NIC.
+	// Such addresses can be added by clustering solutions like Pacemaker.
+	// We need to prevent these addresses being supplied with higher
+	// priority than primary addresses in returns to network-get calls.
+	IsSecondary bool `bson:"is-secondary,omitempty"`
 }
 
 // Address represents the state of an IP address assigned to a link-layer
@@ -212,6 +219,12 @@ func (addr *Address) Origin() network.Origin {
 // subnet.
 func (addr *Address) IsShadow() bool {
 	return addr.doc.IsShadow
+}
+
+// IsSecondary if true, indicates that this address is not the primary
+// address associated with the NIC.
+func (addr *Address) IsSecondary() bool {
+	return addr.doc.IsSecondary
 }
 
 // String returns a human-readable representation of the IP address.
