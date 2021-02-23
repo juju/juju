@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
+	"github.com/juju/utils/v2/ssh"
 )
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
@@ -42,6 +43,10 @@ type BootstrapParams struct {
 	// are used to choose the initial instance. BootstrapConstraints
 	// will not be stored in state for the environment.
 	BootstrapConstraints constraints.Value
+
+	// BootstrapSSHOptions may be specified to provide custom SSH
+	// connection settings when attempting to bootstrap the controller.
+	BootstrapSSHOptions InstanceSSHOptionsFunc
 
 	// StoragePools is one or more named storage pools to create
 	// in the controller model.
@@ -79,6 +84,12 @@ type BootstrapParams struct {
 	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
 }
+
+// InstanceSSHOptionsFunc is a function that given an instance config, returns
+// a HostSSHOptionsFunc that can generate SSH options for accessing an instance.
+type InstanceSSHOptionsFunc func(*instancecfg.InstanceConfig) SSHOptionsFunc
+
+type SSHOptionsFunc func(host string) (*ssh.Options, func(), error)
 
 // CloudBootstrapFinalizer is a function returned from Environ.Bootstrap.
 // The caller must pass a InstanceConfig with the Tools field set.
