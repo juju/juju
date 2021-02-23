@@ -335,20 +335,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			return errors.Trace(err)
 		}
 
-		var channel corecharm.Channel
-		if spec.Channel != "" {
-			channel, err = corecharm.ParseChannelNormalize(spec.Channel)
-			if err != nil {
-				return errors.Trace(err)
-			}
-		}
-
-		platform, err := utils.DeducePlatform(cons, spec.Series, h.modelConstraints)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		origin, err := utils.DeduceOrigin(ch, channel, platform)
+		channel, origin, err := h.constructChannelAndOrigin(ch, spec.Series, spec.Channel, cons)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -369,7 +356,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		}
 
 		h.ctx.Infof(formatLocatedText(ch, origin))
-		if url.Series == "bundle" {
+		if url.Series == "bundle" || origin.Type == "bundle" {
 			return errors.Errorf("expected charm, got bundle %q", ch.Name)
 		}
 
@@ -390,26 +377,27 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 	return nil
 }
 
-func (h *bundleHandler) resolveCharmRevision(charmURL, charmSeries, charmChannel, arch string) (int, error) {
-	curl, err := charm.ParseURL(charmURL)
-	if err != nil {
-		return -1, errors.Trace(err)
+func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL, charmSeries, charmChannel, arch string) (string, int, error) {
+	if h.isLocalCharm(charmURL) {
+		return charmChannel, -1, nil
 	}
-	if curl.Revision >= 0 {
-		return curl.Revision, nil
+	// If the charm URL already contains a revision, return that before
+	// attempting to resolve a revision from any charm store. We can ignore the
+	// error here, as we want to just parse out the charm URL.
+	// Resolution and validation of the charm URL happens further down.
+	curl, err := charm.ParseURL(charmURL)
+	if err == nil {
+		if charm.Local.Matches(curl.Schema) {
+			return charmChannel, -1, nil
+		} else if curl.Revision >= 0 && charmChannel != "" {
+			return charmChannel, curl.Revision, nil
+		}
 	}
 
+	// Resolve and validate a charm URL based on passed in charm.
 	ch, err := resolveAndValidateCharmURL(charmURL)
 	if err != nil {
-		return -1, errors.Trace(err)
-	}
-
-	var channel corecharm.Channel
-	if charmChannel != "" {
-		channel, err = corecharm.ParseChannelNormalize(charmChannel)
-		if err != nil {
-			return -1, errors.Trace(err)
-		}
+		return "", -1, errors.Trace(err)
 	}
 
 	var cons constraints.Value
@@ -417,25 +405,46 @@ func (h *bundleHandler) resolveCharmRevision(charmURL, charmSeries, charmChannel
 		cons = constraints.Value{Arch: &arch}
 	}
 
-	platform, err := utils.DeducePlatform(cons, charmSeries, h.modelConstraints)
+	_, origin, err := h.constructChannelAndOrigin(ch, charmSeries, charmChannel, cons)
 	if err != nil {
-		return -1, errors.Trace(err)
-	}
-
-	origin, err := utils.DeduceOrigin(ch, channel, platform)
-	if err != nil {
-		return -1, errors.Trace(err)
+		return "", -1, errors.Trace(err)
 	}
 
 	_, origin, _, err = h.bundleResolver.ResolveCharm(ch, origin)
 	if err != nil {
-		return -1, errors.Annotatef(err, "cannot resolve charm or bundle %q", ch.Name)
+		return "", -1, errors.Annotatef(err, "cannot resolve charm or bundle %q", ch.Name)
 	}
-	if rev := origin.Revision; rev != nil {
-		fmt.Println("!!", *rev)
-		return *rev, nil
+	resolvedChan := origin.CoreChannel().Normalize().String()
+	rev := origin.Revision
+	if rev == nil {
+		return resolvedChan, -1, nil
 	}
-	return -1, nil
+	return resolvedChan, *rev, nil
+}
+
+// constructChannelAndOrigin attempts to construct a fully qualified channel
+// along with an origin that matches the hardware constraints and the charm url
+// source.
+func (h *bundleHandler) constructChannelAndOrigin(curl *charm.URL, charmSeries, charmChannel string, cons constraints.Value) (corecharm.Channel, commoncharm.Origin, error) {
+	var channel corecharm.Channel
+	if charmChannel != "" {
+		var err error
+		channel, err = corecharm.ParseChannelNormalize(charmChannel)
+		if err != nil {
+			return corecharm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
+		}
+	}
+
+	platform, err := utils.DeducePlatform(cons, charmSeries, h.modelConstraints)
+	if err != nil {
+		return corecharm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
+	}
+
+	origin, err := utils.DeduceOrigin(curl, channel, platform)
+	if err != nil {
+		return corecharm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
+	}
+	return channel, origin, nil
 }
 
 func (h *bundleHandler) getChanges() error {
@@ -459,7 +468,7 @@ func (h *bundleHandler) getChanges() error {
 		BundleURL:        bundleURL,
 		Model:            h.model,
 		ConstraintGetter: addCharmConstraintsParser,
-		RevisionGetter:   h.resolveCharmRevision,
+		CharmResolver:    h.resolveCharmChannelAndRevision,
 		Logger:           logger,
 		Force:            h.force,
 	}
@@ -858,15 +867,15 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	// specialization.
 	if charm.CharmStore.Matches(chID.URL.Schema) {
 		var track string
-		if h.origin.Track != nil {
-			track = *h.origin.Track
+		if origin.Track != nil {
+			track = *origin.Track
 		}
 		platform, err := utils.DeducePlatform(cons, series, h.modelConstraints)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		// A channel is needed whether the risk is valid or not.
-		channel, _ := corecharm.MakeChannel(track, h.origin.Risk, "")
+		channel, _ := corecharm.MakeChannel(track, origin.Risk, "")
 		origin, err = utils.DeduceOrigin(chID.URL, channel, platform)
 		if err != nil {
 			return errors.Trace(err)
@@ -1392,12 +1401,12 @@ func (h *bundleHandler) grantOfferAccess(change *bundlechanges.GrantOfferAccessC
 // "addMachine" change is required, as adding machines is required to place
 // units, and units belong to applications.
 // Receive the id of the "addMachine" change.
-func (h *bundleHandler) applicationsForMachineChange(changeId string) []string {
+func (h *bundleHandler) applicationsForMachineChange(changeID string) []string {
 	applications := set.NewStrings()
 mainloop:
 	for _, change := range h.changes {
 		for _, required := range change.Requires() {
-			if required != changeId {
+			if required != changeID {
 				continue
 			}
 			switch change := change.(type) {
@@ -1505,7 +1514,7 @@ func (h *bundleHandler) getOrigin(curl charm.URL, channel corecharm.Channel) (co
 
 func constructNormalizedChannel(channel string) (corecharm.Channel, error) {
 	if channel == "" {
-		return corecharm.Channel{}, errors.NotValidf("empty channel")
+		return corecharm.Channel{}, nil
 	}
 	ch, err := corecharm.ParseChannelNormalize(channel)
 	if err != nil {
