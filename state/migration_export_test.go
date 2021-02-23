@@ -487,7 +487,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 		c.Assert(err, jc.ErrorIsNil)
 		err = caasModel.SetPodSpec(nil, application.ApplicationTag(), strPtr("pod spec"))
 		c.Assert(err, jc.ErrorIsNil)
-		addr := network.NewScopedSpaceAddress("192.168.1.1", network.ScopeCloudLocal)
+		addr := network.NewSpaceAddress("192.168.1.1", corenetwork.WithScope(corenetwork.ScopeCloudLocal))
 		err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
 		c.Assert(err, jc.ErrorIsNil)
 	}

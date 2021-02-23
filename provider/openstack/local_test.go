@@ -421,11 +421,11 @@ func (s *localServerSuite) assertAddressesWithPublicIP(c *gc.C, cons constraints
 		addr, err := inst.Addresses(s.callCtx)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addr, jc.SameContents, network.ProviderAddresses{
-			network.NewScopedProviderAddress("10.0.0.1", network.ScopePublic),
-			network.NewScopedProviderAddress("127.0.0.1", network.ScopeMachineLocal),
-			network.NewScopedProviderAddress("::face::000f", network.ScopeUnknown),
-			network.NewScopedProviderAddress("127.10.0.1", network.ScopePublic),
-			network.NewScopedProviderAddress("::dead:beef:f00d", network.ScopePublic),
+			network.NewProviderAddress("10.0.0.1", corenetwork.WithScope(corenetwork.ScopePublic)),
+			network.NewProviderAddress("127.0.0.1", corenetwork.WithScope(corenetwork.ScopeMachineLocal)),
+			network.NewProviderAddress("::face::000f"),
+			network.NewProviderAddress("127.10.0.1", corenetwork.WithScope(corenetwork.ScopePublic)),
+			network.NewProviderAddress("::dead:beef:f00d", corenetwork.WithScope(corenetwork.ScopePublic)),
 		})
 		bootstrapFinished = true
 		return nil
@@ -462,10 +462,10 @@ func (s *localServerSuite) assertAddressesWithoutPublicIP(c *gc.C, cons constrai
 		addr, err := inst.Addresses(s.callCtx)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addr, jc.SameContents, network.ProviderAddresses{
-			network.NewScopedProviderAddress("127.0.0.1", network.ScopeMachineLocal),
-			network.NewScopedProviderAddress("::face::000f", network.ScopeUnknown),
-			network.NewScopedProviderAddress("127.10.0.1", network.ScopePublic),
-			network.NewScopedProviderAddress("::dead:beef:f00d", network.ScopePublic),
+			network.NewProviderAddress("127.0.0.1", corenetwork.WithScope(corenetwork.ScopeMachineLocal)),
+			network.NewProviderAddress("::face::000f"),
+			network.NewProviderAddress("127.10.0.1", corenetwork.WithScope(corenetwork.ScopePublic)),
+			network.NewProviderAddress("::dead:beef:f00d", corenetwork.WithScope(corenetwork.ScopePublic)),
 		})
 		bootstrapFinished = true
 		return nil

@@ -226,7 +226,7 @@ func mapNetworkConfigsToProviderAddresses(
 
 			addrs = append(
 				addrs,
-				network.NewScopedProviderAddressInSpace(string(spaceInfo.Name), addr.Value, addr.Scope),
+				network.NewProviderAddressInSpace(string(spaceInfo.Name), addr.Value, network.WithScope(addr.Scope)),
 			)
 		}
 
@@ -246,7 +246,7 @@ func mapNetworkConfigsToProviderAddresses(
 			}
 			addrs = append(
 				addrs,
-				network.NewScopedProviderAddressInSpace(string(spaceInfo.Name), addr.Value, addr.Scope),
+				network.NewProviderAddressInSpace(string(spaceInfo.Name), addr.Value, network.WithScope(addr.Scope)),
 			)
 		}
 	}

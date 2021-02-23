@@ -1197,8 +1197,8 @@ func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	// address is returned.
 	m1, err := s.State.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
-	cloudLocalAddress := network.NewScopedSpaceAddress("cloudlocal", network.ScopeCloudLocal)
-	publicAddress := network.NewScopedSpaceAddress("public", network.ScopePublic)
+	cloudLocalAddress := network.NewSpaceAddress("cloudlocal", network.WithScope(network.ScopeCloudLocal))
+	publicAddress := network.NewSpaceAddress("public", network.WithScope(network.ScopePublic))
 	err = m1.SetProviderAddresses(cloudLocalAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PublicAddress("1")
@@ -1216,7 +1216,7 @@ func (s *clientSuite) TestClientPublicAddressUnit(c *gc.C) {
 
 	m1, err := s.State.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
-	publicAddress := network.NewScopedSpaceAddress("public", network.ScopePublic)
+	publicAddress := network.NewSpaceAddress("public", network.WithScope(network.ScopePublic))
 	err = m1.SetProviderAddresses(publicAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PublicAddress("wordpress/0")
@@ -1241,8 +1241,8 @@ func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
 	// address if no cloud-local one is available.
 	m1, err := s.State.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
-	cloudLocalAddress := network.NewScopedSpaceAddress("cloudlocal", network.ScopeCloudLocal)
-	publicAddress := network.NewScopedSpaceAddress("public", network.ScopePublic)
+	cloudLocalAddress := network.NewSpaceAddress("cloudlocal", network.WithScope(network.ScopeCloudLocal))
+	publicAddress := network.NewSpaceAddress("public", network.WithScope(network.ScopePublic))
 	err = m1.SetProviderAddresses(publicAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PrivateAddress("1")
@@ -1260,7 +1260,7 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 
 	m1, err := s.State.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
-	privateAddress := network.NewScopedSpaceAddress("private", network.ScopeCloudLocal)
+	privateAddress := network.NewSpaceAddress("private", network.WithScope(network.ScopeCloudLocal))
 	err = m1.SetProviderAddresses(privateAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PrivateAddress("wordpress/0")
@@ -1795,13 +1795,13 @@ func (s *clientSuite) TestBlockChangesRetryProvisioning(c *gc.C) {
 
 func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 	server1Addresses := []network.SpaceAddress{
-		network.NewScopedSpaceAddress("server-1", network.ScopePublic),
-		network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal),
+		network.NewSpaceAddress("server-1", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
 	}
 	server1Addresses[1].SpaceID = s.mgmtSpace.Id()
 
 	server2Addresses := []network.SpaceAddress{
-		network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal),
+		network.NewSpaceAddress("::1", network.WithScope(network.ScopeMachineLocal)),
 	}
 	stateAPIHostPorts := []network.SpaceHostPorts{
 		network.SpaceAddressesWithPort(server1Addresses, 123),

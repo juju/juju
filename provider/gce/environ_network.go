@@ -200,7 +200,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 				}
 
 				shadowAddrs = append(shadowAddrs,
-					corenetwork.NewScopedProviderAddress(accessConf.NatIP, corenetwork.ScopePublic),
+					corenetwork.NewProviderAddress(accessConf.NatIP, corenetwork.WithScope(corenetwork.ScopePublic)),
 				)
 			}
 
@@ -215,7 +215,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 				AvailabilityZones: copyStrings(zones),
 				InterfaceName:     iface.Name,
 				Addresses: corenetwork.ProviderAddresses{
-					corenetwork.NewScopedProviderAddress(iface.NetworkIP, corenetwork.ScopeCloudLocal),
+					corenetwork.NewProviderAddress(iface.NetworkIP, corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
 				},
 				ShadowAddresses: shadowAddrs,
 				InterfaceType:   corenetwork.EthernetInterface,

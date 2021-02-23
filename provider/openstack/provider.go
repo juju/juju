@@ -493,7 +493,7 @@ func (inst *openstackInstance) Addresses(ctx context.ProviderCallContext) (coren
 func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress) corenetwork.ProviderAddresses {
 	var machineAddresses []corenetwork.ProviderAddress
 	if publicIP != "" {
-		publicAddr := corenetwork.NewScopedProviderAddress(publicIP, corenetwork.ScopePublic)
+		publicAddr := corenetwork.NewProviderAddress(publicIP, corenetwork.WithScope(corenetwork.ScopePublic))
 		machineAddresses = append(machineAddresses, publicAddr)
 	}
 	// TODO(gz) Network ordering may be significant but is not preserved by
@@ -514,7 +514,7 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 			if address.Version == 6 {
 				addrType = corenetwork.IPv6Address
 			}
-			machineAddr := corenetwork.NewScopedProviderAddress(address.Address, networkScope)
+			machineAddr := corenetwork.NewProviderAddress(address.Address, corenetwork.WithScope(networkScope))
 			if machineAddr.Type != addrType {
 				logger.Warningf("derived address type %v, nova reports %v", machineAddr.Type, addrType)
 			}

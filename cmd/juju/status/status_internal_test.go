@@ -550,7 +550,7 @@ var statusTests = []testCase{
 
 		startAliveMachine{"0", ""},
 		setAddresses{"0", []network.SpaceAddress{
-			network.NewScopedSpaceAddress("10.0.0.1", network.ScopePublic),
+			network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopePublic)),
 			network.NewSpaceAddress("10.0.0.2"),
 		}},
 		expect{
@@ -698,7 +698,7 @@ var statusTests = []testCase{
 		"instance with different hardware characteristics",
 		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
 		setAddresses{"0", []network.SpaceAddress{
-			network.NewScopedSpaceAddress("10.0.0.1", network.ScopePublic),
+			network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopePublic)),
 			network.NewSpaceAddress("10.0.0.2"),
 		}},
 		startAliveMachine{"0", ""},
@@ -3222,12 +3222,12 @@ var statusTests = []testCase{
 		"instance with localhost addresses",
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", []network.SpaceAddress{
-			network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal),
-			network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
+			network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
 			// TODO(macgreagoir) setAddresses step method needs to
 			// set netmask correctly before we can test IPv6
 			// loopback.
-			// network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal),
+			// network.NewSpaceAddress("::1", network.ScopeMachineLocal),
 		}},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
@@ -3250,11 +3250,11 @@ var statusTests = []testCase{
 		"instance with IPv6 addresses",
 		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
 		setAddresses{"0", []network.SpaceAddress{
-			network.NewScopedSpaceAddress("2001:db8::1", network.ScopeCloudLocal),
+			network.NewSpaceAddress("2001:db8::1", network.WithScope(network.ScopeCloudLocal)),
 			// TODO(macgreagoir) setAddresses step method needs to
 			// set netmask correctly before we can test IPv6
 			// loopback.
-			// network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal),
+			// network.NewSpaceAddress("::1", network.ScopeMachineLocal),
 		}},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},

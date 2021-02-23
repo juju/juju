@@ -688,7 +688,8 @@ func haSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, members string) *f
 		// ...
 		addrs := make(network.SpaceAddresses, 3)
 		for i, name := range spaces {
-			addr := network.NewScopedSpaceAddress(fmt.Sprintf(ipVersion.formatHost, i*10+id), network.ScopeCloudLocal)
+			addr := network.NewSpaceAddress(
+				fmt.Sprintf(ipVersion.formatHost, i*10+id), network.WithScope(network.ScopeCloudLocal))
 			addr.SpaceID = name
 			addrs[i] = addr
 		}

@@ -86,13 +86,13 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 	c.Assert(addrs, gc.HasLen, 0)
 
 	newHostPorts := []network.SpaceHostPorts{{{
-		SpaceAddress: network.NewScopedSpaceAddress("0.2.4.6", network.ScopeCloudLocal),
+		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      1,
 	}, {
-		SpaceAddress: network.NewScopedSpaceAddress("0.4.8.16", network.ScopePublic),
+		SpaceAddress: network.NewSpaceAddress("0.4.8.16", network.WithScope(network.ScopePublic)),
 		NetPort:      2,
 	}}, {{
-		SpaceAddress: network.NewScopedSpaceAddress("0.6.1.2", network.ScopeCloudLocal),
+		SpaceAddress: network.NewSpaceAddress("0.6.1.2", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      5,
 	}}}
 	err = s.State.SetAPIHostPorts(newHostPorts)
@@ -108,7 +108,7 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
 	newHostPorts = []network.SpaceHostPorts{{{
-		SpaceAddress: network.NewScopedSpaceAddress("0.2.4.6", network.ScopeCloudLocal),
+		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      13,
 	}}}
 	err = s.State.SetAPIHostPorts(newHostPorts)
@@ -125,10 +125,10 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 
 func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(c *gc.C) {
 	hostPorts := []network.SpaceHostPorts{{{
-		SpaceAddress: network.NewScopedSpaceAddress("0.4.8.16", network.ScopePublic),
+		SpaceAddress: network.NewSpaceAddress("0.4.8.16", network.WithScope(network.ScopePublic)),
 		NetPort:      2,
 	}}, {{
-		SpaceAddress: network.NewScopedSpaceAddress("0.2.4.6", network.ScopeCloudLocal),
+		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      1,
 	}}}
 
@@ -165,11 +165,11 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(
 
 func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) {
 	hostPorts0 := []network.SpaceHostPort{{
-		SpaceAddress: network.NewScopedSpaceAddress("0.4.8.16", network.ScopePublic),
+		SpaceAddress: network.NewSpaceAddress("0.4.8.16", network.WithScope(network.ScopePublic)),
 		NetPort:      2,
 	}}
 	hostPorts1 := []network.SpaceHostPort{{
-		SpaceAddress: network.NewScopedSpaceAddress("0.2.4.6", network.ScopeCloudLocal),
+		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      1,
 	}}
 
@@ -224,7 +224,7 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 	c.Assert(addrs, gc.HasLen, 0)
 
 	hostPort1 := network.SpaceHostPort{
-		SpaceAddress: network.NewScopedSpaceAddress("0.2.4.6", network.ScopeCloudLocal),
+		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      1,
 	}
 	hostPort2 := network.SpaceHostPort{
@@ -239,7 +239,7 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 		NetPort: 2,
 	}
 	hostPort3 := network.SpaceHostPort{
-		SpaceAddress: network.NewScopedSpaceAddress("0.4.1.2", network.ScopeCloudLocal),
+		SpaceAddress: network.NewSpaceAddress("0.4.1.2", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      5,
 	}
 	newHostPorts := []network.SpaceHostPorts{{hostPort1, hostPort2}, {hostPort3}}
@@ -265,7 +265,7 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.
 	c.Assert(addrs, gc.HasLen, 0)
 
 	newHostPorts := []network.SpaceHostPorts{{{
-		SpaceAddress: network.NewScopedSpaceAddress("0.2.4.6", network.ScopeCloudLocal),
+		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      1,
 	}}}
 
@@ -291,7 +291,7 @@ func (s *ControllerAddressesSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) 
 	c.Assert(addrs, gc.HasLen, 0)
 
 	newHostPorts := []network.SpaceHostPorts{{{
-		SpaceAddress: network.NewScopedSpaceAddress("0.2.4.6", network.ScopeCloudLocal),
+		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      1,
 	}}}
 
@@ -363,7 +363,7 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
 	err = s.State.SetAPIHostPorts([]network.SpaceHostPorts{{
 		mgmtHP,
 		network.SpaceHostPort{
-			SpaceAddress: network.NewScopedSpaceAddress("0.1.2.3", network.ScopeCloudLocal),
+			SpaceAddress: network.NewSpaceAddress("0.1.2.3", network.WithScope(network.ScopeCloudLocal)),
 			NetPort:      99,
 		},
 	}})

@@ -1166,7 +1166,7 @@ func (s *InstancePollerSuite) setDefaultSpaceInfo() {
 }
 
 func makeSpaceAddress(ip string, scope network.Scope, spaceID string) network.SpaceAddress {
-	addr := network.NewScopedSpaceAddress(ip, scope)
+	addr := network.NewSpaceAddress(ip, network.WithScope(scope))
 	addr.SpaceID = spaceID
 	return addr
 }

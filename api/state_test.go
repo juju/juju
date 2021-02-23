@@ -248,17 +248,17 @@ func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 
 	// We intentionally set this to invalid values
 	badValue := network.MachineHostPort{
-		MachineAddress: network.NewScopedMachineAddress("0.1.2.3", network.ScopeMachineLocal),
+		MachineAddress: network.NewMachineAddress("0.1.2.3", network.WithScope(network.ScopeMachineLocal)),
 		NetPort:        1234,
 	}
 	badServer := []network.MachineHostPort{badValue}
 
 	extraAddress := network.MachineHostPort{
-		MachineAddress: network.NewScopedMachineAddress("0.1.2.4", network.ScopeMachineLocal),
+		MachineAddress: network.NewMachineAddress("0.1.2.4", network.WithScope(network.ScopeMachineLocal)),
 		NetPort:        5678,
 	}
 	extraAddress2 := network.MachineHostPort{
-		MachineAddress: network.NewScopedMachineAddress("0.1.2.1", network.ScopeMachineLocal),
+		MachineAddress: network.NewMachineAddress("0.1.2.1", network.WithScope(network.ScopeMachineLocal)),
 		NetPort:        9012,
 	}
 

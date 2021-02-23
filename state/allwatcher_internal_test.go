@@ -1039,8 +1039,8 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
-	publicAddress := network.NewScopedSpaceAddress("1.2.3.4", network.ScopePublic)
-	privateAddress := network.NewScopedSpaceAddress("4.3.2.1", network.ScopeCloudLocal)
+	publicAddress := network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopePublic))
+	privateAddress := network.NewSpaceAddress("4.3.2.1", network.WithScope(network.ScopeCloudLocal))
 	MustOpenUnitPortRange(c, s.state, m, u.Name(), allEndpoints, corenetwork.MustParsePortRange("12345/tcp"))
 	// Create all watcher state backing.
 	b := NewAllWatcherBacking(s.pool)
@@ -2798,8 +2798,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
 			MustOpenUnitPortRange(c, st, m, u.Name(), allEndpoints, corenetwork.MustParsePortRange("12345/tcp"))
-			publicAddress := network.NewScopedSpaceAddress("public", network.ScopePublic)
-			privateAddress := network.NewScopedSpaceAddress("private", network.ScopeCloudLocal)
+			publicAddress := network.NewSpaceAddress("public", corenetwork.WithScope(corenetwork.ScopePublic))
+			privateAddress := network.NewSpaceAddress("private", corenetwork.WithScope(corenetwork.ScopeCloudLocal))
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
 				Status:  status.Error,
@@ -3190,8 +3190,8 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 		}
 		if flag&openPorts != 0 {
 			// Add a network to the machine and open a port.
-			publicAddress := network.NewScopedSpaceAddress("1.2.3.4", network.ScopePublic)
-			privateAddress := network.NewScopedSpaceAddress("4.3.2.1", network.ScopeCloudLocal)
+			publicAddress := network.NewSpaceAddress("1.2.3.4", corenetwork.WithScope(corenetwork.ScopePublic))
+			privateAddress := network.NewSpaceAddress("4.3.2.1", corenetwork.WithScope(corenetwork.ScopeCloudLocal))
 			err = m.SetProviderAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
 

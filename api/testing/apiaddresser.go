@@ -49,7 +49,7 @@ func (s *APIAddresserTests) TestAPIAddresses(c *gc.C) {
 }
 
 func (s *APIAddresserTests) TestAPIHostPorts(c *gc.C) {
-	ipv6Addr := network.NewScopedSpaceAddress("2001:DB8::1", network.ScopeCloudLocal)
+	ipv6Addr := network.NewSpaceAddress("2001:DB8::1", network.WithScope(network.ScopeCloudLocal))
 
 	setServerAddrs := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(999, "0.1.2.24"),

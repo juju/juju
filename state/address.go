@@ -312,9 +312,9 @@ func (st *State) apiHostPortsForCAAS(public bool) (addresses []network.SpaceHost
 	controllerName := controllerConfig.ControllerName()
 	if controllerName != "" {
 		hostAddresses = append(
-			hostAddresses, network.NewScopedSpaceAddress(
+			hostAddresses, network.NewSpaceAddress(
 				fmt.Sprintf(k8sprovider.ControllerServiceFQDNTemplate, controllerName),
-				network.ScopeCloudLocal,
+				network.WithScope(network.ScopeCloudLocal),
 			))
 	}
 

@@ -215,7 +215,7 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+			corenetwork.NewProviderAddress("10.0.10.3", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
 		},
 		Origin: corenetwork.OriginProvider,
 	}})
@@ -301,7 +301,7 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+			corenetwork.NewProviderAddress("10.0.10.3", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
 		},
 		Origin: corenetwork.OriginProvider,
 	}})
@@ -321,10 +321,10 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewScopedProviderAddress("10.0.10.42", corenetwork.ScopeCloudLocal),
+			corenetwork.NewProviderAddress("10.0.10.42", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
 		},
 		ShadowAddresses: corenetwork.ProviderAddresses{
-			corenetwork.NewScopedProviderAddress("25.185.142.227", corenetwork.ScopePublic),
+			corenetwork.NewProviderAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)),
 		},
 		Origin: corenetwork.OriginProvider,
 	}, {
@@ -340,7 +340,7 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewScopedProviderAddress("10.0.20.42", corenetwork.ScopeCloudLocal),
+			corenetwork.NewProviderAddress("10.0.20.42", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
 		},
 		Origin: corenetwork.OriginProvider,
 	}})
@@ -370,7 +370,7 @@ func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+			corenetwork.NewProviderAddress("10.0.10.3", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
 		},
 		Origin: corenetwork.OriginProvider,
 	}})
@@ -416,7 +416,7 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+			corenetwork.NewProviderAddress("10.0.10.3", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
 		},
 		Origin: corenetwork.OriginProvider,
 	}, {
@@ -432,10 +432,10 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewScopedProviderAddress("10.0.20.3", corenetwork.ScopeCloudLocal),
+			corenetwork.NewProviderAddress("10.0.20.3", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
 		},
 		ShadowAddresses: corenetwork.ProviderAddresses{
-			corenetwork.NewScopedProviderAddress("25.185.142.227", corenetwork.ScopePublic),
+			corenetwork.NewProviderAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)),
 		},
 		Origin: corenetwork.OriginProvider,
 	}})
@@ -477,10 +477,10 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewScopedProviderAddress("10.240.0.2", corenetwork.ScopeCloudLocal),
+			corenetwork.NewProviderAddress("10.240.0.2", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
 		},
 		ShadowAddresses: corenetwork.ProviderAddresses{
-			corenetwork.NewScopedProviderAddress("25.185.142.227", corenetwork.ScopePublic),
+			corenetwork.NewProviderAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)),
 		},
 		Origin: corenetwork.OriginProvider,
 	}})
@@ -523,7 +523,7 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+			corenetwork.NewProviderAddress("10.0.10.3", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
 		},
 		Origin: corenetwork.OriginProvider,
 	}, {
@@ -539,10 +539,10 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewScopedProviderAddress("10.0.10.4", corenetwork.ScopeCloudLocal),
+			corenetwork.NewProviderAddress("10.0.10.4", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
 		},
 		ShadowAddresses: corenetwork.ProviderAddresses{
-			corenetwork.NewScopedProviderAddress("25.185.142.227", corenetwork.ScopePublic),
+			corenetwork.NewProviderAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)),
 		},
 		Origin: corenetwork.OriginProvider,
 	}})

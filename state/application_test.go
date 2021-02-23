@@ -4327,7 +4327,8 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	c.Assert(ok, jc.IsTrue)
 	c.Check(u.Name(), gc.Equals, existingUnit.Name())
 	c.Check(info.Address(), gc.NotNil)
-	c.Check(*info.Address(), gc.DeepEquals, network.NewScopedSpaceAddress("192.168.1.2", network.ScopeMachineLocal))
+	c.Check(*info.Address(), gc.DeepEquals,
+		network.NewSpaceAddress("192.168.1.2", network.WithScope(network.ScopeMachineLocal)))
 	c.Check(info.Ports(), jc.DeepEquals, []string{"443"})
 	statusInfo, err := u.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
@@ -4394,12 +4395,13 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(u.Name(), gc.Equals, "gitlab/3")
 	c.Check(info.Address(), gc.NotNil)
-	c.Check(*info.Address(), gc.DeepEquals, network.NewScopedSpaceAddress("192.168.1.1", network.ScopeMachineLocal))
+	c.Check(*info.Address(), gc.DeepEquals,
+		network.NewSpaceAddress("192.168.1.1", network.WithScope(network.ScopeMachineLocal)))
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
 
 	addr, err := u.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, jc.DeepEquals, network.NewScopedSpaceAddress("192.168.1.1", network.ScopeMachineLocal))
+	c.Assert(addr, jc.DeepEquals, network.NewSpaceAddress("192.168.1.1", network.WithScope(network.ScopeMachineLocal)))
 
 	statusInfo, err = u.Status()
 	c.Assert(err, jc.ErrorIsNil)
