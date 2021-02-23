@@ -124,6 +124,7 @@ class Base(object):
         suffix = os.environ.get('BUILD_NUMBER', None)
         if suffix is not None:
             self.cluster_name += f'-{suffix}'
+        self.cluster_name = self.cluster_name.lower()
 
         self.timeout = timeout
         old_environment = bs_manager.client.env.environment
