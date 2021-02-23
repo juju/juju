@@ -624,7 +624,7 @@ negative number of units specified on application "mysql"`,
                 charm: local:wordpress
                 num_units: 1
     `,
-	err: `cannot resolve charm or bundle "wordpress": unknown schema for charm URL "local:wordpress"`,
+	err: `cannot resolve "wordpress": unknown schema for charm URL "local:wordpress"`,
 }}
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleErrors(c *gc.C) {

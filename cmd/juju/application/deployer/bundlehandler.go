@@ -552,7 +552,7 @@ func fmtChange(ch bundlechanges.Change) string {
 }
 
 func (h *bundleHandler) isLocalCharm(name string) bool {
-	return strings.HasPrefix(name, ".") || filepath.IsAbs(name)
+	return strings.HasPrefix(name, ".") || filepath.IsAbs(name) || strings.HasPrefix(name, "local:")
 }
 
 // addCharm adds a charm to the environment.
@@ -572,7 +572,17 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 
 	// First attempt to interpret as a local path.
 	if h.isLocalCharm(chParams.Charm) {
+		// The charm path could contain the local schema prefix. If that's the
+		// case we should remove that before attempting to join with the bundle
+		// directory.
 		charmPath := chParams.Charm
+		if strings.HasPrefix(charmPath, "local:") {
+			path, err := charm.ParseURL(charmPath)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			charmPath = path.Name
+		}
 		if !filepath.IsAbs(charmPath) {
 			charmPath = filepath.Join(h.bundleDir, charmPath)
 		}
