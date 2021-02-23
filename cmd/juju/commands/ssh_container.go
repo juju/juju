@@ -43,6 +43,7 @@ type sshContainer struct {
 	applicationAPI     ApplicationAPI
 	execClientGetter   func(string, cloudspec.CloudSpec) (k8sexec.Executor, error)
 	execClient         k8sexec.Executor
+	statusAPIGetter    func() (StatusAPI, error)
 }
 
 // CloudCredentialAPI defines cloud credential related APIs.
@@ -129,6 +130,13 @@ func (c *sshContainer) initRun(mc ModelCommand) (err error) {
 		}
 		c.applicationAPI = application.NewClient(root)
 	}
+
+	if c.statusAPIGetter == nil {
+		c.statusAPIGetter = func() (StatusAPI, error) {
+			return mc.NewAPIClient()
+		}
+	}
+
 	return nil
 }
 
@@ -155,10 +163,17 @@ func (c *sshContainer) cleanupRun() {
 }
 
 func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
-	if !names.IsValidUnit(target) {
-		return nil, errors.Errorf("invalid unit name %q", target)
+	// If the user specified a leader unit, try to resolve it to the
+	// appropriate unit name and override the requested target name.
+	resolvedTargetName, err := maybeResolveLeaderUnit(c.statusAPIGetter, target)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	unitTag := names.NewUnitTag(target)
+
+	if !names.IsValidUnit(resolvedTargetName) {
+		return nil, errors.Errorf("invalid unit name %q", resolvedTargetName)
+	}
+	unitTag := names.NewUnitTag(resolvedTargetName)
 	var providerID string
 	if !c.remote {
 		appName, err := names.UnitApplication(unitTag.Id())
@@ -187,7 +202,7 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 		}
 		unit := results[0]
 		if unit.Error != nil {
-			return nil, errors.Annotatef(unit.Error, "getting unit %q", target)
+			return nil, errors.Annotatef(unit.Error, "getting unit %q", resolvedTargetName)
 		}
 		if len(unit.ProviderId) == 0 {
 			return nil, errors.New(fmt.Sprintf("container for unit %q is not ready yet", unitTag.Id()))

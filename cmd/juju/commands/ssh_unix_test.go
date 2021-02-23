@@ -10,12 +10,15 @@ import (
 	"fmt"
 	"reflect"
 
+	gomock "github.com/golang/mock/gomock"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/commands/mocks"
 	jujussh "github.com/juju/juju/network/ssh"
 )
 
@@ -327,6 +330,32 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	_, err = cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker, nil), args...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, gc.Equals, 2)
+}
+
+func (s *SSHSuite) TestMaybeResolveLeaderUnit(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	statusAPI := mocks.NewMockStatusAPI(ctrl)
+	statusAPI.EXPECT().Close().Return(nil)
+	statusAPI.EXPECT().Status([]string{"loop"}).Return(&params.FullStatus{
+		Applications: map[string]params.ApplicationStatus{
+			"loop": {
+				Units: map[string]params.UnitStatus{
+					"loop/0": {},
+					"loop/1": {
+						Leader: true,
+					},
+				},
+			},
+		},
+	}, nil)
+
+	resolvedUnit, err := maybeResolveLeaderUnit(func() (StatusAPI, error) {
+		return statusAPI, nil
+	}, "loop/leader")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resolvedUnit, gc.Equals, "loop/1", gc.Commentf("expected leader to resolve to loop/1"))
 }
 
 type callbackAttemptStarter struct {
