@@ -104,15 +104,12 @@ def assess_caas_charm_deployment(caas_client, caas_provider):
     k8s_model = caas_client.add_model(model_name)
 
     def success_hook():
-        log.info(caas_client.kubectl('get', 'all', '--all-namespaces',
-                                     '-o', 'wide'))
+        log.info(caas_client.kubectl('get', 'all,pv,pvc,ing', '--all-namespaces', '-o', 'wide'))
 
     def fail_hook():
         success_hook()
-        ns_dumps = caas_client.kubectl('get', 'all', '-n', model_name,
-                                       '-o', 'json')
-        log.info('all resources in namespace %s -> %s', model_name,
-                 pformat(json.loads(ns_dumps)))
+        ns_dumps = caas_client.kubectl('get', 'all,pv,pvc,ing', '-n', model_name, '-o', 'json')
+        log.info('all resources in namespace %s -> %s', model_name, pformat(json.loads(ns_dumps)))
         log.info(caas_client.kubectl('get', 'pv,pvc', '-n', model_name))
         caas_client.ensure_cleanup()
 
@@ -162,7 +159,7 @@ def main(argv=None):
     k8s_provider = providers[args.caas_provider]
     bs_manager = BootstrapManager.from_args(args)
 
-    with k8s_provider(bs_manager).substrate_context() as caas_client:
+    with k8s_provider(bs_manager, cluster_name=args.temp_env_name).substrate_context() as caas_client:
         # add-k8s --local
         is_mk8s = args.caas_provider == K8sProviderType.MICROK8S.name
         if args.k8s_controller and not is_mk8s:
