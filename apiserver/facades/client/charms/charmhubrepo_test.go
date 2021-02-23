@@ -5,7 +5,6 @@ package charms
 
 import (
 	"context"
-
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/testing"
@@ -28,6 +27,8 @@ type charmHubRepositoriesSuite struct {
 var _ = gc.Suite(&charmHubRepositoriesSuite{})
 
 func (s *charmHubRepositoriesSuite) TestResolveForDeploy(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectCharmRefreshInstallOneFromChannel(c)
 	// The origin.ID should never be saved to the origin during
 	// ResolveWithPreferredChannel.  That is done during the file
 	// download only.
@@ -35,18 +36,24 @@ func (s *charmHubRepositoriesSuite) TestResolveForDeploy(c *gc.C) {
 }
 
 func (s *charmHubRepositoriesSuite) TestResolveForUpgrade(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	cfg, err := charmhub.RefreshOne("charmCHARMcharmCHARMcharmCHARM01", 16, "latest/stable", charmhub.RefreshPlatform{
+		Architecture: arch.DefaultArchitecture,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.expectCharmRefresh(c, cfg)
 	// If the origin has an ID, ensure it's kept thru the call
 	// to ResolveWithPreferredChannel.
 	s.testResolve(c, "charmCHARMcharmCHARMcharmCHARM01")
 }
 
 func (s *charmHubRepositoriesSuite) testResolve(c *gc.C, id string) {
-	defer s.setupMocks(c).Finish()
-	s.expectCharmRefresh(c)
-
 	curl := charm.MustParseURL("ch:wordpress")
+	rev := 16
 	origin := params.CharmOrigin{
 		Source:       "charm-hub",
+		ID:           id,
+		Revision:     &rev,
 		Architecture: arch.DefaultArchitecture,
 		OS:           "ubuntu",
 		Series:       "focal",
@@ -56,7 +63,7 @@ func (s *charmHubRepositoriesSuite) testResolve(c *gc.C, id string) {
 	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
-	curl.Revision = 16
+	curl.Revision = rev
 
 	origin.Type = "charm"
 	origin.Revision = &curl.Revision
@@ -74,7 +81,7 @@ func (s *charmHubRepositoriesSuite) testResolve(c *gc.C, id string) {
 
 func (s *charmHubRepositoriesSuite) TestResolveWithChannel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectCharmRefresh(c)
+	s.expectCharmRefreshInstallOneFromChannel(c)
 
 	track := "latest"
 	curl := charm.MustParseURL("ch:wordpress")
@@ -110,7 +117,7 @@ func (s *charmHubRepositoriesSuite) TestResolveWithChannel(c *gc.C) {
 
 func (s *charmHubRepositoriesSuite) TestResolveWithoutSeries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectCharmRefresh(c)
+	s.expectCharmRefreshInstallOneFromChannel(c)
 
 	curl := charm.MustParseURL("ch:wordpress")
 	origin := params.CharmOrigin{Source: "charm-hub", Architecture: arch.DefaultArchitecture}
@@ -161,7 +168,7 @@ func (s *charmHubRepositoriesSuite) TestResolveWithBundles(c *gc.C) {
 func (s *charmHubRepositoriesSuite) TestResolveInvalidPlatformError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectedRefreshInvalidPlatformError(c)
-	s.expectCharmRefresh(c)
+	s.expectCharmRefreshInstallOneFromChannel(c)
 
 	curl := charm.MustParseURL("ch:wordpress")
 	origin := params.CharmOrigin{Source: "charm-hub", Architecture: arch.DefaultArchitecture}
@@ -201,7 +208,7 @@ func (s *charmHubRepositoriesSuite) TestResolveRevisionNotFoundErrorWithNoSeries
 func (s *charmHubRepositoriesSuite) TestResolveRevisionNotFoundError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectedRefreshRevisionNotFoundError(c)
-	s.expectCharmRefresh(c)
+	s.expectCharmRefreshInstallOneFromChannel(c)
 
 	curl := charm.MustParseURL("ch:wordpress")
 	origin := params.CharmOrigin{Source: "charm-hub", Architecture: arch.DefaultArchitecture, Series: "bionic"}
@@ -226,11 +233,15 @@ func (s *charmHubRepositoriesSuite) TestResolveRevisionNotFoundError(c *gc.C) {
 	c.Assert(obtainedSeries, jc.SameContents, []string{"focal"})
 }
 
-func (s *charmHubRepositoriesSuite) expectCharmRefresh(c *gc.C) {
+func (s *charmHubRepositoriesSuite) expectCharmRefreshInstallOneFromChannel(c *gc.C) {
 	cfg, err := charmhub.InstallOneFromChannel("wordpress", "latest/stable", charmhub.RefreshPlatform{
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	s.expectCharmRefresh(c, cfg)
+}
+
+func (s *charmHubRepositoriesSuite) expectCharmRefresh(c *gc.C, cfg charmhub.RefreshConfig) {
 	s.client.EXPECT().Refresh(gomock.Any(), RefreshConfgMatcher{c: c, Config: cfg}).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
 		id := charmhub.ExtractConfigInstanceKey(cfg)
 
@@ -348,7 +359,10 @@ func (m RefreshConfgMatcher) Matches(x interface{}) bool {
 	m.c.Assert(err, jc.ErrorIsNil)
 	m.c.Assert(len(cb.Actions), gc.Equals, len(rcb.Actions))
 
-	return cb.Actions[0].ID == rcb.Actions[0].ID
+	if cb.Actions[0].ID == nil && rcb.Actions[0].ID == nil {
+		return true
+	}
+	return cb.Actions[0].ID != nil && rcb.Actions[0].ID != nil && *cb.Actions[0].ID == *rcb.Actions[0].ID
 }
 
 func (RefreshConfgMatcher) String() string {

@@ -151,6 +151,8 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	// chRepro FindDownloadURL.
 	resOrigin := params.CharmOrigin{
 		Source:       origin.Source,
+		ID:           origin.ID,
+		Hash:         origin.Hash,
 		Type:         string(entity.Type),
 		Track:        track,
 		Risk:         string(channel.Risk),
