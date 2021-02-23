@@ -1,3 +1,6 @@
 /venv
 *.py[cod]
 *.charm
+charmcraft.yaml
+build
+foo-file.txt

@@ -10,9 +10,15 @@ options:
     type: string
   status:
     default: "hello"
-    description: temporary string for unit status
+    description: Temporary string for unit status
     type: string
-  thing2:
-    default: ""
-    description: an option to set
-    type: string
+  skill:
+    default: 0
+    description: Skill level.
+    type: int
+  foo-file:
+    default: False
+    description: Get resource and set log contents of foo-file as Info.
+    type: boolean
+
+
