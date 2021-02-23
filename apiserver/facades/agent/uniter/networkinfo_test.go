@@ -58,8 +58,8 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProviderAddresses(
-		network.NewScopedSpaceAddress("10.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
+		network.NewSpaceAddress("10.2.3.4", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("4.3.2.1", network.WithScope(network.ScopePublic)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -69,7 +69,7 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("10.2.3.4", network.ScopeCloudLocal)})
+		network.SpaceAddresses{network.NewSpaceAddress("10.2.3.4", network.WithScope(network.ScopeCloudLocal))})
 	c.Assert(egress, gc.DeepEquals, []string{"10.2.3.4/32"})
 }
 
@@ -233,7 +233,7 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 	}
 
 	err := app.UpdateCloudService("", network.SpaceAddresses{
-		network.NewScopedSpaceAddress(host, network.ScopePublic),
+		network.NewSpaceAddress(host, network.WithScope(network.ScopePublic)),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -282,10 +282,10 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	addresses := []network.SpaceAddress{
-		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("2.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("10.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
+		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("2.2.3.4", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("10.2.3.4", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("4.3.2.1", network.WithScope(network.ScopePublic)),
 	}
 	err = machine.SetProviderAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -298,7 +298,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 
 	c.Assert(boundSpace, gc.Equals, spaceID3)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("10.2.3.4", network.ScopeCloudLocal)})
+		network.SpaceAddresses{network.NewSpaceAddress("10.2.3.4", network.WithScope(network.ScopeCloudLocal))})
 	c.Assert(egress, gc.DeepEquals, []string{"10.2.3.4/32"})
 }
 
@@ -312,8 +312,8 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProviderAddresses(
-		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
+		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("4.3.2.1", network.WithScope(network.ScopePublic)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -323,7 +323,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic)})
+		network.SpaceAddresses{network.NewSpaceAddress("4.3.2.1", network.WithScope(network.ScopePublic))})
 	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
 }
 
@@ -337,7 +337,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProviderAddresses(
-		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -347,7 +347,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal)})
+		network.SpaceAddresses{network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal))})
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
 }
 
@@ -368,7 +368,8 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 			NotifyFunc: func(lastError error, attempt int) {
 				// Set the address after one failed retrieval attempt.
 				if attempt == 1 {
-					err := machine.SetProviderAddresses(network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic))
+					err := machine.SetProviderAddresses(
+						network.NewSpaceAddress("4.3.2.1", network.WithScope(network.ScopePublic)))
 					c.Assert(err, jc.ErrorIsNil)
 				}
 			},
@@ -381,7 +382,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic)})
+		network.SpaceAddresses{network.NewSpaceAddress("4.3.2.1", network.WithScope(network.ScopePublic))})
 	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
 }
 
@@ -416,7 +417,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 			NotifyFunc: func(lastError error, attempt int) {
 				// Set the private address after one failed retrieval attempt.
 				if attempt == 1 {
-					err := machine.SetProviderAddresses(network.NewScopedSpaceAddress("4.3.2.1", network.ScopeCloudLocal))
+					err := machine.SetProviderAddresses(network.NewSpaceAddress("4.3.2.1", network.WithScope(network.ScopeCloudLocal)))
 					c.Assert(err, jc.ErrorIsNil)
 				}
 			},
@@ -429,7 +430,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("4.3.2.1", network.ScopeCloudLocal)})
+		network.SpaceAddresses{network.NewSpaceAddress("4.3.2.1", network.WithScope(network.ScopeCloudLocal))})
 	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
 }
 
@@ -459,7 +460,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 
 	// Add an application address.
 	err = mysql.UpdateCloudService("", network.SpaceAddresses{
-		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = prr.pu0.Refresh()
@@ -474,7 +475,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal)})
+		network.SpaceAddresses{network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal))})
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
 }
 
@@ -514,7 +515,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 	// It simulates the same thing.
 	// This should never be returned as an ingress address.
 	err := gitLab.UpdateCloudService("", network.SpaceAddresses{
-		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeMachineLocal),
+		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeMachineLocal)),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -570,7 +571,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 
 	// Now set a public address. This is a suitable ingress address.
 	err = gitLab.UpdateCloudService("", network.SpaceAddresses{
-		network.NewScopedSpaceAddress("2.3.4.5", network.ScopePublic),
+		network.NewSpaceAddress("2.3.4.5", network.WithScope(network.ScopePublic)),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = prr.ru0.Refresh()
@@ -585,7 +586,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("2.3.4.5", network.ScopePublic)})
+		network.SpaceAddresses{network.NewSpaceAddress("2.3.4.5", network.WithScope(network.ScopePublic))})
 	c.Assert(egress, gc.DeepEquals, []string{"2.3.4.5/32"})
 }
 
@@ -616,10 +617,10 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	s.createNICWithIP(c, machine, network.EthernetDevice, "eth1", "10.10.0.20/24")
 	s.createNICWithIP(c, machine, network.EthernetDevice, "eth2", "10.20.0.20/24")
 
-	err = machine.SetMachineAddresses(network.NewScopedSpaceAddress("10.0.0.20", network.ScopePublic),
-		network.NewScopedSpaceAddress("10.10.0.20", network.ScopePublic),
-		network.NewScopedSpaceAddress("10.10.0.30", network.ScopePublic),
-		network.NewScopedSpaceAddress("10.20.0.20", network.ScopeCloudLocal))
+	err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.20", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("10.10.0.20", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("10.10.0.30", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("10.20.0.20", network.WithScope(network.ScopeCloudLocal)))
 	c.Assert(err, jc.ErrorIsNil)
 
 	ni := s.newNetworkInfo(c, unit.UnitTag(), nil, nil)
@@ -681,10 +682,10 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 	s.createNICWithIP(c, machine, network.EthernetDevice, "eth1", "10.10.0.20/24")
 	s.createNICWithIP(c, machine, network.EthernetDevice, "eth2", "10.20.0.20/24")
 
-	err = machine.SetMachineAddresses(network.NewScopedSpaceAddress("10.0.0.20", network.ScopePublic),
-		network.NewScopedSpaceAddress("10.10.0.20", network.ScopePublic),
-		network.NewScopedSpaceAddress("10.10.0.30", network.ScopePublic),
-		network.NewScopedSpaceAddress("10.20.0.20", network.ScopeCloudLocal))
+	err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.20", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("10.10.0.20", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("10.10.0.30", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("10.20.0.20", network.WithScope(network.ScopeCloudLocal)))
 	c.Assert(err, jc.ErrorIsNil)
 
 	ni := s.newNetworkInfo(c, unit.UnitTag(), nil, nil)

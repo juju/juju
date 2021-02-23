@@ -578,7 +578,7 @@ func getSvcAddresses(svc *core.Service, includeClusterIP bool) []network.Provide
 	appendUniqueAddrs := func(scope network.Scope, addrs ...string) {
 		for _, v := range addrs {
 			if v != "" && !addressExist(v) {
-				netAddrs = append(netAddrs, network.NewScopedProviderAddress(v, scope))
+				netAddrs = append(netAddrs, network.NewProviderAddress(v, network.WithScope(scope)))
 			}
 		}
 	}

@@ -971,6 +971,11 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				Name:  "PEBBLE",
 				Value: "/charm/container/pebble",
 			}},
+			// Run Pebble as root (because it's a service manager).
+			SecurityContext: &corev1.SecurityContext{
+				RunAsUser:  int64Ptr(0),
+				RunAsGroup: int64Ptr(0),
+			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      charmVolumeName,

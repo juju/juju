@@ -5,7 +5,6 @@ package params_test
 
 import (
 	"encoding/json"
-	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -23,9 +22,11 @@ func (s *StatusSuite) TestMarshallApplicationStatusCharmVersion(c *gc.C) {
 	}
 	data, err := json.Marshal(as)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, strings.Replace(`
-{"charm-verion":"666","charm":"","series":"","exposed":false,"life":"","relations":null,"can-upgrade-to":"","subordinate-to":null,
-"units":null,"meter-statuses":null,"status":{"status":"","info":"","data":null,"since":null,"kind":"",
-"version":"","life":""},"workload-version":"","charm-version":"666",
-"charm-profile":"","endpoint-bindings":null,"public-address":""}`, "\n", "", -1))
+
+	var m map[string]interface{}
+	err = json.Unmarshal(data, &m)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(m["charm-verion"], gc.Equals, "666")
+	c.Assert(m["charm-version"], gc.Equals, "666")
 }

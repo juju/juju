@@ -2210,7 +2210,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 				containerDoc.ProviderId = *args.providerId
 			}
 			if args.address != nil {
-				networkAddr := network.NewScopedSpaceAddress(*args.address, network.ScopeMachineLocal)
+				networkAddr := network.NewSpaceAddress(*args.address, network.WithScope(network.ScopeMachineLocal))
 				addr := fromNetworkAddress(networkAddr, network.OriginProvider)
 				containerDoc.Address = &addr
 			}

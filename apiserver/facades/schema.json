@@ -14315,6 +14315,8 @@
                     "additionalProperties": false,
                     "required": [
                         "charm",
+                        "charm-version",
+                        "charm-profile",
                         "series",
                         "exposed",
                         "life",
@@ -14325,8 +14327,6 @@
                         "meter-statuses",
                         "status",
                         "workload-version",
-                        "charm-version",
-                        "charm-profile",
                         "endpoint-bindings",
                         "public-address"
                     ]

@@ -366,9 +366,9 @@ LXC_BRIDGE="ignored"`[1:])
 	mr := s.makeMachiner(c, false)
 	c.Assert(stopWorker(mr), jc.ErrorIsNil)
 	s.accessor.machine.CheckCall(c, 1, "SetMachineAddresses", []corenetwork.MachineAddress{
-		corenetwork.NewScopedMachineAddress("10.0.0.1", corenetwork.ScopeCloudLocal),
-		corenetwork.NewScopedMachineAddress("127.0.0.1", corenetwork.ScopeMachineLocal),
-		corenetwork.NewScopedMachineAddress("::1", corenetwork.ScopeMachineLocal),
+		corenetwork.NewMachineAddress("10.0.0.1", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
+		corenetwork.NewMachineAddress("127.0.0.1", corenetwork.WithScope(corenetwork.ScopeMachineLocal)),
+		corenetwork.NewMachineAddress("::1", corenetwork.WithScope(corenetwork.ScopeMachineLocal)),
 		corenetwork.NewMachineAddress("2001:db8::1"),
 	})
 }

@@ -1358,7 +1358,7 @@ func mapNetworkInterface(iface amzec2.NetworkInterface, subnet amzec2.Subnet) co
 		// the primary IP is always added first with any additional
 		// private IPs appended after it.
 		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewScopedProviderAddress(iface.PrivateIPAddress, corenetwork.ScopeCloudLocal),
+			corenetwork.NewProviderAddress(iface.PrivateIPAddress, corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
 		},
 		Origin: corenetwork.OriginProvider,
 	}
@@ -1367,7 +1367,8 @@ func mapNetworkInterface(iface amzec2.NetworkInterface, subnet amzec2.Subnet) co
 		if privAddr.Association.PublicIP != "" {
 			ni.ShadowAddresses = append(
 				ni.ShadowAddresses,
-				corenetwork.NewScopedProviderAddress(privAddr.Association.PublicIP, corenetwork.ScopePublic),
+				corenetwork.NewProviderAddress(
+					privAddr.Association.PublicIP, corenetwork.WithScope(corenetwork.ScopePublic)),
 			)
 		}
 
@@ -1377,7 +1378,7 @@ func mapNetworkInterface(iface amzec2.NetworkInterface, subnet amzec2.Subnet) co
 
 		ni.Addresses = append(
 			ni.Addresses,
-			corenetwork.NewScopedProviderAddress(privAddr.Address, corenetwork.ScopeCloudLocal),
+			corenetwork.NewProviderAddress(iface.PrivateIPAddress, corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
 		)
 	}
 

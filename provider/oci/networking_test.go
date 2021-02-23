@@ -243,8 +243,10 @@ func (n *networkingSuite) TestNetworkInterfaces(c *gc.C) {
 	info := infoList[0]
 
 	c.Assert(info, gc.HasLen, 1)
-	c.Assert(info[0].Addresses, gc.DeepEquals, corenetwork.ProviderAddresses{corenetwork.NewScopedProviderAddress("1.1.1.1", corenetwork.ScopeCloudLocal)})
-	c.Assert(info[0].ShadowAddresses, gc.DeepEquals, corenetwork.ProviderAddresses{corenetwork.NewScopedProviderAddress("2.2.2.2", corenetwork.ScopePublic)})
+	c.Assert(info[0].Addresses, gc.DeepEquals, corenetwork.ProviderAddresses{
+		corenetwork.NewProviderAddress("1.1.1.1", corenetwork.WithScope(corenetwork.ScopeCloudLocal))})
+	c.Assert(info[0].ShadowAddresses, gc.DeepEquals, corenetwork.ProviderAddresses{
+		corenetwork.NewProviderAddress("2.2.2.2", corenetwork.WithScope(corenetwork.ScopePublic))})
 	c.Assert(info[0].DeviceIndex, gc.Equals, 0)
 	c.Assert(info[0].ProviderId, gc.Equals, corenetwork.Id(vnicID))
 	c.Assert(info[0].MACAddress, gc.Equals, "aa:aa:aa:aa:aa:aa")
