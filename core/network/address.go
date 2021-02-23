@@ -219,30 +219,30 @@ func (a MachineAddress) ValueForCIDR(cidr string) (string, error) {
 // Secondary addresses with otherwise equal weight will be sorted to come after
 // primary addresses, including host names *except* localhost.
 func (a MachineAddress) sortOrder() int {
-	order := 0xFF
+	order := 100
 
 	switch a.Scope {
 	case ScopePublic:
-		order = 0x00
+		order = 0
 		// Special case to ensure that these follow non-localhost host names.
 		if a.IsSecondary {
-			order = 0x10
+			order = 10
 		}
 	case ScopeCloudLocal:
-		order = 0x30
+		order = 30
 	case ScopeFanLocal:
-		order = 0x50
+		order = 50
 	case ScopeMachineLocal:
-		order = 0x80
+		order = 70
 	case ScopeLinkLocal:
-		order = 0xA0
+		order = 90
 	}
 
 	switch a.Type {
 	case HostName:
-		order = 0x10
+		order = 10
 		if a.Value == "localhost" {
-			order = 0x20
+			order = 20
 		}
 	case IPv6Address:
 		order++
