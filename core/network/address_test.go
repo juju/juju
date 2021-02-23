@@ -695,24 +695,34 @@ func (*AddressSuite) TestSortAddresses(c *gc.C) {
 		"2001:db8::1",
 		"fe80::2",
 		"7.8.8.8",
-		"172.16.0.1",
+		"172.16.0.2",
 		"example.com",
 		"8.8.8.8",
 	)
+
+	// Public and local-cloud secondary addresses.
+	addrs = append(addrs, network.NewSpaceAddress("6.8.8.8", network.WithSecondary()))
+	addrs = append(addrs, network.NewSpaceAddress("172.16.0.1", network.WithSecondary()))
+
 	network.SortAddresses(addrs)
-	c.Assert(addrs, jc.DeepEquals, network.NewSpaceAddresses(
+	c.Assert(addrs.Values(), jc.DeepEquals, []string{
 		// Public IPv4 addresses on top.
 		"7.8.8.8",
 		"8.8.8.8",
 		// After that public IPv6 addresses.
 		"2001:db8::1",
-		// Then hostnames.
+		// Then hostname.
 		"example.com",
+		// Secondary public address follows the others.
+		"6.8.8.8",
+		// With localhost last.
 		"localhost",
 		// Then IPv4 cloud-local addresses.
-		"172.16.0.1",
+		"172.16.0.2",
 		// Then IPv6 cloud-local addresses.
 		"fc00::1",
+		// Then secondary cloud-local addresses.
+		"172.16.0.1",
 		// Then fan-local addresses.
 		"243.5.1.2",
 		// Then machine-local IPv4 addresses.
@@ -723,7 +733,7 @@ func (*AddressSuite) TestSortAddresses(c *gc.C) {
 		"169.254.1.2",
 		// Finally, link-local IPv6 addresses.
 		"fe80::2",
-	))
+	})
 }
 
 func (*AddressSuite) TestExactScopeMatch(c *gc.C) {

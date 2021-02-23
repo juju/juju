@@ -35,10 +35,11 @@ or a remote location. Here is a fuller syntax diagram:
 <user> is a user account that exists on the remote host. Juju defaults to the 
 "ubuntu" user when this is omitted.
 
-<target> may be either a unit or machine. Units are specified in form 
-'<application-name>/<n>', e.g. postgresql/0 or haproxy/2. Machines are 
-specified in form '<n>', e.g. 0 or 12. The units and machines in your model can
-be obtained from the output of "juju status".
+<target> may be either a unit or machine. Units are specified in form
+'<application-name>/<n>', where '<n>' is either the unit number or the value
+"leader" when targeting the leader unit for an application e.g. postgresql/0 or
+haproxy/leader. Machines are specified in form '<n>', e.g. 0 or 12. The units
+and machines in your model can be obtained from the output of "juju status".
 
 <path> is a file path. Local relative paths are resolved relative to the 
 current working directory. Remote relative paths are resolved relative to the

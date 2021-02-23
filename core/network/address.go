@@ -139,6 +139,10 @@ type MachineAddress struct {
 
 	// ConfigType denotes how this address was configured.
 	ConfigType AddressConfigType
+
+	// IsSecondary if true, indicates that this address is not the primary
+	// address associated with the network device.
+	IsSecondary bool
 }
 
 // Host returns the value for the host-name/IP address.
@@ -212,32 +216,41 @@ func (a MachineAddress) ValueForCIDR(cidr string) (string, error) {
 // - machine-local next;
 // - link-local next;
 // - non-hostnames with unknown scope last.
+// Secondary addresses with otherwise equal weight will be sorted to come after
+// primary addresses, including host names *except* localhost.
 func (a MachineAddress) sortOrder() int {
-	order := 0xFF
+	order := 100
 
 	switch a.Scope {
 	case ScopePublic:
-		order = 0x00
+		order = 0
+		// Special case to ensure that these follow non-localhost host names.
+		if a.IsSecondary {
+			order = 10
+		}
 	case ScopeCloudLocal:
-		order = 0x20
+		order = 30
 	case ScopeFanLocal:
-		order = 0x40
+		order = 50
 	case ScopeMachineLocal:
-		order = 0x80
+		order = 70
 	case ScopeLinkLocal:
-		order = 0xA0
+		order = 90
 	}
 
 	switch a.Type {
 	case HostName:
-		order = 0x10
+		order = 10
 		if a.Value == "localhost" {
-			order++
+			order = 20
 		}
 	case IPv6Address:
-		// Prefer IPv4 over IPv6 addresses.
 		order++
 	case IPv4Address:
+	}
+
+	if a.IsSecondary {
+		order += 2
 	}
 
 	return order
@@ -747,11 +760,11 @@ func scopeMatchHierarchy() []ScopeMatch {
 	}
 }
 
-type addressesPreferringIPv4Slice []SpaceAddress
+type addressesPreferringIPv4 []SpaceAddress
 
-func (a addressesPreferringIPv4Slice) Len() int      { return len(a) }
-func (a addressesPreferringIPv4Slice) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a addressesPreferringIPv4Slice) Less(i, j int) bool {
+func (a addressesPreferringIPv4) Len() int      { return len(a) }
+func (a addressesPreferringIPv4) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a addressesPreferringIPv4) Less(i, j int) bool {
 	addr1 := a[i]
 	addr2 := a[j]
 	order1 := addr1.sortOrder()
@@ -765,7 +778,7 @@ func (a addressesPreferringIPv4Slice) Less(i, j int) bool {
 // SortAddresses sorts the given Address slice according to the sortOrder of
 // each address. See Address.sortOrder() for more info.
 func SortAddresses(addrs []SpaceAddress) {
-	sort.Sort(addressesPreferringIPv4Slice(addrs))
+	sort.Sort(addressesPreferringIPv4(addrs))
 }
 
 // MergedAddresses provides a single list of addresses without duplicates

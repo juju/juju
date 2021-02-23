@@ -6,12 +6,14 @@ package commands
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
@@ -19,14 +21,22 @@ import (
 	jujussh "github.com/juju/juju/network/ssh"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/statusapi_mock.go github.com/juju/juju/cmd/juju/commands StatusAPI
+
 var usageSSHSummary = `
 Initiates an SSH session or executes a command on a Juju machine.`[1:]
 
 var usageSSHDetails = `
 The machine is identified by the <target> argument which is either a 'unit
-name' or a 'machine id'. Both are obtained in the output to "juju status". If
-'user' is specified then the connection is made to that user account;
-otherwise, the default 'ubuntu' account, created by Juju, is used.
+name' or a 'machine id'. Both can be obtained by examining the output to "juju
+status".
+
+Valid unit identifiers are:
+  a standard unit ID, such as mysql/0 or;
+  leader syntax of the form <application>/leader, such as mysql/leader.
+
+If 'user' is specified then the connection is made to that user
+account; otherwise, the default 'ubuntu' account, created by Juju, is used.
 
 The optional command is executed on the remote machine, and any output is sent
 back to the user. If no command is specified, then an interactive shell session
@@ -58,7 +68,11 @@ Connect to machine 1 and run command 'uname -a':
 
     juju ssh 1 uname -a
 
-Connect to a mysql unit:
+Connect to the leader mysql unit:
+
+    juju ssh mysql/leader
+
+Connect to a specific mysql unit:
 
     juju ssh mysql/0
 
@@ -146,6 +160,7 @@ type ModelCommand interface {
 	NewControllerAPIRoot() (api.Connection, error)
 	ModelDetails() (string, *jujuclient.ModelDetails, error)
 	NewAPIRoot() (api.Connection, error)
+	NewAPIClient() (*api.Client, error)
 	ModelIdentifier() (string, error)
 }
 
@@ -225,3 +240,35 @@ func (b *autoBoolValue) String() string {
 }
 
 func (b *autoBoolValue) IsBoolFlag() bool { return true }
+
+// StatusAPI is implemented by types that can query the full status of a model.
+type StatusAPI interface {
+	Status([]string) (*params.FullStatus, error)
+	Close() error
+}
+
+func maybeResolveLeaderUnit(statusAPIGetter func() (StatusAPI, error), target string) (string, error) {
+	if !strings.HasSuffix(target, "/leader") {
+		return target, nil
+	}
+
+	api, err := statusAPIGetter()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer func() { _ = api.Close() }()
+
+	app := strings.Split(target, "/")[0]
+	res, err := api.Status([]string{app})
+	if err != nil {
+		return "", errors.Annotatef(err, "unable to resolve leader unit for application %q", app)
+	}
+
+	for unitName, unitStatus := range res.Applications[app].Units {
+		if unitStatus.Leader {
+			return unitName, nil
+		}
+	}
+
+	return "", errors.Errorf("unable to resolve leader unit for application %q", app)
+}

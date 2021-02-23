@@ -1,0 +1,196 @@
+name: Test Kubeflow
+
+on:
+  push:
+    paths-ignore:
+      - 'acceptancetests/**'
+      - 'doc/**'
+      - 'snap/**'
+      - 'testcharms/**'
+      - 'testing/**'
+      - 'tests/**'
+  pull_request:
+    paths-ignore:
+      - 'acceptancetests/**'
+      - 'doc/**'
+      - 'snap/**'
+      - 'testcharms/**'
+      - 'testing/**'
+      - 'tests/**'
+
+env: 
+  DOCKER_USERNAME: jujuqabot
+  JUJU_BUILD_NUMBER: 888
+
+jobs:
+  build:
+    name: Test Kubeflow
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        microk8s: [latest/stable]
+
+    steps:
+    - name: Set up Go 1.14 for building juju
+      uses: actions/setup-go@v2.1.3
+      with:
+        go-version: "1.14"
+      id: go
+      
+    - name: setup env
+      shell: bash
+      run: |
+        echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
+        echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+    - name: Checking out repo
+      uses: actions/checkout@v2
+
+    - uses: balchua/microk8s-actions@v0.2.2
+      with:
+        channel: '${{ matrix.microk8s }}'
+        # enable now to give microk8s more time to settle down.
+        addons: '["dns", "storage", "dashboard", "ingress", "metallb:10.64.140.43-10.64.140.49"]'
+
+    - name: Install Dependencies
+      run: |
+        set -eux
+        for snap in charm juju-helpers juju-wait; do
+            sudo snap install $snap --classic
+        done
+
+        sudo apt update
+        sudo apt install -y libssl-dev python3-setuptools
+        sudo usermod -a -G microk8s $USER
+
+    - name: Build juju and operator image
+      run: |
+        sg microk8s <<EOF
+          set -eux
+          JUJU_BUILD_NUMBER=$JUJU_BUILD_NUMBER DOCKER_USERNAME=$DOCKER_USERNAME make microk8s-operator-update
+          microk8s.ctr images list | grep juju
+          juju version --all
+
+          # clean up disk space because the runner only has 14G which is not enough.
+          go clean -cache -modcache -i -r
+          docker system prune --all --force
+        EOF
+
+    - name: Deploy Kubeflow
+      run: |
+        sg microk8s <<EOF
+          set -eux
+          git clone https://github.com/juju-solutions/bundle-kubeflow.git
+          cd bundle-kubeflow
+          git clone git://git.launchpad.net/canonical-osm
+          cp -r canonical-osm/charms/interfaces/juju-relation-mysql mysql
+
+          sudo pip3 install -r requirements.txt -r test-requirements.txt
+          python3 ./scripts/cli.py microk8s setup --test-mode --config caas-image-repo=$DOCKER_USERNAME --services ''
+          KUBEFLOW_AUTH_PASSWORD=foobar python3 ./scripts/cli.py --debug deploy-to uk8s --cloud microk8s --bundle edge --channel stable
+
+          microk8s kubectl get pods -l 'juju-operator' -A -o custom-columns='Name:metadata.name,Image:spec.containers[0].image'
+        EOF
+
+    - name: Test kubeflow
+      run: |
+        sg microk8s <<EOF
+          set -eux
+          cd bundle-kubeflow
+          ./tests/run.sh -m edge
+        EOF
+
+    - name: Juju status
+      run: juju status --relations --color --storage
+      if: failure()
+
+    - name: Juju status (YAML)
+      run: juju status --relations --color --storage --format=yaml
+      if: failure()
+
+    - name: MicroK8s status
+      run: sudo microk8s status
+      if: failure()
+
+    - name: Get MicroK8s pods
+      run: |
+        sudo microk8s kubectl get pods -A -o wide
+      if: failure()
+
+    - name: Describe MicroK8s pods
+      run: sudo microk8s kubectl describe pods -nkubeflow
+      if: failure()
+
+    - name: Generate debug log
+      run: juju debug-log --replay --no-tail > juju-debug.log
+      if: failure()
+
+    - name: Upload debug log
+      uses: actions/upload-artifact@v2
+      with:
+        name: juju-debug-actions
+        path: juju-debug.log
+      if: failure()
+
+    - name: Get pipeline logs
+      run: |
+        set -eux
+        pods=$(sudo microk8s kubectl get -nkubeflow pods -l workflows.argoproj.io/completed="true" -o custom-columns=:metadata.name --no-headers)
+        for pod in $pods; do
+          containers=$(sudo microk8s kubectl get -nkubeflow pods -o jsonpath="{.spec.containers[*].name}" $pod)
+          for container in $containers; do
+            sudo microk8s kubectl logs -nkubeflow --timestamps $pod -c $container
+            printf '\n'
+          done
+          printf '\n\n'
+        done
+      if: failure()
+
+    - name: Generate inspect tarball
+      run: >
+        sudo microk8s inspect |
+        grep -Po "Report tarball is at \K.+" |
+        sudo xargs -I {} mv {} inspection-report-${{ strategy.job-index }}.tar.gz
+      if: failure()
+
+    - name: Upload inspect tarball
+      uses: actions/upload-artifact@v2
+      with:
+        name: inspection-report-actions
+        path: ./inspection-report-${{ strategy.job-index }}.tar.gz
+      if: failure()
+
+    - name: Generate kubectl describe
+      run: |
+        set -eux
+        mkdir describe
+        for resource in $(kubectl api-resources -o name | sort); do
+            kubectl describe $resource -A > describe/"$resource".describe || true
+        done
+      if: failure()
+      
+    - name: Upload kubectl describe
+      uses: actions/upload-artifact@v2
+      with:
+        name: kubectl-describe-actions
+        path: describe/*.describe
+      if: failure()
+
+    - name: Generate kubeflow pod logs
+      run: |
+        set -eux
+        mkdir stdout
+        for pod in $(kubectl get pods -nkubeflow -o custom-columns=:metadata.name --no-headers); do
+            for container in $(kubectl get pods -nkubeflow -o jsonpath="{.spec.containers[*].name}" $pod); do
+              kubectl logs -nkubeflow --timestamps $pod -c $container > stdout/$pod-$container.log
+            done
+        done
+      if: failure()
+
+    - name: Upload kubeflow pod logs
+      uses: actions/upload-artifact@v2
+      with:
+        name: kubectl-stdout-actions
+        path: stdout/*.log
+      if: failure()
