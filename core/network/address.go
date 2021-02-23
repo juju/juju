@@ -139,6 +139,10 @@ type MachineAddress struct {
 
 	// ConfigType denotes how this address was configured.
 	ConfigType AddressConfigType
+
+	// IsSecondary if true, indicates that this address is not the primary
+	// address associated with the network device.
+	IsSecondary bool
 }
 
 // Host returns the value for the host-name/IP address.
@@ -212,16 +216,22 @@ func (a MachineAddress) ValueForCIDR(cidr string) (string, error) {
 // - machine-local next;
 // - link-local next;
 // - non-hostnames with unknown scope last.
+// Secondary addresses with otherwise equal weight will be sorted to come after
+// primary addresses, including host names *except* localhost.
 func (a MachineAddress) sortOrder() int {
 	order := 0xFF
 
 	switch a.Scope {
 	case ScopePublic:
 		order = 0x00
+		// Special case to ensure that these follow non-localhost host names.
+		if a.IsSecondary {
+			order = 0x10
+		}
 	case ScopeCloudLocal:
-		order = 0x20
+		order = 0x30
 	case ScopeFanLocal:
-		order = 0x40
+		order = 0x50
 	case ScopeMachineLocal:
 		order = 0x80
 	case ScopeLinkLocal:
@@ -232,12 +242,15 @@ func (a MachineAddress) sortOrder() int {
 	case HostName:
 		order = 0x10
 		if a.Value == "localhost" {
-			order++
+			order = 0x20
 		}
 	case IPv6Address:
-		// Prefer IPv4 over IPv6 addresses.
 		order++
 	case IPv4Address:
+	}
+
+	if a.IsSecondary {
+		order += 2
 	}
 
 	return order
