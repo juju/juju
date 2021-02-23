@@ -66,7 +66,7 @@ func (s *downloadSuite) TestRun(c *gc.C) {
 	url := "http://example.org/"
 
 	s.expectModelGet(url)
-	s.expectRefresh(c, url)
+	s.expectRefresh(url)
 	s.expectDownload(c, url)
 	s.expectFilesystem(c)
 
@@ -94,7 +94,7 @@ func (s *downloadSuite) TestRunWithStdout(c *gc.C) {
 	url := "http://example.org/"
 
 	s.expectModelGet(url)
-	s.expectRefresh(c, url)
+	s.expectRefresh(url)
 	s.expectDownload(c, url)
 
 	command := &downloadCommand{
@@ -118,7 +118,7 @@ func (s *downloadSuite) TestRunWithCustomCharmHubURL(c *gc.C) {
 
 	url := "http://example.org/"
 
-	s.expectRefresh(c, url)
+	s.expectRefresh(url)
 	s.expectDownload(c, url)
 	s.expectFilesystem(c)
 
@@ -135,6 +135,32 @@ func (s *downloadSuite) TestRunWithCustomCharmHubURL(c *gc.C) {
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *downloadSuite) TestRunWithUnsupportedSeries(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.apiRoot.EXPECT().BestFacadeVersion("CharmHub").Return(1)
+
+	url := "http://example.org/"
+
+	s.expectModelGet(url)
+	s.expectRefreshUnsupportedSeries()
+
+	command := &downloadCommand{
+		charmHubCommand: s.newCharmHubCommand(),
+		CharmHubClientFunc: func(charmhub.Config, charmhub.FileSystem) (DownloadCommandAPI, error) {
+			return s.downloadCommandAPI, nil
+		},
+	}
+	command.SetClientStore(s.store)
+	command.SetFilesystem(s.filesystem)
+	cmd := modelcmd.Wrap(command, modelcmd.WrapSkipModelInit)
+	err := cmdtesting.InitCommand(cmd, []string{"test"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := commandContextForTest(c)
+	err = cmd.Run(ctx)
+	c.Assert(err, gc.ErrorMatches, "test does not support series focal in channel stable.  Supported series are bionic, trusty, xenial.")
 }
 
 func (s *downloadSuite) TestRunWithCustomInvalidCharmHubURL(c *gc.C) {
@@ -203,7 +229,7 @@ func (s *downloadSuite) expectModelGet(charmHubURL string) {
 	}, nil)
 }
 
-func (s *downloadSuite) expectRefresh(c *gc.C, charmHubURL string) {
+func (s *downloadSuite) expectRefresh(charmHubURL string) {
 	s.downloadCommandAPI.EXPECT().Refresh(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
 		instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
@@ -217,6 +243,52 @@ func (s *downloadSuite) expectRefresh(c *gc.C, charmHubURL string) {
 					URL:        charmHubURL,
 				},
 			},
+		}}, nil
+	})
+}
+
+func (s *downloadSuite) expectRefreshUnsupportedSeries() {
+	s.downloadCommandAPI.EXPECT().Refresh(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
+		instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
+
+		return []transport.RefreshResponse{{
+			InstanceKey: instanceKey,
+			Entity: transport.RefreshEntity{
+				Type: transport.CharmType,
+				Name: "test",
+			},
+			Error: &transport.APIError{
+				Code:    "revision-not-found",
+				Message: "No revision was found in the Store.",
+				Extra: transport.APIErrorExtra{
+					Releases: []transport.Release{
+						{
+							Platform: transport.Platform{Architecture: "amd64", OS: "ubuntu", Series: "bionic"},
+							Channel:  "stable",
+						},
+						{
+							Platform: transport.Platform{Architecture: "amd64", OS: "ubuntu", Series: "trusty"},
+							Channel:  "stable",
+						},
+						{
+							Platform: transport.Platform{Architecture: "amd64", OS: "ubuntu", Series: "trusty"},
+							Channel:  "candidate",
+						},
+						{
+							Platform: transport.Platform{Architecture: "amd64", OS: "ubuntu", Series: "xenial"},
+							Channel:  "stable",
+						},
+						{
+							Platform: transport.Platform{Architecture: "amd64", OS: "ubuntu", Series: "focal"},
+							Channel:  "beta",
+						},
+						{
+							Platform: transport.Platform{Architecture: "amd64", OS: "ubuntu", Series: "xenial"},
+							Channel:  "edge",
+						},
+					},
+					DefaultPlatforms: nil,
+				}},
 		}}, nil
 	})
 }

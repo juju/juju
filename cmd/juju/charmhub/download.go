@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/os/v2/series"
@@ -258,6 +259,9 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	// Ensure we didn't get any errors whilst querying the charmhub API
 	for _, res := range results {
 		if res.Error != nil {
+			if res.Error.Code == transport.ErrorCodeRevisionNotFound {
+				return c.suggested(normPlatform.Series, normChannel.String(), res.Error.Extra.Releases)
+			}
 			return errors.Errorf("unable to locate %s: %s", c.charmOrBundle, res.Error.Message)
 		}
 	}
@@ -322,6 +326,17 @@ Install the %q %s with:
     juju deploy %s`[1:], entity.Name, entityType, path)
 
 	return nil
+}
+
+func (c *downloadCommand) suggested(ser string, channel string, releases []transport.Release) error {
+	series := set.NewStrings()
+	for _, rel := range releases {
+		if rel.Channel == channel {
+			series.Add(rel.Platform.Series)
+		}
+	}
+	return errors.Errorf("%s does not support series %s in channel %s.  Supported series are %s.",
+		c.charmOrBundle, ser, channel, strings.Join(series.SortedValues(), ", "))
 }
 
 func (c *downloadCommand) calculateHash(path string) (string, error) {
