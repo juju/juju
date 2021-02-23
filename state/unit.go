@@ -375,7 +375,7 @@ func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		containerInfo.ProviderId = newProviderId
 	}
 	if op.props.Address != nil {
-		networkAddr := network.NewScopedSpaceAddress(*op.props.Address, network.ScopeMachineLocal)
+		networkAddr := network.NewSpaceAddress(*op.props.Address, network.WithScope(network.ScopeMachineLocal))
 		addr := fromNetworkAddress(networkAddr, network.OriginProvider)
 		containerInfo.Address = &addr
 	}

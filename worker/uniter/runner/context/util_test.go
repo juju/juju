@@ -158,7 +158,7 @@ func (s *HookContextSuite) addUnit(c *gc.C, app *state.Application) *state.Unit 
 func (s *HookContextSuite) AddUnit(c *gc.C, app *state.Application) *state.Unit {
 	unit := s.addUnit(c, app)
 	name := strings.Replace(unit.Name(), "/", "-", 1)
-	privateAddr := network.NewScopedSpaceAddress(name+".testing.invalid", network.ScopeCloudLocal)
+	privateAddr := network.NewSpaceAddress(name+".testing.invalid", network.WithScope(network.ScopeCloudLocal))
 	err := s.machine.SetProviderAddresses(privateAddr)
 	c.Assert(err, jc.ErrorIsNil)
 	return unit

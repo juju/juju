@@ -218,7 +218,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		"limits.memory":                                          strconv.Itoa(3750 * 1024 * 1024),
 	}
 	s.Addresses = network.ProviderAddresses{
-		network.NewScopedProviderAddress("10.0.0.1", network.ScopeCloudLocal),
+		network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
 	}
 
 	// NOTE: the instance ids used throughout this package are not at all
@@ -651,7 +651,7 @@ func (conn *StubClient) ContainerAddresses(name string) ([]network.ProviderAddre
 	}
 
 	return network.ProviderAddresses{
-		network.NewScopedProviderAddress("10.0.0.1", network.ScopeCloudLocal),
+		network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
 	}, nil
 }
 

@@ -1090,9 +1090,9 @@ func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContex
 			ProviderId:  network.Id(*iface.Vnic.Id),
 			MACAddress:  *iface.Vnic.MacAddress,
 			Addresses: network.ProviderAddresses{
-				network.NewScopedProviderAddress(
+				network.NewProviderAddress(
 					*iface.Vnic.PrivateIp,
-					network.ScopeCloudLocal,
+					network.WithScope(network.ScopeCloudLocal),
 				),
 			},
 			InterfaceType:    network.EthernetInterface,
@@ -1102,9 +1102,9 @@ func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContex
 		}
 		if iface.Vnic.PublicIp != nil {
 			nic.ShadowAddresses = append(nic.ShadowAddresses,
-				network.NewScopedProviderAddress(
+				network.NewProviderAddress(
 					*iface.Vnic.PublicIp,
-					network.ScopePublic,
+					network.WithScope(network.ScopePublic),
 				),
 			)
 		}

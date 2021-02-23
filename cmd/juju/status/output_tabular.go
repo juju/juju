@@ -131,12 +131,12 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 	units := make(map[string]unitStatus)
 	var w output.Wrapper
 	if fs.Model.Type == caasModelType {
-		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Address", "Message")
+		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Store", "Channel", "Rev", "OS", "Address", "Message")
 	} else {
-		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Message")
+		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Store", "Channel", "Rev", "OS", "Message")
 	}
 	tw.SetColumnAlignRight(3)
-	tw.SetColumnAlignRight(6)
+	tw.SetColumnAlignRight(7)
 	for _, appName := range naturalsort.Sort(stringKeysFromMap(fs.Applications)) {
 		app := fs.Applications[appName]
 		version := app.Version
@@ -162,6 +162,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 
 		w.Print(app.CharmName,
 			app.CharmOrigin,
+			app.CharmChannel,
 			app.CharmRev,
 			app.OS)
 		if fs.Model.Type == caasModelType {

@@ -1176,9 +1176,9 @@ func (s *WatchRelationUnitsSuite) TestPeer(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		machine, err := s.State.Machine(mId)
 		c.Assert(err, jc.ErrorIsNil)
-		privateAddr := network.NewScopedSpaceAddress(
+		privateAddr := network.NewSpaceAddress(
 			fmt.Sprintf("riak%d.example.com", i),
-			network.ScopeCloudLocal,
+			network.WithScope(network.ScopeCloudLocal),
 		)
 		err = machine.SetProviderAddresses(privateAddr)
 		c.Assert(err, jc.ErrorIsNil)

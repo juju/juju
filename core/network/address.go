@@ -243,28 +243,23 @@ func (a MachineAddress) sortOrder() int {
 	return order
 }
 
-// NewMachineAddress creates a new MachineAddress, deriving its type from the
-// value and using ScopeUnknown as scope. It is a shortcut to calling
-// NewScopedMachineAddress(value, ScopeUnknown).
-func NewMachineAddress(value string) MachineAddress {
-	return NewScopedMachineAddress(value, ScopeUnknown)
-}
-
-// NewScopedMachineAddress creates a new MachineAddress, deriving its type from
-// the value.
-// If the specified scope is ScopeUnknown, then NewScopedSpaceAddress will attempt
-// to derive the scope based on reserved IP address ranges.
-// Because passing ScopeUnknown is fairly common,
-// NewMachineAddress() above does exactly that.
-func NewScopedMachineAddress(value string, scope Scope) MachineAddress {
+// NewMachineAddress creates a new MachineAddress,
+// applying any supplied options to the result.
+func NewMachineAddress(value string, options ...func(AddressMutator)) MachineAddress {
 	addr := MachineAddress{
 		Value: value,
 		Type:  DeriveAddressType(value),
-		Scope: scope,
+		Scope: ScopeUnknown,
 	}
-	if scope == ScopeUnknown {
+
+	for _, option := range options {
+		option(&addr)
+	}
+
+	if addr.Scope == ScopeUnknown {
 		addr.Scope = deriveScope(addr)
 	}
+
 	return addr
 }
 
@@ -366,43 +361,17 @@ func (a ProviderAddress) String() string {
 	return buf.String()
 }
 
-// NewProviderAddress creates a new ProviderAddress, deriving its type from the
-// value and using ScopeUnknown as scope. It is a shortcut to calling
-// NewScopedProvider(value, ScopeUnknown).
-func NewProviderAddress(value string) ProviderAddress {
-	return ProviderAddress{MachineAddress: NewMachineAddress(value)}
+// NewProviderAddress creates a new ProviderAddress,
+// applying any supplied options to the result.
+func NewProviderAddress(value string, options ...func(AddressMutator)) ProviderAddress {
+	return ProviderAddress{MachineAddress: NewMachineAddress(value, options...)}
 }
 
-// NewScopedProviderAddress creates a new ProviderAddress by embedding the
-// result of NewScopedMachineAddress.
-// No space information is populated.
-func NewScopedProviderAddress(value string, scope Scope) ProviderAddress {
-	return ProviderAddress{MachineAddress: NewScopedMachineAddress(value, scope)}
-}
-
-// NewScopedProviderAddressWithNetwork creates a new ProviderAddress by
-// embedding the result of NewScopedMachineAddress and populating its CIDR
-// value. No space information is populated.
-func NewScopedProviderAddressWithNetwork(value, networkCIDR string, scope Scope) ProviderAddress {
-	addr := NewScopedProviderAddress(value, scope)
-	addr.CIDR = networkCIDR
-	return addr
-}
-
-// NewProviderAddressInSpace creates a new ProviderAddress, deriving its type
-// and scope from the value, and associating it with the given space name.
-func NewProviderAddressInSpace(spaceName string, value string) ProviderAddress {
+// NewProviderAddressInSpace creates a new ProviderAddress,
+// associating it with the given space name.
+func NewProviderAddressInSpace(spaceName string, value string, options ...func(AddressMutator)) ProviderAddress {
 	return ProviderAddress{
-		MachineAddress: NewMachineAddress(value),
-		SpaceName:      SpaceName(spaceName),
-	}
-}
-
-// NewScopedProviderAddressInSpace creates a new ProviderAddress, deriving its
-// type from the value, and associating it with the given scope and space name.
-func NewScopedProviderAddressInSpace(spaceName string, value string, scope Scope) ProviderAddress {
-	return ProviderAddress{
-		MachineAddress: NewScopedMachineAddress(value, scope),
+		MachineAddress: NewMachineAddress(value, options...),
 		SpaceName:      SpaceName(spaceName),
 	}
 }
@@ -518,20 +487,10 @@ func (a SpaceAddress) String() string {
 	return buf.String()
 }
 
-// NewSpaceAddress creates a new SpaceAddress, deriving its
-// type from the input value and using ScopeUnknown as scope.
-func NewSpaceAddress(value string) SpaceAddress {
-	return NewScopedSpaceAddress(value, ScopeUnknown)
-}
-
-// NewScopedSpaceAddress creates a new SpaceAddress,
-// deriving its type from the input value.
-// If the specified scope is ScopeUnknown, then NewScopedSpaceAddress will
-// attempt to derive the scope based on reserved IP address ranges.
-// Because passing ScopeUnknown is fairly common, NewSpaceAddress() above
-// does exactly that.
-func NewScopedSpaceAddress(value string, scope Scope) SpaceAddress {
-	return SpaceAddress{MachineAddress: NewScopedMachineAddress(value, scope)}
+// NewSpaceAddress creates a new SpaceAddress,
+// applying any supplied options to the result.
+func NewSpaceAddress(value string, options ...func(mutator AddressMutator)) SpaceAddress {
+	return SpaceAddress{MachineAddress: NewMachineAddress(value, options...)}
 }
 
 // SpaceAddresses is a slice of SpaceAddress

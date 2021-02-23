@@ -164,9 +164,9 @@ func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) (corenetwo
 			if privateIpAddress == nil {
 				continue
 			}
-			addresses = append(addresses, corenetwork.NewScopedProviderAddress(
+			addresses = append(addresses, corenetwork.NewProviderAddress(
 				to.String(privateIpAddress),
-				corenetwork.ScopeCloudLocal,
+				corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			))
 		}
 	}
@@ -174,9 +174,9 @@ func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) (corenetwo
 		if pip.IPAddress == nil {
 			continue
 		}
-		addresses = append(addresses, corenetwork.NewScopedProviderAddress(
+		addresses = append(addresses, corenetwork.NewProviderAddress(
 			to.String(pip.IPAddress),
-			corenetwork.ScopePublic,
+			corenetwork.WithScope(corenetwork.ScopePublic),
 		))
 	}
 	return addresses, nil
@@ -226,9 +226,9 @@ func primarySecurityGroupInfo(ctx stdcontext.Context, env *azureEnviron, nic net
 		return &securityGroupInfo{
 			resourceGroup: resourceGroup,
 			securityGroup: securityGroup,
-			primaryAddress: corenetwork.NewScopedSpaceAddress(
+			primaryAddress: corenetwork.NewSpaceAddress(
 				to.String(privateIpAddress),
-				corenetwork.ScopeCloudLocal,
+				corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			),
 		}, nil
 	}

@@ -67,9 +67,9 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		Jobs:        []state.MachineJob{state.JobManageModel},
 		Constraints: controllerCons,
 		Addresses: []network.SpaceAddress{
-			network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
-			network.NewScopedSpaceAddress("cloud-local0.internal", network.ScopeCloudLocal),
-			network.NewScopedSpaceAddress("fc00::0", network.ScopePublic),
+			network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
+			network.NewSpaceAddress("cloud-local0.internal", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("fc00::0", network.WithScope(network.ScopePublic)),
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -84,9 +84,9 @@ func (s *clientSuite) setMachineAddresses(c *gc.C, machineId string) {
 	m, err := s.State.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetMachineAddresses(
-		network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
-		network.NewScopedSpaceAddress(fmt.Sprintf("cloud-local%s.internal", machineId), network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress(fmt.Sprintf("fc0%s::1", machineId), network.ScopePublic),
+		network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
+		network.NewSpaceAddress(fmt.Sprintf("cloud-local%s.internal", machineId), network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress(fmt.Sprintf("fc0%s::1", machineId), network.WithScope(network.ScopePublic)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -173,8 +173,8 @@ func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
 	c.Assert(machines[0].Series(), gc.Equals, "quantal")
 
 	err = machines[0].SetMachineAddresses(
-		network.NewScopedSpaceAddress("cloud-local2.internal", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("cloud-local22.internal", network.ScopeCloudLocal),
+		network.NewSpaceAddress("cloud-local2.internal", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("cloud-local22.internal", network.WithScope(network.ScopeCloudLocal)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -191,7 +191,7 @@ func (s *clientSuite) TestEnableHAErrorForNoCloudLocal(c *gc.C) {
 
 	// remove the extra provider addresses, so we have no valid CloudLocal addresses
 	c.Assert(m0.SetProviderAddresses(
-		network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
+		network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
 	), jc.ErrorIsNil)
 
 	_, err = s.enableHA(c, 3, emptyCons, defaultSeries, nil)
@@ -231,8 +231,8 @@ func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
 	m, err := s.State.Machine("2")
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetMachineAddresses(
-		network.NewScopedSpaceAddress("cloud-local2.internal", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("cloud-local22.internal", network.ScopeCloudLocal),
+		network.NewSpaceAddress("cloud-local2.internal", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("cloud-local22.internal", network.WithScope(network.ScopeCloudLocal)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -60,8 +60,8 @@ var (
 	// These addresses must always be IPs. If not, the facade code
 	// (NetworksForRelation in particular) will attempt to resolve them and
 	// cause the uniter tests to fail with an "unknown host" error.
-	dummyPrivateAddress = network.NewScopedSpaceAddress("172.0.30.1", network.ScopeCloudLocal)
-	dummyPublicAddress  = network.NewScopedSpaceAddress("1.1.1.1", network.ScopePublic)
+	dummyPrivateAddress = network.NewSpaceAddress("172.0.30.1", network.WithScope(network.ScopeCloudLocal))
+	dummyPublicAddress  = network.NewSpaceAddress("1.1.1.1", network.WithScope(network.ScopePublic))
 )
 
 // worstCase is used for timeouts when timing out

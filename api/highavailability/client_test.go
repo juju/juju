@@ -36,9 +36,9 @@ func assertEnableHA(c *gc.C, s *jujutesting.JujuConnSuite) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = m.SetMachineAddresses(
-		network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
-		network.NewScopedSpaceAddress("cloud-local0.internal", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("fc00::1", network.ScopePublic),
+		network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
+		network.NewSpaceAddress("cloud-local0.internal", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("fc00::1", network.WithScope(network.ScopePublic)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

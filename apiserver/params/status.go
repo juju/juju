@@ -142,6 +142,9 @@ type LXDProfile struct {
 type ApplicationStatus struct {
 	Err              *Error                     `json:"err,omitempty"`
 	Charm            string                     `json:"charm"`
+	CharmVersion     string                     `json:"charm-version"`
+	CharmProfile     string                     `json:"charm-profile"`
+	CharmChannel     string                     `json:"charm-channel,omitempty"`
 	Series           string                     `json:"series"`
 	Exposed          bool                       `json:"exposed"`
 	ExposedEndpoints map[string]ExposedEndpoint `json:"exposed-endpoints,omitempty"`
@@ -153,9 +156,6 @@ type ApplicationStatus struct {
 	MeterStatuses    map[string]MeterStatus     `json:"meter-statuses"`
 	Status           DetailedStatus             `json:"status"`
 	WorkloadVersion  string                     `json:"workload-version"`
-	CharmVersion     string                     `json:"charm-version"`
-	CharmProfile     string                     `json:"charm-profile"`
-	CharmChannel     string                     `json:"charm-channel,omitempty"`
 	EndpointBindings map[string]string          `json:"endpoint-bindings"`
 
 	// The following are for CAAS models.

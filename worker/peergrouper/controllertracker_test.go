@@ -26,9 +26,9 @@ func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceReturnsCorrectAddre
 
 	m := &controllerTracker{
 		addresses: []network.SpaceAddress{
-			network.NewScopedSpaceAddress("192.168.5.5", network.ScopeCloudLocal),
-			network.NewScopedSpaceAddress("192.168.10.5", network.ScopeCloudLocal),
-			network.NewScopedSpaceAddress("localhost", network.ScopeMachineLocal),
+			network.NewSpaceAddress("192.168.5.5", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("192.168.10.5", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("localhost", network.WithScope(network.ScopeMachineLocal)),
 		},
 	}
 	m.addresses[0].SpaceID = space.ID
@@ -41,8 +41,9 @@ func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceReturnsCorrectAddre
 
 func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceEmptyWhenNoAddressFound(c *gc.C) {
 	m := &controllerTracker{
-		id:        "3",
-		addresses: []network.SpaceAddress{network.NewScopedSpaceAddress("localhost", network.ScopeMachineLocal)},
+		id: "3",
+		addresses: []network.SpaceAddress{
+			network.NewSpaceAddress("localhost", network.WithScope(network.ScopeMachineLocal))},
 	}
 
 	addrs, err := m.SelectMongoAddressFromSpace(666, network.SpaceInfo{ID: "whatever", Name: "bad-space"})
@@ -63,9 +64,9 @@ func (s *machineTrackerSuite) TestGetPotentialMongoHostPortsReturnsAllAddresses(
 	m := &controllerTracker{
 		id: "3",
 		addresses: []network.SpaceAddress{
-			network.NewScopedSpaceAddress("192.168.5.5", network.ScopeCloudLocal),
-			network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal),
-			network.NewScopedSpaceAddress("185.159.16.82", network.ScopePublic),
+			network.NewSpaceAddress("192.168.5.5", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("185.159.16.82", network.WithScope(network.ScopePublic)),
 		},
 	}
 

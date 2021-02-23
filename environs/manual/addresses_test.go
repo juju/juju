@@ -42,7 +42,7 @@ func (s *addressesSuite) TestHostAddress(c *gc.C) {
 	addr, err := manual.HostAddress(validHost)
 	c.Assert(s.netLookupHostCalled, gc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, gc.Equals, network.NewScopedProviderAddress(validHost, network.ScopePublic))
+	c.Assert(addr, gc.Equals, network.NewProviderAddress(validHost, network.WithScope(network.ScopePublic)))
 }
 
 func (s *addressesSuite) TestHostAddressError(c *gc.C) {
@@ -56,12 +56,12 @@ func (s *addressesSuite) TestHostAddressIPv4(c *gc.C) {
 	addr, err := manual.HostAddress("127.0.0.1")
 	c.Assert(s.netLookupHostCalled, gc.Equals, 0)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, gc.Equals, network.NewScopedProviderAddress("127.0.0.1", network.ScopePublic))
+	c.Assert(addr, gc.Equals, network.NewProviderAddress("127.0.0.1", network.WithScope(network.ScopePublic)))
 }
 
 func (s *addressesSuite) TestHostAddressIPv6(c *gc.C) {
 	addr, err := manual.HostAddress("::1")
 	c.Assert(s.netLookupHostCalled, gc.Equals, 0)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, gc.Equals, network.NewScopedProviderAddress("::1", network.ScopePublic))
+	c.Assert(addr, gc.Equals, network.NewProviderAddress("::1", network.WithScope(network.ScopePublic)))
 }

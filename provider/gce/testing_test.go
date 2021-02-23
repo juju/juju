@@ -187,7 +187,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		metadataKeyWindowsSysprep:  fmt.Sprintf(winSetHostnameScript, "juju.*"),
 	}
 	s.Addresses = []network.ProviderAddress{
-		network.NewScopedProviderAddress("10.0.0.1", network.ScopeCloudLocal),
+		network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
 	}
 	s.Instance = s.NewInstance(c, "spam")
 	s.BaseInstance = s.Instance.base
