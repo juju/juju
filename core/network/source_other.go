@@ -154,8 +154,8 @@ func (n *netPackageConfigSource) Interfaces() ([]ConfigSourceNIC, error) {
 	}
 
 	result := make([]ConfigSourceNIC, len(nics))
-	for i, nic := range nics {
-		result[i] = NewNetNIC(n.SysClassNetPath(), &nic)
+	for i := range nics {
+		result[i] = NewNetNIC(n.SysClassNetPath(), &nics[i])
 	}
 	return result, nil
 }
