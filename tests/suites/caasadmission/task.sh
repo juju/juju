@@ -11,7 +11,7 @@ test_caasadmission() {
 
     run_deploy_microk8s "$(petname)"
 
-    #test_controller_model_admission
-    #test_new_model_admission
+    test_controller_model_admission
+    test_new_model_admission
     test_model_chicken_and_egg
 }
