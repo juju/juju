@@ -48,13 +48,6 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-// localCharmChannel is used to identify a standard channel that all local
-// charms will adhere to. THis isn't actually required, but it makes things a
-// lot simpler when using a selecting algorithm based on channels for charms.
-var localCharmChannel = corecharm.Channel{
-	Risk: corecharm.Risk("stable"),
-}
-
 type bundleDeploySpec struct {
 	ctx        *cmd.Context
 	filesystem modelcmd.Filesystem
@@ -385,8 +378,7 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL, charmSeries, ch
 	// attempting to resolve a revision from any charm store. We can ignore the
 	// error here, as we want to just parse out the charm URL.
 	// Resolution and validation of the charm URL happens further down.
-	curl, err := charm.ParseURL(charmURL)
-	if err == nil {
+	if curl, err := charm.ParseURL(charmURL); err == nil {
 		if charm.Local.Matches(curl.Schema) {
 			return charmChannel, -1, nil
 		} else if curl.Revision >= 0 && charmChannel != "" {
@@ -429,8 +421,7 @@ func (h *bundleHandler) constructChannelAndOrigin(curl *charm.URL, charmSeries, 
 	var channel corecharm.Channel
 	if charmChannel != "" {
 		var err error
-		channel, err = corecharm.ParseChannelNormalize(charmChannel)
-		if err != nil {
+		if channel, err = corecharm.ParseChannelNormalize(charmChannel); err != nil {
 			return corecharm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
 		}
 	}
@@ -604,7 +595,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 			// We know we're a local charm and local charms don't require an
 			// explicit tailored origin. Instead we can just use a placeholder
 			// to ensure correctness for later on in addApplication.
-			h.addOrigin(*curl, localCharmChannel, commoncharm.Origin{
+			h.addOrigin(*curl, corecharm.DefaultRiskChannel, commoncharm.Origin{
 				Source: commoncharm.OriginLocal,
 			})
 			return nil

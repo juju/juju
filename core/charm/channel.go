@@ -20,7 +20,11 @@ var (
 	// DefaultChannel represents the default track and risk.
 	DefaultChannel = Channel{
 		Track: "latest",
-		Risk:  Risk("stable"),
+		Risk:  Stable,
+	}
+	// DefaultRiskChannel represents the default only risk channel.
+	DefaultRiskChannel = Channel{
+		Risk: Stable,
 	}
 )
 
