@@ -13,6 +13,7 @@ import (
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	macaroon "gopkg.in/macaroon.v2"
@@ -25,6 +26,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -35,6 +38,8 @@ import (
 )
 
 type BundleDeployRepositorySuite struct {
+	testing.IsolationSuite
+
 	allWatcher     *mocks.MockAllWatch
 	bundleResolver *mocks.MockResolver
 	deployerAPI    *mocks.MockDeployerAPI
@@ -1056,8 +1061,7 @@ func (s *BundleDeployRepositorySuite) expectAddLocalCharm(curl *charm.URL, force
 	s.deployerAPI.EXPECT().AddLocalCharm(gomock.AssignableToTypeOf(&charm.URL{}), charmInterfaceMatcher{}, force).Return(curl, nil)
 }
 
-type charmInterfaceMatcher struct {
-}
+type charmInterfaceMatcher struct{}
 
 func (m charmInterfaceMatcher) Matches(arg interface{}) bool {
 	_, ok := arg.(charm.Charm)
@@ -1127,4 +1131,201 @@ func (s *BundleDeployRepositorySuite) expectAddOneUnit(name, directive, unit str
 		Placement:       placement,
 	}
 	s.deployerAPI.EXPECT().AddUnits(args).Return([]string{name + "/" + unit}, nil)
+}
+
+type BundleHandlerOriginSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&BundleHandlerOriginSuite{})
+
+func (s *BundleHandlerOriginSuite) TestAddOrigin(c *gc.C) {
+	handler := &bundleHandler{
+		origins: make(map[charm.URL]map[string]commoncharm.Origin),
+	}
+
+	curl := charm.MustParseURL("ch:mysql")
+	channel := corecharm.MustParseChannel("stable")
+	origin := commoncharm.Origin{
+		Risk: "stable",
+	}
+
+	handler.addOrigin(*curl, channel, origin)
+	res, found := handler.getOrigin(*curl, channel)
+	c.Assert(found, jc.IsTrue)
+	c.Assert(res, gc.DeepEquals, origin)
+}
+
+func (s *BundleHandlerOriginSuite) TestGetOriginNotFound(c *gc.C) {
+	handler := &bundleHandler{
+		origins: make(map[charm.URL]map[string]commoncharm.Origin),
+	}
+
+	curl := charm.MustParseURL("ch:mysql")
+	channel := corecharm.MustParseChannel("stable")
+	origin := commoncharm.Origin{
+		Risk: "stable",
+	}
+
+	_, found := handler.getOrigin(*curl, channel)
+	c.Assert(found, jc.IsFalse)
+
+	channelB := corecharm.MustParseChannel("edge")
+	handler.addOrigin(*curl, channelB, origin)
+	_, found = handler.getOrigin(*curl, channel)
+	c.Assert(found, jc.IsFalse)
+}
+
+func (s *BundleHandlerOriginSuite) TestConstructChannelAndOrigin(c *gc.C) {
+	handler := &bundleHandler{}
+
+	arch := "arm64"
+	curl := charm.MustParseURL("ch:mysql")
+	series := "focal"
+	channel := "stable"
+	cons := constraints.Value{
+		Arch: &arch,
+	}
+
+	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(curl, series, channel, cons)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resultChannel, gc.DeepEquals, corecharm.MustParseChannel("stable"))
+	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
+		Source:       "charm-hub",
+		OS:           "ubuntu",
+		Series:       "focal",
+		Risk:         "stable",
+		Architecture: "arm64",
+	})
+}
+
+func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginUsingArchFallback(c *gc.C) {
+	handler := &bundleHandler{}
+
+	curl := charm.MustParseURL("ch:mysql")
+	series := "focal"
+	channel := "stable"
+	cons := constraints.Value{}
+
+	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(curl, series, channel, cons)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resultChannel, gc.DeepEquals, corecharm.MustParseChannel("stable"))
+	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
+		Source:       "charm-hub",
+		OS:           "ubuntu",
+		Series:       "focal",
+		Risk:         "stable",
+		Architecture: "amd64",
+	})
+}
+
+func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginEmptyChannel(c *gc.C) {
+	handler := &bundleHandler{}
+
+	arch := "arm64"
+	curl := charm.MustParseURL("ch:mysql")
+	series := "focal"
+	channel := ""
+	cons := constraints.Value{
+		Arch: &arch,
+	}
+
+	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(curl, series, channel, cons)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resultChannel, gc.DeepEquals, corecharm.Channel{})
+	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
+		Source:       "charm-hub",
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: "arm64",
+	})
+}
+
+type BundleHandlerResolverSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&BundleHandlerResolverSuite{})
+
+func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	resolver := mocks.NewMockResolver(ctrl)
+
+	handler := &bundleHandler{
+		bundleResolver: resolver,
+	}
+
+	charmURL := charm.MustParseURL("ch:ubuntu")
+	charmSeries := "focal"
+	charmChannel := "stable"
+	arch := "amd64"
+	rev := 33
+
+	origin := commoncharm.Origin{
+		Source:       "charm-hub",
+		Architecture: arch,
+		Risk:         charmChannel,
+		OS:           "ubuntu",
+		Series:       charmSeries,
+	}
+	resolvedOrigin := origin
+	resolvedOrigin.Revision = &rev
+
+	resolver.EXPECT().ResolveCharm(charmURL, origin).Return(charmURL, resolvedOrigin, nil, nil)
+
+	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(channel, gc.DeepEquals, "stable")
+	c.Assert(rev, gc.Equals, rev)
+}
+
+func (s *BundleHandlerResolverSuite) TestResolveCharmChannelWithoutRevision(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	resolver := mocks.NewMockResolver(ctrl)
+
+	handler := &bundleHandler{
+		bundleResolver: resolver,
+	}
+
+	charmURL := charm.MustParseURL("ch:ubuntu")
+	charmSeries := "focal"
+	charmChannel := "stable"
+	arch := "amd64"
+
+	origin := commoncharm.Origin{
+		Source:       "charm-hub",
+		Architecture: arch,
+		Risk:         charmChannel,
+		OS:           "ubuntu",
+		Series:       charmSeries,
+	}
+	resolvedOrigin := origin
+
+	resolver.EXPECT().ResolveCharm(charmURL, origin).Return(charmURL, resolvedOrigin, nil, nil)
+
+	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(channel, gc.DeepEquals, "stable")
+	c.Assert(rev, gc.Equals, -1)
+}
+
+func (s *BundleHandlerResolverSuite) TestResolveLocalCharm(c *gc.C) {
+	handler := &bundleHandler{}
+
+	charmURL := charm.URL{
+		Schema: string(charm.Local),
+		Name:   "local",
+	}
+	charmSeries := "focal"
+	charmChannel := "stable"
+	arch := "amd64"
+
+	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(channel, gc.DeepEquals, "stable")
+	c.Assert(rev, gc.Equals, -1)
 }

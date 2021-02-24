@@ -187,6 +187,7 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			0,
+			"",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -207,6 +208,7 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			0,
+			"",
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
@@ -259,6 +261,7 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			1,
+			"",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -279,6 +282,7 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			0,
+			"",
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
@@ -328,6 +332,7 @@ func (s *bundleSuite) TestGetChangesSuccessV1(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			0,
+			"",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -347,6 +352,7 @@ func (s *bundleSuite) TestGetChangesSuccessV1(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			0,
+			"",
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
@@ -388,6 +394,7 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 					map[string]string{"url": "public"},
 					map[string]int{},
 					0,
+					"",
 				},
 				Requires: []string{"addCharm-0"},
 			})
