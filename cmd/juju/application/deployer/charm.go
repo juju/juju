@@ -22,6 +22,7 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/resources/client"
 	app "github.com/juju/juju/apiserver/facades/client/application"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
@@ -252,7 +253,20 @@ func (d *deployCharm) deploy(
 		Resources:        ids,
 		EndpointBindings: d.bindings,
 	}
-	return errors.Trace(deployAPI.Deploy(args))
+
+	err = deployAPI.Deploy(args)
+	if err == nil {
+		return nil
+	}
+
+	if pErr, ok := errors.Cause(err).(*params.Error); ok {
+		switch pErr.Code {
+		case params.CodeAlreadyExists:
+			return errors.Wrapf(err, errors.Errorf("\ndeploy application using an alias name, or use remove-application to remove the existing one and try again"), err.Error())
+		}
+	}
+	return errors.Trace(err)
+
 }
 
 var (
