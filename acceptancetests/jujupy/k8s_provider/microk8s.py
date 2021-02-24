@@ -45,8 +45,8 @@ class MicroK8s(Base):
     name = K8sProviderType.MICROK8S
     cloud_name = 'microk8s'  # built-in cloud name
 
-    def __init__(self, bs_manager, timeout=1800):
-        super().__init__(bs_manager, timeout)
+    def __init__(self, bs_manager, cluster_name=None, timeout=1800):
+        super().__init__(bs_manager, cluster_name, timeout)
         self.default_storage_class_name = 'microk8s-hostpath'
 
     def _ensure_cluster_stack(self):
@@ -70,8 +70,9 @@ class MicroK8s(Base):
             f.write(kubeconfig_content)
 
     def _ensure_cluster_config(self):
-        self.__enable_addons()
+        self.enable_microk8s_addons()
         try:
+            # TODO: remove this tmp patch once we run test in public cloud.
             self.__tmp_fix_patch_coredns()
         except Exception as e:
             logger.error(e)
@@ -88,9 +89,9 @@ class MicroK8s(Base):
             self.sh(*args), Loader=yaml.Loader,
         )
 
-    def __enable_addons(self):
+    def enable_microk8s_addons(self, addons=None):
         # addons are required to be enabled.
-        addons = ['storage', 'dns', 'ingress']
+        addons = addons or ['storage', 'dns', 'ingress']
 
         def wait_until_ready(timeout, checker):
             for _ in until_timeout(timeout):
@@ -119,6 +120,7 @@ class MicroK8s(Base):
         # install microk8s.
         self.sh('sudo', 'snap', 'install', 'microk8s', '--classic', '--stable')
         logger.info("microk8s installed successfully")
+        self.sh('sudo', 'usermod', '-a', '-G', 'microk8s', os.environ['USER'])
 
         logger.info(
             "microk8s status \n%s",

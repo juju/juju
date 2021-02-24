@@ -4,11 +4,14 @@
 package state_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&watcherSuite{})
@@ -31,9 +34,35 @@ func (s *watcherSuite) TestEntityWatcherFirstEvent(c *gc.C) {
 	// Send the Machine creation event before we start our watcher
 	s.State.StartSync()
 	w := m.Watch()
-	c.Logf("Watch started")
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
-	wc.AssertOneChange()
+
+	// This code is essentially what's in NewNotifyWatcherC.AssertOneChange()
+	// but we allow for an optional second event. The 2 events are:
+	// - initial watcher event
+	// - machine created event
+	// Due to mixed use of wall clock and test clock in the various bits
+	// of infrastructure, we can't guarantee that the watcher fires after
+	// the machine created event arrives, which means that event sometimes
+	// arrives separately and would fail the test.
+	eventCount := 0
+loop:
+	for {
+		select {
+		case _, ok := <-w.Changes():
+			c.Logf("got change")
+			c.Assert(ok, jc.IsTrue)
+			eventCount++
+			if eventCount > 2 {
+				c.Fatalf("watcher sent unexpected change")
+			}
+		case <-time.After(coretesting.ShortWait):
+			if eventCount > 0 {
+				break loop
+			}
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("watcher did not send change")
+			break loop
+		}
+	}
 }
 
 func (s *watcherSuite) TestLegacyActionNotificationWatcher(c *gc.C) {

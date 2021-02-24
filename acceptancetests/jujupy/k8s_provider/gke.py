@@ -44,15 +44,13 @@ CLUSTER_STATUS = container_v1.enums.Cluster.Status
 class GKE(Base):
 
     name = K8sProviderType.GKE
-    cluster_name = None
 
     driver = None
     default_params = None
 
-    def __init__(self, bs_manager, timeout=1800):
-        super().__init__(bs_manager, timeout)
+    def __init__(self, bs_manager, cluster_name=None, timeout=1800):
+        super().__init__(bs_manager, cluster_name, timeout)
 
-        self.cluster_name = self.client.env.controller.name  # use controller name for cluster name
         self.default_storage_class_name = ''
         self.__init_driver(bs_manager.client.env)
 
