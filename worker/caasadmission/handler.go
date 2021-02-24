@@ -109,8 +109,22 @@ func admissionHandler(logger Logger, rbacMapper RBACMapper) http.Handler {
 			return
 		}
 
+		logger.Debugf("received admission request for %s of %s in namespace %s",
+			admissionReview.Request.Name,
+			admissionReview.Request.Kind,
+			admissionReview.Request.Namespace,
+		)
+
 		reviewResponse := &admission.AdmissionResponse{
 			Allowed: true,
+		}
+
+		for _, ignoreObjKind := range admissionObjectIgnores {
+			if compareAPIGroupVersionKind(ignoreObjKind, admissionReview.Request.Kind) {
+				logger.Debugf("ignoring admission request for gvk %s", ignoreObjKind)
+				finalise(admissionReview, reviewResponse)
+				return
+			}
 		}
 
 		appName, err := rbacMapper.AppNameForServiceAccount(
