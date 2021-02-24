@@ -6,7 +6,7 @@ run_charmhub_download() {
 
     ensure "test-${name}" "${file}"
 
-    output=$(juju download mysql --filepath="${TEST_DIR}/mysql.charm" 2>&1 || true)
+    output=$(juju download mysql --series xenial --filepath="${TEST_DIR}/mysql.charm" 2>&1 || true)
     check_contains "${output}" "Fetching charm \"mysql\""
 
     juju deploy "${TEST_DIR}/mysql.charm" mysql
@@ -34,7 +34,7 @@ run_unknown_download() {
     ensure "test-${name}" "${file}"
 
     output=$(juju download meshuggah 2>&1 || echo "not found")
-    check_contains "${output}" "No charm or bundle with name"
+    check_contains "${output}" "The Charm with the given name was not found in the Store"
 }
 
 test_charmhub_download() {
