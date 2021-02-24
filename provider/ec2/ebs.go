@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"sync"
@@ -1008,9 +1009,10 @@ func blockDeviceNamer(numbers bool) func() (requestName, actualName string, err 
 		if letter > deviceLetterMax {
 			return "", "", errTooManyVolumes
 		}
-		deviceName := devicePrefix + string(rune(letter))
+		deviceName := devicePrefix + fmt.Sprintf("%c", letter)
 		if numbers {
-			deviceName += string(rune('1' + (n % deviceNumMax)))
+			// Suffix is a digit from [1, deviceNumMax)
+			deviceName += fmt.Sprintf("%d", 1+(n%deviceNumMax))
 		}
 		n++
 		realDeviceName := renamedDevicePrefix + deviceName[len(devicePrefix):]
