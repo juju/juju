@@ -557,6 +557,17 @@ func ensureModelOperatorRBAC(
 				Resources: []string{"namespaces"},
 				Verbs:     []string{"get"},
 			},
+			{
+				APIGroups: []string{"admissionregistration.k8s.io"},
+				Resources: []string{"mutatingwebhookconfigurations"},
+				Verbs: []string{
+					"create",
+					"delete",
+					"get",
+					"list",
+					"update",
+				},
+			},
 		},
 	}
 
@@ -598,17 +609,6 @@ func ensureModelOperatorRBAC(
 			Labels:    labels,
 		},
 		Rules: []rbac.PolicyRule{
-			{
-				APIGroups: []string{"admissionregistration.k8s.io"},
-				Resources: []string{"mutatingwebhookconfigurations"},
-				Verbs: []string{
-					"create",
-					"delete",
-					"get",
-					"list",
-					"update",
-				},
-			},
 			{
 				APIGroups: []string{""},
 				Resources: []string{"serviceaccounts"},

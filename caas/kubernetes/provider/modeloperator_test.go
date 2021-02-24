@@ -47,6 +47,15 @@ func (m *ModelOperatorSuite) Test(c *gc.C) {
 			c.Assert(cr.Rules[0].APIGroups, jc.DeepEquals, []string{""})
 			c.Assert(cr.Rules[0].Resources, jc.DeepEquals, []string{"namespaces"})
 			c.Assert(cr.Rules[0].Verbs, jc.DeepEquals, []string{"get"})
+			c.Assert(cr.Rules[1].APIGroups, jc.DeepEquals, []string{"admissionregistration.k8s.io"})
+			c.Assert(cr.Rules[1].Resources, jc.DeepEquals, []string{"mutatingwebhookconfigurations"})
+			c.Assert(cr.Rules[1].Verbs, jc.DeepEquals, []string{
+				"create",
+				"delete",
+				"get",
+				"list",
+				"update",
+			})
 			return nil, nil
 		},
 		ensureClusterRoleBinding: func(crb *rbac.ClusterRoleBinding) ([]func(), error) {
@@ -79,18 +88,9 @@ func (m *ModelOperatorSuite) Test(c *gc.C) {
 			ensureRoleCalled = true
 			c.Assert(r.Name, gc.Equals, modelOperatorName)
 			c.Assert(r.Namespace, gc.Equals, namespace)
-			c.Assert(r.Rules[0].APIGroups, jc.DeepEquals, []string{"admissionregistration.k8s.io"})
-			c.Assert(r.Rules[0].Resources, jc.DeepEquals, []string{"mutatingwebhookconfigurations"})
+			c.Assert(r.Rules[0].APIGroups, jc.DeepEquals, []string{""})
+			c.Assert(r.Rules[0].Resources, jc.DeepEquals, []string{"serviceaccounts"})
 			c.Assert(r.Rules[0].Verbs, jc.DeepEquals, []string{
-				"create",
-				"delete",
-				"get",
-				"list",
-				"update",
-			})
-			c.Assert(r.Rules[1].APIGroups, jc.DeepEquals, []string{""})
-			c.Assert(r.Rules[1].Resources, jc.DeepEquals, []string{"serviceaccounts"})
-			c.Assert(r.Rules[1].Verbs, jc.DeepEquals, []string{
 				"get",
 				"list",
 				"watch",
