@@ -976,13 +976,20 @@ func tagRootDisk(e *ec2.EC2, ctx context.ProviderCallContext, tags map[string]st
 	for a := waitRootDiskAttempt.Start(); volumeId == "" && a.Next(); {
 		resp, err := e.Instances([]string{inst.InstanceId}, nil)
 		if err != nil {
-			err = errors.Annotate(maybeConvertCredentialError(err, ctx), "cannot fetch instance information")
-			logger.Warningf("%v", err)
-			if a.HasNext() == false {
-				return err
+			// EC2 calls are eventually consistent; if we get a
+			// NotFound error when looking up the instance we
+			// should retry until it appears or we run out of
+			// attempts.
+			if strings.HasSuffix(ec2ErrCode(err), ".NotFound") {
+				logger.Debugf("instance %v is not available yet; retrying fetch of instance information", inst.InstanceId)
+				continue
 			}
-			logger.Infof("retrying fetch of instances")
-			continue
+
+			// No need to retry for other error types.
+			return errors.Annotate(
+				maybeConvertCredentialError(err, ctx),
+				"cannot fetch instance information",
+			)
 		}
 		if len(resp.Reservations) > 0 && len(resp.Reservations[0].Instances) > 0 {
 			inst = &resp.Reservations[0].Instances[0]
@@ -2117,19 +2124,39 @@ var zeroGroup ec2.SecurityGroup
 // groupName or with filter by vpc-id and group-name, depending on whether
 // vpc-id is empty or not.
 func (e *environ) securityGroupsByNameOrID(groupName string) (*ec2.SecurityGroupsResp, error) {
+	var (
+		groups []ec2.SecurityGroup
+		filter *ec2.Filter
+	)
+
 	if chosenVPCID := e.ecfg().vpcID(); isVPCIDSet(chosenVPCID) {
 		// AWS VPC API requires both of these filters (and no
 		// group names/ids set) for non-default EC2-VPC groups:
-		filter := ec2.NewFilter()
+		filter = ec2.NewFilter()
 		filter.Add("vpc-id", chosenVPCID)
 		filter.Add("group-name", groupName)
-		return e.ec2.SecurityGroups(nil, filter)
+	} else {
+		// EC2-Classic or EC2-VPC with implicit default VPC need to use
+		// the GroupName.X arguments instead of the filters.
+		groups = ec2.SecurityGroupNames(groupName)
 	}
 
-	// EC2-Classic or EC2-VPC with implicit default VPC need to use the
-	// GroupName.X arguments instead of the filters.
-	groups := ec2.SecurityGroupNames(groupName)
-	return e.ec2.SecurityGroups(groups, nil)
+	// If the security group was just created, it might not be available
+	// yet as EC2 resources are eventually consistent. If we get a NotFound
+	// error from EC2 we will retry the request using the shortAttempt
+	// strategy before giving up.
+	for a := shortAttempt.Start(); ; a.Next() {
+		resp, err := e.ec2.SecurityGroups(groups, filter)
+		if err == nil {
+			return resp, err
+		}
+
+		// If we run out of attempts or we got an error other than NotFound
+		// immediately return the error back.
+		if !a.HasNext() || !strings.HasSuffix(ec2ErrCode(err), ".NotFound") {
+			return nil, err
+		}
+	}
 }
 
 // ensureGroup returns the security group with name and perms.
