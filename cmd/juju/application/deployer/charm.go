@@ -252,7 +252,17 @@ func (d *deployCharm) deploy(
 		Resources:        ids,
 		EndpointBindings: d.bindings,
 	}
-	return errors.Trace(deployAPI.Deploy(args))
+
+	err = deployAPI.Deploy(args)
+	if err == nil {
+		return nil
+	}
+
+	if errors.IsAlreadyExists(err) {
+		return errors.Wrapf(err, errors.Errorf("\ndeploy application using an alias name, or use remove-application to remove the existing one and try again"), err.Error())
+	}
+	return errors.Trace(err)
+
 }
 
 var (
