@@ -1485,7 +1485,7 @@ func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 	if err != nil {
 		return errors.Trace(err)
 	}
-	groupIds, err := e.modelSecurityGroupIDs(ctx)
+	groups, err := e.modelSecurityGroups(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1493,6 +1493,10 @@ func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 	resourceIds := make([]string, len(instances))
 	for i, instance := range instances {
 		resourceIds[i] = string(instance.Id())
+	}
+	groupIds := make([]string, len(groups))
+	for i, g := range groups {
+		groupIds[i] = g.Id
 	}
 	resourceIds = append(resourceIds, volumeIds...)
 	resourceIds = append(resourceIds, groupIds...)
@@ -1506,7 +1510,7 @@ func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Ins
 	// We want to return everything we find here except for instances that are
 	// "shutting-down" - they are on the way to be terminated - or already "terminated".
 	// From https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html
-	return e.AllInstancesByState(ctx, "rebooting", "pending", "running", "stopping", "stopped")
+	return e.AllInstancesByState(ctx, activeStates.Values()...)
 }
 
 // AllRunningInstances is part of the environs.InstanceBroker interface.
@@ -1612,8 +1616,8 @@ func (e *environ) Destroy(ctx context.ProviderCallContext) error {
 	if err := common.Destroy(e, ctx); err != nil {
 		return errors.Trace(maybeConvertCredentialError(err, ctx))
 	}
-	if err := e.cleanEnvironmentSecurityGroups(ctx); err != nil {
-		return errors.Annotate(maybeConvertCredentialError(err, ctx), "cannot delete environment security groups")
+	if err := e.cleanModelSecurityGroups(ctx); err != nil {
+		return errors.Annotate(maybeConvertCredentialError(err, ctx), "cannot delete model security groups")
 	}
 	return nil
 }
@@ -1623,15 +1627,15 @@ func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerU
 	// In case any hosted environment hasn't been cleaned up yet,
 	// we also attempt to delete their resources when the controller
 	// environment is destroyed.
-	if err := e.destroyControllerManagedEnvirons(ctx, controllerUUID); err != nil {
-		return errors.Annotate(err, "destroying managed environs")
+	if err := e.destroyControllerManagedModels(ctx, controllerUUID); err != nil {
+		return errors.Annotate(err, "destroying managed models")
 	}
 	return e.Destroy(ctx)
 }
 
-// destroyControllerManagedEnvirons destroys all environments managed by this
-// environment's controller.
-func (e *environ) destroyControllerManagedEnvirons(ctx context.ProviderCallContext, controllerUUID string) error {
+// destroyControllerManagedModels destroys all models managed by this
+// model's controller.
+func (e *environ) destroyControllerManagedModels(ctx context.ProviderCallContext, controllerUUID string) error {
 	// Terminate all instances managed by the controller.
 	instIds, err := e.allControllerManagedInstances(ctx, controllerUUID)
 	if err != nil {
@@ -1664,10 +1668,7 @@ func (e *environ) destroyControllerManagedEnvirons(ctx context.ProviderCallConte
 	}
 	for _, g := range groups {
 		if err := deleteSecurityGroupInsistently(e.ec2, ctx, g, clock.WallClock); err != nil {
-			return errors.Annotatef(
-				err, "cannot delete security group %q (%q)",
-				g.Name, g.Id,
-			)
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -1849,36 +1850,44 @@ func (e *environ) controllerSecurityGroups(ctx context.ProviderCallContext, cont
 	return groups, nil
 }
 
-func (e *environ) modelSecurityGroupIDs(ctx context.ProviderCallContext) ([]string, error) {
+func (e *environ) modelSecurityGroups(ctx context.ProviderCallContext) ([]ec2.SecurityGroup, error) {
 	filter := ec2.NewFilter()
 	e.addModelFilter(filter)
 	resp, err := e.ec2.SecurityGroups(nil, filter)
 	if err != nil {
 		return nil, errors.Annotate(maybeConvertCredentialError(err, ctx), "listing security groups")
 	}
-	groupIDs := make([]string, len(resp.Groups))
+	groups := make([]ec2.SecurityGroup, len(resp.Groups))
 	for i, info := range resp.Groups {
-		groupIDs[i] = info.Id
+		groups[i] = ec2.SecurityGroup{Id: info.Id, Name: info.Name}
 	}
-	return groupIDs, nil
+	return groups, nil
 }
 
-// cleanEnvironmentSecurityGroups attempts to delete all security groups owned
-// by the environment.
-func (e *environ) cleanEnvironmentSecurityGroups(ctx context.ProviderCallContext) error {
-	jujuGroup := e.jujuGroupName()
-	g, err := e.groupByName(ctx, jujuGroup)
-	if isNotFoundError(err) {
-		return nil
-	}
+// cleanModelSecurityGroups attempts to delete all security groups owned
+// by the model. These include any security groups belonging to instances
+// in the model which may not have been cleaned up.
+func (e *environ) cleanModelSecurityGroups(ctx context.ProviderCallContext) error {
+	// Delete security groups managed by the model.
+	groups, err := e.modelSecurityGroups(ctx)
 	if err != nil {
-		return errors.Annotatef(err, "cannot retrieve default security group: %q", jujuGroup)
+		return errors.Annotatef(err, "cannot retrieve security groups for model %q", e.uuid())
 	}
-	if err := deleteSecurityGroupInsistently(e.ec2, ctx, g, clock.WallClock); err != nil {
-		return errors.Annotate(err, "cannot delete default security group")
+	for _, g := range groups {
+		logger.Debugf("deleting model security group %q (%q)", g.Name, g.Id)
+		if err := deleteSecurityGroupInsistently(e.ec2, ctx, g, clock.WallClock); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }
+
+var (
+	activeStates = set.NewStrings(
+		"rebooting", "pending", "running", "stopping", "stopped")
+	terminatingStates = set.NewStrings(
+		"shutting-down", "terminated")
+)
 
 func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []instance.Id) error {
 	if len(ids) == 0 {
@@ -1894,9 +1903,15 @@ func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	// TODO (anastasiamac 2016-04-7) instance termination would benefit
 	// from retry with exponential delay just like security groups
 	// in defer. Bug#1567179.
-	var err error
 	for a := shortAttempt.Start(); a.Next(); {
-		_, err = terminateInstancesById(e.ec2, ctx, ids...)
+		resp, err := terminateInstancesById(e.ec2, ctx, ids...)
+		if err == nil {
+			for i, sc := range resp.StateChanges {
+				if !terminatingStates.Contains(sc.CurrentState.Name) {
+					logger.Warningf("instance %d has been terminated but is in state %q", ids[i], sc.CurrentState.Name)
+				}
+			}
+		}
 		if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
 			// This will return either success at terminating all instances (1st condition) or
 			// encountered error as long as it's not NotFound (2nd condition).
@@ -1915,8 +1930,11 @@ func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	// So try each instance individually, ignoring a NotFound error this time.
 	deletedIDs := []instance.Id{}
 	for _, id := range ids {
-		_, err = terminateInstancesById(e.ec2, ctx, id)
+		resp, err := terminateInstancesById(e.ec2, ctx, id)
 		if err == nil {
+			if !terminatingStates.Contains(resp.StateChanges[0].CurrentState.Name) {
+				logger.Warningf("instance %d has been terminated but is in state %q", id, resp.StateChanges[0].CurrentState.Name)
+			}
 			deletedIDs = append(deletedIDs, id)
 		}
 		if err != nil && ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
@@ -1950,7 +1968,7 @@ func (e *environ) deleteSecurityGroupsForInstances(ctx context.ProviderCallConte
 
 	// We only want to attempt deleting security groups for the
 	// instances that have been successfully terminated.
-	securityGroups, err := e.instanceSecurityGroups(ctx, ids, "shutting-down", "terminated")
+	securityGroups, err := e.instanceSecurityGroups(ctx, ids, terminatingStates.Values()...)
 	if err != nil {
 		logger.Errorf("cannot determine security groups to delete: %v", err)
 		return
@@ -1974,7 +1992,7 @@ func (e *environ) deleteSecurityGroupsForInstances(ctx context.ProviderCallConte
 			// In this case, our failure to delete security group is reasonable: it's still in use.
 			// 2. Some security groups may be shared by multiple instances,
 			// for example, global firewalling. We should not delete these.
-			logger.Errorf("provider failure: %v", err)
+			logger.Warningf("%v", err)
 		}
 	}
 }
@@ -2009,7 +2027,7 @@ var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, ctx context
 		},
 	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot delete security group %q: consider deleting it manually", group.Name)
+		return errors.Annotatef(err, "cannot delete security group %q (%q): consider deleting it manually", group.Name, group.Id)
 	}
 	return nil
 }
