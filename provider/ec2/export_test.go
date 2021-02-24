@@ -46,7 +46,15 @@ func AllModelVolumes(e environs.Environ, ctx context.ProviderCallContext) ([]str
 }
 
 func AllModelGroups(e environs.Environ, ctx context.ProviderCallContext) ([]string, error) {
-	return e.(*environ).modelSecurityGroupIDs(ctx)
+	groups, err := e.(*environ).modelSecurityGroups(ctx)
+	if err != nil {
+		return nil, err
+	}
+	groupIds := make([]string, len(groups))
+	for i, g := range groups {
+		groupIds[i] = g.Id
+	}
+	return groupIds, nil
 }
 
 var (
