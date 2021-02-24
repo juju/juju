@@ -89,6 +89,7 @@ type BootstrapParams struct {
 // a HostSSHOptionsFunc that can generate SSH options for accessing an instance.
 type InstanceSSHOptionsFunc func(*instancecfg.InstanceConfig) SSHOptionsFunc
 
+// SSHOptionsFunc generates SSH options for accessing an instance.
 type SSHOptionsFunc func(host string) (*ssh.Options, func(), error)
 
 // CloudBootstrapFinalizer is a function returned from Environ.Bootstrap.
