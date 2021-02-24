@@ -24,8 +24,11 @@ type ListCharmResourcesCommand struct {
 // NewListCharmResourcesCommand returns a new command that lists resources defined
 // by a charm.
 func NewListCharmResourcesCommand(resourceLister ResourceLister) modelcmd.ModelCommand {
-	var c ListCharmResourcesCommand
-	c.setResourceLister(resourceLister)
+	c := ListCharmResourcesCommand{
+		baseCharmResourcesCommand{
+			CreateResourceListerFn: defaultResourceLister,
+		},
+	}
 	return modelcmd.Wrap(&c)
 }
 

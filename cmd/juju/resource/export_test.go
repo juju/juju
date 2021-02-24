@@ -33,15 +33,25 @@ func UploadCommandApplication(c *UploadCommand) string {
 var FormatApplicationResources = formatApplicationResources
 
 func NewCharmResourcesCommandForTest(resourceLister ResourceLister) modelcmd.ModelCommand {
-	var c CharmResourcesCommand
-	c.setResourceLister(resourceLister)
+	c := CharmResourcesCommand{
+		baseCharmResourcesCommand{
+			CreateResourceListerFn: func(schema string, deps ResourceListerDependencies) (ResourceLister, error) {
+				return resourceLister, nil
+			},
+		},
+	}
 	c.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(&c)
 }
 
 func NewListCharmResourcesCommandForTest(resourceLister ResourceLister) modelcmd.ModelCommand {
-	var c ListCharmResourcesCommand
-	c.setResourceLister(resourceLister)
+	c := ListCharmResourcesCommand{
+		baseCharmResourcesCommand{
+			CreateResourceListerFn: func(schema string, deps ResourceListerDependencies) (ResourceLister, error) {
+				return resourceLister, nil
+			},
+		},
+	}
 	c.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(&c)
 }

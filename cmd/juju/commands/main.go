@@ -554,7 +554,7 @@ func registerCommands(r commandRegistry) {
 			return resourceadapters.NewAPIClient(apiRoot)
 		},
 	}))
-	r.Register(resource.NewCharmResourcesCommand(nil))
+	r.Register(resource.NewCharmResourcesCommand())
 
 	// CharmHub related commands
 	r.Register(charmhub.NewInfoCommand())
