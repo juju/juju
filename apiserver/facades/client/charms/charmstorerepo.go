@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/version"
 )
 
 type csRepo struct {
@@ -92,8 +93,9 @@ func openCSClient(args ResolverGetterParams) (*csclient.Client, error) {
 		return nil, errors.Trace(err)
 	}
 	csParams := csclient.Params{
-		URL:          csURL.String(),
-		BakeryClient: httpbakery.NewClient(),
+		URL:            csURL.String(),
+		BakeryClient:   httpbakery.NewClient(),
+		UserAgentValue: version.UserAgentVersion,
 	}
 
 	if args.CharmStoreMacaroon != nil {

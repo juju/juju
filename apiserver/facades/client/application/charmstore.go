@@ -222,8 +222,9 @@ func openCSClient(args OpenCSRepoParams) (*csclient.Client, error) {
 		return nil, err
 	}
 	csParams := csclient.Params{
-		URL:          csURL.String(),
-		BakeryClient: httpbakery.NewClient(),
+		URL:            csURL.String(),
+		BakeryClient:   httpbakery.NewClient(),
+		UserAgentValue: jujuversion.UserAgentVersion,
 	}
 
 	if args.CharmStoreMacaroon != nil {
