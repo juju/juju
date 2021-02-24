@@ -1030,6 +1030,41 @@ func (s *cloudSuite) TestRemoveCloud(c *gc.C) {
 	c.Assert(s.called, jc.IsTrue)
 }
 
+func (s *cloudSuite) TestRemoveCloudErrorMapping(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				s.called = true
+				c.Check(objType, gc.Equals, "Cloud")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "RemoveClouds")
+				c.Check(a, jc.DeepEquals, params.Entities{
+					Entities: []params.Entity{{Tag: "cloud-foo"}},
+				})
+				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+				results := result.(*params.ErrorResults)
+				results.Results = append(results.Results, params.ErrorResult{
+					Error: &params.Error{
+						Code:    params.CodeNotFound,
+						Message: `cloud "cloud-foo" not found`,
+					},
+				})
+				return nil
+			},
+		),
+		BestVersion: 2,
+	}
+
+	client := cloudapi.NewClient(apiCaller)
+	err := client.RemoveCloud("foo")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound, gc.Commentf("expected client to be map server error into a NotFound error"))
+	c.Assert(s.called, jc.IsTrue)
+}
+
 func (s *cloudSuite) TestRemoveCloudNotInV1API(c *gc.C) {
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
