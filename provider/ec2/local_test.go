@@ -628,7 +628,7 @@ func (t *localServerSuite) TestDestroyControllerModelDeleteSecurityGroupInsisten
 		return errors.New(msg)
 	})
 	err := env.DestroyController(t.callCtx, t.ControllerUUID)
-	c.Assert(err, gc.ErrorMatches, "destroying managed environs: cannot delete security group .*: "+msg)
+	c.Assert(err, gc.ErrorMatches, "destroying managed models: "+msg)
 }
 
 func (t *localServerSuite) TestDestroyHostedModelDeleteSecurityGroupInsistentlyError(c *gc.C) {
@@ -646,13 +646,13 @@ func (t *localServerSuite) TestDestroyHostedModelDeleteSecurityGroupInsistentlyE
 		return errors.New(msg)
 	})
 	err = hostedEnv.Destroy(t.callCtx)
-	c.Assert(err, gc.ErrorMatches, "cannot delete environment security groups: cannot delete default security group: "+msg)
+	c.Assert(err, gc.ErrorMatches, "cannot delete model security groups: "+msg)
 }
 
 func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *gc.C) {
 	controllerEnv := t.prepareAndBootstrap(c)
 
-	// Create a hosted model environment with an instance and a volume.
+	// Create a hosted model with an instance and a volume.
 	hostedModelUUID := "7e386e08-cba7-44a4-a76e-7c1633584210"
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Running)
 	cfg, err := controllerEnv.Config().Apply(map[string]interface{}{
@@ -724,7 +724,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 	)
 
 	// Destroy the controller resources. This should destroy the hosted
-	// environment too.
+	// model too.
 	err = controllerEnv.DestroyController(t.callCtx, t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1923,7 +1923,7 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	controllerGroups, err := ec2.AllModelGroups(controllerEnv, s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Create a hosted model environment with an instance and a volume.
+	// Create a hosted model with an instance and a volume.
 	hostedModelUUID := "7e386e08-cba7-44a4-a76e-7c1633584210"
 	s.srv.ec2srv.SetInitialInstanceState(ec2test.Running)
 	cfg, err := controllerEnv.Config().Apply(map[string]interface{}{
