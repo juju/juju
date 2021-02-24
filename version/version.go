@@ -23,6 +23,10 @@ import (
 // number of the release package.
 const version = "2.9-rc6"
 
+// UserAgentVersion defines a user agent version used for communication for
+// outside resources.
+const UserAgentVersion = "Juju/" + version
+
 const (
 	// TreeStateDirty when the build was made with a dirty checkout.
 	TreeStateDirty = "dirty"

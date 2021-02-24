@@ -16,6 +16,7 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/version"
 )
 
 // AddCharmFromURL calls the appropriate client API calls to add the
@@ -58,8 +59,9 @@ func AddCharmWithAuthorizationFromURL(client CharmAdder, cs MacaroonGetter, curl
 // It is defined as a variable so it can be changed for testing purposes.
 var NewCharmStoreClient = func(client *httpbakery.Client, csURL string) *csclient.Client {
 	return csclient.New(csclient.Params{
-		URL:          csURL,
-		BakeryClient: client,
+		URL:            csURL,
+		BakeryClient:   client,
+		UserAgentValue: version.UserAgentVersion,
 	})
 }
 
