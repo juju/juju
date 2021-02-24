@@ -976,13 +976,20 @@ func tagRootDisk(e *ec2.EC2, ctx context.ProviderCallContext, tags map[string]st
 	for a := waitRootDiskAttempt.Start(); volumeId == "" && a.Next(); {
 		resp, err := e.Instances([]string{inst.InstanceId}, nil)
 		if err != nil {
-			err = errors.Annotate(maybeConvertCredentialError(err, ctx), "cannot fetch instance information")
-			logger.Warningf("%v", err)
-			if a.HasNext() == false {
-				return err
+			// EC2 calls are eventually consistent; if we get a
+			// NotFound error when looking up the instance we
+			// should retry until it appears or we run out of
+			// attempts.
+			if strings.HasSuffix(ec2ErrCode(err), ".NotFound") {
+				logger.Debugf("instance %v is not available yet; retrying fetch of instance information", inst.InstanceId)
+				continue
 			}
-			logger.Infof("retrying fetch of instances")
-			continue
+
+			// No need to retry for other error types.
+			return errors.Annotate(
+				maybeConvertCredentialError(err, ctx),
+				"cannot fetch instance information",
+			)
 		}
 		if len(resp.Reservations) > 0 && len(resp.Reservations[0].Instances) > 0 {
 			inst = &resp.Reservations[0].Instances[0]
