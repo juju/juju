@@ -1233,6 +1233,12 @@ func (e *Environ) startInstance(
 			var serverDetail *nova.ServerDetail
 			serverDetail, err = waitForActiveServerDetails(client, server.Id, 5*time.Minute)
 			if err != nil || serverDetail == nil {
+				// If we got an error back (eg. StillBuilding)
+				// we need to terminate the instance before
+				// retrying to avoid leaking resources.
+				if termErr := e.terminateInstances(ctx, []instance.Id{instance.Id(server.Id)}); termErr != nil {
+					logger.Debugf("Failed to delete instance in BUILD state, %q", termErr)
+				}
 				server = nil
 				break
 			} else if serverDetail.Status == nova.StatusActive {
