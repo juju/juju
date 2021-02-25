@@ -389,7 +389,7 @@ func (s *oracleVolumeSource) updateVolume(volumeId string, details ociResponse.S
 			Imagelist_entry:  details.Imagelist_entry,
 			Name:             details.Name,
 			Properties:       details.Properties,
-			Size:             ociCommon.StorageSize(details.Size),
+			Size:             ociCommon.StorageSize(fmt.Sprint(details.Size)),
 			Snapshot:         derefString(details.Snapshot),
 			Snapshot_account: details.Snapshot_account,
 			Snapshot_id:      details.Snapshot_id,

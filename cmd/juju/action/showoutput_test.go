@@ -84,7 +84,7 @@ func (s *ShowOutputSuite) TestRun(c *gc.C) {
 	}{{
 		should:         "handle wait-time formatting errors",
 		withClientWait: "not-a-duration-at-all",
-		expectedErr:    `time: invalid duration not-a-duration-at-all`,
+		expectedErr:    `time: invalid duration "?not-a-duration-at-all"?`,
 	}, {
 		should:            "timeout if result never comes",
 		withClientWait:    "2s",

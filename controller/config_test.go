@@ -235,7 +235,7 @@ var newConfigTests = []struct {
 	config: controller.Config{
 		controller.PruneTxnSleepTime: "15",
 	},
-	expectError: `prune-txn-sleep-time must be a valid duration \(eg "10ms"\): time: missing unit in duration 15`,
+	expectError: `prune-txn-sleep-time must be a valid duration \(eg "10ms"\): time: missing unit in duration "?15"?`,
 }, {
 	about: "mongo-memory-profile not valid",
 	config: controller.Config{
@@ -277,7 +277,7 @@ var newConfigTests = []struct {
 	config: controller.Config{
 		controller.AgentRateLimitRate: "150",
 	},
-	expectError: `agent-ratelimit-rate: conversion to duration: time: missing unit in duration 150`,
+	expectError: `agent-ratelimit-rate: conversion to duration: time: missing unit in duration "?150"?`,
 }, {
 	about: "agent-ratelimit-rate bad type, int",
 	config: controller.Config{
@@ -669,7 +669,7 @@ func (s *ConfigSuite) TestMaxDebugLogDurationSchemaCoerce(c *gc.C) {
 			"max-debug-log-duration": "12",
 		},
 	)
-	c.Assert(err.Error(), gc.Equals, "max-debug-log-duration: conversion to duration: time: missing unit in duration 12")
+	c.Assert(err.Error(), gc.Matches, `max-debug-log-duration: conversion to duration: time: missing unit in duration "?12"?`)
 }
 
 func (s *ConfigSuite) TestDefaults(c *gc.C) {
