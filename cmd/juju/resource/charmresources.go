@@ -140,6 +140,13 @@ func (c *baseCharmResourcesCommand) baseInit(args []string) error {
 
 func (c *baseCharmResourcesCommand) baseRun(ctx *cmd.Context) error {
 	charmURL, err := resolveCharm(c.charm)
+	if errors.IsNotSupported(err) {
+		if c.out.Name() == "tabular" {
+			ctx.Infof("Bundles have no resources to display.")
+			return nil
+		}
+		return c.out.Write(ctx, struct{}{})
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -211,7 +218,7 @@ func resolveCharm(raw string) (*charm.URL, error) {
 	}
 
 	if charmURL.Series == "bundle" {
-		return nil, errors.Errorf("charm bundles are not supported")
+		return nil, errors.NotSupportedf("charm bundles")
 	}
 
 	return charmURL, nil
