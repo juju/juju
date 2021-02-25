@@ -1812,7 +1812,7 @@
     },
     {
         "Name": "Application",
-        "Description": "APIv13 provides the Application API facade for version 13.\nIt adds CharmOrigin. The ApplicationsInfo call populates the exposed\nendpoints field in its response entries.",
+        "Description": "APIv13 provides the Application API facade for version 13.",
         "Version": 13,
         "AvailableTo": [
             "controller-machine-agent",
@@ -1991,18 +1991,6 @@
                     },
                     "description": "Get returns the charm configuration for an application."
                 },
-                "GetCharmURL": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ApplicationGet"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/StringResult"
-                        }
-                    },
-                    "description": "GetCharmURL returns the charm URL the given application is\nrunning at present."
-                },
                 "GetCharmURLOrigin": {
                     "type": "object",
                     "properties": {
@@ -2075,15 +2063,6 @@
                     },
                     "description": "ScaleApplications scales the specified application to the requested number of units."
                 },
-                "Set": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ApplicationSet"
-                        }
-                    },
-                    "description": "Set implements the server side of Application.Set.\nIt does not unset values that are set to an empty string.\nUnset should be used for that."
-                },
                 "SetCharm": {
                     "type": "object",
                     "properties": {
@@ -2103,7 +2082,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "SetConfig implements the server side of Application.SetConfig.  Both\napplication and charm config are set. It does not unset values in\nConfig map that are set to an empty string. Unset should be used for that."
+                    "description": "SetConfigs implements the server side of Application.SetConfig.  Both\napplication and charm config are set. It does not unset values in\nConfig map that are set to an empty string. Unset should be used for that."
                 },
                 "SetConstraints": {
                     "type": "object",
@@ -2158,15 +2137,6 @@
                         }
                     },
                     "description": "UnitsInfo returns unit information."
-                },
-                "Unset": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ApplicationUnset"
-                        }
-                    },
-                    "description": "Unset implements the server side of Client.Unset."
                 },
                 "UnsetApplicationsConfig": {
                     "type": "object",
@@ -2783,31 +2753,6 @@
                         "principal",
                         "exposed",
                         "remote"
-                    ]
-                },
-                "ApplicationSet": {
-                    "type": "object",
-                    "properties": {
-                        "application": {
-                            "type": "string"
-                        },
-                        "branch": {
-                            "type": "string"
-                        },
-                        "options": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "application",
-                        "branch",
-                        "options"
                     ]
                 },
                 "ApplicationSetCharm": {
@@ -3855,21 +3800,6 @@
                         }
                     },
                     "additionalProperties": false
-                },
-                "StringResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
-                    ]
                 },
                 "Subnet": {
                     "type": "object",

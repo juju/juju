@@ -2799,11 +2799,6 @@ func (f *fakeDeployAPI) SetCharm(branchName string, cfg application.SetCharmConf
 	return jujutesting.TypeAssertError(results[0])
 }
 
-func (f *fakeDeployAPI) Update(args params.ApplicationUpdate) error {
-	results := f.MethodCall(f, "Update", args)
-	return jujutesting.TypeAssertError(results[0])
-}
-
 func (f *fakeDeployAPI) SetConstraints(application string, constraints constraints.Value) error {
 	results := f.MethodCall(f, "SetConstraints", application, constraints)
 	return jujutesting.TypeAssertError(results[0])
@@ -2874,8 +2869,8 @@ func vanillaFakeModelAPI(cfgAttrs map[string]interface{}) *fakeDeployAPI {
 	fakeAPI.Call("Close").Returns(error(nil))
 	fakeAPI.Call("ModelGet").Returns(cfgAttrs, error(nil))
 	fakeAPI.Call("ModelUUID").Returns("deadbeef-0bad-400d-8000-4b1d0d06f00d", true)
-	fakeAPI.Call("BestFacadeVersion", "Application").Returns(6)
-	fakeAPI.Call("BestFacadeVersion", "Charms").Returns(2)
+	fakeAPI.Call("BestFacadeVersion", "Application").Returns(13)
+	fakeAPI.Call("BestFacadeVersion", "Charms").Returns(4)
 
 	return fakeAPI
 }
@@ -3114,10 +3109,8 @@ func withAllWatcher(fakeAPI *fakeDeployAPI) {
 	id := "0"
 	fakeAPI.Call("WatchAll").Returns(api.NewAllWatcher(fakeAPI, &id), error(nil))
 
-	fakeAPI.Call("BestFacadeVersion", "Application").Returns(0)
 	fakeAPI.Call("BestFacadeVersion", "Annotations").Returns(0)
 	fakeAPI.Call("BestFacadeVersion", "AllWatcher").Returns(0)
-	fakeAPI.Call("BestFacadeVersion", "Charms").Returns(0)
 	fakeAPI.Call("APICall", "AllWatcher", 0, "0", "Stop", nil, nil).Returns(error(nil))
 	fakeAPI.Call("Status", []string(nil)).Returns(&params.FullStatus{}, error(nil))
 }

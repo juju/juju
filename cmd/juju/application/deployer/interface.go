@@ -132,9 +132,6 @@ type ApplicationAPI interface {
 	GetConstraints(appNames ...string) ([]constraints.Value, error)
 	SetConstraints(application string, constraints constraints.Value) error
 
-	// Deprecate use of Update, use SetConfig instead.
-	Update(apiparams.ApplicationUpdate) error
-
 	ScaleApplication(application.ScaleApplicationParams) (apiparams.ScaleApplicationResult, error)
 	Consume(arg crossmodel.ConsumeApplicationArgs) (string, error)
 }

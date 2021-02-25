@@ -87,7 +87,6 @@ func (c *suspendRelationCommand) SetFlags(f *gnuflag.FlagSet) {
 // SetRelationSuspendedAPI defines the API methods that the suspend/resume relation commands use.
 type SetRelationSuspendedAPI interface {
 	Close() error
-	BestAPIVersion() int
 	SetRelationSuspended(relationIds []int, suspended bool, message string) error
 }
 
@@ -97,9 +96,6 @@ func (c *suspendRelationCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	if client.BestAPIVersion() < 5 {
-		return errors.New("suspending a relation is not supported by this version of Juju")
-	}
 	err = client.SetRelationSuspended(c.relationIds, true, c.message)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }

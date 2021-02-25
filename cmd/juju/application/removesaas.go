@@ -88,7 +88,6 @@ func (c *removeSaasCommand) SetFlags(f *gnuflag.FlagSet) {
 // RemoveSaasAPI defines the API methods that the remove-saas command uses.
 type RemoveSaasAPI interface {
 	Close() error
-	BestAPIVersion() int
 	DestroyConsumedApplication(application.DestroyConsumedApplicationParams) ([]params.ErrorResult, error)
 }
 
@@ -98,18 +97,6 @@ func (c *removeSaasCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-
-	apiVersion := client.BestAPIVersion()
-	if apiVersion < 5 {
-		return errors.New("remove-saas is not supported by this version of Juju")
-	} else if apiVersion < 10 {
-		if c.Force {
-			return errors.New("--force is not supported by this version of Juju")
-		}
-		if c.NoWait {
-			return errors.New("--no-wait is not supported by this version of Juju")
-		}
-	}
 
 	if c.NoWait && !c.Force {
 		return errors.New("--no-wait requires --force")

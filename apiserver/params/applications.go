@@ -61,81 +61,6 @@ type ApplicationDeploy struct {
 	Resources        map[string]string              `json:"resources,omitempty"`
 }
 
-// ApplicationsDeployV12 holds the parameters for deploying one or more
-// applications.
-type ApplicationsDeployV12 struct {
-	Applications []ApplicationDeployV12 `json:"applications"`
-}
-
-// ApplicationDeployV12 holds the parameters for making the application Deploy
-// call for application facades older than v12.
-// Missing the newer CharmOrigin.
-type ApplicationDeployV12 struct {
-	ApplicationName  string                         `json:"application"`
-	Series           string                         `json:"series"`
-	CharmURL         string                         `json:"charm-url"`
-	Channel          string                         `json:"channel"`
-	NumUnits         int                            `json:"num-units"`
-	Config           map[string]string              `json:"config,omitempty"`
-	ConfigYAML       string                         `json:"config-yaml"` // Takes precedence over config if both are present.
-	Constraints      constraints.Value              `json:"constraints"`
-	Placement        []*instance.Placement          `json:"placement,omitempty"`
-	Policy           string                         `json:"policy,omitempty"`
-	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
-	Devices          map[string]devices.Constraints `json:"devices,omitempty"`
-	AttachStorage    []string                       `json:"attach-storage,omitempty"`
-	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
-	Resources        map[string]string              `json:"resources,omitempty"`
-}
-
-// ApplicationsDeployV5 holds the parameters for deploying one or more
-// applications.
-type ApplicationsDeployV5 struct {
-	Applications []ApplicationDeployV5 `json:"applications"`
-}
-
-// ApplicationDeployV5 holds the parameters for making the application Deploy
-// call for application facades older than v6. Missing the newer Policy arg.
-type ApplicationDeployV5 struct {
-	ApplicationName  string                         `json:"application"`
-	Series           string                         `json:"series"`
-	CharmURL         string                         `json:"charm-url"`
-	Channel          string                         `json:"channel"`
-	NumUnits         int                            `json:"num-units"`
-	Config           map[string]string              `json:"config,omitempty"`
-	ConfigYAML       string                         `json:"config-yaml"`
-	Constraints      constraints.Value              `json:"constraints"`
-	Placement        []*instance.Placement          `json:"placement,omitempty"`
-	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
-	AttachStorage    []string                       `json:"attach-storage,omitempty"`
-	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
-	Resources        map[string]string              `json:"resources,omitempty"`
-}
-
-// ApplicationsDeployV6 holds the parameters for deploying one or more applications.
-type ApplicationsDeployV6 struct {
-	Applications []ApplicationDeployV6 `json:"applications"`
-}
-
-// ApplicationDeployV6 holds the parameters for making the application Deploy
-// call for application facades older than v6. Missing the newer Device arg.
-type ApplicationDeployV6 struct {
-	ApplicationName  string                         `json:"application"`
-	Series           string                         `json:"series"`
-	CharmURL         string                         `json:"charm-url"`
-	Channel          string                         `json:"channel"`
-	NumUnits         int                            `json:"num-units"`
-	Config           map[string]string              `json:"config,omitempty"` // Takes precedence over yaml entries if both are present.
-	ConfigYAML       string                         `json:"config-yaml"`
-	Constraints      constraints.Value              `json:"constraints"`
-	Placement        []*instance.Placement          `json:"placement,omitempty"`
-	Policy           string                         `json:"policy,omitempty"`
-	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
-	AttachStorage    []string                       `json:"attach-storage,omitempty"`
-	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
-	Resources        map[string]string              `json:"resources,omitempty"`
-}
-
 // ApplicationUpdate holds the parameters for making the application Update call.
 type ApplicationUpdate struct {
 	ApplicationName string             `json:"application"`
@@ -151,58 +76,6 @@ type ApplicationUpdate struct {
 	// Generation is the generation version in which this
 	// request will update the application.
 	Generation string `json:"generation"`
-}
-
-// ApplicationSetCharmV12 sets the charm for a given application
-// for application facades older than v12. Missing the newer CharmOrigin.
-type ApplicationSetCharmV12 struct {
-	// ApplicationName is the name of the application to set the charm on.
-	ApplicationName string `json:"application"`
-
-	// Generation is the generation version that this
-	// request will set the application charm for.
-	Generation string `json:"generation"`
-
-	// CharmURL is the new url for the charm.
-	CharmURL string `json:"charm-url"`
-
-	// Channel is the charm store channel from which the charm came.
-	Channel string `json:"channel"`
-
-	// ConfigSettings is the charm settings to set during the upgrade.
-	// This field is only understood by Application facade version 2
-	// and greater.
-	ConfigSettings map[string]string `json:"config-settings,omitempty"`
-
-	// ConfigSettingsYAML is the charm settings in YAML format to set
-	// during the upgrade. If this is non-empty, it will take precedence
-	// over ConfigSettings. This field is only understood by Application
-	// facade version 2
-	ConfigSettingsYAML string `json:"config-settings-yaml,omitempty"`
-
-	// Force forces the lxd profile validation overriding even if it's fails.
-	Force bool `json:"force"`
-
-	// ForceUnits forces the upgrade on units in an error state.
-	ForceUnits bool `json:"force-units"`
-
-	// ForceSeries forces the use of the charm even if it doesn't match the
-	// series of the unit.
-	ForceSeries bool `json:"force-series"`
-
-	// ResourceIDs is a map of resource names to resource IDs to activate during
-	// the upgrade.
-	ResourceIDs map[string]string `json:"resource-ids,omitempty"`
-
-	// StorageConstraints is a map of storage names to storage constraints to
-	// update during the upgrade. This field is only understood by Application
-	// facade version 2 and greater.
-	StorageConstraints map[string]StorageConstraints `json:"storage-constraints,omitempty"`
-
-	// EndpointBindings is a map of operator-defined endpoint names to
-	// space names to be merged with any existing endpoint bindings. This
-	// field is only understood by Application facade version 10 and greater.
-	EndpointBindings map[string]string `json:"endpoint-bindings,omitempty"`
 }
 
 // ApplicationSetCharm sets the charm for a given application.
@@ -328,24 +201,6 @@ type ApplicationGetResults struct {
 	Series            string                 `json:"series"`
 	Channel           string                 `json:"channel"`
 	EndpointBindings  map[string]string      `json:"endpoint-bindings,omitempty"`
-}
-
-// ApplicationConfigSetArgsV12 holds the parameters for
-// setting application config values for specified applications.
-type ApplicationConfigSetArgs struct {
-	Args []ApplicationConfigSet
-}
-
-// ApplicationConfigSet holds the parameters for an application
-// config set command.
-type ApplicationConfigSet struct {
-	ApplicationName string `json:"application"`
-
-	// Generation is the generation version that this request
-	// will set application configuration for.
-	Generation string `json:"generation"`
-
-	Config map[string]string `json:"config"`
 }
 
 // ConfigSetArgs holds the parameters for setting application and

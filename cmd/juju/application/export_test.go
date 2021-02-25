@@ -121,7 +121,7 @@ func NewRemoveUnitCommandForTest(api RemoveApplicationAPI, store jujuclient.Clie
 	return modelcmd.Wrap(cmd)
 }
 
-type removeAPIFunc func() (RemoveApplicationAPI, int, error)
+type removeAPIFunc func() (RemoveApplicationAPI, error)
 
 // NewRemoveApplicationCommandForTest returns a RemoveApplicationCommand.
 func NewRemoveApplicationCommandForTest(f removeAPIFunc, store jujuclient.ClientStore) modelcmd.ModelCommand {

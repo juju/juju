@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/storage"
 )
 
@@ -129,9 +128,6 @@ func (c *Client) Deploy(args DeployArgs) error {
 		if args.NumUnits != 1 {
 			return errors.New("cannot attach existing storage when more than one unit is requested")
 		}
-		if c.BestAPIVersion() < 5 {
-			return errors.New("this juju controller does not support AttachStorage")
-		}
 	}
 	attachStorage := make([]string, len(args.AttachStorage))
 	for i, id := range args.AttachStorage {
@@ -169,59 +165,11 @@ func (c *Client) Deploy(args DeployArgs) error {
 	return errors.Trace(results.OneError())
 }
 
-// GetCharmURL returns the charm URL the given application is
-// running at present.
-func (c *Client) GetCharmURL(branchName, applicationName string) (*charm.URL, error) {
-	result := new(params.StringResult)
-	args := params.ApplicationGet{
-		ApplicationName: applicationName,
-		BranchName:      branchName,
-	}
-	err := c.facade.FacadeCall("GetCharmURL", args, result)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if result.Error != nil {
-		return nil, errors.Trace(result.Error)
-	}
-	return charm.ParseURL(result.Result)
-}
-
 // GetCharmURLOrigin returns the charm URL along with the charm Origin for the
 // given application is running at present.
 // The charm origin gives more information about the location of the charm and
 // what revision/channel it came from.
 func (c *Client) GetCharmURLOrigin(branchName, applicationName string) (*charm.URL, apicharm.Origin, error) {
-	// Handle the issue where the client can't talk to older API versions of the
-	// API. Luckily we can polyfill the missing return type.
-	if c.BestAPIVersion() < 13 {
-		charmURL, err := c.GetCharmURL(branchName, applicationName)
-		if err != nil {
-			return nil, apicharm.Origin{}, errors.Trace(err)
-		}
-
-		// We need to ensure that we don't handle charmhub charms, as the rest
-		// of the API won't correctly handle that either.
-		var origin apicharm.Origin
-		switch charmURL.Schema {
-		case "cs":
-			origin = apicharm.Origin{
-				Source: apicharm.OriginCharmStore,
-			}
-		case "local":
-			origin = apicharm.Origin{
-				Source: apicharm.OriginLocal,
-			}
-		default:
-			return nil, apicharm.Origin{}, errors.Errorf("unexpected charm store %q", charmURL.Schema)
-		}
-
-		if err != nil {
-			return nil, apicharm.Origin{}, errors.Trace(err)
-		}
-		return charmURL, origin, nil
-	}
-
 	args := params.ApplicationGet{
 		ApplicationName: applicationName,
 		BranchName:      branchName,
@@ -246,36 +194,13 @@ func (c *Client) GetCharmURLOrigin(branchName, applicationName string) (*charm.U
 // applications. If any of the applications are not found, an error is
 // returned.
 func (c *Client) GetConfig(branchName string, appNames ...string) ([]map[string]interface{}, error) {
-	v := c.BestAPIVersion()
-
-	if v < 5 {
-		settings, err := c.getConfigV4(branchName, appNames)
-		return settings, errors.Trace(err)
-	}
-
-	callName := "CharmConfig"
-	if v < 6 {
-		callName = "GetConfig"
-	}
-
-	var callArg interface{}
-	if v < 9 {
-		arg := params.Entities{Entities: make([]params.Entity, len(appNames))}
-		for i, appName := range appNames {
-			arg.Entities[i] = params.Entity{Tag: names.NewApplicationTag(appName).String()}
-		}
-		callArg = arg
-	} else {
-		// Version 9 of the API introduces generational config.
-		arg := params.ApplicationGetArgs{Args: make([]params.ApplicationGet, len(appNames))}
-		for i, appName := range appNames {
-			arg.Args[i] = params.ApplicationGet{ApplicationName: appName, BranchName: branchName}
-		}
-		callArg = arg
+	arg := params.ApplicationGetArgs{Args: make([]params.ApplicationGet, len(appNames))}
+	for i, appName := range appNames {
+		arg.Args[i] = params.ApplicationGet{ApplicationName: appName, BranchName: branchName}
 	}
 
 	var results params.ApplicationGetConfigResults
-	err := c.facade.FacadeCall(callName, callArg, &results)
+	err := c.facade.FacadeCall("CharmConfig", arg, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -288,51 +213,6 @@ func (c *Client) GetConfig(branchName string, appNames ...string) ([]map[string]
 		settings = append(settings, result.Config)
 	}
 	return settings, nil
-}
-
-// getConfigV4 retrieves application config for versions of the API < 5.
-func (c *Client) getConfigV4(branchName string, appNames []string) ([]map[string]interface{}, error) {
-	var allSettings []map[string]interface{}
-	for _, appName := range appNames {
-		results, err := c.Get(branchName, appName)
-		if err != nil {
-			return nil, errors.Annotatef(err, "unable to get settings for %q", appName)
-		}
-		settings, err := describeV5(results.CharmConfig)
-		if err != nil {
-			return nil, errors.Annotatef(err, "unable to process settings for %q", appName)
-		}
-		allSettings = append(allSettings, settings)
-	}
-	return allSettings, nil
-}
-
-// describeV5 will take the results of describeV4 from the apiserver
-// and remove the "default" boolean, and add in "source".
-// Mutates and returns the config map.
-func describeV5(config map[string]interface{}) (map[string]interface{}, error) {
-	for _, value := range config {
-		vMap, ok := value.(map[string]interface{})
-		if !ok {
-			return nil, errors.Errorf("expected settings map got %v (%T) ", value, value)
-		}
-		if _, found := vMap["default"]; found {
-			v, hasValue := vMap["value"]
-			if hasValue {
-				vMap["default"] = v
-				vMap["source"] = "default"
-			} else {
-				delete(vMap, "default")
-				vMap["source"] = "unset"
-			}
-		} else {
-			// If default isn't set, then the source is user.
-			// And we have no idea what the charm default is or whether
-			// there is one.
-			vMap["source"] = "user"
-		}
-	}
-	return config, nil
 }
 
 // CharmID represents the underlying charm for a given application. This
@@ -441,12 +321,6 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 	return c.facade.FacadeCall("SetCharm", args, nil)
 }
 
-// Update updates the application attributes, including charm URL,
-// minimum number of units, settings and constraints.
-func (c *Client) Update(args params.ApplicationUpdate) error {
-	return c.facade.FacadeCall("Update", args, nil)
-}
-
 // UpdateApplicationSeries updates the application series in the db.
 func (c *Client) UpdateApplicationSeries(appName, series string, force bool) error {
 	args := params.UpdateSeriesArgs{
@@ -495,9 +369,6 @@ func (c *Client) AddUnits(args AddUnitsParams) ([]string, error) {
 		if args.NumUnits != 1 {
 			return nil, errors.New("cannot attach existing storage when more than one unit is requested")
 		}
-		if c.BestAPIVersion() < 5 {
-			return nil, errors.New("this juju controller does not support AttachStorage")
-		}
 	}
 	attachStorage := make([]string, len(args.AttachStorage))
 	for i, id := range args.AttachStorage {
@@ -515,19 +386,6 @@ func (c *Client) AddUnits(args AddUnitsParams) ([]string, error) {
 		AttachStorage:   attachStorage,
 	}, results)
 	return results.Units, err
-}
-
-// DestroyUnitsDeprecated decreases the number of units dedicated to an
-// application.
-//
-// NOTE(axw) this exists only for backwards compatibility, for API facade
-// versions 1-3; clients should prefer its successor, DestroyUnits, below.
-//
-// TODO(axw) 2017-03-16 #1673323
-// Drop this in Juju 3.0.
-func (c *Client) DestroyUnitsDeprecated(unitNames ...string) error {
-	args := params.DestroyApplicationUnits{UnitNames: unitNames}
-	return c.facade.FacadeCall("DestroyUnits", args, nil)
 }
 
 // DestroyUnitsParams contains parameters for the DestroyUnits API method.
@@ -552,7 +410,7 @@ type DestroyUnitsParams struct {
 // DestroyUnits decreases the number of units dedicated to one or more
 // applications.
 func (c *Client) DestroyUnits(in DestroyUnitsParams) ([]params.DestroyUnitResult, error) {
-	argsV5 := params.DestroyUnitsParams{
+	args := params.DestroyUnitsParams{
 		Units: make([]params.DestroyUnitParams, 0, len(in.Units)),
 	}
 	allResults := make([]params.DestroyUnitResult, len(in.Units))
@@ -565,57 +423,28 @@ func (c *Client) DestroyUnits(in DestroyUnitsParams) ([]params.DestroyUnitResult
 			continue
 		}
 		index = append(index, i)
-		argsV5.Units = append(argsV5.Units, params.DestroyUnitParams{
+		args.Units = append(args.Units, params.DestroyUnitParams{
 			UnitTag:        names.NewUnitTag(name).String(),
 			DestroyStorage: in.DestroyStorage,
 			Force:          in.Force,
 			MaxWait:        in.MaxWait,
 		})
 	}
-	if len(argsV5.Units) == 0 {
+	if len(args.Units) == 0 {
 		return allResults, nil
-	}
-
-	args := interface{}(argsV5)
-	if c.BestAPIVersion() < 5 {
-		if in.DestroyStorage {
-			return nil, errors.New("this controller does not support --destroy-storage")
-		}
-		argsV4 := params.Entities{
-			Entities: make([]params.Entity, len(argsV5.Units)),
-		}
-		for i, arg := range argsV5.Units {
-			argsV4.Entities[i].Tag = arg.UnitTag
-		}
-		args = argsV4
 	}
 
 	var result params.DestroyUnitResults
 	if err := c.facade.FacadeCall("DestroyUnit", args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if n := len(result.Results); n != len(argsV5.Units) {
-		return nil, errors.Errorf("expected %d result(s), got %d", len(argsV5.Units), n)
+	if n := len(result.Results); n != len(args.Units) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(args.Units), n)
 	}
 	for i, result := range result.Results {
 		allResults[index[i]] = result
 	}
 	return allResults, nil
-}
-
-// DestroyDeprecated destroys a given application.
-//
-// NOTE(axw) this exists only for backwards compatibility,
-// for API facade versions 1-3; clients should prefer its
-// successor, DestroyApplications, below.
-//
-// TODO(axw) 2017-03-16 #1673323
-// Drop this in Juju 3.0.
-func (c *Client) DestroyDeprecated(application string) error {
-	args := params.ApplicationDestroy{
-		ApplicationName: application,
-	}
-	return c.facade.FacadeCall("Destroy", args, nil)
 }
 
 // DestroyApplicationsParams contains parameters for the DestroyApplications
@@ -640,7 +469,7 @@ type DestroyApplicationsParams struct {
 
 // DestroyApplications destroys the given applications.
 func (c *Client) DestroyApplications(in DestroyApplicationsParams) ([]params.DestroyApplicationResult, error) {
-	argsV5 := params.DestroyApplicationsParams{
+	args := params.DestroyApplicationsParams{
 		Applications: make([]params.DestroyApplicationParams, 0, len(in.Applications)),
 	}
 	allResults := make([]params.DestroyApplicationResult, len(in.Applications))
@@ -653,37 +482,23 @@ func (c *Client) DestroyApplications(in DestroyApplicationsParams) ([]params.Des
 			continue
 		}
 		index = append(index, i)
-		argsV5.Applications = append(argsV5.Applications, params.DestroyApplicationParams{
+		args.Applications = append(args.Applications, params.DestroyApplicationParams{
 			ApplicationTag: names.NewApplicationTag(name).String(),
 			DestroyStorage: in.DestroyStorage,
 			Force:          in.Force,
 			MaxWait:        in.MaxWait,
 		})
 	}
-	if len(argsV5.Applications) == 0 {
+	if len(args.Applications) == 0 {
 		return allResults, nil
-	}
-
-	args := interface{}(argsV5)
-	if c.BestAPIVersion() < 5 {
-		if in.DestroyStorage {
-			return nil, errors.New("this controller does not support --destroy-storage")
-		}
-		argsV4 := params.Entities{
-			Entities: make([]params.Entity, len(argsV5.Applications)),
-		}
-		for i, arg := range argsV5.Applications {
-			argsV4.Entities[i].Tag = arg.ApplicationTag
-		}
-		args = argsV4
 	}
 
 	var result params.DestroyApplicationResults
 	if err := c.facade.FacadeCall("DestroyApplication", args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if n := len(result.Results); n != len(argsV5.Applications) {
-		return nil, errors.Errorf("expected %d result(s), got %d", len(argsV5.Applications), n)
+	if n := len(result.Results); n != len(args.Applications) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(args.Applications), n)
 	}
 	for i, result := range result.Results {
 		allResults[index[i]] = result
@@ -708,22 +523,12 @@ type DestroyConsumedApplicationParams struct {
 
 // DestroyConsumedApplication destroys the given consumed (remote) applications.
 func (c *Client) DestroyConsumedApplication(in DestroyConsumedApplicationParams) ([]params.ErrorResult, error) {
-	apiVersion := c.BestAPIVersion()
 	args := params.DestroyConsumedApplicationsParams{
 		Applications: make([]params.DestroyConsumedApplicationParams, 0, len(in.SaasNames)),
 	}
 
-	if apiVersion > 9 {
-		if in.MaxWait != nil && !in.Force {
-			return nil, errors.New("--force is required when --max-wait is provided")
-		}
-	} else {
-		if in.Force {
-			return nil, errors.New("this controller does not support --force")
-		}
-		if in.MaxWait != nil {
-			return nil, errors.New("this controller does not support --no-wait")
-		}
+	if in.MaxWait != nil && !in.Force {
+		return nil, errors.New("--force is required when --max-wait is provided")
 	}
 
 	allResults := make([]params.ErrorResult, len(in.SaasNames))
@@ -739,10 +544,8 @@ func (c *Client) DestroyConsumedApplication(in DestroyConsumedApplicationParams)
 		appParams := params.DestroyConsumedApplicationParams{
 			ApplicationTag: names.NewApplicationTag(name).String(),
 		}
-		if apiVersion > 9 {
-			appParams.Force = &in.Force
-			appParams.MaxWait = in.MaxWait
-		}
+		appParams.Force = &in.Force
+		appParams.MaxWait = in.MaxWait
 		args.Applications = append(args.Applications, appParams)
 	}
 
@@ -810,18 +613,6 @@ func (c *Client) ScaleApplication(in ScaleApplicationParams) (params.ScaleApplic
 // GetConstraints returns the constraints for the given applications.
 func (c *Client) GetConstraints(applications ...string) ([]constraints.Value, error) {
 	var allConstraints []constraints.Value
-	if c.BestAPIVersion() < 5 {
-		for _, application := range applications {
-			var result params.GetConstraintsResults
-			err := c.facade.FacadeCall(
-				"GetConstraints", params.GetApplicationConstraints{ApplicationName: application}, &result)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			allConstraints = append(allConstraints, result.Constraints)
-		}
-		return allConstraints, nil
-	}
 
 	// Make a single call to get all the constraints.
 	var results params.ApplicationGetConstraintsResults
@@ -862,10 +653,6 @@ func (c *Client) SetConstraints(application string, constraints constraints.Valu
 // open ports of the application to 0.0.0.0/0. This matches the behavior of
 // pre-2.9 juju controllers.
 func (c *Client) Expose(application string, exposedEndpoints map[string]params.ExposedEndpoint) error {
-	if c.BestAPIVersion() < 13 && hasGranularExposeParameters(exposedEndpoints) {
-		return errors.NewNotSupported(nil, "controller does not support granular expose parameters; applying this change would make all open application ports accessible from 0.0.0.0/0")
-	}
-
 	args := params.ApplicationExpose{
 		ApplicationName:  application,
 		ExposedEndpoints: exposedEndpoints,
@@ -873,35 +660,9 @@ func (c *Client) Expose(application string, exposedEndpoints map[string]params.E
 	return c.facade.FacadeCall("Expose", args, nil)
 }
 
-func hasGranularExposeParameters(exposedEndpoints map[string]params.ExposedEndpoint) bool {
-	if len(exposedEndpoints) == 0 { // empty list; using non-granular expose like pre 2.9 juju
-		return false
-	} else if allEndpointParams, found := exposedEndpoints[""]; found && len(exposedEndpoints) == 1 {
-		// We have a single entry for the wildcard endpoint; check if
-		// it only includes an expose to all networks CIDR.
-		var allNetworkCIDRCount int
-		for _, cidr := range allEndpointParams.ExposeToCIDRs {
-			if cidr == firewall.AllNetworksIPV4CIDR || cidr == firewall.AllNetworksIPV6CIDR {
-				allNetworkCIDRCount++
-			}
-		}
-
-		if len(allEndpointParams.ExposeToSpaces) == 0 &&
-			len(allEndpointParams.ExposeToCIDRs) == allNetworkCIDRCount {
-			return false // equivalent to using non-granular expose like pre 2.9 juju
-		}
-	}
-
-	return true
-}
-
 // Unexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) Unexpose(application string, endpoints []string) error {
-	if c.BestAPIVersion() < 13 && len(endpoints) > 0 {
-		return errors.NewNotSupported(nil, "controller does not support granular expose parameters; applying this change would unexpose the application")
-	}
-
 	args := params.ApplicationUnexpose{
 		ApplicationName:  application,
 		ExposedEndpoints: endpoints,
@@ -918,24 +679,6 @@ func (c *Client) Get(branchName, application string) (*params.ApplicationGetResu
 	}
 	err := c.facade.FacadeCall("Get", args, &results)
 	return &results, err
-}
-
-// Set sets configuration options on an application.
-func (c *Client) Set(application string, options map[string]string) error {
-	p := params.ApplicationSet{
-		ApplicationName: application,
-		Options:         options,
-	}
-	return c.facade.FacadeCall("Set", p, nil)
-}
-
-// Unset resets configuration options on an application.
-func (c *Client) Unset(application string, options []string) error {
-	p := params.ApplicationUnset{
-		ApplicationName: application,
-		Options:         options,
-	}
-	return c.facade.FacadeCall("Unset", p, nil)
 }
 
 // CharmRelations returns the application's charms relation names.
@@ -1029,34 +772,8 @@ func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) 
 	return localName, nil
 }
 
-// SetApplicationConfig sets configuration options on an application and the charm,
-// from the provided map.
-// Note: The name is misleading as charm config is also set.
-func (c *Client) SetApplicationConfig(branchName, application string, config map[string]string) error {
-	apiVersion := c.BestAPIVersion()
-	if apiVersion < 6 || apiVersion > 12 {
-		return errors.NotSupportedf("SetApplicationsConfig not supported by this version of Juju")
-	}
-	args := params.ApplicationConfigSetArgs{
-		Args: []params.ApplicationConfigSet{{
-			ApplicationName: application,
-			Generation:      branchName,
-			Config:          config,
-		}},
-	}
-	var results params.ErrorResults
-	err := c.facade.FacadeCall("SetApplicationsConfig", args, &results)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return results.OneError()
-}
-
 // SetConfig sets configuration options on an application and the charm.
 func (c *Client) SetConfig(branchName, application, configYAML string, config map[string]string) error {
-	if c.BestAPIVersion() < 13 {
-		return errors.NotSupportedf("SetConfig not supported by this version of Juju")
-	}
 	args := params.ConfigSetArgs{
 		Args: []params.ConfigSet{{
 			ApplicationName: application,
@@ -1075,9 +792,6 @@ func (c *Client) SetConfig(branchName, application, configYAML string, config ma
 
 // UnsetApplicationConfig resets configuration options on an application.
 func (c *Client) UnsetApplicationConfig(branchName, application string, options []string) error {
-	if c.BestAPIVersion() < 6 {
-		return errors.NotSupportedf("UnsetApplicationConfig not supported by this version of Juju")
-	}
 	args := params.ApplicationConfigUnsetArgs{
 		Args: []params.ApplicationUnset{{
 			ApplicationName: application,
@@ -1136,9 +850,6 @@ func validateApplicationScale(scale, scaleChange int) error {
 
 // ApplicationsInfo retrieves applications information.
 func (c *Client) ApplicationsInfo(applications []names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
-	if apiVersion := c.BestAPIVersion(); apiVersion < 9 {
-		return nil, errors.NotSupportedf("ApplicationsInfo for Application facade v%v", apiVersion)
-	}
 	all := make([]params.Entity, len(applications))
 	for i, one := range applications {
 		all[i] = params.Entity{Tag: one.String()}
@@ -1158,10 +869,6 @@ func (c *Client) ApplicationsInfo(applications []names.ApplicationTag) ([]params
 // MergeBindings merges an operator-defined bindings list with the existing
 // application bindings.
 func (c *Client) MergeBindings(req params.ApplicationMergeBindingsArgs) error {
-	if apiVersion := c.BestAPIVersion(); apiVersion < 11 {
-		return errors.NotSupportedf("MergeBindings for Application facade v%v", apiVersion)
-	}
-
 	var results params.ErrorResults
 	err := c.facade.FacadeCall("MergeBindings", req, &results)
 	if err != nil {
@@ -1205,9 +912,6 @@ type EndpointRelationData struct {
 
 // UnitsInfo retrieves units information.
 func (c *Client) UnitsInfo(units []names.UnitTag) ([]UnitInfo, error) {
-	if apiVersion := c.BestAPIVersion(); apiVersion < 12 {
-		return nil, errors.NotSupportedf("UnitsInfo for Application facade v%v", apiVersion)
-	}
 	all := make([]params.Entity, len(units))
 	for i, one := range units {
 		all[i] = params.Entity{Tag: one.String()}

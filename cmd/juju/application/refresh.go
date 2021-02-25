@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/version"
 	"github.com/juju/worker/v2/catacomb"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
@@ -319,18 +318,6 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = apiRoot.Close() }()
 
-	// If the user has specified config or storage constraints,
-	// make sure the server has facade version 2 at a minimum.
-	if c.Config.Path != "" || len(c.Storage) > 0 {
-		action := "updating config"
-		if c.Config.Path == "" {
-			action = "updating storage constraints"
-		}
-		if err := c.checkApplicationFacadeSupport(apiRoot, action, 2); err != nil {
-			return err
-		}
-	}
-
 	generation, err := c.ActiveBranch()
 	if err != nil {
 		return errors.Trace(err)
@@ -346,10 +333,6 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.BindToSpaces != "" {
-		if err := c.checkApplicationFacadeSupport(apiRoot, "specifying bindings", 11); err != nil {
-			return err
-		}
-
 		if err := c.parseBindFlag(apiRoot); err != nil {
 			return err
 		}
@@ -433,8 +416,9 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// Fetch information about the charm we want to upgrade to and
 	charmsClient := c.NewCharmClient(apiRoot)
-	meta, err := utils.GetMetaResources(curl, charmsClient)
+	charmInfo, err := charmsClient.CharmInfo(curl.String())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -442,28 +426,20 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		URL:    curl,
 		Origin: commoncharm.CoreCharmOrigin(charmID.Origin),
 	}
-	resourceIDs, err := c.upgradeResources(apiRoot, resourceLister, chID, charmID.Macaroon, meta)
+	resourceIDs, err := c.upgradeResources(apiRoot, resourceLister, chID, charmID.Macaroon, charmInfo.Meta.Resources)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	// Print out the updated endpoint binding plan.
 	var bindingsChangelog []string
-	if apiRoot.BestFacadeVersion("Application") >= 11 {
-		// Fetch information about the charm we want to upgrade to and
-		// print out the updated endpoint binding plan.
-		charmInfo, err := c.NewCharmClient(apiRoot).CharmInfo(curl.String())
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		curBindings := applicationInfo.EndpointBindings
-		appDefaultSpace := curBindings[""]
-		newCharmEndpoints := allEndpoints(charmInfo)
-		if err := c.validateEndpointNames(newCharmEndpoints, curBindings, c.Bindings); err != nil {
-			return errors.Trace(err)
-		}
-		c.Bindings, bindingsChangelog = mergeBindings(newCharmEndpoints, curBindings, c.Bindings, appDefaultSpace)
+	curBindings := applicationInfo.EndpointBindings
+	appDefaultSpace := curBindings[""]
+	newCharmEndpoints := allEndpoints(charmInfo)
+	if err := c.validateEndpointNames(newCharmEndpoints, curBindings, c.Bindings); err != nil {
+		return errors.Trace(err)
 	}
+	c.Bindings, bindingsChangelog = mergeBindings(newCharmEndpoints, curBindings, c.Bindings, appDefaultSpace)
 
 	// Finally, upgrade the application.
 	var configYAML []byte
@@ -553,24 +529,6 @@ func (c *refreshCommand) parseBindFlag(apiRoot base.APICallCloser) error {
 
 	c.Bindings = bindings
 	return nil
-}
-
-type versionQuerier interface {
-	BestFacadeVersion(string) int
-	ServerVersion() (version.Number, bool)
-}
-
-func (c *refreshCommand) checkApplicationFacadeSupport(verQuerier versionQuerier, action string, minVersion int) error {
-	if verQuerier.BestFacadeVersion("Application") >= minVersion {
-		return nil
-	}
-
-	suffix := "this server"
-	if ver, ok := verQuerier.ServerVersion(); ok {
-		suffix = fmt.Sprintf("server version %s", ver)
-	}
-
-	return errors.New(action + " at refresh time is not supported by " + suffix)
 }
 
 // upgradeResources pushes metadata up to the server for each resource defined

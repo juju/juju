@@ -58,58 +58,7 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
-// APIv4 provides the Application API facade for versions 1-4.
-type APIv4 struct {
-	*APIv5
-}
-
-// APIv5 provides the Application API facade for version 5.
-type APIv5 struct {
-	*APIv6
-}
-
-// APIv6 provides the Application API facade for version 6.
-type APIv6 struct {
-	*APIv7
-}
-
-// APIv7 provides the Application API facade for version 7.
-type APIv7 struct {
-	*APIv8
-}
-
-// APIv8 provides the Application API facade for version 8.
-type APIv8 struct {
-	*APIv9
-}
-
-// APIv9 provides the Application API facade for version 9.
-type APIv9 struct {
-	*APIv10
-}
-
-// APIv10 provides the Application API facade for version 10.
-// It adds --force and --max-wait parameters to remove-saas.
-type APIv10 struct {
-	*APIv11
-}
-
-// APIv11 provides the Application API facade for version 11.
-// The Get call also returns the current endpoint bindings while the SetCharm
-// call access a map of operator-defined bindings.
-type APIv11 struct {
-	*APIv12
-}
-
-// APIv12 provides the Application API facade for version 12.
-// It adds the UnitsInfo method.
-type APIv12 struct {
-	*APIv13
-}
-
 // APIv13 provides the Application API facade for version 13.
-// It adds CharmOrigin. The ApplicationsInfo call populates the exposed
-// endpoints field in its response entries.
 type APIv13 struct {
 	*APIBase
 }
@@ -141,88 +90,6 @@ type APIBase struct {
 	registry              storage.ProviderRegistry
 	caasBroker            caasBrokerInterface
 	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error)
-}
-
-// NewFacadeV4 provides the signature required for facade registration
-// for versions 1-4.
-func NewFacadeV4(ctx facade.Context) (*APIv4, error) {
-	api, err := NewFacadeV5(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv4{api}, nil
-}
-
-// NewFacadeV5 provides the signature required for facade registration
-// for version 5.
-func NewFacadeV5(ctx facade.Context) (*APIv5, error) {
-	api, err := NewFacadeV6(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv5{api}, nil
-}
-
-// NewFacadeV6 provides the signature required for facade registration
-// for version 6.
-func NewFacadeV6(ctx facade.Context) (*APIv6, error) {
-	api, err := NewFacadeV7(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv6{api}, nil
-}
-
-// NewFacadeV7 provides the signature required for facade registration
-// for version 7.
-func NewFacadeV7(ctx facade.Context) (*APIv7, error) {
-	api, err := NewFacadeV8(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv7{api}, nil
-}
-
-// NewFacadeV8 provides the signature required for facade registration
-// for version 8.
-func NewFacadeV8(ctx facade.Context) (*APIv8, error) {
-	api, err := NewFacadeV9(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv8{api}, nil
-}
-
-func NewFacadeV9(ctx facade.Context) (*APIv9, error) {
-	api, err := NewFacadeV10(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv9{api}, nil
-}
-
-func NewFacadeV10(ctx facade.Context) (*APIv10, error) {
-	api, err := NewFacadeV11(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv10{api}, nil
-}
-
-func NewFacadeV11(ctx facade.Context) (*APIv11, error) {
-	api, err := NewFacadeV12(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv11{api}, nil
-}
-
-func NewFacadeV12(ctx facade.Context) (*APIv12, error) {
-	api, err := NewFacadeV13(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv12{api}, nil
 }
 
 func NewFacadeV13(ctx facade.Context) (*APIv13, error) {
@@ -364,87 +231,6 @@ func (api *APIBase) SetMetricCredentials(args params.ApplicationMetricCredential
 		}
 	}
 	return result, nil
-}
-
-// Deploy fetches the charms from the charm store and deploys them
-// using the specified placement directives.
-// V5 deploy did not support policy, so pass through an empty string.
-func (api *APIv5) Deploy(args params.ApplicationsDeployV5) (params.ErrorResults, error) {
-	noDefinedPolicy := ""
-	var newArgs params.ApplicationsDeploy
-	for _, value := range args.Applications {
-		newArgs.Applications = append(newArgs.Applications, params.ApplicationDeploy{
-			ApplicationName:  value.ApplicationName,
-			Series:           value.Series,
-			CharmURL:         value.CharmURL,
-			Channel:          value.Channel,
-			NumUnits:         value.NumUnits,
-			Config:           value.Config,
-			ConfigYAML:       value.ConfigYAML,
-			Constraints:      value.Constraints,
-			Placement:        value.Placement,
-			Policy:           noDefinedPolicy,
-			Storage:          value.Storage,
-			AttachStorage:    value.AttachStorage,
-			EndpointBindings: value.EndpointBindings,
-			Resources:        value.Resources,
-		})
-	}
-	return api.APIBase.Deploy(newArgs)
-}
-
-// Deploy fetches the charms from the charm store and deploys them
-// using the specified placement directives.
-// V6 deploy did not support devices, so pass through an empty map.
-func (api *APIv6) Deploy(args params.ApplicationsDeployV6) (params.ErrorResults, error) {
-	var newArgs params.ApplicationsDeploy
-	for _, value := range args.Applications {
-		newArgs.Applications = append(newArgs.Applications, params.ApplicationDeploy{
-			ApplicationName:  value.ApplicationName,
-			Series:           value.Series,
-			CharmURL:         value.CharmURL,
-			Channel:          value.Channel,
-			NumUnits:         value.NumUnits,
-			Config:           value.Config,
-			ConfigYAML:       value.ConfigYAML,
-			Constraints:      value.Constraints,
-			Placement:        value.Placement,
-			Policy:           value.Policy,
-			Devices:          nil, // set Devices to nil because v6 and lower versions do not support it
-			Storage:          value.Storage,
-			AttachStorage:    value.AttachStorage,
-			EndpointBindings: value.EndpointBindings,
-			Resources:        value.Resources,
-		})
-	}
-	return api.APIBase.Deploy(newArgs)
-}
-
-// Deploy fetches the charms from the charm store and deploys them
-// using the specified placement directives.
-// V12 deploy did not CharmOrigin, so pass through an unknown source.
-func (api *APIv12) Deploy(args params.ApplicationsDeployV12) (params.ErrorResults, error) {
-	var newArgs params.ApplicationsDeploy
-	for _, value := range args.Applications {
-		newArgs.Applications = append(newArgs.Applications, params.ApplicationDeploy{
-			ApplicationName:  value.ApplicationName,
-			Series:           value.Series,
-			CharmURL:         value.CharmURL,
-			Channel:          value.Channel,
-			NumUnits:         value.NumUnits,
-			Config:           value.Config,
-			ConfigYAML:       value.ConfigYAML,
-			Constraints:      value.Constraints,
-			Placement:        value.Placement,
-			Policy:           value.Policy,
-			Devices:          value.Devices,
-			Storage:          value.Storage,
-			AttachStorage:    value.AttachStorage,
-			EndpointBindings: value.EndpointBindings,
-			Resources:        value.Resources,
-		})
-	}
-	return api.APIBase.Deploy(newArgs)
 }
 
 // Deploy fetches the charms from the charm store and deploys them
@@ -994,47 +780,6 @@ type forceParams struct {
 	ForceSeries, ForceUnits, Force bool
 }
 
-// Update updates the application attributes, including charm URL,
-// minimum number of units, charm config and constraints.
-// All parameters in params.ApplicationUpdate except the application name are optional.
-// Note: Updating the charm-url via Update is no longer supported.  See SetCharm.
-// Note: This method is no longer supported with facade v13.  See: SetCharm, SetConfigs.
-func (api *APIv12) Update(args params.ApplicationUpdate) error {
-	if err := api.checkCanWrite(); err != nil {
-		return err
-	}
-	if !args.ForceCharmURL {
-		if err := api.check.ChangeAllowed(); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	app, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Set the charm for the given application.
-	if args.CharmURL != "" {
-		return errors.NotSupportedf("updating charm url, see SetCharm")
-	}
-	// Set the minimum number of units for the given application.
-	if args.MinUnits != nil {
-		if err = app.SetMinUnits(*args.MinUnits); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	if err := api.setConfig(app, args.Generation, args.SettingsYAML, args.SettingsStrings); err != nil {
-		return errors.Trace(err)
-	}
-
-	// Update application's constraints.
-	if args.Constraints != nil {
-		return app.SetConstraints(*args.Constraints)
-	}
-	return nil
-}
-
 func (api *APIBase) setConfig(app Application, generation, settingsYAML string, settingsStrings map[string]string) error {
 	// We need a guard on the API server-side for direct API callers such as
 	// python-libjuju, and for older clients.
@@ -1140,25 +885,6 @@ func (api *APIBase) updateOneApplicationSeries(arg params.UpdateSeriesArg) error
 		return nil // no-op
 	}
 	return app.UpdateApplicationSeries(arg.Series, arg.Force)
-}
-
-// SetCharm sets the charm for a given for the application.
-func (api *APIv12) SetCharm(args params.ApplicationSetCharmV12) error {
-	newArgs := params.ApplicationSetCharm{
-		ApplicationName:    args.ApplicationName,
-		Generation:         args.Generation,
-		CharmURL:           args.CharmURL,
-		Channel:            args.Channel,
-		ConfigSettings:     args.ConfigSettings,
-		ConfigSettingsYAML: args.ConfigSettingsYAML,
-		Force:              args.Force,
-		ForceUnits:         args.ForceUnits,
-		ForceSeries:        args.ForceSeries,
-		ResourceIDs:        args.ResourceIDs,
-		StorageConstraints: args.StorageConstraints,
-		EndpointBindings:   args.EndpointBindings,
-	}
-	return api.APIBase.SetCharm(newArgs)
 }
 
 // SetCharm sets the charm for a given for the application.
@@ -1373,23 +1099,6 @@ func charmConfigFromConfigValues(yamlContents map[string]interface{}) (charm.Set
 	return onlySettings, nil
 }
 
-// GetCharmURL returns the charm URL the given application is
-// running at present.
-func (api *APIBase) GetCharmURL(args params.ApplicationGet) (params.StringResult, error) {
-	if err := api.checkCanWrite(); err != nil {
-		return params.StringResult{}, errors.Trace(err)
-	}
-	oneApplication, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return params.StringResult{}, errors.Trace(err)
-	}
-	charmURL, _ := oneApplication.CharmURL()
-	return params.StringResult{Result: charmURL.String()}, nil
-}
-
-// GetCharmURLOrigin isn't on the V12 API.
-func (api *APIv12) GetCharmURLOrigin(_ struct{}) {}
-
 // GetCharmURLOrigin returns the charm URL and charm origin the given
 // application is running at present.
 func (api *APIBase) GetCharmURLOrigin(args params.ApplicationGet) (params.CharmURLOriginResult, error) {
@@ -1432,58 +1141,6 @@ func makeParamsCharmOrigin(origin *state.CharmOrigin) params.CharmOrigin {
 		retOrigin.Series = origin.Platform.Series
 	}
 	return retOrigin
-}
-
-// Set implements the server side of Application.Set.
-// It does not unset values that are set to an empty string.
-// Unset should be used for that.
-func (api *APIBase) Set(p params.ApplicationSet) error {
-	if err := api.checkCanWrite(); err != nil {
-		return err
-	}
-	if err := api.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	app, err := api.backend.Application(p.ApplicationName)
-	if err != nil {
-		return err
-	}
-	ch, _, err := app.Charm()
-	if err != nil {
-		return err
-	}
-	// Validate the settings.
-	changes, err := ch.Config().ParseSettingsStrings(p.Options)
-	if err != nil {
-		return err
-	}
-
-	return app.UpdateCharmConfig(model.GenerationMaster, changes)
-}
-
-// Unset implements the server side of Client.Unset.
-func (api *APIBase) Unset(p params.ApplicationUnset) error {
-	if err := api.checkCanWrite(); err != nil {
-		return err
-	}
-	if err := api.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	app, err := api.backend.Application(p.ApplicationName)
-	if err != nil {
-		return err
-	}
-	settings := make(charm.Settings)
-	for _, option := range p.Options {
-		settings[option] = nil
-	}
-
-	// We need a guard on the API server-side for direct API callers such as
-	// python-libjuju. Always default to the master branch.
-	if p.BranchName == "" {
-		p.BranchName = model.GenerationMaster
-	}
-	return app.UpdateCharmConfig(p.BranchName, settings)
 }
 
 // CharmRelations implements the server side of Application.CharmRelations.
@@ -1622,18 +1279,6 @@ func (api *APIBase) Unexpose(args params.ApplicationUnexpose) error {
 }
 
 // AddUnits adds a given number of units to an application.
-func (api *APIv5) AddUnits(args params.AddApplicationUnitsV5) (params.AddApplicationUnitsResults, error) {
-	noDefinedPolicy := ""
-	return api.APIBase.AddUnits(params.AddApplicationUnits{
-		ApplicationName: args.ApplicationName,
-		NumUnits:        args.NumUnits,
-		Placement:       args.Placement,
-		Policy:          noDefinedPolicy,
-		AttachStorage:   args.AttachStorage,
-	})
-}
-
-// AddUnits adds a given number of units to an application.
 func (api *APIBase) AddUnits(args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
 	if api.modelType == state.ModelTypeCAAS {
 		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units on a non-container model")
@@ -1759,19 +1404,6 @@ func (api *APIBase) DestroyUnits(args params.DestroyApplicationUnits) error {
 }
 
 // DestroyUnit removes a given set of application units.
-//
-// NOTE(axw) this provides backwards compatibility for facade version 4.
-func (api *APIv4) DestroyUnit(args params.Entities) (params.DestroyUnitResults, error) {
-	v5args := params.DestroyUnitsParams{
-		Units: make([]params.DestroyUnitParams, len(args.Entities)),
-	}
-	for i, arg := range args.Entities {
-		v5args.Units[i].UnitTag = arg.Tag
-	}
-	return api.APIBase.DestroyUnit(v5args)
-}
-
-// DestroyUnit removes a given set of application units.
 func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
 	if api.modelType == state.ModelTypeCAAS {
 		return params.DestroyUnitResults{}, errors.NotSupportedf("removing units on a non-container model")
@@ -1894,19 +1526,6 @@ func (api *APIBase) Destroy(in params.ApplicationDestroy) error {
 		return apiservererrors.ServerError(err)
 	}
 	return nil
-}
-
-// DestroyApplication removes a given set of applications.
-//
-// NOTE(axw) this provides backwards compatibility for facade version 4.
-func (api *APIv4) DestroyApplication(args params.Entities) (params.DestroyApplicationResults, error) {
-	v5args := params.DestroyApplicationsParams{
-		Applications: make([]params.DestroyApplicationParams, len(args.Entities)),
-	}
-	for i, arg := range args.Entities {
-		v5args.Applications[i].ApplicationTag = arg.Tag
-	}
-	return api.APIBase.DestroyApplication(v5args)
 }
 
 // DestroyApplication removes a given set of applications.
@@ -2047,9 +1666,6 @@ func (api *APIBase) DestroyConsumedApplications(args params.DestroyConsumedAppli
 	}
 	return params.ErrorResults{results}, nil
 }
-
-// ScaleApplications isn't on the V7 API.
-func (u *APIv7) ScaleApplications(_, _ struct{}) {}
 
 // ScaleApplications scales the specified application to the requested number of units.
 func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (params.ScaleApplicationResults, error) {
@@ -2486,46 +2102,6 @@ func (api *APIBase) maybeUpdateExistingApplicationEndpoints(
 	return existingRemoteApp, nil
 }
 
-// Mask the new methods from the V4 API. The API reflection code in
-// rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so this
-// removes the method as far as the RPC machinery is concerned.
-
-// UpdateApplicationSeries isn't on the V4 API.
-func (u *APIv4) UpdateApplicationSeries(_, _ struct{}) {}
-
-// GetConfig isn't on the V4 API.
-func (u *APIv4) GetConfig(_, _ struct{}) {}
-
-// GetConstraints returns the v4 implementation of GetConstraints.
-func (api *APIv4) GetConstraints(args params.GetApplicationConstraints) (params.GetConstraintsResults, error) {
-	if err := api.checkCanRead(); err != nil {
-		return params.GetConstraintsResults{}, errors.Trace(err)
-	}
-	app, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return params.GetConstraintsResults{}, errors.Trace(err)
-	}
-	cons, err := app.Constraints()
-	return params.GetConstraintsResults{cons}, errors.Trace(err)
-}
-
-// Mask the new methods from the v4 and v5 API. The API reflection code in
-// rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so this
-// removes the method as far as the RPC machinery is concerned.
-//
-// Since the v4 builds on v5, we can just make the methods unavailable on v5
-// and they will also be unavailable on v4.
-
-// CharmConfig isn't on the v5 API.
-func (u *APIv5) CharmConfig(_, _ struct{}) {}
-
-// CharmConfig is a shim to GetConfig on APIv5. It returns only charm config.
-// Version 8 and below accept params.Entities, where later versions must accept
-// a model generation
-func (api *APIv8) CharmConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {
-	return api.GetConfig(args)
-}
-
 // CharmConfig returns charm config for the input list of applications and
 // model generations.
 func (api *APIBase) CharmConfig(args params.ApplicationGetArgs) (params.ApplicationGetConfigResults, error) {
@@ -2587,37 +2163,7 @@ func (api *APIBase) getCharmConfig(gen string, appName string) (map[string]inter
 	return describe(settings, ch.Config()), nil
 }
 
-// SetApplicationsConfig isn't on the v5 API.
-func (u *APIv5) SetApplicationsConfig(_, _ struct{}) {}
-
-// SetApplicationsConfig implements the server side of Application.SetApplicationsConfig.
-// It does not unset values that are set to an empty string.
-// Unset should be used for that.
-// Note: SetApplicationsConfig is misleading, both application and charm config are set.
-// Note: For facade version 13 and higher, use SetConfig.
-func (api *APIv12) SetApplicationsConfig(args params.ApplicationConfigSetArgs) (params.ErrorResults, error) {
-	var result params.ErrorResults
-	if err := api.checkCanWrite(); err != nil {
-		return result, errors.Trace(err)
-	}
-	if err := api.check.ChangeAllowed(); err != nil {
-		return result, errors.Trace(err)
-	}
-	result.Results = make([]params.ErrorResult, len(args.Args))
-	for i, arg := range args.Args {
-		app, err := api.backend.Application(arg.ApplicationName)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		err = api.setConfig(app, arg.Generation, "", arg.Config)
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
-// SetConfig implements the server side of Application.SetConfig.  Both
+// SetConfigs implements the server side of Application.SetConfig.  Both
 // application and charm config are set. It does not unset values in
 // Config map that are set to an empty string. Unset should be used for that.
 func (api *APIBase) SetConfigs(args params.ConfigSetArgs) (params.ErrorResults, error) {
@@ -2649,9 +2195,6 @@ func (api *APIBase) addAppToBranch(branchName string, appName string) error {
 	err = gen.AssignApplication(appName)
 	return errors.Annotatef(err, "adding %q to next generation", appName)
 }
-
-// UnsetApplicationsConfig isn't on the v5 API.
-func (u *APIv5) UnsetApplicationsConfig(_, _ struct{}) {}
 
 // UnsetApplicationsConfig implements the server side of Application.UnsetApplicationsConfig.
 func (api *APIBase) UnsetApplicationsConfig(args params.ApplicationConfigUnsetArgs) (params.ErrorResults, error) {
@@ -2712,9 +2255,6 @@ func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
 	return nil
 }
 
-// ResolveUnitErrors isn't on the v5 API.
-func (u *APIv5) ResolveUnitErrors(_, _ struct{}) {}
-
 // ResolveUnitErrors marks errors on the specified units as resolved.
 func (api *APIBase) ResolveUnitErrors(p params.UnitsResolved) (params.ErrorResults, error) {
 	if p.All {
@@ -2754,9 +2294,6 @@ func (api *APIBase) ResolveUnitErrors(p params.UnitsResolved) (params.ErrorResul
 	}
 	return result, nil
 }
-
-// ApplicationInfo isn't on the v8 API.
-func (u *APIv8) ApplicationInfo(_, _ struct{}) {}
 
 // ApplicationsInfo returns applications information.
 func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfoResults, error) {
@@ -2996,9 +2533,6 @@ func validateAgentVersions(application Application, versioner AgentVersioner) er
 	}
 	return nil
 }
-
-// UnitsInfo isn't on the v11 API.
-func (u *APIv11) UnitsInfo(_, _ struct{}) {}
 
 // UnitsInfo returns unit information.
 func (api *APIBase) UnitsInfo(in params.Entities) (params.UnitInfoResults, error) {

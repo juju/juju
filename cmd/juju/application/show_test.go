@@ -46,7 +46,6 @@ func (s *ShowSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.mockAPI = &mockShowAPI{
-		version:              9,
 		applicationsInfoFunc: func([]names.ApplicationTag) ([]params.ApplicationInfoResult, error) { return nil, nil },
 	}
 }
@@ -114,14 +113,6 @@ func (s *ShowSuite) TestShowInvalidAndValidNames(c *gc.C) {
 		args:   []string{"so-42-far-not-good", "wordpress", "oo/42"},
 		err:    fmt.Sprintf("%v", msg),
 		stderr: fmt.Sprintf("ERROR %v\n", msg),
-	})
-}
-
-func (s *ShowSuite) TestShowUnsupported(c *gc.C) {
-	s.mockAPI.version = 8
-	s.assertRunShow(c, showTest{
-		args: []string{"wordpress"},
-		err:  "show applications on API server version 8 not supported",
 	})
 }
 
@@ -269,16 +260,11 @@ wordpress:
 }
 
 type mockShowAPI struct {
-	version              int
 	applicationsInfoFunc func([]names.ApplicationTag) ([]params.ApplicationInfoResult, error)
 }
 
 func (s mockShowAPI) Close() error {
 	return nil
-}
-
-func (s mockShowAPI) BestAPIVersion() int {
-	return s.version
 }
 
 func (s mockShowAPI) ApplicationsInfo(tags []names.ApplicationTag) ([]params.ApplicationInfoResult, error) {

@@ -124,7 +124,6 @@ func (s *BaseRefreshSuite) SetUpTest(c *gc.C) {
 	s.resolvedCharmURL = latestCharmURL
 
 	s.apiConnection = mockAPIConnection{
-		bestFacadeVersion: 2,
 		serverVersion: &version.Number{
 			Major: 1,
 			Minor: 2,
@@ -251,6 +250,7 @@ func (s *RefreshSuite) TestStorageConstraints(c *gc.C) {
 		StorageConstraints: map[string]storage.Constraints{
 			"bar": {Pool: "baz", Count: 1},
 		},
+		EndpointBindings: map[string]string{},
 	})
 }
 
@@ -265,21 +265,6 @@ func (s *RefreshSuite) TestUseConfiguredCharmStoreURL(c *gc.C) {
 		}
 	}
 	c.Assert(csURL, gc.Equals, "testing.api.charmstore")
-}
-
-func (s *RefreshSuite) TestStorageConstraintsMinFacadeVersion(c *gc.C) {
-	s.apiConnection.bestFacadeVersion = 1
-	_, err := s.runRefresh(c, "foo", "--storage", "bar=baz")
-	c.Assert(err, gc.ErrorMatches,
-		"updating storage constraints at refresh time is not supported by server version 1.2.3")
-}
-
-func (s *RefreshSuite) TestStorageConstraintsMinFacadeVersionNoServerVersion(c *gc.C) {
-	s.apiConnection.bestFacadeVersion = 1
-	s.apiConnection.serverVersion = nil
-	_, err := s.runRefresh(c, "foo", "--storage", "bar=baz")
-	c.Assert(err, gc.ErrorMatches,
-		"updating storage constraints at refresh time is not supported by this server")
 }
 
 func (s *RefreshSuite) TestConfigSettings(c *gc.C) {
@@ -303,19 +288,8 @@ func (s *RefreshSuite) TestConfigSettings(c *gc.C) {
 			},
 		},
 		ConfigSettingsYAML: "foo:{}",
+		EndpointBindings:   map[string]string{},
 	})
-}
-
-func (s *RefreshSuite) TestConfigSettingsMinFacadeVersion(c *gc.C) {
-	tempdir := c.MkDir()
-	configFile := filepath.Join(tempdir, "config.yaml")
-	err := ioutil.WriteFile(configFile, []byte("foo:{}"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.apiConnection.bestFacadeVersion = 1
-	_, err = s.runRefresh(c, "foo", "--config", configFile)
-	c.Assert(err, gc.ErrorMatches,
-		"updating config at refresh time is not supported by server version 1.2.3")
 }
 
 func (s *RefreshSuite) TestUpgradeWithBindDefaults(c *gc.C) {
@@ -331,7 +305,6 @@ func (s *RefreshSuite) TestUpgradeWithBindDefaults(c *gc.C) {
 
 func (s *RefreshSuite) testUpgradeWithBind(c *gc.C, expectedBindings map[string]string) {
 	s.apiConnection = mockAPIConnection{
-		bestFacadeVersion: 11,
 		serverVersion: &version.Number{
 			Major: 1,
 			Minor: 2,
@@ -365,7 +338,6 @@ func (s *RefreshSuite) testUpgradeWithBind(c *gc.C, expectedBindings map[string]
 
 func (s *RefreshSuite) TestUpgradeWithBindAndUnknownEndpoint(c *gc.C) {
 	s.apiConnection = mockAPIConnection{
-		bestFacadeVersion: 11,
 		serverVersion: &version.Number{
 			Major: 1,
 			Minor: 2,
@@ -589,6 +561,7 @@ func (s *RefreshSuite) TestUpgradeWithChannel(c *gc.C) {
 				Risk:         "beta",
 			},
 		},
+		EndpointBindings: map[string]string{},
 	})
 }
 
@@ -611,6 +584,7 @@ func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C)
 				Risk:         "beta",
 			},
 		},
+		EndpointBindings: map[string]string{},
 	})
 }
 
@@ -634,6 +608,7 @@ func (s *RefreshSuite) TestSwitch(c *gc.C) {
 				Risk:         "stable",
 			},
 		},
+		EndpointBindings: map[string]string{},
 	})
 	var curl *charm.URL
 	for _, call := range s.Calls() {
@@ -899,8 +874,7 @@ func (s *RefreshSuccessStateSuite) TestCharmPathDifferentNameFails(c *gc.C) {
 
 type mockAPIConnection struct {
 	api.Connection
-	bestFacadeVersion int
-	serverVersion     *version.Number
+	serverVersion *version.Number
 }
 
 func (m *mockAPIConnection) Addr() string {
@@ -924,8 +898,8 @@ func (m *mockAPIConnection) APIHostPorts() []network.MachineHostPorts {
 	return []network.MachineHostPorts{{*hp}}
 }
 
-func (m *mockAPIConnection) BestFacadeVersion(name string) int {
-	return m.bestFacadeVersion
+func (m *mockAPIConnection) BestFacadeVersion(_ string) int {
+	return 0
 }
 
 func (m *mockAPIConnection) ServerVersion() (version.Number, bool) {

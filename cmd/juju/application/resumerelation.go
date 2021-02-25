@@ -83,9 +83,6 @@ func (c *resumeRelationCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	if client.BestAPIVersion() < 5 {
-		return errors.New("resuming a relation is not supported by this version of Juju")
-	}
 	err = client.SetRelationSuspended(c.relationIds, false, "")
 	return block.ProcessBlockedError(err, block.BlockChange)
 }

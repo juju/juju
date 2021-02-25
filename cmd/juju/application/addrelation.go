@@ -228,7 +228,6 @@ func (c *addRelationCommand) SetFlags(f *gnuflag.FlagSet) {
 // applicationAddRelationAPI defines the API methods that application add relation command uses.
 type applicationAddRelationAPI interface {
 	Close() error
-	BestAPIVersion() int
 	AddRelation(endpoints, viaCIDRs []string) (*params.AddRelationResults, error)
 	Consume(crossmodel.ConsumeApplicationArgs) (string, error)
 }
@@ -265,10 +264,6 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	if c.remoteEndpoint != nil {
-		if client.BestAPIVersion() < 5 {
-			// old client does not have cross-model capability.
-			return errors.NotSupportedf("cannot add relation to %s: remote endpoints", c.remoteEndpoint.String())
-		}
 		if c.remoteEndpoint.Source == "" {
 			var err error
 			controllerName, err := c.ControllerName()

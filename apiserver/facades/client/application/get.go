@@ -5,45 +5,20 @@ package application
 
 import (
 	"github.com/juju/charm/v9"
-	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/model"
 )
 
 // Get returns the charm configuration for an application.
 func (api *APIBase) Get(args params.ApplicationGet) (params.ApplicationGetResults, error) {
 	return api.getConfig(args, describe)
-}
-
-// Get returns the charm configuration for an application.
-// It zeros out any application config as that was not supported in v5.
-func (api *APIv5) Get(args params.ApplicationGet) (params.ApplicationGetResults, error) {
-	results, err := api.getConfig(args, describe)
-	if err != nil {
-		return params.ApplicationGetResults{}, err
-	}
-	results.ApplicationConfig = nil
-	results.EndpointBindings = nil
-	return results, nil
-}
-
-// Get returns the charm configuration for an application.
-// This used the confusing "default" boolean to mean the value was set from
-// the charm defaults. Needs to be kept for backwards compatibility.
-func (api *APIv4) Get(args params.ApplicationGet) (params.ApplicationGetResults, error) {
-	results, err := api.getConfig(args, describeV4)
-	if err != nil {
-		return params.ApplicationGetResults{}, err
-	}
-	results.ApplicationConfig = nil
-	results.EndpointBindings = nil
-	return results, nil
 }
 
 // Get returns the charm configuration for an application.
@@ -170,26 +145,6 @@ func describe(settings charm.Settings, config *charm.Config) map[string]interfac
 				info["value"] = option.Default
 				info["source"] = "default"
 			}
-		}
-		results[name] = info
-	}
-	return results
-}
-
-func describeV4(settings charm.Settings, config *charm.Config) map[string]interface{} {
-	results := make(map[string]interface{})
-	for name, option := range config.Options {
-		info := map[string]interface{}{
-			"description": option.Description,
-			"type":        option.Type,
-		}
-		if value := settings[name]; value != nil && option.Default != value {
-			info["value"] = value
-		} else {
-			if option.Default != nil {
-				info["value"] = option.Default
-			}
-			info["default"] = true
 		}
 		results[name] = info
 	}

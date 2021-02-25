@@ -130,12 +130,7 @@ type configCommand struct {
 // applicationAPI is an interface to allow passing in a fake implementation under test.
 type applicationAPI interface {
 	Close() error
-	Update(args params.ApplicationUpdate) error
 	Get(branchName string, application string) (*params.ApplicationGetResults, error)
-	Set(application string, options map[string]string) error
-	Unset(application string, options []string) error
-	BestAPIVersion() int
-	SetApplicationConfig(branchName string, application string, config map[string]string) error
 	SetConfig(branchName string, application, configYAML string, config map[string]string) error
 	UnsetApplicationConfig(branchName string, application string, options []string) error
 }
@@ -346,12 +341,7 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 
 // resetConfig is the run action when we are resetting attributes.
 func (c *configCommand) resetConfig(client applicationAPI, ctx *cmd.Context) error {
-	var err error
-	if client.BestAPIVersion() < 6 {
-		err = client.Unset(c.applicationName, c.resetKeys)
-	} else {
-		err = client.UnsetApplicationConfig(c.branchName, c.applicationName, c.resetKeys)
-	}
+	err := client.UnsetApplicationConfig(c.branchName, c.applicationName, c.resetKeys)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
@@ -368,36 +358,8 @@ func (c *configCommand) setConfig(client applicationAPI, ctx *cmd.Context) error
 		return errors.Trace(err)
 	}
 
-	// Note: this is a bit of a mess based on facade versions.  Trying
-	// to consolidate to 1 method for setting application and charm config.
-	// Investigating simplifying with future versions of juju.
-	switch ver := client.BestAPIVersion(); {
-	case ver < 6:
-		if settingsYAML != "" {
-			err = c.callUpdate(client, settingsYAML)
-			break
-		}
-		err = client.Set(c.applicationName, settings)
-	case ver < 13:
-		if settingsYAML != "" {
-			err = c.callUpdate(client, settingsYAML)
-			break
-		}
-		err = client.SetApplicationConfig(c.branchName, c.applicationName, settings)
-	default:
-		err = client.SetConfig(c.branchName, c.applicationName, settingsYAML, settings)
-	}
+	err = client.SetConfig(c.branchName, c.applicationName, settingsYAML, settings)
 	return errors.Trace(block.ProcessBlockedError(err, block.BlockChange))
-}
-
-func (c *configCommand) callUpdate(client applicationAPI, settingsYAML string) error {
-	return client.Update(
-		params.ApplicationUpdate{
-			ApplicationName: c.applicationName,
-			SettingsYAML:    settingsYAML,
-			Generation:      c.branchName,
-		},
-	)
 }
 
 func (c *configCommand) configMapFromKV(client applicationAPI, ctx *cmd.Context) (map[string]string, error) {

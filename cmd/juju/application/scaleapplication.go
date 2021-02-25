@@ -84,7 +84,6 @@ func (c *scaleApplicationCommand) Init(args []string) error {
 
 type scaleApplicationAPI interface {
 	Close() error
-	BestAPIVersion() int
 	ScaleApplication(application.ScaleApplicationParams) (params.ScaleApplicationResult, error)
 }
 
@@ -95,10 +94,6 @@ func (c *scaleApplicationCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-
-	if client.BestAPIVersion() < 8 {
-		return errors.New("scaling applications is not supported by this controller")
-	}
 
 	result, err := client.ScaleApplication(application.ScaleApplicationParams{
 		ApplicationName: c.applicationName,

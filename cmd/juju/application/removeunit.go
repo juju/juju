@@ -177,16 +177,16 @@ func (c *removeUnitCommand) validateIAASRemoval() error {
 	return nil
 }
 
-func (c *removeUnitCommand) getAPI() (RemoveApplicationAPI, int, error) {
+func (c *removeUnitCommand) getAPI() (RemoveApplicationAPI, error) {
 	if c.api != nil {
-		return c.api, c.api.BestAPIVersion(), nil
+		return c.api, nil
 	}
 	root, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, -1, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	api := application.NewClient(root)
-	return api, api.BestAPIVersion(), nil
+	return api, nil
 }
 
 func (c *removeUnitCommand) getStorageAPI() (storageAPI, error) {
@@ -240,15 +240,11 @@ func (c *removeUnitCommand) Run(ctx *cmd.Context) error {
 		return errors.NotValidf("--no-wait without --force")
 	}
 
-	client, apiVersion, err := c.getAPI()
+	client, err := c.getAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-
-	if apiVersion < 4 {
-		return c.removeUnitsDeprecated(ctx, client)
-	}
 
 	if err := c.validateArgsByModelType(); err != nil {
 		return errors.Trace(err)
@@ -262,17 +258,7 @@ func (c *removeUnitCommand) Run(ctx *cmd.Context) error {
 		return c.removeCaasUnits(ctx, client)
 	}
 
-	if c.DestroyStorage && apiVersion < 5 {
-		return errors.New("--destroy-storage is not supported by this controller")
-	}
 	return c.removeUnits(ctx, client)
-}
-
-// TODO(axw) 2017-03-16 #1673323
-// Drop this in Juju 3.0.
-func (c *removeUnitCommand) removeUnitsDeprecated(ctx *cmd.Context, client RemoveApplicationAPI) error {
-	err := client.DestroyUnitsDeprecated(c.EntityNames...)
-	return block.ProcessBlockedError(err, block.BlockRemove)
 }
 
 func (c *removeUnitCommand) removeUnits(ctx *cmd.Context, client RemoveApplicationAPI) error {
