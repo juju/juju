@@ -9,12 +9,14 @@ import (
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	jujucmd "github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/charmstore"
+	jujuresource "github.com/juju/juju/cmd/juju/resource"
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
+	corecharm "github.com/juju/juju/core/charm"
 )
 
 var _ = gc.Suite(&ListCharmSuite{})
@@ -86,12 +88,22 @@ website   2
 	s.stub.CheckCallNames(c,
 		"ListResources",
 	)
-	s.stub.CheckCall(c, 0, "ListResources", []charmstore.CharmID{
+	s.stub.CheckCall(c, 0, "ListResources", []jujuresource.CharmID{
 		{
 			URL:     charm.MustParseURL("cs:a-charm"),
-			Channel: "stable",
+			Channel: corecharm.MustParseChannel("stable"),
 		},
 	})
+}
+
+func (s *ListCharmSuite) TestCharmhub(c *gc.C) {
+	s.client.stub.SetErrors(errors.Errorf("charmhub charms are currently not supported"))
+
+	command := resourcecmd.NewCharmResourcesCommandForTest(s.client)
+	code, stdout, stderr := runCmd(c, command, "a-charm")
+	c.Check(code, gc.Equals, 1)
+	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, gc.Equals, "ERROR charmhub charms are currently not supported\n")
 }
 
 func (s *ListCharmSuite) TestNoResources(c *gc.C) {
