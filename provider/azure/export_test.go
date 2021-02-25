@@ -22,8 +22,6 @@ func SetRetries(env environs.Environ) {
 	azureEnv.resources.RetryAttempts = 1
 	azureEnv.compute.RetryDuration = 0
 	azureEnv.compute.RetryAttempts = 1
-	azureEnv.storage.RetryDuration = 0
-	azureEnv.storage.RetryAttempts = 1
 	azureEnv.disk.RetryDuration = 0
 	azureEnv.disk.RetryAttempts = 1
 	azureEnv.network.RetryDuration = 0

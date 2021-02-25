@@ -110,10 +110,6 @@ func (s *environProviderSuite) testOpenError(c *gc.C, spec environscloudspec.Clo
 }
 
 func newProvider(c *gc.C, config azure.ProviderConfig) environs.EnvironProvider {
-	if config.NewStorageClient == nil {
-		var storage azuretesting.MockStorageClient
-		config.NewStorageClient = storage.NewClient
-	}
 	if config.RetryClock == nil {
 		config.RetryClock = testclock.NewClock(time.Time{})
 	}

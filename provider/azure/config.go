@@ -18,12 +18,6 @@ import (
 )
 
 const (
-	// configAttrStorageAccountType mirrors the storage SKU name in the Azure SDK
-	//
-	// The term "storage account" has been replaced with "SKU name" in recent
-	// Azure SDK, but we keep it to maintain backwards-compatibility.
-	configAttrStorageAccountType = "storage-account-type"
-
 	// configAttrLoadBalancerSkuName mirrors the LoadBalancerSkuName type in the Azure SDK
 	configAttrLoadBalancerSkuName = "load-balancer-sku-name"
 
@@ -44,11 +38,6 @@ const (
 )
 
 var configSchema = environschema.Fields{
-	configAttrStorageAccountType: {
-		Type:      environschema.Tstring,
-		Immutable: true,
-		Mandatory: true,
-	},
 	configAttrLoadBalancerSkuName: {
 		Description: "mirrors the LoadBalancerSkuName type in the Azure SDK",
 		Type:        environschema.Tstring,
@@ -67,7 +56,6 @@ var configSchema = environschema.Fields{
 }
 
 var configDefaults = schema.Defaults{
-	configAttrStorageAccountType:  string(storage.StandardLRS),
 	configAttrLoadBalancerSkuName: string(network.LoadBalancerSkuNameStandard),
 	configAttrResourceGroupName:   schema.Omit,
 	configAttrNetwork:             schema.Omit,
@@ -106,7 +94,6 @@ type azureModelConfig struct {
 	*config.Config
 
 	// Azure specific config.
-	storageAccountType  string
 	loadBalancerSkuName string
 	resourceGroupName   string
 	virtualNetworkName  string
@@ -215,14 +202,6 @@ Please choose a model name of no more than %d characters.`,
 		return nil, errors.New("global firewall mode is not supported")
 	}
 
-	storageAccountType := validated[configAttrStorageAccountType].(string)
-	if !isKnownStorageAccountType(storageAccountType) {
-		return nil, errors.Errorf(
-			"invalid storage account type %q, expected one of: %q",
-			storageAccountType, knownStorageAccountTypes(),
-		)
-	}
-
 	loadBalancerSkuName, ok := validated[configAttrLoadBalancerSkuName].(string)
 	if ok {
 		loadBalancerSkuNameTitle := strings.Title(loadBalancerSkuName)
@@ -244,23 +223,11 @@ Please choose a model name of no more than %d characters.`,
 
 	azureConfig := &azureModelConfig{
 		Config:              newCfg,
-		storageAccountType:  storageAccountType,
 		loadBalancerSkuName: loadBalancerSkuName,
 		resourceGroupName:   userSpecifiedResourceGroup,
 		virtualNetworkName:  networkName,
 	}
 	return azureConfig, nil
-}
-
-// isKnownStorageAccountType reports whether or not the given string identifies
-// a known storage account type.
-func isKnownStorageAccountType(t string) bool {
-	for _, knownStorageAccountType := range knownStorageAccountTypes() {
-		if t == knownStorageAccountType {
-			return true
-		}
-	}
-	return false
 }
 
 // isKnownLoadBalancerSkuName reports whether or not the given string

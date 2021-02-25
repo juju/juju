@@ -19,7 +19,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/keyvault/mgmt/2018-02-14/keyvault"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
 	autorestazure "github.com/Azure/go-autorest/autorest/azure"
@@ -52,7 +51,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
-	"github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	jujustorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -65,7 +63,6 @@ const (
 
 	computeAPIVersion = "2019-07-01"
 	networkAPIVersion = "2018-08-01"
-	storageAPIVersion = "2018-07-01"
 )
 
 var (
@@ -103,26 +100,21 @@ var (
 type environSuite struct {
 	testing.BaseSuite
 
-	provider        environs.EnvironProvider
-	requests        []*http.Request
-	osvhdsContainer azuretesting.MockStorageContainer
-	storageClient   azuretesting.MockStorageClient
-	sender          azuretesting.Senders
-	retryClock      mockClock
+	provider   environs.EnvironProvider
+	requests   []*http.Request
+	sender     azuretesting.Senders
+	retryClock mockClock
 
-	controllerUUID     string
-	envTags            map[string]*string
-	vmTags             map[string]*string
-	group              *resources.Group
-	skus               *compute.ResourceSkusResult
-	storageAccounts    []storage.Account
-	storageAccount     *storage.Account
-	storageAccountKeys *storage.AccountListKeysResult
-	ubuntuServerSKUs   []compute.VirtualMachineImageResource
-	commonDeployment   *resources.DeploymentExtended
-	deployment         *resources.Deployment
-	sshPublicKeys      []compute.SSHPublicKey
-	linuxOsProfile     compute.OSProfile
+	controllerUUID   string
+	envTags          map[string]*string
+	vmTags           map[string]*string
+	group            *resources.Group
+	skus             *compute.ResourceSkusResult
+	ubuntuServerSKUs []compute.VirtualMachineImageResource
+	commonDeployment *resources.DeploymentExtended
+	deployment       *resources.Deployment
+	sshPublicKeys    []compute.SSHPublicKey
+	linuxOsProfile   compute.OSProfile
 
 	callCtx               *context.CloudCallContext
 	invalidatedCredential bool
@@ -132,12 +124,6 @@ var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.osvhdsContainer = azuretesting.MockStorageContainer{}
-	s.storageClient = azuretesting.MockStorageClient{
-		Containers: map[string]azurestorage.Container{
-			"osvhds": &s.osvhdsContainer,
-		},
-	}
 	s.sender = nil
 	s.requests = nil
 	s.retryClock = mockClock{Clock: testclock.NewClock(time.Time{})}
@@ -145,7 +131,6 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	s.provider = newProvider(c, azure.ProviderConfig{
 		Sender:           azuretesting.NewSerialSender(&s.sender),
 		RequestInspector: azuretesting.RequestRecorder(&s.requests),
-		NewStorageClient: s.storageClient.NewClient,
 		RetryClock: &testclock.AutoAdvancingClock{
 			&s.retryClock, s.retryClock.Advance,
 		},
@@ -232,27 +217,6 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		}},
 	}}
 	s.skus = &compute.ResourceSkusResult{Value: &resourceSkus}
-
-	s.storageAccount = &storage.Account{
-		Name: to.StringPtr("my-storage-account"),
-		Type: to.StringPtr("Standard_LRS"),
-		Tags: s.envTags,
-		AccountProperties: &storage.AccountProperties{
-			PrimaryEndpoints: &storage.Endpoints{
-				Blob: to.StringPtr(fmt.Sprintf("https://%s.blob.storage.azurestack.local/", storageAccountName)),
-			},
-			ProvisioningState: "Succeeded",
-		},
-	}
-
-	keys := []storage.AccountKey{{
-		KeyName:     to.StringPtr("key-1-name"),
-		Value:       to.StringPtr("key-1"),
-		Permissions: storage.Full,
-	}}
-	s.storageAccountKeys = &storage.AccountListKeysResult{
-		Keys: &keys,
-	}
 
 	s.ubuntuServerSKUs = []compute.VirtualMachineImageResource{
 		{Name: to.StringPtr("12.04-LTS")},
@@ -433,19 +397,6 @@ func (s *environSuite) startInstanceSenders(args startInstanceSenderParams) azur
 		// deployment to complete.
 		senders = append(senders, makeSender("/deployments/common", s.commonDeployment))
 
-		// If the deployment has any providers, then we assume
-		// storage accounts are in use, for unmanaged storage.
-		if s.commonDeployment.Properties.Providers != nil {
-			storageAccount := &storage.Account{
-				AccountProperties: &storage.AccountProperties{
-					PrimaryEndpoints: &storage.Endpoints{
-						Blob: to.StringPtr("https://blob.storage/"),
-					},
-				},
-			}
-			senders = append(senders, makeSender("/storageAccounts/juju400d80004b1d0d06f00d", storageAccount))
-		}
-
 		if args.vaultName != "" {
 			senders = append(senders, makeSender("/diskEncryptionSets/"+args.diskEncryptionSetName, &compute.DiskEncryptionSet{
 				Identity: &compute.EncryptionSetIdentity{
@@ -519,22 +470,6 @@ func (s *environSuite) publicIPAddressesSender(pips ...network.PublicIPAddress) 
 
 func (s *environSuite) resourceSkusSender() *azuretesting.MockSender {
 	return makeSender(".*/skus", s.skus)
-}
-
-func (s *environSuite) storageAccountSender() *azuretesting.MockSender {
-	return makeSender(".*/storageAccounts/"+storageAccountName, s.storageAccount)
-}
-
-func (s *environSuite) storageAccountErrorSender(c *gc.C, err error, repeat int) *azuretesting.MockSender {
-	return s.makeErrorSenderWithContent(c, ".*/storageAccounts/"+storageAccountName, s.storageAccount, err, repeat)
-}
-
-func (s *environSuite) storageAccountKeysSender() *azuretesting.MockSender {
-	return makeSender(".*/storageAccounts/.*/listKeys", s.storageAccountKeys)
-}
-
-func (s *environSuite) storageAccountKeysErrorSender(c *gc.C, err error, repeat int) *azuretesting.MockSender {
-	return s.makeErrorSenderWithContent(c, ".*/storageAccounts/.*/listKeys", s.storageAccountKeys, err, repeat)
 }
 
 func makeResourceGroupNotFoundSender(pattern string) *azuretesting.MockSender {
@@ -895,64 +830,6 @@ func (s *environSuite) TestStartInstanceCommonDeployment(c *gc.C) {
 			`common resource deployment status is "Failed"`)
 }
 
-func (s *environSuite) TestStartInstanceCommonDeploymentStorageAccount(c *gc.C) {
-	resourceTypes := []resources.ProviderResourceType{{
-		ResourceType: to.StringPtr("storageAccounts"),
-	}}
-	providers := []resources.Provider{{
-		Namespace:     to.StringPtr("Microsoft.Storage"),
-		ResourceTypes: &resourceTypes,
-	}}
-	s.commonDeployment.Properties.Providers = &providers
-
-	env := s.openEnviron(c)
-	senders := s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
-	s.sender = senders
-	s.requests = nil
-
-	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "bionic"))
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
-		imageReference:   &xenialImageReference,
-		diskSizeGB:       32,
-		osProfile:        &s.linuxOsProfile,
-		instanceType:     "Standard_A1",
-		unmanagedStorage: true,
-		publicIP:         true,
-	})
-}
-
-func (s *environSuite) TestStartInstanceCommonDeploymentWithStorageAccountAndAvailabilitySetName(c *gc.C) {
-	resourceTypes := []resources.ProviderResourceType{{
-		ResourceType: to.StringPtr("storageAccounts"),
-	}}
-	providers := []resources.Provider{{
-		Namespace:     to.StringPtr("Microsoft.Storage"),
-		ResourceTypes: &resourceTypes,
-	}}
-	s.commonDeployment.Properties.Providers = &providers
-
-	env := s.openEnviron(c)
-	unitsDeployed := "mysql/0 wordpress/0"
-	s.vmTags[tags.JujuUnitsDeployed] = &unitsDeployed
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
-	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, "bionic")
-	params.InstanceConfig.Tags[tags.JujuUnitsDeployed] = unitsDeployed
-
-	_, err := env.StartInstance(s.callCtx, params)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
-		availabilitySetName: "mysql",
-		imageReference:      &xenialImageReference,
-		diskSizeGB:          32,
-		osProfile:           &s.linuxOsProfile,
-		instanceType:        "Standard_A1",
-		unmanagedStorage:    true,
-		publicIP:            true,
-	})
-}
-
 func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 	// StartInstance waits for the "common" deployment to complete
 	// successfully before creating the VM deployment.
@@ -1147,7 +1024,6 @@ type assertStartInstanceRequestsParams struct {
 	osProfile           *compute.OSProfile
 	needsProviderInit   bool
 	resourceGroupName   string
-	unmanagedStorage    bool
 	instanceType        string
 	publicIP            bool
 	existingNetwork     string
@@ -1282,19 +1158,6 @@ func (s *environSuite) assertStartInstanceRequests(
 				})
 			}
 		}
-		if args.unmanagedStorage {
-			templateResources = append(templateResources, armtemplates.Resource{
-				APIVersion: storageAPIVersion,
-				Type:       "Microsoft.Storage/storageAccounts",
-				Name:       storageAccountName,
-				Location:   "westus",
-				Tags:       to.StringMap(s.envTags),
-				Sku:        &armtemplates.Sku{Name: "Standard_LRS"},
-			})
-			vmDependsOn = append(vmDependsOn,
-				`[resourceId('Microsoft.Storage/storageAccounts', '`+storageAccountName+`')]`,
-			)
-		}
 	}
 
 	var availabilitySetSubResource *compute.SubResource
@@ -1303,15 +1166,8 @@ func (s *environSuite) assertStartInstanceRequests(
 			`[resourceId('Microsoft.Compute/availabilitySets','%s')]`,
 			args.availabilitySetName,
 		)
-		var (
-			availabilitySetProperties  interface{}
-			availabilityStorageOptions *armtemplates.Sku
-		)
-		if !args.unmanagedStorage {
-			availabilitySetProperties = &compute.AvailabilitySetProperties{
-				PlatformFaultDomainCount: to.Int32Ptr(3),
-			}
-			availabilityStorageOptions = &armtemplates.Sku{Name: "Aligned"}
+		availabilitySetProperties := &compute.AvailabilitySetProperties{
+			PlatformFaultDomainCount: to.Int32Ptr(3),
 		}
 		templateResources = append(templateResources, armtemplates.Resource{
 			APIVersion: computeAPIVersion,
@@ -1320,7 +1176,7 @@ func (s *environSuite) assertStartInstanceRequests(
 			Location:   "westus",
 			Tags:       to.StringMap(s.envTags),
 			Properties: availabilitySetProperties,
-			Sku:        availabilityStorageOptions,
+			Sku:        &armtemplates.Sku{Name: "Aligned"},
 		})
 		availabilitySetSubResource = &compute.SubResource{
 			ID: to.StringPtr(availabilitySetId),
@@ -1420,20 +1276,14 @@ func (s *environSuite) assertStartInstanceRequests(
 		CreateOption: compute.DiskCreateOptionTypesFromImage,
 		Caching:      compute.CachingTypesReadWrite,
 		DiskSizeGB:   to.Int32Ptr(int32(args.diskSizeGB)),
-	}
-	if args.unmanagedStorage {
-		osDisk.Vhd = &compute.VirtualHardDisk{
-			URI: to.StringPtr(`https://blob.storage/osvhds/machine-0.vhd`),
-		}
-	} else {
-		osDisk.ManagedDisk = &compute.ManagedDiskParameters{
+		ManagedDisk: &compute.ManagedDiskParameters{
 			StorageAccountType: "Standard_LRS",
-		}
-		if args.diskEncryptionSet != "" {
-			osDisk.ManagedDisk.DiskEncryptionSet = &compute.DiskEncryptionSetParameters{
-				ID: to.StringPtr(
-					fmt.Sprintf("[resourceId('Microsoft.Compute/diskEncryptionSets', '%s')]", args.diskEncryptionSet)),
-			}
+		},
+	}
+	if args.diskEncryptionSet != "" {
+		osDisk.ManagedDisk.DiskEncryptionSet = &compute.DiskEncryptionSetParameters{
+			ID: to.StringPtr(
+				fmt.Sprintf("[resourceId('Microsoft.Compute/diskEncryptionSets', '%s')]", args.diskEncryptionSet)),
 		}
 	}
 
@@ -1945,8 +1795,6 @@ func (s *environSuite) TestStopInstancesInvalidCredential(c *gc.C) {
 }
 
 func (s *environSuite) TestStopInstancesNoSecurityGroup(c *gc.C) {
-	// skip storage, so we get to deleting security rules
-	s.PatchValue(&s.storageAccountKeys.Keys, nil)
 	env := s.openEnviron(c)
 	azure.SetRetries(env)
 
@@ -1965,9 +1813,7 @@ func (s *environSuite) TestStopInstancesNoSecurityGroup(c *gc.C) {
 	nic0IPConfiguration.PublicIPAddress = &network.PublicIPAddress{}
 	nic0 := makeNetworkInterface("nic-0", "machine-0", nic0IPConfiguration)
 	s.sender = azuretesting.Senders{
-		makeSender("/deployments/machine-0", s.deployment), // Cancel
-		s.storageAccountSender(),
-		s.storageAccountKeysSender(),
+		makeSender("/deployments/machine-0", s.deployment),       // Cancel
 		s.networkInterfacesSender(nic0),                          // GET: no NICs
 		s.publicIPAddressesSender(),                              // GET: no public IPs
 		makeSender(".*/virtualMachines/machine-0", nil),          // DELETE
@@ -1999,30 +1845,20 @@ func (s *environSuite) TestStopInstances(c *gc.C) {
 
 	s.sender = azuretesting.Senders{
 		makeSender(".*/deployments/machine-0/cancel", nil), // POST
-		s.storageAccountSender(),
-		s.storageAccountKeysSender(),
 		s.networkInterfacesSender(nic0),
 		s.publicIPAddressesSender(makePublicIPAddress("pip-0", "machine-0", "1.2.3.4")),
 		makeSender(".*/virtualMachines/machine-0", nil),                                                 // DELETE
-		makeSender(".*/networkSecurityGroups/juju-internal-nsg", nsg),                                   // GET
-		makeSender(".*/networkSecurityGroups/juju-internal-nsg/securityRules/machine-0-80", nil),        // DELETE
-		makeSender(".*/networkSecurityGroups/juju-internal-nsg/securityRules/machine-0-1000-2000", nil), // DELETE
+		makeSender(".*/disks/machine-0", nil),                                                           // DELETE
 		makeSender(".*/networkInterfaces/nic-0", nil),                                                   // DELETE
 		makeSender(".*/publicIPAddresses/pip-0", nil),                                                   // DELETE
 		makeSender(".*/deployments/machine-0", nil),                                                     // DELETE
+		makeSender(".*/networkSecurityGroups/juju-internal-nsg", nsg),                                   // GET
+		makeSender(".*/networkSecurityGroups/juju-internal-nsg/securityRules/machine-0-80", nil),        // DELETE
+		makeSender(".*/networkSecurityGroups/juju-internal-nsg/securityRules/machine-0-1000-2000", nil), // DELETE
 	}
-
-	machine0Blob := azuretesting.MockStorageBlob{Name_: "machine-0"}
-	s.osvhdsContainer.Blobs_ = []azurestorage.Blob{&machine0Blob}
 
 	err := env.StopInstances(s.callCtx, "machine-0")
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.storageClient.CheckCallNames(c, "NewClient", "GetContainerReference")
-	s.storageClient.CheckCall(c, 1, "GetContainerReference", "osvhds")
-	s.osvhdsContainer.CheckCallNames(c, "Blob")
-	s.osvhdsContainer.CheckCall(c, 0, "Blob", "machine-0")
-	machine0Blob.CheckCallNames(c, "DeleteIfExists")
 }
 
 func (s *environSuite) TestStopInstancesMultiple(c *gc.C) {
@@ -2036,10 +1872,8 @@ func (s *environSuite) TestStopInstancesMultiple(c *gc.C) {
 		makeSender(".*/deployments/machine-[01]/cancel", nil), // POST
 		makeSender(".*/deployments/machine-[01]/cancel", nil), // POST
 
-		// We should only query the NICs, public IPs, and storage
-		// account/keys, regardless of how many instances are deleted.
-		s.storageAccountSender(),
-		s.storageAccountKeysSender(),
+		// We should only query the NICs, public IPs regardless
+		// of how many instances are deleted.
 		s.networkInterfacesSender(),
 		s.publicIPAddressesSender(),
 
@@ -2062,23 +1896,10 @@ func (s *environSuite) TestStopInstancesDeploymentNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *environSuite) TestStopInstancesStorageAccountNoKeys(c *gc.C) {
-	s.PatchValue(&s.storageAccountKeys.Keys, nil)
-	s.testStopInstancesStorageAccountNotFound(c)
-}
-
-func (s *environSuite) TestStopInstancesStorageAccountNoFullKey(c *gc.C) {
-	keys := *s.storageAccountKeys.Keys
-	s.PatchValue(&keys[0].Permissions, storage.Read)
-	s.testStopInstancesStorageAccountNotFound(c)
-}
-
 func (s *environSuite) testStopInstancesStorageAccountNotFound(c *gc.C) {
 	env := s.openEnviron(c)
 	s.sender = azuretesting.Senders{
-		makeSender("/deployments/machine-0", s.deployment), // Cancel
-		s.storageAccountSender(),
-		s.storageAccountKeysSender(),
+		makeSender("/deployments/machine-0", s.deployment),                            // Cancel
 		s.networkInterfacesSender(),                                                   // GET: no NICs
 		s.publicIPAddressesSender(),                                                   // GET: no public IPs
 		makeSender(".*/virtualMachines/machine-0", nil),                               // DELETE
@@ -2088,31 +1909,6 @@ func (s *environSuite) testStopInstancesStorageAccountNotFound(c *gc.C) {
 	}
 	err := env.StopInstances(s.callCtx, "machine-0")
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *environSuite) TestStopInstancesStorageAccountError(c *gc.C) {
-	env := s.openEnviron(c)
-	azure.SetRetries(env)
-	errorSender := s.storageAccountErrorSender(c, errors.New("blargh"), 2)
-	s.sender = azuretesting.Senders{
-		makeSender("/deployments/machine-0", s.deployment), // Cancel
-		errorSender,
-	}
-	err := env.StopInstances(s.callCtx, "machine-0")
-	c.Assert(err, gc.ErrorMatches, "getting storage account:.*blargh")
-}
-
-func (s *environSuite) TestStopInstancesStorageAccountKeysError(c *gc.C) {
-	env := s.openEnviron(c)
-	azure.SetRetries(env)
-	errorSender := s.storageAccountKeysErrorSender(c, errors.New("blargh"), 2)
-	s.sender = azuretesting.Senders{
-		makeSender("/deployments/machine-0", s.deployment), // Cancel
-		s.storageAccountSender(),
-		errorSender,
-	}
-	err := env.StopInstances(s.callCtx, "machine-0")
-	c.Assert(err, gc.ErrorMatches, "getting storage account key:.*blargh")
 }
 
 func (s *environSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
@@ -2202,23 +1998,22 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
 	nic0IPConfiguration.PublicIPAddress = &network.PublicIPAddress{}
 	nic0 := makeNetworkInterface("nic-0", "machine-0", nic0IPConfiguration)
 
-	machine0Blob := azuretesting.MockStorageBlob{Name_: "machine-0"}
-	s.osvhdsContainer.Blobs_ = []azurestorage.Blob{&machine0Blob}
-
 	s.sender = azuretesting.Senders{
 		makeSender(".*/resourceGroups/foo/resources.*", resourceListResult), // GET
 		makeSender(".*/deployments/machine-0/cancel", nil),                  // POST
-		s.storageAccountSender(),
-		s.storageAccountKeysSender(),
 		s.networkInterfacesSender(nic0),
 		s.publicIPAddressesSender(makePublicIPAddress("pip-0", "machine-0", "1.2.3.4")),
 		makeSender(".*/virtualMachines/machine-0", nil), // DELETE
+		makeSender(".*/disks/machine-0", nil),           // DELETE
+		makeSender(".*/networkInterfaces/nic-0", nil),   // DELETE
+		makeSender(".*/publicIPAddresses/pip-0", nil),   // DELETE
+		makeSender(".*/deployments/machine-0", nil),     // DELETE
 		s.makeErrorSender(c, "/networkSecurityGroups/nsg-0", autorest.DetailedError{Original: autorestazure.ServiceError{Code: "InUse"}}, 1), // DELETE
 		makeSender(".*/vaults/secret-0", nil), // DELETE
 	}
 	err := env.Destroy(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.requests, gc.HasLen, 10)
+	c.Assert(s.requests, gc.HasLen, 12)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET")
 	c.Assert(s.requests[0].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
 		"tagName eq 'juju-model-uuid' and tagValue eq '%s'",
@@ -2227,6 +2022,8 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
 	c.Assert(s.requests[7].Method, gc.Equals, "DELETE")
 	c.Assert(s.requests[8].Method, gc.Equals, "DELETE")
 	c.Assert(s.requests[9].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[10].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[11].Method, gc.Equals, "DELETE")
 }
 
 func (s *environSuite) TestDestroyHostedModelWithInvalidCredential(c *gc.C) {

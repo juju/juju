@@ -74,14 +74,7 @@ func (step commonDeploymentUpgradeStep) Run(ctx context.ProviderCallContext) err
 		rules = append(rules, rule)
 	}
 
-	env.mu.Lock()
-	storageAccountType := env.config.storageAccountType
-	env.mu.Unlock()
-	return env.createCommonResourceDeployment(ctx, nil, rules, storageAccountTemplateResource(
-		env.location, nil,
-		env.storageAccountName,
-		storageAccountType,
-	))
+	return env.createCommonResourceDeployment(ctx, nil, rules)
 }
 
 // existingSecurityRules returns the network security rules for the internal
