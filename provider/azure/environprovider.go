@@ -14,7 +14,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
 
@@ -40,10 +39,6 @@ type ProviderConfig struct {
 	// RequestInspector will be used to inspect Azure requests
 	// if it is non-nil.
 	RequestInspector autorest.PrepareDecorator
-
-	// NewStorageClient will be used to construct new storage
-	// clients.
-	NewStorageClient azurestorage.NewClientFunc
 
 	// RetryClock is used for retrying some operations, like
 	// waiting for deployments to complete.
@@ -74,9 +69,6 @@ type ProviderConfig struct {
 
 // Validate validates the Azure provider configuration.
 func (cfg ProviderConfig) Validate() error {
-	if cfg.NewStorageClient == nil {
-		return errors.NotValidf("nil NewStorageClient")
-	}
 	if cfg.RetryClock == nil {
 		return errors.NotValidf("nil RetryClock")
 	}

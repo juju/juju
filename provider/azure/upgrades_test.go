@@ -171,11 +171,6 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(
 			Subnets:      &subnets,
 		},
 		DependsOn: []string{nsgId},
-	}, {
-		Type:     "Microsoft.Storage/storageAccounts",
-		Name:     storageAccountName,
-		Location: "westus",
-		Sku:      &armtemplates.Sku{Name: "Standard_LRS"},
 	}}
 
 	var actual resources.Deployment
