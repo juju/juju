@@ -41,11 +41,14 @@ else
 	TEST_ARGS :=
 endif
 
+# Enable coverage testing.
+ifeq ($(COVERAGE_CHECK), 1)
+	TEST_ARGS += -cover
+endif
+
 # Enable verbose testing for reporting.
 ifeq ($(VERBOSE_CHECK), 1)
-	CHECK_ARGS = -v $(TEST_ARGS)
-else
-	CHECK_ARGS = $(TEST_ARGS)
+	CHECK_ARGS = -v
 endif
 
 GIT_COMMIT ?= $(shell git -C $(PROJECT_DIR) rev-parse HEAD 2>/dev/null)
@@ -120,8 +123,8 @@ run-tests:
 ## run-tests: Run the unit tests
 	$(eval TMP := $(shell mktemp -d $${TMPDIR:-/tmp}/jj-XXX))
 	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/acceptancetests/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
-	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
-	@TMPDIR=$(TMP) go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
+	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
+	@TMPDIR=$(TMP) go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
 	@rm -r $(TMP)
 
 install: rebuild-schema go-install
