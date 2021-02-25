@@ -129,7 +129,7 @@ func (c *removeCloudCommand) removeLocalCloud(ctxt *cmd.Context) error {
 	if err := cloud.WritePersonalCloudMetadata(personalClouds); err != nil {
 		return errors.Trace(err)
 	}
-	ctxt.Infof("Removed details of cloud %q from the client", c.Cloud)
+	ctxt.Infof("Removed details of cloud %q from this client", c.Cloud)
 	return nil
 }
 
