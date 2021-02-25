@@ -1,17 +1,19 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// charms provides a client for accessing the charms API.
+// Package charms provides a client for accessing the charms API.
 package charms
 
 import (
 	"github.com/juju/charm/v8"
+	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
 	apicharm "github.com/juju/juju/api/common/charm"
 	commoncharms "github.com/juju/juju/api/common/charms"
+	api "github.com/juju/juju/api/resources"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -198,4 +200,42 @@ func (c *Client) CheckCharmPlacement(applicationName string, curl *charm.URL) er
 		return errors.Trace(err)
 	}
 	return result.OneError()
+}
+
+// ListCharmResources returns a list of associated resources for a given charm.
+func (c *Client) ListCharmResources(curl *charm.URL, origin apicharm.Origin) ([]charmresource.Resource, error) {
+	if c.facade.BestAPIVersion() < 3 {
+		return nil, errors.NotSupportedf("list resources")
+	}
+
+	args := params.CharmURLAndOrigins{
+		Entities: []params.CharmURLAndOrigin{{
+			CharmURL: curl.String(),
+			Origin:   origin.ParamsCharmOrigin(),
+		}},
+	}
+	var results params.CharmResourcesResults
+	if err := c.facade.FacadeCall("ListCharmResources", args, &results); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if n := len(results.Results); n != 1 {
+		return nil, errors.Errorf("expected 1 result, received %d", n)
+	}
+
+	result := results.Results[0]
+	resources := make([]charmresource.Resource, len(result))
+	for i, res := range result {
+		if res.Error != nil {
+			return nil, errors.Trace(res.Error)
+		}
+
+		chRes, err := api.API2CharmResource(res.CharmResource)
+		if err != nil {
+			return nil, errors.Annotate(err, "got bad data from server")
+		}
+		resources[i] = chRes
+	}
+
+	return resources, nil
 }
