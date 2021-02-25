@@ -61,6 +61,19 @@ func NewCharmResourcesCommand() modelcmd.ModelCommand {
 	return modelcmd.Wrap(&c)
 }
 
+// NewCharmResourcesCommandWithClient returns a new command that lists resources
+// defined by a charm.
+func NewCharmResourcesCommandWithClient(client ResourceLister) modelcmd.ModelCommand {
+	c := CharmResourcesCommand{
+		baseCharmResourcesCommand{
+			CreateResourceListerFn: func(schema string, deps ResourceListerDependencies) (ResourceLister, error) {
+				return client, nil
+			},
+		},
+	}
+	return modelcmd.Wrap(&c)
+}
+
 // Info implements cmd.Command.
 func (c *CharmResourcesCommand) Info() *cmd.Info {
 	i := c.baseInfo()
