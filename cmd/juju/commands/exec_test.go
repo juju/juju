@@ -218,7 +218,7 @@ func (*ExecSuite) TestTimeoutArgParsing(c *gc.C) {
 	}, {
 		message:  "invalid time",
 		args:     []string{"--timeout=foo", "--all", "sudo reboot"},
-		errMatch: `invalid value "foo" for option --timeout: time: invalid duration foo`,
+		errMatch: `invalid value "foo" for option --timeout: time: invalid duration "?foo"?`,
 		modeType: model.IAAS,
 	}, {
 		message:  "two hours",
