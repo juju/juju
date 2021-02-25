@@ -261,6 +261,7 @@ def dump_env_logs(client, bootstrap_host, artifacts_dir, runtime_config=None):
     dump_env_logs_known_hosts(client, artifacts_dir, runtime_config,
                               known_hosts)
 
+
 def dump_env_logs_known_hosts(client, artifacts_dir, runtime_config=None,
                               known_hosts=None):
     if known_hosts is None:
@@ -284,11 +285,13 @@ def dump_env_logs_known_hosts(client, artifacts_dir, runtime_config=None,
     archive_logs(artifacts_dir)
     retain_config(runtime_config, artifacts_dir)
 
+
 def maybe_inject_ssh_keys(remote, env):
     use_ssh_key = getattr(remote, "use_ssh_key", None)
     if callable(use_ssh_key):
         identity_file = os.path.join(env.juju_home, "ssh", "juju_id_rsa")
         use_ssh_key(identity_file)
+
 
 def retain_config(runtime_config, log_directory):
     if not runtime_config:

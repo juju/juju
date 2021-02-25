@@ -297,6 +297,7 @@ def prepare(caas_client, caas_provider, build):
     for dep in [
         "charm",
         "juju-helpers",
+        "juju-wait",
     ]:
         if shutil.which(dep):
             continue
