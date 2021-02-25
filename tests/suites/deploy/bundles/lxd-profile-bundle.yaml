@@ -1,4 +1,4 @@
-series: focal
+series: bionic
 machines:
   '0': {}
   '1': {}
