@@ -5,6 +5,7 @@ package agent
 
 import (
 	"bytes"
+	"fmt"
 	"math/rand"
 	"net"
 	"os"
@@ -132,7 +133,7 @@ func (s *CAASUnitInitSuite) TestInitUnit(c *gc.C) {
 }
 
 func (s *CAASUnitInitSuite) TestInitUnitWaitSend(c *gc.C) {
-	socketName := "@" + string(rand.Int63())
+	socketName := fmt.Sprintf("@%d", rand.Int63())
 	listening := make(chan struct{})
 	wg := sync.WaitGroup{}
 	wg.Add(1)
