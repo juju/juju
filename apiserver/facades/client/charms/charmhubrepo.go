@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v8"
+	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	corecharm "github.com/juju/juju/core/charm"
@@ -52,21 +52,18 @@ type chRepo struct {
 //
 // When charmstore goes, we could potentially rework how the client requests
 // the store.
-func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error) {
+func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin corecharm.Origin) (*charm.URL, corecharm.Origin, []string, error) {
 	logger.Tracef("Resolving CharmHub charm %q with origin %v", curl, origin)
 
 	if curl.Revision != -1 {
-		return nil, params.CharmOrigin{}, nil, errors.Errorf("specifying a revision is not supported, please use a channel.")
+		return nil, corecharm.Origin{}, nil, errors.Errorf("specifying a revision is not supported, please use a channel.")
 	}
 
-	input, err := makeOrigin(origin)
-	if err != nil {
-		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
-	}
+	input := origin
 
 	res, err := c.refreshOne(curl, input)
 	if err != nil {
-		return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "refresh")
+		return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "refresh")
 	}
 
 	if resErr := res.Error; resErr != nil {
@@ -75,7 +72,7 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 			logger.Tracef("Invalid charm platform %q %v - Default Platforms: %v", curl, origin, resErr.Extra.DefaultPlatforms)
 			platform, err := c.selectNextPlatform(resErr.Extra.DefaultPlatforms, origin)
 			if err != nil {
-				return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "refresh")
+				return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "refresh")
 			}
 
 			p := input.Platform
@@ -86,14 +83,14 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 
 			// Fill these back on the origin, so that we can fix the issue of
 			// bundles passing back "all" on the response type.
-			origin.OS = platform.OS
-			origin.Series = platform.Series
+			origin.Platform.OS = platform.OS
+			origin.Platform.Series = platform.Series
 
 		case transport.ErrorCodeRevisionNotFound:
 			logger.Tracef("Revision not found %q %v - Default Platforms: %v", curl, origin, resErr.Extra.Releases)
 			release, err := c.selectNextRelease(resErr.Extra.Releases, origin)
 			if err != nil {
-				return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "refresh")
+				return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "refresh")
 			}
 
 			p := input.Platform
@@ -104,22 +101,22 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 
 			// Fill these back on the origin, so that we can fix the issue of
 			// bundles passing back "all" on the response type.
-			origin.OS = release.OS
-			origin.Series = release.Series
+			origin.Platform.OS = release.OS
+			origin.Platform.Series = release.Series
 
 		default:
-			return nil, params.CharmOrigin{}, nil, errors.Errorf("refresh error: %s", resErr.Message)
+			return nil, corecharm.Origin{}, nil, errors.Errorf("refresh error: %s", resErr.Message)
 		}
-		if origin.Series == "" {
-			return nil, params.CharmOrigin{}, nil, errors.NotValidf("series for %s", curl.Name)
+		if origin.Platform.Series == "" {
+			return nil, corecharm.Origin{}, nil, errors.NotValidf("series for %s", curl.Name)
 		}
 
 		res, err = c.refreshOne(curl, input)
 		if err != nil {
-			return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "refresh retry")
+			return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "refresh retry")
 		}
 		if resErr := res.Error; resErr != nil {
-			return nil, params.CharmOrigin{}, nil, errors.Errorf("refresh retry: %s", resErr.Message)
+			return nil, corecharm.Origin{}, nil, errors.Errorf("refresh retry: %s", resErr.Message)
 		}
 	}
 
@@ -127,12 +124,7 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	// account for the closed tracks in a given channel.
 	channel, err := corecharm.ParseChannelNormalize(res.EffectiveChannel)
 	if err != nil {
-		return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "invalid channel")
-	}
-
-	var track *string
-	if channel.Track != "" {
-		track = &channel.Track
+		return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "invalid channel")
 	}
 
 	entity := res.Entity
@@ -149,25 +141,22 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	// deployed, and charms which are being upgraded.  Only charms being upgraded
 	// will have an ID and Hash.  Those values should only ever be updated in
 	// chRepro FindDownloadURL.
-	resOrigin := params.CharmOrigin{
-		Source:       origin.Source,
-		ID:           origin.ID,
-		Hash:         origin.Hash,
-		Type:         string(entity.Type),
-		Track:        track,
-		Risk:         string(channel.Risk),
-		Revision:     &revision,
-		Architecture: input.Platform.Architecture,
-		OS:           input.Platform.OS,
-		Series:       input.Platform.Series,
+	resOrigin := corecharm.Origin{
+		Source:   origin.Source,
+		ID:       origin.ID,
+		Hash:     origin.Hash,
+		Type:     string(entity.Type),
+		Channel:  &channel,
+		Revision: &revision,
+		Platform: input.Platform,
 	}
 
 	outputOrigin, err := sanitizeCharmOrigin(resOrigin, origin)
 	if err != nil {
-		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
+		return nil, corecharm.Origin{}, nil, errors.Trace(err)
 	}
 	logger.Tracef("Resolved CharmHub charm %q with origin %v", resCurl, outputOrigin)
-	return resCurl, outputOrigin, []string{outputOrigin.Series}, nil
+	return resCurl, outputOrigin, []string{outputOrigin.Platform.Series}, nil
 }
 
 // DownloadCharm downloads the provided download URL from CharmHub using the
@@ -209,8 +198,33 @@ func (c *chRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
-	outputOrigin, err := sanitizeCoreCharmOrigin(resOrigin, origin)
+	outputOrigin, err := sanitizeCharmOrigin(resOrigin, origin)
 	return durl, outputOrigin, errors.Trace(err)
+}
+
+// ListResources returns the resources for a given charm and origin.
+func (c *chRepo) ListResources(curl *charm.URL, origin corecharm.Origin) ([]charmresource.Resource, error) {
+	logger.Tracef("CharmStore ListResources %q", curl)
+	var err error
+	curl, origin, _, err = c.ResolveWithPreferredChannel(curl, origin)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	resp, err := c.refreshOne(curl, origin)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	results := make([]charmresource.Resource, len(resp.Entity.Resources))
+	for i, resource := range resp.Entity.Resources {
+		results[i], err = resourceFromRevision(resource)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	return results, nil
 }
 
 func (c *chRepo) refreshOne(curl *charm.URL, origin corecharm.Origin) (transport.RefreshResponse, error) {
@@ -230,7 +244,7 @@ func (c *chRepo) refreshOne(curl *charm.URL, origin corecharm.Origin) (transport
 	return result[0], nil
 }
 
-func (c *chRepo) selectNextPlatform(platforms []transport.Platform, origin params.CharmOrigin) (transport.Platform, error) {
+func (c *chRepo) selectNextPlatform(platforms []transport.Platform, origin corecharm.Origin) (transport.Platform, error) {
 	if len(platforms) == 0 {
 		return transport.Platform{}, errors.Errorf("no platforms available")
 	}
@@ -242,7 +256,7 @@ func (c *chRepo) selectNextPlatform(platforms []transport.Platform, origin param
 		platform transport.Platform
 	)
 	for _, platform = range platforms {
-		if platform.Architecture != origin.Architecture {
+		if platform.Architecture != origin.Platform.Architecture {
 			continue
 		}
 		found = true
@@ -254,11 +268,11 @@ func (c *chRepo) selectNextPlatform(platforms []transport.Platform, origin param
 	return platform, nil
 }
 
-func (c *chRepo) selectNextRelease(releases []transport.Release, origin params.CharmOrigin) (Release, error) {
+func (c *chRepo) selectNextRelease(releases []transport.Release, origin corecharm.Origin) (Release, error) {
 	if len(releases) == 0 {
 		return Release{}, errors.Errorf("no releases available")
 	}
-	if origin.Series == "" {
+	if origin.Platform.Series == "" {
 		// If the origin is empty, then we want to help the user out
 		// by display a series of suggestions to try.
 		suggestions := composeSuggestions(releases, origin)
@@ -271,40 +285,6 @@ func (c *chRepo) selectNextRelease(releases []transport.Release, origin params.C
 
 	// From the suggestion list, go look up a release that we can retry.
 	return selectReleaseByArchAndChannel(releases, origin)
-}
-
-func makeOrigin(o params.CharmOrigin) (corecharm.Origin, error) {
-	var channel *corecharm.Channel
-	if o.Risk != "" {
-		var track string
-		if o.Track != nil {
-			track = *o.Track
-		}
-
-		ch, err := corecharm.MakeChannel(track, o.Risk, "")
-		if err != nil {
-			return corecharm.Origin{}, errors.Trace(err)
-		}
-		// Ensure that we normalize the channel before we pass it back.
-		// "latest" is a keyword and means entirely different things if passed
-		// in and it also has a default channel.
-		ch = ch.Normalize()
-		channel = &ch
-	}
-
-	return corecharm.Origin{
-		Source:   corecharm.Source(o.Source),
-		Type:     o.Type,
-		ID:       o.ID,
-		Hash:     o.Hash,
-		Revision: o.Revision,
-		Channel:  channel,
-		Platform: corecharm.Platform{
-			Architecture: o.Architecture,
-			OS:           o.OS,
-			Series:       o.Series,
-		},
-	}, nil
 }
 
 // Method describes the method for requesting the charm using the RefreshAPI.
@@ -387,19 +367,19 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 	return cfg, err
 }
 
-func composeSuggestions(releases []transport.Release, origin params.CharmOrigin) []string {
+func composeSuggestions(releases []transport.Release, origin corecharm.Origin) []string {
 	channelSeries := make(map[string][]string, 0)
 	for _, release := range releases {
 		platform := release.Platform
 		arch, series := platform.Architecture, platform.Series
 		if arch == "all" {
-			arch = origin.Architecture
+			arch = origin.Platform.Architecture
 		}
-		if arch != origin.Architecture {
+		if arch != origin.Platform.Architecture {
 			continue
 		}
 		if series == "all" {
-			series = origin.Series
+			series = origin.Platform.Series
 		}
 		channelSeries[release.Channel] = append(channelSeries[release.Channel], series)
 	}
@@ -426,26 +406,19 @@ type Release struct {
 	OS, Series string
 }
 
-func selectReleaseByArchAndChannel(releases []transport.Release, origin params.CharmOrigin) (Release, error) {
+func selectReleaseByArchAndChannel(releases []transport.Release, origin corecharm.Origin) (Release, error) {
+	var (
+		empty   = origin.Channel == nil
+		channel corecharm.Channel
+	)
+	if !empty {
+		channel = origin.Channel.Normalize()
+	}
 	for _, release := range releases {
 		platform := release.Platform
 
-		var track string
-		if origin.Track != nil {
-			track = *origin.Track
-		}
-		var channel *corecharm.Channel
-		if origin.Risk != "" {
-			c, err := corecharm.MakeChannel(track, origin.Risk, "")
-			if err != nil {
-				continue
-			}
-			c = c.Normalize()
-			channel = &c
-		}
-
 		arch, os, series := platform.Architecture, platform.OS, platform.Series
-		if (channel == nil || channel.String() == release.Channel) && (arch == "all" || arch == origin.Architecture) {
+		if (empty || channel.String() == release.Channel) && (arch == "all" || arch == origin.Platform.Architecture) {
 			return Release{
 				OS:     os,
 				Series: series,
@@ -453,4 +426,30 @@ func selectReleaseByArchAndChannel(releases []transport.Release, origin params.C
 		}
 	}
 	return Release{}, errors.NotFoundf("release")
+}
+
+// TODO (stickupkid) - Find a common place for this as it's duplicated from
+// apiserver/client/resources
+func resourceFromRevision(rev transport.ResourceRevision) (charmresource.Resource, error) {
+	resType, err := charmresource.ParseType(rev.Type)
+	if err != nil {
+		return charmresource.Resource{}, errors.Trace(err)
+	}
+	fp, err := charmresource.ParseFingerprint(rev.Download.HashSHA384)
+	if err != nil {
+		return charmresource.Resource{}, errors.Trace(err)
+	}
+	r := charmresource.Resource{
+		Meta: charmresource.Meta{
+			Name:        rev.Name,
+			Type:        resType,
+			Path:        rev.Filename,
+			Description: rev.Description,
+		},
+		Origin:      charmresource.OriginStore,
+		Revision:    rev.Revision,
+		Fingerprint: fp,
+		Size:        int64(rev.Download.Size),
+	}
+	return r, nil
 }

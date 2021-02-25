@@ -7,7 +7,7 @@ import (
 	"net/url"
 
 	"github.com/juju/charm/v8"
-	"github.com/juju/juju/apiserver/params"
+	charmresource "github.com/juju/charm/v8/resource"
 )
 
 // Repository represents the necessary methods to resolve and download
@@ -16,7 +16,7 @@ type Repository interface {
 	// FindDownloadURL returns a url from which a charm can be downloaded
 	// based on the given charm url and charm origin.  A charm origin
 	// updated with the ID and hash for the download is also returned.
-	FindDownloadURL(curl *charm.URL, origin Origin) (*url.URL, Origin, error)
+	FindDownloadURL(*charm.URL, Origin) (*url.URL, Origin, error)
 
 	// DownloadCharm reads the charm referenced the resource URL or downloads
 	// into a file with the given path, which will be created if needed.
@@ -29,5 +29,8 @@ type Repository interface {
 	// is used. It returns a charm URL which includes the most current revision,
 	// if none was provided, a charm origin, and a slice of series supported by
 	// this charm.
-	ResolveWithPreferredChannel(*charm.URL, params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error)
+	ResolveWithPreferredChannel(*charm.URL, Origin) (*charm.URL, Origin, []string, error)
+
+	// ListResources returns a list of resources associated with a given charm.
+	ListResources(*charm.URL, Origin) ([]charmresource.Resource, error)
 }
