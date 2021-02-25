@@ -13,14 +13,14 @@ import (
 // netNIC implements ConfigSourceNIC by wrapping a network interface
 // reference from the standard library `net` package.
 type netNIC struct {
-	sysClassNetPath string
-	nic             *net.Interface
+	nic       *net.Interface
+	parseType func(string) InterfaceType
 }
 
-func NewNetNIC(sysClassNetPath string, nic *net.Interface) *netNIC {
+func NewNetNIC(nic *net.Interface, parseType func(string) InterfaceType) *netNIC {
 	return &netNIC{
-		sysClassNetPath: sysClassNetPath,
-		nic:             nic,
+		nic:       nic,
+		parseType: parseType,
 	}
 }
 
@@ -36,7 +36,7 @@ func (n *netNIC) Index() int {
 
 // Type returns the interface type of the device.
 func (n *netNIC) Type() InterfaceType {
-	nicType := ParseInterfaceType(n.sysClassNetPath, n.Name())
+	nicType := n.parseType(n.Name())
 
 	if nicType != UnknownInterface {
 		return nicType
@@ -58,7 +58,7 @@ func (n *netNIC) HardwareAddr() net.HardwareAddr {
 func (n *netNIC) Addresses() ([]ConfigSourceAddr, error) {
 	addrs, err := n.nic.Addrs()
 	if err != nil {
-		return nil, errors.Annotatef(err, "retrieving addresses for interface %q", n.nic.Name)
+		return nil, errors.Trace(err)
 	}
 
 	result := make([]ConfigSourceAddr, 0, len(addrs))
@@ -150,12 +150,15 @@ func (n *netPackageConfigSource) SysClassNetPath() string {
 func (n *netPackageConfigSource) Interfaces() ([]ConfigSourceNIC, error) {
 	nics, err := n.interfaces()
 	if err != nil {
-		return nil, errors.Annotate(err, "detecting network interfaces")
+		return nil, errors.Trace(err)
 	}
 
 	result := make([]ConfigSourceNIC, len(nics))
 	for i := range nics {
-		result[i] = NewNetNIC(n.SysClassNetPath(), &nics[i])
+		// Close over the sysClassNetPath so that
+		// the NIC needs to know nothing about it.
+		parseType := func(name string) InterfaceType { return ParseInterfaceType(n.SysClassNetPath(), name) }
+		result[i] = NewNetNIC(&nics[i], parseType)
 	}
 	return result, nil
 }

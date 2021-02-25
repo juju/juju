@@ -179,6 +179,28 @@ func (s *sourceOtherSuite) TestConfigSourceInterfaces(c *gc.C) {
 	}
 }
 
+func (s *sourceOtherSuite) TestNICTypeDerivation(c *gc.C) {
+	getType := func(string) InterfaceType { return BondInterface }
+
+	// If we have get value, return it.
+	raw := &net.Interface{}
+	c.Check(NewNetNIC(raw, getType).Type(), gc.Equals, BondInterface)
+
+	getType = func(string) InterfaceType { return UnknownInterface }
+
+	// Infer loopback from flags.
+	raw = &net.Interface{
+		Flags: net.FlagUp | net.FlagLoopback,
+	}
+	c.Check(NewNetNIC(raw, getType).Type(), gc.Equals, LoopbackInterface)
+
+	// Default to ethernet otherwise.
+	raw = &net.Interface{
+		Flags: net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
+	}
+	c.Check(NewNetNIC(raw, getType).Type(), gc.Equals, EthernetInterface)
+}
+
 func parseMAC(c *gc.C, val string) net.HardwareAddr {
 	mac, err := net.ParseMAC(val)
 	c.Assert(err, jc.ErrorIsNil)
