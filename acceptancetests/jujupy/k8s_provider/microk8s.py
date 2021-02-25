@@ -25,6 +25,7 @@ import os
 import json
 import yaml
 from pprint import pformat
+from time import sleep
 
 import dns.resolver
 
@@ -97,18 +98,24 @@ class MicroK8s(Base):
             for _ in until_timeout(timeout):
                 if checker():
                     break
+                sleep(5)
 
         def check_addons():
             addons_status = self._microk8s_status(True)['addons']
-            is_ok = all([addons_status.get(addon) == 'enabled' for addon in addons])
+            is_ok = all([
+                # addon can be like metallb:10.64.140.43-10.64.140.49
+                addons_status.get(addon.split(':')[0]) == 'enabled' for addon in addons
+            ])
             if is_ok:
                 logger.info('required addons are all ready now -> \n%s', pformat(addons_status))
+            else:
+                logger.info('required addons are not all ready yet -> \n%s', pformat(addons_status))
             return is_ok
 
         out = self.sh('microk8s.enable', *addons)
         logger.info(out)
         # wait for a bit to let all addons are fully provisoned.
-        wait_until_ready(self.timeout, check_addons)
+        wait_until_ready(300, check_addons)
 
     def __ensure_microk8s_installed(self):
         # unfortunately, we need sudo!
