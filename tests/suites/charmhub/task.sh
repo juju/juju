@@ -11,8 +11,6 @@ test_charmhub() {
 
     file="${TEST_DIR}/test-charmhub.log"
 
-    export JUJU_DEV_FEATURE_FLAGS="charm-hub"
-
     bootstrap "test-charmhub" "${file}"
 
     test_charmhub_download
@@ -20,6 +18,4 @@ test_charmhub() {
     test_charmhub_info
 
     destroy_controller "test-charmhub"
-
-    unset JUJU_DEV_FEATURE_FLAGS
 }
