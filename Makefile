@@ -43,7 +43,7 @@ endif
 
 # Enable coverage testing.
 ifeq ($(COVERAGE_CHECK), 1)
-	TEST_ARGS += -cover
+	TEST_ARGS += -coverprofile=coverage.txt -covermode=atomic
 endif
 
 # Enable verbose testing for reporting.
