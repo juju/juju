@@ -13,6 +13,8 @@ import (
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/charms"
+	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/charmstore"
 	jujucmd "github.com/juju/juju/cmd"
@@ -25,6 +27,11 @@ type ResourceLister interface {
 	ListResources(ids []CharmID) ([][]charmresource.Resource, error)
 }
 
+// CharmResourceLister lists the resource of a charm.
+type CharmResourceLister interface {
+	ListCharmResources(curl *charm.URL, origin apicharm.Origin) ([]charmresource.Resource, error)
+}
+
 // CharmID represents the charm identifier.
 type CharmID struct {
 	// URL is the url of the charm.
@@ -34,15 +41,25 @@ type CharmID struct {
 	Channel corecharm.Channel
 }
 
+// BakeryClient defines a way to create a bakery client.
+type BakeryClient = func() (*httpbakery.Client, error)
+
+// ControllerAPIRoot defines a way to create a new controller API root.
+type ControllerAPIRoot = func() (api.Connection, error)
+
+// APIRoot defines a way to create a new API root.
+type APIRoot = func() (api.Connection, error)
+
 // ResourceListerDependencies defines the dependencies to create a store
-// dependant resource listener.
+// dependant resource lister.
 type ResourceListerDependencies interface {
 	BakeryClient() (*httpbakery.Client, error)
 	NewControllerAPIRoot() (api.Connection, error)
+	NewAPIRoot() (api.Connection, error)
 }
 
 // CreateResourceListener defines a factory function to create a resource
-// listener.
+// lister.
 type CreateResourceListener = func(string, ResourceListerDependencies) (ResourceLister, error)
 
 // CharmResourcesCommand implements the "juju charm-resources" command.
@@ -226,29 +243,59 @@ func resolveCharm(raw string) (*charm.URL, error) {
 
 func defaultResourceLister(schema string, deps ResourceListerDependencies) (ResourceLister, error) {
 	if charm.CharmHub.Matches(schema) {
-		return nil, errors.Errorf("charmhub charms are currently not supported")
+		return &CharmhubResourceLister{
+			APIRootFn: deps.NewAPIRoot,
+		}, nil
 	}
 
-	return &CharmStoreResourceListener{
+	return &CharmStoreResourceLister{
 		BakeryClientFn:      deps.BakeryClient,
 		ControllerAPIRootFn: deps.NewControllerAPIRoot,
 	}, nil
 }
 
-// BakeryClient defines a way to create a bakery client.
-type BakeryClient = func() (*httpbakery.Client, error)
+// CharmhubResourceLister defines a charm hub resource lister.
+type CharmhubResourceLister struct {
+	APIRootFn APIRoot
+}
 
-// ControllerAPIRoot defines a way to create a new controller API root.
-type ControllerAPIRoot = func() (api.Connection, error)
+// ListResources implements CharmResourceLister.
+func (c *CharmhubResourceLister) ListResources(ids []CharmID) ([][]charmresource.Resource, error) {
+	if len(ids) != 1 {
+		return nil, errors.Errorf("expected one resource to list")
+	}
+	id := ids[0]
+	var track *string
+	if id.Channel.Track != "" {
+		track = &id.Channel.Track
+	}
 
-// CharmStoreResourceListener defines a charm store resource listener.
-type CharmStoreResourceListener struct {
+	apiRoot, err := c.APIRootFn()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	client := charms.NewClient(apiRoot)
+	results, err := client.ListCharmResources(id.URL, apicharm.Origin{
+		Source: apicharm.OriginCharmHub,
+		Track:  track,
+		Risk:   string(id.Channel.Risk),
+	})
+	if errors.IsNotSupported(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return [][]charmresource.Resource{results}, nil
+}
+
+// CharmStoreResourceLister defines a charm store resource lister.
+type CharmStoreResourceLister struct {
 	BakeryClientFn      BakeryClient
 	ControllerAPIRootFn ControllerAPIRoot
 }
 
 // ListResources implements CharmResourceLister.
-func (c *CharmStoreResourceListener) ListResources(ids []CharmID) ([][]charmresource.Resource, error) {
+func (c *CharmStoreResourceLister) ListResources(ids []CharmID) ([][]charmresource.Resource, error) {
 	bakeryClient, err := c.BakeryClientFn()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -278,7 +325,7 @@ func (c *CharmStoreResourceListener) ListResources(ids []CharmID) ([][]charmreso
 }
 
 // getCharmStoreAPIURL consults the controller config for the charmstore api url to use.
-func (c *CharmStoreResourceListener) getCharmStoreAPIURL(conAPIRoot api.Connection) (string, error) {
+func (c *CharmStoreResourceLister) getCharmStoreAPIURL(conAPIRoot api.Connection) (string, error) {
 	controllerAPI := controller.NewClient(conAPIRoot)
 	controllerCfg, err := controllerAPI.ControllerConfig()
 	if err != nil {
