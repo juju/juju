@@ -11,8 +11,7 @@ import (
 // MinMajorUpgradeVersionValue defines the value to identify what the last
 // version should be.
 var MinMajorUpgradeVersionValue = map[int]string{
-	// TODO(wallyworld) - change to 2.9.0 when 2.9.0 is released.
-	3: "2.9-rc2",
+	3: "2.8.9",
 }
 
 // MinMajorUpgradeVersion defines the minimum version all models

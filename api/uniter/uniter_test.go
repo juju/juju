@@ -15,13 +15,13 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type stateSuite struct {
+type uniterSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = gc.Suite(&uniterSuite{})
 
-func (s *stateSuite) TestProviderType(c *gc.C) {
+func (s *uniterSuite) TestProviderType(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
 		c.Assert(request, gc.Equals, "ProviderType")
@@ -39,39 +39,7 @@ func (s *stateSuite) TestProviderType(c *gc.C) {
 	c.Assert(providerType, gc.Equals, "somecloud")
 }
 
-func (s *stateSuite) TestAllMachinePorts(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "AllMachinePorts")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "machine-666"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.MachinePortsResults{})
-		*(result.(*params.MachinePortsResults)) = params.MachinePortsResults{
-			Results: []params.MachinePortsResult{{
-				Ports: []params.MachinePortRange{{
-					UnitTag:     "unit-mysql-0",
-					RelationTag: "",
-					PortRange:   params.PortRange{100, 200, "tcp"},
-				}, {
-					UnitTag:     "unit-mysql-1",
-					RelationTag: "",
-					PortRange:   params.PortRange{10, 20, "udp"},
-				}},
-			}},
-		}
-		return nil
-	})
-	caller := testing.BestVersionCaller{apiCaller, 1}
-	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
-
-	portsMap, err := client.AllMachinePorts(names.NewMachineTag("666"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(portsMap, jc.DeepEquals, map[network.PortRange]params.RelationUnit{
-		{100, 200, "tcp"}: {Unit: "unit-mysql-0"},
-		{10, 20, "udp"}:   {Unit: "unit-mysql-1"},
-	})
-}
-
-func (s *stateSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
+func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
 		c.Assert(request, gc.Equals, "OpenedMachinePortRangesByEndpoint")

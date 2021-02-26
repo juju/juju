@@ -369,41 +369,7 @@ func (st *State) Model() (*model.Model, error) {
 	}, nil
 }
 
-// AllMachinePorts returns all port ranges currently open on the given
-// machine, mapped to the tags of the unit that opened them and the
-// relation that applies.
-func (st *State) AllMachinePorts(machineTag names.MachineTag) (map[network.PortRange]params.RelationUnit, error) {
-	if st.BestAPIVersion() < 1 {
-		// AllMachinePorts() was introduced in UniterAPIV1.
-		return nil, errors.NotImplementedf("AllMachinePorts() (need V1+)")
-	}
-	var results params.MachinePortsResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: machineTag.String()}},
-	}
-	err := st.facade.FacadeCall("AllMachinePorts", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	portsMap := make(map[network.PortRange]params.RelationUnit)
-	for _, ports := range result.Ports {
-		portRange := ports.PortRange.NetworkPortRange()
-		portsMap[portRange] = params.RelationUnit{
-			Unit:     ports.UnitTag,
-			Relation: ports.RelationTag,
-		}
-	}
-	return portsMap, nil
-}
-
-// OpenedMachinePortRanges returns all port ranges currently open on the given
+// OpenedMachinePortRangesByEndpoint returns all port ranges currently open on the given
 // machine, grouped by unit tag and application endpoint.
 func (st *State) OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
 	if st.BestAPIVersion() < 17 {

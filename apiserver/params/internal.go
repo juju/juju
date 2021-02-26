@@ -405,22 +405,6 @@ type RelationResult struct {
 	OtherApplication string     `json:"other-application,omitempty"`
 }
 
-// RelationResultV5 returns information about a single relation,
-// or an error, but doesn't include the other application name.
-type RelationResultV5 struct {
-	Error    *Error     `json:"error,omitempty"`
-	Life     life.Value `json:"life"`
-	Id       int        `json:"id"`
-	Key      string     `json:"key"`
-	Endpoint Endpoint   `json:"endpoint"`
-}
-
-// RelationResultsV5 holds the result of an API call that returns
-// information about multiple V5 relations.
-type RelationResultsV5 struct {
-	Results []RelationResultV5 `json:"results"`
-}
-
 // EntityCharmURL holds an entity's tag and a charm URL.
 type EntityCharmURL struct {
 	Tag      string `json:"tag"`
@@ -560,7 +544,7 @@ type SetModelEnvironVersions struct {
 	Models []SetModelEnvironVersion `json:"models,omitempty"`
 }
 
-// SetModelEnvironVersions holds the tag and associated environ version
+// SetModelEnvironVersion holds the tag and associated environ version
 // of a model.
 type SetModelEnvironVersion struct {
 	// ModelTag is the string representation of a model tag, which
@@ -680,7 +664,7 @@ type RelationUnitsWatchResults struct {
 	Results []RelationUnitsWatchResult `json:"results"`
 }
 
-// RelationUnitStatusResult holds details about scope
+// RelationUnitStatus holds details about scope
 // and suspended status for a relation unit.
 type RelationUnitStatus struct {
 	RelationTag string `json:"relation-tag"`
@@ -840,7 +824,7 @@ type ProvisioningNetworkTopology struct {
 	SpaceSubnets map[string][]string `json:"space-subnets"`
 }
 
-// ProvisioningInfo holds machine provisioning info returned by
+// ProvisioningInfoV10 holds machine provisioning info returned by
 // versions 10 and above of the provisioner API facade.
 type ProvisioningInfoV10 struct {
 	ProvisioningInfoBase
@@ -854,7 +838,7 @@ type ProvisioningInfoResultV10 struct {
 	Error  *Error               `json:"error,omitempty"`
 }
 
-// ProvisioningInfoResults holds multiple machine provisioning info results
+// ProvisioningInfoResultsV10 holds multiple machine provisioning info results
 // for versions 10 and above of the provisioner API facade.
 type ProvisioningInfoResultsV10 struct {
 	Results []ProvisioningInfoResultV10 `json:"results"`

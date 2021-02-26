@@ -99,7 +99,7 @@ func (r *restrictNewerClientSuite) TestAgentAllowedMethod(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(caller, gc.NotNil)
 	}
-	checkAllowed("Uniter", "CurrentModel", 15)
+	checkAllowed("Uniter", "CurrentModel", 17)
 }
 
 func (r *restrictNewerClientSuite) TestReallyOldAgentDisallowedMethod(c *gc.C) {

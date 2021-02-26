@@ -622,20 +622,13 @@ func FromHostPort(nhp network.HostPort) HostPort {
 	}
 }
 
-// TODO (wpk) Uniter.NetworkConfig API is obsolete, use NetworkInfo instead
-// UnitsNetworkConfig holds the parameters for calling Uniter.NetworkConfig()
-// API. We need to retain until V4 of the Uniter API is removed.
-type UnitsNetworkConfig struct {
-	Args []UnitNetworkConfig `json:"args"`
-}
-
 // UnitNetworkConfig holds a unit tag and an endpoint binding name.
 type UnitNetworkConfig struct {
 	UnitTag     string `json:"unit-tag"`
 	BindingName string `json:"binding-name"`
 }
 
-// SetProviderNetworkConfigs holds a machine tag and a list of network interface
+// SetProviderNetworkConfig holds a machine tag and a list of network interface
 // info obtained by querying the provider.
 type SetProviderNetworkConfig struct {
 	Args []ProviderNetworkConfig `json:"args"`
@@ -784,23 +777,17 @@ type HostNetworkChangeResults struct {
 	Results []HostNetworkChange `json:"results"`
 }
 
-// MachinePortsParams holds the arguments for making a
-// FirewallerAPIV1.GetMachinePorts() API call.
-type MachinePortsParams struct {
-	Params []MachinePorts `json:"params"`
-}
-
 // MachinePortsResult holds a single result of the
-// FirewallerAPIV1.GetMachinePorts() and UniterAPI.AllMachinePorts()
-// API calls.
+// Uniter.AllMachinePorts() API call.
+// Deprecated: retained to allow upgrading from 2.8.9 (LTS).
 type MachinePortsResult struct {
 	Error *Error             `json:"error,omitempty"`
 	Ports []MachinePortRange `json:"ports"`
 }
 
 // MachinePortsResults holds all the results of the
-// FirewallerAPIV1.GetMachinePorts() and UniterAPI.AllMachinePorts()
-// API calls.
+// Uniter.AllMachinePorts() API call.
+// Deprecated: retained to allow upgrading from 2.8.9 (LTS).
 type MachinePortsResults struct {
 	Results []MachinePortsResult `json:"results"`
 }
@@ -1189,17 +1176,6 @@ type NetworkInfoResult struct {
 // NetworkInfoResults holds a mapping from binding name to NetworkInfoResult.
 type NetworkInfoResults struct {
 	Results map[string]NetworkInfoResult `json:"results"`
-}
-
-// NetworkInfoResultV6 holds either and error or a list of NetworkInfos for given binding.
-type NetworkInfoResultV6 struct {
-	Error *Error        `json:"error,omitempty" yaml:"error,omitempty"`
-	Info  []NetworkInfo `json:"network-info" yaml:"info"`
-}
-
-// NetworkInfoResults holds a mapping from binding name to NetworkInfoResultV6.
-type NetworkInfoResultsV6 struct {
-	Results map[string]NetworkInfoResultV6 `json:"results"`
 }
 
 // NetworkInfoParams holds a name of the unit and list of bindings for which we want to get NetworkInfos.

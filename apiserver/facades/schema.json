@@ -41579,18 +41579,6 @@
                     },
                     "description": "AddUnitStorage validates and creates additional storage instances for units.\nFailures on an individual storage instance do not block remaining\ninstances from being processed."
                 },
-                "AllMachinePorts": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/MachinePortsResults"
-                        }
-                    },
-                    "description": "AllMachinePorts returns all opened port ranges for each given\nmachine (on all networks).\n\nDEPRECATED: clients should switch to the OpenedMachinePortRanges API call\nwhen using the V17+ API.\n\nTODO(achilleasa): remove from V17 once all client references to this API\nhave been changed to use the new API."
-                },
                 "ApplicationStatus": {
                     "type": "object",
                     "properties": {
@@ -43575,59 +43563,6 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/LifeResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "MachinePortRange": {
-                    "type": "object",
-                    "properties": {
-                        "port-range": {
-                            "$ref": "#/definitions/PortRange"
-                        },
-                        "relation-tag": {
-                            "type": "string"
-                        },
-                        "unit-tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "unit-tag",
-                        "relation-tag",
-                        "port-range"
-                    ]
-                },
-                "MachinePortsResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "ports": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MachinePortRange"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "ports"
-                    ]
-                },
-                "MachinePortsResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MachinePortsResult"
                             }
                         }
                     },
