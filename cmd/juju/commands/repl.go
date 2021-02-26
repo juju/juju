@@ -55,7 +55,7 @@ Type "q" or ^D or ^C to quit.
 
 var (
 	quitCommands         = set.NewStrings("q", "quit", "exit")
-	noControllerCommands = set.NewStrings("bootstrap", "register")
+	noControllerCommands = set.NewStrings("help", "bootstrap", "register")
 )
 
 const (
