@@ -242,33 +242,6 @@ type receiverGroup struct {
 	Actions       []testCaseAction
 }
 
-type testCase struct {
-	Groups []receiverGroup
-}
-
-var testCases = []testCase{{
-	Groups: []receiverGroup{
-		{
-			ExpectedError: &params.Error{Message: "id not found", Code: "not found"},
-			Receiver:      names.NewApplicationTag("wordpress"),
-			Actions:       []testCaseAction{},
-		}, {
-			Receiver: names.NewUnitTag("wordpress/0"),
-			Actions: []testCaseAction{
-				{"fakeaction", map[string]interface{}{}, false},
-				{"fakeaction", map[string]interface{}{"asdf": 3}, true},
-				{"fakeaction", map[string]interface{}{"qwer": "ty"}, false},
-			},
-		}, {
-			Receiver: names.NewUnitTag("mysql/0"),
-			Actions: []testCaseAction{
-				{"fakeaction", map[string]interface{}{"zxcv": false}, false},
-				{"fakeaction", map[string]interface{}{}, true},
-			},
-		},
-	},
-}}
-
 func (s *actionSuite) TestCancel(c *gc.C) {
 	// Make sure no Actions already exist on wordpress Unit.
 	actions, err := s.wordpressUnit.Actions()
@@ -502,22 +475,6 @@ func assertReadyToTest(c *gc.C, receiver state.ActionReceiver) {
 	actions, err = receiver.CompletedActions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actions, gc.HasLen, 0)
-}
-
-func assertSame(c *gc.C, got, expected params.ActionsByReceivers) {
-	c.Assert(got.Actions, gc.HasLen, len(expected.Actions))
-	for i, g1 := range got.Actions {
-		e1 := expected.Actions[i]
-		c.Assert(g1.Error, gc.DeepEquals, e1.Error)
-		c.Assert(g1.Receiver, gc.DeepEquals, e1.Receiver)
-		for _, a1 := range g1.Actions {
-			for _, m := range a1.Log {
-				c.Assert(m.Timestamp.IsZero(), jc.IsFalse)
-				m.Timestamp = time.Time{}
-			}
-		}
-		c.Assert(toStrings(g1.Actions), jc.SameContents, toStrings(e1.Actions))
-	}
 }
 
 func toStrings(items []params.ActionResult) []string {

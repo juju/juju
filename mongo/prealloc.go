@@ -18,10 +18,6 @@ var (
 	runtimeGOOS  = runtime.GOOS
 	hostWordSize = arch.Info[arch.HostArch()].WordSize
 
-	// zeroes is used by preallocFile to write zeroes to
-	// preallocated Mongo data files.
-	zeroes = make([]byte, 64*1024)
-
 	smallOplogSizeMB   = 512
 	regularOplogSizeMB = 1024
 	smallOplogBoundary = 15360.0
