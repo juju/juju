@@ -71,3 +71,36 @@ func (*sourceSuite) TestParseInterfaceType(c *gc.C) {
 	result = network.ParseInterfaceType(fakeSysPath, "fake")
 	c.Check(result, gc.Equals, network.UnknownInterface)
 }
+
+func (*sourceSuite) TestGetBridgePorts(c *gc.C) {
+	fakeSysPath := filepath.Join(c.MkDir(), network.SysClassNetPath)
+	err := os.MkdirAll(fakeSysPath, 0700)
+	c.Check(err, jc.ErrorIsNil)
+
+	writeFakePorts := func(bridgeName string, portNames ...string) {
+		fakePortsPath := filepath.Join(fakeSysPath, bridgeName, "brif")
+		err := os.MkdirAll(fakePortsPath, 0700)
+		c.Check(err, jc.ErrorIsNil)
+
+		for _, portName := range portNames {
+			portPath := filepath.Join(fakePortsPath, portName)
+			err = ioutil.WriteFile(portPath, []byte(""), 0644)
+			c.Check(err, jc.ErrorIsNil)
+		}
+	}
+
+	result := network.GetBridgePorts(fakeSysPath, "missing")
+	c.Check(result, gc.IsNil)
+
+	writeFakePorts("br-eth0")
+	result = network.GetBridgePorts(fakeSysPath, "br-eth0")
+	c.Check(result, gc.IsNil)
+
+	writeFakePorts("br-eth0", "eth0")
+	result = network.GetBridgePorts(fakeSysPath, "br-eth0")
+	c.Check(result, jc.DeepEquals, []string{"eth0"})
+
+	writeFakePorts("br-ovs", "eth0", "eth1", "eth2")
+	result = network.GetBridgePorts(fakeSysPath, "br-ovs")
+	c.Check(result, jc.DeepEquals, []string{"eth0", "eth1", "eth2"})
+}
