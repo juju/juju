@@ -3498,6 +3498,61 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 		},
 	})
 }
+func (s *uniterSuite) TestAllMachinePorts(c *gc.C) {
+	// Verify no ports are opened yet on the machine (or unit).
+	machinePortRanges, err := s.machine0.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machinePortRanges.UniquePortRanges(), gc.HasLen, 0)
+
+	// Add another mysql unit on machine 0.
+	mysqlUnit1, err := s.mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlUnit1.AssignToMachine(s.machine0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Open some ports on both units.
+	wpPortRanges := machinePortRanges.ForUnit(s.wordpressUnit.Name())
+	wpPortRanges.Open(allEndpoints, network.MustParsePortRange("100-200/tcp"))
+	wpPortRanges.Open(allEndpoints, network.MustParsePortRange("10-20/udp"))
+
+	msPortRanges := machinePortRanges.ForUnit(mysqlUnit1.Name())
+	msPortRanges.Open(allEndpoints, network.MustParsePortRange("201-250/tcp"))
+	msPortRanges.Open(allEndpoints, network.MustParsePortRange("1-8/udp"))
+
+	c.Assert(s.State.ApplyOperation(machinePortRanges.Changes()), jc.ErrorIsNil)
+
+	// Method is only present in V16 or earlier
+	apiV16, err := uniter.NewUniterAPIV16(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get the open port ranges
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "machine-0"},
+		{Tag: "machine-1"},
+		{Tag: "unit-foo-42"},
+		{Tag: "machine-42"},
+		{Tag: "application-wordpress"},
+	}}
+	expectPorts := []params.MachinePortRange{
+		{UnitTag: "unit-wordpress-0", PortRange: params.PortRange{100, 200, "tcp"}},
+		{UnitTag: "unit-mysql-1", PortRange: params.PortRange{201, 250, "tcp"}},
+		{UnitTag: "unit-mysql-1", PortRange: params.PortRange{1, 8, "udp"}},
+		{UnitTag: "unit-wordpress-0", PortRange: params.PortRange{10, 20, "udp"}},
+	}
+	result, err := apiV16.AllMachinePorts(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.MachinePortsResults{
+		Results: []params.MachinePortsResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Ports: expectPorts},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
 
 func (s *uniterSuite) TestSLALevel(c *gc.C) {
 	err := s.State.SetSLA("essential", "bob", []byte("creds"))

@@ -15,13 +15,13 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type stateSuite struct {
+type uniterSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = gc.Suite(&uniterSuite{})
 
-func (s *stateSuite) TestProviderType(c *gc.C) {
+func (s *uniterSuite) TestProviderType(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
 		c.Assert(request, gc.Equals, "ProviderType")
@@ -39,7 +39,7 @@ func (s *stateSuite) TestProviderType(c *gc.C) {
 	c.Assert(providerType, gc.Equals, "somecloud")
 }
 
-func (s *stateSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
+func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
 		c.Assert(request, gc.Equals, "OpenedMachinePortRangesByEndpoint")

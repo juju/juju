@@ -323,6 +323,8 @@ func AllFacades() *facade.Registry {
 	reg("Undertaker", 1, undertaker.NewUndertakerAPI)
 	reg("UnitAssigner", 1, unitassigner.New)
 
+	// Deprecated: V16 of the uniter facade retained to allow upgrading from 2.8.9 (LTS).
+	reg("Uniter", 16, uniter.NewUniterAPIV16)
 	reg("Uniter", 17, uniter.NewUniterAPI)
 
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)

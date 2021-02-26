@@ -777,6 +777,21 @@ type HostNetworkChangeResults struct {
 	Results []HostNetworkChange `json:"results"`
 }
 
+// MachinePortsResult holds a single result of the
+// Uniter.AllMachinePorts() API call.
+// Deprecated: retained to allow upgrading from 2.8.9 (LTS).
+type MachinePortsResult struct {
+	Error *Error             `json:"error,omitempty"`
+	Ports []MachinePortRange `json:"ports"`
+}
+
+// MachinePortsResults holds all the results of the
+// Uniter.AllMachinePorts() API call.
+// Deprecated: retained to allow upgrading from 2.8.9 (LTS).
+type MachinePortsResults struct {
+	Results []MachinePortsResult `json:"results"`
+}
+
 // OpenMachinePortRangesByEndpointResults holds the results of a request to the
 // uniter's OpenedMachinePortRangesByEndpoint API.
 type OpenMachinePortRangesByEndpointResults struct {

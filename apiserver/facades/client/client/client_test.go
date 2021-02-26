@@ -296,7 +296,7 @@ func (s *serverSuite) TestSetModelAgentVersionOldModels(c *gc.C) {
 	}
 	err = s.client.SetModelAgentVersion(args)
 	c.Assert(err, gc.ErrorMatches, `
-these models must first be upgraded to at least 2.9.* before upgrading the controller:
+these models must first be upgraded to at least 2.8.9 before upgrading the controller:
  -admin/controller`[1:])
 }
 
