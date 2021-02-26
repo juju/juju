@@ -26362,15 +26362,6 @@
                     },
                     "description": "Life returns the life status of every supplied entity, where available."
                 },
-                "ModelUUID": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/StringResult"
-                        }
-                    },
-                    "description": "ModelUUID returns the model UUID that this machine resides in.\nIt is implemented here directly as a result of removing it from\nembedded APIAddresser *without* bumping the facade version.\nIt should be blanked when this facade version is next incremented."
-                },
                 "RecordAgentStartTime": {
                     "type": "object",
                     "properties": {
@@ -26932,21 +26923,6 @@
                     "additionalProperties": false,
                     "required": [
                         "entities"
-                    ]
-                },
-                "StringResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
                     ]
                 },
                 "StringsResult": {
@@ -39071,7 +39047,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "RemoveAttachments removes the specified machine storage attachments\nfrom state."
+                    "description": "RemoveAttachment removes the specified machine storage attachments\nfrom state."
                 },
                 "RemoveFilesystemParams": {
                     "type": "object",
