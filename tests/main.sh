@@ -53,6 +53,7 @@ TEST_NAMES="agents \
             model \
             network \
             relations \
+            resources \
             smoke \
             spaces_ec2 \
             static_analysis \
