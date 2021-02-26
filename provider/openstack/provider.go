@@ -1236,8 +1236,9 @@ func (e *Environ) startInstance(
 				// If we got an error back (eg. StillBuilding)
 				// we need to terminate the instance before
 				// retrying to avoid leaking resources.
+				logger.Warningf("Unable to retrieve details for created instance %q: %v; attempting to terminate it", server.Id, err)
 				if termErr := e.terminateInstances(ctx, []instance.Id{instance.Id(server.Id)}); termErr != nil {
-					logger.Debugf("Failed to delete instance in BUILD state, %q", termErr)
+					logger.Errorf("Failed to delete instance %q: %v; manual cleanup required", server.Id, termErr)
 				}
 				server = nil
 				break
@@ -1254,7 +1255,7 @@ func (e *Environ) startInstance(
 				}
 				logger.Infof("Deleting instance %q in ERROR state%v", server.Id, faultMsg)
 				if err = e.terminateInstances(ctx, []instance.Id{instance.Id(server.Id)}); err != nil {
-					logger.Debugf("Failed to delete instance in ERROR state, %q", err)
+					logger.Errorf("Failed to delete instance in ERROR state %q: %v; manual cleanup required", server.Id, err)
 				}
 				server = nil
 				err = errors.New(faultMsg)
