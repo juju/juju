@@ -103,15 +103,15 @@ func ParseInterfaceType(sysPath, interfaceName string) InterfaceType {
 		return UnknownInterface
 	}
 
-	devtype := ""
+	var devType string
 	lines := strings.Fields(string(data))
 	for _, line := range lines {
 		if !strings.HasPrefix(line, deviceType) {
 			continue
 		}
 
-		devtype = strings.TrimPrefix(line, deviceType)
-		switch devtype {
+		devType = strings.TrimPrefix(line, deviceType)
+		switch devType {
 		case "bridge":
 			return BridgeInterface
 		case "vlan":

@@ -148,11 +148,11 @@ func (n *netPackageConfigSource) Interfaces() ([]ConfigSourceNIC, error) {
 		return nil, errors.Trace(err)
 	}
 
+	parseType := func(name string) InterfaceType { return ParseInterfaceType(n.sysClassNetPath, name) }
 	result := make([]ConfigSourceNIC, len(nics))
 	for i := range nics {
 		// Close over the sysClassNetPath so that
 		// the NIC needs to know nothing about it.
-		parseType := func(name string) InterfaceType { return ParseInterfaceType(n.sysClassNetPath, name) }
 		result[i] = NewNetNIC(&nics[i], parseType)
 	}
 	return result, nil
