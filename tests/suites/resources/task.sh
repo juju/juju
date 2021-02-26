@@ -13,7 +13,7 @@ test_resources() {
 
     bootstrap "test-resources" "${file}"
 
-    #test_basic_resources
+    test_basic_resources
     test_upgrade_resources
 
     destroy_controller "test-resources"

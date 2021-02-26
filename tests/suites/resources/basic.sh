@@ -7,12 +7,12 @@ run_deploy_repo_resource(){
 
     ensure "test-${name}" "${file}"
 
-    juju deploy juju-qa-test --channel 2.0/stable
+    juju deploy juju-qa-test --channel candidate
     wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
-    juju config juju-qa-test file-foo=true
+    juju config juju-qa-test foo-file=true
 
     # wait for update-status
-    wait_for "resource line one: testing stable?" "$(workload_status juju-qa-test 0).message"
+    wait_for "resource line one: testing four." "$(workload_status juju-qa-test 0).message"
 
     destroy_model "test-${name}"
 }
@@ -25,9 +25,9 @@ run_deploy_local_resource(){
 
     ensure "test-${name}" "${file}"
 
-    juju deploy juju-qa-test --resource foo-file="${TEST_DIR}/foo-file.txt"
+    juju deploy juju-qa-test --resource foo-file="./tests/suites/resources/foo-file.txt"
     wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
-    juju config juju-qa-test file-foo=true
+    juju config juju-qa-test foo-file=true
 
     # wait for update-status
     wait_for "resource line one: did the resource attach?" "$(workload_status juju-qa-test 0).message"
