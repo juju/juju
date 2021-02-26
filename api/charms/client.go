@@ -232,7 +232,7 @@ func (c *Client) ListCharmResources(curl *charm.URL, origin apicharm.Origin) ([]
 
 		chRes, err := api.API2CharmResource(res.CharmResource)
 		if err != nil {
-			return nil, errors.Annotate(err, "got bad data from server")
+			return nil, errors.Annotate(err, "unexpected charm resource")
 		}
 		resources[i] = chRes
 	}

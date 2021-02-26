@@ -281,7 +281,7 @@ func (c *CharmhubResourceLister) ListResources(ids []CharmID) ([][]charmresource
 		Risk:   string(id.Channel.Risk),
 	})
 	if errors.IsNotSupported(err) {
-		return nil, nil
+		return nil, errors.Errorf("charmhub charms are not supported with the current controller, try upgrading the controller to a newer version")
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}

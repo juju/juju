@@ -204,7 +204,7 @@ func (c *chRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url
 
 // ListResources returns the resources for a given charm and origin.
 func (c *chRepo) ListResources(curl *charm.URL, origin corecharm.Origin) ([]charmresource.Resource, error) {
-	logger.Tracef("CharmStore ListResources %q", curl)
+	logger.Tracef("CharmHub ListResources %q", curl)
 	var err error
 	curl, origin, _, err = c.ResolveWithPreferredChannel(curl, origin)
 	if err != nil {
