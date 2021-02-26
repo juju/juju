@@ -205,13 +205,19 @@ func (c *chRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url
 // ListResources returns the resources for a given charm and origin.
 func (c *chRepo) ListResources(curl *charm.URL, origin corecharm.Origin) ([]charmresource.Resource, error) {
 	logger.Tracef("CharmHub ListResources %q", curl)
-	var err error
-	curl, origin, _, err = c.ResolveWithPreferredChannel(curl, origin)
-	if err != nil {
+
+	resCurl, resOrigin, _, err := c.ResolveWithPreferredChannel(curl, origin)
+	if isErrSelection(err) {
+		var channel string
+		if origin.Channel != nil {
+			channel = origin.Channel.String()
+		}
+		return nil, errors.Errorf("unable to locate charm %q with matching channel %q", curl.Name, channel)
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	resp, err := c.refreshOne(curl, origin)
+	resp, err := c.refreshOne(resCurl, resOrigin)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -280,11 +286,26 @@ func (c *chRepo) selectNextRelease(releases []transport.Release, origin corechar
 		if len(suggestions) > 0 {
 			s = fmt.Sprintf("; suggestions: %v", strings.Join(suggestions, ", "))
 		}
-		return Release{}, errors.Errorf("no charm or bundle matching channel or platform%s", s)
+		return Release{}, errSelection{
+			err: errors.Errorf("no charm or bundle matching channel or platform%s", s),
+		}
 	}
 
 	// From the suggestion list, go look up a release that we can retry.
 	return selectReleaseByArchAndChannel(releases, origin)
+}
+
+type errSelection struct {
+	err error
+}
+
+func (e errSelection) Error() string {
+	return e.err.Error()
+}
+
+func isErrSelection(err error) bool {
+	_, ok := errors.Cause(err).(errSelection)
+	return ok
 }
 
 // Method describes the method for requesting the charm using the RefreshAPI.
