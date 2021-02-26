@@ -147,31 +147,8 @@ func (st *State) ContainerManagerConfig(args params.ContainerManagerConfigParams
 // ContainerConfig returns information from the model config that is
 // needed for container cloud-init.
 func (st *State) ContainerConfig() (result params.ContainerConfig, err error) {
-	if st.facade.BestAPIVersion() < 6 {
-		return st.containerConfigV5()
-	}
 	err = st.facade.FacadeCall("ContainerConfig", nil, &result)
 	return result, err
-}
-
-func (st *State) containerConfigV5() (params.ContainerConfig, error) {
-	var result params.ContainerConfigV5
-	if err := st.facade.FacadeCall("ContainerConfig", nil, &result); err != nil {
-		return params.ContainerConfig{}, err
-	}
-	return params.ContainerConfig{
-		ProviderType:            result.ProviderType,
-		AuthorizedKeys:          result.AuthorizedKeys,
-		SSLHostnameVerification: result.SSLHostnameVerification,
-		LegacyProxy:             result.Proxy,
-		AptProxy:                result.AptProxy,
-		// JujuProxy is zero value.
-		// SnapProxy is zero value,
-		AptMirror:                  result.AptMirror,
-		CloudInitUserData:          result.CloudInitUserData,
-		ContainerInheritProperties: result.ContainerInheritProperties,
-		UpdateBehavior:             result.UpdateBehavior,
-	}, nil
 }
 
 // MachinesWithTransientErrors returns a slice of machines and corresponding status information

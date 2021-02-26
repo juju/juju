@@ -32108,7 +32108,7 @@
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/ProvisioningInfoResultsV10"
+                            "$ref": "#/definitions/ProvisioningInfoResults"
                         }
                     },
                     "description": "ProvisioningInfo returns the provisioning information for each given machine entity.\nIt supports all positive space constraints."
@@ -33560,130 +33560,9 @@
                         "Build"
                     ]
                 },
-                "ProvisioningInfoBase": {
+                "ProvisioningInfo": {
                     "type": "object",
                     "properties": {
-                        "charm-lxd-profiles": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "cloudinit-userdata": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "constraints": {
-                            "$ref": "#/definitions/Value"
-                        },
-                        "controller-config": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "endpoint-bindings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "image-metadata": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CloudImageMetadata"
-                            }
-                        },
-                        "jobs": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "placement": {
-                            "type": "string"
-                        },
-                        "root-disk": {
-                            "$ref": "#/definitions/VolumeParams"
-                        },
-                        "series": {
-                            "type": "string"
-                        },
-                        "tags": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "volume-attachments": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/VolumeAttachmentParams"
-                            }
-                        },
-                        "volumes": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/VolumeParams"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "constraints",
-                        "series",
-                        "placement",
-                        "jobs"
-                    ]
-                },
-                "ProvisioningInfoResultV10": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "$ref": "#/definitions/ProvisioningInfoV10"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
-                    ]
-                },
-                "ProvisioningInfoResultsV10": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ProvisioningInfoResultV10"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "ProvisioningInfoV10": {
-                    "type": "object",
-                    "properties": {
-                        "ProvisioningInfoBase": {
-                            "$ref": "#/definitions/ProvisioningInfoBase"
-                        },
                         "ProvisioningNetworkTopology": {
                             "$ref": "#/definitions/ProvisioningNetworkTopology"
                         },
@@ -33792,10 +33671,39 @@
                         "series",
                         "placement",
                         "jobs",
-                        "ProvisioningInfoBase",
                         "subnet-zones",
                         "space-subnets",
                         "ProvisioningNetworkTopology"
+                    ]
+                },
+                "ProvisioningInfoResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "$ref": "#/definitions/ProvisioningInfo"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result"
+                    ]
+                },
+                "ProvisioningInfoResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ProvisioningInfoResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "ProvisioningNetworkTopology": {

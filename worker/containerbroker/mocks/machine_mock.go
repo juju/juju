@@ -201,10 +201,10 @@ func (mr *MockMachineProvisionerMockRecorder) ModelAgentVersion() *gomock.Call {
 }
 
 // ProvisioningInfo mocks base method
-func (m *MockMachineProvisioner) ProvisioningInfo() (*params.ProvisioningInfoV10, error) {
+func (m *MockMachineProvisioner) ProvisioningInfo() (*params.ProvisioningInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProvisioningInfo")
-	ret0, _ := ret[0].(*params.ProvisioningInfoV10)
+	ret0, _ := ret[0].(*params.ProvisioningInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

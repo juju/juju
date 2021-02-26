@@ -275,14 +275,6 @@ func AllFacades() *facade.Registry {
 	)
 
 	reg("Pinger", 1, NewPinger)
-	reg("Provisioner", 3, provisioner.NewProvisionerAPIV4) // Yes this is weird.
-	reg("Provisioner", 4, provisioner.NewProvisionerAPIV4)
-	reg("Provisioner", 5, provisioner.NewProvisionerAPIV5)   // Adds DistributionGroupByMachineId()
-	reg("Provisioner", 6, provisioner.NewProvisionerAPIV6)   // Adds more proxy settings
-	reg("Provisioner", 7, provisioner.NewProvisionerAPIV7)   // Adds charm profile watcher
-	reg("Provisioner", 8, provisioner.NewProvisionerAPIV8)   // Adds changes charm profile and modification status
-	reg("Provisioner", 9, provisioner.NewProvisionerAPIV9)   // Adds supported containers
-	reg("Provisioner", 10, provisioner.NewProvisionerAPIV10) // Adds support for multiple space constraints.
 	reg("Provisioner", 11, provisioner.NewProvisionerAPIV11) // Relies on agent-set origin in SetHostMachineNetworkConfig.
 
 	reg("ProxyUpdater", 1, proxyupdater.NewFacadeV1)

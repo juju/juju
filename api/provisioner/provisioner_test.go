@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/api"
 	apimocks "github.com/juju/juju/api/base/mocks"
-	apibasetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/provisioner"
 	apitesting "github.com/juju/juju/api/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -697,21 +696,6 @@ func (s *provisionerSuite) TestContainerManagerConfigPermissive(c *gc.C) {
 
 func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	result, err := s.provisioner.ContainerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.ProviderType, gc.Equals, "dummy")
-	c.Assert(result.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())
-	c.Assert(result.SSLHostnameVerification, jc.IsTrue)
-}
-
-func (s *provisionerSuite) TestContainerConfigV5(c *gc.C) {
-	caller := apibasetesting.BestVersionCaller{
-		APICallerFunc: s.st.APICall,
-		BestVersion:   5,
-	}
-
-	provAPI := provisioner.NewState(caller)
-
-	result, err := provAPI.ContainerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.ProviderType, gc.Equals, "dummy")
 	c.Assert(result.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())
