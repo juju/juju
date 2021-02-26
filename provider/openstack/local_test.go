@@ -793,6 +793,11 @@ func (s *localServerSuite) TestStartInstanceWaitForActiveDetails(c *gc.C) {
 	inst, _, _, err := testing.StartInstance(env, s.callCtx, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot run instance: max duration exceeded: instance .* has status BUILD")
+
+	// Ensure that the started instance got terminated.
+	insts, err := env.AllInstances(s.callCtx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(insts, gc.HasLen, 0, gc.Commentf("expected launched instance to be terminated if stuck in BUILD state"))
 }
 
 func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
