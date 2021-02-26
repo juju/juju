@@ -12557,6 +12557,18 @@
                     },
                     "description": "List returns a list of charm URLs currently in the state.\nIf supplied parameter contains any names, the result will\nbe filtered to return only the charms with supplied names."
                 },
+                "ListCharmResources": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/CharmURLAndOrigins"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/CharmResourcesResults"
+                        }
+                    },
+                    "description": "ListCharmResources returns a series of resources for a given charm."
+                },
                 "ResolveCharms": {
                     "type": "object",
                     "properties": {
@@ -13160,6 +13172,48 @@
                         "scope"
                     ]
                 },
+                "CharmResource": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "fingerprint": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "origin": {
+                            "type": "string"
+                        },
+                        "path": {
+                            "type": "string"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "size": {
+                            "type": "integer"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "type",
+                        "path",
+                        "origin",
+                        "revision",
+                        "fingerprint",
+                        "size"
+                    ]
+                },
                 "CharmResourceMeta": {
                     "type": "object",
                     "properties": {
@@ -13182,6 +13236,77 @@
                         "type",
                         "path",
                         "description"
+                    ]
+                },
+                "CharmResourceResult": {
+                    "type": "object",
+                    "properties": {
+                        "CharmResource": {
+                            "$ref": "#/definitions/CharmResource"
+                        },
+                        "ErrorResult": {
+                            "$ref": "#/definitions/ErrorResult"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "fingerprint": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "origin": {
+                            "type": "string"
+                        },
+                        "path": {
+                            "type": "string"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "size": {
+                            "type": "integer"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "ErrorResult",
+                        "name",
+                        "type",
+                        "path",
+                        "origin",
+                        "revision",
+                        "fingerprint",
+                        "size",
+                        "CharmResource"
+                    ]
+                },
+                "CharmResourcesResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/CharmResourceResult"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "CharmStorage": {

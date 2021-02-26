@@ -4,6 +4,8 @@
 package cloud
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -373,7 +375,20 @@ func (c *Client) RemoveCloud(cloud string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return result.OneError()
+
+	if err = result.OneError(); err == nil {
+		return nil
+	}
+	if pErr, ok := errors.Cause(err).(*params.Error); ok {
+		switch pErr.Code {
+		case params.CodeNotFound:
+			// Remove the "not found" in the error message to prevent
+			// stuttering.
+			msg := strings.Replace(err.Error(), " not found", "", -1)
+			return errors.NotFoundf(msg)
+		}
+	}
+	return errors.Trace(err)
 }
 
 // CredentialContents returns contents of the credential values for the specified

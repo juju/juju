@@ -94,14 +94,17 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 }
 
 // RunningHookMessage returns the info message to print when running a hook.
-func RunningHookMessage(hookName string) string {
+func RunningHookMessage(hookName string, info hook.Info) string {
+	if info.Kind.IsRelation() && info.RemoteUnit != "" {
+		return fmt.Sprintf("running %s hook for %s", hookName, info.RemoteUnit)
+	}
 	return fmt.Sprintf("running %s hook", hookName)
 }
 
 // Execute runs the hook.
 // Execute is part of the Operation interface.
 func (rh *runHook) Execute(state State) (*State, error) {
-	message := RunningHookMessage(rh.name)
+	message := RunningHookMessage(rh.name, rh.info)
 	if err := rh.beforeHook(state); err != nil {
 		return nil, err
 	}

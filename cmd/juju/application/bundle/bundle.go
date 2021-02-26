@@ -83,6 +83,7 @@ func BuildModelRepresentation(
 			Exposed:       appStatus.Exposed,
 			Series:        appStatus.Series,
 			Channel:       appStatus.CharmChannel,
+			Revision:      curl.Revision,
 			SubordinateTo: appStatus.SubordinateTo,
 			Offers:        offersByApplication[name],
 		}

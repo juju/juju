@@ -566,6 +566,7 @@ def describe_substrate(env):
 def get_stripped_version_number(version_string):
     return get_version_string_parts(version_string)[0]
 
+
 def get_version_string_parts(version_string):
     # strip the series and arch from the built version.
     # Note:
@@ -1553,7 +1554,7 @@ class ModelClient:
         with self.check_timeouts():
             with self.ignore_soft_deadline():
                 yield self.get_status()
-                for remaining in until_timeout(timeout, start=start):
+                for _ in until_timeout(timeout, start=start):
                     yield self.get_status()
 
     def _wait_for_status(self, reporter, translate, exc_type=StatusNotMet,

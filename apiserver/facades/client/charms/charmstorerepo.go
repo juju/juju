@@ -7,6 +7,7 @@ import (
 	"net/url"
 
 	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/charmrepo/v7"
 	"github.com/juju/charmrepo/v7/csclient"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
@@ -14,9 +15,9 @@ import (
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/version"
 )
 
 type csRepo struct {
@@ -26,12 +27,12 @@ type csRepo struct {
 // ResolveWithPreferredChannel calls the CharmStore version of
 // ResolveWithPreferredChannel. Convert CharmStore channel to
 // and from the charm Origin.
-func (c *csRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error) {
-	logger.Tracef("Resolving CharmStore charm %q with channel %q", curl, origin.Risk)
+func (c *csRepo) ResolveWithPreferredChannel(curl *charm.URL, origin corecharm.Origin) (*charm.URL, corecharm.Origin, []string, error) {
+	logger.Tracef("Resolving CharmStore charm %q with channel %q", curl, origin.Channel.Risk)
 	// A charm origin risk is equivalent to a charm store channel
-	newCurl, newRisk, supportedSeries, err := c.repo.ResolveWithPreferredChannel(curl, csparams.Channel(origin.Risk))
+	newCurl, newRisk, supportedSeries, err := c.repo.ResolveWithPreferredChannel(curl, csparams.Channel(origin.Channel.Risk))
 	if err != nil {
-		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
+		return nil, corecharm.Origin{}, nil, errors.Trace(err)
 	}
 
 	var t string
@@ -44,7 +45,7 @@ func (c *csRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 
 	newOrigin := origin
 	newOrigin.Type = t
-	newOrigin.Risk = string(newRisk)
+	newOrigin.Channel.Risk = corecharm.Risk(newRisk)
 	return newCurl, newOrigin, supportedSeries, err
 }
 
@@ -60,6 +61,11 @@ func (c *csRepo) DownloadCharm(resourceURL string, archivePath string) (*charm.C
 func (c *csRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
 	logger.Tracef("CharmStore FindDownloadURL %q", curl)
 	return nil, origin, nil
+}
+
+func (c *csRepo) ListResources(curl *charm.URL, origin corecharm.Origin) ([]charmresource.Resource, error) {
+	logger.Tracef("CharmStore ListResources %q", curl)
+	return nil, nil
 }
 
 type CSResolverGetterFunc func(args ResolverGetterParams) (CSRepository, error)
@@ -92,8 +98,9 @@ func openCSClient(args ResolverGetterParams) (*csclient.Client, error) {
 		return nil, errors.Trace(err)
 	}
 	csParams := csclient.Params{
-		URL:          csURL.String(),
-		BakeryClient: httpbakery.NewClient(),
+		URL:            csURL.String(),
+		BakeryClient:   httpbakery.NewClient(),
+		UserAgentValue: version.UserAgentVersion,
 	}
 
 	if args.CharmStoreMacaroon != nil {

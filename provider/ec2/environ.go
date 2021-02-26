@@ -1010,13 +1010,20 @@ func tagRootDisk(e *amzec2.EC2, ctx context.ProviderCallContext, tags map[string
 	for a := waitRootDiskAttempt.Start(); volumeID == "" && a.Next(); {
 		resp, err := e.Instances([]string{inst.InstanceId}, nil)
 		if err != nil {
-			err = errors.Annotate(maybeConvertCredentialError(err, ctx), "cannot fetch instance information")
-			logger.Warningf("%v", err)
-			if a.HasNext() == false {
-				return err
+			// EC2 calls are eventually consistent; if we get a
+			// NotFound error when looking up the instance we
+			// should retry until it appears or we run out of
+			// attempts.
+			if strings.HasSuffix(ec2ErrCode(err), ".NotFound") {
+				logger.Debugf("instance %v is not available yet; retrying fetch of instance information", inst.InstanceId)
+				continue
 			}
-			logger.Infof("retrying fetch of instances")
-			continue
+
+			// No need to retry for other error types.
+			return errors.Annotate(
+				maybeConvertCredentialError(err, ctx),
+				"cannot fetch instance information",
+			)
 		}
 		if len(resp.Reservations) > 0 && len(resp.Reservations[0].Instances) > 0 {
 			inst = &resp.Reservations[0].Instances[0]
@@ -1519,7 +1526,7 @@ func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 	if err != nil {
 		return errors.Trace(err)
 	}
-	groupIds, err := e.modelSecurityGroupIDs(ctx)
+	groups, err := e.modelSecurityGroups(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1527,6 +1534,10 @@ func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 	resourceIds := make([]string, len(instances))
 	for i, instance := range instances {
 		resourceIds[i] = string(instance.Id())
+	}
+	groupIds := make([]string, len(groups))
+	for i, g := range groups {
+		groupIds[i] = g.Id
 	}
 	resourceIds = append(resourceIds, volumeIds...)
 	resourceIds = append(resourceIds, groupIds...)
@@ -1540,7 +1551,7 @@ func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Ins
 	// We want to return everything we find here except for instances that are
 	// "shutting-down" - they are on the way to be terminated - or already "terminated".
 	// From https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html
-	return e.allInstancesByState(ctx, "rebooting", "pending", "running", "stopping", "stopped")
+	return e.allInstancesByState(ctx, activeStates.Values()...)
 }
 
 // AllRunningInstances is part of the environs.InstanceBroker interface.
@@ -1660,8 +1671,8 @@ func (e *environ) Destroy(ctx context.ProviderCallContext) error {
 	if err := common.Destroy(e, ctx); err != nil {
 		return errors.Trace(maybeConvertCredentialError(err, ctx))
 	}
-	if err := e.cleanEnvironmentSecurityGroups(ctx); err != nil {
-		return errors.Annotate(maybeConvertCredentialError(err, ctx), "cannot delete environment security groups")
+	if err := e.cleanModelSecurityGroups(ctx); err != nil {
+		return errors.Annotate(maybeConvertCredentialError(err, ctx), "cannot delete model security groups")
 	}
 	return nil
 }
@@ -1671,15 +1682,15 @@ func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerU
 	// In case any hosted environment hasn't been cleaned up yet,
 	// we also attempt to delete their resources when the controller
 	// environment is destroyed.
-	if err := e.destroyControllerManagedEnvirons(ctx, controllerUUID); err != nil {
-		return errors.Annotate(err, "destroying managed environs")
+	if err := e.destroyControllerManagedModels(ctx, controllerUUID); err != nil {
+		return errors.Annotate(err, "destroying managed models")
 	}
 	return e.Destroy(ctx)
 }
 
-// destroyControllerManagedEnvirons destroys all environments managed by this
-// environment's controller.
-func (e *environ) destroyControllerManagedEnvirons(ctx context.ProviderCallContext, controllerUUID string) error {
+// destroyControllerManagedModels destroys all models managed by this
+// model's controller.
+func (e *environ) destroyControllerManagedModels(ctx context.ProviderCallContext, controllerUUID string) error {
 	// Terminate all instances managed by the controller.
 	instIds, err := e.allControllerManagedInstances(ctx, controllerUUID)
 	if err != nil {
@@ -1712,10 +1723,7 @@ func (e *environ) destroyControllerManagedEnvirons(ctx context.ProviderCallConte
 	}
 	for _, g := range groups {
 		if err := deleteSecurityGroupInsistently(e.ec2, ctx, g, clock.WallClock); err != nil {
-			return errors.Annotatef(
-				err, "cannot delete security group %q (%q)",
-				g.Name, g.Id,
-			)
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -1905,36 +1913,44 @@ func (e *environ) controllerSecurityGroups(ctx context.ProviderCallContext, cont
 	return groups, nil
 }
 
-func (e *environ) modelSecurityGroupIDs(ctx context.ProviderCallContext) ([]string, error) {
+func (e *environ) modelSecurityGroups(ctx context.ProviderCallContext) ([]amzec2.SecurityGroup, error) {
 	filter := amzec2.NewFilter()
 	e.addModelFilter(filter)
 	resp, err := e.ec2.SecurityGroups(nil, filter)
 	if err != nil {
 		return nil, errors.Annotate(maybeConvertCredentialError(err, ctx), "listing security groups")
 	}
-	groupIDs := make([]string, len(resp.Groups))
+	groups := make([]amzec2.SecurityGroup, len(resp.Groups))
 	for i, info := range resp.Groups {
-		groupIDs[i] = info.Id
+		groups[i] = amzec2.SecurityGroup{Id: info.Id, Name: info.Name}
 	}
-	return groupIDs, nil
+	return groups, nil
 }
 
-// cleanEnvironmentSecurityGroups attempts to delete all security groups owned
-// by the environment.
-func (e *environ) cleanEnvironmentSecurityGroups(ctx context.ProviderCallContext) error {
-	jujuGroup := e.jujuGroupName()
-	g, err := e.groupByName(ctx, jujuGroup)
-	if isNotFoundError(err) {
-		return nil
-	}
+// cleanModelSecurityGroups attempts to delete all security groups owned
+// by the model. These include any security groups belonging to instances
+// in the model which may not have been cleaned up.
+func (e *environ) cleanModelSecurityGroups(ctx context.ProviderCallContext) error {
+	// Delete security groups managed by the model.
+	groups, err := e.modelSecurityGroups(ctx)
 	if err != nil {
-		return errors.Annotatef(err, "cannot retrieve default security group: %q", jujuGroup)
+		return errors.Annotatef(err, "cannot retrieve security groups for model %q", e.uuid())
 	}
-	if err := deleteSecurityGroupInsistently(e.ec2, ctx, g, clock.WallClock); err != nil {
-		return errors.Annotate(err, "cannot delete default security group")
+	for _, g := range groups {
+		logger.Debugf("deleting model security group %q (%q)", g.Name, g.Id)
+		if err := deleteSecurityGroupInsistently(e.ec2, ctx, g, clock.WallClock); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }
+
+var (
+	activeStates = set.NewStrings(
+		"rebooting", "pending", "running", "stopping", "stopped")
+	terminatingStates = set.NewStrings(
+		"shutting-down", "terminated")
+)
 
 func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []instance.Id) error {
 	if len(ids) == 0 {
@@ -1950,9 +1966,15 @@ func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	// TODO (anastasiamac 2016-04-7) instance termination would benefit
 	// from retry with exponential delay just like security groups
 	// in defer. Bug#1567179.
-	var err error
 	for a := shortAttempt.Start(); a.Next(); {
-		_, err = terminateInstancesById(e.ec2, ctx, ids...)
+		resp, err := terminateInstancesById(e.ec2, ctx, ids...)
+		if err == nil {
+			for i, sc := range resp.StateChanges {
+				if !terminatingStates.Contains(sc.CurrentState.Name) {
+					logger.Warningf("instance %d has been terminated but is in state %q", ids[i], sc.CurrentState.Name)
+				}
+			}
+		}
 		if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
 			// This will return either success at terminating all instances (1st condition) or
 			// encountered error as long as it's not NotFound (2nd condition).
@@ -1971,8 +1993,11 @@ func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	// So try each instance individually, ignoring a NotFound error this time.
 	deletedIDs := []instance.Id{}
 	for _, id := range ids {
-		_, err = terminateInstancesById(e.ec2, ctx, id)
+		resp, err := terminateInstancesById(e.ec2, ctx, id)
 		if err == nil {
+			if !terminatingStates.Contains(resp.StateChanges[0].CurrentState.Name) {
+				logger.Warningf("instance %d has been terminated but is in state %q", id, resp.StateChanges[0].CurrentState.Name)
+			}
 			deletedIDs = append(deletedIDs, id)
 		}
 		if err != nil && ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
@@ -2006,7 +2031,7 @@ func (e *environ) deleteSecurityGroupsForInstances(ctx context.ProviderCallConte
 
 	// We only want to attempt deleting security groups for the
 	// instances that have been successfully terminated.
-	securityGroups, err := e.instanceSecurityGroups(ctx, ids, "shutting-down", "terminated")
+	securityGroups, err := e.instanceSecurityGroups(ctx, ids, terminatingStates.Values()...)
 	if err != nil {
 		logger.Errorf("cannot determine security groups to delete: %v", err)
 		return
@@ -2030,7 +2055,7 @@ func (e *environ) deleteSecurityGroupsForInstances(ctx context.ProviderCallConte
 			// In this case, our failure to delete security group is reasonable: it's still in use.
 			// 2. Some security groups may be shared by multiple instances,
 			// for example, global firewalling. We should not delete these.
-			logger.Errorf("provider failure: %v", err)
+			logger.Warningf("%v", err)
 		}
 	}
 }
@@ -2065,7 +2090,7 @@ var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, ctx context
 		},
 	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot delete security group %q: consider deleting it manually", group.Name)
+		return errors.Annotatef(err, "cannot delete security group %q (%q): consider deleting it manually", group.Name, group.Id)
 	}
 	return nil
 }
@@ -2163,19 +2188,39 @@ var zeroGroup amzec2.SecurityGroup
 // groupName or with filter by vpc-id and group-name, depending on whether
 // vpc-id is empty or not.
 func (e *environ) securityGroupsByNameOrID(groupName string) (*amzec2.SecurityGroupsResp, error) {
+	var (
+		groups []amzec2.SecurityGroup
+		filter *amzec2.Filter
+	)
+
 	if chosenVPCID := e.ecfg().vpcID(); isVPCIDSet(chosenVPCID) {
 		// AWS VPC API requires both of these filters (and no
 		// group names/ids set) for non-default EC2-VPC groups:
-		filter := amzec2.NewFilter()
+		filter = amzec2.NewFilter()
 		filter.Add("vpc-id", chosenVPCID)
 		filter.Add("group-name", groupName)
-		return e.ec2.SecurityGroups(nil, filter)
+	} else {
+		// EC2-Classic or EC2-VPC with implicit default VPC need to use
+		// the GroupName.X arguments instead of the filters.
+		groups = amzec2.SecurityGroupNames(groupName)
 	}
 
-	// EC2-Classic or EC2-VPC with implicit default VPC need to use the
-	// GroupName.X arguments instead of the filters.
-	groups := amzec2.SecurityGroupNames(groupName)
-	return e.ec2.SecurityGroups(groups, nil)
+	// If the security group was just created, it might not be available
+	// yet as EC2 resources are eventually consistent. If we get a NotFound
+	// error from EC2 we will retry the request using the shortAttempt
+	// strategy before giving up.
+	for a := shortAttempt.Start(); ; a.Next() {
+		resp, err := e.ec2.SecurityGroups(groups, filter)
+		if err == nil {
+			return resp, err
+		}
+
+		// If we run out of attempts or we got an error other than NotFound
+		// immediately return the error back.
+		if !a.HasNext() || !strings.HasSuffix(ec2ErrCode(err), ".NotFound") {
+			return nil, err
+		}
+	}
 }
 
 // ensureGroup returns the security group with name and perms.

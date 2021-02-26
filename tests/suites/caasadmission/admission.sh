@@ -55,8 +55,21 @@ EOF
   kubectl --kubeconfig "${KUBE_CONFIG}" config view --raw -o json | jq "del(.users[0]) | .contexts[0].context.user = \"test\" | .users[0] = {\"name\": \"test\", \"user\": {\"token\": \"$bearer_token\"}}" > "${TEST_DIR}"/kube-sa.json
 
 
-  # Short sleep to let juju controller watchers catch up.
-  sleep 15
+  # Wait for the model operator to be ready
+  echo "waiting for modeloperator to become available"
+  while :
+  do
+    # shellcheck disable=SC2046
+    if [ $(kubectl --kubeconfig "${TEST_DIR}"/kube-sa.json get deploy -n "${namespace}" "modeloperator" -o=jsonpath='{.status.readyReplicas}' || echo "0") -eq 1 ]
+    then
+      break
+    fi
+    sleep 1
+  done
+
+  # We still sleep quickly here to let everything settle down. By adding
+  # propper probes we could avoid this.
+  sleep 5
 
  kubectl --kubeconfig "${TEST_DIR}"/kube-sa.json apply -f - <<EOF
 apiVersion: v1
@@ -121,8 +134,21 @@ EOF
 
   kubectl --kubeconfig "${TEST_DIR}"/kube.conf config view --raw -o json | jq "del(.users[0]) | .contexts[0].context.user = \"test\" | .users[0] = {\"name\": \"test\", \"user\": {\"token\": \"$bearer_token\"}}" > "${TEST_DIR}"/kube-sa.json
 
-  # Short sleep to let juju controller watchers catch up.
-  sleep 15
+  # Wait for the model operator to be ready
+  echo "waiting for modeloperator to become available"
+  while :
+  do
+    # shellcheck disable=SC2046
+    if [ $(kubectl --kubeconfig "${TEST_DIR}"/kube-sa.json get deploy -n "${namespace}" "modeloperator" -o=jsonpath='{.status.readyReplicas}' || echo "0") -eq 1 ]
+    then
+      break
+    fi
+    sleep 1
+  done
+
+  # We still sleep quickly here to let everything settle down. By adding
+  # propper probes we could avoid this.
+  sleep 5
 
  kubectl --kubeconfig "${TEST_DIR}"/kube-sa.json apply -f - <<EOF
 apiVersion: v1

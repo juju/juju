@@ -4,6 +4,7 @@
 package featuretests
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
@@ -14,7 +15,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/resource"
 	coretesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -108,7 +108,8 @@ upload-resource   -
 }
 
 func (s *ResourcesCmdSuite) runCharmResourcesCommand(c *gc.C) {
-	context, err := cmdtesting.RunCommand(c, resource.NewCharmResourcesCommand(s.client), s.charmName)
+	charmName := fmt.Sprintf("cs:%s", s.charmName)
+	context, err := cmdtesting.RunCommand(c, resource.NewCharmResourcesCommandWithClient(s.client), charmName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
@@ -127,7 +128,7 @@ type stubCharmStore struct {
 	listResources func() [][]charmresource.Resource
 }
 
-func (s *stubCharmStore) ListResources(charms []charmstore.CharmID) ([][]charmresource.Resource, error) {
+func (s *stubCharmStore) ListResources(charms []resource.CharmID) ([][]charmresource.Resource, error) {
 	s.stub.AddCall("ListResources", charms)
 	return s.listResources(), s.stub.NextErr()
 }

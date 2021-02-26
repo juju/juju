@@ -67,6 +67,7 @@ def run(*args, silence=False):
 
 
 def retry(is_ok, do, timeout=300, should_raise=False):
+    err = None
     for _ in until_timeout(timeout):
         if is_ok():
             try:
@@ -74,8 +75,9 @@ def retry(is_ok, do, timeout=300, should_raise=False):
             except Exception as e:
                 if should_raise:
                     raise e
+                err = e
         sleep(3)
-    raise JujuAssertionError('retry timeout after %s' % timeout)
+    raise JujuAssertionError(f'retry timeout after {timeout}s, last error was {err}')
 
 
 @contextlib.contextmanager
@@ -116,7 +118,9 @@ def deploy_kubeflow(caas_client, k8s_model, bundle, build):
                     'deploy',
                     '--bundle', f'{KUBEFLOW_DIR}/{bundle_info[bundle]["file_name"]}',
                     '--build',
+                    '--', '-m', k8s_model.model_name,
                 ),
+                # disable `include_e` and pass -m to `juju-bundle`
                 include_e=False,
             )
     else:
@@ -144,7 +148,7 @@ def deploy_kubeflow(caas_client, k8s_model, bundle, build):
                     ),
                 )
             ),
-            timeout=60,
+            timeout=300,
         )
 
     k8s_model.wait_for_workloads(timeout=60*30)
@@ -297,6 +301,7 @@ def prepare(caas_client, caas_provider, build):
     for dep in [
         "charm",
         "juju-helpers",
+        "juju-wait",
     ]:
         if shutil.which(dep):
             continue

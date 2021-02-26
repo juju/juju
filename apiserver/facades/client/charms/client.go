@@ -18,6 +18,7 @@ import (
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/mgo.v2"
 
+	apiresources "github.com/juju/juju/api/resources"
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -557,19 +558,21 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 		return result
 	}
 
-	resultURL, origin, supportedSeries, err := resolver.ResolveWithPreferredChannel(curl, arg.Origin)
+	resultURL, origin, supportedSeries, err := resolver.ResolveWithPreferredChannel(curl, convertParamsOrigin(arg.Origin))
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
 	result.URL = resultURL.String()
 
+	apiOrigin := convertOrigin(origin)
+
 	// The charmhub API can return "all" for architecture as it's not a real
 	// arch we don't know how to correctly model it. "all " doesn't mean use the
 	// default arch, it means use any arch which isn't quite the same. So if we
 	// do get "all" we should see if there is a clean way to resolve it.
-	archOrigin := origin
-	if origin.Architecture == "all" {
+	archOrigin := apiOrigin
+	if apiOrigin.Architecture == "all" {
 		cons, err := a.backendState.ModelConstraints()
 		if err != nil {
 			result.Error = apiservererrors.ServerError(err)
@@ -842,4 +845,66 @@ func (a *API) getMachineArch(machine charmsinterfaces.Machine) (arch.Arch, error
 	}
 
 	return "", nil
+}
+
+// ListCharmResources is not available via the V2 API.
+func (a *APIv2) ListCharmResources(_ struct{}) {}
+
+// ListCharmResources returns a series of resources for a given charm.
+func (a *API) ListCharmResources(args params.CharmURLAndOrigins) (params.CharmResourcesResults, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.CharmResourcesResults{}, errors.Trace(err)
+	}
+	results := params.CharmResourcesResults{
+		Results: make([][]params.CharmResourceResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		result, err := a.listOneCharmResources(arg)
+		if err != nil {
+			return params.CharmResourcesResults{}, errors.Trace(err)
+		}
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
+func (a *API) listOneCharmResources(arg params.CharmURLAndOrigin) ([]params.CharmResourceResult, error) {
+	// TODO (stickupkid) - remove api packages from apiserver packages.
+	curl, err := charm.ParseURL(arg.CharmURL)
+	if err != nil {
+		return nil, apiservererrors.ServerError(err)
+	}
+	if !charm.CharmHub.Matches(curl.Schema) {
+		return nil, apiservererrors.ServerError(errors.NotValidf("charm %q", curl.Name))
+	}
+
+	// If we can guarantee that each charm to be resolved uses the
+	// same url source and channel, there is no need to get a new repository
+	// each time.
+	resolver, err := a.repository(arg.Origin, nil)
+	if err != nil {
+		return nil, apiservererrors.ServerError(err)
+	}
+
+	defaultArch, err := a.getDefaultArch()
+	if err != nil {
+		return nil, apiservererrors.ServerError(err)
+	}
+
+	charmOrigin, err := normalizeCharmOrigin(arg.Origin, defaultArch)
+	if err != nil {
+		return nil, apiservererrors.ServerError(err)
+	}
+
+	resources, err := resolver.ListResources(curl, convertParamsOrigin(charmOrigin))
+	if err != nil {
+		return nil, apiservererrors.ServerError(err)
+	}
+
+	results := make([]params.CharmResourceResult, len(resources))
+	for i, resource := range resources {
+		results[i].CharmResource = apiresources.CharmResource2API(resource)
+	}
+
+	return results, nil
 }

@@ -49,7 +49,7 @@ const (
 
 var (
 	userAgentKey   = "User-Agent"
-	userAgentValue = "Juju/" + version.Current.String()
+	userAgentValue = version.UserAgentVersion
 )
 
 // Logger is a in place interface to represent a logger for consuming.

@@ -1045,7 +1045,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if exists, err := isNotDead(st, applicationsC, args.Name); err != nil {
 		return nil, errors.Trace(err)
 	} else if exists {
-		return nil, errors.Errorf("application already exists")
+		return nil, errors.AlreadyExistsf("application")
 	}
 	if err := checkModelActive(st); err != nil {
 		return nil, errors.Trace(err)

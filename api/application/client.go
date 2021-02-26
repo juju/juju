@@ -9,6 +9,7 @@ package application
 
 import (
 	stderrors "errors"
+	"strings"
 	"time"
 
 	"github.com/juju/charm/v9"
@@ -162,7 +163,20 @@ func (c *Client) Deploy(args DeployArgs) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(results.OneError())
+	err = results.OneError()
+	if err == nil {
+		return nil
+	}
+	if pErr, ok := errors.Cause(err).(*params.Error); ok {
+		switch pErr.Code {
+		case params.CodeAlreadyExists:
+			// Remove the "already exists" in the error message to prevent
+			// stuttering.
+			msg := strings.Replace(err.Error(), " already exists", "", -1)
+			return errors.AlreadyExistsf(msg)
+		}
+	}
+	return errors.Trace(err)
 }
 
 // GetCharmURLOrigin returns the charm URL along with the charm Origin for the
