@@ -68,9 +68,6 @@ type ConfigSourceAddr interface {
 // ConfigSource defines the necessary calls to obtain
 // the network configuration of a machine.
 type ConfigSource interface {
-	// SysClassNetPath returns the userspace SYSFS path used by this source.
-	SysClassNetPath() string
-
 	// Interfaces returns information about all
 	// network interfaces on the machine.
 	Interfaces() ([]ConfigSourceNIC, error)
@@ -83,6 +80,10 @@ type ConfigSource interface {
 	// OvsManagedBridges returns the names of network interfaces that
 	// correspond to OVS-managed bridges.
 	OvsManagedBridges() (set.Strings, error)
+
+	// GetBridgePorts returns the names of network interfaces that are ports ot
+	// the bridge with the input device name.
+	GetBridgePorts(string) []string
 }
 
 // ParseInterfaceType parses the DEVTYPE attribute from the Linux kernel

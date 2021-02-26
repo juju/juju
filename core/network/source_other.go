@@ -137,13 +137,8 @@ func (a *netAddr) String() string {
 }
 
 type netPackageConfigSource struct {
-	interfaces func() ([]net.Interface, error)
-}
-
-// SysClassNetPath returns the system path containing information
-// about a machine's network interfaces.
-func (n *netPackageConfigSource) SysClassNetPath() string {
-	return SysClassNetPath
+	sysClassNetPath string
+	interfaces      func() ([]net.Interface, error)
 }
 
 // Interfaces returns the network interfaces on the machine.
@@ -157,12 +152,13 @@ func (n *netPackageConfigSource) Interfaces() ([]ConfigSourceNIC, error) {
 	for i := range nics {
 		// Close over the sysClassNetPath so that
 		// the NIC needs to know nothing about it.
-		parseType := func(name string) InterfaceType { return ParseInterfaceType(n.SysClassNetPath(), name) }
+		parseType := func(name string) InterfaceType { return ParseInterfaceType(n.sysClassNetPath, name) }
 		result[i] = NewNetNIC(&nics[i], parseType)
 	}
 	return result, nil
 }
 
+// OvsManagedBridges implements NetworkConfigSource.
 func (n *netPackageConfigSource) OvsManagedBridges() (set.Strings, error) {
 	return OvsManagedBridges()
 }
@@ -172,10 +168,16 @@ func (n *netPackageConfigSource) DefaultRoute() (net.IP, string, error) {
 	return GetDefaultRoute()
 }
 
+// GetBridgePorts implements NetworkConfigSource.
+func (n *netPackageConfigSource) GetBridgePorts(bridgeName string) []string {
+	return GetBridgePorts(n.sysClassNetPath, bridgeName)
+}
+
 // DefaultNetworkConfigSource returns a NetworkConfigSource backed by the net
 // package, to be used with GetObservedNetworkConfig().
 func DefaultNetworkConfigSource() ConfigSource {
 	return &netPackageConfigSource{
-		interfaces: net.Interfaces,
+		sysClassNetPath: SysClassNetPath,
+		interfaces:      net.Interfaces,
 	}
 }

@@ -51,6 +51,20 @@ func (mr *MockConfigSourceMockRecorder) DefaultRoute() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultRoute", reflect.TypeOf((*MockConfigSource)(nil).DefaultRoute))
 }
 
+// GetBridgePorts mocks base method
+func (m *MockConfigSource) GetBridgePorts(arg0 string) []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBridgePorts", arg0)
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// GetBridgePorts indicates an expected call of GetBridgePorts
+func (mr *MockConfigSourceMockRecorder) GetBridgePorts(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBridgePorts", reflect.TypeOf((*MockConfigSource)(nil).GetBridgePorts), arg0)
+}
+
 // Interfaces mocks base method
 func (m *MockConfigSource) Interfaces() ([]network.ConfigSourceNIC, error) {
 	m.ctrl.T.Helper()
@@ -79,20 +93,6 @@ func (m *MockConfigSource) OvsManagedBridges() (set.Strings, error) {
 func (mr *MockConfigSourceMockRecorder) OvsManagedBridges() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OvsManagedBridges", reflect.TypeOf((*MockConfigSource)(nil).OvsManagedBridges))
-}
-
-// SysClassNetPath mocks base method
-func (m *MockConfigSource) SysClassNetPath() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SysClassNetPath")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// SysClassNetPath indicates an expected call of SysClassNetPath
-func (mr *MockConfigSourceMockRecorder) SysClassNetPath() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SysClassNetPath", reflect.TypeOf((*MockConfigSource)(nil).SysClassNetPath))
 }
 
 // MockConfigSourceNIC is a mock of ConfigSourceNIC interface
