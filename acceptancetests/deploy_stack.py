@@ -630,8 +630,7 @@ class CreateController:
     def get_hosts(self):
         """Provide the controller host."""
         hosts = {}
-        host_0 = get_machine_dns_name(
-            self.client.get_controller_client(), '0')
+        host_0 = get_machine_dns_name(self.client.get_controller_client(), '0')
         if host_0 is not None:
             # Only IaaS controller has machine now.
             hosts['0'] = host_0
@@ -686,8 +685,7 @@ class ExistingController:
 
     def get_hosts(self):
         """Provide the controller host."""
-        host = get_machine_dns_name(
-            self.client.get_controller_client(), '0')
+        host = get_machine_dns_name(self.client.get_controller_client(), '0')
         if host is None:
             raise ValueError('Could not get machine 0 host')
         return {'0': host}
@@ -776,6 +774,7 @@ class BootstrapManager:
     # cleanup_hook allows injecting cleanup steps that are
     # not applicable for config's substrate account.
     cleanup_hook = None
+    k8s_controller = False
 
     def __init__(self, temp_env_name, client, tear_down_client, bootstrap_host,
                  machines, series, arch, agent_url, agent_stream, region,
@@ -879,7 +878,9 @@ class BootstrapManager:
                 client.env.bootstrap_to = args.to
             if args.logging_config is not None:
                 client.env.logging_config = args.logging_config
-        return cls.from_client(args, client)
+        bm = cls.from_client(args, client)
+        bm.k8s_controller = getattr(args, 'k8s_controller', False)
+        return bm
 
     @classmethod
     def _for_existing_controller(cls, args):
@@ -1066,9 +1067,10 @@ class BootstrapManager:
         """
         try:
             with logged_exception(logging):
-                if len(self.known_hosts) == 0:
+                if len(self.known_hosts) == 0 and not self.k8s_controller:
                     self.known_hosts.update(
-                        self.controller_strategy.get_hosts())
+                        self.controller_strategy.get_hosts(),
+                    )
                 if addable_machines is not None:
                     self.client.add_ssh_machines(addable_machines)
                 yield
