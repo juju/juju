@@ -25,6 +25,7 @@ import os
 import json
 import yaml
 from pprint import pformat
+from time import sleep
 
 import dns.resolver
 
@@ -50,7 +51,7 @@ class MicroK8s(Base):
         self.default_storage_class_name = 'microk8s-hostpath'
 
     def _ensure_cluster_stack(self):
-        self.__ensure_microk8s_installed()
+        pass
 
     def _tear_down_substrate(self):
         # No need to tear down microk8s.
@@ -72,7 +73,7 @@ class MicroK8s(Base):
     def _ensure_cluster_config(self):
         self.enable_microk8s_addons()
         try:
-            # TODO: remove this tmp patch once we run test in public cloud.
+            # TODO: remove this patch the `nw-deploy-bionic-microk8s` job moved to ephemeral node.
             self.__tmp_fix_patch_coredns()
         except Exception as e:
             logger.error(e)
@@ -97,18 +98,24 @@ class MicroK8s(Base):
             for _ in until_timeout(timeout):
                 if checker():
                     break
+                sleep(5)
 
         def check_addons():
             addons_status = self._microk8s_status(True)['addons']
-            is_ok = all([addons_status.get(addon) == 'enabled' for addon in addons])
+            is_ok = all([
+                # addon can be like metallb:10.64.140.43-10.64.140.49
+                addons_status.get(addon.split(':')[0]) == 'enabled' for addon in addons
+            ])
             if is_ok:
                 logger.info('required addons are all ready now -> \n%s', pformat(addons_status))
+            else:
+                logger.info('required addons are not all ready yet -> \n%s', pformat(addons_status))
             return is_ok
 
         out = self.sh('microk8s.enable', *addons)
         logger.info(out)
         # wait for a bit to let all addons are fully provisoned.
-        wait_until_ready(self.timeout, check_addons)
+        wait_until_ready(300, check_addons)
 
     def __ensure_microk8s_installed(self):
         # unfortunately, we need sudo!
@@ -130,7 +137,9 @@ class MicroK8s(Base):
     def __tmp_fix_patch_coredns(self):
         # patch nameservers of coredns because the google one used in microk8s is blocked in our network.
         def ping(addr):
-            return os.system('ping -c 1 ' + addr) == 0
+            ok = os.system('ping -c 1 ' + addr) == 0
+            logger.info('pinging %s, ok -> %s', addr, ok)
+            return ok
 
         def get_nameserver():
             nameservers = dns.resolver.Resolver().nameservers
@@ -139,9 +148,17 @@ class MicroK8s(Base):
                     return ns
             raise Exception('No working nameservers found from %s to use for patching coredns' % nameservers)
 
+        core_dns_nameservers = '8.8.8.8 8.8.4.4'
+        for ns in core_dns_nameservers.split(' '):
+            if ping(ns):
+                logger.info('ns %s works, so no need to patch coredns config', ns)
+                return
+
         coredns_cm = self.get_configmap('kube-system', 'coredns')
         data = coredns_cm['data']
-        data['Corefile'] = data['Corefile'].replace('8.8.8.8 8.8.4.4', get_nameserver())
+        local_ns = get_nameserver()
+        logger.info('patching coredns nameservers to %s', local_ns)
+        data['Corefile'] = data['Corefile'].replace(core_dns_nameservers, local_ns)
         coredns_cm['data'] = data
         self.kubectl_apply(json.dumps(coredns_cm))
 
