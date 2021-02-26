@@ -101,6 +101,18 @@ charm_rev() {
     echo ".applications | select(.[\"$app\"] | .[\"charm-rev\"] == $rev)"
 }
 
+# charm_channel gets the current juju-status object for the application and uses it
+# to find the application charm-channel.
+charm_channel() {
+    local app channel
+
+    app=$1
+    channel=$2
+
+    echo ".applications | select(.[\"$app\"] | .[\"charm-channel\"] == \"$channel\")"
+}
+
+
 # wait_for_machine_agent_status blocks until the machine agent for the specified
 # machine instance ID reports the requested status.
 #
