@@ -140,3 +140,14 @@ type CharmResource struct {
 	// Size is the size of the resource, in bytes.
 	Size int64 `json:"size"`
 }
+
+// CharmResourcesResults returns a list of charm resource results.
+type CharmResourcesResults struct {
+	Results [][]CharmResourceResult `json:"results"`
+}
+
+// CharmResourceResult returns a charm resource result.
+type CharmResourceResult struct {
+	ErrorResult
+	CharmResource
+}
