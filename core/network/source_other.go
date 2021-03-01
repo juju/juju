@@ -10,6 +10,52 @@ import (
 	"github.com/juju/errors"
 )
 
+// netAddr implements ConfigSourceAddr based on an address in string form.
+type netAddr struct {
+	addr  string
+	ip    net.IP
+	ipNet *net.IPNet
+}
+
+// newNetAddr returns a new netAddr reference
+// representing the input IP address string.
+func newNetAddr(a string) (*netAddr, error) {
+	res := &netAddr{
+		addr: a,
+	}
+
+	ip, ipNet, _ := net.ParseCIDR(a)
+	if ipNet != nil {
+		res.ipNet = ipNet
+	}
+
+	if ip == nil {
+		ip = net.ParseIP(a)
+	}
+
+	if ip == nil {
+		return nil, errors.Errorf("unable to parse IP address %q", a)
+	}
+
+	res.ip = ip
+	return res, nil
+}
+
+// IP (ConfigSourceAddr) is a simple property accessor.
+func (a *netAddr) IP() net.IP {
+	return a.ip
+}
+
+// IPNet (ConfigSourceAddr) is a simple property accessor.
+func (a *netAddr) IPNet() *net.IPNet {
+	return a.ipNet
+}
+
+// String (ConfigSourceAddr) is a simple property accessor.
+func (a *netAddr) String() string {
+	return a.addr
+}
+
 // netNIC implements ConfigSourceNIC by wrapping a network interface
 // reference from the standard library `net` package.
 type netNIC struct {
@@ -64,7 +110,7 @@ func (n *netNIC) Addresses() ([]ConfigSourceAddr, error) {
 	result := make([]ConfigSourceAddr, 0, len(addrs))
 	for _, addr := range addrs {
 		if addr.String() != "" {
-			a, err := NewNetAddr(addr.String())
+			a, err := newNetAddr(addr.String())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -83,57 +129,6 @@ func (n *netNIC) MTU() int {
 // IsUp returns true if the interface is in the "up" state.
 func (n *netNIC) IsUp() bool {
 	return n.nic.Flags&net.FlagUp > 0
-}
-
-// netAddr implements ConfigSourceAddr based on an address in string form.
-type netAddr struct {
-	addr  string
-	ip    net.IP
-	ipNet *net.IPNet
-}
-
-// NewNetAddr returns a new netAddr reference
-// representing the input IP address string.
-// TODO (manadart 2021-02-15): This method is exported on account of testing in
-// the api/common package where this logic used to reside and where the actual
-// detection and conversion to params is invoked.
-// The detection should also be relocated here to core/network in order that
-// the export is no longer required.
-func NewNetAddr(a string) (*netAddr, error) {
-	res := &netAddr{
-		addr: a,
-	}
-
-	ip, ipNet, _ := net.ParseCIDR(a)
-	if ipNet != nil {
-		res.ipNet = ipNet
-	}
-
-	if ip == nil {
-		ip = net.ParseIP(a)
-	}
-
-	if ip == nil {
-		return nil, errors.Errorf("unable to parse IP address %q", a)
-	}
-
-	res.ip = ip
-	return res, nil
-}
-
-// IP (ConfigSourceAddr) is a simple property accessor.
-func (a *netAddr) IP() net.IP {
-	return a.ip
-}
-
-// IPNet (ConfigSourceAddr) is a simple property accessor.
-func (a *netAddr) IPNet() *net.IPNet {
-	return a.ipNet
-}
-
-// String (ConfigSourceAddr) is a simple property accessor.
-func (a *netAddr) String() string {
-	return a.addr
 }
 
 type netPackageConfigSource struct {
