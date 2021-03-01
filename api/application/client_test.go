@@ -177,26 +177,6 @@ func (s *applicationSuite) TestDeployAlreadyExists(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *applicationSuite) TestDeployAttachStorageV4(c *gc.C) {
-	var called bool
-	client := application.NewClient(basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, response interface{}) error {
-				called = true
-				return nil
-			},
-		),
-		BestVersion: 4, // v4 does not support AttachStorage
-	})
-	args := application.DeployArgs{
-		NumUnits:      1,
-		AttachStorage: []string{"data/0"},
-	}
-	err := client.Deploy(args)
-	c.Assert(err, gc.ErrorMatches, "this juju controller does not support AttachStorage")
-	c.Assert(called, jc.IsFalse)
-}
-
 func (s *applicationSuite) TestDeployAttachStorageMultipleUnits(c *gc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
