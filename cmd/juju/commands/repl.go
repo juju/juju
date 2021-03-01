@@ -38,14 +38,6 @@ func newReplCommand(showHelp bool) cmd.Command {
 	}
 }
 
-const replDoc = `
-When run without arguments, Juju will enter an interactive shell which can be
-used to run any Juju command directly. When in the shell:
-
-  type "help" to see the full list of available commands.
-  type "q" or ^D or ^C to quit.
-`
-
 var firstPrompt = `
 Welcome to the Juju interactive shell.
 Type "help" to see a list of available commands.
@@ -100,7 +92,6 @@ func (c *replCommand) Run(ctx *cmd.Context) error {
 		if err := jujuCmd.Run(ctx); err != nil {
 			return err
 		}
-		fmt.Fprintln(ctx.Stdout, replDoc)
 		return nil
 	}
 
@@ -146,7 +137,6 @@ func (c *replCommand) Run(ctx *cmd.Context) error {
 			if err := jujuCmd.Init([]string{"help"}); err != nil {
 				return errors.Trace(err)
 			}
-			fmt.Fprintln(ctx.Stderr, replDoc)
 			return jujuCmd.Run(ctx)
 		}
 		// Get the prompt based on the current controller/model/user.
