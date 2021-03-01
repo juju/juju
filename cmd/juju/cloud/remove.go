@@ -105,8 +105,12 @@ func (c *removeCloudCommand) Run(ctxt *cmd.Context) error {
 	}
 	if c.ControllerName != "" {
 		if err := c.removeControllerCloud(ctxt); err != nil {
-			ctxt.Infof("ERROR %v", err)
-			returnErr = cmd.ErrSilent
+			if errors.IsNotFound(err) {
+				ctxt.Infof("No cloud called %q exists on controller %q", c.Cloud, c.ControllerName)
+			} else {
+				ctxt.Infof("ERROR %v", err)
+				returnErr = cmd.ErrSilent
+			}
 		}
 	}
 	return returnErr
@@ -125,7 +129,7 @@ func (c *removeCloudCommand) removeLocalCloud(ctxt *cmd.Context) error {
 	if err := cloud.WritePersonalCloudMetadata(personalClouds); err != nil {
 		return errors.Trace(err)
 	}
-	ctxt.Infof("Removed details of cloud %q from the client", c.Cloud)
+	ctxt.Infof("Removed details of cloud %q from this client", c.Cloud)
 	return nil
 }
 

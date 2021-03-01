@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/txn"
 	"github.com/juju/worker/v2"
 	"gopkg.in/mgo.v2"
 
@@ -130,7 +129,6 @@ func newState(
 	}()
 
 	mongodb := session.DB(jujuDB)
-	sstxn := txn.SupportsServerSideTransactions(mongodb)
 
 	// TODO(wallyworld) - server side txns have issues on mongo 4.0
 	// (due to juju making bad txn.Ops, and potentially mongo 4 issues)
@@ -138,7 +136,7 @@ func newState(
 	// plus txn.Op slices that are wrong, eg insert dup or missing asserts.
 	// Related test failures here:
 	// https://jenkins.juju.canonical.com/job/github-make-check-juju/9317/testReport/
-	sstxn = false
+	sstxn := false //txn.SupportsServerSideTransactions(mongodb)
 
 	if sstxn {
 		logger.Infof("using server-side transactions")

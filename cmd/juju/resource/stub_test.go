@@ -8,10 +8,9 @@ import (
 
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
+	jujuresource "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/resource"
 	"github.com/juju/testing"
-
-	"github.com/juju/juju/charmstore"
 )
 
 type stubCharmStore struct {
@@ -20,7 +19,7 @@ type stubCharmStore struct {
 	ReturnListResources [][]charmresource.Resource
 }
 
-func (s *stubCharmStore) ListResources(charms []charmstore.CharmID) ([][]charmresource.Resource, error) {
+func (s *stubCharmStore) ListResources(charms []jujuresource.CharmID) ([][]charmresource.Resource, error) {
 	s.stub.AddCall("ListResources", charms)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

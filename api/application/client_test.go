@@ -132,6 +132,51 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
+func (s *applicationSuite) TestDeployAlreadyExists(c *gc.C) {
+	var called bool
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				called = true
+				c.Assert(request, gc.Equals, "Deploy")
+
+				result := response.(*params.ErrorResults)
+				result.Results = []params.ErrorResult{
+					{Error: &params.Error{
+						Message: "application already exists",
+						Code:    params.CodeAlreadyExists,
+					}},
+				}
+				return nil
+			},
+		),
+		BestVersion: 5,
+	})
+
+	args := application.DeployArgs{
+		CharmID: application.CharmID{
+			URL: charm.MustParseURL("cs:trusty/a-charm-1"),
+		},
+		CharmOrigin: apicharm.Origin{
+			Source: apicharm.OriginCharmStore,
+		},
+		ApplicationName:  "applicationA",
+		Series:           "series",
+		NumUnits:         1,
+		ConfigYAML:       "configYAML",
+		Config:           map[string]string{"foo": "bar"},
+		Cons:             constraints.MustParse("mem=4G"),
+		Placement:        []*instance.Placement{{"scope", "directive"}},
+		Storage:          map[string]storage.Constraints{"data": {Pool: "pool"}},
+		AttachStorage:    []string{"data/0"},
+		Resources:        map[string]string{"foo": "bar"},
+		EndpointBindings: map[string]string{"foo": "bar"},
+	}
+	err := client.Deploy(args)
+	c.Assert(err, gc.ErrorMatches, `application already exists`)
+	c.Assert(called, jc.IsTrue)
+}
+
 func (s *applicationSuite) TestDeployAttachStorageMultipleUnits(c *gc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {

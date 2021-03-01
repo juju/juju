@@ -10,13 +10,57 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/charms"
+	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/charmstore"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 )
+
+// ResourceLister lists resources for the given charm ids.
+type ResourceLister interface {
+	ListResources(ids []CharmID) ([][]charmresource.Resource, error)
+}
+
+// CharmResourceLister lists the resource of a charm.
+type CharmResourceLister interface {
+	ListCharmResources(curl *charm.URL, origin apicharm.Origin) ([]charmresource.Resource, error)
+}
+
+// CharmID represents the charm identifier.
+type CharmID struct {
+	// URL is the url of the charm.
+	URL *charm.URL
+
+	// Channel is the channel in which the charm was published.
+	Channel corecharm.Channel
+}
+
+// BakeryClient defines a way to create a bakery client.
+type BakeryClient = func() (*httpbakery.Client, error)
+
+// ControllerAPIRoot defines a way to create a new controller API root.
+type ControllerAPIRoot = func() (api.Connection, error)
+
+// APIRoot defines a way to create a new API root.
+type APIRoot = func() (api.Connection, error)
+
+// ResourceListerDependencies defines the dependencies to create a store
+// dependant resource lister.
+type ResourceListerDependencies interface {
+	BakeryClient() (*httpbakery.Client, error)
+	NewControllerAPIRoot() (api.Connection, error)
+	NewAPIRoot() (api.Connection, error)
+}
+
+// CreateResourceListener defines a factory function to create a resource
+// lister.
+type CreateResourceListener = func(string, ResourceListerDependencies) (ResourceLister, error)
 
 // CharmResourcesCommand implements the "juju charm-resources" command.
 type CharmResourcesCommand struct {
@@ -25,9 +69,25 @@ type CharmResourcesCommand struct {
 
 // NewCharmResourcesCommand returns a new command that lists resources defined
 // by a charm.
-func NewCharmResourcesCommand(resourceLister ResourceLister) modelcmd.ModelCommand {
-	var c CharmResourcesCommand
-	c.setResourceLister(resourceLister)
+func NewCharmResourcesCommand() modelcmd.ModelCommand {
+	c := CharmResourcesCommand{
+		baseCharmResourcesCommand{
+			CreateResourceListerFn: defaultResourceLister,
+		},
+	}
+	return modelcmd.Wrap(&c)
+}
+
+// NewCharmResourcesCommandWithClient returns a new command that lists resources
+// defined by a charm.
+func NewCharmResourcesCommandWithClient(client ResourceLister) modelcmd.ModelCommand {
+	c := CharmResourcesCommand{
+		baseCharmResourcesCommand{
+			CreateResourceListerFn: func(schema string, deps ResourceListerDependencies) (ResourceLister, error) {
+				return client, nil
+			},
+		},
+	}
 	return modelcmd.Wrap(&c)
 }
 
@@ -54,28 +114,14 @@ func (c *CharmResourcesCommand) Run(ctx *cmd.Context) error {
 	return c.baseRun(ctx)
 }
 
-// CharmResourceLister lists resources for the given charm ids.
-type ResourceLister interface {
-	ListResources(ids []charmstore.CharmID) ([][]charmresource.Resource, error)
-}
-
 type baseCharmResourcesCommand struct {
 	modelcmd.ModelCommandBase
 
-	// resourceLister is called by Run to list charm resources and
-	// uses juju/juju/charmstore.Client.
-	resourceLister ResourceLister
+	CreateResourceListerFn CreateResourceListener
 
 	out     cmd.Output
 	channel string
 	charm   string
-}
-
-func (b *baseCharmResourcesCommand) setResourceLister(resourceLister ResourceLister) {
-	if resourceLister == nil {
-		resourceLister = b
-	}
-	b.resourceLister = resourceLister
 }
 
 func (c *baseCharmResourcesCommand) baseInfo() *cmd.Info {
@@ -110,15 +156,41 @@ func (c *baseCharmResourcesCommand) baseInit(args []string) error {
 }
 
 func (c *baseCharmResourcesCommand) baseRun(ctx *cmd.Context) error {
-	// TODO(ericsnow) Adjust this to the charm store.
-
 	charmURL, err := resolveCharm(c.charm)
+	if errors.IsNotSupported(err) {
+		if c.out.Name() == "tabular" {
+			ctx.Infof("Bundles have no resources to display.")
+			return nil
+		}
+		return c.out.Write(ctx, struct{}{})
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
-	charm := charmstore.CharmID{URL: charmURL, Channel: csparams.Channel(c.channel)}
 
-	resources, err := c.resourceLister.ListResources([]charmstore.CharmID{charm})
+	var channel corecharm.Channel
+	if charm.CharmHub.Matches(charmURL.Schema) {
+		channel, err = corecharm.ParseChannelNormalize(c.channel)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		channel = corecharm.MakePermissiveChannel("", c.channel, "")
+	}
+
+	resourceLister, err := c.CreateResourceListerFn(charmURL.Schema, c)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	charm := CharmID{
+		URL:     charmURL,
+		Channel: channel,
+	}
+
+	resources, err := resourceLister.ListResources([]CharmID{
+		charm,
+	})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -139,7 +211,7 @@ func (c *baseCharmResourcesCommand) baseRun(ctx *cmd.Context) error {
 	return c.out.Write(ctx, formatted)
 }
 
-var charmResourcesDoc = `
+const charmResourcesDoc = `
 This command will report the resources for a charm in the charm store.
 
 <charm> can be a charm URL, or an unambiguously condensed form of it,
@@ -156,18 +228,83 @@ Where the series is not supplied, the series from your local host is used.
 Thus the above examples imply that the local series is trusty.
 `
 
-// ListCharmResources implements CharmResourceLister by getting the charmstore client
-// from the command's ModelCommandBase.
-func (c *baseCharmResourcesCommand) ListResources(ids []charmstore.CharmID) ([][]charmresource.Resource, error) {
-	bakeryClient, err := c.BakeryClient()
+func resolveCharm(raw string) (*charm.URL, error) {
+	charmURL, err := charm.ParseURL(raw)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	conAPIRoot, err := c.NewControllerAPIRoot()
+
+	if charmURL.Series == "bundle" {
+		return nil, errors.NotSupportedf("charm bundles")
+	}
+
+	return charmURL, nil
+}
+
+func defaultResourceLister(schema string, deps ResourceListerDependencies) (ResourceLister, error) {
+	if charm.CharmHub.Matches(schema) {
+		return &CharmhubResourceLister{
+			APIRootFn: deps.NewAPIRoot,
+		}, nil
+	}
+
+	return &CharmStoreResourceLister{
+		BakeryClientFn:      deps.BakeryClient,
+		ControllerAPIRootFn: deps.NewControllerAPIRoot,
+	}, nil
+}
+
+// CharmhubResourceLister defines a charm hub resource lister.
+type CharmhubResourceLister struct {
+	APIRootFn APIRoot
+}
+
+// ListResources implements CharmResourceLister.
+func (c *CharmhubResourceLister) ListResources(ids []CharmID) ([][]charmresource.Resource, error) {
+	if len(ids) != 1 {
+		return nil, errors.Errorf("expected one resource to list")
+	}
+	id := ids[0]
+	var track *string
+	if id.Channel.Track != "" {
+		track = &id.Channel.Track
+	}
+
+	apiRoot, err := c.APIRootFn()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	csURL, err := getCharmStoreAPIURL(conAPIRoot)
+	client := charms.NewClient(apiRoot)
+	results, err := client.ListCharmResources(id.URL, apicharm.Origin{
+		Source: apicharm.OriginCharmHub,
+		Track:  track,
+		Risk:   string(id.Channel.Risk),
+	})
+	if errors.IsNotSupported(err) {
+		return nil, errors.Errorf("charmhub charms are not supported with the current controller, try upgrading the controller to a newer version")
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return [][]charmresource.Resource{results}, nil
+}
+
+// CharmStoreResourceLister defines a charm store resource lister.
+type CharmStoreResourceLister struct {
+	BakeryClientFn      BakeryClient
+	ControllerAPIRootFn ControllerAPIRoot
+}
+
+// ListResources implements CharmResourceLister.
+func (c *CharmStoreResourceLister) ListResources(ids []CharmID) ([][]charmresource.Resource, error) {
+	bakeryClient, err := c.BakeryClientFn()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	conAPIRoot, err := c.ControllerAPIRootFn()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	csURL, err := c.getCharmStoreAPIURL(conAPIRoot)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -175,24 +312,20 @@ func (c *baseCharmResourcesCommand) ListResources(ids []charmstore.CharmID) ([][
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return client.ListResources(ids)
-}
 
-func resolveCharm(raw string) (*charm.URL, error) {
-	charmURL, err := charm.ParseURL(raw)
-	if err != nil {
-		return charmURL, errors.Trace(err)
+	charmIDs := make([]charmstore.CharmID, len(ids))
+	for i, id := range ids {
+		charmIDs[i] = charmstore.CharmID{
+			URL:     id.URL,
+			Channel: csparams.Channel(id.Channel.Risk),
+		}
 	}
 
-	if charmURL.Series == "bundle" {
-		return charmURL, errors.Errorf("charm bundles are not supported")
-	}
-
-	return charmURL, nil
+	return client.ListResources(charmIDs)
 }
 
 // getCharmStoreAPIURL consults the controller config for the charmstore api url to use.
-var getCharmStoreAPIURL = func(conAPIRoot api.Connection) (string, error) {
+func (c *CharmStoreResourceLister) getCharmStoreAPIURL(conAPIRoot api.Connection) (string, error) {
 	controllerAPI := controller.NewClient(conAPIRoot)
 	controllerCfg, err := controllerAPI.ControllerConfig()
 	if err != nil {

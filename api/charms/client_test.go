@@ -6,6 +6,7 @@ package charms_test
 import (
 	"github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -304,4 +305,71 @@ func (s charmsMockSuite) TestCheckCharmPlacementError(c *gc.C) {
 	client := charms.NewClientWithFacade(mockFacadeCaller)
 	err := client.CheckCharmPlacement("winnie", charm.MustParseURL("poo"))
 	c.Assert(err, gc.ErrorMatches, "trap")
+}
+
+func (s *charmsMockSuite) TestListCharmResourcesIsNotSupported(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().BestAPIVersion().Return(2)
+
+	client := charms.NewClientWithFacade(mockFacadeCaller)
+
+	curl := charm.MustParseURL("a-charm")
+	origin := apicharm.Origin{}
+
+	_, err := client.ListCharmResources(curl, origin)
+	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
+}
+
+func (s *charmsMockSuite) TestListCharmResources(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	curl := charm.MustParseURL("a-charm")
+	noChannelParamsOrigin := params.CharmOrigin{Source: "charm-hub"}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+
+	facadeArgs := params.CharmURLAndOrigins{
+		Entities: []params.CharmURLAndOrigin{
+			{CharmURL: curl.String(), Origin: noChannelParamsOrigin},
+		},
+	}
+
+	var resolve params.CharmResourcesResults
+
+	p := params.CharmResourcesResults{
+		Results: [][]params.CharmResourceResult{{{
+			CharmResource: params.CharmResource{
+				Type:     "oci-image",
+				Origin:   "upload",
+				Name:     "a-charm-res-1",
+				Path:     "res.txt",
+				Revision: 2,
+				Size:     1024,
+			},
+		}}},
+	}
+
+	mockFacadeCaller.EXPECT().BestAPIVersion().Return(3)
+	mockFacadeCaller.EXPECT().FacadeCall("ListCharmResources", facadeArgs, &resolve).SetArg(2, p).Return(nil)
+
+	client := charms.NewClientWithFacade(mockFacadeCaller)
+	got, err := client.ListCharmResources(curl, apicharm.APICharmOrigin(noChannelParamsOrigin))
+	c.Assert(err, gc.IsNil)
+
+	want := []charmresource.Resource{{
+		Meta: charmresource.Meta{
+			Type: charmresource.TypeContainerImage,
+			Name: "a-charm-res-1",
+			Path: "res.txt",
+		},
+		Origin:   charmresource.OriginUpload,
+		Revision: 2,
+		Size:     1024,
+	}}
+
+	c.Assert(got, gc.DeepEquals, want)
 }

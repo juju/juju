@@ -85,7 +85,7 @@ func (s *removeSuite) TestRemoveCloudLocal(c *gc.C) {
 	assertPersonalClouds(c, "homestack", "homestack2")
 	ctx, err := cmdtesting.RunCommand(c, command, "homestack", "--client")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Removed details of cloud \"homestack\" from the client\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Removed details of cloud \"homestack\" from this client\n")
 	assertPersonalClouds(c, "homestack2")
 }
 
@@ -103,7 +103,7 @@ func (s *removeSuite) TestRemoveCloudNoControllers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertPersonalClouds(c, "homestack2")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, "Removed details of cloud \"homestack\" from the client\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, "Removed details of cloud \"homestack\" from this client\n")
 }
 
 func (s *removeSuite) TestRemoveCloudControllerControllerOnly(c *gc.C) {
@@ -134,7 +134,7 @@ func (s *removeSuite) TestRemoveCloudBoth(c *gc.C) {
 	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
 	s.api.CheckCallNames(c, "RemoveCloud", "Close")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals,
-		"Removed details of cloud \"homestack\" from the client\n"+
+		"Removed details of cloud \"homestack\" from this client\n"+
 			"Removed details of cloud \"homestack\" from controller \"mycontroller\"\n")
 }
 

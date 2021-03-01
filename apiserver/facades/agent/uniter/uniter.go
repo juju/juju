@@ -2076,18 +2076,6 @@ func convertRelationSettings(settings map[string]interface{}) (params.Settings, 
 	return result, nil
 }
 
-func relationsInScopeTags(unit *state.Unit) ([]string, error) {
-	relations, err := unit.RelationsInScope()
-	if err != nil {
-		return nil, err
-	}
-	tags := make([]string, len(relations))
-	for i, relation := range relations {
-		tags[i] = relation.Tag().String()
-	}
-	return tags, nil
-}
-
 func leadershipSettingsAccessorFactory(
 	st *state.State,
 	checker leadership.Checker,

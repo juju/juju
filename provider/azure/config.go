@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
@@ -97,16 +96,6 @@ type azureModelConfig struct {
 	loadBalancerSkuName string
 	resourceGroupName   string
 	virtualNetworkName  string
-}
-
-// knownStorageAccountTypes returns a list of valid storage SKU names.
-//
-// The term "account type" is is used in previous versions of the Azure SDK.
-func knownStorageAccountTypes() (accountTypes []string) {
-	for _, name := range storage.PossibleSkuNameValues() {
-		accountTypes = append(accountTypes, string(name))
-	}
-	return accountTypes
 }
 
 // knownLoadBalancerSkuNames returns a list of valid load balancer SKU names.

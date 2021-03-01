@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
@@ -65,7 +66,11 @@ func canBeLost(agent, workload status.StatusInfo) bool {
 	case status.Allocating, status.Running:
 		return false
 	case status.Executing:
-		return agent.Message != operation.RunningHookMessage(string(hooks.Install))
+		installMsg := operation.RunningHookMessage(
+			string(hooks.Install),
+			hook.Info{Kind: hooks.Install},
+		)
+		return agent.Message != installMsg
 	}
 
 	// TODO(fwereade/wallyworld): we should have an explicit place in the model

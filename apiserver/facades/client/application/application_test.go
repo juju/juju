@@ -1700,10 +1700,6 @@ func (s *applicationSuite) TestApplicationUpdateDoesNotSetMinUnitsWithLXDProfile
 	c.Assert(err, gc.ErrorMatches, `invalid lxd-profile.yaml: contains device type "unix-disk"`)
 }
 
-var (
-	validSetTestValue = "a value with spaces\nand newline\nand UTF-8 characters: \U0001F604 / \U0001F44D"
-)
-
 var clientAddApplicationUnitsTests = []struct {
 	about       string
 	application string // if not set, defaults to 'dummy'

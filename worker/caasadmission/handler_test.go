@@ -34,7 +34,7 @@ type HandlerSuite struct {
 
 var _ = gc.Suite(&HandlerSuite{})
 
-func (h *HandlerSuite) SetupTest(c *gc.C) {
+func (h *HandlerSuite) SetUpTest(c *gc.C) {
 	h.logger = loggo.Logger{}
 }
 
@@ -328,4 +328,47 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *gc.C) {
 		}
 		c.Assert(found, jc.IsTrue)
 	}
+}
+
+func (h *HandlerSuite) TestSelfSubjectAccessReviewIgnore(c *gc.C) {
+	inReview := &admission.AdmissionReview{
+		Request: &admission.AdmissionRequest{
+			Kind: meta.GroupVersionKind{
+				Group:   "authorization.k8s.io",
+				Kind:    "SelfSubjectAccessReview",
+				Version: "v1",
+			},
+			UID: types.UID("test"),
+			UserInfo: authentication.UserInfo{
+				UID: "juju-tst-sa",
+			},
+		},
+	}
+
+	body, err := json.Marshal(inReview)
+	c.Assert(err, jc.ErrorIsNil)
+
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.Header.Set(HeaderContentType, ExpectedContentType)
+	recorder := httptest.NewRecorder()
+
+	appName := "test-app"
+	rbacMapper := rbacmappertest.Mapper{
+		AppNameForServiceAccountFunc: func(_ types.UID) (string, error) {
+			return appName, nil
+		},
+	}
+
+	admissionHandler(h.logger, &rbacMapper, false).ServeHTTP(recorder, req)
+	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
+	c.Assert(recorder.Body, gc.NotNil)
+
+	outReview := admission.AdmissionReview{}
+	err = json.Unmarshal(recorder.Body.Bytes(), &outReview)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(outReview.Response.Allowed, jc.IsTrue)
+	c.Assert(outReview.Response.UID, gc.Equals, inReview.Request.UID)
+
+	c.Assert(len(outReview.Response.Patch), gc.Equals, 0)
 }

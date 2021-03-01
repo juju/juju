@@ -842,3 +842,23 @@ func (s *RunHookSuite) TestNeedsGlobalMachineLock_Run(c *gc.C) {
 func (s *RunHookSuite) TestNeedsGlobalMachineLock_Skip(c *gc.C) {
 	s.testNeedsGlobalMachineLock(c, operation.Factory.NewSkipHook, false)
 }
+
+func (s *RunHookSuite) TestRunningHookMessageForRelationHooks(c *gc.C) {
+	msg := operation.RunningHookMessage(
+		"host-relation-created",
+		hook.Info{
+			Kind:       hooks.RelationCreated,
+			RemoteUnit: "alien/0",
+		},
+	)
+	c.Assert(msg, gc.Equals, "running host-relation-created hook for alien/0", gc.Commentf("expected remote unit to be included for a relation hook with a populated remote unit"))
+
+	msg = operation.RunningHookMessage(
+		"install",
+		hook.Info{
+			Kind:       hooks.Install,
+			RemoteUnit: "bogus",
+		},
+	)
+	c.Assert(msg, gc.Equals, "running install hook", gc.Commentf("expected remote unit not to be included for a non-relation hook"))
+}

@@ -19,6 +19,8 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
+
+	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.charmstore")
@@ -100,8 +102,9 @@ func makeWrapper(bakeryClient *httpbakery.Client, server string) (csWrapper, err
 		return csclientImpl{}, errors.NotValidf("empty charmstore URL")
 	}
 	p := csclient.Params{
-		BakeryClient: bakeryClient,
-		URL:          server,
+		BakeryClient:   bakeryClient,
+		URL:            server,
+		UserAgentValue: version.UserAgentVersion,
 	}
 	return csclientImpl{csclient.New(p)}, nil
 }
