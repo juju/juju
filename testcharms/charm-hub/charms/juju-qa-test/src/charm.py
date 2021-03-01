@@ -7,6 +7,7 @@ import logging
 from ops.charm import CharmBase
 from ops.model import (
     ActiveStatus,
+    ModelError,
     Resources,
 )
 from ops.main import main
@@ -57,7 +58,11 @@ class ApitestUbuntuQaCharm(CharmBase):
         if self.model.config["foo-file"] == False:
             self._stored.foo = ""
             return
-        path = self.model.resources.fetch("foo-file")
+        try:
+           path = self.model.resources.fetch("foo-file")
+        except ModelError as me:
+            logger.debug("failed to fetch resource")
+            return
         f = open(path, "r")
         line = f.readline()
         if not line:
