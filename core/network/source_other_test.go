@@ -18,41 +18,41 @@ type sourceOtherSuite struct {
 var _ = gc.Suite(&sourceOtherSuite{})
 
 func (s *sourceOtherSuite) TestNewNetAddr(c *gc.C) {
-	nic, err := newNetAddr("192.168.20.1/24")
+	addr, err := newNetAddr("192.168.20.1/24")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(nic.String(), gc.Equals, "192.168.20.1/24")
-	c.Assert(nic.IP(), gc.NotNil)
-	c.Check(nic.IP().String(), gc.Equals, "192.168.20.1")
-	c.Assert(nic.IPNet(), gc.NotNil)
-	c.Check(nic.IPNet().String(), gc.Equals, "192.168.20.0/24")
+	c.Check(addr.String(), gc.Equals, "192.168.20.1/24")
+	c.Assert(addr.IP(), gc.NotNil)
+	c.Check(addr.IP().String(), gc.Equals, "192.168.20.1")
+	c.Assert(addr.IPNet(), gc.NotNil)
+	c.Check(addr.IPNet().String(), gc.Equals, "192.168.20.0/24")
 
-	nic, err = newNetAddr("192.168.20.1")
+	addr, err = newNetAddr("192.168.20.1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(nic.String(), gc.Equals, "192.168.20.1")
-	c.Assert(nic.IP(), gc.NotNil)
-	c.Check(nic.IP().String(), gc.Equals, "192.168.20.1")
-	c.Assert(nic.IPNet(), gc.IsNil)
+	c.Check(addr.String(), gc.Equals, "192.168.20.1")
+	c.Assert(addr.IP(), gc.NotNil)
+	c.Check(addr.IP().String(), gc.Equals, "192.168.20.1")
+	c.Assert(addr.IPNet(), gc.IsNil)
 
-	nic, err = newNetAddr("fe80::5054:ff:fedd:eef0/64")
+	addr, err = newNetAddr("fe80::5054:ff:fedd:eef0/64")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(nic.String(), gc.Equals, "fe80::5054:ff:fedd:eef0/64")
-	c.Assert(nic.IP(), gc.NotNil)
-	c.Check(nic.IP().String(), gc.Equals, "fe80::5054:ff:fedd:eef0")
-	c.Assert(nic.IPNet(), gc.NotNil)
-	c.Check(nic.IPNet().String(), gc.Equals, "fe80::/64")
+	c.Check(addr.String(), gc.Equals, "fe80::5054:ff:fedd:eef0/64")
+	c.Assert(addr.IP(), gc.NotNil)
+	c.Check(addr.IP().String(), gc.Equals, "fe80::5054:ff:fedd:eef0")
+	c.Assert(addr.IPNet(), gc.NotNil)
+	c.Check(addr.IPNet().String(), gc.Equals, "fe80::/64")
 
-	nic, err = newNetAddr("fe80::5054:ff:fedd:eef0")
+	addr, err = newNetAddr("fe80::5054:ff:fedd:eef0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(nic.String(), gc.Equals, "fe80::5054:ff:fedd:eef0")
-	c.Assert(nic.IP(), gc.NotNil)
-	c.Check(nic.IP().String(), gc.Equals, "fe80::5054:ff:fedd:eef0")
-	c.Assert(nic.IPNet(), gc.IsNil)
+	c.Check(addr.String(), gc.Equals, "fe80::5054:ff:fedd:eef0")
+	c.Assert(addr.IP(), gc.NotNil)
+	c.Check(addr.IP().String(), gc.Equals, "fe80::5054:ff:fedd:eef0")
+	c.Assert(addr.IPNet(), gc.IsNil)
 
-	nic, err = newNetAddr("y u no parse")
+	addr, err = newNetAddr("y u no parse")
 	c.Assert(err, gc.ErrorMatches, `unable to parse IP address "y u no parse"`)
 }
 
