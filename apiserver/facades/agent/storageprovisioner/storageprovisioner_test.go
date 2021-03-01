@@ -87,9 +87,8 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageBackend = storageBackend
-	v3, err := storageprovisioner.NewStorageProvisionerAPIv3(backend, storageBackend, s.resources, s.authorizer, registry, pm)
+	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, s.resources, s.authorizer, registry, pm)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = storageprovisioner.NewStorageProvisionerAPIv4(v3)
 }
 
 func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
@@ -120,9 +119,8 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageBackend = storageBackend
-	v3, err := storageprovisioner.NewStorageProvisionerAPIv3(backend, storageBackend, s.resources, s.authorizer, registry, pm)
+	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, s.resources, s.authorizer, registry, pm)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = storageprovisioner.NewStorageProvisionerAPIv4(v3)
 }
 
 func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
@@ -130,7 +128,7 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: tag}
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = storageprovisioner.NewStorageProvisionerAPIv3(backend, storageBackend, common.NewResources(), authorizer, nil, nil)
+	_, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, common.NewResources(), authorizer, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

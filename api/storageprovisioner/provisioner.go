@@ -88,7 +88,7 @@ func (st *State) WatchVolumes(scope names.Tag) (watcher.StringsWatcher, error) {
 	return st.watchStorageEntities("WatchVolumes", scope)
 }
 
-// WatchVolumes watches for lifecycle changes to volumes scoped to the
+// WatchFilesystems watches for lifecycle changes to volumes scoped to the
 // entity with the specified tag.
 func (st *State) WatchFilesystems(scope names.Tag) (watcher.StringsWatcher, error) {
 	return st.watchStorageEntities("WatchFilesystems", scope)

@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/juju/core/network"
 	"github.com/juju/names/v4"
 
 	"github.com/golang/mock/gomock"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -854,13 +854,11 @@ func (m *testMachine) SetInstanceInfo(
 	return nil
 }
 
-func (m *testMachine) ProvisioningInfo() (*params.ProvisioningInfoV10, error) {
-	return &params.ProvisioningInfoV10{
-		ProvisioningInfoBase: params.ProvisioningInfoBase{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			Series:           jujuversion.DefaultSupportedLTS(),
-			Constraints:      constraints.MustParse(m.constraints),
-		},
+func (m *testMachine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
+	return &params.ProvisioningInfo{
+		ControllerConfig:            coretesting.FakeControllerConfig(),
+		Series:                      jujuversion.DefaultSupportedLTS(),
+		Constraints:                 constraints.MustParse(m.constraints),
 		ProvisioningNetworkTopology: m.topology,
 	}, nil
 }

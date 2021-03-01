@@ -57,64 +57,60 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerCfg := s.ControllerConfig
-	expected := params.ProvisioningInfoResultsV10{
-		Results: []params.ProvisioningInfoResultV10{
-			{Result: &params.ProvisioningInfoV10{
-				ProvisioningInfoBase: params.ProvisioningInfoBase{
-					ControllerConfig: controllerCfg,
-					Series:           "quantal",
-					Jobs:             []model.MachineJob{model.JobHostUnits},
-					Tags: map[string]string{
-						tags.JujuController: coretesting.ControllerTag.Id(),
-						tags.JujuModel:      coretesting.ModelTag.Id(),
-						tags.JujuMachine:    "controller-machine-0",
-					},
-					EndpointBindings: make(map[string]string),
+	expected := params.ProvisioningInfoResults{
+		Results: []params.ProvisioningInfoResult{
+			{Result: &params.ProvisioningInfo{
+				ControllerConfig: controllerCfg,
+				Series:           "quantal",
+				Jobs:             []model.MachineJob{model.JobHostUnits},
+				Tags: map[string]string{
+					tags.JujuController: coretesting.ControllerTag.Id(),
+					tags.JujuModel:      coretesting.ModelTag.Id(),
+					tags.JujuMachine:    "controller-machine-0",
 				},
+				EndpointBindings: make(map[string]string),
 			}},
-			{Result: &params.ProvisioningInfoV10{
-				ProvisioningInfoBase: params.ProvisioningInfoBase{
-					ControllerConfig: controllerCfg,
-					Series:           "quantal",
-					Constraints:      template.Constraints,
-					Placement:        template.Placement,
-					Jobs:             []model.MachineJob{model.JobHostUnits},
+			{Result: &params.ProvisioningInfo{
+				ControllerConfig: controllerCfg,
+				Series:           "quantal",
+				Constraints:      template.Constraints,
+				Placement:        template.Placement,
+				Jobs:             []model.MachineJob{model.JobHostUnits},
+				Tags: map[string]string{
+					tags.JujuController: coretesting.ControllerTag.Id(),
+					tags.JujuModel:      coretesting.ModelTag.Id(),
+					tags.JujuMachine:    "controller-machine-5",
+				},
+				EndpointBindings: make(map[string]string),
+				Volumes: []params.VolumeParams{{
+					VolumeTag:  "volume-0",
+					Size:       1000,
+					Provider:   "static",
+					Attributes: map[string]interface{}{"foo": "bar"},
 					Tags: map[string]string{
 						tags.JujuController: coretesting.ControllerTag.Id(),
 						tags.JujuModel:      coretesting.ModelTag.Id(),
-						tags.JujuMachine:    "controller-machine-5",
 					},
-					EndpointBindings: make(map[string]string),
-					Volumes: []params.VolumeParams{{
+					Attachment: &params.VolumeAttachmentParams{
+						MachineTag: placementMachine.Tag().String(),
 						VolumeTag:  "volume-0",
-						Size:       1000,
 						Provider:   "static",
-						Attributes: map[string]interface{}{"foo": "bar"},
-						Tags: map[string]string{
-							tags.JujuController: coretesting.ControllerTag.Id(),
-							tags.JujuModel:      coretesting.ModelTag.Id(),
-						},
-						Attachment: &params.VolumeAttachmentParams{
-							MachineTag: placementMachine.Tag().String(),
-							VolumeTag:  "volume-0",
-							Provider:   "static",
-						},
-					}, {
+					},
+				}, {
+					VolumeTag:  "volume-1",
+					Size:       2000,
+					Provider:   "static",
+					Attributes: map[string]interface{}{"foo": "bar"},
+					Tags: map[string]string{
+						tags.JujuController: coretesting.ControllerTag.Id(),
+						tags.JujuModel:      coretesting.ModelTag.Id(),
+					},
+					Attachment: &params.VolumeAttachmentParams{
+						MachineTag: placementMachine.Tag().String(),
 						VolumeTag:  "volume-1",
-						Size:       2000,
 						Provider:   "static",
-						Attributes: map[string]interface{}{"foo": "bar"},
-						Tags: map[string]string{
-							tags.JujuController: coretesting.ControllerTag.Id(),
-							tags.JujuModel:      coretesting.ModelTag.Id(),
-						},
-						Attachment: &params.VolumeAttachmentParams{
-							MachineTag: placementMachine.Tag().String(),
-							VolumeTag:  "volume-1",
-							Provider:   "static",
-						},
-					}},
-				},
+					},
+				}},
 			}},
 		},
 	}
@@ -157,61 +153,6 @@ func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositiveSpaceInConstraintsV9(c *gc.C) {
-	s.addSpacesAndSubnets(c)
-
-	cons := constraints.MustParse("cores=123 mem=8G spaces=^space1,space2")
-	template := state.MachineTemplate{
-		Series:      "quantal",
-		Jobs:        []state.MachineJob{state.JobHostUnits},
-		Constraints: cons,
-		Placement:   "valid",
-	}
-	placementMachine, err := s.State.AddOneMachine(template)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: placementMachine.Tag().String()},
-	}}
-
-	api, err := provisioner.NewProvisionerAPIV9(facadetest.Context{
-		Auth_:      s.authorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(api, gc.NotNil)
-
-	result, err := api.ProvisioningInfo(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	controllerCfg := s.ControllerConfig
-	expected := params.ProvisioningInfoResults{
-		Results: []params.ProvisioningInfoResult{{
-			Result: &params.ProvisioningInfo{
-				ProvisioningInfoBase: params.ProvisioningInfoBase{
-					ControllerConfig: controllerCfg,
-					Series:           "quantal",
-					Constraints:      template.Constraints,
-					Placement:        template.Placement,
-					Jobs:             []model.MachineJob{model.JobHostUnits},
-					Tags: map[string]string{
-						tags.JujuController: coretesting.ControllerTag.Id(),
-						tags.JujuModel:      coretesting.ModelTag.Id(),
-						tags.JujuMachine:    "controller-machine-5",
-					},
-					EndpointBindings: make(map[string]string),
-				},
-				SubnetsToZones: map[string][]string{
-					"subnet-1": {"zone1"},
-					"subnet-2": {"zone2"},
-				},
-			},
-		}}}
-	c.Assert(result, jc.DeepEquals, expected)
-}
-
 func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceConstraints(c *gc.C) {
 	s.addSpacesAndSubnets(c)
 
@@ -234,20 +175,18 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 
-	expected := params.ProvisioningInfoV10{
-		ProvisioningInfoBase: params.ProvisioningInfoBase{
-			ControllerConfig: s.ControllerConfig,
-			Series:           "quantal",
-			Constraints:      template.Constraints,
-			Placement:        template.Placement,
-			Jobs:             []model.MachineJob{model.JobHostUnits},
-			Tags: map[string]string{
-				tags.JujuController: coretesting.ControllerTag.Id(),
-				tags.JujuModel:      coretesting.ModelTag.Id(),
-				tags.JujuMachine:    "controller-machine-5",
-			},
-			EndpointBindings: make(map[string]string),
+	expected := &params.ProvisioningInfo{
+		ControllerConfig: s.ControllerConfig,
+		Series:           "quantal",
+		Constraints:      template.Constraints,
+		Placement:        template.Placement,
+		Jobs:             []model.MachineJob{model.JobHostUnits},
+		Tags: map[string]string{
+			tags.JujuController: coretesting.ControllerTag.Id(),
+			tags.JujuModel:      coretesting.ModelTag.Id(),
+			tags.JujuMachine:    "controller-machine-5",
 		},
+		EndpointBindings: make(map[string]string),
 		ProvisioningNetworkTopology: params.ProvisioningNetworkTopology{
 			SubnetAZs: map[string][]string{
 				"subnet-0": {"zone0"},
@@ -262,12 +201,13 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 	}
 
 	res := result.Results[0].Result
-	c.Assert(res.ProvisioningInfoBase, jc.DeepEquals, expected.ProvisioningInfoBase)
 	c.Assert(res.SubnetAZs, jc.DeepEquals, expected.SubnetAZs)
 	c.Assert(res.SpaceSubnets, gc.HasLen, 2)
 	c.Assert(res.SpaceSubnets["space1"], jc.SameContents, expected.SpaceSubnets["space1"])
 	c.Assert(res.SpaceSubnets["space2"], jc.SameContents, expected.SpaceSubnets["space2"])
-
+	expected.ProvisioningNetworkTopology = params.ProvisioningNetworkTopology{}
+	res.ProvisioningNetworkTopology = params.ProvisioningNetworkTopology{}
+	c.Assert(res, jc.DeepEquals, expected)
 }
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.C) {
@@ -309,32 +249,30 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerCfg := s.ControllerConfig
-	expected := params.ProvisioningInfoResultsV10{
-		Results: []params.ProvisioningInfoResultV10{{
-			Result: &params.ProvisioningInfoV10{
-				ProvisioningInfoBase: params.ProvisioningInfoBase{
-					ControllerConfig: controllerCfg,
-					Series:           "quantal",
-					Jobs:             []model.MachineJob{model.JobHostUnits},
-					Tags: map[string]string{
-						tags.JujuController:    coretesting.ControllerTag.Id(),
-						tags.JujuModel:         coretesting.ModelTag.Id(),
-						tags.JujuMachine:       "controller-machine-5",
-						tags.JujuUnitsDeployed: wordpressUnit.Name(),
-					},
-					// Ensure space names are translated to provider IDs, where
-					// possible.
-					EndpointBindings: map[string]string{
-						"":                network.AlphaSpaceName,
-						"admin-api":       network.AlphaSpaceName,
-						"cache":           network.AlphaSpaceName,
-						"db-client":       network.AlphaSpaceName,
-						"logging-dir":     network.AlphaSpaceName,
-						"monitoring-port": network.AlphaSpaceName,
-						"foo-bar":         network.AlphaSpaceName,
-						"db":              "space2",         // just name, no provider ID
-						"url":             "first space id", // has provider ID
-					},
+	expected := params.ProvisioningInfoResults{
+		Results: []params.ProvisioningInfoResult{{
+			Result: &params.ProvisioningInfo{
+				ControllerConfig: controllerCfg,
+				Series:           "quantal",
+				Jobs:             []model.MachineJob{model.JobHostUnits},
+				Tags: map[string]string{
+					tags.JujuController:    coretesting.ControllerTag.Id(),
+					tags.JujuModel:         coretesting.ModelTag.Id(),
+					tags.JujuMachine:       "controller-machine-5",
+					tags.JujuUnitsDeployed: wordpressUnit.Name(),
+				},
+				// Ensure space names are translated to provider IDs, where
+				// possible.
+				EndpointBindings: map[string]string{
+					"":                network.AlphaSpaceName,
+					"admin-api":       network.AlphaSpaceName,
+					"cache":           network.AlphaSpaceName,
+					"db-client":       network.AlphaSpaceName,
+					"logging-dir":     network.AlphaSpaceName,
+					"monitoring-port": network.AlphaSpaceName,
+					"foo-bar":         network.AlphaSpaceName,
+					"db":              "space2",         // just name, no provider ID
+					"url":             "first space id", // has provider ID
 				},
 				ProvisioningNetworkTopology: params.ProvisioningNetworkTopology{
 					SubnetAZs: map[string][]string{
@@ -384,8 +322,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAl
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := params.ProvisioningInfoResultsV10{
-		Results: []params.ProvisioningInfoResultV10{{
+	expected := params.ProvisioningInfoResults{
+		Results: []params.ProvisioningInfoResult{{
 			Error: apiservertesting.ServerError(
 				"matching subnets to zones: cannot use space \"alpha\" as deployment target: no subnets"),
 		}},
@@ -433,8 +371,8 @@ func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingErr
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := params.ProvisioningInfoResultsV10{
-		Results: []params.ProvisioningInfoResultV10{{
+	expected := params.ProvisioningInfoResults{
+		Results: []params.ProvisioningInfoResult{{
 			Error: apiservertesting.ServerError(
 				`negative space constraint "space1" conflicts with wordpress endpoint binding for "url"`),
 		}},
@@ -492,7 +430,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 		`cannot use space "empty" as deployment target: no subnets`
 	expectedErrorMissingSpace := `matching subnets to zones: ` +
 		`space "missing"` // " not found" will be appended by NotFoundError helper below.
-	expected := params.ProvisioningInfoResultsV10{Results: []params.ProvisioningInfoResultV10{
+	expected := params.ProvisioningInfoResults{Results: []params.ProvisioningInfoResult{
 		{Error: apiservertesting.ServerError(expectedErrorEmptySpace)},
 		{Error: apiservertesting.NotFoundError(expectedErrorMissingSpace)},
 	}}
@@ -522,26 +460,24 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 	controllerCfg := s.ControllerConfig
 
 	pName := fmt.Sprintf("juju-%s-lxd-profile-0", profileMachine.ModelName())
-	expected := params.ProvisioningInfoResultsV10{
-		Results: []params.ProvisioningInfoResultV10{{
-			Result: &params.ProvisioningInfoV10{
-				ProvisioningInfoBase: params.ProvisioningInfoBase{
-					ControllerConfig: controllerCfg,
-					Series:           "quantal",
-					Jobs:             []model.MachineJob{model.JobHostUnits},
-					Tags: map[string]string{
-						tags.JujuController:    coretesting.ControllerTag.Id(),
-						tags.JujuModel:         coretesting.ModelTag.Id(),
-						tags.JujuMachine:       "controller-machine-5",
-						tags.JujuUnitsDeployed: profileUnit.Name(),
-					},
-					EndpointBindings: map[string]string{
-						"":        network.AlphaSpaceName,
-						"another": network.AlphaSpaceName,
-						"ubuntu":  network.AlphaSpaceName,
-					},
-					CharmLXDProfiles: []string{pName},
+	expected := params.ProvisioningInfoResults{
+		Results: []params.ProvisioningInfoResult{{
+			Result: &params.ProvisioningInfo{
+				ControllerConfig: controllerCfg,
+				Series:           "quantal",
+				Jobs:             []model.MachineJob{model.JobHostUnits},
+				Tags: map[string]string{
+					tags.JujuController:    coretesting.ControllerTag.Id(),
+					tags.JujuModel:         coretesting.ModelTag.Id(),
+					tags.JujuMachine:       "controller-machine-5",
+					tags.JujuUnitsDeployed: profileUnit.Name(),
 				},
+				EndpointBindings: map[string]string{
+					"":        network.AlphaSpaceName,
+					"another": network.AlphaSpaceName,
+					"ubuntu":  network.AlphaSpaceName,
+				},
+				CharmLXDProfiles: []string{pName},
 			},
 		}}}
 	c.Assert(result, jc.DeepEquals, expected)
@@ -567,41 +503,39 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerCfg := s.ControllerConfig
-	c.Assert(result, jc.DeepEquals, params.ProvisioningInfoResultsV10{
-		Results: []params.ProvisioningInfoResultV10{
-			{Result: &params.ProvisioningInfoV10{
-				ProvisioningInfoBase: params.ProvisioningInfoBase{
-					ControllerConfig: controllerCfg,
-					Series:           "quantal",
-					Constraints:      template.Constraints,
-					Placement:        template.Placement,
-					Jobs:             []model.MachineJob{model.JobHostUnits},
+	c.Assert(result, jc.DeepEquals, params.ProvisioningInfoResults{
+		Results: []params.ProvisioningInfoResult{
+			{Result: &params.ProvisioningInfo{
+				ControllerConfig: controllerCfg,
+				Series:           "quantal",
+				Constraints:      template.Constraints,
+				Placement:        template.Placement,
+				Jobs:             []model.MachineJob{model.JobHostUnits},
+				Tags: map[string]string{
+					tags.JujuController: coretesting.ControllerTag.Id(),
+					tags.JujuModel:      coretesting.ModelTag.Id(),
+					tags.JujuMachine:    "controller-machine-5",
+				},
+				// volume-0 should not be included as it is not managed by
+				// the environ provider.
+				Volumes: []params.VolumeParams{{
+					VolumeTag:  "volume-1",
+					Size:       1000,
+					Provider:   "static",
+					Attributes: nil,
 					Tags: map[string]string{
 						tags.JujuController: coretesting.ControllerTag.Id(),
 						tags.JujuModel:      coretesting.ModelTag.Id(),
-						tags.JujuMachine:    "controller-machine-5",
 					},
-					// volume-0 should not be included as it is not managed by
-					// the environ provider.
-					Volumes: []params.VolumeParams{{
+					Attachment: &params.VolumeAttachmentParams{
+						MachineTag: placementMachine.Tag().String(),
 						VolumeTag:  "volume-1",
-						Size:       1000,
 						Provider:   "static",
-						Attributes: nil,
-						Tags: map[string]string{
-							tags.JujuController: coretesting.ControllerTag.Id(),
-							tags.JujuModel:      coretesting.ModelTag.Id(),
-						},
-						Attachment: &params.VolumeAttachmentParams{
-							MachineTag: placementMachine.Tag().String(),
-							VolumeTag:  "volume-1",
-							Provider:   "static",
-						},
-					}},
-					EndpointBindings: make(map[string]string),
-				},
+					},
+				}},
+				EndpointBindings: make(map[string]string),
+			},
 			}},
-		},
 	})
 }
 
@@ -723,21 +657,20 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	results, err := aProvisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 	controllerCfg := s.ControllerConfig
-	c.Assert(results, jc.DeepEquals, params.ProvisioningInfoResultsV10{
-		Results: []params.ProvisioningInfoResultV10{
-			{Result: &params.ProvisioningInfoV10{
-				ProvisioningInfoBase: params.ProvisioningInfoBase{
-					ControllerConfig: controllerCfg,
-					Series:           "quantal",
-					Jobs:             []model.MachineJob{model.JobHostUnits},
-					Tags: map[string]string{
-						tags.JujuController: coretesting.ControllerTag.Id(),
-						tags.JujuModel:      coretesting.ModelTag.Id(),
-						tags.JujuMachine:    "controller-machine-0",
-					},
-					EndpointBindings: make(map[string]string),
+	c.Assert(results, jc.DeepEquals, params.ProvisioningInfoResults{
+		Results: []params.ProvisioningInfoResult{
+			{Result: &params.ProvisioningInfo{
+				ControllerConfig: controllerCfg,
+				Series:           "quantal",
+				Jobs:             []model.MachineJob{model.JobHostUnits},
+				Tags: map[string]string{
+					tags.JujuController: coretesting.ControllerTag.Id(),
+					tags.JujuModel:      coretesting.ModelTag.Id(),
+					tags.JujuMachine:    "controller-machine-0",
 				},
-			}},
+				EndpointBindings: make(map[string]string),
+			},
+			},
 			{Error: apiservertesting.NotFoundError("machine 0/lxd/0")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

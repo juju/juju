@@ -234,9 +234,6 @@ func AllFacades() *facade.Registry {
 	reg("MachineManager", 6, machinemanager.NewFacadeV6) // DestroyMachinesWithParams gains maxWait.
 
 	reg("MachineUndertaker", 1, machineundertaker.NewFacade)
-	reg("Machiner", 1, machine.NewMachinerAPIV1)
-	reg("Machiner", 2, machine.NewMachinerAPIV2) // Adds RecordAgentStartTime.
-	reg("Machiner", 3, machine.NewMachinerAPIV3) // Relies on agent-set origin in SetObservedNetworkConfig.
 	reg("Machiner", 4, machine.NewMachinerAPI)   // Removes SetProviderNetworkConfig.
 
 	reg("MeterStatus", 1, meterstatus.NewMeterStatusFacadeV1)
@@ -275,14 +272,6 @@ func AllFacades() *facade.Registry {
 	)
 
 	reg("Pinger", 1, NewPinger)
-	reg("Provisioner", 3, provisioner.NewProvisionerAPIV4) // Yes this is weird.
-	reg("Provisioner", 4, provisioner.NewProvisionerAPIV4)
-	reg("Provisioner", 5, provisioner.NewProvisionerAPIV5)   // Adds DistributionGroupByMachineId()
-	reg("Provisioner", 6, provisioner.NewProvisionerAPIV6)   // Adds more proxy settings
-	reg("Provisioner", 7, provisioner.NewProvisionerAPIV7)   // Adds charm profile watcher
-	reg("Provisioner", 8, provisioner.NewProvisionerAPIV8)   // Adds changes charm profile and modification status
-	reg("Provisioner", 9, provisioner.NewProvisionerAPIV9)   // Adds supported containers
-	reg("Provisioner", 10, provisioner.NewProvisionerAPIV10) // Adds support for multiple space constraints.
 	reg("Provisioner", 11, provisioner.NewProvisionerAPIV11) // Relies on agent-set origin in SetHostMachineNetworkConfig.
 
 	reg("ProxyUpdater", 1, proxyupdater.NewFacadeV1)
@@ -315,7 +304,6 @@ func AllFacades() *facade.Registry {
 	reg("Storage", 5, storage.NewStorageAPIV5) // Update and Delete storage pools and CreatePool bulk calls.
 	reg("Storage", 6, storage.NewStorageAPI)   // modify Remove to support force and maxWait; add DetachStorage to support force and maxWait.
 
-	reg("StorageProvisioner", 3, storageprovisioner.NewFacadeV3)
 	reg("StorageProvisioner", 4, storageprovisioner.NewFacadeV4)
 	reg("Subnets", 2, subnets.NewAPIv2)
 	reg("Subnets", 3, subnets.NewAPIv3)

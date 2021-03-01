@@ -173,112 +173,10 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	return api, nil
 }
 
-// ProvisionerAPIV4 provides v4 (and v3 for some reason) of the provisioner facade.
-type ProvisionerAPIV4 struct {
-	*ProvisionerAPIV5
-}
-
-// ProvisionerAPIV5 provides v5 of the provisioner facade.
-type ProvisionerAPIV5 struct {
-	*ProvisionerAPIV6
-}
-
-// ProvisionerAPIV6 provides v6 of the provisioner facade.
-type ProvisionerAPIV6 struct {
-	*ProvisionerAPIV7
-}
-
-// ProvisionerAPIV7 provides v7 of the provisioner facade.
-type ProvisionerAPIV7 struct {
-	*ProvisionerAPIV8
-}
-
-// ProvisionerAPIV8 provides v8 of the provisioner facade.
-// Added ModificationStatus and SetModificationStatus
-type ProvisionerAPIV8 struct {
-	*ProvisionerAPIV9
-}
-
-// ProvisionerAPIV9 provides v9 of the provisioner facade.
-// Added SupportedContainers
-type ProvisionerAPIV9 struct {
-	*ProvisionerAPIV10
-}
-
-// ProvisionerAPIV10 provides v10 of the provisioner facade.
-// It returns a new form of ProvisioningInfo that
-// supports multiple space constraints.
-type ProvisionerAPIV10 struct {
-	*ProvisionerAPIV11
-}
-
 // ProvisionerAPIV11 provides v10 of the provisioner facade.
 // It relies on agent-set origin when calling SetHostMachineNetworkConfig.
 type ProvisionerAPIV11 struct {
 	*ProvisionerAPI
-}
-
-// NewProvisionerAPIV4 creates a new server-side version 4 Provisioner API facade.
-func NewProvisionerAPIV4(ctx facade.Context) (*ProvisionerAPIV4, error) {
-	provisionerAPI, err := NewProvisionerAPIV5(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ProvisionerAPIV4{provisionerAPI}, nil
-}
-
-// NewProvisionerAPIV5 creates a new server-side Provisioner API facade.
-func NewProvisionerAPIV5(ctx facade.Context) (*ProvisionerAPIV5, error) {
-	provisionerAPI, err := NewProvisionerAPIV6(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ProvisionerAPIV5{provisionerAPI}, nil
-}
-
-// NewProvisionerAPIV6 creates a new server-side Provisioner API facade.
-func NewProvisionerAPIV6(ctx facade.Context) (*ProvisionerAPIV6, error) {
-	provisionerAPI, err := NewProvisionerAPIV7(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ProvisionerAPIV6{provisionerAPI}, nil
-}
-
-// NewProvisionerAPIV7 creates a new server-side Provisioner API facade.
-func NewProvisionerAPIV7(ctx facade.Context) (*ProvisionerAPIV7, error) {
-	provisionerAPI, err := NewProvisionerAPIV8(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ProvisionerAPIV7{provisionerAPI}, nil
-}
-
-// NewProvisionerAPIV8 creates a new server-side Provisioner API facade.
-func NewProvisionerAPIV8(ctx facade.Context) (*ProvisionerAPIV8, error) {
-	provisionerAPI, err := NewProvisionerAPIV9(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ProvisionerAPIV8{provisionerAPI}, nil
-}
-
-// NewProvisionerAPIV9 creates a new server-side Provisioner API facade.
-func NewProvisionerAPIV9(ctx facade.Context) (*ProvisionerAPIV9, error) {
-	provisionerAPI, err := NewProvisionerAPIV10(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ProvisionerAPIV9{provisionerAPI}, nil
-}
-
-// NewProvisionerAPIV10 creates a new server-side Provisioner API facade.
-func NewProvisionerAPIV10(ctx facade.Context) (*ProvisionerAPIV10, error) {
-	provisionerAPI, err := NewProvisionerAPIV11(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ProvisionerAPIV10{provisionerAPI}, nil
 }
 
 // NewProvisionerAPIV11 creates a new server-side Provisioner API facade.
@@ -356,19 +254,6 @@ func (api *ProvisionerAPI) WatchAllContainers(args params.WatchContainers) (para
 	return api.WatchContainers(args)
 }
 
-// WatchContainersCharmProfiles starts a StringsWatcher to  notifies when
-// the provisioner should update the charm profiles used by a container on
-// the given machine.
-//
-// Remove in juju 3, this is for compatibility of provisioner using
-// APIV7 or APIV8. It is required for the worker to start, and for
-// the former processProfileChanges, which will no longer be used in APIv9.
-// Code in apiserver application SetCharm() will prevent APIv8
-// models from upgrading charm with profiles and causing issues.
-func (p *ProvisionerAPIV8) WatchContainersCharmProfiles(args params.WatchContainers) (params.StringsWatchResults, error) {
-	return p.WatchContainers(args)
-}
-
 // SetSupportedContainers updates the list of containers supported by the machines passed in args.
 func (api *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{
@@ -401,10 +286,6 @@ func (api *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersP
 		}
 	}
 	return result, nil
-}
-
-func (p *ProvisionerAPIV8) SupportedContainers(_, _ struct{}) (params.MachineContainerResults, error) {
-	return params.MachineContainerResults{}, nil
 }
 
 // SupportedContainers returns the list of containers supported by the machines passed in args.
@@ -490,28 +371,6 @@ func (api *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.CloudInitUserData = cfg.CloudInitUserData()
 	result.ContainerInheritProperties = cfg.ContainerInheritProperties()
 	return result, nil
-}
-
-// ContainerConfig returns information from the model config that is
-// needed for container cloud-init.
-func (p *ProvisionerAPIV5) ContainerConfig() (params.ContainerConfigV5, error) {
-	var empty params.ContainerConfigV5
-	cfg, err := p.ProvisionerAPI.ContainerConfig()
-	if err != nil {
-		return empty, err
-	}
-
-	return params.ContainerConfigV5{
-		ProviderType:               cfg.ProviderType,
-		AuthorizedKeys:             cfg.AuthorizedKeys,
-		SSLHostnameVerification:    cfg.SSLHostnameVerification,
-		Proxy:                      cfg.LegacyProxy,
-		AptProxy:                   cfg.AptProxy,
-		AptMirror:                  cfg.AptMirror,
-		CloudInitUserData:          cfg.CloudInitUserData,
-		ContainerInheritProperties: cfg.ContainerInheritProperties,
-		UpdateBehavior:             cfg.UpdateBehavior,
-	}, nil
 }
 
 // MachinesWithTransientErrors returns status data for machines with provisioning
@@ -726,9 +585,6 @@ func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, e
 	return instanceIds, nil
 }
 
-// DistributionGroupByMachineId isn't on the v4 API.
-func (p *ProvisionerAPIV4) DistributionGroupByMachineId(_, _ struct{}) {}
-
 // DistributionGroupByMachineId returns, for each given machine entity,
 // a slice of machine.Ids that belong to the same distribution
 // group as that machine. This information may be used to
@@ -883,18 +739,6 @@ func (api *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, e
 		return result, watcher.EnsureErr(watch)
 	}
 	return result, nil
-}
-
-// WatchModelMachinesCharmProfiles returns a StringsWatcher that notifies when
-// the provisioner should update the charm profiles used by a machine.
-//
-// Remove in juju 3, this is for compatibility of provisioner using
-// APIV7 or APIV8. It is required for the worker to start, and for
-// the former processProfileChanges, which will no longer be used in APIv9.
-// Code in apiserver application SetCharm() will prevent APIv8
-// models from upgrading charm with profiles and causing issues.
-func (p *ProvisionerAPIV8) WatchModelMachinesCharmProfiles() (params.StringsWatchResult, error) {
-	return p.WatchModelMachines()
 }
 
 // ReleaseContainerAddresses finds addresses allocated to a container and marks
@@ -1378,9 +1222,6 @@ func (api *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.Erro
 	return result, nil
 }
 
-// SetModificationStatus isn't on the v7 or lower API.
-func (p *ProvisionerAPIV7) SetModificationStatus(_, _ struct{}) {}
-
 // SetModificationStatus updates the instance whilst changes are occurring. This
 // is different from SetStatus and SetInstanceStatus, by the fact this holds
 // information about the ongoing changes that are happening to instances.
@@ -1462,13 +1303,6 @@ func (api *ProvisionerAPI) markOneMachineForRemoval(machineTag string, canAccess
 	return machine.MarkForRemoval()
 }
 
-// SetHostMachineNetworkConfig on versions prior to 11 will not receive args
-// with origin set by the calling agent. We back-fill for them.
-func (api *ProvisionerAPIV10) SetHostMachineNetworkConfig(args params.SetMachineNetworkConfig) error {
-	args.BackFillMachineOrigin()
-	return api.SetObservedNetworkConfig(args)
-}
-
 func (api *ProvisionerAPI) SetHostMachineNetworkConfig(args params.SetMachineNetworkConfig) error {
 	return api.SetObservedNetworkConfig(args)
 }
@@ -1481,18 +1315,6 @@ func (api *ProvisionerAPI) CACert() (params.BytesResult, error) {
 	}
 	caCert, _ := cfg.CACert()
 	return params.BytesResult{Result: []byte(caCert)}, nil
-}
-
-// CharmProfileChangeInfo retrieves the info necessary to change a charm
-// profile used by a machine.
-//
-// Remove in juju 3, this is for compatibility of provisioner using
-// APIV7 or APIV8. It is required for the worker to start, and for
-// the former processProfileChanges, which will no longer be used in APIv9.
-// Code in apiserver application SetCharm() will prevent APIv8
-// models from upgrading charm with profiles and causing issues.
-func (p *ProvisionerAPIV8) CharmProfileChangeInfo(args params.ProfileArgs) (params.ProfileChangeResults, error) {
-	return params.ProfileChangeResults{}, errors.NewNotSupported(nil, "CharmProfileChangeInfo")
 }
 
 // SetCharmProfiles records the given slice of charm profile names.
@@ -1524,30 +1346,4 @@ func (api *ProvisionerAPI) setOneMachineCharmProfiles(machineTag string, profile
 // ModelUUID returns the model UUID that the current connection is for.
 func (api *ProvisionerAPI) ModelUUID() params.StringResult {
 	return params.StringResult{Result: api.st.ModelUUID()}
-}
-
-// SetUpgradeCharmProfileComplete recorded that the result of updating
-// the machine's charm profile(s)
-//
-// Remove in juju 3. Upgrading existing charm profiles is now handled
-// in the instance mutater worker.  This is for compatibility only with
-// older provisioners.
-func (p *ProvisionerAPIV8) SetUpgradeCharmProfileComplete(args params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Args)),
-	}
-	return results, nil
-}
-
-// RemoveUpgradeCharmProfileData completely removes the instance charm profile
-// data for a machine, even if the machine is dead.
-//
-// Remove in juju 3. Upgrading existing charm profiles is now handled
-// in the instance mutater worker.  This is for compatibility only with
-// older provisioners.
-func (p *ProvisionerAPIV8) RemoveUpgradeCharmProfileData(args params.Entities) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	return results, nil
 }

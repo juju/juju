@@ -769,44 +769,6 @@ type AgentVersionResult struct {
 	Version version.Number `json:"version"`
 }
 
-// ProvisioningInfoBase holds machine provisioning info common
-// across different versions of the provisioner API facade.
-type ProvisioningInfoBase struct {
-	Constraints       constraints.Value        `json:"constraints"`
-	Series            string                   `json:"series"`
-	Placement         string                   `json:"placement"`
-	Jobs              []model.MachineJob       `json:"jobs"`
-	RootDisk          *VolumeParams            `json:"root-disk,omitempty"`
-	Volumes           []VolumeParams           `json:"volumes,omitempty"`
-	VolumeAttachments []VolumeAttachmentParams `json:"volume-attachments,omitempty"`
-	Tags              map[string]string        `json:"tags,omitempty"`
-	ImageMetadata     []CloudImageMetadata     `json:"image-metadata,omitempty"`
-	EndpointBindings  map[string]string        `json:"endpoint-bindings,omitempty"`
-	ControllerConfig  map[string]interface{}   `json:"controller-config,omitempty"`
-	CloudInitUserData map[string]interface{}   `json:"cloudinit-userdata,omitempty"`
-	CharmLXDProfiles  []string                 `json:"charm-lxd-profiles,omitempty"`
-}
-
-// ProvisioningInfo holds machine provisioning info returned by
-// versions 9 and lower of the provisioner API facade.
-type ProvisioningInfo struct {
-	ProvisioningInfoBase
-	SubnetsToZones map[string][]string `json:"subnets-to-zones,omitempty"`
-}
-
-// ProvisioningInfoResult holds machine provisioning info or an error
-// for versions 9 and lower of the provisioner API facade.
-type ProvisioningInfoResult struct {
-	Result *ProvisioningInfo `json:"result"`
-	Error  *Error            `json:"error,omitempty"`
-}
-
-// ProvisioningInfoResults holds multiple machine provisioning info results
-// for versions 9 and lower of the provisioner API facade.
-type ProvisioningInfoResults struct {
-	Results []ProvisioningInfoResult `json:"results"`
-}
-
 // ProvisioningNetworkTopology holds a network topology that is based on
 // positive machine space constraints.
 // This is used for creating NICs on instances where the provider is not space
@@ -824,24 +786,34 @@ type ProvisioningNetworkTopology struct {
 	SpaceSubnets map[string][]string `json:"space-subnets"`
 }
 
-// ProvisioningInfoV10 holds machine provisioning info returned by
-// versions 10 and above of the provisioner API facade.
-type ProvisioningInfoV10 struct {
-	ProvisioningInfoBase
+// ProvisioningInfo holds machine provisioning info.
+type ProvisioningInfo struct {
+	Constraints       constraints.Value        `json:"constraints"`
+	Series            string                   `json:"series"`
+	Placement         string                   `json:"placement"`
+	Jobs              []model.MachineJob       `json:"jobs"`
+	RootDisk          *VolumeParams            `json:"root-disk,omitempty"`
+	Volumes           []VolumeParams           `json:"volumes,omitempty"`
+	VolumeAttachments []VolumeAttachmentParams `json:"volume-attachments,omitempty"`
+	Tags              map[string]string        `json:"tags,omitempty"`
+	ImageMetadata     []CloudImageMetadata     `json:"image-metadata,omitempty"`
+	EndpointBindings  map[string]string        `json:"endpoint-bindings,omitempty"`
+	ControllerConfig  map[string]interface{}   `json:"controller-config,omitempty"`
+	CloudInitUserData map[string]interface{}   `json:"cloudinit-userdata,omitempty"`
+	CharmLXDProfiles  []string                 `json:"charm-lxd-profiles,omitempty"`
+
 	ProvisioningNetworkTopology
 }
 
-// ProvisioningInfoResultV10 holds machine provisioning info or an error
-// for versions 10 and above of the provisioner API facade.
-type ProvisioningInfoResultV10 struct {
-	Result *ProvisioningInfoV10 `json:"result"`
-	Error  *Error               `json:"error,omitempty"`
+// ProvisioningInfoResult holds machine provisioning info or an error.
+type ProvisioningInfoResult struct {
+	Result *ProvisioningInfo `json:"result"`
+	Error  *Error            `json:"error,omitempty"`
 }
 
-// ProvisioningInfoResultsV10 holds multiple machine provisioning info results
-// for versions 10 and above of the provisioner API facade.
-type ProvisioningInfoResultsV10 struct {
-	Results []ProvisioningInfoResultV10 `json:"results"`
+// ProvisioningInfoResults holds multiple machine provisioning info results.
+type ProvisioningInfoResults struct {
+	Results []ProvisioningInfoResult `json:"results"`
 }
 
 // Metric holds a single metric.
