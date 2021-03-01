@@ -5,12 +5,9 @@ package common_test
 
 import (
 	"errors"
-	"fmt"
-	"io/ioutil"
 	"net"
-	"os"
-	"path/filepath"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -19,331 +16,292 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
-	coretesting "github.com/juju/juju/testing"
 )
 
-type NetworkSuite struct {
-	coretesting.BaseSuite
+type networkConfigSuite struct {
+	testing.IsolationSuite
 
-	stubConfigSource *stubNetworkConfigSource
+	source *MockConfigSource
+
+	ovsBridges            set.Strings
+	defaultRouteGatewayIP net.IP
+	defaultRouteDevice    string
+	bridgePorts           map[string][]string
 }
 
-var _ = gc.Suite(&NetworkSuite{})
+var _ = gc.Suite(&networkConfigSuite{})
 
-func (s *NetworkSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.stubConfigSource = &stubNetworkConfigSource{
-		Stub:                  &testing.Stub{},
-		fakeSysClassNetPath:   c.MkDir(),
-		interfaces:            exampleObservedInterfaces,
-		interfaceAddrs:        exampleObservedInterfaceAddrs,
-		defaultRouteGatewayIP: net.ParseIP("1.2.3.4"),
-		defaultRouteDevice:    "eth1",
-	}
+func (s *networkConfigSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
+	s.ovsBridges = set.NewStrings()
+	s.defaultRouteGatewayIP = net.ParseIP("1.2.3.4")
+	s.defaultRouteDevice = "eth0"
+	s.bridgePorts = make(map[string][]string)
 }
 
-func mustParseMAC(value string) net.HardwareAddr {
-	parsedMAC, err := net.ParseMAC(value)
-	if err != nil {
-		panic(fmt.Sprintf("cannot parse MAC %q: %v", value, err))
-	}
-	return parsedMAC
-}
+func (s *networkConfigSuite) TestGetObservedNetworkConfigInterfacesError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 
-var exampleObservedInterfaces = []net.Interface{{
-	Index: 1,
-	MTU:   65536,
-	Name:  "lo",
-	Flags: net.FlagUp | net.FlagLoopback,
-}, {
-	Index:        2,
-	MTU:          1500,
-	Name:         "eth0",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        10,
-	MTU:          1500,
-	Name:         "br-eth0",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        11,
-	MTU:          1500,
-	Name:         "br-eth1",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        3,
-	MTU:          1500,
-	Name:         "eth1",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        12,
-	MTU:          1500,
-	Name:         "br-eth0.100",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        13,
-	MTU:          1500,
-	Name:         "eth0.100",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        14,
-	MTU:          1500,
-	Name:         "br-eth0.250",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        15,
-	MTU:          1500,
-	Name:         "eth0.250",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        16,
-	MTU:          1500,
-	Name:         "br-eth0.50",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        17,
-	MTU:          1500,
-	Name:         "eth0.50",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        18,
-	MTU:          1500,
-	Name:         "br-eth1.11",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        19,
-	MTU:          1500,
-	Name:         "eth1.11",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        20,
-	MTU:          1500,
-	Name:         "br-eth1.12",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        21,
-	MTU:          1500,
-	Name:         "eth1.12",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        22,
-	MTU:          1500,
-	Name:         "br-eth1.13",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        23,
-	MTU:          1500,
-	Name:         "eth1.13",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}}
+	s.source.EXPECT().Interfaces().Return(nil, errors.New("boom"))
 
-var exampleObservedInterfaceAddrs = map[string][]network.ConfigSourceAddr{
-	"eth0":        {network.NewNetAddr("fe80::5054:ff:fedd:eef0/64")},
-	"eth1":        {network.NewNetAddr("fe80::5054:ff:fedd:eef1/64")},
-	"eth0.50":     {network.NewNetAddr("fe80::5054:ff:fedd:eef0:50/64")},
-	"eth0.100":    {network.NewNetAddr("fe80::5054:ff:fedd:eef0:100/64")},
-	"eth0.25":     {network.NewNetAddr("fe80::5054:ff:fedd:eef0:25/64")},
-	"eth1.11":     {network.NewNetAddr("fe80::5054:ff:fedd:eef1:11/64")},
-	"eth1.12":     {network.NewNetAddr("fe80::5054:ff:fedd:eef1:12/64")},
-	"eth1.13":     {network.NewNetAddr("fe80::5054:ff:fedd:eef1:13/64")},
-	"lo":          {network.NewNetAddr("127.0.0.1/8"), network.NewNetAddr("::1/128")},
-	"br-eth0":     {network.NewNetAddr("10.20.19.100/24"), network.NewNetAddr("10.20.19.123/24"), network.NewNetAddr("fe80::5054:ff:fedd:eef0/64")},
-	"br-eth1":     {network.NewNetAddr("10.20.19.105/24"), network.NewNetAddr("fe80::5054:ff:fedd:eef1/64")},
-	"br-eth0.50":  {network.NewNetAddr("10.50.19.100/24"), network.NewNetAddr("fe80::5054:ff:fedd:eef0/64")},
-	"br-eth0.100": {network.NewNetAddr("10.100.19.100/24"), network.NewNetAddr("fe80::5054:ff:fedd:eef0/64")},
-	"br-eth0.250": {network.NewNetAddr("10.250.19.100/24"), network.NewNetAddr("fe80::5054:ff:fedd:eef0/64")},
-	"br-eth1.11":  {network.NewNetAddr("10.11.19.101/24"), network.NewNetAddr("fe80::5054:ff:fedd:eef1/64")},
-	"br-eth1.12":  {network.NewNetAddr("10.12.19.101/24"), network.NewNetAddr("fe80::5054:ff:fedd:eef1/64")},
-	"br-eth1.13":  {network.NewNetAddr("10.13.19.101/24"), network.NewNetAddr("fe80::5054:ff:fedd:eef1/64")},
-}
-
-func (s *NetworkSuite) TestGetObservedNetworkConfigInterfacesError(c *gc.C) {
-	s.stubConfigSource.SetErrors(errors.New("no interfaces"))
-
-	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
-	c.Check(err, gc.ErrorMatches, "cannot get network interfaces: no interfaces")
+	observedConfig, err := common.GetObservedNetworkConfig(s.source)
+	c.Check(err, gc.ErrorMatches, "detecting network interfaces: boom")
 	c.Check(observedConfig, gc.IsNil)
-
-	s.stubConfigSource.CheckCallNames(c, "Interfaces")
 }
 
-func (s *NetworkSuite) TestGetObservedNetworkConfigInterfaceAddressesError(c *gc.C) {
-	s.stubConfigSource.SetErrors(
-		nil,                        // Interfaces
-		nil,                        // DefaultRoute
-		nil,                        // OvsManagedBridges
-		errors.New("no addresses"), // InterfaceAddresses
-	)
+func (s *networkConfigSuite) TestGetObservedNetworkConfigInterfaceAddressesError(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
-	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
-	c.Check(err, gc.ErrorMatches, `cannot get interface "lo" addresses: no addresses`)
+	nic := NewMockConfigSourceNIC(ctrl)
+	exp := nic.EXPECT()
+	exp.Name().Return("eth0").MinTimes(1)
+	exp.Type().Return(network.EthernetInterface)
+	exp.IsUp().Return(true)
+	exp.Index().Return(2)
+	exp.HardwareAddr().Return(net.HardwareAddr{})
+	exp.MTU().Return(1500)
+	exp.Addresses().Return(nil, errors.New("bam"))
+
+	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{nic}, nil)
+
+	observedConfig, err := common.GetObservedNetworkConfig(s.source)
+	c.Check(err, gc.ErrorMatches, `detecting addresses for "eth0": bam`)
 	c.Check(observedConfig, gc.IsNil)
-
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "OvsManagedBridges", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "lo")
 }
 
-func (s *NetworkSuite) TestGetObservedNetworkConfigNoInterfaceAddresses(c *gc.C) {
-	s.stubConfigSource.interfaces = exampleObservedInterfaces[3:4] // only br-eth1
-	s.stubConfigSource.interfaceAddrs = make(map[string][]network.ConfigSourceAddr)
-	s.stubConfigSource.makeSysClassNetInterfacePath(c, "br-eth1", "bridge")
+func (s *networkConfigSuite) TestGetObservedNetworkConfigNilAddressError(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
-	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
-	c.Check(err, jc.ErrorIsNil)
+	nic := NewMockConfigSourceNIC(ctrl)
+	exp := nic.EXPECT()
+	exp.Name().Return("eth1").MinTimes(1)
+	exp.Type().Return(network.EthernetInterface)
+	exp.IsUp().Return(true)
+	exp.Index().Return(2)
+	exp.HardwareAddr().Return(parseMAC(c, "aa:bb:cc:dd:ee:ff"))
+	exp.MTU().Return(1500)
+	exp.Addresses().Return([]network.ConfigSourceAddr{nil}, nil)
+
+	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{nic}, nil)
+
+	observedConfig, err := common.GetObservedNetworkConfig(s.source)
+	c.Check(err, gc.ErrorMatches, `cannot parse nil address on interface "eth1"`)
+	c.Check(observedConfig, gc.IsNil)
+}
+
+func (s *networkConfigSuite) TestGetObservedNetworkConfigNoInterfaceAddresses(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	nic := NewMockConfigSourceNIC(ctrl)
+	exp := nic.EXPECT()
+
+	// Note that eth1 is not the default gateway.
+	exp.Name().Return("eth1").MinTimes(1)
+	exp.Type().Return(network.EthernetInterface)
+	exp.IsUp().Return(true)
+	exp.Index().Return(2)
+	exp.HardwareAddr().Return(parseMAC(c, "aa:bb:cc:dd:ee:ff"))
+	exp.MTU().Return(1500)
+	exp.Addresses().Return(nil, nil)
+
+	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{nic}, nil)
+
+	observedConfig, err := common.GetObservedNetworkConfig(s.source)
+	c.Assert(err, jc.ErrorIsNil)
+
 	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
-		DeviceIndex:   11,
-		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		DeviceIndex:   2,
+		MACAddress:    "aa:bb:cc:dd:ee:ff",
 		MTU:           1500,
-		InterfaceName: "br-eth1",
-		InterfaceType: "bridge",
+		InterfaceName: "eth1",
+		InterfaceType: "ethernet",
 		ConfigType:    "manual",
 		NetworkOrigin: "machine",
 	}})
-
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "OvsManagedBridges", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "br-eth1")
 }
 
-func (s *NetworkSuite) TestGetObservedNetworkConfigLoopbackInferred(c *gc.C) {
-	s.stubConfigSource.interfaces = exampleObservedInterfaces[0:1] // only lo
-	s.stubConfigSource.makeSysClassNetInterfacePath(c, "lo", "")
+func (s *networkConfigSuite) TestGetObservedNetworkConfigDefaultGatewayWithAddresses(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
-	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
-		DeviceIndex:   1,
-		CIDR:          "127.0.0.0/8",
-		Address:       "127.0.0.1",
-		MTU:           65536,
-		InterfaceName: "lo",
-		InterfaceType: "loopback", // inferred from the flags.
-		ConfigType:    "loopback", // since it is a loopback
-		NetworkOrigin: "machine",
-	}, {
-		DeviceIndex:   1,
-		CIDR:          "::1/128",
-		Address:       "::1",
-		MTU:           65536,
-		InterfaceName: "lo",
-		InterfaceType: "loopback",
-		ConfigType:    "loopback",
-		NetworkOrigin: "machine",
-	}})
+	ip1, ipNet1, err := net.ParseCIDR("1.2.3.4/24")
+	c.Assert(err, jc.ErrorIsNil)
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "OvsManagedBridges", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "lo")
-}
+	addr1 := NewMockConfigSourceAddr(ctrl)
+	addr1.EXPECT().IP().Return(ip1)
+	addr1.EXPECT().IPNet().Return(ipNet1)
 
-func (s *NetworkSuite) TestGetObservedNetworkConfigVLANInferred(c *gc.C) {
-	s.stubConfigSource.interfaces = exampleObservedInterfaces[6:7] // only eth0.100
-	s.stubConfigSource.interfaceAddrs = map[string][]network.ConfigSourceAddr{
-		"eth0.100": {
-			network.NewNetAddr("fe80::5054:ff:fedd:eef0:100/64"),
-			network.NewNetAddr("10.100.19.123/24"),
-		},
-	}
-	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0.100", "vlan")
+	// Not the address not in CIDR form will result in config without a CIDR.
+	addr2 := NewMockConfigSourceAddr(ctrl)
+	addr2.EXPECT().IP().Return(net.ParseIP("559c:f8c5:812a:fa1f:21fe:5613:3f20:b081"))
+	addr2.EXPECT().IPNet().Return(nil)
 
-	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
-		DeviceIndex:   13,
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		MTU:           1500,
-		InterfaceName: "eth0.100",
-		InterfaceType: "802.1q",
-		ConfigType:    "manual", // the IPv6 address treated as empty.
-		NetworkOrigin: "machine",
-	}, {
-		DeviceIndex:   13,
-		CIDR:          "10.100.19.0/24",
-		Address:       "10.100.19.123",
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		MTU:           1500,
-		InterfaceName: "eth0.100",
-		InterfaceType: "802.1q",
-		ConfigType:    "static",
-		NetworkOrigin: "machine",
-	}})
+	nic := NewMockConfigSourceNIC(ctrl)
+	exp := nic.EXPECT()
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "OvsManagedBridges", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "eth0.100")
-}
+	// eth0 matches the device returned as the default gateway.
+	exp.Name().Return("eth0").MinTimes(1)
+	exp.Type().Return(network.EthernetInterface)
+	exp.IsUp().Return(true)
+	exp.Index().Return(2)
+	exp.HardwareAddr().Return(parseMAC(c, "aa:bb:cc:dd:ee:ff"))
+	exp.MTU().Return(1500)
+	exp.Addresses().Return([]network.ConfigSourceAddr{addr1, addr2}, nil)
 
-func (s *NetworkSuite) TestGetObservedNetworkConfigEthernetInferred(c *gc.C) {
-	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
-	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
+	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{nic}, nil)
 
-	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
-		DeviceIndex:   2,
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		MTU:           1500,
-		InterfaceName: "eth0",
-		InterfaceType: "ethernet",
-		ConfigType:    "manual", // the IPv6 address treated as empty.
-		NetworkOrigin: "machine",
-	}})
+	observedConfig, err := common.GetObservedNetworkConfig(s.source)
+	c.Assert(err, jc.ErrorIsNil)
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "OvsManagedBridges", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "eth0")
-}
-
-func (s *NetworkSuite) TestGetObservedNetworkConfigForOVSDevices(c *gc.C) {
-	s.stubConfigSource.interfaces = []net.Interface{
+	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{
 		{
-			Index:        2,
-			MTU:          1500,
-			Name:         "ovsbr0",
-			HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
-			Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
+			DeviceIndex:      2,
+			MACAddress:       "aa:bb:cc:dd:ee:ff",
+			MTU:              1500,
+			InterfaceName:    "eth0",
+			InterfaceType:    "ethernet",
+			ConfigType:       "static",
+			IsDefaultGateway: true,
+			GatewayAddress:   "1.2.3.4",
+			Address:          "1.2.3.4",
+			CIDR:             "1.2.3.0/24",
+			NetworkOrigin:    "machine",
 		},
-	}
-	s.stubConfigSource.interfaceAddrs = map[string][]network.ConfigSourceAddr{
-		"ovsbr0": {
-			network.NewNetAddr("10.100.19.123/24"),
+		{
+			DeviceIndex:      2,
+			MACAddress:       "aa:bb:cc:dd:ee:ff",
+			MTU:              1500,
+			InterfaceName:    "eth0",
+			InterfaceType:    "ethernet",
+			ConfigType:       "static",
+			IsDefaultGateway: true,
+			GatewayAddress:   "1.2.3.4",
+			Address:          "559c:f8c5:812a:fa1f:21fe:5613:3f20:b081",
+			NetworkOrigin:    "machine",
 		},
-	}
-	s.stubConfigSource.ovsBridges = set.NewStrings("ovsbr0")
+	})
+}
 
-	// NOTE: OVS-managed devices appear as virtual NICs instead of bridges.
-	s.stubConfigSource.makeSysClassNetInterfacePath(c, "ovsbr0", "")
+func (s *networkConfigSuite) TestGetObservedNetworkConfigForOVSDevice(c *gc.C) {
+	s.ovsBridges.Add("ovsbr0")
 
-	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
-	c.Check(err, jc.ErrorIsNil)
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	nic := NewMockConfigSourceNIC(ctrl)
+	exp := nic.EXPECT()
+
+	exp.Name().Return("ovsbr0").MinTimes(1)
+	exp.Type().Return(network.BridgeInterface)
+	exp.IsUp().Return(true)
+	exp.Index().Return(2)
+	exp.HardwareAddr().Return(parseMAC(c, "aa:bb:cc:dd:ee:ff"))
+	exp.MTU().Return(1500)
+	exp.Addresses().Return(nil, nil)
+
+	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{nic}, nil)
+
+	observedConfig, err := common.GetObservedNetworkConfig(s.source)
+	c.Assert(err, jc.ErrorIsNil)
+
 	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
 		DeviceIndex:     2,
-		MACAddress:      "aa:bb:cc:dd:ee:f0",
-		CIDR:            "10.100.19.0/24",
+		MACAddress:      "aa:bb:cc:dd:ee:ff",
 		MTU:             1500,
 		InterfaceName:   "ovsbr0",
-		InterfaceType:   "ethernet",
-		ConfigType:      "static",
-		Address:         "10.100.19.123",
+		InterfaceType:   "bridge",
 		VirtualPortType: "openvswitch",
-		NetworkOrigin:   params.NetworkOrigin("machine"),
+		ConfigType:      "manual",
+		NetworkOrigin:   "machine",
 	}})
-
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "OvsManagedBridges", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "ovsbr0")
 }
+
+func (s *networkConfigSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSet(c *gc.C) {
+	s.bridgePorts["br-eth1"] = []string{"eth1"}
+
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	nic1 := NewMockConfigSourceNIC(ctrl)
+	exp1 := nic1.EXPECT()
+
+	exp1.Name().Return("eth1").MinTimes(1)
+	exp1.Type().Return(network.EthernetInterface)
+	exp1.IsUp().Return(true)
+	exp1.Index().Return(2)
+	exp1.HardwareAddr().Return(parseMAC(c, "aa:bb:cc:dd:ee:ff"))
+	exp1.MTU().Return(1500)
+	exp1.Addresses().Return(nil, nil)
+
+	nic2 := NewMockConfigSourceNIC(ctrl)
+	exp2 := nic2.EXPECT()
+
+	exp2.Name().Return("br-eth1").MinTimes(1)
+	exp2.Type().Return(network.BridgeInterface)
+	exp2.IsUp().Return(true)
+	exp2.Index().Return(3)
+	exp2.HardwareAddr().Return(parseMAC(c, "aa:bb:cc:dd:ee:ff"))
+	exp2.MTU().Return(1500)
+	exp2.Addresses().Return(nil, nil)
+
+	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{nic1, nic2}, nil)
+
+	observedConfig, err := common.GetObservedNetworkConfig(s.source)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{
+		{
+			DeviceIndex:         2,
+			MACAddress:          "aa:bb:cc:dd:ee:ff",
+			MTU:                 1500,
+			InterfaceName:       "eth1",
+			InterfaceType:       "ethernet",
+			ParentInterfaceName: "br-eth1",
+			ConfigType:          "manual",
+			NetworkOrigin:       "machine",
+		},
+		{
+			DeviceIndex:   3,
+			MACAddress:    "aa:bb:cc:dd:ee:ff",
+			MTU:           1500,
+			InterfaceName: "br-eth1",
+			InterfaceType: "bridge",
+			ConfigType:    "manual",
+			NetworkOrigin: "machine",
+		},
+	})
+}
+
+func (s *networkConfigSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.source = NewMockConfigSource(ctrl)
+	exp := s.source.EXPECT()
+	exp.OvsManagedBridges().Return(s.ovsBridges, nil).MaxTimes(1)
+	exp.DefaultRoute().Return(s.defaultRouteGatewayIP, s.defaultRouteDevice, nil).MaxTimes(1)
+
+	if len(s.bridgePorts) == 0 {
+		exp.GetBridgePorts(gomock.Any()).Return(nil).AnyTimes()
+	} else {
+		for brName, ports := range s.bridgePorts {
+			exp.GetBridgePorts(brName).Return(ports)
+		}
+	}
+
+	return ctrl
+}
+
+func parseMAC(c *gc.C, val string) net.HardwareAddr {
+	mac, err := net.ParseMAC(val)
+	c.Assert(err, jc.ErrorIsNil)
+	return mac
+}
+
+/*
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSet(c *gc.C) {
 	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:5] // eth0, br-eth0, br-eth1, eth1
@@ -440,158 +398,4 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSet(c *g
 	s.stubConfigSource.CheckCall(c, 7, "InterfaceAddresses", "eth1")
 }
 
-func (s *NetworkSuite) TestGetObservedNetworkConfigAddressNotInCIDRFormat(c *gc.C) {
-	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
-	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
-	// Simulate running on Windows, where net.InterfaceAddrs() returns
-	// non-CIDR-formatted addresses.
-	s.stubConfigSource.interfaceAddrs = map[string][]network.ConfigSourceAddr{
-		"eth0": {network.NewNetAddr("10.20.19.42")},
-	}
-
-	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
-		DeviceIndex:   2,
-		Address:       "10.20.19.42", // just Address, no CIDR as netmask cannot be inferred.
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		MTU:           1500,
-		InterfaceName: "eth0",
-		InterfaceType: "ethernet",
-		ConfigType:    "static",
-		NetworkOrigin: "machine",
-	}})
-
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "OvsManagedBridges", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "eth0")
-}
-
-func (s *NetworkSuite) TestGetObservedNetworkConfigInvalidAddressError(c *gc.C) {
-	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
-	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
-	s.stubConfigSource.interfaceAddrs = map[string][]network.ConfigSourceAddr{
-		"eth0": {network.NewNetAddr("invalid")},
-	}
-
-	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
-	c.Check(err, gc.ErrorMatches, `cannot parse IP address "invalid" on interface "eth0"`)
-	c.Check(observedConfig, gc.IsNil)
-
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "OvsManagedBridges", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "eth0")
-}
-
-func (s *NetworkSuite) TestGetObservedNetworkConfigNilAddressError(c *gc.C) {
-	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
-	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
-	s.stubConfigSource.interfaceAddrs = map[string][]network.ConfigSourceAddr{
-		"eth0": {nil},
-	}
-
-	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
-	c.Check(err, gc.ErrorMatches, `cannot parse nil address on interface "eth0"`)
-	c.Check(observedConfig, gc.IsNil)
-
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "OvsManagedBridges", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "eth0")
-}
-
-type stubNetworkConfigSource struct {
-	*testing.Stub
-
-	fakeSysClassNetPath   string
-	interfaces            []net.Interface
-	interfaceAddrs        map[string][]network.ConfigSourceAddr
-	defaultRouteGatewayIP net.IP
-	defaultRouteDevice    string
-	ovsBridges            set.Strings
-}
-
-// makeSysClassNetInterfacePath creates a subdir for the given interfaceName,
-// and a uevent file there with the given devtype set. Returns the created path.
-func (s *stubNetworkConfigSource) makeSysClassNetInterfacePath(c *gc.C, interfaceName, devType string) string {
-	interfacePath := filepath.Join(s.fakeSysClassNetPath, interfaceName)
-	err := os.Mkdir(interfacePath, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var contents string
-	if devType == "" {
-		contents = fmt.Sprintf(`
-IFINDEX=42
-INTERFACE=%s
-`, interfaceName)
-	} else {
-		contents = fmt.Sprintf(`
-IFINDEX=42
-INTERFACE=%s
-DEVTYPE=%s
-`, interfaceName, devType)
-	}
-	ueventPath := filepath.Join(interfacePath, "uevent")
-	err = ioutil.WriteFile(ueventPath, []byte(contents), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	return interfacePath
-}
-
-// makeSysClassNetBridgePorts creates a "brif" subdir in the given
-// interfacePath, and one file for each entry in the given ports, named the same
-// as the port value. Needed to simulate the FS structure network.GetBridgePorts()
-// can handle.
-func (s *stubNetworkConfigSource) makeSysClassNetBridgePorts(c *gc.C, interfacePath string, ports ...string) {
-	brifPath := filepath.Join(interfacePath, "brif")
-	err := os.Mkdir(brifPath, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-
-	for _, portName := range ports {
-		portPath := filepath.Join(brifPath, portName)
-		err = ioutil.WriteFile(portPath, []byte("#empty"), 0644)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
-// SysClassNetPath implements NetworkConfigSource.
-func (s *stubNetworkConfigSource) SysClassNetPath() string {
-	s.AddCall("SysClassNetPath")
-	return s.fakeSysClassNetPath
-}
-
-// Interfaces implements NetworkConfigSource.
-func (s *stubNetworkConfigSource) Interfaces() ([]net.Interface, error) {
-	s.AddCall("Interfaces")
-	if err := s.NextErr(); err != nil {
-		return nil, err
-	}
-	return s.interfaces, nil
-}
-
-// InterfaceAddresses implements NetworkConfigSource.
-func (s *stubNetworkConfigSource) InterfaceAddresses(name string) ([]network.ConfigSourceAddr, error) {
-	s.AddCall("InterfaceAddresses", name)
-	if err := s.NextErr(); err != nil {
-		return nil, err
-	}
-	return s.interfaceAddrs[name], nil
-}
-
-// DefaultRoute implements NetworkConfigSource.
-func (s *stubNetworkConfigSource) DefaultRoute() (net.IP, string, error) {
-	s.AddCall("DefaultRoute")
-	if err := s.NextErr(); err != nil {
-		return nil, "", err
-	}
-	return s.defaultRouteGatewayIP, s.defaultRouteDevice, nil
-}
-
-// OvsManagedBridges implements NetworkConfigSource.
-func (s *stubNetworkConfigSource) OvsManagedBridges() (set.Strings, error) {
-	s.AddCall("OvsManagedBridges")
-	if err := s.NextErr(); err != nil {
-		return nil, err
-	}
-	if s.ovsBridges == nil {
-		s.ovsBridges = set.NewStrings()
-	}
-
-	return s.ovsBridges, nil
-}
+*/
