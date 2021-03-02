@@ -8,12 +8,12 @@ import (
 	"encoding/json"
 	"time" // Only used for time types.
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/mgorootkeystore"
 	"github.com/juju/mgo/v2"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v2/bakery"
-	"gopkg.in/macaroon-bakery.v2/bakery/mgorootkeystore"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"

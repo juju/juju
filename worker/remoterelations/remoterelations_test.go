@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"

@@ -9,13 +9,13 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakerytest"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v2/bakerytest"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"

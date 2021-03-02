@@ -9,11 +9,11 @@ package application
 import (
 	"net/url"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v7"
 	"github.com/juju/charmrepo/v5/csclient"
 	csparams "github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/errors"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/params"

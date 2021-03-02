@@ -7,12 +7,12 @@ import (
 	"bytes"
 	"net/url"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v7"
 	"github.com/juju/charm/v7/resource"
 	"github.com/juju/charmrepo/v5/csclient"
 	"github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/testing"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 )
 

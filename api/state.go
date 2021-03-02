@@ -10,13 +10,13 @@ import (
 	"runtime/debug"
 	"strconv"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils"
 	"github.com/juju/version"
-	"gopkg.in/macaroon-bakery.v2/bakery"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"

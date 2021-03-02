@@ -24,6 +24,7 @@ require (
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
 	github.com/dustin/go-humanize v1.0.0
 	github.com/flosch/pongo2 v0.0.0-20141028000813-5e81b817a0c4 // indirect
+	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.0-20210302105820-5587392d1f47
 	github.com/golang/mock v1.4.3
 	github.com/google/go-querystring v0.0.0-20160401233042-9235644dd9e5
 	github.com/googleapis/gnostic v0.2.0
@@ -42,8 +43,8 @@ require (
 	github.com/juju/ansiterm v0.0.0-20160907234532-b99631de12cf
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
 	github.com/juju/bundlechanges v1.0.1-0.20210209114844-acd700ed48fe
-	github.com/juju/charm/v7 v7.0.0-20200625165032-ef717232a815
-	github.com/juju/charmrepo/v5 v5.0.0-20200626080438-30e3069e6e8e
+	github.com/juju/charm/v7 v7.0.0-20210302234338-a3c1f482f08a
+	github.com/juju/charmrepo/v5 v5.0.0-20210302224046-c29f3cf7a6ef
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
@@ -55,6 +56,7 @@ require (
 	github.com/juju/go4 v0.0.0-20160222163258-40d72ab9641a // indirect
 	github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2
 	github.com/juju/gomaasapi v0.0.0-20190826212825-0ab1eb636aba
+	github.com/juju/idmclient/v2 v2.0.0-20210302223040-11b8c31099a6
 	github.com/juju/jsonschema v0.0.0-20161102181919-a0ef8b74ebcf
 	github.com/juju/jsonschema-gen v0.0.0-20200416014454-d924343d72b2
 	github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e
@@ -77,7 +79,6 @@ require (
 	github.com/juju/terms-client v1.0.2-0.20200331164339-fab45ea044ae
 	github.com/juju/testing v0.0.0-20210302031854-2c7ee8570c07
 	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a
-	github.com/juju/usso v0.0.0-20160401104424-68a59c96c178 // indirect
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
 	github.com/juju/version v0.0.0-20191219164919-81c1be00b9a6
 	github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb
@@ -115,11 +116,9 @@ require (
 	gopkg.in/httprequest.v1 v1.2.0
 	gopkg.in/ini.v1 v1.10.1
 	gopkg.in/juju/environschema.v1 v1.0.0
-	gopkg.in/juju/idmclient.v1 v1.0.0-20180320161856-203d20774ce8
 	gopkg.in/juju/names.v2 v2.0.0-20190813004204-e057c73bd1be // indirect
 	gopkg.in/juju/names.v3 v3.0.0-20200331100531-2c9a102df211 // indirect
 	gopkg.in/juju/worker.v1 v1.0.0-20191018043616-19a698a7150f // indirect
-	gopkg.in/macaroon-bakery.v2 v2.1.1-0.20190613120608-6734dc66fe81
 	gopkg.in/macaroon.v2 v2.1.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
@@ -146,5 +145,3 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml v0.0.0-20200420012109-12a32b78d
 replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0.0.0-20141228071148-145fabdb1ab7
 
 replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5
-
-replace gopkg.in/macaroon-bakery.v2 => github.com/wallyworld/macaroon-bakery/v2 v2.0.0-20210302061145-b3c8a1e1c5f8
