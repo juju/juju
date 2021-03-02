@@ -43,6 +43,30 @@ func (s *FindSuite) TestFind(c *gc.C) {
 	c.Assert(responses[0].Name, gc.Equals, name)
 }
 
+func (s *FindSuite) TestFindWithOptions(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	baseURL := MustParseURL(c, "http://api.foo.bar")
+
+	name := "meshuggah"
+	path := path.MakePath(baseURL)
+
+	expect, err := path.Query("channel", "1.0/stable")
+	c.Assert(err, jc.ErrorIsNil)
+	expect, err = expect.Query("type", "bundle")
+	c.Assert(err, jc.ErrorIsNil)
+
+	restClient := NewMockRESTClient(ctrl)
+	s.expectGet(c, restClient, expect, name)
+
+	client := NewFindClient(path, restClient, &FakeLogger{})
+	responses, err := client.Find(context.TODO(), name, WithFindChannel("1.0/stable"), WithFindType("bundle"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(responses), gc.Equals, 1)
+	c.Assert(responses[0].Name, gc.Equals, name)
+}
+
 func (s *FindSuite) TestFindFailure(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
