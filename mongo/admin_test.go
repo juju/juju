@@ -4,11 +4,11 @@
 package mongo_test
 
 import (
+	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v2/bson"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/mongo"
 	svctesting "github.com/juju/juju/service/common/testing"

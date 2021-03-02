@@ -10,7 +10,7 @@ import (
 	application "github.com/juju/juju/apiserver/facades/client/application"
 	controller "github.com/juju/juju/controller"
 	state "github.com/juju/juju/state"
-	mgo "gopkg.in/mgo.v2"
+	mgo "github.com/juju/mgo/v2"
 	reflect "reflect"
 )
 

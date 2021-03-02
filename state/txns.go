@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v2/txn"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
 )
 
 func readTxnRevno(db Database, collectionName string, id interface{}) (int64, error) {

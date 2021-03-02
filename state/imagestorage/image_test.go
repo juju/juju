@@ -13,13 +13,13 @@ import (
 	"time" // Only used for time types.
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state/imagestorage"
 	"github.com/juju/juju/testing"

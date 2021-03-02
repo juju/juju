@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2"
 	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon-bakery.v2/bakery/mgorootkeystore"
-	"gopkg.in/mgo.v2"
 )
 
 // MongoIndexes returns the indexes to apply to the MongoDB collection.

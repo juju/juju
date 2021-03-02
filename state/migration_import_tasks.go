@@ -5,7 +5,7 @@ package state
 import (
 	"github.com/juju/description/v2"
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2/txn"
+	"github.com/juju/mgo/v2/txn"
 
 	"github.com/juju/juju/core/crossmodel"
 )

@@ -8,12 +8,12 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v2/bson"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/mongo"
 	coretesting "github.com/juju/juju/testing"

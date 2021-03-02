@@ -5,9 +5,9 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/leadership"
 )

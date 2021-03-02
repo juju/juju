@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	mgo "gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	mgo "github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v2/bson"
 
 	"github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/mongo"

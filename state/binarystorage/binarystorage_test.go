@@ -10,6 +10,7 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	"github.com/juju/blobstore/v2"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -17,7 +18,6 @@ import (
 	txntesting "github.com/juju/txn/testing"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/blobstore.v2"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/binarystorage"

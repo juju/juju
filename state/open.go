@@ -9,10 +9,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
+	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/txn"
 	"github.com/juju/worker/v2"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/feature"

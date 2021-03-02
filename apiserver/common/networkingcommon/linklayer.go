@@ -6,7 +6,7 @@ package networkingcommon
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2/txn"
+	"github.com/juju/mgo/v2/txn"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
