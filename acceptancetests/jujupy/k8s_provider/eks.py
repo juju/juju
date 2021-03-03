@@ -172,6 +172,6 @@ class EKS(Base):
 def is_404(err):
     try:
         err_msg = err.output.decode()
-        return '404' in err_msg or 'ResourceNotFoundException' in err_msg
+        return any([keyword in err_msg for keyword in ['404', 'does not exist', 'ResourceNotFoundException']])
     except Exception:
         return False
