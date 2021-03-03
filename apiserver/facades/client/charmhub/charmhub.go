@@ -85,7 +85,7 @@ func newCharmHubAPI(backend Backend, authorizer facade.Authorizer, clientFactory
 }
 
 // Info queries the CharmHub API with a given entity ID.
-func (api *CharmHubAPI) Info(arg params.Info) (params.CharmHubEntityInfoResult, error) {
+func (api *CharmHubAPI) Info(ctx context.Context, arg params.Info) (params.CharmHubEntityInfoResult, error) {
 	logger.Tracef("Info(%v)", arg.Tag)
 
 	tag, err := names.ParseApplicationTag(arg.Tag)
@@ -102,7 +102,8 @@ func (api *CharmHubAPI) Info(arg params.Info) (params.CharmHubEntityInfoResult, 
 		options = append(options, charmhub.WithInfoChannel(ch.String()))
 	}
 
-	ctx, cancel := context.WithTimeout(context.TODO(), TimeoutDuration)
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, TimeoutDuration)
 	defer cancel()
 
 	info, err := api.client.Info(ctx, tag.Id(), options...)
@@ -113,10 +114,11 @@ func (api *CharmHubAPI) Info(arg params.Info) (params.CharmHubEntityInfoResult, 
 }
 
 // Find queries the CharmHub API with a given entity ID.
-func (api *CharmHubAPI) Find(arg params.Query) (params.CharmHubEntityFindResult, error) {
+func (api *CharmHubAPI) Find(ctx context.Context, arg params.Query) (params.CharmHubEntityFindResult, error) {
 	logger.Tracef("Find(%v)", arg.Query)
 
-	ctx, cancel := context.WithTimeout(context.TODO(), TimeoutDuration)
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, TimeoutDuration)
 	defer cancel()
 
 	results, err := api.client.Find(ctx, arg.Query, populateFindOptions(arg)...)

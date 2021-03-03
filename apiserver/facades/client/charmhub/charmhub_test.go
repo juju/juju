@@ -4,6 +4,8 @@
 package charmhub
 
 import (
+	"context"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -29,7 +31,7 @@ func (s *charmHubAPISuite) TestInfo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectInfo()
 	arg := params.Info{Tag: names.NewApplicationTag("wordpress").String()}
-	obtained, err := s.newCharmHubAPIForTest(c).Info(arg)
+	obtained, err := s.newCharmHubAPIForTest(c).Info(context.TODO(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertInfoResponseSameContents(c, obtained.Result, getParamsInfoResponse())
@@ -39,7 +41,7 @@ func (s *charmHubAPISuite) TestInfoWithChannel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectInfo()
 	arg := params.Info{Tag: names.NewApplicationTag("wordpress").String(), Channel: "stable"}
-	obtained, err := s.newCharmHubAPIForTest(c).Info(arg)
+	obtained, err := s.newCharmHubAPIForTest(c).Info(context.TODO(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertInfoResponseSameContents(c, obtained.Result, getParamsInfoResponse())
@@ -49,7 +51,7 @@ func (s *charmHubAPISuite) TestFind(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectFind()
 	arg := params.Query{Query: "wordpress"}
-	obtained, err := s.newCharmHubAPIForTest(c).Find(arg)
+	obtained, err := s.newCharmHubAPIForTest(c).Find(context.TODO(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(obtained.Results, gc.HasLen, 1)
@@ -60,7 +62,7 @@ func (s *charmHubAPISuite) TestFindWithOptions(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectFind()
 	arg := params.Query{Query: "wordpress", Channel: "stable", Category: "k8s"}
-	obtained, err := s.newCharmHubAPIForTest(c).Find(arg)
+	obtained, err := s.newCharmHubAPIForTest(c).Find(context.TODO(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(obtained.Results, gc.HasLen, 1)
