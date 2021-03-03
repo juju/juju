@@ -56,6 +56,17 @@ func (s *charmHubAPISuite) TestFind(c *gc.C) {
 	assertFindResponseSameContents(c, obtained.Results[0], getParamsFindResponse())
 }
 
+func (s *charmHubAPISuite) TestFindWithOptions(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectFind()
+	arg := params.Query{Query: "wordpress", Channel: "stable", Category: "k8s"}
+	obtained, err := s.newCharmHubAPIForTest(c).Find(arg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(obtained.Results, gc.HasLen, 1)
+	assertFindResponseSameContents(c, obtained.Results[0], getParamsFindResponse())
+}
+
 func (s *charmHubAPISuite) newCharmHubAPIForTest(c *gc.C) *CharmHubAPI {
 	s.expectModelConfig(c)
 	s.expectAuth()
@@ -98,7 +109,7 @@ func (s *charmHubAPISuite) expectInfo() {
 }
 
 func (s *charmHubAPISuite) expectFind() {
-	s.client.EXPECT().Find(gomock.Any(), "wordpress").Return(getCharmHubFindResponses(), nil)
+	s.client.EXPECT().Find(gomock.Any(), "wordpress", gomock.Any()).Return(getCharmHubFindResponses(), nil)
 }
 
 func assertInfoResponseSameContents(c *gc.C, obtained, expected params.InfoResponse) {

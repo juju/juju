@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -17,6 +18,12 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
+)
+
+const (
+	// TimeoutDuration represents how long we should wait before a response back
+	// from the API before timing out.
+	TimeoutDuration = time.Second * 30
 )
 
 var logger = loggo.GetLogger("juju.apiserver.charmhub")
@@ -36,7 +43,7 @@ type ClientFactory interface {
 type Client interface {
 	URL() string
 	Info(ctx context.Context, name string, options ...charmhub.InfoOption) (transport.InfoResponse, error)
-	Find(ctx context.Context, query string) ([]transport.FindResponse, error)
+	Find(ctx context.Context, query string, options ...charmhub.FindOption) ([]transport.FindResponse, error)
 }
 
 // CharmHubAPI API provides the CharmHub API facade for version 1.
@@ -92,11 +99,13 @@ func (api *CharmHubAPI) Info(arg params.Info) (params.CharmHubEntityInfoResult, 
 		if err != nil {
 			return params.CharmHubEntityInfoResult{}, errors.BadRequestf("channel %q is invalid", arg.Channel)
 		}
-		options = append(options, charmhub.WithChannel(ch.String()))
+		options = append(options, charmhub.WithInfoChannel(ch.String()))
 	}
 
-	// TODO (stickupkid): Create a proper context to be used here.
-	info, err := api.client.Info(context.TODO(), tag.Id(), options...)
+	ctx, cancel := context.WithTimeout(context.TODO(), TimeoutDuration)
+	defer cancel()
+
+	info, err := api.client.Info(ctx, tag.Id(), options...)
 	if err != nil {
 		return params.CharmHubEntityInfoResult{}, errors.Trace(err)
 	}
@@ -107,8 +116,10 @@ func (api *CharmHubAPI) Info(arg params.Info) (params.CharmHubEntityInfoResult, 
 func (api *CharmHubAPI) Find(arg params.Query) (params.CharmHubEntityFindResult, error) {
 	logger.Tracef("Find(%v)", arg.Query)
 
-	// TODO (stickupkid): Create a proper context to be used here.
-	results, err := api.client.Find(context.TODO(), arg.Query)
+	ctx, cancel := context.WithTimeout(context.TODO(), TimeoutDuration)
+	defer cancel()
+
+	results, err := api.client.Find(ctx, arg.Query, populateFindOptions(arg)...)
 	if err != nil {
 		return params.CharmHubEntityFindResult{}, errors.Trace(err)
 	}
@@ -127,4 +138,32 @@ func (charmHubClientFactory) Client(url string) (Client, error) {
 		return nil, errors.Trace(err)
 	}
 	return client, nil
+}
+
+func populateFindOptions(arg params.Query) []charmhub.FindOption {
+	var options []charmhub.FindOption
+
+	if arg.Category != "" {
+		options = append(options, charmhub.WithFindCategory(arg.Category))
+	}
+	if arg.Channel != "" {
+		options = append(options, charmhub.WithFindChannel(arg.Channel))
+	}
+	if arg.CharmType != "" {
+		options = append(options, charmhub.WithFindType(arg.CharmType))
+	}
+	if arg.Platforms != "" {
+		options = append(options, charmhub.WithFindPlatforms(arg.Platforms))
+	}
+	if arg.Publisher != "" {
+		options = append(options, charmhub.WithFindPublisher(arg.Publisher))
+	}
+	if arg.RelationRequires != "" {
+		options = append(options, charmhub.WithFindRelationRequires(arg.RelationRequires))
+	}
+	if arg.RelationProvides != "" {
+		options = append(options, charmhub.WithFindRelationProvides(arg.RelationProvides))
+	}
+
+	return options
 }
