@@ -38,15 +38,6 @@ func newReplCommand(showHelp bool) cmd.Command {
 	}
 }
 
-const replDoc = `
-When run without arguments, enter an interactive shell which can be
-used to run any Juju command directly. When in the shell:
-  type "help" to see a list of available commands.
-  type "q" or ^D or ^C to quit.
-
-Otherwise, the supported command usage is described below.
-`
-
 var firstPrompt = `
 Welcome to the Juju interactive shell.
 Type "help" to see a list of available commands.
@@ -55,7 +46,7 @@ Type "q" or ^D or ^C to quit.
 
 var (
 	quitCommands         = set.NewStrings("q", "quit", "exit")
-	noControllerCommands = set.NewStrings("bootstrap", "register")
+	noControllerCommands = set.NewStrings("help", "bootstrap", "register")
 )
 
 const (
@@ -97,8 +88,11 @@ func (c *replCommand) Run(ctx *cmd.Context) error {
 		if err := jujuCmd.Init([]string{"help"}); err != nil {
 			return errors.Trace(err)
 		}
-		fmt.Fprintln(ctx.Stdout, replDoc)
-		return jujuCmd.Run(ctx)
+
+		if err := jujuCmd.Run(ctx); err != nil {
+			return err
+		}
+		return nil
 	}
 
 	history, err := ioutil.TempFile("", "juju-repl")
@@ -143,7 +137,6 @@ func (c *replCommand) Run(ctx *cmd.Context) error {
 			if err := jujuCmd.Init([]string{"help"}); err != nil {
 				return errors.Trace(err)
 			}
-			fmt.Fprintln(ctx.Stderr, replDoc)
 			return jujuCmd.Run(ctx)
 		}
 		// Get the prompt based on the current controller/model/user.
@@ -184,7 +177,11 @@ func (c *replCommand) Run(ctx *cmd.Context) error {
 		if noCurrentController && !noControllerCommands.Contains(args[0]) {
 			fmt.Fprintln(ctx.Stderr, noControllersMessage)
 			continue
+		} else if args[0] == "help" {
+			// Show command list
+			args = append(args, "commands")
 		}
+
 		c.execJujuCommand(jujuCmd, ctx, args)
 	}
 	return nil
