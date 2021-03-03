@@ -64,7 +64,7 @@ require (
 	github.com/juju/replicaset v0.0.0-20210302050932-0303c8575745
 	github.com/juju/retry v0.0.0-20180821225755-9058e192b216
 	github.com/juju/rfc v0.0.0-20180510112117-b058ad085c94
-	github.com/juju/romulus v0.0.0-20191205211046-fd7cab26ac5f
+	github.com/juju/romulus v0.0.0-20210303060538-1170120d6eed
 	github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476
 	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
 	github.com/juju/terms-client/v2 v2.0.0-20210303035135-7da5a13b71c5
@@ -118,3 +118,5 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml v0.0.0-20200420012109-12a32b78d
 replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0.0.0-20141228071148-145fabdb1ab7
 
 replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5
+
+replace github.com/lxc/lxd => github.com/juju/lxc v0.0.0-20210303064910-04e55043da82

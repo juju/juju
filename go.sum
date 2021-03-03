@@ -304,7 +304,6 @@ github.com/juju/bundlechanges v1.0.0/go.mod h1:nsBnRyayHbdHeduPzHgQVwbYhUz73aiRT
 github.com/juju/bundlechanges v1.0.1-0.20210209114844-acd700ed48fe h1:E9EzcSqUfYZzgLDPDVCvon2Kmy3u4SMuQ/9oO5mrRfU=
 github.com/juju/bundlechanges v1.0.1-0.20210209114844-acd700ed48fe/go.mod h1:nsBnRyayHbdHeduPzHgQVwbYhUz73aiRTjfJl5d86Uc=
 github.com/juju/charm/v7 v7.0.0-20200424215011-2c5875af8596/go.mod h1:/Hb24f6NaHMuxV/XeKR9v1QY8qCc0NanWAXQuv6+Ob0=
-github.com/juju/charm/v7 v7.0.0-20200424224456-5fe646695e85 h1:YgEB2tnlAwVftOnPUKTN4i6NDYZy0ztR5l/HdUuHS2Y=
 github.com/juju/charm/v7 v7.0.0-20200424224456-5fe646695e85/go.mod h1:gcqIN/pHfzDCH6sBeZxmUfrNogknAPejOLS2KN0zY/0=
 github.com/juju/charm/v7 v7.0.0-20200625165032-ef717232a815 h1:3brl7UJ57uDUxKNWo/g60glFnD/vXu9WX4/rSi3/s7o=
 github.com/juju/charm/v7 v7.0.0-20200625165032-ef717232a815/go.mod h1:gcqIN/pHfzDCH6sBeZxmUfrNogknAPejOLS2KN0zY/0=
@@ -379,6 +378,8 @@ github.com/juju/lru v0.0.0-20190314140547-92a0afabdc41 h1:/ucixsNZ+l94agL5LZioJ4
 github.com/juju/lru v0.0.0-20190314140547-92a0afabdc41/go.mod h1:RI/7Oj7RFK3hzCrjmJVrEeMryn8PEzl6kiIz4QFb48Y=
 github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible h1:7LYjAfMZm+i6+VzOUBGhku+iOYeh0ohjIy7N9zd7JR4=
 github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible/go.mod h1:YQBneJkXlAAye6yHFYH8CabVID+0Oq2by8DDKGj5OIU=
+github.com/juju/lxc v0.0.0-20210303064910-04e55043da82 h1:ToKhhAcYyoWZLoh6eCSB649H74gsuhk/lG9c6EWl4bs=
+github.com/juju/lxc v0.0.0-20210303064910-04e55043da82/go.mod h1:0ugPMKqArbvtD5clLOsKpXPa75EGCel1JcMeY6GtTRQ=
 github.com/juju/mempool v0.0.0-20160205104927-24974d6c264f h1:a3Vd00a20dTKLpyS2hdUafNG5zxQdTw5KhDMK5C0a8U=
 github.com/juju/mempool v0.0.0-20160205104927-24974d6c264f/go.mod h1:+7K7MqWi5xWI+s1LyB2g0Di71jZo27y+XOlmhNtV1Y0=
 github.com/juju/mgo/v2 v2.0.0-20210302023703-70d5d206e208 h1:/WiCm+Vpj87e4QWuWwPD/bNE9kDrWCLvPBHOQNcG2+A=
@@ -431,6 +432,8 @@ github.com/juju/rfc v0.0.0-20180510112117-b058ad085c94 h1:3TD+QnJbbInyv607GXgWuW
 github.com/juju/rfc v0.0.0-20180510112117-b058ad085c94/go.mod h1:HnPtAU9HZgqsxiVe3ZqD8WLhdumrUtuY724rynh0gZE=
 github.com/juju/romulus v0.0.0-20191205211046-fd7cab26ac5f h1:wdV69rOL5KVkqhkX69ymKoeEk5FZuSYlWsCFslpMLwg=
 github.com/juju/romulus v0.0.0-20191205211046-fd7cab26ac5f/go.mod h1:Q1rdI2aevIfbcFmze1JKWliZkrDTa/qLjPcj116POIw=
+github.com/juju/romulus v0.0.0-20210303060538-1170120d6eed h1:RHe2BJgcYGyVlE9GlaNkYCEz21S5kTJrqmEWGAb5Yac=
+github.com/juju/romulus v0.0.0-20210303060538-1170120d6eed/go.mod h1:qLrRXlUqCApZCxgwNUrZI4qMLmDjCH/78pxtoLxBUfg=
 github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476 h1:Hwvw+0sgOm2YHHgY/bioBSH+n/KwDYmggj/+wbMqesM=
 github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476/go.mod h1:T7AM5CogQpjLFTdTLRCWmR1X898tCytpeEkt3SiFcG4=
 github.com/juju/schema v0.0.0-20160301111646-1e25943f8c6f/go.mod h1:7dL+43wADDfx5rD9ibr5H9Dgr4iOM3uHOa1i4IVLak8=
@@ -451,6 +454,7 @@ github.com/juju/testing v0.0.0-20180402130637-44801989f0f7/go.mod h1:63prj8cnj0t
 github.com/juju/testing v0.0.0-20180517134105-72703b1e95eb/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20180807043854-177f846b8501/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20180820040200-b0b89ba330f2/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
+github.com/juju/testing v0.0.0-20180920084828-472a3e8b2073/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20190723135506-ce30eb24acd2/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20191001232224-ce9dec17d28b h1:Rrp0ByJXEjhREMPGTt3aWYjoIsUGCbt21ekbeJcTWv0=
 github.com/juju/testing v0.0.0-20191001232224-ce9dec17d28b/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
@@ -546,8 +550,6 @@ github.com/lunixbochs/vtclean v0.0.0-20160125035106-4fbf7632a2c6 h1:yjdywwaxd8vT
 github.com/lunixbochs/vtclean v0.0.0-20160125035106-4fbf7632a2c6/go.mod h1:pHhQNgMf3btfWnGBVipUOjRYhoOsdGqdm/+2c2E2WMI=
 github.com/lunixbochs/vtclean v1.0.0 h1:xu2sLAri4lGiovBDQKxl5mrXyESr3gUr5m5SM5+LVb8=
 github.com/lunixbochs/vtclean v1.0.0/go.mod h1:pHhQNgMf3btfWnGBVipUOjRYhoOsdGqdm/+2c2E2WMI=
-github.com/lxc/lxd v0.0.0-20200306132355-582edb00c72c h1:75zIX6Vguqdt8g5sSb220iiswnCDtIMgYcYvr0Rmoko=
-github.com/lxc/lxd v0.0.0-20200306132355-582edb00c72c/go.mod h1:2BaZflfwsv8a3uy3/Vw+de4Avn4DSrAiqaHJjCIXMV4=
 github.com/magiconair/properties v1.8.0/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
 github.com/mailru/easyjson v0.0.0-20160728113105-d5b7844b561a/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/mailru/easyjson v0.0.0-20180823135443-60711f1a8329/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
@@ -606,6 +608,7 @@ github.com/oracle/oci-go-sdk v5.7.0+incompatible h1:+boHw5Zvx75EzCjXHgVxajPxjU8A
 github.com/oracle/oci-go-sdk v5.7.0+incompatible/go.mod h1:VQb79nF8Z2cwLkLS35ukwStZIg5F66tcBccjip/j888=
 github.com/pascaldekloe/goe v0.1.0 h1:cBOtyMzM9HTpWjXfbbunk26uA6nG3a8n06Wieeh0MwY=
 github.com/pascaldekloe/goe v0.1.0/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
+github.com/pborman/uuid v1.2.0 h1:J7Q5mO4ysT1dv8hyrUGHb9+ooztCXu1D8MY8DZYsu3g=
 github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
 github.com/peterbourgon/diskv v2.0.1+incompatible/go.mod h1:uqqh8zWWbv1HBMNONnaR/tNboyR3/BZd58JJSHlUSCU=
@@ -720,6 +723,7 @@ golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8/go.mod h1:yigFU9vqHzYiE8U
 golang.org/x/crypto v0.0.0-20190617133340-57b3e21c3d56/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
 golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
 golang.org/x/crypto v0.0.0-20190820162420-60c769a6c586/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
+golang.org/x/crypto v0.0.0-20191122220453-ac88ee75c92c/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
 golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
 golang.org/x/crypto v0.0.0-20200422194213-44a606286825 h1:dSChiwOTvzwbHFTMq2l6uRardHH7/E6SqEkqccinS/o=
 golang.org/x/crypto v0.0.0-20200422194213-44a606286825/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
@@ -918,7 +922,6 @@ gopkg.in/juju/names.v2 v2.0.0-20190813004204-e057c73bd1be/go.mod h1:XXa/v5qG1IsS
 gopkg.in/juju/names.v3 v3.0.0-20191210002836-39289f373765/go.mod h1:BUnvpShrNFWsLV3tpb4UwtkDLlAzE2egyY49YS5HHW8=
 gopkg.in/juju/names.v3 v3.0.0-20200331100531-2c9a102df211 h1:0McBKM//CnIFpEMryq66LvfEvcUycwMRKzyiWYOX170=
 gopkg.in/juju/names.v3 v3.0.0-20200331100531-2c9a102df211/go.mod h1:BUnvpShrNFWsLV3tpb4UwtkDLlAzE2egyY49YS5HHW8=
-gopkg.in/juju/worker.v1 v1.0.0-20170308002458-6965b9d82671 h1:qzNcnTcLIaXGmtKAjyiXEQQFYFRLvH6yuU7Lw8YJPr8=
 gopkg.in/juju/worker.v1 v1.0.0-20170308002458-6965b9d82671/go.mod h1:qrHtdkZtlLoAWF0wb7YwrREeiitm5EzizN0MmIbAFxA=
 gopkg.in/juju/worker.v1 v1.0.0-20191018043616-19a698a7150f h1:UAHa7z4EdrOcMN+9p5P+ojJshcIC34vwi0hCmEL6Qf8=
 gopkg.in/juju/worker.v1 v1.0.0-20191018043616-19a698a7150f/go.mod h1:qrHtdkZtlLoAWF0wb7YwrREeiitm5EzizN0MmIbAFxA=
