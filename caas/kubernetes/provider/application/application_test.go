@@ -357,10 +357,6 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 					Name:  "PEBBLE_SOCKET",
 					Value: "/charm/container/pebble.socket",
 				},
-				{
-					Name:  "PEBBLE",
-					Value: "/charm/container/pebble",
-				},
 			},
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  int64Ptr(0),

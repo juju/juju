@@ -109,8 +109,6 @@ apiport: 17070`[1:])
 		}, nil),
 
 		s.fileReaderWriter.EXPECT().MkdirAll("/var/lib/juju", os.FileMode(0755)).Return(nil),
-		s.fileReaderWriter.EXPECT().MkdirAll("/charm/containers/gitlab/pebble", os.FileMode(0755)).Return(nil),
-		s.fileReaderWriter.EXPECT().MkdirAll("/charm/containers/proxy/pebble", os.FileMode(0755)).Return(nil),
 		s.fileReaderWriter.EXPECT().WriteFile("/var/lib/juju/template-agent.conf", data, os.FileMode(0644)).Return(nil),
 		s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0755)).Return(nil),
 
