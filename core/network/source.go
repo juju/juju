@@ -31,6 +31,10 @@ type ConfigSourceNIC interface {
 	Name() string
 
 	// Type returns the type of the interface - Ethernet, VLAN, Loopback etc.
+	// TODO (manadart 2021-03-03): We do not recognise device types such as
+	// veth, tuntap, macvtap et al. Our parsing falls back to ethernet for such
+	// devices, which we should change in order to have a better informed
+	// networking model.
 	Type() InterfaceType
 
 	// Index returns the index of the interface.
