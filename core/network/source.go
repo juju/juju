@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/vishvananda/netlink"
 )
 
 // SysClassNetRoot is the full Linux SYSFS path containing
@@ -17,7 +18,7 @@ import (
 // TODO (manadart 2021-02-12): This remains in the main "source.go" module
 // because there was previously only one ConfigSource implementation,
 // which presumably did not work on Windows.
-// When the NetlinkConfigSource was introduced for use on Linux,
+// When the netlinkConfigSource was introduced for use on Linux,
 // we retained the old universal config source for use on Windows.
 // If there comes a time when we properly implement a Windows source,
 // this should be relocated to the Linux module and an appropriate counterpart
@@ -88,6 +89,15 @@ type ConfigSource interface {
 	// GetBridgePorts returns the names of network interfaces that are ports ot
 	// the bridge with the input device name.
 	GetBridgePorts(string) []string
+}
+
+// DefaultConfigSource returns a ConfigSource
+// to be used by GetObservedNetworkConfig().
+func DefaultConfigSource() ConfigSource {
+	return &netlinkConfigSource{
+		sysClassNetPath: SysClassNetPath,
+		linkList:        netlink.LinkList,
+	}
 }
 
 // ParseInterfaceType parses the DEVTYPE attribute from the Linux kernel

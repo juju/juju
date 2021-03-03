@@ -167,12 +167,3 @@ func (*netPackageConfigSource) DefaultRoute() (net.IP, string, error) {
 func (s *netPackageConfigSource) GetBridgePorts(bridgeName string) []string {
 	return GetBridgePorts(s.sysClassNetPath, bridgeName)
 }
-
-// DefaultNetworkConfigSource returns a NetworkConfigSource backed by the net
-// package, to be used with GetObservedNetworkConfig().
-func DefaultNetworkConfigSource() ConfigSource {
-	return &netPackageConfigSource{
-		sysClassNetPath: SysClassNetPath,
-		interfaces:      net.Interfaces,
-	}
-}
