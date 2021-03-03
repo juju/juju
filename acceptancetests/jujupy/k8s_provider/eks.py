@@ -77,7 +77,7 @@ class EKS(Base):
         else:
             self.sh(
                 '''curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp && mv /tmp/eksctl %s
-''' % self._eksctl_bin, shell=True)
+''' % self._eksctl_bin, shell=True, ignore_quote=True)
 
     def eksctl(self, *args):
         return self.sh(self._eksctl_bin, *args)
