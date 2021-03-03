@@ -67,13 +67,16 @@ func (s *sourceNetlinkSuite) TestNetlinkNICType(c *gc.C) {
 }
 
 func (s *sourceNetlinkSuite) TestNetlinkNICAddrs(c *gc.C) {
-	raw, err := netlink.ParseAddr("192.168.20.1/24")
+	raw1, err := netlink.ParseAddr("192.168.20.1/24")
+	c.Assert(err, jc.ErrorIsNil)
+
+	raw2, err := netlink.ParseAddr("fe80::5054:ff:fedd:eef0/64")
 	c.Assert(err, jc.ErrorIsNil)
 
 	getAddrs := func(link netlink.Link) ([]netlink.Addr, error) {
 		// Check that we called correctly passing the inner nic.
 		c.Assert(link.Attrs().Name, gc.Equals, "eno3")
-		return []netlink.Addr{*raw}, nil
+		return []netlink.Addr{*raw1, *raw2}, nil
 	}
 
 	nic := netlinkNIC{
@@ -83,8 +86,26 @@ func (s *sourceNetlinkSuite) TestNetlinkNICAddrs(c *gc.C) {
 
 	addrs, err := nic.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addrs, gc.HasLen, 1)
+
+	c.Assert(addrs, gc.HasLen, 2)
 	c.Assert(addrs[0].String(), gc.Equals, "192.168.20.1/24")
+	c.Assert(addrs[1].String(), gc.Equals, "fe80::5054:ff:fedd:eef0/64")
+}
+
+func (s *sourceNetlinkSuite) TestNetlinkSourceInterfaces(c *gc.C) {
+	link1 := &stubLink{linkType: "bridge"}
+	link2 := &stubLink{linkType: "bond"}
+
+	source := &netlinkConfigSource{
+		linkList: func() ([]netlink.Link, error) { return []netlink.Link{link1, link2}, nil },
+	}
+
+	nics, err := source.Interfaces()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(nics, gc.HasLen, 2)
+	c.Check(nics[0].Type(), gc.Equals, BridgeInterface)
+	c.Check(nics[1].Type(), gc.Equals, BondInterface)
 }
 
 // stubLink stubs netlink.Link

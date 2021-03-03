@@ -6,6 +6,7 @@ package network
 import (
 	"net"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/vishvananda/netlink"
 )
@@ -92,4 +93,45 @@ func (n netlinkNIC) MTU() int {
 // IsUp returns true if the interface is in the "up" state.
 func (n netlinkNIC) IsUp() bool {
 	return n.nic.Attrs().Flags&net.FlagUp > 0
+}
+
+type netlinkConfigSource struct {
+	sysClassNetPath string
+	linkList        func() ([]netlink.Link, error)
+}
+
+// Interfaces returns the network interfaces on the machine.
+func (s *netlinkConfigSource) Interfaces() ([]ConfigSourceNIC, error) {
+	links, err := s.linkList()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	getAddrs := func(l netlink.Link) ([]netlink.Addr, error) {
+		return netlink.AddrList(l, netlink.FAMILY_ALL)
+	}
+
+	nics := make([]ConfigSourceNIC, len(links))
+	for i := range links {
+		nics[i] = &netlinkNIC{
+			nic:      links[i],
+			getAddrs: getAddrs,
+		}
+	}
+	return nics, nil
+}
+
+// OvsManagedBridges implements NetworkConfigSource.
+func (*netlinkConfigSource) OvsManagedBridges() (set.Strings, error) {
+	return OvsManagedBridges()
+}
+
+// DefaultRoute implements NetworkConfigSource.
+func (*netlinkConfigSource) DefaultRoute() (net.IP, string, error) {
+	return GetDefaultRoute()
+}
+
+// GetBridgePorts implements NetworkConfigSource.
+func (s *netlinkConfigSource) GetBridgePorts(bridgeName string) []string {
+	return GetBridgePorts(s.sysClassNetPath, bridgeName)
 }
