@@ -503,6 +503,31 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelEnsure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *RefreshConfigSuite) TestRefreshManyBuildContextNotNil(c *gc.C) {
+	id1 := "foo"
+	config1, err := DownloadOneFromRevision(id1, 1, RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: arch.DefaultArchitecture,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	config1 = DefineInstanceKey(c, config1, "foo-bar")
+
+	id2 := "bar"
+	config2, err := DownloadOneFromChannel(id2, "latest/edge", RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "trusty",
+		Architecture: arch.DefaultArchitecture,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	config2 = DefineInstanceKey(c, config2, "foo-baz")
+	config := RefreshMany(config1, config2)
+
+	req, _, err := config.Build()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(req.Context, gc.NotNil)
+}
+
 func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 	id1 := "foo"
 	config1, err := RefreshOne(id1, 1, "latest/stable", RefreshPlatform{
