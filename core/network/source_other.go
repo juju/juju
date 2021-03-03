@@ -63,7 +63,7 @@ type netNIC struct {
 	parseType func(string) InterfaceType
 }
 
-func NewNetNIC(nic *net.Interface, parseType func(string) InterfaceType) *netNIC {
+func newNetNIC(nic *net.Interface, parseType func(string) InterfaceType) *netNIC {
 	return &netNIC{
 		nic:       nic,
 		parseType: parseType,
@@ -148,7 +148,7 @@ func (n *netPackageConfigSource) Interfaces() ([]ConfigSourceNIC, error) {
 	for i := range nics {
 		// Close over the sysClassNetPath so that
 		// the NIC needs to know nothing about it.
-		result[i] = NewNetNIC(&nics[i], parseType)
+		result[i] = newNetNIC(&nics[i], parseType)
 	}
 	return result, nil
 }
