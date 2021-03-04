@@ -214,8 +214,8 @@ class Base(object):
         cm['data'] = data
         self.kubectl_apply(json.dumps(cm))
 
-    def sh(self, *args, shell=False):
-        args = [quote(str(arg)) if shell else str(arg) for arg in args]
+    def sh(self, *args, shell=False, ignore_quote=False):
+        args = [quote(str(arg)) if shell and not ignore_quote else str(arg) for arg in args]
         logger.debug('sh -> %s', ' '.join(args))
         return subprocess.check_output(
             # cmd should be a list of str.

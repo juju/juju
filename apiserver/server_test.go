@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http"
@@ -18,7 +19,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"

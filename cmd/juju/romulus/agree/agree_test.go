@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/terms-client/api"
-	"github.com/juju/terms-client/api/wireformat"
+	"github.com/juju/terms-client/v2/api"
+	"github.com/juju/terms-client/v2/api/wireformat"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

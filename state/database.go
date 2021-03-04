@@ -12,10 +12,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
+	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v2/txn"
 	jujutxn "github.com/juju/txn"
 	"github.com/kr/pretty"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/feature"

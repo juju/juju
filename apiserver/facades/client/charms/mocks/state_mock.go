@@ -14,8 +14,8 @@ import (
 	instance "github.com/juju/juju/core/instance"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
+	mgo "github.com/juju/mgo/v2"
 	names "github.com/juju/names/v4"
-	mgo "gopkg.in/mgo.v2"
 	reflect "reflect"
 )
 

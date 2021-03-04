@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	txn "gopkg.in/mgo.v2/txn"
+	txn "github.com/juju/mgo/v2/txn"
 	reflect "reflect"
 )
 

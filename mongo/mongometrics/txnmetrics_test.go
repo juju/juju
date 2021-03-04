@@ -7,13 +7,13 @@ import (
 	"errors"
 	"reflect"
 
+	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/mongo/mongometrics"
 )

@@ -10,7 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	mongo "github.com/juju/juju/mongo"
-	mgo_v2 "gopkg.in/mgo.v2"
+	mgo_v2 "github.com/juju/mgo/v2"
 )
 
 // MockCollection is a mock of Collection interface

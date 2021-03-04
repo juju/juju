@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/clock"
-	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/charmstore"

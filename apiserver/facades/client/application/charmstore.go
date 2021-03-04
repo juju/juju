@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v8"
 	"github.com/juju/charmrepo/v6"
 	"github.com/juju/charmrepo/v6/csclient"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2"
 	"github.com/juju/version"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/params"

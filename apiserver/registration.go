@@ -9,10 +9,10 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"golang.org/x/crypto/nacl/secretbox"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/params"

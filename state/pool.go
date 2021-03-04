@@ -13,10 +13,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub"
 	"github.com/juju/worker/v2"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"

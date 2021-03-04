@@ -9,14 +9,14 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/lease"
 	coreraftlease "github.com/juju/juju/core/raftlease"

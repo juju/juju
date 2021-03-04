@@ -8,13 +8,13 @@ import (
 	"io"
 	"sort"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/gosuri/uitable"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	api "github.com/juju/romulus/api/budget"
 	wireformat "github.com/juju/romulus/wireformat/budget"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	jujucmd "github.com/juju/juju/cmd"
 	rcmd "github.com/juju/juju/cmd/juju/romulus"
