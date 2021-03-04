@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
@@ -159,14 +160,14 @@ func (s *LogsInternalSuite) TestLogsCollectionConversionSmallerSize(c *gc.C) {
 	coll := s.createLogsDB(c)
 	dbLogger := s.dbLogger(coll)
 	size := 0
-	var err error
 	for size < 4 {
 		writeSomeLogs(c, dbLogger, 5000)
-		size, err = getCollectionMB(coll)
+		sizeKB, err := getCollectionKB(coll)
 		c.Assert(err, jc.ErrorIsNil)
+		size = sizeKB / humanize.KiByte
 	}
 
-	err = convertToCapped(coll, 2)
+	err := convertToCapped(coll, 2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	capped, maxSize, err := getCollectionCappedInfo(coll)
@@ -174,10 +175,10 @@ func (s *LogsInternalSuite) TestLogsCollectionConversionSmallerSize(c *gc.C) {
 	c.Assert(capped, jc.IsTrue)
 	c.Assert(maxSize, gc.Equals, 2)
 
-	size, err = getCollectionMB(coll)
+	sizeKB, err := getCollectionKB(coll)
 	c.Assert(err, jc.ErrorIsNil)
 	// We don't have a LessThan or equal to, so using 3 to mean 1 or 2.
-	c.Assert(size, jc.LessThan, 3)
+	c.Assert(sizeKB/humanize.KiByte, jc.LessThan, 3)
 
 	// Check that we still have some documents in there.
 	docs, err := coll.Count()
@@ -191,14 +192,14 @@ func (s *LogsInternalSuite) TestLogsCollectionConversionTwiceSmallerSize(c *gc.C
 	coll := s.createLogsDB(c)
 	dbLogger := s.dbLogger(coll)
 	size := 0
-	var err error
 	for size < 4 {
 		writeSomeLogs(c, dbLogger, 5000)
-		size, err = getCollectionMB(coll)
+		sizeKB, err := getCollectionKB(coll)
 		c.Assert(err, jc.ErrorIsNil)
+		size = sizeKB / humanize.KiByte
 	}
 
-	err = convertToCapped(coll, 10)
+	err := convertToCapped(coll, 10)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now resize again to 2.
@@ -210,10 +211,10 @@ func (s *LogsInternalSuite) TestLogsCollectionConversionTwiceSmallerSize(c *gc.C
 	c.Assert(capped, jc.IsTrue)
 	c.Check(maxSize, gc.Equals, 2)
 
-	size, err = getCollectionMB(coll)
+	sizeKB, err := getCollectionKB(coll)
 	c.Assert(err, jc.ErrorIsNil)
 	// We don't have a LessThan or equal to, so using 3 to mean 1 or 2.
-	c.Assert(size, jc.LessThan, 3)
+	c.Assert(sizeKB/humanize.KiByte, jc.LessThan, 3)
 
 	// Check that we still have some documents in there.
 	docs, err := coll.Count()
@@ -227,14 +228,14 @@ func (s *LogsInternalSuite) TestLogsCollectionConversionTwiceBiggerSize(c *gc.C)
 	coll := s.createLogsDB(c)
 	dbLogger := s.dbLogger(coll)
 	size := 0
-	var err error
 	for size < 4 {
 		writeSomeLogs(c, dbLogger, 5000)
-		size, err = getCollectionMB(coll)
+		sizeKB, err := getCollectionKB(coll)
 		c.Assert(err, jc.ErrorIsNil)
+		size = sizeKB / humanize.KiByte
 	}
 
-	err = convertToCapped(coll, 1)
+	err := convertToCapped(coll, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now resize again to 2.
@@ -246,10 +247,10 @@ func (s *LogsInternalSuite) TestLogsCollectionConversionTwiceBiggerSize(c *gc.C)
 	c.Assert(capped, jc.IsTrue)
 	c.Check(maxSize, gc.Equals, 2)
 
-	size, err = getCollectionMB(coll)
+	sizeKB, err := getCollectionKB(coll)
 	c.Assert(err, jc.ErrorIsNil)
 	// We don't have a LessThan or equal to, so using 3 to mean 1 or 2.
-	c.Assert(size, jc.LessThan, 3)
+	c.Assert(sizeKB/humanize.KiByte, jc.LessThan, 3)
 
 	// Check that we still have some documents in there.
 	docs, err := coll.Count()
