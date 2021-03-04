@@ -347,7 +347,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           "gitlab-image:latest",
 			Command:         []string{"/charm/bin/pebble"},
-			Args:            []string{"run", "--hold"},
+			Args:            []string{"run", "--create-dirs", "--hold"},
 			Env: []corev1.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAME",

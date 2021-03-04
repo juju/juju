@@ -958,6 +958,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			Command:         []string{"/charm/bin/pebble"},
 			Args: []string{
 				"run",
+				"--create-dirs",
 				"--hold",
 			},
 			Env: []corev1.EnvVar{{

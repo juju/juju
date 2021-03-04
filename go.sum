@@ -86,8 +86,8 @@ github.com/asaskevich/govalidator v0.0.0-20180720115003-f9ffefc3facf/go.mod h1:l
 github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a/go.mod h1:lB+ZfQJz7igIIfQNfa7Ml4HSf2uFQQRzpGGRXenZAgY=
 github.com/aws/aws-sdk-go v1.29.8 h1:Kma1ikL7MHs/XH5Q4Aqj53AAhgttW6UFykc8Qj16HGo=
 github.com/aws/aws-sdk-go v1.29.8/go.mod h1:1KvfttTE3SPKMpo8g2c6jL3ZKfXtFvKscTgahTma5Xg=
-github.com/benhoyt/pebble v0.0.0-20210303020906-83ed36d0bcfa h1:Gp3TZIKhWYmkWBIN9Yp3ikcqR7I/xcuCEqa8en3MFTA=
-github.com/benhoyt/pebble v0.0.0-20210303020906-83ed36d0bcfa/go.mod h1:Glkg6kOpPMNw1BDDzRHH0U9i3pnc6Y+zV+pHwdX4SU0=
+github.com/benhoyt/pebble v0.0.0-20210304022342-b802127d2bb8 h1:5leJIA55JTNwPUNl7hmJKn/29zi8iRxvbipEebj47UM=
+github.com/benhoyt/pebble v0.0.0-20210304022342-b802127d2bb8/go.mod h1:Glkg6kOpPMNw1BDDzRHH0U9i3pnc6Y+zV+pHwdX4SU0=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
