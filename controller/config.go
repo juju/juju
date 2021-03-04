@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/charmrepo/v7/csclient"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils/v2"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/macaroon-bakery.v2/bakery"
 
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/pki"

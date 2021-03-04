@@ -380,10 +380,13 @@ func RefreshMany(configs ...RefreshConfig) RefreshConfig {
 
 // Build a refresh request that can be past to the API.
 func (c refreshMany) Build() (transport.RefreshRequest, Headers, error) {
-	var (
-		result          transport.RefreshRequest
-		composedHeaders Headers
-	)
+	var composedHeaders Headers
+	// Not all configs built here have a context, start out with an empty
+	// slice, so we do not call Refresh with a nil context.
+	// See executeOne.Build().
+	result := transport.RefreshRequest{
+		Context: []transport.RefreshRequestContext{},
+	}
 	for _, config := range c.Configs {
 		req, headers, err := config.Build()
 		if err != nil {

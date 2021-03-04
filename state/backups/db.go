@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2"
+	"github.com/juju/mgo/v2"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/imagestorage"

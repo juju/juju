@@ -6,7 +6,14 @@ package params
 // Query holds the query information when attempting to find possible charms or
 // bundles for searching the CharmHub.
 type Query struct {
-	Query string `json:"query"`
+	Query            string `json:"query"`
+	Category         string `json:"category,omitempty"`
+	Channel          string `json:"channel,omitempty"`
+	CharmType        string `json:"type,omitempty"`
+	Platforms        string `json:"platforms,omitempty"`
+	Publisher        string `json:"publisher,omitempty"`
+	RelationRequires string `json:"relation-requires,omitempty"`
+	RelationProvides string `json:"relation-provides,omitempty"`
 }
 
 // Info tag represents a info query for a given tag and channel.

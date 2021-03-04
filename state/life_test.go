@@ -4,9 +4,9 @@
 package state_test
 
 import (
+	"github.com/juju/mgo/v2/bson"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/state"
 )

@@ -243,8 +243,8 @@ func (c *Client) Info(ctx context.Context, name string, options ...InfoOption) (
 }
 
 // Find searches for a given charm for a given name from CharmHub API.
-func (c *Client) Find(ctx context.Context, name string) ([]transport.FindResponse, error) {
-	return c.findClient.Find(ctx, name)
+func (c *Client) Find(ctx context.Context, name string, options ...FindOption) ([]transport.FindResponse, error) {
+	return c.findClient.Find(ctx, name, options...)
 }
 
 // Refresh defines a client for making refresh API calls, that allow for

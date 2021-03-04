@@ -42,23 +42,29 @@ func (s *CharmResourcesSuite) TestInfo(c *gc.C) {
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
 		Name:    "charm-resources",
 		Args:    "<charm>",
-		Purpose: "Display the resources for a charm in the charm store.",
+		Purpose: "Display the resources for a charm in a repository.",
 		Aliases: []string{"list-charm-resources"},
 		Doc: `
-This command will report the resources for a charm in the charm store.
+This command will report the resources and the current revision of each
+resource for a charm in a repository.
 
 <charm> can be a charm URL, or an unambiguously condensed form of it,
-just like the deploy command. So the following forms will be accepted:
+just like the deploy command.
 
-For cs:trusty/mysql
-  mysql
-  trusty/mysql
+Series is implied from the <charm> supplied. If not provided, the default
+series for the model is used.
 
-For cs:~user/trusty/mysql
-  cs:~user/mysql
+Channel can be specified with --channel.  If not provided, stable is used.
 
-Where the series is not supplied, the series from your local host is used.
-Thus the above examples imply that the local series is trusty.
+Where a channel is not supplied, stable is used.
+
+Examples:
+
+Display charm resources for the postgresql charm:
+    juju charm-resources postgresql
+
+Display charm resources for mycharm in the 2.0/edge channel:
+    juju charm-resources mycharm --channel 2.0/edge
 `,
 		FlagKnownAs:    "option",
 		ShowSuperFlags: []string{"show-log", "debug", "logging-config", "verbose", "quiet", "h", "help"},

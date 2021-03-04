@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"

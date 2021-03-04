@@ -4,12 +4,12 @@
 package mongometrics_test
 
 import (
+	"github.com/juju/mgo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo/mongometrics"
 )

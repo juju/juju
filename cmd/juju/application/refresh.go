@@ -6,6 +6,7 @@ package application
 import (
 	"fmt"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/charmrepo/v7"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v2/catacomb"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"

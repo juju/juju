@@ -130,18 +130,23 @@ func (mr *MockInfoCommandAPIMockRecorder) Close() *gomock.Call {
 }
 
 // Info mocks base method
-func (m *MockInfoCommandAPI) Info(arg0, arg1 string) (charmhub.InfoResponse, error) {
+func (m *MockInfoCommandAPI) Info(arg0 string, arg1 ...charmhub.InfoOption) (charmhub.InfoResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Info", arg0, arg1)
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Info", varargs...)
 	ret0, _ := ret[0].(charmhub.InfoResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Info indicates an expected call of Info
-func (mr *MockInfoCommandAPIMockRecorder) Info(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockInfoCommandAPIMockRecorder) Info(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockInfoCommandAPI)(nil).Info), arg0, arg1)
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockInfoCommandAPI)(nil).Info), varargs...)
 }
 
 // MockFindCommandAPI is a mock of FindCommandAPI interface
@@ -182,18 +187,23 @@ func (mr *MockFindCommandAPIMockRecorder) Close() *gomock.Call {
 }
 
 // Find mocks base method
-func (m *MockFindCommandAPI) Find(arg0 string) ([]charmhub.FindResponse, error) {
+func (m *MockFindCommandAPI) Find(arg0 string, arg1 ...charmhub.FindOption) ([]charmhub.FindResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Find", arg0)
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Find", varargs...)
 	ret0, _ := ret[0].([]charmhub.FindResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Find indicates an expected call of Find
-func (mr *MockFindCommandAPIMockRecorder) Find(arg0 interface{}) *gomock.Call {
+func (mr *MockFindCommandAPIMockRecorder) Find(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Find", reflect.TypeOf((*MockFindCommandAPI)(nil).Find), arg0)
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Find", reflect.TypeOf((*MockFindCommandAPI)(nil).Find), varargs...)
 }
 
 // MockModelConfigClient is a mock of ModelConfigClient interface

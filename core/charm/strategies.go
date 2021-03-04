@@ -10,13 +10,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2"
 	"github.com/kr/pretty"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/lxdprofile"

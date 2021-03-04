@@ -8,11 +8,11 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
+	"github.com/juju/mgo/v2/bson"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/state"

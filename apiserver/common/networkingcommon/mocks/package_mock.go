@@ -10,7 +10,7 @@ import (
 	life "github.com/juju/juju/core/life"
 	network "github.com/juju/juju/core/network"
 	state "github.com/juju/juju/state"
-	txn "gopkg.in/mgo.v2/txn"
+	txn "github.com/juju/mgo/v2/txn"
 	reflect "reflect"
 )
 

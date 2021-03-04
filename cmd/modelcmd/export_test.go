@@ -4,8 +4,8 @@
 package modelcmd
 
 import (
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/cmd"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/jujuclient"
 )

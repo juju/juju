@@ -34,24 +34,33 @@ See also:
 
 // NewFindCommand wraps findCommand with sane model settings.
 func NewFindCommand() cmd.Command {
-	return modelcmd.Wrap(&findCommand{
-		charmHubCommand: newCharmHubCommand(),
+	cmd := &findCommand{
 		CharmHubClientFunc: func(api base.APICallCloser) FindCommandAPI {
 			return charmhub.NewClient(api)
 		},
-	})
+	}
+	cmd.APIRootFunc = func() (base.APICallCloser, error) {
+		return cmd.NewAPIRoot()
+	}
+	return modelcmd.Wrap(cmd)
 }
 
 // findCommand supplies the "find" CLI command used to display find information.
 type findCommand struct {
-	*charmHubCommand
+	modelcmd.ModelCommandBase
 
+	APIRootFunc        func() (base.APICallCloser, error)
 	CharmHubClientFunc func(base.APICallCloser) FindCommandAPI
 
 	out        cmd.Output
 	warningLog Log
 
-	query   string
+	query     string
+	category  string
+	channel   string
+	charmType string
+	publisher string
+
 	columns string
 }
 
@@ -70,13 +79,19 @@ func (c *findCommand) Info() *cmd.Info {
 // SetFlags defines flags which can be used with the find command.
 // It implements part of the cmd.Command interface.
 func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.charmHubCommand.SetFlags(f)
+	c.ModelCommandBase.SetFlags(f)
 
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 		"tabular": c.formatter,
 	})
+
+	f.StringVar(&c.category, "category", "", `filter by a category name`)
+	f.StringVar(&c.channel, "channel", "", `filter by channel. "latest" can be omitted, so "stable" also matches "latest/stable"`)
+	f.StringVar(&c.charmType, "type", "", `search by a given type <charm|bundle>`)
+	f.StringVar(&c.publisher, "publisher", "", `search by a given publisher`)
+
 	f.StringVar(&c.columns, "columns", "nbvps", `display the columns associated with a find search.
 
     The following columns are supported:
@@ -96,14 +111,14 @@ func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the find command, including validating the provided
 // flags. It implements part of the cmd.Command interface.
 func (c *findCommand) Init(args []string) error {
-	if err := c.charmHubCommand.Init(args); err != nil {
-		return errors.Trace(err)
-	}
-
 	// We allow searching of empty queries, which will return a list of
 	// "interesting charms".
 	if len(args) > 0 {
 		c.query = args[0]
+	}
+
+	if c.charmType != "" && (c.charmType != "charm" && c.charmType != "bundle") {
+		return errors.Errorf("expected type to be charm or bundle")
 	}
 
 	if c.columns == "" {
@@ -123,10 +138,6 @@ func (c *findCommand) Init(args []string) error {
 // Run is the business logic of the find command.  It implements the meaty
 // part of the cmd.Command interface.
 func (c *findCommand) Run(ctx *cmd.Context) error {
-	if err := c.charmHubCommand.Run(ctx); err != nil {
-		return errors.Trace(err)
-	}
-
 	apiRoot, err := c.APIRootFunc()
 	if err != nil {
 		return errors.Trace(err)
@@ -139,7 +150,8 @@ func (c *findCommand) Run(ctx *cmd.Context) error {
 
 	charmHubClient := c.CharmHubClientFunc(apiRoot)
 
-	results, err := charmHubClient.Find(c.query)
+	options := populateFindOptions(c)
+	results, err := charmHubClient.Find(c.query, options...)
 	if params.IsCodeNotFound(err) {
 		return errors.Wrap(err, errors.Errorf("Nothing found for query %q.", c.query))
 	} else if err != nil {
@@ -152,24 +164,26 @@ func (c *findCommand) Run(ctx *cmd.Context) error {
 	// it up later.
 	c.warningLog = ctx.Warningf
 
-	results = filterFindResults(results, c.arch, c.series)
-
-	return c.output(ctx, results)
+	return c.output(ctx, results, c.query == "" && len(options) == 0)
 }
 
-func (c *findCommand) output(ctx *cmd.Context, results []charmhub.FindResponse) error {
+func (c *findCommand) output(ctx *cmd.Context, results []charmhub.FindResponse, emptyQuery bool) error {
 	tabular := c.out.Name() == "tabular"
 	if tabular {
 		// If the results are empty, we should return a helpful message to the
 		// operator.
 		if len(results) == 0 {
-			fmt.Fprintf(ctx.Stderr, "No matching charms for %q\n", c.query)
+			charmType := "charms or bundles"
+			if c.charmType != "" {
+				charmType = fmt.Sprintf("%ss", c.charmType)
+			}
+			fmt.Fprintf(ctx.Stderr, "No matching %s\n", charmType)
 			return nil
 		}
 
 		// Output some helpful errors messages for operators if the query is empty
 		// or not.
-		if c.query == "" {
+		if emptyQuery {
 			fmt.Fprintf(ctx.Stdout, "No search term specified. Here are some interesting charms:\n\n")
 		}
 	}
@@ -179,7 +193,7 @@ func (c *findCommand) output(ctx *cmd.Context, results []charmhub.FindResponse) 
 		return errors.Trace(err)
 	}
 
-	if tabular && c.query == "" {
+	if tabular && emptyQuery {
 		fmt.Fprintln(ctx.Stdout, "Provide a search term for more specific results.")
 	}
 
@@ -202,4 +216,23 @@ func (c *findCommand) formatter(writer io.Writer, value interface{}) error {
 	}
 
 	return nil
+}
+
+func populateFindOptions(cmd *findCommand) []charmhub.FindOption {
+	var options []charmhub.FindOption
+
+	if cmd.category != "" {
+		options = append(options, charmhub.WithFindCategory(cmd.category))
+	}
+	if cmd.channel != "" {
+		options = append(options, charmhub.WithFindChannel(cmd.channel))
+	}
+	if cmd.charmType != "" {
+		options = append(options, charmhub.WithFindType(cmd.charmType))
+	}
+	if cmd.publisher != "" {
+		options = append(options, charmhub.WithFindPublisher(cmd.publisher))
+	}
+
+	return options
 }

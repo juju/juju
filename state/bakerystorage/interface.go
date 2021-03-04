@@ -5,15 +5,15 @@
 // of the bakery Storage interface that uses MongoDB
 // to store items.
 //
-// This is based on gopkg.in/macaroon-bakery.v2/bakery/mgorootkeystore.
+// This is based on github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/mgorootkeystore.
 package bakerystorage
 
 import (
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/mgorootkeystore"
 	"github.com/juju/errors"
-	"gopkg.in/macaroon-bakery.v2/bakery"
-	"gopkg.in/macaroon-bakery.v2/bakery/mgorootkeystore"
 
 	"github.com/juju/juju/mongo"
 )

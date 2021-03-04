@@ -7,9 +7,9 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/testing"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/mgo.v2/txn"
 )
 
 type StubPersistence struct {

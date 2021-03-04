@@ -6,11 +6,11 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/description/v2"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/txn"
 )
 
 type MigrationImportTasksSuite struct{}
