@@ -11,10 +11,10 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 )
 
 type metricRegistrationPost struct {

@@ -4,12 +4,12 @@
 package romulus
 
 import (
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v7"
 	"github.com/juju/charmrepo/v5"
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 )
 
 // CharmResolver interface defines the functionality to resolve a charm URL.

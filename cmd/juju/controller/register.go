@@ -17,6 +17,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -24,8 +26,6 @@ import (
 	"github.com/juju/utils"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
-	"gopkg.in/macaroon-bakery.v2/bakery"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"

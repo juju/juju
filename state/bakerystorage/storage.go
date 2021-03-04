@@ -8,10 +8,10 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/mgorootkeystore"
 	"github.com/juju/errors"
-	"gopkg.in/macaroon-bakery.v2/bakery"
-	"gopkg.in/macaroon-bakery.v2/bakery/mgorootkeystore"
-	"gopkg.in/mgo.v2"
+	"github.com/juju/mgo/v2"
 )
 
 // MongoIndexes returns the indexes to apply to the MongoDB collection.

@@ -9,8 +9,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v7"
 	"github.com/juju/charmrepo/v5"
+	"github.com/juju/mgo/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/testing"
 

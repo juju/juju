@@ -18,11 +18,11 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/utils"
 	"github.com/juju/utils/deque"
 	"github.com/juju/version"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/controller"
@@ -922,7 +922,7 @@ func collStats(coll *mgo.Collection) (bson.M, error) {
 	var result bson.M
 	err := coll.Database.Run(bson.D{
 		{"collStats", coll.Name},
-		{"scale", humanize.MiByte},
+		{"scale", humanize.KiByte},
 	}, &result)
 	if err != nil {
 		// In order to return consistent error messages across 2.4 and 3.x
@@ -981,49 +981,17 @@ func getCollectionCappedInfo(coll *mgo.Collection) (bool, int, error) {
 	if !ok {
 		return false, 0, errors.NotValidf("size value is not an int")
 	}
-	return true, maxSize, nil
+	return true, maxSize / humanize.KiByte, nil
 }
 
-// getCollectionMB returns the size of a MongoDB collection (in
-// megabytes), excluding space used by indexes.
-func getCollectionMB(coll *mgo.Collection) (int, error) {
+// getCollectionKB returns the size of a MongoDB collection (in
+// kilobytes), excluding space used by indexes.
+func getCollectionKB(coll *mgo.Collection) (int, error) {
 	stats, err := collStats(coll)
 	if err != nil {
 		return 0, errors.Trace(err)
 	}
 	return dbCollectionSizeToInt(stats, coll.Name)
-}
-
-// getCollectionTotalMB returns the total size of the log collections
-// passed.
-func getCollectionTotalMB(colls map[string]*mgo.Collection) (int, error) {
-	total := 0
-	for _, coll := range colls {
-		size, err := getCollectionMB(coll)
-		if err != nil {
-			return 0, errors.Trace(err)
-		}
-		total += size
-	}
-	return total, nil
-}
-
-// getLogCollections returns all of the log collections in the DB by
-// model UUID.
-func getLogCollections(db *mgo.Database) (map[string]*mgo.Collection, error) {
-	result := make(map[string]*mgo.Collection)
-	names, err := db.CollectionNames()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, name := range names {
-		if !strings.HasPrefix(name, logsCPrefix) {
-			continue
-		}
-		uuid := name[len(logsCPrefix):]
-		result[uuid] = db.C(name)
-	}
-	return result, nil
 }
 
 func removeModelLogs(session *mgo.Session, modelUUID string) error {

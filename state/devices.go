@@ -6,8 +6,8 @@ package state
 import (
 	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/txn"
+	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v2/txn"
 
 	"github.com/juju/juju/environs/config"
 )

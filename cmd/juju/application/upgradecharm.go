@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v7"
 	charmresource "github.com/juju/charm/v7/resource"
 	"github.com/juju/charmrepo/v5"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version"
 	"github.com/juju/worker/v2/catacomb"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"

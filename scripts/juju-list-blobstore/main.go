@@ -17,10 +17,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/names/v4"
 	"github.com/juju/version"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/mongo"
@@ -202,7 +202,7 @@ func getConfig(tag names.MachineTag) (agent.ConfigSetterWriter, error) {
 }
 
 // managedResourceDoc is the persistent representation of a ManagedResource.
-// copied from gopkg.in/juju/blobstore.v2/managedstorage.go
+// copied from github.com/juju/blobstore/v2/managedstorage.go
 type managedResourceDoc struct {
 	ID         string `bson:"_id"`
 	BucketUUID string `bson:"bucketuuid"`
@@ -212,7 +212,7 @@ type managedResourceDoc struct {
 }
 
 // storedResourceDoc is the persistent representation of a Resource.
-// copied from gopkg.in/juju/blobstore.v2/resourcecatalog.go
+// copied from github.com/juju/blobstore/v2/resourcecatalog.go
 type storedResourceDoc struct {
 	ID string `bson:"_id"`
 	// Path is the storage path of the resource, which will be

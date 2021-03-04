@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v7"
 	"github.com/juju/charm/v7/resource"
 	"github.com/juju/charmrepo/v5"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 	"github.com/juju/romulus"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
 

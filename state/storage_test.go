@@ -10,10 +10,10 @@ import (
 	"github.com/juju/charm/v7"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/provider/dummy"

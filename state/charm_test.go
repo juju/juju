@@ -11,11 +11,11 @@ import (
 
 	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
-	"gopkg.in/mgo.v2"
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/state"

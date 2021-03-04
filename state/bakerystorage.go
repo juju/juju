@@ -6,8 +6,8 @@ package state
 import (
 	"time"
 
-	"gopkg.in/macaroon-bakery.v2/bakery"
-	"gopkg.in/macaroon-bakery.v2/bakery/mgorootkeystore"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/mgorootkeystore"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/bakerystorage"

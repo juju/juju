@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2/txn"
+	"github.com/juju/mgo/v2/txn"
 
 	"github.com/juju/juju/core/network"
 )

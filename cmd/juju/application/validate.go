@@ -4,11 +4,11 @@
 package application
 
 import (
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	charm "github.com/juju/charm/v7"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/core/lxdprofile"

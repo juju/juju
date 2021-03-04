@@ -9,7 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	description "github.com/juju/description/v2"
-	txn "gopkg.in/mgo.v2/txn"
+	txn "github.com/juju/mgo/v2/txn"
 )
 
 // MockTransactionRunner is a mock of TransactionRunner interface

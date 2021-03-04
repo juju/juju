@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/juju/loggo"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/txn"
+	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v2/txn"
 )
 
 const (

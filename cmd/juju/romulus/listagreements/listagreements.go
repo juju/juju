@@ -9,13 +9,13 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/gosuri/uitable"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/terms-client/api"
-	"github.com/juju/terms-client/api/wireformat"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"github.com/juju/terms-client/v2/api"
+	"github.com/juju/terms-client/v2/api/wireformat"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"

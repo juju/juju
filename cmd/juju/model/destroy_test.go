@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	testclock "github.com/juju/clock/testclock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -15,7 +16,6 @@ import (
 	jutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
