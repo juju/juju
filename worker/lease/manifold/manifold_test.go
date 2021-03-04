@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/worker/v2/workertest"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/globalclock"

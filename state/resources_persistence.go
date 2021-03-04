@@ -9,10 +9,10 @@ import (
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
 	"github.com/kr/pretty"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
 )

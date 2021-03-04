@@ -6,11 +6,11 @@ package store
 import (
 	"net/url"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v8"
 	"github.com/juju/charmrepo/v6"
 	"github.com/juju/charmrepo/v6/csclient"
 	"github.com/juju/errors"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
 	commoncharm "github.com/juju/juju/api/common/charm"

@@ -16,6 +16,7 @@ test_model() {
     # Tests that need to be run are added here.
     test_model_config
     test_model_migration
+    test_model_multi
 
     destroy_controller "test-models"
 }

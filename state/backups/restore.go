@@ -16,11 +16,11 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/ssh"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/instance"

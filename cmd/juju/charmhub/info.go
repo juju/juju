@@ -157,7 +157,7 @@ func (c *infoCommand) Run(ctx *cmd.Context) error {
 		channel = charmChannel.String()
 	}
 
-	info, err := charmHubClient.Info(c.charmOrBundle, channel)
+	info, err := charmHubClient.Info(c.charmOrBundle, charmhub.WithInfoChannel(channel))
 	if params.IsCodeNotFound(err) {
 		return errors.Wrap(err, errors.Errorf("No information found for charm or bundle with the name %q", c.charmOrBundle))
 	} else if err != nil {

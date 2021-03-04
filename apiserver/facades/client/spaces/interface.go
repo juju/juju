@@ -5,8 +5,8 @@ package spaces
 
 import (
 	"github.com/juju/collections/set"
+	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/controller"

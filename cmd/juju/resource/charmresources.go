@@ -4,13 +4,13 @@
 package resource
 
 import (
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/charms"
@@ -127,7 +127,7 @@ type baseCharmResourcesCommand struct {
 func (c *baseCharmResourcesCommand) baseInfo() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Args:    "<charm>",
-		Purpose: "Display the resources for a charm in the charm store.",
+		Purpose: "Display the resources for a charm in a repository.",
 		Doc:     charmResourcesDoc,
 	})
 }
@@ -140,7 +140,7 @@ func (c *baseCharmResourcesCommand) setBaseFlags(f *gnuflag.FlagSet) {
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 	})
-	f.StringVar(&c.channel, "channel", "stable", "the charmstore channel of the charm")
+	f.StringVar(&c.channel, "channel", "stable", "the channel of the charm")
 }
 
 func (c *baseCharmResourcesCommand) baseInit(args []string) error {
@@ -212,20 +212,26 @@ func (c *baseCharmResourcesCommand) baseRun(ctx *cmd.Context) error {
 }
 
 const charmResourcesDoc = `
-This command will report the resources for a charm in the charm store.
+This command will report the resources and the current revision of each
+resource for a charm in a repository.
 
 <charm> can be a charm URL, or an unambiguously condensed form of it,
-just like the deploy command. So the following forms will be accepted:
+just like the deploy command.
 
-For cs:trusty/mysql
-  mysql
-  trusty/mysql
+Series is implied from the <charm> supplied. If not provided, the default
+series for the model is used.
 
-For cs:~user/trusty/mysql
-  cs:~user/mysql
+Channel can be specified with --channel.  If not provided, stable is used.
 
-Where the series is not supplied, the series from your local host is used.
-Thus the above examples imply that the local series is trusty.
+Where a channel is not supplied, stable is used.
+
+Examples:
+
+Display charm resources for the postgresql charm:
+    juju charm-resources postgresql
+
+Display charm resources for mycharm in the 2.0/edge channel:
+    juju charm-resources mycharm --channel 2.0/edge
 `
 
 func resolveCharm(raw string) (*charm.URL, error) {

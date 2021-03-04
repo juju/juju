@@ -11,6 +11,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -124,6 +125,13 @@ func (s *ReplSuite) TestHelp(c *gc.C) {
 
 func (s *ReplSuite) assertHelp(c *gc.C, helpArg string) {
 	f := func() {
+		// The jujuMain command is not designed to be run multiple times
+		// in a loop as it attempts to register the same writer thus
+		// causing an error to be returned and the actual command not
+		// to execute.
+		//
+		// This is needed for testing only.
+		_, _ = loggo.RemoveWriter("warning")
 		jujuMain{
 			execCommand: func(command string, args ...string) *exec.Cmd {
 				c.Fail()
@@ -134,7 +142,7 @@ func (s *ReplSuite) assertHelp(c *gc.C, helpArg string) {
 
 	stdout, _ := jujutesting.CaptureOutput(c, f)
 	s.assertOutMatches(c, stdout,
-		"When run without arguments, enter an interactive shell.*")
+		".*When run without arguments, Juju will enter an interactive shell.*")
 }
 
 func (s *ReplSuite) TestJujuCommandHelp(c *gc.C) {

@@ -18,8 +18,8 @@ import (
 	context "github.com/juju/juju/environs/context"
 	space "github.com/juju/juju/environs/space"
 	state "github.com/juju/juju/state"
+	txn "github.com/juju/mgo/v2/txn"
 	names "github.com/juju/names/v4"
-	txn "gopkg.in/mgo.v2/txn"
 	reflect "reflect"
 )
 

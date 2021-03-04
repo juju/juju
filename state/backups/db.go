@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v2/bson"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/mongo"
