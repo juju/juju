@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/vishvananda/netlink"
 )
 
 // SysClassNetRoot is the full Linux SYSFS path containing
@@ -89,15 +88,6 @@ type ConfigSource interface {
 	// GetBridgePorts returns the names of network interfaces that are ports ot
 	// the bridge with the input device name.
 	GetBridgePorts(string) []string
-}
-
-// DefaultConfigSource returns a ConfigSource
-// to be used by GetObservedNetworkConfig().
-func DefaultConfigSource() ConfigSource {
-	return &netlinkConfigSource{
-		sysClassNetPath: SysClassNetPath,
-		linkList:        netlink.LinkList,
-	}
 }
 
 // ParseInterfaceType parses the DEVTYPE attribute from the Linux kernel

@@ -1,6 +1,8 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build !linux
+
 package network
 
 import (
@@ -171,4 +173,13 @@ func (*netPackageConfigSource) DefaultRoute() (net.IP, string, error) {
 // GetBridgePorts implements NetworkConfigSource.
 func (s *netPackageConfigSource) GetBridgePorts(bridgeName string) []string {
 	return GetBridgePorts(s.sysClassNetPath, bridgeName)
+}
+
+// DefaultConfigSource returns a NetworkConfigSource backed by
+// the net package, to be used with GetObservedNetworkConfig().
+func DefaultConfigSource() ConfigSource {
+	return &netPackageConfigSource{
+		sysClassNetPath: SysClassNetPath,
+		interfaces:      net.Interfaces,
+	}
 }
