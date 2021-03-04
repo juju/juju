@@ -152,10 +152,8 @@ class EKS(Base):
             o = self.eksctl(
                 'create', 'cluster',
                 '--name', self.cluster_name,
-                '--version', '1.16',
+                '--version', '1.19',
                 '--region', self.location,
-                '--nodegroup-name', 'standard-workers',
-                '--node-type', 't3.medium',
                 '--nodes', 3,
                 '--nodes-min', 1,
                 '--nodes-max', 3,
