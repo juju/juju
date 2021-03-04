@@ -5,10 +5,10 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v2/txn"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
 )
 
 // minUnitsDoc keeps track of relevant changes on the application's MinUnits field

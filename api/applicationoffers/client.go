@@ -4,11 +4,11 @@
 package applicationoffers
 
 import (
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"gopkg.in/macaroon-bakery.v2/bakery"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"

@@ -6,8 +6,8 @@ package mongometrics
 import (
 	"sync"
 
+	"github.com/juju/mgo/v2"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/mgo.v2"
 )
 
 // MgoStatsCollector is a prometheus.Collector that collects metrics based

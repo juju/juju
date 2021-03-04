@@ -5,8 +5,8 @@ package spaces
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
-	"gopkg.in/mgo.v2/txn"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"

@@ -13,9 +13,9 @@ import (
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/resource"

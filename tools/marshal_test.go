@@ -4,10 +4,10 @@
 package tools_test
 
 import (
+	"github.com/juju/mgo/v2/bson"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/tools"
 )

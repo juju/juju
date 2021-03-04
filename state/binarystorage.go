@@ -4,9 +4,9 @@
 package state
 
 import (
+	"github.com/juju/blobstore/v2"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/blobstore.v2"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/binarystorage"

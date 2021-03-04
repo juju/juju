@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/loggo"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v2/bson"
 )
 
 // pruneCollection removes collection entries until
@@ -167,12 +168,13 @@ func (p *collectionPruner) pruneByAge() error {
 	return nil
 }
 
-func (*collectionPruner) toDeleteCalculator(coll *mgo.Collection, maxSize int, countRatio float64) (int, error) {
-	collMB, err := getCollectionMB(coll)
+func (*collectionPruner) toDeleteCalculator(coll *mgo.Collection, maxSizeMB int, countRatio float64) (int, error) {
+	collKB, err := getCollectionKB(coll)
 	if err != nil {
 		return 0, errors.Annotate(err, "retrieving collection size")
 	}
-	if collMB <= maxSize {
+	maxSizeKB := maxSizeMB * humanize.KiByte
+	if collKB <= maxSizeKB {
 		return 0, nil
 	}
 	count, err := coll.Count()
@@ -188,11 +190,11 @@ func (*collectionPruner) toDeleteCalculator(coll *mgo.Collection, maxSize int, c
 	// Note: Capped collections are not used for this because they, currently
 	// at least, lack a way to be resized and the size is expected to change
 	// as real life data of the history usage is gathered.
-	sizePerItem := float64(collMB) / float64(count)
+	sizePerItem := float64(collKB) / float64(count)
 	if sizePerItem == 0 {
 		return 0, errors.Errorf("unexpected result calculating %s entry size", coll.Name)
 	}
-	return int(float64(collMB-maxSize) / (sizePerItem * countRatio)), nil
+	return int(float64(collKB-maxSizeKB) / (sizePerItem * countRatio)), nil
 }
 
 func (p *collectionPruner) pruneBySize() error {
@@ -250,11 +252,11 @@ func (p *collectionPruner) pruneBySize() error {
 	template := fmt.Sprintf("%s size pruning: deleted %%d of %d (estimated)", p.coll.Name, toDelete)
 	deleted, err := deleteInBatches(p.coll, p.childColl, p.parentRefField, iter, template, loggo.INFO, func() (bool, error) {
 		// Check that we still need to delete more
-		collMB, err := getCollectionMB(p.coll)
+		collKB, err := getCollectionKB(p.coll)
 		if err != nil {
 			return false, errors.Annotatef(err, "retrieving %s collection size", p.coll.Name)
 		}
-		if collMB <= p.maxSize {
+		if collKB <= p.maxSize*humanize.KiByte {
 			return true, nil
 		}
 		return false, nil
