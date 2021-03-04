@@ -22,8 +22,8 @@ type infoOptions struct {
 	channel *string
 }
 
-// WithChannel sets the channel on the option.
-func WithChannel(ch string) InfoOption {
+// WithInfoChannel sets the channel on the option.
+func WithInfoChannel(ch string) InfoOption {
 	return func(infoOptions *infoOptions) {
 		infoOptions.channel = &ch
 	}

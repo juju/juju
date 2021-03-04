@@ -14,6 +14,73 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 )
 
+// FindOption to be passed to Find to customize the resulting request.
+type FindOption func(*findOptions)
+
+type findOptions struct {
+	category         *string
+	channel          *string
+	charmType        *string
+	platforms        *string
+	publisher        *string
+	relationRequires *string
+	relationProvides *string
+}
+
+// WithFindCategory sets the category on the option.
+func WithFindCategory(category string) FindOption {
+	return func(findOptions *findOptions) {
+		findOptions.category = &category
+	}
+}
+
+// WithFindChannel sets the channel on the option.
+func WithFindChannel(channel string) FindOption {
+	return func(findOptions *findOptions) {
+		findOptions.channel = &channel
+	}
+}
+
+// WithFindType sets the charmType on the option.
+func WithFindType(charmType string) FindOption {
+	return func(findOptions *findOptions) {
+		findOptions.charmType = &charmType
+	}
+}
+
+// WithFindPlatforms sets the charmPlatforms on the option.
+func WithFindPlatforms(platforms string) FindOption {
+	return func(findOptions *findOptions) {
+		findOptions.platforms = &platforms
+	}
+}
+
+// WithFindPublisher sets the publisher on the option.
+func WithFindPublisher(publisher string) FindOption {
+	return func(findOptions *findOptions) {
+		findOptions.publisher = &publisher
+	}
+}
+
+// WithFindRelationRequires sets the relationRequires on the option.
+func WithFindRelationRequires(relationRequires string) FindOption {
+	return func(findOptions *findOptions) {
+		findOptions.relationRequires = &relationRequires
+	}
+}
+
+// WithFindRelationProvides sets the relationProvides on the option.
+func WithFindRelationProvides(relationProvides string) FindOption {
+	return func(findOptions *findOptions) {
+		findOptions.relationProvides = &relationProvides
+	}
+}
+
+// Create a findOptions instance with default values.
+func newFindOptions() *findOptions {
+	return &findOptions{}
+}
+
 // FindClient defines a client for querying information about a given charm or
 // bundle for a given CharmHub store.
 type FindClient struct {
@@ -32,7 +99,12 @@ func NewFindClient(path path.Path, client RESTClient, logger Logger) *FindClient
 }
 
 // Find searches Charm Hub and provides results matching a string.
-func (c *FindClient) Find(ctx context.Context, query string) ([]transport.FindResponse, error) {
+func (c *FindClient) Find(ctx context.Context, query string, options ...FindOption) ([]transport.FindResponse, error) {
+	opts := newFindOptions()
+	for _, option := range options {
+		option(opts)
+	}
+
 	c.logger.Tracef("Find(%s)", query)
 	path, err := c.path.Query("q", query)
 	if err != nil {
@@ -41,6 +113,13 @@ func (c *FindClient) Find(ctx context.Context, query string) ([]transport.FindRe
 
 	path, err = path.Query("fields", defaultFindFilter())
 	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := walkFindOptions(opts, func(name, value string) error {
+		path, err = path.Query(name, value)
+		return errors.Trace(err)
+	}); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -57,6 +136,48 @@ func (c *FindClient) Find(ctx context.Context, query string) ([]transport.FindRe
 	}
 
 	return resp.Results, nil
+}
+
+func walkFindOptions(opts *findOptions, fn func(string, string) error) error {
+	// We could use reflect here, but it might be easier to just list out what
+	// we want to walk over.
+	// See: https://gist.github.com/SimonRichardson/7c9243d71551cad4af7661128add93b5
+	if opts.category != nil {
+		if err := fn("category", *opts.category); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if opts.channel != nil {
+		if err := fn("channel", *opts.channel); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if opts.charmType != nil {
+		if err := fn("type", *opts.charmType); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if opts.platforms != nil {
+		if err := fn("platforms", *opts.platforms); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if opts.publisher != nil {
+		if err := fn("publisher", *opts.publisher); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if opts.relationRequires != nil {
+		if err := fn("relation-requires", *opts.relationRequires); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if opts.relationProvides != nil {
+		if err := fn("relation-provides", *opts.relationProvides); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // defaultFindFilter returns a filter string to retrieve all data

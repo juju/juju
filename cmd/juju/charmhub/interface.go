@@ -22,13 +22,13 @@ type Log = func(format string, params ...interface{})
 
 // InfoCommandAPI describes API methods required to execute the info command.
 type InfoCommandAPI interface {
-	Info(string, string) (apicharmhub.InfoResponse, error)
+	Info(string, ...apicharmhub.InfoOption) (apicharmhub.InfoResponse, error)
 	Close() error
 }
 
 // FindCommandAPI describes API methods required to execute the find command.
 type FindCommandAPI interface {
-	Find(string) ([]apicharmhub.FindResponse, error)
+	Find(string, ...apicharmhub.FindOption) ([]apicharmhub.FindResponse, error)
 	Close() error
 }
 
