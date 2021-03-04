@@ -24,7 +24,7 @@ func newNetAddr(a string) (*netAddr, error) {
 		addr: a,
 	}
 
-	ip, ipNet, _ := net.ParseCIDR(a)
+	ip, ipNet, err := net.ParseCIDR(a)
 	if ipNet != nil {
 		res.ipNet = ipNet
 	}
@@ -34,6 +34,9 @@ func newNetAddr(a string) (*netAddr, error) {
 	}
 
 	if ip == nil {
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		return nil, errors.Errorf("unable to parse IP address %q", a)
 	}
 

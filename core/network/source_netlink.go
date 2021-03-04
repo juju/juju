@@ -82,7 +82,7 @@ func (n netlinkNIC) Addresses() ([]ConfigSourceAddr, error) {
 
 	addrs := make([]ConfigSourceAddr, len(rawAddrs))
 	for i := range rawAddrs {
-		addrs[i] = &netlinkAddr{&rawAddrs[i]}
+		addrs[i] = &netlinkAddr{addr: &rawAddrs[i]}
 	}
 	return addrs, nil
 }
