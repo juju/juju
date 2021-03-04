@@ -150,7 +150,8 @@ func (c *findCommand) Run(ctx *cmd.Context) error {
 
 	charmHubClient := c.CharmHubClientFunc(apiRoot)
 
-	results, err := charmHubClient.Find(c.query, populateFindOptions(c)...)
+	options := populateFindOptions(c)
+	results, err := charmHubClient.Find(c.query, options...)
 	if params.IsCodeNotFound(err) {
 		return errors.Wrap(err, errors.Errorf("Nothing found for query %q.", c.query))
 	} else if err != nil {
@@ -163,22 +164,26 @@ func (c *findCommand) Run(ctx *cmd.Context) error {
 	// it up later.
 	c.warningLog = ctx.Warningf
 
-	return c.output(ctx, results)
+	return c.output(ctx, results, c.query == "" && len(options) == 0)
 }
 
-func (c *findCommand) output(ctx *cmd.Context, results []charmhub.FindResponse) error {
+func (c *findCommand) output(ctx *cmd.Context, results []charmhub.FindResponse, emptyQuery bool) error {
 	tabular := c.out.Name() == "tabular"
 	if tabular {
 		// If the results are empty, we should return a helpful message to the
 		// operator.
 		if len(results) == 0 {
-			fmt.Fprintf(ctx.Stderr, "No matching charms for %q\n", c.query)
+			charmType := "charms or bundles"
+			if c.charmType != "" {
+				charmType = fmt.Sprintf("%ss", c.charmType)
+			}
+			fmt.Fprintf(ctx.Stderr, "No matching %s\n", charmType)
 			return nil
 		}
 
 		// Output some helpful errors messages for operators if the query is empty
 		// or not.
-		if c.query == "" {
+		if emptyQuery {
 			fmt.Fprintf(ctx.Stdout, "No search term specified. Here are some interesting charms:\n\n")
 		}
 	}
@@ -188,7 +193,7 @@ func (c *findCommand) output(ctx *cmd.Context, results []charmhub.FindResponse) 
 		return errors.Trace(err)
 	}
 
-	if tabular && c.query == "" {
+	if tabular && emptyQuery {
 		fmt.Fprintln(ctx.Stdout, "Provide a search term for more specific results.")
 	}
 
