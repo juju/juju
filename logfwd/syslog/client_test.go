@@ -65,7 +65,13 @@ func (s *ClientSuite) TestOpen(c *gc.C) {
 		RootCAs:      rootCAs,
 	}
 
-	s.stub.CheckCall(c, 0, "DialFunc", tlsConfig, time.Duration(0))
+	call := s.stub.Calls()[0]
+	c.Assert(call.Args, gc.HasLen, 2)
+	c.Assert(call.Args[1], gc.Equals, time.Duration(0))
+	tlsCfg, ok := call.Args[0].(*tls.Config)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(tlsCfg.Certificates, jc.DeepEquals, tlsConfig.Certificates)
+	c.Assert(call.Args[1], gc.Equals, time.Duration(0))
 	c.Check(client.Sender, gc.Equals, s.sender)
 }
 
