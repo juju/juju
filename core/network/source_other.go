@@ -92,6 +92,8 @@ func (n *netNIC) Type() InterfaceType {
 		return LoopbackInterface
 	}
 
+	// See comment on super-method.
+	// This is incorrect for veth, tuntap, macvtap et al.
 	return EthernetInterface
 }
 
