@@ -4,6 +4,9 @@
 package provider_test
 
 import (
+	"io/ioutil"
+	"os"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -39,23 +42,32 @@ func (d dummyRunner) RunCommands(run exec.RunParams) (*exec.ExecResponse, error)
 	return results[0].(*exec.ExecResponse), testing.TypeAssertError(results[1])
 }
 
-func getterFunc(args builtinCloudRet) func(provider.CommandRunner) (cloud.Cloud, jujucloud.Credential, string, error) {
-	return func(provider.CommandRunner) (cloud.Cloud, jujucloud.Credential, string, error) {
-		return args.cloud, args.credential, args.credentialName, args.err
+func cloudGetterFunc(args builtinCloudRet) func(provider.CommandRunner) (cloud.Cloud, error) {
+	return func(provider.CommandRunner) (cloud.Cloud, error) {
+		return args.cloud, args.err
+	}
+}
+
+func credentialGetterFunc(args builtinCloudRet) func(provider.CommandRunner) (cloud.Credential, error) {
+	return func(provider.CommandRunner) (jujucloud.Credential, error) {
+		return args.credential, args.err
 	}
 }
 
 func (s *detectCloudSuite) getProvider(builtin builtinCloudRet) caas.ContainerEnvironProvider {
 	return provider.NewProviderWithFakes(
 		dummyRunner{},
-		getterFunc(builtin),
+		credentialGetterFunc(builtin),
+		cloudGetterFunc(builtin),
 		func(environs.OpenParams) (caas.ClusterMetadataChecker, error) {
 			return &fakeK8sClusterMetadataChecker{}, nil
 		},
 	)
 }
 
-func (s *detectCloudSuite) TestDetectClouds(c *gc.C) {
+func (s *detectCloudSuite) TestDetectCloudsWithoutKubeConfig(c *gc.C) {
+	err := os.Setenv("KUBECONFIG", "")
+	c.Assert(err, jc.ErrorIsNil)
 	k8sCloud := jujucloud.Cloud{
 		Name: "testingMicrok8s",
 	}
@@ -68,13 +80,57 @@ func (s *detectCloudSuite) TestDetectClouds(c *gc.C) {
 	c.Assert(clouds[0], jc.DeepEquals, k8sCloud)
 }
 
-func (s *detectCloudSuite) TestDetectCloudsMicroK8sNotFound(c *gc.C) {
+func (s *detectCloudSuite) TestDetectCloudsMicroK8sNotFoundWithoutKubeConfig(c *gc.C) {
+	err := os.Setenv("KUBECONFIG", "")
+	c.Assert(err, jc.ErrorIsNil)
 	p := s.getProvider(builtinCloudRet{err: errors.NotFoundf("")})
 	cloudDetector := p.(environs.CloudDetector)
 
 	clouds, err := cloudDetector.DetectClouds()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, gc.HasLen, 0)
+}
+
+func (s *detectCloudSuite) TestDetectCloudsWithKubeConfig(c *gc.C) {
+	kubeConfig := `
+apiVersion: v1
+clusters:
+- cluster:
+    server: https://localhost:8443
+  name: detect-example
+contexts:
+- context:
+    cluster: detect-example
+    namespace: default
+    user: user1
+  name: detect-example
+users:
+- name: user1
+  user:
+    username: test
+    password: test
+`
+
+	file, err := ioutil.TempFile("", "")
+	c.Assert(err, jc.ErrorIsNil)
+	defer file.Close()
+
+	_, err = file.Write([]byte(kubeConfig))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = os.Setenv("KUBECONFIG", file.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	k8sCloud := jujucloud.Cloud{
+		Name: "testingMicrok8s",
+	}
+	p := s.getProvider(builtinCloudRet{cloud: k8sCloud, err: nil})
+	cloudDetector := p.(environs.CloudDetector)
+
+	clouds, err := cloudDetector.DetectClouds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clouds, gc.HasLen, 2)
+	c.Assert(clouds[1], jc.DeepEquals, k8sCloud)
 }
 
 func (s *detectCloudSuite) TestDetectCloudMicrok8s(c *gc.C) {

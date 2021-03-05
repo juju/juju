@@ -94,8 +94,6 @@ preferences: {}
 users:
 - name: the-user
   user:
-    client-certificate-data: QQ==
-    client-key-data: Qg==
     token: tokenwithcerttoken
 - name: default-user
   user:
@@ -104,7 +102,7 @@ users:
 - name: second-user
   user:
     client-certificate-data: QQ==
-    token: tokenwithcerttoken
+    client-key-data: QQ==
 - name: third-user
   user:
     token: "atoken"
@@ -208,7 +206,7 @@ func (s *k8sConfigSuite) assertNewK8sClientConfig(c *gc.C, testCase newK8sClient
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Logf("test: %s", testCase.title)
-	cfg, err := clientconfig.NewK8sClientConfig("", f, testCase.contextName, testCase.clusterName, nil)
+	cfg, err := clientconfig.NewK8sClientConfigFromReader("", f, testCase.contextName, testCase.clusterName, nil)
 	if testCase.errMatch != "" {
 		c.Check(err, gc.ErrorMatches, testCase.errMatch)
 	} else {
@@ -243,70 +241,16 @@ func (s *k8sConfigSuite) TestGetSingleConfig(c *gc.C) {
 	})
 }
 
-func (s *k8sConfigSuite) TestConfigErrors(c *gc.C) {
-	for _, v := range []newK8sClientConfigTestCase{
-		{
-			title: "notSupportedAuthProviderTypeConfig",
-			configYamlContent: `
-- name: the-user
-  user:
-    auth-provider:
-      config:
-        cmd-args: config config-helper --format=json
-        cmd-path: /usr/lib/google-cloud-sdk/bin/gcloud
-        expiry-key: '{.credential.token_expiry}'
-        token-key: '{.credential.access_token}'
-      name: gcp
-`,
-			errMatch: `failed to read credentials from kubernetes config: configuration for "the-user" not supported`,
-		},
-		{
-			title: "tokenWithUsernameInvalidConfig",
-			configYamlContent: `
-- name: the-user
-  user:
-    password: defaultpassword
-    username: defaultuser
-    token: nonEmptyToken
-`,
-			errMatch: `failed to read credentials from kubernetes config: AuthInfo: "the-user" with both Token and User/Pass not valid`,
-		},
-		{
-			title: "emptyTokenInvalidConfig",
-			configYamlContent: `
-- name: the-user
-  user:
-    client-certificate-data: QQ==
-    client-key-data: CK==
-`,
-			errMatch: `failed to read credentials from kubernetes config: missing token for "the-user" with auth type "oauth2withcert" not valid`,
-		},
-		{
-			title: "emptyClientKeyDataAndEmptyTokenInvalidConfig",
-			configYamlContent: `
-- name: the-user
-  user:
-    client-certificate-data: QQ==
-`,
-			errMatch: `failed to read credentials from kubernetes config: configuration for "the-user" not supported`,
-		},
-	} {
-		v.configYamlFileName = v.title
-		v.configYamlContent = prefixConfigYAML + v.configYamlContent
-		s.assertNewK8sClientConfig(c, v)
-	}
-}
-
 func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 	firstCred := cloud.NewNamedCredential(
 		"default-user", cloud.UserPassAuthType,
 		map[string]string{"username": "defaultuser", "password": "defaultpassword"}, false)
 	theCred := cloud.NewNamedCredential(
-		"the-user", cloud.OAuth2WithCertAuthType,
-		map[string]string{"ClientCertificateData": "A", "ClientKeyData": "B", "Token": "tokenwithcerttoken"}, false)
+		"the-user", cloud.OAuth2AuthType,
+		map[string]string{"Token": "tokenwithcerttoken"}, false)
 	secondCred := cloud.NewNamedCredential(
 		"second-user", cloud.CertificateAuthType,
-		map[string]string{"ClientCertificateData": "A", "Token": "tokenwithcerttoken"}, false)
+		map[string]string{"ClientCertificateData": "A", "ClientKeyData": "A"}, false)
 
 	for i, v := range []newK8sClientConfigTestCase{
 		{

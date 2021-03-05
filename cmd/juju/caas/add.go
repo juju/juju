@@ -19,10 +19,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"golang.org/x/crypto/ssh/terminal"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	cloudapi "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
+	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
@@ -178,10 +180,11 @@ type AddCAASCommand struct {
 	eks        bool
 	k8sCluster k8sCluster
 
-	cloudMetadataStore    CloudMetadataStore
-	credentialStoreAPI    CredentialStoreAPI
-	newClientConfigReader func(string) (clientconfig.ClientConfigFunc, error)
-	credentialUIDGetter   func(credentialGetter, string, string) (string, error)
+	adminServiceAccountResolver func(jujuclock.Clock) clientconfig.K8sCredentialResolver
+	cloudMetadataStore          CloudMetadataStore
+	credentialStoreAPI          CredentialStoreAPI
+	newClientConfigReader       func(string) (clientconfig.ClientConfigFunc, error)
+	credentialUIDGetter         func(credentialGetter, string, string) (string, error)
 
 	getAllCloudDetails func(jujuclient.CredentialGetter) (map[string]*jujucmdcloud.CloudDetails, error)
 }
@@ -198,8 +201,9 @@ func newAddCAASCommand(cloudMetadataStore CloudMetadataStore, clock jujuclock.Cl
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
 			Store: store,
 		},
-		cloudMetadataStore: cloudMetadataStore,
-		credentialStoreAPI: store,
+		cloudMetadataStore:          cloudMetadataStore,
+		credentialStoreAPI:          store,
+		adminServiceAccountResolver: clientconfig.GetJujuAdminServiceAccountResolver,
 		newClientConfigReader: func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			return clientconfig.NewClientConfigReader(caasType)
 		},
@@ -485,21 +489,54 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	config := provider.KubeCloudParams{
-		ClusterName:        clusterName,
-		CloudName:          cloudName,
-		CredentialUID:      credentialUID,
-		ContextName:        c.contextName,
-		HostCloudRegion:    c.hostCloudRegion,
-		CaasType:           c.caasType,
-		ClientConfigGetter: c.newClientConfigReader,
-		Clock:              c.clock,
+	var k8sConfig *clientcmdapi.Config
+	if rdr != nil {
+		k8sConfig, err = k8scloud.ConfigFromReader(rdr)
+	} else {
+		k8sConfig, err = clientconfig.GetLocalKubeConfig()
 	}
 
-	newCloud, newCredential, err := provider.CloudFromKubeConfig(rdr, config)
+	if err != nil {
+		return errors.Annotate(err, "processing kubernetes config for add-k8s")
+	}
+
+	k8sCtxName := c.contextName
+	if c.contextName == "" && clusterName == "" {
+		k8sCtxName = k8sConfig.CurrentContext
+	} else if c.contextName == "" && clusterName != "" {
+		k8sCtxName, err = k8scloud.PickContextByClusterName(k8sConfig, clusterName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	k8sConfig, err = c.adminServiceAccountResolver(c.clock)(
+		credentialUID,
+		k8sConfig,
+		k8sCtxName,
+	)
+
+	if err != nil {
+		return errors.Annotate(err, "making juju admin credentials in cluster")
+	}
+
+	newCloud, err := k8scloud.CloudFromKubeConfigContext(
+		k8sCtxName,
+		k8sConfig,
+		k8scloud.CloudParamaters{
+			Name:            cloudName,
+			HostCloudRegion: c.hostCloudRegion,
+		},
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	newCredential, err := k8scloud.CredentialFromKubeConfigContext(k8sCtxName, k8sConfig)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	if newCloud.SkipTLSVerify {
 		if len(newCloud.CACertificates) > 0 && newCloud.CACertificates[0] != "" {
 			return errors.NotValidf("cloud with both skip-TLS-verify=true and CA certificates")
