@@ -5,8 +5,8 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
+	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v2/txn"
 
 	"github.com/juju/juju/payload"
 )

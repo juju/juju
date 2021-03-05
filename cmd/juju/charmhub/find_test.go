@@ -15,14 +15,12 @@ import (
 	"github.com/juju/juju/api/charmhub"
 	"github.com/juju/juju/cmd/juju/charmhub/mocks"
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/environs/config"
 )
 
 type findSuite struct {
 	testing.IsolationSuite
 
 	findCommandAPI *mocks.MockFindCommandAPI
-	modelConfigAPI *mocks.MockModelConfigClient
 	apiRoot        *basemocks.MockAPICallCloser
 }
 
@@ -31,9 +29,6 @@ var _ = gc.Suite(&findSuite{})
 func (s *findSuite) TestInitNoArgs(c *gc.C) {
 	// You can query the find api with no arguments.
 	command := &findCommand{
-		charmHubCommand: &charmHubCommand{
-			arches: arch.AllArches(),
-		},
 		columns: "nbvps",
 	}
 	err := command.Init([]string{})
@@ -42,9 +37,6 @@ func (s *findSuite) TestInitNoArgs(c *gc.C) {
 
 func (s *findSuite) TestInitSuccess(c *gc.C) {
 	command := &findCommand{
-		charmHubCommand: &charmHubCommand{
-			arches: arch.AllArches(),
-		},
 		columns: "nbvps",
 	}
 	err := command.Init([]string{"test"})
@@ -56,7 +48,9 @@ func (s *findSuite) TestRun(c *gc.C) {
 	s.expectFind()
 
 	command := &findCommand{
-		charmHubCommand: s.newCharmHubCommand(),
+		APIRootFunc: func() (base.APICallCloser, error) {
+			return s.apiRoot, nil
+		},
 		CharmHubClientFunc: func(api base.APICallCloser) FindCommandAPI {
 			return s.findCommandAPI
 		},
@@ -75,7 +69,9 @@ func (s *findSuite) TestRunJSON(c *gc.C) {
 	s.expectFind()
 
 	command := &findCommand{
-		charmHubCommand: s.newCharmHubCommand(),
+		APIRootFunc: func() (base.APICallCloser, error) {
+			return s.apiRoot, nil
+		},
 		CharmHubClientFunc: func(api base.APICallCloser) FindCommandAPI {
 			return s.findCommandAPI
 		},
@@ -96,7 +92,9 @@ func (s *findSuite) TestRunYAML(c *gc.C) {
 	s.expectFind()
 
 	command := &findCommand{
-		charmHubCommand: s.newCharmHubCommand(),
+		APIRootFunc: func() (base.APICallCloser, error) {
+			return s.apiRoot, nil
+		},
 		CharmHubClientFunc: func(api base.APICallCloser) FindCommandAPI {
 			return s.findCommandAPI
 		},
@@ -123,18 +121,20 @@ func (s *findSuite) TestRunYAML(c *gc.C) {
 `[1:])
 }
 
-func (s *findSuite) TestRunWithSeries(c *gc.C) {
+func (s *findSuite) TestRunWithType(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectFind()
 
 	command := &findCommand{
-		charmHubCommand: s.newCharmHubCommand(),
+		APIRootFunc: func() (base.APICallCloser, error) {
+			return s.apiRoot, nil
+		},
 		CharmHubClientFunc: func(api base.APICallCloser) FindCommandAPI {
 			return s.findCommandAPI
 		},
 	}
 
-	err := cmdtesting.InitCommand(command, []string{"test", "--series", "bionic"})
+	err := cmdtesting.InitCommand(command, []string{"test", "--type", "bundle"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
@@ -142,19 +142,20 @@ func (s *findSuite) TestRunWithSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *findSuite) TestRunWithNoSeries(c *gc.C) {
+func (s *findSuite) TestRunWithNoType(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectFind()
-	s.expectModelConfig(c, "bionic")
 
 	command := &findCommand{
-		charmHubCommand: s.newCharmHubCommand(),
+		APIRootFunc: func() (base.APICallCloser, error) {
+			return s.apiRoot, nil
+		},
 		CharmHubClientFunc: func(api base.APICallCloser) FindCommandAPI {
 			return s.findCommandAPI
 		},
 	}
 
-	err := cmdtesting.InitCommand(command, []string{"test", "--series", ""})
+	err := cmdtesting.InitCommand(command, []string{"test", "--type", ""})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
@@ -168,9 +169,6 @@ func (s *findSuite) newCharmHubCommand() *charmHubCommand {
 		APIRootFunc: func() (base.APICallCloser, error) {
 			return s.apiRoot, nil
 		},
-		ModelConfigClientFunc: func(api base.APICallCloser) ModelConfigClient {
-			return s.modelConfigAPI
-		},
 	}
 }
 
@@ -180,9 +178,6 @@ func (s *findSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	s.findCommandAPI = mocks.NewMockFindCommandAPI(ctrl)
 	s.findCommandAPI.EXPECT().Close().AnyTimes()
 
-	s.modelConfigAPI = mocks.NewMockModelConfigClient(ctrl)
-	s.modelConfigAPI.EXPECT().Close().AnyTimes()
-
 	s.apiRoot = basemocks.NewMockAPICallCloser(ctrl)
 	s.apiRoot.EXPECT().Close().AnyTimes()
 	s.apiRoot.EXPECT().BestFacadeVersion("CharmHub").Return(1)
@@ -191,7 +186,7 @@ func (s *findSuite) setUpMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *findSuite) expectFind() {
-	s.findCommandAPI.EXPECT().Find("test").Return([]charmhub.FindResponse{{
+	s.findCommandAPI.EXPECT().Find("test", gomock.Any()).Return([]charmhub.FindResponse{{
 		Name:      "wordpress",
 		Type:      "object",
 		ID:        "charmCHARMcharmCHARMcharmCHARM01",
@@ -202,15 +197,4 @@ func (s *findSuite) expectFind() {
 		Series:    []string{"bionic"},
 		StoreURL:  "https://someurl.com/wordpress",
 	}}, nil)
-}
-
-func (s *findSuite) expectModelConfig(c *gc.C, series string) {
-	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"default-series": series,
-		"type":           "my-type",
-		"name":           "my-name",
-		"uuid":           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.modelConfigAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil)
 }

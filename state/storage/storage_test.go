@@ -7,11 +7,11 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/juju/blobstore/v2"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/blobstore.v2"
 
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testing"

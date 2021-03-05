@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/mgo/v2/bson"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/lease"
 	coretesting "github.com/juju/juju/testing"

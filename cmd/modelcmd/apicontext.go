@@ -8,12 +8,12 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/idmclient/v2/ussologin"
 	"gopkg.in/juju/environschema.v1/form"
-	"gopkg.in/juju/idmclient.v1/ussologin"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/jujuclient"
 )

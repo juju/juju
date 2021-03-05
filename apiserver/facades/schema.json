@@ -12393,7 +12393,28 @@
                 "Query": {
                     "type": "object",
                     "properties": {
+                        "category": {
+                            "type": "string"
+                        },
+                        "channel": {
+                            "type": "string"
+                        },
+                        "platforms": {
+                            "type": "string"
+                        },
+                        "publisher": {
+                            "type": "string"
+                        },
                         "query": {
+                            "type": "string"
+                        },
+                        "relation-provides": {
+                            "type": "string"
+                        },
+                        "relation-requires": {
+                            "type": "string"
+                        },
+                        "type": {
                             "type": "string"
                         }
                     },

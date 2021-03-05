@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/juju/blobstore/v2"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/blobstore.v2"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"

@@ -113,18 +113,23 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 }
 
 // Find mocks base method
-func (m *MockClient) Find(arg0 context.Context, arg1 string) ([]transport.FindResponse, error) {
+func (m *MockClient) Find(arg0 context.Context, arg1 string, arg2 ...charmhub0.FindOption) ([]transport.FindResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Find", arg0, arg1)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Find", varargs...)
 	ret0, _ := ret[0].([]transport.FindResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Find indicates an expected call of Find
-func (mr *MockClientMockRecorder) Find(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) Find(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Find", reflect.TypeOf((*MockClient)(nil).Find), arg0, arg1)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Find", reflect.TypeOf((*MockClient)(nil).Find), varargs...)
 }
 
 // Info mocks base method

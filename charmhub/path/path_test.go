@@ -93,3 +93,21 @@ func (s *PathSuite) TestMultipleQueries(c *gc.C) {
 	c.Assert(path.String(), gc.Equals, "http://foobar/v1/path")
 	c.Assert(newPath.String(), gc.Equals, "http://foobar/v1/path?q=foo1&q=foo2&x=bar")
 }
+
+func (s *PathSuite) TestQueries(c *gc.C) {
+	rawURL := MustParseURL(c, "http://foobar/v1/path")
+
+	path := MakePath(rawURL)
+
+	newPath0, err := path.Query("a", "foo1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newPath0.String(), gc.Equals, "http://foobar/v1/path?a=foo1")
+
+	newPath1, err := newPath0.Query("b", "foo2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newPath1.String(), gc.Equals, "http://foobar/v1/path?a=foo1&b=foo2")
+
+	newPath1, err = newPath1.Query("c", "foo3")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newPath1.String(), gc.Equals, "http://foobar/v1/path?a=foo1&b=foo2&c=foo3")
+}

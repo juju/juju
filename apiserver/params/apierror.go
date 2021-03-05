@@ -9,10 +9,10 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/version"
-	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon.v2"
 )
 

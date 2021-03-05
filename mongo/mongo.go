@@ -17,10 +17,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/mgo/v2"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/v2"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/packaging"

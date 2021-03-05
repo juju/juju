@@ -30,7 +30,24 @@ func (s charmHubSuite) TestInfo(c *gc.C) {
 	}
 	s.facade.EXPECT().FacadeCall("Info", arg, gomock.Any()).SetArg(2, resultSource)
 
-	obtained, err := s.newClientFromFacadeForTest().Info("wordpress", "")
+	obtained, err := s.newClientFromFacadeForTest().Info("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	assertInfoResponseSameContents(c, obtained, getInfoResponse())
+}
+
+func (s charmHubSuite) TestInfoWithOptions(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	arg := params.Info{
+		Tag:     names.NewApplicationTag("wordpress").String(),
+		Channel: "stable",
+	}
+	resultSource := params.CharmHubEntityInfoResult{
+		Result: getParamsInfoResponse(),
+	}
+	s.facade.EXPECT().FacadeCall("Info", arg, gomock.Any()).SetArg(2, resultSource)
+
+	obtained, err := s.newClientFromFacadeForTest().Info("wordpress", WithInfoChannel("stable"))
 	c.Assert(err, jc.ErrorIsNil)
 	assertInfoResponseSameContents(c, obtained, getInfoResponse())
 }
@@ -45,6 +62,24 @@ func (s charmHubSuite) TestFind(c *gc.C) {
 	s.facade.EXPECT().FacadeCall("Find", arg, gomock.Any()).SetArg(2, resultSource)
 
 	obtained, err := s.newClientFromFacadeForTest().Find("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	assertFindResponsesSameContents(c, obtained, getFindResponses())
+}
+
+func (s charmHubSuite) TestFindWithOptions(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	arg := params.Query{
+		Query:     "wordpress",
+		Channel:   "stable",
+		Platforms: "platforms",
+	}
+	resultSource := params.CharmHubEntityFindResult{
+		Results: getParamsFindResponses(),
+	}
+	s.facade.EXPECT().FacadeCall("Find", arg, gomock.Any()).SetArg(2, resultSource)
+
+	obtained, err := s.newClientFromFacadeForTest().Find("wordpress", WithFindChannel("stable"), WithFindPlatforms("platforms"))
 	c.Assert(err, jc.ErrorIsNil)
 	assertFindResponsesSameContents(c, obtained, getFindResponses())
 }
