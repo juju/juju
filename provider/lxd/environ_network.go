@@ -39,6 +39,14 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 		}
 	}
 
+	// Query the lxd server name; we will use that as the AZ name for any
+	// subnets that we report.
+	serverInfo, _, err := srv.GetServer()
+	if err != nil {
+		return nil, errors.Annotate(err, "looking up lxd server details")
+	}
+	azName := serverInfo.Environment.ServerName
+
 	networkNames, err := srv.GetNetworkNames()
 	if err != nil {
 		if isErrMissingAPIExtension(err, "network") {
@@ -67,7 +75,7 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 			// so this call will fail. If that's the case then
 			// use a fallback method for detecting subnets.
 			if isErrMissingAPIExtension(err, "network_state") {
-				return e.subnetDetectionFallback(srv, inst, keepList)
+				return e.subnetDetectionFallback(srv, inst, keepList, azName)
 			}
 			return nil, errors.Annotatef(err, "querying lxd server for state of network %q", networkName)
 		}
@@ -95,7 +103,7 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 			}
 
 			uniqueSubnetIDs.Add(subnetID)
-			subnets = append(subnets, makeSubnetInfo(network.Id(subnetID), makeNetworkID(networkName), cidr))
+			subnets = append(subnets, makeSubnetInfo(network.Id(subnetID), makeNetworkID(networkName), cidr, azName))
 		}
 	}
 
@@ -114,7 +122,7 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 // Caveat: this method offers lower data fidelity compared to Subnets() as it
 // cannot accurately detect the CIDRs for any host devices that are not bridged
 // into the container.
-func (e *environ) subnetDetectionFallback(srv Server, inst instance.Id, keepSubnetIDs set.Strings) ([]network.SubnetInfo, error) {
+func (e *environ) subnetDetectionFallback(srv Server, inst instance.Id, keepSubnetIDs set.Strings, azName string) ([]network.SubnetInfo, error) {
 	logger.Warningf("falling back to subnet discovery via introspection of devices bridged to the controller container; consider upgrading to a newer LXD version and running 'juju reload-spaces' to get full subnet discovery for the LXD host")
 
 	// If no instance ID is specified, list the alive containers, query the
@@ -168,7 +176,7 @@ func (e *environ) subnetDetectionFallback(srv Server, inst instance.Id, keepSubn
 			}
 
 			uniqueSubnetIDs.Add(subnetID)
-			subnets = append(subnets, makeSubnetInfo(network.Id(subnetID), makeNetworkID(hostNetworkName), cidr))
+			subnets = append(subnets, makeSubnetInfo(network.Id(subnetID), makeNetworkID(hostNetworkName), cidr, azName))
 		}
 	}
 
@@ -190,12 +198,13 @@ func makeSubnetIDForNetwork(networkName, address, mask string) (string, string, 
 	return subnetID, cidr, nil
 }
 
-func makeSubnetInfo(subnetID network.Id, networkID network.Id, cidr string) network.SubnetInfo {
+func makeSubnetInfo(subnetID network.Id, networkID network.Id, cidr, azName string) network.SubnetInfo {
 	return network.SubnetInfo{
 		ProviderId:        subnetID,
 		ProviderNetworkId: networkID,
 		CIDR:              cidr,
 		VLANTag:           0,
+		AvailabilityZones: []string{azName},
 	}
 }
 
