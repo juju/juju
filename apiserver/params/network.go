@@ -426,10 +426,19 @@ type EntitiesPortRanges struct {
 
 // Address represents the location of a machine, including metadata
 // about what kind of location the address describes.
-// See also the address types in core/network which this type can be
+// See also the address types in core/network that this type can be
 // transformed to/from.
+// TODO (manadart 2021-03-05): CIDR is here to correct the old cardinality
+// mismatch of having it on the parent NetworkConfig.
+// Once we are liberated from backwards compatibility concerns (Juju 3/4),
+// we should consider just ensuring that the Value field is in CIDR form.
+// This way we can push any required parsing to a single location server-side
+// instead of doing it for every implementation of environ.NetworkInterfaces
+// plus on-machine detection.
+// There are cases when we convert it *back* to the ip/mask form anyway.
 type Address struct {
 	Value           string `json:"value"`
+	CIDR            string `json:"cidr,omitempty"`
 	Type            string `json:"type"`
 	Scope           string `json:"scope"`
 	SpaceName       string `json:"space-name,omitempty"`
@@ -442,6 +451,7 @@ type Address struct {
 func (addr Address) MachineAddress() network.MachineAddress {
 	return network.MachineAddress{
 		Value:       addr.Value,
+		CIDR:        addr.CIDR,
 		Type:        network.AddressType(addr.Type),
 		Scope:       network.Scope(addr.Scope),
 		IsSecondary: addr.IsSecondary,
@@ -481,6 +491,7 @@ func FromProviderAddresses(pAddrs ...network.ProviderAddress) []Address {
 func FromProviderAddress(addr network.ProviderAddress) Address {
 	return Address{
 		Value:           addr.Value,
+		CIDR:            addr.CIDR,
 		Type:            string(addr.Type),
 		Scope:           string(addr.Scope),
 		SpaceName:       string(addr.SpaceName),
