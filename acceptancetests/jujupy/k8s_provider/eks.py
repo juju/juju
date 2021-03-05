@@ -63,8 +63,8 @@ class EKS(Base):
 
         # list all running clusters.
         logger.info(
-            'Running eks clusters in %s: \n\t- %s', self.location,
-            '\n\t- '.join([c['name'] for c in self.list_clusters(self.location)])
+            'Running eks clusters in %s: \n%s', self.location,
+            yaml.dump(self.list_clusters(self.location))
         )
 
     def _ensure_cluster_stack(self):
