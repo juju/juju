@@ -261,6 +261,7 @@ func (s *NetworkSuite) TestPortRangeConvenience(c *gc.C) {
 func (s *NetworkSuite) TestProviderAddressConversion(c *gc.C) {
 	pAddrs := network.ProviderAddresses{
 		network.NewProviderAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
+		network.NewProviderAddress("1.2.3.5", network.WithScope(network.ScopeCloudLocal), network.WithSecondary()),
 		network.NewProviderAddress("2.3.4.5", network.WithScope(network.ScopePublic)),
 	}
 	pAddrs[0].SpaceName = "test-space"
@@ -273,11 +274,13 @@ func (s *NetworkSuite) TestProviderAddressConversion(c *gc.C) {
 func (s *NetworkSuite) TestMachineAddressConversion(c *gc.C) {
 	mAddrs := []network.MachineAddress{
 		network.NewMachineAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
+		network.NewMachineAddress("1.2.3.5", network.WithScope(network.ScopeCloudLocal), network.WithSecondary()),
 		network.NewMachineAddress("2.3.4.5", network.WithScope(network.ScopePublic)),
 	}
 
 	exp := []params.Address{
 		{Value: "1.2.3.4", Scope: string(network.ScopeCloudLocal), Type: string(network.IPv4Address)},
+		{Value: "1.2.3.5", Scope: string(network.ScopeCloudLocal), Type: string(network.IPv4Address), IsSecondary: true},
 		{Value: "2.3.4.5", Scope: string(network.ScopePublic), Type: string(network.IPv4Address)},
 	}
 	c.Assert(params.FromMachineAddresses(mAddrs...), jc.DeepEquals, exp)

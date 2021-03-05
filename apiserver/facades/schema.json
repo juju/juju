@@ -894,6 +894,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "is-secondary": {
+                            "type": "boolean"
+                        },
                         "scope": {
                             "type": "string"
                         },
@@ -972,6 +975,9 @@
                     "properties": {
                         "Address": {
                             "$ref": "#/definitions/Address"
+                        },
+                        "is-secondary": {
+                            "type": "boolean"
                         },
                         "port": {
                             "type": "integer"
@@ -9544,6 +9550,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "is-secondary": {
+                            "type": "boolean"
+                        },
                         "scope": {
                             "type": "string"
                         },
@@ -9652,6 +9661,9 @@
                     "properties": {
                         "Address": {
                             "$ref": "#/definitions/Address"
+                        },
+                        "is-secondary": {
+                            "type": "boolean"
                         },
                         "port": {
                             "type": "integer"
@@ -9969,6 +9981,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "is-secondary": {
+                            "type": "boolean"
+                        },
                         "scope": {
                             "type": "string"
                         },
@@ -10243,6 +10258,9 @@
                     "properties": {
                         "Address": {
                             "$ref": "#/definitions/Address"
+                        },
+                        "is-secondary": {
+                            "type": "boolean"
                         },
                         "port": {
                             "type": "integer"
@@ -10653,6 +10671,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "is-secondary": {
+                            "type": "boolean"
+                        },
                         "scope": {
                             "type": "string"
                         },
@@ -10788,6 +10809,9 @@
                     "properties": {
                         "Address": {
                             "$ref": "#/definitions/Address"
+                        },
+                        "is-secondary": {
+                            "type": "boolean"
                         },
                         "port": {
                             "type": "integer"
@@ -11359,6 +11383,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "is-secondary": {
+                            "type": "boolean"
+                        },
                         "scope": {
                             "type": "string"
                         },
@@ -14504,6 +14531,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "is-secondary": {
+                            "type": "boolean"
+                        },
                         "scope": {
                             "type": "string"
                         },
@@ -15290,6 +15320,9 @@
                     "properties": {
                         "Address": {
                             "$ref": "#/definitions/Address"
+                        },
+                        "is-secondary": {
+                            "type": "boolean"
                         },
                         "port": {
                             "type": "integer"
@@ -20034,6 +20067,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "is-secondary": {
+                            "type": "boolean"
+                        },
                         "scope": {
                             "type": "string"
                         },
@@ -20214,6 +20250,9 @@
                     "properties": {
                         "Address": {
                             "$ref": "#/definitions/Address"
+                        },
+                        "is-secondary": {
+                            "type": "boolean"
                         },
                         "port": {
                             "type": "integer"
@@ -23737,6 +23776,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "is-secondary": {
+                            "type": "boolean"
+                        },
                         "scope": {
                             "type": "string"
                         },
@@ -25961,6 +26003,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "is-secondary": {
+                            "type": "boolean"
+                        },
                         "scope": {
                             "type": "string"
                         },
@@ -26909,6 +26954,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "is-secondary": {
+                            "type": "boolean"
+                        },
                         "scope": {
                             "type": "string"
                         },
@@ -27043,6 +27091,9 @@
                     "properties": {
                         "Address": {
                             "$ref": "#/definitions/Address"
+                        },
+                        "is-secondary": {
+                            "type": "boolean"
                         },
                         "port": {
                             "type": "integer"
@@ -32828,6 +32879,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "is-secondary": {
+                            "type": "boolean"
+                        },
                         "scope": {
                             "type": "string"
                         },
@@ -33562,6 +33616,9 @@
                     "properties": {
                         "Address": {
                             "$ref": "#/definitions/Address"
+                        },
+                        "is-secondary": {
+                            "type": "boolean"
                         },
                         "port": {
                             "type": "integer"
@@ -43212,6 +43269,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "is-secondary": {
+                            "type": "boolean"
+                        },
                         "scope": {
                             "type": "string"
                         },
@@ -43906,6 +43966,9 @@
                     "properties": {
                         "Address": {
                             "$ref": "#/definitions/Address"
+                        },
+                        "is-secondary": {
+                            "type": "boolean"
                         },
                         "port": {
                             "type": "integer"
