@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/caas"
 	"github.com/juju/juju/cmd/juju/cachedimages"
-	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/charmhub"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
@@ -395,9 +394,6 @@ func registerCommands(r commandRegistry) {
 
 	// Charm tool commands.
 	r.Register(newHelpToolCommand())
-	// TODO (anastasiamac 2017-08-1) This needs to be removed in Juju 3.x
-	// lp#1707836
-	r.Register(charmcmd.NewSuperCommand())
 
 	// Manage backups.
 	r.Register(backups.NewCreateCommand())

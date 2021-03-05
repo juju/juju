@@ -8,10 +8,6 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
-func ListCharmResourcesCommandChannel(c modelcmd.Command) string {
-	return modelcmd.InnerCommand(c).(*ListCharmResourcesCommand).channel
-}
-
 func CharmResourcesCommandChannel(c modelcmd.Command) string {
 	return modelcmd.InnerCommand(c).(*CharmResourcesCommand).channel
 }
@@ -34,18 +30,6 @@ var FormatApplicationResources = formatApplicationResources
 
 func NewCharmResourcesCommandForTest(resourceLister ResourceLister) modelcmd.ModelCommand {
 	c := CharmResourcesCommand{
-		baseCharmResourcesCommand{
-			CreateResourceListerFn: func(schema string, deps ResourceListerDependencies) (ResourceLister, error) {
-				return resourceLister, nil
-			},
-		},
-	}
-	c.SetClientStore(jujuclienttesting.MinimalStore())
-	return modelcmd.Wrap(&c)
-}
-
-func NewListCharmResourcesCommandForTest(resourceLister ResourceLister) modelcmd.ModelCommand {
-	c := ListCharmResourcesCommand{
 		baseCharmResourcesCommand{
 			CreateResourceListerFn: func(schema string, deps ResourceListerDependencies) (ResourceLister, error) {
 				return resourceLister, nil
