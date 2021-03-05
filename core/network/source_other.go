@@ -1,6 +1,8 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build !linux
+
 package network
 
 import (
@@ -10,6 +12,55 @@ import (
 	"github.com/juju/errors"
 )
 
+// netAddr implements ConfigSourceAddr based on an address in string form.
+type netAddr struct {
+	addr  string
+	ip    net.IP
+	ipNet *net.IPNet
+}
+
+// newNetAddr returns a new netAddr reference
+// representing the input IP address string.
+func newNetAddr(a string) (*netAddr, error) {
+	res := &netAddr{
+		addr: a,
+	}
+
+	ip, ipNet, err := net.ParseCIDR(a)
+	if ipNet != nil {
+		res.ipNet = ipNet
+	}
+
+	if ip == nil {
+		ip = net.ParseIP(a)
+	}
+
+	if ip == nil {
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return nil, errors.Errorf("unable to parse IP address %q", a)
+	}
+
+	res.ip = ip
+	return res, nil
+}
+
+// IP (ConfigSourceAddr) is a simple property accessor.
+func (a *netAddr) IP() net.IP {
+	return a.ip
+}
+
+// IPNet (ConfigSourceAddr) is a simple property accessor.
+func (a *netAddr) IPNet() *net.IPNet {
+	return a.ipNet
+}
+
+// String (ConfigSourceAddr) is a simple property accessor.
+func (a *netAddr) String() string {
+	return a.addr
+}
+
 // netNIC implements ConfigSourceNIC by wrapping a network interface
 // reference from the standard library `net` package.
 type netNIC struct {
@@ -17,7 +68,7 @@ type netNIC struct {
 	parseType func(string) InterfaceType
 }
 
-func NewNetNIC(nic *net.Interface, parseType func(string) InterfaceType) *netNIC {
+func newNetNIC(nic *net.Interface, parseType func(string) InterfaceType) *netNIC {
 	return &netNIC{
 		nic:       nic,
 		parseType: parseType,
@@ -46,6 +97,8 @@ func (n *netNIC) Type() InterfaceType {
 		return LoopbackInterface
 	}
 
+	// See comment on super-method.
+	// This is incorrect for veth, tuntap, macvtap et al.
 	return EthernetInterface
 }
 
@@ -64,7 +117,7 @@ func (n *netNIC) Addresses() ([]ConfigSourceAddr, error) {
 	result := make([]ConfigSourceAddr, 0, len(addrs))
 	for _, addr := range addrs {
 		if addr.String() != "" {
-			a, err := NewNetAddr(addr.String())
+			a, err := newNetAddr(addr.String())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -85,97 +138,46 @@ func (n *netNIC) IsUp() bool {
 	return n.nic.Flags&net.FlagUp > 0
 }
 
-// netAddr implements ConfigSourceAddr based on an address in string form.
-type netAddr struct {
-	addr  string
-	ip    net.IP
-	ipNet *net.IPNet
-}
-
-// NewNetAddr returns a new netAddr reference
-// representing the input IP address string.
-// TODO (manadart 2021-02-15): This method is exported on account of testing in
-// the api/common package where this logic used to reside and where the actual
-// detection and conversion to params is invoked.
-// The detection should also be relocated here to core/network in order that
-// the export is no longer required.
-func NewNetAddr(a string) (*netAddr, error) {
-	res := &netAddr{
-		addr: a,
-	}
-
-	ip, ipNet, _ := net.ParseCIDR(a)
-	if ipNet != nil {
-		res.ipNet = ipNet
-	}
-
-	if ip == nil {
-		ip = net.ParseIP(a)
-	}
-
-	if ip == nil {
-		return nil, errors.Errorf("unable to parse IP address %q", a)
-	}
-
-	res.ip = ip
-	return res, nil
-}
-
-// IP (ConfigSourceAddr) is a simple property accessor.
-func (a *netAddr) IP() net.IP {
-	return a.ip
-}
-
-// IPNet (ConfigSourceAddr) is a simple property accessor.
-func (a *netAddr) IPNet() *net.IPNet {
-	return a.ipNet
-}
-
-// String (ConfigSourceAddr) is a simple property accessor.
-func (a *netAddr) String() string {
-	return a.addr
-}
-
 type netPackageConfigSource struct {
 	sysClassNetPath string
 	interfaces      func() ([]net.Interface, error)
 }
 
 // Interfaces returns the network interfaces on the machine.
-func (n *netPackageConfigSource) Interfaces() ([]ConfigSourceNIC, error) {
-	nics, err := n.interfaces()
+func (s *netPackageConfigSource) Interfaces() ([]ConfigSourceNIC, error) {
+	nics, err := s.interfaces()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	parseType := func(name string) InterfaceType { return ParseInterfaceType(n.sysClassNetPath, name) }
+	parseType := func(name string) InterfaceType { return ParseInterfaceType(s.sysClassNetPath, name) }
 	result := make([]ConfigSourceNIC, len(nics))
 	for i := range nics {
 		// Close over the sysClassNetPath so that
 		// the NIC needs to know nothing about it.
-		result[i] = NewNetNIC(&nics[i], parseType)
+		result[i] = newNetNIC(&nics[i], parseType)
 	}
 	return result, nil
 }
 
 // OvsManagedBridges implements NetworkConfigSource.
-func (n *netPackageConfigSource) OvsManagedBridges() (set.Strings, error) {
+func (*netPackageConfigSource) OvsManagedBridges() (set.Strings, error) {
 	return OvsManagedBridges()
 }
 
 // DefaultRoute implements NetworkConfigSource.
-func (n *netPackageConfigSource) DefaultRoute() (net.IP, string, error) {
+func (*netPackageConfigSource) DefaultRoute() (net.IP, string, error) {
 	return GetDefaultRoute()
 }
 
 // GetBridgePorts implements NetworkConfigSource.
-func (n *netPackageConfigSource) GetBridgePorts(bridgeName string) []string {
-	return GetBridgePorts(n.sysClassNetPath, bridgeName)
+func (s *netPackageConfigSource) GetBridgePorts(bridgeName string) []string {
+	return GetBridgePorts(s.sysClassNetPath, bridgeName)
 }
 
-// DefaultNetworkConfigSource returns a NetworkConfigSource backed by the net
-// package, to be used with GetObservedNetworkConfig().
-func DefaultNetworkConfigSource() ConfigSource {
+// DefaultConfigSource returns a NetworkConfigSource backed by
+// the net package, to be used with GetObservedNetworkConfig().
+func DefaultConfigSource() ConfigSource {
 	return &netPackageConfigSource{
 		sysClassNetPath: SysClassNetPath,
 		interfaces:      net.Interfaces,

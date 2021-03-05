@@ -17,7 +17,7 @@ import (
 // TODO (manadart 2021-02-12): This remains in the main "source.go" module
 // because there was previously only one ConfigSource implementation,
 // which presumably did not work on Windows.
-// When the NetlinkConfigSource was introduced for use on Linux,
+// When the netlinkConfigSource was introduced for use on Linux,
 // we retained the old universal config source for use on Windows.
 // If there comes a time when we properly implement a Windows source,
 // this should be relocated to the Linux module and an appropriate counterpart
@@ -31,6 +31,10 @@ type ConfigSourceNIC interface {
 	Name() string
 
 	// Type returns the type of the interface - Ethernet, VLAN, Loopback etc.
+	// TODO (manadart 2021-03-03): We do not recognise device types such as
+	// veth, tuntap, macvtap et al. Our parsing falls back to ethernet for such
+	// devices, which we should change in order to have a better informed
+	// networking model.
 	Type() InterfaceType
 
 	// Index returns the index of the interface.
