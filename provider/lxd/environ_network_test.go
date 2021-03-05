@@ -75,15 +75,17 @@ func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 			ServerName: "locutus",
 		},
 	}, "", nil)
-	srv.EXPECT().GetNetworkNames().Return([]string{"lo", "ovs-system", "lxdbr0"}, nil)
-	srv.EXPECT().GetNetworkState("lo").Return(&lxdapi.NetworkState{
-		Type:  "loopback", // should be filtered out because it's loopback
-		State: "up",
-	}, nil)
+	srv.EXPECT().GetNetworkNames().Return([]string{"ovs-system", "lxdbr0", "phys-nic-0"}, nil)
+	srv.EXPECT().GetNetwork("ovs-system").Return(&lxdapi.Network{
+		Type: "bridge",
+	}, "", nil)
 	srv.EXPECT().GetNetworkState("ovs-system").Return(&lxdapi.NetworkState{
 		Type:  "broadcast",
 		State: "down", // should be filtered out because it's down
 	}, nil)
+	srv.EXPECT().GetNetwork("lxdbr0").Return(&lxdapi.Network{
+		Type: "bridge",
+	}, "", nil)
 	srv.EXPECT().GetNetworkState("lxdbr0").Return(&lxdapi.NetworkState{
 		Type:  "broadcast",
 		State: "up",
@@ -108,6 +110,9 @@ func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 			},
 		},
 	}, nil)
+	srv.EXPECT().GetNetwork("phys-nic-0").Return(&lxdapi.Network{
+		Type: "physical", // should be ignored as it is not a bridge.
+	}, "", nil)
 
 	env := s.NewEnviron(c, srv, nil).(*environ)
 
@@ -146,6 +151,9 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C
 		},
 	}, "", nil)
 	srv.EXPECT().GetNetworkNames().Return([]string{"lxdbr0"}, nil)
+	srv.EXPECT().GetNetwork("lxdbr0").Return(&lxdapi.Network{
+		Type: "bridge",
+	}, "", nil)
 	srv.EXPECT().GetNetworkState("lxdbr0").Return(&lxdapi.NetworkState{
 		Type:  "broadcast",
 		State: "up",
@@ -201,13 +209,16 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 		},
 	}, "", nil)
 
-	// Even though ovs-br0 is returned by the LXD API, it is *not* bridged
+	// Even though ovsbr0 is returned by the LXD API, it is *not* bridged
 	// into the container we will be introspecting and so this subnet will
 	// not be reported back. This is a caveat of the fallback code.
-	srv.EXPECT().GetNetworkNames().Return([]string{"lo", "ovsbr0", "lxdbr0"}, nil).AnyTimes()
+	srv.EXPECT().GetNetworkNames().Return([]string{"ovsbr0", "lxdbr0"}, nil).AnyTimes()
+	srv.EXPECT().GetNetwork("ovsbr0").Return(&lxdapi.Network{
+		Type: "bridge",
+	}, "", nil)
 
 	// This error will trigger the fallback codepath
-	srv.EXPECT().GetNetworkState("lo").Return(nil, errors.New(`server is missing the required "network_state" API extension`))
+	srv.EXPECT().GetNetworkState("ovsbr0").Return(nil, errors.New(`server is missing the required "network_state" API extension`))
 
 	// When instance.UnknownID is passed to Subnets, juju will pick the
 	// first juju-* container and introspect its bridged devices.
