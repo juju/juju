@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2/arch"
 
@@ -187,13 +188,18 @@ func (env *environ) getContainerSpec(
 		return cSpec, errors.Trace(err)
 	}
 
-	// Check to see if there are any non-eth0 devices in the default profile.
-	// If there are, we need cloud-init to configure them, and we need to
-	// explicitly add them to the container spec.
-	nics, err := env.server().GetNICsFromProfile("default")
+	// Assemble the list of NICs that need to be added to the container.
+	// This includes all NICs from the default profile as well as any
+	// additional NICs required to satisfy any subnets that were requested
+	// due to space constraints.
+	//
+	// If additional non-eth0 NICs are to be added, we need to ensure that
+	// cloud-init correctly configures them.
+	nics, err := env.assignContainerNICs(args)
 	if err != nil {
 		return cSpec, errors.Trace(err)
 	}
+
 	if !(len(nics) == 1 && nics["eth0"] != nil) {
 		logger.Debugf("generating custom cloud-init networking")
 
@@ -235,6 +241,89 @@ func (env *environ) getContainerSpec(
 	}
 
 	return cSpec, nil
+}
+
+func (env *environ) assignContainerNICs(instStartParams environs.StartInstanceParams) (map[string]map[string]string, error) {
+	// First, include any nics explicitly requested by the default profile.
+	assignedNICs, err := env.server().GetNICsFromProfile("default")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// No additional NICs required.
+	if len(instStartParams.SubnetsToZones) == 0 {
+		return assignedNICs, nil
+	}
+
+	if assignedNICs == nil {
+		assignedNICs = make(map[string]map[string]string)
+	}
+
+	// We use two sets to de-dup the required NICs and ensure that each
+	// additional NIC gets assigned a sequential ethX name.
+	requestedHostBridges := set.NewStrings()
+	requestedNICNames := set.NewStrings()
+	for nicName, details := range assignedNICs {
+		requestedNICNames.Add(nicName)
+		if len(details) != 0 {
+			requestedHostBridges.Add(details["parent"])
+		}
+	}
+
+	// Assign any extra NICs required to satisfy the subnet requirements
+	// for this instance.
+	var nextIndex int
+	for _, subnetList := range instStartParams.SubnetsToZones {
+		for providerSubnetID := range subnetList {
+			subnetID := string(providerSubnetID)
+
+			// Sanity check: make sure we are using the correct subnet
+			// naming conventions (subnet-$hostBridgeName-$CIDR).
+			if !strings.HasPrefix(subnetID, "subnet-") {
+				continue
+			}
+
+			// Let's be paranoid here and assume that the bridge
+			// name may also contain dashes. So trim the "subnet-"
+			// prefix and anything from the right-most dash to
+			// recover the bridge name.
+			subnetID = strings.TrimPrefix(subnetID, "subnet-")
+			lastDashIndex := strings.LastIndexByte(subnetID, '-')
+			if lastDashIndex == -1 {
+				continue
+			}
+			hostBridge := subnetID[:lastDashIndex]
+
+			// We have already requested a device on this subnet
+			if requestedHostBridges.Contains(hostBridge) {
+				continue
+			}
+
+			// Allocate a new device entry and ensure it doesn't
+			// clash with any existing ones
+			var devName string
+			for {
+				devName = fmt.Sprintf("eth%d", nextIndex)
+				if requestedNICNames.Contains(devName) {
+					nextIndex++
+					continue
+				}
+				break
+			}
+
+			assignedNICs[devName] = map[string]string{
+				"name":    devName,
+				"type":    "nic",
+				"nictype": "bridged",
+				"parent":  hostBridge,
+			}
+
+			requestedHostBridges.Add(hostBridge)
+			requestedNICNames.Add(devName)
+		}
+	}
+
+	return assignedNICs, nil
 }
 
 // getTargetServer checks to see if a valid zone was passed as a placement
