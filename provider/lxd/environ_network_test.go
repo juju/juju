@@ -53,6 +53,11 @@ func (s *environNetSuite) TestSubnetsForServersThatLackRequiredAPIExtensions(c *
 	c.Assert(supportsSpaces, jc.IsFalse, gc.Commentf("expected SupportsSpaces to return false when the lxd server lacks the 'network' extension"))
 
 	// Try to grab subnet details anyway!
+	srv.EXPECT().GetServer().Return(&lxdapi.Server{
+		Environment: lxdapi.ServerEnvironment{
+			ServerName: "locutus",
+		},
+	}, "", nil)
 	_, err = env.Subnets(ctx, instance.UnknownId, nil)
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
@@ -65,6 +70,11 @@ func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 	srv.EXPECT().FilterContainers("woot").Return([]jujulxd.Container{
 		{},
 	}, nil)
+	srv.EXPECT().GetServer().Return(&lxdapi.Server{
+		Environment: lxdapi.ServerEnvironment{
+			ServerName: "locutus",
+		},
+	}, "", nil)
 	srv.EXPECT().GetNetworkNames().Return([]string{"lo", "ovs-system", "lxdbr0"}, nil)
 	srv.EXPECT().GetNetworkState("lo").Return(&lxdapi.NetworkState{
 		Type:  "loopback", // should be filtered out because it's loopback
@@ -110,11 +120,13 @@ func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 			CIDR:              "10.55.158.0/24",
 			ProviderId:        "subnet-lxdbr0-10.55.158.0/24",
 			ProviderNetworkId: "net-lxdbr0",
+			AvailabilityZones: []string{"locutus"},
 		},
 		{
 			CIDR:              "10.42.42.0/24",
 			ProviderId:        "subnet-lxdbr0-10.42.42.0/24",
 			ProviderNetworkId: "net-lxdbr0",
+			AvailabilityZones: []string{"locutus"},
 		},
 	}
 	c.Assert(subnets, gc.DeepEquals, expSubnets)
@@ -128,6 +140,11 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C
 	srv.EXPECT().FilterContainers("woot").Return([]jujulxd.Container{
 		{},
 	}, nil)
+	srv.EXPECT().GetServer().Return(&lxdapi.Server{
+		Environment: lxdapi.ServerEnvironment{
+			ServerName: "locutus",
+		},
+	}, "", nil)
 	srv.EXPECT().GetNetworkNames().Return([]string{"lxdbr0"}, nil)
 	srv.EXPECT().GetNetworkState("lxdbr0").Return(&lxdapi.NetworkState{
 		Type:  "broadcast",
@@ -166,6 +183,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C
 			CIDR:              "10.55.158.0/24",
 			ProviderId:        "subnet-lxdbr0-10.55.158.0/24",
 			ProviderNetworkId: "net-lxdbr0",
+			AvailabilityZones: []string{"locutus"},
 		},
 	}
 	c.Assert(subnets, gc.DeepEquals, expSubnets)
@@ -176,6 +194,12 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 	defer ctrl.Finish()
 
 	srv := NewMockServer(ctrl)
+
+	srv.EXPECT().GetServer().Return(&lxdapi.Server{
+		Environment: lxdapi.ServerEnvironment{
+			ServerName: "locutus",
+		},
+	}, "", nil)
 
 	// Even though ovs-br0 is returned by the LXD API, it is *not* bridged
 	// into the container we will be introspecting and so this subnet will
@@ -256,6 +280,7 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 			CIDR:              "10.55.158.0/24",
 			ProviderId:        "subnet-lxdbr0-10.55.158.0/24",
 			ProviderNetworkId: "net-lxdbr0",
+			AvailabilityZones: []string{"locutus"},
 		},
 	}
 	c.Assert(subnets, gc.DeepEquals, expSubnets)
