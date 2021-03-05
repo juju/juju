@@ -17,6 +17,7 @@ import (
 	containerlxd "github.com/juju/juju/container/lxd"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd"
 )
@@ -138,6 +139,97 @@ func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
 
 	env := s.NewEnviron(c, svr, nil)
 	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c, "bionic"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	svr := lxd.NewMockServer(ctrl)
+
+	profileNICs := map[string]map[string]string{
+		"eno9": {
+			"name":    "eno9",
+			"mtu":     "9000",
+			"nictype": "bridged",
+			"parent":  "lxdbr0",
+			"hwaddr":  "00:00:00:00:00",
+		},
+	}
+
+	// Check that the non-standard devices were passed explicitly,
+	// And that we have disabled the standard network config.
+	check := func(spec containerlxd.ContainerSpec) bool {
+		c.Assert(spec.Devices["eno9"], gc.DeepEquals, profileNICs["eno9"], gc.Commentf("expected NIC from profile to be included"))
+
+		// As the subnet IDs are map keys, the additional generated NIC
+		// indices depend on the key iteration order so we need to test
+		// both possible variants here.
+		matchedNICs := reflect.DeepEqual(spec.Devices, map[string]map[string]string{
+			"eno9": profileNICs["eno9"],
+			"eth0": {
+				"name":    "eth0",
+				"type":    "nic",
+				"nictype": "bridged",
+				"parent":  "ovs-br0",
+			},
+			"eth1": {
+				"name":    "eth1",
+				"type":    "nic",
+				"nictype": "bridged",
+				"parent":  "virbr0",
+			},
+		}) || reflect.DeepEqual(spec.Devices, map[string]map[string]string{
+			"eno9": profileNICs["eno9"],
+			"eth0": {
+				"name":    "eth0",
+				"type":    "nic",
+				"nictype": "bridged",
+				"parent":  "virbr0",
+			},
+			"eth1": {
+				"name":    "eth1",
+				"type":    "nic",
+				"nictype": "bridged",
+				"parent":  "ovs-br0",
+			},
+		})
+		c.Assert(matchedNICs, jc.IsTrue, gc.Commentf("the expected NICs for space-related subnets were not injected; got %v", spec.Devices))
+
+		return spec.Config[containerlxd.NetworkConfigKey] == cloudinit.CloudInitNetworkConfigDisabled
+	}
+
+	exp := svr.EXPECT()
+	gomock.InOrder(
+		exp.HostArch().Return(arch.AMD64),
+		exp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.ServerVersion().Return("3.10.0"),
+		exp.GetNICsFromProfile("default").Return(profileNICs, nil),
+		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
+		exp.HostArch().Return(arch.AMD64),
+	)
+
+	env := s.NewEnviron(c, svr, nil)
+	startArgs := s.GetStartInstanceArgs(c, "bionic")
+	startArgs.SubnetsToZones = []map[network.Id][]string{
+		// The following are bogus subnet names that shouldn't
+		// normally be reported by Subnets(). They are only
+		// here to ensure that assignContainerNICs does not
+		// explode if garbage gets passed in.
+		{
+			"bogus-bridge-10.0.0.0/24": {"locutus"},
+			"subnet-bridge":            {"locutus"},
+		},
+		{
+			"subnet-virbr0-10.42.0.0/24": {"locutus"},
+			// Bridge name with dashes
+			"subnet-ovs-br0-10.0.0.0/24": {"locutus"},
+			// Should be ignored as the default profile already
+			// specifies a device bridged to lxdbr0
+			"subnet-lxdbr0-10.99.0.0/24": {"locutus"},
+		},
+	}
+	_, err := env.StartInstance(s.callCtx, startArgs)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
