@@ -189,16 +189,25 @@ def deploy_kubeflow(caas_client, k8s_model, bundle, build):
         "--all",
     )
 
-    pub_addr = get_pub_addr(caas_client)
+    pub_addr = get_pub_addr(caas_client, k8s_model.model_name)
     password = "foobar"
-    if application_exists(k8s_model, 'dex-auth'):
-        log.info("configuring dex-auth application")
-        k8s_model.set_config('dex-auth', {'public-url': f'http://{pub_addr}:80'})
-        k8s_model.set_config('dex-auth', {'static-password': f'{password}'})
+    app_name_to_config = 'dex-auth'
+    if application_exists(k8s_model, app_name_to_config):
+        log.info("configuring %s application", app_name_to_config)
+        k8s_model.set_config(
+            app_name_to_config,
+            {
+                'public-url': f'http://{pub_addr}:80',
+                'static-password': f'{password}',
+            },
+        )
+        log.info("application config of %s: \n%s", app_name_to_config, k8s_model.get_config(app_name_to_config))
 
-    if application_exists(k8s_model, 'oidc-gatekeeper'):
-        log.info("configuring oidc-gatekeeper application")
-        k8s_model.set_config('oidc-gatekeeper', {'public-url': f'http://{pub_addr}:80'})
+    app_name_to_config = 'oidc-gatekeeper'
+    if application_exists(k8s_model, app_name_to_config):
+        log.info("configuring %s application", app_name_to_config)
+        k8s_model.set_config(app_name_to_config, {'public-url': f'http://{pub_addr}:80'})
+        log.info("application config of %s: \n%s", app_name_to_config, k8s_model.get_config(app_name_to_config))
 
     log.info("Waiting for Kubeflow to become ready")
 
@@ -222,7 +231,7 @@ def deploy_kubeflow(caas_client, k8s_model, bundle, build):
 def kubeflow_info(controller_name: str, model_name: str, pub_addr: str):
     """Displays info about the deploy Kubeflow instance."""
 
-    print(
+    log.info(
         textwrap.dedent(
             f"""
 
@@ -255,32 +264,32 @@ def kubeflow_info(controller_name: str, model_name: str, pub_addr: str):
     )
 
 
-def get_pub_addr(caas_client):
+def get_pub_addr(caas_client, model_name):
     """Gets the hostname that Ambassador will respond to."""
 
     for charm in ('ambassador', 'istio-ingressgateway'):
         # Check if we've manually set a hostname on the ingress
         try:
-            output = caas_client.kubectl('get', f'ingress/{charm}', '-ojson')
+            output = caas_client.kubectl('-n', model_name, 'get', f'ingress/{charm}', '-ojson')
             return json.loads(output)['spec']['rules'][0]['host']
         except (KeyError, subprocess.CalledProcessError):
             pass
 
         # Check if juju expose has created an ELB or similar
         try:
-            output = caas_client.kubectl('get', f'svc/{charm}', '-ojson')
+            output = caas_client.kubectl('-n', model_name, 'get', f'svc/{charm}', '-ojson')
             return json.loads(output)['status']['loadBalancer']['ingress'][0]['hostname']
         except (KeyError, subprocess.CalledProcessError):
             pass
 
         # Otherwise, see if we've set up metallb with a custom service
         try:
-            output = caas_client.kubectl('get', f'svc/{charm}', '-ojson')
+            output = caas_client.kubectl('-n', model_name, 'get', f'svc/{charm}', '-ojson')
             pub_ip = json.loads(output)['status']['loadBalancer']['ingress'][0]['ip']
             return '%s.xip.io' % pub_ip
         except (KeyError, subprocess.CalledProcessError):
             pass
-
+    log.warn('it is not possible to get the public address from either ambassador or istio-ingressgateway, now fall back to "localhost"')
     # If all else fails, just use localhost
     return 'localhost'
 
