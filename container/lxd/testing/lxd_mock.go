@@ -318,6 +318,21 @@ func (mr *MockImageServerMockRecorder) Disconnect() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Disconnect", reflect.TypeOf((*MockImageServer)(nil).Disconnect))
 }
 
+// ExportImage mocks base method
+func (m *MockImageServer) ExportImage(arg0 string, arg1 api.ImageExportPost) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExportImage", arg0, arg1)
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExportImage indicates an expected call of ExportImage
+func (mr *MockImageServerMockRecorder) ExportImage(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportImage", reflect.TypeOf((*MockImageServer)(nil).ExportImage), arg0, arg1)
+}
+
 // GetConnectionInfo mocks base method
 func (m *MockImageServer) GetConnectionInfo() (*lxd.ConnectionInfo, error) {
 	m.ctrl.T.Helper()
@@ -583,6 +598,22 @@ func (m *MockContainerServer) ConsoleInstance(arg0 string, arg1 api.InstanceCons
 func (mr *MockContainerServerMockRecorder) ConsoleInstance(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConsoleInstance", reflect.TypeOf((*MockContainerServer)(nil).ConsoleInstance), arg0, arg1, arg2)
+}
+
+// ConsoleInstanceDynamic mocks base method
+func (m *MockContainerServer) ConsoleInstanceDynamic(arg0 string, arg1 api.InstanceConsolePost, arg2 *lxd.InstanceConsoleArgs) (lxd.Operation, func(io.ReadWriteCloser) error, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConsoleInstanceDynamic", arg0, arg1, arg2)
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(func(io.ReadWriteCloser) error)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ConsoleInstanceDynamic indicates an expected call of ConsoleInstanceDynamic
+func (mr *MockContainerServerMockRecorder) ConsoleInstanceDynamic(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConsoleInstanceDynamic", reflect.TypeOf((*MockContainerServer)(nil).ConsoleInstanceDynamic), arg0, arg1, arg2)
 }
 
 // CopyContainer mocks base method
@@ -953,6 +984,20 @@ func (mr *MockContainerServerMockRecorder) CreateNetwork(arg0 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateNetwork", reflect.TypeOf((*MockContainerServer)(nil).CreateNetwork), arg0)
 }
 
+// CreateNetworkACL mocks base method
+func (m *MockContainerServer) CreateNetworkACL(arg0 api.NetworkACLsPost) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateNetworkACL", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateNetworkACL indicates an expected call of CreateNetworkACL
+func (mr *MockContainerServerMockRecorder) CreateNetworkACL(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateNetworkACL", reflect.TypeOf((*MockContainerServer)(nil).CreateNetworkACL), arg0)
+}
+
 // CreateProfile mocks base method
 func (m *MockContainerServer) CreateProfile(arg0 api.ProfilesPost) error {
 	m.ctrl.T.Helper()
@@ -1007,6 +1052,36 @@ func (m *MockContainerServer) CreateStoragePoolVolume(arg0 string, arg1 api.Stor
 func (mr *MockContainerServerMockRecorder) CreateStoragePoolVolume(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateStoragePoolVolume", reflect.TypeOf((*MockContainerServer)(nil).CreateStoragePoolVolume), arg0, arg1)
+}
+
+// CreateStoragePoolVolumeBackup mocks base method
+func (m *MockContainerServer) CreateStoragePoolVolumeBackup(arg0, arg1 string, arg2 api.StoragePoolVolumeBackupsPost) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateStoragePoolVolumeBackup", arg0, arg1, arg2)
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateStoragePoolVolumeBackup indicates an expected call of CreateStoragePoolVolumeBackup
+func (mr *MockContainerServerMockRecorder) CreateStoragePoolVolumeBackup(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateStoragePoolVolumeBackup", reflect.TypeOf((*MockContainerServer)(nil).CreateStoragePoolVolumeBackup), arg0, arg1, arg2)
+}
+
+// CreateStoragePoolVolumeFromBackup mocks base method
+func (m *MockContainerServer) CreateStoragePoolVolumeFromBackup(arg0 string, arg1 lxd.StoragePoolVolumeBackupArgs) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateStoragePoolVolumeFromBackup", arg0, arg1)
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateStoragePoolVolumeFromBackup indicates an expected call of CreateStoragePoolVolumeFromBackup
+func (mr *MockContainerServerMockRecorder) CreateStoragePoolVolumeFromBackup(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateStoragePoolVolumeFromBackup", reflect.TypeOf((*MockContainerServer)(nil).CreateStoragePoolVolumeFromBackup), arg0, arg1)
 }
 
 // CreateStoragePoolVolumeSnapshot mocks base method
@@ -1297,6 +1372,20 @@ func (mr *MockContainerServerMockRecorder) DeleteNetwork(arg0 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteNetwork", reflect.TypeOf((*MockContainerServer)(nil).DeleteNetwork), arg0)
 }
 
+// DeleteNetworkACL mocks base method
+func (m *MockContainerServer) DeleteNetworkACL(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteNetworkACL", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteNetworkACL indicates an expected call of DeleteNetworkACL
+func (mr *MockContainerServerMockRecorder) DeleteNetworkACL(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteNetworkACL", reflect.TypeOf((*MockContainerServer)(nil).DeleteNetworkACL), arg0)
+}
+
 // DeleteOperation mocks base method
 func (m *MockContainerServer) DeleteOperation(arg0 string) error {
 	m.ctrl.T.Helper()
@@ -1367,6 +1456,21 @@ func (mr *MockContainerServerMockRecorder) DeleteStoragePoolVolume(arg0, arg1, a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteStoragePoolVolume", reflect.TypeOf((*MockContainerServer)(nil).DeleteStoragePoolVolume), arg0, arg1, arg2)
 }
 
+// DeleteStoragePoolVolumeBackup mocks base method
+func (m *MockContainerServer) DeleteStoragePoolVolumeBackup(arg0, arg1, arg2 string) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteStoragePoolVolumeBackup", arg0, arg1, arg2)
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteStoragePoolVolumeBackup indicates an expected call of DeleteStoragePoolVolumeBackup
+func (mr *MockContainerServerMockRecorder) DeleteStoragePoolVolumeBackup(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteStoragePoolVolumeBackup", reflect.TypeOf((*MockContainerServer)(nil).DeleteStoragePoolVolumeBackup), arg0, arg1, arg2)
+}
+
 // DeleteStoragePoolVolumeSnapshot mocks base method
 func (m *MockContainerServer) DeleteStoragePoolVolumeSnapshot(arg0, arg1, arg2, arg3 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
@@ -1422,6 +1526,21 @@ func (m *MockContainerServer) ExecInstance(arg0 string, arg1 api.InstanceExecPos
 func (mr *MockContainerServerMockRecorder) ExecInstance(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecInstance", reflect.TypeOf((*MockContainerServer)(nil).ExecInstance), arg0, arg1, arg2)
+}
+
+// ExportImage mocks base method
+func (m *MockContainerServer) ExportImage(arg0 string, arg1 api.ImageExportPost) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExportImage", arg0, arg1)
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExportImage indicates an expected call of ExportImage
+func (mr *MockContainerServerMockRecorder) ExportImage(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportImage", reflect.TypeOf((*MockContainerServer)(nil).ExportImage), arg0, arg1)
 }
 
 // GetCertificate mocks base method
@@ -2328,6 +2447,52 @@ func (mr *MockContainerServerMockRecorder) GetNetwork(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetwork", reflect.TypeOf((*MockContainerServer)(nil).GetNetwork), arg0)
 }
 
+// GetNetworkACL mocks base method
+func (m *MockContainerServer) GetNetworkACL(arg0 string) (*api.NetworkACL, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkACL", arg0)
+	ret0, _ := ret[0].(*api.NetworkACL)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetNetworkACL indicates an expected call of GetNetworkACL
+func (mr *MockContainerServerMockRecorder) GetNetworkACL(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkACL", reflect.TypeOf((*MockContainerServer)(nil).GetNetworkACL), arg0)
+}
+
+// GetNetworkACLNames mocks base method
+func (m *MockContainerServer) GetNetworkACLNames() ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkACLNames")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetworkACLNames indicates an expected call of GetNetworkACLNames
+func (mr *MockContainerServerMockRecorder) GetNetworkACLNames() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkACLNames", reflect.TypeOf((*MockContainerServer)(nil).GetNetworkACLNames))
+}
+
+// GetNetworkACLs mocks base method
+func (m *MockContainerServer) GetNetworkACLs() ([]api.NetworkACL, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkACLs")
+	ret0, _ := ret[0].([]api.NetworkACL)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetworkACLs indicates an expected call of GetNetworkACLs
+func (mr *MockContainerServerMockRecorder) GetNetworkACLs() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkACLs", reflect.TypeOf((*MockContainerServer)(nil).GetNetworkACLs))
+}
+
 // GetNetworkLeases mocks base method
 func (m *MockContainerServer) GetNetworkLeases(arg0 string) ([]api.NetworkLease, error) {
 	m.ctrl.T.Helper()
@@ -2433,6 +2598,22 @@ func (m *MockContainerServer) GetOperationWait(arg0 string, arg1 int) (*api.Oper
 func (mr *MockContainerServerMockRecorder) GetOperationWait(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOperationWait", reflect.TypeOf((*MockContainerServer)(nil).GetOperationWait), arg0, arg1)
+}
+
+// GetOperationWaitSecret mocks base method
+func (m *MockContainerServer) GetOperationWaitSecret(arg0, arg1 string, arg2 int) (*api.Operation, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOperationWaitSecret", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*api.Operation)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetOperationWaitSecret indicates an expected call of GetOperationWaitSecret
+func (mr *MockContainerServerMockRecorder) GetOperationWaitSecret(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOperationWaitSecret", reflect.TypeOf((*MockContainerServer)(nil).GetOperationWaitSecret), arg0, arg1, arg2)
 }
 
 // GetOperationWebsocket mocks base method
@@ -2681,6 +2862,67 @@ func (mr *MockContainerServerMockRecorder) GetStoragePoolVolume(arg0, arg1, arg2
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolVolume", reflect.TypeOf((*MockContainerServer)(nil).GetStoragePoolVolume), arg0, arg1, arg2)
 }
 
+// GetStoragePoolVolumeBackup mocks base method
+func (m *MockContainerServer) GetStoragePoolVolumeBackup(arg0, arg1, arg2 string) (*api.StoragePoolVolumeBackup, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStoragePoolVolumeBackup", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*api.StoragePoolVolumeBackup)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetStoragePoolVolumeBackup indicates an expected call of GetStoragePoolVolumeBackup
+func (mr *MockContainerServerMockRecorder) GetStoragePoolVolumeBackup(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolVolumeBackup", reflect.TypeOf((*MockContainerServer)(nil).GetStoragePoolVolumeBackup), arg0, arg1, arg2)
+}
+
+// GetStoragePoolVolumeBackupFile mocks base method
+func (m *MockContainerServer) GetStoragePoolVolumeBackupFile(arg0, arg1, arg2 string, arg3 *lxd.BackupFileRequest) (*lxd.BackupFileResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStoragePoolVolumeBackupFile", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(*lxd.BackupFileResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStoragePoolVolumeBackupFile indicates an expected call of GetStoragePoolVolumeBackupFile
+func (mr *MockContainerServerMockRecorder) GetStoragePoolVolumeBackupFile(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolVolumeBackupFile", reflect.TypeOf((*MockContainerServer)(nil).GetStoragePoolVolumeBackupFile), arg0, arg1, arg2, arg3)
+}
+
+// GetStoragePoolVolumeBackupNames mocks base method
+func (m *MockContainerServer) GetStoragePoolVolumeBackupNames(arg0, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStoragePoolVolumeBackupNames", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStoragePoolVolumeBackupNames indicates an expected call of GetStoragePoolVolumeBackupNames
+func (mr *MockContainerServerMockRecorder) GetStoragePoolVolumeBackupNames(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolVolumeBackupNames", reflect.TypeOf((*MockContainerServer)(nil).GetStoragePoolVolumeBackupNames), arg0, arg1)
+}
+
+// GetStoragePoolVolumeBackups mocks base method
+func (m *MockContainerServer) GetStoragePoolVolumeBackups(arg0, arg1 string) ([]api.StoragePoolVolumeBackup, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStoragePoolVolumeBackups", arg0, arg1)
+	ret0, _ := ret[0].([]api.StoragePoolVolumeBackup)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStoragePoolVolumeBackups indicates an expected call of GetStoragePoolVolumeBackups
+func (mr *MockContainerServerMockRecorder) GetStoragePoolVolumeBackups(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolVolumeBackups", reflect.TypeOf((*MockContainerServer)(nil).GetStoragePoolVolumeBackups), arg0, arg1)
+}
+
 // GetStoragePoolVolumeNames mocks base method
 func (m *MockContainerServer) GetStoragePoolVolumeNames(arg0 string) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -2740,6 +2982,21 @@ func (m *MockContainerServer) GetStoragePoolVolumeSnapshots(arg0, arg1, arg2 str
 func (mr *MockContainerServerMockRecorder) GetStoragePoolVolumeSnapshots(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolVolumeSnapshots", reflect.TypeOf((*MockContainerServer)(nil).GetStoragePoolVolumeSnapshots), arg0, arg1, arg2)
+}
+
+// GetStoragePoolVolumeState mocks base method
+func (m *MockContainerServer) GetStoragePoolVolumeState(arg0, arg1, arg2 string) (*api.StorageVolumeState, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStoragePoolVolumeState", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*api.StorageVolumeState)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStoragePoolVolumeState indicates an expected call of GetStoragePoolVolumeState
+func (mr *MockContainerServerMockRecorder) GetStoragePoolVolumeState(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolVolumeState", reflect.TypeOf((*MockContainerServer)(nil).GetStoragePoolVolumeState), arg0, arg1, arg2)
 }
 
 // GetStoragePoolVolumes mocks base method
@@ -3084,6 +3341,20 @@ func (mr *MockContainerServerMockRecorder) RenameNetwork(arg0, arg1 interface{})
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameNetwork", reflect.TypeOf((*MockContainerServer)(nil).RenameNetwork), arg0, arg1)
 }
 
+// RenameNetworkACL mocks base method
+func (m *MockContainerServer) RenameNetworkACL(arg0 string, arg1 api.NetworkACLPost) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RenameNetworkACL", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RenameNetworkACL indicates an expected call of RenameNetworkACL
+func (mr *MockContainerServerMockRecorder) RenameNetworkACL(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameNetworkACL", reflect.TypeOf((*MockContainerServer)(nil).RenameNetworkACL), arg0, arg1)
+}
+
 // RenameProfile mocks base method
 func (m *MockContainerServer) RenameProfile(arg0 string, arg1 api.ProfilePost) error {
 	m.ctrl.T.Helper()
@@ -3127,6 +3398,21 @@ func (mr *MockContainerServerMockRecorder) RenameStoragePoolVolume(arg0, arg1, a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameStoragePoolVolume", reflect.TypeOf((*MockContainerServer)(nil).RenameStoragePoolVolume), arg0, arg1, arg2, arg3)
 }
 
+// RenameStoragePoolVolumeBackup mocks base method
+func (m *MockContainerServer) RenameStoragePoolVolumeBackup(arg0, arg1, arg2 string, arg3 api.StoragePoolVolumeBackupPost) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RenameStoragePoolVolumeBackup", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RenameStoragePoolVolumeBackup indicates an expected call of RenameStoragePoolVolumeBackup
+func (mr *MockContainerServerMockRecorder) RenameStoragePoolVolumeBackup(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameStoragePoolVolumeBackup", reflect.TypeOf((*MockContainerServer)(nil).RenameStoragePoolVolumeBackup), arg0, arg1, arg2, arg3)
+}
+
 // RenameStoragePoolVolumeSnapshot mocks base method
 func (m *MockContainerServer) RenameStoragePoolVolumeSnapshot(arg0, arg1, arg2, arg3 string, arg4 api.StorageVolumeSnapshotPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
@@ -3168,20 +3454,6 @@ func (mr *MockContainerServerMockRecorder) SetContainerMetadata(arg0, arg1, arg2
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetContainerMetadata", reflect.TypeOf((*MockContainerServer)(nil).SetContainerMetadata), arg0, arg1, arg2)
 }
 
-// SetInstanceMetadata mocks base method
-func (m *MockContainerServer) SetInstanceMetadata(arg0 string, arg1 api.ImageMetadata, arg2 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetInstanceMetadata", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetInstanceMetadata indicates an expected call of SetInstanceMetadata
-func (mr *MockContainerServerMockRecorder) SetInstanceMetadata(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceMetadata", reflect.TypeOf((*MockContainerServer)(nil).SetInstanceMetadata), arg0, arg1, arg2)
-}
-
 // UpdateCertificate mocks base method
 func (m *MockContainerServer) UpdateCertificate(arg0 string, arg1 api.CertificatePut, arg2 string) error {
 	m.ctrl.T.Helper()
@@ -3209,6 +3481,20 @@ func (m *MockContainerServer) UpdateCluster(arg0 api.ClusterPut, arg1 string) (l
 func (mr *MockContainerServerMockRecorder) UpdateCluster(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCluster", reflect.TypeOf((*MockContainerServer)(nil).UpdateCluster), arg0, arg1)
+}
+
+// UpdateClusterMember mocks base method
+func (m *MockContainerServer) UpdateClusterMember(arg0 string, arg1 api.ClusterMemberPut, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateClusterMember", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateClusterMember indicates an expected call of UpdateClusterMember
+func (mr *MockContainerServerMockRecorder) UpdateClusterMember(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateClusterMember", reflect.TypeOf((*MockContainerServer)(nil).UpdateClusterMember), arg0, arg1, arg2)
 }
 
 // UpdateContainer mocks base method
@@ -3313,6 +3599,20 @@ func (mr *MockContainerServerMockRecorder) UpdateInstance(arg0, arg1, arg2 inter
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateInstance", reflect.TypeOf((*MockContainerServer)(nil).UpdateInstance), arg0, arg1, arg2)
 }
 
+// UpdateInstanceMetadata mocks base method
+func (m *MockContainerServer) UpdateInstanceMetadata(arg0 string, arg1 api.ImageMetadata, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateInstanceMetadata", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateInstanceMetadata indicates an expected call of UpdateInstanceMetadata
+func (mr *MockContainerServerMockRecorder) UpdateInstanceMetadata(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateInstanceMetadata", reflect.TypeOf((*MockContainerServer)(nil).UpdateInstanceMetadata), arg0, arg1, arg2)
+}
+
 // UpdateInstanceSnapshot mocks base method
 func (m *MockContainerServer) UpdateInstanceSnapshot(arg0, arg1 string, arg2 api.InstanceSnapshotPut, arg3 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
@@ -3343,18 +3643,19 @@ func (mr *MockContainerServerMockRecorder) UpdateInstanceState(arg0, arg1, arg2 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateInstanceState", reflect.TypeOf((*MockContainerServer)(nil).UpdateInstanceState), arg0, arg1, arg2)
 }
 
-// UpdateInstanceTemplateFile mocks base method
-func (m *MockContainerServer) UpdateInstanceTemplateFile(arg0, arg1 string, arg2 io.ReadSeeker) error {
+// UpdateInstances mocks base method
+func (m *MockContainerServer) UpdateInstances(arg0 api.InstancesPut, arg1 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateInstanceTemplateFile", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "UpdateInstances", arg0, arg1)
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// UpdateInstanceTemplateFile indicates an expected call of UpdateInstanceTemplateFile
-func (mr *MockContainerServerMockRecorder) UpdateInstanceTemplateFile(arg0, arg1, arg2 interface{}) *gomock.Call {
+// UpdateInstances indicates an expected call of UpdateInstances
+func (mr *MockContainerServerMockRecorder) UpdateInstances(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateInstanceTemplateFile", reflect.TypeOf((*MockContainerServer)(nil).UpdateInstanceTemplateFile), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateInstances", reflect.TypeOf((*MockContainerServer)(nil).UpdateInstances), arg0, arg1)
 }
 
 // UpdateNetwork mocks base method
@@ -3369,6 +3670,20 @@ func (m *MockContainerServer) UpdateNetwork(arg0 string, arg1 api.NetworkPut, ar
 func (mr *MockContainerServerMockRecorder) UpdateNetwork(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateNetwork", reflect.TypeOf((*MockContainerServer)(nil).UpdateNetwork), arg0, arg1, arg2)
+}
+
+// UpdateNetworkACL mocks base method
+func (m *MockContainerServer) UpdateNetworkACL(arg0 string, arg1 api.NetworkACLPut, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateNetworkACL", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateNetworkACL indicates an expected call of UpdateNetworkACL
+func (mr *MockContainerServerMockRecorder) UpdateNetworkACL(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateNetworkACL", reflect.TypeOf((*MockContainerServer)(nil).UpdateNetworkACL), arg0, arg1, arg2)
 }
 
 // UpdateProfile mocks base method

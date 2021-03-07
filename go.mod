@@ -18,6 +18,7 @@ require (
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
 	github.com/docker/distribution v2.6.0-rc.1.0.20180522175653-f0cc92778478+incompatible
 	github.com/dustin/go-humanize v1.0.0
+	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.0-20210309064400-d73aa8f92aa2
 	github.com/golang/mock v1.4.3
 	github.com/google/go-querystring v0.0.0-20160401233042-9235644dd9e5
 	github.com/googleapis/gnostic v0.2.0
@@ -35,7 +36,7 @@ require (
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
 	github.com/juju/bundlechanges v1.0.1-0.20210209114844-acd700ed48fe
 	github.com/juju/charm/v7 v7.0.0-20210302234338-a3c1f482f08a
-	github.com/juju/charmrepo/v5 v5.0.0-20210305124037-2aa050acc88c
+	github.com/juju/charmrepo/v5 v5.0.0-20210309073708-d0dc3a75f085
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
@@ -46,7 +47,7 @@ require (
 	github.com/juju/go-oracle-cloud v0.0.0-20170421134547-932a8cea00a1
 	github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2
 	github.com/juju/gomaasapi v0.0.0-20190826212825-0ab1eb636aba
-	github.com/juju/idmclient/v2 v2.0.0-20210305130631-95f6b39e9f5d
+	github.com/juju/idmclient/v2 v2.0.0-20210309081103-6b4a5212f851
 	github.com/juju/jsonschema v0.0.0-20161102181919-a0ef8b74ebcf
 	github.com/juju/jsonschema-gen v0.0.0-20200416014454-d924343d72b2
 	github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e
@@ -63,10 +64,10 @@ require (
 	github.com/juju/replicaset v0.0.0-20210302050932-0303c8575745
 	github.com/juju/retry v0.0.0-20180821225755-9058e192b216
 	github.com/juju/rfc v0.0.0-20180510112117-b058ad085c94
-	github.com/juju/romulus v0.0.0-20210305133139-74769a010b9f
+	github.com/juju/romulus v0.0.0-20210309074704-4fa3bbd32568
 	github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476
 	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
-	github.com/juju/terms-client/v2 v2.0.0-20210305132138-43a7a1a9e9c7
+	github.com/juju/terms-client/v2 v2.0.0-20210309081804-aed8368405f6
 	github.com/juju/testing v0.0.0-20210302031854-2c7ee8570c07
 	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
@@ -75,7 +76,7 @@ require (
 	github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.1
-	github.com/lxc/lxd v0.0.0-20200306132355-582edb00c72c
+	github.com/lxc/lxd v0.0.0-20210308173700-befe9fce0a1f
 	github.com/mattn/go-isatty v0.0.4
 	github.com/oracle/oci-go-sdk v5.7.0+incompatible
 	github.com/pkg/errors v0.9.1
@@ -94,7 +95,6 @@ require (
 	gopkg.in/httprequest.v1 v1.2.0
 	gopkg.in/ini.v1 v1.10.1
 	gopkg.in/juju/environschema.v1 v1.0.0
-	gopkg.in/macaroon-bakery.v3 v3.0.0-20210305063614-792624751518
 	gopkg.in/macaroon.v2 v2.1.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
@@ -118,5 +118,3 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml v0.0.0-20200420012109-12a32b78d
 replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0.0.0-20141228071148-145fabdb1ab7
 
 replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5
-
-replace github.com/lxc/lxd => github.com/wallyworld/lxd v0.0.0-20210305065751-132be32fca66

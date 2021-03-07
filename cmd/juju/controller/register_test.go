@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -21,7 +22,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v3/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"

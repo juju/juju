@@ -12,13 +12,13 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/gosuri/uitable"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	api "github.com/juju/romulus/api/plan"
 	wireformat "github.com/juju/romulus/wireformat/plan"
-	"gopkg.in/macaroon-bakery.v3/httpbakery"
 	"gopkg.in/yaml.v2"
 
 	jujucmd "github.com/juju/juju/cmd"
