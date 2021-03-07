@@ -5,7 +5,6 @@ package initialize
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"path"
 	"strings"
@@ -110,12 +109,6 @@ func (c *initCommand) Run(ctx *cmd.Context) error {
 
 	if err = c.fileReaderWriter.MkdirAll(c.dataDir, 0755); err != nil {
 		return errors.Trace(err)
-	}
-
-	for _, containerName := range c.containerNames {
-		if err = c.fileReaderWriter.MkdirAll(fmt.Sprintf("/charm/containers/%s/pebble", containerName), 0755); err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	templateConfigPath := path.Join(c.dataDir, k8sconstants.TemplateFileNameAgentConf)
