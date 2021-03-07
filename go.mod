@@ -14,7 +14,7 @@ require (
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
 	github.com/aws/aws-sdk-go v1.29.8
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/canonical/pebble v0.0.0
+	github.com/canonical/pebble v0.0.0-20210304221917-61be317f2b1f
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
 	github.com/docker/distribution v2.7.1+incompatible
@@ -140,7 +140,5 @@ replace (
 	k8s.io/apimachinery v0.0.0 => k8s.io/apimachinery v0.19.6
 	k8s.io/client-go v0.0.0 => k8s.io/client-go v0.19.6
 )
-
-replace github.com/canonical/pebble v0.0.0 => github.com/benhoyt/pebble v0.0.0-20210304022342-b802127d2bb8
 
 replace github.com/lxc/lxd => github.com/juju/lxc v0.0.0-20210304025634-a00d0fd8503e
