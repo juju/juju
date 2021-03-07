@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/names/v4"
 	"golang.org/x/crypto/ssh/terminal"
+	"gopkg.in/macaroon-bakery.v3/httpbakery"
 )
 
 const userChangePasswordDoc = `

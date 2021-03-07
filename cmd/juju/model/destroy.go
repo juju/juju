@@ -10,7 +10,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/romulus/api/budget"
+	"gopkg.in/macaroon-bakery.v3/httpbakery"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelconfig"

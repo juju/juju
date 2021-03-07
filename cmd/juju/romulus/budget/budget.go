@@ -9,12 +9,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	api "github.com/juju/romulus/api/budget"
 	"github.com/juju/utils"
+	"gopkg.in/macaroon-bakery.v3/httpbakery"
 
 	jujucmd "github.com/juju/juju/cmd"
 	rcmd "github.com/juju/juju/cmd/juju/romulus"

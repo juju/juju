@@ -4,7 +4,7 @@
 package stateauthenticator
 
 import (
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/identchecker"
+	"gopkg.in/macaroon-bakery.v3/bakery/identchecker"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/names/v4"

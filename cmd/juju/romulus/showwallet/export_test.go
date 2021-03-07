@@ -4,7 +4,7 @@
 package showwallet
 
 import (
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
+	"gopkg.in/macaroon-bakery.v3/httpbakery"
 )
 
 var (

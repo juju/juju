@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
+	"gopkg.in/macaroon-bakery.v3/bakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/constraints"

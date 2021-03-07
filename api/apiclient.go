@@ -20,8 +20,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/gorilla/websocket"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -30,6 +28,8 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/parallel"
 	"github.com/juju/version"
+	"gopkg.in/macaroon-bakery.v3/bakery"
+	"gopkg.in/macaroon-bakery.v3/httpbakery"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/retry.v1"
 

@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/charmrepo/v5/csclient"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"gopkg.in/juju/environschema.v1"
+	"gopkg.in/macaroon-bakery.v3/bakery"
 
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/pki"
@@ -42,7 +42,7 @@ const (
 	// properly.
 	ControllerAPIPort = "controller-api-port"
 
-	// Canonical name for the controller
+	// ControllerName is the canonical name for the controller
 	ControllerName = "controller-name"
 
 	// AgentRateLimitMax is the maximum size of the token bucket used to

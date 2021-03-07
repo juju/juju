@@ -4,11 +4,11 @@
 package remoterelations
 
 import (
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
+	"gopkg.in/macaroon-bakery.v3/bakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/watcher"

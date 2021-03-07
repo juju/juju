@@ -11,9 +11,9 @@ package bakerystorage
 import (
 	"time"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/mgorootkeystore"
 	"github.com/juju/errors"
+	"gopkg.in/macaroon-bakery.v3/bakery"
+	"gopkg.in/macaroon-bakery.v3/bakery/mgorootkeystore"
 
 	"github.com/juju/juju/mongo"
 )

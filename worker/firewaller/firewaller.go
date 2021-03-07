@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/EvilSuperstars/go-cidrman"
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/charm/v7"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
+	"gopkg.in/macaroon-bakery.v3/bakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"

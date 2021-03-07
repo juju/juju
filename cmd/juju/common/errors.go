@@ -8,8 +8,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
+	"gopkg.in/macaroon-bakery.v3/httpbakery"
 )
 
 func PermissionsMessage(writer io.Writer, command string) {
