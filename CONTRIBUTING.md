@@ -35,7 +35,7 @@ concurrent language.
 
 ### via snap
 
-    snap install go --channel=1.14/stable --classic
+    snap install go --channel=1.16/stable --classic
 
 [Snap](https://snapcraft.io/go) is the recommended way to install Go on Linux.
 

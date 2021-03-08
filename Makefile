@@ -169,15 +169,14 @@ else
 		./apiserver/facades/schema.json
 endif
 
-# Install packages required to develop Juju and run tests. The stable
-# PPA includes the required mongodb-server binaries.
+# Install packages required to develop Juju and run tests.
 install-snap-dependencies:
 ## install-snap-dependencies: Install the supported snap dependencies
-ifeq ($(shell go version | grep -o "go1.14" || true),go1.14)
-	@echo Using installed go-1.14
+ifeq ($(shell go version | grep -o "go1.16" || true),go1.16)
+	@echo Using installed go-1.16
 else
-	@echo Installing go-1.14 snap
-	@sudo snap install go --channel=1.14/stable --classic
+	@echo Installing go-1.16 snap
+	@sudo snap install go --channel=1.16/stable --classic
 endif
 
 install-mongo-dependencies:

@@ -175,13 +175,14 @@ func (w *Worker) loop() error {
 		}
 	}()
 	defer func() {
+		// Release the holdable listener to unblock any pending accepts.
+		// This needs to be done before asking to server to shutdown since
+		// starting in Go 1.16, the server will wait for all listeners to
+		// close before exiting.
+		w.holdable.release()
 		ctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
 		defer cancel()
-		w.logger.Infof("shutting down HTTP server")
-		// Shutting down the server will also close listener.
 		err := server.Shutdown(ctx)
-		// Release the holdable listener to unblock any pending accepts.
-		w.holdable.release()
 		w.catacomb.Kill(err)
 	}()
 
@@ -283,10 +284,17 @@ func (h *heldListener) release() {
 
 func (h *heldListener) Accept() (net.Conn, error) {
 	h.cond.L.Lock()
+	wasHeld := false
 	for h.held {
+		wasHeld = true
 		h.cond.Wait()
 	}
 	h.cond.L.Unlock()
+	// If we were held pending a shutdown,
+	// do not accept any connections.
+	if wasHeld {
+		return nil, http.ErrServerClosed
+	}
 	return h.listener.Accept()
 }
 
