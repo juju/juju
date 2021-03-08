@@ -22,7 +22,10 @@ import (
 type Backend interface {
 	network.SpaceLookup
 
+	// Application returns a application state by name.
+	Application(string) (Application, error)
 	Machine(string) (Machine, error)
+	Unit(string) (Unit, error)
 	Model() (Model, error)
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 	AddOneMachine(template state.MachineTemplate) (*state.Machine, error)
@@ -60,18 +63,45 @@ type Machine interface {
 	IsManager() bool
 	IsLockedForSeriesUpgrade() (bool, error)
 	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
+	ApplicationNames() ([]string, error)
+}
+
+type Application interface {
+	VerifySupportedSeries(series string, force bool) error
 }
 
 type stateShim struct {
 	*state.State
 }
 
+func (s stateShim) Application(name string) (Application, error) {
+	a, err := s.State.Application(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return applicationShim{
+		Application: a,
+	}, nil
+}
+
 func (s stateShim) Machine(name string) (Machine, error) {
 	m, err := s.State.Machine(name)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return machineShim{m}, nil
+	return machineShim{
+		Machine: m,
+	}, nil
+}
+
+func (s stateShim) Unit(name string) (Unit, error) {
+	u, err := s.State.Unit(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return unitShim{
+		Unit: u,
+	}, nil
 }
 
 func (s stateShim) Model() (Model, error) {
@@ -90,6 +120,10 @@ func (p *poolShim) GetModel(uuid string) (Model, func(), error) {
 	return m, func() { ph.Release() }, nil
 }
 
+type applicationShim struct {
+	*state.Application
+}
+
 type machineShim struct {
 	*state.Machine
 }
@@ -104,6 +138,10 @@ func (m machineShim) Units() ([]Unit, error) {
 		out[i] = u
 	}
 	return out, nil
+}
+
+type unitShim struct {
+	*state.Unit
 }
 
 type Unit interface {

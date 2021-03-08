@@ -520,10 +520,17 @@ func (s *MachineManagerSuite) setupUpgradeSeries(c *gc.C) {
 		"3": {id: "3", series: "bionic", isManager: true},
 		"4": {id: "4", series: "trusty", isLockedForSeriesUpgrade: true},
 	}
+	s.st.applications = map[string]*mockApplication{
+		"foo": {},
+	}
 }
 
 func (s *MachineManagerSuite) apiV5() machinemanager.MachineManagerAPIV5 {
-	return machinemanager.MachineManagerAPIV5{MachineManagerAPIV6: &machinemanager.MachineManagerAPIV6{s.api}}
+	return machinemanager.MachineManagerAPIV5{
+		MachineManagerAPIV6: &machinemanager.MachineManagerAPIV6{
+			MachineManagerAPI: s.api,
+		},
+	}
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesValidateOK(c *gc.C) {
@@ -545,9 +552,12 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateOK(c *gc.C) {
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
 
+	units, err := s.st.machines["0"].Units()
+	c.Assert(err, jc.ErrorIsNil)
+
 	var expectedUnitNames []string
-	for _, unit := range s.st.machines["0"].Principals() {
-		expectedUnitNames = append(expectedUnitNames, unit)
+	for _, unit := range units {
+		expectedUnitNames = append(expectedUnitNames, unit.UnitTag().Id())
 	}
 	c.Assert(result.UnitNames, gc.DeepEquals, expectedUnitNames)
 }
@@ -909,6 +919,7 @@ type mockState struct {
 	calls            int
 	machineTemplates []state.MachineTemplate
 	machines         map[string]*mockMachine
+	applications     map[string]*mockApplication
 	err              error
 	blockMsg         string
 	block            state.BlockType
@@ -997,6 +1008,15 @@ func (st *mockState) Machine(id string) (machinemanager.Machine, error) {
 		return nil, errors.NotFoundf("machine %v", id)
 	} else {
 		return m, nil
+	}
+}
+
+func (st *mockState) Application(id string) (machinemanager.Application, error) {
+	st.MethodCall(st, "Application", id)
+	if a, ok := st.applications[id]; !ok {
+		return nil, errors.NotFoundf("application %s", id)
+	} else {
+		return a, nil
 	}
 }
 
@@ -1092,9 +1112,9 @@ func (m *mockMachine) Units() ([]machinemanager.Unit, error) {
 		return m.unitsF()
 	}
 	return []machinemanager.Unit{
-		&mockUnit{tag: names.NewUnitTag("foo/0")},
-		&mockUnit{tag: names.NewUnitTag("foo/1")},
-		&mockUnit{tag: names.NewUnitTag("foo/2")},
+		&mockUnit{tag: names.NewUnitTag("foo/0"), agentStatus: m.unitAgentState, unitStatus: m.unitState},
+		&mockUnit{tag: names.NewUnitTag("foo/1"), agentStatus: m.unitAgentState, unitStatus: m.unitState},
+		&mockUnit{tag: names.NewUnitTag("foo/2"), agentStatus: m.unitAgentState, unitStatus: m.unitState},
 	}, nil
 }
 
@@ -1139,6 +1159,20 @@ func (m *mockMachine) IsLockedForSeriesUpgrade() (bool, error) {
 func (m *mockMachine) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	m.MethodCall(m, "UpgradeSeriesStatus")
 	return model.UpgradeSeriesNotStarted, nil
+}
+
+func (m *mockMachine) ApplicationNames() ([]string, error) {
+	m.MethodCall(m, "ApplicationNames")
+	return []string{"foo"}, nil
+}
+
+type mockApplication struct {
+	jtesting.Stub
+}
+
+func (a *mockApplication) VerifySupportedSeries(series string, force bool) error {
+	a.MethodCall(a, "VerifySupportedSeries", series, force)
+	return nil
 }
 
 type mockUnit struct {

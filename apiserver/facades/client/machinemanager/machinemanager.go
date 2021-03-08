@@ -42,13 +42,14 @@ type Leadership interface {
 
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
-	st            Backend
-	storageAccess storageInterface
-	pool          Pool
-	authorizer    facade.Authorizer
-	check         *common.BlockChecker
-	resources     facade.Resources
-	leadership    Leadership
+	st               Backend
+	storageAccess    storageInterface
+	pool             Pool
+	authorizer       facade.Authorizer
+	check            *common.BlockChecker
+	resources        facade.Resources
+	leadership       Leadership
+	upgradeSeriesAPI UpgradeSeries
 
 	modelTag    names.ModelTag
 	callContext context.ProviderCallContext
@@ -87,18 +88,18 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 	)
 }
 
-// Version 4 of MachineManagerAPI
+// MachineManagerAPIV4 defines the Version 4 of MachineManagerAPI
 type MachineManagerAPIV4 struct {
 	*MachineManagerAPIV5
 }
 
-// Version 5 of Machine Manager API.
+// MachineManagerAPIV5 defines the Version 5 of Machine Manager API.
 // Adds CreateUpgradeSeriesLock and removes UpdateMachineSeries.
 type MachineManagerAPIV5 struct {
 	*MachineManagerAPIV6
 }
 
-// Version 6 of Machine Manager API.
+// MachineManagerAPIV6 defines the Version 6 of Machine Manager API.
 // Changes input parameters to DestroyMachineWithParams and ForceDestroyMachine.
 type MachineManagerAPIV6 struct {
 	*MachineManagerAPI
@@ -145,7 +146,7 @@ func NewMachineManagerAPI(
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-	return &MachineManagerAPI{
+	api := &MachineManagerAPI{
 		st:            backend,
 		storageAccess: storageAccess,
 		pool:          pool,
@@ -155,7 +156,14 @@ func NewMachineManagerAPI(
 		callContext:   callCtx,
 		resources:     resources,
 		leadership:    leadership,
-	}, nil
+	}
+	api.upgradeSeriesAPI = NewUpgradeSeriesAPI(
+		upgradeSeriesState{facade: api},
+		upgradeSeriesValidator{facade: api},
+		upgradeSeriesAuthorizer{facade: api},
+	)
+
+	return api, nil
 }
 
 func (mm *MachineManagerAPI) checkCanWrite() error {
@@ -471,62 +479,31 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 func (mm *MachineManagerAPI) UpgradeSeriesValidate(
 	args params.UpdateSeriesArgs,
 ) (params.UpgradeSeriesUnitsResults, error) {
-	err := mm.checkCanRead()
-	if err != nil {
-		return params.UpgradeSeriesUnitsResults{}, err
-	}
-
-	results := make([]params.UpgradeSeriesUnitsResult, len(args.Args))
+	entities := make([]ValidationEntity, len(args.Args))
 	for i, arg := range args.Args {
-		tag := arg.Entity.Tag
-		machine, err := mm.machineFromTag(tag)
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
+		entities[i] = ValidationEntity{
+			Tag:    arg.Entity.Tag,
+			Series: arg.Series,
+			Force:  arg.Force,
 		}
-
-		if machine.IsManager() {
-			results[i].Error = apiservererrors.ServerError(
-				errors.Errorf("%s is a controller and cannot be targeted for series upgrade", tag))
-			continue
-		}
-
-		// If we've already got a series lock on upgrade, don't go any further.
-		if locked, err := machine.IsLockedForSeriesUpgrade(); err != nil && errors.IsNotFound(errors.Cause(err)) {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
-		} else if locked {
-			// Grab the status from upgrade series and add it to the error.
-			status, err := machine.UpgradeSeriesStatus()
-			if err != nil {
-				results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-			// Additionally add the status to the underlying params error. This
-			// gives a typed error to the client, which can then decode ths
-			// optional information later on.
-			results[i].Error = apiservererrors.ServerError(&apiservererrors.UpgradeSeriesValidationError{
-				Cause:  errors.Errorf("upgrade series lock found for %q; series upgrade is in the %q state", machine.Id(), status),
-				Status: status.String(),
-			})
-			continue
-		}
-
-		err = mm.validateSeries(arg.Series, machine.Series(), tag)
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		unitNames, err := mm.verifiedUnits(machine, arg.Series, arg.Force)
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		results[i].UnitNames = unitNames
 	}
 
-	return params.UpgradeSeriesUnitsResults{Results: results}, nil
+	validations, err := mm.upgradeSeriesAPI.Validate(entities)
+	if err != nil {
+		return params.UpgradeSeriesUnitsResults{}, apiservererrors.ServerError(err)
+	}
+
+	results := params.UpgradeSeriesUnitsResults{
+		Results: make([]params.UpgradeSeriesUnitsResult, len(validations)),
+	}
+	for i, v := range validations {
+		if v.Error != nil {
+			results.Results[i].Error = apiservererrors.ServerError(v.Error)
+			continue
+		}
+		results.Results[i].UnitNames = v.UnitNames
+	}
+	return results, nil
 }
 
 // UpgradeSeriesPrepare prepares a machine for a OS series upgrade.
@@ -570,8 +547,12 @@ func (mm *MachineManagerAPI) upgradeSeriesPrepare(arg params.UpdateSeriesArg) er
 		// the hooks is needed etc.
 		return errors.Trace(err)
 	}
+
+	// TODO (stickupkid) Download charms from charmhub.
+
 	defer func() {
 		if err != nil {
+			// TODO (stickupkid) Rollback new downloaded charmhub charms...
 			if err2 := machine.RemoveUpgradeSeriesLock(); err2 != nil {
 				err = errors.Annotatef(err, "%s occurred while cleaning up from", err2)
 			}
@@ -630,7 +611,7 @@ func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(args params.Entitie
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		watcherId := ""
+		var watcherId string
 		machine, err := mm.st.Machine(tag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
@@ -746,7 +727,8 @@ func isSeriesLessThan(series1, series2 string) (bool, error) {
 	return version2 > version1, nil
 }
 
-// DEPRECATED: UpdateMachineSeries returns an error.
+// UpdateMachineSeries returns an error.
+// DEPRECATED
 func (mm *MachineManagerAPIV4) UpdateMachineSeries(_ params.UpdateSeriesArgs) (params.ErrorResults, error) {
 	return params.ErrorResults{
 		Results: []params.ErrorResult{{
@@ -755,24 +737,24 @@ func (mm *MachineManagerAPIV4) UpdateMachineSeries(_ params.UpdateSeriesArgs) (p
 	}, nil
 }
 
-func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string, machineTag string) error {
-	if argumentSeries == "" {
+func (mm *MachineManagerAPI) validateSeries(requestedSeries, machineSeries, machineTag string) error {
+	if requestedSeries == "" {
 		return &params.Error{
 			Message: "series missing from args",
 			Code:    params.CodeBadRequest,
 		}
 	}
 
-	opSys, err := series.GetOSFromSeries(argumentSeries)
+	opSys, err := series.GetOSFromSeries(requestedSeries)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if opSys != os.Ubuntu {
 		return errors.Errorf("series %q is from OS %q and is not a valid upgrade target",
-			argumentSeries, opSys.String())
+			requestedSeries, opSys.String())
 	}
 
-	opSys, err = series.GetOSFromSeries(currentSeries)
+	opSys, err = series.GetOSFromSeries(machineSeries)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -781,17 +763,20 @@ func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string
 			machineTag, opSys.String())
 	}
 
-	if argumentSeries == currentSeries {
-		return errors.Errorf("%s is already running series %s", machineTag, argumentSeries)
+	if requestedSeries == machineSeries {
+		return errors.Errorf("%s is already running series %s", machineTag, requestedSeries)
 	}
 
-	isOlderSeries, err := isSeriesLessThan(argumentSeries, currentSeries)
+	// TODO (Check the charmhub API for all applications running on this) machine
+	// to see if it's possible to run a charm on this machine.
+
+	isOlderSeries, err := isSeriesLessThan(requestedSeries, machineSeries)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if isOlderSeries {
 		return errors.Errorf("machine %s is running %s which is a newer series than %s.",
-			machineTag, currentSeries, argumentSeries)
+			machineTag, machineSeries, requestedSeries)
 	}
 
 	return nil
