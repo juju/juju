@@ -9,15 +9,15 @@ run_state_delete_get_set() {
     juju deploy cs:~jameinel/ubuntu-lite-7
     wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
-    juju run --unit ubuntu-lite/0 'state-get | grep -q "{}"'
-    juju run --unit ubuntu-lite/0 'state-set one=two'
-    juju run --unit ubuntu-lite/0 'state-get | grep -q "one: two"'
-    juju run --unit ubuntu-lite/0 'state-set three=four'
-    juju run --unit ubuntu-lite/0 'state-get three | grep -q "four"'
-    juju run --unit ubuntu-lite/0 'state-delete one'
-    juju run --unit ubuntu-lite/0 'state-get | grep -q "three: four"'
-    juju run --unit ubuntu-lite/0 'state-get one --strict | grep -q "ERROR \"one\" not found" || true'
-    juju run --unit ubuntu-lite/0 'state-get one'
+    juju exec --unit ubuntu-lite/0 'state-get | grep -q "{}"'
+    juju exec --unit ubuntu-lite/0 'state-set one=two'
+    juju exec --unit ubuntu-lite/0 'state-get | grep -q "one: two"'
+    juju exec --unit ubuntu-lite/0 'state-set three=four'
+    juju exec --unit ubuntu-lite/0 'state-get three | grep -q "four"'
+    juju exec --unit ubuntu-lite/0 'state-delete one'
+    juju exec --unit ubuntu-lite/0 'state-get | grep -q "three: four"'
+    juju exec --unit ubuntu-lite/0 'state-get one --strict | grep -q "ERROR \"one\" not found" || true'
+    juju exec --unit ubuntu-lite/0 'state-get one'
 
     destroy_model "${model_name}"
 }
@@ -37,15 +37,15 @@ run_state_set_clash_uniter_state() {
     juju deploy cs:~jameinel/ubuntu-lite-7
     wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
-    juju run --unit ubuntu-lite/0 'state-get | grep -q "{}"'
-    juju run --unit ubuntu-lite/0 'state-set one=two'
-    juju run --unit ubuntu-lite/0 'state-get | grep -q "one: two"'
+    juju exec --unit ubuntu-lite/0 'state-get | grep -q "{}"'
+    juju exec --unit ubuntu-lite/0 'state-set one=two'
+    juju exec --unit ubuntu-lite/0 'state-get | grep -q "one: two"'
 
     # force a hook
-    juju run --unit ubuntu-lite/0 hooks/update-status
+    juju exec --unit ubuntu-lite/0 hooks/update-status
 
     # verify charm set values
-    juju run --unit ubuntu-lite/0 'state-get | grep -q "one: two"'
+    juju exec --unit ubuntu-lite/0 'state-get | grep -q "one: two"'
 
     destroy_model "${model_name}"
 }
