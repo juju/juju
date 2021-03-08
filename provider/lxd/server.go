@@ -80,6 +80,7 @@ type Server interface {
 	GetClusterMembers() (members []lxdapi.ClusterMember, err error)
 	Name() string
 	GetNetworkNames() ([]string, error)
+	GetNetwork(name string) (*lxdapi.Network, string, error)
 	GetNetworkState(name string) (*lxdapi.NetworkState, error)
 	GetContainer(name string) (*lxdapi.Container, string, error)
 	GetContainerState(name string) (*lxdapi.ContainerState, string, error)

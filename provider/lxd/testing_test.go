@@ -436,6 +436,10 @@ type StubClient struct {
 	NetworkState       map[string]api.NetworkState
 }
 
+func (conn *StubClient) GetNetwork(string) (*api.Network, string, error) {
+	return nil, "", errors.NotImplementedf("GetNetwork")
+}
+
 func (conn *StubClient) FilterContainers(prefix string, statuses ...string) ([]lxd.Container, error) {
 	conn.AddCall("FilterContainers", prefix, statuses)
 	if err := conn.NextErr(); err != nil {

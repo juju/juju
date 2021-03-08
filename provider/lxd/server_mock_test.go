@@ -10,7 +10,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	environs "github.com/juju/juju/environs"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
-	lxd1 "github.com/lxc/lxd/client"
+	client "github.com/lxc/lxd/client"
 	api "github.com/lxc/lxd/shared/api"
 	reflect "reflect"
 )
@@ -304,10 +304,10 @@ func (mr *MockServerMockRecorder) GetClusterMembers() *gomock.Call {
 }
 
 // GetConnectionInfo mocks base method
-func (m *MockServer) GetConnectionInfo() (*lxd1.ConnectionInfo, error) {
+func (m *MockServer) GetConnectionInfo() (*client.ConnectionInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetConnectionInfo")
-	ret0, _ := ret[0].(*lxd1.ConnectionInfo)
+	ret0, _ := ret[0].(*client.ConnectionInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -378,6 +378,22 @@ func (m *MockServer) GetNICsFromProfile(arg0 string) (map[string]map[string]stri
 func (mr *MockServerMockRecorder) GetNICsFromProfile(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNICsFromProfile", reflect.TypeOf((*MockServer)(nil).GetNICsFromProfile), arg0)
+}
+
+// GetNetwork mocks base method
+func (m *MockServer) GetNetwork(arg0 string) (*api.Network, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetwork", arg0)
+	ret0, _ := ret[0].(*api.Network)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetNetwork indicates an expected call of GetNetwork
+func (mr *MockServerMockRecorder) GetNetwork(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetwork", reflect.TypeOf((*MockServer)(nil).GetNetwork), arg0)
 }
 
 // GetNetworkNames mocks base method
