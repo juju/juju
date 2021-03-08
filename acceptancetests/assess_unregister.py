@@ -67,7 +67,7 @@ def assert_switch_raises_error(client):
     try:
         client.get_raw_juju_output('switch', None, include_e=False)
     except subprocess.CalledProcessError as e:
-        if 'no model name was passed' not in e.stderr:
+        if 'no model name was passed' not in str(e.stderr):
             raise JujuAssertionError(
                 '"juju switch" command failed for an unexpected reason: '
                 '{}'.format(e.stderr))
