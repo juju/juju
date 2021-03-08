@@ -25,7 +25,9 @@ add_multi_nic_machine() {
   # Add an entry to netplan and apply it so the second interface comes online
   echo "[+] updating netplan and restarting machine agent"
   # shellcheck disable=SC2086,SC2016
-  juju ssh ${juju_machine_id} 'sudo sh -c "echo \"            gateway4: `ip route | grep default | cut -d\" \" -f3`\n        ens6:\n            dhcp4: true\n\" >> /etc/netplan/50-cloud-init.yaml"'
+  juju ssh ${juju_machine_id} 'sudo sh -c "sed -i \"/version:/d\" /etc/netplan/50-cloud-init.yaml"'
+  # shellcheck disable=SC2086,SC2016
+  juju ssh ${juju_machine_id} 'sudo sh -c "echo \"            gateway4: `ip route | grep default | cut -d\" \" -f3`\n        ens6:\n            dhcp4: true\n    version: 2\n\" >> /etc/netplan/50-cloud-init.yaml"'
   # shellcheck disable=SC2086,SC2016
   juju ssh ${juju_machine_id} 'sudo netplan apply'
   # shellcheck disable=SC2086,SC2016
