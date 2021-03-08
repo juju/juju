@@ -1,11 +1,11 @@
 cat_mongo_service() {
-    if juju run -m controller --machine 0 'cat /etc/systemd/system/juju-db.service'; then
+    if juju exec -m controller --machine 0 'cat /etc/systemd/system/juju-db.service'; then
         # shellcheck disable=SC2046
-        echo $(juju run -m controller --machine 0 'cat /etc/systemd/system/juju-db.service' | grep "^ExecStart")
+        echo $(juju exec -m controller --machine 0 'cat /etc/systemd/system/juju-db.service' | grep "^ExecStart")
     else
         # On focal and beyond we install Mongo via a snap
         # shellcheck disable=SC2046
-        echo $(juju run -m controller --machine 0 'sudo cat /var/snap/juju-db/common/juju-db.config' | grep "wiredTigerCacheSizeGB")
+        echo $(juju exec -m controller --machine 0 'sudo cat /var/snap/juju-db/common/juju-db.config' | grep "wiredTigerCacheSizeGB")
     fi
 }
 

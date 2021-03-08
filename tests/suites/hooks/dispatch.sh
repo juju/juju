@@ -20,7 +20,7 @@ run_hook_dispatching_script() {
     # awk, change the separator to " and get the 2nd value.
     # e.g Action queued with id: "2"
     # yields: 2
-    action_id=$(juju run ubuntu-plus/0 no-dispatch filename=test-dispatch | awk 'BEGIN{FS="\""} {print $2}')
+    action_id=$(juju exec ubuntu-plus/0 no-dispatch filename=test-dispatch | awk 'BEGIN{FS="\""} {print $2}')
     juju show-task "${action_id}" | grep -q completed || true
 
     # wait for update-status

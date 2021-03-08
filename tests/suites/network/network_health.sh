@@ -35,7 +35,7 @@ check_default_routes() {
     echo "[+] checking default routes"
 
     for machine in $(juju machines --format=json | jq -r ".machines | keys | .[]"); do
-        default=$(juju run --machine "$machine" -- ip route show | grep default)
+        default=$(juju exec --machine "$machine" -- ip route show | grep default)
         if [ -z "$default" ]; then
             echo "No default route detected for machine ${machine}"
             exit 1
@@ -53,7 +53,7 @@ check_accessibility() {
 
         # Check that each of the principles can access the subordinate.
         for principle_unit in "mongodb/0" "ubuntu-bionic/0" "ubuntu-focal/0"; do
-            check_contains "$(juju run --unit $principle_unit "$curl_cmd")" "pass"
+            check_contains "$(juju exec --unit $principle_unit "$curl_cmd")" "pass"
         done
 
         # Check that the exposed subordinate is accessible externally.

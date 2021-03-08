@@ -24,15 +24,15 @@ run_expose_app_ec2() {
 assert_opened_ports_output() {
     echo "==> Checking open/opened-ports hook tools work as expected"
 
-    juju run --unit ubuntu-lite/0 "open-port 1337-1339/tcp"
-    juju run --unit ubuntu-lite/0 "open-port 1234/tcp --endpoints ubuntu"
+    juju exec --unit ubuntu-lite/0 "open-port 1337-1339/tcp"
+    juju exec --unit ubuntu-lite/0 "open-port 1234/tcp --endpoints ubuntu"
 
     # Test the backwards-compatible version of opened-ports where the output
     # includes the unique set of opened ports for all endpoints.
-    # Note that 'juju run' injects a trailing line-feed tot he command output
+    # Note that 'juju exec' injects a trailing line-feed tot he command output
     # so we need to use echo to generate our expectation string.
     exp=$(echo "1234/tcp 1337-1339/tcp" | tr '\n' ' ')
-    got=$(juju run --unit ubuntu-lite/0 "opened-ports" | tr '\n' ' ')
+    got=$(juju exec --unit ubuntu-lite/0 "opened-ports" | tr '\n' ' ')
     if [ "$got" != "$exp" ]; then
       # shellcheck disable=SC2046
       echo $(red "expected opened-ports output to be:\n${exp}\nGOT:\n${got}")
@@ -40,10 +40,10 @@ assert_opened_ports_output() {
     fi
 
     # Try the new version where we group by endpoint.
-    # Note that 'juju run' injects a trailing line-feed tot he command output
+    # Note that 'juju exec' injects a trailing line-feed tot he command output
     # so we need to use echo to generate our expectation string.
     exp=$(echo "1234/tcp (ubuntu) 1337-1339/tcp (*)" | tr '\n' ' ')
-    got=$(juju run --unit ubuntu-lite/0 "opened-ports --endpoints" | tr '\n' ' ')
+    got=$(juju exec --unit ubuntu-lite/0 "opened-ports --endpoints" | tr '\n' ' ')
     if [ "$got" != "$exp" ]; then
       # shellcheck disable=SC2046
       echo $(red "expected opened-ports output when using --endpoints to be:\n${exp}\nGOT:\n${got}")

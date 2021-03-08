@@ -25,7 +25,9 @@ add_multi_nic_machine() {
   # Add an entry to netplan and apply it so the second interface comes online
   echo "[+] updating netplan and restarting machine agent"
   # shellcheck disable=SC2086,SC2016
-  juju ssh ${juju_machine_id} 'sudo sh -c "echo \"            gateway4: `ip route | grep default | cut -d\" \" -f3`\n        ens6:\n            dhcp4: true\n\" >> /etc/netplan/50-cloud-init.yaml"'
+  juju ssh ${juju_machine_id} 'sudo sh -c "sed -i \"/version:/d\" /etc/netplan/50-cloud-init.yaml"'
+  # shellcheck disable=SC2086,SC2016
+  juju ssh ${juju_machine_id} 'sudo sh -c "echo \"            gateway4: `ip route | grep default | cut -d\" \" -f3`\n        ens6:\n            dhcp4: true\n    version: 2\n\" >> /etc/netplan/50-cloud-init.yaml"'
   # shellcheck disable=SC2086,SC2016
   juju ssh ${juju_machine_id} 'sudo netplan apply'
   # shellcheck disable=SC2086,SC2016
@@ -48,7 +50,7 @@ assert_net_iface_for_endpoint_matches() {
     exp_if_name=${3}
 
     # shellcheck disable=SC2086,SC2016
-    got_if=$(juju run -a ${app_name} "network-get ${endpoint_name}" | grep "interfacename: ens" | awk '{print $2}')
+    got_if=$(juju exec -a ${app_name} "network-get ${endpoint_name}" | grep "interfacename: ens" | awk '{print $2}')
     if [ "$got_if" != "$exp_if_name" ]; then
         # shellcheck disable=SC2086,SC2016,SC2046
         echo $(red "Expected network interface for ${app_name}:${endpoint_name} to be ${exp_if_name}; got ${got_if}")
