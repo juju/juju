@@ -1,6 +1,6 @@
 module github.com/juju/juju
 
-go 1.14
+go 1.16
 
 require (
 	github.com/Azure/azure-sdk-for-go v46.4.0+incompatible
