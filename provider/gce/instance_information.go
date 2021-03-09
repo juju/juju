@@ -16,8 +16,12 @@ import (
 	"github.com/juju/juju/provider/gce/google"
 )
 
-var _ environs.InstanceTypesFetcher = (*environ)(nil)
-var virtType = "kvm"
+var (
+	_ environs.InstanceTypesFetcher = (*environ)(nil)
+
+	virtType   = "kvm"
+	machArches = []string{arch.AMD64}
+)
 
 // InstanceTypes implements InstanceTypesFetcher
 func (env *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
@@ -45,7 +49,7 @@ func (env *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints
 				Name:     m.Name,
 				CpuCores: uint64(m.GuestCpus),
 				Mem:      uint64(m.MemoryMb),
-				Arches:   []string{arch.AMD64},
+				Arches:   machArches,
 				VirtType: &virtType,
 			}
 			resultUnique[m.Name] = i
