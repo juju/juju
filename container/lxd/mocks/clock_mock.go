@@ -5,11 +5,10 @@
 package mocks
 
 import (
-	reflect "reflect"
-	time "time"
-
 	gomock "github.com/golang/mock/gomock"
 	clock "github.com/juju/clock"
+	reflect "reflect"
+	time "time"
 )
 
 // MockClock is a mock of Clock interface
