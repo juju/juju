@@ -6,7 +6,6 @@ package action_test
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"testing"
 	"time"
 
@@ -228,18 +227,6 @@ func (s *actionSuite) TestEnqueueOperation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(operations, gc.HasLen, 1)
 	c.Assert(operations[0].Summary(), gc.Equals, "multiple actions run on unit-wordpress-0,application-wordpress,unit-mysql-0,wordpress/leader")
-}
-
-type testCaseAction struct {
-	Name       string
-	Parameters map[string]interface{}
-	Execute    bool
-}
-
-type receiverGroup struct {
-	ExpectedError *params.Error
-	Receiver      names.Tag
-	Actions       []testCaseAction
 }
 
 func (s *actionSuite) TestCancel(c *gc.C) {
@@ -475,31 +462,6 @@ func assertReadyToTest(c *gc.C, receiver state.ActionReceiver) {
 	actions, err = receiver.CompletedActions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actions, gc.HasLen, 0)
-}
-
-func toStrings(items []params.ActionResult) []string {
-	ret := make([]string, len(items))
-	for i, a := range items {
-		ret[i] = stringify(a)
-	}
-	return ret
-}
-
-func stringify(r params.ActionResult) string {
-	a := r.Action
-	if a == nil {
-		a = &params.Action{}
-	}
-	// Convert action output map to ordered result.
-	var keys, orderedOut []string
-	for k := range r.Output {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		orderedOut = append(orderedOut, fmt.Sprintf("%v=%v", k, r.Output[k]))
-	}
-	return fmt.Sprintf("%s-%s-%#v-%s-%s-%v", a.Tag, a.Name, a.Parameters, r.Status, r.Message, orderedOut)
 }
 
 func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
