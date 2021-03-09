@@ -211,7 +211,7 @@ def deploy_kubeflow(caas_client, k8s_model, bundle, build):
 
     log.info("Waiting for Kubeflow to become ready")
 
-    k8s_model.wait_for_workloads(timeout=60*10)
+    k8s_model.juju('wait', ('-wv', '-m', k8s_model.model_name, '-t', str(10 * 60)))
     caas_client.kubectl(
         "wait",
         "--for=condition=available",
@@ -356,7 +356,7 @@ def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle, build=Fa
     if not caas_client.check_cluster_healthy(timeout=60):
         raise JujuAssertionError('k8s cluster is not healthy because kubectl is not accessible')
 
-    model_name = caas_client.client.env.controller.name + '-test-caas-model'
+    model_name = 'kubeflow'
     k8s_model = caas_client.add_model(model_name)
 
     def success_hook():
