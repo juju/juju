@@ -4,8 +4,20 @@
 package provider
 
 import (
+	"strings"
+
 	"github.com/go-logr/logr"
 	"github.com/juju/loggo"
+)
+
+type KlogMessagePrefixes []string
+
+var (
+	klogIgnorePrefixes = KlogMessagePrefixes{
+		"an error occurred forwarding",
+		"error copying from remote stream to local connection",
+		"error copying from local connection to remote stream",
+	}
 )
 
 // klogAdapter is an adapter for Kubernetes logger onto juju loggo. We use this
@@ -30,14 +42,27 @@ func (k *klogAdapter) Enabled() bool {
 func (k *klogAdapter) Error(err error, msg string, keysAndValues ...interface{}) {
 	if err != nil {
 		k.Logger.Errorf(msg+": "+err.Error(), keysAndValues...)
-	} else {
-		k.Logger.Errorf(msg, keysAndValues...)
+		return
 	}
+
+	if klogIgnorePrefixes.Matches(msg) {
+		return
+	}
+	k.Logger.Errorf(msg, keysAndValues...)
 }
 
 // Info see https://pkg.go.dev/github.com/go-logr/logr#Logger
 func (k *klogAdapter) Info(msg string, keysAndValues ...interface{}) {
 	k.Logger.Infof(msg, keysAndValues...)
+}
+
+func (k KlogMessagePrefixes) Matches(log string) bool {
+	for _, v := range k {
+		if strings.HasPrefix(log, v) {
+			return true
+		}
+	}
+	return false
 }
 
 // V see https://pkg.go.dev/github.com/go-logr/logr#Logger
