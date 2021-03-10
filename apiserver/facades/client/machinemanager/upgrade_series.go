@@ -4,12 +4,14 @@
 package machinemanager
 
 import (
+	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/status"
+	stateerrors "github.com/juju/juju/state/errors"
 )
 
 // UpgradeSeries defines an interface for interacting with upgrading a series.
@@ -223,9 +225,27 @@ func (s upgradeSeriesValidator) ValidateSeries(requested, machine, tag string) e
 
 func (s upgradeSeriesValidator) ValidateApplications(applications []Application, series string, force bool) error {
 	for _, app := range applications {
-		if err := app.VerifySupportedSeries(series, force); err != nil {
+		if err := s.verifySupportedSeries(app, series, force); err != nil {
 			return errors.Trace(err)
 		}
+	}
+	return nil
+}
+
+func (s upgradeSeriesValidator) verifySupportedSeries(application Application, series string, force bool) error {
+	ch, _, err := application.Charm()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	supportedSeries := ch.Meta().ComputedSeries()
+	if len(supportedSeries) == 0 {
+		supportedSeries = append(supportedSeries, ch.URL().Series)
+	}
+	_, seriesSupportedErr := charm.SeriesForCharm(series, supportedSeries)
+	if seriesSupportedErr != nil && !force {
+		// TODO (stickupkid): Once all commands are placed in this API, we
+		// should relocate these to the API server.
+		return stateerrors.NewErrIncompatibleSeries(supportedSeries, series, ch.String())
 	}
 	return nil
 }

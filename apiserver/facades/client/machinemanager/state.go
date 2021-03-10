@@ -6,6 +6,7 @@ package machinemanager
 import (
 	"time"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/names/v4"
@@ -72,7 +73,17 @@ type Machine interface {
 }
 
 type Application interface {
-	VerifySupportedSeries(series string, force bool) error
+	Charm() (Charm, bool, error)
+}
+
+type Charm interface {
+	URL() *charm.URL
+	Meta() CharmMeta
+	String() string
+}
+
+type CharmMeta interface {
+	ComputedSeries() []string
 }
 
 type stateShim struct {
@@ -127,6 +138,28 @@ func (p *poolShim) GetModel(uuid string) (Model, func(), error) {
 
 type applicationShim struct {
 	*state.Application
+}
+
+func (a applicationShim) Charm() (Charm, bool, error) {
+	ch, force, err := a.Application.Charm()
+	if err != nil {
+		return nil, false, errors.Trace(err)
+	}
+	return charmShim{
+		Charm: ch,
+	}, force, nil
+}
+
+type charmShim struct {
+	*state.Charm
+}
+
+func (c charmShim) Meta() CharmMeta {
+	return charmMeta{Meta: c.Charm.Meta()}
+}
+
+type charmMeta struct {
+	*charm.Meta
 }
 
 type machineShim struct {

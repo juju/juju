@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
@@ -1177,11 +1178,48 @@ func (m *mockMachine) ApplicationNames() ([]string, error) {
 
 type mockApplication struct {
 	jtesting.Stub
+	charm *mockCharm
 }
 
-func (a *mockApplication) VerifySupportedSeries(series string, force bool) error {
-	a.MethodCall(a, "VerifySupportedSeries", series, force)
+func (a *mockApplication) Charm() (machinemanager.Charm, bool, error) {
+	a.MethodCall(a, "Charm")
+	if a.charm == nil {
+		return &mockCharm{}, false, nil
+	}
+	return a.charm, false, nil
+}
+
+type mockCharm struct {
+	jtesting.Stub
+	meta *mockMeta
+}
+
+func (a *mockCharm) URL() *charm.URL {
+	a.MethodCall(a, "URL")
 	return nil
+}
+
+func (a *mockCharm) Meta() machinemanager.CharmMeta {
+	a.MethodCall(a, "Meta")
+	if a.meta == nil {
+		return &mockMeta{series: []string{"xenial"}}
+	}
+	return nil
+}
+
+func (a *mockCharm) String() string {
+	a.MethodCall(a, "String")
+	return ""
+}
+
+type mockMeta struct {
+	jtesting.Stub
+	series []string
+}
+
+func (a *mockMeta) ComputedSeries() []string {
+	a.MethodCall(a, "ComputedSeries")
+	return a.series
 }
 
 type mockUnit struct {
