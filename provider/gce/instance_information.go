@@ -5,7 +5,9 @@ package gce
 
 import (
 	"strconv"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 
@@ -29,7 +31,7 @@ var (
 
 // InstanceTypes implements InstanceTypesFetcher
 func (env *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
-	allInstanceTypes, err := env.getAllInstanceTypes(ctx)
+	allInstanceTypes, err := env.getAllInstanceTypes(ctx, clock.WallClock)
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
 	}
@@ -43,11 +45,11 @@ func (env *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints
 
 // getAllInstanceTypes fetches and memoizes the list of available GCE instances
 // for the AZs associated with the current region.
-func (env *environ) getAllInstanceTypes(ctx context.ProviderCallContext) ([]instances.InstanceType, error) {
+func (env *environ) getAllInstanceTypes(ctx context.ProviderCallContext, clock clock.Clock) ([]instances.InstanceType, error) {
 	env.instTypeListLock.Lock()
 	defer env.instTypeListLock.Unlock()
 
-	if len(env.cachedInstanceTypes) != 0 {
+	if len(env.cachedInstanceTypes) != 0 && clock.Now().Before(env.instCacheExpireAt) {
 		return env.cachedInstanceTypes, nil
 	}
 
@@ -87,5 +89,10 @@ func (env *environ) getAllInstanceTypes(ctx context.ProviderCallContext) ([]inst
 		env.cachedInstanceTypes = append(env.cachedInstanceTypes, it)
 	}
 
+	// Keep the instance data in the cache for 10 minutes. This is probably
+	// long enough to exploit temporal locality when deploying bundles etc
+	// and short enough to allow the use of new machines a few moments after
+	// they are published by the GCE.
+	env.instCacheExpireAt = clock.Now().Add(10 * time.Minute)
 	return env.cachedInstanceTypes, nil
 }

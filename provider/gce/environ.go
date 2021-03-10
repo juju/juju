@@ -6,6 +6,7 @@ package gce
 import (
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"google.golang.org/api/compute/v1"
@@ -82,6 +83,7 @@ type environ struct {
 	ecfg *environConfig
 
 	instTypeListLock    sync.Mutex
+	instCacheExpireAt   time.Time
 	cachedInstanceTypes []instances.InstanceType
 
 	// namespace is used to create the machine and device hostnames.
