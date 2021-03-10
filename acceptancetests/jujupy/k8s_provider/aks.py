@@ -22,6 +22,7 @@ from __future__ import print_function
 import logging
 import os
 from pprint import pformat
+from datetime import datetime
 
 import yaml
 from azure.identity import ClientSecretCredential
@@ -138,6 +139,9 @@ class AKS(Base):
             agent_pool_profiles=[agentpool_default],
             linux_profile=linux_profile,
             enable_rbac=True,
+            tags=m.TagsObject(
+                tags={'createdAt': datetime.now()},
+            ),
         )
 
     def list_clusters(self, resource_group):
