@@ -36,7 +36,7 @@ require (
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
 	github.com/juju/bundlechanges/v4 v4.0.0-20210223105356-e3037fe2412c
-	github.com/juju/charm/v8 v8.0.0-20210305131337-93c70ae08c0b
+	github.com/juju/charm/v8 v8.0.0-20210304015923-e7ca8ffa7716
 	github.com/juju/charmrepo/v6 v6.0.0-20210309083204-29c3dbf03675
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
@@ -73,7 +73,7 @@ require (
 	github.com/juju/testing v0.0.0-20210302031854-2c7ee8570c07
 	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
-	github.com/juju/utils/v2 v2.0.0-20200923005554-4646bfea2ef1
+	github.com/juju/utils/v2 v2.0.0-20210305225158-eedbe7b6b3e2
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a
@@ -94,7 +94,7 @@ require (
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	golang.org/x/sys v0.0.0-20210223212115-eede4237b368
+	golang.org/x/sys v0.0.0-20210309074719-68d13333faf2
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools v0.0.0-20200725200936-102e7d357031
 	google.golang.org/api v0.29.0
