@@ -108,20 +108,6 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 	s.runner = dummyRunner{CallMocker: testing.NewCallMocker(logger)}
 }
 
-func (s *cloudSuite) TestFinalizeCloudNotMicrok8s(c *gc.C) {
-	notK8sCloud := jujucloud.Cloud{}
-	p := provider.NewProviderWithFakes(
-		dummyRunner{},
-		getterFunc(builtinCloudRet{}),
-		func(environs.OpenParams) (k8s.ClusterMetadataChecker, error) { return &s.fakeBroker, nil })
-	cloudFinalizer := p.(environs.CloudFinalizer)
-
-	var ctx mockContext
-	cloud, err := cloudFinalizer.FinalizeCloud(&ctx, notK8sCloud)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloud, jc.DeepEquals, notK8sCloud)
-}
-
 func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *gc.C) {
 	p := s.getProvider()
 	cloudFinalizer := p.(environs.CloudFinalizer)
@@ -193,9 +179,11 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8sAlreadyStorage(c *gc.C) {
 func (s *cloudSuite) getProvider() caas.ContainerEnvironProvider {
 	s.fakeBroker.Call("GetClusterMetadata").Returns(defaultClusterMetadata, nil)
 	s.fakeBroker.Call("CheckDefaultWorkloadStorage").Returns(nil)
+	ret := builtinCloudRet{cloud: defaultK8sCloud, credential: getDefaultCredential(), err: nil}
 	return provider.NewProviderWithFakes(
 		s.runner,
-		getterFunc(builtinCloudRet{cloud: defaultK8sCloud, credential: getDefaultCredential(), err: nil}),
+		credentialGetterFunc(ret),
+		cloudGetterFunc(ret),
 		func(environs.OpenParams) (k8s.ClusterMetadataChecker, error) { return &s.fakeBroker, nil },
 	)
 }

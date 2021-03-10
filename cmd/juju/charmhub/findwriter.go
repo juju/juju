@@ -163,7 +163,7 @@ func summaryColumnIndex(columns Columns) int {
 			return v.Index
 		}
 	}
-	return -1
+	return 0
 }
 
 func oneLine(line string, inset int) (string, error) {

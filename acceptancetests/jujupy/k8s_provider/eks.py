@@ -63,8 +63,8 @@ class EKS(Base):
 
         # list all running clusters.
         logger.info(
-            'Running eks clusters in %s: \n\t- %s', self.location,
-            '\n\t- '.join([c['name'] for c in self.list_clusters(self.location)])
+            'Running eks clusters in %s: \n%s', self.location,
+            yaml.dump(self.list_clusters(self.location))
         )
 
     def _ensure_cluster_stack(self):
@@ -152,10 +152,8 @@ class EKS(Base):
             o = self.eksctl(
                 'create', 'cluster',
                 '--name', self.cluster_name,
-                '--version', '1.16',
+                '--version', '1.19',
                 '--region', self.location,
-                '--nodegroup-name', 'standard-workers',
-                '--node-type', 't3.medium',
                 '--nodes', 3,
                 '--nodes-min', 1,
                 '--nodes-max', 3,

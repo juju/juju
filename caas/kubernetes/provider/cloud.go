@@ -51,11 +51,6 @@ type KubeCloudStorageParams struct {
 	GetClusterMetadataFunc GetClusterMetadataFunc
 }
 
-// CloudFromKubeConfig attempts to extract a cloud and credential details from the provided Kubeconfig.
-func CloudFromKubeConfig(reader io.Reader, cloudParams KubeCloudParams) (cloud.Cloud, cloud.Credential, error) {
-	return newCloudCredentialFromKubeConfig(reader, cloudParams)
-}
-
 func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudParams) (cloud.Cloud, cloud.Credential, error) {
 	// Get Cloud (incl. endpoint) and credential details from the kubeconfig details.
 	var credential cloud.Credential
@@ -68,11 +63,8 @@ func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudPar
 		Type:            cloudParams.CaasType,
 		HostCloudRegion: cloudParams.HostCloudRegion,
 	}
-	clientConfigFunc, err := cloudParams.ClientConfigGetter(cloudParams.CaasType)
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
-	caasConfig, err := clientConfigFunc(
+
+	caasConfig, err := clientconfig.NewK8sClientConfigFromReader(
 		cloudParams.CredentialUID, reader,
 		cloudParams.ContextName, cloudParams.ClusterName,
 		clientconfig.GetJujuAdminServiceAccountResolver(cloudParams.Clock),
@@ -280,29 +272,44 @@ func BaseKubeCloudOpenParams(cloud cloud.Cloud, credential cloud.Credential) (en
 func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudContext, cld cloud.Cloud) (cloud.Cloud, error) {
 	// We special case Microk8s here as we need to query the cluster for the
 	// storage details with no input from the user
-	if cld.Name != k8s.K8sCloudMicrok8s {
-		return cld, nil
-	}
-
-	if err := ensureMicroK8sSuitable(p.cmdRunner); err != nil {
-		return cld, errors.Trace(err)
-	}
 
 	// if storage is already defined there is no need to query the cluster
 	if opStorage, ok := cld.Config[k8sconstants.OperatorStorageKey]; ok && opStorage != "" {
 		return cld, nil
 	}
 
-	// Need the credentials, need to query for those details
-	mk8sCloud, credential, _, err := p.builtinCloudGetter(p.cmdRunner)
-	if err != nil {
-		return cloud.Cloud{}, errors.Trace(err)
-	}
-	if mk8sCloud.SkipTLSVerify {
-		logger.Warningf("k8s cloud %v is configured to skip server certificate validity checks", mk8sCloud.Name)
+	var credentials cloud.Credential
+	if cld.Name != k8s.K8sCloudMicrok8s {
+		creds, err := p.RegisterCredentials(cld)
+		if err != nil {
+			return cld, err
+		}
+
+		credentials = creds[cld.Name].AuthCredentials[creds[cld.Name].DefaultCredential]
+	} else {
+		if err := ensureMicroK8sSuitable(p.cmdRunner); err != nil {
+			return cld, errors.Trace(err)
+		}
+		// Need the credentials, need to query for those details
+		mk8sCloud, err := p.builtinCloudGetter(p.cmdRunner)
+		if err != nil {
+			return cloud.Cloud{}, errors.Trace(err)
+		}
+		cld = mk8sCloud
+
+		creds, err := p.RegisterCredentials(cld)
+		if err != nil {
+			return cld, err
+		}
+
+		credentials = creds[cld.Name].AuthCredentials[creds[cld.Name].DefaultCredential]
 	}
 
-	openParams, err := BaseKubeCloudOpenParams(mk8sCloud, credential)
+	if cld.SkipTLSVerify {
+		logger.Warningf("k8s cloud %v is configured to skip server certificate validity checks", cld.Name)
+	}
+
+	openParams, err := BaseKubeCloudOpenParams(cld, credentials)
 	if err != nil {
 		return cloud.Cloud{}, errors.Trace(err)
 	}
@@ -320,11 +327,17 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 			return clusterMetadata, nil
 		},
 	}
-	_, err = UpdateKubeCloudWithStorage(&mk8sCloud, storageUpdateParams)
+
+	_, err = UpdateKubeCloudWithStorage(&cld, storageUpdateParams)
 	if err != nil {
 		return cloud.Cloud{}, errors.Trace(err)
 	}
-	return mk8sCloud, nil
+
+	if cld.HostCloudRegion == "" {
+		cld.HostCloudRegion = k8s.K8sCloudOther
+	}
+
+	return cld, nil
 }
 
 func ensureMicroK8sSuitable(cmdRunner CommandRunner) error {

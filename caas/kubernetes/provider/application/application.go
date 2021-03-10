@@ -958,6 +958,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			Command:         []string{"/charm/bin/pebble"},
 			Args: []string{
 				"run",
+				"--create-dirs",
 				"--hold",
 			},
 			Env: []corev1.EnvVar{{
@@ -966,10 +967,6 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			}, {
 				Name:  "PEBBLE_SOCKET",
 				Value: "/charm/container/pebble.socket",
-			}, {
-				// TODO(embedded): remove and let pebble use default.
-				Name:  "PEBBLE",
-				Value: "/charm/container/pebble",
 			}},
 			// Run Pebble as root (because it's a service manager).
 			SecurityContext: &corev1.SecurityContext{

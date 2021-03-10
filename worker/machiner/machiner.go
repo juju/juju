@@ -175,7 +175,7 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 
 	life := mr.machine.Life()
 	if life == corelife.Alive {
-		observedConfig, err := getObservedNetworkConfig(corenetwork.DefaultNetworkConfigSource())
+		observedConfig, err := getObservedNetworkConfig(corenetwork.DefaultConfigSource())
 		if err != nil {
 			return errors.Annotate(err, "cannot discover observed network config")
 		} else if len(observedConfig) == 0 {
