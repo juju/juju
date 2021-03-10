@@ -142,6 +142,9 @@ type machineDoc struct {
 
 	// AgentStartedAt records the time when the machine agent started.
 	AgentStartedAt time.Time `bson:"agent-started-at,omitempty"`
+
+	// Hostname records the machine's hostname as reported by the machine agent.
+	Hostname string `bson:"hostname,omitempty"`
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -2257,24 +2260,34 @@ func (m *Machine) VerifyUnitsSeries(unitNames []string, series string, force boo
 	return results, nil
 }
 
-// RecordAgentStartTime updates the time when the machine agent was started.
-func (m *Machine) RecordAgentStartTime() error {
+// RecordAgentStartInformation updates the host name (if non-empty) reported
+// by the machine agent and sets the agent start time to the current time.
+func (m *Machine) RecordAgentStartInformation(hostname string) error {
 	now := m.st.clock().Now()
+	update := bson.D{
+		{"agent-started-at", now},
+	}
+
+	if hostname != "" {
+		update = append(update, bson.DocElem{"hostname", hostname})
+	}
+
 	ops := []txn.Op{{
 		C:      machinesC,
 		Id:     m.doc.DocID,
 		Assert: notDeadDoc,
-		Update: bson.D{
-			{"$set", bson.D{
-				{"agent-started-at", now},
-			}}},
+		Update: bson.D{{"$set", update}},
 	}}
+
 	if err := m.st.db().RunTransaction(ops); err != nil {
 		// If instance doc doesn't exist, that's ok; there's nothing to keep,
 		// but that's not an error we care about.
-		return errors.Annotatef(onAbort(err, nil), "cannot update agent start time on machine %v", m)
+		return errors.Annotatef(onAbort(err, nil), "cannot update agent hostname/start time for machine %q", m)
 	}
 	m.doc.AgentStartedAt = now
+	if hostname != "" {
+		m.doc.Hostname = hostname
+	}
 	return nil
 }
 
@@ -2282,6 +2295,11 @@ func (m *Machine) RecordAgentStartTime() error {
 // was started.
 func (m *Machine) AgentStartTime() time.Time {
 	return m.doc.AgentStartedAt
+}
+
+// Hostname returns the hostname reported by the machine agent.
+func (m *Machine) Hostname() string {
+	return m.doc.Hostname
 }
 
 // AssertAliveOp returns an assert-only transaction operation
