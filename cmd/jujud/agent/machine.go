@@ -22,7 +22,7 @@ import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub"
-	"github.com/juju/replicaset"
+	"github.com/juju/replicaset/v2"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/symlink"
 	"github.com/juju/utils/v2/voyeur"

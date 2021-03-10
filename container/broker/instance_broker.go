@@ -145,7 +145,7 @@ func acquireLock(config Config) func(string, <-chan struct{}) (func(), error) {
 
 func observeNetwork(config Config) func() ([]params.NetworkConfig, error) {
 	return func() ([]params.NetworkConfig, error) {
-		return config.GetNetConfig(corenetwork.DefaultNetworkConfigSource())
+		return config.GetNetConfig(corenetwork.DefaultConfigSource())
 	}
 }
 

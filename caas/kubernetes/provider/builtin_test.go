@@ -139,38 +139,30 @@ func (s *builtinSuite) TestAttemptMicroK8sCloud(c *gc.C) {
 		"RunCommands",
 		exec.RunParams{Commands: "microk8s.config"}).Returns(&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sConfig)}, nil)
 
-	k8sCloud, credential, credentialName, err := provider.AttemptMicroK8sCloud(s.runner, s.kubeCloudParams)
+	k8sCloud, err := provider.AttemptMicroK8sCloud(s.runner)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(k8sCloud, gc.DeepEquals, cloud.Cloud{
-		Name:           k8s.K8sCloudMicrok8s,
-		Endpoint:       "http://1.1.1.1:8080",
-		Type:           cloud.CloudTypeKubernetes,
-		AuthTypes:      []cloud.AuthType{cloud.CertificateAuthType},
-		CACertificates: []string{"fakecadata1"},
+		Name:     k8s.K8sCloudMicrok8s,
+		Endpoint: "http://1.1.1.1:8080",
+		Type:     cloud.CloudTypeKubernetes,
+		AuthTypes: []cloud.AuthType{
+			cloud.CertificateAuthType,
+			cloud.OAuth2AuthType,
+			cloud.UserPassAuthType,
+		},
+		CACertificates: []string{""},
 		Description:    cloud.DefaultCloudDescription(cloud.CloudTypeKubernetes),
 		Regions: []cloud.Region{{
 			Name: "localhost",
 		}},
 	})
-	c.Assert(credential, gc.DeepEquals, cloud.NewNamedCredential(
-		"microk8s", "certificate",
-		map[string]string{
-			"ClientCertificateData": `
------BEGIN CERTIFICATE-----
-MIIDBDCCAeygAwIBAgIJAPUHbpCysNxyMA0GCSqGSIb3DQEBCwUAMBcxFTATBgNV`[1:],
-			"Token": "xfdfsdfsdsd",
-		}, false,
-	))
-	c.Assert(credentialName, gc.Equals, "microk8s")
 }
 
 func (s *builtinSuite) TestAttemptMicroK8sCloudErrors(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
 		exec.RunParams{Commands: "which microk8s.config"}).Returns(&exec.ExecResponse{Code: 1}, nil)
-	k8sCloud, credential, credentialName, err := provider.AttemptMicroK8sCloud(s.runner, s.kubeCloudParams)
+	k8sCloud, err := provider.AttemptMicroK8sCloud(s.runner)
 	c.Assert(err, gc.ErrorMatches, `microk8s not found`)
 	c.Assert(k8sCloud, gc.DeepEquals, cloud.Cloud{})
-	c.Assert(credential, gc.DeepEquals, cloud.Credential{})
-	c.Assert(credentialName, gc.Equals, "")
 }

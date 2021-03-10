@@ -34,7 +34,7 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
-	envtesting.AssertProviderAuthTypes(c, s.provider, "userpass", "certificate", "oauth2withcert")
+	envtesting.AssertProviderAuthTypes(c, s.provider, "userpass", "certificate", "oauth2")
 }
 
 func (s *credentialsSuite) TestCredentialsValid(c *gc.C) {
@@ -46,8 +46,8 @@ func (s *credentialsSuite) TestCredentialsValid(c *gc.C) {
 
 func (s *credentialsSuite) TestHiddenAttributes(c *gc.C) {
 	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "userpass", "password")
-	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "oauth2withcert", "Token", "ClientKeyData")
-	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "certificate", "Token")
+	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "oauth2", "Token")
+	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "certificate", "ClientKeyData")
 }
 
 var singleConfigYAML = `
@@ -92,14 +92,22 @@ func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestRegisterCredentialsNotMicrok8s(c *gc.C) {
-	p := provider.NewProviderCredentials(getterFunc(builtinCloudRet{}))
+	p := provider.NewProviderCredentials(credentialGetterFunc(builtinCloudRet{}))
 	credentials, err := p.RegisterCredentials(cloud.Cloud{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, gc.HasLen, 0)
 }
 
 func (s *credentialsSuite) TestRegisterCredentialsMicrok8s(c *gc.C) {
-	p := provider.NewProviderCredentials(getterFunc(builtinCloudRet{cloud: defaultK8sCloud, credential: getDefaultCredential(), err: nil}))
+	p := provider.NewProviderCredentials(
+		credentialGetterFunc(
+			builtinCloudRet{
+				cloud:      defaultK8sCloud,
+				credential: getDefaultCredential(),
+				err:        nil,
+			},
+		),
+	)
 	credentials, err := p.RegisterCredentials(defaultK8sCloud)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, gc.HasLen, 1)

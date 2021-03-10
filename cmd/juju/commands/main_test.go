@@ -311,7 +311,6 @@ var commandNames = []string{
 	"cached-images",
 	"cancel-task",
 	"change-user-password",
-	"charm",
 	"charm-resources",
 	"clouds",
 	"collect-metrics",

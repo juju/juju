@@ -4,100 +4,25 @@
 package provider
 
 import (
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
+	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 )
 
-const (
-	CredAttrUsername              = "username"
-	CredAttrPassword              = "password"
-	CredAttrClientCertificateData = "ClientCertificateData"
-	CredAttrClientKeyData         = "ClientKeyData"
-	CredAttrToken                 = "Token"
-
-	RBACLabelKeyName = "rbac-id"
-)
-
-var k8sCredentialSchemas = map[cloud.AuthType]cloud.CredentialSchema{
-	cloud.UserPassAuthType: {
-		{
-			Name:           CredAttrUsername,
-			CredentialAttr: cloud.CredentialAttr{Description: "The username to authenticate with."},
-		}, {
-			Name: CredAttrPassword,
-			CredentialAttr: cloud.CredentialAttr{
-				Description: "The password for the specified username.",
-				Hidden:      true,
-			},
-		},
-	},
-	cloud.OAuth2WithCertAuthType: {
-		{
-			Name: CredAttrClientCertificateData,
-			CredentialAttr: cloud.CredentialAttr{
-				Description: "the kubernetes certificate data",
-			},
-		},
-		{
-			Name: CredAttrClientKeyData,
-			CredentialAttr: cloud.CredentialAttr{
-				Description: "the kubernetes private key data",
-				Hidden:      true,
-			},
-		},
-		{
-			Name: CredAttrToken,
-			CredentialAttr: cloud.CredentialAttr{
-				Description: "the kubernetes token",
-				Hidden:      true,
-			},
-		},
-	},
-	cloud.CertificateAuthType: {
-		{
-			Name: CredAttrClientCertificateData,
-			CredentialAttr: cloud.CredentialAttr{
-				Description: "the kubernetes certificate data",
-			},
-		},
-		{
-			Name: CredAttrToken,
-			CredentialAttr: cloud.CredentialAttr{
-				Description: "the kubernetes service account bearer token",
-				Hidden:      true,
-			},
-		},
-		{
-			Name: RBACLabelKeyName,
-			CredentialAttr: cloud.CredentialAttr{
-				Optional:    true,
-				Description: "the unique ID key name of the rbac resources",
-			},
-		},
-	},
-}
-
 type environProviderCredentials struct {
-	cmdRunner          CommandRunner
-	builtinCloudGetter func(CommandRunner) (cloud.Cloud, cloud.Credential, string, error)
+	cmdRunner               CommandRunner
+	builtinCredentialGetter func(CommandRunner) (cloud.Credential, error)
 }
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	return k8sCredentialSchemas
-}
-
-func (environProviderCredentials) supportedAuthTypes() cloud.AuthTypes {
-	var ats cloud.AuthTypes
-	for k := range k8sCredentialSchemas {
-		ats = append(ats, k)
-	}
-	return ats
+	return k8scloud.SupportedCredentialSchemas
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
@@ -132,9 +57,9 @@ func (environProviderCredentials) FinalizeCredential(_ environs.FinalizeCredenti
 func (p environProviderCredentials) RegisterCredentials(cld cloud.Cloud) (map[string]*cloud.CloudCredential, error) {
 	cloudName := cld.Name
 	if cloudName != k8s.K8sCloudMicrok8s {
-		return make(map[string]*cloud.CloudCredential), nil
+		return registerCredentialsKubeConfig(cld)
 	}
-	_, cred, _, err := p.builtinCloudGetter(p.cmdRunner)
+	cred, err := p.builtinCredentialGetter(p.cmdRunner)
 
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -148,4 +73,36 @@ func (p environProviderCredentials) RegisterCredentials(cld cloud.Cloud) (map[st
 			},
 		},
 	}, nil
+}
+
+func registerCredentialsKubeConfig(
+	cld cloud.Cloud,
+) (map[string]*cloud.CloudCredential, error) {
+	k8sConfig, err := clientconfig.GetLocalKubeConfig()
+	if err != nil {
+		return make(map[string]*cloud.CloudCredential), errors.Annotate(err, "reading local kubeconf")
+	}
+
+	context, exists := k8sConfig.Contexts[cld.Name]
+	if !exists {
+		return make(map[string]*cloud.CloudCredential), nil
+	}
+
+	resolver := clientconfig.GetJujuAdminServiceAccountResolver(jujuclock.WallClock)
+	conf, err := resolver(cld.Name, k8sConfig, cld.Name)
+	if err != nil {
+		return make(map[string]*cloud.CloudCredential), errors.Annotatef(
+			err,
+			"registering juju admin service account for cloud %q", cld.Name)
+	}
+
+	cred, err := k8scloud.CredentialFromKubeConfig(context.AuthInfo, conf)
+	return map[string]*cloud.CloudCredential{
+		cld.Name: {
+			DefaultCredential: cld.Name,
+			AuthCredentials: map[string]cloud.Credential{
+				cld.Name: cred,
+			},
+		},
+	}, err
 }

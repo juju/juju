@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // load gcp auth plugin.
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -120,8 +121,13 @@ func ensureJujuAdminServiceAccount(
 		return nil, errors.Annotatef(nil, "polling caas credential rbac secret %q", name)
 	}
 
-	replaceAuthProviderWithServiceAccountAuthData(contextName, config, secret)
-	return config, nil
+	return newK8sConfigForServiceAccount(
+		contextName,
+		sa.Name,
+		config,
+		clientset.CoreV1().ServiceAccounts(adminNameSpace),
+		clientset.CoreV1().Secrets(adminNameSpace),
+	)
 }
 
 // RemoveCredentialRBACResources removes all RBAC resources for specific caas credential UID.
@@ -303,14 +309,51 @@ func getServiceAccountSecret(clientset kubernetes.Interface, saName, namespace s
 	return clientset.CoreV1().Secrets(sa.Namespace).Get(context.TODO(), sa.Secrets[0].Name, metav1.GetOptions{})
 }
 
-func replaceAuthProviderWithServiceAccountAuthData(
+func newK8sConfigForServiceAccount(
 	contextName string,
+	serviceAccount string,
 	config *clientcmdapi.Config,
-	secret *core.Secret,
-) {
-	authName := config.Contexts[contextName].AuthInfo
-	config.AuthInfos[authName] = &clientcmdapi.AuthInfo{
-		ClientCertificateData: secret.Data[core.ServiceAccountRootCAKey],
-		Token:                 string(secret.Data[core.ServiceAccountTokenKey]),
+	sai corev1.ServiceAccountInterface,
+	seci corev1.SecretInterface,
+) (*clientcmdapi.Config, error) {
+	newConfig := config.DeepCopy()
+
+	saAuth, err := authInfoForServiceAccount(context.TODO(), serviceAccount, sai, seci)
+	if err != nil {
+		return newConfig, errors.Trace(err)
 	}
+
+	authName := newConfig.Contexts[contextName].AuthInfo
+	newConfig.AuthInfos[authName] = saAuth
+	return newConfig, nil
+}
+
+func authInfoForServiceAccount(
+	ctx context.Context,
+	serviceAccount string,
+	sai corev1.ServiceAccountInterface,
+	seci corev1.SecretInterface,
+) (*clientcmdapi.AuthInfo, error) {
+	sa, err := sai.Get(ctx, serviceAccount, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NewNotFound(err, serviceAccount)
+	} else if err != nil {
+		return nil, errors.Annotatef(err, "getting service account %q auth", serviceAccount)
+	}
+
+	if len(sa.Secrets) == 0 {
+		return nil, errors.NotFoundf("secret for service account %q", serviceAccount)
+	}
+
+	secret, err := seci.Get(ctx, sa.Secrets[0].Name, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NewNotFound(err, sa.Secrets[0].Name)
+	} else if err != nil {
+		return nil, errors.Annotatef(err, "getting service account %q secret %q",
+			serviceAccount, sa.Secrets[0].Name)
+	}
+
+	return &clientcmdapi.AuthInfo{
+		Token: string(secret.Data[core.ServiceAccountTokenKey]),
+	}, nil
 }

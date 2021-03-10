@@ -1289,7 +1289,6 @@ func (c *bootstrapCommand) credentialsAndRegionName(
 	regionName string,
 	err error,
 ) {
-
 	store := c.ClientStore()
 
 	// When looking for credentials, we should attempt to see if there are any

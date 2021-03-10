@@ -6,6 +6,7 @@ package cloud
 import (
 	"io"
 	"sort"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -142,15 +143,20 @@ func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *listCloudsCommand) getCloudList(ctxt *cmd.Context) (*cloudList, error) {
 	var returnErr error
-	warn := func(anErr error) {
-		ctxt.Warningf("%v", anErr)
-		returnErr = cmd.ErrSilent
+	accumulateErrors := func(err error) {
+		if returnErr != nil {
+			returnErr = errors.New(strings.Join([]string{err.Error(), returnErr.Error()}, "\n"))
+			return
+		}
+		returnErr = err
 	}
+
 	details := newCloudList()
 	if c.Client {
-		var err error
-		if details, err = listLocalCloudDetails(c.Store); err != nil {
-			warn(err)
+		if d, err := listLocalCloudDetails(c.Store); err != nil {
+			accumulateErrors(errors.Annotate(err, "geting local clouds"))
+		} else {
+			details = d
 		}
 	}
 
@@ -182,7 +188,7 @@ func (c *listCloudsCommand) getCloudList(ctxt *cmd.Context) (*cloudList, error) 
 			return nil
 		}
 		if err := remotes(); err != nil {
-			warn(err)
+			accumulateErrors(errors.Annotate(err, "getting controller clouds"))
 		}
 	}
 	c.showAllMessage = !c.Embedded && details.filter(c.all)
@@ -321,7 +327,7 @@ func listLocalCloudDetails(store jujuclient.CredentialGetter) (*cloudList, error
 	// Add in built in clouds like localhost (lxd).
 	builtinClouds, err := common.BuiltInClouds()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return details, errors.Trace(err)
 	}
 	for name, cloud := range builtinClouds {
 		cloudDetails := makeCloudDetails(store, cloud)
@@ -331,7 +337,7 @@ func listLocalCloudDetails(store jujuclient.CredentialGetter) (*cloudList, error
 
 	personalClouds, err := jujucloud.PersonalCloudMetadata()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return details, errors.Trace(err)
 	}
 	for name, cloud := range personalClouds {
 		cloudDetails := makeCloudDetails(store, cloud)

@@ -28,18 +28,19 @@ import (
 )
 
 var (
-	PrepareWorkloadSpec    = prepareWorkloadSpec
-	OperatorPod            = operatorPod
-	ExtractRegistryURL     = extractRegistryURL
-	CreateDockerConfigJSON = createDockerConfigJSON
-	ControllerCorelation   = controllerCorelation
-	GetLocalMicroK8sConfig = getLocalMicroK8sConfig
-	AttemptMicroK8sCloud   = attemptMicroK8sCloudInternal
-	EnsureMicroK8sSuitable = ensureMicroK8sSuitable
-	NewK8sBroker           = newK8sBroker
-	ToYaml                 = toYaml
-	Indent                 = indent
-	ProcessSecretData      = processSecretData
+	PrepareWorkloadSpec       = prepareWorkloadSpec
+	OperatorPod               = operatorPod
+	ExtractRegistryURL        = extractRegistryURL
+	CreateDockerConfigJSON    = createDockerConfigJSON
+	ControllerCorelation      = controllerCorelation
+	GetLocalMicroK8sConfig    = getLocalMicroK8sConfig
+	AttemptMicroK8sCloud      = attemptMicroK8sCloud
+	AttemptMicroK8sCredential = attemptMicroK8sCredential
+	EnsureMicroK8sSuitable    = ensureMicroK8sSuitable
+	NewK8sBroker              = newK8sBroker
+	ToYaml                    = toYaml
+	Indent                    = indent
+	ProcessSecretData         = processSecretData
 
 	CompileK8sCloudCheckers                    = compileK8sCloudCheckers
 	CompileLifecycleApplicationRemovalSelector = compileLifecycleApplicationRemovalSelector
@@ -108,18 +109,25 @@ func NewProvider() caas.ContainerEnvironProvider {
 
 func NewProviderWithFakes(
 	runner CommandRunner,
-	getter func(CommandRunner) (cloud.Cloud, jujucloud.Credential, string, error),
+	credentialGetter func(CommandRunner) (jujucloud.Credential, error),
+	getter func(CommandRunner) (cloud.Cloud, error),
 	brokerGetter func(environs.OpenParams) (k8s.ClusterMetadataChecker, error)) caas.ContainerEnvironProvider {
 	return kubernetesEnvironProvider{
+		environProviderCredentials: environProviderCredentials{
+			cmdRunner:               runner,
+			builtinCredentialGetter: credentialGetter,
+		},
 		cmdRunner:          runner,
 		builtinCloudGetter: getter,
 		brokerGetter:       brokerGetter,
 	}
 }
 
-func NewProviderCredentials(getter func(CommandRunner) (cloud.Cloud, jujucloud.Credential, string, error)) environProviderCredentials {
+func NewProviderCredentials(
+	getter func(CommandRunner) (jujucloud.Credential, error),
+) environProviderCredentials {
 	return environProviderCredentials{
-		builtinCloudGetter: getter,
+		builtinCredentialGetter: getter,
 	}
 }
 

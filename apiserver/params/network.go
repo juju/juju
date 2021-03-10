@@ -434,15 +434,17 @@ type Address struct {
 	Scope           string `json:"scope"`
 	SpaceName       string `json:"space-name,omitempty"`
 	ProviderSpaceID string `json:"space-id,omitempty"`
+	IsSecondary     bool   `json:"is-secondary,omitempty"`
 }
 
 // MachineAddress transforms the Address to a MachineAddress,
 // effectively ignoring the space fields.
 func (addr Address) MachineAddress() network.MachineAddress {
 	return network.MachineAddress{
-		Value: addr.Value,
-		Type:  network.AddressType(addr.Type),
-		Scope: network.Scope(addr.Scope),
+		Value:       addr.Value,
+		Type:        network.AddressType(addr.Type),
+		Scope:       network.Scope(addr.Scope),
+		IsSecondary: addr.IsSecondary,
 	}
 }
 
@@ -483,6 +485,7 @@ func FromProviderAddress(addr network.ProviderAddress) Address {
 		Scope:           string(addr.Scope),
 		SpaceName:       string(addr.SpaceName),
 		ProviderSpaceID: string(addr.ProviderSpaceID),
+		IsSecondary:     addr.IsSecondary,
 	}
 }
 
@@ -499,9 +502,10 @@ func FromMachineAddresses(mAddrs ...network.MachineAddress) []Address {
 // FromMachineAddress returns an Address for the input MachineAddress.
 func FromMachineAddress(addr network.MachineAddress) Address {
 	return Address{
-		Value: addr.Value,
-		Type:  string(addr.Type),
-		Scope: string(addr.Scope),
+		Value:       addr.Value,
+		Type:        string(addr.Type),
+		Scope:       string(addr.Scope),
+		IsSecondary: addr.IsSecondary,
 	}
 }
 

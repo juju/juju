@@ -17,7 +17,7 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
-	"github.com/juju/replicaset"
+	"github.com/juju/replicaset/v2"
 	"github.com/kr/pretty"
 	core "k8s.io/api/core/v1"
 

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2"
 	"github.com/juju/os/v2/series"
-	"github.com/juju/replicaset"
+	"github.com/juju/replicaset/v2"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/common"

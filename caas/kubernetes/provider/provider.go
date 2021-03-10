@@ -17,11 +17,11 @@ import (
 
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
+	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/cloud"
-	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -32,15 +32,15 @@ import (
 type kubernetesEnvironProvider struct {
 	environProviderCredentials
 	cmdRunner          CommandRunner
-	builtinCloudGetter func(CommandRunner) (cloud.Cloud, jujucloud.Credential, string, error)
+	builtinCloudGetter func(CommandRunner) (cloud.Cloud, error)
 	brokerGetter       func(environs.OpenParams) (k8s.ClusterMetadataChecker, error)
 }
 
 var _ environs.EnvironProvider = (*kubernetesEnvironProvider)(nil)
 var providerInstance = kubernetesEnvironProvider{
 	environProviderCredentials: environProviderCredentials{
-		cmdRunner:          defaultRunner{},
-		builtinCloudGetter: attemptMicroK8sCloud,
+		cmdRunner:               defaultRunner{},
+		builtinCredentialGetter: attemptMicroK8sCredential,
 	},
 	cmdRunner:          defaultRunner{},
 	builtinCloudGetter: attemptMicroK8sCloud,
@@ -122,12 +122,12 @@ func CloudSpecToK8sRestConfig(cloudSpec environscloudspec.CloudSpec) (*rest.Conf
 	credentialAttrs := cloudSpec.Credential.Attributes()
 	return &rest.Config{
 		Host:        cloudSpec.Endpoint,
-		Username:    credentialAttrs[CredAttrUsername],
-		Password:    credentialAttrs[CredAttrPassword],
-		BearerToken: credentialAttrs[CredAttrToken],
+		Username:    credentialAttrs[k8scloud.CredAttrUsername],
+		Password:    credentialAttrs[k8scloud.CredAttrPassword],
+		BearerToken: credentialAttrs[k8scloud.CredAttrToken],
 		TLSClientConfig: rest.TLSClientConfig{
-			CertData: []byte(credentialAttrs[CredAttrClientCertificateData]),
-			KeyData:  []byte(credentialAttrs[CredAttrClientKeyData]),
+			CertData: []byte(credentialAttrs[k8scloud.CredAttrClientCertificateData]),
+			KeyData:  []byte(credentialAttrs[k8scloud.CredAttrClientKeyData]),
 			CAData:   CAData,
 			Insecure: cloudSpec.SkipTLSVerify,
 		},
@@ -219,7 +219,8 @@ func (p kubernetesEnvironProvider) validateCloudSpec(spec environscloudspec.Clou
 	if spec.Credential == nil {
 		return errors.NotValidf("missing credential")
 	}
-	if authType := spec.Credential.AuthType(); !p.supportedAuthTypes().Contains(authType) {
+
+	if authType := spec.Credential.AuthType(); !k8scloud.SupportedAuthTypes().Contains(authType) {
 		return errors.NotSupportedf("%q auth-type", authType)
 	}
 	return nil

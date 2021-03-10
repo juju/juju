@@ -53,8 +53,8 @@ run_charmhub_find_not_matching() {
 
     ensure "test-${name}" "${file}"
 
-    juju find nosuchcharm > "${output}" 2>&1
-    check_contains "${output}" "No matching charms for"
+    output=$(juju find "nosuchcharmorbundleeverl33t" 2>&1)
+    check_contains "${output}" "No matching charms or bundles"
 
     destroy_model "test-${name}"
 }
@@ -68,7 +68,7 @@ run_charmstore_find() {
     ensure "test-${name}" "${file}"
 
     output=$(juju find cs:ubuntu 2>&1 || true)
-    check_contains "${output}" "No matching charms for"
+    check_contains "${output}" "No matching charms or bundles"
 
     destroy_model "test-${name}"
 }
@@ -87,6 +87,7 @@ test_charmhub_find() {
         run "run_charmhub_find_specific"
         run "run_charmhub_find_all"
         run "run_charmhub_find_json"
+        run "run_charmhub_find_not_matching"
         run "run_charmstore_find"
     )
 }

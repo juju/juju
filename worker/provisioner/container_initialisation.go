@@ -238,7 +238,7 @@ func (cs *ContainerSetup) initContainerDependencies(abort <-chan struct{}, conta
 }
 
 func (cs *ContainerSetup) observeNetwork() ([]params.NetworkConfig, error) {
-	return cs.getNetConfig(network.DefaultNetworkConfigSource())
+	return cs.getNetConfig(network.DefaultConfigSource())
 }
 
 func (cs *ContainerSetup) acquireLock(comment string, abort <-chan struct{}) (func(), error) {

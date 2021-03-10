@@ -1,6 +1,8 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build !linux
+
 package network
 
 import (
@@ -18,41 +20,41 @@ type sourceOtherSuite struct {
 var _ = gc.Suite(&sourceOtherSuite{})
 
 func (s *sourceOtherSuite) TestNewNetAddr(c *gc.C) {
-	nic, err := NewNetAddr("192.168.20.1/24")
+	addr, err := newNetAddr("192.168.20.1/24")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(nic.String(), gc.Equals, "192.168.20.1/24")
-	c.Assert(nic.IP(), gc.NotNil)
-	c.Check(nic.IP().String(), gc.Equals, "192.168.20.1")
-	c.Assert(nic.IPNet(), gc.NotNil)
-	c.Check(nic.IPNet().String(), gc.Equals, "192.168.20.0/24")
+	c.Check(addr.String(), gc.Equals, "192.168.20.1/24")
+	c.Assert(addr.IP(), gc.NotNil)
+	c.Check(addr.IP().String(), gc.Equals, "192.168.20.1")
+	c.Assert(addr.IPNet(), gc.NotNil)
+	c.Check(addr.IPNet().String(), gc.Equals, "192.168.20.0/24")
 
-	nic, err = NewNetAddr("192.168.20.1")
+	addr, err = newNetAddr("192.168.20.1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(nic.String(), gc.Equals, "192.168.20.1")
-	c.Assert(nic.IP(), gc.NotNil)
-	c.Check(nic.IP().String(), gc.Equals, "192.168.20.1")
-	c.Assert(nic.IPNet(), gc.IsNil)
+	c.Check(addr.String(), gc.Equals, "192.168.20.1")
+	c.Assert(addr.IP(), gc.NotNil)
+	c.Check(addr.IP().String(), gc.Equals, "192.168.20.1")
+	c.Assert(addr.IPNet(), gc.IsNil)
 
-	nic, err = NewNetAddr("fe80::5054:ff:fedd:eef0/64")
+	addr, err = newNetAddr("fe80::5054:ff:fedd:eef0/64")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(nic.String(), gc.Equals, "fe80::5054:ff:fedd:eef0/64")
-	c.Assert(nic.IP(), gc.NotNil)
-	c.Check(nic.IP().String(), gc.Equals, "fe80::5054:ff:fedd:eef0")
-	c.Assert(nic.IPNet(), gc.NotNil)
-	c.Check(nic.IPNet().String(), gc.Equals, "fe80::/64")
+	c.Check(addr.String(), gc.Equals, "fe80::5054:ff:fedd:eef0/64")
+	c.Assert(addr.IP(), gc.NotNil)
+	c.Check(addr.IP().String(), gc.Equals, "fe80::5054:ff:fedd:eef0")
+	c.Assert(addr.IPNet(), gc.NotNil)
+	c.Check(addr.IPNet().String(), gc.Equals, "fe80::/64")
 
-	nic, err = NewNetAddr("fe80::5054:ff:fedd:eef0")
+	addr, err = newNetAddr("fe80::5054:ff:fedd:eef0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(nic.String(), gc.Equals, "fe80::5054:ff:fedd:eef0")
-	c.Assert(nic.IP(), gc.NotNil)
-	c.Check(nic.IP().String(), gc.Equals, "fe80::5054:ff:fedd:eef0")
-	c.Assert(nic.IPNet(), gc.IsNil)
+	c.Check(addr.String(), gc.Equals, "fe80::5054:ff:fedd:eef0")
+	c.Assert(addr.IP(), gc.NotNil)
+	c.Check(addr.IP().String(), gc.Equals, "fe80::5054:ff:fedd:eef0")
+	c.Assert(addr.IPNet(), gc.IsNil)
 
-	nic, err = NewNetAddr("y u no parse")
+	addr, err = newNetAddr("y u no parse")
 	c.Assert(err, gc.ErrorMatches, `unable to parse IP address "y u no parse"`)
 }
 
@@ -184,7 +186,7 @@ func (s *sourceOtherSuite) TestNICTypeDerivation(c *gc.C) {
 
 	// If we have get value, return it.
 	raw := &net.Interface{}
-	c.Check(NewNetNIC(raw, getType).Type(), gc.Equals, BondInterface)
+	c.Check(newNetNIC(raw, getType).Type(), gc.Equals, BondInterface)
 
 	getType = func(string) InterfaceType { return UnknownInterface }
 
@@ -192,13 +194,13 @@ func (s *sourceOtherSuite) TestNICTypeDerivation(c *gc.C) {
 	raw = &net.Interface{
 		Flags: net.FlagUp | net.FlagLoopback,
 	}
-	c.Check(NewNetNIC(raw, getType).Type(), gc.Equals, LoopbackInterface)
+	c.Check(newNetNIC(raw, getType).Type(), gc.Equals, LoopbackInterface)
 
 	// Default to ethernet otherwise.
 	raw = &net.Interface{
 		Flags: net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
 	}
-	c.Check(NewNetNIC(raw, getType).Type(), gc.Equals, EthernetInterface)
+	c.Check(newNetNIC(raw, getType).Type(), gc.Equals, EthernetInterface)
 }
 
 func parseMAC(c *gc.C, val string) net.HardwareAddr {

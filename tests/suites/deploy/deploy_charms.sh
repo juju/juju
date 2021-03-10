@@ -48,7 +48,7 @@ run_deploy_lxd_profile_charm_container() {
 
     ensure "test-deploy-lxd-profile-container" "${file}"
 
-    juju deploy cs:~juju-qa/bionic/lxd-profile-without-devices-5 --to lxd
+    juju deploy cs:~juju-qa/bionic/lxd-profile-without-devices-5 --to lxd --series=bionic
     wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
 
     juju status --format=json | jq ".machines | .[\"0\"] | .containers | .[\"0/lxd/0\"] | .[\"lxd-profiles\"] | keys[0]" |
@@ -64,7 +64,7 @@ run_deploy_local_lxd_profile_charm() {
 
     ensure "test-deploy-local-lxd-profile" "${file}"
 
-    juju deploy ./tests/suites/deploy/charms/lxd-profile
+    juju deploy ./tests/suites/deploy/charms/lxd-profile --series=bionic
     juju deploy ./tests/suites/deploy/charms/lxd-profile-subordinate
     juju add-relation lxd-profile-subordinate lxd-profile
 
@@ -108,10 +108,10 @@ run_deploy_lxd_to_machine() {
 
     ensure "${model_name}" "${file}"
 
-    juju add-machine -n 1
+    juju add-machine -n 1 --series=bionic
 
     charm=./tests/suites/deploy/charms/lxd-profile-alt
-    juju deploy "${charm}" --to 0
+    juju deploy "${charm}" --to 0 --series=bionic
 
     wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
@@ -145,7 +145,7 @@ run_deploy_lxd_to_machine() {
     attempt=0
     while true; do
         OUT=$(lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-0" || echo 'NOT FOUND')
-        if [ "${OUT}" = "NOT FOUND" ]; then
+        if [[ "${OUT}" = "NOT FOUND" ]]; then
             break
         fi
         attempt=$((attempt+1))
@@ -169,7 +169,7 @@ run_deploy_lxd_to_container() {
     ensure "${model_name}" "${file}"
 
     charm=./tests/suites/deploy/charms/lxd-profile-alt
-    juju deploy "${charm}" --to lxd
+    juju deploy "${charm}" --to lxd --series=bionic
 
     wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 

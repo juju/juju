@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"io"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
@@ -22,20 +23,22 @@ func NewAddCAASCommandForTest(
 	credentialStoreAPI CredentialStoreAPI,
 	store jujuclient.ClientStore,
 	addCloudAPIFunc func() (AddCloudAPI, error),
+	adminServiceAccountResolver func(jujuclock.Clock) clientconfig.K8sCredentialResolver,
 	brokerGetter BrokerGetter,
 	k8sCluster k8sCluster,
 	newClientConfigReaderFunc func(string) (clientconfig.ClientConfigFunc, error),
 	getAllCloudDetails func() (map[string]*jujucmdcloud.CloudDetails, error),
 ) cmd.Command {
 	command := &AddCAASCommand{
-		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
-		cloudMetadataStore:        cloudMetadataStore,
-		credentialStoreAPI:        credentialStoreAPI,
-		addCloudAPIFunc:           addCloudAPIFunc,
-		brokerGetter:              brokerGetter,
-		k8sCluster:                k8sCluster,
-		newClientConfigReader:     newClientConfigReaderFunc,
-		credentialUIDGetter:       func(credentialGetter, string, string) (string, error) { return "9baa5e46", nil },
+		OptionalControllerCommand:   modelcmd.OptionalControllerCommand{Store: store},
+		cloudMetadataStore:          cloudMetadataStore,
+		credentialStoreAPI:          credentialStoreAPI,
+		addCloudAPIFunc:             addCloudAPIFunc,
+		brokerGetter:                brokerGetter,
+		adminServiceAccountResolver: adminServiceAccountResolver,
+		k8sCluster:                  k8sCluster,
+		newClientConfigReader:       newClientConfigReaderFunc,
+		credentialUIDGetter:         func(credentialGetter, string, string) (string, error) { return "9baa5e46", nil },
 		getAllCloudDetails: func(jujuclient.CredentialGetter) (map[string]*jujucmdcloud.CloudDetails, error) {
 			return getAllCloudDetails()
 		},
