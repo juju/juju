@@ -15,7 +15,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
-	"github.com/juju/replicaset"
+	"github.com/juju/replicaset/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/voyeur"
 	"github.com/juju/worker/v2"

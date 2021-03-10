@@ -8,11 +8,11 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/replicaset"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -64,7 +64,7 @@ func (s *EnableHASuite) TestEnableHAFailsWithBadCount(c *gc.C) {
 		c.Assert(err, gc.ErrorMatches, "number of controllers must be odd and non-negative")
 		c.Assert(changes.Added, gc.HasLen, 0)
 	}
-	_, err := s.State.EnableHA(replicaset.MaxPeers+2, constraints.Value{}, "", nil)
+	_, err := s.State.EnableHA(controller.MaxPeers+2, constraints.Value{}, "", nil)
 	c.Assert(err, gc.ErrorMatches, `controller count is too large \(allowed \d+\)`)
 }
 

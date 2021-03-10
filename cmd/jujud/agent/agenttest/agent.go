@@ -12,7 +12,7 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
-	"github.com/juju/replicaset"
+	"github.com/juju/replicaset/v2"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"

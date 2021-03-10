@@ -15,7 +15,7 @@ import (
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb"
 	"github.com/juju/errors"
-	"github.com/juju/replicaset"
+	"github.com/juju/replicaset/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/raftlease"
