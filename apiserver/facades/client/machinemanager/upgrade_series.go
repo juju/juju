@@ -6,6 +6,8 @@ package machinemanager
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
+
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/status"
 )
@@ -20,17 +22,6 @@ type UpgradeSeries interface {
 	Validate([]ValidationEntity) ([]ValidationResult, error)
 }
 
-// UpgradeSeriesAuthorizer checks to see if an upgrade series can be performed.
-type UpgradeSeriesAuthorizer interface {
-	// Read checks to see if a read is possible. Returns an error if a read is
-	// not possible.
-	Read() error
-
-	// Write checks to see if a write is possible. Returns an error if a write
-	// is not possible.
-	Write() error
-}
-
 // UpgradeSeriesState defines a common set of functions for retrieving state
 // objects.
 type UpgradeSeriesState interface {
@@ -41,9 +32,6 @@ type UpgradeSeriesState interface {
 	// ApplicationsFromMachine returns a list of all the applications for a
 	// given machine. This includes all the subordinates.
 	ApplicationsFromMachine(Machine) ([]Application, error)
-
-	// UnitsFromMachine returns a list of all the units for a given machine.
-	UnitsFromMachine(Machine) ([]Unit, error)
 }
 
 // UpgradeSeriesValidator defines a set of validators for the upgrade series
@@ -59,14 +47,14 @@ type UpgradeSeriesValidator interface {
 type UpgradeSeriesAPI struct {
 	state      UpgradeSeriesState
 	validator  UpgradeSeriesValidator
-	authorizer UpgradeSeriesAuthorizer
+	authorizer Authorizer
 }
 
 // NewUpgradeSeriesAPI creates a new UpgradeSeriesAPI
 func NewUpgradeSeriesAPI(
 	state UpgradeSeriesState,
 	validator UpgradeSeriesValidator,
-	authorizer UpgradeSeriesAuthorizer,
+	authorizer Authorizer,
 ) *UpgradeSeriesAPI {
 	return &UpgradeSeriesAPI{
 		state:      state,
@@ -93,7 +81,7 @@ type ValidationResult struct {
 // If they do, a list of the machine's current units is returned for use in
 // soliciting user confirmation of the command.
 func (a *UpgradeSeriesAPI) Validate(entities []ValidationEntity) ([]ValidationResult, error) {
-	if err := a.authorizer.Read(); err != nil {
+	if err := a.authorizer.CanRead(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -148,7 +136,7 @@ func (a *UpgradeSeriesAPI) Validate(entities []ValidationEntity) ([]ValidationRe
 			continue
 		}
 
-		units, err := a.state.UnitsFromMachine(machine)
+		units, err := machine.Units()
 		if err != nil {
 			results[i].Error = errors.Trace(err)
 			continue
@@ -191,28 +179,20 @@ func verifyUnits(units []Unit) ([]string, error) {
 	return unitNames, nil
 }
 
-type upgradeSeriesAuthorizer struct {
-	facade *MachineManagerAPI
-}
-
-// Read checks to see if a read is possible. Returns an error if a read is
-// not possible.
-func (a upgradeSeriesAuthorizer) Read() error {
-	return a.facade.checkCanRead()
-}
-
-// Write checks to see if a write is possible. Returns an error if a write
-// is not possible.
-func (a upgradeSeriesAuthorizer) Write() error {
-	return a.facade.checkCanWrite()
-}
-
 type upgradeSeriesState struct {
-	facade *MachineManagerAPI
+	state Backend
 }
 
 func (s upgradeSeriesState) MachineFromTag(tag string) (Machine, error) {
-	return s.facade.machineFromTag(tag)
+	machineTag, err := names.ParseMachineTag(tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	machine, err := s.state.Machine(machineTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return machine, nil
 }
 
 func (s upgradeSeriesState) ApplicationsFromMachine(machine Machine) ([]Application, error) {
@@ -226,7 +206,7 @@ func (s upgradeSeriesState) ApplicationsFromMachine(machine Machine) ([]Applicat
 
 	results := make([]Application, len(names))
 	for i, name := range names {
-		app, err := s.facade.st.Application(name)
+		app, err := s.state.Application(name)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -235,16 +215,10 @@ func (s upgradeSeriesState) ApplicationsFromMachine(machine Machine) ([]Applicat
 	return results, nil
 }
 
-func (s upgradeSeriesState) UnitsFromMachine(machine Machine) ([]Unit, error) {
-	return machine.Units()
-}
-
-type upgradeSeriesValidator struct {
-	facade *MachineManagerAPI
-}
+type upgradeSeriesValidator struct{}
 
 func (s upgradeSeriesValidator) ValidateSeries(requested, machine, tag string) error {
-	return s.facade.validateSeries(requested, machine, tag)
+	return validateSeries(requested, machine, tag)
 }
 
 func (s upgradeSeriesValidator) ValidateApplications(applications []Application, series string, force bool) error {

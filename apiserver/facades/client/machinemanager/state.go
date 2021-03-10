@@ -33,6 +33,11 @@ type Backend interface {
 	AddMachineInsideMachine(template state.MachineTemplate, parentId string, containerType instance.ContainerType) (*state.Machine, error)
 }
 
+type BackendState interface {
+	Backend
+	MachineFromTag(string) (Machine, error)
+}
+
 type Pool interface {
 	GetModel(string) (Model, func(), error)
 }

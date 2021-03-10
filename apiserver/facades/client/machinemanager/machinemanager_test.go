@@ -51,8 +51,9 @@ func (s *MachineManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	mm, err := machinemanager.NewMachineManagerAPI(s.st,
 		s.st,
 		s.pool,
-		s.authorizer,
-		s.st.ModelTag(),
+		machinemanager.ModelAuthorizer{
+			Authorizer: s.authorizer,
+		},
 		s.callContext,
 		common.NewResources(),
 		s.leadership,
@@ -90,8 +91,9 @@ func (s *MachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
 		s.st,
 		s.pool,
-		s.authorizer,
-		s.st.ModelTag(),
+		machinemanager.ModelAuthorizer{
+			Authorizer: s.authorizer,
+		},
 		s.callContext,
 		common.NewResources(),
 		s.leadership,
@@ -163,7 +165,18 @@ func (s *MachineManagerSuite) TestAddMachines(c *gc.C) {
 func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
-	_, err := machinemanager.NewMachineManagerAPI(nil, nil, nil, s.authorizer, names.ModelTag{}, s.callContext, common.NewResources(), nil)
+	_, err := machinemanager.NewMachineManagerAPI(
+		nil,
+		nil,
+		nil,
+		machinemanager.ModelAuthorizer{
+			Authorizer: s.authorizer,
+			ModelTag:   names.ModelTag{},
+		},
+		s.callContext,
+		common.NewResources(),
+		nil,
+	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -266,7 +279,6 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval(c *gc.
 				Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/0: kaboom\ngetting storage for unit foo/1: kaboom\ngetting storage for unit foo/2: kaboom")),
 			}},
 		},
-		"ModelTag",
 		"GetBlockForType",
 		"GetBlockForType",
 		"Machine",
@@ -290,7 +302,6 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedAllStorageClassification(c
 				Error: apiservererrors.ServerError(errors.New("classifying storage for destruction for unit foo/0: boom")),
 			}},
 		},
-		"ModelTag",
 		"GetBlockForType",
 		"GetBlockForType",
 		"Machine",
@@ -327,7 +338,6 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetrieval(c
 				Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/1: kaboom")),
 			}},
 		},
-		"ModelTag",
 		"GetBlockForType",
 		"GetBlockForType",
 		"Machine",
@@ -384,7 +394,6 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrievalManyMa
 				}},
 			},
 		},
-		"ModelTag",
 		"GetBlockForType",
 		"GetBlockForType",
 		"Machine",

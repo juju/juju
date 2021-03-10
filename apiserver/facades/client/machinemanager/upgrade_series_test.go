@@ -38,18 +38,18 @@ func (s *UpgradeSeriesSuite) TestValidate(c *gc.C) {
 	machine.EXPECT().IsManager().Return(false)
 	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
 	machine.EXPECT().Series().Return("bionic")
+	machine.EXPECT().Units().Return(units, nil)
 
 	state := NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
 	state.EXPECT().ApplicationsFromMachine(machine).Return(applications, nil)
-	state.EXPECT().UnitsFromMachine(machine).Return(units, nil)
 
 	validator := NewMockUpgradeSeriesValidator(ctrl)
 	validator.EXPECT().ValidateSeries("focal", "bionic", "machine-0").Return(nil)
 	validator.EXPECT().ValidateApplications(applications, "focal", false).Return(nil)
 
-	authorizer := NewMockUpgradeSeriesAuthorizer(ctrl)
-	authorizer.EXPECT().Read().Return(nil)
+	authorizer := NewMockAuthorizer(ctrl)
+	authorizer.EXPECT().CanRead().Return(nil)
 
 	entities := []ValidationEntity{
 		{Tag: "machine-0", Series: "focal"},
@@ -75,8 +75,8 @@ func (s *UpgradeSeriesSuite) TestValidateIsManager(c *gc.C) {
 
 	validator := NewMockUpgradeSeriesValidator(ctrl)
 
-	authorizer := NewMockUpgradeSeriesAuthorizer(ctrl)
-	authorizer.EXPECT().Read().Return(nil)
+	authorizer := NewMockAuthorizer(ctrl)
+	authorizer.EXPECT().CanRead().Return(nil)
 
 	entities := []ValidationEntity{
 		{Tag: "machine-0", Series: "focal"},
@@ -103,8 +103,8 @@ func (s *UpgradeSeriesSuite) TestValidateIsLockedForSeriesUpgrade(c *gc.C) {
 
 	validator := NewMockUpgradeSeriesValidator(ctrl)
 
-	authorizer := NewMockUpgradeSeriesAuthorizer(ctrl)
-	authorizer.EXPECT().Read().Return(nil)
+	authorizer := NewMockAuthorizer(ctrl)
+	authorizer.EXPECT().CanRead().Return(nil)
 
 	entities := []ValidationEntity{
 		{Tag: "machine-0", Series: "focal"},
@@ -131,8 +131,8 @@ func (s *UpgradeSeriesSuite) TestValidateWithValidateSeries(c *gc.C) {
 	validator := NewMockUpgradeSeriesValidator(ctrl)
 	validator.EXPECT().ValidateSeries("focal", "bionic", "machine-0").Return(errors.New("boom"))
 
-	authorizer := NewMockUpgradeSeriesAuthorizer(ctrl)
-	authorizer.EXPECT().Read().Return(nil)
+	authorizer := NewMockAuthorizer(ctrl)
+	authorizer.EXPECT().CanRead().Return(nil)
 
 	entities := []ValidationEntity{
 		{Tag: "machine-0", Series: "focal"},
@@ -164,8 +164,8 @@ func (s *UpgradeSeriesSuite) TestValidateApplications(c *gc.C) {
 	validator.EXPECT().ValidateSeries("focal", "bionic", "machine-0").Return(nil)
 	validator.EXPECT().ValidateApplications(applications, "focal", false).Return(errors.New("boom"))
 
-	authorizer := NewMockUpgradeSeriesAuthorizer(ctrl)
-	authorizer.EXPECT().Read().Return(nil)
+	authorizer := NewMockAuthorizer(ctrl)
+	authorizer.EXPECT().CanRead().Return(nil)
 
 	entities := []ValidationEntity{
 		{Tag: "machine-0", Series: "focal"},
