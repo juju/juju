@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -79,6 +80,9 @@ type environ struct {
 
 	lock sync.Mutex // lock protects access to ecfg
 	ecfg *environConfig
+
+	instTypeListLock    sync.Mutex
+	cachedInstanceTypes []instances.InstanceType
 
 	// namespace is used to create the machine and device hostnames.
 	namespace instance.Namespace

@@ -19,19 +19,45 @@ import (
 var (
 	_ environs.InstanceTypesFetcher = (*environ)(nil)
 
-	virtType   = "kvm"
+	virtType = "kvm"
+
+	// NOTE(achilleasa/20210310): At this point in time, google cloud only
+	// provides amd64 machine types. For more information see:
+	// https://cloud.google.com/compute/docs/cpu-platforms.
 	machArches = []string{arch.AMD64}
 )
 
 // InstanceTypes implements InstanceTypesFetcher
 func (env *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
-	reg, err := env.Region()
+	allInstanceTypes, err := env.getAllInstanceTypes(ctx)
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
 	}
+
+	matches, err := instances.MatchingInstanceTypes(allInstanceTypes, "", c)
+	if err != nil {
+		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
+	}
+	return instances.InstanceTypesWithCostMetadata{InstanceTypes: matches}, nil
+}
+
+// getAllInstanceTypes fetches and memoizes the list of available GCE instances
+// for the AZs associated with the current region.
+func (env *environ) getAllInstanceTypes(ctx context.ProviderCallContext) ([]instances.InstanceType, error) {
+	env.instTypeListLock.Lock()
+	defer env.instTypeListLock.Unlock()
+
+	if len(env.cachedInstanceTypes) != 0 {
+		return env.cachedInstanceTypes, nil
+	}
+
+	reg, err := env.Region()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	zones, err := env.gce.AvailabilityZones(reg.Region)
 	if err != nil {
-		return instances.InstanceTypesWithCostMetadata{}, google.HandleCredentialError(errors.Trace(err), ctx)
+		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
 	resultUnique := map[string]instances.InstanceType{}
 
@@ -41,7 +67,7 @@ func (env *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints
 		}
 		machines, err := env.gce.ListMachineTypes(z.Name())
 		if err != nil {
-			return instances.InstanceTypesWithCostMetadata{}, google.HandleCredentialError(errors.Trace(err), ctx)
+			return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 		}
 		for _, m := range machines {
 			i := instances.InstanceType{
@@ -56,15 +82,10 @@ func (env *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints
 		}
 	}
 
-	result := make([]instances.InstanceType, len(resultUnique))
-	i := 0
+	env.cachedInstanceTypes = make([]instances.InstanceType, 0, len(resultUnique))
 	for _, it := range resultUnique {
-		result[i] = it
-		i++
+		env.cachedInstanceTypes = append(env.cachedInstanceTypes, it)
 	}
-	result, err = instances.MatchingInstanceTypes(result, "", c)
-	if err != nil {
-		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
-	}
-	return instances.InstanceTypesWithCostMetadata{InstanceTypes: result}, nil
+
+	return env.cachedInstanceTypes, nil
 }
