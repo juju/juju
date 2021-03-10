@@ -140,7 +140,7 @@ class AKS(Base):
             linux_profile=linux_profile,
             enable_rbac=True,
             tags=m.TagsObject(
-                tags={'createdAt': datetime.now()},
+                tags={'createdAt': datetime.now().isoformat()},
             ),
         )
 
