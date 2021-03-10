@@ -245,7 +245,8 @@ func AllFacades() *facade.Registry {
 	reg("Machiner", 1, machine.NewMachinerAPIV1)
 	reg("Machiner", 2, machine.NewMachinerAPIV2) // Adds RecordAgentStartTime.
 	reg("Machiner", 3, machine.NewMachinerAPIV3) // Relies on agent-set origin in SetObservedNetworkConfig.
-	reg("Machiner", 4, machine.NewMachinerAPI)   // Removes SetProviderNetworkConfig.
+	reg("Machiner", 4, machine.NewMachinerAPIV4) // Removes SetProviderNetworkConfig.
+	reg("Machiner", 5, machine.NewMachinerAPI)   // Adds RecordAgentHostAndStartTime.
 
 	reg("MeterStatus", 1, meterstatus.NewMeterStatusFacadeV1)
 	reg("MeterStatus", 2, meterstatus.NewMeterStatusFacade)
