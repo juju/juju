@@ -237,6 +237,10 @@ func (s *ProxyUpdaterSuite) useJujuConfig(c *gc.C) (proxy.Settings, proxy.Settin
 }
 
 func (s *ProxyUpdaterSuite) TestInitialStateLegacyProxy(c *gc.C) {
+	if host := jujuos.HostOS(); host == jujuos.Windows || host == jujuos.CentOS {
+		c.Skip(fmt.Sprintf("apt settings not handled on %s", host.String()))
+	}
+
 	proxySettings, aptProxySettings := s.useLegacyConfig(c)
 
 	updater, err := proxyupdater.NewWorker(s.config)
@@ -253,6 +257,10 @@ func (s *ProxyUpdaterSuite) TestInitialStateLegacyProxy(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestInitialStateJujuProxy(c *gc.C) {
+	if host := jujuos.HostOS(); host == jujuos.Windows || host == jujuos.CentOS {
+		c.Skip(fmt.Sprintf("apt settings not handled on %s", host.String()))
+	}
+
 	proxySettings, aptProxySettings := s.useJujuConfig(c)
 
 	updater, err := proxyupdater.NewWorker(s.config)
@@ -436,8 +444,8 @@ func (s *ProxyUpdaterSuite) TestSnapProxySetNoneSet(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestSnapProxySet(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("snap settings not handled on windows")
+	if host := jujuos.HostOS(); host == jujuos.Windows || host == jujuos.CentOS {
+		c.Skip(fmt.Sprintf("snap settings not handled on %s", host.String()))
 	}
 
 	logger := s.config.Logger
@@ -502,8 +510,8 @@ func (s *ProxyUpdaterSuite) TestSnapStoreProxy(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestSnapStoreProxyURL(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("snap settings not handled on windows")
+	if host := jujuos.HostOS(); host == jujuos.Windows || host == jujuos.CentOS {
+		c.Skip(fmt.Sprintf("snap settings not handled on %s", host.String()))
 	}
 
 	logger := s.config.Logger
@@ -556,8 +564,8 @@ DATA...
 }
 
 func (s *ProxyUpdaterSuite) TestSnapStoreProxyURLOverridesManualAssertion(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("snap settings not handled on windows")
+	if host := jujuos.HostOS(); host == jujuos.Windows || host == jujuos.CentOS {
+		c.Skip(fmt.Sprintf("snap settings not handled on %s", host.String()))
 	}
 
 	logger := s.config.Logger
