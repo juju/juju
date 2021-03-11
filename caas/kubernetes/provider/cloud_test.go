@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
+	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
@@ -166,7 +167,7 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8sAlreadyStorage(c *gc.C) {
 	c.Assert(cloud, jc.DeepEquals, jujucloud.Cloud{
 		Name:            caas.K8sCloudMicrok8s,
 		Type:            jujucloud.CloudTypeCAAS,
-		AuthTypes:       []jujucloud.AuthType{jujucloud.UserPassAuthType},
+		AuthTypes:       k8scloud.SupportedAuthTypes(),
 		CACertificates:  []string{""},
 		Endpoint:        "http://1.1.1.1:8080",
 		HostCloudRegion: fmt.Sprintf("%s/%s", caas.K8sCloudMicrok8s, caas.Microk8sRegion),

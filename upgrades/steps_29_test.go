@@ -62,6 +62,11 @@ func (s *steps29Suite) TestRemoveLinkLayerDevicesRefsCollection(c *gc.C) {
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
 
+func (s *steps29Suite) TestUpdateKubernetesCloudCredentials(c *gc.C) {
+	step := findStateStep(c, v290, "update kubernetes cloud credentials")
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
+
 type mergeAgents29Suite struct {
 	testing.BaseSuite
 
