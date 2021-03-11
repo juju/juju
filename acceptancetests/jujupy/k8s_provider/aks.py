@@ -22,6 +22,7 @@ from __future__ import print_function
 import logging
 import os
 from pprint import pformat
+from datetime import datetime, timezone
 
 import yaml
 from azure.identity import ClientSecretCredential
@@ -129,7 +130,6 @@ class AKS(Base):
         linux_profile = m.ContainerServiceLinuxProfile(
             admin_username='azureuser', ssh=ssh_,
         )
-
         return m.ManagedCluster(
             location=location,
             dns_prefix=self.cluster_name,  # use cluster name as dns prefix.
@@ -138,6 +138,7 @@ class AKS(Base):
             agent_pool_profiles=[agentpool_default],
             linux_profile=linux_profile,
             enable_rbac=True,
+            tags={'createdAt': datetime.now(tz=timezone.utc).isoformat()},
         )
 
     def list_clusters(self, resource_group):
