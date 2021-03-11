@@ -376,7 +376,6 @@ func removeStoredResourceOps(docID string) []txn.Op {
 	return []txn.Op{{
 		C:      resourceCatalogC,
 		Id:     docID,
-		Assert: bson.D{{"refcount", 1}},
 		Remove: true,
 	}}
 }
