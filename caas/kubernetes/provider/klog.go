@@ -34,7 +34,8 @@ func (k *klogAdapter) Error(err error, msg string, keysAndValues ...interface{})
 		return
 	}
 	if strings.HasPrefix(msg, "an error occurred forwarding") ||
-		strings.HasPrefix(msg, "error copying from remote stream to local connection") {
+		strings.HasPrefix(msg, "error copying from remote stream to local connection") ||
+		strings.HasPrefix(msg, "error copying from local connection to remote stream") {
 		k.Logger.Debugf(msg, keysAndValues...)
 		return
 	}
