@@ -73,7 +73,9 @@ type Machine interface {
 }
 
 type Application interface {
+	Name() string
 	Charm() (Charm, bool, error)
+	CharmOrigin() *state.CharmOrigin
 }
 
 type Charm interface {

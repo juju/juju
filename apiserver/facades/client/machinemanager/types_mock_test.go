@@ -323,6 +323,34 @@ func (mr *MockApplicationMockRecorder) Charm() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Charm", reflect.TypeOf((*MockApplication)(nil).Charm))
 }
 
+// CharmOrigin mocks base method
+func (m *MockApplication) CharmOrigin() *state.CharmOrigin {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CharmOrigin")
+	ret0, _ := ret[0].(*state.CharmOrigin)
+	return ret0
+}
+
+// CharmOrigin indicates an expected call of CharmOrigin
+func (mr *MockApplicationMockRecorder) CharmOrigin() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmOrigin", reflect.TypeOf((*MockApplication)(nil).CharmOrigin))
+}
+
+// Name mocks base method
+func (m *MockApplication) Name() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Name")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Name indicates an expected call of Name
+func (mr *MockApplicationMockRecorder) Name() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockApplication)(nil).Name))
+}
+
 // MockUnit is a mock of Unit interface
 type MockUnit struct {
 	ctrl     *gomock.Controller

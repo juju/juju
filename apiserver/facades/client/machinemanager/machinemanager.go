@@ -18,6 +18,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
@@ -89,6 +90,25 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
+	modelCfg, err := model.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var chCfg charmhub.Config
+	chURL, ok := modelCfg.CharmHubURL()
+	if ok {
+		chCfg, err = charmhub.CharmHubConfigFromURL(chURL, logger.Child("client"))
+	} else {
+		chCfg, err = charmhub.CharmHubConfig(logger.Child("client"))
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	chClient, err := charmhub.NewClient(chCfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return NewMachineManagerAPI(
 		backend,
 		storageAccess,
@@ -100,6 +120,7 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 		context.CallContext(st),
 		ctx.Resources(),
 		leadership,
+		chClient,
 	)
 }
 
@@ -156,6 +177,7 @@ func NewMachineManagerAPI(
 	callCtx context.ProviderCallContext,
 	resources facade.Resources,
 	leadership Leadership,
+	charmhubClient CharmhubClient,
 ) (*MachineManagerAPI, error) {
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -172,7 +194,7 @@ func NewMachineManagerAPI(
 		leadership:    leadership,
 		upgradeSeriesAPI: NewUpgradeSeriesAPI(
 			upgradeSeriesState{state: backend},
-			upgradeSeriesValidator{},
+			makeUpgradeSeriesValidator(charmhubClient),
 			auth,
 		),
 	}
