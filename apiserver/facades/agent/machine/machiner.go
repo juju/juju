@@ -143,7 +143,31 @@ func (api *MachinerAPI) RecordAgentStartTime(args params.Entities) (params.Error
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		if err := m.RecordAgentStartTime(); err != nil {
+		if err := m.RecordAgentStartInformation(""); err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return results, nil
+}
+
+// RecordAgentStartInformation syncs the machine model with information
+// reported by a machine agent when it starts.
+func (api *MachinerAPI) RecordAgentStartInformation(args params.RecordAgentStartInformationArgs) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	canModify, err := api.getCanModify()
+	if err != nil {
+		return results, err
+	}
+
+	for i, arg := range args.Args {
+		m, err := api.getMachine(arg.Tag, canModify)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if err := m.RecordAgentStartInformation(arg.Hostname); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 		}
 	}
@@ -155,6 +179,9 @@ type MachinerAPIV1 struct {
 	*MachinerAPIV2
 }
 
+// RecordAgentStartTime is not available in V1.
+func (api *MachinerAPIV1) RecordAgentStartTime(_, _ struct{}) {}
+
 // MachinerAPIV2 implements the V2 API used by the machiner worker.
 // It adds RecordAgentStartTime and back-fills the missing origin in
 // NetworkConfig.
@@ -163,8 +190,14 @@ type MachinerAPIV2 struct {
 }
 
 // MachinerAPIV3 implements the V3 API used by the machiner worker.
-// It removes SetProviderNetworkConfig.
+// It Relies on agent-set origin in SetObservedNetworkConfig.
 type MachinerAPIV3 struct {
+	*MachinerAPIV4
+}
+
+// MachinerAPIV4 implements the V4 API used by the machiner worker.
+// It removes SetProviderNetworkConfig.
+type MachinerAPIV4 struct {
 	*MachinerAPI
 }
 
@@ -204,7 +237,7 @@ func (api *MachinerAPIV2) SetObservedNetworkConfig(args params.SetMachineNetwork
 func NewMachinerAPIV3(
 	st *state.State, resources facade.Resources, authorizer facade.Authorizer,
 ) (*MachinerAPIV3, error) {
-	api, err := NewMachinerAPI(st, resources, authorizer)
+	api, err := NewMachinerAPIV4(st, resources, authorizer)
 	if err != nil {
 		return nil, err
 	}
@@ -223,5 +256,17 @@ func (api *MachinerAPIV3) SetProviderNetworkConfig(args params.Entities) (params
 	}, nil
 }
 
-// RecordAgentStartTime is not available in V1.
-func (api *MachinerAPIV1) RecordAgentStartTime(_, _ struct{}) {}
+// NewMachinerAPIV4 creates a new instance of the V4 Machiner API.
+func NewMachinerAPIV4(
+	st *state.State, resources facade.Resources, authorizer facade.Authorizer,
+) (*MachinerAPIV4, error) {
+	api, err := NewMachinerAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MachinerAPIV4{api}, nil
+}
+
+// RecordAgentStartInformation is not available in V4.
+func (api *MachinerAPIV4) RecordAgentStartInformation(_, _ struct{}) {}

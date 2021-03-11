@@ -125,19 +125,35 @@ func (m *Machine) SetObservedNetworkConfig(netConfig []params.NetworkConfig) err
 	return nil
 }
 
-// RecordAgentStartTime updates the start time for the agent running on the
-// machine.
-func (m *Machine) RecordAgentStartTime() error {
+// RecordAgentStartInformation reports the host name of the machine and updates
+// the start time for the agent.
+func (m *Machine) RecordAgentStartInformation(hostname string) error {
+	var (
+		result params.ErrorResults
+		err    error
+	)
+
+	switch {
 	// Ignore if connecting to an older, not upgraded controller
-	if m.st.facade.BestAPIVersion() < 2 {
+	case m.st.facade.BestAPIVersion() < 2:
 		return nil
+	case m.st.facade.BestAPIVersion() < 5: // Only supports RecordAgentStartTime
+		args := params.Entities{
+			Entities: []params.Entity{{Tag: m.tag.String()}},
+		}
+		err = m.st.facade.FacadeCall("RecordAgentStartTime", args, &result)
+	default: // Supports RecordAgentStartInformation
+		args := params.RecordAgentStartInformationArgs{
+			Args: []params.RecordAgentStartInformationArg{
+				{
+					Tag:      m.tag.String(),
+					Hostname: hostname,
+				},
+			},
+		}
+		err = m.st.facade.FacadeCall("RecordAgentStartInformation", args, &result)
 	}
 
-	var result params.ErrorResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag.String()}},
-	}
-	err := m.st.facade.FacadeCall("RecordAgentStartTime", args, &result)
 	if err != nil {
 		return err
 	}
