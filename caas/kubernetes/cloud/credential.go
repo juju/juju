@@ -50,6 +50,13 @@ var SupportedCredentialSchemas = map[cloud.AuthType]cloud.CredentialSchema{
 				Hidden:      true,
 			},
 		},
+		{
+			Name: RBACLabelKeyName,
+			CredentialAttr: cloud.CredentialAttr{
+				Optional:    true,
+				Description: "the unique ID key name of the rbac resources",
+			},
+		},
 	},
 	cloud.CertificateAuthType: {
 		{

@@ -4,6 +4,7 @@
 package proxyupdater_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	jujuos "github.com/juju/os/v2"
 	"github.com/juju/packaging/commands"
 	pacconfig "github.com/juju/packaging/config"
 	"github.com/juju/proxy"
@@ -405,8 +407,8 @@ func nextCall(c *gc.C, calls <-chan []string) []string {
 }
 
 func (s *ProxyUpdaterSuite) TestSnapProxySetNoneSet(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("snap settings not handled on windows")
+	if host := jujuos.HostOS(); host == jujuos.Windows || host == jujuos.CentOS {
+		c.Skip(fmt.Sprintf("snap settings not handled on %s", host.String()))
 	}
 
 	logger := s.config.Logger
@@ -468,8 +470,8 @@ func (s *ProxyUpdaterSuite) TestSnapProxySet(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestSnapStoreProxy(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("snap settings not handled on windows")
+	if host := jujuos.HostOS(); host == jujuos.Windows || host == jujuos.CentOS {
+		c.Skip(fmt.Sprintf("snap settings not handled on %s", host.String()))
 	}
 
 	logger := s.config.Logger
