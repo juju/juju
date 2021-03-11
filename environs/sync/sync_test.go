@@ -20,7 +20,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -362,8 +362,8 @@ func bundleTools(c *gc.C) (version.Binary, bool, string, error) {
 
 type badBuildSuite struct {
 	env environs.Environ
-	gitjujutesting.LoggingSuite
-	gitjujutesting.CleanupSuite
+	jujutesting.LoggingSuite
+	jujutesting.CleanupSuite
 	envtesting.ToolsFixture
 }
 

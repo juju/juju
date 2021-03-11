@@ -6,8 +6,9 @@ package model
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/os"
-	"github.com/juju/os/series"
+
+	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/series"
 )
 
 // ModelType indicates a model type.

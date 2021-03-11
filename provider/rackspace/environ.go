@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	jujuos "github.com/juju/os"
-	"github.com/juju/os/series"
 	"github.com/juju/utils/ssh"
 
+	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"

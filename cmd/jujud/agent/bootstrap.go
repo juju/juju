@@ -18,7 +18,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/ssh"
@@ -35,6 +34,8 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	jujuos "github.com/juju/juju/core/os"
+	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -541,7 +542,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Bootstrap
 			}
 		}
 		for _, osType := range osTypes.SortedValues() {
-			osSeries := series.OSSupportedSeries(jujuos.OSType(osType))
+			osSeries := jujuseries.OSSupportedSeries(jujuos.OSType(osType))
 			for _, s := range osSeries {
 				toolsVersion := agentTools.Version
 				toolsVersion.Series = s

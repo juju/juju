@@ -10,13 +10,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/worker/v2"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/keyupdater"
+	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/watcher"
 	jworker "github.com/juju/juju/worker"
 )

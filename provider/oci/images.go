@@ -13,13 +13,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
+	ociCore "github.com/oracle/oci-go-sdk/core"
 
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/oci/common"
-
-	ociCore "github.com/oracle/oci-go-sdk/core"
 )
 
 const (

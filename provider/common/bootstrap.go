@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/os/series"
 	"github.com/juju/utils"
 	"github.com/juju/utils/parallel"
 	"github.com/juju/utils/shell"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"

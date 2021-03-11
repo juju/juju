@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/api"
@@ -21,6 +20,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/watcher"
 )
 

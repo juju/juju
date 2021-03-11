@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 
 	"github.com/juju/names/v4"
-	jujuos "github.com/juju/os"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/juju/sockets"
 )
 

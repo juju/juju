@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
-	utilsos "github.com/juju/os"
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/version"
 
@@ -48,6 +47,7 @@ import (
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
+	utilsos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"

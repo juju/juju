@@ -5,13 +5,14 @@ package machinemanager_test
 
 import (
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/os"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -24,6 +25,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
@@ -873,16 +875,57 @@ func (s *MachineManagerSuite) TestIsSeriesLessThan(c *gc.C) {
 
 	ss := series.SupportedSeries()
 
-	// get the series versions
-	vs := make([]string, 0, len(ss))
+	// Group series by OS and check the list for
+	// each OS separately.
+	seriesByOS := make(map[os.OSType][]string)
 	for _, ser := range ss {
+		seriesOS, err := series.GetOSFromSeries(ser)
+		c.Assert(err, jc.ErrorIsNil)
+		seriesList := seriesByOS[seriesOS]
+		seriesList = append(seriesList, ser)
+		seriesByOS[seriesOS] = seriesList
+	}
+
+	for seriesOS, seriesList := range seriesByOS {
+		c.Logf("checking series for %v", seriesOS)
+		s.assertSeriesLessThan(c, seriesList)
+	}
+}
+
+type seriesVersion []string
+
+func (s seriesVersion) Len() int {
+	return len(s)
+}
+
+func (s seriesVersion) Less(i, j int) bool {
+	v1 := s[i]
+	v2 := s[j]
+	v1Int, err1 := strconv.Atoi(v1)
+	v2Int, err2 := strconv.Atoi(v2)
+	if err1 == nil && err2 == nil {
+		return v1Int < v2Int
+	}
+	return v1 < v2
+}
+
+func (s seriesVersion) Swap(i, j int) {
+	sv := s[i]
+	s[i] = s[j]
+	s[j] = sv
+}
+
+func (s *MachineManagerSuite) assertSeriesLessThan(c *gc.C, seriesList []string) {
+	// get the series versions
+	vs := make(seriesVersion, 0, len(seriesList))
+	for _, ser := range seriesList {
 		ver, err := series.SeriesVersion(ser)
 		c.Assert(err, jc.ErrorIsNil)
 		vs = append(vs, ver)
 	}
 
 	// sort the values, so the lexicographical order is determined
-	sort.Strings(vs)
+	sort.Sort(vs)
 
 	// check that the IsSeriesLessThan works for all supported series
 	for i := range vs {

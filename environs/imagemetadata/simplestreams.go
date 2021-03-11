@@ -11,10 +11,10 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/simplestreams"
 )
 

@@ -8,7 +8,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
-	series "github.com/juju/os/series"
+	"github.com/juju/os/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -42,7 +42,7 @@ func (s *SupportedSuite) TestCompileForControllers(c *gc.C) {
 	}, true)
 	mockDistroSource.EXPECT().SeriesInfo("ignored").Return(series.DistroInfoSerie{}, false)
 
-	preset := map[SeriesName]SeriesVersion{
+	preset := map[SeriesName]seriesVersion{
 		"supported": {
 			WorkloadType: ControllerWorkloadType,
 			Version:      "1.1.1",
@@ -88,7 +88,7 @@ func (s *SupportedSuite) TestCompileForControllersWithOverride(c *gc.C) {
 		EOL:      now.AddDate(0, 0, 10),
 	}, true)
 
-	preset := map[SeriesName]SeriesVersion{
+	preset := map[SeriesName]seriesVersion{
 		"supported": {
 			WorkloadType:           ControllerWorkloadType,
 			Version:                "1.1.1",
@@ -120,7 +120,7 @@ func (s *SupportedSuite) TestCompileForControllersWithoutOverride(c *gc.C) {
 		EOL:      now.AddDate(0, 0, 10),
 	}, true)
 
-	preset := map[SeriesName]SeriesVersion{
+	preset := map[SeriesName]seriesVersion{
 		"supported": {
 			WorkloadType: ControllerWorkloadType,
 			Version:      "1.1.1",
@@ -173,7 +173,7 @@ func (s *SupportedSuite) TestCompileForWorkloads(c *gc.C) {
 	}, true)
 	mockDistroSource.EXPECT().SeriesInfo("work-ignored").Return(series.DistroInfoSerie{}, false)
 
-	preset := map[SeriesName]SeriesVersion{
+	preset := map[SeriesName]seriesVersion{
 		"ctrl-supported": {
 			WorkloadType: ControllerWorkloadType,
 			Version:      "1.1.1",

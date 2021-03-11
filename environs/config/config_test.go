@@ -10,15 +10,15 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
-	"github.com/juju/os/series"
 	"github.com/juju/proxy"
 	"github.com/juju/schema"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
@@ -590,7 +590,7 @@ type testFile struct {
 }
 
 func (s *ConfigSuite) TestConfig(c *gc.C) {
-	files := []gitjujutesting.TestFile{
+	files := []jujutesting.TestFile{
 		{".ssh/id_dsa.pub", "dsa"},
 		{".ssh/id_rsa.pub", "rsa\n"},
 		{".ssh/identity.pub", "identity"},
@@ -604,7 +604,7 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 	}
 }
 
-func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
+func (test configTest) check(c *gc.C, home *jujutesting.FakeHome) {
 	cfg, err := config.New(test.useDefaults, test.attrs)
 	if test.err != "" {
 		c.Check(cfg, gc.IsNil)
@@ -784,7 +784,7 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 }
 
 func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
-	// Normally this is handled by gitjujutesting.FakeHome
+	// Normally this is handled by jujutesting.FakeHome
 	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
 	attrs := map[string]interface{}{
 		"type":                       "my-type",
@@ -873,7 +873,7 @@ var validationTests = []validationTest{{
 }}
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
-	files := []gitjujutesting.TestFile{
+	files := []jujutesting.TestFile{
 		{".ssh/identity.pub", "identity"},
 	}
 	s.FakeHomeSuite.Home.AddFiles(c, files...)
@@ -925,7 +925,7 @@ var configValidateCloudInitUserDataTests = []configValidateCloudInitUserDataTest
 }
 
 func (s *ConfigSuite) TestValidateCloudInitUserData(c *gc.C) {
-	files := []gitjujutesting.TestFile{
+	files := []jujutesting.TestFile{
 		{".ssh/id_dsa.pub", "dsa"},
 		{".ssh/id_rsa.pub", "rsa\n"},
 		{".ssh/identity.pub", "identity"},
@@ -955,7 +955,7 @@ func (test configValidateCloudInitUserDataTest) checkNew(c *gc.C) {
 }
 
 func (s *ConfigSuite) addJujuFiles(c *gc.C) {
-	s.FakeHomeSuite.Home.AddFiles(c, []gitjujutesting.TestFile{
+	s.FakeHomeSuite.Home.AddFiles(c, []jujutesting.TestFile{
 		{".ssh/id_rsa.pub", "rsa\n"},
 	}...)
 }

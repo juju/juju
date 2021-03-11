@@ -8,12 +8,12 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	jujuos "github.com/juju/os"
-	"github.com/juju/os/series"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/core/constraints"
+	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/tools"

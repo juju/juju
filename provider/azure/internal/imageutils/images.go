@@ -15,10 +15,10 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/os"
-	jujuseries "github.com/juju/os/series"
 	"github.com/juju/utils/arch"
 
+	"github.com/juju/juju/core/os"
+	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"

@@ -13,12 +13,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/juju/testing"
-	jujuos "github.com/juju/os"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"

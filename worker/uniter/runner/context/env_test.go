@@ -10,14 +10,15 @@ import (
 	"sort"
 
 	"github.com/juju/names/v4"
-	jujuos "github.com/juju/os"
-	"github.com/juju/os/series"
+	osseries "github.com/juju/os/series"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/keyvalues"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -206,7 +207,7 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 
 	// As TERM is series-specific we need to make sure all supported versions are covered.
 	for _, testSeries := range series.OSSupportedSeries(jujuos.Ubuntu) {
-		s.PatchValue(&series.HostSeries, func() (string, error) { return testSeries, nil })
+		s.PatchValue(&osseries.HostSeries, func() (string, error) { return testSeries, nil })
 		ubuntuVars := []string{
 			"APT_LISTCHANGES_FRONTEND=none",
 			"DEBIAN_FRONTEND=noninteractive",
@@ -255,7 +256,7 @@ func (s *EnvSuite) TestEnvCentos(c *gc.C) {
 
 	// As TERM is series-specific we need to make sure all supported versions are covered.
 	for _, testSeries := range series.OSSupportedSeries(jujuos.CentOS) {
-		s.PatchValue(&series.HostSeries, func() (string, error) { return testSeries, nil })
+		s.PatchValue(&osseries.HostSeries, func() (string, error) { return testSeries, nil })
 		centosVars := []string{
 			"LANG=C.UTF-8",
 			"PATH=path-to-tools:foo:bar",
@@ -302,7 +303,7 @@ func (s *EnvSuite) TestEnvOpenSUSE(c *gc.C) {
 
 	// As TERM is series-specific we need to make sure all supported versions are covered.
 	for _, testSeries := range series.OSSupportedSeries(jujuos.OpenSUSE) {
-		s.PatchValue(&series.HostSeries, func() (string, error) { return testSeries, nil })
+		s.PatchValue(&osseries.HostSeries, func() (string, error) { return testSeries, nil })
 		openSUSEVars := []string{
 			"LANG=C.UTF-8",
 			"PATH=path-to-tools:foo:bar",

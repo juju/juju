@@ -21,6 +21,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/filestorage"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
@@ -36,8 +37,8 @@ import (
 var toolsLtsSeries = supportedJujuSeries()
 
 func supportedJujuSeries() []string {
-	supportedJujuSeries := set.NewStrings(series.SupportedJujuControllerSeries()...)
-	esmSupportedJujuSeries := set.NewStrings(series.ESMSupportedJujuSeries()...)
+	supportedJujuSeries := set.NewStrings(coreseries.SupportedJujuControllerSeries()...)
+	esmSupportedJujuSeries := set.NewStrings(coreseries.ESMSupportedJujuSeries()...)
 	return supportedJujuSeries.Union(esmSupportedJujuSeries).Values()
 }
 
@@ -316,7 +317,7 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	name := envtools.StorageName(toolsVersion, toolsDir)
 	err := stor.Remove(name)
 	c.Check(err, jc.ErrorIsNil)
-	defaultSeries := series.DefaultSupportedLTS()
+	defaultSeries := coreseries.DefaultSupportedLTS()
 	if coretesting.HostSeries(c) != defaultSeries {
 		toolsVersion.Series = defaultSeries
 		name := envtools.StorageName(toolsVersion, toolsDir)

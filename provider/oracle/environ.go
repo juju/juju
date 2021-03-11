@@ -17,8 +17,6 @@ import (
 	oci "github.com/juju/go-oracle-cloud/api"
 	ociCommon "github.com/juju/go-oracle-cloud/common"
 	ociResponse "github.com/juju/go-oracle-cloud/response"
-	"github.com/juju/os"
-	jujuseries "github.com/juju/os/series"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 
@@ -28,6 +26,8 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/os"
+	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	"github.com/juju/proxy"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
@@ -23,6 +22,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/logfwd/syslog"
