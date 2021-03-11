@@ -116,7 +116,19 @@ func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 		return nil, errors.Trace(err)
 	}
 
-	c.logger.Tracef("Refresh() unmarshalled: %s", pretty.Sprint(resp.Results))
+	// TODO(benhoyt) - total hack for demo, remove
+	// The Charmhub API seems to be returning type="file" incorrectly
+	for _, result := range resp.Results {
+		if result.Entity.Name != "snappass-test" {
+			continue
+		}
+		for i, res := range result.Entity.Resources {
+			c.logger.Errorf("Refresh(): replacing type %q with \"oci-image\"", res.Type)
+			result.Entity.Resources[i].Type = "oci-image"
+		}
+	}
+
+	c.logger.Errorf("Refresh() unmarshalled: %s", pretty.Sprint(resp.Results))
 	return resp.Results, config.Ensure(resp.Results)
 }
 

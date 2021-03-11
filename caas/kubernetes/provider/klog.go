@@ -6,6 +6,7 @@ package provider
 import (
 	"github.com/go-logr/logr"
 	"github.com/juju/loggo"
+	"strings"
 )
 
 // klogAdapter is an adapter for Kubernetes logger onto juju loggo. We use this
@@ -30,9 +31,14 @@ func (k *klogAdapter) Enabled() bool {
 func (k *klogAdapter) Error(err error, msg string, keysAndValues ...interface{}) {
 	if err != nil {
 		k.Logger.Errorf(msg+": "+err.Error(), keysAndValues...)
-	} else {
-		k.Logger.Errorf(msg, keysAndValues...)
+		return
 	}
+	if strings.HasPrefix(msg, "an error occurred forwarding") ||
+		strings.HasPrefix(msg, "error copying from remote stream to local connection") {
+		k.Logger.Debugf(msg, keysAndValues...)
+		return
+	}
+	k.Logger.Errorf(msg, keysAndValues...)
 }
 
 // Info see https://pkg.go.dev/github.com/go-logr/logr#Logger
