@@ -13,7 +13,6 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/transport"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/status"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -309,12 +308,6 @@ func (s stateSeriesValidator) verifySupportedSeries(application Application, ser
 	return nil
 }
 
-// CharmhubClient represents a way for querying the charmhub api for information
-// about the application charm.
-type CharmhubClient interface {
-	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
-}
-
 type charmhubSeriesValidator struct {
 	client CharmhubClient
 }
@@ -331,7 +324,7 @@ func (s charmhubSeriesValidator) ValidateApplications(applications []Application
 		origin := app.CharmOrigin()
 		rev := origin.Revision
 		if rev == nil {
-			return errors.Errorf("no revision found for application %s", app.Name())
+			return errors.Errorf("no revision found for application %q", app.Name())
 		}
 
 		platform := charmhub.RefreshPlatform{
@@ -349,8 +342,11 @@ func (s charmhubSeriesValidator) ValidateApplications(applications []Application
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if len(refreshResp) != len(applications) {
+		return errors.Errorf("unexpected number of responses %d for applications %d", len(refreshResp), len(applications))
+	}
 	for _, resp := range refreshResp {
-		if err := resp.Error; err != nil {
+		if err := resp.Error; err != nil && !force {
 			return errors.Annotatef(err, "unable to locate application with series %s", series)
 		}
 	}

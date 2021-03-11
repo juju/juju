@@ -4,6 +4,7 @@
 package machinemanager
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -19,11 +20,12 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
+	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 )
 
@@ -55,6 +57,12 @@ type Authorizer interface {
 	AuthClient() bool
 }
 
+// CharmhubClient represents a way for querying the charmhub api for information
+// about the application charm.
+type CharmhubClient interface {
+	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
+}
+
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
 	st               Backend
@@ -66,7 +74,7 @@ type MachineManagerAPI struct {
 	leadership       Leadership
 	upgradeSeriesAPI UpgradeSeries
 
-	callContext context.ProviderCallContext
+	callContext environscontext.ProviderCallContext
 }
 
 // NewFacade create a new server-side MachineManager API facade. This
@@ -117,7 +125,7 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 			ModelTag:   model.ModelTag(),
 			Authorizer: ctx.Auth(),
 		},
-		context.CallContext(st),
+		environscontext.CallContext(st),
 		ctx.Resources(),
 		leadership,
 		chClient,
@@ -174,7 +182,7 @@ func NewMachineManagerAPI(
 	storageAccess storageInterface,
 	pool Pool,
 	auth Authorizer,
-	callCtx context.ProviderCallContext,
+	callCtx environscontext.ProviderCallContext,
 	resources facade.Resources,
 	leadership Leadership,
 	charmhubClient CharmhubClient,

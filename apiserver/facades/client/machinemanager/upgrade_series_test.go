@@ -5,14 +5,17 @@ package machinemanager
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/state"
 )
 
 type UpgradeSeriesSuite struct {
@@ -175,4 +178,243 @@ func (s *UpgradeSeriesSuite) TestValidateApplications(c *gc.C) {
 	result, err := api.Validate(entities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result[0].Error, gc.ErrorMatches, `boom`)
+}
+
+type UpgradeSeriesSuiteState struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&UpgradeSeriesSuiteState{})
+
+func (s UpgradeSeriesSuiteState) TestValidateApplications(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	meta := NewMockCharmMeta(ctrl)
+	meta.EXPECT().ComputedSeries().Return([]string{"focal", "bionic"})
+
+	charm := NewMockCharm(ctrl)
+	charm.EXPECT().Meta().Return(meta)
+
+	application := NewMockApplication(ctrl)
+	application.EXPECT().Charm().Return(charm, false, nil)
+
+	applications := []Application{application}
+
+	validator := stateSeriesValidator{}
+	err := validator.ValidateApplications(applications, "focal", false)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s UpgradeSeriesSuiteState) TestValidateApplicationsWithFallbackSeries(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	url := charm.MustParseURL("cs:focal/foo-1")
+
+	meta := NewMockCharmMeta(ctrl)
+	meta.EXPECT().ComputedSeries().Return(nil)
+
+	charm := NewMockCharm(ctrl)
+	charm.EXPECT().Meta().Return(meta)
+	charm.EXPECT().URL().Return(url)
+
+	application := NewMockApplication(ctrl)
+	application.EXPECT().Charm().Return(charm, false, nil)
+
+	applications := []Application{application}
+
+	validator := stateSeriesValidator{}
+	err := validator.ValidateApplications(applications, "focal", false)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s UpgradeSeriesSuiteState) TestValidateApplicationsWithUnsupportedSeries(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	meta := NewMockCharmMeta(ctrl)
+	meta.EXPECT().ComputedSeries().Return([]string{"xenial", "bionic"})
+
+	charm := NewMockCharm(ctrl)
+	charm.EXPECT().Meta().Return(meta)
+	charm.EXPECT().String().Return("cs:foo-1")
+
+	application := NewMockApplication(ctrl)
+	application.EXPECT().Charm().Return(charm, false, nil)
+
+	applications := []Application{application}
+
+	validator := stateSeriesValidator{}
+	err := validator.ValidateApplications(applications, "focal", false)
+	c.Assert(err, gc.ErrorMatches, `series "focal" not supported by charm "cs:foo-1", supported series are: xenial, bionic`)
+}
+
+func (s UpgradeSeriesSuiteState) TestValidateApplicationsWithUnsupportedSeriesWithForce(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	meta := NewMockCharmMeta(ctrl)
+	meta.EXPECT().ComputedSeries().Return([]string{"xenial", "bionic"})
+
+	charm := NewMockCharm(ctrl)
+	charm.EXPECT().Meta().Return(meta)
+
+	application := NewMockApplication(ctrl)
+	application.EXPECT().Charm().Return(charm, false, nil)
+
+	applications := []Application{application}
+
+	validator := stateSeriesValidator{}
+	err := validator.ValidateApplications(applications, "focal", true)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type UpgradeSeriesSuiteCharmhub struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&UpgradeSeriesSuiteCharmhub{})
+
+func (s UpgradeSeriesSuiteCharmhub) TestValidateApplications(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	client := NewMockCharmhubClient(ctrl)
+	client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{
+		{},
+	}, nil)
+
+	revision := 1
+
+	application := NewMockApplication(ctrl)
+	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		Revision: &revision,
+		Platform: &state.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Series:       "bionic",
+		},
+	})
+
+	applications := []Application{application}
+
+	validator := charmhubSeriesValidator{
+		client: client,
+	}
+	err := validator.ValidateApplications(applications, "focal", false)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s UpgradeSeriesSuiteCharmhub) TestValidateApplicationsWithNoRevision(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	client := NewMockCharmhubClient(ctrl)
+
+	application := NewMockApplication(ctrl)
+	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{})
+	application.EXPECT().Name().Return("foo")
+
+	applications := []Application{application}
+
+	validator := charmhubSeriesValidator{
+		client: client,
+	}
+	err := validator.ValidateApplications(applications, "focal", false)
+	c.Assert(err, gc.ErrorMatches, `no revision found for application "foo"`)
+}
+
+func (s UpgradeSeriesSuiteCharmhub) TestValidateApplicationsWithClientRefreshError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	client := NewMockCharmhubClient(ctrl)
+	client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{
+		{},
+	}, errors.Errorf("bad"))
+
+	revision := 1
+
+	application := NewMockApplication(ctrl)
+	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		Revision: &revision,
+		Platform: &state.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Series:       "bionic",
+		},
+	})
+
+	applications := []Application{application}
+
+	validator := charmhubSeriesValidator{
+		client: client,
+	}
+	err := validator.ValidateApplications(applications, "focal", false)
+	c.Assert(err, gc.ErrorMatches, `bad`)
+}
+
+func (s UpgradeSeriesSuiteCharmhub) TestValidateApplicationsWithRefreshError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	client := NewMockCharmhubClient(ctrl)
+	client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{
+		{Error: &transport.APIError{
+			Message: "bad",
+		}},
+	}, nil)
+
+	revision := 1
+
+	application := NewMockApplication(ctrl)
+	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		Revision: &revision,
+		Platform: &state.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Series:       "bionic",
+		},
+	})
+
+	applications := []Application{application}
+
+	validator := charmhubSeriesValidator{
+		client: client,
+	}
+	err := validator.ValidateApplications(applications, "focal", false)
+	c.Assert(err, gc.ErrorMatches, `unable to locate application with series focal: bad`)
+}
+
+func (s UpgradeSeriesSuiteCharmhub) TestValidateApplicationsWithRefreshErrorAndForce(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	client := NewMockCharmhubClient(ctrl)
+	client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{
+		{Error: &transport.APIError{
+			Message: "bad",
+		}},
+	}, nil)
+
+	revision := 1
+
+	application := NewMockApplication(ctrl)
+	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		Revision: &revision,
+		Platform: &state.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Series:       "bionic",
+		},
+	})
+
+	applications := []Application{application}
+
+	validator := charmhubSeriesValidator{
+		client: client,
+	}
+	err := validator.ValidateApplications(applications, "focal", true)
+	c.Assert(err, jc.ErrorIsNil)
 }
