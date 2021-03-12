@@ -2971,14 +2971,16 @@ func (s *localServerSuite) ensureAMDImages(c *gc.C) environs.Environ {
 		Number: jujuversion.Current,
 		Arch:   arch.AMD64,
 	}
-	for _, supSeries := range series.SupportedSeries() {
+	workloadSeries, err := series.WorkloadSeries(time.Now(), "", "")
+	c.Assert(err, jc.ErrorIsNil)
+	for _, supSeries := range workloadSeries.Values() {
 		amd64Version.Series = supSeries
 		envtesting.AssertUploadFakeToolsVersions(
 			c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), amd64Version)
 	}
 
 	// Destroy the old Environ
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.callCtx, s.ControllerStore)
+	err = environs.Destroy(s.env.Config().Name(), s.env, s.callCtx, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Prepare a new Environ

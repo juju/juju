@@ -6,6 +6,7 @@ package machine
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
@@ -199,7 +200,12 @@ func (c *upgradeSeriesCommand) Init(args []string) error {
 	}
 
 	if c.subCommand == PrepareCommand {
-		s, err := checkSeries(series.SupportedSeries(), args[2])
+		seriesArg := args[2]
+		workloadSeries, err := series.WorkloadSeries(time.Now(), seriesArg, "")
+		if err != nil {
+			return errors.Trace(err)
+		}
+		s, err := checkSeries(workloadSeries.Values(), seriesArg)
 		if err != nil {
 			return err
 		}

@@ -11,36 +11,36 @@ import (
 	"github.com/juju/os/series"
 )
 
-// DistroSource is the source of the underlying distro source for supported
+// distroSource is the source of the underlying distro source for supported
 // series.
 type DistroSource interface {
-	// Refresh will attempt to update the information it has about each distro
+	// refresh will attempt to update the information it has about each distro
 	// and if the distro is supported or not.
 	Refresh() error
 
-	// SeriesInfo returns the DistroInfoSerie for the series name.
+	// seriesInfo returns the DistroInfoSerie for the series name.
 	SeriesInfo(seriesName string) (series.DistroInfoSerie, bool)
 }
 
-// SupportedInfo represents all the supported info available.
-type SupportedInfo struct {
+// supportedInfo represents all the supported info available.
+type supportedInfo struct {
 	mutex sync.RWMutex
 
 	source DistroSource
 	values map[SeriesName]seriesVersion
 }
 
-// NewSupportedInfo creates a supported info type for knowing if a series is
+// newSupportedInfo creates a supported info type for knowing if a series is
 // supported or not.
-func NewSupportedInfo(source DistroSource, preset map[SeriesName]seriesVersion) *SupportedInfo {
-	return &SupportedInfo{
+func newSupportedInfo(source DistroSource, preset map[SeriesName]seriesVersion) *supportedInfo {
+	return &supportedInfo{
 		source: source,
 		values: preset,
 	}
 }
 
-// Compile compiles a list of supported info.
-func (s *SupportedInfo) Compile(now time.Time) error {
+// compile compiles a list of supported info.
+func (s *supportedInfo) compile(now time.Time) error {
 	if err := s.source.Refresh(); err != nil {
 		return errors.Trace(err)
 	}
@@ -86,9 +86,9 @@ func (s *SupportedInfo) Compile(now time.Time) error {
 	return nil
 }
 
-// ControllerSeries returns a slice of series that are supported to run on a
+// controllerSeries returns a slice of series that are supported to run on a
 // controller.
-func (s *SupportedInfo) ControllerSeries() []string {
+func (s *supportedInfo) controllerSeries() []string {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -105,11 +105,11 @@ func (s *SupportedInfo) ControllerSeries() []string {
 	return result
 }
 
-// WorkloadSeries returns a slice of series that are supported to run on a
+// workloadSeries returns a slice of series that are supported to run on a
 // target workload (charm).
 // Note: workload series will also include controller workload types, as they
 // can also be used for workloads.
-func (s *SupportedInfo) WorkloadSeries() []string {
+func (s *supportedInfo) workloadSeries(includeUnsupported bool) []string {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -118,7 +118,7 @@ func (s *SupportedInfo) WorkloadSeries() []string {
 		if version.WorkloadType == UnsupportedWorkloadType {
 			continue
 		}
-		if version.ESMSupported || version.Supported {
+		if includeUnsupported || version.ESMSupported || version.Supported {
 			result = append(result, name.String())
 		}
 	}

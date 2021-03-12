@@ -111,6 +111,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&sshGenerateKey, func(name string) (string, string, error) {
 		return "private-key", "public-key", nil
 	})
+	s.PatchValue(&series.UbuntuDistroInfo, "/path/notexists")
 
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
@@ -699,8 +700,10 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	st, closer := s.getSystemState(c)
 	defer closer()
 	expectedSeries := make(set.Strings)
+	workloadSeries, err := series.AllWorkloadSeries("", "")
+	c.Assert(err, jc.ErrorIsNil)
 	if exploded {
-		for _, ser := range series.SupportedSeries() {
+		for _, ser := range workloadSeries.Values() {
 			os, err := series.GetOSFromSeries(ser)
 			c.Assert(err, jc.ErrorIsNil)
 			hostos, err := series.GetOSFromSeries(testing.HostSeries(c))

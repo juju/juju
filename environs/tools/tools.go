@@ -56,7 +56,11 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 	if filter.Series != "" {
 		seriesToSearch = []string{filter.Series}
 	} else {
-		seriesToSearch = series.SupportedSeries()
+		workloadSeries, err := series.AllWorkloadSeries("", stream)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		seriesToSearch = workloadSeries.Values()
 		logger.Tracef("no series specified when finding agent binaries, looking for %v", seriesToSearch)
 	}
 	toolsConstraint.Series = seriesToSearch

@@ -341,26 +341,26 @@ func RemoveTools(c *gc.C, stor storage.Storage, toolsDir string) {
 
 var (
 	V100    = version.MustParse("1.0.0")
-	V100p64 = version.MustParseBinary("1.0.0-precise-amd64")
-	V100p32 = version.MustParseBinary("1.0.0-precise-i386")
+	V100p64 = version.MustParseBinary("1.0.0-bionic-amd64")
+	V100p32 = version.MustParseBinary("1.0.0-bionic-i386")
 	V100p   = []version.Binary{V100p64, V100p32}
 
-	V100q64 = version.MustParseBinary("1.0.0-quantal-amd64")
-	V100q32 = version.MustParseBinary("1.0.0-quantal-i386")
+	V100q64 = version.MustParseBinary("1.0.0-xenial-amd64")
+	V100q32 = version.MustParseBinary("1.0.0-xenial-i386")
 	V100q   = []version.Binary{V100q64, V100q32}
 	V100all = append(V100p, V100q...)
 
 	V1001    = version.MustParse("1.0.0.1")
-	V1001p64 = version.MustParseBinary("1.0.0.1-precise-amd64")
+	V1001p64 = version.MustParseBinary("1.0.0.1-bionic-amd64")
 	V100Xall = append(V100all, V1001p64)
 
 	V110    = version.MustParse("1.1.0")
-	V110p64 = version.MustParseBinary("1.1.0-precise-amd64")
-	V110p32 = version.MustParseBinary("1.1.0-precise-i386")
+	V110p64 = version.MustParseBinary("1.1.0-bionic-amd64")
+	V110p32 = version.MustParseBinary("1.1.0-bionic-i386")
 	V110p   = []version.Binary{V110p64, V110p32}
 
-	V110q64 = version.MustParseBinary("1.1.0-quantal-amd64")
-	V110q32 = version.MustParseBinary("1.1.0-quantal-i386")
+	V110q64 = version.MustParseBinary("1.1.0-xenial-amd64")
+	V110q32 = version.MustParseBinary("1.1.0-xenial-i386")
 	V110q   = []version.Binary{V110q64, V110q32}
 	V110all = append(V110p, V110q...)
 
@@ -368,12 +368,12 @@ var (
 	V110Xall = append(V110all, V1101p64)
 
 	V120    = version.MustParse("1.2.0")
-	V120p64 = version.MustParseBinary("1.2.0-precise-amd64")
-	V120p32 = version.MustParseBinary("1.2.0-precise-i386")
+	V120p64 = version.MustParseBinary("1.2.0-bionic-amd64")
+	V120p32 = version.MustParseBinary("1.2.0-bionic-i386")
 	V120p   = []version.Binary{V120p64, V120p32}
 
-	V120q64 = version.MustParseBinary("1.2.0-quantal-amd64")
-	V120q32 = version.MustParseBinary("1.2.0-quantal-i386")
+	V120q64 = version.MustParseBinary("1.2.0-xenial-amd64")
+	V120q32 = version.MustParseBinary("1.2.0-xenial-i386")
 	V120q   = []version.Binary{V120q64, V120q32}
 
 	V120t64 = version.MustParseBinary("1.2.0-trusty-amd64")
@@ -384,15 +384,12 @@ var (
 	V1all   = append(V100Xall, append(V110all, V120all...)...)
 
 	V220    = version.MustParse("2.2.0")
-	V220p32 = version.MustParseBinary("2.2.0-precise-i386")
-	V220p64 = version.MustParseBinary("2.2.0-precise-amd64")
-	V220q32 = version.MustParseBinary("2.2.0-quantal-i386")
-	V220q64 = version.MustParseBinary("2.2.0-quantal-amd64")
+	V220p32 = version.MustParseBinary("2.2.0-bionic-i386")
+	V220p64 = version.MustParseBinary("2.2.0-bionic-amd64")
+	V220q32 = version.MustParseBinary("2.2.0-xenial-i386")
+	V220q64 = version.MustParseBinary("2.2.0-xenial-amd64")
 	V220all = []version.Binary{V220p64, V220p32, V220q64, V220q32}
 	VAll    = append(V1all, V220all...)
-
-	V31d0qppc64  = version.MustParseBinary("3.1-dev0-quantal-ppc64el")
-	V31d01qppc64 = version.MustParseBinary("3.1-dev0.1-quantal-ppc64el")
 )
 
 type BootstrapToolsTest struct {

@@ -643,7 +643,7 @@ func (api *ProvisionerAPI) constructImageConstraint(m *state.Machine, env enviro
 		lookup.CloudSpec = spec
 	}
 
-	return imagemetadata.NewImageConstraint(lookup), nil
+	return imagemetadata.NewImageConstraint(lookup)
 }
 
 // findImageMetadata returns all image metadata or an error fetching them.

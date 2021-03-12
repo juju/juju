@@ -873,7 +873,9 @@ func (s *MachineManagerSuite) TestUpgradeSeriesComplete(c *gc.C) {
 func (s *MachineManagerSuite) TestIsSeriesLessThan(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	ss := series.SupportedSeries()
+	workloadSeries, err := series.AllWorkloadSeries("", "")
+	c.Assert(err, jc.ErrorIsNil)
+	ss := workloadSeries.Values()
 
 	// Group series by OS and check the list for
 	// each OS separately.

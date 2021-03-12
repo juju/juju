@@ -4,6 +4,8 @@
 package bootstrap_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -220,9 +222,12 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 
 func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	s.PatchValue(&series.UbuntuDistroInfo, "/path/notexists")
 
+	workloadSeries, err := series.WorkloadSeries(time.Now(), "", "")
+	c.Assert(err, jc.ErrorIsNil)
 	var allTools tools.List
-	for _, series := range series.SupportedSeries() {
+	for _, series := range workloadSeries.Values() {
 		binary := version.Binary{
 			Number: jujuversion.Current,
 			Series: series,

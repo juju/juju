@@ -65,11 +65,11 @@ func (s *SupportedSuite) TestCompileForControllers(c *gc.C) {
 		},
 	}
 
-	info := NewSupportedInfo(mockDistroSource, preset)
-	err := info.Compile(now)
+	info := newSupportedInfo(mockDistroSource, preset)
+	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSeries := info.ControllerSeries()
+	ctrlSeries := info.controllerSeries()
 	sort.Strings(ctrlSeries)
 
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"supported", "updated"})
@@ -97,11 +97,11 @@ func (s *SupportedSuite) TestCompileForControllersWithOverride(c *gc.C) {
 		},
 	}
 
-	info := NewSupportedInfo(mockDistroSource, preset)
-	err := info.Compile(now)
+	info := newSupportedInfo(mockDistroSource, preset)
+	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSeries := info.ControllerSeries()
+	ctrlSeries := info.controllerSeries()
 	sort.Strings(ctrlSeries)
 
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"supported"})
@@ -128,11 +128,11 @@ func (s *SupportedSuite) TestCompileForControllersWithoutOverride(c *gc.C) {
 		},
 	}
 
-	info := NewSupportedInfo(mockDistroSource, preset)
-	err := info.Compile(now)
+	info := newSupportedInfo(mockDistroSource, preset)
+	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSeries := info.ControllerSeries()
+	ctrlSeries := info.controllerSeries()
 	sort.Strings(ctrlSeries)
 
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{})
@@ -216,18 +216,18 @@ func (s *SupportedSuite) TestCompileForWorkloads(c *gc.C) {
 		},
 	}
 
-	info := NewSupportedInfo(mockDistroSource, preset)
-	err := info.Compile(now)
+	info := newSupportedInfo(mockDistroSource, preset)
+	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
-	workSeries := info.WorkloadSeries()
+	workSeries := info.workloadSeries(false)
 	sort.Strings(workSeries)
 
 	c.Assert(workSeries, jc.DeepEquals, []string{"ctrl-supported", "ctrl-updated", "work-supported", "work-updated"})
 
 	// Double check that controller series doesn't change when we have workload
 	// types.
-	ctrlSeries := info.ControllerSeries()
+	ctrlSeries := info.controllerSeries()
 	sort.Strings(ctrlSeries)
 
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"ctrl-supported", "ctrl-updated"})

@@ -4,11 +4,12 @@
 package series
 
 import (
-	"sort"
+	"time"
 
 	jujuos "github.com/juju/os"
 	jujuseries "github.com/juju/os/series"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
@@ -74,14 +75,16 @@ func (s *SupportedSeriesLinuxSuite) TestUbuntuInvalidSeriesVersion(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*unknown version for series: "firewolf".*`)
 }
 
-func (s *SupportedSeriesLinuxSuite) TestSupportedSeries(c *gc.C) {
-	series := SupportedSeries()
-	sort.Strings(series)
-	c.Assert(series, gc.DeepEquals, []string{
-		"artful", "bionic", "catalina", "centos7", "centos8", "cosmic", "disco", "elcapitan", "eoan", "focal",
-		"genericlinux", "groovy", "hairy", "highsierra", "hirsute", "jaguar", "kubernetes", "leopard", "lion",
-		"mavericks", "mojave", "mountainlion", "opensuseleap", "panther", "precise", "puma", "quantal", "raring",
-		"saucy", "sierra", "snowleopard", "tiger", "trusty", "utopic", "vivid", "wily", "win10", "win2008r2", "win2012",
-		"win2012hv", "win2012hvr2", "win2012r2", "win2016", "win2016hv", "win2016nano", "win2019", "win7", "win8", "win81",
-		"xenial", "yakkety", "yosemite", "zesty"})
+func (s *SupportedSeriesLinuxSuite) TestWorkloadSeries(c *gc.C) {
+	tmpFile, close := makeTempFile(c, distroInfoContents)
+	defer close()
+
+	s.PatchValue(&UbuntuDistroInfo, tmpFile.Name())
+
+	series, err := WorkloadSeries(time.Time{}, "", "")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(series.SortedValues(), gc.DeepEquals, []string{
+		"bionic", "centos7", "centos8", "genericlinux", "kubernetes", "opensuseleap",
+		"trusty", "win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
+		"win2016", "win2016hv", "win2016nano", "win2019", "win7", "win8", "win81", "xenial"})
 }

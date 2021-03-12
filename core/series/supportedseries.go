@@ -4,6 +4,7 @@
 package series
 
 import (
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -25,6 +26,9 @@ const (
 	Daily = "daily"
 )
 
+// UbuntuDistroInfo is the path for the Ubuntu distro info file.
+var UbuntuDistroInfo = series.UbuntuDistroInfo
+
 // SupportedSeriesFunc describes a function that has commonality between
 // controller and workload types.
 type SupportedSeriesFunc = func(time.Time, string, string) (set.Strings, error)
@@ -32,24 +36,33 @@ type SupportedSeriesFunc = func(time.Time, string, string) (set.Strings, error)
 // ControllerSeries returns all the controller series available to it at the
 // execution time.
 func ControllerSeries(now time.Time, requestedSeries, imageStream string) (set.Strings, error) {
-	supported, err := seriesForTypes(series.UbuntuDistroInfo, now, requestedSeries, imageStream)
+	supported, err := seriesForTypes(UbuntuDistroInfo, now, requestedSeries, imageStream)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return set.NewStrings(supported.ControllerSeries()...), nil
+	return set.NewStrings(supported.controllerSeries()...), nil
 }
 
-// WorkloadSeries returns all the workload series available to it at the
+// WorkloadSeries returns the supported workload series available to it at the
 // execution time.
 func WorkloadSeries(now time.Time, requestedSeries, imageStream string) (set.Strings, error) {
-	supported, err := seriesForTypes(series.UbuntuDistroInfo, now, requestedSeries, imageStream)
+	supported, err := seriesForTypes(UbuntuDistroInfo, now, requestedSeries, imageStream)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return set.NewStrings(supported.WorkloadSeries()...), nil
+	return set.NewStrings(supported.workloadSeries(false)...), nil
 }
 
-func seriesForTypes(path string, now time.Time, requestedSeries, imageStream string) (*SupportedInfo, error) {
+// AllWorkloadSeries returns all the workload series (supported or not).
+func AllWorkloadSeries(requestedSeries, imageStream string) (set.Strings, error) {
+	supported, err := seriesForTypes(UbuntuDistroInfo, time.Now(), requestedSeries, imageStream)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return set.NewStrings(supported.workloadSeries(true)...), nil
+}
+
+func seriesForTypes(path string, now time.Time, requestedSeries, imageStream string) (*supportedInfo, error) {
 	// We support all of the juju series AND all the ESM supported series.
 	// Juju is congruent with the Ubuntu release cycle for it's own series (not
 	// including centos and windows), so that should be reflected here.
@@ -64,26 +77,31 @@ func seriesForTypes(path string, now time.Time, requestedSeries, imageStream str
 	}
 
 	source := series.NewDistroInfo(path)
-	supported := NewSupportedInfo(source, allSeriesVersions)
-	if err := supported.Compile(now); err != nil {
+	supported := newSupportedInfo(source, allSeriesVersions)
+	if err := supported.compile(now); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return supported, nil
 }
 
-// OSSupportedSeries returns the series of the specified OS on which we
-// can run Juju workloads.
-func OSSupportedSeries(os coreos.OSType) []string {
+// OSAllSeries returns the series (supported or not) of the
+// specified OS on which we can run Juju workloads.
+func OSAllSeries(os coreos.OSType) ([]string, error) {
 	var osSeries []string
-	for _, series := range SupportedSeries() {
-		seriesOS, err := GetOSFromSeries(series)
+	workloadSeries, err := AllWorkloadSeries("", "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, ser := range workloadSeries.Values() {
+		seriesOS, err := GetOSFromSeries(ser)
 		if err != nil || seriesOS != os {
 			continue
 		}
-		osSeries = append(osSeries, series)
+		osSeries = append(osSeries, ser)
 	}
-	return osSeries
+	sort.Strings(osSeries)
+	return osSeries, nil
 }
 
 // GetOSFromSeries will return the operating system based
@@ -103,19 +121,6 @@ func GetOSFromSeries(series string) (coreos.OSType, error) {
 
 	updateSeriesVersionsOnce()
 	return getOSFromSeries(seriesName)
-}
-
-// SupportedSeries returns the series on which we can run Juju workloads.
-func SupportedSeries() []string {
-	seriesVersionsMutex.Lock()
-	defer seriesVersionsMutex.Unlock()
-	updateSeriesVersionsOnce()
-
-	var supportedSeries []string
-	for s := range allSeriesVersions {
-		supportedSeries = append(supportedSeries, string(s))
-	}
-	return supportedSeries
 }
 
 const (
@@ -225,8 +230,8 @@ func CentOSVersionSeries(version string) (string, error) {
 	if version == "" {
 		return "", errors.Trace(unknownVersionSeriesError(""))
 	}
-	if series, ok := centosSeries[SeriesName(version)]; ok {
-		return series.Version, nil
+	if ser, ok := centosSeries[SeriesName(version)]; ok {
+		return ser.Version, nil
 	}
 	return "", errors.Trace(unknownVersionSeriesError(""))
 
@@ -259,12 +264,12 @@ func VersionSeries(version string) (string, error) {
 	}
 	seriesVersionsMutex.Lock()
 	defer seriesVersionsMutex.Unlock()
-	if series, ok := versionSeries[version]; ok {
-		return series, nil
+	if ser, ok := versionSeries[version]; ok {
+		return ser, nil
 	}
 	updateSeriesVersionsOnce()
-	if series, ok := versionSeries[version]; ok {
-		return series, nil
+	if ser, ok := versionSeries[version]; ok {
+		return ser, nil
 	}
 	return "", errors.Trace(unknownVersionSeriesError(version))
 }

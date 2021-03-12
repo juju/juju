@@ -206,7 +206,9 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 
 	// As TERM is series-specific we need to make sure all supported versions are covered.
-	for _, testSeries := range series.OSSupportedSeries(jujuos.Ubuntu) {
+	supported, err := series.OSAllSeries(jujuos.Ubuntu)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, testSeries := range supported {
 		s.PatchValue(&osseries.HostSeries, func() (string, error) { return testSeries, nil })
 		ubuntuVars := []string{
 			"APT_LISTCHANGES_FRONTEND=none",
@@ -255,7 +257,9 @@ func (s *EnvSuite) TestEnvCentos(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 
 	// As TERM is series-specific we need to make sure all supported versions are covered.
-	for _, testSeries := range series.OSSupportedSeries(jujuos.CentOS) {
+	supported, err := series.OSAllSeries(jujuos.CentOS)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, testSeries := range supported {
 		s.PatchValue(&osseries.HostSeries, func() (string, error) { return testSeries, nil })
 		centosVars := []string{
 			"LANG=C.UTF-8",
@@ -302,7 +306,9 @@ func (s *EnvSuite) TestEnvOpenSUSE(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 
 	// As TERM is series-specific we need to make sure all supported versions are covered.
-	for _, testSeries := range series.OSSupportedSeries(jujuos.OpenSUSE) {
+	supported, err := series.OSAllSeries(jujuos.OpenSUSE)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, testSeries := range supported {
 		s.PatchValue(&osseries.HostSeries, func() (string, error) { return testSeries, nil })
 		openSUSEVars := []string{
 			"LANG=C.UTF-8",

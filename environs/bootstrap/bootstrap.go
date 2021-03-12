@@ -476,7 +476,10 @@ func bootstrapIAAS(
 			ctx.Infof("No packaged binary found, preparing local Juju agent binary")
 		}
 		var forceVersion version.Number
-		availableTools, forceVersion = locallyBuildableTools(bootstrapSeries)
+		availableTools, forceVersion, err = locallyBuildableTools(bootstrapSeries)
+		if err != nil {
+			return errors.Annotate(err, "cannot package bootstrap agent binary")
+		}
 		builtTools, err = args.BuildAgentTarball(args.BuildAgent, &forceVersion, cfg.AgentStream())
 		if err != nil {
 			return errors.Annotate(err, "cannot package bootstrap agent binary")
@@ -885,10 +888,13 @@ func bootstrapImageMetadata(
 		return nil, errors.Trace(err)
 	}
 	// This constraint will search image metadata for all supported architectures and series.
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: region,
 		Stream:    environ.Config().ImageStream(),
 	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	logger.Debugf("constraints for image metadata lookup %v", imageConstraint)
 
 	// Get image metadata from all data sources.
@@ -1044,7 +1050,10 @@ func setPrivateMetadataSources(metadataDir string) ([]*imagemetadata.ImageMetada
 	dataSource := simplestreams.NewDataSource(dataSourceConfig)
 
 	// Read the image metadata, as we'll want to upload it to the environment.
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
+	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	existingMetadata, _, err := imagemetadata.Fetch([]simplestreams.DataSource{dataSource}, imageConstraint)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Annotate(err, "cannot read image metadata")

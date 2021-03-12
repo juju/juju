@@ -878,7 +878,10 @@ func (context *upgradeContext) uploadTools(client toolsAPI, buildAgent bool, age
 	if err != nil {
 		return errors.Trace(err)
 	}
-	additionalSeries := series.OSSupportedSeries(seriesOs)
+	additionalSeries, err := series.OSAllSeries(seriesOs)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	uploaded, err := client.UploadTools(f, uploadToolsVersion, additionalSeries...)
 	if err != nil {
 		return errors.Trace(err)

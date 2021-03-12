@@ -47,7 +47,10 @@ func MergeAndWriteMetadata(ser string, metadata []*ImageMetadata, cloudSpec *sim
 func readMetadata(metadataStore storage.Storage) ([]*ImageMetadata, error) {
 	// Read any existing metadata so we can merge the new tools metadata with what's there.
 	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", metadataStore, storage.BaseImagesPath, simplestreams.EXISTING_CLOUD_DATA, false)
-	imageConstraint := NewImageConstraint(simplestreams.LookupParams{})
+	imageConstraint, err := NewImageConstraint(simplestreams.LookupParams{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	existingMetadata, _, err := Fetch([]simplestreams.DataSource{dataSource}, imageConstraint)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
