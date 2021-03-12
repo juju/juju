@@ -61,51 +61,38 @@ var (
 
 	// Define stub calls that commonly appear in tests here to allow reuse.
 	apiOpenControllerCall = jujutesting.StubCall{
-		"apiOpen",
-		[]interface{}{
+		FuncName: "apiOpen",
+		Args: []interface{}{
 			&api.Info{
 				Addrs:    []string{"1.2.3.4:5"},
 				CACert:   "cert",
 				Tag:      names.NewUserTag("admin"),
 				Password: "secret",
-			},
-			migration.ControllerDialOpts(),
-		},
-	}
-	apiOpenModelCall = jujutesting.StubCall{
-		"apiOpen",
-		[]interface{}{
-			&api.Info{
-				Addrs:    []string{"1.2.3.4:5"},
-				CACert:   "cert",
-				Tag:      names.NewUserTag("admin"),
-				Password: "secret",
-				ModelTag: modelTag,
 			},
 			migration.ControllerDialOpts(),
 		},
 	}
 	importCall = jujutesting.StubCall{
-		"MigrationTarget.Import",
-		[]interface{}{
+		FuncName: "MigrationTarget.Import",
+		Args: []interface{}{
 			params.SerializedModel{Bytes: fakeModelBytes},
 		},
 	}
 	activateCall = jujutesting.StubCall{
-		"MigrationTarget.Activate",
-		[]interface{}{
+		FuncName: "MigrationTarget.Activate",
+		Args: []interface{}{
 			params.ModelArgs{ModelTag: modelTag.String()},
 		},
 	}
 	checkMachinesCall = jujutesting.StubCall{
-		"MigrationTarget.CheckMachines",
-		[]interface{}{
+		FuncName: "MigrationTarget.CheckMachines",
+		Args: []interface{}{
 			params.ModelArgs{ModelTag: modelTag.String()},
 		},
 	}
 	adoptResourcesCall = jujutesting.StubCall{
-		"MigrationTarget.AdoptResources",
-		[]interface{}{
+		FuncName: "MigrationTarget.AdoptResources",
+		Args: []interface{}{
 			params.AdoptResourcesArgs{
 				ModelTag:                modelTag.String(),
 				SourceControllerVersion: jujuversion.Current,
@@ -113,15 +100,15 @@ var (
 		},
 	}
 	latestLogTimeCall = jujutesting.StubCall{
-		"MigrationTarget.LatestLogTime",
-		[]interface{}{
+		FuncName: "MigrationTarget.LatestLogTime",
+		Args: []interface{}{
 			params.ModelArgs{ModelTag: modelTag.String()},
 		},
 	}
-	apiCloseCall = jujutesting.StubCall{"Connection.Close", nil}
+	apiCloseCall = jujutesting.StubCall{FuncName: "Connection.Close"}
 	abortCall    = jujutesting.StubCall{
-		"MigrationTarget.Abort",
-		[]interface{}{
+		FuncName: "MigrationTarget.Abort",
+		Args: []interface{}{
 			params.ModelArgs{ModelTag: modelTag.String()},
 		},
 	}
@@ -149,7 +136,7 @@ var (
 		apiCloseCall,
 		{"facade.SetPhase", []interface{}{coremigration.ABORTDONE}},
 	}
-	openDestLogStreamCall = jujutesting.StubCall{"ConnectControllerStream", []interface{}{
+	openDestLogStreamCall = jujutesting.StubCall{FuncName: "ConnectControllerStream", Args: []interface{}{
 		"/migrate/logtransfer",
 		url.Values{"jujuclientversion": {jujuversion.Current.String()}},
 		http.Header{
@@ -170,7 +157,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	}
 	s.connectionErr = nil
 
-	s.facade = newStubMasterFacade(s.stub, s.clock.Now())
+	s.facade = newStubMasterFacade(s.stub)
 
 	// The default worker Config used by most of the tests. Tests may
 	// tweak parts of this as needed.
@@ -321,9 +308,9 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 func (s *Suite) TestPreviouslyAbortedMigration(c *gc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.ABORTDONE))
 
-	worker, err := migrationmaster.New(s.config)
+	w, err := migrationmaster.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, worker)
+	defer workertest.CleanKill(c, w)
 
 	s.waitForStubCalls(c, []string{
 		"facade.Watch",
@@ -361,9 +348,9 @@ func (s *Suite) TestStatusNotFound(c *gc.C) {
 	s.facade.statusErr = &params.Error{Code: params.CodeNotFound}
 	s.facade.triggerWatcher()
 
-	worker, err := migrationmaster.New(s.config)
+	w, err := migrationmaster.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, worker)
+	defer workertest.CleanKill(c, w)
 
 	s.waitForStubCalls(c, []string{
 		"facade.Watch",
@@ -711,9 +698,9 @@ func (s *Suite) TestSUCCESSMinionWaitTimeout(c *gc.C) {
 	// back from SUCCESS.
 	s.facade.queueStatus(s.makeStatus(coremigration.SUCCESS))
 
-	worker, err := migrationmaster.New(s.config)
+	w, err := migrationmaster.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, worker)
+	defer workertest.DirtyKill(c, w)
 
 	select {
 	case <-s.clock.Alarms():
@@ -724,7 +711,7 @@ func (s *Suite) TestSUCCESSMinionWaitTimeout(c *gc.C) {
 	// Move time ahead in order to trigger timeout.
 	s.clock.Advance(15 * time.Minute)
 
-	err = workertest.CheckKilled(c, worker)
+	err = workertest.CheckKilled(c, w)
 	c.Assert(err, gc.Equals, migrationmaster.ErrMigrated)
 
 	s.stub.CheckCalls(c, joinCalls(
@@ -948,14 +935,14 @@ func (s *Suite) TestLogTransferReportsProgress(c *gc.C) {
 	s.facade.logMessages = func(d chan<- common.LogMessage) {
 		for _, message := range messages {
 			safeSend(c, d, message)
-			s.clock.WaitAdvance(20*time.Second, coretesting.LongWait, 1)
+			c.Assert(s.clock.WaitAdvance(20*time.Second, coretesting.LongWait, 1), jc.ErrorIsNil)
 		}
 	}
 
 	var logWriter loggo.TestWriter
 	c.Assert(loggo.RegisterWriter("migrationmaster-tests", &logWriter), jc.ErrorIsNil)
 	defer func() {
-		loggo.RemoveWriter("migrationmaster-tests")
+		_, _ = loggo.RemoveWriter("migrationmaster-tests")
 		logWriter.Clear()
 	}()
 
@@ -1071,7 +1058,7 @@ func (g *stubGuard) Unlock() error {
 	return g.unlockErr
 }
 
-func newStubMasterFacade(stub *jujutesting.Stub, now time.Time) *stubMasterFacade {
+func newStubMasterFacade(stub *jujutesting.Stub) *stubMasterFacade {
 	return &stubMasterFacade{
 		stub:           stub,
 		watcherChanges: make(chan struct{}, 999),
@@ -1290,7 +1277,7 @@ func (c *stubConnection) BestFacadeVersion(string) int {
 	return 1
 }
 
-func (c *stubConnection) APICall(objType string, version int, id, request string, args, response interface{}) error {
+func (c *stubConnection) APICall(objType string, _ int, _, request string, args, response interface{}) error {
 	c.stub.AddCall(objType+"."+request, args)
 
 	if objType == "MigrationTarget" {
