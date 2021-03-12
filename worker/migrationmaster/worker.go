@@ -716,12 +716,11 @@ func (w *Worker) waitForMinions(
 	infoPrefix string,
 ) (success bool, err error) {
 	clk := w.config.Clock
-	maxWait := maxMinionWait - clk.Now().Sub(status.PhaseChangedTime)
-	timeout := clk.After(maxWait)
+	timeout := clk.After(maxMinionWait)
 
 	w.setInfoStatus("%s, waiting for agents to report back", infoPrefix)
 	w.logger.Infof("waiting for agents to report back for migration phase %s (will wait up to %s)",
-		status.Phase, truncDuration(maxWait))
+		status.Phase, truncDuration(maxMinionWait))
 
 	watch, err := w.config.Facade.WatchMinionReports()
 	if err != nil {

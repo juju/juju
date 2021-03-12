@@ -539,14 +539,26 @@ func (s *Suite) TestVALIDATIONMinionWaitGetError(c *gc.C) {
 }
 
 func (s *Suite) TestVALIDATIONFailedAgent(c *gc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.VALIDATION))
+	// Set the last phase change status to be further back
+	// in time than the max wait time for minion reports.
+	sts := s.makeStatus(coremigration.VALIDATION)
+	sts.PhaseChangedTime = time.Now().Add(-20 * time.Minute)
+	s.facade.queueStatus(sts)
+
+	w, err := migrationmaster.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Queue the reports *after* the watcher is started.
+	// The test will only pass if the minion wait timeout
+	// is independent of the phase change time.
 	s.facade.queueMinionReports(coremigration.MinionReports{
 		MigrationId:    "model-uuid:2",
 		Phase:          coremigration.VALIDATION,
 		FailedMachines: []string{"42"}, // a machine failed
 	})
 
-	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
+	err = workertest.CheckKilled(c, w)
+	c.Check(errors.Cause(err), gc.Equals, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
