@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
@@ -51,8 +52,9 @@ func (s *MachineManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	mm, err := machinemanager.NewMachineManagerAPI(s.st,
 		s.st,
 		s.pool,
-		s.authorizer,
-		s.st.ModelTag(),
+		machinemanager.ModelAuthorizer{
+			Authorizer: s.authorizer,
+		},
 		s.callContext,
 		common.NewResources(),
 		s.leadership,
@@ -90,8 +92,9 @@ func (s *MachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
 		s.st,
 		s.pool,
-		s.authorizer,
-		s.st.ModelTag(),
+		machinemanager.ModelAuthorizer{
+			Authorizer: s.authorizer,
+		},
 		s.callContext,
 		common.NewResources(),
 		s.leadership,
@@ -163,7 +166,18 @@ func (s *MachineManagerSuite) TestAddMachines(c *gc.C) {
 func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
-	_, err := machinemanager.NewMachineManagerAPI(nil, nil, nil, s.authorizer, names.ModelTag{}, s.callContext, common.NewResources(), nil)
+	_, err := machinemanager.NewMachineManagerAPI(
+		nil,
+		nil,
+		nil,
+		machinemanager.ModelAuthorizer{
+			Authorizer: s.authorizer,
+			ModelTag:   names.ModelTag{},
+		},
+		s.callContext,
+		common.NewResources(),
+		nil,
+	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -266,7 +280,6 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval(c *gc.
 				Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/0: kaboom\ngetting storage for unit foo/1: kaboom\ngetting storage for unit foo/2: kaboom")),
 			}},
 		},
-		"ModelTag",
 		"GetBlockForType",
 		"GetBlockForType",
 		"Machine",
@@ -290,7 +303,6 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedAllStorageClassification(c
 				Error: apiservererrors.ServerError(errors.New("classifying storage for destruction for unit foo/0: boom")),
 			}},
 		},
-		"ModelTag",
 		"GetBlockForType",
 		"GetBlockForType",
 		"Machine",
@@ -327,7 +339,6 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetrieval(c
 				Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/1: kaboom")),
 			}},
 		},
-		"ModelTag",
 		"GetBlockForType",
 		"GetBlockForType",
 		"Machine",
@@ -384,7 +395,6 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrievalManyMa
 				}},
 			},
 		},
-		"ModelTag",
 		"GetBlockForType",
 		"GetBlockForType",
 		"Machine",
@@ -520,10 +530,17 @@ func (s *MachineManagerSuite) setupUpgradeSeries(c *gc.C) {
 		"3": {id: "3", series: "bionic", isManager: true},
 		"4": {id: "4", series: "trusty", isLockedForSeriesUpgrade: true},
 	}
+	s.st.applications = map[string]*mockApplication{
+		"foo": {},
+	}
 }
 
 func (s *MachineManagerSuite) apiV5() machinemanager.MachineManagerAPIV5 {
-	return machinemanager.MachineManagerAPIV5{MachineManagerAPIV6: &machinemanager.MachineManagerAPIV6{s.api}}
+	return machinemanager.MachineManagerAPIV5{
+		MachineManagerAPIV6: &machinemanager.MachineManagerAPIV6{
+			MachineManagerAPI: s.api,
+		},
+	}
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesValidateOK(c *gc.C) {
@@ -545,9 +562,12 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateOK(c *gc.C) {
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
 
+	units, err := s.st.machines["0"].Units()
+	c.Assert(err, jc.ErrorIsNil)
+
 	var expectedUnitNames []string
-	for _, unit := range s.st.machines["0"].Principals() {
-		expectedUnitNames = append(expectedUnitNames, unit)
+	for _, unit := range units {
+		expectedUnitNames = append(expectedUnitNames, unit.UnitTag().Id())
 	}
 	c.Assert(result.UnitNames, gc.DeepEquals, expectedUnitNames)
 }
@@ -909,6 +929,7 @@ type mockState struct {
 	calls            int
 	machineTemplates []state.MachineTemplate
 	machines         map[string]*mockMachine
+	applications     map[string]*mockApplication
 	err              error
 	blockMsg         string
 	block            state.BlockType
@@ -997,6 +1018,15 @@ func (st *mockState) Machine(id string) (machinemanager.Machine, error) {
 		return nil, errors.NotFoundf("machine %v", id)
 	} else {
 		return m, nil
+	}
+}
+
+func (st *mockState) Application(id string) (machinemanager.Application, error) {
+	st.MethodCall(st, "Application", id)
+	if a, ok := st.applications[id]; !ok {
+		return nil, errors.NotFoundf("application %s", id)
+	} else {
+		return a, nil
 	}
 }
 
@@ -1092,9 +1122,9 @@ func (m *mockMachine) Units() ([]machinemanager.Unit, error) {
 		return m.unitsF()
 	}
 	return []machinemanager.Unit{
-		&mockUnit{tag: names.NewUnitTag("foo/0")},
-		&mockUnit{tag: names.NewUnitTag("foo/1")},
-		&mockUnit{tag: names.NewUnitTag("foo/2")},
+		&mockUnit{tag: names.NewUnitTag("foo/0"), agentStatus: m.unitAgentState, unitStatus: m.unitState},
+		&mockUnit{tag: names.NewUnitTag("foo/1"), agentStatus: m.unitAgentState, unitStatus: m.unitState},
+		&mockUnit{tag: names.NewUnitTag("foo/2"), agentStatus: m.unitAgentState, unitStatus: m.unitState},
 	}, nil
 }
 
@@ -1139,6 +1169,57 @@ func (m *mockMachine) IsLockedForSeriesUpgrade() (bool, error) {
 func (m *mockMachine) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	m.MethodCall(m, "UpgradeSeriesStatus")
 	return model.UpgradeSeriesNotStarted, nil
+}
+
+func (m *mockMachine) ApplicationNames() ([]string, error) {
+	m.MethodCall(m, "ApplicationNames")
+	return []string{"foo"}, nil
+}
+
+type mockApplication struct {
+	jtesting.Stub
+	charm *mockCharm
+}
+
+func (a *mockApplication) Charm() (machinemanager.Charm, bool, error) {
+	a.MethodCall(a, "Charm")
+	if a.charm == nil {
+		return &mockCharm{}, false, nil
+	}
+	return a.charm, false, nil
+}
+
+type mockCharm struct {
+	jtesting.Stub
+	meta *mockMeta
+}
+
+func (a *mockCharm) URL() *charm.URL {
+	a.MethodCall(a, "URL")
+	return nil
+}
+
+func (a *mockCharm) Meta() machinemanager.CharmMeta {
+	a.MethodCall(a, "Meta")
+	if a.meta == nil {
+		return &mockMeta{series: []string{"xenial"}}
+	}
+	return nil
+}
+
+func (a *mockCharm) String() string {
+	a.MethodCall(a, "String")
+	return ""
+}
+
+type mockMeta struct {
+	jtesting.Stub
+	series []string
+}
+
+func (a *mockMeta) ComputedSeries() []string {
+	a.MethodCall(a, "ComputedSeries")
+	return a.series
 }
 
 type mockUnit struct {

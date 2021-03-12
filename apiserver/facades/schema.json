@@ -25763,7 +25763,7 @@
     },
     {
         "Name": "MachineManager",
-        "Description": "Version 6 of Machine Manager API.\nChanges input parameters to DestroyMachineWithParams and ForceDestroyMachine.",
+        "Description": "MachineManagerAPIV6 defines the Version 6 of Machine Manager API.\nChanges input parameters to DestroyMachineWithParams and ForceDestroyMachine.",
         "Version": 6,
         "AvailableTo": [
             "controller-machine-agent",

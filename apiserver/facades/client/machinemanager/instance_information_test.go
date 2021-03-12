@@ -62,8 +62,10 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	api, err := machinemanager.NewMachineManagerAPI(backend,
 		backend,
 		pool,
-		authorizer,
-		backend.ModelTag(),
+		machinemanager.ModelAuthorizer{
+			Authorizer: authorizer,
+			ModelTag:   backend.ModelTag(),
+		},
 		context.NewCloudCallContext(),
 		common.NewResources(),
 		leadership,

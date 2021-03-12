@@ -40,17 +40,31 @@ type Leadership interface {
 	UnpinApplicationLeadersByName(names.Tag, []string) (params.PinApplicationsResults, error)
 }
 
+// Authorizer checks to see if an operation can be performed.
+type Authorizer interface {
+	// CanRead checks to see if a read is possible. Returns an error if a read
+	// is not possible.
+	CanRead() error
+
+	// CanWrite checks to see if a write is possible. Returns an error if a
+	// write is not possible.
+	CanWrite() error
+
+	// AuthClient returns true if the entity is an external user.
+	AuthClient() bool
+}
+
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
-	st            Backend
-	storageAccess storageInterface
-	pool          Pool
-	authorizer    facade.Authorizer
-	check         *common.BlockChecker
-	resources     facade.Resources
-	leadership    Leadership
+	st               Backend
+	storageAccess    storageInterface
+	pool             Pool
+	authorizer       Authorizer
+	check            *common.BlockChecker
+	resources        facade.Resources
+	leadership       Leadership
+	upgradeSeriesAPI UpgradeSeries
 
-	modelTag    names.ModelTag
 	callContext context.ProviderCallContext
 }
 
@@ -79,26 +93,28 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 		backend,
 		storageAccess,
 		pool,
-		ctx.Auth(),
-		model.ModelTag(),
+		ModelAuthorizer{
+			ModelTag:   model.ModelTag(),
+			Authorizer: ctx.Auth(),
+		},
 		context.CallContext(st),
 		ctx.Resources(),
 		leadership,
 	)
 }
 
-// Version 4 of MachineManagerAPI
+// MachineManagerAPIV4 defines the Version 4 of MachineManagerAPI
 type MachineManagerAPIV4 struct {
 	*MachineManagerAPIV5
 }
 
-// Version 5 of Machine Manager API.
+// MachineManagerAPIV5 defines the Version 5 of Machine Manager API.
 // Adds CreateUpgradeSeriesLock and removes UpdateMachineSeries.
 type MachineManagerAPIV5 struct {
 	*MachineManagerAPIV6
 }
 
-// Version 6 of Machine Manager API.
+// MachineManagerAPIV6 defines the Version 6 of Machine Manager API.
 // Changes input parameters to DestroyMachineWithParams and ForceDestroyMachine.
 type MachineManagerAPIV6 struct {
 	*MachineManagerAPI
@@ -136,8 +152,7 @@ func NewMachineManagerAPI(
 	backend Backend,
 	storageAccess storageInterface,
 	pool Pool,
-	auth facade.Authorizer,
-	modelTag names.ModelTag,
+	auth Authorizer,
 	callCtx context.ProviderCallContext,
 	resources facade.Resources,
 	leadership Leadership,
@@ -145,36 +160,23 @@ func NewMachineManagerAPI(
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-	return &MachineManagerAPI{
+
+	api := &MachineManagerAPI{
 		st:            backend,
 		storageAccess: storageAccess,
 		pool:          pool,
 		authorizer:    auth,
 		check:         common.NewBlockChecker(backend),
-		modelTag:      modelTag,
 		callContext:   callCtx,
 		resources:     resources,
 		leadership:    leadership,
-	}, nil
-}
-
-func (mm *MachineManagerAPI) checkCanWrite() error {
-	return mm.checkAccess(permission.WriteAccess)
-}
-
-func (mm *MachineManagerAPI) checkCanRead() error {
-	return mm.checkAccess(permission.ReadAccess)
-}
-
-func (mm *MachineManagerAPI) checkAccess(access permission.Access) error {
-	canAccess, err := mm.authorizer.HasPermission(access, mm.modelTag)
-	if err != nil {
-		return errors.Trace(err)
+		upgradeSeriesAPI: NewUpgradeSeriesAPI(
+			upgradeSeriesState{state: backend},
+			upgradeSeriesValidator{},
+			auth,
+		),
 	}
-	if !canAccess {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	return api, nil
 }
 
 // AddMachines adds new machines with the supplied parameters.
@@ -182,7 +184,7 @@ func (mm *MachineManagerAPI) AddMachines(args params.AddMachines) (params.AddMac
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
 	}
-	if err := mm.checkCanWrite(); err != nil {
+	if err := mm.authorizer.CanWrite(); err != nil {
 		return results, err
 	}
 	if err := mm.check.ChangeAllowed(); err != nil {
@@ -332,7 +334,7 @@ func (mm *MachineManagerAPI) DestroyMachineWithParams(args params.DestroyMachine
 }
 
 func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bool, maxWait time.Duration) (params.DestroyMachineResults, error) {
-	if err := mm.checkCanWrite(); err != nil {
+	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.DestroyMachineResults{}, err
 	}
 	if err := mm.check.RemoveAllowed(); err != nil {
@@ -471,67 +473,36 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 func (mm *MachineManagerAPI) UpgradeSeriesValidate(
 	args params.UpdateSeriesArgs,
 ) (params.UpgradeSeriesUnitsResults, error) {
-	err := mm.checkCanRead()
-	if err != nil {
-		return params.UpgradeSeriesUnitsResults{}, err
-	}
-
-	results := make([]params.UpgradeSeriesUnitsResult, len(args.Args))
+	entities := make([]ValidationEntity, len(args.Args))
 	for i, arg := range args.Args {
-		tag := arg.Entity.Tag
-		machine, err := mm.machineFromTag(tag)
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
+		entities[i] = ValidationEntity{
+			Tag:    arg.Entity.Tag,
+			Series: arg.Series,
+			Force:  arg.Force,
 		}
-
-		if machine.IsManager() {
-			results[i].Error = apiservererrors.ServerError(
-				errors.Errorf("%s is a controller and cannot be targeted for series upgrade", tag))
-			continue
-		}
-
-		// If we've already got a series lock on upgrade, don't go any further.
-		if locked, err := machine.IsLockedForSeriesUpgrade(); err != nil && errors.IsNotFound(errors.Cause(err)) {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
-		} else if locked {
-			// Grab the status from upgrade series and add it to the error.
-			status, err := machine.UpgradeSeriesStatus()
-			if err != nil {
-				results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-			// Additionally add the status to the underlying params error. This
-			// gives a typed error to the client, which can then decode ths
-			// optional information later on.
-			results[i].Error = apiservererrors.ServerError(&apiservererrors.UpgradeSeriesValidationError{
-				Cause:  errors.Errorf("upgrade series lock found for %q; series upgrade is in the %q state", machine.Id(), status),
-				Status: status.String(),
-			})
-			continue
-		}
-
-		err = mm.validateSeries(arg.Series, machine.Series(), tag)
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		unitNames, err := mm.verifiedUnits(machine, arg.Series, arg.Force)
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		results[i].UnitNames = unitNames
 	}
 
-	return params.UpgradeSeriesUnitsResults{Results: results}, nil
+	validations, err := mm.upgradeSeriesAPI.Validate(entities)
+	if err != nil {
+		return params.UpgradeSeriesUnitsResults{}, apiservererrors.ServerError(err)
+	}
+
+	results := params.UpgradeSeriesUnitsResults{
+		Results: make([]params.UpgradeSeriesUnitsResult, len(validations)),
+	}
+	for i, v := range validations {
+		if v.Error != nil {
+			results.Results[i].Error = apiservererrors.ServerError(v.Error)
+			continue
+		}
+		results.Results[i].UnitNames = v.UnitNames
+	}
+	return results, nil
 }
 
 // UpgradeSeriesPrepare prepares a machine for a OS series upgrade.
 func (mm *MachineManagerAPI) UpgradeSeriesPrepare(args params.UpdateSeriesArg) (params.ErrorResult, error) {
-	if err := mm.checkCanWrite(); err != nil {
+	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.ErrorResult{}, err
 	}
 	if err := mm.check.ChangeAllowed(); err != nil {
@@ -570,8 +541,12 @@ func (mm *MachineManagerAPI) upgradeSeriesPrepare(arg params.UpdateSeriesArg) er
 		// the hooks is needed etc.
 		return errors.Trace(err)
 	}
+
+	// TODO (stickupkid) Download charms from charmhub.
+
 	defer func() {
 		if err != nil {
+			// TODO (stickupkid) Rollback new downloaded charmhub charms...
 			if err2 := machine.RemoveUpgradeSeriesLock(); err2 != nil {
 				err = errors.Annotatef(err, "%s occurred while cleaning up from", err2)
 			}
@@ -582,7 +557,7 @@ func (mm *MachineManagerAPI) upgradeSeriesPrepare(arg params.UpdateSeriesArg) er
 
 // UpgradeSeriesComplete marks a machine as having completed a managed series upgrade.
 func (mm *MachineManagerAPI) UpgradeSeriesComplete(args params.UpdateSeriesArg) (params.ErrorResult, error) {
-	if err := mm.checkCanWrite(); err != nil {
+	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.ErrorResult{}, err
 	}
 	if err := mm.check.ChangeAllowed(); err != nil {
@@ -617,7 +592,7 @@ func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg)
 
 // WatchUpgradeSeriesNotifications returns a watcher that fires on upgrade series events.
 func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(args params.Entities) (params.NotifyWatchResults, error) {
-	err := mm.checkCanRead()
+	err := mm.authorizer.CanRead()
 	if err != nil {
 		return params.NotifyWatchResults{}, err
 	}
@@ -630,7 +605,7 @@ func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(args params.Entitie
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		watcherId := ""
+		var watcherID string
 		machine, err := mm.st.Machine(tag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
@@ -641,8 +616,8 @@ func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(args params.Entitie
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		watcherId = mm.resources.Register(w)
-		result.Results[i].NotifyWatcherId = watcherId
+		watcherID = mm.resources.Register(w)
+		result.Results[i].NotifyWatcherId = watcherID
 	}
 	return result, nil
 }
@@ -651,7 +626,7 @@ func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(args params.Entitie
 // series events. Messages that have already been retrieved once are not
 // returned by this method.
 func (mm *MachineManagerAPI) GetUpgradeSeriesMessages(args params.UpgradeSeriesNotificationParams) (params.StringsResults, error) {
-	if err := mm.checkCanRead(); err != nil {
+	if err := mm.authorizer.CanRead(); err != nil {
 		return params.StringsResults{}, err
 	}
 	results := params.StringsResults{
@@ -682,6 +657,8 @@ func (mm *MachineManagerAPI) GetUpgradeSeriesMessages(args params.UpgradeSeriesN
 	return results, nil
 }
 
+// TODO (stickupkid): This will eventually be removed once we extract all the
+// other methods to commands.
 func (mm *MachineManagerAPI) machineFromTag(tag string) (Machine, error) {
 	machineTag, err := names.ParseMachineTag(tag)
 	if err != nil {
@@ -746,7 +723,8 @@ func isSeriesLessThan(series1, series2 string) (bool, error) {
 	return version2 > version1, nil
 }
 
-// DEPRECATED: UpdateMachineSeries returns an error.
+// UpdateMachineSeries returns an error.
+// DEPRECATED
 func (mm *MachineManagerAPIV4) UpdateMachineSeries(_ params.UpdateSeriesArgs) (params.ErrorResults, error) {
 	return params.ErrorResults{
 		Results: []params.ErrorResult{{
@@ -755,24 +733,24 @@ func (mm *MachineManagerAPIV4) UpdateMachineSeries(_ params.UpdateSeriesArgs) (p
 	}, nil
 }
 
-func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string, machineTag string) error {
-	if argumentSeries == "" {
+func validateSeries(requestedSeries, machineSeries, machineTag string) error {
+	if requestedSeries == "" {
 		return &params.Error{
 			Message: "series missing from args",
 			Code:    params.CodeBadRequest,
 		}
 	}
 
-	opSys, err := series.GetOSFromSeries(argumentSeries)
+	opSys, err := series.GetOSFromSeries(requestedSeries)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if opSys != os.Ubuntu {
 		return errors.Errorf("series %q is from OS %q and is not a valid upgrade target",
-			argumentSeries, opSys.String())
+			requestedSeries, opSys.String())
 	}
 
-	opSys, err = series.GetOSFromSeries(currentSeries)
+	opSys, err = series.GetOSFromSeries(machineSeries)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -781,18 +759,56 @@ func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string
 			machineTag, opSys.String())
 	}
 
-	if argumentSeries == currentSeries {
-		return errors.Errorf("%s is already running series %s", machineTag, argumentSeries)
+	if requestedSeries == machineSeries {
+		return errors.Errorf("%s is already running series %s", machineTag, requestedSeries)
 	}
 
-	isOlderSeries, err := isSeriesLessThan(argumentSeries, currentSeries)
+	// TODO (Check the charmhub API for all applications running on this) machine
+	// to see if it's possible to run a charm on this machine.
+
+	isOlderSeries, err := isSeriesLessThan(requestedSeries, machineSeries)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if isOlderSeries {
 		return errors.Errorf("machine %s is running %s which is a newer series than %s.",
-			machineTag, currentSeries, argumentSeries)
+			machineTag, machineSeries, requestedSeries)
 	}
 
+	return nil
+}
+
+// ModelAuthorizer defines if a given operation can be performed based on a
+// model tag.
+type ModelAuthorizer struct {
+	ModelTag   names.ModelTag
+	Authorizer facade.Authorizer
+}
+
+// CanRead checks to see if a read is possible. Returns an error if a read is
+// not possible.
+func (a ModelAuthorizer) CanRead() error {
+	return a.checkAccess(permission.ReadAccess)
+}
+
+// CanWrite checks to see if a write is possible. Returns an error if a write
+// is not possible.
+func (a ModelAuthorizer) CanWrite() error {
+	return a.checkAccess(permission.WriteAccess)
+}
+
+// AuthClient returns true if the entity is an external user.
+func (a ModelAuthorizer) AuthClient() bool {
+	return a.Authorizer.AuthClient()
+}
+
+func (a ModelAuthorizer) checkAccess(access permission.Access) error {
+	canAccess, err := a.Authorizer.HasPermission(access, a.ModelTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canAccess {
+		return apiservererrors.ErrPerm
+	}
 	return nil
 }
