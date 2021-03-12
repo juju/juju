@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmhub/transport"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
@@ -180,13 +181,77 @@ func (s *UpgradeSeriesSuite) TestValidateApplications(c *gc.C) {
 	c.Assert(result[0].Error, gc.ErrorMatches, `boom`)
 }
 
-type UpgradeSeriesSuiteState struct {
+type ValidatorSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&UpgradeSeriesSuiteState{})
+var _ = gc.Suite(&ValidatorSuite{})
 
-func (s UpgradeSeriesSuiteState) TestValidateApplications(c *gc.C) {
+func (s ValidatorSuite) TestValidateApplications(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	localApp := NewMockApplication(ctrl)
+	localApp.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		Source: corecharm.Local.String(),
+	})
+	storeApp := NewMockApplication(ctrl)
+	storeApp.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		Source: corecharm.CharmStore.String(),
+	})
+	charmhubApp := NewMockApplication(ctrl)
+	charmhubApp.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		Source: corecharm.CharmHub.String(),
+	})
+	applications := []Application{
+		localApp,
+		storeApp,
+		charmhubApp,
+	}
+
+	stateValidator := NewMockUpgradeSeriesValidator(ctrl)
+	stateValidator.EXPECT().ValidateApplications([]Application{localApp, storeApp}, "focal", false)
+	requestValidator := NewMockUpgradeSeriesValidator(ctrl)
+	requestValidator.EXPECT().ValidateApplications([]Application{charmhubApp}, "focal", false)
+
+	validator := upgradeSeriesValidator{
+		stateValidator:   stateValidator,
+		requestValidator: requestValidator,
+	}
+
+	err := validator.ValidateApplications(applications, "focal", false)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s ValidatorSuite) TestValidateApplicationsWithNoOrigin(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	application := NewMockApplication(ctrl)
+	application.EXPECT().CharmOrigin().Return(nil)
+	applications := []Application{application}
+
+	stateValidator := NewMockUpgradeSeriesValidator(ctrl)
+	stateValidator.EXPECT().ValidateApplications(applications, "focal", false)
+	requestValidator := NewMockUpgradeSeriesValidator(ctrl)
+	requestValidator.EXPECT().ValidateApplications([]Application(nil), "focal", false)
+
+	validator := upgradeSeriesValidator{
+		stateValidator:   stateValidator,
+		requestValidator: requestValidator,
+	}
+
+	err := validator.ValidateApplications(applications, "focal", false)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type StateValidatorSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&StateValidatorSuite{})
+
+func (s StateValidatorSuite) TestValidateApplications(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -206,7 +271,7 @@ func (s UpgradeSeriesSuiteState) TestValidateApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s UpgradeSeriesSuiteState) TestValidateApplicationsWithFallbackSeries(c *gc.C) {
+func (s StateValidatorSuite) TestValidateApplicationsWithFallbackSeries(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -229,7 +294,7 @@ func (s UpgradeSeriesSuiteState) TestValidateApplicationsWithFallbackSeries(c *g
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s UpgradeSeriesSuiteState) TestValidateApplicationsWithUnsupportedSeries(c *gc.C) {
+func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeries(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -250,7 +315,7 @@ func (s UpgradeSeriesSuiteState) TestValidateApplicationsWithUnsupportedSeries(c
 	c.Assert(err, gc.ErrorMatches, `series "focal" not supported by charm "cs:foo-1", supported series are: xenial, bionic`)
 }
 
-func (s UpgradeSeriesSuiteState) TestValidateApplicationsWithUnsupportedSeriesWithForce(c *gc.C) {
+func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeriesWithForce(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -270,13 +335,13 @@ func (s UpgradeSeriesSuiteState) TestValidateApplicationsWithUnsupportedSeriesWi
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type UpgradeSeriesSuiteCharmhub struct {
+type CharmhubValidatorSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&UpgradeSeriesSuiteCharmhub{})
+var _ = gc.Suite(&CharmhubValidatorSuite{})
 
-func (s UpgradeSeriesSuiteCharmhub) TestValidateApplications(c *gc.C) {
+func (s CharmhubValidatorSuite) TestValidateApplications(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -306,7 +371,7 @@ func (s UpgradeSeriesSuiteCharmhub) TestValidateApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s UpgradeSeriesSuiteCharmhub) TestValidateApplicationsWithNoRevision(c *gc.C) {
+func (s CharmhubValidatorSuite) TestValidateApplicationsWithNoRevision(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -325,7 +390,7 @@ func (s UpgradeSeriesSuiteCharmhub) TestValidateApplicationsWithNoRevision(c *gc
 	c.Assert(err, gc.ErrorMatches, `no revision found for application "foo"`)
 }
 
-func (s UpgradeSeriesSuiteCharmhub) TestValidateApplicationsWithClientRefreshError(c *gc.C) {
+func (s CharmhubValidatorSuite) TestValidateApplicationsWithClientRefreshError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -355,7 +420,7 @@ func (s UpgradeSeriesSuiteCharmhub) TestValidateApplicationsWithClientRefreshErr
 	c.Assert(err, gc.ErrorMatches, `bad`)
 }
 
-func (s UpgradeSeriesSuiteCharmhub) TestValidateApplicationsWithRefreshError(c *gc.C) {
+func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -387,7 +452,7 @@ func (s UpgradeSeriesSuiteCharmhub) TestValidateApplicationsWithRefreshError(c *
 	c.Assert(err, gc.ErrorMatches, `unable to locate application with series focal: bad`)
 }
 
-func (s UpgradeSeriesSuiteCharmhub) TestValidateApplicationsWithRefreshErrorAndForce(c *gc.C) {
+func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshErrorAndForce(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
