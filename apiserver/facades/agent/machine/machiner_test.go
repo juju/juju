@@ -291,3 +291,25 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
 }
+
+func (s *machinerSuite) TestRecordAgentStartInformation(c *gc.C) {
+	args := params.RecordAgentStartInformationArgs{Args: []params.RecordAgentStartInformationArg{
+		{Tag: "machine-1", Hostname: "thundering-herds"},
+		{Tag: "machine-0", Hostname: "eldritch-octopii"},
+		{Tag: "machine-42", Hostname: "missing-gem"},
+	}}
+
+	result, err := s.machiner.RecordAgentStartInformation(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	err = s.machine1.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.machine1.Hostname(), gc.Equals, "thundering-herds", gc.Commentf("expected the machine hostname to be updated"))
+}

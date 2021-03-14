@@ -15450,6 +15450,9 @@
                         "has-vote": {
                             "type": "boolean"
                         },
+                        "hostname": {
+                            "type": "string"
+                        },
                         "id": {
                             "type": "string"
                         },
@@ -26783,7 +26786,7 @@
     {
         "Name": "Machiner",
         "Description": "MachinerAPI implements the API used by the machiner worker.",
-        "Version": 4,
+        "Version": 5,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent"
@@ -26853,6 +26856,18 @@
                         }
                     },
                     "description": "ModelUUID returns the model UUID that this machine resides in.\nIt is implemented here directly as a result of removing it from\nembedded APIAddresser *without* bumping the facade version.\nIt should be blanked when this facade version is next incremented."
+                },
+                "RecordAgentStartInformation": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/RecordAgentStartInformationArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "RecordAgentStartInformation syncs the machine model with information\nreported by a machine agent when it starts."
                 },
                 "RecordAgentStartTime": {
                     "type": "object",
@@ -27372,6 +27387,36 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "RecordAgentStartInformationArg": {
+                    "type": "object",
+                    "properties": {
+                        "hostname": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
+                    ]
+                },
+                "RecordAgentStartInformationArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RecordAgentStartInformationArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
                     ]
                 },
                 "SetMachineNetworkConfig": {
