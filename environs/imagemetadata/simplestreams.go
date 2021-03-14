@@ -11,10 +11,10 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/simplestreams"
 )
 
@@ -141,14 +141,18 @@ type ImageConstraint struct {
 	simplestreams.LookupParams
 }
 
-func NewImageConstraint(params simplestreams.LookupParams) *ImageConstraint {
+func NewImageConstraint(params simplestreams.LookupParams) (*ImageConstraint, error) {
 	if len(params.Series) == 0 {
-		params.Series = series.SupportedSeries()
+		workloadSeries, err := series.AllWorkloadSeries("", params.Stream)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		params.Series = workloadSeries.Values()
 	}
 	if len(params.Arches) == 0 {
 		params.Arches = arch.AllSupportedArches
 	}
-	return &ImageConstraint{LookupParams: params}
+	return &ImageConstraint{LookupParams: params}, nil
 }
 
 const (

@@ -349,12 +349,13 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 	for _, t := range findInstanceSpecTests {
 		c.Logf("test: %v", t.desc)
 		t.init()
-		cons := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		cons, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 			CloudSpec: simplestreams.CloudSpec{t.region, "ep"},
 			Series:    []string{"precise"},
 			Arches:    t.arches,
 			Stream:    t.stream,
 		})
+		c.Assert(err, jc.ErrorIsNil)
 		dataSource := simplestreams.NewDataSource(simplestreams.Config{
 			Description:          "test",
 			BaseURL:              "some-url",

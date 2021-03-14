@@ -9,8 +9,8 @@ import (
 	"runtime"
 	"strings"
 
-	jujuos "github.com/juju/os"
-	"github.com/juju/os/series"
+	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/series"
 )
 
 type OS int // strongly typed runtime.GOOS value to help with refactoring

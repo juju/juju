@@ -9,10 +9,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/os"
 	"github.com/juju/os/series"
 	"github.com/juju/utils/shell"
 
+	"github.com/juju/juju/core/os"
+	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
@@ -69,7 +70,7 @@ func VersionInitSystem(series string) (string, error) {
 }
 
 func versionInitSystem(ser string) (string, error) {
-	seriesos, err := series.GetOSFromSeries(ser)
+	seriesos, err := jujuseries.GetOSFromSeries(ser)
 	if err != nil {
 		notFound := errors.NotFoundf("init system for series %q", ser)
 		return "", errors.Wrap(err, notFound)

@@ -8,7 +8,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
-	series "github.com/juju/os/series"
+	"github.com/juju/os/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -42,7 +42,7 @@ func (s *SupportedSuite) TestCompileForControllers(c *gc.C) {
 	}, true)
 	mockDistroSource.EXPECT().SeriesInfo("ignored").Return(series.DistroInfoSerie{}, false)
 
-	preset := map[SeriesName]SeriesVersion{
+	preset := map[SeriesName]seriesVersion{
 		"supported": {
 			WorkloadType: ControllerWorkloadType,
 			Version:      "1.1.1",
@@ -65,11 +65,11 @@ func (s *SupportedSuite) TestCompileForControllers(c *gc.C) {
 		},
 	}
 
-	info := NewSupportedInfo(mockDistroSource, preset)
-	err := info.Compile(now)
+	info := newSupportedInfo(mockDistroSource, preset)
+	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSeries := info.ControllerSeries()
+	ctrlSeries := info.controllerSeries()
 	sort.Strings(ctrlSeries)
 
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"supported", "updated"})
@@ -88,7 +88,7 @@ func (s *SupportedSuite) TestCompileForControllersWithOverride(c *gc.C) {
 		EOL:      now.AddDate(0, 0, 10),
 	}, true)
 
-	preset := map[SeriesName]SeriesVersion{
+	preset := map[SeriesName]seriesVersion{
 		"supported": {
 			WorkloadType:           ControllerWorkloadType,
 			Version:                "1.1.1",
@@ -97,11 +97,11 @@ func (s *SupportedSuite) TestCompileForControllersWithOverride(c *gc.C) {
 		},
 	}
 
-	info := NewSupportedInfo(mockDistroSource, preset)
-	err := info.Compile(now)
+	info := newSupportedInfo(mockDistroSource, preset)
+	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSeries := info.ControllerSeries()
+	ctrlSeries := info.controllerSeries()
 	sort.Strings(ctrlSeries)
 
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"supported"})
@@ -120,7 +120,7 @@ func (s *SupportedSuite) TestCompileForControllersWithoutOverride(c *gc.C) {
 		EOL:      now.AddDate(0, 0, 10),
 	}, true)
 
-	preset := map[SeriesName]SeriesVersion{
+	preset := map[SeriesName]seriesVersion{
 		"supported": {
 			WorkloadType: ControllerWorkloadType,
 			Version:      "1.1.1",
@@ -128,11 +128,11 @@ func (s *SupportedSuite) TestCompileForControllersWithoutOverride(c *gc.C) {
 		},
 	}
 
-	info := NewSupportedInfo(mockDistroSource, preset)
-	err := info.Compile(now)
+	info := newSupportedInfo(mockDistroSource, preset)
+	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSeries := info.ControllerSeries()
+	ctrlSeries := info.controllerSeries()
 	sort.Strings(ctrlSeries)
 
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{})
@@ -173,7 +173,7 @@ func (s *SupportedSuite) TestCompileForWorkloads(c *gc.C) {
 	}, true)
 	mockDistroSource.EXPECT().SeriesInfo("work-ignored").Return(series.DistroInfoSerie{}, false)
 
-	preset := map[SeriesName]SeriesVersion{
+	preset := map[SeriesName]seriesVersion{
 		"ctrl-supported": {
 			WorkloadType: ControllerWorkloadType,
 			Version:      "1.1.1",
@@ -216,18 +216,18 @@ func (s *SupportedSuite) TestCompileForWorkloads(c *gc.C) {
 		},
 	}
 
-	info := NewSupportedInfo(mockDistroSource, preset)
-	err := info.Compile(now)
+	info := newSupportedInfo(mockDistroSource, preset)
+	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
-	workSeries := info.WorkloadSeries()
+	workSeries := info.workloadSeries(false)
 	sort.Strings(workSeries)
 
 	c.Assert(workSeries, jc.DeepEquals, []string{"ctrl-supported", "ctrl-updated", "work-supported", "work-updated"})
 
 	// Double check that controller series doesn't change when we have workload
 	// types.
-	ctrlSeries := info.ControllerSeries()
+	ctrlSeries := info.controllerSeries()
 	sort.Strings(ctrlSeries)
 
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"ctrl-supported", "ctrl-updated"})

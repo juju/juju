@@ -6,7 +6,6 @@ package testing
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -15,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 )
 

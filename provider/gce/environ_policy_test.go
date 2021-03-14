@@ -5,11 +5,11 @@ package gce_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"

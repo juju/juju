@@ -5,16 +5,15 @@ package application
 
 import (
 	"github.com/juju/charm/v7"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
+
+	"github.com/juju/juju/core/series"
 )
 
 const (
 	msgUserRequestedSeries = "with the user specified series %q"
 	msgBundleSeries        = "with the series %q defined by the bundle"
-	msgDefaultCharmSeries  = "with the default charm metadata series %q"
 	msgDefaultModelSeries  = "with the configured model default series %q"
 	msgLatestLTSSeries     = "with the latest LTS series %q"
 )

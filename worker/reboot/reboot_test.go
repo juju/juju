@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -17,6 +16,7 @@ import (
 	apireboot "github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/series"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"

@@ -5,20 +5,21 @@ package machinemanager
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os"
-	"github.com/juju/os/series"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -741,6 +742,12 @@ func isSeriesLessThan(series1, series2 string) (bool, error) {
 	version2, err := series.SeriesVersion(series2)
 	if err != nil {
 		return false, err
+	}
+	// Versions may be numeric.
+	vers1Int, err1 := strconv.Atoi(version1)
+	vers2Int, err2 := strconv.Atoi(version2)
+	if err1 == nil && err2 == nil {
+		return vers2Int > vers1Int, nil
 	}
 	return version2 > version1, nil
 }

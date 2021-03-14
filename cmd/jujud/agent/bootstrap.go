@@ -18,7 +18,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/ssh"
@@ -35,6 +34,8 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	jujuos "github.com/juju/juju/core/os"
+	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -352,7 +353,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	if !isCAAS {
 		// Populate the tools catalogue.
-		if err := c.populateTools(st, env); err != nil {
+		if err := c.populateTools(st); err != nil {
 			return errors.Trace(err)
 		}
 		// Add custom image metadata to environment storage.
@@ -494,7 +495,7 @@ func (c *BootstrapCommand) startMongo(isCAAS bool, addrs network.ProviderAddress
 
 // populateTools stores uploaded tools in provider storage
 // and updates the tools metadata.
-func (c *BootstrapCommand) populateTools(st *state.State, env environs.BootstrapEnviron) error {
+func (c *BootstrapCommand) populateTools(st *state.State) error {
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 
@@ -529,7 +530,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Bootstrap
 	var toolsVersions []version.Binary
 	if strings.HasPrefix(agentTools.URL, "file://") {
 		// Tools were uploaded: clone for each series of the same OS.
-		opSys, err := series.GetOSFromSeries(agentTools.Version.Series)
+		opSys, err := jujuseries.GetOSFromSeries(agentTools.Version.Series)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -541,7 +542,10 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Bootstrap
 			}
 		}
 		for _, osType := range osTypes.SortedValues() {
-			osSeries := series.OSSupportedSeries(jujuos.OSType(osType))
+			osSeries, err := jujuseries.OSAllSeries(jujuos.OSType(osType))
+			if err != nil {
+				return errors.Trace(err)
+			}
 			for _, s := range osSeries {
 				toolsVersion := agentTools.Version
 				toolsVersion.Series = s

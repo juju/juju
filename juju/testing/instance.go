@@ -237,12 +237,15 @@ func SetImageMetadata(env environs.Environ, series, arches []string, out *[]*ima
 	if err != nil {
 		return errors.Trace(err)
 	}
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: region,
 		Series:    series,
 		Arches:    arches,
 		Stream:    env.Config().ImageStream(),
 	})
+	if err != nil {
+		return errors.Trace(err)
+	}
 	imageMetadata, _, err := imagemetadata.Fetch(sources, imageConstraint)
 	if err != nil {
 		return errors.Trace(err)

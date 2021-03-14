@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
 
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 )

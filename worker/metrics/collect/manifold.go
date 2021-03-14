@@ -18,11 +18,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/os"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/fortress"

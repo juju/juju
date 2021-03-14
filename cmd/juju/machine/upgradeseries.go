@@ -6,13 +6,13 @@ package machine
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/api"
@@ -21,6 +21,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -199,7 +200,12 @@ func (c *upgradeSeriesCommand) Init(args []string) error {
 	}
 
 	if c.subCommand == PrepareCommand {
-		s, err := checkSeries(series.SupportedSeries(), args[2])
+		seriesArg := args[2]
+		workloadSeries, err := series.WorkloadSeries(time.Now(), seriesArg, "")
+		if err != nil {
+			return errors.Trace(err)
+		}
+		s, err := checkSeries(workloadSeries.Values(), seriesArg)
 		if err != nil {
 			return err
 		}

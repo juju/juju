@@ -18,7 +18,6 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -32,6 +31,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	jujuos "github.com/juju/juju/core/os"
+	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -85,6 +86,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuseries.UbuntuDistroInfo, "/path/notexists")
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 
 	// Patch the function used to retrieve GUI archive info from simplestreams.
@@ -1084,7 +1086,7 @@ func createImageMetadataForArch(c *gc.C, arch string) (dir string, _ []*imagemet
 	im := []*imagemetadata.ImageMetadata{{
 		Id:         "1234",
 		Arch:       arch,
-		Version:    "13.04",
+		Version:    "16.04",
 		RegionName: "region",
 		Endpoint:   "endpoint",
 	}}
@@ -1095,7 +1097,7 @@ func createImageMetadataForArch(c *gc.C, arch string) (dir string, _ []*imagemet
 	sourceDir := c.MkDir()
 	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir)
 	c.Assert(err, jc.ErrorIsNil)
-	err = imagemetadata.MergeAndWriteMetadata("raring", im, cloudSpec, sourceStor)
+	err = imagemetadata.MergeAndWriteMetadata("xenial", im, cloudSpec, sourceStor)
 	c.Assert(err, jc.ErrorIsNil)
 	return sourceDir, im
 }

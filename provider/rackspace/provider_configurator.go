@@ -5,12 +5,12 @@ package rackspace
 
 import (
 	"github.com/juju/errors"
-	jujuos "github.com/juju/os"
-	jujuseries "github.com/juju/os/series"
 	"github.com/juju/schema"
 	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
+	jujuos "github.com/juju/juju/core/os"
+	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 )
 

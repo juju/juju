@@ -20,7 +20,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -28,6 +28,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
@@ -126,14 +127,14 @@ var tests = []struct {
 		ctx:         &sync.SyncContext{},
 		major:       3,
 		minor:       2,
-		tools:       []version.Binary{v320p64},
+		tools:       []version.Binary{v320x64},
 	},
 	{
 		description: "copy matching major, minor dev from the dummy model",
 		ctx:         &sync.SyncContext{},
 		major:       3,
 		minor:       1,
-		tools:       []version.Binary{v310p64},
+		tools:       []version.Binary{v310x64},
 	},
 	{
 		description: "copy all from the dummy model",
@@ -202,21 +203,21 @@ func (u *fakeToolsUploader) UploadTools(toolsDir, stream string, tools *coretool
 }
 
 var (
-	v100p64 = version.MustParseBinary("1.0.0-precise-amd64")
-	v100q64 = version.MustParseBinary("1.0.0-quantal-amd64")
-	v100q32 = version.MustParseBinary("1.0.0-quantal-i386")
-	v100all = []version.Binary{v100p64, v100q64, v100q32}
-	v180q64 = version.MustParseBinary("1.8.0-quantal-amd64")
-	v180p32 = version.MustParseBinary("1.8.0-precise-i386")
-	v180all = []version.Binary{v180q64, v180p32}
-	v190q64 = version.MustParseBinary("1.9.0-quantal-amd64")
-	v190p32 = version.MustParseBinary("1.9.0-precise-i386")
-	v190all = []version.Binary{v190q64, v190p32}
+	v100x64 = version.MustParseBinary("1.0.0-xenial-amd64")
+	v100b64 = version.MustParseBinary("1.0.0-bionic-amd64")
+	v100b32 = version.MustParseBinary("1.0.0-bionic-i386")
+	v100all = []version.Binary{v100x64, v100b64, v100b32}
+	v180b64 = version.MustParseBinary("1.8.0-bionic-amd64")
+	v180x32 = version.MustParseBinary("1.8.0-xenial-i386")
+	v180all = []version.Binary{v180b64, v180x32}
+	v190b64 = version.MustParseBinary("1.9.0-bionic-amd64")
+	v190x32 = version.MustParseBinary("1.9.0-xenial-i386")
+	v190all = []version.Binary{v190b64, v190x32}
 	v1all   = append(append(v100all, v180all...), v190all...)
-	v200p64 = version.MustParseBinary("2.0.0-precise-amd64")
-	v310p64 = version.MustParseBinary("3.1.0-precise-amd64")
-	v320p64 = version.MustParseBinary("3.2.0-precise-amd64")
-	vAll    = append(append(v1all, v200p64), v310p64, v320p64)
+	v200x64 = version.MustParseBinary("2.0.0-xenial-amd64")
+	v310x64 = version.MustParseBinary("3.1.0-xenial-amd64")
+	v320x64 = version.MustParseBinary("3.2.0-xenial-amd64")
+	vAll    = append(append(v1all, v200x64), v310x64, v320x64)
 )
 
 type uploadSuite struct {
@@ -232,6 +233,7 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 	}
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
+	s.PatchValue(&coreseries.UbuntuDistroInfo, "/path/notexists")
 
 	// Create a target storage.
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
@@ -265,13 +267,13 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 
 func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
 	s.patchBundleTools(c, nil)
-	seriesToUpload := "precise"
+	seriesToUpload := "xenial"
 	if seriesToUpload == coretesting.HostSeries(c) {
 		seriesToUpload = "raring"
 	}
-	t, err := sync.Upload(s.targetStorage, "released", nil, "quantal", seriesToUpload)
+	t, err := sync.Upload(s.targetStorage, "released", nil, "bionic", seriesToUpload)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertUploadedTools(c, t, []string{seriesToUpload, "quantal", coretesting.HostSeries(c)}, "released")
+	s.assertUploadedTools(c, t, []string{seriesToUpload, "bionic", coretesting.HostSeries(c)}, "released")
 }
 
 func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
@@ -295,16 +297,16 @@ func (s *uploadSuite) TestSyncTools(c *gc.C) {
 
 func (s *uploadSuite) TestSyncToolsFakeSeries(c *gc.C) {
 	s.patchBundleTools(c, nil)
-	seriesToUpload := "precise"
+	seriesToUpload := "xenial"
 	if seriesToUpload == coretesting.HostSeries(c) {
 		seriesToUpload = "raring"
 	}
 	builtTools, err := sync.BuildAgentTarball(true, nil, "testing")
 	c.Assert(err, jc.ErrorIsNil)
 
-	t, err := sync.SyncBuiltTools(s.targetStorage, "testing", builtTools, "quantal", seriesToUpload)
+	t, err := sync.SyncBuiltTools(s.targetStorage, "testing", builtTools, "bionic", seriesToUpload)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertUploadedTools(c, t, []string{seriesToUpload, "quantal", coretesting.HostSeries(c)}, "testing")
+	s.assertUploadedTools(c, t, []string{seriesToUpload, "bionic", coretesting.HostSeries(c)}, "testing")
 }
 
 func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
@@ -362,8 +364,8 @@ func bundleTools(c *gc.C) (version.Binary, bool, string, error) {
 
 type badBuildSuite struct {
 	env environs.Environ
-	gitjujutesting.LoggingSuite
-	gitjujutesting.CleanupSuite
+	jujutesting.LoggingSuite
+	jujutesting.CleanupSuite
 	envtesting.ToolsFixture
 }
 

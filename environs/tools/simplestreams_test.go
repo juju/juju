@@ -25,6 +25,7 @@ import (
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -96,7 +97,7 @@ func registerSimpleStreamsTests() {
 					Region:   "us-east-1",
 					Endpoint: "https://ec2.us-east-1.amazonaws.com",
 				},
-				Series: []string{"precise"},
+				Series: []string{"bionic"},
 				Arches: []string{"amd64", "arm"},
 				Stream: "released",
 			}),
@@ -129,6 +130,7 @@ type simplestreamsSuite struct {
 func (s *simplestreamsSuite) SetUpSuite(c *gc.C) {
 	s.LocalLiveSimplestreamsSuite.SetUpSuite(c)
 	s.TestDataSuite.SetUpSuite(c)
+	s.PatchValue(&coreseries.UbuntuDistroInfo, "/path/notexists")
 }
 
 func (s *simplestreamsSuite) TearDownSuite(c *gc.C) {
@@ -146,86 +148,86 @@ var fetchTests = []struct {
 	arches  []string
 	tools   []*tools.ToolsMetadata
 }{{
-	series:  "precise",
+	series:  "bionic",
 	arches:  []string{"amd64", "arm"},
 	version: "1.13.0",
 	tools: []*tools.ToolsMetadata{
 		{
-			Release:  "precise",
+			Release:  "bionic",
 			Version:  "1.13.0",
 			Arch:     "amd64",
 			Size:     2973595,
-			Path:     "tools/released/20130806/juju-1.13.0-precise-amd64.tgz",
+			Path:     "tools/released/20130806/juju-1.13.0-bionic-amd64.tgz",
 			FileType: "tar.gz",
 			SHA256:   "447aeb6a934a5eaec4f703eda4ef2dde",
 		},
 	},
 }, {
-	series:  "raring",
+	series:  "xenial",
 	arches:  []string{"amd64", "arm"},
 	version: "1.13.0",
 	tools: []*tools.ToolsMetadata{
 		{
-			Release:  "raring",
+			Release:  "xenial",
 			Version:  "1.13.0",
 			Arch:     "amd64",
-			Size:     2973173,
-			Path:     "tools/released/20130806/juju-1.13.0-raring-amd64.tgz",
+			Size:     2973595,
+			Path:     "tools/released/20130806/juju-1.13.0-xenial-amd64.tgz",
 			FileType: "tar.gz",
-			SHA256:   "df07ac5e1fb4232d4e9aa2effa57918a",
+			SHA256:   "447aeb6a934a5eaec4f703eda4ef2dde",
 		},
 	},
 }, {
-	series:  "raring",
+	series:  "xenial",
 	arches:  []string{"amd64", "arm"},
 	version: "1.11.4",
 	tools: []*tools.ToolsMetadata{
 		{
-			Release:  "raring",
+			Release:  "xenial",
 			Version:  "1.11.4",
 			Arch:     "arm",
 			Size:     1950327,
-			Path:     "tools/released/20130806/juju-1.11.4-raring-arm.tgz",
+			Path:     "tools/released/20130806/juju-1.11.4-xenial-arm.tgz",
 			FileType: "tar.gz",
 			SHA256:   "6472014e3255e3fe7fbd3550ef3f0a11",
 		},
 	},
 }, {
-	series: "precise",
+	series: "bionic",
 	arches: []string{"amd64", "arm"},
 	major:  2,
 	tools: []*tools.ToolsMetadata{
 		{
-			Release:  "precise",
+			Release:  "bionic",
 			Version:  "2.0.1",
 			Arch:     "arm",
 			Size:     1951096,
-			Path:     "tools/released/20130806/juju-2.0.1-precise-arm.tgz",
+			Path:     "tools/released/20130806/juju-2.0.1-bionic-arm.tgz",
 			FileType: "tar.gz",
 			SHA256:   "f65a92b3b41311bdf398663ee1c5cd0c",
 		},
 	},
 }, {
-	series: "precise",
+	series: "bionic",
 	arches: []string{"amd64", "arm"},
 	major:  1,
 	minor:  11,
 	tools: []*tools.ToolsMetadata{
 		{
-			Release:  "precise",
+			Release:  "bionic",
 			Version:  "1.11.4",
 			Arch:     "arm",
 			Size:     1951096,
-			Path:     "tools/released/20130806/juju-1.11.4-precise-arm.tgz",
+			Path:     "tools/released/20130806/juju-1.11.4-bionic-arm.tgz",
 			FileType: "tar.gz",
 			SHA256:   "f65a92b3b41311bdf398663ee1c5cd0c",
 		},
 		{
-			Release:  "precise",
+			Release:  "bionic",
 			Version:  "1.11.5",
 			Arch:     "arm",
 			Size:     2031281,
-			Path:     "tools/released/20130803/juju-1.11.5-precise-arm.tgz",
+			Path:     "tools/released/20130803/juju-1.11.5-bionic-arm.tgz",
 			FileType: "tar.gz",
 			SHA256:   "df07ac5e1fb4232d4e9aa2effa57918a",
 		},
@@ -294,7 +296,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 func (s *simplestreamsSuite) TestFetchNoMatchingStream(c *gc.C) {
 	toolsConstraint := tools.NewGeneralToolsConstraint(2, -1, simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
-		Series:    []string{"precise"},
+		Series:    []string{"bionic"},
 		Arches:    []string{},
 		Stream:    "proposed",
 	})
@@ -306,7 +308,7 @@ func (s *simplestreamsSuite) TestFetchNoMatchingStream(c *gc.C) {
 func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
 	toolsConstraint := tools.NewGeneralToolsConstraint(1, 13, simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-west-2", "https://ec2.us-west-2.amazonaws.com"},
-		Series:    []string{"precise"},
+		Series:    []string{"bionic"},
 		Arches:    []string{"amd64"},
 		Stream:    "released",
 	})
@@ -316,12 +318,12 @@ func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
 	c.Assert(len(toolsMetadata), gc.Equals, 1)
 
 	expectedMetadata := &tools.ToolsMetadata{
-		Release:  "precise",
+		Release:  "bionic",
 		Version:  "1.13.0",
 		Arch:     "amd64",
 		Size:     2973595,
-		Path:     "mirrored-path/juju-1.13.0-precise-amd64.tgz",
-		FullPath: "test:/mirrored-path/juju-1.13.0-precise-amd64.tgz",
+		Path:     "mirrored-path/juju-1.13.0-bionic-amd64.tgz",
+		FullPath: "test:/mirrored-path/juju-1.13.0-bionic-amd64.tgz",
 		FileType: "tar.gz",
 		SHA256:   "447aeb6a934a5eaec4f703eda4ef2dde",
 	}
@@ -354,11 +356,11 @@ func assertMetadataMatches(c *gc.C, storageDir string, stream string, toolList c
 func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 	toolsList := coretools.List{
 		{
-			Version: version.MustParseBinary("1.2.3-precise-amd64"),
+			Version: version.MustParseBinary("1.2.3-bionic-amd64"),
 			Size:    123,
 			SHA256:  "abcd",
 		}, {
-			Version: version.MustParseBinary("2.0.1-raring-amd64"),
+			Version: version.MustParseBinary("2.0.1-xenial-amd64"),
 			Size:    456,
 			SHA256:  "xyz",
 		},
@@ -387,8 +389,8 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 
 func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 	var versionStrings = []string{
-		"1.2.3-precise-amd64",
-		"2.0.1-raring-amd64",
+		"1.2.3-bionic-amd64",
+		"2.0.1-xenial-amd64",
 	}
 	dir := c.MkDir()
 	toolstesting.MakeTools(c, dir, "proposed", versionStrings)
@@ -396,11 +398,11 @@ func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 	toolsList := coretools.List{
 		{
 			// If sha256/size is already known, do not recalculate
-			Version: version.MustParseBinary("1.2.3-precise-amd64"),
+			Version: version.MustParseBinary("1.2.3-bionic-amd64"),
 			Size:    123,
 			SHA256:  "abcd",
 		}, {
-			Version: version.MustParseBinary("2.0.1-raring-amd64"),
+			Version: version.MustParseBinary("2.0.1-xenial-amd64"),
 			// The URL is not used for generating metadata.
 			URL: "bogus://",
 		},
@@ -433,11 +435,11 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 	dir := c.MkDir()
 	existingToolsList := coretools.List{
 		{
-			Version: version.MustParseBinary("1.2.3-precise-amd64"),
+			Version: version.MustParseBinary("1.2.3-bionic-amd64"),
 			Size:    123,
 			SHA256:  "abc",
 		}, {
-			Version: version.MustParseBinary("2.0.1-raring-amd64"),
+			Version: version.MustParseBinary("2.0.1-xenial-amd64"),
 			Size:    456,
 			SHA256:  "xyz",
 		},
@@ -449,7 +451,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 	newToolsList := coretools.List{
 		existingToolsList[0],
 		{
-			Version: version.MustParseBinary("2.1.0-raring-amd64"),
+			Version: version.MustParseBinary("2.1.0-xenial-amd64"),
 			Size:    789,
 			SHA256:  "def",
 		},
@@ -474,7 +476,7 @@ var _ = gc.Suite(&productSpecSuite{})
 
 func (s *productSpecSuite) TestIndexIdNoStream(c *gc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
-		Series: []string{"precise"},
+		Series: []string{"bionic"},
 		Arches: []string{"amd64"},
 	})
 	ids := toolsConstraint.IndexIds()
@@ -483,7 +485,7 @@ func (s *productSpecSuite) TestIndexIdNoStream(c *gc.C) {
 
 func (s *productSpecSuite) TestIndexId(c *gc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
-		Series: []string{"precise"},
+		Series: []string{"bionic"},
 		Arches: []string{"amd64"},
 		Stream: "proposed",
 	})
@@ -493,70 +495,70 @@ func (s *productSpecSuite) TestIndexId(c *gc.C) {
 
 func (s *productSpecSuite) TestProductId(c *gc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
-		Series: []string{"precise"},
+		Series: []string{"bionic"},
 		Arches: []string{"amd64"},
 	})
 	ids, err := toolsConstraint.ProductIds()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.juju:12.04:amd64"})
+	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.juju:18.04:amd64"})
 }
 
 func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.11.3"), simplestreams.LookupParams{
-		Series: []string{"precise"},
+		Series: []string{"bionic"},
 		Arches: []string{"amd64", "arm"},
 	})
 	ids, err := toolsConstraint.ProductIds()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.DeepEquals, []string{
-		"com.ubuntu.juju:12.04:amd64",
-		"com.ubuntu.juju:12.04:arm"})
+		"com.ubuntu.juju:18.04:amd64",
+		"com.ubuntu.juju:18.04:arm"})
 }
 
 func (s *productSpecSuite) TestIdMultiSeries(c *gc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.11.3"), simplestreams.LookupParams{
-		Series: []string{"precise", "raring"},
+		Series: []string{"bionic", "xenial"},
 		Arches: []string{"amd64"},
 		Stream: "released",
 	})
 	ids, err := toolsConstraint.ProductIds()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.DeepEquals, []string{
-		"com.ubuntu.juju:12.04:amd64",
-		"com.ubuntu.juju:13.04:amd64"})
+		"com.ubuntu.juju:18.04:amd64",
+		"com.ubuntu.juju:16.04:amd64"})
 }
 
 func (s *productSpecSuite) TestIdIgnoresInvalidSeries(c *gc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.11.3"), simplestreams.LookupParams{
-		Series: []string{"precise", "foobar"},
+		Series: []string{"bionic", "foobar"},
 		Arches: []string{"amd64"},
 		Stream: "released",
 	})
 	ids, err := toolsConstraint.ProductIds()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.juju:12.04:amd64"})
+	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.juju:18.04:amd64"})
 }
 
 func (s *productSpecSuite) TestIdWithMajorVersionOnly(c *gc.C) {
 	toolsConstraint := tools.NewGeneralToolsConstraint(1, -1, simplestreams.LookupParams{
-		Series: []string{"precise"},
+		Series: []string{"bionic"},
 		Arches: []string{"amd64"},
 		Stream: "released",
 	})
 	ids, err := toolsConstraint.ProductIds()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ids, gc.DeepEquals, []string{`com.ubuntu.juju:12.04:amd64`})
+	c.Assert(ids, gc.DeepEquals, []string{`com.ubuntu.juju:18.04:amd64`})
 }
 
 func (s *productSpecSuite) TestIdWithMajorMinorVersion(c *gc.C) {
 	toolsConstraint := tools.NewGeneralToolsConstraint(1, 2, simplestreams.LookupParams{
-		Series: []string{"precise"},
+		Series: []string{"bionic"},
 		Arches: []string{"amd64"},
 		Stream: "released",
 	})
 	ids, err := toolsConstraint.ProductIds()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ids, gc.DeepEquals, []string{`com.ubuntu.juju:12.04:amd64`})
+	c.Assert(ids, gc.DeepEquals, []string{`com.ubuntu.juju:18.04:amd64`})
 }
 
 func (s *productSpecSuite) TestLargeNumber(c *gc.C) {
@@ -570,12 +572,12 @@ func (s *productSpecSuite) TestLargeNumber(c *gc.C) {
                 "versions": {
                     "20133008": {
                         "items": {
-                            "1.10.0-precise-amd64": {
-                                "release": "precise",
+                            "1.10.0-bionic-amd64": {
+                                "release": "bionic",
                                 "version": "1.10.0",
                                 "arch": "amd64",
                                 "size": 9223372036854775807,
-                                "path": "releases/juju-1.10.0-precise-amd64.tgz",
+                                "path": "releases/juju-1.10.0-bionic-amd64.tgz",
                                 "ftype": "tar.gz",
                                 "sha256": ""
                             }
@@ -594,7 +596,7 @@ func (s *productSpecSuite) TestLargeNumber(c *gc.C) {
 	version := product.Items["20133008"]
 	c.Assert(version, gc.NotNil)
 	c.Assert(version.Items, gc.HasLen, 1)
-	item := version.Items["1.10.0-precise-amd64"]
+	item := version.Items["1.10.0-bionic-amd64"]
 	c.Assert(item, gc.NotNil)
 	c.Assert(item, gc.FitsTypeOf, &tools.ToolsMetadata{})
 	c.Assert(item.(*tools.ToolsMetadata).Size, gc.Equals, int64(9223372036854775807))
@@ -611,12 +613,12 @@ func (*metadataHelperSuite) TestMetadataFromTools(c *gc.C) {
 	c.Assert(metadata, gc.HasLen, 0)
 
 	toolsList := coretools.List{{
-		Version: version.MustParseBinary("1.2.3-precise-amd64"),
+		Version: version.MustParseBinary("1.2.3-bionic-amd64"),
 		Size:    123,
 		SHA256:  "abc",
 	}, {
-		Version: version.MustParseBinary("2.0.1-raring-amd64"),
-		URL:     "file:///tmp/proposed/juju-2.0.1-raring-amd64.tgz",
+		Version: version.MustParseBinary("2.0.1-xenial-amd64"),
+		URL:     "file:///tmp/proposed/juju-2.0.1-xenial-amd64.tgz",
 		Size:    456,
 		SHA256:  "xyz",
 	}}
@@ -648,7 +650,7 @@ func (c *countingStorage) Get(name string) (io.ReadCloser, error) {
 }
 
 func (*metadataHelperSuite) TestResolveMetadata(c *gc.C) {
-	var versionStrings = []string{"1.2.3-precise-amd64"}
+	var versionStrings = []string{"1.2.3-bionic-amd64"}
 	dir := c.MkDir()
 	toolstesting.MakeTools(c, dir, "released", versionStrings)
 	toolsList := coretools.List{{
@@ -681,7 +683,7 @@ func (*metadataHelperSuite) TestResolveMetadata(c *gc.C) {
 }
 
 func (*metadataHelperSuite) TestResolveMetadataLegacyPPC64(c *gc.C) {
-	var versionStrings = []string{"1.2.3-precise-amd64", "1.2.3-precise-ppc64el"}
+	var versionStrings = []string{"1.2.3-bionic-amd64", "1.2.3-bionic-ppc64el"}
 	dir := c.MkDir()
 	toolstesting.MakeTools(c, dir, "released", versionStrings)
 
@@ -691,7 +693,7 @@ func (*metadataHelperSuite) TestResolveMetadataLegacyPPC64(c *gc.C) {
 		}, {
 			Version: version.MustParseBinary(versionStrings[1]),
 		}, {
-			Version: version.MustParseBinary("1.2.3-precise-ppc64"),
+			Version: version.MustParseBinary("1.2.3-bionic-ppc64"),
 		},
 	}
 	toolsMetadata := tools.MetadataFromTools(toolsList, dir)
@@ -701,50 +703,50 @@ func (*metadataHelperSuite) TestResolveMetadataLegacyPPC64(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(toolsMetadata, gc.DeepEquals, []*tools.ToolsMetadata{
 		{
-			Release:  "precise",
+			Release:  "bionic",
 			Version:  "1.2.3",
 			Arch:     "amd64",
-			Size:     19,
+			Size:     18,
 			FileType: "tar.gz",
-			SHA256:   "dcdd65b962b804a3d63b108d670290ee95a867a97fe9b9f99b2b77b5c7173e59",
-			Path:     fmt.Sprintf("%s/juju-1.2.3-precise-amd64.tgz", dir),
+			SHA256:   "7a22641ca4736e0c57d8f7db8f96daed89d804bbb7f87f0f746bab8b5633dd5a",
+			Path:     fmt.Sprintf("%s/juju-1.2.3-bionic-amd64.tgz", dir),
 		},
 		{
-			Release:  "precise",
+			Release:  "bionic",
 			Version:  "1.2.3",
 			Arch:     "ppc64el",
-			Size:     21,
+			Size:     20,
 			FileType: "tar.gz",
-			SHA256:   "a3460ed45eb07a69adfcd541413a495f988c5842d715c6a40353075c3ad47af2",
-			Path:     fmt.Sprintf("%s/juju-1.2.3-precise-ppc64el.tgz", dir),
+			SHA256:   "aab9e1749a2f2572d4889073dea33c450f5fefc157f355641820d03c8c7f7f44",
+			Path:     fmt.Sprintf("%s/juju-1.2.3-bionic-ppc64el.tgz", dir),
 		},
 		{
-			Release:  "precise",
+			Release:  "bionic",
 			Version:  "1.2.3",
 			Arch:     "ppc64",
-			Size:     21,
+			Size:     20,
 			FileType: "tar.gz",
-			SHA256:   "a3460ed45eb07a69adfcd541413a495f988c5842d715c6a40353075c3ad47af2",
-			Path:     fmt.Sprintf("%s/juju-1.2.3-precise-ppc64el.tgz", dir),
+			SHA256:   "aab9e1749a2f2572d4889073dea33c450f5fefc157f355641820d03c8c7f7f44",
+			Path:     fmt.Sprintf("%s/juju-1.2.3-bionic-ppc64el.tgz", dir),
 		},
 	})
 }
 
 func (*metadataHelperSuite) TestMergeMetadata(c *gc.C) {
 	md1 := &tools.ToolsMetadata{
-		Release: "precise",
+		Release: "bionic",
 		Version: "1.2.3",
 		Arch:    "amd64",
 		Path:    "path1",
 	}
 	md2 := &tools.ToolsMetadata{
-		Release: "precise",
+		Release: "bionic",
 		Version: "1.2.3",
 		Arch:    "amd64",
 		Path:    "path2",
 	}
 	md3 := &tools.ToolsMetadata{
-		Release: "raring",
+		Release: "xenial",
 		Version: "1.2.3",
 		Arch:    "amd64",
 		Path:    "path3",
@@ -806,12 +808,12 @@ func (*metadataHelperSuite) TestMergeMetadata(c *gc.C) {
 		name: "same tools in lhs and rhs, both have different sizes: error",
 		lhs:  mdlist{withSize(md1, 123)},
 		rhs:  mdlist{withSize(md2, 456)},
-		err:  "metadata mismatch for 1\\.2\\.3-precise-amd64: sizes=\\(123,456\\) sha256=\\(,\\)",
+		err:  "metadata mismatch for 1\\.2\\.3-bionic-amd64: sizes=\\(123,456\\) sha256=\\(,\\)",
 	}, {
 		name: "same tools in lhs and rhs, both have same size but different sha256: error",
 		lhs:  mdlist{withSHA256(withSize(md1, 123), "a")},
 		rhs:  mdlist{withSHA256(withSize(md2, 123), "b")},
-		err:  "metadata mismatch for 1\\.2\\.3-precise-amd64: sizes=\\(123,123\\) sha256=\\(a,b\\)",
+		err:  "metadata mismatch for 1\\.2\\.3-bionic-amd64: sizes=\\(123,123\\) sha256=\\(a,b\\)",
 	}, {
 		name:   "lhs is a proper superset of rhs: union of lhs and rhs",
 		lhs:    mdlist{md1, md3},
@@ -839,12 +841,12 @@ func (*metadataHelperSuite) TestMergeMetadata(c *gc.C) {
 func (*metadataHelperSuite) TestReadWriteMetadataSingleStream(c *gc.C) {
 	metadata := map[string][]*tools.ToolsMetadata{
 		"released": {{
-			Release: "precise",
+			Release: "bionic",
 			Version: "1.2.3",
 			Arch:    "amd64",
 			Path:    "path1",
 		}, {
-			Release: "raring",
+			Release: "xenial",
 			Version: "1.2.3",
 			Arch:    "amd64",
 			Path:    "path2",
@@ -875,13 +877,13 @@ func (*metadataHelperSuite) TestReadWriteMetadataSingleStream(c *gc.C) {
 func (*metadataHelperSuite) writeMetadataMultipleStream(c *gc.C) (storage.StorageReader, map[string][]*tools.ToolsMetadata) {
 	metadata := map[string][]*tools.ToolsMetadata{
 		"released": {{
-			Release: "precise",
+			Release: "bionic",
 			Version: "1.2.3",
 			Arch:    "amd64",
 			Path:    "path1",
 		}},
 		"proposed": {{
-			Release: "raring",
+			Release: "xenial",
 			Version: "1.2.3",
 			Arch:    "amd64",
 			Path:    "path2",
@@ -935,7 +937,7 @@ func (s *metadataHelperSuite) TestWriteMetadataLegacyIndex(c *gc.C) {
 				Format:           "products:1.0",
 				DataType:         "content-download",
 				ProductsFilePath: "streams/v1/com.ubuntu.juju-released-tools.json",
-				ProductIds:       []string{"com.ubuntu.juju:12.04:amd64"},
+				ProductIds:       []string{"com.ubuntu.juju:18.04:amd64"},
 			},
 		},
 	}
@@ -945,12 +947,12 @@ func (s *metadataHelperSuite) TestWriteMetadataLegacyIndex(c *gc.C) {
 func (s *metadataHelperSuite) TestReadWriteMetadataUnchanged(c *gc.C) {
 	metadata := map[string][]*tools.ToolsMetadata{
 		"released": {{
-			Release: "precise",
+			Release: "bionic",
 			Version: "1.2.3",
 			Arch:    "amd64",
 			Path:    "path1",
 		}, {
-			Release: "raring",
+			Release: "xenial",
 			Version: "1.2.3",
 			Arch:    "amd64",
 			Path:    "path2",
@@ -982,7 +984,7 @@ func (*metadataHelperSuite) TestReadMetadataPrefersNewIndex(c *gc.C) {
 	// Generate metadata and rename index to index.json
 	metadata := map[string][]*tools.ToolsMetadata{
 		"proposed": {{
-			Release: "precise",
+			Release: "bionic",
 			Version: "1.2.3",
 			Arch:    "amd64",
 			Path:    "path1",
@@ -1007,7 +1009,7 @@ func (*metadataHelperSuite) TestReadMetadataPrefersNewIndex(c *gc.C) {
 	// Generate different metadata with index2.json
 	metadata = map[string][]*tools.ToolsMetadata{
 		"released": {{
-			Release: "precise",
+			Release: "bionic",
 			Version: "1.2.3",
 			Arch:    "amd64",
 			Path:    "path1",
@@ -1081,7 +1083,7 @@ func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
 	)
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
-		Series:    []string{"precise"},
+		Series:    []string{"bionic"},
 		Arches:    []string{"amd64"},
 		Stream:    "released",
 	})
@@ -1089,7 +1091,7 @@ func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
 		[]simplestreams.DataSource{signedSource}, toolsConstraint)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(toolsMetadata), gc.Equals, 1)
-	c.Assert(toolsMetadata[0].Path, gc.Equals, "tools/releases/20130806/juju-1.13.1-precise-amd64.tgz")
+	c.Assert(toolsMetadata[0].Path, gc.Equals, "tools/releases/20130806/juju-1.13.1-bionic-amd64.tgz")
 	c.Assert(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    true,
@@ -1106,7 +1108,7 @@ var unsignedIndex = `
    "datatype": "content-download",
    "format": "products:1.0",
    "products": [
-     "com.ubuntu.juju:12.04:amd64"
+     "com.ubuntu.juju:18.04:amd64"
    ],
    "path": "streams/v1/tools_metadata.json"
   }
@@ -1121,16 +1123,16 @@ var unsignedProduct = `
  "content_id": "com.ubuntu.cloud:released:aws",
  "datatype": "content-download",
  "products": {
-   "com.ubuntu.juju:12.04:amd64": {
+   "com.ubuntu.juju:18.04:amd64": {
     "arch": "amd64",
-    "release": "precise",
+    "release": "bionic",
     "versions": {
      "20130806": {
       "items": {
-       "1130preciseamd64": {
+       "1130bionicamd64": {
         "version": "1.13.0",
         "size": 2973595,
-        "path": "tools/releases/20130806/juju-1.13.0-precise-amd64.tgz",
+        "path": "tools/releases/20130806/juju-1.13.0-bionic-amd64.tgz",
         "ftype": "tar.gz",
         "sha256": "447aeb6a934a5eaec4f703eda4ef2dde"
        }
