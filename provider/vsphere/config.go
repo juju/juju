@@ -8,6 +8,7 @@ import (
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 )
 
 // The vmware-specific config keys.
@@ -17,6 +18,7 @@ const (
 	cfgDatastore              = "datastore"
 	cfgForceVMHardwareVersion = "force-vm-hardware-version"
 	cfgEnableDiskUUID         = "enable-disk-uuid"
+	cfgDiskProvisioningType   = "disk-provisioning-type"
 )
 
 // configFields is the spec for each vmware config value's type.
@@ -27,6 +29,7 @@ var (
 		cfgPrimaryNetwork:         schema.String(),
 		cfgForceVMHardwareVersion: schema.ForceInt(),
 		cfgEnableDiskUUID:         schema.Bool(),
+		cfgDiskProvisioningType:   schema.String(),
 	}
 
 	configDefaults = schema.Defaults{
@@ -35,6 +38,7 @@ var (
 		cfgPrimaryNetwork:         schema.Omit,
 		cfgForceVMHardwareVersion: int(0),
 		cfgEnableDiskUUID:         true,
+		cfgDiskProvisioningType:   string(vsphereclient.DiskTypeThickEagerZero),
 	}
 
 	configRequiredFields  = []string{}
@@ -119,6 +123,14 @@ func (c *environConfig) forceVMHardwareVersion() int64 {
 	}
 }
 
+func (c *environConfig) diskProvisioningType() vsphereclient.DiskProvisioningType {
+	provType, ok := c.attrs[cfgDiskProvisioningType]
+	if !ok {
+		return vsphereclient.DiskTypeThin
+	}
+	return vsphereclient.DiskProvisioningType(provType.(string))
+}
+
 // validate checks vmware-specific config values.
 func (c environConfig) validate() error {
 	// All fields must be populated, even with just the default.
@@ -128,6 +140,25 @@ func (c environConfig) validate() error {
 		}
 	}
 
+	if diskProvType, ok := c.attrs[cfgDiskProvisioningType]; ok {
+
+		diskProvTypeStr, ok := diskProvType.(string)
+		if !ok {
+			return errors.Errorf("%s must be a string", cfgDiskProvisioningType)
+		}
+
+		found := false
+		for _, val := range vsphereclient.ValidDiskProvisioningTypes {
+			if vsphereclient.DiskProvisioningType(diskProvTypeStr) == val {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return errors.Errorf(
+				"%q must be one of %q", cfgDiskProvisioningType, vsphereclient.ValidDiskProvisioningTypes)
+		}
+	}
 	return nil
 }
 

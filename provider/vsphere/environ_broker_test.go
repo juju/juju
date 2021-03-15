@@ -151,6 +151,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
 		UpdateProgressInterval: 5 * time.Second,
 		EnableDiskUUID:         true,
 		IsBootstrap:            true,
+		DiskProvisioningType:   vsphereclient.DiskTypeThin,
 	})
 
 	ovaLocation, ovaReadCloser, err := readOVA()

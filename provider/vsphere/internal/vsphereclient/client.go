@@ -28,6 +28,43 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 )
 
+type DiskProvisioningType string
+
+const (
+	// DiskTypeThin sets the provisioning type for disks, when cloning
+	// from a template, to "thin". This is also known as "sparse"
+	// provisioning. Only written blocks inside the virtual disk are
+	// deducted from the underlying datastore.
+	DiskTypeThin DiskProvisioningType = "thin"
+	// DiskTypeThick sets the provisioning type for disks to "thick".
+	// The entire size of the virtual disk, written and unwritten space,
+	// is deducted from the underlying datastore. Unwritten blocks inside
+	// the virtual disk, are not zeroed out. This speeds up disk cloning
+	// but introduces two pitfals:
+	//   * If there is previously written data on the datastore where the
+	//     space is allocated, it can be recovered in the newly instantiated
+	//     machine that now ocupies that space. This can be a potential
+	//     security risk.
+	//   * Before new data will be written to a disk area, the hypervisor
+	//     will first zero out the disk area before writing to it. This adds
+	//     latency to disk writes in that area.
+	DiskTypeThick DiskProvisioningType = "thick"
+	// DiskTypeThickEagerZero sets the provisioning type for disks to
+	// "thick eager zeroed". The entire size of the virtual disk will be
+	// deducted from the underlying datastore. Any unwritten disk areas
+	// will be zeroed out during cloning. This is the default setting.
+	DiskTypeThickEagerZero DiskProvisioningType = "thickEagerZero"
+)
+
+var (
+	// ValidDiskProvisioningTypes is a list of valid disk provisioning types.
+	ValidDiskProvisioningTypes = []DiskProvisioningType{
+		DiskTypeThin,
+		DiskTypeThick,
+		DiskTypeThickEagerZero,
+	}
+)
+
 // ErrExtendDisk is returned if we timed out trying to extend the root
 // disk of a VM.
 type extendDiskError struct {
@@ -642,6 +679,53 @@ func (c *Client) maybeUpgradeVMHardware(
 	return nil
 }
 
+func (c *Client) buildDiskLocator(
+	ctx context.Context,
+	args CreateVirtualMachineParams,
+	srcVM *object.VirtualMachine,
+	datastore types.ManagedObjectReference,
+) ([]types.VirtualMachineRelocateSpecDiskLocator, error) {
+
+	templateDisks, err := c.getDisks(ctx, srcVM)
+	if err != nil {
+		return nil, errors.Annotatef(err, "source VM disks")
+	}
+
+	var scrub bool
+	var thinProvision bool
+
+	switch args.DiskProvisioningType {
+	default:
+		// If no disk provisioning type is specified, fall back to
+		// thick disk provisioning, eager zeros.
+		fallthrough
+	case DiskTypeThickEagerZero:
+		scrub = true
+		thinProvision = false
+	case DiskTypeThick:
+		scrub = false
+		thinProvision = false
+	case DiskTypeThin:
+		scrub = false
+		thinProvision = true
+	}
+
+	var diskLocators []types.VirtualMachineRelocateSpecDiskLocator
+	for _, disk := range templateDisks {
+		backingInfo := &types.VirtualDiskFlatVer2BackingInfo{
+			EagerlyScrub:    &scrub,
+			ThinProvisioned: &thinProvision,
+		}
+		diskLocator := types.VirtualMachineRelocateSpecDiskLocator{
+			DiskBackingInfo: backingInfo,
+			DiskId:          disk.Key,
+			Datastore:       datastore,
+		}
+		diskLocators = append(diskLocators, diskLocator)
+	}
+	return diskLocators, nil
+}
+
 func (c *Client) cloneVM(
 	ctx context.Context,
 	args CreateVirtualMachineParams,
@@ -660,12 +744,20 @@ func (c *Client) cloneVM(
 		return nil, errors.Annotate(err, "building clone VM config")
 	}
 	datastoreRef := datastore.Reference()
+
+	diskLocators, err := c.buildDiskLocator(ctx, args, srcVM, datastoreRef)
+	if err != nil {
+		return nil, errors.Annotate(err, "building disk locators")
+	}
+	relocSpec := types.VirtualMachineRelocateSpec{
+		Pool:      &args.ResourcePool,
+		Datastore: &datastoreRef,
+		Disk:      diskLocators,
+	}
+
 	task, err := srcVM.Clone(ctx, vmFolder, args.Name, types.VirtualMachineCloneSpec{
-		Config: vmConfigSpec,
-		Location: types.VirtualMachineRelocateSpec{
-			Pool:      &args.ResourcePool,
-			Datastore: &datastoreRef,
-		},
+		Config:   vmConfigSpec,
+		Location: relocSpec,
 	})
 	if err != nil {
 		return nil, errors.Annotatef(err, "cloning VM %q from %q", args.Name, srcVM.Name())
@@ -781,20 +873,21 @@ func customiseVAppConfig(
 	}, nil
 }
 
-func (c *Client) getDisk(
+func (c *Client) getDisks(
 	ctx context.Context,
 	vm *object.VirtualMachine,
-) (*types.VirtualDisk, error) {
+) ([]*types.VirtualDisk, error) {
 	var mo mo.VirtualMachine
+	var disks []*types.VirtualDisk
 	if err := c.client.RetrieveOne(ctx, vm.Reference(), []string{"config.hardware"}, &mo); err != nil {
-		return nil, errors.Trace(err)
+		return disks, errors.Trace(err)
 	}
 	for _, dev := range mo.Config.Hardware.Device {
 		if dev, ok := dev.(*types.VirtualDisk); ok {
-			return dev, nil
+			disks = append(disks, dev)
 		}
 	}
-	return nil, errors.NotFoundf("disk")
+	return disks, nil
 }
 
 func (c *Client) extendDisk(
