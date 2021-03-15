@@ -552,6 +552,20 @@ func (s *ClientSuite) TestMinionReportsBadFailedTag(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `processing failed agents: "dave" is not a valid tag`)
 }
 
+func (s *ClientSuite) TestMinionReportTimeout(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+		out := result.(*params.StringResult)
+		*out = params.StringResult{
+			Result: "30s",
+		}
+		return nil
+	})
+	client := migrationmaster.NewClient(apiCaller, nil)
+	timeout, err := client.MinionReportTimeout()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(timeout, gc.Equals, 30*time.Second)
+}
+
 func (s *ClientSuite) TestStreamModelLogs(c *gc.C) {
 	caller := fakeConnector{path: new(string), attrs: &url.Values{}}
 	client := migrationmaster.NewClient(caller, nil)
