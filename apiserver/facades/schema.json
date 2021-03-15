@@ -24277,7 +24277,7 @@
     {
         "Name": "MigrationMaster",
         "Description": "API implements the API required for the model migration\nmaster worker.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -24304,6 +24304,15 @@
                         }
                     },
                     "description": "MigrationStatus returns the details and progress of the latest\nmodel migration."
+                },
+                "MinionReportTimeout": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/StringResult"
+                        }
+                    },
+                    "description": "MinionReportTimeout returns the configuration value for this controller that\nindicates how long the migration master worker should wait for minions to\nreported on phases of a migration."
                 },
                 "MinionReports": {
                     "type": "object",
@@ -24752,6 +24761,21 @@
                     "additionalProperties": false,
                     "required": [
                         "message"
+                    ]
+                },
+                "StringResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result"
                     ]
                 }
             }
