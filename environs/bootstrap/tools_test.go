@@ -4,14 +4,16 @@
 package bootstrap_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
-	"github.com/juju/os/v2"
-	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/context"
@@ -220,9 +222,12 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 
 func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	s.PatchValue(&series.UbuntuDistroInfo, "/path/notexists")
 
+	workloadSeries, err := series.WorkloadSeries(time.Now(), "", "")
+	c.Assert(err, jc.ErrorIsNil)
 	var allTools tools.List
-	for _, series := range series.SupportedSeries() {
+	for _, series := range workloadSeries.Values() {
 		binary := version.Binary{
 			Number: jujuversion.Current,
 			Series: series,

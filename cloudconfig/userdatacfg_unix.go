@@ -19,12 +19,12 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2"
 	"github.com/juju/proxy"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"

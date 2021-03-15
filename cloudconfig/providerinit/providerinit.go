@@ -2,19 +2,19 @@
 // Copyright 2015 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// This package offers userdata in a gzipped format to be used by different
+// Package providerinit offers userdata in a gzipped format to be used by different
 // cloud providers
 package providerinit
 
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
+	"github.com/juju/juju/core/series"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.providerinit")

@@ -20,7 +20,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
@@ -46,6 +45,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -2988,14 +2988,16 @@ func (s *localServerSuite) ensureAMDImages(c *gc.C) environs.Environ {
 		Number: jujuversion.Current,
 		Arch:   arch.AMD64,
 	}
-	for _, supSeries := range series.SupportedSeries() {
+	workloadSeries, err := series.WorkloadSeries(time.Now(), "", "")
+	c.Assert(err, jc.ErrorIsNil)
+	for _, supSeries := range workloadSeries.Values() {
 		amd64Version.Series = supSeries
 		envtesting.AssertUploadFakeToolsVersions(
 			c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), amd64Version)
 	}
 
 	// Destroy the old Environ
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.callCtx, s.ControllerStore)
+	err = environs.Destroy(s.env.Config().Name(), s.env, s.callCtx, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Prepare a new Environ

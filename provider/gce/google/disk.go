@@ -7,9 +7,10 @@ import (
 	"path"
 
 	"github.com/juju/errors"
-	jujuos "github.com/juju/os/v2"
-	"github.com/juju/os/v2/series"
 	"google.golang.org/api/compute/v1"
+
+	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/series"
 )
 
 // The different types of disk persistence supported by GCE.

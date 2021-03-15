@@ -10,12 +10,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	utilsos "github.com/juju/os/v2"
-	utilsseries "github.com/juju/os/v2/series"
+	osseries "github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2"
 	"gopkg.in/yaml.v2"
 
+	utilsos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
+	utilsseries "github.com/juju/juju/core/series"
 )
 
 // InitReader describes methods for extracting machine provisioning config,
@@ -88,7 +89,7 @@ func (r *MachineInitReader) GetInitConfig() (map[string]interface{}, error) {
 	}
 	switch containerOS {
 	case utilsos.Ubuntu, utilsos.CentOS, utilsos.OpenSUSE:
-		hostSeries, err := utilsseries.HostSeries()
+		hostSeries, err := osseries.HostSeries()
 		if err != nil || series != hostSeries {
 			logger.Debugf("not attempting to get init config for %s, series of machine and container differ", series)
 			return nil, nil

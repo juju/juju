@@ -54,34 +54,34 @@ var _ = gc.Suite(&UpgradeIAASControllerSuite{})
 
 var upgradeIAASControllerPassthroughTests = []upgradeTest{{
 	about:          "unwanted extra argument",
-	currentVersion: "1.0.0-quantal-amd64",
+	currentVersion: "1.0.0-groovy-amd64",
 	args:           []string{"foo"},
 	expectInitErr:  "unrecognized args:.*",
 }, {
 	about:          "invalid --agent-version value",
-	currentVersion: "1.0.0-quantal-amd64",
+	currentVersion: "1.0.0-groovy-amd64",
 	args:           []string{"--agent-version", "invalid-version"},
 	expectInitErr:  "invalid version .*",
 }, {
 	about:          "latest supported stable release",
-	available:      []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
-	currentVersion: "2.0.0-quantal-amd64",
+	available:      []string{"2.1.0-groovy-amd64", "2.1.2-groovy-i386", "2.1.3-groovy-amd64", "2.1-dev1-groovy-amd64"},
+	currentVersion: "2.0.0-groovy-amd64",
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.1.3",
 }, {
 	about:          "latest supported stable, when client is dev, explicit upload",
-	available:      []string{"2.1-dev1-quantal-amd64", "2.1.0-quantal-amd64", "2.3-dev0-quantal-amd64", "3.0.1-quantal-amd64"},
-	currentVersion: "2.1-dev0-quantal-amd64",
+	available:      []string{"2.1-dev1-groovy-amd64", "2.1.0-groovy-amd64", "2.3-dev0-groovy-amd64", "3.0.1-groovy-amd64"},
+	currentVersion: "2.1-dev0-groovy-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--build-agent"},
 	expectVersion:  "2.1-dev0.1",
 }, {
 	about:          "upload with explicit version",
-	currentVersion: "2.2.0-quantal-amd64",
+	currentVersion: "2.2.0-groovy-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--build-agent", "--agent-version", "2.7.3"},
 	expectVersion:  "2.7.3.1",
-	expectUploaded: []string{"2.7.3.1-quantal-amd64", "2.7.3.1-%LTS%-amd64", "2.7.3.1-raring-amd64"},
+	expectUploaded: []string{"2.7.3.1-groovy-amd64", "2.7.3.1-%LTS%-amd64", "2.7.3.1-xenial-amd64"},
 }}
 
 func (s *UpgradeIAASControllerSuite) upgradeControllerCommand() cmd.Command {
@@ -133,16 +133,16 @@ func (s *UpgradeIAASControllerSuite) TestUpgradeCorrectController(c *gc.C) {
 	tests := []upgradeTest{
 		{
 			about:          "latest supported stable release with specified controller",
-			available:      []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
-			currentVersion: "2.0.0-quantal-amd64",
+			available:      []string{"2.1.0-groovy-amd64", "2.1.2-groovy-i386", "2.1.3-groovy-amd64", "2.1-dev1-groovy-amd64"},
+			currentVersion: "2.0.0-groovy-amd64",
 			agentVersion:   "2.0.0",
 			expectVersion:  "2.1.3",
 			args:           []string{"--controller", "kontroll"},
 		},
 		{
 			about:          "latest supported stable release without specified controller",
-			available:      []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
-			currentVersion: "2.0.0-quantal-amd64",
+			available:      []string{"2.1.0-groovy-amd64", "2.1.2-groovy-i386", "2.1.3-groovy-amd64", "2.1-dev1-groovy-amd64"},
+			currentVersion: "2.0.0-groovy-amd64",
 			agentVersion:   "2.0.0",
 			expectVersion:  "2.1.3",
 			expectErr:      badControllerSelected.Error(),
@@ -241,21 +241,21 @@ var upgradeCAASControllerTests = []upgradeTest{{
 }, {
 	about:          "latest supported stable release",
 	available:      []string{"2.1.0", "2.1.2", "2.1.3", "2.1.3.666", "2.1-dev1"},
-	streams:        []string{"2.1.0-quantal-amd64", "2.1.2-quantal-amd64", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
+	streams:        []string{"2.1.0-groovy-amd64", "2.1.2-groovy-amd64", "2.1.3-groovy-amd64", "2.1-dev1-groovy-amd64"},
 	currentVersion: "2.0.0",
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.1.3",
 }, {
 	about:          "latest supported stable release increments by one minor version number",
 	available:      []string{"1.21.3", "1.22.1"},
-	streams:        []string{"1.21.3-quantal-amd64", "1.22.1-quantal-amd64"},
+	streams:        []string{"1.21.3-groovy-amd64", "1.22.1-groovy-amd64"},
 	currentVersion: "1.22.1",
 	agentVersion:   "1.20.14",
 	expectVersion:  "1.21.3",
 }, {
 	about:          "latest supported stable release from custom version",
 	available:      []string{"1.21.3", "1.22.1"},
-	streams:        []string{"1.21.3-quantal-amd64", "1.22.1-quantal-amd64"},
+	streams:        []string{"1.21.3-groovy-amd64", "1.22.1-groovy-amd64"},
 	currentVersion: "1.22.1",
 	agentVersion:   "1.20.14.1",
 	expectVersion:  "1.21.3",
@@ -305,7 +305,7 @@ func (s *UpgradeCAASControllerSuite) assertUpgradeTests(c *gc.C, tests []upgrade
 		})
 		c.Assert(err, jc.ErrorIsNil)
 
-		s.setUpEnvAndTools(c, test.currentVersion+"-quantal-amd64", test.agentVersion, test.streams)
+		s.setUpEnvAndTools(c, test.currentVersion+"-groovy-amd64", test.agentVersion, test.streams)
 
 		// Set up apparent CLI version and initialize the command.
 		current := version.MustParse(test.currentVersion)

@@ -12,13 +12,13 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v4"
 	"github.com/juju/naturalsort"
-	"github.com/juju/os/v2"
-	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/storage"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 )
 
@@ -177,6 +177,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 
 	out = machineStatus{
 		JujuStatus:         sf.getStatusInfoContents(machine.AgentStatus),
+		Hostname:           machine.Hostname,
 		DNSName:            machine.DNSName,
 		IPAddresses:        machine.IPAddresses,
 		InstanceId:         machine.InstanceId,

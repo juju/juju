@@ -16,7 +16,6 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	jujuos "github.com/juju/os/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/exec"
@@ -24,6 +23,7 @@ import (
 
 	"github.com/juju/juju/cmd/jujud/agent/config"
 	"github.com/juju/juju/core/machinelock"
+	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"

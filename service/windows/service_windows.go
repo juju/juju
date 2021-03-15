@@ -16,6 +16,7 @@ import (
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/service/common"
 )
 
@@ -330,7 +331,7 @@ func (s *SvcManager) Create(name string, conf common.Conf) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !series.IsWindowsNano(hostSeries) {
+	if !coreseries.IsWindowsNano(hostSeries) {
 		password, err := getPassword()
 		if err != nil {
 			return errors.Trace(err)

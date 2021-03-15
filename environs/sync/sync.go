@@ -14,10 +14,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/http"
 	"github.com/juju/loggo"
-	jujuseries "github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 
+	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"

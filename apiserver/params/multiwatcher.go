@@ -136,6 +136,7 @@ type MachineInfo struct {
 	Addresses                []Address                         `json:"addresses"`
 	HasVote                  bool                              `json:"has-vote"`
 	WantsVote                bool                              `json:"wants-vote"`
+	Hostname                 string                            `json:"hostname,omitempty"`
 }
 
 // EntityId returns a unique identifier for a machine across

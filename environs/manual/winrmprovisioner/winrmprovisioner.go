@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/utils/v2/shell"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/manual"
 )
 

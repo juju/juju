@@ -232,6 +232,7 @@ func (aw *SrvAllWatcher) translateMachine(info multiwatcher.EntityInfo) params.E
 		Addresses:                aw.translateAddresses(orig.Addresses),
 		HasVote:                  orig.HasVote,
 		WantsVote:                orig.WantsVote,
+		Hostname:                 orig.Hostname,
 	}
 }
 

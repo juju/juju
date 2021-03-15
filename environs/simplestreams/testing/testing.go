@@ -12,11 +12,11 @@ import (
 	"strings"
 
 	jujuhttp "github.com/juju/http"
-	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/testing"
 )
@@ -93,37 +93,37 @@ var imageData = map[string]string{
 		  "com.ubuntu.cloud:released:precise": {
 		   "updated": "Wed, 01 May 2013 13:31:26 +0000",
 		   "clouds": [
-			{
-			 "region": "us-east-1",
-			 "endpoint": "https://ec2.us-east-1.amazonaws.com"
-			}
+		    {
+		     "region": "us-east-1",
+		     "endpoint": "https://ec2.us-east-1.amazonaws.com"
+		    }
 		   ],
 		   "cloudname": "aws",
 		   "datatype": "image-ids",
 		   "format": "products:1.0",
 		   "products": [
-			"com.ubuntu.cloud:server:12.04:amd64",
- 			"com.ubuntu.cloud:server:12.10:amd64",
- 			"com.ubuntu.cloud:server:13.04:amd64",
- 			"com.ubuntu.cloud:server:14.04:amd64",
- 			"com.ubuntu.cloud:server:14.10:amd64",
- 			"com.ubuntu.cloud:server:12.04:arm"
+		    "com.ubuntu.cloud:server:12.04:amd64",
+ 		    "com.ubuntu.cloud:server:12.10:amd64",
+ 		    "com.ubuntu.cloud:server:13.04:amd64",
+ 		    "com.ubuntu.cloud:server:14.04:amd64",
+ 		    "com.ubuntu.cloud:server:14.10:amd64",
+ 		    "com.ubuntu.cloud:server:12.04:arm"
 		   ],
 		   "path": "streams/v1/image_metadata.json"
 		  },
 		  "com.ubuntu.cloud:released:raring": {
 		   "updated": "Wed, 01 May 2013 13:31:26 +0000",
 		   "clouds": [
-			{
-			 "region": "us-east-1",
-			 "endpoint": "https://ec2.us-east-1.amazonaws.com"
-			}
+		    {
+		     "region": "us-east-1",
+		     "endpoint": "https://ec2.us-east-1.amazonaws.com"
+		    }
 		   ],
 		   "cloudname": "aws",
 		   "datatype": "image-ids",
 		   "format": "products:1.0",
 		   "products": [
-			"com.ubuntu.cloud:server:13.04:amd64"
+		    "com.ubuntu.cloud:server:13.04:amd64"
 		   ],
 		   "path": "streams/v1/raring_metadata.json"
 		  },
@@ -132,8 +132,8 @@ var imageData = map[string]string{
 		   "path": "streams/v1/com.ubuntu.cloud:released:download.json",
 		   "updated": "Wed, 01 May 2013 13:30:37 +0000",
 		   "products": [
-			"com.ubuntu.cloud:server:12.10:amd64",
-			"com.ubuntu.cloud:server:13.04:amd64"
+		    "com.ubuntu.cloud:server:12.10:amd64",
+		    "com.ubuntu.cloud:server:13.04:amd64"
 		   ],
 		   "format": "products:1.0"
 		  },
@@ -145,7 +145,10 @@ var imageData = map[string]string{
 		     "com.ubuntu.juju:12.04:amd64",
 		     "com.ubuntu.juju:12.04:arm",
 		     "com.ubuntu.juju:13.04:amd64",
-		     "com.ubuntu.juju:13.04:arm"
+		     "com.ubuntu.juju:13.04:arm",
+		     "com.ubuntu.juju:16.04:amd64",
+		     "com.ubuntu.juju:18.04:amd64",
+		     "com.ubuntu.juju:18.04:arm"
 		   ],
 		   "path": "streams/v1/tools_metadata.json"
 		  },
@@ -214,6 +217,57 @@ var imageData = map[string]string{
        "path": "tools/released/20130806/juju-1.13.0-precise-amd64.tgz",
        "ftype": "tar.gz",
        "sha256": "447aeb6a934a5eaec4f703eda4ef2dde"
+      }
+     }
+    }
+   }
+  },
+  "com.ubuntu.juju:16.04:amd64": {
+   "arch": "amd64",
+   "release": "xenial",
+   "versions": {
+    "20130806": {
+     "items": {
+      "1130xenialamd64": {
+       "version": "1.13.0",
+       "size": 2973595,
+       "path": "tools/released/20130806/juju-1.13.0-xenial-amd64.tgz",
+       "ftype": "tar.gz",
+       "sha256": "447aeb6a934a5eaec4f703eda4ef2dde"
+      }
+     }
+    }
+   }
+  },
+  "com.ubuntu.juju:18.04:amd64": {
+   "arch": "amd64",
+   "release": "bionic",
+   "versions": {
+    "20130806": {
+     "items": {
+      "1130bionicamd64": {
+       "version": "1.13.0",
+       "size": 2973595,
+       "path": "tools/released/20130806/juju-1.13.0-bionic-amd64.tgz",
+       "ftype": "tar.gz",
+       "sha256": "447aeb6a934a5eaec4f703eda4ef2dde"
+      }
+     }
+    }
+   }
+  },
+  "com.ubuntu.juju:18.04:arm": {
+   "arch": "arm",
+   "release": "bionic",
+   "versions": {
+    "20130806": {
+     "items": {
+      "1130bionicarm": {
+       "version": "1.11.5",
+       "size": 2973595,
+       "path": "tools/released/20130803/juju-1.11.5-bionic-arm.tgz",
+       "ftype": "tar.gz",
+       "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
       }
      }
     }
@@ -308,6 +362,72 @@ var imageData = map[string]string{
      }
     }
    }
+  },
+  "com.ubuntu.juju:16.04:arm": {
+   "arch": "arm",
+   "release": "xenial",
+   "versions": {
+    "20130806": {
+     "items": {
+      "1114xenialarm": {
+       "version": "1.11.4",
+       "size": 1950327,
+       "path": "tools/released/20130806/juju-1.11.4-xenial-arm.tgz",
+       "ftype": "tar.gz",
+       "sha256": "6472014e3255e3fe7fbd3550ef3f0a11"
+      },
+      "201xenialarm": {
+       "version": "2.0.1",
+       "size": 1950327,
+       "path": "tools/released/20130806/juju-2.0.1-xenial-arm.tgz",
+       "ftype": "tar.gz",
+       "sha256": "6472014e3255e3fe7fbd3550ef3f0a11"
+      }
+     }
+    }
+   }
+  },
+  "com.ubuntu.juju:18.04:arm": {
+   "arch": "arm",
+   "release": "bionic",
+   "versions": {
+    "20130806": {
+     "items": {
+      "201bionicarm": {
+       "version": "2.0.1",
+       "size": 1951096,
+       "path": "tools/released/20130806/juju-2.0.1-bionic-arm.tgz",
+       "ftype": "tar.gz",
+       "sha256": "f65a92b3b41311bdf398663ee1c5cd0c"
+      },
+      "1114bionicarm": {
+       "version": "1.11.4",
+       "size": 1951096,
+       "path": "tools/released/20130806/juju-1.11.4-bionic-arm.tgz",
+       "ftype": "tar.gz",
+       "sha256": "f65a92b3b41311bdf398663ee1c5cd0c"
+      }
+     }
+    },
+    "20130803": {
+     "items": {
+      "1114bionicarm": {
+       "version": "1.11.4",
+       "size": 2851541,
+       "path": "tools/released/20130803/juju-1.11.4-bionic-arm.tgz",
+       "ftype": "tar.gz",
+       "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
+      },
+      "1115bionicarm": {
+       "version": "1.11.5",
+       "size": 2031281,
+       "path": "tools/released/20130803/juju-1.11.5-bionic-arm.tgz",
+       "ftype": "tar.gz",
+       "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
+      }
+     }
+    }
+   }
   }
  }
 }
@@ -346,16 +466,16 @@ var imageData = map[string]string{
  "updated": "Tue, 04 Jun 2013 13:50:31 +0000",
  "format": "products:1.0",
  "products": {
-  "com.ubuntu.juju:12.04:amd64": {
+  "com.ubuntu.juju:18.04:amd64": {
    "arch": "amd64",
-   "release": "precise",
+   "release": "bionic",
    "versions": {
     "20130806": {
      "items": {
-      "1130preciseamd64": {
+      "1130bionicamd64": {
        "version": "1.13.0",
        "size": 2973595,
-       "path": "mirrored-path/juju-1.13.0-precise-amd64.tgz",
+       "path": "mirrored-path/juju-1.13.0-bionic-amd64.tgz",
        "ftype": "tar.gz",
        "sha256": "447aeb6a934a5eaec4f703eda4ef2dde"
       }

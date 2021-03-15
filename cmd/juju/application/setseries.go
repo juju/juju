@@ -8,7 +8,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
@@ -16,6 +15,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/series"
 )
 
 // NewSetSeriesCommand returns a command which updates the series of
