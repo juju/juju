@@ -47,18 +47,11 @@ var (
 	utcZero = time.Time{}.In(time.UTC)
 )
 
-const (
-	// maxMinionWait is the maximum time that the migrationmaster will
-	// wait for minions to report back regarding a given migration
-	// phase.
-	maxMinionWait = 15 * time.Minute
-
-	// progressUpdateInterval is the time between progress update
-	// messages. It's used while the migrationmaster is waiting for
-	// reports from minions and while it's transferring log messages
-	// to the newly-migrated model.
-	progressUpdateInterval = 30 * time.Second
-)
+// progressUpdateInterval is the time between progress update
+// messages. It's used while the migrationmaster is waiting for
+// reports from minions and while it's transferring log messages
+// to the newly-migrated model.
+const progressUpdateInterval = 30 * time.Second
 
 // Facade exposes controller functionality to a Worker.
 type Facade interface {
@@ -107,6 +100,10 @@ type Facade interface {
 	// MinionReports returns details of the reports made by migration
 	// minions to the controller for the current migration phase.
 	MinionReports() (coremigration.MinionReports, error)
+
+	// MinionReportTimeout returns the maximum time to wait for minion workers
+	// to report on a migration phase.
+	MinionReportTimeout() (time.Duration, error)
 
 	// StreamModelLog takes a starting time and returns a channel that
 	// will yield the logs on or after that time - these are the logs
@@ -186,10 +183,11 @@ func New(config Config) (*Worker, error) {
 // Worker waits until a migration is active and its configured
 // Fortress is locked down, and then orchestrates a model migration.
 type Worker struct {
-	catacomb    catacomb.Catacomb
-	config      Config
-	logger      loggo.Logger
-	lastFailure string
+	catacomb            catacomb.Catacomb
+	config              Config
+	logger              loggo.Logger
+	lastFailure         string
+	minionReportTimeout time.Duration
 }
 
 // Kill implements worker.Worker.
@@ -212,6 +210,10 @@ func (w *Worker) run() error {
 	if errors.Cause(err) == fortress.ErrAborted {
 		return w.catacomb.ErrDying()
 	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	if w.minionReportTimeout, err = w.config.Facade.MinionReportTimeout(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -716,11 +718,11 @@ func (w *Worker) waitForMinions(
 	infoPrefix string,
 ) (success bool, err error) {
 	clk := w.config.Clock
-	timeout := clk.After(maxMinionWait)
+	timeout := clk.After(w.minionReportTimeout)
 
 	w.setInfoStatus("%s, waiting for agents to report back", infoPrefix)
 	w.logger.Infof("waiting for agents to report back for migration phase %s (will wait up to %s)",
-		status.Phase, truncDuration(maxMinionWait))
+		status.Phase, truncDuration(w.minionReportTimeout))
 
 	watch, err := w.config.Facade.WatchMinionReports()
 	if err != nil {
