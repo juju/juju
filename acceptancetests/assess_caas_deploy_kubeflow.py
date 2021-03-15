@@ -340,10 +340,13 @@ def prepare(caas_client, caas_provider, build):
         )
 
 
-def run_test(caas_provider, k8s_model, bundle):
+def run_test(caas_provider, k8s_model, bundle, build):
     if caas_provider != K8sProviderType.MICROK8S.name:
         # tests/run.sh only works for microk8s.
-        log.info("%s/tests/run.sh skipped for %s k8s provider", KUBEFLOW_DIR, caas_provider)
+        log.info("%s/tests/run.sh is skipped for %s k8s provider", KUBEFLOW_DIR, caas_provider)
+        return
+    if not build:
+        log.info("%s/tests/run.sh is skipped for released bundle", KUBEFLOW_DIR)
         return
     # inject `JUJU_DATA` for running tests.
     os.environ['JUJU_DATA'] = k8s_model.env.juju_home
@@ -352,25 +355,58 @@ def run_test(caas_provider, k8s_model, bundle):
         run("sg", "microk8s", "-c", f"{KUBEFLOW_DIR}/tests/run.sh -m {bundle}")
 
 
-def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle, build=False):
+def dump_k8s_log(artifacts_dir, file_name, content):
+    if not os.path.isdir(artifacts_dir):
+        os.mkdir(artifacts_dir)
+
+    path = os.path.join(artifacts_dir, file_name)
+    if os.path.isfile(path):
+        raise Exception(f'{path} already exists')
+    with open(path, 'w') as f:
+        f.write(content)
+
+
+def dump_containers_log(model_name, kubectl, dump_log):
+    for pod in json.loads(kubectl('get', 'pods', '-n', model_name, '-o', 'json'))['items']:
+        for container in pod['spec']['containers']:
+            pod_name = pod['metadata']['name']
+            container_name = container['name']
+            log = kubectl('-n', model_name, 'logs', '--timestamps', pod_name, '-c', container_name)
+            dump_log(f'{pod_name}-{container_name}.log', log)
+
+
+def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle, build=False, log_dir=None):
     if not caas_client.check_cluster_healthy(timeout=60):
         raise JujuAssertionError('k8s cluster is not healthy because kubectl is not accessible')
 
     model_name = 'kubeflow'
     k8s_model = caas_client.add_model(model_name)
 
+    def dump_log(file_name, content): dump_k8s_log(os.path.join(log_dir, model_name), file_name, content)
+
     def success_hook():
-        log.info(caas_client.kubectl('get', 'all,pv,pvc,ing', '--all-namespaces', '-o', 'wide'))
-        log.info(caas_client.kubectl('get', 'sa,roles,clusterroles,rolebindings,clusterrolebindings', '-oyaml', '-A'))
+        dump_log(
+            'all_pv_pvc_ing.txt',
+            caas_client.kubectl('get', 'all,pv,pvc,ing', '--all-namespaces', '-o', 'wide'),
+        )
+        dump_log(
+            'sa_roles_clusterroles_rolebindings_clusterrolebindings.yaml',
+            caas_client.kubectl('get', 'sa,roles,clusterroles,rolebindings,clusterrolebindings', '-oyaml', '-A'),
+        )
 
     def fail_hook():
         success_hook()
-        ns_dumps = caas_client.kubectl('get', 'all,pv,pvc,ing', '-n', model_name, '-o', 'json')
-        log.info('all resources in namespace %s -> %s', model_name, pformat(json.loads(ns_dumps)))
-
-        log.info(
-            'describing pods in %s ->\n%s',
-            model_name, caas_client.kubectl('describe', 'pods', f'-n{model_name}'),
+        dump_log(
+            f'all_pv_pvc_ing_{model_name}.yaml',
+            caas_client.kubectl('get', 'all,pv,pvc,ing', '-n', model_name, '-o', 'yaml'),
+        )
+        dump_log(
+            f'describe_pods_{model_name}.txt',
+            caas_client.kubectl('describe', 'pods', f'-n{model_name}'),
+        )
+        dump_containers_log(
+            model_name,
+            caas_client.kubectl, dump_log,
         )
         caas_client.ensure_cleanup()
 
@@ -380,7 +416,7 @@ def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle, build=Fa
         log.info("sleeping for 30 seconds to let everything start up")
         sleep(30)
 
-        run_test(caas_provider, k8s_model, bundle)
+        run_test(caas_provider, k8s_model, bundle, build)
         k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
         success_hook()
     except:  # noqa: E722
@@ -445,7 +481,11 @@ def main(argv=None):
             if not args.k8s_controller:
                 # add-k8s to controller
                 caas_client.add_k8s(False)
-            assess_caas_kubeflow_deployment(caas_client, args.caas_provider, args.bundle, args.build)
+            assess_caas_kubeflow_deployment(
+                caas_client,
+                args.caas_provider, args.bundle, args.build,
+                bs_manager.log_dir,
+            )
         return 0
 
 

@@ -5,8 +5,6 @@ package provider
 
 import (
 	"fmt"
-	"io"
-	"reflect"
 	"strings"
 
 	jujuclock "github.com/juju/clock"
@@ -49,49 +47,6 @@ type KubeCloudStorageParams struct {
 	HostCloudRegion        string
 	MetadataChecker        caas.ClusterMetadataChecker
 	GetClusterMetadataFunc GetClusterMetadataFunc
-}
-
-func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudParams) (cloud.Cloud, cloud.Credential, error) {
-	// Get Cloud (incl. endpoint) and credential details from the kubeconfig details.
-	var credential cloud.Credential
-	var context clientconfig.Context
-	fail := func(e error) (cloud.Cloud, cloud.Credential, error) {
-		return cloud.Cloud{}, credential, e
-	}
-	newCloud := cloud.Cloud{
-		Name:            cloudParams.CloudName,
-		Type:            cloudParams.CaasType,
-		HostCloudRegion: cloudParams.HostCloudRegion,
-	}
-
-	caasConfig, err := clientconfig.NewK8sClientConfigFromReader(
-		cloudParams.CredentialUID, reader,
-		cloudParams.ContextName, cloudParams.ClusterName,
-		clientconfig.GetJujuAdminServiceAccountResolver(cloudParams.Clock),
-	)
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
-	logger.Debugf("caasConfig: %+v", caasConfig)
-
-	if len(caasConfig.Contexts) == 0 {
-		return fail(errors.Errorf("No k8s cluster definitions found in config"))
-	}
-
-	context = caasConfig.Contexts[reflect.ValueOf(caasConfig.Contexts).MapKeys()[0].Interface().(string)]
-
-	credential = caasConfig.Credentials[context.CredentialName]
-	newCloud.AuthTypes = []cloud.AuthType{credential.AuthType()}
-	currentCloud := caasConfig.Clouds[context.CloudName]
-	newCloud.Endpoint = currentCloud.Endpoint
-	newCloud.SkipTLSVerify = currentCloud.SkipTLSVerify
-
-	cloudCAData, ok := currentCloud.Attributes["CAData"].(string)
-	if !ok {
-		return fail(errors.Errorf("CAData attribute should be a string"))
-	}
-	newCloud.CACertificates = []string{cloudCAData}
-	return newCloud, credential, nil
 }
 
 func updateK8sCloud(k8sCloud *cloud.Cloud, clusterMetadata *caas.ClusterMetadata, storageMsg string) string {

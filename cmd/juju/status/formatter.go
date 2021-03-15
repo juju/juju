@@ -177,6 +177,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 
 	out = machineStatus{
 		JujuStatus:         sf.getStatusInfoContents(machine.AgentStatus),
+		Hostname:           machine.Hostname,
 		DNSName:            machine.DNSName,
 		IPAddresses:        machine.IPAddresses,
 		InstanceId:         machine.InstanceId,

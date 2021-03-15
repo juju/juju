@@ -107,6 +107,7 @@ var (
 	// person! Juju Needs You.
 	useMultipleCPUs   = utils.UseMultipleCPUs
 	reportOpenedState = func(*state.State) {}
+	getHostname       = os.Hostname
 
 	caasModelManifolds   = model.CAASManifolds
 	iaasModelManifolds   = model.IAASManifolds
@@ -711,12 +712,16 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		return nil, errors.Annotate(err, "setting up container support")
 	}
 
-	// Record the agent start time in the machine document. This ensures
-	// that whenever a machine restarts, the instancepoller gets a chance
-	// to immediately refresh the provider address (inc. shadow IP)
+	// Report the machine host name and record the agent start time. This
+	// ensures that whenever a machine restarts, the instancepoller gets a
+	// chance to immediately refresh the provider address (inc. shadow IP)
 	// information which can change between reboots.
-	if err := a.recordAgentStartTime(apiConn); err != nil {
-		return nil, errors.Annotate(err, "recording agent start time")
+	hostname, err := getHostname()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting machine hostname")
+	}
+	if err := a.recordAgentStartInformation(apiConn, hostname); err != nil {
+		return nil, errors.Annotate(err, "recording agent start information")
 	}
 
 	var isController bool
@@ -773,7 +778,7 @@ func (a *MachineAgent) machine(apiConn api.Connection) (*apimachiner.Machine, er
 	return machinerAPI.Machine(tag)
 }
 
-func (a *MachineAgent) recordAgentStartTime(apiConn api.Connection) error {
+func (a *MachineAgent) recordAgentStartInformation(apiConn api.Connection, hostname string) error {
 	m, err := a.machine(apiConn)
 	if errors.IsNotFound(err) || err == nil && m.Life() == life.Dead {
 		return jworker.ErrTerminateAgent
@@ -782,8 +787,8 @@ func (a *MachineAgent) recordAgentStartTime(apiConn api.Connection) error {
 		return errors.Annotatef(err, "cannot load machine %s from state", a.CurrentConfig().Tag())
 	}
 
-	if err := m.RecordAgentStartTime(); err != nil {
-		return errors.Annotate(err, "cannot record agent start time")
+	if err := m.RecordAgentStartInformation(hostname); err != nil {
+		return errors.Annotate(err, "cannot record agent start information")
 	}
 	return nil
 }
