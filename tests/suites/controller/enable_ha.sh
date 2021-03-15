@@ -2,6 +2,7 @@ wait_for_controller_machines() {
     ammount=${1}
 
     attempt=0
+    # shellcheck disable=SC2143
     until [[ "$(juju machines -m controller --format=json | jq -r ".machines | .[] | .[\"juju-status\"] | select(.current == \"started\") | .current" | wc -l | grep "${ammount}")" ]]; do
         echo "[+] (attempt ${attempt}) polling machines"
         juju machines -m controller 2>&1 | sed 's/^/    | /g'
@@ -17,7 +18,7 @@ wait_for_controller_machines() {
     done
 
     if [[ "${attempt}" -gt 0 ]]; then
-        echo "[+] $(green 'Completed polling status for')" "$(green "${name}")"
+        echo "[+] $(green 'Completed polling machines')"
         juju machines -m controller 2>&1 | sed 's/^/    | /g'
         # Although juju reports as an idle condition, some charms require a
         # breathe period to ensure things have actually settled.
