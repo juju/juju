@@ -359,28 +359,27 @@ func (s Service) Installed() (bool, error) {
 //
 // InstallCommands is part of the service.Service interface
 func (s Service) InstallCommands() ([]string, error) {
-	commands := make([]string, 0, 1+len(s.app.Prerequisites))
-	confinementPolicy := confimentParameterAsString(s.app.ConfinementPolicy)
+	commands := make([]string, 1+len(s.app.Prerequisites))
 
-	for _, prerequisite := range s.app.Prerequisites {
-		command := fmt.Sprintf("%v install --channel=%v %v %v",
+	var i int
+	var pre App
+	for i, pre = range s.app.Prerequisites {
+		commands[i] = fmt.Sprintf("%v install --channel=%v %v%v",
 			s.executable,
-			prerequisite.Channel,
-			confinementPolicy,
-			prerequisite.Name,
+			pre.Channel,
+			confinementParameterAsString(pre.ConfinementPolicy),
+			pre.Name,
 		)
-		logger.Infof("preparing command: %v", command)
-		commands = append(commands, command)
+		logger.Infof("preparing command: %v", commands[i])
 	}
 
-	command := fmt.Sprintf("%v install --channel=%v %v %v",
+	commands[i+1] = fmt.Sprintf("%v install --channel=%v %v%v",
 		s.executable,
 		s.app.Channel,
-		confinementPolicy,
+		confinementParameterAsString(s.app.ConfinementPolicy),
 		s.app.Name,
 	)
-	logger.Infof("preparing command: %v", command)
-	commands = append(commands, command)
+	logger.Infof("preparing command: %v", commands[i+1])
 	return commands, nil
 }
 
@@ -407,9 +406,9 @@ func (s Service) ConfigOverride() error {
 	return nil
 }
 
-func confimentParameterAsString(confinementPolicy string) string {
+func confinementParameterAsString(confinementPolicy string) string {
 	if confinementPolicy != "" {
-		return fmt.Sprintf("--%v", confinementPolicy)
+		return fmt.Sprintf("--%v ", confinementPolicy)
 	}
 	return ""
 }

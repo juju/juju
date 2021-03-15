@@ -122,3 +122,49 @@ LimitNOFILE=64000
 
 `[1:])
 }
+
+type serviceSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&serviceSuite{})
+
+func (*serviceSuite) TestInstallCommands(c *gc.C) {
+	conf := common.Conf{}
+	prerequisites := []snap.App{snap.NewApp("core")}
+	backgroundServices := []snap.BackgroundService{
+		{
+			Name:            "daemon",
+			EnableAtStartup: true,
+		},
+	}
+	service, err := snap.NewService("juju-db", "juju-db", conf, snap.Command, "4.0/stable", "", backgroundServices, prerequisites)
+	c.Assert(err, jc.ErrorIsNil)
+
+	commands, err := service.InstallCommands()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(commands, gc.DeepEquals, []string{
+		"snap install --channel=stable core",
+		"snap install --channel=4.0/stable juju-db",
+	})
+}
+
+func (*serviceSuite) TestInstallCommandsWithConfinementPolicy(c *gc.C) {
+	conf := common.Conf{}
+	prerequisites := []snap.App{snap.NewApp("core")}
+	backgroundServices := []snap.BackgroundService{
+		{
+			Name:            "daemon",
+			EnableAtStartup: true,
+		},
+	}
+	service, err := snap.NewService("juju-db", "juju-db", conf, snap.Command, "4.0/stable", "classic", backgroundServices, prerequisites)
+	c.Assert(err, jc.ErrorIsNil)
+
+	commands, err := service.InstallCommands()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(commands, gc.DeepEquals, []string{
+		"snap install --channel=stable core",
+		"snap install --channel=4.0/stable --classic juju-db",
+	})
+}
