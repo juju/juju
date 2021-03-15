@@ -14,6 +14,7 @@ test_controller() {
     bootstrap "test-controller" "${file}"
 
     test_mongo_memory_profile
+    test_enable_ha
 
     destroy_controller "test-controller"
 }
