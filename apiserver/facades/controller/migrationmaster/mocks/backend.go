@@ -5,13 +5,13 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	description "github.com/juju/description/v2"
+	controller "github.com/juju/juju/controller"
 	state "github.com/juju/juju/state"
-	names_v3 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
 	version "github.com/juju/version"
+	reflect "reflect"
 )
 
 // MockBackend is a mock of Backend interface
@@ -50,6 +50,21 @@ func (m *MockBackend) AgentVersion() (version.Number, error) {
 func (mr *MockBackendMockRecorder) AgentVersion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentVersion", reflect.TypeOf((*MockBackend)(nil).AgentVersion))
+}
+
+// ControllerConfig mocks base method
+func (m *MockBackend) ControllerConfig() (controller.Config, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerConfig")
+	ret0, _ := ret[0].(controller.Config)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerConfig indicates an expected call of ControllerConfig
+func (mr *MockBackendMockRecorder) ControllerConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockBackend)(nil).ControllerConfig))
 }
 
 // Export mocks base method
@@ -98,10 +113,10 @@ func (mr *MockBackendMockRecorder) ModelName() *gomock.Call {
 }
 
 // ModelOwner mocks base method
-func (m *MockBackend) ModelOwner() (names_v3.UserTag, error) {
+func (m *MockBackend) ModelOwner() (names.UserTag, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelOwner")
-	ret0, _ := ret[0].(names_v3.UserTag)
+	ret0, _ := ret[0].(names.UserTag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
