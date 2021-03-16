@@ -435,18 +435,18 @@ func (m *Machine) SetUpgradeSeriesUnitStatus(unitName string, status model.Upgra
 func (m *Machine) verifyUnitUpgradeSeriesStatus(unitName string, status model.UpgradeSeriesStatus) (bool, error) {
 	lock, err := m.getUpgradeSeriesLock()
 	if err != nil {
-		return false, err
+		return false, errors.Trace(err)
 	}
 	us, ok := lock.UnitStatuses[unitName]
 	if !ok {
 		return false, errors.NotFoundf(unitName)
 	}
 
-	comp, err := model.CompareUpgradeSeriesStatus(us.Status, status)
+	fsm, err := model.NewUpgradeSeriesFSM(model.UpgradeSeriesGraph(), us.Status)
 	if err != nil {
-		return false, err
+		return false, errors.Trace(err)
 	}
-	return comp == -1, nil
+	return fsm.TransitionTo(status), nil
 }
 
 // [TODO](externalreality): move some/all of these parameters into an argument structure.

@@ -136,6 +136,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTag(c *gc.C) {
 	mockUnit := mocks.NewMockUpgradeSeriesUnit(ctrl)
 
 	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil)
+	mockUnit.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesPrepareRunning, nil)
 	mockUnit.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, gomock.Any()).Return(nil)
 
 	args := params.UpgradeSeriesStatusParams{
@@ -156,6 +157,32 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTag(c *gc.C) {
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
+		},
+	})
+}
+
+func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTagWithInvalidStatus(c *gc.C) {
+	api, ctrl, mockBackend := s.assertBackendApi(c, s.unitTag1)
+	defer ctrl.Finish()
+
+	mockUnit := mocks.NewMockUpgradeSeriesUnit(ctrl)
+
+	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil)
+	mockUnit.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesNotStarted, nil)
+
+	args := params.UpgradeSeriesStatusParams{
+		Params: []params.UpgradeSeriesStatusParam{
+			{
+				Entity: params.Entity{Tag: s.unitTag1.String()},
+				Status: model.UpgradeSeriesPrepareCompleted,
+			},
+		},
+	}
+	watches, err := api.SetUpgradeSeriesUnitStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(watches, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{Message: "upgrade series status \"prepare completed\"", Code: "bad request"}},
 		},
 	})
 }
