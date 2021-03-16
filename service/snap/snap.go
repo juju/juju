@@ -329,14 +329,12 @@ func (s Service) Install() error {
 			continue
 		}
 		logger.Infof("command: %v", cmd)
+
 		cmdParts := strings.Fields(cmd)
-		executable := cmdParts[0]
-		args := cmdParts[1:]
-		out, err := utils.RunCommand(executable, args...)
+		out, err := utils.RunCommand(cmdParts[0], cmdParts[1:]...)
 		if err != nil {
 			return errors.Annotatef(err, "output: %v", out)
 		}
-
 	}
 	return nil
 }
