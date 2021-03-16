@@ -106,6 +106,21 @@ network:
 `)
 }
 
+func (s *NetplanSuite) TestParseEthernetDeviceWithLinkLocalField(c *gc.C) {
+	MustNetplanFromYaml(c, `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    eth0:
+      match:
+        macaddress: "00:11:22:33:44:55"
+      link-local: [ipv4, ipv6]
+      wakeonlan: true
+      set-name: main-if
+`)
+}
+
 func (s *NetplanSuite) TestBasicBond(c *gc.C) {
 	checkNetplanRoundTrips(c, `
 network:

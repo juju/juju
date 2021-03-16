@@ -44,6 +44,10 @@ type Interface struct {
 	RoutingPolicy  []RoutePolicy `yaml:"routing-policy,omitempty"`
 	// Optional doesn't have to be *bool because it is only used if True
 	Optional bool `yaml:"optional,omitempty"`
+
+	// Configure the link-local addresses to bring up. Valid options are
+	// "ipv4" and "ipv6".
+	LinkLocal []string `yaml:"link-local,omitempty"`
 }
 
 // Ethernet defines fields for just Ethernet devices
