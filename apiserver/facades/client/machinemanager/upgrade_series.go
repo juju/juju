@@ -43,13 +43,24 @@ type UpgradeSeriesState interface {
 // ApplicationValidator defines an application validator. It aims to just
 // validate a series of applications for a set series.
 type ApplicationValidator interface {
-	ValidateApplications([]Application, string, bool) error
+	// ValidateApplications attempts to validate a series of applications for
+	// a given series. Using force to allow the overriding of the error to
+	// ensure all applications validate.
+	//
+	// I do question if you actually need to validate anything if force is
+	// employed here?
+	ValidateApplications(applications []Application, series string, force bool) error
 }
 
 // UpgradeSeriesValidator defines a set of validators for the upgrade series
 // scenarios.
 type UpgradeSeriesValidator interface {
 	ApplicationValidator
+
+	// ValidateSeries validates a given requested series against the current
+	// machine series.
+	// The machine tag is currently used for descriptive information and could
+	// be deprecated in reality.
 	ValidateSeries(requestedSeries, machineSeries, machineTag string) error
 }
 
@@ -241,10 +252,14 @@ func makeUpgradeSeriesValidator(client CharmhubClient) upgradeSeriesValidator {
 	}
 }
 
+// ValidateSeries validates a given requested series against the current
+// machine series.
 func (s upgradeSeriesValidator) ValidateSeries(requested, machine, tag string) error {
 	return validateSeries(requested, machine, tag)
 }
 
+// ValidateApplications attempts to validate a series of applications for
+// a given series.
 func (s upgradeSeriesValidator) ValidateApplications(applications []Application, series string, force bool) error {
 	// We do it this way, so we can batch the charmhub charm queries. This is
 	// leaking an implementation detail into the decision logic, but we can't
@@ -277,6 +292,8 @@ func (s upgradeSeriesValidator) ValidateApplications(applications []Application,
 // version of the charm.
 type stateSeriesValidator struct{}
 
+// ValidateApplications attempts to validate a series of applications for
+// a given series.
 func (s stateSeriesValidator) ValidateApplications(applications []Application, series string, force bool) error {
 	if len(applications) == 0 {
 		return nil
@@ -312,6 +329,8 @@ type charmhubSeriesValidator struct {
 	client CharmhubClient
 }
 
+// ValidateApplications attempts to validate a series of applications for
+// a given series.
 func (s charmhubSeriesValidator) ValidateApplications(applications []Application, series string, force bool) error {
 	if len(applications) == 0 {
 		return nil
