@@ -4,6 +4,7 @@
 package machinemanager
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"time"
@@ -17,13 +18,15 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmhub"
+	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 )
 
@@ -55,6 +58,12 @@ type Authorizer interface {
 	AuthClient() bool
 }
 
+// CharmhubClient represents a way for querying the charmhub api for information
+// about the application charm.
+type CharmhubClient interface {
+	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
+}
+
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
 	st               Backend
@@ -66,7 +75,7 @@ type MachineManagerAPI struct {
 	leadership       Leadership
 	upgradeSeriesAPI UpgradeSeries
 
-	callContext context.ProviderCallContext
+	callContext environscontext.ProviderCallContext
 }
 
 // NewFacade create a new server-side MachineManager API facade. This
@@ -90,6 +99,25 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
+	modelCfg, err := model.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var chCfg charmhub.Config
+	chURL, ok := modelCfg.CharmHubURL()
+	if ok {
+		chCfg, err = charmhub.CharmHubConfigFromURL(chURL, logger.Child("client"))
+	} else {
+		chCfg, err = charmhub.CharmHubConfig(logger.Child("client"))
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	chClient, err := charmhub.NewClient(chCfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return NewMachineManagerAPI(
 		backend,
 		storageAccess,
@@ -98,9 +126,10 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 			ModelTag:   model.ModelTag(),
 			Authorizer: ctx.Auth(),
 		},
-		context.CallContext(st),
+		environscontext.CallContext(st),
 		ctx.Resources(),
 		leadership,
+		chClient,
 	)
 }
 
@@ -154,9 +183,10 @@ func NewMachineManagerAPI(
 	storageAccess storageInterface,
 	pool Pool,
 	auth Authorizer,
-	callCtx context.ProviderCallContext,
+	callCtx environscontext.ProviderCallContext,
 	resources facade.Resources,
 	leadership Leadership,
+	charmhubClient CharmhubClient,
 ) (*MachineManagerAPI, error) {
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -173,7 +203,7 @@ func NewMachineManagerAPI(
 		leadership:    leadership,
 		upgradeSeriesAPI: NewUpgradeSeriesAPI(
 			upgradeSeriesState{state: backend},
-			upgradeSeriesValidator{},
+			makeUpgradeSeriesValidator(charmhubClient),
 			auth,
 		),
 	}

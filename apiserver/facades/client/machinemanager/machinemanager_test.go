@@ -60,6 +60,7 @@ func (s *MachineManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		s.callContext,
 		common.NewResources(),
 		s.leadership,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = mm
@@ -100,6 +101,7 @@ func (s *MachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		s.callContext,
 		common.NewResources(),
 		s.leadership,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -178,6 +180,7 @@ func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 		},
 		s.callContext,
 		common.NewResources(),
+		nil,
 		nil,
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -1209,7 +1212,12 @@ func (m *mockMachine) ApplicationNames() ([]string, error) {
 
 type mockApplication struct {
 	jtesting.Stub
-	charm *mockCharm
+	charm       *mockCharm
+	charmOrigin *state.CharmOrigin
+}
+
+func (a *mockApplication) Name() string {
+	return "foo"
 }
 
 func (a *mockApplication) Charm() (machinemanager.Charm, bool, error) {
@@ -1218,6 +1226,13 @@ func (a *mockApplication) Charm() (machinemanager.Charm, bool, error) {
 		return &mockCharm{}, false, nil
 	}
 	return a.charm, false, nil
+}
+
+func (a *mockApplication) CharmOrigin() *state.CharmOrigin {
+	if a.charmOrigin == nil {
+		return &state.CharmOrigin{}
+	}
+	return a.charmOrigin
 }
 
 type mockCharm struct {

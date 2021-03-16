@@ -4,12 +4,16 @@
 package machinemanager
 
 import (
+	"context"
+
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/charmhub"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/status"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -36,11 +40,28 @@ type UpgradeSeriesState interface {
 	ApplicationsFromMachine(Machine) ([]Application, error)
 }
 
+// ApplicationValidator defines an application validator. It aims to just
+// validate a series of applications for a set series.
+type ApplicationValidator interface {
+	// ValidateApplications attempts to validate a series of applications for
+	// a given series. Using force to allow the overriding of the error to
+	// ensure all applications validate.
+	//
+	// I do question if you actually need to validate anything if force is
+	// employed here?
+	ValidateApplications(applications []Application, series string, force bool) error
+}
+
 // UpgradeSeriesValidator defines a set of validators for the upgrade series
 // scenarios.
 type UpgradeSeriesValidator interface {
+	ApplicationValidator
+
+	// ValidateSeries validates a given requested series against the current
+	// machine series.
+	// The machine tag is currently used for descriptive information and could
+	// be deprecated in reality.
 	ValidateSeries(requestedSeries, machineSeries, machineTag string) error
-	ValidateApplications(applications []Application, series string, force bool) error
 }
 
 // UpgradeSeriesAPI provides the upgrade series API facade for any given
@@ -217,13 +238,67 @@ func (s upgradeSeriesState) ApplicationsFromMachine(machine Machine) ([]Applicat
 	return results, nil
 }
 
-type upgradeSeriesValidator struct{}
+type upgradeSeriesValidator struct {
+	localValidator  ApplicationValidator
+	removeValidator ApplicationValidator
+}
 
+func makeUpgradeSeriesValidator(client CharmhubClient) upgradeSeriesValidator {
+	return upgradeSeriesValidator{
+		localValidator: stateSeriesValidator{},
+		removeValidator: charmhubSeriesValidator{
+			client: client,
+		},
+	}
+}
+
+// ValidateSeries validates a given requested series against the current
+// machine series.
 func (s upgradeSeriesValidator) ValidateSeries(requested, machine, tag string) error {
 	return validateSeries(requested, machine, tag)
 }
 
+// ValidateApplications attempts to validate a series of applications for
+// a given series.
 func (s upgradeSeriesValidator) ValidateApplications(applications []Application, series string, force bool) error {
+	// We do it this way, so we can batch the charmhub charm queries. This is
+	// leaking an implementation detail into the decision logic, but we can't
+	// work around that.
+	var (
+		stateApps   []Application
+		requestApps []Application
+	)
+	for _, app := range applications {
+		origin := app.CharmOrigin()
+
+		// This is not a charmhub charm, so we can fallback to querying state
+		// for the supported series.
+		if origin == nil || !corecharm.CharmHub.Matches(origin.Source) {
+			stateApps = append(stateApps, app)
+			continue
+		}
+
+		requestApps = append(requestApps, app)
+	}
+
+	if err := s.localValidator.ValidateApplications(stateApps, series, force); err != nil {
+		return errors.Trace(err)
+	}
+
+	return s.removeValidator.ValidateApplications(requestApps, series, force)
+}
+
+// stateSeriesValidator validates an application using the state (database)
+// version of the charm.
+type stateSeriesValidator struct{}
+
+// ValidateApplications attempts to validate a series of applications for
+// a given series.
+func (s stateSeriesValidator) ValidateApplications(applications []Application, series string, force bool) error {
+	if len(applications) == 0 {
+		return nil
+	}
+
 	for _, app := range applications {
 		if err := s.verifySupportedSeries(app, series, force); err != nil {
 			return errors.Trace(err)
@@ -232,7 +307,7 @@ func (s upgradeSeriesValidator) ValidateApplications(applications []Application,
 	return nil
 }
 
-func (s upgradeSeriesValidator) verifySupportedSeries(application Application, series string, force bool) error {
+func (s stateSeriesValidator) verifySupportedSeries(application Application, series string, force bool) error {
 	ch, _, err := application.Charm()
 	if err != nil {
 		return errors.Trace(err)
@@ -246,6 +321,53 @@ func (s upgradeSeriesValidator) verifySupportedSeries(application Application, s
 		// TODO (stickupkid): Once all commands are placed in this API, we
 		// should relocate these to the API server.
 		return stateerrors.NewErrIncompatibleSeries(supportedSeries, series, ch.String())
+	}
+	return nil
+}
+
+type charmhubSeriesValidator struct {
+	client CharmhubClient
+}
+
+// ValidateApplications attempts to validate a series of applications for
+// a given series.
+func (s charmhubSeriesValidator) ValidateApplications(applications []Application, series string, force bool) error {
+	if len(applications) == 0 {
+		return nil
+	}
+
+	configs := make([]charmhub.RefreshConfig, len(applications))
+	for i, app := range applications {
+		// We can be assured that the charm origin is not nil, because we
+		// guarded against it before.
+		origin := app.CharmOrigin()
+		rev := origin.Revision
+		if rev == nil {
+			return errors.Errorf("no revision found for application %q", app.Name())
+		}
+
+		platform := charmhub.RefreshPlatform{
+			Architecture: origin.Platform.Architecture,
+			OS:           origin.Platform.OS,
+			Series:       series,
+		}
+		cfg, err := charmhub.DownloadOneFromRevision(origin.ID, *rev, platform)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		configs[i] = cfg
+	}
+	refreshResp, err := s.client.Refresh(context.TODO(), charmhub.RefreshMany(configs...))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(refreshResp) != len(applications) {
+		return errors.Errorf("unexpected number of responses %d for applications %d", len(refreshResp), len(applications))
+	}
+	for _, resp := range refreshResp {
+		if err := resp.Error; err != nil && !force {
+			return errors.Annotatef(err, "unable to locate application with series %s", series)
+		}
 	}
 	return nil
 }

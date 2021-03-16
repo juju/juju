@@ -69,6 +69,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 		context.NewCloudCallContext(),
 		common.NewResources(),
 		leadership,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
