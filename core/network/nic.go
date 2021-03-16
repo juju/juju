@@ -238,20 +238,6 @@ func (i *InterfaceInfo) Validate() error {
 	return nil
 }
 
-// CIDRAddress returns Address.Value combined with subnet mask.
-// TODO (manadart 2020-07-02): Usage of this method should be phased out
-// in favour of calling ValueForCIDR on each member of the addresses slice.
-func (i *InterfaceInfo) CIDRAddress() (string, error) {
-	primaryAddr := i.PrimaryAddress()
-
-	if i.CIDR == "" || primaryAddr.Value == "" {
-		return "", errors.NotFoundf("address and CIDR pair (%q, %q)", primaryAddr.Value, i.CIDR)
-	}
-
-	withMask, err := primaryAddr.ValueForCIDR(i.CIDR)
-	return withMask, errors.Trace(err)
-}
-
 // PrimaryAddress returns the primary address for the interface.
 func (i *InterfaceInfo) PrimaryAddress() ProviderAddress {
 	if len(i.Addresses) == 0 {
