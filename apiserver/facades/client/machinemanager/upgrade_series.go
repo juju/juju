@@ -184,7 +184,7 @@ func (a *UpgradeSeriesAPI) Validate(entities []ValidationEntity) ([]ValidationRe
 
 func (a *UpgradeSeriesAPI) Prepare(tag, series string, force bool) error {
 	if series == "" {
-		return errors.BadRequestf("series")
+		return errors.BadRequestf("series missing from args")
 	}
 
 	machine, err := a.state.MachineFromTag(tag)
