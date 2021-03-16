@@ -15,6 +15,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -48,6 +49,7 @@ func (s *SimpleStreamsToolsSuite) SetUpSuite(c *gc.C) {
 	s.customToolsDir = c.MkDir()
 	s.publicToolsDir = c.MkDir()
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&coreseries.UbuntuDistroInfo, "/path/notexists")
 }
 
 func (s *SimpleStreamsToolsSuite) SetUpTest(c *gc.C) {
@@ -456,13 +458,13 @@ func fakeToolsList(series ...string) coretools.List {
 type ToolsListSuite struct{}
 
 func (s *ToolsListSuite) TestCheckToolsSeriesRequiresTools(c *gc.C) {
-	err := envtools.CheckToolsSeries(fakeToolsList(), "precise")
+	err := envtools.CheckToolsSeries(fakeToolsList(), "bionic")
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "expected single series, got \\[\\]")
 }
 
 func (s *ToolsListSuite) TestCheckToolsSeriesAcceptsOneSetOfTools(c *gc.C) {
-	names := []string{"precise", "raring"}
+	names := []string{"bionic", "xenial"}
 	for _, series := range names {
 		list := fakeToolsList(series)
 		err := envtools.CheckToolsSeries(list, series)
@@ -485,8 +487,8 @@ func (s *ToolsListSuite) TestCheckToolsSeriesRejectsToolsForOtherSeries(c *gc.C)
 }
 
 func (s *ToolsListSuite) TestCheckToolsSeriesRejectsToolsForMixedSeries(c *gc.C) {
-	list := fakeToolsList("precise", "raring")
-	err := envtools.CheckToolsSeries(list, "precise")
+	list := fakeToolsList("bionic", "xenial")
+	err := envtools.CheckToolsSeries(list, "bionic")
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "expected single series, got .*")
 }

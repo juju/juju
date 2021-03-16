@@ -18,8 +18,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 
@@ -30,6 +28,8 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"

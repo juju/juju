@@ -9,10 +9,10 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
 
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 )
@@ -111,7 +111,7 @@ func Fetch(
 	return md, resolveInfo, nil
 }
 
-func validateArgs(arch, release, ftype string) error {
+func validateArgs(arch, release, stream, ftype string) error {
 	bad := map[string]string{}
 
 	if !validArches[arch] {
@@ -119,7 +119,11 @@ func validateArgs(arch, release, ftype string) error {
 	}
 
 	validSeries := false
-	for _, supported := range series.SupportedSeries() {
+	workloadSeries, err := series.AllWorkloadSeries(release, stream)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, supported := range workloadSeries.Values() {
 		if release == supported {
 			validSeries = true
 			break
@@ -153,20 +157,23 @@ func validateArgs(arch, release, ftype string) error {
 //   - File image type.
 // src exists to pass in a data source for testing.
 func One(arch, release, stream, ftype string, src func() simplestreams.DataSource) (*Metadata, error) {
-	if err := validateArgs(arch, release, ftype); err != nil {
+	if err := validateArgs(arch, release, stream, ftype); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if src == nil {
 		src = DefaultSource
 	}
 	ds := []simplestreams.DataSource{src()}
-	limit := imagemetadata.NewImageConstraint(
+	limit, err := imagemetadata.NewImageConstraint(
 		simplestreams.LookupParams{
 			Arches: []string{arch},
 			Series: []string{release},
 			Stream: stream,
 		},
 	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	md, _, err := Fetch(ds, limit, Filter(ftype))
 	if err != nil {

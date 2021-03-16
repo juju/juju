@@ -24,25 +24,25 @@ type DistroSource interface {
 	SeriesInfo(seriesName string) (series.DistroInfoSerie, bool)
 }
 
-// SupportedInfo represents all the supported info available.
-type SupportedInfo struct {
+// supportedInfo represents all the supported info available.
+type supportedInfo struct {
 	mutex sync.RWMutex
 
 	source DistroSource
-	values map[SeriesName]SeriesVersion
+	values map[SeriesName]seriesVersion
 }
 
-// NewSupportedInfo creates a supported info type for knowning if a series is
+// newSupportedInfo creates a supported info type for knowing if a series is
 // supported or not.
-func NewSupportedInfo(source DistroSource, preset map[SeriesName]SeriesVersion) *SupportedInfo {
-	return &SupportedInfo{
+func newSupportedInfo(source DistroSource, preset map[SeriesName]seriesVersion) *supportedInfo {
+	return &supportedInfo{
 		source: source,
 		values: preset,
 	}
 }
 
-// Compile compiles a list of supported info.
-func (s *SupportedInfo) Compile(now time.Time) error {
+// compile compiles a list of supported info.
+func (s *supportedInfo) compile(now time.Time) error {
 	if err := s.source.Refresh(); err != nil {
 		return errors.Trace(err)
 	}
@@ -74,7 +74,7 @@ func (s *SupportedInfo) Compile(now time.Time) error {
 			supported = distroInfo.Supported(now)
 		}
 
-		s.values[seriesName] = SeriesVersion{
+		s.values[seriesName] = seriesVersion{
 			WorkloadType:             version.WorkloadType,
 			Version:                  version.Version,
 			LTS:                      version.LTS,
@@ -90,11 +90,11 @@ func (s *SupportedInfo) Compile(now time.Time) error {
 
 type namedSeriesVersion struct {
 	Name          SeriesName
-	SeriesVersion SeriesVersion
+	SeriesVersion seriesVersion
 	Version       float64
 }
 
-func (s *SupportedInfo) namedSeries() []namedSeriesVersion {
+func (s *supportedInfo) namedSeries() []namedSeriesVersion {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -125,9 +125,9 @@ func (s *SupportedInfo) namedSeries() []namedSeriesVersion {
 	return res
 }
 
-// ControllerSeries returns a slice of series that are supported to run on a
+// controllerSeries returns a slice of series that are supported to run on a
 // controller.
-func (s *SupportedInfo) ControllerSeries() []string {
+func (s *supportedInfo) controllerSeries() []string {
 	var result []string
 	for _, namedSeries := range s.namedSeries() {
 		version := namedSeries.SeriesVersion
@@ -142,15 +142,18 @@ func (s *SupportedInfo) ControllerSeries() []string {
 	return result
 }
 
-// WorkloadSeries returns a slice of series that are supported to run on a
+// workloadSeries returns a slice of series that are supported to run on a
 // target workload (charm).
 // Note: workload series will also include controller workload types, as they
 // can also be used for workloads.
-func (s *SupportedInfo) WorkloadSeries() []string {
+func (s *supportedInfo) workloadSeries(includeUnsupported bool) []string {
 	var result []string
 	for _, namedSeries := range s.namedSeries() {
 		version := namedSeries.SeriesVersion
-		if version.ESMSupported || version.Supported {
+		if version.WorkloadType == UnsupportedWorkloadType {
+			continue
+		}
+		if includeUnsupported || version.ESMSupported || version.Supported {
 			result = append(result, namedSeries.Name.String())
 		}
 	}
@@ -169,12 +172,16 @@ const (
 	// OtherWorkloadType workload type is for everything else.
 	// In the future we might want to differentiate this.
 	OtherWorkloadType
+
+	// UnsupportedWorkloadType is used where the series does not support
+	// running Juju agents.
+	UnsupportedWorkloadType
 )
 
-// SeriesVersion represents a ubuntu series that includes the version, if the
+// seriesVersion represents a ubuntu series that includes the version, if the
 // series is an LTS and the supported defines if Juju supports the series
 // version.
-type SeriesVersion struct {
+type seriesVersion struct {
 	// WorkloadType defines what type the series version is intended to work
 	// against.
 	WorkloadType WorkloadType
@@ -203,21 +210,8 @@ type SeriesVersion struct {
 	UpdatedByLocalDistroInfo bool
 }
 
-// DefaultSeries returns back all the series that Juju is aware of.
-func DefaultSeries() map[SeriesName]SeriesVersion {
-	all := make(map[SeriesName]SeriesVersion)
-	for k, v := range ubuntuSeries {
-		all[k] = v
-	}
-	for k, v := range nonUbuntuSeries {
-		all[k] = v
-	}
-	return all
-}
-
-// SetSupported updates a series map based on the series name and sets it to
-// be supported.
-func SetSupported(series map[SeriesName]SeriesVersion, name string) bool {
+// setSupported updates a series map based on the series name.
+func setSupported(series map[SeriesName]seriesVersion, name string) bool {
 	if version, ok := series[SeriesName(name)]; ok {
 		version.Supported = true
 		version.IgnoreDistroInfoUpdate = true
@@ -234,7 +228,6 @@ func (s SeriesName) String() string {
 	return string(s)
 }
 
-// TODO (stickupkid): We should get all of these from the os/series package.
 const (
 	Precise SeriesName = "precise"
 	Quantal SeriesName = "quantal"
@@ -257,7 +250,7 @@ const (
 	Hirsute SeriesName = "hirsute"
 )
 
-var ubuntuSeries = map[SeriesName]SeriesVersion{
+var ubuntuSeries = map[SeriesName]seriesVersion{
 	Precise: {
 		WorkloadType: ControllerWorkloadType,
 		Version:      "12.04",
@@ -348,21 +341,7 @@ var ubuntuSeries = map[SeriesName]SeriesVersion{
 	},
 }
 
-// TODO (stickupkid): We should get all of these from the os/series package.
 const (
-	Win2008r2    SeriesName = "win2008r2"
-	Win2012hvr2  SeriesName = "win2012hvr2"
-	Win2012hv    SeriesName = "win2012hv"
-	Win2012r2    SeriesName = "win2012r2"
-	Win2012      SeriesName = "win2012"
-	Win2016      SeriesName = "win2016"
-	Win2016hv    SeriesName = "win2016hv"
-	Win2016nano  SeriesName = "win2016nano"
-	Win2019      SeriesName = "win2019"
-	Win7         SeriesName = "win7"
-	Win8         SeriesName = "win8"
-	Win81        SeriesName = "win81"
-	Win10        SeriesName = "win10"
 	Centos7      SeriesName = "centos7"
 	Centos8      SeriesName = "centos8"
 	OpenSUSELeap SeriesName = "opensuseleap"
@@ -370,72 +349,98 @@ const (
 	Kubernetes   SeriesName = "kubernetes"
 )
 
-var nonUbuntuSeries = map[SeriesName]SeriesVersion{
-	Win2008r2: {
+var windowsVersions = map[string]seriesVersion{
+	"Windows Server 2008 R2": {
 		WorkloadType: OtherWorkloadType,
 		Version:      "win2008r2",
 		Supported:    true,
 	},
-	Win2012hvr2: {
+	"Hyper-V Server 2012 R2": {
 		WorkloadType: OtherWorkloadType,
 		Version:      "win2012hvr2",
 		Supported:    true,
 	},
-	Win2012hv: {
+	"Hyper-V Server 2012": {
 		WorkloadType: OtherWorkloadType,
 		Version:      "win2012hv",
 		Supported:    true,
 	},
-	Win2012r2: {
+	"Windows Server 2012 R2": {
 		WorkloadType: OtherWorkloadType,
 		Version:      "win2012r2",
 		Supported:    true,
 	},
-	Win2012: {
+	"Windows Storage Server 2012 R2": {
+		WorkloadType: OtherWorkloadType,
+		Version:      "win2012r2",
+		Supported:    true,
+	},
+	"Windows Server 2012": {
 		WorkloadType: OtherWorkloadType,
 		Version:      "win2012",
 		Supported:    true,
 	},
-	Win2016: {
+	"Windows Storage Server 2012": {
+		WorkloadType: OtherWorkloadType,
+		Version:      "win2012",
+		Supported:    true,
+	},
+	"Windows Server 2016": {
 		WorkloadType: OtherWorkloadType,
 		Version:      "win2016",
 		Supported:    true,
 	},
-	Win2016hv: {
+	"Windows Storage Server 2016": {
+		WorkloadType: OtherWorkloadType,
+		Version:      "win2016",
+		Supported:    true,
+	},
+	"Hyper-V Server 2016": {
 		WorkloadType: OtherWorkloadType,
 		Version:      "win2016hv",
 		Supported:    true,
 	},
-	Win2016nano: {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2016nano",
-		Supported:    true,
-	},
-	Win2019: {
+	"Windows Server 2019": {
 		WorkloadType: OtherWorkloadType,
 		Version:      "win2019",
 		Supported:    true,
 	},
-	Win7: {
+	"Windows Storage Server 2019": {
+		WorkloadType: OtherWorkloadType,
+		Version:      "win2019",
+		Supported:    true,
+	},
+	"Windows 7": {
 		WorkloadType: OtherWorkloadType,
 		Version:      "win7",
 		Supported:    true,
 	},
-	Win8: {
+	"Windows 8": {
 		WorkloadType: OtherWorkloadType,
 		Version:      "win8",
 		Supported:    true,
 	},
-	Win81: {
+	"Windows 8.1": {
 		WorkloadType: OtherWorkloadType,
 		Version:      "win81",
 		Supported:    true,
 	},
-	Win10: {
+	"Windows 10": {
 		WorkloadType: OtherWorkloadType,
 		Version:      "win10",
 		Supported:    true,
 	},
+}
+
+var windowsNanoVersions = map[SeriesName]seriesVersion{
+	"Windows Server 2016": {
+		WorkloadType: OtherWorkloadType,
+		Version:      "win2016nano",
+		Supported:    true,
+	},
+}
+
+var centosSeries = map[SeriesName]seriesVersion{
 	Centos7: {
 		WorkloadType: OtherWorkloadType,
 		Version:      "centos7",
@@ -446,19 +451,98 @@ var nonUbuntuSeries = map[SeriesName]SeriesVersion{
 		Version:      "centos8",
 		Supported:    true,
 	},
+}
+
+var opensuseSeries = map[SeriesName]seriesVersion{
 	OpenSUSELeap: {
 		WorkloadType: OtherWorkloadType,
 		Version:      "opensuse42",
 		Supported:    true,
 	},
-	GenericLinux: {
-		WorkloadType: OtherWorkloadType,
-		Version:      "genericlinux",
-		Supported:    true,
-	},
+}
+
+var kubernetesSeries = map[SeriesName]seriesVersion{
 	Kubernetes: {
 		WorkloadType: OtherWorkloadType,
 		Version:      "kubernetes",
+		Supported:    true,
+	},
+}
+
+var macOSXSeries = map[SeriesName]seriesVersion{
+	"catalina": {
+		WorkloadType: UnsupportedWorkloadType,
+		Version:      "19",
+		Supported:    true,
+	},
+	"mojave": {
+		WorkloadType: UnsupportedWorkloadType,
+		Version:      "18",
+		Supported:    true,
+	},
+	"highsierra": {
+		WorkloadType: UnsupportedWorkloadType,
+		Version:      "17",
+		Supported:    true,
+	},
+	"sierra": {
+		WorkloadType: UnsupportedWorkloadType,
+		Version:      "16",
+		Supported:    true,
+	},
+	"elcapitan": {
+		WorkloadType: UnsupportedWorkloadType,
+		Version:      "15",
+		Supported:    true,
+	},
+	"yosemite": {
+		WorkloadType: UnsupportedWorkloadType,
+		Version:      "14",
+		Supported:    true,
+	},
+	"mavericks": {
+		WorkloadType: UnsupportedWorkloadType,
+		Version:      "13",
+		Supported:    true,
+	},
+	"mountainlion": {
+		WorkloadType: UnsupportedWorkloadType,
+		Version:      "12",
+		Supported:    true,
+	},
+	"lion": {
+		WorkloadType: UnsupportedWorkloadType,
+		Version:      "11",
+		Supported:    true,
+	},
+	"snowleopard": {
+		WorkloadType: UnsupportedWorkloadType,
+		Version:      "10",
+		Supported:    true,
+	},
+	"leopard": {
+		WorkloadType: UnsupportedWorkloadType,
+		Version:      "9",
+		Supported:    true,
+	},
+	"tiger": {
+		WorkloadType: UnsupportedWorkloadType,
+		Version:      "8",
+		Supported:    true,
+	},
+	"panther": {
+		WorkloadType: UnsupportedWorkloadType,
+		Version:      "7",
+		Supported:    true,
+	},
+	"jaguar": {
+		WorkloadType: UnsupportedWorkloadType,
+		Version:      "6",
+		Supported:    true,
+	},
+	"puma": {
+		WorkloadType: UnsupportedWorkloadType,
+		Version:      "5",
 		Supported:    true,
 	},
 }

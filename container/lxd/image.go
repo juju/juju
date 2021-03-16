@@ -8,12 +8,12 @@ import (
 	"path"
 
 	"github.com/juju/errors"
-	jujuos "github.com/juju/os/v2"
-	jujuseries "github.com/juju/os/v2/series"
 	jujuarch "github.com/juju/utils/v2/arch"
 	lxd "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 
+	jujuos "github.com/juju/juju/core/os"
+	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 )

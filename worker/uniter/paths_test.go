@@ -8,11 +8,11 @@ import (
 	"path/filepath"
 
 	"github.com/juju/names/v4"
-	jujuos "github.com/juju/os/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/uniter"
 )

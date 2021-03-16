@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	coretools "github.com/juju/juju/tools"
@@ -56,7 +56,11 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 	if filter.Series != "" {
 		seriesToSearch = []string{filter.Series}
 	} else {
-		seriesToSearch = series.SupportedSeries()
+		workloadSeries, err := series.AllWorkloadSeries("", stream)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		seriesToSearch = workloadSeries.Values()
 		logger.Tracef("no series specified when finding agent binaries, looking for %v", seriesToSearch)
 	}
 	toolsConstraint.Series = seriesToSearch

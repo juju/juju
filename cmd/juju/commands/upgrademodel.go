@@ -18,7 +18,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/version"
 
 	apicontroller "github.com/juju/juju/api/controller"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -882,7 +882,10 @@ func (context *upgradeContext) uploadTools(client toolsAPI, buildAgent bool, age
 	if err != nil {
 		return errors.Trace(err)
 	}
-	additionalSeries := series.OSSupportedSeries(seriesOs)
+	additionalSeries, err := series.OSAllSeries(seriesOs)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	uploaded, err := client.UploadTools(f, uploadToolsVersion, additionalSeries...)
 	if err != nil {
 		return errors.Trace(err)

@@ -7,14 +7,14 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	jujuos "github.com/juju/os/v2"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"

@@ -7,10 +7,10 @@ import (
 	b64 "encoding/base64"
 
 	"github.com/juju/errors"
-	jujuos "github.com/juju/os/v2"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
+	jujuos "github.com/juju/juju/core/os"
 )
 
 // OCIRenderer implements the renderers.ProviderRenderer interface

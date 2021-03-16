@@ -15,7 +15,6 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/http"
 	"github.com/juju/loggo"
-	jujuos "github.com/juju/os/v2"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -25,6 +24,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
+	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	jujuversion "github.com/juju/juju/version"

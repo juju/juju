@@ -6,11 +6,12 @@ package lxd
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/os/v2"
 	"github.com/juju/utils/v2/arch"
 	lxd "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
+
+	"github.com/juju/juju/core/os"
 )
 
 // osSupport is the list of operating system types for which Juju supports

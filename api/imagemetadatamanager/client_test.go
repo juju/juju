@@ -7,13 +7,13 @@ import (
 	"regexp"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/imagemetadatamanager"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/series"
 	coretesting "github.com/juju/juju/testing"
 )
 

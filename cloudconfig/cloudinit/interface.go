@@ -2,7 +2,7 @@
 // Copyright 2015 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The cloudinit package implements a way of creating
+// Package cloudinit implements a way of creating
 // a cloud-init configuration file.
 // See https://help.ubuntu.com/community/CloudInit.
 package cloudinit
@@ -11,13 +11,14 @@ import (
 	"github.com/juju/errors"
 	corenetwork "github.com/juju/juju/core/network"
 	jujupackaging "github.com/juju/juju/packaging"
-	"github.com/juju/os/v2"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/packaging"
 	"github.com/juju/packaging/commands"
 	"github.com/juju/packaging/config"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v2/shell"
+
+	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/series"
 )
 
 // CloudConfig is the interface of all cloud-init cloudconfig options.
