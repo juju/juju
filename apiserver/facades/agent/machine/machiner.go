@@ -156,7 +156,31 @@ func (api *MachinerAPI) RecordAgentStartTime(args params.Entities) (params.Error
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := m.RecordAgentStartTime(); err != nil {
+		if err := m.RecordAgentStartInformation(""); err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+		}
+	}
+	return results, nil
+}
+
+// RecordAgentStartInformation syncs the machine model with information
+// reported by a machine agent when it starts.
+func (api *MachinerAPI) RecordAgentStartInformation(args params.RecordAgentStartInformationArgs) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	canModify, err := api.getCanModify()
+	if err != nil {
+		return results, err
+	}
+
+	for i, arg := range args.Args {
+		m, err := api.getMachine(arg.Tag, canModify)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if err := m.RecordAgentStartInformation(arg.Hostname); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}

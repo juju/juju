@@ -7,9 +7,11 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/juju/os/v2"
-	"github.com/juju/os/v2/series"
+	osseries "github.com/juju/os/v2/series"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/series"
 )
 
 type CurrentSuite struct{}
@@ -17,7 +19,7 @@ type CurrentSuite struct{}
 var _ = gc.Suite(&CurrentSuite{})
 
 func (*CurrentSuite) TestCurrentSeries(c *gc.C) {
-	s, err := series.HostSeries()
+	s, err := osseries.HostSeries()
 	if err != nil || s == "unknown" {
 		s = "n/a"
 	}

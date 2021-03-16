@@ -294,6 +294,19 @@ type DestroyMachinesParams struct {
 	MaxWait *time.Duration `json:"max-wait,omitempty"`
 }
 
+// RecordAgentStartInformationArgs holds the parameters for updating the
+// information reported by one or more machine agents when they start.
+type RecordAgentStartInformationArgs struct {
+	Args []RecordAgentStartInformationArg `json:"args"`
+}
+
+// RecordAgentStartInformationArg holds the information reported by a machine
+// agnet to the controller when it starts.
+type RecordAgentStartInformationArg struct {
+	Tag      string `json:"tag"`
+	Hostname string `json:"hostname,omitempty"`
+}
+
 // UpdateSeriesArg holds the parameters for updating the series for the
 // specified application or machine. For Application, only known by facade
 // version 5 and greater. For MachineManger, only known by facade version

@@ -13,8 +13,9 @@ import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
-	"github.com/juju/os/v2/series"
 	jujutxn "github.com/juju/txn"
+
+	"github.com/juju/juju/core/series"
 )
 
 var logger = loggo.GetLogger("juju.state.cloudimagemetadata")

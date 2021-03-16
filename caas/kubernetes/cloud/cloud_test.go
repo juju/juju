@@ -91,6 +91,7 @@ users:
 	conf, err := k8scloud.ConfigFromReader(strings.NewReader(rawConf))
 	c.Assert(err, jc.ErrorIsNil)
 	clouds, err := k8scloud.CloudsFromKubeConfigContexts(conf)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(clouds), gc.Equals, 2)
 
 	foundCloud1 := false

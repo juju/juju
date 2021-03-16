@@ -67,7 +67,7 @@ func (s *detectCloudSuite) getProvider(builtin builtinCloudRet) caas.ContainerEn
 }
 
 func (s *detectCloudSuite) TestDetectCloudsWithoutKubeConfig(c *gc.C) {
-	err := os.Setenv("KUBECONFIG", "")
+	err := os.Setenv("KUBECONFIG", "/tmp/doesnotexistkubeconfig.yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	k8sCloud := jujucloud.Cloud{
 		Name: "testingMicrok8s",
@@ -82,7 +82,7 @@ func (s *detectCloudSuite) TestDetectCloudsWithoutKubeConfig(c *gc.C) {
 }
 
 func (s *detectCloudSuite) TestDetectCloudsMicroK8sNotFoundWithoutKubeConfig(c *gc.C) {
-	err := os.Setenv("KUBECONFIG", "")
+	err := os.Setenv("KUBECONFIG", "/tmp/doesnotexistkubeconfig.yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	p := s.getProvider(builtinCloudRet{err: errors.NotFoundf("")})
 	cloudDetector := p.(environs.CloudDetector)

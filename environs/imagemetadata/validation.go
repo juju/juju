@@ -6,6 +6,8 @@ package imagemetadata
 import (
 	"fmt"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/environs/simplestreams"
 )
 
@@ -24,7 +26,7 @@ func ValidateImageMetadata(params *simplestreams.MetadataLookupParams) ([]string
 	if len(params.Sources) == 0 {
 		return nil, nil, fmt.Errorf("required parameter sources not specified")
 	}
-	imageConstraint := NewImageConstraint(simplestreams.LookupParams{
+	imageConstraint, err := NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{
 			Region:   params.Region,
 			Endpoint: params.Endpoint,
@@ -33,6 +35,9 @@ func ValidateImageMetadata(params *simplestreams.MetadataLookupParams) ([]string
 		Arches: params.Architectures,
 		Stream: params.Stream,
 	})
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	matchingImages, resolveInfo, err := Fetch(params.Sources, imageConstraint)
 	if err != nil {
 		return nil, resolveInfo, err

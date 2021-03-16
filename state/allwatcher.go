@@ -355,6 +355,7 @@ func (m *backingMachine) updated(ctx *allWatcherContext) error {
 		WantsVote:                wantsVote,
 		PreferredPublicAddress:   m.PreferredPublicAddress.networkAddress(),
 		PreferredPrivateAddress:  m.PreferredPrivateAddress.networkAddress(),
+		Hostname:                 m.Hostname,
 	}
 	addresses := network.MergedAddresses(networkAddresses(m.MachineAddresses), networkAddresses(m.Addresses))
 	for _, addr := range addresses {

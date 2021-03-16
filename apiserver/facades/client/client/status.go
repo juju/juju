@@ -1011,6 +1011,7 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine, appStatusInfo 
 			logger.Debugf("error fetching public address: %q", err)
 		}
 		status.DNSName = addr.Value
+		status.Hostname = machine.Hostname()
 		mAddrs := machine.Addresses()
 		if len(mAddrs) == 0 {
 			logger.Debugf("no IP addresses fetched for machine %q", instid)

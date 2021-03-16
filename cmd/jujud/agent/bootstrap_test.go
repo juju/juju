@@ -23,7 +23,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
@@ -42,6 +41,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
@@ -113,6 +113,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&sshGenerateKey, func(name string) (string, string, error) {
 		return "private-key", "public-key", nil
 	})
+	s.PatchValue(&series.UbuntuDistroInfo, "/path/notexists")
 
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
@@ -748,8 +749,10 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	st, closer := s.getSystemState(c)
 	defer closer()
 	expectedSeries := make(set.Strings)
+	workloadSeries, err := series.AllWorkloadSeries("", "")
+	c.Assert(err, jc.ErrorIsNil)
 	if exploded {
-		for _, ser := range series.SupportedSeries() {
+		for _, ser := range workloadSeries.Values() {
 			os, err := series.GetOSFromSeries(ser)
 			c.Assert(err, jc.ErrorIsNil)
 			hostos, err := series.GetOSFromSeries(testing.HostSeries(c))
