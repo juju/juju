@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -61,7 +62,10 @@ func main() {
 	}
 	checkErr(loggo.ConfigureLoggers(*loggingConfig), "logging config")
 
-	cleaner := NewBlobstoreCleaner()
+	cleaner, err := NewBlobstoreCleaner()
+	if err != nil {
+		log.Fatal(err)
+	}
 	cleaner.findModellessManagedResources()
 	cleaner.cleanupManagedResources()
 	cleaner.findUnmanagedResources()
@@ -159,8 +163,11 @@ func lengthToSize(length uint64) string {
 	return fmt.Sprintf("%d", length)
 }
 
-func NewBlobstoreCleaner() *BlobstoreCleaner {
+func NewBlobstoreCleaner() (*BlobstoreCleaner, error) {
 	statePool, session, err := getState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	// Some of the chunks queries take a long time
 	session.SetSocketTimeout(10 * time.Minute)
 	checkErr(err, "getting state connection")
@@ -183,7 +190,7 @@ func NewBlobstoreCleaner() *BlobstoreCleaner {
 		foundResourceIDs:    set.NewStrings(),
 		foundBlobstorePaths: set.NewStrings(),
 		foundBlobstoreIDs:   set.NewStrings(),
-	}
+	}, nil
 }
 
 type ManagedResource struct {
@@ -374,7 +381,6 @@ func removeStoredResourceOps(docID string) []txn.Op {
 	return []txn.Op{{
 		C:      resourceCatalogC,
 		Id:     docID,
-		Assert: bson.D{{"refcount", 1}},
 		Remove: true,
 	}}
 }

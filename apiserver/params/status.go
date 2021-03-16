@@ -80,7 +80,8 @@ type MachineStatus struct {
 	InstanceStatus     DetailedStatus `json:"instance-status"`
 	ModificationStatus DetailedStatus `json:"modification-status"`
 
-	DNSName string `json:"dns-name"`
+	Hostname string `json:"hostname,omitempty"`
+	DNSName  string `json:"dns-name"`
 
 	// IPAddresses holds the IP addresses known for this machine. It is
 	// here for backwards compatibility. It should be similar to its

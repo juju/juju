@@ -13,8 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -23,6 +21,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/state"
 )
 

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -607,7 +607,7 @@ func (api *ProvisionerAPI) constructImageConstraint(m *state.Machine, env enviro
 		lookup.CloudSpec = spec
 	}
 
-	return imagemetadata.NewImageConstraint(lookup), nil
+	return imagemetadata.NewImageConstraint(lookup)
 }
 
 // findImageMetadata returns all image metadata or an error fetching them.

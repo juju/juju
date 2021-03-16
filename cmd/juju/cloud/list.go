@@ -154,7 +154,7 @@ func (c *listCloudsCommand) getCloudList(ctxt *cmd.Context) (*cloudList, error) 
 	details := newCloudList()
 	if c.Client {
 		if d, err := listLocalCloudDetails(c.Store); err != nil {
-			accumulateErrors(errors.Annotate(err, "geting local clouds"))
+			accumulateErrors(errors.Annotate(err, "getting local clouds"))
 		} else {
 			details = d
 		}

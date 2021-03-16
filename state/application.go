@@ -19,7 +19,6 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/schema"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/v2"
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -1830,6 +1830,8 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 
 // VerifySupportedSeries verifies if the given series is supported by the
 // application.
+// TODO (stickupkid): This will be removed once we align all upgrade-series
+// commands.
 func (a *Application) VerifySupportedSeries(series string, force bool) error {
 	ch, _, err := a.Charm()
 	if err != nil {

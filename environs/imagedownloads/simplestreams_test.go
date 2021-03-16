@@ -16,6 +16,7 @@ import (
 	openpgperrors "golang.org/x/crypto/openpgp/errors"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/series"
 	. "github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -39,6 +40,7 @@ func newTestDataSourceFunc(s string) func() simplestreams.DataSource {
 }
 
 func (s *Suite) SetUpTest(c *gc.C) {
+	s.PatchValue(&series.UbuntuDistroInfo, "/path/notexists")
 	imagemetadata.SimplestreamsImagesPublicKey = streamstesting.SignedMetadataPublicKey
 
 	// The index.sjson file used by these tests have been regenerated using
@@ -67,13 +69,14 @@ func (Suite) TestFetchManyDefaultFilter(c *gc.C) {
 	defer ts.Close()
 	tds := []simplestreams.DataSource{
 		newTestDataSource(ts.URL)}
-	constraints := imagemetadata.NewImageConstraint(
+	constraints, err := imagemetadata.NewImageConstraint(
 		simplestreams.LookupParams{
 			Arches: []string{"amd64", "arm64", "ppc64el"},
 			Series: []string{"xenial"},
 			Stream: "released",
 		},
 	)
+	c.Assert(err, jc.ErrorIsNil)
 	got, resolveInfo, err := Fetch(tds, constraints, nil)
 	c.Check(resolveInfo.Signed, jc.IsTrue)
 	c.Check(err, jc.ErrorIsNil)
@@ -92,13 +95,14 @@ func (Suite) TestFetchManyDefaultFilterAndCustomImageDownloadURL(c *gc.C) {
 	defer ts.Close()
 	tds := []simplestreams.DataSource{
 		newTestDataSource(ts.URL)}
-	constraints := imagemetadata.NewImageConstraint(
+	constraints, err := imagemetadata.NewImageConstraint(
 		simplestreams.LookupParams{
 			Arches: []string{"amd64", "arm64", "ppc64el"},
 			Series: []string{"xenial"},
 			Stream: "released",
 		},
 	)
+	c.Assert(err, jc.ErrorIsNil)
 	got, resolveInfo, err := Fetch(tds, constraints, nil)
 	c.Check(resolveInfo.Signed, jc.IsTrue)
 	c.Check(err, jc.ErrorIsNil)
@@ -193,19 +197,19 @@ func (Suite) TestFetchManyWithFilter(c *gc.C) {
 	}
 }
 
-func (Suite) TestOneAmd64PreciseTarGz(c *gc.C) {
+func (Suite) TestOneAmd64XenialTarGz(c *gc.C) {
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
-	got, err := One("amd64", "precise", "", "tar.gz", newTestDataSourceFunc(ts.URL))
+	got, err := One("amd64", "xenial", "", "tar.gz", newTestDataSourceFunc(ts.URL))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, &Metadata{
 		Arch:    "amd64",
-		Release: "precise",
-		Version: "12.04",
+		Release: "xenial",
+		Version: "16.04",
 		FType:   "tar.gz",
-		SHA256:  "419d11082ee6d7e4f88dbdb8cc4f92663e834161d084ff0c1d4e812f8f19d506",
-		Path:    "server/releases/precise/release-20161020.1/ubuntu-12.04-server-cloudimg-amd64.tar.gz",
-		Size:    250055789,
+		SHA256:  "9c00e4340c636b684e93c77dd7f08ab70989faffccf1a66fb00612ca6f64d8e4",
+		Path:    "server/releases/xenial/release-20161020/ubuntu-16.04-server-cloudimg-amd64.tar.gz",
+		Size:    287271698,
 	})
 }
 

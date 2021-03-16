@@ -126,14 +126,23 @@ func (s *MachineSuite) TestSetUnsetRebootFlag(c *gc.C) {
 	c.Assert(rebootFlag, jc.IsFalse)
 }
 
-func (s *MachineSuite) TestRecordAgentStartTime(c *gc.C) {
+func (s *MachineSuite) TestRecordAgentStartInformation(c *gc.C) {
 	now := s.Clock.Now().Truncate(time.Millisecond)
-	err := s.machine.RecordAgentStartTime()
+	err := s.machine.RecordAgentStartInformation("thundering-herds")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.AgentStartTime(), gc.Equals, now)
+	c.Assert(s.machine.Hostname(), gc.Equals, "thundering-herds")
+
+	// Passing an empty hostname should be ignored
+	err = s.machine.RecordAgentStartInformation("")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.machine.AgentStartTime(), gc.Equals, now)
+	c.Assert(s.machine.Hostname(), gc.Equals, "thundering-herds", gc.Commentf("expected the host name not be changed"))
 }
 
 func (s *MachineSuite) TestSetKeepInstance(c *gc.C) {
@@ -1581,14 +1590,14 @@ func (s *MachineSuite) TestWatchMachineStartTimes(c *gc.C) {
 
 	// Update the agent start time for the new machine and wait for quiesceInterval
 	// so the change gets processed and added to a new changeset.
-	err = s.machine.RecordAgentStartTime()
+	err = s.machine.RecordAgentStartInformation("machine-1")
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	s.Clock.Advance(quiesceInterval)
 
 	// Update the agent start time for machine 0 and wait for quiesceInterval
 	// so the change gets processed and appended to the current changeset.
-	err = s.machine0.RecordAgentStartTime()
+	err = s.machine0.RecordAgentStartInformation("machine-0")
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	s.Clock.Advance(quiesceInterval)

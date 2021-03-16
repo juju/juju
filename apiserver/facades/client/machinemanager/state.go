@@ -6,6 +6,7 @@ package machinemanager
 import (
 	"time"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/names/v4"
@@ -22,12 +23,20 @@ import (
 type Backend interface {
 	network.SpaceLookup
 
+	// Application returns a application state by name.
+	Application(string) (Application, error)
 	Machine(string) (Machine, error)
+	Unit(string) (Unit, error)
 	Model() (Model, error)
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 	AddOneMachine(template state.MachineTemplate) (*state.Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
 	AddMachineInsideMachine(template state.MachineTemplate, parentId string, containerType instance.ContainerType) (*state.Machine, error)
+}
+
+type BackendState interface {
+	Backend
+	MachineFromTag(string) (Machine, error)
 }
 
 type Pool interface {
@@ -60,18 +69,55 @@ type Machine interface {
 	IsManager() bool
 	IsLockedForSeriesUpgrade() (bool, error)
 	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
+	ApplicationNames() ([]string, error)
+}
+
+type Application interface {
+	Charm() (Charm, bool, error)
+}
+
+type Charm interface {
+	URL() *charm.URL
+	Meta() CharmMeta
+	String() string
+}
+
+type CharmMeta interface {
+	ComputedSeries() []string
 }
 
 type stateShim struct {
 	*state.State
 }
 
+func (s stateShim) Application(name string) (Application, error) {
+	a, err := s.State.Application(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return applicationShim{
+		Application: a,
+	}, nil
+}
+
 func (s stateShim) Machine(name string) (Machine, error) {
 	m, err := s.State.Machine(name)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return machineShim{m}, nil
+	return machineShim{
+		Machine: m,
+	}, nil
+}
+
+func (s stateShim) Unit(name string) (Unit, error) {
+	u, err := s.State.Unit(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return unitShim{
+		Unit: u,
+	}, nil
 }
 
 func (s stateShim) Model() (Model, error) {
@@ -90,6 +136,32 @@ func (p *poolShim) GetModel(uuid string) (Model, func(), error) {
 	return m, func() { ph.Release() }, nil
 }
 
+type applicationShim struct {
+	*state.Application
+}
+
+func (a applicationShim) Charm() (Charm, bool, error) {
+	ch, force, err := a.Application.Charm()
+	if err != nil {
+		return nil, false, errors.Trace(err)
+	}
+	return charmShim{
+		Charm: ch,
+	}, force, nil
+}
+
+type charmShim struct {
+	*state.Charm
+}
+
+func (c charmShim) Meta() CharmMeta {
+	return charmMeta{Meta: c.Charm.Meta()}
+}
+
+type charmMeta struct {
+	*charm.Meta
+}
+
 type machineShim struct {
 	*state.Machine
 }
@@ -104,6 +176,10 @@ func (m machineShim) Units() ([]Unit, error) {
 		out[i] = u
 	}
 	return out, nil
+}
+
+type unitShim struct {
+	*state.Unit
 }
 
 type Unit interface {

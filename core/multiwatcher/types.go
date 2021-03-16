@@ -99,6 +99,9 @@ type MachineInfo struct {
 	// only stored on the machine info to populate the unit info.
 	PreferredPublicAddress  network.SpaceAddress
 	PreferredPrivateAddress network.SpaceAddress
+
+	// The machine's hostname reported by the machine agent when it started.
+	Hostname string
 }
 
 // EntityID returns a unique identifier for a machine across

@@ -12,8 +12,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/os/v2"
-	jujuseries "github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	"github.com/kr/pretty"
@@ -24,6 +22,8 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/os"
+	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"

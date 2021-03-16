@@ -234,7 +234,7 @@ func AllFacades() *facade.Registry {
 	reg("MachineManager", 6, machinemanager.NewFacadeV6) // DestroyMachinesWithParams gains maxWait.
 
 	reg("MachineUndertaker", 1, machineundertaker.NewFacade)
-	reg("Machiner", 4, machine.NewMachinerAPI) // Removes SetProviderNetworkConfig.
+	reg("Machiner", 5, machine.NewMachinerAPI) // Removes SetProviderNetworkConfig, adds RecordAgentHostAndStartTime.
 
 	reg("MeterStatus", 1, meterstatus.NewMeterStatusFacadeV1)
 	reg("MeterStatus", 2, meterstatus.NewMeterStatusFacade)

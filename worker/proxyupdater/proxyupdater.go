@@ -10,7 +10,6 @@ import (
 	stdexec "os/exec"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/v2"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/packaging/commands"
 	"github.com/juju/packaging/config"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/worker/v2"
 
 	"github.com/juju/juju/api/proxyupdater"
+	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/snap"
 	"github.com/juju/juju/core/watcher"
 )

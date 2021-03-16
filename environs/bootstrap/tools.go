@@ -8,12 +8,12 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	jujuos "github.com/juju/os/v2"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/core/constraints"
+	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/tools"
@@ -89,11 +89,15 @@ func findPackagedTools(
 
 // locallyBuildableTools returns the list of tools that
 // can be built locally, for series of the same OS.
-func locallyBuildableTools(toolsSeries *string) (buildable coretools.List, _ version.Number) {
+func locallyBuildableTools(toolsSeries *string) (buildable coretools.List, _ version.Number, _ error) {
 	buildNumber := jujuversion.Current
 	// Increment the build number so we know it's a custom build.
 	buildNumber.Build++
-	for _, ser := range series.SupportedSeries() {
+	workloadSeries, err := series.AllWorkloadSeries("", "")
+	if err != nil {
+		return nil, version.Number{}, errors.Trace(err)
+	}
+	for _, ser := range workloadSeries.SortedValues() {
 		if os, err := series.GetOSFromSeries(ser); err != nil || !os.EquivalentTo(jujuos.HostOS()) {
 			continue
 		}
@@ -107,7 +111,7 @@ func locallyBuildableTools(toolsSeries *string) (buildable coretools.List, _ ver
 		}
 		buildable = append(buildable, &coretools.Tools{Version: binary})
 	}
-	return buildable, buildNumber
+	return buildable, buildNumber, nil
 }
 
 // findBootstrapTools returns a tools.List containing only those tools with

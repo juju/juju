@@ -178,6 +178,9 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
+		// In this scenario machine0 runs an older agent version that
+		// does not support reporting of host names. Since the hostname
+		// is blank it will be skipped.
 		"dns-name":     "10.0.0.1",
 		"ip-addresses": []string{"10.0.0.1"},
 		"instance-id":  "controller-0",
@@ -205,6 +208,7 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
+		"hostname":     "eldritch-octopii",
 		"dns-name":     "10.0.1.1",
 		"ip-addresses": []string{"10.0.1.1"},
 		"instance-id":  "controller-1",
@@ -231,6 +235,7 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
+		"hostname":     "eldritch-octopii",
 		"dns-name":     "10.0.1.1",
 		"ip-addresses": []string{"10.0.1.1"},
 		"instance-id":  "controller-1",
@@ -286,6 +291,7 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
+		"hostname":     "titanium-shoelace",
 		"dns-name":     "10.0.2.1",
 		"ip-addresses": []string{"10.0.2.1"},
 		"instance-id":  "controller-2",
@@ -312,6 +318,7 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
+		"hostname":     "loud-silence",
 		"dns-name":     "10.0.3.1",
 		"ip-addresses": []string{"10.0.3.1"},
 		"instance-id":  "controller-3",
@@ -339,6 +346,7 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
+		"hostname":     "antediluvian-furniture",
 		"dns-name":     "10.0.4.1",
 		"ip-addresses": []string{"10.0.4.1"},
 		"instance-id":  "controller-4",
@@ -435,6 +443,7 @@ var (
 				"series": "quantal",
 			},
 		},
+		"hostname":     "eldritch-octopii",
 		"dns-name":     "10.0.1.1",
 		"ip-addresses": []string{"10.0.1.1"},
 		"instance-id":  "controller-1",
@@ -905,10 +914,12 @@ var statusTests = []testCase{
 
 		// step 10
 		addMachine{machineId: "1", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 		addMachine{machineId: "2", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "2", hostname: "titanium-shoelace"},
 		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
 		startAliveMachine{"2", ""},
 		setMachineStatus{"2", status.Started, ""},
@@ -1015,10 +1026,12 @@ var statusTests = []testCase{
 		// step 29
 		addMachine{machineId: "3", job: state.JobHostUnits},
 		startMachine{"3"},
+		recordAgentStartInformation{machineId: "3", hostname: "loud-silence"},
 		// Simulate some status with info, while the agent is down.
 		setAddresses{"3", network.NewSpaceAddresses("10.0.3.1")},
 		setMachineStatus{"3", status.Stopped, "Really?"},
 		addMachine{machineId: "4", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "4", hostname: "antediluvian-furniture"},
 		setAddresses{"4", network.NewSpaceAddresses("10.0.4.1")},
 		startAliveMachine{"4", ""},
 		setMachineStatus{"4", status.Error, "Beware the red toys"},
@@ -1034,6 +1047,7 @@ var statusTests = []testCase{
 					"1": machine1,
 					"2": machine2,
 					"3": M{
+						"hostname":     "loud-silence",
 						"dns-name":     "10.0.3.1",
 						"ip-addresses": []string{"10.0.3.1"},
 						"instance-id":  "controller-3",
@@ -1061,6 +1075,7 @@ var statusTests = []testCase{
 						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
 					"4": M{
+						"hostname":     "antediluvian-furniture",
 						"dns-name":     "10.0.4.1",
 						"ip-addresses": []string{"10.0.4.1"},
 						"instance-id":  "controller-4",
@@ -1389,6 +1404,7 @@ var statusTests = []testCase{
 		setMachineStatus{"0", status.Started, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
@@ -1499,6 +1515,7 @@ var statusTests = []testCase{
 		setMachineStatus{"0", status.Started, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
@@ -1738,6 +1755,7 @@ var statusTests = []testCase{
 		addApplication{name: "project", charm: "wordpress"},
 		setApplicationExposed{"project", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
@@ -1748,6 +1766,7 @@ var statusTests = []testCase{
 		addApplication{name: "mysql", charm: "mysql"},
 		setApplicationExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "2", hostname: "titanium-shoelace"},
 		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
 		startAliveMachine{"2", ""},
 		setMachineStatus{"2", status.Started, ""},
@@ -1758,6 +1777,7 @@ var statusTests = []testCase{
 		addApplication{name: "varnish", charm: "varnish"},
 		setApplicationExposed{"varnish", true},
 		addMachine{machineId: "3", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "3", hostname: "loud-silence"},
 		setAddresses{"3", network.NewSpaceAddresses("10.0.3.1")},
 		startAliveMachine{"3", ""},
 		setMachineStatus{"3", status.Started, ""},
@@ -1767,6 +1787,7 @@ var statusTests = []testCase{
 		addApplication{name: "private", charm: "wordpress"},
 		setApplicationExposed{"private", true},
 		addMachine{machineId: "4", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "4", hostname: "antediluvian-furniture"},
 		setAddresses{"4", network.NewSpaceAddresses("10.0.4.1")},
 		startAliveMachine{"4", ""},
 		setMachineStatus{"4", status.Started, ""},
@@ -1947,6 +1968,7 @@ var statusTests = []testCase{
 		addApplication{name: "riak", charm: "riak"},
 		setApplicationExposed{"riak", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
@@ -1954,6 +1976,7 @@ var statusTests = []testCase{
 		setAgentStatus{"riak/0", status.Idle, "", nil},
 		setUnitStatus{"riak/0", status.Active, "", nil},
 		addMachine{machineId: "2", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "2", hostname: "titanium-shoelace"},
 		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
 		startAliveMachine{"2", ""},
 		setMachineStatus{"2", status.Started, ""},
@@ -1961,6 +1984,7 @@ var statusTests = []testCase{
 		setAgentStatus{"riak/1", status.Idle, "", nil},
 		setUnitStatus{"riak/1", status.Active, "", nil},
 		addMachine{machineId: "3", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "3", hostname: "loud-silence"},
 		setAddresses{"3", network.NewSpaceAddresses("10.0.3.1")},
 		startAliveMachine{"3", ""},
 		setMachineStatus{"3", status.Started, ""},
@@ -2064,6 +2088,7 @@ var statusTests = []testCase{
 		addApplication{name: "wordpress", charm: "wordpress"},
 		setApplicationExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
@@ -2074,6 +2099,7 @@ var statusTests = []testCase{
 		addApplication{name: "mysql", charm: "mysql"},
 		setApplicationExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "2", hostname: "titanium-shoelace"},
 		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
 		startAliveMachine{"2", ""},
 		setMachineStatus{"2", status.Started, ""},
@@ -2450,6 +2476,7 @@ var statusTests = []testCase{
 
 		// step 7
 		addMachine{machineId: "1", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
@@ -2568,6 +2595,7 @@ var statusTests = []testCase{
 								},
 							},
 						},
+						"hostname":     "eldritch-octopii",
 						"dns-name":     "10.0.1.1",
 						"ip-addresses": []string{"10.0.1.1"},
 						"instance-id":  "controller-1",
@@ -2633,6 +2661,7 @@ var statusTests = []testCase{
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
@@ -2696,6 +2725,7 @@ var statusTests = []testCase{
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
@@ -2761,6 +2791,7 @@ var statusTests = []testCase{
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
@@ -2828,6 +2859,7 @@ var statusTests = []testCase{
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
@@ -2895,16 +2927,19 @@ var statusTests = []testCase{
 		setMachineStatus{"0", status.Started, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 
 		addMachine{machineId: "2", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "2", hostname: "titanium-shoelace"},
 		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
 		startAliveMachine{"2", ""},
 		setMachineStatus{"2", status.Started, ""},
 
 		addMachine{machineId: "3", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "3", hostname: "loud-silence"},
 		setAddresses{"3", network.NewSpaceAddresses("10.0.3.1")},
 		startAliveMachine{"3", ""},
 		setMachineStatus{"3", status.Started, ""},
@@ -2912,6 +2947,7 @@ var statusTests = []testCase{
 
 		addMachine{machineId: "4", job: state.JobHostUnits},
 		setAddresses{"4", network.NewSpaceAddresses("10.0.4.1")},
+		recordAgentStartInformation{machineId: "4", hostname: "antediluvian-furniture"},
 		startAliveMachine{"4", ""},
 		setMachineStatus{"4", status.Started, ""},
 
@@ -3082,6 +3118,7 @@ var statusTests = []testCase{
 		addApplication{name: "mysql", charm: "mysql"},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
@@ -3145,6 +3182,7 @@ var statusTests = []testCase{
 		addApplication{name: "mysql", charm: "mysql"},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
@@ -3152,6 +3190,7 @@ var statusTests = []testCase{
 		setUnitWorkloadVersion{"mysql/0", "the best!"},
 
 		addMachine{machineId: "2", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "2", hostname: "titanium-shoelace"},
 		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
 		startAliveMachine{"2", ""},
 		setMachineStatus{"2", status.Started, ""},
@@ -3307,6 +3346,7 @@ var statusTests = []testCase{
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
@@ -3460,6 +3500,7 @@ var statusTests = []testCase{
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
@@ -3495,6 +3536,7 @@ var statusTests = []testCase{
 							"current": "started",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
+						"hostname":     "eldritch-octopii",
 						"dns-name":     "10.0.1.1",
 						"ip-addresses": []string{"10.0.1.1"},
 						"instance-id":  "controller-1",
@@ -3600,6 +3642,7 @@ var statusTests = []testCase{
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
+		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
@@ -3820,6 +3863,19 @@ func (am addMachine) step(c *gc.C, ctx *context) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, am.machineId)
+}
+
+type recordAgentStartInformation struct {
+	machineId string
+	hostname  string
+}
+
+func (ri recordAgentStartInformation) step(c *gc.C, ctx *context) {
+	m, err := ctx.st.Machine(ri.machineId)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m.RecordAgentStartInformation(ri.hostname)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type addContainer struct {
@@ -5820,6 +5876,7 @@ var statusTimeTest = test(
 	addApplication{name: "dummy-application", charm: "dummy"},
 
 	addMachine{machineId: "1", job: state.JobHostUnits},
+	recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
 	startAliveMachine{"1", ""},
 	setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 	setMachineStatus{"1", status.Started, ""},

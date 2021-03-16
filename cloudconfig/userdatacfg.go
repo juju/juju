@@ -9,14 +9,14 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/series"
 )
 
 const (

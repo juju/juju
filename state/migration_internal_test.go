@@ -322,8 +322,9 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"Life",
 		// ForceDestroyed is only true for dying/dead machines.
 		"ForceDestroyed",
-		// Ignored; it gets populated on demand when the agent restarts
+		// Ignored; they get populated on demand when the agent restarts
 		"AgentStartedAt",
+		"Hostname",
 	)
 	migrated := set.NewStrings(
 		"Addresses",
