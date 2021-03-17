@@ -71,6 +71,8 @@ func seriesForTypes(path string, now time.Time, requestedSeries, imageStream str
 	// after reading the `/usr/share/distro-info/ubuntu.csv` on the Ubuntu distro
 	// the non-LTS should disappear if they're not in the release window for that
 	// series.
+	seriesVersionsMutex.Lock()
+	defer seriesVersionsMutex.Unlock()
 	composeSeriesVersions()
 	if requestedSeries != "" && imageStream == Daily {
 		setSupported(allSeriesVersions, requestedSeries)
