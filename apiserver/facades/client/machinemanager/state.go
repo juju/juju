@@ -54,6 +54,7 @@ type Model interface {
 
 type Machine interface {
 	Id() string
+	Tag() names.Tag
 	Destroy() error
 	ForceDestroy(time.Duration) error
 	Series() string
@@ -69,6 +70,7 @@ type Machine interface {
 	IsManager() bool
 	IsLockedForSeriesUpgrade() (bool, error)
 	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
+	SetUpgradeSeriesStatus(model.UpgradeSeriesStatus, string) error
 	ApplicationNames() ([]string, error)
 }
 

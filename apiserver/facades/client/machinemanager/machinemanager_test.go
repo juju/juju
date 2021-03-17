@@ -757,8 +757,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepare(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	mach := s.st.machines["0"]
-	c.Assert(len(mach.Calls()), gc.Equals, 2)
-	mach.CheckCallNames(c, "Units", "CreateUpgradeSeriesLock")
+	c.Assert(len(mach.Calls()), gc.Equals, 7)
+	mach.CheckCallNames(c, "Units", "CreateUpgradeSeriesLock", "Series", "Tag", "ApplicationNames", "Series", "SetUpgradeSeriesStatus")
 	mach.CheckCall(c, 1, "CreateUpgradeSeriesLock", []string{"foo/0", "foo/1", "foo/2"}, "xenial")
 }
 
@@ -1124,6 +1124,11 @@ func (m *mockMachine) Id() string {
 	return m.id
 }
 
+func (m *mockMachine) Tag() names.Tag {
+	m.MethodCall(m, "Tag")
+	return names.NewMachineTag(m.id)
+}
+
 func (m *mockMachine) Destroy() error {
 	m.MethodCall(m, "Destroy")
 	return nil
@@ -1203,6 +1208,11 @@ func (m *mockMachine) IsLockedForSeriesUpgrade() (bool, error) {
 func (m *mockMachine) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	m.MethodCall(m, "UpgradeSeriesStatus")
 	return model.UpgradeSeriesNotStarted, nil
+}
+
+func (m *mockMachine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, message string) error {
+	m.MethodCall(m, "SetUpgradeSeriesStatus", status, message)
+	return nil
 }
 
 func (m *mockMachine) ApplicationNames() ([]string, error) {

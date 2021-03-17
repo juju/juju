@@ -68,12 +68,14 @@ func (*upgradeSeriesFSMSuite) TestTransitionTo(c *gc.C) {
 func (*upgradeSeriesFSMSuite) TestTransitionGraph(c *gc.C) {
 	dag := model.UpgradeSeriesGraph()
 	for state, vertices := range dag {
-		fsm, err := model.NewUpgradeSeriesFSM(dag, state)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Logf("current state %q", state)
 
 		for _, vertex := range vertices {
+			fsm, err := model.NewUpgradeSeriesFSM(dag, state)
+			c.Assert(err, jc.ErrorIsNil)
+
 			allowed := fsm.TransitionTo(vertex)
-			c.Assert(allowed, jc.IsTrue)
+			c.Assert(allowed, jc.IsTrue, gc.Commentf("transition %q to %q", fsm.State(), vertex))
 		}
 	}
 }
@@ -81,6 +83,8 @@ func (*upgradeSeriesFSMSuite) TestTransitionGraph(c *gc.C) {
 func (*upgradeSeriesFSMSuite) TestTransitionGraphChildren(c *gc.C) {
 	dag := model.UpgradeSeriesGraph()
 	for state, vertices := range dag {
+		c.Logf("current state %q", state)
+
 		for _, vertex := range vertices {
 			fsm, err := model.NewUpgradeSeriesFSM(dag, state)
 			c.Assert(err, jc.ErrorIsNil)
@@ -94,7 +98,7 @@ func (*upgradeSeriesFSMSuite) TestTransitionGraphChildren(c *gc.C) {
 				continue
 			}
 			allowed = fsm.TransitionTo(children[0])
-			c.Assert(allowed, jc.IsTrue, gc.Commentf("%v %v", fsm.State(), children[0]))
+			c.Assert(allowed, jc.IsTrue, gc.Commentf("transition %q to %q", fsm.State(), children[0]))
 		}
 	}
 }

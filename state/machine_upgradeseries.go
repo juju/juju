@@ -152,19 +152,23 @@ func (m *Machine) unitsHaveChanged(unitNames []string) (bool, error) {
 func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) *upgradeSeriesLockDoc {
 	unitStatuses := make(map[string]UpgradeSeriesUnitStatus, len(unitNames))
 	for _, name := range unitNames {
-		unitStatuses[name] = UpgradeSeriesUnitStatus{Status: model.UpgradeSeriesPrepareStarted, Timestamp: bson.Now()}
+		unitStatuses[name] = UpgradeSeriesUnitStatus{
+			Status: model.UpgradeSeriesValidate, Timestamp: bson.Now(),
+		}
 	}
 	timestamp := bson.Now()
-	message := fmt.Sprintf("started upgrade series from %q to %q", m.Series(), toSeries)
+	message := fmt.Sprintf("validation of upgrade series from %q to %q", m.Series(), toSeries)
 	updateMessage := newUpgradeSeriesMessage(m.Tag().String(), message, timestamp)
 	return &upgradeSeriesLockDoc{
 		Id:            m.Id(),
 		ToSeries:      toSeries,
 		FromSeries:    m.Series(),
-		MachineStatus: model.UpgradeSeriesPrepareStarted,
+		MachineStatus: model.UpgradeSeriesValidate,
 		UnitStatuses:  unitStatuses,
 		TimeStamp:     timestamp,
-		Messages:      []UpgradeSeriesMessage{updateMessage},
+		Messages: []UpgradeSeriesMessage{
+			updateMessage,
+		},
 	}
 }
 

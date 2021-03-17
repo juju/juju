@@ -30,6 +30,13 @@ func NewResolver(logger Logger) resolver.Resolver {
 func (r *upgradeSeriesResolver) NextOp(
 	localState resolver.LocalState, remoteState remotestate.Snapshot, opFactory operation.Factory,
 ) (operation.Operation, error) {
+	// If the unit is in the validate state, just sit and idle until validation
+	// has been completed.
+	if remoteState.UpgradeSeriesStatus == model.UpgradeSeriesValidate {
+		r.logger.Debugf("unit validating, waiting for prepare started")
+		return nil, resolver.ErrDoNotProceed
+	}
+
 	// If the unit has completed a pre-series-upgrade hook
 	// (as noted by its state) then the uniter should idle in the face of all
 	// remote state changes.
