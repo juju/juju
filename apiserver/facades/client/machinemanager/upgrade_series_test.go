@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/charmhub/transport"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
@@ -73,6 +74,7 @@ func (s *UpgradeSeriesSuiteValidate) TestValidateIsManager(c *gc.C) {
 	defer ctrl.Finish()
 
 	machine := NewMockMachine(ctrl)
+	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 	machine.EXPECT().IsManager().Return(true)
 
 	state := NewMockUpgradeSeriesState(ctrl)
@@ -203,6 +205,8 @@ func (s UpgradeSeriesSuitePrepare) TestPrepare(c *gc.C) {
 	units := []Unit{unit}
 
 	machine := NewMockMachine(ctrl)
+	machine.EXPECT().IsManager().Return(false)
+	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().CreateUpgradeSeriesLock([]string{"app/0"}, "focal")
 	machine.EXPECT().Series().Return("bionic").Times(2)
@@ -234,6 +238,8 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollback(c *gc.C) {
 	units := []Unit{unit}
 
 	machine := NewMockMachine(ctrl)
+	machine.EXPECT().IsManager().Return(false)
+	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().CreateUpgradeSeriesLock([]string{"app/0"}, "focal")
 	machine.EXPECT().Series().Return("bionic")
@@ -263,6 +269,8 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollbackError(c *gc.C) {
 	units := []Unit{unit}
 
 	machine := NewMockMachine(ctrl)
+	machine.EXPECT().IsManager().Return(false)
+	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().CreateUpgradeSeriesLock([]string{"app/0"}, "focal")
 	machine.EXPECT().Series().Return("bionic")
@@ -280,6 +288,31 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollbackError(c *gc.C) {
 	api := NewUpgradeSeriesAPI(state, validator, authorizer)
 	err := api.Prepare("machine-0", "focal", false)
 	c.Assert(err, gc.ErrorMatches, `boom occurred while cleaning up from: bad`)
+}
+
+func (s UpgradeSeriesSuitePrepare) TestPrepareIsLocked(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	machine := NewMockMachine(ctrl)
+	machine.EXPECT().Id().Return("0")
+	machine.EXPECT().IsManager().Return(false)
+	machine.EXPECT().IsLockedForSeriesUpgrade().Return(true, nil)
+	machine.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesCompleteRunning, nil)
+
+	state := NewMockUpgradeSeriesState(ctrl)
+	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
+
+	validator := NewMockUpgradeSeriesValidator(ctrl)
+
+	authorizer := NewMockAuthorizer(ctrl)
+
+	api := NewUpgradeSeriesAPI(state, validator, authorizer)
+	err := api.Prepare("machine-0", "focal", false)
+	c.Assert(err, gc.ErrorMatches, `upgrade series lock found for "0"; series upgrade is in the "complete running" state`)
+
+	typedErr := errors.Cause(err).(*apiservererrors.UpgradeSeriesValidationError)
+	c.Assert(typedErr.Status, gc.Equals, model.UpgradeSeriesCompleteRunning.String())
 }
 
 type ValidatorSuite struct {

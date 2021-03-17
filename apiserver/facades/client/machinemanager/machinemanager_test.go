@@ -757,9 +757,9 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepare(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	mach := s.st.machines["0"]
-	c.Assert(len(mach.Calls()), gc.Equals, 7)
-	mach.CheckCallNames(c, "Units", "CreateUpgradeSeriesLock", "Series", "Tag", "ApplicationNames", "Series", "SetUpgradeSeriesStatus")
-	mach.CheckCall(c, 1, "CreateUpgradeSeriesLock", []string{"foo/0", "foo/1", "foo/2"}, "xenial")
+	c.Assert(len(mach.Calls()), gc.Equals, 9)
+	mach.CheckCallNames(c, "IsManager", "IsLockedForSeriesUpgrade", "Units", "CreateUpgradeSeriesLock", "Series", "Tag", "ApplicationNames", "Series", "SetUpgradeSeriesStatus")
+	mach.CheckCall(c, 3, "CreateUpgradeSeriesLock", []string{"foo/0", "foo/1", "foo/2"}, "xenial")
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareMachineNotFound(c *gc.C) {
