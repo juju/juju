@@ -18,6 +18,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
 	jujutesting "github.com/juju/testing"
@@ -268,12 +269,14 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
 	s.patchBundleTools(c, nil)
 	seriesToUpload := "xenial"
-	if seriesToUpload == coretesting.HostSeries(c) {
+	hostSeries := coretesting.HostSeries(c)
+	if seriesToUpload == hostSeries {
 		seriesToUpload = "raring"
 	}
 	t, err := sync.Upload(s.targetStorage, "released", nil, "bionic", seriesToUpload)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertUploadedTools(c, t, []string{seriesToUpload, "bionic", coretesting.HostSeries(c)}, "released")
+	expectedSeries := set.NewStrings(seriesToUpload, "bionic", hostSeries)
+	s.assertUploadedTools(c, t, expectedSeries.Values(), "released")
 }
 
 func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
@@ -298,7 +301,8 @@ func (s *uploadSuite) TestSyncTools(c *gc.C) {
 func (s *uploadSuite) TestSyncToolsFakeSeries(c *gc.C) {
 	s.patchBundleTools(c, nil)
 	seriesToUpload := "xenial"
-	if seriesToUpload == coretesting.HostSeries(c) {
+	hostSeries := coretesting.HostSeries(c)
+	if seriesToUpload == hostSeries {
 		seriesToUpload = "raring"
 	}
 	builtTools, err := sync.BuildAgentTarball(true, nil, "testing")
@@ -306,7 +310,8 @@ func (s *uploadSuite) TestSyncToolsFakeSeries(c *gc.C) {
 
 	t, err := sync.SyncBuiltTools(s.targetStorage, "testing", builtTools, "bionic", seriesToUpload)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertUploadedTools(c, t, []string{seriesToUpload, "bionic", coretesting.HostSeries(c)}, "testing")
+	expectedSeries := set.NewStrings(seriesToUpload, "bionic", hostSeries)
+	s.assertUploadedTools(c, t, expectedSeries.Values(), "testing")
 }
 
 func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
