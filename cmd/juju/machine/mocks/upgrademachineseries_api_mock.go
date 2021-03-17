@@ -5,10 +5,9 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	watcher "github.com/juju/juju/core/watcher"
+	reflect "reflect"
 )
 
 // MockUpgradeMachineSeriesAPI is a mock of UpgradeMachineSeriesAPI interface
@@ -36,6 +35,7 @@ func (m *MockUpgradeMachineSeriesAPI) EXPECT() *MockUpgradeMachineSeriesAPIMockR
 
 // BestAPIVersion mocks base method
 func (m *MockUpgradeMachineSeriesAPI) BestAPIVersion() int {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BestAPIVersion")
 	ret0, _ := ret[0].(int)
 	return ret0
@@ -43,11 +43,13 @@ func (m *MockUpgradeMachineSeriesAPI) BestAPIVersion() int {
 
 // BestAPIVersion indicates an expected call of BestAPIVersion
 func (mr *MockUpgradeMachineSeriesAPIMockRecorder) BestAPIVersion() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BestAPIVersion", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).BestAPIVersion))
 }
 
 // Close mocks base method
 func (m *MockUpgradeMachineSeriesAPI) Close() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -55,11 +57,13 @@ func (m *MockUpgradeMachineSeriesAPI) Close() error {
 
 // Close indicates an expected call of Close
 func (mr *MockUpgradeMachineSeriesAPIMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).Close))
 }
 
 // GetUpgradeSeriesMessages mocks base method
 func (m *MockUpgradeMachineSeriesAPI) GetUpgradeSeriesMessages(arg0, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUpgradeSeriesMessages", arg0, arg1)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
@@ -68,11 +72,13 @@ func (m *MockUpgradeMachineSeriesAPI) GetUpgradeSeriesMessages(arg0, arg1 string
 
 // GetUpgradeSeriesMessages indicates an expected call of GetUpgradeSeriesMessages
 func (mr *MockUpgradeMachineSeriesAPIMockRecorder) GetUpgradeSeriesMessages(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUpgradeSeriesMessages", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).GetUpgradeSeriesMessages), arg0, arg1)
 }
 
 // UpgradeSeriesComplete mocks base method
 func (m *MockUpgradeMachineSeriesAPI) UpgradeSeriesComplete(arg0 string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpgradeSeriesComplete", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -80,11 +86,13 @@ func (m *MockUpgradeMachineSeriesAPI) UpgradeSeriesComplete(arg0 string) error {
 
 // UpgradeSeriesComplete indicates an expected call of UpgradeSeriesComplete
 func (mr *MockUpgradeMachineSeriesAPIMockRecorder) UpgradeSeriesComplete(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesComplete", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).UpgradeSeriesComplete), arg0)
 }
 
 // UpgradeSeriesPrepare mocks base method
 func (m *MockUpgradeMachineSeriesAPI) UpgradeSeriesPrepare(arg0, arg1 string, arg2 bool) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpgradeSeriesPrepare", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -92,11 +100,13 @@ func (m *MockUpgradeMachineSeriesAPI) UpgradeSeriesPrepare(arg0, arg1 string, ar
 
 // UpgradeSeriesPrepare indicates an expected call of UpgradeSeriesPrepare
 func (mr *MockUpgradeMachineSeriesAPIMockRecorder) UpgradeSeriesPrepare(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesPrepare", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).UpgradeSeriesPrepare), arg0, arg1, arg2)
 }
 
 // UpgradeSeriesValidate mocks base method
 func (m *MockUpgradeMachineSeriesAPI) UpgradeSeriesValidate(arg0, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpgradeSeriesValidate", arg0, arg1)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
@@ -105,11 +115,13 @@ func (m *MockUpgradeMachineSeriesAPI) UpgradeSeriesValidate(arg0, arg1 string) (
 
 // UpgradeSeriesValidate indicates an expected call of UpgradeSeriesValidate
 func (mr *MockUpgradeMachineSeriesAPIMockRecorder) UpgradeSeriesValidate(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesValidate", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).UpgradeSeriesValidate), arg0, arg1)
 }
 
 // WatchUpgradeSeriesNotifications mocks base method
 func (m *MockUpgradeMachineSeriesAPI) WatchUpgradeSeriesNotifications(arg0 string) (watcher.NotifyWatcher, string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchUpgradeSeriesNotifications", arg0)
 	ret0, _ := ret[0].(watcher.NotifyWatcher)
 	ret1, _ := ret[1].(string)
@@ -119,5 +131,6 @@ func (m *MockUpgradeMachineSeriesAPI) WatchUpgradeSeriesNotifications(arg0 strin
 
 // WatchUpgradeSeriesNotifications indicates an expected call of WatchUpgradeSeriesNotifications
 func (mr *MockUpgradeMachineSeriesAPIMockRecorder) WatchUpgradeSeriesNotifications(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUpgradeSeriesNotifications", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).WatchUpgradeSeriesNotifications), arg0)
 }
