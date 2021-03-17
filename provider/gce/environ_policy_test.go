@@ -22,6 +22,16 @@ type environPolSuite struct {
 
 var _ = gc.Suite(&environPolSuite{})
 
+func (s *environPolSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	// NOTE(achilleasa): at least one zone is required so that any tests
+	// that trigger a call to InstanceTypes can obtain a non-empty instance
+	// list.
+	zone := google.NewZone("a-zone", google.StatusUp, "", "")
+	s.FakeConn.Zones = []google.AvailabilityZone{zone}
+}
+
 func (s *environPolSuite) TestPrecheckInstanceDefaults(c *gc.C) {
 	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -39,9 +49,16 @@ func (s *environPolSuite) TestPrecheckInstanceFullAPI(c *gc.C) {
 	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Constraints: cons, Placement: placement})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
+	c.Check(s.FakeConn.Calls, gc.HasLen, 3)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "AvailabilityZones")
 	c.Check(s.FakeConn.Calls[0].Region, gc.Equals, "us-east1")
+	c.Check(s.FakeConn.Calls[1].FuncName, gc.Equals, "AvailabilityZones")
+	c.Check(s.FakeConn.Calls[1].Region, gc.Equals, "us-east1")
+	// NOTE(achilleas): If the constraint specifies an instance type,
+	// the precheck logic will fetch the machine types for the current zone
+	// to validate the constraint value.
+	c.Check(s.FakeConn.Calls[2].FuncName, gc.Equals, "ListMachineTypes")
+	c.Check(s.FakeConn.Calls[2].ZoneName, gc.Equals, "home-zone")
 }
 
 func (s *environPolSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {

@@ -216,6 +216,9 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		// Wait for migration to start.
 		watchStatusLockdownCalls,
+		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
+		},
 
 		// QUIESCE
 		prechecksCalls,
@@ -288,6 +291,7 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
 			apiOpenControllerCall,
@@ -403,6 +407,9 @@ func (s *Suite) TestQUIESCEFailedAgent(c *gc.C) {
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
+		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
+		},
 		prechecksCalls,
 		[]jujutesting.StubCall{
 			{"facade.WatchMinionReports", nil},
@@ -420,6 +427,7 @@ func (s *Suite) TestQUIESCEWrongController(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			{"facade.Prechecks", nil},
 			{"facade.ModelInfo", nil},
 			apiOpenControllerCall,
@@ -436,7 +444,10 @@ func (s *Suite) TestQUIESCESourceChecksFail(c *gc.C) {
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{{"facade.Prechecks", nil}},
+		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
+			{"facade.Prechecks", nil},
+		},
 		abortCalls,
 	))
 }
@@ -449,6 +460,7 @@ func (s *Suite) TestQUIESCEModelInfoFail(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			{"facade.Prechecks", nil},
 			{"facade.ModelInfo", nil},
 		},
@@ -463,6 +475,9 @@ func (s *Suite) TestQUIESCETargetChecksFail(c *gc.C) {
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
+		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
+		},
 		prechecksCalls,
 		abortCalls,
 	))
@@ -476,6 +491,7 @@ func (s *Suite) TestProcessRelationsFailure(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			{"facade.ProcessRelations", []interface{}{""}},
 		},
 		abortCalls,
@@ -490,6 +506,7 @@ func (s *Suite) TestExportFailure(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			{"facade.Export", nil},
 		},
 		abortCalls,
@@ -504,6 +521,7 @@ func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			{"facade.Export", nil},
 			apiOpenControllerCall,
 			{"facade.SetPhase", []interface{}{coremigration.ABORT}},
@@ -521,6 +539,7 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			{"facade.Export", nil},
 			apiOpenControllerCall,
 			importCall,
@@ -562,6 +581,7 @@ func (s *Suite) TestVALIDATIONFailedAgent(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
 		},
@@ -578,6 +598,7 @@ func (s *Suite) TestVALIDATIONCheckMachinesOneError(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
 			apiOpenControllerCall,
@@ -601,6 +622,7 @@ func (s *Suite) TestVALIDATIONCheckMachinesSeveralErrors(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
 			apiOpenControllerCall,
@@ -625,6 +647,7 @@ func (s *Suite) TestVALIDATIONCheckMachinesOtherError(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
 			apiOpenControllerCall,
@@ -656,6 +679,7 @@ func (s *Suite) TestSUCCESSMinionWaitFailedMachine(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
 			apiOpenControllerCall,
@@ -687,6 +711,7 @@ func (s *Suite) TestSUCCESSMinionWaitFailedUnit(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
 			apiOpenControllerCall,
@@ -729,6 +754,7 @@ func (s *Suite) TestSUCCESSMinionWaitTimeout(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			{"facade.WatchMinionReports", nil},
 			apiOpenControllerCall,
 			adoptResourcesCall,
@@ -790,6 +816,7 @@ func (s *Suite) TestAPIConnectWithMacaroon(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			{
 				"apiOpen",
 				[]interface{}{
@@ -817,6 +844,7 @@ func (s *Suite) TestLogTransferErrorOpeningTargetAPI(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			apiOpenControllerCall,
 		},
 	))
@@ -830,6 +858,7 @@ func (s *Suite) TestLogTransferErrorGettingStartTime(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
 		},
@@ -844,6 +873,7 @@ func (s *Suite) TestLogTransferErrorOpeningLogSource(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{"StreamModelLog", []interface{}{time.Time{}}},
@@ -859,6 +889,7 @@ func (s *Suite) TestLogTransferErrorOpeningLogDest(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{"StreamModelLog", []interface{}{time.Time{}}},
@@ -877,6 +908,7 @@ func (s *Suite) TestLogTransferErrorWriting(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{"StreamModelLog", []interface{}{time.Time{}}},
@@ -912,6 +944,7 @@ func (s *Suite) TestLogTransferSendsRecords(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{"StreamModelLog", []interface{}{time.Time{}}},
@@ -978,6 +1011,7 @@ func (s *Suite) TestLogTransfer_ChecksLatestTime(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
+			{"facade.MinionReportTimeout", nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{"StreamModelLog", []interface{}{t}},
@@ -1078,6 +1112,7 @@ func newStubMasterFacade(stub *jujutesting.Stub) *stubMasterFacade {
 		// Give minionReportsChanges a larger-than-required buffer to
 		// support waits at a number of phases.
 		minionReportsChanges: make(chan struct{}, 999),
+		minionReportTimeout:  15 * time.Minute,
 	}
 }
 
@@ -1103,6 +1138,7 @@ type stubMasterFacade struct {
 	minionReportsWatchErr error
 	minionReports         []coremigration.MinionReports
 	minionReportsErr      error
+	minionReportTimeout   time.Duration
 
 	exportedResources []coremigration.SerializedModelResource
 
@@ -1176,6 +1212,11 @@ func (f *stubMasterFacade) MinionReports() (coremigration.MinionReports, error) 
 	r := f.minionReports[0]
 	f.minionReports = f.minionReports[1:]
 	return r, nil
+}
+
+func (f *stubMasterFacade) MinionReportTimeout() (time.Duration, error) {
+	f.stub.AddCall("facade.MinionReportTimeout")
+	return f.minionReportTimeout, nil
 }
 
 func (f *stubMasterFacade) Prechecks() error {

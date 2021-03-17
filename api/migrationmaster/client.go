@@ -279,6 +279,25 @@ func (c *Client) MinionReports() (migration.MinionReports, error) {
 	return out, nil
 }
 
+// MinionReportTimeout returns the maximum duration that the migration master
+// worker should wait for minions to report on a migration phase.
+func (c *Client) MinionReportTimeout() (time.Duration, error) {
+	var timeout time.Duration
+
+	var res params.StringResult
+	err := c.caller.FacadeCall("MinionReports", nil, &res)
+	if err != nil {
+		return timeout, errors.Trace(err)
+	}
+
+	if res.Error != nil {
+		return timeout, res.Error
+	}
+
+	timeout, err = time.ParseDuration(res.Result)
+	return timeout, errors.Trace(err)
+}
+
 // StreamModelLog takes a starting time and returns a channel that
 // will yield the logs on or after that time - these are the logs that
 // need to be transferred to the target after the migration is

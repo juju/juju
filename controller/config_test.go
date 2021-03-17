@@ -345,6 +345,12 @@ var newConfigTests = []struct {
 		controller.PublicDNSAddress: 42,
 	},
 	expectError: `public-dns-address: expected string, got int\(42\)`,
+}, {
+	about: "migration-agent-wait-time not a duration",
+	config: controller.Config{
+		controller.MigrationMinionWaitMax: "15",
+	},
+	expectError: `migration-agent-wait-time value "15" must be a valid duration`,
 }, {}}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {
@@ -773,4 +779,18 @@ func (s *ConfigSuite) TestJujuDBSnapChannel(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.JujuDBSnapChannel(), gc.Equals, "latest/candidate")
+}
+
+func (s *ConfigSuite) TestMigrationMinionWaitMax(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	defaultDuration, err := time.ParseDuration(controller.DefaultMigrationMinionWaitMax)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.MigrationMinionWaitMax(), gc.Equals, defaultDuration)
+
+	cfg[controller.MigrationMinionWaitMax] = "500ms"
+	c.Assert(cfg.MigrationMinionWaitMax(), gc.Equals, 500*time.Millisecond)
 }
