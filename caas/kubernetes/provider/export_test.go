@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/kubernetes"
@@ -130,7 +130,7 @@ func NewProviderCredentials(
 	}
 }
 
-func (k *kubernetesClient) GetCRDsForCRs(crs map[string][]unstructured.Unstructured, getter CRDGetterInterface) (out map[string]*apiextensionsv1beta1.CustomResourceDefinition, err error) {
+func (k *kubernetesClient) GetCRDsForCRs(crs map[string][]unstructured.Unstructured, getter CRDGetterInterface) (out map[string]*apiextensionsv1.CustomResourceDefinition, err error) {
 	return k.getCRDsForCRs(crs, getter)
 }
 
