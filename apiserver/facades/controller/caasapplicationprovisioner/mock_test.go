@@ -568,3 +568,19 @@ func (v *mockVolume) SetStatus(statusInfo status.StatusInfo) error {
 func (v *mockVolume) Info() (state.VolumeInfo, error) {
 	return state.VolumeInfo{}, errors.NotProvisionedf("volume")
 }
+
+type mockResourceOpener struct {
+	testing.Stub
+
+	appName   string
+	resources *mockResources
+}
+
+func (ro *mockResourceOpener) OpenResource(name string) (resource.Opened, error) {
+	ro.MethodCall(ro, "OpenResource", name)
+	r, rio, err := ro.resources.OpenResource(ro.appName, name)
+	if err != nil {
+		return resource.Opened{}, err
+	}
+	return resource.Opened{Resource: r, ReadCloser: rio}, nil
+}

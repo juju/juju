@@ -24,6 +24,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	jujuresource "github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -66,8 +67,11 @@ func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
 	}
 	s.storagePoolManager = &mockStoragePoolManager{}
 	s.registry = &mockStorageRegistry{}
+	newResourceOpener := func(appName string) (jujuresource.Opener, error) {
+		return &mockResourceOpener{appName: appName, resources: s.st.resource}, nil
+	}
 	api, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
-		s.st, s.st, s.resources, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock)
+		s.st, s.st, s.resources, newResourceOpener, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -77,7 +81,7 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *gc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
-		s.st, s.st, s.resources, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock)
+		s.st, s.st, s.resources, nil, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -494,6 +498,7 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationCharmURLs(c *gc.C) {
 
 func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
 	s.st.app = &mockApplication{
+		tag:  names.NewApplicationTag("gitlab"),
 		life: state.Alive,
 		charm: &mockCharm{
 			meta: &charm.Meta{
@@ -518,6 +523,7 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
 			Password:     "pwd",
 		},
 	}
+
 	result, err := s.api.ApplicationOCIResources(params.Entities{
 		Entities: []params.Entity{{
 			Tag: "application-gitlab",

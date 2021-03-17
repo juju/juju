@@ -40,6 +40,21 @@ func (m *MockResourceOpenerState) EXPECT() *MockResourceOpenerStateMockRecorder 
 	return m.recorder
 }
 
+// Application mocks base method
+func (m *MockResourceOpenerState) Application(arg0 string) (resourceadapters.Application, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Application", arg0)
+	ret0, _ := ret[0].(resourceadapters.Application)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Application indicates an expected call of Application
+func (mr *MockResourceOpenerStateMockRecorder) Application(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockResourceOpenerState)(nil).Application), arg0)
+}
+
 // Charm mocks base method
 func (m *MockResourceOpenerState) Charm(arg0 *charm.URL) (*state.Charm, error) {
 	m.ctrl.T.Helper()
@@ -150,6 +165,49 @@ func (m *MockApplication) CharmOrigin() *state.CharmOrigin {
 func (mr *MockApplicationMockRecorder) CharmOrigin() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmOrigin", reflect.TypeOf((*MockApplication)(nil).CharmOrigin))
+}
+
+// CharmURL mocks base method
+func (m *MockApplication) CharmURL() (*charm.URL, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CharmURL")
+	ret0, _ := ret[0].(*charm.URL)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// CharmURL indicates an expected call of CharmURL
+func (mr *MockApplicationMockRecorder) CharmURL() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmURL", reflect.TypeOf((*MockApplication)(nil).CharmURL))
+}
+
+// Name mocks base method
+func (m *MockApplication) Name() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Name")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Name indicates an expected call of Name
+func (mr *MockApplicationMockRecorder) Name() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockApplication)(nil).Name))
+}
+
+// Tag mocks base method
+func (m *MockApplication) Tag() names.Tag {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Tag")
+	ret0, _ := ret[0].(names.Tag)
+	return ret0
+}
+
+// Tag indicates an expected call of Tag
+func (mr *MockApplicationMockRecorder) Tag() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockApplication)(nil).Tag))
 }
 
 // MockUnit is a mock of Unit interface
@@ -283,6 +341,22 @@ func (m *MockResources) GetResource(arg0, arg1 string) (resource0.Resource, erro
 func (mr *MockResourcesMockRecorder) GetResource(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResource", reflect.TypeOf((*MockResources)(nil).GetResource), arg0, arg1)
+}
+
+// OpenResource mocks base method
+func (m *MockResources) OpenResource(arg0, arg1 string) (resource0.Resource, io.ReadCloser, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OpenResource", arg0, arg1)
+	ret0, _ := ret[0].(resource0.Resource)
+	ret1, _ := ret[1].(io.ReadCloser)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// OpenResource indicates an expected call of OpenResource
+func (mr *MockResourcesMockRecorder) OpenResource(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenResource", reflect.TypeOf((*MockResources)(nil).OpenResource), arg0, arg1)
 }
 
 // OpenResourceForUniter mocks base method

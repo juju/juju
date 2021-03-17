@@ -34,6 +34,7 @@ func NewResourceOpenerForTest(
 	res Resources,
 	tag names.Tag,
 	unit Unit,
+	application Application,
 	fn func(st ResourceOpenerState) ResourceRetryClientGetter,
 ) *ResourceOpener {
 	return &ResourceOpener{
@@ -41,6 +42,7 @@ func NewResourceOpenerForTest(
 		res:               res,
 		userID:            tag,
 		unit:              unit,
+		application:       application,
 		newResourceOpener: fn,
 	}
 }
