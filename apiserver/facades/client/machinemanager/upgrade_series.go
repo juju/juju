@@ -26,6 +26,11 @@ type UpgradeSeries interface {
 	// If they do, a list of the machine's current units is returned for use in
 	// soliciting user confirmation of the command.
 	Validate([]ValidationEntity) ([]ValidationResult, error)
+
+	// Prepare attempts to prepare a machine for a OS series upgrade.
+	// It is expected that a validate call has been performed before the prepare
+	// step.
+	Prepare(string, string, bool) error
 }
 
 // UpgradeSeriesState defines a common set of functions for retrieving state
@@ -175,6 +180,31 @@ func (a *UpgradeSeriesAPI) Validate(entities []ValidationEntity) ([]ValidationRe
 	}
 
 	return results, nil
+}
+
+func (a *UpgradeSeriesAPI) Prepare(tag, series string, force bool) error {
+	if series == "" {
+		return errors.BadRequestf("series missing from args")
+	}
+
+	machine, err := a.state.MachineFromTag(tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	units, err := machine.Units()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	unitNames := make([]string, len(units))
+	for i, unit := range units {
+		unitNames[i] = unit.UnitTag().Id()
+	}
+
+	// TODO 2018-06-28 managed series upgrade
+	// improve error handling based on error type, there will be cases where retrying
+	// the hooks is needed etc.
+	return machine.CreateUpgradeSeriesLock(unitNames, series)
 }
 
 func verifyUnits(units []Unit) ([]string, error) {

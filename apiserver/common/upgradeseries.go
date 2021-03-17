@@ -227,12 +227,34 @@ func (u *UpgradeSeriesAPI) setUnitStatus(args params.UpgradeSeriesStatusParams) 
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		status, err := model.ValidateUpgradeSeriesStatus(p.Status)
+
+		graph := model.UpgradeSeriesGraph()
+		if !graph.ValidState(p.Status) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotValidf("upgrade series status %q", p.Status))
+			continue
+		}
+
+		current, err := unit.UpgradeSeriesStatus()
+		if err != nil {
+			logger.Tracef("unit upgrade series status not found, fallback to not-started: %v", err)
+			current = model.UpgradeSeriesNotStarted
+		}
+		if !graph.ValidState(current) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotValidf("current upgrade series status %q", current))
+			continue
+		}
+
+		fsm, err := model.NewUpgradeSeriesFSM(graph, current)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = unit.SetUpgradeSeriesStatus(status, p.Message)
+		if !fsm.TransitionTo(p.Status) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.BadRequestf("upgrade series status %q", p.Status))
+			continue
+		}
+
+		err = unit.SetUpgradeSeriesStatus(p.Status, p.Message)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue

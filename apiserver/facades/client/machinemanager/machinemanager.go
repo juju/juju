@@ -547,43 +547,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesPrepare(args params.UpdateSeriesArg) (
 }
 
 func (mm *MachineManagerAPI) upgradeSeriesPrepare(arg params.UpdateSeriesArg) error {
-	if arg.Series == "" {
-		return &params.Error{
-			Message: "series missing from args",
-			Code:    params.CodeBadRequest,
-		}
-	}
-	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	machine, err := mm.st.Machine(machineTag.Id())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	unitNames, err := mm.verifiedUnits(machine, arg.Series, arg.Force)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err = machine.CreateUpgradeSeriesLock(unitNames, arg.Series); err != nil {
-		// TODO 2018-06-28 managed series upgrade
-		// improve error handling based on error type, there will be cases where retrying
-		// the hooks is needed etc.
-		return errors.Trace(err)
-	}
-
-	// TODO (stickupkid) Download charms from charmhub.
-
-	defer func() {
-		if err != nil {
-			// TODO (stickupkid) Rollback new downloaded charmhub charms...
-			if err2 := machine.RemoveUpgradeSeriesLock(); err2 != nil {
-				err = errors.Annotatef(err, "%s occurred while cleaning up from", err2)
-			}
-		}
-	}()
-	return nil
+	return mm.upgradeSeriesAPI.Prepare(arg.Entity.Tag, arg.Series, arg.Force)
 }
 
 // UpgradeSeriesComplete marks a machine as having completed a managed series upgrade.
