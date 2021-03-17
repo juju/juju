@@ -421,7 +421,7 @@ func (s *ActionSuite) TestLastActionFinishCompletesOperationMany(c *gc.C) {
 				c.Assert(operation.Status(), gc.Not(gc.Equals), state.ActionCompleted)
 			}
 
-			_, err = actions[a].Finish(state.ActionResults{
+			_, err := actions[a].Finish(state.ActionResults{
 				Status: state.ActionCompleted,
 			})
 			c.Assert(err, jc.ErrorIsNil)
