@@ -160,7 +160,8 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		URL:     "https://example.org",
 	}}
 
-	cons := constraints.Value{InstanceType: &allInstanceTypes[0].Name}
+	var instType = "n1-standard-1"
+	cons := constraints.Value{InstanceType: &instType}
 
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "trusty", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -201,7 +202,14 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		Constraints:    cons,
 	}
 
-	s.InstanceType = allInstanceTypes[0]
+	s.InstanceType = instances.InstanceType{
+		Name:     instType,
+		Arches:   machArches,
+		CpuCores: 1,
+		CpuPower: instances.CpuPower(275),
+		Mem:      3750,
+		VirtType: &virtType,
+	}
 
 	// Storage
 	eUUID := s.Env.Config().UUID()
@@ -438,7 +446,7 @@ func (fe *fakeEnviron) GetInstances(env *environ, ctx context.ProviderCallContex
 	return fe.Insts, fe.err()
 }
 
-func (fe *fakeEnviron) BuildInstanceSpec(env *environ, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
+func (fe *fakeEnviron) BuildInstanceSpec(env *environ, ctx context.ProviderCallContext, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
 	fe.addCall("BuildInstanceSpec", FakeCallArgs{
 		"switch": env,
 		"args":   args,
@@ -468,11 +476,13 @@ func (fe *fakeEnviron) FindInstanceSpec(
 	env *environ,
 	ic *instances.InstanceConstraint,
 	imageMetadata []*imagemetadata.ImageMetadata,
+	instanceTypes []instances.InstanceType,
 ) (*instances.InstanceSpec, error) {
 	fe.addCall("FindInstanceSpec", FakeCallArgs{
 		"switch":        env,
 		"ic":            ic,
 		"imageMetadata": imageMetadata,
+		"instanceTypes": instanceTypes,
 	})
 	return fe.Spec, fe.err()
 }
@@ -723,8 +733,8 @@ func (fc *fakeConn) ListMachineTypes(zone string) ([]google.MachineType, error) 
 	fc.Calls = append(fc.Calls, call)
 
 	return []google.MachineType{
-		{Name: "type-1", MemoryMb: 1024},
-		{Name: "type-2", MemoryMb: 2048},
+		{Name: "n1-standard-1", MemoryMb: 1024, GuestCpus: 1},
+		{Name: "n1-standard-2", MemoryMb: 2048, GuestCpus: 2},
 	}, nil
 }
 

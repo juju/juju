@@ -267,8 +267,9 @@ func AllFacades() *facade.Registry {
 	reg("MetricsManager", 1, metricsmanager.NewFacade)
 
 	reg("MigrationFlag", 1, migrationflag.NewFacade)
-	reg("MigrationMaster", 1, migrationmaster.NewMigrationMasterFacade)
+	reg("MigrationMaster", 1, migrationmaster.NewMigrationMasterFacadeV1)
 	reg("MigrationMaster", 2, migrationmaster.NewMigrationMasterFacadeV2)
+	reg("MigrationMaster", 3, migrationmaster.NewMigrationMasterFacade) // Adds MinionReportTimeout.
 	reg("MigrationMinion", 1, migrationminion.NewFacade)
 	reg("MigrationTarget", 1, migrationtarget.NewFacade)
 

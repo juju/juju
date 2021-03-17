@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/juju/controller"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/description/v2"
 	"github.com/juju/errors"
@@ -518,6 +520,22 @@ func (s *Suite) TestMinionReports(c *gc.C) {
 			u1.String(),
 		},
 	})
+}
+
+func (s *Suite) TestMinionReportTimeout(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	timeout := "30s"
+
+	s.backend.EXPECT().ControllerConfig().Return(controller.Config{
+		controller.MigrationMinionWaitMax: timeout,
+	}, nil)
+
+	res, err := s.mustMakeAPI(c).MinionReportTimeout()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Error, gc.IsNil)
+	c.Check(res.Result, gc.Equals, timeout)
 }
 
 func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
