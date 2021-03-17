@@ -555,7 +555,7 @@ func ensureModelOperatorRBAC(
 			{
 				APIGroups: []string{""},
 				Resources: []string{"namespaces"},
-				Verbs:     []string{"get"},
+				Verbs:     []string{"get", "list"},
 			},
 			{
 				APIGroups: []string{"admissionregistration.k8s.io"},

@@ -46,7 +46,7 @@ func (m *ModelOperatorSuite) Test(c *gc.C) {
 			c.Assert(cr.Name, gc.Equals, modelOperatorName)
 			c.Assert(cr.Rules[0].APIGroups, jc.DeepEquals, []string{""})
 			c.Assert(cr.Rules[0].Resources, jc.DeepEquals, []string{"namespaces"})
-			c.Assert(cr.Rules[0].Verbs, jc.DeepEquals, []string{"get"})
+			c.Assert(cr.Rules[0].Verbs, jc.DeepEquals, []string{"get", "list"})
 			c.Assert(cr.Rules[1].APIGroups, jc.DeepEquals, []string{"admissionregistration.k8s.io"})
 			c.Assert(cr.Rules[1].Resources, jc.DeepEquals, []string{"mutatingwebhookconfigurations"})
 			c.Assert(cr.Rules[1].Verbs, jc.DeepEquals, []string{
