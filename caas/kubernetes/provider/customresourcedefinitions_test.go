@@ -635,7 +635,7 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 				},
 				Spec: podSpec,
 			},
-			PodManagementPolicy: apps.ParallelPodManagement,
+			PodManagementPolicy: appsv1.ParallelPodManagement,
 			ServiceName:         "app-name-endpoints",
 		},
 	}
@@ -1034,7 +1034,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 				Resource: crd.Spec.Names.Plural,
 			},
 		).Times(1).Return(s.mockNamespaceableResourceClient),
-		s.mockResourceClient.EXPECT().List(gomock.Any(), v1.ListOptions{}).Times(1).Return(&unstructured.UnstructuredList{}, nil),
+		s.mockResourceClient.EXPECT().List(gomock.Any(), v1.ListOptions{}).Times(1).Return(
+			&unstructured.UnstructuredList{Items: []unstructured.Unstructured{{Object: map[string]interface{}{}}}}, nil,
+		),
 
 		// ensuring cr1.
 		s.mockDynamicClient.EXPECT().Resource(
@@ -1330,10 +1332,10 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsAllGood(c *gc.C) {
 		resultChan <- result
 	}(s.broker)
 
-	err := s.clock.WaitAdvance(time.Second, testing.LongWait, 2)
+	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.clock.WaitAdvance(time.Second, testing.LongWait, 1)
+	err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
@@ -1371,7 +1373,7 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsFailEarly(c *gc.C) {
 		resultChan <- result
 	}(s.broker)
 
-	err := s.clock.WaitAdvance(time.Second, testing.LongWait, 1)
+	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {

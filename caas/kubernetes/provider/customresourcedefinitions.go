@@ -7,12 +7,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
+	"golang.org/x/sync/errgroup"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -343,9 +343,7 @@ type crdGetter struct {
 	Broker *kubernetesClient
 }
 
-func (cg *crdGetter) Get(
-	name string,
-) (*apiextensionsv1beta1.CustomResourceDefinition, error) {
+func (cg *crdGetter) Get(name string) (*apiextensionsv1beta1.CustomResourceDefinition, error) {
 	crd, err := cg.Broker.getCustomResourceDefinition(name)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting custom resource definition %q", name)
@@ -361,8 +359,8 @@ func (cg *crdGetter) Get(
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting custom resource definition client %q", name)
 	}
-	if _, err := crClient.List(context.TODO(), metav1.ListOptions{}); err != nil {
-		if k8serrors.IsNotFound(err) {
+	if resources, err := crClient.List(context.TODO(), metav1.ListOptions{}); err != nil {
+		if k8serrors.IsNotFound(err) || len(resources.Items) == 0 {
 			// CRD already exists, but the resource type does not exist yet.
 			return nil, errors.NewNotFound(err, fmt.Sprintf("custom resource definition %q resource type", crd.GetName()))
 		}
@@ -375,38 +373,37 @@ func (k *kubernetesClient) getCRDsForCRs(
 	crs map[string][]unstructured.Unstructured,
 	getter CRDGetterInterface,
 ) (out map[string]*apiextensionsv1beta1.CustomResourceDefinition, err error) {
-
-	out = make(map[string]*apiextensionsv1beta1.CustomResourceDefinition)
-	crdChan := make(chan *apiextensionsv1beta1.CustomResourceDefinition, 1)
-	errChan := make(chan error, 1)
-
 	n := len(crs)
 	if n == 0 {
 		return
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(n)
-	defer wg.Wait()
+	out = make(map[string]*apiextensionsv1beta1.CustomResourceDefinition)
+	crdChan := make(chan *apiextensionsv1beta1.CustomResourceDefinition, n)
 
 	getCRD := func(
 		ctx context.Context,
 		name string,
 		getter CRDGetterInterface,
 		resultChan chan<- *apiextensionsv1beta1.CustomResourceDefinition,
-		errChan chan<- error,
 		clk jujuclock.Clock,
-	) {
-		var crd *apiextensionsv1beta1.CustomResourceDefinition
-		var err error
-		err = retry.Call(retry.CallArgs{
+	) error {
+		return retry.Call(retry.CallArgs{
 			Attempts: 8,
 			Delay:    1 * time.Second,
 			Clock:    clk,
 			Stop:     ctx.Done(),
 			Func: func() error {
-				crd, err = getter.Get(name)
-				return errors.Trace(err)
+				if crd, err := getter.Get(name); err != nil {
+					return err
+				} else {
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case resultChan <- crd:
+					}
+					return nil
+				}
 			},
 			IsFatalError: func(err error) bool {
 				return err != nil && !errors.IsNotFound(err)
@@ -415,38 +412,28 @@ func (k *kubernetesClient) getCRDsForCRs(
 				logger.Debugf("fetching custom resource definition %q, err %#v, attempt %v", name, err, attempt)
 			},
 		})
-		if err == nil {
-			select {
-			case resultChan <- crd:
-			}
-		} else {
-			select {
-			case errChan <- err:
-			}
-		}
-		wg.Done()
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	g, ctx := errgroup.WithContext(ctx)
 	for name := range crs {
-		go getCRD(ctx, name, getter, crdChan, errChan, k.clock)
+		n := name
+		g.Go(func() error {
+			return getCRD(ctx, n, getter, crdChan, k.clock)
+		})
 	}
-
-	for range crs {
-		select {
-		case crd := <-crdChan:
-			if crd == nil {
-				continue
-			}
-			name := crd.GetName()
-			out[name] = crd
-			logger.Debugf("custom resource definition %q is ready", name)
-		case err := <-errChan:
-			if err != nil {
-				return nil, errors.Annotatef(err, "getting custom resources")
-			}
+	if err := g.Wait(); err != nil {
+		return nil, errors.Annotatef(err, "getting custom resources")
+	}
+	close(crdChan)
+	for crd := range crdChan {
+		if crd == nil {
+			continue
 		}
+		name := crd.GetName()
+		out[name] = crd
+		logger.Debugf("custom resource definition %q is ready", name)
 	}
 	return out, nil
 }
