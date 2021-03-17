@@ -23,7 +23,7 @@ func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args envir
 	}
 
 	if args.Constraints.HasInstanceType() {
-		if !checkInstanceType(args.Constraints) {
+		if !env.checkInstanceType(ctx, args.Constraints) {
 			return errors.Errorf("invalid GCE instance type %q", *args.Constraints.InstanceType)
 		}
 	}
@@ -65,13 +65,16 @@ func (env *environ) ConstraintsValidator(ctx context.ProviderCallContext) (const
 
 	// vocab
 
-	instTypeNames := make([]string, len(allInstanceTypes))
-	for i, itype := range allInstanceTypes {
+	instTypesAndCosts, err := env.InstanceTypes(ctx, constraints.Value{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	instTypeNames := make([]string, len(instTypesAndCosts.InstanceTypes))
+	for i, itype := range instTypesAndCosts.InstanceTypes {
 		instTypeNames[i] = itype.Name
 	}
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
-
-	validator.RegisterVocabulary(constraints.Container, []string{vtype})
+	validator.RegisterVocabulary(constraints.Container, []string{virtType})
 
 	return validator, nil
 }

@@ -177,9 +177,21 @@ func (env *environ) parsePlacement(ctx context.ProviderCallContext, placement st
 
 // checkInstanceType is used to ensure the the provided constraints
 // specify a recognized instance type.
-func checkInstanceType(cons constraints.Value) bool {
-	// Constraint has an instance-type constraint so let's see if it is valid.
-	for _, itype := range allInstanceTypes {
+func (env *environ) checkInstanceType(ctx context.ProviderCallContext, cons constraints.Value) bool {
+	if cons.InstanceType == nil || *cons.InstanceType == "" {
+		return false
+	}
+
+	// NOTE(achilleasa): the instance-matching logic in the instances
+	// package does not support matching against a instance name so we just
+	// fetch all instance types and check manually.
+	instTypesAndCosts, err := env.InstanceTypes(ctx, constraints.Value{})
+	if err != nil {
+		logger.Errorf("unable to fetch GCE instance types: %v", err)
+		return false
+	}
+
+	for _, itype := range instTypesAndCosts.InstanceTypes {
 		if itype.Name == *cons.InstanceType {
 			return true
 		}
