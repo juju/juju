@@ -80,15 +80,17 @@ func NewUpgradeSeriesCommand() cmd.Command {
 	return modelcmd.Wrap(&upgradeSeriesCommand{})
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/upgradeMachineSeriesAPI_mock.go github.com/juju/juju/cmd/juju/machine UpgradeMachineSeriesAPI
 type UpgradeMachineSeriesAPI interface {
 	BestAPIVersion() int
 	Close() error
-	UpgradeSeriesValidate(string, string) ([]string, error)
 	UpgradeSeriesPrepare(string, string, bool) error
 	UpgradeSeriesComplete(string) error
 	WatchUpgradeSeriesNotifications(string) (watcher.NotifyWatcher, string, error)
 	GetUpgradeSeriesMessages(string, string) ([]string, error)
+}
+
+type StatusAPI interface {
+	Status(pattern []string) (*params.FullStatus, error)
 }
 
 // upgradeSeriesCommand is responsible for updating the series of an application or machine.
@@ -97,6 +99,7 @@ type upgradeSeriesCommand struct {
 	modelcmd.IAASOnlyCommand
 
 	upgradeMachineSeriesClient UpgradeMachineSeriesAPI
+	statusClient               StatusAPI
 
 	subCommand    string
 	force         bool
@@ -245,16 +248,19 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) (err error
 		defer apiRoot.Close()
 	}
 
-	units, err := c.upgradeMachineSeriesClient.UpgradeSeriesValidate(c.machineNumber, c.series)
+	units, err := c.retrieveUnits()
 	if err != nil {
-		return c.displayProgressFromError(ctx, err)
+		return errors.Trace(err)
+	} else if len(units) == 0 {
+		return errors.NotFoundf("units for machine %q", c.machineNumber)
 	}
+
 	if err := c.promptConfirmation(ctx, units); err != nil {
 		return errors.Trace(err)
 	}
 
 	if err = c.upgradeMachineSeriesClient.UpgradeSeriesPrepare(c.machineNumber, c.series, c.force); err != nil {
-		return errors.Trace(err)
+		return c.displayProgressFromError(ctx, err)
 	}
 
 	if err = c.handleNotifications(ctx); err != nil {
@@ -265,6 +271,29 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) (err error
 	ctx.Infof(m, c.machineNumber)
 
 	return nil
+}
+
+func (c *upgradeSeriesCommand) retrieveUnits() ([]string, error) {
+	// get the units for a given machine.
+	fullStatus, err := c.statusClient.Status(nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var units []string
+	machine, ok := fullStatus.Machines[c.machineNumber]
+	if !ok {
+		return nil, errors.NotFoundf("machine %q", c.machineNumber)
+	}
+	for _, application := range fullStatus.Applications {
+		for name, unit := range application.Units {
+			if unit.Machine == machine.Id {
+				units = append(units, name)
+			}
+		}
+	}
+
+	return units, nil
 }
 
 // Display any progress information from the error. If there isn't any info
@@ -423,6 +452,13 @@ func (c *upgradeSeriesCommand) ensureAPIClient() (api.Connection, error) {
 			return nil, errors.Trace(err)
 		}
 		c.upgradeMachineSeriesClient = machinemanager.NewClient(apiRoot)
+	}
+	if c.statusClient == nil {
+		var err error
+		c.statusClient, err = c.NewAPIClient()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	return apiRoot, nil
 }

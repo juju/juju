@@ -14,6 +14,7 @@ func (s UpgradeSeriesStatus) String() string {
 
 const (
 	UpgradeSeriesNotStarted       UpgradeSeriesStatus = "not started"
+	UpgradeSeriesValidate         UpgradeSeriesStatus = "validate"
 	UpgradeSeriesPrepareStarted   UpgradeSeriesStatus = "prepare started"
 	UpgradeSeriesPrepareRunning   UpgradeSeriesStatus = "prepare running"
 	UpgradeSeriesPrepareCompleted UpgradeSeriesStatus = "prepare completed"
@@ -51,7 +52,14 @@ func (g Graph) ValidState(state UpgradeSeriesStatus) bool {
 // series.
 func UpgradeSeriesGraph() Graph {
 	return map[UpgradeSeriesStatus][]UpgradeSeriesStatus{
+		// Some clients are older and don't know about the validation phase, so
+		// in that case we allow them to jump to prepare-started.
 		UpgradeSeriesNotStarted: {
+			UpgradeSeriesPrepareStarted,
+			UpgradeSeriesValidate,
+			UpgradeSeriesError,
+		},
+		UpgradeSeriesValidate: {
 			UpgradeSeriesPrepareStarted,
 			UpgradeSeriesError,
 		},

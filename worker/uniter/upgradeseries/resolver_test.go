@@ -31,6 +31,18 @@ func (ResolverSuite) NewResolver() resolver.Resolver {
 	return upgradeseries.NewResolver(logger)
 }
 
+func (s ResolverSuite) TestNextOpWithValidationStatus(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFactory := mocks.NewMockFactory(ctrl)
+	res := s.NewResolver()
+	_, err := res.NextOp(resolver.LocalState{}, remotestate.Snapshot{
+		UpgradeSeriesStatus: model.UpgradeSeriesValidate,
+	}, mockFactory)
+	c.Assert(err, gc.Equals, resolver.ErrDoNotProceed)
+}
+
 func (s ResolverSuite) TestNextOpWithRemoveStateCompleted(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

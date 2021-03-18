@@ -178,6 +178,8 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 	}
 
 	switch w.machineStatus {
+	case model.UpgradeSeriesValidate:
+		err = w.handleValidate()
 	case model.UpgradeSeriesPrepareStarted:
 		err = w.handlePrepareStarted()
 	case model.UpgradeSeriesCompleteStarted:
@@ -192,6 +194,15 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 		}
 	}
 	return errors.Trace(err)
+}
+
+// handleValidate handles the workflow for the machine with validating the
+// given set of machine applications and charms.
+func (w *upgradeSeriesWorker) handleValidate() error {
+	if err := w.SetInstanceStatus(model.UpgradeSeriesValidate, "validating units"); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // handlePrepareStarted handles workflow for the machine with an upgrade-series

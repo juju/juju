@@ -5,6 +5,7 @@ package machinemanager
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
@@ -14,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/charmhub"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -121,45 +123,12 @@ func (a *UpgradeSeriesAPI) Validate(entities []ValidationEntity) ([]ValidationRe
 			continue
 		}
 
-		if machine.IsManager() {
-			results[i].Error = errors.Errorf("%s is a controller and cannot be targeted for series upgrade", entity.Tag)
-			continue
-		}
-
-		// If we've already got a series lock on upgrade, don't go any further.
-		if locked, err := machine.IsLockedForSeriesUpgrade(); errors.IsNotFound(errors.Cause(err)) {
-			results[i].Error = errors.Trace(err)
-			continue
-		} else if locked {
-			// Grab the status from upgrade series and add it to the error.
-			status, err := machine.UpgradeSeriesStatus()
-			if err != nil {
-				results[i].Error = errors.Trace(err)
-				continue
-			}
-
-			// Additionally add the status to the underlying params error. This
-			// gives a typed error to the client, which can then decode ths
-			// optional information later on.
-			results[i].Error = &apiservererrors.UpgradeSeriesValidationError{
-				Cause:  errors.Errorf("upgrade series lock found for %q; series upgrade is in the %q state", machine.Id(), status),
-				Status: status.String(),
-			}
-			continue
-		}
-
-		if err := a.validator.ValidateSeries(entity.Series, machine.Series(), entity.Tag); err != nil {
+		if err := a.validateMachine(machine); err != nil {
 			results[i].Error = errors.Trace(err)
 			continue
 		}
 
-		applications, err := a.state.ApplicationsFromMachine(machine)
-		if err != nil {
-			results[i].Error = errors.Trace(err)
-			continue
-		}
-
-		if err := a.validator.ValidateApplications(applications, entity.Series, entity.Force); err != nil {
+		if err := a.validateApplication(machine, entity.Series, entity.Force); err != nil {
 			results[i].Error = errors.Trace(err)
 			continue
 		}
@@ -182,13 +151,17 @@ func (a *UpgradeSeriesAPI) Validate(entities []ValidationEntity) ([]ValidationRe
 	return results, nil
 }
 
-func (a *UpgradeSeriesAPI) Prepare(tag, series string, force bool) error {
+func (a *UpgradeSeriesAPI) Prepare(tag, series string, force bool) (retErr error) {
 	if series == "" {
 		return errors.BadRequestf("series missing from args")
 	}
 
 	machine, err := a.state.MachineFromTag(tag)
 	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := a.validateMachine(machine); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -204,7 +177,74 @@ func (a *UpgradeSeriesAPI) Prepare(tag, series string, force bool) error {
 	// TODO 2018-06-28 managed series upgrade
 	// improve error handling based on error type, there will be cases where retrying
 	// the hooks is needed etc.
-	return machine.CreateUpgradeSeriesLock(unitNames, series)
+	err = machine.CreateUpgradeSeriesLock(unitNames, series)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// We're inside a series lock transaction. It is required that we remove
+	// the series lock upon any error.
+	defer func() {
+		if retErr == nil {
+			return
+		}
+		if err := machine.RemoveUpgradeSeriesLock(); err != nil {
+			retErr = errors.Annotatef(retErr, "%s occurred while cleaning up from", err)
+		}
+	}()
+
+	// Validate the machine applications for a given series.
+	if err := a.validateApplication(machine, series, force); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Once validated, set the machine status to started.
+	message := fmt.Sprintf("started upgrade series from %q to %q", machine.Series(), series)
+	return machine.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareStarted, message)
+}
+
+func (a *UpgradeSeriesAPI) validateMachine(machine Machine) error {
+	if machine.IsManager() {
+		return errors.Errorf("%s is a controller and cannot be targeted for series upgrade", machine.Tag().String())
+	}
+
+	// If we've already got a series lock on upgrade, don't go any further.
+	if locked, err := machine.IsLockedForSeriesUpgrade(); errors.IsNotFound(errors.Cause(err)) {
+		return errors.Trace(err)
+	} else if locked {
+		// Grab the status from upgrade series and add it to the error.
+		status, err := machine.UpgradeSeriesStatus()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		// Additionally add the status to the underlying params error. This
+		// gives a typed error to the client, which can then decode ths
+		// optional information later on.
+		return &apiservererrors.UpgradeSeriesValidationError{
+			Cause:  errors.Errorf("upgrade series lock found for %q; series upgrade is in the %q state", machine.Id(), status),
+			Status: status.String(),
+		}
+	}
+
+	return nil
+}
+
+func (a *UpgradeSeriesAPI) validateApplication(machine Machine, requestedSeries string, force bool) error {
+	if err := a.validator.ValidateSeries(requestedSeries, machine.Series(), machine.Tag().String()); err != nil {
+		return errors.Trace(err)
+	}
+
+	applications, err := a.state.ApplicationsFromMachine(machine)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := a.validator.ValidateApplications(applications, requestedSeries, force); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 func verifyUnits(units []Unit) ([]string, error) {

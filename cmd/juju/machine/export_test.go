@@ -61,8 +61,9 @@ func NewRemoveCommandForTest(apiRoot api.Connection, machineAPI RemoveMachineAPI
 }
 
 // NewUpgradeSeriesCommand returns an upgrade series command for test
-func NewUpgradeSeriesCommandForTest(upgradeAPI UpgradeMachineSeriesAPI) cmd.Command {
+func NewUpgradeSeriesCommandForTest(statusAPI StatusAPI, upgradeAPI UpgradeMachineSeriesAPI) cmd.Command {
 	command := &upgradeSeriesCommand{
+		statusClient:               statusAPI,
 		upgradeMachineSeriesClient: upgradeAPI,
 	}
 	command.plan = catacomb.Plan{
