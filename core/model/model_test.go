@@ -21,16 +21,15 @@ var _ = gc.Suite(&ModelSuite{})
 
 func (*ModelSuite) TestValidateSeries(c *gc.C) {
 	for _, t := range []struct {
-		modelType model.ModelType
-		series    string
-		valid     bool
+		args  model.ValidateSeriesArgs
+		valid bool
 	}{
-		{model.IAAS, "bionic", true},
-		{model.IAAS, "kubernetes", false},
-		{model.CAAS, "bionic", false},
-		{model.CAAS, "kubernetes", true},
+		{model.ValidateSeriesArgs{model.IAAS, "test", "bionic", charm.FormatV1}, true},
+		{model.ValidateSeriesArgs{model.IAAS, "test", "kubernetes", charm.FormatV1}, false},
+		{model.ValidateSeriesArgs{model.CAAS, "test", "bionic", charm.FormatV1}, false},
+		{model.ValidateSeriesArgs{model.CAAS, "test", "kubernetes", charm.FormatV1}, true},
 	} {
-		err := model.ValidateSeries(t.modelType, t.series, charm.FormatV1)
+		err := model.ValidateSeries(t.args)
 		if t.valid {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
@@ -41,16 +40,15 @@ func (*ModelSuite) TestValidateSeries(c *gc.C) {
 
 func (*ModelSuite) TestValidateSeriesNewCharm(c *gc.C) {
 	for _, t := range []struct {
-		modelType model.ModelType
-		series    string
-		valid     bool
+		args  model.ValidateSeriesArgs
+		valid bool
 	}{
-		{model.IAAS, "bionic", true},
-		{model.IAAS, "bionic", true},
-		{model.CAAS, "bionic", true},
-		{model.CAAS, "bionic", true},
+		{model.ValidateSeriesArgs{model.IAAS, "test", "bionic", charm.FormatV2}, true},
+		{model.ValidateSeriesArgs{model.IAAS, "test", "bionic", charm.FormatV2}, true},
+		{model.ValidateSeriesArgs{model.CAAS, "test", "bionic", charm.FormatV2}, true},
+		{model.ValidateSeriesArgs{model.CAAS, "test", "bionic", charm.FormatV2}, true},
 	} {
-		err := model.ValidateSeries(t.modelType, t.series, charm.FormatV2)
+		err := model.ValidateSeries(t.args)
 		if t.valid {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
