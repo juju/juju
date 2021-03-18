@@ -553,7 +553,10 @@ func (s *ClientSuite) TestMinionReportsBadFailedTag(c *gc.C) {
 }
 
 func (s *ClientSuite) TestMinionReportTimeout(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(facade string, _ int, _, method string, _ interface{}, result interface{}) error {
+		c.Assert(facade, gc.Equals, "MigrationMaster")
+		c.Assert(method, gc.Equals, "MinionReportTimeout")
+
 		out := result.(*params.StringResult)
 		*out = params.StringResult{
 			Result: "30s",

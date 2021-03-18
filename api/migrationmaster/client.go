@@ -285,7 +285,7 @@ func (c *Client) MinionReportTimeout() (time.Duration, error) {
 	var timeout time.Duration
 
 	var res params.StringResult
-	err := c.caller.FacadeCall("MinionReports", nil, &res)
+	err := c.caller.FacadeCall("MinionReportTimeout", nil, &res)
 	if err != nil {
 		return timeout, errors.Trace(err)
 	}

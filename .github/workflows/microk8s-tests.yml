@@ -83,6 +83,8 @@ jobs:
           set -eux
           git clone https://github.com/juju-solutions/bundle-kubeflow.git
           cd bundle-kubeflow
+          # TODO: tmp fix, remove me later once current kubeflow master branch published.
+          git reset --hard 5e0b6fcb
           git clone git://git.launchpad.net/canonical-osm
           cp -r canonical-osm/charms/interfaces/juju-relation-mysql mysql
 
