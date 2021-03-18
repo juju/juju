@@ -150,13 +150,17 @@ func (m *Machine) unitsHaveChanged(unitNames []string) (bool, error) {
 }
 
 func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) *upgradeSeriesLockDoc {
+	// We want to put the unit statuses in to a prepared started state and only
+	// the machine status should be in a validate state. As we're only
+	// validating the machine and not each individual unit.
+	timestamp := bson.Now()
 	unitStatuses := make(map[string]UpgradeSeriesUnitStatus, len(unitNames))
 	for _, name := range unitNames {
 		unitStatuses[name] = UpgradeSeriesUnitStatus{
-			Status: model.UpgradeSeriesValidate, Timestamp: bson.Now(),
+			Status: model.UpgradeSeriesPrepareStarted, Timestamp: timestamp,
 		}
 	}
-	timestamp := bson.Now()
+
 	message := fmt.Sprintf("validation of upgrade series from %q to %q", m.Series(), toSeries)
 	updateMessage := newUpgradeSeriesMessage(m.Tag().String(), message, timestamp)
 	return &upgradeSeriesLockDoc{
