@@ -96,7 +96,7 @@ const (
 )
 
 // Const legacy auth types. Their should be no reason to use these anymore in
-// Juju. They are kept to maintain backwards compatability.
+// Juju. They are kept to maintain backwards compatibility.
 const (
 	// CertificateAuthType is an authentication type using certificates.
 	// NOTE: This type should never be used in practice as it doesn't exist. We
