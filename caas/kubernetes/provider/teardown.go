@@ -10,7 +10,7 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
@@ -107,7 +107,7 @@ func (k *kubernetesClient) deleteClusterScopeCustomResourcesModelTeardown(
 	wg *sync.WaitGroup,
 	errChan chan<- error,
 ) {
-	getSelector := func(crd apiextensionsv1beta1.CustomResourceDefinition) k8slabels.Selector {
+	getSelector := func(crd apiextensionsv1.CustomResourceDefinition) k8slabels.Selector {
 		if !isCRDScopeNamespaced(crd.Spec.Scope) {
 			// We only delete cluster scope CRs here, namespaced CRs are deleted by namespace destroy process.
 			return selector

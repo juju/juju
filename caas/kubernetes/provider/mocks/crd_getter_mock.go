@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	v1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	reflect "reflect"
 )
 
@@ -34,10 +34,10 @@ func (m *MockCRDGetterInterface) EXPECT() *MockCRDGetterInterfaceMockRecorder {
 }
 
 // Get mocks base method
-func (m *MockCRDGetterInterface) Get(arg0 string) (*v1beta1.CustomResourceDefinition, error) {
+func (m *MockCRDGetterInterface) Get(arg0 string) (*v1.CustomResourceDefinition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0)
-	ret0, _ := ret[0].(*v1beta1.CustomResourceDefinition)
+	ret0, _ := ret[0].(*v1.CustomResourceDefinition)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
