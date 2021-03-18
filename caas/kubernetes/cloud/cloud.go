@@ -75,7 +75,7 @@ func CloudsFromKubeConfigContextsWithParams(
 	config *clientcmdapi.Config,
 ) ([]cloud.Cloud, error) {
 	clouds := []cloud.Cloud{}
-	for ctxName, _ := range config.Contexts {
+	for ctxName := range config.Contexts {
 		cloud, err := CloudFromKubeConfigContext(
 			ctxName,
 			config,

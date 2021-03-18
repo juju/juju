@@ -89,7 +89,7 @@ func newInternalResourceOpener(st ResourceOpenerState, unitName string, applicat
 		}
 	}
 
-	userID := names.Tag(nil)
+	var userID names.Tag
 	if unit != nil {
 		userID = unit.Tag()
 	} else {
@@ -123,7 +123,7 @@ func (ro *ResourceOpener) OpenResource(name string) (o resource.Opened, err erro
 		return resource.Opened{}, errors.Errorf("missing application")
 	}
 
-	charmURL := (*charm.URL)(nil)
+	var charmURL *charm.URL
 	if ro.unit != nil {
 		charmURL, _ = ro.unit.CharmURL()
 	} else {
