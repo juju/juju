@@ -147,7 +147,9 @@ func (s *builtinSuite) TestAttemptMicroK8sCloud(c *gc.C) {
 		Type:     cloud.CloudTypeCAAS,
 		AuthTypes: []cloud.AuthType{
 			cloud.CertificateAuthType,
+			cloud.ClientCertificateAuthType,
 			cloud.OAuth2AuthType,
+			cloud.OAuth2WithCertAuthType,
 			cloud.UserPassAuthType,
 		},
 		CACertificates: []string{""},

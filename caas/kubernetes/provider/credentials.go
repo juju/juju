@@ -22,7 +22,14 @@ type environProviderCredentials struct {
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	return k8scloud.SupportedCredentialSchemas
+	schemas := make(map[cloud.AuthType]cloud.CredentialSchema)
+	for k, v := range k8scloud.SupportedCredentialSchemas {
+		schemas[k] = v
+	}
+	for k, v := range k8scloud.LegacyCredentialSchemas {
+		schemas[k] = v
+	}
+	return schemas
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
@@ -50,7 +57,13 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 
 // FinalizeCredential is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) FinalizeCredential(_ environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
-	return &args.Credential, nil
+	cred, err := k8scloud.MigrateLegacyCredential(&args.Credential)
+	if errors.IsNotSupported(err) {
+		return &args.Credential, nil
+	} else if err != nil {
+		return &cred, errors.Annotatef(err, "migrating credential %s", args.Credential.Label)
+	}
+	return &cred, nil
 }
 
 // RegisterCredentials is part of the environs.ProviderCredentialsRegister interface.

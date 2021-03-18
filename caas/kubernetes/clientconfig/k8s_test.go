@@ -249,7 +249,7 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 		"the-user", cloud.OAuth2AuthType,
 		map[string]string{"Token": "tokenwithcerttoken"}, false)
 	secondCred := cloud.NewNamedCredential(
-		"second-user", cloud.CertificateAuthType,
+		"second-user", cloud.ClientCertificateAuthType,
 		map[string]string{"ClientCertificateData": "A", "ClientKeyData": "A"}, false)
 
 	for i, v := range []newK8sClientConfigTestCase{

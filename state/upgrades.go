@@ -22,6 +22,7 @@ import (
 	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/caas"
+	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/charmhub"
@@ -478,6 +479,92 @@ func updateLegacyLXDCredentialsOps(st *State, cred cloud.Credential) ([]txn.Op, 
 	if err := iter.Close(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	return ops, nil
+}
+
+// UpdateLegacyKubernetesCloudCredentials updates the cloud credentials for
+// Kubernetes clouds. This is to introduce bug fix changes from 2.9 onwards.
+func UpdateLegacyKubernetesCloudCredentials(st *State) error {
+	ops, err := updateLegacyKubernetesCloudsOps(st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return st.db().RunTransaction(ops)
+}
+
+func updateLegacyKubernetesCloudsOps(st *State) ([]txn.Op, error) {
+	clouds, err := st.Clouds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var ops []txn.Op
+	for _, c := range clouds {
+		if c.Type != "kubernetes" {
+			continue
+		}
+		set := bson.D{{"auth-types", k8scloud.SupportedNonLegacyAuthTypes()}}
+		ops = append(ops, txn.Op{
+			C:      cloudsC,
+			Id:     c.Name,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", set}},
+		})
+
+		credOps, err := updateLegacyKubernetesCredentialsOps(st, c.Name)
+		if err != nil {
+			return nil, errors.Annotatef(err, "updating legacy kubernetes credentials for cloud %s", c.Name)
+		}
+		ops = append(ops, credOps...)
+	}
+	return ops, nil
+}
+
+func updateLegacyKubernetesCredentialsOps(st *State, cloudName string) ([]txn.Op, error) {
+	coll, closer := st.db().GetRawCollection(cloudCredentialsC)
+	defer closer()
+	iter := coll.Find(bson.M{"cloud": cloudName}).Iter()
+	defer iter.Close()
+
+	var credDoc struct {
+		Cloud      string            `bson:"cloud"`
+		DocId      string            `bson:"_id"`
+		Name       string            `bson:"name"`
+		AuthType   string            `bson:"auth-type"`
+		Attributes map[string]string `bson:"attributes"`
+		Revoked    bool              `bson:"revoked"`
+		Owner      string            `bson:"owner"`
+	}
+
+	var ops []txn.Op
+	for iter.Next(&credDoc) {
+		cloudCredential := cloud.NewNamedCredential(credDoc.Name,
+			cloud.AuthType(credDoc.AuthType),
+			credDoc.Attributes,
+			credDoc.Revoked,
+		)
+
+		updatedCred, err := k8scloud.MigrateLegacyCredential(&cloudCredential)
+		if errors.IsNotSupported(err) {
+			continue
+		} else if err != nil {
+			return ops, errors.Trace(err)
+		}
+
+		credentialTag, err := cloudCredentialTagFrom(
+			credDoc.Cloud,
+			credDoc.Owner,
+			credDoc.Name)
+		if err != nil {
+			return ops, errors.Trace(err)
+		}
+
+		ops = append(
+			ops,
+			updateCloudCredentialOp(credentialTag, updatedCred),
+		)
+	}
+
 	return ops, nil
 }
 
