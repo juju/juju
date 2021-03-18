@@ -16,6 +16,8 @@ import (
 	"github.com/juju/juju/charmhub"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -235,6 +237,9 @@ func (a *UpgradeSeriesAPI) validateApplication(machine Machine, requestedSeries 
 		return errors.Trace(err)
 	}
 
+	// The following returns all the applications including subordinates for a
+	// given machine. Validating all applications that are from different stores
+	// is also supported.
 	applications, err := a.state.ApplicationsFromMachine(machine)
 	if err != nil {
 		return errors.Trace(err)
@@ -324,8 +329,46 @@ func makeUpgradeSeriesValidator(client CharmhubClient) upgradeSeriesValidator {
 
 // ValidateSeries validates a given requested series against the current
 // machine series.
-func (s upgradeSeriesValidator) ValidateSeries(requested, machine, tag string) error {
-	return validateSeries(requested, machine, tag)
+func (s upgradeSeriesValidator) ValidateSeries(requestedSeries, machineSeries, machineTag string) error {
+	if requestedSeries == "" {
+		return errors.BadRequestf("series missing from args")
+	}
+
+	opSys, err := series.GetOSFromSeries(requestedSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if opSys != os.Ubuntu {
+		return errors.Errorf("series %q is from OS %q and is not a valid upgrade target",
+			requestedSeries, opSys.String())
+	}
+
+	opSys, err = series.GetOSFromSeries(machineSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if opSys != os.Ubuntu {
+		return errors.Errorf("%s is running %s and is not valid for Ubuntu series upgrade",
+			machineTag, opSys.String())
+	}
+
+	if requestedSeries == machineSeries {
+		return errors.Errorf("%s is already running series %s", machineTag, requestedSeries)
+	}
+
+	// TODO (Check the charmhub API for all applications running on this) machine
+	// to see if it's possible to run a charm on this machine.
+
+	isOlderSeries, err := isSeriesLessThan(requestedSeries, machineSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if isOlderSeries {
+		return errors.Errorf("machine %s is running %s which is a newer series than %s.",
+			machineTag, machineSeries, requestedSeries)
+	}
+
+	return nil
 }
 
 // ValidateApplications attempts to validate a series of applications for
