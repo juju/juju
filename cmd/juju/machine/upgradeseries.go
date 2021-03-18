@@ -84,7 +84,6 @@ func NewUpgradeSeriesCommand() cmd.Command {
 type UpgradeMachineSeriesAPI interface {
 	BestAPIVersion() int
 	Close() error
-	UpgradeSeriesValidate(string, string) ([]string, error)
 	UpgradeSeriesPrepare(string, string, bool) error
 	UpgradeSeriesComplete(string) error
 	WatchUpgradeSeriesNotifications(string) (watcher.NotifyWatcher, string, error)
