@@ -395,8 +395,8 @@ github.com/juju/charm/v8 v8.0.0-20200925053015-07d39c0154ac/go.mod h1:QZwgFXYuJI
 github.com/juju/charm/v8 v8.0.0-20201117030444-62c13a9fe0f0/go.mod h1:3gMi15p+v4CxEquVduhcOoPLWM7IaRB+OZB6bT3Glww=
 github.com/juju/charm/v8 v8.0.0-20210115142305-1eb0c22cff4e/go.mod h1:3gMi15p+v4CxEquVduhcOoPLWM7IaRB+OZB6bT3Glww=
 github.com/juju/charm/v8 v8.0.0-20210304015923-e7ca8ffa7716/go.mod h1:fAs/8HQjkAuVkhEyE//h1O3qxB/4Nv3w5zFK6tNZNEY=
-github.com/juju/charm/v8 v8.0.0-20210305131337-93c70ae08c0b h1:+KrXxt1oLLINuFv0Dmi9TOkIjVJhbXONA5jCfOV0J00=
-github.com/juju/charm/v8 v8.0.0-20210305131337-93c70ae08c0b/go.mod h1:fAs/8HQjkAuVkhEyE//h1O3qxB/4Nv3w5zFK6tNZNEY=
+github.com/juju/charm/v8 v8.0.0-20210317062702-a072bae3ba6f h1:cAmcDXpeI44jQ5ccZs6FF/eTmjJKCGmxnA1erbMtjlI=
+github.com/juju/charm/v8 v8.0.0-20210317062702-a072bae3ba6f/go.mod h1:AttoXjf7BuW3tQJxUyvDGtPZ+QgZwYLXztWBgIAMW4U=
 github.com/juju/charmrepo/v5 v5.0.0-20200424225329-cddcb4fdcd09/go.mod h1:KJGLR+Nx+PY2hw4EBNAjBWQacWlnxv1oVan1kJ9MlLM=
 github.com/juju/charmrepo/v5 v5.0.0-20200626080438-30e3069e6e8e/go.mod h1:cnwzYYTH1gV7V4ywqBix21av9LhFmdwbFEyE9CwpJ0s=
 github.com/juju/charmrepo/v6 v6.0.0-20201118043529-e9fbdc1a746f/go.mod h1:4V0vrJRD/0oxG+D9j/53elHpXiZ1FoBIXdJGm3Jq4Js=
@@ -426,7 +426,6 @@ github.com/juju/featureflag v0.0.0-20200423045028-e2f9e1cb1611 h1:qYMzwsKsEBtgdS
 github.com/juju/featureflag v0.0.0-20200423045028-e2f9e1cb1611/go.mod h1:Xyly79yyEtbs4CizvwlQkdV9XLBqytrJm6Pz579cCSA=
 github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d h1:c93kUJDtVAXFEhsCh5jSxyOJmFHuzcihnslQiX8Urwo=
 github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d/go.mod h1:2PavIy+JPciBPrBUjwbNvtwB6RQlve+hkpll6QSNmOE=
-github.com/juju/go-oracle-cloud v0.0.0-20170421134547-932a8cea00a1 h1:prQSgzU8eKdTD+Po4DIYviutE8GMpGp3zkoY0ggVqgY=
 github.com/juju/go-oracle-cloud v0.0.0-20170421134547-932a8cea00a1/go.mod h1:aC7I7BnFXPTr0ruRe6OlLYu5wmuk8/mJGhBCD5TQ49g=
 github.com/juju/go4 v0.0.0-20160222163258-40d72ab9641a h1:45JtCyuNYE+QN9aPuR1ID9++BQU+NMTMudHSuaK0Las=
 github.com/juju/go4 v0.0.0-20160222163258-40d72ab9641a/go.mod h1:RVHtZuvrpETIepiNUrNlih2OynoFf1eM6DGC6dloXzk=
@@ -531,8 +530,9 @@ github.com/juju/schema v0.0.0-20180109041850-e4f08199aa80/go.mod h1:7dL+43wADDfx
 github.com/juju/schema v1.0.0/go.mod h1:Y+ThzXpUJ0E7NYYocAbuvJ7vTivXfrof/IfRPq/0abI=
 github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989 h1:qx1Zh1bnHHVIMmRxq0fehYk7npCG50GhUwEkYeUg/t4=
 github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989/go.mod h1:Y+ThzXpUJ0E7NYYocAbuvJ7vTivXfrof/IfRPq/0abI=
-github.com/juju/systems v0.0.0-20200925032749-8c613192c759 h1:JhhlHeV1sXWIrtrr2IVKcWAD3819eUsRqw+001LjqMQ=
 github.com/juju/systems v0.0.0-20200925032749-8c613192c759/go.mod h1:FcXkVf5o+mosxneWzQsHQ7h9sU3lD2GDOttJClqgnuA=
+github.com/juju/systems v0.0.0-20210311041303-bc6b2f9677ca h1:KmPR6hTiZ8kDALV8YgFagYlRvyJCfJVvihwDvXgma6I=
+github.com/juju/systems v0.0.0-20210311041303-bc6b2f9677ca/go.mod h1:FcXkVf5o+mosxneWzQsHQ7h9sU3lD2GDOttJClqgnuA=
 github.com/juju/terms-client v1.0.2-0.20200331164339-fab45ea044ae h1:wGk/zIPORICWlu4giN7CLGlP0PNvY/oZCRwfVLgjOZw=
 github.com/juju/terms-client v1.0.2-0.20200331164339-fab45ea044ae/go.mod h1:oGYNRVtU+5D99X5rPRaSwzKCc0mqF8A/L2a2UZycbQg=
 github.com/juju/terms-client/v2 v2.0.0-20210309081804-aed8368405f6 h1:kyXBAn5zttmD328DUaqUGyF7aB26B3GvwbVfCE2w71o=

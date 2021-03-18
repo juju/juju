@@ -184,9 +184,9 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectStateful(c *gc.C) {
 					DeploymentType: charm.DeploymentStateful,
 				},
 				// charm.FormatV2.
-				Systems: []systems.System{
+				Bases: []systems.Base{
 					{
-						OS: "ubuntu",
+						Name: "ubuntu",
 						Channel: channel.Channel{
 							Name:  "20.04/stable",
 							Risk:  "stable",
@@ -257,9 +257,9 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectDeployment(c *gc.C) 
 					DeploymentType: charm.DeploymentStateless,
 				},
 				// charm.FormatV2.
-				Systems: []systems.System{
+				Bases: []systems.Base{
 					{
-						OS: "ubuntu",
+						Name: "ubuntu",
 						Channel: channel.Channel{
 							Name:  "20.04/stable",
 							Risk:  "stable",
@@ -330,9 +330,9 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectDaemon(c *gc.C) {
 					DeploymentType: charm.DeploymentDaemon,
 				},
 				// charm.FormatV2.
-				Systems: []systems.System{
+				Bases: []systems.Base{
 					{
-						OS: "ubuntu",
+						Name: "ubuntu",
 						Channel: channel.Channel{
 							Name:  "20.04/stable",
 							Risk:  "stable",
@@ -405,9 +405,9 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectForced(c *gc.C) {
 					DeploymentType: charm.DeploymentDaemon,
 				},
 				// charm.FormatV2.
-				Systems: []systems.System{
+				Bases: []systems.Base{
 					{
-						OS: "ubuntu",
+						Name: "ubuntu",
 						Channel: channel.Channel{
 							Name:  "20.04/stable",
 							Risk:  "stable",
@@ -552,9 +552,9 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 					DeploymentType: charm.DeploymentStateful,
 				},
 				// charm.FormatV2.
-				Systems: []systems.System{
+				Bases: []systems.Base{
 					{
-						OS: "ubuntu",
+						Name: "ubuntu",
 						Channel: channel.Channel{
 							Name:  "20.04/stable",
 							Risk:  "stable",
@@ -735,9 +735,9 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStor
 					DeploymentType: charm.DeploymentStateful,
 				},
 				// charm.FormatV2.
-				Systems: []systems.System{
+				Bases: []systems.Base{
 					{
-						OS: "ubuntu",
+						Name: "ubuntu",
 						Channel: channel.Channel{
 							Name:  "20.04/stable",
 							Risk:  "stable",

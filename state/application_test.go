@@ -4995,12 +4995,8 @@ func (s *ApplicationSuite) TestCAASEmbeddedCharm(c *gc.C) {
 name: cockroachdb
 description: foo
 summary: foo
-platforms:
-  - kubernetes
-architectures:
-  - amd64
-systems:
-  - os: ubuntu
+bases:
+  - name: ubuntu
     channel: 20.04/stable
 `
 	ch := state.AddCustomCharmForSeries(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)

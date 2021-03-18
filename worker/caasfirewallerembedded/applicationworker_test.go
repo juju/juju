@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
+	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/systems"
 	"github.com/juju/systems/channel"
 	jc "github.com/juju/testing/checkers"
@@ -92,19 +93,18 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 	appCharmInfo := &charmscommon.CharmInfo{
 		Meta: &charm.Meta{
 			Name: "test",
-			Platforms: []charm.Platform{
-				charm.PlatformKubernetes,
-			},
-			Systems: []systems.System{{
-				OS:      systems.Ubuntu,
+			Bases: []systems.Base{{
+				Name:    systems.Ubuntu,
 				Channel: channel.MustParse("20.04/stable"),
 			}},
 			Containers: map[string]charm.Container{
 				"test": {
-					Systems: []systems.System{{
-						OS:      systems.Ubuntu,
-						Channel: channel.MustParse("20.04/stable"),
-					}},
+					Resource: "test-oci",
+				},
+			},
+			Resources: map[string]charmresource.Meta{
+				"test-oci": {
+					Type: charmresource.TypeContainerImage,
 				},
 			},
 		},

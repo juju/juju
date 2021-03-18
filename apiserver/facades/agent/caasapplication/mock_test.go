@@ -50,9 +50,9 @@ func newMockState() *mockState {
 				sha256: "fake-sha256",
 				meta: &charm.Meta{
 					// charm.FormatV2.
-					Systems: []systems.System{
+					Bases: []systems.Base{
 						{
-							OS: "ubuntu",
+							Name: "ubuntu",
 							Channel: channel.Channel{
 								Name:  "20.04/stable",
 								Risk:  "stable",

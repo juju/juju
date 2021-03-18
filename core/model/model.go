@@ -46,18 +46,9 @@ var caasOS = set.NewStrings(os.Kubernetes.String())
 // ValidateSeries ensures the charm series is valid for the model type.
 func ValidateSeries(modelType ModelType, charmSeries string, charmFormat charm.Format) error {
 	if charmFormat >= charm.FormatV2 {
-		system, err := systems.ParseSystemFromSeries(charmSeries)
+		_, err := systems.ParseBaseFromSeries(charmSeries)
 		if err != nil {
 			return errors.Trace(err)
-		}
-		if system.Resource != "" {
-			switch modelType {
-			case CAAS:
-				// CAAS models support using a resource as the system.
-				return nil
-			case IAAS:
-				return errors.NotValidf("IAAS models don't support systems referencing a resource")
-			}
 		}
 	} else {
 		os, err := series.GetOSFromSeries(charmSeries)
