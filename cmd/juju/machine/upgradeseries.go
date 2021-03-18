@@ -80,7 +80,6 @@ func NewUpgradeSeriesCommand() cmd.Command {
 	return modelcmd.Wrap(&upgradeSeriesCommand{})
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/upgrademachineseries_api_mock.go github.com/juju/juju/cmd/juju/machine UpgradeMachineSeriesAPI
 type UpgradeMachineSeriesAPI interface {
 	BestAPIVersion() int
 	Close() error
@@ -90,7 +89,6 @@ type UpgradeMachineSeriesAPI interface {
 	GetUpgradeSeriesMessages(string, string) ([]string, error)
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/status_api_mock.go github.com/juju/juju/cmd/juju/machine StatusAPI
 type StatusAPI interface {
 	Status(pattern []string) (*params.FullStatus, error)
 }
