@@ -248,25 +248,10 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) (err error
 		defer apiRoot.Close()
 	}
 
-	// get the units for a given machine.
-	fullStatus, err := c.statusClient.Status(nil)
+	units, err := c.retrieveUnits()
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	var units []string
-	machine, ok := fullStatus.Machines[c.machineNumber]
-	if !ok {
-		return errors.NotFoundf("machine %q", c.machineNumber)
-	}
-	for _, application := range fullStatus.Applications {
-		for name, unit := range application.Units {
-			if unit.Machine == machine.Id {
-				units = append(units, name)
-			}
-		}
-	}
-	if len(units) == 0 {
+	} else if len(units) == 0 {
 		return errors.NotFoundf("units for machine %q", c.machineNumber)
 	}
 
@@ -286,6 +271,29 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) (err error
 	ctx.Infof(m, c.machineNumber)
 
 	return nil
+}
+
+func (c *upgradeSeriesCommand) retrieveUnits() ([]string, error) {
+	// get the units for a given machine.
+	fullStatus, err := c.statusClient.Status(nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var units []string
+	machine, ok := fullStatus.Machines[c.machineNumber]
+	if !ok {
+		return nil, errors.NotFoundf("machine %q", c.machineNumber)
+	}
+	for _, application := range fullStatus.Applications {
+		for name, unit := range application.Units {
+			if unit.Machine == machine.Id {
+				units = append(units, name)
+			}
+		}
+	}
+
+	return units, nil
 }
 
 // Display any progress information from the error. If there isn't any info
