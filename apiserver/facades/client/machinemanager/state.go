@@ -63,7 +63,6 @@ type Machine interface {
 	CreateUpgradeSeriesLock([]string, string) error
 	RemoveUpgradeSeriesLock() error
 	CompleteUpgradeSeries() error
-	VerifyUnitsSeries(unitNames []string, series string, force bool) ([]Unit, error)
 	Principals() []string
 	WatchUpgradeSeriesNotifications() (state.NotifyWatcher, error)
 	GetUpgradeSeriesMessages() ([]string, bool, error)
@@ -191,18 +190,6 @@ type Unit interface {
 	Name() string
 	AgentStatus() (status.StatusInfo, error)
 	Status() (status.StatusInfo, error)
-}
-
-func (m machineShim) VerifyUnitsSeries(unitNames []string, series string, force bool) ([]Unit, error) {
-	units, err := m.Machine.VerifyUnitsSeries(unitNames, series, force)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]Unit, len(units))
-	for i, u := range units {
-		out[i] = u
-	}
-	return out, nil
 }
 
 type storageInterface interface {
