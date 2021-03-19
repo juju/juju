@@ -399,7 +399,7 @@ func (s *UniterSuite) TestUniterWorkloadReadyHook(c *gc.C) {
 			waitHooks(startupHooks(false)),
 			waitUnitAgent{status: status.Idle},
 			activateTestContainer{"test"},
-			waitHooks{"test-workload-ready"},
+			waitHooks{"test-pebble-ready"},
 		),
 	})
 }

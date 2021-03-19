@@ -106,12 +106,17 @@ func (s *pebblePollerSuite) TestStart(c *gc.C) {
 	doRestart("a")
 
 	workertest.CleanKill(c, worker)
+
+	for k, v := range clients {
+		c.Assert(v.closed, jc.IsTrue, gc.Commentf("client %s not closed", k))
+	}
 }
 
 type fakePebbleClient struct {
 	sysInfo pebbleclient.SysInfo
 	err     error
 	mut     sync.Mutex
+	closed  bool
 }
 
 func (c *fakePebbleClient) SysInfo() (*pebbleclient.SysInfo, error) {
@@ -129,4 +134,10 @@ func (c *fakePebbleClient) TriggerStart() {
 	defer c.mut.Unlock()
 	c.err = nil
 	c.sysInfo.BootID = utils.MustNewUUID().String()
+}
+
+func (c *fakePebbleClient) CloseIdleConnections() {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	c.closed = true
 }

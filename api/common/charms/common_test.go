@@ -63,19 +63,15 @@ func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
 					Description: "OCI image used for cockroachdb",
 				},
 			},
-			Systems: []params.CharmSystem{
+			Bases: []params.CharmBase{
 				{
-					OS:      "ubuntu",
+					Name:    "ubuntu",
 					Channel: "20.04/stable",
 				},
 			},
 			Containers: map[string]params.CharmContainer{
 				"cockroachdb": {
-					Systems: []params.CharmSystem{
-						{
-							Resource: "cockroachdb-image",
-						},
-					},
+					Resource: "cockroachdb-image",
 					Mounts: []params.CharmMount{
 						{
 							Storage:  "database",
@@ -84,13 +80,12 @@ func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
 					},
 				},
 			},
-			Platforms:     []string{"kubernetes"},
-			Architectures: []string{"amd64"},
 			Storage: map[string]params.CharmStorage{
 				"database": {
 					Type: "filesystem",
 				},
 			},
+			Assumes: []string{"kubernetes"},
 		},
 	}
 
@@ -131,9 +126,9 @@ func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
 					Description: "OCI image used for cockroachdb",
 				},
 			},
-			Systems: []systems.System{
+			Bases: []systems.Base{
 				{
-					OS: "ubuntu",
+					Name: "ubuntu",
 					Channel: channel.Channel{
 						Name:  "20.04/stable",
 						Risk:  "stable",
@@ -143,11 +138,7 @@ func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
 			},
 			Containers: map[string]charm.Container{
 				"cockroachdb": {
-					Systems: []systems.System{
-						{
-							Resource: "cockroachdb-image",
-						},
-					},
+					Resource: "cockroachdb-image",
 					Mounts: []charm.Mount{
 						{
 							Storage:  "database",
@@ -156,13 +147,12 @@ func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
 					},
 				},
 			},
-			Platforms:     []charm.Platform{"kubernetes"},
-			Architectures: []charm.Architecture{"amd64"},
 			Storage: map[string]charm.Storage{
 				"database": {
 					Type: "filesystem",
 				},
 			},
+			Assumes: []string{"kubernetes"},
 		},
 	}
 	c.Assert(got, gc.DeepEquals, want)

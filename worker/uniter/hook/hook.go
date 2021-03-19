@@ -70,7 +70,7 @@ func (hi Info) Validate() error {
 			return fmt.Errorf("%q hook has a remote unit but no application", hi.Kind)
 		}
 		return nil
-	case hooks.WorkloadReady:
+	case hooks.PebbleReady:
 		if hi.WorkloadName == "" {
 			return fmt.Errorf("%q hook requires a workload name", hi.Kind)
 		}

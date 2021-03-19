@@ -7064,6 +7064,18 @@
                     },
                     "additionalProperties": false
                 },
+                "CharmBase": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "CharmContainer": {
                     "type": "object",
                     "properties": {
@@ -7073,11 +7085,8 @@
                                 "$ref": "#/definitions/CharmMount"
                             }
                         },
-                        "systems": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CharmSystem"
-                            }
+                        "resource": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false
@@ -7172,10 +7181,16 @@
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
-                        "architectures": {
+                        "assumes": {
                             "type": "array",
                             "items": {
                                 "type": "string"
+                            }
+                        },
+                        "bases": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmBase"
                             }
                         },
                         "categories": {
@@ -7236,12 +7251,6 @@
                                 }
                             }
                         },
-                        "platforms": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
                         "provides": {
                             "type": "object",
                             "patternProperties": {
@@ -7285,12 +7294,6 @@
                         },
                         "summary": {
                             "type": "string"
-                        },
-                        "systems": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CharmSystem"
-                            }
                         },
                         "tags": {
                             "type": "array",
@@ -7513,21 +7516,6 @@
                         "count-max",
                         "minimum-size"
                     ]
-                },
-                "CharmSystem": {
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string"
-                        },
-                        "os": {
-                            "type": "string"
-                        },
-                        "resource": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "CharmURL": {
                     "type": "object",
@@ -8781,6 +8769,18 @@
                     },
                     "additionalProperties": false
                 },
+                "CharmBase": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "CharmContainer": {
                     "type": "object",
                     "properties": {
@@ -8790,11 +8790,8 @@
                                 "$ref": "#/definitions/CharmMount"
                             }
                         },
-                        "systems": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CharmSystem"
-                            }
+                        "resource": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false
@@ -8889,10 +8886,16 @@
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
-                        "architectures": {
+                        "assumes": {
                             "type": "array",
                             "items": {
                                 "type": "string"
+                            }
+                        },
+                        "bases": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmBase"
                             }
                         },
                         "categories": {
@@ -8953,12 +8956,6 @@
                                 }
                             }
                         },
-                        "platforms": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
                         "provides": {
                             "type": "object",
                             "patternProperties": {
@@ -9002,12 +8999,6 @@
                         },
                         "summary": {
                             "type": "string"
-                        },
-                        "systems": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CharmSystem"
-                            }
                         },
                         "tags": {
                             "type": "array",
@@ -9230,21 +9221,6 @@
                         "count-max",
                         "minimum-size"
                     ]
-                },
-                "CharmSystem": {
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string"
-                        },
-                        "os": {
-                            "type": "string"
-                        },
-                        "resource": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "CharmURL": {
                     "type": "object",
@@ -13085,6 +13061,18 @@
                     },
                     "additionalProperties": false
                 },
+                "CharmBase": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "CharmContainer": {
                     "type": "object",
                     "properties": {
@@ -13094,11 +13082,8 @@
                                 "$ref": "#/definitions/CharmMount"
                             }
                         },
-                        "systems": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CharmSystem"
-                            }
+                        "resource": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false
@@ -13193,10 +13178,16 @@
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
-                        "architectures": {
+                        "assumes": {
                             "type": "array",
                             "items": {
                                 "type": "string"
+                            }
+                        },
+                        "bases": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmBase"
                             }
                         },
                         "categories": {
@@ -13257,12 +13248,6 @@
                                 }
                             }
                         },
-                        "platforms": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
                         "provides": {
                             "type": "object",
                             "patternProperties": {
@@ -13306,12 +13291,6 @@
                         },
                         "summary": {
                             "type": "string"
-                        },
-                        "systems": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CharmSystem"
-                            }
                         },
                         "tags": {
                             "type": "array",
@@ -13703,21 +13682,6 @@
                         "count-max",
                         "minimum-size"
                     ]
-                },
-                "CharmSystem": {
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string"
-                        },
-                        "os": {
-                            "type": "string"
-                        },
-                        "resource": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "CharmURL": {
                     "type": "object",

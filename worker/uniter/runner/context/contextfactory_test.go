@@ -208,7 +208,7 @@ func (s *ContextFactorySuite) TestRelationHookContext(c *gc.C) {
 
 func (s *ContextFactorySuite) TestWorkloadHookContext(c *gc.C) {
 	hi := hook.Info{
-		Kind:         hooks.WorkloadReady,
+		Kind:         hooks.PebbleReady,
 		WorkloadName: "test",
 	}
 	ctx, err := s.factory.HookContext(hi)

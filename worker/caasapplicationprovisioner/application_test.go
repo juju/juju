@@ -63,18 +63,13 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	appCharmInfo := &charmscommon.CharmInfo{
 		Meta: &charm.Meta{
 			Name: "test",
-			Platforms: []charm.Platform{
-				charm.PlatformKubernetes,
-			},
-			Systems: []systems.System{{
-				OS:      systems.Ubuntu,
+			Bases: []systems.Base{{
+				Name:    systems.Ubuntu,
 				Channel: channel.MustParse("20.04/stable"),
 			}},
 			Containers: map[string]charm.Container{
 				"test": {
-					Systems: []systems.System{{
-						Resource: "test-oci",
-					}},
+					Resource: "test-oci",
 				},
 			},
 			Resources: map[string]charmresource.Meta{
