@@ -13,17 +13,15 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/http"
-	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
-	coreseries "github.com/juju/juju/core/series"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs/filestorage"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
@@ -33,15 +31,6 @@ import (
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
-
-// toolsltsseries records the known ubuntu lts series.
-var toolsLtsSeries = supportedJujuSeries()
-
-func supportedJujuSeries() []string {
-	supportedJujuSeries := set.NewStrings(coreseries.SupportedJujuControllerSeries()...)
-	esmSupportedJujuSeries := set.NewStrings(coreseries.ESMSupportedJujuSeries()...)
-	return supportedJujuSeries.Union(esmSupportedJujuSeries).Values()
-}
 
 // ToolsFixture is used as a fixture to stub out the default tools URL so we
 // don't hit the real internet during tests.
@@ -82,13 +71,11 @@ func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, 
 	var versions []version.Binary
 	for _, arch := range arches {
 		v := version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch,
+			Number:  jujuversion.Current,
+			Arch:    arch,
+			Release: "ubuntu",
 		}
-		for _, series := range toolsLtsSeries {
-			v.Series = series
-			versions = append(versions, v)
-		}
+		versions = append(versions, v)
 	}
 	c.Logf("uploading fake tool versions: %v", versions)
 	_, err := UploadFakeToolsVersions(stor, toolsDir, stream, versions...)
@@ -259,7 +246,7 @@ func AssertUploadFakeToolsVersions(c *gc.C, stor storage.Storage, toolsDir, stre
 
 // MustUploadFakeToolsVersions acts as UploadFakeToolsVersions, but panics on failure.
 func MustUploadFakeToolsVersions(stor storage.Storage, stream string, versions ...version.Binary) []*coretools.Tools {
-	var agentTools coretools.List = make(coretools.List, len(versions))
+	var agentTools = make(coretools.List, len(versions))
 	for i, version := range versions {
 		t, err := uploadFakeToolsVersion(stor, stream, version)
 		if err != nil {
@@ -275,18 +262,14 @@ func MustUploadFakeToolsVersions(stor storage.Storage, stream string, versions .
 }
 
 func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
-	toolsSeries := set.NewStrings(toolsLtsSeries...)
-	hostSeries, err := series.HostSeries()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	toolsSeries.Add(hostSeries)
+	toolsOS := set.NewStrings("ubuntu")
+	toolsOS.Add(coreos.HostOSTypeName())
 	var versions []version.Binary
-	for _, series := range toolsSeries.Values() {
+	for _, osType := range toolsOS.Values() {
 		vers := version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: series,
+			Number:  jujuversion.Current,
+			Arch:    arch.HostArch(),
+			Release: osType,
 		}
 		versions = append(versions, vers)
 	}
@@ -321,7 +304,7 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	c.Check(err, jc.ErrorIsNil)
 	defaultSeries := jujuversion.DefaultSupportedLTS()
 	if coretesting.HostSeries(c) != defaultSeries {
-		toolsVersion.Series = defaultSeries
+		toolsVersion.Release = "ubuntu"
 		name := envtools.StorageName(toolsVersion, toolsDir)
 		err := stor.Remove(name)
 		c.Check(err, jc.ErrorIsNil)
@@ -343,54 +326,42 @@ func RemoveTools(c *gc.C, stor storage.Storage, toolsDir string) {
 
 var (
 	V100    = version.MustParse("1.0.0")
-	V100p64 = version.MustParseBinary("1.0.0-bionic-amd64")
-	V100p32 = version.MustParseBinary("1.0.0-bionic-i386")
-	V100p   = []version.Binary{V100p64, V100p32}
+	V100u64 = version.MustParseBinary("1.0.0-ubuntu-amd64")
+	V100u32 = version.MustParseBinary("1.0.0-ubuntu-i386")
+	V100p   = []version.Binary{V100u64, V100u32}
 
-	V100q64 = version.MustParseBinary("1.0.0-xenial-amd64")
-	V100q32 = version.MustParseBinary("1.0.0-xenial-i386")
-	V100q   = []version.Binary{V100q64, V100q32}
+	V100w64 = version.MustParseBinary("1.0.0-windows-amd64")
+	V100w32 = version.MustParseBinary("1.0.0-windows-i386")
+	V100q   = []version.Binary{V100w64, V100w32}
 	V100all = append(V100p, V100q...)
 
 	V1001    = version.MustParse("1.0.0.1")
-	V1001p64 = version.MustParseBinary("1.0.0.1-bionic-amd64")
-	V100Xall = append(V100all, V1001p64)
+	V1001u64 = version.MustParseBinary("1.0.0.1-ubuntu-amd64")
+	V100Xall = append(V100all, V1001u64)
 
 	V110    = version.MustParse("1.1.0")
-	V110p64 = version.MustParseBinary("1.1.0-bionic-amd64")
-	V110p32 = version.MustParseBinary("1.1.0-bionic-i386")
-	V110p   = []version.Binary{V110p64, V110p32}
+	V110u64 = version.MustParseBinary("1.1.0-ubuntu-amd64")
+	V110u32 = version.MustParseBinary("1.1.0-ubuntu-i386")
+	V110p   = []version.Binary{V110u64, V110u32}
 
-	V110q64 = version.MustParseBinary("1.1.0-xenial-amd64")
-	V110q32 = version.MustParseBinary("1.1.0-xenial-i386")
-	V110q   = []version.Binary{V110q64, V110q32}
-	V110all = append(V110p, V110q...)
-
-	V1101p64 = version.MustParseBinary("1.1.0.1-precise-amd64")
-	V110Xall = append(V110all, V1101p64)
+	V110w64 = version.MustParseBinary("1.1.0-windows-amd64")
+	V110w32 = version.MustParseBinary("1.1.0-windows-i386")
+	V110w   = []version.Binary{V110w64, V110w32}
+	V110all = append(V110p, V110w...)
 
 	V120    = version.MustParse("1.2.0")
-	V120p64 = version.MustParseBinary("1.2.0-bionic-amd64")
-	V120p32 = version.MustParseBinary("1.2.0-bionic-i386")
-	V120p   = []version.Binary{V120p64, V120p32}
+	V120u64 = version.MustParseBinary("1.2.0-ubuntu-amd64")
+	V120u32 = version.MustParseBinary("1.2.0-ubuntu-i386")
+	V120all = []version.Binary{V120u64, V120u32}
 
-	V120q64 = version.MustParseBinary("1.2.0-xenial-amd64")
-	V120q32 = version.MustParseBinary("1.2.0-xenial-i386")
-	V120q   = []version.Binary{V120q64, V120q32}
-
-	V120t64 = version.MustParseBinary("1.2.0-trusty-amd64")
-	V120t32 = version.MustParseBinary("1.2.0-trusty-i386")
-	V120t   = []version.Binary{V120t64, V120t32}
-
-	V120all = append(append(V120p, V120q...), V120t...)
-	V1all   = append(V100Xall, append(V110all, V120all...)...)
+	V1all = append(V100Xall, append(V110all, V120all...)...)
 
 	V220    = version.MustParse("2.2.0")
-	V220p32 = version.MustParseBinary("2.2.0-bionic-i386")
-	V220p64 = version.MustParseBinary("2.2.0-bionic-amd64")
-	V220q32 = version.MustParseBinary("2.2.0-xenial-i386")
-	V220q64 = version.MustParseBinary("2.2.0-xenial-amd64")
-	V220all = []version.Binary{V220p64, V220p32, V220q64, V220q32}
+	V220u32 = version.MustParseBinary("2.2.0-ubuntu-i386")
+	V220u64 = version.MustParseBinary("2.2.0-ubuntu-amd64")
+	V220w32 = version.MustParseBinary("2.2.0-windows-i386")
+	V220w64 = version.MustParseBinary("2.2.0-windows-amd64")
+	V220all = []version.Binary{V220u64, V220u32, V220w64, V220w32}
 	VAll    = append(V1all, V220all...)
 )
 
@@ -411,157 +382,157 @@ var noToolsMessage = "Juju cannot bootstrap because no agent binaries are availa
 var BootstrapToolsTests = []BootstrapToolsTest{
 	{
 		Info:          "no tools at all",
-		CliVersion:    V100p64,
+		CliVersion:    V100u64,
 		DefaultSeries: "precise",
 		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: use newest compatible release version",
 		Available:     VAll,
-		CliVersion:    V100p64,
+		CliVersion:    V100u64,
 		DefaultSeries: "precise",
 		Expect:        V100p,
 	}, {
 		Info:          "released cli: cli Arch ignored",
 		Available:     VAll,
-		CliVersion:    V100p32,
+		CliVersion:    V100u32,
 		DefaultSeries: "precise",
 		Expect:        V100p,
 	}, {
 		Info:          "released cli: cli series ignored",
 		Available:     VAll,
-		CliVersion:    V100q64,
+		CliVersion:    V100w64,
 		DefaultSeries: "precise",
 		Expect:        V100p,
 	}, {
 		Info:          "released cli: series taken from default-series",
 		Available:     V120all,
-		CliVersion:    V120p64,
+		CliVersion:    V120u64,
 		DefaultSeries: "quantal",
-		Expect:        V120q,
+		Expect:        V120all,
 	}, {
 		Info:          "released cli: ignore close dev match",
 		Available:     V100Xall,
-		CliVersion:    V100p64,
+		CliVersion:    V100u64,
 		DefaultSeries: "precise",
 		Expect:        V100p,
 	}, {
 		Info:          "released cli: filter by arch constraints",
 		Available:     V120all,
-		CliVersion:    V120p64,
+		CliVersion:    V120u64,
 		DefaultSeries: "precise",
 		Arch:          "i386",
-		Expect:        []version.Binary{V120p32},
+		Expect:        []version.Binary{V120u32},
 	}, {
 		Info:          "released cli: specific released version",
 		Available:     VAll,
-		CliVersion:    V100p64,
+		CliVersion:    V100u64,
 		AgentVersion:  V100,
 		DefaultSeries: "precise",
 		Expect:        V100p,
 	}, {
 		Info:          "released cli: specific dev version",
 		Available:     VAll,
-		CliVersion:    V110p64,
+		CliVersion:    V110u64,
 		AgentVersion:  V110,
 		DefaultSeries: "precise",
 		Expect:        V110p,
 	}, {
 		Info:          "released cli: major upgrades bad",
 		Available:     V220all,
-		CliVersion:    V100p64,
+		CliVersion:    V100u64,
 		DefaultSeries: "precise",
 		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: minor upgrades bad",
 		Available:     V120all,
-		CliVersion:    V100p64,
+		CliVersion:    V100u64,
 		DefaultSeries: "precise",
 		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: major downgrades bad",
 		Available:     V100Xall,
-		CliVersion:    V220p64,
+		CliVersion:    V220u64,
 		DefaultSeries: "precise",
 		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: minor downgrades bad",
 		Available:     V100Xall,
-		CliVersion:    V120p64,
+		CliVersion:    V120u64,
 		DefaultSeries: "quantal",
 		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: no matching series",
 		Available:     VAll,
-		CliVersion:    V100p64,
+		CliVersion:    V100u64,
 		DefaultSeries: "raring",
 		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: no matching arches",
 		Available:     VAll,
-		CliVersion:    V100p64,
+		CliVersion:    V100u64,
 		DefaultSeries: "precise",
 		Arch:          "armhf",
 		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: specific bad major 1",
 		Available:     VAll,
-		CliVersion:    V220p64,
+		CliVersion:    V220u64,
 		AgentVersion:  V120,
 		DefaultSeries: "precise",
 		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: specific bad major 2",
 		Available:     VAll,
-		CliVersion:    V120p64,
+		CliVersion:    V120u64,
 		AgentVersion:  V220,
 		DefaultSeries: "precise",
 		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: ignore dev tools 1",
 		Available:     V110all,
-		CliVersion:    V100p64,
+		CliVersion:    V100u64,
 		DefaultSeries: "precise",
 		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: ignore dev tools 2",
 		Available:     V110all,
-		CliVersion:    V120p64,
+		CliVersion:    V120u64,
 		DefaultSeries: "precise",
 		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: ignore dev tools 3",
-		Available:     []version.Binary{V1001p64},
-		CliVersion:    V100p64,
+		Available:     []version.Binary{V1001u64},
+		CliVersion:    V100u64,
 		DefaultSeries: "precise",
 		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli with dev setting respects agent-version",
 		Available:     VAll,
-		CliVersion:    V100q32,
+		CliVersion:    V100w32,
 		AgentVersion:  V1001,
 		DefaultSeries: "precise",
 		Development:   true,
-		Expect:        []version.Binary{V1001p64},
+		Expect:        []version.Binary{V1001u64},
 	}, {
 		Info:          "dev cli respects agent-version",
 		Available:     VAll,
-		CliVersion:    V100q32,
+		CliVersion:    V100w32,
 		AgentVersion:  V1001,
 		DefaultSeries: "precise",
-		Expect:        []version.Binary{V1001p64},
+		Expect:        []version.Binary{V1001u64},
 	}, {
 		Info:          "released cli with dev setting respects agent-version",
 		Available:     V1all,
-		CliVersion:    V100q32,
+		CliVersion:    V100w32,
 		AgentVersion:  V1001,
 		DefaultSeries: "precise",
 		Development:   true,
-		Expect:        []version.Binary{V1001p64},
+		Expect:        []version.Binary{V1001u64},
 	}, {
 		Info:          "dev cli respects agent-version",
 		Available:     V1all,
-		CliVersion:    V100q32,
+		CliVersion:    V100w32,
 		AgentVersion:  V1001,
 		DefaultSeries: "precise",
-		Expect:        []version.Binary{V1001p64},
+		Expect:        []version.Binary{V1001u64},
 	}}

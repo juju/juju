@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -219,7 +219,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := sync.Upload(t.toolsStorage, "released", nil, jujuversion.DefaultSupportedLTS())
+		_, err := sync.Upload(t.toolsStorage, "released", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	args := t.bootstrapParams()
@@ -671,11 +671,11 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	mw0 := newMachineToolWaiter(m0)
 	defer func() { _ = mw0.Stop() }()
 
-	// If the series has not been specified, we expect the most recent Ubuntu LTS release to be used.
+	// Controllers always run on Ubuntu.
 	expectedVersion := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: jujuversion.DefaultSupportedLTS(),
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: "ubuntu",
 	}
 
 	mtools0 := waitAgentTools(c, mw0, expectedVersion)
@@ -862,12 +862,8 @@ func waitAgentTools(c *gc.C, w *toolsWaiter, expect version.Binary) *coretools.T
 // all the provided watchers upgrade to the requested version.
 func (t *LiveTests) checkUpgrade(c *gc.C, st *state.State, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := sync.Upload(t.toolsStorage, "released", &newVersion.Number, newVersion.Series)
+	upgradeTools, err := sync.Upload(t.toolsStorage, "released", &newVersion.Number)
 	c.Assert(err, jc.ErrorIsNil)
-	// sync.Upload always returns tools for the series on which the tests are running.
-	// We are only interested in checking the version.Number below so need to fake the
-	// upgraded tools series to match that of newVersion.
-	upgradeTools.Version.Series = newVersion.Series
 
 	// Check that the put version really is the version we expect.
 	c.Assert(upgradeTools.Version, gc.Equals, newVersion)
@@ -913,7 +909,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 
 	t.PrepareOnce(c)
 	possibleTools := coretools.List(envtesting.AssertUploadFakeToolsVersions(
-		c, t.toolsStorage, "released", "released", version.MustParseBinary("5.4.5-trusty-amd64"),
+		c, t.toolsStorage, "released", "released", version.MustParseBinary("5.4.5-ubuntu-amd64"),
 	))
 	fakeCallback := func(_ status.Status, _ string, _ map[string]interface{}) error {
 		return nil
@@ -926,7 +922,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	}
 	err = jujutesting.SetImageMetadata(
 		t.Env,
-		possibleTools.AllSeries(),
+		[]string{"quantal"},
 		possibleTools.Arches(),
 		&params.ImageMetadata,
 	)
@@ -947,10 +943,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 
 	current := coretesting.CurrentVersion(c)
 	other := current
-	other.Series = "quantal"
-	if current == other {
-		other.Series = "precise"
-	}
+	other.Release = "quantal"
 
 	dummyCfg := dummy.SampleConfig().Merge(coretesting.Attrs{
 		"controller": false,
@@ -969,7 +962,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 
 	attrs := t.TestConfig.Merge(coretesting.Attrs{
 		"name":           "livetests",
-		"default-series": other.Series,
+		"default-series": "quantal",
 	})
 	args.ModelConfig = attrs
 	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c),
