@@ -5,6 +5,7 @@ package machine
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -290,8 +291,16 @@ func (c *upgradeSeriesCommand) retrieveUnits() ([]string, error) {
 			if unit.Machine == machine.Id {
 				units = append(units, name)
 			}
+			for subName, subordinate := range unit.Subordinates {
+				if subordinate.Machine != "" && subordinate.Machine != machine.Id {
+					return nil, errors.Errorf("subordinate %q machine has unexpected machine id %s", subName, machine.Id)
+				}
+				units = append(units, subName)
+			}
 		}
 	}
+
+	sort.Strings(units)
 
 	return units, nil
 }

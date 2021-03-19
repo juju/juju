@@ -21,10 +21,8 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
@@ -577,14 +575,6 @@ func (mm *MachineManagerAPI) completeUpgradeSeries(arg params.UpdateSeriesArg) e
 	return machine.CompleteUpgradeSeries()
 }
 
-func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg) error {
-	machine, err := mm.machineFromTag(arg.Entity.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return machine.RemoveUpgradeSeriesLock()
-}
-
 // WatchUpgradeSeriesNotifications returns a watcher that fires on upgrade series events.
 func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(args params.Entities) (params.NotifyWatchResults, error) {
 	err := mm.authorizer.CanRead()
@@ -666,42 +656,6 @@ func (mm *MachineManagerAPI) machineFromTag(tag string) (Machine, error) {
 	return machine, nil
 }
 
-// verifiedUnits verifies that the machine units and their tree of subordinates
-// all support the input series. If not, an error is returned.
-// If they do, the agent statuses are checked to ensure that they are all in
-// the idle state i.e. not installing, running hooks, or needing intervention.
-// the final check is that the unit itself is not in an error state.
-func (mm *MachineManagerAPI) verifiedUnits(machine Machine, series string, force bool) ([]string, error) {
-	principals := machine.Principals()
-	units, err := machine.VerifyUnitsSeries(principals, series, force)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	unitNames := make([]string, len(units))
-	for i, u := range units {
-		agentStatus, err := u.AgentStatus()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if agentStatus.Status != status.Idle {
-			return nil, errors.Errorf("unit %s is not ready to start a series upgrade; its agent status is: %q %s",
-				u.Name(), agentStatus.Status, agentStatus.Message)
-		}
-		unitStatus, err := u.Status()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if unitStatus.Status == status.Error {
-			return nil, errors.Errorf("unit %s is not ready to start a series upgrade; its status is: \"error\" %s",
-				u.Name(), unitStatus.Message)
-		}
-
-		unitNames[i] = u.UnitTag().Id()
-	}
-	return unitNames, nil
-}
-
 // isSeriesLessThan returns a bool indicating whether the first argument's
 // version is lexicographically less than the second argument's, thus indicating
 // that the series represents an older version of the operating system. The
@@ -732,51 +686,6 @@ func (mm *MachineManagerAPIV4) UpdateMachineSeries(_ params.UpdateSeriesArgs) (p
 			Error: apiservererrors.ServerError(errors.New("UpdateMachineSeries is no longer supported")),
 		}},
 	}, nil
-}
-
-func validateSeries(requestedSeries, machineSeries, machineTag string) error {
-	if requestedSeries == "" {
-		return &params.Error{
-			Message: "series missing from args",
-			Code:    params.CodeBadRequest,
-		}
-	}
-
-	opSys, err := series.GetOSFromSeries(requestedSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if opSys != os.Ubuntu {
-		return errors.Errorf("series %q is from OS %q and is not a valid upgrade target",
-			requestedSeries, opSys.String())
-	}
-
-	opSys, err = series.GetOSFromSeries(machineSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if opSys != os.Ubuntu {
-		return errors.Errorf("%s is running %s and is not valid for Ubuntu series upgrade",
-			machineTag, opSys.String())
-	}
-
-	if requestedSeries == machineSeries {
-		return errors.Errorf("%s is already running series %s", machineTag, requestedSeries)
-	}
-
-	// TODO (Check the charmhub API for all applications running on this) machine
-	// to see if it's possible to run a charm on this machine.
-
-	isOlderSeries, err := isSeriesLessThan(requestedSeries, machineSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if isOlderSeries {
-		return errors.Errorf("machine %s is running %s which is a newer series than %s.",
-			machineTag, machineSeries, requestedSeries)
-	}
-
-	return nil
 }
 
 // ModelAuthorizer defines if a given operation can be performed based on a

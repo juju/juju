@@ -216,6 +216,20 @@ func (mr *MockUpgradeSeriesValidatorMockRecorder) ValidateApplications(arg0, arg
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateApplications", reflect.TypeOf((*MockUpgradeSeriesValidator)(nil).ValidateApplications), arg0, arg1, arg2)
 }
 
+// ValidateMachine mocks base method
+func (m *MockUpgradeSeriesValidator) ValidateMachine(arg0 Machine) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateMachine", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ValidateMachine indicates an expected call of ValidateMachine
+func (mr *MockUpgradeSeriesValidatorMockRecorder) ValidateMachine(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateMachine", reflect.TypeOf((*MockUpgradeSeriesValidator)(nil).ValidateMachine), arg0)
+}
+
 // ValidateSeries mocks base method
 func (m *MockUpgradeSeriesValidator) ValidateSeries(arg0, arg1, arg2 string) error {
 	m.ctrl.T.Helper()

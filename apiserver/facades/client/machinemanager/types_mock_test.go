@@ -7,13 +7,13 @@ package machinemanager
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
-	v8 "github.com/juju/charm/v8"
+	charm "github.com/juju/charm/v8"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
 	model "github.com/juju/juju/core/model"
 	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
-	v4 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
 	reflect "reflect"
 	time "time"
 )
@@ -242,10 +242,10 @@ func (mr *MockMachineMockRecorder) SetUpgradeSeriesStatus(arg0, arg1 interface{}
 }
 
 // Tag mocks base method
-func (m *MockMachine) Tag() v4.Tag {
+func (m *MockMachine) Tag() names.Tag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(v4.Tag)
+	ret0, _ := ret[0].(names.Tag)
 	return ret0
 }
 
@@ -283,21 +283,6 @@ func (m *MockMachine) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 func (mr *MockMachineMockRecorder) UpgradeSeriesStatus() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesStatus", reflect.TypeOf((*MockMachine)(nil).UpgradeSeriesStatus))
-}
-
-// VerifyUnitsSeries mocks base method
-func (m *MockMachine) VerifyUnitsSeries(arg0 []string, arg1 string, arg2 bool) ([]Unit, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VerifyUnitsSeries", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]Unit)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// VerifyUnitsSeries indicates an expected call of VerifyUnitsSeries
-func (mr *MockMachineMockRecorder) VerifyUnitsSeries(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyUnitsSeries", reflect.TypeOf((*MockMachine)(nil).VerifyUnitsSeries), arg0, arg1, arg2)
 }
 
 // WatchUpgradeSeriesNotifications mocks base method
@@ -450,10 +435,10 @@ func (mr *MockUnitMockRecorder) Status() *gomock.Call {
 }
 
 // UnitTag mocks base method
-func (m *MockUnit) UnitTag() v4.UnitTag {
+func (m *MockUnit) UnitTag() names.UnitTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnitTag")
-	ret0, _ := ret[0].(v4.UnitTag)
+	ret0, _ := ret[0].(names.UnitTag)
 	return ret0
 }
 
@@ -515,10 +500,10 @@ func (mr *MockCharmMockRecorder) String() *gomock.Call {
 }
 
 // URL mocks base method
-func (m *MockCharm) URL() *v8.URL {
+func (m *MockCharm) URL() *charm.URL {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "URL")
-	ret0, _ := ret[0].(*v8.URL)
+	ret0, _ := ret[0].(*charm.URL)
 	return ret0
 }
 
