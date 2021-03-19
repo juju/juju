@@ -142,12 +142,12 @@ type ImageConstraint struct {
 }
 
 func NewImageConstraint(params simplestreams.LookupParams) (*ImageConstraint, error) {
-	if len(params.Series) == 0 {
+	if len(params.Releases) == 0 {
 		workloadSeries, err := series.AllWorkloadSeries("", params.Stream)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		params.Series = workloadSeries.Values()
+		params.Releases = workloadSeries.Values()
 	}
 	if len(params.Arches) == 0 {
 		params.Arches = arch.AllSupportedArches
@@ -180,10 +180,10 @@ func (ic *ImageConstraint) IndexIds() []string {
 func (ic *ImageConstraint) ProductIds() ([]string, error) {
 	stream := idStream(ic.Stream)
 	nrArches := len(ic.Arches)
-	nrSeries := len(ic.Series)
+	nrSeries := len(ic.Releases)
 	ids := make([]string, nrArches*nrSeries)
 	for i, arch := range ic.Arches {
-		for j, ser := range ic.Series {
+		for j, ser := range ic.Releases {
 			version, err := series.SeriesVersion(ser)
 			if err != nil {
 				return nil, err

@@ -94,8 +94,8 @@ type LookupConstraint interface {
 // Derived structs implement the IndexIds() and ProductIds() method.
 type LookupParams struct {
 	CloudSpec
-	Series []string
-	Arches []string
+	Releases []string
+	Arches   []string
 	// Stream can be "" or "released" for the default "released" stream,
 	// or "daily" for daily images, or any other stream that the available
 	// simplestreams metadata supports.

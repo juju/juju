@@ -74,7 +74,7 @@ func setupSimpleStreamsTests(t *testing.T) {
 		registerLiveSimpleStreamsTests(testData.baseURL,
 			tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 				CloudSpec: testData.validCloudSpec,
-				Series:    []string{coreos.HostOSTypeName()},
+				Releases:  []string{coreos.HostOSTypeName()},
 				Arches:    []string{"amd64"},
 				Stream:    "released",
 			}), testData.requireSigned)
@@ -94,9 +94,9 @@ func registerSimpleStreamsTests() {
 					Region:   "us-east-1",
 					Endpoint: "https://ec2.us-east-1.amazonaws.com",
 				},
-				Series: []string{"ubuntu"},
-				Arches: []string{"amd64", "arm"},
-				Stream: "released",
+				Releases: []string{"ubuntu"},
+				Arches:   []string{"amd64", "arm"},
+				Stream:   "released",
 			}),
 		},
 	})
@@ -242,7 +242,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 		if t.version == "" {
 			toolsConstraint = tools.NewGeneralToolsConstraint(t.major, t.minor, simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
-				Series:    []string{t.osType},
+				Releases:  []string{t.osType},
 				Arches:    t.arches,
 				Stream:    t.stream,
 			})
@@ -250,7 +250,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 			toolsConstraint = tools.NewVersionedToolsConstraint(version.MustParse(t.version),
 				simplestreams.LookupParams{
 					CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
-					Series:    []string{t.osType},
+					Releases:  []string{t.osType},
 					Arches:    t.arches,
 					Stream:    t.stream,
 				})
@@ -278,7 +278,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 func (s *simplestreamsSuite) TestFetchNoMatchingStream(c *gc.C) {
 	toolsConstraint := tools.NewGeneralToolsConstraint(2, -1, simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
-		Series:    []string{"ubuntu"},
+		Releases:  []string{"ubuntu"},
 		Arches:    []string{},
 		Stream:    "proposed",
 	})
@@ -290,7 +290,7 @@ func (s *simplestreamsSuite) TestFetchNoMatchingStream(c *gc.C) {
 func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
 	toolsConstraint := tools.NewGeneralToolsConstraint(1, 13, simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-west-2", "https://ec2.us-west-2.amazonaws.com"},
-		Series:    []string{"ubuntu"},
+		Releases:  []string{"ubuntu"},
 		Arches:    []string{"amd64"},
 		Stream:    "released",
 	})
@@ -458,8 +458,8 @@ var _ = gc.Suite(&productSpecSuite{})
 
 func (s *productSpecSuite) TestIndexIdNoStream(c *gc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
-		Series: []string{"ubuntu"},
-		Arches: []string{"amd64"},
+		Releases: []string{"ubuntu"},
+		Arches:   []string{"amd64"},
 	})
 	ids := toolsConstraint.IndexIds()
 	c.Assert(ids, gc.HasLen, 0)
@@ -467,9 +467,9 @@ func (s *productSpecSuite) TestIndexIdNoStream(c *gc.C) {
 
 func (s *productSpecSuite) TestIndexId(c *gc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
-		Series: []string{"ubuntu"},
-		Arches: []string{"amd64"},
-		Stream: "proposed",
+		Releases: []string{"ubuntu"},
+		Arches:   []string{"amd64"},
+		Stream:   "proposed",
 	})
 	ids := toolsConstraint.IndexIds()
 	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.juju:proposed:agents"})
@@ -477,8 +477,8 @@ func (s *productSpecSuite) TestIndexId(c *gc.C) {
 
 func (s *productSpecSuite) TestProductId(c *gc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
-		Series: []string{"ubuntu"},
-		Arches: []string{"amd64"},
+		Releases: []string{"ubuntu"},
+		Arches:   []string{"amd64"},
 	})
 	ids, err := toolsConstraint.ProductIds()
 	c.Assert(err, jc.ErrorIsNil)
@@ -487,8 +487,8 @@ func (s *productSpecSuite) TestProductId(c *gc.C) {
 
 func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.11.3"), simplestreams.LookupParams{
-		Series: []string{"ubuntu"},
-		Arches: []string{"amd64", "arm"},
+		Releases: []string{"ubuntu"},
+		Arches:   []string{"amd64", "arm"},
 	})
 	ids, err := toolsConstraint.ProductIds()
 	c.Assert(err, jc.ErrorIsNil)
@@ -499,9 +499,9 @@ func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 
 func (s *productSpecSuite) TestIdMultiOSType(c *gc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.11.3"), simplestreams.LookupParams{
-		Series: []string{"ubuntu", "windows"},
-		Arches: []string{"amd64"},
-		Stream: "released",
+		Releases: []string{"ubuntu", "windows"},
+		Arches:   []string{"amd64"},
+		Stream:   "released",
 	})
 	ids, err := toolsConstraint.ProductIds()
 	c.Assert(err, jc.ErrorIsNil)
@@ -512,9 +512,9 @@ func (s *productSpecSuite) TestIdMultiOSType(c *gc.C) {
 
 func (s *productSpecSuite) TestIdIgnoresInvalidOSType(c *gc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.11.3"), simplestreams.LookupParams{
-		Series: []string{"ubuntu", "foobar"},
-		Arches: []string{"amd64"},
-		Stream: "released",
+		Releases: []string{"ubuntu", "foobar"},
+		Arches:   []string{"amd64"},
+		Stream:   "released",
 	})
 	ids, err := toolsConstraint.ProductIds()
 	c.Assert(err, jc.ErrorIsNil)
@@ -523,9 +523,9 @@ func (s *productSpecSuite) TestIdIgnoresInvalidOSType(c *gc.C) {
 
 func (s *productSpecSuite) TestIdWithMajorVersionOnly(c *gc.C) {
 	toolsConstraint := tools.NewGeneralToolsConstraint(1, -1, simplestreams.LookupParams{
-		Series: []string{"ubuntu"},
-		Arches: []string{"amd64"},
-		Stream: "released",
+		Releases: []string{"ubuntu"},
+		Arches:   []string{"amd64"},
+		Stream:   "released",
 	})
 	ids, err := toolsConstraint.ProductIds()
 	c.Assert(err, jc.ErrorIsNil)
@@ -534,9 +534,9 @@ func (s *productSpecSuite) TestIdWithMajorVersionOnly(c *gc.C) {
 
 func (s *productSpecSuite) TestIdWithMajorMinorVersion(c *gc.C) {
 	toolsConstraint := tools.NewGeneralToolsConstraint(1, 2, simplestreams.LookupParams{
-		Series: []string{"ubuntu"},
-		Arches: []string{"amd64"},
-		Stream: "released",
+		Releases: []string{"ubuntu"},
+		Arches:   []string{"amd64"},
+		Stream:   "released",
 	})
 	ids, err := toolsConstraint.ProductIds()
 	c.Assert(err, jc.ErrorIsNil)
@@ -991,7 +991,7 @@ func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
 	)
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
-		Series:    []string{"ubuntu"},
+		Releases:  []string{"ubuntu"},
 		Arches:    []string{"amd64"},
 		Stream:    "released",
 	})

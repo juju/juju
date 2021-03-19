@@ -650,8 +650,8 @@ func (api *ProvisionerAPI) availableImageMetadata(
 // constructImageConstraint returns model-specific criteria used to look for image metadata.
 func (api *ProvisionerAPI) constructImageConstraint(m *state.Machine, env environs.Environ) (*imagemetadata.ImageConstraint, error) {
 	lookup := simplestreams.LookupParams{
-		Series: []string{m.Series()},
-		Stream: env.Config().ImageStream(),
+		Releases: []string{m.Series()},
+		Stream:   env.Config().ImageStream(),
 	}
 
 	cons, err := m.Constraints()
@@ -714,7 +714,7 @@ func (api *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.Imag
 // that matches given criteria.
 func (api *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
 	filter := cloudimagemetadata.MetadataFilter{
-		Series: constraint.Series,
+		Series: constraint.Releases,
 		Arches: constraint.Arches,
 		Region: constraint.Region,
 		Stream: constraint.Stream,
@@ -817,7 +817,7 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, co
 	}
 
 	if len(all) == 0 {
-		return nil, errors.NotFoundf("image metadata for series %v, arch %v", constraint.Series, constraint.Arches)
+		return nil, errors.NotFoundf("image metadata for series %v, arch %v", constraint.Releases, constraint.Arches)
 	}
 
 	return all, nil

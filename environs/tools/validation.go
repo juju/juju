@@ -36,9 +36,9 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simple
 				Region:   params.Region,
 				Endpoint: params.Endpoint,
 			},
-			Stream: params.Stream,
-			Series: []string{params.Release},
-			Arches: params.Architectures,
+			Stream:   params.Stream,
+			Releases: []string{params.Release},
+			Arches:   params.Architectures,
 		})
 	} else {
 		versNum, err := version.Parse(params.Version)
@@ -50,9 +50,9 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simple
 				Region:   params.Region,
 				Endpoint: params.Endpoint,
 			},
-			Stream: params.Stream,
-			Series: []string{params.Release},
-			Arches: params.Architectures,
+			Stream:   params.Stream,
+			Releases: []string{params.Release},
+			Arches:   params.Architectures,
 		})
 	}
 	matchingTools, resolveInfo, err := Fetch(params.Sources, toolsConstraint)

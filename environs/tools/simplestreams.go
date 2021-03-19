@@ -95,7 +95,7 @@ func (tc *ToolsConstraint) IndexIds() []string {
 // ProductIds generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
 func (tc *ToolsConstraint) ProductIds() ([]string, error) {
 	var allIds []string
-	for _, release := range tc.Series {
+	for _, release := range tc.Releases {
 		if !coreos.IsValidOSTypeName(release) {
 			logger.Debugf("ignoring unknown os type %q", release)
 			continue
@@ -211,7 +211,7 @@ func appendMatchingTools(source simplestreams.DataSource, matchingTools []interf
 	}
 	for _, val := range tools {
 		tm := val.(*ToolsMetadata)
-		if !set.NewStrings(cons.Params().Series...).Contains(tm.Release) {
+		if !set.NewStrings(cons.Params().Releases...).Contains(tm.Release) {
 			continue
 		}
 		if toolsConstraint, ok := cons.(*ToolsConstraint); ok {

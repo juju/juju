@@ -59,7 +59,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 		osToSearch = workloadOSTypes.Values()
 		logger.Tracef("no os type specified when finding agent binaries, looking for %v", osToSearch)
 	}
-	toolsConstraint.Series = osToSearch
+	toolsConstraint.Releases = osToSearch
 	return toolsConstraint, nil
 }
 

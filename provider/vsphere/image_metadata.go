@@ -35,9 +35,9 @@ func findImageMetadata(env environs.Environ, args environs.StartInstanceParams) 
 	arches := args.Tools.Arches()
 	ic := &imagemetadata.ImageConstraint{
 		LookupParams: simplestreams.LookupParams{
-			Series: []string{args.InstanceConfig.Series},
-			Arches: arches,
-			Stream: env.Config().ImageStream(),
+			Releases: []string{args.InstanceConfig.Series},
+			Arches:   arches,
+			Stream:   env.Config().ImageStream(),
 		},
 	}
 	sources, err := environs.ImageMetadataSources(env)

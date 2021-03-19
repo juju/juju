@@ -32,8 +32,8 @@ func registerSimpleStreamsTests() {
 					Region:   "us-east-1",
 					Endpoint: "https://ec2.us-east-1.amazonaws.com",
 				},
-				Series: []string{"precise"},
-				Arches: []string{"amd64", "arm"},
+				Releases: []string{"precise"},
+				Arches:   []string{"amd64", "arm"},
 			}),
 		},
 	})
@@ -334,8 +334,8 @@ func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
 			Region:   "us-east-1",
 			Endpoint: "https://ec2.us-east-1.amazonaws.com",
 		},
-		Series: []string{"precise"},
-		Arches: []string{"not-a-real-arch"}, // never matches
+		Releases: []string{"precise"},
+		Arches:   []string{"not-a-real-arch"}, // never matches
 	})
 	params := simplestreams.GetMetadataParams{
 		StreamsVersion:   s.StreamsVersion,

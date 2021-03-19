@@ -204,7 +204,7 @@ func (s *simplestreamsSuite) TestConstraint(c *gc.C) {
 	c.Assert(ids, jc.DeepEquals, []string{"com.canonical.streams:dashboard"})
 
 	c.Assert(constraint.Arches, jc.DeepEquals, []string{})
-	c.Assert(constraint.Series, jc.DeepEquals, []string{})
+	c.Assert(constraint.Releases, jc.DeepEquals, []string{})
 
 	c.Assert(constraint.Endpoint, gc.Equals, "")
 	c.Assert(constraint.Region, gc.Equals, "")

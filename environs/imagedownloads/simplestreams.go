@@ -166,9 +166,9 @@ func One(arch, release, stream, ftype string, src func() simplestreams.DataSourc
 	ds := []simplestreams.DataSource{src()}
 	limit, err := imagemetadata.NewImageConstraint(
 		simplestreams.LookupParams{
-			Arches: []string{arch},
-			Series: []string{release},
-			Stream: stream,
+			Arches:   []string{arch},
+			Releases: []string{release},
+			Stream:   stream,
 		},
 	)
 	if err != nil {

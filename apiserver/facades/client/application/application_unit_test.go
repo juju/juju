@@ -101,16 +101,16 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	s.JujuOSEnvSuite.SetUpTest(c)
 	agentTools := &tools.Tools{
 		Version: version.Binary{
-			Number: version.Number{Major: 2, Minor: 6, Patch: 0},
+			Number:  version.Number{Major: 2, Minor: 6, Patch: 0},
 			Release: "ubuntu",
-			Arch:   "x86",
+			Arch:    "x86",
 		},
 	}
 	olderAgentTools := &tools.Tools{
 		Version: version.Binary{
-			Number: version.Number{Major: 2, Minor: 5, Patch: 1},
+			Number:  version.Number{Major: 2, Minor: 5, Patch: 1},
 			Release: "ubuntu",
-			Arch:   "x86",
+			Arch:    "x86",
 		},
 	}
 	lxdProfile := &charm.LXDProfile{
