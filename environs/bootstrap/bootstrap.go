@@ -485,7 +485,7 @@ func bootstrapIAAS(
 			ctx.Infof("No packaged binary found, preparing local Juju agent binary")
 		}
 		var forceVersion version.Number
-		availableTools, forceVersion, err = locallyBuildableTools(bootstrapSeries)
+		availableTools, forceVersion, err = locallyBuildableTools()
 		if err != nil {
 			return errors.Annotate(err, "cannot package bootstrap agent binary")
 		}

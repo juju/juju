@@ -1573,9 +1573,9 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	defer delete(aws.Regions, region.Name)
 
 	env := t.Prepare(c)
-	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("test")
+	params, err := env.(simplestreams.ImageMetadataValidator).ImageMetadataLookupParams("test")
 	c.Assert(err, jc.ErrorIsNil)
-	params.Series = jujuversion.DefaultSupportedLTS()
+	params.Release = jujuversion.DefaultSupportedLTS()
 	params.Endpoint = region.EC2Endpoint
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)

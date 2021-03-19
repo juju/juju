@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd/cmdtesting"
-	coretesting "github.com/juju/juju/testing"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
@@ -30,7 +30,7 @@ func (s *VersionSuite) TestVersion(c *gc.C) {
 	cctx, err := cmdtesting.RunCommand(c, command)
 	c.Assert(err, jc.ErrorIsNil)
 	output := fmt.Sprintf("2.99.0-%s-%s\n",
-		coretesting.HostSeries(c), arch.HostArch())
+		coreos.HostOSTypeName(), arch.HostArch())
 
 	c.Assert(cctx.Stdout.(*bytes.Buffer).String(), gc.Equals, output)
 	c.Assert(cctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
@@ -50,7 +50,7 @@ git-commit: 0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f
 git-tree-state: clean
 compiler: gc
 `[1:]
-	output := fmt.Sprintf(outputTemplate, coretesting.HostSeries(c), arch.HostArch())
+	output := fmt.Sprintf(outputTemplate, coreos.HostOSTypeName(), arch.HostArch())
 
 	c.Assert(cctx.Stdout.(*bytes.Buffer).String(), gc.Equals, output)
 	c.Assert(cctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
@@ -67,7 +67,7 @@ func (s *VersionSuite) TestVersionDetailJSON(c *gc.C) {
 	outputTemplate := `
 {"version":"2.99.0-%s-%s","git-commit":"0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f","git-tree-state":"clean","compiler":"gc"}
 `[1:]
-	output := fmt.Sprintf(outputTemplate, coretesting.HostSeries(c), arch.HostArch())
+	output := fmt.Sprintf(outputTemplate, coreos.HostOSTypeName(), arch.HostArch())
 
 	c.Assert(cctx.Stdout.(*bytes.Buffer).String(), gc.Equals, output)
 	c.Assert(cctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
@@ -87,7 +87,7 @@ git-commit: 0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f
 git-tree-state: clean
 compiler: gc
 `[1:]
-	output := fmt.Sprintf(outputTemplate, coretesting.HostSeries(c), arch.HostArch())
+	output := fmt.Sprintf(outputTemplate, coreos.HostOSTypeName(), arch.HostArch())
 
 	c.Assert(cctx.Stdout.(*bytes.Buffer).String(), gc.Equals, output)
 	c.Assert(cctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")

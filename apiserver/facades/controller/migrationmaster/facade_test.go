@@ -58,7 +58,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 		Type:               "iaas",
 		Config:             map[string]interface{}{"uuid": s.modelUUID},
 		Owner:              names.NewUserTag("admin"),
-		LatestToolsVersion: jujuversion.Current,
+		LatestToolsVersion: jujuversion.ToVersion1(jujuversion.Current),
 	})
 
 	s.resources = common.NewResources()
@@ -273,7 +273,7 @@ func (s *Suite) TestExportCAAS(c *gc.C) {
 		Type:               "caas",
 		Config:             map[string]interface{}{"uuid": s.modelUUID},
 		Owner:              names.NewUserTag("admin"),
-		LatestToolsVersion: jujuversion.Current,
+		LatestToolsVersion: jujuversion.ToVersion1(jujuversion.Current),
 	})
 	s.assertExport(c, "caas")
 }
@@ -290,7 +290,7 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 	const tools1 = "2.0.1-ubuntu-amd64"
 	m := s.model.AddMachine(description.MachineArgs{Id: names.NewMachineTag("9")})
 	m.SetTools(description.AgentToolsArgs{
-		Version: version.MustParseBinary(tools1),
+		Version: jujuversion.ToVersion1Binary(version.MustParseBinary(tools1)),
 	})
 
 	res := app.AddResource(description.ResourceArgs{Name: "bin"})
@@ -321,7 +321,7 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 		Tag: names.NewUnitTag("foo/0"),
 	})
 	unit.SetTools(description.AgentToolsArgs{
-		Version: version.MustParseBinary(tools0),
+		Version: jujuversion.ToVersion1Binary(version.MustParseBinary(tools0)),
 	})
 	unitRes := unit.AddResource(description.UnitResourceArgs{
 		Name: "bin",

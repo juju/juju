@@ -17,7 +17,8 @@ import (
 
 var _ environs.Environ = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
-var _ simplestreams.MetadataValidator = (*environ)(nil)
+var _ simplestreams.AgentMetadataValidator = (*environ)(nil)
+var _ simplestreams.ImageMetadataValidator = (*environ)(nil)
 
 type environSuite struct {
 	testing.BaseSuite

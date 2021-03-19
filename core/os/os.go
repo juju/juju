@@ -71,7 +71,12 @@ func IsValidOSTypeName(osType string) bool {
 }
 
 // HostOSTypeName returns the name of the host OS.
-func HostOSTypeName() string {
+func HostOSTypeName() (osTypeName string) {
+	defer func() {
+		if err := recover(); err != nil {
+			osTypeName = "unknown"
+		}
+	}()
 	return strings.ToLower(HostOS().String())
 }
 

@@ -343,6 +343,7 @@ func (s *toolsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
+// TODO(juju3) - drop this test
 func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	// Make some fake tools.
 	expectedTools, v, toolsContent := s.setupToolsForUpload(c)
@@ -362,7 +363,7 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	for _, series := range []string{"precise", "quantal"} {
-		v.OSType = series
+		v.Release = series
 		_, r, err := storage.Open(v.String())
 		c.Assert(err, jc.ErrorIsNil)
 		uploadedData, err := ioutil.ReadAll(r)
@@ -372,7 +373,7 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	}
 
 	// ensure other series *aren't* there.
-	v.OSType = "trusty"
+	v.Release = "trusty"
 	_, err = storage.Metadata(v.String())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

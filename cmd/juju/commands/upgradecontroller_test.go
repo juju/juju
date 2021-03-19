@@ -54,34 +54,34 @@ var _ = gc.Suite(&UpgradeIAASControllerSuite{})
 
 var upgradeIAASControllerPassthroughTests = []upgradeTest{{
 	about:          "unwanted extra argument",
-	currentVersion: "1.0.0-groovy-amd64",
+	currentVersion: "1.0.0-ubuntu-amd64",
 	args:           []string{"foo"},
 	expectInitErr:  "unrecognized args:.*",
 }, {
 	about:          "invalid --agent-version value",
-	currentVersion: "1.0.0-groovy-amd64",
+	currentVersion: "1.0.0-ubuntu-amd64",
 	args:           []string{"--agent-version", "invalid-version"},
 	expectInitErr:  "invalid version .*",
 }, {
 	about:          "latest supported stable release",
-	available:      []string{"2.1.0-groovy-amd64", "2.1.2-groovy-i386", "2.1.3-groovy-amd64", "2.1-dev1-groovy-amd64"},
-	currentVersion: "2.0.0-groovy-amd64",
+	available:      []string{"2.1.0-ubuntu-amd64", "2.1.2-ubuntu-i386", "2.1.3-ubuntu-amd64", "2.1-dev1-ubuntu-amd64"},
+	currentVersion: "2.0.0-ubuntu-amd64",
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.1.3",
 }, {
 	about:          "latest supported stable, when client is dev, explicit upload",
-	available:      []string{"2.1-dev1-groovy-amd64", "2.1.0-groovy-amd64", "2.3-dev0-groovy-amd64", "3.0.1-groovy-amd64"},
-	currentVersion: "2.1-dev0-groovy-amd64",
+	available:      []string{"2.1-dev1-ubuntu-amd64", "2.1.0-ubuntu-amd64", "2.3-dev0-ubuntu-amd64", "3.0.1-ubuntu-amd64"},
+	currentVersion: "2.1-dev0-ubuntu-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--build-agent"},
 	expectVersion:  "2.1-dev0.1",
 }, {
 	about:          "upload with explicit version",
-	currentVersion: "2.2.0-groovy-amd64",
+	currentVersion: "2.2.0-ubuntu-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--build-agent", "--agent-version", "2.7.3"},
 	expectVersion:  "2.7.3.1",
-	expectUploaded: []string{"2.7.3.1-groovy-amd64", "2.7.3.1-%LTS%-amd64", "2.7.3.1-xenial-amd64"},
+	expectUploaded: []string{"2.7.3.1-ubuntu-amd64"},
 }}
 
 func (s *UpgradeIAASControllerSuite) upgradeControllerCommand() cmd.Command {
@@ -133,16 +133,16 @@ func (s *UpgradeIAASControllerSuite) TestUpgradeCorrectController(c *gc.C) {
 	tests := []upgradeTest{
 		{
 			about:          "latest supported stable release with specified controller",
-			available:      []string{"2.1.0-groovy-amd64", "2.1.2-groovy-i386", "2.1.3-groovy-amd64", "2.1-dev1-groovy-amd64"},
-			currentVersion: "2.0.0-groovy-amd64",
+			available:      []string{"2.1.0-ubuntu-amd64", "2.1.2-ubuntu-i386", "2.1.3-ubuntu-amd64", "2.1-dev1-ubuntu-amd64"},
+			currentVersion: "2.0.0-ubuntu-amd64",
 			agentVersion:   "2.0.0",
 			expectVersion:  "2.1.3",
 			args:           []string{"--controller", "kontroll"},
 		},
 		{
 			about:          "latest supported stable release without specified controller",
-			available:      []string{"2.1.0-groovy-amd64", "2.1.2-groovy-i386", "2.1.3-groovy-amd64", "2.1-dev1-groovy-amd64"},
-			currentVersion: "2.0.0-groovy-amd64",
+			available:      []string{"2.1.0-ubuntu-amd64", "2.1.2-ubuntu-i386", "2.1.3-ubuntu-amd64", "2.1-dev1-ubuntu-amd64"},
+			currentVersion: "2.0.0-ubuntu-amd64",
 			agentVersion:   "2.0.0",
 			expectVersion:  "2.1.3",
 			expectErr:      badControllerSelected.Error(),

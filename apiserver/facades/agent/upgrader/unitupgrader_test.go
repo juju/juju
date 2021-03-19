@@ -233,7 +233,7 @@ func (s *unitUpgraderSuite) TestSetTools(c *gc.C) {
 	realTools, err := s.rawUnit.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(realTools.Version.Arch, gc.Equals, cur.Arch)
-	c.Check(realTools.Version.OSType, gc.Equals, cur.OSType)
+	c.Check(realTools.Version.Release, gc.Equals, cur.Release)
 	c.Check(realTools.Version.Major, gc.Equals, cur.Major)
 	c.Check(realTools.Version.Minor, gc.Equals, cur.Minor)
 	c.Check(realTools.Version.Patch, gc.Equals, cur.Patch)

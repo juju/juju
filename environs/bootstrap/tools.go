@@ -88,33 +88,20 @@ func findPackagedTools(
 }
 
 // locallyBuildableTools returns the list of tools that
-// can be built locally, for series of the same OS.
-func locallyBuildableTools(toolsSeries *string) (buildable coretools.List, _ version.Number, _ error) {
+// can be built locally.
+func locallyBuildableTools() (buildable coretools.List, _ version.Number, _ error) {
 	buildNumber := jujuversion.Current
 	// Increment the build number so we know it's a custom build.
 	buildNumber.Build++
-	workloadSeries, err := coreseries.AllWorkloadSeries("", "")
-	if err != nil {
-		return nil, version.Number{}, errors.Trace(err)
+	if !coreos.HostOS().EquivalentTo(coreos.Ubuntu) {
+		return buildable, buildNumber, nil
 	}
-	var osNames []string
-	for _, ser := range workloadSeries.SortedValues() {
-		if os, err := coreseries.GetOSFromSeries(ser); err != nil || !os.EquivalentTo(coreos.HostOS()) {
-			continue
-		}
-		if toolsSeries != nil && ser != *toolsSeries {
-			continue
-		}
-		osNames = append(osNames, coreseries.DefaultOSTypeNameFromSeries(ser))
+	binary := version.Binary{
+		Number:  buildNumber,
+		Release: "ubuntu",
+		Arch:    localToolsArch(),
 	}
-	for _, osName := range osNames {
-		binary := version.Binary{
-			Number:  buildNumber,
-			Release: osName,
-			Arch:    localToolsArch(),
-		}
-		buildable = append(buildable, &coretools.Tools{Version: binary})
-	}
+	buildable = append(buildable, &coretools.Tools{Version: binary})
 	return buildable, buildNumber, nil
 }
 

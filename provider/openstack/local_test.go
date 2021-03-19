@@ -1866,11 +1866,11 @@ func (s *localServerSuite) TestDeriveAvailabilityZonesConflictsVolume(c *gc.C) {
 
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := s.Open(c, s.env.Config())
-	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
+	params, err := env.(simplestreams.ImageMetadataValidator).ImageMetadataLookupParams("some-region")
 	c.Assert(err, jc.ErrorIsNil)
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	params.Series = "raring"
+	params.Release = "raring"
 	imageIDs, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(imageIDs, jc.SameContents, []string{"id-y"})

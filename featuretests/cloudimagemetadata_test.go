@@ -65,7 +65,7 @@ func (s *cloudImageMetadataSuite) TestSaveAndFindAndDeleteMetadata(c *gc.C) {
 	added, err := s.client.List("", "", nil, nil, "", "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// m.Version would be deduced from m.OSType
+	// m.Version would be deduced from m.Series
 	m.Version = "14.04"
 	c.Assert(added, jc.DeepEquals, []params.CloudImageMetadata{m})
 

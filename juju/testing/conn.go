@@ -423,7 +423,6 @@ func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (
 // environment's host architecture. Additionally, it ensures that 'versions'
 // for amd64 are returned if that is not the current host's architecture.
 func DefaultVersions(conf *config.Config) []version.Binary {
-	osType := coreos.HostOSTypeName()
 	agentVersion, set := conf.AgentVersion()
 	if !set {
 		agentVersion = jujuversion.Current
@@ -432,13 +431,13 @@ func DefaultVersions(conf *config.Config) []version.Binary {
 	versions = append(versions, version.Binary{
 		Number:  agentVersion,
 		Arch:    arch.HostArch(),
-		Release: osType,
+		Release: "ubuntu",
 	})
 	if arch.HostArch() != "amd64" {
 		versions = append(versions, version.Binary{
 			Number:  agentVersion,
 			Arch:    "amd64",
-			Release: osType,
+			Release: "ubuntu",
 		})
 
 	}

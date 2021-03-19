@@ -20,7 +20,6 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	mgotxn "github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
@@ -38,6 +37,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -3854,7 +3854,7 @@ func (s *StateSuite) TestSetModelAgentVersionOnOtherModel(c *gc.C) {
 	current := version.MustParseBinary("1.24.7-ubuntu-amd64")
 	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
-	s.PatchValue(&series.HostSeries, func() (string, error) { return current.OSType, nil })
+	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 
 	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()

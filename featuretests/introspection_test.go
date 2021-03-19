@@ -87,9 +87,9 @@ func (s *introspectionSuite) startControllerAgent(c *gc.C) (*agentcmd.MachineAge
 	c.Assert(err, jc.ErrorIsNil)
 
 	vers := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		OSType: "kuebernetes",
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: "kuebernetes",
 	}
 	return s.startAgent(c, node.Tag(), password, vers, true)
 }

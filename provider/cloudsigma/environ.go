@@ -11,6 +11,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/instance"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -144,12 +145,24 @@ func (env *environ) Region() (simplestreams.CloudSpec, error) {
 	}, nil
 }
 
-func (env *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+func (env *environ) ImageMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	env.lock.Lock()
 	defer env.lock.Unlock()
 	return &simplestreams.MetadataLookupParams{
 		Region:   region,
 		Endpoint: gosigma.ResolveEndpoint(region),
 		Release:  config.PreferredSeries(env.ecfg),
+	}, nil
+}
+
+func (env *environ) AgentMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+	env.lock.Lock()
+	defer env.lock.Unlock()
+	series := config.PreferredSeries(env.ecfg)
+	hostOSType := coreseries.DefaultOSTypeNameFromSeries(series)
+	return &simplestreams.MetadataLookupParams{
+		Region:   region,
+		Endpoint: gosigma.ResolveEndpoint(region),
+		Release:  hostOSType,
 	}, nil
 }

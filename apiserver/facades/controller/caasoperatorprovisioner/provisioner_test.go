@@ -176,8 +176,9 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 
 func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStorage(c *gc.C) {
 	s.st.operatorRepo = "somerepo"
+	minVers := version.MustParse("2.8.0")
 	s.st.app = &mockApplication{
-		charm: &mockCharm{meta: &charm.Meta{MinJujuVersion: version.MustParse("2.8.0")}},
+		charm: &mockCharm{meta: &charm.Meta{MinJujuVersion: jujuversion.ToVersion1(minVers)}},
 	}
 	result, err := s.api.OperatorProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -196,8 +197,9 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStorage(c *gc.C) {
 func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStoragePool(c *gc.C) {
 	s.storagePoolManager.SetErrors(errors.NotFoundf("pool"))
 	s.st.operatorRepo = "somerepo"
+	minVers := version.MustParse("2.7.0")
 	s.st.app = &mockApplication{
-		charm: &mockCharm{meta: &charm.Meta{MinJujuVersion: version.MustParse("2.7.0")}},
+		charm: &mockCharm{meta: &charm.Meta{MinJujuVersion: jujuversion.ToVersion1(minVers)}},
 	}
 	result, err := s.api.OperatorProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)

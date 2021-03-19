@@ -175,7 +175,7 @@ another/0    waiting   allocating  1                               waiting for m
 mysql/0      waiting   allocating  0                               waiting for machine
 wordpress/0  waiting   allocating  0                               waiting for machine
 
-Machine  State    DNS  Inst id  OSType   AZ  Message
+Machine  State    DNS  Inst id  Series   AZ  Message
 0        pending       id0      quantal      
 1        pending       id1      quantal      
 `)
@@ -190,7 +190,7 @@ Unit         Workload  Agent       Machine  Public address  Ports  Message
 mysql/0      waiting   allocating  0                               waiting for machine
 wordpress/0  waiting   allocating  0                               waiting for machine
 
-Machine  State    DNS  Inst id  OSType   AZ  Message
+Machine  State    DNS  Inst id  Series   AZ  Message
 0        pending       id0      quantal      
 `)
 }
@@ -240,7 +240,7 @@ func (s *StatusSuite) TestStatusFilteringByMachineIDMatchesExactly(c *gc.C) {
 Unit       Workload  Agent       Machine  Public address  Ports  Message
 another/0  waiting   allocating  1                               waiting for machine
 
-Machine  State    DNS  Inst id  OSType   AZ  Message
+Machine  State    DNS  Inst id  Series   AZ  Message
 1        pending       id1      quantal      
 
 `)
@@ -251,7 +251,7 @@ Machine  State    DNS  Inst id  OSType   AZ  Message
 Unit       Workload  Agent       Machine  Public address  Ports  Message
 another/1  waiting   allocating  10                              waiting for machine
 
-Machine  State    DNS  Inst id  OSType   AZ  Message
+Machine  State    DNS  Inst id  Series   AZ  Message
 10       pending       id10     quantal      
 
 `)
@@ -278,7 +278,7 @@ func (s *StatusSuite) TestStatusMachineFilteringWithUnassignedUnits(c *gc.C) {
 
 	context := s.run(c, "status", "1")
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
-Machine  State    DNS  Inst id  OSType   AZ  Message
+Machine  State    DNS  Inst id  Series   AZ  Message
 1        pending       id1      quantal      
 
 `)

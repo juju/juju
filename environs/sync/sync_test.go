@@ -18,7 +18,6 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http"
 	jujutesting "github.com/juju/testing"

@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
@@ -2660,9 +2661,9 @@ func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 	agentTools := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		OSType: app.Series(),
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: coreseries.DefaultOSTypeNameFromSeries(app.Series()),
 	}
 
 	tools, err := app.AgentTools()

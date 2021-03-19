@@ -72,9 +72,9 @@ func (s *dblogSuite) TestControllerAgentLogsGoToDBCAAS(c *gc.C) {
 		controller.MongoMemoryProfile: controller.MongoProfLow}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	vers := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		OSType: "kuebernetes",
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: "kubernetes",
 	}
 	s.PrimeAgentVersion(c, node.Tag(), password, vers)
 	s.assertAgentLogsGoToDB(c, node.Tag(), true)

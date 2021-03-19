@@ -39,12 +39,12 @@ func init() {
 	environs.RegisterProvider("sshinit_test", &testProvider{})
 }
 
-func testConfig(c *gc.C, controller bool, vers version.Binary) *config.Config {
+func testConfig(c *gc.C, series string, vers version.Binary) *config.Config {
 	testConfig, err := config.New(config.UseDefaults, coretesting.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	testConfig, err = testConfig.Apply(map[string]interface{}{
 		"type":           "sshinit_test",
-		"default-series": vers.OSType,
+		"default-series": series,
 		"agent-version":  vers.Number.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -54,7 +54,7 @@ func testConfig(c *gc.C, controller bool, vers version.Binary) *config.Config {
 func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.Binary, series string) cloudinit.CloudConfig {
 	var icfg *instancecfg.InstanceConfig
 	var err error
-	modelConfig := testConfig(c, controller, vers)
+	modelConfig := testConfig(c, series, vers)
 	if controller {
 		icfg, err = instancecfg.NewBootstrapInstanceConfig(
 			coretesting.FakeControllerConfig(),
@@ -90,7 +90,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 			APIPort:      456,
 		}
 	} else {
-		icfg, err = instancecfg.NewInstanceConfig(coretesting.ControllerTag, "0", "ya", imagemetadata.ReleasedStream, vers.OSType, nil)
+		icfg, err = instancecfg.NewInstanceConfig(coretesting.ControllerTag, "0", "ya", imagemetadata.ReleasedStream, series, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		icfg.Jobs = []model.MachineJob{model.JobHostUnits}
 	}

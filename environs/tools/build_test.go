@@ -23,6 +23,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/testing"
@@ -301,8 +302,8 @@ func listDir(c *gc.C, dir string) []string {
 
 func (b *buildSuite) TestBundleToolsMatchesBinaryUsingOsTypeArch(c *gc.C) {
 	thisArch := arch.HostArch()
-	thisSeries := testing.HostSeries(c)
-	dir := b.setUpFakeBinaries(c, fmt.Sprintf(osTypeArchMatchVersionFile, thisSeries, thisArch))
+	thisHost := coreos.HostOSTypeName()
+	dir := b.setUpFakeBinaries(c, fmt.Sprintf(osTypeArchMatchVersionFile, thisHost, thisArch))
 
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -310,7 +311,7 @@ func (b *buildSuite) TestBundleToolsMatchesBinaryUsingOsTypeArch(c *gc.C) {
 	forceVersion := version.MustParse("1.2.3.1")
 	resultVersion, official, _, err := tools.BundleTools(false, bundleFile, &forceVersion)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resultVersion.String(), gc.Equals, fmt.Sprintf("1.2.3-%s-%s", thisSeries, thisArch))
+	c.Assert(resultVersion.String(), gc.Equals, fmt.Sprintf("1.2.3-%s-%s", thisHost, thisArch))
 	c.Assert(official, jc.IsTrue)
 }
 
@@ -440,7 +441,7 @@ var (
 versions:
   - version: 1.2.3-ubuntu-arm64
     sha256: b6813a18f82b16ae8d0cfb9e3063302688906e0c547db629a94dfb7f70198f00
-  - version: 1.2.4-ubuntu-amd64
+  - version: 1.2.4-windows-amd64
     sha256: aaaa059f4cb8e83405fe6daabaa3ae62ead64ff841e0c26064c3e111c857e1fb
 `[1:]
 

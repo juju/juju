@@ -32,6 +32,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
@@ -202,7 +203,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	// Config as read from state has resources tags coerced to a map.
 	modelCfg["resource-tags"] = map[string]string{}
 	c.Assert(modelCfg, jc.DeepEquals, modelAttrs)
-	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
+	c.Assert(model.LatestToolsVersion(), gc.Equals, jujuversion.ToVersion1(latestTools))
 	c.Assert(model.EnvironVersion(), gc.Equals, environVersion)
 	c.Assert(model.Annotations(), jc.DeepEquals, testAnnotations)
 	constraints := model.Constraints()
@@ -351,7 +352,7 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 	c.Assert(err, jc.ErrorIsNil)
 	exTools := exported.Tools()
 	c.Assert(exTools, gc.NotNil)
-	c.Assert(exTools.Version(), jc.DeepEquals, tools.Version)
+	c.Assert(exTools.Version(), jc.DeepEquals, jujuversion.ToVersion1Binary(tools.Version))
 
 	history := exported.StatusHistory()
 	c.Assert(history, gc.HasLen, expectedHistoryCount)
@@ -555,7 +556,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 
 		tools, err := application.AgentTools()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(exported.Tools().Version(), gc.Equals, tools.Version)
+		c.Assert(exported.Tools().Version(), gc.Equals, jujuversion.ToVersion1Binary(tools.Version))
 	} else {
 		c.Assert(exported.PodSpec(), gc.Equals, "")
 		c.Assert(exported.CloudService(), gc.IsNil)
@@ -909,7 +910,7 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	if dbModel.Type() == state.ModelTypeIAAS {
 		tools, err := unit.AgentTools()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(exported.Tools().Version(), gc.Equals, tools.Version)
+		c.Assert(exported.Tools().Version(), gc.Equals, jujuversion.ToVersion1Binary(tools.Version))
 	}
 }
 
@@ -1164,9 +1165,9 @@ func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {
 		app, err := unit.Application()
 		c.Assert(err, jc.ErrorIsNil)
 		agentTools := version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			OSType: app.Series(),
+			Number:  jujuversion.Current,
+			Arch:    arch.HostArch(),
+			Release: coreseries.DefaultOSTypeNameFromSeries(app.Series()),
 		}
 		err = unit.SetAgentVersion(agentTools)
 		c.Assert(err, jc.ErrorIsNil)
