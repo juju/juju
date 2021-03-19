@@ -758,7 +758,7 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepare(c *gc.C) {
 
 	mach := s.st.machines["0"]
 	c.Assert(len(mach.Calls()), gc.Equals, 9)
-	mach.CheckCallNames(c, "IsManager", "IsLockedForSeriesUpgrade", "Units", "CreateUpgradeSeriesLock", "Series", "Tag", "ApplicationNames", "Series", "SetUpgradeSeriesStatus")
+	mach.CheckCallNames(c, "IsManager", "IsLockedForSeriesUpgrade", "Units", "CreateUpgradeSeriesLock", "Release", "Tag", "ApplicationNames", "Release", "SetUpgradeSeriesStatus")
 	mach.CheckCall(c, 3, "CreateUpgradeSeriesLock", []string{"foo/0", "foo/1", "foo/2"}, "xenial")
 }
 
@@ -1151,7 +1151,7 @@ func (m *mockMachine) SetKeepInstance(keep bool) error {
 }
 
 func (m *mockMachine) Series() string {
-	m.MethodCall(m, "Series")
+	m.MethodCall(m, "Release")
 	return m.series
 }
 

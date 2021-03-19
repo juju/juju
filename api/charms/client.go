@@ -146,7 +146,7 @@ func (c *Client) AddCharm(curl *charm.URL, origin apicharm.Origin, force bool) (
 		URL:    curl.String(),
 		Origin: origin.ParamsCharmOrigin(),
 		Force:  force,
-		// Deprecated: Series is used here to communicate with older
+		// Deprecated: Release is used here to communicate with older
 		// controllers and instead we use Origin to describe the platform.
 		Series: origin.Series,
 	}
@@ -174,7 +174,7 @@ func (c *Client) AddCharmWithAuthorization(curl *charm.URL, origin apicharm.Orig
 		Origin:             origin.ParamsCharmOrigin(),
 		CharmStoreMacaroon: csMac,
 		Force:              force,
-		// Deprecated: Series is used here to communicate with older
+		// Deprecated: Release is used here to communicate with older
 		// controllers and instead we use Origin to describe the platform.
 		Series: origin.Series,
 	}

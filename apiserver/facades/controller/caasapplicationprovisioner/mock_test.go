@@ -267,7 +267,7 @@ func (a *mockApplication) Name() string {
 }
 
 func (a *mockApplication) Series() string {
-	a.MethodCall(a, "OSType")
+	a.MethodCall(a, "Series")
 	return a.series
 }
 

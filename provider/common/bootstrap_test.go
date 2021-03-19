@@ -200,7 +200,6 @@ func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	bootstrapSeries := jujuversion.DefaultSupportedLTS()
 	availableTools := fakeAvailableTools()
-	availableTools[0].Version.Release = bootstrapSeries
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		BootstrapSeries:          bootstrapSeries,
@@ -222,7 +221,6 @@ func (s *BootstrapSuite) TestBootstrapInvalidSeries(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	bootstrapSeries := "spock"
 	availableTools := fakeAvailableTools()
-	availableTools[0].Version.Release = bootstrapSeries
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		BootstrapSeries:          bootstrapSeries,
@@ -263,7 +261,6 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	bootstrapSeries := "xenial"
 	availableTools := fakeAvailableTools()
-	availableTools[0].Version.Release = bootstrapSeries
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		BootstrapSeries:          bootstrapSeries,
@@ -712,7 +709,6 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	bootstrapSeries := jujuversion.DefaultSupportedLTS()
 	availableTools := fakeAvailableTools()
-	availableTools[0].Version.Release = bootstrapSeries
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		BootstrapSeries:          bootstrapSeries,

@@ -144,9 +144,19 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 	return newEcfg.Apply(newEcfg.attrs)
 }
 
-// MetadataLookupParams returns parameters which are used to query image metadata to
+// AgentMetadataLookupParams returns parameters which are used to query agent metadata to
 // find matching image information.
-func (p environProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+func (p environProvider) AgentMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+	return p.metadataLookupParams(region)
+}
+
+// ImageMetadataLookupParams returns parameters which are used to query image metadata to
+// find matching image information.
+func (p environProvider) ImageMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+	return p.metadataLookupParams(region)
+}
+
+func (p environProvider) metadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
 		return nil, fmt.Errorf("region must be specified")
 	}

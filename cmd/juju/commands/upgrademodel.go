@@ -287,7 +287,7 @@ func formatVersions(agents coretools.Versions) string {
 }
 
 type toolsAPI interface {
-	FindTools(majorVersion, minorVersion int, series, arch, agentStream string) (result params.FindToolsResult, err error)
+	FindTools(majorVersion, minorVersion int, osType, arch, agentStream string) (result params.FindToolsResult, err error)
 	UploadTools(r io.ReadSeeker, vers version.Binary) (coretools.List, error)
 }
 

@@ -77,7 +77,7 @@ func runList(c *gc.C, args []string) (*cmd.Context, error) {
 func (s *ListSuite) TestListDefault(c *gc.C) {
 	// Default format is tabular
 	s.assertValidList(c, `
-Source  OSType  Arch   Region  Image id  Stream    Virt Type  Storage Type
+Source  Series  Arch   Region  Image id  Stream    Virt Type  Storage Type
 custom  vivid   amd64  asia    im-21     released  kvm        ebs
 custom  vivid   amd64  europe  im-21     released  kvm        ebs
 custom  vivid   amd64  us      im-21     released  kvm        ebs

@@ -990,6 +990,8 @@ type FindToolsParams struct {
 	// Arch will be used to match tools by architecture if non-empty.
 	Arch string `json:"arch"`
 
+	// TODO(juju3) - remove series
+	// Kept foe compatibility with older clients.
 	// Series will be used to match tools by series if non-empty.
 	Series string `json:"series"`
 

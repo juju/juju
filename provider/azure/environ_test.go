@@ -1617,7 +1617,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("bionic"),
+			AvailableTools:           makeToolsList("ubuntu"),
 			BootstrapSeries:          "bionic",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
@@ -1651,7 +1651,7 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("bionic"),
+			AvailableTools:           makeToolsList("ubuntu"),
 			BootstrapSeries:          "bionic",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G allocate-public-ip=false"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
@@ -1685,7 +1685,7 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("bionic"),
+			AvailableTools:           makeToolsList("ubuntu"),
 			BootstrapSeries:          "bionic",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
@@ -1723,7 +1723,7 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 	_, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("bionic"),
+			AvailableTools:           makeToolsList("ubuntu"),
 			BootstrapSeries:          "bionic",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
@@ -1856,7 +1856,7 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         config,
-			AvailableTools:           makeToolsList("bionic"),
+			AvailableTools:           makeToolsList("ubuntu"),
 			BootstrapSeries:          "bionic",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,

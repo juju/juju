@@ -202,7 +202,7 @@ func (mr *MockMachineMockRecorder) RemoveUpgradeSeriesLock() *gomock.Call {
 // Series mocks base method
 func (m *MockMachine) Series() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OSType")
+	ret := m.ctrl.Call(m, "Series")
 	ret0, _ := ret[0].(string)
 	return ret0
 }
@@ -210,7 +210,7 @@ func (m *MockMachine) Series() string {
 // Series indicates an expected call of Series
 func (mr *MockMachineMockRecorder) Series() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OSType", reflect.TypeOf((*MockMachine)(nil).Series))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Series", reflect.TypeOf((*MockMachine)(nil).Series))
 }
 
 // SetKeepInstance mocks base method

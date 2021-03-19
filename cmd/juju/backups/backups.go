@@ -126,7 +126,7 @@ const backupMetadataTemplate = `
 backup ID:             {{.BackupID}} 
 backup format version: {{.FormatVersion}} 
 juju version:          {{.JujuVersion}} 
-series:                {{.Series}} 
+series:                {{.Release}} 
 
 controller UUID:       {{.ControllerUUID}}{{if (gt .HANodes 1)}} 
 controllers in HA:     {{.HANodes}}{{end}}

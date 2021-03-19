@@ -3,17 +3,25 @@
 
 package simplestreams
 
-// MetadataValidator instances can provide parameters used to query simplestreams
-// metadata to find information for the specified parameters. If region is "",
+// AgentMetadataValidator instances can provide parameters used to query simplestreams
+// metadata to find agent information for the specified parameters. If region is "",
 // then the implementation may use its own default region if it has one,
 // or else returns an error.
-type MetadataValidator interface {
-	MetadataLookupParams(region string) (*MetadataLookupParams, error)
+type AgentMetadataValidator interface {
+	AgentMetadataLookupParams(region string) (*MetadataLookupParams, error)
+}
+
+// ImageMetadataValidator instances can provide parameters used to query simplestreams
+// metadata to find agent information for the specified parameters. If region is "",
+// then the implementation may use its own default region if it has one,
+// or else returns an error.
+type ImageMetadataValidator interface {
+	ImageMetadataLookupParams(region string) (*MetadataLookupParams, error)
 }
 
 type MetadataLookupParams struct {
 	Region        string
-	Series        string
+	Release       string
 	Architectures []string
 	Endpoint      string
 	Sources       []DataSource

@@ -37,7 +37,7 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simple
 				Endpoint: params.Endpoint,
 			},
 			Stream: params.Stream,
-			Series: []string{params.Series},
+			Series: []string{params.Release},
 			Arches: params.Architectures,
 		})
 	} else {
@@ -51,7 +51,7 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simple
 				Endpoint: params.Endpoint,
 			},
 			Stream: params.Stream,
-			Series: []string{params.Series},
+			Series: []string{params.Release},
 			Arches: params.Architectures,
 		})
 	}

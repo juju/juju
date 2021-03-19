@@ -570,7 +570,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 
 	// Upload some plausible matches, and some that should be filtered out.
-	compatibleVersion := version.MustParseBinary("1.2.3-ubuntu-arm64")
+	compatibleVersion := version.MustParseBinary("1.2.3-quantal-arm64")
 	ignoreVersion1 := version.MustParseBinary("1.2.4-ubuntu-arm64")
 	ignoreVersion2 := version.MustParseBinary("1.2.3-windows-arm64")
 	availableVersions := []version.Binary{
@@ -659,7 +659,7 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable
 	// Check that an instance is not provisioned when the machine is created...
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
 		// We need a valid series that has no tools uploaded
-		Series:      "raring",
+		Series:      "win10",
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	})

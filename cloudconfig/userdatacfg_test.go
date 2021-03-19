@@ -194,7 +194,7 @@ func (cfg *testInstanceConfig) setEnableOSUpdateAndUpgrade(updateEnabled, upgrad
 	return cfg
 }
 
-// setSeries sets the series-specific fields (Tools, Series, DataDir,
+// setSeries sets the series-specific fields (Tools, Release, DataDir,
 // LogDir, and CloudInitOutputLog) to match the given series.
 func (cfg *testInstanceConfig) setSeries(series string, build int) *testInstanceConfig {
 	osType := coreseries.DefaultOSTypeNameFromSeries(series)

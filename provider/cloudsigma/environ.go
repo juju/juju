@@ -150,6 +150,6 @@ func (env *environ) MetadataLookupParams(region string) (*simplestreams.Metadata
 	return &simplestreams.MetadataLookupParams{
 		Region:   region,
 		Endpoint: gosigma.ResolveEndpoint(region),
-		Series:   config.PreferredSeries(env.ecfg),
+		Release:  config.PreferredSeries(env.ecfg),
 	}, nil
 }

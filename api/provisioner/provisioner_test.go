@@ -787,7 +787,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		c.Assert(request, gc.Equals, "FindTools")
 		expected := params.FindToolsParams{
 			Number:       jujuversion.Current,
-			Series:       current.Release,
+			OSType:       "ubuntu",
 			Arch:         a,
 			MinorVersion: -1,
 			MajorVersion: -1,
@@ -800,7 +800,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		}
 		return apiError
 	})
-	apiList, err := s.provisioner.FindTools(jujuversion.Current, current.Release, a)
+	apiList, err := s.provisioner.FindTools(jujuversion.Current, "xenial", a)
 	c.Assert(called, jc.IsTrue)
 	if apiError != nil {
 		c.Assert(err, gc.Equals, apiError)

@@ -14,6 +14,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
@@ -148,7 +149,7 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 		Number:       agentVersion,
 		MajorVersion: -1,
 		MinorVersion: -1,
-		Series:       existingTools.Version.Release,
+		OSType:       existingTools.Version.Release,
 		Arch:         existingTools.Version.Arch,
 	})
 	if err != nil {
@@ -266,7 +267,7 @@ func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 // given parameters. If an exact match is specified (number, series and arch)
 // and is found in tools storage, then simplestreams will not be searched.
 func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.List, error) {
-	exactMatch := args.Number != version.Zero && args.Series != "" && args.Arch != ""
+	exactMatch := args.Number != version.Zero && (args.OSType != "" || args.Series != "") && args.Arch != ""
 	storageList, err := f.matchingStorageTools(args)
 	if err == nil && exactMatch {
 		return storageList, nil
@@ -353,10 +354,17 @@ func (f *ToolsFinder) matchingStorageTools(args params.FindToolsParams) (coretoo
 }
 
 func toolsFilter(args params.FindToolsParams) coretools.Filter {
+	var release string
+	if args.Series != "" {
+		release = coreseries.DefaultOSTypeNameFromSeries(args.Series)
+	}
+	if args.OSType != "" {
+		release = args.OSType
+	}
 	return coretools.Filter{
 		Number: args.Number,
 		Arch:   args.Arch,
-		OSType: args.OSType,
+		OSType: release,
 	}
 }
 

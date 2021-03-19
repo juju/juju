@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -402,8 +403,20 @@ func (e *environ) PrecheckInstance(ctx context.ProviderCallContext, args environ
 	return fmt.Errorf("invalid AWS instance type %q and arch %q specified", *args.Constraints.InstanceType, *args.Constraints.Arch)
 }
 
+// AgentMetadataLookupParams returns parameters which are used to query agent simple-streams metadata.
+func (e *environ) AgentMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+	series := config.PreferredSeries(e.ecfg())
+	hostOSType := coreseries.DefaultOSTypeNameFromSeries(series)
+	return e.metadataLookupParams(region, hostOSType)
+}
+
+// ImageMetadataLookupParams returns parameters which are used to query image simple-streams metadata.
+func (e *environ) ImageMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+	return e.metadataLookupParams(region, config.PreferredSeries(e.ecfg()))
+}
+
 // MetadataLookupParams returns parameters which are used to query simple-streams metadata.
-func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+func (e *environ) metadataLookupParams(region, release string) (*simplestreams.MetadataLookupParams, error) {
 	var endpoint string
 	if region == "" {
 		region = e.cloud.Region
@@ -419,7 +432,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		endpoint = ec2Region.EC2Endpoint
 	}
 	return &simplestreams.MetadataLookupParams{
-		Series:   config.PreferredSeries(e.ecfg()),
+		Release:  release,
 		Region:   region,
 		Endpoint: endpoint,
 	}, nil

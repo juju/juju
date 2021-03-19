@@ -80,9 +80,9 @@ func MustParsePlatform(s string) Platform {
 // Serialized version of platform can be expected to conform to the following:
 //
 //  1. Architecture is mandatory.
-//  2. OS is optional and can be dropped. Series is mandatory if OS wants
+//  2. OS is optional and can be dropped. Release is mandatory if OS wants
 //  to be displayed.
-//  3. Series is also optional.
+//  3. Release is also optional.
 //
 // To indicate something is missing `unknown` can be used in place.
 //

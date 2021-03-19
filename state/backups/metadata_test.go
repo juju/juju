@@ -41,7 +41,7 @@ func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
 		`"Machine":"0",`+
 		`"Hostname":"myhost",`+
 		`"Version":"1.21-alpha3",`+
-		`"OSType":"trusty",`+
+		`"Series":"trusty",`+
 		`"ControllerUUID":"",`+
 		`"HANodes":0,`+
 		`"ControllerMachineID":"",`+
@@ -103,7 +103,7 @@ func (s *metadataSuite) TestAsJSONBufferV1NonHA(c *gc.C) {
 		`"Machine":"0",`+
 		`"Hostname":"myhost",`+
 		`"Version":"1.21-alpha3",`+
-		`"OSType":"trusty",`+
+		`"Series":"trusty",`+
 		`"ControllerUUID":"controller-uuid",`+
 		`"HANodes":0,`+
 		`"ControllerMachineID":"10",`+
@@ -137,7 +137,7 @@ func (s *metadataSuite) TestAsJSONBufferV1HA(c *gc.C) {
 		`"Machine":"0",`+
 		`"Hostname":"myhost",`+
 		`"Version":"1.21-alpha3",`+
-		`"OSType":"trusty",`+
+		`"Series":"trusty",`+
 		`"ControllerUUID":"controller-uuid",`+
 		`"HANodes":3,`+
 		`"ControllerMachineID":"10",`+

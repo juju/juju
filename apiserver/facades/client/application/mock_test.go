@@ -215,7 +215,7 @@ func (a *mockApplication) UpdateApplicationSeries(series string, force bool) err
 }
 
 func (a *mockApplication) Series() string {
-	a.MethodCall(a, "OSType")
+	a.MethodCall(a, "Series")
 	a.PopNoErr()
 	return a.series
 }

@@ -295,7 +295,7 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string) (param
 	var os string
 	var oSeries string
 	if origin.Series == "all" {
-		logger.Warningf("Series all detected, removing all from the origin. %s", origin.ID)
+		logger.Warningf("Release all detected, removing all from the origin. %s", origin.ID)
 	} else if origin.Series != "" {
 		// Always set the os from the series, so we know it's correctly
 		// normalized for the rest of Juju.

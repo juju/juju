@@ -53,7 +53,7 @@ func (s *ValidateSuite) assertMatch(c *gc.C, stream string) {
 	metadataPath := filepath.Join(s.metadataDir, "images")
 	params := &simplestreams.MetadataLookupParams{
 		Region:        "region-2",
-		Series:        "raring",
+		Release:       "raring",
 		Architectures: []string{"amd64"},
 		Endpoint:      "some-auth-url",
 		Stream:        stream,
@@ -81,7 +81,7 @@ func (s *ValidateSuite) assertNoMatch(c *gc.C, stream string) {
 	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url", stream)
 	params := &simplestreams.MetadataLookupParams{
 		Region:        "region-2",
-		Series:        "precise",
+		Release:       "precise",
 		Architectures: []string{"amd64"},
 		Endpoint:      "some-auth-url",
 		Stream:        stream,

@@ -102,14 +102,14 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	agentTools := &tools.Tools{
 		Version: version.Binary{
 			Number: version.Number{Major: 2, Minor: 6, Patch: 0},
-			OSType: "Bionic",
+			Release: "ubuntu",
 			Arch:   "x86",
 		},
 	}
 	olderAgentTools := &tools.Tools{
 		Version: version.Binary{
 			Number: version.Number{Major: 2, Minor: 5, Patch: 1},
-			OSType: "Bionic",
+			Release: "ubuntu",
 			Arch:   "x86",
 		},
 	}
@@ -1126,7 +1126,7 @@ func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.
 	s.PatchValue(&jujuversion.Current, version.MustParse("2.8-beta1"))
 	s.backend.charm = &mockCharm{
 		meta: &charm.Meta{
-			MinJujuVersion: version.MustParse("2.8.0"),
+			MinJujuVersion: jujuversion.ToVersion1(version.MustParse("2.8.0")),
 		},
 	}
 
@@ -1783,10 +1783,10 @@ func (s *ApplicationSuite) TestApplicationUpdateSeries(c *gc.C) {
 
 	app := s.backend.applications["postgresql"]
 	app.CheckCall(c, 0, "IsPrincipal")
-	app.CheckCall(c, 1, "OSType")
+	app.CheckCall(c, 1, "Series")
 	app.CheckCall(c, 2, "UpdateApplicationSeries", "trusty", false)
 	app.CheckCall(c, 3, "IsPrincipal")
-	app.CheckCall(c, 4, "OSType")
+	app.CheckCall(c, 4, "Series")
 	// ensure that app.UpdateApplicationSeries wasn't called a 2nd time.
 	c.Assert(len(app.Calls()), gc.Equals, 5)
 }
@@ -2161,7 +2161,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 		},
 	})
 	app := s.backend.applications["test-app-info"]
-	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "OSType", "Channel", "EndpointBindings", "ExposedEndpoints", "CharmOrigin", "IsPrincipal", "IsExposed", "IsRemote")
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "ExposedEndpoints", "CharmOrigin", "IsPrincipal", "IsExposed", "IsRemote")
 }
 
 func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) {
@@ -2200,7 +2200,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) 
 			},
 		},
 	})
-	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "OSType", "Channel", "EndpointBindings", "ExposedEndpoints", "CharmOrigin", "IsPrincipal", "IsExposed", "IsRemote")
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "ExposedEndpoints", "CharmOrigin", "IsPrincipal", "IsExposed", "IsRemote")
 }
 
 func (s *ApplicationSuite) TestApplicationsInfoDetailsErr(c *gc.C) {
@@ -2251,7 +2251,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	c.Assert(result.Results[1].Error, gc.ErrorMatches, `application "wordpress" not found`)
 	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"unit-postgresql-0" is not a valid application tag`)
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "OSType", "Channel", "EndpointBindings", "ExposedEndpoints", "CharmOrigin", "IsPrincipal", "IsExposed", "IsRemote")
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "ExposedEndpoints", "CharmOrigin", "IsPrincipal", "IsExposed", "IsRemote")
 }
 
 func (s *ApplicationSuite) TestApplicationMergeBindingsErr(c *gc.C) {

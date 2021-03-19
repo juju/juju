@@ -60,7 +60,7 @@ func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 		Version: "1.11.2",
 		MetadataLookupParams: simplestreams.MetadataLookupParams{
 			Region:        "region-2",
-			Series:        "ubuntu",
+			Release:       "ubuntu",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
 			Stream:        "released",
@@ -85,7 +85,7 @@ func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
 		Minor: -1,
 		MetadataLookupParams: simplestreams.MetadataLookupParams{
 			Region:        "region-2",
-			Series:        "ubuntu",
+			Release:       "ubuntu",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
 			Stream:        "released",
@@ -110,7 +110,7 @@ func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
 		Minor: 11,
 		MetadataLookupParams: simplestreams.MetadataLookupParams{
 			Region:        "region-2",
-			Series:        "ubuntu",
+			Release:       "ubuntu",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
 			Stream:        "released",
@@ -133,7 +133,7 @@ func (s *ValidateSuite) TestNoMatch(c *gc.C) {
 		Version: "1.11.2",
 		MetadataLookupParams: simplestreams.MetadataLookupParams{
 			Region:        "region-2",
-			Series:        "precise",
+			Release:       "precise",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
 			Stream:        "released",
@@ -149,7 +149,7 @@ func (s *ValidateSuite) TestStreamsNoMatch(c *gc.C) {
 		Version: "1.11.2",
 		MetadataLookupParams: simplestreams.MetadataLookupParams{
 			Region:        "region-2",
-			Series:        "ubuntu",
+			Release:       "ubuntu",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
 			Stream:        "testing",

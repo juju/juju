@@ -19,13 +19,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/version/v2"
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
+	coreos "github.com/juju/juju/core/os"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
@@ -71,14 +71,10 @@ func setupSimpleStreamsTests(t *testing.T) {
 			keys := reflect.ValueOf(liveURLs).MapKeys()
 			t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
 		}
-		hostSeries, err := series.HostSeries()
-		if err != nil {
-			t.Fatalf("fetching host osType: %v", err)
-		}
 		registerLiveSimpleStreamsTests(testData.baseURL,
 			tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 				CloudSpec: testData.validCloudSpec,
-				Series:    []string{hostSeries},
+				Series:    []string{coreos.HostOSTypeName()},
 				Arches:    []string{"amd64"},
 				Stream:    "released",
 			}), testData.requireSigned)

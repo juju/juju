@@ -204,7 +204,7 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 		result, err := toolsFinder.FindTools(params.FindToolsParams{
 			MajorVersion: 123,
 			MinorVersion: 456,
-			Series:       "windows",
+			OSType:       "windows",
 			Arch:         "alpha",
 			AgentStream:  test.agentStreamRequested,
 		})
@@ -268,7 +268,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 	s.PatchValue(common.EnvtoolsFindTools, func(e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
 		called = true
 		c.Assert(filter.Number, gc.Equals, jujuversion.Current)
-		c.Assert(filter.OSType, gc.Equals, current.OSType)
+		c.Assert(filter.OSType, gc.Equals, current.Release)
 		c.Assert(filter.Arch, gc.Equals, arch.HostArch())
 		if develVersion {
 			c.Assert(stream, gc.DeepEquals, []string{"devel", "proposed", "released"})
@@ -285,7 +285,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 		Number:       jujuversion.Current,
 		MajorVersion: -1,
 		MinorVersion: -1,
-		Series:       current.OSType,
+		OSType:       current.Release,
 		Arch:         arch.HostArch(),
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -560,7 +560,7 @@ func (s *legacyEnvironBrokerSuite) TestNotBootstrapping(c *gc.C) {
 		"0",
 		"nonce",
 		"",
-		"xenial",
+		"trusty",
 		&api.Info{
 			Tag:      names.NewMachineTag("0"),
 			ModelTag: coretesting.ModelTag,
