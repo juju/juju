@@ -491,7 +491,7 @@ func (s *simplestreamsSuite) TestGetMirrorMetadata(c *gc.C) {
 		cloud := simplestreams.CloudSpec{t.region, t.endpoint}
 		params := simplestreams.ValueParams{
 			DataType:        "content-download",
-			MirrorContentId: "com.ubuntu.juju:released:tools",
+			MirrorContentId: "com.ubuntu.juju:released:agents",
 		}
 		indexRef, err := simplestreams.GetIndexWithFormat(
 			s.Source, s.IndexPath(), sstesting.Index_v1,

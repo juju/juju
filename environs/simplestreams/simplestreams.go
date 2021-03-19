@@ -146,7 +146,7 @@ type ItemCollection struct {
 	rawItems   map[string]*json.RawMessage
 	Items      map[string]interface{} `json:"items"`
 	Arch       string                 `json:"arch,omitempty"`
-	Series     string                 `json:"release,omitempty"`
+	Release    string                 `json:"release,omitempty"`
 	Version    string                 `json:"version,omitempty"`
 	RegionName string                 `json:"region,omitempty"`
 	Endpoint   string                 `json:"endpoint,omitempty"`

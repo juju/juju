@@ -19,7 +19,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/juju/names"
 	jujuversion "github.com/juju/juju/version"
@@ -436,11 +436,11 @@ func selectBinary(versions []string) (version.Binary, error) {
 		if err != nil {
 			return version.Binary{}, errors.Trace(err)
 		}
-		if current.Series == thisSeries && current.Arch == thisArch {
+		if current.Release == thisSeries && current.Arch == thisArch {
 			return current, nil
 		}
 	}
-	// There's no version matching our series/arch, but the signature
+	// There's no version matching our osType/arch, but the signature
 	// still matches the binary for all versions passed in, so just
 	// punt.
 	return current, nil

@@ -137,27 +137,22 @@ var imageData = map[string]string{
 		   ],
 		   "format": "products:1.0"
 		  },
-		  "com.ubuntu.juju:released:tools": {
+		  "com.ubuntu.juju:released:agents": {
 		   "updated": "Mon, 05 Aug 2013 11:07:04 +0000",
 		   "datatype": "content-download",
 		   "format": "products:1.0",
 		   "products": [
-		     "com.ubuntu.juju:12.04:amd64",
-		     "com.ubuntu.juju:12.04:arm",
-		     "com.ubuntu.juju:13.04:amd64",
-		     "com.ubuntu.juju:13.04:arm",
-		     "com.ubuntu.juju:16.04:amd64",
-		     "com.ubuntu.juju:18.04:amd64",
-		     "com.ubuntu.juju:18.04:arm"
+		     "com.ubuntu.juju:ubuntu:amd64",
+		     "com.ubuntu.juju:ubuntu:arm"
 		   ],
 		   "path": "streams/v1/tools_metadata.json"
 		  },
-		  "com.ubuntu.juju:testing:tools": {
+		  "com.ubuntu.juju:testing:agents": {
 		   "updated": "Mon, 05 Aug 2013 11:07:04 +0000",
 		   "datatype": "content-download",
 		   "format": "products:1.0",
 		   "products": [
-		     "com.ubuntu.juju:14.04:amd64"
+		     "com.ubuntu.juju:ubuntu:amd64"
 		   ],
 		   "path": "streams/v1/testing_tools_metadata.json"
 		  }
@@ -169,7 +164,7 @@ var imageData = map[string]string{
 	"/streams/v1/mirrors.json": `
         {
          "mirrors": {
-          "com.ubuntu.juju:released:tools": [
+          "com.ubuntu.juju:released:agents": [
              {
               "datatype": "content-download",
               "path": "streams/v1/tools_metadata:public-mirrors.json",
@@ -200,21 +195,21 @@ var imageData = map[string]string{
 `,
 	"/streams/v1/tools_metadata.json": `
 {
- "content_id": "com.ubuntu.juju:tools",
+ "content_id": "com.ubuntu.juju:agents",
  "datatype": "content-download",
  "updated": "Tue, 04 Jun 2013 13:50:31 +0000",
  "format": "products:1.0",
  "products": {
-  "com.ubuntu.juju:12.04:amd64": {
+  "com.ubuntu.juju:ubuntu:amd64": {
    "arch": "amd64",
-   "release": "precise",
+   "release": "ubuntu",
    "versions": {
     "20130806": {
      "items": {
-      "1130preciseamd64": {
+      "1130ubuntuamd64": {
        "version": "1.13.0",
        "size": 2973595,
-       "path": "tools/released/20130806/juju-1.13.0-precise-amd64.tgz",
+       "path": "tools/released/20130806/juju-1.13.0-ubuntu-amd64.tgz",
        "ftype": "tar.gz",
        "sha256": "447aeb6a934a5eaec4f703eda4ef2dde"
       }
@@ -222,98 +217,23 @@ var imageData = map[string]string{
     }
    }
   },
-  "com.ubuntu.juju:16.04:amd64": {
-   "arch": "amd64",
-   "release": "xenial",
-   "versions": {
-    "20130806": {
-     "items": {
-      "1130xenialamd64": {
-       "version": "1.13.0",
-       "size": 2973595,
-       "path": "tools/released/20130806/juju-1.13.0-xenial-amd64.tgz",
-       "ftype": "tar.gz",
-       "sha256": "447aeb6a934a5eaec4f703eda4ef2dde"
-      }
-     }
-    }
-   }
-  },
-  "com.ubuntu.juju:18.04:amd64": {
-   "arch": "amd64",
-   "release": "bionic",
-   "versions": {
-    "20130806": {
-     "items": {
-      "1130bionicamd64": {
-       "version": "1.13.0",
-       "size": 2973595,
-       "path": "tools/released/20130806/juju-1.13.0-bionic-amd64.tgz",
-       "ftype": "tar.gz",
-       "sha256": "447aeb6a934a5eaec4f703eda4ef2dde"
-      }
-     }
-    }
-   }
-  },
-  "com.ubuntu.juju:18.04:arm": {
+  "com.ubuntu.juju:ubuntu:arm": {
    "arch": "arm",
-   "release": "bionic",
+   "release": "ubuntu",
    "versions": {
     "20130806": {
      "items": {
-      "1130bionicarm": {
-       "version": "1.11.5",
-       "size": 2973595,
-       "path": "tools/released/20130803/juju-1.11.5-bionic-arm.tgz",
-       "ftype": "tar.gz",
-       "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
-      }
-     }
-    }
-   }
-  },
-  "com.ubuntu.juju:13.04:amd64": {
-   "arch": "amd64",
-   "release": "raring",
-   "versions": {
-    "20130806": {
-     "items": {
-      "1130raringamd64": {
-       "version": "1.13.0",
-       "size": 2973173,
-       "path": "tools/released/20130806/juju-1.13.0-raring-amd64.tgz",
-       "ftype": "tar.gz",
-       "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
-      },
-      "1140raringamd64": {
-       "version": "1.14.0",
-       "size": 2973173,
-       "path": "tools/released/20130806/juju-1.14.0-raring-amd64.tgz",
-       "ftype": "tar.gz",
-       "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
-      }
-     }
-    }
-   }
-  },
-  "com.ubuntu.juju:12.04:arm": {
-   "arch": "arm",
-   "release": "precise",
-   "versions": {
-    "20130806": {
-     "items": {
-      "201precisearm": {
+      "201ubuntuarm": {
        "version": "2.0.1",
        "size": 1951096,
-       "path": "tools/released/20130806/juju-2.0.1-precise-arm.tgz",
+       "path": "tools/released/20130806/juju-2.0.1-ubuntu-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "f65a92b3b41311bdf398663ee1c5cd0c"
       },
-      "1114precisearm": {
+      "1114ubuntuarm": {
        "version": "1.11.4",
        "size": 1951096,
-       "path": "tools/released/20130806/juju-1.11.4-precise-arm.tgz",
+       "path": "tools/released/20130806/juju-1.11.4-ubuntu-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "f65a92b3b41311bdf398663ee1c5cd0c"
       }
@@ -321,107 +241,17 @@ var imageData = map[string]string{
     },
     "20130803": {
      "items": {
-      "1114precisearm": {
+      "1114ubuntuarm": {
        "version": "1.11.4",
        "size": 2851541,
-       "path": "tools/released/20130803/juju-1.11.4-precise-arm.tgz",
+       "path": "tools/released/20130803/juju-1.11.4-ubuntu-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
       },
-      "1115precisearm": {
+      "1115ubuntuarm": {
        "version": "1.11.5",
        "size": 2031281,
-       "path": "tools/released/20130803/juju-1.11.5-precise-arm.tgz",
-       "ftype": "tar.gz",
-       "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
-      }
-     }
-    }
-   }
-  },
-  "com.ubuntu.juju:13.04:arm": {
-   "arch": "arm",
-   "release": "raring",
-   "versions": {
-    "20130806": {
-     "items": {
-      "1114raringarm": {
-       "version": "1.11.4",
-       "size": 1950327,
-       "path": "tools/released/20130806/juju-1.11.4-raring-arm.tgz",
-       "ftype": "tar.gz",
-       "sha256": "6472014e3255e3fe7fbd3550ef3f0a11"
-      },
-      "201raringarm": {
-       "version": "2.0.1",
-       "size": 1950327,
-       "path": "tools/released/20130806/juju-2.0.1-raring-arm.tgz",
-       "ftype": "tar.gz",
-       "sha256": "6472014e3255e3fe7fbd3550ef3f0a11"
-      }
-     }
-    }
-   }
-  },
-  "com.ubuntu.juju:16.04:arm": {
-   "arch": "arm",
-   "release": "xenial",
-   "versions": {
-    "20130806": {
-     "items": {
-      "1114xenialarm": {
-       "version": "1.11.4",
-       "size": 1950327,
-       "path": "tools/released/20130806/juju-1.11.4-xenial-arm.tgz",
-       "ftype": "tar.gz",
-       "sha256": "6472014e3255e3fe7fbd3550ef3f0a11"
-      },
-      "201xenialarm": {
-       "version": "2.0.1",
-       "size": 1950327,
-       "path": "tools/released/20130806/juju-2.0.1-xenial-arm.tgz",
-       "ftype": "tar.gz",
-       "sha256": "6472014e3255e3fe7fbd3550ef3f0a11"
-      }
-     }
-    }
-   }
-  },
-  "com.ubuntu.juju:18.04:arm": {
-   "arch": "arm",
-   "release": "bionic",
-   "versions": {
-    "20130806": {
-     "items": {
-      "201bionicarm": {
-       "version": "2.0.1",
-       "size": 1951096,
-       "path": "tools/released/20130806/juju-2.0.1-bionic-arm.tgz",
-       "ftype": "tar.gz",
-       "sha256": "f65a92b3b41311bdf398663ee1c5cd0c"
-      },
-      "1114bionicarm": {
-       "version": "1.11.4",
-       "size": 1951096,
-       "path": "tools/released/20130806/juju-1.11.4-bionic-arm.tgz",
-       "ftype": "tar.gz",
-       "sha256": "f65a92b3b41311bdf398663ee1c5cd0c"
-      }
-     }
-    },
-    "20130803": {
-     "items": {
-      "1114bionicarm": {
-       "version": "1.11.4",
-       "size": 2851541,
-       "path": "tools/released/20130803/juju-1.11.4-bionic-arm.tgz",
-       "ftype": "tar.gz",
-       "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
-      },
-      "1115bionicarm": {
-       "version": "1.11.5",
-       "size": 2031281,
-       "path": "tools/released/20130803/juju-1.11.5-bionic-arm.tgz",
+       "path": "tools/released/20130803/juju-1.11.5-ubuntu-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
       }
@@ -434,21 +264,21 @@ var imageData = map[string]string{
 `,
 	"/streams/v1/testing_tools_metadata.json": `
 {
- "content_id": "com.ubuntu.juju:tools",
+ "content_id": "com.ubuntu.juju:agents",
  "datatype": "content-download",
  "updated": "Tue, 04 Jun 2013 13:50:31 +0000",
  "format": "products:1.0",
  "products": {
-  "com.ubuntu.juju:14.04:amd64": {
+  "com.ubuntu.juju:ubuntu:amd64": {
    "arch": "amd64",
-   "release": "trusty",
+   "release": "ubuntu",
    "versions": {
     "20130806": {
      "items": {
-      "1130preciseamd64": {
+      "1130ubuntuamd64": {
        "version": "1.16.0",
        "size": 2973512,
-       "path": "tools/testing/20130806/juju-1.16.0-trusty-amd64.tgz",
+       "path": "tools/testing/20130806/juju-1.16.0-ubuntu-amd64.tgz",
        "ftype": "tar.gz",
        "sha256": "447aeb6a934a5eaec4f703eda4ef2dac"
       }
@@ -461,21 +291,21 @@ var imageData = map[string]string{
 `,
 	"/streams/v1/mirrored-tools-metadata.json": `
 {
- "content_id": "com.ubuntu.juju:tools",
+ "content_id": "com.ubuntu.juju:agents",
  "datatype": "content-download",
  "updated": "Tue, 04 Jun 2013 13:50:31 +0000",
  "format": "products:1.0",
  "products": {
-  "com.ubuntu.juju:18.04:amd64": {
+  "com.ubuntu.juju:ubuntu:amd64": {
    "arch": "amd64",
-   "release": "bionic",
+   "release": "ubuntu",
    "versions": {
     "20130806": {
      "items": {
-      "1130bionicamd64": {
+      "1130ubuntuamd64": {
        "version": "1.13.0",
        "size": 2973595,
-       "path": "mirrored-path/juju-1.13.0-bionic-amd64.tgz",
+       "path": "mirrored-path/juju-1.13.0-ubuntu-amd64.tgz",
        "ftype": "tar.gz",
        "sha256": "447aeb6a934a5eaec4f703eda4ef2dde"
       }
@@ -489,7 +319,7 @@ var imageData = map[string]string{
 	"/streams/v1/tools_metadata:public-mirrors.json": `
 {
   "mirrors": {
-    "com.ubuntu.juju:released:tools": [
+    "com.ubuntu.juju:released:agents": [
       {
         "mirror": "http://some-mirror/",
         "path": "com.ubuntu.juju:download.json",
@@ -532,7 +362,7 @@ var imageData = map[string]string{
 	"/streams/v1/tools_metadata:more-mirrors.json": `
 {
   "mirrors": {
-    "com.ubuntu.juju:released:tools": [
+    "com.ubuntu.juju:released:agents": [
       {
         "mirror": "http://big-mirror/",
         "path": "big:download.json",

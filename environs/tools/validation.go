@@ -6,7 +6,7 @@ package tools
 import (
 	"fmt"
 
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/environs/simplestreams"
 	jujuversion "github.com/juju/juju/version"
@@ -65,9 +65,9 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simple
 	versions := make([]string, len(matchingTools))
 	for i, tm := range matchingTools {
 		vers := version.Binary{
-			Number: version.MustParse(tm.Version),
-			Series: tm.Release,
-			Arch:   tm.Arch,
+			Number:  version.MustParse(tm.Version),
+			Release: tm.Release,
+			Arch:    tm.Arch,
 		}
 		versions[i] = vers.String()
 	}

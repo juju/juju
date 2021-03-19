@@ -24,10 +24,10 @@ type ValidateSuite struct {
 
 var _ = gc.Suite(&ValidateSuite{})
 
-func (s *ValidateSuite) makeLocalMetadata(c *gc.C, stream, version, series string) {
+func (s *ValidateSuite) makeLocalMetadata(c *gc.C, stream, version, osType string) {
 	tm := []*ToolsMetadata{{
 		Version:  version,
-		Release:  series,
+		Release:  osType,
 		Arch:     "amd64",
 		Path:     "/tools/tools.tar.gz",
 		Size:     1234,
@@ -55,12 +55,12 @@ func (s *ValidateSuite) toolsURL() string {
 }
 
 func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
-	s.makeLocalMetadata(c, "released", "1.11.2", "raring")
+	s.makeLocalMetadata(c, "released", "1.11.2", "ubuntu")
 	params := &ToolsMetadataLookupParams{
 		Version: "1.11.2",
 		MetadataLookupParams: simplestreams.MetadataLookupParams{
 			Region:        "region-2",
-			Series:        "raring",
+			Series:        "ubuntu",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
 			Stream:        "released",
@@ -69,7 +69,7 @@ func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 	}
 	versions, resolveInfo, err := ValidateToolsMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(versions, gc.DeepEquals, []string{"1.11.2-raring-amd64"})
+	c.Assert(versions, gc.DeepEquals, []string{"1.11.2-ubuntu-amd64"})
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    false,
@@ -79,13 +79,13 @@ func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 }
 
 func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
-	s.makeLocalMetadata(c, "released", "1.11.2", "raring")
+	s.makeLocalMetadata(c, "released", "1.11.2", "ubuntu")
 	params := &ToolsMetadataLookupParams{
 		Major: 1,
 		Minor: -1,
 		MetadataLookupParams: simplestreams.MetadataLookupParams{
 			Region:        "region-2",
-			Series:        "raring",
+			Series:        "ubuntu",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
 			Stream:        "released",
@@ -94,7 +94,7 @@ func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
 	}
 	versions, resolveInfo, err := ValidateToolsMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(versions, gc.DeepEquals, []string{"1.11.2-raring-amd64"})
+	c.Assert(versions, gc.DeepEquals, []string{"1.11.2-ubuntu-amd64"})
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    false,
@@ -104,13 +104,13 @@ func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
 }
 
 func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
-	s.makeLocalMetadata(c, "released", "1.11.2", "raring")
+	s.makeLocalMetadata(c, "released", "1.11.2", "ubuntu")
 	params := &ToolsMetadataLookupParams{
 		Major: 1,
 		Minor: 11,
 		MetadataLookupParams: simplestreams.MetadataLookupParams{
 			Region:        "region-2",
-			Series:        "raring",
+			Series:        "ubuntu",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
 			Stream:        "released",
@@ -118,7 +118,7 @@ func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
 	}
 	versions, resolveInfo, err := ValidateToolsMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(versions, gc.DeepEquals, []string{"1.11.2-raring-amd64"})
+	c.Assert(versions, gc.DeepEquals, []string{"1.11.2-ubuntu-amd64"})
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    false,
@@ -128,7 +128,7 @@ func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
 }
 
 func (s *ValidateSuite) TestNoMatch(c *gc.C) {
-	s.makeLocalMetadata(c, "released", "1.11.2", "raring")
+	s.makeLocalMetadata(c, "released", "1.11.2", "ubuntu")
 	params := &ToolsMetadataLookupParams{
 		Version: "1.11.2",
 		MetadataLookupParams: simplestreams.MetadataLookupParams{
@@ -144,12 +144,12 @@ func (s *ValidateSuite) TestNoMatch(c *gc.C) {
 }
 
 func (s *ValidateSuite) TestStreamsNoMatch(c *gc.C) {
-	s.makeLocalMetadata(c, "proposed", "1.11.2", "raring")
+	s.makeLocalMetadata(c, "proposed", "1.11.2", "ubuntu")
 	params := &ToolsMetadataLookupParams{
 		Version: "1.11.2",
 		MetadataLookupParams: simplestreams.MetadataLookupParams{
 			Region:        "region-2",
-			Series:        "raring",
+			Series:        "ubuntu",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
 			Stream:        "testing",
