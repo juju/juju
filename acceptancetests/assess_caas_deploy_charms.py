@@ -17,13 +17,13 @@ from pprint import pformat
 from time import sleep
 
 import requests
+
 from deploy_stack import BootstrapManager
+from jujupy.k8s_provider import K8sProviderType, providers
+from jujupy.utility import until_timeout
 from utility import (
     JujuAssertionError, add_basic_testing_arguments, configure_logging,
 )
-
-from jujupy.k8s_provider import K8sProviderType, providers
-from jujupy.utility import until_timeout
 
 __metaclass__ = type
 
@@ -147,6 +147,11 @@ def parse_args(argv):
         action='store_true',
         help='Bootstrap to k8s cluster or not.'
     )
+    parser.add_argument(
+        '--enable-rbac',
+        action='store_true',
+        help='Deploy workload with RBAC enabled.'
+    )
 
     add_basic_testing_arguments(parser, existing=False)
     return parser.parse_args(argv)
@@ -159,7 +164,11 @@ def main(argv=None):
     k8s_provider = providers[args.caas_provider]
     bs_manager = BootstrapManager.from_args(args)
 
-    with k8s_provider(bs_manager, cluster_name=args.temp_env_name).substrate_context() as caas_client:
+    with k8s_provider(
+        bs_manager,
+        cluster_name=args.temp_env_name,
+        enable_rbac=args.enable_rbac,
+    ).substrate_context() as caas_client:
         # add-k8s --local
         is_mk8s = args.caas_provider == K8sProviderType.MICROK8S.name
         if args.k8s_controller and not is_mk8s:

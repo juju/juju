@@ -19,7 +19,6 @@ import subprocess
 import sys
 import textwrap
 import time
-from pprint import pformat
 from time import sleep
 
 from deploy_stack import BootstrapManager
@@ -308,7 +307,6 @@ def prepare(caas_client, caas_provider, build):
         caas_client.enable_microk8s_addons(
             [
                 "dns", "storage", "dashboard", "ingress", "metallb:10.64.140.43-10.64.140.49",
-                # "rbac",  # TODO: enable `RBAC`?
             ],
         )
         caas_client.kubectl(
@@ -473,7 +471,11 @@ def main(argv=None):
     k8s_provider = providers[args.caas_provider]
     bs_manager = BootstrapManager.from_args(args)
 
-    with k8s_provider(bs_manager, cluster_name=args.temp_env_name).substrate_context() as caas_client:
+    with k8s_provider(
+        bs_manager,
+        cluster_name=args.temp_env_name,
+        enable_rbac=args.enable_rbac,
+    ).substrate_context() as caas_client:
         # add-k8s --local
         if args.k8s_controller and args.caas_provider != K8sProviderType.MICROK8S.name:
             # microk8s is built-in cloud, no need run add-k8s for bootstrapping.
