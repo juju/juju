@@ -277,7 +277,7 @@ func (c Client) listResources(ch CharmID) ([]resource.Resource, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return api2resources(resources)
+	return api2resources(ch.URL.String(), resources)
 }
 
 // csWrapper is a type that abstracts away the low-level implementation details
@@ -333,13 +333,17 @@ func (c csclientImpl) ResourceMeta(channel csparams.Channel, id *charm.URL, name
 	return client.ResourceMeta(id, name, revision)
 }
 
-func api2resources(res []csparams.Resource) ([]resource.Resource, error) {
+func api2resources(name string, res []csparams.Resource) ([]resource.Resource, error) {
 	result := make([]resource.Resource, len(res))
 	for i, r := range res {
 		var err error
 		result[i], err = csparams.API2Resource(r)
 		if err != nil {
-			return nil, errors.Trace(err)
+			msg := name
+			if r.Name != "" {
+				msg = fmt.Sprintf("%s resource %q", msg, r.Name)
+			}
+			return nil, errors.Trace(errors.Annotatef(err, "%s", msg))
 		}
 	}
 	return result, nil
