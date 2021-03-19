@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
@@ -1842,26 +1841,6 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesOfSubordinate(c *gc.C) {
 
 	app := s.backend.applications["postgresql-subordinate"]
 	app.CheckCall(c, 0, "IsPrincipal")
-}
-
-func (s *ApplicationSuite) TestApplicationUpdateSeriesIncompatibleSeries(c *gc.C) {
-	app := s.backend.applications["postgresql"]
-	app.SetErrors(nil, nil, stateerrors.NewErrIncompatibleSeries([]string{"yakkety", "zesty"}, "xenial", "testCharm"))
-	results, err := s.api.UpdateApplicationSeries(
-		params.UpdateSeriesArgs{
-			Args: []params.UpdateSeriesArg{{
-				Entity: params.Entity{Tag: names.NewApplicationTag("postgresql").String()},
-				Series: "xenial",
-			}},
-		})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(results.Results), gc.Equals, 1)
-	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{
-		Error: &params.Error{
-			Code:    params.CodeIncompatibleSeries,
-			Message: "series \"xenial\" not supported by charm \"testCharm\", supported series are: yakkety, zesty",
-		},
-	})
 }
 
 func (s *ApplicationSuite) TestApplicationUpdateSeriesPermissionDenied(c *gc.C) {

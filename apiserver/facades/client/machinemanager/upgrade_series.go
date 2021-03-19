@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
-	stateerrors "github.com/juju/juju/state/errors"
 )
 
 // UpgradeSeries defines an interface for interacting with upgrading a series.
@@ -438,7 +437,7 @@ func (s stateSeriesValidator) verifySupportedSeries(application Application, ser
 	if seriesSupportedErr != nil && !force {
 		// TODO (stickupkid): Once all commands are placed in this API, we
 		// should relocate these to the API server.
-		return stateerrors.NewErrIncompatibleSeries(supportedSeries, series, ch.String())
+		return apiservererrors.NewErrIncompatibleSeries(supportedSeries, series, ch.String())
 	}
 	return nil
 }

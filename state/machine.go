@@ -2142,7 +2142,7 @@ func (m *Machine) RunningActions() ([]Action, error) {
 }
 
 // UpdateMachineSeries updates the series for the Machine.
-func (m *Machine) UpdateMachineSeries(series string, force bool) error {
+func (m *Machine) UpdateMachineSeries(series string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2154,19 +2154,18 @@ func (m *Machine) UpdateMachineSeries(series string, force bool) error {
 			return nil, jujutxn.ErrNoOperations
 		}
 
-		principals := m.Principals() // unit names
-		verifiedUnits, err := m.VerifyUnitsSeries(principals, series, force)
+		units, err := m.Units()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 
 		ops := []txn.Op{{
 			C:      machinesC,
 			Id:     m.doc.DocID,
-			Assert: bson.D{{"life", Alive}, {"principals", principals}},
+			Assert: bson.D{{"life", Alive}, {"principals", m.Principals()}},
 			Update: bson.D{{"$set", bson.D{{"series", series}}}},
 		}}
-		for _, unit := range verifiedUnits {
+		for _, unit := range units {
 			curl, _ := unit.CharmURL()
 			ops = append(ops, txn.Op{
 				C:  unitsC,
@@ -2182,37 +2181,6 @@ func (m *Machine) UpdateMachineSeries(series string, force bool) error {
 	}
 	err := m.st.db().Run(buildTxn)
 	return errors.Annotatef(err, "updating series for machine %q", m)
-}
-
-// VerifyUnitsSeries iterates over the units with the input names, and checks
-// that the application for each supports the input series.
-// Recursion is used to verify all subordinates, with the results accrued into
-// a slice before returning.
-func (m *Machine) VerifyUnitsSeries(unitNames []string, series string, force bool) ([]*Unit, error) {
-	var results []*Unit
-	for _, u := range unitNames {
-		unit, err := m.st.Unit(u)
-		if err != nil {
-			return nil, err
-		}
-		app, err := unit.Application()
-		if err != nil {
-			return nil, err
-		}
-		err = app.VerifySupportedSeries(series, force)
-		if err != nil {
-			return nil, err
-		}
-
-		subordinates := unit.SubordinateNames()
-		subUnits, err := m.VerifyUnitsSeries(subordinates, series, force)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, unit)
-		results = append(results, subUnits...)
-	}
-	return results, nil
 }
 
 // RecordAgentStartInformation updates the host name (if non-empty) reported
