@@ -5,7 +5,7 @@ package caasupgrader_test
 
 import (
 	"github.com/juju/testing"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/watcher"
 )

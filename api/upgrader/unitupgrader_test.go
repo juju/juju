@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -137,13 +137,13 @@ func (s *unitUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 
 	// Initial event
 	wc.AssertOneChange()
-	vers := version.MustParseBinary("10.20.34-quantal-amd64")
+	vers := version.MustParseBinary("10.20.34-ubuntu-amd64")
 	err = s.rawMachine.SetAgentVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// One change noticing the new version
 	wc.AssertOneChange()
-	vers = version.MustParseBinary("10.20.35-quantal-amd64")
+	vers = version.MustParseBinary("10.20.35-ubuntu-amd64")
 	err = s.rawMachine.SetAgentVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()

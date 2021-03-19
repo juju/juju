@@ -20,11 +20,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
-	jujuos "github.com/juju/juju/core/os"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	jujuversion "github.com/juju/juju/version"
@@ -140,14 +140,14 @@ func SkipIfWindowsBug(c *gc.C, bugID string) {
 // SkipUnlessControllerOS skips the test if the current OS is not a supported
 // controller OS.
 func SkipUnlessControllerOS(c *gc.C) {
-	if jujuos.HostOS() != jujuos.Ubuntu {
+	if coreos.HostOS() != coreos.Ubuntu {
 		c.Skip("Test disabled for non-controller OS")
 	}
 }
 
 // SkipLXDNotSupported will skip tests if the host does not support LXD
 func SkipLXDNotSupported(c *gc.C) {
-	if jujuos.HostOS() != jujuos.Ubuntu {
+	if coreos.HostOS() != coreos.Ubuntu {
 		c.Skip("Test disabled for non-LXD OS")
 	}
 }
@@ -293,16 +293,16 @@ type PackageManagerStruct struct {
 }
 
 func GetPackageManager() (s PackageManagerStruct, err error) {
-	switch jujuos.HostOS() {
-	case jujuos.CentOS:
+	switch coreos.HostOS() {
+	case coreos.CentOS:
 		s.PackageManager = "yum"
 		s.PackageQuery = "yum"
 		s.RepositoryManager = "yum-config-manager --add-repo"
-	case jujuos.OpenSUSE:
+	case coreos.OpenSUSE:
 		s.PackageManager = "zypper"
 		s.PackageQuery = "zypper"
 		s.RepositoryManager = "zypper addrepo"
-	case jujuos.Ubuntu:
+	case coreos.Ubuntu:
 		s.PackageManager = "apt-get"
 		s.PackageQuery = "dpkg-query"
 		s.RepositoryManager = "add-apt-repository"
@@ -335,9 +335,9 @@ func GetExportedFields(arg interface{}) set.Strings {
 // CurrentVersion returns the current Juju version, asserting on error.
 func CurrentVersion(c *gc.C) version.Binary {
 	return version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: HostSeries(c),
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: coreos.HostOSTypeName(),
 	}
 }
 

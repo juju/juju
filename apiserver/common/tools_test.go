@@ -11,7 +11,7 @@ import (
 	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -173,16 +173,16 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 		c.Logf("test %d", i)
 		envtoolsList := coretools.List{
 			&coretools.Tools{
-				Version: version.MustParseBinary("123.456.0-win81-alpha"),
+				Version: version.MustParseBinary("123.456.0-windows-alpha"),
 				Size:    2048,
 				SHA256:  "badf00d",
 			},
 			&coretools.Tools{
-				Version: version.MustParseBinary("123.456.1-win81-alpha"),
+				Version: version.MustParseBinary("123.456.1-windows-alpha"),
 			},
 		}
 		storageMetadata := []binarystorage.Metadata{{
-			Version: "123.456.0-win81-alpha",
+			Version: "123.456.0-windows-alpha",
 			Size:    1024,
 			SHA256:  "feedface",
 		}}
@@ -191,7 +191,7 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 			c.Assert(major, gc.Equals, 123)
 			c.Assert(minor, gc.Equals, 456)
 			c.Assert(streams, gc.DeepEquals, test.agentStreamsUsed)
-			c.Assert(filter.Series, gc.Equals, "win81")
+			c.Assert(filter.OSType, gc.Equals, "windows")
 			c.Assert(filter.Arch, gc.Equals, "alpha")
 			return envtoolsList, nil
 		})
@@ -204,7 +204,7 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 		result, err := toolsFinder.FindTools(params.FindToolsParams{
 			MajorVersion: 123,
 			MinorVersion: 456,
-			Series:       "win81",
+			Series:       "windows",
 			Arch:         "alpha",
 			AgentStream:  test.agentStreamRequested,
 		})
@@ -218,8 +218,8 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 				URL:     "tools:" + storageMetadata[0].Version,
 			},
 			&coretools.Tools{
-				Version: version.MustParseBinary("123.456.1-win81-alpha"),
-				URL:     "tools:123.456.1-win81-alpha",
+				Version: version.MustParseBinary("123.456.1-windows-alpha"),
+				URL:     "tools:123.456.1-windows-alpha",
 			},
 		})
 	}
@@ -241,16 +241,16 @@ func (s *toolsSuite) TestFindToolsNotFound(c *gc.C) {
 func (s *toolsSuite) TestFindToolsExactInStorage(c *gc.C) {
 	mockToolsStorage := &mockToolsStorage{
 		metadata: []binarystorage.Metadata{
-			{Version: "1.22-beta1-trusty-amd64"},
-			{Version: "1.22.0-trusty-amd64"},
+			{Version: "1.22-beta1-ubuntu-amd64"},
+			{Version: "1.22.0-ubuntu-amd64"},
 		},
 	}
 
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(&series.HostSeries, func() (string, error) { return "trusty", nil })
-	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22-beta1-trusty-amd64").Number)
+	s.PatchValue(&series.HostSeries, func() (string, error) { return "ubuntu", nil })
+	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22-beta1-ubuntu-amd64").Number)
 	s.testFindToolsExact(c, mockToolsStorage, true, true)
-	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22.0-trusty-amd64").Number)
+	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22.0-ubuntu-amd64").Number)
 	s.testFindToolsExact(c, mockToolsStorage, true, false)
 }
 
@@ -268,7 +268,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 	s.PatchValue(common.EnvtoolsFindTools, func(e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
 		called = true
 		c.Assert(filter.Number, gc.Equals, jujuversion.Current)
-		c.Assert(filter.Series, gc.Equals, current.Series)
+		c.Assert(filter.OSType, gc.Equals, current.OSType)
 		c.Assert(filter.Arch, gc.Equals, arch.HostArch())
 		if develVersion {
 			c.Assert(stream, gc.DeepEquals, []string{"devel", "proposed", "released"})
@@ -285,7 +285,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 		Number:       jujuversion.Current,
 		MajorVersion: -1,
 		MinorVersion: -1,
-		Series:       current.Series,
+		Series:       current.OSType,
 		Arch:         arch.HostArch(),
 	})
 	c.Assert(err, jc.ErrorIsNil)

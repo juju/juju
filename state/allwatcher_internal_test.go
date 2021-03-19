@@ -14,7 +14,7 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -1853,7 +1853,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 			err = m.SetSupportedContainers([]instance.ContainerType{instance.LXD})
 			c.Assert(err, jc.ErrorIsNil)
 
-			err = m.SetAgentVersion(version.MustParseBinary("2.4.1-bionic-amd64"))
+			err = m.SetAgentVersion(version.MustParseBinary("2.4.1-ubuntu-amd64"))
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
 			return changeTestCase{
@@ -2635,7 +2635,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
 			MustOpenUnitPortRange(c, st, m, u.Name(), allEndpoints, corenetwork.MustParsePortRange("17070/udp"))
-			err = u.SetAgentVersion(version.MustParseBinary("2.4.1-bionic-amd64"))
+			err = u.SetAgentVersion(version.MustParseBinary("2.4.1-ubuntu-amd64"))
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
 

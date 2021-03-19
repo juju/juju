@@ -37,8 +37,8 @@ func (k *kubernetesClient) PrecheckInstance(ctx context.ProviderCallContext, par
 	}
 
 	// TODO(embedded): handle systems
-	//if params.Series != k8sSeries {
-	//	return errors.NotValidf("series %q", params.Series)
+	//if params.Release != k8sSeries {
+	//	return errors.NotValidf("series %q", params.Release)
 	//}
 
 	if params.Placement != "" {

@@ -15,7 +15,7 @@ import (
 	context "github.com/juju/juju/environs/context"
 	storage "github.com/juju/juju/storage"
 	names "github.com/juju/names/v4"
-	version "github.com/juju/version"
+	version "github.com/juju/version/v2"
 	v1 "k8s.io/api/core/v1"
 	reflect "reflect"
 )

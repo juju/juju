@@ -10,7 +10,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
@@ -111,7 +111,7 @@ func (c *syncToolsCommand) Init(args []string) error {
 // api.Client API. This exists to enable mocking.
 type syncToolsAPI interface {
 	FindTools(majorVersion, minorVersion int, series, arch, agentStream string) (params.FindToolsResult, error)
-	UploadTools(r io.ReadSeeker, v version.Binary, series ...string) (coretools.List, error)
+	UploadTools(r io.ReadSeeker, v version.Binary) (coretools.List, error)
 	Close() error
 }
 

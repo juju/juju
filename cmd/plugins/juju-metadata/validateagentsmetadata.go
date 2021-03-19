@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -52,7 +52,7 @@ that exact version will be considered. It is also possible to just specify the
 major (and optionally minor) version numbers to search for.
 
 The cloud specification comes from the current Juju model, as specified in
-the usual way from either the -m option, or JUJU_MODEL. Series, Region, and
+the usual way from either the -m option, or JUJU_MODEL. Release, Region, and
 Endpoint are the key attributes.
 
 It is possible to specify a local directory containing agent metadata, 

@@ -18,7 +18,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
@@ -2662,7 +2662,7 @@ func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
 	agentTools := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: app.Series(),
+		OSType: app.Series(),
 	}
 
 	tools, err := app.AgentTools()
@@ -2677,7 +2677,7 @@ func (s *ApplicationSuite) TestSetAgentVersion(c *gc.C) {
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
-	agentVersion := version.MustParseBinary("2.0.1-quantal-and64")
+	agentVersion := version.MustParseBinary("2.0.1-ubuntu-and64")
 	err := app.SetAgentVersion(agentVersion)
 	c.Assert(err, jc.ErrorIsNil)
 

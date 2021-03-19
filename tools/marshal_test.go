@@ -6,7 +6,7 @@ package tools_test
 import (
 	"github.com/juju/mgo/v2/bson"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/tools"
@@ -27,7 +27,7 @@ func newTools(vers, url string) *tools.Tools {
 }
 
 func (s *marshalSuite) TestMarshalUnmarshal(c *gc.C) {
-	testTools := newTools("7.8.9-quantal-amd64", "http://arble.tgz")
+	testTools := newTools("7.8.9-ubuntu-amd64", "http://arble.tgz")
 	data, err := bson.Marshal(&testTools)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -29,8 +29,7 @@ import (
 func (env *environ) StartInstance(
 	ctx context.ProviderCallContext, args environs.StartInstanceParams,
 ) (*environs.StartInstanceResult, error) {
-	series := args.Tools.OneSeries()
-	logger.Debugf("StartInstance: %q, %s", args.InstanceConfig.MachineId, series)
+	logger.Debugf("StartInstance: %q, %s", args.InstanceConfig.MachineId, args.InstanceConfig.Series)
 
 	arch, err := env.finishInstanceConfig(args)
 	if err != nil {

@@ -19,7 +19,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon.v2"
@@ -142,7 +142,7 @@ func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *
 
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag := names.NewStorageTag("data/0")
-	agentVersion := version.MustParseBinary("2.0.1-quantal-and64")
+	agentVersion := version.MustParseBinary("2.0.1-ubuntu-and64")
 	err = unit.SetAgentVersion(agentVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	return application, unit, storageTag
@@ -1166,7 +1166,7 @@ func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {
 		agentTools := version.Binary{
 			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
-			Series: app.Series(),
+			OSType: app.Series(),
 		}
 		err = unit.SetAgentVersion(agentTools)
 		c.Assert(err, jc.ErrorIsNil)

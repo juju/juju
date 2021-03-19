@@ -25,7 +25,7 @@ import (
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/utils/v2/exec"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucmd "github.com/juju/juju/cmd"
@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/run"
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/core/machinelock"
+	coreseries "github.com/juju/juju/core/series"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/upgrades"
@@ -232,14 +233,15 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		return 1, errors.Trace(err)
 	}
 
+	osType := "unknown"
 	ser, err := series.HostSeries()
-	if err != nil {
-		ser = "unknown"
+	if err == nil {
+		osType = coreseries.DefaultOSTypeNameFromSeries(ser)
 	}
 	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: ser,
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: osType,
 	}
 	detail := versionDetail{
 		Version:       current.String(),

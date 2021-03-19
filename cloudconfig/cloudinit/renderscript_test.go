@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/packaging"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -44,14 +44,14 @@ func testConfig(c *gc.C, controller bool, vers version.Binary) *config.Config {
 	c.Assert(err, jc.ErrorIsNil)
 	testConfig, err = testConfig.Apply(map[string]interface{}{
 		"type":           "sshinit_test",
-		"default-series": vers.Series,
+		"default-series": vers.OSType,
 		"agent-version":  vers.Number.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return testConfig
 }
 
-func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.Binary) cloudinit.CloudConfig {
+func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.Binary, series string) cloudinit.CloudConfig {
 	var icfg *instancecfg.InstanceConfig
 	var err error
 	modelConfig := testConfig(c, controller, vers)
@@ -59,7 +59,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 		icfg, err = instancecfg.NewBootstrapInstanceConfig(
 			coretesting.FakeControllerConfig(),
 			constraints.Value{}, constraints.Value{},
-			vers.Series, "",
+			series, "",
 			map[string]string{"foo": "bar"},
 		)
 		c.Assert(err, jc.ErrorIsNil)
@@ -90,7 +90,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 			APIPort:      456,
 		}
 	} else {
-		icfg, err = instancecfg.NewInstanceConfig(coretesting.ControllerTag, "0", "ya", imagemetadata.ReleasedStream, vers.Series, nil)
+		icfg, err = instancecfg.NewInstanceConfig(coretesting.ControllerTag, "0", "ya", imagemetadata.ReleasedStream, vers.OSType, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		icfg.Jobs = []model.MachineJob{model.JobHostUnits}
 	}
@@ -124,9 +124,9 @@ func checkIff(checker gc.Checker, condition bool) gc.Checker {
 var aptgetRegexp = "(.|\n)*" + regexp.QuoteMeta("apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::Options::=--force-unsafe-io --assume-yes --quiet ")
 
 func (s *configureSuite) TestAptSources(c *gc.C) {
+	vers := version.MustParseBinary("1.16.0-ubuntu-amd64")
 	for _, series := range allSeries {
-		vers := version.MustParseBinary("1.16.0-" + series + "-amd64")
-		script, err := s.getCloudConfig(c, true, vers).RenderScript()
+		script, err := s.getCloudConfig(c, true, vers, series).RenderScript()
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Only Precise requires the cloud-tools pocket.

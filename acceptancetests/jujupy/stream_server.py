@@ -65,21 +65,19 @@ class _JujuStreamData:
 
         os.makedirs(self._agent_path)
 
-    def add_product(self, content_id, version, arch, series, agent_tgz_path):
+    def add_product(self, content_id, version, arch, agent_tgz_path):
         """Add a new product to generate stream data for.
 
         :param content_id: String ID (e.g.'proposed', 'release')
         :param version: Juju version string for product (i.e. '2.3.3')
         :param arch: Architecture string of this product (e.g. 's390x','amd64')
-        :param series: Series string that appears in item_name
-          (e.g. 'bionic', 'xenial', 'centos')
         :param agent_tgz_path: String full path to agent tarball file to use.
           This file is copied into the JujuStreamData working dir to be served
           up at a later date.
         """
         shutil.copy(agent_tgz_path, self._agent_path)
         product_dict = _generate_product_json(
-            content_id, version, arch, series, agent_tgz_path)
+            content_id, version, arch, agent_tgz_path)
         self.products.append(product_dict)
 
     def generate_stream_data(self):
@@ -108,20 +106,18 @@ class StreamServer:
         self.base_dir = base_dir
         self.stream_data = stream_data_type(base_dir)
 
-    def add_product(self, content_id, version, arch, series, agent_tgz_path):
+    def add_product(self, content_id, version, arch, agent_tgz_path):
         """Add a new product to generate stream data for.
 
         :param content_id: String ID (e.g.'proposed', 'released')
         :param version: Juju version string for product (i.e. '2.3.3')
         :param arch: Architecture string of this product (e.g. 's390x','amd64')
-        :param series: Series string that appears in item_name
-          (e.g. 'bionic', 'xenial', 'centos')
         :param agent_tgz_path: String full path to agent tarball file to use.
           This file is copied into the JujuStreamData working dir to be served
           up at a later date.
         """
         self.stream_data.add_product(
-            content_id, version, arch, series, agent_tgz_path)
+            content_id, version, arch, agent_tgz_path)
         # Re-generate when adding a product allows updating the server while
         # running.
         # Can be noisey in the logs, if a lot of products need to be added can
@@ -224,25 +220,22 @@ def agent_tgz_from_juju_binary(
 
 def _generate_product_json(content_id, version, arch, series, agent_tgz_path):
     """Return dict containing product metadata from provided args."""
-    series_name, series_code = _get_series_details(series)
     tgz_name = os.path.basename(agent_tgz_path)
     file_details = _get_tgz_file_details(agent_tgz_path)
-    item_name = '{version}-{series}-{arch}'.format(
+    item_name = '{version}-ubuntu-{arch}'.format(
         version=version,
-        series='{}:{}'.format(series_name, series_code),
         arch=arch)
     return dict(
         arch=arch,
-        content_id='com.ubuntu.juju:{}:tools'.format(content_id),
+        content_id='com.ubuntu.juju:{}:agents'.format(content_id),
         format='products:1.0',
         ftype='tar.gz',
         item_name=item_name,
         md5=file_details['md5'],
         path=os.path.join('agent', tgz_name),
-        product_name='com.ubuntu.juju:{series_code}:{arch}'.format(
-            series_code=series_code,
+        product_name='com.ubuntu.juju:ubuntu:{arch}'.format(
             arch=arch),
-        release=series_name,
+        release='ubuntu',
         sha256=file_details['sha256'],
         size=file_details['size'],
         version=version,

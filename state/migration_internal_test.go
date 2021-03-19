@@ -343,7 +343,7 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"PreferredPrivateAddress",
 		"PreferredPublicAddress",
 		"Principals",
-		"Series",
+		"OSType",
 		"SupportedContainers",
 		"SupportedContainersKnown",
 		"Tools",
@@ -399,7 +399,7 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 	)
 	migrated := set.NewStrings(
 		"Name",
-		"Series",
+		"OSType",
 		"Subordinate",
 		"CharmURL",
 		"Channel",
@@ -428,8 +428,8 @@ func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
 		"Application",
 		// Resolved is not migrated as we check that all is good before we start.
 		"Resolved",
-		// Series and CharmURL also come from the application.
-		"Series",
+		// OSType and CharmURL also come from the application.
+		"OSType",
 		"CharmURL",
 		"TxnRevno",
 	)

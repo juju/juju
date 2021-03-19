@@ -27,7 +27,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"gopkg.in/goose.v2/cinder"
 	"gopkg.in/goose.v2/client"
 	gooseerrors "gopkg.in/goose.v2/errors"
@@ -1081,11 +1081,10 @@ func (e *Environ) startInstance(
 		return nil, errors.Trace(err)
 	}
 
-	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 	spec, err := findInstanceSpec(e, instances.InstanceConstraint{
 		Region:      e.cloud().Region,
-		Series:      series,
+		Series:      args.InstanceConfig.Series,
 		Arches:      arches,
 		Constraints: args.Constraints,
 	}, args.ImageMetadata)

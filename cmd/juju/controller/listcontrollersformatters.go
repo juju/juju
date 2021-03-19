@@ -9,7 +9,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cmd/output"
 	jujuversion "github.com/juju/juju/version"

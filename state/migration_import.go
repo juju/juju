@@ -18,7 +18,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // Import the database agnostic model representation into the database.
@@ -277,8 +278,8 @@ type importer struct {
 }
 
 func (i *importer) modelExtras() error {
-	if latest := i.model.LatestToolsVersion(); latest != version.Zero {
-		if err := i.dbModel.UpdateLatestToolsVersion(latest); err != nil {
+	if latest := i.model.LatestToolsVersion(); latest.String() != version.Zero.String() {
+		if err := i.dbModel.UpdateLatestToolsVersion(jujuversion.ToVersion2(latest)); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -703,7 +704,7 @@ func (i *importer) makeTools(t description.AgentTools) *tools.Tools {
 		return nil
 	}
 	return &tools.Tools{
-		Version: t.Version(),
+		Version: jujuversion.ToVersion2Binary(t.Version()),
 		URL:     t.URL(),
 		SHA256:  t.SHA256(),
 		Size:    t.Size(),

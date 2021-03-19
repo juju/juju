@@ -105,7 +105,6 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 		return nil, errors.Trace(err)
 	}
 
-	series := archTools.OneSeries()
 	args.InstanceConfig.MachineContainerType = instance.KVM
 	if err := args.InstanceConfig.SetTools(archTools); err != nil {
 		return nil, errors.Trace(err)
@@ -114,7 +113,7 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 	cloudInitUserData, err := combinedCloudInitData(
 		config.CloudInitUserData,
 		config.ContainerInheritProperties,
-		series, kvmLogger)
+		args.InstanceConfig.Series, kvmLogger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -139,7 +138,7 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 	}
 	inst, hardware, err := broker.manager.CreateContainer(
 		args.InstanceConfig, args.Constraints,
-		series, network, storageConfig, args.StatusCallback,
+		args.InstanceConfig.Series, network, storageConfig, args.StatusCallback,
 	)
 	if err != nil {
 		kvmLogger.Errorf("failed to start container: %v", err)

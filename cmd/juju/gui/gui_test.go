@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/juju/webbrowser"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"

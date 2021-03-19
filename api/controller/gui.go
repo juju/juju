@@ -11,7 +11,7 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/params"
 )

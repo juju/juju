@@ -20,9 +20,8 @@ import (
 	"github.com/juju/charm/v8"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/names/v4"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
@@ -35,6 +34,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/downloader"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // websocketTimeout is how long we'll wait for a WriteJSON call before
@@ -424,13 +424,13 @@ func (c *Client) UploadCharm(curl *charm.URL, content io.ReadSeeker) (*charm.URL
 
 func (c *Client) validateCharmVersion(ch charm.Charm) error {
 	minver := ch.Meta().MinJujuVersion
-	if minver != version.Zero {
+	if minver.String() != version.Zero.String() {
 		agentver, err := c.AgentVersion()
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		return jujuversion.CheckJujuMinVersion(minver, agentver)
+		return jujuversion.CheckJujuMinVersion(jujuversion.ToVersion2(minver), agentver)
 	}
 	return nil
 }
@@ -559,8 +559,8 @@ func NewCharmDownloader(apiCaller base.APICaller) *downloader.Downloader {
 }
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS.
-func (c *Client) UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (tools.List, error) {
-	endpoint := fmt.Sprintf("/tools?binaryVersion=%s&series=%s", vers, strings.Join(additionalSeries, ","))
+func (c *Client) UploadTools(r io.ReadSeeker, vers version.Binary) (tools.List, error) {
+	endpoint := fmt.Sprintf("/tools?binaryVersion=%s", vers)
 	contentType := "application/x-tar-gz"
 	var resp params.ToolsResult
 	if err := c.httpPost(r, endpoint, contentType, &resp); err != nil {

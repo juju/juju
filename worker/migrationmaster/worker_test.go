@@ -17,7 +17,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
@@ -238,7 +238,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 				[]string{"charm0", "charm1"},
 				fakeCharmDownloader,
 				map[version.Binary]string{
-					version.MustParseBinary("2.1.0-trusty-amd64"): "/tools/0",
+					version.MustParseBinary("2.1.0-ubuntu-amd64"): "/tools/0",
 				},
 				fakeToolsDownloader,
 				s.facade.exportedResources,
@@ -1246,7 +1246,7 @@ func (f *stubMasterFacade) Export() (coremigration.SerializedModel, error) {
 		Bytes:  fakeModelBytes,
 		Charms: []string{"charm0", "charm1"},
 		Tools: map[version.Binary]string{
-			version.MustParseBinary("2.1.0-trusty-amd64"): "/tools/0",
+			version.MustParseBinary("2.1.0-ubuntu-amd64"): "/tools/0",
 		},
 		Resources: f.exportedResources,
 	}, nil

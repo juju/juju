@@ -424,7 +424,8 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 type versionValidator struct{}
 
 func (versionValidator) Validate(meta *charm.Meta) error {
-	return jujuversion.CheckJujuMinVersion(meta.MinJujuVersion, jujuversion.Current)
+	minver := meta.MinJujuVersion
+	return jujuversion.CheckJujuMinVersion(jujuversion.ToVersion2(minver), jujuversion.Current)
 }
 
 // CharmArchive is the data that needs to be stored for a charm archive in

@@ -16,7 +16,7 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/core/actions"
@@ -536,7 +536,7 @@ func (m *Machine) AgentTools() (*tools.Tools, error) {
 // checkVersionValidity checks whether the given version is suitable
 // for passing to SetAgentVersion.
 func checkVersionValidity(v version.Binary) error {
-	if v.Series == "" || v.Arch == "" {
+	if v.Release == "" || v.Arch == "" {
 		return fmt.Errorf("empty series or arch")
 	}
 	return nil

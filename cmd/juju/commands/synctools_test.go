@@ -13,7 +13,7 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -263,7 +263,7 @@ func (s *syncToolsSuite) TestAPIAdapterUploadTools(c *gc.C) {
 	uploadToolsErr := errors.New("uh oh")
 	current := coretesting.CurrentVersion(c)
 	fake := fakeSyncToolsAPI{
-		uploadTools: func(r io.Reader, v version.Binary, additionalSeries ...string) (coretools.List, error) {
+		uploadTools: func(r io.Reader, v version.Binary) (coretools.List, error) {
 			data, err := ioutil.ReadAll(r)
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(string(data), gc.Equals, "abc")
@@ -287,15 +287,15 @@ func (s *syncToolsSuite) TestAPIAdapterBlockUploadTools(c *gc.C) {
 
 type fakeSyncToolsAPI struct {
 	findTools   func(majorVersion, minorVersion int, series, arch, stream string) (params.FindToolsResult, error)
-	uploadTools func(r io.Reader, v version.Binary, additionalSeries ...string) (coretools.List, error)
+	uploadTools func(r io.Reader, v version.Binary) (coretools.List, error)
 }
 
 func (f *fakeSyncToolsAPI) FindTools(majorVersion, minorVersion int, series, arch, stream string) (params.FindToolsResult, error) {
 	return f.findTools(majorVersion, minorVersion, series, arch, stream)
 }
 
-func (f *fakeSyncToolsAPI) UploadTools(r io.ReadSeeker, v version.Binary, additionalSeries ...string) (coretools.List, error) {
-	return f.uploadTools(r, v, additionalSeries...)
+func (f *fakeSyncToolsAPI) UploadTools(r io.ReadSeeker, v version.Binary) (coretools.List, error) {
+	return f.uploadTools(r, v)
 }
 
 func (f *fakeSyncToolsAPI) Close() error {

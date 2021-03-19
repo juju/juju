@@ -6,7 +6,7 @@ package params
 import (
 	"time"
 
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 )
 
 // MigrationModelHTTPHeader is the key for the HTTP header value

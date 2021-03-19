@@ -4,7 +4,7 @@
 package caas
 
 import (
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"

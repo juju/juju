@@ -17,7 +17,7 @@ import (
 	"github.com/juju/replicaset"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"

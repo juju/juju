@@ -20,7 +20,7 @@ func (s *cloudImageMetadataSuite) TestCloudImageMetadataDocFields(c *gc.C) {
 		"Stream",
 		"Region",
 		"Version",
-		"Series",
+		"OSType",
 		"Arch",
 		"VirtType",
 		"RootStorageType",

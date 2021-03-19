@@ -15,7 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/mongo"
@@ -41,7 +41,7 @@ func testAgentTools(c *gc.C, obj tooler, agent string) {
 	err = obj.SetAgentVersion(version.Binary{})
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("cannot set agent version for %s: empty series or arch", agent))
 
-	v2 := version.MustParseBinary("7.8.9-quantal-amd64")
+	v2 := version.MustParseBinary("7.8.9-ubuntu-amd64")
 	err = obj.SetAgentVersion(v2)
 	c.Assert(err, jc.ErrorIsNil)
 	t3, err := obj.AgentTools()

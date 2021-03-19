@@ -30,7 +30,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/parallel"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/retry.v1"
 

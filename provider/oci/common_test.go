@@ -11,7 +11,7 @@ import (
 	"github.com/juju/clock/testclock"
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	gomock "github.com/golang/mock/gomock"
 	ocitesting "github.com/juju/juju/provider/oci/testing"
@@ -37,7 +37,7 @@ func makeToolsList(series string) tools.List {
 	var toolsVersion version.Binary
 	toolsVersion.Number = version.MustParse("2.4.0")
 	toolsVersion.Arch = arch.AMD64
-	toolsVersion.Series = series
+	toolsVersion.Release = series
 	return tools.List{{
 		Version: toolsVersion,
 		URL:     fmt.Sprintf("http://example.com/tools/juju-%s.tgz", toolsVersion),

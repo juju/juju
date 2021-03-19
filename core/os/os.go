@@ -4,6 +4,12 @@
 // Package os provides access to operating system related configuration.
 package os
 
+import (
+	"strings"
+
+	"github.com/juju/collections/set"
+)
+
 var HostOS = hostOS // for monkey patching
 
 type OSType int
@@ -37,6 +43,36 @@ func (t OSType) String() string {
 		return "Kubernetes"
 	}
 	return "Unknown"
+}
+
+var validOSTypeNames set.Strings
+
+func init() {
+	osTypes := []string{
+		Unknown.String(),
+		Ubuntu.String(),
+		Windows.String(),
+		OSX.String(),
+		CentOS.String(),
+		GenericLinux.String(),
+		OpenSUSE.String(),
+		Kubernetes.String(),
+	}
+	for i, osType := range osTypes {
+		osTypes[i] = strings.ToLower(osType)
+	}
+	validOSTypeNames = set.NewStrings(osTypes...)
+}
+
+// IsValidOSTypeName returns true if osType is a
+// valid os type name.
+func IsValidOSTypeName(osType string) bool {
+	return validOSTypeNames.Contains(osType)
+}
+
+// HostOSTypeName returns the name of the host OS.
+func HostOSTypeName() string {
+	return strings.ToLower(HostOS().String())
 }
 
 // EquivalentTo returns true if the OS type is equivalent to another

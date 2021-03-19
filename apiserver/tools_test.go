@@ -18,7 +18,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -169,7 +169,7 @@ func (s *toolsSuite) TestUploadFailsWithInvalidContentType(c *gc.C) {
 
 func (s *toolsSuite) setupToolsForUpload(c *gc.C) (coretools.List, version.Binary, []byte) {
 	localStorage := c.MkDir()
-	vers := version.MustParseBinary("1.9.0-quantal-amd64")
+	vers := version.MustParseBinary("1.9.0-ubuntu-amd64")
 	versionStrings := []string{vers.String()}
 	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "released", versionStrings)
 	toolsFile := envtools.StorageName(vers, "released")
@@ -362,7 +362,7 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	for _, series := range []string{"precise", "quantal"} {
-		v.Series = series
+		v.OSType = series
 		_, r, err := storage.Open(v.String())
 		c.Assert(err, jc.ErrorIsNil)
 		uploadedData, err := ioutil.ReadAll(r)
@@ -372,7 +372,7 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	}
 
 	// ensure other series *aren't* there.
-	v.Series = "trusty"
+	v.OSType = "trusty"
 	_, err = storage.Metadata(v.String())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

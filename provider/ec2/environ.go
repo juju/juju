@@ -19,7 +19,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	amzaws "gopkg.in/amz.v3/aws"
 	amzec2 "gopkg.in/amz.v3/ec2"
 

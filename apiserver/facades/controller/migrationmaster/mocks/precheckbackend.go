@@ -10,7 +10,7 @@ import (
 	resource "github.com/juju/juju/resource"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
-	version "github.com/juju/version"
+	version "github.com/juju/version/v2"
 	reflect "reflect"
 )
 

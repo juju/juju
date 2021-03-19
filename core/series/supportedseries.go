@@ -62,6 +62,19 @@ func AllWorkloadSeries(requestedSeries, imageStream string) (set.Strings, error)
 	return set.NewStrings(supported.workloadSeries(true)...), nil
 }
 
+// AllWorkloadOSTypes returns all the workload os types (supported or not).
+func AllWorkloadOSTypes(requestedSeries, imageStream string) (set.Strings, error) {
+	supported, err := seriesForTypes(UbuntuDistroInfo, time.Now(), requestedSeries, imageStream)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := set.NewStrings()
+	for _, series := range supported.workloadSeries(true) {
+		result.Add(DefaultOSTypeNameFromSeries(series))
+	}
+	return result, nil
+}
+
 func seriesForTypes(path string, now time.Time, requestedSeries, imageStream string) (*supportedInfo, error) {
 	// We support all of the juju series AND all the ESM supported series.
 	// Juju is congruent with the Ubuntu release cycle for it's own series (not
@@ -123,6 +136,16 @@ func GetOSFromSeries(series string) (coreos.OSType, error) {
 
 	updateSeriesVersionsOnce()
 	return getOSFromSeries(seriesName)
+}
+
+// DefaultOSTypeNameFromSeries returns the operating system based
+// on the given series, defaulting to Ubuntu for unknown series.
+func DefaultOSTypeNameFromSeries(series string) string {
+	osType, err := GetOSFromSeries(series)
+	if err != nil {
+		osType = coreos.Ubuntu
+	}
+	return strings.ToLower(osType.String())
 }
 
 const (
@@ -368,7 +391,7 @@ var (
 // the work to determine the latest lts series once.
 var latestLtsSeries string
 
-// LatestLts returns the Latest LTS Series found in distro-info
+// LatestLts returns the Latest LTS Release found in distro-info
 func LatestLts() string {
 	if latestLtsSeries != "" {
 		return latestLtsSeries

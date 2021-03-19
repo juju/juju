@@ -16,7 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/payload"
@@ -604,9 +605,9 @@ func (s *MigrationImportSuite) assertImportedApplication(
 
 	if newModel.Type() == state.ModelTypeCAAS {
 		agentTools := version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: application.Series(),
+			Number:  jujuversion.Current,
+			Arch:    arch.HostArch(),
+			Release: coreseries.DefaultOSTypeNameFromSeries(application.Series()),
 		}
 
 		tools, err := imported.AgentTools()
@@ -2534,9 +2535,9 @@ func (s *MigrationImportSuite) TestOneSubordinateTwoGuvnors(c *gc.C) {
 		app, err := unit.Application()
 		c.Assert(err, jc.ErrorIsNil)
 		agentTools := version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: app.Series(),
+			Number:  jujuversion.Current,
+			Arch:    arch.HostArch(),
+			Release: coreseries.DefaultOSTypeNameFromSeries(app.Series()),
 		}
 		err = unit.SetAgentVersion(agentTools)
 		c.Assert(err, jc.ErrorIsNil)

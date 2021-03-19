@@ -6,7 +6,7 @@ package provisioner
 import (
 	"sort"
 
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"

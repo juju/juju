@@ -25,7 +25,7 @@ import (
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/utils/v2/ssh"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v2/cinder"
 	"gopkg.in/goose.v2/client"
@@ -2991,7 +2991,7 @@ func (s *localServerSuite) ensureAMDImages(c *gc.C) environs.Environ {
 	workloadSeries, err := series.WorkloadSeries(time.Now(), "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	for _, supSeries := range workloadSeries.Values() {
-		amd64Version.Series = supSeries
+		amd64Version.Release = supSeries
 		envtesting.AssertUploadFakeToolsVersions(
 			c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), amd64Version)
 	}

@@ -24,7 +24,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 
@@ -68,7 +68,7 @@ func (s *clientSuite) TestUploadToolsOtherModel(c *gc.C) {
 	defer otherSt.Close()
 	defer otherAPISt.Close()
 	client := otherAPISt.Client()
-	newVersion := version.MustParseBinary("5.4.3-quantal-amd64")
+	newVersion := version.MustParseBinary("5.4.3-ubuntu-amd64")
 	var called bool
 
 	// build fake tools
@@ -82,8 +82,7 @@ func (s *clientSuite) TestUploadToolsOtherModel(c *gc.C) {
 			called = true
 
 			c.Assert(r.URL.Query(), gc.DeepEquals, url.Values{
-				"binaryVersion": []string{"5.4.3-quantal-amd64"},
-				"series":        []string{""},
+				"binaryVersion": []string{"5.4.3-ubuntu-amd64"},
 			})
 			defer r.Body.Close()
 			obtainedTools, err := ioutil.ReadAll(r.Body)
@@ -391,7 +390,7 @@ func testMinVer(client *api.Client, t minverTest, c *gc.C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
-	charmArchive.Meta().MinJujuVersion = charmMinVer
+	charmArchive.Meta().MinJujuVersion = jujuversion.ToVersion1(charmMinVer)
 
 	_, err := client.AddLocalCharm(curl, charmArchive, t.force)
 
@@ -410,7 +409,7 @@ func testMinVer(client *api.Client, t minverTest, c *gc.C) {
 
 func (s *clientSuite) TestOpenURIFound(c *gc.C) {
 	// Use tools download to test OpenURI
-	const toolsVersion = "2.0.0-xenial-ppc64"
+	const toolsVersion = "2.0.0-ubuntu-ppc64"
 	s.AddToolsToState(c, version.MustParseBinary(toolsVersion))
 
 	client := s.APIState.Client()

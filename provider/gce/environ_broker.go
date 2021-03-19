@@ -98,11 +98,10 @@ func (env *environ) buildInstanceSpec(ctx context.ProviderCallContext, args envi
 	}
 
 	arches := args.Tools.Arches()
-	series := args.Tools.OneSeries()
 	spec, err := findInstanceSpec(
 		env, &instances.InstanceConstraint{
 			Region:      env.cloud.Region,
-			Series:      series,
+			Series:      args.InstanceConfig.Series,
 			Arches:      arches,
 			Constraints: args.Constraints,
 		},

@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
@@ -148,7 +148,7 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 		Number:       agentVersion,
 		MajorVersion: -1,
 		MinorVersion: -1,
-		Series:       existingTools.Version.Series,
+		Series:       existingTools.Version.Release,
 		Arch:         existingTools.Version.Arch,
 	})
 	if err != nil {
@@ -356,7 +356,7 @@ func toolsFilter(args params.FindToolsParams) coretools.Filter {
 	return coretools.Filter{
 		Number: args.Number,
 		Arch:   args.Arch,
-		Series: args.Series,
+		OSType: args.OSType,
 	}
 }
 

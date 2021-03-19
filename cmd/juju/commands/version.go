@@ -8,8 +8,9 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
+	coreseries "github.com/juju/juju/core/series"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -79,9 +80,9 @@ func (v *versionCommand) Init(args []string) error {
 		ser = "unknown"
 	}
 	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: ser,
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: coreseries.DefaultOSTypeNameFromSeries(ser),
 	}
 	detail := versionDetail{
 		Version:       current,

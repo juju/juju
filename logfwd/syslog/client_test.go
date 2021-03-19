@@ -10,11 +10,11 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/rfc/rfc5424"
-	"github.com/juju/rfc/rfc5424/sdelements"
+	"github.com/juju/rfc/v2/rfc5424"
+	"github.com/juju/rfc/v2/rfc5424/sdelements"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/logfwd"

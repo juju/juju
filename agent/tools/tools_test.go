@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
@@ -88,7 +88,7 @@ func (t *ToolsSuite) TestUnpackToolsBadData(c *gc.C) {
 		c.Logf("test %d", i)
 		testTools := &coretest.Tools{
 			URL:     "http://foo/bar",
-			Version: version.MustParseBinary("1.2.3-quantal-amd64"),
+			Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
 			Size:    int64(len(test.data)),
 			SHA256:  test.checksum,
 		}
@@ -102,7 +102,7 @@ func (t *ToolsSuite) TestUnpackToolsBadChecksum(c *gc.C) {
 	data, _ := testing.TarGz(testing.NewTarFile("tools", agenttools.DirPerm, "some data"))
 	testTools := &coretest.Tools{
 		URL:     "http://foo/bar",
-		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
+		Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
 		Size:    int64(len(data)),
 		SHA256:  "1234",
 	}
@@ -124,14 +124,14 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 	data, checksum := testing.TarGz(files...)
 	testTools := &coretest.Tools{
 		URL:     "http://foo/bar",
-		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
+		Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
 		Size:    int64(len(data)),
 		SHA256:  checksum,
 	}
 
 	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
-	assertDirNames(c, t.toolsDir(), []string{"1.2.3-quantal-amd64"})
+	assertDirNames(c, t.toolsDir(), []string{"1.2.3-ubuntu-amd64"})
 	t.assertToolsContents(c, testTools, files)
 
 	// Try to unpack the same version of tools again - it should succeed,
@@ -143,18 +143,18 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 	data2, checksum2 := testing.TarGz(files2...)
 	tools2 := &coretest.Tools{
 		URL:     "http://arble",
-		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
+		Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
 		Size:    int64(len(data2)),
 		SHA256:  checksum2,
 	}
 	err = agenttools.UnpackTools(t.dataDir, tools2, bytes.NewReader(data2))
 	c.Assert(err, jc.ErrorIsNil)
-	assertDirNames(c, t.toolsDir(), []string{"1.2.3-quantal-amd64"})
+	assertDirNames(c, t.toolsDir(), []string{"1.2.3-ubuntu-amd64"})
 	t.assertToolsContents(c, testTools, files)
 }
 
 func (t *ToolsSuite) TestReadToolsErrors(c *gc.C) {
-	vers := version.MustParseBinary("1.2.3-precise-amd64")
+	vers := version.MustParseBinary("1.2.3-ubuntu-amd64")
 	testTools, err := agenttools.ReadTools(t.dataDir, vers)
 	c.Assert(testTools, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot read agent metadata in directory .*")
@@ -220,7 +220,7 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 	data, checksum := testing.TarGz(files...)
 	testTools := &coretest.Tools{
 		URL:     "http://foo/bar1",
-		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
+		Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
 		Size:    int64(len(data)),
 		SHA256:  checksum,
 	}
@@ -231,18 +231,18 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*gotTools, gc.Equals, *testTools)
 
-	assertDirNames(c, t.toolsDir(), []string{"1.2.3-quantal-amd64", "testagent"})
+	assertDirNames(c, t.toolsDir(), []string{"1.2.3-ubuntu-amd64", "testagent"})
 	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"jujuc", "jujud", agenttools.ToolsFile})
 
 	// Upgrade again to check that the link replacement logic works ok.
 	files2 := []*testing.TarFile{
-		testing.NewTarFile("quantal", agenttools.DirPerm, "foo content"),
+		testing.NewTarFile("ubuntu", agenttools.DirPerm, "foo content"),
 		testing.NewTarFile("amd64", agenttools.DirPerm, "bar content"),
 	}
 	data2, checksum2 := testing.TarGz(files2...)
 	tools2 := &coretest.Tools{
 		URL:     "http://foo/bar2",
-		Version: version.MustParseBinary("1.2.4-quantal-amd64"),
+		Version: version.MustParseBinary("1.2.4-ubuntu-amd64"),
 		Size:    int64(len(data2)),
 		SHA256:  checksum2,
 	}
@@ -253,13 +253,13 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*gotTools, gc.Equals, *tools2)
 
-	assertDirNames(c, t.toolsDir(), []string{"1.2.3-quantal-amd64", "1.2.4-quantal-amd64", "testagent"})
-	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"quantal", "amd64", agenttools.ToolsFile})
+	assertDirNames(c, t.toolsDir(), []string{"1.2.3-ubuntu-amd64", "1.2.4-ubuntu-amd64", "testagent"})
+	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"ubuntu", "amd64", agenttools.ToolsFile})
 }
 
 func (t *ToolsSuite) TestSharedToolsDir(c *gc.C) {
-	dir := agenttools.SharedToolsDir("/var/lib/juju", version.MustParseBinary("1.2.3-precise-amd64"))
-	c.Assert(dir, gc.Equals, "/var/lib/juju/tools/1.2.3-precise-amd64")
+	dir := agenttools.SharedToolsDir("/var/lib/juju", version.MustParseBinary("1.2.3-ubuntu-amd64"))
+	c.Assert(dir, gc.Equals, "/var/lib/juju/tools/1.2.3-ubuntu-amd64")
 }
 
 func (t *ToolsSuite) TestSharedGUIDir(c *gc.C) {

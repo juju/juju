@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
@@ -48,14 +48,14 @@ func (s *DiskManagerSuite) TestUnpackToolsContents(c *gc.C) {
 	gzfile, checksum := coretesting.TarGz(files...)
 	t1 := &coretools.Tools{
 		URL:     "http://foo/bar",
-		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
+		Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
 		Size:    int64(len(gzfile)),
 		SHA256:  checksum,
 	}
 
 	err := s.manager.UnpackTools(t1, bytes.NewReader(gzfile))
 	c.Assert(err, jc.ErrorIsNil)
-	assertDirNames(c, s.toolsDir(), []string{"1.2.3-quantal-amd64"})
+	assertDirNames(c, s.toolsDir(), []string{"1.2.3-ubuntu-amd64"})
 	s.assertToolsContents(c, t1, files)
 
 	// Try to unpack the same version of tools again - it should succeed,
@@ -67,20 +67,20 @@ func (s *DiskManagerSuite) TestUnpackToolsContents(c *gc.C) {
 	gzfile2, checksum2 := coretesting.TarGz(files2...)
 	t2 := &coretools.Tools{
 		URL:     "http://arble",
-		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
+		Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
 		Size:    int64(len(gzfile2)),
 		SHA256:  checksum2,
 	}
 	err = s.manager.UnpackTools(t2, bytes.NewReader(gzfile2))
 	c.Assert(err, jc.ErrorIsNil)
-	assertDirNames(c, s.toolsDir(), []string{"1.2.3-quantal-amd64"})
+	assertDirNames(c, s.toolsDir(), []string{"1.2.3-ubuntu-amd64"})
 	s.assertToolsContents(c, t1, files)
 }
 
 func (t *DiskManagerSuite) TestSharedToolsDir(c *gc.C) {
 	manager := agenttools.NewDiskManager("/var/lib/juju")
-	dir := manager.SharedToolsDir(version.MustParseBinary("1.2.3-precise-amd64"))
-	c.Assert(dir, gc.Equals, "/var/lib/juju/tools/1.2.3-precise-amd64")
+	dir := manager.SharedToolsDir(version.MustParseBinary("1.2.3-ubuntu-amd64"))
+	c.Assert(dir, gc.Equals, "/var/lib/juju/tools/1.2.3-ubuntu-amd64")
 }
 
 // assertToolsContents asserts that the directory for the tools

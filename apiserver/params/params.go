@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v2/ssh"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/constraints"
@@ -992,6 +992,9 @@ type FindToolsParams struct {
 
 	// Series will be used to match tools by series if non-empty.
 	Series string `json:"series"`
+
+	// OSType will be used to match tools by os type if non-empty.
+	OSType string `json:"os-type"`
 
 	// AgentStream will be used to set agent stream to search
 	AgentStream string `json:"agentstream"`

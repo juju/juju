@@ -19,7 +19,7 @@ import (
 	"github.com/juju/gomaasapi"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -1064,7 +1064,6 @@ func (env *maasEnviron) StartInstance(
 		return nil, common.ZoneIndependentError(err)
 	}
 
-	series := args.Tools.OneSeries()
 	selectedTools, err := args.Tools.Match(tools.Filter{
 		Arch: *hc.Arch,
 	})
@@ -1089,6 +1088,7 @@ func (env *maasEnviron) StartInstance(
 		return nil, common.ZoneIndependentError(err)
 	}
 
+	series := args.InstanceConfig.Series
 	cloudcfg, err := env.newCloudinitConfig(hostname, series)
 	if err != nil {
 		return nil, common.ZoneIndependentError(err)

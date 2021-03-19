@@ -19,7 +19,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
@@ -254,7 +254,7 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 			Bytes:  []byte("foo"),
 			Charms: []string{"cs:foo-1"},
 			Tools: []params.SerializedModelTools{{
-				Version: "2.0.0-trusty-amd64",
+				Version: "2.0.0-ubuntu-amd64",
 				URI:     "/tools/0",
 			}},
 			Resources: []params.SerializedModelResource{{
@@ -309,7 +309,7 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 		Bytes:  []byte("foo"),
 		Charms: []string{"cs:foo-1"},
 		Tools: map[version.Binary]string{
-			version.MustParseBinary("2.0.0-trusty-amd64"): "/tools/0",
+			version.MustParseBinary("2.0.0-ubuntu-amd64"): "/tools/0",
 		},
 		Resources: []migration.SerializedModelResource{{
 			ApplicationRevision: resource.Resource{

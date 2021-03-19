@@ -14,7 +14,7 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -149,9 +149,9 @@ func (s *agentConfSuite) setupTools(c *gc.C, series string) {
 	testTools := &coretest.Tools{
 		URL: "http://foo/bar1",
 		Version: version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: series,
+			Number:  jujuversion.Current,
+			Arch:    arch.HostArch(),
+			Release: series,
 		},
 		Size:   int64(len(data)),
 		SHA256: checksum,
@@ -290,9 +290,9 @@ func (s *agentConfSuite) TestWriteSystemdAgentWriteServiceFail(c *gc.C) {
 func (s *agentConfSuite) assertToolsCopySymlink(c *gc.C, series string) {
 	// Check tools changes.
 	ver := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series,
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: series,
 	}
 	jujuTools, err := agenttools.ReadTools(s.dataDir, ver)
 	c.Assert(err, jc.ErrorIsNil)

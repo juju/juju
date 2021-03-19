@@ -27,7 +27,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -108,7 +108,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	// override this.
 	s.PatchValue(&jujuversion.Current, v100b64.Number)
 	s.PatchValue(&arch.HostArch, func() string { return v100b64.Arch })
-	s.PatchValue(&series.HostSeries, func() (string, error) { return v100b64.Series, nil })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return v100b64.OSType, nil })
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(&jujuseries.UbuntuDistroInfo, "/path/notexists")
 
@@ -249,7 +249,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 		bootstrapVersion = version.MustParseBinary(useVersion)
 		restore = restore.Add(testing.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
 		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return bootstrapVersion.Arch }))
-		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() (string, error) { return bootstrapVersion.Series, nil }))
+		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() (string, error) { return bootstrapVersion.OSType, nil }))
 		bootstrapVersion.Build = 1
 		if test.upload != "" {
 			uploadVers := version.MustParseBinary(test.upload)
@@ -2284,14 +2284,12 @@ func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
 }
 
 var (
-	v100x64 = version.MustParseBinary("1.0.0-xenial-amd64")
-	v100b64 = version.MustParseBinary("1.0.0-bionic-amd64")
-	v100g32 = version.MustParseBinary("1.0.0-groovy-i386")
-	v100g64 = version.MustParseBinary("1.0.0-groovy-amd64")
-	v120x64 = version.MustParseBinary("1.2.0-xenial-amd64")
-	v120b64 = version.MustParseBinary("1.2.0-bionic-amd64")
-	v120g32 = version.MustParseBinary("1.2.0-groovy-i386")
-	v120g64 = version.MustParseBinary("1.2.0-groovy-amd64")
+	v100x64 = version.MustParseBinary("1.0.0-ubuntu-amd64")
+	v100b64 = version.MustParseBinary("1.0.0-windows-amd64")
+	v100g32 = version.MustParseBinary("1.0.0-ubuntu-i386")
+	v120x64 = version.MustParseBinary("1.2.0-ubuntu-amd64")
+	v120b64 = version.MustParseBinary("1.2.0-windows-amd64")
+	v120g32 = version.MustParseBinary("1.2.0-ubuntu-i386")
 	v120t32 = version.MustParseBinary("1.2.0-trusty-i386")
 	v120t64 = version.MustParseBinary("1.2.0-trusty-amd64")
 	v190b32 = version.MustParseBinary("1.9.0-bionic-i386")

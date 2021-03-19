@@ -12,7 +12,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
@@ -156,7 +156,7 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 
 func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	tools := []*coretools.Tools{{
-		Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
+		Version: version.Binary{Arch: arch.AMD64, Release: "ubuntu"},
 		URL:     "https://example.org",
 	}}
 

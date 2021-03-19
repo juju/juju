@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state/migrations"
 	"github.com/juju/juju/storage/poolmanager"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // The following exporter type is being refactored. This is to better model the
@@ -136,7 +137,7 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 		Owner:              dbModel.Owner(),
 		Config:             modelConfig.Settings,
 		PasswordHash:       dbModel.doc.PasswordHash,
-		LatestToolsVersion: dbModel.LatestToolsVersion(),
+		LatestToolsVersion: jujuversion.ToVersion1(dbModel.LatestToolsVersion()),
 		EnvironVersion:     dbModel.EnvironVersion(),
 		Blocks:             blocks,
 	}
@@ -552,7 +553,7 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 		}
 		if err == nil {
 			exMachine.SetTools(description.AgentToolsArgs{
-				Version: tools.Version,
+				Version: jujuversion.ToVersion1Binary(tools.Version),
 				URL:     tools.URL,
 				SHA256:  tools.SHA256,
 				Size:    tools.Size,
@@ -1038,7 +1039,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			}
 			if err == nil {
 				exUnit.SetTools(description.AgentToolsArgs{
-					Version: tools.Version,
+					Version: jujuversion.ToVersion1Binary(tools.Version),
 					URL:     tools.URL,
 					SHA256:  tools.SHA256,
 					Size:    tools.Size,
@@ -1073,7 +1074,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			return errors.Trace(err)
 		}
 		exApplication.SetTools(description.AgentToolsArgs{
-			Version: tools.Version,
+			Version: jujuversion.ToVersion1Binary(tools.Version),
 		})
 	}
 

@@ -13,7 +13,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
@@ -314,12 +314,12 @@ func makeInstanceConfig(c *gc.C, s patcher, machineId string) *instancecfg.Insta
 
 func makePossibleTools() coretools.List {
 	return coretools.List{&coretools.Tools{
-		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
-		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+		Version: version.MustParseBinary("2.3.4-ubuntu-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-ubuntu-amd64.tgz",
 	}, {
 		// non-host-arch tools should be filtered out by StartInstance
-		Version: version.MustParseBinary("2.3.4-quantal-arm64"),
-		URL:     "http://tools.testing.invalid/2.3.4-quantal-arm64.tgz",
+		Version: version.MustParseBinary("2.3.4-ubuntu-arm64"),
+		URL:     "http://tools.testing.invalid/2.3.4-ubuntu-arm64.tgz",
 	}}
 }
 

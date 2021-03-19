@@ -26,7 +26,7 @@ import (
 	"github.com/juju/txn"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -1405,7 +1405,7 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%d", i)), "", "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
-		err = m.SetAgentVersion(version.MustParseBinary("7.8.9-quantal-amd64"))
+		err = m.SetAgentVersion(version.MustParseBinary("7.8.9-ubuntu-amd64"))
 		c.Assert(err, jc.ErrorIsNil)
 		err = m.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -1419,7 +1419,7 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 		c.Assert(string(instId), gc.Equals, fmt.Sprintf("foo-%d", i))
 		tools, err := m.AgentTools()
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(tools.Version, gc.DeepEquals, version.MustParseBinary("7.8.9-quantal-amd64"))
+		c.Check(tools.Version, gc.DeepEquals, version.MustParseBinary("7.8.9-ubuntu-amd64"))
 		c.Assert(m.Life(), gc.Equals, state.Dying)
 	}
 }
@@ -2622,7 +2622,7 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Alter the machine: not reported.
-	vers := version.MustParseBinary("1.2.3-quantal-ppc")
+	vers := version.MustParseBinary("1.2.3-ubuntu-ppc")
 	err = machine.SetAgentVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
@@ -3715,17 +3715,17 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	// the new version.
 	machine0, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine0.SetAgentVersion(version.MustParseBinary("9.9.9-quantal-amd64"))
+	err = machine0.SetAgentVersion(version.MustParseBinary("9.9.9-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 	machine1, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	machine2, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine2.SetAgentVersion(version.MustParseBinary(stringVersion + "-quantal-amd64"))
+	err = machine2.SetAgentVersion(version.MustParseBinary(stringVersion + "-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 	machine3, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine3.SetAgentVersion(version.MustParseBinary("4.5.6-quantal-amd64"))
+	err = machine3.SetAgentVersion(version.MustParseBinary("4.5.6-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify machine0 and machine1 are reported as error.
@@ -3741,17 +3741,17 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	unit0, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit0.SetAgentVersion(version.MustParseBinary("6.6.6-quantal-amd64"))
+	err = unit0.SetAgentVersion(version.MustParseBinary("6.6.6-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	unit2, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit2.SetAgentVersion(version.MustParseBinary(stringVersion + "-quantal-amd64"))
+	err = unit2.SetAgentVersion(version.MustParseBinary(stringVersion + "-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 	unit3, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit3.SetAgentVersion(version.MustParseBinary("4.5.6-quantal-amd64"))
+	err = unit3.SetAgentVersion(version.MustParseBinary("4.5.6-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify unit0 and unit1 are reported as error, along with the
@@ -3794,9 +3794,9 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetAgentVersion(version.MustParseBinary(currentVersion + "-quantal-amd64"))
+	err = machine.SetAgentVersion(version.MustParseBinary(currentVersion + "-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.SetAgentVersion(version.MustParseBinary(currentVersion + "-quantal-amd64"))
+	err = unit.SetAgentVersion(version.MustParseBinary(currentVersion + "-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	return modelConfig, currentVersion
@@ -3851,16 +3851,16 @@ func (s *StateSuite) TestSetModelAgentVersionSucceedsWithSameVersion(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetModelAgentVersionOnOtherModel(c *gc.C) {
-	current := version.MustParseBinary("1.24.7-trusty-amd64")
+	current := version.MustParseBinary("1.24.7-ubuntu-amd64")
 	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
-	s.PatchValue(&series.HostSeries, func() (string, error) { return current.Series, nil })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return current.OSType, nil })
 
 	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
 
-	higher := version.MustParseBinary("1.25.0-trusty-amd64")
-	lower := version.MustParseBinary("1.24.6-trusty-amd64")
+	higher := version.MustParseBinary("1.25.0-ubuntu-amd64")
+	lower := version.MustParseBinary("1.24.6-ubuntu-amd64")
 
 	// Set other model version to < controller model version
 	err := otherSt.SetModelAgentVersion(lower.Number, false)
@@ -3903,7 +3903,7 @@ func (s *StateSuite) TestSetModelAgentVersionMixedVersions(c *gc.C) {
 	machine, err := s.State.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	// Force this to something old that should not match current versions
-	err = machine.SetAgentVersion(version.MustParseBinary("1.0.1-quantal-amd64"))
+	err = machine.SetAgentVersion(version.MustParseBinary("1.0.1-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 	// This should be refused because an agent doesn't match "currentVersion"
 	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
@@ -3925,7 +3925,7 @@ func (s *StateSuite) TestSetModelAgentVersionFailsIfUpgrading(c *gc.C) {
 
 	machine, err := s.State.AddMachine("series", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetAgentVersion(version.MustParseBinary(agentVersion.String() + "-quantal-amd64"))
+	err = machine.SetAgentVersion(version.MustParseBinary(agentVersion.String() + "-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned(instance.Id("i-blah"), "", "fake-nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3954,7 +3954,7 @@ func (s *StateSuite) TestSetModelAgentVersionFailsReportsCorrectError(c *gc.C) {
 
 	machine, err := s.State.AddMachine("series", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetAgentVersion(version.MustParseBinary("9.9.9-quantal-amd64"))
+	err = machine.SetAgentVersion(version.MustParseBinary("9.9.9-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned(instance.Id("i-blah"), "", "fake-nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)

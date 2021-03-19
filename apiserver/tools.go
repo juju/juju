@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
@@ -183,7 +183,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 	if err != nil {
 		return md, nil, err
 	}
-	exactTools, err := envtools.FindExactTools(env, v.Number, v.Series, v.Arch)
+	exactTools, err := envtools.FindExactTools(env, v.Number, v.Release, v.Arch)
 	if err != nil {
 		return md, nil, err
 	}
@@ -256,19 +256,21 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 		return nil, errors.BadRequestf("expected Content-Type: application/x-tar-gz, got: %v", contentType)
 	}
 
-	// We'll clone the tools for each additional series specified.
-	var cloneSeries []string
-	if seriesParam := query.Get("series"); seriesParam != "" {
-		cloneSeries = strings.Split(seriesParam, ",")
+	// We'll clone the tools for each additional release specified.
+	var cloneRelease []string
+	// TODO(juju3) - drop this compatibility with series params
+	// (for 2.9 and later, the series param is no longer used).
+	if releaseParam := query.Get("series"); releaseParam != "" {
+		cloneRelease = strings.Split(releaseParam, ",")
 	}
 	logger.Debugf("request to upload agent binaries: %s", toolsVersion)
-	logger.Debugf("additional series: %s", cloneSeries)
+	logger.Debugf("additional os types: %s", cloneRelease)
 
 	toolsVersions := []version.Binary{toolsVersion}
-	for _, series := range cloneSeries {
-		if series != toolsVersion.Series {
+	for _, release := range cloneRelease {
+		if release != toolsVersion.Release {
 			v := toolsVersion
-			v.Series = series
+			v.Release = release
 			toolsVersions = append(toolsVersions, v)
 		}
 	}
