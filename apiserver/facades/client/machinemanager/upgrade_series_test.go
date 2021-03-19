@@ -12,7 +12,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/charmhub/transport"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
@@ -40,8 +39,6 @@ func (s *UpgradeSeriesSuiteValidate) TestValidate(c *gc.C) {
 	units := []Unit{unit}
 
 	machine := NewMockMachine(ctrl)
-	machine.EXPECT().IsManager().Return(false)
-	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
 	machine.EXPECT().Series().Return("bionic")
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
@@ -53,6 +50,7 @@ func (s *UpgradeSeriesSuiteValidate) TestValidate(c *gc.C) {
 	validator := NewMockUpgradeSeriesValidator(ctrl)
 	validator.EXPECT().ValidateSeries("focal", "bionic", "machine-0").Return(nil)
 	validator.EXPECT().ValidateApplications(applications, "focal", false).Return(nil)
+	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
 	authorizer := NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().CanRead().Return(nil)
@@ -69,67 +67,11 @@ func (s *UpgradeSeriesSuiteValidate) TestValidate(c *gc.C) {
 	})
 }
 
-func (s *UpgradeSeriesSuiteValidate) TestValidateIsManager(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	machine := NewMockMachine(ctrl)
-	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
-	machine.EXPECT().IsManager().Return(true)
-
-	state := NewMockUpgradeSeriesState(ctrl)
-	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
-
-	validator := NewMockUpgradeSeriesValidator(ctrl)
-
-	authorizer := NewMockAuthorizer(ctrl)
-	authorizer.EXPECT().CanRead().Return(nil)
-
-	entities := []ValidationEntity{
-		{Tag: "machine-0", Series: "focal"},
-	}
-
-	api := NewUpgradeSeriesAPI(state, validator, authorizer)
-	result, err := api.Validate(entities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result[0].Error, gc.ErrorMatches, `machine-0 is a controller and cannot be targeted for series upgrade`)
-}
-
-func (s *UpgradeSeriesSuiteValidate) TestValidateIsLockedForSeriesUpgrade(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	machine := NewMockMachine(ctrl)
-	machine.EXPECT().IsManager().Return(false)
-	machine.EXPECT().IsLockedForSeriesUpgrade().Return(true, nil)
-	machine.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesError, nil)
-	machine.EXPECT().Id().Return("machine-0")
-
-	state := NewMockUpgradeSeriesState(ctrl)
-	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
-
-	validator := NewMockUpgradeSeriesValidator(ctrl)
-
-	authorizer := NewMockAuthorizer(ctrl)
-	authorizer.EXPECT().CanRead().Return(nil)
-
-	entities := []ValidationEntity{
-		{Tag: "machine-0", Series: "focal"},
-	}
-
-	api := NewUpgradeSeriesAPI(state, validator, authorizer)
-	result, err := api.Validate(entities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result[0].Error, gc.ErrorMatches, `upgrade series lock found for "machine-0"; series upgrade is in the "error" state`)
-}
-
 func (s *UpgradeSeriesSuiteValidate) TestValidateWithValidateSeries(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	machine := NewMockMachine(ctrl)
-	machine.EXPECT().IsManager().Return(false)
-	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
 	machine.EXPECT().Series().Return("bionic")
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 
@@ -138,6 +80,7 @@ func (s *UpgradeSeriesSuiteValidate) TestValidateWithValidateSeries(c *gc.C) {
 
 	validator := NewMockUpgradeSeriesValidator(ctrl)
 	validator.EXPECT().ValidateSeries("focal", "bionic", "machine-0").Return(errors.New("boom"))
+	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
 	authorizer := NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().CanRead().Return(nil)
@@ -160,8 +103,6 @@ func (s *UpgradeSeriesSuiteValidate) TestValidateApplications(c *gc.C) {
 	applications := []Application{application}
 
 	machine := NewMockMachine(ctrl)
-	machine.EXPECT().IsManager().Return(false)
-	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
 	machine.EXPECT().Series().Return("bionic")
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 
@@ -172,6 +113,7 @@ func (s *UpgradeSeriesSuiteValidate) TestValidateApplications(c *gc.C) {
 	validator := NewMockUpgradeSeriesValidator(ctrl)
 	validator.EXPECT().ValidateSeries("focal", "bionic", "machine-0").Return(nil)
 	validator.EXPECT().ValidateApplications(applications, "focal", false).Return(errors.New("boom"))
+	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
 	authorizer := NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().CanRead().Return(nil)
@@ -205,8 +147,6 @@ func (s UpgradeSeriesSuitePrepare) TestPrepare(c *gc.C) {
 	units := []Unit{unit}
 
 	machine := NewMockMachine(ctrl)
-	machine.EXPECT().IsManager().Return(false)
-	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().CreateUpgradeSeriesLock([]string{"app/0"}, "focal")
 	machine.EXPECT().Series().Return("bionic").Times(2)
@@ -220,6 +160,7 @@ func (s UpgradeSeriesSuitePrepare) TestPrepare(c *gc.C) {
 	validator := NewMockUpgradeSeriesValidator(ctrl)
 	validator.EXPECT().ValidateSeries("focal", "bionic", "machine-0")
 	validator.EXPECT().ValidateApplications(applications, "focal", false)
+	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
 	authorizer := NewMockAuthorizer(ctrl)
 
@@ -238,8 +179,6 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollback(c *gc.C) {
 	units := []Unit{unit}
 
 	machine := NewMockMachine(ctrl)
-	machine.EXPECT().IsManager().Return(false)
-	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().CreateUpgradeSeriesLock([]string{"app/0"}, "focal")
 	machine.EXPECT().Series().Return("bionic")
@@ -251,6 +190,7 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollback(c *gc.C) {
 
 	validator := NewMockUpgradeSeriesValidator(ctrl)
 	validator.EXPECT().ValidateSeries("focal", "bionic", "machine-0").Return(errors.New("bad"))
+	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
 	authorizer := NewMockAuthorizer(ctrl)
 
@@ -269,8 +209,6 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollbackError(c *gc.C) {
 	units := []Unit{unit}
 
 	machine := NewMockMachine(ctrl)
-	machine.EXPECT().IsManager().Return(false)
-	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().CreateUpgradeSeriesLock([]string{"app/0"}, "focal")
 	machine.EXPECT().Series().Return("bionic")
@@ -282,6 +220,7 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollbackError(c *gc.C) {
 
 	validator := NewMockUpgradeSeriesValidator(ctrl)
 	validator.EXPECT().ValidateSeries("focal", "bionic", "machine-0").Return(errors.New("bad"))
+	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
 	authorizer := NewMockAuthorizer(ctrl)
 
@@ -290,29 +229,23 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollbackError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `boom occurred while cleaning up from: bad`)
 }
 
-func (s UpgradeSeriesSuitePrepare) TestPrepareIsLocked(c *gc.C) {
+func (s UpgradeSeriesSuitePrepare) TestPrepareValidationFailure(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	machine := NewMockMachine(ctrl)
-	machine.EXPECT().Id().Return("0")
-	machine.EXPECT().IsManager().Return(false)
-	machine.EXPECT().IsLockedForSeriesUpgrade().Return(true, nil)
-	machine.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesCompleteRunning, nil)
 
 	state := NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
 
 	validator := NewMockUpgradeSeriesValidator(ctrl)
+	validator.EXPECT().ValidateMachine(machine).Return(errors.New("bad"))
 
 	authorizer := NewMockAuthorizer(ctrl)
 
 	api := NewUpgradeSeriesAPI(state, validator, authorizer)
 	err := api.Prepare("machine-0", "focal", false)
-	c.Assert(err, gc.ErrorMatches, `upgrade series lock found for "0"; series upgrade is in the "complete running" state`)
-
-	typedErr := errors.Cause(err).(*apiservererrors.UpgradeSeriesValidationError)
-	c.Assert(typedErr.Status, gc.Equals, model.UpgradeSeriesCompleteRunning.String())
+	c.Assert(err, gc.ErrorMatches, `bad`)
 }
 
 type ValidatorSuite struct {
@@ -377,6 +310,50 @@ func (s ValidatorSuite) TestValidateApplicationsWithNoOrigin(c *gc.C) {
 
 	err := validator.ValidateApplications(applications, "focal", false)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s ValidatorSuite) TestValidateMachine(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	machine := NewMockMachine(ctrl)
+	machine.EXPECT().IsManager().Return(false)
+	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
+
+	validator := upgradeSeriesValidator{}
+
+	err := validator.ValidateMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s ValidatorSuite) TestValidateMachineIsManager(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	machine := NewMockMachine(ctrl)
+	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
+	machine.EXPECT().IsManager().Return(true)
+
+	validator := upgradeSeriesValidator{}
+
+	err := validator.ValidateMachine(machine)
+	c.Assert(err, gc.ErrorMatches, `machine-0 is a controller and cannot be targeted for series upgrade`)
+}
+
+func (s ValidatorSuite) TestValidateMachineIsLockedForSeriesUpgrade(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	machine := NewMockMachine(ctrl)
+	machine.EXPECT().Id().Return("0")
+	machine.EXPECT().IsManager().Return(false)
+	machine.EXPECT().IsLockedForSeriesUpgrade().Return(true, nil)
+	machine.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesPrepareRunning, nil)
+
+	validator := upgradeSeriesValidator{}
+
+	err := validator.ValidateMachine(machine)
+	c.Assert(err, gc.ErrorMatches, `upgrade series lock found for "0"; series upgrade is in the "prepare running" state`)
 }
 
 type StateValidatorSuite struct {

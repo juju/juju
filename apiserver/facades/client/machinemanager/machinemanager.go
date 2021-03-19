@@ -575,14 +575,6 @@ func (mm *MachineManagerAPI) completeUpgradeSeries(arg params.UpdateSeriesArg) e
 	return machine.CompleteUpgradeSeries()
 }
 
-func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg) error {
-	machine, err := mm.machineFromTag(arg.Entity.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return machine.RemoveUpgradeSeriesLock()
-}
-
 // WatchUpgradeSeriesNotifications returns a watcher that fires on upgrade series events.
 func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(args params.Entities) (params.NotifyWatchResults, error) {
 	err := mm.authorizer.CanRead()
