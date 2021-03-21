@@ -550,7 +550,7 @@ func tagToString(tag names.Tag) string {
 	return tag.String()
 }
 
-// dialResult holds a dialled connection, the URL
+// dialResult holds a dialed connection, the URL
 // and TLS configuration used to connect to it.
 type dialResult struct {
 	conn      jsoncodec.JSONConn
