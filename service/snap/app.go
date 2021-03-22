@@ -121,16 +121,17 @@ func (a *App) StartCommands(executable string) []string {
 }
 
 // Install returns a way to install one application with all it's settings.
-func (a *App) Install() string {
-	var channel string
+func (a *App) Install() []string {
+	args := []string{
+		"install",
+	}
 	if a.channel != "" {
-		channel = fmt.Sprintf("--channel=%s ", a.channel)
+		args = append(args, fmt.Sprintf("--channel=%s", a.channel))
 	}
-	var policy string
 	if a.confinementPolicy != "" {
-		policy = fmt.Sprintf("--%s ", a.confinementPolicy)
+		args = append(args, fmt.Sprintf("--%s", a.confinementPolicy))
 	}
-	return fmt.Sprintf("install %s%s%s", channel, policy, a.name)
+	return append(args, a.name)
 }
 
 // Prerequisites defines a list of all the Prerequisites required before the

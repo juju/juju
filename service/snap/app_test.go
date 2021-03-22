@@ -84,7 +84,7 @@ func (s *appSuite) TestInvalidNestedValidate(c *gc.C) {
 func (s *appSuite) TestInstall(c *gc.C) {
 	app := NewNamedApp("meshuggah")
 	cmd := app.Install()
-	c.Assert(cmd, gc.Equals, "install meshuggah")
+	c.Assert(cmd, gc.DeepEquals, []string{"install", "meshuggah"})
 }
 
 func (s *appSuite) TestNestedInstall(c *gc.C) {
@@ -93,5 +93,5 @@ func (s *appSuite) TestNestedInstall(c *gc.C) {
 	app := NewNamedApp("meshuggah")
 	app.prerequisites = []Installable{nested}
 	cmd := app.Install()
-	c.Assert(cmd, gc.Equals, "install meshuggah")
+	c.Assert(cmd, gc.DeepEquals, []string{"install", "meshuggah"})
 }

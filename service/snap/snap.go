@@ -36,6 +36,12 @@ var (
 	snapNameRe = regexp.MustCompile("^[a-z0-9][a-z0-9-]{0,39}[^-]$")
 )
 
+// Runnable expects to be able to run a given command with a series of arguments
+// and return the output and/or error from that executing command.
+type Runnable interface {
+	Execute(name string, args ...string) (string, error)
+}
+
 // BackgroundService represents the a service that snaps define.
 // For example, the multipass snap includes the libvirt-bin and multipassd background services.
 type BackgroundService struct {
@@ -122,7 +128,7 @@ type Installable interface {
 	Name() string
 
 	// Install returns a way to install one application with all it's settings.
-	Install() string
+	Install() []string
 
 	// Validate will validate a given application for any potential issues.
 	Validate() error
@@ -142,6 +148,7 @@ type Installable interface {
 
 // Service is a type for services that are being managed by snapd as snaps.
 type Service struct {
+	runnable       Runnable
 	name           string
 	scriptRenderer shell.Renderer
 	executable     string
@@ -179,6 +186,7 @@ func NewService(mainSnap string, serviceName string, conf common.Conf, snapPath 
 	}
 
 	return Service{
+		runnable:       defaultRunner{},
 		name:           serviceName,
 		scriptRenderer: &shell.BashRenderer{},
 		executable:     snapPath,
@@ -260,13 +268,13 @@ func (s Service) Install() error {
 	for _, app := range s.app.Prerequisites() {
 		logger.Infof("command: %v", app)
 
-		out, err := utils.RunCommand(s.executable, app.Install())
+		out, err := s.runCommand(app.Install()...)
 		if err != nil {
 			return errors.Annotatef(err, "output: %v", out)
 		}
 	}
 
-	out, err := utils.RunCommand(s.executable, s.app.Install())
+	out, err := s.runCommand(s.app.Install()...)
 	if err != nil {
 		return errors.Annotatef(err, "output: %v", out)
 	}
@@ -294,12 +302,12 @@ func (s Service) InstallCommands() ([]string, error) {
 	deps := s.app.Prerequisites()
 	commands := make([]string, 1+len(deps))
 
-	for i, pre := range deps {
-		commands[i] = fmt.Sprintf("%v %s", s.executable, pre.Install())
+	for i, dep := range deps {
+		commands[i] = fmt.Sprintf("%v %s", s.executable, strings.Join(dep.Install(), " "))
 		logger.Infof("preparing command: %v", commands[i])
 	}
 
-	commands[len(commands)-1] = fmt.Sprintf("%v %s", s.executable, s.app.Install())
+	commands[len(commands)-1] = fmt.Sprintf("%v %s", s.executable, strings.Join(s.app.Install(), " "))
 	logger.Infof("preparing command: %v", commands[len(commands)-1])
 	return commands, nil
 }
@@ -310,6 +318,7 @@ func (s Service) ConfigOverride() error {
 	if len(s.conf.Limit) == 0 {
 		return nil
 	}
+
 	for _, backgroundService := range s.app.BackgroundServices() {
 		unitOptions := systemd.ServiceLimits(s.conf)
 		data, err := ioutil.ReadAll(systemd.UnitSerialize(unitOptions))
@@ -430,7 +439,7 @@ func (s Service) Remove() error {
 // running.
 //
 // Restart is part of the service.RestartableService interface
-func (s *Service) Restart() error {
+func (s Service) Restart() error {
 	args := []string{"restart", s.Name()}
 	return s.execThenExpect(args, "Restarted.")
 }
@@ -438,7 +447,7 @@ func (s *Service) Restart() error {
 // execThenExpect calls `snap <commandArgs>...` and then checks
 // stdout against expectation and snap's exit code. When there's a
 // mismatch or non-0 exit code, execThenExpect returns an error.
-func (s *Service) execThenExpect(commandArgs []string, expectation string) error {
+func (s Service) execThenExpect(commandArgs []string, expectation string) error {
 	out, err := s.runCommand(commandArgs...)
 	if err != nil {
 		return errors.Trace(err)
@@ -449,6 +458,12 @@ func (s *Service) execThenExpect(commandArgs []string, expectation string) error
 	return nil
 }
 
-func (s *Service) runCommand(args ...string) (string, error) {
-	return utils.RunCommand(s.executable, args...)
+func (s Service) runCommand(args ...string) (string, error) {
+	return s.runnable.Execute(s.executable, args...)
+}
+
+type defaultRunner struct{}
+
+func (defaultRunner) Execute(name string, args ...string) (string, error) {
+	return utils.RunCommand(name, args...)
 }
