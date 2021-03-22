@@ -6,6 +6,7 @@ package snap
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	clock "github.com/juju/clock"
 	reflect "reflect"
 )
 
@@ -30,6 +31,20 @@ func NewMockRunnable(ctrl *gomock.Controller) *MockRunnable {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockRunnable) EXPECT() *MockRunnableMockRecorder {
 	return m.recorder
+}
+
+// Clock mocks base method
+func (m *MockRunnable) Clock() clock.Clock {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Clock")
+	ret0, _ := ret[0].(clock.Clock)
+	return ret0
+}
+
+// Clock indicates an expected call of Clock
+func (mr *MockRunnableMockRecorder) Clock() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clock", reflect.TypeOf((*MockRunnable)(nil).Clock))
 }
 
 // Execute mocks base method

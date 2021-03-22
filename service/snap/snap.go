@@ -13,9 +13,12 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/shell"
 
@@ -40,6 +43,7 @@ var (
 // and return the output and/or error from that executing command.
 type Runnable interface {
 	Execute(name string, args ...string) (string, error)
+	Clock() clock.Clock
 }
 
 // BackgroundService represents the a service that snaps define.
@@ -268,13 +272,13 @@ func (s Service) Install() error {
 	for _, app := range s.app.Prerequisites() {
 		logger.Infof("command: %v", app)
 
-		out, err := s.runCommand(app.Install()...)
+		out, err := s.runCommandWithRetry(app.Install()...)
 		if err != nil {
 			return errors.Annotatef(err, "output: %v", out)
 		}
 	}
 
-	out, err := s.runCommand(s.app.Install()...)
+	out, err := s.runCommandWithRetry(s.app.Install()...)
 	if err != nil {
 		return errors.Annotatef(err, "output: %v", out)
 	}
@@ -462,8 +466,29 @@ func (s Service) runCommand(args ...string) (string, error) {
 	return s.runnable.Execute(s.executable, args...)
 }
 
+func (s Service) runCommandWithRetry(args ...string) (res string, err error) {
+	if resErr := retry.Call(retry.CallArgs{
+		Clock: s.runnable.Clock(),
+		Func: func() error {
+			res, err = s.runCommand(args...)
+			return errors.Trace(err)
+		},
+		Delay:    5 * time.Second,
+		Attempts: 2,
+	}); resErr != nil {
+		return "", errors.Trace(resErr)
+	}
+
+	// Named args are set via the retry.
+	return
+}
+
 type defaultRunner struct{}
 
 func (defaultRunner) Execute(name string, args ...string) (string, error) {
 	return utils.RunCommand(name, args...)
+}
+
+func (defaultRunner) Clock() clock.Clock {
+	return clock.WallClock
 }

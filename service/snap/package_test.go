@@ -10,6 +10,7 @@ import (
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package snap -destination runnable_mock_test.go github.com/juju/juju/service/snap Runnable
+//go:generate go run github.com/golang/mock/mockgen -package snap -destination clock_mock_test.go github.com/juju/clock Clock
 
 func Test(t *testing.T) {
 	gc.TestingT(t)

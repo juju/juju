@@ -4,10 +4,12 @@
 package snap
 
 import (
+	"errors"
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	time "time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/testing"
@@ -167,7 +169,51 @@ func (*serviceSuite) TestInstall(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	clock := NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(time.Now()).AnyTimes()
+
 	runnable := NewMockRunnable(ctrl)
+	runnable.EXPECT().Clock().Return(clock).AnyTimes()
+	runnable.EXPECT().Execute("snap", []string{"install", "core"}).Return("", nil)
+	runnable.EXPECT().Execute("snap", []string{"install", "--channel=4.0/stable", "juju-db"}).Return("", nil)
+
+	conf := common.Conf{}
+	prerequisites := []Installable{NewNamedApp("core")}
+	backgroundServices := []BackgroundService{
+		{
+			Name:            "daemon",
+			EnableAtStartup: true,
+		},
+	}
+	service, err := NewService("juju-db", "juju-db", conf, Command, "4.0/stable", "", backgroundServices, prerequisites)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s := &service
+	s.runnable = runnable
+	service = *s
+
+	err = service.Install()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (*serviceSuite) TestInstallWithRetry(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	clock := NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(time.Now()).AnyTimes()
+	clock.EXPECT().After(time.Second * 5).DoAndReturn(func(s time.Duration) <-chan time.Time {
+		// Send the channel once we've been called, not before.
+		ch := make(chan time.Time)
+		go func() {
+			ch <- time.Now().Add(time.Second * 5)
+		}()
+		return ch
+	})
+
+	runnable := NewMockRunnable(ctrl)
+	runnable.EXPECT().Clock().Return(clock).AnyTimes()
+	runnable.EXPECT().Execute("snap", []string{"install", "core"}).Return("", errors.New("bad"))
 	runnable.EXPECT().Execute("snap", []string{"install", "core"}).Return("", nil)
 	runnable.EXPECT().Execute("snap", []string{"install", "--channel=4.0/stable", "juju-db"}).Return("", nil)
 
