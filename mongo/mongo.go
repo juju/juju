@@ -705,7 +705,7 @@ func installMongod(mongoDep packaging.Dependency, usingMongoFromSnap bool, hostS
 		}
 	}
 
-	prerequisites := []snap.App{snap.NewApp("core")}
+	prerequisites := []snap.App{}
 	backgroundServices := []snap.BackgroundService{
 		{
 			Name:            "daemon",
