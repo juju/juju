@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v2"
+	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/naturalsort"
@@ -21,7 +21,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state/watcher"
-	jujuversion "github.com/juju/juju/version"
 )
 
 // API implements the API required for the model migration
@@ -389,7 +388,7 @@ func getUsedTools(model description.Model) []params.SerializedModelTools {
 	for _, application := range model.Applications() {
 		for _, unit := range application.Units() {
 			tools := unit.Tools()
-			usedVersions[jujuversion.ToVersion2Binary(tools.Version())] = true
+			usedVersions[tools.Version()] = true
 		}
 	}
 
@@ -405,7 +404,7 @@ func getUsedTools(model description.Model) []params.SerializedModelTools {
 
 func addToolsVersionForMachine(machine description.Machine, usedVersions map[version.Binary]bool) {
 	tools := machine.Tools()
-	usedVersions[jujuversion.ToVersion2Binary(tools.Version())] = true
+	usedVersions[tools.Version()] = true
 	for _, container := range machine.Containers() {
 		addToolsVersionForMachine(container, usedVersions)
 	}

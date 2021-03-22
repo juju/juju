@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
-	"github.com/juju/description/v2"
+	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -203,7 +203,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	// Config as read from state has resources tags coerced to a map.
 	modelCfg["resource-tags"] = map[string]string{}
 	c.Assert(modelCfg, jc.DeepEquals, modelAttrs)
-	c.Assert(model.LatestToolsVersion(), gc.Equals, jujuversion.ToVersion1(latestTools))
+	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(model.EnvironVersion(), gc.Equals, environVersion)
 	c.Assert(model.Annotations(), jc.DeepEquals, testAnnotations)
 	constraints := model.Constraints()
@@ -352,7 +352,7 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 	c.Assert(err, jc.ErrorIsNil)
 	exTools := exported.Tools()
 	c.Assert(exTools, gc.NotNil)
-	c.Assert(exTools.Version(), jc.DeepEquals, jujuversion.ToVersion1Binary(tools.Version))
+	c.Assert(exTools.Version(), jc.DeepEquals, tools.Version)
 
 	history := exported.StatusHistory()
 	c.Assert(history, gc.HasLen, expectedHistoryCount)
@@ -556,7 +556,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 
 		tools, err := application.AgentTools()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(exported.Tools().Version(), gc.Equals, jujuversion.ToVersion1Binary(tools.Version))
+		c.Assert(exported.Tools().Version(), gc.Equals, tools.Version)
 	} else {
 		c.Assert(exported.PodSpec(), gc.Equals, "")
 		c.Assert(exported.CloudService(), gc.IsNil)
@@ -910,7 +910,7 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	if dbModel.Type() == state.ModelTypeIAAS {
 		tools, err := unit.AgentTools()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(exported.Tools().Version(), gc.Equals, jujuversion.ToVersion1Binary(tools.Version))
+		c.Assert(exported.Tools().Version(), gc.Equals, tools.Version)
 	}
 }
 

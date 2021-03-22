@@ -10,7 +10,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
-	"github.com/juju/description/v2"
+	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -419,6 +419,37 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	characteristics, err := parent.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*characteristics.RootDiskSource, gc.Equals, "bunyan")
+}
+
+func (s *MigrationImportSuite) TestMachineAgentVersion(c *gc.C) {
+	machine1 := s.Factory.MakeMachine(c, nil)
+	_ = s.Factory.MakeMachineNested(c, machine1.Id(), nil)
+	hardware, err := machine1.HardwareCharacteristics()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hardware, gc.NotNil)
+
+	// Set the original machine to use series based agent binary version.
+	err = machine1.SetAgentVersion(version.MustParseBinary("1.2.3-xenial-amd64"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	allMachines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allMachines, gc.HasLen, 2)
+
+	_, newSt := s.importModel(c, s.State)
+
+	importedMachines, err := newSt.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedMachines, gc.HasLen, 2)
+
+	for i, newMachine := range importedMachines {
+		agentTools, err := newMachine.AgentTools()
+		c.Assert(err, jc.ErrorIsNil)
+		oldTools, err := allMachines[i].AgentTools()
+		c.Assert(err, jc.ErrorIsNil)
+		oldTools.Version.Release = "ubuntu"
+		c.Assert(agentTools.Version, gc.DeepEquals, oldTools.Version)
+	}
 }
 
 func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {

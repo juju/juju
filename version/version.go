@@ -151,15 +151,6 @@ func ToVersion2(v semversion1.Number) semversion.Number {
 	}
 }
 
-// ToVersion2Binary converts version binary v1 to v2.
-func ToVersion2Binary(v semversion1.Binary) semversion.Binary {
-	return semversion.Binary{
-		Number:  ToVersion2(v.Number),
-		Release: v.Series,
-		Arch:    v.Arch,
-	}
-}
-
 // ToVersion1 converts version number v2 to v1.
 func ToVersion1(v semversion.Number) semversion1.Number {
 	return semversion1.Number{
@@ -168,14 +159,5 @@ func ToVersion1(v semversion.Number) semversion1.Number {
 		Tag:   v.Tag,
 		Patch: v.Patch,
 		Build: v.Build,
-	}
-}
-
-// ToVersion1Binary converts version binary v2 to v1.
-func ToVersion1Binary(v semversion.Binary) semversion1.Binary {
-	return semversion1.Binary{
-		Number: ToVersion1(v.Number),
-		Series: v.Release,
-		Arch:   v.Arch,
 	}
 }
