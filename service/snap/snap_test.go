@@ -26,13 +26,13 @@ var _ = gc.Suite(&validationSuite{})
 func (*validationSuite) TestBackgroundServiceNeedsNonZeroName(c *gc.C) {
 	empty := snap.BackgroundService{}
 	fail := empty.Validate()
-	c.Check(fail, gc.ErrorMatches, "backgroundService.Name must be non-empty.*")
+	c.Check(fail, gc.ErrorMatches, "background service name not valid")
 }
 
 func (*validationSuite) TestBackgroundServiceNeedsLegalName(c *gc.C) {
 	illegal := snap.BackgroundService{Name: "23-==+++"}
 	fail := illegal.Validate()
-	c.Check(fail, gc.ErrorMatches, ".* fails validation check - not valid")
+	c.Check(fail, gc.ErrorMatches, `background service name "23-==\+\+\+" not valid`)
 }
 
 func (*validationSuite) TestValidateJujuDbDaemon(c *gc.C) {
@@ -47,32 +47,17 @@ func (*validationSuite) TestValidateJujuDbDaemon(c *gc.C) {
 
 func (*validationSuite) TestValidateJujuDbSnap(c *gc.C) {
 	// manually
-	jujudb := snap.App{
-		Name:               "juju-db",
-		Channel:            "edge",
-		ConfinementPolicy:  "jailmode",
-		BackgroundServices: []snap.BackgroundService{{Name: "daemon"}},
-		Prerequisites:      []snap.App{{Name: "core", Channel: "stable", ConfinementPolicy: "jailmode"}},
-	}
+	services := []snap.BackgroundService{{Name: "daemon"}}
+	deps := []snap.Installable{snap.NewApp("core", "stable", "jailmode", nil, nil)}
+	jujudb := snap.NewApp("juju-db", "edge", "jailmode", services, deps)
 	err := jujudb.Validate()
 	c.Check(err, jc.ErrorIsNil)
 
 	// via NewService
-	jujudbService, err := snap.NewService("juju-db", "", common.Conf{Desc: "juju-db snap"}, snap.Command, "edge", "jailmode", []snap.BackgroundService{}, []snap.App{})
+	jujudbService, err := snap.NewService("juju-db", "", common.Conf{Desc: "juju-db snap"}, snap.Command, "edge", "jailmode", []snap.BackgroundService{}, []snap.Installable{})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(jujudbService.Validate(), jc.ErrorIsNil)
 
-}
-
-func (*validationSuite) TestNewApp(c *gc.C) {
-	app := snap.NewApp("core")
-	c.Check(app, jc.DeepEquals, snap.App{
-		Name:               "core",
-		ConfinementPolicy:  snap.DefaultConfinementPolicy,
-		Channel:            snap.DefaultChannel,
-		BackgroundServices: []snap.BackgroundService{},
-		Prerequisites:      []snap.App{},
-	})
 }
 
 type snapSuite struct {
@@ -131,7 +116,7 @@ var _ = gc.Suite(&serviceSuite{})
 
 func (*serviceSuite) TestInstallCommands(c *gc.C) {
 	conf := common.Conf{}
-	prerequisites := []snap.App{snap.NewApp("core")}
+	prerequisites := []snap.Installable{snap.NewNamedApp("core")}
 	backgroundServices := []snap.BackgroundService{
 		{
 			Name:            "daemon",
@@ -144,14 +129,14 @@ func (*serviceSuite) TestInstallCommands(c *gc.C) {
 	commands, err := service.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(commands, gc.DeepEquals, []string{
-		"snap install --channel=stable core",
+		"snap install core",
 		"snap install --channel=4.0/stable juju-db",
 	})
 }
 
 func (*serviceSuite) TestInstallCommandsWithConfinementPolicy(c *gc.C) {
 	conf := common.Conf{}
-	prerequisites := []snap.App{snap.NewApp("core")}
+	prerequisites := []snap.Installable{snap.NewNamedApp("core")}
 	backgroundServices := []snap.BackgroundService{
 		{
 			Name:            "daemon",
@@ -164,7 +149,7 @@ func (*serviceSuite) TestInstallCommandsWithConfinementPolicy(c *gc.C) {
 	commands, err := service.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(commands, gc.DeepEquals, []string{
-		"snap install --channel=stable core",
+		"snap install core",
 		"snap install --channel=4.0/stable --classic juju-db",
 	})
 }
