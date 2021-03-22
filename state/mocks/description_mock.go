@@ -301,7 +301,7 @@ func (mr *MockMachineMockRecorder) ProviderAddresses() *gomock.Call {
 // Series mocks base method
 func (m *MockMachine) Series() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Release")
+	ret := m.ctrl.Call(m, "Series")
 	ret0, _ := ret[0].(string)
 	return ret0
 }
