@@ -33,6 +33,7 @@ from time import sleep
 from jujupy.client import temp_bootstrap_env
 from jujupy.utility import ensure_dir, until_timeout
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -211,11 +212,12 @@ class Base(object):
             raise Exception("RBAC is unexpectedly enabled in the cluster")
 
     def check_rbac_enable(self):
-        cmd = ['/bin/sh', '-c', f'{" ".join(self._kubectl_bin)} run tmp-shell --restart=Never --rm -i --tty --image bitnami/kubectl:latest -- auth can-i create pods; exit 0']
-        o = self.sh(*cmd, timeout=60)
+        timeout = 180
+        cmd = ['/bin/sh', '-c', f'{" ".join(self._kubectl_bin)} run --timeout={timeout}s tmp-shell --restart=Never --rm -i --tty --image bitnami/kubectl:latest -- auth can-i create pods; exit 0']
+        o = self.sh(*cmd, timeout=timeout)
         logger.info('checking RBAC by run "%s" -> %s', ' '.join(cmd), o)
         # The default SA in the default namespace does NOT have permission to create pods when RBAC is enabled.
-        return o.split('\n')[0] == 'no'
+        return 'no' in o.split()
 
     def kubectl(self, *args):
         return self.sh(*(self._kubectl_bin + args))
