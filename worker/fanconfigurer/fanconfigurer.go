@@ -14,8 +14,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v2/catacomb"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/utils/scriptrunner"
 )
 
