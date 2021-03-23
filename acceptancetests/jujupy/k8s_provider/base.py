@@ -33,6 +33,7 @@ from time import sleep
 from jujupy.client import temp_bootstrap_env
 from jujupy.utility import ensure_dir, until_timeout
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -157,6 +158,7 @@ class Base(object):
             self._ensure_kube_dir()
             self.check_cluster_healthy(300)
             self._ensure_cluster_config()
+            self.assert_rbac_config()
 
             yield self
         finally:
@@ -202,6 +204,21 @@ class Base(object):
         logger.error(err)
         return False
 
+    def assert_rbac_config(self):
+        rbac_enabled_in_cluster = self.check_rbac_enable()
+        if self.enable_rbac and not rbac_enabled_in_cluster:
+            raise Exception("RBAC is required but it's NOT enabled in the cluster")
+        if not self.enable_rbac and rbac_enabled_in_cluster:
+            raise Exception("RBAC is unexpectedly enabled in the cluster")
+
+    def check_rbac_enable(self):
+        timeout = 180
+        cmd = ['/bin/sh', '-c', f'{" ".join(self._kubectl_bin)} run --timeout={timeout}s tmp-shell --restart=Never --rm -i --tty --image bitnami/kubectl:latest -- auth can-i create pods; exit 0']
+        o = self.sh(*cmd, timeout=timeout)
+        logger.info('checking RBAC by run "%s" -> %s', ' '.join(cmd), o)
+        # The default SA in the default namespace does NOT have permission to create pods when RBAC is enabled.
+        return 'no' in o.split()
+
     def kubectl(self, *args):
         return self.sh(*(self._kubectl_bin + args))
 
@@ -217,7 +234,7 @@ class Base(object):
         cm['data'] = data
         self.kubectl_apply(json.dumps(cm))
 
-    def sh(self, *args, shell=False, ignore_quote=False):
+    def sh(self, *args, shell=False, ignore_quote=False, timeout=None):
         args = [quote(str(arg)) if shell and not ignore_quote else str(arg) for arg in args]
         logger.debug('sh -> %s', ' '.join(args))
         return subprocess.check_output(
@@ -225,6 +242,7 @@ class Base(object):
             args,
             stderr=subprocess.STDOUT,
             shell=shell,
+            timeout=timeout,
         ).decode('UTF-8').strip()
 
     def _ensure_kubectl_bin(self):

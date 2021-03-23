@@ -21,8 +21,8 @@ from __future__ import print_function
 
 import logging
 import os
-from pprint import pformat
 from datetime import datetime, timezone
+from pprint import pformat
 
 import yaml
 from azure.identity import ClientSecretCredential
@@ -46,8 +46,8 @@ class AKS(Base):
     driver = None
     parameters = None
 
-    def __init__(self, bs_manager, cluster_name=None, timeout=1800):
-        super().__init__(bs_manager, cluster_name, timeout)
+    def __init__(self, bs_manager, cluster_name=None, enable_rbac=False, timeout=1800):
+        super().__init__(bs_manager, cluster_name, enable_rbac, timeout)
 
         self.default_storage_class_name = ''
         self.__init_client(bs_manager.client.env)
@@ -137,7 +137,7 @@ class AKS(Base):
             service_principal_profile=service_principal_profile,
             agent_pool_profiles=[agentpool_default],
             linux_profile=linux_profile,
-            enable_rbac=True,
+            enable_rbac=self.enable_rbac,
             tags={'createdAt': datetime.now(tz=timezone.utc).isoformat()},
         )
 
