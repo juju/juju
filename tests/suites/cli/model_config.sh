@@ -1,55 +1,55 @@
 run_model_config_isomorphic() {
-  echo
+	echo
 
-  file="${TEST_DIR}/model-config-isomorphic.log"
-  ensure "model-config-isomorphic" "${file}"
+	file="${TEST_DIR}/model-config-isomorphic.log"
+	ensure "model-config-isomorphic" "${file}"
 
-  FILE=$(mktemp)
+	FILE=$(mktemp)
 
-  juju model-config --format=yaml | juju model-config --ignore-agent-version -
+	juju model-config --format=yaml | juju model-config --ignore-agent-version -
 
-  destroy_model "model-config-isomorphic"
+	destroy_model "model-config-isomorphic"
 }
 
 run_model_config_cloudinit_userdata() {
-  echo
+	echo
 
-  file="${TEST_DIR}/model-config-cloudinit-userdata.log"
-  ensure "model-config-cloudinit-userdata" "${file}"
+	file="${TEST_DIR}/model-config-cloudinit-userdata.log"
+	ensure "model-config-cloudinit-userdata" "${file}"
 
-  FILE=$(mktemp)
+	FILE=$(mktemp)
 
-  cat << EOF > "${FILE}"
+	cat <<EOF >"${FILE}"
 cloudinit-userdata: |
   packages:
     - jq
     - shellcheck
 EOF
 
-  juju model-config "${FILE}"
-  juju model-config cloudinit-userdata | grep -q "shellcheck"
+	juju model-config "${FILE}"
+	juju model-config cloudinit-userdata | grep -q "shellcheck"
 
-  # cloudinit-userdata is not present from the default tabluar output
-  ! juju model-config cloudinit-userdata | grep -q "^cloudinit-userdata: |$"
+	# cloudinit-userdata is not present from the default tabluar output
+	! juju model-config cloudinit-userdata | grep -q "^cloudinit-userdata: |$"
 
-  # cloudinit-userdata is hidden in the normal output
-  juju model-config | grep -q "<value set, see juju model-config cloudinit-userdata>"
+	# cloudinit-userdata is hidden in the normal output
+	juju model-config | grep -q "<value set, see juju model-config cloudinit-userdata>"
 
-  destroy_model "model-config-cloudinit-userdata"
+	destroy_model "model-config-cloudinit-userdata"
 }
 
 test_model_config() {
-  if [ "$(skip 'test_model_config')" ]; then
-    echo "==> TEST SKIPPED: model config"
-    return
-  fi
+	if [ "$(skip 'test_model_config')" ]; then
+		echo "==> TEST SKIPPED: model config"
+		return
+	fi
 
-  (
-    set_verbosity
+	(
+		set_verbosity
 
-    cd .. || exit
+		cd .. || exit
 
-    run "run_model_config_isomorphic"
-    run "run_model_config_cloudinit_userdata"
-  )
+		run "run_model_config_isomorphic"
+		run "run_model_config_cloudinit_userdata"
+	)
 }

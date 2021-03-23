@@ -1,21 +1,21 @@
 test_cli() {
-    if [ "$(skip 'test_cli')" ]; then
-        echo "==> TEST SKIPPED: CLI tests"
-        return
-    fi
+	if [ "$(skip 'test_cli')" ]; then
+		echo "==> TEST SKIPPED: CLI tests"
+		return
+	fi
 
-    set_verbosity
+	set_verbosity
 
-    echo "==> Checking for dependencies"
-    check_dependencies juju
+	echo "==> Checking for dependencies"
+	check_dependencies juju
 
-    file="${TEST_DIR}/test-cli.log"
+	file="${TEST_DIR}/test-cli.log"
 
-    bootstrap "test-cli" "${file}"
+	bootstrap "test-cli" "${file}"
 
-    test_display_clouds
-    test_local_charms
-    test_model_config
+	test_display_clouds
+	test_local_charms
+	test_model_config
 
-    destroy_controller "test-cli"
+	destroy_controller "test-cli"
 }
