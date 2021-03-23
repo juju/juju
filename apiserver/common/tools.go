@@ -9,11 +9,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
@@ -89,11 +90,6 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 	if err != nil {
 		return result, err
 	}
-	toolsStorage, err := t.toolsStorageGetter.ToolsStorage()
-	if err != nil {
-		return result, err
-	}
-	defer toolsStorage.Close()
 
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
@@ -101,7 +97,7 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		agentToolsList, err := t.oneAgentTools(canRead, tag, agentVersion, toolsStorage)
+		agentToolsList, err := t.oneAgentTools(canRead, tag, agentVersion)
 		if err == nil {
 			result.Results[i].ToolsList = agentToolsList
 			// TODO(axw) Get rid of this in 1.22, when all upgraders
@@ -127,7 +123,7 @@ func (t *ToolsGetter) getGlobalAgentVersion() (version.Number, error) {
 	return agentVersion, nil
 }
 
-func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersion version.Number, storage binarystorage.Storage) (coretools.List, error) {
+func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersion version.Number) (coretools.List, error) {
 	if !canRead(tag) {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -143,14 +139,28 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 	if err != nil {
 		return nil, err
 	}
-	toolsFinder := NewToolsFinder(t.configGetter, t.toolsStorageGetter, t.urlGetter, t.newEnviron)
-	list, err := toolsFinder.findTools(params.FindToolsParams{
+
+	findParams := params.FindToolsParams{
 		Number:       agentVersion,
 		MajorVersion: -1,
 		MinorVersion: -1,
-		Series:       existingTools.Version.Series,
+		OSType:       existingTools.Version.Release,
 		Arch:         existingTools.Version.Arch,
-	})
+	}
+	// Older agents will ask for tools based on series.
+	// We now store tools based on OS name so update the find params
+	// if needed to ensure the correct search is done.
+	allSeries, err := coreseries.AllWorkloadSeries("", "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if allSeries.Contains(existingTools.Version.Release) {
+		findParams.Series = existingTools.Version.Release
+		findParams.OSType = ""
+	}
+
+	toolsFinder := NewToolsFinder(t.configGetter, t.toolsStorageGetter, t.urlGetter, t.newEnviron)
+	list, err := toolsFinder.findTools(findParams)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +276,7 @@ func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 // given parameters. If an exact match is specified (number, series and arch)
 // and is found in tools storage, then simplestreams will not be searched.
 func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.List, error) {
-	exactMatch := args.Number != version.Zero && args.Series != "" && args.Arch != ""
+	exactMatch := args.Number != version.Zero && (args.OSType != "" || args.Series != "") && args.Arch != ""
 	storageList, err := f.matchingStorageTools(args)
 	if err == nil && exactMatch {
 		return storageList, nil
@@ -353,10 +363,17 @@ func (f *ToolsFinder) matchingStorageTools(args params.FindToolsParams) (coretoo
 }
 
 func toolsFilter(args params.FindToolsParams) coretools.Filter {
+	var release string
+	if args.Series != "" {
+		release = coreseries.DefaultOSTypeNameFromSeries(args.Series)
+	}
+	if args.OSType != "" {
+		release = args.OSType
+	}
 	return coretools.Filter{
 		Number: args.Number,
 		Arch:   args.Arch,
-		Series: args.Series,
+		OSType: release,
 	}
 }
 

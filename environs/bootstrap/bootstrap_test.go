@@ -21,7 +21,7 @@ import (
 	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -243,7 +243,7 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(env.bootstrapCount, gc.Equals, 1)
 	c.Check(env.args.BootstrapSeries, gc.Equals, "trusty")
-	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{"trusty"})
+	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
 func (s *bootstrapSuite) TestBootstrapFallbackBootstrapSeries(c *gc.C) {
@@ -264,7 +264,7 @@ func (s *bootstrapSuite) TestBootstrapFallbackBootstrapSeries(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(env.bootstrapCount, gc.Equals, 1)
-	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{jujuversion.DefaultSupportedLTS()})
+	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
 func (s *bootstrapSuite) TestBootstrapForcedBootstrapSeries(c *gc.C) {
@@ -288,7 +288,7 @@ func (s *bootstrapSuite) TestBootstrapForcedBootstrapSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(env.bootstrapCount, gc.Equals, 1)
 	c.Check(env.args.BootstrapSeries, gc.Equals, "xenial")
-	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{"xenial"})
+	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
 func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapSeries(c *gc.C) {
@@ -626,7 +626,7 @@ func (s *bootstrapSuite) TestBootstrapLocalTools(c *gc.C) {
 
 	c.Check(env.bootstrapCount, gc.Equals, 1)
 	c.Check(env.args.BootstrapSeries, gc.Equals, "trusty")
-	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{"trusty"})
+	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
 func (s *bootstrapSuite) TestBootstrapLocalToolsMismatchingOS(c *gc.C) {
@@ -687,7 +687,7 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
 
 	c.Check(env.bootstrapCount, gc.Equals, 1)
 	c.Check(env.args.BootstrapSeries, gc.Equals, "trusty")
-	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{"trusty"})
+	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
 func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
@@ -720,9 +720,9 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 					Official: true,
 					Version: version.Binary{
 						// If we found an official build we suppress the build number.
-						Number: localVer.ToPatch(),
-						Series: "quental",
-						Arch:   "arm64",
+						Number:  localVer.ToPatch(),
+						Release: "ubuntu",
+						Arch:    "arm64",
 					},
 				}, nil
 			},
@@ -747,12 +747,12 @@ func (s *bootstrapSuite) assertBootstrapPackagedToolsAvailable(c *gc.C, clientAr
 	findToolsOk := false
 	s.PatchValue(bootstrap.FindTools, func(_ environs.BootstrapEnviron, _ int, _ int, _ []string, filter tools.Filter) (tools.List, error) {
 		c.Assert(filter.Arch, gc.Equals, toolsArch)
-		c.Assert(filter.Series, gc.Equals, "quantal")
+		c.Assert(filter.OSType, gc.Equals, "ubuntu")
 		findToolsOk = true
 		vers := version.Binary{
-			Number: jujuversion.Current,
-			Series: "quantal",
-			Arch:   toolsArch,
+			Number:  jujuversion.Current,
+			Release: "ubuntu",
+			Arch:    toolsArch,
 		}
 		return tools.List{{
 			Version: vers,
@@ -841,11 +841,11 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
 
 func (s *bootstrapSuite) TestBootstrapToolsVersion(c *gc.C) {
 	availableVersions := []version.Binary{
-		version.MustParseBinary("1.18.0-trusty-arm64"),
-		version.MustParseBinary("1.18.1-trusty-arm64"),
-		version.MustParseBinary("1.18.1.1-trusty-arm64"),
-		version.MustParseBinary("1.18.1.2-trusty-arm64"),
-		version.MustParseBinary("1.18.1.3-trusty-arm64"),
+		version.MustParseBinary("1.18.0-ubuntu-arm64"),
+		version.MustParseBinary("1.18.1-ubuntu-arm64"),
+		version.MustParseBinary("1.18.1.1-ubuntu-arm64"),
+		version.MustParseBinary("1.18.1.2-ubuntu-arm64"),
+		version.MustParseBinary("1.18.1.3-ubuntu-arm64"),
 	}
 	availableTools := make(tools.List, len(availableVersions))
 	for i, v := range availableVersions {
@@ -1391,11 +1391,10 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 	})
 	defer envtools.UnregisterToolsDataSourceFunc("local storage")
 
-	supportedSeries := jujuversion.DefaultSupportedLTS()
 	toolsBinaries := []version.Binary{
-		version.MustParseBinary(fmt.Sprintf("10.11.12-%s-amd64", supportedSeries)),
-		version.MustParseBinary(fmt.Sprintf("10.11.13-%s-amd64", supportedSeries)),
-		version.MustParseBinary(fmt.Sprintf("10.11-beta1-%s-amd64", supportedSeries)),
+		version.MustParseBinary("10.11.12-ubuntu-amd64"),
+		version.MustParseBinary("10.11.13-ubuntu-amd64"),
+		version.MustParseBinary("10.11-beta1-ubuntu-amd64"),
 	}
 	stream := "released"
 	if toolsVersion != nil && toolsVersion.Tag != "" {
@@ -1572,7 +1571,7 @@ func (s *bootstrapSuite) TestTargetSeriesAndArchOverridePriority(c *gc.C) {
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.bootstrapEnviron.instanceConfig.ToolsList().String(), gc.Matches, ".*-bionic-amd64", gc.Commentf("expected bootstrap constraints to supersede the values detected by the environment"))
+	c.Assert(env.bootstrapEnviron.instanceConfig.ToolsList().String(), gc.Matches, ".*-ubuntu-amd64", gc.Commentf("expected bootstrap constraints to supersede the values detected by the environment"))
 }
 
 type bootstrapEnviron struct {

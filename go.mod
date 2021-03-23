@@ -41,7 +41,7 @@ require (
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
-	github.com/juju/description/v2 v2.0.0-20201105134144-1b084b429eda
+	github.com/juju/description/v3 v3.0.0-20210322020148-5f792d83b709
 	github.com/juju/errors v0.0.0-20200330140219-3fe23663418f
 	github.com/juju/featureflag v0.0.0-20200423045028-e2f9e1cb1611
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
@@ -64,7 +64,7 @@ require (
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441
 	github.com/juju/replicaset v0.0.0-20210302050932-0303c8575745
 	github.com/juju/retry v0.0.0-20180821225755-9058e192b216
-	github.com/juju/rfc v0.0.0-20180510112117-b058ad085c94
+	github.com/juju/rfc/v2 v2.0.0-20210319034215-ed820200fad3
 	github.com/juju/romulus v0.0.0-20210309074704-4fa3bbd32568
 	github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476
 	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
@@ -74,7 +74,8 @@ require (
 	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
 	github.com/juju/utils/v2 v2.0.0-20200923005554-4646bfea2ef1
-	github.com/juju/version v0.0.0-20210303051006-2015802527a8
+	github.com/juju/version v0.0.0-20191219164919-81c1be00b9a6
+	github.com/juju/version/v2 v2.0.0-20210319015800-dcfac8f4f057
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51

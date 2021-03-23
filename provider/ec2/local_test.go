@@ -21,7 +21,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"gopkg.in/amz.v3/aws"
 	amzec2 "gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/ec2/ec2test"
@@ -1573,9 +1573,9 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	defer delete(aws.Regions, region.Name)
 
 	env := t.Prepare(c)
-	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("test")
+	params, err := env.(simplestreams.ImageMetadataValidator).ImageMetadataLookupParams("test")
 	c.Assert(err, jc.ErrorIsNil)
-	params.Series = jujuversion.DefaultSupportedLTS()
+	params.Release = jujuversion.DefaultSupportedLTS()
 	params.Endpoint = region.EC2Endpoint
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)

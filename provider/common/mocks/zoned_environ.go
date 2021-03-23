@@ -14,7 +14,7 @@ import (
 	context "github.com/juju/juju/environs/context"
 	instances "github.com/juju/juju/environs/instances"
 	storage "github.com/juju/juju/storage"
-	version "github.com/juju/version"
+	version "github.com/juju/version/v2"
 	reflect "reflect"
 )
 

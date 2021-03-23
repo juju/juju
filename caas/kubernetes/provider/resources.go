@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	jujucontext "github.com/juju/juju/environs/context"

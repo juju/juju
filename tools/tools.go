@@ -4,7 +4,7 @@
 package tools
 
 import (
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 )
 
 // Tools represents the location and version of a tools tarball.
@@ -15,12 +15,12 @@ type Tools struct {
 	Size    int64          `json:"size"`
 }
 
-// AgentVersion
+// AgentVersion is the version of Juju being represented.
 func (t *Tools) AgentVersion() version.Number {
 	return t.Version.Number
 }
 
-// GUI represents the location and version of a GUI release archive.
+// GUIArchive represents the location and version of a GUI release archive.
 type GUIArchive struct {
 	Version version.Number `json:"version"`
 	URL     string         `json:"url"`

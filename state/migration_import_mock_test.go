@@ -6,7 +6,7 @@ package state
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	description "github.com/juju/description/v2"
+	description "github.com/juju/description/v3"
 	txn "github.com/juju/mgo/v2/txn"
 	reflect "reflect"
 )

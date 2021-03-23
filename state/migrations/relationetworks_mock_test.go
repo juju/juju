@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	description "github.com/juju/description/v2"
+	description "github.com/juju/description/v3"
 )
 
 // MockMigrationRelationNetworks is a mock of MigrationRelationNetworks interface

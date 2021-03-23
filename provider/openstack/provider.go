@@ -27,7 +27,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"gopkg.in/goose.v2/cinder"
 	"gopkg.in/goose.v2/client"
 	gooseerrors "gopkg.in/goose.v2/errors"
@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -292,9 +293,19 @@ func (p EnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*conf
 	return cfg, nil
 }
 
-// MetadataLookupParams returns parameters which are used to query image metadata to
+// AgentMetadataLookupParams returns parameters which are used to query agent metadata to
 // find matching image information.
-func (p EnvironProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+func (p EnvironProvider) AgentMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+	return p.metadataLookupParams(region)
+}
+
+// ImageMetadataLookupParams returns parameters which are used to query image metadata to
+// find matching image information.
+func (p EnvironProvider) ImageMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+	return p.metadataLookupParams(region)
+}
+
+func (p EnvironProvider) metadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
 		return nil, errors.Errorf("region must be specified")
 	}
@@ -1081,11 +1092,10 @@ func (e *Environ) startInstance(
 		return nil, errors.Trace(err)
 	}
 
-	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 	spec, err := findInstanceSpec(e, instances.InstanceConstraint{
 		Region:      e.cloud().Region,
-		Series:      series,
+		Series:      args.InstanceConfig.Series,
 		Arches:      arches,
 		Constraints: args.Constraints,
 	}, args.ImageMetadata)
@@ -2208,8 +2218,20 @@ func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
 	return nil
 }
 
-// MetadataLookupParams returns parameters which are used to query simplestreams metadata.
-func (e *Environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+// AgentMetadataLookupParams returns parameters which are used to query agent simple-streams metadata.
+func (e *Environ) AgentMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+	series := config.PreferredSeries(e.ecfg())
+	hostOSType := coreseries.DefaultOSTypeNameFromSeries(series)
+	return e.metadataLookupParams(region, hostOSType)
+}
+
+// ImageMetadataLookupParams returns parameters which are used to query image simple-streams metadata.
+func (e *Environ) ImageMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+	return e.metadataLookupParams(region, config.PreferredSeries(e.ecfg()))
+}
+
+// MetadataLookupParams returns parameters which are used to query simple-streams metadata.
+func (e *Environ) metadataLookupParams(region, release string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
 		region = e.cloud().Region
 	}
@@ -2218,7 +2240,7 @@ func (e *Environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		return nil, err
 	}
 	return &simplestreams.MetadataLookupParams{
-		Series:   config.PreferredSeries(e.ecfg()),
+		Release:  release,
 		Region:   cloudSpec.Region,
 		Endpoint: cloudSpec.Endpoint,
 	}, nil

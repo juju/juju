@@ -4,7 +4,7 @@
 package provider
 
 import (
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/environs/bootstrap"

@@ -10,7 +10,7 @@ import (
 
 	jujucharm "github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v2"
+	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"

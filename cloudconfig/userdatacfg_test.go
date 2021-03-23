@@ -16,12 +16,13 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	pacconf "github.com/juju/packaging/config"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -193,14 +194,15 @@ func (cfg *testInstanceConfig) setEnableOSUpdateAndUpgrade(updateEnabled, upgrad
 	return cfg
 }
 
-// setSeries sets the series-specific fields (Tools, Series, DataDir,
+// setSeries sets the series-specific fields (Tools, Release, DataDir,
 // LogDir, and CloudInitOutputLog) to match the given series.
 func (cfg *testInstanceConfig) setSeries(series string, build int) *testInstanceConfig {
+	osType := coreseries.DefaultOSTypeNameFromSeries(series)
 	ver := ""
 	if build > 0 {
-		ver = fmt.Sprintf("1.2.3.%d-%s-amd64", build, series)
+		ver = fmt.Sprintf("1.2.3.%d-%s-amd64", build, osType)
 	} else {
-		ver = fmt.Sprintf("1.2.3-%s-amd64", series)
+		ver = fmt.Sprintf("1.2.3-%s-amd64", osType)
 	}
 	err := ((*instancecfg.InstanceConfig)(cfg)).SetTools(tools.List{
 		newSimpleTools(ver),
@@ -336,28 +338,28 @@ mkdir -p /var/lib/juju/locks
 \(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
 chown syslog:adm /var/log/juju
-bin='/var/lib/juju/tools/1\.2\.3-precise-amd64'
+bin='/var/lib/juju/tools/1\.2\.3-ubuntu-amd64'
 mkdir -p \$bin
 echo 'Fetching Juju agent version.*
-curl .* '.*' --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3-precise-amd64\.tgz'
-sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-precise-amd64\.sha256
-grep '1234' \$bin/juju1\.2\.3-precise-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
+curl .* '.*' --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz'
+sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
+grep '1234' \$bin/juju1\.2\.3-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
-printf %s '{"version":"1\.2\.3-precise-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-precise-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
+printf %s '{"version":"1\.2\.3-ubuntu-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-0'
 cat > '/var/lib/juju/agents/machine-0/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-0/agent\.conf'
 install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
 printf '%s\\n' '.*' > '/var/lib/juju/bootstrap-params'
 echo 'Installing Juju machine agent'.*
-/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug '/var/lib/juju/bootstrap-params'
+/var/lib/juju/tools/1\.2\.3-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug '/var/lib/juju/bootstrap-params'
 install -D -m 755 /dev/null '/sbin/remove-juju-services'
 printf '%s\\n' '.*' > '/sbin/remove-juju-services'
-ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
+ln -s 1\.2\.3-ubuntu-amd64 '/var/lib/juju/tools/machine-0'
 echo 'Starting Juju machine agent \(service jujud-machine-0\)'.*
 cat > /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju agent for machine-0"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit .*\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-0\.log\\n  chown syslog:adm /var/log/juju/machine-0\.log\\n  chmod 0640 /var/log/juju/machine-0\.log\\n\\n  exec '/var/lib/juju/tools/machine-0/jujud' machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nend script\\nEOF\\n
 start jujud-machine-0
-rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
+rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 `,
 	},
 
@@ -380,28 +382,28 @@ mkdir -p /var/lib/juju/locks
 \(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
 chown syslog:adm /var/log/juju
-bin='/var/lib/juju/tools/1\.2\.3\.123-precise-amd64'
+bin='/var/lib/juju/tools/1\.2\.3\.123-ubuntu-amd64'
 mkdir -p \$bin
 echo 'Fetching Juju agent version.*
-curl .* '.*' --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3\.123-precise-amd64\.tgz'
-sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3\.123-precise-amd64\.sha256
-grep '1234' \$bin/juju1\.2\.3\.123-precise-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
+curl .* '.*' --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3\.123-ubuntu-amd64\.tgz'
+sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3\.123-ubuntu-amd64\.sha256
+grep '1234' \$bin/juju1\.2\.3\.123-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
-printf %s '{"version":"1\.2\.3\.123-precise-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3\.123-precise-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
+printf %s '{"version":"1\.2\.3\.123-ubuntu-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3\.123-ubuntu-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-0'
 cat > '/var/lib/juju/agents/machine-0/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-0/agent\.conf'
 install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
 printf '%s\\n' '.*' > '/var/lib/juju/bootstrap-params'
 echo 'Installing Juju machine agent'.*
-/var/lib/juju/tools/1\.2\.3\.123-precise-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug '/var/lib/juju/bootstrap-params'
+/var/lib/juju/tools/1\.2\.3\.123-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug '/var/lib/juju/bootstrap-params'
 install -D -m 755 /dev/null '/sbin/remove-juju-services'
 printf '%s\\n' '.*' > '/sbin/remove-juju-services'
-ln -s 1\.2\.3\.123-precise-amd64 '/var/lib/juju/tools/machine-0'
+ln -s 1\.2\.3\.123-ubuntu-amd64 '/var/lib/juju/tools/machine-0'
 echo 'Starting Juju machine agent \(service jujud-machine-0\)'.*
 cat > /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju agent for machine-0"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit .*\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-0\.log\\n  chown syslog:adm /var/log/juju/machine-0\.log\\n  chmod 0640 /var/log/juju/machine-0\.log\\n\\n  exec '/var/lib/juju/tools/machine-0/jujud' machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nend script\\nEOF\\n
 start jujud-machine-0
-rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3\.123-precise-amd64\.sha256
+rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3\.123-ubuntu-amd64\.sha256
 `,
 	},
 
@@ -412,16 +414,16 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3\.123-precise-amd64\.sha256
 		inexactMatch:      true,
 		upgradedToVersion: "1.2.3",
 		expectScripts: `
-bin='/var/lib/juju/tools/1\.2\.3-raring-amd64'
-curl .* '.*' --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3-raring-amd64\.tgz'
-sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-raring-amd64\.sha256
-grep '1234' \$bin/juju1\.2\.3-raring-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
-printf %s '{"version":"1\.2\.3-raring-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-raring-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
+bin='/var/lib/juju/tools/1\.2\.3-ubuntu-amd64'
+curl .* '.*' --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz'
+sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
+grep '1234' \$bin/juju1\.2\.3-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
+printf %s '{"version":"1\.2\.3-ubuntu-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
 printf '%s\\n' '.*' > '/var/lib/juju/bootstrap-params'
-/var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug '/var/lib/juju/bootstrap-params'
-ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
-rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-raring-amd64\.sha256
+/var/lib/juju/tools/1\.2\.3-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug '/var/lib/juju/bootstrap-params'
+ln -s 1\.2\.3-ubuntu-amd64 '/var/lib/juju/tools/machine-0'
+rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 `,
 	},
 
@@ -441,24 +443,24 @@ mkdir -p /var/lib/juju/locks
 \(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
 chown syslog:adm /var/log/juju
-bin='/var/lib/juju/tools/1\.2\.3-quantal-amd64'
+bin='/var/lib/juju/tools/1\.2\.3-ubuntu-amd64'
 mkdir -p \$bin
 echo 'Fetching Juju agent version.*
-curl -sSfw '.*' --connect-timeout 20 --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-quantal-amd64'
-sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-quantal-amd64\.sha256
-grep '1234' \$bin/juju1\.2\.3-quantal-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
+curl -sSfw '.*' --connect-timeout 20 --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-ubuntu-amd64'
+sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
+grep '1234' \$bin/juju1\.2\.3-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
-printf %s '{"version":"1\.2\.3-quantal-amd64","url":"https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-quantal-amd64","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
+printf %s '{"version":"1\.2\.3-ubuntu-amd64","url":"https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-ubuntu-amd64","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-99'
 cat > '/var/lib/juju/agents/machine-99/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-99/agent\.conf'
 install -D -m 755 /dev/null '/sbin/remove-juju-services'
 printf '%s\\n' '.*' > '/sbin/remove-juju-services'
-ln -s 1\.2\.3-quantal-amd64 '/var/lib/juju/tools/machine-99'
+ln -s 1\.2\.3-ubuntu-amd64 '/var/lib/juju/tools/machine-99'
 echo 'Starting Juju machine agent \(service jujud-machine-99\)'.*
 cat > /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju agent for machine-99"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit .*\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-99\.log\\n  chown syslog:adm /var/log/juju/machine-99\.log\\n  chmod 0640 /var/log/juju/machine-99\.log\\n\\n  exec '/var/lib/juju/tools/machine-99/jujud' machine --data-dir '/var/lib/juju' --machine-id 99 --debug >> /var/log/juju/machine-99\.log 2>&1\\nend script\\nEOF\\n
 start jujud-machine-99
-rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-quantal-amd64\.sha256
+rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 `,
 	},
 
@@ -509,7 +511,7 @@ sed -i "s/\^\.\*requiretty/#Defaults requiretty/" /etc/sudoers
 mkdir -p '/var/lib/juju/agents/machine-2-lxd-1'
 cat > '/var/lib/juju/agents/machine-2-lxd-1/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-2-lxd-1/agent\.conf'
-ln -s 1\.2\.3-quantal-amd64 '/var/lib/juju/tools/machine-2-lxd-1'
+ln -s 1\.2\.3-ubuntu-amd64 '/var/lib/juju/tools/machine-2-lxd-1'
 cat > /etc/init/jujud-machine-2-lxd-1\.conf << 'EOF'\\ndescription "juju agent for machine-2-lxd-1"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit .*\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-2-lxd-1\.log\\n  chown syslog:adm /var/log/juju/machine-2-lxd-1\.log\\n  chmod 0640 /var/log/juju/machine-2-lxd-1\.log\\n\\n  exec '/var/lib/juju/tools/machine-2-lxd-1/jujud' machine --data-dir '/var/lib/juju' --machine-id 2/lxd/1 --debug >> /var/log/juju/machine-2-lxd-1\.log 2>&1\\nend script\\nEOF\\n
 start jujud-machine-2-lxd-1
 `,
@@ -523,7 +525,7 @@ start jujud-machine-2-lxd-1
 		inexactMatch:      true,
 		upgradedToVersion: "1.2.3",
 		expectScripts: `
-curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-quantal-amd64'
+curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-ubuntu-amd64'
 `,
 	},
 
@@ -813,7 +815,7 @@ func (s *cloudinitSuite) TestCloudInitConfigCloudInitUserData(c *gc.C) {
 		`set -xe`, // first line of juju specified cmds
 	}
 	ending := []string{
-		`rm $bin/tools.tar.gz && rm $bin/juju2.3.4-quantal-amd64.sha256`, // last line of juju specified cmds
+		`rm $bin/tools.tar.gz && rm $bin/juju2.3.4-ubuntu-amd64.sha256`, // last line of juju specified cmds
 		`mkdir /tmp/postruncmd`,
 		`mkdir /tmp/postruncmd2`,
 	}
@@ -1117,7 +1119,7 @@ var verifyTests = []struct {
 // checked for by NewCloudInit.
 func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 	toolsList := tools.List{
-		newSimpleTools("9.9.9-quantal-arble"),
+		newSimpleTools("9.9.9-ubuntu-arble"),
 	}
 
 	makeCfgWithoutTools := func() instancecfg.InstanceConfig {
@@ -1191,8 +1193,8 @@ func (*cloudinitSuite) createInstanceConfig(c *gc.C, environConfig *config.Confi
 	c.Assert(err, jc.ErrorIsNil)
 	instanceConfig.SetTools(tools.List{
 		&tools.Tools{
-			Version: version.MustParseBinary("2.3.4-quantal-amd64"),
-			URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+			Version: version.MustParseBinary("2.3.4-ubuntu-amd64"),
+			URL:     "http://tools.testing.invalid/2.3.4-ubuntu-amd64.tgz",
 		},
 	})
 	err = instancecfg.FinishInstanceConfig(instanceConfig, environConfig)

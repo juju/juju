@@ -16,7 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -509,9 +510,9 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 
 	if isCAAS {
 		agentTools := version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: application.Series(),
+			Number:  jujuversion.Current,
+			Arch:    arch.HostArch(),
+			Release: coreseries.DefaultOSTypeNameFromSeries(application.Series()),
 		}
 		err = application.SetAgentVersion(agentTools)
 		c.Assert(err, jc.ErrorIsNil)
@@ -585,9 +586,9 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 
 	if model.Type() == state.ModelTypeIAAS {
 		agentTools := version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: params.Application.Series(),
+			Number:  jujuversion.Current,
+			Arch:    arch.HostArch(),
+			Release: coreseries.DefaultOSTypeNameFromSeries(params.Application.Series()),
 		}
 		err = unit.SetAgentVersion(agentTools)
 		c.Assert(err, jc.ErrorIsNil)

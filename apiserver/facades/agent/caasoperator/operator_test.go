@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 
@@ -311,7 +311,7 @@ func (s *CAASOperatorSuite) TestWatch(c *gc.C) {
 }
 
 func (s *CAASOperatorSuite) TestSetTools(c *gc.C) {
-	vers := version.MustParseBinary("2.99.0-bionic-amd64")
+	vers := version.MustParseBinary("2.99.0-ubuntu-amd64")
 	results, err := s.facade.SetTools(params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{
 			{Tag: "application-gitlab", Tools: &params.Version{Version: vers}},

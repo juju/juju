@@ -6,7 +6,7 @@ package caasapplication
 import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/names/v4"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"

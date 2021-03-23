@@ -18,7 +18,7 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	stateerrors "github.com/juju/juju/state/errors"
 )

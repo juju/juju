@@ -176,14 +176,12 @@ def setup_agent_metadata(
         stream,
         version_parts.version,
         version_parts.arch,
-        client.env.get_option('default-series'),
         agent_details)
     # Trusty needed for wikimedia charm.
     stream_server.add_product(
         stream,
         version_parts.version,
         version_parts.arch,
-        'trusty',
         agent_details)
 
 

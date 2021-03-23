@@ -20,7 +20,7 @@ import (
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 
@@ -195,7 +195,7 @@ func (s *ClientSuite) TestUploadCharm(c *gc.C) {
 
 func (s *ClientSuite) TestUploadTools(c *gc.C) {
 	const toolsBody = "toolie"
-	vers := version.MustParseBinary("2.0.0-xenial-amd64")
+	vers := version.MustParseBinary("2.0.0-ubuntu-amd64")
 	someTools := &tools.Tools{Version: vers}
 	doer := newFakeDoer(c, params.ToolsResult{
 		ToolsList: []*tools.Tools{someTools},
@@ -208,13 +208,12 @@ func (s *ClientSuite) TestUploadTools(c *gc.C) {
 		"uuid",
 		strings.NewReader(toolsBody),
 		vers,
-		"trusty", "warty",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(toolsList, gc.HasLen, 1)
 	c.Assert(toolsList[0], gc.DeepEquals, someTools)
 	c.Assert(doer.method, gc.Equals, "POST")
-	c.Assert(doer.url, gc.Equals, "/migrate/tools?binaryVersion=2.0.0-xenial-amd64&series=trusty,warty")
+	c.Assert(doer.url, gc.Equals, "/migrate/tools?binaryVersion=2.0.0-ubuntu-amd64")
 	c.Assert(doer.body, gc.Equals, toolsBody)
 }
 

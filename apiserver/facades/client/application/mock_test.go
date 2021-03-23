@@ -17,7 +17,7 @@ import (
 	"github.com/juju/schema"
 	jtesting "github.com/juju/testing"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon.v2"
 

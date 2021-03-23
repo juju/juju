@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -35,7 +35,7 @@ type validateAgentsMetadataCommand struct {
 	providerType string
 	metadataDir  string
 	stream       string
-	series       string
+	ostype       string
 	region       string
 	endpoint     string
 	exactVersion string
@@ -46,13 +46,13 @@ type validateAgentsMetadataCommand struct {
 
 var validateAgentsMetadataDoc = `
 validate-agents loads simplestreams metadata and validates the contents by
-looking for agent binaries belonging to the specified series and architecture, 
+looking for agent binaries belonging to the specified os type and architecture, 
 for the specified cloud. If version is specified, only agent binaries matching
 that exact version will be considered. It is also possible to just specify the
 major (and optionally minor) version numbers to search for.
 
 The cloud specification comes from the current Juju model, as specified in
-the usual way from either the -m option, or JUJU_MODEL. Series, Region, and
+the usual way from either the -m option, or JUJU_MODEL. Release, Region, and
 Endpoint are the key attributes.
 
 It is possible to specify a local directory containing agent metadata, 
@@ -63,9 +63,9 @@ that the validation may be performed on arbitrary metadata.
 
 Examples:
 
- - validate using the current model settings but with series raring
+ - validate using the current model settings but with os type windows
   
-  juju metadata validate-agents -s raring
+  juju metadata validate-agents -t windows
 
  - validate using the current model settings but with Juju version 1.11.4
   
@@ -80,13 +80,13 @@ Examples:
   juju metadata validate-agents -m 2.1
 
  - validate using the current model settings and list all agent binaries found 
-   for any series
+   for any os type
  
-  juju metadata validate-agents --series=
+  juju metadata validate-agents --os-type=
 
- - validate with series raring and using metadata from local directory
+ - validate with os type windows and using metadata from local directory
  
-  juju metadata validate-agents -s raring -d <some directory>
+  juju metadata validate-agents -t windows -d <some directory>
 
  - validate for the proposed stream
 
@@ -95,13 +95,13 @@ Examples:
 A key use case is to validate newly generated metadata prior to deployment to
 production. In this case, the metadata is placed in a local directory, a cloud
 provider type is specified (ec2, openstack etc), and the validation is performed
-for each supported series, version, and architecture.
+for each supported os type, version, and architecture.
 
 Example bash snippet:
 
 #!/bin/bash
 
-juju metadata validate-agents -p ec2 -r us-east-1 -s precise --juju-version 1.12.0 -d <some directory>
+juju metadata validate-agents -p ec2 -r us-east-1 -t ubuntu --juju-version 1.12.0 -d <some directory>
 RETVAL=$?
 [ $RETVAL -eq 0 ] && echo Success || echo "Failure"
 `
@@ -119,8 +119,8 @@ func (c *validateAgentsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.StringVar(&c.providerType, "p", "", "the provider type eg ec2, openstack")
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
-	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides env config series)")
-	f.StringVar(&c.series, "series", "", "")
+	f.StringVar(&c.ostype, "t", "", "the os type for which to validate")
+	f.StringVar(&c.ostype, "os-type", "", "")
 	f.StringVar(&c.region, "r", "", "the region for which to validate (overrides env config region)")
 	f.StringVar(&c.endpoint, "u", "", "the cloud endpoint URL for which to validate (overrides env config endpoint)")
 	f.StringVar(&c.exactVersion, "j", "current", "the Juju version (use 'current' for current version)")
@@ -160,11 +160,11 @@ func (c *validateAgentsMetadataCommand) Run(context *cmd.Context) error {
 		}
 		environ, err := prepare(context, controllerName, c.ClientStore())
 		if err == nil {
-			mdLookup, ok := environ.(simplestreams.MetadataValidator)
+			mdLookup, ok := environ.(simplestreams.AgentMetadataValidator)
 			if !ok {
 				return errors.Errorf("%s provider does not support agent metadata validation", environ.Config().Type())
 			}
-			params, err = mdLookup.MetadataLookupParams(c.region)
+			params, err = mdLookup.AgentMetadataLookupParams(c.region)
 			if err != nil {
 				return err
 			}
@@ -183,11 +183,11 @@ func (c *validateAgentsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		mdLookup, ok := prov.(simplestreams.MetadataValidator)
+		mdLookup, ok := prov.(simplestreams.AgentMetadataValidator)
 		if !ok {
 			return errors.Errorf("%s provider does not support metadata validation for agents", c.providerType)
 		}
-		params, err = mdLookup.MetadataLookupParams(c.region)
+		params, err = mdLookup.AgentMetadataLookupParams(c.region)
 		if err != nil {
 			return err
 		}
@@ -197,8 +197,8 @@ func (c *validateAgentsMetadataCommand) Run(context *cmd.Context) error {
 		params.Architectures = arch.AllSupportedArches
 	}
 
-	if c.series != "" {
-		params.Series = c.series
+	if c.ostype != "" {
+		params.Release = c.ostype
 	}
 	if c.region != "" {
 		params.Region = c.region

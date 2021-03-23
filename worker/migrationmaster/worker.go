@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/api"
@@ -374,8 +374,8 @@ type uploadWrapper struct {
 }
 
 // UploadTools prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (tools.List, error) {
-	return w.client.UploadTools(w.modelUUID, r, vers, additionalSeries...)
+func (w *uploadWrapper) UploadTools(r io.ReadSeeker, vers version.Binary) (tools.List, error) {
+	return w.client.UploadTools(w.modelUUID, r, vers)
 }
 
 // UploadCharm prepends the model UUID to the args passed to the migration client.

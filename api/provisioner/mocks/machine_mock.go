@@ -12,7 +12,7 @@ import (
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	names "github.com/juju/names/v4"
-	version "github.com/juju/version"
+	version "github.com/juju/version/v2"
 	reflect "reflect"
 )
 

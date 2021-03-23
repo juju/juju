@@ -295,7 +295,7 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string) (param
 	var os string
 	var oSeries string
 	if origin.Series == "all" {
-		logger.Warningf("Series all detected, removing all from the origin. %s", origin.ID)
+		logger.Warningf("Release all detected, removing all from the origin. %s", origin.ID)
 	} else if origin.Series != "" {
 		// Always set the os from the series, so we know it's correctly
 		// normalized for the rest of Juju.
@@ -424,7 +424,8 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 type versionValidator struct{}
 
 func (versionValidator) Validate(meta *charm.Meta) error {
-	return jujuversion.CheckJujuMinVersion(meta.MinJujuVersion, jujuversion.Current)
+	minver := meta.MinJujuVersion
+	return jujuversion.CheckJujuMinVersion(jujuversion.ToVersion2(minver), jujuversion.Current)
 }
 
 // CharmArchive is the data that needs to be stored for a charm archive in

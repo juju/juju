@@ -12,13 +12,13 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v2"
+	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/payload"
@@ -277,7 +278,7 @@ type importer struct {
 }
 
 func (i *importer) modelExtras() error {
-	if latest := i.model.LatestToolsVersion(); latest != version.Zero {
+	if latest := i.model.LatestToolsVersion(); latest.String() != version.Zero.String() {
 		if err := i.dbModel.UpdateLatestToolsVersion(latest); err != nil {
 			return errors.Trace(err)
 		}
@@ -619,6 +620,12 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	agentTools, err := i.makeTools(m.Tools())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	machineTag := m.Tag()
 	return &machineDoc{
 		DocID:                    i.st.docID(id),
@@ -629,7 +636,7 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 		ContainerType:            m.ContainerType(),
 		Principals:               nil, // Set during unit import.
 		Life:                     Alive,
-		Tools:                    i.makeTools(m.Tools()),
+		Tools:                    agentTools,
 		Jobs:                     jobs,
 		PasswordHash:             m.PasswordHash(),
 		Clean:                    !i.machineHasUnits(machineTag),
@@ -698,16 +705,29 @@ func (i *importer) makeMachineJobs(jobs []string) ([]MachineJob, error) {
 	return result, nil
 }
 
-func (i *importer) makeTools(t description.AgentTools) *tools.Tools {
+func (i *importer) makeTools(t description.AgentTools) (*tools.Tools, error) {
 	if t == nil {
-		return nil
+		return nil, nil
 	}
-	return &tools.Tools{
+	result := &tools.Tools{
 		Version: t.Version(),
 		URL:     t.URL(),
 		SHA256:  t.SHA256(),
 		Size:    t.Size(),
 	}
+	// Older versions of Juju recorded the agent binaries for a series.
+	// We now use os type instead.
+	allSeries, err := coreseries.AllWorkloadSeries("", "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, ser := range allSeries.SortedValues() {
+		if result.Version.Release == ser {
+			result.Version.Release = coreseries.DefaultOSTypeNameFromSeries(ser)
+			break
+		}
+	}
+	return result, nil
 }
 
 func (i *importer) makeAddress(addr description.Address) address {
@@ -1268,6 +1288,10 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		}
 	}
 
+	agentTools, err := i.makeTools(a.Tools())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &applicationDoc{
 		Name:                 a.Name(),
 		Series:               a.Series(),
@@ -1284,7 +1308,7 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		Exposed:              a.Exposed(),
 		ExposedEndpoints:     exposedEndpoints,
 		MinUnits:             a.MinUnits(),
-		Tools:                i.makeTools(a.Tools()),
+		Tools:                agentTools,
 		MetricCredentials:    a.MetricsCredentials(),
 		DesiredScale:         a.DesiredScale(),
 		Placement:            a.Placement(),
@@ -1550,6 +1574,11 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 		machineID = i.getPrincipalMachineID(u.Principal())
 	}
 
+	agentTools, err := i.makeTools(u.Tools())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &unitDoc{
 		Name:                   u.Name(),
 		Application:            s.Name(),
@@ -1559,7 +1588,7 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 		Subordinates:           subordinates,
 		StorageAttachmentCount: i.unitStorageAttachmentCount(u.Tag()),
 		MachineId:              machineID,
-		Tools:                  i.makeTools(u.Tools()),
+		Tools:                  agentTools,
 		Life:                   Alive,
 		PasswordHash:           u.PasswordHash(),
 	}, nil

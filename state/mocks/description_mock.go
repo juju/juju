@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	description "github.com/juju/description/v2"
+	description "github.com/juju/description/v3"
 	names "github.com/juju/names/v4"
 	reflect "reflect"
 )
@@ -309,7 +309,7 @@ func (m *MockMachine) Series() string {
 // Series indicates an expected call of Series
 func (mr *MockMachineMockRecorder) Series() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Series", reflect.TypeOf((*MockMachine)(nil).Series))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Release", reflect.TypeOf((*MockMachine)(nil).Series))
 }
 
 // SetAddresses mocks base method

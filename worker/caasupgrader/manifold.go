@@ -5,7 +5,7 @@ package caasupgrader
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 

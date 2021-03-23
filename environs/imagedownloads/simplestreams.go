@@ -166,9 +166,9 @@ func One(arch, release, stream, ftype string, src func() simplestreams.DataSourc
 	ds := []simplestreams.DataSource{src()}
 	limit, err := imagemetadata.NewImageConstraint(
 		simplestreams.LookupParams{
-			Arches: []string{arch},
-			Series: []string{release},
-			Stream: stream,
+			Arches:   []string{arch},
+			Releases: []string{release},
+			Stream:   stream,
 		},
 	)
 	if err != nil {
@@ -212,7 +212,7 @@ var validArches = map[string]bool{
 	arch.PPC64EL: true,
 }
 
-// Filter collects only matching products. Series and Arch are filtered by
+// Filter collects only matching products. Release and Arch are filtered by
 // imagemetadata.ImageConstraints. So this really only let's us filter on a
 // file type.
 func Filter(ftype string) simplestreams.AppendMatchingFunc {

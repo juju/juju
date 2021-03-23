@@ -415,8 +415,8 @@ github.com/juju/collections v0.0.0-20180717171555-9be91dc79b7c/go.mod h1:Ep+c0vn
 github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271 h1:4R626WTwa7pRYQFiIRLVPepMhm05eZMEx+wIurRnMLc=
 github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271/go.mod h1:5XgO71dV1JClcOJE+4dzdn4HrI5LiyKd7PlVG6eZYhY=
 github.com/juju/description/v2 v2.0.0-20200623093622-bd6ec044a72a/go.mod h1:R0uVxoEejueoMqD3tiidghBvVe9q3pshSFNqCToOTBo=
-github.com/juju/description/v2 v2.0.0-20201105134144-1b084b429eda h1:UknAzfcbVmgMxx3zDGInoiffYzB5G2f1H3Tysi24PWI=
-github.com/juju/description/v2 v2.0.0-20201105134144-1b084b429eda/go.mod h1:R0uVxoEejueoMqD3tiidghBvVe9q3pshSFNqCToOTBo=
+github.com/juju/description/v3 v3.0.0-20210322020148-5f792d83b709 h1:5Zu7YFKk/qtFiLD7/dfthr2KENwUWA8eK/82jNothTU=
+github.com/juju/description/v3 v3.0.0-20210322020148-5f792d83b709/go.mod h1:l94w+OBJ7b3BAfIInxoX6FHxzERxBtLh9FNABsGNO2U=
 github.com/juju/errors v0.0.0-20150916125642-1b5e39b83d18/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20180726005433-812b06ada177/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20190930114154-d42613fe1ab9/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
@@ -519,6 +519,8 @@ github.com/juju/retry v0.0.0-20180821225755-9058e192b216 h1:/eQL7EJQKFHByJe3DeE8
 github.com/juju/retry v0.0.0-20180821225755-9058e192b216/go.mod h1:OohPQGsr4pnxwD5YljhQ+TZnuVRYpa5irjugL1Yuif4=
 github.com/juju/rfc v0.0.0-20180510112117-b058ad085c94 h1:3TD+QnJbbInyv607GXgWuWqziWHRBnXiwA77uFiyOZU=
 github.com/juju/rfc v0.0.0-20180510112117-b058ad085c94/go.mod h1:HnPtAU9HZgqsxiVe3ZqD8WLhdumrUtuY724rynh0gZE=
+github.com/juju/rfc/v2 v2.0.0-20210319034215-ed820200fad3 h1:xxNLWSJgliRU691OJe2X+iyNgdV6vVOPSdu2blFxJzg=
+github.com/juju/rfc/v2 v2.0.0-20210319034215-ed820200fad3/go.mod h1:5bfynI3ARAqSscuwkXiWxcpZ+8XFlTd5dlUr6WcEerg=
 github.com/juju/romulus v0.0.0-20191205211046-fd7cab26ac5f/go.mod h1:Q1rdI2aevIfbcFmze1JKWliZkrDTa/qLjPcj116POIw=
 github.com/juju/romulus v0.0.0-20210309074704-4fa3bbd32568 h1:2somxwwYl73JFvcojV7hmQDFuzj/YH7Uv5uvAPn9afg=
 github.com/juju/romulus v0.0.0-20210309074704-4fa3bbd32568/go.mod h1:XpMOtJ13Pf0hS7HVjL+3HkeMRTMkQHMpfmDNTiN0qGI=
@@ -578,9 +580,10 @@ github.com/juju/version v0.0.0-20160603194958-4ae6172c0062/go.mod h1:kE8gK5X0CIm
 github.com/juju/version v0.0.0-20161031051906-1f41e27e54f2/go.mod h1:kE8gK5X0CImdr7qpSKl3xB2PmpySSmfj7zVbkZFs81U=
 github.com/juju/version v0.0.0-20180108022336-b64dbd566305/go.mod h1:kE8gK5X0CImdr7qpSKl3xB2PmpySSmfj7zVbkZFs81U=
 github.com/juju/version v0.0.0-20191106052214-a0f5311c2166/go.mod h1:kE8gK5X0CImdr7qpSKl3xB2PmpySSmfj7zVbkZFs81U=
+github.com/juju/version v0.0.0-20191219164919-81c1be00b9a6 h1:nrqc9b4YKpKV4lPI3GPPFbo5FUuxkWxgZE2Z8O4lgaw=
 github.com/juju/version v0.0.0-20191219164919-81c1be00b9a6/go.mod h1:kE8gK5X0CImdr7qpSKl3xB2PmpySSmfj7zVbkZFs81U=
-github.com/juju/version v0.0.0-20210303051006-2015802527a8 h1:BTo6HzRR0zPBcXbs1Sy08aQNfvdm3ey8O+mBTiO3g00=
-github.com/juju/version v0.0.0-20210303051006-2015802527a8/go.mod h1:YUOK6VK9+V4hpmsBYx8ymvOzEXRzoIGjRDKpIezTi60=
+github.com/juju/version/v2 v2.0.0-20210319015800-dcfac8f4f057 h1:BT3bXGYas64ISk/NRmGcHWe2n9OLLmEfAM7LUrlDnww=
+github.com/juju/version/v2 v2.0.0-20210319015800-dcfac8f4f057/go.mod h1:Ljlbryh9sYaUSGXucslAEDf0A2XUSGvDbHJgW8ps6nc=
 github.com/juju/webbrowser v0.0.0-20160309143629-54b8c57083b4/go.mod h1:G6PCelgkM6cuvyD10iYJsjLBsSadVXtJ+nBxFAxE2BU=
 github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb/go.mod h1:G6PCelgkM6cuvyD10iYJsjLBsSadVXtJ+nBxFAxE2BU=
 github.com/juju/webbrowser v1.0.0 h1:JLdmbFtCGY6Qf2jmS6bVaenJFGIFkdF1/BjUm76af78=

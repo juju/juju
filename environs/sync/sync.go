@@ -15,9 +15,8 @@ import (
 	"github.com/juju/http"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
-	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -213,31 +212,27 @@ func copyOneToolsPackage(toolsDir, stream string, tools *coretools.Tools, u Tool
 // UploadFunc is the type of Upload, which may be
 // reassigned to control the behaviour of tools
 // uploading.
-type UploadFunc func(stor storage.Storage, stream string, forceVersion *version.Number, series ...string) (*coretools.Tools, error)
+type UploadFunc func(stor storage.Storage, stream string, forceVersion *version.Number) (*coretools.Tools, error)
 
-// Exported for testing.
+// Upload is exported for testing.
 var Upload UploadFunc = upload
 
 // upload builds whatever version of github.com/juju/juju is in $GOPATH,
 // uploads it to the given storage, and returns a Tools instance describing
 // them. If forceVersion is not nil, the uploaded tools bundle will report
-// the given version number; if any fakeSeries are supplied, additional copies
-// of the built tools will be uploaded for use by machines of those series.
-// Juju tools built for one series do not necessarily run on another, but this
-// func exists only for development use cases.
-func upload(stor storage.Storage, stream string, forceVersion *version.Number, fakeSeries ...string) (*coretools.Tools, error) {
+// the given version number.
+func upload(stor storage.Storage, stream string, forceVersion *version.Number) (*coretools.Tools, error) {
 	builtTools, err := BuildAgentTarball(true, forceVersion, stream)
 	if err != nil {
 		return nil, err
 	}
 	defer os.RemoveAll(builtTools.Dir)
-	logger.Debugf("Uploading agent binaries for %v", fakeSeries)
-	return syncBuiltTools(stor, stream, builtTools, fakeSeries...)
+	return syncBuiltTools(stor, stream, builtTools)
 }
 
-// cloneToolsForSeries copies the built tools tarball into a tarball for the specified
+// generateAgentMetadata copies the built tools tarball into a tarball for the specified
 // stream and series and generates corresponding metadata.
-func cloneToolsForSeries(toolsInfo *BuiltAgent, stream string, series ...string) error {
+func generateAgentMetadata(toolsInfo *BuiltAgent, stream string) error {
 	// Copy the tools to the target storage, recording a Tools struct for each one.
 	var targetTools coretools.List
 	targetTools = append(targetTools, &coretools.Tools{
@@ -245,39 +240,6 @@ func cloneToolsForSeries(toolsInfo *BuiltAgent, stream string, series ...string)
 		Size:    toolsInfo.Size,
 		SHA256:  toolsInfo.Sha256Hash,
 	})
-	putTools := func(vers version.Binary) (string, error) {
-		name := envtools.StorageName(vers, stream)
-		src := filepath.Join(toolsInfo.Dir, toolsInfo.StorageName)
-		dest := filepath.Join(toolsInfo.Dir, name)
-		destDir := filepath.Dir(dest)
-		if err := os.MkdirAll(destDir, 0755); err != nil {
-			return "", err
-		}
-		if err := utils.CopyFile(dest, src); err != nil {
-			return "", err
-		}
-		// Append to targetTools the attributes required to write out tools metadata.
-		targetTools = append(targetTools, &coretools.Tools{
-			Version: vers,
-			Size:    toolsInfo.Size,
-			SHA256:  toolsInfo.Sha256Hash,
-		})
-		return name, nil
-	}
-	logger.Debugf("generating tarballs for %v", series)
-	for _, series := range series {
-		_, err := jujuseries.SeriesVersion(series)
-		if err != nil {
-			return err
-		}
-		if series != toolsInfo.Version.Series {
-			fakeVersion := toolsInfo.Version
-			fakeVersion.Series = series
-			if _, err := putTools(fakeVersion); err != nil {
-				return err
-			}
-		}
-	}
 	// The tools have been copied to a temp location from which they will be uploaded,
 	// now write out the matching simplestreams metadata so that SyncTools can find them.
 	metadataStore, err := filestorage.NewFileStorageWriter(toolsInfo.Dir)
@@ -379,8 +341,8 @@ func buildAgentTarball(build bool, forceVersion *version.Number, stream string) 
 }
 
 // syncBuiltTools copies to storage a tools tarball and cloned copies for each series.
-func syncBuiltTools(stor storage.Storage, stream string, builtTools *BuiltAgent, fakeSeries ...string) (*coretools.Tools, error) {
-	if err := cloneToolsForSeries(builtTools, stream, fakeSeries...); err != nil {
+func syncBuiltTools(stor storage.Storage, stream string, builtTools *BuiltAgent) (*coretools.Tools, error) {
+	if err := generateAgentMetadata(builtTools, stream); err != nil {
 		return nil, err
 	}
 	syncContext := &SyncContext{
@@ -419,7 +381,7 @@ func (f StorageToolsFinder) FindTools(major int, stream string) (coretools.List,
 	return envtools.ReadList(f.Storage, stream, major, -1)
 }
 
-// StorageToolsUplader is an implementation of ToolsUploader that
+// StorageToolsUploader is an implementation of ToolsUploader that
 // writes tools to the provided storage and then writes merged
 // metadata, optionally with mirrors.
 type StorageToolsUploader struct {

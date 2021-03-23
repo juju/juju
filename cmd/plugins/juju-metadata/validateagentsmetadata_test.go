@@ -41,19 +41,19 @@ var validateInitToolsErrorTests = []struct {
 	err  string
 }{
 	{
-		args: []string{"-p", "ec2", "-s", "series", "-d", "dir"},
+		args: []string{"-p", "ec2", "-t", "series", "-d", "dir"},
 		err:  `region required if provider type is specified`,
 	}, {
-		args: []string{"-p", "ec2", "-s", "series", "-r", "region"},
+		args: []string{"-p", "ec2", "-t", "series", "-r", "region"},
 		err:  `metadata directory required if provider type is specified`,
 	}, {
-		args: []string{"-s", "series", "-r", "region", "--majorminor-version", "x"},
+		args: []string{"-t", "series", "-r", "region", "--majorminor-version", "x"},
 		err:  `invalid major version number x: .*`,
 	}, {
-		args: []string{"-s", "series", "-r", "region", "--majorminor-version", "2.x"},
+		args: []string{"-t", "series", "-r", "region", "--majorminor-version", "2.x"},
 		err:  `invalid minor version number x: .*`,
 	}, {
-		args: []string{"-s", "series", "-r", "region", "--majorminor-version", "2.2.1"},
+		args: []string{"-t", "series", "-r", "region", "--majorminor-version", "2.2.1"},
 		err:  `invalid major.minor version number 2.2.1`,
 	},
 }
@@ -69,20 +69,20 @@ func (s *ValidateToolsMetadataSuite) TestInitErrors(c *gc.C) {
 }
 
 func (s *ValidateToolsMetadataSuite) TestInvalidProviderError(c *gc.C) {
-	_, err := runValidateAgentsMetadata(c, s.store, "-p", "foo", "-s", "series", "-r", "region", "-d", "dir")
+	_, err := runValidateAgentsMetadata(c, s.store, "-p", "foo", "-t", "series", "-r", "region", "-d", "dir")
 	c.Check(err, gc.ErrorMatches, `no registered provider for "foo"`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
-	_, err := runValidateAgentsMetadata(c, s.store, "-p", "maas", "-s", "series", "-r", "region", "-d", "dir")
+	_, err := runValidateAgentsMetadata(c, s.store, "-p", "maas", "-t", "series", "-r", "region", "-d", "dir")
 	c.Check(err, gc.ErrorMatches, `maas provider does not support metadata validation for agents`)
 }
 
-func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, stream, version, region, series, endpoint string) error {
+func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, stream, version, region, osType, endpoint string) error {
 	tm := []*tools.ToolsMetadata{{
 		Version: version,
 		Arch:    arch.HostArch(),
-		Release: series,
+		Release: osType,
 	}}
 	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
@@ -118,7 +118,7 @@ func (s *ValidateToolsMetadataSuite) setupEc2LocalMetadata(c *gc.C, region strin
 		c.Fatalf("unknown ec2 region %q", region)
 	}
 	endpoint := ec2Region.EC2Endpoint
-	s.makeLocalMetadata(c, "released", "1.11.4", region, "precise", endpoint)
+	s.makeLocalMetadata(c, "released", "1.11.4", region, "ubuntu", endpoint)
 }
 
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.C) {
@@ -142,7 +142,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironm
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.C) {
 	s.setupEc2LocalMetadata(c, "us-west-1")
 	ctx, err := runValidateAgentsMetadata(c, s.store,
-		"-p", "ec2", "-s", "precise", "-r", "us-west-1", "-j", "1.11.4",
+		"-p", "ec2", "-t", "ubuntu", "-r", "us-west-1", "-j", "1.11.4",
 		"-u", "https://ec2.us-west-1.amazonaws.com", "-d", s.metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -154,21 +154,21 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 	s.setupEc2LocalMetadata(c, "us-east-1")
 	_, err := runValidateAgentsMetadata(c, s.store,
-		"-p", "ec2", "-s", "raring", "-r", "us-west-1",
+		"-p", "ec2", "-t", "windows", "-r", "us-west-1",
 		"-u", "https://ec2.us-west-1.amazonaws.com", "-d", s.metadataDir,
 	)
 	c.Assert(err, gc.ErrorMatches, "no matching agent binaries(.|\n)*Resolve Metadata(.|\n)*")
 	_, err = runValidateAgentsMetadata(c, s.store,
-		"-p", "ec2", "-s", "precise", "-r", "region",
+		"-p", "ec2", "-t", "ubuntu", "-r", "region",
 		"-u", "https://ec2.region.amazonaws.com", "-d", s.metadataDir,
 	)
 	c.Assert(err, gc.ErrorMatches, `unknown region "region"`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataWithManualParams(c *gc.C) {
-	s.makeLocalMetadata(c, "released", "1.11.4", "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "released", "1.11.4", "region-2", "windows", "some-auth-url")
 	ctx, err := runValidateAgentsMetadata(c, s.store,
-		"-p", "openstack", "-s", "raring", "-r", "region-2", "-j", "1.11.4",
+		"-p", "openstack", "-t", "windows", "-r", "region-2", "-j", "1.11.4",
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -178,23 +178,23 @@ func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 }
 
 func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) {
-	s.makeLocalMetadata(c, "released", "1.11.4", "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "released", "1.11.4", "region-2", "windows", "some-auth-url")
 	_, err := runValidateAgentsMetadata(c, s.store,
-		"-p", "openstack", "-s", "precise", "-r", "region-2",
+		"-p", "openstack", "-t", "ubuntu", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
 	c.Assert(err, gc.ErrorMatches, "no matching agent binaries(.|\n)*Resolve Metadata(.|\n)*")
 	_, err = runValidateAgentsMetadata(c, s.store,
-		"-p", "openstack", "-s", "raring", "-r", "region-3",
+		"-p", "openstack", "-t", "windows", "-r", "region-3",
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
 	c.Assert(err, gc.ErrorMatches, "no matching agent binaries(.|\n)*Resolve Metadata(.|\n)*")
 }
 
 func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {
-	s.makeLocalMetadata(c, "released", jujuversion.Current.String(), "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "released", jujuversion.Current.String(), "region-2", "windows", "some-auth-url")
 	ctx, err := runValidateAgentsMetadata(c, s.store,
-		"-p", "openstack", "-s", "raring", "-r", "region-2",
+		"-p", "openstack", "-t", "windows", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -204,9 +204,9 @@ func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {
 }
 
 func (s *ValidateToolsMetadataSuite) TestStream(c *gc.C) {
-	s.makeLocalMetadata(c, "proposed", jujuversion.Current.String(), "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "proposed", jujuversion.Current.String(), "region-2", "windows", "some-auth-url")
 	ctx, err := runValidateAgentsMetadata(c, s.store,
-		"-p", "openstack", "-s", "raring", "-r", "region-2",
+		"-p", "openstack", "-t", "windows", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir, "--stream", "proposed",
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -216,9 +216,9 @@ func (s *ValidateToolsMetadataSuite) TestStream(c *gc.C) {
 }
 
 func (s *ValidateToolsMetadataSuite) TestMajorVersionMatch(c *gc.C) {
-	s.makeLocalMetadata(c, "released", "1.11.4", "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "released", "1.11.4", "region-2", "windows", "some-auth-url")
 	ctx, err := runValidateAgentsMetadata(c, s.store,
-		"-p", "openstack", "-s", "raring", "-r", "region-2",
+		"-p", "openstack", "-t", "windows", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir, "--majorminor-version", "1",
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -228,9 +228,9 @@ func (s *ValidateToolsMetadataSuite) TestMajorVersionMatch(c *gc.C) {
 }
 
 func (s *ValidateToolsMetadataSuite) TestMajorMinorVersionMatch(c *gc.C) {
-	s.makeLocalMetadata(c, "released", "1.12.1", "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "released", "1.12.1", "region-2", "windows", "some-auth-url")
 	ctx, err := runValidateAgentsMetadata(c, s.store,
-		"-p", "openstack", "-s", "raring", "-r", "region-2",
+		"-p", "openstack", "-t", "windows", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir, "--majorminor-version", "1.12",
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -240,9 +240,9 @@ func (s *ValidateToolsMetadataSuite) TestMajorMinorVersionMatch(c *gc.C) {
 }
 
 func (s *ValidateToolsMetadataSuite) TestJustDirectory(c *gc.C) {
-	s.makeLocalMetadata(c, "released", jujuversion.Current.String(), "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "released", jujuversion.Current.String(), "region-2", "windows", "some-auth-url")
 	ctx, err := runValidateAgentsMetadata(c, s.store,
-		"-s", "raring", "-d", s.metadataDir,
+		"-t", "windows", "-d", s.metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)

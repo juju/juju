@@ -27,7 +27,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -106,9 +106,9 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	// Set jujuversion.Current to a known value, for which we
 	// will make tools available. Individual tests may
 	// override this.
-	s.PatchValue(&jujuversion.Current, v100b64.Number)
-	s.PatchValue(&arch.HostArch, func() string { return v100b64.Arch })
-	s.PatchValue(&series.HostSeries, func() (string, error) { return v100b64.Series, nil })
+	s.PatchValue(&jujuversion.Current, v100w64.Number)
+	s.PatchValue(&arch.HostArch, func() string { return v100w64.Arch })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return "bionic", nil })
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(&jujuseries.UbuntuDistroInfo, "/path/notexists")
 
@@ -243,13 +243,12 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	var restore testing.Restorer = func() {
 		s.store = jujuclienttesting.MinimalStore()
 	}
-	bootstrapVersion := v100b64
+	bootstrapVersion := v100w64
 	if test.version != "" {
-		useVersion := strings.Replace(test.version, "%LTS%", "bionic", 1)
-		bootstrapVersion = version.MustParseBinary(useVersion)
+		bootstrapVersion = version.MustParseBinary(test.version)
 		restore = restore.Add(testing.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
 		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return bootstrapVersion.Arch }))
-		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() (string, error) { return bootstrapVersion.Series, nil }))
+		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() (string, error) { return "ubuntu", nil }))
 		bootstrapVersion.Build = 1
 		if test.upload != "" {
 			uploadVers := version.MustParseBinary(test.upload)
@@ -370,7 +369,7 @@ var bootstrapTests = []bootstrapTest{{
 	logs:      []jc.SimpleMessage{{loggo.ERROR, `ambiguous constraints: "instance-type" overlaps with "mem"`}},
 }, {
 	info:      "bad model",
-	version:   "1.2.3-%LTS%-amd64",
+	version:   "1.2.3-ubuntu-amd64",
 	args:      []string{"--config", "broken=Bootstrap Destroy", "--auto-upgrade"},
 	silentErr: true,
 	logs:      []jc.SimpleMessage{{loggo.ERROR, `failed to bootstrap model: dummy.Bootstrap is broken`}},
@@ -389,14 +388,14 @@ var bootstrapTests = []bootstrapTest{{
 	constraints: constraints.MustParse("mem=4G cores=4 cpu-power=10"),
 }, {
 	info:        "--build-agent uses arch from constraint if it matches current version",
-	version:     "1.3.3-saucy-ppc64el",
+	version:     "1.3.3-ubuntu-ppc64el",
 	hostArch:    "ppc64el",
 	args:        []string{"--build-agent", "--constraints", "arch=ppc64el"},
-	upload:      "1.3.3.1-bionic-ppc64el", // from jujuversion.Current
+	upload:      "1.3.3.1-ubuntu-ppc64el", // from jujuversion.Current
 	constraints: constraints.MustParse("arch=ppc64el"),
 }, {
 	info:      "--build-agent rejects mismatched arch",
-	version:   "1.3.3-saucy-amd64",
+	version:   "1.3.3-ubuntu-amd64",
 	hostArch:  "amd64",
 	args:      []string{"--build-agent", "--constraints", "arch=ppc64el"},
 	silentErr: true,
@@ -405,7 +404,7 @@ var bootstrapTests = []bootstrapTest{{
 	}},
 }, {
 	info:      "--build-agent rejects non-supported arch",
-	version:   "1.3.3-saucy-mips64",
+	version:   "1.3.3-ubuntu-mips64",
 	hostArch:  "mips64",
 	args:      []string{"--build-agent"},
 	silentErr: true,
@@ -414,10 +413,10 @@ var bootstrapTests = []bootstrapTest{{
 	}},
 }, {
 	info:     "--build-agent always bumps build number",
-	version:  "1.2.3.4-xenial-amd64",
+	version:  "1.2.3.4-ubuntu-amd64",
 	hostArch: "amd64",
 	args:     []string{"--build-agent"},
-	upload:   "1.2.3.5-bionic-amd64",
+	upload:   "1.2.3.5-ubuntu-amd64",
 }, {
 	info:      "placement",
 	args:      []string{"--to", "something"},
@@ -440,12 +439,12 @@ var bootstrapTests = []bootstrapTest{{
 	err:  `invalid version "foo"`,
 }, {
 	info:    "agent-version doesn't match client version major",
-	version: "1.3.3-saucy-ppc64el",
+	version: "1.3.3-ubuntu-ppc64el",
 	args:    []string{"--agent-version", "2.3.0"},
 	err:     regexp.QuoteMeta(`this client can only bootstrap 1.3 agents`),
 }, {
 	info:    "agent-version doesn't match client version minor",
-	version: "1.3.3-saucy-ppc64el",
+	version: "1.3.3-ubuntu-ppc64el",
 	args:    []string{"--agent-version", "1.4.0"},
 	err:     regexp.QuoteMeta(`this client can only bootstrap 1.3 agents`),
 }, {
@@ -1422,7 +1421,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, bootstrap.ControllerModelName)
 	icfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
 	c.Assert(icfg, gc.NotNil)
-	c.Assert(icfg.AgentVersion().String(), gc.Equals, "1.7.3.1-xenial-"+arch.HostArch())
+	c.Assert(icfg.AgentVersion().String(), gc.Equals, "1.7.3.1-ubuntu-"+arch.HostArch())
 }
 
 func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
@@ -2284,30 +2283,26 @@ func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
 }
 
 var (
-	v100x64 = version.MustParseBinary("1.0.0-xenial-amd64")
-	v100b64 = version.MustParseBinary("1.0.0-bionic-amd64")
-	v100g32 = version.MustParseBinary("1.0.0-groovy-i386")
-	v100g64 = version.MustParseBinary("1.0.0-groovy-amd64")
-	v120x64 = version.MustParseBinary("1.2.0-xenial-amd64")
-	v120b64 = version.MustParseBinary("1.2.0-bionic-amd64")
-	v120g32 = version.MustParseBinary("1.2.0-groovy-i386")
-	v120g64 = version.MustParseBinary("1.2.0-groovy-amd64")
-	v120t32 = version.MustParseBinary("1.2.0-trusty-i386")
-	v120t64 = version.MustParseBinary("1.2.0-trusty-amd64")
-	v190b32 = version.MustParseBinary("1.9.0-bionic-i386")
-	v190g64 = version.MustParseBinary("1.9.0-groovy-amd64")
-	v200b64 = version.MustParseBinary("2.0.0-bionic-amd64")
+	v100u64 = version.MustParseBinary("1.0.0-ubuntu-amd64")
+	v100w64 = version.MustParseBinary("1.0.0-windows-amd64")
+	v100u32 = version.MustParseBinary("1.0.0-ubuntu-i386")
+	v120u64 = version.MustParseBinary("1.2.0-ubuntu-amd64")
+	v120w64 = version.MustParseBinary("1.2.0-windows-amd64")
+	v120u32 = version.MustParseBinary("1.2.0-ubuntu-i386")
+	v190u32 = version.MustParseBinary("1.9.0-ubuntu-i386")
+	v190w64 = version.MustParseBinary("1.9.0-windows-amd64")
+	v200u64 = version.MustParseBinary("2.0.0-ubuntu-amd64")
 	v100All = []version.Binary{
-		v100x64, v100b64, v100g64, v100g32,
+		v100u64, v100w64, v100u32,
 	}
 	v120All = []version.Binary{
-		v120x64, v120b64, v120g64, v120g32, v120t32, v120t64,
+		v120u64, v120w64, v120u32,
 	}
 	v190All = []version.Binary{
-		v190b32, v190g64,
+		v190u32, v190w64,
 	}
 	v200All = []version.Binary{
-		v200b64,
+		v200u64,
 	}
 	vAll = joinBinaryVersions(v100All, v120All, v190All, v200All)
 )

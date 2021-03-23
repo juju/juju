@@ -5,7 +5,7 @@ package deployer_test
 
 import (
 	"github.com/juju/names/v4"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/model"

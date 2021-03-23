@@ -12,14 +12,14 @@ import (
 
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
-	"github.com/juju/description/v2"
+	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon.v2"
@@ -32,6 +32,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
@@ -142,7 +143,7 @@ func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *
 
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag := names.NewStorageTag("data/0")
-	agentVersion := version.MustParseBinary("2.0.1-quantal-and64")
+	agentVersion := version.MustParseBinary("2.0.1-ubuntu-and64")
 	err = unit.SetAgentVersion(agentVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	return application, unit, storageTag
@@ -1164,9 +1165,9 @@ func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {
 		app, err := unit.Application()
 		c.Assert(err, jc.ErrorIsNil)
 		agentTools := version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: app.Series(),
+			Number:  jujuversion.Current,
+			Arch:    arch.HostArch(),
+			Release: coreseries.DefaultOSTypeNameFromSeries(app.Series()),
 		}
 		err = unit.SetAgentVersion(agentTools)
 		c.Assert(err, jc.ErrorIsNil)

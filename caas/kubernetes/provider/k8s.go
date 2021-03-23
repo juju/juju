@@ -20,7 +20,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"

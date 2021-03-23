@@ -218,7 +218,7 @@ resource for a charm in a repository.
 <charm> can be a charm URL, or an unambiguously condensed form of it,
 just like the deploy command.
 
-Series is implied from the <charm> supplied. If not provided, the default
+Release is implied from the <charm> supplied. If not provided, the default
 series for the model is used.
 
 Channel can be specified with --channel.  If not provided, stable is used.

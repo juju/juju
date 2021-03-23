@@ -5,7 +5,7 @@ package params
 
 import (
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 )
 
 // CAASUnitIntroductionArgs is used by embedded units to introduce

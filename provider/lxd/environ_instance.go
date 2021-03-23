@@ -5,7 +5,7 @@ package lxd
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/instance"

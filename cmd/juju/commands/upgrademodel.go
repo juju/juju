@@ -18,7 +18,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	apicontroller "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -288,8 +287,8 @@ func formatVersions(agents coretools.Versions) string {
 }
 
 type toolsAPI interface {
-	FindTools(majorVersion, minorVersion int, series, arch, agentStream string) (result params.FindToolsResult, err error)
-	UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (coretools.List, error)
+	FindTools(majorVersion, minorVersion int, osType, arch, agentStream string) (result params.FindToolsResult, err error)
+	UploadTools(r io.ReadSeeker, vers version.Binary) (coretools.List, error)
 }
 
 type upgradeJujuAPI interface {
@@ -878,15 +877,7 @@ func (context *upgradeContext) uploadTools(client toolsAPI, buildAgent bool, age
 		return errors.Trace(err)
 	}
 	defer f.Close()
-	seriesOs, err := series.GetOSFromSeries(builtTools.Version.Series)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	additionalSeries, err := series.OSAllSeries(seriesOs)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	uploaded, err := client.UploadTools(f, uploadToolsVersion, additionalSeries...)
+	uploaded, err := client.UploadTools(f, uploadToolsVersion)
 	if err != nil {
 		return errors.Trace(err)
 	}

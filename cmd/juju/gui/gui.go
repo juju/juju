@@ -12,7 +12,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/juju/webbrowser"
 	"gopkg.in/httprequest.v1"
 

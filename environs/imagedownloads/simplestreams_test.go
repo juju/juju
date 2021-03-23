@@ -71,9 +71,9 @@ func (Suite) TestFetchManyDefaultFilter(c *gc.C) {
 		newTestDataSource(ts.URL)}
 	constraints, err := imagemetadata.NewImageConstraint(
 		simplestreams.LookupParams{
-			Arches: []string{"amd64", "arm64", "ppc64el"},
-			Series: []string{"xenial"},
-			Stream: "released",
+			Arches:   []string{"amd64", "arm64", "ppc64el"},
+			Releases: []string{"xenial"},
+			Stream:   "released",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -97,9 +97,9 @@ func (Suite) TestFetchManyDefaultFilterAndCustomImageDownloadURL(c *gc.C) {
 		newTestDataSource(ts.URL)}
 	constraints, err := imagemetadata.NewImageConstraint(
 		simplestreams.LookupParams{
-			Arches: []string{"amd64", "arm64", "ppc64el"},
-			Series: []string{"xenial"},
-			Stream: "released",
+			Arches:   []string{"amd64", "arm64", "ppc64el"},
+			Releases: []string{"xenial"},
+			Stream:   "released",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -126,8 +126,8 @@ func (Suite) TestFetchSingleDefaultFilter(c *gc.C) {
 		newTestDataSource(ts.URL)}
 	constraints := &imagemetadata.ImageConstraint{
 		simplestreams.LookupParams{
-			Arches: []string{"ppc64el"},
-			Series: []string{"trusty"},
+			Arches:   []string{"ppc64el"},
+			Releases: []string{"trusty"},
 		}}
 	got, resolveInfo, err := Fetch(tds, constraints, nil)
 	c.Check(resolveInfo.Signed, jc.IsTrue)
@@ -149,8 +149,8 @@ func (Suite) TestFetchOneWithFilter(c *gc.C) {
 		newTestDataSource(ts.URL)}
 	constraints := &imagemetadata.ImageConstraint{
 		simplestreams.LookupParams{
-			Arches: []string{"ppc64el"},
-			Series: []string{"xenial"},
+			Arches:   []string{"ppc64el"},
+			Releases: []string{"xenial"},
 		}}
 	got, resolveInfo, err := Fetch(tds, constraints, Filter("disk1.img"))
 	c.Check(resolveInfo.Signed, jc.IsTrue)
@@ -175,8 +175,8 @@ func (Suite) TestFetchManyWithFilter(c *gc.C) {
 		newTestDataSource(ts.URL)}
 	constraints := &imagemetadata.ImageConstraint{
 		simplestreams.LookupParams{
-			Arches: []string{"amd64", "arm64", "ppc64el"},
-			Series: []string{"xenial"},
+			Arches:   []string{"amd64", "arm64", "ppc64el"},
+			Releases: []string{"xenial"},
 		}}
 	got, resolveInfo, err := Fetch(tds, constraints, Filter("disk1.img"))
 	c.Check(resolveInfo.Signed, jc.IsTrue)

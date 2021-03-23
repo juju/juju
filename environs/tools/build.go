@@ -17,10 +17,10 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/juju/names"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -426,21 +426,19 @@ func getVersionFromFile(dir string) (version.Binary, error) {
 
 func selectBinary(versions []string) (version.Binary, error) {
 	thisArch := arch.HostArch()
-	thisSeries, err := series.HostSeries()
-	if err != nil {
-		return version.Binary{}, errors.Trace(err)
-	}
+	thisHost := coreos.HostOSTypeName()
 	var current version.Binary
 	for _, ver := range versions {
+		var err error
 		current, err = version.ParseBinary(ver)
 		if err != nil {
 			return version.Binary{}, errors.Trace(err)
 		}
-		if current.Series == thisSeries && current.Arch == thisArch {
+		if current.Release == thisHost && current.Arch == thisArch {
 			return current, nil
 		}
 	}
-	// There's no version matching our series/arch, but the signature
+	// There's no version matching our osType/arch, but the signature
 	// still matches the binary for all versions passed in, so just
 	// punt.
 	return current, nil

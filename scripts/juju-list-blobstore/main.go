@@ -20,7 +20,7 @@ import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/names/v4"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/mongo"
@@ -235,7 +235,7 @@ func (s sortableBinaries) Less(i, j int) bool {
 	case cmp > 0:
 		return false
 	default: // cmp == 0
-		// Technically we could compare Series and then Arch as strings
+		// Technically we could compare Release and then Arch as strings
 		// individually, but this still gives the right answer.
 		return s[i].String() < s[j].String()
 	}
@@ -616,7 +616,7 @@ func (checker *ModelChecker) readApplicationsAndUnits() {
 	agentVersion, err := checker.model.AgentVersion()
 	checkErr(err, "model AgentVersion")
 	// Models track the desired version.Number, but Units track version.Binary
-	// because they run a specific Series+Arch
+	// because they run a specific Release+Arch
 	checker.agentVersions.Add(agentVersion.String(), checker.model.Tag().String())
 	apps, err := checker.model.State().AllApplications()
 	checkErr(err, "AllApplications")

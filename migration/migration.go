@@ -10,11 +10,11 @@ import (
 	"os"
 
 	"github.com/juju/charm/v8"
-	"github.com/juju/description/v2"
+	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/naturalsort"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/migration"
@@ -130,7 +130,7 @@ type ToolsDownloader interface {
 // ToolsUploader defines a single method that is used to upload tools
 // to the target controller in a migration.
 type ToolsUploader interface {
-	UploadTools(io.ReadSeeker, version.Binary, ...string) (tools.List, error)
+	UploadTools(io.ReadSeeker, version.Binary) (tools.List, error)
 }
 
 // ResourceDownloader defines the interface for downloading resources

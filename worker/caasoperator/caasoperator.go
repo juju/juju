@@ -14,10 +14,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2/arch"
 	jujusymlink "github.com/juju/utils/v2/symlink"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -321,11 +321,11 @@ func (op *caasOperator) removeUnitDir(unitTag names.UnitTag) error {
 	return os.RemoveAll(unitAgentDir)
 }
 
-func toBinaryVersion(vers version.Number, hostSeries string) version.Binary {
+func toBinaryVersion(vers version.Number, osType string) version.Binary {
 	outVers := version.Binary{
-		Number: vers,
-		Arch:   arch.HostArch(),
-		Series: hostSeries,
+		Number:  vers,
+		Arch:    arch.HostArch(),
+		Release: osType,
 	}
 	return outVers
 }
@@ -411,13 +411,10 @@ func (op *caasOperator) loop() (err error) {
 	}
 	logger.Infof("operator %q started", op.config.Application)
 
-	// Start by reporting current tools (which includes arch/series).
-	hostSeries, err := series.HostSeries()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	// Start by reporting current tools (which includes arch/ostype).
+	hostOSType := coreos.HostOSTypeName()
 	if err := op.config.VersionSetter.SetVersion(
-		op.config.Application, toBinaryVersion(jujuversion.Current, hostSeries)); err != nil {
+		op.config.Application, toBinaryVersion(jujuversion.Current, hostOSType)); err != nil {
 		return errors.Annotate(err, "cannot set agent version")
 	}
 

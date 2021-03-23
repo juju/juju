@@ -19,7 +19,7 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/constraints"
@@ -84,7 +84,6 @@ type unitDoc struct {
 	Resolved               ResolvedMode
 	Tools                  *tools.Tools `bson:",omitempty"`
 	Life                   Life
-	TxnRevno               int64 `bson:"txn-revno"`
 	PasswordHash           string
 }
 

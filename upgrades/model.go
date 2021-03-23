@@ -5,7 +5,7 @@ package upgrades
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 )
 
 // MinMajorUpgradeVersion defines the minimum version all models

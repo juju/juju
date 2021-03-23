@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	coremigration "github.com/juju/juju/core/migration"
@@ -26,7 +26,7 @@ var (
 	modelName            = "model-name"
 	modelUUID            = "model-uuid"
 	modelOwner           = names.NewUserTag("owner")
-	backendVersionBinary = version.MustParseBinary("1.2.3-trusty-amd64")
+	backendVersionBinary = version.MustParseBinary("1.2.3-ubuntu-amd64")
 	backendVersion       = backendVersionBinary.Number
 )
 
@@ -197,7 +197,7 @@ func (s *SourcePrecheckSuite) TestUnitVersionsDontMatch(c *gc.C) {
 				name: "bar",
 				units: []migration.PrecheckUnit{
 					&fakeUnit{name: "bar/0"},
-					&fakeUnit{name: "bar/1", version: version.MustParseBinary("1.2.4-trusty-ppc64")},
+					&fakeUnit{name: "bar/1", version: version.MustParseBinary("1.2.4-ubuntu-ppc64")},
 				},
 			},
 		},
@@ -438,7 +438,7 @@ func (s *TargetPrecheckSuite) TestModelMinimumVersion(c *gc.C) {
 
 	origBackendBinary := backendVersionBinary
 	origBackend := backendVersion
-	backendVersionBinary = version.MustParseBinary("3.0.0-trusty-amd64")
+	backendVersionBinary = version.MustParseBinary("3.0.0-ubuntu-amd64")
 	backendVersion = backendVersionBinary.Number
 	defer func() {
 		backendVersionBinary = origBackendBinary
@@ -695,7 +695,7 @@ func newBackendWithMismatchingTools() *fakeBackend {
 	return &fakeBackend{
 		machines: []migration.PrecheckMachine{
 			&fakeMachine{id: "0"},
-			&fakeMachine{id: "1", version: version.MustParseBinary("1.3.1-xenial-amd64")},
+			&fakeMachine{id: "1", version: version.MustParseBinary("1.3.1-ubuntu-amd64")},
 		},
 	}
 }

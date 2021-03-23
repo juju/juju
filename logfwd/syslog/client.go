@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/rfc/rfc5424"
-	"github.com/juju/rfc/rfc5424/sdelements"
+	"github.com/juju/rfc/v2/rfc5424"
+	"github.com/juju/rfc/v2/rfc5424/sdelements"
 
 	"github.com/juju/juju/logfwd"
 )

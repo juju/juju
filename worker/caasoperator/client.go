@@ -5,7 +5,7 @@ package caasoperator
 
 import (
 	"github.com/juju/charm/v8"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	caasoperatorapi "github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/core/life"

@@ -13,7 +13,7 @@ import (
 	mongo "github.com/juju/juju/mongo"
 	names "github.com/juju/names/v4"
 	shell "github.com/juju/utils/v2/shell"
-	version "github.com/juju/version"
+	version "github.com/juju/version/v2"
 	reflect "reflect"
 )
 

@@ -15,18 +15,16 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/http"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/pubsub"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -39,7 +37,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
-	jujuos "github.com/juju/juju/core/os"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -73,7 +71,7 @@ const (
 var (
 	// KubernetesSeriesName is the kubernetes series name that is validated at
 	// runtime, otherwise it panics.
-	KubernetesSeriesName = strings.ToLower(jujuos.Kubernetes.String())
+	KubernetesSeriesName = strings.ToLower(coreos.Kubernetes.String())
 )
 
 // JujuConnSuite provides a freshly bootstrapped juju.Conn
@@ -422,38 +420,26 @@ func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (
 }
 
 // DefaultVersions returns a slice of unique 'versions' for the current
-// environment's preferred series and host architecture, as well supported LTS
-// series for the host architecture. Additionally, it ensures that 'versions'
+// environment's host architecture. Additionally, it ensures that 'versions'
 // for amd64 are returned if that is not the current host's architecture.
 func DefaultVersions(conf *config.Config) []version.Binary {
-	var versions []version.Binary
-	supported := series.SupportedLts()
-	defaultSeries := set.NewStrings(supported...)
-	defaultSeries.Add(config.PreferredSeries(conf))
-
-	hostSeries, err := series.HostSeries()
-	if err == nil {
-		defaultSeries.Add(hostSeries)
-	}
-
 	agentVersion, set := conf.AgentVersion()
 	if !set {
 		agentVersion = jujuversion.Current
 	}
-	for _, s := range defaultSeries.Values() {
+	var versions []version.Binary
+	versions = append(versions, version.Binary{
+		Number:  agentVersion,
+		Arch:    arch.HostArch(),
+		Release: "ubuntu",
+	})
+	if arch.HostArch() != "amd64" {
 		versions = append(versions, version.Binary{
-			Number: agentVersion,
-			Arch:   arch.HostArch(),
-			Series: s,
+			Number:  agentVersion,
+			Arch:    "amd64",
+			Release: "ubuntu",
 		})
-		if arch.HostArch() != "amd64" {
-			versions = append(versions, version.Binary{
-				Number: agentVersion,
-				Arch:   "amd64",
-				Series: s,
-			})
 
-		}
 	}
 	return versions
 }

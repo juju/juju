@@ -16,7 +16,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/api/testing"
@@ -101,16 +101,16 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	s.JujuOSEnvSuite.SetUpTest(c)
 	agentTools := &tools.Tools{
 		Version: version.Binary{
-			Number: version.Number{Major: 2, Minor: 6, Patch: 0},
-			Series: "Bionic",
-			Arch:   "x86",
+			Number:  version.Number{Major: 2, Minor: 6, Patch: 0},
+			Release: "ubuntu",
+			Arch:    "x86",
 		},
 	}
 	olderAgentTools := &tools.Tools{
 		Version: version.Binary{
-			Number: version.Number{Major: 2, Minor: 5, Patch: 1},
-			Series: "Bionic",
-			Arch:   "x86",
+			Number:  version.Number{Major: 2, Minor: 5, Patch: 1},
+			Release: "ubuntu",
+			Arch:    "x86",
 		},
 	}
 	lxdProfile := &charm.LXDProfile{
@@ -1126,7 +1126,7 @@ func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.
 	s.PatchValue(&jujuversion.Current, version.MustParse("2.8-beta1"))
 	s.backend.charm = &mockCharm{
 		meta: &charm.Meta{
-			MinJujuVersion: version.MustParse("2.8.0"),
+			MinJujuVersion: jujuversion.ToVersion1(version.MustParse("2.8.0")),
 		},
 	}
 

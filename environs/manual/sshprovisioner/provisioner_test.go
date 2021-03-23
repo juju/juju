@@ -10,7 +10,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/shell"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -73,9 +73,9 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	number, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	binVersion := version.Binary{
-		Number: number,
-		Series: series,
-		Arch:   arch,
+		Number:  number,
+		Release: "ubuntu",
+		Arch:    arch,
 	}
 	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, "released", "released", binVersion)
 	envtools.DefaultBaseURL = defaultToolsURL

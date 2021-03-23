@@ -17,7 +17,7 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
@@ -1052,7 +1052,7 @@ func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
 	oldTools, _ := m0.AgentTools()
 	m1, err := s.State.Machine(m0.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	err = m0.SetAgentVersion(version.MustParseBinary("0.0.3-quantal-amd64"))
+	err = m0.SetAgentVersion(version.MustParseBinary("0.0.3-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 	newTools, _ := m0.AgentTools()
 
@@ -1221,7 +1221,7 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Make two changes, check one event.
-	err = machine.SetAgentVersion(version.MustParseBinary("0.0.3-quantal-amd64"))
+	err = machine.SetAgentVersion(version.MustParseBinary("0.0.3-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Destroy()
 	c.Assert(err, jc.ErrorIsNil)

@@ -6,11 +6,11 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	description "github.com/juju/description/v2"
+	description "github.com/juju/description/v3"
 	controller "github.com/juju/juju/controller"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
-	version "github.com/juju/version"
+	version "github.com/juju/version/v2"
 	reflect "reflect"
 )
 

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -164,7 +165,7 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 	}
 	filter := coretools.Filter{
 		Number: agentVersion,
-		Series: preferredSeries,
+		OSType: series.DefaultOSTypeNameFromSeries(preferredSeries),
 	}
 	if params.Constraints.Arch != nil {
 		filter.Arch = *params.Constraints.Arch
@@ -178,7 +179,7 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 	if params.ImageMetadata == nil {
 		if err := SetImageMetadata(
 			env,
-			possibleTools.AllSeries(),
+			[]string{preferredSeries},
 			possibleTools.Arches(),
 			&params.ImageMetadata,
 		); err != nil {
@@ -230,7 +231,7 @@ func SetImageMetadata(env environs.Environ, series, arches []string, out *[]*ima
 	}
 	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: region,
-		Series:    series,
+		Releases:  series,
 		Arches:    arches,
 		Stream:    env.Config().ImageStream(),
 	})

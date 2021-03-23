@@ -6,13 +6,13 @@ package rackspace
 import (
 	"context"
 	"io/ioutil"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2/ssh"
 
 	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
@@ -35,12 +35,9 @@ var waitSSH = common.WaitSSH
 
 // StartInstance implements environs.Environ.
 func (e environ) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	osString, err := series.GetOSFromSeries(args.Tools.OneSeries())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	fwmode := e.Config().FirewallMode()
-	if osString == jujuos.Windows && fwmode != config.FwNone {
+	osType := args.Tools.OneRelease()
+	if osType == strings.ToLower(jujuos.Windows.String()) && fwmode != config.FwNone {
 		return nil, errors.Errorf("rackspace provider doesn't support firewalls for windows instances")
 
 	}
