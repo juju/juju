@@ -426,7 +426,7 @@ func (s *ProxyUpdaterSuite) TestSnapProxySetNoneSet(c *gc.C) {
 	// The worker doesn't precheck any of the snap proxy values, as it is expected
 	// that the set call is cheap. Every time the worker starts, we call set for the current
 	// values.
-	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "core",
+	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "system",
 		"proxy.http=",
 		"proxy.https=",
 		"proxy.store=",
@@ -460,7 +460,7 @@ func (s *ProxyUpdaterSuite) TestSnapProxySet(c *gc.C) {
 	// The snap store is set to the empty string because as the agent is starting
 	// and it doesn't check to see what the store was set to, so to be sure, it just
 	// calls the set value.
-	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "core",
+	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "system",
 		"proxy.http=http://snap-proxy",
 		"proxy.https=https://snap-proxy",
 		"proxy.store=",
@@ -492,7 +492,7 @@ func (s *ProxyUpdaterSuite) TestSnapStoreProxy(c *gc.C) {
 	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"please trust us", "snap", "ack", "/dev/stdin"})
 
 	// The http and https proxy values are set to be empty as it is the first pass through.
-	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "core",
+	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "system",
 		"proxy.http=",
 		"proxy.https=",
 		"proxy.store=42",
@@ -546,7 +546,7 @@ DATA...
 	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{proxyRes, "snap", "ack", "/dev/stdin"})
 
 	// The http and https proxy values are set to be empty as it is the first pass through.
-	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "core",
+	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "system",
 		"proxy.http=",
 		"proxy.https=",
 		"proxy.store=WhatDoesTheBigRedButtonDo",
@@ -602,7 +602,7 @@ DATA...
 	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{proxyRes, "snap", "ack", "/dev/stdin"})
 
 	// The http and https proxy values are set to be empty as it is the first pass through.
-	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "core",
+	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "system",
 		"proxy.http=",
 		"proxy.https=",
 		"proxy.store=WhatDoesTheBigRedButtonDo",

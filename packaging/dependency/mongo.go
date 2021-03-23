@@ -55,10 +55,6 @@ func (dep mongoDependency) PackageList(series string) ([]packaging.Package, erro
 		snapList = append(
 			snapList,
 			packaging.Package{
-				Name:           "core",
-				PackageManager: packaging.SnapPackageManager,
-			},
-			packaging.Package{
 				Name:           "juju-db",
 				InstallOptions: fmt.Sprintf("--channel %s", dep.snapChannel),
 				PackageManager: packaging.SnapPackageManager,
