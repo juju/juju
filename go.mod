@@ -46,7 +46,7 @@ require (
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
 	github.com/juju/go-oracle-cloud v0.0.0-20170421134547-932a8cea00a1
 	github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2
-	github.com/juju/gomaasapi v0.0.0-20190826212825-0ab1eb636aba
+	github.com/juju/gomaasapi/v2 v2.0.0-20210323144809-92beddd020fe
 	github.com/juju/idmclient/v2 v2.0.0-20210309081103-6b4a5212f851
 	github.com/juju/jsonschema v0.0.0-20161102181919-a0ef8b74ebcf
 	github.com/juju/jsonschema-gen v0.0.0-20200416014454-d924343d72b2
