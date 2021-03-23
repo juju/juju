@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
@@ -256,24 +256,18 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 		return nil, errors.BadRequestf("expected Content-Type: application/x-tar-gz, got: %v", contentType)
 	}
 
-	// We'll clone the tools for each additional release specified.
-	var cloneRelease []string
-	// TODO(juju3) - drop this compatibility with series params
-	// (for 2.9 and later, the series param is no longer used).
-	if releaseParam := query.Get("series"); releaseParam != "" {
-		cloneRelease = strings.Split(releaseParam, ",")
-	}
 	logger.Debugf("request to upload agent binaries: %s", toolsVersion)
-	logger.Debugf("additional os types: %s", cloneRelease)
+	// TODO(juju3) - drop this compatibility with series params
+	// If the binary is for a workload series, convert the release to an OS type name.
+	allSeries, err := coreseries.AllWorkloadSeries("", "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if allSeries.Contains(toolsVersion.Release) {
+		toolsVersion.Release = coreseries.DefaultOSTypeNameFromSeries(toolsVersion.Release)
+	}
 
 	toolsVersions := []version.Binary{toolsVersion}
-	for _, release := range cloneRelease {
-		if release != toolsVersion.Release {
-			v := toolsVersion
-			v.Release = release
-			toolsVersions = append(toolsVersions, v)
-		}
-	}
 	serverRoot := h.getServerRoot(r, query, st)
 	return h.handleUpload(r.Body, toolsVersions, serverRoot, st)
 }

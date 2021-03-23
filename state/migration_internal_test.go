@@ -431,7 +431,6 @@ func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
 		// Series and CharmURL also come from the application.
 		"Series",
 		"CharmURL",
-		"TxnRevno",
 	)
 	migrated := set.NewStrings(
 		"Name",

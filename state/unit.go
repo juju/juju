@@ -84,7 +84,6 @@ type unitDoc struct {
 	Resolved               ResolvedMode
 	Tools                  *tools.Tools `bson:",omitempty"`
 	Life                   Life
-	TxnRevno               int64 `bson:"txn-revno"`
 	PasswordHash           string
 }
 

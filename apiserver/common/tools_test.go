@@ -81,6 +81,42 @@ func (s *toolsSuite) TestTools(c *gc.C) {
 	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.NotFoundError("machine 42"))
 }
 
+func (s *toolsSuite) TestSeriesTools(c *gc.C) {
+	getCanRead := func() (common.AuthFunc, error) {
+		return func(tag names.Tag) bool {
+			return tag == names.NewMachineTag("0")
+		}, nil
+	}
+	newEnviron := func() (environs.BootstrapEnviron, error) {
+		return s.Environ, nil
+	}
+	tg := common.NewToolsGetter(
+		s.State, stateenvirons.EnvironConfigGetter{Model: s.Model}, s.State,
+		sprintfURLGetter("tools:%s"), getCanRead, newEnviron,
+	)
+	c.Assert(tg, gc.NotNil)
+
+	current := coretesting.CurrentVersion(c)
+	currentCopy := current
+	currentCopy.Release = coretesting.HostSeries(c)
+	err := s.machine0.SetAgentVersion(currentCopy)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "machine-0"},
+		}}
+	result, err := tg.Tools(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].ToolsList, gc.HasLen, 1)
+	tools := result.Results[0].ToolsList[0]
+	c.Assert(tools.Version, gc.DeepEquals, current)
+	c.Assert(tools.URL, gc.Equals, "tools:"+current.String())
+	c.Assert(result.Results[0].DisableSSLHostnameVerification, jc.IsTrue)
+}
+
 func (s *toolsSuite) TestToolsError(c *gc.C) {
 	getCanRead := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("splat")
