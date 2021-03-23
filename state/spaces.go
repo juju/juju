@@ -17,7 +17,6 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/network"
-	jujunetwork "github.com/juju/juju/network"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
@@ -495,7 +494,7 @@ func (st *State) SaveProviderSubnets(subnets []network.SubnetInfo, spaceID strin
 				logger.Debugf("%s address is not an IPv4 address.", subnetNet.IP)
 				continue
 			}
-			overlaySegment, err := jujunetwork.CalculateOverlaySegment(subnet.CIDR, fan)
+			overlaySegment, err := network.CalculateOverlaySegment(subnet.CIDR, fan)
 			if err != nil {
 				return errors.Trace(err)
 			}
