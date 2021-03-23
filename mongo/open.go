@@ -171,7 +171,7 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 			}
 			c = cc
 		}
-		logger.Debugf("dialled mongodb server at %q", addr)
+		logger.Debugf("dialed mongodb server at %q", addr)
 		return c, nil
 	}
 
