@@ -97,8 +97,8 @@ github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kB
 github.com/blang/semver v3.5.0+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnwebNt5EWlYSAyrTnjyyk=
 github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac h1:X5YRFJiteUM3rajABEYJSzw1KWgmp1ulPFKxpfLm0M4=
 github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac/go.mod h1:8rLXio+WjiTceGBHIoTvn60HIbs7Hm7bcHjyrSqYB9c=
-github.com/canonical/pebble v0.0.0-20210304221917-61be317f2b1f h1:+LMnAGjfHs33/cWxStVj13Cyxvn/XXxkCiYEhd8jyko=
-github.com/canonical/pebble v0.0.0-20210304221917-61be317f2b1f/go.mod h1:Glkg6kOpPMNw1BDDzRHH0U9i3pnc6Y+zV+pHwdX4SU0=
+github.com/canonical/pebble v0.0.0-20210323014059-e7f5987006dc h1:ZWBU71icoAqOqwZR6dabEzhndit8tMn82rSQTPT8/L8=
+github.com/canonical/pebble v0.0.0-20210323014059-e7f5987006dc/go.mod h1:Glkg6kOpPMNw1BDDzRHH0U9i3pnc6Y+zV+pHwdX4SU0=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash v1.1.0 h1:a6HrQnmkObjyL+Gs60czilIUGqrzKutQD6XZog3p+ko=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
