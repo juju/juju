@@ -1,20 +1,20 @@
 test_model() {
-    if [ "$(skip 'test_model')" ]; then
-        echo "==> TEST SKIPPED: model tests"
-        return
-    fi
+	if [ "$(skip 'test_model')" ]; then
+		echo "==> TEST SKIPPED: model tests"
+		return
+	fi
 
-    set_verbosity
+	set_verbosity
 
-    echo "==> Checking for dependencies"
-    check_dependencies juju
+	echo "==> Checking for dependencies"
+	check_dependencies juju
 
-    file="${TEST_DIR}/test-models.log"
+	file="${TEST_DIR}/test-models.log"
 
-    bootstrap "test-models" "${file}"
+	bootstrap "test-models" "${file}"
 
-    # Tests that need to be run are added here.
-    test_model_migration
+	# Tests that need to be run are added here.
+	test_model_migration
 
-    destroy_controller "test-models"
+	destroy_controller "test-models"
 }

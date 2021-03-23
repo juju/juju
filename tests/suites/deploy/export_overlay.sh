@@ -1,23 +1,23 @@
 run_cmr_bundles_export_overlay() {
-    echo
+	echo
 
-    file="${TEST_DIR}/test-cmr-bundles-export-overlay.log"
+	file="${TEST_DIR}/test-cmr-bundles-export-overlay.log"
 
-    ensure "cmr-bundles-test-export-overlay" "${file}"
+	ensure "cmr-bundles-test-export-overlay" "${file}"
 
-    juju add-user bar
-    juju deploy ./testcharms/charm-repo/bundle/apache2-with-offers
+	juju add-user bar
+	juju deploy ./testcharms/charm-repo/bundle/apache2-with-offers
 
-    OUT=$(juju export-bundle 2>&1)
-    echo "${OUT}"
+	OUT=$(juju export-bundle 2>&1)
+	echo "${OUT}"
 
-    # ensure that overlay.yaml is exported
-    echo "${OUT}" | grep -- "--- # overlay.yaml"
+	# ensure that overlay.yaml is exported
+	echo "${OUT}" | grep -- "--- # overlay.yaml"
 
-    juju add-model test1
+	juju add-model test1
 
-    echo -n 'my-include' > example.log
-    cat > overlay.yaml << EOT
+	echo -n 'my-include' >example.log
+	cat >overlay.yaml <<EOT
 applications:
   wordpress:
     annotations:
@@ -25,30 +25,30 @@ applications:
       enc: include-base64://example.log
 EOT
 
-    juju deploy ./testcharms/charm-repo/bundle/multi-doc-overlays --overlay overlay.yaml
-    OUT=$(juju export-bundle 2>&1)
-    echo "${OUT}"
+	juju deploy ./testcharms/charm-repo/bundle/multi-doc-overlays --overlay overlay.yaml
+	OUT=$(juju export-bundle 2>&1)
+	echo "${OUT}"
 
-    # did the annotations and overlay get exported?
-    echo "${OUT}" | grep -- "--- # overlay.yaml"
-    echo "${OUT}" | check "enc: bXktaW5jbHVkZQ=="
-    echo "${OUT}" | check "raw: my-include"
+	# did the annotations and overlay get exported?
+	echo "${OUT}" | grep -- "--- # overlay.yaml"
+	echo "${OUT}" | check "enc: bXktaW5jbHVkZQ=="
+	echo "${OUT}" | check "raw: my-include"
 
-    destroy_model "cmr-bundles-test-export-overlay"
-    destroy_model "test1"
+	destroy_model "cmr-bundles-test-export-overlay"
+	destroy_model "test1"
 }
 
 test_cmr_bundles_export_overlay() {
-    if [ "$(skip 'test_cmr_bundles_export_overlay')" ]; then
-        echo "==> TEST SKIPPED: CMR bundle deploy tests"
-        return
-    fi
+	if [ "$(skip 'test_cmr_bundles_export_overlay')" ]; then
+		echo "==> TEST SKIPPED: CMR bundle deploy tests"
+		return
+	fi
 
-    (
-        set_verbosity
+	(
+		set_verbosity
 
-        cd .. || exit
+		cd .. || exit
 
-        run "run_cmr_bundles_export_overlay"
-    )
+		run "run_cmr_bundles_export_overlay"
+	)
 }

@@ -1,22 +1,22 @@
 test_branches() {
-    if [ "$(skip 'test_branches')" ]; then
-        echo "==> TEST SKIPPED: branches tests"
-        return
-    fi
+	if [ "$(skip 'test_branches')" ]; then
+		echo "==> TEST SKIPPED: branches tests"
+		return
+	fi
 
-    set_verbosity
+	set_verbosity
 
-    echo "==> Checking for dependencies"
-    check_dependencies juju
+	echo "==> Checking for dependencies"
+	check_dependencies juju
 
-    file="${TEST_DIR}/test-branch.log"
+	file="${TEST_DIR}/test-branch.log"
 
-    export JUJU_DEV_FEATURE_FLAGS=generations
+	export JUJU_DEV_FEATURE_FLAGS=generations
 
-    bootstrap "test-branch" "${file}"
+	bootstrap "test-branch" "${file}"
 
-    test_branch
-    test_active_branch_output
+	test_branch
+	test_active_branch_output
 
-    destroy_controller "test-branch"
+	destroy_controller "test-branch"
 }

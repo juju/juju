@@ -1,21 +1,21 @@
 test_examples() {
-    if [ "$(skip 'test_example')" ]; then
-        echo "==> TEST SKIPPED: example tests"
-        return
-    fi
+	if [ "$(skip 'test_example')" ]; then
+		echo "==> TEST SKIPPED: example tests"
+		return
+	fi
 
-    set_verbosity
+	set_verbosity
 
-    echo "==> Checking for dependencies"
-    check_dependencies juju
+	echo "==> Checking for dependencies"
+	check_dependencies juju
 
-    file="${TEST_DIR}/test-example.log"
+	file="${TEST_DIR}/test-example.log"
 
-    bootstrap "test-example" "${file}"
+	bootstrap "test-example" "${file}"
 
-    # Test that need to be run are added here!
-    test_example
-    test_other
+	# Test that need to be run are added here!
+	test_example
+	test_other
 
-    destroy_controller "test-example"
+	destroy_controller "test-example"
 }
