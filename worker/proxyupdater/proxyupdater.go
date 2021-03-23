@@ -274,7 +274,7 @@ func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, store
 	}
 
 	if len(snapSettings) > 0 {
-		args := append([]string{"set", "core"}, snapSettings...)
+		args := append([]string{"set", "system"}, snapSettings...)
 		output, err := w.config.RunFunc(noStdIn, "snap", args...)
 		if err != nil {
 			w.config.Logger.Warningf("unable to set snap core settings %v: %v, output: %q", snapSettings, err, output)

@@ -9,13 +9,13 @@ run_go() {
 }
 
 run_go_tidy() {
-  CUR_SHA=$(git show HEAD:go.sum | shasum -a 1 | awk '{ print $1 }')
-  go mod tidy 2>&1
-  NEW_SHA=$(cat go.sum | shasum -a 1 | awk '{ print $1 }')
-  if [ "${CUR_SHA}" != "${NEW_SHA}" ]; then
-      (>&2 echo -e "\\nError: go mod sum is out of sync. Run 'go mod tidy' and commit source.")
-      exit 1
-  fi
+	CUR_SHA=$(git show HEAD:go.sum | shasum -a 1 | awk '{ print $1 }')
+	go mod tidy 2>&1
+	NEW_SHA=$(cat go.sum | shasum -a 1 | awk '{ print $1 }')
+	if [ "${CUR_SHA}" != "${NEW_SHA}" ]; then
+		(echo >&2 -e "\\nError: go mod sum is out of sync. Run 'go mod tidy' and commit source.")
+		exit 1
+	fi
 }
 
 test_static_analysis_go() {

@@ -26,31 +26,31 @@ test_deploy_manual() {
 }
 
 manual_deploy() {
-    local cloud_name name addr_m1 addr_m2
+	local cloud_name name addr_m1 addr_m2
 
-    cloud_name=${1}
-    name=${2}
-    addr_m1=${3}
-    addr_m2=${4}
+	cloud_name=${1}
+	name=${2}
+	addr_m1=${3}
+	addr_m2=${4}
 
-    juju add-cloud --client "${cloud_name}" "${TEST_DIR}/cloud_name.yaml" >"${TEST_DIR}/add-cloud.log" 2>&1
+	juju add-cloud --client "${cloud_name}" "${TEST_DIR}/cloud_name.yaml" >"${TEST_DIR}/add-cloud.log" 2>&1
 
-    file="${TEST_DIR}/test-${name}.log"
+	file="${TEST_DIR}/test-${name}.log"
 
-    bootstrap "${cloud_name}" "test-${name}" "${file}"
+	bootstrap "${cloud_name}" "test-${name}" "${file}"
 
-    juju add-machine ssh:ubuntu@"${addr_m1}" >"${TEST_DIR}/add-machine-1.log" 2>&1
-    juju add-machine ssh:ubuntu@"${addr_m2}" >"${TEST_DIR}/add-machine-2.log" 2>&1
+	juju add-machine ssh:ubuntu@"${addr_m1}" >"${TEST_DIR}/add-machine-1.log" 2>&1
+	juju add-machine ssh:ubuntu@"${addr_m2}" >"${TEST_DIR}/add-machine-2.log" 2>&1
 
-    juju enable-ha >"${TEST_DIR}/enable-ha.log" 2>&1
+	juju enable-ha >"${TEST_DIR}/enable-ha.log" 2>&1
 
     juju deploy percona-cluster
 
-    wait_for "percona-cluster" "$(idle_condition "percona-cluster" 0 0)"
+	wait_for "percona-cluster" "$(idle_condition "percona-cluster" 0 0)"
 
-    juju remove-application percona-cluster
+	juju remove-application percona-cluster
 
-    destroy_controller "test-${name}"
+	destroy_controller "test-${name}"
 
     delete_user_profile "${name}"
 }

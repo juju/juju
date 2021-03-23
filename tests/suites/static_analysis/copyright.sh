@@ -11,17 +11,17 @@ run_copyright() {
 }
 
 test_copyright() {
-    if [ "$(skip 'test_copyright')" ]; then
-        echo "==> TEST SKIPPED: static copyright analysis"
-        return
-    fi
+	if [ "$(skip 'test_copyright')" ]; then
+		echo "==> TEST SKIPPED: static copyright analysis"
+		return
+	fi
 
-    (
-        set_verbosity
+	(
+		set_verbosity
 
-        cd .. || exit
+		cd .. || exit
 
-        # Check for copyright notices
-        run_linter "run_copyright"
-    )
+		# Check for copyright notices
+		run_linter "run_copyright"
+	)
 }

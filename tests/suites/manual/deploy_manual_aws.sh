@@ -104,10 +104,10 @@ clouds:
       default:
         endpoint: "ubuntu@${addr_c}"
 EOF
-)
+	)
 
-    echo "${CLOUD}" > "${TEST_DIR}/cloud_name.yaml"
+	echo "${CLOUD}" >"${TEST_DIR}/cloud_name.yaml"
 
-    manual_deploy "${cloud_name}" "${name}" "${addr_m1}" "${addr_m2}"
+	manual_deploy "${cloud_name}" "${name}" "${addr_m1}" "${addr_m2}"
 }
 

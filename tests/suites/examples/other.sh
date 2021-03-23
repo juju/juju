@@ -1,24 +1,24 @@
 run_other() {
-    echo
+	echo
 
-    file="${TEST_DIR}/test-other.log"
-    ensure "other" "${file}"
+	file="${TEST_DIR}/test-other.log"
+	ensure "other" "${file}"
 
-    echo "Hello other!"
+	echo "Hello other!"
 
-    destroy_model "other"
+	destroy_model "other"
 }
 
 test_other() {
-    if [ -n "$(skip 'test_other')" ]; then
-        echo "==> SKIP: Asked to skip other tests"
-        return
-    fi
+	if [ -n "$(skip 'test_other')" ]; then
+		echo "==> SKIP: Asked to skip other tests"
+		return
+	fi
 
-    (
-        set_verbosity
+	(
+		set_verbosity
 
-        cd .. || exit
+		cd .. || exit
 
         run "run_other"
     )

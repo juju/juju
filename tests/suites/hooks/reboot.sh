@@ -119,17 +119,17 @@ run_reboot_monitor_state_cleanup() {
 }
 
 test_start_hook_fires_after_reboot() {
-    if [ "$(skip 'test_start_hook_fires_after_reboot')" ]; then
-        echo "==> TEST SKIPPED: start hook fires after reboot"
-        return
-    fi
+	if [ "$(skip 'test_start_hook_fires_after_reboot')" ]; then
+		echo "==> TEST SKIPPED: start hook fires after reboot"
+		return
+	fi
 
-    (
-        set_verbosity
+	(
+		set_verbosity
 
-        cd .. || exit
+		cd .. || exit
 
-        run "run_start_hook_fires_after_reboot"
-        run "run_reboot_monitor_state_cleanup"
-    )
+		run "run_start_hook_fires_after_reboot"
+		run "run_reboot_monitor_state_cleanup"
+	)
 }

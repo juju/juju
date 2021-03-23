@@ -40,16 +40,16 @@ run_relation_list_app() {
 }
 
 test_relation_list_app() {
-    if [ "$(skip 'test_relation_list_app')" ]; then
-        echo "==> TEST SKIPPED: relation list app unit tests"
-        return
-    fi
+	if [ "$(skip 'test_relation_list_app')" ]; then
+		echo "==> TEST SKIPPED: relation list app unit tests"
+		return
+	fi
 
-    (
-        set_verbosity
+	(
+		set_verbosity
 
-        cd .. || exit
+		cd .. || exit
 
-        run "run_relation_list_app"
-    )
+		run "run_relation_list_app"
+	)
 }

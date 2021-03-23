@@ -7,26 +7,27 @@ description: create privileged container
 devices: {}
 name: profile-privileged
 EOF
-)
-    echo "${PROFILE}" > "${TEST_DIR}/profile-privileged.yaml"
+	)
+	echo "${PROFILE}" >"${TEST_DIR}/profile-privileged.yaml"
 
-    OUT=$(lxc profile show profile-privileged || true)
-    if [ -z "${OUT}" ]; then
-        lxc profile create profile-privileged
-        lxc profile edit profile-privileged < "${TEST_DIR}/profile-privileged.yaml"
-    fi
+	OUT=$(lxc profile show profile-privileged || true)
+	if [ -z "${OUT}" ]; then
+		lxc profile create profile-privileged
+		lxc profile edit profile-privileged <"${TEST_DIR}/profile-privileged.yaml"
+	fi
 }
 
 create_user_profile() {
-    local name
+	local name
 
-    name=${1}
-    profile_name="profile-${name}"
+	name=${1}
+	profile_name="profile-${name}"
 
-    public_key="${TEST_DIR}/${name}.pub"
-    key=$(cat "${public_key}" | tr -d '\n')
+	public_key="${TEST_DIR}/${name}.pub"
+	key=$(cat "${public_key}" | tr -d '\n')
 
-    PROFILE=$(cat <<EOF
+	PROFILE=$(
+		cat <<EOF
 config:
   user.user-data: |
     #cloud-config
@@ -36,27 +37,27 @@ description: create user profile
 devices: {}
 name: ${profile_name}
 EOF
-)
+	)
 
-    echo "${PROFILE}" > "${TEST_DIR}/${profile_name}.yaml"
+	echo "${PROFILE}" >"${TEST_DIR}/${profile_name}.yaml"
 
-    # Do not check if it already exists, we want to fail if it already exists.
-    lxc profile create "${profile_name}"
-    lxc profile edit "${profile_name}" < "${TEST_DIR}/${profile_name}.yaml"
+	# Do not check if it already exists, we want to fail if it already exists.
+	lxc profile create "${profile_name}"
+	lxc profile edit "${profile_name}" <"${TEST_DIR}/${profile_name}.yaml"
 }
 
 delete_user_profile() {
-    local name
+	local name
 
-    name=${1}
-    profile_name="profile-${name}"
+	name=${1}
+	profile_name="profile-${name}"
 
-    set +e
-    OUT=$(lxc profile show profile-privileged || true)
-    if [ -n "${OUT}" ]; then
-        lxc profile delete "${profile_name}"
-    fi
-    set_verbosity
+	set +e
+	OUT=$(lxc profile show profile-privileged || true)
+	if [ -n "${OUT}" ]; then
+		lxc profile delete "${profile_name}"
+	fi
+	set_verbosity
 }
 
 run_deploy_manual_lxd() {
@@ -149,9 +150,9 @@ clouds:
     type: manual
     endpoint: "ubuntu@${addr_c}"
 EOF
-)
+	)
 
-    echo "${CLOUD}" > "${TEST_DIR}/cloud_name.yaml"
+	echo "${CLOUD}" >"${TEST_DIR}/cloud_name.yaml"
 
-    manual_deploy "${cloud_name}" "${name}" "${addr_m1}" "${addr_m2}"
+	manual_deploy "${cloud_name}" "${name}" "${addr_m1}" "${addr_m2}"
 }

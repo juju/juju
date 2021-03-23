@@ -100,16 +100,16 @@ run_relation_data_exchange() {
 }
 
 test_relation_data_exchange() {
-    if [ "$(skip 'test_relation_data_exchange')" ]; then
-        echo "==> TEST SKIPPED: relation data exchange tests"
-        return
-    fi
+	if [ "$(skip 'test_relation_data_exchange')" ]; then
+		echo "==> TEST SKIPPED: relation data exchange tests"
+		return
+	fi
 
-    (
-        set_verbosity
+	(
+		set_verbosity
 
-        cd .. || exit
+		cd .. || exit
 
-        run "run_relation_data_exchange"
-    )
+		run "run_relation_data_exchange"
+	)
 }

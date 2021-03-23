@@ -36,16 +36,16 @@ run_relation_departing_unit() {
 }
 
 test_relation_departing_unit() {
-    if [ "$(skip 'test_relation_departing_unit')" ]; then
-        echo "==> TEST SKIPPED: relation departing unit tests"
-        return
-    fi
+	if [ "$(skip 'test_relation_departing_unit')" ]; then
+		echo "==> TEST SKIPPED: relation departing unit tests"
+		return
+	fi
 
-    (
-        set_verbosity
+	(
+		set_verbosity
 
-        cd .. || exit
+		cd .. || exit
 
-        run "run_relation_departing_unit"
-    )
+		run "run_relation_departing_unit"
+	)
 }

@@ -1,7 +1,7 @@
 run_local_deploy() {
     echo
 
-    file="${2}"
+	file="${2}"
 
     ensure "test-local-deploy" "${file}"
 
@@ -35,13 +35,13 @@ run_charmstore_deploy() {
 
 
 test_deploy() {
-    if [ "$(skip 'test_deploy')" ]; then
-        echo "==> TEST SKIPPED: smoke deploy tests"
-        return
-    fi
+	if [ "$(skip 'test_deploy')" ]; then
+		echo "==> TEST SKIPPED: smoke deploy tests"
+		return
+	fi
 
-    (
-        set_verbosity
+	(
+		set_verbosity
 
         cd .. || exit
 
