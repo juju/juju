@@ -77,6 +77,7 @@ show_help() {
 	echo ""
 	echo "$(red 'Juju test suite')"
 	echo "¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯"
+	# shellcheck disable=SC2016
 	echo 'Juju tests suite expects you to have a Juju available on your $PATH,'
 	echo "so that if a tests needs to bootstrap it can just use that one"
 	echo "directly."
