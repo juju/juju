@@ -46,19 +46,13 @@ func (s *upgradeSeriesSuite) assertBackendApi(c *gc.C, tag names.Tag) (*common.U
 
 	unitAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
-			if tag.Id() == s.unitTag1.Id() {
-				return true
-			}
-			return false
+			return tag.Id() == s.unitTag1.Id()
 		}, nil
 	}
 
 	machineAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
-			if tag.Id() == s.machineTag1.Id() {
-				return true
-			}
-			return false
+			return tag.Id() == s.machineTag1.Id()
 		}, nil
 	}
 

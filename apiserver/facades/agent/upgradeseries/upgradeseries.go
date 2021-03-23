@@ -230,7 +230,7 @@ func (a *API) FinishUpgradeSeries(args params.UpdateSeriesArgs) (params.ErrorRes
 		if arg.Series == ms {
 			logger.Debugf("%q series is unchanged from %q", arg.Entity.Tag, ms)
 		} else {
-			if err := machine.UpdateMachineSeries(arg.Series, true); err != nil {
+			if err := machine.UpdateMachineSeries(arg.Series); err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
 			}

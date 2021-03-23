@@ -35,7 +35,7 @@ type UpgradeSeriesMachine interface {
 	RemoveUpgradeSeriesLock() error
 	UpgradeSeriesTarget() (string, error)
 	Series() string
-	UpdateMachineSeries(series string, force bool) error
+	UpdateMachineSeries(series string) error
 	SetInstanceStatus(status.StatusInfo) error
 }
 
