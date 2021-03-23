@@ -173,7 +173,6 @@ func (*serviceSuite) TestInstall(c *gc.C) {
 	clock.EXPECT().Now().Return(time.Now()).AnyTimes()
 
 	runnable := NewMockRunnable(ctrl)
-	runnable.EXPECT().Clock().Return(clock).AnyTimes()
 	runnable.EXPECT().Execute("snap", []string{"install", "core"}).Return("", nil)
 	runnable.EXPECT().Execute("snap", []string{"install", "--channel=4.0/stable", "juju-db"}).Return("", nil)
 
@@ -190,6 +189,7 @@ func (*serviceSuite) TestInstall(c *gc.C) {
 
 	s := &service
 	s.runnable = runnable
+	s.clock = clock
 	service = *s
 
 	err = service.Install()
@@ -212,7 +212,6 @@ func (*serviceSuite) TestInstallWithRetry(c *gc.C) {
 	})
 
 	runnable := NewMockRunnable(ctrl)
-	runnable.EXPECT().Clock().Return(clock).AnyTimes()
 	runnable.EXPECT().Execute("snap", []string{"install", "core"}).Return("", errors.New("bad"))
 	runnable.EXPECT().Execute("snap", []string{"install", "core"}).Return("", nil)
 	runnable.EXPECT().Execute("snap", []string{"install", "--channel=4.0/stable", "juju-db"}).Return("", nil)
@@ -230,6 +229,7 @@ func (*serviceSuite) TestInstallWithRetry(c *gc.C) {
 
 	s := &service
 	s.runnable = runnable
+	s.clock = clock
 	service = *s
 
 	err = service.Install()

@@ -43,7 +43,6 @@ var (
 // and return the output and/or error from that executing command.
 type Runnable interface {
 	Execute(name string, args ...string) (string, error)
-	Clock() clock.Clock
 }
 
 // BackgroundService represents the a service that snaps define.
@@ -153,6 +152,7 @@ type Installable interface {
 // Service is a type for services that are being managed by snapd as snaps.
 type Service struct {
 	runnable       Runnable
+	clock          clock.Clock
 	name           string
 	scriptRenderer shell.Renderer
 	executable     string
@@ -191,6 +191,7 @@ func NewService(mainSnap string, serviceName string, conf common.Conf, snapPath 
 
 	return Service{
 		runnable:       defaultRunner{},
+		clock:          clock.WallClock,
 		name:           serviceName,
 		scriptRenderer: &shell.BashRenderer{},
 		executable:     snapPath,
@@ -304,16 +305,17 @@ func (s Service) Installed() (bool, error) {
 // InstallCommands is part of the service.Service interface
 func (s Service) InstallCommands() ([]string, error) {
 	deps := s.app.Prerequisites()
-	commands := make([]string, 1+len(deps))
+	commands := make([]string, 0, 1+len(deps))
 
-	for i, dep := range deps {
-		commands[i] = fmt.Sprintf("%v %s", s.executable, strings.Join(dep.Install(), " "))
-		logger.Infof("preparing command: %v", commands[i])
+	for _, dep := range deps {
+		command := fmt.Sprintf("%v %s", s.executable, strings.Join(dep.Install(), " "))
+		commands = append(commands, command)
+		logger.Infof("preparing command: %v", command)
 	}
 
-	commands[len(commands)-1] = fmt.Sprintf("%v %s", s.executable, strings.Join(s.app.Install(), " "))
-	logger.Infof("preparing command: %v", commands[len(commands)-1])
-	return commands, nil
+	command := fmt.Sprintf("%v %s", s.executable, strings.Join(s.app.Install(), " "))
+	logger.Infof("preparing command: %v", command)
+	return append(commands, command), nil
 }
 
 // ConfigOverride writes a systemd override to enable the
@@ -323,12 +325,13 @@ func (s Service) ConfigOverride() error {
 		return nil
 	}
 
+	unitOptions := systemd.ServiceLimits(s.conf)
+	data, err := ioutil.ReadAll(systemd.UnitSerialize(unitOptions))
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for _, backgroundService := range s.app.BackgroundServices() {
-		unitOptions := systemd.ServiceLimits(s.conf)
-		data, err := ioutil.ReadAll(systemd.UnitSerialize(unitOptions))
-		if err != nil {
-			return errors.Trace(err)
-		}
 		overridesDir := fmt.Sprintf("%s/snap.%s.%s.service.d", s.configDir, s.name, backgroundService.Name)
 		if err := os.MkdirAll(overridesDir, 0755); err != nil {
 			return errors.Trace(err)
@@ -468,7 +471,7 @@ func (s Service) runCommand(args ...string) (string, error) {
 
 func (s Service) runCommandWithRetry(args ...string) (res string, err error) {
 	if resErr := retry.Call(retry.CallArgs{
-		Clock: s.runnable.Clock(),
+		Clock: s.clock,
 		Func: func() error {
 			res, err = s.runCommand(args...)
 			return errors.Trace(err)
@@ -487,8 +490,4 @@ type defaultRunner struct{}
 
 func (defaultRunner) Execute(name string, args ...string) (string, error) {
 	return utils.RunCommand(name, args...)
-}
-
-func (defaultRunner) Clock() clock.Clock {
-	return clock.WallClock
 }

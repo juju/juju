@@ -39,6 +39,7 @@ func (p ConfinementPolicy) Validate() error {
 	return errors.NotValidf("%s confinement", p)
 }
 
+// String representation of the confinement policy.
 func (p ConfinementPolicy) String() string {
 	return string(p)
 }
@@ -52,13 +53,14 @@ type App struct {
 	prerequisites      []Installable
 }
 
-// NewApp creates a new application from a given name.
+// NewNamedApp creates a new application from a given name.
 func NewNamedApp(name string) *App {
 	return &App{
 		name: name,
 	}
 }
 
+// NewApp creates a application along with it's dependencies.
 func NewApp(name string, channel string, policy ConfinementPolicy, services []BackgroundService, prerequisites []Installable) *App {
 	return &App{
 		name:               name,
