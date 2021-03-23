@@ -21,7 +21,7 @@ run_deploy_lxd_profile_charm() {
 	juju deploy cs:~juju-qa/bionic/lxd-profile-without-devices-5
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
 
-	juju status --format=json | jq ".machines | .[\"0\"] | .[\"lxd-profiles\"] | keys[0]" | check "juju-test-deploy-lxd-profile-lxd-profile"
+	juju status --format=json | jq '.machines | .["0"] | .["lxd-profiles"] | keys[0]' | check "juju-test-deploy-lxd-profile-lxd-profile"
 
 	destroy_model "test-deploy-lxd-profile"
 }
@@ -36,7 +36,7 @@ run_deploy_lxd_profile_charm_container() {
 	juju deploy cs:~juju-qa/bionic/lxd-profile-without-devices-5 --to lxd
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
 
-	juju status --format=json | jq ".machines | .[\"0\"] | .containers | .[\"0/lxd/0\"] | .[\"lxd-profiles\"] | keys[0]" |
+	juju status --format=json | jq '.machines | .["0"] | .containers | .["0/lxd/0"] | .["lxd-profiles"] | keys[0]' |
 		check "juju-test-deploy-lxd-profile-container-lxd-profile"
 
 	destroy_model "test-deploy-lxd-profile-container"
@@ -158,7 +158,7 @@ run_deploy_lxd_to_container() {
 
 	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
-	OUT=$(juju run --machine 0 -- sh -c "sudo lxc profile show \"juju-test-deploy-lxd-container-lxd-profile-alt-0\"")
+	OUT=$(juju run --machine 0 -- sh -c 'sudo lxc profile show "juju-test-deploy-lxd-container-lxd-profile-alt-0"')
 	echo "${OUT}" | grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
 
 	juju upgrade-charm "lxd-profile-alt" --path "${charm}"
@@ -170,7 +170,7 @@ run_deploy_lxd_to_container() {
 
 	attempt=0
 	while true; do
-		OUT=$(juju run --machine 0 -- sh -c "sudo lxc profile show \"juju-test-deploy-lxd-container-lxd-profile-alt-1\"" || echo 'NOT FOUND')
+		OUT=$(juju run --machine 0 -- sh -c 'sudo lxc profile show "juju-test-deploy-lxd-container-lxd-profile-alt-1"' || echo 'NOT FOUND')
 		if echo "${OUT}" | grep -E -q "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"; then
 			break
 		fi

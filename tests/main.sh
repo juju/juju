@@ -68,7 +68,7 @@ show_help() {
 	echo ""
 	echo "$(red 'Juju test suite')"
 	echo "¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯"
-	echo "Juju tests suite expects you to have a Juju available on your \$PATH,"
+	echo 'Juju tests suite expects you to have a Juju available on your $PATH,'
 	echo "so that if a tests needs to bootstrap it can just use that one"
 	echo "directly."
 	echo ""

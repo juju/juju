@@ -26,7 +26,7 @@ run_hook_dispatching_script() {
 	wait_for "Hello from update-status" "$(workload_status ubuntu-plus 0).message"
 
 	# check it was not via dispatch
-	juju debug-log --include unit-ubuntu-plus-0 | grep -q "ran \"update-status\" hook (via explicit, bespoke hook script)" || true
+	juju debug-log --include unit-ubuntu-plus-0 | grep -q 'ran "update-status" hook (via explicit, bespoke hook script)' || true
 
 	destroy_model "${model_name}"
 }

@@ -35,7 +35,7 @@ setup_nic_for_space_tests() {
 	isolated_subnet_id=$(aws ec2 describe-subnets --filters Name=cidr-block,Values=172.31.254.0/24 2>/dev/null | jq -r '.Subnets[0].SubnetId')
 	if [ -z "$isolated_subnet_id" ]; then
 		# shellcheck disable=SC2046
-		echo $(red "To run these tests you need to create a subnet with name \"isolated\" and CIDR \"172.31.254/24\"")
+		echo $(red 'To run these tests you need to create a subnet with name "isolated" and CIDR "172.31.254/24"')
 		exit 1
 	fi
 

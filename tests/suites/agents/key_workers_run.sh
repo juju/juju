@@ -12,7 +12,7 @@ run_charmrevisionupdater() {
 
 	# Wait for revision update worker to update the available revision.
 	# eg can-upgrade-to: cs:mysql-58
-	wait_for "cs:mysql-" ".applications[\"mysql\"] | .\"can-upgrade-to\""
+	wait_for "cs:mysql-" '.applications["mysql"] | ."can-upgrade-to"'
 
 	destroy_model "${model_name}"
 }

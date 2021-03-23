@@ -4,7 +4,7 @@ run_copyright() {
 	if [ "$LINES" != 0 ]; then
 		echo ""
 		echo "$(red 'Found some issues:')"
-		echo -e "\\nThe following files are missing copyright headers"
+		echo -e '\nThe following files are missing copyright headers'
 		echo "${OUT}"
 		exit 1
 	fi

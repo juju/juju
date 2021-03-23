@@ -43,8 +43,8 @@ run_deploy_manual_aws() {
 		aws ec2 wait vpc-available --vpc-ids "${vpc_id}"
 		aws ec2 create-tags --resources "${vpc_id}" --tags Key=Name,Value="manual-deploy"
 
-		aws ec2 modify-vpc-attribute --vpc-id "${vpc_id}" --enable-dns-support "{\"Value\":true}"
-		aws ec2 modify-vpc-attribute --vpc-id "${vpc_id}" --enable-dns-hostnames "{\"Value\":true}"
+		aws ec2 modify-vpc-attribute --vpc-id "${vpc_id}" --enable-dns-support '{"Value":true}'
+		aws ec2 modify-vpc-attribute --vpc-id "${vpc_id}" --enable-dns-hostnames '{"Value":true}'
 
 		igw_id=$(aws ec2 create-internet-gateway --query 'InternetGateway.InternetGatewayId' --output text)
 		aws ec2 attach-internet-gateway --internet-gateway-id "${igw_id}" --vpc-id "${vpc_id}"

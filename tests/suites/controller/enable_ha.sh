@@ -3,7 +3,7 @@ wait_for_controller_machines() {
 
 	attempt=0
 	# shellcheck disable=SC2143
-	until [[ "$(juju machines -m controller --format=json | jq -r ".machines | .[] | .[\"juju-status\"] | select(.current == \"started\") | .current" | wc -l | grep "${amount}")" ]]; do
+	until [[ "$(juju machines -m controller --format=json | jq -r '.machines | .[] | .["juju-status"] | select(.current == "started") | .current' | wc -l | grep "${amount}")" ]]; do
 		echo "[+] (attempt ${attempt}) polling machines"
 		juju machines -m controller 2>&1 | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
@@ -11,13 +11,13 @@ wait_for_controller_machines() {
 
 		# Wait for roughly 16 minutes for a enable-ha. In the field it's know
 		# that enable-ha can take this long.
-		if [[ "${attempt}" -gt 200 ]]; then
+		if [[ ${attempt} -gt 200 ]]; then
 			echo "enable-ha failed waiting for machines to start"
 			exit 1
 		fi
 	done
 
-	if [[ "${attempt}" -gt 0 ]]; then
+	if [[ ${attempt} -gt 0 ]]; then
 		echo "[+] $(green 'Completed polling machines')"
 		juju machines -m controller 2>&1 | sed 's/^/    | /g'
 
@@ -30,7 +30,7 @@ wait_for_ha() {
 
 	attempt=0
 	# shellcheck disable=SC2143
-	until [[ "$(juju show-controller --format=json | jq -r ".[] | .[\"controller-machines\"] | .[] | select(.[\"ha-status\"] == \"ha-enabled\") | .[\"instance-id\"]" | wc -l | grep "${amount}")" ]]; do
+	until [[ "$(juju show-controller --format=json | jq -r '.[] | .["controller-machines"] | .[] | select(.["ha-status"] == "ha-enabled") | .["instance-id"]' | wc -l | grep "${amount}")" ]]; do
 		echo "[+] (attempt ${attempt}) polling ha"
 		juju show-controller 2>&1 | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
@@ -38,13 +38,13 @@ wait_for_ha() {
 
 		# Wait for roughly 16 minutes for a enable-ha. In the field it's know
 		# that enable-ha can take this long.
-		if [[ "${attempt}" -gt 100 ]]; then
+		if [[ ${attempt} -gt 100 ]]; then
 			echo "enable-ha failed waiting for machines to start"
 			exit 1
 		fi
 	done
 
-	if [[ "${attempt}" -gt 0 ]]; then
+	if [[ ${attempt} -gt 0 ]]; then
 		echo "[+] $(green 'Completed polling ha')"
 		juju show-controller 2>&1 | sed 's/^/    | /g'
 
@@ -72,7 +72,7 @@ run_enable_ha() {
 	wait_for_controller_machines 1
 
 	# Ensure that we have no ha enabled machines.
-	juju show-controller --format=json | jq -r ".[] | .[\"controller-machines\"] |  reduce(.[] | select(.[\"instance-id\"] == null)) as \$i (0;.+=1)" | grep 0
+	juju show-controller --format=json | jq -r '.[] | .["controller-machines"] |  reduce(.[] | select(.["instance-id"] == null)) as $i (0;.+=1)' | grep 0
 
 	destroy_model "enable-ha"
 }

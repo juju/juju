@@ -216,7 +216,7 @@ destroy_model() {
 	echo "${name}" | xargs -I % juju destroy-model -y % >"${output}" 2>&1 || true
 	CHK=$(cat "${output}" | grep -i "ERROR" || true)
 	if [ -n "${CHK}" ]; then
-		printf "\\nFound some issues\\n"
+		printf '\nFound some issues\n'
 		cat "${output}"
 		exit 1
 	fi
@@ -239,7 +239,7 @@ destroy_controller() {
 	OUT=$(juju controllers --format=json | jq '.controllers | keys[]' | grep "${name}" || true)
 	# shellcheck disable=SC2181
 	if [ -z "${OUT}" ]; then
-		OUT=$(juju models --format=json | jq -r ".models | .[] | .[\"short-name\"]" | grep "^${name}$" || true)
+		OUT=$(juju models --format=json | jq -r '.models | .[] | .["short-name"]' | grep "^${name}$" || true)
 		if [ -z "${OUT}" ]; then
 			echo "====> ERROR Destroy controller/model. Unable to locate $(red "${name}")"
 			exit 1
@@ -276,7 +276,7 @@ destroy_controller() {
 	set +e
 	CHK=$(cat "${output}" | grep -i "ERROR" || true)
 	if [ -n "${CHK}" ]; then
-		printf "\\nFound some issues\\n"
+		printf '\nFound some issues\n'
 		cat "${output}"
 		exit 1
 	fi
@@ -320,10 +320,10 @@ remove_controller_offers() {
 
 	name=${1}
 
-	OUT=$(juju models -c "${name}" --format=json | jq -r ".[\"models\"] | .[] | select(.[\"is-controller\"] == false) | .name" || true)
+	OUT=$(juju models -c "${name}" --format=json | jq -r '.["models"] | .[] | select(.["is-controller"] == false) | .name' || true)
 	if [ -n "${OUT}" ]; then
 		echo "${OUT}" | while read -r model; do
-			OUT=$(juju offers -m "${name}:${model}" --format=json | jq -r ".[] | .[\"offer-url\"]" || true)
+			OUT=$(juju offers -m "${name}:${model}" --format=json | jq -r '.[] | .["offer-url"]' || true)
 			echo "${OUT}" | while read -r offer; do
 				if [ -n "${offer}" ]; then
 					juju remove-offer --force -y -c "${name}" "${offer}"

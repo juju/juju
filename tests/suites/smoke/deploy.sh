@@ -9,7 +9,7 @@ run_deploy() {
 	if [ -n "${CHK}" ]; then
 		echo ""
 		echo "$(red 'Found some issues:')"
-		cat "${file}" | xargs echo -I % "\\n%"
+		cat "${file}" | xargs echo -I % '\n%'
 		exit 1
 	fi
 
