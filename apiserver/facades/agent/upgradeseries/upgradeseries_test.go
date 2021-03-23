@@ -157,7 +157,7 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesUpgraded(c *gc.C) {
 
 	exp := s.machine.EXPECT()
 	exp.Series().Return("trusty")
-	exp.UpdateMachineSeries("xenial", true).Return(nil)
+	exp.UpdateMachineSeries("xenial").Return(nil)
 	exp.RemoveUpgradeSeriesLock().Return(nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
