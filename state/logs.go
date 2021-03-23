@@ -15,13 +15,13 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/juju/clock"
+	"github.com/juju/collections/deque"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/utils"
-	"github.com/juju/utils/deque"
 	"github.com/juju/version"
 	"gopkg.in/tomb.v2"
 
