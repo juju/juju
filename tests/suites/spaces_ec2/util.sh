@@ -22,16 +22,16 @@ add_multi_nic_machine() {
 		--network-interface-id ${hotplug_nic_id} \
 		--instance-id $(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${juju_machine_id}\"] | .[\"instance-id\"]")
 
-  # Add an entry to netplan and apply it so the second interface comes online
-  echo "[+] updating netplan and restarting machine agent"
-  # shellcheck disable=SC2086,SC2016
-  juju ssh ${juju_machine_id} 'sudo sh -c "sed -i \"/version:/d\" /etc/netplan/50-cloud-init.yaml"'
-  # shellcheck disable=SC2086,SC2016
-  juju ssh ${juju_machine_id} 'sudo sh -c "echo \"            gateway4: `ip route | grep default | cut -d\" \" -f3`\n        ens6:\n            dhcp4: true\n    version: 2\n\" >> /etc/netplan/50-cloud-init.yaml"'
-  # shellcheck disable=SC2086,SC2016
-  juju ssh ${juju_machine_id} 'sudo netplan apply'
-  # shellcheck disable=SC2086,SC2016
-  juju ssh ${juju_machine_id} 'sudo systemctl restart jujud-machine-*'
+	# Add an entry to netplan and apply it so the second interface comes online
+	echo "[+] updating netplan and restarting machine agent"
+	# shellcheck disable=SC2086,SC2016
+	juju ssh ${juju_machine_id} 'sudo sh -c "sed -i \"/version:/d\" /etc/netplan/50-cloud-init.yaml"'
+	# shellcheck disable=SC2086,SC2016
+	juju ssh ${juju_machine_id} 'sudo sh -c "echo \"            gateway4: `ip route | grep default | cut -d\" \" -f3`\n        ens6:\n            dhcp4: true\n    version: 2\n\" >> /etc/netplan/50-cloud-init.yaml"'
+	# shellcheck disable=SC2086,SC2016
+	juju ssh ${juju_machine_id} 'sudo netplan apply'
+	# shellcheck disable=SC2086,SC2016
+	juju ssh ${juju_machine_id} 'sudo systemctl restart jujud-machine-*'
 
 	# Wait for the interface to be detected by juju
 	echo "[+] waiting for juju to detect added NIC"

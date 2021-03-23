@@ -13,10 +13,10 @@ test_cli() {
 
 	bootstrap "test-cli" "${file}"
 
-    test_display_clouds
-    test_local_charms
-    test_model_config
-    test_model_defaults
+	test_display_clouds
+	test_local_charms
+	test_model_config
+	test_model_defaults
 
 	destroy_controller "test-cli"
 }

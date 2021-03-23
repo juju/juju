@@ -6,7 +6,7 @@ run_model_config_isomorphic() {
 
 	FILE=$(mktemp)
 
-  juju model-config --format=yaml | juju model-config --ignore-read-only-fields -
+	juju model-config --format=yaml | juju model-config --ignore-read-only-fields -
 
 	destroy_model "model-config-isomorphic"
 }
@@ -49,7 +49,7 @@ test_model_config() {
 
 		cd .. || exit
 
-    run "run_model_config_isomorphic"
-    run "run_model_config_cloudinit_userdata"
-  )
+		run "run_model_config_isomorphic"
+		run "run_model_config_cloudinit_userdata"
+	)
 }

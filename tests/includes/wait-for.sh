@@ -104,14 +104,13 @@ charm_rev() {
 # charm_channel gets the current juju-status object for the application and uses it
 # to find the application charm-channel.
 charm_channel() {
-    local app channel
+	local app channel
 
-    app=$1
-    channel=$2
+	app=$1
+	channel=$2
 
-    echo ".applications | select(.[\"$app\"] | .[\"charm-channel\"] == \"$channel\")"
+	echo ".applications | select(.[\"$app\"] | .[\"charm-channel\"] == \"$channel\")"
 }
-
 
 # wait_for_machine_agent_status blocks until the machine agent for the specified
 # machine instance ID reports the requested status.
@@ -155,19 +154,19 @@ wait_for_machine_agent_status() {
 # wait_for_machine_netif_count "i-1234" "42"
 # ```
 wait_for_machine_netif_count() {
-    local inst_id count
+	local inst_id count
 
-    inst_id=${1}
-    count=${2}
+	inst_id=${1}
+	count=${2}
 
-    attempt=0
-    # shellcheck disable=SC2046,SC2143
-    until [ $(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${inst_id}\"] | .[\"network-interfaces\"] | length" | grep "${count}") ]; do
-        # shellcheck disable=SC2046,SC2143
-        echo "[+] (attempt ${attempt}) network interface count for instance ${inst_id} = "$(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${inst_id}\"] | .[\"network-interfaces\"] | length")
-        sleep "${SHORT_TIMEOUT}"
-        attempt=$((attempt+1))
-    done
+	attempt=0
+	# shellcheck disable=SC2046,SC2143
+	until [ $(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${inst_id}\"] | .[\"network-interfaces\"] | length" | grep "${count}") ]; do
+		# shellcheck disable=SC2046,SC2143
+		echo "[+] (attempt ${attempt}) network interface count for instance ${inst_id} = "$(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${inst_id}\"] | .[\"network-interfaces\"] | length")
+		sleep "${SHORT_TIMEOUT}"
+		attempt=$((attempt + 1))
+	done
 
 }
 

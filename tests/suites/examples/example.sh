@@ -35,7 +35,7 @@ test_example() {
 
 		cd .. || exit
 
-        run "run_example1"
-        run "run_example2"
-    )
+		run "run_example1"
+		run "run_example2"
+	)
 }

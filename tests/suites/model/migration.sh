@@ -221,10 +221,10 @@ run_model_migration_saas_consumer() {
 }
 
 test_model_migration() {
-    if [ -n "$(skip 'test_model_migration')" ]; then
-        echo "==> SKIP: Asked to skip model migration tests"
-        return
-    fi
+	if [ -n "$(skip 'test_model_migration')" ]; then
+		echo "==> SKIP: Asked to skip model migration tests"
+		return
+	fi
 
 	(
 		set_verbosity

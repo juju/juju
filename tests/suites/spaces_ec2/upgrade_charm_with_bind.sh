@@ -16,10 +16,10 @@ run_upgrade_charm_with_bind() {
 	add_multi_nic_machine "$hotplug_nic_id"
 	juju_machine_id=$(juju show-machine --format json | jq -r '.["machines"] | keys[0]')
 
-    # Deploy test charm to dual-nic machine
-    juju deploy cs:~juju-qa/focal/space-defender-2 --bind "defend-a=alpha defend-b=isolated" --to "${juju_machine_id}" --force
-    unit_index=$(get_unit_index "space-defender")
-    wait_for "space-defender" "$(idle_condition "space-defender" 0 "${unit_index}")"
+	# Deploy test charm to dual-nic machine
+	juju deploy cs:~juju-qa/focal/space-defender-2 --bind "defend-a=alpha defend-b=isolated" --to "${juju_machine_id}" --force
+	unit_index=$(get_unit_index "space-defender")
+	wait_for "space-defender" "$(idle_condition "space-defender" 0 "${unit_index}")"
 
 	assert_net_iface_for_endpoint_matches "space-defender" "defend-a" "ens5"
 	assert_net_iface_for_endpoint_matches "space-defender" "defend-b" "ens6"

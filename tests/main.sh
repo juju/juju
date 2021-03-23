@@ -73,115 +73,116 @@ show_test_suites() {
 }
 
 show_help() {
-    version=$(juju version)
-    echo ""
-    echo "$(red 'Juju test suite')"
-    echo "¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯"
-    echo "Juju tests suite expects you to have a Juju available on your \$PATH,"
-    echo "so that if a tests needs to bootstrap it can just use that one"
-    echo "directly."
-    echo ""
-    echo "Juju Version:"
-    echo "¯¯¯¯¯¯¯¯¯¯¯¯¯"
-    echo "Using juju version: $(green "${version}")"
-    echo ""
-    echo "Usage:"
-    echo "¯¯¯¯¯¯"
-    echo "Flags should appear $(red 'before') arguments."
-    echo ""
-    echo "cmd [-h] [-v] [-A] [-s test] [-a file] [-x file] [-r] [-l controller] [-p provider type <lxd|aws|manual|microk8s>]"
-    echo ""
-    echo "    $(green './main.sh -h')        Display this help message"
-    echo "    $(green './main.sh -v')        Verbose and debug messages"
-    echo "    $(green './main.sh -A')        Run all the test suites"
-    echo "    $(green './main.sh -s')        Skip tests using a comma seperated list"
-    echo "    $(green './main.sh -a')        Create an artifact file"
-    echo "    $(green './main.sh -x')        Output file from streaming the output"
-    echo "    $(green './main.sh -r')        Reuse bootstrapped controller between testing suites"
-    echo "    $(green './main.sh -l')        Local bootstrapped controller name to reuse"
-    echo "    $(green './main.sh -p')        Bootstrap provider to use when bootstrapping <lxd|aws|manual|microk8s>"
-    echo "    $(green './main.sh -S')        Bootstrap series to use <default is host>, priority over -l"
-    echo ""
-    echo "Tests:"
-    echo "¯¯¯¯¯¯"
-    echo "Available tests:"
-    echo ""
+	version=$(juju version)
+	echo ""
+	echo "$(red 'Juju test suite')"
+	echo "¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯"
+	echo 'Juju tests suite expects you to have a Juju available on your $PATH,'
+	echo "so that if a tests needs to bootstrap it can just use that one"
+	echo "directly."
+	echo ""
+	echo "Juju Version:"
+	echo "¯¯¯¯¯¯¯¯¯¯¯¯¯"
+	echo "Using juju version: $(green "${version}")"
+	echo ""
+	echo "Usage:"
+	echo "¯¯¯¯¯¯"
+	echo "Flags should appear $(red 'before') arguments."
+	echo ""
+	echo "cmd [-h] [-v] [-A] [-s test] [-a file] [-x file] [-r] [-l controller] [-p provider type <lxd|aws|manual|microk8s>]"
+	echo ""
+	echo "    $(green './main.sh -h')        Display this help message"
+	echo "    $(green './main.sh -v')        Verbose and debug messages"
+	echo "    $(green './main.sh -A')        Run all the test suites"
+	echo "    $(green './main.sh -s')        Skip tests using a comma seperated list"
+	echo "    $(green './main.sh -a')        Create an artifact file"
+	echo "    $(green './main.sh -x')        Output file from streaming the output"
+	echo "    $(green './main.sh -r')        Reuse bootstrapped controller between testing suites"
+	echo "    $(green './main.sh -l')        Local bootstrapped controller name to reuse"
+	echo "    $(green './main.sh -p')        Bootstrap provider to use when bootstrapping <lxd|aws|manual|microk8s>"
+	echo "    $(green './main.sh -S')        Bootstrap series to use <default is host>, priority over -l"
+	echo ""
+	echo "Tests:"
+	echo "¯¯¯¯¯¯"
+	echo "Available tests:"
+	echo ""
 
-    # Let's use the TEST_NAMES to print out what's available
-    output=""
-    for test in ${TEST_NAMES}; do
-        name=$(echo "${test}" | sed -E "s/^run_//g" | sed -E "s/_/ /g")
-        # shellcheck disable=SC2086
-        output="${output}\n    $(green ${test})|Runs the ${name} tests"
-    done
-    echo -e "${output}" | column -t -s "|"
+	# Let's use the TEST_NAMES to print out what's available
+	output=""
+	for test in ${TEST_NAMES}; do
+		name=$(echo "${test}" | sed -E "s/^run_//g" | sed -E "s/_/ /g")
+		# shellcheck disable=SC2086
+		output="${output}\n    $(green ${test})|Runs the ${name} tests"
+	done
+	echo -e "${output}" | column -t -s "|"
 
-    echo ""
-    echo "Examples:"
-    echo "¯¯¯¯¯¯¯¯¯"
-    echo "Run a singular test:"
-    echo ""
-    echo "    $(green './main.sh static_analysis test_static_analysis_go')"
-    echo ""
-    echo "Run static analysis tests, but skip the go static analysis tests:"
-    echo ""
-    echo "    $(green './main.sh -s test_static_analysis_go static_analysis')"
-    echo ""
-    echo "Run a more verbose output and save that to an artifact tar (it"
-    echo "requires piping the output from stdout and stderr into a output.log,"
-    echo "which is then copied into the artifact tar file on test cleanup):"
-    echo ""
-    echo "    $(green './main.sh -v -a artifact.tar.gz -x output.log 2>&1|tee output.log')"
-    exit 1
+	echo ""
+	echo "Examples:"
+	echo "¯¯¯¯¯¯¯¯¯"
+	echo "Run a singular test:"
+	echo ""
+	echo "    $(green './main.sh static_analysis test_static_analysis_go')"
+	echo ""
+	echo "Run static analysis tests, but skip the go static analysis tests:"
+	echo ""
+	echo "    $(green './main.sh -s test_static_analysis_go static_analysis')"
+	echo ""
+	echo "Run a more verbose output and save that to an artifact tar (it"
+	echo "requires piping the output from stdout and stderr into a output.log,"
+	echo "which is then copied into the artifact tar file on test cleanup):"
+	echo ""
+	echo "    $(green './main.sh -v -a artifact.tar.gz -x output.log 2>&1|tee output.log')"
+	exit 1
 }
 
 while getopts "hH?vAs:a:x:rl:p:S:" opt; do
-    case "${opt}" in
-    h|\?)
-        show_help
-        ;;
-    H)
-        show_test_suites
-        ;;
-    v)
-        VERBOSE=2
-        alias juju="juju --debug"
-        ;;
-    A)
-        RUN_ALL="true"
-        ;;
-    s)
-        SKIP_LIST="${OPTARG}"
-        ;;
-    a)
-        ARITFACT_FILE="${OPTARG}"
-        ;;
-    x)
-        OUTPUT_FILE="${OPTARG}"
-        ;;
-    r)
-        export BOOTSTRAP_REUSE="true"
-        ;;
-    l)
-        export BOOTSTRAP_REUSE_LOCAL="${OPTARG}"
-        export BOOTSTRAP_REUSE="true"
-        CLOUD=$(juju show-controller "${OPTARG}" --format=json | jq -r ".[\"${OPTARG}\"] | .details | .cloud")
-        PROVIDER=$(juju clouds --client 2>/dev/null | grep "${CLOUD}" | awk '{print $4}' | head -n 1)
-        if [ -z "${PROVIDER}" ]; then
-            PROVIDER="${CLOUD}"
-        fi
-        export BOOTSTRAP_PROVIDER="${PROVIDER}"
-        ;;
-    p)
-        export BOOTSTRAP_PROVIDER="${OPTARG}"
-        ;;
-    S)
-        export BOOTSTRAP_SERIES="${OPTARG}"
-        ;;
-    *)
-        echo "Unexpected argument ${opt}" >&2
-        exit 1
-    esac
+	case "${opt}" in
+	h | \?)
+		show_help
+		;;
+	H)
+		show_test_suites
+		;;
+	v)
+		VERBOSE=2
+		alias juju="juju --debug"
+		;;
+	A)
+		RUN_ALL="true"
+		;;
+	s)
+		SKIP_LIST="${OPTARG}"
+		;;
+	a)
+		ARITFACT_FILE="${OPTARG}"
+		;;
+	x)
+		OUTPUT_FILE="${OPTARG}"
+		;;
+	r)
+		export BOOTSTRAP_REUSE="true"
+		;;
+	l)
+		export BOOTSTRAP_REUSE_LOCAL="${OPTARG}"
+		export BOOTSTRAP_REUSE="true"
+		CLOUD=$(juju show-controller "${OPTARG}" --format=json | jq -r ".[\"${OPTARG}\"] | .details | .cloud")
+		PROVIDER=$(juju clouds --client 2>/dev/null | grep "${CLOUD}" | awk '{print $4}' | head -n 1)
+		if [ -z "${PROVIDER}" ]; then
+			PROVIDER="${CLOUD}"
+		fi
+		export BOOTSTRAP_PROVIDER="${PROVIDER}"
+		;;
+	p)
+		export BOOTSTRAP_PROVIDER="${OPTARG}"
+		;;
+	S)
+		export BOOTSTRAP_SERIES="${OPTARG}"
+		;;
+	*)
+		echo "Unexpected argument ${opt}" >&2
+		exit 1
+		;;
+	esac
 done
 
 shift $((OPTIND - 1))

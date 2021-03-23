@@ -6,7 +6,7 @@ test_log_permissions() {
 	file="${TEST_DIR}/test_log_permissions.log"
 	ensure "correct-log" "${file}"
 
-  juju deploy cs:postgresql
+	juju deploy cs:postgresql
 
 	wait_for "started" '.machines."0"."juju-status".current'
 

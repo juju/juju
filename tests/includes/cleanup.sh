@@ -3,7 +3,7 @@ add_clean_func() {
 
 	name=${1}
 
-    echo "${name}" >> "${TEST_DIR}/cleanup"
+	echo "${name}" >>"${TEST_DIR}/cleanup"
 }
 
 # cleanup_funcs attempts to clean up with functions.

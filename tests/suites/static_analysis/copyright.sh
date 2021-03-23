@@ -1,13 +1,13 @@
 run_copyright() {
-    OUT=$(find . -name '*.go' | grep -v -E "(./vendor|./acceptancetests|./provider/azure/internal|./cloudconfig|./cmd/output/progress)" | sort | xargs grep -L -E '// (Copyright|Code generated)' || true)
-    LINES=$(echo "${OUT}" | wc -w)
-    if [ "$LINES" != 0 ]; then
-        echo ""
-        echo "$(red 'Found some issues:')"
-        echo -e "\\nThe following files are missing copyright headers"
-        echo "${OUT}"
-        exit 1
-    fi
+	OUT=$(find . -name '*.go' | grep -v -E "(./vendor|./acceptancetests|./provider/azure/internal|./cloudconfig|./cmd/output/progress)" | sort | xargs grep -L -E '// (Copyright|Code generated)' || true)
+	LINES=$(echo "${OUT}" | wc -w)
+	if [ "$LINES" != 0 ]; then
+		echo ""
+		echo "$(red 'Found some issues:')"
+		echo -e '\nThe following files are missing copyright headers'
+		echo "${OUT}"
+		exit 1
+	fi
 }
 
 test_copyright() {

@@ -1,5 +1,6 @@
 create_privileged_profile() {
-    PROFILE=$(cat <<'EOF'
+	PROFILE=$(
+		cat <<'EOF'
 config:
   security.nesting: "true"
   security.privileged: "true"
@@ -61,90 +62,91 @@ delete_user_profile() {
 }
 
 run_deploy_manual_lxd() {
-    echo
+	echo
 
-    echo "==> Checking for dependencies"
-    check_dependencies lxd
+	echo "==> Checking for dependencies"
+	check_dependencies lxd
 
-    name="tests-$(petname)"
+	name="tests-$(petname)"
 
-    ssh-keygen -f "${TEST_DIR}/${name}" \
-        -t rsa \
-        -C "ubuntu@${name}.com" \
-        -N ""
+	ssh-keygen -f "${TEST_DIR}/${name}" \
+		-t rsa \
+		-C "ubuntu@${name}.com" \
+		-N ""
 
-    create_privileged_profile
-    create_user_profile "${name}"
+	create_privileged_profile
+	create_user_profile "${name}"
 
-    series="bionic"
+	series="bionic"
 
-    controller="${name}-controller"
-    model1="${name}-m1"
-    model2="${name}-m2"
+	controller="${name}-controller"
+	model1="${name}-m1"
+	model2="${name}-m2"
 
-    launch_and_wait_addr() {
-        local container_name addr_result
+	launch_and_wait_addr() {
+		local container_name addr_result
 
-        container_name=${1}
-        addr_result=${2}
+		container_name=${1}
+		addr_result=${2}
 
-        lxc launch --profile default \
-             --profile profile-privileged \
-             --profile "profile-${name}" \
-             ubuntu:"${series}" "${container_name}"
+		lxc launch --profile default \
+			--profile profile-privileged \
+			--profile "profile-${name}" \
+			ubuntu:"${series}" "${container_name}"
 
-        local address=""
+		local address=""
 
-        attempt=0
-        while [ ${attempt} -lt 30 ]; do
-            address=$(lxc list "$1" --format json | \
-                jq --raw-output '.[0].state.network.eth0.addresses | map(select( .family == "inet")) | .[0].address')
+		attempt=0
+		while [ ${attempt} -lt 30 ]; do
+			address=$(lxc list "$1" --format json |
+				jq --raw-output '.[0].state.network.eth0.addresses | map(select( .family == "inet")) | .[0].address')
 
-            if echo "${address}" | grep -q '^[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+$'; then
-                echo "Using container address ${address}"
-                break
-            fi
-            sleep 1
-            attempt=$((attempt+1))
-        done
+			if echo "${address}" | grep -q '^[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+$'; then
+				echo "Using container address ${address}"
+				break
+			fi
+			sleep 1
+			attempt=$((attempt + 1))
+		done
 
-        # shellcheck disable=SC2086
-        eval $addr_result="'${address}'"
-    }
+		# shellcheck disable=SC2086
+		eval $addr_result="'${address}'"
+	}
 
-    launch_and_wait_addr "${controller}" addr_c
-    launch_and_wait_addr "${model1}" addr_m1
-    launch_and_wait_addr "${model2}" addr_m2
+	launch_and_wait_addr "${controller}" addr_c
+	launch_and_wait_addr "${model1}" addr_m1
+	launch_and_wait_addr "${model2}" addr_m2
 
-    # shellcheck disable=SC2154
-    for addr in "${addr_c}" "${addr_m1}" "${addr_m2}"; do
-        ssh-keygen -f "${HOME}/.ssh/known_hosts" -R "${addr}"
+	# shellcheck disable=SC2154
+	for addr in "${addr_c}" "${addr_m1}" "${addr_m2}"; do
+		ssh-keygen -f "${HOME}/.ssh/known_hosts" -R "${addr}"
 
-        attempt=0
-        while [ ${attempt} -lt 10 ]; do
-            OUT=$(ssh -T -n -i "${TEST_DIR}/${name}" \
-                -o IdentitiesOnly=yes \
-                -o StrictHostKeyChecking=no \
-                -o AddKeysToAgent=yes \
-                ubuntu@"${addr}" 2>&1 || true)
-            if echo "${OUT}" | grep -q -v "Could not resolve hostname"; then
-                echo "Adding ssh key to ${addr}"
-                break
-            fi
+		attempt=0
+		while [ ${attempt} -lt 10 ]; do
+			OUT=$(ssh -T -n -i "${TEST_DIR}/${name}" \
+				-o IdentitiesOnly=yes \
+				-o StrictHostKeyChecking=no \
+				-o AddKeysToAgent=yes \
+				ubuntu@"${addr}" 2>&1 || true)
+			if echo "${OUT}" | grep -q -v "Could not resolve hostname"; then
+				echo "Adding ssh key to ${addr}"
+				break
+			fi
 
-            sleep 1
-            attempt=$((attempt+1))
-        done
+			sleep 1
+			attempt=$((attempt + 1))
+		done
 
-        if [ "${attempt}" -ge 10 ]; then
-            echo "Failed to add key to ${addr}"
-            exit 1
-        fi
-    done
+		if [ "${attempt}" -ge 10 ]; then
+			echo "Failed to add key to ${addr}"
+			exit 1
+		fi
+	done
 
-    cloud_name="cloud-${name}"
+	cloud_name="cloud-${name}"
 
-    CLOUD=$(cat <<EOF
+	CLOUD=$(
+		cat <<EOF
 clouds:
   ${cloud_name}:
     type: manual

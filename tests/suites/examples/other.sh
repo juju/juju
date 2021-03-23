@@ -20,6 +20,6 @@ test_other() {
 
 		cd .. || exit
 
-        run "run_other"
-    )
+		run "run_other"
+	)
 }

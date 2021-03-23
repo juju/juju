@@ -1,28 +1,28 @@
 test_deploy_manual() {
-    if [ "$(skip 'test_deploy_manual')" ]; then
-        echo "==> TEST SKIPPED: deploy manual"
-        return
-    fi
+	if [ "$(skip 'test_deploy_manual')" ]; then
+		echo "==> TEST SKIPPED: deploy manual"
+		return
+	fi
 
-    (
-        set_verbosity
+	(
+		set_verbosity
 
-        cd .. || exit
+		cd .. || exit
 
-        case "${BOOTSTRAP_PROVIDER:-}" in
-            "lxd" | "localhost")
-                export BOOTSTRAP_PROVIDER="manual"
-                run "run_deploy_manual_lxd"
-                ;;
-            "aws" | "ec2")
-                export BOOTSTRAP_PROVIDER="manual"
-                run "run_deploy_manual_aws"
-                ;;
-            *)
-                echo "==> TEST SKIPPED: deploy manual - tests for LXD and AWS only"
-                ;;
-        esac
-    )
+		case "${BOOTSTRAP_PROVIDER:-}" in
+		"lxd" | "localhost")
+			export BOOTSTRAP_PROVIDER="manual"
+			run "run_deploy_manual_lxd"
+			;;
+		"aws" | "ec2")
+			export BOOTSTRAP_PROVIDER="manual"
+			run "run_deploy_manual_aws"
+			;;
+		*)
+			echo "==> TEST SKIPPED: deploy manual - tests for LXD and AWS only"
+			;;
+		esac
+	)
 }
 
 manual_deploy() {
@@ -44,7 +44,7 @@ manual_deploy() {
 
 	juju enable-ha >"${TEST_DIR}/enable-ha.log" 2>&1
 
-    juju deploy percona-cluster
+	juju deploy percona-cluster
 
 	wait_for "percona-cluster" "$(idle_condition "percona-cluster" 0 0)"
 
@@ -52,5 +52,5 @@ manual_deploy() {
 
 	destroy_controller "test-${name}"
 
-    delete_user_profile "${name}"
+	delete_user_profile "${name}"
 }

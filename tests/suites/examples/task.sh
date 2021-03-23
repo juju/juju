@@ -17,5 +17,5 @@ test_examples() {
 	test_example
 	test_other
 
-    destroy_controller "test-example"
+	destroy_controller "test-example"
 }

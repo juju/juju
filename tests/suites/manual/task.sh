@@ -9,6 +9,6 @@ test_manual() {
 	echo "==> Checking for dependencies"
 	check_dependencies juju petname
 
-    test_deploy_manual
-    test_spaces_manual
+	test_deploy_manual
+	test_spaces_manual
 }

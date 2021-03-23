@@ -7,14 +7,14 @@ juju_version() {
 }
 
 jujud_version() {
-    version=$(jujud version)
+	version=$(jujud version)
 
-    # shellcheck disable=SC2116
-    version=$(echo "${version%-*}")
-    # shellcheck disable=SC2116
-    version=$(echo "${version%-*}")
+	# shellcheck disable=SC2116
+	version=$(echo "${version%-*}")
+	# shellcheck disable=SC2116
+	version=$(echo "${version%-*}")
 
-    echo "${version}"
+	echo "${version}"
 }
 
 # ensure will check if there is a bootstrapped controller that it can take
@@ -52,91 +52,92 @@ ensure() {
 # bootstrap <model name> <file to output logs>
 # ```
 bootstrap() {
-    local provider name output model bootstrapped_name
-    case "${BOOTSTRAP_PROVIDER:-}" in
-        "aws" | "ec2")
-            provider="aws"
-            ;;
-        "localhost" | "lxd")
-            provider="lxd"
-            ;;
-        "lxd-remote")
-            provider="lxd-remote"
-            ;;
-        "manual")
-            manual_name=${1}
-            shift
+	local provider name output model bootstrapped_name
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"aws" | "ec2")
+		provider="aws"
+		;;
+	"localhost" | "lxd")
+		provider="lxd"
+		;;
+	"lxd-remote")
+		provider="lxd-remote"
+		;;
+	"manual")
+		manual_name=${1}
+		shift
 
-            provider="${manual_name}"
-            ;;
-        "microk8s")
-            provider="microk8s"
-            ;;
-        *)
-            echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."
-            exit 1
-    esac
+		provider="${manual_name}"
+		;;
+	"microk8s")
+		provider="microk8s"
+		;;
+	*)
+		echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."
+		exit 1
+		;;
+	esac
 
-    model=${1}
-    shift
+	model=${1}
+	shift
 
-    output=${1}
-    shift
+	output=${1}
+	shift
 
-    rnd=$(rnd_str)
-    name="ctrl-${rnd}"
+	rnd=$(rnd_str)
+	name="ctrl-${rnd}"
 
-    if [ ! -f "${TEST_DIR}/jujus" ]; then
-        touch "${TEST_DIR}/jujus"
-    fi
-    bootstrapped_name=$(grep "." "${TEST_DIR}/jujus" | tail -n 1)
-    if [ -z "${bootstrapped_name}" ]; then
-        # shellcheck disable=SC2236
-        if [ ! -z "${BOOTSTRAP_REUSE_LOCAL}" ]; then
-            bootstrapped_name="${BOOTSTRAP_REUSE_LOCAL}"
-            export BOOTSTRAP_REUSE="true"
-        else
-            # No bootstrapped juju found, unset the the variable.
-            echo "====> Unable to reuse bootstrapped juju"
-            export BOOTSTRAP_REUSE="false"
-        fi
-    fi
-    if [ "${BOOTSTRAP_REUSE}" = "true" ]; then
-        OUT=$(juju show-machine -m "${bootstrapped_name}":controller --format=json | jq -r ".machines | .[] | .series")
-        if [ -n "${OUT}" ]; then
-            OUT=$(echo "${OUT}" | grep -oh "${BOOTSTRAP_SERIES}" || true)
-            if [ "${OUT}" != "${BOOTSTRAP_SERIES}" ]; then
-                echo "====> Unable to reuse bootstrapped juju"
-                export BOOTSTRAP_REUSE="false"
-            fi
-        fi
-    fi
+	if [ ! -f "${TEST_DIR}/jujus" ]; then
+		touch "${TEST_DIR}/jujus"
+	fi
+	bootstrapped_name=$(grep "." "${TEST_DIR}/jujus" | tail -n 1)
+	if [ -z "${bootstrapped_name}" ]; then
+		# shellcheck disable=SC2236
+		if [ ! -z "${BOOTSTRAP_REUSE_LOCAL}" ]; then
+			bootstrapped_name="${BOOTSTRAP_REUSE_LOCAL}"
+			export BOOTSTRAP_REUSE="true"
+		else
+			# No bootstrapped juju found, unset the the variable.
+			echo "====> Unable to reuse bootstrapped juju"
+			export BOOTSTRAP_REUSE="false"
+		fi
+	fi
+	if [ "${BOOTSTRAP_REUSE}" = "true" ]; then
+		OUT=$(juju show-machine -m "${bootstrapped_name}":controller --format=json | jq -r ".machines | .[] | .series")
+		if [ -n "${OUT}" ]; then
+			OUT=$(echo "${OUT}" | grep -oh "${BOOTSTRAP_SERIES}" || true)
+			if [ "${OUT}" != "${BOOTSTRAP_SERIES}" ]; then
+				echo "====> Unable to reuse bootstrapped juju"
+				export BOOTSTRAP_REUSE="false"
+			fi
+		fi
+	fi
 
-    version=$(juju_version)
+	version=$(juju_version)
 
-    START_TIME=$(date +%s)
-    if [ "${BOOTSTRAP_REUSE}" = "true" ]; then
-        echo "====> Reusing bootstrapped juju ($(green "${version}:${provider}"))"
+	START_TIME=$(date +%s)
+	if [ "${BOOTSTRAP_REUSE}" = "true" ]; then
+		echo "====> Reusing bootstrapped juju ($(green "${version}:${provider}"))"
 
-        OUT=$(juju models -c "${bootstrapped_name}" --format=json 2>/dev/null | jq '.models[] | .["short-name"]' | grep "${model}" || true)
-        if [ -n "${OUT}" ]; then
-            echo "${model} already exists. Use the following to clean up the environment:"
-            echo "    juju switch ${bootstrapped_name}"
-            echo "    juju destroy-model -y ${model}"
-            exit 1
-        fi
+		OUT=$(juju models -c "${bootstrapped_name}" --format=json 2>/dev/null | jq '.models[] | .["short-name"]' | grep "${model}" || true)
+		if [ -n "${OUT}" ]; then
+			echo "${model} already exists. Use the following to clean up the environment:"
+			echo "    juju switch ${bootstrapped_name}"
+			echo "    juju destroy-model -y ${model}"
+			exit 1
+		fi
 
-        add_model "${model}" "${provider}" "${bootstrapped_name}" "${output}"
-        name="${bootstrapped_name}"
-    else
-        echo "====> Bootstrapping juju ($(green "${version}:${provider}"))"
-        juju_bootstrap "${provider}" "${name}" "${model}" "${output}"
-    fi
-    END_TIME=$(date +%s)
+		add_model "${model}" "${provider}" "${bootstrapped_name}" "${output}"
+		name="${bootstrapped_name}"
+	else
+		echo "====> Bootstrapping juju ($(green "${version}:${provider}"))"
+		juju_bootstrap "${provider}" "${name}" "${model}" "${output}"
+	fi
+	END_TIME=$(date +%s)
 
-    echo "====> Bootstrapped juju ($((END_TIME-START_TIME))s)"
+	echo "====> Bootstrapped juju ($((END_TIME - START_TIME))s)"
 
-    export BOOTSTRAPPED_JUJU_CTRL_NAME="${name}"
+	export BOOTSTRAPPED_JUJU_CTRL_NAME="${name}"
 }
 
 # add_model is used to add a model for tracking. This is for internal use only

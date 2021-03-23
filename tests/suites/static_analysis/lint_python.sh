@@ -1,6 +1,6 @@
 run_compileall() {
-  rsync -r --exclude-from=acceptancetests/.gitignore acceptancetests "${TEST_DIR}/"
-  cp -R scripts "${TEST_DIR}/"
+	rsync -r --exclude-from=acceptancetests/.gitignore acceptancetests "${TEST_DIR}/"
+	cp -R scripts "${TEST_DIR}/"
 
 	CURRENT_DIRECTORY=$(pwd)
 	cd "${TEST_DIR}" || exit

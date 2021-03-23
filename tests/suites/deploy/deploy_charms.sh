@@ -12,18 +12,18 @@ run_deploy_charm() {
 }
 
 run_deploy_specific_series() {
-    echo
+	echo
 
-    file="${TEST_DIR}/test-deploy-specific-series.log"
+	file="${TEST_DIR}/test-deploy-specific-series.log"
 
-    ensure "test-deploy-specific-series" "${file}"
+	ensure "test-deploy-specific-series" "${file}"
 
-    juju deploy cs:postgresql --series bionic
-    series=$(juju status --format=json | jq ".applications.postgresql.series")
+	juju deploy cs:postgresql --series bionic
+	series=$(juju status --format=json | jq ".applications.postgresql.series")
 
-    destroy_model "test-deploy-specific-series"
+	destroy_model "test-deploy-specific-series"
 
-    echo "$series" | check "bionic"
+	echo "$series" | check "bionic"
 }
 
 run_deploy_lxd_profile_charm() {
@@ -48,8 +48,8 @@ run_deploy_lxd_profile_charm_container() {
 
 	ensure "test-deploy-lxd-profile-container" "${file}"
 
-    juju deploy cs:~juju-qa/bionic/lxd-profile-without-devices-5 --to lxd --series=bionic
-    wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
+	juju deploy cs:~juju-qa/bionic/lxd-profile-without-devices-5 --to lxd --series=bionic
+	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
 
 	juju status --format=json | jq '.machines | .["0"] | .containers | .["0/lxd/0"] | .["lxd-profiles"] | keys[0]' |
 		check "juju-test-deploy-lxd-profile-container-lxd-profile"
@@ -64,9 +64,9 @@ run_deploy_local_lxd_profile_charm() {
 
 	ensure "test-deploy-local-lxd-profile" "${file}"
 
-    juju deploy ./tests/suites/deploy/charms/lxd-profile --series=bionic
-    juju deploy ./tests/suites/deploy/charms/lxd-profile-subordinate
-    juju add-relation lxd-profile-subordinate lxd-profile
+	juju deploy ./tests/suites/deploy/charms/lxd-profile --series=bionic
+	juju deploy ./tests/suites/deploy/charms/lxd-profile-subordinate
+	juju add-relation lxd-profile-subordinate lxd-profile
 
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
 	wait_for "lxd-profile-subordinate" ".applications | keys[1]"
@@ -101,151 +101,151 @@ run_deploy_local_lxd_profile_charm() {
 }
 
 run_deploy_lxd_to_machine() {
-    echo
+	echo
 
-    model_name="test-deploy-lxd-machine"
-    file="${TEST_DIR}/${model_name}.log"
+	model_name="test-deploy-lxd-machine"
+	file="${TEST_DIR}/${model_name}.log"
 
-    ensure "${model_name}" "${file}"
+	ensure "${model_name}" "${file}"
 
-    juju add-machine -n 1 --series=bionic
+	juju add-machine -n 1 --series=bionic
 
-    charm=./tests/suites/deploy/charms/lxd-profile-alt
-    juju deploy "${charm}" --to 0 --series=bionic
+	charm=./tests/suites/deploy/charms/lxd-profile-alt
+	juju deploy "${charm}" --to 0 --series=bionic
 
-    wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
+	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
-    lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-0" | \
-        grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
+	lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-0" |
+		grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
 
-    juju upgrade-charm "lxd-profile-alt" --path "${charm}"
+	juju upgrade-charm "lxd-profile-alt" --path "${charm}"
 
-    # Ensure that an upgrade will be kicked off. This doesn't mean an upgrade
-    # has finished though, just started.
-    wait_for "lxd-profile-alt" "$(charm_rev "lxd-profile-alt" 1)"
-    wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
+	# Ensure that an upgrade will be kicked off. This doesn't mean an upgrade
+	# has finished though, just started.
+	wait_for "lxd-profile-alt" "$(charm_rev "lxd-profile-alt" 1)"
+	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
-    attempt=0
-    while true; do
-        OUT=$(lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-1" | grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?" || echo 'NOT FOUND')
-        if [ "${OUT}" != "NOT FOUND" ]; then
-            break
-        fi
-        lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-1"
-        attempt=$((attempt+1))
-        if [ $attempt -eq 10 ]; then
-             # shellcheck disable=SC2046
-             echo $(red "timeout: waiting for lxc profile to show 50sec")
-             exit 5
-        fi
-        sleep 5
-    done
+	attempt=0
+	while true; do
+		OUT=$(lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-1" | grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?" || echo 'NOT FOUND')
+		if [ "${OUT}" != "NOT FOUND" ]; then
+			break
+		fi
+		lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-1"
+		attempt=$((attempt + 1))
+		if [ $attempt -eq 10 ]; then
+			# shellcheck disable=SC2046
+			echo $(red "timeout: waiting for lxc profile to show 50sec")
+			exit 5
+		fi
+		sleep 5
+	done
 
-    # Ensure that the old one is removed
-    attempt=0
-    while true; do
-        OUT=$(lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-0" || echo 'NOT FOUND')
-        if [[ "${OUT}" = "NOT FOUND" ]]; then
-            break
-        fi
-        attempt=$((attempt+1))
-        if [ $attempt -eq 10 ]; then
-             # shellcheck disable=SC2046
-             echo $(red "timeout: waiting for removal of lxc profile 50sec")
-             exit 5
-        fi
-        sleep 5
-    done
+	# Ensure that the old one is removed
+	attempt=0
+	while true; do
+		OUT=$(lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-0" || echo 'NOT FOUND')
+		if [[ ${OUT} == "NOT FOUND" ]]; then
+			break
+		fi
+		attempt=$((attempt + 1))
+		if [ $attempt -eq 10 ]; then
+			# shellcheck disable=SC2046
+			echo $(red "timeout: waiting for removal of lxc profile 50sec")
+			exit 5
+		fi
+		sleep 5
+	done
 
-    destroy_model "${model_name}"
+	destroy_model "${model_name}"
 }
 
 run_deploy_lxd_to_container() {
-    echo
+	echo
 
-    model_name="test-deploy-lxd-container"
-    file="${TEST_DIR}/${model_name}.log"
+	model_name="test-deploy-lxd-container"
+	file="${TEST_DIR}/${model_name}.log"
 
-    ensure "${model_name}" "${file}"
+	ensure "${model_name}" "${file}"
 
-    charm=./tests/suites/deploy/charms/lxd-profile-alt
-    juju deploy "${charm}" --to lxd --series=bionic
+	charm=./tests/suites/deploy/charms/lxd-profile-alt
+	juju deploy "${charm}" --to lxd --series=bionic
 
-    wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
+	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
-    OUT=$(juju run --machine 0 -- sh -c "sudo lxc profile show \"juju-test-deploy-lxd-container-lxd-profile-alt-0\"")
-    echo "${OUT}" | grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
+	OUT=$(juju run --machine 0 -- sh -c 'sudo lxc profile show "juju-test-deploy-lxd-container-lxd-profile-alt-0"')
+	echo "${OUT}" | grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
 
-    juju upgrade-charm "lxd-profile-alt" --path "${charm}"
+	juju upgrade-charm "lxd-profile-alt" --path "${charm}"
 
-    # Ensure that an upgrade will be kicked off. This doesn't mean an upgrade
-    # has finished though, just started.
-    wait_for "lxd-profile-alt" "$(charm_rev "lxd-profile-alt" 1)"
-    wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
+	# Ensure that an upgrade will be kicked off. This doesn't mean an upgrade
+	# has finished though, just started.
+	wait_for "lxd-profile-alt" "$(charm_rev "lxd-profile-alt" 1)"
+	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
-    attempt=0
-    while true; do
-        OUT=$(juju run --machine 0 -- sh -c "sudo lxc profile show \"juju-test-deploy-lxd-container-lxd-profile-alt-1\"" || echo 'NOT FOUND')
-        if echo "${OUT}" | grep -E -q "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"; then
-            break
-        fi
-        attempt=$((attempt+1))
-        if [ $attempt -eq 10 ]; then
-             # shellcheck disable=SC2046
-             echo $(red "timeout: waiting for lxc profile to show 50sec")
-             exit 5
-        fi
-        sleep 5
-    done
+	attempt=0
+	while true; do
+		OUT=$(juju run --machine 0 -- sh -c 'sudo lxc profile show "juju-test-deploy-lxd-container-lxd-profile-alt-1"' || echo 'NOT FOUND')
+		if echo "${OUT}" | grep -E -q "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"; then
+			break
+		fi
+		attempt=$((attempt + 1))
+		if [ $attempt -eq 10 ]; then
+			# shellcheck disable=SC2046
+			echo $(red "timeout: waiting for lxc profile to show 50sec")
+			exit 5
+		fi
+		sleep 5
+	done
 
-    # Ensure that the old one is removed
-    attempt=0
-    while true; do
-        OUT=$(juju run --machine 0 -- sh -c "sudo lxc profile list" || echo 'NOT FOUND')
-        if echo "${OUT}" | grep -v "juju-test-deploy-lxd-container-lxd-profile-alt-0"; then
-            break
-        fi
-        attempt=$((attempt+1))
-        if [ $attempt -eq 10 ]; then
-             # shellcheck disable=SC2046
-             echo $(red "timeout: waiting for lxc profile to show 50sec")
-             exit 5
-        fi
-        sleep 5
-    done
+	# Ensure that the old one is removed
+	attempt=0
+	while true; do
+		OUT=$(juju run --machine 0 -- sh -c "sudo lxc profile list" || echo 'NOT FOUND')
+		if echo "${OUT}" | grep -v "juju-test-deploy-lxd-container-lxd-profile-alt-0"; then
+			break
+		fi
+		attempt=$((attempt + 1))
+		if [ $attempt -eq 10 ]; then
+			# shellcheck disable=SC2046
+			echo $(red "timeout: waiting for lxc profile to show 50sec")
+			exit 5
+		fi
+		sleep 5
+	done
 
-    destroy_model "${model_name}"
+	destroy_model "${model_name}"
 }
 
 test_deploy_charms() {
-    if [ "$(skip 'test_deploy_charms')" ]; then
-        echo "==> TEST SKIPPED: deploy charms"
-        return
-    fi
+	if [ "$(skip 'test_deploy_charms')" ]; then
+		echo "==> TEST SKIPPED: deploy charms"
+		return
+	fi
 
-    (
-        set_verbosity
+	(
+		set_verbosity
 
-        cd .. || exit
+		cd .. || exit
 
-        run "run_deploy_charm"
-        run "run_deploy_specific_series"
-        run "run_deploy_lxd_to_container"
-        run "run_deploy_lxd_profile_charm_container"
+		run "run_deploy_charm"
+		run "run_deploy_specific_series"
+		run "run_deploy_lxd_to_container"
+		run "run_deploy_lxd_profile_charm_container"
 
-        case "${BOOTSTRAP_PROVIDER:-}" in
-            "lxd" | "localhost")
-                run "run_deploy_lxd_to_machine"
-                run "run_deploy_lxd_profile_charm"
-                run "run_deploy_local_lxd_profile_charm"
-                ;;
-            *)
-                echo "==> TEST SKIPPED: deploy_lxd_to_machine - tests for LXD only"
-                echo "==> TEST SKIPPED: deploy_lxd_profile_charm - tests for LXD only"
-                echo "==> TEST SKIPPED: deploy_local_lxd_profile_charm - tests for LXD only"
-                ;;
-        esac
-    )
+		case "${BOOTSTRAP_PROVIDER:-}" in
+		"lxd" | "localhost")
+			run "run_deploy_lxd_to_machine"
+			run "run_deploy_lxd_profile_charm"
+			run "run_deploy_local_lxd_profile_charm"
+			;;
+		*)
+			echo "==> TEST SKIPPED: deploy_lxd_to_machine - tests for LXD only"
+			echo "==> TEST SKIPPED: deploy_lxd_profile_charm - tests for LXD only"
+			echo "==> TEST SKIPPED: deploy_local_lxd_profile_charm - tests for LXD only"
+			;;
+		esac
+	)
 }
 
 machine_path() {
@@ -262,5 +262,5 @@ machine_container_path() {
 	machine=${1}
 	container=${2}
 
-    echo ".machines | .[\"${machine}\"] | .containers | .[\"${container}\"] | .[\"lxd-profiles\"] | keys"
+	echo ".machines | .[\"${machine}\"] | .containers | .[\"${container}\"] | .[\"lxd-profiles\"] | keys"
 }

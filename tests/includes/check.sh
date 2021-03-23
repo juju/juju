@@ -59,30 +59,30 @@ check_contains() {
 	value=${1}
 	shift
 
-    chk=$(echo "${input}" | grep "${value}" || true)
-    if [ -z "${chk}" ]; then
-        printf "Expected \"%s\" not found\n\n%s\n" "${value}" "${input}" >&2
-        exit 1
-    else
-        echo "Success: \"${value}\" found" >&2
-    fi
+	chk=$(echo "${input}" | grep "${value}" || true)
+	if [ -z "${chk}" ]; then
+		printf "Expected \"%s\" not found\n\n%s\n" "${value}" "${input}" >&2
+		exit 1
+	else
+		echo "Success: \"${value}\" found" >&2
+	fi
 }
 
 check_gt() {
-    local input value chk
+	local input value chk
 
-    input=${1}
-    shift
+	input=${1}
+	shift
 
-    value=${1}
-    shift
+	value=${1}
+	shift
 
-    if [[ "${input}" > "${value}" ]]; then
-        echo "Success: \"%s\" > \"%s\"" "${input}" "${value}" >&2
-    else
-        printf "Expected \"%s\" > \"%s\"\n" "${input}" "${value}" >&2
-        exit 1
-    fi
+	if [[ ${input} > ${value} ]]; then
+		echo 'Success: "%s" > "%s"' "${input}" "${value}" >&2
+	else
+		printf "Expected \"%s\" > \"%s\"\n" "${input}" "${value}" >&2
+		exit 1
+	fi
 }
 
 check() {
