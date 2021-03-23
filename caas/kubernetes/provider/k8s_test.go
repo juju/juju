@@ -1158,6 +1158,7 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 	}, {
 		Name:  "test2",
 		Ports: []specs.ContainerPort{{ContainerPort: 8080, Protocol: "TCP", Name: "fred"}},
+		Init:  true,
 		Image: "juju/image2",
 		VolumeConfig: []specs.FileSet{
 			{
@@ -1205,7 +1206,10 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 				Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 			},
 			VolumeMounts: dataVolumeMounts(),
-		}, {
+		},
+	}
+	workloadSpec.Pod.InitContainers = []core.Container{
+		{
 			Name:  "test2",
 			Image: "juju/image2",
 			Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
@@ -1271,7 +1275,10 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 				{Name: "cache-volume", MountPath: "/empty-dir"},
 				{Name: "cache-volume", MountPath: "/another-empty-dir"},
 			}...),
-		}, {
+		},
+	})
+	c.Assert(workloadSpec.Pod.InitContainers, gc.DeepEquals, []core.Container{
+		{
 			Name:  "test2",
 			Image: "juju/image2",
 			Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
