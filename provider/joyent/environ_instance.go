@@ -11,7 +11,7 @@ import (
 	"github.com/joyent/gocommon/client"
 	"github.com/joyent/gosdc/cloudapi"
 	"github.com/juju/errors"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"

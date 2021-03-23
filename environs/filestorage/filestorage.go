@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/environs/storage"
 )

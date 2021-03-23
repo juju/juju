@@ -17,7 +17,7 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"

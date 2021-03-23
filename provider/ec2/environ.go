@@ -17,7 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"

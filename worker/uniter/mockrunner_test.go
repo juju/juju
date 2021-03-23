@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	utilexec "github.com/juju/utils/exec"
+	utilexec "github.com/juju/utils/v2/exec"
 
 	"github.com/juju/juju/worker/uniter/runner"
 )

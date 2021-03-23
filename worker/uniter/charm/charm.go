@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/charm/v7"
 	"github.com/juju/collections/set"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 )
 
 // Logger is here to stop the desire of creating a package level Logger.

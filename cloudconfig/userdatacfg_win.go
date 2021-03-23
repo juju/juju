@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/cert"
+	"github.com/juju/utils/v2/cert"
 
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/series"

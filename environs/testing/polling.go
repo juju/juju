@@ -4,7 +4,7 @@
 package testing
 
 import (
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/common"

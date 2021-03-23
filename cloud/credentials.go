@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 )

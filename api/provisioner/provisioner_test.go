@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"

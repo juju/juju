@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/ssh"
-	sshtesting "github.com/juju/utils/ssh/testing"
+	"github.com/juju/utils/v2/ssh"
+	sshtesting "github.com/juju/utils/v2/ssh/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"

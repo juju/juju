@@ -23,9 +23,9 @@ import (
 	"github.com/juju/os/series"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
-	"github.com/juju/utils/tar"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v2/tar"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 

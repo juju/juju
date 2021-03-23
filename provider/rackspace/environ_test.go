@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2/ssh"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	gooseerrors "gopkg.in/goose.v2/errors"

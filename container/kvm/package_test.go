@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	gc "gopkg.in/check.v1"
 )
 

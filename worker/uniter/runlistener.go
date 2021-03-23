@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/exec"
+	"github.com/juju/utils/v2/exec"
 	"github.com/juju/worker/v2"
 	"gopkg.in/tomb.v2"
 	"gopkg.in/yaml.v2"

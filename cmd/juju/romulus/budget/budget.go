@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	api "github.com/juju/romulus/api/budget"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 
 	jujucmd "github.com/juju/juju/cmd"
 	rcmd "github.com/juju/juju/cmd/juju/romulus"

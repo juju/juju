@@ -23,7 +23,7 @@ import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/os/series"
 	"github.com/juju/replicaset"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"

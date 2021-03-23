@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"

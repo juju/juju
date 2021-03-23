@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/exec"
+	"github.com/juju/utils/v2/exec"
 )
 
 // ShimExec is used to indirect command-line interactions.

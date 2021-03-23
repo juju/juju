@@ -7,7 +7,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
 	"github.com/juju/packaging/manager"
-	"github.com/juju/utils/du"
+	"github.com/juju/utils/v2/du"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/series"

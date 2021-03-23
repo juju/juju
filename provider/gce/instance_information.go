@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"

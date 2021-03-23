@@ -14,7 +14,7 @@ import (
 	"github.com/bmizerany/pat"
 	"github.com/gorilla/websocket"
 	"github.com/juju/rpcreflect"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"

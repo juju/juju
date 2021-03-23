@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/symlink"
+	"github.com/juju/utils/v2/symlink"
 
 	"github.com/juju/juju/juju/names"
 )

@@ -21,7 +21,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	"gopkg.in/tomb.v2"
 

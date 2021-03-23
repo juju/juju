@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	"github.com/juju/utils/filestorage"
+	"github.com/juju/utils/v2/filestorage"
 
 	"github.com/juju/juju/state"
 )

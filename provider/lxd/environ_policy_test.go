@@ -8,7 +8,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 

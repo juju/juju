@@ -18,7 +18,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"

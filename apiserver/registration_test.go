@@ -13,7 +13,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/httptesting"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
 

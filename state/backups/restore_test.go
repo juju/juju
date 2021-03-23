@@ -20,7 +20,7 @@ import (
 	"github.com/juju/replicaset"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"

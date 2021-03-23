@@ -8,7 +8,7 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/exec"
+	"github.com/juju/utils/v2/exec"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"

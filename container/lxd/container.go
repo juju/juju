@@ -12,7 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/lxc/lxd/shared/api"
 	"github.com/lxc/lxd/shared/units"
 	"github.com/lxc/lxd/shared/version"

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"

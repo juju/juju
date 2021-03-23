@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 )
 
 // Juju1xEnvConfigExists returns true if there is an environments.yaml file in
