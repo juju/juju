@@ -143,7 +143,6 @@ const AdminSecret = "dummy-secret"
 func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
-	s.PatchValue(&utils.OutgoingAccessAllowed, false)
 	s.PatchValue(&paths.Chown, func(name string, uid, gid int) error { return nil })
 }
 

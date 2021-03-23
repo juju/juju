@@ -193,7 +193,6 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	s.CleanupSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
 	// JujuOSEnvSuite does not have a suite setup.
-	s.PatchValue(&utils.OutgoingAccessAllowed, false)
 	// LTS-dependent requires new entry upon new LTS release.
 	s.oldLtsForTesting = series.SetLatestLtsForTesting("xenial")
 }
@@ -209,7 +208,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.LoggingSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
-	c.Assert(utils.OutgoingAccessAllowed, gc.Equals, false)
 	if s.InitialLoggingConfig != "" {
 		loggo.ConfigureLoggers(s.InitialLoggingConfig)
 	}
