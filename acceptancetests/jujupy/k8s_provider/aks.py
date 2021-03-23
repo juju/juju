@@ -137,7 +137,7 @@ class AKS(Base):
             service_principal_profile=service_principal_profile,
             agent_pool_profiles=[agentpool_default],
             linux_profile=linux_profile,
-            enable_rbac=True,
+            enable_rbac=self.enable_rbac,
             tags={'createdAt': datetime.now(tz=timezone.utc).isoformat()},
         )
 
