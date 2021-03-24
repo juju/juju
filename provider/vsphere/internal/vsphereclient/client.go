@@ -5,8 +5,10 @@ package vsphereclient
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/dustin/go-humanize"
@@ -538,6 +540,110 @@ func megabytesToKiB(diskMiB uint64) uint64 {
 	return diskMiB * 1024
 }
 
+func (c *Client) getMaxSuportedVersion(ctx context.Context, cr *mo.ComputeResource) (int64, error) {
+	if cr == nil || cr.EnvironmentBrowser == nil {
+		return 0, errors.Errorf("invalid compute resource")
+	}
+	ref := cr.EnvironmentBrowser.Reference()
+	req := types.QueryConfigOption{
+		This: ref,
+	}
+	opt, err := methods.QueryConfigOption(ctx, c.client, &req)
+	if err != nil {
+		return 0, err
+	}
+
+	if opt.Returnval == nil {
+		return 0, fmt.Errorf("failed to get max supported version")
+	}
+
+	parsed, err := c.parseVMXVersion(opt.Returnval.Version)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	return parsed, nil
+}
+
+func (c *Client) getVMHardwareVersion(ctx context.Context, srcVM *object.VirtualMachine) (int64, error) {
+	if srcVM == nil {
+		return 0, errors.Errorf("source VM may not be nil")
+	}
+	var templateVM mo.VirtualMachine
+	err := srcVM.Properties(ctx, srcVM.Reference(), []string{"config.version"}, &templateVM)
+	if err != nil {
+		return 0, err
+	}
+
+	if templateVM.Config == nil {
+		return 0, fmt.Errorf("failed to get VM hardware version")
+	}
+	parsed, err := c.parseVMXVersion(templateVM.Config.Version)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	return parsed, nil
+}
+
+func (c *Client) parseVMXVersion(version string) (int64, error) {
+	fields := strings.Split(version, "-")
+	if len(fields) != 2 {
+		return 0, fmt.Errorf("invalid VMX version: %s", version)
+	}
+
+	parsed, err := strconv.ParseInt(fields[1], 10, 64)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	return parsed, nil
+}
+
+func (c *Client) maybeUpgradeVMHardware(
+	ctx context.Context,
+	args CreateVirtualMachineParams,
+	vm *object.VirtualMachine,
+	taskWaiter *taskWaiter) error {
+
+	if args.ForceVMHardwareVersion == 0 {
+		// ForceVMHardwareVersion was not set.
+		return nil
+	}
+
+	vmVersion, err := c.getVMHardwareVersion(ctx, vm)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if vmVersion > args.ForceVMHardwareVersion {
+		// Not downgrading VM.
+		c.logger.Warningf("selected HW version is lower than VM hardware. Not downgrading.")
+		return nil
+	}
+
+	supportedMaxVersion, err := c.getMaxSuportedVersion(ctx, args.ComputeResource)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if supportedMaxVersion < args.ForceVMHardwareVersion {
+		// Requested HW version is newer than what the destination supports
+		// Not upgrading VM hardware.
+		c.logger.Warningf("target does not support selected hardware version: %d", args.ForceVMHardwareVersion)
+		return nil
+	}
+
+	version := fmt.Sprintf("vmx-%d", args.ForceVMHardwareVersion)
+	task, err := vm.UpgradeVM(ctx, version)
+	if err != nil {
+		return errors.Annotate(err, "upgrading VM hardware")
+	}
+
+	info, err := taskWaiter.waitTask(ctx, task, "upgrading VM")
+	if err != nil {
+		return errors.Annotatef(err, "waiting for task %q", info.Name)
+	}
+
+	return nil
+}
+
 func (c *Client) cloneVM(
 	ctx context.Context,
 	args CreateVirtualMachineParams,
@@ -584,6 +690,7 @@ func (c *Client) buildConfigSpec(
 	if args.Constraints.HasCpuCores() {
 		spec.NumCPUs = int32(*args.Constraints.CpuCores)
 	}
+
 	if args.Constraints.HasMem() {
 		spec.MemoryMB = int64(*args.Constraints.Mem)
 	}

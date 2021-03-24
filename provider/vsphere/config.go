@@ -12,26 +12,29 @@ import (
 
 // The vmware-specific config keys.
 const (
-	cfgPrimaryNetwork  = "primary-network"
-	cfgExternalNetwork = "external-network"
-	cfgDatastore       = "datastore"
-	cfgEnableDiskUUID  = "enable-disk-uuid"
+	cfgPrimaryNetwork         = "primary-network"
+	cfgExternalNetwork        = "external-network"
+	cfgDatastore              = "datastore"
+	cfgForceVMHardwareVersion = "force-vm-hardware-version"
+	cfgEnableDiskUUID         = "enable-disk-uuid"
 )
 
 // configFields is the spec for each vmware config value's type.
 var (
 	configFields = schema.Fields{
-		cfgExternalNetwork: schema.String(),
-		cfgDatastore:       schema.String(),
-		cfgPrimaryNetwork:  schema.String(),
-		cfgEnableDiskUUID:  schema.Bool(),
+		cfgExternalNetwork:        schema.String(),
+		cfgDatastore:              schema.String(),
+		cfgPrimaryNetwork:         schema.String(),
+		cfgForceVMHardwareVersion: schema.ForceInt(),
+		cfgEnableDiskUUID:         schema.Bool(),
 	}
 
 	configDefaults = schema.Defaults{
-		cfgExternalNetwork: "",
-		cfgDatastore:       schema.Omit,
-		cfgPrimaryNetwork:  schema.Omit,
-		cfgEnableDiskUUID:  true,
+		cfgExternalNetwork:        "",
+		cfgDatastore:              schema.Omit,
+		cfgPrimaryNetwork:         schema.Omit,
+		cfgForceVMHardwareVersion: int(0),
+		cfgEnableDiskUUID:         true,
 	}
 
 	configRequiredFields  = []string{}
@@ -99,6 +102,23 @@ func (c *environConfig) enableDiskUUID() bool {
 	return c.attrs[cfgEnableDiskUUID].(bool)
 }
 
+func (c *environConfig) forceVMHardwareVersion() int64 {
+	versionVal := c.attrs[cfgForceVMHardwareVersion]
+	// It seems the value is properly cast to int when bootstrapping
+	// but it comes back as a float64 from the database, regardless of
+	// the checker used in configFields.
+	switch versionVal.(type) {
+	case float64:
+		v := c.attrs[cfgForceVMHardwareVersion].(float64)
+		return int64(v)
+	case int:
+		v := c.attrs[cfgForceVMHardwareVersion].(int)
+		return int64(v)
+	default:
+		return 0
+	}
+}
+
 // validate checks vmware-specific config values.
 func (c environConfig) validate() error {
 	// All fields must be populated, even with just the default.
@@ -107,6 +127,7 @@ func (c environConfig) validate() error {
 			return errors.Errorf("%s: must not be empty", field)
 		}
 	}
+
 	return nil
 }
 
