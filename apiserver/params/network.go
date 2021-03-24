@@ -232,9 +232,11 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 		}
 
 		result[i] = NetworkConfig{
-			DeviceIndex:         v.DeviceIndex,
-			MACAddress:          v.MACAddress,
-			CIDR:                v.CIDR,
+			DeviceIndex: v.DeviceIndex,
+			MACAddress:  v.MACAddress,
+			// TODO (manadart 2021-03-24): Retained for compatibility.
+			// Delete for Juju 3/4.
+			CIDR:                v.PrimaryAddress().CIDR,
 			MTU:                 v.MTU,
 			ProviderId:          string(v.ProviderId),
 			ProviderNetworkId:   string(v.ProviderNetworkId),
@@ -281,10 +283,11 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			}
 		}
 
+		configType := network.AddressConfigType(v.ConfigType)
+
 		result[i] = network.InterfaceInfo{
 			DeviceIndex:         v.DeviceIndex,
 			MACAddress:          v.MACAddress,
-			CIDR:                v.CIDR,
 			MTU:                 v.MTU,
 			ProviderId:          network.Id(v.ProviderId),
 			ProviderNetworkId:   network.Id(v.ProviderNetworkId),
@@ -298,7 +301,7 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			InterfaceType:       network.InterfaceType(v.InterfaceType),
 			Disabled:            v.Disabled,
 			NoAutoStart:         v.NoAutoStart,
-			ConfigType:          network.AddressConfigType(v.ConfigType),
+			ConfigType:          configType,
 			Addresses:           ToProviderAddresses(v.Addresses...),
 			ShadowAddresses:     ToProviderAddresses(v.ShadowAddresses...),
 			DNSServers:          network.NewProviderAddresses(v.DNSServers...),
@@ -310,15 +313,33 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			Origin:              network.Origin(v.NetworkOrigin),
 		}
 
-		// Compatibility layer for older clients that do not populate
-		// Addresses/ShadowAddresses.
-		if len(result[i].Addresses) == 0 && v.Address != "" {
-			result[i].Addresses = append(
-				result[i].Addresses,
-				network.NewProviderAddress(v.Address),
-			)
+		// Compatibility accommodations follow.
+		// TODO (manadart 2021-03-05): Juju 3/4 should require that only the
+		// address collections are used, and the following fields removed from
+		// the top-level interface:
+		// - CIDR
+		// - ConfigType
+		// - Address
+
+		// 1) For clients that populate Addresses, but still set
+		//    address-specific fields on the device.
+		//    Note that the assumption must hold (as it does at the time of
+		//    writing) that the collections are only populated with a single
+		//    member, with repeated devices for each address.
+		if len(result[i].Addresses) > 0 {
+			if result[i].Addresses[0].CIDR == "" {
+				result[i].Addresses[0].CIDR = v.CIDR
+			}
+		} else {
+			// 2) For even older clients that do not populate Addresses.
+			if v.Address != "" {
+				result[i].Addresses = network.ProviderAddresses{
+					network.NewProviderAddress(v.Address, network.WithCIDR(v.CIDR)),
+				}
+			}
 		}
 	}
+
 	return result
 }
 
