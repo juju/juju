@@ -451,7 +451,7 @@ func (s *RefreshErrorsStateSuite) deployApplication(c *gc.C) {
 func (s *RefreshErrorsStateSuite) TestInvalidSwitchURL(c *gc.C) {
 	s.deployApplication(c)
 	_, err := s.runRefresh(c, s.cmd, "riak", "--switch=cs:missing")
-	c.Assert(err, gc.ErrorMatches, `cannot resolve charm URL "cs:missing":.*`)
+	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:missing":.*`)
 }
 
 func (s *RefreshErrorsStateSuite) TestNoPathFails(c *gc.C) {
