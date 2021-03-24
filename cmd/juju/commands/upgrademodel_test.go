@@ -461,7 +461,6 @@ func (s *UpgradeBaseSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest, upgr
 		c.Check(agentVersion, gc.Equals, version.MustParse(test.expectVersion))
 
 		for _, uploaded := range test.expectUploaded {
-			// Substitute latest LTS for placeholder in expected series for uploaded tools
 			vers := version.MustParseBinary(uploaded)
 			s.checkToolsUploaded(c, vers, agentVersion)
 		}
@@ -620,6 +619,42 @@ func (s *UpgradeJujuSuite) TestFailUploadOnNonController(c *gc.C) {
 	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, fakeAPI, nil)
 	_, err := cmdtesting.RunCommand(c, command, "--build-agent", "-m", "dummy-model")
 	c.Assert(err, gc.ErrorMatches, "--build-agent can only be used with the controller model")
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeOld28Agent(c *gc.C) {
+	s.Reset(c)
+	err := s.State.SetModelAgentVersion(version.MustParse("2.8.0"), true)
+	c.Assert(err, jc.ErrorIsNil)
+	fakeAPI := &fakeUpgradeJujuAPINoState{
+		name:           "dummy-model",
+		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		agentVersion:   "2.8.0",
+	}
+	s.PatchValue(&jujuversion.Current, version.MustParse("2.9.0"))
+	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, fakeAPI, nil)
+	_, err = cmdtesting.RunCommand(c, command, "--build-agent")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fakeAPI.tools, gc.HasLen, 2)
+	vers := coretesting.CurrentVersion(c)
+	vers.Number = version.MustParse("2.9.0.1")
+	vers.Release = "focal"
+	c.Assert(fakeAPI.tools[1].Version.String(), gc.Equals, vers.String())
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeNewerThan28Agent(c *gc.C) {
+	s.Reset(c)
+	fakeAPI := &fakeUpgradeJujuAPINoState{
+		name:           "dummy-model",
+		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		agentVersion:   "2.9.0",
+	}
+	s.PatchValue(&jujuversion.Current, version.MustParse("2.9.1"))
+	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, fakeAPI, nil)
+	_, err := cmdtesting.RunCommand(c, command, "--build-agent")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fakeAPI.tools, gc.HasLen, 1)
 }
 
 func (s *UpgradeJujuSuite) TestFailUploadNoControllerModelPermission(c *gc.C) {
@@ -1078,8 +1113,12 @@ func (a *fakeUpgradeJujuAPI) FindTools(majorVersion, minorVersion int, osType, a
 	}, nil
 }
 
-func (a *fakeUpgradeJujuAPI) UploadTools(r io.ReadSeeker, vers version.Binary) (coretools.List, error) {
-	panic("not implemented")
+func (a *fakeUpgradeJujuAPI) UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (coretools.List, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (a *fakeUpgradeJujuAPI) Status(patterns []string) (*params.FullStatus, error) {
+	return nil, errors.New("not implemented")
 }
 
 func (a *fakeUpgradeJujuAPI) AbortCurrentUpgrade() error {
@@ -1127,9 +1166,22 @@ func (a *fakeUpgradeJujuAPINoState) FindTools(majorVersion, minorVersion int, os
 	return result, nil
 }
 
-func (a *fakeUpgradeJujuAPINoState) UploadTools(r io.ReadSeeker, vers version.Binary) (coretools.List, error) {
+func (a *fakeUpgradeJujuAPINoState) UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (coretools.List, error) {
 	a.tools = coretools.List{&coretools.Tools{Version: vers}}
+	for _, s := range additionalSeries {
+		v := vers
+		v.Release = s
+		a.tools = append(a.tools, &coretools.Tools{Version: v})
+	}
 	return a.tools, nil
+}
+
+func (a *fakeUpgradeJujuAPINoState) Status(patterns []string) (*params.FullStatus, error) {
+	return &params.FullStatus{
+		Machines: map[string]params.MachineStatus{
+			"0": {Series: "focal"},
+		},
+	}, nil
 }
 
 func (a *fakeUpgradeJujuAPINoState) SetModelAgentVersion(version version.Number, ignoreAgentVersions bool) error {

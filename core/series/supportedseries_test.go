@@ -143,33 +143,6 @@ func (s *SupportedSeriesSuite) TestUnknownOSFromSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown OS for series: "Xuanhuaceratops"`)
 }
 
-func (s *SupportedSeriesSuite) TestOSSupportedSeries(c *gc.C) {
-	tmpFile, close := makeTempFile(c, distroInfoContents)
-	defer close()
-
-	s.PatchValue(&UbuntuDistroInfo, tmpFile.Name())
-	supported, err := OSAllSeries(coreos.Ubuntu)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supported, jc.SameContents, []string{
-		"artful", "bionic", "cosmic", "disco", "eoan", "focal", "groovy", "hairy",
-		"hirsute", "precise", "quantal", "raring", "saucy", "trusty", "utopic", "vivid",
-		"wily", "xenial", "yakkety", "zesty"})
-	supported, err = OSAllSeries(coreos.Windows)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supported, jc.SameContents, []string{
-		"win7", "win2016nano", "win10", "win2016", "win8", "win2012r2",
-		"win2012hvr2", "win81", "win2019", "win2012", "win2016hv", "win2012hv", "win2008r2"})
-	supported, err = OSAllSeries(coreos.CentOS)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supported, jc.SameContents, []string{"centos7", "centos8"})
-	supported, err = OSAllSeries(coreos.OpenSUSE)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supported, jc.SameContents, []string{"opensuseleap"})
-	supported, err = OSAllSeries(coreos.GenericLinux)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supported, jc.SameContents, []string{"genericlinux"})
-}
-
 func (s *SupportedSeriesSuite) TestVersionSeriesValid(c *gc.C) {
 	seriesResult, err := VersionSeries("14.04")
 	c.Assert(err, jc.ErrorIsNil)
