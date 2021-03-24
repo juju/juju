@@ -941,7 +941,6 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c
 	c.Check(networkInfo, jc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:         1,
 		MACAddress:          "de:ad:be:ff:11:22",
-		CIDR:                "192.168.0.5/24",
 		MTU:                 9000,
 		ProviderId:          "prov-id",
 		ProviderSubnetId:    "prov-sub-id",
@@ -955,10 +954,12 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c
 		Disabled:            false,
 		NoAutoStart:         false,
 		ConfigType:          "static",
-		Addresses:           corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("192.168.0.6")},
-		DNSServers:          corenetwork.NewProviderAddresses("8.8.8.8"),
-		DNSSearchDomains:    []string{"mydomain"},
-		GatewayAddress:      corenetwork.NewProviderAddress("192.168.0.1"),
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewProviderAddress("192.168.0.6", corenetwork.WithCIDR("192.168.0.5/24")),
+		},
+		DNSServers:       corenetwork.NewProviderAddresses("8.8.8.8"),
+		DNSSearchDomains: []string{"mydomain"},
+		GatewayAddress:   corenetwork.NewProviderAddress("192.168.0.1"),
 		Routes: []corenetwork.Route{{
 			DestinationCIDR: "10.0.0.0/16",
 			GatewayIP:       "192.168.0.1",
