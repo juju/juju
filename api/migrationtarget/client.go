@@ -76,6 +76,7 @@ func (c *Client) Activate(modelUUID string) error {
 func (c *Client) UploadCharm(modelUUID string, curl *charm.URL, content io.ReadSeeker) (*charm.URL, error) {
 	args := url.Values{}
 	args.Add("schema", curl.Schema)
+	args.Add("arch", curl.Architecture)
 	args.Add("user", curl.User)
 	args.Add("series", curl.Series)
 	args.Add("revision", strconv.Itoa(curl.Revision))
@@ -87,11 +88,11 @@ func (c *Client) UploadCharm(modelUUID string, curl *charm.URL, content io.ReadS
 		return nil, errors.Trace(err)
 	}
 
-	curl, err := charm.ParseURL(resp.CharmURL)
+	respCurl, err := charm.ParseURL(resp.CharmURL)
 	if err != nil {
 		return nil, errors.Annotatef(err, "bad charm URL in response")
 	}
-	return curl, nil
+	return respCurl, nil
 }
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS
