@@ -2050,7 +2050,7 @@ func (s *ApplicationSuite) TestCAASExposeWithHostname(c *gc.C) {
 
 func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 	entities := []params.Entity{{Tag: "application-test-app-info"}}
-	result, err := s.api.ApplicationsInfo(params.Entities{entities})
+	result, err := s.api.ApplicationsInfo(params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
@@ -2084,7 +2084,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) 
 	}
 
 	entities := []params.Entity{{Tag: "application-postgresql"}}
-	result, err := s.api.ApplicationsInfo(params.Entities{entities})
+	result, err := s.api.ApplicationsInfo(params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
@@ -2114,7 +2114,7 @@ func (s *ApplicationSuite) TestApplicationsInfoDetailsErr(c *gc.C) {
 		errors.Errorf("boom"), // a.CharmConfig() call
 	)
 
-	result, err := s.api.ApplicationsInfo(params.Entities{entities})
+	result, err := s.api.ApplicationsInfo(params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
 	app.CheckCallNames(c, "CharmConfig")
@@ -2129,7 +2129,7 @@ func (s *ApplicationSuite) TestApplicationsInfoBindingsErr(c *gc.C) {
 		errors.Errorf("boom"), // a.EndpointBindings() call
 	)
 
-	result, err := s.api.ApplicationsInfo(params.Entities{entities})
+	result, err := s.api.ApplicationsInfo(params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
 	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig")
@@ -2138,7 +2138,7 @@ func (s *ApplicationSuite) TestApplicationsInfoBindingsErr(c *gc.C) {
 
 func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	entities := []params.Entity{{Tag: "application-postgresql"}, {Tag: "application-wordpress"}, {Tag: "unit-postgresql-0"}}
-	result, err := s.api.ApplicationsInfo(params.Entities{entities})
+	result, err := s.api.ApplicationsInfo(params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
@@ -2181,8 +2181,8 @@ func (s *ApplicationSuite) TestApplicationMergeBindingsErr(c *gc.C) {
 func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 	s.backend.machines = map[string]*mockMachine{"0": {}}
 
-	entities := []params.Entity{{Tag: "unit-postgresql-0"}, {"unit-mysql-0"}}
-	result, err := s.api.UnitsInfo(params.Entities{entities})
+	entities := []params.Entity{{Tag: "unit-postgresql-0"}, {Tag: "unit-mysql-0"}}
+	result, err := s.api.UnitsInfo(params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
 	c.Assert(result.Results[0].Error, gc.IsNil)

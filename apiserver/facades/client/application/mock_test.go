@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/charm/v8"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
@@ -297,21 +296,6 @@ func (m *mockApplication) MergeBindings(bindings *state.Bindings, force bool) er
 	return m.NextErr()
 }
 
-type mockNotifyWatcher struct {
-	state.NotifyWatcher
-	jtesting.Stub
-	ch chan struct{}
-}
-
-func (m *mockNotifyWatcher) Changes() <-chan struct{} {
-	m.MethodCall(m, "Changes")
-	return m.ch
-}
-
-func (m *mockNotifyWatcher) Err() error {
-	return m.NextErr()
-}
-
 type mockRemoteApplication struct {
 	jtesting.Stub
 	name           string
@@ -375,8 +359,6 @@ type mockBackend struct {
 	application.Backend
 
 	charm                      *mockCharm
-	allmodels                  []application.Model
-	users                      set.Strings
 	applications               map[string]*mockApplication
 	remoteApplications         map[string]application.RemoteApplication
 	endpoints                  *[]state.Endpoint

@@ -18,7 +18,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
-	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
@@ -193,9 +192,9 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "dashboard4miner", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "dashboard4miner", Charm: ch})
 
-	schemaFields, err := caas.ConfigSchema(k8s.ConfigSchema())
+	schemaFields, err := caas.ConfigSchema(provider.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
-	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
+	defaults := caas.ConfigDefaults(provider.ConfigDefaults())
 
 	schemaFields, defaults, err = application.AddTrustSchemaAndDefaults(schemaFields, defaults)
 	c.Assert(err, jc.ErrorIsNil)

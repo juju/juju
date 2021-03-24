@@ -174,8 +174,8 @@ func (s *applicationSuite) TestCharmConfigV8(c *gc.C) {
 	}
 	results, err := api.CharmConfig(params.Entities{
 		Entities: []params.Entity{
-			{"wat"}, {"machine-0"}, {"user-foo"},
-			{"application-foo"}, {"application-bar"}, {"application-wat"},
+			{Tag: "wat"}, {Tag: "machine-0"}, {Tag: "user-foo"},
+			{Tag: "application-foo"}, {Tag: "application-bar"}, {Tag: "application-wat"},
 		},
 	})
 	assertConfigTest(c, results, err, []params.ConfigResult{
@@ -189,8 +189,8 @@ func (s *applicationSuite) TestGetConfig(c *gc.C) {
 	s.setUpConfigTest(c)
 	results, err := s.applicationAPI.GetConfig(params.Entities{
 		Entities: []params.Entity{
-			{"wat"}, {"machine-0"}, {"user-foo"},
-			{"application-foo"}, {"application-bar"}, {"application-wat"},
+			{Tag: "wat"}, {Tag: "machine-0"}, {Tag: "user-foo"},
+			{Tag: "application-foo"}, {Tag: "application-bar"}, {Tag: "application-wat"},
 		},
 	})
 	assertConfigTest(c, results, err, []params.ConfigResult{
@@ -526,7 +526,7 @@ func (s *applicationSuite) TestApplicationDeploy(c *gc.C) {
 		NumUnits:        1,
 		Constraints:     cons,
 		Placement: []*instance.Placement{
-			{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "valid"},
+			{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "valid"},
 		},
 	}
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
@@ -556,7 +556,7 @@ func (s *applicationSuite) TestApplicationDeployWithInvalidPlacement(c *gc.C) {
 		NumUnits:        1,
 		Constraints:     cons,
 		Placement: []*instance.Placement{
-			{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "invalid"},
+			{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "invalid"},
 		},
 	}
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
@@ -569,15 +569,15 @@ func (s *applicationSuite) TestApplicationDeployWithInvalidPlacement(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeployWithMachinePlacementLockedError(c *gc.C) {
-	s.testApplicationDeployWithPlacementLockedError(c, instance.Placement{"#", "0"}, false)
+	s.testApplicationDeployWithPlacementLockedError(c, instance.Placement{Scope: "#", Directive: "0"}, false)
 }
 
 func (s *applicationSuite) TestApplicationDeployWithMachineContainerPlacementLockedError(c *gc.C) {
-	s.testApplicationDeployWithPlacementLockedError(c, instance.Placement{"lxd", "0"}, false)
+	s.testApplicationDeployWithPlacementLockedError(c, instance.Placement{Scope: "lxd", Directive: "0"}, false)
 }
 
 func (s *applicationSuite) TestApplicationDeployWithExtantMachineContainerLockedParentError(c *gc.C) {
-	s.testApplicationDeployWithPlacementLockedError(c, instance.Placement{"#", "0/lxd/0"}, true)
+	s.testApplicationDeployWithPlacementLockedError(c, instance.Placement{Scope: "#", Directive: "0/lxd/0"}, true)
 }
 
 func (s *applicationSuite) testApplicationDeployWithPlacementLockedError(
@@ -693,7 +693,7 @@ func (s *applicationSuite) TestApplicationDeploymentWithTrust(c *gc.C) {
 		NumUnits:        1,
 		Config:          config,
 		Placement: []*instance.Placement{
-			{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "valid"},
+			{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "valid"},
 		},
 	}
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
@@ -729,7 +729,7 @@ func (s *applicationSuite) TestApplicationDeploymentNoTrust(c *gc.C) {
 		CharmOrigin:     createCharmOriginFromURL(c, curl),
 		NumUnits:        1,
 		Placement: []*instance.Placement{
-			{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "valid"},
+			{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "valid"},
 		},
 	}
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
@@ -2373,18 +2373,18 @@ var addApplicationUnitTests = []struct {
 	{
 		about:      "valid placement directives",
 		expected:   []string{"dummy/0"},
-		placement:  []*instance.Placement{{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "valid"}},
+		placement:  []*instance.Placement{{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "valid"}},
 		machineIds: []string{"1"},
 	}, {
 		about:      "direct machine assignment placement directive",
 		expected:   []string{"dummy/1", "dummy/2"},
-		placement:  []*instance.Placement{{"#", "1"}, {"lxd", "1"}},
+		placement:  []*instance.Placement{{Scope: "#", Directive: "1"}, {Scope: "lxd", Directive: "1"}},
 		machineIds: []string{"1", "1/lxd/0"},
 	}, {
 		about:     "invalid placement directive",
 		err:       ".* invalid placement is invalid",
 		expected:  []string{"dummy/3"},
-		placement: []*instance.Placement{{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "invalid"}},
+		placement: []*instance.Placement{{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "invalid"}},
 	},
 }
 
@@ -2444,10 +2444,10 @@ func (s *applicationSuite) TestApplicationCharmRelations(c *gc.C) {
 	_, err = s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.applicationAPI.CharmRelations(params.ApplicationCharmRelations{"blah"})
+	_, err = s.applicationAPI.CharmRelations(params.ApplicationCharmRelations{ApplicationName: "blah"})
 	c.Assert(err, gc.ErrorMatches, `application "blah" not found`)
 
-	result, err := s.applicationAPI.CharmRelations(params.ApplicationCharmRelations{"wordpress"})
+	result, err := s.applicationAPI.CharmRelations(params.ApplicationCharmRelations{ApplicationName: "wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.CharmRelations, gc.DeepEquals, []string{
 		"cache", "db", "juju-info", "logging-dir", "monitoring-port", "url",
@@ -2779,7 +2779,7 @@ func (s *applicationSuite) setupApplicationUnexpose(c *gc.C) *state.Application 
 }
 
 func (s *applicationSuite) assertApplicationUnexpose(c *gc.C, app *state.Application) {
-	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{"dummy-application", nil})
+	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{ApplicationName: "dummy-application"})
 	c.Assert(err, jc.ErrorIsNil)
 	app.Refresh()
 	c.Assert(app.IsExposed(), gc.Equals, false)
@@ -2788,7 +2788,7 @@ func (s *applicationSuite) assertApplicationUnexpose(c *gc.C, app *state.Applica
 }
 
 func (s *applicationSuite) assertApplicationUnexposeBlocked(c *gc.C, app *state.Application, msg string) {
-	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{"dummy-application", nil})
+	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{ApplicationName: "dummy-application"})
 	s.AssertBlocked(c, err, msg)
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2844,7 +2844,7 @@ func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
 
 	for i, t := range applicationDestroyTests {
 		c.Logf("test %d. %s", i, t.about)
-		err := s.applicationAPI.Destroy(params.ApplicationDestroy{t.application})
+		err := s.applicationAPI.Destroy(params.ApplicationDestroy{ApplicationName: t.application})
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -2859,7 +2859,7 @@ func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
 	applicationName := "wordpress"
 	app, err := s.State.Application(applicationName)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.applicationAPI.Destroy(params.ApplicationDestroy{applicationName})
+	err = s.applicationAPI.Destroy(params.ApplicationDestroy{ApplicationName: applicationName})
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -2876,7 +2876,7 @@ func (s *applicationSuite) TestBlockApplicationDestroy(c *gc.C) {
 
 	// block remove-objects
 	s.BlockRemoveObject(c, "TestBlockApplicationDestroy")
-	err := s.applicationAPI.Destroy(params.ApplicationDestroy{"dummy-application"})
+	err := s.applicationAPI.Destroy(params.ApplicationDestroy{ApplicationName: "dummy-application"})
 	s.AssertBlocked(c, err, "TestBlockApplicationDestroy")
 	// Tests may have invalid application names.
 	app, err := s.State.Application("dummy-application")
@@ -3215,8 +3215,8 @@ func (s *applicationSuite) TestClientGetApplicationConstraints(c *gc.C) {
 
 	results, err := s.applicationAPI.GetConstraints(params.Entities{
 		Entities: []params.Entity{
-			{"wat"}, {"machine-0"}, {"user-foo"},
-			{"application-foo"}, {"application-bar"}, {"application-wat"},
+			{Tag: "wat"}, {Tag: "machine-0"}, {Tag: "user-foo"},
+			{Tag: "application-foo"}, {Tag: "application-bar"}, {Tag: "application-wat"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
