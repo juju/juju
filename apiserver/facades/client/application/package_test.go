@@ -18,3 +18,4 @@ func TestAll(t *stdtesting.T) {
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charm_mock.go github.com/juju/juju/apiserver/facades/client/application StateCharm
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/model_mock.go github.com/juju/juju/apiserver/facades/client/application StateModel
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charmstore_mock.go github.com/juju/juju/apiserver/facades/client/application State
+//go:generate go run github.com/golang/mock/mockgen -package application -destination update_series_mocks_test.go github.com/juju/juju/apiserver/facades/client/application Application,UpdateSeriesState,UpdateSeriesValidator
