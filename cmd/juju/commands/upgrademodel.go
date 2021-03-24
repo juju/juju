@@ -503,7 +503,16 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 	// or the user has asked for a new agent to be built, upload a local
 	// jujud binary if possible.
 	if !warnCompat && (uploadLocalBinary || c.BuildAgent) {
-		if err := upgradeCtx.uploadTools(client, c.BuildAgent, agentVersion, c.DryRun); err != nil {
+		controllerAgentCfg, err := config.New(config.NoDefaults, controllerModelConfig)
+		if err != nil {
+			return err
+		}
+		controllerAgentVersion, ok := controllerAgentCfg.AgentVersion()
+		if !ok {
+			// Can't happen. In theory.
+			return errors.New("incomplete controller model configuration")
+		}
+		if err := upgradeCtx.uploadTools(client, c.BuildAgent, agentVersion, controllerAgentVersion, c.DryRun); err != nil {
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
 		builtMsg := ""
@@ -829,7 +838,9 @@ type upgradeContext struct {
 // than that of any otherwise-matching available envtools.
 // uploadTools resets the chosen version and replaces the available tools
 // with the ones just uploaded.
-func (context *upgradeContext) uploadTools(client jujuClientAPI, buildAgent bool, agentVersion version.Number, dryRun bool) (err error) {
+func (context *upgradeContext) uploadTools(
+	client jujuClientAPI, buildAgent bool, agentVersion version.Number, controllerAgentVersion version.Number, dryRun bool,
+) (err error) {
 	// TODO(fwereade): this is kinda crack: we should not assume that
 	// jujuversion.Current matches whatever source happens to be built. The
 	// ideal would be:
@@ -884,10 +895,11 @@ func (context *upgradeContext) uploadTools(client jujuClientAPI, buildAgent bool
 	defer f.Close()
 
 	// Older 2.8 agents still look for tools based on series.
+	// Newer 2.9+ controllers can deal with this but not older controllers.
 	// Look at the model and get all series for all machines
 	// and use those to create additional tools.
 	additionalSeries := set.NewStrings()
-	if agentVersion.Major == 2 && agentVersion.Minor <= 8 {
+	if controllerAgentVersion.Major == 2 && controllerAgentVersion.Minor <= 8 {
 		fullStatus, err := client.Status(nil)
 		if err != nil {
 			return errors.Trace(err)

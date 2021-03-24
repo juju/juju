@@ -623,6 +623,8 @@ func (s *UpgradeJujuSuite) TestFailUploadOnNonController(c *gc.C) {
 
 func (s *UpgradeJujuSuite) TestUpgradeOld28Agent(c *gc.C) {
 	s.Reset(c)
+	err := s.State.SetModelAgentVersion(version.MustParse("2.8.0"), true)
+	c.Assert(err, jc.ErrorIsNil)
 	fakeAPI := &fakeUpgradeJujuAPINoState{
 		name:           "dummy-model",
 		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -631,7 +633,7 @@ func (s *UpgradeJujuSuite) TestUpgradeOld28Agent(c *gc.C) {
 	}
 	s.PatchValue(&jujuversion.Current, version.MustParse("2.9.0"))
 	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, fakeAPI, nil)
-	_, err := cmdtesting.RunCommand(c, command, "--build-agent")
+	_, err = cmdtesting.RunCommand(c, command, "--build-agent")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fakeAPI.tools, gc.HasLen, 2)
 	vers := coretesting.CurrentVersion(c)

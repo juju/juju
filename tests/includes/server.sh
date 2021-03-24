@@ -3,7 +3,7 @@ start_server() {
 
     path=${1}
 
-    python3 -m http.server --directory "${path}" 8000 >"${TEST_DIR}/server.log" 2>&1 &
+    python3 -m http.server --directory "${path}" 8666 >"${TEST_DIR}/server.log" 2>&1 &
     SERVER_PID=$!
 
     echo "${SERVER_PID}" > "${TEST_DIR}/server.pid"

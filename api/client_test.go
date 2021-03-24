@@ -83,6 +83,7 @@ func (s *clientSuite) TestUploadToolsOtherModel(c *gc.C) {
 
 			c.Assert(r.URL.Query(), gc.DeepEquals, url.Values{
 				"binaryVersion": []string{"5.4.3-ubuntu-amd64"},
+				"series":        []string{""},
 			})
 			defer r.Body.Close()
 			obtainedTools, err := ioutil.ReadAll(r.Body)
