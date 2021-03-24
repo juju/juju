@@ -34,6 +34,9 @@ type UpgradeSeries interface {
 	// It is expected that a validate call has been performed before the prepare
 	// step.
 	Prepare(string, string, bool) error
+
+	// Complete will complete the upgrade series.
+	Complete(string) error
 }
 
 // UpgradeSeriesState defines a common set of functions for retrieving state
@@ -213,6 +216,14 @@ func (a *UpgradeSeriesAPI) Prepare(tag, series string, force bool) (retErr error
 	// Once validated, set the machine status to started.
 	message := fmt.Sprintf("started upgrade series from %q to %q", machine.Series(), series)
 	return machine.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareStarted, message)
+}
+
+func (a *UpgradeSeriesAPI) Complete(tag string) error {
+	machine, err := a.state.MachineFromTag(tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return machine.CompleteUpgradeSeries()
 }
 
 func (a *UpgradeSeriesAPI) validateApplication(machine Machine, requestedSeries string, force bool) error {
