@@ -70,7 +70,7 @@ require (
 	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
 	github.com/juju/systems v0.0.0-20200925032749-8c613192c759
 	github.com/juju/terms-client/v2 v2.0.0-20210309081804-aed8368405f6
-	github.com/juju/testing v0.0.0-20210302031854-2c7ee8570c07
+	github.com/juju/testing v0.0.0-20210324180055-18c50b0c2098
 	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
 	github.com/juju/utils/v2 v2.0.0-20200923005554-4646bfea2ef1
