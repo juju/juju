@@ -1200,3 +1200,12 @@ func (m *mockRepo) DownloadCharm(resourceURL, _ string) (*charm.CharmArchive, er
 	}
 	return results[0].(*charm.CharmArchive), jtesting.TypeAssertError(results[1])
 }
+
+type mockUpdateSeries struct {
+	jtesting.Stub
+}
+
+func (m *mockUpdateSeries) UpdateSeries(tag string, series string, force bool) error {
+	m.MethodCall(m, "UpdateSeries", tag, series, force)
+	return nil
+}

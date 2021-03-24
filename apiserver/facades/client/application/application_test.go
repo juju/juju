@@ -128,6 +128,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv13 {
 		application.GetState(s.State),
 		storageAccess,
 		s.authorizer,
+		nil,
 		blockChecker,
 		application.GetModel(model),
 		nil, // leadership not used in these tests.

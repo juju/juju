@@ -56,6 +56,7 @@ type ApplicationSuite struct {
 	application        mockApplication
 	storagePoolManager *mockStoragePoolManager
 	registry           *mockStorageRegistry
+	updateSeries       *mockUpdateSeries
 
 	caasBroker   *mockCaasBroker
 	env          environs.Environ
@@ -76,6 +77,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		&s.backend,
 		&s.backend,
 		s.authorizer,
+		s.updateSeries,
 		&s.blockChecker,
 		&s.model,
 		&s.leadership,
@@ -120,6 +122,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin"),
 	}
+	s.updateSeries = &mockUpdateSeries{}
 	s.deployParams = make(map[string]application.DeployApplicationParams)
 	s.env = &mockEnviron{}
 	s.endpoints = []state.Endpoint{
@@ -1753,43 +1756,6 @@ func (s *ApplicationSuite) TestConsumeProviderSpaceInfoNotSupported(c *gc.C) {
 	s.assertConsumeWithNoSpacesInfoAvailable(c)
 }
 
-func (s *ApplicationSuite) TestApplicationUpdateSeries(c *gc.C) {
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
-			Entity: params.Entity{Tag: names.NewApplicationTag("postgresql").String()},
-			Series: "trusty",
-		}, {
-			Entity: params.Entity{Tag: names.NewApplicationTag("postgresql").String()},
-			Series: "quantal",
-		}, {
-			Entity: params.Entity{Tag: names.NewApplicationTag("name").String()},
-			Series: "trusty",
-		}, {
-			Entity: params.Entity{Tag: names.NewUnitTag("mysql/0").String()},
-			Series: "trusty",
-		}},
-	}
-	results, err := s.api.UpdateApplicationSeries(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{}, {},
-			{Error: &params.Error{Message: "application \"name\" not found", Code: "not found"}},
-			{Error: &params.Error{Message: "\"unit-mysql-0\" is not a valid application tag", Code: ""}},
-		}})
-	s.backend.CheckCall(c, 0, "Application", "postgresql")
-	s.backend.CheckCall(c, 1, "Application", "postgresql")
-
-	app := s.backend.applications["postgresql"]
-	app.CheckCall(c, 0, "IsPrincipal")
-	app.CheckCall(c, 1, "Series")
-	app.CheckCall(c, 2, "UpdateApplicationSeries", "trusty", false)
-	app.CheckCall(c, 3, "IsPrincipal")
-	app.CheckCall(c, 4, "Series")
-	// ensure that app.UpdateApplicationSeries wasn't called a 2nd time.
-	c.Assert(len(app.Calls()), gc.Equals, 5)
-}
-
 func (s *ApplicationSuite) TestApplicationUpdateSeriesNoParams(c *gc.C) {
 	results, err := s.api.UpdateApplicationSeries(
 		params.UpdateSeriesArgs{
@@ -1800,47 +1766,6 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesNoParams(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{}})
 
 	s.backend.CheckNoCalls(c)
-}
-
-func (s *ApplicationSuite) TestApplicationUpdateSeriesNoSeries(c *gc.C) {
-	results, err := s.api.UpdateApplicationSeries(
-		params.UpdateSeriesArgs{
-			Args: []params.UpdateSeriesArg{{Entity: params.Entity{Tag: names.NewApplicationTag("postgresql").String()}}},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(results.Results), gc.Equals, 1)
-	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{
-		Error: &params.Error{
-			Code:    params.CodeBadRequest,
-			Message: `series missing from args`,
-		},
-	})
-
-	s.backend.CheckNoCalls(c)
-}
-
-func (s *ApplicationSuite) TestApplicationUpdateSeriesOfSubordinate(c *gc.C) {
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
-			Entity: params.Entity{Tag: names.NewApplicationTag("postgresql-subordinate").String()},
-			Series: "xenial",
-		}},
-	}
-	results, err := s.api.UpdateApplicationSeries(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(results.Results), gc.Equals, 1)
-	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{
-		Error: &params.Error{
-			Code:    params.CodeNotSupported,
-			Message: `"postgresql-subordinate" is a subordinate application, update-series not supported`,
-		},
-	})
-
-	s.backend.CheckCall(c, 0, "Application", "postgresql-subordinate")
-
-	app := s.backend.applications["postgresql-subordinate"]
-	app.CheckCall(c, 0, "IsPrincipal")
 }
 
 func (s *ApplicationSuite) TestApplicationUpdateSeriesPermissionDenied(c *gc.C) {
