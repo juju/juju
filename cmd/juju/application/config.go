@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/keyvalues"
+	"github.com/juju/utils/v2/keyvalues"
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"

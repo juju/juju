@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"gopkg.in/amz.v3/ec2"
 
 	"github.com/juju/juju/core/constraints"

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/exec"
+	"github.com/juju/utils/v2/exec"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/runner_mock.go github.com/juju/juju/cmd/juju/caas CommandRunner

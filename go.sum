@@ -345,6 +345,8 @@ github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2 h1:VqIDC6dRE0C7w
 github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2/go.mod h1:w3BDUH3gGgrcrAyvEbBy3lNb1vmdqG31UMn3njL8oGc=
 github.com/juju/gomaasapi v0.0.0-20190826212825-0ab1eb636aba h1:bnsLBCH2BUzTrl+XckuyTypG0AIWSAALekr1Rvqiy0Q=
 github.com/juju/gomaasapi v0.0.0-20190826212825-0ab1eb636aba/go.mod h1:ppx9XlnQMX/+h/kH+cU9kfDUT6GimqGtNRWdobUZVRE=
+github.com/juju/gomaasapi/v2 v2.0.0-20210323144809-92beddd020fe h1:+4X0MdNAUXfv8PQ+C06K4B1augnfMa37jauNWJkvsMQ=
+github.com/juju/gomaasapi/v2 v2.0.0-20210323144809-92beddd020fe/go.mod h1:MIfjhveZBKtazXbCUECszd48YnjlusZtgcLFSOe6MN4=
 github.com/juju/gosigma v0.0.0-20200420012028-063911838a9e h1:JoXBbhRrYNw6EIPGcMb4iW4LzsVKNvDKSVvPf4A89mY=
 github.com/juju/gosigma v0.0.0-20200420012028-063911838a9e/go.mod h1:OPBu48GcIJ30kNTA1cm+VbZb6GkQ6vthnr5v6NJ49eM=
 github.com/juju/httpprof v0.0.0-20141217160036-14bf14c30767 h1:COsaGcfAONDdIDnGS8yFdxOyReP7zKQEr7jFzCHKDkM=
@@ -477,8 +479,9 @@ github.com/juju/utils v0.0.0-20200116185830-d40c2fe10647/go.mod h1:6/KLg8Wz/y2KV
 github.com/juju/utils v0.0.0-20200423035217-b0a7da72a5fa/go.mod h1:6/KLg8Wz/y2KVGWEpkK9vMNGkOnu4k/cqs8Z1fKjTOk=
 github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0 h1:4XlJ/Wj/bH3zGa2GU+Us72FgtmL1n3dwjP7LW7+TF/o=
 github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0/go.mod h1:6/KLg8Wz/y2KVGWEpkK9vMNGkOnu4k/cqs8Z1fKjTOk=
-github.com/juju/utils/v2 v2.0.0-20200923005554-4646bfea2ef1 h1:3y/lDs71xT7YIYtlfODytPNGEF4XVvUUZhFe3s5kkQQ=
 github.com/juju/utils/v2 v2.0.0-20200923005554-4646bfea2ef1/go.mod h1:fdlDtQlzundleLLz/ggoYinEt/LmnrpNKcNTABQATNI=
+github.com/juju/utils/v2 v2.0.0-20210305225158-eedbe7b6b3e2 h1:E7BgV8lczMmMqMtXdOis5BPEDu6bSG1D6K7SHEq7hEw=
+github.com/juju/utils/v2 v2.0.0-20210305225158-eedbe7b6b3e2/go.mod h1:p35YIk2Pj1lxjhWuYsYbKvMpJ/iX9F8DBgJkNbGF0nQ=
 github.com/juju/version v0.0.0-20151127203400-ef897ad7f130/go.mod h1:kE8gK5X0CImdr7qpSKl3xB2PmpySSmfj7zVbkZFs81U=
 github.com/juju/version v0.0.0-20160603194958-4ae6172c0062/go.mod h1:kE8gK5X0CImdr7qpSKl3xB2PmpySSmfj7zVbkZFs81U=
 github.com/juju/version v0.0.0-20161031051906-1f41e27e54f2/go.mod h1:kE8gK5X0CImdr7qpSKl3xB2PmpySSmfj7zVbkZFs81U=

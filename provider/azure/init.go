@@ -6,7 +6,7 @@ package azure
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2/ssh"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/azure/internal/azureauth"

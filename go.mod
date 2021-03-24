@@ -46,7 +46,7 @@ require (
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
 	github.com/juju/go-oracle-cloud v0.0.0-20170421134547-932a8cea00a1
 	github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2
-	github.com/juju/gomaasapi v0.0.0-20190826212825-0ab1eb636aba
+	github.com/juju/gomaasapi/v2 v2.0.0-20210323144809-92beddd020fe
 	github.com/juju/idmclient/v2 v2.0.0-20210309081103-6b4a5212f851
 	github.com/juju/jsonschema v0.0.0-20161102181919-a0ef8b74ebcf
 	github.com/juju/jsonschema-gen v0.0.0-20200416014454-d924343d72b2
@@ -70,7 +70,7 @@ require (
 	github.com/juju/terms-client/v2 v2.0.0-20210309081804-aed8368405f6
 	github.com/juju/testing v0.0.0-20210302031854-2c7ee8570c07
 	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a
-	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
+	github.com/juju/utils/v2 v2.0.0-20210305225158-eedbe7b6b3e2
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8
 	github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb
 	github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a

@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 

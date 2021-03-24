@@ -14,7 +14,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/voyeur"
+	"github.com/juju/utils/v2/voyeur"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 

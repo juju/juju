@@ -12,7 +12,7 @@ import (
 	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 

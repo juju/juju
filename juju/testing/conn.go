@@ -24,8 +24,8 @@ import (
 	"github.com/juju/pubsub"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -143,7 +143,6 @@ const AdminSecret = "dummy-secret"
 func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
-	s.PatchValue(&utils.OutgoingAccessAllowed, false)
 	s.PatchValue(&paths.Chown, func(name string, uid, gid int) error { return nil })
 }
 

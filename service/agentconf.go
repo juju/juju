@@ -24,10 +24,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/arch"
-	"github.com/juju/utils/fs"
-	"github.com/juju/utils/shell"
-	"github.com/juju/utils/symlink"
+	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v2/fs"
+	"github.com/juju/utils/v2/shell"
+	"github.com/juju/utils/v2/symlink"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/agent/tools"

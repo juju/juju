@@ -7,7 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 	"github.com/juju/os/series"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 
 	jujuversion "github.com/juju/juju/version"

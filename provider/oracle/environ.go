@@ -17,7 +17,7 @@ import (
 	oci "github.com/juju/go-oracle-cloud/api"
 	ociCommon "github.com/juju/go-oracle-cloud/common"
 	ociResponse "github.com/juju/go-oracle-cloud/response"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"

@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/downloader"
 )

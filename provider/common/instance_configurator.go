@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2/ssh"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/network/iptables"

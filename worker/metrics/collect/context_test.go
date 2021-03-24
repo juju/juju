@@ -9,7 +9,7 @@ import (
 
 	corecharm "github.com/juju/charm/v7"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/keyvalues"
+	"github.com/juju/utils/v2/keyvalues"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/sockets"

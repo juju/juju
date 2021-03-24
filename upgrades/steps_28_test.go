@@ -13,7 +13,7 @@ import (
 	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"

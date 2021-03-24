@@ -14,7 +14,7 @@ import (
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"

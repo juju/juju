@@ -13,7 +13,7 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 

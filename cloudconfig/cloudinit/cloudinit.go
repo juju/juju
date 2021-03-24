@@ -10,8 +10,8 @@ import (
 	jujupackaging "github.com/juju/juju/packaging"
 	"github.com/juju/packaging/commands"
 	"github.com/juju/packaging/config"
-	"github.com/juju/utils/shell"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2/shell"
+	"github.com/juju/utils/v2/ssh"
 )
 
 // cloudConfig represents a set of cloud-init configuration options.
