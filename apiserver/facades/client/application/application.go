@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
@@ -238,7 +239,7 @@ type caasBrokerInterface interface {
 }
 
 func newFacadeBase(ctx facade.Context) (*APIBase, error) {
-	facadeModel, err := ctx.State().Model()
+	model, err := ctx.State().Model()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model")
 	}
@@ -254,8 +255,8 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		registry           storage.ProviderRegistry
 		caasBroker         caas.Broker
 	)
-	if facadeModel.Type() == state.ModelTypeCAAS {
-		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(facadeModel)
+	if model.Type() == state.ModelTypeCAAS {
+		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting caas client")
 		}
@@ -272,7 +273,26 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 
 	state := &stateShim{ctx.State()}
 
-	updateSeries := NewUpdateSeriesAPI(state, updateSeriesValidator{})
+	modelCfg, err := model.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var chCfg charmhub.Config
+	chURL, ok := modelCfg.CharmHubURL()
+	if ok {
+		chCfg, err = charmhub.CharmHubConfigFromURL(chURL, logger.Child("client"))
+	} else {
+		chCfg, err = charmhub.CharmHubConfig(logger.Child("client"))
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	chClient, err := charmhub.NewClient(chCfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	updateSeries := NewUpdateSeriesAPI(state, makeUpdateSeriesValidator(chClient))
 
 	return NewAPIBase(
 		state,
@@ -280,7 +300,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		ctx.Auth(),
 		updateSeries,
 		blockChecker,
-		&modelShim{Model: facadeModel}, // modelShim wraps the AllPorts() API.
+		&modelShim{Model: model}, // modelShim wraps the AllPorts() API.
 		leadershipReader,
 		stateCharm,
 		DeployApplication,

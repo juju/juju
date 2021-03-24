@@ -119,6 +119,12 @@ type Bindings interface {
 // the same names.
 type Charm interface {
 	charm.Charm
+	URL() *charm.URL
+	String() string
+}
+
+type CharmMeta interface {
+	ComputedSeries() []string
 }
 
 // Machine defines a subset of the functionality provided by the

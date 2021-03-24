@@ -82,6 +82,16 @@ func (c *mockCharm) LXDProfile() *charm.LXDProfile {
 	return c.lxdProfile
 }
 
+func (c *mockCharm) URL() *charm.URL {
+	c.MethodCall(c, "URL")
+	return &charm.URL{}
+}
+
+func (c *mockCharm) String() string {
+	c.MethodCall(c, "String")
+	return ""
+}
+
 type mockApplication struct {
 	jtesting.Stub
 	application.Application
