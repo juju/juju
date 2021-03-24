@@ -16,7 +16,6 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/http"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub"
@@ -140,7 +139,6 @@ const AdminSecret = "dummy-secret"
 func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
-	s.PatchValue(&http.OutgoingAccessAllowed, false)
 	s.PatchValue(&paths.Chown, func(name string, uid, gid int) error { return nil })
 }
 
