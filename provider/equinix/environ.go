@@ -313,6 +313,9 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	}
 
 	userdata, err := providerinit.ComposeUserData(args.InstanceConfig, cloudCfg, EquinixRenderer{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// Render the required tags for the instance.
 	packetTags := []string{}

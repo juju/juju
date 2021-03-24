@@ -25,7 +25,7 @@ type equnixDevice struct {
 var _ instances.Instance = (*equnixDevice)(nil)
 
 func (device *equnixDevice) String() string {
-	return string(device.ID)
+	return device.ID
 }
 
 func (device *equnixDevice) Id() instance.Id {
