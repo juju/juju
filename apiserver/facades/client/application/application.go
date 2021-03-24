@@ -589,24 +589,24 @@ func caasPrecheck(
 	if ch.Meta().Deployment != nil && ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
 		if !controllerCfg.Features().Contains(feature.K8sOperators) {
 			return errors.Errorf(
-				"feature flag %q is required for deploying k8s operator charms", feature.K8sOperators,
+				"feature flag %q is required for deploying container operator charms", feature.K8sOperators,
 			)
 		}
 	}
 	if len(args.AttachStorage) > 0 {
 		return errors.Errorf(
-			"AttachStorage may not be specified for k8s models",
+			"AttachStorage may not be specified for container models",
 		)
 	}
 	if len(args.Placement) > 1 {
 		return errors.Errorf(
-			"only 1 placement directive is supported for k8s models, got %d",
+			"only 1 placement directive is supported for container models, got %d",
 			len(args.Placement),
 		)
 	}
 	for _, s := range ch.Meta().Storage {
 		if s.Type == charm.StorageBlock {
-			return errors.Errorf("block storage %q is not supported for k8s charms", s.Name)
+			return errors.Errorf("block storage %q is not supported for container charms", s.Name)
 		}
 	}
 	serviceType := args.Config[k8s.ServiceTypeConfigKey]
@@ -1201,19 +1201,19 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 
 var (
 	deploymentInfoUpgradeMessage = `
-Juju on k8s does not support updating deployment info for services.
+Juju on containers does not support updating deployment info for services.
 The new charm's metadata contains updated deployment info.
 You'll need to deploy a new charm rather than upgrading if you need this change.
 `[1:]
 
 	storageUpgradeMessage = `
-k8s does not support updating storage on a statefulset.
+Juju on containers does not support updating storage on a statefulset.
 The new charm's metadata contains updated storage declarations.
 You'll need to deploy a new charm rather than upgrading if you need this change.
 `[1:]
 
 	devicesUpgradeMessage = `
-k8s does not support updating node selectors (configured from charm devices).
+Juju on containers does not support updating node selectors (configured from charm devices).
 The new charm's metadata contains updated device declarations.
 You'll need to deploy a new charm rather than upgrading if you need this change.
 `[1:]
@@ -1529,7 +1529,7 @@ func (api *APIBase) Expose(args params.ApplicationExpose) error {
 		}
 		if appConfig.GetString(caas.JujuExternalHostNameKey, "") == "" {
 			return errors.Errorf(
-				"cannot expose a k8s application without a %q value set, run\n"+
+				"cannot expose a container application without a %q value set, run\n"+
 					"juju config %s %s=<value>", caas.JujuExternalHostNameKey, args.ApplicationName, caas.JujuExternalHostNameKey)
 		}
 	}

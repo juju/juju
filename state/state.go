@@ -1057,7 +1057,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 				count = arg.Count
 			}
 			if charmStorage.CountMin > 0 || count > 0 {
-				return nil, errors.NotSupportedf("block storage on a Kubernetes model")
+				return nil, errors.NotSupportedf("block storage on a container model")
 			}
 		}
 	}

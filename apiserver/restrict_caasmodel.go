@@ -87,7 +87,7 @@ var caasModelFacadeNames = set.NewStrings(
 
 func caasModelFacadesOnly(facadeName, _ string) error {
 	if !isCAASModelFacade(facadeName) {
-		return errors.NewNotSupported(nil, fmt.Sprintf("facade %q not supported for a CAAS model API connection", facadeName))
+		return errors.NewNotSupported(nil, fmt.Sprintf("facade %q not supported on container models", facadeName))
 	}
 	return nil
 }
