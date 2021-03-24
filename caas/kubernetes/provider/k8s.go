@@ -1550,7 +1550,7 @@ func (k *kubernetesClient) configureDaemonSet(
 			Selector: &v1.LabelSelector{
 				MatchLabels: selectorLabels,
 			},
-			RevisionHistoryLimit: int32Ptr(daemonsetRevisionHistoryLimit),
+			RevisionHistoryLimit: utils.Int32Ptr(daemonsetRevisionHistoryLimit),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
@@ -1652,7 +1652,7 @@ func (k *kubernetesClient) configureDeployment(
 		Spec: apps.DeploymentSpec{
 			// TODO(caas): MinReadySeconds, ProgressDeadlineSeconds support.
 			Replicas:             replicas,
-			RevisionHistoryLimit: int32Ptr(deploymentRevisionHistoryLimit),
+			RevisionHistoryLimit: utils.Int32Ptr(deploymentRevisionHistoryLimit),
 			Selector: &v1.LabelSelector{
 				MatchLabels: selectorLabels,
 			},

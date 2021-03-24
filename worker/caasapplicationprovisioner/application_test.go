@@ -100,9 +100,13 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	appReplicasChan := make(chan struct{}, 1)
 	appReplicasWatcher := watchertest.NewMockNotifyWatcher(appReplicasChan)
 
+	appScaleChan := make(chan struct{}, 1)
+	appScaleWatcher := watchertest.NewMockNotifyWatcher(appScaleChan)
+
 	brokerApp := caasmocks.NewMockApplication(ctrl)
 	broker := mocks.NewMockCAASBroker(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
 
 	done := make(chan struct{})
 	gomock.InOrder(
@@ -119,6 +123,8 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 				return brokerApp
 			},
 		),
+
+		unitFacade.EXPECT().WatchApplicationScale("test").Return(appScaleWatcher, nil),
 
 		// Initial run - Ensure() for the application.
 		facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
@@ -323,12 +329,13 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	)
 
 	config := caasapplicationprovisioner.AppWorkerConfig{
-		Name:     "test",
-		Facade:   facade,
-		Broker:   broker,
-		ModelTag: s.modelTag,
-		Clock:    s.clock,
-		Logger:   s.logger,
+		Name:       "test",
+		Facade:     facade,
+		Broker:     broker,
+		ModelTag:   s.modelTag,
+		Clock:      s.clock,
+		Logger:     s.logger,
+		UnitFacade: unitFacade,
 	}
 	startFunc := caasapplicationprovisioner.NewAppWorker(config)
 	c.Assert(startFunc, gc.NotNil)
