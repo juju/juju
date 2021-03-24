@@ -110,7 +110,7 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 }
 
 func (t *ToolsGetter) getGlobalAgentVersion() (version.Number, error) {
-	// Get the Agent Version requested in the Environment Config
+	// Get the Agent Version requested in the Model Config
 	nothing := version.Number{}
 	cfg, err := t.configGetter.ModelConfig()
 	if err != nil {

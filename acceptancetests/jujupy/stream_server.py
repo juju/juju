@@ -150,7 +150,7 @@ class StreamServer:
 
 
 def agent_tgz_from_juju_binary(
-        juju_bin_path, tmp_dir, series=None, force_version=None):
+        juju_bin_path, tmp_dir, release=None, force_version=None):
     """
     Create agent tarball with jujud found with provided juju binary.
 
@@ -159,19 +159,10 @@ def agent_tgz_from_juju_binary(
 
     :param juju_bin_path: The path to the juju bin in use.
     :param tmp_dir: Location to store the generated agent file.
-    :param series: String series to use instead of that of the passed binary.
-      Allows one to overwrite the series of the juju client.
+    :param release: String release (os name) to use instead of that of the passed binary.
+      Allows one to overwrite the os name of the juju client.
     :returns: String path to generated
     """
-    def _series_lookup(series):
-        # Handle the inconsistencies with agent series names.
-        if series is None:
-            return None
-        if series.startswith('centos'):
-            return series
-        if series.startswith('win'):
-            return 'win2012'
-        return 'ubuntu'
 
     bin_dir = os.path.dirname(juju_bin_path)
     try:
@@ -184,8 +175,7 @@ def agent_tgz_from_juju_binary(
     try:
         version_output = subprocess.check_output(
             [jujud_path, 'version']).rstrip(str.encode('\n'))
-        version, bin_series, arch = get_version_string_parts(version_output)
-        bin_agent_series = _series_lookup(bin_series)
+        version, bin_agent_release, arch = get_version_string_parts(version_output)
     except subprocess.CalledProcessError as e:
         raise RuntimeError(
             'Unable to query jujud for version details: {}'.format(e))
@@ -195,9 +185,9 @@ def agent_tgz_from_juju_binary(
             'string: {}'.format(version_output))
 
     version = force_version or version
-    agent_tgz_name = 'juju-{version}-{series}-{arch}.tgz'.format(
+    agent_tgz_name = 'juju-{version}-{release}-{arch}.tgz'.format(
         version=version,
-        series=series if series else bin_agent_series,
+        release=release if release else bin_agent_release,
         arch=arch
     )
 
