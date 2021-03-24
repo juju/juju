@@ -95,7 +95,7 @@ class MicroK8s(Base):
                 addons.append('rbac')
         else:
             addons = [addon for addon in addons if addon != 'rbac']
-            logger.info('disabling rbac -> ', self.sh('microk8s.disable', 'rbac'))
+            logger.info('disabling rbac -> %s', self.sh('microk8s.disable', 'rbac'))
 
         def wait_until_ready(timeout, checker):
             for _ in until_timeout(timeout):
