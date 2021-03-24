@@ -1,41 +1,41 @@
 run_example1() {
-    # Echo out to ensure nice output to the test suite.
-    echo
+	# Echo out to ensure nice output to the test suite.
+	echo
 
-    # The following ensures that a bootstrap juju exists
-    file="${TEST_DIR}/test-example1.log"
-    ensure "example1" "${file}"
+	# The following ensures that a bootstrap juju exists
+	file="${TEST_DIR}/test-example1.log"
+	ensure "example1" "${file}"
 
-    # Run your checks here
-    echo "Hello example 1!" | check "Hello example 1!"
+	# Run your checks here
+	echo "Hello example 1!" | check "Hello example 1!"
 
-    # Clean up!
-    destroy_model "example1"
+	# Clean up!
+	destroy_model "example1"
 }
 
 run_example2() {
-    echo
+	echo
 
-    file="${TEST_DIR}/test-example2.log"
-    ensure "example2" "${file}"
+	file="${TEST_DIR}/test-example2.log"
+	ensure "example2" "${file}"
 
-    echo "Hello example 2!" | check "Hello example 2!"
+	echo "Hello example 2!" | check "Hello example 2!"
 
-    destroy_model "example2"
+	destroy_model "example2"
 }
 
 test_example() {
-    if [ -n "$(skip 'test_example')" ]; then
-        echo "==> SKIP: Asked to skip example tests"
-        return
-    fi
+	if [ -n "$(skip 'test_example')" ]; then
+		echo "==> SKIP: Asked to skip example tests"
+		return
+	fi
 
-    (
-        set_verbosity
+	(
+		set_verbosity
 
-        cd .. || exit
+		cd .. || exit
 
-        run "run_example1"
-        run "run_example2"
-    )
+		run "run_example1"
+		run "run_example2"
+	)
 }

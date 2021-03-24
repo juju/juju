@@ -13,9 +13,12 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/shell"
 
@@ -26,9 +29,6 @@ import (
 const (
 	// Command is a path to the snap binary, or to one that can be detected by os.Exec
 	Command = "snap"
-
-	defaultConfinementPolicy = ""
-	defaultChannel           = "stable"
 )
 
 var (
@@ -38,6 +38,12 @@ var (
 	// but does not test for "--"
 	snapNameRe = regexp.MustCompile("^[a-z0-9][a-z0-9-]{0,39}[^-]$")
 )
+
+// Runnable expects to be able to run a given command with a series of arguments
+// and return the output and/or error from that executing command.
+type Runnable interface {
+	Execute(name string, args ...string) (string, error)
+}
 
 // BackgroundService represents the a service that snaps define.
 // For example, the multipass snap includes the libvirt-bin and multipassd background services.
@@ -57,77 +63,14 @@ type BackgroundService struct {
 func (backgroundService *BackgroundService) Validate() error {
 	name := backgroundService.Name
 	if name == "" {
-		return errors.NotValidf("backgroundService.Name must be non-empty -")
+		return errors.NotValidf("background service name")
 	}
 
 	if !snapNameRe.MatchString(name) {
-		return errors.NotValidf("backgroundService.Name (%s) fails validation check -", name)
+		return errors.NotValidf("background service name %q", name)
 	}
 
 	return nil
-}
-
-// App is a wrapper around a single snap
-type App struct {
-	Name               string
-	ConfinementPolicy  string
-	Channel            string
-	BackgroundServices []BackgroundService
-	Prerequisites      []App
-}
-
-func (a *App) Validate() error {
-	var validationErrors = []error{}
-
-	if !snapNameRe.MatchString(a.Name) {
-		err := errors.NotValidf("app.Name")
-		if err != nil {
-			logger.Errorf("error detected in app.Name: %#v", a)
-			validationErrors = append(validationErrors, err)
-		}
-	}
-
-	for _, backgroundService := range a.BackgroundServices {
-		err := backgroundService.Validate()
-		if err != nil {
-			validationErrors = append(validationErrors, err)
-		}
-	}
-
-	for _, prerequisite := range a.Prerequisites {
-		err := prerequisite.Validate()
-		if err != nil {
-			validationErrors = append(validationErrors, err)
-		}
-	}
-
-	if len(validationErrors) == 0 {
-		return nil
-	}
-
-	return errors.NotValidf("%v - snap.App", validationErrors)
-}
-
-// StartCommands returns a list if shell commands that should be executed (in order)
-// to start App and its background services. executeable is a path to the snap
-// executable. If the app has prerequisite applications defined, then take care to call
-// StartCommands on those apps also.
-func (a *App) StartCommands(executable string) []string {
-	if len(a.BackgroundServices) == 0 {
-		return []string{fmt.Sprintf("%s start %s", executable, a.Name)}
-	}
-
-	commands := make([]string, 0, len(a.BackgroundServices))
-	for _, backgroundService := range a.BackgroundServices {
-		enableFlag := ""
-		if backgroundService.EnableAtStartup {
-			enableFlag = " --enable "
-		}
-
-		command := fmt.Sprintf("%s start %s %s.%s", executable, enableFlag, a.Name, backgroundService.Name)
-		commands = append(commands, command)
-	}
-	return commands
 }
 
 // IsRunning indicates whether Snap is currently running on the system.
@@ -183,12 +126,37 @@ func ListServices() ([]string, error) {
 	return strings.Split(services, "\n"), nil
 }
 
+type Installable interface {
+	// Name returns the name of the application
+	Name() string
+
+	// Install returns a way to install one application with all it's settings.
+	Install() []string
+
+	// Validate will validate a given application for any potential issues.
+	Validate() error
+
+	// StartCommands returns a list if shell commands that should be executed
+	// (in order) to start App and its background services.
+	StartCommands(executable string) []string
+
+	// Prerequisites defines a list of all the Prerequisites required before the
+	// application also needs to be installed.
+	Prerequisites() []Installable
+
+	// BackgroundServices returns a list of background services that are
+	// required to be installed for the main application to run.
+	BackgroundServices() []BackgroundService
+}
+
 // Service is a type for services that are being managed by snapd as snaps.
 type Service struct {
+	runnable       Runnable
+	clock          clock.Clock
 	name           string
 	scriptRenderer shell.Renderer
 	executable     string
-	app            App
+	app            Installable
 	conf           common.Conf
 	configDir      string
 }
@@ -202,43 +170,35 @@ type Service struct {
 //
 // If no BackgroundServices are provided, Service will wrap all of the snap's
 // background services.
-func NewService(mainSnap string, serviceName string, conf common.Conf, snapPath string, Channel string, ConfinementPolicy string, backgroundServices []BackgroundService, prerequisites []App) (Service, error) {
+func NewService(mainSnap string, serviceName string, conf common.Conf, snapPath string, channel string, confinementPolicy ConfinementPolicy, backgroundServices []BackgroundService, prerequisites []Installable) (Service, error) {
 	if serviceName == "" {
 		serviceName = mainSnap
 	}
 	if mainSnap == "" {
 		return Service{}, errors.New("mainSnap must be provided")
 	}
-	app := App{
-		Name:               mainSnap,
-		ConfinementPolicy:  ConfinementPolicy,
-		Channel:            Channel,
-		BackgroundServices: backgroundServices,
-		Prerequisites:      prerequisites,
+	app := &App{
+		name:               mainSnap,
+		confinementPolicy:  confinementPolicy,
+		channel:            channel,
+		backgroundServices: backgroundServices,
+		prerequisites:      prerequisites,
 	}
 	err := app.Validate()
 	if err != nil {
 		return Service{}, errors.Trace(err)
 	}
 
-	svc := Service{
+	return Service{
+		runnable:       defaultRunner{},
+		clock:          clock.WallClock,
 		name:           serviceName,
 		scriptRenderer: &shell.BashRenderer{},
 		executable:     snapPath,
 		app:            app,
 		conf:           conf,
 		configDir:      systemd.EtcSystemdDir,
-	}
-
-	return svc, nil
-}
-
-func NewApp(name string) App {
-	return App{
-		Name:              name,
-		ConfinementPolicy: defaultConfinementPolicy,
-		Channel:           defaultChannel,
-	}
+	}, nil
 }
 
 // NewServiceFromName returns a service that manages all of a snap's
@@ -247,37 +207,27 @@ func NewApp(name string) App {
 // default policies for the installation. To install a snap with --classic confinement,
 // or via --edge, --candidate or --beta, then create the Service via another method.
 func NewServiceFromName(name string, conf common.Conf) (Service, error) {
-	Prerequisites := []App{}
-	BackgroundServices := []BackgroundService{}
-	Channel := defaultChannel
-	ConfinementPolicy := defaultConfinementPolicy
+	var prerequisites []Installable
+	var backgroundServices []BackgroundService
 
-	return NewService(name, name, conf, Command, Channel, ConfinementPolicy, BackgroundServices, Prerequisites)
+	return NewService(name, name, conf, Command, "", "", backgroundServices, prerequisites)
 
 }
 
 // Validate validates that snap.Service has been correctly configured.
 // Validate returns nil when successful and an error when successful.
 func (s Service) Validate() error {
-	var validationErrors = []error{}
-
-	err := s.app.Validate()
-	if err != nil {
-		validationErrors = append(validationErrors, err)
+	if err := s.app.Validate(); err != nil {
+		return errors.Trace(err)
 	}
 
-	for _, prerequisite := range s.app.Prerequisites {
-		err = prerequisite.Validate()
-		if err != nil {
-			validationErrors = append(validationErrors, err)
+	for _, prerequisite := range s.app.Prerequisites() {
+		if err := prerequisite.Validate(); err != nil {
+			return errors.Trace(err)
 		}
 	}
 
-	if len(validationErrors) == 0 {
-		return nil
-	}
-
-	return errors.Errorf("snap.Service validation failed %v", validationErrors)
+	return nil
 }
 
 // Name returns the service's name. It should match snap's naming conventions,
@@ -290,7 +240,7 @@ func (s Service) Name() string {
 	if s.name != "" {
 		return s.name
 	}
-	return s.app.Name
+	return s.app.Name()
 }
 
 // Conf returns the service's configuration.
@@ -320,23 +270,18 @@ func (s Service) Exists() (bool, error) {
 //
 // Install is part of the service.Service interface.
 func (s Service) Install() error {
-	commands, err := s.InstallCommands()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, cmd := range commands {
-		if cmd == "" {
-			continue
-		}
-		logger.Infof("command: %v", cmd)
-		cmdParts := strings.Fields(cmd)
-		executable := cmdParts[0]
-		args := cmdParts[1:]
-		out, err := utils.RunCommand(executable, args...)
+	for _, app := range s.app.Prerequisites() {
+		logger.Infof("command: %v", app)
+
+		out, err := s.runCommandWithRetry(app.Install()...)
 		if err != nil {
 			return errors.Annotatef(err, "output: %v", out)
 		}
+	}
 
+	out, err := s.runCommandWithRetry(s.app.Install()...)
+	if err != nil {
+		return errors.Annotatef(err, "output: %v", out)
 	}
 	return nil
 }
@@ -359,29 +304,18 @@ func (s Service) Installed() (bool, error) {
 //
 // InstallCommands is part of the service.Service interface
 func (s Service) InstallCommands() ([]string, error) {
-	commands := make([]string, 0, 1+len(s.app.Prerequisites))
-	confinementPolicy := confimentParameterAsString(s.app.ConfinementPolicy)
+	deps := s.app.Prerequisites()
+	commands := make([]string, 0, 1+len(deps))
 
-	for _, prerequisite := range s.app.Prerequisites {
-		command := fmt.Sprintf("%v install --channel=%v %v %v",
-			s.executable,
-			prerequisite.Channel,
-			confinementPolicy,
-			prerequisite.Name,
-		)
-		logger.Infof("preparing command: %v", command)
+	for _, dep := range deps {
+		command := fmt.Sprintf("%v %s", s.executable, strings.Join(dep.Install(), " "))
 		commands = append(commands, command)
+		logger.Infof("preparing command: %v", command)
 	}
 
-	command := fmt.Sprintf("%v install --channel=%v %v %v",
-		s.executable,
-		s.app.Channel,
-		confinementPolicy,
-		s.app.Name,
-	)
+	command := fmt.Sprintf("%v %s", s.executable, strings.Join(s.app.Install(), " "))
 	logger.Infof("preparing command: %v", command)
-	commands = append(commands, command)
-	return commands, nil
+	return append(commands, command), nil
 }
 
 // ConfigOverride writes a systemd override to enable the
@@ -390,12 +324,14 @@ func (s Service) ConfigOverride() error {
 	if len(s.conf.Limit) == 0 {
 		return nil
 	}
-	for _, backgroundService := range s.app.BackgroundServices {
-		unitOptions := systemd.ServiceLimits(s.conf)
-		data, err := ioutil.ReadAll(systemd.UnitSerialize(unitOptions))
-		if err != nil {
-			return errors.Trace(err)
-		}
+
+	unitOptions := systemd.ServiceLimits(s.conf)
+	data, err := ioutil.ReadAll(systemd.UnitSerialize(unitOptions))
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, backgroundService := range s.app.BackgroundServices() {
 		overridesDir := fmt.Sprintf("%s/snap.%s.%s.service.d", s.configDir, s.name, backgroundService.Name)
 		if err := os.MkdirAll(overridesDir, 0755); err != nil {
 			return errors.Trace(err)
@@ -407,22 +343,15 @@ func (s Service) ConfigOverride() error {
 	return nil
 }
 
-func confimentParameterAsString(confinementPolicy string) string {
-	if confinementPolicy != "" {
-		return fmt.Sprintf("--%v", confinementPolicy)
-	}
-	return ""
-}
-
 // StartCommands returns a slice of strings. that are
 // shell commands to be executed by a shell which start the service.
 func (s Service) StartCommands() ([]string, error) {
-	commands := make([]string, 0, 1+len(s.app.Prerequisites))
-	for _, prerequisite := range s.app.Prerequisites {
+	deps := s.app.Prerequisites()
+	commands := make([]string, 0, 1+len(deps))
+	for _, prerequisite := range deps {
 		commands = append(commands, prerequisite.StartCommands(s.executable)...)
 	}
-	commands = append(commands, s.app.StartCommands(s.executable)...)
-	return commands, nil
+	return append(commands, s.app.StartCommands(s.executable)...), nil
 }
 
 // status returns an interpreted output from the `snap services` command.
@@ -517,7 +446,7 @@ func (s Service) Remove() error {
 // running.
 //
 // Restart is part of the service.RestartableService interface
-func (s *Service) Restart() error {
+func (s Service) Restart() error {
 	args := []string{"restart", s.Name()}
 	return s.execThenExpect(args, "Restarted.")
 }
@@ -525,7 +454,7 @@ func (s *Service) Restart() error {
 // execThenExpect calls `snap <commandArgs>...` and then checks
 // stdout against expectation and snap's exit code. When there's a
 // mismatch or non-0 exit code, execThenExpect returns an error.
-func (s *Service) execThenExpect(commandArgs []string, expectation string) error {
+func (s Service) execThenExpect(commandArgs []string, expectation string) error {
 	out, err := s.runCommand(commandArgs...)
 	if err != nil {
 		return errors.Trace(err)
@@ -536,6 +465,29 @@ func (s *Service) execThenExpect(commandArgs []string, expectation string) error
 	return nil
 }
 
-func (s *Service) runCommand(args ...string) (string, error) {
-	return utils.RunCommand(s.executable, args...)
+func (s Service) runCommand(args ...string) (string, error) {
+	return s.runnable.Execute(s.executable, args...)
+}
+
+func (s Service) runCommandWithRetry(args ...string) (res string, err error) {
+	if resErr := retry.Call(retry.CallArgs{
+		Clock: s.clock,
+		Func: func() error {
+			res, err = s.runCommand(args...)
+			return errors.Trace(err)
+		},
+		Delay:    5 * time.Second,
+		Attempts: 2,
+	}); resErr != nil {
+		return "", errors.Trace(resErr)
+	}
+
+	// Named args are set via the retry.
+	return
+}
+
+type defaultRunner struct{}
+
+func (defaultRunner) Execute(name string, args ...string) (string, error) {
+	return utils.RunCommand(name, args...)
 }

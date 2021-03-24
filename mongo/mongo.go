@@ -705,7 +705,6 @@ func installMongod(mongoDep packaging.Dependency, usingMongoFromSnap bool, hostS
 		}
 	}
 
-	prerequisites := []snap.App{snap.NewApp("core")}
 	backgroundServices := []snap.BackgroundService{
 		{
 			Name:            "daemon",
@@ -715,7 +714,7 @@ func installMongod(mongoDep packaging.Dependency, usingMongoFromSnap bool, hostS
 	conf := newConf(&ConfigArgs{})
 	conf.Desc = ServiceName + " snap"
 	snapChannel := fmt.Sprintf("%s/%s", SnapTrack, SnapRisk)
-	snapSvc, err := snap.NewService(snapName, ServiceName, conf, snap.Command, snapChannel, "", backgroundServices, prerequisites)
+	snapSvc, err := snap.NewService(snapName, ServiceName, conf, snap.Command, snapChannel, "", backgroundServices, []snap.Installable{})
 	if err != nil {
 		return errors.Trace(err)
 	}

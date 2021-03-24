@@ -1,19 +1,19 @@
 test_hooktools() {
-    if [ "$(skip 'test_hooktools')" ]; then
-        echo "==> TEST SKIPPED: hook tools"
-        return
-    fi
+	if [ "$(skip 'test_hooktools')" ]; then
+		echo "==> TEST SKIPPED: hook tools"
+		return
+	fi
 
-    set_verbosity
+	set_verbosity
 
-    echo "==> Checking for dependencies"
-    check_dependencies juju
+	echo "==> Checking for dependencies"
+	check_dependencies juju
 
-    file="${TEST_DIR}/test-hooktools.log"
+	file="${TEST_DIR}/test-hooktools.log"
 
-    bootstrap "test-hooktools" "${file}"
+	bootstrap "test-hooktools" "${file}"
 
-    test_state_hook_tools
+	test_state_hook_tools
 
-    destroy_controller "test-hooktools"
+	destroy_controller "test-hooktools"
 }
