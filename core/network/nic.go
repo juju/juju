@@ -82,9 +82,6 @@ type InterfaceInfo struct {
 	// (e.g. "aa:bb:cc:dd:ee:ff").
 	MACAddress string
 
-	// CIDR of the network, in 123.45.67.89/24 format.
-	CIDR string
-
 	// ProviderId is a provider-specific NIC id.
 	ProviderId Id
 
