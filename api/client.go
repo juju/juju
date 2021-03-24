@@ -559,8 +559,8 @@ func NewCharmDownloader(apiCaller base.APICaller) *downloader.Downloader {
 }
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS.
-func (c *Client) UploadTools(r io.ReadSeeker, vers version.Binary) (tools.List, error) {
-	endpoint := fmt.Sprintf("/tools?binaryVersion=%s", vers)
+func (c *Client) UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (tools.List, error) {
+	endpoint := fmt.Sprintf("/tools?binaryVersion=%s&series=%s", vers, strings.Join(additionalSeries, ","))
 	contentType := "application/x-tar-gz"
 	var resp params.ToolsResult
 	if err := c.httpPost(r, endpoint, contentType, &resp); err != nil {

@@ -4,7 +4,6 @@
 package series
 
 import (
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -98,25 +97,6 @@ func seriesForTypes(path string, now time.Time, requestedSeries, imageStream str
 	}
 
 	return supported, nil
-}
-
-// OSAllSeries returns the series (supported or not) of the
-// specified OS on which we can run Juju workloads.
-func OSAllSeries(os coreos.OSType) ([]string, error) {
-	var osSeries []string
-	workloadSeries, err := AllWorkloadSeries("", "")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, ser := range workloadSeries.Values() {
-		seriesOS, err := GetOSFromSeries(ser)
-		if err != nil || seriesOS != os {
-			continue
-		}
-		osSeries = append(osSeries, ser)
-	}
-	sort.Strings(osSeries)
-	return osSeries, nil
 }
 
 // GetOSFromSeries will return the operating system based
@@ -469,12 +449,6 @@ type unknownSeriesVersionError string
 
 func (e unknownSeriesVersionError) Error() string {
 	return `unknown version for series: "` + string(e) + `"`
-}
-
-// IsUnknownSeriesVersionError returns true if err is of type unknownSeriesVersionError.
-func IsUnknownSeriesVersionError(err error) bool {
-	_, ok := errors.Cause(err).(unknownSeriesVersionError)
-	return ok
 }
 
 type unknownVersionSeriesError string

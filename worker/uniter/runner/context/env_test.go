@@ -18,7 +18,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -205,10 +204,8 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 
-	// As TERM is series-specific we need to make sure all supported versions are covered.
-	supported, err := series.OSAllSeries(jujuos.Ubuntu)
-	c.Assert(err, jc.ErrorIsNil)
-	for _, testSeries := range supported {
+	// TERM is different for trusty.
+	for _, testSeries := range []string{"trusty", "focal"} {
 		s.PatchValue(&osseries.HostSeries, func() (string, error) { return testSeries, nil })
 		ubuntuVars := []string{
 			"APT_LISTCHANGES_FRONTEND=none",
@@ -256,10 +253,8 @@ func (s *EnvSuite) TestEnvCentos(c *gc.C) {
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.CentOS })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 
-	// As TERM is series-specific we need to make sure all supported versions are covered.
-	supported, err := series.OSAllSeries(jujuos.CentOS)
-	c.Assert(err, jc.ErrorIsNil)
-	for _, testSeries := range supported {
+	// TERM is different for centos7.
+	for _, testSeries := range []string{"centos7", "centos8"} {
 		s.PatchValue(&osseries.HostSeries, func() (string, error) { return testSeries, nil })
 		centosVars := []string{
 			"LANG=C.UTF-8",
@@ -305,10 +300,8 @@ func (s *EnvSuite) TestEnvOpenSUSE(c *gc.C) {
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.OpenSUSE })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 
-	// As TERM is series-specific we need to make sure all supported versions are covered.
-	supported, err := series.OSAllSeries(jujuos.OpenSUSE)
-	c.Assert(err, jc.ErrorIsNil)
-	for _, testSeries := range supported {
+	// TERM is different for opensuseleap.
+	for _, testSeries := range []string{"opensuseleap", "opensuse"} {
 		s.PatchValue(&osseries.HostSeries, func() (string, error) { return testSeries, nil })
 		openSUSEVars := []string{
 			"LANG=C.UTF-8",
