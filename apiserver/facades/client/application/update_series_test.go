@@ -84,8 +84,6 @@ func (s *UpdateSeriesSuite) TestUpdateSeriesNotValid(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `bad`)
 }
 
-//////////////////////
-
 type StateValidatorSuite struct {
 	testing.IsolationSuite
 }
