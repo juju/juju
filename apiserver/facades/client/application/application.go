@@ -1118,10 +1118,7 @@ func (api *APIBase) UpdateApplicationSeries(args params.UpdateSeriesArgs) (param
 
 func (api *APIBase) updateOneApplicationSeries(arg params.UpdateSeriesArg) error {
 	if arg.Series == "" {
-		return &params.Error{
-			Message: "series missing from args",
-			Code:    params.CodeBadRequest,
-		}
+		return errors.BadRequestf("series missing from args")
 	}
 	applicationTag, err := names.ParseApplicationTag(arg.Entity.Tag)
 	if err != nil {

@@ -74,6 +74,9 @@ type UpgradeSeriesValidator interface {
 	// ValidateMachine validates a given machine for ensuring it meets a given
 	// state (quiescence essentially) and has no current ongoing machine lock.
 	ValidateMachine(Machine) error
+
+	// ValidateUnits validates a given set of units.
+	ValidateUnits([]Unit) error
 }
 
 // UpgradeSeriesAPI provides the upgrade series API facade for any given
@@ -144,10 +147,14 @@ func (a *UpgradeSeriesAPI) Validate(entities []ValidationEntity) ([]ValidationRe
 			continue
 		}
 
-		unitNames, err := verifyUnits(units)
-		if err != nil {
+		if err := a.validator.ValidateUnits(units); err != nil {
 			results[i].Error = errors.Trace(err)
 			continue
+		}
+
+		unitNames := make([]string, len(units))
+		for i, unit := range units {
+			unitNames[i] = unit.UnitTag().Id()
 		}
 
 		results[i].UnitNames = unitNames
@@ -226,31 +233,6 @@ func (a *UpgradeSeriesAPI) validateApplication(machine Machine, requestedSeries 
 	}
 
 	return nil
-}
-
-func verifyUnits(units []Unit) ([]string, error) {
-	unitNames := make([]string, len(units))
-	for i, u := range units {
-		agentStatus, err := u.AgentStatus()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if agentStatus.Status != status.Idle {
-			return nil, errors.Errorf("unit %s is not ready to start a series upgrade; its agent status is: %q %s",
-				u.Name(), agentStatus.Status, agentStatus.Message)
-		}
-		unitStatus, err := u.Status()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if unitStatus.Status == status.Error {
-			return nil, errors.Errorf("unit %s is not ready to start a series upgrade; its status is: \"error\" %s",
-				u.Name(), unitStatus.Message)
-		}
-
-		unitNames[i] = u.UnitTag().Id()
-	}
-	return unitNames, nil
 }
 
 type upgradeSeriesState struct {
@@ -400,6 +382,29 @@ func (s upgradeSeriesValidator) ValidateMachine(machine Machine) error {
 		return &apiservererrors.UpgradeSeriesValidationError{
 			Cause:  errors.Errorf("upgrade series lock found for %q; series upgrade is in the %q state", machine.Id(), status),
 			Status: status.String(),
+		}
+	}
+	return nil
+}
+
+// ValidateUnits validates a given set of units.
+func (s upgradeSeriesValidator) ValidateUnits(units []Unit) error {
+	for _, u := range units {
+		agentStatus, err := u.AgentStatus()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if agentStatus.Status != status.Idle {
+			return errors.Errorf("unit %s is not ready to start a series upgrade; its agent status is: %q %s",
+				u.Name(), agentStatus.Status, agentStatus.Message)
+		}
+		unitStatus, err := u.Status()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if unitStatus.Status == status.Error {
+			return errors.Errorf("unit %s is not ready to start a series upgrade; its status is: \"error\" %s",
+				u.Name(), unitStatus.Message)
 		}
 	}
 	return nil
