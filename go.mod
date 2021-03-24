@@ -68,7 +68,7 @@ require (
 	github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476
 	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
 	github.com/juju/terms-client/v2 v2.0.0-20210309081804-aed8368405f6
-	github.com/juju/testing v0.0.0-20210302031854-2c7ee8570c07
+	github.com/juju/testing v0.0.0-20210324180055-18c50b0c2098
 	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a
 	github.com/juju/utils/v2 v2.0.0-20210305225158-eedbe7b6b3e2
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8
