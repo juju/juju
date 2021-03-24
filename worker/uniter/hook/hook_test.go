@@ -44,8 +44,8 @@ var validateTests = []struct {
 		hook.Info{Kind: hooks.Kind("grok")},
 		`unknown hook kind "grok"`,
 	}, {
-		hook.Info{Kind: hooks.WorkloadReady},
-		`"workload-ready" hook requires a workload name`,
+		hook.Info{Kind: hooks.PebbleReady},
+		`"pebble-ready" hook requires a workload name`,
 	},
 	{hook.Info{Kind: hooks.Install}, ""},
 	{hook.Info{Kind: hooks.Start}, ""},
@@ -64,7 +64,7 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.StorageAttached}, `invalid storage ID ""`},
 	{hook.Info{Kind: hooks.StorageAttached, StorageId: "data/0"}, ""},
 	{hook.Info{Kind: hooks.StorageDetaching, StorageId: "data/0"}, ""},
-	{hook.Info{Kind: hooks.WorkloadReady, WorkloadName: "gitlab"}, ""},
+	{hook.Info{Kind: hooks.PebbleReady, WorkloadName: "gitlab"}, ""},
 }
 
 func (s *InfoSuite) TestValidate(c *gc.C) {

@@ -11,10 +11,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/utils/v2/voyeur"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/core/machinelock"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
@@ -102,21 +102,15 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 	// This is used because the uniter is still using the tools directory
 	// for the unit agent for creating the jujuc symlinks.
 	config.Logger.Tracef("creating symlink for %q to tools directory for jujuc", config.Name)
-	hostSeries, err := series.HostSeries()
-	if err != nil {
-		// We shouldn't ever get this error, but if we do there isn't much
-		// more we can do.
-		return nil, errors.Trace(err)
-	}
 	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: hostSeries,
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: coreos.HostOSTypeName(),
 	}
 	tag := names.NewUnitTag(config.Name)
 	toolsDir := tools.ToolsDir(config.DataDir, tag.String())
+	_, err := tools.ChangeAgentTools(config.DataDir, tag.String(), current)
 	defer removeOnErr(&err, config.Logger, toolsDir)
-	_, err = tools.ChangeAgentTools(config.DataDir, tag.String(), current)
 	if err != nil {
 		// Any error here is indicative of a disk issue, potentially out of
 		// space or inodes. Either way, bouncing the deployer and having the

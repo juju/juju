@@ -111,6 +111,43 @@ func IsUpgradeSeriesValidationError(err error) bool {
 	return ok
 }
 
+// errIncompatibleSeries is a standard error to indicate that the series
+// requested is not compatible with the charm of the application.
+type errIncompatibleSeries struct {
+	seriesList []string
+	series     string
+	charmName  string
+}
+
+func NewErrIncompatibleSeries(seriesList []string, series, charmName string) error {
+	return &errIncompatibleSeries{
+		seriesList: seriesList,
+		series:     series,
+		charmName:  charmName,
+	}
+}
+
+func (e *errIncompatibleSeries) Error() string {
+	return fmt.Sprintf("series %q not supported by charm %q, supported series are: %s",
+		e.series, e.charmName, strings.Join(e.seriesList, ", "))
+}
+
+// IsIncompatibleSeriesError returns if the given error or its cause is
+// errIncompatibleSeries.
+func IsIncompatibleSeriesError(err interface{}) bool {
+	if err == nil {
+		return false
+	}
+	// In case of a wrapped error, check the cause first.
+	value := err
+	cause := errors.Cause(err.(error))
+	if cause != nil {
+		value = cause
+	}
+	_, ok := value.(*errIncompatibleSeries)
+	return ok
+}
+
 // RedirectError is the error returned when a model (previously accessible by
 // the user) has been migrated to a different controller.
 type RedirectError struct {
@@ -133,7 +170,7 @@ type RedirectError struct {
 
 // Error implements the error interface.
 func (e *RedirectError) Error() string {
-	return fmt.Sprintf("redirection to alternative server required")
+	return "redirection to alternative server required"
 }
 
 // IsRedirectError returns true if err is caused by a RedirectError.
@@ -200,14 +237,14 @@ func singletonCode(err error) (string, bool) {
 	return code, ok
 }
 
-func singletonError(err error) (error, bool) {
+func singletonError(err error) (bool, error) {
 	errCode := params.ErrCode(err)
 	for singleton, code := range singletonErrorCodes {
 		if errCode == code && singleton.Error() == err.Error() {
-			return singleton, true
+			return true, singleton
 		}
 	}
-	return nil, false
+	return false, nil
 }
 
 // ServerErrorAndStatus is like ServerError but also
@@ -305,7 +342,7 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotImplemented
 	case errors.IsForbidden(err):
 		code = params.CodeForbidden
-	case stateerrors.IsIncompatibleSeriesError(err):
+	case IsIncompatibleSeriesError(err), stateerrors.IsIncompatibleSeriesError(err):
 		code = params.CodeIncompatibleSeries
 	case IsDischargeRequiredError(err):
 		dischErr := errors.Cause(err).(*DischargeRequiredError)
@@ -386,7 +423,7 @@ func RestoreError(err error) error {
 	}
 	msg := err.Error()
 
-	if singleton, ok := singletonError(err); ok {
+	if ok, singleton := singletonError(err); ok {
 		return singleton
 	}
 

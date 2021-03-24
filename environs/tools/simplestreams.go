@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The tools package supports locating, parsing, and filtering Ubuntu tools metadata in simplestreams format.
+// Package tools supports locating, parsing, and filtering Ubuntu tools metadata in simplestreams format.
 // See http://launchpad.net/simplestreams and in particular the doc/README file in that project for more information
 // about the file formats.
 package tools
@@ -16,15 +16,13 @@ import (
 	"io/ioutil"
 	"path"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/series"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	coretools "github.com/juju/juju/tools"
@@ -35,7 +33,7 @@ func init() {
 }
 
 const (
-	// ImageIds is the simplestreams tools content type.
+	// ContentDownload is the simplestreams tools content type.
 	ContentDownload = "content-download"
 
 	// StreamsVersionV1 is used to construct the path for accessing streams data.
@@ -97,18 +95,14 @@ func (tc *ToolsConstraint) IndexIds() []string {
 // ProductIds generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
 func (tc *ToolsConstraint) ProductIds() ([]string, error) {
 	var allIds []string
-	for _, ser := range tc.Series {
-		version, err := series.SeriesVersion(ser)
-		if err != nil {
-			if series.IsUnknownSeriesVersionError(err) {
-				logger.Debugf("ignoring unknown series %q", ser)
-				continue
-			}
-			return nil, err
+	for _, release := range tc.Releases {
+		if !coreos.IsValidOSTypeName(release) {
+			logger.Debugf("ignoring unknown os type %q", release)
+			continue
 		}
 		ids := make([]string, len(tc.Arches))
 		for i, arch := range tc.Arches {
-			ids[i] = fmt.Sprintf("com.ubuntu.juju:%s:%s", version, arch)
+			ids[i] = fmt.Sprintf("com.ubuntu.juju:%s:%s", release, arch)
 		}
 		allIds = append(allIds, ids...)
 	}
@@ -144,18 +138,17 @@ func (t *ToolsMetadata) binary() (version.Binary, error) {
 		return version.Binary{}, errors.Trace(err)
 	}
 	return version.Binary{
-		Number: num,
-		Series: t.Release,
-		Arch:   t.Arch,
+		Number:  num,
+		Release: t.Release,
+		Arch:    t.Arch,
 	}, nil
 }
 
 func (t *ToolsMetadata) productId() (string, error) {
-	seriesVersion, err := series.SeriesVersion(t.Release)
-	if err != nil {
-		return "", err
+	if !coreos.IsValidOSTypeName(t.Release) {
+		return "", errors.NotValidf("os type %q", t.Release)
 	}
-	return fmt.Sprintf("com.ubuntu.juju:%s:%s", seriesVersion, t.Arch), nil
+	return fmt.Sprintf("com.ubuntu.juju:%s:%s", t.Release, t.Arch), nil
 }
 
 // Fetch returns a list of tools for the specified cloud matching the constraint.
@@ -203,7 +196,7 @@ func (b byVersion) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
 func (b byVersion) Less(i, j int) bool { return b[i].sortString() < b[j].sortString() }
 
 // appendMatchingTools updates matchingTools with tools metadata records from tools which belong to the
-// specified series. If a tools record already exists in matchingTools, it is not overwritten.
+// specified os type. If a tools record already exists in matchingTools, it is not overwritten.
 func appendMatchingTools(source simplestreams.DataSource, matchingTools []interface{},
 	tools map[string]interface{}, cons simplestreams.LookupConstraint) ([]interface{}, error) {
 
@@ -218,7 +211,7 @@ func appendMatchingTools(source simplestreams.DataSource, matchingTools []interf
 	}
 	for _, val := range tools {
 		tm := val.(*ToolsMetadata)
-		if !set.NewStrings(cons.Params().Series...).Contains(tm.Release) {
+		if !set.NewStrings(cons.Params().Releases...).Contains(tm.Release) {
 			continue
 		}
 		if toolsConstraint, ok := cons.(*ToolsConstraint); ok {
@@ -259,9 +252,9 @@ type MetadataFile struct {
 func MetadataFromTools(toolsList coretools.List, toolsDir string) []*ToolsMetadata {
 	metadata := make([]*ToolsMetadata, len(toolsList))
 	for i, t := range toolsList {
-		path := fmt.Sprintf("%s/juju-%s-%s-%s.tgz", toolsDir, t.Version.Number, t.Version.Series, t.Version.Arch)
+		path := fmt.Sprintf("%s/juju-%s-%s-%s.tgz", toolsDir, t.Version.Number, t.Version.Release, t.Version.Arch)
 		metadata[i] = &ToolsMetadata{
-			Release:  t.Version.Series,
+			Release:  t.Version.Release,
 			Version:  t.Version.Number.String(),
 			Arch:     t.Version.Arch,
 			Path:     path,
@@ -287,14 +280,6 @@ func ResolveMetadata(stor storage.StorageReader, toolsDir string, metadata []*To
 		}
 		logger.Infof("Fetching agent binaries from dir %q to generate hash: %v", toolsDir, binary)
 		size, sha256hash, err := fetchToolsHash(stor, toolsDir, binary)
-		// Older versions of Juju only know about ppc64, not ppc64el,
-		// so if there's no metadata for ppc64, dd metadata for that arch.
-		if errors.IsNotFound(err) && binary.Arch == arch.LEGACY_PPC64 {
-			ppc64elBinary := binary
-			ppc64elBinary.Arch = arch.PPC64EL
-			md.Path = strings.Replace(md.Path, binary.Arch, ppc64elBinary.Arch, -1)
-			size, sha256hash, err = fetchToolsHash(stor, toolsDir, ppc64elBinary)
-		}
 		if err != nil {
 			return err
 		}

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/systems"
 	"github.com/juju/systems/channel"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
 )
@@ -87,25 +87,22 @@ func imageRepoToPath(imageRepo string, ver version.Number) string {
 	return tagImagePath(path, ver)
 }
 
-// ImageForSystem returns the OCI image path for a generic system.
-// NOTE: resource referenced systems are not resolved via ImageForSystem.
-func ImageForSystem(imageRepo string, system systems.System) (string, error) {
-	if system.Resource != "" {
-		return "", errors.NotValidf("system can't reference a resource")
-	}
-	if system.OS == "" {
-		return "", errors.NotValidf("system must specify os")
+// ImageForBase returns the OCI image path for a generic base.
+// NOTE: resource referenced bases are not resolved via ImageForBase.
+func ImageForBase(imageRepo string, base systems.Base) (string, error) {
+	if base.Name == "" {
+		return "", errors.NotValidf("base name")
 	}
 	if imageRepo == "" {
 		imageRepo = JujudOCINamespace
 	}
-	if len(system.Channel.Track) == 0 || len(system.Channel.Risk) == 0 {
-		return "", errors.NotValidf("channel %q", system.Channel)
+	if len(base.Channel.Track) == 0 || len(base.Channel.Risk) == 0 {
+		return "", errors.NotValidf("channel %q", base.Channel)
 	}
-	tag := system.Channel.Track
-	if system.Channel.Risk != channel.Stable {
-		tag = fmt.Sprintf("%s-%s", tag, system.Channel.Risk)
+	tag := base.Channel.Track
+	if base.Channel.Risk != channel.Stable {
+		tag = fmt.Sprintf("%s-%s", tag, base.Channel.Risk)
 	}
-	image := fmt.Sprintf("%s/%s:%s", imageRepo, system.OS, tag)
+	image := fmt.Sprintf("%s/%s:%s", imageRepo, base.Name, tag)
 	return image, nil
 }

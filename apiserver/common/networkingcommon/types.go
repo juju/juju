@@ -12,9 +12,8 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -27,8 +26,8 @@ type BackingSubnet interface {
 	ID() string
 	CIDR() string
 	VLANTag() int
-	ProviderId() corenetwork.Id
-	ProviderNetworkId() corenetwork.Id
+	ProviderId() network.Id
+	ProviderNetworkId() network.Id
 	AvailabilityZones() []string
 	Status() string
 	SpaceName() string
@@ -48,12 +47,12 @@ type BackingSubnet interface {
 //   empty for MAAS as zones are orthogonal to networks).
 type BackingSubnetInfo struct {
 	// ProviderId is a provider-specific network id. This may be empty.
-	ProviderId corenetwork.Id
+	ProviderId network.Id
 
 	// ProviderNetworkId is the id of the network containing this
 	// subnet from the provider's perspective. It can be empty if the
 	// provider doesn't support distinct networks.
-	ProviderNetworkId corenetwork.Id
+	ProviderNetworkId network.Id
 
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
@@ -93,7 +92,7 @@ type BackingSpace interface {
 	Subnets() ([]BackingSubnet, error)
 
 	// ProviderId returns the network ID of the provider
-	ProviderId() corenetwork.Id
+	ProviderId() network.Id
 }
 
 // NetworkBacking defines the methods needed by the API facade to store and
@@ -104,14 +103,14 @@ type NetworkBacking interface {
 
 	// AvailabilityZones returns all cached availability zones (i.e.
 	// not from the provider, but in state).
-	AvailabilityZones() (corenetwork.AvailabilityZones, error)
+	AvailabilityZones() (network.AvailabilityZones, error)
 
 	// SetAvailabilityZones replaces the cached list of availability
 	// zones with the given zones.
-	SetAvailabilityZones(corenetwork.AvailabilityZones) error
+	SetAvailabilityZones(network.AvailabilityZones) error
 
 	// AddSpace creates a space
-	AddSpace(string, corenetwork.Id, []string, bool) (BackingSpace, error)
+	AddSpace(string, network.Id, []string, bool) (BackingSpace, error)
 
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]BackingSpace, error)
@@ -152,7 +151,7 @@ func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
 
 // NetworkInterfacesToStateArgs splits the given interface list into a slice of
 // state.LinkLayerDeviceArgs and a slice of state.LinkLayerDeviceAddress.
-func NetworkInterfacesToStateArgs(devs corenetwork.InterfaceInfos) (
+func NetworkInterfacesToStateArgs(devs network.InterfaceInfos) (
 	[]state.LinkLayerDeviceArgs,
 	[]state.LinkLayerDeviceAddress,
 ) {
@@ -189,7 +188,7 @@ func NetworkInterfacesToStateArgs(devs corenetwork.InterfaceInfos) (
 	return devicesArgs, devicesAddrs
 }
 
-func networkDeviceToStateArgs(dev corenetwork.InterfaceInfo) state.LinkLayerDeviceArgs {
+func networkDeviceToStateArgs(dev network.InterfaceInfo) state.LinkLayerDeviceArgs {
 	var mtu uint
 	if dev.MTU >= 0 {
 		mtu = uint(dev.MTU)
@@ -199,7 +198,7 @@ func networkDeviceToStateArgs(dev corenetwork.InterfaceInfo) state.LinkLayerDevi
 		Name:            dev.InterfaceName,
 		MTU:             mtu,
 		ProviderID:      dev.ProviderId,
-		Type:            corenetwork.LinkLayerDeviceType(dev.InterfaceType),
+		Type:            network.LinkLayerDeviceType(dev.InterfaceType),
 		MACAddress:      dev.MACAddress,
 		IsAutoStart:     !dev.NoAutoStart,
 		IsUp:            !dev.Disabled,
@@ -213,7 +212,7 @@ func networkDeviceToStateArgs(dev corenetwork.InterfaceInfo) state.LinkLayerDevi
 // address.
 // This is a normalisation that returns state args for all primary addresses
 // of interfaces with the input name.
-func networkAddressStateArgsForDevice(devs corenetwork.InterfaceInfos, name string) []state.LinkLayerDeviceAddress {
+func networkAddressStateArgsForDevice(devs network.InterfaceInfos, name string) []state.LinkLayerDeviceAddress {
 	var res []state.LinkLayerDeviceAddress
 
 	for _, dev := range devs.GetByName(name) {
@@ -233,22 +232,22 @@ func networkAddressStateArgsForDevice(devs corenetwork.InterfaceInfos, name stri
 }
 
 func networkAddressToStateArgs(
-	dev corenetwork.InterfaceInfo, addr corenetwork.ProviderAddress,
+	dev network.InterfaceInfo, addr network.ProviderAddress,
 ) (state.LinkLayerDeviceAddress, error) {
 	cidrAddress, err := addr.ValueForCIDR(dev.CIDR)
 	if err != nil {
 		return state.LinkLayerDeviceAddress{}, errors.Trace(err)
 	}
 
-	var derivedConfigMethod corenetwork.AddressConfigMethod
-	switch method := corenetwork.AddressConfigMethod(dev.ConfigType); method {
-	case corenetwork.StaticAddress, corenetwork.DynamicAddress,
-		corenetwork.LoopbackAddress, corenetwork.ManualAddress:
+	var derivedConfigMethod network.AddressConfigMethod
+	switch method := network.AddressConfigMethod(dev.ConfigType); method {
+	case network.StaticAddress, network.DynamicAddress,
+		network.LoopbackAddress, network.ManualAddress:
 		derivedConfigMethod = method
 	case "dhcp": // awkward special case
-		derivedConfigMethod = corenetwork.DynamicAddress
+		derivedConfigMethod = network.DynamicAddress
 	default:
-		derivedConfigMethod = corenetwork.StaticAddress
+		derivedConfigMethod = network.StaticAddress
 	}
 
 	return state.LinkLayerDeviceAddress{

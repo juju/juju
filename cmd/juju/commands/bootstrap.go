@@ -23,7 +23,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/keyvalues"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"

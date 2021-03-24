@@ -17,7 +17,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
@@ -91,9 +91,9 @@ func (s *legacyEnvironBrokerSuite) createStartInstanceArgs(c *gc.C) environs.Sta
 func setInstanceConfigTools(c *gc.C, instanceConfig *instancecfg.InstanceConfig) coretools.List {
 	tools := []*coretools.Tools{{
 		Version: version.Binary{
-			Number: version.MustParse("1.2.3"),
-			Arch:   arch.AMD64,
-			Series: "trusty",
+			Number:  version.MustParse("1.2.3"),
+			Arch:    arch.AMD64,
+			Release: "ubuntu",
 		},
 		URL: "https://example.org",
 	}}
@@ -140,7 +140,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
 		Name:            "juju-f75cba-0",
 		Folder:          `Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
 		VMDKDirectory:   "Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/templates",
-		Series:          startInstArgs.Tools.OneSeries(),
+		Series:          startInstArgs.InstanceConfig.Series,
 		OVASHA256:       ovatest.FakeOVASHA256(),
 		Metadata:        startInstArgs.InstanceConfig.Tags,
 		ComputeResource: s.client.computeResources[0].Resource,
@@ -240,10 +240,10 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c
 func (s *legacyEnvironBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	tools := []*coretools.Tools{{
-		Version: version.Binary{Arch: arch.I386, Series: "trusty"},
+		Version: version.Binary{Arch: arch.I386, Release: "ubuntu"},
 		URL:     "https://example.org",
 	}, {
-		Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
+		Version: version.Binary{Arch: arch.AMD64, Release: "ubuntu"},
 		URL:     "https://example.org",
 	}}
 
@@ -560,7 +560,7 @@ func (s *legacyEnvironBrokerSuite) TestNotBootstrapping(c *gc.C) {
 		"0",
 		"nonce",
 		"",
-		"xenial",
+		"trusty",
 		&api.Info{
 			Tag:      names.NewMachineTag("0"),
 			ModelTag: coretesting.ModelTag,

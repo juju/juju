@@ -6,7 +6,7 @@ package provisioner
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
@@ -179,7 +180,7 @@ func (st *State) MachinesWithTransientErrors() ([]MachineStatusResult, error) {
 func (st *State) FindTools(v version.Number, series string, arch string) (tools.List, error) {
 	args := params.FindToolsParams{
 		Number:       v,
-		Series:       series,
+		OSType:       coreseries.DefaultOSTypeNameFromSeries(series),
 		MajorVersion: -1,
 		MinorVersion: -1,
 	}

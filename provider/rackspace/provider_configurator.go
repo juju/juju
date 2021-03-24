@@ -4,13 +4,14 @@
 package rackspace
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	jujuos "github.com/juju/juju/core/os"
-	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 )
 
@@ -26,8 +27,7 @@ func (c *rackspaceConfigurator) ModifyRunServerOptions(options *nova.RunServerOp
 
 // GetCloudConfig implements ProviderConfigurator interface.
 func (c *rackspaceConfigurator) GetCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, error) {
-	series := args.Tools.OneSeries()
-	cloudcfg, err := cloudinit.New(series)
+	cloudcfg, err := cloudinit.New(args.InstanceConfig.Series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -41,8 +41,8 @@ func (c *rackspaceConfigurator) GetCloudConfig(args environs.StartInstanceParams
 		// extra call to "apt-get update" with a sleep
 		// on failure to attempt to alleviate this.
 		// See lp:1677425.
-		os, err := jujuseries.GetOSFromSeries(series)
-		if err == nil && os == jujuos.Ubuntu {
+		osType := args.Tools.OneRelease()
+		if osType == strings.ToLower(jujuos.Ubuntu.String()) {
 			cloudcfg.AddBootCmd("apt-get update || (sleep 30s; apt-get update)")
 		}
 	}

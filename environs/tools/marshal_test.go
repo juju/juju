@@ -30,7 +30,7 @@ func (s *marshalSuite) TestLargeNumber(c *gc.C) {
 	metadata := map[string][]*tools.ToolsMetadata{
 		"released": {
 			{
-				Release:  "saucy",
+				Release:  "ubuntu",
 				Version:  "1.2.3.4",
 				Arch:     "arm",
 				Size:     9223372036854775807,
@@ -45,25 +45,24 @@ func (s *marshalSuite) TestLargeNumber(c *gc.C) {
 
 var expectedIndex = `{
     "index": {
-        "com.ubuntu.juju:proposed:tools": {
+        "com.ubuntu.juju:proposed:agents": {
             "updated": "Thu, 01 Jan 1970 00:00:00 +0000",
             "format": "products:1.0",
             "datatype": "content-download",
-            "path": "streams/v1/com.ubuntu.juju-proposed-tools.json",
+            "path": "streams/v1/com.ubuntu.juju-proposed-agents.json",
             "products": [
-                "com.ubuntu.juju:14.04:arm64",
-                "com.ubuntu.juju:14.10:ppc64el"            
+                "com.ubuntu.juju:ubuntu:arm64",
+                "com.ubuntu.juju:ubuntu:ppc64el"            
             ]
         },
-        "com.ubuntu.juju:released:tools": {
+        "com.ubuntu.juju:released:agents": {
             "updated": "Thu, 01 Jan 1970 00:00:00 +0000",
             "format": "products:1.0",
             "datatype": "content-download",
-            "path": "streams/v1/com.ubuntu.juju-released-tools.json",
+            "path": "streams/v1/com.ubuntu.juju-released-agents.json",
             "products": [
-                "com.ubuntu.juju:12.04:amd64",
-                "com.ubuntu.juju:12.04:arm",
-                "com.ubuntu.juju:13.10:arm"            
+                "com.ubuntu.juju:ubuntu:amd64",
+                "com.ubuntu.juju:ubuntu:arm"
             ]
         }
     },
@@ -73,15 +72,14 @@ var expectedIndex = `{
 
 var expectedLegacyIndex = `{
     "index": {
-        "com.ubuntu.juju:released:tools": {
+        "com.ubuntu.juju:released:agents": {
             "updated": "Thu, 01 Jan 1970 00:00:00 +0000",
             "format": "products:1.0",
             "datatype": "content-download",
-            "path": "streams/v1/com.ubuntu.juju-released-tools.json",
+            "path": "streams/v1/com.ubuntu.juju-released-agents.json",
             "products": [
-                "com.ubuntu.juju:12.04:amd64",
-                "com.ubuntu.juju:12.04:arm",
-                "com.ubuntu.juju:13.10:arm"            
+                "com.ubuntu.juju:ubuntu:amd64",
+                "com.ubuntu.juju:ubuntu:arm"
             ]
         }
     },
@@ -91,14 +89,14 @@ var expectedLegacyIndex = `{
 
 var expectedReleasedProducts = `{
     "products": {
-        "com.ubuntu.juju:12.04:amd64": {
+        "com.ubuntu.juju:ubuntu:amd64": {
             "version": "4.3.2.1",
             "arch": "amd64",
             "versions": {
                 "19700101": {
                     "items": {
-                        "4.3.2.1-precise-amd64": {
-                            "release": "precise",
+                        "4.3.2.1-ubuntu-amd64": {
+                            "release": "ubuntu",
                             "version": "4.3.2.1",
                             "arch": "amd64",
                             "size": 0,
@@ -110,33 +108,14 @@ var expectedReleasedProducts = `{
                 }
             }
         },
-        "com.ubuntu.juju:12.04:arm": {
+        "com.ubuntu.juju:ubuntu:arm": {
             "version": "1.2.3.4",
             "arch": "arm",
             "versions": {
                 "19700101": {
                     "items": {
-                        "1.2.3.4-precise-arm": {
-                            "release": "precise",
-                            "version": "1.2.3.4",
-                            "arch": "arm",
-                            "size": 42,
-                            "path": "toenlightenment.tar.gz",
-                            "ftype": "tar.gz",
-                            "sha256": ""
-                        }
-                    }
-                }
-            }
-        },
-        "com.ubuntu.juju:13.10:arm": {
-            "version": "1.2.3.4",
-            "arch": "arm",
-            "versions": {
-                "19700101": {
-                    "items": {
-                        "1.2.3.4-saucy-arm": {
-                            "release": "saucy",
+                        "1.2.3.4-ubuntu-arm": {
+                            "release": "ubuntu",
                             "version": "1.2.3.4",
                             "arch": "arm",
                             "size": 9223372036854775807,
@@ -151,19 +130,19 @@ var expectedReleasedProducts = `{
     },
     "updated": "Thu, 01 Jan 1970 00:00:00 +0000",
     "format": "products:1.0",
-    "content_id": "com.ubuntu.juju:released:tools"
+    "content_id": "com.ubuntu.juju:released:agents"
 }`
 
 var expectedProposedProducts = `{
     "products": {
-        "com.ubuntu.juju:14.04:arm64": {
+        "com.ubuntu.juju:ubuntu:arm64": {
             "version": "1.2-beta1",
             "arch": "arm64",
             "versions": {
                 "19700101": {
                     "items": {
-                        "1.2-beta1-trusty-arm64": {
-                            "release": "trusty",
+                        "1.2-beta1-ubuntu-arm64": {
+                            "release": "ubuntu",
                             "version": "1.2-beta1",
                             "arch": "arm64",
                             "size": 42,
@@ -175,14 +154,14 @@ var expectedProposedProducts = `{
                 }
             }
         },
-        "com.ubuntu.juju:14.10:ppc64el": {
+        "com.ubuntu.juju:ubuntu:ppc64el": {
             "version": "1.2-alpha1",
             "arch": "ppc64el",
             "versions": {
                 "19700101": {
                     "items": {
-                        "1.2-alpha1-utopic-ppc64el": {
-                            "release": "utopic",
+                        "1.2-alpha1-ubuntu-ppc64el": {
+                            "release": "ubuntu",
                             "version": "1.2-alpha1",
                             "arch": "ppc64el",
                             "size": 9223372036854775807,
@@ -197,12 +176,12 @@ var expectedProposedProducts = `{
     },
     "updated": "Thu, 01 Jan 1970 00:00:00 +0000",
     "format": "products:1.0",
-    "content_id": "com.ubuntu.juju:proposed:tools"
+    "content_id": "com.ubuntu.juju:proposed:agents"
 }`
 
 var releasedToolMetadataForTesting = []*tools.ToolsMetadata{
 	{
-		Release:  "saucy",
+		Release:  "ubuntu",
 		Version:  "1.2.3.4",
 		Arch:     "arm",
 		Size:     9223372036854775807,
@@ -210,15 +189,7 @@ var releasedToolMetadataForTesting = []*tools.ToolsMetadata{
 		FileType: "tar.gz",
 	},
 	{
-		Release:  "precise",
-		Version:  "1.2.3.4",
-		Arch:     "arm",
-		Size:     42,
-		Path:     "toenlightenment.tar.gz",
-		FileType: "tar.gz",
-	},
-	{
-		Release:  "precise",
+		Release:  "ubuntu",
 		Version:  "4.3.2.1",
 		Arch:     "amd64",
 		Path:     "whatever.tar.gz",
@@ -245,7 +216,7 @@ var releasedToolMetadataForTesting = []*tools.ToolsMetadata{
 
 var proposedToolMetadataForTesting = []*tools.ToolsMetadata{
 	{
-		Release:  "utopic",
+		Release:  "ubuntu",
 		Version:  "1.2-alpha1",
 		Arch:     "ppc64el",
 		Size:     9223372036854775807,
@@ -253,7 +224,7 @@ var proposedToolMetadataForTesting = []*tools.ToolsMetadata{
 		FileType: "tar.gz",
 	},
 	{
-		Release:  "trusty",
+		Release:  "ubuntu",
 		Version:  "1.2-beta1",
 		Arch:     "arm64",
 		Size:     42,

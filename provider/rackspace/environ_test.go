@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/ssh"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	gooseerrors "gopkg.in/goose.v2/errors"
 
@@ -103,7 +103,7 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 	_, err = s.environ.StartInstance(s.callCtx, environs.StartInstanceParams{
 		InstanceConfig: &instancecfg.InstanceConfig{},
 		Tools: tools.List{&tools.Tools{
-			Version: version.Binary{Series: "trusty"},
+			Version: version.Binary{Release: "ubuntu"},
 		}},
 	})
 	c.Check(err, gc.IsNil)
@@ -155,7 +155,7 @@ func (s *environSuite) TestStartInstanceInvalidCredential(c *gc.C) {
 	_, err = s.environ.StartInstance(s.callCtx, environs.StartInstanceParams{
 		InstanceConfig: &instancecfg.InstanceConfig{},
 		Tools: tools.List{&tools.Tools{
-			Version: version.Binary{Series: "trusty"},
+			Version: version.Binary{Release: "ubuntu"},
 		}},
 	})
 	c.Assert(s.invalidCredential, jc.IsTrue)

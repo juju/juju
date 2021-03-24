@@ -16,7 +16,7 @@ import (
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -154,7 +154,8 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 type versionValidator struct{}
 
 func (versionValidator) Validate(meta *charm.Meta) error {
-	return jujuversion.CheckJujuMinVersion(meta.MinJujuVersion, jujuversion.Current)
+	minver := meta.MinJujuVersion
+	return jujuversion.CheckJujuMinVersion(jujuversion.ToVersion2(minver), jujuversion.Current)
 }
 
 type charmStateShim struct {

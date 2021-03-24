@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -104,7 +104,7 @@ func (s *unitUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertNoChange()
 
-	err = s.rawMachine.SetAgentVersion(version.MustParseBinary("3.4.567.8-quantal-amd64"))
+	err = s.rawMachine.SetAgentVersion(version.MustParseBinary("3.4.567.8-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 	statetesting.AssertStop(c, w)
@@ -164,7 +164,7 @@ func (s *unitUpgraderSuite) TestToolsForAgent(c *gc.C) {
 	agent := params.Entity{Tag: s.rawUnit.Tag().String()}
 
 	// The machine must have its existing tools set before we query for the
-	// next tools. This is so that we can grab Arch and Series without
+	// next tools. This is so that we can grab Arch and OSType without
 	// having to pass it in again
 	current := testing.CurrentVersion(c)
 	err := s.rawMachine.SetAgentVersion(current)
@@ -233,7 +233,7 @@ func (s *unitUpgraderSuite) TestSetTools(c *gc.C) {
 	realTools, err := s.rawUnit.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(realTools.Version.Arch, gc.Equals, cur.Arch)
-	c.Check(realTools.Version.Series, gc.Equals, cur.Series)
+	c.Check(realTools.Version.Release, gc.Equals, cur.Release)
 	c.Check(realTools.Version.Major, gc.Equals, cur.Major)
 	c.Check(realTools.Version.Minor, gc.Equals, cur.Minor)
 	c.Check(realTools.Version.Patch, gc.Equals, cur.Patch)

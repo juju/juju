@@ -702,19 +702,19 @@ icacls "C:\Juju" /inheritance:r /grant "${adminsGroup}:(OI)(CI)(F)" /t
 icacls "C:\Juju" /inheritance:e /grant "SYSTEM:(OI)(CI)(F)" /t
 icacls "C:\Juju" /inheritance:r /grant "jujud:(OI)(CI)(F)" /t
 Set-Content "C:\Juju\lib\juju\nonce.txt" "'FAKE_NONCE'"
-$binDir="C:\Juju\lib\juju\tools\1.2.3-win8-amd64"
+$binDir="C:\Juju\lib\juju\tools\1.2.3-windows-amd64"
 mkdir 'C:\Juju\log\juju'
 mkdir $binDir
 $WebClient = New-Object System.Net.WebClient
 [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-ExecRetry { TryExecAll @({ $WebClient.DownloadFile('https://state-addr.testing.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1.2.3-win8-amd64', "$binDir\tools.tar.gz"); }) }
+ExecRetry { TryExecAll @({ $WebClient.DownloadFile('https://state-addr.testing.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1.2.3-windows-amd64', "$binDir\tools.tar.gz"); }) }
 $dToolsHash = Get-FileSHA256 -FilePath "$binDir\tools.tar.gz"
-$dToolsHash > "$binDir\juju1.2.3-win8-amd64.sha256"
+$dToolsHash > "$binDir\juju1.2.3-windows-amd64.sha256"
 if ($dToolsHash.ToLower() -ne "1234"){ Throw "Tools checksum mismatch"}
 GUnZip-File -infile $binDir\tools.tar.gz -outdir $binDir
 rm "$binDir\tools.tar*"
-Set-Content $binDir\downloaded-tools.txt '{"version":"1.2.3-win8-amd64","url":"https://state-addr.testing.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1.2.3-win8-amd64","sha256":"1234","size":10}'
+Set-Content $binDir\downloaded-tools.txt '{"version":"1.2.3-windows-amd64","url":"https://state-addr.testing.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1.2.3-windows-amd64","sha256":"1234","size":10}'
 New-Item -Path 'HKLM:\SOFTWARE\juju-core'
 $acl = Get-Acl -Path 'HKLM:\SOFTWARE\juju-core'
 $acl.SetAccessRuleProtection($true, $false)
@@ -762,7 +762,7 @@ values:
   PROVIDER_TYPE: dummy
 
 "@
-cmd.exe /C mklink /D C:\Juju\lib\juju\tools\machine-10 1.2.3-win8-amd64
+cmd.exe /C mklink /D C:\Juju\lib\juju\tools\machine-10 1.2.3-windows-amd64
 New-Service -Name 'jujud-machine-10' -DependsOn Winmgmt -DisplayName 'juju agent for machine-10' '"C:\Juju\lib\juju\tools\machine-10\jujud.exe" machine --data-dir "C:\Juju\lib\juju" --machine-id 10 --debug'
 sc.exe failure 'jujud-machine-10' reset=5 actions=restart/1000
 sc.exe failureflag 'juju agent for machine-10' 1%!(EXTRA string='"C:\Juju\lib\juju\tools\machine-10\jujud.exe" machine --data-dir "C:\Juju\lib\juju" --machine-id 10 --debug', string='jujud-machine-10', string='jujud-machine-10')

@@ -28,7 +28,7 @@ import (
 func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	// Start a new instance.
 
-	spec, err := buildInstanceSpec(env, args)
+	spec, err := buildInstanceSpec(env, ctx, args)
 	if err != nil {
 		return nil, common.ZoneIndependentError(err)
 	}
@@ -62,8 +62,8 @@ func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs
 	return &result, nil
 }
 
-var buildInstanceSpec = func(env *environ, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
-	return env.buildInstanceSpec(args)
+var buildInstanceSpec = func(env *environ, ctx context.ProviderCallContext, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
+	return env.buildInstanceSpec(ctx, args)
 }
 
 var newRawInstance = func(env *environ, ctx context.ProviderCallContext, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
@@ -79,7 +79,7 @@ var getHardwareCharacteristics = func(env *environ, spec *instances.InstanceSpec
 func (env *environ) finishInstanceConfig(args environs.StartInstanceParams, spec *instances.InstanceSpec) error {
 	envTools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, machArches)
 	}
 
 	if err := args.InstanceConfig.SetTools(envTools); err != nil {
@@ -91,17 +91,22 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams, spec
 // buildInstanceSpec builds an instance spec from the provided args
 // and returns it. This includes pulling the simplestreams data for the
 // machine type, region, and other constraints.
-func (env *environ) buildInstanceSpec(args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
+func (env *environ) buildInstanceSpec(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
+	instTypesAndCosts, err := env.InstanceTypes(ctx, constraints.Value{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	arches := args.Tools.Arches()
-	series := args.Tools.OneSeries()
 	spec, err := findInstanceSpec(
 		env, &instances.InstanceConstraint{
 			Region:      env.cloud.Region,
-			Series:      series,
+			Series:      args.InstanceConfig.Series,
 			Arches:      arches,
 			Constraints: args.Constraints,
 		},
 		args.ImageMetadata,
+		instTypesAndCosts.InstanceTypes,
 	)
 	return spec, errors.Trace(err)
 }
@@ -110,8 +115,9 @@ var findInstanceSpec = func(
 	env *environ,
 	ic *instances.InstanceConstraint,
 	imageMetadata []*imagemetadata.ImageMetadata,
+	allInstanceTypes []instances.InstanceType,
 ) (*instances.InstanceSpec, error) {
-	return env.findInstanceSpec(ic, imageMetadata)
+	return env.findInstanceSpec(ic, imageMetadata, allInstanceTypes)
 }
 
 // findInstanceSpec initializes a new instance spec for the given
@@ -120,6 +126,7 @@ var findInstanceSpec = func(
 func (env *environ) findInstanceSpec(
 	ic *instances.InstanceConstraint,
 	imageMetadata []*imagemetadata.ImageMetadata,
+	allInstanceTypes []instances.InstanceType,
 ) (*instances.InstanceSpec, error) {
 	images := instances.ImageMetadataToImages(imageMetadata)
 	spec, err := instances.FindInstanceSpec(images, ic, allInstanceTypes)

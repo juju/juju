@@ -721,13 +721,17 @@ func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
 }
 
 func (w *RemoteStateWatcher) upgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
-	rawStatus, err := w.unit.UpgradeSeriesStatus()
+	status, err := w.unit.UpgradeSeriesStatus()
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
-	status, err := model.ValidateUpgradeSeriesStatus(rawStatus)
-	if err != nil {
-		return "", err
+
+	graph := model.UpgradeSeriesGraph()
+	if err := graph.Validate(); err != nil {
+		return "", errors.Trace(err)
+	}
+	if !graph.ValidState(status) {
+		return "", errors.NotValidf("upgrade series %q is", status)
 	}
 	return status, nil
 }

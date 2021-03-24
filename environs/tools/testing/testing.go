@@ -19,7 +19,7 @@ import (
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/series"
@@ -175,11 +175,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string
 				toolsMetadata := item.(*tools.ToolsMetadata)
 				toolsMetadataMap[key] = toolsMetadata
 				toolsVersions.Add(key)
-				seriesVersion, err := series.SeriesVersion(toolsMetadata.Release)
-				if err != nil {
-					c.Assert(err, jc.Satisfies, series.IsUnknownSeriesVersionError)
-				}
-				productId := fmt.Sprintf("com.ubuntu.juju:%s:%s", seriesVersion, toolsMetadata.Arch)
+				productId := fmt.Sprintf("com.ubuntu.juju:%s:%s", toolsMetadata.Release, toolsMetadata.Arch)
 				expectedProductIds.Add(productId)
 			}
 		}
@@ -219,7 +215,7 @@ func generateMetadata(c *gc.C, streamVersions StreamVersions) []metadataFile {
 		for i, vers := range versions {
 			basePath := fmt.Sprintf("%s/tools-%s.tar.gz", stream, vers.String())
 			metadata[i] = &tools.ToolsMetadata{
-				Release: vers.Series,
+				Release: vers.Release,
 				Version: vers.Number.String(),
 				Arch:    vers.Arch,
 				Path:    basePath,

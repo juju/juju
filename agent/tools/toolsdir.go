@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2/symlink"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	coretools "github.com/juju/juju/tools"
 )

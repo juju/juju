@@ -11,7 +11,7 @@ import (
 	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
 	upgradedatabase "github.com/juju/juju/worker/upgradedatabase"
-	version "github.com/juju/version"
+	version "github.com/juju/version/v2"
 )
 
 // MockLogger is a mock of Logger interface

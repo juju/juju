@@ -16,7 +16,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/api/testing"
@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
@@ -100,16 +99,16 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	s.JujuOSEnvSuite.SetUpTest(c)
 	agentTools := &tools.Tools{
 		Version: version.Binary{
-			Number: version.Number{Major: 2, Minor: 6, Patch: 0},
-			Series: "Bionic",
-			Arch:   "x86",
+			Number:  version.Number{Major: 2, Minor: 6, Patch: 0},
+			Release: "ubuntu",
+			Arch:    "x86",
 		},
 	}
 	olderAgentTools := &tools.Tools{
 		Version: version.Binary{
-			Number: version.Number{Major: 2, Minor: 5, Patch: 1},
-			Series: "Bionic",
-			Arch:   "x86",
+			Number:  version.Number{Major: 2, Minor: 5, Patch: 1},
+			Release: "ubuntu",
+			Arch:    "x86",
 		},
 	}
 	lxdProfile := &charm.LXDProfile{
@@ -1065,7 +1064,7 @@ func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.
 	s.PatchValue(&jujuversion.Current, version.MustParse("2.8-beta1"))
 	s.backend.charm = &mockCharm{
 		meta: &charm.Meta{
-			MinJujuVersion: version.MustParse("2.8.0"),
+			MinJujuVersion: jujuversion.ToVersion1(version.MustParse("2.8.0")),
 		},
 	}
 
@@ -1781,26 +1780,6 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesOfSubordinate(c *gc.C) {
 
 	app := s.backend.applications["postgresql-subordinate"]
 	app.CheckCall(c, 0, "IsPrincipal")
-}
-
-func (s *ApplicationSuite) TestApplicationUpdateSeriesIncompatibleSeries(c *gc.C) {
-	app := s.backend.applications["postgresql"]
-	app.SetErrors(nil, nil, stateerrors.NewErrIncompatibleSeries([]string{"yakkety", "zesty"}, "xenial", "testCharm"))
-	results, err := s.api.UpdateApplicationSeries(
-		params.UpdateSeriesArgs{
-			Args: []params.UpdateSeriesArg{{
-				Entity: params.Entity{Tag: names.NewApplicationTag("postgresql").String()},
-				Series: "xenial",
-			}},
-		})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(results.Results), gc.Equals, 1)
-	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{
-		Error: &params.Error{
-			Code:    params.CodeIncompatibleSeries,
-			Message: "series \"xenial\" not supported by charm \"testCharm\", supported series are: yakkety, zesty",
-		},
-	})
 }
 
 func (s *ApplicationSuite) TestApplicationUpdateSeriesPermissionDenied(c *gc.C) {

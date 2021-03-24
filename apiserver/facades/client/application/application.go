@@ -18,7 +18,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon.v2"
 	goyaml "gopkg.in/yaml.v2"
@@ -407,7 +407,8 @@ func caasPrecheck(
 	}
 
 	// For older charms, operator-storage model config is mandatory.
-	if k8s.RequireOperatorStorage(ch.Meta().MinJujuVersion) {
+	minver := ch.Meta().MinJujuVersion
+	if k8s.RequireOperatorStorage(jujuversion.ToVersion2(minver)) {
 		storageClassName, _ := cfg.AllAttrs()[k8sconstants.OperatorStorageKey].(string)
 		if storageClassName == "" {
 			return errors.New(
@@ -485,7 +486,8 @@ func deployApplication(
 		return errors.Trace(err)
 	}
 
-	if err := jujuversion.CheckJujuMinVersion(ch.Meta().MinJujuVersion, jujuversion.Current); err != nil {
+	minver := ch.Meta().MinJujuVersion
+	if err := jujuversion.CheckJujuMinVersion(jujuversion.ToVersion2(minver), jujuversion.Current); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -841,7 +843,7 @@ func (api *APIBase) updateCharm(
 	return api.applicationSetCharm(params, aCharm, nil)
 }
 
-// UpdateApplicationSeries updates the application series. Series for
+// UpdateApplicationSeries updates the application series. Release for
 // subordinates updated too.
 func (api *APIBase) UpdateApplicationSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {

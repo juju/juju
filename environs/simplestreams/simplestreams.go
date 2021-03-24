@@ -94,8 +94,8 @@ type LookupConstraint interface {
 // Derived structs implement the IndexIds() and ProductIds() method.
 type LookupParams struct {
 	CloudSpec
-	Series []string
-	Arches []string
+	Releases []string
+	Arches   []string
 	// Stream can be "" or "released" for the default "released" stream,
 	// or "daily" for daily images, or any other stream that the available
 	// simplestreams metadata supports.
@@ -146,7 +146,7 @@ type ItemCollection struct {
 	rawItems   map[string]*json.RawMessage
 	Items      map[string]interface{} `json:"items"`
 	Arch       string                 `json:"arch,omitempty"`
-	Series     string                 `json:"release,omitempty"`
+	Release    string                 `json:"release,omitempty"`
 	Version    string                 `json:"version,omitempty"`
 	RegionName string                 `json:"region,omitempty"`
 	Endpoint   string                 `json:"endpoint,omitempty"`

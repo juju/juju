@@ -85,6 +85,8 @@ class Base(object):
     default_storage_class_name = None
     kubeconfig_cluster_name = None
 
+    enable_rbac = None
+
     def _ensure_cluster_stack(self):
         """ensures or checks if stack/infrastructure is ready to use.
         - ensures kubectl/apiserver is functioning.
@@ -114,7 +116,7 @@ class Base(object):
         """
         raise NotImplementedError()
 
-    def __init__(self, bs_manager, cluster_name=None, timeout=1800):
+    def __init__(self, bs_manager, cluster_name=None, enable_rbac=False, timeout=1800):
         self.client = bs_manager.client
         self.bs_manager = bs_manager
         # register cleanup_hook.
@@ -126,6 +128,7 @@ class Base(object):
             self.cluster_name += f'-{suffix}'
         self.cluster_name = self.cluster_name.lower()
 
+        self.enable_rbac = enable_rbac
         self.timeout = timeout
         old_environment = bs_manager.client.env.environment
 

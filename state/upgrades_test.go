@@ -4996,6 +4996,220 @@ func (s *upgradesSuite) TestTranslateK8sServiceTypes(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestUpdateLegacyKubernetesCloudCredentialsCertificate(c *gc.C) {
+	cloudColl, cloudCloser := s.state.db().GetRawCollection(cloudsC)
+	defer cloudCloser()
+	cloudCredColl, cloudCredCloser := s.state.db().GetRawCollection(cloudCredentialsC)
+	defer cloudCredCloser()
+
+	_, err := cloudColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = cloudCredColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = cloudColl.Insert(bson.M{
+		"_id":        "localhost",
+		"name":       "localhost",
+		"type":       "kubernetes",
+		"auth-types": []string{"empty"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = cloudCredColl.Insert(bson.M{
+		"_id":       "localhost#admin#streetcred",
+		"owner":     "admin",
+		"cloud":     "localhost",
+		"name":      "streetcred",
+		"revoked":   false,
+		"auth-type": "certificate",
+		"attributes": map[string]string{
+			"ClientCertificateData": "QQo=",
+			"Token":                 "this-is-my-token",
+			"rbac-id":               "rbac",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedClouds := []bson.M{{
+		"_id":  "localhost",
+		"name": "localhost",
+		"type": "kubernetes",
+		"auth-types": []interface{}{
+			"clientcertificate",
+			"oauth2",
+			"userpass",
+		},
+	}}
+
+	expectedCloudCreds := []bson.M{{
+		"_id":            "localhost#admin#streetcred",
+		"owner":          "admin",
+		"cloud":          "localhost",
+		"name":           "streetcred",
+		"revoked":        false,
+		"auth-type":      "oauth2",
+		"invalid":        false,
+		"invalid-reason": "",
+		"attributes": bson.M{
+			"Token":   "this-is-my-token",
+			"rbac-id": "rbac",
+		},
+	}}
+
+	f := func(pool *StatePool) error {
+		st := pool.SystemState()
+		return UpdateLegacyKubernetesCloudCredentials(st)
+	}
+	s.assertUpgradedData(c, f,
+		upgradedData(cloudColl, expectedClouds),
+		upgradedData(cloudCredColl, expectedCloudCreds),
+	)
+}
+
+func (s *upgradesSuite) TestUpdateLegacyKubernetesCloudCredentialsOAuth2(c *gc.C) {
+	cloudColl, cloudCloser := s.state.db().GetRawCollection(cloudsC)
+	defer cloudCloser()
+	cloudCredColl, cloudCredCloser := s.state.db().GetRawCollection(cloudCredentialsC)
+	defer cloudCredCloser()
+
+	_, err := cloudColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = cloudCredColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = cloudColl.Insert(bson.M{
+		"_id":  "localhost",
+		"name": "localhost",
+		"type": "kubernetes",
+		"auth-types": []interface{}{
+			"clientcertificate",
+			"oauth2",
+			"userpass",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = cloudCredColl.Insert(bson.M{
+		"_id":       "localhost#admin#streetcred",
+		"owner":     "admin",
+		"cloud":     "localhost",
+		"name":      "streetcred",
+		"revoked":   false,
+		"auth-type": "oauth2withcert",
+		"attributes": map[string]string{
+			"Token": "this-is-my-token",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedClouds := []bson.M{{
+		"_id":  "localhost",
+		"name": "localhost",
+		"type": "kubernetes",
+		"auth-types": []interface{}{
+			"clientcertificate",
+			"oauth2",
+			"userpass",
+		},
+	}}
+
+	expectedCloudCreds := []bson.M{{
+		"_id":            "localhost#admin#streetcred",
+		"owner":          "admin",
+		"cloud":          "localhost",
+		"name":           "streetcred",
+		"revoked":        false,
+		"auth-type":      "oauth2",
+		"invalid":        false,
+		"invalid-reason": "",
+		"attributes": bson.M{
+			"Token": "this-is-my-token",
+		},
+	}}
+
+	f := func(pool *StatePool) error {
+		st := pool.SystemState()
+		return UpdateLegacyKubernetesCloudCredentials(st)
+	}
+	s.assertUpgradedData(c, f,
+		upgradedData(cloudColl, expectedClouds),
+		upgradedData(cloudCredColl, expectedCloudCreds),
+	)
+}
+
+func (s *upgradesSuite) TestUpdateLegacyKubernetesCloudCredentialsOAuth2Cert(c *gc.C) {
+	cloudColl, cloudCloser := s.state.db().GetRawCollection(cloudsC)
+	defer cloudCloser()
+	cloudCredColl, cloudCredCloser := s.state.db().GetRawCollection(cloudCredentialsC)
+	defer cloudCredCloser()
+
+	_, err := cloudColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = cloudCredColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = cloudColl.Insert(bson.M{
+		"_id":  "localhost",
+		"name": "localhost",
+		"type": "kubernetes",
+		"auth-types": []interface{}{
+			"clientcertificate",
+			"oauth2",
+			"userpass",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = cloudCredColl.Insert(bson.M{
+		"_id":       "localhost#admin#streetcred",
+		"owner":     "admin",
+		"cloud":     "localhost",
+		"name":      "streetcred",
+		"revoked":   false,
+		"auth-type": "oauth2withcert",
+		"attributes": map[string]string{
+			"ClientCertificateData": "data",
+			"ClientKeyData":         "data",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedClouds := []bson.M{{
+		"_id":  "localhost",
+		"name": "localhost",
+		"type": "kubernetes",
+		"auth-types": []interface{}{
+			"clientcertificate",
+			"oauth2",
+			"userpass",
+		},
+	}}
+
+	expectedCloudCreds := []bson.M{{
+		"_id":            "localhost#admin#streetcred",
+		"owner":          "admin",
+		"cloud":          "localhost",
+		"name":           "streetcred",
+		"revoked":        false,
+		"auth-type":      "clientcertificate",
+		"invalid":        false,
+		"invalid-reason": "",
+		"attributes": bson.M{
+			"ClientCertificateData": "data",
+			"ClientKeyData":         "data",
+		},
+	}}
+
+	f := func(pool *StatePool) error {
+		st := pool.SystemState()
+		return UpdateLegacyKubernetesCloudCredentials(st)
+	}
+	s.assertUpgradedData(c, f,
+		upgradedData(cloudColl, expectedClouds),
+		upgradedData(cloudCredColl, expectedCloudCreds),
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

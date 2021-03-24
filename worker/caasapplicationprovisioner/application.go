@@ -373,24 +373,16 @@ func (a *appWorker) alive(app caas.Application) error {
 		return errors.Annotate(err, "failed to get oci image resources")
 	}
 
-	baseSystem, err := systems.ParseSystemFromSeries(provisionInfo.Series)
+	base, err := systems.ParseBaseFromSeries(provisionInfo.Series)
 	if err != nil {
 		return errors.Annotate(err, "failed to parse series as a system")
 	}
 
 	ch := charmInfo.Charm()
 	charmBaseImage := resources.DockerImageDetails{}
-	if baseSystem.Resource != "" {
-		image, ok := images[baseSystem.Resource]
-		if !ok {
-			return errors.NotFoundf("referenced charm base image resource %s", baseSystem.Resource)
-		}
-		charmBaseImage = image
-	} else {
-		charmBaseImage.RegistryPath, err = podcfg.ImageForSystem(provisionInfo.ImageRepo, baseSystem)
-		if err != nil {
-			return errors.Annotate(err, "failed to get image for system")
-		}
+	charmBaseImage.RegistryPath, err = podcfg.ImageForBase(provisionInfo.ImageRepo, base)
+	if err != nil {
+		return errors.Annotate(err, "failed to get image for system")
 	}
 
 	containers := make(map[string]caas.ContainerConfig)
@@ -398,22 +390,14 @@ func (a *appWorker) alive(app caas.Application) error {
 		container := caas.ContainerConfig{
 			Name: k,
 		}
-		if len(v.Systems) != 1 {
-			return errors.NotValidf("containers currently only support declaring one system")
+		if v.Resource == "" {
+			return errors.NotValidf("empty container resource reference")
 		}
-		system := v.Systems[0]
-		if system.Resource != "" {
-			image, ok := images[system.Resource]
-			if !ok {
-				return errors.NotFoundf("referenced charm base image resource %s", system.Resource)
-			}
-			container.Image = image
-		} else {
-			container.Image.RegistryPath, err = podcfg.ImageForSystem(provisionInfo.ImageRepo, system)
-			if err != nil {
-				return errors.Annotate(err, "failed to get image for system")
-			}
+		image, ok := images[v.Resource]
+		if !ok {
+			return errors.NotFoundf("referenced charm base image resource %s", v.Resource)
 		}
+		container.Image = image
 		for _, m := range v.Mounts {
 			container.Mounts = append(container.Mounts, caas.MountConfig{
 				StorageName: m.Storage,

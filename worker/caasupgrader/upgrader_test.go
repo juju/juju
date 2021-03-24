@@ -8,7 +8,7 @@ import (
 	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 
@@ -45,7 +45,7 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 
 func (s *UpgraderSuite) patchVersion(v version.Binary) {
 	s.PatchValue(&arch.HostArch, func() string { return v.Arch })
-	s.PatchValue(&series.HostSeries, func() (string, error) { return v.Series, nil })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return "ubuntu", nil })
 	s.PatchValue(&jujuversion.Current, v.Number)
 }
 
@@ -77,7 +77,7 @@ func (s *UpgraderSuite) TestUpgraderSetsVersion(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderController(c *gc.C) {
-	vers := version.MustParseBinary("6.6.6-bionic-amd64")
+	vers := version.MustParseBinary("6.6.6-ubuntu-amd64")
 	s.patchVersion(vers)
 	s.upgraderClient.desired = version.MustParse("6.6.7")
 
@@ -93,7 +93,7 @@ func (s *UpgraderSuite) TestUpgraderController(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderApplication(c *gc.C) {
-	vers := version.MustParseBinary("6.6.6-bionic-amd64")
+	vers := version.MustParseBinary("6.6.6-ubuntu-amd64")
 	s.patchVersion(vers)
 	s.upgraderClient.desired = version.MustParse("6.6.7")
 

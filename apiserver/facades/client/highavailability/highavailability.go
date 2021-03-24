@@ -150,7 +150,7 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 	return controllersChanges(changes), nil
 }
 
-// getReferenceController looks up the ideal controller to use as a reference for Constraints and Series
+// getReferenceController looks up the ideal controller to use as a reference for Constraints and Release
 func getReferenceController(st *state.State, controllerIds []string) (*state.Machine, error) {
 	// Sort the controller IDs from low to high and take the first.
 	// This will typically give the initial bootstrap machine.

@@ -11,7 +11,7 @@ import (
 	"github.com/juju/systems"
 	"github.com/juju/systems/channel"
 	"github.com/juju/testing"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
@@ -50,9 +50,9 @@ func newMockState() *mockState {
 				sha256: "fake-sha256",
 				meta: &charm.Meta{
 					// charm.FormatV2.
-					Systems: []systems.System{
+					Bases: []systems.Base{
 						{
-							OS: "ubuntu",
+							Name: "ubuntu",
 							Channel: channel.Channel{
 								Name:  "20.04/stable",
 								Risk:  "stable",

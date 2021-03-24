@@ -11,11 +11,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/core/series"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -38,11 +37,7 @@ func (s *cmdUpgradeSuite) SetUpTest(c *gc.C) {
 
 	s.JujuConnSuite.SetUpTest(c)
 
-	supported := series.SupportedLts()
-	supported = append(supported, testing.HostSeries(c))
-	for _, aSeries := range supported {
-		s.AddToolsToState(c, version.MustParseBinary(fmt.Sprintf("%v-%v-amd64", newVersion, aSeries)))
-	}
+	s.AddToolsToState(c, version.MustParseBinary(fmt.Sprintf("%v-ubuntu-amd64", newVersion)))
 
 	s.hostedModelUser = "otheruser"
 	s.hostedModelUserTag = names.NewUserTag(s.hostedModelUser)

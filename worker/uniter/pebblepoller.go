@@ -21,6 +21,7 @@ import (
 // need for the PebblePoller.
 type PebbleClient interface {
 	SysInfo() (*client.SysInfo, error)
+	CloseIdleConnections()
 }
 
 // NewPebbleClientFunc is the function type used to create a PebbleClient.
@@ -106,6 +107,7 @@ func (p *pebblePoller) poll(containerName string) error {
 		Socket: path.Join("/charm/containers", containerName, "pebble.socket"),
 	}
 	pc := p.newPebbleClient(config)
+	defer pc.CloseIdleConnections()
 	info, err := pc.SysInfo()
 	if err != nil {
 		return errors.Annotatef(err, "failed to get pebble info")

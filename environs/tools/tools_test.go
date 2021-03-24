@@ -12,7 +12,7 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	coreseries "github.com/juju/juju/core/series"
@@ -218,7 +218,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 		{loggo.DEBUG, "reading agent binaries with major version 1"},
 		{loggo.DEBUG, "filtering agent binaries by version: \\d+\\.\\d+\\.\\d+"},
 		{loggo.TRACE, "no architecture specified when finding agent binaries, looking for "},
-		{loggo.TRACE, "no series specified when finding agent binaries, looking for \\[.*\\]"},
+		{loggo.TRACE, "no os type specified when finding agent binaries, looking for \\[.*\\]"},
 	}
 	sources, err := envtools.GetMetadataSources(s.env)
 	c.Assert(err, jc.ErrorIsNil)
@@ -239,31 +239,31 @@ var findExactToolsTests = []struct {
 	err    error
 }{{
 	info: "nothing available",
-	seek: envtesting.V100p64,
+	seek: envtesting.V100u64,
 	err:  envtools.ErrNoTools,
 }, {
 	info:   "only non-matches available in custom",
-	custom: append(envtesting.V110all, envtesting.V100p32, envtesting.V100q64, envtesting.V1001p64),
-	seek:   envtesting.V100p64,
+	custom: append(envtesting.V110all, envtesting.V100u32, envtesting.V100w64, envtesting.V1001u64),
+	seek:   envtesting.V100u64,
 	err:    coretools.ErrNoMatches,
 }, {
 	info:   "exact match available in custom",
-	custom: []version.Binary{envtesting.V100p64},
-	seek:   envtesting.V100p64,
+	custom: []version.Binary{envtesting.V100u64},
+	seek:   envtesting.V100u64,
 }, {
 	info:   "only non-matches available in public",
-	custom: append(envtesting.V110all, envtesting.V100p32, envtesting.V100q64, envtesting.V1001p64),
-	seek:   envtesting.V100p64,
+	custom: append(envtesting.V110all, envtesting.V100u32, envtesting.V100w64, envtesting.V1001u64),
+	seek:   envtesting.V100u64,
 	err:    coretools.ErrNoMatches,
 }, {
 	info:   "exact match available in public",
-	public: []version.Binary{envtesting.V100p64},
-	seek:   envtesting.V100p64,
+	public: []version.Binary{envtesting.V100u64},
+	seek:   envtesting.V100u64,
 }, {
 	info:   "exact match in public not blocked by custom",
 	custom: envtesting.V110all,
-	public: []version.Binary{envtesting.V100p64},
-	seek:   envtesting.V100p64,
+	public: []version.Binary{envtesting.V100u64},
+	seek:   envtesting.V100u64,
 }}
 
 func (s *SimpleStreamsToolsSuite) TestFindExactTools(c *gc.C) {
@@ -272,7 +272,7 @@ func (s *SimpleStreamsToolsSuite) TestFindExactTools(c *gc.C) {
 		s.reset(c, nil)
 		custom := s.uploadCustom(c, test.custom...)
 		public := s.uploadPublic(c, test.public...)
-		actual, err := envtools.FindExactTools(s.env, test.seek.Number, test.seek.Series, test.seek.Arch)
+		actual, err := envtools.FindExactTools(s.env, test.seek.Number, test.seek.Release, test.seek.Arch)
 		if test.err == nil {
 			if !c.Check(err, jc.ErrorIsNil) {
 				continue
@@ -339,10 +339,10 @@ var findToolsFallbackTests = []struct {
 	major:    1,
 	minor:    2,
 	streams:  []string{"devel", "proposed", "released"},
-	devel:    []version.Binary{envtesting.V110q64, envtesting.V120q64},
-	proposed: []version.Binary{envtesting.V110p64, envtesting.V120p64},
-	released: []version.Binary{envtesting.V100p64, envtesting.V120t64},
-	expect:   []version.Binary{envtesting.V120p64, envtesting.V120q64, envtesting.V120t64},
+	devel:    []version.Binary{envtesting.V110w64},
+	proposed: []version.Binary{envtesting.V110u64, envtesting.V120u64},
+	released: []version.Binary{envtesting.V100u64},
+	expect:   []version.Binary{envtesting.V120u64},
 }}
 
 func (s *SimpleStreamsToolsSuite) TestFindToolsWithStreamFallback(c *gc.C) {
@@ -439,56 +439,56 @@ func (s *SimpleStreamsToolsSuite) TestPreferredStreams(c *gc.C) {
 	}
 }
 
-// fakeToolsForSeries fakes a Tools object with just enough information for
-// testing the handling its OS series.
-func fakeToolsForSeries(series string) *coretools.Tools {
-	return &coretools.Tools{Version: version.Binary{Series: series}}
+// fakeToolsForRelease fakes a Tools object with just enough information for
+// testing the handling its OS type.
+func fakeToolsForRelease(osType string) *coretools.Tools {
+	return &coretools.Tools{Version: version.Binary{Release: osType}}
 }
 
 // fakeToolsList fakes a envtools.List containing Tools objects for the given
-// respective series, in the same number and order.
-func fakeToolsList(series ...string) coretools.List {
+// respective os types, in the same number and order.
+func fakeToolsList(releases ...string) coretools.List {
 	list := coretools.List{}
-	for _, name := range series {
-		list = append(list, fakeToolsForSeries(name))
+	for _, name := range releases {
+		list = append(list, fakeToolsForRelease(name))
 	}
 	return list
 }
 
 type ToolsListSuite struct{}
 
-func (s *ToolsListSuite) TestCheckToolsSeriesRequiresTools(c *gc.C) {
-	err := envtools.CheckToolsSeries(fakeToolsList(), "bionic")
+func (s *ToolsListSuite) TestCheckToolsReleaseRequiresTools(c *gc.C) {
+	err := envtools.CheckToolsReleases(fakeToolsList(), "ubuntu")
 	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, "expected single series, got \\[\\]")
+	c.Check(err, gc.ErrorMatches, "expected single os type, got \\[\\]")
 }
 
-func (s *ToolsListSuite) TestCheckToolsSeriesAcceptsOneSetOfTools(c *gc.C) {
-	names := []string{"bionic", "xenial"}
-	for _, series := range names {
-		list := fakeToolsList(series)
-		err := envtools.CheckToolsSeries(list, series)
+func (s *ToolsListSuite) TestCheckToolsReleaseAcceptsOneSetOfTools(c *gc.C) {
+	names := []string{"ubuntu", "windows"}
+	for _, release := range names {
+		list := fakeToolsList(release)
+		err := envtools.CheckToolsReleases(list, release)
 		c.Check(err, jc.ErrorIsNil)
 	}
 }
 
-func (s *ToolsListSuite) TestCheckToolsSeriesAcceptsMultipleForSameSeries(c *gc.C) {
-	series := "quantal"
-	list := fakeToolsList(series, series, series)
-	err := envtools.CheckToolsSeries(list, series)
+func (s *ToolsListSuite) TestCheckToolsReleaseAcceptsMultipleForSameOSType(c *gc.C) {
+	osType := "ubuntu"
+	list := fakeToolsList(osType, osType, osType)
+	err := envtools.CheckToolsReleases(list, osType)
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *ToolsListSuite) TestCheckToolsSeriesRejectsToolsForOtherSeries(c *gc.C) {
-	list := fakeToolsList("hoary")
-	err := envtools.CheckToolsSeries(list, "warty")
+func (s *ToolsListSuite) TestCheckToolsReleaseRejectsToolsForOthers(c *gc.C) {
+	list := fakeToolsList("windows")
+	err := envtools.CheckToolsReleases(list, "ubuntu")
 	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, "agent binary mismatch: expected series warty, got hoary")
+	c.Check(err, gc.ErrorMatches, "agent binary mismatch: expected os type ubuntu, got windows")
 }
 
-func (s *ToolsListSuite) TestCheckToolsSeriesRejectsToolsForMixedSeries(c *gc.C) {
-	list := fakeToolsList("bionic", "xenial")
-	err := envtools.CheckToolsSeries(list, "bionic")
+func (s *ToolsListSuite) TestCheckToolsReleaseRejectsToolsForMixed(c *gc.C) {
+	list := fakeToolsList("ubuntu", "windows")
+	err := envtools.CheckToolsReleases(list, "ubuntu")
 	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, "expected single series, got .*")
+	c.Check(err, gc.ErrorMatches, "expected single os type, got .*")
 }

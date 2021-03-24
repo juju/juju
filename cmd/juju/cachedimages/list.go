@@ -21,7 +21,7 @@ List cached os images in the Juju model.
 
 Images can be filtered on:
   Kind         eg "lxd"
-  Series       eg "xenial"
+  Release       eg "xenial"
   Architecture eg "amd64"
 The filter attributes are optional.
 

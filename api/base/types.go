@@ -6,7 +6,7 @@ package base
 import (
 	"time"
 
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"

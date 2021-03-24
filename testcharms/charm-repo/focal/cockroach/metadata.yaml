@@ -2,17 +2,12 @@ name: cockroachdb
 summary: cockroachdb
 maintainers: ["Harry Pidcock <harry.pidcock@canonical.com>"]
 description: cockroachdb
-platforms:
-  - kubernetes
-architectures:
-  - amd64
-systems:
-  - os: ubuntu
+bases:
+  - name: ubuntu
     channel: 20.04/stable
 containers:
   cockroachdb:
-    systems:
-      - resource: cockroachdb-image
+    resource: cockroachdb-image
     mounts:
       - storage: database
         location: /cockroach/cockroach-data

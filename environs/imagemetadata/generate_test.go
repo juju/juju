@@ -29,7 +29,7 @@ func (s *generateSuite) SetUpTest(c *gc.C) {
 func assertFetch(c *gc.C, stor storage.Storage, series, arch, region, endpoint string, ids ...string) {
 	cons, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{region, endpoint},
-		Series:    []string{series},
+		Releases:  []string{series},
 		Arches:    []string{arch},
 	})
 	c.Assert(err, jc.ErrorIsNil)

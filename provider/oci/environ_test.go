@@ -938,7 +938,7 @@ func (e *environSuite) TestBootstrap(c *gc.C) {
 	_, err := e.env.Bootstrap(ctx, nil,
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("trusty"),
+			AvailableTools:           makeToolsList("ubuntu"),
 			BootstrapSeries:          "trusty",
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		})
@@ -965,7 +965,7 @@ func (e *environSuite) TestBootstrapNoAllocatePublicIP(c *gc.C) {
 	_, err := e.env.Bootstrap(ctx, nil,
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("trusty"),
+			AvailableTools:           makeToolsList("ubuntu"),
 			BootstrapSeries:          "trusty",
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 			BootstrapConstraints:     constraints.MustParse("allocate-public-ip=false"),
@@ -995,7 +995,7 @@ func (e *environSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 	_, err := e.env.Bootstrap(ctx, nil,
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("trusty"),
+			AvailableTools:           makeToolsList("windows"),
 			BootstrapSeries:          "precise",
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		})

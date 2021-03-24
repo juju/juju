@@ -21,14 +21,41 @@ import (
 //
 // The caller owns the State provided. It is the caller's
 // responsibility to close it.
-func NewResourceOpener(st *corestate.State, unitName string) (opener resource.Opener, err error) {
-	return newInternalResourceOpener(&stateShim{st}, unitName)
+func NewResourceOpener(st ResourceOpenerState, unitName string) (opener resource.Opener, err error) {
+	return newInternalResourceOpener(st, unitName, "")
 }
 
-func newInternalResourceOpener(st ResourceOpenerState, unitName string) (opener resource.Opener, err error) {
-	unit, err := st.Unit(unitName)
+// NewResourceOpenerForApplication returns a new resource.Opener for the given app.
+//
+// The caller owns the State provided. It is the caller's
+// responsibility to close it.
+func NewResourceOpenerForApplication(st ResourceOpenerState, applicationName string) (opener resource.Opener, err error) {
+	return newInternalResourceOpener(st, "", applicationName)
+}
+
+// NewResourceOpenerState wraps a State pointer for passing into NewResourceOpener/NewResourceOpenerForApplication.
+func NewResourceOpenerState(st *corestate.State) ResourceOpenerState {
+	return &stateShim{st}
+}
+
+func newInternalResourceOpener(st ResourceOpenerState, unitName string, applicationName string) (opener resource.Opener, err error) {
+	unit := Unit(nil)
+	if unitName != "" {
+		unit, err = st.Unit(unitName)
+		if err != nil {
+			return nil, errors.Annotate(err, "loading unit")
+		}
+	}
+
+	if applicationName == "" {
+		if unit == nil {
+			return nil, errors.Errorf("missing both unit and application")
+		}
+		applicationName = unit.ApplicationName()
+	}
+	application, err := st.Application(applicationName)
 	if err != nil {
-		return nil, errors.Annotate(err, "loading unit")
+		return nil, errors.Trace(err)
 	}
 
 	resources, err := st.Resources()
@@ -38,13 +65,18 @@ func newInternalResourceOpener(st ResourceOpenerState, unitName string) (opener 
 
 	var resourceClient ResourceRetryClientGetterFn
 
-	curl, _ := unit.CharmURL()
+	charmURL := (*charm.URL)(nil)
+	if unit != nil {
+		charmURL, _ = unit.CharmURL()
+	} else {
+		charmURL, _ = application.CharmURL()
+	}
 	switch {
-	case charm.CharmHub.Matches(curl.Schema):
+	case charm.CharmHub.Matches(charmURL.Schema):
 		resourceClient = func(st ResourceOpenerState) ResourceRetryClientGetter {
 			return newCharmHubOpener(st)
 		}
-	case charm.CharmStore.Matches(curl.Schema):
+	case charm.CharmStore.Matches(charmURL.Schema):
 		resourceClient = func(st ResourceOpenerState) ResourceRetryClientGetter {
 			return newCharmStoreOpener(st)
 		}
@@ -56,37 +88,51 @@ func newInternalResourceOpener(st ResourceOpenerState, unitName string) (opener 
 			return newNopOpener()
 		}
 	}
+
+	var userID names.Tag
+	if unit != nil {
+		userID = unit.Tag()
+	} else {
+		userID = application.Tag()
+	}
+
 	return &ResourceOpener{
 		st:                st,
 		res:               resources,
-		userID:            unit.Tag(),
+		userID:            userID,
 		unit:              unit,
+		application:       application,
 		newResourceOpener: resourceClient,
 	}, nil
 }
 
 // ResourceOpener is a ResourceOpener for the charm store.
 type ResourceOpener struct {
-	st                ResourceOpenerState
-	res               Resources
-	userID            names.Tag
-	unit              Unit
+	st          ResourceOpenerState
+	res         Resources
+	userID      names.Tag
+	unit        Unit
+	application Application
+
 	newResourceOpener func(st ResourceOpenerState) ResourceRetryClientGetter
 }
 
 // OpenResource implements server.ResourceOpener.
 func (ro *ResourceOpener) OpenResource(name string) (o resource.Opened, err error) {
-	if ro.unit == nil {
-		return resource.Opened{}, errors.Errorf("missing unit")
+	if ro.application == nil {
+		return resource.Opened{}, errors.Errorf("missing application")
 	}
-	app, err := ro.unit.Application()
-	if err != nil {
-		return resource.Opened{}, errors.Trace(err)
+
+	var charmURL *charm.URL
+	if ro.unit != nil {
+		charmURL, _ = ro.unit.CharmURL()
+	} else {
+		charmURL, _ = ro.application.CharmURL()
 	}
-	cURL, _ := ro.unit.CharmURL()
+
 	id := repositories.CharmID{
-		URL:    cURL,
-		Origin: *app.CharmOrigin(),
+		URL:    charmURL,
+		Origin: *ro.application.CharmOrigin(),
 	}
 
 	client, err := ro.newResourceOpener(ro.st).NewClient()
@@ -95,10 +141,10 @@ func (ro *ResourceOpener) OpenResource(name string) (o resource.Opened, err erro
 	}
 
 	st := &resourceState{
-		st:      ro.res,
-		userID:  ro.userID,
-		unit:    ro.unit,
-		appName: ro.unit.ApplicationName(),
+		st:          ro.res,
+		userID:      ro.userID,
+		unit:        ro.unit,
+		application: ro.application,
 	}
 
 	res, reader, err := repositories.GetResource(repositories.GetResourceArgs{
@@ -120,26 +166,26 @@ func (ro *ResourceOpener) OpenResource(name string) (o resource.Opened, err erro
 
 // resourceState adapts between resource state and charmstore.EntityCache.
 type resourceState struct {
-	st      Resources
-	userID  names.Tag
-	unit    resource.Unit
-	appName string
+	st          Resources
+	userID      names.Tag
+	unit        resource.Unit
+	application Application
 }
 
 // GetResource implements charmstore.EntityCache.
 func (s *resourceState) GetResource(name string) (resource.Resource, error) {
-	return s.st.GetResource(s.appName, name)
+	return s.st.GetResource(s.application.Name(), name)
 }
 
 // SetResource implements charmstore.EntityCache.
 func (s *resourceState) SetResource(chRes charmresource.Resource, reader io.Reader) (resource.Resource, error) {
-	return s.st.SetResource(s.appName, s.userID.Id(), chRes, reader)
+	return s.st.SetResource(s.application.Name(), s.userID.Id(), chRes, reader)
 }
 
 // OpenResource implements charmstore.EntityCache.
 func (s *resourceState) OpenResource(name string) (resource.Resource, io.ReadCloser, error) {
 	if s.unit == nil {
-		return resource.Resource{}, nil, errors.NotImplementedf("")
+		return s.st.OpenResource(s.application.Name(), name)
 	}
 	return s.st.OpenResourceForUniter(s.unit, name)
 }
@@ -190,6 +236,10 @@ func (s *stateShim) Unit(name string) (Unit, error) {
 
 func (s *stateShim) Resources() (Resources, error) {
 	return s.State.Resources()
+}
+
+func (s *stateShim) Application(applicationName string) (Application, error) {
+	return s.State.Application(applicationName)
 }
 
 type unitShim struct {

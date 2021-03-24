@@ -107,7 +107,7 @@ func BootstrapInstance(
 		return nil, "", nil, errors.NotValidf("bootstrap instance series")
 	}
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{
-		Series: selectedSeries,
+		OSType: coreseries.DefaultOSTypeNameFromSeries(selectedSeries),
 	})
 	if err != nil {
 		return nil, "", nil, err

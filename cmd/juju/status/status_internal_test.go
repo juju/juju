@@ -19,7 +19,7 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
@@ -655,7 +655,7 @@ var statusTests = []testCase{
 			},
 		},
 
-		setTools{"0", version.MustParseBinary("1.2.3-trusty-ppc")},
+		setTools{"0", version.MustParseBinary("1.2.3-ubuntu-ppc")},
 		expect{
 			what: "simulate the MA setting the version",
 			output: M{
@@ -5081,7 +5081,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addAliveUnit{"wordpress", "1"},
 		setAgentStatus{"wordpress/0", status.Idle, "", nil},
 		setUnitStatus{"wordpress/0", status.Active, "", nil},
-		setUnitTools{"wordpress/0", version.MustParseBinary("1.2.3-trusty-ppc")},
+		setUnitTools{"wordpress/0", version.MustParseBinary("1.2.3-ubuntu-ppc")},
 		addApplication{name: "mysql", charm: "mysql"},
 		setApplicationExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
@@ -5100,7 +5100,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 			"mysql/1",
 			status.Terminated,
 			"gooooone", nil},
-		setUnitTools{"mysql/0", version.MustParseBinary("1.2.3-trusty-ppc")},
+		setUnitTools{"mysql/0", version.MustParseBinary("1.2.3-ubuntu-ppc")},
 		addApplication{name: "logging", charm: "logging"},
 		setApplicationExposed{"logging", true},
 		relateApplications{"wordpress", "mysql", "suspended"},

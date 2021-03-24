@@ -60,7 +60,7 @@ __metaclass__ = type
 log = logging.getLogger("assess_upgrade")
 
 
-VersionParts = namedtuple('VersionParts', ['version', 'series', 'arch'])
+VersionParts = namedtuple('VersionParts', ['version', 'release', 'arch'])
 
 
 def assess_upgrade_from_stable_to_develop(args, stable_bsm, devel_client):
@@ -88,9 +88,9 @@ def assess_upgrade_passing_agent_stream(args, devel_client):
     stable_client = stable_bsm.client
     devel_version_parts = get_version_parts(devel_client.version)
     forced_devel_client = devel_client.clone(
-        version='{vers}-{series}-{arch}'.format(
+        version='{vers}-{release}-{arch}'.format(
             vers=increment_version(devel_client.version),
-            series=devel_version_parts.series,
+            release=devel_version_parts.release,
             arch=devel_version_parts.arch))
     with temp_dir() as base_dir:
         stream_server = StreamServer(base_dir)
@@ -176,14 +176,12 @@ def setup_agent_metadata(
         stream,
         version_parts.version,
         version_parts.arch,
-        client.env.get_option('default-series'),
         agent_details)
     # Trusty needed for wikimedia charm.
     stream_server.add_product(
         stream,
         version_parts.version,
         version_parts.arch,
-        'trusty',
         agent_details)
 
 

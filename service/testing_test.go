@@ -8,7 +8,7 @@ import (
 	"github.com/juju/os/v2/series"
 	"github.com/juju/testing"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/service/common"

@@ -15,7 +15,6 @@ import (
 var (
 	Provider                 environs.EnvironProvider = providerInstance
 	NewInstance                                       = newInstance
-	CheckInstanceType                                 = checkInstanceType
 	GetMetadata                                       = getMetadata
 	GetDisks                                          = getDisks
 	UbuntuImageBasePath                               = ubuntuImageBasePath
@@ -55,12 +54,13 @@ func FindInstanceSpec(
 	env *environ,
 	ic *instances.InstanceConstraint,
 	imageMetadata []*imagemetadata.ImageMetadata,
+	instanceTypes []instances.InstanceType,
 ) (*instances.InstanceSpec, error) {
-	return env.findInstanceSpec(ic, imageMetadata)
+	return env.findInstanceSpec(ic, imageMetadata, instanceTypes)
 }
 
-func BuildInstanceSpec(env *environ, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
-	return env.buildInstanceSpec(args)
+func BuildInstanceSpec(env *environ, ctx context.ProviderCallContext, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
+	return env.buildInstanceSpec(ctx, args)
 }
 
 func NewRawInstance(env *environ, ctx context.ProviderCallContext, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {

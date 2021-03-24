@@ -59,8 +59,9 @@ const (
 	// a JSON file.
 	JSONFileAuthType AuthType = "jsonfile"
 
-	// CertificateAuthType is an authentication type using certificates.
-	CertificateAuthType AuthType = "certificate"
+	// ClientCertificateAuthType is an authentication type using client
+	// certificates.
+	ClientCertificateAuthType AuthType = "clientcertificate"
 
 	// HTTPSigAuthType is an authentication type that uses HTTP signatures:
 	// https://tools.ietf.org/html/draft-cavage-http-signatures-06
@@ -92,6 +93,24 @@ const (
 	// the filename of a CA Certificate to be used to access the cloud, in conjunction
 	// with an auth type.
 	CertFilenameKey = "certfilename"
+)
+
+// Const legacy auth types. Their should be no reason to use these anymore in
+// Juju. They are kept to maintain backwards compatibility.
+const (
+	// CertificateAuthType is an authentication type using certificates.
+	// NOTE: This type should never be used in practice as it doesn't exist. We
+	// maintain it here to maintain backwards functionality for Juju in a pre
+	// 2.9 world. Consider using ClientCertificateAuthType instead. This note
+	// applies to Kubernetes.
+	// TODO: tlm update lxd to stop using this auth type
+	CertificateAuthType AuthType = "certificate"
+
+	// OAuth2WithCertAuthType is an authentication type using oauth2 and a client certificate
+	// NOTE: This type should never be used in practice as it doesn't exist. We
+	// maintain it here to maintain backwards functionality for Juju in a pre
+	// 2.9 world. Consider using OAuth2AuthType instead.
+	OAuth2WithCertAuthType AuthType = "oauth2withcert"
 )
 
 // Attrs serves as a map to hold regions specific configuration attributes.

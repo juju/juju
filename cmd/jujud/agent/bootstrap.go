@@ -15,14 +15,13 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/cmd"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/utils/v2/ssh"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
@@ -39,8 +38,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	jujuos "github.com/juju/juju/core/os"
-	jujuseries "github.com/juju/juju/core/series"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -223,14 +221,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			// tools can actually be found, or else bootstrap won't complete.
 			streams := envtools.PreferredStreams(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())
 			logger.Infof("newer agent binaries requested, looking for %v in streams: %v", desiredVersion, strings.Join(streams, ","))
-			hostSeries, err := series.HostSeries()
-			if err != nil {
-				return errors.Trace(err)
-			}
 			filter := tools.Filter{
 				Number: desiredVersion,
 				Arch:   arch.HostArch(),
-				Series: hostSeries,
+				OSType: coreos.HostOSTypeName(),
 			}
 			_, toolsErr := envtools.FindTools(env, -1, -1, streams, filter)
 			if toolsErr == nil {
@@ -629,14 +623,10 @@ func (c *BootstrapCommand) populateTools(st *state.State) error {
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 
-	hostSeries, err := series.HostSeries()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: hostSeries,
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: coreos.HostOSTypeName(),
 	}
 	agentTools, err := agenttools.ReadTools(dataDir, current)
 	if err != nil {
@@ -657,46 +647,14 @@ func (c *BootstrapCommand) populateTools(st *state.State) error {
 	}
 	defer func() { _ = toolStorage.Close() }()
 
-	var toolsVersions []version.Binary
-	if strings.HasPrefix(agentTools.URL, "file://") {
-		// Tools were uploaded: clone for each series of the same OS.
-		opSys, err := jujuseries.GetOSFromSeries(agentTools.Version.Series)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		osTypes := set.NewInts(int(opSys))
-		// If a Linux OS, we'll include all Linux OS's.
-		if opSys.IsLinux() {
-			for _, osType := range []jujuos.OSType{jujuos.Ubuntu, jujuos.CentOS, jujuos.GenericLinux, jujuos.OpenSUSE} {
-				osTypes.Add(int(osType))
-			}
-		}
-		for _, osType := range osTypes.SortedValues() {
-			osSeries, err := jujuseries.OSAllSeries(jujuos.OSType(osType))
-			if err != nil {
-				return errors.Trace(err)
-			}
-			for _, s := range osSeries {
-				toolsVersion := agentTools.Version
-				toolsVersion.Series = s
-				toolsVersions = append(toolsVersions, toolsVersion)
-			}
-		}
-	} else {
-		// Tools were downloaded from an external source: don't clone.
-		toolsVersions = []version.Binary{agentTools.Version}
+	metadata := binarystorage.Metadata{
+		Version: agentTools.Version.String(),
+		Size:    agentTools.Size,
+		SHA256:  agentTools.SHA256,
 	}
-
-	for _, toolsVersion := range toolsVersions {
-		metadata := binarystorage.Metadata{
-			Version: toolsVersion.String(),
-			Size:    agentTools.Size,
-			SHA256:  agentTools.SHA256,
-		}
-		logger.Debugf("Adding agent binaries: %v", toolsVersion)
-		if err := toolStorage.Add(bytes.NewReader(data), metadata); err != nil {
-			return errors.Trace(err)
-		}
+	logger.Debugf("Adding agent binary: %v", agentTools.Version)
+	if err := toolStorage.Add(bytes.NewReader(data), metadata); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

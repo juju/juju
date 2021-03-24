@@ -20,7 +20,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/utils/v2/ssh"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	cryptossh "golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 
@@ -200,7 +200,6 @@ func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	bootstrapSeries := jujuversion.DefaultSupportedLTS()
 	availableTools := fakeAvailableTools()
-	availableTools[0].Version.Series = bootstrapSeries
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		BootstrapSeries:          bootstrapSeries,
@@ -222,7 +221,6 @@ func (s *BootstrapSuite) TestBootstrapInvalidSeries(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	bootstrapSeries := "spock"
 	availableTools := fakeAvailableTools()
-	availableTools[0].Version.Series = bootstrapSeries
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		BootstrapSeries:          bootstrapSeries,
@@ -263,7 +261,6 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	bootstrapSeries := "xenial"
 	availableTools := fakeAvailableTools()
-	availableTools[0].Version.Series = bootstrapSeries
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		BootstrapSeries:          bootstrapSeries,
@@ -712,7 +709,6 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	bootstrapSeries := jujuversion.DefaultSupportedLTS()
 	availableTools := fakeAvailableTools()
-	availableTools[0].Version.Series = bootstrapSeries
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		BootstrapSeries:          bootstrapSeries,
@@ -994,9 +990,9 @@ func fakeAvailableTools() tools.List {
 	return tools.List{
 		&tools.Tools{
 			Version: version.Binary{
-				Number: jujuversion.Current,
-				Arch:   arch.HostArch(),
-				Series: jujuversion.DefaultSupportedLTS(),
+				Number:  jujuversion.Current,
+				Arch:    arch.HostArch(),
+				Release: "ubuntu",
 			},
 		},
 	}

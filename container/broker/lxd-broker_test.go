@@ -15,7 +15,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -128,8 +128,8 @@ func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *gc.C) {
 	_, err := broker.StartInstance(context.NewCloudCallContext(), environs.StartInstanceParams{
 		Tools: coretools.List{{
 			// non-host-arch tools should be filtered out by StartInstance
-			Version: version.MustParseBinary("2.3.4-quantal-arm64"),
-			URL:     "http://tools.testing.invalid/2.3.4-quantal-arm64.tgz",
+			Version: version.MustParseBinary("2.3.4-ubuntu-arm64"),
+			URL:     "http://tools.testing.invalid/2.3.4-ubuntu-arm64.tgz",
 		}},
 		InstanceConfig: makeInstanceConfig(c, s, "1/lxd/0"),
 	})

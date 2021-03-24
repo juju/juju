@@ -17,7 +17,7 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
@@ -1052,7 +1052,7 @@ func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
 	oldTools, _ := m0.AgentTools()
 	m1, err := s.State.Machine(m0.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	err = m0.SetAgentVersion(version.MustParseBinary("0.0.3-quantal-amd64"))
+	err = m0.SetAgentVersion(version.MustParseBinary("0.0.3-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 	newTools, _ := m0.AgentTools()
 
@@ -1221,7 +1221,7 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Make two changes, check one event.
-	err = machine.SetAgentVersion(version.MustParseBinary("0.0.3-quantal-amd64"))
+	err = machine.SetAgentVersion(version.MustParseBinary("0.0.3-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2633,28 +2633,14 @@ func (s *MachineSuite) assertMachineAndUnitSeriesChanged(c *gc.C, mach *state.Ma
 
 func (s *MachineSuite) TestUpdateMachineSeries(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
-	err := mach.UpdateMachineSeries("trusty", false)
+	err := mach.UpdateMachineSeries("trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertMachineAndUnitSeriesChanged(c, mach, "trusty")
 }
 
-func (s *MachineSuite) TestUpdateMachineSeriesFail(c *gc.C) {
-	mach := s.setupTestUpdateMachineSeries(c)
-	err := mach.UpdateMachineSeries("xenial", false)
-	c.Assert(err, jc.Satisfies, state.IsIncompatibleSeriesError)
-	s.assertMachineAndUnitSeriesChanged(c, mach, "precise")
-}
-
-func (s *MachineSuite) TestUpdateMachineSeriesForce(c *gc.C) {
-	mach := s.setupTestUpdateMachineSeries(c)
-	err := mach.UpdateMachineSeries("xenial", true)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertMachineAndUnitSeriesChanged(c, mach, "xenial")
-}
-
 func (s *MachineSuite) TestUpdateMachineSeriesSameSeriesToStart(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
-	err := mach.UpdateMachineSeries("precise", false)
+	err := mach.UpdateMachineSeries("precise")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertMachineAndUnitSeriesChanged(c, mach, "precise")
 }
@@ -2680,34 +2666,11 @@ func (s *MachineSuite) TestUpdateMachineSeriesSameSeriesAfterStart(c *gc.C) {
 		},
 	).Check()
 
-	err := mach.UpdateMachineSeries("trusty", false)
+	err := mach.UpdateMachineSeries("trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	err = mach.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mach.Series(), gc.Equals, "trusty")
-}
-
-func (s *MachineSuite) TestUpdateMachineSeriesCharmURLChangedSeriesFail(c *gc.C) {
-	mach := s.setupTestUpdateMachineSeries(c)
-
-	defer state.SetTestHooks(c, s.State,
-		jujutxn.TestHook{
-			Before: func() {
-				v2 := state.AddTestingCharmMultiSeries(c, s.State, "multi-seriesv2")
-				cfg := state.SetCharmConfig{Charm: v2}
-				app, err := s.State.Application("multi-series")
-				c.Assert(err, jc.ErrorIsNil)
-				err = app.SetCharm(cfg)
-				c.Assert(err, jc.ErrorIsNil)
-			},
-		},
-	).Check()
-
-	// Trusty is listed in only version 1 of the charm.
-	err := mach.UpdateMachineSeries("trusty", false)
-	c.Assert(err, gc.ErrorMatches,
-		"updating series for machine \"2\": series \"trusty\" not supported by charm \"cs:multi-series-2\", "+
-			"supported series are: precise, xenial")
 }
 
 func (s *MachineSuite) TestUpdateMachineSeriesPrincipalsListChange(c *gc.C) {
@@ -2729,46 +2692,10 @@ func (s *MachineSuite) TestUpdateMachineSeriesPrincipalsListChange(c *gc.C) {
 		},
 	).Check()
 
-	err = mach.UpdateMachineSeries("trusty", false)
+	err = mach.UpdateMachineSeries("trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertMachineAndUnitSeriesChanged(c, mach, "trusty")
 	c.Assert(len(mach.Principals()), gc.Equals, 2)
-}
-
-func (s *MachineSuite) TestUpdateMachineSeriesSubordinateListChangeIncompatibleSeries(c *gc.C) {
-	mach := s.setupTestUpdateMachineSeries(c)
-	err := mach.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-
-	unit, err := s.State.Unit("multi-series/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.SubordinateNames(), gc.DeepEquals, []string{"multi-series-subordinate/0"})
-
-	defer state.SetTestHooks(c, s.State,
-		jujutxn.TestHook{
-			Before: func() {
-				subCh2 := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-subordinate2")
-				subApp2 := state.AddTestingApplicationForSeries(c, s.State, "precise", "multi-series-subordinate2", subCh2)
-				c.Assert(subApp2.Series(), gc.Equals, "precise")
-
-				eps, err := s.State.InferEndpoints("multi-series", "multi-series-subordinate2")
-				c.Assert(err, jc.ErrorIsNil)
-				rel, err := s.State.AddRelation(eps...)
-				c.Assert(err, jc.ErrorIsNil)
-
-				err = unit.Refresh()
-				c.Assert(err, jc.ErrorIsNil)
-				relUnit, err := rel.Unit(unit)
-				c.Assert(err, jc.ErrorIsNil)
-				err = relUnit.EnterScope(nil)
-				c.Assert(err, jc.ErrorIsNil)
-			},
-		},
-	).Check()
-
-	err = mach.UpdateMachineSeries("yakkety", false)
-	c.Assert(err, jc.Satisfies, state.IsIncompatibleSeriesError)
-	s.assertMachineAndUnitSeriesChanged(c, mach, "precise")
 }
 
 func (s *MachineSuite) addMachineUnit(c *gc.C, mach *state.Machine) *state.Unit {
@@ -2791,18 +2718,6 @@ func (s *MachineSuite) addMachineUnit(c *gc.C, mach *state.Machine) *state.Unit 
 	err = unit.AssignToMachine(mach)
 	c.Assert(err, jc.ErrorIsNil)
 	return unit
-}
-
-// VerifyUnitsSeries is also tested via TestUpdateMachineSeries*
-func (s *MachineSuite) TestVerifyUnitsSeries(c *gc.C) {
-	mach := s.setupTestUpdateMachineSeries(c)
-	err := mach.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	expectedUnits, err := mach.Units()
-	c.Assert(err, jc.ErrorIsNil)
-	obtainedUnits, err := mach.VerifyUnitsSeries([]string{"multi-series/0"}, "trusty", false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitNames(obtainedUnits), jc.SameContents, unitNames(expectedUnits))
 }
 
 func unitNames(units []*state.Unit) []string {

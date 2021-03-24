@@ -6,6 +6,7 @@ package cloud_test
 import (
 	"io/ioutil"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -32,7 +33,7 @@ func (s *credentialSuite) TestValidCredentials(c *gc.C) {
 				ClientCertificateData: []byte("cert-data"),
 				ClientKeyData:         []byte("cert-key-data"),
 			},
-			AuthType: cloud.CertificateAuthType,
+			AuthType: cloud.ClientCertificateAuthType,
 			Attributes: map[string]string{
 				"ClientCertificateData": "cert-data",
 				"ClientKeyData":         "cert-key-data",
@@ -41,7 +42,7 @@ func (s *credentialSuite) TestValidCredentials(c *gc.C) {
 		},
 		{
 			AuthInfo: &clientcmdapi.AuthInfo{},
-			AuthType: cloud.CertificateAuthType,
+			AuthType: cloud.ClientCertificateAuthType,
 			Attributes: map[string]string{
 				"ClientCertificateData": "cert-data",
 				"ClientKeyData":         "cert-key-data",
@@ -137,4 +138,115 @@ func (s *credentialSuite) TestUnsupportedCredentials(c *gc.C) {
 
 	_, err := k8scloud.CredentialFromAuthInfo("unsupported", authInfo)
 	c.Assert(err.Error(), gc.Equals, "configuration for \"unsupported\" not supported")
+}
+
+func (s *credentialSuite) TestUnsuportedCredentialMigration(c *gc.C) {
+	cred := cloud.NewNamedCredential(
+		"doesnotexist",
+		cloud.ClientCertificateAuthType,
+		map[string]string{},
+		false)
+
+	_, err := k8scloud.MigrateLegacyCredential(&cred)
+	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
+}
+
+func (s *credentialSuite) TestCertificateAuthMigrationMissingToken(c *gc.C) {
+	cred := cloud.NewNamedCredential(
+		"missingtoken",
+		cloud.CertificateAuthType,
+		map[string]string{},
+		false)
+
+	_, err := k8scloud.MigrateLegacyCredential(&cred)
+	c.Assert(err.Error(), gc.Equals, "certificate oauth token during migration, expect key Token not found")
+}
+
+func (s *credentialSuite) TestCertificateAuthMigration(c *gc.C) {
+	cred := cloud.NewNamedCredential(
+		"missingtoken",
+		cloud.CertificateAuthType,
+		map[string]string{
+			"Token": "mytoken",
+		},
+		false)
+
+	cred, err := k8scloud.MigrateLegacyCredential(&cred)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cred.AuthType(), gc.Equals, cloud.OAuth2AuthType)
+	c.Assert(cred.Label, gc.Equals, "missingtoken")
+	c.Assert(cred.Attributes(), jc.DeepEquals, map[string]string{
+		"Token": "mytoken",
+	})
+}
+
+func (s *credentialSuite) TestCertificateAuthMigrationRBACId(c *gc.C) {
+	cred := cloud.NewNamedCredential(
+		"missingtoken",
+		cloud.CertificateAuthType,
+		map[string]string{
+			"Token":   "mytoken",
+			"rbac-id": "id",
+		},
+		false)
+
+	cred, err := k8scloud.MigrateLegacyCredential(&cred)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cred.AuthType(), gc.Equals, cloud.OAuth2AuthType)
+	c.Assert(cred.Label, gc.Equals, "missingtoken")
+	c.Assert(cred.Attributes(), jc.DeepEquals, map[string]string{
+		"Token":   "mytoken",
+		"rbac-id": "id",
+	})
+}
+
+func (s *credentialSuite) TestOAuth2CertMigrationWithoutToken(c *gc.C) {
+	cred := cloud.NewNamedCredential(
+		"missingtoken",
+		cloud.OAuth2WithCertAuthType,
+		map[string]string{
+			"ClientCertificateData": "data",
+			"ClientKeyData":         "key",
+		},
+		false)
+
+	cred, err := k8scloud.MigrateLegacyCredential(&cred)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cred.AuthType(), gc.Equals, cloud.ClientCertificateAuthType)
+	c.Assert(cred.Label, gc.Equals, "missingtoken")
+	c.Assert(cred.Attributes(), jc.DeepEquals, map[string]string{
+		"ClientCertificateData": "data",
+		"ClientKeyData":         "key",
+	})
+}
+
+func (s *credentialSuite) TestOAuth2CertMigrationWithoutTokenCert(c *gc.C) {
+	cred := cloud.NewNamedCredential(
+		"missingtoken",
+		cloud.OAuth2WithCertAuthType,
+		map[string]string{
+			"ClientCertificateData": "data",
+		},
+		false)
+
+	_, err := k8scloud.MigrateLegacyCredential(&cred)
+	c.Assert(err.Error(), gc.Equals, "migrating oauth2cert must have either ClientCertificateData & ClientKeyData attributes or Token attribute not valid")
+}
+
+func (s *credentialSuite) TestOAuth2CertMigrationWithToken(c *gc.C) {
+	cred := cloud.NewNamedCredential(
+		"missingtoken",
+		cloud.OAuth2WithCertAuthType,
+		map[string]string{
+			"Token": "mytoken",
+		},
+		false)
+
+	cred, err := k8scloud.MigrateLegacyCredential(&cred)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cred.AuthType(), gc.Equals, cloud.OAuth2AuthType)
+	c.Assert(cred.Label, gc.Equals, "missingtoken")
+	c.Assert(cred.Attributes(), jc.DeepEquals, map[string]string{
+		"Token": "mytoken",
+	})
 }

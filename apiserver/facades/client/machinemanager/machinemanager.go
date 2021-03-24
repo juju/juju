@@ -4,6 +4,7 @@
 package machinemanager
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"time"
@@ -17,13 +18,13 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmhub"
+	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 )
 
@@ -55,6 +56,12 @@ type Authorizer interface {
 	AuthClient() bool
 }
 
+// CharmhubClient represents a way for querying the charmhub api for information
+// about the application charm.
+type CharmhubClient interface {
+	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
+}
+
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
 	st               Backend
@@ -66,7 +73,7 @@ type MachineManagerAPI struct {
 	leadership       Leadership
 	upgradeSeriesAPI UpgradeSeries
 
-	callContext context.ProviderCallContext
+	callContext environscontext.ProviderCallContext
 }
 
 // NewFacade create a new server-side MachineManager API facade. This
@@ -90,6 +97,25 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
+	modelCfg, err := model.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var chCfg charmhub.Config
+	chURL, ok := modelCfg.CharmHubURL()
+	if ok {
+		chCfg, err = charmhub.CharmHubConfigFromURL(chURL, logger.Child("client"))
+	} else {
+		chCfg, err = charmhub.CharmHubConfig(logger.Child("client"))
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	chClient, err := charmhub.NewClient(chCfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return NewMachineManagerAPI(
 		backend,
 		storageAccess,
@@ -98,9 +124,10 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 			ModelTag:   model.ModelTag(),
 			Authorizer: ctx.Auth(),
 		},
-		context.CallContext(st),
+		environscontext.CallContext(st),
 		ctx.Resources(),
 		leadership,
+		chClient,
 	)
 }
 
@@ -154,9 +181,10 @@ func NewMachineManagerAPI(
 	storageAccess storageInterface,
 	pool Pool,
 	auth Authorizer,
-	callCtx context.ProviderCallContext,
+	callCtx environscontext.ProviderCallContext,
 	resources facade.Resources,
 	leadership Leadership,
+	charmhubClient CharmhubClient,
 ) (*MachineManagerAPI, error) {
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -173,7 +201,7 @@ func NewMachineManagerAPI(
 		leadership:    leadership,
 		upgradeSeriesAPI: NewUpgradeSeriesAPI(
 			upgradeSeriesState{state: backend},
-			upgradeSeriesValidator{},
+			makeUpgradeSeriesValidator(charmhubClient),
 			auth,
 		),
 	}
@@ -517,43 +545,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesPrepare(args params.UpdateSeriesArg) (
 }
 
 func (mm *MachineManagerAPI) upgradeSeriesPrepare(arg params.UpdateSeriesArg) error {
-	if arg.Series == "" {
-		return &params.Error{
-			Message: "series missing from args",
-			Code:    params.CodeBadRequest,
-		}
-	}
-	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	machine, err := mm.st.Machine(machineTag.Id())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	unitNames, err := mm.verifiedUnits(machine, arg.Series, arg.Force)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err = machine.CreateUpgradeSeriesLock(unitNames, arg.Series); err != nil {
-		// TODO 2018-06-28 managed series upgrade
-		// improve error handling based on error type, there will be cases where retrying
-		// the hooks is needed etc.
-		return errors.Trace(err)
-	}
-
-	// TODO (stickupkid) Download charms from charmhub.
-
-	defer func() {
-		if err != nil {
-			// TODO (stickupkid) Rollback new downloaded charmhub charms...
-			if err2 := machine.RemoveUpgradeSeriesLock(); err2 != nil {
-				err = errors.Annotatef(err, "%s occurred while cleaning up from", err2)
-			}
-		}
-	}()
-	return nil
+	return mm.upgradeSeriesAPI.Prepare(arg.Entity.Tag, arg.Series, arg.Force)
 }
 
 // UpgradeSeriesComplete marks a machine as having completed a managed series upgrade.
@@ -581,14 +573,6 @@ func (mm *MachineManagerAPI) completeUpgradeSeries(arg params.UpdateSeriesArg) e
 		return errors.Trace(err)
 	}
 	return machine.CompleteUpgradeSeries()
-}
-
-func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg) error {
-	machine, err := mm.machineFromTag(arg.Entity.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return machine.RemoveUpgradeSeriesLock()
 }
 
 // WatchUpgradeSeriesNotifications returns a watcher that fires on upgrade series events.
@@ -672,42 +656,6 @@ func (mm *MachineManagerAPI) machineFromTag(tag string) (Machine, error) {
 	return machine, nil
 }
 
-// verifiedUnits verifies that the machine units and their tree of subordinates
-// all support the input series. If not, an error is returned.
-// If they do, the agent statuses are checked to ensure that they are all in
-// the idle state i.e. not installing, running hooks, or needing intervention.
-// the final check is that the unit itself is not in an error state.
-func (mm *MachineManagerAPI) verifiedUnits(machine Machine, series string, force bool) ([]string, error) {
-	principals := machine.Principals()
-	units, err := machine.VerifyUnitsSeries(principals, series, force)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	unitNames := make([]string, len(units))
-	for i, u := range units {
-		agentStatus, err := u.AgentStatus()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if agentStatus.Status != status.Idle {
-			return nil, errors.Errorf("unit %s is not ready to start a series upgrade; its agent status is: %q %s",
-				u.Name(), agentStatus.Status, agentStatus.Message)
-		}
-		unitStatus, err := u.Status()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if unitStatus.Status == status.Error {
-			return nil, errors.Errorf("unit %s is not ready to start a series upgrade; its status is: \"error\" %s",
-				u.Name(), unitStatus.Message)
-		}
-
-		unitNames[i] = u.UnitTag().Id()
-	}
-	return unitNames, nil
-}
-
 // isSeriesLessThan returns a bool indicating whether the first argument's
 // version is lexicographically less than the second argument's, thus indicating
 // that the series represents an older version of the operating system. The
@@ -738,51 +686,6 @@ func (mm *MachineManagerAPIV4) UpdateMachineSeries(_ params.UpdateSeriesArgs) (p
 			Error: apiservererrors.ServerError(errors.New("UpdateMachineSeries is no longer supported")),
 		}},
 	}, nil
-}
-
-func validateSeries(requestedSeries, machineSeries, machineTag string) error {
-	if requestedSeries == "" {
-		return &params.Error{
-			Message: "series missing from args",
-			Code:    params.CodeBadRequest,
-		}
-	}
-
-	opSys, err := series.GetOSFromSeries(requestedSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if opSys != os.Ubuntu {
-		return errors.Errorf("series %q is from OS %q and is not a valid upgrade target",
-			requestedSeries, opSys.String())
-	}
-
-	opSys, err = series.GetOSFromSeries(machineSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if opSys != os.Ubuntu {
-		return errors.Errorf("%s is running %s and is not valid for Ubuntu series upgrade",
-			machineTag, opSys.String())
-	}
-
-	if requestedSeries == machineSeries {
-		return errors.Errorf("%s is already running series %s", machineTag, requestedSeries)
-	}
-
-	// TODO (Check the charmhub API for all applications running on this) machine
-	// to see if it's possible to run a charm on this machine.
-
-	isOlderSeries, err := isSeriesLessThan(requestedSeries, machineSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if isOlderSeries {
-		return errors.Errorf("machine %s is running %s which is a newer series than %s.",
-			machineTag, machineSeries, requestedSeries)
-	}
-
-	return nil
 }
 
 // ModelAuthorizer defines if a given operation can be performed based on a

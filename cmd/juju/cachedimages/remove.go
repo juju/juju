@@ -17,7 +17,7 @@ Remove cached os images in the Juju model.
 
 Images are identified by:
   Kind         eg "lxd"
-  Series       eg "xenial"
+  Release       eg "xenial"
   Architecture eg "amd64"
 
 Examples:

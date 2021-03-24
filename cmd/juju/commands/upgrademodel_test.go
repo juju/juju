@@ -24,7 +24,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
@@ -108,241 +109,241 @@ type upgradeTest struct {
 
 var upgradeJujuTests = []upgradeTest{{
 	about:          "unwanted extra argument",
-	currentVersion: "1.0.0-groovy-amd64",
+	currentVersion: "1.0.0-ubuntu-amd64",
 	args:           []string{"foo"},
 	expectInitErr:  "unrecognized args:.*",
 }, {
 	about:          "removed arg --dev specified",
-	currentVersion: "1.0.0-groovy-amd64",
+	currentVersion: "1.0.0-ubuntu-amd64",
 	args:           []string{"--dev"},
 	expectInitErr:  "option provided but not defined: --dev",
 }, {
 	about:          "invalid --agent-version value",
-	currentVersion: "1.0.0-groovy-amd64",
+	currentVersion: "1.0.0-ubuntu-amd64",
 	args:           []string{"--agent-version", "invalid-version"},
 	expectInitErr:  "invalid version .*",
 }, {
 	about:          "just major version, no minor specified",
-	currentVersion: "4.2.0-groovy-amd64",
+	currentVersion: "4.2.0-ubuntu-amd64",
 	args:           []string{"--agent-version", "4"},
 	expectInitErr:  `invalid version "4"`,
 }, {
 	about:          "major version upgrade to incompatible version",
-	currentVersion: "2.0.0-groovy-amd64",
+	currentVersion: "2.0.0-ubuntu-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--agent-version", "5.2.0"},
 	expectErr:      `unknown version "5.2.0"`,
 }, {
 	about:          "version downgrade",
-	available:      []string{"4.2-beta2-groovy-amd64"},
-	currentVersion: "4.2.0-groovy-amd64",
+	available:      []string{"4.2-beta2-ubuntu-amd64"},
+	currentVersion: "4.2.0-ubuntu-amd64",
 	agentVersion:   "4.2.0",
 	args:           []string{"--agent-version", "4.2-beta2"},
 	expectErr:      "cannot change version from 4.2.0 to lower version 4.2-beta2",
 }, {
 	about:          "--build-agent with inappropriate version 1",
-	currentVersion: "4.2.0-groovy-amd64",
+	currentVersion: "4.2.0-ubuntu-amd64",
 	agentVersion:   "4.2.0",
 	args:           []string{"--build-agent", "--agent-version", "3.1.0"},
 	expectErr:      "cannot change version from 4.2.0 to lower version 3.1.0",
 }, {
 	about:          "--build-agent with inappropriate version 2",
-	currentVersion: "3.2.7-groovy-amd64",
+	currentVersion: "3.2.7-ubuntu-amd64",
 	args:           []string{"--build-agent", "--agent-version", "3.2.8.4"},
 	expectInitErr:  "cannot specify build number when building an agent",
 }, {
 	about:          "latest supported stable release",
-	available:      []string{"2.1.0-groovy-amd64", "2.1.2-groovy-i386", "2.1.3-groovy-amd64", "2.1-dev1-groovy-amd64"},
-	currentVersion: "2.0.0-groovy-amd64",
+	available:      []string{"2.1.0-ubuntu-amd64", "2.1.2-ubuntu-i386", "2.1.3-ubuntu-amd64", "2.1-dev1-ubuntu-amd64"},
+	currentVersion: "2.0.0-ubuntu-amd64",
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.1.3",
 }, {
 	about:          "latest current release",
-	available:      []string{"2.0.5-groovy-amd64", "2.0.1-groovy-i386", "2.3.3-groovy-amd64"},
-	currentVersion: "2.0.0-groovy-amd64",
+	available:      []string{"2.0.5-ubuntu-amd64", "2.0.1-ubuntu-i386", "2.3.3-ubuntu-amd64"},
+	currentVersion: "2.0.0-ubuntu-amd64",
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.0.5",
 }, {
 	about:          "latest current release with tag",
-	available:      []string{"2.2.0-groovy-amd64", "2.2.5-groovy-i386", "2.3.3-groovy-amd64", "2.1-dev1-groovy-amd64"},
-	currentVersion: "2.0.0-groovy-amd64",
+	available:      []string{"2.2.0-ubuntu-amd64", "2.2.5-ubuntu-i386", "2.3.3-ubuntu-amd64", "2.1-dev1-ubuntu-amd64"},
+	currentVersion: "2.0.0-ubuntu-amd64",
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.1-dev1",
 }, {
 	about:          "latest current release matching CLI, major version, no matching major agent binaries",
-	available:      []string{"2.8.2-groovy-amd64"},
-	currentVersion: "3.0.2-groovy-amd64",
+	available:      []string{"2.8.2-ubuntu-amd64"},
+	currentVersion: "3.0.2-ubuntu-amd64",
 	agentVersion:   "2.8.2",
 	expectVersion:  "2.8.2",
 }, {
 	about:          "latest current release matching CLI, major version, no matching agent binaries",
-	available:      []string{"3.3.0-groovy-amd64"},
-	currentVersion: "3.0.2-groovy-amd64",
+	available:      []string{"3.3.0-ubuntu-amd64"},
+	currentVersion: "3.0.2-ubuntu-amd64",
 	agentVersion:   "2.8.2",
 	expectErr:      "no compatible agent versions available",
 }, {
 	about:          "latest supported stable, when client is dev, explicit upload",
-	available:      []string{"2.1-dev1-groovy-amd64", "2.1.0-groovy-amd64", "2.3-dev0-groovy-amd64", "3.0.1-groovy-amd64"},
-	currentVersion: "2.1-dev0-groovy-amd64",
+	available:      []string{"2.1-dev1-ubuntu-amd64", "2.1.0-ubuntu-amd64", "2.3-dev0-ubuntu-amd64", "3.0.1-ubuntu-amd64"},
+	currentVersion: "2.1-dev0-ubuntu-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--build-agent"},
 	expectVersion:  "2.1-dev0.1",
 }, {
 	about:          "latest current, when agent is dev",
-	available:      []string{"2.1-dev1-groovy-amd64", "2.2.0-groovy-amd64", "2.3-dev0-groovy-amd64", "3.0.1-groovy-amd64"},
-	currentVersion: "2.0.0-groovy-amd64",
+	available:      []string{"2.1-dev1-ubuntu-amd64", "2.2.0-ubuntu-amd64", "2.3-dev0-ubuntu-amd64", "3.0.1-ubuntu-amd64"},
+	currentVersion: "2.0.0-ubuntu-amd64",
 	agentVersion:   "2.1-dev0",
 	expectVersion:  "2.2.0",
 }, {
 	about:          "specified version",
-	available:      []string{"2.3-dev0-groovy-amd64"},
-	currentVersion: "2.0.0-groovy-amd64",
+	available:      []string{"2.3-dev0-ubuntu-amd64"},
+	currentVersion: "2.0.0-ubuntu-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--agent-version", "2.3-dev0"},
 	expectVersion:  "2.3-dev0",
 }, {
 	about:          "specified major version",
-	available:      []string{"3.0.2-groovy-amd64"},
-	currentVersion: "3.0.2-groovy-amd64",
+	available:      []string{"3.0.2-ubuntu-amd64"},
+	currentVersion: "3.0.2-ubuntu-amd64",
 	agentVersion:   "2.8.2",
 	args:           []string{"--agent-version", "3.0.2"},
 	expectVersion:  "3.0.2",
 	upgradeMap:     map[int]version.Number{3: version.MustParse("2.8.2")},
 }, {
 	about:          "specified major version, later client",
-	available:      []string{"3.0.2-groovy-amd64"},
-	currentVersion: "3.9.2-groovy-amd64",
+	available:      []string{"3.0.2-ubuntu-amd64"},
+	currentVersion: "3.9.2-ubuntu-amd64",
 	agentVersion:   "2.8.2",
 	args:           []string{"--agent-version", "3.0.2"},
 	expectVersion:  "3.0.2",
 	upgradeMap:     map[int]version.Number{3: version.MustParse("2.8.2")},
 }, {
 	about:          "specified version missing, but already set",
-	currentVersion: "3.0.0-groovy-amd64",
+	currentVersion: "3.0.0-ubuntu-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.0.0"},
 	expectVersion:  "3.0.0",
 }, {
 	about:          "specified version, no agent binaries",
-	currentVersion: "3.0.0-groovy-amd64",
+	currentVersion: "3.0.0-ubuntu-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "no matching agent versions available",
 }, {
 	about:          "specified version, no matching major version",
-	available:      []string{"4.2.0-groovy-amd64"},
-	currentVersion: "3.0.0-groovy-amd64",
+	available:      []string{"4.2.0-ubuntu-amd64"},
+	currentVersion: "3.0.0-ubuntu-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "no matching agent versions available",
 }, {
 	about:          "specified version, no matching minor version",
-	available:      []string{"3.4.0-groovy-amd64"},
-	currentVersion: "3.0.0-groovy-amd64",
+	available:      []string{"3.4.0-ubuntu-amd64"},
+	currentVersion: "3.0.0-ubuntu-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "no matching agent versions available",
 }, {
 	about:          "specified version, no matching patch version",
-	available:      []string{"3.2.5-groovy-amd64"},
-	currentVersion: "3.0.0-groovy-amd64",
+	available:      []string{"3.2.5-ubuntu-amd64"},
+	currentVersion: "3.0.0-ubuntu-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "no matching agent versions available",
 }, {
 	about:          "specified version, no matching build version",
-	available:      []string{"3.2.0.2-groovy-amd64"},
-	currentVersion: "3.0.0-groovy-amd64",
+	available:      []string{"3.2.0.2-ubuntu-amd64"},
+	currentVersion: "3.0.0-ubuntu-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "no matching agent versions available",
 }, {
 	about:          "incompatible version (model major > client major)",
-	available:      []string{"3.2.0-groovy-amd64"},
-	currentVersion: "3.2.0-groovy-amd64",
+	available:      []string{"3.2.0-ubuntu-amd64"},
+	currentVersion: "3.2.0-ubuntu-amd64",
 	agentVersion:   "4.2.0",
 	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "cannot upgrade a 4.2.0 model with a 3.2.0 client",
 }, {
 	about:          "incompatible version (model major < client major - 1)",
-	available:      []string{"3.2.0-groovy-amd64"},
-	currentVersion: "4.0.2-groovy-amd64",
+	available:      []string{"3.2.0-ubuntu-amd64"},
+	currentVersion: "4.0.2-ubuntu-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "cannot upgrade a 2.0.0 model with a 4.0.2 client",
 }, {
 	about:          "minor version downgrade to incompatible version",
-	available:      []string{"3.2.0-groovy-amd64"},
-	currentVersion: "3.2.0-groovy-amd64",
+	available:      []string{"3.2.0-ubuntu-amd64"},
+	currentVersion: "3.2.0-ubuntu-amd64",
 	agentVersion:   "3.3-dev0",
 	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "cannot change version from 3.3-dev0 to lower version 3.2.0",
 }, {
 	about:          "nothing available",
-	currentVersion: "2.0.0-groovy-amd64",
+	currentVersion: "2.0.0-ubuntu-amd64",
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.0.0",
 }, {
 	about:          "nothing available 2",
-	currentVersion: "2.0.0-groovy-amd64",
-	available:      []string{"3.2.0-groovy-amd64"},
+	currentVersion: "2.0.0-ubuntu-amd64",
+	available:      []string{"3.2.0-ubuntu-amd64"},
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.0.0",
 }, {
-	about:          "upload with default series",
-	currentVersion: "2.2.0-groovy-amd64",
+	about:          "upload with default os type",
+	currentVersion: "2.2.0-ubuntu-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--build-agent"},
 	expectVersion:  "2.2.0.1",
-	expectUploaded: []string{"2.2.0.1-groovy-amd64", "2.2.0.1-%LTS%-amd64", "2.2.0.1-xenial-amd64"},
+	expectUploaded: []string{"2.2.0.1-ubuntu-amd64"},
 }, {
 	about:          "upload with explicit version",
-	currentVersion: "2.2.0-groovy-amd64",
+	currentVersion: "2.2.0-ubuntu-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--build-agent", "--agent-version", "2.7.3"},
 	expectVersion:  "2.7.3.1",
-	expectUploaded: []string{"2.7.3.1-groovy-amd64", "2.7.3.1-%LTS%-amd64", "2.7.3.1-xenial-amd64"},
+	expectUploaded: []string{"2.7.3.1-ubuntu-amd64"},
 }, {
 	about:          "upload dev version, currently on release version",
-	currentVersion: "2.1.0-groovy-amd64",
+	currentVersion: "2.1.0-ubuntu-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--build-agent"},
 	expectVersion:  "2.1.0.1",
-	expectUploaded: []string{"2.1.0.1-groovy-amd64", "2.1.0.1-%LTS%-amd64", "2.1.0.1-xenial-amd64"},
+	expectUploaded: []string{"2.1.0.1-ubuntu-amd64"},
 }, {
 	about:          "upload bumps version when necessary",
-	available:      []string{"2.4.6-groovy-amd64", "2.4.8-groovy-amd64"},
-	currentVersion: "2.4.6-groovy-amd64",
+	available:      []string{"2.4.6-ubuntu-amd64", "2.4.8-ubuntu-amd64"},
+	currentVersion: "2.4.6-ubuntu-amd64",
 	agentVersion:   "2.4.0",
 	args:           []string{"--build-agent"},
 	expectVersion:  "2.4.6.1",
-	expectUploaded: []string{"2.4.6.1-groovy-amd64", "2.4.6.1-%LTS%-amd64", "2.4.6.1-xenial-amd64"},
+	expectUploaded: []string{"2.4.6.1-ubuntu-amd64"},
 }, {
 	about:          "upload re-bumps version when necessary",
-	available:      []string{"2.4.6-groovy-amd64", "2.4.6.2-saucy-i386", "2.4.8-groovy-amd64"},
-	currentVersion: "2.4.6-groovy-amd64",
+	available:      []string{"2.4.6-ubuntu-amd64", "2.4.6.2-ubuntu-i386", "2.4.8-ubuntu-amd64"},
+	currentVersion: "2.4.6-ubuntu-amd64",
 	agentVersion:   "2.4.6.2",
 	args:           []string{"--build-agent"},
 	expectVersion:  "2.4.6.3",
-	expectUploaded: []string{"2.4.6.3-groovy-amd64", "2.4.6.3-%LTS%-amd64", "2.4.6.3-xenial-amd64"},
+	expectUploaded: []string{"2.4.6.3-ubuntu-amd64"},
 }, {
 	about:          "upload with explicit version bumps when necessary",
-	currentVersion: "2.2.0-groovy-amd64",
-	available:      []string{"2.7.3.1-groovy-amd64"},
+	currentVersion: "2.2.0-ubuntu-amd64",
+	available:      []string{"2.7.3.1-ubuntu-amd64"},
 	agentVersion:   "2.0.0",
 	args:           []string{"--build-agent", "--agent-version", "2.7.3"},
 	expectVersion:  "2.7.3.2",
-	expectUploaded: []string{"2.7.3.2-groovy-amd64", "2.7.3.2-%LTS%-amd64", "2.7.3.2-xenial-amd64"},
+	expectUploaded: []string{"2.7.3.2-ubuntu-amd64"},
 }, {
 	about:          "latest supported stable release increments by one minor version number",
-	available:      []string{"1.21.3-groovy-amd64", "1.22.1-groovy-amd64"},
-	currentVersion: "1.22.1-groovy-amd64",
+	available:      []string{"1.21.3-ubuntu-amd64", "1.22.1-ubuntu-amd64"},
+	currentVersion: "1.22.1-ubuntu-amd64",
 	agentVersion:   "1.20.14",
 	expectVersion:  "1.21.3",
 }, {
 	about:          "latest supported stable release from custom version",
-	available:      []string{"1.21.3-groovy-amd64", "1.22.1-groovy-amd64"},
-	currentVersion: "1.22.1-groovy-amd64",
+	available:      []string{"1.21.3-ubuntu-amd64", "1.22.1-ubuntu-amd64"},
+	currentVersion: "1.22.1-ubuntu-amd64",
 	agentVersion:   "1.20.14.1",
 	expectVersion:  "1.21.3",
 }}
@@ -380,22 +381,17 @@ func (s *UpgradeBaseSuite) TestFormatVersions(c *gc.C) {
 	}{
 		{
 			desc:     "different versions",
-			versions: []string{"1.21.3-groovy-amd64", "1.22.1-groovy-amd64"},
+			versions: []string{"1.21.3-ubuntu-amd64", "1.22.1-ubuntu-amd64"},
 			expected: "    1.21.3\n    1.22.1",
 		},
 		{
 			desc:     "different versions, funny ordering",
-			versions: []string{"1.21.3-groovy-amd64", "2.6.0-groovy-amd64", "1.24.3-groovy-amd64", "1.22.1-groovy-amd64"},
+			versions: []string{"1.21.3-ubuntu-amd64", "2.6.0-ubuntu-amd64", "1.24.3-ubuntu-amd64", "1.22.1-ubuntu-amd64"},
 			expected: "    1.21.3\n    1.22.1\n    1.24.3\n    2.6.0",
 		},
 		{
-			desc:     "same versions, diff series",
-			versions: []string{"1.21.3-groovy-amd64", "1.21.3-xenial-amd64"},
-			expected: "    1.21.3",
-		},
-		{
-			desc:     "same versions, same series, diff arch",
-			versions: []string{"1.21.3-groovy-amd64", "1.21.3-groovy-arm64"},
+			desc:     "same versions, same release, diff arch",
+			versions: []string{"1.21.3-ubuntu-amd64", "1.21.3-ubuntu-arm64"},
 			expected: "    1.21.3",
 		},
 	} {
@@ -419,7 +415,7 @@ func (s *UpgradeBaseSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest, upgr
 		current := version.MustParseBinary(test.currentVersion)
 		s.PatchValue(&jujuversion.Current, current.Number)
 		s.PatchValue(&arch.HostArch, func() string { return current.Arch })
-		s.PatchValue(&series.HostSeries, func() (string, error) { return current.Series, nil })
+		s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 		s.PatchValue(&upgrades.MinMajorUpgradeVersion, test.upgradeMap)
 		com := upgradeJujuCommand()
 		if err := cmdtesting.InitCommand(com, test.args); err != nil {
@@ -465,8 +461,6 @@ func (s *UpgradeBaseSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest, upgr
 		c.Check(agentVersion, gc.Equals, version.MustParse(test.expectVersion))
 
 		for _, uploaded := range test.expectUploaded {
-			// Substitute latest LTS for placeholder in expected series for uploaded tools
-			uploaded = strings.Replace(uploaded, "%LTS%", jujuversion.DefaultSupportedLTS(), 1)
 			vers := version.MustParseBinary(uploaded)
 			s.checkToolsUploaded(c, vers, agentVersion)
 		}
@@ -485,9 +479,9 @@ func (s *UpgradeBaseSuite) checkToolsUploaded(c *gc.C, vers version.Binary, agen
 	r.Close()
 	c.Check(err, jc.ErrorIsNil)
 	expectContent := version.Binary{
-		Number: agentVersion,
-		Arch:   arch.HostArch(),
-		Series: coretesting.HostSeries(c),
+		Number:  agentVersion,
+		Arch:    arch.HostArch(),
+		Release: coreos.HostOSTypeName(),
 	}
 	checkToolsContent(c, data, "jujud contents "+expectContent.String())
 }
@@ -627,6 +621,42 @@ func (s *UpgradeJujuSuite) TestFailUploadOnNonController(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "--build-agent can only be used with the controller model")
 }
 
+func (s *UpgradeJujuSuite) TestUpgradeOld28Agent(c *gc.C) {
+	s.Reset(c)
+	err := s.State.SetModelAgentVersion(version.MustParse("2.8.0"), true)
+	c.Assert(err, jc.ErrorIsNil)
+	fakeAPI := &fakeUpgradeJujuAPINoState{
+		name:           "dummy-model",
+		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		agentVersion:   "2.8.0",
+	}
+	s.PatchValue(&jujuversion.Current, version.MustParse("2.9.0"))
+	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, fakeAPI, nil)
+	_, err = cmdtesting.RunCommand(c, command, "--build-agent")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fakeAPI.tools, gc.HasLen, 2)
+	vers := coretesting.CurrentVersion(c)
+	vers.Number = version.MustParse("2.9.0.1")
+	vers.Release = "focal"
+	c.Assert(fakeAPI.tools[1].Version.String(), gc.Equals, vers.String())
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeNewerThan28Agent(c *gc.C) {
+	s.Reset(c)
+	fakeAPI := &fakeUpgradeJujuAPINoState{
+		name:           "dummy-model",
+		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		agentVersion:   "2.9.0",
+	}
+	s.PatchValue(&jujuversion.Current, version.MustParse("2.9.1"))
+	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, fakeAPI, nil)
+	_, err := cmdtesting.RunCommand(c, command, "--build-agent")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fakeAPI.tools, gc.HasLen, 1)
+}
+
 func (s *UpgradeJujuSuite) TestFailUploadNoControllerModelPermission(c *gc.C) {
 	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
 	fakeAPI.modelConfigErr = params.Error{Code: params.CodeUnauthorized}
@@ -672,8 +702,8 @@ func (s *UpgradeBaseSuite) assertUpgradeDryRun(c *gc.C, command string, upgradeJ
 		{
 			about:          "dry run outputs and doesn't change anything when uploading agent binaries",
 			cmdArgs:        []string{"--build-agent", "--dry-run"},
-			tools:          []string{"2.1.0-groovy-amd64", "2.1.2-groovy-i386", "2.1.3-groovy-amd64", "2.1-dev1-groovy-amd64", "2.2.3-groovy-amd64"},
-			currentVersion: "2.1.3-groovy-amd64",
+			tools:          []string{"2.1.0-ubuntu-amd64", "2.1.2-ubuntu-i386", "2.1.3-ubuntu-amd64", "2.1-dev1-ubuntu-amd64", "2.2.3-ubuntu-amd64"},
+			currentVersion: "2.1.3-ubuntu-amd64",
 			agentVersion:   "2.0.0",
 			expectedCmdOutput: fmt.Sprintf(`best version:
     2.1.3.1
@@ -684,8 +714,8 @@ upgrade to this version by running
 		{
 			about:          "dry run outputs and doesn't change anything",
 			cmdArgs:        []string{"--dry-run"},
-			tools:          []string{"2.1.0-groovy-amd64", "2.1.2-groovy-i386", "2.1.3-groovy-amd64", "2.1-dev1-groovy-amd64", "2.2.3-groovy-amd64"},
-			currentVersion: "2.0.0-groovy-amd64",
+			tools:          []string{"2.1.0-ubuntu-amd64", "2.1.2-ubuntu-i386", "2.1.3-ubuntu-amd64", "2.1-dev1-ubuntu-amd64", "2.2.3-ubuntu-amd64"},
+			currentVersion: "2.0.0-ubuntu-amd64",
 			agentVersion:   "2.0.0",
 			expectedCmdOutput: fmt.Sprintf(`best version:
     2.1.3
@@ -696,8 +726,8 @@ upgrade to this version by running
 		{
 			about:          "dry run ignores unknown series",
 			cmdArgs:        []string{"--dry-run"},
-			tools:          []string{"2.1.0-groovy-amd64", "2.1.2-groovy-i386", "2.1.3-groovy-amd64", "1.2.3-myawesomeseries-amd64"},
-			currentVersion: "2.0.0-groovy-amd64",
+			tools:          []string{"2.1.0-ubuntu-amd64", "2.1.2-ubuntu-i386", "2.1.3-ubuntu-amd64", "1.2.3-myawesomeseries-amd64"},
+			currentVersion: "2.0.0-ubuntu-amd64",
 			agentVersion:   "2.0.0",
 			expectedCmdOutput: fmt.Sprintf(`best version:
     2.1.3
@@ -737,7 +767,7 @@ func (s *UpgradeBaseSuite) setUpEnvAndTools(c *gc.C, currentVersion string, agen
 	current := version.MustParseBinary(currentVersion)
 	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
-	s.PatchValue(&series.HostSeries, func() (string, error) { return current.Series, nil })
+	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 
 	tmpDir := c.MkDir()
 	updateAttrs := map[string]interface{}{
@@ -776,28 +806,28 @@ func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
 		upgradeMap        map[int]version.Number
 	}{{
 		about:           "upgrade previous major to latest previous major",
-		tools:           []string{"5.0.1-trusty-amd64", "4.9.0-trusty-amd64"},
-		currentVersion:  "5.0.0-trusty-amd64",
+		tools:           []string{"5.0.1-ubuntu-amd64", "4.9.0-ubuntu-amd64"},
+		currentVersion:  "5.0.0-ubuntu-amd64",
 		agentVersion:    "4.8.5",
 		expectedVersion: "4.9.0",
 	}, {
 		about:           "upgrade previous major to latest previous major --dry-run still warns",
-		tools:           []string{"5.0.1-trusty-amd64", "4.9.0-trusty-amd64"},
-		currentVersion:  "5.0.1-trusty-amd64",
+		tools:           []string{"5.0.1-ubuntu-amd64", "4.9.0-ubuntu-amd64"},
+		currentVersion:  "5.0.1-ubuntu-amd64",
 		agentVersion:    "4.8.5",
 		expectedVersion: "4.9.0",
 	}, {
 		about:           "upgrade previous major to latest previous major with --agent-version",
 		cmdArgs:         []string{"--agent-version=4.9.0"},
-		tools:           []string{"5.0.2-trusty-amd64", "4.9.0-trusty-amd64", "4.8.0-trusty-amd64"},
-		currentVersion:  "5.0.2-trusty-amd64",
+		tools:           []string{"5.0.2-ubuntu-amd64", "4.9.0-ubuntu-amd64", "4.8.0-ubuntu-amd64"},
+		currentVersion:  "5.0.2-ubuntu-amd64",
 		agentVersion:    "4.7.5",
 		expectedVersion: "4.9.0",
 	}, {
 		about:             "can upgrade lower major version to current major version at minimum level",
 		cmdArgs:           []string{"--agent-version=6.0.5"},
-		tools:             []string{"6.0.5-trusty-amd64", "5.9.9-trusty-amd64"},
-		currentVersion:    "6.0.0-trusty-amd64",
+		tools:             []string{"6.0.5-ubuntu-amd64", "5.9.9-ubuntu-amd64"},
+		currentVersion:    "6.0.0-ubuntu-amd64",
 		agentVersion:      "5.9.8",
 		expectedVersion:   "6.0.5",
 		excludedLogOutput: `incompatible with this client (6.0.0)`,
@@ -805,8 +835,8 @@ func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
 	}, {
 		about:             "can upgrade lower major version to current major version above minimum level",
 		cmdArgs:           []string{"--agent-version=6.0.5"},
-		tools:             []string{"6.0.5-trusty-amd64", "5.11.0-trusty-amd64"},
-		currentVersion:    "6.0.1-trusty-amd64",
+		tools:             []string{"6.0.5-ubuntu-amd64", "5.11.0-ubuntu-amd64"},
+		currentVersion:    "6.0.1-ubuntu-amd64",
 		agentVersion:      "5.10.8",
 		expectedVersion:   "6.0.5",
 		excludedLogOutput: `incompatible with this client (6.0.1)`,
@@ -814,16 +844,16 @@ func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
 	}, {
 		about:           "can upgrade current to next major version",
 		cmdArgs:         []string{"--agent-version=6.0.5"},
-		tools:           []string{"6.0.5-trusty-amd64", "5.11.0-trusty-amd64"},
-		currentVersion:  "5.10.8-trusty-amd64",
+		tools:           []string{"6.0.5-ubuntu-amd64", "5.11.0-ubuntu-amd64"},
+		currentVersion:  "5.10.8-ubuntu-amd64",
 		agentVersion:    "5.10.8",
 		expectedVersion: "6.0.5",
 		upgradeMap:      map[int]version.Number{6: version.MustParse("5.9.8")},
 	}, {
 		about:             "upgrade fails if not at minimum version",
 		cmdArgs:           []string{"--agent-version=7.0.1"},
-		tools:             []string{"7.0.1-trusty-amd64"},
-		currentVersion:    "7.0.1-trusty-amd64",
+		tools:             []string{"7.0.1-ubuntu-amd64"},
+		currentVersion:    "7.0.1-ubuntu-amd64",
 		agentVersion:      "6.0.0",
 		expectedVersion:   "6.0.0",
 		expectedCmdOutput: "upgrades to a new major version must first go through 6.7.8\n",
@@ -1071,7 +1101,7 @@ func (a *fakeUpgradeJujuAPI) ModelGet() (map[string]interface{}, error) {
 	return config.AllAttrs(), nil
 }
 
-func (a *fakeUpgradeJujuAPI) FindTools(majorVersion, minorVersion int, series, arch, stream string) (
+func (a *fakeUpgradeJujuAPI) FindTools(majorVersion, minorVersion int, osType, arch, stream string) (
 	result params.FindToolsResult, err error,
 ) {
 	a.findToolsCalled = true
@@ -1084,7 +1114,11 @@ func (a *fakeUpgradeJujuAPI) FindTools(majorVersion, minorVersion int, series, a
 }
 
 func (a *fakeUpgradeJujuAPI) UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (coretools.List, error) {
-	panic("not implemented")
+	return nil, errors.New("not implemented")
+}
+
+func (a *fakeUpgradeJujuAPI) Status(patterns []string) (*params.FullStatus, error) {
+	return nil, errors.New("not implemented")
 }
 
 func (a *fakeUpgradeJujuAPI) AbortCurrentUpgrade() error {
@@ -1122,7 +1156,7 @@ func (a *fakeUpgradeJujuAPINoState) Close() error {
 	return nil
 }
 
-func (a *fakeUpgradeJujuAPINoState) FindTools(majorVersion, minorVersion int, series, arch, stream string) (params.FindToolsResult, error) {
+func (a *fakeUpgradeJujuAPINoState) FindTools(majorVersion, minorVersion int, osType, arch, stream string) (params.FindToolsResult, error) {
 	var result params.FindToolsResult
 	if len(a.tools) == 0 {
 		result.Error = apiservererrors.ServerError(errors.NotFoundf("tools"))
@@ -1136,10 +1170,18 @@ func (a *fakeUpgradeJujuAPINoState) UploadTools(r io.ReadSeeker, vers version.Bi
 	a.tools = coretools.List{&coretools.Tools{Version: vers}}
 	for _, s := range additionalSeries {
 		v := vers
-		v.Series = s
+		v.Release = s
 		a.tools = append(a.tools, &coretools.Tools{Version: v})
 	}
 	return a.tools, nil
+}
+
+func (a *fakeUpgradeJujuAPINoState) Status(patterns []string) (*params.FullStatus, error) {
+	return &params.FullStatus{
+		Machines: map[string]params.MachineStatus{
+			"0": {Series: "focal"},
+		},
+	}, nil
 }
 
 func (a *fakeUpgradeJujuAPINoState) SetModelAgentVersion(version version.Number, ignoreAgentVersions bool) error {
@@ -1194,21 +1236,21 @@ var upgradeCAASModelTests = []upgradeTest{{
 }, {
 	about:          "latest supported stable release",
 	available:      []string{"2.1.0", "2.1.2", "2.1.3", "2.1-dev1"},
-	streams:        []string{"2.1.0-groovy-amd64", "2.1.2-groovy-amd64", "2.1.3-groovy-amd64", "2.1-dev1-groovy-amd64"},
+	streams:        []string{"2.1.0-ubuntu-amd64", "2.1.2-ubuntu-amd64", "2.1.3-ubuntu-amd64", "2.1-dev1-ubuntu-amd64"},
 	currentVersion: "2.0.0",
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.1.3",
 }, {
 	about:          "latest supported stable release increments by one minor version number",
 	available:      []string{"1.21.3", "1.22.1"},
-	streams:        []string{"1.21.3-groovy-amd64", "1.22.1-groovy-amd64"},
+	streams:        []string{"1.21.3-ubuntu-amd64", "1.22.1-ubuntu-amd64"},
 	currentVersion: "1.22.1",
 	agentVersion:   "1.20.14",
 	expectVersion:  "1.21.3",
 }, {
 	about:          "latest supported stable release from custom version",
 	available:      []string{"1.21.4", "1.21.3", "1.22.1"},
-	streams:        []string{"1.21.3-groovy-amd64", "1.22.1-groovy-amd64"},
+	streams:        []string{"1.21.3-ubuntu-amd64", "1.22.1-ubuntu-amd64"},
 	currentVersion: "1.22.1",
 	agentVersion:   "1.20.14.1",
 	expectVersion:  "1.21.3",
@@ -1250,7 +1292,7 @@ func (s *UpgradeCAASModelSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest,
 		})
 		c.Assert(err, jc.ErrorIsNil)
 
-		s.setUpEnvAndTools(c, test.currentVersion+"-groovy-amd64", test.agentVersion, test.streams)
+		s.setUpEnvAndTools(c, test.currentVersion+"-ubuntu-amd64", test.agentVersion, test.streams)
 
 		// Set up apparent CLI version and initialize the command.
 		current := version.MustParse(test.currentVersion)

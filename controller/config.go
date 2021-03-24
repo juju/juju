@@ -137,19 +137,21 @@ const (
 	// snaps for focal or later. The value is ignored for older releases.
 	JujuDBSnapChannel = "juju-db-snap-channel"
 
-	// MaxDebugLogDuration is used to provide a backstop to the execution of a debug-log
-	// command. If someone starts a debug-log session in a remote screen for example, it
-	// is very easy to disconnect from the screen while leaving the debug-log process
-	// running. This causes unnecessary load on the API Server. The max debug-log duration
-	// has a default of 24 hours, which should be more than enough time for a debugging
-	// session. If the user needs more information, perhaps debug-log isn't the right source.
+	// MaxDebugLogDuration is used to provide a backstop to the execution of a
+	// debug-log command. If someone starts a debug-log session in a remote
+	// screen for example, it is very easy to disconnect from the screen while
+	// leaving the debug-log process running. This causes unnecessary load on
+	// the API Server. The max debug-log duration has a default of 24 hours,
+	// which should be more than enough time for a debugging session.
+	// If the user needs more information, perhaps debug-log isn't the right source.
 	MaxDebugLogDuration = "max-debug-log-duration"
 
 	// ModelLogfileMaxSize is the maximum size of the log file written out by the
 	// controller on behalf of workers running for a model.
 	ModelLogfileMaxSize = "model-logfile-max-size"
 
-	// ModelLogfileMaxBackups is the number of old model log files to keep (compressed).
+	// ModelLogfileMaxBackups is the number of old model
+	// log files to keep (compressed).
 	ModelLogfileMaxBackups = "model-logfile-max-backups"
 
 	// ModelLogsSize is the size of the capped collections used to hold the
@@ -164,10 +166,12 @@ const (
 	// A value <= 0 indicates to do all transactions at once.
 	MaxPruneTxnBatchSize = "max-prune-txn-batch-size"
 
-	// MaxPruneTxnPasses (deprecated) is the maximum number of batches that we will process.
-	// So total number of transactions that can be processed is MaxPruneTxnBatchSize * MaxPruneTxnPasses.
-	// A value <= 0 implies 'do a single pass'. If both MaxPruneTxnBatchSize and MaxPruneTxnPasses are 0, then the
-	// default value of 1M BatchSize and 100 passes will be used instead.
+	// MaxPruneTxnPasses (deprecated) is the maximum number of batches that
+	// we will process. So total number of transactions that can be processed
+	// is MaxPruneTxnBatchSize * MaxPruneTxnPasses. A value <= 0 implies
+	// 'do a single pass'. If both MaxPruneTxnBatchSize and MaxPruneTxnPasses
+	// are 0, then the default value of 1M BatchSize and 100 passes
+	// will be used instead.
 	MaxPruneTxnPasses = "max-prune-txn-passes"
 
 	// PruneTxnQueryCount is the number of transactions to read in a single query.
@@ -175,12 +179,12 @@ const (
 	PruneTxnQueryCount = "prune-txn-query-count"
 
 	// PruneTxnSleepTime is the amount of time to sleep between processing each
-	// batch query. This is used to reduce load on the system, allowing other queries
-	// to time to operate. On large controllers, processing 1000 txs seems to take
-	// about 100ms, so a sleep time of 10ms represents a 10% slowdown, but allows
-	// other systems to operate concurrently.
-	// A negative number will indicate to use the default, a value of 0 indicates
-	// to not sleep at all.
+	// batch query. This is used to reduce load on the system, allowing other
+	// queries to time to operate. On large controllers, processing 1000 txs
+	// seems to take about 100ms, so a sleep time of 10ms represents a 10%
+	// slowdown, but allows other systems to operate concurrently.
+	// A negative number will indicate to use the default, a value of 0
+	// indicates to not sleep at all.
 	PruneTxnSleepTime = "prune-txn-sleep-time"
 
 	// MaxCharmStateSize is the maximum allowed size of charm-specific
@@ -199,14 +203,45 @@ const (
 	// when writing to the raft log by setting this value to true.
 	NonSyncedWritesToRaftLog = "non-synced-writes-to-raft-log"
 
+	// MigrationMinionWaitMax is the maximum time that the migration-master
+	// worker will wait for agents to report for a migration phase when
+	// executing a model migration.
+	MigrationMinionWaitMax = "migration-agent-wait-time"
+
+	// JujuHASpace is the network space within which the MongoDB replica-set
+	// should communicate.
+	JujuHASpace = "juju-ha-space"
+
+	// JujuManagementSpace is the network space that agents should use to
+	// communicate with controllers.
+	JujuManagementSpace = "juju-mgmt-space"
+
+	// CAASOperatorImagePath sets the url of the docker image
+	// used for the application operator.
+	// Deprecated: use CAASImageRepo
+	CAASOperatorImagePath = "caas-operator-image-path"
+
+	// CAASImageRepo sets the docker repo to use
+	// for the jujud operator and mongo images.
+	CAASImageRepo = "caas-image-repo"
+
+	// Features allows a list of runtime changeable features to be updated.
+	Features = "features"
+
+	// MeteringURL is the key for the url to use for metrics
+	MeteringURL = "metering-url"
+
+	// PublicDNSAddress is the public DNS address (and port) of the controller.
+	PublicDNSAddress = "public-dns-address"
+
 	// Attribute Defaults
 
-	// DefaultAgentRateLimitMax allows the first 10 agents to connect without any
-	// issue. After that the rate limiting kicks in.
+	// DefaultAgentRateLimitMax allows the first 10 agents to connect without
+	// any issue. After that the rate limiting kicks in.
 	DefaultAgentRateLimitMax = 10
 
-	// DefaultAgentRateLimitRate will allow four agents to connect every second.
-	// A token is added to the ratelimit token bucket every 250ms.
+	// DefaultAgentRateLimitRate will allow four agents to connect every
+	// second. A token is added to the ratelimit token bucket every 250ms.
 	DefaultAgentRateLimitRate = 250 * time.Millisecond
 
 	// DefaultAuditingEnabled contains the default value for the
@@ -246,38 +281,44 @@ const (
 	// mongo in focal or later.
 	DefaultJujuDBSnapChannel = "4.0/stable"
 
-	// DefaultMaxDebugLogDuration is the default duration that debug-log commands
-	// can run before being terminated by the API server.
+	// DefaultMaxDebugLogDuration is the default duration that debug-log
+	// commands can run before being terminated by the API server.
 	DefaultMaxDebugLogDuration = 24 * time.Hour
 
 	// DefaultMaxTxnLogCollectionMB is the maximum size the txn log collection.
 	DefaultMaxTxnLogCollectionMB = 10 // 10 MB
 
-	// DefaultMaxPruneTxnBatchSize is the normal number of transaction we will prune in a given pass (1M) (deprecated)
+	// DefaultMaxPruneTxnBatchSize is the normal number of transaction
+	// we will prune in a given pass (1M) (deprecated)
 	DefaultMaxPruneTxnBatchSize = 1 * 1000 * 1000
 
-	// DefaultMaxPruneTxnPasses is the default number of batches we will process (deprecated)
+	// DefaultMaxPruneTxnPasses is the default number of
+	// batches we will process. (deprecated)
 	DefaultMaxPruneTxnPasses = 100
 
-	// DefaultModelLogfileMaxSize is the maximum file size in MB of the log file written out by the
-	// controller on behalf of workers running for a model.
+	// DefaultModelLogfileMaxSize is the maximum file size in MB of
+	// the log file written out by the controller on behalf of workers
+	// running for a model.
 	DefaultModelLogfileMaxSize = 10
 
-	// DefaultModelLogfileMaxBackups is the number of old model log files to keep (compressed).
+	// DefaultModelLogfileMaxBackups is the number of old model
+	// log files to keep (compressed).
 	DefaultModelLogfileMaxBackups = 2
 
 	// DefaultModelLogsSizeMB is the size in MB of the capped logs collection
 	// for each model.
 	DefaultModelLogsSizeMB = 20
 
-	// DefaultPruneTxnQueryCount is the number of transactions to read in a single query.
+	// DefaultPruneTxnQueryCount is the number of transactions
+	// to read in a single query.
 	DefaultPruneTxnQueryCount = 1000
 
-	// DefaultPruneTxnSleepTime is the amount of time to sleep between processing each
-	// batch query. This is used to reduce load on the system, allowing other queries
-	// to time to operate. On large controllers, processing 1000 txs seems to take
-	// about 100ms, so a sleep time of 10ms represents a 10% slowdown, but allows
-	// other systems to operate concurrently.
+	// DefaultPruneTxnSleepTime is the amount of time to sleep between
+	// processing each batch query. This is used to reduce load on the system,
+	// allowing other queries to time to operate. On large controllers,
+	// processing 1000 txs seems to take about 100ms, so a sleep time of 10ms
+	// represents a 10% slowdown, but allows other systems to
+	// operate concurrently.
 	DefaultPruneTxnSleepTime = "10ms"
 
 	// DefaultMaxCharmStateSize is the maximum size (in bytes) of charm
@@ -292,31 +333,8 @@ const (
 	// non-synced-writes-to-raft-log value. It is set to false by default.
 	DefaultNonSyncedWritesToRaftLog = false
 
-	// JujuHASpace is the network space within which the MongoDB replica-set
-	// should communicate.
-	JujuHASpace = "juju-ha-space"
-
-	// JujuManagementSpace is the network space that agents should use to
-	// communicate with controllers.
-	JujuManagementSpace = "juju-mgmt-space"
-
-	// CAASOperatorImagePath sets the url of the docker image
-	// used for the application operator.
-	// Deprecated: use CAASImageRepo
-	CAASOperatorImagePath = "caas-operator-image-path"
-
-	// CAASImageRepo sets the docker repo to use
-	// for the jujud operator and mongo images.
-	CAASImageRepo = "caas-image-repo"
-
-	// Features allows a list of runtime changeable features to be updated.
-	Features = "features"
-
-	// MeteringURL is the key for the url to use for metrics
-	MeteringURL = "metering-url"
-
-	// PublicDNSAddress is the public DNS address (and port) of the controller.
-	PublicDNSAddress = "public-dns-address"
+	// DefaultMigrationMinionMaxWait is the default value for
+	DefaultMigrationMinionWaitMax = "15m"
 )
 
 var (
@@ -365,6 +383,7 @@ var (
 		MaxCharmStateSize,
 		MaxAgentStateSize,
 		NonSyncedWritesToRaftLog,
+		MigrationMinionWaitMax,
 	}
 
 	// For backwards compatibility, we must include "anything", "juju-apiserver"
@@ -411,6 +430,7 @@ var (
 		MaxCharmStateSize,
 		MaxAgentStateSize,
 		NonSyncedWritesToRaftLog,
+		MigrationMinionWaitMax,
 	)
 
 	// DefaultAuditLogExcludeMethods is the default list of methods to
@@ -853,6 +873,22 @@ func (c Config) NonSyncedWritesToRaftLog() bool {
 	return DefaultNonSyncedWritesToRaftLog
 }
 
+// MigrationMinionWaitMax returns a duration for the maximum time that the
+// migration-master worker should wait for migration-minion reports during
+// phases of a model migration.
+func (c Config) MigrationMinionWaitMax() time.Duration {
+	asInterface, ok := c[MigrationMinionWaitMax]
+	if !ok {
+		asInterface = DefaultMigrationMinionWaitMax
+	}
+	asStr, ok := asInterface.(string)
+	if !ok {
+		asStr = DefaultMigrationMinionWaitMax
+	}
+	val, _ := time.ParseDuration(asStr)
+	return val
+}
+
 // Validate ensures that config is a valid configuration.
 func Validate(c Config) error {
 	if v, ok := c[IdentityPublicKey].(string); ok {
@@ -1056,6 +1092,13 @@ func Validate(c Config) error {
 		return errors.Errorf("invalid max charm/agent state sizes: combined value should not exceed mongo's 16M per-document limit, got %d", maxUnitStateSize)
 	}
 
+	if v, ok := c[MigrationMinionWaitMax].(string); ok {
+		_, err := time.ParseDuration(v)
+		if err != nil {
+			return errors.Errorf("%s value %q must be a valid duration", MigrationMinionWaitMax, v)
+		}
+	}
+
 	return nil
 }
 
@@ -1149,6 +1192,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxCharmStateSize:        schema.ForceInt(),
 	MaxAgentStateSize:        schema.ForceInt(),
 	NonSyncedWritesToRaftLog: schema.Bool(),
+	MigrationMinionWaitMax:   schema.String(),
 }, schema.Defaults{
 	AgentRateLimitMax:        schema.Omit,
 	AgentRateLimitRate:       schema.Omit,
@@ -1190,12 +1234,12 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxCharmStateSize:        DefaultMaxCharmStateSize,
 	MaxAgentStateSize:        DefaultMaxAgentStateSize,
 	NonSyncedWritesToRaftLog: DefaultNonSyncedWritesToRaftLog,
+	MigrationMinionWaitMax:   DefaultMigrationMinionWaitMax,
 })
 
 // ConfigSchema holds information on all the fields defined by
 // the config package.
 var ConfigSchema = environschema.Fields{
-
 	AgentRateLimitMax: {
 		Description: "The maximum size of the token bucket used to ratelimit agent connections",
 		Type:        environschema.Tint,
@@ -1283,7 +1327,7 @@ they don't have any access rights to the controller itself`,
 	},
 	MaxDebugLogDuration: {
 		Type:        environschema.Tstring,
-		Description: `The maximum amout of time a debug-log session is allowed to run`,
+		Description: `The maximum duration that a debug-log session is allowed to run`,
 	},
 	MaxTxnLogSize: {
 		Type:        environschema.Tstring,
@@ -1361,5 +1405,9 @@ Use "caas-image-repo" instead.`,
 	NonSyncedWritesToRaftLog: {
 		Type:        environschema.Tbool,
 		Description: `Do not perform fsync calls after appending entries to the raft log. Disabling sync improves performance at the cost of reliability`,
+	},
+	MigrationMinionWaitMax: {
+		Type:        environschema.Tstring,
+		Description: `The maximum during model migrations that the migration worker will wait for agents to report on phases of the migration`,
 	},
 }

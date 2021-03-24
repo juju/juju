@@ -15,12 +15,13 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/core/network"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
-// InstanceConfig returns information from the environment config that
+// InstanceConfig returns information from the model config that
 // is needed for machine cloud-init (for non-controllers only). It
 // is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
@@ -64,7 +65,7 @@ func InstanceConfig(ctrlSt *state.State, st *state.State, machineId, nonce, data
 		Number:       agentVersion,
 		MajorVersion: -1,
 		MinorVersion: -1,
-		Series:       machine.Series(),
+		OSType:       coreseries.DefaultOSTypeNameFromSeries(machine.Series()),
 		Arch:         *hc.Arch,
 	})
 	if err != nil {

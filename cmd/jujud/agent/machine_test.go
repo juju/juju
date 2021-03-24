@@ -33,7 +33,7 @@ import (
 	"github.com/juju/utils/v2/ssh"
 	sshtesting "github.com/juju/utils/v2/ssh/testing"
 	"github.com/juju/utils/v2/symlink"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 	"github.com/juju/worker/v2/workertest"
@@ -263,9 +263,9 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	s.AgentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
 	s.AgentSuite.PatchValue(&instancepoller.ShortPollCap, 500*time.Millisecond)
 	usefulVersion := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: "quantal", // to match the charm created below
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: "ubuntu",
 	}
 	envtesting.AssertUploadFakeToolsVersions(
 		c, s.DefaultToolsStorage,

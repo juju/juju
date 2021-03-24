@@ -5,7 +5,7 @@ package upgrades
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 )
 
 // MinMajorUpgradeVersionValue defines the value to identify what the last

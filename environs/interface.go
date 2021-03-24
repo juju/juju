@@ -7,7 +7,7 @@ import (
 	"io"
 
 	"github.com/juju/jsonschema"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"

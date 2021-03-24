@@ -20,7 +20,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -1275,7 +1275,7 @@ func (k *kubernetesClient) configurePodFiles(
 	containers []specs.ContainerSpec,
 	cfgMapName configMapNameFunc,
 ) error {
-	for i, container := range containers {
+	for _, container := range containers {
 		for _, fileSet := range container.VolumeConfig {
 			vol, err := k.fileSetToVolume(appName, annotations, workloadSpec, fileSet, cfgMapName)
 			if err != nil {
@@ -1284,14 +1284,38 @@ func (k *kubernetesClient) configurePodFiles(
 			if err = k8sstorage.PushUniqueVolume(&workloadSpec.Pod.PodSpec, vol, false); err != nil {
 				return errors.Trace(err)
 			}
-			workloadSpec.Pod.Containers[i].VolumeMounts = append(workloadSpec.Pod.Containers[i].VolumeMounts, core.VolumeMount{
-				// TODO(caas): add more config fields support(SubPath, ReadOnly, etc).
-				Name:      vol.Name,
-				MountPath: fileSet.MountPath,
-			})
+			if err := configVolumeMount(
+				container, workloadSpec,
+				core.VolumeMount{
+					// TODO(caas): add more config fields support(SubPath, ReadOnly, etc).
+					Name:      vol.Name,
+					MountPath: fileSet.MountPath,
+				},
+			); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 	return nil
+}
+
+func configVolumeMount(container specs.ContainerSpec, workloadSpec *workloadSpec, volMount core.VolumeMount) error {
+	if container.Init {
+		for i, c := range workloadSpec.Pod.InitContainers {
+			if c.Name == container.Name {
+				workloadSpec.Pod.InitContainers[i].VolumeMounts = append(workloadSpec.Pod.InitContainers[i].VolumeMounts, volMount)
+				return nil
+			}
+		}
+		return errors.Annotatef(errors.NotFoundf("init container %q", container.Name), "configuring volume mount %q", volMount.Name)
+	}
+	for i, c := range workloadSpec.Pod.Containers {
+		if c.Name == container.Name {
+			workloadSpec.Pod.Containers[i].VolumeMounts = append(workloadSpec.Pod.Containers[i].VolumeMounts, volMount)
+			return nil
+		}
+	}
+	return errors.Annotatef(errors.NotFoundf("container %q", container.Name), "configuring volume mount %q", volMount.Name)
 }
 
 func (k *kubernetesClient) configureStorage(

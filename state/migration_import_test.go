@@ -10,13 +10,13 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
-	"github.com/juju/description/v2"
+	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/payload"
@@ -420,6 +421,37 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(*characteristics.RootDiskSource, gc.Equals, "bunyan")
 }
 
+func (s *MigrationImportSuite) TestMachineAgentVersion(c *gc.C) {
+	machine1 := s.Factory.MakeMachine(c, nil)
+	_ = s.Factory.MakeMachineNested(c, machine1.Id(), nil)
+	hardware, err := machine1.HardwareCharacteristics()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hardware, gc.NotNil)
+
+	// Set the original machine to use series based agent binary version.
+	err = machine1.SetAgentVersion(version.MustParseBinary("1.2.3-xenial-amd64"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	allMachines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allMachines, gc.HasLen, 2)
+
+	_, newSt := s.importModel(c, s.State)
+
+	importedMachines, err := newSt.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedMachines, gc.HasLen, 2)
+
+	for i, newMachine := range importedMachines {
+		agentTools, err := newMachine.AgentTools()
+		c.Assert(err, jc.ErrorIsNil)
+		oldTools, err := allMachines[i].AgentTools()
+		c.Assert(err, jc.ErrorIsNil)
+		oldTools.Version.Release = "ubuntu"
+		c.Assert(agentTools.Version, gc.DeepEquals, oldTools.Version)
+	}
+}
+
 func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
 	// Create two devices, first with all fields set, second just to show that
@@ -604,9 +636,9 @@ func (s *MigrationImportSuite) assertImportedApplication(
 
 	if newModel.Type() == state.ModelTypeCAAS {
 		agentTools := version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: application.Series(),
+			Number:  jujuversion.Current,
+			Arch:    arch.HostArch(),
+			Release: coreseries.DefaultOSTypeNameFromSeries(application.Series()),
 		}
 
 		tools, err := imported.AgentTools()
@@ -2536,9 +2568,9 @@ func (s *MigrationImportSuite) TestOneSubordinateTwoGuvnors(c *gc.C) {
 		app, err := unit.Application()
 		c.Assert(err, jc.ErrorIsNil)
 		agentTools := version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: app.Series(),
+			Number:  jujuversion.Current,
+			Arch:    arch.HostArch(),
+			Release: coreseries.DefaultOSTypeNameFromSeries(app.Series()),
 		}
 		err = unit.SetAgentVersion(agentTools)
 		c.Assert(err, jc.ErrorIsNil)

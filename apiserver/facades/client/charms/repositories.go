@@ -20,7 +20,7 @@ var logger = loggo.GetLogger("juju.apiserver.charms")
 // the API are valid and juju knows about them.
 func sanitizeCharmOrigin(received, requested corecharm.Origin) (corecharm.Origin, error) {
 	// Platform is generally the problem at hand. We want to ensure if they
-	// send "all" back for Architecture, OS or Series that we either use the
+	// send "all" back for Architecture, OS or Release that we either use the
 	// requested origin using that as the hint or we unset it from the requested
 	// origin.
 	result := received

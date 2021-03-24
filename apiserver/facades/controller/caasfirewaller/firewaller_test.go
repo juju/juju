@@ -96,9 +96,9 @@ func (s *firewallerEmbeddedSuite) SetUpTest(c *gc.C) {
 	s.firewallerBaseSuite.SetUpTest(c)
 
 	// charm.FormatV2.
-	s.st.application.charm.meta.Systems = []systems.System{
+	s.st.application.charm.meta.Bases = []systems.Base{
 		{
-			OS: "ubuntu",
+			Name: "ubuntu",
 			Channel: channel.Channel{
 				Name:  "20.04/stable",
 				Risk:  "stable",

@@ -4,6 +4,7 @@
 package charmstore
 
 import (
+	"fmt"
 	"io/ioutil"
 	"strings"
 
@@ -166,6 +167,23 @@ func (s *ClientSuite) TestListResourcesError(c *gc.C) {
 		Channel: params.StableChannel,
 	}})
 	c.Assert(err, gc.ErrorMatches, `another error not found`)
+	c.Assert(ret, gc.IsNil)
+}
+
+func (s *ClientSuite) TestListResourcesAPI2ResourcesFailure(c *gc.C) {
+	dev := params.Resource{
+		Name: "name2",
+	}
+	s.wrapper.ReturnListResourcesStable = []resourceResult{oneResourceResult(dev)}
+	client, err := newCachingClient(s.cache, "", s.wrapper.makeWrapper)
+	c.Assert(err, jc.ErrorIsNil)
+
+	curl := charm.MustParseURL("cs:quantal/foo-1")
+	ret, err := client.ListResources([]CharmID{{
+		URL:     curl,
+		Channel: params.StableChannel,
+	}})
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("%s resource %q: .*", curl.String(), dev.Name))
 	c.Assert(ret, gc.IsNil)
 }
 

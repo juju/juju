@@ -34,6 +34,8 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/stateenvirons"
@@ -53,12 +55,15 @@ type APIGroup struct {
 	*API
 }
 
+type NewResourceOpenerFunc func(appName string) (resource.Opener, error)
+
 type API struct {
 	auth      facade.Authorizer
 	resources facade.Resources
 
 	ctrlSt             CAASApplicationControllerState
 	state              CAASApplicationProvisionerState
+	newResourceOpener  NewResourceOpenerFunc
 	storage            StorageBackend
 	storagePoolManager poolmanager.PoolManager
 	registry           storage.ProviderRegistry
@@ -92,10 +97,15 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 		return nil, errors.Trace(err)
 	}
 
+	newResourceOpener := func(appName string) (resource.Opener, error) {
+		return resourceadapters.NewResourceOpenerForApplication(resourceadapters.NewResourceOpenerState(st), appName)
+	}
+
 	api, err := NewCAASApplicationProvisionerAPI(
 		stateShim{ctx.StatePool().SystemState()},
 		stateShim{st},
 		resources,
+		newResourceOpener,
 		authorizer,
 		sb,
 		pm,
@@ -123,6 +133,7 @@ func NewCAASApplicationProvisionerAPI(
 	ctrlSt CAASApplicationControllerState,
 	st CAASApplicationProvisionerState,
 	resources facade.Resources,
+	newResourceOpener NewResourceOpenerFunc,
 	authorizer facade.Authorizer,
 	sb StorageBackend,
 	storagePoolManager poolmanager.PoolManager,
@@ -136,6 +147,7 @@ func NewCAASApplicationProvisionerAPI(
 	return &API{
 		auth:               authorizer,
 		resources:          resources,
+		newResourceOpener:  newResourceOpener,
 		ctrlSt:             ctrlSt,
 		state:              st,
 		storage:            sb,
@@ -661,10 +673,6 @@ func (a *API) devicesParams(app Application) ([]params.KubernetesDeviceParams, e
 
 // ApplicationOCIResources returns the OCI image resources for an application.
 func (a *API) ApplicationOCIResources(args params.Entities) (params.CAASApplicationOCIResourceResults, error) {
-	resources, err := a.state.Resources()
-	if err != nil {
-		return params.CAASApplicationOCIResourceResults{}, errors.Trace(err)
-	}
 	res := params.CAASApplicationOCIResourceResults{
 		Results: make([]params.CAASApplicationOCIResourceResult, len(args.Entities)),
 	}
@@ -684,6 +692,11 @@ func (a *API) ApplicationOCIResources(args params.Entities) (params.CAASApplicat
 			res.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		resources, err := a.newResourceOpener(app.Name())
+		if err != nil {
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 		imageResources := params.CAASApplicationOCIResources{
 			Images: make(map[string]params.DockerImageInfo),
 		}
@@ -691,7 +704,7 @@ func (a *API) ApplicationOCIResources(args params.Entities) (params.CAASApplicat
 			if v.Type != charmresource.TypeContainerImage {
 				continue
 			}
-			_, reader, err := resources.OpenResource(appTag.Id(), v.Name)
+			reader, err := resources.OpenResource(v.Name)
 			if err != nil {
 				res.Results[i].Error = apiservererrors.ServerError(err)
 				break

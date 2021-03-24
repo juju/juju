@@ -4,12 +4,10 @@
 package bootstrap_test
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/os"
@@ -224,19 +222,15 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(&series.UbuntuDistroInfo, "/path/notexists")
 
-	workloadSeries, err := series.WorkloadSeries(time.Now(), "", "")
-	c.Assert(err, jc.ErrorIsNil)
-	var allTools tools.List
-	for _, series := range workloadSeries.Values() {
-		binary := version.Binary{
-			Number: jujuversion.Current,
-			Series: series,
-			Arch:   arch.HostArch(),
-		}
-		allTools = append(allTools, &tools.Tools{
-			Version: binary,
-			URL:     "http://testing.invalid/tools.tar.gz",
-		})
+	allTools := tools.List{
+		&tools.Tools{
+			Version: version.Binary{
+				Number:  jujuversion.Current,
+				Release: "ubuntu",
+				Arch:    arch.HostArch(),
+			},
+			URL: "http://testing.invalid/tools.tar.gz",
+		},
 	}
 
 	s.PatchValue(bootstrap.FindTools, func(_ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {

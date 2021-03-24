@@ -34,8 +34,8 @@ const (
 )
 
 const (
-	// NotAvailable is used a placeholder for OS and Series for a refresh
-	// platform request, if the OS and Series is not known.
+	// NotAvailable is used a placeholder for OS and Release for a refresh
+	// platform request, if the OS and Release is not known.
 	NotAvailable = "NA"
 )
 
@@ -484,7 +484,7 @@ func validatePlatform(rp RefreshPlatform) error {
 		msg = append(msg, fmt.Sprintf("OS %q", rp.OS))
 	}
 	if rp.Series == "all" {
-		msg = append(msg, fmt.Sprintf("Series %q", rp.Series))
+		msg = append(msg, fmt.Sprintf("Release %q", rp.Series))
 	}
 	if len(msg) > 0 {
 		err := errors.Trace(errors.NotValidf(strings.Join(msg, ", ")))

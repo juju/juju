@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -30,8 +30,8 @@ func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {
 	}
 	err = instanceConfig.SetTools(tools.List{
 		&tools.Tools{
-			Version: version.MustParseBinary("2.5.2-bionic-amd64"),
-			URL:     "http://tools.testing.invalid/2.5.2-bionic-amd64.tgz",
+			Version: version.MustParseBinary("2.5.2-ubuntu-amd64"),
+			URL:     "http://tools.testing.invalid/2.5.2-ubuntu-amd64.tgz",
 		},
 	})
 	if err != nil {

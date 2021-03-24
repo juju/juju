@@ -13,11 +13,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -556,7 +556,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	s.PatchValue(&tools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
-	currentVersion := version.MustParseBinary("1.2.3-quantal-amd64")
+	currentVersion := version.MustParseBinary("1.2.3-ubuntu-amd64")
 
 	// The current version is determined by the current model's agent
 	// version when locating tools to provision an added unit
@@ -567,12 +567,12 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(&arch.HostArch, func() string { return currentVersion.Arch })
-	s.PatchValue(&series.HostSeries, func() (string, error) { return currentVersion.Series, nil })
+	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 
 	// Upload some plausible matches, and some that should be filtered out.
 	compatibleVersion := version.MustParseBinary("1.2.3-quantal-arm64")
-	ignoreVersion1 := version.MustParseBinary("1.2.4-quantal-arm64")
-	ignoreVersion2 := version.MustParseBinary("1.2.3-precise-arm64")
+	ignoreVersion1 := version.MustParseBinary("1.2.4-ubuntu-arm64")
+	ignoreVersion2 := version.MustParseBinary("1.2.3-windows-arm64")
 	availableVersions := []version.Binary{
 		currentVersion, compatibleVersion, ignoreVersion1, ignoreVersion2,
 	}
@@ -581,7 +581,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	// Extract the tools that we expect to actually match.
 	expectedList, err := tools.FindTools(s.Environ, -1, -1, []string{s.cfg.AgentStream()}, coretools.Filter{
 		Number: currentVersion.Number,
-		Series: currentVersion.Series,
+		OSType: "ubuntu",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -659,7 +659,7 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable
 	// Check that an instance is not provisioned when the machine is created...
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
 		// We need a valid series that has no tools uploaded
-		Series:      "raring",
+		Series:      "win10",
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	})

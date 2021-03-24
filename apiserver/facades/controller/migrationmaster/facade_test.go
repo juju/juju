@@ -7,13 +7,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/juju/controller"
+
 	"github.com/golang/mock/gomock"
-	"github.com/juju/description/v2"
+	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -284,8 +286,8 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 		CharmURL: "cs:foo-0",
 	})
 
-	const tools0 = "2.0.0-xenial-amd64"
-	const tools1 = "2.0.1-xenial-amd64"
+	const tools0 = "2.0.0-ubuntu-amd64"
+	const tools1 = "2.0.1-ubuntu-amd64"
 	m := s.model.AddMachine(description.MachineArgs{Id: names.NewMachineTag("9")})
 	m.SetTools(description.AgentToolsArgs{
 		Version: version.MustParseBinary(tools1),
@@ -518,6 +520,22 @@ func (s *Suite) TestMinionReports(c *gc.C) {
 			u1.String(),
 		},
 	})
+}
+
+func (s *Suite) TestMinionReportTimeout(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	timeout := "30s"
+
+	s.backend.EXPECT().ControllerConfig().Return(controller.Config{
+		controller.MigrationMinionWaitMax: timeout,
+	}, nil)
+
+	res, err := s.mustMakeAPI(c).MinionReportTimeout()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Error, gc.IsNil)
+	c.Check(res.Result, gc.Equals, timeout)
 }
 
 func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {

@@ -122,7 +122,7 @@ bootstrap() {
         if [ -n "${OUT}" ]; then
             echo "${model} already exists. Use the following to clean up the environment:"
             echo "    juju switch ${bootstrapped_name}"
-            echo "    juju destroy-model --force -y ${model}"
+            echo "    juju destroy-model -y ${model}"
             exit 1
         fi
 
@@ -219,7 +219,7 @@ destroy_model() {
     output="${TEST_DIR}/${name}-destroy.log"
 
     echo "====> Destroying juju model ${name}"
-    echo "${name}" | xargs -I % juju destroy-model --force -y % >"${output}" 2>&1
+    echo "${name}" | xargs -I % juju destroy-model -y % >"${output}" 2>&1 || true
     CHK=$(cat "${output}" | grep -i "ERROR" || true)
     if [ -n "${CHK}" ]; then
         printf "\\nFound some issues\\n"
@@ -253,7 +253,7 @@ destroy_controller() {
         echo "====> Destroying model ($(green "${name}"))"
 
         output="${TEST_DIR}/${name}-destroy-model.log"
-        echo "${name}" | xargs -I % juju destroy-model --force -y % >"${output}" 2>&1
+        echo "${name}" | xargs -I % juju destroy-model -y % >"${output}" 2>&1 || true
 
         echo "====> Destroyed model ($(green "${name}"))"
         return

@@ -10,7 +10,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	lxdclient "github.com/lxc/lxd/client"
 	lxdapi "github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
@@ -105,7 +105,7 @@ func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 		nil,
 	)
 	list := coretools.List{
-		&coretools.Tools{Version: version.MustParseBinary("2.3.4-trusty-amd64")},
+		&coretools.Tools{Version: version.MustParseBinary("2.3.4-ubuntu-amd64")},
 	}
 	err = icfg.SetTools(list)
 	c.Assert(err, jc.ErrorIsNil)

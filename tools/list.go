@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 )
 
 // List holds tools available in an environment. The order of tools within
@@ -27,20 +27,20 @@ func (src List) String() string {
 	return strings.Join(names, ";")
 }
 
-// AllSeries returns all series for which some tools in src were built.
-func (src List) AllSeries() []string {
+// AllReleases returns all os types for which some tools in src were built.
+func (src List) AllReleases() []string {
 	return src.collect(func(tools *Tools) string {
-		return tools.Version.Series
+		return tools.Version.Release
 	})
 }
 
-// OneSeries returns the single series for which all tools in src were built.
-func (src List) OneSeries() string {
-	series := src.AllSeries()
-	if len(series) != 1 {
-		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
+// OneRelease returns the single os type for which all tools in src were built.
+func (src List) OneRelease() string {
+	release := src.AllReleases()
+	if len(release) != 1 {
+		panic(fmt.Errorf("should have gotten tools for one os type, got %v", release))
 	}
-	return series[0]
+	return release[0]
 }
 
 // Arches returns all architectures for which some tools in src were built.
@@ -186,9 +186,9 @@ type Filter struct {
 	// that exact version number.
 	Number version.Number
 
-	// Series, if not empty, causes the filter to match only tools with
-	// that series.
-	Series string
+	// OSType, if not empty, causes the filter to match only tools with
+	// that os type.
+	OSType string
 
 	// Arch, if not empty, causes the filter to match only tools with
 	// that architecture.
@@ -204,7 +204,7 @@ func (f Filter) match(agent HasVersion) bool {
 	if !ok {
 		return true
 	}
-	if f.Series != "" && tools.Version.Series != f.Series {
+	if f.OSType != "" && tools.Version.Release != f.OSType {
 		return false
 	}
 	if f.Arch != "" && tools.Version.Arch != f.Arch {

@@ -13,15 +13,15 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
@@ -183,7 +183,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 	if err != nil {
 		return md, nil, err
 	}
-	exactTools, err := envtools.FindExactTools(env, v.Number, v.Series, v.Arch)
+	exactTools, err := envtools.FindExactTools(env, v.Number, v.Release, v.Arch)
 	if err != nil {
 		return md, nil, err
 	}
@@ -256,22 +256,18 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 		return nil, errors.BadRequestf("expected Content-Type: application/x-tar-gz, got: %v", contentType)
 	}
 
-	// We'll clone the tools for each additional series specified.
-	var cloneSeries []string
-	if seriesParam := query.Get("series"); seriesParam != "" {
-		cloneSeries = strings.Split(seriesParam, ",")
-	}
 	logger.Debugf("request to upload agent binaries: %s", toolsVersion)
-	logger.Debugf("additional series: %s", cloneSeries)
+	// TODO(juju3) - drop this compatibility with series params
+	// If the binary is for a workload series, convert the release to an OS type name.
+	allSeries, err := coreseries.AllWorkloadSeries("", "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if allSeries.Contains(toolsVersion.Release) {
+		toolsVersion.Release = coreseries.DefaultOSTypeNameFromSeries(toolsVersion.Release)
+	}
 
 	toolsVersions := []version.Binary{toolsVersion}
-	for _, series := range cloneSeries {
-		if series != toolsVersion.Series {
-			v := toolsVersion
-			v.Series = series
-			toolsVersions = append(toolsVersions, v)
-		}
-	}
 	serverRoot := h.getServerRoot(r, query, st)
 	return h.handleUpload(r.Body, toolsVersions, serverRoot, st)
 }

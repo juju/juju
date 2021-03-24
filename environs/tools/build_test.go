@@ -19,10 +19,11 @@ import (
 	exttest "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/testing"
@@ -156,8 +157,8 @@ func (b *buildSuite) TestGetVersionFromJujud(c *gc.C) {
 			Tag:   "beta",
 			Patch: 1,
 		},
-		Series: "trusty",
-		Arch:   "amd64",
+		Release: "ubuntu",
+		Arch:    "amd64",
 	}
 
 	argsCh := make(chan []string, 1)
@@ -271,7 +272,7 @@ func (b *buildSuite) TestBundleToolsIncludesVersionFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Version should come from the version file.
-	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-quantal-arm64")
+	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-ubuntu-arm64")
 	c.Assert(official, jc.IsTrue)
 
 	_, err = bundleFile.Seek(0, io.SeekStart)
@@ -283,7 +284,7 @@ func (b *buildSuite) TestBundleToolsIncludesVersionFile(c *gc.C) {
 	}, bundleFile)
 	c.Assert(err, jc.ErrorIsNil)
 
-	unpackDir := filepath.Join(dir, "tools", "1.2.3-quantal-arm64")
+	unpackDir := filepath.Join(dir, "tools", "1.2.3-ubuntu-arm64")
 	// downloaded-tools.txt is added by UnpackTools.
 	c.Assert(listDir(c, unpackDir), gc.DeepEquals, []string{
 		"downloaded-tools.txt", "jujuc", "jujud", "jujud-versions.yaml"})
@@ -299,10 +300,10 @@ func listDir(c *gc.C, dir string) []string {
 	return names
 }
 
-func (b *buildSuite) TestBundleToolsMatchesBinaryUsingSeriesArch(c *gc.C) {
+func (b *buildSuite) TestBundleToolsMatchesBinaryUsingOsTypeArch(c *gc.C) {
 	thisArch := arch.HostArch()
-	thisSeries := testing.HostSeries(c)
-	dir := b.setUpFakeBinaries(c, fmt.Sprintf(seriesArchMatchVersionFile, thisSeries, thisArch))
+	thisHost := coreos.HostOSTypeName()
+	dir := b.setUpFakeBinaries(c, fmt.Sprintf(osTypeArchMatchVersionFile, thisHost, thisArch))
 
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -310,7 +311,7 @@ func (b *buildSuite) TestBundleToolsMatchesBinaryUsingSeriesArch(c *gc.C) {
 	forceVersion := version.MustParse("1.2.3.1")
 	resultVersion, official, _, err := tools.BundleTools(false, bundleFile, &forceVersion)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resultVersion.String(), gc.Equals, fmt.Sprintf("1.2.3-%s-%s", thisSeries, thisArch))
+	c.Assert(resultVersion.String(), gc.Equals, fmt.Sprintf("1.2.3-%s-%s", thisHost, thisArch))
 	c.Assert(official, jc.IsTrue)
 }
 
@@ -325,8 +326,8 @@ func (b *buildSuite) TestJujudVersion(c *gc.C) {
 			Minor: 2,
 			Patch: 3,
 		},
-		Series: "artful",
-		Arch:   "amd64",
+		Release: "ubuntu",
+		Arch:    "amd64",
 	}
 
 	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
@@ -338,7 +339,7 @@ func (b *buildSuite) TestJujudVersion(c *gc.C) {
 
 	resultVersion, official, err := tools.JujudVersion(dir)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-artful-amd64")
+	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-ubuntu-amd64")
 	c.Assert(official, jc.IsFalse)
 }
 
@@ -355,8 +356,8 @@ func (b *buildSuite) TestBundleToolsWithNoVersion(c *gc.C) {
 			Minor: 2,
 			Patch: 3,
 		},
-		Series: "artful",
-		Arch:   "amd64",
+		Release: "ubuntu",
+		Arch:    "amd64",
 	}
 
 	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
@@ -369,7 +370,7 @@ func (b *buildSuite) TestBundleToolsWithNoVersion(c *gc.C) {
 	forceVersion := version.MustParse("1.2.3.1")
 	resultVersion, official, sha, err := tools.BundleTools(false, bundleFile, &forceVersion)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-artful-amd64")
+	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-ubuntu-amd64")
 	c.Assert(sha, gc.Not(gc.Equals), "")
 	c.Assert(official, jc.IsFalse)
 }
@@ -392,7 +393,7 @@ func (b *buildSuite) TestBundleToolsFindsVersionFileInFallbackLocation(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Version should come from the version file.
-	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-quantal-arm64")
+	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-ubuntu-arm64")
 	c.Assert(official, jc.IsTrue)
 
 	_, err = bundleFile.Seek(0, io.SeekStart)
@@ -404,7 +405,7 @@ func (b *buildSuite) TestBundleToolsFindsVersionFileInFallbackLocation(c *gc.C) 
 	}, bundleFile)
 	c.Assert(err, jc.ErrorIsNil)
 
-	unpackDir := filepath.Join(dir, "tools", "1.2.3-quantal-arm64")
+	unpackDir := filepath.Join(dir, "tools", "1.2.3-ubuntu-arm64")
 	// downloaded-tools.txt is added by UnpackTools.
 	c.Assert(listDir(c, unpackDir), gc.DeepEquals, []string{
 		"downloaded-tools.txt", "jujuc", "jujud", "jujud-versions.yaml"})
@@ -427,7 +428,7 @@ func (b *buildSuite) TestBundleToolsUsesAdjacentVersionFirst(c *gc.C) {
 	resultVersion, official, _, err := tools.BundleTools(false, bundleFile, &forceVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(resultVersion.String(), gc.Equals, "2.3.5-quantal-arm64")
+	c.Assert(resultVersion.String(), gc.Equals, "2.3.5-ubuntu-arm64")
 	c.Assert(official, jc.IsTrue)
 }
 
@@ -438,15 +439,15 @@ const (
 var (
 	fakeVersionFile = `
 versions:
-  - version: 1.2.3-quantal-arm64
+  - version: 1.2.3-ubuntu-arm64
     sha256: b6813a18f82b16ae8d0cfb9e3063302688906e0c547db629a94dfb7f70198f00
-  - version: 1.2.4-xenial-amd64
+  - version: 1.2.4-windows-amd64
     sha256: aaaa059f4cb8e83405fe6daabaa3ae62ead64ff841e0c26064c3e111c857e1fb
 `[1:]
 
-	seriesArchMatchVersionFile = `
+	osTypeArchMatchVersionFile = `
 versions:
-  - version: 1.2.3-quantal-arm64
+  - version: 1.2.3-ubuntu-arm64
     sha256: b6813a18f82b16ae8d0cfb9e3063302688906e0c547db629a94dfb7f70198f00
   - version: 1.2.3-%s-%s
     sha256: b6813a18f82b16ae8d0cfb9e3063302688906e0c547db629a94dfb7f70198f00

@@ -7,11 +7,11 @@ import (
 	"encoding/json"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v2"
+	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/naturalsort"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -35,12 +35,37 @@ type API struct {
 }
 
 type APIV1 struct {
+	*APIV2
+}
+
+// APIV2 implements version 2 of the migration master API.
+type APIV2 struct {
 	*API
+}
+
+// NewMigrationMasterFacadeV1 exists to provide the required signature for API
+// registration, converting st to backend.
+func NewMigrationMasterFacadeV1(ctx facade.Context) (*APIV1, error) {
+	v2, err := NewMigrationMasterFacadeV2(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIV1{v2}, nil
 }
 
 // NewMigrationMasterFacadeV2 exists to provide the required signature for API
 // registration, converting st to backend.
-func NewMigrationMasterFacadeV2(ctx facade.Context) (*API, error) {
+func NewMigrationMasterFacadeV2(ctx facade.Context) (*APIV2, error) {
+	v3, err := NewMigrationMasterFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIV2{v3}, nil
+}
+
+// NewMigrationMasterFacadeV2 exists to provide the required signature for API
+// registration, converting st to backend.
+func NewMigrationMasterFacade(ctx facade.Context) (*API, error) {
 	controllerState := ctx.StatePool().SystemState()
 	precheckBackend, err := migration.PrecheckShim(ctx.State(), controllerState)
 	if err != nil {
@@ -54,16 +79,6 @@ func NewMigrationMasterFacadeV2(ctx facade.Context) (*API, error) {
 		ctx.Auth(),
 		ctx.Presence(),
 	)
-}
-
-// NewMigrationMasterFacade exists to provide the required signature for API
-// registration, converting st to backend.
-func NewMigrationMasterFacade(ctx facade.Context) (*APIV1, error) {
-	v2, err := NewMigrationMasterFacadeV2(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIV1{v2}, nil
 }
 
 // NewAPI creates a new API server endpoint for the model migration
@@ -342,6 +357,17 @@ func (api *API) MinionReports() (params.MinionReports, error) {
 	return out, nil
 }
 
+// MinionReportTimeout returns the configuration value for this controller that
+// indicates how long the migration master worker should wait for minions to
+// reported on phases of a migration.
+func (api *API) MinionReportTimeout() (params.StringResult, error) {
+	cfg, err := api.backend.ControllerConfig()
+	if err != nil {
+		return params.StringResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+	return params.StringResult{Result: cfg.MigrationMinionWaitMax().String()}, nil
+}
+
 func getUsedCharms(model description.Model) []string {
 	result := set.NewStrings()
 	for _, application := range model.Applications() {
@@ -435,3 +461,6 @@ func revisionToSerialized(rr description.ResourceRevision) params.SerializedMode
 		Username:       rr.Username(),
 	}
 }
+
+// MinionReportTimeout is not available via the V2 API.
+func (api *APIV2) MinionReportTimeout(_, _ struct{}) {}

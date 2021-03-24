@@ -28,7 +28,7 @@ import (
 	"github.com/juju/utils/v2/fs"
 	"github.com/juju/utils/v2/shell"
 	"github.com/juju/utils/v2/symlink"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/core/paths"
@@ -242,14 +242,14 @@ func (s *systemdServiceManager) CopyAgentBinary(
 
 	// Setup new and old version.Binary instances with different series.
 	fromVer := version.Binary{
-		Number: jujuVersion,
-		Arch:   arch.HostArch(),
-		Series: fromSeries,
+		Number:  jujuVersion,
+		Arch:    arch.HostArch(),
+		Release: fromSeries,
 	}
 	toVer := version.Binary{
-		Number: jujuVersion,
-		Arch:   arch.HostArch(),
-		Series: toSeries,
+		Number:  jujuVersion,
+		Arch:    arch.HostArch(),
+		Release: toSeries,
 	}
 
 	// If tools with the new series don't already exist, copy

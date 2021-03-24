@@ -6,7 +6,7 @@ package caasmodeloperator_test
 import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	modeloperatorapi "github.com/juju/juju/api/caasmodeloperator"

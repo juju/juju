@@ -27,9 +27,9 @@ func (s *applicationWatcherSuite) TestEmbeddedFilter(c *gc.C) {
 		charm: mockAppWatcherCharm{
 			meta: &charm.Meta{
 				// charm.FormatV2.
-				Systems: []systems.System{
+				Bases: []systems.Base{
 					{
-						OS: "ubuntu",
+						Name: "ubuntu",
 						Channel: channel.Channel{
 							Name:  "20.04/stable",
 							Risk:  "stable",
@@ -77,9 +77,9 @@ func (s *applicationWatcherSuite) TestLegacyFilter(c *gc.C) {
 		charm: mockAppWatcherCharm{
 			meta: &charm.Meta{
 				// charm.FormatV2.
-				Systems: []systems.System{
+				Bases: []systems.Base{
 					{
-						OS: "ubuntu",
+						Name: "ubuntu",
 						Channel: channel.Channel{
 							Name:  "20.04/stable",
 							Risk:  "stable",
@@ -127,9 +127,9 @@ func (s *applicationWatcherSuite) TestNoFilter(c *gc.C) {
 		charm: mockAppWatcherCharm{
 			meta: &charm.Meta{
 				// charm.FormatV2.
-				Systems: []systems.System{
+				Bases: []systems.Base{
 					{
-						OS: "ubuntu",
+						Name: "ubuntu",
 						Channel: channel.Channel{
 							Name:  "20.04/stable",
 							Risk:  "stable",

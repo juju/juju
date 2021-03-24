@@ -88,7 +88,7 @@ func (s *RefreshSuite) TestRefeshConfigValidateSeries(c *gc.C) {
 		Series:       "all",
 		Architecture: arch.DefaultArchitecture,
 	})
-	c.Assert(err, gc.ErrorMatches, "Series.*")
+	c.Assert(err, gc.ErrorMatches, "Release.*")
 }
 
 func (s *RefreshSuite) TestRefeshConfigValidateOS(c *gc.C) {
@@ -106,7 +106,7 @@ func (s *RefreshSuite) TestRefeshConfigValidate(c *gc.C) {
 		Series:       "all",
 		Architecture: "all",
 	})
-	c.Assert(err, gc.ErrorMatches, "Architecture.*, OS.*, Series.*")
+	c.Assert(err, gc.ErrorMatches, "Architecture.*, OS.*, Release.*")
 }
 
 func (s *RefreshSuite) testRefeshConfigValidate(c *gc.C, rp RefreshPlatform) error {

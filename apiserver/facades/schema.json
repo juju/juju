@@ -2166,7 +2166,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "UpdateApplicationSeries updates the application series. Series for\nsubordinates updated too."
+                    "description": "UpdateApplicationSeries updates the application series. Release for\nsubordinates updated too."
                 }
             },
             "definitions": {
@@ -6766,6 +6766,18 @@
                     },
                     "additionalProperties": false
                 },
+                "CharmBase": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "CharmContainer": {
                     "type": "object",
                     "properties": {
@@ -6775,11 +6787,8 @@
                                 "$ref": "#/definitions/CharmMount"
                             }
                         },
-                        "systems": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CharmSystem"
-                            }
+                        "resource": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false
@@ -6874,10 +6883,16 @@
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
-                        "architectures": {
+                        "assumes": {
                             "type": "array",
                             "items": {
                                 "type": "string"
+                            }
+                        },
+                        "bases": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmBase"
                             }
                         },
                         "categories": {
@@ -6938,12 +6953,6 @@
                                 }
                             }
                         },
-                        "platforms": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
                         "provides": {
                             "type": "object",
                             "patternProperties": {
@@ -6987,12 +6996,6 @@
                         },
                         "summary": {
                             "type": "string"
-                        },
-                        "systems": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CharmSystem"
-                            }
                         },
                         "tags": {
                             "type": "array",
@@ -7215,21 +7218,6 @@
                         "count-max",
                         "minimum-size"
                     ]
-                },
-                "CharmSystem": {
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string"
-                        },
-                        "os": {
-                            "type": "string"
-                        },
-                        "resource": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "CharmURL": {
                     "type": "object",
@@ -8483,6 +8471,18 @@
                     },
                     "additionalProperties": false
                 },
+                "CharmBase": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "CharmContainer": {
                     "type": "object",
                     "properties": {
@@ -8492,11 +8492,8 @@
                                 "$ref": "#/definitions/CharmMount"
                             }
                         },
-                        "systems": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CharmSystem"
-                            }
+                        "resource": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false
@@ -8591,10 +8588,16 @@
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
-                        "architectures": {
+                        "assumes": {
                             "type": "array",
                             "items": {
                                 "type": "string"
+                            }
+                        },
+                        "bases": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmBase"
                             }
                         },
                         "categories": {
@@ -8655,12 +8658,6 @@
                                 }
                             }
                         },
-                        "platforms": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
                         "provides": {
                             "type": "object",
                             "patternProperties": {
@@ -8704,12 +8701,6 @@
                         },
                         "summary": {
                             "type": "string"
-                        },
-                        "systems": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CharmSystem"
-                            }
                         },
                         "tags": {
                             "type": "array",
@@ -8932,21 +8923,6 @@
                         "count-max",
                         "minimum-size"
                     ]
-                },
-                "CharmSystem": {
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string"
-                        },
-                        "os": {
-                            "type": "string"
-                        },
-                        "resource": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "CharmURL": {
                     "type": "object",
@@ -9783,7 +9759,7 @@
                         "Patch": {
                             "type": "integer"
                         },
-                        "Series": {
+                        "Release": {
                             "type": "string"
                         },
                         "Tag": {
@@ -9798,7 +9774,7 @@
                         "Patch",
                         "Build",
                         "Number",
-                        "Series",
+                        "Release",
                         "Arch"
                     ]
                 },
@@ -12787,6 +12763,18 @@
                     },
                     "additionalProperties": false
                 },
+                "CharmBase": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "CharmContainer": {
                     "type": "object",
                     "properties": {
@@ -12796,11 +12784,8 @@
                                 "$ref": "#/definitions/CharmMount"
                             }
                         },
-                        "systems": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CharmSystem"
-                            }
+                        "resource": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false
@@ -12895,10 +12880,16 @@
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
-                        "architectures": {
+                        "assumes": {
                             "type": "array",
                             "items": {
                                 "type": "string"
+                            }
+                        },
+                        "bases": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmBase"
                             }
                         },
                         "categories": {
@@ -12959,12 +12950,6 @@
                                 }
                             }
                         },
-                        "platforms": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
                         "provides": {
                             "type": "object",
                             "patternProperties": {
@@ -13008,12 +12993,6 @@
                         },
                         "summary": {
                             "type": "string"
-                        },
-                        "systems": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CharmSystem"
-                            }
                         },
                         "tags": {
                             "type": "array",
@@ -13405,21 +13384,6 @@
                         "count-max",
                         "minimum-size"
                     ]
-                },
-                "CharmSystem": {
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string"
-                        },
-                        "os": {
-                            "type": "string"
-                        },
-                        "resource": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "CharmURL": {
                     "type": "object",
@@ -14458,7 +14422,7 @@
                         "Patch": {
                             "type": "integer"
                         },
-                        "Series": {
+                        "Release": {
                             "type": "string"
                         },
                         "Tag": {
@@ -14473,7 +14437,7 @@
                         "Patch",
                         "Build",
                         "Number",
-                        "Series",
+                        "Release",
                         "Arch"
                     ]
                 },
@@ -14853,6 +14817,9 @@
                         "number": {
                             "$ref": "#/definitions/Number"
                         },
+                        "os-type": {
+                            "type": "string"
+                        },
                         "series": {
                             "type": "string"
                         }
@@ -14864,6 +14831,7 @@
                         "minor",
                         "arch",
                         "series",
+                        "os-type",
                         "agentstream"
                     ]
                 },
@@ -28144,7 +28112,7 @@
     {
         "Name": "MigrationMaster",
         "Description": "API implements the API required for the model migration\nmaster worker.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -28171,6 +28139,15 @@
                         }
                     },
                     "description": "MigrationStatus returns the details and progress of the latest\nmodel migration."
+                },
+                "MinionReportTimeout": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/StringResult"
+                        }
+                    },
+                    "description": "MinionReportTimeout returns the configuration value for this controller that\nindicates how long the migration master worker should wait for minions to\nreported on phases of a migration."
                 },
                 "MinionReports": {
                     "type": "object",
@@ -28619,6 +28596,21 @@
                     "additionalProperties": false,
                     "required": [
                         "message"
+                    ]
+                },
+                "StringResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result"
                     ]
                 }
             }
@@ -32655,7 +32647,7 @@
                         "Patch": {
                             "type": "integer"
                         },
-                        "Series": {
+                        "Release": {
                             "type": "string"
                         },
                         "Tag": {
@@ -32670,7 +32662,7 @@
                         "Patch",
                         "Build",
                         "Number",
-                        "Series",
+                        "Release",
                         "Arch"
                     ]
                 },
@@ -33238,6 +33230,9 @@
                         "number": {
                             "$ref": "#/definitions/Number"
                         },
+                        "os-type": {
+                            "type": "string"
+                        },
                         "series": {
                             "type": "string"
                         }
@@ -33249,6 +33244,7 @@
                         "minor",
                         "arch",
                         "series",
+                        "os-type",
                         "agentstream"
                     ]
                 },
@@ -45884,7 +45880,7 @@
                         "Patch": {
                             "type": "integer"
                         },
-                        "Series": {
+                        "Release": {
                             "type": "string"
                         },
                         "Tag": {
@@ -45899,7 +45895,7 @@
                         "Patch",
                         "Build",
                         "Number",
-                        "Series",
+                        "Release",
                         "Arch"
                     ]
                 },

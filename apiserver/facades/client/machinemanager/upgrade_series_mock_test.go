@@ -97,6 +97,20 @@ func (m *MockUpgradeSeries) EXPECT() *MockUpgradeSeriesMockRecorder {
 	return m.recorder
 }
 
+// Prepare mocks base method
+func (m *MockUpgradeSeries) Prepare(arg0, arg1 string, arg2 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Prepare", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Prepare indicates an expected call of Prepare
+func (mr *MockUpgradeSeriesMockRecorder) Prepare(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockUpgradeSeries)(nil).Prepare), arg0, arg1, arg2)
+}
+
 // Validate mocks base method
 func (m *MockUpgradeSeries) Validate(arg0 []ValidationEntity) ([]ValidationResult, error) {
 	m.ctrl.T.Helper()
@@ -200,6 +214,20 @@ func (m *MockUpgradeSeriesValidator) ValidateApplications(arg0 []Application, ar
 func (mr *MockUpgradeSeriesValidatorMockRecorder) ValidateApplications(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateApplications", reflect.TypeOf((*MockUpgradeSeriesValidator)(nil).ValidateApplications), arg0, arg1, arg2)
+}
+
+// ValidateMachine mocks base method
+func (m *MockUpgradeSeriesValidator) ValidateMachine(arg0 Machine) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateMachine", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ValidateMachine indicates an expected call of ValidateMachine
+func (mr *MockUpgradeSeriesValidatorMockRecorder) ValidateMachine(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateMachine", reflect.TypeOf((*MockUpgradeSeriesValidator)(nil).ValidateMachine), arg0)
 }
 
 // ValidateSeries mocks base method

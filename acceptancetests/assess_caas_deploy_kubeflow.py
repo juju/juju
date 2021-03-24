@@ -10,25 +10,23 @@
 from __future__ import print_function
 
 import argparse
+import contextlib
 import json
 import logging
-import contextlib
 import os
 import shutil
-import time
+import subprocess
 import sys
 import textwrap
-import subprocess
-from pprint import pformat
+import time
 from time import sleep
 
 from deploy_stack import BootstrapManager
+from jujupy.k8s_provider import K8sProviderType, providers
+from jujupy.utility import until_timeout
 from utility import (
     JujuAssertionError, add_basic_testing_arguments, configure_logging,
 )
-from jujupy.k8s_provider import K8sProviderType, providers
-from jujupy.utility import until_timeout
-
 
 __metaclass__ = type
 log = logging.getLogger("assess_caas_kubeflow_deployment")
@@ -295,17 +293,6 @@ def get_pub_addr(caas_client, model_name):
 
 
 def prepare(caas_client, caas_provider, build):
-    if caas_provider == K8sProviderType.MICROK8S.name:
-        caas_client.enable_microk8s_addons(
-            [
-                "dns", "storage", "dashboard", "ingress", "metallb:10.64.140.43-10.64.140.49",
-                # "rbac",  # TODO: enable `RBAC`?
-            ],
-        )
-        caas_client.kubectl(
-            "wait", "--for=condition=available",
-            "-nkube-system", "deployment/coredns", "deployment/hostpath-provisioner", "--timeout=10m",
-        )
 
     for dep in [
         "charm",
@@ -315,6 +302,17 @@ def prepare(caas_client, caas_provider, build):
         if shutil.which(dep):
             continue
         caas_client.sh('sudo', 'snap', 'install', dep, '--classic')
+
+    if caas_provider == K8sProviderType.MICROK8S.name:
+        caas_client.enable_microk8s_addons(
+            [
+                "dns", "storage", "dashboard", "ingress", "metallb:10.64.140.43-10.64.140.49",
+            ],
+        )
+        caas_client.kubectl(
+            "wait", "--for=condition=available",
+            "-nkube-system", "deployment/coredns", "deployment/hostpath-provisioner", "--timeout=10m",
+        )
 
     caas_client.sh('sudo', 'apt', 'update')
     caas_client.sh('sudo', 'apt', 'install', '-y', 'libssl-dev', 'python3-setuptools')
@@ -340,7 +338,7 @@ def prepare(caas_client, caas_provider, build):
         )
 
 
-def run_test(caas_provider, k8s_model, bundle, build):
+def run_test(caas_provider, caas_client, k8s_model, bundle, build):
     if caas_provider != K8sProviderType.MICROK8S.name:
         # tests/run.sh only works for microk8s.
         log.info("%s/tests/run.sh is skipped for %s k8s provider", KUBEFLOW_DIR, caas_provider)
@@ -352,6 +350,10 @@ def run_test(caas_provider, k8s_model, bundle, build):
     os.environ['JUJU_DATA'] = k8s_model.env.juju_home
 
     with jump_dir(KUBEFLOW_DIR):
+        if not build:
+            # TODO: tmp fix, remove me later once current kubeflow master branch published.
+            caas_client.sh('git', 'reset', '--hard', '5e0b6fcb')
+
         run("sg", "microk8s", "-c", f"{KUBEFLOW_DIR}/tests/run.sh -m {bundle}")
 
 
@@ -416,7 +418,7 @@ def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle, build=Fa
         log.info("sleeping for 30 seconds to let everything start up")
         sleep(30)
 
-        run_test(caas_provider, k8s_model, bundle, build)
+        run_test(caas_provider, caas_client, k8s_model, bundle, build)
         k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
         success_hook()
     except:  # noqa: E722
@@ -469,7 +471,11 @@ def main(argv=None):
     k8s_provider = providers[args.caas_provider]
     bs_manager = BootstrapManager.from_args(args)
 
-    with k8s_provider(bs_manager, cluster_name=args.temp_env_name).substrate_context() as caas_client:
+    with k8s_provider(
+        bs_manager,
+        cluster_name=args.temp_env_name,
+        enable_rbac=args.enable_rbac,
+    ).substrate_context() as caas_client:
         # add-k8s --local
         if args.k8s_controller and args.caas_provider != K8sProviderType.MICROK8S.name:
             # microk8s is built-in cloud, no need run add-k8s for bootstrapping.

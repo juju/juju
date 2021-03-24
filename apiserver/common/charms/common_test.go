@@ -245,24 +245,18 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 				URL:      "local:focal/cockroachdb-0",
 				Config:   map[string]params.CharmOption{},
 				Meta: &params.CharmMeta{
-					Name:          "cockroachdb",
-					Summary:       "cockroachdb",
-					Description:   "cockroachdb",
-					Platforms:     []string{"kubernetes"},
-					Architectures: []string{"amd64"},
-					Systems: []params.CharmSystem{
+					Name:        "cockroachdb",
+					Summary:     "cockroachdb",
+					Description: "cockroachdb",
+					Bases: []params.CharmBase{
 						{
-							OS:      "ubuntu",
+							Name:    "ubuntu",
 							Channel: "20.04/stable",
 						},
 					},
 					Containers: map[string]params.CharmContainer{
 						"cockroachdb": {
-							Systems: []params.CharmSystem{
-								{
-									Resource: "cockroachdb-image",
-								},
-							},
+							Resource: "cockroachdb-image",
 							Mounts: []params.CharmMount{
 								{
 									Storage:  "database",

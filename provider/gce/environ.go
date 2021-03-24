@@ -6,6 +6,7 @@ package gce
 import (
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"google.golang.org/api/compute/v1"
@@ -18,6 +19,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
@@ -81,6 +83,10 @@ type environ struct {
 
 	lock sync.Mutex // lock protects access to ecfg
 	ecfg *environConfig
+
+	instTypeListLock    sync.Mutex
+	instCacheExpireAt   time.Time
+	cachedInstanceTypes []instances.InstanceType
 
 	// namespace is used to create the machine and device hostnames.
 	namespace instance.Namespace

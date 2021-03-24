@@ -35,6 +35,7 @@ type ResourceOpenerState interface {
 	// required for NewResourceOpener and OpenResource
 	Resources() (Resources, error)
 	Unit(string) (Unit, error)
+	Application(string) (Application, error)
 }
 
 // Model represents model methods required to open a resource.
@@ -53,12 +54,17 @@ type Unit interface {
 // Application represents application methods required to open a resource.
 type Application interface {
 	CharmOrigin() *corestate.CharmOrigin
+	CharmURL() (*charm.URL, bool)
+	Name() string
+	Tag() names.Tag
 }
 
 // Resources represents the methods used by resourceCache from state.Resources .
 type Resources interface {
 	// GetResource returns the identified resource.
 	GetResource(applicationID, name string) (resource.Resource, error)
+	// OpenResource returns the metadata for a resource and a reader for the resource.
+	OpenResource(applicationID, name string) (resource.Resource, io.ReadCloser, error)
 	// OpenResourceForUniter returns the metadata for a resource and a reader for the resource.
 	OpenResourceForUniter(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error)
 	// SetResource adds the resource to blob storage and updates the metadata.

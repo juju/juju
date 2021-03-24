@@ -77,17 +77,17 @@ func (s *GenerateAgentsSuite) SetUpTest(c *gc.C) {
 
 var currentVersionStrings = []string{
 	// only these ones will make it into the JSON files.
-	jujuversion.Current.String() + "-quantal-amd64",
-	jujuversion.Current.String() + "-quantal-armhf",
-	jujuversion.Current.String() + "-quantal-i386",
+	jujuversion.Current.String() + "-ubuntu-amd64",
+	jujuversion.Current.String() + "-ubuntu-armhf",
+	jujuversion.Current.String() + "-ubuntu-i386",
 }
 
 var versionStrings = append([]string{
-	fmt.Sprintf("%d.12.0-precise-amd64", jujuversion.Current.Major),
-	fmt.Sprintf("%d.12.0-precise-i386", jujuversion.Current.Major),
-	fmt.Sprintf("%d.12.0-raring-amd64", jujuversion.Current.Major),
-	fmt.Sprintf("%d.12.0-raring-i386", jujuversion.Current.Major),
-	fmt.Sprintf("%d.13.0-precise-amd64", jujuversion.Current.Major+1),
+	fmt.Sprintf("%d.12.0-ubuntu-amd64", jujuversion.Current.Major),
+	fmt.Sprintf("%d.12.0-ubuntu-i386", jujuversion.Current.Major),
+	fmt.Sprintf("%d.12.0-windows-amd64", jujuversion.Current.Major),
+	fmt.Sprintf("%d.12.0-windows-i386", jujuversion.Current.Major),
+	fmt.Sprintf("%d.13.0-ubuntu-amd64", jujuversion.Current.Major+1),
 }, currentVersionStrings...)
 
 var expectedOutputCommon = makeExpectedOutputCommon()
@@ -117,7 +117,7 @@ func makeExpectedOutput(templ, stream, toolsDir string) string {
 
 var expectedOutputDirectoryTemplate = expectedOutputCommon + `
 .*Writing tools/streams/v1/index2\.json
-.*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-tools\.json
+.*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-agents\.json
 `
 
 func newGenerateAgentsCommandForTests() cmd.Command {
@@ -135,7 +135,7 @@ func (s *GenerateAgentsSuite) TestGenerateToDirectory(c *gc.C) {
 	outputDirReleasedTmpl := expectedOutputCommon + `
 .*Writing tools/streams/v1/index2\.json
 .*Writing tools/streams/v1/index\.json
-.*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-tools\.json
+.*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-agents\.json
 `
 	expectedOutput := makeExpectedOutput(outputDirReleasedTmpl, "released", "released")
 	c.Check(output, gc.Matches, expectedOutput)
@@ -279,7 +279,7 @@ func (s *GenerateAgentsSuite) TestGenerateWithMirrors(c *gc.C) {
 	mirrosTmpl := expectedOutputCommon + `
 .*Writing tools/streams/v1/index2\.json
 .*Writing tools/streams/v1/index\.json
-.*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-tools\.json
+.*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-agents\.json
 .*Writing tools/streams/v1/mirrors\.json
 `
 	expectedOutput := makeExpectedOutput(mirrosTmpl, "released", "released")
@@ -313,8 +313,8 @@ func (s *GenerateAgentsSuite) TestPatchLevels(c *gc.C) {
 	}
 	currentVersion := jujuversion.Current.ToPatch()
 	versionStrings := []string{
-		currentVersion.String() + "-precise-amd64",
-		currentVersion.String() + ".1-precise-amd64",
+		currentVersion.String() + "-ubuntu-amd64",
+		currentVersion.String() + ".1-ubuntu-amd64",
 	}
 	metadataDir := osenv.JujuXDGDataHomeDir() // default metadata dir
 	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
@@ -328,16 +328,16 @@ Finding agent binaries in .*
 .*Fetching agent binaries from dir "released" to generate hash: %s
 .*Writing tools/streams/v1/index2\.json
 .*Writing tools/streams/v1/index\.json
-.*Writing tools/streams/v1/com\.ubuntu\.juju-released-tools\.json
+.*Writing tools/streams/v1/com\.ubuntu\.juju-released-agents\.json
 `[1:], regexp.QuoteMeta(versionStrings[0]), regexp.QuoteMeta(versionStrings[1]))
 	c.Assert(output, gc.Matches, expectedOutput)
 	metadata := toolstesting.ParseMetadataFromDir(c, metadataDir, "released", false)
 	c.Assert(metadata, gc.HasLen, 2)
 
-	filename := fmt.Sprintf("juju-%s-precise-amd64.tgz", currentVersion)
+	filename := fmt.Sprintf("juju-%s-ubuntu-amd64.tgz", currentVersion)
 	size, sha256 := toolstesting.SHA256sum(c, filepath.Join(metadataDir, "tools", "released", filename))
 	c.Assert(metadata[0], gc.DeepEquals, &tools.ToolsMetadata{
-		Release:  "precise",
+		Release:  "ubuntu",
 		Version:  currentVersion.String(),
 		Arch:     "amd64",
 		Size:     size,
@@ -346,10 +346,10 @@ Finding agent binaries in .*
 		SHA256:   sha256,
 	})
 
-	filename = fmt.Sprintf("juju-%s.1-precise-amd64.tgz", currentVersion)
+	filename = fmt.Sprintf("juju-%s.1-ubuntu-amd64.tgz", currentVersion)
 	size, sha256 = toolstesting.SHA256sum(c, filepath.Join(metadataDir, "tools", "released", filename))
 	c.Assert(metadata[1], gc.DeepEquals, &tools.ToolsMetadata{
-		Release:  "precise",
+		Release:  "ubuntu",
 		Version:  currentVersion.String() + ".1",
 		Arch:     "amd64",
 		Size:     size,
