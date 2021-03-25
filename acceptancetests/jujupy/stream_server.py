@@ -208,7 +208,7 @@ def agent_tgz_from_juju_binary(
     return tgz_path
 
 
-def _generate_product_json(content_id, version, arch, series, agent_tgz_path):
+def _generate_product_json(content_id, version, arch, agent_tgz_path):
     """Return dict containing product metadata from provided args."""
     tgz_name = os.path.basename(agent_tgz_path)
     file_details = _get_tgz_file_details(agent_tgz_path)
@@ -231,21 +231,6 @@ def _generate_product_json(content_id, version, arch, series, agent_tgz_path):
         version=version,
         version_name=datetime.utcnow().strftime('%Y%m%d')
     )
-
-
-def _get_series_details(series):
-    # Ubuntu agents use series and a code (i.e. trusty:14.04), others don't.
-    _series_lookup = dict(
-        trusty=14.04,
-        xenial=16.04,
-        artful=17.10,
-        bionic=18.04,
-    )
-    try:
-        series_code = _series_lookup[series]
-    except KeyError:
-        return series, series
-    return series, series_code
 
 
 def _get_tgz_file_details(agent_tgz_path):

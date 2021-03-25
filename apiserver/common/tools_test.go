@@ -261,6 +261,66 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 	}
 }
 
+// TODO(juju4) - remove
+func (s *toolsSuite) TestFindToolsOldAgent(c *gc.C) {
+	for i, test := range []struct {
+		agentStreamRequested string
+		agentStreamsUsed     []string
+	}{{
+		agentStreamsUsed: []string{"released"},
+	}, {
+		agentStreamRequested: "pretend",
+		agentStreamsUsed:     []string{"pretend"},
+	}} {
+		c.Logf("test %d", i)
+		envtoolsList := coretools.List{
+			&coretools.Tools{
+				Version: version.MustParseBinary("2.8.9-focal-amd64"),
+				Size:    2048,
+				SHA256:  "badf00d",
+			},
+		}
+		storageMetadata := []binarystorage.Metadata{{
+			Version: "2.8.9-win2012-amd64",
+			Size:    1024,
+			SHA256:  "feedface",
+		}}
+
+		s.PatchValue(common.EnvtoolsFindTools, func(e environs.BootstrapEnviron, major, minor int, streams []string, filter coretools.Filter) (coretools.List, error) {
+			c.Assert(major, gc.Equals, 2)
+			c.Assert(minor, gc.Equals, 8)
+			c.Assert(streams, gc.DeepEquals, test.agentStreamsUsed)
+			c.Assert(filter.OSType, gc.Equals, "")
+			c.Assert(filter.Arch, gc.Equals, "amd64")
+			return envtoolsList, nil
+		})
+		newEnviron := func() (environs.BootstrapEnviron, error) {
+			return s.Environ, nil
+		}
+		toolsFinder := common.NewToolsFinder(
+			stateenvirons.EnvironConfigGetter{Model: s.Model}, &mockToolsStorage{metadata: storageMetadata}, sprintfURLGetter("tools:%s"), newEnviron,
+		)
+		result, err := toolsFinder.FindTools(params.FindToolsParams{
+			Number: version.MustParse("2.8.9"),
+			MajorVersion: 2,
+			MinorVersion: 8,
+			OSType:       "ubuntu",
+			Arch:         "amd64",
+			AgentStream:  test.agentStreamRequested,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(result.Error, gc.IsNil)
+		c.Check(result.List, jc.DeepEquals, coretools.List{
+			&coretools.Tools{
+				Version: version.MustParseBinary("2.8.9-ubuntu-amd64"),
+				Size:    2048,
+				SHA256:  "badf00d",
+				URL:     "tools:2.8.9-ubuntu-amd64",
+			},
+		})
+	}
+}
+
 func (s *toolsSuite) TestFindToolsNotFound(c *gc.C) {
 	s.PatchValue(common.EnvtoolsFindTools, func(e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
 		return nil, errors.NotFoundf("tools")
