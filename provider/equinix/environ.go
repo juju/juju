@@ -140,6 +140,9 @@ func (e *environ) Create(ctx context.ProviderCallContext, args environs.CreatePa
 
 func (e *environ) Destroy(ctx context.ProviderCallContext) error {
 	insts, err := e.getPacketInstancesByTag(map[string]string{"juju-model-uuid": e.Config().UUID()})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	for _, inst := range insts {
 		_, err = e.equnixClient.Devices.Delete(string(inst.Id()), true)
