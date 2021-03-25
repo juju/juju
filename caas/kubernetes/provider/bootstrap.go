@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -122,6 +123,7 @@ type controllerStack struct {
 	stackLabels      map[string]string
 	stackAnnotations map[string]string
 	broker           *kubernetesClient
+	timeout          time.Duration
 
 	pcfg        *podcfg.ControllerPodConfig
 	agentConfig agent.ConfigSetterWriter
@@ -223,6 +225,7 @@ func newcontrollerStack(
 		stackLabels:      labels,
 		stackAnnotations: map[string]string{controllerUUIDKey: pcfg.ControllerTag.Id()},
 		broker:           broker,
+		timeout:          pcfg.Bootstrap.Timeout,
 
 		pcfg:        pcfg,
 		agentConfig: agentConfig,
@@ -354,7 +357,7 @@ func (c *controllerStack) Deploy() (err error) {
 	}()
 
 	// create service for controller pod.
-	if err = c.createControllerService(); err != nil {
+	if err = c.createControllerService(c.ctx.Context()); err != nil {
 		return errors.Annotate(err, "creating service for controller")
 	}
 	if isDone() {
@@ -503,7 +506,7 @@ func (c *controllerStack) createControllerProxy() error {
 	return errors.Trace(err)
 }
 
-func (c *controllerStack) createControllerService() error {
+func (c *controllerStack) createControllerService(ctx context.Context) error {
 	svcName := c.resourceNameService
 
 	cloudType, _, _ := cloud.SplitHostCloudRegion(c.pcfg.Bootstrap.ControllerCloud.HostCloudRegion)
@@ -562,13 +565,12 @@ func (c *controllerStack) createControllerService() error {
 		// we do Not want bootstrap-state cmd wait instead.
 		return nil
 	}
-
 	retryCallArgs := retry.CallArgs{
-		Attempts:    60,
-		Delay:       3 * time.Second,
-		MaxDuration: 3 * time.Minute,
-		Clock:       c.broker.clock,
-		Func:        publicAddressPoller,
+		Attempts: -1,
+		Delay:    3 * time.Second,
+		Stop:     ctx.Done(),
+		Clock:    c.broker.clock,
+		Func:     publicAddressPoller,
 		IsFatalError: func(err error) bool {
 			return !errors.IsNotProvisioned(err)
 		},
@@ -576,8 +578,11 @@ func (c *controllerStack) createControllerService() error {
 			logger.Debugf("polling k8s controller svc DNS, in %d attempt, %v", attempt, err)
 		},
 	}
-
-	return errors.Trace(retry.Call(retryCallArgs))
+	err = retry.Call(retryCallArgs)
+	if retry.IsDurationExceeded(err) || (retry.IsRetryStopped(err) && ctx.Err() == context.DeadlineExceeded) {
+		return errors.Timeoutf("waiting for controller service address fully provisioned")
+	}
+	return errors.Trace(err)
 }
 
 func (c *controllerStack) addCleanUp(cleanUp func()) {
@@ -800,7 +805,7 @@ func (c *controllerStack) createControllerStatefulset() error {
 }
 
 func (c *controllerStack) waitForPod(podWatcher watcher.NotifyWatcher, podName string) error {
-	timeout := c.broker.clock.NewTimer(c.pcfg.Bootstrap.Timeout)
+	timeout := c.broker.clock.NewTimer(c.timeout)
 
 	podEventWatcher, err := c.broker.watchEvents(podName, "Pod")
 	if err != nil {
@@ -1219,7 +1224,7 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 			agentConfigRelativePath,
 			c.fileNameBootstrapParams,
 			loggingOption,
-			c.pcfg.Bootstrap.Timeout.String(),
+			c.timeout.String(),
 		)
 	}
 	jujudCmd += "\n" + fmt.Sprintf(
