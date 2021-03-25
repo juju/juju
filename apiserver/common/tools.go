@@ -6,6 +6,7 @@ package common
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -14,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
+	coreos "github.com/juju/juju/core/os"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
@@ -277,11 +279,49 @@ func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 // and is found in tools storage, then simplestreams will not be searched.
 func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.List, error) {
 	exactMatch := args.Number != version.Zero && (args.OSType != "" || args.Series != "") && args.Arch != ""
+
+	// TODO(juju4) - remove this logic
+	// Older versions of Juju publish agent binary metadata based on series.
+	// So we need to strip out OSType and match on everything else, then filter below.
+	compatibleMatch := false
+	wantedOSType := args.OSType
+	if args.Number.Major == 2 && args.Number.Minor <= 8 && args.OSType != "" {
+		args.OSType = ""
+		compatibleMatch = true
+	}
+
 	storageList, err := f.matchingStorageTools(args)
-	if err == nil && exactMatch {
-		return storageList, nil
-	} else if err != nil && err != coretools.ErrNoMatches {
+	if err != nil && err != coretools.ErrNoMatches {
 		return nil, err
+	}
+
+	// For a given list of tools, return those which match the required
+	// os type based on an exact os type match or series match.
+	compatibleTools := func(tools coretools.List) coretools.List {
+		added := make(map[version.Binary]bool)
+		var matched coretools.List
+		for _, t := range tools {
+			converted := *t
+			osTypeName, _ := coreseries.GetOSFromSeries(t.Version.Release)
+			if osTypeName != coreos.Unknown {
+				converted.Version.Release = strings.ToLower(osTypeName.String())
+			}
+			if added[converted.Version] {
+				continue
+			}
+			if converted.Version.Release == wantedOSType || wantedOSType == "" {
+				matched = append(matched, &converted)
+				added[converted.Version] = true
+			}
+		}
+		return matched
+	}
+
+	if compatibleMatch {
+		storageList = compatibleTools(storageList)
+	}
+	if len(storageList) > 0 && exactMatch {
+		return storageList, nil
 	}
 
 	// Look for tools in simplestreams too, but don't replace
@@ -302,6 +342,9 @@ func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.
 	)
 	if len(storageList) == 0 && err != nil {
 		return nil, err
+	}
+	if compatibleMatch {
+		simplestreamsList = compatibleTools(simplestreamsList)
 	}
 
 	list := storageList
