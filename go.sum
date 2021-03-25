@@ -556,6 +556,8 @@ github.com/juju/testing v0.0.0-20200706033705-4c23f9c453cd/go.mod h1:hpGvhGHPVbN
 github.com/juju/testing v0.0.0-20200923013621-75df6121fbb0/go.mod h1:Ky6DwobyXXeXSqRJCCuHpAtVEGRPOT8gUsFpJhDoXZ8=
 github.com/juju/testing v0.0.0-20210302031854-2c7ee8570c07 h1:6QA3rIUc3TBPbv8zWa2KQ2TWn6gsn1EU0UhwRi6kOhA=
 github.com/juju/testing v0.0.0-20210302031854-2c7ee8570c07/go.mod h1:7lxZW0B50+xdGFkvhAb8bwAGt6IU87JB1H9w4t8MNVM=
+github.com/juju/testing v0.0.0-20210324180055-18c50b0c2098 h1:yrhek184cGp0IRyHg0uV1khLaorNg6GtDLkry4oNNjE=
+github.com/juju/testing v0.0.0-20210324180055-18c50b0c2098/go.mod h1:7lxZW0B50+xdGFkvhAb8bwAGt6IU87JB1H9w4t8MNVM=
 github.com/juju/txn v0.0.0-20190416045819-5f348e78887d/go.mod h1:ZgVptALKKa9UUv7ItEJVQjFWNG/0bs+tAu0ad0O8DAE=
 github.com/juju/txn v0.0.0-20210302043154-251cea9e140a h1:/NIvlTv1px6ct0WBa9PctsgORDTVoDYdniYeLI4kdfw=
 github.com/juju/txn v0.0.0-20210302043154-251cea9e140a/go.mod h1:7AHyL/X/p4k0qJ8oegFiI/FYMNWzMznvsHLhE346+ms=
