@@ -29,7 +29,6 @@ var (
 	IsCharmAlreadyUploadedError    = stateerrors.IsCharmAlreadyUploadedError
 	IsProviderIDNotUniqueError     = stateerrors.IsProviderIDNotUniqueError
 	IsParentDeviceHasChildrenError = stateerrors.IsParentDeviceHasChildrenError
-	IsIncompatibleSeriesError      = stateerrors.IsIncompatibleSeriesError
 	IsNotAlive                     = stateerrors.IsNotAlive
 	IsHasAssignedUnitsError        = stateerrors.IsHasAssignedUnitsError
 	IsHasContainersError           = stateerrors.IsHasContainersError

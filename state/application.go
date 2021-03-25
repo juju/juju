@@ -27,6 +27,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
@@ -1758,7 +1759,7 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 		// Verify and gather data for the transaction operations.
 		err := a.VerifySupportedSeries(series, force)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		units, err := a.AllUnits()
 		if err != nil {
@@ -1773,11 +1774,11 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 			for _, n := range unit.SubordinateNames() {
 				app, err := a.st.Application(unitAppName(n))
 				if err != nil {
-					return nil, err
+					return nil, errors.Trace(err)
 				}
 				err = app.VerifySupportedSeries(series, force)
 				if err != nil {
-					return nil, err
+					return nil, errors.Trace(err)
 				}
 				subApps = append(subApps, app)
 			}
@@ -1821,20 +1822,38 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 
 // VerifySupportedSeries verifies if the given series is supported by the
 // application.
-// TODO (stickupkid): This will be removed once we align all upgrade-series
-// commands.
 func (a *Application) VerifySupportedSeries(series string, force bool) error {
+	// We expect to see a charm in the charm for a given url.
+	if origin := a.CharmOrigin(); origin != nil && corecharm.CharmHub.Matches(origin.Source) {
+		_, err := a.st.Charm(a.doc.CharmURL.WithSeries(series))
+		if err != nil && force {
+			return nil
+		}
+		if errors.IsNotFound(err) {
+			return errors.NotValidf("series %q not supported by charm %q", series, a.doc.CharmURL.Name)
+		}
+		return errors.Trace(err)
+	}
+
+	// Everything below here is using the metadata to verify the existence of
+	// the correct charm in state. That works fine for local and charm-store
+	// charms, but fails for charmhub charms. This is because you can have
+	// different compiled dependency requirements for each series version that
+	// we need to take into account, therefore require a new charm to 100% sure
+	// of it's validity.
 	ch, _, err := a.Charm()
 	if err != nil {
 		return err
 	}
+
 	supportedSeries := ch.Meta().ComputedSeries()
 	if len(supportedSeries) == 0 {
 		supportedSeries = append(supportedSeries, ch.URL().Series)
 	}
 	_, seriesSupportedErr := charm.SeriesForCharm(series, supportedSeries)
 	if seriesSupportedErr != nil && !force {
-		return stateerrors.NewErrIncompatibleSeries(supportedSeries, series, ch.String())
+		return errors.NotValidf("series %q not supported by charm %q, supported series: %s",
+			series, a.doc.CharmURL.Name, strings.Join(supportedSeries, ", "))
 	}
 	return nil
 }

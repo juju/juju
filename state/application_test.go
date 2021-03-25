@@ -1657,7 +1657,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinate(c *gc.C) {
 func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinateFail(c *gc.C) {
 	app, subApp := s.setupMultiSeriesUnitWithSubordinate(c)
 	err := app.UpdateApplicationSeries("xenial", false)
-	c.Assert(err, jc.Satisfies, state.IsIncompatibleSeriesError)
+	c.Assert(err, gc.ErrorMatches, `updating application series: series "xenial" not supported by charm "multi-series-subordinate", supported series: precise, trusty, yakkety not valid`)
 	assertApplicationSeriesUpdate(c, app, "precise")
 	assertApplicationSeriesUpdate(c, subApp, "precise")
 }
@@ -1783,7 +1783,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompati
 	).Check()
 
 	err = app.UpdateApplicationSeries("yakkety", false)
-	c.Assert(err, jc.Satisfies, state.IsIncompatibleSeriesError)
+	c.Assert(err, gc.ErrorMatches, `updating application series: series "yakkety" not supported by charm "multi-series-subordinate2", supported series: precise, trusty not valid`)
 	assertApplicationSeriesUpdate(c, app, "precise")
 	assertApplicationSeriesUpdate(c, subApp, "precise")
 
@@ -4953,7 +4953,7 @@ func (s *ApplicationSuite) TestCharmLegacyOnlySupportsOneSeries(c *gc.C) {
 	err := app.VerifySupportedSeries("precise", false)
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.VerifySupportedSeries("xenial", false)
-	c.Assert(err, gc.ErrorMatches, "series \"xenial\" not supported by charm \"local:precise/precise-mysql-1\", supported series are: precise")
+	c.Assert(err, gc.ErrorMatches, "series \"xenial\" not supported by charm \"precise-mysql\", supported series: precise not valid")
 }
 
 func (s *ApplicationSuite) TestDeployedMachines(c *gc.C) {

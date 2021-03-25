@@ -119,6 +119,7 @@ type errIncompatibleSeries struct {
 	charmName  string
 }
 
+// NewErrIncompatibleSeries creates a new incompatible series error.
 func NewErrIncompatibleSeries(seriesList []string, series, charmName string) error {
 	return &errIncompatibleSeries{
 		seriesList: seriesList,
@@ -128,8 +129,11 @@ func NewErrIncompatibleSeries(seriesList []string, series, charmName string) err
 }
 
 func (e *errIncompatibleSeries) Error() string {
-	return fmt.Sprintf("series %q not supported by charm %q, supported series are: %s",
-		e.series, e.charmName, strings.Join(e.seriesList, ", "))
+	var supported string
+	if len(e.seriesList) == 0 {
+		supported = fmt.Sprintf(", supported series: %s", strings.Join(e.seriesList, ", "))
+	}
+	return fmt.Sprintf("series %q not supported by charm %q%s", e.series, e.charmName, supported)
 }
 
 // IsIncompatibleSeriesError returns if the given error or its cause is
@@ -342,7 +346,7 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotImplemented
 	case errors.IsForbidden(err):
 		code = params.CodeForbidden
-	case IsIncompatibleSeriesError(err), stateerrors.IsIncompatibleSeriesError(err):
+	case IsIncompatibleSeriesError(err):
 		code = params.CodeIncompatibleSeries
 	case IsDischargeRequiredError(err):
 		dischErr := errors.Cause(err).(*DischargeRequiredError)

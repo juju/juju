@@ -93,18 +93,31 @@ func (a *UpdateSeriesAPI) UpdateSeries(tag, series string, force bool) error {
 		return errors.Trace(err)
 	}
 
-	return app.UpdateApplicationSeries(series, force)
+	// TODO (stickupkid): Download a charm and drop it into the collection if
+	// it's not already there. This could take some time, but I don't see
+	// another option here.
+
+	err = app.UpdateApplicationSeries(series, force)
+	if errors.IsNotValid(err) {
+		charmName := app.Name()
+		charm, _, err := app.Charm()
+		if err != nil {
+			charmName = charm.Meta().Name
+		}
+		return apiservererrors.NewErrIncompatibleSeries(nil, series, charmName)
+	}
+	return errors.Trace(err)
 }
 
 type updateSeriesValidator struct {
 	localValidator  UpdateSeriesValidator
-	removeValidator UpdateSeriesValidator
+	remoteValidator UpdateSeriesValidator
 }
 
 func makeUpdateSeriesValidator(client CharmhubClient) updateSeriesValidator {
 	return updateSeriesValidator{
 		localValidator: stateSeriesValidator{},
-		removeValidator: charmhubSeriesValidator{
+		remoteValidator: charmhubSeriesValidator{
 			client: client,
 		},
 	}
@@ -117,7 +130,7 @@ func (s updateSeriesValidator) ValidateApplication(app Application, series strin
 		return s.localValidator.ValidateApplication(app, series, force)
 	}
 
-	return s.removeValidator.ValidateApplication(app, series, force)
+	return s.remoteValidator.ValidateApplication(app, series, force)
 }
 
 // stateSeriesValidator validates an application using the state (database)

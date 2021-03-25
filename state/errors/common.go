@@ -165,43 +165,6 @@ func IsParentDeviceHasChildrenError(err interface{}) bool {
 	return ok
 }
 
-// errIncompatibleSeries is a standard error to indicate that the series
-// requested is not compatible with the charm of the application.
-type errIncompatibleSeries struct {
-	seriesList []string
-	series     string
-	charmName  string
-}
-
-func NewErrIncompatibleSeries(seriesList []string, series, charmName string) error {
-	return &errIncompatibleSeries{
-		seriesList: seriesList,
-		series:     series,
-		charmName:  charmName,
-	}
-}
-
-func (e *errIncompatibleSeries) Error() string {
-	return fmt.Sprintf("series %q not supported by charm %q, supported series are: %s",
-		e.series, e.charmName, strings.Join(e.seriesList, ", "))
-}
-
-// IsIncompatibleSeriesError returns if the given error or its cause is
-// errIncompatibleSeries.
-func IsIncompatibleSeriesError(err interface{}) bool {
-	if err == nil {
-		return false
-	}
-	// In case of a wrapped error, check the cause first.
-	value := err
-	cause := errors.Cause(err.(error))
-	if cause != nil {
-		value = cause
-	}
-	_, ok := value.(*errIncompatibleSeries)
-	return ok
-}
-
 var ErrUpgradeInProgress = errors.New("upgrade in progress")
 
 // IsUpgradeInProgressError returns true if the error is caused by an
