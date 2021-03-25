@@ -25827,7 +25827,7 @@
                             "$ref": "#/definitions/ErrorResult"
                         }
                     },
-                    "description": "UpgradeSeriesComplete marks a machine as having completed a managed series upgrade."
+                    "description": "UpgradeSeriesComplete marks a machine as having completed a managed series\nupgrade."
                 },
                 "UpgradeSeriesPrepare": {
                     "type": "object",
@@ -25863,7 +25863,7 @@
                             "$ref": "#/definitions/NotifyWatchResults"
                         }
                     },
-                    "description": "WatchUpgradeSeriesNotifications returns a watcher that fires on upgrade series events."
+                    "description": "WatchUpgradeSeriesNotifications returns a watcher that fires on upgrade\nseries events."
                 }
             },
             "definitions": {

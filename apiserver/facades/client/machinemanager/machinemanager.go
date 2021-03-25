@@ -530,26 +530,23 @@ func (mm *MachineManagerAPI) UpgradeSeriesValidate(
 }
 
 // UpgradeSeriesPrepare prepares a machine for a OS series upgrade.
-func (mm *MachineManagerAPI) UpgradeSeriesPrepare(args params.UpdateSeriesArg) (params.ErrorResult, error) {
+func (mm *MachineManagerAPI) UpgradeSeriesPrepare(arg params.UpdateSeriesArg) (params.ErrorResult, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.ErrorResult{}, err
 	}
 	if err := mm.check.ChangeAllowed(); err != nil {
 		return params.ErrorResult{}, err
 	}
-	err := mm.upgradeSeriesPrepare(args)
+	err := mm.upgradeSeriesAPI.Prepare(arg.Entity.Tag, arg.Series, arg.Force)
 	if err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil
 }
 
-func (mm *MachineManagerAPI) upgradeSeriesPrepare(arg params.UpdateSeriesArg) error {
-	return mm.upgradeSeriesAPI.Prepare(arg.Entity.Tag, arg.Series, arg.Force)
-}
-
-// UpgradeSeriesComplete marks a machine as having completed a managed series upgrade.
-func (mm *MachineManagerAPI) UpgradeSeriesComplete(args params.UpdateSeriesArg) (params.ErrorResult, error) {
+// UpgradeSeriesComplete marks a machine as having completed a managed series
+// upgrade.
+func (mm *MachineManagerAPI) UpgradeSeriesComplete(arg params.UpdateSeriesArg) (params.ErrorResult, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.ErrorResult{}, err
 	}
@@ -559,7 +556,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesComplete(args params.UpdateSeriesArg) 
 	if err := mm.check.ChangeAllowed(); err != nil {
 		return params.ErrorResult{}, err
 	}
-	err := mm.completeUpgradeSeries(args)
+	err := mm.upgradeSeriesAPI.Complete(arg.Entity.Tag)
 	if err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}
@@ -567,15 +564,8 @@ func (mm *MachineManagerAPI) UpgradeSeriesComplete(args params.UpdateSeriesArg) 
 	return params.ErrorResult{}, nil
 }
 
-func (mm *MachineManagerAPI) completeUpgradeSeries(arg params.UpdateSeriesArg) error {
-	machine, err := mm.machineFromTag(arg.Entity.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return machine.CompleteUpgradeSeries()
-}
-
-// WatchUpgradeSeriesNotifications returns a watcher that fires on upgrade series events.
+// WatchUpgradeSeriesNotifications returns a watcher that fires on upgrade
+// series events.
 func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(args params.Entities) (params.NotifyWatchResults, error) {
 	err := mm.authorizer.CanRead()
 	if err != nil {

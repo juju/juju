@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/charm/v8"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
@@ -81,6 +80,16 @@ func (c *mockCharm) Config() *charm.Config {
 func (c *mockCharm) LXDProfile() *charm.LXDProfile {
 	c.MethodCall(c, "LXDProfile")
 	return c.lxdProfile
+}
+
+func (c *mockCharm) URL() *charm.URL {
+	c.MethodCall(c, "URL")
+	return &charm.URL{}
+}
+
+func (c *mockCharm) String() string {
+	c.MethodCall(c, "String")
+	return ""
 }
 
 type mockApplication struct {
@@ -297,21 +306,6 @@ func (m *mockApplication) MergeBindings(bindings *state.Bindings, force bool) er
 	return m.NextErr()
 }
 
-type mockNotifyWatcher struct {
-	state.NotifyWatcher
-	jtesting.Stub
-	ch chan struct{}
-}
-
-func (m *mockNotifyWatcher) Changes() <-chan struct{} {
-	m.MethodCall(m, "Changes")
-	return m.ch
-}
-
-func (m *mockNotifyWatcher) Err() error {
-	return m.NextErr()
-}
-
 type mockRemoteApplication struct {
 	jtesting.Stub
 	name           string
@@ -375,8 +369,6 @@ type mockBackend struct {
 	application.Backend
 
 	charm                      *mockCharm
-	allmodels                  []application.Model
-	users                      set.Strings
 	applications               map[string]*mockApplication
 	remoteApplications         map[string]application.RemoteApplication
 	endpoints                  *[]state.Endpoint
@@ -1199,4 +1191,13 @@ func (m *mockRepo) DownloadCharm(resourceURL, _ string) (*charm.CharmArchive, er
 		return nil, errors.NotFoundf(`cannot retrieve %q: charm`, resourceURL)
 	}
 	return results[0].(*charm.CharmArchive), jtesting.TypeAssertError(results[1])
+}
+
+type mockUpdateSeries struct {
+	jtesting.Stub
+}
+
+func (m *mockUpdateSeries) UpdateSeries(tag string, series string, force bool) error {
+	m.MethodCall(m, "UpdateSeries", tag, series, force)
+	return nil
 }
