@@ -26,6 +26,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/caas/kubernetes/provider/mocks"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
@@ -947,9 +948,8 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 	}
 
 	controllerStacker := s.controllerStackerGetter()
-	stdCtx, cancel := context.WithTimeout(context.Background(), -1*time.Second)
-	defer cancel()
-	ctx := modelcmd.BootstrapContext(stdCtx, cmdtesting.Context(c))
+	mockStdCtx := mocks.NewMockContext(ctrl)
+	ctx := modelcmd.BootstrapContext(mockStdCtx, cmdtesting.Context(c))
 	controllerStacker.SetContext(ctx)
 
 	APIPort := s.controllerCfg.APIPort()
@@ -981,11 +981,13 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 			ExternalIPs: []string{"10.0.0.1"},
 		},
 	}
+	ctxDoneChan := make(chan struct{}, 1)
 
 	gomock.InOrder(
 		// create namespace.
 		s.mockNamespaces.EXPECT().Create(ns).
 			Return(ns, nil),
+		mockStdCtx.EXPECT().Done().Return(ctxDoneChan),
 
 		// ensure service
 		s.mockServices.EXPECT().Get("juju-controller-test-service", v1.GetOptions{}).
@@ -994,6 +996,11 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(svcNotFullyProvisioned).
 			Return(svcNotFullyProvisioned, nil),
+
+		mockStdCtx.EXPECT().Done().DoAndReturn(func() <-chan struct{} {
+			ctxDoneChan <- struct{}{}
+			return ctxDoneChan
+		}),
 
 		// below calls are for GetService - 1st address no provisioned yet.
 		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=juju-controller-test"}).
@@ -1006,6 +1013,8 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDaemonSets.EXPECT().Get("juju-controller-test", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
+
+		mockStdCtx.EXPECT().Err().Return(context.DeadlineExceeded),
 
 		s.mockServices.EXPECT().Delete(svcNotFullyProvisioned.GetName(), s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(nil),

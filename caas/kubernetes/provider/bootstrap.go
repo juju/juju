@@ -330,9 +330,9 @@ func (c *controllerStack) Deploy() (err error) {
 			return false
 		}
 	}
-	// if isDone() {
-	// 	return bootstrap.Cancelled()
-	// }
+	if isDone() {
+		return bootstrap.Cancelled()
+	}
 
 	defer func() {
 		if err != nil {
