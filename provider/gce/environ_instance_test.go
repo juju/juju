@@ -6,7 +6,7 @@ package gce_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -23,6 +23,16 @@ type environInstSuite struct {
 }
 
 var _ = gc.Suite(&environInstSuite{})
+
+func (s *environInstSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	// NOTE(achilleasa): at least one zone is required so that any tests
+	// that trigger a call to InstanceTypes can obtain a non-empty instance
+	// list.
+	zone := google.NewZone("a-zone", google.StatusUp, "", "")
+	s.FakeConn.Zones = []google.AvailabilityZone{zone}
+}
 
 func (s *environInstSuite) TestInstances(c *gc.C) {
 	spam := s.NewInstance(c, "spam")
@@ -170,24 +180,24 @@ func (s *environInstSuite) TestParsePlacementUnknownDirective(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `.*unknown placement directive: .*`)
 }
 
-func (s *environInstSuite) TestCheckInstanceType(c *gc.C) {
+func (s *environInstSuite) TestPrecheckInstanceWithValidInstanceType(c *gc.C) {
 	typ := "n1-standard-1"
-	cons := constraints.Value{
-		InstanceType: &typ,
-	}
-	matched := gce.CheckInstanceType(cons)
-
-	c.Check(matched, jc.IsTrue)
+	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{
+		Constraints: constraints.Value{
+			InstanceType: &typ,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *environInstSuite) TestCheckInstanceTypeUnknown(c *gc.C) {
-	typ := "n1-standard-1.unknown"
-	cons := constraints.Value{
-		InstanceType: &typ,
-	}
-	matched := gce.CheckInstanceType(cons)
-
-	c.Check(matched, jc.IsFalse)
+func (s *environInstSuite) TestPrecheckInstanceTypeUnknown(c *gc.C) {
+	typ := "bogus"
+	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{
+		Constraints: constraints.Value{
+			InstanceType: &typ,
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `.*invalid GCE instance type "bogus".*`)
 }
 
 func (s *environInstSuite) TestPrecheckInstanceInvalidCredentialError(c *gc.C) {
@@ -203,9 +213,13 @@ func (s *environInstSuite) TestPrecheckInstanceInvalidCredentialError(c *gc.C) {
 }
 
 func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
+	// If no zone is specified, no machine types will be pulled.
+	s.FakeConn.Zones = nil
 	_, err := s.Env.InstanceTypes(s.CallCtx, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "no instance types in  matching constraints \"\"")
 
+	// If a non-empty list of zones is specified , we will make an API call
+	// to fetch the available machine types.
 	zone := google.NewZone("a-zone", google.StatusUp, "", "")
 	s.FakeConn.Zones = []google.AvailabilityZone{zone}
 

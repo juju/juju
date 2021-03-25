@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"

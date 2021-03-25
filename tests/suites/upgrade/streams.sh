@@ -28,11 +28,6 @@ exec_simplestream_metadata() {
     echo "===> Using jujud version ${version}"
     echo "===> Testing against stable version ${stable_version}"
 
-    local focal_version bionic_version
-
-    focal_version=$(series_version "${version}" "focal")
-    bionic_version=$(series_version "${version}" "bionic")
-
     OUT=$(sudo snap install juju --classic --channel="${stable_version}/stable" 2>&1 || echo "FALLBACK")
     if [ "${OUT}" == "FALLBACK" ] || [[ "${OUT}" =~ (.*)is\ already\ installed(.*)$ ]]; then
         echo "===> Using snap refresh juju ${stable_version}/stable"
@@ -40,14 +35,26 @@ exec_simplestream_metadata() {
     fi
 
     add_clean_func "remove_upgrade_tools"
-    add_upgrade_tools "${focal_version}"
-    add_upgrade_tools "${bionic_version}"
-
     add_clean_func "remove_upgrade_metadata"
+
+    add_upgrade_tools "${version}"
     juju metadata generate-agents \
         --clean \
         --prevent-fallback \
         -d "./tests/suites/upgrade/streams/"
+
+    # 2.8 or older needs series based agent metadata.
+    if [ "${stable_version}" == "2.8" ]; then
+      local focal_version bionic_version
+      focal_version=$(series_version "${version}" "focal")
+      bionic_version=$(series_version "${version}" "bionic")
+      add_upgrade_tools "${focal_version}"
+      add_upgrade_tools "${bionic_version}"
+
+      /snap/bin/juju metadata generate-agents \
+          --clean \
+          -d "./tests/suites/upgrade/streams/"
+    fi
 
     add_clean_func "kill_server"
     start_server "./tests/suites/upgrade/streams/tools"
@@ -58,7 +65,7 @@ exec_simplestream_metadata() {
 
     file="${TEST_DIR}/test-upgrade-${test_name}-stream.log"
     /snap/bin/juju bootstrap "lxd" "${name}" \
-        --config agent-metadata-url="http://${ip_address}:8000/" \
+        --config agent-metadata-url="http://${ip_address}:8666/" \
         --config test-mode=true 2>&1 | OUTPUT "${file}"
     echo "${name}" >> "${TEST_DIR}/jujus"
 

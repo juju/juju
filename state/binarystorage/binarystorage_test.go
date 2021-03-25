@@ -16,7 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/mongo"
@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-const current = "2.0.42-trusty-amd64"
+const current = "2.0.42-ubuntu-amd64"
 
 func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)

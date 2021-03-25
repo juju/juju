@@ -45,7 +45,7 @@ validate-images loads simplestreams metadata and validates the contents by
 looking for images belonging to the specified cloud.
 
 The cloud specification comes from the current Juju model, as specified in
-the usual way from either the -m option, or JUJU_MODEL. Series, Region, and
+the usual way from either the -m option, or JUJU_MODEL. Release, Region, and
 Endpoint are the key attributes.
 
 The key model attributes may be overridden using command arguments, so
@@ -73,7 +73,7 @@ Example bash snippet:
 
 #!/bin/bash
 
-juju metadata validate-images -p ec2 -r us-east-1 -s precise -d <some directory>
+juju metadata validate-images -p ec2 -r us-east-1 -t ubuntu -d <some directory>
 RETVAL=$?
 [ $RETVAL -eq 0 ] && echo Success
 [ $RETVAL -ne 0 ] && echo Failure
@@ -189,11 +189,11 @@ func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context) 
 		if err != nil {
 			return nil, err
 		}
-		mdLookup, ok := environ.(simplestreams.MetadataValidator)
+		mdLookup, ok := environ.(simplestreams.ImageMetadataValidator)
 		if !ok {
 			return nil, errors.Errorf("%s provider does not support image metadata validation", environ.Config().Type())
 		}
-		params, err = mdLookup.MetadataLookupParams(c.region)
+		params, err = mdLookup.ImageMetadataLookupParams(c.region)
 		if err != nil {
 			return nil, err
 		}
@@ -207,18 +207,18 @@ func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context) 
 		if err != nil {
 			return nil, err
 		}
-		mdLookup, ok := prov.(simplestreams.MetadataValidator)
+		mdLookup, ok := prov.(simplestreams.ImageMetadataValidator)
 		if !ok {
 			return nil, errors.Errorf("%s provider does not support image metadata validation", c.providerType)
 		}
-		params, err = mdLookup.MetadataLookupParams(c.region)
+		params, err = mdLookup.ImageMetadataLookupParams(c.region)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if c.series != "" {
-		params.Series = c.series
+		params.Release = c.series
 	}
 	if c.region != "" {
 		params.Region = c.region

@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"

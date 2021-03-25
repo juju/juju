@@ -9,11 +9,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
-	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
+	coreos "github.com/juju/juju/core/os"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/tools"
@@ -42,9 +42,9 @@ func validateUploadAllowed(env environs.ConfigGetter, toolsArch, toolsSeries *st
 	if toolsArch != nil && *toolsArch != hostArch {
 		return fmt.Errorf("cannot use agent built for %q using a machine running on %q", *toolsArch, hostArch)
 	}
-	hostOS := jujuos.HostOS()
+	hostOS := coreos.HostOS()
 	if toolsSeries != nil {
-		toolsSeriesOS, err := series.GetOSFromSeries(*toolsSeries)
+		toolsSeriesOS, err := coreseries.GetOSFromSeries(*toolsSeries)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -88,29 +88,20 @@ func findPackagedTools(
 }
 
 // locallyBuildableTools returns the list of tools that
-// can be built locally, for series of the same OS.
-func locallyBuildableTools(toolsSeries *string) (buildable coretools.List, _ version.Number, _ error) {
+// can be built locally.
+func locallyBuildableTools() (buildable coretools.List, _ version.Number, _ error) {
 	buildNumber := jujuversion.Current
 	// Increment the build number so we know it's a custom build.
 	buildNumber.Build++
-	workloadSeries, err := series.AllWorkloadSeries("", "")
-	if err != nil {
-		return nil, version.Number{}, errors.Trace(err)
+	if !coreos.HostOS().EquivalentTo(coreos.Ubuntu) {
+		return buildable, buildNumber, nil
 	}
-	for _, ser := range workloadSeries.SortedValues() {
-		if os, err := series.GetOSFromSeries(ser); err != nil || !os.EquivalentTo(jujuos.HostOS()) {
-			continue
-		}
-		if toolsSeries != nil && ser != *toolsSeries {
-			continue
-		}
-		binary := version.Binary{
-			Number: buildNumber,
-			Series: ser,
-			Arch:   localToolsArch(),
-		}
-		buildable = append(buildable, &coretools.Tools{Version: binary})
+	binary := version.Binary{
+		Number:  buildNumber,
+		Release: "ubuntu",
+		Arch:    localToolsArch(),
 	}
+	buildable = append(buildable, &coretools.Tools{Version: binary})
 	return buildable, buildNumber, nil
 }
 
@@ -126,7 +117,7 @@ func findBootstrapTools(env environs.BootstrapEnviron, vers *version.Number, arc
 		filter.Arch = *arch
 	}
 	if series != nil {
-		filter.Series = *series
+		filter.OSType = coreseries.DefaultOSTypeNameFromSeries(*series)
 	}
 	if vers != nil {
 		filter.Number = *vers

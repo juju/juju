@@ -25,12 +25,13 @@ import (
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/clock/testclock"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -522,18 +523,19 @@ func makeStartInstanceParams(c *gc.C, controllerUUID, series string) environs.St
 		tags.JujuController: controllerUUID,
 	}
 
+	osType := coreseries.DefaultOSTypeNameFromSeries(series)
 	return environs.StartInstanceParams{
 		ControllerUUID: controllerUUID,
-		Tools:          makeToolsList(series),
+		Tools:          makeToolsList(osType),
 		InstanceConfig: icfg,
 	}
 }
 
-func makeToolsList(series string) tools.List {
+func makeToolsList(osType string) tools.List {
 	var toolsVersion version.Binary
 	toolsVersion.Number = version.MustParse("1.26.0")
 	toolsVersion.Arch = arch.AMD64
-	toolsVersion.Series = series
+	toolsVersion.Release = osType
 	return tools.List{{
 		Version: toolsVersion,
 		URL:     fmt.Sprintf("http://example.com/tools/juju-%s.tgz", toolsVersion),
@@ -1465,7 +1467,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("bionic"),
+			AvailableTools:           makeToolsList("ubuntu"),
 			BootstrapSeries:          "bionic",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
@@ -1499,7 +1501,7 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("bionic"),
+			AvailableTools:           makeToolsList("ubuntu"),
 			BootstrapSeries:          "bionic",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G allocate-public-ip=false"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
@@ -1533,7 +1535,7 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("bionic"),
+			AvailableTools:           makeToolsList("ubuntu"),
 			BootstrapSeries:          "bionic",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
@@ -1571,7 +1573,7 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 	_, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("bionic"),
+			AvailableTools:           makeToolsList("ubuntu"),
 			BootstrapSeries:          "bionic",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
@@ -1704,7 +1706,7 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         config,
-			AvailableTools:           makeToolsList("bionic"),
+			AvailableTools:           makeToolsList("ubuntu"),
 			BootstrapSeries:          "bionic",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,

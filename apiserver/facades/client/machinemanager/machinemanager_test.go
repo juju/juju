@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -60,6 +59,7 @@ func (s *MachineManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		s.callContext,
 		common.NewResources(),
 		s.leadership,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = mm
@@ -100,6 +100,7 @@ func (s *MachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		s.callContext,
 		common.NewResources(),
 		s.leadership,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -178,6 +179,7 @@ func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 		},
 		s.callContext,
 		common.NewResources(),
+		nil,
 		nil,
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -754,9 +756,9 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepare(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	mach := s.st.machines["0"]
-	c.Assert(len(mach.Calls()), gc.Equals, 3)
-	mach.CheckCallNames(c, "Principals", "VerifyUnitsSeries", "CreateUpgradeSeriesLock")
-	mach.CheckCall(c, 2, "CreateUpgradeSeriesLock", []string{"foo/0", "test/0"}, "xenial")
+	c.Assert(len(mach.Calls()), gc.Equals, 9)
+	mach.CheckCallNames(c, "IsManager", "IsLockedForSeriesUpgrade", "Units", "CreateUpgradeSeriesLock", "Release", "Tag", "ApplicationNames", "Release", "SetUpgradeSeriesStatus")
+	mach.CheckCall(c, 3, "CreateUpgradeSeriesLock", []string{"foo/0", "foo/1", "foo/2"}, "xenial")
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareMachineNotFound(c *gc.C) {
@@ -850,7 +852,7 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareIncompatibleSeries(c *gc.C
 	defer s.setup(c).Finish()
 
 	s.setupUpgradeSeries(c)
-	s.st.machines["0"].SetErrors(stateerrors.NewErrIncompatibleSeries([]string{"yakkety", "zesty"}, "xenial", "TestCharm"))
+	s.st.machines["0"].SetErrors(apiservererrors.NewErrIncompatibleSeries([]string{"yakkety", "zesty"}, "xenial", "TestCharm"))
 	apiV5 := s.apiV5()
 	result, err := apiV5.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{
@@ -1121,6 +1123,11 @@ func (m *mockMachine) Id() string {
 	return m.id
 }
 
+func (m *mockMachine) Tag() names.Tag {
+	m.MethodCall(m, "Tag")
+	return names.NewMachineTag(m.id)
+}
+
 func (m *mockMachine) Destroy() error {
 	m.MethodCall(m, "Destroy")
 	return nil
@@ -1143,7 +1150,7 @@ func (m *mockMachine) SetKeepInstance(keep bool) error {
 }
 
 func (m *mockMachine) Series() string {
-	m.MethodCall(m, "Series")
+	m.MethodCall(m, "Release")
 	return m.series
 }
 
@@ -1202,6 +1209,11 @@ func (m *mockMachine) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	return model.UpgradeSeriesNotStarted, nil
 }
 
+func (m *mockMachine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, message string) error {
+	m.MethodCall(m, "SetUpgradeSeriesStatus", status, message)
+	return nil
+}
+
 func (m *mockMachine) ApplicationNames() ([]string, error) {
 	m.MethodCall(m, "ApplicationNames")
 	return []string{"foo"}, nil
@@ -1209,7 +1221,12 @@ func (m *mockMachine) ApplicationNames() ([]string, error) {
 
 type mockApplication struct {
 	jtesting.Stub
-	charm *mockCharm
+	charm       *mockCharm
+	charmOrigin *state.CharmOrigin
+}
+
+func (a *mockApplication) Name() string {
+	return "foo"
 }
 
 func (a *mockApplication) Charm() (machinemanager.Charm, bool, error) {
@@ -1218,6 +1235,13 @@ func (a *mockApplication) Charm() (machinemanager.Charm, bool, error) {
 		return &mockCharm{}, false, nil
 	}
 	return a.charm, false, nil
+}
+
+func (a *mockApplication) CharmOrigin() *state.CharmOrigin {
+	if a.charmOrigin == nil {
+		return &state.CharmOrigin{}
+	}
+	return a.charmOrigin
 }
 
 type mockCharm struct {

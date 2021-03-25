@@ -150,21 +150,29 @@ func (m *Machine) unitsHaveChanged(unitNames []string) (bool, error) {
 }
 
 func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) *upgradeSeriesLockDoc {
+	// We want to put the unit statuses in to a prepared started state and only
+	// the machine status should be in a validate state. As we're only
+	// validating the machine and not each individual unit.
+	timestamp := bson.Now()
 	unitStatuses := make(map[string]UpgradeSeriesUnitStatus, len(unitNames))
 	for _, name := range unitNames {
-		unitStatuses[name] = UpgradeSeriesUnitStatus{Status: model.UpgradeSeriesPrepareStarted, Timestamp: bson.Now()}
+		unitStatuses[name] = UpgradeSeriesUnitStatus{
+			Status: model.UpgradeSeriesPrepareStarted, Timestamp: timestamp,
+		}
 	}
-	timestamp := bson.Now()
-	message := fmt.Sprintf("started upgrade series from %q to %q", m.Series(), toSeries)
+
+	message := fmt.Sprintf("validation of upgrade series from %q to %q", m.Series(), toSeries)
 	updateMessage := newUpgradeSeriesMessage(m.Tag().String(), message, timestamp)
 	return &upgradeSeriesLockDoc{
 		Id:            m.Id(),
 		ToSeries:      toSeries,
 		FromSeries:    m.Series(),
-		MachineStatus: model.UpgradeSeriesPrepareStarted,
+		MachineStatus: model.UpgradeSeriesValidate,
 		UnitStatuses:  unitStatuses,
 		TimeStamp:     timestamp,
-		Messages:      []UpgradeSeriesMessage{updateMessage},
+		Messages: []UpgradeSeriesMessage{
+			updateMessage,
+		},
 	}
 }
 
@@ -435,18 +443,18 @@ func (m *Machine) SetUpgradeSeriesUnitStatus(unitName string, status model.Upgra
 func (m *Machine) verifyUnitUpgradeSeriesStatus(unitName string, status model.UpgradeSeriesStatus) (bool, error) {
 	lock, err := m.getUpgradeSeriesLock()
 	if err != nil {
-		return false, err
+		return false, errors.Trace(err)
 	}
 	us, ok := lock.UnitStatuses[unitName]
 	if !ok {
 		return false, errors.NotFoundf(unitName)
 	}
 
-	comp, err := model.CompareUpgradeSeriesStatus(us.Status, status)
+	fsm, err := model.NewUpgradeSeriesFSM(model.UpgradeSeriesGraph(), us.Status)
 	if err != nil {
-		return false, err
+		return false, errors.Trace(err)
 	}
-	return comp == -1, nil
+	return fsm.TransitionTo(status), nil
 }
 
 // [TODO](externalreality): move some/all of these parameters into an argument structure.

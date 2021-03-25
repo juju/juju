@@ -33,12 +33,11 @@ func init() {
 
 func findImageMetadata(env environs.Environ, args environs.StartInstanceParams) (*OvaFileMetadata, error) {
 	arches := args.Tools.Arches()
-	series := args.Tools.OneSeries()
 	ic := &imagemetadata.ImageConstraint{
 		LookupParams: simplestreams.LookupParams{
-			Series: []string{series},
-			Arches: arches,
-			Stream: env.Config().ImageStream(),
+			Releases: []string{args.InstanceConfig.Series},
+			Arches:   arches,
+			Stream:   env.Config().ImageStream(),
 		},
 	}
 	sources, err := environs.ImageMetadataSources(env)

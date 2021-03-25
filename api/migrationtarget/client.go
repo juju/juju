@@ -9,13 +9,12 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/base"
@@ -97,8 +96,8 @@ func (c *Client) UploadCharm(modelUUID string, curl *charm.URL, content io.ReadS
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS
 // for the specified model.
-func (c *Client) UploadTools(modelUUID string, r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (tools.List, error) {
-	endpoint := fmt.Sprintf("/migrate/tools?binaryVersion=%s&series=%s", vers, strings.Join(additionalSeries, ","))
+func (c *Client) UploadTools(modelUUID string, r io.ReadSeeker, vers version.Binary) (tools.List, error) {
+	endpoint := fmt.Sprintf("/migrate/tools?binaryVersion=%s", vers)
 	contentType := "application/x-tar-gz"
 	var resp params.ToolsResult
 	if err := c.httpPost(modelUUID, r, endpoint, contentType, &resp); err != nil {

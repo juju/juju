@@ -8,7 +8,7 @@ import (
 	"runtime"
 
 	jc "github.com/juju/testing/checkers"
-	semversion "github.com/juju/version"
+	semversion "github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 )
 

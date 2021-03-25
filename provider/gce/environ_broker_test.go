@@ -8,7 +8,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
+	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/storage"
 )
 
@@ -81,6 +82,12 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 		IndexURL:  "",
 		MirrorURL: "",
 	}
+
+	// NOTE(achilleasa): at least one zone is required so that any tests
+	// that trigger a call to InstanceTypes can obtain a non-empty instance
+	// list.
+	zone := google.NewZone("a-zone", google.StatusUp, "", "")
+	s.FakeConn.Zones = []google.AvailabilityZone{zone}
 }
 
 func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
@@ -132,14 +139,14 @@ func (s *environBrokerSuite) TestFinishInstanceConfig(c *gc.C) {
 func (s *environBrokerSuite) TestBuildInstanceSpec(c *gc.C) {
 	s.FakeEnviron.Spec = s.spec
 
-	spec, err := gce.BuildInstanceSpec(s.Env, s.StartInstArgs)
+	spec, err := gce.BuildInstanceSpec(s.Env, s.CallCtx, s.StartInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(spec.InstanceType, jc.DeepEquals, s.InstanceType)
 }
 
 func (s *environBrokerSuite) TestFindInstanceSpec(c *gc.C) {
-	spec, err := gce.FindInstanceSpec(s.Env, s.ic, s.imageMetadata)
+	spec, err := gce.FindInstanceSpec(s.Env, s.ic, s.imageMetadata, []instances.InstanceType{s.InstanceType})
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(spec, jc.DeepEquals, s.spec)

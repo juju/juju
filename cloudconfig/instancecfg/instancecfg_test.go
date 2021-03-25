@@ -5,7 +5,7 @@ package instancecfg_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -61,7 +61,7 @@ func (*instancecfgSuite) TestAgentVersionZero(c *gc.C) {
 func (*instancecfgSuite) TestAgentVersion(c *gc.C) {
 	var icfg instancecfg.InstanceConfig
 	list := coretools.List{
-		&coretools.Tools{Version: version.MustParseBinary("2.3.4-trusty-amd64")},
+		&coretools.Tools{Version: version.MustParseBinary("2.3.4-ubuntu-amd64")},
 	}
 	err := icfg.SetTools(list)
 	c.Assert(err, jc.ErrorIsNil)
@@ -71,8 +71,8 @@ func (*instancecfgSuite) TestAgentVersion(c *gc.C) {
 func (*instancecfgSuite) TestSetToolsSameVersions(c *gc.C) {
 	var icfg instancecfg.InstanceConfig
 	list := coretools.List{
-		&coretools.Tools{Version: version.MustParseBinary("2.3.4-trusty-amd64")},
-		&coretools.Tools{Version: version.MustParseBinary("2.3.4-trusty-amd64")},
+		&coretools.Tools{Version: version.MustParseBinary("2.3.4-ubuntu-amd64")},
+		&coretools.Tools{Version: version.MustParseBinary("2.3.4-ubuntu-amd64")},
 	}
 	err := icfg.SetTools(list)
 	c.Assert(err, jc.ErrorIsNil)
@@ -82,8 +82,8 @@ func (*instancecfgSuite) TestSetToolsSameVersions(c *gc.C) {
 func (*instancecfgSuite) TestSetToolsDifferentVersions(c *gc.C) {
 	var icfg instancecfg.InstanceConfig
 	list := coretools.List{
-		&coretools.Tools{Version: version.MustParseBinary("2.3.4-trusty-amd64")},
-		&coretools.Tools{Version: version.MustParseBinary("2.3.5-trusty-amd64")},
+		&coretools.Tools{Version: version.MustParseBinary("2.3.4-ubuntu-amd64")},
+		&coretools.Tools{Version: version.MustParseBinary("2.3.5-ubuntu-amd64")},
 	}
 	err := icfg.SetTools(list)
 	c.Assert(err, gc.ErrorMatches, `agent binary info mismatch.*2\.3\.4.*2\.3\.5.*`)
@@ -96,13 +96,13 @@ func (*instancecfgSuite) TestJujuTools(c *gc.C) {
 	}
 	err := icfg.SetTools(coretools.List{
 		&coretools.Tools{
-			Version: version.MustParseBinary("2.3.4-trusty-amd64"),
-			URL:     "/tools/2.3.4-trusty-amd64",
+			Version: version.MustParseBinary("2.3.4-ubuntu-amd64"),
+			URL:     "/tools/2.3.4-ubuntu-amd64",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(icfg.JujuTools(), gc.Equals, "/path/to/datadir/tools/2.3.4-trusty-amd64")
+	c.Assert(icfg.JujuTools(), gc.Equals, "/path/to/datadir/tools/2.3.4-ubuntu-amd64")
 }
 
 func (*instancecfgSuite) TestDashboardDir(c *gc.C) {

@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 )
 
 // dashboardSettingsDoc represents the Juju Dashboard settings in MongoDB.

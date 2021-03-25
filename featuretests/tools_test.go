@@ -18,7 +18,7 @@ import (
 	jujuhttp "github.com/juju/http"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	apiauthentication "github.com/juju/juju/api/authentication"
@@ -94,7 +94,7 @@ func (s *toolsDownloadSuite) TestDownloadFetchesAndCaches(c *gc.C) {
 	// The tools are not in binarystorage, so the download request causes
 	// the API server to search for the tools in simplestreams, fetch
 	// them, and then cache them in binarystorage.
-	vers := version.MustParseBinary("1.23.0-trusty-amd64")
+	vers := version.MustParseBinary("1.23.0-ubuntu-amd64")
 	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor, "released")
 	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", vers)[0]

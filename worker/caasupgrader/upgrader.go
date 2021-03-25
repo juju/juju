@@ -9,12 +9,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/api/agent"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/watcher"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
@@ -88,12 +88,9 @@ func (u *Upgrader) Wait() error {
 
 func (u *Upgrader) loop() error {
 	// Only controllers set their version here - agents do it in the main agent worker loop.
-	hostSeries, err := series.HostSeries()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	hostOSType := coreos.HostOSTypeName()
 	if agent.IsAllowedControllerTag(u.tag.Kind()) {
-		if err := u.upgraderClient.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current, hostSeries)); err != nil {
+		if err := u.upgraderClient.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current, hostOSType)); err != nil {
 			return errors.Annotate(err, "cannot set agent version")
 		}
 	}
@@ -184,11 +181,11 @@ func (u *Upgrader) loop() error {
 	}
 }
 
-func toBinaryVersion(vers version.Number, hostSeries string) version.Binary {
+func toBinaryVersion(vers version.Number, osType string) version.Binary {
 	outVers := version.Binary{
-		Number: vers,
-		Arch:   arch.HostArch(),
-		Series: hostSeries,
+		Number:  vers,
+		Arch:    arch.HostArch(),
+		Release: osType,
 	}
 	return outVers
 }

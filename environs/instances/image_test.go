@@ -351,7 +351,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 		t.init()
 		cons, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 			CloudSpec: simplestreams.CloudSpec{t.region, "ep"},
-			Series:    []string{"precise"},
+			Releases:  []string{"precise"},
 			Arches:    t.arches,
 			Stream:    t.stream,
 		})

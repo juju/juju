@@ -18,7 +18,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -155,21 +155,21 @@ func (s *toolsSuite) TestUploadRequiresVersion(c *gc.C) {
 
 func (s *toolsSuite) TestUploadFailsWithNoTools(c *gc.C) {
 	var empty bytes.Buffer
-	resp := s.uploadRequest(c, s.toolsURI("?binaryVersion=1.18.0-quantal-amd64"), "application/x-tar-gz", &empty)
+	resp := s.uploadRequest(c, s.toolsURI("?binaryVersion=1.18.0-ubuntu-amd64"), "application/x-tar-gz", &empty)
 	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "no agent binaries uploaded")
 }
 
 func (s *toolsSuite) TestUploadFailsWithInvalidContentType(c *gc.C) {
 	var empty bytes.Buffer
 	// Now try with the default Content-Type.
-	resp := s.uploadRequest(c, s.toolsURI("?binaryVersion=1.18.0-quantal-amd64"), "application/octet-stream", &empty)
+	resp := s.uploadRequest(c, s.toolsURI("?binaryVersion=1.18.0-ubuntu-amd64"), "application/octet-stream", &empty)
 	s.assertJSONErrorResponse(
 		c, resp, http.StatusBadRequest, "expected Content-Type: application/x-tar-gz, got: application/octet-stream")
 }
 
 func (s *toolsSuite) setupToolsForUpload(c *gc.C) (coretools.List, version.Binary, []byte) {
 	localStorage := c.MkDir()
-	vers := version.MustParseBinary("1.9.0-quantal-amd64")
+	vers := version.MustParseBinary("1.9.0-ubuntu-amd64")
 	versionStrings := []string{vers.String()}
 	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "released", versionStrings)
 	toolsFile := envtools.StorageName(vers, "released")
@@ -343,13 +343,15 @@ func (s *toolsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
-func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
+func (s *toolsSuite) TestUploadConvertsSeries(c *gc.C) {
 	// Make some fake tools.
 	expectedTools, v, toolsContent := s.setupToolsForUpload(c)
+	vCopy := v
+	vCopy.Release = "bionic"
 	vers := v.String()
 	// Now try uploading them. The tools will be cloned for
 	// each additional series specified.
-	params := "?binaryVersion=" + vers + "&series=quantal,precise"
+	params := "?binaryVersion=" + vCopy.String()
 	resp := s.uploadRequest(c, s.toolsURI(params), "application/x-tar-gz", bytes.NewReader(toolsContent))
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 
@@ -361,18 +363,15 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	storage, err := s.State.ToolsStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
-	for _, series := range []string{"precise", "quantal"} {
-		v.Series = series
-		_, r, err := storage.Open(v.String())
-		c.Assert(err, jc.ErrorIsNil)
-		uploadedData, err := ioutil.ReadAll(r)
-		r.Close()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(uploadedData, gc.DeepEquals, toolsContent)
-	}
+	_, r, err := storage.Open(v.String())
+	c.Assert(err, jc.ErrorIsNil)
+	uploadedData, err := ioutil.ReadAll(r)
+	r.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uploadedData, gc.DeepEquals, toolsContent)
 
-	// ensure other series *aren't* there.
-	v.Series = "trusty"
+	// ensure the series *isn't* there.
+	v.Release = "bionic"
 	_, err = storage.Metadata(v.String())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

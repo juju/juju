@@ -29,16 +29,16 @@ func getVersions(c *gc.C) *tools.Versions {
 func (s *versionSuite) TestParseVersions(c *gc.C) {
 	c.Assert(getVersions(c), gc.DeepEquals, &tools.Versions{
 		Versions: []tools.VersionHash{{
-			Version: "2.2.4-xenial-amd64",
+			Version: "2.2.4-ubuntu-amd64",
 			SHA256:  "eeead9934c597c7678e989e7fd20bf57056a52ce8e25ace371a83711ad484d0c",
 		}, {
-			Version: "2.2.4-trusty-amd64",
+			Version: "2.2.4-windows-amd64",
 			SHA256:  "eeead9934c597c7678e989e7fd20bf57056a52ce8e25ace371a83711ad484d0c",
 		}, {
-			Version: "2.2.4-centos7-amd64",
+			Version: "2.2.4-centos-amd64",
 			SHA256:  "eeead9934c597c7678e989e7fd20bf57056a52ce8e25ace371a83711ad484d0c",
 		}, {
-			Version: "2.2.4-xenial-arm64",
+			Version: "2.2.4-ubuntu-arm64",
 			SHA256:  "f6cf381fc20545d827b307dd413377bff3c123e1894fdf6c239f07a4143beb47",
 		}},
 	})
@@ -49,14 +49,14 @@ func (s *versionSuite) TestVersionsMatching(c *gc.C) {
 	results, err := v.VersionsMatching(bytes.NewReader([]byte(fakeContent1)))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, []string{
-		"2.2.4-xenial-amd64",
-		"2.2.4-trusty-amd64",
-		"2.2.4-centos7-amd64",
+		"2.2.4-ubuntu-amd64",
+		"2.2.4-windows-amd64",
+		"2.2.4-centos-amd64",
 	})
 	results, err = v.VersionsMatching(bytes.NewReader([]byte(fakeContent2)))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, []string{
-		"2.2.4-xenial-arm64",
+		"2.2.4-ubuntu-arm64",
 	})
 }
 
@@ -65,27 +65,27 @@ func (s *versionSuite) TestVersionsMatchingHash(c *gc.C) {
 	results := tools.VersionsMatchingHash(v,
 		"eeead9934c597c7678e989e7fd20bf57056a52ce8e25ace371a83711ad484d0c")
 	c.Assert(results, gc.DeepEquals, []string{
-		"2.2.4-xenial-amd64",
-		"2.2.4-trusty-amd64",
-		"2.2.4-centos7-amd64",
+		"2.2.4-ubuntu-amd64",
+		"2.2.4-windows-amd64",
+		"2.2.4-centos-amd64",
 	})
 	results = tools.VersionsMatchingHash(v,
 		"f6cf381fc20545d827b307dd413377bff3c123e1894fdf6c239f07a4143beb47")
 	c.Assert(results, gc.DeepEquals, []string{
-		"2.2.4-xenial-arm64",
+		"2.2.4-ubuntu-arm64",
 	})
 }
 
 const (
 	data = `
 versions:
-  - version: 2.2.4-xenial-amd64
+  - version: 2.2.4-ubuntu-amd64
     sha256: eeead9934c597c7678e989e7fd20bf57056a52ce8e25ace371a83711ad484d0c
-  - version: 2.2.4-trusty-amd64
+  - version: 2.2.4-windows-amd64
     sha256: eeead9934c597c7678e989e7fd20bf57056a52ce8e25ace371a83711ad484d0c
-  - version: 2.2.4-centos7-amd64
+  - version: 2.2.4-centos-amd64
     sha256: eeead9934c597c7678e989e7fd20bf57056a52ce8e25ace371a83711ad484d0c
-  - version: 2.2.4-xenial-arm64
+  - version: 2.2.4-ubuntu-arm64
     sha256: f6cf381fc20545d827b307dd413377bff3c123e1894fdf6c239f07a4143beb47
 `
 

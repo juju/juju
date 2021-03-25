@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/tools"
@@ -33,31 +33,31 @@ func extend(lists ...tools.List) tools.List {
 }
 
 var (
-	t100precise   = mustParseTools("1.0.0-precise-amd64")
-	t100precise32 = mustParseTools("1.0.0-precise-i386")
-	t100quantal   = mustParseTools("1.0.0-quantal-amd64")
-	t100quantal32 = mustParseTools("1.0.0-quantal-i386")
+	t100ubuntu    = mustParseTools("1.0.0-ubuntu-amd64")
+	t100ubuntu32  = mustParseTools("1.0.0-ubuntu-i386")
+	t100windows   = mustParseTools("1.0.0-windows-amd64")
+	t100windows32 = mustParseTools("1.0.0-windows-i386")
 	t100all       = tools.List{
-		t100precise, t100precise32, t100quantal, t100quantal32,
+		t100ubuntu, t100ubuntu32, t100windows, t100windows32,
 	}
-	t190precise   = mustParseTools("1.9.0-precise-amd64")
-	t190precise32 = mustParseTools("1.9.0-precise-i386")
-	t190quantal   = mustParseTools("1.9.0-quantal-amd64")
-	t190all       = tools.List{
-		t190precise, t190precise32, t190quantal,
+	t190ubuntu   = mustParseTools("1.9.0-ubuntu-amd64")
+	t190ubuntu32 = mustParseTools("1.9.0-ubuntu-i386")
+	t190windows  = mustParseTools("1.9.0-windows-amd64")
+	t190all      = tools.List{
+		t190ubuntu, t190ubuntu32, t190windows,
 	}
-	t200precise   = mustParseTools("2.0.0-precise-amd64")
-	t200quantal32 = mustParseTools("2.0.0-quantal-i386")
+	t200ubuntu    = mustParseTools("2.0.0-ubuntu-amd64")
+	t200windows32 = mustParseTools("2.0.0-windows-i386")
 	t200all       = tools.List{
-		t200precise, t200quantal32,
+		t200ubuntu, t200windows32,
 	}
-	t2001precise  = mustParseTools("2.0.0.1-precise-amd64")
-	tAllBefore210 = extend(t100all, t190all, append(t200all, t2001precise))
-	t210precise   = mustParseTools("2.1.0-precise-amd64")
-	t211precise   = mustParseTools("2.1.1-precise-amd64")
-	t215precise   = mustParseTools("2.1.5-precise-amd64")
-	t2152precise  = mustParseTools("2.1.5.2-precise-amd64")
-	t210all       = tools.List{t210precise, t211precise, t215precise, t2152precise}
+	t2001ubuntu   = mustParseTools("2.0.0.1-ubuntu-amd64")
+	tAllBefore210 = extend(t100all, t190all, append(t200all, t2001ubuntu))
+	t210ubuntu    = mustParseTools("2.1.0-ubuntu-amd64")
+	t211ubuntu    = mustParseTools("2.1.1-ubuntu-amd64")
+	t215ubuntu    = mustParseTools("2.1.5-ubuntu-amd64")
+	t2152ubuntu   = mustParseTools("2.1.5.2-ubuntu-amd64")
+	t210all       = tools.List{t210ubuntu, t211ubuntu, t215ubuntu, t2152ubuntu}
 )
 
 type stringsTest struct {
@@ -65,32 +65,32 @@ type stringsTest struct {
 	expect []string
 }
 
-var seriesTests = []stringsTest{{
-	src:    tools.List{t100precise},
-	expect: []string{"precise"},
+var releaseTests = []stringsTest{{
+	src:    tools.List{t100ubuntu},
+	expect: []string{"ubuntu"},
 }, {
-	src:    tools.List{t100precise, t100precise32, t200precise},
-	expect: []string{"precise"},
+	src:    tools.List{t100ubuntu, t100ubuntu32, t200ubuntu},
+	expect: []string{"ubuntu"},
 }, {
 	src:    tAllBefore210,
-	expect: []string{"precise", "quantal"},
+	expect: []string{"ubuntu", "windows"},
 }}
 
-func (s *ListSuite) TestSeries(c *gc.C) {
-	for i, test := range seriesTests {
+func (s *ListSuite) TestReleases(c *gc.C) {
+	for i, test := range releaseTests {
 		c.Logf("test %d", i)
-		c.Check(test.src.AllSeries(), gc.DeepEquals, test.expect)
+		c.Check(test.src.AllReleases(), gc.DeepEquals, test.expect)
 		if len(test.expect) == 1 {
-			c.Check(test.src.OneSeries(), gc.Equals, test.expect[0])
+			c.Check(test.src.OneRelease(), gc.Equals, test.expect[0])
 		}
 	}
 }
 
 var archesTests = []stringsTest{{
-	src:    tools.List{t100precise},
+	src:    tools.List{t100ubuntu},
 	expect: []string{"amd64"},
 }, {
-	src:    tools.List{t100precise, t100quantal, t200precise},
+	src:    tools.List{t100ubuntu, t100windows, t200ubuntu},
 	expect: []string{"amd64"},
 }, {
 	src:    tAllBefore210,
@@ -108,20 +108,20 @@ func (s *ListSuite) TestURLs(c *gc.C) {
 	empty := tools.List{}
 	c.Check(empty.URLs(), gc.DeepEquals, map[version.Binary][]string{})
 
-	alt := *t100quantal
+	alt := *t100windows
 	alt.URL = strings.Replace(alt.URL, "testing.invalid", "testing.invalid2", 1)
 	full := tools.List{
-		t100precise,
-		t190quantal,
-		t100quantal,
+		t100ubuntu,
+		t190windows,
+		t100windows,
 		&alt,
-		t2001precise,
+		t2001ubuntu,
 	}
 	c.Check(full.URLs(), gc.DeepEquals, map[version.Binary][]string{
-		t100precise.Version:  {t100precise.URL},
-		t100quantal.Version:  {t100quantal.URL, alt.URL},
-		t190quantal.Version:  {t190quantal.URL},
-		t2001precise.Version: {t2001precise.URL},
+		t100ubuntu.Version:  {t100ubuntu.URL},
+		t100windows.Version: {t100windows.URL, alt.URL},
+		t190windows.Version: {t190windows.URL},
+		t2001ubuntu.Version: {t2001ubuntu.URL},
 	})
 }
 
@@ -134,8 +134,8 @@ var newestTests = []struct {
 	expect: nil,
 	number: version.Zero,
 }, {
-	src:    tools.List{t100precise},
-	expect: tools.List{t100precise},
+	src:    tools.List{t100ubuntu},
+	expect: tools.List{t100ubuntu},
 	number: version.MustParse("1.0.0"),
 }, {
 	src:    t100all,
@@ -147,7 +147,7 @@ var newestTests = []struct {
 	number: version.MustParse("2.0.0"),
 }, {
 	src:    tAllBefore210,
-	expect: tools.List{t2001precise},
+	expect: tools.List{t2001ubuntu},
 	number: version.MustParse("2.0.0.1"),
 }}
 
@@ -189,7 +189,7 @@ var newestCompatibleTests = []struct {
 	expect: version.Zero,
 	found:  false,
 }, {
-	src:    tools.List{t100precise},
+	src:    tools.List{t100ubuntu},
 	base:   version.Zero,
 	expect: version.Zero,
 	found:  false,
@@ -233,11 +233,11 @@ var excludeTests = []struct {
 	arg    tools.List
 	expect tools.List
 }{{
-	nil, tools.List{t100precise}, nil,
+	nil, tools.List{t100ubuntu}, nil,
 }, {
-	tools.List{t100precise}, nil, tools.List{t100precise},
+	tools.List{t100ubuntu}, nil, tools.List{t100ubuntu},
 }, {
-	tools.List{t100precise}, tools.List{t100precise}, nil,
+	tools.List{t100ubuntu}, tools.List{t100ubuntu}, nil,
 }, {
 	nil, tAllBefore210, nil,
 }, {
@@ -246,12 +246,12 @@ var excludeTests = []struct {
 	tAllBefore210, tAllBefore210, nil,
 }, {
 	t100all,
-	tools.List{t100precise},
-	tools.List{t100precise32, t100quantal, t100quantal32},
+	tools.List{t100ubuntu},
+	tools.List{t100ubuntu32, t100windows, t100windows32},
 }, {
 	t100all,
-	tools.List{t100precise32, t100quantal, t100quantal32},
-	tools.List{t100precise},
+	tools.List{t100ubuntu32, t100windows, t100windows32},
+	tools.List{t100ubuntu},
 }, {
 	t100all, t190all, t100all,
 }, {
@@ -274,9 +274,9 @@ var matchTests = []struct {
 	filter tools.Filter
 	expect tools.List
 }{{
-	tools.List{t100precise},
+	tools.List{t100ubuntu},
 	tools.Filter{},
-	tools.List{t100precise},
+	tools.List{t100ubuntu},
 }, {
 	tAllBefore210,
 	tools.Filter{},
@@ -291,16 +291,16 @@ var matchTests = []struct {
 	nil,
 }, {
 	tAllBefore210,
-	tools.Filter{Series: "quantal"},
-	tools.List{t100quantal, t100quantal32, t190quantal, t200quantal32},
+	tools.Filter{OSType: "windows"},
+	tools.List{t100windows, t100windows32, t190windows, t200windows32},
 }, {
 	tAllBefore210,
-	tools.Filter{Series: "raring"},
+	tools.Filter{OSType: "opensuse"},
 	nil,
 }, {
 	tAllBefore210,
 	tools.Filter{Arch: "i386"},
-	tools.List{t100precise32, t100quantal32, t190precise32, t200quantal32},
+	tools.List{t100ubuntu32, t100windows32, t190ubuntu32, t200windows32},
 }, {
 	tAllBefore210,
 	tools.Filter{Arch: "arm"},
@@ -309,10 +309,10 @@ var matchTests = []struct {
 	tAllBefore210,
 	tools.Filter{
 		Number: version.MustParse("2.0.0"),
-		Series: "quantal",
+		OSType: "windows",
 		Arch:   "i386",
 	},
-	tools.List{t200quantal32},
+	tools.List{t200windows32},
 }}
 
 func (s *ListSuite) TestMatch(c *gc.C) {

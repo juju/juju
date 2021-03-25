@@ -60,8 +60,9 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.notify(6)
+	s.notify(7)
 	s.expectUnitDiscovery()
+	s.expectMachineValidateUnitsNotPrepareCompleteNoAction()
 	s.expectMachinePrepareStartedUnitsNotPrepareCompleteNoAction()
 	s.expectMachinePrepareStartedUnitFilesWrittenProgressPrepareComplete()
 	s.expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted()
@@ -136,6 +137,12 @@ func (s *workerSuite) expectUnitDiscovery() {
 		names.NewUnitTag("wordpress/0"),
 		names.NewUnitTag("mysql/0"),
 	}, nil)
+}
+
+func (s *workerSuite) expectMachineValidateUnitsNotPrepareCompleteNoAction() {
+	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesValidate, nil)
+
+	s.expectSetInstanceStatus(model.UpgradeSeriesValidate, "validating units")
 }
 
 func (s *workerSuite) expectMachinePrepareStartedUnitsNotPrepareCompleteNoAction() {

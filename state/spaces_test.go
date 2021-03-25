@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -682,8 +681,8 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 	}
 
 	// Sort subnets by CIDR for test consistency.
-	corenetwork.SortSubnetInfos(spaceInfo.Subnets)
-	corenetwork.SortSubnetInfos(expSpaceInfo.Subnets)
+	network.SortSubnetInfos(spaceInfo.Subnets)
+	network.SortSubnetInfos(expSpaceInfo.Subnets)
 
 	c.Assert(spaceInfo, gc.DeepEquals, expSpaceInfo)
 
@@ -694,7 +693,7 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 	space1 := allSpaceInfos.GetByName("space1")
 	c.Assert(space1, gc.NotNil)
 
-	corenetwork.SortSubnetInfos(space1.Subnets)
+	network.SortSubnetInfos(space1.Subnets)
 	c.Assert(*space1, gc.DeepEquals, expSpaceInfo)
 }
 
@@ -802,7 +801,7 @@ var twoSubnetsAfterFAN = []network.SubnetInfo{
 		CIDR:              "10.100.30.1/24",
 	},
 	{
-		ProviderId:        corenetwork.Id(fmt.Sprintf("2-%s-10-100-30-0-24", corenetwork.InFan)),
+		ProviderId:        network.Id(fmt.Sprintf("2-%s-10-100-30-0-24", network.InFan)),
 		AvailabilityZones: []string{"3", "4"},
 		CIDR:              "253.30.0.0/16",
 	},

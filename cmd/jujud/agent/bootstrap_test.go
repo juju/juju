@@ -18,15 +18,15 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -717,7 +717,7 @@ func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
 
 func (s *BootstrapSuite) TestDownloadedToolsMetadata(c *gc.C) {
 	// Tools downloaded by cloud-init script.
-	s.testToolsMetadata(c, false)
+	s.testToolsMetadata(c)
 }
 
 func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
@@ -726,10 +726,10 @@ func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 		Version: testing.CurrentVersion(c),
 		URL:     "file:///does/not/matter",
 	})
-	s.testToolsMetadata(c, true)
+	s.testToolsMetadata(c)
 }
 
-func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
+func (s *BootstrapSuite) testToolsMetadata(c *gc.C) {
 	envtesting.RemoveFakeToolsMetadata(c, s.toolsStorage)
 
 	_, cmd, err := s.initBootstrapCommand(c, nil)
@@ -743,38 +743,19 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(simplestreamsMetadata, gc.HasLen, 0)
 
-	// The tools should have been added to tools storage, and
-	// exploded into each of the supported series of
-	// the same operating system if the tools were uploaded.
+	// The tools should have been added to tools storage.
 	st, closer := s.getSystemState(c)
 	defer closer()
-	expectedSeries := make(set.Strings)
-	workloadSeries, err := series.AllWorkloadSeries("", "")
-	c.Assert(err, jc.ErrorIsNil)
-	if exploded {
-		for _, ser := range workloadSeries.Values() {
-			os, err := series.GetOSFromSeries(ser)
-			c.Assert(err, jc.ErrorIsNil)
-			hostos, err := series.GetOSFromSeries(testing.HostSeries(c))
-			c.Assert(err, jc.ErrorIsNil)
-			if os == hostos || os.IsLinux() && hostos.IsLinux() {
-				expectedSeries.Add(ser)
-			}
-		}
-	} else {
-		expectedSeries.Add(testing.HostSeries(c))
-	}
 
 	storage, err := st.ToolsStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	metadata, err := storage.AllMetadata()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.HasLen, expectedSeries.Size())
-	for _, m := range metadata {
-		v := version.MustParseBinary(m.Version)
-		c.Assert(expectedSeries.Contains(v.Series), jc.IsTrue)
-	}
+	c.Assert(metadata, gc.HasLen, 1)
+	m := metadata[0]
+	v := version.MustParseBinary(m.Version)
+	c.Assert(v.Release, gc.Equals, coreos.HostOSTypeName())
 }
 
 func createImageMetadata() []*imagemetadata.ImageMetadata {

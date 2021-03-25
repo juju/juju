@@ -18,7 +18,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	apicontroller "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -288,7 +287,7 @@ func formatVersions(agents coretools.Versions) string {
 }
 
 type toolsAPI interface {
-	FindTools(majorVersion, minorVersion int, series, arch, agentStream string) (result params.FindToolsResult, err error)
+	FindTools(majorVersion, minorVersion int, osType, arch, agentStream string) (result params.FindToolsResult, err error)
 	UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (coretools.List, error)
 }
 
@@ -298,9 +297,14 @@ type upgradeJujuAPI interface {
 	Close() error
 }
 
+type statusAPI interface {
+	Status(patterns []string) (*params.FullStatus, error)
+}
+
 type jujuClientAPI interface {
 	toolsAPI
 	upgradeJujuAPI
+	statusAPI
 }
 
 type modelConfigAPI interface {
@@ -499,7 +503,16 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 	// or the user has asked for a new agent to be built, upload a local
 	// jujud binary if possible.
 	if !warnCompat && (uploadLocalBinary || c.BuildAgent) {
-		if err := upgradeCtx.uploadTools(client, c.BuildAgent, agentVersion, c.DryRun); err != nil {
+		controllerAgentCfg, err := config.New(config.NoDefaults, controllerModelConfig)
+		if err != nil {
+			return err
+		}
+		controllerAgentVersion, ok := controllerAgentCfg.AgentVersion()
+		if !ok {
+			// Can't happen. In theory.
+			return errors.New("incomplete controller model configuration")
+		}
+		if err := upgradeCtx.uploadTools(client, c.BuildAgent, agentVersion, controllerAgentVersion, c.DryRun); err != nil {
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
 		builtMsg := ""
@@ -825,7 +838,9 @@ type upgradeContext struct {
 // than that of any otherwise-matching available envtools.
 // uploadTools resets the chosen version and replaces the available tools
 // with the ones just uploaded.
-func (context *upgradeContext) uploadTools(client toolsAPI, buildAgent bool, agentVersion version.Number, dryRun bool) (err error) {
+func (context *upgradeContext) uploadTools(
+	client jujuClientAPI, buildAgent bool, agentVersion version.Number, controllerAgentVersion version.Number, dryRun bool,
+) (err error) {
 	// TODO(fwereade): this is kinda crack: we should not assume that
 	// jujuversion.Current matches whatever source happens to be built. The
 	// ideal would be:
@@ -878,15 +893,22 @@ func (context *upgradeContext) uploadTools(client toolsAPI, buildAgent bool, age
 		return errors.Trace(err)
 	}
 	defer f.Close()
-	seriesOs, err := series.GetOSFromSeries(builtTools.Version.Series)
-	if err != nil {
-		return errors.Trace(err)
+
+	// Older 2.8 agents still look for tools based on series.
+	// Newer 2.9+ controllers can deal with this but not older controllers.
+	// Look at the model and get all series for all machines
+	// and use those to create additional tools.
+	additionalSeries := set.NewStrings()
+	if controllerAgentVersion.Major == 2 && controllerAgentVersion.Minor <= 8 {
+		fullStatus, err := client.Status(nil)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, m := range fullStatus.Machines {
+			additionalSeries.Add(m.Series)
+		}
 	}
-	additionalSeries, err := series.OSAllSeries(seriesOs)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	uploaded, err := client.UploadTools(f, uploadToolsVersion, additionalSeries...)
+	uploaded, err := client.UploadTools(f, uploadToolsVersion, additionalSeries.Values()...)
 	if err != nil {
 		return errors.Trace(err)
 	}

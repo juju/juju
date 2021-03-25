@@ -13,7 +13,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -512,7 +512,7 @@ func (e *Environ) startInstance(
 	}
 	logger.Tracef("Image cache contains: %# v", pretty.Formatter(imgCache))
 
-	series := args.Tools.OneSeries()
+	series := args.InstanceConfig.Series
 	arches := args.Tools.Arches()
 
 	types := imgCache.SupportedShapes(series)

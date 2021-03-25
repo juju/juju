@@ -5,7 +5,7 @@ package podcfg_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/podcfg"

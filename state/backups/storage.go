@@ -16,7 +16,7 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/v2/filestorage"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"

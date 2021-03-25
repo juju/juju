@@ -42,7 +42,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
@@ -806,8 +806,7 @@ func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerN
 }
 
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	series := config.PreferredSeries(e.Config())
-	availableTools, err := args.AvailableTools.Match(coretools.Filter{Series: series})
+	availableTools, err := args.AvailableTools.Match(coretools.Filter{OSType: "ubuntu"})
 	if err != nil {
 		return nil, err
 	}
@@ -835,6 +834,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 
 	// Create an instance for the bootstrap node.
 	logger.Infof("creating bootstrap instance")
+	series := config.PreferredSeries(e.Config())
 	i := &dummyInstance{
 		id:           BootstrapInstanceId,
 		addresses:    corenetwork.NewProviderAddresses("localhost"),
@@ -1199,7 +1199,6 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		return nil, errors.New("entity tag must match started machine")
 	}
 	logger.Infof("would pick agent binaries from %s", args.Tools)
-	series := args.Tools.OneSeries()
 
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
 	// Add the addresses we want to see in the machine doc. This means both
@@ -1210,7 +1209,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		id:           instance.Id(idString),
 		addresses:    addrs,
 		machineId:    machineId,
-		series:       series,
+		series:       args.InstanceConfig.Series,
 		firewallMode: e.Config().FirewallMode(),
 		state:        estate,
 	}

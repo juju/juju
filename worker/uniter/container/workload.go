@@ -139,7 +139,7 @@ func (r *workloadHookResolver) NextOp(
 	noOp := func() (operation.Operation, error) {
 		if localState.Kind == operation.RunHook &&
 			localState.Hook != nil &&
-			localState.Hook.Kind == hooks.WorkloadReady {
+			localState.Hook.Kind == hooks.PebbleReady {
 			// If we are resuming from an unexpected state, skip hook.
 			return opFactory.NewSkipHook(*localState.Hook)
 		}
@@ -149,7 +149,7 @@ func (r *workloadHookResolver) NextOp(
 	case operation.RunHook:
 		if localState.Step != operation.Pending ||
 			localState.Hook == nil ||
-			localState.Hook.Kind != hooks.WorkloadReady {
+			localState.Hook.Kind != hooks.PebbleReady {
 			break
 		}
 		fallthrough
@@ -172,7 +172,7 @@ func (r *workloadHookResolver) NextOp(
 				}
 			}
 			op, err := opFactory.NewRunHook(hook.Info{
-				Kind:         hooks.WorkloadReady,
+				Kind:         hooks.PebbleReady,
 				WorkloadName: evt.WorkloadName,
 			})
 			if err != nil {

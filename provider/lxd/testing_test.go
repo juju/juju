@@ -11,10 +11,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	lxdclient "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -177,11 +178,11 @@ func (s *BaseSuiteUnpatched) Prefix() string {
 func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	tools := []*coretools.Tools{
 		{
-			Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
+			Version: version.Binary{Arch: arch.AMD64, Release: "ubuntu"},
 			URL:     "https://example.org/amd",
 		},
 		{
-			Version: version.Binary{Arch: arch.ARM64, Series: "trusty"},
+			Version: version.Binary{Arch: arch.ARM64, Release: "ubuntu"},
 			URL:     "https://example.org/arm",
 		},
 	}
@@ -301,7 +302,7 @@ func (s *BaseSuiteUnpatched) NewInstance(c *gc.C, name string) *environInstance 
 type BaseSuite struct {
 	BaseSuiteUnpatched
 
-	Stub   *gitjujutesting.Stub
+	Stub   *jujutesting.Stub
 	Client *StubClient
 	Common *stubCommon
 }
@@ -315,7 +316,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	testing.SkipLXDNotSupported(c)
 	s.BaseSuiteUnpatched.SetUpTest(c)
 
-	s.Stub = &gitjujutesting.Stub{}
+	s.Stub = &jujutesting.Stub{}
 	s.Client = &StubClient{
 		Stub:               s.Stub,
 		StorageIsSupported: true,
@@ -397,7 +398,7 @@ func (ecfg *Config) Validate() error {
 }
 
 type stubCommon struct {
-	stub *gitjujutesting.Stub
+	stub *jujutesting.Stub
 
 	BootstrapResult *environs.BootstrapResult
 }
@@ -421,7 +422,7 @@ func (sc *stubCommon) DestroyEnv(callCtx context.ProviderCallContext) error {
 }
 
 type StubClient struct {
-	*gitjujutesting.Stub
+	*jujutesting.Stub
 
 	Containers         []lxd.Container
 	Container          *lxd.Container
@@ -823,11 +824,11 @@ func (s *EnvironSuite) NewEnvironWithServerFactory(c *gc.C, srv ServerFactory, c
 func (s *EnvironSuite) GetStartInstanceArgs(c *gc.C, series string) environs.StartInstanceParams {
 	tools := []*coretools.Tools{
 		{
-			Version: version.Binary{Arch: arch.AMD64, Series: series},
+			Version: version.Binary{Arch: arch.AMD64, Release: coreseries.DefaultOSTypeNameFromSeries(series)},
 			URL:     "https://example.org/amd",
 		},
 		{
-			Version: version.Binary{Arch: arch.ARM64, Series: series},
+			Version: version.Binary{Arch: arch.ARM64, Release: coreseries.DefaultOSTypeNameFromSeries(series)},
 			URL:     "https://example.org/arm",
 		},
 	}

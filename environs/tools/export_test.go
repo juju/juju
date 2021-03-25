@@ -5,7 +5,7 @@ package tools
 
 var (
 	FindExecutable                = findExecutable
-	CheckToolsSeries              = checkToolsSeries
+	CheckToolsReleases            = checkToolsReleases
 	ArchiveAndSHA256              = archiveAndSHA256
 	WriteMetadataFiles            = &writeMetadataFiles
 	CurrentStreamsVersion         = currentStreamsVersion

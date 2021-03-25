@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -112,7 +112,7 @@ func lastConnPointer(c *gc.C, mod *state.Model, modelUser permission.UserAccess)
 	return &lastConn
 }
 
-func (s *apiEnvironmentSuite) TestUploadToolsOtherEnvironment(c *gc.C) {
+func (s *apiEnvironmentSuite) TestUploadToolsOtherModel(c *gc.C) {
 	// setup other environment
 	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
@@ -128,7 +128,7 @@ func (s *apiEnvironmentSuite) TestUploadToolsOtherEnvironment(c *gc.C) {
 	otherClient := otherAPIState.Client()
 	defer otherClient.ClientFacade.Close()
 
-	newVersion := version.MustParseBinary("5.4.3-quantal-amd64")
+	newVersion := version.MustParseBinary("5.4.3-ubuntu-amd64")
 	vers := newVersion.String()
 
 	// build fake tools

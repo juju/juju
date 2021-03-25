@@ -129,8 +129,7 @@ func (env *sessionEnviron) newRawInstance(
 		return nil, nil, common.ZoneIndependentError(err)
 	}
 
-	series := args.Tools.OneSeries()
-	cloudcfg, err := cloudinit.New(series)
+	cloudcfg, err := cloudinit.New(args.InstanceConfig.Series)
 	if err != nil {
 		return nil, nil, common.ZoneIndependentError(err)
 	}
@@ -218,7 +217,7 @@ func (env *sessionEnviron) newRawInstance(
 		Name:                   vmName,
 		Folder:                 path.Join(env.getVMFolder(), controllerFolderName(args.ControllerUUID), env.modelFolderName()),
 		RootVMFolder:           env.getVMFolder(),
-		Series:                 series,
+		Series:                 args.InstanceConfig.Series,
 		ReadOVA:                readOVA,
 		OVASHA256:              img.Sha256,
 		VMDKDirectory:          templateDirectoryName(controllerFolderName(args.ControllerUUID)),

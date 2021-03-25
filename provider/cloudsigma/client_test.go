@@ -14,7 +14,7 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -185,7 +185,7 @@ func (s *clientSuite) TestClientNewInstanceInvalidTemplate(c *gc.C) {
 	err = params.InstanceConfig.SetTools(tools.List{
 		&tools.Tools{
 			Version: version.Binary{
-				Series: "trusty",
+				Release: "ubuntu",
 			},
 			URL: "https://0.1.2.3:2000/x.y.z.tgz",
 		},
@@ -213,7 +213,7 @@ func (s *clientSuite) TestClientNewInstance(c *gc.C) {
 	err = params.InstanceConfig.SetTools(tools.List{
 		&tools.Tools{
 			Version: version.Binary{
-				Series: "trusty",
+				Release: "ubuntu",
 			},
 			URL: "https://0.1.2.3:2000/x.y.z.tgz",
 		},

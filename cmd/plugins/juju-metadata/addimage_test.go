@@ -98,7 +98,7 @@ func (s *addImageSuite) TestAddImageMetadataNoImageId(c *gc.C) {
 func (s *addImageSuite) TestAddImageMetadataNoSeries(c *gc.C) {
 	m := constructTestImageMetadata()
 	m.Series = ""
-	// Series will default to config default, for e.g. "trusty"
+	// OSType will default to config default, for e.g. "trusty"
 	s.assertValidAddImageMetadata(c, m)
 }
 

@@ -83,7 +83,7 @@ func (s *workloadSuite) TestWorkloadReadyHook(c *gc.C) {
 	hookOp, ok := op.(*mockRunHookOp)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(hookOp.hookInfo, gc.DeepEquals, hook.Info{
-		Kind:         "workload-ready",
+		Kind:         "pebble-ready",
 		WorkloadName: "test",
 	})
 }

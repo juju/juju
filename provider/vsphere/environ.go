@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/vmware/govmomi/vim25/mo"
 	"golang.org/x/net/context"
 

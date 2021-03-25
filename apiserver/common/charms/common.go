@@ -128,10 +128,9 @@ func convertCharmMeta(meta *charm.Meta) *params.CharmMeta {
 		Resources:      convertCharmResourceMetaMap(meta.Resources),
 		Terms:          meta.Terms,
 		MinJujuVersion: meta.MinJujuVersion.String(),
-		Systems:        convertCharmSystems(meta.Systems),
-		Platforms:      convertCharmPlatforms(meta.Platforms),
-		Architectures:  convertCharmArchitectures(meta.Architectures),
+		Bases:          convertCharmBases(meta.Bases),
 		Containers:     convertCharmContainers(meta.Containers),
+		Assumes:        meta.Assumes,
 	}
 }
 
@@ -353,40 +352,23 @@ func convertCharmDevices(devices map[string]charm.Device) map[string]params.Char
 	return results
 }
 
-func convertCharmSystems(input []systems.System) []params.CharmSystem {
-	systems := []params.CharmSystem(nil)
+func convertCharmBases(input []systems.Base) []params.CharmBase {
+	systems := []params.CharmBase(nil)
 	for _, v := range input {
-		systems = append(systems, params.CharmSystem{
-			OS:       v.OS,
-			Channel:  v.Channel.String(),
-			Resource: v.Resource,
+		systems = append(systems, params.CharmBase{
+			Name:    v.Name,
+			Channel: v.Channel.String(),
 		})
 	}
 	return systems
-}
-
-func convertCharmPlatforms(input []charm.Platform) []string {
-	platforms := []string(nil)
-	for _, v := range input {
-		platforms = append(platforms, string(v))
-	}
-	return platforms
-}
-
-func convertCharmArchitectures(input []charm.Architecture) []string {
-	architectures := []string(nil)
-	for _, v := range input {
-		architectures = append(architectures, string(v))
-	}
-	return architectures
 }
 
 func convertCharmContainers(input map[string]charm.Container) map[string]params.CharmContainer {
 	containers := map[string]params.CharmContainer{}
 	for k, v := range input {
 		containers[k] = params.CharmContainer{
-			Systems: convertCharmSystems(v.Systems),
-			Mounts:  convertCharmMounts(v.Mounts),
+			Resource: v.Resource,
+			Mounts:   convertCharmMounts(v.Mounts),
 		}
 	}
 	if len(containers) == 0 {

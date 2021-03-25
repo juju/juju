@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The tools package supports locating, parsing, and filtering Ubuntu tools metadata in simplestreams format.
+// Package tools supports locating, parsing, and filtering Ubuntu tools metadata in simplestreams format.
 // See http://launchpad.net/simplestreams and in particular the doc/README file in that project for more information
 // about the file formats.
 package tools
@@ -12,19 +12,19 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/simplestreams"
 )
 
 // ToolsContentId returns the tools content id for the given stream.
 func ToolsContentId(stream string) string {
-	return fmt.Sprintf("com.ubuntu.juju:%s:tools", stream)
+	return fmt.Sprintf("com.ubuntu.juju:%s:agents", stream)
 }
 
 // ProductMetadataPath returns the tools product metadata path for the given stream.
 func ProductMetadataPath(stream string) string {
-	return fmt.Sprintf("streams/v1/com.ubuntu.juju-%s-tools.json", stream)
+	return fmt.Sprintf("streams/v1/com.ubuntu.juju-%s-agents.json", stream)
 }
 
 // MarshalToolsMetadataJSON marshals tools metadata to index and products JSON.
@@ -56,8 +56,8 @@ func marshalToolsMetadataIndexJSON(streamMetadata map[string][]*ToolsMetadata, u
 		for _, t := range metadata {
 			id, err := t.productId()
 			if err != nil {
-				if series.IsUnknownSeriesVersionError(err) {
-					logger.Infof("ignoring tools metadata with unknown series %q", t.Release)
+				if errors.IsNotValid(err) {
+					logger.Infof("ignoring tools metadata with unknown os type %q", t.Release)
 					continue
 				}
 				return nil, nil, err
@@ -105,7 +105,7 @@ func MarshalToolsMetadataProductsJSON(
 		for _, t := range metadata {
 			id, err := t.productId()
 			if err != nil {
-				if series.IsUnknownSeriesVersionError(err) {
+				if errors.IsNotValid(err) {
 					continue
 				}
 				return nil, err

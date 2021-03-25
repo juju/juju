@@ -16,19 +16,18 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"testing"
 
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http"
-	"github.com/juju/os/v2/series"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/utils/v2/tar"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	coreos "github.com/juju/juju/core/os"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
@@ -128,14 +127,14 @@ var tests = []struct {
 		ctx:         &sync.SyncContext{},
 		major:       3,
 		minor:       2,
-		tools:       []version.Binary{v320x64},
+		tools:       []version.Binary{v320u64},
 	},
 	{
 		description: "copy matching major, minor dev from the dummy model",
 		ctx:         &sync.SyncContext{},
 		major:       3,
 		minor:       1,
-		tools:       []version.Binary{v310x64},
+		tools:       []version.Binary{v310u64},
 	},
 	{
 		description: "copy all from the dummy model",
@@ -198,27 +197,26 @@ type fakeToolsUploader struct {
 	uploaded map[version.Binary]bool
 }
 
-func (u *fakeToolsUploader) UploadTools(toolsDir, stream string, tools *coretools.Tools, data []byte) error {
+func (u *fakeToolsUploader) UploadTools(_, _ string, tools *coretools.Tools, _ []byte) error {
 	u.uploaded[tools.Version] = true
 	return nil
 }
 
 var (
-	v100x64 = version.MustParseBinary("1.0.0-xenial-amd64")
-	v100b64 = version.MustParseBinary("1.0.0-bionic-amd64")
-	v100b32 = version.MustParseBinary("1.0.0-bionic-i386")
-	v100all = []version.Binary{v100x64, v100b64, v100b32}
-	v180b64 = version.MustParseBinary("1.8.0-bionic-amd64")
-	v180x32 = version.MustParseBinary("1.8.0-xenial-i386")
-	v180all = []version.Binary{v180b64, v180x32}
-	v190b64 = version.MustParseBinary("1.9.0-bionic-amd64")
-	v190x32 = version.MustParseBinary("1.9.0-xenial-i386")
-	v190all = []version.Binary{v190b64, v190x32}
+	v100u64 = version.MustParseBinary("1.0.0-ubuntu-amd64")
+	v100u32 = version.MustParseBinary("1.0.0-ubuntu-i386")
+	v100all = []version.Binary{v100u64, v100u32}
+	v180u64 = version.MustParseBinary("1.8.0-ubuntu-amd64")
+	v180u32 = version.MustParseBinary("1.8.0-ubuntu-i386")
+	v180all = []version.Binary{v180u64, v180u32}
+	v190u64 = version.MustParseBinary("1.9.0-ubuntu-amd64")
+	v190u32 = version.MustParseBinary("1.9.0-ubuntu-i386")
+	v190all = []version.Binary{v190u64, v190u32}
 	v1all   = append(append(v100all, v180all...), v190all...)
-	v200x64 = version.MustParseBinary("2.0.0-xenial-amd64")
-	v310x64 = version.MustParseBinary("3.1.0-xenial-amd64")
-	v320x64 = version.MustParseBinary("3.2.0-xenial-amd64")
-	vAll    = append(append(v1all, v200x64), v310x64, v320x64)
+	v200u64 = version.MustParseBinary("2.0.0-ubuntu-amd64")
+	v310u64 = version.MustParseBinary("3.1.0-ubuntu-amd64")
+	v320u64 = version.MustParseBinary("3.2.0-ubuntu-amd64")
+	vAll    = append(append(v1all, v200u64), v310u64, v320u64)
 )
 
 type uploadSuite struct {
@@ -263,18 +261,8 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEqualsCurrentVersion(c, t.Version)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
-	s.assertUploadedTools(c, t, []string{coretesting.HostSeries(c)}, "released")
-}
-
-func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
-	s.patchBundleTools(c, nil)
-	seriesToUpload := "xenial"
-	if seriesToUpload == coretesting.HostSeries(c) {
-		seriesToUpload = "raring"
-	}
-	t, err := sync.Upload(s.targetStorage, "released", nil, "bionic", seriesToUpload)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertUploadedTools(c, t, []string{seriesToUpload, "bionic", coretesting.HostSeries(c)}, "released")
+	hostOSType := coreos.HostOSTypeName()
+	s.assertUploadedTools(c, t, []string{hostOSType}, "released")
 }
 
 func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
@@ -296,20 +284,6 @@ func (s *uploadSuite) TestSyncTools(c *gc.C) {
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
 }
 
-func (s *uploadSuite) TestSyncToolsFakeSeries(c *gc.C) {
-	s.patchBundleTools(c, nil)
-	seriesToUpload := "xenial"
-	if seriesToUpload == coretesting.HostSeries(c) {
-		seriesToUpload = "raring"
-	}
-	builtTools, err := sync.BuildAgentTarball(true, nil, "testing")
-	c.Assert(err, jc.ErrorIsNil)
-
-	t, err := sync.SyncBuiltTools(s.targetStorage, "testing", builtTools, "bionic", seriesToUpload)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertUploadedTools(c, t, []string{seriesToUpload, "bionic", coretesting.HostSeries(c)}, "testing")
-}
-
 func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
 	vers := jujuversion.Current
 	vers.Patch++
@@ -322,15 +296,13 @@ func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
 	c.Assert(t.Version, gc.Equals, coretesting.CurrentVersion(c))
 }
 
-func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, expectSeries []string, stream string) {
+func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, expectOSTypes []string, stream string) {
 	s.assertEqualsCurrentVersion(c, t.Version)
 	expectRaw := downloadToolsRaw(c, t)
 
 	list, err := envtools.ReadList(s.targetStorage, stream, jujuversion.Current.Major, jujuversion.Current.Minor)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(list.AllSeries(), jc.SameContents, expectSeries)
-	sort.Strings(expectSeries)
-	c.Assert(list.AllSeries(), gc.DeepEquals, expectSeries)
+	c.Assert(list.AllReleases(), jc.SameContents, expectOSTypes)
 	for _, t := range list {
 		c.Logf("checking %s", t.URL)
 		c.Assert(t.Version.Number, gc.Equals, jujuversion.Current)
@@ -520,16 +492,16 @@ func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
 		c.Check(string(content), gc.Equals, fmt.Sprintf("jujud contents %s", vers))
 	}
 
-	current := version.MustParseBinary("1.9.1-trusty-amd64")
+	current := version.MustParseBinary("1.9.1-ubuntu-amd64")
 	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
-	s.PatchValue(&series.HostSeries, func() (string, error) { return current.Series, nil })
+	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 	buildToolsFunc := toolstesting.GetMockBuildTools(c)
 	builtTools, err := buildToolsFunc(true, nil, "released")
 	c.Assert(err, jc.ErrorIsNil)
 	checkTools(builtTools, current)
 
-	vers := version.MustParseBinary("1.5.3-trusty-amd64")
+	vers := version.MustParseBinary("1.5.3-ubuntu-amd64")
 	builtTools, err = buildToolsFunc(true, &vers.Number, "released")
 	c.Assert(err, jc.ErrorIsNil)
 	checkTools(builtTools, vers)

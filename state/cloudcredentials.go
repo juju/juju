@@ -336,8 +336,12 @@ func cloudCredentialDocID(tag names.CloudCredentialTag) string {
 }
 
 func (c cloudCredentialDoc) cloudCredentialTag() (names.CloudCredentialTag, error) {
-	ownerTag := names.NewUserTag(c.Owner)
-	id := fmt.Sprintf("%s/%s/%s", c.Cloud, ownerTag.Id(), c.Name)
+	return cloudCredentialTagFrom(c.Cloud, c.Owner, c.Name)
+}
+
+func cloudCredentialTagFrom(cloud, owner, name string) (names.CloudCredentialTag, error) {
+	ownerTag := names.NewUserTag(owner)
+	id := fmt.Sprintf("%s/%s/%s", cloud, ownerTag.Id(), name)
 	if !names.IsValidCloudCredential(id) {
 		return names.CloudCredentialTag{}, errors.NotValidf("cloud credential ID %q", id)
 	}

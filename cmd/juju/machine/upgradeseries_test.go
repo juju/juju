@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/machine/mocks"
 	"github.com/juju/juju/testing"
@@ -22,6 +23,7 @@ import (
 type UpgradeSeriesSuite struct {
 	testing.BaseSuite
 
+	statusExpectation   *statusExpectation
 	prepareExpectation  *upgradeSeriesPrepareExpectation
 	completeExpectation *upgradeSeriesCompleteExpectation
 }
@@ -30,14 +32,26 @@ var _ = gc.Suite(&UpgradeSeriesSuite{})
 
 func (s *UpgradeSeriesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.statusExpectation = &statusExpectation{
+		status: &params.FullStatus{
+			Machines: map[string]params.MachineStatus{
+				"1": {Id: "1"},
+			},
+			Applications: map[string]params.ApplicationStatus{
+				"foo": {
+					Units: map[string]params.UnitStatus{
+						"foo/1": {Machine: "1"},
+					},
+				},
+			},
+		},
+	}
 	s.prepareExpectation = &upgradeSeriesPrepareExpectation{gomock.Any(), gomock.Any(), gomock.Any()}
 	s.completeExpectation = &upgradeSeriesCompleteExpectation{gomock.Any()}
 }
 
 const machineArg = "1"
 const seriesArg = "xenial"
-
-var units = []string{"bar/0", "foo/0"}
 
 func (s *UpgradeSeriesSuite) runUpgradeSeriesCommand(c *gc.C, args ...string) error {
 	_, err := s.runUpgradeSeriesCommandWithConfirmation(c, "y", args...)
@@ -55,18 +69,20 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(
 	ctx.Stdin = &stdin
 	stdin.WriteString(confirmation)
 
-	mockController := gomock.NewController(c)
-	defer mockController.Finish()
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(mockController)
+	mockStatusAPI := mocks.NewMockStatusAPI(ctrl)
+	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(ctrl)
 
 	uExp := mockUpgradeSeriesAPI.EXPECT()
 	prep := s.prepareExpectation
-	uExp.UpgradeSeriesValidate(prep.machineArg, prep.seriesArg).AnyTimes().Return(units, nil)
 	uExp.UpgradeSeriesPrepare(prep.machineArg, prep.seriesArg, prep.force).AnyTimes()
 	uExp.UpgradeSeriesComplete(s.completeExpectation.machineNumber).AnyTimes()
 
-	com := machine.NewUpgradeSeriesCommandForTest(mockUpgradeSeriesAPI)
+	mockStatusAPI.EXPECT().Status(gomock.Nil()).AnyTimes().Return(s.statusExpectation.status, nil)
+
+	com := machine.NewUpgradeSeriesCommandForTest(mockStatusAPI, mockUpgradeSeriesAPI)
 
 	err = cmdtesting.InitCommand(com, args)
 	if err != nil {
@@ -165,6 +181,10 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptYesFlagAndNotPrompt(c
 	out := ctx.Stderr.(*bytes.Buffer).String()
 	c.Assert(out, gc.Equals, displayedMessage)
 	c.Assert(out, jc.Contains, fmt.Sprintf("juju upgrade-series %s complete", machineArg))
+}
+
+type statusExpectation struct {
+	status interface{}
 }
 
 type upgradeSeriesPrepareExpectation struct {

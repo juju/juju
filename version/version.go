@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	semversion "github.com/juju/version"
+	semversion "github.com/juju/version/v2"
 )
 
 // The presence and format of this constant is very important.
@@ -30,7 +30,7 @@ const UserAgentVersion = "Juju/" + version
 const (
 	// TreeStateDirty when the build was made with a dirty checkout.
 	TreeStateDirty = "dirty"
-	// TreeStateClean when the build was made with a clean checkout.
+	// TreeStateClean when the build was made with a clean checkout.kubernetes/provider/cloud_test.go
 	TreeStateClean = "clean"
 	// TreeStateArchive when the build was made outside of a git checkout.
 	TreeStateArchive = "archive"

@@ -28,7 +28,7 @@ func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
 	switch transport.Type(ir.Type) {
 	case transport.BundleType:
 		ir.Bundle = convertBundle(info.Entity.Charms)
-		// TODO (stickupkid): Get the Bundle.Series and set it to the
+		// TODO (stickupkid): Get the Bundle.Release and set it to the
 		// InfoResponse at a high level.
 	case transport.CharmType:
 		ir.Charm, ir.Series = convertCharm(info)

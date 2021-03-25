@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju/keys"

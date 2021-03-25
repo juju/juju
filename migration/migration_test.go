@@ -12,13 +12,13 @@ import (
 	"time"
 
 	"github.com/juju/charm/v9"
-	"github.com/juju/description/v2"
+	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/component/all"
@@ -180,8 +180,8 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	}
 
 	toolsMap := map[version.Binary]string{
-		version.MustParseBinary("2.1.0-trusty-amd64"): "/tools/0",
-		version.MustParseBinary("2.0.0-xenial-amd64"): "/tools/1",
+		version.MustParseBinary("2.1.0-ubuntu-amd64"): "/tools/0",
+		version.MustParseBinary("2.0.0-ubuntu-amd64"): "/tools/1",
 	}
 
 	app0Res := resourcetesting.NewResource(c, nil, "blob0", "app0", "blob0").Resource
@@ -299,7 +299,7 @@ type fakeUploader struct {
 	reassignCharmURL bool
 }
 
-func (f *fakeUploader) UploadTools(r io.ReadSeeker, v version.Binary, _ ...string) (tools.List, error) {
+func (f *fakeUploader) UploadTools(r io.ReadSeeker, v version.Binary) (tools.List, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, errors.Trace(err)

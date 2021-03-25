@@ -15,6 +15,7 @@ import (
 
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
+	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -225,8 +226,10 @@ func BaseKubeCloudOpenParams(cloud cloud.Cloud, credential cloud.Credential) (en
 
 // FinalizeCloud is part of the environs.CloudFinalizer interface.
 func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudContext, cld cloud.Cloud) (cloud.Cloud, error) {
-	// We special case Microk8s here as we need to query the cluster for the
-	// storage details with no input from the user
+	// We set the clouds auth types to all kubernetes supported auth types here
+	// so that finalize credentials is free to change the credentials of the
+	// bootstrap. See lp-1918486
+	cld.AuthTypes = k8scloud.SupportedAuthTypes()
 
 	// if storage is already defined there is no need to query the cluster
 	if opStorage, ok := cld.Config[k8sconstants.OperatorStorageKey]; ok && opStorage != "" {

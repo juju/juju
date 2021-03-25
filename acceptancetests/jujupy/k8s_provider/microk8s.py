@@ -19,23 +19,20 @@
 
 from __future__ import print_function
 
-import logging
-import shutil
-import os
 import json
-import yaml
+import logging
+import os
+import shutil
 from pprint import pformat
 from time import sleep
 
 import dns.resolver
+import yaml
 
 from jujupy.utility import until_timeout
-from .base import (
-    Base,
-    K8sProviderType,
-)
-from .factory import register_provider
 
+from .base import Base, K8sProviderType
+from .factory import register_provider
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +90,12 @@ class MicroK8s(Base):
     def enable_microk8s_addons(self, addons=None):
         # addons are required to be enabled.
         addons = addons or ['storage', 'dns', 'ingress']
+        if self.enable_rbac:
+            if 'rbac' not in addons:
+                addons.append('rbac')
+        else:
+            addons = [addon for addon in addons if addon != 'rbac']
+            logger.info('disabling rbac -> ', self.sh('microk8s.disable', 'rbac'))
 
         def wait_until_ready(timeout, checker):
             for _ in until_timeout(timeout):

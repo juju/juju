@@ -19,7 +19,7 @@ import (
 
 	"github.com/gorilla/handlers"
 	"github.com/juju/errors"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/common/apihttp"

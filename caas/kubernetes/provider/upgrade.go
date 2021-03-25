@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"

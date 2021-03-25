@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -167,7 +167,7 @@ func (s *environInstanceSuite) TestStartInstanceError(c *gc.C) {
 
 	toolsVal := &tools.Tools{
 		Version: version.Binary{
-			Series: "trusty",
+			Release: "ubuntu",
 		},
 		URL: "https://0.1.2.3:2000/x.y.z.tgz",
 	}

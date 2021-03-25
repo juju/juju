@@ -6,10 +6,11 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	description "github.com/juju/description/v2"
+	description "github.com/juju/description/v3"
+	controller "github.com/juju/juju/controller"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
-	version "github.com/juju/version"
+	version "github.com/juju/version/v2"
 	reflect "reflect"
 )
 
@@ -49,6 +50,21 @@ func (m *MockBackend) AgentVersion() (version.Number, error) {
 func (mr *MockBackendMockRecorder) AgentVersion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentVersion", reflect.TypeOf((*MockBackend)(nil).AgentVersion))
+}
+
+// ControllerConfig mocks base method
+func (m *MockBackend) ControllerConfig() (controller.Config, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerConfig")
+	ret0, _ := ret[0].(controller.Config)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerConfig indicates an expected call of ControllerConfig
+func (mr *MockBackendMockRecorder) ControllerConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockBackend)(nil).ControllerConfig))
 }
 
 // Export mocks base method

@@ -29,7 +29,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -499,14 +499,13 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 	}
 
 	// Identify the instance type and image to provision.
-	series := args.Tools.OneSeries()
 	instanceSpec, err := findInstanceSpec(
 		ctx,
 		compute.VirtualMachineImagesClient{env.compute},
 		instanceTypes,
 		&instances.InstanceConstraint{
 			Region:      env.location,
-			Series:      series,
+			Series:      args.InstanceConfig.Series,
 			Arches:      args.Tools.Arches(),
 			Constraints: args.Constraints,
 		},
@@ -524,11 +523,8 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 
 	// Windows images are 127GiB, and cannot be made smaller.
 	const windowsMinRootDiskMB = 127 * 1024
-	seriesOS, err := jujuseries.GetOSFromSeries(series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if seriesOS == os.Windows {
+	seriesOS := args.Tools.OneRelease()
+	if seriesOS == strings.ToLower(os.Windows.String()) {
 		if instanceSpec.InstanceType.RootDisk < windowsMinRootDiskMB {
 			logger.Infof("root disk size has been increased to 127GiB")
 			instanceSpec.InstanceType.RootDisk = windowsMinRootDiskMB

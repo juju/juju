@@ -12,13 +12,13 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/description/v2"
+	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/txn"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"

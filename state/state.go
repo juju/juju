@@ -28,7 +28,7 @@ import (
 	"github.com/juju/pubsub"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
@@ -1290,7 +1290,7 @@ func (st *State) deriveApplicationConstraints(cons constraints.Value, subordinat
 
 func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) error {
 	if args.Series == "" {
-		// args.Series is not set, so use the series in the URL.
+		// args.Release is not set, so use the series in the URL.
 		args.Series = args.Charm.URL().Series
 		if args.Series == "" {
 			// Should not happen, but just in case.
@@ -1298,7 +1298,7 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) err
 		}
 	} else {
 		// User has specified series. Overriding supported series is
-		// handled by the client, so args.Series is not necessarily
+		// handled by the client, so args.Release is not necessarily
 		// one of the charm's supported series. We require that the
 		// specified series is of the same operating system as one of
 		// the supported series. For old-style charms with the series

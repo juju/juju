@@ -19,7 +19,7 @@ import (
 	"github.com/juju/replicaset/v2"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -316,9 +316,9 @@ func (s *serverSuite) TestSetModelAgentVersionForced(c *gc.C) {
 	unit, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetAgentVersion(version.MustParseBinary(currentVersion + "-quantal-amd64"))
+	err = machine.SetAgentVersion(version.MustParseBinary(currentVersion + "-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.SetAgentVersion(version.MustParseBinary("1.0.2-quantal-amd64"))
+	err = unit.SetAgentVersion(version.MustParseBinary("1.0.2-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// This should be refused because an agent doesn't match "currentVersion"
@@ -1278,22 +1278,22 @@ func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	result, err := s.APIState.Client().FindTools(99, -1, "", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
-	toolstesting.UploadToStorage(c, s.DefaultToolsStorage, "released", version.MustParseBinary("2.99.0-precise-amd64"))
-	result, err = s.APIState.Client().FindTools(2, 99, "precise", "amd64", "")
+	toolstesting.UploadToStorage(c, s.DefaultToolsStorage, "released", version.MustParseBinary("2.99.0-ubuntu-amd64"))
+	result, err = s.APIState.Client().FindTools(2, 99, "ubuntu", "amd64", "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.HasLen, 1)
-	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.99.0-precise-amd64"))
+	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.99.0-ubuntu-amd64"))
 	url := fmt.Sprintf("https://%s/model/%s/tools/%s",
 		s.APIState.Addr(), coretesting.ModelTag.Id(), result.List[0].Version)
 	c.Assert(result.List[0].URL, gc.Equals, url)
 
-	toolstesting.UploadToStorage(c, s.DefaultToolsStorage, "pretend", version.MustParseBinary("3.0.1-precise-amd64"))
-	result, err = s.APIState.Client().FindTools(3, 0, "precise", "amd64", "pretend")
+	toolstesting.UploadToStorage(c, s.DefaultToolsStorage, "pretend", version.MustParseBinary("3.0.1-ubuntu-amd64"))
+	result, err = s.APIState.Client().FindTools(3, 0, "ubuntu", "amd64", "pretend")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.HasLen, 1)
-	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("3.0.1-precise-amd64"))
+	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("3.0.1-ubuntu-amd64"))
 	url = fmt.Sprintf("https://%s/model/%s/tools/%s",
 		s.APIState.Addr(), coretesting.ModelTag.Id(), result.List[0].Version)
 	c.Assert(result.List[0].URL, gc.Equals, url)

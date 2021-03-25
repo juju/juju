@@ -64,9 +64,9 @@ Tools Metadata Contents
 
 Tools metadata uses a simplestreams content type of "content-download".
 The product id is formed as follows:
-"com.ubuntu.juju:<series_version>:<arch>"
+"com.ubuntu.juju:<os_type>:<arch>"
 eg
-"com.ubuntu.juju:12.04:amd64"
+"com.ubuntu.juju:ubuntu:amd64"
 
 The metadata index and product files are required to be in the following directory tree
 (relative to the URL associated with each path component). In addition, agent binaries tarballs

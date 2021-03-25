@@ -128,10 +128,9 @@ type CharmMeta struct {
 	Terms          []string                     `json:"terms,omitempty"`
 	MinJujuVersion string                       `json:"min-juju-version,omitempty"`
 
-	Systems       []CharmSystem             `json:"systems,omitempty"`
-	Platforms     []string                  `json:"platforms,omitempty"`
-	Architectures []string                  `json:"architectures,omitempty"`
-	Containers    map[string]CharmContainer `json:"containers,omitempty"`
+	Bases      []CharmBase               `json:"bases,omitempty"`
+	Containers map[string]CharmContainer `json:"containers,omitempty"`
+	Assumes    []string                  `json:"assumes,omitempty"`
 }
 
 // Charm holds all the charm data that the client needs.
@@ -182,17 +181,16 @@ type CharmDeployment struct {
 	MinVersion     string `json:"min-version"`
 }
 
-// CharmSystem mirrors charm.System
-type CharmSystem struct {
-	OS       string `json:"os,omitempty"`
-	Channel  string `json:"channel,omitempty"`
-	Resource string `json:"resource,omitempty"`
+// CharmBase mirrors systems.Base
+type CharmBase struct {
+	Name    string `json:"name,omitempty"`
+	Channel string `json:"channel,omitempty"`
 }
 
 // CharmContainer mirrors charm.Container
 type CharmContainer struct {
-	Systems []CharmSystem `json:"systems,omitempty"`
-	Mounts  []CharmMount  `json:"mounts,omitempty"`
+	Resource string       `json:"resource,omitempty"`
+	Mounts   []CharmMount `json:"mounts,omitempty"`
 }
 
 // CharmMount mirrors charm.Mount

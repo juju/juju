@@ -12,7 +12,7 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -231,7 +231,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 				"printf '%s\\n' '5432' > '/var/lib/juju/nonce.txt'",
 			},
 		}
-		// Series with old cloudinit versions don't support adding
+		// OSType with old cloudinit versions don't support adding
 		// users so need the old way to set SSH authorized keys.
 		if series == "precise" {
 			expected["ssh_authorized_keys"] = []interface{}{
@@ -276,8 +276,8 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 	metricsSpoolDir := paths.MetricsSpoolDir(paths.SeriesToOS(series))
 	toolsList := tools.List{
 		&tools.Tools{
-			URL:     "http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz",
-			Version: version.MustParseBinary("1.2.3-win8-amd64"),
+			URL:     "http://foo.com/tools/released/juju1.2.3-windows-amd64.tgz",
+			Version: version.MustParseBinary("1.2.3-windows-amd64"),
 			Size:    10,
 			SHA256:  "1234",
 		},

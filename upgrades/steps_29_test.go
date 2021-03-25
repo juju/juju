@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -59,6 +59,11 @@ func (s *steps29Suite) TestExposeWildcardEndpointForExposedApplications(c *gc.C)
 
 func (s *steps29Suite) TestRemoveLinkLayerDevicesRefsCollection(c *gc.C) {
 	step := findStateStep(c, v290, "remove unused linklayerdevicesrefs collection")
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
+
+func (s *steps29Suite) TestUpdateKubernetesCloudCredentials(c *gc.C) {
+	step := findStateStep(c, v290, "update kubernetes cloud credentials")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
 

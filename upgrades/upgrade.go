@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/loggo"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 )
 
 var logger = loggo.GetLogger("juju.upgrade")

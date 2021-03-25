@@ -19,7 +19,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
@@ -254,7 +254,7 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 			Bytes:  []byte("foo"),
 			Charms: []string{"cs:foo-1"},
 			Tools: []params.SerializedModelTools{{
-				Version: "2.0.0-trusty-amd64",
+				Version: "2.0.0-ubuntu-amd64",
 				URI:     "/tools/0",
 			}},
 			Resources: []params.SerializedModelResource{{
@@ -309,7 +309,7 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 		Bytes:  []byte("foo"),
 		Charms: []string{"cs:foo-1"},
 		Tools: map[version.Binary]string{
-			version.MustParseBinary("2.0.0-trusty-amd64"): "/tools/0",
+			version.MustParseBinary("2.0.0-ubuntu-amd64"): "/tools/0",
 		},
 		Resources: []migration.SerializedModelResource{{
 			ApplicationRevision: resource.Resource{
@@ -550,6 +550,23 @@ func (s *ClientSuite) TestMinionReportsBadFailedTag(c *gc.C) {
 	client := migrationmaster.NewClient(apiCaller, nil)
 	_, err := client.MinionReports()
 	c.Assert(err, gc.ErrorMatches, `processing failed agents: "dave" is not a valid tag`)
+}
+
+func (s *ClientSuite) TestMinionReportTimeout(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(facade string, _ int, _, method string, _ interface{}, result interface{}) error {
+		c.Assert(facade, gc.Equals, "MigrationMaster")
+		c.Assert(method, gc.Equals, "MinionReportTimeout")
+
+		out := result.(*params.StringResult)
+		*out = params.StringResult{
+			Result: "30s",
+		}
+		return nil
+	})
+	client := migrationmaster.NewClient(apiCaller, nil)
+	timeout, err := client.MinionReportTimeout()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(timeout, gc.Equals, 30*time.Second)
 }
 
 func (s *ClientSuite) TestStreamModelLogs(c *gc.C) {

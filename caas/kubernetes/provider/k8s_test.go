@@ -13,18 +13,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	apps "k8s.io/api/apps/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -1107,6 +1105,7 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 	}, {
 		Name:  "test2",
 		Ports: []specs.ContainerPort{{ContainerPort: 8080, Protocol: "TCP", Name: "fred"}},
+		Init:  true,
 		Image: "juju/image2",
 		VolumeConfig: []specs.FileSet{
 			{
@@ -1154,7 +1153,10 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 				Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 			},
 			VolumeMounts: dataVolumeMounts(),
-		}, {
+		},
+	}
+	workloadSpec.Pod.InitContainers = []core.Container{
+		{
 			Name:  "test2",
 			Image: "juju/image2",
 			Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
@@ -1220,7 +1222,10 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 				{Name: "cache-volume", MountPath: "/empty-dir"},
 				{Name: "cache-volume", MountPath: "/another-empty-dir"},
 			}...),
-		}, {
+		},
+	})
+	c.Assert(workloadSpec.Pod.InitContainers, gc.DeepEquals, []core.Container{
+		{
 			Name:  "test2",
 			Image: "juju/image2",
 			Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
@@ -1446,51 +1451,46 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 	defer ctrl.Finish()
 
 	// CRs of this Cluster scope CRD will get deleted.
-	crdClusterScope := &apiextensionsv1beta1.CustomResourceDefinition{
+	crdClusterScope := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "tfjobs.kubeflow.org",
 			Namespace: "test",
 			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
 		},
-		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   "kubeflow.org",
-			Version: "v1alpha2",
-			Versions: []apiextensionsv1beta1.CustomResourceDefinitionVersion{
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Group: "kubeflow.org",
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
 				{Name: "v1", Served: true, Storage: true},
-				{Name: "v1alpha2", Served: true, Storage: false},
-			},
-			Scope: apiextensionsv1beta1.ClusterScoped,
-			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:   "tfjobs",
-				Kind:     "TFJob",
-				Singular: "tfjob",
-			},
-			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-						"tfReplicaSpecs": {
-							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"Worker": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
+				{
+					Name: "v1alpha2", Served: true, Storage: false,
+					Schema: &apiextensionsv1.CustomResourceValidation{
+						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+							Properties: map[string]apiextensionsv1.JSONSchemaProps{
+								"tfReplicaSpecs": {
+									Properties: map[string]apiextensionsv1.JSONSchemaProps{
+										"Worker": {
+											Properties: map[string]apiextensionsv1.JSONSchemaProps{
+												"replicas": {
+													Type:    "integer",
+													Minimum: float64Ptr(1),
+												},
+											},
 										},
-									},
-								},
-								"PS": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type: "integer", Minimum: float64Ptr(1),
+										"PS": {
+											Properties: map[string]apiextensionsv1.JSONSchemaProps{
+												"replicas": {
+													Type: "integer", Minimum: float64Ptr(1),
+												},
+											},
 										},
-									},
-								},
-								"Chief": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
-											Maximum: float64Ptr(1),
+										"Chief": {
+											Properties: map[string]apiextensionsv1.JSONSchemaProps{
+												"replicas": {
+													Type:    "integer",
+													Minimum: float64Ptr(1),
+													Maximum: float64Ptr(1),
+												},
+											},
 										},
 									},
 								},
@@ -1498,55 +1498,56 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 						},
 					},
 				},
+			},
+			Scope: apiextensionsv1.ClusterScoped,
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural:   "tfjobs",
+				Kind:     "TFJob",
+				Singular: "tfjob",
 			},
 		},
 	}
 	// CRs of this namespaced scope CRD will be skipped.
-	crdNamespacedScope := &apiextensionsv1beta1.CustomResourceDefinition{
+	crdNamespacedScope := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "tfjobs.kubeflow.org",
 			Namespace: "test",
 			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
 		},
-		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   "kubeflow.org",
-			Version: "v1alpha2",
-			Versions: []apiextensionsv1beta1.CustomResourceDefinitionVersion{
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Group: "kubeflow.org",
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
 				{Name: "v1", Served: true, Storage: true},
-				{Name: "v1alpha2", Served: true, Storage: false},
-			},
-			Scope: apiextensionsv1beta1.NamespaceScoped,
-			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:   "tfjobs",
-				Kind:     "TFJob",
-				Singular: "tfjob",
-			},
-			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-						"tfReplicaSpecs": {
-							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"Worker": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
+				{
+					Name: "v1alpha2", Served: true, Storage: false,
+					Schema: &apiextensionsv1.CustomResourceValidation{
+						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+							Properties: map[string]apiextensionsv1.JSONSchemaProps{
+								"tfReplicaSpecs": {
+									Properties: map[string]apiextensionsv1.JSONSchemaProps{
+										"Worker": {
+											Properties: map[string]apiextensionsv1.JSONSchemaProps{
+												"replicas": {
+													Type:    "integer",
+													Minimum: float64Ptr(1),
+												},
+											},
 										},
-									},
-								},
-								"PS": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type: "integer", Minimum: float64Ptr(1),
+										"PS": {
+											Properties: map[string]apiextensionsv1.JSONSchemaProps{
+												"replicas": {
+													Type: "integer", Minimum: float64Ptr(1),
+												},
+											},
 										},
-									},
-								},
-								"Chief": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
-											Maximum: float64Ptr(1),
+										"Chief": {
+											Properties: map[string]apiextensionsv1.JSONSchemaProps{
+												"replicas": {
+													Type:    "integer",
+													Minimum: float64Ptr(1),
+													Maximum: float64Ptr(1),
+												},
+											},
 										},
 									},
 								},
@@ -1554,6 +1555,12 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 						},
 					},
 				},
+			},
+			Scope: apiextensionsv1.NamespaceScoped,
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural:   "tfjobs",
+				Kind:     "TFJob",
+				Singular: "tfjob",
 			},
 		},
 	}
@@ -1611,8 +1618,8 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 		).Return(s.mockNamespaceableResourceClient),
 	).After(
 		// list cluster wide all custom resource definitions for listing custom resources.
-		s.mockCustomResourceDefinitionV1Beta1.EXPECT().List(gomock.Any(), v1.ListOptions{}).AnyTimes().
-			Return(&apiextensionsv1beta1.CustomResourceDefinitionList{Items: []apiextensionsv1beta1.CustomResourceDefinition{*crdClusterScope, *crdNamespacedScope}}, nil),
+		s.mockCustomResourceDefinitionV1.EXPECT().List(gomock.Any(), v1.ListOptions{}).AnyTimes().
+			Return(&apiextensionsv1.CustomResourceDefinitionList{Items: []apiextensionsv1.CustomResourceDefinition{*crdClusterScope, *crdNamespacedScope}}, nil),
 	).After(
 		// delete all custom resources for crd "v1alpha2".
 		s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(gomock.Any(),
@@ -1643,8 +1650,8 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 		).Return(s.mockNamespaceableResourceClient),
 	).After(
 		// list cluster wide all custom resource definitions for deleting custom resources.
-		s.mockCustomResourceDefinitionV1Beta1.EXPECT().List(gomock.Any(), v1.ListOptions{}).AnyTimes().
-			Return(&apiextensionsv1beta1.CustomResourceDefinitionList{Items: []apiextensionsv1beta1.CustomResourceDefinition{*crdClusterScope, *crdNamespacedScope}}, nil),
+		s.mockCustomResourceDefinitionV1.EXPECT().List(gomock.Any(), v1.ListOptions{}).AnyTimes().
+			Return(&apiextensionsv1.CustomResourceDefinitionList{Items: []apiextensionsv1.CustomResourceDefinition{*crdClusterScope, *crdNamespacedScope}}, nil),
 	)
 
 	// timer +1.
@@ -1831,7 +1838,7 @@ func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *ap
 					},
 				},
 			}},
-			PodManagementPolicy: apps.ParallelPodManagement,
+			PodManagementPolicy: appsv1.ParallelPodManagement,
 			ServiceName:         "app-name-endpoints",
 		},
 	}
@@ -1841,51 +1848,46 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	crd := &apiextensionsv1beta1.CustomResourceDefinition{
+	crd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "tfjobs.kubeflow.org",
 			Namespace: "test",
 			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.kubernetes.io/name": "test"},
 		},
-		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   "kubeflow.org",
-			Version: "v1alpha2",
-			Versions: []apiextensionsv1beta1.CustomResourceDefinitionVersion{
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Group: "kubeflow.org",
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
 				{Name: "v1", Served: true, Storage: true},
-				{Name: "v1alpha2", Served: true, Storage: false},
-			},
-			Scope: "Namespaced",
-			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:   "tfjobs",
-				Kind:     "TFJob",
-				Singular: "tfjob",
-			},
-			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-						"tfReplicaSpecs": {
-							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"Worker": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
+				{
+					Name: "v1alpha2", Served: true, Storage: false,
+					Schema: &apiextensionsv1.CustomResourceValidation{
+						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+							Properties: map[string]apiextensionsv1.JSONSchemaProps{
+								"tfReplicaSpecs": {
+									Properties: map[string]apiextensionsv1.JSONSchemaProps{
+										"Worker": {
+											Properties: map[string]apiextensionsv1.JSONSchemaProps{
+												"replicas": {
+													Type:    "integer",
+													Minimum: float64Ptr(1),
+												},
+											},
 										},
-									},
-								},
-								"PS": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type: "integer", Minimum: float64Ptr(1),
+										"PS": {
+											Properties: map[string]apiextensionsv1.JSONSchemaProps{
+												"replicas": {
+													Type: "integer", Minimum: float64Ptr(1),
+												},
+											},
 										},
-									},
-								},
-								"Chief": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
-											Maximum: float64Ptr(1),
+										"Chief": {
+											Properties: map[string]apiextensionsv1.JSONSchemaProps{
+												"replicas": {
+													Type:    "integer",
+													Minimum: float64Ptr(1),
+													Maximum: float64Ptr(1),
+												},
+											},
 										},
 									},
 								},
@@ -1893,6 +1895,12 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 						},
 					},
 				},
+			},
+			Scope: "Namespaced",
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural:   "tfjobs",
+				Kind:     "TFJob",
+				Singular: "tfjob",
 			},
 		},
 	}
@@ -1958,8 +1966,8 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		).Return(nil),
 
 		// list cluster wide all custom resource definitions for deleting custom resources.
-		s.mockCustomResourceDefinitionV1Beta1.EXPECT().List(gomock.Any(), v1.ListOptions{}).
-			Return(&apiextensionsv1beta1.CustomResourceDefinitionList{Items: []apiextensionsv1beta1.CustomResourceDefinition{*crd}}, nil),
+		s.mockCustomResourceDefinitionV1.EXPECT().List(gomock.Any(), v1.ListOptions{}).
+			Return(&apiextensionsv1.CustomResourceDefinitionList{Items: []apiextensionsv1.CustomResourceDefinition{*crd}}, nil),
 		// delete all custom resources for crd "v1".
 		s.mockDynamicClient.EXPECT().Resource(
 			schema.GroupVersionResource{
@@ -2025,7 +2033,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoUnits(c *gc.C) {
 	defer ctrl.Finish()
 
 	two := int32(2)
-	dc := &apps.Deployment{ObjectMeta: v1.ObjectMeta{Name: "juju-unit-storage"}, Spec: apps.DeploymentSpec{Replicas: &two}}
+	dc := &appsv1.Deployment{ObjectMeta: v1.ObjectMeta{Name: "juju-unit-storage"}, Spec: appsv1.DeploymentSpec{Replicas: &two}}
 	zero := int32(0)
 	emptyDc := dc
 	emptyDc.Spec.Replicas = &zero
@@ -2206,9 +2214,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.
 				},
 				Spec: podSpec,
 			},
-			Strategy: apps.DeploymentStrategy{
-				Type: apps.RollingUpdateDeploymentStrategyType,
-				RollingUpdate: &apps.RollingUpdateDeployment{
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDeployment{
 					MaxUnavailable: &intstr.IntOrString{IntVal: 10},
 					MaxSurge:       &intstr.IntOrString{IntVal: 20},
 				},
@@ -2980,7 +2988,7 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithStatefulSet(c *gc.C, mode c
 				},
 				Spec: podSpec,
 			},
-			PodManagementPolicy: apps.PodManagementPolicyType("OrderedReady"),
+			PodManagementPolicy: appsv1.PodManagementPolicyType("OrderedReady"),
 			ServiceName:         "app-name-endpoints",
 		},
 	}
@@ -3221,7 +3229,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 				},
 				Spec: podSpec,
 			},
-			PodManagementPolicy: apps.PodManagementPolicyType("OrderedReady"),
+			PodManagementPolicy: appsv1.PodManagementPolicyType("OrderedReady"),
 			ServiceName:         "app-name-endpoints",
 		},
 	}
@@ -3305,7 +3313,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 				},
 				Spec: podSpec,
 			},
-			PodManagementPolicy: apps.ParallelPodManagement,
+			PodManagementPolicy: appsv1.ParallelPodManagement,
 			ServiceName:         "app-name-endpoints",
 		},
 	}
@@ -5086,9 +5094,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc
 		}},
 	})
 	statefulSetArg := unitStatefulSetArg(2, "workload-storage", podSpec)
-	statefulSetArg.Spec.UpdateStrategy = apps.StatefulSetUpdateStrategy{
-		Type: apps.RollingUpdateStatefulSetStrategyType,
-		RollingUpdate: &apps.RollingUpdateStatefulSetStrategy{
+	statefulSetArg.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
+		Type: appsv1.RollingUpdateStatefulSetStrategyType,
+		RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
 			Partition: int32Ptr(10),
 		},
 	}
@@ -5834,9 +5842,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C
 				},
 				Spec: podSpec,
 			},
-			UpdateStrategy: apps.DaemonSetUpdateStrategy{
-				Type: apps.RollingUpdateDaemonSetStrategyType,
-				RollingUpdate: &apps.RollingUpdateDaemonSet{
+			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+				Type: appsv1.RollingUpdateDaemonSetStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDaemonSet{
 					MaxUnavailable: &intstr.IntOrString{IntVal: 10},
 				},
 			},
@@ -7306,8 +7314,8 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
 		Type: "RollingUpdate",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, apps.DaemonSetUpdateStrategy{
-		Type: apps.RollingUpdateDaemonSetStrategyType,
+	c.Assert(o, jc.DeepEquals, appsv1.DaemonSetUpdateStrategy{
+		Type: appsv1.RollingUpdateDaemonSetStrategyType,
 	})
 
 	_, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
@@ -7339,9 +7347,9 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, apps.DaemonSetUpdateStrategy{
-		Type: apps.RollingUpdateDaemonSetStrategyType,
-		RollingUpdate: &apps.RollingUpdateDaemonSet{
+	c.Assert(o, jc.DeepEquals, appsv1.DaemonSetUpdateStrategy{
+		Type: appsv1.RollingUpdateDaemonSetStrategyType,
+		RollingUpdate: &appsv1.RollingUpdateDaemonSet{
 			MaxUnavailable: &intstr.IntOrString{IntVal: 10},
 		},
 	})
@@ -7350,8 +7358,8 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
 		Type: "OnDelete",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, apps.DaemonSetUpdateStrategy{
-		Type: apps.OnDeleteDaemonSetStrategyType,
+	c.Assert(o, jc.DeepEquals, appsv1.DaemonSetUpdateStrategy{
+		Type: appsv1.OnDeleteDaemonSetStrategyType,
 	})
 
 	_, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
@@ -7374,8 +7382,8 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDeployment(c *gc.C) {
 		Type: "RollingUpdate",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, apps.DeploymentStrategy{
-		Type: apps.RollingUpdateDeploymentStrategyType,
+	c.Assert(o, jc.DeepEquals, appsv1.DeploymentStrategy{
+		Type: appsv1.RollingUpdateDeploymentStrategyType,
 	})
 
 	_, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
@@ -7397,8 +7405,8 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDeployment(c *gc.C) {
 		Type: "Recreate",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, apps.DeploymentStrategy{
-		Type: apps.RecreateDeploymentStrategyType,
+	c.Assert(o, jc.DeepEquals, appsv1.DeploymentStrategy{
+		Type: appsv1.RecreateDeploymentStrategyType,
 	})
 
 	_, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
@@ -7418,9 +7426,9 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDeployment(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, apps.DeploymentStrategy{
-		Type: apps.RollingUpdateDeploymentStrategyType,
-		RollingUpdate: &apps.RollingUpdateDeployment{
+	c.Assert(o, jc.DeepEquals, appsv1.DeploymentStrategy{
+		Type: appsv1.RollingUpdateDeploymentStrategyType,
+		RollingUpdate: &appsv1.RollingUpdateDeployment{
 			MaxUnavailable: &intstr.IntOrString{IntVal: 10},
 			MaxSurge:       &intstr.IntOrString{IntVal: 20},
 		},
@@ -7438,8 +7446,8 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
 		Type: "RollingUpdate",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, apps.StatefulSetUpdateStrategy{
-		Type: apps.RollingUpdateStatefulSetStrategyType,
+	c.Assert(o, jc.DeepEquals, appsv1.StatefulSetUpdateStrategy{
+		Type: appsv1.RollingUpdateStatefulSetStrategyType,
 	})
 
 	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
@@ -7470,8 +7478,8 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
 		Type: "OnDelete",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, apps.StatefulSetUpdateStrategy{
-		Type: apps.OnDeleteStatefulSetStrategyType,
+	c.Assert(o, jc.DeepEquals, appsv1.StatefulSetUpdateStrategy{
+		Type: appsv1.OnDeleteStatefulSetStrategyType,
 	})
 
 	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
@@ -7489,9 +7497,9 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, apps.StatefulSetUpdateStrategy{
-		Type: apps.RollingUpdateStatefulSetStrategyType,
-		RollingUpdate: &apps.RollingUpdateStatefulSetStrategy{
+	c.Assert(o, jc.DeepEquals, appsv1.StatefulSetUpdateStrategy{
+		Type: appsv1.RollingUpdateStatefulSetStrategyType,
+		RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
 			Partition: int32Ptr(10),
 		},
 	})

@@ -6,7 +6,7 @@ package upgrader
 import (
 	"fmt"
 
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"

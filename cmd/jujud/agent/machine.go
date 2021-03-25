@@ -26,7 +26,7 @@ import (
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/symlink"
 	"github.com/juju/utils/v2/voyeur"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 	"github.com/prometheus/client_golang/prometheus"

@@ -30,7 +30,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/parallel"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/retry.v1"
 
@@ -595,7 +595,7 @@ func tagToString(tag names.Tag) string {
 	return tag.String()
 }
 
-// dialResult holds a dialled connection, the URL
+// dialResult holds a dialed connection, the URL
 // and TLS configuration used to connect to it.
 type dialResult struct {
 	conn      jsoncodec.JSONConn

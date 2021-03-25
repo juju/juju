@@ -8,16 +8,16 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -79,6 +79,42 @@ func (s *toolsSuite) TestTools(c *gc.C) {
 	c.Assert(result.Results[0].DisableSSLHostnameVerification, jc.IsTrue)
 	c.Assert(result.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.NotFoundError("machine 42"))
+}
+
+func (s *toolsSuite) TestSeriesTools(c *gc.C) {
+	getCanRead := func() (common.AuthFunc, error) {
+		return func(tag names.Tag) bool {
+			return tag == names.NewMachineTag("0")
+		}, nil
+	}
+	newEnviron := func() (environs.BootstrapEnviron, error) {
+		return s.Environ, nil
+	}
+	tg := common.NewToolsGetter(
+		s.State, stateenvirons.EnvironConfigGetter{Model: s.Model}, s.State,
+		sprintfURLGetter("tools:%s"), getCanRead, newEnviron,
+	)
+	c.Assert(tg, gc.NotNil)
+
+	current := coretesting.CurrentVersion(c)
+	currentCopy := current
+	currentCopy.Release = coretesting.HostSeries(c)
+	err := s.machine0.SetAgentVersion(currentCopy)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "machine-0"},
+		}}
+	result, err := tg.Tools(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].ToolsList, gc.HasLen, 1)
+	tools := result.Results[0].ToolsList[0]
+	c.Assert(tools.Version, gc.DeepEquals, current)
+	c.Assert(tools.URL, gc.Equals, "tools:"+current.String())
+	c.Assert(result.Results[0].DisableSSLHostnameVerification, jc.IsTrue)
 }
 
 func (s *toolsSuite) TestToolsError(c *gc.C) {
@@ -173,16 +209,16 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 		c.Logf("test %d", i)
 		envtoolsList := coretools.List{
 			&coretools.Tools{
-				Version: version.MustParseBinary("123.456.0-win81-alpha"),
+				Version: version.MustParseBinary("123.456.0-windows-alpha"),
 				Size:    2048,
 				SHA256:  "badf00d",
 			},
 			&coretools.Tools{
-				Version: version.MustParseBinary("123.456.1-win81-alpha"),
+				Version: version.MustParseBinary("123.456.1-windows-alpha"),
 			},
 		}
 		storageMetadata := []binarystorage.Metadata{{
-			Version: "123.456.0-win81-alpha",
+			Version: "123.456.0-windows-alpha",
 			Size:    1024,
 			SHA256:  "feedface",
 		}}
@@ -191,7 +227,7 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 			c.Assert(major, gc.Equals, 123)
 			c.Assert(minor, gc.Equals, 456)
 			c.Assert(streams, gc.DeepEquals, test.agentStreamsUsed)
-			c.Assert(filter.Series, gc.Equals, "win81")
+			c.Assert(filter.OSType, gc.Equals, "windows")
 			c.Assert(filter.Arch, gc.Equals, "alpha")
 			return envtoolsList, nil
 		})
@@ -204,7 +240,7 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 		result, err := toolsFinder.FindTools(params.FindToolsParams{
 			MajorVersion: 123,
 			MinorVersion: 456,
-			Series:       "win81",
+			OSType:       "windows",
 			Arch:         "alpha",
 			AgentStream:  test.agentStreamRequested,
 		})
@@ -218,8 +254,8 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 				URL:     "tools:" + storageMetadata[0].Version,
 			},
 			&coretools.Tools{
-				Version: version.MustParseBinary("123.456.1-win81-alpha"),
-				URL:     "tools:123.456.1-win81-alpha",
+				Version: version.MustParseBinary("123.456.1-windows-alpha"),
+				URL:     "tools:123.456.1-windows-alpha",
 			},
 		})
 	}
@@ -241,16 +277,16 @@ func (s *toolsSuite) TestFindToolsNotFound(c *gc.C) {
 func (s *toolsSuite) TestFindToolsExactInStorage(c *gc.C) {
 	mockToolsStorage := &mockToolsStorage{
 		metadata: []binarystorage.Metadata{
-			{Version: "1.22-beta1-trusty-amd64"},
-			{Version: "1.22.0-trusty-amd64"},
+			{Version: "1.22-beta1-ubuntu-amd64"},
+			{Version: "1.22.0-ubuntu-amd64"},
 		},
 	}
 
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(&series.HostSeries, func() (string, error) { return "trusty", nil })
-	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22-beta1-trusty-amd64").Number)
+	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
+	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22-beta1-ubuntu-amd64").Number)
 	s.testFindToolsExact(c, mockToolsStorage, true, true)
-	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22.0-trusty-amd64").Number)
+	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22.0-ubuntu-amd64").Number)
 	s.testFindToolsExact(c, mockToolsStorage, true, false)
 }
 
@@ -268,7 +304,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 	s.PatchValue(common.EnvtoolsFindTools, func(e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
 		called = true
 		c.Assert(filter.Number, gc.Equals, jujuversion.Current)
-		c.Assert(filter.Series, gc.Equals, current.Series)
+		c.Assert(filter.OSType, gc.Equals, current.Release)
 		c.Assert(filter.Arch, gc.Equals, arch.HostArch())
 		if develVersion {
 			c.Assert(stream, gc.DeepEquals, []string{"devel", "proposed", "released"})
@@ -285,7 +321,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 		Number:       jujuversion.Current,
 		MajorVersion: -1,
 		MinorVersion: -1,
-		Series:       current.Series,
+		OSType:       current.Release,
 		Arch:         arch.HostArch(),
 	})
 	c.Assert(err, jc.ErrorIsNil)

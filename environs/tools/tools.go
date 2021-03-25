@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
@@ -48,22 +48,18 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 		logger.Tracef("no architecture specified when finding agent binaries, looking for any")
 		toolsConstraint.Arches = arch.AllSupportedArches
 	}
-	// The old tools search allowed finding tools without needing to specify a series.
-	// The simplestreams metadata is keyed off series, so series must be specified in
-	// the search constraint. If no series is specified, we gather all the series from
-	// lucid onwards and add those to the constraint.
-	var seriesToSearch []string
-	if filter.Series != "" {
-		seriesToSearch = []string{filter.Series}
+	var osToSearch []string
+	if filter.OSType != "" {
+		osToSearch = []string{filter.OSType}
 	} else {
-		workloadSeries, err := series.AllWorkloadSeries("", stream)
+		workloadOSTypes, err := series.AllWorkloadOSTypes("", stream)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		seriesToSearch = workloadSeries.Values()
-		logger.Tracef("no series specified when finding agent binaries, looking for %v", seriesToSearch)
+		osToSearch = workloadOSTypes.Values()
+		logger.Tracef("no os type specified when finding agent binaries, looking for %v", osToSearch)
 	}
-	toolsConstraint.Series = seriesToSearch
+	toolsConstraint.Releases = osToSearch
 	return toolsConstraint, nil
 }
 
@@ -97,8 +93,8 @@ func FindTools(env environs.BootstrapEnviron, majorVersion, minorVersion int, st
 	if filter.Number != version.Zero {
 		logger.Debugf("filtering agent binaries by version: %s", filter.Number)
 	}
-	if filter.Series != "" {
-		logger.Debugf("filtering agent binaries by series: %s", filter.Series)
+	if filter.OSType != "" {
+		logger.Debugf("filtering agent binaries by os type: %s", filter.OSType)
 	}
 	if filter.Arch != "" {
 		logger.Debugf("filtering agent binaries by architecture: %s", filter.Arch)
@@ -158,8 +154,8 @@ func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestrea
 		}
 		return nil, coretools.ErrNoMatches
 	}
-	if filter.Series != "" {
-		if err := checkToolsSeries(list, filter.Series); err != nil {
+	if filter.OSType != "" {
+		if err := checkToolsReleases(list, filter.OSType); err != nil {
 			return nil, err
 		}
 	}
@@ -167,13 +163,13 @@ func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestrea
 }
 
 // FindExactTools returns only the tools that match the supplied version.
-func FindExactTools(env environs.Environ, vers version.Number, series string, arch string) (_ *coretools.Tools, err error) {
+func FindExactTools(env environs.Environ, vers version.Number, osType string, arch string) (_ *coretools.Tools, err error) {
 	logger.Debugf("finding exact version %s", vers)
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
 	filter := coretools.Filter{
 		Number: vers,
-		Series: series,
+		OSType: osType,
 		Arch:   arch,
 	}
 	streams := PreferredStreams(&vers, env.Config().Development(), env.Config().AgentStream())
@@ -188,15 +184,15 @@ func FindExactTools(env environs.Environ, vers version.Number, series string, ar
 	return availableTools[0], nil
 }
 
-// checkToolsSeries verifies that all the given possible tools are for the
-// given OS series.
-func checkToolsSeries(toolsList coretools.List, series string) error {
-	toolsSeries := toolsList.AllSeries()
-	if len(toolsSeries) != 1 {
-		return fmt.Errorf("expected single series, got %v", toolsSeries)
+// checkToolsReleases verifies that all the given possible tools are for the
+// given OS osType.
+func checkToolsReleases(toolsList coretools.List, release string) error {
+	toolsReleases := toolsList.AllReleases()
+	if len(toolsReleases) != 1 {
+		return fmt.Errorf("expected single os type, got %v", toolsReleases)
 	}
-	if toolsSeries[0] != series {
-		return fmt.Errorf("agent binary mismatch: expected series %v, got %v", series, toolsSeries[0])
+	if toolsReleases[0] != release {
+		return fmt.Errorf("agent binary mismatch: expected os type %v, got %v", release, toolsReleases[0])
 	}
 	return nil
 }

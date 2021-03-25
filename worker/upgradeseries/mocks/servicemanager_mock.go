@@ -7,7 +7,7 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	common "github.com/juju/juju/service/common"
-	version "github.com/juju/version"
+	version "github.com/juju/version/v2"
 	reflect "reflect"
 )
 

@@ -105,7 +105,6 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 		return nil, errors.Trace(err)
 	}
 
-	series := archTools.OneSeries()
 	args.InstanceConfig.MachineContainerType = instance.LXD
 	if err := args.InstanceConfig.SetTools(archTools); err != nil {
 		return nil, errors.Trace(err)
@@ -114,7 +113,7 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 	cloudInitUserData, err := combinedCloudInitData(
 		config.CloudInitUserData,
 		config.ContainerInheritProperties,
-		series, lxdLogger)
+		args.InstanceConfig.Series, lxdLogger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -136,7 +135,7 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 
 	storageConfig := &container.StorageConfig{}
 	inst, hardware, err := broker.manager.CreateContainer(
-		args.InstanceConfig, args.Constraints, series, net, storageConfig, args.StatusCallback,
+		args.InstanceConfig, args.Constraints, args.InstanceConfig.Series, net, storageConfig, args.StatusCallback,
 	)
 	if err != nil {
 		return nil, err

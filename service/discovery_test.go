@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/exec"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	jujuos "github.com/juju/juju/core/os"
@@ -44,7 +44,7 @@ type discoveryTest struct {
 
 func (dt discoveryTest) version() version.Binary {
 	return version.Binary{
-		Series: dt.series,
+		Release: dt.series,
 	}
 }
 
@@ -63,7 +63,7 @@ func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
 
 func (dt discoveryTest) setVersion(s *discoverySuite) version.Binary {
 	vers := dt.version()
-	s.PatchSeries(vers.Series)
+	s.PatchSeries(vers.Release)
 	return vers
 }
 
@@ -229,7 +229,7 @@ func (s *discoverySuite) TestVersionInitSystemLegacyUpstart(c *gc.C) {
 	}
 	vers := test.setVersion(s)
 
-	initSystem, err := service.VersionInitSystem(vers.Series)
+	initSystem, err := service.VersionInitSystem(vers.Release)
 
 	test.checkInitSystem(c, initSystem, err)
 }
@@ -243,7 +243,7 @@ func (s *discoverySuite) TestVersionInitSystemNoLegacyUpstart(c *gc.C) {
 	}
 	vers := test.setVersion(s)
 
-	initSystem, err := service.VersionInitSystem(vers.Series)
+	initSystem, err := service.VersionInitSystem(vers.Release)
 
 	test.checkInitSystem(c, initSystem, err)
 }

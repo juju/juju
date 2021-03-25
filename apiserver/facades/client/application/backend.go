@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"

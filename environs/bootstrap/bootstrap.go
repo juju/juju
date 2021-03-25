@@ -18,7 +18,7 @@ import (
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/utils/v2/ssh"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloud"
@@ -488,7 +488,7 @@ func bootstrapIAAS(
 			ctx.Infof("No packaged binary found, preparing local Juju agent binary")
 		}
 		var forceVersion version.Number
-		availableTools, forceVersion, err = locallyBuildableTools(bootstrapSeries)
+		availableTools, forceVersion, err = locallyBuildableTools()
 		if err != nil {
 			return errors.Annotate(err, "cannot package bootstrap agent binary")
 		}
@@ -512,7 +512,7 @@ func bootstrapIAAS(
 			// corrected series and arch - this ensures the build
 			// number is right if we found a valid official build.
 			version := builtTools.Version
-			version.Series = tool.Version.Series
+			version.Release = tool.Version.Release
 			version.Arch = tool.Version.Arch
 			// But if not an official build, use the forced version.
 			if !builtTools.Official {
@@ -574,12 +574,13 @@ func bootstrapIAAS(
 		return errors.Trace(err)
 	}
 
+	osType := coreseries.DefaultOSTypeNameFromSeries(result.Series)
 	matchingTools, err := bootstrapParams.AvailableTools.Match(coretools.Filter{
 		Arch:   result.Arch,
-		Series: result.Series,
+		OSType: osType,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "expected tools for %q", result.Series)
+		return errors.Annotatef(err, "expected tools for %q", osType)
 	}
 	selectedToolsList, err := getBootstrapToolsVersion(matchingTools)
 	if err != nil {

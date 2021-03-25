@@ -18,7 +18,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon.v2"
 	goyaml "gopkg.in/yaml.v2"
@@ -841,7 +841,7 @@ func (api *APIBase) updateCharm(
 	return api.applicationSetCharm(params, aCharm, nil)
 }
 
-// UpdateApplicationSeries updates the application series. Series for
+// UpdateApplicationSeries updates the application series. Release for
 // subordinates updated too.
 func (api *APIBase) UpdateApplicationSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {

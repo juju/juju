@@ -20,9 +20,8 @@ import (
 	"github.com/juju/charm/v9"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/names/v4"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
@@ -35,6 +34,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/downloader"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // websocketTimeout is how long we'll wait for a WriteJSON call before
@@ -292,7 +292,7 @@ func (c *Client) AbortCurrentUpgrade() error {
 }
 
 // FindTools returns a List containing all tools matching the specified parameters.
-func (c *Client) FindTools(majorVersion, minorVersion int, series, arch, agentStream string) (result params.FindToolsResult, err error) {
+func (c *Client) FindTools(majorVersion, minorVersion int, osType, arch, agentStream string) (result params.FindToolsResult, err error) {
 	if c.facade.BestAPIVersion() == 1 && agentStream != "" {
 		return params.FindToolsResult{}, errors.New(
 			"passing agent-stream not supported by the controller")
@@ -301,7 +301,7 @@ func (c *Client) FindTools(majorVersion, minorVersion int, series, arch, agentSt
 		MajorVersion: majorVersion,
 		MinorVersion: minorVersion,
 		Arch:         arch,
-		Series:       series,
+		OSType:       osType,
 		AgentStream:  agentStream,
 	}
 	err = c.facade.FacadeCall("FindTools", args, &result)

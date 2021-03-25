@@ -36,11 +36,6 @@ func (k *kubernetesClient) PrecheckInstance(ctx context.ProviderCallContext, par
 		return errors.NotSupportedf("constraints %v", strings.Join(unsupported, ","))
 	}
 
-	// TODO(embedded): handle systems
-	//if params.Series != k8sSeries {
-	//	return errors.NotValidf("series %q", params.Series)
-	//}
-
 	if params.Placement != "" {
 		return errors.NotValidf("placement directive %q", params.Placement)
 	}
