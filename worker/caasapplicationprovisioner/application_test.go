@@ -143,7 +143,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			mc.AddExpr(`_.Charm`, gc.NotNil)
 			c.Check(config, mc, caas.ApplicationConfig{
 				CharmBaseImage: resources.DockerImageDetails{
-					RegistryPath: "jujusolutions/ubuntu:20.04",
+					RegistryPath: "jujusolutions/charm-base:ubuntu-20.04",
 				},
 				Containers: map[string]caas.ContainerConfig{
 					"test": {
