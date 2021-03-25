@@ -154,8 +154,7 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 type versionValidator struct{}
 
 func (versionValidator) Validate(meta *charm.Meta) error {
-	minver := meta.MinJujuVersion
-	return jujuversion.CheckJujuMinVersion(jujuversion.ToVersion2(minver), jujuversion.Current)
+	return jujuversion.CheckJujuMinVersion(meta.MinJujuVersion, jujuversion.Current)
 }
 
 type charmStateShim struct {

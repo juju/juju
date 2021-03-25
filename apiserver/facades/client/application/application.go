@@ -407,8 +407,7 @@ func caasPrecheck(
 	}
 
 	// For older charms, operator-storage model config is mandatory.
-	minver := ch.Meta().MinJujuVersion
-	if k8s.RequireOperatorStorage(jujuversion.ToVersion2(minver)) {
+	if k8s.RequireOperatorStorage(ch.Meta().MinJujuVersion) {
 		storageClassName, _ := cfg.AllAttrs()[k8sconstants.OperatorStorageKey].(string)
 		if storageClassName == "" {
 			return errors.New(
@@ -486,8 +485,7 @@ func deployApplication(
 		return errors.Trace(err)
 	}
 
-	minver := ch.Meta().MinJujuVersion
-	if err := jujuversion.CheckJujuMinVersion(jujuversion.ToVersion2(minver), jujuversion.Current); err != nil {
+	if err := jujuversion.CheckJujuMinVersion(ch.Meta().MinJujuVersion, jujuversion.Current); err != nil {
 		return errors.Trace(err)
 	}
 

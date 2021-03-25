@@ -36,7 +36,7 @@ require (
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
 	github.com/juju/bundlechanges/v5 v5.0.0-20210224113052-f5fb3bbb6c25
-	github.com/juju/charm/v9 v9.0.0-20210309091641-7e600f16b30f
+	github.com/juju/charm/v9 v9.0.0-20210324234318-1204b46e47ee
 	github.com/juju/charmrepo/v7 v7.0.0-20210309083437-272762c450b9
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
@@ -74,7 +74,6 @@ require (
 	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
 	github.com/juju/utils/v2 v2.0.0-20200923005554-4646bfea2ef1
-	github.com/juju/version v0.0.0-20191219164919-81c1be00b9a6
 	github.com/juju/version/v2 v2.0.0-20210319015800-dcfac8f4f057
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a

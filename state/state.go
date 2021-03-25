@@ -1038,8 +1038,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return nil, errors.Errorf("AttachStorage is non-empty but NumUnits is %d, must be 1", args.NumUnits)
 	}
 
-	minver := args.Charm.Meta().MinJujuVersion
-	if err := jujuversion.CheckJujuMinVersion(jujuversion.ToVersion2(minver), jujuversion.Current); err != nil {
+	if err := jujuversion.CheckJujuMinVersion(args.Charm.Meta().MinJujuVersion, jujuversion.Current); err != nil {
 		return nil, errors.Trace(err)
 	}
 

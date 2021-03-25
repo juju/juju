@@ -11,14 +11,14 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	cloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
 )

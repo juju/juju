@@ -678,8 +678,7 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
-	minVer := info.Charm.Meta().MinJujuVersion
-	if err := jujuversion.CheckJujuMinVersion(jujuversion.ToVersion2(minVer), jujuversion.Current); err != nil {
+	if err := jujuversion.CheckJujuMinVersion(info.Charm.Meta().MinJujuVersion, jujuversion.Current); err != nil {
 		return nil, errors.Trace(err)
 	}
 	model, err := st.Model()

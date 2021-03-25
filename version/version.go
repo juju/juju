@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	semversion1 "github.com/juju/version"
 	semversion "github.com/juju/version/v2"
 )
 
@@ -31,7 +30,7 @@ const UserAgentVersion = "Juju/" + version
 const (
 	// TreeStateDirty when the build was made with a dirty checkout.
 	TreeStateDirty = "dirty"
-	// TreeStateClean when the build was made with a clean checkout.
+	// TreeStateClean when the build was made with a clean checkout.kubernetes/provider/cloud_test.go
 	TreeStateClean = "clean"
 	// TreeStateArchive when the build was made outside of a git checkout.
 	TreeStateArchive = "archive"
@@ -132,32 +131,4 @@ type minJujuVersionErr struct {
 func IsMinVersionError(err error) bool {
 	_, ok := errors.Cause(err).(minJujuVersionErr)
 	return ok
-}
-
-// TODO(juju3) - remove these once juju/charm and juju/description
-// have been updated to use juju/version/v2
-
-// The following are for compatibility with upstream repos that have
-// not yet been updated to use juju/version/v2.
-
-// ToVersion2 converts version number v1 to v2.
-func ToVersion2(v semversion1.Number) semversion.Number {
-	return semversion.Number{
-		Major: v.Major,
-		Minor: v.Minor,
-		Tag:   v.Tag,
-		Patch: v.Patch,
-		Build: v.Build,
-	}
-}
-
-// ToVersion1 converts version number v2 to v1.
-func ToVersion1(v semversion.Number) semversion1.Number {
-	return semversion1.Number{
-		Major: v.Major,
-		Minor: v.Minor,
-		Tag:   v.Tag,
-		Patch: v.Patch,
-		Build: v.Build,
-	}
 }

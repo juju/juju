@@ -9,7 +9,7 @@ import (
 	"github.com/juju/charm/v9/resource"
 	"github.com/juju/systems"
 	"github.com/juju/systems/channel"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"

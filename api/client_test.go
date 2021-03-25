@@ -391,7 +391,7 @@ func testMinVer(client *api.Client, t minverTest, c *gc.C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
-	charmArchive.Meta().MinJujuVersion = jujuversion.ToVersion1(charmMinVer)
+	charmArchive.Meta().MinJujuVersion = charmMinVer
 
 	_, err := client.AddLocalCharm(curl, charmArchive, t.force)
 

@@ -4,6 +4,9 @@
 package machinemanager
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
