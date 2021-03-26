@@ -780,6 +780,32 @@ func processConstraints(pod *core.PodSpec, appName string, cons constraints.Valu
 			return errors.Annotatef(err, "configuring cpu constraint for %s", appName)
 		}
 	}
+	nodeSelector := map[string]string(nil)
+	if cons.HasArch() {
+		cpuArch := *cons.Arch
+		cpuArch = arch.NormaliseArch(cpuArch)
+		// Convert to Golang arch string
+		switch cpuArch {
+		case arch.AMD64:
+			cpuArch = "amd64"
+		case arch.ARM64:
+			cpuArch = "arm64"
+		case arch.PPC64EL:
+			cpuArch = "ppc64le"
+		case arch.S390X:
+			cpuArch = "s390x"
+		default:
+			return errors.NotSupportedf("architecture %q", cpuArch)
+		}
+		nodeSelector = map[string]string{"kubernetes.io/arch": cpuArch}
+	}
+	if pod.NodeSelector != nil {
+		for k, v := range nodeSelector {
+			pod.NodeSelector[k] = v
+		}
+	} else if nodeSelector != nil {
+		pod.NodeSelector = nodeSelector
+	}
 
 	// Translate tags to node affinity.
 	if cons.Tags != nil {
@@ -1250,7 +1276,14 @@ func (k *kubernetesClient) configureDevices(unitSpec *workloadSpec, devices []de
 		return err
 	}
 	if nodeLabel != "" {
-		unitSpec.Pod.NodeSelector = buildNodeSelector(nodeLabel)
+		nodeSelector := buildNodeSelector(nodeLabel)
+		if unitSpec.Pod.NodeSelector != nil {
+			for k, v := range nodeSelector {
+				unitSpec.Pod.NodeSelector[k] = v
+			}
+		} else {
+			unitSpec.Pod.NodeSelector = nodeSelector
+		}
 	}
 	return nil
 }
