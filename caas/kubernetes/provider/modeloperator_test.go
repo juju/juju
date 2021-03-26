@@ -31,6 +31,7 @@ func (m *ModelOperatorSuite) Test(c *gc.C) {
 		namespaceCalled                = false
 		modelUUID                      = "abcd-efff-face"
 		agentPath                      = "/var/app/juju"
+		model                          = "test-model"
 		namespace                      = "test-namespace"
 	)
 
@@ -43,7 +44,7 @@ func (m *ModelOperatorSuite) Test(c *gc.C) {
 	bridge := &modelOperatorBrokerBridge{
 		ensureClusterRole: func(cr *rbac.ClusterRole) ([]func(), error) {
 			ensureClusterRoleCalled = true
-			c.Assert(cr.Name, gc.Equals, modelOperatorName)
+			c.Assert(cr.Name, gc.Equals, "test-model-modeloperator")
 			c.Assert(cr.Rules[0].APIGroups, jc.DeepEquals, []string{""})
 			c.Assert(cr.Rules[0].Resources, jc.DeepEquals, []string{"namespaces"})
 			c.Assert(cr.Rules[0].Verbs, jc.DeepEquals, []string{"get", "list"})
@@ -60,10 +61,10 @@ func (m *ModelOperatorSuite) Test(c *gc.C) {
 		},
 		ensureClusterRoleBinding: func(crb *rbac.ClusterRoleBinding) ([]func(), error) {
 			ensureClusterRoleBindingCalled = true
-			c.Assert(crb.Name, gc.Equals, modelOperatorName)
+			c.Assert(crb.Name, gc.Equals, "test-model-modeloperator")
 			c.Assert(crb.RoleRef.APIGroup, gc.Equals, "rbac.authorization.k8s.io")
 			c.Assert(crb.RoleRef.Kind, gc.Equals, "ClusterRole")
-			c.Assert(crb.RoleRef.Name, gc.Equals, modelOperatorName)
+			c.Assert(crb.RoleRef.Name, gc.Equals, "test-model-modeloperator")
 			return nil, nil
 		},
 		ensureConfigMap: func(cm *core.ConfigMap) ([]func(), error) {
@@ -120,6 +121,9 @@ func (m *ModelOperatorSuite) Test(c *gc.C) {
 			c.Assert(s.Namespace, gc.Equals, namespace)
 			c.Assert(s.Spec.Ports[0].Port, gc.Equals, config.Port)
 			return nil, nil
+		},
+		model: func() string {
+			return model
 		},
 		namespace: func() string {
 			namespaceCalled = true
