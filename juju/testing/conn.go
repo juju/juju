@@ -15,11 +15,14 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/pubsub"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
@@ -98,7 +101,7 @@ type JujuConnSuite struct {
 	// /var/lib/juju: the use cases are completely non-overlapping, and any tests that
 	// really do need both to exist ought to be embedding distinct fixtures for the
 	// distinct environments.
-	gitjujutesting.MgoSuite
+	jujutesting.MgoSuite
 	testing.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
 
@@ -239,7 +242,7 @@ func (s *JujuConnSuite) controllerIdleFunc() {
 func (s *JujuConnSuite) WaitForNextSync(c *gc.C) {
 	select {
 	case <-s.txnSyncNotify:
-	case <-time.After(gitjujutesting.LongWait):
+	case <-time.After(jujutesting.LongWait):
 		c.Fatal("no sync event sent, is the watcher dead?")
 	}
 	// It is possible that the previous sync was in progress
@@ -248,7 +251,7 @@ func (s *JujuConnSuite) WaitForNextSync(c *gc.C) {
 	// the txnwatcher.
 	select {
 	case <-s.txnSyncNotify:
-	case <-time.After(gitjujutesting.LongWait):
+	case <-time.After(jujutesting.LongWait):
 		c.Fatal("no sync event sent, is the watcher dead?")
 	}
 }
@@ -290,7 +293,7 @@ func (s *JujuConnSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
 		}
 	}()
 
-	timeout := time.After(gitjujutesting.LongWait)
+	timeout := time.After(jujutesting.LongWait)
 watcher:
 	for {
 		select {
@@ -306,7 +309,7 @@ watcher:
 	select {
 	case <-controllerIdleChan:
 		// done
-	case <-time.After(gitjujutesting.LongWait):
+	case <-time.After(jujutesting.LongWait):
 		c.Fatal("no controller idle event sent, is the controller dead?")
 	}
 }
@@ -341,7 +344,7 @@ func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
 	return owner
 }
 
-func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
+func (s *JujuConnSuite) MongoInfo() *mongo.MongoInfo {
 	info := statetesting.NewMongoInfo()
 	info.Password = AdminSecret
 	return info
@@ -421,23 +424,30 @@ func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (
 // environment's host architecture. Additionally, it ensures that 'versions'
 // for amd64 are returned if that is not the current host's architecture.
 func DefaultVersions(conf *config.Config) []version.Binary {
-	agentVersion, set := conf.AgentVersion()
-	if !set {
+	agentVersion, isSet := conf.AgentVersion()
+	if !isSet {
 		agentVersion = jujuversion.Current
 	}
+	osTypes := set.NewStrings("ubuntu")
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		osTypes.Add(coreseries.DefaultOSTypeNameFromSeries(hostSeries))
+	}
 	var versions []version.Binary
-	versions = append(versions, version.Binary{
-		Number:  agentVersion,
-		Arch:    arch.HostArch(),
-		Release: "ubuntu",
-	})
-	if arch.HostArch() != "amd64" {
+	for _, osType := range osTypes.Values() {
 		versions = append(versions, version.Binary{
 			Number:  agentVersion,
-			Arch:    "amd64",
-			Release: "ubuntu",
+			Arch:    arch.HostArch(),
+			Release: osType,
 		})
+		if arch.HostArch() != "amd64" {
+			versions = append(versions, version.Binary{
+				Number:  agentVersion,
+				Arch:    "amd64",
+				Release: osType,
+			})
 
+		}
 	}
 	return versions
 }
@@ -457,7 +467,7 @@ type UserHomeParams struct {
 	SetOldHome bool
 }
 
-// Create a home directory and Juju data home for user username.
+// CreateUserHome creates a home directory and Juju data home for user username.
 // This is used by setUpConn to create the 'ubuntu' user home, after RootDir,
 // and may be used again later for other users.
 func (s *JujuConnSuite) CreateUserHome(c *gc.C, params *UserHomeParams) {
@@ -645,7 +655,9 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 func (s *JujuConnSuite) AddToolsToState(c *gc.C, versions ...version.Binary) {
 	stor, err := s.State.ToolsStorage()
 	c.Assert(err, jc.ErrorIsNil)
-	defer stor.Close()
+	defer func() {
+		_ = stor.Close()
+	}()
 	for _, v := range versions {
 		content := v.String()
 		hash := fmt.Sprintf("sha256(%s)", content)
@@ -658,7 +670,7 @@ func (s *JujuConnSuite) AddToolsToState(c *gc.C, versions ...version.Binary) {
 	}
 }
 
-// AddDefaultTools adds tools to tools storage for default juju
+// AddDefaultToolsToState adds tools to tools storage for default juju
 // series and architectures.
 func (s *JujuConnSuite) AddDefaultToolsToState(c *gc.C) {
 	versions := DefaultVersions(s.Environ.Config())
@@ -764,7 +776,7 @@ type GetStater interface {
 }
 
 func (s *JujuConnSuite) tearDownConn(c *gc.C) {
-	testServer := gitjujutesting.MgoServer.Addr()
+	testServer := jujutesting.MgoServer.Addr()
 	serverAlive := testServer != ""
 
 	// Close any api connections we know about first.
@@ -873,13 +885,13 @@ func (s *JujuConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, 
 func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetterWriter {
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
-	paths := agent.DefaultPaths
-	paths.DataDir = s.DataDir()
+	defaultPaths := agent.DefaultPaths
+	defaultPaths.DataDir = s.DataDir()
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	config, err := agent.NewAgentConfig(
+	agentConfig, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			Paths:             paths,
+			Paths:             defaultPaths,
 			Tag:               tag,
 			UpgradedToVersion: jujuversion.Current,
 			Password:          password,
@@ -890,7 +902,7 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 			Model:             model.ModelTag(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	return config
+	return agentConfig
 }
 
 // AssertConfigParameterUpdated updates environment parameter and

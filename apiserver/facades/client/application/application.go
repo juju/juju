@@ -1106,7 +1106,7 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 	return nil
 }
 
-// UpdateApplicationSeries updates the application series. Release for
+// UpdateApplicationSeries updates the application series. Series for
 // subordinates updated too.
 func (api *APIBase) UpdateApplicationSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {

@@ -2388,7 +2388,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "UpdateApplicationSeries updates the application series. Release for\nsubordinates updated too."
+                    "description": "UpdateApplicationSeries updates the application series. Series for\nsubordinates updated too."
                 }
             },
             "definitions": {
