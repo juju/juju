@@ -5,11 +5,58 @@ package cloud
 
 // Generated code - do not edit.
 
-const fallbackPublicCloudInfo = `# DO NOT EDIT, will be overwritten, use "juju update-clouds" to refresh.
+const fallbackPublicCloudInfo = `# DO NOT EDIT, will be overwritten, use "juju update-public-clouds" to refresh.
 clouds:
   aws:
     type: ec2
     description: Amazon Web Services
+    auth-types: [ access-key ]
+    regions:
+      us-east-1:
+        endpoint: https://ec2.us-east-1.amazonaws.com
+      us-east-2:
+        endpoint: https://ec2.us-east-2.amazonaws.com
+      us-west-1:
+        endpoint: https://ec2.us-west-1.amazonaws.com
+      us-west-2:
+        endpoint: https://ec2.us-west-2.amazonaws.com
+      ca-central-1:
+        endpoint: https://ec2.ca-central-1.amazonaws.com
+      eu-west-1:
+        endpoint: https://ec2.eu-west-1.amazonaws.com
+      eu-west-2:
+        endpoint: https://ec2.eu-west-2.amazonaws.com
+      eu-west-3:
+        endpoint: https://ec2.eu-west-3.amazonaws.com
+      eu-central-1:
+        endpoint: https://ec2.eu-central-1.amazonaws.com
+      eu-north-1:
+        endpoint: https://ec2.eu-north-1.amazonaws.com
+      eu-south-1:
+        endpoint: https://ec2.eu-south-1.amazonaws.com
+      af-south-1:
+        endpoint: https://ec2.af-south-1.amazonaws.com
+      ap-east-1:
+        endpoint: https://ec2.ap-east-1.amazonaws.com
+      ap-south-1:
+        endpoint: https://ec2.ap-south-1.amazonaws.com
+      ap-southeast-1:
+        endpoint: https://ec2.ap-southeast-1.amazonaws.com
+      ap-southeast-2:
+        endpoint: https://ec2.ap-southeast-2.amazonaws.com
+      ap-northeast-1:
+        endpoint: https://ec2.ap-northeast-1.amazonaws.com
+      ap-northeast-2:
+        endpoint: https://ec2.ap-northeast-2.amazonaws.com
+      ap-northeast-3:
+        endpoint: https://ec2.ap-northeast-3.amazonaws.com
+      me-south-1:
+        endpoint: https://ec2.me-south-1.amazonaws.com
+      sa-east-1:
+        endpoint: https://ec2.sa-east-1.amazonaws.com
+  ecs:
+    type: ecs
+    description: Amazon Elastic Container Service
     auth-types: [ access-key ]
     regions:
       us-east-1:
@@ -376,74 +423,74 @@ clouds:
     description: Equinix Metal
     auth-types: [access-key]
     regions:
-      sin2:
-        endpoint: https://https://api.packet.net/
-      am6:
-        endpoint: https://https://api.packet.net/
-      DA3:
-        endpoint: https://https://api.packet.net/
-      pit1:
-        endpoint: https://https://api.packet.net/
-      iad2:
-        endpoint: https://https://api.packet.net/
-      sin3:
-        endpoint: https://https://api.packet.net/
-      sjc1:
-        endpoint: https://https://api.packet.net/
-      sv15:
-        endpoint: https://https://api.packet.net/
-      den42:
-        endpoint: https://https://api.packet.net/
-      dtw1:
-        endpoint: https://https://api.packet.net/
-      gsp1:
-        endpoint: https://https://api.packet.net/
-      dc13:
-        endpoint: https://https://api.packet.net/
-      fra2:
-        endpoint: https://https://api.packet.net/
-      sin1:
-        endpoint: https://https://api.packet.net/
-      lax2:
-        endpoint: https://https://api.packet.net/
-      ny5:
-        endpoint: https://https://api.packet.net/
-      syd2:
-        endpoint: https://https://api.packet.net/
-      hkg1:
-        endpoint: https://https://api.packet.net/
-      sea2:
-        endpoint: https://https://api.packet.net/
-      mci1:
-        endpoint: https://https://api.packet.net/
-      bos2:
-        endpoint: https://https://api.packet.net/
-      dfw1:
-        endpoint: https://https://api.packet.net/
-      iad1:
-        endpoint: https://https://api.packet.net/
       ams1:
-        endpoint: https://https://api.packet.net/
+        endpoint: https://api.packet.net/
+      sin2:
+        endpoint: https://api.packet.net/
+      am6:
+        endpoint: https://api.packet.net/
+      DA3:
+        endpoint: https://api.packet.net/
+      pit1:
+        endpoint: https://api.packet.net/
+      iad2:
+        endpoint: https://api.packet.net/
+      sin3:
+        endpoint: https://api.packet.net/
+      sjc1:
+        endpoint: https://api.packet.net/
+      sv15:
+        endpoint: https://api.packet.net/
+      den42:
+        endpoint: https://api.packet.net/
+      dtw1:
+        endpoint: https://api.packet.net/
+      gsp1:
+        endpoint: https://api.packet.net/
+      dc13:
+        endpoint: https://api.packet.net/
+      fra2:
+        endpoint: https://api.packet.net/
+      sin1:
+        endpoint: https://api.packet.net/
+      lax2:
+        endpoint: https://api.packet.net/
+      ny5:
+        endpoint: https://api.packet.net/
+      syd2:
+        endpoint: https://api.packet.net/
+      hkg1:
+        endpoint: https://api.packet.net/
+      sea2:
+        endpoint: https://api.packet.net/
+      mci1:
+        endpoint: https://api.packet.net/
+      bos2:
+        endpoint: https://api.packet.net/
+      dfw1:
+        endpoint: https://api.packet.net/
+      iad1:
+        endpoint: https://api.packet.net/
       nrt1:
-        endpoint: https://https://api.packet.net/
+        endpoint: https://api.packet.net/
       yyz1:
-        endpoint: https://https://api.packet.net/
+        endpoint: https://api.packet.net/
       atl2:
-        endpoint: https://https://api.packet.net/
+        endpoint: https://api.packet.net/
       sea1:
-        endpoint: https://https://api.packet.net/
+        endpoint: https://api.packet.net/
       lax1:
-        endpoint: https://https://api.packet.net/
+        endpoint: https://api.packet.net/
       mrs1:
-        endpoint: https://https://api.packet.net/
+        endpoint: https://api.packet.net/
       dfw2:
-        endpoint: https://https://api.packet.net/
+        endpoint: https://api.packet.net/
       iah1:
-        endpoint: https://https://api.packet.net/
+        endpoint: https://api.packet.net/
       phx1:
-        endpoint: https://https://api.packet.net/
+        endpoint: https://api.packet.net/
       ord4:
-        endpoint: https://https://api.packet.net/
+        endpoint: https://api.packet.net/
       ewr1:
-        endpoint: https://https://api.packet.net/
+        endpoint: https://api.packet.net/
 `
