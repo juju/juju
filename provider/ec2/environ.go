@@ -1363,7 +1363,6 @@ func mapNetworkInterface(iface amzec2.NetworkInterface, subnet amzec2.Subnet) co
 	ni := corenetwork.InterfaceInfo{
 		DeviceIndex:       iface.Attachment.DeviceIndex,
 		MACAddress:        iface.MACAddress,
-		CIDR:              subnet.CIDRBlock,
 		ProviderId:        corenetwork.Id(iface.Id),
 		ProviderSubnetId:  corenetwork.Id(iface.SubnetId),
 		AvailabilityZones: []string{subnet.AvailZone},
@@ -1377,9 +1376,11 @@ func mapNetworkInterface(iface amzec2.NetworkInterface, subnet amzec2.Subnet) co
 		// "PrivateIPAddress" field. The code below arranges so that
 		// the primary IP is always added first with any additional
 		// private IPs appended after it.
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress(iface.PrivateIPAddress, corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
-		},
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+			iface.PrivateIPAddress,
+			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
+			corenetwork.WithCIDR(subnet.CIDRBlock),
+		)},
 		Origin: corenetwork.OriginProvider,
 	}
 
@@ -1396,10 +1397,13 @@ func mapNetworkInterface(iface amzec2.NetworkInterface, subnet amzec2.Subnet) co
 			continue // primary address has already been added.
 		}
 
-		ni.Addresses = append(
-			ni.Addresses,
-			corenetwork.NewProviderAddress(iface.PrivateIPAddress, corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
-		)
+		// An EC2 interface is connected to a single subnet,
+		// so we assume other addresses are in the same subnet.
+		ni.Addresses = append(ni.Addresses, corenetwork.NewProviderAddress(
+			iface.PrivateIPAddress,
+			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
+			corenetwork.WithCIDR(subnet.CIDRBlock),
+		))
 	}
 
 	return ni
@@ -1462,7 +1466,7 @@ func (e *environ) Subnets(
 			}
 			subIdSet[string(iface.ProviderSubnetId)] = true
 			info, err := makeSubnetInfo(
-				iface.CIDR, iface.ProviderSubnetId, iface.ProviderNetworkId, iface.AvailabilityZones)
+				iface.PrimaryAddress().CIDR, iface.ProviderSubnetId, iface.ProviderNetworkId, iface.AvailabilityZones)
 			if err != nil {
 				// Error will already have been logged.
 				continue
