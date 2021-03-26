@@ -332,9 +332,14 @@ func GetExportedFields(arg interface{}) set.Strings {
 // CurrentVersion returns the current Juju version, asserting on error.
 func CurrentVersion(c *gc.C) version.Binary {
 	return version.Binary{
-		Number:  jujuversion.Current,
-		Arch:    arch.HostArch(),
-		Release: coreos.HostOSTypeName(),
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		// All tests that upload fake agent tool binaries assume that
+		// we are always running on ubuntu. Unfortunately, this
+		// assumption breaks tests when running the suites on non-ubuntu
+		// platform (e.g. centos). Instead of trying to auto-detect the
+		// current OS, we force the release to "ubuntu".
+		Release: strings.ToLower(coreos.Ubuntu.String()),
 	}
 }
 
