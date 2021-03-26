@@ -244,7 +244,8 @@ func (n *networkingSuite) TestNetworkInterfaces(c *gc.C) {
 
 	c.Assert(info, gc.HasLen, 1)
 	c.Assert(info[0].Addresses, gc.DeepEquals, corenetwork.ProviderAddresses{
-		corenetwork.NewProviderAddress("1.1.1.1", corenetwork.WithScope(corenetwork.ScopeCloudLocal))})
+		corenetwork.NewProviderAddress(
+			"1.1.1.1", corenetwork.WithScope(corenetwork.ScopeCloudLocal), corenetwork.WithCIDR("1.0.0.0/8"))})
 	c.Assert(info[0].ShadowAddresses, gc.DeepEquals, corenetwork.ProviderAddresses{
 		corenetwork.NewProviderAddress("2.2.2.2", corenetwork.WithScope(corenetwork.ScopePublic))})
 	c.Assert(info[0].DeviceIndex, gc.Equals, 0)
@@ -252,7 +253,6 @@ func (n *networkingSuite) TestNetworkInterfaces(c *gc.C) {
 	c.Assert(info[0].MACAddress, gc.Equals, "aa:aa:aa:aa:aa:aa")
 	c.Assert(info[0].InterfaceType, gc.Equals, corenetwork.EthernetInterface)
 	c.Assert(info[0].ProviderSubnetId, gc.Equals, corenetwork.Id("fakeSubnetId"))
-	c.Assert(info[0].CIDR, gc.Equals, "1.0.0.0/8")
 }
 
 func (n *networkingSuite) TestSubnets(c *gc.C) {
