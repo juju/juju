@@ -169,10 +169,10 @@ func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
 		return network.Id(fmt.Sprintf("%d", u))
 	}
 	expected := network.ProviderAddresses{
-		newAddressOnSpaceWithId("bar", idFromUint(barSpace.ID), "8.7.6.5"),
-		newAddressOnSpaceWithId("bar", idFromUint(barSpace.ID), "8.7.6.6"),
-		newAddressOnSpaceWithId("storage", idFromUint(storageSpace.ID), "10.0.1.1"),
-		newAddressOnSpaceWithId("db", idFromUint(dbSpace.ID), "fc00::123"),
+		newAddressOnSpaceWithId("bar", idFromUint(barSpace.ID), "8.7.6.5", network.WithCIDR("8.7.6.0/24")),
+		newAddressOnSpaceWithId("bar", idFromUint(barSpace.ID), "8.7.6.6", network.WithCIDR("8.7.6.0/24")),
+		newAddressOnSpaceWithId("storage", idFromUint(storageSpace.ID), "10.0.1.1", network.WithCIDR("10.0.1.1/24")),
+		newAddressOnSpaceWithId("db", idFromUint(dbSpace.ID), "fc00::123", network.WithCIDR("fc00::/64")),
 	}
 
 	addr, err := inst.Addresses(s.callCtx)

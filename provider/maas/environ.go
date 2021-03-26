@@ -2150,7 +2150,12 @@ func (env *maasEnviron) AllocateContainerAddresses(ctx context.ProviderCallConte
 	return env.allocateContainerAddresses2(ctx, hostInstanceID, containerTag, preparedInfo)
 }
 
-func (env *maasEnviron) allocateContainerAddresses1(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
+func (env *maasEnviron) allocateContainerAddresses1(
+	_ context.ProviderCallContext,
+	hostInstanceID instance.Id,
+	containerTag names.MachineTag,
+	preparedInfo corenetwork.InterfaceInfos,
+) (corenetwork.InterfaceInfos, error) {
 	subnetCIDRToVLANID := make(map[string]string)
 	subnetsAPI := env.getMAASClient().GetSubObject("subnets")
 	result, err := subnetsAPI.CallGet("", nil)
@@ -2203,7 +2208,7 @@ func (env *maasEnviron) allocateContainerAddresses1(ctx context.ProviderCallCont
 
 	primaryNICName := interfaces[0].Name
 	primaryNICID := strconv.Itoa(interfaces[0].ID)
-	primaryNICSubnetCIDR := primaryNICInfo.CIDR
+	primaryNICSubnetCIDR := primaryNICInfo.PrimaryAddress().CIDR
 	primaryNICVLANID, hasSubnet := subnetCIDRToVLANID[primaryNICSubnetCIDR]
 	if hasSubnet {
 		updatedPrimaryNIC, err := env.updateDeviceInterface(deviceID, primaryNICID, primaryNICName, primaryMACAddress, primaryNICVLANID)
@@ -2216,15 +2221,17 @@ func (env *maasEnviron) allocateContainerAddresses1(ctx context.ProviderCallCont
 	deviceNICIDs := make([]string, len(preparedInfo))
 	nameToParentName := make(map[string]string)
 	for i, nic := range preparedInfo {
-		maasNICID := ""
+		var maasNICID string
+		cidr := nic.PrimaryAddress().CIDR
+
 		nameToParentName[nic.InterfaceName] = nic.ParentInterfaceName
-		nicVLANID, knownSubnet := subnetCIDRToVLANID[nic.CIDR]
+		nicVLANID, knownSubnet := subnetCIDRToVLANID[cidr]
 		if nic.InterfaceName != primaryNICName {
 			if !knownSubnet {
 				logger.Warningf("NIC %v has no subnet - setting to manual and using untagged VLAN", nic.InterfaceName)
 				nicVLANID = primaryNICVLANID
 			} else {
-				logger.Infof("linking NIC %v to subnet %v - using static IP", nic.InterfaceName, nic.CIDR)
+				logger.Infof("linking NIC %v to subnet %v - using static IP", nic.InterfaceName, cidr)
 			}
 
 			createdNIC, err := env.createDeviceInterface(deviceID, nic.InterfaceName, nic.MACAddress, nicVLANID)
@@ -2245,7 +2252,7 @@ func (env *maasEnviron) allocateContainerAddresses1(ctx context.ProviderCallCont
 
 		linkedInterface, err := env.linkDeviceInterfaceToSubnet(deviceID, maasNICID, subnetID, modeStatic)
 		if err != nil {
-			logger.Warningf("linking NIC %v to subnet %v failed: %v", nic.InterfaceName, nic.CIDR, err)
+			logger.Warningf("linking NIC %v to subnet %v failed: %v", nic.InterfaceName, cidr, err)
 		} else {
 			logger.Debugf("linked device interface to subnet: %+v", linkedInterface)
 		}
@@ -2260,7 +2267,12 @@ func (env *maasEnviron) allocateContainerAddresses1(ctx context.ProviderCallCont
 	return finalInterfaces, nil
 }
 
-func (env *maasEnviron) allocateContainerAddresses2(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
+func (env *maasEnviron) allocateContainerAddresses2(
+	_ context.ProviderCallContext,
+	hostInstanceID instance.Id,
+	containerTag names.MachineTag,
+	preparedInfo corenetwork.InterfaceInfos,
+) (corenetwork.InterfaceInfos, error) {
 	args := gomaasapi.MachinesArgs{
 		AgentName: env.uuid,
 		SystemIDs: []string{string(hostInstanceID)},
@@ -2389,7 +2401,7 @@ func (env *maasEnviron) releaseContainerAddresses2(ctx context.ProviderCallConte
 
 // AdoptResources updates all the instances to indicate they
 // are now associated with the specified controller.
-func (env *maasEnviron) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (env *maasEnviron) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, _ version.Number) error {
 	if !env.usingMAAS2() {
 		// We don't track instance -> controller for MAAS1.
 		return nil
