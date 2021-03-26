@@ -50,11 +50,11 @@ func (*imageSuite) TestImageForBase(c *gc.C) {
 		Track: "20.04", Risk: channel.Stable,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.DeepEquals, `jujusolutions/ubuntu:20.04`)
+	c.Assert(path, gc.DeepEquals, `jujusolutions/charm-base:ubuntu-20.04`)
 
 	path, err = podcfg.ImageForBase("", systems.Base{Name: "ubuntu", Channel: channel.Channel{
 		Track: "20.04", Risk: channel.Edge,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.DeepEquals, `jujusolutions/ubuntu:20.04-edge`)
+	c.Assert(path, gc.DeepEquals, `jujusolutions/charm-base:ubuntu-20.04-edge`)
 }
