@@ -8,7 +8,7 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
-	"github.com/juju/gomaasapi"
+	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 

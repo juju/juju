@@ -1,20 +1,22 @@
 // Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package snap_test
+package snap
 
 import (
+	"errors"
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/snap"
 )
 
 type validationSuite struct {
@@ -24,19 +26,19 @@ type validationSuite struct {
 var _ = gc.Suite(&validationSuite{})
 
 func (*validationSuite) TestBackgroundServiceNeedsNonZeroName(c *gc.C) {
-	empty := snap.BackgroundService{}
+	empty := BackgroundService{}
 	fail := empty.Validate()
-	c.Check(fail, gc.ErrorMatches, "backgroundService.Name must be non-empty.*")
+	c.Check(fail, gc.ErrorMatches, "background service name not valid")
 }
 
 func (*validationSuite) TestBackgroundServiceNeedsLegalName(c *gc.C) {
-	illegal := snap.BackgroundService{Name: "23-==+++"}
+	illegal := BackgroundService{Name: "23-==+++"}
 	fail := illegal.Validate()
-	c.Check(fail, gc.ErrorMatches, ".* fails validation check - not valid")
+	c.Check(fail, gc.ErrorMatches, `background service name "23-==\+\+\+" not valid`)
 }
 
 func (*validationSuite) TestValidateJujuDbDaemon(c *gc.C) {
-	service := snap.BackgroundService{
+	service := BackgroundService{
 		Name:            "daemon",
 		EnableAtStartup: true,
 	}
@@ -47,33 +49,17 @@ func (*validationSuite) TestValidateJujuDbDaemon(c *gc.C) {
 
 func (*validationSuite) TestValidateJujuDbSnap(c *gc.C) {
 	// manually
-	jujudb := snap.App{
-		Name:               "juju-db",
-		Channel:            "edge",
-		ConfinementPolicy:  "jailmode",
-		BackgroundServices: []snap.BackgroundService{{Name: "daemon"}},
-		Prerequisites:      []snap.App{{Name: "core", Channel: "stable", ConfinementPolicy: "jailmode"}},
-	}
+	services := []BackgroundService{{Name: "daemon"}}
+	deps := []Installable{NewApp("core", "stable", "jailmode", nil, nil)}
+	jujudb := NewApp("juju-db", "edge", "jailmode", services, deps)
 	err := jujudb.Validate()
 	c.Check(err, jc.ErrorIsNil)
 
 	// via NewService
-	jujudbService, err := snap.NewService("juju-db", "", common.Conf{Desc: "juju-db snap"}, snap.Command, "/ath/to/config", "edge", "jailmode",
-		[]snap.BackgroundService{}, []snap.App{})
+	jujudbService, err := NewService("juju-db", "", common.Conf{Desc: "juju-db snap"}, Command, "edge", "jailmode", []BackgroundService{}, []Installable{})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(jujudbService.Validate(), jc.ErrorIsNil)
 
-}
-
-func (*validationSuite) TestNewApp(c *gc.C) {
-	app := snap.NewApp("core")
-	c.Check(app, jc.DeepEquals, snap.App{
-		Name:               "core",
-		ConfinementPolicy:  snap.DefaultConfinementPolicy,
-		Channel:            snap.DefaultChannel,
-		BackgroundServices: []snap.BackgroundService{},
-		Prerequisites:      []snap.App{},
-	})
 }
 
 type snapSuite struct {
@@ -83,12 +69,12 @@ type snapSuite struct {
 var _ = gc.Suite(&snapSuite{})
 
 func (*snapSuite) TestSnapCommandIsAValidCommand(c *gc.C) {
-	_, err := exec.LookPath(snap.Command)
+	_, err := exec.LookPath(Command)
 	c.Check(err, gc.NotNil)
 }
 
 func (*snapSuite) TestSnapListCommandreValidShellCommand(c *gc.C) {
-	listCommand := snap.ListCommand()
+	listCommand := ListCommand()
 	listCommandParts := strings.Fields(listCommand)
 
 	// check that we refer to valid commands
@@ -105,18 +91,25 @@ func (*snapSuite) TestSnapListCommandreValidShellCommand(c *gc.C) {
 }
 
 func (*snapSuite) TestConfigOverride(c *gc.C) {
-	conf := common.Conf{Limit: map[string]string{"nofile": "64000"}}
-	svc, err := snap.NewService(
-		"juju-db", "", conf, snap.Command, "/path/to/config", "latest", "strict",
-		[]snap.BackgroundService{{
-			Name: "daemon",
-		}}, nil)
+	conf := common.Conf{
+		Limit: map[string]string{
+			"nofile": "64000",
+		},
+	}
+	svc, err := NewService("juju-db", "", conf, Command, "latest", "strict", []BackgroundService{{
+		Name: "daemon",
+	}}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	dir := c.MkDir()
-	snap.SetServiceConfigDir(&svc, dir)
+
+	s := &svc
+	s.configDir = dir
+	svc = *s
+
 	err = svc.ConfigOverride()
 	c.Assert(err, jc.ErrorIsNil)
+
 	data, err := ioutil.ReadFile(filepath.Join(dir, "snap.juju-db.daemon.service.d/overrides.conf"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, `
@@ -124,4 +117,121 @@ func (*snapSuite) TestConfigOverride(c *gc.C) {
 LimitNOFILE=64000
 
 `[1:])
+}
+
+type serviceSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&serviceSuite{})
+
+func (*serviceSuite) TestInstallCommands(c *gc.C) {
+	conf := common.Conf{}
+	prerequisites := []Installable{NewNamedApp("core")}
+	backgroundServices := []BackgroundService{
+		{
+			Name:            "daemon",
+			EnableAtStartup: true,
+		},
+	}
+	service, err := NewService("juju-db", "juju-db", conf, Command, "4.0/stable", "", backgroundServices, prerequisites)
+	c.Assert(err, jc.ErrorIsNil)
+
+	commands, err := service.InstallCommands()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(commands, gc.DeepEquals, []string{
+		"snap install core",
+		"snap install --channel=4.0/stable juju-db",
+	})
+}
+
+func (*serviceSuite) TestInstallCommandsWithConfinementPolicy(c *gc.C) {
+	conf := common.Conf{}
+	prerequisites := []Installable{NewNamedApp("core")}
+	backgroundServices := []BackgroundService{
+		{
+			Name:            "daemon",
+			EnableAtStartup: true,
+		},
+	}
+	service, err := NewService("juju-db", "juju-db", conf, Command, "4.0/stable", "classic", backgroundServices, prerequisites)
+	c.Assert(err, jc.ErrorIsNil)
+
+	commands, err := service.InstallCommands()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(commands, gc.DeepEquals, []string{
+		"snap install core",
+		"snap install --channel=4.0/stable --classic juju-db",
+	})
+}
+
+func (*serviceSuite) TestInstall(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	clock := NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(time.Now()).AnyTimes()
+
+	runnable := NewMockRunnable(ctrl)
+	runnable.EXPECT().Execute("snap", []string{"install", "core"}).Return("", nil)
+	runnable.EXPECT().Execute("snap", []string{"install", "--channel=4.0/stable", "juju-db"}).Return("", nil)
+
+	conf := common.Conf{}
+	prerequisites := []Installable{NewNamedApp("core")}
+	backgroundServices := []BackgroundService{
+		{
+			Name:            "daemon",
+			EnableAtStartup: true,
+		},
+	}
+	service, err := NewService("juju-db", "juju-db", conf, Command, "4.0/stable", "", backgroundServices, prerequisites)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s := &service
+	s.runnable = runnable
+	s.clock = clock
+	service = *s
+
+	err = service.Install()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (*serviceSuite) TestInstallWithRetry(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	clock := NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(time.Now()).AnyTimes()
+	clock.EXPECT().After(time.Second * 5).DoAndReturn(func(s time.Duration) <-chan time.Time {
+		// Send the channel once we've been called, not before.
+		ch := make(chan time.Time)
+		go func() {
+			ch <- time.Now().Add(time.Second * 5)
+		}()
+		return ch
+	})
+
+	runnable := NewMockRunnable(ctrl)
+	runnable.EXPECT().Execute("snap", []string{"install", "core"}).Return("", errors.New("bad"))
+	runnable.EXPECT().Execute("snap", []string{"install", "core"}).Return("", nil)
+	runnable.EXPECT().Execute("snap", []string{"install", "--channel=4.0/stable", "juju-db"}).Return("", nil)
+
+	conf := common.Conf{}
+	prerequisites := []Installable{NewNamedApp("core")}
+	backgroundServices := []BackgroundService{
+		{
+			Name:            "daemon",
+			EnableAtStartup: true,
+		},
+	}
+	service, err := NewService("juju-db", "juju-db", conf, Command, "4.0/stable", "", backgroundServices, prerequisites)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s := &service
+	s.runnable = runnable
+	s.clock = clock
+	service = *s
+
+	err = service.Install()
+	c.Assert(err, jc.ErrorIsNil)
 }

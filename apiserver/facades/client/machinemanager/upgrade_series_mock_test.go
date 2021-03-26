@@ -97,6 +97,20 @@ func (m *MockUpgradeSeries) EXPECT() *MockUpgradeSeriesMockRecorder {
 	return m.recorder
 }
 
+// Complete mocks base method
+func (m *MockUpgradeSeries) Complete(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Complete", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Complete indicates an expected call of Complete
+func (mr *MockUpgradeSeriesMockRecorder) Complete(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Complete", reflect.TypeOf((*MockUpgradeSeries)(nil).Complete), arg0)
+}
+
 // Prepare mocks base method
 func (m *MockUpgradeSeries) Prepare(arg0, arg1 string, arg2 bool) error {
 	m.ctrl.T.Helper()
@@ -242,4 +256,18 @@ func (m *MockUpgradeSeriesValidator) ValidateSeries(arg0, arg1, arg2 string) err
 func (mr *MockUpgradeSeriesValidatorMockRecorder) ValidateSeries(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateSeries", reflect.TypeOf((*MockUpgradeSeriesValidator)(nil).ValidateSeries), arg0, arg1, arg2)
+}
+
+// ValidateUnits mocks base method
+func (m *MockUpgradeSeriesValidator) ValidateUnits(arg0 []Unit) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateUnits", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ValidateUnits indicates an expected call of ValidateUnits
+func (mr *MockUpgradeSeriesValidatorMockRecorder) ValidateUnits(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateUnits", reflect.TypeOf((*MockUpgradeSeriesValidator)(nil).ValidateUnits), arg0)
 }

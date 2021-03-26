@@ -5,6 +5,8 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	agent "github.com/juju/juju/agent"
 	api "github.com/juju/juju/api"
@@ -14,7 +16,6 @@ import (
 	names "github.com/juju/names/v4"
 	shell "github.com/juju/utils/v2/shell"
 	version "github.com/juju/version/v2"
-	reflect "reflect"
 )
 
 // MockAgent is a mock of Agent interface

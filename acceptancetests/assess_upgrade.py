@@ -72,7 +72,7 @@ def assess_upgrade_from_stable_to_develop(args, stable_bsm, devel_client):
             stable_client, base_dir, 'released')
         setup_agent_metadata(
             stream_server, args.devel_juju_agent,
-            devel_client, base_dir, 'released')
+            devel_client, base_dir, 'devel')
         with stream_server.server() as url:
             stable_client.env.update_config({
                 'agent-metadata-url': url,
@@ -177,12 +177,19 @@ def setup_agent_metadata(
         version_parts.version,
         version_parts.arch,
         agent_details)
-    # Trusty needed for wikimedia charm.
-    stream_server.add_product(
-        stream,
-        version_parts.version,
-        version_parts.arch,
-        agent_details)
+
+    try:
+        major, minor, patch = version_parts.version.split('.')
+    except ValueError:
+        major, minor_patch = version_parts.version.split('.')
+        minor, patch = minor_patch.split('-')
+    if int(major) == 2 and int(minor) <= 9:
+        stream_server.add_product(
+            stream,
+            version_parts.version,
+            version_parts.arch,
+            agent_details,
+            client.env.get_option('default-series'))
 
 
 def get_version_parts(version_string):

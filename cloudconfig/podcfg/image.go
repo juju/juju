@@ -99,10 +99,10 @@ func ImageForBase(imageRepo string, base systems.Base) (string, error) {
 	if len(base.Channel.Track) == 0 || len(base.Channel.Risk) == 0 {
 		return "", errors.NotValidf("channel %q", base.Channel)
 	}
-	tag := base.Channel.Track
+	tag := fmt.Sprintf("%s-%s", base.Name, base.Channel.Track)
 	if base.Channel.Risk != channel.Stable {
 		tag = fmt.Sprintf("%s-%s", tag, base.Channel.Risk)
 	}
-	image := fmt.Sprintf("%s/%s:%s", imageRepo, base.Name, tag)
+	image := fmt.Sprintf("%s/charm-base:%s", imageRepo, tag)
 	return image, nil
 }

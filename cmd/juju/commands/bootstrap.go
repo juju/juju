@@ -771,7 +771,7 @@ to create a new model to deploy %sworkloads.
 	defer close(interrupted)
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
-	stdCtx, cancel := context.WithCancel(context.Background())
+	stdCtx, cancel := context.WithTimeout(context.Background(), bootstrapCfg.bootstrap.BootstrapTimeout)
 	go func() {
 		for range interrupted {
 			select {

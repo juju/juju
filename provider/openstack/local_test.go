@@ -513,7 +513,7 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.ensureAMDImages(c)
 	err := bootstrapEnv(c, env)
 	c.Assert(err, jc.ErrorIsNil)
-	_, hc := testing.AssertStartInstanceWithConstraints(c, env, s.callCtx, s.ControllerUUID, "100", constraints.MustParse("mem=1024"))
+	_, hc := testing.AssertStartInstanceWithConstraints(c, env, s.callCtx, s.ControllerUUID, "100", constraints.MustParse("mem=1024 arch=amd64"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(2048))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
@@ -2988,10 +2988,10 @@ func (s *localServerSuite) ensureAMDImages(c *gc.C) environs.Environ {
 		Number: jujuversion.Current,
 		Arch:   arch.AMD64,
 	}
-	workloadSeries, err := series.WorkloadSeries(time.Now(), "", "")
+	workloadOSList, err := series.AllWorkloadOSTypes("", "")
 	c.Assert(err, jc.ErrorIsNil)
-	for _, supSeries := range workloadSeries.Values() {
-		amd64Version.Release = supSeries
+	for _, workloadOS := range workloadOSList.Values() {
+		amd64Version.Release = workloadOS
 		envtesting.AssertUploadFakeToolsVersions(
 			c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), amd64Version)
 	}

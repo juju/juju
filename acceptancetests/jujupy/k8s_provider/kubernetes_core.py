@@ -20,15 +20,11 @@
 from __future__ import print_function
 
 import logging
-import tempfile
 import subprocess
+import tempfile
 
-from .base import (
-    Base,
-    K8sProviderType,
-)
+from .base import Base, K8sProviderType
 from .factory import register_provider
-
 
 logger = logging.getLogger(__name__)
 
@@ -182,8 +178,8 @@ class KubernetesCore(Base):
 
     name = K8sProviderType.K8S_CORE
 
-    def __init__(self, bs_manager, cluster_name=None, timeout=1800):
-        super().__init__(bs_manager, cluster_name, timeout)
+    def __init__(self, bs_manager, cluster_name=None, enable_rbac=False, timeout=1800):
+        super().__init__(bs_manager, cluster_name, enable_rbac, timeout)
         self.default_storage_class_name = "juju-storageclass"
 
     def _ensure_kube_dir(self):

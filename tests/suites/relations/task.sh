@@ -1,21 +1,21 @@
 test_relations() {
-    if [ "$(skip 'test_relations')" ]; then
-        echo "==> TEST SKIPPED: relation tests"
-        return
-    fi
+	if [ "$(skip 'test_relations')" ]; then
+		echo "==> TEST SKIPPED: relation tests"
+		return
+	fi
 
-    set_verbosity
+	set_verbosity
 
-    echo "==> Checking for dependencies"
-    check_dependencies juju
+	echo "==> Checking for dependencies"
+	check_dependencies juju
 
-    file="${TEST_DIR}/test-relations.log"
+	file="${TEST_DIR}/test-relations.log"
 
-    bootstrap "test-relations" "${file}"
+	bootstrap "test-relations" "${file}"
 
-    test_relation_data_exchange
-    test_relation_departing_unit
-    test_relation_list_app
+	test_relation_data_exchange
+	test_relation_departing_unit
+	test_relation_list_app
 
-    destroy_controller "test-relations"
+	destroy_controller "test-relations"
 }

@@ -247,10 +247,11 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 
 	// We got it, now let's reserve a charm URL for it in state.
 	curl := &charm.URL{
-		Schema:   schema,
-		Name:     archive.Meta().Name,
-		Revision: archive.Revision(),
-		Series:   series,
+		Schema:       schema,
+		Architecture: query.Get("arch"),
+		Name:         archive.Meta().Name,
+		Revision:     archive.Revision(),
+		Series:       series,
 	}
 	switch charm.Schema(schema) {
 	case charm.Local:

@@ -453,7 +453,7 @@ func (s *StorageStateSuite) TestBlockStorageNotSupportedOnCAAS(c *gc.C) {
 	ch := state.AddTestingCharmForSeries(c, st, "kubernetes", "storage-block")
 	_, err := st.AddApplication(state.AddApplicationArgs{
 		Name: "storage-block", Series: "kubernetes", Charm: ch})
-	c.Assert(err, gc.ErrorMatches, `cannot add application "storage-block": block storage on a Kubernetes model not supported`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "storage-block": block storage on a container model not supported`)
 }
 
 func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C) {
@@ -737,7 +737,7 @@ func (s *StorageStateSuite) TestAllStorageInstancesEmpty(c *gc.C) {
 
 func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
 	if s.series == "kubernetes" {
-		c.Skip("volumes on kubernetes not supported")
+		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	s.provisionStorageVolume(c, u, storageTag)
@@ -767,7 +767,7 @@ func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
 
 func (s *StorageStateSuite) TestUnitStorageProvisionerError(c *gc.C) {
 	if s.series == "kubernetes" {
-		c.Skip("volumes on kubernetes not supported")
+		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	s.provisionStorageVolume(c, u, storageTag)
@@ -804,7 +804,7 @@ func (s *StorageStateSuite) TestUnitStorageProvisionerError(c *gc.C) {
 
 func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *gc.C) {
 	if s.series == "kubernetes" {
-		c.Skip("volumes on kubernetes not supported")
+		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 
@@ -827,7 +827,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *
 
 func (s *StorageStateSuite) TestRemoveStorageAttachmentsDisownsUnitOwnedInstance(c *gc.C) {
 	if s.series == "kubernetes" {
-		c.Skip("volumes on kubernetes not supported")
+		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "persistent-block")
 
@@ -1103,7 +1103,7 @@ func (s *StorageStateSuite) TestAddUnitAttachStorage(c *gc.C) {
 
 func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAttachmentsRemovesInstance(c *gc.C) {
 	if s.series == "kubernetes" {
-		c.Skip("volumes on kubernetes not supported")
+		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	err := u.Destroy()
@@ -1126,7 +1126,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAtt
 
 func (s *StorageStateSuite) TestConcurrentRemoveStorageAttachment(c *gc.C) {
 	if s.series == "kubernetes" {
-		c.Skip("volumes on kubernetes not supported")
+		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	s.provisionStorageVolume(c, u, storageTag)
@@ -1154,7 +1154,7 @@ func (s *StorageStateSuite) TestConcurrentRemoveStorageAttachment(c *gc.C) {
 
 func (s *StorageStateSuite) TestRemoveAliveStorageAttachmentError(c *gc.C) {
 	if s.series == "kubernetes" {
-		c.Skip("volumes on kubernetes not supported")
+		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 
@@ -1169,7 +1169,7 @@ func (s *StorageStateSuite) TestRemoveAliveStorageAttachmentError(c *gc.C) {
 
 func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachmentsRemovesInstance(c *gc.C) {
 	if s.series == "kubernetes" {
-		c.Skip("volumes on kubernetes not supported")
+		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	err := u.Destroy()
@@ -1194,7 +1194,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachment
 
 func (s *StorageStateSuite) TestConcurrentDestroyStorageInstance(c *gc.C) {
 	if s.series == "kubernetes" {
-		c.Skip("volumes on kubernetes not supported")
+		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	err := u.Destroy()
@@ -1221,7 +1221,7 @@ func (s *StorageStateSuite) TestDestroyStorageInstanceNotFound(c *gc.C) {
 
 func (s *StorageStateSuite) TestDestroyStorageInstanceAttachedError(c *gc.C) {
 	if s.series == "kubernetes" {
-		c.Skip("volumes on kubernetes not supported")
+		c.Skip("volumes on containers not supported")
 	}
 	_, _, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 
@@ -1256,7 +1256,7 @@ func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 
 func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
 	if s.series == "kubernetes" {
-		c.Skip("volumes on kubernetes not supported")
+		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	// Assign the unit to a machine, and provision the attachment. This

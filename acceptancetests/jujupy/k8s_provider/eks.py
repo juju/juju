@@ -43,8 +43,8 @@ class EKS(Base):
     location = None
     parameters = None
 
-    def __init__(self, bs_manager, cluster_name=None, timeout=1800):
-        super().__init__(bs_manager, cluster_name, timeout)
+    def __init__(self, bs_manager, cluster_name=None, enable_rbac=False, timeout=1800):
+        super().__init__(bs_manager, cluster_name, enable_rbac, timeout)
 
         self._eksctl_bin = os.path.join(self.juju_home, 'eksctl')
         self._ensure_eksctl_bin()

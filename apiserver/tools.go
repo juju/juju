@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
+	coreos "github.com/juju/juju/core/os"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
@@ -133,32 +135,81 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // getToolsForRequest retrieves the compressed agent binaries tarball from state
 // based on the input HTTP request.
 // It is returned with the size of the file as recorded in the stored metadata.
-func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.State) (io.ReadCloser, int64, error) {
-	version, err := version.ParseBinary(r.URL.Query().Get(":version"))
+func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.State) (_ io.ReadCloser, _ int64, err error) {
+	vers, err := version.ParseBinary(r.URL.Query().Get(":version"))
 	if err != nil {
 		return nil, 0, errors.Annotate(err, "error parsing version")
 	}
-	logger.Debugf("request for agent binaries: %s", version)
+	logger.Debugf("request for agent binaries: %s", vers)
 
 	storage, err := st.ToolsStorage()
 	if err != nil {
 		return nil, 0, errors.Annotate(err, "error getting storage for agent binaries")
 	}
+	defer func() {
+		if err != nil {
+			_ = storage.Close()
+		}
+	}()
 
-	md, reader, err := storage.Open(version.String())
+	// TODO(juju4) = remove this compatibility logic
+	// Looked for stored tools which are recorded for a series
+	// but which have the same os type as the wanted version.
+	storageVers := vers
+	var osTypeName string
+	if vers.Number.Major == 2 && vers.Number.Minor <= 8 {
+		all, err := storage.AllMetadata()
+		if err != nil {
+			return nil, 0, errors.Trace(err)
+		}
+		var osMatchVersion *version.Binary
+		for _, m := range all {
+			// Exact match so just use that with os type name substitution.
+			if m.Version == vers.String() {
+				break
+			}
+			if osMatchVersion != nil {
+				continue
+			}
+			metaVers, err := version.ParseBinary(m.Version)
+			if err != nil {
+				return nil, 0, errors.Annotate(err, "error parsing metadata version")
+			}
+			osType, _ := coreseries.GetOSFromSeries(metaVers.Release)
+			if osType == coreos.Unknown {
+				continue
+			}
+			toCompare := metaVers
+			toCompare.Release = strings.ToLower(osType.String())
+			if toCompare.String() == vers.String() {
+				logger.Debugf("using os based version %s for requested %s", toCompare, vers)
+				osMatchVersion = &metaVers
+				osTypeName = toCompare.Release
+			}
+		}
+		// Set the version to store to be the match we found
+		// for any compatible series.
+		if osMatchVersion != nil {
+			storageVers = *osMatchVersion
+		}
+	}
+
+	md, reader, err := storage.Open(storageVers.String())
 	if errors.IsNotFound(err) {
 		// Tools could not be found in tools storage,
 		// so look for them in simplestreams,
 		// fetch them and cache in tools storage.
-		logger.Infof("%v agent binaries not found locally, fetching", version)
-		md, reader, err = h.fetchAndCacheTools(version, storage, st)
+		logger.Infof("%v agent binaries not found locally, fetching", vers)
+		if osTypeName != "" {
+			storageVers.Release = osTypeName
+		}
+		md, reader, err = h.fetchAndCacheTools(vers, storageVers, storage, st)
 		if err != nil {
 			err = errors.Annotate(err, "error fetching agent binaries")
 		}
 	}
 	if err != nil {
-		storage.Close()
-		return nil, 0, err
+		return nil, 0, errors.Trace(err)
 	}
 
 	return &toolsReadCloser{f: reader, st: storage}, md.Size, nil
@@ -169,6 +220,7 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 // to the caller.
 func (h *toolsDownloadHandler) fetchAndCacheTools(
 	v version.Binary,
+	storageVers version.Binary,
 	stor binarystorage.Storage,
 	st *state.State,
 ) (binarystorage.Metadata, io.ReadCloser, error) {
@@ -217,6 +269,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 	}
 	md.SHA256 = exactTools.SHA256
 
+	md.Version = storageVers.String()
 	if err := stor.Add(bytes.NewReader(data), md); err != nil {
 		return md, nil, errors.Annotate(err, "error caching agent binaries")
 	}
@@ -257,7 +310,7 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 	}
 
 	logger.Debugf("request to upload agent binaries: %s", toolsVersion)
-	// TODO(juju3) - drop this compatibility with series params
+	// TODO(juju4) - drop this compatibility with series params
 	// If the binary is for a workload series, convert the release to an OS type name.
 	allSeries, err := coreseries.AllWorkloadSeries("", "")
 	if err != nil {

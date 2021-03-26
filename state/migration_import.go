@@ -721,11 +721,8 @@ func (i *importer) makeTools(t description.AgentTools) (*tools.Tools, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	for _, ser := range allSeries.SortedValues() {
-		if result.Version.Release == ser {
-			result.Version.Release = coreseries.DefaultOSTypeNameFromSeries(ser)
-			break
-		}
+	if allSeries.Contains(result.Version.Release) {
+		result.Version.Release = coreseries.DefaultOSTypeNameFromSeries(result.Version.Release)
 	}
 	return result, nil
 }

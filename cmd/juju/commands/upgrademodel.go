@@ -898,6 +898,7 @@ func (context *upgradeContext) uploadTools(
 	// Newer 2.9+ controllers can deal with this but not older controllers.
 	// Look at the model and get all series for all machines
 	// and use those to create additional tools.
+	// TODO(juju4) - remove this logic
 	additionalSeries := set.NewStrings()
 	if controllerAgentVersion.Major == 2 && controllerAgentVersion.Minor <= 8 {
 		fullStatus, err := client.Status(nil)
