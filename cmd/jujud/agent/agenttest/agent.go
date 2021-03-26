@@ -135,7 +135,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
-	stateInfo := s.MongoInfo(c)
+	stateInfo := s.MongoInfo()
 	apiInfo := s.APIInfo(c)
 	paths := agent.DefaultPaths
 	paths.DataDir = s.DataDir()
@@ -198,7 +198,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	vers version.Binary,
 	modelTag names.ModelTag,
 ) agent.ConfigSetterWriter {
-	stateInfo := s.MongoInfo(c)
+	stateInfo := s.MongoInfo()
 	apiPort := gitjujutesting.FindTCPPort()
 	s.SetControllerConfigAPIPort(c, apiPort)
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
