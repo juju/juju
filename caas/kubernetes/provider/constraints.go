@@ -12,7 +12,6 @@ var unsupportedConstraints = []string{
 	constraints.Cores,
 	constraints.VirtType,
 	constraints.Container,
-	constraints.Arch,
 	constraints.InstanceType,
 	constraints.Spaces,
 	constraints.AllocatePublicIP,

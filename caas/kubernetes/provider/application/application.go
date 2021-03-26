@@ -14,6 +14,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/v2/arch"
 	"github.com/kr/pretty"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -868,6 +869,27 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		return containers[i].Name < containers[j].Name
 	})
 
+	resourceRequests := corev1.ResourceList(nil)
+	millicores := 0
+	// TODO(allow resource limits to be applied to each container).
+	// For now we only do resource requests, one container is sufficient for
+	// scheduling purposes.
+	if config.Constraints.HasCpuPower() {
+		if resourceRequests == nil {
+			resourceRequests = corev1.ResourceList{}
+		}
+		// 100 cpu power is 100 millicores.
+		millicores = int(*config.Constraints.CpuPower)
+		resourceRequests[corev1.ResourceCPU] = *resource.NewMilliQuantity(int64(millicores), resource.DecimalSI)
+	}
+	if config.Constraints.HasMem() {
+		if resourceRequests == nil {
+			resourceRequests = corev1.ResourceList{}
+		}
+		bytes := *config.Constraints.Mem * 1024 * 1024
+		resourceRequests[corev1.ResourceMemory] = *resource.NewQuantity(int64(bytes), resource.BinarySI)
+	}
+
 	containerSpecs := []corev1.Container{{
 		Name:            unitContainerName,
 		ImagePullPolicy: corev1.PullIfNotPresent,
@@ -948,6 +970,9 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				SubPath:   "charm/containers",
 			},
 		},
+		Resources: corev1.ResourceRequirements{
+			Requests: resourceRequests,
+		},
 	}}
 
 	for _, v := range containers {
@@ -990,9 +1015,30 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		containerSpecs = append(containerSpecs, container)
 	}
 
+	nodeSelector := map[string]string(nil)
+	if config.Constraints.HasArch() {
+		cpuArch := *config.Constraints.Arch
+		cpuArch = arch.NormaliseArch(cpuArch)
+		// Convert to Golang arch string
+		switch cpuArch {
+		case arch.AMD64:
+			cpuArch = "amd64"
+		case arch.ARM64:
+			cpuArch = "arm64"
+		case arch.PPC64EL:
+			cpuArch = "ppc64le"
+		case arch.S390X:
+			cpuArch = "s390x"
+		default:
+			return nil, errors.NotSupportedf("architecture %q", cpuArch)
+		}
+		nodeSelector = map[string]string{"kubernetes.io/arch": cpuArch}
+	}
+
 	automountToken := false
 	return &corev1.PodSpec{
 		AutomountServiceAccountToken: &automountToken,
+		NodeSelector:                 nodeSelector,
 		InitContainers: []corev1.Container{{
 			Name:            "charm-init",
 			ImagePullPolicy: corev1.PullIfNotPresent,

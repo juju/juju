@@ -32,6 +32,7 @@ import (
 	resourcesmocks "github.com/juju/juju/caas/kubernetes/provider/resources/mocks"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/paths"
 	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
@@ -105,7 +106,7 @@ func (s *applicationSuite) getApp(c *gc.C, deploymentType caas.DeploymentType, m
 	), ctrl
 }
 
-func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentType, checkMainResource func()) {
+func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentType, cons constraints.Value, checkMainResource func()) {
 	appSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "gitlab-application-config",
@@ -189,6 +190,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentT
 					},
 				},
 			},
+			Constraints: cons,
 		},
 	), jc.ErrorIsNil)
 
@@ -393,7 +395,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 
 func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 	s.assertEnsure(
-		c, caas.DeploymentStateful, func() {
+		c, caas.DeploymentStateful, constraints.Value{}, func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
@@ -478,7 +480,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 
 func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 	s.assertEnsure(
-		c, caas.DeploymentStateless, func() {
+		c, caas.DeploymentStateless, constraints.Value{}, func() {
 			ss, err := s.client.AppsV1().Deployments("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -549,7 +551,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 
 func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 	s.assertEnsure(
-		c, caas.DeploymentDaemon, func() {
+		c, caas.DeploymentDaemon, constraints.Value{}, func() {
 			ss, err := s.client.AppsV1().DaemonSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -617,7 +619,7 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 	)
 }
 
-func (s *applicationSuite) TestExistsNotsupported(c *gc.C) {
+func (s *applicationSuite) TestExistsNotSupported(c *gc.C) {
 	app, _ := s.getApp(c, "notsupported", false)
 	_, err := app.Exists()
 	c.Assert(err, gc.ErrorMatches, `unknown deployment type not supported`)
@@ -835,7 +837,7 @@ func (s *applicationSuite) TestWatchReplicas(c *gc.C) {
 	}
 }
 
-func (s *applicationSuite) TestStateNotsupported(c *gc.C) {
+func (s *applicationSuite) TestStateNotSupported(c *gc.C) {
 	app, _ := s.getApp(c, "notsupported", false)
 	_, err := app.State()
 	c.Assert(err, gc.ErrorMatches, `unknown deployment type not supported`)
@@ -1654,6 +1656,100 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 			},
 		},
 	})
+}
+
+func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
+	s.assertEnsure(
+		c, caas.DeploymentStateful, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), func() {
+			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(svc, gc.DeepEquals, &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gitlab-endpoints",
+					Namespace: "test",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       "gitlab",
+						"app.kubernetes.io/managed-by": "juju",
+					},
+					Annotations: map[string]string{
+						"juju.is/version": "0.0.0",
+						"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Selector:                 map[string]string{"app.kubernetes.io/name": "gitlab"},
+					Type:                     corev1.ServiceTypeClusterIP,
+					ClusterIP:                "None",
+					PublishNotReadyAddresses: true,
+				},
+			})
+
+			ps := getPodSpec(c)
+			ps.NodeSelector = map[string]string{
+				"kubernetes.io/arch": "arm64",
+			}
+			ps.Containers[0].Resources.Requests = corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("1000m"),
+				corev1.ResourceMemory: resource.MustParse("1024Mi"),
+			}
+
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(ss, gc.DeepEquals, &appsv1.StatefulSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gitlab",
+					Namespace: "test",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       "gitlab",
+						"app.kubernetes.io/managed-by": "juju",
+					},
+					Annotations: map[string]string{
+						"juju.is/version":  "0.0.0",
+						"app.juju.is/uuid": "appuuid",
+					},
+				},
+				Spec: appsv1.StatefulSetSpec{
+					Replicas: application.Int32Ptr(1),
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name": "gitlab",
+						},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+							Annotations: map[string]string{"juju.is/version": "0.0.0"},
+						},
+						Spec: ps,
+					},
+					VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "gitlab-database-appuuid",
+								Labels: map[string]string{
+									"storage.juju.is/name":         "database",
+									"app.kubernetes.io/managed-by": "juju",
+								},
+								Annotations: map[string]string{
+									"foo":                  "bar",
+									"storage.juju.is/name": "database",
+								}},
+							Spec: corev1.PersistentVolumeClaimSpec{
+								StorageClassName: application.StrPtr("test-workload-storage"),
+								AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceStorage: k8sresource.MustParse("100Mi"),
+									},
+								},
+							},
+						},
+					},
+					PodManagementPolicy: appsv1.ParallelPodManagement,
+				},
+			})
+		},
+	)
 }
 
 type fakeCharm struct {
