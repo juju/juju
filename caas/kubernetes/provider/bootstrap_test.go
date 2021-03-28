@@ -998,7 +998,7 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 
 	s.pcfg.Bootstrap.Timeout = 10 * time.Minute
 	s.pcfg.Bootstrap.ControllerExternalIPs = []string{"10.0.0.1"}
-	s.pcfg.Bootstrap.GUI = &tools.GUIArchive{
+	s.pcfg.Bootstrap.Dashboard = &tools.DashboardArchive{
 		URL:     "http://gui-url",
 		Version: version.MustParse("6.6.6"),
 		SHA256:  "deadbeef",

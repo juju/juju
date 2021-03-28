@@ -62,7 +62,7 @@ type BackgroundService struct {
 func (backgroundService *BackgroundService) Validate() error {
 	name := backgroundService.Name
 	if name == "" {
-		return errors.NotValidf("background service name")
+		return errors.NotValidf("empty background service name")
 	}
 
 	if !snapNameRe.MatchString(name) {
@@ -104,6 +104,7 @@ func ListServices() ([]string, error) {
 	return strings.Split(services, "\n"), nil
 }
 
+// Installable represents an installable snap.
 type Installable interface {
 	// Name returns the name of the application
 	Name() string
@@ -148,7 +149,7 @@ type Service struct {
 //
 // If no BackgroundServices are provided, Service will wrap all of the snap's
 // background services.
-func NewService(mainSnap string, serviceName string, conf common.Conf, snapPath string, channel string, confinementPolicy ConfinementPolicy, backgroundServices []BackgroundService, prerequisites []Installable) (Service, error) {
+func NewService(mainSnap, serviceName string, conf common.Conf, snapPath, configDir, channel string, confinementPolicy ConfinementPolicy, backgroundServices []BackgroundService, prerequisites []Installable) (Service, error) {
 	if serviceName == "" {
 		serviceName = mainSnap
 	}
@@ -175,7 +176,7 @@ func NewService(mainSnap string, serviceName string, conf common.Conf, snapPath 
 		executable:     snapPath,
 		app:            app,
 		conf:           conf,
-		configDir:      systemd.EtcSystemdDir,
+		configDir:      configDir,
 	}, nil
 }
 
@@ -188,7 +189,7 @@ func NewServiceFromName(name string, conf common.Conf) (Service, error) {
 	var prerequisites []Installable
 	var backgroundServices []BackgroundService
 
-	return NewService(name, name, conf, Command, "", "", backgroundServices, prerequisites)
+	return NewService(name, name, conf, Command, systemd.EtcSystemdDir, "", "", backgroundServices, prerequisites)
 
 }
 

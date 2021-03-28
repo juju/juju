@@ -28,7 +28,7 @@ var _ = gc.Suite(&validationSuite{})
 func (*validationSuite) TestBackgroundServiceNeedsNonZeroName(c *gc.C) {
 	empty := BackgroundService{}
 	fail := empty.Validate()
-	c.Check(fail, gc.ErrorMatches, "background service name not valid")
+	c.Check(fail, gc.ErrorMatches, "empty background service name not valid")
 }
 
 func (*validationSuite) TestBackgroundServiceNeedsLegalName(c *gc.C) {
@@ -56,7 +56,7 @@ func (*validationSuite) TestValidateJujuDbSnap(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	// via NewService
-	jujudbService, err := NewService("juju-db", "", common.Conf{Desc: "juju-db snap"}, Command, "edge", "jailmode", []BackgroundService{}, []Installable{})
+	jujudbService, err := NewService("juju-db", "", common.Conf{Desc: "juju-db snap"}, Command, "/ath/to/config", "edge", "jailmode", []BackgroundService{}, []Installable{})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(jujudbService.Validate(), jc.ErrorIsNil)
 
@@ -96,7 +96,7 @@ func (*snapSuite) TestConfigOverride(c *gc.C) {
 			"nofile": "64000",
 		},
 	}
-	svc, err := NewService("juju-db", "", conf, Command, "latest", "strict", []BackgroundService{{
+	svc, err := NewService("juju-db", "", conf, Command, "/ath/to/config", "latest", "strict", []BackgroundService{{
 		Name: "daemon",
 	}}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -134,7 +134,7 @@ func (*serviceSuite) TestInstallCommands(c *gc.C) {
 			EnableAtStartup: true,
 		},
 	}
-	service, err := NewService("juju-db", "juju-db", conf, Command, "4.0/stable", "", backgroundServices, prerequisites)
+	service, err := NewService("juju-db", "juju-db", conf, Command, "/ath/to/config", "4.0/stable", "", backgroundServices, prerequisites)
 	c.Assert(err, jc.ErrorIsNil)
 
 	commands, err := service.InstallCommands()
@@ -154,7 +154,7 @@ func (*serviceSuite) TestInstallCommandsWithConfinementPolicy(c *gc.C) {
 			EnableAtStartup: true,
 		},
 	}
-	service, err := NewService("juju-db", "juju-db", conf, Command, "4.0/stable", "classic", backgroundServices, prerequisites)
+	service, err := NewService("juju-db", "juju-db", conf, Command, "/ath/to/config", "4.0/stable", "classic", backgroundServices, prerequisites)
 	c.Assert(err, jc.ErrorIsNil)
 
 	commands, err := service.InstallCommands()
@@ -184,7 +184,7 @@ func (*serviceSuite) TestInstall(c *gc.C) {
 			EnableAtStartup: true,
 		},
 	}
-	service, err := NewService("juju-db", "juju-db", conf, Command, "4.0/stable", "", backgroundServices, prerequisites)
+	service, err := NewService("juju-db", "juju-db", conf, Command, "/ath/to/config", "4.0/stable", "", backgroundServices, prerequisites)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s := &service
@@ -224,7 +224,7 @@ func (*serviceSuite) TestInstallWithRetry(c *gc.C) {
 			EnableAtStartup: true,
 		},
 	}
-	service, err := NewService("juju-db", "juju-db", conf, Command, "4.0/stable", "", backgroundServices, prerequisites)
+	service, err := NewService("juju-db", "juju-db", conf, Command, "/ath/to/config", "4.0/stable", "", backgroundServices, prerequisites)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s := &service

@@ -406,7 +406,8 @@ func installMongod(mongoDep packaging.Dependency, hostSeries, dataDir, configDir
 		Limit: mongoULimits,
 	}
 	snapChannel := fmt.Sprintf("%s/%s", SnapTrack, SnapRisk)
-	snapSvc, err := snap.NewService(snapName, ServiceName, conf, snap.Command, snapChannel, "", backgroundServices, []snap.Installable{})
+	snapSvc, err := snap.NewService(
+		snapName, ServiceName, conf, snap.Command, configDir, snapChannel, "", backgroundServices, []snap.Installable{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
