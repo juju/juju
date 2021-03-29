@@ -8,7 +8,7 @@ add_clean_func() {
 
 # cleanup_funcs attempts to clean up with functions.
 cleanup_funcs() {
-	if [ -f "${TEST_DIR}/cleanup" ]; then
+	if [[ -f "${TEST_DIR}/cleanup" ]]; then
 		while read -r CMD; do
 			echo "====> Running clean up func: ${CMD}"
 			$CMD

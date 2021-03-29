@@ -10,12 +10,12 @@ start_server() {
 }
 
 kill_server() {
-	if [ ! -f "${TEST_DIR}/server.pid" ]; then
+	if [[ ! -f "${TEST_DIR}/server.pid" ]]; then
 		return
 	fi
 
 	pid=$(cat "${TEST_DIR}/server.pid" | head -n 1 || echo "NOT FOUND")
-	if [ "${pid}" == "NOT FOUND" ]; then
+	if [[ "${pid}" == "NOT FOUND" ]]; then
 		return
 	fi
 

@@ -1,5 +1,5 @@
 supports_colors() {
-	if [ -z "${TERM}" ] || [ "${TERM}" = "" ] || [ "${TERM}" = "dumb" ]; then
+	if [[ -z "${TERM}" ]] || [[ "${TERM}" = "" ]] || [[ "${TERM}" = "dumb" ]]; then
 		echo "NO"
 		return
 	fi

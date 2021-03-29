@@ -5,13 +5,16 @@ set_verbosity() {
 	case "${VERBOSE}" in
 	1)
 		set -eu
+		set -o pipefail
 		;;
 	2)
 		set -eu
+		set -o pipefail
 		;;
 	11)
 		# You asked for it!
 		set -eux
+		set -o pipefail
 		;;
 	*)
 		echo "Unexpected verbose level" >&2

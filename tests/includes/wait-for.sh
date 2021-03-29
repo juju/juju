@@ -24,7 +24,7 @@ wait_for() {
 		attempt=$((attempt + 1))
 	done
 
-	if [ "${attempt}" -gt 0 ]; then
+	if [[ "${attempt}" -gt 0 ]]; then
 		echo "[+] $(green 'Completed polling status for')" "$(green "${name}")"
 		juju status --relations 2>&1 | sed 's/^/    | /g'
 		# Although juju reports as an idle condition, some charms require a
@@ -136,7 +136,7 @@ wait_for_machine_agent_status() {
 		attempt=$((attempt + 1))
 	done
 
-	if [ "${attempt}" -gt 0 ]; then
+	if [[ "${attempt}" -gt 0 ]]; then
 		echo "[+] $(green 'Completed polling machines')"
 		juju machines | grep "$inst_id" 2>&1 | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
@@ -195,7 +195,7 @@ wait_for_subordinate_count() {
 		attempt=$((attempt + 1))
 	done
 
-	if [ "${attempt}" -gt 0 ]; then
+	if [[ "${attempt}" -gt 0 ]]; then
 		echo "[+] $(green 'Completed polling status')"
 		juju status 2>&1 | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
@@ -226,7 +226,7 @@ wait_for_model() {
 		attempt=$((attempt + 1))
 	done
 
-	if [ "${attempt}" -gt 0 ]; then
+	if [[ "${attempt}" -gt 0 ]]; then
 		echo "[+] $(green 'Completed polling models')"
 		juju models | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
@@ -255,7 +255,7 @@ wait_for_systemd_service_files_to_appear() {
 		echo "[+] (attempt ${attempt}) waiting for the systemd unit files for ${unit} to appear"
 
 		svc_present=$(juju ssh "${unit}" "ls ${svc_file_path} 2>/dev/null || echo -n 'missing'")
-		if [ "${svc_present}" != "missing" ]; then
+		if [[ "${svc_present}" != "missing" ]]; then
 			echo "[+] systemd unit files for ${unit} are now available"
 			return
 		fi

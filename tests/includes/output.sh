@@ -4,18 +4,18 @@ OUTPUT() {
 	output=${1}
 	shift
 
-	if [ -z "${output}" ] || [ "${VERBOSE}" -gt 1 ]; then
+	if [[ -z "${output}" ]] || [[ "${VERBOSE}" -gt 1 ]]; then
 		echo
 	fi
 
 	# shellcheck disable=SC2162
 	while read data; do
 		# If there is no output, just dump straight to stdout.
-		if [ -z "${output}" ]; then
+		if [[ -z "${output}" ]]; then
 			echo "${data}"
 		# If there is an output, but we're not in verbose mode, just append to
 		# the output.
-		elif [ "${VERBOSE}" -le 1 ]; then
+		elif [[ "${VERBOSE}" -le 1 ]]; then
 			echo "${data}" >>"${output}"
 		# If we are in verbose mode, but we're an empty line, send to stdout
 		# and also tee it to the output.
@@ -28,7 +28,7 @@ OUTPUT() {
 		fi
 	done
 
-	if [ -z "${output}" ] || [ "${VERBOSE}" -gt 1 ]; then
+	if [[ -z "${output}" ]] || [[ "${VERBOSE}" -gt 1 ]]; then
 		echo
 	fi
 }
