@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/network"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/status"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/state"
@@ -31,6 +33,7 @@ import (
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/upgrader"
 )
 
 type UnitSuite struct {
@@ -38,6 +41,13 @@ type UnitSuite struct {
 }
 
 var _ = gc.Suite(&UnitSuite{})
+
+func (s *UnitSuite) SetUpTest(c *gc.C) {
+	s.AgentSuite.SetUpTest(c)
+	s.PatchValue(&upgrader.HostOSTypeName, func() string {
+		return strings.ToLower(coreos.Ubuntu.String())
+	})
+}
 
 // primeAgent creates a unit, and sets up the unit agent's directory.
 // It returns the assigned machine, new unit and the agent's configuration.

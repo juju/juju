@@ -261,8 +261,7 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEqualsCurrentVersion(c, t.Version)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
-	hostOSType := coreos.HostOSTypeName()
-	s.assertUploadedTools(c, t, []string{hostOSType}, "released")
+	s.assertUploadedTools(c, t, []string{t.Version.Release}, "released")
 }
 
 func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {

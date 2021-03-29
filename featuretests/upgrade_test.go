@@ -7,6 +7,7 @@
 package featuretests
 
 import (
+	"strings"
 	"time"
 
 	"github.com/juju/cmd/cmdtesting"
@@ -32,6 +33,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -39,6 +41,7 @@ import (
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
@@ -80,6 +83,11 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 
 	// Ensure we don't fail disk space check.
 	s.PatchValue(&upgrades.MinDiskSpaceMib, uint64(0))
+
+	// Ensure tests run on non-ubuntu hosts.
+	s.PatchValue(&upgrader.HostOSTypeName, func() string {
+		return strings.ToLower(coreos.Ubuntu.String())
+	})
 
 	// Consume apt-get commands that get run before upgrades.
 	aptCmds := s.AgentSuite.HookCommandOutput(&pacman.CommandOutput, nil, nil)

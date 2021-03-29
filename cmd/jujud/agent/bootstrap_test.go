@@ -123,7 +123,16 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.makeTestModel(c)
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.
+	//
+	// CurrentVersion() currently hardcodes Release to "ubuntu" to match
+	// the expectations of other test suites wrt. the underlying host where
+	// the tests are running. However, this test is an exception as we
+	// are testing the bootstrap flow which uses the actual OS type to
+	// select agent binaries. Therefore, we need to specify the appropriate
+	// release value here.
 	current := testing.CurrentVersion(c)
+	current.Release = coreos.HostOSTypeName()
+
 	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, current))
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
@@ -672,9 +681,18 @@ func (s *BootstrapSuite) TestDownloadedToolsMetadata(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
+	// CurrentVersion() currently hardcodes Release to "ubuntu" to match
+	// the expectations of other test suites wrt. the underlying host where
+	// the tests are running. However, this test is an exception as we
+	// are testing the bootstrap flow which uses the actual OS type to
+	// select agent binaries. Therefore, we need to specify the appropriate
+	// release value here.
+	vers := testing.CurrentVersion(c)
+	vers.Release = coreos.HostOSTypeName()
+
 	// Tools uploaded over ssh.
 	s.writeDownloadedTools(c, &tools.Tools{
-		Version: testing.CurrentVersion(c),
+		Version: vers,
 		URL:     "file:///does/not/matter",
 	})
 	s.testToolsMetadata(c)

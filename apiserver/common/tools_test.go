@@ -98,7 +98,7 @@ func (s *toolsSuite) TestSeriesTools(c *gc.C) {
 
 	current := coretesting.CurrentVersion(c)
 	currentCopy := current
-	currentCopy.Release = coretesting.HostSeries(c)
+	currentCopy.Release = "focal"
 	err := s.machine0.SetAgentVersion(currentCopy)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -301,7 +301,7 @@ func (s *toolsSuite) TestFindToolsOldAgent(c *gc.C) {
 			stateenvirons.EnvironConfigGetter{Model: s.Model}, &mockToolsStorage{metadata: storageMetadata}, sprintfURLGetter("tools:%s"), newEnviron,
 		)
 		result, err := toolsFinder.FindTools(params.FindToolsParams{
-			Number: version.MustParse("2.8.9"),
+			Number:       version.MustParse("2.8.9"),
 			MajorVersion: 2,
 			MinorVersion: 8,
 			OSType:       "ubuntu",

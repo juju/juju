@@ -4,6 +4,8 @@
 package caasupgrader_test
 
 import (
+	"fmt"
+
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
@@ -12,6 +14,7 @@ import (
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -77,7 +80,8 @@ func (s *UpgraderSuite) TestUpgraderSetsVersion(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderController(c *gc.C) {
-	vers := version.MustParseBinary("6.6.6-ubuntu-amd64")
+	hostType := coreos.HostOSTypeName()
+	vers := version.MustParseBinary(fmt.Sprintf("6.6.6-%s-amd64", hostType))
 	s.patchVersion(vers)
 	s.upgraderClient.desired = version.MustParse("6.6.7")
 
@@ -93,7 +97,8 @@ func (s *UpgraderSuite) TestUpgraderController(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderApplication(c *gc.C) {
-	vers := version.MustParseBinary("6.6.6-ubuntu-amd64")
+	hostType := coreos.HostOSTypeName()
+	vers := version.MustParseBinary(fmt.Sprintf("6.6.6-%s-amd64", hostType))
 	s.patchVersion(vers)
 	s.upgraderClient.desired = version.MustParse("6.6.7")
 

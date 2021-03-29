@@ -29,6 +29,7 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
+	coreos "github.com/juju/juju/core/os"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -118,7 +119,8 @@ func (s *UpgraderSuite) makeUpgrader(c *gc.C) *upgrader.Upgrader {
 }
 
 func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
-	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	hostType := coreos.HostOSTypeName()
+	vers := version.MustParseBinary(fmt.Sprintf("5.4.3-%s-amd64", hostType))
 	err := statetesting.SetAgentVersion(s.State, vers.Number)
 	c.Assert(err, jc.ErrorIsNil)
 	stor := s.DefaultToolsStorage
@@ -140,7 +142,8 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
-	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	hostType := coreos.HostOSTypeName()
+	vers := version.MustParseBinary(fmt.Sprintf("5.4.3-%s-amd64", hostType))
 	agentTools := envtesting.PrimeTools(c, s.DefaultToolsStorage, s.DataDir(), s.Environ.Config().AgentStream(), vers)
 	s.patchVersion(agentTools.Version)
 	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
@@ -171,10 +174,11 @@ func (s *UpgraderSuite) expectInitialUpgradeCheckNotDone(c *gc.C) {
 
 func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	stor := s.DefaultToolsStorage
-	oldTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-ubuntu-amd64"))
+	hostType := coreos.HostOSTypeName()
+	oldTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary(fmt.Sprintf("5.4.3-%s-amd64", hostType)))
 	s.patchVersion(oldTools.Version)
 	newTools := envtesting.AssertUploadFakeToolsVersions(
-		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.5-ubuntu-amd64"))[0]
+		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary(fmt.Sprintf("5.4.5-%s-amd64", hostType)))[0]
 	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -189,17 +193,18 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	})
 	foundTools, err := agenttools.ReadTools(s.DataDir(), newTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
-	newTools.URL = fmt.Sprintf("https://%s/model/%s/tools/5.4.5-ubuntu-amd64",
-		s.APIState.Addr(), coretesting.ModelTag.Id())
+	newTools.URL = fmt.Sprintf("https://%s/model/%s/tools/5.4.5-%s-amd64",
+		s.APIState.Addr(), coretesting.ModelTag.Id(), hostType)
 	envtesting.CheckTools(c, foundTools, newTools)
 }
 
 func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	stor := s.DefaultToolsStorage
-	oldTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-ubuntu-amd64"))
+	hostType := coreos.HostOSTypeName()
+	oldTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary(fmt.Sprintf("5.4.3-%s-amd64", hostType)))
 	s.patchVersion(oldTools.Version)
 	newTools := envtesting.AssertUploadFakeToolsVersions(
-		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.5-ubuntu-amd64"))[0]
+		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary(fmt.Sprintf("5.4.5-%s-amd64", hostType)))[0]
 	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -218,7 +223,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	// downloaded ok; it should stop retrying, download
 	// the newer tools and exit.
 	newerTools := envtesting.AssertUploadFakeToolsVersions(
-		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.6-ubuntu-amd64"))[0]
+		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary(fmt.Sprintf("5.4.6-%s-amd64", hostType)))[0]
 
 	err = statetesting.SetAgentVersion(s.State, newerTools.Version.Number)
 	c.Assert(err, jc.ErrorIsNil)
@@ -242,11 +247,12 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
+	hostType := coreos.HostOSTypeName()
 	oldTools := &coretools.Tools{
-		Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
+		Version: version.MustParseBinary(fmt.Sprintf("1.2.3-%s-amd64", hostType)),
 	}
 	stor := s.DefaultToolsStorage
-	newToolsBinary := "5.4.3-ubuntu-amd64"
+	newToolsBinary := fmt.Sprintf("5.4.3-%s-amd64", hostType)
 	newTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary(newToolsBinary))
 	s.patchVersion(newTools.Version)
 	err := envtools.MergeAndWriteMetadata(stor, "released", "released", coretools.List{newTools}, envtools.DoNotWriteMirrors)
@@ -266,10 +272,11 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *gc.C) {
-	oldVersion := version.MustParseBinary("1.2.3-ubuntu-amd64")
+	hostType := coreos.HostOSTypeName()
+	oldVersion := version.MustParseBinary(fmt.Sprintf("1.2.3-%s-amd64", hostType))
 	s.patchVersion(oldVersion)
 
-	newVersion := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	newVersion := version.MustParseBinary(fmt.Sprintf("5.4.3-%s-amd64", hostType))
 	err := statetesting.SetAgentVersion(s.State, newVersion.Number)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -294,10 +301,11 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingMinorVersions(c *gc.C) {
 	// We allow this scenario to allow reverting upgrades by restoring
 	// a backup from the previous version.
 	stor := s.DefaultToolsStorage
-	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-ubuntu-amd64"))
+	hostType := coreos.HostOSTypeName()
+	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary(fmt.Sprintf("5.4.3-%s-amd64", hostType)))
 	s.patchVersion(origTools.Version)
 	downgradeTools := envtesting.AssertUploadFakeToolsVersions(
-		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.3.3-ubuntu-amd64"))[0]
+		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary(fmt.Sprintf("5.3.3-%s-amd64", hostType)))[0]
 	err := statetesting.SetAgentVersion(s.State, downgradeTools.Version.Number)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -313,8 +321,8 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingMinorVersions(c *gc.C) {
 	})
 	foundTools, err := agenttools.ReadTools(s.DataDir(), downgradeTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
-	downgradeTools.URL = fmt.Sprintf("https://%s/model/%s/tools/5.3.3-ubuntu-amd64",
-		s.APIState.Addr(), coretesting.ModelTag.Id())
+	downgradeTools.URL = fmt.Sprintf("https://%s/model/%s/tools/5.3.3-%s-amd64",
+		s.APIState.Addr(), coretesting.ModelTag.Id(), hostType)
 	envtesting.CheckTools(c, foundTools, downgradeTools)
 }
 
@@ -322,10 +330,11 @@ func (s *UpgraderSuite) TestUpgraderForbidsDowngradingToMajorVersion1(c *gc.C) {
 	// We allow this scenario to allow reverting upgrades by restoring
 	// a backup from the previous version.
 	stor := s.DefaultToolsStorage
-	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("2.4.3-ubuntu-amd64"))
+	hostType := coreos.HostOSTypeName()
+	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary(fmt.Sprintf("2.4.3-%s-amd64", hostType)))
 	s.patchVersion(origTools.Version)
 	downgradeTools := envtesting.AssertUploadFakeToolsVersions(
-		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary("1.25.3-ubuntu-amd64"))[0]
+		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary(fmt.Sprintf("1.25.3-%s-amd64", hostType)))[0]
 	err := statetesting.SetAgentVersion(s.State, downgradeTools.Version.Number)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -345,10 +354,11 @@ func (s *UpgraderSuite) TestUpgraderForbidsDowngradingToMajorVersion1(c *gc.C) {
 
 func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
 	stor := s.DefaultToolsStorage
-	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-ubuntu-amd64"))
+	hostType := coreos.HostOSTypeName()
+	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary(fmt.Sprintf("5.4.3-%s-amd64", hostType)))
 	s.patchVersion(origTools.Version)
 	downgradeTools := envtesting.AssertUploadFakeToolsVersions(
-		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.2-ubuntu-amd64"))[0]
+		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary(fmt.Sprintf("5.4.2-%s-amd64", hostType)))[0]
 	err := statetesting.SetAgentVersion(s.State, downgradeTools.Version.Number)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -363,18 +373,19 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
 	})
 	foundTools, err := agenttools.ReadTools(s.DataDir(), downgradeTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
-	downgradeTools.URL = fmt.Sprintf("https://%s/model/%s/tools/5.4.2-ubuntu-amd64",
-		s.APIState.Addr(), coretesting.ModelTag.Id())
+	downgradeTools.URL = fmt.Sprintf("https://%s/model/%s/tools/5.4.2-%s-amd64",
+		s.APIState.Addr(), coretesting.ModelTag.Id(), hostType)
 	envtesting.CheckTools(c, foundTools, downgradeTools)
 }
 
 func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToOrigVersionIfUpgradeInProgress(c *gc.C) {
 	// note: otherwise illegal version jump
-	downgradeVersion := version.MustParseBinary("5.3.0-ubuntu-amd64")
+	hostType := coreos.HostOSTypeName()
+	downgradeVersion := version.MustParseBinary(fmt.Sprintf("5.3.0-%s-amd64", hostType))
 	s.confVersion = downgradeVersion.Number
 
 	stor := s.DefaultToolsStorage
-	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-ubuntu-amd64"))
+	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary(fmt.Sprintf("5.4.3-%s-amd64", hostType)))
 	s.patchVersion(origTools.Version)
 	downgradeTools := envtesting.AssertUploadFakeToolsVersions(
 		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), downgradeVersion)[0]
@@ -392,20 +403,21 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToOrigVersionIfUpgradeInProgr
 	})
 	foundTools, err := agenttools.ReadTools(s.DataDir(), downgradeTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
-	downgradeTools.URL = fmt.Sprintf("https://%s/model/%s/tools/5.3.0-ubuntu-amd64",
-		s.APIState.Addr(), coretesting.ModelTag.Id())
+	downgradeTools.URL = fmt.Sprintf("https://%s/model/%s/tools/5.3.0-%s-amd64",
+		s.APIState.Addr(), coretesting.ModelTag.Id(), hostType)
 	envtesting.CheckTools(c, foundTools, downgradeTools)
 }
 
 func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToOrigVersionIfUpgradeNotInProgress(c *gc.C) {
 	// We now allow this to support restoring a backup from a previous
 	// version.
-	downgradeVersion := version.MustParseBinary("5.3.0-ubuntu-amd64")
+	hostType := coreos.HostOSTypeName()
+	downgradeVersion := version.MustParseBinary(fmt.Sprintf("5.3.0-%s-amd64", hostType))
 	s.confVersion = downgradeVersion.Number
 	s.upgradeStepsComplete.Unlock()
 
 	stor := s.DefaultToolsStorage
-	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-ubuntu-amd64"))
+	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary(fmt.Sprintf("5.4.3-%s-amd64", hostType)))
 	s.patchVersion(origTools.Version)
 	envtesting.AssertUploadFakeToolsVersions(
 		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), downgradeVersion)
@@ -428,17 +440,18 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToOrigVersionIfUpgradeNotInPr
 	})
 	foundTools, err := agenttools.ReadTools(s.DataDir(), prevTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
-	prevTools.URL = fmt.Sprintf("https://%s/model/%s/tools/5.3.0-ubuntu-amd64",
-		s.APIState.Addr(), coretesting.ModelTag.Id())
+	prevTools.URL = fmt.Sprintf("https://%s/model/%s/tools/5.3.0-%s-amd64",
+		s.APIState.Addr(), coretesting.ModelTag.Id(), hostType)
 	envtesting.CheckTools(c, foundTools, prevTools)
 }
 
 func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 	stor := s.DefaultToolsStorage
-	oldTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-ubuntu-amd64"))
+	hostType := coreos.HostOSTypeName()
+	oldTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary(fmt.Sprintf("5.4.3-%s-amd64", hostType)))
 	s.patchVersion(oldTools.Version)
 	newTools := envtesting.AssertUploadFakeToolsVersions(
-		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.5-ubuntu-amd64"))[0]
+		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary(fmt.Sprintf("5.4.5-%s-amd64", hostType)))[0]
 	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, jc.ErrorIsNil)
 

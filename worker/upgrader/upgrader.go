@@ -46,7 +46,13 @@ const (
 // Don't do this, instead pass one through as config to the worker.
 type logger interface{}
 
-var _ logger = struct{}{}
+var (
+	_ logger = struct{}{}
+
+	// Used by tests to override host OS detection when running in
+	// non-ubuntu hosts.
+	HostOSTypeName = coreos.HostOSTypeName
+)
 
 // Upgrader represents a worker that watches the state for upgrade
 // requests.
@@ -120,7 +126,7 @@ func (u *Upgrader) loop() error {
 	logger := u.config.Logger
 	// Start by reporting current tools (which includes arch/os type, and is
 	// used by the controller in communicating the desired version below).
-	hostOSType := coreos.HostOSTypeName()
+	hostOSType := HostOSTypeName()
 	if err := u.st.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current, hostOSType)); err != nil {
 		return errors.Annotate(err, "cannot set agent version")
 	}

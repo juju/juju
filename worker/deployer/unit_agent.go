@@ -29,6 +29,11 @@ import (
 	"github.com/juju/juju/worker/logsender"
 )
 
+var (
+	// Overridden by tests
+	HostOSTypeName = coreos.HostOSTypeName
+)
+
 // UnitAgent wraps the agent config for this unit.
 type UnitAgent struct {
 	tag    names.UnitTag
@@ -105,7 +110,7 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 	current := version.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
-		Release: coreos.HostOSTypeName(),
+		Release: HostOSTypeName(),
 	}
 	tag := names.NewUnitTag(config.Name)
 	toolsDir := tools.ToolsDir(config.DataDir, tag.String())

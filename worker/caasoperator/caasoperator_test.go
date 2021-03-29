@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -29,6 +30,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -145,6 +147,10 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(s.config.DataDir, "tools", "jujud"), []byte("jujud"), 0755)
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.PatchValue(&caasoperator.HostOSTypeName, func() string {
+		return strings.ToLower(coreos.Ubuntu.String())
+	})
 }
 
 func (s *WorkerSuite) TestValidateConfig(c *gc.C) {

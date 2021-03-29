@@ -59,6 +59,9 @@ var (
 		jujuDumpLogs,
 		jujuIntrospect,
 	}
+
+	// Overridden by tests.
+	HostOSTypeName = coreos.HostOSTypeName
 )
 
 // caasOperator implements the capabilities of the caasoperator agent. It is not intended to
@@ -412,7 +415,7 @@ func (op *caasOperator) loop() (err error) {
 	logger.Infof("operator %q started", op.config.Application)
 
 	// Start by reporting current tools (which includes arch/ostype).
-	hostOSType := coreos.HostOSTypeName()
+	hostOSType := HostOSTypeName()
 	if err := op.config.VersionSetter.SetVersion(
 		op.config.Application, toBinaryVersion(jujuversion.Current, hostOSType)); err != nil {
 		return errors.Annotate(err, "cannot set agent version")

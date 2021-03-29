@@ -57,6 +57,7 @@ import (
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -77,6 +78,7 @@ import (
 	"github.com/juju/juju/worker/migrationmaster"
 	raftworker "github.com/juju/juju/worker/raft"
 	"github.com/juju/juju/worker/storageprovisioner"
+	"github.com/juju/juju/worker/upgrader"
 )
 
 const (
@@ -104,6 +106,10 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 
 	// Restart failed workers much faster for the tests.
 	s.PatchValue(&engine.EngineErrorDelay, 100*time.Millisecond)
+
+	s.PatchValue(&upgrader.HostOSTypeName, func() string {
+		return strings.ToLower(coreos.Ubuntu.String())
+	})
 
 	// Most of these tests normally finish sub-second on a fast machine.
 	// If any given test hits a minute, we have almost certainly become

@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
+	coreos "github.com/juju/juju/core/os"
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
@@ -80,6 +81,9 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 			HelpHint: `See "juju --help"`,
 		}.Error())
 	}
+
+	curVersion := testing.CurrentVersion(c)
+	curVersion.Release = coreos.HostOSTypeName()
 
 	// The test array structure needs to be inline here as some of the
 	// expected values below use deployHelpText().  This constructs the deploy
@@ -156,12 +160,12 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "check version command returns a fully qualified version string",
 		args:    []string{"version"},
 		code:    0,
-		out:     testing.CurrentVersion(c).String() + "\n",
+		out:     curVersion.String() + "\n",
 	}, {
 		summary: "check --version command returns a fully qualified version string",
 		args:    []string{"--version"},
 		code:    0,
-		out:     testing.CurrentVersion(c).String() + "\n",
+		out:     curVersion.String() + "\n",
 	}} {
 		c.Logf("test %d: %s", i, t.summary)
 		out := badrun(c, t.code, t.args...)

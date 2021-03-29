@@ -479,9 +479,14 @@ func (s *UpgradeBaseSuite) checkToolsUploaded(c *gc.C, vers version.Binary, agen
 	r.Close()
 	c.Check(err, jc.ErrorIsNil)
 	expectContent := version.Binary{
-		Number:  agentVersion,
-		Arch:    arch.HostArch(),
-		Release: coreos.HostOSTypeName(),
+		Number: agentVersion,
+		Arch:   arch.HostArch(),
+		// All tests that upload fake agent tool binaries assume that
+		// we are always running on ubuntu. Unfortunately, this
+		// assumption breaks tests when running the suites on non-ubuntu
+		// platform (e.g. centos). Instead of trying to auto-detect the
+		// current OS, we force the release to "ubuntu".
+		Release: strings.ToLower(coreos.Ubuntu.String()),
 	}
 	checkToolsContent(c, data, "jujud contents "+expectContent.String())
 }

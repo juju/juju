@@ -4,6 +4,7 @@
 package deployer_test
 
 import (
+	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	coreos "github.com/juju/juju/core/os"
 	message "github.com/juju/juju/pubsub/agent"
 	jt "github.com/juju/juju/testing"
 	jv "github.com/juju/juju/version"
@@ -87,6 +89,10 @@ func (s *NestedContextSuite) SetUpTest(c *gc.C) {
 		},
 		UnitManifolds: s.workers.Manifolds,
 	}
+
+	s.PatchValue(&deployer.HostOSTypeName, func() string {
+		return strings.ToLower(coreos.Ubuntu.String())
+	})
 }
 
 func (s *NestedContextSuite) TestConfigMissingAgentConfig(c *gc.C) {
