@@ -358,6 +358,7 @@ func (c *Client) CreateVirtualMachine(
 	}()
 
 	if err := c.maybeUpgradeVMHardware(ctx, args, vm, taskWaiter); err != nil {
+		args.UpdateProgress(fmt.Sprintf("VM upgrade failed: %s", err))
 		return nil, errors.Annotate(err, "upgrading VM hardware")
 	}
 

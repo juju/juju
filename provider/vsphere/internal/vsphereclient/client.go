@@ -614,9 +614,7 @@ func (c *Client) maybeUpgradeVMHardware(
 	}
 
 	if vmVersion > args.ForceVMHardwareVersion {
-		// Not downgrading VM.
-		c.logger.Warningf("selected HW version is lower than VM hardware. Not downgrading.")
-		return nil
+		return errors.Errorf("selected HW (%d) version is lower than VM hardware", args.ForceVMHardwareVersion)
 	}
 
 	supportedMaxVersion, err := c.getMaxSuportedVersion(ctx, args.ComputeResource)
@@ -626,8 +624,8 @@ func (c *Client) maybeUpgradeVMHardware(
 	if supportedMaxVersion < args.ForceVMHardwareVersion {
 		// Requested HW version is newer than what the destination supports
 		// Not upgrading VM hardware.
-		c.logger.Warningf("target does not support selected hardware version: %d", args.ForceVMHardwareVersion)
-		return nil
+		return errors.Errorf(
+			"hardware version %d not supported by target (max version %d)", args.ForceVMHardwareVersion, supportedMaxVersion)
 	}
 
 	version := fmt.Sprintf("vmx-%d", args.ForceVMHardwareVersion)

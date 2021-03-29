@@ -846,7 +846,7 @@ func (s *clientSuite) TestMaybeUpgradeVMVersionLowerThanSourceVM(c *gc.C) {
 
 	vmObj := object.NewVirtualMachine(client.client.Client, vm.Reference())
 	err := client.maybeUpgradeVMHardware(context.Background(), args, vmObj, &taskWaiter{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, `selected HW \(9\) version is lower than VM hardware`)
 
 	// ForceVMHardwareVersion was set, but is lower than the VM version (vmx-10).
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
@@ -876,7 +876,7 @@ func (s *clientSuite) TestMaybeUpgradeVMVersionNotSupportedByEnv(c *gc.C) {
 	err := client.maybeUpgradeVMHardware(context.Background(), args, vmObj, &taskWaiter{})
 
 	// We ignore the request and log the event.
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, `hardware version 14 not supported by target \(max version 13\)`)
 
 	// No calls should be made. ForceVMHardwareVersion was not set.
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
