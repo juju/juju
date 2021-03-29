@@ -151,7 +151,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
 		UpdateProgressInterval: 5 * time.Second,
 		EnableDiskUUID:         true,
 		IsBootstrap:            true,
-		DiskProvisioningType:   vsphereclient.DiskTypeThin,
+		DiskProvisioningType:   vsphereclient.DefaultDiskProvisioningType,
 	})
 
 	ovaLocation, ovaReadCloser, err := readOVA()
@@ -186,6 +186,100 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
 	c.Assert(createVMArgs.NetworkDevices, gc.HasLen, 2)
 	c.Assert(createVMArgs.NetworkDevices[0].Network, gc.Equals, "foo")
 	c.Assert(createVMArgs.NetworkDevices[1].Network, gc.Equals, "bar")
+}
+
+func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningMissingModelConfigOption(c *gc.C) {
+	env, err := s.provider.Open(environs.OpenParams{
+		Cloud: fakeCloudSpec(),
+		Config: fakeConfig(c, coretesting.Attrs{
+			"image-metadata-url": s.imageServer.URL,
+		}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.NotNil)
+
+	call := s.client.Calls()[4]
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
+	c.Assert(createVMArgs.DiskProvisioningType, gc.Equals, vsphereclient.DefaultDiskProvisioningType)
+}
+
+func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningDefaultOption(c *gc.C) {
+	env, err := s.provider.Open(environs.OpenParams{
+		Cloud: fakeCloudSpec(),
+		Config: fakeConfig(c, coretesting.Attrs{
+			"image-metadata-url":     s.imageServer.URL,
+			"disk-provisioning-type": "",
+		}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.NotNil)
+
+	call := s.client.Calls()[4]
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
+	c.Assert(createVMArgs.DiskProvisioningType, gc.Equals, vsphereclient.DefaultDiskProvisioningType)
+}
+
+func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThinDisk(c *gc.C) {
+	env, err := s.provider.Open(environs.OpenParams{
+		Cloud: fakeCloudSpec(),
+		Config: fakeConfig(c, coretesting.Attrs{
+			"image-metadata-url":     s.imageServer.URL,
+			"disk-provisioning-type": "thin",
+		}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.NotNil)
+
+	call := s.client.Calls()[4]
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
+	c.Assert(createVMArgs.DiskProvisioningType, gc.Equals, vsphereclient.DiskTypeThin)
+}
+
+func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickDisk(c *gc.C) {
+	env, err := s.provider.Open(environs.OpenParams{
+		Cloud: fakeCloudSpec(),
+		Config: fakeConfig(c, coretesting.Attrs{
+			"image-metadata-url":     s.imageServer.URL,
+			"disk-provisioning-type": "thick",
+		}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.NotNil)
+
+	call := s.client.Calls()[4]
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
+	c.Assert(createVMArgs.DiskProvisioningType, gc.Equals, vsphereclient.DiskTypeThick)
+}
+
+func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickEagerZeroDisk(c *gc.C) {
+	env, err := s.provider.Open(environs.OpenParams{
+		Cloud: fakeCloudSpec(),
+		Config: fakeConfig(c, coretesting.Attrs{
+			"image-metadata-url":     s.imageServer.URL,
+			"disk-provisioning-type": "thickEagerZero",
+		}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.NotNil)
+
+	call := s.client.Calls()[4]
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
+	c.Assert(createVMArgs.DiskProvisioningType, gc.Equals, vsphereclient.DiskTypeThickEagerZero)
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {

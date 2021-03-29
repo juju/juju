@@ -52,7 +52,7 @@ const (
 	// DiskTypeThickEagerZero sets the provisioning type for disks to
 	// "thick eager zeroed". The entire size of the virtual disk will be
 	// deducted from the underlying datastore. Any unwritten disk areas
-	// will be zeroed out during cloning. This is the default setting.
+	// will be zeroed out during cloning.
 	DiskTypeThickEagerZero DiskProvisioningType = "thickEagerZero"
 )
 
@@ -63,6 +63,9 @@ var (
 		DiskTypeThick,
 		DiskTypeThickEagerZero,
 	}
+	// DefaultDiskProvisioningType is the default disk provisioning type
+	// if none is selected in the model config.
+	DefaultDiskProvisioningType = DiskTypeThickEagerZero
 )
 
 // ErrExtendDisk is returned if we timed out trying to extend the root

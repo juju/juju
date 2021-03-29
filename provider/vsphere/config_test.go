@@ -28,7 +28,7 @@ func fakeConfigAttrs(attrs ...testing.Attrs) testing.Attrs {
 		"external-network":          "",
 		"enable-disk-uuid":          true,
 		"force-vm-hardware-version": 0,
-		"disk-provisioning-type":    "thin",
+		"disk-provisioning-type":    "",
 	})
 	for _, attrs := range attrs {
 		merged = merged.Merge(attrs)

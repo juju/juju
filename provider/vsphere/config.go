@@ -126,9 +126,17 @@ func (c *environConfig) forceVMHardwareVersion() int64 {
 func (c *environConfig) diskProvisioningType() vsphereclient.DiskProvisioningType {
 	provType, ok := c.attrs[cfgDiskProvisioningType]
 	if !ok {
-		return vsphereclient.DiskTypeThin
+		// Return the default in case none is set.
+		return vsphereclient.DefaultDiskProvisioningType
 	}
-	return vsphereclient.DiskProvisioningType(provType.(string))
+
+	provTypeStr, ok := provType.(string)
+	if !ok || provTypeStr == "" {
+		// We got an invalid value set, return default.
+		return vsphereclient.DefaultDiskProvisioningType
+	}
+
+	return vsphereclient.DiskProvisioningType(provTypeStr)
 }
 
 // validate checks vmware-specific config values.
@@ -141,22 +149,23 @@ func (c environConfig) validate() error {
 	}
 
 	if diskProvType, ok := c.attrs[cfgDiskProvisioningType]; ok {
-
 		diskProvTypeStr, ok := diskProvType.(string)
 		if !ok {
 			return errors.Errorf("%s must be a string", cfgDiskProvisioningType)
 		}
 
-		found := false
-		for _, val := range vsphereclient.ValidDiskProvisioningTypes {
-			if vsphereclient.DiskProvisioningType(diskProvTypeStr) == val {
-				found = true
-				break
+		if diskProvTypeStr != "" {
+			found := false
+			for _, val := range vsphereclient.ValidDiskProvisioningTypes {
+				if vsphereclient.DiskProvisioningType(diskProvTypeStr) == val {
+					found = true
+					break
+				}
 			}
-		}
-		if !found {
-			return errors.Errorf(
-				"%q must be one of %q", cfgDiskProvisioningType, vsphereclient.ValidDiskProvisioningTypes)
+			if !found {
+				return errors.Errorf(
+					"%q must be one of %q", cfgDiskProvisioningType, vsphereclient.ValidDiskProvisioningTypes)
+			}
 		}
 	}
 	return nil
