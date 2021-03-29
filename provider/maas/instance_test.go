@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/juju/gomaasapi"
+	"github.com/juju/gomaasapi/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

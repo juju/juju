@@ -33,8 +33,6 @@ func (s *UpgradeSeriesSuiteValidate) TestValidate(c *gc.C) {
 	applications := []Application{application}
 
 	unit := NewMockUnit(ctrl)
-	unit.EXPECT().AgentStatus().Return(status.StatusInfo{Status: status.Idle}, nil)
-	unit.EXPECT().Status().Return(status.StatusInfo{Status: status.Active}, nil)
 	unit.EXPECT().UnitTag().Return(names.NewUnitTag("foo/0"))
 	units := []Unit{unit}
 
@@ -51,6 +49,7 @@ func (s *UpgradeSeriesSuiteValidate) TestValidate(c *gc.C) {
 	validator.EXPECT().ValidateSeries("focal", "bionic", "machine-0").Return(nil)
 	validator.EXPECT().ValidateApplications(applications, "focal", false).Return(nil)
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
+	validator.EXPECT().ValidateUnits(units).Return(nil)
 
 	authorizer := NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().CanRead().Return(nil)
@@ -354,6 +353,52 @@ func (s ValidatorSuite) TestValidateMachineIsLockedForSeriesUpgrade(c *gc.C) {
 
 	err := validator.ValidateMachine(machine)
 	c.Assert(err, gc.ErrorMatches, `upgrade series lock found for "0"; series upgrade is in the "prepare running" state`)
+}
+
+func (s ValidatorSuite) TestValidateUnits(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	unit := NewMockUnit(ctrl)
+	unit.EXPECT().AgentStatus().Return(status.StatusInfo{Status: status.Idle}, nil)
+	unit.EXPECT().Status().Return(status.StatusInfo{Status: status.Active}, nil)
+	units := []Unit{unit}
+
+	validator := upgradeSeriesValidator{}
+
+	err := validator.ValidateUnits(units)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s ValidatorSuite) TestValidateUnitsNotIdle(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	unit := NewMockUnit(ctrl)
+	unit.EXPECT().Name().Return("foo/0")
+	unit.EXPECT().AgentStatus().Return(status.StatusInfo{Status: status.Blocked}, nil)
+	units := []Unit{unit}
+
+	validator := upgradeSeriesValidator{}
+
+	err := validator.ValidateUnits(units)
+	c.Assert(err, gc.ErrorMatches, `unit foo/0 is not ready to start a series upgrade; its agent status is: "blocked" `)
+}
+
+func (s ValidatorSuite) TestValidateUnitsInErrorState(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	unit := NewMockUnit(ctrl)
+	unit.EXPECT().Name().Return("foo/0")
+	unit.EXPECT().AgentStatus().Return(status.StatusInfo{Status: status.Idle}, nil)
+	unit.EXPECT().Status().Return(status.StatusInfo{Status: status.Error}, nil)
+	units := []Unit{unit}
+
+	validator := upgradeSeriesValidator{}
+
+	err := validator.ValidateUnits(units)
+	c.Assert(err, gc.ErrorMatches, `unit foo/0 is not ready to start a series upgrade; its status is: "error" `)
 }
 
 type StateValidatorSuite struct {

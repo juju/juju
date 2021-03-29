@@ -48,8 +48,8 @@ class GKE(Base):
     driver = None
     default_params = None
 
-    def __init__(self, bs_manager, cluster_name=None, timeout=1800):
-        super().__init__(bs_manager, cluster_name, timeout)
+    def __init__(self, bs_manager, cluster_name=None, enable_rbac=False, timeout=1800):
+        super().__init__(bs_manager, cluster_name, enable_rbac, timeout)
 
         self.default_storage_class_name = ''
         self.__init_driver(bs_manager.client.env)

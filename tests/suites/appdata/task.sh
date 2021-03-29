@@ -1,19 +1,19 @@
 test_appdata() {
-    if [ "$(skip 'test_appdata')" ]; then
-        echo "==> TEST SKIPPED: appdata tests"
-        return
-    fi
+	if [ "$(skip 'test_appdata')" ]; then
+		echo "==> TEST SKIPPED: appdata tests"
+		return
+	fi
 
-    set_verbosity
+	set_verbosity
 
-    echo "==> Checking for dependencies"
-    check_dependencies juju
+	echo "==> Checking for dependencies"
+	check_dependencies juju
 
-    file="${TEST_DIR}/test-appdata.log"
+	file="${TEST_DIR}/test-appdata.log"
 
-    bootstrap "test-appdata" "${file}"
+	bootstrap "test-appdata" "${file}"
 
-    test_appdata_int
+	test_appdata_int
 
-    destroy_controller "test-appdata"
+	destroy_controller "test-appdata"
 }

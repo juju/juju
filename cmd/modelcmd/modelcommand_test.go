@@ -328,7 +328,7 @@ func (s *ModelCommandSuite) TestIAASOnlyCommandCAASModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = runTestCommand(c, s.store)
-	c.Assert(err, gc.ErrorMatches, `Juju command "test-command" not supported on kubernetes models`)
+	c.Assert(err, gc.ErrorMatches, `Juju command "test-command" not supported on container models`)
 }
 
 func (s *ModelCommandSuite) TestCAASOnlyCommandIAASModel(c *gc.C) {

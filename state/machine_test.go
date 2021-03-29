@@ -2720,14 +2720,6 @@ func (s *MachineSuite) addMachineUnit(c *gc.C, mach *state.Machine) *state.Unit 
 	return unit
 }
 
-func unitNames(units []*state.Unit) []string {
-	names := make([]string, len(units))
-	for i := range units {
-		names[i] = units[i].Name()
-	}
-	return names
-}
-
 func (s *MachineSuite) TestWatchAddresses(c *gc.C) {
 	// Add a machine: reported.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)

@@ -1,14 +1,14 @@
 test_upgrade() {
-    if [ "$(skip 'test_upgrade')" ]; then
-        echo "==> TEST SKIPPED: upgrade tests"
-        return
-    fi
+	if [ "$(skip 'test_upgrade')" ]; then
+		echo "==> TEST SKIPPED: upgrade tests"
+		return
+	fi
 
-    set_verbosity
+	set_verbosity
 
-    echo "==> Checking for dependencies"
-    check_dependencies juju jujud python3
-    check_juju_dependencies metadata
+	echo "==> Checking for dependencies"
+	check_dependencies juju jujud python3
+	check_juju_dependencies metadata
 
-    test_upgrade_simplestream
+	test_upgrade_simplestream
 }

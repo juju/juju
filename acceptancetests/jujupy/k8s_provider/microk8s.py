@@ -43,8 +43,8 @@ class MicroK8s(Base):
     name = K8sProviderType.MICROK8S
     cloud_name = 'microk8s'  # built-in cloud name
 
-    def __init__(self, bs_manager, cluster_name=None, timeout=1800):
-        super().__init__(bs_manager, cluster_name, timeout)
+    def __init__(self, bs_manager, cluster_name=None, enable_rbac=False, timeout=1800):
+        super().__init__(bs_manager, cluster_name, enable_rbac, timeout)
         self.default_storage_class_name = 'microk8s-hostpath'
 
     def _ensure_cluster_stack(self):
@@ -95,7 +95,7 @@ class MicroK8s(Base):
                 addons.append('rbac')
         else:
             addons = [addon for addon in addons if addon != 'rbac']
-            logger.info('disabling rbac -> ', self.sh('microk8s.disable', 'rbac'))
+            logger.info('disabling rbac -> %s', self.sh('microk8s.disable', 'rbac'))
 
         def wait_until_ready(timeout, checker):
             for _ in until_timeout(timeout):

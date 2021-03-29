@@ -385,6 +385,31 @@ func (s *charmsSuite) TestNonLocalCharmUpload(c *gc.C) {
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 }
 
+func (s *charmsSuite) TestCharmHubCharmUpload(c *gc.C) {
+	// Check that upload of charms with the "ch:" schema works (for
+	// model migrations).
+	s.setModelImporting(c)
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	expectedURL := charm.MustParseURL("ch:s390x/bionic/dummy-15")
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          expectedURL,
+		StoragePath: "dummy-storage-path",
+		SHA256:      "dummy-1-sha256",
+	}
+	_, err := s.State.AddCharm(info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	resp := s.uploadRequest(c, s.charmsURI("?arch=s390x&revision=15&schema=ch&series=bionic"), "application/zip", &fileReader{path: ch.Path})
+
+	s.assertUploadResponse(c, resp, expectedURL.String())
+	sch, err := s.State.Charm(expectedURL)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
+	c.Assert(sch.Revision(), gc.Equals, 15)
+	c.Assert(sch.IsUploaded(), jc.IsTrue)
+}
+
 func (s *charmsSuite) TestUnsupportedSchema(c *gc.C) {
 	s.setModelImporting(c)
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")

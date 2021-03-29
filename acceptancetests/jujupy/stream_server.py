@@ -65,7 +65,7 @@ class _JujuStreamData:
 
         os.makedirs(self._agent_path)
 
-    def add_product(self, content_id, version, arch, agent_tgz_path):
+    def add_product(self, content_id, version, arch, agent_tgz_path, series=None):
         """Add a new product to generate stream data for.
 
         :param content_id: String ID (e.g.'proposed', 'release')
@@ -74,10 +74,12 @@ class _JujuStreamData:
         :param agent_tgz_path: String full path to agent tarball file to use.
           This file is copied into the JujuStreamData working dir to be served
           up at a later date.
+        :param series: Series string that appears in item_name
+          (e.g. 'bionic', 'xenial', 'centos')
         """
         shutil.copy(agent_tgz_path, self._agent_path)
         product_dict = _generate_product_json(
-            content_id, version, arch, agent_tgz_path)
+            content_id, version, arch, agent_tgz_path, series)
         self.products.append(product_dict)
 
     def generate_stream_data(self):
@@ -106,7 +108,7 @@ class StreamServer:
         self.base_dir = base_dir
         self.stream_data = stream_data_type(base_dir)
 
-    def add_product(self, content_id, version, arch, agent_tgz_path):
+    def add_product(self, content_id, version, arch, agent_tgz_path, series=None):
         """Add a new product to generate stream data for.
 
         :param content_id: String ID (e.g.'proposed', 'released')
@@ -115,9 +117,11 @@ class StreamServer:
         :param agent_tgz_path: String full path to agent tarball file to use.
           This file is copied into the JujuStreamData working dir to be served
           up at a later date.
+        :param series: Series string that appears in item_name
+          (e.g. 'bionic', 'xenial', 'centos')
         """
         self.stream_data.add_product(
-            content_id, version, arch, agent_tgz_path)
+            content_id, version, arch, agent_tgz_path, series)
         # Re-generate when adding a product allows updating the server while
         # running.
         # Can be noisey in the logs, if a lot of products need to be added can
@@ -208,24 +212,34 @@ def agent_tgz_from_juju_binary(
     return tgz_path
 
 
-def _generate_product_json(content_id, version, arch, series, agent_tgz_path):
+def _generate_product_json(content_id, version, arch, agent_tgz_path, series=None):
     """Return dict containing product metadata from provided args."""
     tgz_name = os.path.basename(agent_tgz_path)
     file_details = _get_tgz_file_details(agent_tgz_path)
-    item_name = '{version}-ubuntu-{arch}'.format(
+    index_part = 'agents'
+    product_part = 'ubuntu'
+    release = 'ubuntu'
+    # If series is supplied we need to generate old style metadata.
+    if series is not None:
+        release = series
+        product_part = _get_series_code(series)
+        index_part = 'tools'
+    item_name = '{version}-{release}-{arch}'.format(
         version=version,
+        release=release,
         arch=arch)
     return dict(
         arch=arch,
-        content_id='com.ubuntu.juju:{}:agents'.format(content_id),
+        content_id='com.ubuntu.juju:{}:{}'.format(content_id, index_part),
         format='products:1.0',
         ftype='tar.gz',
         item_name=item_name,
         md5=file_details['md5'],
         path=os.path.join('agent', tgz_name),
-        product_name='com.ubuntu.juju:ubuntu:{arch}'.format(
+        product_name='com.ubuntu.juju:{product_part}:{arch}'.format(
+            product_part=product_part,
             arch=arch),
-        release='ubuntu',
+        release=release,
         sha256=file_details['sha256'],
         size=file_details['size'],
         version=version,
@@ -233,19 +247,19 @@ def _generate_product_json(content_id, version, arch, series, agent_tgz_path):
     )
 
 
-def _get_series_details(series):
+def _get_series_code(series):
     # Ubuntu agents use series and a code (i.e. trusty:14.04), others don't.
     _series_lookup = dict(
         trusty=14.04,
         xenial=16.04,
-        artful=17.10,
         bionic=18.04,
+        focal=20.04,
     )
     try:
         series_code = _series_lookup[series]
     except KeyError:
-        return series, series
-    return series, series_code
+        return series
+    return series_code
 
 
 def _get_tgz_file_details(agent_tgz_path):

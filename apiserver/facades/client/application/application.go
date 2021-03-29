@@ -7,7 +7,6 @@
 package application
 
 import (
-	"fmt"
 	"math"
 	"net"
 	"reflect"
@@ -32,6 +31,7 @@ import (
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
@@ -71,8 +71,9 @@ type APIBase struct {
 	backend       Backend
 	storageAccess storageInterface
 
-	authorizer facade.Authorizer
-	check      BlockChecker
+	authorizer   facade.Authorizer
+	check        BlockChecker
+	updateSeries UpdateSeries
 
 	model     Model
 	modelType state.ModelType
@@ -106,7 +107,7 @@ type caasBrokerInterface interface {
 }
 
 func newFacadeBase(ctx facade.Context) (*APIBase, error) {
-	facadeModel, err := ctx.State().Model()
+	model, err := ctx.State().Model()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model")
 	}
@@ -122,8 +123,8 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		registry           storage.ProviderRegistry
 		caasBroker         caas.Broker
 	)
-	if facadeModel.Type() == state.ModelTypeCAAS {
-		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(facadeModel)
+	if model.Type() == state.ModelTypeCAAS {
+		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting caas client")
 		}
@@ -138,12 +139,36 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		return nil, errors.Trace(err)
 	}
 
+	state := &stateShim{ctx.State()}
+
+	modelCfg, err := model.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var chCfg charmhub.Config
+	chURL, ok := modelCfg.CharmHubURL()
+	if ok {
+		chCfg, err = charmhub.CharmHubConfigFromURL(chURL, logger.Child("client"))
+	} else {
+		chCfg, err = charmhub.CharmHubConfig(logger.Child("client"))
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	chClient, err := charmhub.NewClient(chCfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	updateSeries := NewUpdateSeriesAPI(state, makeUpdateSeriesValidator(chClient))
+
 	return NewAPIBase(
-		&stateShim{ctx.State()},
+		state,
 		storageAccess,
 		ctx.Auth(),
+		updateSeries,
 		blockChecker,
-		&modelShim{facadeModel}, // modelShim wraps the AllPorts() API.
+		&modelShim{Model: model}, // modelShim wraps the AllPorts() API.
 		leadershipReader,
 		stateCharm,
 		DeployApplication,
@@ -159,6 +184,7 @@ func NewAPIBase(
 	backend Backend,
 	storageAccess storageInterface,
 	authorizer facade.Authorizer,
+	updateSeries UpdateSeries,
 	blockChecker BlockChecker,
 	model Model,
 	leadershipReader leadership.Reader,
@@ -176,6 +202,7 @@ func NewAPIBase(
 		backend:               backend,
 		storageAccess:         storageAccess,
 		authorizer:            authorizer,
+		updateSeries:          updateSeries,
 		check:                 blockChecker,
 		model:                 model,
 		modelType:             model.Type(),
@@ -376,24 +403,24 @@ func caasPrecheck(
 	if ch.Meta().Deployment != nil && ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
 		if !controllerCfg.Features().Contains(feature.K8sOperators) {
 			return errors.Errorf(
-				"feature flag %q is required for deploying k8s operator charms", feature.K8sOperators,
+				"feature flag %q is required for deploying container operator charms", feature.K8sOperators,
 			)
 		}
 	}
 	if len(args.AttachStorage) > 0 {
 		return errors.Errorf(
-			"AttachStorage may not be specified for k8s models",
+			"AttachStorage may not be specified for container models",
 		)
 	}
 	if len(args.Placement) > 1 {
 		return errors.Errorf(
-			"only 1 placement directive is supported for k8s models, got %d",
+			"only 1 placement directive is supported for container models, got %d",
 			len(args.Placement),
 		)
 	}
 	for _, s := range ch.Meta().Storage {
 		if s.Type == charm.StorageBlock {
-			return errors.Errorf("block storage %q is not supported for k8s charms", s.Name)
+			return errors.Errorf("block storage %q is not supported for container charms", s.Name)
 		}
 	}
 	serviceType := args.Config[k8s.ServiceTypeConfigKey]
@@ -823,25 +850,7 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 	return nil
 }
 
-// updateCharm parses the charm url and then grabs the charm from the backend.
-// this is analogous to setCharmWithAgentValidation, minus the validation around
-// setting the profile charm.
-func (api *APIBase) updateCharm(
-	params setCharmParams,
-	url string,
-) error {
-	curl, err := charm.ParseURL(url)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	aCharm, err := api.backend.Charm(curl)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return api.applicationSetCharm(params, aCharm, nil)
-}
-
-// UpdateApplicationSeries updates the application series. Release for
+// UpdateApplicationSeries updates the application series. Series for
 // subordinates updated too.
 func (api *APIBase) UpdateApplicationSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
@@ -861,30 +870,7 @@ func (api *APIBase) UpdateApplicationSeries(args params.UpdateSeriesArgs) (param
 }
 
 func (api *APIBase) updateOneApplicationSeries(arg params.UpdateSeriesArg) error {
-	if arg.Series == "" {
-		return &params.Error{
-			Message: "series missing from args",
-			Code:    params.CodeBadRequest,
-		}
-	}
-	applicationTag, err := names.ParseApplicationTag(arg.Entity.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	app, err := api.backend.Application(applicationTag.Id())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !app.IsPrincipal() {
-		return &params.Error{
-			Message: fmt.Sprintf("%q is a subordinate application, update-series not supported", applicationTag.Id()),
-			Code:    params.CodeNotSupported,
-		}
-	}
-	if arg.Series == app.Series() {
-		return nil // no-op
-	}
-	return app.UpdateApplicationSeries(arg.Series, arg.Force)
+	return api.updateSeries.UpdateSeries(arg.Entity.Tag, arg.Series, arg.Force)
 }
 
 // SetCharm sets the charm for a given for the application.
@@ -926,19 +912,19 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 
 var (
 	deploymentInfoUpgradeMessage = `
-Juju on k8s does not support updating deployment info for services.
+Juju on containers does not support updating deployment info for services.
 The new charm's metadata contains updated deployment info.
 You'll need to deploy a new charm rather than upgrading if you need this change.
 `[1:]
 
 	storageUpgradeMessage = `
-k8s does not support updating storage on a statefulset.
+Juju on containers does not support updating storage on a statefulset.
 The new charm's metadata contains updated storage declarations.
 You'll need to deploy a new charm rather than upgrading if you need this change.
 `[1:]
 
 	devicesUpgradeMessage = `
-k8s does not support updating node selectors (configured from charm devices).
+Juju on containers does not support updating node selectors (configured from charm devices).
 The new charm's metadata contains updated device declarations.
 You'll need to deploy a new charm rather than upgrading if you need this change.
 `[1:]
@@ -1185,7 +1171,7 @@ func (api *APIBase) Expose(args params.ApplicationExpose) error {
 		}
 		if appConfig.GetString(caas.JujuExternalHostNameKey, "") == "" {
 			return errors.Errorf(
-				"cannot expose a k8s application without a %q value set, run\n"+
+				"cannot expose a container application without a %q value set, run\n"+
 					"juju config %s %s=<value>", caas.JujuExternalHostNameKey, args.ApplicationName, caas.JujuExternalHostNameKey)
 		}
 	}
@@ -1496,7 +1482,9 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 		}
 		results[i].Info = info
 	}
-	return params.DestroyUnitResults{results}, nil
+	return params.DestroyUnitResults{
+		Results: results,
+	}, nil
 }
 
 // Destroy destroys a given application, local or remote.
@@ -1563,7 +1551,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 		for _, unit := range units {
 			info.DestroyedUnits = append(
 				info.DestroyedUnits,
-				params.Entity{unit.UnitTag().String()},
+				params.Entity{Tag: unit.UnitTag().String()},
 			)
 			unitStorage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
 			if err != nil {
@@ -1587,7 +1575,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 				for _, s := range unitStorage {
 					info.DestroyedStorage = append(
 						info.DestroyedStorage,
-						params.Entity{s.StorageTag().String()},
+						params.Entity{Tag: s.StorageTag().String()},
 					)
 				}
 			} else {
@@ -1624,7 +1612,9 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 		}
 		results[i].Info = info
 	}
-	return params.DestroyApplicationResults{results}, nil
+	return params.DestroyApplicationResults{
+		Results: results,
+	}, nil
 }
 
 // DestroyConsumedApplications removes a given set of consumed (remote) applications.
@@ -1664,7 +1654,9 @@ func (api *APIBase) DestroyConsumedApplications(args params.DestroyConsumedAppli
 			continue
 		}
 	}
-	return params.ErrorResults{results}, nil
+	return params.ErrorResults{
+		Results: results,
+	}, nil
 }
 
 // ScaleApplications scales the specified application to the requested number of units.
@@ -1733,7 +1725,9 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 		}
 		results[i].Info = info
 	}
-	return params.ScaleApplicationResults{results}, nil
+	return params.ScaleApplicationResults{
+		Results: results,
+	}, nil
 }
 
 // GetConstraints returns the constraints for a given application.
@@ -2362,7 +2356,9 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			ExposedEndpoints: exposedEndpoints,
 		}
 	}
-	return params.ApplicationInfoResults{out}, nil
+	return params.ApplicationInfoResults{
+		Results: out,
+	}, nil
 }
 
 func (api *APIBase) mapExposedEndpointsFromState(exposedEndpoints map[string]state.ExposedEndpoint) (map[string]params.ExposedEndpoint, error) {
@@ -2617,7 +2613,9 @@ func (api *APIBase) UnitsInfo(in params.Entities) (params.UnitInfoResults, error
 
 		out[i].Result = result
 	}
-	return params.UnitInfoResults{out}, nil
+	return params.UnitInfoResults{
+		Results: out,
+	}, nil
 }
 
 // openPortsOnMachineForUnit returns the unique set of opened ports for the

@@ -214,9 +214,6 @@ func (s *MongoSuite) assertEnsureServerIPv6(c *gc.C, ipv6 bool) string {
 
 	assertInstalled := func() {
 		c.Assert(s.installedPackages, jc.DeepEquals, []packaging.Package{{
-			Name:           "core",
-			PackageManager: "snap",
-		}, {
 			Name:           "juju-db",
 			PackageManager: "snap",
 			InstallOptions: "--channel latest",
