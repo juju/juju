@@ -4,6 +4,7 @@
 package caasapplicationprovisioner
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -33,11 +34,12 @@ type appNotifyWorker interface {
 }
 
 type appWorker struct {
-	catacomb catacomb.Catacomb
-	facade   CAASProvisionerFacade
-	broker   CAASBroker
-	clock    clock.Clock
-	logger   Logger
+	catacomb   catacomb.Catacomb
+	facade     CAASProvisionerFacade
+	broker     CAASBroker
+	clock      clock.Clock
+	logger     Logger
+	unitFacade CAASUnitProvisionerFacade
 
 	name        string
 	modelTag    names.ModelTag
@@ -47,12 +49,13 @@ type appWorker struct {
 }
 
 type AppWorkerConfig struct {
-	Name     string
-	Facade   CAASProvisionerFacade
-	Broker   CAASBroker
-	ModelTag names.ModelTag
-	Clock    clock.Clock
-	Logger   Logger
+	Name       string
+	Facade     CAASProvisionerFacade
+	Broker     CAASBroker
+	ModelTag   names.ModelTag
+	Clock      clock.Clock
+	Logger     Logger
+	UnitFacade CAASUnitProvisionerFacade
 }
 
 type NewAppWorkerFunc func(AppWorkerConfig) func() (worker.Worker, error)
@@ -62,13 +65,14 @@ func NewAppWorker(config AppWorkerConfig) func() (worker.Worker, error) {
 		changes := make(chan struct{}, 1)
 		changes <- struct{}{}
 		a := &appWorker{
-			name:     config.Name,
-			facade:   config.Facade,
-			broker:   config.Broker,
-			modelTag: config.ModelTag,
-			clock:    config.Clock,
-			logger:   config.Logger,
-			changes:  changes,
+			name:       config.Name,
+			facade:     config.Facade,
+			broker:     config.Broker,
+			modelTag:   config.ModelTag,
+			clock:      config.Clock,
+			logger:     config.Logger,
+			changes:    changes,
+			unitFacade: config.UnitFacade,
 		}
 		err := catacomb.Invoke(catacomb.Plan{
 			Site: &a.catacomb,
@@ -126,6 +130,15 @@ func (a *appWorker) loop() error {
 	var replicaChanges watcher.NotifyChannel
 	var appStateChanges watcher.NotifyChannel
 	var lastReportedStatus map[string]status.StatusInfo
+
+	appScaleWatcher, err := a.unitFacade.WatchApplicationScale(a.name)
+	if err != nil {
+		return errors.Annotatef(err, "creating application %q scale watcher", a.name)
+	}
+
+	if err := a.catacomb.Add(appScaleWatcher); err != nil {
+		return errors.Annotatef(err, "failed to watch for application %q scale changes", a.name)
+	}
 
 	done := false
 
@@ -190,6 +203,13 @@ func (a *appWorker) loop() error {
 
 	for {
 		select {
+		case _, ok := <-appScaleWatcher.Changes():
+			if !ok {
+				return fmt.Errorf("application %q scale watcher closed channel", a.name)
+			}
+			if err := a.ensureScale(app); err != nil {
+				return err
+			}
 		case <-a.catacomb.Dying():
 			return a.catacomb.ErrDying()
 		case <-appStateChanges:
@@ -339,6 +359,24 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 		}
 	}
 	return reportedStatus, nil
+}
+
+func (a *appWorker) ensureScale(app caas.Application) error {
+	desiredScale, err := a.unitFacade.ApplicationScale(a.name)
+	if err != nil {
+		return errors.Annotatef(err, "fetching application %q desired scale", a.name)
+	}
+
+	a.logger.Debugf("updating application %q scale to %d", a.name, desiredScale)
+	if err := app.Scale(desiredScale); err != nil {
+		return errors.Annotatef(
+			err,
+			"scaling application %q to desired scale %d",
+			a.name,
+			desiredScale)
+	}
+
+	return nil
 }
 
 func (a *appWorker) alive(app caas.Application) error {

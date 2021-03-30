@@ -417,7 +417,7 @@ func modelOperatorDeployment(
 			),
 		},
 		Spec: apps.DeploymentSpec{
-			Replicas: int32Ptr(1),
+			Replicas: utils.Int32Ptr(1),
 			Selector: &meta.LabelSelector{
 				MatchLabels: selectorLabels,
 			},

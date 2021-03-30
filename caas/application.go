@@ -22,6 +22,12 @@ type Application interface {
 	Delete() error
 	Watch() (watcher.NotifyWatcher, error)
 	WatchReplicas() (watcher.NotifyWatcher, error)
+
+	// Scale scales the Application's unit to the value specificied. Scale must
+	// be >= 0. Application units will be removed or added to meet the scale
+	// defined.
+	Scale(int) error
+
 	State() (ApplicationState, error)
 	Units() ([]Unit, error)
 

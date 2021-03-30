@@ -81,7 +81,7 @@ func (k *kubernetesClient) configureStatefulSet(
 			Selector: &v1.LabelSelector{
 				MatchLabels: selectorLabels,
 			},
-			RevisionHistoryLimit: int32Ptr(statefulSetRevisionHistoryLimit),
+			RevisionHistoryLimit: utils.Int32Ptr(statefulSetRevisionHistoryLimit),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels:      utils.LabelsMerge(workloadSpec.Pod.Labels, selectorLabels),
