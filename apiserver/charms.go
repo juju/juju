@@ -48,8 +48,14 @@ type FailableHandlerFunc func(http.ResponseWriter, *http.Request) error
 //
 // After we do this, we can then test the individual funcs/structs
 // without standing up an entire HTTP server. I.e. actual unit
-// tests. If you're in this area and can, please chissle away at this
+// tests. If you're in this area and can, please chisel away at this
 // problem and update this TODO as needed! Many thanks, hacker!
+//
+// TODO(stickupkid): This handler is terrible, we could implement a middleware
+// pattern to handle discreet logic and then pass it on to the next in the
+// pipeline.
+//
+// As usual big methods lead to untestable code and it causes testing pain.
 type CharmsHTTPHandler struct {
 	PostHandler FailableHandlerFunc
 	GetHandler  FailableHandlerFunc
@@ -92,6 +98,12 @@ func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error 
 	logger.Child("charmsHandler").Tracef("ServePost(%s)", r.URL)
 	if r.Method != "POST" {
 		return errors.Trace(emitUnsupportedMethodErr(r.Method))
+	}
+
+	// Make sure the content type is zip.
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/zip" {
+		return errors.BadRequestf("expected Content-Type: application/zip, got: %v", contentType)
 	}
 
 	st, err := h.stateAuthFunc(r)
@@ -211,18 +223,23 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 	if schema == "" {
 		schema = "local"
 	}
+	if schema != "local" {
+		// charmstore and charmhub charms may only be uploaded into models
+		// which are being imported during model migrations. There's currently
+		// no other time where it makes sense to accept charm store
+		// charms through this endpoint.
+		if isImporting, err := modelIsImporting(st); err != nil {
+			return nil, errors.Trace(err)
+		} else if !isImporting {
+			return nil, errors.New("charms may only be uploaded during model migration import")
+		}
+	}
 
 	series := query.Get("series")
 	if series != "" {
 		if err := charm.ValidateSeries(series); err != nil {
 			return nil, errors.NewBadRequest(err, "")
 		}
-	}
-
-	// Make sure the content type is zip.
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/zip" {
-		return nil, errors.BadRequestf("expected Content-Type: application/zip, got: %v", contentType)
 	}
 
 	charmFileName, err := writeCharmToTempFile(r.Body)
@@ -240,7 +257,12 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		return nil, errors.BadRequestf("invalid charm archive: %v", err)
 	}
 
-	name := archive.Meta().Name
+	// Use the name from the query string. If we're dealing with an older client
+	// then this won't be sent, instead fallback to the archive metadata name.
+	name := query.Get("name")
+	if name == "" {
+		name = archive.Meta().Name
+	}
 	if err := charm.ValidateName(name); err != nil {
 		return nil, errors.NewBadRequest(err, "")
 	}
@@ -249,10 +271,11 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 	curl := &charm.URL{
 		Schema:       schema,
 		Architecture: query.Get("arch"),
-		Name:         archive.Meta().Name,
+		Name:         name,
 		Revision:     archive.Revision(),
 		Series:       series,
 	}
+
 	switch charm.Schema(schema) {
 	case charm.Local:
 		curl, err = st.PrepareLocalCharmUpload(curl)
@@ -260,21 +283,11 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 			return nil, errors.Trace(err)
 		}
 
-	case charm.CharmStore, charm.CharmHub:
-		// charmstore and charmhub charms may only be uploaded into models
-		// which are being imported during model migrations. There's currently
-		// no other time where it makes sense to accept charm store
-		// charms through this endpoint.
-		if isImporting, err := modelIsImporting(st); err != nil {
-			return nil, errors.Trace(err)
-		} else if !isImporting {
-			return nil, errors.New("charms may only be uploaded during model migration import")
-		}
-
-		// Use the user argument if provided (users only make sense
-		// with cs: charms).
+	case charm.CharmStore:
 		curl.User = query.Get("user")
+		fallthrough
 
+	case charm.CharmHub:
 		// If a revision argument is provided, it takes precedence
 		// over the revision in the charm archive. This is required to
 		// handle the revision differences between unpublished and

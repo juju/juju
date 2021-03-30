@@ -479,6 +479,35 @@ func (s *charmsSuite) TestMigrateCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *charmsSuite) TestMigrateCharmName(c *gc.C) {
+	newSt := s.Factory.MakeModel(c, nil)
+	defer newSt.Close()
+	importedModel, err := newSt.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = importedModel.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The default user is just a normal user, not a controller admin
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	url := s.charmsURL("series=quantal&name=meshuggah")
+	url.Path = "/migrate/charms"
+	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
+		Method:      "POST",
+		URL:         url.String(),
+		ContentType: "application/zip",
+		Body:        &fileReader{path: ch.Path},
+		ExtraHeaders: map[string]string{
+			params.MigrationModelHTTPHeader: importedModel.UUID(),
+		},
+	})
+	expectedURL := charm.MustParseURL("local:quantal/meshuggah-1")
+	s.assertUploadResponse(c, resp, expectedURL.String())
+
+	// The charm was added to the migrated model.
+	_, err = newSt.Charm(expectedURL)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *charmsSuite) TestMigrateCharmNotMigrating(c *gc.C) {
 	migratedModel := s.Factory.MakeModel(c, nil)
 	defer migratedModel.Close()
