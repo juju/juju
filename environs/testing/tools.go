@@ -64,22 +64,7 @@ func (s *ToolsFixture) UploadFakeToolsToDirectory(c *gc.C, dir, toolsDir, stream
 // UploadFakeTools uploads fake tools of the architectures in
 // s.UploadArches for each LTS release to the specified storage.
 func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, stream string) {
-	arches := s.UploadArches
-	if len(arches) == 0 {
-		arches = []string{arch.HostArch()}
-	}
-	var versions []version.Binary
-	for _, arch := range arches {
-		v := version.Binary{
-			Number:  jujuversion.Current,
-			Arch:    arch,
-			Release: "ubuntu",
-		}
-		versions = append(versions, v)
-	}
-	c.Logf("uploading fake tool versions: %v", versions)
-	_, err := UploadFakeToolsVersions(stor, toolsDir, stream, versions...)
-	c.Assert(err, jc.ErrorIsNil)
+	UploadFakeTools(c, stor, toolsDir, stream, s.UploadArches...)
 }
 
 // RemoveFakeToolsMetadata deletes the fake simplestreams tools metadata from the supplied storage.
@@ -261,38 +246,29 @@ func MustUploadFakeToolsVersions(stor storage.Storage, stream string, versions .
 	return agentTools
 }
 
-func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
+// UploadFakeTools puts fake tools into the supplied storage with a binary
+// version matching jujuversion.Current; if jujuversion.Current's os type is different
+// to the host os type, matching fake tools will be uploaded for that host os type.
+func UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, stream string, arches ...string) {
+	if len(arches) == 0 {
+		arches = []string{arch.HostArch()}
+	}
 	toolsOS := set.NewStrings("ubuntu")
 	toolsOS.Add(coreos.HostOSTypeName())
 	var versions []version.Binary
-	for _, osType := range toolsOS.Values() {
-		vers := version.Binary{
-			Number:  jujuversion.Current,
-			Arch:    arch.HostArch(),
-			Release: osType,
+	for _, arch := range arches {
+		for _, osType := range toolsOS.Values() {
+			v := version.Binary{
+				Number:  jujuversion.Current,
+				Arch:    arch,
+				Release: osType,
+			}
+			versions = append(versions, v)
 		}
-		versions = append(versions, vers)
 	}
-	if _, err := UploadFakeToolsVersions(stor, toolsDir, stream, versions...); err != nil {
-		return err
-	}
-	return nil
-}
-
-// UploadFakeTools puts fake tools into the supplied storage with a binary
-// version matching jujuversion.Current; if jujuversion.Current's series is different
-// to  juju/juju/version.SupportedLTS(), matching fake tools will be uploaded for that
-// series.  This is useful for tests that are kinda casual about specifying
-// their environment.
-func UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, stream string) {
-	c.Assert(uploadFakeTools(stor, toolsDir, stream), gc.IsNil)
-}
-
-// MustUploadFakeTools acts as UploadFakeTools, but panics on failure.
-func MustUploadFakeTools(stor storage.Storage, toolsDir, stream string) {
-	if err := uploadFakeTools(stor, toolsDir, stream); err != nil {
-		panic(err)
-	}
+	c.Logf("uploading fake tool versions: %v", versions)
+	_, err := UploadFakeToolsVersions(stor, toolsDir, stream, versions...)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // RemoveFakeTools deletes the fake tools from the supplied storage.
