@@ -18,6 +18,7 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
+	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/network/netplan"
 	coretesting "github.com/juju/juju/testing"
@@ -34,7 +35,7 @@ func MustNetplanFromYaml(c *gc.C, input string) *netplan.Netplan {
 	if strings.HasPrefix(input, "\n") {
 		input = input[1:]
 	}
-	err := netplan.Unmarshal([]byte(input), &np)
+	err := goyaml.UnmarshalStrict([]byte(input), &np)
 	c.Assert(err, jc.ErrorIsNil)
 	return &np
 }
@@ -43,10 +44,8 @@ func checkNetplanRoundTrips(c *gc.C, input string) {
 	if strings.HasPrefix(input, "\n") {
 		input = input[1:]
 	}
-	var np netplan.Netplan
-	err := netplan.Unmarshal([]byte(input), &np)
-	c.Assert(err, jc.ErrorIsNil)
-	out, err := netplan.Marshal(&np)
+	np := MustNetplanFromYaml(c, input)
+	out, err := netplan.Marshal(np)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(out), gc.Equals, input)
 }
@@ -1056,9 +1055,7 @@ network:
       addresses:
       - 2.3.4.5/24
 `[1:]
-	var np netplan.Netplan
-	err := netplan.Unmarshal([]byte(input), &np)
-	c.Assert(err, jc.ErrorIsNil)
+	np := MustNetplanFromYaml(c, input)
 
 	device, err := np.FindVLANByName("id0.123")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1095,9 +1092,7 @@ network:
       - 2.3.4.5/24
       macaddress: 00:11:22:33:44:77
 `[1:]
-	var np netplan.Netplan
-	err := netplan.Unmarshal([]byte(input), &np)
-	c.Assert(err, jc.ErrorIsNil)
+	np := MustNetplanFromYaml(c, input)
 
 	device, err := np.FindVLANByMAC("00:11:22:33:44:77")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1140,9 +1135,7 @@ network:
       parameters:
         primary: eno3
 `[1:]
-	var np netplan.Netplan
-	err := netplan.Unmarshal([]byte(input), &np)
-	c.Assert(err, jc.ErrorIsNil)
+	np := MustNetplanFromYaml(c, input)
 
 	device, err := np.FindBondByName("bond0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1193,9 +1186,7 @@ network:
       parameters:
         primary: eno3
 `[1:]
-	var np netplan.Netplan
-	err := netplan.Unmarshal([]byte(input), &np)
-	c.Assert(err, jc.ErrorIsNil)
+	np := MustNetplanFromYaml(c, input)
 
 	device, err := np.FindBondByMAC("00:11:22:33:44:77")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1279,7 +1270,6 @@ network:
 }
 
 func (s *NetplanSuite) TestReadDirectory(c *gc.C) {
-	c.Skip("Full netplan merge not supported yet, see https://bugs.launchpad.net/juju/+bug/1701429")
 	expected := `
 network:
   version: 2
@@ -1296,45 +1286,7 @@ network:
       gateway6: 2000::2
       nameservers:
         search: [foo.local, bar.local]
-        addresses: [8.8.8.8]
-    id1:
-      match:
-        macaddress: "00:11:22:33:44:66"
-      addresses:
-      - 1.2.4.4/24
-      - 2001::1/64
-      gateway4: 1.2.4.5
-      gateway6: 2001::2
-      nameservers:
-        search: [baz.local]
-        addresses: [8.8.4.4]
-    id2:
-      match:
-        driver: iwldvm
-  bridges:
-    some-bridge:
-      interfaces: [id2]
-      addresses:
-      - 1.5.6.7/24
-`[1:]
-	np, err := netplan.ReadDirectory("testdata/TestReadDirectory")
-	c.Assert(err, jc.ErrorIsNil)
-
-	out, err := netplan.Marshal(&np)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(out), gc.Equals, expected)
-}
-
-// TODO(wpk) 2017-06-14 This test checks broken behaviour, it should be removed when TestReadDirectory passes.
-// see https://bugs.launchpad.net/juju/+bug/1701429
-func (s *NetplanSuite) TestReadDirectoryWithoutProperMerge(c *gc.C) {
-	expected := `
-network:
-  version: 2
-  renderer: NetworkManager
-  ethernets:
-    id0:
-      gateway4: 1.2.3.8
+        addresses: [8.8.8.8, 1.1.1.1]
     id1:
       match:
         macaddress: 00:11:22:33:44:66
@@ -1496,7 +1448,7 @@ func (s *NetplanSuite) TestReadDirectoryMissing(c *gc.C) {
 	tempDir := c.MkDir()
 	os.RemoveAll(tempDir)
 	_, err := netplan.ReadDirectory(tempDir)
-	c.Check(err, gc.ErrorMatches, "open .* no such file or directory")
+	c.Check(err, gc.ErrorMatches, ".*open .* no such file or directory")
 }
 
 func (s *NetplanSuite) TestReadDirectoryAccessDenied(c *gc.C) {
@@ -1505,7 +1457,7 @@ func (s *NetplanSuite) TestReadDirectoryAccessDenied(c *gc.C) {
 	err := ioutil.WriteFile(path.Join(tempDir, "00-file.yaml"), []byte("network:\n"), 00000)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = netplan.ReadDirectory(tempDir)
-	c.Check(err, gc.ErrorMatches, "open .*/00-file.yaml: permission denied")
+	c.Check(err, gc.ErrorMatches, ".*open .*/00-file.yaml: permission denied")
 }
 
 func (s *NetplanSuite) TestReadDirectoryBrokenYaml(c *gc.C) {
@@ -1513,7 +1465,7 @@ func (s *NetplanSuite) TestReadDirectoryBrokenYaml(c *gc.C) {
 	err := ioutil.WriteFile(path.Join(tempDir, "00-file.yaml"), []byte("I am not a yaml file!\nreally!\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = netplan.ReadDirectory(tempDir)
-	c.Check(err, gc.ErrorMatches, "yaml: unmarshal errors:\n.*")
+	c.Check(err, gc.ErrorMatches, ".*yaml: unmarshal errors:\n.*")
 }
 
 func (s *NetplanSuite) TestWritePermissionDenied(c *gc.C) {
@@ -1523,7 +1475,7 @@ func (s *NetplanSuite) TestWritePermissionDenied(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	os.Chmod(tempDir, 00000)
 	_, err = np.Write(path.Join(tempDir, "99-juju-netplan.yaml"))
-	c.Check(err, gc.ErrorMatches, "open .* permission denied")
+	c.Check(err, gc.ErrorMatches, ".*open .* permission denied")
 }
 
 func (s *NetplanSuite) TestWriteCantGenerateName(c *gc.C) {
@@ -1614,13 +1566,11 @@ func (s *NetplanSuite) TestNetplanExamples(c *gc.C) {
 		var orig map[interface{}]interface{}
 		err := yaml.UnmarshalStrict([]byte(example.content), &orig)
 		c.Assert(err, jc.ErrorIsNil, gc.Commentf("failed to unmarshal as map %s", example.filename))
-		var np netplan.Netplan
-		err = netplan.Unmarshal([]byte(example.content), &np)
-		c.Check(err, jc.ErrorIsNil, gc.Commentf("failed to unmarshal %s", example.filename))
+		np := MustNetplanFromYaml(c, example.content)
 		// We don't assert that we exactly match the serialized form (we may output fields in a different order),
 		// but we do check that if we Marshal and then Unmarshal again, we get the same map contents.
 		// (We might also change boolean 'no' to 'false', etc.
-		out, err := netplan.Marshal(&np)
+		out, err := netplan.Marshal(np)
 		c.Check(err, jc.ErrorIsNil, gc.Commentf("failed to marshal %s", example.filename))
 		var roundtripped map[interface{}]interface{}
 		err = yaml.UnmarshalStrict(out, &roundtripped)
