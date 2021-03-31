@@ -129,7 +129,7 @@ func (e *environ) getInstanceSubnets(
 			results = append(results, makeSubnetInfo(
 				iface.ProviderSubnetId,
 				iface.ProviderNetworkId,
-				iface.CIDR,
+				iface.PrimaryAddress().CIDR,
 				zones,
 			))
 		}
@@ -206,7 +206,6 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 
 			infos[idx] = append(infos[idx], corenetwork.InterfaceInfo{
 				DeviceIndex: i,
-				CIDR:        details.cidr,
 				// The network interface has no id in GCE so it's
 				// identified by the machine's id + its name.
 				ProviderId:        corenetwork.Id(fmt.Sprintf("%s/%s", ids[idx], iface.Name)),
@@ -214,9 +213,11 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 				ProviderNetworkId: details.network,
 				AvailabilityZones: copyStrings(zones),
 				InterfaceName:     iface.Name,
-				Addresses: corenetwork.ProviderAddresses{
-					corenetwork.NewProviderAddress(iface.NetworkIP, corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
-				},
+				Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+					iface.NetworkIP,
+					corenetwork.WithScope(corenetwork.ScopeCloudLocal),
+					corenetwork.WithCIDR(details.cidr),
+				)},
 				ShadowAddresses: shadowAddrs,
 				InterfaceType:   corenetwork.EthernetInterface,
 				Disabled:        false,

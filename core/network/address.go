@@ -189,12 +189,18 @@ func (a MachineAddress) IP() net.IP {
 	return net.ParseIP(a.Value)
 }
 
-// ValueForCIDR returns the value of the address combined with a subnet mask
-// indicated by the input CIDR.
-// TODO (manadart 2020-07-10): This should evolve to use the address CIDR
-// directly instead of receiving a value, once we clean up InterfaceInfo.
-func (a MachineAddress) ValueForCIDR(cidr string) (string, error) {
-	_, ipNet, err := net.ParseCIDR(cidr)
+// ValueWithMask returns the value of the address combined
+// with the subnet mask indicated by its CIDR.
+func (a MachineAddress) ValueWithMask() (string, error) {
+	// Returning a NotFound error preserves prior behaviour from when
+	// CIDRAddress was a method on InterfaceInfo.
+	// TODO (manadart 2021-03-16): Rethink this as we clean up InterfaceInfos
+	// and its corresponding wire type.
+	if a.Value == "" || a.CIDR == "" {
+		return "", errors.NotFoundf("address and CIDR pair (%q, %q)", a.Value, a.CIDR)
+	}
+
+	_, ipNet, err := net.ParseCIDR(a.CIDR)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

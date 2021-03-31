@@ -485,7 +485,7 @@ func DevicesFromInterfaceInfo(interfaces corenetwork.InterfaceInfos, machineID s
 		if v.ParentInterfaceName == "" {
 			return nil, nil, errors.Errorf("parent interface name is empty")
 		}
-		if v.CIDR == "" {
+		if v.PrimaryAddress().CIDR == "" {
 			unknown = append(unknown, v.ParentInterfaceName)
 		}
 		hostIfaceName := makeHostInterfaceName(machineID, nicCount)

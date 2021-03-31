@@ -4,6 +4,10 @@ package containerbroker_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/names/v4"
+	"github.com/juju/testing"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/provisioner"
@@ -15,9 +19,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker/containerbroker"
 	"github.com/juju/juju/worker/containerbroker/mocks"
-	"github.com/juju/names/v4"
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
 type brokerConfigSuite struct {
@@ -145,9 +146,9 @@ func (s *trackerSuite) TestNewTracker(c *gc.C) {
 		&broker.Config{
 			Name:          "instance-broker",
 			ContainerType: instance.LXD,
-			ManagerConfig: container.ManagerConfig(map[string]string{
+			ManagerConfig: map[string]string{
 				container.ConfigAvailabilityZone: "0",
-			}),
+			},
 			APICaller:    s.state,
 			AgentConfig:  s.agentConfig,
 			MachineTag:   s.machineTag,

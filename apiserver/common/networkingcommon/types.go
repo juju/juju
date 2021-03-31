@@ -234,7 +234,7 @@ func networkAddressStateArgsForDevice(devs network.InterfaceInfos, name string) 
 func networkAddressToStateArgs(
 	dev network.InterfaceInfo, addr network.ProviderAddress,
 ) (state.LinkLayerDeviceAddress, error) {
-	cidrAddress, err := addr.ValueForCIDR(dev.CIDR)
+	cidrAddress, err := addr.ValueWithMask()
 	if err != nil {
 		return state.LinkLayerDeviceAddress{}, errors.Trace(err)
 	}

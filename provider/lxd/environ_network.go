@@ -316,11 +316,6 @@ func makeInterfaceInfo(container *lxdapi.Container, guestNetworkName string, net
 		if netAddr.Scope == network.ScopeLinkLocal || netAddr.Scope == network.ScopeMachineLocal {
 			continue
 		}
-		ni.Addresses = append(ni.Addresses, netAddr)
-
-		if len(ni.Addresses) > 1 { // CIDR and subnetID already calculated
-			continue
-		}
 
 		// Use the parent bridge name to match the subnet IDs reported
 		// by the Subnets() method.
@@ -329,7 +324,16 @@ func makeInterfaceInfo(container *lxdapi.Container, guestNetworkName string, net
 			return network.InterfaceInfo{}, errors.Trace(err)
 		}
 
-		ni.CIDR = cidr
+		netAddr.CIDR = cidr
+		ni.Addresses = append(ni.Addresses, netAddr)
+
+		// Only set provider IDs based on the first address.
+		// TODO (manadart 2021-03-24): We should associate the provider ID for
+		// the subnet with the address.
+		if len(ni.Addresses) > 1 {
+			continue
+		}
+
 		ni.ProviderSubnetId = network.Id(subnetID)
 		ni.ProviderId = network.Id(fmt.Sprintf("nic-%s", netInfo.Hwaddr))
 	}

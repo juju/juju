@@ -14,6 +14,9 @@ type AddressMutator interface {
 	// SetSecondary indicates that this address is not the
 	// primary address of the device it is associated with.
 	SetSecondary()
+
+	// SetConfigType indicates how this address was configured.
+	SetConfigType(AddressConfigType)
 }
 
 // SetScope (AddressMutator) sets the input
@@ -34,6 +37,12 @@ func (a *MachineAddress) SetSecondary() {
 	a.IsSecondary = true
 }
 
+// SetConfigType (AddressMutator) sets the input
+// AddressConfigType on the address receiver.
+func (a *MachineAddress) SetConfigType(configType AddressConfigType) {
+	a.ConfigType = configType
+}
+
 // WithScope returns a functional option that can
 // be used to set the input scope on an address.
 func WithScope(scope Scope) func(AddressMutator) {
@@ -52,8 +61,14 @@ func WithCIDR(cidr string) func(AddressMutator) {
 
 // WithSecondary returns a functional option that can be used to
 // indicate that an address is not the primary for its NIC.
-func WithSecondary() func(mutator AddressMutator) {
+func WithSecondary() func(AddressMutator) {
 	return func(a AddressMutator) {
 		a.SetSecondary()
+	}
+}
+
+func WithConfigType(configType AddressConfigType) func(AddressMutator) {
+	return func(a AddressMutator) {
+		a.SetConfigType(configType)
 	}
 }
