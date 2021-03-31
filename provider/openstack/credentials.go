@@ -26,6 +26,7 @@ const (
 	CredAttrPassword          = "password"
 	CredAttrDomainName        = "domain-name"
 	CredAttrProjectDomainName = "project-domain-name"
+	CredAttrProjectDomainID   = "project-domain-id"
 	CredAttrUserDomainName    = "user-domain-name"
 	CredAttrAccessKey         = "access-key"
 	CredAttrSecretKey         = "secret-key"
@@ -70,6 +71,11 @@ func (OpenstackCredentials) CredentialSchemas() map[cloud.AuthType]cloud.Credent
 					Description: "The OpenStack project domain name.",
 					Optional:    true,
 				},
+                        }, {
+                                CredAttrProjectDomainID, cloud.CredentialAttr{
+                                        Description: "The OpenStack project domain ID.",
+                                        Optional:    true,
+                                },
 			}, {
 				CredAttrUserDomainName, cloud.CredentialAttr{
 					Description: "The OpenStack user domain name.",
@@ -185,6 +191,7 @@ func (c OpenstackCredentials) detectCredential() (*cloud.Credential, string, str
 				CredAttrTenantID:          creds.TenantID,
 				CredAttrUserDomainName:    creds.UserDomain,
 				CredAttrProjectDomainName: creds.ProjectDomain,
+				CredAttrProjectDomainID:   creds.ProjectDomainID,
 				CredAttrDomainName:        creds.Domain,
 				CredAttrVersion:           version,
 			},

@@ -841,6 +841,7 @@ func newCredentials(spec environscloudspec.CloudSpec) (identity.Credentials, ide
 		cred.User = credAttrs[CredAttrUserName]
 		cred.Secrets = credAttrs[CredAttrPassword]
 		cred.ProjectDomain = credAttrs[CredAttrProjectDomainName]
+		cred.ProjectDomainID = credAttrs[CredAttrProjectDomainID]
 		cred.UserDomain = credAttrs[CredAttrUserDomainName]
 		cred.Domain = credAttrs[CredAttrDomainName]
 		if credAttrs[CredAttrVersion] != "" {

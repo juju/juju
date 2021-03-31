@@ -139,3 +139,5 @@ replace (
 	k8s.io/apimachinery v0.0.0 => k8s.io/apimachinery v0.19.6
 	k8s.io/client-go v0.0.0 => k8s.io/client-go v0.19.6
 )
+
+replace gopkg.in/goose.v2 v2.0.1 => github.com/hemanthnakkina/goose issue88
