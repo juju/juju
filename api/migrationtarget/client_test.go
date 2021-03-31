@@ -74,7 +74,7 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 		ControllerAgentVersion: controllerVers,
 	}
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationTarget.Prechecks", []interface{}{"", expectedArg}},
+		{FuncName: "MigrationTarget.Prechecks", Args: []interface{}{"", expectedArg}},
 	})
 }
 
@@ -85,7 +85,7 @@ func (s *ClientSuite) TestImport(c *gc.C) {
 
 	expectedArg := params.SerializedModel{Bytes: []byte("foo")}
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationTarget.Import", []interface{}{"", expectedArg}},
+		{FuncName: "MigrationTarget.Import", Args: []interface{}{"", expectedArg}},
 	})
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
@@ -189,7 +189,7 @@ func (s *ClientSuite) TestUploadCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(outCurl, gc.DeepEquals, curl)
 	c.Assert(doer.method, gc.Equals, "POST")
-	c.Assert(doer.url, gc.Equals, "/migrate/charms?arch=&revision=2&schema=cs&series=&user=user")
+	c.Assert(doer.url, gc.Equals, "/migrate/charms?arch=&name=foo&revision=2&schema=cs&series=&user=user")
 	c.Assert(doer.body, gc.Equals, charmBody)
 }
 
@@ -207,7 +207,7 @@ func (s *ClientSuite) TestUploadCharmHubCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(outCurl, gc.DeepEquals, curl)
 	c.Assert(doer.method, gc.Equals, "POST")
-	c.Assert(doer.url, gc.Equals, "/migrate/charms?arch=s390x&revision=15&schema=ch&series=bionic&user=")
+	c.Assert(doer.url, gc.Equals, "/migrate/charms?arch=s390x&name=juju-qa-test&revision=15&schema=ch&series=bionic&user=")
 	c.Assert(doer.body, gc.Equals, charmBody)
 }
 
@@ -310,7 +310,7 @@ func (s *ClientSuite) TestCACert(c *gc.C) {
 func (s *ClientSuite) AssertModelCall(c *gc.C, stub *jujutesting.Stub, tag names.ModelTag, call string, err error, expectError bool) {
 	expectedArg := params.ModelArgs{ModelTag: tag.String()}
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationTarget." + call, []interface{}{"", expectedArg}},
+		{FuncName: "MigrationTarget." + call, Args: []interface{}{"", expectedArg}},
 	})
 	if expectError {
 		c.Assert(err, gc.ErrorMatches, "boom")
