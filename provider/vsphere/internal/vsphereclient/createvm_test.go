@@ -160,6 +160,25 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 	})
 }
 
+func (s *clientSuite) TestCreateVirtualMachineForceHWVersion(c *gc.C) {
+	args := baseCreateVirtualMachineParams(c)
+	args.ForceVMHardwareVersion = 11
+	args.ComputeResource.EnvironmentBrowser = &types.ManagedObjectReference{
+		Type:  "EnvironmentBrowser",
+		Value: "FakeEnvironmentBrowser",
+	}
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	_, err := client.CreateVirtualMachine(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.roundTripper.CheckCall(c, 41, "RetrieveProperties", "FakeVm1")
+	s.roundTripper.CheckCall(c, 42, "QueryConfigOption", "FakeEnvironmentBrowser")
+	// Mock server max version is vmx-13
+	// Mock template VM version is vmx-10
+	// We requested vmx-11. This should match the call to UpgradeVM_Task.
+	s.roundTripper.CheckCall(c, 43, "UpgradeVM_Task", "vmx-11")
+}
+
 func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *gc.C) {
 	args := baseCreateVirtualMachineParams(c)
 	args.EnableDiskUUID = false

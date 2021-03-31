@@ -287,7 +287,23 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 				}},
 			}},
 		}
-
+	case *methods.QueryConfigOptionBody:
+		req := req.(*methods.QueryConfigOptionBody).Req
+		r.MethodCall(r, "QueryConfigOption", req.This.Value)
+		res.Res = &types.QueryConfigOptionResponse{
+			Returnval: &types.VirtualMachineConfigOption{
+				Version: "vmx-13",
+			},
+		}
+	case *methods.UpgradeVM_TaskBody:
+		req := req.(*methods.UpgradeVM_TaskBody).Req
+		r.MethodCall(r, "UpgradeVM_Task", req.Version)
+		res.Res = &types.UpgradeVM_TaskResponse{
+			Returnval: types.ManagedObjectReference{
+				Type:  "Task",
+				Value: "UpgradeVM_Task",
+			},
+		}
 	default:
 		logger.Debugf("mockRoundTripper: unknown res type %T", res)
 		panic(fmt.Sprintf("unknown type %T", res))
