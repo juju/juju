@@ -5,13 +5,13 @@ package caasupgrader_test
 
 import (
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -45,7 +45,7 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 
 func (s *UpgraderSuite) patchVersion(v version.Binary) {
 	s.PatchValue(&arch.HostArch, func() string { return v.Arch })
-	s.PatchValue(&series.HostSeries, func() (string, error) { return "ubuntu", nil })
+	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 	s.PatchValue(&jujuversion.Current, v.Number)
 }
 
