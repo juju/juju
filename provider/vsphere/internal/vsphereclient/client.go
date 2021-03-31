@@ -550,7 +550,7 @@ func (c *Client) getMaxSuportedVersion(ctx context.Context, cr *mo.ComputeResour
 	}
 	opt, err := methods.QueryConfigOption(ctx, c.client, &req)
 	if err != nil {
-		return 0, err
+		return 0, errors.Trace(err)
 	}
 
 	if opt.Returnval == nil {
@@ -571,7 +571,7 @@ func (c *Client) getVMHardwareVersion(ctx context.Context, srcVM *object.Virtual
 	var templateVM mo.VirtualMachine
 	err := srcVM.Properties(ctx, srcVM.Reference(), []string{"config.version"}, &templateVM)
 	if err != nil {
-		return 0, err
+		return 0, errors.Trace(err)
 	}
 
 	if templateVM.Config == nil {
@@ -587,7 +587,7 @@ func (c *Client) getVMHardwareVersion(ctx context.Context, srcVM *object.Virtual
 func (c *Client) parseVMXVersion(version string) (int64, error) {
 	fields := strings.Split(version, "-")
 	if len(fields) != 2 {
-		return 0, fmt.Errorf("invalid VMX version: %s", version)
+		return 0, errors.Errorf("invalid VMX version: %s", version)
 	}
 
 	parsed, err := strconv.ParseInt(fields[1], 10, 64)
