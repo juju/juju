@@ -48,11 +48,12 @@ const (
 	//   * Before new data will be written to a disk area, the hypervisor
 	//     will first zero out the disk area before writing to it. This adds
 	//     latency to disk writes in that area.
-	DiskTypeThickLazyZero DiskProvisioningType = "thickLazyZero"
+	DiskTypeThickLazyZero DiskProvisioningType = "thick-lazy-zero"
 	// DiskTypeThick sets the provisioning type for disks to
 	// "Thick Provision Eagerly Zeroed". The entire size of the virtual
 	// disk will be deducted from the underlying datastore. Any unwritten
-	// disk areas will be zeroed out during cloning.
+	// disk areas will be zeroed out during cloning. This is the default
+	// disk provisioning type.
 	DiskTypeThick DiskProvisioningType = "thick"
 )
 
