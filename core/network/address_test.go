@@ -5,6 +5,7 @@ package network_test
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -918,4 +919,42 @@ func (s *AddressSuite) TestNoAddressError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `no fake address\(es\)`)
 	c.Assert(network.IsNoAddressError(err), jc.IsTrue)
 	c.Assert(network.IsNoAddressError(errors.New("address found")), jc.IsFalse)
+}
+
+func (s *AddressSuite) TestNetworkCIDRFromIPAndMask(c *gc.C) {
+	specs := []struct {
+		descr   string
+		ip      net.IP
+		mask    net.IPMask
+		expCIDR string
+	}{
+		{
+			descr:   "nil ip",
+			mask:    net.IPv4Mask(0, 0, 0, 255),
+			expCIDR: "",
+		},
+		{
+			descr:   "nil mask",
+			ip:      net.ParseIP("10.1.2.42"),
+			expCIDR: "",
+		},
+		{
+			descr:   "network IP",
+			ip:      net.ParseIP("10.1.0.0"),
+			mask:    net.IPv4Mask(255, 255, 0, 0),
+			expCIDR: "10.1.0.0/16",
+		},
+		{
+			descr:   "host IP",
+			ip:      net.ParseIP("10.1.2.42"),
+			mask:    net.IPv4Mask(255, 255, 255, 0),
+			expCIDR: "10.1.2.0/24",
+		},
+	}
+
+	for i, spec := range specs {
+		c.Logf("%d: %s", i, spec.descr)
+		gotCIDR := network.NetworkCIDRFromIPAndMask(spec.ip, spec.mask)
+		c.Assert(gotCIDR, gc.Equals, spec.expCIDR)
+	}
 }
