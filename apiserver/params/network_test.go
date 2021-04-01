@@ -279,7 +279,7 @@ func (s *NetworkSuite) TestMachineAddressConversion(c *gc.C) {
 	}
 
 	exp := []params.Address{
-		{Value: "1.2.3.4", Scope: string(network.ScopeCloudLocal), Type: string(network.IPv4Address)},
+		{Value: "1.2.3.4", Scope: string(network.ScopeCloudLocal), Type: string(network.IPv4Address), CIDR: "1.2.3.0/24"},
 		{Value: "1.2.3.5", Scope: string(network.ScopeCloudLocal), Type: string(network.IPv4Address), IsSecondary: true},
 		{Value: "2.3.4.5", Scope: string(network.ScopePublic), Type: string(network.IPv4Address)},
 	}
