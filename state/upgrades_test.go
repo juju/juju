@@ -5402,6 +5402,97 @@ func (s *upgradesSuite) TestUpdateSeriesToBaseCharmhubCharmURLsCharms(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestUpdateSeriesToBaseCharmhubCharmURLsUnits(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	unitColl, unitCloser := s.state.db().GetRawCollection(unitsC)
+	defer unitCloser()
+
+	var err error
+	err = unitColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "unit1"),
+		"model-uuid": uuid1,
+		"charmurl":   charm.MustParseURL("cs:test").String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unitColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "unit2"),
+		"model-uuid": uuid1,
+		"charmurl":   charm.MustParseURL("local:test").String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unitColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "unit3"),
+		"model-uuid": uuid2,
+		"charmurl":   charm.MustParseURL("local:test").String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unitColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "unit4"),
+		"model-uuid": uuid2,
+		"charmurl":   "ch:amd64/focal/test-1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unitColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "unit5"),
+		"model-uuid": uuid2,
+		"charmurl":   "ch:arm64/centos7/foo",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unitColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "unit6"),
+		"model-uuid": uuid2,
+		"charmurl":   "ch:amd64/ubuntu:18.04/bar",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		{
+			"_id":        ensureModelUUID(uuid1, "unit1"),
+			"model-uuid": uuid1,
+			"charmurl":   "cs:test",
+		},
+		{
+			"_id":        ensureModelUUID(uuid1, "unit2"),
+			"model-uuid": uuid1,
+			"charmurl":   "local:test",
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "unit3"),
+			"model-uuid": uuid2,
+			"charmurl":   "local:test",
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "unit4"),
+			"model-uuid": uuid2,
+			"charmurl":   "ch:amd64/ubuntu:20.04/test-1",
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "unit5"),
+			"model-uuid": uuid2,
+			"charmurl":   "ch:arm64/centos:centos7/foo",
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "unit6"),
+			"model-uuid": uuid2,
+			"charmurl":   "ch:amd64/ubuntu:18.04/bar",
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, UpdateSeriesToBaseCharmhubCharmURLs,
+		upgradedData(unitColl, expected),
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

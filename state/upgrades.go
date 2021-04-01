@@ -3487,8 +3487,8 @@ func TranslateK8sServiceTypes(pool *StatePool) error {
 // that the previously contained series is now converted to a base.
 func UpdateSeriesToBaseCharmhubCharmURLs(pool *StatePool) error {
 	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
-		charmsColl, closer := st.db().GetCollection(charmsC)
-		defer closer()
+		charmsColl, charmsCloser := st.db().GetCollection(charmsC)
+		defer charmsCloser()
 
 		var charmDocs []charmDoc
 		if err := charmsColl.Find(nil).All(&charmDocs); err != nil {
@@ -3530,8 +3530,8 @@ func UpdateSeriesToBaseCharmhubCharmURLs(pool *StatePool) error {
 			})
 		}
 
-		appsColl, closer := st.db().GetCollection(applicationsC)
-		defer closer()
+		appsColl, appsCloser := st.db().GetCollection(applicationsC)
+		defer appsCloser()
 
 		var appDocs []applicationDoc
 		if err := appsColl.Find(nil).All(&appDocs); err != nil {
@@ -3558,6 +3558,43 @@ func UpdateSeriesToBaseCharmhubCharmURLs(pool *StatePool) error {
 			ops = append(ops, txn.Op{
 				C:      applicationsC,
 				Id:     appDoc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{
+					"$set", bson.D{{
+						"charmurl", newURL,
+					}},
+				}},
+			})
+		}
+
+		unitsColl, unitsCloser := st.db().GetCollection(unitsC)
+		defer unitsCloser()
+
+		var unitDocs []unitDoc
+		if err := unitsColl.Find(nil).All(&unitDocs); err != nil {
+			return errors.Trace(err)
+		}
+
+		for _, unitDoc := range unitDocs {
+			if !charm.CharmHub.Matches(unitDoc.CharmURL.Schema) {
+				continue
+			}
+
+			// Use the charmDoc url to work out if it has a series, then convert
+			// that into a base.
+			charmSeries := unitDoc.CharmURL.Series
+			if charmSeries == "" {
+				continue
+			}
+
+			newURL, err := corecharm.CharmURLSeriesToBase(unitDoc.CharmURL)
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			ops = append(ops, txn.Op{
+				C:      unitsC,
+				Id:     unitDoc.DocID,
 				Assert: txn.DocExists,
 				Update: bson.D{{
 					"$set", bson.D{{
