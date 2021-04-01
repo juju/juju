@@ -5576,10 +5576,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 			RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
 				NodeSelectorTerms: []core.NodeSelectorTerm{{
 					MatchExpressions: []core.NodeSelectorRequirement{{
-						Key:      "foo",
-						Operator: core.NodeSelectorOpIn,
-						Values:   []string{"a", "b", "c"},
-					}, {
 						Key:      "bar",
 						Operator: core.NodeSelectorOpNotIn,
 						Values:   []string{"d", "e", "f"},
@@ -5587,9 +5583,43 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 						Key:      "foo",
 						Operator: core.NodeSelectorOpNotIn,
 						Values:   []string{"g", "h"},
+					}, {
+						Key:      "foo",
+						Operator: core.NodeSelectorOpIn,
+						Values:   []string{"a", "b", "c"},
 					}},
 				}},
 			},
+		},
+		PodAffinity: &core.PodAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: []core.PodAffinityTerm{{
+				LabelSelector: &v1.LabelSelector{
+					MatchExpressions: []v1.LabelSelectorRequirement{{
+						Key:      "bar",
+						Operator: v1.LabelSelectorOpNotIn,
+						Values:   []string{"4", "5", "6"},
+					}, {
+						Key:      "foo",
+						Operator: v1.LabelSelectorOpIn,
+						Values:   []string{"1", "2", "3"},
+					}},
+				},
+			}},
+		},
+		PodAntiAffinity: &core.PodAntiAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: []core.PodAffinityTerm{{
+				LabelSelector: &v1.LabelSelector{
+					MatchExpressions: []v1.LabelSelectorRequirement{{
+						Key:      "abar",
+						Operator: v1.LabelSelectorOpNotIn,
+						Values:   []string{"7", "8", "9"},
+					}, {
+						Key:      "afoo",
+						Operator: v1.LabelSelectorOpIn,
+						Values:   []string{"x", "y", "z"},
+					}},
+				},
+			}},
 		},
 	}
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
@@ -5721,7 +5751,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 				Path: "path/to/there",
 			},
 		}},
-		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
+		Constraints: constraints.MustParse(`tags=node.foo=a|b|c,^bar=d|e|f,^foo=g|h,pod.foo=1|2|3,^pod.bar=4|5|6,anti-pod.afoo=x|y|z,^anti-pod.abar=7|8|9`),
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -5754,10 +5784,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C
 			RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
 				NodeSelectorTerms: []core.NodeSelectorTerm{{
 					MatchExpressions: []core.NodeSelectorRequirement{{
-						Key:      "foo",
-						Operator: core.NodeSelectorOpIn,
-						Values:   []string{"a", "b", "c"},
-					}, {
 						Key:      "bar",
 						Operator: core.NodeSelectorOpNotIn,
 						Values:   []string{"d", "e", "f"},
@@ -5765,6 +5791,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C
 						Key:      "foo",
 						Operator: core.NodeSelectorOpNotIn,
 						Values:   []string{"g", "h"},
+					}, {
+						Key:      "foo",
+						Operator: core.NodeSelectorOpIn,
+						Values:   []string{"a", "b", "c"},
 					}},
 				}},
 			},
@@ -5927,10 +5957,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C)
 			RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
 				NodeSelectorTerms: []core.NodeSelectorTerm{{
 					MatchExpressions: []core.NodeSelectorRequirement{{
-						Key:      "foo",
-						Operator: core.NodeSelectorOpIn,
-						Values:   []string{"a", "b", "c"},
-					}, {
 						Key:      "bar",
 						Operator: core.NodeSelectorOpNotIn,
 						Values:   []string{"d", "e", "f"},
@@ -5938,6 +5964,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C)
 						Key:      "foo",
 						Operator: core.NodeSelectorOpNotIn,
 						Values:   []string{"g", "h"},
+					}, {
+						Key:      "foo",
+						Operator: core.NodeSelectorOpIn,
+						Values:   []string{"a", "b", "c"},
 					}},
 				}},
 			},
@@ -6114,10 +6144,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsC
 			RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
 				NodeSelectorTerms: []core.NodeSelectorTerm{{
 					MatchExpressions: []core.NodeSelectorRequirement{{
-						Key:      "foo",
-						Operator: core.NodeSelectorOpIn,
-						Values:   []string{"a", "b", "c"},
-					}, {
 						Key:      "bar",
 						Operator: core.NodeSelectorOpNotIn,
 						Values:   []string{"d", "e", "f"},
@@ -6125,6 +6151,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsC
 						Key:      "foo",
 						Operator: core.NodeSelectorOpNotIn,
 						Values:   []string{"g", "h"},
+					}, {
+						Key:      "foo",
+						Operator: core.NodeSelectorOpIn,
+						Values:   []string{"a", "b", "c"},
 					}},
 				}},
 			},
@@ -6231,10 +6261,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsU
 			RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
 				NodeSelectorTerms: []core.NodeSelectorTerm{{
 					MatchExpressions: []core.NodeSelectorRequirement{{
-						Key:      "foo",
-						Operator: core.NodeSelectorOpIn,
-						Values:   []string{"a", "b", "c"},
-					}, {
 						Key:      "bar",
 						Operator: core.NodeSelectorOpNotIn,
 						Values:   []string{"d", "e", "f"},
@@ -6242,6 +6268,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsU
 						Key:      "foo",
 						Operator: core.NodeSelectorOpNotIn,
 						Values:   []string{"g", "h"},
+					}, {
+						Key:      "foo",
+						Operator: core.NodeSelectorOpIn,
+						Values:   []string{"a", "b", "c"},
 					}},
 				}},
 			},
@@ -6508,10 +6538,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 			RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
 				NodeSelectorTerms: []core.NodeSelectorTerm{{
 					MatchExpressions: []core.NodeSelectorRequirement{{
-						Key:      "foo",
-						Operator: core.NodeSelectorOpIn,
-						Values:   []string{"a", "b", "c"},
-					}, {
 						Key:      "bar",
 						Operator: core.NodeSelectorOpNotIn,
 						Values:   []string{"d", "e", "f"},
@@ -6519,6 +6545,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 						Key:      "foo",
 						Operator: core.NodeSelectorOpNotIn,
 						Values:   []string{"g", "h"},
+					}, {
+						Key:      "foo",
+						Operator: core.NodeSelectorOpIn,
+						Values:   []string{"a", "b", "c"},
 					}},
 				}},
 			},
