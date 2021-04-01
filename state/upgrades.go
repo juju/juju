@@ -3482,3 +3482,91 @@ func TranslateK8sServiceTypes(pool *StatePool) error {
 	}
 	return nil
 }
+
+// UpdateSeriesToBaseCharmhubCharmURLs updates all charmhub charm urls to ensure
+// that the previously contained series is now converted to a base.
+func UpdateSeriesToBaseCharmhubCharmURLs(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		charmsColl, closer := st.db().GetCollection(charmsC)
+		defer closer()
+
+		var charmDocs []charmDoc
+		if err := charmsColl.Find(nil).All(&charmDocs); err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, charmDoc := range charmDocs {
+			url := charmDoc.URL
+			// This can happen if it's a placeholder, or being upgraded.
+			if url == nil {
+				continue
+			}
+			if !charm.CharmHub.Matches(url.Schema) {
+				continue
+			}
+
+			// Use the charmDoc url to work out if it has a series, then convert
+			// that into a base.
+			charmSeries := url.Series
+			if charmSeries == "" {
+				continue
+			}
+
+			newURL, err := corecharm.CharmURLSeriesToBase(url)
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			ops = append(ops, txn.Op{
+				C:      charmsC,
+				Id:     charmDoc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{
+					"$set", bson.D{{
+						"url", newURL,
+					}},
+				}},
+			})
+		}
+
+		appsColl, closer := st.db().GetCollection(applicationsC)
+		defer closer()
+
+		var appDocs []applicationDoc
+		if err := appsColl.Find(nil).All(&appDocs); err != nil {
+			return errors.Trace(err)
+		}
+
+		for _, appDoc := range appDocs {
+			if !charm.CharmHub.Matches(appDoc.CharmURL.Schema) {
+				continue
+			}
+
+			// Use the charmDoc url to work out if it has a series, then convert
+			// that into a base.
+			charmSeries := appDoc.CharmURL.Series
+			if charmSeries == "" {
+				continue
+			}
+
+			newURL, err := corecharm.CharmURLSeriesToBase(appDoc.CharmURL)
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     appDoc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{
+					"$set", bson.D{{
+						"charmurl", newURL,
+					}},
+				}},
+			})
+		}
+
+		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}

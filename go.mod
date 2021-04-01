@@ -147,3 +147,5 @@ replace (
 	k8s.io/apimachinery v0.0.0 => k8s.io/apimachinery v0.19.6
 	k8s.io/client-go v0.0.0 => k8s.io/client-go v0.19.6
 )
+
+replace github.com/juju/charm/v8 => github.com/SimonRichardson/charm/v8 v8.0.0-20210401131532-2ef8a25276b0

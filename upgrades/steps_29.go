@@ -61,6 +61,13 @@ func stateStepsFor29() []Step {
 				return context.State().UpdateKubernetesCloudCredentials()
 			},
 		},
+		&upgradeStep{
+			description: "update series to base for charmhub charms",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().UpdateSeriesToBaseCharmhubCharmURLs()
+			},
+		},
 	}
 }
 

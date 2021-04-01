@@ -74,6 +74,8 @@ github.com/PuerkitoBio/purell v1.1.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbt
 github.com/PuerkitoBio/purell v1.1.1/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
 github.com/PuerkitoBio/urlesc v0.0.0-20160726150825-5bd2802263f2/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
 github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
+github.com/SimonRichardson/charm/v8 v8.0.0-20210401131532-2ef8a25276b0 h1:cc1fePQcOF7gVfRgU1LyklYkAQg/ndK1HfOgdCAHMU0=
+github.com/SimonRichardson/charm/v8 v8.0.0-20210401131532-2ef8a25276b0/go.mod h1:qLPehvw0bN6af2pzSEXGgVrd+aAHqd5yneC0u4kGBCI=
 github.com/agnivade/levenshtein v1.0.1/go.mod h1:CURSv5d9Uaml+FovSIICkLbAUZ9S4RqaHDIsdSBg7lM=
 github.com/ajstarks/svgo v0.0.0-20181006003313-6ce6a3bcf6cd h1:JdtityihAc6A+gVfYh6vGXfZQg+XOLyBvla/7NbXFCg=
 github.com/ajstarks/svgo v0.0.0-20181006003313-6ce6a3bcf6cd/go.mod h1:K08gAheRH3/J6wwsYMMT4xOr94bZjxIelGM0+d/wbFw=
@@ -397,6 +399,8 @@ github.com/juju/charm/v8 v8.0.0-20210115142305-1eb0c22cff4e/go.mod h1:3gMi15p+v4
 github.com/juju/charm/v8 v8.0.0-20210304015923-e7ca8ffa7716/go.mod h1:fAs/8HQjkAuVkhEyE//h1O3qxB/4Nv3w5zFK6tNZNEY=
 github.com/juju/charm/v8 v8.0.0-20210317062702-a072bae3ba6f h1:cAmcDXpeI44jQ5ccZs6FF/eTmjJKCGmxnA1erbMtjlI=
 github.com/juju/charm/v8 v8.0.0-20210317062702-a072bae3ba6f/go.mod h1:AttoXjf7BuW3tQJxUyvDGtPZ+QgZwYLXztWBgIAMW4U=
+github.com/juju/charm/v9 v9.0.0-20210324234318-1204b46e47ee h1:Sa+juB94sYHtCPAaEQRrckf8xZfLzE+Mhn+dSv4wrxs=
+github.com/juju/charm/v9 v9.0.0-20210324234318-1204b46e47ee/go.mod h1:iMgXKAsiVw2Qd5LvT7GHzJiPpC7V4PacaD3LdAjTmuE=
 github.com/juju/charmrepo/v5 v5.0.0-20200424225329-cddcb4fdcd09/go.mod h1:KJGLR+Nx+PY2hw4EBNAjBWQacWlnxv1oVan1kJ9MlLM=
 github.com/juju/charmrepo/v5 v5.0.0-20200626080438-30e3069e6e8e/go.mod h1:cnwzYYTH1gV7V4ywqBix21av9LhFmdwbFEyE9CwpJ0s=
 github.com/juju/charmrepo/v6 v6.0.0-20201118043529-e9fbdc1a746f/go.mod h1:4V0vrJRD/0oxG+D9j/53elHpXiZ1FoBIXdJGm3Jq4Js=
