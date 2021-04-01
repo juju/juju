@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
@@ -216,27 +215,6 @@ func (s *agentConfSuite) agentUnitNames() []string {
 		unitAgents[i] = "jujud-" + name
 	}
 	return unitAgents
-}
-
-func (s *agentConfSuite) TestCopyAgentBinaryIdempotent(c *gc.C) {
-	jujuVersion, err := agentconf.GetJujuVersion(s.machineName, s.dataDir)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.manager.CopyAgentBinary(s.machineName, s.dataDir, "xenial", "trusty", jujuVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertToolsCopySymlink(c, "xenial")
-
-	err = s.manager.CopyAgentBinary(s.machineName, s.dataDir, "xenial", "trusty", jujuVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertToolsCopySymlink(c, "xenial")
-}
-
-func (s *agentConfSuite) TestCopyAgentBinaryOriginalAgentBinariesNotFound(c *gc.C) {
-	jujuVersion, err := agentconf.GetJujuVersion(s.machineName, s.dataDir)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.manager.CopyAgentBinary(s.machineName, s.dataDir, "xenial", "xenial", jujuVersion)
-	c.Assert(err, gc.ErrorMatches, "copying agent binaries: .* no such file or directory")
 }
 
 func (s *agentConfSuite) TestWriteSystemdAgent(c *gc.C) {

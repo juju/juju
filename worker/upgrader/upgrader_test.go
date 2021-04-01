@@ -132,7 +132,8 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	u := s.makeUpgrader(c)
 	workertest.CleanKill(c, u)
 	s.expectInitialUpgradeCheckDone(c)
-	s.machine.Refresh()
+	err = s.machine.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
 	gotTools, err := s.machine.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
 	agentTools.Version.Build = 666
@@ -154,7 +155,8 @@ func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 	u := s.makeUpgrader(c)
 	workertest.CleanKill(c, u)
 	s.expectInitialUpgradeCheckDone(c)
-	s.machine.Refresh()
+	err = s.machine.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
 	gotTools, err := s.machine.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
 	vers.Build = 666
