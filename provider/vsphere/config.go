@@ -38,7 +38,7 @@ var (
 		cfgPrimaryNetwork:         schema.Omit,
 		cfgForceVMHardwareVersion: int(0),
 		cfgEnableDiskUUID:         true,
-		cfgDiskProvisioningType:   string(vsphereclient.DiskTypeThickEagerZero),
+		cfgDiskProvisioningType:   string(vsphereclient.DiskTypeThick),
 	}
 
 	configRequiredFields  = []string{}

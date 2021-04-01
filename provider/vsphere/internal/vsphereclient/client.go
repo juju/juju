@@ -36,11 +36,11 @@ const (
 	// provisioning. Only written blocks inside the virtual disk are
 	// deducted from the underlying datastore.
 	DiskTypeThin DiskProvisioningType = "thin"
-	// DiskTypeThick sets the provisioning type for disks to "thick".
-	// The entire size of the virtual disk, written and unwritten space,
-	// is deducted from the underlying datastore. Unwritten blocks inside
-	// the virtual disk, are not zeroed out. This speeds up disk cloning
-	// but introduces two pitfals:
+	// DiskTypeThickLazyZero sets the provisioning type for disks to
+	// "Thick Provision Lazy Zeroed". The entire size of the virtual disk,
+	// written and unwritten space, is deducted from the underlying datastore.
+	// Unwritten blocks inside the virtual disk, are not zeroed out. This
+	// speeds up disk cloning but introduces two pitfals:
 	//   * If there is previously written data on the datastore where the
 	//     space is allocated, it can be recovered in the newly instantiated
 	//     machine that now ocupies that space. This can be a potential
@@ -48,12 +48,12 @@ const (
 	//   * Before new data will be written to a disk area, the hypervisor
 	//     will first zero out the disk area before writing to it. This adds
 	//     latency to disk writes in that area.
+	DiskTypeThickLazyZero DiskProvisioningType = "thickLazyZero"
+	// DiskTypeThick sets the provisioning type for disks to
+	// "Thick Provision Eagerly Zeroed". The entire size of the virtual
+	// disk will be deducted from the underlying datastore. Any unwritten
+	// disk areas will be zeroed out during cloning.
 	DiskTypeThick DiskProvisioningType = "thick"
-	// DiskTypeThickEagerZero sets the provisioning type for disks to
-	// "thick eager zeroed". The entire size of the virtual disk will be
-	// deducted from the underlying datastore. Any unwritten disk areas
-	// will be zeroed out during cloning.
-	DiskTypeThickEagerZero DiskProvisioningType = "thickEagerZero"
 )
 
 var (
@@ -61,11 +61,11 @@ var (
 	ValidDiskProvisioningTypes = []DiskProvisioningType{
 		DiskTypeThin,
 		DiskTypeThick,
-		DiskTypeThickEagerZero,
+		DiskTypeThickLazyZero,
 	}
 	// DefaultDiskProvisioningType is the default disk provisioning type
 	// if none is selected in the model config.
-	DefaultDiskProvisioningType = DiskTypeThickEagerZero
+	DefaultDiskProvisioningType = DiskTypeThick
 )
 
 // ErrExtendDisk is returned if we timed out trying to extend the root
@@ -702,10 +702,10 @@ func (c *Client) buildDiskLocator(
 		// If no disk provisioning type is specified, fall back to
 		// thick disk provisioning, eager zeros.
 		fallthrough
-	case DiskTypeThickEagerZero:
+	case DiskTypeThick:
 		scrub = true
 		thinProvision = false
-	case DiskTypeThick:
+	case DiskTypeThickLazyZero:
 		scrub = false
 		thinProvision = false
 	case DiskTypeThin:

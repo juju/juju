@@ -268,7 +268,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickEagerZe
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
 			"image-metadata-url":     s.imageServer.URL,
-			"disk-provisioning-type": "thickEagerZero",
+			"disk-provisioning-type": "thick",
 		}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -279,7 +279,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickEagerZe
 
 	call := s.client.Calls()[4]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs.DiskProvisioningType, gc.Equals, vsphereclient.DiskTypeThickEagerZero)
+	c.Assert(createVMArgs.DiskProvisioningType, gc.Equals, vsphereclient.DiskTypeThick)
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {

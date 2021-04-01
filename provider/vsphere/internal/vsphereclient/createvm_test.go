@@ -231,7 +231,7 @@ func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *gc.C) {
 
 func (s *clientSuite) TestCreateVirtualMachineThickDiskProvisioning(c *gc.C) {
 	args := baseCreateVirtualMachineParams(c)
-	args.DiskProvisioningType = DiskTypeThick
+	args.DiskProvisioningType = DiskTypeThickLazyZero
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -271,7 +271,7 @@ func (s *clientSuite) TestCreateVirtualMachineThickDiskProvisioning(c *gc.C) {
 
 func (s *clientSuite) TestCreateVirtualMachineThickEagerZeroDiskProvisioning(c *gc.C) {
 	args := baseCreateVirtualMachineParams(c)
-	args.DiskProvisioningType = DiskTypeThickEagerZero
+	args.DiskProvisioningType = DiskTypeThick
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
