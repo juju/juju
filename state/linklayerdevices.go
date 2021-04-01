@@ -588,6 +588,8 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(
 		VirtualPortType:     dev.VirtualPortType(),
 	}
 
+	// Include a single address without an IP, but with a CIDR
+	// to indicate that we know the subnet for this bridge.
 	if len(addrs) > 0 {
 		addr := addrs[0]
 		if askProviderForAddress {
@@ -599,12 +601,14 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(
 				)
 			}
 			newDev.ConfigType = network.ConfigStatic
-			newDev.CIDR = sub.CIDR()
 			newDev.ProviderSubnetId = sub.ProviderId()
 			newDev.VLANTag = sub.VLANTag()
 			newDev.IsDefaultGateway = addr.IsDefaultGateway()
+			newDev.Addresses = network.ProviderAddresses{
+				network.NewProviderAddress("", network.WithCIDR(sub.CIDR()))}
 		} else {
-			newDev.CIDR = addr.SubnetCIDR()
+			newDev.Addresses = network.ProviderAddresses{
+				network.NewProviderAddress("", network.WithCIDR(addr.SubnetCIDR()))}
 		}
 	}
 

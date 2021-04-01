@@ -702,6 +702,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -783,6 +786,9 @@
                     "properties": {
                         "Address": {
                             "$ref": "#/definitions/Address"
+                        },
+                        "cidr": {
+                            "type": "string"
                         },
                         "is-secondary": {
                             "type": "boolean"
@@ -9228,6 +9234,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -9339,6 +9348,9 @@
                     "properties": {
                         "Address": {
                             "$ref": "#/definitions/Address"
+                        },
+                        "cidr": {
+                            "type": "string"
                         },
                         "is-secondary": {
                             "type": "boolean"
@@ -9659,6 +9671,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -9936,6 +9951,9 @@
                     "properties": {
                         "Address": {
                             "$ref": "#/definitions/Address"
+                        },
+                        "cidr": {
+                            "type": "string"
                         },
                         "is-secondary": {
                             "type": "boolean"
@@ -10349,6 +10367,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -10487,6 +10508,9 @@
                     "properties": {
                         "Address": {
                             "$ref": "#/definitions/Address"
+                        },
+                        "cidr": {
+                            "type": "string"
                         },
                         "is-secondary": {
                             "type": "boolean"
@@ -11061,6 +11085,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -14197,6 +14224,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -14990,6 +15020,9 @@
                     "properties": {
                         "Address": {
                             "$ref": "#/definitions/Address"
+                        },
+                        "cidr": {
+                            "type": "string"
                         },
                         "is-secondary": {
                             "type": "boolean"
@@ -19740,6 +19773,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -19923,6 +19959,9 @@
                     "properties": {
                         "Address": {
                             "$ref": "#/definitions/Address"
+                        },
+                        "cidr": {
+                            "type": "string"
                         },
                         "is-secondary": {
                             "type": "boolean"
@@ -23449,6 +23488,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -25682,6 +25724,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -26636,6 +26681,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -26773,6 +26821,9 @@
                     "properties": {
                         "Address": {
                             "$ref": "#/definitions/Address"
+                        },
+                        "cidr": {
+                            "type": "string"
                         },
                         "is-secondary": {
                             "type": "boolean"
@@ -32600,6 +32651,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -33341,6 +33395,9 @@
                     "properties": {
                         "Address": {
                             "$ref": "#/definitions/Address"
+                        },
+                        "cidr": {
+                            "type": "string"
                         },
                         "is-secondary": {
                             "type": "boolean"
@@ -42896,6 +42953,9 @@
                 "Address": {
                     "type": "object",
                     "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -43593,6 +43653,9 @@
                     "properties": {
                         "Address": {
                             "$ref": "#/definitions/Address"
+                        },
+                        "cidr": {
+                            "type": "string"
                         },
                         "is-secondary": {
                             "type": "boolean"

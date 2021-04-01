@@ -18,6 +18,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi"
+	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/session"
 	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/methods"
@@ -292,6 +293,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 			PropSet: []types.DynamicProperty{
 				{Name: "name", Val: "juju-vm-0"},
 				{Name: "runtime.powerState", Val: "poweredOff"},
+				{Name: "config.version", Val: "vmx-10"},
 				{
 					Name: "config.hardware.device",
 					Val: []types.BaseVirtualDevice{
@@ -384,6 +386,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 			PropSet: []types.DynamicProperty{
 				{Name: "name", Val: "juju-vm-1"},
 				{Name: "runtime.powerState", Val: "poweredOn"},
+				{Name: "config.version", Val: "vmx-10"},
 				{
 					Name: "config.hardware.device",
 					Val: []types.BaseVirtualDevice{
@@ -416,6 +419,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 			PropSet: []types.DynamicProperty{
 				{Name: "name", Val: "juju-vm-template"},
 				{Name: "runtime.powerState", Val: "poweredOff"},
+				{Name: "config.version", Val: "vmx-10"},
 				{
 					Name: "config.hardware.device",
 					Val: []types.BaseVirtualDevice{
@@ -808,6 +812,147 @@ func (s *clientSuite) TestRemoveVirtualMachinesDestroyRace(c *gc.C) {
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	err := client.RemoveVirtualMachines(context.Background(), "foo/bar/*")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *clientSuite) TestMaybeUpgradeVMVersionNotSet(c *gc.C) {
+	args := CreateVirtualMachineParams{
+		ForceVMHardwareVersion: 0,
+	}
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	var vm mo.VirtualMachine
+	vm.Self = types.ManagedObjectReference{
+		Type:  "VirtualMachine",
+		Value: "FakeVm0",
+	}
+
+	vmObj := object.NewVirtualMachine(client.client.Client, vm.Reference())
+	err := client.maybeUpgradeVMHardware(context.Background(), args, vmObj, &taskWaiter{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// No calls should be made. ForceVMHardwareVersion was not set.
+	s.roundTripper.CheckCalls(c, []testing.StubCall{})
+}
+
+func (s *clientSuite) TestMaybeUpgradeVMVersionLowerThanSourceVM(c *gc.C) {
+	args := CreateVirtualMachineParams{
+		ForceVMHardwareVersion: 9,
+	}
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	var vm mo.VirtualMachine
+	vm.Self = types.ManagedObjectReference{
+		Type:  "VirtualMachine",
+		Value: "FakeVm0",
+	}
+
+	vmObj := object.NewVirtualMachine(client.client.Client, vm.Reference())
+	err := client.maybeUpgradeVMHardware(context.Background(), args, vmObj, &taskWaiter{})
+	c.Assert(err, gc.ErrorMatches, `selected HW \(9\) version is lower than VM hardware`)
+
+	// ForceVMHardwareVersion was set, but is lower than the VM version (vmx-10).
+	s.roundTripper.CheckCalls(c, []testing.StubCall{
+		retrievePropertiesStubCall("FakeVm0"),
+	})
+}
+
+func (s *clientSuite) TestMaybeUpgradeVMVersionNotSupportedByEnv(c *gc.C) {
+	// Version is mocked at vmx-13. Set a version larger than what env supports.
+	args := CreateVirtualMachineParams{
+		ForceVMHardwareVersion: 14,
+		ComputeResource: &mo.ComputeResource{
+			EnvironmentBrowser: &types.ManagedObjectReference{
+				Type:  "EnvironmentBrowser",
+				Value: "FakeEnvironmentBrowser",
+			},
+		},
+	}
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	var vm mo.VirtualMachine
+	vm.Self = types.ManagedObjectReference{
+		Type:  "VirtualMachine",
+		Value: "FakeVm0",
+	}
+
+	vmObj := object.NewVirtualMachine(client.client.Client, vm.Reference())
+	err := client.maybeUpgradeVMHardware(context.Background(), args, vmObj, &taskWaiter{})
+
+	// We ignore the request and log the event.
+	c.Assert(err, gc.ErrorMatches, `hardware version 14 not supported by target \(max version 13\)`)
+
+	// No calls should be made. ForceVMHardwareVersion was not set.
+	s.roundTripper.CheckCalls(c, []testing.StubCall{
+		// Gets VM version
+		retrievePropertiesStubCall("FakeVm0"),
+		// Gets environment max version.
+		{
+			FuncName: "QueryConfigOption",
+			Args: []interface{}{
+				"FakeEnvironmentBrowser",
+			},
+		},
+	})
+}
+
+func (s *clientSuite) TestMaybeUpgradeVMVersion(c *gc.C) {
+	// Version is mocked at vmx-13. Set a version larger than what env supports.
+	args := CreateVirtualMachineParams{
+		// set the version to 11. This should prompt the upgrade.
+		ForceVMHardwareVersion: 11,
+		ComputeResource: &mo.ComputeResource{
+			EnvironmentBrowser: &types.ManagedObjectReference{
+				Type:  "EnvironmentBrowser",
+				Value: "FakeEnvironmentBrowser",
+			},
+		},
+		Clock:                  testclock.NewClock(time.Time{}),
+		UpdateProgress:         func(status string) {},
+		UpdateProgressInterval: time.Second,
+	}
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	var vm mo.VirtualMachine
+	vm.Self = types.ManagedObjectReference{
+		Type:  "VirtualMachine",
+		Value: "FakeVm0",
+	}
+
+	vmObj := object.NewVirtualMachine(client.client.Client, vm.Reference())
+	err := client.maybeUpgradeVMHardware(context.Background(), args, vmObj, &taskWaiter{
+		clock:                  args.Clock,
+		updateProgress:         args.UpdateProgress,
+		updateProgressInterval: args.UpdateProgressInterval,
+	})
+
+	// We ignore the request and log the event.
+	c.Assert(err, jc.ErrorIsNil)
+
+	// No calls should be made. ForceVMHardwareVersion was not set.
+	s.roundTripper.CheckCalls(c, []testing.StubCall{
+		retrievePropertiesStubCall("FakeVm0"),
+		{
+			FuncName: "QueryConfigOption",
+			Args: []interface{}{
+				"FakeEnvironmentBrowser",
+			},
+		},
+		{
+			FuncName: "UpgradeVM_Task",
+			Args: []interface{}{
+				// must match the version we set in the model, if supported.
+				"vmx-11",
+			},
+		},
+		{
+			FuncName: "CreatePropertyCollector",
+			Args:     nil,
+		},
+		{
+			FuncName: "CreateFilter",
+			Args:     nil,
+		},
+		{
+			FuncName: "WaitForUpdatesEx",
+			Args:     nil,
+		},
+	})
 }
 
 func (s *clientSuite) TestUpdateVirtualMachineExtraConfig(c *gc.C) {

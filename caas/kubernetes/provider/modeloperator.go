@@ -65,6 +65,10 @@ type ModelOperatorBroker interface {
 	// exists in the targets cluster.
 	EnsureServiceAccount(*core.ServiceAccount) ([]func(), error)
 
+	// Model returns the name of the current model being deployed to for the
+	// broker
+	Model() string
+
 	// Namespace returns the current default namespace targeted by this broker.
 	Namespace() string
 
@@ -83,6 +87,7 @@ type modelOperatorBrokerBridge struct {
 	ensureRoleBinding        func(*rbac.RoleBinding) ([]func(), error)
 	ensureService            func(*core.Service) ([]func(), error)
 	ensureServiceAccount     func(*core.ServiceAccount) ([]func(), error)
+	model                    func() string
 	namespace                func() string
 	isLegacyLabels           func() bool
 }
@@ -167,6 +172,14 @@ func (m *modelOperatorBrokerBridge) EnsureServiceAccount(s *core.ServiceAccount)
 	return m.ensureServiceAccount(s)
 }
 
+// Model implements ModelOperatorBroker
+func (m *modelOperatorBrokerBridge) Model() string {
+	if m.model == nil {
+		return ""
+	}
+	return m.model()
+}
+
 // Namespace implements ModelOperatorBroker
 func (m *modelOperatorBrokerBridge) Namespace() string {
 	if m.namespace == nil {
@@ -244,7 +257,6 @@ func ensureModelOperator(
 	saName, c, err := ensureModelOperatorRBAC(
 		broker,
 		operatorName,
-		broker.Namespace(),
 		labels,
 	)
 	cleanUpFuncs = append(cleanUpFuncs, c...)
@@ -326,6 +338,7 @@ func (k *kubernetesClient) EnsureModelOperator(
 			return c, err
 		},
 		namespace:      func() string { return k.namespace },
+		model:          func() string { return k.CurrentModel() },
 		isLegacyLabels: k.IsLegacyLabels,
 	}
 
@@ -404,7 +417,7 @@ func modelOperatorDeployment(
 			),
 		},
 		Spec: apps.DeploymentSpec{
-			Replicas: int32Ptr(1),
+			Replicas: utils.Int32Ptr(1),
 			Selector: &meta.LabelSelector{
 				MatchLabels: selectorLabels,
 			},
@@ -523,18 +536,26 @@ func modelOperatorService(
 	}
 }
 
+func modelOperatorGlobalScopedName(model, operatorName string) string {
+	if model == "" {
+		return operatorName
+	}
+	return fmt.Sprintf("%s-%s", model, operatorName)
+}
+
 func ensureModelOperatorRBAC(
 	broker ModelOperatorBroker,
-	operatorName,
-	namespace string,
+	operatorName string,
 	labels map[string]string,
 ) (string, []func(), error) {
 	cleanUpFuncs := []func(){}
 
+	globalName := modelOperatorGlobalScopedName(broker.Model(), operatorName)
+
 	sa := &core.ServiceAccount{
 		ObjectMeta: meta.ObjectMeta{
 			Name:      operatorName,
-			Namespace: namespace,
+			Namespace: broker.Namespace(),
 			Labels:    labels,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
@@ -548,7 +569,7 @@ func ensureModelOperatorRBAC(
 
 	clusterRole := &rbac.ClusterRole{
 		ObjectMeta: meta.ObjectMeta{
-			Name:   operatorName,
+			Name:   globalName,
 			Labels: labels,
 		},
 		Rules: []rbac.PolicyRule{
@@ -579,7 +600,7 @@ func ensureModelOperatorRBAC(
 
 	clusterRoleBinding := &rbac.ClusterRoleBinding{
 		ObjectMeta: meta.ObjectMeta{
-			Name:   operatorName,
+			Name:   globalName,
 			Labels: labels,
 		},
 		RoleRef: rbac.RoleRef{
@@ -605,7 +626,7 @@ func ensureModelOperatorRBAC(
 	role := &rbac.Role{
 		ObjectMeta: meta.ObjectMeta{
 			Name:      operatorName,
-			Namespace: namespace,
+			Namespace: broker.Namespace(),
 			Labels:    labels,
 		},
 		Rules: []rbac.PolicyRule{
@@ -630,7 +651,7 @@ func ensureModelOperatorRBAC(
 	roleBinding := &rbac.RoleBinding{
 		ObjectMeta: meta.ObjectMeta{
 			Name:      operatorName,
-			Namespace: namespace,
+			Namespace: broker.Namespace(),
 			Labels:    labels,
 		},
 		RoleRef: rbac.RoleRef{

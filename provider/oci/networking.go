@@ -35,7 +35,6 @@ const (
 
 	VcnNamePrefix         = "juju-vcn"
 	SecListNamePrefix     = "juju-seclist"
-	SubnetNamePrefix      = "juju-subnet"
 	InternetGatewayPrefix = "juju-ig"
 	RouteTablePrefix      = "juju-rt"
 )
@@ -1093,11 +1092,11 @@ func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContex
 				network.NewProviderAddress(
 					*iface.Vnic.PrivateIp,
 					network.WithScope(network.ScopeCloudLocal),
+					network.WithCIDR(*subnet.CidrBlock),
 				),
 			},
 			InterfaceType:    network.EthernetInterface,
 			ProviderSubnetId: network.Id(*iface.Vnic.SubnetId),
-			CIDR:             *subnet.CidrBlock,
 			Origin:           network.OriginProvider,
 		}
 		if iface.Vnic.PublicIp != nil {

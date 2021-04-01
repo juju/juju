@@ -204,7 +204,6 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
-		CIDR:              "10.0.10.0/24",
 		ProviderId:        "moana/somenetif",
 		ProviderSubnetId:  "go-team",
 		ProviderNetworkId: "go-team1",
@@ -214,9 +213,11 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("10.0.10.3", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
-		},
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+			"10.0.10.3",
+			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
+			corenetwork.WithCIDR("10.0.10.0/24"),
+		)},
 		Origin: corenetwork.OriginProvider,
 	}})
 }
@@ -290,7 +291,6 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 	infos := infoLists[0]
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
-		CIDR:              "10.0.10.0/24",
 		ProviderId:        "i-1/somenetif",
 		ProviderSubnetId:  "go-team",
 		ProviderNetworkId: "go-team1",
@@ -300,9 +300,11 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("10.0.10.3", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
-		},
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+			"10.0.10.3",
+			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
+			corenetwork.WithCIDR("10.0.10.0/24"),
+		)},
 		Origin: corenetwork.OriginProvider,
 	}})
 
@@ -310,7 +312,6 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 	infos = infoLists[1]
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
-		CIDR:              "10.0.10.0/24",
 		ProviderId:        "i-2/netif-0",
 		ProviderSubnetId:  "go-team",
 		ProviderNetworkId: "go-team1",
@@ -320,16 +321,17 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("10.0.10.42", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
-		},
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+			"10.0.10.42",
+			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
+			corenetwork.WithCIDR("10.0.10.0/24"),
+		)},
 		ShadowAddresses: corenetwork.ProviderAddresses{
 			corenetwork.NewProviderAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)),
 		},
 		Origin: corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:       1,
-		CIDR:              "10.0.20.0/24",
 		ProviderId:        "i-2/netif-1",
 		ProviderSubnetId:  "shellac",
 		ProviderNetworkId: "albini",
@@ -339,9 +341,11 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("10.0.20.42", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
-		},
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+			"10.0.20.42",
+			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
+			corenetwork.WithCIDR("10.0.20.0/24"),
+		)},
 		Origin: corenetwork.OriginProvider,
 	}})
 }
@@ -359,7 +363,6 @@ func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 	infos := infoLists[0]
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
-		CIDR:              "10.0.10.0/24",
 		ProviderId:        "i-1/somenetif",
 		ProviderSubnetId:  "go-team",
 		ProviderNetworkId: "go-team1",
@@ -369,9 +372,11 @@ func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("10.0.10.3", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
-		},
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+			"10.0.10.3",
+			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
+			corenetwork.WithCIDR("10.0.10.0/24"),
+		)},
 		Origin: corenetwork.OriginProvider,
 	}})
 
@@ -405,7 +410,6 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
-		CIDR:              "10.0.10.0/24",
 		ProviderId:        "moana/somenetif",
 		ProviderSubnetId:  "go-team",
 		ProviderNetworkId: "go-team1",
@@ -415,13 +419,14 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("10.0.10.3", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
-		},
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+			"10.0.10.3",
+			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
+			corenetwork.WithCIDR("10.0.10.0/24"),
+		)},
 		Origin: corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:       1,
-		CIDR:              "10.0.20.0/24",
 		ProviderId:        "moana/othernetif",
 		ProviderSubnetId:  "shellac",
 		ProviderNetworkId: "albini",
@@ -431,9 +436,11 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("10.0.20.3", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
-		},
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+			"10.0.20.3",
+			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
+			corenetwork.WithCIDR("10.0.20.0/24"),
+		)},
 		ShadowAddresses: corenetwork.ProviderAddresses{
 			corenetwork.NewProviderAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)),
 		},
@@ -466,7 +473,6 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
-		CIDR:              "10.240.0.0/16",
 		ProviderId:        "moana/somenetif",
 		ProviderSubnetId:  "",
 		ProviderNetworkId: "legacy",
@@ -476,9 +482,11 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("10.240.0.2", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
-		},
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+			"10.240.0.2",
+			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
+			corenetwork.WithCIDR("10.240.0.0/16"),
+		)},
 		ShadowAddresses: corenetwork.ProviderAddresses{
 			corenetwork.NewProviderAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)),
 		},
@@ -505,14 +513,13 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 	})
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
-	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{instance.Id("moana")})
+	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{"moana"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(infoList, gc.HasLen, 1)
 	infos := infoList[0]
 
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
-		CIDR:              "10.0.10.0/24",
 		ProviderId:        "moana/somenetif",
 		ProviderSubnetId:  "go-team",
 		ProviderNetworkId: "go-team1",
@@ -522,13 +529,14 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("10.0.10.3", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
-		},
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+			"10.0.10.3",
+			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
+			corenetwork.WithCIDR("10.0.10.0/24"),
+		)},
 		Origin: corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:       1,
-		CIDR:              "10.0.10.0/24",
 		ProviderId:        "moana/othernetif",
 		ProviderSubnetId:  "go-team",
 		ProviderNetworkId: "go-team1",
@@ -538,9 +546,11 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        corenetwork.ConfigDHCP,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("10.0.10.4", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
-		},
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+			"10.0.10.4",
+			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
+			corenetwork.WithCIDR("10.0.10.0/24"),
+		)},
 		ShadowAddresses: corenetwork.ProviderAddresses{
 			corenetwork.NewProviderAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)),
 		},

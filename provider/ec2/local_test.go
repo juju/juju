@@ -144,7 +144,7 @@ func (srv *localServer) startServer(c *gc.C) {
 		c.Fatalf("cannot start ec2 test server: %v", err)
 	}
 	srv.ec2srv.SetCreateRootDisks(srv.createRootDisks)
-	srv.addSpice(c)
+	srv.addSpice()
 
 	// Create a reverse proxy, so we can override responses.
 	endpointURL, err := url.Parse(srv.ec2srv.URL())
@@ -187,7 +187,7 @@ func (srv *localServer) startServer(c *gc.C) {
 
 // addSpice adds some "spice" to the local server
 // by adding state that may cause tests to fail.
-func (srv *localServer) addSpice(c *gc.C) {
+func (srv *localServer) addSpice() {
 	states := []amzec2.InstanceState{
 		ec2test.ShuttingDown,
 		ec2test.Terminated,
@@ -1690,7 +1690,7 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDev
 	// number from the CIDR. The interfaces address is part of the CIDR.
 	// For these reasons we check that the CIDR is in the expected format
 	// and derive the expected values for ProviderSubnetId and Address.
-	cidr := iface.CIDR
+	cidr := iface.PrimaryAddress().CIDR
 	re := regexp.MustCompile(`10\.10\.(\d+)\.0/24`)
 	c.Assert(re.Match([]byte(cidr)), jc.IsTrue)
 	index := re.FindStringSubmatch(cidr)[1]
@@ -1708,7 +1708,6 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDev
 	expectedInterface := corenetwork.InterfaceInfo{
 		DeviceIndex:      expDevIndex,
 		MACAddress:       iface.MACAddress,
-		CIDR:             cidr,
 		ProviderId:       corenetwork.Id(fmt.Sprintf("eni-%d", expIfaceID)),
 		ProviderSubnetId: subnetId,
 		VLANTag:          0,
@@ -1716,8 +1715,8 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDev
 		NoAutoStart:      false,
 		ConfigType:       corenetwork.ConfigDHCP,
 		InterfaceType:    corenetwork.EthernetInterface,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress(addr, corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+			addr, corenetwork.WithScope(corenetwork.ScopeCloudLocal), corenetwork.WithCIDR(cidr)),
 		},
 		// Each machine is also assigned a shadow IP with the pattern:
 		// 73.37.0.X where X=(provider iface ID + 1)

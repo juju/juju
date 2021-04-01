@@ -229,14 +229,13 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 				continue
 			}
 
-			nicInfo.CIDR = link.Subnet.CIDR
 			// NOTE(achilleasa): this bit of code preserves the
 			// long-standing last-write-wins behavior that was
 			// present in the original code. Do we need to revisit
 			// this in the future and append link addresses to the list?
-			nicInfo.Addresses = corenetwork.ProviderAddresses{
-				corenetwork.NewProviderAddressInSpace(link.Subnet.Space, link.IPAddress),
-			}
+			nicInfo.Addresses = corenetwork.ProviderAddresses{corenetwork.NewProviderAddressInSpace(
+				link.Subnet.Space, link.IPAddress, corenetwork.WithCIDR(link.Subnet.CIDR),
+			)}
 			nicInfo.ProviderSubnetId = corenetwork.Id(strconv.Itoa(link.Subnet.ID))
 			nicInfo.ProviderAddressId = corenetwork.Id(strconv.Itoa(link.ID))
 			if link.Subnet.GatewayIP != "" {
@@ -316,12 +315,11 @@ func (env *maasEnviron) deviceInterfaceInfo2(
 				continue
 			}
 
-			nicInfo.CIDR = subnet.CIDR()
 			// NOTE(achilleasa): the original code used a last-write-wins
 			// policy. Do we need to append link addresses to the list?
-			nicInfo.Addresses = corenetwork.ProviderAddresses{
-				corenetwork.NewProviderAddressInSpace(subnet.Space(), link.IPAddress()),
-			}
+			nicInfo.Addresses = corenetwork.ProviderAddresses{corenetwork.NewProviderAddressInSpace(
+				subnet.Space(), link.IPAddress(), corenetwork.WithCIDR(subnet.CIDR()),
+			)}
 			nicInfo.ProviderSubnetId = corenetwork.Id(strconv.Itoa(subnet.ID()))
 			nicInfo.ProviderAddressId = corenetwork.Id(strconv.Itoa(link.ID()))
 			if subnet.Gateway() != "" {
@@ -396,7 +394,7 @@ func (env *maasEnviron) createAndPopulateDevice(params deviceCreatorParams) (gom
 			MACAddress: nic.MACAddress,
 		}
 
-		subnet, knownSubnet := params.CIDRToMAASSubnet[nic.CIDR]
+		subnet, knownSubnet := params.CIDRToMAASSubnet[nic.PrimaryAddress().CIDR]
 		if !knownSubnet {
 			logger.Warningf("NIC %v has no subnet - setting to manual and using 'primaryNIC' VLAN %d", nic.InterfaceName, primaryNICVLAN.ID())
 			createArgs.VLAN = primaryNICVLAN
@@ -535,7 +533,7 @@ func (env *maasEnviron) prepareDeviceDetails(name string, machine gomaasapi.Mach
 	}
 	logger.Debugf("primary device NIC prepared info: %+v", primaryNICInfo)
 
-	primaryNICSubnetCIDR := primaryNICInfo.CIDR
+	primaryNICSubnetCIDR := primaryNICInfo.PrimaryAddress().CIDR
 	subnet, hasSubnet := subnetCIDRToSubnet[primaryNICSubnetCIDR]
 	if hasSubnet {
 		params.Subnet = subnet
@@ -575,13 +573,13 @@ func validateExistingDevice(netInfo corenetwork.InterfaceInfos, device gomaasapi
 			subnet := link.Subnet()
 			if subnet != nil {
 				cidr := subnet.CIDR()
-				if cidr == desired.CIDR {
+				if cidr == desired.PrimaryAddress().CIDR {
 					foundCIDR = true
 				}
 			}
 		}
 		if !foundCIDR {
-			logger.Debugf("could not find Subnet link for CIDR: %q", desired.CIDR)
+			logger.Debugf("could not find Subnet link for CIDR: %q", desired.PrimaryAddress().CIDR)
 			return false, nil
 		}
 	}

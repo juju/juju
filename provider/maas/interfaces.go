@@ -271,7 +271,6 @@ func maasObjectNetworkInterfaces(
 				continue
 			}
 
-			nicInfo.CIDR = sub.CIDR
 			nicInfo.ProviderSubnetId = corenetwork.Id(fmt.Sprintf("%v", sub.ID))
 			nicInfo.ProviderVLANId = corenetwork.Id(fmt.Sprintf("%v", sub.VLAN.ID))
 
@@ -281,7 +280,9 @@ func maasObjectNetworkInterfaces(
 
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
-			nicInfo.Addresses[0] = corenetwork.NewProviderAddressInSpace(space, link.IPAddress)
+			nicInfo.Addresses[0] = corenetwork.NewProviderAddressInSpace(
+				space, link.IPAddress, corenetwork.WithCIDR(sub.CIDR))
+
 			spaceId, ok := subnetsMap[sub.CIDR]
 			if !ok {
 				// The space we found is not recognised.
@@ -391,7 +392,6 @@ func maas2NetworkInterfaces(
 				continue
 			}
 
-			nicInfo.CIDR = sub.CIDR()
 			nicInfo.ProviderSubnetId = corenetwork.Id(fmt.Sprintf("%v", sub.ID()))
 			nicInfo.ProviderVLANId = corenetwork.Id(fmt.Sprintf("%v", sub.VLAN().ID()))
 
@@ -401,7 +401,9 @@ func maas2NetworkInterfaces(
 
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
-			nicInfo.Addresses[0] = corenetwork.NewProviderAddressInSpace(space, link.IPAddress())
+			nicInfo.Addresses[0] = corenetwork.NewProviderAddressInSpace(
+				space, link.IPAddress(), corenetwork.WithCIDR(sub.CIDR()))
+
 			spaceId, ok := subnetsMap[sub.CIDR()]
 			if !ok {
 				// The space we found is not recognised.

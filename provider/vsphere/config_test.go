@@ -23,10 +23,11 @@ func fakeConfig(c *gc.C, attrs ...testing.Attrs) *config.Config {
 
 func fakeConfigAttrs(attrs ...testing.Attrs) testing.Attrs {
 	merged := testing.FakeConfig().Merge(testing.Attrs{
-		"type":             "vsphere",
-		"uuid":             "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
-		"external-network": "",
-		"enable-disk-uuid": true,
+		"type":                      "vsphere",
+		"uuid":                      "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
+		"external-network":          "",
+		"enable-disk-uuid":          true,
+		"force-vm-hardware-version": 0,
 	})
 	for _, attrs := range attrs {
 		merged = merged.Merge(attrs)

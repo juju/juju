@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apicaasapplicationprovisioner "github.com/juju/juju/api/caasapplicationprovisioner"
+	caasunitprovisionerapi "github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/caas"
 )
 
@@ -86,6 +87,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Clock:        clock,
 		Logger:       config.Logger,
 		NewAppWorker: NewAppWorker,
+		UnitFacade:   caasunitprovisionerapi.NewClient(apiCaller),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

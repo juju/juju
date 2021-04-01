@@ -859,28 +859,15 @@ func (s *AddressSuite) TestSpaceAddressesValues(c *gc.C) {
 }
 
 func (s *AddressSuite) TestAddressValueForCIDR(c *gc.C) {
-	type test struct {
-		IP   string
-		CIDR string
-		exp  string
-	}
+	_, err := network.NewMachineAddress("172.31.37.53").ValueWithMask()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	tests := []test{{
-		IP:   "172.31.37.53",
-		CIDR: "172.31.32.0/20",
-		exp:  "172.31.37.53/20",
-	}, {
-		IP:   "192.168.0.1",
-		CIDR: "192.168.0.0/31",
-		exp:  "192.168.0.1/31",
-	}}
+	_, err = network.NewMachineAddress("", network.WithCIDR("172.31.37.0/20")).ValueWithMask()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	for i, t := range tests {
-		c.Logf("test %d: ValueForCIDR(%q, %q)", i, t.IP, t.CIDR)
-		got, err := network.NewMachineAddress(t.IP).ValueForCIDR(t.CIDR)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(got, gc.Equals, t.exp)
-	}
+	val, err := network.NewMachineAddress("172.31.37.53", network.WithCIDR("172.31.37.0/20")).ValueWithMask()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(val, gc.Equals, "172.31.37.53/20")
 }
 
 func (s *AddressSuite) TestCIDRAddressType(c *gc.C) {

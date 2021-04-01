@@ -29,6 +29,11 @@ type logger interface{}
 
 var _ logger = struct{}{}
 
+type CAASUnitProvisionerFacade interface {
+	ApplicationScale(string) (int, error)
+	WatchApplicationScale(string) (watcher.NotifyWatcher, error)
+}
+
 // CAASProvisionerFacade exposes CAAS provisioning functionality to a worker.
 type CAASProvisionerFacade interface {
 	ProvisioningInfo(string) (api.ProvisioningInfo, error)
@@ -59,6 +64,7 @@ type Config struct {
 	Clock        clock.Clock
 	Logger       Logger
 	NewAppWorker NewAppWorkerFunc
+	UnitFacade   CAASUnitProvisionerFacade
 }
 
 type provisioner struct {
@@ -70,6 +76,7 @@ type provisioner struct {
 	logger       Logger
 	newAppWorker NewAppWorkerFunc
 	modelTag     names.ModelTag
+	unitFacade   CAASUnitProvisionerFacade
 }
 
 // NewProvisionerWorker starts and returns a new CAAS provisioner worker.
@@ -87,6 +94,7 @@ func NewProvisionerWorker(config Config) (worker.Worker, error) {
 			RestartDelay: 3 * time.Second,
 			Logger:       config.Logger.Child("runner"),
 		}),
+		unitFacade: config.UnitFacade,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &p.catacomb,
@@ -140,12 +148,13 @@ func (p *provisioner) loop() error {
 				}
 
 				config := AppWorkerConfig{
-					Name:     app,
-					Facade:   p.facade,
-					Broker:   p.broker,
-					ModelTag: p.modelTag,
-					Clock:    p.clock,
-					Logger:   p.logger.Child("applicationworker"),
+					Name:       app,
+					Facade:     p.facade,
+					Broker:     p.broker,
+					ModelTag:   p.modelTag,
+					Clock:      p.clock,
+					Logger:     p.logger.Child("applicationworker"),
+					UnitFacade: p.unitFacade,
 				}
 				startFunc := p.newAppWorker(config)
 				err = p.runner.StartWorker(app, startFunc)

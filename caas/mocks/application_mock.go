@@ -77,6 +77,20 @@ func (mr *MockApplicationMockRecorder) Exists() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exists", reflect.TypeOf((*MockApplication)(nil).Exists))
 }
 
+// Scale mocks base method
+func (m *MockApplication) Scale(arg0 int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Scale", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Scale indicates an expected call of Scale
+func (mr *MockApplicationMockRecorder) Scale(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Scale", reflect.TypeOf((*MockApplication)(nil).Scale), arg0)
+}
+
 // State mocks base method
 func (m *MockApplication) State() (caas.ApplicationState, error) {
 	m.ctrl.T.Helper()

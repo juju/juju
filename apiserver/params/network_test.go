@@ -260,7 +260,7 @@ func (s *NetworkSuite) TestPortRangeConvenience(c *gc.C) {
 
 func (s *NetworkSuite) TestProviderAddressConversion(c *gc.C) {
 	pAddrs := network.ProviderAddresses{
-		network.NewProviderAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
+		network.NewProviderAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal), network.WithCIDR("1.2.3.0/24")),
 		network.NewProviderAddress("1.2.3.5", network.WithScope(network.ScopeCloudLocal), network.WithSecondary()),
 		network.NewProviderAddress("2.3.4.5", network.WithScope(network.ScopePublic)),
 	}
@@ -273,7 +273,7 @@ func (s *NetworkSuite) TestProviderAddressConversion(c *gc.C) {
 
 func (s *NetworkSuite) TestMachineAddressConversion(c *gc.C) {
 	mAddrs := []network.MachineAddress{
-		network.NewMachineAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
+		network.NewMachineAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal), network.WithCIDR("1.2.3.0/24")),
 		network.NewMachineAddress("1.2.3.5", network.WithScope(network.ScopeCloudLocal), network.WithSecondary()),
 		network.NewMachineAddress("2.3.4.5", network.WithScope(network.ScopePublic)),
 	}
