@@ -32,6 +32,7 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/schema"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"github.com/lxc/lxd/shared/logger"
 	"github.com/packethost/packngo"
@@ -86,10 +87,11 @@ func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Ins
 func (e *environ) getPacketInstancesByTag(tags map[string]string) ([]instances.Instance, error) {
 	toReturn := []instances.Instance{}
 	packetTags := []string{}
+
 	for k, v := range tags {
 		packetTags = append(packetTags, fmt.Sprintf("%s=%s", k, v))
 	}
-
+	deviceTags := set.NewStrings(packetTags...)
 	devices, _, err := e.equnixClient.Devices.List(e.cloud.Credential.Attributes()["project-id"], nil)
 	if err != nil {
 		return nil, err
@@ -97,28 +99,13 @@ func (e *environ) getPacketInstancesByTag(tags map[string]string) ([]instances.I
 
 	for _, d := range devices {
 		cp := d
-		if isListContained(packetTags, cp) {
+		cpTags := set.NewStrings(cp.Tags...)
+		if !deviceTags.Intersection(cpTags).IsEmpty() {
 			toReturn = append(toReturn, &equnixDevice{e, &cp})
 		}
 	}
 
 	return toReturn, nil
-}
-
-func isListContained(tags []string, d packngo.Device) bool {
-	for _, t := range tags {
-		tagFound := false
-		for _, tt := range d.Tags {
-			if t == tt {
-				tagFound = true
-				break
-			}
-		}
-		if tagFound == false {
-			return false
-		}
-	}
-	return true
 }
 
 func (e *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
@@ -201,7 +188,7 @@ func (e *environ) InstanceTypes(context.ProviderCallContext, constraints.Value) 
 func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	toReturn := []instances.Instance{}
 
-	tags := []string{"juju-model-uuid=" + e.Config().UUID()}
+	tags := set.NewStrings("juju-model-uuid=" + e.Config().UUID())
 
 	for _, id := range ids {
 		//TODO handle case when some of the instanes are missing
@@ -209,7 +196,8 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 		if err != nil {
 			return nil, errors.Annotatef(err, "looking up device with ID %q", id)
 		}
-		if isListContained(tags, *d) {
+		deviceTags := set.NewStrings(d.Tags...)
+		if !tags.Intersection(deviceTags).IsEmpty() {
 			toReturn = append(toReturn, &equnixDevice{e, d})
 		}
 	}
