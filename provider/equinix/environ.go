@@ -28,16 +28,18 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
+	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	"github.com/juju/retry"
 	"github.com/juju/schema"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
-	"github.com/lxc/lxd/shared/logger"
 	"github.com/packethost/packngo"
 	"gopkg.in/juju/environschema.v1"
 )
+
+var logger = loggo.GetLogger("juju.provider.equnix")
 
 type environConfig struct {
 	config *config.Config
@@ -94,7 +96,7 @@ func (e *environ) getPacketInstancesByTag(tags map[string]string) ([]instances.I
 	deviceTags := set.NewStrings(packetTags...)
 	devices, _, err := e.equnixClient.Devices.List(e.cloud.Credential.Attributes()["project-id"], nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	for _, d := range devices {
@@ -405,12 +407,8 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		})
 	}
 
-	logger.Infof("---------> device.IPAddresses %v", device.IPAddresses)
 	d, _, err := e.equnixClient.Devices.Create(device)
-	logger.Infof("---------> device.error %v", err)
-
 	if err != nil {
-
 		return nil, errors.Trace(err)
 	}
 
@@ -468,6 +466,7 @@ func (e *environ) supportedInstanceTypes() ([]instances.InstanceType, error) {
 nextPlan:
 	for _, plan := range plans {
 		if !validPlan(plan, e.cloud.Region) {
+			logger.Infof("Plan %s not valid in facility %s", plan.Name, e.cloud.Region)
 			continue
 		}
 
@@ -532,11 +531,6 @@ func parseMemValue(v string) (uint64, error) {
 }
 
 func (e *environ) findInstanceSpec(controller bool, allImages []*imagemetadata.ImageMetadata, instanceTypes []instances.InstanceType, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
-	// version, err := series.UbuntuSeriesVersion(ic.Series)
-	// if err != nil {
-	// 	return nil, errors.Trace(err)
-	// }
-
 	oss, _, err := e.equnixClient.OperatingSystems.List()
 	if err != nil {
 		return nil, err

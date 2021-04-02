@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/schema"
-	"github.com/lxc/lxd/shared/logger"
 	"github.com/packethost/packngo"
 )
 
