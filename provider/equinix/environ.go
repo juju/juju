@@ -49,7 +49,24 @@ type environ struct {
 	name         string
 	cloud        environscloudspec.CloudSpec
 	equnixClient *packngo.Client
+	namespace    instance.Namespace
 }
+
+// func newEMEnviron() (*environ, error) {
+// 	e := new(environ)
+// 	namespace, err := instance.NewNamespace(e.ecfg.config.UUID())
+// 	if err != nil {
+// 		return nil, errors.Trace(err)
+// 	}
+
+// 	e.ecfg, err = providerInstance.newConfig(cfg)
+// 	if err != nil {
+// 		return nil, errors.Trace(err)
+// 	}
+
+// 	e.namespace = namespace
+// 	return e, nil
+// }
 
 var providerInstance environProvider
 
@@ -171,7 +188,13 @@ func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerU
 }
 
 func (e *environ) InstanceTypes(context.ProviderCallContext, constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
-	var i envinstance.InstanceTypesWithCostMetadata
+	i := envinstance.InstanceTypesWithCostMetadata{}
+	instances, err := e.supportedInstanceTypes()
+	if err != nil {
+		return i, errors.Trace(err)
+	}
+
+	i.InstanceTypes = instances
 	return i, nil
 }
 
@@ -268,7 +291,7 @@ func newConfig(cfg, old *config.Config) (*environConfig, error) {
 }
 
 func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (result *environs.StartInstanceResult, resultErr error) {
-	instanceTypes, err := e.supportedInstanceTypes()
+	instanceTypes, err := e.InstanceTypes(ctx, constraints.Value{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -276,7 +299,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	spec, err := e.findInstanceSpec(
 		args.InstanceConfig.Controller != nil,
 		args.ImageMetadata,
-		instanceTypes,
+		instanceTypes.InstanceTypes,
 		&instances.InstanceConstraint{
 			Region:      e.cloud.Region,
 			Series:      args.InstanceConfig.Series,
@@ -326,8 +349,12 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		packetTags = append(packetTags, fmt.Sprintf("%s=%s", k, v))
 	}
 
+	hostname, err := e.namespace.Hostname(args.InstanceConfig.MachineId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	device := &packngo.DeviceCreateRequest{
-		Hostname:     e.name,
+		Hostname:     hostname,
 		Facility:     []string{e.cloud.Region},
 		Plan:         spec.InstanceType.Name,
 		OS:           spec.Image.Id,
