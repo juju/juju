@@ -134,7 +134,7 @@ func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controlle
 	if err != nil {
 		return nil, err
 	}
-	instanceIDs := []instance.Id{}
+	instanceIDs := make([]instance.Id, len(insts))
 	for _, i := range insts {
 		instanceIDs = append(instanceIDs, i.Id())
 	}
@@ -152,8 +152,7 @@ func (e *environ) Destroy(ctx context.ProviderCallContext) error {
 	}
 
 	for _, inst := range insts {
-		_, err = e.equnixClient.Devices.Delete(string(inst.Id()), true)
-		if err != nil {
+		if _, err = e.equnixClient.Devices.Delete(string(inst.Id()), true); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -335,7 +334,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	}
 
 	// Render the required tags for the instance.
-	packetTags := []string{}
+	packetTags := make([]string, len(args.InstanceConfig.Tags))
 	for k, v := range args.InstanceConfig.Tags {
 		packetTags = append(packetTags, fmt.Sprintf("%s=%s", k, v))
 	}
