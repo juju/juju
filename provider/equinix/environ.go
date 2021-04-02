@@ -35,8 +35,9 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
-	"github.com/packethost/packngo"
 	"gopkg.in/juju/environschema.v1"
+
+	"github.com/packethost/packngo"
 )
 
 var logger = loggo.GetLogger("juju.provider.equnix")
