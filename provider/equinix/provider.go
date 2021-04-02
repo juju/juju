@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -71,15 +72,24 @@ func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error
 	logger.Debugf("opening model %q", args.Config.Name())
 
 	e := new(environ)
+
 	e.name = args.Config.Name()
 
 	if err := e.SetCloudSpec(args.Cloud); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	if err := e.SetConfig(args.Config); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	namespace, err := instance.NewNamespace(e.ecfg.config.UUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	e.namespace = namespace
+
 	return e, nil
 }
 
