@@ -327,6 +327,10 @@ func addAddressToResult(networkInfos []params.NetworkInfo, address *state.Addres
 		InterfaceName: address.DeviceName(),
 		MACAddress:    MAC,
 		Addresses:     []params.InterfaceAddress{deviceAddr},
+
+		// Compatibility preservation. Remove for Juju 3/4.
+		InterfaceNameX: address.DeviceName(),
+		MACAddressX:    MAC,
 	}
 	return append(networkInfos, networkInfo), nil
 }

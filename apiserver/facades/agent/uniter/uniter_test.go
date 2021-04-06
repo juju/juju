@@ -4693,6 +4693,9 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				Addresses: []params.InterfaceAddress{
 					{Address: "10.0.0.10", CIDR: "10.0.0.0/24"},
 				},
+
+				MACAddressX:    "00:11:22:33:10:50",
+				InterfaceNameX: "eth0.100",
 			},
 			{
 				MACAddress:    "00:11:22:33:10:51",
@@ -4700,6 +4703,9 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				Addresses: []params.InterfaceAddress{
 					{Address: "10.0.0.11", CIDR: "10.0.0.0/24"},
 				},
+
+				MACAddressX:    "00:11:22:33:10:51",
+				InterfaceNameX: "eth1.100",
 			},
 		},
 		EgressSubnets:    []string{"10.0.0.10/32"},
@@ -4715,6 +4721,9 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				Addresses: []params.InterfaceAddress{
 					{Address: "8.8.8.10", CIDR: "8.8.0.0/16"},
 				},
+
+				MACAddressX:    "00:11:22:33:10:50",
+				InterfaceNameX: "eth0",
 			},
 			{
 				MACAddress:    "00:11:22:33:10:51",
@@ -4723,6 +4732,9 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 					{Address: "8.8.4.10", CIDR: "8.8.0.0/16"},
 					{Address: "8.8.4.11", CIDR: "8.8.0.0/16"},
 				},
+
+				MACAddressX:    "00:11:22:33:10:51",
+				InterfaceNameX: "eth1",
 			},
 			{
 				MACAddress:    "00:11:22:33:10:55",
@@ -4730,6 +4742,9 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				Addresses: []params.InterfaceAddress{
 					{Address: "1.1.1.10", CIDR: "1.0.0.0/12"},
 				},
+
+				MACAddressX:    "00:11:22:33:10:55",
+				InterfaceNameX: "fan-1",
 			},
 		},
 		// Egress is based on the first ingress address.
@@ -4748,6 +4763,9 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				Addresses: []params.InterfaceAddress{
 					{Address: "100.64.0.10", CIDR: "100.64.0.0/16"},
 				},
+
+				MACAddressX:    "00:11:22:33:10:52",
+				InterfaceNameX: "eth2",
 			},
 		},
 		EgressSubnets:    []string{"100.64.0.10/32"},
@@ -4779,6 +4797,9 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoL2Binding(c *gc.C) {
 			{
 				MACAddress:    "00:11:22:33:10:50",
 				InterfaceName: "eth2",
+
+				MACAddressX:    "00:11:22:33:10:50",
+				InterfaceNameX: "eth2",
 			},
 		},
 	}
@@ -4817,6 +4838,9 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 				Addresses: []params.InterfaceAddress{
 					{Address: "192.168.1.20", CIDR: "192.168.1.0/24"},
 				},
+
+				MACAddressX:    "00:11:22:33:20:54",
+				InterfaceNameX: "eth4",
 			},
 		},
 		EgressSubnets:    []string{"192.168.1.20/32"},
@@ -4853,6 +4877,9 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForJujuInfoDefaultSpace(c *gc.C)
 				Addresses: []params.InterfaceAddress{
 					{Address: "192.168.1.20", CIDR: "192.168.1.0/24"},
 				},
+
+				MACAddressX:    "00:11:22:33:20:54",
+				InterfaceNameX: "eth4",
 			},
 		},
 		EgressSubnets:    []string{"192.168.1.20/32"},
@@ -4908,6 +4935,9 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressNonDefaultBin
 				Addresses: []params.InterfaceAddress{
 					{Address: "192.168.1.20", CIDR: "192.168.1.0/24"},
 				},
+
+				MACAddressX:    "00:11:22:33:20:54",
+				InterfaceNameX: "eth4",
 			},
 		},
 		EgressSubnets:    []string{"192.168.1.0/24"},
@@ -4979,6 +5009,9 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressDefaultBindin
 				Addresses: []params.InterfaceAddress{
 					{Address: "10.0.0.20", CIDR: "10.0.0.0/24"},
 				},
+
+				MACAddressX:    "00:11:22:33:20:50",
+				InterfaceNameX: "eth0.100",
 			},
 		},
 		EgressSubnets:    []string{"192.168.1.0/24"},
@@ -5010,10 +5043,16 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoV6Results(c *gc.C) {
 						MACAddress:    "00:11:22:33:10:50",
 						InterfaceName: "eth0.100",
 						Addresses:     []params.InterfaceAddress{{Address: "10.0.0.10", CIDR: "10.0.0.0/24"}},
+
+						MACAddressX:    "00:11:22:33:10:50",
+						InterfaceNameX: "eth0.100",
 					}, {
 						MACAddress:    "00:11:22:33:10:51",
 						InterfaceName: "eth1.100",
 						Addresses:     []params.InterfaceAddress{{Address: "10.0.0.11", CIDR: "10.0.0.0/24"}},
+
+						MACAddressX:    "00:11:22:33:10:51",
+						InterfaceNameX: "eth1.100",
 					},
 				},
 			},
