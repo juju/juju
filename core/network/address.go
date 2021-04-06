@@ -831,6 +831,20 @@ func CIDRAddressType(cidr string) (AddressType, error) {
 	return IPv6Address, nil
 }
 
+// NetworkCIDRFromIPAndMask constructs a CIDR for a network by applying the
+// provided netmask to the specified address (can be either a host or network
+// address) and formatting the result as a CIDR.
+//
+// For example, passing 10.0.0.4 and a /24 mask yields 10.0.0.0/24.
+func NetworkCIDRFromIPAndMask(ip net.IP, netmask net.IPMask) string {
+	if ip == nil || netmask == nil {
+		return ""
+	}
+
+	hostBits, _ := netmask.Size()
+	return fmt.Sprintf("%s/%d", ip.Mask(netmask), hostBits)
+}
+
 // noAddress represents an error when an address is requested but not available.
 type noAddress struct {
 	errors.Err

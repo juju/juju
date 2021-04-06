@@ -186,8 +186,9 @@ func interfaceAddressToNetworkConfig(
 	}
 
 	if ipNet := addr.IPNet(); ipNet != nil && ipNet.Mask != nil {
-		config.CIDR = ipNet.String()
+		config.CIDR = network.NetworkCIDRFromIPAndMask(ip, ipNet.Mask)
 	}
+
 	config.Address = ip.String()
 	if configType != string(network.ConfigLoopback) {
 		config.ConfigType = string(network.ConfigStatic)
