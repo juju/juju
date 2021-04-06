@@ -706,3 +706,7 @@ func (a *app) handleErr(err error) error {
 	}
 	return err
 }
+
+func (a *app) Scale(scaleTo int) error {
+	return errors.NotImplementedf("scale with ecs")
+}
