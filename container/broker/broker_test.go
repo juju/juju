@@ -100,11 +100,12 @@ type fakeAPI struct {
 var _ broker.APICalls = (*fakeAPI)(nil)
 
 var fakeInterfaceInfo = corenetwork.InterfaceInfo{
-	DeviceIndex:    0,
-	MACAddress:     "aa:bb:cc:dd:ee:ff",
-	CIDR:           "0.1.2.0/24",
-	InterfaceName:  "dummy0",
-	Addresses:      corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.1.2.3")},
+	DeviceIndex:   0,
+	MACAddress:    "aa:bb:cc:dd:ee:ff",
+	InterfaceName: "dummy0",
+	Addresses: corenetwork.ProviderAddresses{
+		corenetwork.NewProviderAddress("0.1.2.3", corenetwork.WithCIDR("0.1.2.0/24")),
+	},
 	GatewayAddress: corenetwork.NewProviderAddress("0.1.2.1"),
 	// Explicitly set only DNSServers, but not DNSSearchDomains to test this is
 	// detected and the latter populated by parsing the fake resolv.conf created

@@ -73,6 +73,27 @@ run_deploy_trusted_bundle() {
 	destroy_model "test-trusted-bundles-deploy"
 }
 
+run_deploy_charmhub_bundle() {
+    echo
+
+    model_name="test-charmhub-bundle-deploy"
+    file="${TEST_DIR}/${model_name}.log"
+
+    ensure "${model_name}" "${file}"
+
+    bundle=juju-qa-bundle-test
+    juju deploy "${bundle}"
+
+    wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "2.0/stable")"
+    wait_for "juju-qa-test-focal" "$(charm_channel "juju-qa-test-focal" "candidate")"
+    wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+    wait_for "juju-qa-test-focal" "$(idle_condition "juju-qa-test-focal" 1)"
+    wait_for "ntp" "$(idle_subordinate_condition "ntp" "juju-qa-test")"
+    wait_for "ntp-focal" "$(idle_subordinate_condition "ntp-focal" "juju-qa-test-focal")"
+
+    destroy_model "${model_name}"
+}
+
 # run_deploy_lxd_profile_bundle_openstack is to test a more
 # real world scenario of a minimal openstack bundle with a
 # charm using an lxd profile.
@@ -155,6 +176,7 @@ test_deploy_bundles() {
 		run "run_deploy_cmr_bundle"
 		run "run_deploy_exported_bundle"
 		run "run_deploy_trusted_bundle"
+		run "run_deploy_charmhub_bundle"
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"lxd" | "localhost")

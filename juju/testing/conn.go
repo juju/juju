@@ -17,10 +17,8 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/pubsub"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -429,10 +427,7 @@ func DefaultVersions(conf *config.Config) []version.Binary {
 		agentVersion = jujuversion.Current
 	}
 	osTypes := set.NewStrings("ubuntu")
-	hostSeries, err := series.HostSeries()
-	if err != nil {
-		osTypes.Add(coreseries.DefaultOSTypeNameFromSeries(hostSeries))
-	}
+	osTypes.Add(coreos.HostOSTypeName())
 	var versions []version.Binary
 	for _, osType := range osTypes.Values() {
 		versions = append(versions, version.Binary{

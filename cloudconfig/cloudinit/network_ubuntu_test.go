@@ -67,22 +67,22 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 	s.jujuNetplanFile = filepath.Join(netplanFolder, "79-juju.yaml")
 
 	s.fakeInterfaces = corenetwork.InterfaceInfos{{
-		InterfaceName:    "any0",
-		CIDR:             "0.1.2.0/24",
-		ConfigType:       corenetwork.ConfigStatic,
-		NoAutoStart:      false,
-		Addresses:        corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.1.2.3")},
+		InterfaceName: "any0",
+		ConfigType:    corenetwork.ConfigStatic,
+		NoAutoStart:   false,
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewProviderAddress("0.1.2.3", corenetwork.WithCIDR("0.1.2.0/24"))},
 		DNSServers:       corenetwork.NewProviderAddresses("ns1.invalid", "ns2.invalid"),
 		DNSSearchDomains: []string{"foo", "bar"},
 		GatewayAddress:   corenetwork.NewProviderAddress("0.1.2.1"),
 		MACAddress:       "aa:bb:cc:dd:ee:f0",
 		MTU:              8317,
 	}, {
-		InterfaceName:    "any1",
-		CIDR:             "0.2.2.0/24",
-		ConfigType:       corenetwork.ConfigStatic,
-		NoAutoStart:      false,
-		Addresses:        corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.2.2.4")},
+		InterfaceName: "any1",
+		ConfigType:    corenetwork.ConfigStatic,
+		NoAutoStart:   false,
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewProviderAddress("0.2.2.4", corenetwork.WithCIDR("0.2.2.0/24"))},
 		DNSServers:       corenetwork.NewProviderAddresses("ns1.invalid", "ns2.invalid"),
 		DNSSearchDomains: []string{"foo", "bar"},
 		GatewayAddress:   corenetwork.NewProviderAddress("0.2.2.1"),
@@ -108,12 +108,12 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 		MACAddress:    "aa:bb:cc:dd:ee:f4",
 		NoAutoStart:   true,
 	}, {
-		InterfaceName:  "any5",
-		ConfigType:     corenetwork.ConfigStatic,
-		MACAddress:     "aa:bb:cc:dd:ee:f5",
-		NoAutoStart:    false,
-		CIDR:           "2001:db8::/64",
-		Addresses:      corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("2001:db8::dead:beef")},
+		InterfaceName: "any5",
+		ConfigType:    corenetwork.ConfigStatic,
+		MACAddress:    "aa:bb:cc:dd:ee:f5",
+		NoAutoStart:   false,
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewProviderAddress("2001:db8::dead:beef", corenetwork.WithCIDR("2001:db8::/64"))},
 		GatewayAddress: corenetwork.NewProviderAddress("2001:db8::dead:f00"),
 	}}
 
@@ -555,7 +555,7 @@ func (s *NetworkUbuntuSuite) TestENIScriptHotplug(c *gc.C) {
 }
 
 func (s *NetworkUbuntuSuite) TestPrepareNetworkConfigFromInterfacesBadCIDRError(c *gc.C) {
-	s.fakeInterfaces[0].CIDR = "invalid"
+	s.fakeInterfaces[0].Addresses[0].CIDR = "invalid"
 	_, err := cloudinit.PrepareNetworkConfigFromInterfaces(s.fakeInterfaces)
 	c.Assert(err, gc.ErrorMatches, `invalid CIDR address: invalid`)
 }

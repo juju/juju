@@ -228,44 +228,8 @@ func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) (c
 	if err := result.Results[0].Error; err != nil {
 		return nil, err
 	}
-	machineConf := result.Results[0]
-	ifaceInfo := make(corenetwork.InterfaceInfos, len(machineConf.Config))
-	for i, cfg := range machineConf.Config {
-		routes := make([]corenetwork.Route, len(cfg.Routes))
-		for j, route := range cfg.Routes {
-			routes[j] = corenetwork.Route{
-				DestinationCIDR: route.DestinationCIDR,
-				GatewayIP:       route.GatewayIP,
-				Metric:          route.Metric,
-			}
-		}
-		// TODO(achilleasa): do we need to define interfaces for the
-		// non-primary private addresses (if present)?
-		ifaceInfo[i] = corenetwork.InterfaceInfo{
-			DeviceIndex:         cfg.DeviceIndex,
-			MACAddress:          cfg.MACAddress,
-			CIDR:                cfg.CIDR,
-			MTU:                 cfg.MTU,
-			ProviderId:          corenetwork.Id(cfg.ProviderId),
-			ProviderSubnetId:    corenetwork.Id(cfg.ProviderSubnetId),
-			ProviderSpaceId:     corenetwork.Id(cfg.ProviderSpaceId),
-			ProviderVLANId:      corenetwork.Id(cfg.ProviderVLANId),
-			ProviderAddressId:   corenetwork.Id(cfg.ProviderAddressId),
-			VLANTag:             cfg.VLANTag,
-			InterfaceName:       cfg.InterfaceName,
-			ParentInterfaceName: cfg.ParentInterfaceName,
-			InterfaceType:       corenetwork.InterfaceType(cfg.InterfaceType),
-			Disabled:            cfg.Disabled,
-			NoAutoStart:         cfg.NoAutoStart,
-			ConfigType:          corenetwork.AddressConfigType(cfg.ConfigType),
-			Addresses:           corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(cfg.Address)},
-			DNSServers:          corenetwork.NewProviderAddresses(cfg.DNSServers...),
-			DNSSearchDomains:    cfg.DNSSearchDomains,
-			GatewayAddress:      corenetwork.NewProviderAddress(cfg.GatewayAddress),
-			Routes:              routes,
-		}
-	}
-	return ifaceInfo, nil
+
+	return params.InterfaceInfoFromNetworkConfig(result.Results[0].Config), nil
 }
 
 // SetHostMachineNetworkConfig sets the network configuration of the

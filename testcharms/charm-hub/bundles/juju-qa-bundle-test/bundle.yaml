@@ -1,0 +1,74 @@
+name: juju-qa-bundle-test
+series: bionic
+applications:
+  easyrsa:
+    charm: containers-easyrsa
+    channel: stable
+    num_units: 1
+    to:
+    - lxd:0
+    annotations:
+      gui-x: "450"
+      gui-y: "550"
+  etcd:
+    charm: etcd
+    channel: stable
+    num_units: 1
+    to:
+    - "0"
+    options:
+      channel: 3.2/stable
+    annotations:
+      gui-x: "800"
+      gui-y: "550"
+  flannel:
+    charm: containers-flannel
+    channel: stable
+  juju-qa-test:
+    charm: juju-qa-test
+    channel: 2.0/stable
+  kubernetes-master:
+    charm: containers-kubernetes-master
+    channel: stable
+    num_units: 1
+    to:
+    - "0"
+    expose: true
+    options:
+      channel: 1.12/stable
+  kubernetes-worker:
+    charm: containers-kubernetes-worker
+    channel: stable
+    num_units: 1
+    to:
+    - "1"
+    expose: true
+    options:
+      channel: 1.12/stable
+      proxy-extra-args: proxy-mode=userspace
+machines:
+  "0":
+    constraints: arch=amd64 cores=2 mem=4G root-disk=16G
+    series: bionic
+  "1":
+    constraints: arch=amd64 cores=4 mem=8G root-disk=20G
+    series: bionic
+relations:
+- - flannel:cni
+  - kubernetes-worker:cni
+- - flannel:cni
+  - kubernetes-master:cni
+- - kubernetes-worker:certificates
+  - easyrsa:client
+- - etcd:certificates
+  - easyrsa:client
+- - kubernetes-master:certificates
+  - easyrsa:client
+- - kubernetes-master:kube-control
+  - kubernetes-worker:kube-control
+- - kubernetes-master:kube-api-endpoint
+  - kubernetes-worker:kube-api-endpoint
+- - flannel:etcd
+  - etcd:db
+- - kubernetes-master:etcd
+  - etcd:db

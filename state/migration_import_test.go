@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
@@ -429,7 +430,11 @@ func (s *MigrationImportSuite) TestMachineAgentVersion(c *gc.C) {
 	c.Assert(hardware, gc.NotNil)
 
 	// Set the original machine to use series based agent binary version.
-	err = machine1.SetAgentVersion(version.MustParseBinary("1.2.3-xenial-amd64"))
+	err = machine1.SetAgentVersion(version.Binary{
+		Number:  version.MustParse("1.2.3"),
+		Release: coretesting.HostSeries(c),
+		Arch:    "amd64",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	allMachines, err := s.State.AllMachines()
@@ -447,7 +452,7 @@ func (s *MigrationImportSuite) TestMachineAgentVersion(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		oldTools, err := allMachines[i].AgentTools()
 		c.Assert(err, jc.ErrorIsNil)
-		oldTools.Version.Release = "ubuntu"
+		oldTools.Version.Release = coreos.HostOSTypeName()
 		c.Assert(agentTools.Version, gc.DeepEquals, oldTools.Version)
 	}
 }

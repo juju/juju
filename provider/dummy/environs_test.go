@@ -241,7 +241,6 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 	expectInfo := corenetwork.InterfaceInfos{{
 		ProviderId:       "dummy-eth0",
 		ProviderSubnetId: "dummy-private",
-		CIDR:             "0.10.0.0/24",
 		DeviceIndex:      0,
 		InterfaceName:    "eth0",
 		InterfaceType:    "ethernet",
@@ -250,14 +249,15 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       corenetwork.ConfigDHCP,
-		Addresses:        corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.10.0.2")},
-		DNSServers:       corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress:   corenetwork.NewProviderAddress("0.10.0.1"),
-		Origin:           corenetwork.OriginProvider,
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewProviderAddress("0.10.0.2", corenetwork.WithCIDR("0.10.0.0/24")),
+		},
+		DNSServers:     corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress: corenetwork.NewProviderAddress("0.10.0.1"),
+		Origin:         corenetwork.OriginProvider,
 	}, {
 		ProviderId:       "dummy-eth1",
 		ProviderSubnetId: "dummy-public",
-		CIDR:             "0.20.0.0/24",
 		DeviceIndex:      1,
 		InterfaceName:    "eth1",
 		InterfaceType:    "ethernet",
@@ -266,14 +266,15 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:         false,
 		NoAutoStart:      true,
 		ConfigType:       corenetwork.ConfigDHCP,
-		Addresses:        corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.20.0.2")},
-		DNSServers:       corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress:   corenetwork.NewProviderAddress("0.20.0.1"),
-		Origin:           corenetwork.OriginProvider,
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewProviderAddress("0.20.0.2", corenetwork.WithCIDR("0.20.0.0/24")),
+		},
+		DNSServers:     corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress: corenetwork.NewProviderAddress("0.20.0.1"),
+		Origin:         corenetwork.OriginProvider,
 	}, {
 		ProviderId:       "dummy-eth2",
 		ProviderSubnetId: "dummy-disabled",
-		CIDR:             "0.30.0.0/24",
 		DeviceIndex:      2,
 		InterfaceName:    "eth2",
 		InterfaceType:    "ethernet",
@@ -282,10 +283,12 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:         true,
 		NoAutoStart:      false,
 		ConfigType:       corenetwork.ConfigDHCP,
-		Addresses:        corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.30.0.2")},
-		DNSServers:       corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress:   corenetwork.NewProviderAddress("0.30.0.1"),
-		Origin:           corenetwork.OriginProvider,
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewProviderAddress("0.30.0.2", corenetwork.WithCIDR("0.30.0.0/24")),
+		},
+		DNSServers:     corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress: corenetwork.NewProviderAddress("0.30.0.1"),
+		Origin:         corenetwork.OriginProvider,
 	}}
 	infoList, err := e.NetworkInterfaces(s.callCtx, []instance.Id{instance.Id("i-42")})
 	c.Assert(err, jc.ErrorIsNil)

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
@@ -29,6 +28,7 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
+	coreos "github.com/juju/juju/core/os"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -74,7 +74,7 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 
 func (s *UpgraderSuite) patchVersion(v version.Binary) {
 	s.PatchValue(&arch.HostArch, func() string { return v.Arch })
-	s.PatchValue(&series.HostSeries, func() (string, error) { return "ubuntu", nil })
+	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 	vers := v.Number
 	vers.Build = 666
 	s.PatchValue(&jujuversion.Current, vers)

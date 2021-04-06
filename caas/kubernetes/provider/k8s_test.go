@@ -6425,6 +6425,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
 	})
+	podSpec.NodeSelector = map[string]string{
+		"kubernetes.io/arch": "amd64",
+	}
 	for i := range podSpec.Containers {
 		podSpec.Containers[i].Resources = core.ResourceRequirements{
 			Limits: core.ResourceList{
@@ -6478,7 +6481,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
-		Constraints: constraints.MustParse("mem=64 cpu-power=500"),
+		Constraints: constraints.MustParse("mem=64 cpu-power=500 arch=amd64"),
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",

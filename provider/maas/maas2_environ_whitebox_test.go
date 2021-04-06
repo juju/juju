@@ -910,7 +910,6 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 	expected := network.InterfaceInfos{{
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
-		CIDR:              "10.20.19.0/24",
 		ProviderId:        "91",
 		ProviderSubnetId:  "3",
 		AvailabilityZones: nil,
@@ -922,16 +921,17 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        "static",
-		Addresses:         network.ProviderAddresses{network.NewProviderAddressInSpace("default", "10.20.19.103")},
-		DNSServers:        network.NewProviderAddressesInSpace("default", "10.20.19.2", "10.20.19.3"),
-		DNSSearchDomains:  nil,
-		MTU:               1500,
-		GatewayAddress:    network.NewProviderAddressInSpace("default", "10.20.19.2"),
-		Origin:            network.OriginProvider,
+		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
+			"default", "10.20.19.103", network.WithCIDR("10.20.19.0/24"),
+		)},
+		DNSServers:       network.NewProviderAddressesInSpace("default", "10.20.19.2", "10.20.19.3"),
+		DNSSearchDomains: nil,
+		MTU:              1500,
+		GatewayAddress:   network.NewProviderAddressInSpace("default", "10.20.19.2"),
+		Origin:           network.OriginProvider,
 	}, {
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
-		CIDR:              "10.20.19.0/24",
 		ProviderId:        "91",
 		ProviderSubnetId:  "3",
 		AvailabilityZones: nil,
@@ -943,16 +943,17 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        "static",
-		Addresses:         network.ProviderAddresses{network.NewProviderAddressInSpace("default", "10.20.19.104")},
-		DNSServers:        network.NewProviderAddressesInSpace("default", "10.20.19.2", "10.20.19.3"),
-		DNSSearchDomains:  nil,
-		MTU:               1500,
-		GatewayAddress:    network.NewProviderAddressInSpace("default", "10.20.19.2"),
-		Origin:            network.OriginProvider,
+		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
+			"default", "10.20.19.104", network.WithCIDR("10.20.19.0/24"),
+		)},
+		DNSServers:       network.NewProviderAddressesInSpace("default", "10.20.19.2", "10.20.19.3"),
+		DNSSearchDomains: nil,
+		MTU:              1500,
+		GatewayAddress:   network.NewProviderAddressInSpace("default", "10.20.19.2"),
+		Origin:           network.OriginProvider,
 	}, {
 		DeviceIndex:         1,
 		MACAddress:          "52:54:00:70:9b:fe",
-		CIDR:                "10.50.19.0/24",
 		ProviderId:          "150",
 		ProviderSubnetId:    "5",
 		AvailabilityZones:   nil,
@@ -965,12 +966,14 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 		Disabled:            false,
 		NoAutoStart:         false,
 		ConfigType:          "static",
-		Addresses:           network.ProviderAddresses{network.NewProviderAddressInSpace("admin", "10.50.19.103")},
-		DNSServers:          nil,
-		DNSSearchDomains:    nil,
-		MTU:                 1500,
-		GatewayAddress:      network.NewProviderAddressInSpace("admin", "10.50.19.2"),
-		Origin:              network.OriginProvider,
+		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
+			"admin", "10.50.19.103", network.WithCIDR("10.50.19.0/24"),
+		)},
+		DNSServers:       nil,
+		DNSSearchDomains: nil,
+		MTU:              1500,
+		GatewayAddress:   network.NewProviderAddressInSpace("admin", "10.50.19.2"),
+		Origin:           network.OriginProvider,
 	}}
 	c.Assert(result.NetworkInfo, jc.DeepEquals, expected)
 }
@@ -1078,16 +1081,15 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 
 	prepared := network.InterfaceInfos{{
 		MACAddress:    "52:54:00:70:9b:fe",
-		CIDR:          "10.20.19.0/24",
+		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
 		InterfaceName: "eth0",
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
-	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
+	result, err := env.AllocateContainerAddresses(suite.callCtx, "1", ignored, prepared)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := network.InterfaceInfos{{
 		DeviceIndex:       0,
 		MACAddress:        "53:54:00:70:9b:ff",
-		CIDR:              "192.168.1.0/24",
 		ProviderId:        "93",
 		ProviderSubnetId:  "4",
 		VLANTag:           0,
@@ -1096,10 +1098,12 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 		InterfaceName:     "eth1",
 		InterfaceType:     "ethernet",
 		ConfigType:        "static",
-		Addresses:         network.ProviderAddresses{network.NewProviderAddressInSpace("freckles", "192.168.1.127")},
-		DNSServers:        network.NewProviderAddressesInSpace("freckles", "10.20.19.2", "10.20.19.3"),
-		MTU:               1500,
-		GatewayAddress:    network.NewProviderAddressInSpace("freckles", "192.168.1.1"),
+		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
+			"freckles", "192.168.1.127", network.WithCIDR("192.168.1.0/24"),
+		)},
+		DNSServers:     network.NewProviderAddressesInSpace("freckles", "10.20.19.2", "10.20.19.3"),
+		MTU:            1500,
+		GatewayAddress: network.NewProviderAddressInSpace("freckles", "192.168.1.1"),
 		Routes: []network.Route{{
 			DestinationCIDR: subnet1.CIDR(),
 			GatewayIP:       "192.168.1.1",
@@ -1208,7 +1212,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesNoStaticRoutesAPI(
 
 	prepared := network.InterfaceInfos{{
 		MACAddress:    "52:54:00:70:9b:fe",
-		CIDR:          "10.20.19.0/24",
+		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
 		InterfaceName: "eth0",
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
@@ -1217,7 +1221,6 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesNoStaticRoutesAPI(
 	expected := network.InterfaceInfos{{
 		DeviceIndex:       0,
 		MACAddress:        "53:54:00:70:9b:ff",
-		CIDR:              "10.20.19.0/24",
 		ProviderId:        "93",
 		ProviderSubnetId:  "3",
 		VLANTag:           0,
@@ -1226,12 +1229,14 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesNoStaticRoutesAPI(
 		InterfaceName:     "eth0",
 		InterfaceType:     "ethernet",
 		ConfigType:        "static",
-		Addresses:         network.ProviderAddresses{network.NewProviderAddressInSpace("freckles", "10.20.19.104")},
-		DNSServers:        network.NewProviderAddressesInSpace("freckles", "10.20.19.2", "10.20.19.3"),
-		MTU:               1500,
-		GatewayAddress:    network.NewProviderAddressInSpace("freckles", "10.20.19.2"),
-		Routes:            []network.Route{},
-		Origin:            network.OriginProvider,
+		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
+			"freckles", "10.20.19.104", network.WithCIDR("10.20.19.0/24"),
+		)},
+		DNSServers:     network.NewProviderAddressesInSpace("freckles", "10.20.19.2", "10.20.19.3"),
+		MTU:            1500,
+		GatewayAddress: network.NewProviderAddressInSpace("freckles", "10.20.19.2"),
+		Routes:         []network.Route{},
+		Origin:         network.OriginProvider,
 	}}
 	c.Assert(result, jc.DeepEquals, expected)
 }
@@ -1303,11 +1308,11 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesStaticRoutesDenied
 
 	prepared := network.InterfaceInfos{{
 		MACAddress:    "52:54:00:70:9b:fe",
-		CIDR:          "10.20.19.0/24",
+		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
 		InterfaceName: "eth0",
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
-	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
+	_, err := env.AllocateContainerAddresses(suite.callCtx, "1", ignored, prepared)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, ".*ServerError: 500 \\(I have failed you\\).*")
 }
@@ -1449,17 +1454,16 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 
 	prepared := network.InterfaceInfos{{
 		MACAddress:    "53:54:00:70:9b:ff",
-		CIDR:          "10.20.19.0/24",
+		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
 		InterfaceName: "eth0",
 	}, {
 		MACAddress:    "52:54:00:70:9b:f4",
-		CIDR:          "192.168.1.0/24",
+		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("192.168.1.0/24"))},
 		InterfaceName: "eth1",
 	}}
 	expected := network.InterfaceInfos{{
 		DeviceIndex:       0,
 		MACAddress:        "53:54:00:70:9b:ff",
-		CIDR:              "10.20.19.0/24",
 		ProviderId:        "93",
 		ProviderSubnetId:  "3",
 		ProviderVLANId:    "5001",
@@ -1467,15 +1471,16 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		InterfaceName:     "eth0",
 		InterfaceType:     "ethernet",
 		ConfigType:        "static",
-		Addresses:         network.ProviderAddresses{network.NewProviderAddressInSpace("freckles", "10.20.19.127")},
-		DNSServers:        network.NewProviderAddressesInSpace("freckles", "10.20.19.2", "10.20.19.3"),
-		MTU:               1500,
-		GatewayAddress:    network.NewProviderAddressInSpace("freckles", "10.20.19.2"),
-		Origin:            network.OriginProvider,
+		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
+			"freckles", "10.20.19.127", network.WithCIDR("10.20.19.0/24"),
+		)},
+		DNSServers:     network.NewProviderAddressesInSpace("freckles", "10.20.19.2", "10.20.19.3"),
+		MTU:            1500,
+		GatewayAddress: network.NewProviderAddressInSpace("freckles", "10.20.19.2"),
+		Origin:         network.OriginProvider,
 	}, {
 		DeviceIndex:       1,
 		MACAddress:        "52:54:00:70:9b:f4",
-		CIDR:              "192.168.1.0/24",
 		ProviderId:        "94",
 		ProviderSubnetId:  "4",
 		ProviderVLANId:    "5002",
@@ -1483,10 +1488,12 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		InterfaceName:     "eth1",
 		InterfaceType:     "ethernet",
 		ConfigType:        "static",
-		Addresses:         network.ProviderAddresses{network.NewProviderAddressInSpace("freckles", "192.168.1.127")},
-		DNSServers:        network.NewProviderAddressesInSpace("freckles", "10.20.19.2", "10.20.19.3"),
-		MTU:               1500,
-		GatewayAddress:    network.NewProviderAddressInSpace("freckles", "192.168.1.1"),
+		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
+			"freckles", "192.168.1.127", network.WithCIDR("192.168.1.0/24"),
+		)},
+		DNSServers:     network.NewProviderAddressesInSpace("freckles", "10.20.19.2", "10.20.19.3"),
+		MTU:            1500,
+		GatewayAddress: network.NewProviderAddressInSpace("freckles", "192.168.1.1"),
 		Routes: []network.Route{{
 			DestinationCIDR: "10.20.19.0/24",
 			GatewayIP:       "192.168.1.1",
@@ -1565,9 +1572,10 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesMachinesError(c *g
 	}
 	suite.injectController(controller)
 	env = suite.makeEnviron(c, nil)
-	prepared := network.InterfaceInfos{
-		{InterfaceName: "eth0", CIDR: "10.20.19.0/24"},
-	}
+	prepared := network.InterfaceInfos{{
+		InterfaceName: "eth0",
+		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
+	}}
 	ignored := names.NewMachineTag("1/lxd/0")
 	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
 	c.Assert(err, gc.ErrorMatches, "boom")
@@ -1600,9 +1608,11 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDeviceError(
 	}
 	suite.injectController(controller)
 	env = suite.makeEnviron(c, nil)
-	prepared := network.InterfaceInfos{
-		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
-	}
+	prepared := network.InterfaceInfos{{
+		InterfaceName: "eth0",
+		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
+		MACAddress:    "DEADBEEF",
+	}}
 	ignored := names.NewMachineTag("1/lxd/0")
 	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
 	c.Assert(err, gc.ErrorMatches, `failed to create MAAS device for "juju-06f00d-1-lxd-0": bad device call`)
@@ -1680,8 +1690,8 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSubnetMissing(c *g
 	suite.injectController(controller)
 	env = suite.makeEnviron(c, nil)
 	prepared := network.InterfaceInfos{
-		{InterfaceName: "eth0", CIDR: "", MACAddress: "DEADBEEF"},
-		{InterfaceName: "eth1", CIDR: "", MACAddress: "DEADBEEE"},
+		{InterfaceName: "eth0", MACAddress: "DEADBEEF"},
+		{InterfaceName: "eth1", MACAddress: "DEADBEEE"},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
 	allocated, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
@@ -1744,8 +1754,16 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateInterfaceErr
 	suite.injectController(controller)
 	env = suite.makeEnviron(c, nil)
 	prepared := network.InterfaceInfos{
-		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
-		{InterfaceName: "eth1", CIDR: "10.20.20.0/24", MACAddress: "DEADBEEE"},
+		{
+			InterfaceName: "eth0",
+			Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
+			MACAddress:    "DEADBEEF",
+		},
+		{
+			InterfaceName: "eth1",
+			Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.20.0/24"))},
+			MACAddress:    "DEADBEEE",
+		},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
 	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
@@ -1794,11 +1812,19 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesLinkSubnetError(c 
 	suite.injectController(controller)
 	env = suite.makeEnviron(c, nil)
 	prepared := network.InterfaceInfos{
-		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
-		{InterfaceName: "eth1", CIDR: "10.20.20.0/24", MACAddress: "DEADBEEE"},
+		{
+			InterfaceName: "eth0",
+			Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
+			MACAddress:    "DEADBEEF",
+		},
+		{
+			InterfaceName: "eth1",
+			Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.20.0/24"))},
+			MACAddress:    "DEADBEEE",
+		},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
-	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
+	_, err := env.AllocateContainerAddresses(suite.callCtx, "1", ignored, prepared)
 	c.Assert(err, gc.ErrorMatches, "failed to create MAAS device.*boom")
 	args := getArgs(c, interface_.Calls(), 0, 0)
 	maasArgs, ok := args.(gomaasapi.LinkSubnetArgs)
@@ -1909,16 +1935,15 @@ func (suite *maas2EnvironSuite) TestAllocateContainerReuseExistingDevice(c *gc.C
 
 	prepared := network.InterfaceInfos{{
 		MACAddress:    "53:54:00:70:9b:ff",
-		CIDR:          "10.20.19.0/24",
+		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
 		InterfaceName: "eth0",
 	}}
 	containerTag := names.NewMachineTag("1/lxd/0")
-	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), containerTag, prepared)
+	result, err := env.AllocateContainerAddresses(suite.callCtx, "1", containerTag, prepared)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := network.InterfaceInfos{{
 		DeviceIndex:       0,
 		MACAddress:        "53:54:00:70:9b:ff",
-		CIDR:              "10.20.19.0/24",
 		ProviderId:        "93",
 		ProviderSubnetId:  "3",
 		VLANTag:           0,
@@ -1927,12 +1952,14 @@ func (suite *maas2EnvironSuite) TestAllocateContainerReuseExistingDevice(c *gc.C
 		InterfaceName:     "eth0",
 		InterfaceType:     "ethernet",
 		ConfigType:        "static",
-		Addresses:         network.ProviderAddresses{network.NewProviderAddressInSpace("space-1", "10.20.19.105")},
-		DNSServers:        network.NewProviderAddressesInSpace("space-1", "10.20.19.2", "10.20.19.3"),
-		MTU:               1500,
-		GatewayAddress:    network.NewProviderAddressInSpace("space-1", "10.20.19.2"),
-		Routes:            []network.Route{},
-		Origin:            network.OriginProvider,
+		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
+			"space-1", "10.20.19.105", network.WithCIDR("10.20.19.0/24"),
+		)},
+		DNSServers:     network.NewProviderAddressesInSpace("space-1", "10.20.19.2", "10.20.19.3"),
+		MTU:            1500,
+		GatewayAddress: network.NewProviderAddressInSpace("space-1", "10.20.19.2"),
+		Routes:         []network.Route{},
+		Origin:         network.OriginProvider,
 	}}
 	c.Assert(result, jc.DeepEquals, expected)
 }
@@ -2105,11 +2132,11 @@ func (suite *maas2EnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *g
 
 	prepared := network.InterfaceInfos{{
 		MACAddress:    "53:54:00:70:88:aa",
-		CIDR:          "10.20.19.0/24",
+		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
 		InterfaceName: "eth0",
 	}, {
 		MACAddress:    "53:54:00:70:88:bb",
-		CIDR:          "192.168.1.0/24",
+		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("192.168.1.0/24"))},
 		InterfaceName: "eth1",
 	}}
 	containerTag := names.NewMachineTag("1/lxd/0")
@@ -2118,7 +2145,6 @@ func (suite *maas2EnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *g
 	expected := network.InterfaceInfos{{
 		DeviceIndex:       0,
 		MACAddress:        "53:54:00:70:88:aa",
-		CIDR:              "10.20.19.0/24",
 		ProviderId:        "93",
 		ProviderSubnetId:  "3",
 		VLANTag:           0,
@@ -2127,16 +2153,17 @@ func (suite *maas2EnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *g
 		InterfaceName:     "eth0",
 		InterfaceType:     "ethernet",
 		ConfigType:        "static",
-		Addresses:         network.ProviderAddresses{network.NewProviderAddressInSpace("freckles", "10.20.19.105")},
-		DNSServers:        network.NewProviderAddressesInSpace("freckles", "10.20.19.2", "10.20.19.3"),
-		MTU:               1500,
-		GatewayAddress:    network.NewProviderAddressInSpace("freckles", "10.20.19.2"),
-		Routes:            []network.Route{},
-		Origin:            network.OriginProvider,
+		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
+			"freckles", "10.20.19.105", network.WithCIDR("10.20.19.0/24"),
+		)},
+		DNSServers:     network.NewProviderAddressesInSpace("freckles", "10.20.19.2", "10.20.19.3"),
+		MTU:            1500,
+		GatewayAddress: network.NewProviderAddressInSpace("freckles", "10.20.19.2"),
+		Routes:         []network.Route{},
+		Origin:         network.OriginProvider,
 	}, {
 		DeviceIndex:       1,
 		MACAddress:        "53:54:00:70:88:bb",
-		CIDR:              "192.168.1.0/24",
 		ProviderId:        "94",
 		ProviderSubnetId:  "4",
 		VLANTag:           0,
@@ -2145,12 +2172,14 @@ func (suite *maas2EnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *g
 		InterfaceName:     "eth1",
 		InterfaceType:     "ethernet",
 		ConfigType:        "static",
-		Addresses:         network.ProviderAddresses{network.NewProviderAddressInSpace("freckles", "192.168.1.101")},
-		DNSServers:        network.NewProviderAddressesInSpace("freckles", "192.168.1.2"),
-		MTU:               1500,
-		GatewayAddress:    network.NewProviderAddressInSpace("freckles", "192.168.1.1"),
-		Routes:            []network.Route{},
-		Origin:            network.OriginProvider,
+		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
+			"freckles", "192.168.1.101", network.WithCIDR("192.168.1.0/24"),
+		)},
+		DNSServers:     network.NewProviderAddressesInSpace("freckles", "192.168.1.2"),
+		MTU:            1500,
+		GatewayAddress: network.NewProviderAddressInSpace("freckles", "192.168.1.1"),
+		Routes:         []network.Route{},
+		Origin:         network.OriginProvider,
 	}}
 	c.Assert(result, jc.DeepEquals, expected)
 }

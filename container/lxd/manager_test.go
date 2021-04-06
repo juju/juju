@@ -368,8 +368,10 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
 		ParentInterfaceName: "br-eth0",
 		InterfaceName:       "eth0",
 		InterfaceType:       "ethernet",
-		CIDR:                "10.10.0.0/24",
 		MACAddress:          "aa:bb:cc:dd:ee:f0",
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewProviderAddress("", corenetwork.WithCIDR("10.10.0.0/24")),
+		},
 	}}
 
 	expected := map[string]map[string]string{

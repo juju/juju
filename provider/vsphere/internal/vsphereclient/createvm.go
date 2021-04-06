@@ -84,6 +84,11 @@ type CreateVirtualMachineParams struct {
 	// to create the VM.
 	ComputeResource *mo.ComputeResource
 
+	// ForceVMHardwareVersion if set, will attempt to upgrade the VM to the
+	// specified hardware version. If not supported by the deployment of VSphere,
+	// this option will be ignored.
+	ForceVMHardwareVersion int64
+
 	// ResourcePool is a reference to the pool the VM should be
 	// created in.
 	ResourcePool types.ManagedObjectReference
@@ -351,6 +356,11 @@ func (c *Client) CreateVirtualMachine(
 			c.logger.Warningf("cleaning up cloned VM %q failed: %s", vm.InventoryPath, err)
 		}
 	}()
+
+	if err := c.maybeUpgradeVMHardware(ctx, args, vm, taskWaiter); err != nil {
+		args.UpdateProgress(fmt.Sprintf("VM upgrade failed: %s", err))
+		return nil, errors.Annotate(err, "upgrading VM hardware")
+	}
 
 	if args.Constraints.RootDisk != nil {
 		// The user specified a root disk, so extend the VM's

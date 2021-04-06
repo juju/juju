@@ -105,25 +105,28 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigCallsApplyOperation(c *
 		{
 			InterfaceName: "lo",
 			InterfaceType: "loopback",
-			CIDR:          "127.0.0.0/8",
-			Addresses:     network.NewProviderAddresses("127.0.0.1"),
+			Addresses: network.ProviderAddresses{
+				network.NewProviderAddress("127.0.0.1", network.WithCIDR("127.0.0.0/8")),
+			},
 			// This is a quirk of the transformation.
 			// Due to the way address type is derived, this is not equivalent
 			// to the provider address zero-value.
 			GatewayAddress: network.NewProviderAddress(""),
 		}, {
-			InterfaceName:  "eth0",
-			InterfaceType:  "ethernet",
-			MACAddress:     "aa:bb:cc:dd:ee:f0",
-			CIDR:           "0.10.0.0/24",
-			Addresses:      network.NewProviderAddresses("0.10.0.2"),
+			InterfaceName: "eth0",
+			InterfaceType: "ethernet",
+			MACAddress:    "aa:bb:cc:dd:ee:f0",
+			Addresses: network.ProviderAddresses{
+				network.NewProviderAddress("0.10.0.2", network.WithCIDR("0.10.0.0/24")),
+			},
 			GatewayAddress: network.NewProviderAddress(""),
 		}, {
-			InterfaceName:  "eth1",
-			InterfaceType:  "ethernet",
-			MACAddress:     "aa:bb:cc:dd:ee:f1",
-			CIDR:           "0.20.0.0/24",
-			Addresses:      network.NewProviderAddresses("0.20.0.2"),
+			InterfaceName: "eth1",
+			InterfaceType: "ethernet",
+			MACAddress:    "aa:bb:cc:dd:ee:f1",
+			Addresses: network.ProviderAddresses{
+				network.NewProviderAddress("0.20.0.2", network.WithCIDR("0.20.0.0/24")),
+			},
 			GatewayAddress: network.NewProviderAddress(""),
 		},
 	})
@@ -163,8 +166,9 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigFixesFanSubs(c *gc.C) {
 			InterfaceType: "ethernet",
 			MACAddress:    "aa:bb:cc:dd:ee:f0",
 			// Gets the CIDR from the Fan segment.
-			CIDR:           "0.10.0.0/16",
-			Addresses:      network.NewProviderAddresses("0.10.0.2"),
+			Addresses: network.ProviderAddresses{
+				network.NewProviderAddress("0.10.0.2", network.WithCIDR("0.10.0.0/16")),
+			},
 			GatewayAddress: network.NewProviderAddress(""),
 		},
 	})
@@ -258,32 +262,36 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 			// Existing device and address.
 			InterfaceName: "lo",
 			InterfaceType: "loopback",
-			CIDR:          "127.0.0.0/8",
-			Addresses:     network.NewProviderAddresses("127.0.0.1"),
+			Addresses: network.ProviderAddresses{
+				network.NewProviderAddress("127.0.0.1", network.WithCIDR("127.0.0.0/8")),
+			},
 		}, {
 			// Existing device with new address.
-			InterfaceName:    "eth0",
-			InterfaceType:    "ethernet",
-			MACAddress:       ethMAC,
-			CIDR:             "0.10.0.0/24",
-			Addresses:        network.NewProviderAddresses("0.10.0.2"),
+			InterfaceName: "eth0",
+			InterfaceType: "ethernet",
+			MACAddress:    ethMAC,
+			Addresses: network.ProviderAddresses{
+				network.NewProviderAddress("0.10.0.2", network.WithCIDR("0.10.0.0/24")),
+			},
 			GatewayAddress:   network.NewProviderAddress("0.10.0.1"),
 			IsDefaultGateway: true,
 		}, {
 			// New device and addresses for eth1.
-			InterfaceName:  "eth1",
-			InterfaceType:  "ethernet",
-			MACAddress:     "aa:bb:cc:dd:ee:f1",
-			CIDR:           "0.20.0.0/24",
-			Addresses:      network.NewProviderAddresses("0.20.0.2"),
+			InterfaceName: "eth1",
+			InterfaceType: "ethernet",
+			MACAddress:    "aa:bb:cc:dd:ee:f1",
+			Addresses: network.ProviderAddresses{
+				network.NewProviderAddress("0.20.0.2", network.WithCIDR("0.20.0.0/24")),
+			},
 			GatewayAddress: network.NewProviderAddress("0.20.0.1"),
 		}, {
 			// A duplicate is effectively ignored.
-			InterfaceName:  "eth1",
-			InterfaceType:  "ethernet",
-			MACAddress:     "aa:bb:cc:dd:ee:f1",
-			CIDR:           "0.20.0.0/24",
-			Addresses:      network.NewProviderAddresses("0.20.0.2"),
+			InterfaceName: "eth1",
+			InterfaceType: "ethernet",
+			MACAddress:    "aa:bb:cc:dd:ee:f1",
+			Addresses: network.ProviderAddresses{
+				network.NewProviderAddress("0.20.0.2", network.WithCIDR("0.20.0.0/24")),
+			},
 			GatewayAddress: network.NewProviderAddress("0.20.0.1"),
 		},
 	}, false, s.state)
@@ -347,11 +355,12 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemo
 	op := s.NewUpdateMachineLinkLayerOp(s.machine, network.InterfaceInfos{
 		{
 			// New device and addresses for eth1 with eth99 as the parent.
-			InterfaceName:       "eth1",
-			InterfaceType:       "ethernet",
-			MACAddress:          "aa:bb:cc:dd:ee:f1",
-			CIDR:                "0.20.0.0/24",
-			Addresses:           network.NewProviderAddresses("0.20.0.2"),
+			InterfaceName: "eth1",
+			InterfaceType: "ethernet",
+			MACAddress:    "aa:bb:cc:dd:ee:f1",
+			Addresses: network.ProviderAddresses{
+				network.NewProviderAddress("0.20.0.2", network.WithCIDR("0.20.0.0/24")),
+			},
 			GatewayAddress:      network.NewProviderAddress("0.20.0.1"),
 			ParentInterfaceName: "eth99",
 			Origin:              network.OriginMachine,
@@ -384,22 +393,25 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *gc.C
 		{
 			InterfaceName: "lo",
 			InterfaceType: "loopback",
-			CIDR:          "127.0.0.0/8",
-			Addresses:     network.NewProviderAddresses("127.0.0.1"),
+			Addresses: network.ProviderAddresses{
+				network.NewProviderAddress("127.0.0.1", network.WithCIDR("127.0.0.0/8")),
+			},
 		}, {
-			InterfaceName:    "eth0",
-			InterfaceType:    "ethernet",
-			MACAddress:       "aa:bb:cc:dd:ee:ff",
-			CIDR:             "0.10.0.0/24",
-			Addresses:        network.NewProviderAddresses("0.10.0.2"),
+			InterfaceName: "eth0",
+			InterfaceType: "ethernet",
+			MACAddress:    "aa:bb:cc:dd:ee:ff",
+			Addresses: network.ProviderAddresses{
+				network.NewProviderAddress("0.10.0.2", network.WithCIDR("0.10.0.0/24")),
+			},
 			GatewayAddress:   network.NewProviderAddress("0.10.0.1"),
 			IsDefaultGateway: true,
 		}, {
-			InterfaceName:  "eth1",
-			InterfaceType:  "ethernet",
-			MACAddress:     "aa:bb:cc:dd:ee:f1",
-			CIDR:           "0.20.0.0/24",
-			Addresses:      network.NewProviderAddresses("0.20.0.2"),
+			InterfaceName: "eth1",
+			InterfaceType: "ethernet",
+			MACAddress:    "aa:bb:cc:dd:ee:f1",
+			Addresses: network.ProviderAddresses{
+				network.NewProviderAddress("0.20.0.2", network.WithCIDR("0.20.0.0/24")),
+			},
 			GatewayAddress: network.NewProviderAddress("0.20.0.1"),
 		},
 	}, true, s.state)
@@ -476,11 +488,12 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddre
 			Origin:              network.OriginMachine,
 		},
 		{
-			InterfaceName:  "br-eth0",
-			InterfaceType:  "bridge",
-			MACAddress:     hwAddr,
-			CIDR:           "10.0.0.0/24",
-			Addresses:      network.NewProviderAddresses("10.0.0.6"),
+			InterfaceName: "br-eth0",
+			InterfaceType: "bridge",
+			MACAddress:    hwAddr,
+			Addresses: network.ProviderAddresses{
+				network.NewProviderAddress("10.0.0.6", network.WithCIDR("10.0.0.0/24")),
+			},
 			GatewayAddress: network.NewProviderAddress("10.0.0.1"),
 			Origin:         network.OriginMachine,
 		},

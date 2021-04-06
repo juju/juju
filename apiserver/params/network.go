@@ -232,9 +232,11 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 		}
 
 		result[i] = NetworkConfig{
-			DeviceIndex:         v.DeviceIndex,
-			MACAddress:          v.MACAddress,
-			CIDR:                v.CIDR,
+			DeviceIndex: v.DeviceIndex,
+			MACAddress:  v.MACAddress,
+			// TODO (manadart 2021-03-24): Retained for compatibility.
+			// Delete for Juju 3/4.
+			CIDR:                v.PrimaryAddress().CIDR,
 			MTU:                 v.MTU,
 			ProviderId:          string(v.ProviderId),
 			ProviderNetworkId:   string(v.ProviderNetworkId),
@@ -281,10 +283,11 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			}
 		}
 
+		configType := network.AddressConfigType(v.ConfigType)
+
 		result[i] = network.InterfaceInfo{
 			DeviceIndex:         v.DeviceIndex,
 			MACAddress:          v.MACAddress,
-			CIDR:                v.CIDR,
 			MTU:                 v.MTU,
 			ProviderId:          network.Id(v.ProviderId),
 			ProviderNetworkId:   network.Id(v.ProviderNetworkId),
@@ -298,7 +301,7 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			InterfaceType:       network.InterfaceType(v.InterfaceType),
 			Disabled:            v.Disabled,
 			NoAutoStart:         v.NoAutoStart,
-			ConfigType:          network.AddressConfigType(v.ConfigType),
+			ConfigType:          configType,
 			Addresses:           ToProviderAddresses(v.Addresses...),
 			ShadowAddresses:     ToProviderAddresses(v.ShadowAddresses...),
 			DNSServers:          network.NewProviderAddresses(v.DNSServers...),
@@ -310,15 +313,33 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			Origin:              network.Origin(v.NetworkOrigin),
 		}
 
-		// Compatibility layer for older clients that do not populate
-		// Addresses/ShadowAddresses.
-		if len(result[i].Addresses) == 0 && v.Address != "" {
-			result[i].Addresses = append(
-				result[i].Addresses,
-				network.NewProviderAddress(v.Address),
-			)
+		// Compatibility accommodations follow.
+		// TODO (manadart 2021-03-05): Juju 3/4 should require that only the
+		// address collections are used, and the following fields removed from
+		// the top-level interface:
+		// - CIDR
+		// - ConfigType
+		// - Address
+
+		// 1) For clients that populate Addresses, but still set
+		//    address-specific fields on the device.
+		//    Note that the assumption must hold (as it does at the time of
+		//    writing) that the collections are only populated with a single
+		//    member, with repeated devices for each address.
+		if len(result[i].Addresses) > 0 {
+			if result[i].Addresses[0].CIDR == "" {
+				result[i].Addresses[0].CIDR = v.CIDR
+			}
+		} else {
+			// 2) For even older clients that do not populate Addresses.
+			if v.Address != "" {
+				result[i].Addresses = network.ProviderAddresses{
+					network.NewProviderAddress(v.Address, network.WithCIDR(v.CIDR)),
+				}
+			}
 		}
 	}
+
 	return result
 }
 
@@ -426,10 +447,19 @@ type EntitiesPortRanges struct {
 
 // Address represents the location of a machine, including metadata
 // about what kind of location the address describes.
-// See also the address types in core/network which this type can be
+// See also the address types in core/network that this type can be
 // transformed to/from.
+// TODO (manadart 2021-03-05): CIDR is here to correct the old cardinality
+// mismatch of having it on the parent NetworkConfig.
+// Once we are liberated from backwards compatibility concerns (Juju 3/4),
+// we should consider just ensuring that the Value field is in CIDR form.
+// This way we can push any required parsing to a single location server-side
+// instead of doing it for every implementation of environ.NetworkInterfaces
+// plus on-machine detection.
+// There are cases when we convert it *back* to the ip/mask form anyway.
 type Address struct {
 	Value           string `json:"value"`
+	CIDR            string `json:"cidr,omitempty"`
 	Type            string `json:"type"`
 	Scope           string `json:"scope"`
 	SpaceName       string `json:"space-name,omitempty"`
@@ -442,6 +472,7 @@ type Address struct {
 func (addr Address) MachineAddress() network.MachineAddress {
 	return network.MachineAddress{
 		Value:       addr.Value,
+		CIDR:        addr.CIDR,
 		Type:        network.AddressType(addr.Type),
 		Scope:       network.Scope(addr.Scope),
 		IsSecondary: addr.IsSecondary,
@@ -481,6 +512,7 @@ func FromProviderAddresses(pAddrs ...network.ProviderAddress) []Address {
 func FromProviderAddress(addr network.ProviderAddress) Address {
 	return Address{
 		Value:           addr.Value,
+		CIDR:            addr.CIDR,
 		Type:            string(addr.Type),
 		Scope:           string(addr.Scope),
 		SpaceName:       string(addr.SpaceName),

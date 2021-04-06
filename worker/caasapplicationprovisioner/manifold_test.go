@@ -88,6 +88,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		mc.AddExpr(`_.Clock`, gc.NotNil)
 		mc.AddExpr(`_.Logger`, gc.NotNil)
 		mc.AddExpr(`_.NewAppWorker`, gc.NotNil)
+		mc.AddExpr(`_.UnitFacade`, gc.NotNil)
 		c.Check(config, mc, caasapplicationprovisioner.Config{
 			ModelTag: names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
 		})

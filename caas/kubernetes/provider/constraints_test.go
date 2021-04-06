@@ -78,7 +78,6 @@ func (s *ConstraintsSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	expected := []string{
 		"cores",
 		"virt-type",
-		"arch",
 		"instance-type",
 		"spaces",
 		"container",
