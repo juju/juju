@@ -44448,7 +44448,13 @@
                         "interface-name": {
                             "type": "string"
                         },
+                        "interfacename": {
+                            "type": "string"
+                        },
                         "mac-address": {
+                            "type": "string"
+                        },
+                        "macaddress": {
                             "type": "string"
                         }
                     },
@@ -44456,7 +44462,9 @@
                     "required": [
                         "mac-address",
                         "interface-name",
-                        "addresses"
+                        "addresses",
+                        "macaddress",
+                        "interfacename"
                     ]
                 },
                 "NetworkInfoParams": {

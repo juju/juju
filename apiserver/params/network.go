@@ -1211,8 +1211,8 @@ type NetworkInfo struct {
 
 	// These fields are for preserving backward compatibility with agents that
 	// anticipate the old YAML format. Remove for Juju 3/4.
-	MACAddressX    string `json:"-" yaml:"macaddress"`
-	InterfaceNameX string `json:"-" yaml:"interfacename"`
+	MACAddressX    string `json:"macaddress" yaml:"macaddress"`
+	InterfaceNameX string `json:"interfacename" yaml:"interfacename"`
 }
 
 // NetworkInfoResult Adds egress and ingress subnets and changes the serialized
