@@ -12,7 +12,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v2/fs"
+	"github.com/juju/utils/v2/symlink"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2/catacomb"
 
@@ -116,6 +119,68 @@ func AllowedTargetVersion(
 	return true
 }
 
+func (u *Upgrader) maybeCopyAgentBinary(dataDir, hostSeries string) (err error) {
+	// Only need to rewrite tools symlink for older agents.
+	if u.config.OrigAgentVersion.Major > 2 || u.config.OrigAgentVersion.Minor > 8 {
+		return nil
+	}
+
+	toVer := version.Binary{
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: coreos.HostOSTypeName(),
+	}
+	// See if we already have what we want.
+	if _, err = os.Stat(agenttools.SharedToolsDir(dataDir, toVer)); err == nil {
+		return nil
+	}
+
+	fromVer := version.Binary{
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: hostSeries,
+	}
+	// If the old tools have already been removed, there's nothing we really need to do.
+	if _, err = os.Stat(agenttools.SharedToolsDir(dataDir, fromVer)); err != nil {
+		return nil
+	}
+
+	// Copy tools to new directory with correct release string.
+	if err = fs.Copy(agenttools.SharedToolsDir(dataDir, fromVer), agenttools.SharedToolsDir(dataDir, toVer)); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Write tools metadata with new version, however don't change
+	// the URL, so we know where it came from.
+	jujuTools, err := agenttools.ReadTools(dataDir, toVer)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Only write once
+	if jujuTools.Version != toVer {
+		jujuTools.Version = toVer
+		if err = agenttools.WriteToolsMetadataData(agenttools.ToolsDir(dataDir, toVer.String()), jujuTools); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// Update machine agent tool link.
+	toolPath := agenttools.ToolsDir(dataDir, toVer.String())
+	toolsDir := agenttools.ToolsDir(dataDir, u.tag.String())
+
+	if err = symlink.Replace(toolsDir, toolPath); err != nil {
+		return errors.Trace(err)
+	}
+
+	return &agenterrors.UpgradeReadyError{
+		OldTools:  fromVer,
+		NewTools:  toVer,
+		AgentName: u.tag.String(),
+		DataDir:   u.dataDir,
+	}
+}
+
 func (u *Upgrader) loop() error {
 	logger := u.config.Logger
 	// Start by reporting current tools (which includes arch/os type, and is
@@ -123,6 +188,20 @@ func (u *Upgrader) loop() error {
 	hostOSType := coreos.HostOSTypeName()
 	if err := u.st.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current, hostOSType)); err != nil {
 		return errors.Annotate(err, "cannot set agent version")
+	}
+
+	// Older 2.8 agents still use for tools based on series.
+	// Old upgrade the original agent will write the tool symlink
+	// also based on series so we need to copy it across to one
+	// based on OS type.
+	// TODO(juju4) - remove this logic
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := u.maybeCopyAgentBinary(u.dataDir, hostSeries); err != nil {
+		// Do not wrap to preserve naked UpgradeReadyError.
+		return err
 	}
 
 	if u.config.UpgradeStepsWaiter == nil {

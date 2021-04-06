@@ -24,13 +24,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v2/arch"
-	"github.com/juju/utils/v2/fs"
 	"github.com/juju/utils/v2/shell"
-	"github.com/juju/utils/v2/symlink"
-	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
@@ -49,11 +44,6 @@ type SystemdServiceManager interface {
 	//CreateAgentConf creates the configfile for specified agent running on a
 	// host with specified series.
 	CreateAgentConf(agentName string, dataDir string) (common.Conf, error)
-
-	// CopyAgentBinary copies the tools into the path specified for the machine agent.
-	CopyAgentBinary(
-		machineAgent string, dataDir, toSeries, fromSeries string, jujuVersion version.Number,
-	) error
 
 	// WriteServiceFile writes the service file for machine agent in the
 	// /etc/systemd/system path.
@@ -228,63 +218,6 @@ func (s *systemdServiceManager) CreateAgentConf(name string, dataDir string) (_ 
 	srvPath := path.Join(paths.NixLogDir, "juju")
 	info := NewAgentInfo(kind, tag.Id(), dataDir, srvPath)
 	return AgentConf(info, renderer), nil
-}
-
-// CopyAgentBinary copies the tools into the path specified for the machine agent.
-func (s *systemdServiceManager) CopyAgentBinary(
-	machineAgent string, dataDir, toSeries, fromSeries string, jujuVersion version.Number,
-) (err error) {
-	defer func() {
-		if err != nil {
-			err = errors.Annotate(err, "copying agent binaries")
-		}
-	}()
-
-	// Setup new and old version.Binary instances with different series.
-	fromVer := version.Binary{
-		Number:  jujuVersion,
-		Arch:    arch.HostArch(),
-		Release: fromSeries,
-	}
-	toVer := version.Binary{
-		Number:  jujuVersion,
-		Arch:    arch.HostArch(),
-		Release: toSeries,
-	}
-
-	// If tools with the new series don't already exist, copy
-	// current tools to new directory with correct series.
-	if _, err = os.Stat(tools.SharedToolsDir(dataDir, toVer)); err != nil {
-		// Copy tools to new directory with correct series.
-		if err = fs.Copy(tools.SharedToolsDir(dataDir, fromVer), tools.SharedToolsDir(dataDir, toVer)); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	// Write tools metadata with new version, however don't change
-	// the URL, so we know where it came from.
-	jujuTools, err := tools.ReadTools(dataDir, toVer)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Only write once
-	if jujuTools.Version != toVer {
-		jujuTools.Version = toVer
-		if err = tools.WriteToolsMetadataData(tools.ToolsDir(dataDir, toVer.String()), jujuTools); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	// Update machine agent tool link.
-	toolPath := tools.ToolsDir(dataDir, toVer.String())
-	toolsDir := tools.ToolsDir(dataDir, machineAgent)
-
-	if err = symlink.Replace(toolsDir, toolPath); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
 }
 
 func (s *systemdServiceManager) startAgent(name string, kind AgentKind, dataDir string) (err error) {
