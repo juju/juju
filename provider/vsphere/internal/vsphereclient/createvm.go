@@ -122,6 +122,10 @@ type CreateVirtualMachineParams struct {
 	// IsBootstrap indicates whether the requested instance will be a
 	// newly bootstrapped controller.
 	IsBootstrap bool
+
+	// DiskProvisioningType specifies how disks should be provisioned when
+	// cloning a template.
+	DiskProvisioningType DiskProvisioningType
 }
 
 // vmTemplateName returns the well-known name to
@@ -414,10 +418,15 @@ func (c *Client) extendVMRootDisk(
 	sizeMB uint64,
 	taskWaiter *taskWaiter,
 ) error {
-	disk, err := c.getDisk(ctx, vm)
+	disks, err := c.getDisks(ctx, vm)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	if len(disks) == 0 {
+		return errors.NotFoundf("root disk")
+	}
+	disk := disks[0]
 	newCapacityInKB := int64(megabytesToKiB(sizeMB))
 	if disk.CapacityInKB >= newCapacityInKB {
 		// The root disk is already bigger than the

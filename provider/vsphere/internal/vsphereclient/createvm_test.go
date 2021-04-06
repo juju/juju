@@ -75,6 +75,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(contents), gc.Equals, "FakeVmdkContent")
 
+	datastore := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"}
 	templateCisp := baseCisp()
 	templateCisp.EntityName = vmTemplateName(args)
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
@@ -125,6 +126,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		retrievePropertiesStubCall("onetwork-0"),
 		retrievePropertiesStubCall("dvportgroup-0"),
 		retrievePropertiesStubCall("FakeVm0"),
+		retrievePropertiesStubCall("FakeVm0"),
 		{"CloneVM_Task", []interface{}{
 			"vm-0",
 			&types.VirtualMachineConfigSpec{
@@ -146,7 +148,17 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 			},
 			types.VirtualMachineRelocateSpec{
 				Pool:      &args.ResourcePool,
-				Datastore: &types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"},
+				Datastore: &datastore,
+				Disk: []types.VirtualMachineRelocateSpecDiskLocator{
+					{
+						DiskBackingInfo: &types.VirtualDiskFlatVer2BackingInfo{
+							EagerlyScrub:    newBool(false),
+							ThinProvisioned: newBool(true),
+						},
+						DiskId:    0,
+						Datastore: datastore,
+					},
+				},
 			},
 		}},
 		{"CreatePropertyCollector", nil},
@@ -171,12 +183,12 @@ func (s *clientSuite) TestCreateVirtualMachineForceHWVersion(c *gc.C) {
 	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.roundTripper.CheckCall(c, 41, "RetrieveProperties", "FakeVm1")
-	s.roundTripper.CheckCall(c, 42, "QueryConfigOption", "FakeEnvironmentBrowser")
+	s.roundTripper.CheckCall(c, 42, "RetrieveProperties", "FakeVm1")
+	s.roundTripper.CheckCall(c, 43, "QueryConfigOption", "FakeEnvironmentBrowser")
 	// Mock server max version is vmx-13
 	// Mock template VM version is vmx-10
 	// We requested vmx-11. This should match the call to UpgradeVM_Task.
-	s.roundTripper.CheckCall(c, 43, "UpgradeVM_Task", "vmx-11")
+	s.roundTripper.CheckCall(c, 44, "UpgradeVM_Task", "vmx-11")
 }
 
 func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *gc.C) {
@@ -186,7 +198,8 @@ func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *gc.C) {
 	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.roundTripper.CheckCall(c, 37, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
+	datastore := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"}
+	s.roundTripper.CheckCall(c, 38, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
 		ExtraConfig: []types.BaseOptionValue{
 			&types.OptionValue{Key: "k", Value: "v"},
 		},
@@ -202,7 +215,139 @@ func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *gc.C) {
 		},
 	}, types.VirtualMachineRelocateSpec{
 		Pool:      &args.ResourcePool,
-		Datastore: &types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"},
+		Datastore: &datastore,
+		Disk: []types.VirtualMachineRelocateSpecDiskLocator{
+			{
+				DiskBackingInfo: &types.VirtualDiskFlatVer2BackingInfo{
+					EagerlyScrub:    newBool(false),
+					ThinProvisioned: newBool(true),
+				},
+				DiskId:    0,
+				Datastore: datastore,
+			},
+		},
+	})
+}
+
+func (s *clientSuite) TestCreateVirtualMachineThickDiskProvisioning(c *gc.C) {
+	args := baseCreateVirtualMachineParams(c)
+	args.DiskProvisioningType = DiskTypeThickLazyZero
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	_, err := client.CreateVirtualMachine(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	datastore := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"}
+
+	s.roundTripper.CheckCall(c, 38, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
+		ExtraConfig: []types.BaseOptionValue{
+			&types.OptionValue{Key: "k", Value: "v"},
+		},
+		Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
+		VAppConfig: &types.VmConfigSpec{
+			Property: []types.VAppPropertySpec{{
+				ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+				Info:            &types.VAppPropertyInfo{Key: 1, Value: "vm-0"},
+			}, {
+				ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+				Info:            &types.VAppPropertyInfo{Key: 4, Value: "baz"},
+			}},
+		},
+	}, types.VirtualMachineRelocateSpec{
+		Pool:      &args.ResourcePool,
+		Datastore: &datastore,
+		Disk: []types.VirtualMachineRelocateSpecDiskLocator{
+			{
+				DiskBackingInfo: &types.VirtualDiskFlatVer2BackingInfo{
+					// Thick disk provisioning, lazy zeros
+					EagerlyScrub:    newBool(false),
+					ThinProvisioned: newBool(false),
+				},
+				DiskId:    0,
+				Datastore: datastore,
+			},
+		},
+	})
+}
+
+func (s *clientSuite) TestCreateVirtualMachineThickEagerZeroDiskProvisioning(c *gc.C) {
+	args := baseCreateVirtualMachineParams(c)
+	args.DiskProvisioningType = DiskTypeThick
+
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	_, err := client.CreateVirtualMachine(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	datastore := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"}
+
+	s.roundTripper.CheckCall(c, 38, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
+		ExtraConfig: []types.BaseOptionValue{
+			&types.OptionValue{Key: "k", Value: "v"},
+		},
+		Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
+		VAppConfig: &types.VmConfigSpec{
+			Property: []types.VAppPropertySpec{{
+				ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+				Info:            &types.VAppPropertyInfo{Key: 1, Value: "vm-0"},
+			}, {
+				ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+				Info:            &types.VAppPropertyInfo{Key: 4, Value: "baz"},
+			}},
+		},
+	}, types.VirtualMachineRelocateSpec{
+		Pool:      &args.ResourcePool,
+		Datastore: &datastore,
+		Disk: []types.VirtualMachineRelocateSpecDiskLocator{
+			{
+				DiskBackingInfo: &types.VirtualDiskFlatVer2BackingInfo{
+					// Thick disk provisioning, eager zeros
+					EagerlyScrub:    newBool(true),
+					ThinProvisioned: newBool(false),
+				},
+				DiskId:    0,
+				Datastore: datastore,
+			},
+		},
+	})
+}
+
+func (s *clientSuite) TestCreateVirtualMachineThinDiskProvisioning(c *gc.C) {
+	args := baseCreateVirtualMachineParams(c)
+	args.DiskProvisioningType = DiskTypeThin
+
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	_, err := client.CreateVirtualMachine(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	datastore := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"}
+
+	s.roundTripper.CheckCall(c, 38, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
+		ExtraConfig: []types.BaseOptionValue{
+			&types.OptionValue{Key: "k", Value: "v"},
+		},
+		Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
+		VAppConfig: &types.VmConfigSpec{
+			Property: []types.VAppPropertySpec{{
+				ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+				Info:            &types.VAppPropertyInfo{Key: 1, Value: "vm-0"},
+			}, {
+				ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+				Info:            &types.VAppPropertyInfo{Key: 4, Value: "baz"},
+			}},
+		},
+	}, types.VirtualMachineRelocateSpec{
+		Pool:      &args.ResourcePool,
+		Datastore: &datastore,
+		Disk: []types.VirtualMachineRelocateSpecDiskLocator{
+			{
+				DiskBackingInfo: &types.VirtualDiskFlatVer2BackingInfo{
+					// Thin disk provisioning
+					EagerlyScrub:    newBool(false),
+					ThinProvisioned: newBool(true),
+				},
+				DiskId:    0,
+				Datastore: datastore,
+			},
+		},
 	})
 }
 
@@ -229,9 +374,9 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *gc.C) {
 		types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"},
 		cisp,
 	)
-
+	datastoreLocation := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"}
 	s.roundTripper.CheckCall(
-		c, 37, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
+		c, 38, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
 			ExtraConfig: []types.BaseOptionValue{
 				&types.OptionValue{Key: "k", Value: "v"},
 			},
@@ -247,7 +392,17 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *gc.C) {
 			},
 		}, types.VirtualMachineRelocateSpec{
 			Pool:      &args.ResourcePool,
-			Datastore: &types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"},
+			Datastore: &datastoreLocation,
+			Disk: []types.VirtualMachineRelocateSpecDiskLocator{
+				{
+					DiskBackingInfo: &types.VirtualDiskFlatVer2BackingInfo{
+						EagerlyScrub:    newBool(false),
+						ThinProvisioned: newBool(true),
+					},
+					DiskId:    0,
+					Datastore: datastoreLocation,
+				},
+			},
 		})
 }
 
@@ -355,13 +510,13 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 			DeviceName: "arpa",
 		},
 	}
-
+	datastore := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"}
 	s.roundTripper.CheckCall(c, 27, "ImportVApp", &types.VirtualMachineImportSpec{
 		ConfigSpec: types.VirtualMachineConfigSpec{
 			Name: "vm-name",
 		},
 	})
-	s.roundTripper.CheckCall(c, 37, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
+	s.roundTripper.CheckCall(c, 38, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
 		ExtraConfig: []types.BaseOptionValue{
 			&types.OptionValue{Key: "k", Value: "v"},
 		},
@@ -387,7 +542,17 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 		},
 	}, types.VirtualMachineRelocateSpec{
 		Pool:      &args.ResourcePool,
-		Datastore: &types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"},
+		Datastore: &datastore,
+		Disk: []types.VirtualMachineRelocateSpecDiskLocator{
+			{
+				DiskBackingInfo: &types.VirtualDiskFlatVer2BackingInfo{
+					EagerlyScrub:    newBool(false),
+					ThinProvisioned: newBool(true),
+				},
+				DiskId:    0,
+				Datastore: datastore,
+			},
+		},
 	})
 }
 
@@ -418,10 +583,11 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.
 	retrieveDVSCall := retrievePropertiesStubCall("dvs-0")
 	s.roundTripper.CheckCall(c, 36, retrieveDVSCall.FuncName, retrieveDVSCall.Args...)
 
+	datastore := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"}
 	// When the external network is a distributed virtual portgroup,
 	// we must make an additional RetrieveProperties call to fetch
 	// the DVS's UUID. This bumps the ImportVApp position by one.
-	s.roundTripper.CheckCall(c, 38, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
+	s.roundTripper.CheckCall(c, 39, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
 		ExtraConfig: []types.BaseOptionValue{
 			&types.OptionValue{Key: "k", Value: "v"},
 		},
@@ -443,7 +609,17 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.
 		},
 	}, types.VirtualMachineRelocateSpec{
 		Pool:      &args.ResourcePool,
-		Datastore: &types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"},
+		Datastore: &datastore,
+		Disk: []types.VirtualMachineRelocateSpecDiskLocator{
+			{
+				DiskBackingInfo: &types.VirtualDiskFlatVer2BackingInfo{
+					EagerlyScrub:    newBool(false),
+					ThinProvisioned: newBool(true),
+				},
+				DiskId:    0,
+				Datastore: datastore,
+			},
+		},
 	})
 }
 
@@ -478,7 +654,7 @@ func (s *clientSuite) TestCreateVirtualMachineRootDiskSize(c *gc.C) {
 	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.roundTripper.CheckCall(c, 42, "ReconfigVM_Task", types.VirtualMachineConfigSpec{
+	s.roundTripper.CheckCall(c, 43, "ReconfigVM_Task", types.VirtualMachineConfigSpec{
 		DeviceChange: []types.BaseVirtualDeviceConfigSpec{
 			&types.VirtualDeviceConfigSpec{
 				Operation:     types.VirtualDeviceConfigSpecOperationEdit,
@@ -618,6 +794,7 @@ func baseCreateVirtualMachineParams(c *gc.C) CreateVirtualMachineParams {
 		Clock:                  testclock.NewClock(time.Time{}),
 		EnableDiskUUID:         true,
 		IsBootstrap:            false,
+		DiskProvisioningType:   DiskTypeThin,
 	}
 }
 
