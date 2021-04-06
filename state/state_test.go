@@ -22,7 +22,7 @@ import (
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn"
+	"github.com/juju/txn/v2"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version/v2"

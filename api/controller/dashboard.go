@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
@@ -19,6 +20,8 @@ import (
 const (
 	dashboardArchivePath = "/dashboard-archive"
 	dashboardVersionPath = "/dashboard-version"
+
+	incompatibleClientMsg = "juju client not supported on this controller\nrefresh your juju client to match the version running on the controller"
 )
 
 // DashboardArchives retrieves information about Juju Dashboard archives currently present
@@ -30,6 +33,11 @@ func (c *Client) DashboardArchives() ([]params.DashboardArchiveVersion, error) {
 	}
 	var resp params.DashboardArchiveResponse
 	if err = httpClient.Get(c.facade.RawAPICaller().Context(), dashboardArchivePath, &resp); err != nil {
+		// We don't have access to the http error code, but make a best effort to
+		// handle a missing dashboard as opposed to a connection error
+		if strings.Contains(err.Error(), "404 ") {
+			return nil, errors.NewNotSupported(nil, incompatibleClientMsg)
+		}
 		return nil, errors.Annotate(err, "cannot retrieve Dashboard archives info")
 	}
 	return resp.Versions, nil
@@ -56,6 +64,9 @@ func (c *Client) UploadDashboardArchive(r io.ReadSeeker, hash string, size int64
 	}
 	var resp params.DashboardArchiveVersion
 	if err = httpClient.Do(c.facade.RawAPICaller().Context(), req, &resp); err != nil {
+		if strings.Contains(err.Error(), "404 ") {
+			return false, errors.NewNotSupported(nil, incompatibleClientMsg)
+		}
 		return false, errors.Annotate(err, "cannot upload the Dashboard archive")
 	}
 	return resp.Current, nil
@@ -83,6 +94,9 @@ func (c *Client) SelectDashboardVersion(vers version.Number) error {
 		return errors.Annotate(err, "cannot retrieve HTTP client")
 	}
 	if err = httpClient.Do(c.facade.RawAPICaller().Context(), req, nil); err != nil {
+		if strings.Contains(err.Error(), "404 ") {
+			return errors.NewNotSupported(nil, incompatibleClientMsg)
+		}
 		return errors.Annotate(err, "cannot select Dashboard version")
 	}
 	return nil

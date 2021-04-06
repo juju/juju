@@ -279,7 +279,7 @@ const (
 
 	// DefaultJujuDBSnapChannel is the default snap channel for installing
 	// mongo in focal or later.
-	DefaultJujuDBSnapChannel = "4.0/stable"
+	DefaultJujuDBSnapChannel = "4.4/stable"
 
 	// DefaultMaxDebugLogDuration is the default duration that debug-log
 	// commands can run before being terminated by the API server.

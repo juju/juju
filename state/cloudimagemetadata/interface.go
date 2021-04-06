@@ -4,7 +4,7 @@
 package cloudimagemetadata
 
 import (
-	jujutxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn/v2"
 
 	"github.com/juju/juju/mongo"
 )

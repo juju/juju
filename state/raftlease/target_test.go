@@ -14,8 +14,8 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	jujutxn "github.com/juju/txn"
-	txntesting "github.com/juju/txn/testing"
+	jujutxn "github.com/juju/txn/v2"
+	txntesting "github.com/juju/txn/v2/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/lease"

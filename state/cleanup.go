@@ -12,7 +12,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn/v2"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
