@@ -1200,14 +1200,19 @@ type InterfaceAddress struct {
 type NetworkInfo struct {
 	// MACAddress is the network interface's hardware MAC address
 	// (e.g. "aa:bb:cc:dd:ee:ff").
-	MACAddress string `json:"mac-address"`
+	MACAddress string `json:"mac-address" yaml:"mac-address"`
 
 	// InterfaceName is the raw OS-specific network device name (e.g.
 	// "eth1", even for a VLAN eth1.42 virtual interface).
-	InterfaceName string `json:"interface-name"`
+	InterfaceName string `json:"interface-name" yaml:"interface-name"`
 
 	// Addresses contains a list of addresses configured on the interface.
-	Addresses []InterfaceAddress `json:"addresses"`
+	Addresses []InterfaceAddress `json:"addresses" yaml:"addresses"`
+
+	// These fields are for preserving backward compatibility with agents that
+	// anticipate the old YAML format. Remove for Juju 3/4.
+	MACAddressX    string `json:"-" yaml:"macaddress"`
+	InterfaceNameX string `json:"-" yaml:"interfacename"`
 }
 
 // NetworkInfoResult Adds egress and ingress subnets and changes the serialized
