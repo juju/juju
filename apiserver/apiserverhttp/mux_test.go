@@ -121,20 +121,29 @@ func (s *MuxSuite) TestConcurrentRemoveHandler(c *gc.C) {
 	const N = 500
 	var wg sync.WaitGroup
 	wg.Add(1)
+	done := make(chan struct{})
 	go func() {
 		defer wg.Done()
+		defer close(done)
 		for i := 0; i < N; i++ {
 			s.mux.AddHandler("GET", "/", h)
 			// Sleep to give the client a
 			// chance to hit the endpoint.
 			time.Sleep(time.Millisecond)
 			s.mux.RemoveHandler("GET", "/")
+			time.Sleep(time.Millisecond)
 		}
 	}()
 	defer wg.Wait()
 
 	var ok, notfound int
-	for i := 0; i < N; i++ {
+out:
+	for {
+		select {
+		case _, _ = <-done:
+			break out
+		default:
+		}
 		resp, err := s.client.Get(s.server.URL + "/")
 		c.Assert(err, jc.ErrorIsNil)
 		resp.Body.Close()
@@ -151,7 +160,6 @@ func (s *MuxSuite) TestConcurrentRemoveHandler(c *gc.C) {
 				http.StatusNotFound,
 			)
 		}
-		time.Sleep(time.Millisecond)
 	}
 	c.Assert(ok, gc.Not(gc.Equals), 0)
 	c.Assert(notfound, gc.Not(gc.Equals), 0)
