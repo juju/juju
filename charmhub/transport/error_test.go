@@ -50,8 +50,8 @@ two`)
 func (ErrorSuite) TestExtras(c *gc.C) {
 	expected := APIError{
 		Extra: APIErrorExtra{
-			DefaultPlatforms: []Platform{
-				{Architecture: "amd64", OS: "ubuntu", Series: "focal "},
+			DefaultBases: []Base{
+				{Architecture: "amd64", Name: "ubuntu", Channel: "focal "},
 			},
 		},
 	}

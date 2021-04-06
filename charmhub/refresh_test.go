@@ -39,9 +39,9 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 			InstanceKey: "foo-bar",
 			ID:          id,
 			Revision:    1,
-			Platform: transport.Platform{
-				OS:           "ubuntu",
-				Series:       "focal",
+			Base: transport.Base{
+				Name:         "ubuntu",
+				Channel:      "20.04",
 				Architecture: arch.DefaultArchitecture,
 			},
 			TrackingChannel: "latest/stable",
@@ -274,9 +274,9 @@ func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
 			InstanceKey: "foo-bar",
 			ID:          "foo",
 			Revision:    1,
-			Platform: transport.Platform{
-				OS:           "ubuntu",
-				Series:       "focal",
+			Base: transport.Base{
+				Name:         "ubuntu",
+				Channel:      "20.04",
 				Architecture: arch.DefaultArchitecture,
 			},
 			TrackingChannel: "latest/stable",
@@ -327,9 +327,9 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevision(c *gc.C) {
 			InstanceKey: "foo-bar",
 			Name:        &name,
 			Revision:    &revision,
-			Platform: &transport.Platform{
-				OS:           "ubuntu",
-				Series:       "focal",
+			Base: &transport.Base{
+				Name:         "ubuntu",
+				Channel:      "20.04",
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
@@ -358,9 +358,9 @@ func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
 			InstanceKey: "foo-bar",
 			Name:        &name,
 			Channel:     &channel,
-			Platform: &transport.Platform{
-				OS:           "ubuntu",
-				Series:       "focal",
+			Base: &transport.Base{
+				Name:         "ubuntu",
+				Channel:      "20.04",
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
@@ -387,9 +387,9 @@ func (s *RefreshConfigSuite) TestInstallOneWithPartialPlatform(c *gc.C) {
 			InstanceKey: "foo-bar",
 			Name:        &name,
 			Channel:     &channel,
-			Platform: &transport.Platform{
-				OS:           NotAvailable,
-				Series:       NotAvailable,
+			Base: &transport.Base{
+				Name:         NotAvailable,
+				Channel:      NotAvailable,
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
@@ -478,9 +478,9 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
 			InstanceKey: "foo-bar",
 			ID:          &id,
 			Channel:     &channel,
-			Platform: &transport.Platform{
-				OS:           "ubuntu",
-				Series:       "focal",
+			Base: &transport.Base{
+				Name:         "ubuntu",
+				Channel:      "20.04",
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
@@ -568,9 +568,9 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 			InstanceKey: "foo-bar",
 			ID:          "foo",
 			Revision:    1,
-			Platform: transport.Platform{
-				OS:           "ubuntu",
-				Series:       "focal",
+			Base: transport.Base{
+				Name:         "ubuntu",
+				Channel:      "20.04",
 				Architecture: arch.DefaultArchitecture,
 			},
 			TrackingChannel: "latest/stable",
@@ -578,9 +578,9 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 			InstanceKey: "foo-baz",
 			ID:          "bar",
 			Revision:    2,
-			Platform: transport.Platform{
-				OS:           "ubuntu",
-				Series:       "trusty",
+			Base: transport.Base{
+				Name:         "ubuntu",
+				Channel:      "14.04",
 				Architecture: arch.DefaultArchitecture,
 			},
 			TrackingChannel: "latest/edge",
@@ -597,9 +597,9 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 			Action:      "install",
 			InstanceKey: "foo-taz",
 			Name:        &name3,
-			Platform: &transport.Platform{
-				OS:           "ubuntu",
-				Series:       "disco",
+			Base: &transport.Base{
+				Name:         "ubuntu",
+				Channel:      "19.04",
 				Architecture: arch.DefaultArchitecture,
 			},
 			Channel: &channel,

@@ -332,7 +332,7 @@ func (c *downloadCommand) suggested(ser string, channel string, releases []trans
 	series := set.NewStrings()
 	for _, rel := range releases {
 		if rel.Channel == channel {
-			series.Add(rel.Platform.Series)
+			series.Add(rel.Base.Channel)
 		}
 	}
 	return errors.Errorf("%s does not support series %s in channel %s.  Supported series are %s.",

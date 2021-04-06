@@ -33,10 +33,10 @@ type InfoRevision struct {
 	ConfigYAML string `json:"config-yaml"`
 	CreatedAt  string `json:"created-at"`
 	// Via filters, only Download.Size will be available.
-	Download     Download   `json:"download"`
-	MetadataYAML string     `json:"metadata-yaml"`
-	BundleYAML   string     `json:"bundle-yaml"`
-	Platforms    []Platform `json:"platforms"`
-	Revision     int        `json:"revision"`
-	Version      string     `json:"version"`
+	Download     Download `json:"download"`
+	MetadataYAML string   `json:"metadata-yaml"`
+	BundleYAML   string   `json:"bundle-yaml"`
+	Bases        []Base   `json:"bases"`
+	Revision     int      `json:"revision"`
+	Version      string   `json:"version"`
 }

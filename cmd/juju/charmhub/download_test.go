@@ -263,31 +263,31 @@ func (s *downloadSuite) expectRefreshUnsupportedSeries() {
 				Extra: transport.APIErrorExtra{
 					Releases: []transport.Release{
 						{
-							Platform: transport.Platform{Architecture: "amd64", OS: "ubuntu", Series: "bionic"},
-							Channel:  "stable",
+							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "bionic"},
+							Channel: "stable",
 						},
 						{
-							Platform: transport.Platform{Architecture: "amd64", OS: "ubuntu", Series: "trusty"},
-							Channel:  "stable",
+							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "trusty"},
+							Channel: "stable",
 						},
 						{
-							Platform: transport.Platform{Architecture: "amd64", OS: "ubuntu", Series: "trusty"},
-							Channel:  "candidate",
+							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "trusty"},
+							Channel: "candidate",
 						},
 						{
-							Platform: transport.Platform{Architecture: "amd64", OS: "ubuntu", Series: "xenial"},
-							Channel:  "stable",
+							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "xenial"},
+							Channel: "stable",
 						},
 						{
-							Platform: transport.Platform{Architecture: "amd64", OS: "ubuntu", Series: "focal"},
-							Channel:  "beta",
+							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "focal"},
+							Channel: "beta",
 						},
 						{
-							Platform: transport.Platform{Architecture: "amd64", OS: "ubuntu", Series: "xenial"},
-							Channel:  "edge",
+							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "xenial"},
+							Channel: "edge",
 						},
 					},
-					DefaultPlatforms: nil,
+					DefaultBases: nil,
 				}},
 		}}, nil
 	})

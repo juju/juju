@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub/transport"
+	coreseries "github.com/juju/juju/core/series"
 )
 
 func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
@@ -25,16 +26,17 @@ func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
 		Tags:        categories(info.Entity.Categories),
 		StoreURL:    info.Entity.StoreURL,
 	}
+	var isKub bool
 	switch transport.Type(ir.Type) {
 	case transport.BundleType:
 		ir.Bundle = convertBundle(info.Entity.Charms)
 		// TODO (stickupkid): Get the Bundle.Release and set it to the
 		// InfoResponse at a high level.
 	case transport.CharmType:
-		ir.Charm, ir.Series = convertCharm(info)
+		ir.Charm, ir.Series, isKub = convertCharm(info)
 	}
 
-	ir.Tracks, ir.Channels = transformInfoChannelMap(info.ChannelMap)
+	ir.Tracks, ir.Channels = transformInfoChannelMap(info.ChannelMap, isKub)
 	return ir
 }
 
@@ -87,7 +89,7 @@ type supported struct {
 // transformFindArchitectureSeries returns a supported type which contains
 // architectures and series for a given channel map.
 func transformFindArchitectureSeries(channel transport.FindChannelMap) supported {
-	if len(channel.Revision.Platforms) < 1 {
+	if len(channel.Revision.Bases) < 1 {
 		return supported{}
 	}
 
@@ -96,10 +98,12 @@ func transformFindArchitectureSeries(channel transport.FindChannelMap) supported
 		os     = set.NewStrings()
 		series = set.NewStrings()
 	)
-	for _, p := range channel.Revision.Platforms {
+	for _, p := range channel.Revision.Bases {
 		arches.Add(p.Architecture)
-		os.Add(p.OS)
-		series.Add(p.Series)
+		os.Add(p.Name)
+		// TODO hml - for this to be correct, must determine IsKubernetes from metadata.
+		s, _ := coreseries.VersionSeries(p.Channel)
+		series.Add(s)
 	}
 	return supported{
 		Architectures: arches.SortedValues(),
@@ -111,7 +115,7 @@ func transformFindArchitectureSeries(channel transport.FindChannelMap) supported
 // transformInfoChannelMap returns channel map data in a format that facilitates
 // determining track order and open vs closed channels for displaying channel
 // data.
-func transformInfoChannelMap(channelMap []transport.InfoChannelMap) ([]string, map[string]params.Channel) {
+func transformInfoChannelMap(channelMap []transport.InfoChannelMap, isKub bool) ([]string, map[string]params.Channel) {
 	var trackList []string
 
 	seen := set.NewStrings("")
@@ -131,7 +135,7 @@ func transformInfoChannelMap(channelMap []transport.InfoChannelMap) ([]string, m
 			Track:      ch.Track,
 			Size:       cm.Revision.Download.Size,
 			Version:    cm.Revision.Version,
-			Platforms:  convertPlatforms(cm.Revision.Platforms),
+			Platforms:  convertBasesToPlatforms(cm.Revision.Bases, isKub),
 		}
 		if !seen.Contains(ch.Track) {
 			seen.Add(ch.Track)
@@ -142,32 +146,44 @@ func transformInfoChannelMap(channelMap []transport.InfoChannelMap) ([]string, m
 	return trackList, channels
 }
 
-func convertPlatforms(in []transport.Platform) []params.Platform {
+// convertBasesToPlatforms converts a base to a platform.  Is mean to be a short
+// term solution due to schedule.  It should be removed once platforms are
+// replaced with bases through out the code.
+func convertBasesToPlatforms(in []transport.Base, isKub bool) []params.Platform {
 	out := make([]params.Platform, len(in))
 	for i, v := range in {
+		channel := v.Channel
+		if isKub {
+			// Kubernetes is not a valid series for a base.  Instead use the latest
+			// LTS version of ubuntu.
+			channel = coreseries.LatestLts()
+		}
+		series, _ := coreseries.VersionSeries(channel)
 		out[i] = params.Platform{
 			Architecture: v.Architecture,
-			OS:           v.OS,
-			Series:       v.Series,
+			OS:           v.Name,
+			Series:       series,
 		}
 	}
 	return out
 }
 
-func convertCharm(info transport.InfoResponse) (*params.CharmHubCharm, []string) {
+func convertCharm(info transport.InfoResponse) (*params.CharmHubCharm, []string, bool) {
 	charmHubCharm := params.CharmHubCharm{
 		UsedBy: info.Entity.UsedBy,
 	}
 	var series []string
+	var isKub bool
 	if meta := unmarshalCharmMetadata(info.DefaultRelease.Revision.MetadataYAML); meta != nil {
 		charmHubCharm.Subordinate = meta.Subordinate
 		charmHubCharm.Relations = transformRelations(meta.Requires, meta.Provides)
 		series = meta.ComputedSeries()
+		isKub = isKubernetes(meta)
 	}
 	if cfg := unmarshalCharmConfig(info.DefaultRelease.Revision.ConfigYAML); cfg != nil {
 		charmHubCharm.Config = params.ToCharmOptionMap(cfg)
 	}
-	return &charmHubCharm, series
+	return &charmHubCharm, series, isKub
 }
 
 func unmarshalCharmMetadata(metadataYAML string) *charm.Meta {
@@ -243,4 +259,15 @@ func convertBundle(charms []transport.Charm) *params.CharmHubBundle {
 		}
 	}
 	return bundle
+}
+
+func isKubernetes(meta *charm.Meta) bool {
+	if len(meta.Containers) > 0 {
+		return true
+	}
+	seriesSet := set.NewStrings(meta.Series...)
+	if seriesSet.Contains("kubernetes") {
+		return true
+	}
+	return false
 }

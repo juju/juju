@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	corecharm "github.com/juju/juju/core/charm"
+	coreseries "github.com/juju/juju/core/series"
 )
 
 // CharmHubClient represents the methods required of a
@@ -69,8 +70,8 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin corecharm.O
 	if resErr := res.Error; resErr != nil {
 		switch resErr.Code {
 		case transport.ErrorCodeInvalidCharmPlatform:
-			logger.Tracef("Invalid charm platform %q %v - Default Platforms: %v", curl, origin, resErr.Extra.DefaultPlatforms)
-			platform, err := c.selectNextPlatform(resErr.Extra.DefaultPlatforms, origin)
+			logger.Tracef("Invalid charm platform %q %v - Default Platforms: %v", curl, origin, resErr.Extra.DefaultBases)
+			platform, err := c.selectNextPlatform(resErr.Extra.DefaultBases, origin)
 			if err != nil {
 				return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "refresh")
 			}
@@ -250,28 +251,38 @@ func (c *chRepo) refreshOne(curl *charm.URL, origin corecharm.Origin) (transport
 	return result[0], nil
 }
 
-func (c *chRepo) selectNextPlatform(platforms []transport.Platform, origin corecharm.Origin) (transport.Platform, error) {
-	if len(platforms) == 0 {
-		return transport.Platform{}, errors.Errorf("no platforms available")
+func (c *chRepo) selectNextPlatform(bases []transport.Base, origin corecharm.Origin) (corecharm.Platform, error) {
+	if len(bases) == 0 {
+		return corecharm.Platform{}, errors.Errorf("no bases available")
 	}
 	// We've got a invalid charm platform error, the error should contain
 	// a valid platform to query again to get the right information. If
 	// the platform is empty, consider it a failure.
 	var (
-		found    bool
-		platform transport.Platform
+		found bool
+		base  transport.Base
 	)
-	for _, platform = range platforms {
-		if platform.Architecture != origin.Platform.Architecture {
+	for _, base = range bases {
+		if base.Architecture != origin.Platform.Architecture {
 			continue
 		}
 		found = true
 		break
 	}
 	if !found {
-		return transport.Platform{}, errors.NotFoundf("platform")
+		return corecharm.Platform{}, errors.NotFoundf("base")
 	}
-	return platform, nil
+
+	series, err := coreseries.VersionSeries(base.Channel)
+	if err != nil {
+		return corecharm.Platform{}, errors.Trace(err)
+	}
+
+	return corecharm.Platform{
+		Architecture: base.Architecture,
+		OS:           base.Name,
+		Series:       series,
+	}, nil
 }
 
 func (c *chRepo) selectNextRelease(releases []transport.Release, origin corecharm.Origin) (Release, error) {
@@ -391,8 +402,13 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 func composeSuggestions(releases []transport.Release, origin corecharm.Origin) []string {
 	channelSeries := make(map[string][]string, 0)
 	for _, release := range releases {
-		platform := release.Platform
-		arch, series := platform.Architecture, platform.Series
+		base := release.Base
+		arch := base.Architecture
+		series, err := coreseries.VersionSeries(base.Channel)
+		if err != nil {
+			logger.Errorf("converting version to series: %s", err)
+			continue
+		}
 		if arch == "all" {
 			arch = origin.Platform.Architecture
 		}
@@ -423,6 +439,7 @@ func composeSuggestions(releases []transport.Release, origin corecharm.Origin) [
 }
 
 // Release represents a release that a charm can be selected from.
+// TODO HML, what if anything to do here?
 type Release struct {
 	OS, Series string
 }
@@ -436,9 +453,13 @@ func selectReleaseByArchAndChannel(releases []transport.Release, origin corechar
 		channel = origin.Channel.Normalize()
 	}
 	for _, release := range releases {
-		platform := release.Platform
+		base := release.Base
 
-		arch, os, series := platform.Architecture, platform.OS, platform.Series
+		arch, os := base.Architecture, base.Name
+		series, err := coreseries.VersionSeries(base.Channel)
+		if err != nil {
+			return Release{}, errors.Trace(err)
+		}
 		if (empty || channel.String() == release.Channel) && (arch == "all" || arch == origin.Platform.Architecture) {
 			return Release{
 				OS:     os,
