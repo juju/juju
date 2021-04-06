@@ -22,18 +22,23 @@ type DialFunc func(_ context.Context, _ *url.URL, datacenter string) (Client, er
 type Client interface {
 	Close(context.Context) error
 	ComputeResources(context.Context) ([]vsphereclient.ComputeResource, error)
-	ResourcePools(context.Context, string) ([]*object.ResourcePool, error)
 	CreateVirtualMachine(context.Context, vsphereclient.CreateVirtualMachineParams) (*mo.VirtualMachine, error)
+	CreateTemplateVM(ctx context.Context, ovaArgs vsphereclient.ImportOVAParameters) (vm *object.VirtualMachine, err error)
+	FindVMTemplatesByName(ctx context.Context, path string, name string) ([]*object.VirtualMachine, error)
 	Folders(ctx context.Context) (*object.DatacenterFolders, error)
 	Datastores(context.Context) ([]mo.Datastore, error)
 	DeleteDatastoreFile(context.Context, string) error
 	DestroyVMFolder(context.Context, string) error
 	EnsureVMFolder(context.Context, string, string) (*object.Folder, error)
+	GetTargetDatastore(ctx context.Context, computeResource *mo.ComputeResource, rootDiskSource string) (*object.Datastore, error)
+	ListVMTemplates(ctx context.Context, path string) ([]*object.VirtualMachine, error)
 	MoveVMFolderInto(context.Context, string, string) error
 	MoveVMsInto(context.Context, string, ...types.ManagedObjectReference) error
 	RemoveVirtualMachines(context.Context, string) error
+	ResourcePools(context.Context, string) ([]*object.ResourcePool, error)
 	UpdateVirtualMachineExtraConfig(context.Context, *mo.VirtualMachine, map[string]string) error
 	VirtualMachines(context.Context, string) ([]*mo.VirtualMachine, error)
+	VirtualMachineObjectToManagedObject(ctx context.Context, vmObject *object.VirtualMachine) (mo.VirtualMachine, error)
 	UserHasRootLevelPrivilege(context.Context, string) (bool, error)
 	FindFolder(ctx context.Context, folderPath string) (vmFolder *object.Folder, err error)
 }

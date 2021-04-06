@@ -150,7 +150,6 @@ func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
 		},
 		UpdateProgressInterval: 5 * time.Second,
 		EnableDiskUUID:         true,
-		IsBootstrap:            true,
 		DiskProvisioningType:   vsphereclient.DefaultDiskProvisioningType,
 	})
 
@@ -679,7 +678,4 @@ func (s *legacyEnvironBrokerSuite) TestNotBootstrapping(c *gc.C) {
 	c.Assert(call.Args, gc.HasLen, 2)
 	c.Assert(call.Args[0], gc.Implements, new(context.Context))
 	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
-
-	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs.IsBootstrap, gc.Equals, false)
 }

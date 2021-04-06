@@ -5,8 +5,6 @@ package vsphere
 
 import (
 	"fmt"
-	"io"
-	"net/http"
 	"path"
 	"sync"
 	"time"
@@ -24,6 +22,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 	"github.com/juju/juju/tools"
@@ -70,17 +69,18 @@ func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs
 	return result, err
 }
 
+// Region is specified in the HasRegion interface.
+func (env *environ) Region() (simplestreams.CloudSpec, error) {
+	spec := simplestreams.CloudSpec{
+		Region:   env.cloud.Region,
+		Endpoint: env.cloud.Endpoint,
+	}
+	return spec, nil
+}
+
 // StartInstance implements environs.InstanceBroker.
 func (env *sessionEnviron) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	img, err := findImageMetadata(env, args)
-	if err != nil {
-		return nil, common.ZoneIndependentError(err)
-	}
-	if err := env.finishMachineConfig(args, img); err != nil {
-		return nil, common.ZoneIndependentError(err)
-	}
-
-	vm, hw, err := env.newRawInstance(ctx, args, img)
+	vm, hw, err := env.newRawInstance(ctx, args)
 	if err != nil {
 		_ = args.StatusCallback(status.ProvisioningError, fmt.Sprint(err), nil)
 		return nil, errors.Trace(err)
@@ -101,8 +101,8 @@ var FinishInstanceConfig = instancecfg.FinishInstanceConfig
 
 // finishMachineConfig updates args.MachineConfig in place. Setting up
 // the API, StateServing, and SSHkeys information.
-func (env *sessionEnviron) finishMachineConfig(args environs.StartInstanceParams, img *OvaFileMetadata) error {
-	envTools, err := args.Tools.Match(tools.Filter{Arch: img.Arch})
+func (env *sessionEnviron) finishMachineConfig(args environs.StartInstanceParams, arch string) error {
+	envTools, err := args.Tools.Match(tools.Filter{Arch: arch})
 	if err != nil {
 		return err
 	}
@@ -118,8 +118,65 @@ func (env *sessionEnviron) finishMachineConfig(args environs.StartInstanceParams
 func (env *sessionEnviron) newRawInstance(
 	ctx context.ProviderCallContext,
 	args environs.StartInstanceParams,
-	img *OvaFileMetadata,
 ) (_ *mo.VirtualMachine, _ *instance.HardwareCharacteristics, err error) {
+	// Obtain the final constraints by merging with defaults.
+	cons := args.Constraints
+	minRootDisk := common.MinRootDiskSizeGiB(args.InstanceConfig.Series) * 1024
+	if cons.RootDisk == nil || *cons.RootDisk < minRootDisk {
+		cons.RootDisk = &minRootDisk
+	}
+
+	defaultDatastore := env.ecfg.datastore()
+	if cons.RootDiskSource != nil && *cons.RootDiskSource != "" {
+		defaultDatastore = *cons.RootDiskSource
+	}
+
+	// Attempt to create a VM in each of the AZs in turn.
+	logger.Debugf("attempting to create VM in availability zone %q", args.AvailabilityZone)
+	availZone, err := env.availZone(ctx, args.AvailabilityZone)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	datastore, err := env.client.GetTargetDatastore(env.ctx, &availZone.r, defaultDatastore)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	updateProgressInterval := startInstanceUpdateProgressInterval
+	if args.InstanceConfig.Bootstrap != nil {
+		updateProgressInterval = bootstrapUpdateProgressInterval
+	}
+	updateProgress := func(message string) {
+		_ = args.StatusCallback(status.Provisioning, message, nil)
+	}
+
+	statusUpdateArgs := vsphereclient.StatusUpdateParams{
+		UpdateProgress:         updateProgress,
+		UpdateProgressInterval: updateProgressInterval,
+		Clock:                  clock.WallClock,
+	}
+
+	tplManager := vmTemplateManager{
+		imageMetadata:    args.ImageMetadata,
+		env:              env,
+		az:               availZone,
+		datastore:        datastore,
+		controllerUUID:   args.ControllerUUID,
+		statusUpdateArgs: statusUpdateArgs,
+	}
+
+	vmTemplate, arch, err := tplManager.EnsureTemplate(env.ctx, args.InstanceConfig.Series, args.Tools.Arches())
+	if err != nil {
+		return nil, nil, common.ZoneIndependentError(err)
+	}
+
+	logger.Warningf(">>> ImageMetadata: %v", args.ImageMetadata)
+
+	if err := env.finishMachineConfig(args, arch); err != nil {
+		return nil, nil, common.ZoneIndependentError(err)
+	}
+
 	if args.AvailabilityZone == "" {
 		return nil, nil, errors.NotValidf("empty available zone")
 	}
@@ -184,61 +241,22 @@ func (env *sessionEnviron) newRawInstance(
 	}
 	logger.Debugf("Vmware user data; %d bytes", len(userData))
 
-	// Obtain the final constraints by merging with defaults.
-	cons := args.Constraints
-	minRootDisk := common.MinRootDiskSizeGiB(args.InstanceConfig.Series) * 1024
-	if cons.RootDisk == nil || *cons.RootDisk < minRootDisk {
-		cons.RootDisk = &minRootDisk
-	}
-	defaultDatastore := env.ecfg.datastore()
-	if (cons.RootDiskSource == nil || *cons.RootDiskSource == "") && defaultDatastore != "" {
-		cons.RootDiskSource = &defaultDatastore
-	}
-
-	// Download and extract the OVA file. If we're bootstrapping we use
-	// a temporary directory, otherwise we cache the image for future use.
-	updateProgressInterval := startInstanceUpdateProgressInterval
-	if args.InstanceConfig.Bootstrap != nil {
-		updateProgressInterval = bootstrapUpdateProgressInterval
-	}
-	updateProgress := func(message string) {
-		_ = args.StatusCallback(status.Provisioning, message, nil)
-	}
-
-	readOVA := func() (string, io.ReadCloser, error) {
-		resp, err := http.Get(img.URL)
-		if err != nil {
-			return "", nil, errors.Trace(err)
-		}
-		return img.URL, resp.Body, nil
-	}
-
 	createVMArgs := vsphereclient.CreateVirtualMachineParams{
 		Name:                   vmName,
 		Folder:                 path.Join(env.getVMFolder(), controllerFolderName(args.ControllerUUID), env.modelFolderName()),
 		RootVMFolder:           env.getVMFolder(),
 		Series:                 args.InstanceConfig.Series,
-		ReadOVA:                readOVA,
-		OVASHA256:              img.Sha256,
 		VMDKDirectory:          templateDirectoryName(controllerFolderName(args.ControllerUUID)),
 		UserData:               string(userData),
 		Metadata:               args.InstanceConfig.Tags,
 		Constraints:            cons,
 		NetworkDevices:         networkDevices,
-		UpdateProgress:         updateProgress,
-		UpdateProgressInterval: updateProgressInterval,
-		Clock:                  clock.WallClock,
 		EnableDiskUUID:         env.ecfg.enableDiskUUID(),
 		ForceVMHardwareVersion: env.ecfg.forceVMHardwareVersion(),
-		IsBootstrap:            args.InstanceConfig.Bootstrap != nil,
 		DiskProvisioningType:   env.ecfg.diskProvisioningType(),
-	}
-
-	// Attempt to create a VM in each of the AZs in turn.
-	logger.Debugf("attempting to create VM in availability zone %q", args.AvailabilityZone)
-	availZone, err := env.availZone(ctx, args.AvailabilityZone)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
+		StatusUpdateParams:     statusUpdateArgs,
+		Datastore:              datastore,
+		VMTemplate:             vmTemplate,
 	}
 
 	createVMArgs.ComputeResource = &availZone.r
@@ -257,7 +275,7 @@ func (env *sessionEnviron) newRawInstance(
 	}
 
 	hw := &instance.HardwareCharacteristics{
-		Arch:           &img.Arch,
+		Arch:           &arch,
 		Mem:            cons.Mem,
 		CpuCores:       cons.CpuCores,
 		CpuPower:       cons.CpuPower,
@@ -265,6 +283,12 @@ func (env *sessionEnviron) newRawInstance(
 		RootDiskSource: cons.RootDiskSource,
 	}
 	return vm, hw, err
+}
+
+func (env *sessionEnviron) controllerTemplatesFolder(controllerUUID string) string {
+	vmFolder := env.getVMFolder()
+	templateFolder := templateDirectoryName(controllerFolderName(controllerUUID))
+	return path.Join(vmFolder, templateFolder)
 }
 
 // AllInstances implements environs.InstanceBroker.
