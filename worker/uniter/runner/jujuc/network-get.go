@@ -6,12 +6,11 @@ package jujuc
 import (
 	"fmt"
 
-	"github.com/juju/juju/apiserver/params"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 )
 
@@ -176,9 +175,14 @@ type interfaceAddressDisplay struct {
 
 // networkInfoDisplay mirrors params.NetworkInfo.
 type networkInfoDisplay struct {
-	MACAddress    string                    `json:"mac-address" yaml:"macaddress"`
-	InterfaceName string                    `json:"interface-name" yaml:"interfacename"`
+	MACAddress    string                    `json:"mac-address" yaml:"mac-address"`
+	InterfaceName string                    `json:"interface-name" yaml:"interface-name"`
 	Addresses     []interfaceAddressDisplay `json:"addresses" yaml:"addresses"`
+
+	// These copies are used to preserve YAML serialisation that older agents
+	// may be expecting. Delete them for Juju 3/4.
+	MACAddressX    string `json:"-" yaml:"macaddress"`
+	InterfaceNameX string `json:"-" yaml:"interfacename"`
 }
 
 // networkInfoResultDisplay mirrors params.NetworkInfoResult except for the
@@ -204,6 +208,9 @@ func resultToDisplay(result params.NetworkInfoResult) networkInfoResultDisplay {
 			MACAddress:    rInfo.MACAddress,
 			InterfaceName: rInfo.InterfaceName,
 			Addresses:     make([]interfaceAddressDisplay, len(rInfo.Addresses)),
+
+			MACAddressX:    rInfo.MACAddress,
+			InterfaceNameX: rInfo.InterfaceName,
 		}
 
 		for j, addr := range rInfo.Addresses {
