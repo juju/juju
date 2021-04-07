@@ -6,6 +6,8 @@ package jujuc
 import (
 	"fmt"
 
+	"github.com/juju/juju/apiserver/params"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -122,7 +124,7 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 
 	// If no specific attributes were asked for, write everything we know.
 	if !c.primaryAddress && len(c.keys) == 0 {
-		return c.out.Write(ctx, ni)
+		return c.out.Write(ctx, resultToDisplay(ni))
 	}
 
 	// Backwards compatibility - we just want the primary address.
@@ -160,4 +162,56 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 		return c.out.Write(ctx, keyValues[c.keys[0]])
 	}
 	return c.out.Write(ctx, keyValues)
+}
+
+// These display types are used for serialising to stdout.
+// We should never write raw params structs.
+
+// interfaceAddressDisplay mirrors params.InterfaceAddress.
+type interfaceAddressDisplay struct {
+	Hostname string `json:"hostname" yaml:"hostname"`
+	Address  string `json:"value" yaml:"address"`
+	CIDR     string `json:"cidr" yaml:"cidr"`
+}
+
+// networkInfoDisplay mirrors params.NetworkInfo.
+type networkInfoDisplay struct {
+	MACAddress    string                    `json:"mac-address" yaml:"macaddress"`
+	InterfaceName string                    `json:"interface-name" yaml:"interfacename"`
+	Addresses     []interfaceAddressDisplay `json:"addresses" yaml:"addresses"`
+}
+
+// networkInfoResultDisplay mirrors params.NetworkInfoResult except for the
+// Error member. It is assumed that we check it for nil before conversion.
+type networkInfoResultDisplay struct {
+	Info             []networkInfoDisplay `json:"bind-addresses,omitempty" yaml:"bind-addresses,omitempty"`
+	EgressSubnets    []string             `json:"egress-subnets,omitempty" yaml:"egress-subnets,omitempty"`
+	IngressAddresses []string             `json:"ingress-addresses,omitempty" yaml:"ingress-addresses,omitempty"`
+}
+
+func resultToDisplay(result params.NetworkInfoResult) networkInfoResultDisplay {
+	display := networkInfoResultDisplay{
+		Info:             make([]networkInfoDisplay, len(result.Info)),
+		EgressSubnets:    make([]string, len(result.EgressSubnets)),
+		IngressAddresses: make([]string, len(result.IngressAddresses)),
+	}
+
+	copy(display.EgressSubnets, result.EgressSubnets)
+	copy(display.IngressAddresses, result.IngressAddresses)
+
+	for i, rInfo := range result.Info {
+		dInfo := networkInfoDisplay{
+			MACAddress:    rInfo.MACAddress,
+			InterfaceName: rInfo.InterfaceName,
+			Addresses:     make([]interfaceAddressDisplay, len(rInfo.Addresses)),
+		}
+
+		for j, addr := range rInfo.Addresses {
+			dInfo.Addresses[j] = interfaceAddressDisplay(addr)
+		}
+
+		display.Info[i] = dInfo
+	}
+
+	return display
 }
