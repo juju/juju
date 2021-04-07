@@ -89,12 +89,11 @@ func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Ins
 // if values tag and state are left empty it will return all instances
 func (e *environ) getPacketInstancesByTag(tags map[string]string) ([]instances.Instance, error) {
 	toReturn := []instances.Instance{}
-	packetTags := []string{}
+	deviceTags := set.NewStrings()
 
 	for k, v := range tags {
-		packetTags = append(packetTags, fmt.Sprintf("%s=%s", k, v))
+		deviceTags.Add(fmt.Sprintf("%s=%s", k, v))
 	}
-	deviceTags := set.NewStrings(packetTags...)
 	devices, _, err := e.equnixClient.Devices.List(e.cloud.Credential.Attributes()["project-id"], nil)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -135,8 +134,8 @@ func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controlle
 		return nil, err
 	}
 	instanceIDs := make([]instance.Id, len(insts))
-	for _, i := range insts {
-		instanceIDs = append(instanceIDs, i.Id())
+	for i, inst := range insts {
+		instanceIDs[i] = inst.Id()
 	}
 	return instanceIDs, nil
 }
@@ -188,25 +187,34 @@ func (e *environ) InstanceTypes(context.ProviderCallContext, constraints.Value) 
 }
 
 func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
-	toReturn := []instances.Instance{}
+	toReturn := make([]instances.Instance, len(ids))
+	var missingInstanceCount int
 
 	tags := set.NewStrings("juju-model-uuid=" + e.Config().UUID())
 
-	for _, id := range ids {
+	for i, id := range ids {
 		//TODO handle case when some of the instanes are missing
-		d, _, err := e.equnixClient.Devices.Get(string(id), nil)
-		if err != nil {
+		d, resp, err := e.equnixClient.Devices.Get(string(id), nil)
+		if err != nil && resp.Request.Response.StatusCode == 404 {
+			logger.Warningf("instance %s not found", string(id))
+			missingInstanceCount = missingInstanceCount + 1
+		} else if err != nil {
 			return nil, errors.Annotatef(err, "looking up device with ID %q", id)
 		}
+
 		deviceTags := set.NewStrings(d.Tags...)
 		if !tags.Intersection(deviceTags).IsEmpty() {
-			toReturn = append(toReturn, &equnixDevice{e, d})
+			toReturn[i] = &equnixDevice{e, d}
 		}
 	}
-	if len(toReturn) == 0 {
-		return nil, environs.ErrNoInstances
+
+	if missingInstanceCount > 0 {
+		if missingInstanceCount == len(toReturn) {
+			return nil, environs.ErrNoInstances
+		}
 	}
-	return toReturn, nil
+
+	return toReturn, environs.ErrPartialInstances
 }
 
 func (e *environ) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
@@ -334,7 +342,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	}
 
 	// Render the required tags for the instance.
-	packetTags := make([]string, len(args.InstanceConfig.Tags))
+	packetTags := []string{}
 	for k, v := range args.InstanceConfig.Tags {
 		packetTags = append(packetTags, fmt.Sprintf("%s=%s", k, v))
 	}
