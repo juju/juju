@@ -105,19 +105,36 @@ network:
 `)
 }
 
-func (s *NetplanSuite) TestParseEthernetDeviceWithLinkLocalField(c *gc.C) {
-	MustNetplanFromYaml(c, `
+func (s *NetplanSuite) TestSerializationOfEthernetDevicesWithLinkLocalFields(c *gc.C) {
+	np := MustNetplanFromYaml(c, `
 network:
   version: 2
-  renderer: NetworkManager
   ethernets:
     eth0:
-      match:
-        macaddress: "00:11:22:33:44:55"
       link-local: [ipv4, ipv6]
-      wakeonlan: true
-      set-name: main-if
+    eth1:
+      link-local: []
+    eth2:
+      critical: true
 `)
+
+	exp := `
+network:
+  version: 2
+  ethernets:
+    eth0:
+      link-local:
+      - ipv4
+      - ipv6
+    eth1:
+      link-local: []
+    eth2:
+      critical: true
+`[1:]
+
+	npYAML, err := netplan.Marshal(np)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(npYAML), gc.Equals, exp)
 }
 
 func (s *NetplanSuite) TestBasicBond(c *gc.C) {

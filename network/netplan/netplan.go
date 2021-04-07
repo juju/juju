@@ -47,8 +47,12 @@ type Interface struct {
 	Optional bool `yaml:"optional,omitempty"`
 
 	// Configure the link-local addresses to bring up. Valid options are
-	// "ipv4" and "ipv6".
-	LinkLocal []string `yaml:"link-local,omitempty"`
+	// "ipv4" and "ipv6". According to the netplan reference, netplan will
+	// only bring up ipv6 addresses if *no* link-local attribute is
+	// specified. On the other hand, if an empty link-local attribute is
+	// specified, this instructs netplan not to bring any ipv4/ipv6 address
+	// up.
+	LinkLocal *[]string `yaml:"link-local,omitempty"`
 }
 
 // Ethernet defines fields for just Ethernet devices
