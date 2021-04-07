@@ -538,27 +538,9 @@ func (e *environ) findInstanceSpec(controller bool, allImages []*imagemetadata.I
 	suitableImages := []*imagemetadata.ImageMetadata{}
 
 	for _, it := range instanceTypes {
-	nextImage:
 		for _, os := range oss {
-
-			switch os.Distro {
-			case "ubuntu":
-				series, err := series.VersionSeries(os.Version)
-				if err != nil || ic.Series != series {
-					continue nextImage
-				}
-			case "centos":
-				series, err := series.CentOSVersionSeries(os.Version)
-				if err != nil || ic.Series != series {
-					continue nextImage
-				}
-			case "windows":
-				series, err := series.WindowsVersionSeries(os.Version)
-				if err != nil || ic.Series != series {
-					continue nextImage
-				}
-			default:
-				continue nextImage
+			if !isDistroSupported(os, ic) {
+				continue
 			}
 
 			for _, p := range os.ProvisionableOn {
@@ -655,4 +637,29 @@ func (e *environ) Region() (simplestreams.CloudSpec, error) {
 		Region:   e.cloud.Region,
 		Endpoint: e.cloud.Endpoint,
 	}, nil
+}
+
+// Helper function to get supported OS version
+func isDistroSupported(os packngo.OS, ic *instances.InstanceConstraint) bool {
+	switch os.Distro {
+	case "ubuntu":
+		series, err := series.VersionSeries(os.Version)
+		if err != nil || ic.Series != series {
+			return false
+		}
+	case "centos":
+		series, err := series.CentOSVersionSeries(os.Version)
+		if err != nil || ic.Series != series {
+			return false
+		}
+	case "windows":
+		series, err := series.WindowsVersionSeries(os.Version)
+		if err != nil || ic.Series != series {
+			return false
+		}
+	default:
+		return false
+	}
+
+	return true
 }
