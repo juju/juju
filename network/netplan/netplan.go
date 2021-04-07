@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -46,8 +47,12 @@ type Interface struct {
 	Optional bool `yaml:"optional,omitempty"`
 
 	// Configure the link-local addresses to bring up. Valid options are
-	// "ipv4" and "ipv6".
-	LinkLocal []string `yaml:"link-local,omitempty"`
+	// "ipv4" and "ipv6". According to the netplan reference, netplan will
+	// only bring up ipv6 addresses if *no* link-local attribute is
+	// specified. On the other hand, if an empty link-local attribute is
+	// specified, this instructs netplan not to bring any ipv4/ipv6 address
+	// up.
+	LinkLocal *[]string `yaml:"link-local,omitempty"`
 }
 
 // Ethernet defines fields for just Ethernet devices
@@ -291,87 +296,9 @@ func (np *Netplan) createBridgeFromInterface(bridgeName, deviceId string, intf *
 	*intf = Interface{MTU: intf.MTU}
 }
 
-func (np *Netplan) merge(other *Netplan) {
-	// Only copy attributes that would be unmarshalled from yaml.
-	// This blithely replaces keys in the maps (eg. Ethernets or
-	// Wifis) if they're set in both np and other - it's not clear
-	// from the reference whether this is the right thing to do.
-	// See https://bugs.launchpad.net/juju/+bug/1701429 and
-	// https://netplan.io/reference#general-structure
-	np.Network.Version = other.Network.Version
-	np.Network.Renderer = other.Network.Renderer
-	np.Network.Routes = other.Network.Routes
-	if np.Network.Ethernets == nil {
-		np.Network.Ethernets = other.Network.Ethernets
-	} else {
-		for key, val := range other.Network.Ethernets {
-			np.Network.Ethernets[key] = val
-		}
-	}
-	if np.Network.Wifis == nil {
-		np.Network.Wifis = other.Network.Wifis
-	} else {
-		for key, val := range other.Network.Wifis {
-			np.Network.Wifis[key] = val
-		}
-	}
-	if np.Network.Bridges == nil {
-		np.Network.Bridges = other.Network.Bridges
-	} else {
-		for key, val := range other.Network.Bridges {
-			np.Network.Bridges[key] = val
-		}
-	}
-	if np.Network.Bonds == nil {
-		np.Network.Bonds = other.Network.Bonds
-	} else {
-		for key, val := range other.Network.Bonds {
-			np.Network.Bonds[key] = val
-		}
-	}
-	if np.Network.VLANs == nil {
-		np.Network.VLANs = other.Network.VLANs
-	} else {
-		for key, val := range other.Network.VLANs {
-			np.Network.VLANs[key] = val
-		}
-	}
-}
-
-func Unmarshal(in []byte, out *Netplan) error {
-	if out == nil {
-		return errors.NotValidf("nil out Netplan")
-	}
-	// Use UnmarshalStrict because we want errors for unknown
-	// attributes. This also refuses to overwrite keys (which we need)
-	// so unmarshal locally and copy across.
-	var local Netplan
-	if err := goyaml.UnmarshalStrict(in, &local); err != nil {
-		return errors.Trace(err)
-	}
-	out.merge(&local)
-	return nil
-}
-
+// Marshal a Netplan instance into YAML.
 func Marshal(in *Netplan) (out []byte, err error) {
 	return goyaml.Marshal(in)
-}
-
-// readYamlFile reads netplan yaml into existing netplan structure
-// TODO(wpk) 2017-06-14 When reading files sequentially netplan replaces single
-// keys with new values, we have to simulate this behaviour.
-// https://bugs.launchpad.net/juju/+bug/1701429
-func (np *Netplan) readYamlFile(path string) (err error) {
-	contents, err := ioutil.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	err = Unmarshal(contents, np)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 type sortableFileInfos []os.FileInfo
@@ -398,18 +325,157 @@ func ReadDirectory(dirPath string) (np Netplan, err error) {
 	np.sourceDirectory = dirPath
 	sortedFileInfos := sortableFileInfos(fileInfos)
 	sort.Sort(sortedFileInfos)
+
+	// First, unmarshal all configuration files into maps and merge them.
+	// Since the file list is pre-sorted, the first unmarshalled file
+	// serves as the base configuration; subsequent configuration maps are
+	// merged into it.
+	var mergedConfig map[interface{}]interface{}
 	for _, fileInfo := range sortedFileInfos {
 		if !fileInfo.IsDir() && strings.HasSuffix(fileInfo.Name(), ".yaml") {
 			np.sourceFiles = append(np.sourceFiles, fileInfo.Name())
+
+			pathToConfig := path.Join(np.sourceDirectory, fileInfo.Name())
+			configContents, err := ioutil.ReadFile(pathToConfig)
+			if err != nil {
+				return Netplan{}, errors.Annotatef(err, "reading netplan configuration from %q", pathToConfig)
+			}
+
+			var unmarshaledContents map[interface{}]interface{}
+			if err := goyaml.Unmarshal(configContents, &unmarshaledContents); err != nil {
+				return Netplan{}, errors.Annotatef(err, "unmarshaling netplan configuration from %q", pathToConfig)
+
+			}
+
+			if mergedConfig == nil {
+				mergedConfig = unmarshaledContents
+			} else {
+				mergedResult, err := mergeNetplanConfigs(mergedConfig, unmarshaledContents)
+				if err != nil {
+					return Netplan{}, errors.Annotatef(err, "merging netplan configuration from %s", pathToConfig)
+				}
+
+				// mergeNetplanConfigs should return back the
+				// value we passed in. However, lets be extra
+				// paranoid and double check that a malicious
+				// file did not mutate the type of the returned
+				// value.
+				mergedConfigMap, ok := mergedResult.(map[interface{}]interface{})
+				if !ok {
+					return Netplan{}, errors.Errorf("merging netplan configuration from %s caused the original configuration to become corrupted", pathToConfig)
+				}
+				mergedConfig = mergedConfigMap
+			}
 		}
 	}
-	for _, fileName := range np.sourceFiles {
-		err := np.readYamlFile(path.Join(np.sourceDirectory, fileName))
-		if err != nil {
-			return np, err
-		}
+
+	// Serialize the merged config back into yaml and unmarshal it using
+	// strict mode it to ensure that the presence of any unknown field
+	// triggers an error.
+	//
+	// As juju mutates the unmashaled Netplan struct and writes it back to
+	// disk, using strict mode guarantees that we will never accidentally
+	// drop netplan config values just because they were not defined in
+	// our structs.
+	mergedYAML, err := goyaml.Marshal(mergedConfig)
+	if err != nil {
+		return Netplan{}, errors.Trace(err)
+	} else if err := goyaml.UnmarshalStrict(mergedYAML, &np); err != nil {
+		return Netplan{}, errors.Trace(err)
 	}
 	return np, nil
+}
+
+// mergeNetplanConfigs recursively merges two netplan configurations where
+// values is src will overwrite values in dst based on the rules described in
+// http://manpages.ubuntu.com/manpages/groovy/man8/netplan-generate.8.html:
+//
+// - If  the  values are YAML boolean or scalar values (numbers and strings)
+// the old value is overwritten by the new value.
+//
+// - If the values are sequences, the sequences are concatenated - the new
+// values are appended to the old list.
+//
+// - If the values are mappings, netplan will examine the elements of the
+// mappings in turn using these rules.
+//
+// The function returns back the merged destination object which *may* be
+// different than the one that was passed into the function (e.g. if dst was
+// a map or slice that got resized).
+func mergeNetplanConfigs(dst, src interface{}) (interface{}, error) {
+	if dst == nil {
+		return src, nil
+	}
+
+	var err error
+	switch dstVal := dst.(type) {
+	case map[interface{}]interface{}:
+		srcVal, ok := src.(map[interface{}]interface{})
+		if !ok {
+			return nil, errors.Errorf("configuration values have different types (destination: %T, src: %T)", dst, src)
+		}
+
+		// Overwrite values in dst for keys that are present in both
+		// dst and src.
+		for dstMapKey, dstMapVal := range dstVal {
+			srcMapVal, exists := srcVal[dstMapKey]
+			if !exists {
+				continue
+			}
+
+			// Merge recursively (if non-scalar values)
+			dstVal[dstMapKey], err = mergeNetplanConfigs(dstMapVal, srcMapVal)
+			if err != nil {
+				return nil, errors.Annotatef(err, "merging configuration key %q", dstMapKey)
+			}
+		}
+
+		// Now append values from src for keys that are not present in
+		// the dst map. However, if the dstVal is nil, just use the
+		// srcVal as-is.
+		if dstVal == nil {
+			return srcVal, nil
+		}
+
+		for srcMapKey, srcMapVal := range srcVal {
+			_, exists := dstVal[srcMapKey]
+			if exists {
+				continue
+			}
+
+			// Insert new value into the destination.
+			dstVal[srcMapKey] = srcMapVal
+		}
+
+		return dstVal, nil
+	case []interface{}:
+		srcVal, ok := src.([]interface{})
+		if !ok {
+			return nil, errors.Errorf("configuration values have different types (destination: %T, src: %T)", dst, src)
+		}
+
+		// Only append missing values to the slice
+		dstLen := len(dstVal)
+	nextSrcSliceVal:
+		for _, srcSliceVal := range srcVal {
+			// If the srcSliceVal is not present in any of the
+			// original dstVal entries then append it. Note that we
+			// don't care about the values that may get potentially
+			// appended, hence the pre-calculation of the dstVal
+			// length.
+			for i := 0; i < dstLen; i++ {
+				if reflect.DeepEqual(dstVal[i], srcSliceVal) {
+					continue nextSrcSliceVal // value already present
+				}
+			}
+
+			dstVal = append(dstVal, srcSliceVal)
+		}
+		return dstVal, nil
+	default:
+		// Assume a scalar value and overwrite with src
+		return src, nil
+	}
 }
 
 // MoveYamlsToBak moves source .yaml files in a directory to .yaml.bak.(timestamp), except
