@@ -212,9 +212,10 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 		if missingInstanceCount == len(toReturn) {
 			return nil, environs.ErrNoInstances
 		}
-	}
+		return toReturn, environs.ErrPartialInstances
 
-	return toReturn, environs.ErrPartialInstances
+	}
+	return toReturn, nil
 }
 
 func (e *environ) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
@@ -555,7 +556,7 @@ func (e *environ) findInstanceSpec(controller bool, allImages []*imagemetadata.I
 				if p == it.Name {
 					image := &imagemetadata.ImageMetadata{
 						Id:   os.Slug,
-						Arch: arch.AMD64,
+						Arch: getArchitectureFromPlan(p),
 					}
 					suitableImages = append(suitableImages, image)
 				}
@@ -670,4 +671,23 @@ func isDistroSupported(os packngo.OS, ic *instances.InstanceConstraint) bool {
 	}
 
 	return true
+}
+
+// helper function which tries to extract processor architecture from plan name. 
+// plan names have format like c2.small.arm where in majority of cases the last bit indicates processor architecture.
+// in some cases baremeta_1 and similar are returned which are mapped to AMD64.
+func getArchitectureFromPlan(p string) string {
+	planSplit := strings.Split(p, ".")
+	var architecture string
+	if len(planSplit) > 2 {
+		architecture = planSplit[2]
+	}
+	switch architecture {
+	case "x86":
+		return arch.AMD64
+	case "arm":
+		return arch.ARM64
+	default:
+		return arch.AMD64
+	}
 }
