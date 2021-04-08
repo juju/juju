@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"bytes"
+	"strings"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
@@ -152,16 +153,16 @@ func transformInfoChannelMap(channelMap []transport.InfoChannelMap, isKub bool) 
 func convertBasesToPlatforms(in []transport.Base, isKub bool) []params.Platform {
 	out := make([]params.Platform, len(in))
 	for i, v := range in {
-		channel := v.Channel
+		var series string
 		if isKub {
-			// Kubernetes is not a valid series for a base.  Instead use the latest
-			// LTS version of ubuntu.
-			channel = coreseries.LatestLts()
+			series = "kubernetes"
+		} else {
+			series, _ = coreseries.VersionSeries(v.Channel)
 		}
-		series, _ := coreseries.VersionSeries(channel)
+		os, _ := coreseries.GetOSFromSeries(series)
 		out[i] = params.Platform{
 			Architecture: v.Architecture,
-			OS:           v.Name,
+			OS:           strings.ToLower(os.String()),
 			Series:       series,
 		}
 	}
@@ -261,6 +262,9 @@ func convertBundle(charms []transport.Charm) *params.CharmHubBundle {
 	return bundle
 }
 
+// TODO (hml) 2021-04-08
+// Update location of series for kubernetes series once manifest.yaml
+// is available.
 func isKubernetes(meta *charm.Meta) bool {
 	if len(meta.Containers) > 0 {
 		return true
