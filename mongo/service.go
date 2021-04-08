@@ -94,8 +94,8 @@ type ConfigArgs struct {
 
 	// network params
 	IPv6             bool
-	SSLOnNormalPorts bool
-	SSLMode          string
+	TLSOnNormalPorts bool
+	TLSMode          string
 
 	// logging
 	Syslog    bool
@@ -141,7 +141,7 @@ func (conf configArgsConverter) asCommandLineArguments() string {
 }
 
 func (conf configArgsConverter) asMongoDbConfigurationFileFormat() string {
-	pathArgs := set.NewStrings("dbpath", "logpath", "sslPEMKeyFile", "keyFile")
+	pathArgs := set.NewStrings("dbpath", "logpath", "tlsCertificateKeyFile", "keyFile")
 	command := make([]string, 0, len(conf))
 	var keys []string
 	for k := range conf {
@@ -160,7 +160,7 @@ func (conf configArgsConverter) asMongoDbConfigurationFileFormat() string {
 			value = "true"
 		}
 		line := fmt.Sprintf("%s = %s", key, value)
-		if strings.HasPrefix(key, "sslPEMKeyPassword") {
+		if strings.HasPrefix(key, "tlsCertificateKeyFilePassword") {
 			line = key
 		}
 		command = append(command, line)
@@ -190,26 +190,26 @@ func (mongoArgs *ConfigArgs) asMap() configArgsConverter {
 	if mongoArgs.BindToAllIP {
 		result["bind_ip_all"] = flagMarker
 	}
-	if mongoArgs.SSLMode != "" {
-		result["sslMode"] = mongoArgs.SSLMode
+	if mongoArgs.TLSMode != "" {
+		result["tlsMode"] = mongoArgs.TLSMode
 	}
 	if mongoArgs.LogAppend {
 		result["logappend"] = flagMarker
 	}
 
-	if mongoArgs.SSLOnNormalPorts {
-		result["sslOnNormalPorts"] = flagMarker
+	if mongoArgs.TLSOnNormalPorts {
+		result["tlsOnNormalPorts"] = flagMarker
 	}
 
 	// authn
 	if mongoArgs.PEMKeyFile != "" {
-		result["sslPEMKeyFile"] = utils.ShQuote(mongoArgs.PEMKeyFile)
-		//--sslPEMKeyPassword must be concatenated to the equals sign (lp:1581284)
+		result["tlsCertificateKeyFile"] = utils.ShQuote(mongoArgs.PEMKeyFile)
+		//--tlsCertificateKeyFilePassword must be concatenated to the equals sign (lp:1581284)
 		pemPassword := mongoArgs.PEMKeyPassword
 		if pemPassword == "" {
 			pemPassword = "ignored"
 		}
-		result["sslPEMKeyPassword="+pemPassword] = flagMarker
+		result["tlsCertificateKeyFilePassword="+pemPassword] = flagMarker
 	}
 
 	if mongoArgs.AuthKeyFile != "" {
@@ -286,8 +286,8 @@ func generateConfig(oplogSizeMB int, args EnsureServerParams) *ConfigArgs {
 		AuthKeyFile:      sharedSecretPath(args.DataDir),
 		PEMKeyFile:       sslKeyPath(args.DataDir),
 		PEMKeyPassword:   "ignored", // used as boilerplate later
-		SSLOnNormalPorts: false,
-		SSLMode:          "requireSSL",
+		TLSOnNormalPorts: false,
+		TLSMode:          "requireTLS",
 		BindToAllIP:      true, // TODO(tsm): disable when not needed
 		//BindIP:         "127.0.0.1", // TODO(tsm): use machine's actual IP address via dialInfo
 	}

@@ -27,7 +27,7 @@ type Args struct {
 	Password     string
 	Database     string
 	AuthDatabase string
-	SSL          bool
+	TLS          bool
 	Verbose      bool
 }
 
@@ -37,7 +37,7 @@ var defaultArgs = Args{
 	Password:     "",
 	Database:     "juju",
 	AuthDatabase: "admin",
-	SSL:          true,
+	TLS:          true,
 	Verbose:      false,
 }
 
@@ -75,12 +75,12 @@ Where txn is a JSON encoded list of transaction operations taking the form:
 	flags.StringVar(&args.Password, "password", defaultArgs.Password, "password for connection")
 	flags.StringVar(&args.Database, "db", defaultArgs.Database, "database to access")
 	flags.StringVar(&args.AuthDatabase, "authdb", defaultArgs.AuthDatabase, "database to use for authentication")
-	flags.BoolVar(&args.SSL, "ssl", defaultArgs.SSL, "use --ssl=false to disable ssl")
+	flags.BoolVar(&args.TLS, "tls", defaultArgs.TLS, "use --tls=false to disable tls")
 	flags.BoolVar(&args.Verbose, "v", defaultArgs.Verbose, "print transaction before running it")
 	return args
 }
 
-func dialSSL(addr *mgo.ServerAddr) (net.Conn, error) {
+func dialTLS(addr *mgo.ServerAddr) (net.Conn, error) {
 	c, err := net.Dial("tcp", addr.String())
 	if err != nil {
 		return nil, err
@@ -135,8 +135,8 @@ func main() {
 		Password:   args.Password,
 		DialServer: nil, // func(addr *ServerAddr) (net.Conn, error)
 	}
-	if args.SSL {
-		dialInfo.DialServer = dialSSL
+	if args.TLS {
+		dialInfo.DialServer = dialTLS
 	}
 	session, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {

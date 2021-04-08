@@ -64,7 +64,7 @@ func makeEnsureServerParams(dataDir, configDir string) mongo.EnsureServerParams 
 func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	testing.PatchExecutable(c, s, "juju-db.mongod", "#!/bin/bash\n\nprintf %s 'db version v4.4.2'\n")
+	testing.PatchExecutable(c, s, "juju-db.mongod", "#!/bin/bash\n\nprintf %s 'db version v4.4.4'\n")
 	jujuMongodPath, err := exec.LookPath("juju-db.mongod")
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&mongo.JujuDbSnapMongodPath, jujuMongodPath)
@@ -92,7 +92,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *MongoSuite) assertSSLKeyFile(c *gc.C, dataDir string) {
+func (s *MongoSuite) assertTLSKeyFile(c *gc.C, dataDir string) {
 	contents, err := ioutil.ReadFile(mongo.SSLKeyPath(dataDir))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(contents), gc.Equals, testInfo.Cert+"\n"+testInfo.PrivateKey)
@@ -127,10 +127,10 @@ oplogSize = 1
 port = 25252
 quiet = true
 replSet = juju
-sslMode = requireSSL
-sslPEMKeyFile = %s/server.pem
-sslPEMKeyPassword=ignored
-storageEngine = wiredTiger`, dataDir, dataDir, dataDir)
+storageEngine = wiredTiger
+tlsCertificateKeyFile = %s/server.pem
+tlsCertificateKeyFilePassword=ignored
+tlsMode = requireTLS`, dataDir, dataDir, dataDir)
 
 	c.Assert(string(contents), jc.DeepEquals, part1+part2)
 }
@@ -138,7 +138,7 @@ storageEngine = wiredTiger`, dataDir, dataDir, dataDir)
 func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 	dataDir := s.assertEnsureServerIPv6(c, true)
 
-	s.assertSSLKeyFile(c, dataDir)
+	s.assertTLSKeyFile(c, dataDir)
 	s.assertSharedSecretFile(c, dataDir)
 	s.assertMongoConfigFile(c, dataDir, true)
 
@@ -154,7 +154,7 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 func (s *MongoSuite) TestEnsureServerNoIPv6(c *gc.C) {
 	dataDir := s.assertEnsureServerIPv6(c, false)
 
-	s.assertSSLKeyFile(c, dataDir)
+	s.assertTLSKeyFile(c, dataDir)
 	s.assertSharedSecretFile(c, dataDir)
 	s.assertMongoConfigFile(c, dataDir, false)
 }

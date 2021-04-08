@@ -19,7 +19,7 @@ const (
 	JujudOCINamespace = "jujusolutions"
 	JujudOCIName      = "jujud-operator"
 	JujudbOCIName     = "juju-db"
-	JujudbVersion     = "4.0"
+	JujudbVersion     = "4.4"
 )
 
 // GetControllerImagePath returns oci image path of jujud for a controller.
