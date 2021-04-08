@@ -130,7 +130,7 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 					Base: transport.Base{
 						Architecture: "all",
 						Name:         "ubuntu",
-						Channel:      "bionic",
+						Channel:      "18.04",
 					},
 					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
 					Risk:       "stable",
@@ -146,7 +146,7 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 					Bases: []transport.Base{{
 						Architecture: "all",
 						Name:         "ubuntu",
-						Channel:      "bionic",
+						Channel:      "18.04",
 					}},
 					Revision: 16,
 					Version:  "1.0.3",

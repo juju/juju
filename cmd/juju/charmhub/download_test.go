@@ -263,27 +263,27 @@ func (s *downloadSuite) expectRefreshUnsupportedSeries() {
 				Extra: transport.APIErrorExtra{
 					Releases: []transport.Release{
 						{
-							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "bionic"},
+							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "18.04"},
 							Channel: "stable",
 						},
 						{
-							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "trusty"},
+							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "14.04"},
 							Channel: "stable",
 						},
 						{
-							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "trusty"},
+							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "14.04"},
 							Channel: "candidate",
 						},
 						{
-							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "xenial"},
+							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "16.04"},
 							Channel: "stable",
 						},
 						{
-							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "focal"},
+							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "20.04"},
 							Channel: "beta",
 						},
 						{
-							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "xenial"},
+							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "14.04"},
 							Channel: "edge",
 						},
 					},
