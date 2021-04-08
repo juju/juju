@@ -6,6 +6,7 @@ package state
 import (
 	"runtime/debug"
 	"sync"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -13,7 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/txn"
-	jujutxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn/v2"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/controller"
@@ -384,6 +385,8 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			RunTransactionObserver: observer,
 			Clock:                  db.clock,
 			ServerSideTransactions: db.serverSideTransactions,
+			RetryBackoff:           1 * time.Millisecond,
+			MaxRetryAttempts:       100,
 		}
 		runner = jujutxn.NewRunner(params)
 	}

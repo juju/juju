@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	txn "github.com/juju/txn"
+	txn "github.com/juju/txn/v2"
 )
 
 // MockRunner is a mock of Runner interface
