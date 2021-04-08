@@ -76,6 +76,21 @@ func (a *AuthoritySuite) TestLeafRequest(c *gc.C) {
 	c.Assert(leaf.Certificate().IPAddresses, jc.DeepEquals, ipAddresses)
 }
 
+func (a *AuthoritySuite) TestLeafRequestChain(c *gc.C) {
+	authority, err := pki.NewDefaultAuthority(a.ca, a.signer)
+	c.Assert(err, jc.ErrorIsNil)
+	dnsNames := []string{"test.juju.is"}
+	ipAddresses := []net.IP{net.ParseIP("fe80:abcd::1")}
+	leaf, err := authority.LeafRequestForGroup("testgroup").
+		AddDNSNames(dnsNames...).
+		AddIPAddresses(ipAddresses...).
+		Commit()
+
+	chain := leaf.Chain()
+	c.Assert(len(chain), gc.Equals, 1)
+	c.Assert(chain[0], jc.DeepEquals, authority.Certificate())
+}
+
 func (a *AuthoritySuite) TestLeafFromPem(c *gc.C) {
 	authority, err := pki.NewDefaultAuthority(a.ca, a.signer)
 	c.Assert(err, jc.ErrorIsNil)
