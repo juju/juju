@@ -70,6 +70,8 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin corecharm.O
 	if resErr := res.Error; resErr != nil {
 		switch resErr.Code {
 		case transport.ErrorCodeInvalidCharmPlatform:
+			fallthrough
+		case transport.ErrorCodeInvalidCharmBase:
 			logger.Tracef("Invalid charm platform %q %v - Default Platforms: %v", curl, origin, resErr.Extra.DefaultBases)
 			platform, err := c.selectNextPlatform(resErr.Extra.DefaultBases, origin)
 			if err != nil {

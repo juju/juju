@@ -331,7 +331,7 @@ func (s *charmHubRepositoriesSuite) expectedRefreshInvalidPlatformError(c *gc.C)
 			ID:          "charmCHARMcharmCHARMcharmCHARM01",
 			InstanceKey: id,
 			Error: &transport.APIError{
-				Code:    transport.ErrorCodeInvalidCharmPlatform,
+				Code:    transport.ErrorCodeInvalidCharmBase,
 				Message: "invalid charm platform",
 				Extra: transport.APIErrorExtra{
 					DefaultBases: []transport.Base{{
