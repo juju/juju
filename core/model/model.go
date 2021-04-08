@@ -4,8 +4,6 @@
 package model
 
 import (
-	"fmt"
-
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -82,16 +80,17 @@ func ValidateSeries(args ValidateSeriesArgs) error {
 	switch args.ModelType {
 	case CAAS:
 		if !caasOS.Contains(os.String()) {
-			return errors.NewNotValid(nil, fmt.Sprintf(
-				`%q is not a Containers-as-a-Service (like kubernetes) charm`, args.Name,
-			))
+			return errors.NotValidf(
+				"%q is not a container charm",
+				args.Name,
+			)
 		}
 	case IAAS:
 		if caasOS.Contains(os.String()) {
-			return errors.NewNotValid(nil, fmt.Sprintf(
+			return errors.NotValidf(
 				"%q is not an IAAS charm",
 				args.Name,
-			))
+			)
 		}
 	}
 
