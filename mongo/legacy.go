@@ -19,7 +19,7 @@ import (
 
 // maybeUseLegacyMongo returns nil if there's a juju that's running
 // on a mongo that's not from the juju-db snap.
-// This is used to preserve the setup up older versions being upgraded.
+// This is used to preserve the setup on older versions being upgraded.
 func maybeUseLegacyMongo(args EnsureServerParams, search SearchTools) error {
 	if args.DataDir == "" {
 		args.DataDir = "/var/lib/juju"
@@ -216,8 +216,8 @@ func generateLegacyConfig(mongoPath string, oplogSizeMB int, version version, ar
 			AuthKeyFile:      sharedSecretPath(args.DataDir),
 			PEMKeyFile:       sslKeyPath(args.DataDir),
 			PEMKeyPassword:   "ignored", // used as boilerplate later
-			SSLOnNormalPorts: false,
-			SSLMode:          "requireSSL",
+			TLSOnNormalPorts: false,
+			TLSMode:          "requireTLS",
 		},
 	}
 
@@ -246,12 +246,31 @@ func (mongoArgs *legacyConfigArgs) asService() (mongoService, error) {
 	})
 }
 
-func (mongoArgs *legacyConfigArgs) asMongoDbConfigurationFileFormat() string {
-	return mongoArgs.asMap().asMongoDbConfigurationFileFormat()
-}
-
 func (mongoArgs *legacyConfigArgs) asCommandLineArguments() string {
 	return mongoArgs.mongoPath + " " + mongoArgs.asMap().asCommandLineArguments()
+}
+
+func (mongoArgs *legacyConfigArgs) asMap() configArgsConverter {
+	c := mongoArgs.ConfigArgs.asMap()
+	if mongoArgs.TLSMode != "" {
+		c["sslMode"] = "requireSSL"
+		delete(c, "tlsMode")
+	}
+	if mongoArgs.TLSOnNormalPorts {
+		c["sslOnNormalPorts"] = flagMarker
+		delete(c, "tlsOnNormalPorts")
+	}
+	if mongoArgs.PEMKeyFile != "" {
+		c["sslPEMKeyFile"] = c["tlsCertificateKeyFile"]
+		delete(c, "tlsCertificateKeyFile")
+		pemPassword := mongoArgs.PEMKeyPassword
+		if pemPassword == "" {
+			pemPassword = "ignored"
+		}
+		c["sslPEMKeyPassword="+pemPassword] = flagMarker
+		delete(c, "tlsCertificateKeyFilePassword="+pemPassword)
+	}
+	return c
 }
 
 var (

@@ -43,7 +43,7 @@ func (s *serviceSuite) TestNewConfSnap(c *gc.C) {
 		AuthKeyFile:           "/var/lib/juju/shared-secret",
 		Syslog:                true,
 		Quiet:                 true,
-		SSLMode:               "requireSSL",
+		TLSMode:               "requireTLS",
 		WiredTigerCacheSizeGB: 0.25,
 		BindToAllIP:           true,
 	}
@@ -69,11 +69,11 @@ oplogSize = 10
 port = 12345
 quiet = true
 replSet = juju
-sslMode = requireSSL
-sslPEMKeyFile = %s/server.pem
-sslPEMKeyPassword=ignored
 storageEngine = wiredTiger
 syslog = true
+tlsCertificateKeyFile = %s/server.pem
+tlsCertificateKeyFilePassword=ignored
+tlsMode = requireTLS
 wiredTigerCacheSizeGB = 0.25`[1:], confArgs.Clock.Now().UTC().Format(time.RFC822), dataDir, dataDir, dataDir, dataDir)
 
 	c.Assert(string(contents), jc.DeepEquals, expected)
