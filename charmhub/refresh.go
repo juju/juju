@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
+	coreseries "github.com/juju/juju/core/series"
 )
 
 // Action represents the type of refresh is performed.
@@ -44,6 +45,8 @@ const (
 type Headers = map[string][]string
 
 // RefreshPlatform defines a platform for selecting a specific charm.
+// Continues to exist to allow for incoming platforms to be converted
+// to bases inside this package.
 type RefreshPlatform struct {
 	Architecture string
 	OS           string
@@ -57,6 +60,24 @@ func (p RefreshPlatform) String() string {
 			path = fmt.Sprintf("%s/%s", path, p.OS)
 		}
 		path = fmt.Sprintf("%s/%s", path, p.Series)
+	}
+	return path
+}
+
+// RefreshBase defines a base for selecting a specific charm.
+type RefreshBase struct {
+	Architecture string
+	Name         string
+	Channel      string
+}
+
+func (p RefreshBase) String() string {
+	path := p.Architecture
+	if p.Channel != "" {
+		if p.Name != "" {
+			path = fmt.Sprintf("%s/%s", path, p.Name)
+		}
+		path = fmt.Sprintf("%s/%s", path, p.Channel)
 	}
 	return path
 }
@@ -161,7 +182,7 @@ func RefreshOne(id string, revision int, channel string, platform RefreshPlatfor
 
 // Build a refresh request that can be past to the API.
 func (c refreshOne) Build() (transport.RefreshRequest, Headers, error) {
-	platform, err := constructRefreshPlatform(c.Platform)
+	base, err := constructRefreshBase(c.Platform)
 	if err != nil {
 		return transport.RefreshRequest{}, nil, errors.Trace(err)
 	}
@@ -171,7 +192,7 @@ func (c refreshOne) Build() (transport.RefreshRequest, Headers, error) {
 			InstanceKey:     c.instanceKey,
 			ID:              c.ID,
 			Revision:        c.Revision,
-			Platform:        platform,
+			Base:            base,
 			TrackingChannel: c.Channel,
 			// TODO (stickupkid): We need to model the refreshed date. It's
 			// currently optional, but will be required at some point. This
@@ -309,7 +330,7 @@ func DownloadOneFromChannel(id string, channel string, platform RefreshPlatform)
 
 // Build a refresh request that can be past to the API.
 func (c executeOne) Build() (transport.RefreshRequest, Headers, error) {
-	platform, err := constructRefreshPlatform(c.Platform)
+	base, err := constructRefreshBase(c.Platform)
 	if err != nil {
 		return transport.RefreshRequest{}, nil, errors.Trace(err)
 	}
@@ -333,7 +354,7 @@ func (c executeOne) Build() (transport.RefreshRequest, Headers, error) {
 			Name:        name,
 			Revision:    c.Revision,
 			Channel:     c.Channel,
-			Platform:    &platform,
+			Base:        &base,
 		}},
 	}, constructMetadataHeaders(c.Platform), nil
 }
@@ -417,25 +438,40 @@ func (c refreshMany) String() string {
 	return strings.Join(plans, "\n")
 }
 
-// constructRefreshPlatform creates a refresh request platform that allows for
-// partial platform queries.
-func constructRefreshPlatform(platform RefreshPlatform) (transport.Platform, error) {
+// constructRefreshBase creates a refresh request base that allows for
+// partial base queries.
+func constructRefreshBase(platform RefreshPlatform) (transport.Base, error) {
 	if platform.Architecture == "" {
-		return transport.Platform{}, errors.NotValidf("refresh arch")
+		return transport.Base{}, errors.NotValidf("refresh arch")
 	}
+
 	os := platform.OS
 	if os == "" {
 		os = NotAvailable
 	}
+
 	series := platform.Series
-	if series == "" {
-		series = NotAvailable
+	var channel string
+	switch series {
+	case "":
+		channel = NotAvailable
+	case "kubernetes":
+		// Kubernetes is not a valid series for a base.  Instead use the latest
+		// LTS version of ubuntu.
+		series = coreseries.LatestLts()
+		fallthrough
+	default:
+		var err error
+		channel, err = coreseries.SeriesVersion(series)
+		if err != nil {
+			return transport.Base{}, errors.Trace(err)
+		}
 	}
 
-	return transport.Platform{
+	return transport.Base{
 		Architecture: platform.Architecture,
-		OS:           os,
-		Series:       series,
+		Name:         os,
+		Channel:      channel,
 	}, nil
 }
 

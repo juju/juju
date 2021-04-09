@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/cmd/output/progress"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/version"
 )
@@ -260,7 +261,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	for _, res := range results {
 		if res.Error != nil {
 			if res.Error.Code == transport.ErrorCodeRevisionNotFound {
-				return c.suggested(normPlatform.Series, normChannel.String(), res.Error.Extra.Releases)
+				return c.suggested(normPlatform.Series, normChannel.String(), res.Error.Extra.Releases, cmdContext)
 			}
 			return errors.Errorf("unable to locate %s: %s", c.charmOrBundle, res.Error.Message)
 		}
@@ -328,11 +329,17 @@ Install the %q %s with:
 	return nil
 }
 
-func (c *downloadCommand) suggested(ser string, channel string, releases []transport.Release) error {
+func (c *downloadCommand) suggested(ser string, channel string, releases []transport.Release, cmdContext *cmd.Context) error {
 	series := set.NewStrings()
 	for _, rel := range releases {
 		if rel.Channel == channel {
-			series.Add(rel.Platform.Series)
+			s, err := coreseries.VersionSeries(rel.Base.Channel)
+			if err == nil {
+				series.Add(s)
+			} else {
+				// Shouldn't happen, log and continue if verbose is set.
+				cmdContext.Verbosef("%s of %s", err, rel.Base.Name)
+			}
 		}
 	}
 	return errors.Errorf("%s does not support series %s in channel %s.  Supported series are %s.",

@@ -38,15 +38,15 @@ func (a APIErrors) Error() string {
 // of this object as a series of suggestions to perform against the errorred
 // API request, in the chance of the new request being successful.
 type APIErrorExtra struct {
-	Releases         []Release  `json:"releases"`
-	DefaultPlatforms []Platform `json:"default-platforms"`
+	Releases     []Release `json:"releases"`
+	DefaultBases []Base    `json:"default-bases"`
 }
 
 // Release defines a set of suggested releases that might also work for the
 // given request.
 type Release struct {
-	Platform Platform `json:"platform"`
-	Channel  string   `json:"channel"`
+	Base    Base   `json:"base"`
+	Channel string `json:"channel"`
 }
 
 // APIErrorCode classifies the error code we get back from the API. This isn't
@@ -68,32 +68,35 @@ const (
 	ErrorCodeInconsistentData                  APIErrorCode = "inconsistent-data"
 	ErrorCodeInstanceKeyNotUnique              APIErrorCode = "instance-key-not-unique"
 	ErrorCodeInvalidChannel                    APIErrorCode = "invalid-channel"
-	ErrorCodeInvalidCharmPlatform              APIErrorCode = "invalid-charm-platform"
-	ErrorCodeInvalidCohortKey                  APIErrorCode = "invalid-cohort-key"
-	ErrorCodeInvalidGrade                      APIErrorCode = "invalid-grade"
-	ErrorCodeInvalidMetric                     APIErrorCode = "invalid-metric"
-	ErrorCodeInvalidUnboundEmptySearch         APIErrorCode = "invalid-unbound-empty-search"
-	ErrorCodeMacaroonPermissionRequired        APIErrorCode = "macaroon-permission-required"
-	ErrorCodeMissingCharmPlatform              APIErrorCode = "missing-charm-platform"
-	ErrorCodeMissingContext                    APIErrorCode = "missing-context"
-	ErrorCodeMissingFetchAssertionsKey         APIErrorCode = "missing-fetch-assertions-key"
-	ErrorCodeMissingHeader                     APIErrorCode = "missing-header"
-	ErrorCodeMissingInstanceKey                APIErrorCode = "missing-instance-key"
-	ErrorCodeMissingKey                        APIErrorCode = "missing-key"
-	ErrorCodeNameNotFound                      APIErrorCode = "name-not-found"
-	ErrorCodeNotFound                          APIErrorCode = "not-found"
-	ErrorCodePaymentRequired                   APIErrorCode = "payment-required"
-	ErrorCodeRateLimitExceeded                 APIErrorCode = "rate-limit-exceeded"
-	ErrorCodeRefreshBundleNotSupported         APIErrorCode = "refresh-bundle-not-supported"
-	ErrorCodeRemoteServiceUnavailable          APIErrorCode = "remote-service-unavailable"
-	ErrorCodeResourceNotFound                  APIErrorCode = "resource-not-found"
-	ErrorCodeRevisionConflict                  APIErrorCode = "revision-conflict"
-	ErrorCodeRevisionNotFound                  APIErrorCode = "revision-not-found"
-	ErrorCodeServiceMisconfigured              APIErrorCode = "service-misconfigured"
-	ErrorCodeStoreAuthorizationNeedsRefresh    APIErrorCode = "store-authorization-needs-refresh"
-	ErrorCodeStoreDisallowed                   APIErrorCode = "store-disallowed"
-	ErrorCodeUnexpectedData                    APIErrorCode = "unexpected-data"
-	ErrorCodeUnknownGrade                      APIErrorCode = "unknown-grade"
-	ErrorCodeUserAuthenticationError           APIErrorCode = "user-authentication-error"
-	ErrorCodeUserAuthorizationNeedsRefresh     APIErrorCode = "user-authorization-needs-refresh"
+	ErrorCodeInvalidCharmBase                  APIErrorCode = "invalid-charm-base"
+	// TODO 2021-04-08 hml
+	// Remove once Charmhub API returns ErrorCodeInvalidCharmBase
+	ErrorCodeInvalidCharmPlatform           APIErrorCode = "invalid-charm-platform"
+	ErrorCodeInvalidCohortKey               APIErrorCode = "invalid-cohort-key"
+	ErrorCodeInvalidGrade                   APIErrorCode = "invalid-grade"
+	ErrorCodeInvalidMetric                  APIErrorCode = "invalid-metric"
+	ErrorCodeInvalidUnboundEmptySearch      APIErrorCode = "invalid-unbound-empty-search"
+	ErrorCodeMacaroonPermissionRequired     APIErrorCode = "macaroon-permission-required"
+	ErrorCodeMissingCharmPlatform           APIErrorCode = "missing-charm-platform"
+	ErrorCodeMissingContext                 APIErrorCode = "missing-context"
+	ErrorCodeMissingFetchAssertionsKey      APIErrorCode = "missing-fetch-assertions-key"
+	ErrorCodeMissingHeader                  APIErrorCode = "missing-header"
+	ErrorCodeMissingInstanceKey             APIErrorCode = "missing-instance-key"
+	ErrorCodeMissingKey                     APIErrorCode = "missing-key"
+	ErrorCodeNameNotFound                   APIErrorCode = "name-not-found"
+	ErrorCodeNotFound                       APIErrorCode = "not-found"
+	ErrorCodePaymentRequired                APIErrorCode = "payment-required"
+	ErrorCodeRateLimitExceeded              APIErrorCode = "rate-limit-exceeded"
+	ErrorCodeRefreshBundleNotSupported      APIErrorCode = "refresh-bundle-not-supported"
+	ErrorCodeRemoteServiceUnavailable       APIErrorCode = "remote-service-unavailable"
+	ErrorCodeResourceNotFound               APIErrorCode = "resource-not-found"
+	ErrorCodeRevisionConflict               APIErrorCode = "revision-conflict"
+	ErrorCodeRevisionNotFound               APIErrorCode = "revision-not-found"
+	ErrorCodeServiceMisconfigured           APIErrorCode = "service-misconfigured"
+	ErrorCodeStoreAuthorizationNeedsRefresh APIErrorCode = "store-authorization-needs-refresh"
+	ErrorCodeStoreDisallowed                APIErrorCode = "store-disallowed"
+	ErrorCodeUnexpectedData                 APIErrorCode = "unexpected-data"
+	ErrorCodeUnknownGrade                   APIErrorCode = "unknown-grade"
+	ErrorCodeUserAuthenticationError        APIErrorCode = "user-authentication-error"
+	ErrorCodeUserAuthorizationNeedsRefresh  APIErrorCode = "user-authorization-needs-refresh"
 )
