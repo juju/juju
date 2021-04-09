@@ -71,7 +71,7 @@ type Database interface {
 	// used in almost all cases.
 	GetRawCollection(name string) (*mgo.Collection, SessionCloser)
 
-	// TransactionRunner() returns a runner responsible for making changes to
+	// TransactionRunner returns a runner responsible for making changes to
 	// the database, and a func that must be called when the runner is no longer
 	// needed. The returned Runner might or might not have its own session,
 	// depending on the Database; the closer must always be called regardless.
@@ -86,7 +86,7 @@ type Database interface {
 	// transaction.
 	RunTransaction(ops []txn.Op) error
 
-	// RunTransaction is a convenience method for running a single
+	// RunTransactionFor is a convenience method for running a single
 	// transaction for the model specified.
 	RunTransactionFor(modelUUID string, ops []txn.Op) error
 
@@ -270,7 +270,7 @@ type database struct {
 
 // RunTransactionObserverFunc is the type of a function to be called
 // after an mgo/txn transaction is run.
-type RunTransactionObserverFunc func(dbName, modelUUID string, ops []txn.Op, err error)
+type RunTransactionObserverFunc func(dbName, modelUUID string, attempt int, duration time.Duration, ops []txn.Op, err error)
 
 func (db *database) copySession(modelUUID string) (*database, SessionCloser) {
 	session := db.raw.Session.Copy()
@@ -376,6 +376,8 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 					t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
 				db.runTransactionObserver(
 					db.raw.Name, db.modelUUID,
+					t.Attempt,
+					t.Duration,
 					t.Ops, t.Error,
 				)
 			}
@@ -385,8 +387,7 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			RunTransactionObserver: observer,
 			Clock:                  db.clock,
 			ServerSideTransactions: db.serverSideTransactions,
-			RetryBackoff:           1 * time.Millisecond,
-			MaxRetryAttempts:       100,
+			MaxRetryAttempts:       40,
 		}
 		runner = jujutxn.NewRunner(params)
 	}

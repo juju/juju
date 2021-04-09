@@ -393,7 +393,7 @@ func (s *ActionSuite) TestLastActionFinishCompletesOperationMany(c *gc.C) {
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
 
-	numActions := 50
+	numActions := 500
 
 	wg := sync.WaitGroup{}
 	var actions []state.Action

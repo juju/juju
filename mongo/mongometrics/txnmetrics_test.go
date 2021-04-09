@@ -6,6 +6,7 @@ package mongometrics_test
 import (
 	"errors"
 	"reflect"
+	"time"
 
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
@@ -40,12 +41,14 @@ func (s *TxnCollectorSuite) TestDescribe(c *gc.C) {
 	for desc := range ch {
 		descs = append(descs, desc)
 	}
-	c.Assert(descs, gc.HasLen, 1)
+	c.Assert(descs, gc.HasLen, 3)
 	c.Assert(descs[0].String(), gc.Matches, `.*fqName: "juju_mgo_txn_ops_total".*`)
+	c.Assert(descs[1].String(), gc.Matches, `.*fqName: "juju_mgo_txn_retries".*`)
+	c.Assert(descs[2].String(), gc.Matches, `.*fqName: "juju_mgo_txn_durations".*`)
 }
 
 func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
-	s.collector.AfterRunTransaction("dbname", "modeluuid", []txn.Op{{
+	s.collector.AfterRunTransaction("dbname", "modeluuid", 1, time.Millisecond, []txn.Op{{
 		C:      "update-coll",
 		Update: bson.D{},
 	}, {
@@ -58,7 +61,7 @@ func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
 		C: "assert-coll",
 	}}, nil)
 
-	s.collector.AfterRunTransaction("dbname", "modeluuid", []txn.Op{{
+	s.collector.AfterRunTransaction("dbname", "modeluuid", 1, time.Millisecond, []txn.Op{{
 		C:      "update-coll",
 		Update: bson.D{},
 	}}, errors.New("bewm"))
@@ -73,9 +76,9 @@ func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
 	for metric := range ch {
 		metrics = append(metrics, metric)
 	}
-	c.Assert(metrics, gc.HasLen, 5)
+	c.Assert(metrics, gc.HasLen, 7)
 
-	var dtoMetrics [5]dto.Metric
+	var dtoMetrics [7]dto.Metric
 	for i, metric := range metrics {
 		err := metric.Write(&dtoMetrics[i])
 		c.Assert(err, jc.ErrorIsNil)
@@ -84,8 +87,33 @@ func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
 	float64ptr := func(v float64) *float64 {
 		return &v
 	}
+	uint64ptr := func(v uint64) *uint64 {
+		return &v
+	}
 	labelpair := func(n, v string) *dto.LabelPair {
 		return &dto.LabelPair{Name: &n, Value: &v}
+	}
+	var retryBuckets []*dto.Bucket
+	for i := 0; i<50; i++ {
+		count := uint64(0)
+		if i > 0 {
+			count = 5
+		}
+		retryBuckets = append(retryBuckets, &dto.Bucket{
+			CumulativeCount:      uint64ptr(count),
+			UpperBound:           float64ptr(float64(i)),
+		})
+	}
+	var durationBuckets []*dto.Bucket
+	for i := 0; i<50; i++ {
+		count := uint64(0)
+		if i > 0 {
+			count = 5
+		}
+		durationBuckets = append(durationBuckets, &dto.Bucket{
+			CumulativeCount:      uint64ptr(count),
+			UpperBound:           float64ptr(float64(2 * i)),
+		})
 	}
 	expected := []dto.Metric{
 		{
@@ -131,6 +159,20 @@ func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
 				labelpair("database", "dbname"),
 				labelpair("failed", "failed"),
 				labelpair("optype", "update"),
+			},
+		},
+		{
+			Histogram: &dto.Histogram{
+				SampleCount:          uint64ptr(5),
+				SampleSum:            float64ptr(5),
+				Bucket:               retryBuckets,
+			},
+		},
+		{
+			Histogram: &dto.Histogram{
+				SampleCount:          uint64ptr(5),
+				SampleSum:            float64ptr(5),
+				Bucket:               durationBuckets,
 			},
 		},
 	}
