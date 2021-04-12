@@ -206,3 +206,16 @@ func (s *serviceSuite) TestInstalledListError(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, listErr.Error())
 	c.Assert(exists, jc.IsFalse)
 }
+
+func (s *serviceSuite) TestInstallCommands(c *gc.C) {
+	commands, err := s.mgr.InstallCommands()
+	c.Assert(err, gc.IsNil)
+
+	expected := []string{
+		fmt.Sprintf("New-Service -Name %s -DependsOn Winmgmt -DisplayName %s %s", s.name, s.conf.Desc, s.conf.ExecStart),
+		fmt.Sprintf("sc.exe failure %s reset=5 actions=restart/1000", s.name),
+		fmt.Sprintf("sc.exe failureflag %s 1", s.name),
+	}
+
+	c.Assert(commands, gc.DeepEquals, expected)
+}

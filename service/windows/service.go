@@ -234,9 +234,6 @@ func (s *Service) InstallCommands() ([]string, error) {
 		renderer.Quote(s.Service.Conf.Desc),
 		renderer.Quote(s.Service.Conf.ExecStart),
 		renderer.Quote(s.Service.Name),
-		renderer.Quote(s.Service.Conf.Desc),
-		renderer.Quote(s.Service.Conf.ExecStart),
-		renderer.Quote(s.Service.Name),
 		renderer.Quote(s.Service.Name),
 	)
 	return strings.Split(cmd, "\n"), nil
