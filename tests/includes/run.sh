@@ -16,19 +16,24 @@ run() {
 
 	START_TIME=$(date +%s)
 
-	"${CMD}" "$@" 2>&1
 	set_verbosity
+
+	if [[ "${VERBOSE}" -gt 1 ]]; then
+		touch "${TEST_DIR}/${TEST_CURRENT}.log"
+		tail -f "${TEST_DIR}/${TEST_CURRENT}.log" 2>/dev/null &
+		pid=$!
+
+		trap "kill -9 ${pid} >/dev/null || true" EXIT
+	fi
+
+	"${CMD}" "$@" 2>&1 >"${TEST_DIR}/${TEST_CURRENT}.log"
+	if [[ "${VERBOSE}" -gt 1 ]]; then
+		kill -9 ${pid} >/dev/null || true
+	fi
 
 	END_TIME=$(date +%s)
 
 	echo -e "\r===> [ $(green "✔") ] Success: ${DESC} ($((END_TIME - START_TIME))s)"
-}
-
-run_error_early() {
-	set -e
-	shift
-
-	"${1}" "$@"
 }
 
 # run_linter will run until the end of a pipeline even if there is a failure.
