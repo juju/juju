@@ -214,7 +214,7 @@ destroy_model() {
 	# shellcheck disable=SC2034
 	OUT=$(juju models --format=json | jq '.models | .[] | .["short-name"]' | grep "${name}" || true)
 	# shellcheck disable=SC2181
-	if [ -z "${OUT}" ]; then
+	if [[ -z "${OUT}" ]]; then
 		return
 	fi
 
@@ -223,7 +223,7 @@ destroy_model() {
 	echo "====> Destroying juju model ${name}"
 	echo "${name}" | xargs -I % juju destroy-model -y % >"${output}" 2>&1 || true
 	CHK=$(cat "${output}" | grep -i "ERROR" || true)
-	if [ -n "${CHK}" ]; then
+	if [[ -n "${CHK}" ]]; then
 		printf '\nFound some issues\n'
 		cat "${output}"
 		exit 1
@@ -315,7 +315,7 @@ introspect_controller() {
 	name=${1}
 
 	idents=$(juju machines -m "${name}:controller" --format=json | jq ".machines | keys | .[]")
-	if [ -z "${idents}" ]; then
+	if [[ -z "${idents}" ]]; then
 		return
 	fi
 

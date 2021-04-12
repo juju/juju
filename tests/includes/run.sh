@@ -2,9 +2,9 @@
 run() {
 	CMD="${1}"
 
-	if [ -n "${RUN_SUBTEST}" ]; then
+	if [[ -n "${RUN_SUBTEST}" ]]; then
 		# shellcheck disable=SC2143
-		if [ ! "$(echo "${RUN_SUBTEST}" | grep -E "^${CMD}$")" ]; then
+		if [[ ! "$(echo "${RUN_SUBTEST}" | grep -E "^${CMD}$")" ]]; then
 			echo "SKIPPING: ${RUN_SUBTEST} ${CMD}"
 			exit 0
 		fi
@@ -36,9 +36,9 @@ run_error_early() {
 run_linter() {
 	CMD="${1}"
 
-	if [ -n "${RUN_SUBTEST}" ]; then
+	if [[ -n "${RUN_SUBTEST}" ]]; then
 		# shellcheck disable=SC2143
-		if [ ! "$(echo "${RUN_SUBTEST}" | grep -E "^${CMD}$")" ]; then
+		if [[ ! "$(echo "${RUN_SUBTEST}" | grep -E "^${CMD}$")" ]]; then
 			echo "SKIPPING: ${RUN_SUBTEST} ${CMD}"
 			exit 0
 		fi
@@ -64,13 +64,13 @@ run_linter() {
 	set +o pipefail
 
 	# Only output if it's not empty.
-	if [ -n "${cmd_output}" ]; then
+	if [[ -n "${cmd_output}" ]]; then
 		echo -e "${cmd_output}" | OUTPUT "${TEST_DIR}/${TEST_CURRENT}.log"
 	fi
 
 	END_TIME=$(date +%s)
 
-	if [ "${cmd_status}" -eq 0 ]; then
+	if [[ "${cmd_status}" -eq 0 ]]; then
 		echo -e "\r===> [ $(green "✔") ] Success: ${DESC} ($((END_TIME - START_TIME))s)"
 	else
 		echo -e "\r===> [ $(red "x") ] Fail: ${DESC} ($((END_TIME - START_TIME))s)"
@@ -81,7 +81,7 @@ run_linter() {
 skip() {
 	CMD="${1}"
 	# shellcheck disable=SC2143,SC2046
-	if [ $(echo "${SKIP_LIST:-}" | grep -w "${CMD}") ]; then
+	if [[ $(echo "${SKIP_LIST:-}" | grep -w "${CMD}") ]]; then
 		echo "SKIP"
 		exit 1
 	fi

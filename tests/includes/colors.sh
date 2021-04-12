@@ -14,7 +14,7 @@ supports_colors() {
 }
 
 red() {
-	if [ "$(supports_colors)" = "YES" ]; then
+	if [[ "$(supports_colors)" = "YES" ]]; then
 		tput sgr0
 		echo "$(tput setaf 1)${1}$(tput sgr0)"
 		return
@@ -23,7 +23,7 @@ red() {
 }
 
 green() {
-	if [ "$(supports_colors)" = "YES" ]; then
+	if [[ "$(supports_colors)" = "YES" ]]; then
 		tput sgr0
 		echo "$(tput setaf 2)${1}$(tput sgr0)"
 		return

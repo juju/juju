@@ -4,11 +4,11 @@ check_dependencies() {
 
 	for dep in "$@"; do
 		if ! which "$dep" >/dev/null 2>&1; then
-			[ "$missing" ] && missing="$missing $dep" || missing="$dep"
+			[[ "$missing" ]] && missing="$missing, $dep" || missing="$dep"
 		fi
 	done
 
-	if [ "$missing" ]; then
+	if [[ "$missing" ]]; then
 		echo "Missing dependencies: $missing" >&2
 		echo ""
 		exit 1
@@ -21,12 +21,12 @@ check_juju_dependencies() {
 
 	for dep in "$@"; do
 		if ! juju "$dep" >/dev/null 2>&1; then
-			[ "$missing" ] && missing="$missing $dep" || missing="$dep"
+			[[ "$missing" ]] && missing="$missing, juju $dep" || missing="juju $dep"
 		fi
 	done
 
-	if [ "$missing" ]; then
-		echo "Missing dependencies: $missing" >&2
+	if [[ "$missing" ]]; then
+		echo "Missing juju commands: $missing" >&2
 		echo ""
 		exit 1
 	fi

@@ -168,7 +168,7 @@ while getopts "hH?vAs:a:x:rl:p:S:" opt; do
 		export BOOTSTRAP_REUSE="true"
 		CLOUD=$(juju show-controller "${OPTARG}" --format=json | jq -r ".[\"${OPTARG}\"] | .details | .cloud")
 		PROVIDER=$(juju clouds --client 2>/dev/null | grep "${CLOUD}" | awk '{print $4}' | head -n 1)
-		if [ -z "${PROVIDER}" ]; then
+		if [[ -z "${PROVIDER}" ]]; then
 			PROVIDER="${CLOUD}"
 		fi
 		export BOOTSTRAP_PROVIDER="${PROVIDER}"
@@ -187,13 +187,13 @@ while getopts "hH?vAs:a:x:rl:p:S:" opt; do
 done
 
 shift $((OPTIND - 1))
-[ "${1:-}" = "--" ] && shift
+[[ "${1:-}" = "--" ]] && shift
 
 export VERBOSE="${VERBOSE}"
 export SKIP_LIST="${SKIP_LIST}"
 
-if [ "$#" -eq 0 ]; then
-	if [ "${RUN_ALL}" != "true" ]; then
+if [[ "$#" -eq 0 ]]; then
+	if [[ "${RUN_ALL}" != "true" ]]; then
 		echo "$(red '---------------------------------------')"
 		echo "$(red 'Run with -A to run all the test suites.')"
 		echo "$(red '---------------------------------------')"
@@ -208,7 +208,7 @@ echo ""
 echo "==> Checking for dependencies"
 check_dependencies curl jq shellcheck
 
-if [ "${USER:-'root'}" = "root" ]; then
+if [[ "${USER:-'root'}" = "root" ]]; then
 	echo "The testsuite must not be run as root." >&2
 	exit 1
 fi
@@ -218,8 +218,8 @@ cleanup() {
 	set +ex
 
 	# Allow for inspection
-	if [ -n "${TEST_INSPECT:-}" ]; then
-		if [ "${TEST_RESULT}" != "success" ]; then
+	if [[ -n "${TEST_INSPECT:-}" ]]; then
+		if [[ "${TEST_RESULT}" != "success" ]]; then
 			echo "==> TEST DONE: ${TEST_CURRENT_DESCRIPTION}"
 		fi
 		echo "==> Test result: ${TEST_RESULT}"
@@ -235,9 +235,9 @@ cleanup() {
 	cleanup_funcs
 
 	echo ""
-	if [ "${TEST_RESULT}" != "success" ]; then
+	if [[ "${TEST_RESULT}" != "success" ]]; then
 		echo "==> TESTS DONE: ${TEST_CURRENT_DESCRIPTION}"
-		if [ -f "${TEST_DIR}/${TEST_CURRENT}.log" ]; then
+		if [[ -f "${TEST_DIR}/${TEST_CURRENT}.log" ]]; then
 			echo "==> RUN OUTPUT: ${TEST_CURRENT}"
 			cat "${TEST_DIR}/${TEST_CURRENT}.log" | sed 's/^/    | /g'
 			echo ""
@@ -246,14 +246,14 @@ cleanup() {
 	echo "==> Test result: ${TEST_RESULT}"
 
 	# Move any artifacts to the choosen location
-	if [ -n "${ARITFACT_FILE}" ]; then
+	if [[ -n "${ARITFACT_FILE}" ]]; then
 		echo "==> Test artifact: ${ARITFACT_FILE}"
-		if [ -f "${OUTPUT_FILE}" ]; then
+		if [[ -f "${OUTPUT_FILE}" ]]; then
 			cp "${OUTPUT_FILE}" "${TEST_DIR}"
 		fi
 		TAR_OUTPUT=$(tar -C "${TEST_DIR}" --transform s/./artifacts/ -zcvf "${ARITFACT_FILE}" ./ 2>&1)
 		# shellcheck disable=SC2181
-		if [ $? -ne 0 ]; then
+		if [[ $? -ne 0 ]]; then
 			echo "${TAR_OUTPUT}"
 			exit 1
 		fi
@@ -280,7 +280,7 @@ run_test() {
 	TEST_CURRENT_DESCRIPTION=${2:-${1}}
 	TEST_CURRENT_NAME=${TEST_CURRENT#"test_"}
 
-	if [ -n "${4}" ]; then
+	if [[ -n "${4}" ]]; then
 		TEST_CURRENT=${4}
 	fi
 
@@ -296,11 +296,11 @@ run_test() {
 }
 
 # allow for running a specific set of tests
-if [ "$#" -gt 0 ]; then
+if [[ "$#" -gt 0 ]]; then
 	# shellcheck disable=SC2143
-	if [ "$(echo "${2}" | grep -E "^run_")" ]; then
+	if [[ "$(echo "${2}" | grep -E "^run_")" ]]; then
 		TEST="$(grep -lr "run \"${2}\"" "suites/${1}" | xargs sed -rn 's/.*(test_\w+)\s+?\(\)\s+?\{/\1/p')"
-		if [ -z "${TEST}" ]; then
+		if [[ -z "${TEST}" ]]; then
 			echo "==> Unable to find parent test for ${2}."
 			echo "    Try and run the parent test directly."
 			exit 1
