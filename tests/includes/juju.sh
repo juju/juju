@@ -91,9 +91,9 @@ bootstrap() {
 		touch "${TEST_DIR}/jujus"
 	fi
 	bootstrapped_name=$({ grep "." "${TEST_DIR}/jujus" || echo ""; } | tail -n 1)
-	if [[ -z "${bootstrapped_name}" ]]; then
+	if [[ -z ${bootstrapped_name} ]]; then
 		# shellcheck disable=SC2236
-		if [[ ! -z "${BOOTSTRAP_REUSE_LOCAL}" ]]; then
+		if [[ -n ${BOOTSTRAP_REUSE_LOCAL} ]]; then
 			bootstrapped_name="${BOOTSTRAP_REUSE_LOCAL}"
 			export BOOTSTRAP_REUSE="true"
 		else
@@ -102,11 +102,11 @@ bootstrap() {
 			export BOOTSTRAP_REUSE="false"
 		fi
 	fi
-	if [[ "${BOOTSTRAP_REUSE}" = "true" ]]; then
+	if [[ ${BOOTSTRAP_REUSE} == "true" ]]; then
 		OUT=$(juju show-machine -m "${bootstrapped_name}":controller --format=json | jq -r ".machines | .[] | .series")
-		if [[ -n "${OUT}" ]]; then
+		if [[ -n ${OUT} ]]; then
 			OUT=$(echo "${OUT}" | grep -oh "${BOOTSTRAP_SERIES}" || true)
-			if [[ "${OUT}" != "${BOOTSTRAP_SERIES}" ]]; then
+			if [[ ${OUT} != "${BOOTSTRAP_SERIES}" ]]; then
 				echo "====> Unable to reuse bootstrapped juju"
 				export BOOTSTRAP_REUSE="false"
 			fi
@@ -116,11 +116,11 @@ bootstrap() {
 	version=$(juju_version)
 
 	START_TIME=$(date +%s)
-	if [[ "${BOOTSTRAP_REUSE}" = "true" ]]; then
+	if [[ ${BOOTSTRAP_REUSE} == "true" ]]; then
 		echo "====> Reusing bootstrapped juju ($(green "${version}:${provider}"))"
 
 		OUT=$(juju models -c "${bootstrapped_name}" --format=json 2>/dev/null | jq '.models[] | .["short-name"]' | grep "${model}" || true)
-		if [[ -n "${OUT}" ]]; then
+		if [[ -n ${OUT} ]]; then
 			echo "${model} already exists. Use the following to clean up the environment:"
 			echo "    juju switch ${bootstrapped_name}"
 			echo "    juju destroy-model -y ${model}"
@@ -151,7 +151,7 @@ add_model() {
 	output=${4}
 
 	OUT=$(juju controllers --format=json | jq '.controllers | .["${bootstrapped_name}"] | .cloud' | grep "${provider}" || true)
-	if [[ -n "${OUT}" ]]; then
+	if [[ -n ${OUT} ]]; then
 		juju add-model -c "${controller}" "${model}" "${provider}" 2>&1 | OUTPUT "${output}"
 	else
 		juju add-model -c "${controller}" "${model}" 2>&1 | OUTPUT "${output}"
@@ -181,8 +181,8 @@ juju_bootstrap() {
 	"${CURRENT_LTS}")
 		series="--bootstrap-series=${BOOTSTRAP_SERIES} --config image-stream=daily --force"
 		;;
-	"")
-		;;
+	"") ;;
+
 	*)
 		series="--bootstrap-series=${BOOTSTRAP_SERIES}"
 		;;
@@ -214,7 +214,7 @@ destroy_model() {
 	# shellcheck disable=SC2034
 	OUT=$(juju models --format=json | jq '.models | .[] | .["short-name"]' | grep "${name}" || true)
 	# shellcheck disable=SC2181
-	if [[ -z "${OUT}" ]]; then
+	if [[ -z ${OUT} ]]; then
 		return
 	fi
 
@@ -223,7 +223,7 @@ destroy_model() {
 	echo "====> Destroying juju model ${name}"
 	echo "${name}" | xargs -I % juju destroy-model -y % >"${output}" 2>&1 || true
 	CHK=$(cat "${output}" | grep -i "ERROR" || true)
-	if [[ -n "${CHK}" ]]; then
+	if [[ -n ${CHK} ]]; then
 		printf '\nFound some issues\n'
 		cat "${output}"
 		exit 1
@@ -246,9 +246,9 @@ destroy_controller() {
 	# shellcheck disable=SC2034
 	OUT=$(juju controllers --format=json | jq '.controllers | keys[]' | grep "${name}" || true)
 	# shellcheck disable=SC2181
-	if [[ -z "${OUT}" ]]; then
+	if [[ -z ${OUT} ]]; then
 		OUT=$(juju models --format=json | jq -r '.models | .[] | .["short-name"]' | grep "^${name}$" || true)
-		if [[ -z "${OUT}" ]]; then
+		if [[ -z ${OUT} ]]; then
 			echo "====> ERROR Destroy controller/model. Unable to locate $(red "${name}")"
 			exit 1
 		fi
@@ -283,7 +283,7 @@ destroy_controller() {
 
 	set +e
 	CHK=$(cat "${output}" | grep -i "ERROR" || true)
-	if [[ -n "${CHK}" ]]; then
+	if [[ -n ${CHK} ]]; then
 		printf '\nFound some issues\n'
 		cat "${output}"
 		exit 1
@@ -315,7 +315,7 @@ introspect_controller() {
 	name=${1}
 
 	idents=$(juju machines -m "${name}:controller" --format=json | jq ".machines | keys | .[]")
-	if [[ -z "${idents}" ]]; then
+	if [[ -z ${idents} ]]; then
 		return
 	fi
 
@@ -329,11 +329,11 @@ remove_controller_offers() {
 	name=${1}
 
 	OUT=$(juju models -c "${name}" --format=json | jq -r '.["models"] | .[] | select(.["is-controller"] == false) | .name' || true)
-	if [[ -n "${OUT}" ]]; then
+	if [[ -n ${OUT} ]]; then
 		echo "${OUT}" | while read -r model; do
 			OUT=$(juju offers -m "${name}:${model}" --format=json | jq -r '.[] | .["offer-url"]' || true)
 			echo "${OUT}" | while read -r offer; do
-				if [[ -n "${offer}" ]]; then
+				if [[ -n ${offer} ]]; then
 					juju remove-offer --force -y -c "${name}" "${offer}"
 					echo "${offer}" >>"${TEST_DIR}/${name}-juju_removed_offers.log"
 				fi

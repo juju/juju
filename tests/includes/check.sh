@@ -42,7 +42,7 @@ check_not_contains() {
 	shift
 
 	chk=$(echo "${input}" | grep "${value}" || true)
-	if [[ -n "${chk}" ]]; then
+	if [[ -n ${chk} ]]; then
 		printf "Unexpected \"${value}\" found\n\n%s\n" "${input}" >&2
 		exit 1
 	else
@@ -60,7 +60,7 @@ check_contains() {
 	shift
 
 	chk=$(echo "${input}" | grep "${value}" || true)
-	if [[ -z "${chk}" ]]; then
+	if [[ -z ${chk} ]]; then
 		printf "Expected \"%s\" not found\n\n%s\n" "${value}" "${input}" >&2
 		exit 1
 	else
@@ -100,7 +100,7 @@ check() {
 	done
 
 	OUT=$(echo "${got}" | grep -E "${want}" || echo "(NOT FOUND)")
-	if [[ "${OUT}" == "(NOT FOUND)" ]]; then
+	if [[ ${OUT} == "(NOT FOUND)" ]]; then
 		echo "" >&2
 		# shellcheck disable=SC2059
 		printf "$(red \"Expected\"): ${want}\n" >&2

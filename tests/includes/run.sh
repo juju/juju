@@ -2,7 +2,7 @@
 run() {
 	CMD="${1}"
 
-	if [[ -n "${RUN_SUBTEST}" ]]; then
+	if [[ -n ${RUN_SUBTEST} ]]; then
 		# shellcheck disable=SC2143
 		if [[ ! "$(echo "${RUN_SUBTEST}" | grep -E "^${CMD}$")" ]]; then
 			echo "SKIPPING: ${RUN_SUBTEST} ${CMD}"
@@ -18,17 +18,19 @@ run() {
 
 	set_verbosity
 
-	if [[ "${VERBOSE}" -gt 1 ]]; then
+	if [[ ${VERBOSE} -gt 1 ]]; then
 		touch "${TEST_DIR}/${TEST_CURRENT}.log"
 		tail -f "${TEST_DIR}/${TEST_CURRENT}.log" 2>/dev/null &
 		pid=$!
 
-		trap "kill -9 ${pid} >/dev/null || true" EXIT
+		# SIGKILL it with fire, as we don't know what state we're in.
+		trap 'kill -9 "${pid}" >/dev/null 2>&1 || true' EXIT
 	fi
 
-	"${CMD}" "$@" 2>&1 >"${TEST_DIR}/${TEST_CURRENT}.log"
-	if [[ "${VERBOSE}" -gt 1 ]]; then
-		kill -9 ${pid} >/dev/null || true
+	"${CMD}" "$@" >"${TEST_DIR}/${TEST_CURRENT}.log" 2>&1
+	if [[ ${VERBOSE} -gt 1 ]]; then
+		# SIGINT because it should be safe to do so.
+		kill -2 "${pid}" >/dev/null 2>&1 || true
 	fi
 
 	END_TIME=$(date +%s)
@@ -41,7 +43,7 @@ run() {
 run_linter() {
 	CMD="${1}"
 
-	if [[ -n "${RUN_SUBTEST}" ]]; then
+	if [[ -n ${RUN_SUBTEST} ]]; then
 		# shellcheck disable=SC2143
 		if [[ ! "$(echo "${RUN_SUBTEST}" | grep -E "^${CMD}$")" ]]; then
 			echo "SKIPPING: ${RUN_SUBTEST} ${CMD}"
@@ -69,13 +71,13 @@ run_linter() {
 	set +o pipefail
 
 	# Only output if it's not empty.
-	if [[ -n "${cmd_output}" ]]; then
+	if [[ -n ${cmd_output} ]]; then
 		echo -e "${cmd_output}" | OUTPUT "${TEST_DIR}/${TEST_CURRENT}.log"
 	fi
 
 	END_TIME=$(date +%s)
 
-	if [[ "${cmd_status}" -eq 0 ]]; then
+	if [[ ${cmd_status} -eq 0 ]]; then
 		echo -e "\r===> [ $(green "✔") ] Success: ${DESC} ($((END_TIME - START_TIME))s)"
 	else
 		echo -e "\r===> [ $(red "x") ] Fail: ${DESC} ($((END_TIME - START_TIME))s)"

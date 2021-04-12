@@ -15,7 +15,7 @@ kill_server() {
 	fi
 
 	pid=$(cat "${TEST_DIR}/server.pid" | head -n 1 || echo "NOT FOUND")
-	if [[ "${pid}" == "NOT FOUND" ]]; then
+	if [[ ${pid} == "NOT FOUND" ]]; then
 		return
 	fi
 
