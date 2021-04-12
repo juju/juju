@@ -246,6 +246,6 @@ func (s *Service) StartCommands() ([]string, error) {
 }
 
 const serviceCreateCommandTemplate = `
-New-Service -Name %s -DependsOn Winmgmt -DisplayName %s %s
+New-Service -Credential $jujuCreds -Name %s -DependsOn Winmgmt -DisplayName %s %s
 sc.exe failure %s reset=5 actions=restart/1000
 sc.exe failureflag %s 1`
