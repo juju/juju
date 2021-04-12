@@ -81,6 +81,10 @@ def reboot_machine(client, machine):
             raise e
         log.info("Ignoring `juju ssh` exit status after triggering reboot")
 
+    # Wait a bit so that we do not detect the started condition
+    # *before* Juju actually reports it as "down".
+    time.sleep(5)
+
     log.info("wait_for_started()")
     client.wait_for_started()
 
