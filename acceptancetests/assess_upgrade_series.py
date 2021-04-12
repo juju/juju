@@ -20,6 +20,7 @@ from utility import (
     add_basic_testing_arguments,
     configure_logging,
     JujuAssertionError,
+    wait_for_port,
 )
 
 __metaclass__ = type
@@ -81,12 +82,9 @@ def reboot_machine(client, machine):
             raise e
         log.info("Ignoring `juju ssh` exit status after triggering reboot")
 
-    # Wait a bit so that we do not detect the started condition
-    # *before* Juju actually reports it as "down".
-    time.sleep(5)
-
-    log.info("wait_for_started()")
-    client.wait_for_started()
+    log.info("waiting for reboot")
+    hostname = client.get_status().get_machine_dns_name(machine)
+    wait_for_port(hostname, 22, timeout=600)
 
 
 def assert_correct_series(client, machine, expected):
