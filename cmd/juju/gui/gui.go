@@ -6,6 +6,7 @@ package gui
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 
@@ -108,7 +109,7 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Make 2 GUI URLs to try - the old and the new.
-	addr := guiAddr(conn)
+	addr, ignoreCertError := guiAddr(conn)
 	rawGUIURL := fmt.Sprintf("https://%s/gui/%s/", addr, details.ModelUUID)
 	qualifiedModelName, err := store.QualifiedModelName(controllerName, modelName)
 	if err != nil {
@@ -122,7 +123,7 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 
 	// Check that the Juju Dashboard (or a legacy GUI) is available.
 	var dashboardURL string
-	if dashboardURL, err = c.checkAvailable(conn, rawDashboardURL, newRawGUIURL, rawGUIURL); err != nil {
+	if dashboardURL, err = c.checkAvailable(conn, ignoreCertError, rawDashboardURL, newRawGUIURL, rawGUIURL); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -156,16 +157,35 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 }
 
 // guiAddr returns an address where the Dashboard is available.
-func guiAddr(conn api.Connection) string {
+func guiAddr(conn api.Connection) (string, bool) {
 	if dnsName := conn.PublicDNSName(); dnsName != "" {
-		return dnsName
+		return dnsName, false
 	}
-	return conn.Addr()
+	// The CLI k8s clouds connect via a proxy running on localhost.
+	// The dashboard still needs to go via the controller IP.
+	// TODO - this is a temporary workaround which will not work
+	// on k8s clouds like minikube, kind etc.
+	isLocal := func(host string) bool {
+		return host == "localhost" || host == "127.0.0.1" || host == "::1"
+	}
+	addr := conn.Addr()
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil || !isLocal(host) {
+		return addr, false
+	}
+	for _, hps := range conn.APIHostPorts() {
+		for _, hp := range hps {
+			if host := hp.Host(); !isLocal(host) {
+				return hp.String(), true
+			}
+		}
+	}
+	return addr, false
 }
 
 // checkAvailable ensures the Juju Dashboard/GUI is available on the controller at
 // one of the given URLs, returning the successful URL.
-func (c *guiCommand) checkAvailable(conn api.Connection, rawURLs ...string) (string, error) {
+func (c *guiCommand) checkAvailable(conn api.Connection, ignoreCertError bool, rawURLs ...string) (string, error) {
 	client, err := conn.HTTPClient()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot retrieve HTTP client")
@@ -173,6 +193,10 @@ func (c *guiCommand) checkAvailable(conn api.Connection, rawURLs ...string) (str
 	var firstErr error
 	for _, URL := range rawURLs {
 		if err = clientGet(c.StdContext, client, URL); err == nil {
+			return URL, nil
+		}
+		// TODO - fix this workaround for k8s clouds
+		if ignoreCertError && strings.Contains(err.Error(), "x509: ") {
 			return URL, nil
 		}
 		if firstErr == nil {
