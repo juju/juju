@@ -170,6 +170,7 @@ type kubernetesClient struct {
 // To regenerate the mocks for the kubernetes Client used by this broker,
 // run "go generate" from the package directory.
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/k8sclient_mock.go k8s.io/client-go/kubernetes Interface
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/context_mock.go context Context
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/appv1_mock.go k8s.io/client-go/kubernetes/typed/apps/v1 AppsV1Interface,DeploymentInterface,StatefulSetInterface,DaemonSetInterface
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/corev1_mock.go k8s.io/client-go/kubernetes/typed/core/v1 EventInterface,CoreV1Interface,NamespaceInterface,PodInterface,ServiceInterface,ConfigMapInterface,PersistentVolumeInterface,PersistentVolumeClaimInterface,SecretInterface,NodeInterface
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/networkingv1beta1_mock.go -mock_names=IngressInterface=MockIngressV1Beta1Interface k8s.io/client-go/kubernetes/typed/networking/v1beta1 NetworkingV1beta1Interface,IngressInterface
@@ -833,58 +834,26 @@ func processConstraints(pod *core.PodSpec, appName string, cons constraints.Valu
 		}
 	}
 
-	// Translate tags to node affinity.
+	// Translate tags to pod or node affinity.
+	// Tag names are prefixed with "pod.", "anti-pod.", or "node."
+	// with the default being "node".
 	if cons.Tags != nil {
-		affinityLabels := *cons.Tags
-		var (
-			affinityTags     = make(map[string]string)
-			antiAffinityTags = make(map[string]string)
-		)
-		for _, labelPair := range affinityLabels {
+		affinityLabels := make(map[string]string)
+		for _, labelPair := range *cons.Tags {
 			parts := strings.Split(labelPair, "=")
 			if len(parts) != 2 {
-				return errors.Errorf("invalid node affinity constraints: %v", affinityLabels)
+				return errors.Errorf("invalid affinity constraints: %v", affinityLabels)
 			}
 			key := strings.Trim(parts[0], " ")
 			value := strings.Trim(parts[1], " ")
-			if strings.HasPrefix(key, "^") {
-				if len(key) == 1 {
-					return errors.Errorf("invalid node affinity constraints: %v", affinityLabels)
-				}
-				antiAffinityTags[key[1:]] = value
-			} else {
-				affinityTags[key] = value
-			}
+			affinityLabels[key] = value
 		}
 
-		updateSelectorTerms := func(nodeSelectorTerm *core.NodeSelectorTerm, tags map[string]string, op core.NodeSelectorOperator) {
-			// Sort for stable ordering.
-			var keys []string
-			for k := range tags {
-				keys = append(keys, k)
-			}
-			sort.Strings(keys)
-			for _, tag := range keys {
-				allValues := strings.Split(tags[tag], "|")
-				for i, v := range allValues {
-					allValues[i] = strings.Trim(v, " ")
-				}
-				nodeSelectorTerm.MatchExpressions = append(nodeSelectorTerm.MatchExpressions, core.NodeSelectorRequirement{
-					Key:      tag,
-					Operator: op,
-					Values:   allValues,
-				})
-			}
+		if err := processNodeAffinity(pod, affinityLabels); err != nil {
+			return errors.Annotatef(err, "configuring node affinity for %s", appName)
 		}
-		var nodeSelectorTerm core.NodeSelectorTerm
-		updateSelectorTerms(&nodeSelectorTerm, affinityTags, core.NodeSelectorOpIn)
-		updateSelectorTerms(&nodeSelectorTerm, antiAffinityTags, core.NodeSelectorOpNotIn)
-		pod.Affinity = &core.Affinity{
-			NodeAffinity: &core.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
-					NodeSelectorTerms: []core.NodeSelectorTerm{nodeSelectorTerm},
-				},
-			},
+		if err := processPodAffinity(pod, affinityLabels); err != nil {
+			return errors.Annotatef(err, "configuring pod affinity for %s", appName)
 		}
 	}
 	if cons.Zones != nil {
@@ -907,6 +876,147 @@ func processConstraints(pod *core.PodSpec, appName string, cons constraints.Valu
 				Operator: core.NodeSelectorOpIn,
 				Values:   zones,
 			})
+	}
+	return nil
+}
+
+const (
+	podPrefix     = "pod."
+	antiPodPrefix = "anti-pod."
+	nodePrefix    = "node."
+)
+
+func processNodeAffinity(pod *core.PodSpec, affinityLabels map[string]string) error {
+	affinityTags := make(map[string]string)
+	for key, value := range affinityLabels {
+		keyVal := key
+		if strings.HasPrefix(key, "^") {
+			if len(key) == 1 {
+				return errors.Errorf("invalid affinity constraints: %v", affinityLabels)
+			}
+			key = key[1:]
+		}
+		if strings.HasPrefix(key, podPrefix) || strings.HasPrefix(key, antiPodPrefix) {
+			continue
+		}
+		key = strings.TrimPrefix(keyVal, nodePrefix)
+		affinityTags[key] = value
+	}
+
+	updateSelectorTerms := func(nodeSelectorTerm *core.NodeSelectorTerm, tags map[string]string) {
+		// Sort for stable ordering.
+		var keys []string
+		for k := range tags {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, tag := range keys {
+			allValues := strings.Split(tags[tag], "|")
+			for i, v := range allValues {
+				allValues[i] = strings.Trim(v, " ")
+			}
+			op := core.NodeSelectorOpIn
+			if strings.HasPrefix(tag, "^") {
+				tag = tag[1:]
+				op = core.NodeSelectorOpNotIn
+			}
+			nodeSelectorTerm.MatchExpressions = append(nodeSelectorTerm.MatchExpressions, core.NodeSelectorRequirement{
+				Key:      tag,
+				Operator: op,
+				Values:   allValues,
+			})
+		}
+	}
+	var nodeSelectorTerm core.NodeSelectorTerm
+	updateSelectorTerms(&nodeSelectorTerm, affinityTags)
+	if pod.Affinity == nil {
+		pod.Affinity = &core.Affinity{}
+	}
+	pod.Affinity.NodeAffinity = &core.NodeAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
+			NodeSelectorTerms: []core.NodeSelectorTerm{nodeSelectorTerm},
+		},
+	}
+	return nil
+}
+
+func processPodAffinity(pod *core.PodSpec, affinityLabels map[string]string) error {
+	affinityTags := make(map[string]string)
+	antiAffinityTags := make(map[string]string)
+	for key, value := range affinityLabels {
+		notVal := false
+		if strings.HasPrefix(key, "^") {
+			if len(key) == 1 {
+				return errors.Errorf("invalid affinity constraints: %v", affinityLabels)
+			}
+			notVal = true
+			key = key[1:]
+		}
+		if !strings.HasPrefix(key, podPrefix) && !strings.HasPrefix(key, antiPodPrefix) {
+			continue
+		}
+		if strings.HasPrefix(key, podPrefix) {
+			key = strings.TrimPrefix(key, podPrefix)
+			if notVal {
+				key = "^" + key
+			}
+			affinityTags[key] = value
+		}
+		if strings.HasPrefix(key, antiPodPrefix) {
+			key = strings.TrimPrefix(key, antiPodPrefix)
+			if notVal {
+				key = "^" + key
+			}
+			antiAffinityTags[key] = value
+		}
+	}
+	if len(affinityTags) == 0 && len(antiAffinityTags) == 0 {
+		return nil
+	}
+
+	updateAffinityTerm := func(affinityTerm *core.PodAffinityTerm, tags map[string]string) {
+		// Sort for stable ordering.
+		var keys []string
+		for k := range tags {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		var labelSelector v1.LabelSelector
+		for _, tag := range keys {
+			allValues := strings.Split(tags[tag], "|")
+			for i, v := range allValues {
+				allValues[i] = strings.Trim(v, " ")
+			}
+			op := v1.LabelSelectorOpIn
+			if strings.HasPrefix(tag, "^") {
+				tag = tag[1:]
+				op = v1.LabelSelectorOpNotIn
+			}
+			labelSelector.MatchExpressions = append(labelSelector.MatchExpressions, v1.LabelSelectorRequirement{
+				Key:      tag,
+				Operator: op,
+				Values:   allValues,
+			})
+		}
+		affinityTerm.LabelSelector = &labelSelector
+	}
+	if pod.Affinity == nil {
+		pod.Affinity = &core.Affinity{}
+	}
+	var affinityTerm core.PodAffinityTerm
+	updateAffinityTerm(&affinityTerm, affinityTags)
+	if len(affinityTerm.LabelSelector.MatchExpressions) > 0 {
+		pod.Affinity.PodAffinity = &core.PodAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: []core.PodAffinityTerm{affinityTerm},
+		}
+	}
+
+	var antiAffinityTerm core.PodAffinityTerm
+	updateAffinityTerm(&antiAffinityTerm, antiAffinityTags)
+	if len(antiAffinityTerm.LabelSelector.MatchExpressions) > 0 {
+		pod.Affinity.PodAntiAffinity = &core.PodAntiAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: []core.PodAffinityTerm{antiAffinityTerm},
+		}
 	}
 	return nil
 }

@@ -4,11 +4,13 @@
 package provider_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	jujuclock "github.com/juju/clock"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -24,7 +26,9 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/caas/kubernetes/provider/mocks"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/constraints"
@@ -325,7 +329,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	}
 	ns.Name = s.getNamespace()
 	s.ensureJujuNamespaceAnnotations(true, ns)
-	svcNotProvisioned := &core.Service{
+	svcNotFullyProvisioned := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "juju-controller-test-service",
 			Namespace:   s.getNamespace(),
@@ -786,14 +790,14 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 		// ensure service
 		s.mockServices.EXPECT().Get("juju-controller-test-service", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(svcNotProvisioned).
+		s.mockServices.EXPECT().Update(svcNotFullyProvisioned).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(svcNotProvisioned).
-			Return(svcNotProvisioned, nil),
+		s.mockServices.EXPECT().Create(svcNotFullyProvisioned).
+			Return(svcNotFullyProvisioned, nil),
 
 		// below calls are for GetService - 1st address no provisioned yet.
 		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=juju-controller-test"}).
-			Return(&core.ServiceList{Items: []core.Service{*svcNotProvisioned}}, nil),
+			Return(&core.ServiceList{Items: []core.Service{*svcNotFullyProvisioned}}, nil),
 		s.mockStatefulSets.EXPECT().Get("juju-operator-juju-controller-test", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Get("juju-controller-test", v1.GetOptions{}).
@@ -904,6 +908,127 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 		c.Assert(s.watchers, gc.HasLen, 2)
 		c.Assert(workertest.CheckKilled(c, s.watchers[0]), jc.ErrorIsNil)
 		c.Assert(workertest.CheckKilled(c, s.watchers[1]), jc.ErrorIsNil)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for deploy return")
+	}
+}
+
+func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	// Eventually the namespace wil be set to controllerName.
+	// So we have to specify the final namespace(controllerName) for later use.
+	newK8sClientFunc, newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl, s.pcfg.ControllerName)
+	randomPrefixFunc := func() (string, error) {
+		return "appuuid", nil
+	}
+	s.namespace = "controller-1"
+	s.setupBroker(c, ctrl, newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc)
+
+	// Broker's namespace is "controller" now - controllerModelConfig.Name()
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.getNamespace())
+	c.Assert(
+		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
+		map[string]string{
+			"juju.io/model":      s.cfg.UUID(),
+			"juju.io/controller": testing.ControllerTag.Id(),
+		},
+	)
+
+	// Done in broker.Bootstrap method actually.
+	s.broker.GetAnnotations().Add("juju.io/is-controller", "true")
+
+	s.pcfg.Bootstrap.Timeout = 10 * time.Minute
+	s.pcfg.Bootstrap.ControllerExternalIPs = []string{"10.0.0.1"}
+	s.pcfg.Bootstrap.GUI = &tools.GUIArchive{
+		URL:     "http://gui-url",
+		Version: version.MustParse("6.6.6"),
+		SHA256:  "deadbeef",
+		Size:    999,
+	}
+
+	controllerStacker := s.controllerStackerGetter()
+	mockStdCtx := mocks.NewMockContext(ctrl)
+	ctx := modelcmd.BootstrapContext(mockStdCtx, cmdtesting.Context(c))
+	controllerStacker.SetContext(ctx)
+
+	APIPort := s.controllerCfg.APIPort()
+	ns := &core.Namespace{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   s.getNamespace(),
+			Labels: provider.LabelsForModel("controller-1"),
+		},
+	}
+	ns.Name = s.getNamespace()
+	s.ensureJujuNamespaceAnnotations(true, ns)
+	svcNotFullyProvisioned := &core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        "juju-controller-test-service",
+			Namespace:   s.getNamespace(),
+			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+		},
+		Spec: core.ServiceSpec{
+			Selector: map[string]string{"juju-app": "juju-controller-test"},
+			Type:     core.ServiceType("ClusterIP"),
+			Ports: []core.ServicePort{
+				{
+					Name:       "api-server",
+					TargetPort: intstr.FromInt(APIPort),
+					Port:       int32(APIPort),
+				},
+			},
+			ExternalIPs: []string{"10.0.0.1"},
+		},
+	}
+	ctxDoneChan := make(chan struct{}, 1)
+
+	gomock.InOrder(
+		// create namespace.
+		s.mockNamespaces.EXPECT().Create(ns).
+			Return(ns, nil),
+		mockStdCtx.EXPECT().Done().Return(ctxDoneChan),
+
+		// ensure service
+		s.mockServices.EXPECT().Get("juju-controller-test-service", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(svcNotFullyProvisioned).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(svcNotFullyProvisioned).
+			Return(svcNotFullyProvisioned, nil),
+
+		mockStdCtx.EXPECT().Done().DoAndReturn(func() <-chan struct{} {
+			ctxDoneChan <- struct{}{}
+			return ctxDoneChan
+		}),
+
+		// below calls are for GetService - 1st address no provisioned yet.
+		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=juju-controller-test"}).
+			Return(&core.ServiceList{Items: []core.Service{*svcNotFullyProvisioned}}, nil),
+		s.mockStatefulSets.EXPECT().Get("juju-operator-juju-controller-test", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get("juju-controller-test", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Get("juju-controller-test", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDaemonSets.EXPECT().Get("juju-controller-test", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+
+		mockStdCtx.EXPECT().Err().Return(context.DeadlineExceeded),
+
+		s.mockServices.EXPECT().Delete(svcNotFullyProvisioned.GetName(), s.deleteOptions(v1.DeletePropagationForeground, "")).
+			Return(nil),
+	)
+
+	errChan := make(chan error)
+	go func() {
+		errChan <- controllerStacker.Deploy()
+	}()
+
+	select {
+	case err := <-errChan:
+		c.Assert(err, gc.ErrorMatches, `creating service for controller: waiting for controller service address fully provisioned timeout`)
+		c.Assert(s.watchers, gc.HasLen, 0)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for deploy return")
 	}

@@ -17,10 +17,6 @@ import (
 	"github.com/juju/juju/watcher/legacy"
 )
 
-const (
-	ControllerIPLeafGroup = "controllerip"
-)
-
 var (
 	logger = loggo.GetLogger("juju.worker.certupdater")
 )
@@ -112,7 +108,7 @@ func (c *CertificateUpdater) updateCertificate(addresses network.SpaceAddresses)
 	logger.Debugf("new machine addresses: %#v", addresses)
 	c.addresses = addresses
 
-	request := c.authority.LeafRequestForGroup(ControllerIPLeafGroup)
+	request := c.authority.LeafRequestForGroup(pki.ControllerIPLeafGroup)
 
 	for _, addr := range addresses {
 		if addr.Value == "localhost" {

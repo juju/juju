@@ -89,6 +89,12 @@ func (s *SNISuite) TestAuthorityTLSGetter(c *gc.C) {
 			Group:         pki.DefaultLeafGroup,
 			ServerName:    "doesnotexist.juju.example",
 		},
+		{
+			// Regression test for LP1921557
+			ExpectedGroup: pki.ControllerIPLeafGroup,
+			Group:         pki.ControllerIPLeafGroup,
+			ServerName:    "",
+		},
 	}
 
 	for _, test := range tests {

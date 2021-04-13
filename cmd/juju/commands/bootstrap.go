@@ -93,7 +93,7 @@ You can change the default timeout and retry delays used during the
 bootstrap by changing the following settings in your configuration
 (all values represent number of seconds):
     # How long to wait for a connection to the controller
-    bootstrap-timeout: 600 # default: 10 minutes
+    bootstrap-timeout: 1200 # default: 20 minutes
     # How long to wait between connection attempts to a controller
 address.
     bootstrap-retry-delay: 5 # default: 5 seconds
@@ -743,7 +743,7 @@ to create a new model to deploy %sworkloads.
 	defer close(interrupted)
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
-	stdCtx, cancel := context.WithCancel(context.Background())
+	stdCtx, cancel := context.WithTimeout(context.Background(), bootstrapCfg.bootstrap.BootstrapTimeout)
 	go func() {
 		for range interrupted {
 			select {
