@@ -980,7 +980,7 @@ func (k *kubernetesClient) EnsureService(
 	} else if len(params.RawK8sSpec) > 0 {
 		return k.applyRawK8sSpec(appName, deploymentName, statusCallback, params, numUnits, config)
 	}
-	return errors.NewNotSupported(nil, "currently only k8s-raw-set and k8s-spec-set are supported")
+	return nil
 }
 
 func (k *kubernetesClient) ensureService(
