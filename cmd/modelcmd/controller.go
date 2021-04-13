@@ -54,13 +54,15 @@ func (e ErrNoCurrentController) Error() string {
 	if len(e.controllerNames) == 0 {
 		return `No selected controller.
 
-Please use "juju switch" to select a controller.
+Use "juju switch" to select a controller.
 `
 	}
 
 	return fmt.Sprintf(`No selected controller.
 
-Please use "juju switch" to select from the following controllers: %s`, strings.Join(e.controllerNames, ","))
+Use "juju switch" to select from the following controllers:
+
+  - %s`, strings.Join(e.controllerNames, "\n  - "))
 }
 
 // IsErrNoCurrentController returns if the underlying error is the sentinel
