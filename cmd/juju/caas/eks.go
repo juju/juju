@@ -106,9 +106,49 @@ func (e *eks) interactiveParams(ctx *cmd.Context, p *clusterParams) (*clusterPar
 	return p, nil
 }
 
-type eksDetail struct {
+type eksDetailLegacy struct {
 	Name   string `json:"name"`
 	Region string `json:"region"`
+}
+
+func (ed eksDetailLegacy) name() string {
+	return ed.Name
+}
+
+type eksStatus struct {
+	EKSctlCreated string `json:"eksctlCreated"`
+}
+
+type eksDetail struct {
+	MetaData eksDetailLegacy `json:"metadata"`
+	Status   eksStatus       `json:"status"`
+}
+
+func (ed eksDetail) name() string {
+	return ed.MetaData.Name
+}
+
+func getClusterNames(data []byte) (out []string, err error) {
+	var clusterDetails []eksDetail
+	if err := json.Unmarshal(data, &clusterDetails); err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, detail := range clusterDetails {
+		out = append(out, detail.name())
+	}
+	if len(out) > 0 {
+		return out, nil
+	}
+
+	var clusterDetailsLegacy []eksDetailLegacy
+	if err := json.Unmarshal(data, &clusterDetailsLegacy); err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, detail := range clusterDetailsLegacy {
+		out = append(out, detail.name())
+	}
+
+	return out, nil
 }
 
 func (e *eks) listClusters(region string) (clusters []string, err error) {
@@ -122,14 +162,5 @@ func (e *eks) listClusters(region string) (clusters []string, err error) {
 	if result.Code != 0 {
 		return nil, errors.New(string(result.Stderr))
 	}
-
-	var eksClusters []eksDetail
-	if err := json.Unmarshal(result.Stdout, &eksClusters); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	for _, item := range eksClusters {
-		clusters = append(clusters, item.Name)
-	}
-	return clusters, nil
+	return getClusterNames(result.Stdout)
 }
