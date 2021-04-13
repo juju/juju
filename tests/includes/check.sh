@@ -78,7 +78,7 @@ check_gt() {
 	shift
 
 	if [[ ${input} > ${value} ]]; then
-		echo 'Success: "%s" > "%s"' "${input}" "${value}" >&2
+		printf "Success: \"%s\" > \"%s\"\n" "${input}" "${value}" >&2
 	else
 		printf "Expected \"%s\" > \"%s\"\n" "${input}" "${value}" >&2
 		exit 1
