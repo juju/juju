@@ -29,8 +29,8 @@ run() {
 
 	"${CMD}" "$@" >"${TEST_DIR}/${TEST_CURRENT}.log" 2>&1
 	if [[ ${VERBOSE} -gt 1 ]]; then
-		# SIGINT because it should be safe to do so.
-		kill -2 "${pid}" >/dev/null 2>&1 || true
+		# SIGKILL because it should be safe to do so.
+		kill -9 "${pid}" >/dev/null 2>&1 || true
 	fi
 
 	END_TIME=$(date +%s)

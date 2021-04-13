@@ -11,11 +11,6 @@ set_verbosity() {
 		set -eu
 		set -o pipefail
 		;;
-	11)
-		# You asked for it!
-		set -eux
-		set -o pipefail
-		;;
 	*)
 		echo "Unexpected verbose level" >&2
 		exit 1
