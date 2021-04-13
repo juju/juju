@@ -137,7 +137,7 @@ func (c *ModelCommandBase) maybeInitModel() error {
 	// If any other error result was returned, we bail early here.
 	noRetry := func(original error) bool {
 		c := errors.Cause(c.initModelError)
-		return c != ErrNoModelSpecified && c != ErrNoControllersDefined && c != ErrNoCurrentController
+		return c != ErrNoModelSpecified && c != ErrNoControllersDefined && !IsNoCurrentController(c)
 	}
 	if c.doneInitModel && noRetry(c.initModelError) {
 		return errors.Trace(c.initModelError)

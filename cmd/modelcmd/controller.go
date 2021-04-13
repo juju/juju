@@ -33,15 +33,46 @@ var (
 Please either create a new controller using "juju bootstrap" or connect to
 another controller that you have been given access to using "juju register".
 `)
-	// ErrNoCurrentController is returned by commands that operate on
-	// a controller if there is no current controller, no controller has been
-	// explicitly specified, and there is no default controller but there are
-	// controllers that client knows about.
-	ErrNoCurrentController = errors.New(`No selected controller.
-
-Please use "juju switch" to select a controller.
-`)
 )
+
+// ErrNoCurrentController is returned by commands that operate on
+// a controller if there is no current controller, no controller has been
+// explicitly specified, and there is no default controller but there are
+// controllers that client knows about.
+type ErrNoCurrentController struct {
+	controllerNames []string
+}
+
+// NewNoCurrentController creates a new ErrNoCurrentController error.
+func NewNoCurrentController(names []string) ErrNoCurrentController {
+	return ErrNoCurrentController{
+		controllerNames: names,
+	}
+}
+
+func (e ErrNoCurrentController) Error() string {
+	if len(e.controllerNames) == 0 {
+		return `No selected controller.
+
+Use "juju switch" to select a controller.
+`
+	}
+
+	return fmt.Sprintf(`No selected controller.
+
+Use "juju switch" to select from the following controllers:
+
+  - %s`, strings.Join(e.controllerNames, "\n  - "))
+}
+
+// IsErrNoCurrentController returns if the underlying error is the sentinel
+// ErrNoCurrentController error.
+func IsNoCurrentController(err error) bool {
+	if _, ok := errors.Cause(err).(ErrNoCurrentController); ok {
+		return true
+	}
+	return false
+}
 
 // ControllerCommand is intended to be a base for all commands
 // that need to operate on controllers as opposed to models.
@@ -382,7 +413,11 @@ func translateControllerError(store jujuclient.ClientStore, err error) error {
 	if len(controllers) == 0 {
 		return errors.Wrap(err, ErrNoControllersDefined)
 	}
-	return errors.Wrap(err, ErrNoCurrentController)
+	names := make([]string, 0, len(controllers))
+	for name := range controllers {
+		names = append(names, name)
+	}
+	return errors.Wrap(err, NewNoCurrentController(names))
 }
 
 // OptionalControllerCommand is used as a base for commands which can
