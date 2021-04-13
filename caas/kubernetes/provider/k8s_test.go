@@ -2104,6 +2104,37 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *K8sBrokerSuite) TestEnsureServiceNoSpecProvided(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+	)
+
+	params := &caas.ServiceParams{}
+	err := s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 1, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureServiceBothPodSpecAndRawK8sSpecProvided(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+	)
+
+	params := &caas.ServiceParams{
+		PodSpec:    getBasicPodspec(),
+		RawK8sSpec: `fake raw spec`,
+	}
+	err := s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 1, nil)
+	c.Assert(err, gc.ErrorMatches, `both pod spec and raw k8s spec provided not valid`)
+}
+
 func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
