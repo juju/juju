@@ -1232,7 +1232,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginEmptyChannel(c *
 
 	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(curl, series, channel, cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resultChannel, gc.DeepEquals, corecharm.Channel{})
+	c.Assert(resultChannel, gc.DeepEquals, charm.Channel{})
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
 		OS:           "ubuntu",
