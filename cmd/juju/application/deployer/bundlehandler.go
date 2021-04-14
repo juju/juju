@@ -406,7 +406,7 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL, charmSeries, ch
 	if err != nil {
 		return "", -1, errors.Annotatef(err, "cannot resolve charm or bundle %q", ch.Name)
 	}
-	resolvedChan := origin.CoreChannel().Normalize().String()
+	resolvedChan := origin.CharmChannel().Normalize().String()
 	rev := origin.Revision
 	if rev == nil {
 		return resolvedChan, -1, nil
@@ -417,23 +417,23 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL, charmSeries, ch
 // constructChannelAndOrigin attempts to construct a fully qualified channel
 // along with an origin that matches the hardware constraints and the charm url
 // source.
-func (h *bundleHandler) constructChannelAndOrigin(curl *charm.URL, charmSeries, charmChannel string, cons constraints.Value) (corecharm.Channel, commoncharm.Origin, error) {
-	var channel corecharm.Channel
+func (h *bundleHandler) constructChannelAndOrigin(curl *charm.URL, charmSeries, charmChannel string, cons constraints.Value) (charm.Channel, commoncharm.Origin, error) {
+	var channel charm.Channel
 	if charmChannel != "" {
 		var err error
-		if channel, err = corecharm.ParseChannelNormalize(charmChannel); err != nil {
-			return corecharm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
+		if channel, err = charm.ParseChannelNormalize(charmChannel); err != nil {
+			return charm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
 		}
 	}
 
 	platform, err := utils.DeducePlatform(cons, charmSeries, h.modelConstraints)
 	if err != nil {
-		return corecharm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
+		return charm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
 	}
 
 	origin, err := utils.DeduceOrigin(curl, channel, platform)
 	if err != nil {
-		return corecharm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
+		return charm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
 	}
 	return channel, origin, nil
 }
@@ -631,11 +631,11 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	}
 
 	// A channel is needed whether the risk is valid or not.
-	var channel corecharm.Channel
+	var channel charm.Channel
 	if charm.CharmHub.Matches(ch.Schema) {
 		channel = corecharm.DefaultChannel
 		if chParams.Channel != "" {
-			channel, err = corecharm.ParseChannelNormalize(chParams.Channel)
+			channel, err = charm.ParseChannelNormalize(chParams.Channel)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -876,7 +876,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 			return errors.Trace(err)
 		}
 		// A channel is needed whether the risk is valid or not.
-		channel, _ := corecharm.MakeChannel(track, origin.Risk, "")
+		channel, _ := charm.MakeChannel(track, origin.Risk, "")
 		origin, err = utils.DeduceOrigin(chID.URL, channel, platform)
 		if err != nil {
 			return errors.Trace(err)
@@ -1497,14 +1497,14 @@ func (h *bundleHandler) topLevelMachine(id string) string {
 	return tag.Parent().Id()
 }
 
-func (h *bundleHandler) addOrigin(curl charm.URL, channel corecharm.Channel, origin commoncharm.Origin) {
+func (h *bundleHandler) addOrigin(curl charm.URL, channel charm.Channel, origin commoncharm.Origin) {
 	if _, ok := h.origins[curl]; !ok {
 		h.origins[curl] = make(map[string]commoncharm.Origin)
 	}
 	h.origins[curl][channel.Normalize().String()] = origin
 }
 
-func (h *bundleHandler) getOrigin(curl charm.URL, channel corecharm.Channel) (commoncharm.Origin, bool) {
+func (h *bundleHandler) getOrigin(curl charm.URL, channel charm.Channel) (commoncharm.Origin, bool) {
 	c, ok := h.origins[curl]
 	if !ok {
 		return commoncharm.Origin{}, false
@@ -1513,13 +1513,13 @@ func (h *bundleHandler) getOrigin(curl charm.URL, channel corecharm.Channel) (co
 	return o, ok
 }
 
-func constructNormalizedChannel(channel string) (corecharm.Channel, error) {
+func constructNormalizedChannel(channel string) (charm.Channel, error) {
 	if channel == "" {
-		return corecharm.Channel{}, nil
+		return charm.Channel{}, nil
 	}
-	ch, err := corecharm.ParseChannelNormalize(channel)
+	ch, err := charm.ParseChannelNormalize(channel)
 	if err != nil {
-		return corecharm.Channel{}, errors.Trace(err)
+		return charm.Channel{}, errors.Trace(err)
 	}
 	return ch, nil
 }

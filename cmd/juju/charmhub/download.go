@@ -212,7 +212,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	if channel == "" {
 		channel = corecharm.DefaultChannelString
 	}
-	normChannel, err := corecharm.ParseChannelNormalize(channel)
+	normChannel, err := charm.ParseChannelNormalize(channel)
 	if err != nil {
 		return errors.Trace(err)
 	}

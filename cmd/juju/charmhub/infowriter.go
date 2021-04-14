@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/core/charm"
 )
 
 // Note:

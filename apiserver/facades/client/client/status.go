@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/cache"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
@@ -1198,9 +1197,9 @@ func (context *statusContext) processApplication(application *state.Application)
 	var channel string
 	if origin := application.CharmOrigin(); origin != nil && origin.Channel != nil {
 		stChannel := origin.Channel
-		channel = (corecharm.Channel{
+		channel = (charm.Channel{
 			Track:  stChannel.Track,
-			Risk:   corecharm.Risk(stChannel.Risk),
+			Risk:   charm.Risk(stChannel.Risk),
 			Branch: stChannel.Branch,
 		}).Normalize().String()
 	} else {

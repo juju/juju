@@ -45,7 +45,7 @@ func (c *csRepo) ResolveWithPreferredChannel(curl *charm.URL, origin corecharm.O
 
 	newOrigin := origin
 	newOrigin.Type = t
-	newOrigin.Channel.Risk = corecharm.Risk(newRisk)
+	newOrigin.Channel.Risk = charm.Risk(newRisk)
 	return newCurl, newOrigin, supportedSeries, err
 }
 
@@ -63,7 +63,7 @@ func (c *csRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url
 	return nil, origin, nil
 }
 
-func (c *csRepo) ListResources(curl *charm.URL, origin corecharm.Origin) ([]charmresource.Resource, error) {
+func (c *csRepo) ListResources(curl *charm.URL, _ corecharm.Origin) ([]charmresource.Resource, error) {
 	logger.Tracef("CharmStore ListResources %q", curl)
 	return nil, nil
 }

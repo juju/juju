@@ -574,7 +574,7 @@ func (s *RefreshSuite) TestUpgradeWithChannel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAdder.CheckCallNames(c, "AddCharm")
-	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, corecharm.Channel{Risk: corecharm.Beta}, corecharm.Platform{
+	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, charm.Channel{Risk: charm.Beta}, corecharm.Platform{
 		Architecture: arch.DefaultArchitecture,
 	})
 	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
@@ -598,7 +598,7 @@ func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAdder.CheckCallNames(c, "AddCharm")
-	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, corecharm.Channel{Risk: corecharm.Beta}, corecharm.Platform{})
+	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, charm.Channel{Risk: charm.Beta}, corecharm.Platform{})
 	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
@@ -621,7 +621,7 @@ func (s *RefreshSuite) TestSwitch(c *gc.C) {
 	s.charmClient.CheckCallNames(c, "CharmInfo")
 	s.charmClient.CheckCall(c, 0, "CharmInfo", s.resolvedCharmURL.String())
 	s.charmAdder.CheckCallNames(c, "AddCharm")
-	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, corecharm.Channel{Risk: corecharm.Stable}, corecharm.Platform{})
+	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, charm.Channel{Risk: charm.Stable}, corecharm.Platform{})
 	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
@@ -924,7 +924,7 @@ func (m *mockAPIConnection) APIHostPorts() []network.MachineHostPorts {
 	return []network.MachineHostPorts{{*hp}}
 }
 
-func (m *mockAPIConnection) BestFacadeVersion(name string) int {
+func (m *mockAPIConnection) BestFacadeVersion(_ string) int {
 	return m.bestFacadeVersion
 }
 
@@ -1000,7 +1000,7 @@ func (m *mockCharmRefreshClient) SetCharm(branchName string, cfg application.Set
 	return m.NextErr()
 }
 
-func (m *mockCharmRefreshClient) Get(branchName, applicationName string) (*params.ApplicationGetResults, error) {
+func (m *mockCharmRefreshClient) Get(_, applicationName string) (*params.ApplicationGetResults, error) {
 	m.MethodCall(m, "Get", applicationName)
 	return &params.ApplicationGetResults{
 		EndpointBindings: m.bindings,
@@ -1053,7 +1053,7 @@ type mockDownloadBundleClient struct {
 	bundle charm.Bundle
 }
 
-func (m *mockDownloadBundleClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...charmhub.DownloadOption) (charm.Bundle, error) {
+func (m *mockDownloadBundleClient) DownloadAndReadBundle(_ context.Context, resourceURL *url.URL, archivePath string, _ ...charmhub.DownloadOption) (charm.Bundle, error) {
 	m.MethodCall(m, "DownloadAndReadBundle", resourceURL, archivePath)
 	return m.bundle, m.NextErr()
 }

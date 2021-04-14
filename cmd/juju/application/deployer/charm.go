@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -287,7 +286,7 @@ func (d *deployCharm) formatDeployingText() string {
 		name = curl.Name
 	}
 	origin := d.id.Origin
-	channel := origin.CoreChannel().String()
+	channel := origin.CharmChannel().String()
 	if channel != "" {
 		channel = fmt.Sprintf(" in channel %s", channel)
 	}
@@ -308,7 +307,7 @@ func (d *predeployedLocalCharm) String() string {
 		return str
 	}
 	var channel string
-	if ch := d.origin.CoreChannel().String(); ch != "" {
+	if ch := d.origin.CharmChannel().String(); ch != "" {
 		channel = fmt.Sprintf(" from channel %s", ch)
 	}
 	return fmt.Sprintf("%s%s", str, channel)
@@ -348,7 +347,7 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 	if err != nil {
 		return errors.Trace(err)
 	}
-	origin, err := utils.DeduceOrigin(userCharmURL, corecharm.Channel{}, platform)
+	origin, err := utils.DeduceOrigin(userCharmURL, charm.Channel{}, platform)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -390,7 +389,7 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 	if err != nil {
 		return errors.Trace(err)
 	}
-	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{}, platform)
+	origin, err := utils.DeduceOrigin(curl, charm.Channel{}, platform)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -419,7 +418,7 @@ func (c *repositoryCharm) String() string {
 		return str
 	}
 	var channel string
-	if ch := c.origin.CoreChannel().String(); ch != "" {
+	if ch := c.origin.CharmChannel().String(); ch != "" {
 		channel = fmt.Sprintf(" from channel %s", ch)
 	}
 	return fmt.Sprintf("%s%s", str, channel)

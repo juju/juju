@@ -69,7 +69,7 @@ func (s *charmHubRepositoriesSuite) testResolve(c *gc.C, id string) {
 
 	origin.Type = "charm"
 	origin.Revision = &curl.Revision
-	origin.Channel = &corecharm.Channel{
+	origin.Channel = &charm.Channel{
 		Risk: "stable",
 	}
 	origin.Platform.Architecture = arch.DefaultArchitecture
@@ -95,7 +95,7 @@ func (s *charmHubRepositoriesSuite) TestResolveWithChannel(c *gc.C) {
 			OS:           "ubuntu",
 			Series:       "focal",
 		},
-		Channel: &corecharm.Channel{
+		Channel: &charm.Channel{
 			Track: "latest",
 			Risk:  "stable",
 		},
@@ -109,7 +109,7 @@ func (s *charmHubRepositoriesSuite) TestResolveWithChannel(c *gc.C) {
 
 	origin.Type = "charm"
 	origin.Revision = &curl.Revision
-	origin.Channel = &corecharm.Channel{
+	origin.Channel = &charm.Channel{
 		Risk: "stable",
 	}
 	origin.Platform.Architecture = arch.DefaultArchitecture
@@ -143,7 +143,7 @@ func (s *charmHubRepositoriesSuite) TestResolveWithoutSeries(c *gc.C) {
 
 	origin.Type = "charm"
 	origin.Revision = &curl.Revision
-	origin.Channel = &corecharm.Channel{
+	origin.Channel = &charm.Channel{
 		Risk: "stable",
 	}
 	origin.Platform.Architecture = arch.DefaultArchitecture
@@ -175,7 +175,7 @@ func (s *charmHubRepositoriesSuite) TestResolveWithBundles(c *gc.C) {
 
 	origin.Type = "bundle"
 	origin.Revision = &curl.Revision
-	origin.Channel = &corecharm.Channel{
+	origin.Channel = &charm.Channel{
 		Risk: "stable",
 	}
 	origin.Platform.Architecture = arch.DefaultArchitecture
@@ -208,7 +208,7 @@ func (s *charmHubRepositoriesSuite) TestResolveInvalidPlatformError(c *gc.C) {
 
 	origin.Type = "charm"
 	origin.Revision = &curl.Revision
-	origin.Channel = &corecharm.Channel{
+	origin.Channel = &charm.Channel{
 		Risk: "stable",
 	}
 	origin.Platform.Architecture = arch.DefaultArchitecture
@@ -261,7 +261,7 @@ func (s *charmHubRepositoriesSuite) TestResolveRevisionNotFoundError(c *gc.C) {
 
 	origin.Type = "charm"
 	origin.Revision = &curl.Revision
-	origin.Channel = &corecharm.Channel{
+	origin.Channel = &charm.Channel{
 		Risk: "stable",
 	}
 	origin.Platform.Architecture = arch.DefaultArchitecture
@@ -635,7 +635,7 @@ func (selectReleaseByChannelSuite) TestSelection(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: "arch",
 		},
-		Channel: &corecharm.Channel{
+		Channel: &charm.Channel{
 			Risk: "stable",
 		},
 	})
@@ -658,7 +658,7 @@ func (selectReleaseByChannelSuite) TestAllSelection(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: "arch",
 		},
-		Channel: &corecharm.Channel{
+		Channel: &charm.Channel{
 			Risk: "stable",
 		},
 	})
@@ -695,7 +695,7 @@ func (selectReleaseByChannelSuite) TestMultipleSelection(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: "h",
 		},
-		Channel: &corecharm.Channel{
+		Channel: &charm.Channel{
 			Track: "3.0",
 			Risk:  "stable",
 		},

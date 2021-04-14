@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/api/resources/client"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testcharms"
@@ -320,7 +319,7 @@ func (s *deployerSuite) basicDeployerConfig() DeployerConfig {
 func (s *deployerSuite) channelDeployerConfig() DeployerConfig {
 	return DeployerConfig{
 		Series: "focal",
-		Channel: corecharm.Channel{
+		Channel: charm.Channel{
 			Risk: "edge",
 		},
 	}

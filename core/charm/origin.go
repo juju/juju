@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 )
 
@@ -44,7 +45,7 @@ type Origin struct {
 	// Users can request a revision to be installed instead of a channel, so
 	// we should model that correctly here.
 	Revision *int
-	Channel  *Channel
+	Channel  *charm.Channel
 	Platform Platform
 }
 
