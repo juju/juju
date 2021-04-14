@@ -167,7 +167,7 @@ type refreshCommand struct {
 
 	// Channel holds the charmstore or charmhub channel to use when obtaining
 	// the charm to be refreshed to.
-	Channel    corecharm.Channel
+	Channel    charm.Channel
 	channelStr string
 
 	// Config is a config file variable, pointing at a YAML file containing
@@ -378,9 +378,9 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	// cannot determine the difference between the "latest" track and the current
 	// track if only risk is specified.
 	if c.channelStr == "" {
-		c.Channel, _ = corecharm.ParseChannel(applicationInfo.Channel)
+		c.Channel, _ = charm.ParseChannel(applicationInfo.Channel)
 	} else {
-		c.Channel, err = corecharm.ParseChannel(c.channelStr)
+		c.Channel, err = charm.ParseChannel(c.channelStr)
 		if err != nil {
 			return errors.Trace(err)
 		}

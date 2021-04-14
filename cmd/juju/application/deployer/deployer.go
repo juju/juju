@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -124,7 +123,7 @@ type DeployerConfig struct {
 	BundleMachines       map[string]string
 	BundleOverlayFile    []string
 	BundleStorage        map[string]map[string]storage.Constraints
-	Channel              corecharm.Channel
+	Channel              charm.Channel
 	CharmOrBundle        string
 	ConfigOptions        common.ConfigFlag
 	ConstraintsStr       string
@@ -160,7 +159,7 @@ type factory struct {
 	attachStorage     []string
 	charmOrBundle     string
 	bundleOverlayFile []string
-	channel           corecharm.Channel
+	channel           charm.Channel
 	series            string
 	force             bool
 	dryRun            bool

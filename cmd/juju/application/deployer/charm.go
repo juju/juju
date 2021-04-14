@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -348,7 +347,7 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 	if err != nil {
 		return errors.Trace(err)
 	}
-	origin, err := utils.DeduceOrigin(userCharmURL, corecharm.Channel{}, platform)
+	origin, err := utils.DeduceOrigin(userCharmURL, charm.Channel{}, platform)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -390,7 +389,7 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 	if err != nil {
 		return errors.Trace(err)
 	}
-	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{}, platform)
+	origin, err := utils.DeduceOrigin(curl, charm.Channel{}, platform)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	corecharm "github.com/juju/juju/core/charm"
 )
 
 const (
@@ -150,7 +149,7 @@ func (c *infoCommand) Run(ctx *cmd.Context) error {
 
 	channel := c.channel
 	if channel != "" {
-		charmChannel, err := corecharm.ParseChannelNormalize(c.channel)
+		charmChannel, err := charm.ParseChannelNormalize(c.channel)
 		if err != nil {
 			return errors.Trace(err)
 		}
