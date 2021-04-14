@@ -24,9 +24,9 @@ type FindChannelMap struct {
 // FindRevision is different from InfoRevision.  It is missing
 // ConfigYAML and MetadataYAML
 type FindRevision struct {
-	CreatedAt string     `json:"created-at"`
-	Download  Download   `json:"download"`
-	Platforms []Platform `json:"platforms"`
-	Revision  int        `json:"revision"`
-	Version   string     `json:"version"`
+	CreatedAt string   `json:"created-at"`
+	Download  Download `json:"download"`
+	Bases     []Base   `json:"bases"`
+	Revision  int      `json:"revision"`
+	Version   string   `json:"version"`
 }
