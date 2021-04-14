@@ -159,7 +159,7 @@ Enter region:
 	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
 }
 
-func (s *eksSuite) TestInteractiveParamMultiClusters(c *gc.C) {
+func (s *eksSuite) TestInteractiveParamMultiClustersLegacyCLI(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -212,6 +212,73 @@ Select cluster [mycluster]:
 	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		name:   "mycluster",
+		region: "ap-southeast-2",
+	})
+}
+
+func (s *eksSuite) TestInteractiveParamMultiClusters(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockRunner := mocks.NewMockCommandRunner(ctrl)
+	eksCMD := &eks{
+		tool:          "eksctl",
+		CommandRunner: mockRunner,
+	}
+	clusterJSONResp := `
+[
+    {
+        "metadata": {
+            "name": "nw-deploy-kubeflow-1272",
+            "region": "ap-southeast-2"
+        },
+        "status": {
+            "eksctlCreated": "True"
+        }
+    },
+    {
+        "metadata": {
+            "name": "k1",
+            "region": "ap-southeast-2"
+        },
+        "status": {
+            "eksctlCreated": "True"
+        }
+    }
+]`
+
+	gomock.InOrder(
+		mockRunner.EXPECT().RunCommands(exec.RunParams{
+			Commands:    "eksctl get cluster --region ap-southeast-2 -o json",
+			Environment: os.Environ(),
+		}).
+			Return(&exec.ExecResponse{
+				Code:   0,
+				Stdout: []byte(clusterJSONResp),
+			}, nil),
+	)
+	stdin := strings.NewReader("ap-southeast-2\nk1\n")
+	out := &bytes.Buffer{}
+	ctx := &cmd.Context{
+		Dir:    c.MkDir(),
+		Stdout: out,
+		Stderr: ioutil.Discard,
+		Stdin:  stdin,
+	}
+	expected := `
+Enter region: 
+Available Clusters In Ap-Southeast-2
+  nw-deploy-kubeflow-1272
+  k1
+
+Select cluster [nw-deploy-kubeflow-1272]: 
+`[1:]
+
+	outParams, err := eksCMD.interactiveParams(ctx, &clusterParams{})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Assert(outParams, jc.DeepEquals, &clusterParams{
+		name:   "k1",
 		region: "ap-southeast-2",
 	})
 }
