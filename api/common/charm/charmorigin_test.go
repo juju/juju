@@ -20,7 +20,7 @@ func (originSuite) TestCoreChannel(c *gc.C) {
 		Risk:  "edge",
 		Track: &track,
 	}
-	c.Assert(origin.CoreChannel(), gc.DeepEquals, charm.Channel{
+	c.Assert(origin.CharmChannel(), gc.DeepEquals, charm.Channel{
 		Risk:  charm.Edge,
 		Track: "latest",
 	})
@@ -30,12 +30,12 @@ func (originSuite) TestCoreChannelWithEmptyTrack(c *gc.C) {
 	origin := commoncharm.Origin{
 		Risk: "edge",
 	}
-	c.Assert(origin.CoreChannel(), gc.DeepEquals, charm.Channel{
+	c.Assert(origin.CharmChannel(), gc.DeepEquals, charm.Channel{
 		Risk: charm.Edge,
 	})
 }
 
 func (originSuite) TestCoreChannelThatIsEmpty(c *gc.C) {
 	origin := commoncharm.Origin{}
-	c.Assert(origin.CoreChannel(), gc.DeepEquals, charm.Channel{})
+	c.Assert(origin.CharmChannel(), gc.DeepEquals, charm.Channel{})
 }

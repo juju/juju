@@ -277,7 +277,7 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 		// available.
 		return nil, commoncharm.Origin{}, errors.Errorf("already running latest charm %q", newURL.Name)
 	}
-	r.logger.Verbosef("Using channel %q", origin.CoreChannel().String())
+	r.logger.Verbosef("Using channel %q", origin.CharmChannel().String())
 	return newURL, origin, nil
 }
 

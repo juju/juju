@@ -390,7 +390,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		// If not upgrading from a local path, display the channel we
 		// are pulling the charm from.
 		var channel string
-		if ch := oldOrigin.CoreChannel().String(); ch != "" {
+		if ch := oldOrigin.CharmChannel().String(); ch != "" {
 			channel = fmt.Sprintf(" from channel %s", ch)
 		}
 		ctx.Infof("Looking up metadata for %s charm %q%s", oldOrigin.Source, oldURL.Name, channel)

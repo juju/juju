@@ -286,7 +286,7 @@ func (d *deployCharm) formatDeployingText() string {
 		name = curl.Name
 	}
 	origin := d.id.Origin
-	channel := origin.CoreChannel().String()
+	channel := origin.CharmChannel().String()
 	if channel != "" {
 		channel = fmt.Sprintf(" in channel %s", channel)
 	}
@@ -307,7 +307,7 @@ func (d *predeployedLocalCharm) String() string {
 		return str
 	}
 	var channel string
-	if ch := d.origin.CoreChannel().String(); ch != "" {
+	if ch := d.origin.CharmChannel().String(); ch != "" {
 		channel = fmt.Sprintf(" from channel %s", ch)
 	}
 	return fmt.Sprintf("%s%s", str, channel)
@@ -418,7 +418,7 @@ func (c *repositoryCharm) String() string {
 		return str
 	}
 	var channel string
-	if ch := c.origin.CoreChannel().String(); ch != "" {
+	if ch := c.origin.CharmChannel().String(); ch != "" {
 		channel = fmt.Sprintf(" from channel %s", ch)
 	}
 	return fmt.Sprintf("%s%s", str, channel)

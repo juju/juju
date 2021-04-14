@@ -57,8 +57,8 @@ func (o Origin) WithSeries(series string) Origin {
 	return other
 }
 
-// CoreChannel returns the core charm channel.
-func (o Origin) CoreChannel() charm.Channel {
+// CharmChannel returns the the channel indicated by this origin.
+func (o Origin) CharmChannel() charm.Channel {
 	var track string
 	if o.Track != nil {
 		track = *o.Track

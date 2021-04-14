@@ -406,7 +406,7 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL, charmSeries, ch
 	if err != nil {
 		return "", -1, errors.Annotatef(err, "cannot resolve charm or bundle %q", ch.Name)
 	}
-	resolvedChan := origin.CoreChannel().Normalize().String()
+	resolvedChan := origin.CharmChannel().Normalize().String()
 	rev := origin.Revision
 	if rev == nil {
 		return resolvedChan, -1, nil

@@ -214,7 +214,7 @@ func newAddPendingResourcesArgs(tag names.ApplicationTag, chID CharmID, csMac *m
 	if chID.URL != nil {
 		args.URL = chID.URL.String()
 	}
-	args.Channel = chID.Origin.CoreChannel().String()
+	args.Channel = chID.Origin.CharmChannel().String()
 	args.CharmStoreMacaroon = csMac
 
 	return args, nil
