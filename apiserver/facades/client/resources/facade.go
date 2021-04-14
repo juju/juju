@@ -294,9 +294,9 @@ func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
 		ID:       origin.ID,
 		Hash:     origin.Hash,
 		Revision: origin.Revision,
-		Channel: &corecharm.Channel{
+		Channel: &charm.Channel{
 			Track: track,
-			Risk:  corecharm.Risk(origin.Risk),
+			Risk:  charm.Risk(origin.Risk),
 		},
 		Platform: corecharm.Platform{
 			Architecture: origin.Architecture,

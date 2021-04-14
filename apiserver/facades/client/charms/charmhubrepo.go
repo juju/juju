@@ -122,7 +122,7 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin corecharm.O
 
 	// Use the channel that was actually picked by the API. This should
 	// account for the closed tracks in a given channel.
-	channel, err := corecharm.ParseChannelNormalize(res.EffectiveChannel)
+	channel, err := charm.ParseChannelNormalize(res.EffectiveChannel)
 	if err != nil {
 		return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "invalid channel")
 	}
@@ -408,7 +408,7 @@ func composeSuggestions(releases []transport.Release, origin corecharm.Origin) [
 	var suggestions []string
 	// Sort for latest channels to be suggested first.
 	// Assumes that releases have normalized channels.
-	for _, r := range corecharm.Risks {
+	for _, r := range charm.Risks {
 		risk := string(r)
 		if values, ok := channelSeries[risk]; ok {
 			suggestions = append(suggestions, fmt.Sprintf("%s with %s", risk, strings.Join(values, ", ")))
@@ -430,7 +430,7 @@ type Release struct {
 func selectReleaseByArchAndChannel(releases []transport.Release, origin corecharm.Origin) (Release, error) {
 	var (
 		empty   = origin.Channel == nil
-		channel corecharm.Channel
+		channel charm.Channel
 	)
 	if !empty {
 		channel = origin.Channel.Normalize()
