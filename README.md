@@ -1,9 +1,11 @@
 [![Juju logo](doc/juju-logo.png?raw=true)](https://juju.is/)
 
-[Juju is a model-driven **Operator Lifecycle Manager**
-(OLM)](https://juju.is/overview). Juju greatly improves the experience of
-running Kubernetes operators, especially in projects that integrate many
-operators from different publishers.
+Juju is an Open Source Charmed Operator Framework. It helps you move from configuration management to application management and has two main components:
+
+* **Charmed Operator Lifecycle Manager (OLM)** - a hybrid-cloud application management and orchestration system that helps you from Day 0 to Day 2. Deploy, configure, scale, **integrate**, maintain and manage Kubernetes native, container-native and VM-native applications -- and the relations between them.
+   * **Charmed Operators, packaged as “Charms”**, are software that encapsulate a single application and all the code and know-how it takes to operate it on Kubernetes or machines.
+
+* **Charmed Operator SDK** - a guide to help you build Charmed Operators for use with the Charmed OLM.
 
 ## Why Juju
 
@@ -20,7 +22,7 @@ engagement and contribution. Operators also improve security through
 consistent automation. Juju operators are a [community-driven
 devsecops](https://juju.is/devsecops) approach to open source operations.
 
-Juju implements the Kubernetes operator pattern, but is also a **universal
+Juju implements the Kubernetes operator pattern, but is also a **machine
 OLM** that extends the operator pattern to traditional applications (without
 Kubernetes) on Linux and Windows. Such machine operators can work on bare
 metal, virtual machines or cloud instances, enabling [multi cloud and hybrid
@@ -51,7 +53,7 @@ including leader election and persistent state. Instead of manually
 deploying and configuring operators, the OLM manages all the operators in a
 model at the direction of the administrator.
 
-## Open Operator Collection
+## Charmed Operator Collection
 
 The world's [largest collection of operators](https://charmhub.io/) all use
 Juju as their OLM. The Charmhub community emphasizes quality, collaboration
@@ -78,7 +80,7 @@ environment and accelerate workloads accordingly.
 
 ## Pure Python operators
 
-The [Python Operator Framework](https://pythonoperatorframework.io/) makes
+The [Charmed Operator Framework](https://pythonoperatorframework.io/) makes
 it easy to write an operator. The framework handles all the details of
 communication between integrated operators, so you can focus on your own
 [application lifecycle
@@ -88,7 +90,7 @@ Code sharing between operator publishers is simplified making it much faster
 to collaborate on distributed systems involving components from many
 different publishers and upstreams. Your operator is a Python event handler.
 Lifecycle management, configuration and integration are all events delivered
-to your charm by the framework.
+to your charmed operator by the framework.
 
 ## Architecture
 
@@ -98,7 +100,7 @@ for centralised logging and persistence, but there is no need to manage that
 database separately.
 
 Operators can be written in any language but we do encourage new authors to
-use the Python Operator Framework for ease of contribution, support and
+use the Charmed Operator Framework for ease of contribution, support and
 community participation.
 
 ## Production grade
@@ -128,4 +130,4 @@ of commands and usage.
 Follow our [code and contribution guidelines](CONTRIBUTING.md) to learn how
 to make code changes. File bugs in
 [Launchpad](https://bugs.launchpad.net/juju/+filebug) or ask questions on
-our [Freenode IRC channel](https://webchat.freenode.net/#juju).
+our [Mattermost channel](https://chat.charmhub.io/).
