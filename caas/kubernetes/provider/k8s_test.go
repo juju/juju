@@ -2060,7 +2060,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoSpecProvided(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 	)
 
@@ -2074,7 +2074,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceBothPodSpecAndRawK8sSpecProvided(c *gc
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 	)
 
