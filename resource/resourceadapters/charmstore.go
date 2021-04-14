@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/controller"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/resource/repositories"
 	"github.com/juju/juju/state"
 )
@@ -57,7 +56,7 @@ func (cs *csClient) GetResource(req repositories.ResourceRequest) (charmstore.Re
 		return cs.client.GetResource(csReq)
 	}
 
-	channel, err := corecharm.MakeChannel(stChannel.Track, stChannel.Risk, stChannel.Branch)
+	channel, err := charm.MakeChannel(stChannel.Track, stChannel.Risk, stChannel.Branch)
 	if err != nil {
 		return charmstore.ResourceData{}, errors.Trace(err)
 	}

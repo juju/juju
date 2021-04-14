@@ -10,11 +10,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
 
+	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/resource/repositories"
 )
 
