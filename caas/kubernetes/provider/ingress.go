@@ -12,10 +12,13 @@ import (
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8sannotations "github.com/juju/juju/core/annotations"
@@ -90,7 +93,13 @@ func (k *kubernetesClient) ensureIngressV1beta1(appName string, spec *networking
 			return cleanUp, errors.NewAlreadyExists(nil, fmt.Sprintf("existing ingress %q found which does not belong to %q", spec.GetName(), appName))
 		}
 	}
-	_, err = api.Update(context.TODO(), spec, metav1.UpdateOptions{})
+	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, spec)
+	if err != nil {
+		return cleanUp, errors.Trace(err)
+	}
+	_, err = api.Patch(context.TODO(), spec.GetName(), k8stypes.StrategicMergePatchType, data, metav1.PatchOptions{
+		FieldManager: resources.JujuFieldManager,
+	})
 	return cleanUp, errors.Trace(err)
 }
 
@@ -117,7 +126,13 @@ func (k *kubernetesClient) ensureIngressV1(appName string, spec *networkingv1.In
 			return cleanUp, errors.NewAlreadyExists(nil, fmt.Sprintf("existing ingress %q found which does not belong to %q", spec.GetName(), appName))
 		}
 	}
-	_, err = api.Update(context.TODO(), spec, metav1.UpdateOptions{})
+	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, spec)
+	if err != nil {
+		return cleanUp, errors.Trace(err)
+	}
+	_, err = api.Patch(context.TODO(), spec.GetName(), k8stypes.StrategicMergePatchType, data, metav1.PatchOptions{
+		FieldManager: resources.JujuFieldManager,
+	})
 	return cleanUp, errors.Trace(err)
 }
 
