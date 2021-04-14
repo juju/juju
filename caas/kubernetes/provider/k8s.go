@@ -1084,13 +1084,18 @@ func (k *kubernetesClient) EnsureService(
 	if numUnits == 0 {
 		return k.deleteAllPods(appName, deploymentName)
 	}
+	if params.PodSpec != nil && len(params.RawK8sSpec) > 0 {
+		// This should never happen.
+		return errors.NotValidf("both pod spec and raw k8s spec provided")
+	}
 
 	if params.PodSpec != nil {
 		return k.ensureService(appName, deploymentName, statusCallback, params, numUnits, config)
-	} else if len(params.RawK8sSpec) > 0 {
+	}
+	if len(params.RawK8sSpec) > 0 {
 		return k.applyRawK8sSpec(appName, deploymentName, statusCallback, params, numUnits, config)
 	}
-	return errors.NewNotSupported(nil, "currently only k8s-raw-set and k8s-spec-set are supported")
+	return nil
 }
 
 func (k *kubernetesClient) ensureService(
