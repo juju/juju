@@ -1743,7 +1743,7 @@ class ModelClient:
         return info_dict.get('controller-member-status')
 
     def wait_for_ha(self, timeout=1200, start=None, quorum=3):
-        """Wait for voiting to be enabled.
+        """Wait for voting to be enabled.
 
         May only be called on a controller client."""
         if self.env.environment != self.get_controller_model_name():
@@ -1767,7 +1767,7 @@ class ModelClient:
         self._wait_for_status(reporter, status_to_ha, VotingNotEnabled,
                               timeout=timeout, start=start)
         # XXX sinzui 2014-12-04: bug 1399277 happens because
-        # juju claims HA is ready when the monogo replica sets
+        # juju claims HA is ready when the mongo replica sets
         # are not. Juju is not fully usable. The replica set
         # lag might be 5 minutes.
         self._backend.pause(300)

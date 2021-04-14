@@ -21,14 +21,28 @@ type Logger interface {
 func AuthoritySNITLSGetter(authority pki.Authority, logger Logger) func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		logger.Debugf("received tls client hello for server name %s", hello.ServerName)
+
 		var cert *tls.Certificate
-		authority.LeafRange(func(leaf pki.Leaf) bool {
-			if err := hello.SupportsCertificate(leaf.TLSCertificate()); err == nil {
-				cert = leaf.TLSCertificate()
-				return false
+
+		// NOTE: This was added in response to bug lp:1921557. If we get an
+		// empty server name here we assume the the connection is being made
+		// with an ip address as the host.
+		if hello.ServerName == "" {
+			logger.Debugf("tls client hello server name is empty. Attempting to provide ip address certificate")
+			leaf, err := authority.LeafForGroup(pki.ControllerIPLeafGroup)
+			if err != nil && !errors.IsNotFound(err) {
+				return nil, errors.Annotate(err, "fetching ip address certificate")
 			}
-			return true
-		})
+			cert = leaf.TLSCertificate()
+		} else {
+			authority.LeafRange(func(leaf pki.Leaf) bool {
+				if err := hello.SupportsCertificate(leaf.TLSCertificate()); err == nil {
+					cert = leaf.TLSCertificate()
+					return false
+				}
+				return true
+			})
+		}
 
 		if cert == nil {
 			logger.Debugf("no matching certificate found for tls client hello %s, using default certificate", hello.ServerName)
