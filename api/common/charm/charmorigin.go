@@ -4,6 +4,8 @@
 package charm
 
 import (
+	"github.com/juju/charm/v8"
+
 	"github.com/juju/juju/apiserver/params"
 	corecharm "github.com/juju/juju/core/charm"
 )
@@ -56,14 +58,14 @@ func (o Origin) WithSeries(series string) Origin {
 }
 
 // CoreChannel returns the core charm channel.
-func (o Origin) CoreChannel() corecharm.Channel {
+func (o Origin) CoreChannel() charm.Channel {
 	var track string
 	if o.Track != nil {
 		track = *o.Track
 	}
-	return corecharm.Channel{
+	return charm.Channel{
 		Track: track,
-		Risk:  corecharm.Risk(o.Risk),
+		Risk:  charm.Risk(o.Risk),
 	}
 }
 
@@ -90,10 +92,10 @@ func (o Origin) CoreCharmOrigin() corecharm.Origin {
 	if o.Track != nil {
 		track = *o.Track
 	}
-	var channel *corecharm.Channel
+	var channel *charm.Channel
 	if o.Risk != "" {
-		channel = &corecharm.Channel{
-			Risk:  corecharm.Risk(o.Risk),
+		channel = &charm.Channel{
+			Risk:  charm.Risk(o.Risk),
 			Track: track,
 		}
 	}
@@ -132,7 +134,7 @@ func APICharmOrigin(origin params.CharmOrigin) Origin {
 // CoreCharmOrigin is a helper function to convert params.CharmOrigin
 // to an Origin.
 func CoreCharmOrigin(origin corecharm.Origin) Origin {
-	var ch corecharm.Channel
+	var ch charm.Channel
 	if origin.Channel != nil {
 		ch = *origin.Channel
 	}
