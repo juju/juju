@@ -4308,6 +4308,8 @@ func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
 	type args struct {
 		dbName    string
 		modelUUID string
+		attempt   int
+		duration  time.Duration
 		ops       []mgotxn.Op
 		err       error
 	}
@@ -4320,12 +4322,14 @@ func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
 	}
 
 	params := s.testOpenParams()
-	params.RunTransactionObserver = func(dbName, modelUUID string, ops []mgotxn.Op, err error) {
+	params.RunTransactionObserver = func(dbName, modelUUID string, attempt int, duration time.Duration, ops []mgotxn.Op, err error) {
 		mu.Lock()
 		defer mu.Unlock()
 		recordedCalls = append(recordedCalls, args{
 			dbName:    dbName,
 			modelUUID: modelUUID,
+			attempt:   attempt,
+			duration:  duration,
 			ops:       ops,
 			err:       err,
 		})
@@ -4350,6 +4354,7 @@ func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
 		}
 		c.Check(call.dbName, gc.Equals, "juju")
 		c.Check(call.modelUUID, gc.Equals, s.modelTag.Id())
+		c.Check(call.duration, gc.Not(gc.Equals), 0)
 		c.Check(call.err, gc.IsNil)
 		c.Check(call.ops, gc.HasLen, 1)
 		c.Check(call.ops[0].Update, gc.NotNil)
