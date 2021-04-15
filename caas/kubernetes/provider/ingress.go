@@ -10,7 +10,9 @@ import (
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
@@ -89,10 +91,16 @@ func (k *kubernetesClient) getIngress(name string) (*networkingv1beta1.Ingress, 
 	return out, errors.Trace(err)
 }
 
-func (k *kubernetesClient) updateIngress(ingress *networkingv1beta1.Ingress) (*networkingv1beta1.Ingress, error) {
-	out, err := k.client().NetworkingV1beta1().Ingresses(k.namespace).Update(ingress)
+func (k *kubernetesClient) updateIngress(spec *networkingv1beta1.Ingress) (*networkingv1beta1.Ingress, error) {
+	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, spec)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	out, err := k.client().NetworkingV1beta1().Ingresses(k.namespace).Patch(
+		spec.GetName(), k8stypes.StrategicMergePatchType, data,
+	)
 	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("ingress resource %q", ingress.GetName())
+		return nil, errors.NotFoundf("ingress resource %q", spec.GetName())
 	}
 	return out, errors.Trace(err)
 }
