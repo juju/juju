@@ -450,6 +450,39 @@ func (refreshConfigSuite) TestRefreshByChannel(c *gc.C) {
 	})
 }
 
+func (refreshConfigSuite) TestRefreshByChannelVersion(c *gc.C) {
+	curl := charm.MustParseURL("ch:wordpress")
+	platform := corecharm.MustParsePlatform("amd64/ubuntu/20.10/latest")
+	channel := corecharm.MustParseChannel("latest/stable").Normalize()
+	origin := corecharm.Origin{
+		Platform: platform,
+		Channel:  &channel,
+	}
+
+	cfg, err := refreshConfig(curl, origin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch := channel.String()
+	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
+
+	build, _, err := cfg.Build()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(build, gc.DeepEquals, transport.RefreshRequest{
+		Actions: []transport.RefreshRequestAction{{
+			Action:      "install",
+			InstanceKey: instanceKey,
+			Name:        &curl.Name,
+			Channel:     &ch,
+			Base: &transport.Base{
+				Name:         "ubuntu",
+				Channel:      "20.10",
+				Architecture: "amd64",
+			},
+		}},
+		Context: []transport.RefreshRequestContext{},
+	})
+}
+
 func (refreshConfigSuite) TestRefreshByRevision(c *gc.C) {
 	revision := 1
 	curl := charm.MustParseURL("ch:wordpress")
@@ -547,6 +580,24 @@ func (composeSuggestionsSuite) TestSuggestion(c *gc.C) {
 		Base: transport.Base{
 			Name:         "os",
 			Channel:      "20.04",
+			Architecture: "arch",
+		},
+		Channel: "stable",
+	}}, corecharm.Origin{
+		Platform: corecharm.Platform{
+			Architecture: "arch",
+		},
+	})
+	c.Assert(suggestions, gc.DeepEquals, []string{
+		"stable with focal",
+	})
+}
+
+func (composeSuggestionsSuite) TestSuggestionWithRisk(c *gc.C) {
+	suggestions := composeSuggestions([]transport.Release{{
+		Base: transport.Base{
+			Name:         "os",
+			Channel:      "20.04/stable",
 			Architecture: "arch",
 		},
 		Channel: "stable",
