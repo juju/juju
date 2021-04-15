@@ -120,7 +120,7 @@ jobs:
 
     - name: Get MicroK8s pods
       run: |
-        sudo microk8s kubectl get pods -A -o wide
+        sudo microk8s kubectl get pods,svc,ing -A -o wide
       if: failure()
 
     - name: Describe MicroK8s pods
