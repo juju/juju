@@ -837,6 +837,7 @@ func processConstraints(pod *core.PodSpec, appName string, cons constraints.Valu
 	// Translate tags to pod or node affinity.
 	// Tag names are prefixed with "pod.", "anti-pod.", or "node."
 	// with the default being "node".
+	// The tag 'topology-key', if set, is used for the affinity topology key value.
 	if cons.Tags != nil {
 		affinityLabels := make(map[string]string)
 		for _, labelPair := range *cons.Tags {
@@ -881,9 +882,10 @@ func processConstraints(pod *core.PodSpec, appName string, cons constraints.Valu
 }
 
 const (
-	podPrefix     = "pod."
-	antiPodPrefix = "anti-pod."
-	nodePrefix    = "node."
+	podPrefix      = "pod."
+	antiPodPrefix  = "anti-pod."
+	topologyKeyTag = "topology-key"
+	nodePrefix     = "node."
 )
 
 func processNodeAffinity(pod *core.PodSpec, affinityLabels map[string]string) error {
@@ -981,8 +983,15 @@ func processPodAffinity(pod *core.PodSpec, affinityLabels map[string]string) err
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
-		var labelSelector v1.LabelSelector
+		var (
+			labelSelector v1.LabelSelector
+			topologyKey   string
+		)
 		for _, tag := range keys {
+			if tag == topologyKeyTag {
+				topologyKey = tags[tag]
+				continue
+			}
 			allValues := strings.Split(tags[tag], "|")
 			for i, v := range allValues {
 				allValues[i] = strings.Trim(v, " ")
@@ -999,6 +1008,9 @@ func processPodAffinity(pod *core.PodSpec, affinityLabels map[string]string) err
 			})
 		}
 		affinityTerm.LabelSelector = &labelSelector
+		if topologyKey != "" {
+			affinityTerm.TopologyKey = topologyKey
+		}
 	}
 	if pod.Affinity == nil {
 		pod.Affinity = &core.Affinity{}
