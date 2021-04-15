@@ -75,6 +75,9 @@ jobs:
           # clean up disk space because the runner only has 14G which is not enough.
           go clean -cache -modcache -i -r
           docker system prune --all --force
+
+          microk8s.kubectl -n kube-system rollout status ds/calico-node
+          microk8s.kubectl get all -A
         EOF
 
     - name: Deploy Kubeflow
