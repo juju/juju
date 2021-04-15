@@ -13,10 +13,11 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub/transport"
+	corecharm "github.com/juju/juju/core/charm"
 	coreseries "github.com/juju/juju/core/series"
 )
 
-func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
+func convertCharmInfoResult(info transport.InfoResponse) (params.InfoResponse, error) {
 	ir := params.InfoResponse{
 		Type:        string(info.Type),
 		ID:          info.ID,
@@ -34,11 +35,15 @@ func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
 		// TODO (stickupkid): Get the Bundle.Release and set it to the
 		// InfoResponse at a high level.
 	case transport.CharmType:
-		ir.Charm, ir.Series, isKub = convertCharm(info)
+		var err error
+		ir.Charm, ir.Series, isKub, err = convertCharm(info)
+		if err != nil {
+			return params.InfoResponse{}, errors.Trace(err)
+		}
 	}
 
 	ir.Tracks, ir.Channels = transformInfoChannelMap(info.ChannelMap, isKub)
-	return ir
+	return ir, nil
 }
 
 func categories(cats []transport.Category) []string {
@@ -169,22 +174,31 @@ func convertBasesToPlatforms(in []transport.Base, isKub bool) []params.Platform 
 	return out
 }
 
-func convertCharm(info transport.InfoResponse) (*params.CharmHubCharm, []string, bool) {
+func convertCharm(info transport.InfoResponse) (*params.CharmHubCharm, []string, bool, error) {
 	charmHubCharm := params.CharmHubCharm{
 		UsedBy: info.Entity.UsedBy,
 	}
 	var series []string
+	var err error
 	var isKub bool
 	if meta := unmarshalCharmMetadata(info.DefaultRelease.Revision.MetadataYAML); meta != nil {
 		charmHubCharm.Subordinate = meta.Subordinate
 		charmHubCharm.Relations = transformRelations(meta.Requires, meta.Provides)
-		series = meta.ComputedSeries()
-		isKub = isKubernetes(meta)
+
+		// TODO: hml 2021-04-15
+		// Implementation of Manifest in charmhub InfoResponse is
+		// required.  In the default-release channel map.
+		cm := charmMeta{meta: meta}
+		series, err = corecharm.ComputedSeries(cm)
+		if err != nil {
+			return nil, nil, false, errors.Trace(err)
+		}
+		isKub = isKubernetes(series)
 	}
 	if cfg := unmarshalCharmConfig(info.DefaultRelease.Revision.ConfigYAML); cfg != nil {
 		charmHubCharm.Config = params.ToCharmOptionMap(cfg)
 	}
-	return &charmHubCharm, series, isKub
+	return &charmHubCharm, series, isKub, nil
 }
 
 func unmarshalCharmMetadata(metadataYAML string) *charm.Meta {
@@ -262,14 +276,23 @@ func convertBundle(charms []transport.Charm) *params.CharmHubBundle {
 	return bundle
 }
 
-// TODO (hml) 2021-04-08
+type charmMeta struct {
+	meta     *charm.Meta
+	manifest *charm.Manifest
+}
+
+func (c charmMeta) Meta() *charm.Meta {
+	return c.meta
+}
+
+func (c charmMeta) Manifest() *charm.Manifest {
+	return c.manifest
+}
+
 // Update location of series for kubernetes series once manifest.yaml
 // is available.
-func isKubernetes(meta *charm.Meta) bool {
-	if len(meta.Containers) > 0 {
-		return true
-	}
-	seriesSet := set.NewStrings(meta.Series...)
+func isKubernetes(series []string) bool {
+	seriesSet := set.NewStrings(series...)
 	if seriesSet.Contains("kubernetes") {
 		return true
 	}

@@ -5,11 +5,11 @@
 package charms
 
 import (
+	"fmt"
+
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
-	"github.com/juju/systems"
-	"github.com/juju/systems/channel"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/api/base"
@@ -34,6 +34,7 @@ type CharmInfo struct {
 	Meta       *charm.Meta
 	Actions    *charm.Actions
 	Metrics    *charm.Metrics
+	Manifest   *charm.Manifest
 	LXDProfile *charm.LXDProfile
 }
 
@@ -52,6 +53,7 @@ func (c *CharmsClient) CharmInfo(charmURL string) (*CharmInfo, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	manifest, err := convertCharmManifest(info.Manifest)
 	result := &CharmInfo{
 		Revision:   info.Revision,
 		URL:        info.URL,
@@ -59,6 +61,7 @@ func (c *CharmsClient) CharmInfo(charmURL string) (*CharmInfo, error) {
 		Meta:       meta,
 		Actions:    convertCharmActions(info.Actions),
 		Metrics:    convertCharmMetrics(info.Metrics),
+		Manifest:   manifest,
 		LXDProfile: convertCharmLXDProfile(info.LXDProfile),
 	}
 	return result, nil
@@ -73,10 +76,6 @@ func convertCharmMeta(meta *params.CharmMeta) (*charm.Meta, error) {
 		return nil, errors.Trace(err)
 	}
 	resources, err := convertCharmResourceMetaMap(meta.Resources)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	bases, err := convertCharmBases(meta.Bases)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -103,7 +102,6 @@ func convertCharmMeta(meta *params.CharmMeta) (*charm.Meta, error) {
 		Resources:      resources,
 		Terms:          meta.Terms,
 		MinJujuVersion: minVersion,
-		Bases:          bases,
 		Containers:     containers,
 		Assumes:        meta.Assumes,
 	}
@@ -350,6 +348,10 @@ func (c *charmImpl) Metrics() *charm.Metrics {
 	return c.info.Metrics
 }
 
+func (c *charmImpl) Manifest() *charm.Manifest {
+	return c.info.Manifest
+}
+
 func (c *charmImpl) Actions() *charm.Actions {
 	return c.info.Actions
 }
@@ -358,23 +360,20 @@ func (c *charmImpl) Revision() int {
 	return c.info.Revision
 }
 
-func convertCharmBases(input []params.CharmBase) ([]systems.Base, error) {
-	var err error
-	res := []systems.Base(nil)
-	for _, v := range input {
-		ch := channel.Channel{}
-		if v.Channel != "" {
-			ch, err = channel.Parse(v.Channel)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-		res = append(res, systems.Base{
-			Name:    v.Name,
-			Channel: ch,
-		})
+func convertCharmManifest(input *params.CharmManifest) (*charm.Manifest, error) {
+	if input == nil {
+		return &charm.Manifest{}, nil
 	}
-	return res, nil
+	res := []charm.Base(nil)
+	for _, v := range input.Bases {
+		str := fmt.Sprintf("%s/%s", v.Name, v.Channel)
+		b, err := charm.ParseBase(str, v.Architectures...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		res = append(res, b)
+	}
+	return &charm.Manifest{Bases: res}, nil
 }
 
 func convertCharmContainers(input map[string]params.CharmContainer) (map[string]charm.Container, error) {

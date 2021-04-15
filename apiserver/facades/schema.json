@@ -7014,6 +7014,9 @@
                         "lxd-profile": {
                             "$ref": "#/definitions/CharmLXDProfile"
                         },
+                        "manifest": {
+                            "$ref": "#/definitions/CharmManifest"
+                        },
                         "meta": {
                             "$ref": "#/definitions/CharmMeta"
                         },
@@ -7073,6 +7076,12 @@
                 "CharmBase": {
                     "type": "object",
                     "properties": {
+                        "architectures": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
                         "channel": {
                             "type": "string"
                         },
@@ -7184,6 +7193,18 @@
                         "devices"
                     ]
                 },
+                "CharmManifest": {
+                    "type": "object",
+                    "properties": {
+                        "bases": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmBase"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
@@ -7191,12 +7212,6 @@
                             "type": "array",
                             "items": {
                                 "type": "string"
-                            }
-                        },
-                        "bases": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CharmBase"
                             }
                         },
                         "categories": {
@@ -8719,6 +8734,9 @@
                         "lxd-profile": {
                             "$ref": "#/definitions/CharmLXDProfile"
                         },
+                        "manifest": {
+                            "$ref": "#/definitions/CharmManifest"
+                        },
                         "meta": {
                             "$ref": "#/definitions/CharmMeta"
                         },
@@ -8778,6 +8796,12 @@
                 "CharmBase": {
                     "type": "object",
                     "properties": {
+                        "architectures": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
                         "channel": {
                             "type": "string"
                         },
@@ -8889,6 +8913,18 @@
                         "devices"
                     ]
                 },
+                "CharmManifest": {
+                    "type": "object",
+                    "properties": {
+                        "bases": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmBase"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
@@ -8896,12 +8932,6 @@
                             "type": "array",
                             "items": {
                                 "type": "string"
-                            }
-                        },
-                        "bases": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CharmBase"
                             }
                         },
                         "categories": {
@@ -13101,6 +13131,9 @@
                         "lxd-profile": {
                             "$ref": "#/definitions/CharmLXDProfile"
                         },
+                        "manifest": {
+                            "$ref": "#/definitions/CharmManifest"
+                        },
                         "meta": {
                             "$ref": "#/definitions/CharmMeta"
                         },
@@ -13160,6 +13193,12 @@
                 "CharmBase": {
                     "type": "object",
                     "properties": {
+                        "architectures": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
                         "channel": {
                             "type": "string"
                         },
@@ -13271,6 +13310,18 @@
                         "devices"
                     ]
                 },
+                "CharmManifest": {
+                    "type": "object",
+                    "properties": {
+                        "bases": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmBase"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
@@ -13278,12 +13329,6 @@
                             "type": "array",
                             "items": {
                                 "type": "string"
-                            }
-                        },
-                        "bases": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CharmBase"
                             }
                         },
                         "categories": {

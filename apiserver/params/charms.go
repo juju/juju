@@ -128,7 +128,6 @@ type CharmMeta struct {
 	Terms          []string                     `json:"terms,omitempty"`
 	MinJujuVersion string                       `json:"min-juju-version,omitempty"`
 
-	Bases      []CharmBase               `json:"bases,omitempty"`
 	Containers map[string]CharmContainer `json:"containers,omitempty"`
 	Assumes    []string                  `json:"assumes,omitempty"`
 }
@@ -142,6 +141,7 @@ type Charm struct {
 	Meta       *CharmMeta             `json:"meta,omitempty"`
 	Actions    *CharmActions          `json:"actions,omitempty"`
 	Metrics    *CharmMetrics          `json:"metrics,omitempty"`
+	Manifest   *CharmManifest         `json:"manifest,omitempty"`
 	LXDProfile *CharmLXDProfile       `json:"lxd-profile,omitempty"`
 }
 
@@ -181,10 +181,16 @@ type CharmDeployment struct {
 	MinVersion     string `json:"min-version"`
 }
 
-// CharmBase mirrors systems.Base
+// CharmManifest mirrors charm.Manifest
+type CharmManifest struct {
+	Bases []CharmBase `json:"bases,omitempty"`
+}
+
+// CharmBase mirrors charm.Base
 type CharmBase struct {
-	Name    string `json:"name,omitempty"`
-	Channel string `json:"channel,omitempty"`
+	Name          string   `json:"name,omitempty"`
+	Channel       string   `json:"channel,omitempty"`
+	Architectures []string `json:"architectures,omitempty"`
 }
 
 // CharmContainer mirrors charm.Container

@@ -81,12 +81,9 @@ type Application interface {
 
 type Charm interface {
 	URL() *charm.URL
-	Meta() CharmMeta
+	Meta() *charm.Meta
+	Manifest() *charm.Manifest
 	String() string
-}
-
-type CharmMeta interface {
-	ComputedSeries() []string
 }
 
 type stateShim struct {
@@ -155,10 +152,6 @@ func (a applicationShim) Charm() (Charm, bool, error) {
 
 type charmShim struct {
 	*state.Charm
-}
-
-func (c charmShim) Meta() CharmMeta {
-	return charmMeta{Meta: c.Charm.Meta()}
 }
 
 type charmMeta struct {

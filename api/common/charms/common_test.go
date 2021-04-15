@@ -7,8 +7,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
-	"github.com/juju/systems"
-	"github.com/juju/systems/channel"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -63,12 +61,6 @@ func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
 					Description: "OCI image used for cockroachdb",
 				},
 			},
-			Bases: []params.CharmBase{
-				{
-					Name:    "ubuntu",
-					Channel: "20.04/stable",
-				},
-			},
 			Containers: map[string]params.CharmContainer{
 				"cockroachdb": {
 					Resource: "cockroachdb-image",
@@ -86,6 +78,14 @@ func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
 				},
 			},
 			Assumes: []string{"kubernetes"},
+		},
+		Manifest: &params.CharmManifest{
+			Bases: []params.CharmBase{
+				{
+					Name:    "ubuntu",
+					Channel: "20.04/stable",
+				},
+			},
 		},
 	}
 
@@ -126,16 +126,6 @@ func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
 					Description: "OCI image used for cockroachdb",
 				},
 			},
-			Bases: []systems.Base{
-				{
-					Name: "ubuntu",
-					Channel: channel.Channel{
-						Name:  "20.04/stable",
-						Risk:  "stable",
-						Track: "20.04",
-					},
-				},
-			},
 			Containers: map[string]charm.Container{
 				"cockroachdb": {
 					Resource: "cockroachdb-image",
@@ -153,6 +143,18 @@ func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
 				},
 			},
 			Assumes: []string{"kubernetes"},
+		},
+		Manifest: &charm.Manifest{
+			Bases: []charm.Base{
+				{
+					Name: "ubuntu",
+					Channel: charm.Channel{
+						Risk:  "stable",
+						Track: "20.04",
+					},
+					Architectures: []string{},
+				},
+			},
 		},
 	}
 	c.Assert(got, gc.DeepEquals, want)
