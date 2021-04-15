@@ -5704,6 +5704,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 						Values:   []string{"1", "2", "3"},
 					}},
 				},
+				TopologyKey: "some-key",
 			}},
 		},
 		PodAntiAffinity: &core.PodAntiAffinity{
@@ -5719,6 +5720,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 						Values:   []string{"x", "y", "z"},
 					}},
 				},
+				TopologyKey: "another-key",
 			}},
 		},
 	}
@@ -5850,7 +5852,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 				Path: "path/to/there",
 			},
 		}},
-		Constraints: constraints.MustParse(`tags=node.foo=a|b|c,^bar=d|e|f,^foo=g|h,pod.foo=1|2|3,^pod.bar=4|5|6,anti-pod.afoo=x|y|z,^anti-pod.abar=7|8|9`),
+		Constraints: constraints.MustParse(`tags=node.foo=a|b|c,^bar=d|e|f,^foo=g|h,pod.foo=1|2|3,^pod.bar=4|5|6,pod.topology-key=some-key,anti-pod.afoo=x|y|z,^anti-pod.abar=7|8|9,anti-pod.topology-key=another-key`),
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
