@@ -7,11 +7,13 @@ import (
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	apps "k8s.io/api/apps/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/caas"
@@ -62,7 +64,7 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, IngressResources []k8ss
 				},
 				Spec: podSpec,
 			},
-			PodManagementPolicy: apps.ParallelPodManagement,
+			PodManagementPolicy: appsv1.ParallelPodManagement,
 			ServiceName:         "app-name-endpoints",
 		},
 	}
@@ -230,11 +232,15 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdate(c *gc.C) {
 			Rules: []networkingv1beta1.IngressRule{ingress1Rule1},
 		},
 	}
+	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, ingress)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertIngressResources(
 		c, IngressResources, "",
 		s.mockIngressV1Beta1.EXPECT().Create(ingress).Return(nil, s.k8sAlreadyExistsError()),
 		s.mockIngressV1Beta1.EXPECT().Get("test-ingress", v1.GetOptions{}).Return(ingress, nil),
-		s.mockIngressV1Beta1.EXPECT().Update(ingress).Return(ingress, nil),
+		s.mockIngressV1Beta1.EXPECT().
+			Patch(ingress.GetName(), k8stypes.StrategicMergePatchType, data).
+			Return(ingress, nil),
 	)
 }
 
