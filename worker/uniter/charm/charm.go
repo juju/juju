@@ -24,9 +24,9 @@ const CharmURLPath = ".juju-charm"
 // Bundle allows access to a charm's files.
 type Bundle interface {
 
-	// Manifest returns a set of slash-separated strings representing files,
+	// ArchiveMembers returns a set of slash-separated strings representing files,
 	// directories, and symlinks stored in the bundle.
-	Manifest() (set.Strings, error)
+	ArchiveMembers() (set.Strings, error)
 
 	// ExpandTo unpacks the entities referenced in the manifest into the
 	// supplied directory. If it returns without error, every file referenced
