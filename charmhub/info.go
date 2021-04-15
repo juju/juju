@@ -116,18 +116,18 @@ var infoDefaultRevisionFilter = []string{
 	"revision.config-yaml",
 	"revision.metadata-yaml",
 	"revision.bundle-yaml",
-	"revision.platforms.architecture",
-	"revision.platforms.os",
-	"revision.platforms.series",
+	"revision.bases.architecture",
+	"revision.bases.name",
+	"revision.bases.channel",
 	"revision.revision",
 	"revision.version",
 }
 
 var infoChannelMapRevisionFilter = []string{
 	"revision.created-at",
-	"revision.platforms.architecture",
-	"revision.platforms.os",
-	"revision.platforms.series",
+	"revision.bases.architecture",
+	"revision.bases.name",
+	"revision.bases.channel",
 	"revision.revision",
 	"revision.version",
 }
