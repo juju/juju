@@ -313,6 +313,7 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 
 	var networkDevice1, networkDevice2 types.VirtualVmxnet3
 	wakeOnLan := true
+	networkDevice1.Key = -1
 	networkDevice1.WakeOnLanEnabled = &wakeOnLan
 	networkDevice1.Connectable = &types.VirtualDeviceConnectInfo{
 		StartConnected:    true,
@@ -326,6 +327,7 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 		},
 	}
 
+	networkDevice2.Key = -2
 	networkDevice2.WakeOnLanEnabled = &wakeOnLan
 	networkDevice2.Connectable = &types.VirtualDeviceConnectInfo{
 		StartConnected:    true,
@@ -384,6 +386,7 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.
 
 	var networkDevice types.VirtualVmxnet3
 	wakeOnLan := true
+	networkDevice.Key = -1
 	networkDevice.WakeOnLanEnabled = &wakeOnLan
 	networkDevice.Connectable = &types.VirtualDeviceConnectInfo{
 		StartConnected:    true,
