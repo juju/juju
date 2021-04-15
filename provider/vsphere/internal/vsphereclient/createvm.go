@@ -540,6 +540,7 @@ func (c *Client) addNetworkDevice(
 	network *mo.Network,
 	mac string,
 	dvportgroupConfig map[types.ManagedObjectReference]types.DVPortgroupConfigInfo,
+	idx int32,
 ) (*types.VirtualVmxnet3, error) {
 	var networkBacking types.BaseVirtualDeviceBackingInfo
 	if dvportgroupConfigInfo, ok := dvportgroupConfig[network.Reference()]; !ok {
@@ -575,6 +576,7 @@ func (c *Client) addNetworkDevice(
 	wakeOnLan := true
 	networkDevice.WakeOnLanEnabled = &wakeOnLan
 	networkDevice.Backing = networkBacking
+	networkDevice.Key = -idx // negative to avoid conflicts
 	if mac != "" {
 		if !VerifyMAC(mac) {
 			return nil, fmt.Errorf("Invalid MAC address: %q", mac)

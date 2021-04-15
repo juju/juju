@@ -818,7 +818,7 @@ func (c *Client) buildConfigSpec(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		device, err := c.addNetworkDevice(ctx, &spec, networkReference, networkDevice.MAC, dvportgroupConfig)
+		device, err := c.addNetworkDevice(ctx, &spec, networkReference, networkDevice.MAC, dvportgroupConfig, int32(i+1))
 		if err != nil {
 			return nil, errors.Annotatef(err, "adding network device %d - network %s", i, network)
 		}
