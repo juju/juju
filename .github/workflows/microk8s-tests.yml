@@ -141,6 +141,11 @@ jobs:
     - name: Get pipeline logs
       run: |
         set -eux
+
+        timeout 1m sh <<EOT || echo "timeout!"
+        /usr/sbin/ip a; while [ 1 ]; do nslookup $(hostname); sleep 3; done
+        EOT
+
         pods=$(sudo microk8s kubectl get -nkubeflow pods -l workflows.argoproj.io/completed="true" -o custom-columns=:metadata.name --no-headers)
         for pod in $pods; do
           containers=$(sudo microk8s kubectl get -nkubeflow pods -o jsonpath="{.spec.containers[*].name}" $pod)
