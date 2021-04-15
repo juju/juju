@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -330,7 +331,10 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 			return nil, errors.Trace(err)
 		}
 
-		supportedSeries := ch.Meta().ComputedSeries()
+		supportedSeries, err := corecharm.ComputedSeries(ch)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		seriesSelector := seriesSelector{
 			seriesFlag:          seriesName,
 			supportedSeries:     supportedSeries,
