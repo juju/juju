@@ -1474,7 +1474,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}
 	} else if !cfg.ForceSeries {
 		supported := false
-		charmSeries := cfg.Charm.Meta().ComputedSeries()
+		charmSeries := charm.ComputedSeries(cfg.Charm)
 		for _, oneSeries := range charmSeries {
 			if oneSeries == a.doc.Series {
 				supported = true
@@ -1499,7 +1499,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			return err
 		}
 		supportedOS := false
-		supportedSeries := cfg.Charm.Meta().ComputedSeries()
+		supportedSeries := charm.ComputedSeries(cfg.Charm)
 		for _, chSeries := range supportedSeries {
 			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
 			if err != nil {
@@ -1828,7 +1828,7 @@ func (a *Application) VerifySupportedSeries(series string, force bool) error {
 	if err != nil {
 		return err
 	}
-	supportedSeries := ch.Meta().ComputedSeries()
+	supportedSeries := charm.ComputedSeries(ch)
 	if len(supportedSeries) == 0 {
 		supportedSeries = append(supportedSeries, ch.URL().Series)
 	}
@@ -2999,7 +2999,9 @@ func CheckApplicationExpectsWorkload(m *Model, appName string) (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	if ch.Meta().Format() >= charm.FormatV2 {
+
+	manifest := ch.Manifest()
+	if manifest != nil && len(manifest.Bases) > 0 {
 		return false, nil
 	}
 

@@ -1337,7 +1337,7 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) err
 		if series := args.Charm.URL().Series; series != "" {
 			supportedSeries = []string{series}
 		} else {
-			supportedSeries = args.Charm.Meta().ComputedSeries()
+			supportedSeries = charm.ComputedSeries(args.Charm)
 		}
 		if len(supportedSeries) > 0 {
 			// TODO(embedded): handle computed series
@@ -2049,7 +2049,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				if !ep.ImplementedBy(ch) {
 					return nil, errors.Errorf("%q does not implement %q", ep.ApplicationName, ep)
 				}
-				charmSeries := ch.Meta().ComputedSeries()
+				charmSeries := charm.ComputedSeries(ch)
 				if len(charmSeries) == 0 {
 					charmSeries = []string{localApp.doc.Series}
 				}
