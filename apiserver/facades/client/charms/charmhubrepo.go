@@ -73,7 +73,7 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin corecharm.O
 			fallthrough
 		case transport.ErrorCodeInvalidCharmBase:
 			logger.Tracef("Invalid charm platform %q %v - Default Platforms: %v", curl, origin, resErr.Extra.DefaultBases)
-			platform, err := c.selectNextPlatform(resErr.Extra.DefaultBases, origin)
+			platform, err := c.selectNextBase(resErr.Extra.DefaultBases, origin)
 			if err != nil {
 				return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "refresh")
 			}
@@ -114,6 +114,7 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin corecharm.O
 			return nil, corecharm.Origin{}, nil, errors.NotValidf("series for %s", curl.Name)
 		}
 
+		logger.Tracef("Refresh again with %q %v", curl, input)
 		res, err = c.refreshOne(curl, input)
 		if err != nil {
 			return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "refresh retry")
@@ -253,7 +254,7 @@ func (c *chRepo) refreshOne(curl *charm.URL, origin corecharm.Origin) (transport
 	return result[0], nil
 }
 
-func (c *chRepo) selectNextPlatform(bases []transport.Base, origin corecharm.Origin) (corecharm.Platform, error) {
+func (c *chRepo) selectNextBase(bases []transport.Base, origin corecharm.Origin) (corecharm.Platform, error) {
 	if len(bases) == 0 {
 		return corecharm.Platform{}, errors.Errorf("no bases available")
 	}
@@ -275,7 +276,7 @@ func (c *chRepo) selectNextPlatform(bases []transport.Base, origin corecharm.Ori
 		return corecharm.Platform{}, errors.NotFoundf("base")
 	}
 
-	series, err := coreseries.VersionSeries(base.Channel)
+	series, err := coreseries.VersionSeries(channelTrack(base.Channel))
 	if err != nil {
 		return corecharm.Platform{}, errors.Trace(err)
 	}
@@ -370,14 +371,24 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 		method = MethodID
 	}
 
+	// origin.Platform.Series could be a series or a version. In reality it will
+	// be a series (focal, groovy), but to be on the safe side we should
+	// validate and fallback if it really isn't a version.
+	// The refresh will fail if it's wrong with a revision not found, which
+	// will be fine for now.
+	series := channelTrack(origin.Platform.Series)
+	version, err := coreseries.VersionSeries(series)
+	if err != nil {
+		version = series
+	}
+
 	var (
 		cfg charmhub.RefreshConfig
-		err error
 
 		platform = charmhub.RefreshPlatform{
 			Architecture: origin.Platform.Architecture,
 			OS:           origin.Platform.OS,
-			Series:       origin.Platform.Series,
+			Series:       version,
 		}
 	)
 	switch method {
@@ -402,11 +413,11 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 }
 
 func composeSuggestions(releases []transport.Release, origin corecharm.Origin) []string {
-	channelSeries := make(map[string][]string, 0)
+	channelSeries := make(map[string][]string)
 	for _, release := range releases {
 		base := release.Base
 		arch := base.Architecture
-		series, err := coreseries.VersionSeries(base.Channel)
+		series, err := coreseries.VersionSeries(channelTrack(base.Channel))
 		if err != nil {
 			logger.Errorf("converting version to series: %s", err)
 			continue
@@ -458,7 +469,7 @@ func selectReleaseByArchAndChannel(releases []transport.Release, origin corechar
 		base := release.Base
 
 		arch, os := base.Architecture, base.Name
-		series, err := coreseries.VersionSeries(base.Channel)
+		series, err := coreseries.VersionSeries(channelTrack(base.Channel))
 		if err != nil {
 			return Release{}, errors.Trace(err)
 		}
@@ -470,6 +481,17 @@ func selectReleaseByArchAndChannel(releases []transport.Release, origin corechar
 		}
 	}
 	return Release{}, errors.NotFoundf("release")
+}
+
+func channelTrack(channel string) string {
+	// Base channel can be found as either just the version `20.04` (focal)
+	// or as `20.04/latest` (focal latest). We should future proof ourself
+	// for now and just drop the risk on the floor.
+	parts := strings.Split(channel, "/")
+	if len(parts) > 1 {
+		return parts[0]
+	}
+	return channel
 }
 
 // TODO (stickupkid) - Find a common place for this as it's duplicated from
