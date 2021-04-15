@@ -13,6 +13,9 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/caas"
@@ -235,11 +238,15 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1Beta1(c *gc.C)
 			Rules: []networkingv1beta1.IngressRule{ingress1Rule1},
 		},
 	}
+	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, ingress)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertIngressResources(
 		c, IngressResources, "",
 		s.mockIngressV1Beta1.EXPECT().Create(gomock.Any(), ingress, metav1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
 		s.mockIngressV1Beta1.EXPECT().Get(gomock.Any(), "test-ingress", metav1.GetOptions{}).Return(ingress, nil),
-		s.mockIngressV1Beta1.EXPECT().Update(gomock.Any(), ingress, metav1.UpdateOptions{}).Return(ingress, nil),
+		s.mockIngressV1Beta1.EXPECT().
+			Patch(gomock.Any(), ingress.GetName(), k8stypes.StrategicMergePatchType, data, metav1.PatchOptions{FieldManager: "juju"}).
+			Return(ingress, nil),
 	)
 }
 
@@ -430,11 +437,15 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1(c *gc.C) {
 			Rules: []networkingv1.IngressRule{ingress1Rule1},
 		},
 	}
+	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, ingress)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertIngressResources(
 		c, IngressResources, "",
 		s.mockIngressV1.EXPECT().Create(gomock.Any(), ingress, gomock.Any()).Return(nil, s.k8sAlreadyExistsError()),
 		s.mockIngressV1.EXPECT().Get(gomock.Any(), "test-ingress", metav1.GetOptions{}).Return(ingress, nil),
-		s.mockIngressV1.EXPECT().Update(gomock.Any(), ingress, gomock.Any()).Return(ingress, nil),
+		s.mockIngressV1.EXPECT().
+			Patch(gomock.Any(), ingress.GetName(), k8stypes.StrategicMergePatchType, data, metav1.PatchOptions{FieldManager: "juju"}).
+			Return(ingress, nil),
 	)
 }
 
