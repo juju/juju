@@ -757,3 +757,37 @@ func (selectReleaseByChannelSuite) TestMultipleSelection(c *gc.C) {
 		Series: "bionic",
 	})
 }
+
+type channelTrackSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&channelTrackSuite{})
+
+func (*channelTrackSuite) ChannelTrack(c *gc.C) {
+	tests := []struct {
+		channel string
+		result  string
+	}{{
+		channel: "20.10",
+		result:  "20.10",
+	}, {
+		channel: "focal",
+		result:  "focal",
+	}, {
+		channel: "20.10/stable",
+		result:  "20.10",
+	}, {
+		channel: "focal/stable",
+		result:  "focal",
+	}, {
+		channel: "so/many/forward/slashes/here",
+		result:  "so",
+	}}
+
+	for i, test := range tests {
+		c.Logf("test %d - %s", i, test.channel)
+		got := channelTrack(test.channel)
+		c.Assert(got, gc.Equals, test.result)
+	}
+}
