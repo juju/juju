@@ -37,7 +37,7 @@ func (s *charmHubRepositoriesSuite) TestResolveForDeploy(c *gc.C) {
 
 func (s *charmHubRepositoriesSuite) TestResolveForUpgrade(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	cfg, err := charmhub.RefreshOne("charmCHARMcharmCHARMcharmCHARM01", 16, "latest/stable", charmhub.RefreshPlatform{
+	cfg, err := charmhub.RefreshOne("charmCHARMcharmCHARMcharmCHARM01", 16, "latest/stable", charmhub.RefreshBase{
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -276,7 +276,7 @@ func (s *charmHubRepositoriesSuite) TestResolveRevisionNotFoundError(c *gc.C) {
 }
 
 func (s *charmHubRepositoriesSuite) expectCharmRefreshInstallOneFromChannel(c *gc.C) {
-	cfg, err := charmhub.InstallOneFromChannel("wordpress", "latest/stable", charmhub.RefreshPlatform{
+	cfg, err := charmhub.InstallOneFromChannel("wordpress", "latest/stable", charmhub.RefreshBase{
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -302,7 +302,7 @@ func (s *charmHubRepositoriesSuite) expectCharmRefresh(c *gc.C, cfg charmhub.Ref
 }
 
 func (s *charmHubRepositoriesSuite) expectBundleRefresh(c *gc.C) {
-	cfg, err := charmhub.InstallOneFromChannel("core-kubernetes", "latest/stable", charmhub.RefreshPlatform{
+	cfg, err := charmhub.InstallOneFromChannel("core-kubernetes", "latest/stable", charmhub.RefreshBase{
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -475,7 +475,7 @@ func (refreshConfigSuite) TestRefreshByChannelVersion(c *gc.C) {
 			Channel:     &ch,
 			Base: &transport.Base{
 				Name:         "ubuntu",
-				Channel:      "20.10",
+				Channel:      "20.10/latest",
 				Architecture: "amd64",
 			},
 		}},
@@ -787,7 +787,8 @@ func (*channelTrackSuite) ChannelTrack(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("test %d - %s", i, test.channel)
-		got := channelTrack(test.channel)
+		got, err := channelTrack(test.channel)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(got, gc.Equals, test.result)
 	}
 }

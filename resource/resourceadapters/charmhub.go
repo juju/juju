@@ -83,7 +83,7 @@ func (ch *CharmHubClient) GetResource(req repositories.ResourceRequest) (charmst
 
 	stChannel := origin.Channel
 	if stChannel == nil {
-		return data, errors.Errorf("Missing channel for %q", req.CharmID.URL.Name)
+		return data, errors.Errorf("missing channel for %q", req.CharmID.URL.Name)
 	}
 	channel, err := charm.MakeChannel(stChannel.Track, stChannel.Risk, stChannel.Branch)
 	if err != nil {
@@ -91,9 +91,14 @@ func (ch *CharmHubClient) GetResource(req repositories.ResourceRequest) (charmst
 	}
 
 	if req.CharmID.URL == nil {
-		return data, errors.Errorf("Missing charm url for resource %q", req.Name)
+		return data, errors.Errorf("missing charm url for resource %q", req.Name)
 	}
-	cfg, err := charmhub.DownloadOneFromChannel(origin.ID, channel.String(), charmhub.RefreshPlatform(*req.CharmID.Origin.Platform))
+
+	cfg, err := charmhub.DownloadOneFromChannel(origin.ID, channel.String(), charmhub.RefreshBase{
+		Architecture: origin.Platform.Architecture,
+		Name:         origin.Platform.OS,
+		Channel:      origin.Platform.Series,
+	})
 	if err != nil {
 		return data, errors.Trace(err)
 	}

@@ -40,8 +40,8 @@ func (s *RefreshClientSuite) TestLiveRefreshRequest(c *gc.C) {
 	client := charmhub.NewRefreshClient(refreshPath, restClient, logger)
 
 	charmConfig, err := charmhub.RefreshOne("wordpress", 0, "latest/stable", charmhub.RefreshBase{
-		Channel:      "kubernetes",
-		Architecture: "all",
+		Channel:      "20.04",
+		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -71,14 +71,14 @@ func (s *RefreshClientSuite) TestLiveRefreshManyRequest(c *gc.C) {
 
 	wordpressConfig, err := charmhub.RefreshOne("wordpress", 16, "latest/stable", charmhub.RefreshBase{
 		Name:         "ubuntu",
-		Channel:      "focal",
+		Channel:      "20.04",
 		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	mysqlConfig, err := charmhub.RefreshOne("mysql", 1, "latest/stable", charmhub.RefreshBase{
 		Name:         "ubuntu",
-		Channel:      "focal",
+		Channel:      "20.04",
 		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,7 +112,7 @@ func (s *RefreshClientSuite) TestLiveInstallRequest(c *gc.C) {
 
 	charmConfig, err := charmhub.InstallOneFromRevision("wordpress", 16, charmhub.RefreshBase{
 		Name:         "ubuntu",
-		Channel:      "focal",
+		Channel:      "20.04",
 		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -479,12 +479,12 @@ func (s charmhubSeriesValidator) ValidateApplications(applications []Application
 			return errors.Errorf("no revision found for application %q", app.Name())
 		}
 
-		platform := charmhub.RefreshPlatform{
+		base := charmhub.RefreshBase{
 			Architecture: origin.Platform.Architecture,
-			OS:           origin.Platform.OS,
-			Series:       series,
+			Name:         origin.Platform.OS,
+			Channel:      series,
 		}
-		cfg, err := charmhub.DownloadOneFromRevision(origin.ID, *rev, platform)
+		cfg, err := charmhub.DownloadOneFromRevision(origin.ID, *rev, base)
 		if err != nil {
 			return errors.Trace(err)
 		}
