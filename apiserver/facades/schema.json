@@ -11227,7 +11227,7 @@
     {
         "Name": "CAASUnitProvisioner",
         "Description": "",
-        "Version": 1,
+        "Version": 2,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -11260,6 +11260,18 @@
                         }
                     },
                     "description": "ApplicationsScale returns the scaling info for specified applications in this model."
+                },
+                "ApplicationsTrust": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/BoolResults"
+                        }
+                    },
+                    "description": "ApplicationsTrust returns the trust status for specified applications in this model."
                 },
                 "ClearApplicationsResources": {
                     "type": "object",
@@ -11365,6 +11377,18 @@
                         }
                     },
                     "description": "WatchApplicationsScale starts a NotifyWatcher to watch changes\nto the applications' scale."
+                },
+                "WatchApplicationsTrustHash": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResults"
+                        }
+                    },
+                    "description": "WatchApplicationsTrustHash starts a StringsWatcher to watch changes\nto the applications' trust status."
                 },
                 "WatchPodSpec": {
                     "type": "object",
@@ -11494,6 +11518,36 @@
                         "ports",
                         "status",
                         "info"
+                    ]
+                },
+                "BoolResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result"
+                    ]
+                },
+                "BoolResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/BoolResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "ConfigResult": {
@@ -12136,6 +12190,21 @@
                     "additionalProperties": false,
                     "required": [
                         "watcher-id"
+                    ]
+                },
+                "StringsWatchResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/StringsWatchResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "UpdateApplicationServiceArg": {

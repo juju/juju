@@ -23,10 +23,14 @@ type Application interface {
 	Watch() (watcher.NotifyWatcher, error)
 	WatchReplicas() (watcher.NotifyWatcher, error)
 
-	// Scale scales the Application's unit to the value specificied. Scale must
+	// Scale scales the Application's unit to the value specified. Scale must
 	// be >= 0. Application units will be removed or added to meet the scale
 	// defined.
 	Scale(int) error
+
+	// Trust sets up the role on the application's service account to
+	// give full access to the cluster.
+	Trust(bool) error
 
 	State() (ApplicationState, error)
 	Units() ([]Unit, error)

@@ -32,6 +32,8 @@ var _ logger = struct{}{}
 type CAASUnitProvisionerFacade interface {
 	ApplicationScale(string) (int, error)
 	WatchApplicationScale(string) (watcher.NotifyWatcher, error)
+	ApplicationTrust(string) (bool, error)
+	WatchApplicationTrustHash(string) (watcher.StringsWatcher, error)
 }
 
 // CAASProvisionerFacade exposes CAAS provisioning functionality to a worker.

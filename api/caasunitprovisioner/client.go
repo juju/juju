@@ -120,6 +120,45 @@ func (c *Client) ApplicationScale(applicationName string) (int, error) {
 	return results.Results[0].Result, nil
 }
 
+// ApplicationTrust returns the trust value for the specified application.
+func (c *Client) ApplicationTrust(applicationName string) (bool, error) {
+	var results params.BoolResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewApplicationTag(applicationName).String()}},
+	}
+	err := c.facade.FacadeCall("ApplicationsTrust", args, &results)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if len(results.Results) != len(args.Entities) {
+		return false, errors.Errorf("expected %d result(s), got %d", len(args.Entities), len(results.Results))
+	}
+	return results.Results[0].Result, nil
+}
+
+// WatchApplicationTrustHash returns a StringsWatcher that notifies of
+// changes to the application's trust hash.
+func (c *Client) WatchApplicationTrustHash(application string) (watcher.StringsWatcher, error) {
+	applicationTag, err := applicationTag(application)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	args := entities(applicationTag)
+
+	var results params.StringsWatchResults
+	if err := c.facade.FacadeCall("WatchApplicationsTrustHash", args, &results); err != nil {
+		return nil, err
+	}
+	if n := len(results.Results); n != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", n)
+	}
+	if err := results.Results[0].Error; err != nil {
+		return nil, errors.Trace(err)
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), results.Results[0])
+	return w, nil
+}
+
 // DeploymentMode returns the deployment mode for the specified application's charm.
 func (c *Client) DeploymentMode(applicationName string) (caas.DeploymentMode, error) {
 	var results params.StringResults

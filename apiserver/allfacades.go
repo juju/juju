@@ -198,7 +198,7 @@ func AllFacades() *facade.Registry {
 	reg("CAASModelOperator", 1, caasmodeloperator.NewAPIFromContext)
 	reg("CAASOperatorProvisioner", 1, caasoperatorprovisioner.NewStateCAASOperatorProvisionerAPI)
 	reg("CAASOperatorUpgrader", 1, caasoperatorupgrader.NewStateCAASOperatorUpgraderAPI)
-	reg("CAASUnitProvisioner", 1, caasunitprovisioner.NewStateFacade)
+	reg("CAASUnitProvisioner", 2, caasunitprovisioner.NewStateFacade)
 	reg("CAASApplication", 1, caasapplication.NewStateFacade)
 	reg("CAASApplicationProvisioner", 1, caasapplicationprovisioner.NewStateCAASApplicationProvisionerAPI)
 

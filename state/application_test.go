@@ -5036,3 +5036,32 @@ deployment:
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(embedded, jc.IsFalse)
 }
+
+func (s *ApplicationSuite) TestWatchApplicationConfigSettingsHash(c *gc.C) {
+	w := s.mysql.WatchConfigSettingsHash()
+	defer testing.AssertStop(c, w)
+
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange("1e11259677ef769e0ec4076b873c76dcc3a54be7bc651b081d0f0e2b87077717")
+
+	schema := environschema.Fields{
+		"username":    environschema.Attr{Type: environschema.Tstring},
+		"alive":       environschema.Attr{Type: environschema.Tbool},
+		"skill-level": environschema.Attr{Type: environschema.Tint},
+		"options":     environschema.Attr{Type: environschema.Tattrs},
+	}
+
+	err := s.mysql.UpdateApplicationConfig(application.ConfigAttributes{
+		"username":    "abbas",
+		"alive":       true,
+		"skill-level": 23,
+		"options": map[string]string{
+			"fortuna": "crescis",
+			"luna":    "velut",
+			"status":  "malus",
+		},
+	}, nil, schema, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange("e1471e8a7299da0ac2150445ffc6d08d9d801194037d88416c54b01899b8a9b2")
+}

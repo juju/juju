@@ -74,6 +74,7 @@ type Model interface {
 type Application interface {
 	GetScale() int
 	SetScale(int, int64, bool) error
+	WatchConfigSettingsHash() state.StringsWatcher
 	WatchScale() state.NotifyWatcher
 	ApplicationConfig() (application.ConfigAttributes, error)
 	AllUnits() (units []Unit, err error)

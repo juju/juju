@@ -140,6 +140,15 @@ func (a *appWorker) loop() error {
 		return errors.Annotatef(err, "failed to watch for application %q scale changes", a.name)
 	}
 
+	appTrustWatcher, err := a.unitFacade.WatchApplicationTrustHash(a.name)
+	if err != nil {
+		return errors.Annotatef(err, "creating application %q trust watcher", a.name)
+	}
+
+	if err := a.catacomb.Add(appTrustWatcher); err != nil {
+		return errors.Annotatef(err, "failed to watch for application %q trust changes", a.name)
+	}
+
 	done := false
 
 	handleChange := func() error {
@@ -208,6 +217,13 @@ func (a *appWorker) loop() error {
 				return fmt.Errorf("application %q scale watcher closed channel", a.name)
 			}
 			if err := a.ensureScale(app); err != nil {
+				return err
+			}
+		case _, ok := <-appTrustWatcher.Changes():
+			if !ok {
+				return fmt.Errorf("application %q trust watcher closed channel", a.name)
+			}
+			if err := a.ensureTrust(app); err != nil {
 				return err
 			}
 		case <-a.catacomb.Dying():
@@ -374,6 +390,24 @@ func (a *appWorker) ensureScale(app caas.Application) error {
 			"scaling application %q to desired scale %d",
 			a.name,
 			desiredScale)
+	}
+
+	return nil
+}
+
+func (a *appWorker) ensureTrust(app caas.Application) error {
+	desiredTrust, err := a.unitFacade.ApplicationTrust(a.name)
+	if err != nil {
+		return errors.Annotatef(err, "fetching application %q desired trust", a.name)
+	}
+
+	a.logger.Debugf("updating application %q trust to %v", a.name, desiredTrust)
+	if err := app.Trust(desiredTrust); err != nil {
+		return errors.Annotatef(
+			err,
+			"updating application %q to desired trust %v",
+			a.name,
+			desiredTrust)
 	}
 
 	return nil
