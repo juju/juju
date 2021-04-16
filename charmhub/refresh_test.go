@@ -53,9 +53,9 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 		}},
 	}
 
-	config, err := RefreshOne(id, 1, "latest/stable", RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	config, err := RefreshOne(id, 1, "latest/stable", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,42 +74,42 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 
 //	c.Assert(results.Results[0].Error, gc.ErrorMatches, `.* pool "foo" not found`)
 func (s *RefreshSuite) TestRefeshConfigValidateArch(c *gc.C) {
-	err := s.testRefeshConfigValidate(c, RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	err := s.testRefeshConfigValidate(c, RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: "all",
 	})
 	c.Assert(err, gc.ErrorMatches, "Architecture.*")
 }
 
 func (s *RefreshSuite) TestRefeshConfigValidateSeries(c *gc.C) {
-	err := s.testRefeshConfigValidate(c, RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "all",
+	err := s.testRefeshConfigValidate(c, RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "all",
 		Architecture: arch.DefaultArchitecture,
 	})
-	c.Assert(err, gc.ErrorMatches, "Release.*")
+	c.Assert(err, gc.ErrorMatches, "Channel.*")
 }
 
-func (s *RefreshSuite) TestRefeshConfigValidateOS(c *gc.C) {
-	err := s.testRefeshConfigValidate(c, RefreshPlatform{
-		OS:           "all",
-		Series:       "focal",
+func (s *RefreshSuite) TestRefeshConfigValidateName(c *gc.C) {
+	err := s.testRefeshConfigValidate(c, RefreshBase{
+		Name:         "all",
+		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
-	c.Assert(err, gc.ErrorMatches, "OS.*")
+	c.Assert(err, gc.ErrorMatches, "Name.*")
 }
 
 func (s *RefreshSuite) TestRefeshConfigValidate(c *gc.C) {
-	err := s.testRefeshConfigValidate(c, RefreshPlatform{
-		OS:           "all",
-		Series:       "all",
+	err := s.testRefeshConfigValidate(c, RefreshBase{
+		Name:         "all",
+		Channel:      "all",
 		Architecture: "all",
 	})
-	c.Assert(err, gc.ErrorMatches, "Architecture.*, OS.*, Release.*")
+	c.Assert(err, gc.ErrorMatches, "Architecture.*, Name.*, Channel.*")
 }
 
-func (s *RefreshSuite) testRefeshConfigValidate(c *gc.C, rp RefreshPlatform) error {
+func (s *RefreshSuite) testRefeshConfigValidate(c *gc.C, rp RefreshBase) error {
 	_, err := DownloadOneFromChannel("meshuggah", "latest/stable", rp)
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 	return err
@@ -162,17 +162,17 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 	restClient := NewHTTPRESTClient(httpTransport, headers)
 	client := NewRefreshClient(path, restClient, &FakeLogger{})
 
-	config1, err := RefreshOne("foo", 1, "latest/stable", RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	config1, err := RefreshOne("foo", 1, "latest/stable", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	config1 = DefineInstanceKey(c, config1, "key-foo")
 
-	config2, err := RefreshOne("bar", 2, "latest/edge", RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "trusty",
+	config2, err := RefreshOne("bar", 2, "latest/edge", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "14.04",
 		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -185,9 +185,9 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 
 	c.Assert(httpTransport.requestHeaders[MetadataHeader], jc.SameContents, []string{
 		"arch=amd64",
-		"os=ubuntu",
-		"series=focal",
-		"series=trusty",
+		"name=ubuntu",
+		"channel=20.04",
+		"channel=14.04",
 	})
 	c.Assert(httpTransport.requestHeaders["User-Agent"], jc.SameContents, []string{"Test Agent 1.0"})
 
@@ -206,9 +206,9 @@ func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
 	path := path.MakePath(baseURL)
 	name := "meshuggah"
 
-	config, err := RefreshOne(name, 1, "latest/stable", RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	config, err := RefreshOne(name, 1, "latest/stable", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -258,9 +258,9 @@ var _ = gc.Suite(&RefreshConfigSuite{})
 
 func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
 	id := "foo"
-	config, err := RefreshOne(id, 1, "latest/stable", RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	config, err := RefreshOne(id, 1, "latest/stable", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -290,9 +290,9 @@ func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
 }
 
 func (s *RefreshConfigSuite) TestRefreshOneEnsure(c *gc.C) {
-	config, err := RefreshOne("foo", 1, "latest/stable", RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	config, err := RefreshOne("foo", 1, "latest/stable", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -309,9 +309,9 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevision(c *gc.C) {
 	revision := 1
 
 	name := "foo"
-	config, err := InstallOneFromRevision(name, revision, RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	config, err := InstallOneFromRevision(name, revision, RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -340,9 +340,9 @@ func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
 	channel := "latest/stable"
 
 	name := "foo"
-	config, err := InstallOneFromChannel(name, channel, RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	config, err := InstallOneFromChannel(name, channel, RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -371,7 +371,7 @@ func (s *RefreshConfigSuite) TestInstallOneWithPartialPlatform(c *gc.C) {
 	channel := "latest/stable"
 
 	name := "foo"
-	config, err := InstallOneFromChannel(name, channel, RefreshPlatform{
+	config, err := InstallOneFromChannel(name, channel, RefreshBase{
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -400,7 +400,7 @@ func (s *RefreshConfigSuite) TestInstallOneWithMissingArch(c *gc.C) {
 	channel := "latest/stable"
 
 	name := "foo"
-	config, err := InstallOneFromChannel(name, channel, RefreshPlatform{})
+	config, err := InstallOneFromChannel(name, channel, RefreshBase{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config = DefineInstanceKey(c, config, "foo-bar")
@@ -410,9 +410,9 @@ func (s *RefreshConfigSuite) TestInstallOneWithMissingArch(c *gc.C) {
 }
 
 func (s *RefreshConfigSuite) TestInstallOneEnsure(c *gc.C) {
-	config, err := InstallOneFromChannel("foo", "latest/stable", RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	config, err := InstallOneFromChannel("foo", "latest/stable", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -426,9 +426,9 @@ func (s *RefreshConfigSuite) TestInstallOneEnsure(c *gc.C) {
 }
 
 func (s *RefreshConfigSuite) TestInstallOneFromChannelEnsure(c *gc.C) {
-	config, err := InstallOneFromChannel("foo", "latest/stable", RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	config, err := InstallOneFromChannel("foo", "latest/stable", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -442,9 +442,9 @@ func (s *RefreshConfigSuite) TestInstallOneFromChannelEnsure(c *gc.C) {
 }
 
 func (s *RefreshConfigSuite) TestDownloadOneEnsure(c *gc.C) {
-	config, err := DownloadOne("foo", 1, "latest/stable", RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	config, err := DownloadOne("foo", 1, "latest/stable", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -460,9 +460,9 @@ func (s *RefreshConfigSuite) TestDownloadOneEnsure(c *gc.C) {
 func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
 	channel := "latest/stable"
 	id := "foo"
-	config, err := DownloadOneFromChannel(id, channel, RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	config, err := DownloadOneFromChannel(id, channel, RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -488,9 +488,9 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
 }
 
 func (s *RefreshConfigSuite) TestDownloadOneFromChannelEnsure(c *gc.C) {
-	config, err := DownloadOneFromChannel("foo", "latest/stable", RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	config, err := DownloadOneFromChannel("foo", "latest/stable", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -505,18 +505,18 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelEnsure(c *gc.C) {
 
 func (s *RefreshConfigSuite) TestRefreshManyBuildContextNotNil(c *gc.C) {
 	id1 := "foo"
-	config1, err := DownloadOneFromRevision(id1, 1, RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	config1, err := DownloadOneFromRevision(id1, 1, RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	config1 = DefineInstanceKey(c, config1, "foo-bar")
 
 	id2 := "bar"
-	config2, err := DownloadOneFromChannel(id2, "latest/edge", RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "trusty",
+	config2, err := DownloadOneFromChannel(id2, "latest/edge", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "14.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -530,18 +530,18 @@ func (s *RefreshConfigSuite) TestRefreshManyBuildContextNotNil(c *gc.C) {
 
 func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 	id1 := "foo"
-	config1, err := RefreshOne(id1, 1, "latest/stable", RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	config1, err := RefreshOne(id1, 1, "latest/stable", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	config1 = DefineInstanceKey(c, config1, "foo-bar")
 
 	id2 := "bar"
-	config2, err := RefreshOne(id2, 2, "latest/edge", RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "trusty",
+	config2, err := RefreshOne(id2, 2, "latest/edge", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "14.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -550,9 +550,9 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 	channel := "1/stable"
 
 	name3 := "baz"
-	config3, err := InstallOneFromChannel(name3, "1/stable", RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "disco",
+	config3, err := InstallOneFromChannel(name3, "1/stable", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "disco",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -608,17 +608,17 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 }
 
 func (s *RefreshConfigSuite) TestRefreshManyEnsure(c *gc.C) {
-	config1, err := RefreshOne("foo", 1, "latest/stable", RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	config1, err := RefreshOne("foo", 1, "latest/stable", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	config1 = DefineInstanceKey(c, config1, "foo-bar")
 
-	config2, err := RefreshOne("bar", 2, "latest/edge", RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "trusty",
+	config2, err := RefreshOne("bar", 2, "latest/edge", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "14.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
