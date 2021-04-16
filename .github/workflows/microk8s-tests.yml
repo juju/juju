@@ -53,6 +53,17 @@ jobs:
         # enable now to give microk8s more time to settle down.
         addons: '["dns", "storage", "dashboard", "ingress", "metallb:10.64.140.43-10.64.140.49"]'
 
+    # Remove once this is fixed:
+    # https://github.com/actions/virtual-environments/issues/3185
+    - name: Twiddle with MicroK8s
+      run: |
+        set -eux
+        echo '--kubelet-preferred-address-types="InternalIP,Hostname,InternalDNS,ExternalDNS,ExternalIP"' | sudo tee -a /var/snap/microk8s/current/args/kube-apiserver
+        sudo snap restart microk8s
+        sg microk8s -c 'microk8s status --wait-ready'
+        kubectl -nkube-system rollout status ds/calico-node
+        kubectl wait --for=condition=available -nkube-system deployment/coredns deployment/hostpath-provisioner
+
     - name: Install Dependencies
       run: |
         set -eux
