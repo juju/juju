@@ -6,8 +6,6 @@ package common_test
 import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/systems"
-	"github.com/juju/systems/channel"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -25,13 +23,12 @@ var _ = gc.Suite(&applicationWatcherSuite{})
 func (s *applicationWatcherSuite) TestEmbeddedFilter(c *gc.C) {
 	app1 := &mockAppWatcherApplication{
 		charm: mockAppWatcherCharm{
-			meta: &charm.Meta{
-				// charm.FormatV2.
-				Bases: []systems.Base{
+			manifest: &charm.Manifest{
+				// V2 metadata.
+				Bases: []charm.Base{
 					{
 						Name: "ubuntu",
-						Channel: channel.Channel{
-							Name:  "20.04/stable",
+						Channel: charm.Channel{
 							Risk:  "stable",
 							Track: "20.04",
 						},
@@ -43,7 +40,7 @@ func (s *applicationWatcherSuite) TestEmbeddedFilter(c *gc.C) {
 	app2 := &mockAppWatcherApplication{
 		charm: mockAppWatcherCharm{
 			meta: &charm.Meta{
-				// charm.FormatV1.
+				// V1 metadata.
 				Deployment: &charm.Deployment{
 					DeploymentMode: charm.ModeWorkload,
 				},
@@ -75,13 +72,12 @@ func (s *applicationWatcherSuite) TestEmbeddedFilter(c *gc.C) {
 func (s *applicationWatcherSuite) TestLegacyFilter(c *gc.C) {
 	app1 := &mockAppWatcherApplication{
 		charm: mockAppWatcherCharm{
-			meta: &charm.Meta{
-				// charm.FormatV2.
-				Bases: []systems.Base{
+			manifest: &charm.Manifest{
+				// V2 metadata.
+				Bases: []charm.Base{
 					{
 						Name: "ubuntu",
-						Channel: channel.Channel{
-							Name:  "20.04/stable",
+						Channel: charm.Channel{
 							Risk:  "stable",
 							Track: "20.04",
 						},
@@ -93,7 +89,7 @@ func (s *applicationWatcherSuite) TestLegacyFilter(c *gc.C) {
 	app2 := &mockAppWatcherApplication{
 		charm: mockAppWatcherCharm{
 			meta: &charm.Meta{
-				// charm.FormatV1.
+				// V1 metadata.
 				Deployment: &charm.Deployment{
 					DeploymentMode: charm.ModeWorkload,
 				},
@@ -125,13 +121,12 @@ func (s *applicationWatcherSuite) TestLegacyFilter(c *gc.C) {
 func (s *applicationWatcherSuite) TestNoFilter(c *gc.C) {
 	app1 := &mockAppWatcherApplication{
 		charm: mockAppWatcherCharm{
-			meta: &charm.Meta{
-				// charm.FormatV2.
-				Bases: []systems.Base{
+			manifest: &charm.Manifest{
+				// V2 metadata.
+				Bases: []charm.Base{
 					{
 						Name: "ubuntu",
-						Channel: channel.Channel{
-							Name:  "20.04/stable",
+						Channel: charm.Channel{
 							Risk:  "stable",
 							Track: "20.04",
 						},
@@ -208,12 +203,18 @@ func (s *mockAppWatcherApplication) Charm() (common.AppWatcherCharm, bool, error
 
 type mockAppWatcherCharm struct {
 	testing.Stub
-	meta *charm.Meta
+	meta     *charm.Meta
+	manifest *charm.Manifest
 }
 
 func (s *mockAppWatcherCharm) Meta() *charm.Meta {
 	s.MethodCall(s, "Meta")
 	return s.meta
+}
+
+func (s *mockAppWatcherCharm) Manifest() *charm.Manifest {
+	s.MethodCall(s, "Manifest")
+	return s.manifest
 }
 
 type mockAppWatcherResources struct {
