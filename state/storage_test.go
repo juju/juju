@@ -153,19 +153,28 @@ func (s *StorageStateSuiteBase) setupSingleStorageDetachable(c *gc.C, kind, pool
 	return app, unit, storageTag
 }
 
+func (s *StorageStateSuiteBase) createStorageCharmWithSeries(c *gc.C, charmName string, storageMeta charm.Storage, series string) *state.Charm {
+	return s.createStorageCharmRevMeta(c, charmName, storageMeta, 1, fmt.Sprintf("series: [%s]", series))
+}
+
 func (s *StorageStateSuiteBase) createStorageCharm(c *gc.C, charmName string, storageMeta charm.Storage) *state.Charm {
 	return s.createStorageCharmRev(c, charmName, storageMeta, 1)
 }
 
 func (s *StorageStateSuiteBase) createStorageCharmRev(c *gc.C, charmName string, storageMeta charm.Storage, rev int) *state.Charm {
+	return s.createStorageCharmRevMeta(c, charmName, storageMeta, rev, "")
+}
+
+func (s *StorageStateSuiteBase) createStorageCharmRevMeta(c *gc.C, charmName string, storageMeta charm.Storage, rev int, additionalMeta string) *state.Charm {
 	meta := fmt.Sprintf(`
 name: %s
 summary: A charm for testing storage
 description: ditto
+%s
 storage:
   %s:
     type: %s
-`, charmName, storageMeta.Name, storageMeta.Type)
+`, charmName, additionalMeta, storageMeta.Name, storageMeta.Type)
 	if storageMeta.ReadOnly {
 		meta += "    read-only: true\n"
 	}

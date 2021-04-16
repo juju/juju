@@ -1293,13 +1293,13 @@ func (s *FilesystemStateSuite) testFilesystemAttachmentParams(
 	c *gc.C, countMin, countMax int, location string,
 	expect state.FilesystemAttachmentParams,
 ) {
-	ch := s.createStorageCharm(c, "storage-filesystem", charm.Storage{
+	ch := s.createStorageCharmWithSeries(c, "storage-filesystem", charm.Storage{
 		Name:     "data",
 		Type:     charm.StorageFilesystem,
 		CountMin: countMin,
 		CountMax: countMax,
 		Location: location,
-	})
+	}, s.series)
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("rootfs", 1024, 1),
 	}
@@ -1399,13 +1399,13 @@ func (s *FilesystemIAASModelSuite) TestFilesystemAttachmentParamsConcurrentRemov
 }
 
 func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsLocationStorageDir(c *gc.C) {
-	ch := s.createStorageCharm(c, "storage-filesystem", charm.Storage{
+	ch := s.createStorageCharmWithSeries(c, "storage-filesystem", charm.Storage{
 		Name:     "data",
 		Type:     charm.StorageFilesystem,
 		CountMin: 1,
 		CountMax: 1,
 		Location: "/var/lib/juju/storage",
-	})
+	}, s.series)
 	app := s.AddTestingApplication(c, "storage-filesystem", ch)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	if s.series != "kubernetes" {
