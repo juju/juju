@@ -68,6 +68,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 						Description: "The name of the initial account (given admin permissions).",
 						Default:     "admin001"},
 				},
+				Manifest: &params.CharmManifest{},
 				Meta: &params.CharmMeta{
 					Name:           "dummy",
 					Summary:        "That's a dummy charm.",
@@ -104,6 +105,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 				Revision: 0,
 				URL:      "local:quantal/lxd-profile-0",
 				Config:   map[string]params.CharmOption{},
+				Manifest: &params.CharmManifest{},
 				Meta: &params.CharmMeta{
 					Name:           "lxd-profile",
 					Summary:        "start a juju machine with a lxd profile",
@@ -170,7 +172,13 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 				Revision: 3,
 				URL:      "local:quantal/wordpress-3",
 				Config: map[string]params.CharmOption{
-					"blog-title": {Type: "string", Description: "A descriptive title used for the blog.", Default: "My Title"}},
+					"blog-title": {
+						Type:        "string",
+						Description: "A descriptive title used for the blog.",
+						Default:     "My Title",
+					},
+				},
+				Manifest: &params.CharmManifest{},
 				Meta: &params.CharmMeta{
 					Name:        "wordpress",
 					Summary:     "Blog engine",
@@ -244,16 +252,19 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 				Revision: 0,
 				URL:      "local:focal/cockroachdb-0",
 				Config:   map[string]params.CharmOption{},
+				Manifest: &params.CharmManifest{
+					Bases: []params.CharmBase{
+						{
+							Name:          "ubuntu",
+							Channel:       "20.04/stable",
+							Architectures: []string{"amd64"},
+						},
+					},
+				},
 				Meta: &params.CharmMeta{
 					Name:        "cockroachdb",
 					Summary:     "cockroachdb",
 					Description: "cockroachdb",
-					Bases: []params.CharmBase{
-						{
-							Name:    "ubuntu",
-							Channel: "20.04/stable",
-						},
-					},
 					Containers: map[string]params.CharmContainer{
 						"cockroachdb": {
 							Resource: "cockroachdb-image",

@@ -134,6 +134,9 @@ func convertCharmMeta(meta *charm.Meta) *params.CharmMeta {
 }
 
 func convertCharmManifest(manifest *charm.Manifest) *params.CharmManifest {
+	if manifest == nil {
+		return nil
+	}
 	return &params.CharmManifest{
 		Bases: convertCharmBases(manifest.Bases),
 	}
@@ -358,7 +361,7 @@ func convertCharmDevices(devices map[string]charm.Device) map[string]params.Char
 }
 
 func convertCharmBases(input []charm.Base) []params.CharmBase {
-	bases := []params.CharmBase(nil)
+	var bases []params.CharmBase
 	for _, v := range input {
 		bases = append(bases, params.CharmBase{
 			Name:          v.Name,
@@ -384,7 +387,7 @@ func convertCharmContainers(input map[string]charm.Container) map[string]params.
 }
 
 func convertCharmMounts(input []charm.Mount) []params.CharmMount {
-	mounts := []params.CharmMount(nil)
+	var mounts []params.CharmMount
 	for _, v := range input {
 		mounts = append(mounts, params.CharmMount{
 			Storage:  v.Storage,
