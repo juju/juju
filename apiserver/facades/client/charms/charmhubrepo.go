@@ -274,7 +274,11 @@ func (c *chRepo) selectNextBase(bases []transport.Base, origin corecharm.Origin)
 		return corecharm.Platform{}, errors.NotFoundf("base")
 	}
 
-	series, err := coreseries.VersionSeries(channelTrack(base.Channel))
+	track, err := channelTrack(base.Channel)
+	if err != nil {
+		return corecharm.Platform{}, errors.Trace(err)
+	}
+	series, err := coreseries.VersionSeries(track)
 	if err != nil {
 		return corecharm.Platform{}, errors.Trace(err)
 	}
@@ -374,10 +378,10 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 	// validate and fallback if it really isn't a version.
 	// The refresh will fail if it's wrong with a revision not found, which
 	// will be fine for now.
-	series := channelTrack(origin.Platform.Series)
-	version, err := coreseries.VersionSeries(series)
+	track, _ := channelTrack(origin.Platform.Series)
+	baseChannel, err := coreseries.VersionSeries(track)
 	if err != nil {
-		version = series
+		baseChannel = origin.Platform.Series
 	}
 
 	var (
@@ -385,8 +389,8 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 
 		base = charmhub.RefreshBase{
 			Architecture: origin.Platform.Architecture,
-			OS:           origin.Platform.OS,
-			Series:       version,
+			Name:         origin.Platform.OS,
+			Channel:      baseChannel,
 		}
 	)
 	switch method {
@@ -415,7 +419,12 @@ func composeSuggestions(releases []transport.Release, origin corecharm.Origin) [
 	for _, release := range releases {
 		base := release.Base
 		arch := base.Architecture
-		series, err := coreseries.VersionSeries(channelTrack(base.Channel))
+		track, err := channelTrack(base.Channel)
+		if err != nil {
+			logger.Errorf("invalid base channel %v: %s", base.Channel, err)
+			continue
+		}
+		series, err := coreseries.VersionSeries(track)
 		if err != nil {
 			logger.Errorf("converting version to series: %s", err)
 			continue
@@ -467,7 +476,11 @@ func selectReleaseByArchAndChannel(releases []transport.Release, origin corechar
 		base := release.Base
 
 		arch, os := base.Architecture, base.Name
-		series, err := coreseries.VersionSeries(channelTrack(base.Channel))
+		track, err := channelTrack(base.Channel)
+		if err != nil {
+			return Release{}, errors.Trace(err)
+		}
+		series, err := coreseries.VersionSeries(track)
 		if err != nil {
 			return Release{}, errors.Trace(err)
 		}
@@ -481,15 +494,18 @@ func selectReleaseByArchAndChannel(releases []transport.Release, origin corechar
 	return Release{}, errors.NotFoundf("release")
 }
 
-func channelTrack(channel string) string {
+func channelTrack(channel string) (string, error) {
 	// Base channel can be found as either just the version `20.04` (focal)
 	// or as `20.04/latest` (focal latest). We should future proof ourself
 	// for now and just drop the risk on the floor.
-	parts := strings.Split(channel, "/")
-	if len(parts) > 1 {
-		return parts[0]
+	ch, err := charm.ParseChannel(channel)
+	if err != nil {
+		return "", errors.Trace(err)
 	}
-	return channel
+	if ch.Track == "" {
+		return "", errors.NotValidf("channel track")
+	}
+	return ch.Track, nil
 }
 
 // TODO (stickupkid) - Find a common place for this as it's duplicated from
