@@ -103,6 +103,9 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	appScaleChan := make(chan struct{}, 1)
 	appScaleWatcher := watchertest.NewMockNotifyWatcher(appScaleChan)
 
+	appTrustHashChan := make(chan []string, 1)
+	appTrushHashWatcher := watchertest.NewMockStringsWatcher(appTrustHashChan)
+
 	brokerApp := caasmocks.NewMockApplication(ctrl)
 	broker := mocks.NewMockCAASBroker(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
@@ -125,6 +128,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		),
 
 		unitFacade.EXPECT().WatchApplicationScale("test").Return(appScaleWatcher, nil),
+		unitFacade.EXPECT().WatchApplicationTrustHash("test").Return(appTrushHashWatcher, nil),
 
 		// Initial run - Ensure() for the application.
 		facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {

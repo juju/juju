@@ -208,7 +208,8 @@ func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentT
 func getPodSpec(c *gc.C) corev1.PodSpec {
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 	return corev1.PodSpec{
-		AutomountServiceAccountToken: application.BoolPtr(false),
+		ServiceAccountName: "gitlab",
+		AutomountServiceAccountToken: application.BoolPtr(true),
 		InitContainers: []corev1.Container{{
 			Name:            "charm-init",
 			ImagePullPolicy: corev1.PullIfNotPresent,
@@ -753,6 +754,9 @@ func (s *applicationSuite) TestDeleteStateful(c *gc.C) {
 		s.applier.EXPECT().Delete(resources.NewService("gitlab-endpoints", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewService("gitlab", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewSecret("gitlab-application-config", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewRoleBinding("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewRole("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewServiceAccount("gitlab", "test", nil)),
 		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
 	)
 	c.Assert(app.Delete(), jc.ErrorIsNil)
@@ -766,6 +770,9 @@ func (s *applicationSuite) TestDeleteStateless(c *gc.C) {
 		s.applier.EXPECT().Delete(resources.NewDeployment("gitlab", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewService("gitlab", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewSecret("gitlab-application-config", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewRoleBinding("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewRole("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewServiceAccount("gitlab", "test", nil)),
 		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
 	)
 	c.Assert(app.Delete(), jc.ErrorIsNil)
@@ -779,6 +786,9 @@ func (s *applicationSuite) TestDeleteDaemon(c *gc.C) {
 		s.applier.EXPECT().Delete(resources.NewDaemonSet("gitlab", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewService("gitlab", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewSecret("gitlab-application-config", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewRoleBinding("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewRole("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewServiceAccount("gitlab", "test", nil)),
 		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
 	)
 	c.Assert(app.Delete(), jc.ErrorIsNil)

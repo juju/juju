@@ -45,6 +45,7 @@ type CAASProvisionerSuite struct {
 	applicationsChanges chan []string
 	podSpecChanges      chan struct{}
 	scaleChanges        chan struct{}
+	settingsChanges     chan []string
 
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
@@ -63,13 +64,15 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.applicationsChanges = make(chan []string, 1)
 	s.podSpecChanges = make(chan struct{}, 1)
 	s.scaleChanges = make(chan struct{}, 1)
+	s.settingsChanges = make(chan []string, 1)
 	s.isRawK8sSpec = boolptr(false)
 	s.st = &mockState{
 		application: mockApplication{
-			tag:          names.NewApplicationTag("gitlab"),
-			life:         state.Alive,
-			scaleWatcher: statetesting.NewMockNotifyWatcher(s.scaleChanges),
-			scale:        5,
+			tag:             names.NewApplicationTag("gitlab"),
+			life:            state.Alive,
+			scaleWatcher:    statetesting.NewMockNotifyWatcher(s.scaleChanges),
+			settingsWatcher: statetesting.NewMockStringsWatcher(s.settingsChanges),
+			scale:           5,
 		},
 		applicationsWatcher: statetesting.NewMockStringsWatcher(s.applicationsChanges),
 		model: mockModel{
@@ -90,6 +93,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.devices = &mockDeviceBackend{}
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.applicationsWatcher) })
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.application.scaleWatcher) })
+	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.application.settingsWatcher) })
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.model.podSpecWatcher) })
 
 	s.resources = common.NewResources()
@@ -155,6 +159,27 @@ func (s *CAASProvisionerSuite) TestWatchApplicationsScale(c *gc.C) {
 	c.Assert(results.Results[0].NotifyWatcherId, gc.Equals, "1")
 	resource := s.resources.Get("1")
 	c.Assert(resource, gc.Equals, s.st.application.scaleWatcher)
+}
+
+func (s *CAASProvisionerSuite) TestWatchApplicationsConfigSetingsHash(c *gc.C) {
+	s.settingsChanges <- []string{"hash"}
+
+	results, err := s.facade.WatchApplicationsTrustHash(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-gitlab"},
+			{Tag: "unit-gitlab-0"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+		Message: `"unit-gitlab-0" is not a valid application tag`,
+	})
+
+	c.Assert(results.Results[0].StringsWatcherId, gc.Equals, "1")
+	resource := s.resources.Get("1")
+	c.Assert(resource, gc.Equals, s.st.application.settingsWatcher)
 }
 
 func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool) {

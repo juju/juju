@@ -144,6 +144,7 @@ type mockApplication struct {
 	testing.Stub
 	life         state.Life
 	scaleWatcher *statetesting.MockNotifyWatcher
+	settingsWatcher *statetesting.MockStringsWatcher
 
 	tag        names.Tag
 	scale      int
@@ -182,6 +183,11 @@ func (a *mockApplication) SetScale(scale int, generation int64, force bool) erro
 	a.MethodCall(a, "SetScale", scale)
 	a.scale = scale
 	return nil
+}
+
+func (a *mockApplication) WatchConfigSettingsHash() state.StringsWatcher {
+	a.MethodCall(a, "WatchConfigSettingsHash")
+	return a.settingsWatcher
 }
 
 func (a *mockApplication) ClearResources() error {
