@@ -69,10 +69,8 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin corecharm.O
 
 	if resErr := res.Error; resErr != nil {
 		switch resErr.Code {
-		case transport.ErrorCodeInvalidCharmPlatform:
-			fallthrough
-		case transport.ErrorCodeInvalidCharmBase:
-			logger.Tracef("Invalid charm platform %q %v - Default Platforms: %v", curl, origin, resErr.Extra.DefaultBases)
+		case transport.ErrorCodeInvalidCharmPlatform, transport.ErrorCodeInvalidCharmBase:
+			logger.Tracef("Invalid charm platform %q %v - Default Base: %v", curl, origin, resErr.Extra.DefaultBases)
 			platform, err := c.selectNextBase(resErr.Extra.DefaultBases, origin)
 			if err != nil {
 				return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "refresh")
@@ -90,7 +88,7 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin corecharm.O
 			origin.Platform.Series = platform.Series
 
 		case transport.ErrorCodeRevisionNotFound:
-			logger.Tracef("Revision not found %q %v - Default Platforms: %v", curl, origin, resErr.Extra.Releases)
+			logger.Tracef("Revision not found %q %v - Default Base: %v", curl, origin, resErr.Extra.Releases)
 			release, err := c.selectNextRelease(resErr.Extra.Releases, origin)
 			if err != nil {
 				return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "refresh")
@@ -385,7 +383,7 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 	var (
 		cfg charmhub.RefreshConfig
 
-		platform = charmhub.RefreshPlatform{
+		base = charmhub.RefreshBase{
 			Architecture: origin.Platform.Architecture,
 			OS:           origin.Platform.OS,
 			Series:       version,
@@ -396,16 +394,16 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 		// Install from just the name and the channel. If there is no origin ID,
 		// we haven't downloaded this charm before.
 		// Try channel first.
-		cfg, err = charmhub.InstallOneFromChannel(curl.Name, channel, platform)
+		cfg, err = charmhub.InstallOneFromChannel(curl.Name, channel, base)
 	case MethodRevision:
 		// If there is a revision, install it using that. If there is no origin
 		// ID, we haven't downloaded this charm before.
 		// No channel, try with revision.
-		cfg, err = charmhub.InstallOneFromRevision(curl.Name, rev, platform)
+		cfg, err = charmhub.InstallOneFromRevision(curl.Name, rev, base)
 	case MethodID:
 		// This must be a charm upgrade if we have an ID.  Use the refresh
 		// action for metric keeping on the CharmHub side.
-		cfg, err = charmhub.RefreshOne(origin.ID, rev, channel, platform)
+		cfg, err = charmhub.RefreshOne(origin.ID, rev, channel, base)
 	default:
 		return nil, errors.NotValidf("origin %v", origin)
 	}

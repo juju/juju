@@ -48,12 +48,12 @@ type CharmhubRefreshClient interface {
 func charmhubLatestCharmInfo(client CharmhubRefreshClient, ids []charmhubID) ([]charmhubResult, error) {
 	cfgs := make([]charmhub.RefreshConfig, len(ids))
 	for i, id := range ids {
-		platform := charmhub.RefreshPlatform{
+		base := charmhub.RefreshBase{
 			Architecture: id.arch,
-			OS:           id.os,
-			Series:       id.series,
+			Name:         id.os,
+			Channel:      id.series,
 		}
-		cfg, err := charmhub.RefreshOne(id.id, id.revision, id.channel, platform)
+		cfg, err := charmhub.RefreshOne(id.id, id.revision, id.channel, base)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

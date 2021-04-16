@@ -154,26 +154,30 @@ func (ch *charmHubClient) ResourceInfo(curl *charm.URL, origin corecharm.Origin,
 	// The order is expected to be kept so when the response is looped through
 	// we get channel, then revision.
 	var (
-		configs     []charmhub.RefreshConfig
-		refPlatform = charmhub.RefreshPlatform(origin.Platform)
+		configs []charmhub.RefreshConfig
+		refBase = charmhub.RefreshBase{
+			Architecture: origin.Platform.Architecture,
+			Name:         origin.Platform.OS,
+			Channel:      origin.Platform.Series,
+		}
 	)
 
 	if sChan := origin.Channel.String(); sChan != "" {
-		cfg, err := charmhub.DownloadOneFromChannel(origin.ID, sChan, refPlatform)
+		cfg, err := charmhub.DownloadOneFromChannel(origin.ID, sChan, refBase)
 		if err != nil {
 			return charmresource.Resource{}, errors.Trace(err)
 		}
 		configs = append(configs, cfg)
 	}
 	if rev := origin.Revision; rev != nil {
-		cfg, err := charmhub.DownloadOneFromRevision(origin.ID, *rev, refPlatform)
+		cfg, err := charmhub.DownloadOneFromRevision(origin.ID, *rev, refBase)
 		if err != nil {
 			return charmresource.Resource{}, errors.Trace(err)
 		}
 		configs = append(configs, cfg)
 	}
 	if rev := curl.Revision; rev >= 0 {
-		cfg, err := charmhub.DownloadOneFromRevision(origin.ID, rev, refPlatform)
+		cfg, err := charmhub.DownloadOneFromRevision(origin.ID, rev, refBase)
 		if err != nil {
 			return charmresource.Resource{}, errors.Trace(err)
 		}
@@ -207,7 +211,12 @@ func (ch *charmHubClient) ResourceInfo(curl *charm.URL, origin corecharm.Origin,
 // charm revision. They include the resource's metadata and revision.
 // Found via the CharmHub api.
 func (ch *charmHubClient) listResources(url *charm.URL, origin corecharm.Origin) (map[string]charmresource.Resource, error) {
-	cfg, err := charmhub.DownloadOneFromChannel(origin.ID, origin.Channel.String(), charmhub.RefreshPlatform(origin.Platform))
+	refBase := charmhub.RefreshBase{
+		Architecture: origin.Platform.Architecture,
+		Name:         origin.Platform.OS,
+		Channel:      origin.Platform.Series,
+	}
+	cfg, err := charmhub.DownloadOneFromChannel(origin.ID, origin.Channel.String(), refBase)
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating resources config for charm %q", url.String())
 	}
