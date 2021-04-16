@@ -438,15 +438,16 @@ func constructRefreshBase(base RefreshBase) (transport.Base, error) {
 	case "":
 		channel = NotAvailable
 	case "kubernetes":
-		// Kubernetes is not a valid channel for a base.  Instead use the latest
-		// LTS version of ubuntu.
+		// Kubernetes is not a valid channel for a base.
+		// Instead use the latest LTS version of ubuntu.
+		name = "ubuntu"
 		channel, err = coreseries.SeriesVersion(coreseries.LatestLts())
 		if err != nil {
 			return transport.Base{}, errors.NotValidf("invalid latest version")
 		}
 	default:
-		// If we have a series, we need to convert it to a stable version. If
-		// we have a version, then just pass that through.
+		// If we have a series, we need to convert it to a stable version.
+		// If we have a version, then just pass that through.
 		potential, err := coreseries.SeriesVersion(base.Channel)
 		if err == nil {
 			channel = potential
