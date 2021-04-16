@@ -227,23 +227,23 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		pSeries = version.DefaultSupportedLTS()
 	}
 	platform := fmt.Sprintf("%s/%s", pArch, pSeries)
-	normPlatform, err := corecharm.ParsePlatformNormalize(platform)
+	normBase, err := corecharm.ParsePlatformNormalize(platform)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if normPlatform.Series != "" {
-		sys, err := series.GetOSFromSeries(normPlatform.Series)
+	if normBase.Series != "" {
+		sys, err := series.GetOSFromSeries(normBase.Series)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		normPlatform.OS = strings.ToLower(sys.String())
+		normBase.OS = strings.ToLower(sys.String())
 	}
 
-	refreshConfig, err := charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshPlatform{
-		Architecture: normPlatform.Architecture,
-		OS:           normPlatform.OS,
-		Series:       normPlatform.Series,
+	refreshConfig, err := charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshBase{
+		Architecture: normBase.Architecture,
+		Name:         normBase.OS,
+		Channel:      normBase.Series,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -261,7 +261,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	for _, res := range results {
 		if res.Error != nil {
 			if res.Error.Code == transport.ErrorCodeRevisionNotFound {
-				return c.suggested(normPlatform.Series, normChannel.String(), res.Error.Extra.Releases, cmdContext)
+				return c.suggested(normBase.Series, normChannel.String(), res.Error.Extra.Releases, cmdContext)
 			}
 			return errors.Errorf("unable to locate %s: %s", c.charmOrBundle, res.Error.Message)
 		}
@@ -287,7 +287,13 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		path = fmt.Sprintf("%s%s.%s", entity.Name, short, entityType)
 	}
 
-	cmdContext.Infof("Fetching %s %q using %q channel and platform %q", entityType, entity.Name, normChannel, normPlatform)
+	base := normBase
+	base.Series, err = coreseries.SeriesVersion(normBase.Series)
+	if err != nil {
+		base.Series = normBase.Series
+	}
+
+	cmdContext.Infof("Fetching %s %q using %q channel and base %q", entityType, entity.Name, normChannel, base)
 
 	resourceURL, err := url.Parse(entity.Download.URL)
 	if err != nil {
