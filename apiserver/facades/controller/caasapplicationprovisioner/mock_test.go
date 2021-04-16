@@ -292,12 +292,17 @@ func (a *mockApplication) CharmURL() (curl *charm.URL, force bool) {
 }
 
 type mockCharm struct {
-	meta *charm.Meta
-	url  *charm.URL
+	meta     *charm.Meta
+	manifest *charm.Manifest
+	url      *charm.URL
 }
 
 func (ch *mockCharm) Meta() *charm.Meta {
 	return ch.meta
+}
+
+func (ch *mockCharm) Manifest() *charm.Manifest {
+	return ch.manifest
 }
 
 func (ch *mockCharm) URL() *charm.URL {
