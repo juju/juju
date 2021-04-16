@@ -7,9 +7,7 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/systems"
 
-	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/series"
 )
 
@@ -41,32 +39,24 @@ type Model struct {
 	ModelType ModelType
 }
 
-var caasOS = set.NewStrings(os.Kubernetes.String())
+// ValidateModelTarget ensures the charm is valid for the model target type.
+func ValidateModelTarget(modelType ModelType, meta *charm.Meta) error {
+	isIAAS := true
+	if set.NewStrings(meta.Series...).Contains(series.Kubernetes.String()) || len(meta.Containers) > 0 {
+		isIAAS = false
+	}
 
-// TODO: hml 2021-04-15
-// This should be re-written to remove the systems pkg.
-// ValidateSeries ensures the charm series is valid for the model type.
-func ValidateSeries(modelType ModelType, charmSeries string, charmFormat charm.Format) error {
-	if charmFormat >= charm.FormatV2 {
-		_, err := systems.ParseBaseFromSeries(charmSeries)
-		if err != nil {
-			return errors.Trace(err)
+	switch modelType {
+	case CAAS:
+		if isIAAS {
+			return errors.NotValidf("non container base charm for container based model type")
 		}
-	} else {
-		os, err := series.GetOSFromSeries(charmSeries)
-		if err != nil {
-			return errors.Trace(err)
+	case IAAS:
+		if !isIAAS {
+			return errors.NotValidf("container base charm for non container based model type")
 		}
-		switch modelType {
-		case CAAS:
-			if !caasOS.Contains(os.String()) {
-				return errors.NotValidf("series %q in a kubernetes model", charmSeries)
-			}
-		case IAAS:
-			if caasOS.Contains(os.String()) {
-				return errors.NotValidf("series %q in a non container model", charmSeries)
-			}
-		}
+	default:
+		return errors.Errorf("invalid model type, expected CAAS or IAAS")
 	}
 	return nil
 }

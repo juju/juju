@@ -18,8 +18,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/macaroon.v2"
 
-	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -696,7 +695,7 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := validateCharmSeries(model.Type(), info.ID.Series, info.Charm); err != nil {
+	if err := coremodel.ValidateModelTarget(coremodel.ModelType(model.Type()), info.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -729,32 +728,6 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 		return st.Charm(info.ID)
 	}
 	return nil, errors.Trace(err)
-}
-
-func validateCharmSeries(modelType ModelType, series string, ch charm.CharmMeta) error {
-	if series == "" {
-		allSeries, err := corecharm.ComputedSeries(ch)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if len(allSeries) > 0 {
-			series = allSeries[0]
-		}
-	}
-	// TODO(wallyworld) - update lots-o-tests
-	// Some tests don't set a series.
-	if series == "" {
-		return nil
-	}
-
-	// TODO (manadart 2021-04-15): This is copied from ReadCharm in the charm
-	// package. It should be encapsulated there instead of repeated.
-	format := charm.FormatV2
-	if ch.Manifest() == nil || len(ch.Manifest().Bases) == 0 {
-		format = charm.FormatV1
-	}
-
-	return model.ValidateSeries(model.ModelType(modelType), series, format)
 }
 
 // AllCharms returns all charms in state.

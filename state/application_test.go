@@ -262,7 +262,7 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
 
 	// Add a compatible charm and force it.
-	sch := state.AddCustomCharm(c, st, "mysql", "metadata.yaml", metaBase, "kubernetes", 2)
+	sch := state.AddCustomCharm(c, st, "mysql", "metadata.yaml", metaBaseCAAS, "kubernetes", 2)
 
 	cfg := state.SetCharmConfig{
 		Charm:      sch,
@@ -731,6 +731,19 @@ var metaBase = `
 name: mysql
 summary: "Fake MySQL Database engine"
 description: "Complete with nonsense relations"
+provides:
+  server: mysql
+requires:
+  client: mysql
+peers:
+  cluster: mysql
+`
+var metaBaseCAAS = `
+name: mysql
+summary: "Fake MySQL Database engine"
+description: "Complete with nonsense relations"
+series:
+  - kubernetes
 provides:
   server: mysql
 requires:
@@ -4998,9 +5011,16 @@ description: foo
 summary: foo
 bases:
   - name: ubuntu
-    channel: 20.04/stable
+    channel: "18.04"
+containers:
+  redis:
+    resource: redis-container-resource
+resources:
+  redis-container-resource:
+    name: redis-container
+    type: oci-image
 `
-	ch := state.AddCustomCharmForSeries(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
+	ch := state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
 
 	unit, err := app.AddUnit(state.AddUnitParams{})

@@ -22,35 +22,17 @@ var _ = gc.Suite(&ModelSuite{})
 func (*ModelSuite) TestValidateSeries(c *gc.C) {
 	for _, t := range []struct {
 		modelType model.ModelType
-		series    string
+		meta      *charm.Meta
 		valid     bool
 	}{
-		{model.IAAS, "bionic", true},
-		{model.IAAS, "kubernetes", false},
-		{model.CAAS, "bionic", false},
-		{model.CAAS, "kubernetes", true},
+		{model.IAAS, &charm.Meta{Series: []string{"bionic"}}, true},
+		{model.IAAS, &charm.Meta{Series: []string{"kubernetes"}}, false},
+		{model.IAAS, &charm.Meta{Containers: map[string]charm.Container{"focal": {}}}, false},
+		{model.CAAS, &charm.Meta{Series: []string{"bionic"}}, false},
+		{model.CAAS, &charm.Meta{Series: []string{"kubernetes"}}, true},
+		{model.CAAS, &charm.Meta{Containers: map[string]charm.Container{"focal": {}}}, true},
 	} {
-		err := model.ValidateSeries(t.modelType, t.series, charm.FormatV1)
-		if t.valid {
-			c.Check(err, jc.ErrorIsNil)
-		} else {
-			c.Check(err, jc.Satisfies, errors.IsNotValid)
-		}
-	}
-}
-
-func (*ModelSuite) TestValidateSeriesNewCharm(c *gc.C) {
-	for _, t := range []struct {
-		modelType model.ModelType
-		series    string
-		valid     bool
-	}{
-		{model.IAAS, "bionic", true},
-		{model.IAAS, "bionic", true},
-		{model.CAAS, "bionic", true},
-		{model.CAAS, "bionic", true},
-	} {
-		err := model.ValidateSeries(t.modelType, t.series, charm.FormatV2)
+		err := model.ValidateModelTarget(t.modelType, t.meta)
 		if t.valid {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
