@@ -154,40 +154,6 @@ func NewCharmsAPI(
 	}, nil
 }
 
-// CharmInfo returns information about the requested charm.
-// NOTE: thumper 2016-06-29, this is not a bulk call and probably should be.
-func (a *API) CharmInfo(args params.CharmURL) (params.Charm, error) {
-	logger.Tracef("CharmInfo 1 %+v", args)
-	if err := a.checkCanRead(); err != nil {
-		return params.Charm{}, errors.Trace(err)
-	}
-
-	curl, err := charm.ParseURL(args.URL)
-	if err != nil {
-		return params.Charm{}, errors.Trace(err)
-	}
-	aCharm, err := a.backendState.Charm(curl)
-	if err != nil {
-		return params.Charm{}, errors.Trace(err)
-	}
-	info := params.Charm{
-		Revision: aCharm.Revision(),
-		URL:      curl.String(),
-		Config:   params.ToCharmOptionMap(aCharm.Config()),
-		Meta:     convertCharmMeta(aCharm.Meta()),
-		Actions:  convertCharmActions(aCharm.Actions()),
-		Metrics:  convertCharmMetrics(aCharm.Metrics()),
-	}
-
-	// we don't need to check that this is a charm.LXDProfiler, as we can
-	// state that the function exists.
-	if profile := aCharm.LXDProfile(); profile != nil && !profile.Empty() {
-		info.LXDProfile = convertCharmLXDProfile(profile)
-	}
-
-	return info, nil
-}
-
 // List returns a list of charm URLs currently in the state.
 // If supplied parameter contains any names, the result will
 // be filtered to return only the charms with supplied names.

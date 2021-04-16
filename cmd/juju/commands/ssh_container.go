@@ -9,12 +9,15 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/application"
+	apicharms "github.com/juju/juju/api/charms"
 	apicloud "github.com/juju/juju/api/cloud"
+	commoncharm "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
@@ -24,7 +27,7 @@ import (
 	jujussh "github.com/juju/juju/network/ssh"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/ssh_container_mock.go github.com/juju/juju/cmd/juju/commands CloudCredentialAPI,ApplicationAPI,ModelAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/ssh_container_mock.go github.com/juju/juju/cmd/juju/commands CloudCredentialAPI,ApplicationAPI,ModelAPI,CharmsAPI
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/context_mock.go github.com/juju/juju/cmd/juju/commands Context
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/k8s_exec_mock.go github.com/juju/juju/caas/kubernetes/provider/exec Executor
 
@@ -41,6 +44,7 @@ type sshContainer struct {
 	cloudCredentialAPI CloudCredentialAPI
 	modelAPI           ModelAPI
 	applicationAPI     ApplicationAPI
+	charmsAPI          CharmsAPI
 	execClientGetter   func(string, cloudspec.CloudSpec) (k8sexec.Executor, error)
 	execClient         k8sexec.Executor
 	statusAPIGetter    func() (StatusAPI, error)
@@ -64,6 +68,11 @@ type ApplicationAPI interface {
 type ModelAPI interface {
 	Close() error
 	ModelInfo([]names.ModelTag) ([]params.ModelInfoResult, error)
+}
+
+type CharmsAPI interface {
+	Close() error
+	CharmInfo(charmURL string) (*commoncharm.CharmInfo, error)
 }
 
 // SetFlags sets up options and flags for the command.
@@ -137,6 +146,14 @@ func (c *sshContainer) initRun(mc ModelCommand) (err error) {
 		}
 	}
 
+	if c.charmsAPI == nil {
+		root, err := mc.NewAPIRoot()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		c.charmsAPI = apicharms.NewClient(root)
+	}
+
 	return nil
 }
 
@@ -160,6 +177,10 @@ func (c *sshContainer) cleanupRun() {
 		_ = c.applicationAPI.Close()
 		c.applicationAPI = nil
 	}
+	if c.charmsAPI != nil {
+		_ = c.charmsAPI.Close()
+		c.charmsAPI = nil
+	}
 }
 
 func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
@@ -174,12 +195,28 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 		return nil, errors.Errorf("invalid unit name %q", resolvedTargetName)
 	}
 	unitTag := names.NewUnitTag(resolvedTargetName)
+	appName, err := names.UnitApplication(unitTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	unitInfoResults, err := c.applicationAPI.UnitsInfo([]names.UnitTag{unitTag})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unit := unitInfoResults[0]
+	if unit.Error != nil {
+		return nil, errors.Annotatef(unit.Error, "getting unit %q", resolvedTargetName)
+	}
+
+	charmInfo, err := c.charmsAPI.CharmInfo(unit.Charm)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting charm info for %q", resolvedTargetName)
+	}
+	meta := charmInfo.Charm().Meta()
+
 	var providerID string
-	if !c.remote {
-		appName, err := names.UnitApplication(unitTag.Id())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	if meta.Format() == charm.FormatV1 && !c.remote {
 		// We don't want to introduce CaaS broker here, but only use exec client.
 		podAPI := c.execClient.RawClient().CoreV1().Pods(c.execClient.NameSpace())
 		providerID, err = k8sprovider.GetOperatorPodName(
@@ -196,19 +233,24 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 			return nil, errors.New(fmt.Sprintf("operator pod for unit %q is not ready yet", unitTag.Id()))
 		}
 	} else {
-		results, err := c.applicationAPI.UnitsInfo([]names.UnitTag{unitTag})
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		unit := results[0]
-		if unit.Error != nil {
-			return nil, errors.Annotatef(unit.Error, "getting unit %q", resolvedTargetName)
-		}
 		if len(unit.ProviderId) == 0 {
 			return nil, errors.New(fmt.Sprintf("container for unit %q is not ready yet", unitTag.Id()))
 		}
 		providerID = unit.ProviderId
 	}
+
+	if meta.Format() == charm.FormatV2 {
+		if c.container == "" {
+			c.container = "charm"
+		} else if _, ok := meta.Containers[c.container]; !ok {
+			containers := []string{"charm"}
+			for k := range meta.Containers {
+				containers = append(containers, k)
+			}
+			return nil, errors.New(fmt.Sprintf("container %q must be one of %s", c.container, strings.Join(containers, ", ")))
+		}
+	}
+
 	return &resolvedTarget{entity: providerID}, nil
 }
 

@@ -64,6 +64,7 @@ func NewSSHContainer(
 	cloudCredentialAPI CloudCredentialAPI,
 	modelAPI ModelAPI,
 	applicationAPI ApplicationAPI,
+	charmsAPI CharmsAPI,
 	execClient k8sexec.Executor,
 	remote bool,
 	containerName string,
@@ -73,6 +74,7 @@ func NewSSHContainer(
 		cloudCredentialAPI: cloudCredentialAPI,
 		modelAPI:           modelAPI,
 		applicationAPI:     applicationAPI,
+		charmsAPI:          charmsAPI,
 		execClient:         execClient,
 		execClientGetter: func(string, cloudspec.CloudSpec) (k8sexec.Executor, error) {
 			return execClient, nil
