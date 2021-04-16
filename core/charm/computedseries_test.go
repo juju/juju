@@ -66,6 +66,31 @@ func (s *computedSeriesSuite) TestComputedSeries(c *gc.C) {
 	c.Assert(series, jc.DeepEquals, []string{"bionic", "focal"})
 }
 
+func (s *computedSeriesSuite) TestComputedSeriesKubernetes(c *gc.C) {
+	meta, err := charm.ReadMeta(strings.NewReader(`
+ name: a
+ summary: b
+ description: c
+ containers:
+   redis:
+     resource: redis-container-resource
+ resources:
+     redis-container-resource:
+       name: redis-container
+       type: oci-image
+ `))
+	c.Assert(err, gc.IsNil)
+	manifest, err := charm.ReadManifest(strings.NewReader(`
+ bases:
+   - name: ubuntu
+     channel: "18.04"
+ `))
+	c.Assert(err, gc.IsNil)
+	series, err := ComputedSeries(charmMeta{meta: meta, manifest: manifest})
+	c.Assert(err, gc.IsNil)
+	c.Assert(series, jc.DeepEquals, []string{"kubernetes"})
+}
+
 func (s *computedSeriesSuite) TestComputedSeriesError(c *gc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(`
  name: a

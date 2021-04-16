@@ -19,10 +19,19 @@ func ComputedSeries(c charm.CharmMeta) ([]string, error) {
 	if manifest == nil || len(manifest.Bases) == 0 {
 		return c.Meta().Series, nil
 	}
-	// The slice must be ordered based on system appearance but
-	// have unique elements.
+
+	// If we have V2 metadata *and* a non-empty containers collection,
+	// then this is a side-car based charm and we return "kubernetes"
+	// instead of translating the collection of supplied bases.
+	if len(c.Meta().Containers) > 0 {
+		return []string{coreseries.Kubernetes.String()}, nil
+	}
+
+	// We use a set to ensure uniqueness and a slice to ensure that we
+	// preserve the order of elements as they appear in the manifest.
 	seriesSlice := []string(nil)
 	seriesSet := set.NewStrings()
+
 	for _, base := range manifest.Bases {
 		version := base.Channel.Track
 		series, err := coreseries.VersionSeries(version)
