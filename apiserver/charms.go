@@ -167,7 +167,7 @@ func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
 // manifestSender sends a JSON-encoded response to the client including the
 // list of files contained in the charm bundle.
 func (h *charmsHandler) manifestSender(w http.ResponseWriter, r *http.Request, bundle *charm.CharmArchive) error {
-	manifest, err := bundle.Manifest()
+	manifest, err := bundle.ArchiveMembers()
 	if err != nil {
 		return errors.Annotatef(err, "unable to read manifest in %q", bundle.Path)
 	}

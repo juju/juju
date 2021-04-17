@@ -830,7 +830,10 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 
 	// Figure out what series we need to deploy with.
-	supportedSeries := charmInfo.Meta.ComputedSeries()
+	supportedSeries, err := corecharm.ComputedSeries(charmInfo.Charm())
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if len(supportedSeries) == 0 && chID.URL.Series != "" {
 		supportedSeries = []string{chID.URL.Series}
 	}

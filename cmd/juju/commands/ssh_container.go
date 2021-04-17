@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -213,10 +212,12 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting charm info for %q", resolvedTargetName)
 	}
-	meta := charmInfo.Charm().Meta()
+	manifest := charmInfo.Charm().Manifest()
+
+	isMetaV2 := manifest != nil && len(manifest.Bases) > 0
 
 	var providerID string
-	if meta.Format() == charm.FormatV1 && !c.remote {
+	if !isMetaV2 && !c.remote {
 		// We don't want to introduce CaaS broker here, but only use exec client.
 		podAPI := c.execClient.RawClient().CoreV1().Pods(c.execClient.NameSpace())
 		providerID, err = k8sprovider.GetOperatorPodName(
@@ -239,7 +240,8 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 		providerID = unit.ProviderId
 	}
 
-	if meta.Format() == charm.FormatV2 {
+	if isMetaV2 {
+		meta := charmInfo.Charm().Meta()
 		if c.container == "" {
 			c.container = "charm"
 		} else if _, ok := meta.Containers[c.container]; !ok {
@@ -247,7 +249,8 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 			for k := range meta.Containers {
 				containers = append(containers, k)
 			}
-			return nil, errors.New(fmt.Sprintf("container %q must be one of %s", c.container, strings.Join(containers, ", ")))
+			return nil, errors.New(
+				fmt.Sprintf("container %q must be one of %s", c.container, strings.Join(containers, ", ")))
 		}
 	}
 

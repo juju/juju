@@ -12,8 +12,6 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/systems"
-	"github.com/juju/systems/channel"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
@@ -139,10 +137,13 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharm(c *gc.C) {
 			}, nil),
 		s.charmAPI.EXPECT().CharmInfo("test-charm-url").
 			Return(&charms.CharmInfo{
-				Meta: &charm.Meta{
-					Bases: []systems.Base{{
-						Name:    "ubuntu",
-						Channel: channel.MustParse("20.04/stable"),
+				Manifest: &charm.Manifest{
+					Bases: []charm.Base{{
+						Name: "ubuntu",
+						Channel: charm.Channel{
+							Track: "20.04",
+							Risk:  "stable",
+						},
 					}},
 				},
 			}, nil),
@@ -164,13 +165,18 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainer(c *gc.
 		s.charmAPI.EXPECT().CharmInfo("test-charm-url").
 			Return(&charms.CharmInfo{
 				Meta: &charm.Meta{
-					Bases: []systems.Base{{
-						Name:    "ubuntu",
-						Channel: channel.MustParse("20.04/stable"),
-					}},
 					Containers: map[string]charm.Container{
 						"test-container": charm.Container{},
 					},
+				},
+				Manifest: &charm.Manifest{
+					Bases: []charm.Base{{
+						Name: "ubuntu",
+						Channel: charm.Channel{
+							Track: "20.04",
+							Risk:  "stable",
+						},
+					}},
 				},
 			}, nil),
 	)
@@ -191,13 +197,18 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainerMissing
 		s.charmAPI.EXPECT().CharmInfo("test-charm-url").
 			Return(&charms.CharmInfo{
 				Meta: &charm.Meta{
-					Bases: []systems.Base{{
-						Name:    "ubuntu",
-						Channel: channel.MustParse("20.04/stable"),
-					}},
 					Containers: map[string]charm.Container{
 						"test-container": charm.Container{},
 					},
+				},
+				Manifest: &charm.Manifest{
+					Bases: []charm.Base{{
+						Name: "ubuntu",
+						Channel: charm.Channel{
+							Track: "20.04",
+							Risk:  "stable",
+						},
+					}},
 				},
 			}, nil),
 	)

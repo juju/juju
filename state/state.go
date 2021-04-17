@@ -32,6 +32,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
@@ -1337,7 +1338,11 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) err
 		if series := args.Charm.URL().Series; series != "" {
 			supportedSeries = []string{series}
 		} else {
-			supportedSeries = args.Charm.Meta().ComputedSeries()
+			var err error
+			supportedSeries, err = corecharm.ComputedSeries(args.Charm)
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 		if len(supportedSeries) > 0 {
 			// TODO(embedded): handle computed series
@@ -2049,7 +2054,10 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				if !ep.ImplementedBy(ch) {
 					return nil, errors.Errorf("%q does not implement %q", ep.ApplicationName, ep)
 				}
-				charmSeries := ch.Meta().ComputedSeries()
+				charmSeries, err := corecharm.ComputedSeries(ch)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
 				if len(charmSeries) == 0 {
 					charmSeries = []string{localApp.doc.Series}
 				}

@@ -131,7 +131,10 @@ func (s stateSeriesValidator) ValidateApplication(application Application, serie
 	if err != nil {
 		return errors.Trace(err)
 	}
-	supportedSeries := ch.Meta().ComputedSeries()
+	supportedSeries, err := corecharm.ComputedSeries(ch)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if len(supportedSeries) == 0 {
 		supportedSeries = append(supportedSeries, ch.URL().Series)
 	}

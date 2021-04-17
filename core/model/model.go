@@ -43,6 +43,8 @@ type Model struct {
 
 var caasOS = set.NewStrings(os.Kubernetes.String())
 
+// TODO: hml 2021-04-15
+// This should be re-written to remove the systems pkg.
 // ValidateSeries ensures the charm series is valid for the model type.
 func ValidateSeries(modelType ModelType, charmSeries string, charmFormat charm.Format) error {
 	if charmFormat >= charm.FormatV2 {

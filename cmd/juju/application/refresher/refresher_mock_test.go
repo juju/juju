@@ -6,8 +6,8 @@ package refresher
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
-	charm0 "github.com/juju/juju/api/common/charm"
+	v8 "github.com/juju/charm/v8"
+	charm "github.com/juju/juju/api/common/charm"
 	reflect "reflect"
 )
 
@@ -140,11 +140,11 @@ func (m *MockCharmResolver) EXPECT() *MockCharmResolverMockRecorder {
 }
 
 // ResolveCharm mocks base method
-func (m *MockCharmResolver) ResolveCharm(arg0 *charm.URL, arg1 charm0.Origin) (*charm.URL, charm0.Origin, []string, error) {
+func (m *MockCharmResolver) ResolveCharm(arg0 *v8.URL, arg1 charm.Origin) (*v8.URL, charm.Origin, []string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveCharm", arg0, arg1)
-	ret0, _ := ret[0].(*charm.URL)
-	ret1, _ := ret[1].(charm0.Origin)
+	ret0, _ := ret[0].(*v8.URL)
+	ret1, _ := ret[1].(charm.Origin)
 	ret2, _ := ret[2].([]string)
 	ret3, _ := ret[3].(error)
 	return ret0, ret1, ret2, ret3
@@ -180,11 +180,11 @@ func (m *MockCharmRepository) EXPECT() *MockCharmRepositoryMockRecorder {
 }
 
 // NewCharmAtPathForceSeries mocks base method
-func (m *MockCharmRepository) NewCharmAtPathForceSeries(arg0, arg1 string, arg2 bool) (charm.Charm, *charm.URL, error) {
+func (m *MockCharmRepository) NewCharmAtPathForceSeries(arg0, arg1 string, arg2 bool) (v8.Charm, *v8.URL, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewCharmAtPathForceSeries", arg0, arg1, arg2)
-	ret0, _ := ret[0].(charm.Charm)
-	ret1, _ := ret[1].(*charm.URL)
+	ret0, _ := ret[0].(v8.Charm)
+	ret1, _ := ret[1].(*v8.URL)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }

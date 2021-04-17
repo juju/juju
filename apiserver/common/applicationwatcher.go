@@ -138,14 +138,12 @@ func (w *applicationWatcher) handle(changes []string) ([]string, error) {
 		// TODO(CAAS): Improve application filtering logic.
 		switch w.filter {
 		case ApplicationFilterCAASLegacy:
-			meta := ch.Meta()
-			if meta.Format() >= charm.FormatV2 {
+			if metadataFormatV2(ch.Manifest()) >= charm.FormatV2 {
 				// Filter out embedded applications.
 				continue
 			}
 		case ApplicationFilterCAASEmbedded:
-			meta := ch.Meta()
-			if meta.Format() == charm.FormatV1 {
+			if metadataFormatV2(ch.Manifest()) == charm.FormatV1 {
 				// Filter out non-embedded applications.
 				continue
 			}
@@ -155,6 +153,13 @@ func (w *applicationWatcher) handle(changes []string) ([]string, error) {
 		filteredChanges = append(filteredChanges, name)
 	}
 	return filteredChanges, nil
+}
+
+func metadataFormatV2(manifest *charm.Manifest) charm.Format {
+	if manifest != nil && len(manifest.Bases) > 0 {
+		return charm.FormatV2
+	}
+	return charm.FormatV1
 }
 
 // Changes is part of corewatcher.StringsWatcher.
@@ -196,7 +201,7 @@ type AppWatcherApplication interface {
 
 // AppWatcherCharm is Charm for AppWatcher.
 type AppWatcherCharm interface {
-	Meta() *charm.Meta
+	Manifest() *charm.Manifest
 }
 
 type appWatcherStateShim struct {

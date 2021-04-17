@@ -27,6 +27,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
@@ -255,7 +256,7 @@ func (a *Application) Destroy() (err error) {
 		if err == nil {
 			// After running the destroy ops, app life is either Dying,
 			// or it may be set to Dead. If removed, life will also be marked as Dead.
-			a.doc.Life = op.PostDestoryAppLife
+			a.doc.Life = op.PostDestroyAppLife
 		}
 	}()
 	err = a.st.ApplyOperation(op)
@@ -292,8 +293,8 @@ type DestroyApplicationOperation struct {
 	// scheduled by a forced cleanup task.
 	CleanupIgnoringResources bool
 
-	// PostDestoryAppLife is the life of the app if destroy completes without error.
-	PostDestoryAppLife Life
+	// PostDestroyAppLife is the life of the app if destroy completes without error.
+	PostDestroyAppLife Life
 
 	// ForcedOperation stores needed information to force this operation.
 	ForcedOperation
@@ -410,7 +411,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 		}
 		ops = append(ops, relOps...)
 	}
-	op.PostDestoryAppLife = Dying
+	op.PostDestroyAppLife = Dying
 	if !op.Force && failedRels {
 		return nil, op.LastError()
 	}
@@ -503,7 +504,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 				Assert: assertion,
 				Update: update,
 			}
-			op.PostDestoryAppLife = Dead
+			op.PostDestroyAppLife = Dead
 			return append(ops, advanceLifecycleOp), nil
 		}
 
@@ -1474,7 +1475,10 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}
 	} else if !cfg.ForceSeries {
 		supported := false
-		charmSeries := cfg.Charm.Meta().ComputedSeries()
+		charmSeries, err := corecharm.ComputedSeries(cfg.Charm)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		for _, oneSeries := range charmSeries {
 			if oneSeries == a.doc.Series {
 				supported = true
@@ -1499,7 +1503,10 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			return err
 		}
 		supportedOS := false
-		supportedSeries := cfg.Charm.Meta().ComputedSeries()
+		supportedSeries, err := corecharm.ComputedSeries(cfg.Charm)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		for _, chSeries := range supportedSeries {
 			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
 			if err != nil {
@@ -1828,7 +1835,10 @@ func (a *Application) VerifySupportedSeries(series string, force bool) error {
 	if err != nil {
 		return err
 	}
-	supportedSeries := ch.Meta().ComputedSeries()
+	supportedSeries, err := corecharm.ComputedSeries(ch)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if len(supportedSeries) == 0 {
 		supportedSeries = append(supportedSeries, ch.URL().Series)
 	}
@@ -2999,7 +3009,9 @@ func CheckApplicationExpectsWorkload(m *Model, appName string) (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	if ch.Meta().Format() >= charm.FormatV2 {
+
+	manifest := ch.Manifest()
+	if manifest != nil && len(manifest.Bases) > 0 {
 		return false, nil
 	}
 

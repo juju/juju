@@ -18,6 +18,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/macaroon.v2"
 
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
@@ -115,11 +116,12 @@ type charmDoc struct {
 	// will we be writing on the assumption that all stored Metas have set
 	// some field? What fields might lose precision when they go into the
 	// database?
-	Meta       *charm.Meta    `bson:"meta"`
-	Config     *charm.Config  `bson:"config"`
-	Actions    *charm.Actions `bson:"actions"`
-	Metrics    *charm.Metrics `bson:"metrics"`
-	LXDProfile *LXDProfile    `bson:"lxd-profile"`
+	Meta       *charm.Meta     `bson:"meta"`
+	Config     *charm.Config   `bson:"config"`
+	Manifest   *charm.Manifest `bson:"manifest"`
+	Actions    *charm.Actions  `bson:"actions"`
+	Metrics    *charm.Metrics  `bson:"metrics"`
+	LXDProfile *LXDProfile     `bson:"lxd-profile"`
 }
 
 // LXDProfile is the same as ProfilePut defined in github.com/lxc/lxd/shared/api/profile.go
@@ -181,6 +183,7 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 		CharmVersion: info.Version,
 		Meta:         info.Charm.Meta(),
 		Config:       safeConfig(info.Charm),
+		Manifest:     info.Charm.Manifest(),
 		Metrics:      info.Charm.Metrics(),
 		Actions:      info.Charm.Actions(),
 		BundleSha256: info.SHA256,
@@ -293,6 +296,7 @@ func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, e
 		{"meta", info.Charm.Meta()},
 		{"config", safeConfig(info.Charm)},
 		{"actions", info.Charm.Actions()},
+		{"manifest", info.Charm.Manifest()},
 		{"metrics", info.Charm.Metrics()},
 		{"storagepath", info.StoragePath},
 		{"bundlesha256", info.SHA256},
@@ -602,6 +606,12 @@ func (c *Charm) Config() *charm.Config {
 	return c.doc.Config
 }
 
+// Manifest returns information resulting from the charm
+// build process such as the bases on which it can run.
+func (c *Charm) Manifest() *charm.Manifest {
+	return c.doc.Manifest
+}
+
 // Metrics returns the metrics declared for the charm.
 func (c *Charm) Metrics() *charm.Metrics {
 	return c.doc.Metrics
@@ -721,13 +731,12 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 	return nil, errors.Trace(err)
 }
 
-type hasMeta interface {
-	Meta() *charm.Meta
-}
-
-func validateCharmSeries(modelType ModelType, series string, ch hasMeta) error {
+func validateCharmSeries(modelType ModelType, series string, ch charm.CharmMeta) error {
 	if series == "" {
-		allSeries := ch.Meta().ComputedSeries()
+		allSeries, err := corecharm.ComputedSeries(ch)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		if len(allSeries) > 0 {
 			series = allSeries[0]
 		}
@@ -737,7 +746,15 @@ func validateCharmSeries(modelType ModelType, series string, ch hasMeta) error {
 	if series == "" {
 		return nil
 	}
-	return model.ValidateSeries(model.ModelType(modelType), series, ch.Meta().Format())
+
+	// TODO (manadart 2021-04-15): This is copied from ReadCharm in the charm
+	// package. It should be encapsulated there instead of repeated.
+	format := charm.FormatV2
+	if ch.Manifest() == nil || len(ch.Manifest().Bases) == 0 {
+		format = charm.FormatV1
+	}
+
+	return model.ValidateSeries(model.ModelType(modelType), series, format)
 }
 
 // AllCharms returns all charms in state.
@@ -774,10 +791,12 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
 	}
-	if err := cdoc.Meta.Check(); err != nil {
+
+	ch := newCharm(st, cdoc)
+	if err := charm.CheckMeta(ch); err != nil {
 		return nil, errors.Annotatef(err, "malformed charm metadata found in state")
 	}
-	return newCharm(st, cdoc), nil
+	return ch, nil
 }
 
 // LatestPlaceholderCharm returns the latest charm described by the

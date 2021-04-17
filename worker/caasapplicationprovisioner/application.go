@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -107,8 +106,8 @@ func (a *appWorker) loop() error {
 		return errors.Annotatef(err, "failed to get application charm deployment metadata for %q", a.name)
 	}
 	if charmInfo == nil ||
-		charmInfo.Meta == nil ||
-		charmInfo.Meta.Format() < charm.FormatV2 {
+		charmInfo.Manifest == nil ||
+		len(charmInfo.Manifest.Bases) == 0 {
 		return errors.Errorf("charm version 2 or greater required")
 	}
 

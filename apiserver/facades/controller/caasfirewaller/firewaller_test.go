@@ -6,8 +6,6 @@ package caasfirewaller_test
 import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/names/v4"
-	"github.com/juju/systems"
-	"github.com/juju/systems/channel"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
@@ -63,7 +61,10 @@ var _ = gc.Suite(&firewallerLegacySuite{
 func firewallerStateToAppWatcherState(st *mockState) *mockAppWatcherState {
 	return &mockAppWatcherState{
 		app: &mockAppWatcherApplication{
-			charm: mockAppWatcherCharm{meta: st.application.charm.meta},
+			charm: mockAppWatcherCharm{
+				meta:     st.application.charm.meta,
+				manifest: st.application.charm.manifest,
+			},
 		},
 		watcher: st.applicationsWatcher,
 	}
@@ -96,11 +97,10 @@ func (s *firewallerEmbeddedSuite) SetUpTest(c *gc.C) {
 	s.firewallerBaseSuite.SetUpTest(c)
 
 	// charm.FormatV2.
-	s.st.application.charm.meta.Bases = []systems.Base{
+	s.st.application.charm.manifest.Bases = []charm.Base{
 		{
 			Name: "ubuntu",
-			Channel: channel.Channel{
-				Name:  "20.04/stable",
+			Channel: charm.Channel{
 				Risk:  "stable",
 				Track: "20.04",
 			},
@@ -169,7 +169,8 @@ func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 				meta: &charm.Meta{
 					Deployment: &charm.Deployment{},
 				},
-				url: &charm.URL{Schema: "cs", Name: "gitlab", Revision: -1},
+				manifest: &charm.Manifest{},
+				url:      &charm.URL{Schema: "cs", Name: "gitlab", Revision: -1},
 			},
 		},
 		applicationsWatcher: statetesting.NewMockStringsWatcher(s.applicationsChanges),

@@ -45,7 +45,7 @@ type CharmResolver interface {
 
 // CharmRepository defines methods for interaction with a charm repo.
 type CharmRepository interface {
-	// NewCharmAtPathForSeries returns the charm represented by this path,
+	// NewCharmAtPathForceSeries returns the charm represented by this path,
 	// and a URL that describes it. If the series is empty,
 	// the charm's default series is used, if any.
 	// Otherwise, the series is validated against those the

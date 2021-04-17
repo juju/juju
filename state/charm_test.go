@@ -857,6 +857,24 @@ func (s *CharmTestHelperSuite) TestLXDProfileCharm(c *gc.C) {
 	})
 }
 
+var manifestYaml = `
+bases:
+  - name: ubuntu
+    channel: "18.04"
+  - name: ubuntu
+    channel: "20.04"
+`
+
+func (s *CharmTestHelperSuite) TestManifestCharm(c *gc.C) {
+	manifest, err := charm.ReadManifest(bytes.NewBuffer([]byte(manifestYaml)))
+	c.Assert(err, jc.ErrorIsNil)
+
+	forEachStandardCharm(c, func(name string) {
+		ch := s.AddManifestCharm(c, name, manifestYaml, 123)
+		c.Assert(ch.Manifest(), gc.DeepEquals, manifest)
+	})
+}
+
 func (s *CharmTestHelperSuite) TestTestingCharm(c *gc.C) {
 	added := s.AddTestingCharm(c, "metered")
 	c.Assert(added.Metrics(), gc.NotNil)

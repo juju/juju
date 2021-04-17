@@ -136,8 +136,10 @@ func (u *Unit) IsEmbedded() (bool, error) {
 	if meta == nil {
 		return false, nil
 	}
+
 	// TODO(embedded): Determine a better way represent this.
-	return u.modelType == ModelTypeCAAS && meta.Format() >= charm.FormatV2, nil
+	manifest := ch.Manifest()
+	return u.modelType == ModelTypeCAAS && manifest != nil && len(manifest.Bases) > 0, nil
 }
 
 // Application returns the application.

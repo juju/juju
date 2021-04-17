@@ -136,13 +136,19 @@ func (s *mockAppWatcherApplication) Charm() (common.AppWatcherCharm, bool, error
 
 type mockAppWatcherCharm struct {
 	testing.Stub
-	meta *charm.Meta
-	url  *charm.URL
+	meta     *charm.Meta
+	manifest *charm.Manifest
+	url      *charm.URL
 }
 
 func (s *mockAppWatcherCharm) Meta() *charm.Meta {
 	s.MethodCall(s, "Meta")
 	return s.meta
+}
+
+func (s *mockAppWatcherCharm) Manifest() *charm.Manifest {
+	s.MethodCall(s, "Manifest")
+	return s.manifest
 }
 
 func (s *mockAppWatcherCharm) URL() *charm.URL {

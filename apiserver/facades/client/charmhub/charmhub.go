@@ -110,7 +110,8 @@ func (api *CharmHubAPI) Info(ctx context.Context, arg params.Info) (params.Charm
 	if err != nil {
 		return params.CharmHubEntityInfoResult{}, errors.Trace(err)
 	}
-	return params.CharmHubEntityInfoResult{Result: convertCharmInfoResult(info)}, nil
+	result, err := convertCharmInfoResult(info)
+	return params.CharmHubEntityInfoResult{Result: result}, err
 }
 
 // Find queries the CharmHub API with a given entity ID.

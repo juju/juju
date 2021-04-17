@@ -487,6 +487,36 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
 	})
 }
 
+func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuildK8s(c *gc.C) {
+	channel := "latest/stable"
+	id := "foo"
+	config, err := DownloadOneFromChannel(id, channel, RefreshBase{
+		Name:         "kubernetes",
+		Channel:      "kubernetes",
+		Architecture: arch.DefaultArchitecture,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config = DefineInstanceKey(c, config, "foo-bar")
+
+	req, _, err := config.Build()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
+		Context: []transport.RefreshRequestContext{},
+		Actions: []transport.RefreshRequestAction{{
+			Action:      "download",
+			InstanceKey: "foo-bar",
+			ID:          &id,
+			Channel:     &channel,
+			Base: &transport.Base{
+				Name:         "ubuntu",
+				Channel:      "20.04",
+				Architecture: arch.DefaultArchitecture,
+			},
+		}},
+	})
+}
+
 func (s *RefreshConfigSuite) TestDownloadOneFromChannelEnsure(c *gc.C) {
 	config, err := DownloadOneFromChannel("foo", "latest/stable", RefreshBase{
 		Name:         "ubuntu",

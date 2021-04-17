@@ -276,6 +276,20 @@ func (mr *MockStoreCharmMockRecorder) LXDProfile() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfile", reflect.TypeOf((*MockStoreCharm)(nil).LXDProfile))
 }
 
+// Manifest mocks base method
+func (m *MockStoreCharm) Manifest() *charm.Manifest {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Manifest")
+	ret0, _ := ret[0].(*charm.Manifest)
+	return ret0
+}
+
+// Manifest indicates an expected call of Manifest
+func (mr *MockStoreCharmMockRecorder) Manifest() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Manifest", reflect.TypeOf((*MockStoreCharm)(nil).Manifest))
+}
+
 // Meta mocks base method
 func (m *MockStoreCharm) Meta() *charm.Meta {
 	m.ctrl.T.Helper()

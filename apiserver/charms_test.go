@@ -772,7 +772,7 @@ func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
 	// Ensure charm files are properly listed.
 	uri := s.charmsURI("?url=local:quantal/dummy-1")
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
-	manifest, err := ch.Manifest()
+	manifest, err := ch.ArchiveMembers()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedFiles := manifest.SortedValues()
 	s.assertGetFileListResponse(c, resp, expectedFiles)

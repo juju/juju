@@ -2,9 +2,6 @@ name: cockroachdb
 summary: cockroachdb
 maintainers: ["Harry Pidcock <harry.pidcock@canonical.com>"]
 description: cockroachdb
-bases:
-  - name: ubuntu
-    channel: 20.04/stable
 containers:
   cockroachdb:
     resource: cockroachdb-image

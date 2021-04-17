@@ -97,7 +97,7 @@ type mockBundle struct {
 	expand func(dir string) error
 }
 
-func (b mockBundle) Manifest() (set.Strings, error) {
+func (b mockBundle) ArchiveMembers() (set.Strings, error) {
 	// TODO(dfc) this looks like set.Strings().Duplicate()
 	return set.NewStrings(b.paths.Values()...), nil
 }
