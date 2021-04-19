@@ -67,17 +67,19 @@ func (v *vmTemplateManager) findTemplate(ctx context.Context) (*object.VirtualMa
 	}
 
 	for _, img := range v.imageMetadata {
-		vms, err := v.env.client.FindVMTemplatesByName(ctx, "*", img.Id)
+		vms, err := v.env.client.ListVMTemplates(ctx, img.Id)
 		if err != nil {
 			return nil, "", errors.Trace(err)
 		}
-		if len(vms) == 0 {
+		switch len(vms) {
+		case 1:
+			// trust that due diligence was made when generating simplestreams
+			// and the img.Arch, reflects the architecture of the OS running insude
+			// the VM generated from the found template.
+			return vms[0], img.Arch, nil
+		default:
 			continue
 		}
-		// trust that due diligence was exercised when generating simplestreams
-		// and the img.Arch, reflects the architecture of the OS running insude
-		// the VM generated from the found template.
-		return vms[0], img.Arch, nil
 	}
 	return nil, "", errors.NotFoundf("could not find a suitable template")
 }
