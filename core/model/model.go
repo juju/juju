@@ -40,6 +40,9 @@ type Model struct {
 }
 
 // ValidateModelTarget ensures the charm is valid for the model target type.
+// This works for both v1 and v2 of the charm metadata. By looking if the
+// series for v1 charm contains kubernetes or by checking the existence of
+// containers within the v2 metadata as a way to see if kubernetes is supported.
 func ValidateModelTarget(modelType ModelType, meta *charm.Meta) error {
 	isIAAS := true
 	if set.NewStrings(meta.Series...).Contains(series.Kubernetes.String()) || len(meta.Containers) > 0 {
