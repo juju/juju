@@ -335,6 +335,63 @@ relations:
     - mariadb:server
 `
 
+func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithCharmhub(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectEmptyModelToStart(c)
+	s.expectWatchAll()
+
+	mariadbCurl, err := charm.ParseURL("mariadb-k8s")
+	c.Assert(err, jc.ErrorIsNil)
+	gitlabCurl, err := charm.ParseURL("gitlab-k8s")
+	c.Assert(err, jc.ErrorIsNil)
+	chUnits := []charmUnit{
+		{
+			curl:          mariadbCurl,
+			machineSeries: "kubernetes",
+		},
+		{
+			curl:          gitlabCurl,
+			machineSeries: "kubernetes",
+		},
+	}
+	s.setupMetadataV2CharmUnits(chUnits)
+	s.expectAddRelation([]string{"gitlab:mysql", "mariadb:server"})
+
+	bundleData, err := charm.ReadBundleData(strings.NewReader(kubernetesCharmhubGitlabBundle))
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = bundleDeploy(bundleData, s.bundleDeploySpec())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.deployArgs, gc.HasLen, 2)
+	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "kubernetes")
+	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "kubernetes")
+
+	c.Check(s.output.String(), gc.Equals, ""+
+		"Located charm \"gitlab-k8s\" in charm-hub\n"+
+		"Located charm \"mariadb-k8s\" in charm-hub\n"+
+		"Executing changes:\n"+
+		"- upload charm gitlab-k8s from charm-hub for series kubernetes\n"+
+		"- deploy application gitlab from charm-hub with 1 unit on kubernetes using gitlab-k8s\n"+
+		"- upload charm mariadb-k8s from charm-hub for series kubernetes\n"+
+		"- deploy application mariadb from charm-hub with 2 units on kubernetes using mariadb-k8s\n"+
+		"- add relation gitlab:mysql - mariadb:server\n"+
+		"Deploy of bundle completed.\n")
+}
+
+const kubernetesCharmhubGitlabBundle = `
+bundle: kubernetes
+applications:
+  mariadb:
+    charm: mariadb-k8s
+    scale: 2
+  gitlab:
+    charm: gitlab-k8s
+    scale: 1
+relations:
+  - - gitlab:mysql
+    - mariadb:server
+`
+
 func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
@@ -918,6 +975,30 @@ func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
 			URL:      chUnit.curl.String(),
 			Meta: &charm.Meta{
 				Series: chUnit.charmMetaSeries,
+			},
+		}
+		s.expectCharmInfo(chUnit.curl.String(), charmInfo)
+		s.expectDeploy()
+		if chUnit.machineSeries != "kubernetes" {
+			s.expectAddMachine(chUnit.machine, chUnit.machineSeries)
+			s.expectAddOneUnit(chUnit.curl.Name, chUnit.machine, "0")
+		}
+	}
+}
+
+func (s *BundleDeployRepositorySuite) setupMetadataV2CharmUnits(charmUnits []charmUnit) {
+	for _, chUnit := range charmUnits {
+		s.expectResolveCharm(nil, 2)
+		s.expectAddCharm(chUnit.force)
+		charmInfo := &apicharms.CharmInfo{
+			Revision: chUnit.curl.Revision,
+			URL:      chUnit.curl.String(),
+			Meta: &charm.Meta{
+				Containers: map[string]charm.Container{
+					"test": {
+						Resource: "test-oci",
+					},
+				},
 			},
 		}
 		s.expectCharmInfo(chUnit.curl.String(), charmInfo)

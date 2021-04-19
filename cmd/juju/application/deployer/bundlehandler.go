@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state/watcher"
@@ -838,6 +839,13 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		supportedSeries = []string{chID.URL.Series}
 	}
 
+	charmSeries := chID.URL.Series
+	// If a charm has a url, but is a kubernetes charm then we need to
+	// add this to the list of supported series.
+	if charmSeries != series.Kubernetes.String() && set.NewStrings(charmInfo.Charm().Meta().Series...).Contains(series.Kubernetes.String()) || len(charmInfo.Charm().Meta().Containers) > 0 {
+		charmSeries = series.Kubernetes.String()
+	}
+
 	workloadSeries, err := supportedJujuSeries(h.clock.Now(), p.Series, h.modelConfig.ImageStream())
 	if err != nil {
 		return errors.Trace(err)
@@ -845,7 +853,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 
 	selector := seriesSelector{
 		seriesFlag:          p.Series,
-		charmURLSeries:      chID.URL.Series,
+		charmURLSeries:      charmSeries,
 		supportedSeries:     supportedSeries,
 		supportedJujuSeries: workloadSeries,
 		conf:                h.modelConfig,

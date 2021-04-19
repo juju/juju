@@ -5009,9 +5009,6 @@ func (s *ApplicationSuite) TestCAASEmbeddedCharm(c *gc.C) {
 name: cockroachdb
 description: foo
 summary: foo
-bases:
-  - name: ubuntu
-    channel: "18.04"
 containers:
   redis:
     resource: redis-container-resource
