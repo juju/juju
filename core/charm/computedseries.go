@@ -16,7 +16,7 @@ import (
 // listed in the manifest Bases as channels.
 func ComputedSeries(c charm.CharmMeta) ([]string, error) {
 	manifest := c.Manifest()
-	if manifest == nil || len(manifest.Bases) == 0 {
+	if Format(c) < FormatV2 {
 		return c.Meta().Series, nil
 	}
 

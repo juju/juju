@@ -6,6 +6,7 @@ package common
 import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 
@@ -138,12 +139,12 @@ func (w *applicationWatcher) handle(changes []string) ([]string, error) {
 		// TODO(CAAS): Improve application filtering logic.
 		switch w.filter {
 		case ApplicationFilterCAASLegacy:
-			if metadataFormatV2(ch.Manifest()) >= charm.FormatV2 {
+			if corecharm.Format(ch) >= corecharm.FormatV2 {
 				// Filter out embedded applications.
 				continue
 			}
 		case ApplicationFilterCAASEmbedded:
-			if metadataFormatV2(ch.Manifest()) == charm.FormatV1 {
+			if corecharm.Format(ch) == corecharm.FormatV1 {
 				// Filter out non-embedded applications.
 				continue
 			}
@@ -153,13 +154,6 @@ func (w *applicationWatcher) handle(changes []string) ([]string, error) {
 		filteredChanges = append(filteredChanges, name)
 	}
 	return filteredChanges, nil
-}
-
-func metadataFormatV2(manifest *charm.Manifest) charm.Format {
-	if manifest != nil && len(manifest.Bases) > 0 {
-		return charm.FormatV2
-	}
-	return charm.FormatV1
 }
 
 // Changes is part of corewatcher.StringsWatcher.
