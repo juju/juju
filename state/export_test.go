@@ -279,7 +279,7 @@ func addCustomCharmWithManifest(c *gc.C, st *State, repo *charmrepotesting.Repo,
 			manifestContent := `
 bases:
 - name: ubuntu
-	channel: "18.04"
+  channel: "18.04"
 `
 			manifestYAML := filepath.Join(path, "manifest.yaml")
 			err := ioutil.WriteFile(manifestYAML, []byte(manifestContent), 0644)

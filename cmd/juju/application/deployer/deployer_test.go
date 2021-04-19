@@ -57,6 +57,7 @@ func (s *deployerSuite) SetUpTest(_ *gc.C) {
 func (s *deployerSuite) TestGetDeployerPredeployedLocalCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectFilesystem()
+	s.expectModelType()
 
 	cfg := s.basicDeployerConfig()
 	ch := charm.MustParseURL("local:test-charm")
@@ -105,6 +106,7 @@ func (s *deployerSuite) TestGetDeployerLocalCharmError(c *gc.C) {
 func (s *deployerSuite) TestGetDeployerCharmStoreCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectFilesystem()
+	s.expectModelType()
 	// NotValid ensures that maybeReadRepositoryBundle won't find
 	// charmOrBundle is a bundle.
 	s.expectResolveBundleURL(errors.NotValidf("not a bundle"), 1)
@@ -123,6 +125,7 @@ func (s *deployerSuite) TestGetDeployerCharmStoreCharm(c *gc.C) {
 func (s *deployerSuite) TestCharmStoreSeriesOverride(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectFilesystem()
+	s.expectModelType()
 	s.expectResolveBundleURL(errors.NotValidf("not a bundle"), 1)
 
 	cfg := s.basicDeployerConfig()
