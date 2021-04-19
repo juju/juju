@@ -742,7 +742,7 @@ func AddCharm(st *state.State, curl *charm.URL, ch charm.Charm, force bool) (*st
 	}
 	sch, err := st.AddCharm(info)
 	if err != nil {
-		return nil, fmt.Errorf("cannot add charm: %v", err)
+		return nil, errors.Annotatef(err, "cannot add charm")
 	}
 	return sch, nil
 }
