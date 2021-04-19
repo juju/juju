@@ -623,7 +623,7 @@ func (d *factory) validateResourcesNeededForLocalDeploy(charmMeta *charm.Meta) e
 	// something is wrong and we're deploying a machine (IAAS) charm on a CAAS
 	// model.
 	if !set.NewStrings(charmMeta.Series...).Contains(series.Kubernetes.String()) && len(charmMeta.Containers) == 0 {
-		return errors.Errorf("expected kubernetes charm metadata, unexpected series or base")
+		return errors.Errorf("expected container-based charm metadata, unexpected series or base")
 	}
 
 	var missingImages []string
