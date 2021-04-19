@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	"github.com/juju/systems"
 	"github.com/juju/utils/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -417,7 +418,7 @@ func (a *appWorker) alive(app caas.Application) error {
 
 	provisionInfo, err := a.facade.ProvisioningInfo(a.name)
 	if err != nil {
-		return errors.Annotate(err, "failed to get provisioning info")
+		return errors.Annotate(err, "retrieving provisioning info")
 	}
 	if provisionInfo.CharmURL == nil {
 		return errors.Errorf("missing charm url in provision info")
@@ -425,12 +426,12 @@ func (a *appWorker) alive(app caas.Application) error {
 
 	charmInfo, err := a.facade.CharmInfo(provisionInfo.CharmURL.String())
 	if err != nil {
-		return errors.Annotatef(err, "failed to get application charm deployment metadata for %q", a.name)
+		return errors.Annotatef(err, "retrieving charm deployment info for %q", a.name)
 	}
 
 	appState, err := app.Exists()
 	if err != nil {
-		return errors.Annotatef(err, "failed get application state for %q", a.name)
+		return errors.Annotatef(err, "retrieving application state for %q", a.name)
 	}
 
 	if appState.Exists && appState.Terminating {
@@ -441,19 +442,30 @@ func (a *appWorker) alive(app caas.Application) error {
 
 	images, err := a.facade.ApplicationOCIResources(a.name)
 	if err != nil {
-		return errors.Annotate(err, "failed to get oci image resources")
+		return errors.Annotate(err, "getting OCI image resources")
 	}
 
-	base, err := systems.ParseBaseFromSeries(provisionInfo.Series)
+	os, err := series.GetOSFromSeries(provisionInfo.Series)
 	if err != nil {
-		return errors.Annotate(err, "failed to parse series as a system")
+		return errors.Trace(err)
+	}
+
+	ver, err := series.SeriesVersion(provisionInfo.Series)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	ch := charmInfo.Charm()
 	charmBaseImage := resources.DockerImageDetails{}
-	charmBaseImage.RegistryPath, err = podcfg.ImageForBase(provisionInfo.ImageRepo, base)
+	charmBaseImage.RegistryPath, err = podcfg.ImageForBase(provisionInfo.ImageRepo, charm.Base{
+		Name: strings.ToLower(os.String()),
+		Channel: charm.Channel{
+			Track: ver,
+			Risk:  charm.Stable,
+		},
+	})
 	if err != nil {
-		return errors.Annotate(err, "failed to get image for system")
+		return errors.Annotate(err, "getting image for base")
 	}
 
 	containers := make(map[string]caas.ContainerConfig)

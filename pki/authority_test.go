@@ -85,7 +85,7 @@ func (a *AuthoritySuite) TestLeafRequestChain(c *gc.C) {
 		AddDNSNames(dnsNames...).
 		AddIPAddresses(ipAddresses...).
 		Commit()
-
+	c.Assert(err, jc.ErrorIsNil)
 	chain := leaf.Chain()
 	c.Assert(len(chain), gc.Equals, 1)
 	c.Assert(chain[0], jc.DeepEquals, authority.Certificate())

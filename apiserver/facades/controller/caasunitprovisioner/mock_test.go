@@ -142,8 +142,8 @@ func (m *mockModel) Containers(providerIds ...string) ([]state.CloudContainer, e
 
 type mockApplication struct {
 	testing.Stub
-	life         state.Life
-	scaleWatcher *statetesting.MockNotifyWatcher
+	life            state.Life
+	scaleWatcher    *statetesting.MockNotifyWatcher
 	settingsWatcher *statetesting.MockStringsWatcher
 
 	tag        names.Tag

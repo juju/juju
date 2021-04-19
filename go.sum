@@ -535,8 +535,6 @@ github.com/juju/schema v1.0.0/go.mod h1:Y+ThzXpUJ0E7NYYocAbuvJ7vTivXfrof/IfRPq/0
 github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989 h1:qx1Zh1bnHHVIMmRxq0fehYk7npCG50GhUwEkYeUg/t4=
 github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989/go.mod h1:Y+ThzXpUJ0E7NYYocAbuvJ7vTivXfrof/IfRPq/0abI=
 github.com/juju/systems v0.0.0-20200925032749-8c613192c759/go.mod h1:FcXkVf5o+mosxneWzQsHQ7h9sU3lD2GDOttJClqgnuA=
-github.com/juju/systems v0.0.0-20210311041303-bc6b2f9677ca h1:KmPR6hTiZ8kDALV8YgFagYlRvyJCfJVvihwDvXgma6I=
-github.com/juju/systems v0.0.0-20210311041303-bc6b2f9677ca/go.mod h1:FcXkVf5o+mosxneWzQsHQ7h9sU3lD2GDOttJClqgnuA=
 github.com/juju/terms-client v1.0.2-0.20200331164339-fab45ea044ae h1:wGk/zIPORICWlu4giN7CLGlP0PNvY/oZCRwfVLgjOZw=
 github.com/juju/terms-client v1.0.2-0.20200331164339-fab45ea044ae/go.mod h1:oGYNRVtU+5D99X5rPRaSwzKCc0mqF8A/L2a2UZycbQg=
 github.com/juju/terms-client/v2 v2.0.0-20210309081804-aed8368405f6 h1:kyXBAn5zttmD328DUaqUGyF7aB26B3GvwbVfCE2w71o=

@@ -4,6 +4,7 @@
 package podcfg_test
 
 import (
+	"github.com/juju/charm/v8"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -11,8 +12,6 @@ import (
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/testing"
-	"github.com/juju/systems"
-	"github.com/juju/systems/channel"
 )
 
 type imageSuite struct {
@@ -35,25 +34,25 @@ func (*imageSuite) TestGetJujuOCIImagePath(c *gc.C) {
 }
 
 func (*imageSuite) TestImageForBase(c *gc.C) {
-	_, err := podcfg.ImageForBase("", systems.Base{})
-	c.Assert(err, gc.ErrorMatches, `base name not valid`)
+	_, err := podcfg.ImageForBase("", charm.Base{})
+	c.Assert(err, gc.ErrorMatches, `empty base name not valid`)
 
-	_, err = podcfg.ImageForBase("", systems.Base{Name: "ubuntu"})
+	_, err = podcfg.ImageForBase("", charm.Base{Name: "ubuntu"})
 	c.Assert(err, gc.ErrorMatches, `channel "" not valid`)
 
-	_, err = podcfg.ImageForBase("", systems.Base{Name: "ubuntu", Channel: channel.Channel{
+	_, err = podcfg.ImageForBase("", charm.Base{Name: "ubuntu", Channel: charm.Channel{
 		Track: "20.04",
 	}})
-	c.Assert(err, gc.ErrorMatches, `channel "" not valid`)
+	c.Assert(err, gc.ErrorMatches, `channel "20.04/" not valid`)
 
-	path, err := podcfg.ImageForBase("", systems.Base{Name: "ubuntu", Channel: channel.Channel{
-		Track: "20.04", Risk: channel.Stable,
+	path, err := podcfg.ImageForBase("", charm.Base{Name: "ubuntu", Channel: charm.Channel{
+		Track: "20.04", Risk: charm.Stable,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, gc.DeepEquals, `jujusolutions/charm-base:ubuntu-20.04`)
 
-	path, err = podcfg.ImageForBase("", systems.Base{Name: "ubuntu", Channel: channel.Channel{
-		Track: "20.04", Risk: channel.Edge,
+	path, err = podcfg.ImageForBase("", charm.Base{Name: "ubuntu", Channel: charm.Channel{
+		Track: "20.04", Risk: charm.Edge,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, gc.DeepEquals, `jujusolutions/charm-base:ubuntu-20.04-edge`)

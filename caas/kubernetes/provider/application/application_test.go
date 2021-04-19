@@ -208,7 +208,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentT
 func getPodSpec(c *gc.C) corev1.PodSpec {
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 	return corev1.PodSpec{
-		ServiceAccountName: "gitlab",
+		ServiceAccountName:           "gitlab",
 		AutomountServiceAccountToken: application.BoolPtr(true),
 		InitContainers: []corev1.Container{{
 			Name:            "charm-init",
