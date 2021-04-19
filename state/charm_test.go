@@ -469,7 +469,7 @@ func (s *CharmSuite) TestPrepareCharmUpload(c *gc.C) {
 func (s *CharmSuite) TestIncompatibleSeries(c *gc.C) {
 	info := s.dummyCAASCharm(c, "cs:kubernetes/dummy-2")
 	_, err := s.State.AddCharm(info)
-	c.Assert(err, gc.ErrorMatches, `container-base charm for non container based model type not valid`)
+	c.Assert(err, gc.ErrorMatches, `container-based charm for non container based model type not valid`)
 }
 
 func (s *CharmSuite) TestUpdateUploadedCharm(c *gc.C) {
