@@ -16,6 +16,7 @@ import (
 	"github.com/juju/charm/v8/resource"
 	"github.com/juju/charmrepo/v6"
 	jujuclock "github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
@@ -30,6 +31,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
@@ -610,9 +612,20 @@ func (d *factory) validateResourcesNeededForLocalDeploy(charmMeta *charm.Meta) e
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if modelType != model.CAAS {
+	// If the target model is IAAS, then we don't need to validate the resources
+	// for a given deploy.
+	if modelType == model.IAAS {
 		return nil
 	}
+
+	// It is expected that everything onwards is a CAAS model and so we should
+	// also check that the metadata is also kubernetes as well. If not then
+	// something is wrong and we're deploying a machine (IAAS) charm on a CAAS
+	// model.
+	if !set.NewStrings(charmMeta.Series...).Contains(series.Kubernetes.String()) && len(charmMeta.Containers) == 0 {
+		return errors.Errorf("expected container-based charm metadata, unexpected series or base")
+	}
+
 	var missingImages []string
 	for resName, resMeta := range charmMeta.Resources {
 		if resMeta.Type == resource.TypeContainerImage {
