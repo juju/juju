@@ -54,6 +54,9 @@ func (c *CharmsClient) CharmInfo(charmURL string) (*CharmInfo, error) {
 		return nil, errors.Trace(err)
 	}
 	manifest, err := convertCharmManifest(info.Manifest)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	result := &CharmInfo{
 		Revision:   info.Revision,
 		URL:        info.URL,
