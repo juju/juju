@@ -154,10 +154,6 @@ type charmShim struct {
 	*state.Charm
 }
 
-type charmMeta struct {
-	*charm.Meta
-}
-
 type machineShim struct {
 	*state.Machine
 }
