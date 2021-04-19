@@ -20,19 +20,23 @@ type ModelSuite struct {
 var _ = gc.Suite(&ModelSuite{})
 
 func (*ModelSuite) TestValidateSeries(c *gc.C) {
+	type meta struct {
+		Series     []string
+		Containers map[string]charm.Container
+	}
 	for _, t := range []struct {
 		modelType model.ModelType
-		meta      *charm.Meta
+		meta      meta
 		valid     bool
 	}{
-		{model.IAAS, &charm.Meta{Series: []string{"bionic"}}, true},
-		{model.IAAS, &charm.Meta{Series: []string{"kubernetes"}}, false},
-		{model.IAAS, &charm.Meta{Containers: map[string]charm.Container{"focal": {}}}, false},
-		{model.CAAS, &charm.Meta{Series: []string{"bionic"}}, false},
-		{model.CAAS, &charm.Meta{Series: []string{"kubernetes"}}, true},
-		{model.CAAS, &charm.Meta{Containers: map[string]charm.Container{"focal": {}}}, true},
+		{model.IAAS, meta{Series: []string{"bionic"}}, true},
+		{model.IAAS, meta{Series: []string{"kubernetes"}}, false},
+		{model.IAAS, meta{Containers: map[string]charm.Container{"focal": {}}}, false},
+		{model.CAAS, meta{Series: []string{"bionic"}}, false},
+		{model.CAAS, meta{Series: []string{"kubernetes"}}, true},
+		{model.CAAS, meta{Containers: map[string]charm.Container{"focal": {}}}, true},
 	} {
-		err := model.ValidateModelTarget(t.modelType, t.meta)
+		err := model.ValidateModelTarget(t.modelType, t.meta.Series, t.meta.Containers)
 		if t.valid {
 			c.Check(err, jc.ErrorIsNil)
 		} else {

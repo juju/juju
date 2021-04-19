@@ -695,7 +695,8 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := coremodel.ValidateModelTarget(coremodel.ModelType(model.Type()), info.Charm.Meta()); err != nil {
+	meta := info.Charm.Meta()
+	if err := coremodel.ValidateModelTarget(coremodel.ModelType(model.Type()), meta.Series, meta.Containers); err != nil {
 		return nil, errors.Trace(err)
 	}
 
