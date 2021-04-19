@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"path"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -36,8 +35,6 @@ type initCommand struct {
 
 	dataDir string
 	binDir  string
-
-	containerNames []string
 }
 
 // ApplicationAPI provides methods for unit introduction.
@@ -88,7 +85,6 @@ func (c *initCommand) Init(args []string) error {
 	if c.binDir == "" {
 		return errors.NotValidf("--bin-dir")
 	}
-	c.containerNames = strings.Split(c.environment.Getenv("JUJU_CONTAINER_NAMES"), ",")
 	return c.CommandBase.Init(args)
 }
 
