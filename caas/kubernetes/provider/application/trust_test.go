@@ -67,9 +67,9 @@ func (s *trustSuite) TestRemoveTrust(c *gc.C) {
 			Resources: []string{"pods", "services"},
 			Verbs:     []string{"get", "list", "patch"},
 		}, {
-			APIGroups:[]string{""},
-			Resources:[]string{"pods/exec"},
-			Verbs:[]string{"create"},
+			APIGroups: []string{""},
+			Resources: []string{"pods/exec"},
+			Verbs:     []string{"create"},
 		},
 	})
 }
