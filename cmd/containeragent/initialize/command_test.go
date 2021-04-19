@@ -102,7 +102,6 @@ apiport: 17070`[1:])
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0755)).Return(NopWriteCloser(jujucWritten), nil)
 
 	gomock.InOrder(
-		s.environment.EXPECT().Getenv("JUJU_CONTAINER_NAMES").Return("gitlab,proxy"),
 		s.applicationAPI.EXPECT().UnitIntroduction(`gitlab-0`, `gitlab-uuid`).Times(1).Return(&caasapplication.UnitConfig{
 			UnitTag:   names.NewUnitTag("gitlab/0"),
 			AgentConf: data,
