@@ -98,19 +98,8 @@ type CreateVirtualMachineParams struct {
 	// in which to create the VM.
 	Folder string
 
-	// RootVMFolder is the customized root vm folder.
-	RootVMFolder string
-
-	// VMDKDirectory is the datastore path in which VMDKs are stored for
-	// this controller. Within this directory there will be subdirectories
-	// for each series, and within those the VMDKs will be stored.
-	VMDKDirectory string
-
 	// Series is the name of the OS series that the image will run.
 	Series string
-
-	// OVASHA256 is the expected SHA-256 hash of the OVA.
-	OVASHA256 string
 
 	// UserData is the cloud-init user-data.
 	UserData string
@@ -149,12 +138,6 @@ type CreateVirtualMachineParams struct {
 	Datastore *object.Datastore
 
 	VMTemplate *object.VirtualMachine
-}
-
-// vmTemplatePath returns the a path inside the vSphere datastore
-// where the template VM is housed.
-func vmTemplatePath(args CreateVirtualMachineParams) string {
-	return path.Join(args.VMDKDirectory, args.Series)
 }
 
 // acquireMutex claims a mutex to prevent multiple workers from

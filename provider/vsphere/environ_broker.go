@@ -244,9 +244,7 @@ func (env *sessionEnviron) newRawInstance(
 	createVMArgs := vsphereclient.CreateVirtualMachineParams{
 		Name:                   vmName,
 		Folder:                 path.Join(env.getVMFolder(), controllerFolderName(args.ControllerUUID), env.modelFolderName()),
-		RootVMFolder:           env.getVMFolder(),
 		Series:                 args.InstanceConfig.Series,
-		VMDKDirectory:          templateDirectoryName(controllerFolderName(args.ControllerUUID)),
 		UserData:               string(userData),
 		Metadata:               args.InstanceConfig.Tags,
 		Constraints:            cons,
@@ -257,10 +255,9 @@ func (env *sessionEnviron) newRawInstance(
 		StatusUpdateParams:     statusUpdateArgs,
 		Datastore:              datastore,
 		VMTemplate:             vmTemplate,
+		ComputeResource:        &availZone.r,
+		ResourcePool:           availZone.pool.Reference(),
 	}
-
-	createVMArgs.ComputeResource = &availZone.r
-	createVMArgs.ResourcePool = availZone.pool.Reference()
 
 	vm, err := env.client.CreateVirtualMachine(env.ctx, createVMArgs)
 	if vsphereclient.IsExtendDiskError(err) {
