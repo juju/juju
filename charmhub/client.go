@@ -38,8 +38,7 @@ import (
 // An alternate location can be configured by changing the URL
 // field in the Params struct.
 const (
-	// TODO(2.9) - use staging API until bases are supported in production
-	CharmHubServerURL     = "https://api.staging.charmhub.io"
+	CharmHubServerURL     = "https://api.charmhub.io"
 	CharmHubServerVersion = "v2"
 	CharmHubServerEntity  = "charms"
 
