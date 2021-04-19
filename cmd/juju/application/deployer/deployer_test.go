@@ -325,7 +325,7 @@ func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployCAASWithIAAS(c 
 	err := f.validateResourcesNeededForLocalDeploy(&charm.Meta{
 		Series: []string{series.Focal.String()},
 	})
-	c.Assert(err, gc.ErrorMatches, `expected kubernetes charm metadata, unexpected series or base`)
+	c.Assert(err, gc.ErrorMatches, `expected container-based charm metadata, unexpected series or base`)
 }
 
 func (s *deployerSuite) makeBundleDir(c *gc.C, content string) string {
