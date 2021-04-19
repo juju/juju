@@ -423,7 +423,7 @@ func (c *Client) UploadCharm(curl *charm.URL, content io.ReadSeeker) (*charm.URL
 }
 
 func (c *Client) validateCharmVersion(ch charm.Charm) error {
-	minver := jujuversion.ToVersion2(ch.Meta().MinJujuVersion)
+	minver := ch.Meta().MinJujuVersion
 	if minver != version.Zero {
 		agentver, err := c.AgentVersion()
 		if err != nil {

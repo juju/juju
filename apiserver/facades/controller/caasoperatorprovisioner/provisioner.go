@@ -191,7 +191,7 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 			continue
 		}
 		minVer := ch.Meta().MinJujuVersion
-		needStorage := provider.RequireOperatorStorage(version.ToVersion2(minVer))
+		needStorage := provider.RequireOperatorStorage(minVer)
 		logger.Debugf("application %s has min-juju-version=%v, so charm storage is %v",
 			appName.String(), ch.Meta().MinJujuVersion, needStorage)
 		result.Results[i] = oneProvisioningInfo(needStorage)
