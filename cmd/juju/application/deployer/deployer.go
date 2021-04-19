@@ -352,20 +352,20 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		if err = charmValidationError(seriesName, ch.Meta().Name, errors.Trace(err)); err != nil {
 			return nil, errors.Trace(err)
 		}
-	}
 
-	// Prevent deploying a charm that isn't valid for the model target (CAAS or
-	// IAAS models)
-	modelType, err := d.model.ModelType()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var containers map[string]charm.Container
-	if ch != nil && ch.Meta() != nil {
-		containers = ch.Meta().Containers
-	}
-	if err := model.ValidateModelTarget(modelType, []string{seriesName}, containers); err != nil {
-		return nil, errors.Annotatef(err, "cannot add application %q", d.applicationName)
+		// Prevent deploying a charm that isn't valid for the model target (CAAS or
+		// IAAS models)
+		modelType, err := d.model.ModelType()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		var containers map[string]charm.Container
+		if ch != nil && ch.Meta() != nil {
+			containers = ch.Meta().Containers
+		}
+		if err := model.ValidateModelTarget(modelType, []string{seriesName}, containers); err != nil {
+			return nil, errors.Annotatef(err, "cannot add application %q", d.applicationName)
+		}
 	}
 
 	// Charm may have been supplied via a path reference.
