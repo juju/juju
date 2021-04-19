@@ -1068,7 +1068,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	}
 
 	minver := args.Charm.Meta().MinJujuVersion
-	if err := jujuversion.CheckJujuMinVersion(jujuversion.ToVersion2(minver), jujuversion.Current); err != nil {
+	if err := jujuversion.CheckJujuMinVersion(minver, jujuversion.Current); err != nil {
 		return nil, errors.Trace(err)
 	}
 

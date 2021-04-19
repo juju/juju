@@ -1128,7 +1128,7 @@ func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.
 	s.PatchValue(&jujuversion.Current, version.MustParse("2.8-beta1"))
 	s.backend.charm = &mockCharm{
 		meta: &charm.Meta{
-			MinJujuVersion: jujuversion.ToVersion1(version.MustParse("2.8.0")),
+			MinJujuVersion: version.MustParse("2.8.0"),
 		},
 	}
 
