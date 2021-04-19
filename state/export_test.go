@@ -272,9 +272,19 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 	return app
 }
 
-func addCustomCharm(c *gc.C, st *State, repo *charmrepotesting.Repo, name, filename, content, series string, revision int) *Charm {
+func addCustomCharmWithManifest(c *gc.C, st *State, repo *charmrepotesting.Repo, name, filename, content, series string, revision int, manifest bool) *Charm {
 	path := repo.ClonedDirPath(c.MkDir(), name)
 	if filename != "" {
+		if manifest {
+			manifestContent := `
+bases:
+- name: ubuntu
+  channel: "18.04"
+`
+			manifestYAML := filepath.Join(path, "manifest.yaml")
+			err := ioutil.WriteFile(manifestYAML, []byte(manifestContent), 0644)
+			c.Assert(err, jc.ErrorIsNil)
+		}
 		config := filepath.Join(path, filename)
 		err := ioutil.WriteFile(config, []byte(content), 0644)
 		c.Assert(err, jc.ErrorIsNil)
@@ -285,6 +295,14 @@ func addCustomCharm(c *gc.C, st *State, repo *charmrepotesting.Repo, name, filen
 		ch.SetRevision(revision)
 	}
 	return addCharm(c, st, series, ch)
+}
+
+func addCustomCharm(c *gc.C, st *State, repo *charmrepotesting.Repo, name, filename, content, series string, revision int) *Charm {
+	return addCustomCharmWithManifest(c, st, repo, name, filename, content, series, revision, false)
+}
+
+func AddCustomCharmWithManifest(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
+	return addCustomCharmWithManifest(c, st, testcharms.RepoForSeries(series), name, filename, content, series, revision, true)
 }
 
 func AddCustomCharmForSeries(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {

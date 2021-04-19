@@ -299,26 +299,26 @@ func (d *factory) newDeployBundle(ds charm.BundleDataSource) deployBundle {
 
 func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error) {
 	// NOTE: Here we select the series using the algorithm defined by
-	// `seriesSelector.charmSeries`. This serves to override the algorithm found in
-	// `charmrepo.NewCharmAtPath` which is outdated (but must still be
+	// `seriesSelector.charmSeries`. This serves to override the algorithm found
+	// in `charmrepo.NewCharmAtPath` which is outdated (but must still be
 	// called since the code is coupled with path interpretation logic which
 	// cannot easily be factored out).
 
-	// NOTE: Reading the charm here is only meant to aid in inferring the correct
-	// series, if this fails we fall back to the argument series. If reading
-	// the charm fails here it will also fail below (the charm is read again
-	// below) where it is handled properly. This is just an expedient to get
-	// the correct series. A proper refactoring of the charmrepo package is
+	// NOTE: Reading the charm here is only meant to aid in inferring the
+	// correct series, if this fails we fall back to the argument series. If
+	// reading the charm fails here it will also fail below (the charm is read
+	// again below) where it is handled properly. This is just an expedient to
+	// get the correct series. A proper refactoring of the charmrepo package is
 	// needed for a more elegant fix.
 	charmOrBundle := d.charmOrBundle
 	if isLocalSchema(charmOrBundle) {
 		charmOrBundle = charmOrBundle[6:]
 	}
 
-	seriesName := d.series
-	ch, err := charm.ReadCharm(charmOrBundle)
-
 	var imageStream string
+	seriesName := d.series
+
+	ch, err := charm.ReadCharm(charmOrBundle)
 	if err == nil {
 		modelCfg, err := getModelConfig(getter)
 		if err != nil {
@@ -352,6 +352,20 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		if err = charmValidationError(seriesName, ch.Meta().Name, errors.Trace(err)); err != nil {
 			return nil, errors.Trace(err)
 		}
+
+		// Prevent deploying a charm that isn't valid for the model target (CAAS or
+		// IAAS models)
+		modelType, err := d.model.ModelType()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		var containers map[string]charm.Container
+		if ch != nil && ch.Meta() != nil {
+			containers = ch.Meta().Containers
+		}
+		if err := model.ValidateModelTarget(modelType, []string{seriesName}, containers); err != nil {
+			return nil, errors.Annotatef(err, "cannot add application %q", d.applicationName)
+		}
 	}
 
 	// Charm may have been supplied via a path reference.
@@ -377,7 +391,8 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		return nil, nil
 	}
 
-	// Avoid deploying charm if it's not valid for the model.
+	// Avoid deploying charm if the charm series is not correct for the
+	// avaliable image streams.
 	if err := d.validateCharmSeriesWithName(seriesName, curl.Name, imageStream); err != nil {
 		return nil, errors.Trace(err)
 	}

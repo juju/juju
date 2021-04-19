@@ -155,6 +155,23 @@ func (s *CharmSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmInfo {
 	return info
 }
 
+func (s *CharmSuite) dummyCAASCharm(c *gc.C, curlOverride string) state.CharmInfo {
+	info := state.CharmInfo{
+		Charm:       testcharms.Repo.CharmDir("dummy-kubernetes"),
+		StoragePath: "dummy-1",
+		SHA256:      "dummy-1-sha256",
+		Version:     "dummy-146-g725cfd3-dirty",
+	}
+	if curlOverride != "" {
+		info.ID = charm.MustParseURL(curlOverride)
+	} else {
+		info.ID = charm.MustParseURL(
+			fmt.Sprintf("local:quantal/%s-%d", info.Charm.Meta().Name, info.Charm.Revision()),
+		)
+	}
+	return info
+}
+
 func (s *CharmSuite) TestRemoveDeletesStorage(c *gc.C) {
 	// We normally don't actually set up charm storage in state
 	// tests, but we need it here.
@@ -450,9 +467,9 @@ func (s *CharmSuite) TestPrepareCharmUpload(c *gc.C) {
 }
 
 func (s *CharmSuite) TestIncompatibleSeries(c *gc.C) {
-	info := s.dummyCharm(c, "cs:kubernetes/dummy-2")
+	info := s.dummyCAASCharm(c, "cs:kubernetes/dummy-2")
 	_, err := s.State.AddCharm(info)
-	c.Assert(err, gc.ErrorMatches, `series "kubernetes" in a non container model not valid`)
+	c.Assert(err, gc.ErrorMatches, `container-based charm for non container based model type not valid`)
 }
 
 func (s *CharmSuite) TestUpdateUploadedCharm(c *gc.C) {

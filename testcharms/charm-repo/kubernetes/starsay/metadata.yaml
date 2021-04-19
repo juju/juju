@@ -2,6 +2,8 @@ name: starsay
 summary: A dumb little test charm for resources.
 maintainer: Nate Finch <nate.finch@gmail.com>
 description: Doesn't do anything at all.
+series:
+  - kubernetes
 tags:
   - application
 provides:

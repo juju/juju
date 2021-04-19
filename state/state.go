@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
@@ -1034,8 +1035,8 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO(embedded): handle systems
-	if err := validateCharmSeries(model.Type(), args.Series, args.Charm); err != nil {
+	meta := args.Charm.Meta()
+	if err := coremodel.ValidateModelTarget(coremodel.ModelType(model.Type()), meta.Series, meta.Containers); err != nil {
 		return nil, errors.Trace(err)
 	}
 

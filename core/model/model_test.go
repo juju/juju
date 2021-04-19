@@ -20,37 +20,23 @@ type ModelSuite struct {
 var _ = gc.Suite(&ModelSuite{})
 
 func (*ModelSuite) TestValidateSeries(c *gc.C) {
-	for _, t := range []struct {
-		modelType model.ModelType
-		series    string
-		valid     bool
-	}{
-		{model.IAAS, "bionic", true},
-		{model.IAAS, "kubernetes", false},
-		{model.CAAS, "bionic", false},
-		{model.CAAS, "kubernetes", true},
-	} {
-		err := model.ValidateSeries(t.modelType, t.series, charm.FormatV1)
-		if t.valid {
-			c.Check(err, jc.ErrorIsNil)
-		} else {
-			c.Check(err, jc.Satisfies, errors.IsNotValid)
-		}
+	type meta struct {
+		Series     []string
+		Containers map[string]charm.Container
 	}
-}
-
-func (*ModelSuite) TestValidateSeriesNewCharm(c *gc.C) {
 	for _, t := range []struct {
 		modelType model.ModelType
-		series    string
+		meta      meta
 		valid     bool
 	}{
-		{model.IAAS, "bionic", true},
-		{model.IAAS, "bionic", true},
-		{model.CAAS, "bionic", true},
-		{model.CAAS, "bionic", true},
+		{model.IAAS, meta{Series: []string{"bionic"}}, true},
+		{model.IAAS, meta{Series: []string{"kubernetes"}}, false},
+		{model.IAAS, meta{Containers: map[string]charm.Container{"focal": {}}}, false},
+		{model.CAAS, meta{Series: []string{"bionic"}}, false},
+		{model.CAAS, meta{Series: []string{"kubernetes"}}, true},
+		{model.CAAS, meta{Containers: map[string]charm.Container{"focal": {}}}, true},
 	} {
-		err := model.ValidateSeries(t.modelType, t.series, charm.FormatV2)
+		err := model.ValidateModelTarget(t.modelType, t.meta.Series, t.meta.Containers)
 		if t.valid {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
