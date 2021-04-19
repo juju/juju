@@ -1577,7 +1577,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 
 func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
-	defer st.Close()
+	defer func() { _ = st.Close() }()
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 
@@ -1614,6 +1614,33 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 	ch, _, err = gitlab.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
+}
+
+func (s *StateSuite) TestAddApplicationKubernetesFormatV2(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS,
+	})
+	defer func() { _ = st.Close() }()
+	charmDef := `
+name: cockroachdb
+description: foo
+summary: foo
+containers:
+  redis:
+    resource: redis-container-resource
+resources:
+  redis-container-resource:
+    name: redis-container
+    type: oci-image
+`
+	ch := state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
+	// A charm with supported series can only be force-deployed to series
+	// of the same operating systems as the supported series.
+	_, err := st.AddApplication(state.AddApplicationArgs{
+		Name: "mysql", Charm: ch,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *StateSuite) TestAddCAASApplicationPlacementNotAllowed(c *gc.C) {
