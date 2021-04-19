@@ -1035,8 +1035,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	meta := args.Charm.Meta()
-	if err := coremodel.ValidateModelTarget(coremodel.ModelType(model.Type()), meta.Series, meta.Containers); err != nil {
+	if err := coremodel.ValidateModelTarget(coremodel.ModelType(model.Type()), args.Charm); err != nil {
 		return nil, errors.Trace(err)
 	}
 
