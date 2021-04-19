@@ -1340,7 +1340,9 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) err
 			supportedSeries = []string{cSeries}
 			// If a charm has a url, but is a kubernetes charm then we need to
 			// add this to the list of supported series.
-			if set.NewStrings(args.Charm.Meta().Series...).Contains(series.Kubernetes.String()) || len(args.Charm.Meta().Containers) > 0 {
+			if cSeries != series.Kubernetes.String() &&
+				(set.NewStrings(args.Charm.Meta().Series...).Contains(series.Kubernetes.String()) ||
+					len(args.Charm.Meta().Containers) > 0) {
 				supportedSeries = append(supportedSeries, series.Kubernetes.String())
 			}
 		} else {
