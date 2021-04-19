@@ -44,22 +44,19 @@ type Model struct {
 // series for v1 charm contains kubernetes or by checking the existence of
 // containers within the v2 metadata as a way to see if kubernetes is supported.
 func ValidateModelTarget(modelType ModelType, meta *charm.Meta) error {
-	isIAAS := true
-	if set.NewStrings(meta.Series...).Contains(series.Kubernetes.String()) || len(meta.Containers) > 0 {
-		isIAAS = false
-	}
+	isIAAS := !(set.NewStrings(meta.Series...).Contains(series.Kubernetes.String()) || len(meta.Containers) > 0)
 
 	switch modelType {
 	case CAAS:
 		if isIAAS {
-			return errors.NotValidf("non container base charm for container based model type")
+			return errors.NotValidf("non container-based charm for container based model type")
 		}
 	case IAAS:
 		if !isIAAS {
-			return errors.NotValidf("container base charm for non container based model type")
+			return errors.NotValidf("container-based charm for non container based model type")
 		}
 	default:
-		return errors.Errorf("invalid model type, expected CAAS or IAAS")
+		return errors.Errorf("invalid model type")
 	}
 	return nil
 }
