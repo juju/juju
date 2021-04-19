@@ -96,7 +96,7 @@ func (p *pebblePoller) run(containerName string) error {
 			timer.Reset(pebblePollInterval)
 			err := p.poll(containerName)
 			if err != nil && err != tomb.ErrDying {
-				p.logger.Errorf("pebble poll failed: %v", err)
+				p.logger.Errorf("pebble poll failed for container %q: %v", containerName, err)
 			}
 		}
 	}
