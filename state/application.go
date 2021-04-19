@@ -1456,7 +1456,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		return errors.Trace(err)
 	}
 	if cfg.Charm.Meta().Deployment != currentCharm.Meta().Deployment {
-		if currentCharm.Meta().Deployment == nil || currentCharm.Meta().Deployment == nil {
+		if cfg.Charm.Meta().Deployment == nil || currentCharm.Meta().Deployment == nil {
 			return errors.New("cannot change a charm's deployment info")
 		}
 		if cfg.Charm.Meta().Deployment.DeploymentType != currentCharm.Meta().Deployment.DeploymentType {
@@ -1466,15 +1466,27 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			return errors.New("cannot change a charm's deployment mode")
 		}
 	}
+
 	// For old style charms written for only one series, we still retain
 	// this check. Newer charms written for multi-series have a URL
 	// with series = "".
-	if cfg.Charm.URL().Series != "" {
-		if cfg.Charm.URL().Series != a.doc.Series {
-			return errors.Errorf("cannot change an application's series")
+	if charmURLSeries := cfg.Charm.URL().Series; charmURLSeries != "" {
+		// If a doc series is kubernetes, but the url isn't kubernetes, for
+		// example the url could be the latest LTS, we therefore check if it
+		// the charm is kubernetes from the meta series and meta container.
+		// If it's not a k8s charm, then error out.
+		isDocK8s := a.doc.Series == series.Kubernetes.String()
+		isMetaSeriesK8s := set.NewStrings(cfg.Charm.Meta().Series...).Contains(series.Kubernetes.String())
+		isMetaContainers := len(cfg.Charm.Meta().Containers) > 0
+		if charmURLSeries != a.doc.Series {
+			if !(isDocK8s && (isMetaSeriesK8s || isMetaContainers)) {
+				return errors.Errorf("cannot change an application's series")
+			}
 		}
-	} else if !cfg.ForceSeries {
-		supported := false
+	}
+
+	if !cfg.ForceSeries {
+		var supported bool
 		charmSeries, err := corecharm.ComputedSeries(cfg.Charm)
 		if err != nil {
 			return errors.Trace(err)
@@ -1492,6 +1504,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			}
 			return errors.Errorf("only these series are supported: %v", supportedSeries)
 		}
+
 	} else {
 		// Even with forceSeries=true, we do not allow a charm to be used which is for
 		// a different OS. This assumes the charm declares it has supported series which
