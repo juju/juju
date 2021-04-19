@@ -923,6 +923,10 @@ func (a *app) Units() ([]caas.Unit, error) {
 				logger.Tracef("ignoring volume source for service account secret: %v", vol.Name)
 				continue
 			}
+			if vol.Projected != nil {
+				logger.Tracef("ignoring volume source for projected volume: %v", vol.Name)
+				continue
+			}
 			fsInfo, err := storage.FilesystemInfo(ctx, a.client, a.namespace, vol, volMount, now)
 			if err != nil {
 				return nil, errors.Annotatef(err, "finding filesystem info for %v", volMount.Name)
