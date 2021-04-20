@@ -9,14 +9,14 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
+	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	macaroon "gopkg.in/macaroon.v2"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
@@ -363,8 +363,8 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithCharm
 	_, err = bundleDeploy(bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "kubernetes")
-	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "kubernetes")
+	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "focal")
+	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "focal")
 
 	c.Check(s.output.String(), gc.Equals, ""+
 		"Located charm \"gitlab-k8s\" in charm-hub\n"+
@@ -1000,6 +1000,10 @@ func (s *BundleDeployRepositorySuite) setupMetadataV2CharmUnits(charmUnits []cha
 					},
 				},
 			},
+			Manifest: &charm.Manifest{Bases: []charm.Base{{
+				Name: "ubuntu",
+				Channel: charm.Channel{Track: "20.04"},
+			}}},
 		}
 		s.expectCharmInfo(chUnit.curl.String(), charmInfo)
 		s.expectDeploy()

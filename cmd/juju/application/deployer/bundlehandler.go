@@ -840,12 +840,18 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 
 	charmSeries := chID.URL.Series
-	// If a charm has a url, but is a kubernetes charm then we need to
+	// If a format v1 charm has a url, but is a kubernetes charm then we need to
 	// add this to the list of supported series.
-	if charmSeries != series.Kubernetes.String() && set.NewStrings(charmInfo.Charm().Meta().Series...).Contains(series.Kubernetes.String()) || len(charmInfo.Charm().Meta().Containers) > 0 {
-		charmSeries = series.Kubernetes.String()
+	if corecharm.IsKubernetes(charmInfo.Charm()) {
+		switch corecharm.Format(charmInfo.Charm()) {
+		case corecharm.FormatV1:
+			charmSeries = series.Kubernetes.String()
+		case corecharm.FormatV2:
+			if p.Series == series.Kubernetes.String() {
+				p.Series = charmSeries
+			}
+		}
 	}
-
 	workloadSeries, err := supportedJujuSeries(h.clock.Now(), p.Series, h.modelConfig.ImageStream())
 	if err != nil {
 		return errors.Trace(err)
@@ -861,7 +867,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		fromBundle:          true,
 	}
 	series, err := selector.charmSeries()
-	if err = charmValidationError(series, curl.Name, errors.Trace(err)); err != nil {
+	if err = charmValidationError(curl.Name, errors.Trace(err)); err != nil {
 		return errors.Trace(err)
 	}
 

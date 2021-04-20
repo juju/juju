@@ -351,7 +351,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		}
 
 		seriesName, err = seriesSelector.charmSeries()
-		if err = charmValidationError(seriesName, ch.Meta().Name, errors.Trace(err)); err != nil {
+		if err = charmValidationError(ch.Meta().Name, errors.Trace(err)); err != nil {
 			return nil, errors.Trace(err)
 		}
 
@@ -587,13 +587,13 @@ func (d *factory) validateCharmSeries(seriesName string, imageStream string) err
 // message if that's found.
 func (d *factory) validateCharmSeriesWithName(series, name string, imageStream string) error {
 	err := d.validateCharmSeries(series, imageStream)
-	return charmValidationError(series, name, errors.Trace(err))
+	return charmValidationError(name, errors.Trace(err))
 }
 
 // charmValidationError consumes an error along with a charmSeries and name
 // to help provide better feedback to the user when somethings gone wrong around
 // validating a charm validation
-func charmValidationError(charmSeries, name string, err error) error {
+func charmValidationError(name string, err error) error {
 	if err != nil {
 		if errors.IsNotSupported(err) {
 			return errors.Errorf("%v is not available on the following %v", name, err)

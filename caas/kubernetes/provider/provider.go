@@ -95,7 +95,7 @@ func CloudSpecToK8sRestConfig(cloudSpec environscloudspec.CloudSpec) (*rest.Conf
 			return nil, errors.Trace(err)
 		}
 		if rc != nil {
-			logger.Infof("using in-cluster config")
+			logger.Tracef("using in-cluster config")
 			return rc, nil
 		}
 	}
