@@ -5276,6 +5276,7 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 			"foo": {
 				Scale:   2,
 				Address: "54.32.1.2",
+				Version: "prefix/image:tag",
 				Units: map[string]unitStatus{
 					"foo/0": {
 						JujuStatusInfo: statusInfoContents{
@@ -5306,12 +5307,50 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version  Status  Scale  Charm  Store  Channel  Rev  OS  Address    Message
-foo                     1/2                           0      54.32.1.2  
+App  Version    Status  Scale  Charm  Store  Channel  Rev  OS  Address    Message
+foo  image:tag            1/2                           0      54.32.1.2  
 
 Unit   Workload  Agent       Address   Ports   Message
 foo/0  active    allocating                    
 foo/1  active    running     10.0.0.1  80/TCP  
+`[1:])
+}
+
+func (s *StatusSuite) TestFormatTabularCAASModelTruncatedVersion(c *gc.C) {
+	status := formattedStatus{
+		Model: modelStatus{
+			Type: "caas",
+		},
+		Applications: map[string]applicationStatus{
+			"foo": {
+				Scale:   1,
+				Address: "54.32.1.2",
+				Version: "registry.jujucharms.com/image",
+				Units: map[string]unitStatus{
+					"foo/0": {
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Allocating,
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Active,
+						},
+					},
+				},
+			},
+		},
+	}
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, false, status)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.String(), gc.Equals, `
+Model  Controller  Cloud/Region  Version
+                                 
+
+App  Version  Status  Scale  Charm  Store  Channel  Rev  OS  Address    Message
+foo  ...                0/1                           0      54.32.1.2  
+
+Unit   Workload  Agent       Address  Ports  Message
+foo/0  active    allocating                  
 `[1:])
 }
 

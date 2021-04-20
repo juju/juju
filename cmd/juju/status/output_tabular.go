@@ -142,6 +142,12 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		version := app.Version
 		// CAAS versions may have repo prefix we don't care about.
 		if fs.Model.Type == caasModelType {
+			// Really long version strings are pretty useless so just use "..."
+			// and the user can use the YAML/JSON status to see the value.
+			if strings.HasPrefix(version, "registry.jujucharms.com") ||
+				strings.Contains(version, "@sha256") {
+				version = ellipsis
+			}
 			parts := strings.Split(version, "/")
 			if len(parts) == 2 {
 				version = parts[1]
