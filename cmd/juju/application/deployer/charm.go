@@ -486,13 +486,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	if charm.IsUnsupportedSeriesError(err) {
 		return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 	}
-	// although we try and get the charmSeries from the charm series
-	// selector it will return an error and an empty string for the series.
-	// So we need to approximate what the seriesName should be when
-	// displaying an error to the user. We do this by getting the potential
-	// series name.
-	seriesName := getPotentialSeriesName(series, storeCharmOrBundleURL.Series, userRequestedSeries)
-	if validationErr := charmValidationError(seriesName, storeCharmOrBundleURL.Name, errors.Trace(err)); validationErr != nil {
+	if validationErr := charmValidationError(storeCharmOrBundleURL.Name, errors.Trace(err)); validationErr != nil {
 		return errors.Trace(validationErr)
 	}
 

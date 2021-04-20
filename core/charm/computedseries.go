@@ -20,13 +20,6 @@ func ComputedSeries(c charm.CharmMeta) ([]string, error) {
 		return c.Meta().Series, nil
 	}
 
-	// If we have V2 metadata *and* a non-empty containers collection,
-	// then this is a side-car based charm and we return "kubernetes"
-	// instead of translating the collection of supplied bases.
-	if IsKubernetes(c) {
-		return []string{coreseries.Kubernetes.String()}, nil
-	}
-
 	// We use a set to ensure uniqueness and a slice to ensure that we
 	// preserve the order of elements as they appear in the manifest.
 	seriesSlice := []string(nil)
