@@ -23,7 +23,7 @@ func ComputedSeries(c charm.CharmMeta) ([]string, error) {
 	// If we have V2 metadata *and* a non-empty containers collection,
 	// then this is a side-car based charm and we return "kubernetes"
 	// instead of translating the collection of supplied bases.
-	if len(c.Meta().Containers) > 0 {
+	if IsKubernetes(c) {
 		return []string{coreseries.Kubernetes.String()}, nil
 	}
 

@@ -5,10 +5,8 @@ package model
 
 import (
 	"github.com/juju/charm/v8"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/core/series"
+	corecharm "github.com/juju/juju/core/charm"
 )
 
 // ModelType indicates a model type.
@@ -43,9 +41,8 @@ type Model struct {
 // This works for both v1 and v2 of the charm metadata. By looking if the
 // series for v1 charm contains kubernetes or by checking the existence of
 // containers within the v2 metadata as a way to see if kubernetes is supported.
-func ValidateModelTarget(modelType ModelType, metaSeries []string, metaContainers map[string]charm.Container) error {
-	isSeriesK8s := set.NewStrings(metaSeries...).Contains(series.Kubernetes.String())
-	isIAAS := !(isSeriesK8s || len(metaContainers) > 0)
+func ValidateModelTarget(modelType ModelType, charmMeta charm.CharmMeta) error {
+	isIAAS := !corecharm.IsKubernetes(charmMeta)
 
 	switch modelType {
 	case CAAS:
