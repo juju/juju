@@ -144,7 +144,10 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		if fs.Model.Type == caasModelType {
 			// Really long version strings are pretty useless so just use "..."
 			// and the user can use the YAML/JSON status to see the value.
-			if strings.HasPrefix(version, "registry.jujucharms.com") ||
+			if strings.HasPrefix(version, "registry.") ||
+				strings.HasPrefix(version, "rocks.canonical.com") ||
+				strings.HasPrefix(version, "docker.io") ||
+				strings.HasPrefix(version, "gcr.io") ||
 				strings.Contains(version, "@sha256") {
 				version = ellipsis
 			}
