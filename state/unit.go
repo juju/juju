@@ -22,6 +22,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/actions"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -138,8 +139,7 @@ func (u *Unit) IsEmbedded() (bool, error) {
 	}
 
 	// TODO(embedded): Determine a better way represent this.
-	manifest := ch.Manifest()
-	return u.modelType == ModelTypeCAAS && manifest != nil && len(manifest.Bases) > 0, nil
+	return u.modelType == ModelTypeCAAS && corecharm.Format(ch) == corecharm.FormatV2, nil
 }
 
 // Application returns the application.

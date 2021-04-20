@@ -4,9 +4,9 @@
 package charm
 
 import (
-	"strings"
-
+	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
+	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -19,106 +19,111 @@ type computedSeriesSuite struct {
 var _ = gc.Suite(&computedSeriesSuite{})
 
 func (s *computedSeriesSuite) TestComputedSeriesLegacy(c *gc.C) {
-	meta, err := charm.ReadMeta(strings.NewReader(`
- name: a
- summary: b
- description: c
- series:
-   - bionic
- `))
-	c.Assert(err, gc.IsNil)
-	series, err := ComputedSeries(charmMeta{meta: meta, manifest: &charm.Manifest{}})
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cm := NewMockCharmMeta(ctrl)
+	cm.EXPECT().Meta().Return(&charm.Meta{
+		Name:        "a",
+		Summary:     "b",
+		Description: "c",
+		Series:      []string{"bionic"},
+	}).AnyTimes()
+	cm.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	series, err := ComputedSeries(cm)
 	c.Assert(err, gc.IsNil)
 	c.Assert(series, jc.DeepEquals, []string{"bionic"})
 }
 
 func (s *computedSeriesSuite) TestComputedSeriesNilManifest(c *gc.C) {
-	meta, err := charm.ReadMeta(strings.NewReader(`
- name: a
- summary: b
- description: c
- series:
-   - bionic
- `))
-	c.Assert(err, gc.IsNil)
-	series, err := ComputedSeries(charmMeta{meta: meta})
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cm := NewMockCharmMeta(ctrl)
+	cm.EXPECT().Meta().Return(&charm.Meta{
+		Name:        "a",
+		Summary:     "b",
+		Description: "c",
+		Series:      []string{"bionic"},
+	}).AnyTimes()
+	cm.EXPECT().Manifest().Return(nil).AnyTimes()
+	series, err := ComputedSeries(cm)
 	c.Assert(err, gc.IsNil)
 	c.Assert(series, jc.DeepEquals, []string{"bionic"})
 }
 
 func (s *computedSeriesSuite) TestComputedSeries(c *gc.C) {
-	meta, err := charm.ReadMeta(strings.NewReader(`
- name: a
- summary: b
- description: c
- `))
-	c.Assert(err, gc.IsNil)
-	manifest, err := charm.ReadManifest(strings.NewReader(`
- bases:
-   - name: ubuntu
-     channel: "18.04"
-   - name: ubuntu
-     channel: "20.04"
- `))
-	c.Assert(err, gc.IsNil)
-	series, err := ComputedSeries(charmMeta{meta: meta, manifest: manifest})
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cm := NewMockCharmMeta(ctrl)
+	cm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{
+			{Name: "ubuntu", Channel: charm.Channel{
+				Track: "18.04",
+				Risk:  "stable",
+			}}, {Name: "ubuntu", Channel: charm.Channel{
+				Track: "20.04",
+				Risk:  "stable",
+			}},
+		},
+	}).AnyTimes()
+	cm.EXPECT().Meta().Return(&charm.Meta{
+		Name:        "a",
+		Summary:     "b",
+		Description: "c",
+	}).AnyTimes()
+	series, err := ComputedSeries(cm)
 	c.Assert(err, gc.IsNil)
 	c.Assert(series, jc.DeepEquals, []string{"bionic", "focal"})
 }
 
 func (s *computedSeriesSuite) TestComputedSeriesKubernetes(c *gc.C) {
-	meta, err := charm.ReadMeta(strings.NewReader(`
- name: a
- summary: b
- description: c
- containers:
-   redis:
-     resource: redis-container-resource
- resources:
-     redis-container-resource:
-       name: redis-container
-       type: oci-image
- `))
-	c.Assert(err, gc.IsNil)
-	manifest, err := charm.ReadManifest(strings.NewReader(`
- bases:
-   - name: ubuntu
-     channel: "18.04"
- `))
-	c.Assert(err, gc.IsNil)
-	series, err := ComputedSeries(charmMeta{meta: meta, manifest: manifest})
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cm := NewMockCharmMeta(ctrl)
+	cm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{
+			{Name: "ubuntu", Channel: charm.Channel{
+				Track: "18.04",
+				Risk:  "stable",
+			}},
+		},
+	}).AnyTimes()
+	cm.EXPECT().Meta().Return(&charm.Meta{
+		Name:        "a",
+		Summary:     "b",
+		Description: "c",
+		Containers: map[string]charm.Container{
+			"redis": {Resource: "redis-container-resource"},
+		},
+		Resources: map[string]charmresource.Meta{
+			"redis-container-resource": {
+				Name: "redis-container",
+				Type: charmresource.TypeContainerImage,
+			},
+		},
+	}).AnyTimes()
+	series, err := ComputedSeries(cm)
 	c.Assert(err, gc.IsNil)
 	c.Assert(series, jc.DeepEquals, []string{"kubernetes"})
 }
 
 func (s *computedSeriesSuite) TestComputedSeriesError(c *gc.C) {
-	meta, err := charm.ReadMeta(strings.NewReader(`
- name: a
- summary: b
- description: c
- `))
-	c.Assert(err, gc.IsNil)
-	manifest, err := charm.ReadManifest(strings.NewReader(`
- bases:
-   - name: ubuntu
-     channel: "18.04"
-   - name: ubuntu
-     channel: "testme"
- `))
-	c.Assert(err, gc.IsNil)
-	_, err = ComputedSeries(charmMeta{meta: meta, manifest: manifest})
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cm := NewMockCharmMeta(ctrl)
+	cm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{
+			{Name: "ubuntu", Channel: charm.Channel{
+				Track: "18.04",
+			}}, {Name: "ubuntu", Channel: charm.Channel{
+				Track: "testme",
+			}},
+		},
+	}).AnyTimes()
+	cm.EXPECT().Meta().Return(&charm.Meta{
+		Name:        "a",
+		Summary:     "b",
+		Description: "c",
+	}).AnyTimes()
+	_, err := ComputedSeries(cm)
 	c.Assert(err, gc.ErrorMatches, `unknown series for version: "testme"`)
-}
-
-type charmMeta struct {
-	meta     *charm.Meta
-	manifest *charm.Manifest
-}
-
-func (cm charmMeta) Manifest() *charm.Manifest {
-	return cm.manifest
-}
-
-func (cm charmMeta) Meta() *charm.Meta {
-	return cm.meta
 }

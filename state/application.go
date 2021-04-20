@@ -3010,8 +3010,7 @@ func CheckApplicationExpectsWorkload(m *Model, appName string) (bool, error) {
 		return false, errors.Trace(err)
 	}
 
-	manifest := ch.Manifest()
-	if manifest != nil && len(manifest.Bases) > 0 {
+	if corecharm.Format(ch) == corecharm.FormatV2 {
 		return false, nil
 	}
 
