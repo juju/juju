@@ -1,0 +1,19 @@
+# Copyright 2020 juju-qa@canonical.com
+# See LICENSE file for licensing details.
+name: juju-qa-test
+maintainer: juju-qa@canonical.com
+summary: |
+  A charm used in testing juju.
+description: |
+  A charm used in testing juju.  It has config, actions, resources, and a relation.
+requires:
+  info:
+    interface: juju-info
+    scope: container
+resources:
+  foo-file:
+    type: file
+    filename: foo.txt
+    description: "foo resource."
+
+
