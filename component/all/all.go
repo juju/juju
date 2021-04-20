@@ -18,6 +18,7 @@ import (
 type component interface {
 	registerForServer() error
 	registerForClient() error
+	registerForContainerAgent() error
 }
 
 var components = []component{
@@ -30,6 +31,20 @@ var components = []component{
 func RegisterForServer() error {
 	for _, c := range components {
 		if err := c.registerForServer(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// RegisterForContainerAgent registers the parts of the components with the
+// Juju machinery for use as a agent (e.g. jujud, jujuc).
+func RegisterForContainerAgent() error {
+	components := []component{
+		&resources{},
+	}
+	for _, c := range components {
+		if err := c.registerForContainerAgent(); err != nil {
 			return errors.Trace(err)
 		}
 	}

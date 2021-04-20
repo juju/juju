@@ -33,6 +33,10 @@ func (c payloads) registerForClient() error {
 	return nil
 }
 
+func (c payloads) registerForContainerAgent() error {
+	return nil
+}
+
 type facadeCaller struct {
 	base.FacadeCaller
 	closeFunc func() error
