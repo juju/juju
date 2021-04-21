@@ -6,6 +6,7 @@ package dashboard
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 
@@ -92,9 +93,9 @@ func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 	defer conn.Close()
 
 	// Check that the Juju Dashboard is available.
-	addr := dashboardAddr(conn)
+	addr, ignoreCertError := dashboardAddr(conn)
 	dashboardURL := fmt.Sprintf("https://%s/dashboard", addr)
-	if err = c.checkAvailable(conn, dashboardURL); err != nil {
+	if err = c.checkAvailable(conn, ignoreCertError, dashboardURL); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -124,16 +125,35 @@ func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 }
 
 // dashboardAddr returns an address where the Dashboard is available.
-func dashboardAddr(conn api.Connection) string {
+func dashboardAddr(conn api.Connection) (string, bool) {
 	if dnsName := conn.PublicDNSName(); dnsName != "" {
-		return dnsName
+		return dnsName, false
 	}
-	return conn.Addr()
+	// The CLI k8s clouds connect via a proxy running on localhost.
+	// The dashboard still needs to go via the controller IP.
+	// TODO - this is a temporary workaround which will not work
+	// on k8s clouds like minikube, kind etc.
+	isLocal := func(host string) bool {
+		return host == "localhost" || host == "127.0.0.1" || host == "::1"
+	}
+	addr := conn.Addr()
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil || !isLocal(host) {
+		return addr, false
+	}
+	for _, hps := range conn.APIHostPorts() {
+		for _, hp := range hps {
+			if host := hp.Host(); !isLocal(host) {
+				return hp.String(), true
+			}
+		}
+	}
+	return addr, false
 }
 
-// checkAvailable ensures the Juju Dashboard/Dashboard is available on the controller at
+// checkAvailable ensures the Juju Dashboard is available on the controller at
 // the given URL.
-func (c *dashboardCommand) checkAvailable(conn api.Connection, URL string) error {
+func (c *dashboardCommand) checkAvailable(conn api.Connection, ignoreCertError bool, URL string) error {
 	client, err := conn.HTTPClient()
 	if err != nil {
 		return errors.Annotate(err, "cannot retrieve HTTP client")
@@ -141,8 +161,14 @@ func (c *dashboardCommand) checkAvailable(conn api.Connection, URL string) error
 	err = clientGet(c.StdContext, client, URL)
 	// We don't have access to the http error code, but make a best effort to
 	// handle a missing dashboard as opposed to a connection error
-	if err != nil && strings.Contains(err.Error(), "404 ") {
-		return errors.New("Juju Dashboard is not available")
+	if err != nil {
+		if strings.Contains(err.Error(), "404 ") {
+			return errors.New("Juju Dashboard is not available")
+		}
+		// TODO - fix this workaround for k8s clouds
+		if ignoreCertError && strings.Contains(err.Error(), "x509: ") {
+			return nil
+		}
 	}
 	return errors.Annotate(err, "Juju Dashboard is not available")
 }

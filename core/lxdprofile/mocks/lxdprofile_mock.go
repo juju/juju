@@ -5,10 +5,9 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	lxdprofile "github.com/juju/juju/core/lxdprofile"
+	reflect "reflect"
 )
 
 // MockLXDProfiler is a mock of LXDProfiler interface
@@ -36,6 +35,7 @@ func (m *MockLXDProfiler) EXPECT() *MockLXDProfilerMockRecorder {
 
 // LXDProfile mocks base method
 func (m *MockLXDProfiler) LXDProfile() lxdprofile.LXDProfile {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LXDProfile")
 	ret0, _ := ret[0].(lxdprofile.LXDProfile)
 	return ret0
@@ -43,6 +43,7 @@ func (m *MockLXDProfiler) LXDProfile() lxdprofile.LXDProfile {
 
 // LXDProfile indicates an expected call of LXDProfile
 func (mr *MockLXDProfilerMockRecorder) LXDProfile() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfile", reflect.TypeOf((*MockLXDProfiler)(nil).LXDProfile))
 }
 
@@ -71,6 +72,7 @@ func (m *MockLXDProfile) EXPECT() *MockLXDProfileMockRecorder {
 
 // Empty mocks base method
 func (m *MockLXDProfile) Empty() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Empty")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -78,11 +80,13 @@ func (m *MockLXDProfile) Empty() bool {
 
 // Empty indicates an expected call of Empty
 func (mr *MockLXDProfileMockRecorder) Empty() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Empty", reflect.TypeOf((*MockLXDProfile)(nil).Empty))
 }
 
 // ValidateConfigDevices mocks base method
 func (m *MockLXDProfile) ValidateConfigDevices() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidateConfigDevices")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -90,5 +94,6 @@ func (m *MockLXDProfile) ValidateConfigDevices() error {
 
 // ValidateConfigDevices indicates an expected call of ValidateConfigDevices
 func (mr *MockLXDProfileMockRecorder) ValidateConfigDevices() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateConfigDevices", reflect.TypeOf((*MockLXDProfile)(nil).ValidateConfigDevices))
 }

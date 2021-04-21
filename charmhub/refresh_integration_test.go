@@ -39,9 +39,9 @@ func (s *RefreshClientSuite) TestLiveRefreshRequest(c *gc.C) {
 
 	client := charmhub.NewRefreshClient(refreshPath, restClient, logger)
 
-	charmConfig, err := charmhub.RefreshOne("wordpress", 0, "latest/stable", charmhub.RefreshPlatform{
-		Series:       "kubernetes",
-		Architecture: "all",
+	charmConfig, err := charmhub.RefreshOne("wordpress", 0, "latest/stable", charmhub.RefreshBase{
+		Channel:      "20.04",
+		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -69,16 +69,16 @@ func (s *RefreshClientSuite) TestLiveRefreshManyRequest(c *gc.C) {
 
 	client := charmhub.NewRefreshClient(refreshPath, restClient, logger)
 
-	wordpressConfig, err := charmhub.RefreshOne("wordpress", 16, "latest/stable", charmhub.RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	wordpressConfig, err := charmhub.RefreshOne("wordpress", 16, "latest/stable", charmhub.RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	mysqlConfig, err := charmhub.RefreshOne("mysql", 1, "latest/stable", charmhub.RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	mysqlConfig, err := charmhub.RefreshOne("mysql", 1, "latest/stable", charmhub.RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -110,9 +110,9 @@ func (s *RefreshClientSuite) TestLiveInstallRequest(c *gc.C) {
 
 	client := charmhub.NewRefreshClient(refreshPath, restClient, logger)
 
-	charmConfig, err := charmhub.InstallOneFromRevision("wordpress", 16, charmhub.RefreshPlatform{
-		OS:           "ubuntu",
-		Series:       "focal",
+	charmConfig, err := charmhub.InstallOneFromRevision("wordpress", 16, charmhub.RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
 		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)

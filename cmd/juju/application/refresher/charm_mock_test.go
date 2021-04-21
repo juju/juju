@@ -61,6 +61,20 @@ func (mr *MockCharmMockRecorder) Config() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockCharm)(nil).Config))
 }
 
+// Manifest mocks base method
+func (m *MockCharm) Manifest() *charm.Manifest {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Manifest")
+	ret0, _ := ret[0].(*charm.Manifest)
+	return ret0
+}
+
+// Manifest indicates an expected call of Manifest
+func (mr *MockCharmMockRecorder) Manifest() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Manifest", reflect.TypeOf((*MockCharm)(nil).Manifest))
+}
+
 // Meta mocks base method
 func (m *MockCharm) Meta() *charm.Meta {
 	m.ctrl.T.Helper()

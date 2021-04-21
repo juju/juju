@@ -113,7 +113,8 @@ type StatePool struct {
 	// hub is used to pass the transaction changes from the TxnWatcher
 	// to the various HubWatchers that are used in each state object created
 	// by the state pool.
-	hub *pubsub.SimpleHub
+	hub        *pubsub.SimpleHub
+	hubUnsubFn func()
 
 	// watcherRunner makes sure the TxnWatcher stays running.
 	watcherRunner *worker.Runner
@@ -181,7 +182,7 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 		RestartDelay: time.Second,
 		Clock:        args.Clock,
 	})
-	pool.hub.Subscribe(watcher.TxnWatcherStarting, func(string, interface{}) {
+	pool.hubUnsubFn = pool.hub.Subscribe(watcher.TxnWatcherStarting, func(string, interface{}) {
 		close(pool.watcherStarted)
 	})
 	pool.txnWatcherSession = args.MongoSession.Copy()
@@ -430,6 +431,10 @@ func (p *StatePool) Close() error {
 	if p.watcherRunner != nil {
 		_ = worker.Stop(p.watcherRunner)
 		p.txnWatcherSession.Close()
+	}
+	if p.hubUnsubFn != nil {
+		p.hubUnsubFn()
+		p.hubUnsubFn = nil
 	}
 	p.mu.Unlock()
 	// As with above and the other watchers. Unlock while releas

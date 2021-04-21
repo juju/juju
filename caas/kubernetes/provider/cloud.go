@@ -122,7 +122,6 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 			}}
 		}
 	}
-
 	// If the user has not specified storage and cloudType is usable, check Juju's opinionated defaults.
 	err = storageParams.MetadataChecker.CheckDefaultWorkloadStorage(
 		cloudType, clusterMetadata.NominatedStorageClass,
@@ -141,7 +140,10 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 				// And no preferred storage classes with expected annotations found.
 				//  - workloadStorageClassAnnotationKey
 				//  - operatorStorageClassAnnotationKey
-				return "", UnknownClusterError{CloudName: cloudType}
+				return "", UnknownClusterError{
+					Message:   "Suitable Kubernetes storage class for workload storage not found in cluster. Consider adding a default storage class to the cluster",
+					CloudName: cloudType,
+				}
 			}
 			// Do further EnsureStorageProvisioner if preferred storage found via juju preferred/default annotations.
 		} else if err != nil {

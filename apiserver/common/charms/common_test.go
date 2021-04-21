@@ -4,6 +4,9 @@
 package charms_test
 
 import (
+	"fmt"
+
+	"github.com/juju/charm/v9"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -12,6 +15,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/testcharms"
+	jtesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type charmsSuite struct {
@@ -34,6 +40,118 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.api, err = charms.NewCharmsAPI(s.State, s.auth)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *charmsSuite) TestClientCharmInfoCAAS(c *gc.C) {
+	var clientCharmInfoTests = []struct {
+		about    string
+		series   string
+		charm    string
+		url      string
+		expected params.Charm
+		err      string
+	}{
+		{
+			about:  "charm info for meta format v2 with containers on a CAAS model",
+			series: "focal",
+			// Use cockroach for tests so that we can compare Provides and Requires.
+			charm: "cockroach",
+			url:   "local:focal/cockroachdb-0",
+			expected: params.Charm{
+				Revision: 0,
+				URL:      "local:focal/cockroachdb-0",
+				Config:   map[string]params.CharmOption{},
+				Manifest: &params.CharmManifest{
+					Bases: []params.CharmBase{
+						{
+							Name:          "ubuntu",
+							Channel:       "20.04/stable",
+							Architectures: []string{"amd64"},
+						},
+					},
+				},
+				Meta: &params.CharmMeta{
+					Name:        "cockroachdb",
+					Summary:     "cockroachdb",
+					Description: "cockroachdb",
+					Storage: map[string]params.CharmStorage{
+						"database": {
+							Name:     "database",
+							Type:     "filesystem",
+							CountMin: 1,
+							CountMax: 1,
+						},
+					},
+					Containers: map[string]params.CharmContainer{
+						"cockroachdb": {
+							Resource: "cockroachdb-image",
+							Mounts: []params.CharmMount{
+								{
+									Storage:  "database",
+									Location: "/cockroach/cockroach-data",
+								},
+							},
+						},
+					},
+					Provides: map[string]params.CharmRelation{
+						"db": {
+							Name:      "db",
+							Role:      "provider",
+							Interface: "roach",
+							Scope:     "global",
+						},
+					},
+					Resources: map[string]params.CharmResourceMeta{
+						"cockroachdb-image": {
+							Name:        "cockroachdb-image",
+							Type:        "oci-image",
+							Description: "OCI image used for cockroachdb",
+						},
+					},
+					MinJujuVersion: "0.0.0",
+				},
+				Actions: &params.CharmActions{},
+			},
+		},
+	}
+
+	for i, t := range clientCharmInfoTests {
+		c.Logf("test %d. %s", i, t.about)
+
+		otherModelOwner := s.Factory.MakeModelUser(c, nil)
+		otherSt := s.Factory.MakeCAASModel(c, &factory.ModelParams{
+			Owner: otherModelOwner.UserTag,
+			ConfigAttrs: jtesting.Attrs{
+				"controller": false,
+			},
+		})
+		defer otherSt.Close()
+
+		otherModel, err := otherSt.Model()
+		c.Assert(err, jc.ErrorIsNil)
+
+		repo := testcharms.RepoForSeries(t.series)
+		ch := repo.CharmDir(t.charm)
+		ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
+		curl := charm.MustParseURL(fmt.Sprintf("local:%s/%s", t.series, ident))
+
+		_, err = jujutesting.AddCharm(otherModel.State(), curl, ch, false)
+
+		c.Assert(err, jc.ErrorIsNil)
+
+		s.api, err = charms.NewCharmsAPI(otherModel.State(), s.auth)
+		c.Assert(err, jc.ErrorIsNil)
+
+		info, err := s.api.CharmInfo(params.CharmURL{URL: t.url})
+		if t.err != "" {
+			c.Check(err, gc.ErrorMatches, t.err)
+			continue
+		}
+		if c.Check(err, jc.ErrorIsNil) == false {
+			continue
+		}
+		c.Check(info, jc.DeepEquals, t.expected)
+	}
 }
 
 func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
@@ -68,6 +186,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 						Description: "The name of the initial account (given admin permissions).",
 						Default:     "admin001"},
 				},
+				Manifest: &params.CharmManifest{},
 				Meta: &params.CharmMeta{
 					Name:           "dummy",
 					Summary:        "That's a dummy charm.",
@@ -104,6 +223,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 				Revision: 0,
 				URL:      "local:quantal/lxd-profile-0",
 				Config:   map[string]params.CharmOption{},
+				Manifest: &params.CharmManifest{},
 				Meta: &params.CharmMeta{
 					Name:           "lxd-profile",
 					Summary:        "start a juju machine with a lxd profile",
@@ -170,7 +290,13 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 				Revision: 3,
 				URL:      "local:quantal/wordpress-3",
 				Config: map[string]params.CharmOption{
-					"blog-title": {Type: "string", Description: "A descriptive title used for the blog.", Default: "My Title"}},
+					"blog-title": {
+						Type:        "string",
+						Description: "A descriptive title used for the blog.",
+						Default:     "My Title",
+					},
+				},
+				Manifest: &params.CharmManifest{},
 				Meta: &params.CharmMeta{
 					Name:        "wordpress",
 					Summary:     "Blog engine",
@@ -235,36 +361,28 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 			},
 		},
 		{
-			about: "retrieves new format 2 charm info",
+			about: "charm info for meta format v2 without containers on a IAAS model",
 			// Use cockroach for tests so that we can compare Provides and Requires.
-			charm:  "cockroach",
+			charm:  "cockroach-container-less",
 			series: "focal",
 			url:    "local:focal/cockroachdb-0",
 			expected: params.Charm{
 				Revision: 0,
 				URL:      "local:focal/cockroachdb-0",
 				Config:   map[string]params.CharmOption{},
+				Manifest: &params.CharmManifest{
+					Bases: []params.CharmBase{
+						{
+							Name:          "ubuntu",
+							Channel:       "20.04/stable",
+							Architectures: []string{"amd64"},
+						},
+					},
+				},
 				Meta: &params.CharmMeta{
 					Name:        "cockroachdb",
 					Summary:     "cockroachdb",
 					Description: "cockroachdb",
-					Bases: []params.CharmBase{
-						{
-							Name:    "ubuntu",
-							Channel: "20.04/stable",
-						},
-					},
-					Containers: map[string]params.CharmContainer{
-						"cockroachdb": {
-							Resource: "cockroachdb-image",
-							Mounts: []params.CharmMount{
-								{
-									Storage:  "database",
-									Location: "/cockroach/cockroach-data",
-								},
-							},
-						},
-					},
 					Storage: map[string]params.CharmStorage{
 						"database": {
 							Name:     "database",

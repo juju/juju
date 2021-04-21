@@ -36,7 +36,7 @@ func (s *providerSuite) TestOpen(c *gc.C) {
 		Cloud:  fakeCloudSpec(),
 		Config: config,
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	envConfig := env.Config()
 	c.Assert(envConfig.Name(), gc.Equals, "testmodel")
@@ -81,7 +81,7 @@ func (s *providerSuite) TestPrepareConfig(c *gc.C) {
 func (s *providerSuite) TestValidate(c *gc.C) {
 	config := fakeConfig(c)
 	validCfg, err := s.provider.Validate(config, nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	validAttrs := validCfg.AllAttrs()
 	c.Assert(config.AllAttrs(), gc.DeepEquals, validAttrs)

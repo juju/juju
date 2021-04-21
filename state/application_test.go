@@ -262,7 +262,7 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
 
 	// Add a compatible charm and force it.
-	sch := state.AddCustomCharm(c, st, "mysql", "metadata.yaml", metaBase, "kubernetes", 2)
+	sch := state.AddCustomCharm(c, st, "mysql", "metadata.yaml", metaBaseCAAS, "kubernetes", 2)
 
 	cfg := state.SetCharmConfig{
 		Charm:      sch,
@@ -731,6 +731,19 @@ var metaBase = `
 name: mysql
 summary: "Fake MySQL Database engine"
 description: "Complete with nonsense relations"
+provides:
+  server: mysql
+requires:
+  client: mysql
+peers:
+  cluster: mysql
+`
+var metaBaseCAAS = `
+name: mysql
+summary: "Fake MySQL Database engine"
+description: "Complete with nonsense relations"
+series:
+  - kubernetes
 provides:
   server: mysql
 requires:
@@ -4996,11 +5009,15 @@ func (s *ApplicationSuite) TestCAASEmbeddedCharm(c *gc.C) {
 name: cockroachdb
 description: foo
 summary: foo
-bases:
-  - name: ubuntu
-    channel: 20.04/stable
+containers:
+  redis:
+    resource: redis-container-resource
+resources:
+  redis-container-resource:
+    name: redis-container
+    type: oci-image
 `
-	ch := state.AddCustomCharmForSeries(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
+	ch := state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
@@ -5035,4 +5052,33 @@ deployment:
 	embedded, err := unit.IsEmbedded()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(embedded, jc.IsFalse)
+}
+
+func (s *ApplicationSuite) TestWatchApplicationConfigSettingsHash(c *gc.C) {
+	w := s.mysql.WatchConfigSettingsHash()
+	defer testing.AssertStop(c, w)
+
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange("1e11259677ef769e0ec4076b873c76dcc3a54be7bc651b081d0f0e2b87077717")
+
+	schema := environschema.Fields{
+		"username":    environschema.Attr{Type: environschema.Tstring},
+		"alive":       environschema.Attr{Type: environschema.Tbool},
+		"skill-level": environschema.Attr{Type: environschema.Tint},
+		"options":     environschema.Attr{Type: environschema.Tattrs},
+	}
+
+	err := s.mysql.UpdateApplicationConfig(application.ConfigAttributes{
+		"username":    "abbas",
+		"alive":       true,
+		"skill-level": 23,
+		"options": map[string]string{
+			"fortuna": "crescis",
+			"luna":    "velut",
+			"status":  "malus",
+		},
+	}, nil, schema, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange("e1471e8a7299da0ac2150445ffc6d08d9d801194037d88416c54b01899b8a9b2")
 }

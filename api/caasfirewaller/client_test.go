@@ -4,6 +4,7 @@
 package caasfirewaller_test
 
 import (
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -124,6 +125,7 @@ func (s *firewallerEmbeddedSuite) TestApplicationCharmInfo(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, &apicommoncharms.CharmInfo{
 		Revision: 1,
 		URL:      `cs:gitlab-0`,
+		Manifest: &charm.Manifest{},
 	})
 }
 

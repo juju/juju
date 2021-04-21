@@ -32,14 +32,11 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
 )
 
 const (
-	// SeriesAll defines a platform that targets all series.
-	SeriesAll = "all"
 	// ArchAll defines a platform that targets all architectures.
 	ArchAll = "all"
 )
@@ -119,7 +116,7 @@ type diffBundleCommand struct {
 	bundle         string
 	bundleOverlays []string
 	channelStr     string
-	channel        corecharm.Channel
+	channel        charm.Channel
 	arch           string
 	arches         arch.Arches
 	series         string
@@ -177,7 +174,7 @@ func (c *diffBundleCommand) Init(args []string) error {
 	}
 	c.bundleMachines = mapping
 	if c.channelStr != "" {
-		c.channel, err = corecharm.ParseChannelNormalize(c.channelStr)
+		c.channel, err = charm.ParseChannelNormalize(c.channelStr)
 		if err != nil {
 			return errors.Annotate(err, "error in --channel")
 		}

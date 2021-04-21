@@ -94,25 +94,25 @@ func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
 		return &dto.LabelPair{Name: &n, Value: &v}
 	}
 	var retryBuckets []*dto.Bucket
-	for i := 0; i<50; i++ {
+	for i := 0; i < 50; i++ {
 		count := uint64(0)
 		if i > 0 {
 			count = 5
 		}
 		retryBuckets = append(retryBuckets, &dto.Bucket{
-			CumulativeCount:      uint64ptr(count),
-			UpperBound:           float64ptr(float64(i)),
+			CumulativeCount: uint64ptr(count),
+			UpperBound:      float64ptr(float64(i)),
 		})
 	}
 	var durationBuckets []*dto.Bucket
-	for i := 0; i<50; i++ {
+	for i := 0; i < 50; i++ {
 		count := uint64(0)
 		if i > 0 {
 			count = 5
 		}
 		durationBuckets = append(durationBuckets, &dto.Bucket{
-			CumulativeCount:      uint64ptr(count),
-			UpperBound:           float64ptr(float64(2 * i)),
+			CumulativeCount: uint64ptr(count),
+			UpperBound:      float64ptr(float64(2 * i)),
 		})
 	}
 	expected := []dto.Metric{
@@ -163,16 +163,16 @@ func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
 		},
 		{
 			Histogram: &dto.Histogram{
-				SampleCount:          uint64ptr(5),
-				SampleSum:            float64ptr(5),
-				Bucket:               retryBuckets,
+				SampleCount: uint64ptr(5),
+				SampleSum:   float64ptr(5),
+				Bucket:      retryBuckets,
 			},
 		},
 		{
 			Histogram: &dto.Histogram{
-				SampleCount:          uint64ptr(5),
-				SampleSum:            float64ptr(5),
-				Bucket:               durationBuckets,
+				SampleCount: uint64ptr(5),
+				SampleSum:   float64ptr(5),
+				Bucket:      durationBuckets,
 			},
 		},
 	}

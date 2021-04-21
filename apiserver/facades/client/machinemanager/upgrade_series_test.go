@@ -411,14 +411,12 @@ func (s StateValidatorSuite) TestValidateApplications(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	meta := NewMockCharmMeta(ctrl)
-	meta.EXPECT().ComputedSeries().Return([]string{"focal", "bionic"})
-
-	charm := NewMockCharm(ctrl)
-	charm.EXPECT().Meta().Return(meta)
+	ch := NewMockCharm(ctrl)
+	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"focal", "bionic"}})
+	ch.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
 
 	application := NewMockApplication(ctrl)
-	application.EXPECT().Charm().Return(charm, false, nil)
+	application.EXPECT().Charm().Return(ch, false, nil)
 
 	applications := []Application{application}
 
@@ -433,15 +431,13 @@ func (s StateValidatorSuite) TestValidateApplicationsWithFallbackSeries(c *gc.C)
 
 	url := charm.MustParseURL("cs:focal/foo-1")
 
-	meta := NewMockCharmMeta(ctrl)
-	meta.EXPECT().ComputedSeries().Return(nil)
-
-	charm := NewMockCharm(ctrl)
-	charm.EXPECT().Meta().Return(meta)
-	charm.EXPECT().URL().Return(url)
+	ch := NewMockCharm(ctrl)
+	ch.EXPECT().Meta().Return(&charm.Meta{})
+	ch.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	ch.EXPECT().URL().Return(url)
 
 	application := NewMockApplication(ctrl)
-	application.EXPECT().Charm().Return(charm, false, nil)
+	application.EXPECT().Charm().Return(ch, false, nil)
 
 	applications := []Application{application}
 
@@ -454,15 +450,13 @@ func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeries(c *gc
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	meta := NewMockCharmMeta(ctrl)
-	meta.EXPECT().ComputedSeries().Return([]string{"xenial", "bionic"})
-
-	charm := NewMockCharm(ctrl)
-	charm.EXPECT().Meta().Return(meta)
-	charm.EXPECT().String().Return("cs:foo-1")
+	ch := NewMockCharm(ctrl)
+	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"xenial", "bionic"}})
+	ch.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	ch.EXPECT().String().Return("cs:foo-1")
 
 	application := NewMockApplication(ctrl)
-	application.EXPECT().Charm().Return(charm, false, nil)
+	application.EXPECT().Charm().Return(ch, false, nil)
 
 	applications := []Application{application}
 
@@ -475,14 +469,12 @@ func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeriesWithFo
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	meta := NewMockCharmMeta(ctrl)
-	meta.EXPECT().ComputedSeries().Return([]string{"xenial", "bionic"})
-
-	charm := NewMockCharm(ctrl)
-	charm.EXPECT().Meta().Return(meta)
+	ch := NewMockCharm(ctrl)
+	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"xenial", "bionic"}})
+	ch.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
 
 	application := NewMockApplication(ctrl)
-	application.EXPECT().Charm().Return(charm, false, nil)
+	application.EXPECT().Charm().Return(ch, false, nil)
 
 	applications := []Application{application}
 

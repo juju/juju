@@ -9,8 +9,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
-	"github.com/juju/systems"
-	"github.com/juju/systems/channel"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
@@ -93,10 +91,7 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 	appCharmInfo := &charmscommon.CharmInfo{
 		Meta: &charm.Meta{
 			Name: "test",
-			Bases: []systems.Base{{
-				Name:    systems.Ubuntu,
-				Channel: channel.MustParse("20.04/stable"),
-			}},
+
 			Containers: map[string]charm.Container{
 				"test": {
 					Resource: "test-oci",
@@ -107,6 +102,15 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 					Type: charmresource.TypeContainerImage,
 				},
 			},
+		},
+		Manifest: &charm.Manifest{
+			Bases: []charm.Base{{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Track: "20.04",
+					Risk:  "stable",
+				},
+			}},
 		},
 	}
 

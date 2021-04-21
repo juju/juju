@@ -11,6 +11,8 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	corecharm "github.com/juju/juju/core/charm"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,7 +20,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/cache"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
@@ -1198,21 +1199,27 @@ func (context *statusContext) processApplication(application *state.Application)
 	var channel string
 	if origin := application.CharmOrigin(); origin != nil && origin.Channel != nil {
 		stChannel := origin.Channel
-		channel = (corecharm.Channel{
+		channel = (charm.Channel{
 			Track:  stChannel.Track,
-			Risk:   corecharm.Risk(stChannel.Risk),
+			Risk:   charm.Risk(stChannel.Risk),
 			Branch: stChannel.Branch,
 		}).Normalize().String()
 	} else {
 		channel = string(application.Channel())
 	}
 
+	series := application.Series()
+	// Sidecar k8s charms have the series set to that of the underlying base.
+	// We want to ensure they are still shown as "kubernetes" in status.
+	if corecharm.IsKubernetes(applicationCharm) {
+		series = coreseries.Kubernetes.String()
+	}
 	var processedStatus = params.ApplicationStatus{
 		Charm:            applicationCharm.URL().String(),
 		CharmVersion:     applicationCharm.Version(),
 		CharmProfile:     charmProfileName,
 		CharmChannel:     channel,
-		Series:           application.Series(),
+		Series:           series,
 		Exposed:          application.IsExposed(),
 		ExposedEndpoints: mappedExposedEndpoints,
 		Life:             processLife(application),

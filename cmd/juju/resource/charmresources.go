@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/charmstore"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	corecharm "github.com/juju/juju/core/charm"
 )
 
 // ResourceLister lists resources for the given charm ids.
@@ -38,7 +37,7 @@ type CharmID struct {
 	URL *charm.URL
 
 	// Channel is the channel in which the charm was published.
-	Channel corecharm.Channel
+	Channel charm.Channel
 }
 
 // BakeryClient defines a way to create a bakery client.
@@ -168,14 +167,14 @@ func (c *baseCharmResourcesCommand) baseRun(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	var channel corecharm.Channel
+	var channel charm.Channel
 	if charm.CharmHub.Matches(charmURL.Schema) {
-		channel, err = corecharm.ParseChannelNormalize(c.channel)
+		channel, err = charm.ParseChannelNormalize(c.channel)
 		if err != nil {
 			return errors.Trace(err)
 		}
 	} else {
-		channel = corecharm.MakePermissiveChannel("", c.channel, "")
+		channel = charm.MakePermissiveChannel("", c.channel, "")
 	}
 
 	resourceLister, err := c.CreateResourceListerFn(charmURL.Schema, c)

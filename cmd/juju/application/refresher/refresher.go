@@ -36,7 +36,7 @@ type RefresherConfig struct {
 	CharmURL        *charm.URL
 	CharmOrigin     corecharm.Origin
 	CharmRef        string
-	Channel         corecharm.Channel
+	Channel         charm.Channel
 	DeployedSeries  string
 	Force           bool
 	ForceSeries     bool
@@ -170,8 +170,8 @@ type localCharmRefresher struct {
 }
 
 // Allowed will attempt to check if a local charm is allowed to be refreshed.
-// Currently this is alway true.
-func (d *localCharmRefresher) Allowed(cfg RefresherConfig) (bool, error) {
+// Currently this is always true.
+func (d *localCharmRefresher) Allowed(_ RefresherConfig) (bool, error) {
 	// We should always return true here, because of the current design.
 	return true, nil
 }
@@ -213,7 +213,7 @@ func (d *localCharmRefresher) String() string {
 
 // ResolveOriginFunc attempts to resolve a new charm Origin from the given
 // arguments, ensuring that we work for multiple stores (charmhub vs charmstore)
-type ResolveOriginFunc = func(*charm.URL, corecharm.Origin, corecharm.Channel) (commoncharm.Origin, error)
+type ResolveOriginFunc = func(*charm.URL, corecharm.Origin, charm.Channel) (commoncharm.Origin, error)
 
 type baseRefresher struct {
 	charmAdder      store.CharmAdder
@@ -222,7 +222,7 @@ type baseRefresher struct {
 	charmURL        *charm.URL
 	charmOrigin     corecharm.Origin
 	charmRef        string
-	channel         corecharm.Channel
+	channel         charm.Channel
 	deployedSeries  string
 	force           bool
 	forceSeries     bool
@@ -278,14 +278,14 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 		// available.
 		return nil, commoncharm.Origin{}, errors.Errorf("already running latest charm %q", newURL.Name)
 	}
-	r.logger.Verbosef("Using channel %q", origin.CoreChannel().String())
+	r.logger.Verbosef("Using channel %q", origin.CharmChannel().String())
 	return newURL, origin, nil
 }
 
 // charmStoreResolveOrigin attempts to resolve the origin required to resolve
 // a charm. It does this by deducing the origin from the charm URL and the
 // incoming channel.
-func charmStoreResolveOrigin(curl *charm.URL, origin corecharm.Origin, channel corecharm.Channel) (commoncharm.Origin, error) {
+func charmStoreResolveOrigin(curl *charm.URL, origin corecharm.Origin, channel charm.Channel) (commoncharm.Origin, error) {
 	result, err := utils.DeduceOrigin(curl, channel, origin.Platform)
 	if err != nil {
 		return commoncharm.Origin{}, errors.Trace(err)
@@ -354,7 +354,7 @@ func (defaultCharmRepo) NewCharmAtPathForceSeries(path, series string, force boo
 // charmHubResolveOrigin attempts to resolve the origin required to resolve
 // a charm. It does this by updating the incoming origin with the user requested
 // channel, so we can correctly resolve the charm.
-func charmHubResolveOrigin(_ *charm.URL, origin corecharm.Origin, channel corecharm.Channel) (commoncharm.Origin, error) {
+func charmHubResolveOrigin(_ *charm.URL, origin corecharm.Origin, channel charm.Channel) (commoncharm.Origin, error) {
 	if channel.Track == "" {
 		origin.Channel.Risk = channel.Risk
 		return commoncharm.CoreCharmOrigin(origin), nil

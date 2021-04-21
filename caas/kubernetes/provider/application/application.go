@@ -18,6 +18,7 @@ import (
 	"github.com/kr/pretty"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -156,6 +157,56 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		},
 	}
 	applier.Apply(&secret)
+
+	serviceAccount := resources.ServiceAccount{
+		ServiceAccount: corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.serviceAccountName(),
+				Namespace:   a.namespace,
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			// Will be automounted by the pod.
+			AutomountServiceAccountToken: boolPtr(false),
+		},
+	}
+	applier.Apply(&serviceAccount)
+
+	role := resources.Role{
+		Role: rbacv1.Role{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.serviceAccountName(),
+				Namespace:   a.namespace,
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			Rules: defaultApplicationRoles,
+		},
+	}
+	applier.Apply(&role)
+
+	roleBinding := resources.RoleBinding{
+		RoleBinding: rbacv1.RoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.serviceAccountName(),
+				Namespace:   a.namespace,
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			RoleRef: rbacv1.RoleRef{
+				Name: a.serviceAccountName(),
+				Kind: "Role",
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind:      rbacv1.ServiceAccountKind,
+					Name:      a.serviceAccountName(),
+					Namespace: a.namespace,
+				},
+			},
+		},
+	}
+	applier.Apply(&roleBinding)
 
 	if err := a.configureDefaultService(a.annotations(config)); err != nil {
 		return errors.Annotatef(err, "ensuring the default service %q", a.name)
@@ -397,6 +448,9 @@ func (a *app) Exists() (caas.DeploymentState, error) {
 		{},
 		{"secret", a.secretExists, false},
 		{"service", a.serviceExists, false},
+		{"roleBinding", a.roleBindingExists, false},
+		{"role", a.roleExists, false},
+		{"serviceAccount", a.serviceAccountExists, false},
 	}
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
@@ -670,6 +724,39 @@ func (a *app) serviceExists() (exists bool, terminating bool, err error) {
 	return true, ss.DeletionTimestamp != nil, nil
 }
 
+func (a *app) roleExists() (exists bool, terminating bool, err error) {
+	r := resources.NewRole(a.serviceAccountName(), a.namespace, nil)
+	err = r.Get(context.Background(), a.client)
+	if errors.IsNotFound(err) {
+		return false, false, nil
+	} else if err != nil {
+		return false, false, errors.Trace(err)
+	}
+	return true, r.DeletionTimestamp != nil, nil
+}
+
+func (a *app) roleBindingExists() (exists bool, terminating bool, err error) {
+	rb := resources.NewRoleBinding(a.serviceAccountName(), a.namespace, nil)
+	err = rb.Get(context.Background(), a.client)
+	if errors.IsNotFound(err) {
+		return false, false, nil
+	} else if err != nil {
+		return false, false, errors.Trace(err)
+	}
+	return true, rb.DeletionTimestamp != nil, nil
+}
+
+func (a *app) serviceAccountExists() (exists bool, terminating bool, err error) {
+	sa := resources.NewServiceAccount(a.serviceAccountName(), a.namespace, nil)
+	err = sa.Get(context.Background(), a.client)
+	if errors.IsNotFound(err) {
+		return false, false, nil
+	} else if err != nil {
+		return false, false, errors.Trace(err)
+	}
+	return true, sa.DeletionTimestamp != nil, nil
+}
+
 // Delete deletes the specified application.
 func (a *app) Delete() error {
 	logger.Debugf("deleting %s application", a.name)
@@ -687,6 +774,9 @@ func (a *app) Delete() error {
 	}
 	applier.Delete(resources.NewService(a.name, a.namespace, nil))
 	applier.Delete(resources.NewSecret(a.secretName(), a.namespace, nil))
+	applier.Delete(resources.NewRoleBinding(a.serviceAccountName(), a.namespace, nil))
+	applier.Delete(resources.NewRole(a.serviceAccountName(), a.namespace, nil))
+	applier.Delete(resources.NewServiceAccount(a.serviceAccountName(), a.namespace, nil))
 	return applier.Run(context.Background(), a.client, false)
 }
 
@@ -827,6 +917,14 @@ func (a *app) Units() ([]caas.Unit, error) {
 			vol, ok := volumesByName[volMount.Name]
 			if !ok {
 				logger.Warningf("volume for volume mount %q not found", volMount.Name)
+				continue
+			}
+			if vol.Secret != nil && strings.HasPrefix(vol.Secret.SecretName, a.name+"-token") {
+				logger.Tracef("ignoring volume source for service account secret: %v", vol.Name)
+				continue
+			}
+			if vol.Projected != nil {
+				logger.Tracef("ignoring volume source for projected volume: %v", vol.Name)
 				continue
 			}
 			fsInfo, err := storage.FilesystemInfo(ctx, a.client, a.namespace, vol, volMount, now)
@@ -1035,9 +1133,10 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		nodeSelector = map[string]string{"kubernetes.io/arch": cpuArch}
 	}
 
-	automountToken := false
+	automountToken := true
 	return &corev1.PodSpec{
 		AutomountServiceAccountToken: &automountToken,
+		ServiceAccountName:           a.serviceAccountName(),
 		NodeSelector:                 nodeSelector,
 		InitContainers: []corev1.Container{{
 			Name:            "charm-init",
@@ -1137,6 +1236,10 @@ func (a *app) fieldSelector() string {
 
 func (a *app) secretName() string {
 	return a.name + "-application-config"
+}
+
+func (a *app) serviceAccountName() string {
+	return a.name
 }
 
 type annotationGetter interface {

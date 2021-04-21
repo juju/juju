@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"bytes"
+	"strings"
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
@@ -12,9 +13,11 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub/transport"
+	corecharm "github.com/juju/juju/core/charm"
+	coreseries "github.com/juju/juju/core/series"
 )
 
-func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
+func convertCharmInfoResult(info transport.InfoResponse) (params.InfoResponse, error) {
 	ir := params.InfoResponse{
 		Type:        string(info.Type),
 		ID:          info.ID,
@@ -25,17 +28,22 @@ func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
 		Tags:        categories(info.Entity.Categories),
 		StoreURL:    info.Entity.StoreURL,
 	}
+	var isKub bool
 	switch transport.Type(ir.Type) {
 	case transport.BundleType:
 		ir.Bundle = convertBundle(info.Entity.Charms)
 		// TODO (stickupkid): Get the Bundle.Release and set it to the
 		// InfoResponse at a high level.
 	case transport.CharmType:
-		ir.Charm, ir.Series = convertCharm(info)
+		var err error
+		ir.Charm, ir.Series, isKub, err = convertCharm(info)
+		if err != nil {
+			return params.InfoResponse{}, errors.Trace(err)
+		}
 	}
 
-	ir.Tracks, ir.Channels = transformInfoChannelMap(info.ChannelMap)
-	return ir
+	ir.Tracks, ir.Channels = transformInfoChannelMap(info.ChannelMap, isKub)
+	return ir, nil
 }
 
 func categories(cats []transport.Category) []string {
@@ -87,7 +95,7 @@ type supported struct {
 // transformFindArchitectureSeries returns a supported type which contains
 // architectures and series for a given channel map.
 func transformFindArchitectureSeries(channel transport.FindChannelMap) supported {
-	if len(channel.Revision.Platforms) < 1 {
+	if len(channel.Revision.Bases) < 1 {
 		return supported{}
 	}
 
@@ -96,10 +104,12 @@ func transformFindArchitectureSeries(channel transport.FindChannelMap) supported
 		os     = set.NewStrings()
 		series = set.NewStrings()
 	)
-	for _, p := range channel.Revision.Platforms {
+	for _, p := range channel.Revision.Bases {
 		arches.Add(p.Architecture)
-		os.Add(p.OS)
-		series.Add(p.Series)
+		os.Add(p.Name)
+		// TODO hml - for this to be correct, must determine IsKubernetes from metadata.
+		s, _ := coreseries.VersionSeries(p.Channel)
+		series.Add(s)
 	}
 	return supported{
 		Architectures: arches.SortedValues(),
@@ -111,7 +121,7 @@ func transformFindArchitectureSeries(channel transport.FindChannelMap) supported
 // transformInfoChannelMap returns channel map data in a format that facilitates
 // determining track order and open vs closed channels for displaying channel
 // data.
-func transformInfoChannelMap(channelMap []transport.InfoChannelMap) ([]string, map[string]params.Channel) {
+func transformInfoChannelMap(channelMap []transport.InfoChannelMap, isKub bool) ([]string, map[string]params.Channel) {
 	var trackList []string
 
 	seen := set.NewStrings("")
@@ -131,7 +141,7 @@ func transformInfoChannelMap(channelMap []transport.InfoChannelMap) ([]string, m
 			Track:      ch.Track,
 			Size:       cm.Revision.Download.Size,
 			Version:    cm.Revision.Version,
-			Platforms:  convertPlatforms(cm.Revision.Platforms),
+			Platforms:  convertBasesToPlatforms(cm.Revision.Bases, isKub),
 		}
 		if !seen.Contains(ch.Track) {
 			seen.Add(ch.Track)
@@ -142,32 +152,53 @@ func transformInfoChannelMap(channelMap []transport.InfoChannelMap) ([]string, m
 	return trackList, channels
 }
 
-func convertPlatforms(in []transport.Platform) []params.Platform {
+// convertBasesToPlatforms converts a base to a platform.  Is mean to be a short
+// term solution due to schedule.  It should be removed once platforms are
+// replaced with bases through out the code.
+func convertBasesToPlatforms(in []transport.Base, isKub bool) []params.Platform {
 	out := make([]params.Platform, len(in))
 	for i, v := range in {
+		var series string
+		if isKub {
+			series = "kubernetes"
+		} else {
+			series, _ = coreseries.VersionSeries(v.Channel)
+		}
+		os, _ := coreseries.GetOSFromSeries(series)
 		out[i] = params.Platform{
 			Architecture: v.Architecture,
-			OS:           v.OS,
-			Series:       v.Series,
+			OS:           strings.ToLower(os.String()),
+			Series:       series,
 		}
 	}
 	return out
 }
 
-func convertCharm(info transport.InfoResponse) (*params.CharmHubCharm, []string) {
+func convertCharm(info transport.InfoResponse) (*params.CharmHubCharm, []string, bool, error) {
 	charmHubCharm := params.CharmHubCharm{
 		UsedBy: info.Entity.UsedBy,
 	}
 	var series []string
+	var err error
+	var isKub bool
 	if meta := unmarshalCharmMetadata(info.DefaultRelease.Revision.MetadataYAML); meta != nil {
 		charmHubCharm.Subordinate = meta.Subordinate
 		charmHubCharm.Relations = transformRelations(meta.Requires, meta.Provides)
-		series = meta.ComputedSeries()
+
+		// TODO: hml 2021-04-15
+		// Implementation of Manifest in charmhub InfoResponse is
+		// required.  In the default-release channel map.
+		cm := charmMeta{meta: meta}
+		series, err = corecharm.ComputedSeries(cm)
+		if err != nil {
+			return nil, nil, false, errors.Trace(err)
+		}
+		isKub = isKubernetes(series)
 	}
 	if cfg := unmarshalCharmConfig(info.DefaultRelease.Revision.ConfigYAML); cfg != nil {
 		charmHubCharm.Config = params.ToCharmOptionMap(cfg)
 	}
-	return &charmHubCharm, series
+	return &charmHubCharm, series, isKub, nil
 }
 
 func unmarshalCharmMetadata(metadataYAML string) *charm.Meta {
@@ -243,4 +274,27 @@ func convertBundle(charms []transport.Charm) *params.CharmHubBundle {
 		}
 	}
 	return bundle
+}
+
+type charmMeta struct {
+	meta     *charm.Meta
+	manifest *charm.Manifest
+}
+
+func (c charmMeta) Meta() *charm.Meta {
+	return c.meta
+}
+
+func (c charmMeta) Manifest() *charm.Manifest {
+	return c.manifest
+}
+
+// Update location of series for kubernetes series once manifest.yaml
+// is available.
+func isKubernetes(series []string) bool {
+	seriesSet := set.NewStrings(series...)
+	if seriesSet.Contains("kubernetes") {
+		return true
+	}
+	return false
 }

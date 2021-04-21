@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
@@ -248,7 +247,7 @@ type DeployCommand struct {
 
 	// Channel holds the channel to use when obtaining
 	// the charm to be deployed.
-	Channel corecharm.Channel
+	Channel charm.Channel
 
 	channelStr string
 
@@ -675,7 +674,7 @@ func (c *DeployCommand) Init(args []string) error {
 		c.unknownModel = true
 	}
 	if c.channelStr != "" {
-		c.Channel, err = corecharm.ParseChannelNormalize(c.channelStr)
+		c.Channel, err = charm.ParseChannelNormalize(c.channelStr)
 		if err != nil {
 			return errors.Annotate(err, "error in --channel")
 		}

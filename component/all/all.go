@@ -15,12 +15,15 @@ import (
 	"github.com/juju/errors"
 )
 
-type component interface {
+// run "go generate" from the package directory.
+//go:generate go run github.com/golang/mock/mockgen -package all -destination component_mock.go github.com/juju/juju/component/all Component
+type Component interface {
 	registerForServer() error
 	registerForClient() error
+	registerForContainerAgent() error
 }
 
-var components = []component{
+var components = []Component{
 	&payloads{},
 	&resources{},
 }
@@ -30,6 +33,24 @@ var components = []component{
 func RegisterForServer() error {
 	for _, c := range components {
 		if err := c.registerForServer(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// RegisterForContainerAgent registers the parts of the components with the
+// Juju machinery for use as a agent (e.g. jujud, jujuc).
+func RegisterForContainerAgent() error {
+	components := []Component{
+		&resources{},
+	}
+	return registerForContainerAgent(components)
+}
+
+func registerForContainerAgent(containerComponents []Component) error {
+	for _, c := range containerComponents {
+		if err := c.registerForContainerAgent(); err != nil {
 			return errors.Trace(err)
 		}
 	}

@@ -6,7 +6,7 @@ package charm
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v9"
+	v9 "github.com/juju/charm/v9"
 	reflect "reflect"
 )
 
@@ -71,7 +71,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // PrepareCharmUpload mocks base method
-func (m *MockState) PrepareCharmUpload(arg0 *charm.URL) (StateCharm, error) {
+func (m *MockState) PrepareCharmUpload(arg0 *v9.URL) (StateCharm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareCharmUpload", arg0)
 	ret0, _ := ret[0].(StateCharm)
@@ -109,10 +109,10 @@ func (m *MockStoreCharm) EXPECT() *MockStoreCharmMockRecorder {
 }
 
 // Actions mocks base method
-func (m *MockStoreCharm) Actions() *charm.Actions {
+func (m *MockStoreCharm) Actions() *v9.Actions {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Actions")
-	ret0, _ := ret[0].(*charm.Actions)
+	ret0, _ := ret[0].(*v9.Actions)
 	return ret0
 }
 
@@ -123,10 +123,10 @@ func (mr *MockStoreCharmMockRecorder) Actions() *gomock.Call {
 }
 
 // Config mocks base method
-func (m *MockStoreCharm) Config() *charm.Config {
+func (m *MockStoreCharm) Config() *v9.Config {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Config")
-	ret0, _ := ret[0].(*charm.Config)
+	ret0, _ := ret[0].(*v9.Config)
 	return ret0
 }
 
@@ -137,10 +137,10 @@ func (mr *MockStoreCharmMockRecorder) Config() *gomock.Call {
 }
 
 // LXDProfile mocks base method
-func (m *MockStoreCharm) LXDProfile() *charm.LXDProfile {
+func (m *MockStoreCharm) LXDProfile() *v9.LXDProfile {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LXDProfile")
-	ret0, _ := ret[0].(*charm.LXDProfile)
+	ret0, _ := ret[0].(*v9.LXDProfile)
 	return ret0
 }
 
@@ -150,11 +150,25 @@ func (mr *MockStoreCharmMockRecorder) LXDProfile() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfile", reflect.TypeOf((*MockStoreCharm)(nil).LXDProfile))
 }
 
+// Manifest mocks base method
+func (m *MockStoreCharm) Manifest() *v9.Manifest {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Manifest")
+	ret0, _ := ret[0].(*v9.Manifest)
+	return ret0
+}
+
+// Manifest indicates an expected call of Manifest
+func (mr *MockStoreCharmMockRecorder) Manifest() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Manifest", reflect.TypeOf((*MockStoreCharm)(nil).Manifest))
+}
+
 // Meta mocks base method
-func (m *MockStoreCharm) Meta() *charm.Meta {
+func (m *MockStoreCharm) Meta() *v9.Meta {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Meta")
-	ret0, _ := ret[0].(*charm.Meta)
+	ret0, _ := ret[0].(*v9.Meta)
 	return ret0
 }
 
@@ -165,10 +179,10 @@ func (mr *MockStoreCharmMockRecorder) Meta() *gomock.Call {
 }
 
 // Metrics mocks base method
-func (m *MockStoreCharm) Metrics() *charm.Metrics {
+func (m *MockStoreCharm) Metrics() *v9.Metrics {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Metrics")
-	ret0, _ := ret[0].(*charm.Metrics)
+	ret0, _ := ret[0].(*v9.Metrics)
 	return ret0
 }
 
@@ -230,7 +244,7 @@ func (m *MockStore) EXPECT() *MockStoreMockRecorder {
 }
 
 // Download mocks base method
-func (m *MockStore) Download(arg0 *charm.URL, arg1 string, arg2 Origin) (StoreCharm, ChecksumCheckFn, Origin, error) {
+func (m *MockStore) Download(arg0 *v9.URL, arg1 string, arg2 Origin) (StoreCharm, ChecksumCheckFn, Origin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Download", arg0, arg1, arg2)
 	ret0, _ := ret[0].(StoreCharm)
@@ -247,7 +261,7 @@ func (mr *MockStoreMockRecorder) Download(arg0, arg1, arg2 interface{}) *gomock.
 }
 
 // DownloadOrigin mocks base method
-func (m *MockStore) DownloadOrigin(arg0 *charm.URL, arg1 Origin) (Origin, error) {
+func (m *MockStore) DownloadOrigin(arg0 *v9.URL, arg1 Origin) (Origin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DownloadOrigin", arg0, arg1)
 	ret0, _ := ret[0].(Origin)
@@ -262,7 +276,7 @@ func (mr *MockStoreMockRecorder) DownloadOrigin(arg0, arg1 interface{}) *gomock.
 }
 
 // Validate mocks base method
-func (m *MockStore) Validate(arg0 *charm.URL) error {
+func (m *MockStore) Validate(arg0 *v9.URL) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Validate", arg0)
 	ret0, _ := ret[0].(error)
@@ -299,7 +313,7 @@ func (m *MockJujuVersionValidator) EXPECT() *MockJujuVersionValidatorMockRecorde
 }
 
 // Validate mocks base method
-func (m *MockJujuVersionValidator) Validate(arg0 *charm.Meta) error {
+func (m *MockJujuVersionValidator) Validate(arg0 *v9.Meta) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Validate", arg0)
 	ret0, _ := ret[0].(error)

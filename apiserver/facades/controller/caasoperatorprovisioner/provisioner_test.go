@@ -246,7 +246,7 @@ func (s *CAASProvisionerSuite) TestIssueOperatorCertificate(c *gc.C) {
 		[]byte(certInfo.PrivateKey)...))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(signers), gc.Equals, 1)
-	c.Assert(len(certs), gc.Equals, 1)
+	c.Assert(len(certs), gc.Equals, 2)
 
 	roots := x509.NewCertPool()
 	ok := roots.AppendCertsFromPEM([]byte(certInfo.CACert))

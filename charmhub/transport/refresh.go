@@ -22,7 +22,7 @@ type RefreshRequestContext struct {
 	ID          string `json:"id"`
 
 	Revision        int        `json:"revision"`
-	Platform        Platform   `json:"platform,omitempty"`
+	Base            Base       `json:"base,omitempty"`
 	TrackingChannel string     `json:"tracking-channel,omitempty"`
 	RefreshedDate   *time.Time `json:"refresh-date,omitempty"`
 }
@@ -34,12 +34,12 @@ type RefreshRequestAction struct {
 	// InstanceKey should be unique for every action, as results may not be
 	// ordered in the same way, so it is expected to use this to ensure
 	// completeness and ordering.
-	InstanceKey string    `json:"instance-key"`
-	ID          *string   `json:"id,omitempty"`
-	Name        *string   `json:"name,omitempty"`
-	Channel     *string   `json:"channel,omitempty"`
-	Revision    *int      `json:"revision,omitempty"`
-	Platform    *Platform `json:"platform,omitempty"`
+	InstanceKey string  `json:"instance-key"`
+	ID          *string `json:"id,omitempty"`
+	Name        *string `json:"name,omitempty"`
+	Channel     *string `json:"channel,omitempty"`
+	Revision    *int    `json:"revision,omitempty"`
+	Base        *Base   `json:"base,omitempty"`
 }
 
 // RefreshResponses holds a series of typed RefreshResponse or a series of

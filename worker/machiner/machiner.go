@@ -125,16 +125,29 @@ func setMachineAddresses(tag names.MachineTag, m Machine) error {
 	}
 	var hostAddresses corenetwork.ProviderAddresses
 	for _, addr := range addrs {
-		var ip net.IP
+		var (
+			ip      net.IP
+			netmask net.IPMask
+		)
+
 		switch addr := addr.(type) {
 		case *net.IPAddr:
 			ip = addr.IP
 		case *net.IPNet:
 			ip = addr.IP
+			netmask = addr.Mask
 		default:
 			continue
 		}
-		address := corenetwork.NewProviderAddress(ip.String())
+
+		// If we discovered a netmask for the address, include a CIDR
+		// when constructing the provider address.
+		var addrOpts []func(corenetwork.AddressMutator)
+		if cidr := corenetwork.NetworkCIDRFromIPAndMask(ip, netmask); cidr != "" {
+			addrOpts = append(addrOpts, corenetwork.WithCIDR(cidr))
+		}
+		address := corenetwork.NewProviderAddress(ip.String(), addrOpts...)
+
 		// Filter out link-local addresses as we cannot reliably use them.
 		if address.Scope == corenetwork.ScopeLinkLocal {
 			continue

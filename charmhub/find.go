@@ -196,8 +196,8 @@ var defaultFindResultFilter = []string{
 }
 
 var defaultRevisionFilter = []string{
-	"revision.platforms.architecture",
-	"revision.platforms.os",
-	"revision.platforms.series",
+	"revision.bases.architecture",
+	"revision.bases.name",
+	"revision.bases.channel",
 	"revision.version",
 }

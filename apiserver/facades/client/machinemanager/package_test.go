@@ -11,7 +11,7 @@ import (
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/leadership_mock.go github.com/juju/juju/apiserver/facades/client/machinemanager Leadership
 //go:generate go run github.com/golang/mock/mockgen -package machinemanager -destination upgrade_series_mock_test.go github.com/juju/juju/apiserver/facades/client/machinemanager Authorizer,UpgradeSeries,UpgradeSeriesState,UpgradeSeriesValidator
-//go:generate go run github.com/golang/mock/mockgen -package machinemanager -destination types_mock_test.go github.com/juju/juju/apiserver/facades/client/machinemanager Machine,Application,Unit,Charm,CharmMeta,CharmhubClient
+//go:generate go run github.com/golang/mock/mockgen -package machinemanager -destination types_mock_test.go github.com/juju/juju/apiserver/facades/client/machinemanager Machine,Application,Unit,Charm,CharmhubClient
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

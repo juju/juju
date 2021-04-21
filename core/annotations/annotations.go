@@ -5,10 +5,7 @@ package annotations
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 )
-
-var logger = loggo.GetLogger("core.annotations")
 
 // Annotation extends k8s annotation map.
 type Annotation map[string]string
@@ -100,18 +97,9 @@ func (a Annotation) getVal(key string) (string, bool) {
 }
 
 func (a Annotation) setVal(key, val string) {
-	if val == "" {
-		logger.Warningf("setting empty value for annotation %q", key)
-	}
-
 	oldVal, existing := a.getVal(key)
 	if existing && oldVal == val {
 		return
-	}
-	if !existing {
-		logger.Debugf("annotation %q sets to %q", key, val)
-	} else {
-		logger.Debugf("annotation %q changed from %q to %q", key, oldVal, val)
 	}
 	a[key] = val
 }

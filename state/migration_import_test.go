@@ -807,6 +807,7 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
+		Series:   "kubernetes",
 		URL:      charm.URL().String(),
 		Revision: strconv.Itoa(charm.Revision()),
 	})
@@ -881,6 +882,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
+		Series:   "kubernetes",
 		URL:      testCharm.URL().String(),
 		Revision: strconv.Itoa(testCharm.Revision()),
 	})

@@ -8,8 +8,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/systems"
-	"github.com/juju/systems/channel"
 	"github.com/juju/testing"
 	"github.com/juju/version/v2"
 
@@ -48,18 +46,19 @@ func newMockState() *mockState {
 			charm: mockCharm{
 				url:    charm.MustParseURL("cs:gitlab-1"),
 				sha256: "fake-sha256",
-				meta: &charm.Meta{
+				manifest: &charm.Manifest{
 					// charm.FormatV2.
-					Bases: []systems.Base{
+					Bases: []charm.Base{
 						{
 							Name: "ubuntu",
-							Channel: channel.Channel{
-								Name:  "20.04/stable",
+							Channel: charm.Channel{
 								Risk:  "stable",
 								Track: "20.04",
 							},
 						},
 					},
+				},
+				meta: &charm.Meta{
 					Deployment: &charm.Deployment{
 						DeploymentType: charm.DeploymentStateful,
 					},
@@ -244,9 +243,10 @@ func (u *mockUnit) SetPassword(password string) error {
 }
 
 type mockCharm struct {
-	url    *charm.URL
-	sha256 string
-	meta   *charm.Meta
+	url      *charm.URL
+	sha256   string
+	meta     *charm.Meta
+	manifest *charm.Manifest
 }
 
 func (ch *mockCharm) URL() *charm.URL {
@@ -259,6 +259,10 @@ func (ch *mockCharm) BundleSha256() string {
 
 func (ch *mockCharm) Meta() *charm.Meta {
 	return ch.meta
+}
+
+func (ch *mockCharm) Manifest() *charm.Manifest {
+	return ch.manifest
 }
 
 type mockBroker struct {

@@ -425,12 +425,12 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithOriginChannel(c *gc.C) {
 	cfg := basicRefresherConfig(curl, ref)
 	cfg.CharmOrigin = corecharm.Origin{
 		Source: corecharm.CharmHub,
-		Channel: &corecharm.Channel{
-			Risk: corecharm.Edge,
+		Channel: &charm.Channel{
+			Risk: charm.Edge,
 		},
 	}
-	cfg.Channel = corecharm.Channel{
-		Risk: corecharm.Beta,
+	cfg.Channel = charm.Channel{
+		Risk: charm.Beta,
 	}
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
@@ -526,7 +526,7 @@ func refresherConfigWithOrigin(curl *charm.URL, ref, series string) RefresherCon
 	rc := basicRefresherConfig(curl, ref)
 	rc.CharmOrigin = corecharm.Origin{
 		Source:  corecharm.CharmHub,
-		Channel: &corecharm.Channel{},
+		Channel: &charm.Channel{},
 		Platform: corecharm.Platform{
 			Series: series,
 		},

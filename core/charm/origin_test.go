@@ -73,6 +73,14 @@ func (s platformSuite) TestParsePlatform(c *gc.C) {
 			Series:       "series",
 		},
 	}, {
+		Name:  "architecture, os, version and risk",
+		Value: "amd64/os/version/risk",
+		Expected: charm.Platform{
+			Architecture: "amd64",
+			OS:           "os",
+			Series:       "version/risk",
+		},
+	}, {
 		Name:  "architecture, unknown os and series",
 		Value: "amd64/unknown/series",
 		Expected: charm.Platform{
@@ -126,6 +134,10 @@ func (s platformSuite) TestString(c *gc.C) {
 		Name:     "architecture, os and series",
 		Value:    "amd64/os/series",
 		Expected: "amd64/os/series",
+	}, {
+		Name:     "architecture, os, version and risk",
+		Value:    "amd64/os/version/risk",
+		Expected: "amd64/os/version/risk",
 	}}
 	for k, test := range tests {
 		c.Logf("test %q at %d", test.Name, k)

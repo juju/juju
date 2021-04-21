@@ -30,7 +30,7 @@ const UserAgentVersion = "Juju/" + version
 const (
 	// TreeStateDirty when the build was made with a dirty checkout.
 	TreeStateDirty = "dirty"
-	// TreeStateClean when the build was made with a clean checkout.kubernetes/provider/cloud_test.go
+	// TreeStateClean when the build was made with a clean checkout.
 	TreeStateClean = "clean"
 	// TreeStateArchive when the build was made outside of a git checkout.
 	TreeStateArchive = "archive"

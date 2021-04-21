@@ -14,7 +14,7 @@ require (
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
 	github.com/aws/aws-sdk-go v1.36.2
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/canonical/pebble v0.0.0-20210329083523-52c8d6b3e55a
+	github.com/canonical/pebble v0.0.0-20210418225304-713a473474b7
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
 	github.com/docker/distribution v2.7.1+incompatible
@@ -37,7 +37,7 @@ require (
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
 	github.com/juju/bundlechanges/v5 v5.0.0-20210224113052-f5fb3bbb6c25
-	github.com/juju/charm/v9 v9.0.0-20210324234318-1204b46e47ee
+	github.com/juju/charm/v9 v9.0.0-20210421060150-6a300db18162
 	github.com/juju/charmrepo/v7 v7.0.0-20210309083437-272762c450b9
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
@@ -69,7 +69,6 @@ require (
 	github.com/juju/romulus v0.0.0-20210309074704-4fa3bbd32568
 	github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476
 	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
-	github.com/juju/systems v0.0.0-20210311041303-bc6b2f9677ca
 	github.com/juju/terms-client/v2 v2.0.0-20210309081804-aed8368405f6
 	github.com/juju/testing v0.0.0-20210324180055-18c50b0c2098
 	github.com/juju/txn/v2 v2.0.0-20210407000251-11166e89894c

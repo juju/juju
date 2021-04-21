@@ -106,6 +106,20 @@ func (mr *MockApplicationMockRecorder) State() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockApplication)(nil).State))
 }
 
+// Trust mocks base method
+func (m *MockApplication) Trust(arg0 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Trust", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Trust indicates an expected call of Trust
+func (mr *MockApplicationMockRecorder) Trust(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Trust", reflect.TypeOf((*MockApplication)(nil).Trust), arg0)
+}
+
 // Units mocks base method
 func (m *MockApplication) Units() ([]caas.Unit, error) {
 	m.ctrl.T.Helper()

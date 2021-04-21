@@ -100,6 +100,12 @@ func (s *ConnSuite) AddActionsCharm(c *gc.C, name, actionsYaml string, revision 
 	return state.AddCustomCharm(c, s.State, name, "actions.yaml", actionsYaml, "quantal", revision)
 }
 
+// AddManifestCharm clones a testing charm, replaces its manifest schema with
+// the given YAML, and adds it to the state, using the given revision.
+func (s *ConnSuite) AddManifestCharm(c *gc.C, name, manifestYaml string, revision int) *state.Charm {
+	return state.AddCustomCharm(c, s.State, name, "manifest.yaml", manifestYaml, "quantal", revision)
+}
+
 // AddLXDProfileCharm clones a testing charm, replaces its lxd profile config with
 // the given YAML, and adds it to the state, using the given revision.
 func (s *ConnSuite) AddLXDProfileCharm(c *gc.C, name, lxdProfileYaml string, revision int) *state.Charm {

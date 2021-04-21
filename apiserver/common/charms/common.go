@@ -8,7 +8,6 @@ import (
 	"github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/systems"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -94,6 +93,7 @@ func (a *CharmsAPI) CharmInfo(args params.CharmURL) (params.Charm, error) {
 		Meta:     convertCharmMeta(aCharm.Meta()),
 		Actions:  convertCharmActions(aCharm.Actions()),
 		Metrics:  convertCharmMetrics(aCharm.Metrics()),
+		Manifest: convertCharmManifest(aCharm.Manifest()),
 	}
 
 	// we don't need to check that this is a charm.LXDProfiler, as we can
@@ -128,9 +128,17 @@ func convertCharmMeta(meta *charm.Meta) *params.CharmMeta {
 		Resources:      convertCharmResourceMetaMap(meta.Resources),
 		Terms:          meta.Terms,
 		MinJujuVersion: meta.MinJujuVersion.String(),
-		Bases:          convertCharmBases(meta.Bases),
 		Containers:     convertCharmContainers(meta.Containers),
 		Assumes:        meta.Assumes,
+	}
+}
+
+func convertCharmManifest(manifest *charm.Manifest) *params.CharmManifest {
+	if manifest == nil {
+		return nil
+	}
+	return &params.CharmManifest{
+		Bases: convertCharmBases(manifest.Bases),
 	}
 }
 
@@ -352,15 +360,16 @@ func convertCharmDevices(devices map[string]charm.Device) map[string]params.Char
 	return results
 }
 
-func convertCharmBases(input []systems.Base) []params.CharmBase {
-	systems := []params.CharmBase(nil)
+func convertCharmBases(input []charm.Base) []params.CharmBase {
+	var bases []params.CharmBase
 	for _, v := range input {
-		systems = append(systems, params.CharmBase{
-			Name:    v.Name,
-			Channel: v.Channel.String(),
+		bases = append(bases, params.CharmBase{
+			Name:          v.Name,
+			Channel:       v.Channel.String(),
+			Architectures: v.Architectures,
 		})
 	}
-	return systems
+	return bases
 }
 
 func convertCharmContainers(input map[string]charm.Container) map[string]params.CharmContainer {
@@ -378,7 +387,7 @@ func convertCharmContainers(input map[string]charm.Container) map[string]params.
 }
 
 func convertCharmMounts(input []charm.Mount) []params.CharmMount {
-	mounts := []params.CharmMount(nil)
+	var mounts []params.CharmMount
 	for _, v := range input {
 		mounts = append(mounts, params.CharmMount{
 			Storage:  v.Storage,

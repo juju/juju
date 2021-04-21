@@ -18,7 +18,8 @@ import (
 )
 
 const (
-	DefaultLeafGroup = "controller"
+	DefaultLeafGroup      = "controller"
+	ControllerIPLeafGroup = "controllerip"
 )
 
 // Authority represents a secure means of issuing groups of common interest
@@ -80,6 +81,14 @@ func (a *DefaultAuthority) Chain() []*x509.Certificate {
 	return a.authority.Chain()
 }
 
+func (a *DefaultAuthority) ChainWithAuthority() []*x509.Certificate {
+	chain := a.authority.Chain()
+	if chain == nil {
+		chain = []*x509.Certificate{}
+	}
+	return append(chain, a.authority.Certificate())
+}
+
 // leafMaker is responsible for providing a method to make new leafs after
 // request signing.
 func (a *DefaultAuthority) leafMaker(groupKey string) LeafMaker {
@@ -104,11 +113,11 @@ func (a *DefaultAuthority) LeafRequestForGroup(group string) LeafRequest {
 	defer a.leafSignerMutex.Unlock()
 	if a.leafSigner != nil {
 		return NewDefaultLeafRequestWithSigner(subject, a.leafSigner,
-			NewDefaultRequestSigner(a.Certificate(), a.Chain(), a.Signer()),
+			NewDefaultRequestSigner(a.Certificate(), a.ChainWithAuthority(), a.Signer()),
 			a.leafMaker(groupKey))
 	}
 	return NewDefaultLeafRequest(subject,
-		NewDefaultRequestSigner(a.Certificate(), a.Chain(), a.Signer()),
+		NewDefaultRequestSigner(a.Certificate(), a.ChainWithAuthority(), a.Signer()),
 		a.leafMaker(groupKey))
 }
 

@@ -263,31 +263,31 @@ func (s *downloadSuite) expectRefreshUnsupportedSeries() {
 				Extra: transport.APIErrorExtra{
 					Releases: []transport.Release{
 						{
-							Platform: transport.Platform{Architecture: "amd64", OS: "ubuntu", Series: "bionic"},
-							Channel:  "stable",
+							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "18.04"},
+							Channel: "stable",
 						},
 						{
-							Platform: transport.Platform{Architecture: "amd64", OS: "ubuntu", Series: "trusty"},
-							Channel:  "stable",
+							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "14.04"},
+							Channel: "stable",
 						},
 						{
-							Platform: transport.Platform{Architecture: "amd64", OS: "ubuntu", Series: "trusty"},
-							Channel:  "candidate",
+							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "14.04"},
+							Channel: "candidate",
 						},
 						{
-							Platform: transport.Platform{Architecture: "amd64", OS: "ubuntu", Series: "xenial"},
-							Channel:  "stable",
+							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "16.04"},
+							Channel: "stable",
 						},
 						{
-							Platform: transport.Platform{Architecture: "amd64", OS: "ubuntu", Series: "focal"},
-							Channel:  "beta",
+							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "20.04"},
+							Channel: "beta",
 						},
 						{
-							Platform: transport.Platform{Architecture: "amd64", OS: "ubuntu", Series: "xenial"},
-							Channel:  "edge",
+							Base:    transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "14.04"},
+							Channel: "edge",
 						},
 					},
-					DefaultPlatforms: nil,
+					DefaultBases: nil,
 				}},
 		}}, nil
 	})

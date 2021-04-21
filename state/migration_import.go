@@ -1357,7 +1357,7 @@ func (i *importer) makeCharmOrigin(a description.Application, curl *charm.URL, u
 
 	var channel *Channel
 	if serialized := co.Channel(); serialized != "" {
-		c, err := corecharm.ParseChannelNormalize(serialized)
+		c, err := charm.ParseChannelNormalize(serialized)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1444,7 +1444,7 @@ func getApplicationSourceChannel(a description.Application, url *charm.URL) (cor
 		return source, &Channel{Risk: a.Channel()}
 	}
 
-	norm, err := corecharm.ParseChannelNormalize(a.Channel())
+	norm, err := charm.ParseChannelNormalize(a.Channel())
 	if err != nil {
 		return source, nil
 	}

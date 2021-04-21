@@ -1285,13 +1285,13 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 }
 
 func (s *DeploySuite) TestInvalidSeriesForModel(c *gc.C) {
-	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "dummy")
-	curl := charm.MustParseURL("local:bionic/dummy-1")
+	charmDir := testcharms.RepoWithSeries("kubernetes").ClonedDir(c.MkDir(), "mariadb")
+	curl := charm.MustParseURL("local:kubernetes/mariadb-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "kubernetes", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	err := s.runDeployForState(c, charmDir.Path, "portlandia", "--series", "kubernetes")
-	c.Assert(err, gc.ErrorMatches, `cannot add application "portlandia": series "kubernetes" in a non container model not valid`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "portlandia": container-based charm for non container based model type not valid`)
 }
 
 func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
@@ -1587,7 +1587,7 @@ func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 
 	fallbackCons := constraints.MustParse("arch=amd64")
 	platform, _ := apputils.DeducePlatform(constraints.Value{}, "", fallbackCons)
-	origin, _ := apputils.DeduceOrigin(meteredCharmURL, corecharm.Channel{}, platform)
+	origin, _ := apputils.DeduceOrigin(meteredCharmURL, charm.Channel{}, platform)
 	s.fakeAPI.Call("AddCharm", meteredCharmURL, origin, false).Returns(origin, error(nil))
 	s.fakeAPI.Call("CharmInfo", meteredCharmURL.String()).Returns(
 		&apicommoncharms.CharmInfo{
@@ -2015,7 +2015,7 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, series
 					Architecture: a,
 					Series:       serie,
 				}
-				origin, err := apputils.DeduceOrigin(url, corecharm.Channel{}, platform)
+				origin, err := apputils.DeduceOrigin(url, charm.Channel{}, platform)
 				c.Assert(err, jc.ErrorIsNil)
 
 				s.fakeAPI.Call("ResolveCharm", url, origin).Returns(
@@ -2055,7 +2055,7 @@ func (s *FakeStoreStateSuite) setupBundle(c *gc.C, url, name string, series ...s
 	// Resolve a bundle with no revision and return a url with a version.  Ensure
 	// GetBundle expects the url with revision.
 	for _, serie := range append([]string{"", baseURL.Series}, series...) {
-		origin, err := apputils.DeduceOrigin(bundleResolveURL, corecharm.Channel{}, corecharm.Platform{Series: serie})
+		origin, err := apputils.DeduceOrigin(bundleResolveURL, charm.Channel{}, corecharm.Platform{Series: serie})
 		c.Assert(err, jc.ErrorIsNil)
 		s.fakeAPI.Call("ResolveBundleURL", &baseURL, origin).Returns(
 			bundleResolveURL,
@@ -3028,7 +3028,7 @@ func withCharmDeployableWithDevicesAndStorage(
 	}
 	fallbackCons := constraints.MustParse("arch=amd64")
 	platform, _ := apputils.DeducePlatform(constraints.Value{}, series, fallbackCons)
-	origin, _ := apputils.DeduceOrigin(url, corecharm.Channel{}, platform)
+	origin, _ := apputils.DeduceOrigin(url, charm.Channel{}, platform)
 	fakeAPI.Call("AddCharm", &deployURL, origin, force).Returns(origin, error(nil))
 	fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
 		&apicommoncharms.CharmInfo{

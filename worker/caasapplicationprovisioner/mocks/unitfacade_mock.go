@@ -48,6 +48,21 @@ func (mr *MockCAASUnitProvisionerFacadeMockRecorder) ApplicationScale(arg0 inter
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationScale", reflect.TypeOf((*MockCAASUnitProvisionerFacade)(nil).ApplicationScale), arg0)
 }
 
+// ApplicationTrust mocks base method
+func (m *MockCAASUnitProvisionerFacade) ApplicationTrust(arg0 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplicationTrust", arg0)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplicationTrust indicates an expected call of ApplicationTrust
+func (mr *MockCAASUnitProvisionerFacadeMockRecorder) ApplicationTrust(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationTrust", reflect.TypeOf((*MockCAASUnitProvisionerFacade)(nil).ApplicationTrust), arg0)
+}
+
 // WatchApplicationScale mocks base method
 func (m *MockCAASUnitProvisionerFacade) WatchApplicationScale(arg0 string) (watcher.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
@@ -61,4 +76,19 @@ func (m *MockCAASUnitProvisionerFacade) WatchApplicationScale(arg0 string) (watc
 func (mr *MockCAASUnitProvisionerFacadeMockRecorder) WatchApplicationScale(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationScale", reflect.TypeOf((*MockCAASUnitProvisionerFacade)(nil).WatchApplicationScale), arg0)
+}
+
+// WatchApplicationTrustHash mocks base method
+func (m *MockCAASUnitProvisionerFacade) WatchApplicationTrustHash(arg0 string) (watcher.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchApplicationTrustHash", arg0)
+	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchApplicationTrustHash indicates an expected call of WatchApplicationTrustHash
+func (mr *MockCAASUnitProvisionerFacadeMockRecorder) WatchApplicationTrustHash(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationTrustHash", reflect.TypeOf((*MockCAASUnitProvisionerFacade)(nil).WatchApplicationTrustHash), arg0)
 }

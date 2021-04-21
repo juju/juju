@@ -4254,6 +4254,13 @@ func (a *Application) WatchServiceAddressesHash() StringsWatcher {
 	return w
 }
 
+// WatchConfigSettingsHash returns a watcher that yields a hash of the
+// application's config settings whenever they are changed.
+func (a *Application) WatchConfigSettingsHash() StringsWatcher {
+	applicationConfigKey := applicationConfigKey(a.Name())
+	return newSettingsHashWatcher(a.st, applicationConfigKey)
+}
+
 func hashServiceAddresses(a *Application, firstCall bool) (string, error) {
 	service, err := a.ServiceInfo()
 	if errors.IsNotFound(err) && firstCall {

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	jujucharm "github.com/juju/charm/v9"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
@@ -19,7 +19,7 @@ import (
 	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/charm"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
@@ -1943,7 +1943,7 @@ func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (descr
 			return description.CharmOriginArgs{}, errors.Trace(err)
 		}
 	}
-	var platform charm.Platform
+	var platform corecharm.Platform
 	if origin.Platform != nil {
 		// Platform is now mandatory moving forward, so we need to ensure that
 		// the architecture is set in the platform if it's not set. This
@@ -1962,7 +1962,7 @@ func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (descr
 			}
 			os = strings.ToLower(sys.String())
 		}
-		platform = charm.Platform{
+		platform = corecharm.Platform{
 			Architecture: arch,
 			OS:           os,
 			Series:       origin.Platform.Series,
@@ -1979,7 +1979,7 @@ func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (descr
 	}, nil
 }
 
-func deduceOrigin(url *jujucharm.URL) (description.CharmOriginArgs, error) {
+func deduceOrigin(url *charm.URL) (description.CharmOriginArgs, error) {
 	if url == nil {
 		return description.CharmOriginArgs{}, errors.NotValidf("charm url")
 	}
@@ -1987,15 +1987,15 @@ func deduceOrigin(url *jujucharm.URL) (description.CharmOriginArgs, error) {
 	switch url.Schema {
 	case "cs":
 		return description.CharmOriginArgs{
-			Source: charm.CharmStore.String(),
+			Source: corecharm.CharmStore.String(),
 		}, nil
 	case "local":
 		return description.CharmOriginArgs{
-			Source: charm.Local.String(),
+			Source: corecharm.Local.String(),
 		}, nil
 	default:
 		return description.CharmOriginArgs{
-			Source: charm.CharmHub.String(),
+			Source: corecharm.CharmHub.String(),
 		}, nil
 	}
 }
