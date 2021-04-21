@@ -7,12 +7,12 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/caas"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 )
@@ -125,8 +125,7 @@ func (w *applicationWorker) setUp() (err error) {
 		return errors.Annotatef(err, "failed to get application charm deployment metadata for %q", w.appName)
 	}
 	if charmInfo == nil ||
-		charmInfo.Meta == nil ||
-		charmInfo.Meta.Format() < charm.FormatV2 {
+		corecharm.Format(charmInfo.Charm()) < corecharm.FormatV2 {
 		return errors.Errorf("charm must be version 2 or greater")
 	}
 

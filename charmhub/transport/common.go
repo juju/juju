@@ -26,22 +26,22 @@ const (
 )
 
 // Channel defines a unique permutation that corresponds to the track, risk
-// and platform. There can be multiple channels of the same track and risk, but
-// with different platforms.
+// and base. There can be multiple channels of the same track and risk, but
+// with different bases.
 type Channel struct {
-	Name       string   `json:"name"`
-	Platform   Platform `json:"platform"`
-	ReleasedAt string   `json:"released-at"`
-	Risk       string   `json:"risk"`
-	Track      string   `json:"track"`
+	Name       string `json:"name"`
+	Base       Base   `json:"base"`
+	ReleasedAt string `json:"released-at"`
+	Risk       string `json:"risk"`
+	Track      string `json:"track"`
 }
 
-// Platform is a typed tuple for identifying charms or bundles with a matching
-// architecture, os and series.
-type Platform struct {
+// Base is a typed tuple for identifying charms or bundles with a matching
+// architecture, os and channel.
+type Base struct {
 	Architecture string `json:"architecture"`
-	OS           string `json:"os"`
-	Series       string `json:"series"`
+	Name         string `json:"name"`
+	Channel      string `json:"channel"`
 }
 
 // Download represents the download structure from CharmHub.

@@ -535,6 +535,7 @@ func FromMachineAddresses(mAddrs ...network.MachineAddress) []Address {
 func FromMachineAddress(addr network.MachineAddress) Address {
 	return Address{
 		Value:       addr.Value,
+		CIDR:        addr.CIDR,
 		Type:        string(addr.Type),
 		Scope:       string(addr.Scope),
 		IsSecondary: addr.IsSecondary,

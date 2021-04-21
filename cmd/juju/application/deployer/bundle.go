@@ -124,7 +124,7 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 					return errors.Trace(err)
 				}
 
-				origin, err := utils.DeduceOrigin(charmURL, d.origin.CoreChannel(), platform)
+				origin, err := utils.DeduceOrigin(charmURL, d.origin.CharmChannel(), platform)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -218,7 +218,7 @@ func (d *localBundle) String() string {
 		return str
 	}
 	var channel string
-	if ch := d.origin.CoreChannel().String(); ch != "" {
+	if ch := d.origin.CharmChannel().String(); ch != "" {
 		channel = fmt.Sprintf(" from channel %s", ch)
 	}
 	return fmt.Sprintf("%s%s", str, channel)
@@ -240,7 +240,7 @@ func (d *repositoryBundle) String() string {
 		return str
 	}
 	var channel string
-	if ch := d.origin.CoreChannel().String(); ch != "" {
+	if ch := d.origin.CharmChannel().String(); ch != "" {
 		channel = fmt.Sprintf(" from channel %s", ch)
 	}
 	return fmt.Sprintf("%s%s", str, channel)

@@ -32,7 +32,8 @@ func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {
 	presetBindings := make(map[string]params.NetworkInfoResult)
 	presetBindings["known-relation"] = params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
-			{MACAddress: "00:11:22:33:44:00",
+			{
+				MACAddress:    "00:11:22:33:44:00",
 				InterfaceName: "eth0",
 				Addresses: []params.InterfaceAddress{
 					{
@@ -45,7 +46,8 @@ func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {
 					},
 				},
 			},
-			{MACAddress: "00:11:22:33:44:11",
+			{
+				MACAddress:    "00:11:22:33:44:11",
 				InterfaceName: "eth1",
 				Addresses: []params.InterfaceAddress{
 					{
@@ -62,7 +64,8 @@ func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {
 	}
 	presetBindings["known-extra"] = params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
-			{MACAddress: "00:11:22:33:44:22",
+			{
+				MACAddress:    "00:11:22:33:44:22",
 				InterfaceName: "eth2",
 				Addresses: []params.InterfaceAddress{
 					{
@@ -81,7 +84,8 @@ func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {
 	// Simulate known but unspecified bindings.
 	presetBindings["known-unbound"] = params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
-			{MACAddress: "00:11:22:33:44:33",
+			{
+				MACAddress:    "00:11:22:33:44:33",
 				InterfaceName: "eth3",
 				Addresses: []params.InterfaceAddress{
 					{
@@ -95,7 +99,8 @@ func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {
 	// Simulate info with egress and ingress data.
 	presetBindings["ingress-egress"] = params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
-			{MACAddress: "00:11:22:33:44:33",
+			{
+				MACAddress:    "00:11:22:33:44:33",
 				InterfaceName: "eth3",
 				Addresses: []params.InterfaceAddress{
 					{
@@ -166,15 +171,17 @@ ingress-address: 10.20.1.42`[1:],
 		args:    []string{"known-extra"},
 		out: `
 bind-addresses:
-- macaddress: "00:11:22:33:44:22"
-  interfacename: eth2
+- mac-address: "00:11:22:33:44:22"
+  interface-name: eth2
   addresses:
   - hostname: ""
     address: 10.20.1.42
     cidr: 10.20.1.42/24
   - hostname: ""
     address: fc00::1
-    cidr: fc00::/64`[1:],
+    cidr: fc00::/64
+  macaddress: "00:11:22:33:44:22"
+  interfacename: eth2`[1:],
 	}, {
 		summary: "explicitly bound relation name given with single flag arg",
 		args:    []string{"known-relation", "--ingress-address"},
@@ -184,8 +191,8 @@ bind-addresses:
 		args:    []string{"known-relation"},
 		out: `
 bind-addresses:
-- macaddress: "00:11:22:33:44:00"
-  interfacename: eth0
+- mac-address: "00:11:22:33:44:00"
+  interface-name: eth0
   addresses:
   - hostname: ""
     address: 10.10.0.23
@@ -193,15 +200,19 @@ bind-addresses:
   - hostname: ""
     address: 192.168.1.111
     cidr: 192.168.1.0/24
-- macaddress: "00:11:22:33:44:11"
-  interfacename: eth1
+  macaddress: "00:11:22:33:44:00"
+  interfacename: eth0
+- mac-address: "00:11:22:33:44:11"
+  interface-name: eth1
   addresses:
   - hostname: ""
     address: 10.10.1.23
     cidr: 10.10.1.0/24
   - hostname: ""
     address: 192.168.2.111
-    cidr: 192.168.2.0/24`[1:],
+    cidr: 192.168.2.0/24
+  macaddress: "00:11:22:33:44:11"
+  interfacename: eth1`[1:],
 	}, {
 		summary: "no user requested binding falls back to binding address, with ingress-address arg",
 		args:    []string{"known-unbound", "--ingress-address"},
@@ -211,12 +222,14 @@ bind-addresses:
 		args:    []string{"known-unbound"},
 		out: `
 bind-addresses:
-- macaddress: "00:11:22:33:44:33"
-  interfacename: eth3
+- mac-address: "00:11:22:33:44:33"
+  interface-name: eth3
   addresses:
   - hostname: ""
     address: 10.33.1.8
-    cidr: 10.33.1.8/24`[1:],
+    cidr: 10.33.1.8/24
+  macaddress: "00:11:22:33:44:33"
+  interfacename: eth3`[1:],
 	}, {
 		summary: "explicit ingress and egress information",
 		args:    []string{"ingress-egress", "--ingress-address", "--bind-address", "--egress-subnets"},
@@ -231,12 +244,14 @@ ingress-address: 100.1.2.3`[1:],
 		args:    []string{"ingress-egress"},
 		out: `
 bind-addresses:
-- macaddress: "00:11:22:33:44:33"
-  interfacename: eth3
+- mac-address: "00:11:22:33:44:33"
+  interface-name: eth3
   addresses:
   - hostname: ""
     address: 10.33.1.8
     cidr: 10.33.1.8/24
+  macaddress: "00:11:22:33:44:33"
+  interfacename: eth3
 egress-subnets:
 - 192.168.1.0/8
 - 10.0.0.0/8

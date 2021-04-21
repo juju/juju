@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state/watcher"
@@ -406,7 +407,7 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL, charmSeries, ch
 	if err != nil {
 		return "", -1, errors.Annotatef(err, "cannot resolve charm or bundle %q", ch.Name)
 	}
-	resolvedChan := origin.CoreChannel().Normalize().String()
+	resolvedChan := origin.CharmChannel().Normalize().String()
 	rev := origin.Revision
 	if rev == nil {
 		return resolvedChan, -1, nil
@@ -417,23 +418,23 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL, charmSeries, ch
 // constructChannelAndOrigin attempts to construct a fully qualified channel
 // along with an origin that matches the hardware constraints and the charm url
 // source.
-func (h *bundleHandler) constructChannelAndOrigin(curl *charm.URL, charmSeries, charmChannel string, cons constraints.Value) (corecharm.Channel, commoncharm.Origin, error) {
-	var channel corecharm.Channel
+func (h *bundleHandler) constructChannelAndOrigin(curl *charm.URL, charmSeries, charmChannel string, cons constraints.Value) (charm.Channel, commoncharm.Origin, error) {
+	var channel charm.Channel
 	if charmChannel != "" {
 		var err error
-		if channel, err = corecharm.ParseChannelNormalize(charmChannel); err != nil {
-			return corecharm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
+		if channel, err = charm.ParseChannelNormalize(charmChannel); err != nil {
+			return charm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
 		}
 	}
 
 	platform, err := utils.DeducePlatform(cons, charmSeries, h.modelConstraints)
 	if err != nil {
-		return corecharm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
+		return charm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
 	}
 
 	origin, err := utils.DeduceOrigin(curl, channel, platform)
 	if err != nil {
-		return corecharm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
+		return charm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
 	}
 	return channel, origin, nil
 }
@@ -631,11 +632,11 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	}
 
 	// A channel is needed whether the risk is valid or not.
-	var channel corecharm.Channel
+	var channel charm.Channel
 	if charm.CharmHub.Matches(ch.Schema) {
 		channel = corecharm.DefaultChannel
 		if chParams.Channel != "" {
-			channel, err = corecharm.ParseChannelNormalize(chParams.Channel)
+			channel, err = charm.ParseChannelNormalize(chParams.Channel)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -830,11 +831,27 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 
 	// Figure out what series we need to deploy with.
-	supportedSeries := charmInfo.Meta.ComputedSeries()
+	supportedSeries, err := corecharm.ComputedSeries(charmInfo.Charm())
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if len(supportedSeries) == 0 && chID.URL.Series != "" {
 		supportedSeries = []string{chID.URL.Series}
 	}
 
+	charmSeries := chID.URL.Series
+	// If a format v1 charm has a url, but is a kubernetes charm then we need to
+	// add this to the list of supported series.
+	if corecharm.IsKubernetes(charmInfo.Charm()) {
+		switch corecharm.Format(charmInfo.Charm()) {
+		case corecharm.FormatV1:
+			charmSeries = series.Kubernetes.String()
+		case corecharm.FormatV2:
+			if p.Series == series.Kubernetes.String() {
+				p.Series = charmSeries
+			}
+		}
+	}
 	workloadSeries, err := supportedJujuSeries(h.clock.Now(), p.Series, h.modelConfig.ImageStream())
 	if err != nil {
 		return errors.Trace(err)
@@ -842,7 +859,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 
 	selector := seriesSelector{
 		seriesFlag:          p.Series,
-		charmURLSeries:      chID.URL.Series,
+		charmURLSeries:      charmSeries,
 		supportedSeries:     supportedSeries,
 		supportedJujuSeries: workloadSeries,
 		conf:                h.modelConfig,
@@ -850,7 +867,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		fromBundle:          true,
 	}
 	series, err := selector.charmSeries()
-	if err = charmValidationError(series, curl.Name, errors.Trace(err)); err != nil {
+	if err = charmValidationError(curl.Name, errors.Trace(err)); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -876,7 +893,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 			return errors.Trace(err)
 		}
 		// A channel is needed whether the risk is valid or not.
-		channel, _ := corecharm.MakeChannel(track, origin.Risk, "")
+		channel, _ := charm.MakeChannel(track, origin.Risk, "")
 		origin, err = utils.DeduceOrigin(chID.URL, channel, platform)
 		if err != nil {
 			return errors.Trace(err)
@@ -1489,14 +1506,14 @@ func (h *bundleHandler) topLevelMachine(id string) string {
 	return tag.Parent().Id()
 }
 
-func (h *bundleHandler) addOrigin(curl charm.URL, channel corecharm.Channel, origin commoncharm.Origin) {
+func (h *bundleHandler) addOrigin(curl charm.URL, channel charm.Channel, origin commoncharm.Origin) {
 	if _, ok := h.origins[curl]; !ok {
 		h.origins[curl] = make(map[string]commoncharm.Origin)
 	}
 	h.origins[curl][channel.Normalize().String()] = origin
 }
 
-func (h *bundleHandler) getOrigin(curl charm.URL, channel corecharm.Channel) (commoncharm.Origin, bool) {
+func (h *bundleHandler) getOrigin(curl charm.URL, channel charm.Channel) (commoncharm.Origin, bool) {
 	c, ok := h.origins[curl]
 	if !ok {
 		return commoncharm.Origin{}, false
@@ -1505,13 +1522,13 @@ func (h *bundleHandler) getOrigin(curl charm.URL, channel corecharm.Channel) (co
 	return o, ok
 }
 
-func constructNormalizedChannel(channel string) (corecharm.Channel, error) {
+func constructNormalizedChannel(channel string) (charm.Channel, error) {
 	if channel == "" {
-		return corecharm.Channel{}, nil
+		return charm.Channel{}, nil
 	}
-	ch, err := corecharm.ParseChannelNormalize(channel)
+	ch, err := charm.ParseChannelNormalize(channel)
 	if err != nil {
-		return corecharm.Channel{}, errors.Trace(err)
+		return charm.Channel{}, errors.Trace(err)
 	}
 	return ch, nil
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/config"
@@ -140,20 +139,6 @@ func SetupAgentLogging(context *loggo.Context, config agent.Config) {
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
-}
-
-// GetJujuVersion gets the version of the agent from agent's config file
-func GetJujuVersion(machineAgent string, dataDir string) (version.Number, error) {
-	agentConf := NewAgentConf(dataDir)
-	if err := agentConf.ReadConfig(machineAgent); err != nil {
-		err = errors.Annotate(err, "failed to read agent config file.")
-		return version.Number{}, err
-	}
-	config := agentConf.CurrentConfig()
-	if config == nil {
-		return version.Number{}, errors.Errorf("%s agent conf is not found", machineAgent)
-	}
-	return config.UpgradedToVersion(), nil
 }
 
 // AgentConfigWriter encapsulates disk I/O operations with the agent

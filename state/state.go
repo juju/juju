@@ -32,9 +32,11 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
@@ -1005,8 +1007,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO(embedded): handle systems
-	if err := validateCharmSeries(model.Type(), args.Series, args.Charm); err != nil {
+	if err := coremodel.ValidateModelTarget(coremodel.ModelType(model.Type()), args.Charm); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -1305,10 +1306,21 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) err
 		// in the URL, that series is the one and only supported
 		// series.
 		var supportedSeries []string
-		if series := args.Charm.URL().Series; series != "" {
-			supportedSeries = []string{series}
+		if cSeries := args.Charm.URL().Series; cSeries != "" {
+			supportedSeries = []string{cSeries}
+			// If a charm has a url, but is a kubernetes charm then we need to
+			// add this to the list of supported series.
+			if cSeries != series.Kubernetes.String() &&
+				(set.NewStrings(args.Charm.Meta().Series...).Contains(series.Kubernetes.String()) ||
+					len(args.Charm.Meta().Containers) > 0) {
+				supportedSeries = append(supportedSeries, series.Kubernetes.String())
+			}
 		} else {
-			supportedSeries = args.Charm.Meta().ComputedSeries()
+			var err error
+			supportedSeries, err = corecharm.ComputedSeries(args.Charm)
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 		if len(supportedSeries) > 0 {
 			// TODO(embedded): handle computed series
@@ -2020,7 +2032,10 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				if !ep.ImplementedBy(ch) {
 					return nil, errors.Errorf("%q does not implement %q", ep.ApplicationName, ep)
 				}
-				charmSeries := ch.Meta().ComputedSeries()
+				charmSeries, err := corecharm.ComputedSeries(ch)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
 				if len(charmSeries) == 0 {
 					charmSeries = []string{localApp.doc.Series}
 				}

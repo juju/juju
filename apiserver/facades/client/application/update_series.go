@@ -131,7 +131,10 @@ func (s stateSeriesValidator) ValidateApplication(application Application, serie
 	if err != nil {
 		return errors.Trace(err)
 	}
-	supportedSeries := ch.Meta().ComputedSeries()
+	supportedSeries, err := corecharm.ComputedSeries(ch)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if len(supportedSeries) == 0 {
 		supportedSeries = append(supportedSeries, ch.URL().Series)
 	}
@@ -159,12 +162,12 @@ func (s charmhubSeriesValidator) ValidateApplication(application Application, se
 		return errors.Errorf("no revision found for application %q", application.Name())
 	}
 
-	platform := charmhub.RefreshPlatform{
+	base := charmhub.RefreshBase{
 		Architecture: origin.Platform.Architecture,
-		OS:           origin.Platform.OS,
-		Series:       series,
+		Name:         origin.Platform.OS,
+		Channel:      series,
 	}
-	cfg, err := charmhub.DownloadOneFromRevision(origin.ID, *rev, platform)
+	cfg, err := charmhub.DownloadOneFromRevision(origin.ID, *rev, base)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -156,10 +156,10 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 		ChannelMap: []transport.InfoChannelMap{{
 			Channel: transport.Channel{
 				Name: "latest/stable",
-				Platform: transport.Platform{
+				Base: transport.Base{
 					Architecture: "all",
-					OS:           "ubuntu",
-					Series:       "bionic",
+					Name:         "ubuntu",
+					Channel:      "18.04",
 				},
 				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
 				Risk:       "stable",
@@ -174,10 +174,10 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 					URL:        "https://api.snapcraft.io/api/v1/snaps/download/QLLfVfIKfcnTZiPFnmGcigB2vB605ZY7_16.snap",
 				},
 				MetadataYAML: "name: myname\nversion: 1.0.3\nsummary: A charm or bundle.\ndescription: |\n  This will install and setup services optimized to run in the cloud.\n  By default it will place Ngnix configured to scale horizontally\n  with Nginx's reverse proxy.\n",
-				Platforms: []transport.Platform{{
+				Bases: []transport.Base{{
 					Architecture: "all",
-					OS:           "ubuntu",
-					Series:       "bionic",
+					Name:         "ubuntu",
+					Channel:      "18.04",
 				}},
 				Revision: 16,
 				Version:  "1.0.3",
@@ -203,10 +203,10 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 		DefaultRelease: transport.InfoChannelMap{
 			Channel: transport.Channel{
 				Name: "latest/stable",
-				Platform: transport.Platform{
+				Base: transport.Base{
 					Architecture: "all",
-					OS:           "ubuntu",
-					Series:       "bionic",
+					Name:         "ubuntu",
+					Channel:      "18.04",
 				},
 				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
 				Risk:       "stable",
@@ -221,10 +221,10 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 					URL:        "https://api.snapcraft.io/api/v1/snaps/download/QLLfVfIKfcnTZiPFnmGcigB2vB605ZY7_16.snap",
 				},
 				MetadataYAML: "name: myname\nversion: 1.0.3\nsummary: A charm or bundle.\ndescription: |\n  This will install and setup services optimized to run in the cloud.\n  By default it will place Ngnix configured to scale horizontally\n  with Nginx's reverse proxy.\n",
-				Platforms: []transport.Platform{{
+				Bases: []transport.Base{{
 					Architecture: "all",
-					OS:           "ubuntu",
-					Series:       "bionic",
+					Name:         "ubuntu",
+					Channel:      "18.04",
 				}},
 				Revision: 16,
 				Version:  "1.0.3",

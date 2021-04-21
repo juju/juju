@@ -13,6 +13,7 @@ import (
 
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/pki"
 	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -105,7 +106,7 @@ func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 	})
 	workertest.CleanKill(c, worker)
 
-	leaf, err := authority.LeafForGroup(certupdater.ControllerIPLeafGroup)
+	leaf, err := authority.LeafForGroup(pki.ControllerIPLeafGroup)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(leaf.Certificate().IPAddresses, coretesting.IPsEqual,
 		[]net.IP{net.ParseIP("192.168.1.1")})
@@ -126,7 +127,7 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 	// Certificate should be updated with the address value.
 
 	workertest.CleanKill(c, worker)
-	leaf, err := authority.LeafForGroup(certupdater.ControllerIPLeafGroup)
+	leaf, err := authority.LeafForGroup(pki.ControllerIPLeafGroup)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(leaf.Certificate().IPAddresses, coretesting.IPsEqual,
 		[]net.IP{net.ParseIP("0.1.2.3")})

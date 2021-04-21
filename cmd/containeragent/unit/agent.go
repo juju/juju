@@ -52,7 +52,6 @@ type containerUnitAgent struct {
 	clk              clock.Clock
 	runner           *worker.Runner
 	bufferedLogger   *logsender.BufferedLogWriter
-	setupLogging     func(agent.Config) error
 	ctx              *cmd.Context
 	dead             chan struct{}
 	errReason        error
@@ -187,8 +186,10 @@ func (c *containerUnitAgent) Init(args []string) error {
 	if err := c.ensureToolSymlinks(srcDir, dataDir, unitTag); err != nil {
 		return errors.Annotate(err, "ensuring agent tool symlinks")
 	}
-
-	c.containerNames = strings.Split(c.environment.Getenv("JUJU_CONTAINER_NAMES"), ",")
+	containerNames := c.environment.Getenv("JUJU_CONTAINER_NAMES")
+	if len(containerNames) > 0 {
+		c.containerNames = strings.Split(containerNames, ",")
+	}
 	return nil
 }
 

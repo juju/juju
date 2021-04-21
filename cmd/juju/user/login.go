@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -362,10 +363,16 @@ func (c *loginCommand) publicControllerLogin(
 			dialOpts.BakeryClient.AddInteractor(i)
 		}
 
+		sniHost, _, err := net.SplitHostPort(host)
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting sni host from host %q", host)
+		}
+
 		return apiOpen(&c.CommandBase, &api.Info{
-			Tag:      tag,
-			Password: d.Password,
-			Addrs:    []string{host},
+			Tag:         tag,
+			Password:    d.Password,
+			Addrs:       []string{host},
+			SNIHostName: sniHost,
 		}, dialOpts)
 	}
 	conn, accountDetails, err := c.login(ctx, currentAccountDetails, dial)

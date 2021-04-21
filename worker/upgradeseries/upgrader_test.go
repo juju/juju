@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgradeseries"
 	. "github.com/juju/juju/worker/upgradeseries/mocks"
 )
@@ -34,56 +33,6 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	s.machineService = "jujud-machine-0"
 }
 
-func (s *upgraderSuite) TestNotToSystemdCopyToolsOnly(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.setupMocks(ctrl)
-
-	s.patchFrom("precise")
-
-	// No systemd file changes; just the new tools for the target series.
-	s.manager.EXPECT().CopyAgentBinary(
-		s.machineService, paths.NixDataDir, "trusty", "precise", version.Current,
-	).Return(nil)
-
-	upg := s.newUpgrader(c, "precise", "trusty")
-	c.Assert(upg.PerformUpgrade(), jc.ErrorIsNil)
-}
-
-func (s *upgraderSuite) TestFromSystemdCopyToolsOnly(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.setupMocks(ctrl)
-
-	s.patchFrom("xenial")
-
-	// No systemd file changes; just the new tools for the target series.
-	s.manager.EXPECT().CopyAgentBinary(
-		s.machineService, paths.NixDataDir, "bionic", "xenial", version.Current,
-	).Return(nil)
-
-	upg := s.newUpgrader(c, "xenial", "bionic")
-	c.Assert(upg.PerformUpgrade(), jc.ErrorIsNil)
-}
-
-func (s *upgraderSuite) TestFromSystemdCopyToolsForAlreadyUpgradedMachine(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.setupMocks(ctrl)
-
-	// Actual series is Bionic.
-	s.patchFrom("bionic")
-
-	// No systemd file changes; just the new tools for the target series.
-	s.manager.EXPECT().CopyAgentBinary(
-		s.machineService, paths.NixDataDir, "bionic", "xenial", version.Current,
-	).Return(nil)
-
-	// Juju thinks the machine is Xenial.
-	upg := s.newUpgrader(c, "xenial", "bionic")
-	c.Assert(upg.PerformUpgrade(), jc.ErrorIsNil)
-}
-
 func (s *upgraderSuite) TestToSystemdServicesWritten(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -93,10 +42,6 @@ func (s *upgraderSuite) TestToSystemdServicesWritten(c *gc.C) {
 
 	s.manager.EXPECT().WriteSystemdAgent(
 		s.machineService, paths.NixDataDir, systemd.EtcSystemdMultiUserDir,
-	).Return(nil)
-
-	s.manager.EXPECT().CopyAgentBinary(
-		s.machineService, paths.NixDataDir, "xenial", "trusty", version.Current,
 	).Return(nil)
 
 	upg := s.newUpgrader(c, "trusty", "xenial")

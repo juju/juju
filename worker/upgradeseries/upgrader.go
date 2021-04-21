@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/systemd"
-	"github.com/juju/juju/version"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/servicemanager_mock.go github.com/juju/juju/service SystemdServiceManager
@@ -84,11 +83,7 @@ func (u *upgrader) PerformUpgrade() error {
 		return errors.Trace(err)
 	}
 
-	if err := u.ensureSystemdFiles(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return errors.Trace(u.ensureAgentBinaries())
+	return errors.Trace(u.ensureSystemdFiles())
 }
 
 // populateAgents discovers and sets the names of the machine and unit agents.
@@ -117,21 +112,4 @@ func (u *upgrader) ensureSystemdFiles() error {
 	return errors.Annotatef(
 		u.manager.WriteSystemdAgent(u.machineAgent, paths.NixDataDir, systemdMultiUserDir),
 		"writing machine agent")
-}
-
-// ensureAgentBinaries ensures that the jujud binary and links exist in the
-// right tools path for the target OS series, and that individual agents use
-// those files.
-func (u *upgrader) ensureAgentBinaries() error {
-	// Here we pass what Juju *thinks* the current series is, because that is
-	// where we expect the agent binaries to be.
-	// If was pass the machine-detected series for a machine upgraded outside
-	// of this workflow, the binaries will not be found.
-	if err := u.manager.CopyAgentBinary(
-		u.machineAgent, paths.NixDataDir, u.toSeries, u.jujuCurrentSeries, version.Current); err != nil {
-		return errors.Trace(err)
-	}
-
-	u.logger.Infof("copied agent binaries for series %q", u.toSeries)
-	return nil
 }

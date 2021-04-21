@@ -122,6 +122,43 @@ func (s *containerUnitAgentSuite) TestParseSuccess(c *gc.C) {
 	c.Assert(s.cmd.CurrentConfig().Controller().String(), jc.DeepEquals, `controller-deadbeef-1bad-500d-9000-4b1d0d06f00d`)
 	c.Assert(s.cmd.CurrentConfig().Model().String(), jc.DeepEquals, `model-deadbeef-0bad-400d-8000-4b1d0d06f00d`)
 	c.Assert(s.cmd.CharmModifiedVersion(), gc.Equals, 10)
+	c.Assert(s.cmd.GetContainerNames(), jc.DeepEquals, []string{"a", "b", "c"})
+}
+
+func (s *containerUnitAgentSuite) TestParseSuccessNoContainer(c *gc.C) {
+	ctrl := s.setupCommand(c, nil)
+	defer ctrl.Finish()
+
+	_ = s.prepareAgentConf(c, "wordpress")
+
+	toolsDir := filepath.Join(s.dataDir, "tools", "unit-wordpress-0")
+	gomock.InOrder(
+		s.environment.EXPECT().ExpandEnv("$PATH:test-bin").Return("old-path:test-bin"),
+		s.environment.EXPECT().Setenv("PATH", "old-path:test-bin").Return(nil),
+		s.environment.EXPECT().Unsetenv("DELETE").Return(nil),
+		s.fileReaderWriter.EXPECT().RemoveAll(toolsDir).Return(nil),
+		s.fileReaderWriter.EXPECT().MkdirAll(toolsDir, os.FileMode(0755)).Return(nil),
+		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.ContainerAgent)).Return(nil),
+		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.JujuExec)).Return(nil),
+		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.JujuIntrospect)).Return(nil),
+		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.Jujuc)).Return(nil),
+		s.environment.EXPECT().Getenv("JUJU_CONTAINER_NAMES").Return(""),
+	)
+
+	err := cmdtesting.InitCommand(s.cmd, []string{
+		"--data-dir", s.dataDir,
+		"--charm-modified-version", "10",
+		"--append-env", "PATH=$PATH:test-bin",
+		"--append-env", "DELETE=",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.cmd.DataDir(), gc.Equals, s.dataDir)
+	c.Assert(s.cmd.Tag().String(), jc.DeepEquals, `unit-wordpress-0`)
+	c.Assert(s.cmd.CurrentConfig().Controller().String(), jc.DeepEquals, `controller-deadbeef-1bad-500d-9000-4b1d0d06f00d`)
+	c.Assert(s.cmd.CurrentConfig().Model().String(), jc.DeepEquals, `model-deadbeef-0bad-400d-8000-4b1d0d06f00d`)
+	c.Assert(s.cmd.CharmModifiedVersion(), gc.Equals, 10)
+	c.Assert(len(s.cmd.GetContainerNames()), gc.Equals, 0)
 }
 
 func (s *containerUnitAgentSuite) TestParseUnknown(c *gc.C) {

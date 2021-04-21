@@ -8,7 +8,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v9"
 	charm0 "github.com/juju/juju/api/common/charm"
-	"gopkg.in/macaroon.v2"
+	macaroon "gopkg.in/macaroon.v2"
 	reflect "reflect"
 )
 

@@ -34,7 +34,7 @@ var facadeVersions = map[string]int{
 	"CAASOperator":                 1,
 	"CAASOperatorProvisioner":      1,
 	"CAASOperatorUpgrader":         1,
-	"CAASUnitProvisioner":          1,
+	"CAASUnitProvisioner":          2,
 	"CharmHub":                     1,
 	"CharmRevisionUpdater":         2,
 	"Charms":                       4,

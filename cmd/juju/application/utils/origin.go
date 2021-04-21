@@ -19,7 +19,7 @@ import (
 // DeduceOrigin attempts to deduce the origin from a channel and a platform.
 // Depending on what the charm URL schema is, will then construct the correct
 // origin for that application.
-func DeduceOrigin(url *charm.URL, channel corecharm.Channel, platform corecharm.Platform) (commoncharm.Origin, error) {
+func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Platform) (commoncharm.Origin, error) {
 	if url == nil {
 		return commoncharm.Origin{}, errors.NotValidf("charm url")
 	}

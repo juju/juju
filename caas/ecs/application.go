@@ -710,3 +710,7 @@ func (a *app) handleErr(err error) error {
 func (a *app) Scale(scaleTo int) error {
 	return errors.NotImplementedf("scale with ecs")
 }
+
+func (a *app) Trust(bool) error {
+	return errors.NotImplementedf("trust with ecs")
+}

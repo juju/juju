@@ -11,12 +11,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/charm/v9"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
-	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -110,7 +110,8 @@ func (api *CharmHubAPI) Info(ctx context.Context, arg params.Info) (params.Charm
 	if err != nil {
 		return params.CharmHubEntityInfoResult{}, errors.Trace(err)
 	}
-	return params.CharmHubEntityInfoResult{Result: convertCharmInfoResult(info)}, nil
+	result, err := convertCharmInfoResult(info)
+	return params.CharmHubEntityInfoResult{Result: result}, err
 }
 
 // Find queries the CharmHub API with a given entity ID.

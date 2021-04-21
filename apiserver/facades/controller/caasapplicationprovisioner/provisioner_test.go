@@ -12,8 +12,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/systems"
-	"github.com/juju/systems/channel"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -183,12 +181,13 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectStateful(c *gc.C) {
 				Deployment: &charm.Deployment{
 					DeploymentType: charm.DeploymentStateful,
 				},
+			},
+			manifest: &charm.Manifest{
 				// charm.FormatV2.
-				Bases: []systems.Base{
+				Bases: []charm.Base{
 					{
 						Name: "ubuntu",
-						Channel: channel.Channel{
-							Name:  "20.04/stable",
+						Channel: charm.Channel{
 							Risk:  "stable",
 							Track: "20.04",
 						},
@@ -256,12 +255,13 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectDeployment(c *gc.C) 
 				Deployment: &charm.Deployment{
 					DeploymentType: charm.DeploymentStateless,
 				},
+			},
+			manifest: &charm.Manifest{
 				// charm.FormatV2.
-				Bases: []systems.Base{
+				Bases: []charm.Base{
 					{
 						Name: "ubuntu",
-						Channel: channel.Channel{
-							Name:  "20.04/stable",
+						Channel: charm.Channel{
 							Risk:  "stable",
 							Track: "20.04",
 						},
@@ -329,12 +329,13 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectDaemon(c *gc.C) {
 				Deployment: &charm.Deployment{
 					DeploymentType: charm.DeploymentDaemon,
 				},
+			},
+			manifest: &charm.Manifest{
 				// charm.FormatV2.
-				Bases: []systems.Base{
+				Bases: []charm.Base{
 					{
 						Name: "ubuntu",
-						Channel: channel.Channel{
-							Name:  "20.04/stable",
+						Channel: charm.Channel{
 							Risk:  "stable",
 							Track: "20.04",
 						},
@@ -404,12 +405,13 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectForced(c *gc.C) {
 				Deployment: &charm.Deployment{
 					DeploymentType: charm.DeploymentDaemon,
 				},
+			},
+			manifest: &charm.Manifest{
 				// charm.FormatV2.
-				Bases: []systems.Base{
+				Bases: []charm.Base{
 					{
 						Name: "ubuntu",
-						Channel: channel.Channel{
-							Name:  "20.04/stable",
+						Channel: charm.Channel{
 							Risk:  "stable",
 							Track: "20.04",
 						},
@@ -551,12 +553,13 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 				Deployment: &charm.Deployment{
 					DeploymentType: charm.DeploymentStateful,
 				},
+			},
+			manifest: &charm.Manifest{
 				// charm.FormatV2.
-				Bases: []systems.Base{
+				Bases: []charm.Base{
 					{
 						Name: "ubuntu",
-						Channel: channel.Channel{
-							Name:  "20.04/stable",
+						Channel: charm.Channel{
 							Risk:  "stable",
 							Track: "20.04",
 						},
@@ -734,12 +737,13 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStor
 				Deployment: &charm.Deployment{
 					DeploymentType: charm.DeploymentStateful,
 				},
+			},
+			manifest: &charm.Manifest{
 				// charm.FormatV2.
-				Bases: []systems.Base{
+				Bases: []charm.Base{
 					{
 						Name: "ubuntu",
-						Channel: channel.Channel{
-							Name:  "20.04/stable",
+						Channel: charm.Channel{
 							Risk:  "stable",
 							Track: "20.04",
 						},

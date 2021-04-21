@@ -28,6 +28,7 @@ func fakeConfigAttrs(attrs ...testing.Attrs) testing.Attrs {
 		"external-network":          "",
 		"enable-disk-uuid":          true,
 		"force-vm-hardware-version": 0,
+		"disk-provisioning-type":    "",
 	})
 	for _, attrs := range attrs {
 		merged = merged.Merge(attrs)
@@ -121,11 +122,23 @@ func (ts configTestSpec) newConfig(c *gc.C) *config.Config {
 	return cfg
 }
 
-var newConfigTests = []configTestSpec{{
-	info:   "unknown field is not touched",
-	insert: testing.Attrs{"unknown-field": "12345"},
-	expect: testing.Attrs{"unknown-field": "12345"},
-}}
+var newConfigTests = []configTestSpec{
+	{
+		info:   "unknown field is not touched",
+		insert: testing.Attrs{"unknown-field": "12345"},
+		expect: testing.Attrs{"unknown-field": "12345"},
+	},
+	{
+		info:   "use thick disk provisioning",
+		insert: testing.Attrs{"disk-provisioning-type": "thick"},
+		expect: testing.Attrs{"disk-provisioning-type": "thick"},
+	},
+	{
+		info:   "set invalid disk provisioning",
+		insert: testing.Attrs{"disk-provisioning-type": "eroneous"},
+		err:    "\"disk-provisioning-type\" must be one of.*",
+	},
+}
 
 func (*ConfigSuite) TestNewModelConfig(c *gc.C) {
 	for i, test := range newConfigTests {
@@ -185,7 +198,7 @@ func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 				continue
 			}
 
-			c.Check(err, jc.ErrorIsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			// We verify that Validate filled in the defaults
 			// appropriately.
 			c.Check(validatedConfig, gc.NotNil)

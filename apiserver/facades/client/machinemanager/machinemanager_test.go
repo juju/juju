@@ -1254,10 +1254,18 @@ func (a *mockCharm) URL() *charm.URL {
 	return nil
 }
 
-func (a *mockCharm) Meta() machinemanager.CharmMeta {
+func (a *mockCharm) Meta() *charm.Meta {
 	a.MethodCall(a, "Meta")
 	if a.meta == nil {
-		return &mockMeta{series: []string{"xenial"}}
+		return &charm.Meta{Series: []string{"xenial"}}
+	}
+	return nil
+}
+
+func (a *mockCharm) Manifest() *charm.Manifest {
+	a.MethodCall(a, "Manifest")
+	if a.meta == nil {
+		return &charm.Manifest{}
 	}
 	return nil
 }

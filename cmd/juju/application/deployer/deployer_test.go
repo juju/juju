@@ -26,8 +26,8 @@ import (
 	"github.com/juju/juju/api/resources/client"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -58,6 +58,7 @@ func (s *deployerSuite) SetUpTest(_ *gc.C) {
 func (s *deployerSuite) TestGetDeployerPredeployedLocalCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectFilesystem()
+	s.expectModelType()
 
 	cfg := s.basicDeployerConfig()
 	ch := charm.MustParseURL("local:test-charm")
@@ -106,6 +107,7 @@ func (s *deployerSuite) TestGetDeployerLocalCharmError(c *gc.C) {
 func (s *deployerSuite) TestGetDeployerCharmStoreCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectFilesystem()
+	s.expectModelType()
 	// NotValid ensures that maybeReadRepositoryBundle won't find
 	// charmOrBundle is a bundle.
 	s.expectResolveBundleURL(errors.NotValidf("not a bundle"), 1)
@@ -124,6 +126,7 @@ func (s *deployerSuite) TestGetDeployerCharmStoreCharm(c *gc.C) {
 func (s *deployerSuite) TestCharmStoreSeriesOverride(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectFilesystem()
+	s.expectModelType()
 	s.expectResolveBundleURL(errors.NotValidf("not a bundle"), 1)
 
 	cfg := s.basicDeployerConfig()
@@ -280,6 +283,51 @@ func (s *deployerSuite) TestResolveAndValidateCharmURL(c *gc.C) {
 	}
 }
 
+func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployCAAS(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelCommand.EXPECT().ModelType().Return(model.CAAS, nil).AnyTimes()
+
+	f := &factory{
+		model: s.modelCommand,
+	}
+
+	err := f.validateResourcesNeededForLocalDeploy(&charm.Meta{
+		Series: []string{series.Kubernetes.String()},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployIAAS(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelCommand.EXPECT().ModelType().Return(model.IAAS, nil).AnyTimes()
+
+	f := &factory{
+		model: s.modelCommand,
+	}
+
+	err := f.validateResourcesNeededForLocalDeploy(&charm.Meta{
+		Series: []string{series.Kubernetes.String()},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployCAASWithIAAS(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelCommand.EXPECT().ModelType().Return(model.CAAS, nil).AnyTimes()
+
+	f := &factory{
+		model: s.modelCommand,
+	}
+
+	err := f.validateResourcesNeededForLocalDeploy(&charm.Meta{
+		Series: []string{series.Focal.String()},
+	})
+	c.Assert(err, gc.ErrorMatches, `expected container-based charm metadata, unexpected series or base`)
+}
+
 func (s *deployerSuite) makeBundleDir(c *gc.C, content string) string {
 	bundlePath := filepath.Join(c.MkDir(), "example")
 	c.Assert(os.Mkdir(bundlePath, 0777), jc.ErrorIsNil)
@@ -320,7 +368,7 @@ func (s *deployerSuite) basicDeployerConfig() DeployerConfig {
 func (s *deployerSuite) channelDeployerConfig() DeployerConfig {
 	return DeployerConfig{
 		Series: "focal",
-		Channel: corecharm.Channel{
+		Channel: charm.Channel{
 			Risk: "edge",
 		},
 	}
@@ -338,17 +386,6 @@ func (s *deployerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.modelConfigGetter = mocks.NewMockModelConfigGetter(ctrl)
 	s.deployStep = &fakeDeployStep{}
 	return ctrl
-}
-
-func (s *deployerSuite) expectResolveCharm(err error, times int) {
-	s.resolver.EXPECT().ResolveCharm(
-		gomock.AssignableToTypeOf(&charm.URL{}),
-		gomock.AssignableToTypeOf(commoncharm.Origin{}),
-	).DoAndReturn(
-		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, origin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error) {
-			return curl, origin, []string{"bionic", "focal", "xenial"}, err
-		}).Times(times)
 }
 
 func (s *deployerSuite) expectResolveBundleURL(err error, times int) {

@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
@@ -165,7 +164,7 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 					curl, origin.Revision, origin.Channel, origin.Platform)
 				continue
 			}
-			channel, err := corecharm.MakeChannel(origin.Channel.Track, origin.Channel.Risk, origin.Channel.Branch)
+			channel, err := charm.MakeChannel(origin.Channel.Track, origin.Channel.Risk, origin.Channel.Branch)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

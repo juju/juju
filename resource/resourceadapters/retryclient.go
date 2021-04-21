@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 
 	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/resource/repositories"
 )
 

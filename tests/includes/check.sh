@@ -4,11 +4,11 @@ check_dependencies() {
 
 	for dep in "$@"; do
 		if ! which "$dep" >/dev/null 2>&1; then
-			[ "$missing" ] && missing="$missing $dep" || missing="$dep"
+			[[ "$missing" ]] && missing="$missing, $dep" || missing="$dep"
 		fi
 	done
 
-	if [ "$missing" ]; then
+	if [[ "$missing" ]]; then
 		echo "Missing dependencies: $missing" >&2
 		echo ""
 		exit 1
@@ -21,12 +21,12 @@ check_juju_dependencies() {
 
 	for dep in "$@"; do
 		if ! juju "$dep" >/dev/null 2>&1; then
-			[ "$missing" ] && missing="$missing $dep" || missing="$dep"
+			[[ "$missing" ]] && missing="$missing, juju $dep" || missing="juju $dep"
 		fi
 	done
 
-	if [ "$missing" ]; then
-		echo "Missing dependencies: $missing" >&2
+	if [[ "$missing" ]]; then
+		echo "Missing juju commands: $missing" >&2
 		echo ""
 		exit 1
 	fi
@@ -42,7 +42,7 @@ check_not_contains() {
 	shift
 
 	chk=$(echo "${input}" | grep "${value}" || true)
-	if [ -n "${chk}" ]; then
+	if [[ -n ${chk} ]]; then
 		printf "Unexpected \"${value}\" found\n\n%s\n" "${input}" >&2
 		exit 1
 	else
@@ -60,7 +60,7 @@ check_contains() {
 	shift
 
 	chk=$(echo "${input}" | grep "${value}" || true)
-	if [ -z "${chk}" ]; then
+	if [[ -z ${chk} ]]; then
 		printf "Expected \"%s\" not found\n\n%s\n" "${value}" "${input}" >&2
 		exit 1
 	else
@@ -78,7 +78,7 @@ check_gt() {
 	shift
 
 	if [[ ${input} > ${value} ]]; then
-		echo 'Success: "%s" > "%s"' "${input}" "${value}" >&2
+		printf "Success: \"%s\" > \"%s\"\n" "${input}" "${value}" >&2
 	else
 		printf "Expected \"%s\" > \"%s\"\n" "${input}" "${value}" >&2
 		exit 1
@@ -100,7 +100,7 @@ check() {
 	done
 
 	OUT=$(echo "${got}" | grep -E "${want}" || echo "(NOT FOUND)")
-	if [ "${OUT}" == "(NOT FOUND)" ]; then
+	if [[ ${OUT} == "(NOT FOUND)" ]]; then
 		echo "" >&2
 		# shellcheck disable=SC2059
 		printf "$(red \"Expected\"): ${want}\n" >&2

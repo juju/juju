@@ -593,10 +593,10 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 		if curl.Revision != -1 {
 			rev = &curl.Revision
 		}
-		var ch *corecharm.Channel
+		var ch *charm.Channel
 		if charmStoreChannel != "" {
-			ch = &corecharm.Channel{
-				Risk: corecharm.Risk(charmStoreChannel),
+			ch = &charm.Channel{
+				Risk: charm.Risk(charmStoreChannel),
 			}
 		}
 		return corecharm.Origin{
@@ -622,8 +622,8 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 	// We do guarantee that there will be a risk value.
 	// Ignore the error, as only caused by risk as an
 	// empty string.
-	var channel *corecharm.Channel
-	if ch, err := corecharm.MakeChannel(track, origin.Risk, ""); err == nil {
+	var channel *charm.Channel
+	if ch, err := charm.MakeChannel(track, origin.Risk, ""); err == nil {
 		channel = &ch
 	}
 
@@ -2338,7 +2338,7 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 		origin := app.CharmOrigin()
 		if origin != nil && origin.Channel != nil {
 			ch := origin.Channel
-			channel = corecharm.MakePermissiveChannel(ch.Track, ch.Risk, ch.Branch).String()
+			channel = charm.MakePermissiveChannel(ch.Track, ch.Risk, ch.Branch).String()
 		} else {
 			channel = details.Channel
 		}

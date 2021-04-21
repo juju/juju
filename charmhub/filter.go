@@ -17,9 +17,9 @@ func appendFilterList(value string, filters []string) []string {
 
 var defaultChannelFilter = []string{
 	"channel.name",
-	"channel.platform.architecture",
-	"channel.platform.os",
-	"channel.platform.series",
+	"channel.base.architecture",
+	"channel.base.name",
+	"channel.base.channel",
 	"channel.released-at",
 	"channel.risk",
 	"channel.track",

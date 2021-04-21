@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	"github.com/juju/systems"
 	"github.com/juju/utils/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
@@ -22,8 +21,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -107,8 +108,7 @@ func (a *appWorker) loop() error {
 		return errors.Annotatef(err, "failed to get application charm deployment metadata for %q", a.name)
 	}
 	if charmInfo == nil ||
-		charmInfo.Meta == nil ||
-		charmInfo.Meta.Format() < charm.FormatV2 {
+		corecharm.Format(charmInfo.Charm()) < corecharm.FormatV2 {
 		return errors.Errorf("charm version 2 or greater required")
 	}
 
@@ -138,6 +138,15 @@ func (a *appWorker) loop() error {
 
 	if err := a.catacomb.Add(appScaleWatcher); err != nil {
 		return errors.Annotatef(err, "failed to watch for application %q scale changes", a.name)
+	}
+
+	appTrustWatcher, err := a.unitFacade.WatchApplicationTrustHash(a.name)
+	if err != nil {
+		return errors.Annotatef(err, "creating application %q trust watcher", a.name)
+	}
+
+	if err := a.catacomb.Add(appTrustWatcher); err != nil {
+		return errors.Annotatef(err, "failed to watch for application %q trust changes", a.name)
 	}
 
 	done := false
@@ -208,6 +217,13 @@ func (a *appWorker) loop() error {
 				return fmt.Errorf("application %q scale watcher closed channel", a.name)
 			}
 			if err := a.ensureScale(app); err != nil {
+				return err
+			}
+		case _, ok := <-appTrustWatcher.Changes():
+			if !ok {
+				return fmt.Errorf("application %q trust watcher closed channel", a.name)
+			}
+			if err := a.ensureTrust(app); err != nil {
 				return err
 			}
 		case <-a.catacomb.Dying():
@@ -379,12 +395,30 @@ func (a *appWorker) ensureScale(app caas.Application) error {
 	return nil
 }
 
+func (a *appWorker) ensureTrust(app caas.Application) error {
+	desiredTrust, err := a.unitFacade.ApplicationTrust(a.name)
+	if err != nil {
+		return errors.Annotatef(err, "fetching application %q desired trust", a.name)
+	}
+
+	a.logger.Debugf("updating application %q trust to %v", a.name, desiredTrust)
+	if err := app.Trust(desiredTrust); err != nil {
+		return errors.Annotatef(
+			err,
+			"updating application %q to desired trust %v",
+			a.name,
+			desiredTrust)
+	}
+
+	return nil
+}
+
 func (a *appWorker) alive(app caas.Application) error {
 	a.logger.Debugf("ensuring application %q exists", a.name)
 
 	provisionInfo, err := a.facade.ProvisioningInfo(a.name)
 	if err != nil {
-		return errors.Annotate(err, "failed to get provisioning info")
+		return errors.Annotate(err, "retrieving provisioning info")
 	}
 	if provisionInfo.CharmURL == nil {
 		return errors.Errorf("missing charm url in provision info")
@@ -392,12 +426,12 @@ func (a *appWorker) alive(app caas.Application) error {
 
 	charmInfo, err := a.facade.CharmInfo(provisionInfo.CharmURL.String())
 	if err != nil {
-		return errors.Annotatef(err, "failed to get application charm deployment metadata for %q", a.name)
+		return errors.Annotatef(err, "retrieving charm deployment info for %q", a.name)
 	}
 
 	appState, err := app.Exists()
 	if err != nil {
-		return errors.Annotatef(err, "failed get application state for %q", a.name)
+		return errors.Annotatef(err, "retrieving application state for %q", a.name)
 	}
 
 	if appState.Exists && appState.Terminating {
@@ -408,19 +442,30 @@ func (a *appWorker) alive(app caas.Application) error {
 
 	images, err := a.facade.ApplicationOCIResources(a.name)
 	if err != nil {
-		return errors.Annotate(err, "failed to get oci image resources")
+		return errors.Annotate(err, "getting OCI image resources")
 	}
 
-	base, err := systems.ParseBaseFromSeries(provisionInfo.Series)
+	os, err := series.GetOSFromSeries(provisionInfo.Series)
 	if err != nil {
-		return errors.Annotate(err, "failed to parse series as a system")
+		return errors.Trace(err)
+	}
+
+	ver, err := series.SeriesVersion(provisionInfo.Series)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	ch := charmInfo.Charm()
 	charmBaseImage := resources.DockerImageDetails{}
-	charmBaseImage.RegistryPath, err = podcfg.ImageForBase(provisionInfo.ImageRepo, base)
+	charmBaseImage.RegistryPath, err = podcfg.ImageForBase(provisionInfo.ImageRepo, charm.Base{
+		Name: strings.ToLower(os.String()),
+		Channel: charm.Channel{
+			Track: ver,
+			Risk:  charm.Stable,
+		},
+	})
 	if err != nil {
-		return errors.Annotate(err, "failed to get image for system")
+		return errors.Annotate(err, "getting image for base")
 	}
 
 	containers := make(map[string]caas.ContainerConfig)

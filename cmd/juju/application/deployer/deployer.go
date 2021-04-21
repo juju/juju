@@ -16,6 +16,7 @@ import (
 	"github.com/juju/charm/v9/resource"
 	"github.com/juju/charmrepo/v7"
 	jujuclock "github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
@@ -30,6 +31,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
@@ -124,7 +126,7 @@ type DeployerConfig struct {
 	BundleMachines       map[string]string
 	BundleOverlayFile    []string
 	BundleStorage        map[string]map[string]storage.Constraints
-	Channel              corecharm.Channel
+	Channel              charm.Channel
 	CharmOrBundle        string
 	ConfigOptions        common.ConfigFlag
 	ConstraintsStr       string
@@ -160,7 +162,7 @@ type factory struct {
 	attachStorage     []string
 	charmOrBundle     string
 	bundleOverlayFile []string
-	channel           corecharm.Channel
+	channel           charm.Channel
 	series            string
 	force             bool
 	dryRun            bool
@@ -299,26 +301,26 @@ func (d *factory) newDeployBundle(ds charm.BundleDataSource) deployBundle {
 
 func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error) {
 	// NOTE: Here we select the series using the algorithm defined by
-	// `seriesSelector.charmSeries`. This serves to override the algorithm found in
-	// `charmrepo.NewCharmAtPath` which is outdated (but must still be
+	// `seriesSelector.charmSeries`. This serves to override the algorithm found
+	// in `charmrepo.NewCharmAtPath` which is outdated (but must still be
 	// called since the code is coupled with path interpretation logic which
 	// cannot easily be factored out).
 
-	// NOTE: Reading the charm here is only meant to aid in inferring the correct
-	// series, if this fails we fall back to the argument series. If reading
-	// the charm fails here it will also fail below (the charm is read again
-	// below) where it is handled properly. This is just an expedient to get
-	// the correct series. A proper refactoring of the charmrepo package is
+	// NOTE: Reading the charm here is only meant to aid in inferring the
+	// correct series, if this fails we fall back to the argument series. If
+	// reading the charm fails here it will also fail below (the charm is read
+	// again below) where it is handled properly. This is just an expedient to
+	// get the correct series. A proper refactoring of the charmrepo package is
 	// needed for a more elegant fix.
 	charmOrBundle := d.charmOrBundle
 	if isLocalSchema(charmOrBundle) {
 		charmOrBundle = charmOrBundle[6:]
 	}
 
-	seriesName := d.series
-	ch, err := charm.ReadCharm(charmOrBundle)
-
 	var imageStream string
+	seriesName := d.series
+
+	ch, err := charm.ReadCharm(charmOrBundle)
 	if err == nil {
 		modelCfg, err := getModelConfig(getter)
 		if err != nil {
@@ -331,7 +333,10 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 			return nil, errors.Trace(err)
 		}
 
-		supportedSeries := ch.Meta().ComputedSeries()
+		supportedSeries, err := corecharm.ComputedSeries(ch)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		seriesSelector := seriesSelector{
 			seriesFlag:          seriesName,
 			supportedSeries:     supportedSeries,
@@ -346,8 +351,18 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		}
 
 		seriesName, err = seriesSelector.charmSeries()
-		if err = charmValidationError(seriesName, ch.Meta().Name, errors.Trace(err)); err != nil {
+		if err = charmValidationError(ch.Meta().Name, errors.Trace(err)); err != nil {
 			return nil, errors.Trace(err)
+		}
+
+		// Prevent deploying a charm that isn't valid for the model target (CAAS or
+		// IAAS models)
+		modelType, err := d.model.ModelType()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := model.ValidateModelTarget(modelType, ch); err != nil {
+			return nil, errors.Annotatef(err, "cannot add application %q", d.applicationName)
 		}
 	}
 
@@ -374,7 +389,8 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		return nil, nil
 	}
 
-	// Avoid deploying charm if it's not valid for the model.
+	// Avoid deploying charm if the charm series is not correct for the
+	// available image streams.
 	if err := d.validateCharmSeriesWithName(seriesName, curl.Name, imageStream); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -508,17 +524,6 @@ func isLocalSchema(u string) bool {
 	return false
 }
 
-// Returns the first string that isn't empty.
-// If all strings are empty, then return an empty string.
-func getPotentialSeriesName(series ...string) string {
-	for _, s := range series {
-		if s != "" {
-			return s
-		}
-	}
-	return ""
-}
-
 func appsRequiringTrust(appSpecList map[string]*charm.ApplicationSpec) []string {
 	var tl []string
 	for a, appSpec := range appSpecList {
@@ -571,13 +576,13 @@ func (d *factory) validateCharmSeries(seriesName string, imageStream string) err
 // message if that's found.
 func (d *factory) validateCharmSeriesWithName(series, name string, imageStream string) error {
 	err := d.validateCharmSeries(series, imageStream)
-	return charmValidationError(series, name, errors.Trace(err))
+	return charmValidationError(name, errors.Trace(err))
 }
 
 // charmValidationError consumes an error along with a charmSeries and name
 // to help provide better feedback to the user when somethings gone wrong around
 // validating a charm validation
-func charmValidationError(charmSeries, name string, err error) error {
+func charmValidationError(name string, err error) error {
 	if err != nil {
 		if errors.IsNotSupported(err) {
 			return errors.Errorf("%v is not available on the following %v", name, err)
@@ -592,9 +597,20 @@ func (d *factory) validateResourcesNeededForLocalDeploy(charmMeta *charm.Meta) e
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if modelType != model.CAAS {
+	// If the target model is IAAS, then we don't need to validate the resources
+	// for a given deploy.
+	if modelType == model.IAAS {
 		return nil
 	}
+
+	// It is expected that everything onwards is a CAAS model and so we should
+	// also check that the metadata is also kubernetes as well. If not then
+	// something is wrong and we're deploying a machine (IAAS) charm on a CAAS
+	// model.
+	if !set.NewStrings(charmMeta.Series...).Contains(series.Kubernetes.String()) && len(charmMeta.Containers) == 0 {
+		return errors.Errorf("expected container-based charm metadata, unexpected series or base")
+	}
+
 	var missingImages []string
 	for resName, resMeta := range charmMeta.Resources {
 		if resMeta.Type == resource.TypeContainerImage {

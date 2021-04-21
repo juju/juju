@@ -127,10 +127,10 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 			DefaultRelease: transport.FindChannelMap{
 				Channel: transport.Channel{
 					Name: "latest/stable",
-					Platform: transport.Platform{
+					Base: transport.Base{
 						Architecture: "all",
-						OS:           "ubuntu",
-						Series:       "bionic",
+						Name:         "ubuntu",
+						Channel:      "18.04",
 					},
 					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
 					Risk:       "stable",
@@ -143,10 +143,10 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 						Size:       12042240,
 						URL:        "https://api.snapcraft.io/api/v1/snaps/download/QLLfVfIKfcnTZiPFnmGcigB2vB605ZY7_16.snap",
 					},
-					Platforms: []transport.Platform{{
+					Bases: []transport.Base{{
 						Architecture: "all",
-						OS:           "ubuntu",
-						Series:       "bionic",
+						Name:         "ubuntu",
+						Channel:      "18.04",
 					}},
 					Revision: 16,
 					Version:  "1.0.3",

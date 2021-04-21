@@ -2,9 +2,9 @@
 run() {
 	CMD="${1}"
 
-	if [ -n "${RUN_SUBTEST}" ]; then
+	if [[ -n ${RUN_SUBTEST} ]]; then
 		# shellcheck disable=SC2143
-		if [ ! "$(echo "${RUN_SUBTEST}" | grep -E "^${CMD}$")" ]; then
+		if [[ ! "$(echo "${RUN_SUBTEST}" | grep -E "^${CMD}$")" ]]; then
 			echo "SKIPPING: ${RUN_SUBTEST} ${CMD}"
 			exit 0
 		fi
@@ -16,37 +16,26 @@ run() {
 
 	START_TIME=$(date +%s)
 
-	# Prevent the sub-shell from killing our script if that sub-shell fails on an
-	# error. We need this so that we can capture the full output and collect the
-	# exit code when it does fail.
-	# Do not remove or none of the tests will report correctly!
-	set +e
-
-	cmd_output=$(run_error_early "${CMD}" "$@" 2>&1)
-	cmd_status=$?
-
 	set_verbosity
 
-	# Only output if it's not empty.
-	if [ -n "${cmd_output}" ]; then
-		echo -e "${cmd_output}" | OUTPUT "${TEST_DIR}/${TEST_CURRENT}.log"
+	if [[ ${VERBOSE} -gt 1 ]]; then
+		touch "${TEST_DIR}/${TEST_CURRENT}.log"
+		tail -f "${TEST_DIR}/${TEST_CURRENT}.log" 2>/dev/null &
+		pid=$!
+
+		# SIGKILL it with fire, as we don't know what state we're in.
+		trap 'kill -9 "${pid}" >/dev/null 2>&1 || true' EXIT
+	fi
+
+	"${CMD}" "$@" >"${TEST_DIR}/${TEST_CURRENT}.log" 2>&1
+	if [[ ${VERBOSE} -gt 1 ]]; then
+		# SIGKILL because it should be safe to do so.
+		kill -9 "${pid}" >/dev/null 2>&1 || true
 	fi
 
 	END_TIME=$(date +%s)
 
-	if [ "${cmd_status}" -eq 0 ]; then
-		echo -e "\r===> [ $(green "✔") ] Success: ${DESC} ($((END_TIME - START_TIME))s)"
-	else
-		echo -e "\r===> [ $(red "x") ] Fail: ${DESC} ($((END_TIME - START_TIME))s)"
-		exit 1
-	fi
-}
-
-run_error_early() {
-	set -e
-	shift
-
-	"${1}" "$@"
+	echo -e "\r===> [ $(green "✔") ] Success: ${DESC} ($((END_TIME - START_TIME))s)"
 }
 
 # run_linter will run until the end of a pipeline even if there is a failure.
@@ -54,9 +43,9 @@ run_error_early() {
 run_linter() {
 	CMD="${1}"
 
-	if [ -n "${RUN_SUBTEST}" ]; then
+	if [[ -n ${RUN_SUBTEST} ]]; then
 		# shellcheck disable=SC2143
-		if [ ! "$(echo "${RUN_SUBTEST}" | grep -E "^${CMD}$")" ]; then
+		if [[ ! "$(echo "${RUN_SUBTEST}" | grep -E "^${CMD}$")" ]]; then
 			echo "SKIPPING: ${RUN_SUBTEST} ${CMD}"
 			exit 0
 		fi
@@ -82,13 +71,13 @@ run_linter() {
 	set +o pipefail
 
 	# Only output if it's not empty.
-	if [ -n "${cmd_output}" ]; then
+	if [[ -n ${cmd_output} ]]; then
 		echo -e "${cmd_output}" | OUTPUT "${TEST_DIR}/${TEST_CURRENT}.log"
 	fi
 
 	END_TIME=$(date +%s)
 
-	if [ "${cmd_status}" -eq 0 ]; then
+	if [[ ${cmd_status} -eq 0 ]]; then
 		echo -e "\r===> [ $(green "✔") ] Success: ${DESC} ($((END_TIME - START_TIME))s)"
 	else
 		echo -e "\r===> [ $(red "x") ] Fail: ${DESC} ($((END_TIME - START_TIME))s)"
@@ -99,7 +88,7 @@ run_linter() {
 skip() {
 	CMD="${1}"
 	# shellcheck disable=SC2143,SC2046
-	if [ $(echo "${SKIP_LIST:-}" | grep -w "${CMD}") ]; then
+	if [[ $(echo "${SKIP_LIST:-}" | grep -w "${CMD}") ]]; then
 		echo "SKIP"
 		exit 1
 	fi

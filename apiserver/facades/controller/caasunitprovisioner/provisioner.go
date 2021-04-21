@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -219,6 +220,76 @@ func (f *Facade) applicationScale(tagString string) (int, error) {
 		return 0, errors.Trace(err)
 	}
 	return app.GetScale(), nil
+}
+
+// ApplicationsTrust returns the trust status for specified applications in this model.
+func (f *Facade) ApplicationsTrust(args params.Entities) (params.BoolResults, error) {
+	results := params.BoolResults{
+		Results: make([]params.BoolResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		trust, err := f.applicationTrust(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		results.Results[i].Result = trust
+	}
+	logger.Debugf("application trust result: %#v", results)
+	return results, nil
+}
+
+func (f *Facade) applicationTrust(tagString string) (bool, error) {
+	appTag, err := names.ParseApplicationTag(tagString)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	app, err := f.state.Application(appTag.Id())
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	cfg, err := app.ApplicationConfig()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return cfg.GetBool(application.TrustConfigOptionName, false), nil
+}
+
+// WatchApplicationsTrustHash starts a StringsWatcher to watch changes
+// to the applications' trust status.
+func (f *Facade) WatchApplicationsTrustHash(args params.Entities) (params.StringsWatchResults, error) {
+	results := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		id, err := f.watchApplicationTrustHash(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		results.Results[i].StringsWatcherId = id
+	}
+	return results, nil
+}
+
+func (f *Facade) watchApplicationTrustHash(tagString string) (string, error) {
+	tag, err := names.ParseApplicationTag(tagString)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	app, err := f.state.Application(tag.Id())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	// This is currently implemented by just watching the
+	// app config settings which is where the trust value
+	// is stored. A similar pattern is used for model config
+	// watchers pending better filtering on watchers.
+	w := app.WatchConfigSettingsHash()
+	if _, ok := <-w.Changes(); ok {
+		return f.resources.Register(w), nil
+	}
+	return "", watcher.EnsureErr(w)
 }
 
 // DeploymentMode returns the deployment mode of the given applications' charms.

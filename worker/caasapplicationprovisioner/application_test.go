@@ -12,8 +12,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/systems"
-	"github.com/juju/systems/channel"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
@@ -63,10 +61,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	appCharmInfo := &charmscommon.CharmInfo{
 		Meta: &charm.Meta{
 			Name: "test",
-			Bases: []systems.Base{{
-				Name:    systems.Ubuntu,
-				Channel: channel.MustParse("20.04/stable"),
-			}},
+
 			Containers: map[string]charm.Container{
 				"test": {
 					Resource: "test-oci",
@@ -77,6 +72,15 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 					Type: charmresource.TypeContainerImage,
 				},
 			},
+		},
+		Manifest: &charm.Manifest{
+			Bases: []charm.Base{{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Track: "20.04",
+					Risk:  "stable",
+				},
+			}},
 		},
 	}
 	appProvisioningInfo := api.ProvisioningInfo{
@@ -103,6 +107,9 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	appScaleChan := make(chan struct{}, 1)
 	appScaleWatcher := watchertest.NewMockNotifyWatcher(appScaleChan)
 
+	appTrustHashChan := make(chan []string, 1)
+	appTrushHashWatcher := watchertest.NewMockStringsWatcher(appTrustHashChan)
+
 	brokerApp := caasmocks.NewMockApplication(ctrl)
 	broker := mocks.NewMockCAASBroker(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
@@ -125,6 +132,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		),
 
 		unitFacade.EXPECT().WatchApplicationScale("test").Return(appScaleWatcher, nil),
+		unitFacade.EXPECT().WatchApplicationTrustHash("test").Return(appTrushHashWatcher, nil),
 
 		// Initial run - Ensure() for the application.
 		facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {

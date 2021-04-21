@@ -59,7 +59,7 @@ func (d *manifestDeployer) Stage(info BundleInfo, abort <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
-	manifest, err := bundle.Manifest()
+	manifest, err := bundle.ArchiveMembers()
 	if err != nil {
 		return err
 	}

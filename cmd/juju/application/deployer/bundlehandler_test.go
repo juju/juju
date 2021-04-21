@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v9"
+	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -329,6 +329,63 @@ applications:
   gitlab:
     charm: cs:~juju/gitlab-k8s
     placement: foo=bar
+    scale: 1
+relations:
+  - - gitlab:mysql
+    - mariadb:server
+`
+
+func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithCharmhub(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectEmptyModelToStart(c)
+	s.expectWatchAll()
+
+	mariadbCurl, err := charm.ParseURL("mariadb-k8s")
+	c.Assert(err, jc.ErrorIsNil)
+	gitlabCurl, err := charm.ParseURL("gitlab-k8s")
+	c.Assert(err, jc.ErrorIsNil)
+	chUnits := []charmUnit{
+		{
+			curl:          mariadbCurl,
+			machineSeries: "kubernetes",
+		},
+		{
+			curl:          gitlabCurl,
+			machineSeries: "kubernetes",
+		},
+	}
+	s.setupMetadataV2CharmUnits(chUnits)
+	s.expectAddRelation([]string{"gitlab:mysql", "mariadb:server"})
+
+	bundleData, err := charm.ReadBundleData(strings.NewReader(kubernetesCharmhubGitlabBundle))
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = bundleDeploy(bundleData, s.bundleDeploySpec())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.deployArgs, gc.HasLen, 2)
+	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "focal")
+	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "focal")
+
+	c.Check(s.output.String(), gc.Equals, ""+
+		"Located charm \"gitlab-k8s\" in charm-hub\n"+
+		"Located charm \"mariadb-k8s\" in charm-hub\n"+
+		"Executing changes:\n"+
+		"- upload charm gitlab-k8s from charm-hub for series kubernetes\n"+
+		"- deploy application gitlab from charm-hub with 1 unit on kubernetes using gitlab-k8s\n"+
+		"- upload charm mariadb-k8s from charm-hub for series kubernetes\n"+
+		"- deploy application mariadb from charm-hub with 2 units on kubernetes using mariadb-k8s\n"+
+		"- add relation gitlab:mysql - mariadb:server\n"+
+		"Deploy of bundle completed.\n")
+}
+
+const kubernetesCharmhubGitlabBundle = `
+bundle: kubernetes
+applications:
+  mariadb:
+    charm: mariadb-k8s
+    scale: 2
+  gitlab:
+    charm: gitlab-k8s
     scale: 1
 relations:
   - - gitlab:mysql
@@ -929,6 +986,34 @@ func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
 	}
 }
 
+func (s *BundleDeployRepositorySuite) setupMetadataV2CharmUnits(charmUnits []charmUnit) {
+	for _, chUnit := range charmUnits {
+		s.expectResolveCharm(nil, 2)
+		s.expectAddCharm(chUnit.force)
+		charmInfo := &apicharms.CharmInfo{
+			Revision: chUnit.curl.Revision,
+			URL:      chUnit.curl.String(),
+			Meta: &charm.Meta{
+				Containers: map[string]charm.Container{
+					"test": {
+						Resource: "test-oci",
+					},
+				},
+			},
+			Manifest: &charm.Manifest{Bases: []charm.Base{{
+				Name:    "ubuntu",
+				Channel: charm.Channel{Track: "20.04"},
+			}}},
+		}
+		s.expectCharmInfo(chUnit.curl.String(), charmInfo)
+		s.expectDeploy()
+		if chUnit.machineSeries != "kubernetes" {
+			s.expectAddMachine(chUnit.machine, chUnit.machineSeries)
+			s.expectAddOneUnit(chUnit.curl.Name, chUnit.machine, "0")
+		}
+	}
+}
+
 func (s *BundleDeployRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.deployerAPI = mocks.NewMockDeployerAPI(ctrl)
@@ -1232,7 +1317,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginEmptyChannel(c *
 
 	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(curl, series, channel, cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resultChannel, gc.DeepEquals, corecharm.Channel{})
+	c.Assert(resultChannel, gc.DeepEquals, charm.Channel{})
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
 		OS:           "ubuntu",

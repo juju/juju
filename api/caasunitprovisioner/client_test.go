@@ -512,3 +512,55 @@ func (s *unitprovisionerSuite) TestClearApplicationResources(c *gc.C) {
 	err := client.ClearApplicationResources("gitlab")
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
+
+func (s *unitprovisionerSuite) TestWatchApplicationTrustHash(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchApplicationsTrustHash")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{
+				Tag: "application-gitlab",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+
+	client := caasunitprovisioner.NewClient(apiCaller)
+	watcher, err := client.WatchApplicationTrustHash("gitlab")
+	c.Assert(watcher, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
+func (s *unitprovisionerSuite) TestApplicationTrust(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ApplicationsTrust")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{
+				Tag: "application-gitlab",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.BoolResults{})
+		*(result.(*params.BoolResults)) = params.BoolResults{
+			Results: []params.BoolResult{{
+				Result: true,
+			}},
+		}
+		return nil
+	})
+
+	client := caasunitprovisioner.NewClient(apiCaller)
+	trust, err := client.ApplicationTrust("gitlab")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(trust, jc.IsTrue)
+}

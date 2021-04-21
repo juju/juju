@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
+	coreseries "github.com/juju/juju/core/series"
 )
 
 // Action represents the type of refresh is performed.
@@ -34,8 +35,8 @@ const (
 )
 
 const (
-	// NotAvailable is used a placeholder for OS and Release for a refresh
-	// platform request, if the OS and Release is not known.
+	// NotAvailable is used a placeholder for Name and Channel for a refresh
+	// base request, if the Name and Channel is not known.
 	NotAvailable = "NA"
 )
 
@@ -43,20 +44,22 @@ const (
 // API.
 type Headers = map[string][]string
 
-// RefreshPlatform defines a platform for selecting a specific charm.
-type RefreshPlatform struct {
+// RefreshBase defines a base for selecting a specific charm.
+// Continues to exist to allow for incoming bases to be converted
+// to bases inside this package.
+type RefreshBase struct {
 	Architecture string
-	OS           string
-	Series       string
+	Name         string
+	Channel      string
 }
 
-func (p RefreshPlatform) String() string {
+func (p RefreshBase) String() string {
 	path := p.Architecture
-	if p.Series != "" {
-		if p.OS != "" {
-			path = fmt.Sprintf("%s/%s", path, p.OS)
+	if p.Channel != "" {
+		if p.Name != "" {
+			path = fmt.Sprintf("%s/%s", path, p.Name)
 		}
-		path = fmt.Sprintf("%s/%s", path, p.Series)
+		path = fmt.Sprintf("%s/%s", path, p.Channel)
 	}
 	return path
 }
@@ -125,7 +128,7 @@ type refreshOne struct {
 	ID       string
 	Revision int
 	Channel  string
-	Platform RefreshPlatform
+	Base     RefreshBase
 	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
 	instanceKey string
@@ -137,13 +140,13 @@ func (c refreshOne) InstanceKey() string {
 }
 
 func (c refreshOne) String() string {
-	return fmt.Sprintf("Refresh one (instanceKey: %s): using ID %s revision %+v, with channel %s and platform %v",
-		c.instanceKey, c.ID, c.Revision, c.Channel, c.Platform.String())
+	return fmt.Sprintf("Refresh one (instanceKey: %s): using ID %s revision %+v, with channel %s and base %v",
+		c.instanceKey, c.ID, c.Revision, c.Channel, c.Base.String())
 }
 
 // RefreshOne creates a request config for requesting only one charm.
-func RefreshOne(id string, revision int, channel string, platform RefreshPlatform) (RefreshConfig, error) {
-	if err := validatePlatform(platform); err != nil {
+func RefreshOne(id string, revision int, channel string, base RefreshBase) (RefreshConfig, error) {
+	if err := validateBase(base); err != nil {
 		return nil, errors.Trace(err)
 	}
 	uuid, err := utils.NewUUID()
@@ -155,13 +158,13 @@ func RefreshOne(id string, revision int, channel string, platform RefreshPlatfor
 		ID:          id,
 		Revision:    revision,
 		Channel:     channel,
-		Platform:    platform,
+		Base:        base,
 	}, nil
 }
 
 // Build a refresh request that can be past to the API.
 func (c refreshOne) Build() (transport.RefreshRequest, Headers, error) {
-	platform, err := constructRefreshPlatform(c.Platform)
+	base, err := constructRefreshBase(c.Base)
 	if err != nil {
 		return transport.RefreshRequest{}, nil, errors.Trace(err)
 	}
@@ -171,7 +174,7 @@ func (c refreshOne) Build() (transport.RefreshRequest, Headers, error) {
 			InstanceKey:     c.instanceKey,
 			ID:              c.ID,
 			Revision:        c.Revision,
-			Platform:        platform,
+			Base:            base,
 			TrackingChannel: c.Channel,
 			// TODO (stickupkid): We need to model the refreshed date. It's
 			// currently optional, but will be required at some point. This
@@ -182,7 +185,7 @@ func (c refreshOne) Build() (transport.RefreshRequest, Headers, error) {
 			InstanceKey: c.instanceKey,
 			ID:          &c.ID,
 		}},
-	}, constructMetadataHeaders(c.Platform), nil
+	}, constructMetadataHeaders(c.Base), nil
 }
 
 // Ensure that the request back contains the information we requested.
@@ -200,7 +203,7 @@ type executeOne struct {
 	Name     string
 	Revision *int
 	Channel  *string
-	Platform RefreshPlatform
+	Base     RefreshBase
 	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
 	action      Action
@@ -214,8 +217,8 @@ func (c executeOne) InstanceKey() string {
 
 // InstallOneFromRevision creates a request config using the revision and not
 // the channel for requesting only one charm.
-func InstallOneFromRevision(name string, revision int, platform RefreshPlatform) (RefreshConfig, error) {
-	if err := validatePlatform(platform); err != nil {
+func InstallOneFromRevision(name string, revision int, base RefreshBase) (RefreshConfig, error) {
+	if err := validateBase(base); err != nil {
 		return nil, errors.Trace(err)
 	}
 	uuid, err := utils.NewUUID()
@@ -227,14 +230,14 @@ func InstallOneFromRevision(name string, revision int, platform RefreshPlatform)
 		instanceKey: uuid.String(),
 		Name:        name,
 		Revision:    &revision,
-		Platform:    platform,
+		Base:        base,
 	}, nil
 }
 
 // InstallOneFromChannel creates a request config using the channel and not the
 // revision for requesting only one charm.
-func InstallOneFromChannel(name string, channel string, platform RefreshPlatform) (RefreshConfig, error) {
-	if err := validatePlatform(platform); err != nil {
+func InstallOneFromChannel(name string, channel string, base RefreshBase) (RefreshConfig, error) {
+	if err := validateBase(base); err != nil {
 		return nil, errors.Trace(err)
 	}
 	uuid, err := utils.NewUUID()
@@ -246,13 +249,13 @@ func InstallOneFromChannel(name string, channel string, platform RefreshPlatform
 		instanceKey: uuid.String(),
 		Name:        name,
 		Channel:     &channel,
-		Platform:    platform,
+		Base:        base,
 	}, nil
 }
 
 // DownloadOne creates a request config for requesting only one charm.
-func DownloadOne(id string, revision int, channel string, platform RefreshPlatform) (RefreshConfig, error) {
-	if err := validatePlatform(platform); err != nil {
+func DownloadOne(id string, revision int, channel string, base RefreshBase) (RefreshConfig, error) {
+	if err := validateBase(base); err != nil {
 		return nil, errors.Trace(err)
 	}
 	uuid, err := utils.NewUUID()
@@ -265,14 +268,14 @@ func DownloadOne(id string, revision int, channel string, platform RefreshPlatfo
 		ID:          id,
 		Revision:    &revision,
 		Channel:     &channel,
-		Platform:    platform,
+		Base:        base,
 	}, nil
 }
 
 // DownloadOneFromRevision creates a request config using the revision and not
 // the channel for requesting only one charm.
-func DownloadOneFromRevision(id string, revision int, platform RefreshPlatform) (RefreshConfig, error) {
-	if err := validatePlatform(platform); err != nil {
+func DownloadOneFromRevision(id string, revision int, base RefreshBase) (RefreshConfig, error) {
+	if err := validateBase(base); err != nil {
 		return nil, errors.Trace(err)
 	}
 	uuid, err := utils.NewUUID()
@@ -284,14 +287,14 @@ func DownloadOneFromRevision(id string, revision int, platform RefreshPlatform) 
 		instanceKey: uuid.String(),
 		ID:          id,
 		Revision:    &revision,
-		Platform:    platform,
+		Base:        base,
 	}, nil
 }
 
 // DownloadOneFromChannel creates a request config using the channel and not the
 // revision for requesting only one charm.
-func DownloadOneFromChannel(id string, channel string, platform RefreshPlatform) (RefreshConfig, error) {
-	if err := validatePlatform(platform); err != nil {
+func DownloadOneFromChannel(id string, channel string, base RefreshBase) (RefreshConfig, error) {
+	if err := validateBase(base); err != nil {
 		return nil, errors.Trace(err)
 	}
 	uuid, err := utils.NewUUID()
@@ -303,13 +306,13 @@ func DownloadOneFromChannel(id string, channel string, platform RefreshPlatform)
 		instanceKey: uuid.String(),
 		ID:          id,
 		Channel:     &channel,
-		Platform:    platform,
+		Base:        base,
 	}, nil
 }
 
 // Build a refresh request that can be past to the API.
 func (c executeOne) Build() (transport.RefreshRequest, Headers, error) {
-	platform, err := constructRefreshPlatform(c.Platform)
+	base, err := constructRefreshBase(c.Base)
 	if err != nil {
 		return transport.RefreshRequest{}, nil, errors.Trace(err)
 	}
@@ -333,9 +336,9 @@ func (c executeOne) Build() (transport.RefreshRequest, Headers, error) {
 			Name:        name,
 			Revision:    c.Revision,
 			Channel:     c.Channel,
-			Platform:    &platform,
+			Base:        &base,
 		}},
-	}, constructMetadataHeaders(c.Platform), nil
+	}, constructMetadataHeaders(c.Base), nil
 }
 
 // Ensure that the request back contains the information we requested.
@@ -363,8 +366,8 @@ func (c executeOne) String() string {
 	if c.Revision != nil {
 		revision = fmt.Sprintf(" with revision: %+v", c.Revision)
 	}
-	return fmt.Sprintf("Execute One (action: %s, instanceKey: %s): using %s%s channel %v and platform %s",
-		c.action, c.instanceKey, using, revision, channel, c.Platform)
+	return fmt.Sprintf("Execute One (action: %s, instanceKey: %s): using %s%s channel %v and base %s",
+		c.action, c.instanceKey, using, revision, channel, c.Base)
 }
 
 type refreshMany struct {
@@ -417,44 +420,65 @@ func (c refreshMany) String() string {
 	return strings.Join(plans, "\n")
 }
 
-// constructRefreshPlatform creates a refresh request platform that allows for
-// partial platform queries.
-func constructRefreshPlatform(platform RefreshPlatform) (transport.Platform, error) {
-	if platform.Architecture == "" {
-		return transport.Platform{}, errors.NotValidf("refresh arch")
-	}
-	os := platform.OS
-	if os == "" {
-		os = NotAvailable
-	}
-	series := platform.Series
-	if series == "" {
-		series = NotAvailable
+// constructRefreshBase creates a refresh request base that allows for
+// partial base queries.
+func constructRefreshBase(base RefreshBase) (transport.Base, error) {
+	if base.Architecture == "" {
+		return transport.Base{}, errors.NotValidf("refresh arch")
 	}
 
-	return transport.Platform{
-		Architecture: platform.Architecture,
-		OS:           os,
-		Series:       series,
+	name := base.Name
+	if name == "" {
+		name = NotAvailable
+	}
+
+	var channel string
+	var err error
+	switch base.Channel {
+	case "":
+		channel = NotAvailable
+	case "kubernetes":
+		// Kubernetes is not a valid channel for a base.
+		// Instead use the latest LTS version of ubuntu.
+		name = "ubuntu"
+		channel, err = coreseries.SeriesVersion(coreseries.LatestLts())
+		if err != nil {
+			return transport.Base{}, errors.NotValidf("invalid latest version")
+		}
+	default:
+		// If we have a series, we need to convert it to a stable version.
+		// If we have a version, then just pass that through.
+		potential, err := coreseries.SeriesVersion(base.Channel)
+		if err == nil {
+			channel = potential
+		} else {
+			channel = base.Channel
+		}
+	}
+
+	return transport.Base{
+		Architecture: base.Architecture,
+		Name:         name,
+		Channel:      channel,
 	}, nil
 }
 
-// constructHeaders adds X-Juju-Metadata headers for the charms' unique series
+// constructHeaders adds X-Juju-Metadata headers for the charms' unique channel
 // and architecture values, for example:
 //
-// X-Juju-Metadata: series=bionic
+// X-Juju-Metadata: channel=bionic
 // X-Juju-Metadata: arch=amd64
-// X-Juju-Metadata: series=focal
-func constructMetadataHeaders(platform RefreshPlatform) map[string][]string {
+// X-Juju-Metadata: channel=focal
+func constructMetadataHeaders(base RefreshBase) map[string][]string {
 	headers := make(map[string][]string)
-	if platform.Architecture != "" {
-		headers["arch"] = []string{platform.Architecture}
+	if base.Architecture != "" {
+		headers["arch"] = []string{base.Architecture}
 	}
-	if platform.OS != "" {
-		headers["os"] = []string{platform.OS}
+	if base.Name != "" {
+		headers["name"] = []string{base.Name}
 	}
-	if platform.Series != "" {
-		headers["series"] = []string{platform.Series}
+	if base.Channel != "" {
+		headers["channel"] = []string{base.Channel}
 	}
 	return headers
 }
@@ -473,24 +497,24 @@ func composeMetadataHeaders(a, b Headers) Headers {
 	return result
 }
 
-// validatePlatform ensures that we do not pass "all" as part of platform.
+// validateBase ensures that we do not pass "all" as part of base.
 // This function is to help find programming related failures.
-func validatePlatform(rp RefreshPlatform) error {
+func validateBase(rp RefreshBase) error {
 	var msg []string
 	if rp.Architecture == "all" {
 		msg = append(msg, fmt.Sprintf("Architecture %q", rp.Architecture))
 	}
-	if rp.OS == "all" {
-		msg = append(msg, fmt.Sprintf("OS %q", rp.OS))
+	if rp.Name == "all" {
+		msg = append(msg, fmt.Sprintf("Name %q", rp.Name))
 	}
-	if rp.Series == "all" {
-		msg = append(msg, fmt.Sprintf("Release %q", rp.Series))
+	if rp.Channel == "all" {
+		msg = append(msg, fmt.Sprintf("Channel %q", rp.Channel))
 	}
 	if len(msg) > 0 {
 		err := errors.Trace(errors.NotValidf(strings.Join(msg, ", ")))
 		// Log the error here, trace on this side gets lost when the error
 		// goes thru to the client.
-		logger := loggo.GetLogger("juju.charmhub.validateplatform")
+		logger := loggo.GetLogger("juju.charmhub.validatebase")
 		logger.Errorf(fmt.Sprintf("%s", err))
 		return err
 	}

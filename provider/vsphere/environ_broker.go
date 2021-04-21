@@ -231,6 +231,7 @@ func (env *sessionEnviron) newRawInstance(
 		EnableDiskUUID:         env.ecfg.enableDiskUUID(),
 		ForceVMHardwareVersion: env.ecfg.forceVMHardwareVersion(),
 		IsBootstrap:            args.InstanceConfig.Bootstrap != nil,
+		DiskProvisioningType:   env.ecfg.diskProvisioningType(),
 	}
 
 	// Attempt to create a VM in each of the AZs in turn.

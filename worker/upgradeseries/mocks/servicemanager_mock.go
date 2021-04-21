@@ -7,7 +7,6 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	common "github.com/juju/juju/service/common"
-	version "github.com/juju/version/v2"
 	reflect "reflect"
 )
 
@@ -32,20 +31,6 @@ func NewMockSystemdServiceManager(ctrl *gomock.Controller) *MockSystemdServiceMa
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockSystemdServiceManager) EXPECT() *MockSystemdServiceManagerMockRecorder {
 	return m.recorder
-}
-
-// CopyAgentBinary mocks base method
-func (m *MockSystemdServiceManager) CopyAgentBinary(arg0, arg1, arg2, arg3 string, arg4 version.Number) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CopyAgentBinary", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CopyAgentBinary indicates an expected call of CopyAgentBinary
-func (mr *MockSystemdServiceManagerMockRecorder) CopyAgentBinary(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CopyAgentBinary", reflect.TypeOf((*MockSystemdServiceManager)(nil).CopyAgentBinary), arg0, arg1, arg2, arg3, arg4)
 }
 
 // CreateAgentConf mocks base method

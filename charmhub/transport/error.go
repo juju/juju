@@ -38,15 +38,15 @@ func (a APIErrors) Error() string {
 // of this object as a series of suggestions to perform against the errorred
 // API request, in the chance of the new request being successful.
 type APIErrorExtra struct {
-	Releases         []Release  `json:"releases"`
-	DefaultPlatforms []Platform `json:"default-platforms"`
+	Releases     []Release `json:"releases"`
+	DefaultBases []Base    `json:"default-bases"`
 }
 
 // Release defines a set of suggested releases that might also work for the
 // given request.
 type Release struct {
-	Platform Platform `json:"platform"`
-	Channel  string   `json:"channel"`
+	Base    Base   `json:"base"`
+	Channel string `json:"channel"`
 }
 
 // APIErrorCode classifies the error code we get back from the API. This isn't
@@ -68,13 +68,13 @@ const (
 	ErrorCodeInconsistentData                  APIErrorCode = "inconsistent-data"
 	ErrorCodeInstanceKeyNotUnique              APIErrorCode = "instance-key-not-unique"
 	ErrorCodeInvalidChannel                    APIErrorCode = "invalid-channel"
-	ErrorCodeInvalidCharmPlatform              APIErrorCode = "invalid-charm-platform"
+	ErrorCodeInvalidCharmBase                  APIErrorCode = "invalid-charm-base"
 	ErrorCodeInvalidCohortKey                  APIErrorCode = "invalid-cohort-key"
 	ErrorCodeInvalidGrade                      APIErrorCode = "invalid-grade"
 	ErrorCodeInvalidMetric                     APIErrorCode = "invalid-metric"
 	ErrorCodeInvalidUnboundEmptySearch         APIErrorCode = "invalid-unbound-empty-search"
 	ErrorCodeMacaroonPermissionRequired        APIErrorCode = "macaroon-permission-required"
-	ErrorCodeMissingCharmPlatform              APIErrorCode = "missing-charm-platform"
+	ErrorCodeMissingCharmBase                  APIErrorCode = "missing-charm-base"
 	ErrorCodeMissingContext                    APIErrorCode = "missing-context"
 	ErrorCodeMissingFetchAssertionsKey         APIErrorCode = "missing-fetch-assertions-key"
 	ErrorCodeMissingHeader                     APIErrorCode = "missing-header"
@@ -96,4 +96,8 @@ const (
 	ErrorCodeUnknownGrade                      APIErrorCode = "unknown-grade"
 	ErrorCodeUserAuthenticationError           APIErrorCode = "user-authentication-error"
 	ErrorCodeUserAuthorizationNeedsRefresh     APIErrorCode = "user-authorization-needs-refresh"
+	// TODO 2021-04-08 hml
+	// Remove once Charmhub API returns ErrorCodeInvalidCharmBase
+	ErrorCodeInvalidCharmPlatform APIErrorCode = "invalid-charm-platform"
+	ErrorCodeMissingCharmPlatform APIErrorCode = "missing-charm-platform"
 )

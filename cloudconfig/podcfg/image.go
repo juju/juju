@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
-	"github.com/juju/systems"
-	"github.com/juju/systems/channel"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
@@ -89,9 +88,9 @@ func imageRepoToPath(imageRepo string, ver version.Number) string {
 
 // ImageForBase returns the OCI image path for a generic base.
 // NOTE: resource referenced bases are not resolved via ImageForBase.
-func ImageForBase(imageRepo string, base systems.Base) (string, error) {
+func ImageForBase(imageRepo string, base charm.Base) (string, error) {
 	if base.Name == "" {
-		return "", errors.NotValidf("base name")
+		return "", errors.NotValidf("empty base name")
 	}
 	if imageRepo == "" {
 		imageRepo = JujudOCINamespace
@@ -100,7 +99,7 @@ func ImageForBase(imageRepo string, base systems.Base) (string, error) {
 		return "", errors.NotValidf("channel %q", base.Channel)
 	}
 	tag := fmt.Sprintf("%s-%s", base.Name, base.Channel.Track)
-	if base.Channel.Risk != channel.Stable {
+	if base.Channel.Risk != charm.Stable {
 		tag = fmt.Sprintf("%s-%s", tag, base.Channel.Risk)
 	}
 	image := fmt.Sprintf("%s/charm-base:%s", imageRepo, tag)

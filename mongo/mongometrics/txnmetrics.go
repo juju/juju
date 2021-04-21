@@ -30,8 +30,8 @@ var (
 // mgo/txn operations.
 type TxnCollector struct {
 	txnOpsTotalCounter *prometheus.CounterVec
-	txnRetries prometheus.Histogram
-	txnDurations prometheus.Histogram
+	txnRetries         prometheus.Histogram
+	txnDurations       prometheus.Histogram
 }
 
 // NewTxnCollector returns a new TxnCollector.
@@ -47,18 +47,18 @@ func NewTxnCollector() *TxnCollector {
 		),
 		txnRetries: prometheus.NewHistogram(
 			prometheus.HistogramOpts{
-				Namespace:   "juju",
-				Name:        "mgo_txn_retries",
-				Help:        "Number of attempts to complete a transaction",
-				Buckets:     prometheus.LinearBuckets(0, 1, 50),
+				Namespace: "juju",
+				Name:      "mgo_txn_retries",
+				Help:      "Number of attempts to complete a transaction",
+				Buckets:   prometheus.LinearBuckets(0, 1, 50),
 			},
 		),
 		txnDurations: prometheus.NewHistogram(
 			prometheus.HistogramOpts{
-				Namespace:   "juju",
-				Name:        "mgo_txn_durations",
-				Help:        "Time (ms) taken to complete a transaction",
-				Buckets:     prometheus.LinearBuckets(0, 2, 50),
+				Namespace: "juju",
+				Name:      "mgo_txn_durations",
+				Help:      "Time (ms) taken to complete a transaction",
+				Buckets:   prometheus.LinearBuckets(0, 2, 50),
 			},
 		),
 	}
@@ -94,7 +94,7 @@ func (c *TxnCollector) updateMetrics(dbName string, attempt int, duration time.D
 		failedLabel:     failed,
 	}).Inc()
 	c.txnRetries.Observe(float64(attempt))
-	c.txnDurations.Observe(float64(duration/time.Millisecond))
+	c.txnDurations.Observe(float64(duration / time.Millisecond))
 }
 
 // Describe is part of the prometheus.Collector interface.

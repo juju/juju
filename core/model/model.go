@@ -5,12 +5,8 @@ package model
 
 import (
 	"github.com/juju/charm/v9"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/systems"
-
-	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
+	corecharm "github.com/juju/juju/core/charm"
 )
 
 // ModelType indicates a model type.
@@ -41,30 +37,24 @@ type Model struct {
 	ModelType ModelType
 }
 
-var caasOS = set.NewStrings(os.Kubernetes.String())
+// ValidateModelTarget ensures the charm is valid for the model target type.
+// This works for both v1 and v2 of the charm metadata. By looking if the
+// series for v1 charm contains kubernetes or by checking the existence of
+// containers within the v2 metadata as a way to see if kubernetes is supported.
+func ValidateModelTarget(modelType ModelType, charmMeta charm.CharmMeta) error {
+	isIAAS := !corecharm.IsKubernetes(charmMeta)
 
-// ValidateSeries ensures the charm series is valid for the model type.
-func ValidateSeries(modelType ModelType, charmSeries string, charmFormat charm.Format) error {
-	if charmFormat >= charm.FormatV2 {
-		_, err := systems.ParseBaseFromSeries(charmSeries)
-		if err != nil {
-			return errors.Trace(err)
+	switch modelType {
+	case CAAS:
+		if isIAAS {
+			return errors.NotValidf("non container-based charm for container based model type")
 		}
-	} else {
-		os, err := series.GetOSFromSeries(charmSeries)
-		if err != nil {
-			return errors.Trace(err)
+	case IAAS:
+		if !isIAAS {
+			return errors.NotValidf("container-based charm for non container based model type")
 		}
-		switch modelType {
-		case CAAS:
-			if !caasOS.Contains(os.String()) {
-				return errors.NotValidf("series %q in a kubernetes model", charmSeries)
-			}
-		case IAAS:
-			if caasOS.Contains(os.String()) {
-				return errors.NotValidf("series %q in a non container model", charmSeries)
-			}
-		}
+	default:
+		return errors.Errorf("invalid model type")
 	}
 	return nil
 }

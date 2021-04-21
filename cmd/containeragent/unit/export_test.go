@@ -29,6 +29,7 @@ type ContainerUnitAgentTest interface {
 	CurrentConfig() agent.Config
 	Tag() names.UnitTag
 	CharmModifiedVersion() int
+	GetContainerNames() []string
 }
 
 func NewForTest(
@@ -50,6 +51,10 @@ func NewForTest(
 
 func (c *containerUnitAgent) SetAgentConf(cfg agentconf.AgentConf) {
 	c.AgentConf = cfg
+}
+
+func (c *containerUnitAgent) GetContainerNames() []string {
+	return c.containerNames
 }
 
 func (c *containerUnitAgent) DataDir() string {

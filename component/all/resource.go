@@ -45,6 +45,11 @@ func (r resources) registerAgentWorkers() {
 	}
 }
 
+func (r resources) registerForContainerAgent() error {
+	r.registerHookContext()
+	return nil
+}
+
 // registerState registers the state functionality for resources.
 func (resources) registerState() {
 	if !markRegistered(resource.ComponentName, "state") {
