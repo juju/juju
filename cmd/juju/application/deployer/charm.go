@@ -552,9 +552,11 @@ func formatLocatedText(curl *charm.URL, origin commoncharm.Origin) string {
 	if repository == "" || repository == commoncharm.OriginLocal {
 		return fmt.Sprintf("Located local charm %q, revision %d", curl.Name, curl.Revision)
 	}
-	var revision string
+	var next string
 	if curl.Revision != -1 {
-		revision = fmt.Sprintf(", revision %d", curl.Revision)
+		next = fmt.Sprintf(", revision %d", curl.Revision)
+	} else if str := origin.CharmChannel().String(); str != "" {
+		next = fmt.Sprintf(", channel %s", str)
 	}
-	return fmt.Sprintf("Located charm %q in %s%s", curl.Name, repository, revision)
+	return fmt.Sprintf("Located charm %q in %s%s", curl.Name, repository, next)
 }
