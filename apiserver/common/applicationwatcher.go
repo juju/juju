@@ -190,12 +190,7 @@ type AppWatcherState interface {
 
 // AppWatcherApplication is Application for AppWatcher.
 type AppWatcherApplication interface {
-	Charm() (AppWatcherCharm, bool, error)
-}
-
-// AppWatcherCharm is Charm for AppWatcher.
-type AppWatcherCharm interface {
-	Manifest() *charm.Manifest
+	Charm() (charm.CharmMeta, bool, error)
 }
 
 type appWatcherStateShim struct {
@@ -214,7 +209,7 @@ type appWatcherApplicationShim struct {
 	*state.Application
 }
 
-func (s *appWatcherApplicationShim) Charm() (AppWatcherCharm, bool, error) {
+func (s *appWatcherApplicationShim) Charm() (charm.CharmMeta, bool, error) {
 	ch, force, err := s.Application.Charm()
 	if err != nil {
 		return nil, false, err
