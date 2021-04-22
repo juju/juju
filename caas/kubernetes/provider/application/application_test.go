@@ -756,6 +756,8 @@ func (s *applicationSuite) TestDeleteStateful(c *gc.C) {
 		s.applier.EXPECT().Delete(resources.NewSecret("gitlab-application-config", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewRoleBinding("gitlab", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewRole("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewClusterRoleBinding("test-gitlab", nil)),
+		s.applier.EXPECT().Delete(resources.NewClusterRole("test-gitlab", nil)),
 		s.applier.EXPECT().Delete(resources.NewServiceAccount("gitlab", "test", nil)),
 		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
 	)
@@ -772,6 +774,8 @@ func (s *applicationSuite) TestDeleteStateless(c *gc.C) {
 		s.applier.EXPECT().Delete(resources.NewSecret("gitlab-application-config", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewRoleBinding("gitlab", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewRole("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewClusterRoleBinding("test-gitlab", nil)),
+		s.applier.EXPECT().Delete(resources.NewClusterRole("test-gitlab", nil)),
 		s.applier.EXPECT().Delete(resources.NewServiceAccount("gitlab", "test", nil)),
 		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
 	)
@@ -788,6 +792,8 @@ func (s *applicationSuite) TestDeleteDaemon(c *gc.C) {
 		s.applier.EXPECT().Delete(resources.NewSecret("gitlab-application-config", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewRoleBinding("gitlab", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewRole("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewClusterRoleBinding("test-gitlab", nil)),
+		s.applier.EXPECT().Delete(resources.NewClusterRole("test-gitlab", nil)),
 		s.applier.EXPECT().Delete(resources.NewServiceAccount("gitlab", "test", nil)),
 		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
 	)
