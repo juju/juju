@@ -355,7 +355,9 @@ func (defaultCharmRepo) NewCharmAtPathForceSeries(path, series string, force boo
 // channel, so we can correctly resolve the charm.
 func charmHubResolveOrigin(_ *charm.URL, origin corecharm.Origin, channel charm.Channel) (commoncharm.Origin, error) {
 	if channel.Track == "" {
-		origin.Channel.Risk = channel.Risk
+		if origin.Channel != nil {
+			origin.Channel.Risk = channel.Risk
+		}
 		return commoncharm.CoreCharmOrigin(origin), nil
 	}
 	normalizedC := channel.Normalize()
