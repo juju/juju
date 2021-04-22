@@ -36,7 +36,7 @@ func (*ModelSuite) TestValidateSeries(c *gc.C) {
 		ctrl := gomock.NewController(c)
 		defer ctrl.Finish()
 		cm := NewMockCharmMeta(ctrl)
-		cm.EXPECT().Meta().Return(&t.meta)
+		cm.EXPECT().Meta().Return(&t.meta).AnyTimes()
 		if len(t.meta.Containers) > 0 {
 			cm.EXPECT().Manifest().Return(&charm.Manifest{
 				Bases: []charm.Base{
