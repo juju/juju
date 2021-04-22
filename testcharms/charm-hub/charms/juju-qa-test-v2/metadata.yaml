@@ -1,11 +1,12 @@
 # Copyright 2020 juju-qa@canonical.com
 # See LICENSE file for licensing details.
-name: juju-qa-test
+name: juju-qa-test-v2
 maintainer: juju-qa@canonical.com
 summary: |
-  A charm used in testing juju.
+  A non-container-based V2 metadata charm to use in testing juju.
 description: |
-  A charm used in testing juju.  It has config, actions, resources, and a relation.
+  A non-container-based V2 metadata charm to use in testing juju.
+  It has config, actions, resources, and a relation.
 requires:
   info:
     interface: juju-info

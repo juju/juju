@@ -1,37 +1,30 @@
-# juju-qa-test
+# juju-qa-test-v2
 
 ## Description
 
-A charm to use in testing juju.
+A non-container-based V2 metadata charm to use in testing juju.
 
 ## Usage
 
 Basic deploy: <br>
-<code>juju deploy juju-qa-test</code>
+<code>juju deploy juju-qa-test-v2</code>
 
 Set the unit status to the first line of the resource, if available, one time:<br>
-<code>juju config juju-qa-test foo-file=true</code>
+<code>juju config juju-qa-test-v2 foo-file=true</code>
 
 Get your fortune<br>
-<code>juju run-action juju-qa-test/0 fortune</code>
+<code>juju run-action juju-qa-test-v2/0 fortune</code>
 
 
-## Version, Channel, Series and History
-|Version  |Channel          |Series				 
-|----      |----            |----               
-| 11|latest/stable|bionic, xenial|
-| 14|latest/candidate|focal, bionic, xenial|
-| 20|latest/edge|groovy, focal, bionic, xenial|
-|8   |2.0/stable  |disco, bionic, xenial, trusty |
-|10      |2.0/edge   |disco, bionic, xenial, trusty   |
+## Deployment
 
-## Resource versions and contents
+It is expected that you have charmcraft installed via
 
-Use `juju charm-resources juju-qa-test --channel <channel>` to determine resource to charm channel correlation.
+<code>snap install charmcraft</code>
 
-|Revision  |File Contents  | Notes
-|----      |----  |----
-|1      |testing one.                     
-|2      |testing two. 
-|3      |testing one plus one. | Will be used to replace Revision 1 in a channel
-| 4 | testing four.
+Then cd in to testcharms/charm-hub/charms/juju-qa-test-v2 and run
+
+<code>
+charmcraft build
+juju deploy juju-qa-test-v2.charm
+</code>
