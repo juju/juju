@@ -9,16 +9,19 @@ require (
 	github.com/Azure/go-autorest/autorest/date v0.3.0
 	github.com/Azure/go-autorest/autorest/mocks v0.4.1
 	github.com/Azure/go-autorest/autorest/to v0.3.0
+	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
 	github.com/EvilSuperstars/go-cidrman v0.0.0-20170211231153-4e5a4a63d9b7
-	github.com/altoros/gosigma v0.0.0-20200420012028-063911838a9e
+	github.com/altoros/gosigma v0.0.0-20150408145232-31228935eec6
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
 	github.com/aws/aws-sdk-go v1.29.8
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
 	github.com/canonical/pebble v0.0.0-20210418225304-713a473474b7
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
+	github.com/dnaeon/go-vcr v1.1.0 // indirect
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/dustin/go-humanize v1.0.0
+	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
 	github.com/go-logr/logr v0.2.0
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.0-20210309064400-d73aa8f92aa2
 	github.com/golang/mock v1.4.3
@@ -28,6 +31,7 @@ require (
 	github.com/gorilla/schema v0.0.0-20160426231512-08023a0215e7
 	github.com/gorilla/websocket v1.4.2
 	github.com/gosuri/uitable v0.0.1
+	github.com/hashicorp/go-immutable-radix v1.3.0 // indirect
 	github.com/hashicorp/go-msgpack v0.5.5
 	github.com/hashicorp/go-uuid v1.0.1 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
@@ -38,7 +42,7 @@ require (
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
 	github.com/juju/bundlechanges/v4 v4.0.0-20210223105356-e3037fe2412c
 	github.com/juju/charm/v8 v8.0.0-20210419074656-80e7fc2f335e
-	github.com/juju/charmrepo/v6 v6.0.0-20210309083204-29c3dbf03675
+	github.com/juju/charmrepo/v6 v6.0.0-20210422125831-407c8ef9471c
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
@@ -50,7 +54,7 @@ require (
 	github.com/juju/gomaasapi/v2 v2.0.0-20210323144809-92beddd020fe
 	github.com/juju/http v0.0.0-20201019013536-69ae1d429836
 	github.com/juju/idmclient/v2 v2.0.0-20210309081103-6b4a5212f851
-	github.com/juju/jsonschema v0.0.0-20161102181919-a0ef8b74ebcf
+	github.com/juju/jsonschema v0.0.0-20210422141032-b0ff291abe9c
 	github.com/juju/jsonschema-gen v0.0.0-20200416014454-d924343d72b2
 	github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e
 	github.com/juju/mgo/v2 v2.0.0-20210302023703-70d5d206e208
@@ -69,7 +73,7 @@ require (
 	github.com/juju/romulus v0.0.0-20210309074704-4fa3bbd32568
 	github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476
 	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
-	github.com/juju/terms-client/v2 v2.0.0-20210309081804-aed8368405f6
+	github.com/juju/terms-client/v2 v2.0.0-20210422053140-27f71c100676
 	github.com/juju/testing v0.0.0-20210324180055-18c50b0c2098
 	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
@@ -85,13 +89,15 @@ require (
 	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
 	github.com/onsi/ginkgo v1.14.2 // indirect
 	github.com/onsi/gomega v1.10.4 // indirect
+	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/oracle/oci-go-sdk v5.7.0+incompatible
+	github.com/pascaldekloe/goe v0.1.0 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/satori/go.uuid v1.2.0
-	github.com/stretchr/testify v1.7.0 // indirect
+	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/vishvananda/netlink v1.1.0
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
@@ -117,6 +123,7 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
 	gopkg.in/retry.v1 v1.0.3
+	gopkg.in/robfig/cron.v2 v2.0.0-20150107220207-be2e0b0deed5 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
