@@ -166,7 +166,7 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainer(c *gc.
 			Return(&charms.CharmInfo{
 				Meta: &charm.Meta{
 					Containers: map[string]charm.Container{
-						"test-container": charm.Container{},
+						"test-container": {},
 					},
 				},
 				Manifest: &charm.Manifest{
@@ -198,7 +198,7 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainerMissing
 			Return(&charms.CharmInfo{
 				Meta: &charm.Meta{
 					Containers: map[string]charm.Container{
-						"test-container": charm.Container{},
+						"test-container": {},
 					},
 				},
 				Manifest: &charm.Manifest{

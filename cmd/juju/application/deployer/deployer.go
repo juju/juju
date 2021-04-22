@@ -390,7 +390,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 	}
 
 	// Avoid deploying charm if the charm series is not correct for the
-	// avaliable image streams.
+	// available image streams.
 	if err := d.validateCharmSeriesWithName(seriesName, curl.Name, imageStream); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -522,17 +522,6 @@ func isLocalSchema(u string) bool {
 	}
 
 	return false
-}
-
-// Returns the first string that isn't empty.
-// If all strings are empty, then return an empty string.
-func getPotentialSeriesName(series ...string) string {
-	for _, s := range series {
-		if s != "" {
-			return s
-		}
-	}
-	return ""
 }
 
 func appsRequiringTrust(appSpecList map[string]*charm.ApplicationSpec) []string {
