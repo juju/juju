@@ -19,7 +19,9 @@ var _ = gc.Suite(&formatSuite{})
 func (s formatSuite) TestFormatV2(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
 	cm := NewMockCharmMeta(ctrl)
+	cm.EXPECT().Meta().Return(&charm.Meta{})
 	cm.EXPECT().Manifest().Return(&charm.Manifest{
 		Bases: []charm.Base{
 			{Name: "ubuntu", Channel: charm.Channel{
@@ -27,16 +29,32 @@ func (s formatSuite) TestFormatV2(c *gc.C) {
 				Risk:  "stable",
 			}},
 		},
-	}).AnyTimes()
-	format := Format(cm)
-	c.Assert(format, gc.Equals, FormatV2)
+	})
+
+	c.Assert(Format(cm), gc.Equals, FormatV2)
 }
 
-func (s formatSuite) TestFormatV1(c *gc.C) {
+func (s formatSuite) TestFormatV1EmptyManifest(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
 	cm := NewMockCharmMeta(ctrl)
-	cm.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
-	format := Format(cm)
-	c.Assert(format, gc.Equals, FormatV1)
+	cm.EXPECT().Manifest().Return(&charm.Manifest{})
+
+	c.Assert(Format(cm), gc.Equals, FormatV1)
+}
+
+func (s formatSuite) TestFormatV1Series(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	cm := NewMockCharmMeta(ctrl)
+	cm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{{}},
+	})
+	cm.EXPECT().Meta().Return(&charm.Meta{
+		Series: []string{"kubernetes"},
+	})
+
+	c.Assert(Format(cm), gc.Equals, FormatV1)
 }

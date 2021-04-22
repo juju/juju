@@ -146,6 +146,7 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharm(c *gc.C) {
 						},
 					}},
 				},
+				Meta: &charm.Meta{},
 			}, nil),
 	)
 	target, err := s.sshC.ResolveTarget("mariadb-k8s/0")
