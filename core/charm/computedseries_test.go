@@ -103,7 +103,7 @@ func (s *computedSeriesSuite) TestComputedSeriesKubernetes(c *gc.C) {
 	}).AnyTimes()
 	series, err := ComputedSeries(cm)
 	c.Assert(err, gc.IsNil)
-	c.Assert(series, jc.DeepEquals, []string{"bionic"})
+	c.Assert(series, jc.DeepEquals, []string{"bionic", "kubernetes"})
 }
 
 func (s *computedSeriesSuite) TestComputedSeriesError(c *gc.C) {
