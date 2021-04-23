@@ -271,7 +271,7 @@ func (c *chRepo) selectNextBase(bases []transport.Base, origin corecharm.Origin)
 		break
 	}
 	if !found {
-		return corecharm.Platform{}, errors.NotFoundf("no bases located for architecture %q", origin.Platform.Architecture)
+		return corecharm.Platform{}, errors.NotFoundf("bases matching architecture %q", origin.Platform.Architecture)
 	}
 
 	track, err := channelTrack(base.Channel)

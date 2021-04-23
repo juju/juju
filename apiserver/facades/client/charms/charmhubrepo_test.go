@@ -573,7 +573,7 @@ func (selectNextBaseSuite) TestSelectNextBaseWithInvalidBases(c *gc.C) {
 			Architecture: "amd64",
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `no bases located for architecture "amd64" not found`)
+	c.Assert(err, gc.ErrorMatches, `bases matching architecture "amd64" not found`)
 }
 
 func (selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *gc.C) {
