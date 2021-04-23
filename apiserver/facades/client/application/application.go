@@ -1623,7 +1623,7 @@ func (api *APIv5) AddUnits(args params.AddApplicationUnitsV5) (params.AddApplica
 // AddUnits adds a given number of units to an application.
 func (api *APIBase) AddUnits(args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
 	if api.modelType == state.ModelTypeCAAS {
-		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units on a non-container model")
+		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to a container-based model")
 	}
 	if err := api.checkCanWrite(); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
