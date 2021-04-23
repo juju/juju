@@ -268,6 +268,9 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.
+	if r.charmURL == nil {
+		return nil, origin, errors.Errorf("unexpected charm URL")
+	}
 	if *newURL == *r.charmURL {
 		if refURL.Revision != -1 {
 			return nil, commoncharm.Origin{}, errors.Errorf("already running specified charm %q, revision %d", newURL.Name, newURL.Revision)
@@ -355,7 +358,9 @@ func (defaultCharmRepo) NewCharmAtPathForceSeries(path, series string, force boo
 // channel, so we can correctly resolve the charm.
 func charmHubResolveOrigin(_ *charm.URL, origin corecharm.Origin, channel charm.Channel) (commoncharm.Origin, error) {
 	if channel.Track == "" {
-		origin.Channel.Risk = channel.Risk
+		if origin.Channel != nil {
+			origin.Channel.Risk = channel.Risk
+		}
 		return commoncharm.CoreCharmOrigin(origin), nil
 	}
 	normalizedC := channel.Normalize()
