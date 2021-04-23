@@ -513,6 +513,58 @@ func (s *charmHubCharmRefresherSuite) TestAllowedError(c *gc.C) {
 	c.Assert(allowed, jc.IsFalse)
 }
 
+func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmpty(c *gc.C) {
+	origin := corecharm.Origin{}
+	channel := charm.Channel{}
+	result, err := charmHubResolveOrigin(nil, origin, channel)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, commoncharm.CoreCharmOrigin(origin))
+}
+
+func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOrigin(c *gc.C) {
+	track := "meshuggah"
+	origin := corecharm.Origin{}
+	channel := charm.Channel{
+		Track: track,
+	}
+	result, err := charmHubResolveOrigin(nil, origin, channel)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, commoncharm.CoreCharmOrigin(corecharm.Origin{
+		Channel: &charm.Channel{
+			Track: track,
+			Risk:  "stable",
+		},
+	}))
+}
+
+func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmptyTrackNonEmptyChannel(c *gc.C) {
+	origin := corecharm.Origin{
+		Channel: &charm.Channel{},
+	}
+	channel := charm.Channel{
+		Risk: "edge",
+	}
+	result, err := charmHubResolveOrigin(nil, origin, channel)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, commoncharm.CoreCharmOrigin(corecharm.Origin{
+		Channel: &charm.Channel{
+			Risk: "edge",
+		},
+	}))
+}
+
+func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmptyTrackEmptyChannel(c *gc.C) {
+	origin := corecharm.Origin{}
+	channel := charm.Channel{
+		Risk: "edge",
+	}
+	result, err := charmHubResolveOrigin(nil, origin, channel)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, commoncharm.CoreCharmOrigin(corecharm.Origin{
+		Channel: &charm.Channel{},
+	}))
+}
+
 func basicRefresherConfig(curl *charm.URL, ref string) RefresherConfig {
 	return RefresherConfig{
 		ApplicationName: "winnie",
