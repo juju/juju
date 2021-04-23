@@ -96,7 +96,7 @@ func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
 			_, _ = io.Copy(ioutil.Discard, resp.Body)
 			_ = resp.Body.Close()
 		}()
-		return nil, errors.Errorf(`unexpected server error %q`, req.URL.String())
+		return nil, errors.Errorf(`server error %q`, req.URL.String())
 	}
 
 	// We expect that we always have a valid content-type from the server, once
