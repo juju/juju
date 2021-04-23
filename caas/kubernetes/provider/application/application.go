@@ -979,7 +979,7 @@ func (a *app) Units() ([]caas.Unit, error) {
 				logger.Warningf("volume for volume mount %q not found", volMount.Name)
 				continue
 			}
-			if vol.Secret != nil && strings.HasPrefix(vol.Secret.SecretName, a.name+"-token") {
+			if vol.Secret != nil && strings.Contains(vol.Secret.SecretName, "-token") {
 				logger.Tracef("ignoring volume source for service account secret: %v", vol.Name)
 				continue
 			}

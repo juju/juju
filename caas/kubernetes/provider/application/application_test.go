@@ -1461,6 +1461,25 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 				},
 			},
 		)
+		// Add a volume with a secret for lp:1925721, the secret name must contain
+		// `-token` to be ignored.
+		podSpec.Volumes = append(podSpec.Volumes,
+			corev1.Volume{
+				Name: "testme",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: "charm-data-token",
+					},
+				},
+			},
+		)
+		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts,
+			corev1.VolumeMount{
+				Name:      "testme",
+				MountPath: "path/to/here",
+			},
+		)
 		pod := corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:   s.namespace,
