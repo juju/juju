@@ -362,7 +362,11 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 			return nil, errors.Trace(err)
 		}
 		if err := model.ValidateModelTarget(modelType, ch); err != nil {
-			return nil, errors.Annotatef(err, "cannot add application %q", d.applicationName)
+			appName := d.applicationName
+			if appName == "" {
+				appName = ch.Meta().Name
+			}
+			return nil, errors.Annotatef(err, "cannot add application %q", appName)
 		}
 	}
 
