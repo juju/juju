@@ -268,6 +268,9 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.
+	if r.charmURL == nil {
+		return nil, origin, errors.Errorf("unexpected charm URL")
+	}
 	if *newURL == *r.charmURL {
 		if refURL.Revision != -1 {
 			return nil, commoncharm.Origin{}, errors.Errorf("already running specified charm %q, revision %d", newURL.Name, newURL.Revision)
