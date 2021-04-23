@@ -1,13 +1,12 @@
 name: juju
 version: 3.0-beta1
-summary: Juju - a model-driven operator lifecycle manager for K8s and machines
+summary: Juju - a charmed Operator Lifecycle Manager for K8s and machines
 description: |
-  Juju is an Open Source Charmed Operator Framework. It helps you move from configuration management to application management and has two main components:
+ Juju is an Open Source Charmed Operator Framework. It helps you move from configuration management to application management and has two main components:
 
-  ● **Charmed Operator Lifecycle Manager (OLM)** - a hybrid-cloud application management and orchestration system that helps you from Day 0 to Day 2. Deploy, configure, scale, **integrate**, maintain and manage Kubernetes native, container-native and VM-native applications -- and the relations between them.
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;● **Charmed Operators, packaged as “Charms”**, are software that encapsulate a single application and all the code and know-how it takes to operate it on Kubernetes or machines.
-
-  ● **Charmed Operator SDK** - a guide to help you build Charmed Operators for use with the Charmed OLM.
+* **Charmed Operator Lifecycle Manager (OLM)** - a hybrid-cloud application management and orchestration system that helps you from Day 0 to Day 2. Deploy, configure, scale, **integrate**, maintain and manage Kubernetes native, container-native and VM-native applications -- and the relations between them.
+   * **Charmed Operators, packaged as “Charms”**, are software that encapsulate a single application and all the code and know-how it takes to operate it on Kubernetes or machines.
+* **Charmed Operator SDK** - a guide to help you build Charmed Operators for use with the Charmed OLM.
 
   **Learn more**
 
