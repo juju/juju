@@ -19,6 +19,14 @@ import (
 	"github.com/juju/juju/charmhub/path"
 )
 
+// MIME represents a MIME type for identifying requests and response bodies.
+type MIME = string
+
+const (
+	// JSON represents the MIME type for JSON request and response types.
+	JSON MIME = "application/json"
+)
+
 // Transport defines a type for making the actual request.
 type Transport interface {
 	// Do performs the *http.Request and returns a *http.Response or an error
@@ -70,7 +78,7 @@ func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
 		}
 	}
 
-	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusNoContent {
+	if resp.StatusCode >= http.StatusOK && resp.StatusCode <= http.StatusNoContent {
 		return resp, nil
 	}
 
@@ -83,9 +91,19 @@ func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
 	var potentialInvalidURL bool
 	if resp.StatusCode == http.StatusNotFound {
 		potentialInvalidURL = true
+	} else if resp.StatusCode >= http.StatusInternalServerError && resp.StatusCode <= http.StatusNetworkAuthenticationRequired {
+		defer func() {
+			_, _ = io.Copy(ioutil.Discard, resp.Body)
+			_ = resp.Body.Close()
+		}()
+		return nil, errors.Errorf(`server error %q`, req.URL.String())
 	}
 
-	if contentType := resp.Header.Get("Content-Type"); contentType != "application/json" {
+	// We expect that we always have a valid content-type from the server, once
+	// we've checked that we don't get a 5xx error. Given that we send Accept
+	// header of application/json, I would only ever expect to see that.
+	// Everything will be incorrectly formatted.
+	if contentType := resp.Header.Get("Content-Type"); contentType != JSON {
 		defer func() {
 			_, _ = io.Copy(ioutil.Discard, resp.Body)
 			_ = resp.Body.Close()
@@ -141,8 +159,8 @@ func (c *HTTPRESTClient) Get(ctx context.Context, path path.Path, result interfa
 
 	// Compose the request headers.
 	headers := make(http.Header)
-	headers.Set("Accept", "application/json")
-	headers.Set("Content-Type", "application/json")
+	headers.Set("Accept", JSON)
+	headers.Set("Content-Type", JSON)
 
 	req.Header = c.composeHeaders(headers)
 
@@ -180,8 +198,8 @@ func (c *HTTPRESTClient) Post(ctx context.Context, path path.Path, headers http.
 
 	// Compose the request headers.
 	req.Header = make(http.Header)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", JSON)
+	req.Header.Set("Content-Type", JSON)
 	req.Header = c.composeHeaders(req.Header)
 
 	// Add any headers specific to this request (in sorted order).
