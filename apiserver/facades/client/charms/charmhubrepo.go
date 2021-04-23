@@ -271,12 +271,12 @@ func (c *chRepo) selectNextBase(bases []transport.Base, origin corecharm.Origin)
 		break
 	}
 	if !found {
-		return corecharm.Platform{}, errors.NotFoundf("base")
+		return corecharm.Platform{}, errors.NotFoundf("bases matching architecture %q", origin.Platform.Architecture)
 	}
 
 	track, err := channelTrack(base.Channel)
 	if err != nil {
-		return corecharm.Platform{}, errors.Trace(err)
+		return corecharm.Platform{}, errors.Annotate(err, "base")
 	}
 	series, err := coreseries.VersionSeries(track)
 	if err != nil {
