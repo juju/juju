@@ -100,23 +100,23 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 	case *methods.ReconfigVM_TaskBody:
 		req := req.(*methods.ReconfigVM_TaskBody).Req
 		r.MethodCall(r, "ReconfigVM_Task", req.Spec)
-		res.Res = &types.ReconfigVM_TaskResponse{reconfigVMTask}
+		res.Res = &types.ReconfigVM_TaskResponse{Returnval: reconfigVMTask}
 	case *methods.Destroy_TaskBody:
 		r.MethodCall(r, "Destroy_Task")
-		res.Res = &types.Destroy_TaskResponse{destroyTask}
+		res.Res = &types.Destroy_TaskResponse{Returnval: destroyTask}
 	case *methods.MoveIntoFolder_TaskBody:
 		r.MethodCall(r, "MoveIntoFolder_Task")
-		res.Res = &types.MoveIntoFolder_TaskResponse{moveIntoFolderTask}
+		res.Res = &types.MoveIntoFolder_TaskResponse{Returnval: moveIntoFolderTask}
 	case *methods.PowerOffVM_TaskBody:
 		r.MethodCall(r, "PowerOffVM_Task")
-		res.Res = &types.PowerOffVM_TaskResponse{powerOffVMTask}
+		res.Res = &types.PowerOffVM_TaskResponse{Returnval: powerOffVMTask}
 	case *methods.PowerOnVM_TaskBody:
 		r.MethodCall(r, "PowerOnVM_Task")
-		res.Res = &types.PowerOnVM_TaskResponse{powerOnVMTask}
+		res.Res = &types.PowerOnVM_TaskResponse{Returnval: powerOnVMTask}
 	case *methods.CloneVM_TaskBody:
 		req := req.(*methods.CloneVM_TaskBody).Req
 		r.MethodCall(r, "CloneVM_Task", req.Folder, req.Name, req.Spec.Config, req.Spec.Location)
-		res.Res = &types.CloneVM_TaskResponse{cloneVMTask}
+		res.Res = &types.CloneVM_TaskResponse{Returnval: cloneVMTask}
 	case *methods.CreateFolderBody:
 		req := req.(*methods.CreateFolderBody).Req
 		logger.Debugf("CreateFolder: %q", req.Name)
@@ -126,7 +126,7 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 		req := req.(*methods.CreateImportSpecBody).Req
 		r.MethodCall(r, "CreateImportSpec", req.OvfDescriptor, req.Datastore, req.Cisp)
 		res.Res = &types.CreateImportSpecResponse{
-			types.OvfCreateImportSpecResult{
+			Returnval: types.OvfCreateImportSpecResult{
 				FileItem: []types.OvfFileItem{
 					{
 						DeviceId: "key1",
@@ -144,19 +144,19 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 	case *methods.ImportVAppBody:
 		req := req.(*methods.ImportVAppBody).Req
 		r.MethodCall(r, "ImportVApp", req.Spec)
-		res.Res = &types.ImportVAppResponse{lease}
+		res.Res = &types.ImportVAppResponse{Returnval: lease}
 	case *methods.SearchDatastore_TaskBody:
 		req := req.(*methods.SearchDatastore_TaskBody).Req
 		r.MethodCall(r, "SearchDatastore", req.DatastorePath, req.SearchSpec)
-		res.Res = &types.SearchDatastore_TaskResponse{searchDatastoreTask}
+		res.Res = &types.SearchDatastore_TaskResponse{Returnval: searchDatastoreTask}
 	case *methods.DeleteDatastoreFile_TaskBody:
 		req := req.(*methods.DeleteDatastoreFile_TaskBody).Req
 		r.MethodCall(r, "DeleteDatastoreFile", req.Name)
-		res.Res = &types.DeleteDatastoreFile_TaskResponse{deleteDatastoreFileTask}
+		res.Res = &types.DeleteDatastoreFile_TaskResponse{Returnval: deleteDatastoreFileTask}
 	case *methods.MoveDatastoreFile_TaskBody:
 		req := req.(*methods.MoveDatastoreFile_TaskBody).Req
 		r.MethodCall(r, "MoveDatastoreFile", req.SourceName, req.DestinationName, req.Force)
-		res.Res = &types.MoveDatastoreFile_TaskResponse{moveDatastoreFileTask}
+		res.Res = &types.MoveDatastoreFile_TaskResponse{Returnval: moveDatastoreFileTask}
 	case *methods.MakeDirectoryBody:
 		req := req.(*methods.MakeDirectoryBody).Req
 		r.MethodCall(r, "MakeDirectory", req.Name)
@@ -164,7 +164,7 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 	case *methods.ExtendVirtualDisk_TaskBody:
 		req := req.(*methods.ExtendVirtualDisk_TaskBody).Req
 		r.MethodCall(r, "ExtendVirtualDisk", req.Name, req.NewCapacityKb)
-		res.Res = &types.ExtendVirtualDisk_TaskResponse{extendVirtualDiskTask}
+		res.Res = &types.ExtendVirtualDisk_TaskResponse{Returnval: extendVirtualDiskTask}
 	case *methods.CreatePropertyCollectorBody:
 		r.MethodCall(r, "CreatePropertyCollector")
 		uuid := utils.MustNewUUID().String()
@@ -342,7 +342,7 @@ func (r *mockRoundTripper) retrieveProperties(req *types.RetrieveProperties) *ty
 		}
 	}
 	logger.Debugf("received %s", contents)
-	return &types.RetrievePropertiesResponse{contents}
+	return &types.RetrievePropertiesResponse{Returnval: contents}
 }
 
 func (r *mockRoundTripper) setContents(contents map[string][]types.ObjectContent) {
@@ -366,7 +366,7 @@ func makeStubCall(method string, vals ...string) testing.StubCall {
 	for i, vals := range vals {
 		args[i] = vals
 	}
-	return testing.StubCall{method, args}
+	return testing.StubCall{FuncName: method, Args: args}
 }
 
 type collector struct {

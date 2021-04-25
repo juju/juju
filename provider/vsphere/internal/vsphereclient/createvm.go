@@ -567,7 +567,7 @@ func (c *Client) addNetworkDevice(
 	networkDevice.Key = -idx // negative to avoid conflicts
 	if mac != "" {
 		if !VerifyMAC(mac) {
-			return nil, fmt.Errorf("Invalid MAC address: %q", mac)
+			return nil, fmt.Errorf("invalid MAC address: %q", mac)
 		}
 		networkDevice.AddressType = "Manual"
 		networkDevice.MacAddress = mac

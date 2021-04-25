@@ -72,33 +72,33 @@ func (s *clientSuite) TestCreateTemplateVM(c *gc.C) {
 	templateCisp := baseCisp()
 	templateCisp.EntityName = args.TemplateName
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
-		{"CreateImportSpec", []interface{}{
+		{FuncName: "CreateImportSpec", Args: []interface{}{
 			UbuntuOVF,
 			types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"},
 			templateCisp,
 		}},
-		{"ImportVApp", []interface{}{
+		{FuncName: "ImportVApp", Args: []interface{}{
 			&types.VirtualMachineImportSpec{
 				ConfigSpec: types.VirtualMachineConfigSpec{
 					Name: "vm-name",
 				},
 			},
 		}},
-		{"CreatePropertyCollector", nil},
-		{"CreateFilter", nil},
-		{"WaitForUpdatesEx", nil},
-		{"HttpNfcLeaseComplete", []interface{}{"FakeLease"}},
-		{"ReconfigVM_Task", []interface{}{
+		{FuncName: "CreatePropertyCollector", Args: nil},
+		{FuncName: "CreateFilter", Args: nil},
+		{FuncName: "WaitForUpdatesEx", Args: nil},
+		{FuncName: "HttpNfcLeaseComplete", Args: []interface{}{"FakeLease"}},
+		{FuncName: "ReconfigVM_Task", Args: []interface{}{
 			types.VirtualMachineConfigSpec{
 				ExtraConfig: []types.BaseOptionValue{
 					&types.OptionValue{Key: ArchTag, Value: "amd64"},
 				},
 			},
 		}},
-		{"CreatePropertyCollector", nil},
-		{"CreateFilter", nil},
-		{"WaitForUpdatesEx", nil},
-		{"MarkAsTemplate", []interface{}{"FakeVm0"}},
+		{FuncName: "CreatePropertyCollector", Args: nil},
+		{FuncName: "CreateFilter", Args: nil},
+		{FuncName: "WaitForUpdatesEx", Args: nil},
+		{FuncName: "MarkAsTemplate", Args: []interface{}{"FakeVm0"}},
 	})
 }
 
@@ -160,7 +160,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		retrievePropertiesStubCall("dvportgroup-0"),
 		retrievePropertiesStubCall("FakeVm0"),
 		retrievePropertiesStubCall("FakeVm0"),
-		{"CloneVM_Task", []interface{}{
+		{FuncName: "CloneVM_Task", Args: []interface{}{
 			types.ManagedObjectReference{
 				Type: "Folder", Value: "FakeControllerVmFolder",
 			},
@@ -197,13 +197,13 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 				},
 			},
 		}},
-		{"CreatePropertyCollector", nil},
-		{"CreateFilter", nil},
-		{"WaitForUpdatesEx", nil},
-		{"PowerOnVM_Task", nil},
-		{"CreatePropertyCollector", nil},
-		{"CreateFilter", nil},
-		{"WaitForUpdatesEx", nil},
+		{FuncName: "CreatePropertyCollector", Args: nil},
+		{FuncName: "CreateFilter", Args: nil},
+		{FuncName: "WaitForUpdatesEx", Args: nil},
+		{FuncName: "PowerOnVM_Task", Args: nil},
+		{FuncName: "CreatePropertyCollector", Args: nil},
+		{FuncName: "CreateFilter", Args: nil},
+		{FuncName: "WaitForUpdatesEx", Args: nil},
 		retrievePropertiesStubCall(""),
 	})
 }
@@ -694,7 +694,7 @@ func (s *clientSuite) TestCreateVirtualMachineInvalidMAC(c *gc.C) {
 	}
 
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `cloning template VM: building clone VM config: adding network device 0 - network VM Network: Invalid MAC address: "00:11:22:33:44:55"`)
+	c.Assert(err, gc.ErrorMatches, `cloning template VM: building clone VM config: adding network device 0 - network VM Network: invalid MAC address: "00:11:22:33:44:55"`)
 }
 
 func (s *clientSuite) TestCreateVirtualMachineRootDiskSize(c *gc.C) {

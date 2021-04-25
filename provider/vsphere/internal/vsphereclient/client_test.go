@@ -578,7 +578,9 @@ func (s *clientSuite) TestDial(c *gc.C) {
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		e := xml.NewEncoder(w)
 		e.Encode(soap.Envelope{Body: methods.RetrieveServiceContentBody{
-			Res: &types.RetrieveServiceContentResponse{s.serviceContent},
+			Res: &types.RetrieveServiceContentResponse{
+				Returnval: s.serviceContent,
+			},
 		}})
 		e.Flush()
 	})
@@ -650,10 +652,10 @@ func (s *clientSuite) TestDestroyVMFolder(c *gc.C) {
 		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeVmFolder"),
 		retrievePropertiesStubCall("FakeHostFolder"),
-		{"Destroy_Task", nil},
-		{"CreatePropertyCollector", nil},
-		{"CreateFilter", nil},
-		{"WaitForUpdatesEx", nil},
+		{FuncName: "Destroy_Task", Args: nil},
+		{FuncName: "CreatePropertyCollector", Args: nil},
+		{FuncName: "CreateFilter", Args: nil},
+		{FuncName: "WaitForUpdatesEx", Args: nil},
 	})
 }
 
@@ -678,8 +680,8 @@ func (s *clientSuite) TestEnsureVMFolder(c *gc.C) {
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
-		{"CreateFolder", []interface{}{"foo"}},
-		{"CreateFolder", []interface{}{"bar"}},
+		{FuncName: "CreateFolder", Args: []interface{}{"foo"}},
+		{FuncName: "CreateFolder", Args: []interface{}{"bar"}},
 	})
 }
 
@@ -735,10 +737,10 @@ func (s *clientSuite) TestMoveVMFolderInto(c *gc.C) {
 		retrievePropertiesStubCall("FakeVmFolder"),
 		retrievePropertiesStubCall("FakeControllerVmFolder"),
 		retrievePropertiesStubCall("FakeHostFolder"),
-		{"MoveIntoFolder_Task", nil},
-		{"CreatePropertyCollector", nil},
-		{"CreateFilter", nil},
-		{"WaitForUpdatesEx", nil},
+		{FuncName: "MoveIntoFolder_Task", Args: nil},
+		{FuncName: "CreatePropertyCollector", Args: nil},
+		{FuncName: "CreateFilter", Args: nil},
+		{FuncName: "WaitForUpdatesEx", Args: nil},
 	})
 }
 
@@ -765,10 +767,10 @@ func (s *clientSuite) TestMoveVMsInto(c *gc.C) {
 		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeVmFolder"),
 		retrievePropertiesStubCall("FakeHostFolder"),
-		{"MoveIntoFolder_Task", nil},
-		{"CreatePropertyCollector", nil},
-		{"CreateFilter", nil},
-		{"WaitForUpdatesEx", nil},
+		{FuncName: "MoveIntoFolder_Task", Args: nil},
+		{FuncName: "CreatePropertyCollector", Args: nil},
+		{FuncName: "CreateFilter", Args: nil},
+		{FuncName: "WaitForUpdatesEx", Args: nil},
 	})
 }
 
@@ -786,22 +788,22 @@ func (s *clientSuite) TestRemoveVirtualMachines(c *gc.C) {
 		retrievePropertiesStubCall("FakeControllerVmFolder"),
 		retrievePropertiesStubCall("FakeModelVmFolder"),
 		retrievePropertiesStubCall("FakeVmTemplate", "FakeVm0", "FakeVm1"),
-		{"Destroy_Task", nil},
-		{"Destroy_Task", nil},
-		{"PowerOffVM_Task", nil},
-		{"Destroy_Task", nil},
-		{"CreatePropertyCollector", nil},
-		{"CreateFilter", nil},
-		{"WaitForUpdatesEx", nil},
-		{"CreatePropertyCollector", nil},
-		{"CreateFilter", nil},
-		{"WaitForUpdatesEx", nil},
-		{"CreatePropertyCollector", nil},
-		{"CreateFilter", nil},
-		{"WaitForUpdatesEx", nil},
-		{"CreatePropertyCollector", nil},
-		{"CreateFilter", nil},
-		{"WaitForUpdatesEx", nil},
+		{FuncName: "Destroy_Task", Args: nil},
+		{FuncName: "Destroy_Task", Args: nil},
+		{FuncName: "PowerOffVM_Task", Args: nil},
+		{FuncName: "Destroy_Task", Args: nil},
+		{FuncName: "CreatePropertyCollector", Args: nil},
+		{FuncName: "CreateFilter", Args: nil},
+		{FuncName: "WaitForUpdatesEx", Args: nil},
+		{FuncName: "CreatePropertyCollector", Args: nil},
+		{FuncName: "CreateFilter", Args: nil},
+		{FuncName: "WaitForUpdatesEx", Args: nil},
+		{FuncName: "CreatePropertyCollector", Args: nil},
+		{FuncName: "CreateFilter", Args: nil},
+		{FuncName: "WaitForUpdatesEx", Args: nil},
+		{FuncName: "CreatePropertyCollector", Args: nil},
+		{FuncName: "CreateFilter", Args: nil},
+		{FuncName: "WaitForUpdatesEx", Args: nil},
 	})
 }
 
@@ -1031,10 +1033,10 @@ func (s *clientSuite) TestDeleteDatastoreFile(c *gc.C) {
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
-		{"DeleteDatastoreFile", []interface{}{"[datastore1] file/path"}},
-		{"CreatePropertyCollector", nil},
-		{"CreateFilter", nil},
-		{"WaitForUpdatesEx", nil},
+		{FuncName: "DeleteDatastoreFile", Args: []interface{}{"[datastore1] file/path"}},
+		{FuncName: "CreatePropertyCollector", Args: nil},
+		{FuncName: "CreateFilter", Args: nil},
+		{FuncName: "WaitForUpdatesEx", Args: nil},
 	})
 }
 
@@ -1092,7 +1094,7 @@ func (s *clientSuite) TestUserHasRootLevelPrivilege(c *gc.C) {
 
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
 		retrievePropertiesStubCall("FakeSessionManager"),
-		{"HasPrivilegeOnEntities", []interface{}{
+		{FuncName: "HasPrivilegeOnEntities", Args: []interface{}{
 			"FakeAuthorizationManager",
 			[]types.ManagedObjectReference{s.serviceContent.RootFolder},
 			"session-key",
