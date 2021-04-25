@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"path"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -160,7 +161,10 @@ func (v *vmTemplateManager) downloadAndImportTemplate(
 
 	baseFolder := v.env.getVMFolder()
 	seriesTemplateFolder := v.seriesTemplateFolder(series)
-	relativePath := seriesTemplateFolder[len(baseFolder)+1:]
+	relativePath := seriesTemplateFolder
+	if len(baseFolder) > 0 && strings.HasPrefix(relativePath, baseFolder) {
+		relativePath = relativePath[len(baseFolder)+1:]
+	}
 
 	vmFolder, err := v.env.client.EnsureVMFolder(
 		ctx, baseFolder, relativePath)

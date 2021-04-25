@@ -6,7 +6,6 @@ package vsphere_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"path"
 	"time"
@@ -34,7 +33,6 @@ import (
 	callcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere"
-	"github.com/juju/juju/provider/vsphere/internal/ovatest"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 	"github.com/juju/juju/provider/vsphere/mocks"
 	coretesting "github.com/juju/juju/testing"
@@ -128,41 +126,43 @@ func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
 
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.UserData, gc.Not(gc.Equals), "")
-	c.Assert(createVMArgs.ReadOVA, gc.NotNil)
-	readOVA := createVMArgs.ReadOVA
+	// c.Assert(createVMArgs.ReadOVA, gc.NotNil)
+	// readOVA := createVMArgs.ReadOVA
 	createVMArgs.UserData = ""
 	createVMArgs.Constraints = constraints.Value{}
-	createVMArgs.UpdateProgress = nil
-	createVMArgs.Clock = nil
-	createVMArgs.ReadOVA = nil
+	createVMArgs.StatusUpdateParams.UpdateProgress = nil
+	createVMArgs.StatusUpdateParams.Clock = nil
+	// createVMArgs.ReadOVA = nil
 	createVMArgs.NetworkDevices = []vsphereclient.NetworkDevice{}
 	c.Assert(createVMArgs, jc.DeepEquals, vsphereclient.CreateVirtualMachineParams{
-		Name:            "juju-f75cba-0",
-		Folder:          `Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
-		VMDKDirectory:   "Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/templates",
-		Series:          startInstArgs.InstanceConfig.Series,
-		OVASHA256:       ovatest.FakeOVASHA256(),
+		Name:   "juju-f75cba-0",
+		Folder: `Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
+		// VMDKDirectory:   "Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/templates",
+		Series: startInstArgs.InstanceConfig.Series,
+		// OVASHA256:       ovatest.FakeOVASHA256(),
 		Metadata:        startInstArgs.InstanceConfig.Tags,
 		ComputeResource: s.client.computeResources[0].Resource,
 		ResourcePool: types.ManagedObjectReference{
 			Type:  "ResourcePool",
 			Value: "pool-1",
 		},
-		UpdateProgressInterval: 5 * time.Second,
-		EnableDiskUUID:         true,
-		DiskProvisioningType:   vsphereclient.DefaultDiskProvisioningType,
+		StatusUpdateParams: vsphereclient.StatusUpdateParams{
+			UpdateProgressInterval: 5 * time.Second,
+		},
+		EnableDiskUUID:       true,
+		DiskProvisioningType: vsphereclient.DefaultDiskProvisioningType,
 	})
 
-	ovaLocation, ovaReadCloser, err := readOVA()
-	c.Assert(err, jc.ErrorIsNil)
-	defer ovaReadCloser.Close()
-	c.Assert(
-		ovaLocation, gc.Equals,
-		s.imageServer.URL+"/server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ova",
-	)
-	ovaBody, err := ioutil.ReadAll(ovaReadCloser)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ovaBody, jc.DeepEquals, ovatest.FakeOVAContents())
+	// ovaLocation, ovaReadCloser, err := readOVA()
+	// c.Assert(err, jc.ErrorIsNil)
+	// defer ovaReadCloser.Close()
+	// c.Assert(
+	// 	ovaLocation, gc.Equals,
+	// 	s.imageServer.URL+"/server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ova",
+	// )
+	// ovaBody, err := ioutil.ReadAll(ovaReadCloser)
+	// c.Assert(err, jc.ErrorIsNil)
+	// c.Assert(ovaBody, jc.DeepEquals, ovatest.FakeOVAContents())
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
@@ -433,8 +433,8 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
-	call := s.client.Calls()[4]
+	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "EnsureVMFolder", "CreateVirtualMachine", "Close")
+	call := s.client.Calls()[5]
 	c.Assert(call.Args, gc.HasLen, 2)
 	c.Assert(call.Args[0], gc.Implements, new(context.Context))
 	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})

@@ -50,6 +50,26 @@ func (c *mockClient) Close(ctx context.Context) error {
 	return c.NextErr()
 }
 
+func (c *mockClient) CreateTemplateVM(ctx context.Context, ovaArgs vsphereclient.ImportOVAParameters) (vm *object.VirtualMachine, err error) {
+	return nil, nil
+}
+
+func (c *mockClient) FindVMTemplatesByName(ctx context.Context, path string, name string) ([]*object.VirtualMachine, error) {
+	return nil, nil
+}
+
+func (c *mockClient) GetTargetDatastore(ctx context.Context, computeResource *mo.ComputeResource, rootDiskSource string) (*object.Datastore, error) {
+	return nil, nil
+}
+
+func (c *mockClient) ListVMTemplates(ctx context.Context, path string) ([]*object.VirtualMachine, error) {
+	return nil, nil
+}
+
+func (c *mockClient) VirtualMachineObjectToManagedObject(ctx context.Context, vmObject *object.VirtualMachine) (mo.VirtualMachine, error) {
+	return mo.VirtualMachine{}, nil
+}
+
 func (c *mockClient) ComputeResources(ctx context.Context) ([]vsphereclient.ComputeResource, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
