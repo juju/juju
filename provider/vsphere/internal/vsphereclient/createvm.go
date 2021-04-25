@@ -317,11 +317,12 @@ func (c *Client) CreateVirtualMachine(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
+	c.logger.Debugf(">>>> Folder: %q", args.Folder)
 	vmFolder, err := c.FindFolder(ctx, args.Folder)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	c.logger.Debugf(">>>> Folder2: %q", vmFolder)
 
 	args.StatusUpdateParams.UpdateProgress("cloning template")
 	vm, err := c.cloneVM(ctx, args, args.VMTemplate, vmFolder)
@@ -456,7 +457,6 @@ func (c *Client) selectDatastore(
 	ctx context.Context,
 	computeResource *mo.ComputeResource,
 	rootDiskSource string,
-	// args CreateVirtualMachineParams,
 ) (_ *mo.Datastore, err error) {
 	defer func() {
 		if err != nil {

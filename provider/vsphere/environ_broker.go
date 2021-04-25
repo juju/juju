@@ -171,8 +171,6 @@ func (env *sessionEnviron) newRawInstance(
 		return nil, nil, common.ZoneIndependentError(err)
 	}
 
-	logger.Warningf(">>> ImageMetadata: %v", args.ImageMetadata)
-
 	if err := env.finishMachineConfig(args, arch); err != nil {
 		return nil, nil, common.ZoneIndependentError(err)
 	}

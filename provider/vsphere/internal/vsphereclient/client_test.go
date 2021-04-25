@@ -903,9 +903,11 @@ func (s *clientSuite) TestMaybeUpgradeVMVersion(c *gc.C) {
 				Value: "FakeEnvironmentBrowser",
 			},
 		},
-		Clock:                  testclock.NewClock(time.Time{}),
-		UpdateProgress:         func(status string) {},
-		UpdateProgressInterval: time.Second,
+		StatusUpdateParams: StatusUpdateParams{
+			Clock:                  testclock.NewClock(time.Time{}),
+			UpdateProgress:         func(status string) {},
+			UpdateProgressInterval: time.Second,
+		},
 	}
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	var vm mo.VirtualMachine
@@ -916,9 +918,9 @@ func (s *clientSuite) TestMaybeUpgradeVMVersion(c *gc.C) {
 
 	vmObj := object.NewVirtualMachine(client.client.Client, vm.Reference())
 	err := client.maybeUpgradeVMHardware(context.Background(), args, vmObj, &taskWaiter{
-		clock:                  args.Clock,
-		updateProgress:         args.UpdateProgress,
-		updateProgressInterval: args.UpdateProgressInterval,
+		clock:                  args.StatusUpdateParams.Clock,
+		updateProgress:         args.StatusUpdateParams.UpdateProgress,
+		updateProgressInterval: args.StatusUpdateParams.UpdateProgressInterval,
 	})
 
 	// We ignore the request and log the event.
