@@ -165,7 +165,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
 		EnableDiskUUID: true,
 		Datastore: object.NewDatastore(nil, types.ManagedObjectReference{
 			Type:  "Datastore",
-			Value: "baz",
+			Value: "bar",
 		}),
 		VMTemplate: object.NewVirtualMachine(nil, types.ManagedObjectReference{
 			Type:  "VirtualMachine",

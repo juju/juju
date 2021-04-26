@@ -77,6 +77,7 @@ func (c *mockClient) GetTargetDatastore(ctx context.Context, computeResource *mo
 		for _, ds := range c.datastores {
 			if ds.Summary.Accessible {
 				rootDiskSource = ds.GetManagedEntity().Name
+				break
 			}
 		}
 	}
