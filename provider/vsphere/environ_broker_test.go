@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version/v2"
 	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 	gc "gopkg.in/check.v1"
@@ -33,6 +34,7 @@ import (
 	callcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere"
+	"github.com/juju/juju/provider/vsphere/internal/ovatest"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 	"github.com/juju/juju/provider/vsphere/mocks"
 	coretesting "github.com/juju/juju/testing"
@@ -106,6 +108,20 @@ func setInstanceConfigAuthorizedKeys(c *gc.C, instanceConfig *instancecfg.Instan
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
+	s.client.datastores = []mo.Datastore{{
+		ManagedEntity: mo.ManagedEntity{Name: "foo"},
+	}, {
+		ManagedEntity: mo.ManagedEntity{Name: "bar"},
+		Summary: types.DatastoreSummary{
+			Accessible: true,
+		},
+	}, {
+		ManagedEntity: mo.ManagedEntity{Name: "baz"},
+		Summary: types.DatastoreSummary{
+			Accessible: true,
+		},
+	}}
+
 	startInstArgs := s.createStartInstanceArgs(c)
 	startInstArgs.InstanceConfig.Tags = map[string]string{
 		"k0": "v0",
@@ -118,28 +134,25 @@ func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(result.Instance, gc.NotNil)
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("new-vm"))
 
-	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
-	call := s.client.Calls()[4]
+	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "GetTargetDatastore", "ListVMTemplates", "EnsureVMFolder", "CreateTemplateVM", "CreateVirtualMachine", "Close")
+	call := s.client.Calls()[8]
 	c.Assert(call.Args, gc.HasLen, 2)
 	c.Assert(call.Args[0], gc.Implements, new(context.Context))
 	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
 
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.UserData, gc.Not(gc.Equals), "")
-	// c.Assert(createVMArgs.ReadOVA, gc.NotNil)
-	// readOVA := createVMArgs.ReadOVA
+
 	createVMArgs.UserData = ""
 	createVMArgs.Constraints = constraints.Value{}
 	createVMArgs.StatusUpdateParams.UpdateProgress = nil
 	createVMArgs.StatusUpdateParams.Clock = nil
-	// createVMArgs.ReadOVA = nil
+
 	createVMArgs.NetworkDevices = []vsphereclient.NetworkDevice{}
 	c.Assert(createVMArgs, jc.DeepEquals, vsphereclient.CreateVirtualMachineParams{
-		Name:   "juju-f75cba-0",
-		Folder: `Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
-		// VMDKDirectory:   "Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/templates",
-		Series: startInstArgs.InstanceConfig.Series,
-		// OVASHA256:       ovatest.FakeOVASHA256(),
+		Name:            "juju-f75cba-0",
+		Folder:          `Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
+		Series:          startInstArgs.InstanceConfig.Series,
 		Metadata:        startInstArgs.InstanceConfig.Tags,
 		ComputeResource: s.client.computeResources[0].Resource,
 		ResourcePool: types.ManagedObjectReference{
@@ -149,20 +162,17 @@ func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
 		StatusUpdateParams: vsphereclient.StatusUpdateParams{
 			UpdateProgressInterval: 5 * time.Second,
 		},
-		EnableDiskUUID:       true,
+		EnableDiskUUID: true,
+		Datastore: object.NewDatastore(nil, types.ManagedObjectReference{
+			Type:  "Datastore",
+			Value: "baz",
+		}),
+		VMTemplate: object.NewVirtualMachine(nil, types.ManagedObjectReference{
+			Type:  "VirtualMachine",
+			Value: "juju-template-" + ovatest.FakeOVASHA256(),
+		}),
 		DiskProvisioningType: vsphereclient.DefaultDiskProvisioningType,
 	})
-
-	// ovaLocation, ovaReadCloser, err := readOVA()
-	// c.Assert(err, jc.ErrorIsNil)
-	// defer ovaReadCloser.Close()
-	// c.Assert(
-	// 	ovaLocation, gc.Equals,
-	// 	s.imageServer.URL+"/server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ova",
-	// )
-	// ovaBody, err := ioutil.ReadAll(ovaReadCloser)
-	// c.Assert(err, jc.ErrorIsNil)
-	// c.Assert(ovaBody, jc.DeepEquals, ovatest.FakeOVAContents())
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
@@ -180,7 +190,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
-	call := s.client.Calls()[4]
+	call := s.client.Calls()[8]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.NetworkDevices, gc.HasLen, 2)
 	c.Assert(createVMArgs.NetworkDevices[0].Network, gc.Equals, "foo")
@@ -200,7 +210,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningMissingModel
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
-	call := s.client.Calls()[4]
+	call := s.client.Calls()[8]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.DiskProvisioningType, gc.Equals, vsphereclient.DefaultDiskProvisioningType)
 }
@@ -219,7 +229,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningDefaultOptio
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
-	call := s.client.Calls()[4]
+	call := s.client.Calls()[8]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.DiskProvisioningType, gc.Equals, vsphereclient.DefaultDiskProvisioningType)
 }
@@ -238,7 +248,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThinDisk(c *
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
-	call := s.client.Calls()[4]
+	call := s.client.Calls()[8]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.DiskProvisioningType, gc.Equals, vsphereclient.DiskTypeThin)
 }
@@ -257,7 +267,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickDisk(c 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
-	call := s.client.Calls()[4]
+	call := s.client.Calls()[8]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.DiskProvisioningType, gc.Equals, vsphereclient.DiskTypeThick)
 }
@@ -276,7 +286,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickEagerZe
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
-	call := s.client.Calls()[4]
+	call := s.client.Calls()[8]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.DiskProvisioningType, gc.Equals, vsphereclient.DiskTypeThick)
 }
@@ -293,7 +303,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	_, err = env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	call := s.client.Calls()[4]
+	call := s.client.Calls()[8]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	// The model name in the folder name should be truncated
 	// so that the final part of the model name is 80 characters.
@@ -317,7 +327,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskUUIDDisabled(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
-	call := s.client.Calls()[4]
+	call := s.client.Calls()[8]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.EnableDiskUUID, gc.Equals, false)
 }
@@ -433,8 +443,8 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "EnsureVMFolder", "CreateVirtualMachine", "Close")
-	call := s.client.Calls()[5]
+	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "GetTargetDatastore", "ListVMTemplates", "EnsureVMFolder", "CreateTemplateVM", "CreateVirtualMachine", "Close")
+	call := s.client.Calls()[8]
 	c.Assert(call.Args, gc.HasLen, 2)
 	c.Assert(call.Args[0], gc.Implements, new(context.Context))
 	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
@@ -449,10 +459,10 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c 
 	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 
-	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "FindFolder", "Close")
-	createVMCall1 := s.client.Calls()[4]
-	createVMArgs1 := createVMCall1.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs1.ComputeResource, jc.DeepEquals, s.client.computeResources[0].Resource)
+	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "GetTargetDatastore", "Close")
+	getDatastoreCall := s.client.Calls()[4]
+	getDataStoreArgs1 := getDatastoreCall.Args[1].(*mo.ComputeResource)
+	c.Assert(getDataStoreArgs1, jc.DeepEquals, s.client.computeResources[0].Resource)
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceDatastoreDefault(c *gc.C) {
@@ -468,8 +478,8 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDatastoreDefault(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	call := s.client.Calls()[4]
-	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(*createVMArgs.Constraints.RootDiskSource, gc.Equals, "datastore0")
+	createVMArgs := call.Args[2].(string)
+	c.Assert(createVMArgs, gc.Equals, "datastore0")
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceRootDiskSource(c *gc.C) {
@@ -489,8 +499,8 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceRootDiskSource(c *gc.C) {
 	c.Assert(*result.Hardware.RootDiskSource, gc.Equals, "zebras")
 
 	call := s.client.Calls()[4]
-	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(*createVMArgs.Constraints.RootDiskSource, gc.Equals, "zebras")
+	requestedDatastore := call.Args[2].(string)
+	c.Assert(requestedDatastore, gc.Equals, "zebras")
 }
 
 type environBrokerSuite struct {
@@ -625,25 +635,24 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceNoDatastoreSetting(c *gc.C) 
 	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
+	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "GetTargetDatastore", "ListVMTemplates", "EnsureVMFolder", "CreateTemplateVM", "CreateVirtualMachine", "Close")
 	call := s.client.Calls()[4]
-	c.Assert(call.Args, gc.HasLen, 2)
-	c.Assert(call.Args[0], gc.Implements, new(context.Context))
-	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
+	c.Assert(call.Args, gc.HasLen, 3)
+	requestedDatastore := call.Args[2].(string)
 
-	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-
-	var expected *string
-	c.Assert(createVMArgs.Constraints.RootDiskSource, gc.Equals, expected)
+	var expected string
+	c.Assert(requestedDatastore, gc.Equals, expected)
 
 	var (
-		arch     = "amd64"
-		rootDisk = common.MinRootDiskSizeGiB("trusty") * 1024
+		arch           = "amd64"
+		rootDisk       = common.MinRootDiskSizeGiB("trusty") * 1024
+		rootDiskSource = ""
 	)
+
 	c.Assert(res.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
 		Arch:           &arch,
 		RootDisk:       &rootDisk,
-		RootDiskSource: nil,
+		RootDiskSource: &rootDiskSource,
 	})
 }
 
@@ -673,8 +682,8 @@ func (s *legacyEnvironBrokerSuite) TestNotBootstrapping(c *gc.C) {
 	c.Assert(result.Instance, gc.NotNil)
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("new-vm"))
 
-	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
-	call := s.client.Calls()[4]
+	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "GetTargetDatastore", "ListVMTemplates", "EnsureVMFolder", "CreateTemplateVM", "CreateVirtualMachine", "Close")
+	call := s.client.Calls()[8]
 	c.Assert(call.Args, gc.HasLen, 2)
 	c.Assert(call.Args[0], gc.Implements, new(context.Context))
 	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})

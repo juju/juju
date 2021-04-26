@@ -87,7 +87,6 @@ type ImportOVAParameters struct {
 // CreateVirtualMachineParams contains the parameters required for creating
 // a new virtual machine.
 type CreateVirtualMachineParams struct {
-	// TODO(gsamfira)
 	StatusUpdateParams StatusUpdateParams
 
 	// Name is the name to give the virtual machine. The VM name is used

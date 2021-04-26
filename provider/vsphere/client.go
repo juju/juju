@@ -24,7 +24,6 @@ type Client interface {
 	ComputeResources(context.Context) ([]vsphereclient.ComputeResource, error)
 	CreateVirtualMachine(context.Context, vsphereclient.CreateVirtualMachineParams) (*mo.VirtualMachine, error)
 	CreateTemplateVM(ctx context.Context, ovaArgs vsphereclient.ImportOVAParameters) (vm *object.VirtualMachine, err error)
-	FindVMTemplatesByName(ctx context.Context, path string, name string) ([]*object.VirtualMachine, error)
 	Folders(ctx context.Context) (*object.DatacenterFolders, error)
 	Datastores(context.Context) ([]mo.Datastore, error)
 	DeleteDatastoreFile(context.Context, string) error

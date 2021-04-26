@@ -298,23 +298,8 @@ func (c *Client) VirtualMachines(ctx context.Context, path string) ([]*mo.Virtua
 	return vms, nil
 }
 
-func (c *Client) FindVMTemplatesByName(ctx context.Context, path string, name string) ([]*object.VirtualMachine, error) {
-	templates, err := c.ListVMTemplates(ctx, path)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var filtered []*object.VirtualMachine
-	for _, tpl := range templates {
-		if tpl.Name() == name {
-			filtered = append(filtered, tpl)
-		}
-	}
-	return filtered, nil
-}
-
 func (c *Client) ListVMTemplates(ctx context.Context, path string) ([]*object.VirtualMachine, error) {
-	c.logger.Debugf("ListVMTemplates() path=%q", path)
+	c.logger.Tracef("ListVMTemplates() path=%q", path)
 	finder, _, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -127,8 +127,8 @@ func (env *sessionEnviron) newRawInstance(
 	}
 
 	defaultDatastore := env.ecfg.datastore()
-	if cons.RootDiskSource != nil && *cons.RootDiskSource != "" {
-		defaultDatastore = *cons.RootDiskSource
+	if cons.RootDiskSource == nil || *cons.RootDiskSource == "" {
+		cons.RootDiskSource = &defaultDatastore
 	}
 
 	// Attempt to create a VM in each of the AZs in turn.
@@ -138,7 +138,7 @@ func (env *sessionEnviron) newRawInstance(
 		return nil, nil, errors.Trace(err)
 	}
 
-	datastore, err := env.client.GetTargetDatastore(env.ctx, &availZone.r, defaultDatastore)
+	datastore, err := env.client.GetTargetDatastore(env.ctx, &availZone.r, *cons.RootDiskSource)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

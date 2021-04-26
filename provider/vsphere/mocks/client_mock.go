@@ -170,21 +170,6 @@ func (mr *MockClientMockRecorder) FindFolder(arg0, arg1 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindFolder", reflect.TypeOf((*MockClient)(nil).FindFolder), arg0, arg1)
 }
 
-// FindVMTemplatesByName mocks base method.
-func (m *MockClient) FindVMTemplatesByName(arg0 context.Context, arg1, arg2 string) ([]*object.VirtualMachine, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindVMTemplatesByName", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]*object.VirtualMachine)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindVMTemplatesByName indicates an expected call of FindVMTemplatesByName.
-func (mr *MockClientMockRecorder) FindVMTemplatesByName(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindVMTemplatesByName", reflect.TypeOf((*MockClient)(nil).FindVMTemplatesByName), arg0, arg1, arg2)
-}
-
 // Folders mocks base method.
 func (m *MockClient) Folders(arg0 context.Context) (*object.DatacenterFolders, error) {
 	m.ctrl.T.Helper()
