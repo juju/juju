@@ -187,3 +187,9 @@ type ModelCommand interface {
 	// or functions which always return an error.
 	Filesystem() modelcmd.Filesystem
 }
+
+// CharmReader aims to read a charm from the filesystem.
+type CharmReader interface {
+	// ReadCharm reads a given charm from the filesystem.
+	ReadCharm(string) (charm.Charm, error)
+}
