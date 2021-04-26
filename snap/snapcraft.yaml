@@ -12,6 +12,7 @@ description: |
 
    - https://juju.is/
    - https://discourse.charmhub.io/
+   - https://chat.charmhub.io/charmhub/
    - https://github.com/juju/juju
 
 confinement: classic
