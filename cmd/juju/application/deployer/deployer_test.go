@@ -349,7 +349,7 @@ func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithApplicationName(c *gc.C)
 	}
 
 	_, err := f.maybeReadLocalCharm(s.modelConfigGetter)
-	c.Assert(err, gc.ErrorMatches, `cannot add application "meshuggah": non container-based charm for container based model type not valid`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "meshuggah": non container-based charm for container-based model type not valid`)
 }
 
 func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithoutApplicationName(c *gc.C) {
@@ -369,7 +369,7 @@ func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithoutApplicationName(c *gc
 	}
 
 	_, err := f.maybeReadLocalCharm(s.modelConfigGetter)
-	c.Assert(err, gc.ErrorMatches, `cannot add application "meshuggah": non container-based charm for container based model type not valid`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "meshuggah": non container-based charm for container-based model type not valid`)
 }
 
 func (s *deployerSuite) makeBundleDir(c *gc.C, content string) string {
