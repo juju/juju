@@ -19,11 +19,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-var requireAnnotationsForNameSpace = []string{
-	utils.AnnotationControllerUUIDKey(false),
-	utils.AnnotationModelUUIDKey(false),
-}
-
 func checkNamespaceOwnedByJuju(ns *core.Namespace, annotationMap map[string]string) error {
 	if ns == nil {
 		return nil
@@ -111,22 +106,26 @@ func (k *kubernetesClient) GetCurrentNamespace() string {
 
 func (k *kubernetesClient) ensureNamespaceAnnotations(ns *core.Namespace) error {
 	annotations := k8sannotations.New(ns.GetAnnotations()).Merge(k.annotations)
-	// check required keys are set: utils.AnnotationControllerUUIDKey, utils.AnnotationModelUUIDKey.
-	if err := annotations.CheckKeysNonEmpty(requireAnnotationsForNameSpace...); err != nil {
+	err := annotations.CheckKeysNonEmpty(utils.AnnotationControllerUUIDKey(false), utils.AnnotationModelUUIDKey(false))
+	if err != nil {
 		return errors.Trace(err)
 	}
 	ns.SetAnnotations(annotations)
 	return nil
 }
 
-// createNamespace creates a named namespace.
+// createNamespace creates a namespace with the input name.
 func (k *kubernetesClient) createNamespace(name string) error {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: name}}
 	ns.SetLabels(utils.LabelsMerge(
 		ns.GetLabels(),
 		utils.LabelsForModel(k.CurrentModel(), false),
 		utils.LabelsJuju))
+
 	if err := k.ensureNamespaceAnnotations(ns); err != nil {
+		if errors.IsNotFound(err) {
+			return errors.Annotatef(err, "namespace may already be in use")
+		}
 		return errors.Trace(err)
 	}
 
