@@ -842,6 +842,7 @@ func (c *DeployCommand) getDeployerFactory() (deployer.DeployerFactory, deployer
 	dep := deployer.DeployerDependencies{
 		Model:                c,
 		FileSystem:           c.ModelCommandBase.Filesystem(),
+		CharmReader:          defaultCharmReader{},
 		NewConsumeDetailsAPI: c.NewConsumeDetailsAPI, // only used here
 		Steps:                c.Steps,
 	}
@@ -890,4 +891,11 @@ func (c *DeployCommand) getCharmHubURL(apiRoot base.APICallCloser) (string, erro
 
 	charmHubURL, _ := config.CharmHubURL()
 	return charmHubURL, nil
+}
+
+type defaultCharmReader struct{}
+
+// ReadCharm attempts to read a charm from a path on the filesystem.
+func (defaultCharmReader) ReadCharm(path string) (charm.Charm, error) {
+	return charm.ReadCharm(path)
 }
