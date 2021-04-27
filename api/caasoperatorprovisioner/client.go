@@ -112,7 +112,7 @@ type OperatorProvisioningInfo struct {
 
 // OperatorProvisioningInfo returns the info needed to provision an operator for an application.
 func (c *Client) OperatorProvisioningInfo(applicationName string) (OperatorProvisioningInfo, error) {
-	args := params.Entities{[]params.Entity{
+	args := params.Entities{Entities: []params.Entity{
 		{Tag: names.NewApplicationTag(applicationName).String()},
 	}}
 	var result params.OperatorProvisioningInfoResults
@@ -161,7 +161,7 @@ func (c *Client) IssueOperatorCertificate(applicationName string) (OperatorCerti
 	if !names.IsValidApplication(applicationName) {
 		return OperatorCertificate{}, errors.NotValidf("application name %q", applicationName)
 	}
-	args := params.Entities{[]params.Entity{
+	args := params.Entities{Entities: []params.Entity{
 		{Tag: names.NewApplicationTag(applicationName).String()},
 	}}
 	var result params.IssueOperatorCertificateResults

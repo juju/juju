@@ -407,7 +407,7 @@ func (op *caasOperator) loop() (err error) {
 
 	localState, err := op.init()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	logger.Infof("operator %q started", op.config.Application)
 
@@ -552,17 +552,17 @@ func (op *caasOperator) loop() (err error) {
 					delete(unitRunningChannels, unitID)
 					logger.Debugf("stopping uniter for dead unit %q", unitID)
 					if err := op.runner.StopWorker(unitID); err != nil {
-						return err
+						return errors.Trace(err)
 					}
 					logger.Debugf("removing unit dir for dead unit %q", unitID)
 					// Remove the unit's directory
 					if err := op.removeUnitDir(unitTag); err != nil {
-						return err
+						return errors.Trace(err)
 					}
 					logger.Debugf("removing dead unit %q", unitID)
 					// Remove the unit from state.
 					if err := op.config.UnitRemover.RemoveUnit(unitID); err != nil {
-						return err
+						return errors.Trace(err)
 					}
 					// Nothing to do for a dead unit further.
 					continue
