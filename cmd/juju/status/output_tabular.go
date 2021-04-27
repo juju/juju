@@ -165,6 +165,24 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 			if len(parts) > 1 && len(version) > maxVersionWidth {
 				version = strings.Join(parts[1:], "/")
 			}
+			// Charms deployed from the rocks or jujucharm repos have the
+			// image path set to <repo-url>/<charm_name>/<resource_name>. Charm name
+			// is somewhat redundant and takes up value space. So we'll replace
+			// with "ch:" to indicate the named resource comes from the store repo.
+			parts = strings.Split(version, "/")
+			if len(parts) > 1 && (len(version) > maxVersionWidth || parts[0] == app.Charm) {
+				prefix := ""
+				switch app.CharmOrigin {
+				case "charmhub":
+					prefix = "ch"
+				case "charmstore":
+					prefix = "cs"
+				}
+				if prefix != "" {
+					parts[1] = prefix + ":" + parts[1]
+					version = strings.Join(parts[1:], "/")
+				}
+			}
 		}
 		// Don't let a long version push out the version column.
 		if len(version) > maxVersionWidth {
