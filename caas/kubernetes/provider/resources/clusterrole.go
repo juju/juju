@@ -21,31 +21,30 @@ import (
 	"github.com/juju/juju/core/status"
 )
 
-// Role extends the k8s role.
-type Role struct {
-	rbacv1.Role
+// ClusterRole extends the k8s cluster role.
+type ClusterRole struct {
+	rbacv1.ClusterRole
 }
 
-// NewRole creates a new role resource.
-func NewRole(name string, namespace string, in *rbacv1.Role) *Role {
+// NewClusterRole creates a new cluster role resource.
+func NewClusterRole(name string, in *rbacv1.ClusterRole) *ClusterRole {
 	if in == nil {
-		in = &rbacv1.Role{}
+		in = &rbacv1.ClusterRole{}
 	}
 	in.SetName(name)
-	in.SetNamespace(namespace)
-	return &Role{*in}
+	return &ClusterRole{*in}
 }
 
 // Clone returns a copy of the resource.
-func (r *Role) Clone() Resource {
+func (r *ClusterRole) Clone() Resource {
 	clone := *r
 	return &clone
 }
 
 // Apply patches the resource change.
-func (r *Role) Apply(ctx context.Context, client kubernetes.Interface) error {
-	api := client.RbacV1().Roles(r.Namespace)
-	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &r.Role)
+func (r *ClusterRole) Apply(ctx context.Context, client kubernetes.Interface) error {
+	api := client.RbacV1().ClusterRoles()
+	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &r.ClusterRole)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -53,33 +52,33 @@ func (r *Role) Apply(ctx context.Context, client kubernetes.Interface) error {
 		FieldManager: JujuFieldManager,
 	})
 	if k8serrors.IsNotFound(err) {
-		res, err = api.Create(ctx, &r.Role, metav1.CreateOptions{
+		res, err = api.Create(ctx, &r.ClusterRole, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
 	}
 	if err != nil {
 		return errors.Trace(err)
 	}
-	r.Role = *res
+	r.ClusterRole = *res
 	return nil
 }
 
 // Get refreshes the resource.
-func (r *Role) Get(ctx context.Context, client kubernetes.Interface) error {
-	api := client.RbacV1().Roles(r.Namespace)
+func (r *ClusterRole) Get(ctx context.Context, client kubernetes.Interface) error {
+	api := client.RbacV1().ClusterRoles()
 	res, err := api.Get(ctx, r.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s")
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	r.Role = *res
+	r.ClusterRole = *res
 	return nil
 }
 
 // Delete removes the resource.
-func (r *Role) Delete(ctx context.Context, client kubernetes.Interface) error {
-	api := client.RbacV1().Roles(r.Namespace)
+func (r *ClusterRole) Delete(ctx context.Context, client kubernetes.Interface) error {
+	api := client.RbacV1().ClusterRoles()
 	err := api.Delete(ctx, r.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
@@ -92,12 +91,12 @@ func (r *Role) Delete(ctx context.Context, client kubernetes.Interface) error {
 }
 
 // Events emitted by the resource.
-func (r *Role) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, r.Namespace, r.Name, "Role")
+func (r *ClusterRole) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
+	return ListEventsForObject(ctx, client, r.Namespace, r.Name, "ClusterRole")
 }
 
 // ComputeStatus returns a juju status for the resource.
-func (r *Role) ComputeStatus(_ context.Context, _ kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+func (r *ClusterRole) ComputeStatus(_ context.Context, _ kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
 	if r.DeletionTimestamp != nil {
 		return "", status.Terminated, r.DeletionTimestamp.Time, nil
 	}

@@ -367,13 +367,13 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithCharm
 	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "focal")
 
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Located charm \"gitlab-k8s\" in charm-hub\n"+
-		"Located charm \"mariadb-k8s\" in charm-hub\n"+
+		"Located charm \"gitlab-k8s\" in charm-hub, channel new/edge\n"+
+		"Located charm \"mariadb-k8s\" in charm-hub, channel old/stable\n"+
 		"Executing changes:\n"+
-		"- upload charm gitlab-k8s from charm-hub for series kubernetes\n"+
-		"- deploy application gitlab from charm-hub with 1 unit on kubernetes using gitlab-k8s\n"+
-		"- upload charm mariadb-k8s from charm-hub for series kubernetes\n"+
-		"- deploy application mariadb from charm-hub with 2 units on kubernetes using mariadb-k8s\n"+
+		"- upload charm gitlab-k8s from charm-hub for series kubernetes from channel new/edge\n"+
+		"- deploy application gitlab from charm-hub with 1 unit on kubernetes with new/edge using gitlab-k8s\n"+
+		"- upload charm mariadb-k8s from charm-hub for series kubernetes from channel old/stable\n"+
+		"- deploy application mariadb from charm-hub with 2 units on kubernetes with old/stable using mariadb-k8s\n"+
 		"- add relation gitlab:mysql - mariadb:server\n"+
 		"Deploy of bundle completed.\n")
 }
@@ -384,9 +384,11 @@ applications:
   mariadb:
     charm: mariadb-k8s
     scale: 2
+    channel: old/stable
   gitlab:
     charm: gitlab-k8s
     scale: 1
+    channel: new/edge
 relations:
   - - gitlab:mysql
     - mariadb:server

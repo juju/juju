@@ -2,7 +2,7 @@
 
 ## Description
 
-A charm to use in testing juju.
+A container-based V2 metadata charm to use in testing juju.
 
 ## Usage
 
@@ -35,3 +35,17 @@ Use `juju charm-resources juju-qa-test --channel <channel>` to determine resourc
 |2      |testing two. 
 |3      |testing one plus one. | Will be used to replace Revision 1 in a channel
 | 4 | testing four.
+
+
+## Deployment
+
+It is expected that you have charmcraft installed via
+
+<code>snap install charmcraft</code>
+
+Then cd in to testcharms/charm-hub/charms/juju-qa-test and run
+
+<code>
+charmcraft build
+juju deploy juju-qa-test.charm
+</code>

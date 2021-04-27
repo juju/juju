@@ -31,12 +31,27 @@ func (s *trustSuite) TestTrust(c *gc.C) {
 		},
 	}, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.client.RbacV1().ClusterRoles().Create(context.Background(), &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: s.namespace + "-" + s.appName,
+		},
+	}, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = app.Trust(true)
 	c.Assert(err, jc.ErrorIsNil)
 	role, err := s.client.RbacV1().Roles(s.namespace).Get(context.Background(), s.appName, metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(role.Rules, jc.DeepEquals, []rbacv1.PolicyRule{
+		{
+			APIGroups: []string{"*"},
+			Resources: []string{"*"},
+			Verbs:     []string{"*"},
+		},
+	})
+	clusterRole, err := s.client.RbacV1().ClusterRoles().Get(context.Background(), s.namespace+"-"+s.appName, metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clusterRole.Rules, jc.DeepEquals, []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{"*"},
 			Resources: []string{"*"},
@@ -56,6 +71,12 @@ func (s *trustSuite) TestRemoveTrust(c *gc.C) {
 		},
 	}, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.client.RbacV1().ClusterRoles().Create(context.Background(), &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: s.namespace + "-" + s.appName,
+		},
+	}, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = app.Trust(false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -72,4 +93,7 @@ func (s *trustSuite) TestRemoveTrust(c *gc.C) {
 			Verbs:     []string{"create"},
 		},
 	})
+	clusterRole, err := s.client.RbacV1().ClusterRoles().Get(context.Background(), s.namespace+"-"+s.appName, metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clusterRole.Rules, gc.HasLen, 0)
 }

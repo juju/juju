@@ -23,6 +23,7 @@ var _ = gc.Suite(&applicationWatcherSuite{})
 func (s *applicationWatcherSuite) TestEmbeddedFilter(c *gc.C) {
 	app1 := &mockAppWatcherApplication{
 		charm: mockAppWatcherCharm{
+			meta: &charm.Meta{},
 			manifest: &charm.Manifest{
 				// V2 metadata.
 				Bases: []charm.Base{
@@ -72,6 +73,7 @@ func (s *applicationWatcherSuite) TestEmbeddedFilter(c *gc.C) {
 func (s *applicationWatcherSuite) TestLegacyFilter(c *gc.C) {
 	app1 := &mockAppWatcherApplication{
 		charm: mockAppWatcherCharm{
+			meta: &charm.Meta{},
 			manifest: &charm.Manifest{
 				// V2 metadata.
 				Bases: []charm.Base{
@@ -192,7 +194,7 @@ type mockAppWatcherApplication struct {
 	charm mockAppWatcherCharm
 }
 
-func (s *mockAppWatcherApplication) Charm() (common.AppWatcherCharm, bool, error) {
+func (s *mockAppWatcherApplication) Charm() (charm.CharmMeta, bool, error) {
 	s.MethodCall(s, "Charm")
 	err := s.NextErr()
 	if err != nil {

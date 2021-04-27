@@ -42,7 +42,7 @@ func (s *kubernetesSuite) TestMetadataV2NoKubernetes(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cm := NewMockCharmMeta(ctrl)
-	cm.EXPECT().Meta().Return(&charm.Meta{})
+	cm.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
 	cm.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{
 		{
 			Name: "ubuntu",
@@ -70,7 +70,7 @@ func (s *kubernetesSuite) TestMetadataV2Kubernetes(c *gc.C) {
 				Type: charmresource.TypeContainerImage,
 			},
 		},
-	})
+	}).AnyTimes()
 	cm.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{
 		{
 			Name: "ubuntu",

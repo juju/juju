@@ -47,11 +47,11 @@ func ValidateModelTarget(modelType ModelType, charmMeta charm.CharmMeta) error {
 	switch modelType {
 	case CAAS:
 		if isIAAS {
-			return errors.NotValidf("non container-based charm for container based model type")
+			return errors.NotValidf("non container-based charm for container-based model type")
 		}
 	case IAAS:
 		if !isIAAS {
-			return errors.NotValidf("container-based charm for non container based model type")
+			return errors.NotValidf("container-based charm for non container-based model type")
 		}
 	default:
 		return errors.Errorf("invalid model type")

@@ -756,6 +756,8 @@ func (s *applicationSuite) TestDeleteStateful(c *gc.C) {
 		s.applier.EXPECT().Delete(resources.NewSecret("gitlab-application-config", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewRoleBinding("gitlab", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewRole("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewClusterRoleBinding("test-gitlab", nil)),
+		s.applier.EXPECT().Delete(resources.NewClusterRole("test-gitlab", nil)),
 		s.applier.EXPECT().Delete(resources.NewServiceAccount("gitlab", "test", nil)),
 		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
 	)
@@ -772,6 +774,8 @@ func (s *applicationSuite) TestDeleteStateless(c *gc.C) {
 		s.applier.EXPECT().Delete(resources.NewSecret("gitlab-application-config", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewRoleBinding("gitlab", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewRole("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewClusterRoleBinding("test-gitlab", nil)),
+		s.applier.EXPECT().Delete(resources.NewClusterRole("test-gitlab", nil)),
 		s.applier.EXPECT().Delete(resources.NewServiceAccount("gitlab", "test", nil)),
 		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
 	)
@@ -788,6 +792,8 @@ func (s *applicationSuite) TestDeleteDaemon(c *gc.C) {
 		s.applier.EXPECT().Delete(resources.NewSecret("gitlab-application-config", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewRoleBinding("gitlab", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewRole("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewClusterRoleBinding("test-gitlab", nil)),
+		s.applier.EXPECT().Delete(resources.NewClusterRole("test-gitlab", nil)),
 		s.applier.EXPECT().Delete(resources.NewServiceAccount("gitlab", "test", nil)),
 		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
 	)
@@ -1453,6 +1459,25 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 						ClaimName: fmt.Sprintf("gitlab-database-appuuid-gitlab-%d", i),
 					},
 				},
+			},
+		)
+		// Add a volume with a secret for lp:1925721, the secret name must contain
+		// `-token` to be ignored.
+		podSpec.Volumes = append(podSpec.Volumes,
+			corev1.Volume{
+				Name: "testme",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: "charm-data-token",
+					},
+				},
+			},
+		)
+		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts,
+			corev1.VolumeMount{
+				Name:      "testme",
+				MountPath: "path/to/here",
 			},
 		)
 		pod := corev1.Pod{
