@@ -162,26 +162,29 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 				}
 			}
 			parts := strings.Split(version, "/")
-			if len(parts) > 1 && len(version) > maxVersionWidth {
-				version = strings.Join(parts[1:], "/")
-			}
 			// Charms deployed from the rocks or jujucharm repos have the
-			// image path set to <repo-url>/<charm_name>/<resource_name>. Charm name
+			// image path set to <repo-url>/<user>/<charm_name>/<resource_name>. Charm name
 			// is somewhat redundant and takes up value space. So we'll replace
-			// with "ch:" to indicate the named resource comes from the store repo.
-			parts = strings.Split(version, "/")
-			if len(parts) > 1 && (len(version) > maxVersionWidth || parts[0] == app.Charm) {
+			// with "res:" to indicate the named resource comes from the store repo.
+			fromJujuRepo := strings.Contains(app.Version, "jujucharms.") || strings.Contains(app.Version, "rocks.")
+			if fromJujuRepo && len(parts) > 2 && (len(version) > maxVersionWidth || parts[1] == app.Charm) {
 				prefix := ""
 				switch app.CharmOrigin {
-				case "charmhub":
-					prefix = "ch"
-				case "charmstore":
-					prefix = "cs"
+				case "charmhub", "charmstore":
+					prefix = "res:"
 				}
 				if prefix != "" {
-					parts[1] = prefix + ":" + parts[1]
-					version = strings.Join(parts[1:], "/")
+					parts[2] = prefix + parts[2]
+					version = strings.Join(parts[2:], "/")
 				}
+			}
+			// For qualified images, if they are too long, we still
+			// want to see the core image name, but we can compromise
+			// on the namespace part and replace that with "...".
+			parts = strings.Split(version, "/")
+			if len(parts) > 1 && len(version) > maxVersionWidth {
+				parts[0] = ellipsis
+				version = strings.Join(parts, "/")
 			}
 		}
 		// Don't let a long version push out the version column.

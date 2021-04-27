@@ -5325,7 +5325,7 @@ func (s *StatusSuite) TestFormatTabularCAASModelTruncatedVersion(c *gc.C) {
 			"foo": {
 				Scale:   1,
 				Address: "54.32.1.2",
-				Version: "registry.jujucharms.com/image:tag@sha256:3046a3dc76ee23417f889675bce3a4c08f223b87d1e378eeea3e7490cd27fbc5",
+				Version: "registry.jujucharms.com/fred/mysql/mysql_image:tag@sha256:3046a3dc76ee23417f889675bce3a4c08f223b87d1e378eeea3e7490cd27fbc5",
 				Units: map[string]unitStatus{
 					"foo/0": {
 						JujuStatusInfo: statusInfoContents{
@@ -5342,7 +5342,7 @@ func (s *StatusSuite) TestFormatTabularCAASModelTruncatedVersion(c *gc.C) {
 				CharmOrigin: "charmhub",
 				Scale:   1,
 				Address: "54.32.1.3",
-				Version: "registry.jujucharms.com/bar/image:0.5",
+				Version: "registry.jujucharms.com/fredbloggsthethrid/bar/image:0.5",
 				Units: map[string]unitStatus{
 					"bar/0": {
 						JujuStatusInfo: statusInfoContents{
@@ -5357,7 +5357,7 @@ func (s *StatusSuite) TestFormatTabularCAASModelTruncatedVersion(c *gc.C) {
 			"baz": {
 				Scale:   1,
 				Address: "54.32.1.4",
-				Version: "registry.jujucharms.com/reallyreallyreallyreallyreallylong/image:0.6",
+				Version: "docker.io/reallyreallyreallyreallyreallylong/image:0.6",
 				Units: map[string]unitStatus{
 					"baz/0": {
 						JujuStatusInfo: statusInfoContents{
@@ -5378,10 +5378,10 @@ func (s *StatusSuite) TestFormatTabularCAASModelTruncatedVersion(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version            Status  Scale  Charm  Store     Channel  Rev  OS  Address    Message
-bar  ch:image:0.5                 0/1         charmhub             0      54.32.1.3  
-baz  image:0.6                    0/1                              0      54.32.1.4  
-foo  image:tag@3046a3d            0/1                              0      54.32.1.2  
+App  Version                         Status  Scale  Charm  Store     Channel  Rev  OS  Address    Message
+bar  res:image:0.5                             0/1         charmhub             0      54.32.1.3  
+baz  .../image:0.6                             0/1                              0      54.32.1.4  
+foo  .../mysql/mysql_image:tag@3...            0/1                              0      54.32.1.2  
 
 Unit   Workload  Agent       Address  Ports  Message
 bar/0  active    allocating                  
