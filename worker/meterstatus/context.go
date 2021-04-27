@@ -41,7 +41,12 @@ func newLimitedContext(config hookConfig) *limitedContext {
 }
 
 // HookVars implements runner.Context.
-func (ctx *limitedContext) HookVars(paths context.Paths, remote bool, getEnv context.GetEnvFunc) ([]string, error) {
+func (ctx *limitedContext) HookVars(
+	paths context.Paths,
+	remote bool,
+	getEnv context.GetEnvFunc,
+	_ context.OSEnvFunc,
+) ([]string, error) {
 	vars := []string{
 		"CHARM_DIR=" + paths.GetCharmDir(), // legacy
 		"JUJU_CHARM_DIR=" + paths.GetCharmDir(),

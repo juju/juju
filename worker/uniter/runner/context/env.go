@@ -16,6 +16,9 @@ import (
 // based off existing variables.
 type GetEnvFunc func(key string) string
 
+// OSEnvFunc returns all env vars for the host os
+type OSEnvFunc func() []string
+
 // OSDependentEnvVars returns the OS-dependent environment variables that
 // should be set for a hook context.
 func OSDependentEnvVars(paths Paths, getEnv GetEnvFunc) []string {

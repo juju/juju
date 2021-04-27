@@ -47,7 +47,7 @@ func (s *RunCommandSuite) TestRunCommandsEnvStdOutAndErrAndRC(c *gc.C) {
 	r := runner.NewRunner(ctx, paths, nil)
 
 	// Ensure the current process env is passed through to the command.
-	s.PatchEnvironment("FOO", "BAR")
+	s.PatchEnvironment("KUBERNETES_PORT", "443")
 
 	commands := `
 echo $JUJU_CHARM_DIR
@@ -59,7 +59,7 @@ exit 42
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result.Code, gc.Equals, 42)
-	c.Assert(strings.ReplaceAll(string(result.Stdout), "\n", ""), gc.Equals, paths.GetCharmDir()+"BAR")
+	c.Assert(strings.ReplaceAll(string(result.Stdout), "\n", ""), gc.Equals, paths.GetCharmDir())
 	c.Assert(strings.TrimRight(string(result.Stderr), "\n"), gc.Equals, "this is standard err")
 	c.Assert(ctx.GetProcess(), gc.NotNil)
 }
@@ -236,7 +236,12 @@ func (ctx *MockContext) UnitName() string {
 	return "some-unit/999"
 }
 
-func (ctx *MockContext) HookVars(paths context.Paths, _ bool, getEnv context.GetEnvFunc) ([]string, error) {
+func (ctx *MockContext) HookVars(
+	paths context.Paths,
+	_ bool,
+	getEnv context.GetEnvFunc,
+	_ context.OSEnvFunc,
+) ([]string, error) {
 	pathKey := ""
 	if runtime.GOOS == "windows" {
 		pathKey = "Path"
