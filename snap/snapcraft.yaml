@@ -1,5 +1,5 @@
 name: juju
-version: 2.9.0
+version: 2.9.1
 summary: Juju - a model-driven operator lifecycle manager for K8s and machines
 description: |
   A model-driven **universal operator lifecycle manager** for multi cloud and hybrid cloud application management on K8s and machines.
