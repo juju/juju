@@ -3070,7 +3070,7 @@ func (s *ApplicationSuite) TestDestroyQueuesResourcesCleanup(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	const content = "abc"
 	res := resourcetesting.NewCharmResource(c, "blob", content)
-	outRes, err := rSt.SetResource(s.mysql.Name(), "user", res, strings.NewReader(content))
+	outRes, err := rSt.SetResource(s.mysql.Name(), "user", res, strings.NewReader(content), true)
 	c.Assert(err, jc.ErrorIsNil)
 	storagePath := state.ResourceStoragePath(c, s.State, outRes.ID)
 	c.Assert(state.IsBlobStored(c, s.State, storagePath), jc.IsTrue)
@@ -3100,7 +3100,7 @@ func (s *ApplicationSuite) TestDestroyWithPlaceholderResources(c *gc.C) {
 	rSt, err := s.State.Resources()
 	c.Assert(err, jc.ErrorIsNil)
 	res := resourcetesting.NewPlaceholderResource(c, "blob", s.mysql.Name())
-	outRes, err := rSt.SetResource(s.mysql.Name(), "user", res.Resource, nil)
+	outRes, err := rSt.SetResource(s.mysql.Name(), "user", res.Resource, nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(outRes.IsPlaceholder(), jc.IsTrue)
 

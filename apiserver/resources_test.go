@@ -260,7 +260,11 @@ func (s *fakeBackend) GetPendingResource(service, name, pendingID string) (resou
 	return s.ReturnGetPendingResource, nil
 }
 
-func (s *fakeBackend) SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error) {
+func (s *fakeBackend) SetResource(
+	applicationID, userID string,
+	res charmresource.Resource, r io.Reader,
+	incrementCharmModifiedVersion bool,
+) (resource.Resource, error) {
 	if s.SetResourceErr != nil {
 		return resource.Resource{}, s.SetResourceErr
 	}

@@ -35,7 +35,7 @@ func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Req
 		defer ph.Release()
 
 		name := req.URL.Query().Get(":resource")
-		opened, err := opener.OpenResource(name, false)
+		opened, err := opener.OpenResource(name)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				// non internal errors is not real errors.

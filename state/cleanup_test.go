@@ -1052,7 +1052,7 @@ func (s *CleanupSuite) TestCleanupResourceBlob(c *gc.C) {
 	res := resourcetesting.NewResource(c, nil, "mug", "wp", data).Resource
 	resources, err := s.State.Resources()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data))
+	_, err = resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data), true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = app.Destroy()
@@ -1077,7 +1077,7 @@ func (s *CleanupSuite) TestCleanupResourceBlobHandlesMissing(c *gc.C) {
 	res := resourcetesting.NewResource(c, nil, "mug", "wp", data).Resource
 	resources, err := s.State.Resources()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data))
+	_, err = resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data), true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = app.Destroy()

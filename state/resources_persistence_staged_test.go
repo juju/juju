@@ -121,7 +121,7 @@ func (s *StagedResourceSuite) TestActivateOkay(c *gc.C) {
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, nil, nil, nil, ignoredErr)
 
-	err := staged.Activate()
+	err := staged.Activate(true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "ApplicationExistsOps", "One", "IncCharmModifiedVersionOps", "RunTransaction")
@@ -142,12 +142,37 @@ func (s *StagedResourceSuite) TestActivateOkay(c *gc.C) {
 	}})
 }
 
+func (s *StagedResourceSuite) TestActivateOkayNoIncCharmModifiedVersionOps(c *gc.C) {
+	staged, doc := s.newStagedResource(c, "a-application", "spam")
+	ignoredErr := errors.New("<never reached>")
+	s.stub.SetErrors(nil, nil, nil, nil, nil, ignoredErr)
+
+	err := staged.Activate(false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "Run", "ApplicationExistsOps", "One", "RunTransaction")
+	s.stub.CheckCall(c, 3, "RunTransaction", []txn.Op{{
+		C:      "resources",
+		Id:     "resource#a-application/spam",
+		Assert: txn.DocMissing,
+		Insert: &doc,
+	}, {
+		C:      "application",
+		Id:     "a-application",
+		Assert: txn.DocExists,
+	}, {
+		C:      "resources",
+		Id:     "resource#a-application/spam#staged",
+		Remove: true,
+	}})
+}
+
 func (s *StagedResourceSuite) TestActivateExists(c *gc.C) {
 	staged, doc := s.newStagedResource(c, "a-application", "spam")
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, nil, nil, txn.ErrAborted, nil, nil, nil, nil, ignoredErr)
 
-	err := staged.Activate()
+	err := staged.Activate(true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "ApplicationExistsOps", "One", "IncCharmModifiedVersionOps", "RunTransaction", "ApplicationExistsOps", "One", "IncCharmModifiedVersionOps", "RunTransaction")

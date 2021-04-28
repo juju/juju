@@ -118,7 +118,7 @@ type ResourceOpener struct {
 }
 
 // OpenResource implements server.ResourceOpener.
-func (ro *ResourceOpener) OpenResource(name string, incrementCharmModifiedVersion bool) (o resource.Opened, err error) {
+func (ro *ResourceOpener) OpenResource(name string) (o resource.Opened, err error) {
 	if ro.application == nil {
 		return resource.Opened{}, errors.Errorf("missing application")
 	}
@@ -148,11 +148,10 @@ func (ro *ResourceOpener) OpenResource(name string, incrementCharmModifiedVersio
 	}
 
 	res, reader, err := repositories.GetResource(repositories.GetResourceArgs{
-		Client:                        client,
-		Repository:                    st,
-		CharmID:                       id,
-		Name:                          name,
-		IncrementCharmModifiedVersion: incrementCharmModifiedVersion,
+		Client:     client,
+		Repository: st,
+		CharmID:    id,
+		Name:       name,
 	})
 	if err != nil {
 		return resource.Opened{}, errors.Trace(err)

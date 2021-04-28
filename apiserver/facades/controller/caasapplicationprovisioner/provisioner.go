@@ -704,7 +704,7 @@ func (a *API) ApplicationOCIResources(args params.Entities) (params.CAASApplicat
 			if v.Type != charmresource.TypeContainerImage {
 				continue
 			}
-			reader, err := resources.OpenResource(v.Name, false)
+			reader, err := resources.OpenResource(v.Name)
 			if err != nil {
 				res.Results[i].Error = apiservererrors.ServerError(err)
 				break

@@ -32,5 +32,5 @@ func (o Opened) Close() error {
 type Opener interface {
 	// OpenResource returns an opened resource with a reader that will
 	// stream the resource content.
-	OpenResource(name string, incrementCharmModifiedVersion bool) (Opened, error)
+	OpenResource(name string) (Opened, error)
 }
