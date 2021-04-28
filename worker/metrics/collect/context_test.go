@@ -73,7 +73,7 @@ func (s *ContextSuite) TestHookContextEnv(c *gc.C) {
 			c.Errorf("unexpected get env call for %q", k)
 		}
 		return ""
-	})
+	}, func() []string { return []string{} })
 	c.Assert(err, jc.ErrorIsNil)
 	varMap, err := keyvalues.Parse(vars, true)
 	c.Assert(err, jc.ErrorIsNil)

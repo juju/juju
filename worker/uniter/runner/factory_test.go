@@ -264,11 +264,9 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 			switch k {
 			case "PATH", "Path":
 				return "pathy"
-			default:
-				c.Errorf("unexpected get env call for %q", k)
 			}
 			return ""
-		})
+		}, func() []string { return []string{} })
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(len(vars) > 0, jc.IsTrue, gc.Commentf("expected HookVars but found none"))
 		combined := strings.Join(vars, "|")
@@ -333,11 +331,9 @@ func (s *FactorySuite) TestNewActionRunnerWithCancel(c *gc.C) {
 		switch k {
 		case "PATH", "Path":
 			return "pathy"
-		default:
-			c.Errorf("unexpected get env call for %q", k)
 		}
 		return ""
-	})
+	}, func() []string { return []string{} })
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(vars) > 0, jc.IsTrue, gc.Commentf("expected HookVars but found none"))
 	combined := strings.Join(vars, "|")

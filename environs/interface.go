@@ -319,7 +319,7 @@ type BootstrapEnviron interface {
 	CloudDestroyer
 	ControllerDestroyer
 
-	// Environ implements storage.ProviderRegistry for acquiring
+	// ProviderRegistry is implemented in order to acquire
 	// environ-scoped storage providers supported by the Environ.
 	// StorageProviders returned from Environ.StorageProvider will
 	// be scoped specifically to that Environ.

@@ -324,7 +324,7 @@ func (k *kubernetesClient) SetCloudSpec(spec environscloudspec.CloudSpec) error 
 	return nil
 }
 
-// PrepareForBootstrap prepares for bootstraping a controller.
+// PrepareForBootstrap prepares for bootstrapping a controller.
 func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	alreadyExistErr := errors.NewAlreadyExists(nil,
 		fmt.Sprintf(`a controller called %q already exists on this k8s cluster.
@@ -360,10 +360,11 @@ Please bootstrap again and choose a different controller name.`, controllerName)
 	return errors.Trace(err)
 }
 
-// Create implements environs.BootstrapEnviron.
+// Create (environs.BootstrapEnviron) creates a new environ.
+// It must raise an error satisfying IsAlreadyExists if the
+// namespace is already used by another model.
 func (k *kubernetesClient) Create(envcontext.ProviderCallContext, environs.CreateParams) error {
-	// must raise errors.AlreadyExistsf if it's already exist.
-	return k.createNamespace(k.namespace)
+	return errors.Trace(k.createNamespace(k.namespace))
 }
 
 // Bootstrap deploys controller with mongoDB together into k8s cluster.

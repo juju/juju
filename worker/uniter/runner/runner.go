@@ -110,7 +110,11 @@ type Runner interface {
 type Context interface {
 	jujuc.Context
 	Id() string
-	HookVars(paths context.Paths, remote bool, getEnvFunc context.GetEnvFunc) ([]string, error)
+	HookVars(
+		paths context.Paths,
+		remote bool,
+		getEnvFunc context.GetEnvFunc,
+		osEnvFunc context.OSEnvFunc) ([]string, error)
 	ActionData() (*context.ActionData, error)
 	SetProcess(process context.HookProcess)
 	HasExecutionSetUnitStatus() bool
@@ -149,12 +153,10 @@ type ExecParams struct {
 
 // execOnMachine executes commands on current machine.
 func execOnMachine(params ExecParams) (*utilexec.ExecResponse, error) {
-	hostEnv := os.Environ()
-	hostEnv = append(hostEnv, params.Env...)
 	command := utilexec.RunParams{
 		Commands:    strings.Join(params.Commands, " "),
 		WorkingDir:  params.WorkingDir,
-		Environment: hostEnv,
+		Environment: params.Env,
 		Clock:       params.Clock,
 	}
 	err := command.Run()
@@ -240,6 +242,7 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 	defer srv.Close()
 
 	getEnv := os.Getenv
+	osEnv := os.Environ
 	if rMode == runOnRemote {
 		env, err := runner.getRemoteEnviron(abort)
 		if err != nil {
@@ -249,8 +252,15 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 			v, _ := env[k]
 			return v
 		}
+		osEnv = func() []string {
+			rval := make([]string, 0, len(env))
+			for k, v := range env {
+				rval = append(rval, fmt.Sprintf("%s=%s", k, v))
+			}
+			return rval
+		}
 	}
-	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote, getEnv)
+	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote, getEnv, osEnv)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -406,6 +416,7 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 	defer srv.Close()
 
 	getEnv := os.Getenv
+	osEnv := os.Environ
 	if rMode == runOnRemote {
 		var cancel <-chan struct{}
 		actionData, err := runner.context.ActionData()
@@ -420,9 +431,16 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 			v, _ := env[k]
 			return v
 		}
+		osEnv = func() []string {
+			rval := make([]string, 0, len(env))
+			for k, v := range env {
+				rval = append(rval, fmt.Sprintf("%s=%s", k, v))
+			}
+			return rval
+		}
 	}
 
-	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote, getEnv)
+	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote, getEnv, osEnv)
 	if err != nil {
 		return InvalidHookHandler, errors.Trace(err)
 	}

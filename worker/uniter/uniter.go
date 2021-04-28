@@ -295,8 +295,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			errorString = err.Error()
 		}
 		if errors.Cause(err) == ErrCAASUnitDead {
+			errorString = err.Error()
 			err = nil
-			errorString = "caas unit dead"
 		} else if u.embedded {
 			err = jworker.ErrRestartAgent
 		}
@@ -326,7 +326,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 
 	canApplyCharmProfile, charmURL, charmModifiedVersion, err := u.charmState()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// Check we are running the correct charm version.
