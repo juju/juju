@@ -45,11 +45,11 @@ func GetOperatorPodName(
 	podAPI typedcorev1.PodInterface,
 	nsAPI typedcorev1.NamespaceInterface,
 	appName string,
-	namespace string,
+	model string,
 ) (string, error) {
-	legacyLabels, err := utils.IsLegacyModelLabels(namespace, nsAPI)
+	legacyLabels, err := utils.IsLegacyModelLabels(model, nsAPI)
 	if err != nil {
-		return "", errors.Annotatef(err, "determining legacy label status for namespace %s", namespace)
+		return "", errors.Annotatef(err, "determining legacy label status for model %s", model)
 	}
 
 	podsList, err := podAPI.List(context.TODO(), v1.ListOptions{
