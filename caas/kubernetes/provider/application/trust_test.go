@@ -6,9 +6,11 @@ package application_test
 import (
 	"context"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas"
@@ -33,7 +35,7 @@ func (s *trustSuite) TestTrust(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.client.RbacV1().ClusterRoles().Create(context.Background(), &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      s.namespace + "-" + s.appName,
+			Name: s.namespace + "-" + s.appName,
 		},
 	}, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -60,6 +62,41 @@ func (s *trustSuite) TestTrust(c *gc.C) {
 	})
 }
 
+func (s *trustSuite) TestTrustRoleNotFound(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
+	defer ctrl.Finish()
+
+	err := app.Trust(true)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *trustSuite) TestTrustClusterRoleNotFound(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
+	defer ctrl.Finish()
+
+	_, err := s.client.RbacV1().Roles(s.namespace).Create(context.Background(), &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      s.appName,
+			Namespace: s.namespace,
+		},
+	}, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = app.Trust(true)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	role, err := s.client.RbacV1().Roles(s.namespace).Get(context.Background(), s.appName, metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(role.Rules, jc.DeepEquals, []rbacv1.PolicyRule{
+		{
+			APIGroups: []string{"*"},
+			Resources: []string{"*"},
+			Verbs:     []string{"*"},
+		},
+	})
+	_, err = s.client.RbacV1().ClusterRoles().Get(context.Background(), s.namespace+"-"+s.appName, metav1.GetOptions{})
+	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
+}
+
 func (s *trustSuite) TestRemoveTrust(c *gc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
 	defer ctrl.Finish()
@@ -73,7 +110,7 @@ func (s *trustSuite) TestRemoveTrust(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.client.RbacV1().ClusterRoles().Create(context.Background(), &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      s.namespace + "-" + s.appName,
+			Name: s.namespace + "-" + s.appName,
 		},
 	}, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
