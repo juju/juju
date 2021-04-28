@@ -90,7 +90,7 @@ func (a *app) applyClusterRoles(trust bool) error {
 	api := a.client.RbacV1().ClusterRoles()
 	role, err := api.Get(context.Background(), a.qualifiedClusterName(), metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
-		return errors.NotFoundf("cluster role %q", a.serviceAccountName())
+		return errors.NotFoundf("cluster role %q", a.qualifiedClusterName())
 	}
 	if err != nil {
 		return errors.Annotatef(err, "getting service account role %q", a.qualifiedClusterName())

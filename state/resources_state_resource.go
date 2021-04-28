@@ -170,10 +170,13 @@ func (st resourceState) GetPendingResource(applicationID, name, pendingID string
 
 // TODO(ericsnow) Separate setting the metadata from storing the blob?
 
+// IncrementCharmModifiedVersionType is the argument type for incrementing CharmModifiedVersion or not.
 type IncrementCharmModifiedVersionType bool
 
 const (
-	IncrementCharmModifiedVersion      IncrementCharmModifiedVersionType = true
+	// IncrementCharmModifiedVersion means CharmModifiedVersion needs to be incremented.
+	IncrementCharmModifiedVersion IncrementCharmModifiedVersionType = true
+	// DoNotIncrementCharmModifiedVersion means CharmModifiedVersion should not be incremented.
 	DoNotIncrementCharmModifiedVersion IncrementCharmModifiedVersionType = false
 )
 
@@ -228,7 +231,7 @@ func (st resourceState) AddPendingResource(applicationID, userID string, chRes c
 	}
 	rLogger.Debugf("adding pending resource %q for application %q (ID: %s)", chRes.Name, applicationID, pendingID)
 
-	if _, err := st.setResource(pendingID, applicationID, userID, chRes, nil, true); err != nil {
+	if _, err := st.setResource(pendingID, applicationID, userID, chRes, nil, IncrementCharmModifiedVersion); err != nil {
 		return "", errors.Trace(err)
 	}
 
@@ -238,7 +241,7 @@ func (st resourceState) AddPendingResource(applicationID, userID string, chRes c
 // UpdatePendingResource stores the resource in the Juju model.
 func (st resourceState) UpdatePendingResource(applicationID, pendingID, userID string, chRes charmresource.Resource, r io.Reader) (resource.Resource, error) {
 	rLogger.Tracef("updating pending resource %q (%s) for application %q", chRes.Name, pendingID, applicationID)
-	res, err := st.setResource(pendingID, applicationID, userID, chRes, r, true)
+	res, err := st.setResource(pendingID, applicationID, userID, chRes, r, IncrementCharmModifiedVersion)
 	if err != nil {
 		return res, errors.Trace(err)
 	}
