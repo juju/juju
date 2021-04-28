@@ -5,14 +5,13 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	mongo "github.com/juju/juju/mongo"
 	state "github.com/juju/juju/state"
-	mgo_v2 "github.com/juju/mgo/v2"
-	txn0 "github.com/juju/mgo/v2/txn"
-	txn "github.com/juju/txn"
+	mgo "github.com/juju/mgo/v2"
+	txn "github.com/juju/mgo/v2/txn"
+	txn0 "github.com/juju/txn"
+	reflect "reflect"
 )
 
 // MockDatabase is a mock of Database interface
@@ -99,10 +98,10 @@ func (mr *MockDatabaseMockRecorder) GetCollectionFor(arg0, arg1 interface{}) *go
 }
 
 // GetRawCollection mocks base method
-func (m *MockDatabase) GetRawCollection(arg0 string) (*mgo_v2.Collection, state.SessionCloser) {
+func (m *MockDatabase) GetRawCollection(arg0 string) (*mgo.Collection, state.SessionCloser) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRawCollection", arg0)
-	ret0, _ := ret[0].(*mgo_v2.Collection)
+	ret0, _ := ret[0].(*mgo.Collection)
 	ret1, _ := ret[1].(state.SessionCloser)
 	return ret0, ret1
 }
@@ -114,7 +113,7 @@ func (mr *MockDatabaseMockRecorder) GetRawCollection(arg0 interface{}) *gomock.C
 }
 
 // Run mocks base method
-func (m *MockDatabase) Run(arg0 txn.TransactionSource) error {
+func (m *MockDatabase) Run(arg0 txn0.TransactionSource) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Run", arg0)
 	ret0, _ := ret[0].(error)
@@ -128,7 +127,7 @@ func (mr *MockDatabaseMockRecorder) Run(arg0 interface{}) *gomock.Call {
 }
 
 // RunRawTransaction mocks base method
-func (m *MockDatabase) RunRawTransaction(arg0 []txn0.Op) error {
+func (m *MockDatabase) RunRawTransaction(arg0 []txn.Op) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RunRawTransaction", arg0)
 	ret0, _ := ret[0].(error)
@@ -142,7 +141,7 @@ func (mr *MockDatabaseMockRecorder) RunRawTransaction(arg0 interface{}) *gomock.
 }
 
 // RunTransaction mocks base method
-func (m *MockDatabase) RunTransaction(arg0 []txn0.Op) error {
+func (m *MockDatabase) RunTransaction(arg0 []txn.Op) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RunTransaction", arg0)
 	ret0, _ := ret[0].(error)
@@ -156,7 +155,7 @@ func (mr *MockDatabaseMockRecorder) RunTransaction(arg0 interface{}) *gomock.Cal
 }
 
 // RunTransactionFor mocks base method
-func (m *MockDatabase) RunTransactionFor(arg0 string, arg1 []txn0.Op) error {
+func (m *MockDatabase) RunTransactionFor(arg0 string, arg1 []txn.Op) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RunTransactionFor", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -184,10 +183,10 @@ func (mr *MockDatabaseMockRecorder) Schema() *gomock.Call {
 }
 
 // TransactionRunner mocks base method
-func (m *MockDatabase) TransactionRunner() (txn.Runner, state.SessionCloser) {
+func (m *MockDatabase) TransactionRunner() (txn0.Runner, state.SessionCloser) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TransactionRunner")
-	ret0, _ := ret[0].(txn.Runner)
+	ret0, _ := ret[0].(txn0.Runner)
 	ret1, _ := ret[1].(state.SessionCloser)
 	return ret0, ret1
 }

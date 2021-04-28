@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	rbacv1 "k8s.io/api/rbac/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -67,6 +68,9 @@ func (a *app) applyRoles(trust bool) error {
 
 	api := a.client.RbacV1().Roles(a.namespace)
 	role, err := api.Get(context.Background(), a.serviceAccountName(), metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return errors.NotFoundf("role %q", a.serviceAccountName())
+	}
 	if err != nil {
 		return errors.Annotatef(err, "getting service account role %q", a.serviceAccountName())
 	}
@@ -85,6 +89,9 @@ func (a *app) applyClusterRoles(trust bool) error {
 
 	api := a.client.RbacV1().ClusterRoles()
 	role, err := api.Get(context.Background(), a.qualifiedClusterName(), metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return errors.NotFoundf("cluster role %q", a.qualifiedClusterName())
+	}
 	if err != nil {
 		return errors.Annotatef(err, "getting service account role %q", a.qualifiedClusterName())
 	}
