@@ -384,7 +384,11 @@ func (a *appWorker) ensureScale(app caas.Application) error {
 	}
 
 	a.logger.Debugf("updating application %q scale to %d", a.name, desiredScale)
-	if err := app.Scale(desiredScale); err != nil {
+	err = app.Scale(desiredScale)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
 		return errors.Annotatef(
 			err,
 			"scaling application %q to desired scale %d",
@@ -402,7 +406,11 @@ func (a *appWorker) ensureTrust(app caas.Application) error {
 	}
 
 	a.logger.Debugf("updating application %q trust to %v", a.name, desiredTrust)
-	if err := app.Trust(desiredTrust); err != nil {
+	err = app.Trust(desiredTrust)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
 		return errors.Annotatef(
 			err,
 			"updating application %q to desired trust %v",
