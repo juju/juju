@@ -376,7 +376,7 @@ func (mr *MockResourcesMockRecorder) OpenResourceForUniter(arg0, arg1 interface{
 }
 
 // SetResource mocks base method
-func (m *MockResources) SetResource(arg0, arg1 string, arg2 resource.Resource, arg3 io.Reader, arg4 bool) (resource0.Resource, error) {
+func (m *MockResources) SetResource(arg0, arg1 string, arg2 resource.Resource, arg3 io.Reader, arg4 state.IncrementCharmModifiedVersionType) (resource0.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetResource", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(resource0.Resource)

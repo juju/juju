@@ -170,11 +170,18 @@ func (st resourceState) GetPendingResource(applicationID, name, pendingID string
 
 // TODO(ericsnow) Separate setting the metadata from storing the blob?
 
+type IncrementCharmModifiedVersionType bool
+
+const (
+	IncrementCharmModifiedVersion      IncrementCharmModifiedVersionType = true
+	DoNotIncrementCharmModifiedVersion IncrementCharmModifiedVersionType = false
+)
+
 // SetResource stores the resource in the Juju model.
 func (st resourceState) SetResource(
 	applicationID, userID string,
 	chRes charmresource.Resource,
-	r io.Reader, incrementCharmModifiedVersion bool,
+	r io.Reader, incrementCharmModifiedVersion IncrementCharmModifiedVersionType,
 ) (resource.Resource, error) {
 	rLogger.Tracef("adding resource %q for application %q", chRes.Name, applicationID)
 	pendingID := ""
@@ -243,7 +250,7 @@ func (st resourceState) UpdatePendingResource(applicationID, pendingID, userID s
 func (st resourceState) setResource(
 	pendingID, applicationID, userID string,
 	chRes charmresource.Resource, r io.Reader,
-	incrementCharmModifiedVersion bool,
+	incrementCharmModifiedVersion IncrementCharmModifiedVersionType,
 ) (resource.Resource, error) {
 	id := newResourceID(applicationID, chRes.Name)
 
@@ -276,7 +283,7 @@ func (st resourceState) setResource(
 	return res, nil
 }
 
-func (st resourceState) storeResource(res resource.Resource, r io.Reader, incrementCharmModifiedVersion bool) (err error) {
+func (st resourceState) storeResource(res resource.Resource, r io.Reader, incrementCharmModifiedVersion IncrementCharmModifiedVersionType) (err error) {
 	// We use a staging approach for adding the resource metadata
 	// to the model. This is necessary because the resource data
 	// is stored separately and adding to both should be an atomic

@@ -35,7 +35,7 @@ type Resources interface {
 	GetPendingResource(applicationID, name, pendingID string) (resource.Resource, error)
 
 	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, incrementCharmModifiedVersion bool) (resource.Resource, error)
+	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ IncrementCharmModifiedVersionType) (resource.Resource, error)
 
 	// SetUnitResource sets the resource metadata for a specific unit.
 	SetUnitResource(unitName, userID string, res charmresource.Resource) (resource.Resource, error)

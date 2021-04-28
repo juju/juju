@@ -121,7 +121,7 @@ func (s *StagedResourceSuite) TestActivateOkay(c *gc.C) {
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, nil, nil, nil, ignoredErr)
 
-	err := staged.Activate(true)
+	err := staged.Activate(IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "ApplicationExistsOps", "One", "IncCharmModifiedVersionOps", "RunTransaction")
@@ -147,7 +147,7 @@ func (s *StagedResourceSuite) TestActivateOkayNoIncCharmModifiedVersionOps(c *gc
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, nil, nil, nil, ignoredErr)
 
-	err := staged.Activate(false)
+	err := staged.Activate(DoNotIncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "ApplicationExistsOps", "One", "RunTransaction")
@@ -172,7 +172,7 @@ func (s *StagedResourceSuite) TestActivateExists(c *gc.C) {
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, nil, nil, txn.ErrAborted, nil, nil, nil, nil, ignoredErr)
 
-	err := staged.Activate(true)
+	err := staged.Activate(IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "ApplicationExistsOps", "One", "IncCharmModifiedVersionOps", "RunTransaction", "ApplicationExistsOps", "One", "IncCharmModifiedVersionOps", "RunTransaction")

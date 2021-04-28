@@ -133,7 +133,7 @@ func GetResource(args GetResourceArgs) (resource.Resource, io.ReadCloser, error)
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
-	res, reader, err = opRepo.set(data.Resource, data, false)
+	res, reader, err = opRepo.set(data.Resource, data, state.DoNotIncrementCharmModifiedVersion)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}

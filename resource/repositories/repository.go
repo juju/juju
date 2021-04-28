@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/state"
 )
 
 // EntityRepository exposes the functionality needed to access data from
@@ -21,7 +22,7 @@ type EntityRepository interface {
 	GetResource(name string) (resource.Resource, error)
 
 	// SetResource stores the resource in the local cache.
-	SetResource(res charmresource.Resource, reader io.Reader, incrementCharmModifiedVersion bool) (resource.Resource, error)
+	SetResource(res charmresource.Resource, reader io.Reader, _ state.IncrementCharmModifiedVersionType) (resource.Resource, error)
 
 	// OpenResource returns metadata about the resource, and a reader
 	// for the resource.
@@ -57,7 +58,7 @@ func (cfo operationsRepository) get(name string) (resource.Resource, io.ReadClos
 // set stores the resource info and data in a repo, if there is one.
 // If no repo is in use then this is a no-op. Note that the returned
 // reader may or may not be the same one that was passed in.
-func (cfo operationsRepository) set(chRes charmresource.Resource, reader io.ReadCloser, incrementCharmModifiedVersion bool) (_ resource.Resource, _ io.ReadCloser, err error) {
+func (cfo operationsRepository) set(chRes charmresource.Resource, reader io.ReadCloser, incrementCharmModifiedVersion state.IncrementCharmModifiedVersionType) (_ resource.Resource, _ io.ReadCloser, err error) {
 	if cfo.repo == nil {
 		res := resource.Resource{
 			Resource: chRes,
