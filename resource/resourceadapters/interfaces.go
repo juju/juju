@@ -68,7 +68,7 @@ type Resources interface {
 	// OpenResourceForUniter returns the metadata for a resource and a reader for the resource.
 	OpenResourceForUniter(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error)
 	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
+	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, incrementCharmModifiedVersion bool) (resource.Resource, error)
 }
 
 // ResourceRetryClientGetterFn allows the creation of ResourceRetryClientGetter

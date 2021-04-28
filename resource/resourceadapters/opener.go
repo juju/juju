@@ -118,7 +118,7 @@ type ResourceOpener struct {
 }
 
 // OpenResource implements server.ResourceOpener.
-func (ro *ResourceOpener) OpenResource(name string) (o resource.Opened, err error) {
+func (ro *ResourceOpener) OpenResource(name string, incrementCharmModifiedVersion bool) (o resource.Opened, err error) {
 	if ro.application == nil {
 		return resource.Opened{}, errors.Errorf("missing application")
 	}
@@ -148,10 +148,11 @@ func (ro *ResourceOpener) OpenResource(name string) (o resource.Opened, err erro
 	}
 
 	res, reader, err := repositories.GetResource(repositories.GetResourceArgs{
-		Client:     client,
-		Repository: st,
-		CharmID:    id,
-		Name:       name,
+		Client:                        client,
+		Repository:                    st,
+		CharmID:                       id,
+		Name:                          name,
+		IncrementCharmModifiedVersion: incrementCharmModifiedVersion,
 	})
 	if err != nil {
 		return resource.Opened{}, errors.Trace(err)
@@ -178,8 +179,8 @@ func (s *resourceState) GetResource(name string) (resource.Resource, error) {
 }
 
 // SetResource implements charmstore.EntityCache.
-func (s *resourceState) SetResource(chRes charmresource.Resource, reader io.Reader) (resource.Resource, error) {
-	return s.st.SetResource(s.application.Name(), s.userID.Id(), chRes, reader)
+func (s *resourceState) SetResource(chRes charmresource.Resource, reader io.Reader, incrementCharmModifiedVersion bool) (resource.Resource, error) {
+	return s.st.SetResource(s.application.Name(), s.userID.Id(), chRes, reader, incrementCharmModifiedVersion)
 }
 
 // OpenResource implements charmstore.EntityCache.

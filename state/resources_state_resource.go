@@ -171,10 +171,14 @@ func (st resourceState) GetPendingResource(applicationID, name, pendingID string
 // TODO(ericsnow) Separate setting the metadata from storing the blob?
 
 // SetResource stores the resource in the Juju model.
-func (st resourceState) SetResource(applicationID, userID string, chRes charmresource.Resource, r io.Reader) (resource.Resource, error) {
+func (st resourceState) SetResource(
+	applicationID, userID string,
+	chRes charmresource.Resource,
+	r io.Reader, incrementCharmModifiedVersion bool,
+) (resource.Resource, error) {
 	rLogger.Tracef("adding resource %q for application %q", chRes.Name, applicationID)
 	pendingID := ""
-	res, err := st.setResource(pendingID, applicationID, userID, chRes, r)
+	res, err := st.setResource(pendingID, applicationID, userID, chRes, r, incrementCharmModifiedVersion)
 	if err != nil {
 		return res, errors.Trace(err)
 	}
@@ -217,7 +221,7 @@ func (st resourceState) AddPendingResource(applicationID, userID string, chRes c
 	}
 	rLogger.Debugf("adding pending resource %q for application %q (ID: %s)", chRes.Name, applicationID, pendingID)
 
-	if _, err := st.setResource(pendingID, applicationID, userID, chRes, nil); err != nil {
+	if _, err := st.setResource(pendingID, applicationID, userID, chRes, nil, true); err != nil {
 		return "", errors.Trace(err)
 	}
 
@@ -227,7 +231,7 @@ func (st resourceState) AddPendingResource(applicationID, userID string, chRes c
 // UpdatePendingResource stores the resource in the Juju model.
 func (st resourceState) UpdatePendingResource(applicationID, pendingID, userID string, chRes charmresource.Resource, r io.Reader) (resource.Resource, error) {
 	rLogger.Tracef("updating pending resource %q (%s) for application %q", chRes.Name, pendingID, applicationID)
-	res, err := st.setResource(pendingID, applicationID, userID, chRes, r)
+	res, err := st.setResource(pendingID, applicationID, userID, chRes, r, true)
 	if err != nil {
 		return res, errors.Trace(err)
 	}
@@ -236,7 +240,11 @@ func (st resourceState) UpdatePendingResource(applicationID, pendingID, userID s
 
 // TODO(ericsnow) Add ResolvePendingResource().
 
-func (st resourceState) setResource(pendingID, applicationID, userID string, chRes charmresource.Resource, r io.Reader) (resource.Resource, error) {
+func (st resourceState) setResource(
+	pendingID, applicationID, userID string,
+	chRes charmresource.Resource, r io.Reader,
+	incrementCharmModifiedVersion bool,
+) (resource.Resource, error) {
 	id := newResourceID(applicationID, chRes.Name)
 
 	res := resource.Resource{
@@ -260,7 +268,7 @@ func (st resourceState) setResource(pendingID, applicationID, userID string, chR
 			return res, errors.Trace(err)
 		}
 	} else {
-		if err := st.storeResource(res, r); err != nil {
+		if err := st.storeResource(res, r, incrementCharmModifiedVersion); err != nil {
 			return res, errors.Trace(err)
 		}
 	}
@@ -268,7 +276,7 @@ func (st resourceState) setResource(pendingID, applicationID, userID string, chR
 	return res, nil
 }
 
-func (st resourceState) storeResource(res resource.Resource, r io.Reader) error {
+func (st resourceState) storeResource(res resource.Resource, r io.Reader, incrementCharmModifiedVersion bool) (err error) {
 	// We use a staging approach for adding the resource metadata
 	// to the model. This is necessary because the resource data
 	// is stored separately and adding to both should be an atomic
@@ -279,11 +287,20 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer func() {
+		if err != nil {
+			if e := staged.Unstage(); e != nil {
+				rLogger.Errorf("could not unstage resource %q (application %q): %v", res.Name, res.ApplicationID, e)
+			}
+		}
+	}()
 
 	hash := res.Fingerprint.String()
 	switch res.Type {
 	case charmresource.TypeFile:
-		err = st.storage.PutAndCheckHash(storagePath, r, res.Size, hash)
+		if err = st.storage.PutAndCheckHash(storagePath, r, res.Size, hash); err != nil {
+			return errors.Trace(err)
+		}
 	case charmresource.TypeContainerImage:
 		respBuf := new(bytes.Buffer)
 		_, err = respBuf.ReadFrom(r)
@@ -300,23 +317,12 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 		}
 	}
 
-	if err != nil {
-		if err := staged.Unstage(); err != nil {
-			rLogger.Errorf("could not unstage resource %q (application %q): %v", res.Name, res.ApplicationID, err)
+	if err = staged.Activate(incrementCharmModifiedVersion); err != nil {
+		if e := st.storage.Remove(storagePath); e != nil {
+			rLogger.Errorf("could not remove resource %q (application %q) from storage: %v", res.Name, res.ApplicationID, e)
 		}
 		return errors.Trace(err)
 	}
-
-	if err := staged.Activate(); err != nil {
-		if err := st.storage.Remove(storagePath); err != nil {
-			rLogger.Errorf("could not remove resource %q (application %q) from storage: %v", res.Name, res.ApplicationID, err)
-		}
-		if err := staged.Unstage(); err != nil {
-			rLogger.Errorf("could not unstage resource %q (application %q): %v", res.Name, res.ApplicationID, err)
-		}
-		return errors.Trace(err)
-	}
-
 	return nil
 }
 

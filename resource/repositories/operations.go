@@ -66,6 +66,9 @@ type GetResourceArgs struct {
 
 	// Name is the name of the resource.
 	Name string
+
+	// IncrementCharmModifiedVersion decides if the CharmModifiedVersion should be incremented.
+	IncrementCharmModifiedVersion bool
 }
 
 func (args GetResourceArgs) validate() error {
@@ -133,7 +136,7 @@ func GetResource(args GetResourceArgs) (resource.Resource, io.ReadCloser, error)
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
-	res, reader, err = opRepo.set(data.Resource, data)
+	res, reader, err = opRepo.set(data.Resource, data, args.IncrementCharmModifiedVersion)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
