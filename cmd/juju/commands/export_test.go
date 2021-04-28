@@ -45,6 +45,10 @@ func (c *sshContainer) GetExecClient() (k8sexec.Executor, error) {
 	return c.getExecClient()
 }
 
+func (c *sshContainer) ModelName() string {
+	return c.modelName
+}
+
 func (c *sshContainer) SetArgs(args []string) {
 	c.setArgs(args)
 }
@@ -55,12 +59,13 @@ type SSHContainerInterfaceForTest interface {
 	SSH(Context, bool, *resolvedTarget) error
 	Copy(ctx Context) error
 	GetExecClient() (k8sexec.Executor, error)
+	ModelName() string
 
 	SetArgs([]string)
 }
 
 func NewSSHContainer(
-	modelUUID string,
+	modelUUID, modelName string,
 	cloudCredentialAPI CloudCredentialAPI,
 	modelAPI ModelAPI,
 	applicationAPI ApplicationAPI,
@@ -71,6 +76,7 @@ func NewSSHContainer(
 ) SSHContainerInterfaceForTest {
 	return &sshContainer{
 		modelUUID:          modelUUID,
+		modelName:          modelName,
 		cloudCredentialAPI: cloudCredentialAPI,
 		modelAPI:           modelAPI,
 		applicationAPI:     applicationAPI,
