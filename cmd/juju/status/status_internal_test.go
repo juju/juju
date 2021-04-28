@@ -5276,7 +5276,7 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 			"foo": {
 				Scale:   2,
 				Address: "54.32.1.2",
-				Version: "prefix/image:tag",
+				Version: "user/image:tag",
 				Units: map[string]unitStatus{
 					"foo/0": {
 						JujuStatusInfo: statusInfoContents{
@@ -5307,8 +5307,8 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version    Status  Scale  Charm  Store  Channel  Rev  OS  Address    Message
-foo  image:tag            1/2                           0      54.32.1.2  
+App  Version         Status  Scale  Charm  Store  Channel  Rev  OS  Address    Message
+foo  user/image:tag            1/2                           0      54.32.1.2  
 
 Unit   Workload  Agent       Address   Ports   Message
 foo/0  active    allocating                    
@@ -5325,9 +5325,41 @@ func (s *StatusSuite) TestFormatTabularCAASModelTruncatedVersion(c *gc.C) {
 			"foo": {
 				Scale:   1,
 				Address: "54.32.1.2",
-				Version: "registry.jujucharms.com/image",
+				Version: "registry.jujucharms.com/fred/mysql/mysql_image:tag@sha256:3046a3dc76ee23417f889675bce3a4c08f223b87d1e378eeea3e7490cd27fbc5",
 				Units: map[string]unitStatus{
 					"foo/0": {
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Allocating,
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Active,
+						},
+					},
+				},
+			},
+			"bar": {
+				Charm: "bar",
+				CharmOrigin: "charmhub",
+				Scale:   1,
+				Address: "54.32.1.3",
+				Version: "registry.jujucharms.com/fredbloggsthethrid/bar/image:0.5",
+				Units: map[string]unitStatus{
+					"bar/0": {
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Allocating,
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Active,
+						},
+					},
+				},
+			},
+			"baz": {
+				Scale:   1,
+				Address: "54.32.1.4",
+				Version: "docker.io/reallyreallyreallyreallyreallylong/image:0.6",
+				Units: map[string]unitStatus{
+					"baz/0": {
 						JujuStatusInfo: statusInfoContents{
 							Current: status.Allocating,
 						},
@@ -5346,10 +5378,14 @@ func (s *StatusSuite) TestFormatTabularCAASModelTruncatedVersion(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version  Status  Scale  Charm  Store  Channel  Rev  OS  Address    Message
-foo  ...                0/1                           0      54.32.1.2  
+App  Version                         Status  Scale  Charm  Store     Channel  Rev  OS  Address    Message
+bar  res:image:0.5                             0/1         charmhub             0      54.32.1.3  
+baz  .../image:0.6                             0/1                              0      54.32.1.4  
+foo  .../mysql/mysql_image:tag@3...            0/1                              0      54.32.1.2  
 
 Unit   Workload  Agent       Address  Ports  Message
+bar/0  active    allocating                  
+baz/0  active    allocating                  
 foo/0  active    allocating                  
 `[1:])
 }

@@ -1267,7 +1267,7 @@ func (api *APIBase) Unexpose(args params.ApplicationUnexpose) error {
 // AddUnits adds a given number of units to an application.
 func (api *APIBase) AddUnits(args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
 	if api.modelType == state.ModelTypeCAAS {
-		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units on a non-container model")
+		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to a container-based model")
 	}
 
 	// TODO(wallyworld) - enable-ha is how we add new controllers at the moment

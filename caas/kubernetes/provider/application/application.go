@@ -180,7 +180,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Labels:      a.labels(),
 				Annotations: a.annotations(config),
 			},
-			Rules: defaultApplicationRoles,
+			Rules: defaultApplicationNamespaceRules,
 		},
 	}
 	applier.Apply(&role)
@@ -207,6 +207,40 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		},
 	}
 	applier.Apply(&roleBinding)
+
+	clusterRole := resources.ClusterRole{
+		ClusterRole: rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.qualifiedClusterName(),
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			Rules: defaultApplicationClusterRules,
+		},
+	}
+	applier.Apply(&clusterRole)
+
+	clusterRoleBinding := resources.ClusterRoleBinding{
+		ClusterRoleBinding: rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.qualifiedClusterName(),
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			RoleRef: rbacv1.RoleRef{
+				Name: a.qualifiedClusterName(),
+				Kind: "ClusterRole",
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind:      rbacv1.ServiceAccountKind,
+					Name:      a.serviceAccountName(),
+					Namespace: a.namespace,
+				},
+			},
+		},
+	}
+	applier.Apply(&clusterRoleBinding)
 
 	if err := a.configureDefaultService(a.annotations(config)); err != nil {
 		return errors.Annotatef(err, "ensuring the default service %q", a.name)
@@ -450,6 +484,8 @@ func (a *app) Exists() (caas.DeploymentState, error) {
 		{"service", a.serviceExists, false},
 		{"roleBinding", a.roleBindingExists, false},
 		{"role", a.roleExists, false},
+		{"clusterRoleBinding", a.clusterRoleBindingExists, false},
+		{"clusterRole", a.clusterRoleExists, false},
 		{"serviceAccount", a.serviceAccountExists, false},
 	}
 	switch a.deploymentType {
@@ -746,6 +782,28 @@ func (a *app) roleBindingExists() (exists bool, terminating bool, err error) {
 	return true, rb.DeletionTimestamp != nil, nil
 }
 
+func (a *app) clusterRoleExists() (exists bool, terminating bool, err error) {
+	r := resources.NewClusterRole(a.qualifiedClusterName(), nil)
+	err = r.Get(context.Background(), a.client)
+	if errors.IsNotFound(err) {
+		return false, false, nil
+	} else if err != nil {
+		return false, false, errors.Trace(err)
+	}
+	return true, r.DeletionTimestamp != nil, nil
+}
+
+func (a *app) clusterRoleBindingExists() (exists bool, terminating bool, err error) {
+	rb := resources.NewClusterRoleBinding(a.qualifiedClusterName(), nil)
+	err = rb.Get(context.Background(), a.client)
+	if errors.IsNotFound(err) {
+		return false, false, nil
+	} else if err != nil {
+		return false, false, errors.Trace(err)
+	}
+	return true, rb.DeletionTimestamp != nil, nil
+}
+
 func (a *app) serviceAccountExists() (exists bool, terminating bool, err error) {
 	sa := resources.NewServiceAccount(a.serviceAccountName(), a.namespace, nil)
 	err = sa.Get(context.Background(), a.client)
@@ -776,6 +834,8 @@ func (a *app) Delete() error {
 	applier.Delete(resources.NewSecret(a.secretName(), a.namespace, nil))
 	applier.Delete(resources.NewRoleBinding(a.serviceAccountName(), a.namespace, nil))
 	applier.Delete(resources.NewRole(a.serviceAccountName(), a.namespace, nil))
+	applier.Delete(resources.NewClusterRoleBinding(a.qualifiedClusterName(), nil))
+	applier.Delete(resources.NewClusterRole(a.qualifiedClusterName(), nil))
 	applier.Delete(resources.NewServiceAccount(a.serviceAccountName(), a.namespace, nil))
 	return applier.Run(context.Background(), a.client, false)
 }
@@ -919,7 +979,7 @@ func (a *app) Units() ([]caas.Unit, error) {
 				logger.Warningf("volume for volume mount %q not found", volMount.Name)
 				continue
 			}
-			if vol.Secret != nil && strings.HasPrefix(vol.Secret.SecretName, a.name+"-token") {
+			if vol.Secret != nil && strings.Contains(vol.Secret.SecretName, "-token") {
 				logger.Tracef("ignoring volume source for service account secret: %v", vol.Name)
 				continue
 			}
@@ -1240,6 +1300,10 @@ func (a *app) secretName() string {
 
 func (a *app) serviceAccountName() string {
 	return a.name
+}
+
+func (a *app) qualifiedClusterName() string {
+	return fmt.Sprintf("%s-%s", a.modelName, a.name)
 }
 
 type annotationGetter interface {

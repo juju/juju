@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v2/dependency"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -384,7 +385,11 @@ func (a *appWorker) ensureScale(app caas.Application) error {
 	}
 
 	a.logger.Debugf("updating application %q scale to %d", a.name, desiredScale)
-	if err := app.Scale(desiredScale); err != nil {
+	err = app.Scale(desiredScale)
+	if errors.IsNotFound(err) {
+		return dependency.ErrBounce
+	}
+	if err != nil {
 		return errors.Annotatef(
 			err,
 			"scaling application %q to desired scale %d",
@@ -402,7 +407,11 @@ func (a *appWorker) ensureTrust(app caas.Application) error {
 	}
 
 	a.logger.Debugf("updating application %q trust to %v", a.name, desiredTrust)
-	if err := app.Trust(desiredTrust); err != nil {
+	err = app.Trust(desiredTrust)
+	if errors.IsNotFound(err) {
+		return dependency.ErrBounce
+	}
+	if err != nil {
 		return errors.Annotatef(
 			err,
 			"updating application %q to desired trust %v",

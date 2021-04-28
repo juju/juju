@@ -102,7 +102,7 @@ func NewConfigCommand() cmd.Command {
 }
 
 // NewConfigCommandForTest returns a SetCommand with the api provided as specified.
-func NewConfigCommandForTest(api applicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
+func NewConfigCommandForTest(api ApplicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
 	c := modelcmd.Wrap(&configCommand{api: api})
 	c.SetClientStore(store)
 	return c
@@ -112,11 +112,11 @@ type attributes map[string]string
 
 // configCommand get, sets, and resets configuration values of an application' charm.
 type configCommand struct {
-	api applicationAPI
+	api ApplicationAPI
 	modelcmd.ModelCommandBase
 	out cmd.Output
 
-	action          func(applicationAPI, *cmd.Context) error // get, set, or reset action set in  Init
+	action          func(ApplicationAPI, *cmd.Context) error // get, set, or reset action set in  Init
 	applicationName string
 	branchName      string
 	configFile      cmd.FileVar
@@ -127,8 +127,8 @@ type configCommand struct {
 	values          attributes
 }
 
-// applicationAPI is an interface to allow passing in a fake implementation under test.
-type applicationAPI interface {
+// ApplicationAPI is an interface to allow passing in a fake implementation under test.
+type ApplicationAPI interface {
 	Close() error
 	Get(branchName string, application string) (*params.ApplicationGetResults, error)
 	SetConfig(branchName string, application, configYAML string, config map[string]string) error
@@ -159,7 +159,7 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // getAPI either uses the fake API set at test time or that is nil, gets a real
 // API and sets that as the API.
-func (c *configCommand) getAPI() (applicationAPI, error) {
+func (c *configCommand) getAPI() (ApplicationAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -340,14 +340,14 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 }
 
 // resetConfig is the run action when we are resetting attributes.
-func (c *configCommand) resetConfig(client applicationAPI, ctx *cmd.Context) error {
+func (c *configCommand) resetConfig(client ApplicationAPI, ctx *cmd.Context) error {
 	err := client.UnsetApplicationConfig(c.branchName, c.applicationName, c.resetKeys)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
 // setConfig is the run action when we are setting new attribute values as args
 // or as a file passed in.
-func (c *configCommand) setConfig(client applicationAPI, ctx *cmd.Context) error {
+func (c *configCommand) setConfig(client ApplicationAPI, ctx *cmd.Context) error {
 	settingsYAML, err := c.configYAMLFromFile(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -362,7 +362,7 @@ func (c *configCommand) setConfig(client applicationAPI, ctx *cmd.Context) error
 	return errors.Trace(block.ProcessBlockedError(err, block.BlockChange))
 }
 
-func (c *configCommand) configMapFromKV(client applicationAPI, ctx *cmd.Context) (map[string]string, error) {
+func (c *configCommand) configMapFromKV(client ApplicationAPI, ctx *cmd.Context) (map[string]string, error) {
 	settings, err := c.validateValues(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -414,7 +414,7 @@ func (c *configCommand) configYAMLFromFile(ctx *cmd.Context) (string, error) {
 }
 
 // getConfig is the run action to return one or all configuration values.
-func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error {
+func (c *configCommand) getConfig(client ApplicationAPI, ctx *cmd.Context) error {
 	results, err := client.Get(c.branchName, c.applicationName)
 	if err != nil {
 		return err

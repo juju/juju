@@ -34,6 +34,7 @@ type sshContainerSuite struct {
 	testing.BaseSuite
 
 	modelUUID          string
+	modelName string
 	cloudCredentialAPI *mocks.MockCloudCredentialAPI
 	modelAPI           *mocks.MockModelAPI
 	applicationAPI     *mocks.MockApplicationAPI
@@ -50,6 +51,7 @@ var _ = gc.Suite(&sshContainerSuite{})
 func (s *sshContainerSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.modelUUID = "e0453597-8109-4f7d-a58f-af08bc72a414"
+	s.modelName = "controller"
 }
 
 func (s *sshContainerSuite) TearDownTest(c *gc.C) {
@@ -83,6 +85,7 @@ func (s *sshContainerSuite) setUpController(c *gc.C, remote bool, containerName 
 
 	s.sshC = commands.NewSSHContainer(
 		s.modelUUID,
+		s.modelName,
 		s.cloudCredentialAPI,
 		s.modelAPI,
 		s.applicationAPI,
@@ -146,6 +149,7 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharm(c *gc.C) {
 						},
 					}},
 				},
+				Meta: &charm.Meta{},
 			}, nil),
 	)
 	target, err := s.sshC.ResolveTarget("mariadb-k8s/0")
@@ -231,7 +235,7 @@ func (s *sshContainerSuite) TestResolveTargetForOperatorPod(c *gc.C) {
 			}, nil),
 		s.execClient.EXPECT().NameSpace().AnyTimes().Return("test-ns"),
 
-		s.mockNamespaces.EXPECT().Get(gomock.Any(), gomock.Any(), metav1.GetOptions{}).
+		s.mockNamespaces.EXPECT().Get(gomock.Any(), s.modelName, metav1.GetOptions{}).
 			Return(nil, k8serrors.NewNotFound(schema.GroupResource{}, "test")),
 
 		s.mockPods.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "operator.juju.is/name=mariadb-k8s,operator.juju.is/target=application"}).AnyTimes().
@@ -259,7 +263,7 @@ func (s *sshContainerSuite) TestResolveTargetForOperatorPodNoProviderID(c *gc.C)
 			}, nil),
 		s.execClient.EXPECT().NameSpace().AnyTimes().Return("test-ns"),
 
-		s.mockNamespaces.EXPECT().Get(gomock.Any(), gomock.Any(), metav1.GetOptions{}).
+		s.mockNamespaces.EXPECT().Get(gomock.Any(), s.modelName, metav1.GetOptions{}).
 			Return(nil, k8serrors.NewNotFound(schema.GroupResource{}, "test")),
 
 		s.mockPods.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "operator.juju.is/name=mariadb-k8s,operator.juju.is/target=application"}).AnyTimes().
@@ -301,7 +305,9 @@ func (s *sshContainerSuite) TestGetExecClient(c *gc.C) {
 			Return(2),
 		s.modelAPI.EXPECT().ModelInfo([]names.ModelTag{names.NewModelTag(s.modelUUID)}).
 			Return([]params.ModelInfoResult{
-				{Result: &params.ModelInfo{CloudCredentialTag: "cloudcred-microk8s_admin_microk8s"}},
+				{Result: &params.ModelInfo{
+					Name: s.modelName,
+					CloudCredentialTag: "cloudcred-microk8s_admin_microk8s"}},
 			}, nil),
 		s.cloudCredentialAPI.EXPECT().CredentialContents(cloudCredentailTag.Cloud().Id(), cloudCredentailTag.Name(), true).
 			Return([]params.CredentialContentResult{
@@ -322,6 +328,7 @@ func (s *sshContainerSuite) TestGetExecClient(c *gc.C) {
 	)
 	execC, err := s.sshC.GetExecClient()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.sshC.ModelName(), gc.Equals, s.modelName)
 	c.Assert(execC, gc.DeepEquals, s.execClient)
 }
 

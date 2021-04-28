@@ -46,6 +46,7 @@ func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
 		clock:                jujuclock.WallClock,
 		model:                dep.Model,
 		fileSystem:           dep.FileSystem,
+		charmReader:          dep.CharmReader,
 		newConsumeDetailsAPI: dep.NewConsumeDetailsAPI,
 		steps:                dep.Steps,
 	}
@@ -108,6 +109,7 @@ type DeployerDependencies struct {
 	DeployResources      resourceadapters.DeployResourcesFunc
 	Model                ModelCommand
 	FileSystem           modelcmd.Filesystem
+	CharmReader          CharmReader
 	NewConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
 	Steps                []DeployStep
 }
@@ -154,6 +156,7 @@ type factory struct {
 	deployResources      resourceadapters.DeployResourcesFunc
 	newConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
 	fileSystem           modelcmd.Filesystem
+	charmReader          CharmReader
 
 	// DeployerConfig
 	placementSpec     string
@@ -296,6 +299,7 @@ func (d *factory) newDeployBundle(ds charm.BundleDataSource) deployBundle {
 		bundleOverlayFile:    d.bundleOverlayFile,
 		bundleDir:            d.charmOrBundle,
 		modelConstraints:     d.modelConstraints,
+		charmReader:          d.charmReader,
 	}
 }
 
@@ -320,7 +324,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 	var imageStream string
 	seriesName := d.series
 
-	ch, err := charm.ReadCharm(charmOrBundle)
+	ch, err := d.charmReader.ReadCharm(charmOrBundle)
 	if err == nil {
 		modelCfg, err := getModelConfig(getter)
 		if err != nil {
@@ -362,7 +366,11 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 			return nil, errors.Trace(err)
 		}
 		if err := model.ValidateModelTarget(modelType, ch); err != nil {
-			return nil, errors.Annotatef(err, "cannot add application %q", d.applicationName)
+			appName := d.applicationName
+			if appName == "" {
+				appName = ch.Meta().Name
+			}
+			return nil, errors.Annotatef(err, "cannot add application %q", appName)
 		}
 	}
 

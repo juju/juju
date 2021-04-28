@@ -33,7 +33,7 @@ type ResourcesBackend interface {
 	GetPendingResource(applicationID, name, pendingID string) (resource.Resource, error)
 
 	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
+	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ state.IncrementCharmModifiedVersionType) (resource.Resource, error)
 
 	// UpdatePendingResource adds the resource to blob storage and updates the metadata.
 	UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
@@ -110,7 +110,7 @@ func (h *ResourcesHandler) upload(backend ResourcesBackend, req *http.Request, u
 	if uploaded.PendingID != "" {
 		stored, err = backend.UpdatePendingResource(uploaded.Application, uploaded.PendingID, username, uploaded.Resource, uploaded.Data)
 	} else {
-		stored, err = backend.SetResource(uploaded.Application, username, uploaded.Resource, uploaded.Data)
+		stored, err = backend.SetResource(uploaded.Application, username, uploaded.Resource, uploaded.Data, state.IncrementCharmModifiedVersion)
 	}
 
 	if err != nil {

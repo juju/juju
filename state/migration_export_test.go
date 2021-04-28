@@ -2193,7 +2193,7 @@ func (s *MigrationExportSuite) TestResources(c *gc.C) {
 
 	// Initially set revision 1 for the application.
 	res1 := s.newResource(c, app.Name(), "spam", 1, body)
-	res1, err = st.SetResource(app.Name(), res1.Username, res1.Resource, bytes.NewBufferString(body))
+	res1, err = st.SetResource(app.Name(), res1.Username, res1.Resource, bytes.NewBufferString(body), state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Unit 1 gets revision 1.
@@ -2201,7 +2201,7 @@ func (s *MigrationExportSuite) TestResources(c *gc.C) {
 
 	// Now set revision 2 for the application.
 	res2 := s.newResource(c, app.Name(), "spam", 2, body)
-	res2, err = st.SetResource(app.Name(), res2.Username, res2.Resource, bytes.NewBufferString(body))
+	res2, err = st.SetResource(app.Name(), res2.Username, res2.Resource, bytes.NewBufferString(body), state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Unit 2 gets revision 2.

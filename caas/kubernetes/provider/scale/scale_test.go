@@ -84,6 +84,26 @@ func (s *ScaleSuite) TestDeploymentScale(c *gc.C) {
 	c.Assert(*dep.Spec.Replicas, gc.Equals, int32(0))
 }
 
+func (s *ScaleSuite) TestDeploymentScaleNotFound(c *gc.C) {
+	err := scale.PatchReplicasToScale(
+		context.TODO(),
+		"test",
+		3,
+		scale.DeploymentScalePatcher(s.client.AppsV1().Deployments("test")),
+	)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ScaleSuite) TestStatefulSetScaleNotFound(c *gc.C) {
+	err := scale.PatchReplicasToScale(
+		context.TODO(),
+		"test",
+		3,
+		scale.StatefulSetScalePatcher(s.client.AppsV1().StatefulSets("test")),
+	)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *ScaleSuite) TestStatefulSetScale(c *gc.C) {
 	_, err := s.client.AppsV1().StatefulSets("test").Create(
 		context.TODO(),

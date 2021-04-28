@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/docker/distribution/reference"
 	"github.com/juju/ansiterm"
 	"github.com/juju/charm/v9"
 	"github.com/juju/charm/v9/hooks"
@@ -141,19 +142,49 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		app := fs.Applications[appName]
 		version := app.Version
 		// CAAS versions may have repo prefix we don't care about.
-		if fs.Model.Type == caasModelType {
-			// Really long version strings are pretty useless so just use "..."
-			// and the user can use the YAML/JSON status to see the value.
-			if strings.HasPrefix(version, "registry.") ||
-				strings.HasPrefix(version, "rocks.canonical.com") ||
-				strings.HasPrefix(version, "docker.io") ||
-				strings.HasPrefix(version, "gcr.io") ||
-				strings.Contains(version, "@sha256") {
-				version = ellipsis
+		if fs.Model.Type == caasModelType && version != "" {
+			ref, err := reference.ParseNamed(version)
+			if err != nil {
+				if err != reference.ErrNameNotCanonical {
+					version = ellipsis
+				}
+			} else {
+				version = reference.Path(ref)
+				if withTag, ok := ref.(reference.NamedTagged); ok {
+					version += ":" + withTag.Tag()
+				}
+				if withDigest, ok := ref.(reference.Digested); ok {
+					digest := withDigest.Digest().Encoded()
+					if len(digest) > 7 {
+						digest = digest[:7]
+					}
+					version += "@" + digest
+				}
 			}
 			parts := strings.Split(version, "/")
-			if len(parts) == 2 {
-				version = parts[1]
+			// Charms deployed from the rocks or jujucharm repos have the
+			// image path set to <repo-url>/<user>/<charm_name>/<resource_name>. Charm name
+			// is somewhat redundant and takes up value space. So we'll replace
+			// with "res:" to indicate the named resource comes from the store repo.
+			fromJujuRepo := strings.Contains(app.Version, "jujucharms.") || strings.Contains(app.Version, "rocks.")
+			if fromJujuRepo && len(parts) > 2 && (len(version) > maxVersionWidth || parts[1] == app.Charm) {
+				prefix := ""
+				switch app.CharmOrigin {
+				case "charmhub", "charmstore":
+					prefix = "res:"
+				}
+				if prefix != "" {
+					parts[2] = prefix + parts[2]
+					version = strings.Join(parts[2:], "/")
+				}
+			}
+			// For qualified images, if they are too long, we still
+			// want to see the core image name, but we can compromise
+			// on the namespace part and replace that with "...".
+			parts = strings.Split(version, "/")
+			if len(parts) > 1 && len(version) > maxVersionWidth {
+				parts[0] = ellipsis
+				version = strings.Join(parts, "/")
 			}
 		}
 		// Don't let a long version push out the version column.

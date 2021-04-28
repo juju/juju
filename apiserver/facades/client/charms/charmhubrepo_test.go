@@ -552,6 +552,63 @@ func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
 	})
 }
 
+type selectNextBaseSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&selectNextBaseSuite{})
+
+func (selectNextBaseSuite) TestSelectNextBaseWithNoBases(c *gc.C) {
+	repo := &chRepo{}
+	_, err := repo.selectNextBase(nil, corecharm.Origin{})
+	c.Assert(err, gc.ErrorMatches, `no bases available`)
+}
+
+func (selectNextBaseSuite) TestSelectNextBaseWithInvalidBases(c *gc.C) {
+	repo := &chRepo{}
+	_, err := repo.selectNextBase([]transport.Base{{
+		Architecture: "all",
+	}}, corecharm.Origin{
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `bases matching architecture "amd64" not found`)
+}
+
+func (selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *gc.C) {
+	repo := &chRepo{}
+	_, err := repo.selectNextBase([]transport.Base{{
+		Architecture: "amd64",
+	}}, corecharm.Origin{
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `base: channel cannot be empty`)
+}
+
+func (selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *gc.C) {
+	repo := &chRepo{}
+	platform, err := repo.selectNextBase([]transport.Base{{
+		Architecture: "amd64",
+		Name:         "ubuntu",
+		Channel:      "20.04",
+	}}, corecharm.Origin{
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Series:       "focal",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(platform, gc.DeepEquals, corecharm.Platform{
+		Architecture: "amd64",
+		OS:           "ubuntu",
+		Series:       "focal",
+	})
+}
+
 type composeSuggestionsSuite struct {
 	testing.IsolationSuite
 }

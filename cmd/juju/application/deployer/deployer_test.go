@@ -14,6 +14,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -43,6 +44,8 @@ type deployerSuite struct {
 	filesystem        *mocks.MockFilesystem
 	bundle            *mocks.MockBundle
 	modelConfigGetter *mocks.MockModelConfigGetter
+	charmReader       *mocks.MockCharmReader
+	charm             *mocks.MockCharm
 
 	deployResourceIDs map[string]string
 	output            *bytes.Buffer
@@ -328,6 +331,47 @@ func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployCAASWithIAAS(c 
 	c.Assert(err, gc.ErrorMatches, `expected container-based charm metadata, unexpected series or base`)
 }
 
+func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithApplicationName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectModelGet(c)
+
+	s.charmReader.EXPECT().ReadCharm("meshuggah").Return(s.charm, nil)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	s.charm.EXPECT().Meta().Return(&charm.Meta{Series: []string{"focal"}}).AnyTimes()
+	s.modelCommand.EXPECT().ModelType().Return(model.CAAS, nil)
+
+	f := &factory{
+		clock:           clock.WallClock,
+		applicationName: "meshuggah",
+		charmOrBundle:   "local:meshuggah",
+		charmReader:     s.charmReader,
+		model:           s.modelCommand,
+	}
+
+	_, err := f.maybeReadLocalCharm(s.modelConfigGetter)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "meshuggah": non container-based charm for container-based model type not valid`)
+}
+
+func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithoutApplicationName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectModelGet(c)
+
+	s.charmReader.EXPECT().ReadCharm("meshuggah").Return(s.charm, nil)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "meshuggah", Series: []string{"focal"}}).AnyTimes()
+	s.modelCommand.EXPECT().ModelType().Return(model.CAAS, nil)
+
+	f := &factory{
+		clock:         clock.WallClock,
+		charmOrBundle: "local:meshuggah",
+		charmReader:   s.charmReader,
+		model:         s.modelCommand,
+	}
+
+	_, err := f.maybeReadLocalCharm(s.modelConfigGetter)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "meshuggah": non container-based charm for container-based model type not valid`)
+}
+
 func (s *deployerSuite) makeBundleDir(c *gc.C, content string) string {
 	bundlePath := filepath.Join(c.MkDir(), "example")
 	c.Assert(os.Mkdir(bundlePath, 0777), jc.ErrorIsNil)
@@ -354,6 +398,7 @@ func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 		Model:                s.modelCommand,
 		NewConsumeDetailsAPI: func(url *charm.OfferURL) (ConsumeDetails, error) { return s.consumeDetails, nil },
 		FileSystem:           s.filesystem,
+		CharmReader:          fsCharmReader{},
 		Steps:                []DeployStep{s.deployStep},
 	}
 	return NewDeployerFactory(dep)
@@ -385,6 +430,8 @@ func (s *deployerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.filesystem = mocks.NewMockFilesystem(ctrl)
 	s.modelConfigGetter = mocks.NewMockModelConfigGetter(ctrl)
 	s.deployStep = &fakeDeployStep{}
+	s.charmReader = mocks.NewMockCharmReader(ctrl)
+	s.charm = mocks.NewMockCharm(ctrl)
 	return ctrl
 }
 
@@ -455,4 +502,14 @@ func (f *fakeDeployStep) RunPre(DeployStepAPI, *httpbakery.Client, *cmd.Context,
 // The error parameter is used to notify the step of a previously occurred error.
 func (f *fakeDeployStep) RunPost(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo, error) error {
 	return nil
+}
+
+// TODO (stickupkid): Remove this in favour of better unit tests with mocks.
+// Currently most of the tests are integration tests, pretending to be unit
+// tests.
+type fsCharmReader struct{}
+
+// ReadCharm attempts to read a charm from a path on the filesystem.
+func (fsCharmReader) ReadCharm(path string) (charm.Charm, error) {
+	return charm.ReadCharm(path)
 }

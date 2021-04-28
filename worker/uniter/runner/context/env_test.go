@@ -180,7 +180,7 @@ func (s *EnvSuite) TestEnvWindows(c *gc.C) {
 			c.Errorf("unexpected get env call for %q", k)
 		}
 		return ""
-	})
+	}, func() []string { return []string{} })
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars)
 
@@ -195,7 +195,7 @@ func (s *EnvSuite) TestEnvWindows(c *gc.C) {
 			c.Errorf("unexpected get env call for %q", k)
 		}
 		return ""
-	})
+	}, func() []string { return []string{} })
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars, relationVars)
 }
@@ -230,7 +230,7 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 				c.Errorf("unexpected get env call for %q", k)
 			}
 			return ""
-		})
+		}, func() []string { return []string{} })
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
 
@@ -243,7 +243,7 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 				c.Errorf("unexpected get env call for %q", k)
 			}
 			return ""
-		})
+		}, func() []string { return []string{} })
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars)
 	}
@@ -277,7 +277,7 @@ func (s *EnvSuite) TestEnvCentos(c *gc.C) {
 				c.Errorf("unexpected get env call for %q", k)
 			}
 			return ""
-		})
+		}, func() []string { return []string{} })
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertVars(c, actualVars, contextVars, pathsVars, centosVars)
 
@@ -290,7 +290,7 @@ func (s *EnvSuite) TestEnvCentos(c *gc.C) {
 				c.Errorf("unexpected get env call for %q", k)
 			}
 			return ""
-		})
+		}, func() []string { return []string{} })
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertVars(c, actualVars, contextVars, pathsVars, centosVars, relationVars)
 	}
@@ -324,7 +324,7 @@ func (s *EnvSuite) TestEnvOpenSUSE(c *gc.C) {
 				c.Errorf("unexpected get env call for %q", k)
 			}
 			return ""
-		})
+		}, func() []string { return []string{} })
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertVars(c, actualVars, contextVars, pathsVars, openSUSEVars)
 
@@ -337,7 +337,7 @@ func (s *EnvSuite) TestEnvOpenSUSE(c *gc.C) {
 				c.Errorf("unexpected get env call for %q", k)
 			}
 			return ""
-		})
+		}, func() []string { return []string{} })
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertVars(c, actualVars, contextVars, pathsVars, openSUSEVars, relationVars)
 	}
@@ -363,7 +363,7 @@ func (s *EnvSuite) TestEnvGenericLinux(c *gc.C) {
 			c.Errorf("unexpected get env call for %q", k)
 		}
 		return ""
-	})
+	}, func() []string { return []string{} })
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars)
 
@@ -376,7 +376,45 @@ func (s *EnvSuite) TestEnvGenericLinux(c *gc.C) {
 			c.Errorf("unexpected get env call for %q", k)
 		}
 		return ""
-	})
+	}, func() []string { return []string{} })
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars)
+}
+
+func (s *EnvSuite) TestHostEnv(c *gc.C) {
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.GenericLinux })
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
+
+	genericLinuxVars := []string{
+		"LANG=C.UTF-8",
+		"PATH=path-to-tools:foo:bar",
+		"TERM=screen",
+	}
+
+	ctx, contextVars := s.getContext(false)
+	paths, pathsVars := s.getPaths()
+	actualVars, err := ctx.HookVars(paths, false, func(k string) string {
+		switch k {
+		case "PATH":
+			return "foo:bar"
+		default:
+			c.Errorf("unexpected get env call for %q", k)
+		}
+		return ""
+	}, func() []string { return []string{"KUBERNETES_SERVICE=test"} })
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, []string{"KUBERNETES_SERVICE=test"})
+
+	relationVars := s.setRelation(ctx)
+	actualVars, err = ctx.HookVars(paths, false, func(k string) string {
+		switch k {
+		case "PATH":
+			return "foo:bar"
+		default:
+			c.Errorf("unexpected get env call for %q", k)
+		}
+		return ""
+	}, func() []string { return []string{"FOO=bAR"} })
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars, []string{"FOO=bAR"})
 }

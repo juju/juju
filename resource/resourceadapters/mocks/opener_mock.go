@@ -376,16 +376,16 @@ func (mr *MockResourcesMockRecorder) OpenResourceForUniter(arg0, arg1 interface{
 }
 
 // SetResource mocks base method
-func (m *MockResources) SetResource(arg0, arg1 string, arg2 resource.Resource, arg3 io.Reader) (resource0.Resource, error) {
+func (m *MockResources) SetResource(arg0, arg1 string, arg2 resource.Resource, arg3 io.Reader, arg4 state.IncrementCharmModifiedVersionType) (resource0.Resource, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetResource", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "SetResource", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(resource0.Resource)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SetResource indicates an expected call of SetResource
-func (mr *MockResourcesMockRecorder) SetResource(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockResourcesMockRecorder) SetResource(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetResource", reflect.TypeOf((*MockResources)(nil).SetResource), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetResource", reflect.TypeOf((*MockResources)(nil).SetResource), arg0, arg1, arg2, arg3, arg4)
 }

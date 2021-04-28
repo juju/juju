@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
@@ -47,7 +48,7 @@ func (s *ResourcesSuite) TestFunctional(c *gc.C) {
 	res := newResource(c, "spam", data)
 	file := bytes.NewBufferString(data)
 
-	_, err = st.SetResource("a-application", res.Username, res.Resource, file)
+	_, err = st.SetResource("a-application", res.Username, res.Resource, file, state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	csResources := []charmresource.Resource{res.Resource}

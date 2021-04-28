@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	apps "k8s.io/client-go/kubernetes/typed/apps/v1"
@@ -46,6 +47,9 @@ func DeploymentScalePatcher(deploy apps.DeploymentInterface) ScalePatcher {
 		s ...string,
 	) (int32, error) {
 		deployment, err := deploy.Patch(c, n, p, d, o, s...)
+		if k8serrors.IsNotFound(err) {
+			return 0, errors.NotFoundf("deployment %q", n)
+		}
 		if err != nil {
 			return 0, errors.Annotatef(err, "scale patching deployment %q", n)
 		}
@@ -90,8 +94,11 @@ func PatchReplicasToScale(
 		name,
 		types.StrategicMergePatchType,
 		patch,
-		meta.PatchOptions{})
-
+		meta.PatchOptions{},
+	)
+	if k8serrors.IsNotFound(err) {
+		return errors.NewNotFound(err, name)
+	}
 	if err != nil {
 		return errors.Annotatef(err, "setting scale to %d for %q", scale, name)
 	}
@@ -115,6 +122,9 @@ func StatefulSetScalePatcher(stateSet apps.StatefulSetInterface) ScalePatcher {
 		s ...string,
 	) (int32, error) {
 		ss, err := stateSet.Patch(c, n, p, d, o, s...)
+		if k8serrors.IsNotFound(err) {
+			return 0, errors.NotFoundf("statefulset %q", n)
+		}
 		if err != nil {
 			return 0, errors.Annotatef(err, "scale patching statefulset %q", n)
 		}

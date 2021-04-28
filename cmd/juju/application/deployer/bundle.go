@@ -41,6 +41,7 @@ type deployBundle struct {
 	authorizer           store.MacaroonGetter
 	newConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
 	deployResources      resourceadapters.DeployResourcesFunc
+	charmReader          CharmReader
 
 	useExistingMachines bool
 	bundleMachines      map[string]string

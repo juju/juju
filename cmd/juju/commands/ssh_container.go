@@ -40,6 +40,7 @@ type sshContainer struct {
 	container string
 	args      []string
 	modelUUID string
+	modelName string
 
 	cloudCredentialAPI CloudCredentialAPI
 	modelAPI           ModelAPI
@@ -219,11 +220,16 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 	if !isMetaV2 && !c.remote {
 		// We don't want to introduce CaaS broker here, but only use exec client.
 		podAPI := c.execClient.RawClient().CoreV1().Pods(c.execClient.NameSpace())
+		modelName := c.modelName
+		// Model name should always be set, but just in case...
+		if modelName == "" {
+			modelName = c.execClient.NameSpace()
+		}
 		providerID, err = k8sprovider.GetOperatorPodName(
 			podAPI,
 			c.execClient.RawClient().CoreV1().Namespaces(),
 			appName,
-			c.execClient.NameSpace(),
+			modelName,
 		)
 
 		if err != nil {
@@ -359,6 +365,8 @@ func (c *sshContainer) getExecClient() (k8sexec.Executor, error) {
 	if mInfo.Error != nil {
 		return nil, errors.Annotatef(mInfo.Error, "getting model information")
 	}
+	c.modelName = mInfo.Result.Name
+
 	credentialTag, err := names.ParseCloudCredentialTag(mInfo.Result.CloudCredentialTag)
 	if err != nil {
 		return nil, err

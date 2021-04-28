@@ -125,7 +125,7 @@ type mockAppWatcherApplication struct {
 	charm mockAppWatcherCharm
 }
 
-func (s *mockAppWatcherApplication) Charm() (common.AppWatcherCharm, bool, error) {
+func (s *mockAppWatcherApplication) Charm() (charm.CharmMeta, bool, error) {
 	s.MethodCall(s, "Charm")
 	err := s.NextErr()
 	if err != nil {

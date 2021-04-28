@@ -1179,7 +1179,7 @@ func (s *ApplicationSuite) TestAddUnitsCAASModel(c *gc.C) {
 		ApplicationName: "postgresql",
 		NumUnits:        1,
 	})
-	c.Assert(err, gc.ErrorMatches, "adding units on a non-container model not supported")
+	c.Assert(err, gc.ErrorMatches, "adding units to a container-based model not supported")
 	app := s.backend.applications["postgresql"]
 	app.CheckNoCalls(c)
 }

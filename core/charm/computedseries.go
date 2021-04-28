@@ -22,7 +22,7 @@ func ComputedSeries(c charm.CharmMeta) ([]string, error) {
 
 	// We use a set to ensure uniqueness and a slice to ensure that we
 	// preserve the order of elements as they appear in the manifest.
-	seriesSlice := []string(nil)
+	var seriesSlice []string
 	seriesSet := set.NewStrings()
 
 	for _, base := range manifest.Bases {
@@ -36,5 +36,10 @@ func ComputedSeries(c charm.CharmMeta) ([]string, error) {
 			seriesSlice = append(seriesSlice, series)
 		}
 	}
+
+	if IsKubernetes(c) && !seriesSet.Contains(coreseries.Kubernetes.String()) {
+		seriesSlice = append(seriesSlice, coreseries.Kubernetes.String())
+	}
+
 	return seriesSlice, nil
 }
