@@ -64,7 +64,7 @@ func (staged StagedResource) Unstage() error {
 }
 
 // Activate makes the staged resource the active resource.
-func (staged StagedResource) Activate() error {
+func (staged StagedResource) Activate(incrementCharmModifiedVersion IncrementCharmModifiedVersionType) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// This is an "upsert".
 		var ops []txn.Op
@@ -92,7 +92,7 @@ func (staged StagedResource) Activate() error {
 				logger.Errorf("can't read existing resource during activate: %v", errors.Details(err))
 				return nil, errors.Trace(err)
 			}
-			if hasNewBytes {
+			if hasNewBytes && incrementCharmModifiedVersion == IncrementCharmModifiedVersion {
 				incOps := staged.base.IncCharmModifiedVersionOps(staged.stored.ApplicationID)
 				ops = append(ops, incOps...)
 			}

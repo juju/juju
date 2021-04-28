@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -149,7 +148,7 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 	}} {
 		c.Logf("Test %d: should %s", i, t.should)
 		before := state.NowToTheSecond(s.State)
-		later := before.Add(testing.LongWait)
+		later := before.Add(coretesting.LongWait)
 
 		// Copy params over into empty premade map for comparison later
 		params := make(map[string]interface{})
@@ -724,7 +723,7 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	// time of the Enqueued time.
 	diff := results[0].Completed().Sub(action.Enqueued())
 	c.Assert(diff >= 0, jc.IsTrue)
-	c.Assert(diff < testing.LongWait, jc.IsTrue)
+	c.Assert(diff < coretesting.LongWait, jc.IsTrue)
 
 	res, errstr := results[0].Results()
 	c.Assert(errstr, gc.Equals, reason)
@@ -1179,7 +1178,7 @@ func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
 		s.State.StartSync()
 		select {
 		case ch = <-wc.Watcher.Changes():
-		case <-time.After(testing.LongWait):
+		case <-time.After(coretesting.LongWait):
 			c.Fatalf("watcher did not send change")
 		}
 		var msg []actions.ActionMessage

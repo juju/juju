@@ -178,8 +178,8 @@ func (s *resourceState) GetResource(name string) (resource.Resource, error) {
 }
 
 // SetResource implements charmstore.EntityCache.
-func (s *resourceState) SetResource(chRes charmresource.Resource, reader io.Reader) (resource.Resource, error) {
-	return s.st.SetResource(s.application.Name(), s.userID.Id(), chRes, reader)
+func (s *resourceState) SetResource(chRes charmresource.Resource, reader io.Reader, incrementCharmModifiedVersion corestate.IncrementCharmModifiedVersionType) (resource.Resource, error) {
+	return s.st.SetResource(s.application.Name(), s.userID.Id(), chRes, reader, incrementCharmModifiedVersion)
 }
 
 // OpenResource implements charmstore.EntityCache.

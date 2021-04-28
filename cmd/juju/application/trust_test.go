@@ -46,7 +46,6 @@ func (s *TrustSuite) TestTrust(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.applicationAPI.EXPECT().Get("", "gitlab").Return(&params.ApplicationGetResults{}, nil)
-	s.applicationAPI.EXPECT().BestAPIVersion().Return(99)
 	s.applicationAPI.EXPECT().SetConfig("", "gitlab", "", map[string]string{"trust": "true"})
 	s.applicationAPI.EXPECT().Close()
 
@@ -65,7 +64,6 @@ func (s *TrustSuite) TestTrustCAAS(c *gc.C) {
 	}
 
 	s.applicationAPI.EXPECT().Get("", "gitlab").Return(&params.ApplicationGetResults{}, nil)
-	s.applicationAPI.EXPECT().BestAPIVersion().Return(99)
 	s.applicationAPI.EXPECT().SetConfig("", "gitlab", "", map[string]string{"trust": "true"})
 	s.applicationAPI.EXPECT().Close()
 
@@ -84,7 +82,6 @@ func (s *TrustSuite) TestTrustCAASRemove(c *gc.C) {
 	}
 
 	s.applicationAPI.EXPECT().Get("", "gitlab").Return(&params.ApplicationGetResults{}, nil)
-	s.applicationAPI.EXPECT().BestAPIVersion().Return(99)
 	s.applicationAPI.EXPECT().SetConfig("", "gitlab", "", map[string]string{"trust": "false"})
 	s.applicationAPI.EXPECT().Close()
 

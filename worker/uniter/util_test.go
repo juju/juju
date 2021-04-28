@@ -1019,6 +1019,7 @@ func (s pushResource) step(c *gc.C, ctx *context) {
 		opened.Username,
 		opened.Resource.Resource,
 		opened.ReadCloser,
+		state.IncrementCharmModifiedVersion,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
