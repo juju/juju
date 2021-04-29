@@ -82,7 +82,7 @@ type BackingSubnetInfo struct {
 // BackingSpace defines the methods supported by a Space entity stored
 // persistently.
 type BackingSpace interface {
-	// ID returns the ID of the space.
+	// Id returns the ID of the space.
 	Id() string
 
 	// Name returns the space name.
@@ -239,15 +239,8 @@ func networkAddressToStateArgs(
 		return state.LinkLayerDeviceAddress{}, errors.Trace(err)
 	}
 
-	var derivedConfigMethod network.AddressConfigMethod
-	switch method := network.AddressConfigMethod(dev.ConfigType); method {
-	case network.StaticAddress, network.DynamicAddress,
-		network.LoopbackAddress, network.ManualAddress:
-		derivedConfigMethod = method
-	case "dhcp": // awkward special case
-		derivedConfigMethod = network.DynamicAddress
-	default:
-		derivedConfigMethod = network.StaticAddress
+	if !network.IsValidAddressConfigMethod(string(dev.ConfigMethod)) {
+		dev.ConfigMethod = network.StaticAddress
 	}
 
 	return state.LinkLayerDeviceAddress{
@@ -255,7 +248,7 @@ func networkAddressToStateArgs(
 		ProviderID:        dev.ProviderAddressId,
 		ProviderNetworkID: dev.ProviderNetworkId,
 		ProviderSubnetID:  dev.ProviderSubnetId,
-		ConfigMethod:      derivedConfigMethod,
+		ConfigMethod:      dev.ConfigMethod,
 		CIDRAddress:       cidrAddress,
 		DNSServers:        dev.DNSServers.ToIPAddresses(),
 		DNSSearchDomains:  dev.DNSSearchDomains,
