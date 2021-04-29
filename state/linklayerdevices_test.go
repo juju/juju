@@ -635,7 +635,7 @@ func (s *linkLayerDevicesStateSuite) TestEthernetDeviceForBridge(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(child.InterfaceName, gc.Equals, "eth0")
-	c.Check(child.ConfigType, gc.Equals, corenetwork.ConfigStatic)
+	c.Check(child.ConfigMethod, gc.Equals, corenetwork.StaticAddress)
 	c.Check(child.ParentInterfaceName, gc.Equals, "br0")
 	c.Check(child.PrimaryAddress().CIDR, gc.Equals, "10.0.0.0/24")
 	c.Check(child.ProviderSubnetId, gc.Equals, corenetwork.Id("ps-01"))
@@ -643,7 +643,7 @@ func (s *linkLayerDevicesStateSuite) TestEthernetDeviceForBridge(c *gc.C) {
 	child, err = dev.EthernetDeviceForBridge("eth0", false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(child.ConfigType, gc.Equals, corenetwork.ConfigDHCP)
+	c.Check(child.ConfigMethod, gc.Equals, corenetwork.DynamicAddress)
 	c.Check(child.ProviderSubnetId, gc.Equals, corenetwork.Id(""))
 
 	dev = s.addNamedDevice(c, "bond0")

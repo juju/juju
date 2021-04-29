@@ -581,7 +581,7 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(
 	newDev = network.InterfaceInfo{
 		InterfaceName:       name,
 		MACAddress:          network.GenerateVirtualMACAddress(),
-		ConfigType:          network.ConfigDHCP,
+		ConfigMethod:        network.DynamicAddress,
 		InterfaceType:       network.EthernetInterface,
 		MTU:                 int(dev.MTU()),
 		ParentInterfaceName: dev.Name(),
@@ -600,7 +600,7 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(
 					addr.SubnetCIDR(), addr.Value(), dev.Name(),
 				)
 			}
-			newDev.ConfigType = network.ConfigStatic
+			newDev.ConfigMethod = network.StaticAddress
 			newDev.ProviderSubnetId = sub.ProviderId()
 			newDev.VLANTag = sub.VLANTag()
 			newDev.IsDefaultGateway = addr.IsDefaultGateway()
