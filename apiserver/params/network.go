@@ -152,10 +152,9 @@ type NetworkConfig struct {
 	// auto-start.
 	NoAutoStart bool `json:"no-auto-start,omitempty"`
 
-	// ConfigType, if set, defines what type of configuration to use.
-	// See network.AddressConfigType for more info. If not set, for
-	// backwards-compatibility, "dhcp" is assumed.
-	ConfigType string `json:"config-type,omitempty"`
+	// ConfigMethod defines what type of configuration to use.
+	// See network.AddressConfigMethod for more info.
+	ConfigMethod string `json:"config-type,omitempty"`
 
 	// Address contains an optional static IP address to configure for
 	// this network interface. The subnet mask to set will be inferred
@@ -250,7 +249,7 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 			InterfaceType:       string(v.InterfaceType),
 			Disabled:            v.Disabled,
 			NoAutoStart:         v.NoAutoStart,
-			ConfigType:          string(v.ConfigType),
+			ConfigMethod:        string(v.ConfigMethod),
 			// This field is retained for compatibility purposes.
 			// New code should instead use Addresses which includes
 			// scope and space information.
@@ -283,7 +282,13 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			}
 		}
 
-		configType := network.AddressConfigType(v.ConfigType)
+		// This preserves backwards compatibility with old
+		// agents that may use "dhcp" instead of "dynamic".
+		// TODO (manadart 2021-04-29): Remove this for Juju 3/4.
+		if v.ConfigMethod == "dhcp" {
+			v.ConfigMethod = string(network.DynamicAddress)
+		}
+		configMethod := network.AddressConfigMethod(v.ConfigMethod)
 
 		result[i] = network.InterfaceInfo{
 			DeviceIndex:         v.DeviceIndex,
@@ -301,7 +306,7 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			InterfaceType:       network.InterfaceType(v.InterfaceType),
 			Disabled:            v.Disabled,
 			NoAutoStart:         v.NoAutoStart,
-			ConfigType:          configType,
+			ConfigMethod:        configMethod,
 			Addresses:           ToProviderAddresses(v.Addresses...),
 			ShadowAddresses:     ToProviderAddresses(v.ShadowAddresses...),
 			DNSServers:          network.NewProviderAddresses(v.DNSServers...),
@@ -659,9 +664,9 @@ func FromHostPort(nhp network.HostPort) HostPort {
 	}
 }
 
-// TODO (wpk) Uniter.NetworkConfig API is obsolete, use NetworkInfo instead
 // UnitsNetworkConfig holds the parameters for calling Uniter.NetworkConfig()
 // API. We need to retain until V4 of the Uniter API is removed.
+// TODO (wpk) Uniter.NetworkConfig API is obsolete, use NetworkInfo instead.
 type UnitsNetworkConfig struct {
 	Args []UnitNetworkConfig `json:"args"`
 }
@@ -672,7 +677,7 @@ type UnitNetworkConfig struct {
 	BindingName string `json:"binding-name"`
 }
 
-// SetProviderNetworkConfigs holds a machine tag and a list of network interface
+// SetProviderNetworkConfig holds a machine tag and a list of network interface
 // info obtained by querying the provider.
 type SetProviderNetworkConfig struct {
 	Args []ProviderNetworkConfig `json:"args"`
@@ -721,7 +726,7 @@ type SetMachineNetworkConfig struct {
 	Config []NetworkConfig `json:"config"`
 }
 
-// BackfillMachineOrigin sets all empty NetworkOrigin entries to indicate that
+// BackFillMachineOrigin sets all empty NetworkOrigin entries to indicate that
 // they are sourced from the local machine.
 // TODO (manadart 2020-05-12): This is used by superseded methods on the
 // Machiner and NetworkConfig APIs, which along with this should considered for
@@ -897,8 +902,8 @@ type APIHostPortsResult struct {
 	Servers [][]HostPort `json:"servers"`
 }
 
-// MachineHostPorts transforms the APIHostPortsResult into a slice of
-// MachineHostPorts.
+// MachineHostsPorts transforms the APIHostPortsResult into a slice of
+// network.MachineHostPorts.
 func (r APIHostPortsResult) MachineHostsPorts() []network.MachineHostPorts {
 	return ToMachineHostsPorts(r.Servers)
 }
@@ -938,7 +943,7 @@ type RemoveSpaceParam struct {
 	DryRun bool `json:"dry-run,omitempty"`
 }
 
-// RemoveSpaceParam holds a single space tag and whether it should be forced.
+// RemoveSpaceParams holds a single space tag and whether it should be forced.
 type RemoveSpaceParams struct {
 	SpaceParams []RemoveSpaceParam `json:"space-param"`
 }
@@ -989,12 +994,12 @@ type AddSubnetParams struct {
 	Zones             []string `json:"zones,omitempty"`
 }
 
-// AddSubnetsParams holds the arguments of AddSubnets APIv2 call.
+// AddSubnetsParamsV2 holds the arguments of AddSubnets APIv2 call.
 type AddSubnetsParamsV2 struct {
 	Subnets []AddSubnetParamsV2 `json:"subnets"`
 }
 
-// AddSubnetParams holds a subnet and space tags, subnet provider ID,
+// AddSubnetParamsV2 holds a subnet and space tags, subnet provider ID,
 // and a list of zones to associate the subnet to. Either SubnetTag or
 // SubnetProviderId must be set, but not both. Zones can be empty if
 // they can be discovered
@@ -1034,12 +1039,12 @@ type RenameSpacesParams struct {
 	Changes []RenameSpaceParams `json:"changes"`
 }
 
-// CreateSpacesParams holds the arguments of the AddSpaces API call.
+// CreateSpacesParamsV4 holds the arguments of the AddSpaces API call.
 type CreateSpacesParamsV4 struct {
 	Spaces []CreateSpaceParamsV4 `json:"spaces"`
 }
 
-// CreateSpaceParams holds the space tag and at least one subnet
+// CreateSpaceParamsV4 holds the space tag and at least one subnet
 // tag required to create a new space.
 type CreateSpaceParamsV4 struct {
 	SubnetTags []string `json:"subnet-tags"`
@@ -1109,12 +1114,13 @@ type MoveSubnetsResult struct {
 	Error *Error `json:"error,omitempty"`
 }
 
-// MoveSubnetResults contains the results of a call to MoveSubnets.
+// MoveSubnetsResults contains the results of a call to MoveSubnets.
 type MoveSubnetsResults struct {
 	Results []MoveSubnetsResult `json:"results"`
 }
 
-// ListSpacesResults holds the list of all available spaces.
+// ShowSpaceResult transports a space for display along
+// with its connected applications and machine count.
 type ShowSpaceResult struct {
 	// Information about a given space.
 	Space Space `json:"space"`
@@ -1125,7 +1131,7 @@ type ShowSpaceResult struct {
 	Error        *Error `json:"error,omitempty"`
 }
 
-// ListSpacesResults holds the list of all available spaces.
+// ShowSpaceResults holds the list of all available spaces.
 type ShowSpaceResults struct {
 	Results []ShowSpaceResult `json:"results"`
 }
@@ -1230,7 +1236,7 @@ type NetworkInfoResultV6 struct {
 	Info  []NetworkInfo `json:"network-info" yaml:"info"`
 }
 
-// NetworkInfoResults holds a mapping from binding name to NetworkInfoResultV6.
+// NetworkInfoResultsV6 holds a mapping from binding name to NetworkInfoResultV6.
 type NetworkInfoResultsV6 struct {
 	Results map[string]NetworkInfoResultV6 `json:"results"`
 }
@@ -1294,7 +1300,7 @@ type SpaceInfo struct {
 	Subnets    []SubnetV3 `json:"subnets,omitempty"`
 }
 
-// FromFromNetworkSpaceInfos converts a network.SpaceInfos into a serializable
+// FromNetworkSpaceInfos converts a network.SpaceInfos into a serializable
 // payload that can be sent over the wire.
 func FromNetworkSpaceInfos(allInfos network.SpaceInfos) SpaceInfos {
 	res := SpaceInfos{
