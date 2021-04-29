@@ -26,7 +26,7 @@ func FallbackInterfaceInfo() corenetwork.InterfaceInfos {
 	return corenetwork.InterfaceInfos{{
 		InterfaceName: "eth0",
 		InterfaceType: corenetwork.EthernetInterface,
-		ConfigType:    corenetwork.ConfigDHCP,
+		ConfigMethod:  corenetwork.DynamicAddress,
 	}}
 }
 

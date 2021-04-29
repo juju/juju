@@ -431,7 +431,7 @@ func InterfaceInfoFromDevices(nics map[string]device) (corenetwork.InterfaceInfo
 			InterfaceName:       name,
 			ParentInterfaceName: device["parent"],
 			MACAddress:          device["hwaddr"],
-			ConfigType:          corenetwork.ConfigDHCP,
+			ConfigMethod:        corenetwork.DynamicAddress,
 			Origin:              corenetwork.OriginProvider,
 		}
 		if device["mtu"] != "" {
