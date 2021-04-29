@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -878,7 +878,7 @@ func (t *localServerSuite) testStartInstanceSubnet(c *gc.C, subnet string) (inst
 	params := environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		Placement:      fmt.Sprintf("subnet=%s", subnet),
-		SubnetsToZones: []map[corenetwork.Id][]string{{
+		SubnetsToZones: []map[network.Id][]string{{
 			subIDs[0]: {"test-available"},
 			subIDs[1]: {"test-available"},
 			subIDs[2]: {"test-unavailable"},
@@ -907,7 +907,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneSubnetWrongVPC(c *gc.C) {
 	params := environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		Placement:      "subnet=0.1.2.0/24",
-		SubnetsToZones: []map[corenetwork.Id][]string{{
+		SubnetsToZones: []map[network.Id][]string{{
 			subIDs[0]: {"test-available"},
 			subIDs[1]: {"test-available"},
 			subIDs[2]: {"test-unavailable"},
@@ -1147,12 +1147,12 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 // server: 2 of the subnets are in the "test-available" AZ, the remaining - in
 // "test-unavailable". Returns a slice with the IDs of the created subnets and
 // vpc id that those were added to
-func (t *localServerSuite) addTestingSubnets(c *gc.C) ([]corenetwork.Id, string) {
+func (t *localServerSuite) addTestingSubnets(c *gc.C) ([]network.Id, string) {
 	vpc := t.srv.ec2srv.AddVPC(amzec2.VPC{
 		CIDRBlock: "0.1.0.0/16",
 		IsDefault: true,
 	})
-	results := make([]corenetwork.Id, 3)
+	results := make([]network.Id, 3)
 	sub1, err := t.srv.ec2srv.AddSubnet(amzec2.Subnet{
 		VPCId:        vpc.Id,
 		CIDRBlock:    "0.1.2.0/24",
@@ -1161,7 +1161,7 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) ([]corenetwork.Id, string)
 		DefaultForAZ: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	results[0] = corenetwork.Id(sub1.Id)
+	results[0] = network.Id(sub1.Id)
 	sub2, err := t.srv.ec2srv.AddSubnet(amzec2.Subnet{
 		VPCId:     vpc.Id,
 		CIDRBlock: "0.1.3.0/24",
@@ -1169,7 +1169,7 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) ([]corenetwork.Id, string)
 		State:     "unavailable",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	results[1] = corenetwork.Id(sub2.Id)
+	results[1] = network.Id(sub2.Id)
 	sub3, err := t.srv.ec2srv.AddSubnet(amzec2.Subnet{
 		VPCId:        vpc.Id,
 		CIDRBlock:    "0.1.4.0/24",
@@ -1178,7 +1178,7 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) ([]corenetwork.Id, string)
 		State:        "unavailable",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	results[2] = corenetwork.Id(sub3.Id)
+	results[2] = network.Id(sub3.Id)
 	return results, vpc.Id
 }
 
@@ -1211,7 +1211,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) 
 		ControllerUUID: t.ControllerUUID,
 		Placement:      "zone=test-available",
 		Constraints:    constraints.MustParse("spaces=aaaaaaaaaa"),
-		SubnetsToZones: []map[corenetwork.Id][]string{{
+		SubnetsToZones: []map[network.Id][]string{{
 			subIDs[0]: {"zone2"},
 			subIDs[1]: {"zone3"},
 			subIDs[2]: {"zone4"},
@@ -1232,7 +1232,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
 		ControllerUUID: t.ControllerUUID,
 		Placement:      "zone=test-available",
 		Constraints:    constraints.MustParse("spaces=aaaaaaaaaa"),
-		SubnetsToZones: []map[corenetwork.Id][]string{{
+		SubnetsToZones: []map[network.Id][]string{{
 			subIDs[0]: {"test-available"},
 			subIDs[1]: {"zone3"},
 		}},
@@ -1249,7 +1249,7 @@ func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
 	params := environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		Constraints:    constraints.MustParse("spaces=aaaaaaaaaa"),
-		SubnetsToZones: []map[corenetwork.Id][]string{{
+		SubnetsToZones: []map[network.Id][]string{{
 			subIDs[0]: {"test-available"},
 			subIDs[1]: {"zone3"},
 		}},
@@ -1300,7 +1300,7 @@ func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
 	params := environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		Constraints:    constraints.MustParse("spaces=aaaaaaaaaa"),
-		SubnetsToZones: []map[corenetwork.Id][]string{{
+		SubnetsToZones: []map[network.Id][]string{{
 			subIDs[0]: {""},
 		}},
 		StatusCallback: fakeCallback,
@@ -1368,12 +1368,12 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 
 	// Expected values use Address type but really contain a regexp for
 	// the value rather than a valid ip or hostname.
-	expected := corenetwork.ProviderAddresses{
-		corenetwork.NewProviderAddress("8.0.0.*", corenetwork.WithScope(corenetwork.ScopePublic)),
-		corenetwork.NewProviderAddress("127.0.0.*", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
+	expected := network.ProviderAddresses{
+		network.NewProviderAddress("8.0.0.*", network.WithScope(network.ScopePublic)),
+		network.NewProviderAddress("127.0.0.*", network.WithScope(network.ScopeCloudLocal)),
 	}
-	expected[0].Type = corenetwork.IPv4Address
-	expected[1].Type = corenetwork.IPv4Address
+	expected[0].Type = network.IPv4Address
+	expected[1].Type = network.IPv4Address
 
 	c.Assert(addrs, gc.HasLen, len(expected))
 	for i, addr := range addrs {
@@ -1684,7 +1684,7 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 	t.assertInterfaceLooksValid(c, 0, 0, list[0])
 }
 
-func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDevIndex int, iface corenetwork.InterfaceInfo) {
+func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDevIndex int, iface network.InterfaceInfo) {
 	// The CIDR isn't predictable, but it is in the 10.10.x.0/24 format
 	// The subnet ID is in the form "subnet-x", where x matches the same
 	// number from the CIDR. The interfaces address is part of the CIDR.
@@ -1695,7 +1695,7 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDev
 	c.Assert(re.Match([]byte(cidr)), jc.IsTrue)
 	index := re.FindStringSubmatch(cidr)[1]
 	addr := fmt.Sprintf("10.10.%s.5", index)
-	subnetId := corenetwork.Id("subnet-" + index)
+	subnetId := network.Id("subnet-" + index)
 
 	// AvailabilityZones will either contain "test-available",
 	// "test-impaired" or "test-unavailable" depending on which subnet is
@@ -1705,29 +1705,29 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDev
 	re = regexp.MustCompile("test-available|test-unavailable|test-impaired")
 	c.Assert(re.Match([]byte(zones[0])), jc.IsTrue)
 
-	expectedInterface := corenetwork.InterfaceInfo{
+	expectedInterface := network.InterfaceInfo{
 		DeviceIndex:      expDevIndex,
 		MACAddress:       iface.MACAddress,
-		ProviderId:       corenetwork.Id(fmt.Sprintf("eni-%d", expIfaceID)),
+		ProviderId:       network.Id(fmt.Sprintf("eni-%d", expIfaceID)),
 		ProviderSubnetId: subnetId,
 		VLANTag:          0,
 		Disabled:         false,
 		NoAutoStart:      false,
-		ConfigType:       corenetwork.ConfigDHCP,
-		InterfaceType:    corenetwork.EthernetInterface,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
-			addr, corenetwork.WithScope(corenetwork.ScopeCloudLocal), corenetwork.WithCIDR(cidr)),
+		ConfigMethod:     network.DynamicAddress,
+		InterfaceType:    network.EthernetInterface,
+		Addresses: network.ProviderAddresses{network.NewProviderAddress(
+			addr, network.WithScope(network.ScopeCloudLocal), network.WithCIDR(cidr)),
 		},
 		// Each machine is also assigned a shadow IP with the pattern:
 		// 73.37.0.X where X=(provider iface ID + 1)
-		ShadowAddresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress(
+		ShadowAddresses: network.ProviderAddresses{
+			network.NewProviderAddress(
 				fmt.Sprintf("73.37.0.%d", expIfaceID+1),
-				corenetwork.WithScope(corenetwork.ScopePublic),
+				network.WithScope(network.ScopePublic),
 			),
 		},
 		AvailabilityZones: zones,
-		Origin:            corenetwork.OriginProvider,
+		Origin:            network.OriginProvider,
 	}
 	c.Assert(iface, gc.DeepEquals, expectedInterface)
 }
@@ -1755,7 +1755,7 @@ func (t *localServerSuite) TestSubnetsWithInstanceIdAndSubnetId(c *gc.C) {
 	interfaces := interfaceList[0]
 	c.Assert(interfaces, gc.HasLen, 1)
 
-	subnets, err := env.Subnets(t.callCtx, instId, []corenetwork.Id{interfaces[0].ProviderSubnetId})
+	subnets, err := env.Subnets(t.callCtx, instId, []network.Id{interfaces[0].ProviderSubnetId})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 1)
 	c.Assert(subnets[0].ProviderId, gc.Equals, interfaces[0].ProviderSubnetId)
@@ -1764,7 +1764,7 @@ func (t *localServerSuite) TestSubnetsWithInstanceIdAndSubnetId(c *gc.C) {
 
 func (t *localServerSuite) TestSubnetsWithInstanceIdMissingSubnet(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
-	subnets, err := env.Subnets(t.callCtx, instId, []corenetwork.Id{"missing"})
+	subnets, err := env.Subnets(t.callCtx, instId, []network.Id{"missing"})
 	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[missing\]`)
 	c.Assert(subnets, gc.HasLen, 0)
 }
@@ -1783,10 +1783,10 @@ func (t *localServerSuite) TestInstanceInformation(c *gc.C) {
 	c.Assert(types.InstanceTypes, gc.HasLen, 48)
 }
 
-func validateSubnets(c *gc.C, subnets []corenetwork.SubnetInfo, vpcId corenetwork.Id) {
+func validateSubnets(c *gc.C, subnets []network.SubnetInfo, vpcId network.Id) {
 	// These are defined in the test server for the testing default
 	// VPC.
-	defaultSubnets := []corenetwork.SubnetInfo{{
+	defaultSubnets := []network.SubnetInfo{{
 		CIDR:              "10.10.0.0/24",
 		ProviderId:        "subnet-0",
 		ProviderNetworkId: vpcId,
@@ -1828,7 +1828,7 @@ func validateSubnets(c *gc.C, subnets []corenetwork.SubnetInfo, vpcId corenetwor
 func (t *localServerSuite) TestSubnets(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
 
-	subnets, err := env.Subnets(t.callCtx, instance.UnknownId, []corenetwork.Id{"subnet-0"})
+	subnets, err := env.Subnets(t.callCtx, instance.UnknownId, []network.Id{"subnet-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 1)
 	validateSubnets(c, subnets, "vpc-0")
@@ -1842,7 +1842,7 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
 
-	_, err := env.Subnets(t.callCtx, "", []corenetwork.Id{"subnet-0", "Missing"})
+	_, err := env.Subnets(t.callCtx, "", []network.Id{"subnet-0", "Missing"})
 	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[Missing\]`)
 }
 
