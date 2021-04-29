@@ -913,7 +913,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 		InterfaceName: "eth0",
 		MACAddress:    "mac-address",
 		Addresses:     network.NewProviderAddresses("10.10.10.1"),
-		ConfigType:    network.ConfigDHCP,
+		ConfigMethod:  network.DynamicAddress,
 		Origin:        network.OriginProvider,
 	}}).Return(nil)
 

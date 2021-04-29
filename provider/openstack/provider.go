@@ -1490,7 +1490,7 @@ func (e *Environ) networksForInstance(
 			InterfaceName: fmt.Sprintf("eth%d", i),
 			MACAddress:    port.MACAddress,
 			Addresses:     corenetwork.NewProviderAddresses(ips...),
-			ConfigType:    corenetwork.ConfigDHCP,
+			ConfigMethod:  corenetwork.DynamicAddress,
 			Origin:        corenetwork.OriginProvider,
 		}
 	}
