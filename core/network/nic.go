@@ -133,10 +133,10 @@ type InterfaceInfo struct {
 	// configured to auto-start.
 	NoAutoStart bool
 
-	// ConfigType determines whether the interface should be
-	// configured via DHCP, statically, manually, etc. See
-	// interfaces(5) for more information.
-	ConfigType AddressConfigType
+	// ConfigMethod determines whether the interface is
+	// configured dynamically, statically, manually etc.
+	// See interfaces(5) for more information.
+	ConfigMethod AddressConfigMethod
 
 	// Addresses contains an optional list of static IP address to
 	// configure for this network interface. The subnet mask to set will be

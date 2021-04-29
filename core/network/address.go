@@ -33,18 +33,6 @@ func mustParseCIDR(s string) *net.IPNet {
 	return ipNet
 }
 
-// AddressConfigType defines valid network link configuration types.
-// See interfaces(5) for details.
-type AddressConfigType string
-
-const (
-	ConfigUnknown  AddressConfigType = ""
-	ConfigDHCP     AddressConfigType = "dhcp"
-	ConfigStatic   AddressConfigType = "static"
-	ConfigManual   AddressConfigType = "manual"
-	ConfigLoopback AddressConfigType = "loopback"
-)
-
 // AddressType represents the possible ways of specifying a machine location by
 // either a hostname resolvable by dns lookup, or IPv4 or IPv6 address.
 type AddressType string
@@ -99,8 +87,8 @@ type Address interface {
 	// AddressCIDR returns the subnet CIDR of the address.
 	AddressCIDR() string
 
-	// AddressConfigType returns the configuration method of the address.
-	AddressConfigType() AddressConfigType
+	// AddressConfigMethod returns the configuration method of the address.
+	AddressConfigMethod() AddressConfigMethod
 }
 
 // ScopeMatchFunc is an alias for a function that accepts an Address,
@@ -138,7 +126,7 @@ type MachineAddress struct {
 	CIDR string
 
 	// ConfigType denotes how this address was configured.
-	ConfigType AddressConfigType
+	ConfigMethod AddressConfigMethod
 
 	// IsSecondary if true, indicates that this address is not the primary
 	// address associated with the network device.
@@ -165,9 +153,9 @@ func (a MachineAddress) AddressCIDR() string {
 	return a.CIDR
 }
 
-// AddressConfigType returns the configuration method of the address.
-func (a MachineAddress) AddressConfigType() AddressConfigType {
-	return a.ConfigType
+// AddressConfigMethod returns the configuration method of the address.
+func (a MachineAddress) AddressConfigMethod() AddressConfigMethod {
+	return a.ConfigMethod
 }
 
 // GoString implements fmt.GoStringer.

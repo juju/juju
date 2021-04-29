@@ -15,8 +15,8 @@ type AddressMutator interface {
 	// primary address of the device it is associated with.
 	SetSecondary()
 
-	// SetConfigType indicates how this address was configured.
-	SetConfigType(AddressConfigType)
+	// SetConfigMethod indicates how this address was configured.
+	SetConfigMethod(AddressConfigMethod)
 }
 
 // SetScope (AddressMutator) sets the input
@@ -37,10 +37,10 @@ func (a *MachineAddress) SetSecondary() {
 	a.IsSecondary = true
 }
 
-// SetConfigType (AddressMutator) sets the input
-// AddressConfigType on the address receiver.
-func (a *MachineAddress) SetConfigType(configType AddressConfigType) {
-	a.ConfigType = configType
+// SetConfigMethod (AddressMutator) sets the input
+// AddressConfigMethod on the address receiver.
+func (a *MachineAddress) SetConfigMethod(configMethod AddressConfigMethod) {
+	a.ConfigMethod = configMethod
 }
 
 // WithScope returns a functional option that can
@@ -67,8 +67,8 @@ func WithSecondary() func(AddressMutator) {
 	}
 }
 
-func WithConfigType(configType AddressConfigType) func(AddressMutator) {
+func WithConfigMethod(configType AddressConfigMethod) func(AddressMutator) {
 	return func(a AddressMutator) {
-		a.SetConfigType(configType)
+		a.SetConfigMethod(configType)
 	}
 }
