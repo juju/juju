@@ -13,27 +13,27 @@ import (
 	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/gce/google"
 )
 
-type subnetMap map[string]corenetwork.SubnetInfo
+type subnetMap map[string]network.SubnetInfo
 type networkMap map[string]*compute.Network
 
 // Subnets implements environs.NetworkingEnviron.
 func (e *environ) Subnets(
-	ctx context.ProviderCallContext, inst instance.Id, subnetIds []corenetwork.Id,
-) ([]corenetwork.SubnetInfo, error) {
+	ctx context.ProviderCallContext, inst instance.Id, subnetIds []network.Id,
+) ([]network.SubnetInfo, error) {
 	// In GCE all the subnets are in all AZs.
 	zones, err := e.zoneNames(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ids := makeIncludeSet(subnetIds)
-	var results []corenetwork.SubnetInfo
+	var results []network.SubnetInfo
 	if inst == instance.UnknownId {
 		results, err = e.getMatchingSubnets(ctx, ids, zones)
 	} else {
@@ -76,7 +76,7 @@ func (e *environ) networksByURL(ctx context.ProviderCallContext) (networkMap, er
 
 func (e *environ) getMatchingSubnets(
 	ctx context.ProviderCallContext, subnetIds IncludeSet, zones []string,
-) ([]corenetwork.SubnetInfo, error) {
+) ([]network.SubnetInfo, error) {
 	allSubnets, err := e.gce.Subnetworks(e.cloud.Region)
 	if err != nil {
 		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
@@ -85,7 +85,7 @@ func (e *environ) getMatchingSubnets(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var results []corenetwork.SubnetInfo
+	var results []network.SubnetInfo
 	for _, subnet := range allSubnets {
 		netwk, ok := networks[subnet.Network]
 		if !ok {
@@ -93,8 +93,8 @@ func (e *environ) getMatchingSubnets(
 		}
 		if subnetIds.Include(subnet.Name) {
 			results = append(results, makeSubnetInfo(
-				corenetwork.Id(subnet.Name),
-				corenetwork.Id(netwk.Name),
+				network.Id(subnet.Name),
+				network.Id(netwk.Name),
 				subnet.IpCidrRange,
 				zones,
 			))
@@ -104,8 +104,8 @@ func (e *environ) getMatchingSubnets(
 	for _, netwk := range networks {
 		if netwk.IPv4Range != "" && subnetIds.Include(netwk.Name) {
 			results = append(results, makeSubnetInfo(
-				corenetwork.Id(netwk.Name),
-				corenetwork.Id(netwk.Name),
+				network.Id(netwk.Name),
+				network.Id(netwk.Name),
 				netwk.IPv4Range,
 				zones,
 			))
@@ -116,14 +116,14 @@ func (e *environ) getMatchingSubnets(
 
 func (e *environ) getInstanceSubnets(
 	ctx context.ProviderCallContext, inst instance.Id, subnetIds IncludeSet, zones []string,
-) ([]corenetwork.SubnetInfo, error) {
+) ([]network.SubnetInfo, error) {
 	ifLists, err := e.NetworkInterfaces(ctx, []instance.Id{inst})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ifaces := ifLists[0]
 
-	var results []corenetwork.SubnetInfo
+	var results []network.SubnetInfo
 	for _, iface := range ifaces {
 		if subnetIds.Include(string(iface.ProviderSubnetId)) {
 			results = append(results, makeSubnetInfo(
@@ -138,7 +138,7 @@ func (e *environ) getInstanceSubnets(
 }
 
 // NetworkInterfaces implements environs.NetworkingEnviron.
-func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
+func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -175,7 +175,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 		return nil, errors.Trace(err)
 	}
 
-	infos := make([]corenetwork.InterfaceInfos, len(ids))
+	infos := make([]network.InterfaceInfos, len(ids))
 	for idx, inst := range insts {
 		if inst == nil {
 			continue // no instance with this ID known by provider
@@ -191,7 +191,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 			}
 
 			// Scan the access configs for public addresses
-			var shadowAddrs corenetwork.ProviderAddresses
+			var shadowAddrs network.ProviderAddresses
 			for _, accessConf := range iface.AccessConfigs {
 				// According to the gce docs only ONE_TO_ONE_NAT
 				// is currently supported for external IPs
@@ -200,30 +200,30 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 				}
 
 				shadowAddrs = append(shadowAddrs,
-					corenetwork.NewProviderAddress(accessConf.NatIP, corenetwork.WithScope(corenetwork.ScopePublic)),
+					network.NewProviderAddress(accessConf.NatIP, network.WithScope(network.ScopePublic)),
 				)
 			}
 
-			infos[idx] = append(infos[idx], corenetwork.InterfaceInfo{
+			infos[idx] = append(infos[idx], network.InterfaceInfo{
 				DeviceIndex: i,
 				// The network interface has no id in GCE so it's
 				// identified by the machine's id + its name.
-				ProviderId:        corenetwork.Id(fmt.Sprintf("%s/%s", ids[idx], iface.Name)),
+				ProviderId:        network.Id(fmt.Sprintf("%s/%s", ids[idx], iface.Name)),
 				ProviderSubnetId:  details.subnet,
 				ProviderNetworkId: details.network,
 				AvailabilityZones: copyStrings(zones),
 				InterfaceName:     iface.Name,
-				Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+				Addresses: network.ProviderAddresses{network.NewProviderAddress(
 					iface.NetworkIP,
-					corenetwork.WithScope(corenetwork.ScopeCloudLocal),
-					corenetwork.WithCIDR(details.cidr),
+					network.WithScope(network.ScopeCloudLocal),
+					network.WithCIDR(details.cidr),
 				)},
 				ShadowAddresses: shadowAddrs,
-				InterfaceType:   corenetwork.EthernetInterface,
+				InterfaceType:   network.EthernetInterface,
 				Disabled:        false,
 				NoAutoStart:     false,
-				ConfigType:      corenetwork.ConfigDHCP,
-				Origin:          corenetwork.OriginProvider,
+				ConfigMethod:    network.DynamicAddress,
+				Origin:          network.OriginProvider,
 			})
 		}
 	}
@@ -259,8 +259,8 @@ func getUniqueSubnetURLs(ids []instance.Id, insts []instances.Instance) (set.Str
 
 type networkDetails struct {
 	cidr    string
-	subnet  corenetwork.Id
-	network corenetwork.Id
+	subnet  network.Id
+	network network.Id
 }
 
 // findNetworkDetails looks up the network information we need to
@@ -277,7 +277,7 @@ func findNetworkDetails(iface compute.NetworkInterface, subnets subnetMap, netwo
 		}
 		result.cidr = netwk.IPv4Range
 		result.subnet = ""
-		result.network = corenetwork.Id(netwk.Name)
+		result.network = network.Id(netwk.Name)
 	} else {
 		subnet, ok := subnets[iface.Subnetwork]
 		if !ok {
@@ -292,14 +292,14 @@ func findNetworkDetails(iface compute.NetworkInterface, subnets subnetMap, netwo
 
 func (e *environ) subnetsByURL(ctx context.ProviderCallContext, urls []string, networks networkMap, zones []string) (subnetMap, error) {
 	if len(urls) == 0 {
-		return make(map[string]corenetwork.SubnetInfo), nil
+		return make(map[string]network.SubnetInfo), nil
 	}
 	urlSet := includeSet{items: set.NewStrings(urls...)}
 	allSubnets, err := e.gce.Subnetworks(e.cloud.Region)
 	if err != nil {
 		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
-	results := make(map[string]corenetwork.SubnetInfo)
+	results := make(map[string]network.SubnetInfo)
 	for _, subnet := range allSubnets {
 		netwk, ok := networks[subnet.Network]
 		if !ok {
@@ -307,8 +307,8 @@ func (e *environ) subnetsByURL(ctx context.ProviderCallContext, urls []string, n
 		}
 		if urlSet.Include(subnet.SelfLink) {
 			results[subnet.SelfLink] = makeSubnetInfo(
-				corenetwork.Id(subnet.Name),
-				corenetwork.Id(netwk.Name),
+				network.Id(subnet.Name),
+				network.Id(netwk.Name),
 				subnet.IpCidrRange,
 				zones,
 			)
@@ -331,7 +331,7 @@ func (e *environ) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool,
 }
 
 // Spaces implements environs.NetworkingEnviron.
-func (e *environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceInfo, error) {
+func (e *environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
 	return nil, errors.NotSupportedf("spaces")
 }
 
@@ -341,18 +341,18 @@ func (e *environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (b
 }
 
 // AllocateContainerAddresses implements environs.NetworkingEnviron.
-func (e *environ) AllocateContainerAddresses(context.ProviderCallContext, instance.Id, names.MachineTag, corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
+func (e *environ) AllocateContainerAddresses(context.ProviderCallContext, instance.Id, names.MachineTag, network.InterfaceInfos) (network.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("container addresses")
 }
 
 // ReleaseContainerAddresses implements environs.NetworkingEnviron.
-func (e *environ) ReleaseContainerAddresses(context.ProviderCallContext, []corenetwork.ProviderInterfaceInfo) error {
+func (e *environ) ReleaseContainerAddresses(context.ProviderCallContext, []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container addresses")
 }
 
 // ProviderSpaceInfo implements environs.NetworkingEnviron.
 func (*environ) ProviderSpaceInfo(
-	ctx context.ProviderCallContext, space *corenetwork.SpaceInfo,
+	ctx context.ProviderCallContext, space *network.SpaceInfo,
 ) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
@@ -365,10 +365,10 @@ func (*environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space
 // SSHAddresses implements environs.SSHAddresses.
 // For GCE we want to make sure we're returning only one public address, so that probing won't
 // cause SSHGuard to lock us out
-func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddresses, error) {
-	bestAddress, ok := addresses.OneMatchingScope(corenetwork.ScopeMatchPublic)
+func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
+	bestAddress, ok := addresses.OneMatchingScope(network.ScopeMatchPublic)
 	if ok {
-		return corenetwork.SpaceAddresses{bestAddress}, nil
+		return network.SpaceAddresses{bestAddress}, nil
 	} else {
 		// fallback
 		return addresses, nil
@@ -398,9 +398,9 @@ func copyStrings(items []string) []string {
 }
 
 func makeSubnetInfo(
-	subnetId corenetwork.Id, networkId corenetwork.Id, cidr string, zones []string,
-) corenetwork.SubnetInfo {
-	return corenetwork.SubnetInfo{
+	subnetId network.Id, networkId network.Id, cidr string, zones []string,
+) network.SubnetInfo {
+	return network.SubnetInfo{
 		ProviderId:        subnetId,
 		ProviderNetworkId: networkId,
 		CIDR:              cidr,
@@ -449,7 +449,7 @@ func (s *includeSet) Missing() []string {
 	return s.items.SortedValues()
 }
 
-func makeIncludeSet(ids []corenetwork.Id) IncludeSet {
+func makeIncludeSet(ids []network.Id) IncludeSet {
 	if len(ids) == 0 {
 		return &includeAny{}
 	}
