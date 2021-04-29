@@ -119,7 +119,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigNoInterfaceAddresses(c 
 		MTU:           1500,
 		InterfaceName: "eth1",
 		InterfaceType: "ethernet",
-		ConfigType:    "manual",
+		ConfigMethod:  "manual",
 		NetworkOrigin: "machine",
 	}})
 }
@@ -164,7 +164,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigDefaultGatewayWithAddre
 			MTU:              1500,
 			InterfaceName:    "eth0",
 			InterfaceType:    "ethernet",
-			ConfigType:       "static",
+			ConfigMethod:     "static",
 			IsDefaultGateway: true,
 			GatewayAddress:   "1.2.3.4",
 			Address:          "1.2.3.4",
@@ -177,7 +177,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigDefaultGatewayWithAddre
 			MTU:              1500,
 			InterfaceName:    "eth0",
 			InterfaceType:    "ethernet",
-			ConfigType:       "static",
+			ConfigMethod:     "static",
 			IsDefaultGateway: true,
 			GatewayAddress:   "1.2.3.4",
 			Address:          "559c:f8c5:812a:fa1f:21fe:5613:3f20:b081",
@@ -215,7 +215,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigForOVSDevice(c *gc.C) {
 		InterfaceName:   "ovsbr0",
 		InterfaceType:   "bridge",
 		VirtualPortType: "openvswitch",
-		ConfigType:      "manual",
+		ConfigMethod:    "manual",
 		NetworkOrigin:   "machine",
 	}})
 }
@@ -261,7 +261,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSe
 			InterfaceName:       "eth1",
 			InterfaceType:       "ethernet",
 			ParentInterfaceName: "br-eth1",
-			ConfigType:          "manual",
+			ConfigMethod:        "manual",
 			NetworkOrigin:       "machine",
 		},
 		{
@@ -270,7 +270,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSe
 			MTU:           1500,
 			InterfaceName: "br-eth1",
 			InterfaceType: "bridge",
-			ConfigType:    "manual",
+			ConfigMethod:  "manual",
 			NetworkOrigin: "machine",
 		},
 	})

@@ -103,7 +103,7 @@ func GetObservedNetworkConfig(source network.ConfigSource) ([]params.NetworkConf
 		}
 
 		for _, addr := range addrs {
-			addressConfig, err := interfaceAddressToNetworkConfig(nic.Name(), nicConfig.ConfigType, addr)
+			addressConfig, err := interfaceAddressToNetworkConfig(nic.Name(), nicConfig.ConfigMethod, addr)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -113,7 +113,7 @@ func GetObservedNetworkConfig(source network.ConfigSource) ([]params.NetworkConf
 			nicConfigCopy := nicConfig
 			nicConfigCopy.Address = addressConfig.Address
 			nicConfigCopy.CIDR = addressConfig.CIDR
-			nicConfigCopy.ConfigType = addressConfig.ConfigType
+			nicConfigCopy.ConfigMethod = addressConfig.ConfigMethod
 			nameToConfigs[nic.Name()] = append(nameToConfigs[nic.Name()], nicConfigCopy)
 		}
 	}
@@ -132,9 +132,9 @@ func interfaceToNetworkConfig(nic network.ConfigSourceNIC,
 	virtualPortType network.VirtualPortType,
 	networkOrigin network.Origin,
 ) params.NetworkConfig {
-	configType := network.ConfigManual
+	configMethod := network.ManualAddress
 	if nicType == network.LoopbackInterface {
-		configType = network.ConfigLoopback
+		configMethod = network.LoopbackAddress
 	}
 
 	isUp := nic.IsUp()
@@ -142,7 +142,7 @@ func interfaceToNetworkConfig(nic network.ConfigSourceNIC,
 	return params.NetworkConfig{
 		DeviceIndex:     nic.Index(),
 		MACAddress:      nic.HardwareAddr().String(),
-		ConfigType:      string(configType),
+		ConfigMethod:    string(configMethod),
 		MTU:             nic.MTU(),
 		InterfaceName:   nic.Name(),
 		InterfaceType:   string(nicType),
@@ -168,10 +168,10 @@ func updateParentForBridgePorts(
 }
 
 func interfaceAddressToNetworkConfig(
-	interfaceName, configType string, addr network.ConfigSourceAddr,
+	interfaceName, configMethod string, addr network.ConfigSourceAddr,
 ) (params.NetworkConfig, error) {
 	config := params.NetworkConfig{
-		ConfigType: configType,
+		ConfigMethod: configMethod,
 	}
 
 	if addr == nil {
@@ -190,8 +190,8 @@ func interfaceAddressToNetworkConfig(
 	}
 
 	config.Address = ip.String()
-	if configType != string(network.ConfigLoopback) {
-		config.ConfigType = string(network.ConfigStatic)
+	if configMethod != string(network.LoopbackAddress) {
+		config.ConfigMethod = string(network.StaticAddress)
 	}
 
 	// TODO(dimitern): Add DNS servers, search domains, and gateway.
