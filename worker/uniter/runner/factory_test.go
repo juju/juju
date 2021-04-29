@@ -255,13 +255,16 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 			Params:     test.payload,
 			ResultsMap: map[string]interface{}{},
 		})
-		vars, err := ctx.HookVars(s.paths, false, func(k string) string {
-			switch k {
-			case "PATH", "Path":
-				return "pathy"
-			}
-			return ""
-		}, func() []string { return []string{} })
+		vars, err := ctx.HookVars(s.paths, false, context.NewRemoteEnvironmenter(
+			func() []string { return []string{} },
+			func(k string) string {
+				switch k {
+				case "PATH", "Path":
+					return "pathy"
+				}
+				return ""
+			}),
+		)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(len(vars) > 0, jc.IsTrue, gc.Commentf("expected HookVars but found none"))
 		combined := strings.Join(vars, "|")
@@ -356,13 +359,16 @@ func (s *FactorySuite) TestNewActionRunnerWithCancel(c *gc.C) {
 		ResultsMap: map[string]interface{}{},
 		Cancel:     cancel,
 	})
-	vars, err := ctx.HookVars(s.paths, false, func(k string) string {
-		switch k {
-		case "PATH", "Path":
-			return "pathy"
-		}
-		return ""
-	}, func() []string { return []string{} })
+	vars, err := ctx.HookVars(s.paths, false, context.NewRemoteEnvironmenter(
+		func() []string { return []string{} },
+		func(k string) string {
+			switch k {
+			case "PATH", "Path":
+				return "pathy"
+			}
+			return ""
+		}),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(vars) > 0, jc.IsTrue, gc.Commentf("expected HookVars but found none"))
 	combined := strings.Join(vars, "|")
