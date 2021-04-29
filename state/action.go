@@ -37,6 +37,9 @@ var (
 type ActionStatus string
 
 const (
+	// ActionError signifies that the action did get run due to an error.
+	ActionError ActionStatus = "error"
+
 	// ActionFailed signifies that the action did not complete successfully.
 	ActionFailed ActionStatus = "failed"
 
@@ -411,6 +414,7 @@ func (a *action) removeAndLogBuildTxn(finalStatus ActionStatus, results map[stri
 				ActionCancelled,
 				ActionFailed,
 				ActionAborted,
+				ActionError,
 			}}}}}
 		// If this is the last action to be marked as completed
 		// for the parent operation, the operation itself is also
@@ -704,7 +708,7 @@ func (m *Model) FindActionsByName(name string) ([]Action, error) {
 }
 
 // EnqueueAction caches the action doc to the database.
-func (m *Model) EnqueueAction(operationID string, receiver names.Tag, actionName string, payload map[string]interface{}) (Action, error) {
+func (m *Model) EnqueueAction(operationID string, receiver names.Tag, actionName string, payload map[string]interface{}, actionError error) (Action, error) {
 	if len(actionName) == 0 {
 		return nil, errors.New("action name required")
 	}
@@ -722,6 +726,10 @@ func (m *Model) EnqueueAction(operationID string, receiver names.Tag, actionName
 		return nil, errors.Trace(err)
 	}
 
+	if actionError != nil {
+		doc.Status = ActionError
+		doc.Message = actionError.Error()
+	}
 	ops := []txn.Op{{
 		C:      receiverCollectionName,
 		Id:     receiverId,
@@ -735,12 +743,15 @@ func (m *Model) EnqueueAction(operationID string, receiver names.Tag, actionName
 		Id:     doc.DocId,
 		Assert: txn.DocMissing,
 		Insert: doc,
-	}, {
-		C:      actionNotificationsC,
-		Id:     ndoc.DocId,
-		Assert: txn.DocMissing,
-		Insert: ndoc,
 	}}
+	if actionError == nil {
+		ops = append(ops, txn.Op{
+			C:      actionNotificationsC,
+			Id:     ndoc.DocId,
+			Assert: txn.DocMissing,
+			Insert: ndoc,
+		})
+	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if notDead, err := isNotDead(m.st, receiverCollectionName, receiverId); err != nil {

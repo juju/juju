@@ -2567,12 +2567,17 @@ func (s *MachineSuite) TestMachineValidActions(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) TestMachineAddDifferentAction(c *gc.C) {
+func (s *MachineSuite) TestAddActionWithError(c *gc.C) {
 	m, err := s.State.AddMachine("trusty", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = m.AddAction("666", "benchmark", nil)
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = m.AddAction(operationID, "benchmark", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add action "benchmark" to a machine; only predefined actions allowed`)
+	op, err := s.Model.Operation(operationID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.Status(), gc.Equals, state.ActionError)
 }
 
 func (s *MachineSuite) setupTestUpdateMachineSeries(c *gc.C) *state.Machine {

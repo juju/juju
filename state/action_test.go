@@ -15,6 +15,7 @@ import (
 	"unicode"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
@@ -603,13 +604,30 @@ func (s *ActionSuite) TestEnqueueActionRequiresName(c *gc.C) {
 	// verify can not enqueue an Action without a name
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.model.EnqueueAction(operationID, s.unit.Tag(), name, nil)
+	_, err = s.model.EnqueueAction(operationID, s.unit.Tag(), name, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "action name required")
 }
 
 func (s *ActionSuite) TestEnqueueActionRequiresValidOperation(c *gc.C) {
-	_, err := s.model.EnqueueAction("666", s.unit.Tag(), "test", nil)
+	_, err := s.model.EnqueueAction("666", s.unit.Tag(), "test", nil, nil)
 	c.Assert(err, gc.ErrorMatches, `operation "666" not found`)
+}
+
+func (s *ActionSuite) TestEnqueueActionWithError(c *gc.C) {
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	a, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "test", nil, errors.New("fail"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(a.Status(), gc.Equals, state.ActionError)
+	_, message := a.Results()
+	c.Assert(message, gc.Equals, "fail")
+
+	w := s.unit.WatchPendingActionNotifications()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	// Initial event.
+	wc.AssertChange()
+	wc.AssertNoChange()
 }
 
 func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
@@ -818,7 +836,7 @@ func (s *ActionSuite) assertFindActionTagsById(c *gc.C, receiver names.Tag) {
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
 	for _, action := range actions {
-		_, err := s.model.EnqueueAction(operationID, receiver, action.Name, action.Parameters)
+		_, err := s.model.EnqueueAction(operationID, receiver, action.Name, action.Parameters, nil)
 		c.Check(err, gc.Equals, nil)
 	}
 
@@ -842,7 +860,7 @@ func (s *ActionSuite) TestFindActionTagsByLegacyId(c *gc.C) {
 	var actionToUse state.Action
 	var uuid string
 	for {
-		a, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "action-1", nil)
+		a, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "action-1", nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		if unicode.IsDigit(rune(a.Id()[0])) {
 			idNum, _ := strconv.Atoi(a.Id()[0:1])
@@ -861,7 +879,7 @@ func (s *ActionSuite) TestFindActionTagsByLegacyId(c *gc.C) {
 	s.toSupportNewActionID(c)
 	idNum, _ := strconv.Atoi(actionToUse.Id()[0:1])
 	for i := 1; i <= idNum; i++ {
-		_, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "action-1", nil)
+		_, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "action-1", nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -896,7 +914,7 @@ func (s *ActionSuite) TestFindActionsByName(c *gc.C) {
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
 	for _, action := range actions {
-		_, err := s.model.EnqueueAction(operationID, s.unit.Tag(), action.Name, action.Parameters)
+		_, err := s.model.EnqueueAction(operationID, s.unit.Tag(), action.Name, action.Parameters, nil)
 		c.Assert(err, gc.Equals, nil)
 	}
 
@@ -1352,62 +1370,6 @@ func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
 		Message:   "and yet another",
 	}}
 	checkExpected(wc2, expected)
-}
-
-func (s *ActionSuite) TestWatchActionResults(c *gc.C) {
-	w := s.Model.WatchActionResultsFilteredBy(s.unit)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-
-	operationID, err := s.Model.EnqueueOperation("a test")
-	c.Assert(err, jc.ErrorIsNil)
-	// Queue some actions before starting the watcher.
-	fa1, err := s.unit.AddAction(operationID, "snapshot", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	fa1, err = fa1.Begin()
-	c.Assert(err, jc.ErrorIsNil)
-	// Initial event.
-	wc.AssertChange()
-
-	_, err = fa1.Finish(state.ActionResults{
-		Status: state.ActionCompleted,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(fa1.Id())
-}
-
-func (s *ActionSuite) TestWatchFilteredActionResults(c *gc.C) {
-	w := s.Model.WatchActionResultsFilteredBy(s.unit)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-
-	operationID, err := s.Model.EnqueueOperation("a test")
-	c.Assert(err, jc.ErrorIsNil)
-	// Queue some actions before starting the watcher.
-	fa1, err := s.unit.AddAction(operationID, "snapshot", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	fa1, err = fa1.Begin()
-	c.Assert(err, jc.ErrorIsNil)
-	// Initial event.
-	wc.AssertChange()
-
-	fa2, err := s.unit2.AddAction(operationID, "snapshot", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	fa2, err = fa2.Begin()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	_, err = fa1.Finish(state.ActionResults{
-		Status: state.ActionCompleted,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(fa1.Id())
-
-	_, err = fa2.Finish(state.ActionResults{
-		Status: state.ActionCompleted,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
 }
 
 // mapify is a convenience method, also to make reading the tests

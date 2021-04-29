@@ -228,6 +228,7 @@ func (s *actionSuite) TestListOperations(c *gc.C) {
 				*(result.(*params.OperationResults)) = params.OperationResults{
 					Results: []params.OperationResult{{
 						Summary: "hello",
+						Fail:    "fail",
 					}},
 				}
 				return nil
@@ -241,6 +242,7 @@ func (s *actionSuite) TestListOperations(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.OperationResults{
 		Results: []params.OperationResult{{
 			Summary: "hello",
+			Fail:    "fail",
 		}},
 	})
 }
@@ -277,6 +279,7 @@ func (s *actionSuite) TestOperation(c *gc.C) {
 				*(result.(*params.OperationResults)) = params.OperationResults{
 					Results: []params.OperationResult{{
 						Summary: "hello",
+						Fail:    "fail",
 					}},
 				}
 				return nil
@@ -289,6 +292,7 @@ func (s *actionSuite) TestOperation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperationResult{
 		Summary: "hello",
+		Fail:    "fail",
 	})
 }
 

@@ -1954,6 +1954,7 @@ func (i *importer) addOperation(op description.Operation) error {
 		DocId:             i.st.docID(op.Id()),
 		ModelUUID:         modelUUID,
 		Summary:           op.Summary(),
+		Fail:              op.Fail(),
 		Enqueued:          op.Enqueued(),
 		Started:           op.Started(),
 		Completed:         op.Completed(),

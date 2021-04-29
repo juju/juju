@@ -2580,6 +2580,16 @@ snapshot:
 	}
 }
 
+func (s *UnitSuite) TestAddActionWithError(c *gc.C) {
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.unit.AddAction(operationID, "benchmark", nil)
+	c.Assert(err, gc.ErrorMatches, `action "benchmark" not defined on unit "wordpress/0"`)
+	op, err := s.Model.Operation(operationID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.Status(), gc.Equals, state.ActionError)
+}
+
 func (s *UnitSuite) TestUnitActionsFindsRightActions(c *gc.C) {
 	// An actions.yaml which permits actions by the following names
 	basicActions := `

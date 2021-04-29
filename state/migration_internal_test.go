@@ -743,6 +743,23 @@ func (s *MigrationSuite) TestActionDocFields(c *gc.C) {
 	s.AssertExportedFields(c, actionDoc{}, migrated.Union(ignored))
 }
 
+func (s *MigrationSuite) TestOperationDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"ModelUUID",
+		"CompleteTaskCount",
+	)
+	migrated := set.NewStrings(
+		"DocId",
+		"Summary",
+		"Enqueued",
+		"Started",
+		"Completed",
+		"Status",
+		"Fail",
+	)
+	s.AssertExportedFields(c, operationDoc{}, migrated.Union(ignored))
+}
+
 func (s *MigrationSuite) TestVolumeDocFields(c *gc.C) {
 	ignored := set.NewStrings(
 		"ModelUUID",

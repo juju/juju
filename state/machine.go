@@ -2127,14 +2127,30 @@ func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
 }
 
 // AddAction is part of the ActionReceiver interface.
-func (m *Machine) AddAction(operationID, name string, payload map[string]interface{}) (Action, error) {
+func (m *Machine) AddAction(operationID, name string, payload map[string]interface{}) (_ Action, err error) {
+	model, err := m.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	saveActionError := true
+	defer func() {
+		if !saveActionError || err == nil {
+			return
+		}
+		_, err2 := model.EnqueueAction(operationID, m.Tag(), name, payload, err)
+		if err2 != nil {
+			err = err2
+		}
+	}()
+
 	spec, ok := actions.PredefinedActionsSpec[name]
 	if !ok {
 		return nil, errors.Errorf("cannot add action %q to a machine; only predefined actions allowed", name)
 	}
 
 	// Reject bad payloads before attempting to insert defaults.
-	err := spec.ValidateParams(payload)
+	err = spec.ValidateParams(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -2143,12 +2159,8 @@ func (m *Machine) AddAction(operationID, name string, payload map[string]interfa
 		return nil, err
 	}
 
-	model, err := m.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return model.EnqueueAction(operationID, m.Tag(), name, payloadWithDefaults)
+	saveActionError = false
+	return model.EnqueueAction(operationID, m.Tag(), name, payloadWithDefaults, nil)
 }
 
 // CancelAction is part of the ActionReceiver interface.

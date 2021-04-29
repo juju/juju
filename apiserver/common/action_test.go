@@ -45,10 +45,10 @@ func (s *actionsSuite) TestTagToActionReceiverFn(c *gc.C) {
 		err: errors.NotImplementedf("action receiver interface on entity unit-invalid-0"),
 	}, {
 		tag: "unit-flustered-0",
-		err: errors.NotFoundf("unit-flustered-0"),
+		err: errors.NotFoundf(`"unit-flustered-0"`),
 	}, {
 		tag: "notatag",
-		err: errors.NotValidf("notatag"),
+		err: errors.NotValidf(`"notatag"`),
 	}} {
 		c.Logf("test %d", i)
 		receiver, err := tagFn(test.tag)
@@ -226,7 +226,7 @@ func (s *actionsSuite) TestWatchOneActionReceiverNotifications(c *gc.C) {
 		watcherId string
 	}{{
 		tag: names.NewMachineTag("0"),
-		err: "machine-0 not found",
+		err: `"machine-0" not found`,
 	}, {
 		tag:       names.NewMachineTag("1"),
 		watcherId: "bambalam",
@@ -263,7 +263,7 @@ func (s *actionsSuite) TestWatchPendingActionsForReceiver(c *gc.C) {
 		watcherId string
 	}{{
 		tag: names.NewMachineTag("0"),
-		err: "machine-0 not found",
+		err: `"machine-0" not found`,
 	}, {
 		tag:       names.NewMachineTag("1"),
 		watcherId: "bambalam",

@@ -2804,10 +2804,25 @@ type ActionSpecsByName map[string]charm.ActionSpec
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID.  Note that the use of spec.InsertDefaults
 // mutates payload.
-func (u *Unit) AddAction(operationID, name string, payload map[string]interface{}) (Action, error) {
+func (u *Unit) AddAction(operationID, name string, payload map[string]interface{}) (_ Action, err error) {
 	if len(name) == 0 {
 		return nil, errors.New("no action name given")
 	}
+	m, err := u.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	saveActionError := true
+	defer func() {
+		if !saveActionError || err == nil {
+			return
+		}
+		_, err2 := m.EnqueueAction(operationID, u.Tag(), name, payload, err)
+		if err2 != nil {
+			err = err2
+		}
+	}()
 
 	// If the action is predefined inside juju, get spec from map
 	spec, ok := actions.PredefinedActionsSpec[name]
@@ -2822,7 +2837,7 @@ func (u *Unit) AddAction(operationID, name string, payload map[string]interface{
 		}
 	}
 	// Reject bad payloads before attempting to insert defaults.
-	err := spec.ValidateParams(payload)
+	err = spec.ValidateParams(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -2845,12 +2860,8 @@ func (u *Unit) AddAction(operationID, name string, payload map[string]interface{
 			payloadWithDefaults["workload-context"] = false
 		}
 	}
-
-	m, err := u.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return m.EnqueueAction(operationID, u.Tag(), name, payloadWithDefaults)
+	saveActionError = false
+	return m.EnqueueAction(operationID, u.Tag(), name, payloadWithDefaults, nil)
 }
 
 // ActionSpecs gets the ActionSpec map for the Unit's charm.
