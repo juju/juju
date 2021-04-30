@@ -584,6 +584,7 @@ func ReadConfig(configFilePath string) (ConfigSetterWriter, error) {
 	return config, nil
 }
 
+// ParseConfigData parses configuration data.
 func ParseConfigData(configData []byte) (ConfigSetterWriter, error) {
 	format, config, err := parseConfigData(configData)
 	if err != nil {
