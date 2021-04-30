@@ -4,6 +4,8 @@
 package caasoperatorprovisioner
 
 import (
+	"bytes"
+	"fmt"
 	"strings"
 	"time"
 
@@ -16,7 +18,6 @@ import (
 	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/caasoperatorprovisioner"
 	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -288,10 +289,18 @@ func (p *provisioner) updateOperatorConfig(appName, password string, prevCfg caa
 }
 
 func (p *provisioner) updateAgentConf(appName, password string,
-	info caasoperatorprovisioner.OperatorProvisioningInfo,
+	info apicaasprovisioner.OperatorProvisioningInfo,
 	prevAgentConfData []byte) ([]byte, error) {
-	if prevAgentConfData != nil && password == "" {
-		return prevAgentConfData, nil
+	if len(prevAgentConfData) == 0 && password == "" {
+		return nil, errors.NewNotValid(nil, fmt.Sprintf("no existing agent conf found and no new password generated for %q operator", appName))
+	}
+	if password == "" {
+		// Read password from previous agent config for the existing operator.
+		prevAgentConf, err := agent.ParseConfigData(prevAgentConfData)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		password = prevAgentConf.OldPassword()
 	}
 
 	appTag := names.NewApplicationTag(appName)
@@ -316,8 +325,12 @@ func (p *provisioner) updateAgentConf(appName, password string,
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating new agent config")
 	}
-
-	return conf.Render()
+	newAgentConfData, err := conf.Render()
+	if err != nil {
+		return nil, errors.Annotatef(err, "rendering new agent config")
+	}
+	p.logger.Debugf("agentConfData for %q changed %v", appName, !bytes.Equal(prevAgentConfData, newAgentConfData))
+	return newAgentConfData, nil
 }
 
 func (p *provisioner) updateOperatorInfo(appName string, prevOperatorInfoData []byte) ([]byte, error) {
