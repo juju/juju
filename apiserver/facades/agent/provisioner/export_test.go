@@ -11,8 +11,8 @@ import "github.com/juju/juju/apiserver/params"
 //   the provisioner package.
 // - Instantiate these contexts directly instead of requiring these methods.
 
-func NewPrepareOrGetContext(result params.MachineNetworkConfigResults, maintain bool) *prepareOrGetContext {
-	return &prepareOrGetContext{result: result, maintain: maintain}
+func NewPrepareOrGetContext(result params.MachineNetworkConfigResults) *prepareOrGetContext {
+	return &prepareOrGetContext{result: result}
 }
 
 func NewContainerProfileContext(result params.ContainerProfileResults, modelName string) *containerProfileContext {

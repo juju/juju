@@ -32507,8 +32507,8 @@
     },
     {
         "Name": "Provisioner",
-        "Description": "ProvisionerAPIV11 provides v10 of the provisioner facade.\nIt relies on agent-set origin when calling SetHostMachineNetworkConfig.",
-        "Version": 11,
+        "Description": "ProvisionerAPIV12 provides v12 of the provisioner facade.\nIt sends network config for containers using the new \"dynamic config-type\ninstead of the legacy \"dhcp\".",
+        "Version": 12,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent"
@@ -32656,18 +32656,6 @@
                         }
                     },
                     "description": "FindTools returns a List containing all tools matching the given parameters."
-                },
-                "GetContainerInterfaceInfo": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/MachineNetworkConfigResults"
-                        }
-                    },
-                    "description": "GetContainerInterfaceInfo returns information to configure networking for a\ncontainer. It accepts container tags as arguments."
                 },
                 "GetContainerProfileInfo": {
                     "type": "object",

@@ -212,82 +212,98 @@ type ProvisionerAPIV10 struct {
 	*ProvisionerAPIV11
 }
 
-// ProvisionerAPIV11 provides v10 of the provisioner facade.
+// ProvisionerAPIV11 provides v11 of the provisioner facade.
 // It relies on agent-set origin when calling SetHostMachineNetworkConfig.
 type ProvisionerAPIV11 struct {
+	*ProvisionerAPIV12
+}
+
+// ProvisionerAPIV12 provides v12 of the provisioner facade.
+// It sends network config for containers using the new "dynamic config-type
+// instead of the legacy "dhcp".
+type ProvisionerAPIV12 struct {
 	*ProvisionerAPI
 }
 
 // NewProvisionerAPIV4 creates a new server-side version 4 Provisioner API facade.
 func NewProvisionerAPIV4(ctx facade.Context) (*ProvisionerAPIV4, error) {
-	provisionerAPI, err := NewProvisionerAPIV5(ctx)
+	api, err := NewProvisionerAPIV5(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &ProvisionerAPIV4{provisionerAPI}, nil
+	return &ProvisionerAPIV4{api}, nil
 }
 
 // NewProvisionerAPIV5 creates a new server-side Provisioner API facade.
 func NewProvisionerAPIV5(ctx facade.Context) (*ProvisionerAPIV5, error) {
-	provisionerAPI, err := NewProvisionerAPIV6(ctx)
+	api, err := NewProvisionerAPIV6(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &ProvisionerAPIV5{provisionerAPI}, nil
+	return &ProvisionerAPIV5{api}, nil
 }
 
 // NewProvisionerAPIV6 creates a new server-side Provisioner API facade.
 func NewProvisionerAPIV6(ctx facade.Context) (*ProvisionerAPIV6, error) {
-	provisionerAPI, err := NewProvisionerAPIV7(ctx)
+	api, err := NewProvisionerAPIV7(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &ProvisionerAPIV6{provisionerAPI}, nil
+	return &ProvisionerAPIV6{api}, nil
 }
 
 // NewProvisionerAPIV7 creates a new server-side Provisioner API facade.
 func NewProvisionerAPIV7(ctx facade.Context) (*ProvisionerAPIV7, error) {
-	provisionerAPI, err := NewProvisionerAPIV8(ctx)
+	api, err := NewProvisionerAPIV8(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &ProvisionerAPIV7{provisionerAPI}, nil
+	return &ProvisionerAPIV7{api}, nil
 }
 
 // NewProvisionerAPIV8 creates a new server-side Provisioner API facade.
 func NewProvisionerAPIV8(ctx facade.Context) (*ProvisionerAPIV8, error) {
-	provisionerAPI, err := NewProvisionerAPIV9(ctx)
+	api, err := NewProvisionerAPIV9(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &ProvisionerAPIV8{provisionerAPI}, nil
+	return &ProvisionerAPIV8{api}, nil
 }
 
 // NewProvisionerAPIV9 creates a new server-side Provisioner API facade.
 func NewProvisionerAPIV9(ctx facade.Context) (*ProvisionerAPIV9, error) {
-	provisionerAPI, err := NewProvisionerAPIV10(ctx)
+	api, err := NewProvisionerAPIV10(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &ProvisionerAPIV9{provisionerAPI}, nil
+	return &ProvisionerAPIV9{api}, nil
 }
 
 // NewProvisionerAPIV10 creates a new server-side Provisioner API facade.
 func NewProvisionerAPIV10(ctx facade.Context) (*ProvisionerAPIV10, error) {
-	provisionerAPI, err := NewProvisionerAPIV11(ctx)
+	api, err := NewProvisionerAPIV11(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &ProvisionerAPIV10{provisionerAPI}, nil
+	return &ProvisionerAPIV10{api}, nil
 }
 
 // NewProvisionerAPIV11 creates a new server-side Provisioner API facade.
 func NewProvisionerAPIV11(ctx facade.Context) (*ProvisionerAPIV11, error) {
-	provisionerAPI, err := NewProvisionerAPI(ctx)
+	api, err := NewProvisionerAPIV12(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &ProvisionerAPIV11{provisionerAPI}, nil
+	return &ProvisionerAPIV11{api}, nil
+}
+
+// NewProvisionerAPIV12 creates a new server-side Provisioner API facade.
+func NewProvisionerAPIV12(ctx facade.Context) (*ProvisionerAPIV12, error) {
+	api, err := NewProvisionerAPI(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ProvisionerAPIV12{api}, nil
 }
 
 func (api *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
@@ -952,20 +968,37 @@ func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (
 	params.MachineNetworkConfigResults,
 	error,
 ) {
-	return api.prepareOrGetContainerInterfaceInfo(args, false)
+	ctx := &prepareOrGetContext{
+		result: params.MachineNetworkConfigResults{
+			Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
+		},
+	}
+
+	err := api.processEachContainer(args, ctx)
+	return ctx.result, errors.Trace(err)
 }
 
-// TODO (manadart 2020-07-23): This method is not used and can be removed when
-// next this facade version is bumped.
-// We then don't need the parameterised prepareOrGet...
-
-// GetContainerInterfaceInfo returns information to configure networking for a
-// container. It accepts container tags as arguments.
-func (api *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
+// PrepareContainerInterfaceInfo allocates an address and returns information to
+// configure networking for a container.
+// It uses the string "dhcp" expected by older agents to indicate dynamically
+// configured network interfaces.
+func (api *ProvisionerAPIV11) PrepareContainerInterfaceInfo(args params.Entities) (
 	params.MachineNetworkConfigResults,
 	error,
 ) {
-	return api.prepareOrGetContainerInterfaceInfo(args, true)
+	results, err := api.ProvisionerAPIV12.PrepareContainerInterfaceInfo(args)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
+	for i, res := range results.Results {
+		for j, nic := range res.Config {
+			if nic.ConfigMethod == "dynamic" {
+				results.Results[i].Config[j].ConfigMethod = "dhcp"
+			}
+		}
+	}
+	return results, nil
 }
 
 // perContainerHandler is the interface we need to trigger processing on
@@ -1045,38 +1078,23 @@ func (api *ProvisionerAPI) processEachContainer(args params.Entities, handler pe
 }
 
 type prepareOrGetContext struct {
-	result   params.MachineNetworkConfigResults
-	maintain bool
+	result params.MachineNetworkConfigResults
 }
 
-// Implements perContainerHandler.SetError
+// SetError implements perContainerHandler.SetError
 func (ctx *prepareOrGetContext) SetError(idx int, err error) {
 	ctx.result.Results[idx].Error = apiservererrors.ServerError(err)
 }
 
-// Implements perContainerHandler.ConfigType
+// ConfigType implements perContainerHandler.ConfigType
 func (ctx *prepareOrGetContext) ConfigType() string {
 	return "network"
 }
 
-// Implements perContainerHandler.ProcessOneContainer
+// ProcessOneContainer implements perContainerHandler.ProcessOneContainer
 func (ctx *prepareOrGetContext) ProcessOneContainer(
 	env environs.Environ, callContext context.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine,
 ) error {
-	instanceId, err := guest.InstanceId()
-	if ctx.maintain {
-		if err == nil {
-			// Since we want to configure and create NICs on the
-			// container before it starts, it must also be not
-			// provisioned yet.
-			return errors.Errorf("container %q already provisioned as %q", guest.Id(), instanceId)
-		}
-	}
-	// The only error we allow is NotProvisioned
-	if err != nil && !errors.IsNotProvisioned(err) {
-		return errors.Trace(err)
-	}
-
 	// We do not ask the provider to allocate addresses for manually provisioned
 	// machines as we do not expect such machines to be recognised (LP:1796106).
 	askProviderForAddress := false
@@ -1117,22 +1135,6 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 	logger.Debugf("allocated network config: %+v", allocatedConfig)
 	ctx.result.Results[idx].Config = allocatedConfig
 	return nil
-}
-
-func (api *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
-	args params.Entities, maintain bool,
-) (params.MachineNetworkConfigResults, error) {
-	ctx := &prepareOrGetContext{
-		result: params.MachineNetworkConfigResults{
-			Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
-		},
-		maintain: maintain,
-	}
-
-	if err := api.processEachContainer(args, ctx); err != nil {
-		return ctx.result, errors.Trace(err)
-	}
-	return ctx.result, nil
 }
 
 // prepareContainerAccessEnvironment retrieves the environment, host machine, and access

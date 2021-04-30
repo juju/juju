@@ -306,6 +306,7 @@ func AllFacades() *facade.Registry {
 	reg("Provisioner", 9, provisioner.NewProvisionerAPIV9)   // Adds supported containers
 	reg("Provisioner", 10, provisioner.NewProvisionerAPIV10) // Adds support for multiple space constraints.
 	reg("Provisioner", 11, provisioner.NewProvisionerAPIV11) // Relies on agent-set origin in SetHostMachineNetworkConfig.
+	reg("Provisioner", 12, provisioner.NewProvisionerAPIV12) // Uses new config method "dynamic" instead of "dhcp".
 
 	reg("ProxyUpdater", 1, proxyupdater.NewFacadeV1)
 	reg("ProxyUpdater", 2, proxyupdater.NewFacadeV2)

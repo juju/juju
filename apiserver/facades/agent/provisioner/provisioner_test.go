@@ -1934,7 +1934,7 @@ func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(
 	res := params.MachineNetworkConfigResults{
 		Results: []params.MachineNetworkConfigResult{{}},
 	}
-	ctx := provisioner.NewPrepareOrGetContext(res, false)
+	ctx := provisioner.NewPrepareOrGetContext(res)
 
 	// ProviderCallContext is not required by this logical path and can be nil
 	err := ctx.ProcessOneContainer(s.environ, nil, s.policy, 0, s.host, s.container)
@@ -1942,7 +1942,7 @@ func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(
 	c.Assert(res.Results[0].Config, gc.HasLen, 1)
 
 	cfg := res.Results[0].Config[0]
-	c.Check(cfg.ConfigType, gc.Equals, "dhcp")
+	c.Check(cfg.ConfigMethod, gc.Equals, "dynamic")
 	c.Check(cfg.ProviderSubnetId, gc.Equals, "")
 	c.Check(cfg.VLANTag, gc.Equals, 0)
 }
@@ -1950,18 +1950,15 @@ func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(
 func (s *provisionerMockSuite) expectManuallyProvisionedHostsUseDHCPForContainers() {
 	s.expectNetworkingEnviron()
 
-	cExp := s.container.EXPECT()
-	cExp.InstanceId().Return(instance.UnknownId, errors.NotProvisionedf("idk-lol"))
+	s.container.EXPECT().Id().Return("lxd/0").AnyTimes()
 
 	s.policy.EXPECT().PopulateContainerLinkLayerDevices(s.host, s.container, false).Return(
 		network.InterfaceInfos{
 			{
 				InterfaceName: "eth0",
-				ConfigType:    network.ConfigDHCP,
+				ConfigMethod:  network.DynamicAddress,
 			},
 		}, nil)
-
-	cExp.Id().Return("lxd/0").AnyTimes()
 
 	hExp := s.host.EXPECT()
 	// Crucial behavioural trait. Set false to test failure, whereupon the
@@ -1999,24 +1996,6 @@ func (s *provisionerMockSuite) expectLinkLayerDevices() {
 	// testing.
 	pExp.Addresses().Return([]*state.Address{{}}, nil)
 	pExp.Name().Return(devName).MinTimes(1)
-}
-
-func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	exp := s.container.EXPECT()
-	exp.InstanceId().Return(instance.Id("juju-8ebd6c-0"), nil)
-	exp.Id().Return("0/lxd/0")
-
-	res := params.MachineNetworkConfigResults{
-		Results: []params.MachineNetworkConfigResult{{}},
-	}
-	ctx := provisioner.NewPrepareOrGetContext(res, true)
-
-	// ProviderCallContext and BridgePolicy are not
-	// required by this logical path and can be nil.
-	err := ctx.ProcessOneContainer(s.environ, nil, nil, 0, s.host, s.container)
-	c.Assert(err, gc.ErrorMatches, `container "0/lxd/0" already provisioned as "juju-8ebd6c-0"`)
 }
 
 func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *gc.C) {
