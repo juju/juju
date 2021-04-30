@@ -12,7 +12,7 @@ import (
 	"github.com/juju/gomaasapi/v2"
 
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 )
@@ -86,7 +86,7 @@ type maasSubnet struct {
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces.
-func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
+func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error) {
 	switch len(ids) {
 	case 0:
 		return nil, environs.ErrNoInstances
@@ -95,7 +95,7 @@ func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, ids [
 		if err != nil {
 			return nil, err
 		}
-		return []corenetwork.InterfaceInfos{ifList}, nil
+		return []network.InterfaceInfos{ifList}, nil
 	}
 
 	// Fetch instance information for the IDs we are interested in.
@@ -113,7 +113,7 @@ func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, ids [
 		return nil, errors.Trace(err)
 	}
 
-	infos := make([]corenetwork.InterfaceInfos, len(ids))
+	infos := make([]network.InterfaceInfos, len(ids))
 	if env.usingMAAS2() {
 		dnsSearchDomains, err := env.Domains(ctx)
 		if err != nil {
@@ -150,7 +150,7 @@ func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, ids [
 	return infos, err
 }
 
-func (env *maasEnviron) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) (corenetwork.InterfaceInfos, error) {
+func (env *maasEnviron) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) (network.InterfaceInfos, error) {
 	inst, err := env.getInstance(ctx, instId)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -177,8 +177,8 @@ func (env *maasEnviron) networkInterfacesForInstance(ctx context.ProviderCallCon
 // error satisfying errors.IsNotSupported() if it cannot find the required
 // "interface_set" node details field.
 func maasObjectNetworkInterfaces(
-	_ context.ProviderCallContext, maasObject *gomaasapi.MAASObject, subnetsMap map[string]corenetwork.Id,
-) (corenetwork.InterfaceInfos, error) {
+	_ context.ProviderCallContext, maasObject *gomaasapi.MAASObject, subnetsMap map[string]network.Id,
+) (network.InterfaceInfos, error) {
 	interfaceSet, ok := maasObject.GetMap()["interface_set"]
 	if !ok || interfaceSet.IsNil() {
 		// This means we're using an older MAAS API.
@@ -201,14 +201,14 @@ func maasObjectNetworkInterfaces(
 		return nil, errors.Trace(err)
 	}
 
-	infos := make(corenetwork.InterfaceInfos, 0, len(interfaces))
+	infos := make(network.InterfaceInfos, 0, len(interfaces))
 	for i, iface := range interfaces {
 		// The below works for all types except bonds and their members.
 		parentName := strings.Join(iface.Parents, "")
-		var nicType corenetwork.InterfaceType
+		var nicType network.InterfaceType
 		switch iface.Type {
 		case typePhysical:
-			nicType = corenetwork.EthernetInterface
+			nicType = network.EthernetInterface
 			children := strings.Join(iface.Children, "")
 			if parentName == "" && len(iface.Children) == 1 && strings.HasPrefix(children, "bond") {
 				// FIXME: Verify the bond exists, regardless of its name.
@@ -218,24 +218,24 @@ func maasObjectNetworkInterfaces(
 			}
 		case typeBond:
 			parentName = ""
-			nicType = corenetwork.BondInterface
+			nicType = network.BondInterface
 		case typeVLAN:
-			nicType = corenetwork.VLAN_8021QInterface
+			nicType = network.VLAN_8021QInterface
 		case typeBridge:
-			nicType = corenetwork.BridgeInterface
+			nicType = network.BridgeInterface
 		}
 
-		nicInfo := corenetwork.InterfaceInfo{
+		nicInfo := network.InterfaceInfo{
 			DeviceIndex:         i,
 			MACAddress:          iface.MACAddress,
-			ProviderId:          corenetwork.Id(fmt.Sprintf("%v", iface.ID)),
+			ProviderId:          network.Id(fmt.Sprintf("%v", iface.ID)),
 			VLANTag:             iface.VLAN.VID,
 			InterfaceName:       iface.Name,
 			InterfaceType:       nicType,
 			ParentInterfaceName: parentName,
 			Disabled:            !iface.Enabled,
 			NoAutoStart:         !iface.Enabled,
-			Origin:              corenetwork.OriginProvider,
+			Origin:              network.OriginProvider,
 		}
 
 		if len(iface.Links) == 0 {
@@ -245,7 +245,7 @@ func maasObjectNetworkInterfaces(
 		}
 
 		for _, link := range iface.Links {
-			nicInfo.ConfigType = maasLinkToInterfaceConfigType(string(link.Mode))
+			nicInfo.ConfigMethod = maasLinkToInterfaceConfigType(string(link.Mode))
 
 			if link.IPAddress == "" && link.Subnet == nil {
 				logger.Debugf("interface %q link %d has neither subnet nor address", iface.Name, link.ID)
@@ -258,10 +258,10 @@ func maasObjectNetworkInterfaces(
 				// long-standing last-write-wins behavior that was
 				// present in the original code. Do we need to revisit
 				// this in the future and append link addresses to the list?
-				nicInfo.Addresses = corenetwork.ProviderAddresses{
-					corenetwork.NewProviderAddress(link.IPAddress),
+				nicInfo.Addresses = network.ProviderAddresses{
+					network.NewProviderAddress(link.IPAddress),
 				}
-				nicInfo.ProviderAddressId = corenetwork.Id(fmt.Sprintf("%v", link.ID))
+				nicInfo.ProviderAddressId = network.Id(fmt.Sprintf("%v", link.ID))
 			}
 
 			sub := link.Subnet
@@ -271,17 +271,17 @@ func maasObjectNetworkInterfaces(
 				continue
 			}
 
-			nicInfo.ProviderSubnetId = corenetwork.Id(fmt.Sprintf("%v", sub.ID))
-			nicInfo.ProviderVLANId = corenetwork.Id(fmt.Sprintf("%v", sub.VLAN.ID))
+			nicInfo.ProviderSubnetId = network.Id(fmt.Sprintf("%v", sub.ID))
+			nicInfo.ProviderVLANId = network.Id(fmt.Sprintf("%v", sub.VLAN.ID))
 
 			// Provider addresses are created with a space name massaged
 			// to conform to Juju's space name rules.
-			space := corenetwork.ConvertSpaceName(sub.Space, nil)
+			space := network.ConvertSpaceName(sub.Space, nil)
 
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
-			nicInfo.Addresses[0] = corenetwork.NewProviderAddressInSpace(
-				space, link.IPAddress, corenetwork.WithCIDR(sub.CIDR))
+			nicInfo.Addresses[0] = network.NewProviderAddressInSpace(
+				space, link.IPAddress, network.WithCIDR(sub.CIDR))
 
 			spaceId, ok := subnetsMap[sub.CIDR]
 			if !ok {
@@ -293,8 +293,8 @@ func maasObjectNetworkInterfaces(
 				nicInfo.ProviderSpaceId = spaceId
 			}
 
-			gwAddr := corenetwork.NewProviderAddressInSpace(space, sub.GatewayIP)
-			nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(space, sub.DNSServers...)
+			gwAddr := network.NewProviderAddressInSpace(space, sub.GatewayIP)
+			nicInfo.DNSServers = network.NewProviderAddressesInSpace(space, sub.DNSServers...)
 			if ok {
 				gwAddr.ProviderSpaceID = spaceId
 				for i := range nicInfo.DNSServers {
@@ -315,19 +315,19 @@ func maasObjectNetworkInterfaces(
 func maas2NetworkInterfaces(
 	_ context.ProviderCallContext,
 	instance *maas2Instance,
-	subnetsMap map[string]corenetwork.Id,
+	subnetsMap map[string]network.Id,
 	dnsSearchDomains ...string,
-) (corenetwork.InterfaceInfos, error) {
+) (network.InterfaceInfos, error) {
 	interfaces := instance.machine.InterfaceSet()
-	infos := make(corenetwork.InterfaceInfos, 0, len(interfaces))
+	infos := make(network.InterfaceInfos, 0, len(interfaces))
 	for i, iface := range interfaces {
 
 		// The below works for all types except bonds and their members.
 		parentName := strings.Join(iface.Parents(), "")
-		var nicType corenetwork.InterfaceType
+		var nicType network.InterfaceType
 		switch maasInterfaceType(iface.Type()) {
 		case typePhysical:
-			nicType = corenetwork.EthernetInterface
+			nicType = network.EthernetInterface
 			children := strings.Join(iface.Children(), "")
 			if parentName == "" && len(iface.Children()) == 1 && strings.HasPrefix(children, "bond") {
 				// FIXME: Verify the bond exists, regardless of its name.
@@ -337,28 +337,28 @@ func maas2NetworkInterfaces(
 			}
 		case typeBond:
 			parentName = ""
-			nicType = corenetwork.BondInterface
+			nicType = network.BondInterface
 		case typeVLAN:
-			nicType = corenetwork.VLAN_8021QInterface
+			nicType = network.VLAN_8021QInterface
 		case typeBridge:
-			nicType = corenetwork.BridgeInterface
+			nicType = network.BridgeInterface
 		}
 
 		vlanTag := 0
 		if iface.VLAN() != nil {
 			vlanTag = iface.VLAN().VID()
 		}
-		nicInfo := corenetwork.InterfaceInfo{
+		nicInfo := network.InterfaceInfo{
 			DeviceIndex:         i,
 			MACAddress:          iface.MACAddress(),
-			ProviderId:          corenetwork.Id(fmt.Sprintf("%v", iface.ID())),
+			ProviderId:          network.Id(fmt.Sprintf("%v", iface.ID())),
 			VLANTag:             vlanTag,
 			InterfaceName:       iface.Name(),
 			InterfaceType:       nicType,
 			ParentInterfaceName: parentName,
 			Disabled:            !iface.Enabled(),
 			NoAutoStart:         !iface.Enabled(),
-			Origin:              corenetwork.OriginProvider,
+			Origin:              network.OriginProvider,
 		}
 
 		if len(iface.Links()) == 0 {
@@ -368,7 +368,7 @@ func maas2NetworkInterfaces(
 		}
 
 		for _, link := range iface.Links() {
-			nicInfo.ConfigType = maasLinkToInterfaceConfigType(link.Mode())
+			nicInfo.ConfigMethod = maasLinkToInterfaceConfigType(link.Mode())
 
 			if link.IPAddress() == "" && link.Subnet() == nil {
 				logger.Debugf("interface %q link %d has neither subnet nor address", iface.Name(), link.ID())
@@ -379,10 +379,10 @@ func maas2NetworkInterfaces(
 				//
 				// NOTE(achilleasa): the original code used a last-write-wins
 				// policy. Do we need to append link addresses to the list?
-				nicInfo.Addresses = corenetwork.ProviderAddresses{
-					corenetwork.NewProviderAddress(link.IPAddress()),
+				nicInfo.Addresses = network.ProviderAddresses{
+					network.NewProviderAddress(link.IPAddress()),
 				}
-				nicInfo.ProviderAddressId = corenetwork.Id(fmt.Sprintf("%v", link.ID()))
+				nicInfo.ProviderAddressId = network.Id(fmt.Sprintf("%v", link.ID()))
 			}
 
 			sub := link.Subnet()
@@ -392,17 +392,17 @@ func maas2NetworkInterfaces(
 				continue
 			}
 
-			nicInfo.ProviderSubnetId = corenetwork.Id(fmt.Sprintf("%v", sub.ID()))
-			nicInfo.ProviderVLANId = corenetwork.Id(fmt.Sprintf("%v", sub.VLAN().ID()))
+			nicInfo.ProviderSubnetId = network.Id(fmt.Sprintf("%v", sub.ID()))
+			nicInfo.ProviderVLANId = network.Id(fmt.Sprintf("%v", sub.VLAN().ID()))
 
 			// Provider addresses are created with a space name massaged
 			// to conform to Juju's space name rules.
-			space := corenetwork.ConvertSpaceName(sub.Space(), nil)
+			space := network.ConvertSpaceName(sub.Space(), nil)
 
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
-			nicInfo.Addresses[0] = corenetwork.NewProviderAddressInSpace(
-				space, link.IPAddress(), corenetwork.WithCIDR(sub.CIDR()))
+			nicInfo.Addresses[0] = network.NewProviderAddressInSpace(
+				space, link.IPAddress(), network.WithCIDR(sub.CIDR()))
 
 			spaceId, ok := subnetsMap[sub.CIDR()]
 			if !ok {
@@ -414,8 +414,8 @@ func maas2NetworkInterfaces(
 				nicInfo.ProviderSpaceId = spaceId
 			}
 
-			gwAddr := corenetwork.NewProviderAddressInSpace(space, sub.Gateway())
-			nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(space, sub.DNSServers()...)
+			gwAddr := network.NewProviderAddressInSpace(space, sub.Gateway())
+			nicInfo.DNSServers = network.NewProviderAddressesInSpace(space, sub.DNSServers()...)
 			if ok {
 				gwAddr.ProviderSpaceID = spaceId
 				for i := range nicInfo.DNSServers {
@@ -442,17 +442,17 @@ func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
 	return interfaces, nil
 }
 
-func maasLinkToInterfaceConfigType(mode string) corenetwork.AddressConfigType {
+func maasLinkToInterfaceConfigType(mode string) network.AddressConfigMethod {
 	switch maasLinkMode(mode) {
 	case modeUnknown:
-		return corenetwork.ConfigUnknown
+		return ""
 	case modeDHCP:
-		return corenetwork.ConfigDHCP
+		return network.DynamicAddress
 	case modeStatic, modeAuto:
-		return corenetwork.ConfigStatic
+		return network.StaticAddress
 	case modeLinkUp:
 	default:
 	}
 
-	return corenetwork.ConfigManual
+	return network.ManualAddress
 }

@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	network "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -431,7 +431,7 @@ var exampleParsedInterfaceSetJSON = network.InterfaceInfos{{
 	InterfaceType:     "ethernet",
 	Disabled:          false,
 	NoAutoStart:       false,
-	ConfigType:        "static",
+	ConfigMethod:      "static",
 	Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
 		"default", "10.20.19.103", network.WithCIDR("10.20.19.0/24"),
 	)},
@@ -453,7 +453,7 @@ var exampleParsedInterfaceSetJSON = network.InterfaceInfos{{
 	InterfaceType:     "ethernet",
 	Disabled:          false,
 	NoAutoStart:       false,
-	ConfigType:        "static",
+	ConfigMethod:      "static",
 	Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
 		"default", "10.20.19.104", network.WithCIDR("10.20.19.0/24"),
 	)},
@@ -476,7 +476,7 @@ var exampleParsedInterfaceSetJSON = network.InterfaceInfos{{
 	InterfaceType:       "802.1q",
 	Disabled:            false,
 	NoAutoStart:         false,
-	ConfigType:          "static",
+	ConfigMethod:        "static",
 	Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
 		"admin", "10.50.19.103", network.WithCIDR("10.50.19.0/24"),
 	)},
@@ -499,7 +499,7 @@ var exampleParsedInterfaceSetJSON = network.InterfaceInfos{{
 	InterfaceType:       "802.1q",
 	Disabled:            false,
 	NoAutoStart:         false,
-	ConfigType:          "static",
+	ConfigMethod:        "static",
 	Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
 		"public", "10.100.19.103", network.WithCIDR("10.100.19.0/24"),
 	)},
@@ -523,7 +523,7 @@ var exampleParsedInterfaceSetJSON = network.InterfaceInfos{{
 	InterfaceType:       "802.1q",
 	Disabled:            false,
 	NoAutoStart:         false,
-	ConfigType:          "static",
+	ConfigMethod:        "static",
 	Addresses: network.ProviderAddresses{newAddressOnSpaceWithId(
 		"storage", "3", "10.250.19.103", network.WithCIDR("10.250.19.0/24"),
 	)},
@@ -546,7 +546,7 @@ var exampleParsedInterfaceSetJSON = network.InterfaceInfos{{
 	InterfaceType:       "ethernet",
 	Disabled:            false,
 	NoAutoStart:         false,
-	ConfigType:          "",
+	ConfigMethod:        "",
 	DNSServers:          nil,
 	DNSSearchDomains:    nil,
 	MTU:                 0,
@@ -566,7 +566,7 @@ var exampleParsedInterfaceSetJSON = network.InterfaceInfos{{
 	InterfaceType:       "bridge",
 	Disabled:            false,
 	NoAutoStart:         false,
-	ConfigType:          "dhcp",
+	ConfigMethod:        "dynamic",
 	Addresses: network.ProviderAddresses{newAddressOnSpaceWithId(
 		"space-0", "4", "192.168.20.192", network.WithCIDR("192.168.20.0/24"),
 	)},
@@ -961,7 +961,7 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		InterfaceType:     "ethernet",
 		Disabled:          false,
 		NoAutoStart:       false,
-		ConfigType:        "static",
+		ConfigMethod:      "static",
 		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
 			"default", "10.20.19.103", network.WithCIDR("10.20.19.0/24"),
 		)},
@@ -983,7 +983,7 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		InterfaceType:     "ethernet",
 		Disabled:          false,
 		NoAutoStart:       false,
-		ConfigType:        "static",
+		ConfigMethod:      "static",
 		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
 			"default", "10.20.19.104", network.WithCIDR("10.20.19.0/24"),
 		)},
@@ -1006,7 +1006,7 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		InterfaceType:       "802.1q",
 		Disabled:            false,
 		NoAutoStart:         false,
-		ConfigType:          "static",
+		ConfigMethod:        "static",
 		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
 			"admin", "10.50.19.103", network.WithCIDR("10.50.19.0/24"),
 		)},
@@ -1029,7 +1029,7 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		InterfaceType:       "802.1q",
 		Disabled:            false,
 		NoAutoStart:         false,
-		ConfigType:          "static",
+		ConfigMethod:        "static",
 		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
 			"public", "10.100.19.103", network.WithCIDR("10.100.19.0/24"),
 		)},
@@ -1053,7 +1053,7 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		InterfaceType:       "802.1q",
 		Disabled:            false,
 		NoAutoStart:         false,
-		ConfigType:          "static",
+		ConfigMethod:        "static",
 		Addresses: network.ProviderAddresses{newAddressOnSpaceWithId(
 			"storage", "3", "10.250.19.103", network.WithCIDR("10.250.19.0/24"),
 		)},
@@ -1121,7 +1121,7 @@ func (s *interfacesSuite) TestMAAS2InterfacesNilVLAN(c *gc.C) {
 		InterfaceType:     "ethernet",
 		Disabled:          false,
 		NoAutoStart:       false,
-		ConfigType:        "static",
+		ConfigMethod:      "static",
 		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
 			"default", "10.20.19.103", network.WithCIDR("10.20.19.0/24"),
 		)},

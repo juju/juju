@@ -15,7 +15,7 @@ import (
 	"github.com/juju/gomaasapi/v2"
 
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 )
 
 // TODO(dimitern): The types below should be part of gomaasapi.
@@ -186,26 +186,26 @@ func (env *maasEnviron) deviceInterfaces(deviceID instance.Id) ([]maasInterface,
 
 }
 
-func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentName map[string]string) (corenetwork.InterfaceInfos, error) {
+func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentName map[string]string) (network.InterfaceInfos, error) {
 	interfaces, err := env.deviceInterfaces(deviceID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	interfaceInfo := make(corenetwork.InterfaceInfos, 0, len(interfaces))
+	interfaceInfo := make(network.InterfaceInfos, 0, len(interfaces))
 	for _, nic := range interfaces {
-		nicInfo := corenetwork.InterfaceInfo{
+		nicInfo := network.InterfaceInfo{
 			InterfaceName:       nic.Name,
-			InterfaceType:       corenetwork.EthernetInterface,
+			InterfaceType:       network.EthernetInterface,
 			MACAddress:          nic.MACAddress,
 			MTU:                 nic.EffectveMTU,
 			VLANTag:             nic.VLAN.VID,
-			ProviderId:          corenetwork.Id(strconv.Itoa(nic.ID)),
-			ProviderVLANId:      corenetwork.Id(strconv.Itoa(nic.VLAN.ID)),
+			ProviderId:          network.Id(strconv.Itoa(nic.ID)),
+			ProviderVLANId:      network.Id(strconv.Itoa(nic.VLAN.ID)),
 			Disabled:            !nic.Enabled,
 			NoAutoStart:         !nic.Enabled,
 			ParentInterfaceName: nameToParentName[nic.Name],
-			Origin:              corenetwork.OriginProvider,
+			Origin:              network.OriginProvider,
 		}
 
 		if len(nic.Links) == 0 {
@@ -215,7 +215,7 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 		}
 
 		for _, link := range nic.Links {
-			nicInfo.ConfigType = maasLinkToInterfaceConfigType(string(link.Mode))
+			nicInfo.ConfigMethod = maasLinkToInterfaceConfigType(string(link.Mode))
 
 			if link.IPAddress == "" {
 				logger.Debugf("device %q interface %q has no address", deviceID, nic.Name)
@@ -233,16 +233,16 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 			// long-standing last-write-wins behavior that was
 			// present in the original code. Do we need to revisit
 			// this in the future and append link addresses to the list?
-			nicInfo.Addresses = corenetwork.ProviderAddresses{corenetwork.NewProviderAddressInSpace(
-				link.Subnet.Space, link.IPAddress, corenetwork.WithCIDR(link.Subnet.CIDR),
+			nicInfo.Addresses = network.ProviderAddresses{network.NewProviderAddressInSpace(
+				link.Subnet.Space, link.IPAddress, network.WithCIDR(link.Subnet.CIDR),
 			)}
-			nicInfo.ProviderSubnetId = corenetwork.Id(strconv.Itoa(link.Subnet.ID))
-			nicInfo.ProviderAddressId = corenetwork.Id(strconv.Itoa(link.ID))
+			nicInfo.ProviderSubnetId = network.Id(strconv.Itoa(link.Subnet.ID))
+			nicInfo.ProviderAddressId = network.Id(strconv.Itoa(link.ID))
 			if link.Subnet.GatewayIP != "" {
-				nicInfo.GatewayAddress = corenetwork.NewProviderAddressInSpace(link.Subnet.Space, link.Subnet.GatewayIP)
+				nicInfo.GatewayAddress = network.NewProviderAddressInSpace(link.Subnet.Space, link.Subnet.GatewayIP)
 			}
 			if len(link.Subnet.DNSServers) > 0 {
-				nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(
+				nicInfo.DNSServers = network.NewProviderAddressesInSpace(
 					link.Subnet.Space, link.Subnet.DNSServers...)
 			}
 
@@ -257,11 +257,11 @@ func (env *maasEnviron) deviceInterfaceInfo2(
 	device gomaasapi.Device,
 	nameToParentName map[string]string,
 	subnetToStaticRoutes map[string][]gomaasapi.StaticRoute,
-) (corenetwork.InterfaceInfos, error) {
+) (network.InterfaceInfos, error) {
 	deviceID := device.SystemID()
 	interfaces := device.InterfaceSet()
 
-	interfaceInfo := make(corenetwork.InterfaceInfos, 0, len(interfaces))
+	interfaceInfo := make(network.InterfaceInfos, 0, len(interfaces))
 	for idx, nic := range interfaces {
 		vlanId := 0
 		vlanVid := 0
@@ -270,19 +270,19 @@ func (env *maasEnviron) deviceInterfaceInfo2(
 			vlanId = vlan.ID()
 			vlanVid = vlan.VID()
 		}
-		nicInfo := corenetwork.InterfaceInfo{
+		nicInfo := network.InterfaceInfo{
 			DeviceIndex:         idx,
 			InterfaceName:       nic.Name(),
-			InterfaceType:       corenetwork.EthernetInterface,
+			InterfaceType:       network.EthernetInterface,
 			MACAddress:          nic.MACAddress(),
 			MTU:                 nic.EffectiveMTU(),
 			VLANTag:             vlanVid,
-			ProviderId:          corenetwork.Id(strconv.Itoa(nic.ID())),
-			ProviderVLANId:      corenetwork.Id(strconv.Itoa(vlanId)),
+			ProviderId:          network.Id(strconv.Itoa(nic.ID())),
+			ProviderVLANId:      network.Id(strconv.Itoa(vlanId)),
 			Disabled:            !nic.Enabled(),
 			NoAutoStart:         !nic.Enabled(),
 			ParentInterfaceName: nameToParentName[nic.Name()],
-			Origin:              corenetwork.OriginProvider,
+			Origin:              network.OriginProvider,
 		}
 		for _, link := range nic.Links() {
 			subnet := link.Subnet()
@@ -291,7 +291,7 @@ func (env *maasEnviron) deviceInterfaceInfo2(
 			}
 			routes := subnetToStaticRoutes[subnet.CIDR()]
 			for _, route := range routes {
-				nicInfo.Routes = append(nicInfo.Routes, corenetwork.Route{
+				nicInfo.Routes = append(nicInfo.Routes, network.Route{
 					DestinationCIDR: route.Destination().CIDR(),
 					GatewayIP:       route.GatewayIP(),
 					Metric:          route.Metric(),
@@ -306,7 +306,7 @@ func (env *maasEnviron) deviceInterfaceInfo2(
 		}
 
 		for _, link := range nic.Links() {
-			nicInfo.ConfigType = maasLinkToInterfaceConfigType(link.Mode())
+			nicInfo.ConfigMethod = maasLinkToInterfaceConfigType(link.Mode())
 
 			subnet := link.Subnet()
 			if link.IPAddress() == "" || subnet == nil {
@@ -317,16 +317,16 @@ func (env *maasEnviron) deviceInterfaceInfo2(
 
 			// NOTE(achilleasa): the original code used a last-write-wins
 			// policy. Do we need to append link addresses to the list?
-			nicInfo.Addresses = corenetwork.ProviderAddresses{corenetwork.NewProviderAddressInSpace(
-				subnet.Space(), link.IPAddress(), corenetwork.WithCIDR(subnet.CIDR()),
+			nicInfo.Addresses = network.ProviderAddresses{network.NewProviderAddressInSpace(
+				subnet.Space(), link.IPAddress(), network.WithCIDR(subnet.CIDR()),
 			)}
-			nicInfo.ProviderSubnetId = corenetwork.Id(strconv.Itoa(subnet.ID()))
-			nicInfo.ProviderAddressId = corenetwork.Id(strconv.Itoa(link.ID()))
+			nicInfo.ProviderSubnetId = network.Id(strconv.Itoa(subnet.ID()))
+			nicInfo.ProviderAddressId = network.Id(strconv.Itoa(link.ID()))
 			if subnet.Gateway() != "" {
-				nicInfo.GatewayAddress = corenetwork.NewProviderAddressInSpace(subnet.Space(), subnet.Gateway())
+				nicInfo.GatewayAddress = network.NewProviderAddressInSpace(subnet.Space(), subnet.Gateway())
 			}
 			if len(subnet.DNSServers()) > 0 {
-				nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(subnet.Space(), subnet.DNSServers()...)
+				nicInfo.DNSServers = network.NewProviderAddressesInSpace(subnet.Space(), subnet.DNSServers()...)
 			}
 
 			interfaceInfo = append(interfaceInfo, nicInfo)
@@ -341,7 +341,7 @@ type deviceCreatorParams struct {
 	Subnet               gomaasapi.Subnet // may be nil
 	PrimaryMACAddress    string
 	PrimaryNICName       string
-	DesiredInterfaceInfo corenetwork.InterfaceInfos
+	DesiredInterfaceInfo network.InterfaceInfos
 	CIDRToMAASSubnet     map[string]gomaasapi.Subnet
 	CIDRToStaticRoutes   map[string][]gomaasapi.StaticRoute
 	Machine              gomaasapi.Machine
@@ -499,7 +499,7 @@ func (env *maasEnviron) lookupStaticRoutes() (map[string][]gomaasapi.StaticRoute
 	return subnetToStaticRoutes, nil
 }
 
-func (env *maasEnviron) prepareDeviceDetails(name string, machine gomaasapi.Machine, preparedInfo corenetwork.InterfaceInfos) (deviceCreatorParams, error) {
+func (env *maasEnviron) prepareDeviceDetails(name string, machine gomaasapi.Machine, preparedInfo network.InterfaceInfos) (deviceCreatorParams, error) {
 	var zeroParams deviceCreatorParams
 
 	subnetCIDRToSubnet, err := env.lookupSubnets()
@@ -521,7 +521,7 @@ func (env *maasEnviron) prepareDeviceDetails(name string, machine gomaasapi.Mach
 		CIDRToStaticRoutes:   subnetToStaticRoutes,
 	}
 
-	var primaryNICInfo corenetwork.InterfaceInfo
+	var primaryNICInfo network.InterfaceInfo
 	for _, nic := range preparedInfo {
 		if nic.InterfaceName == params.PrimaryNICName {
 			primaryNICInfo = nic
@@ -544,7 +544,7 @@ func (env *maasEnviron) prepareDeviceDetails(name string, machine gomaasapi.Mach
 	return params, nil
 }
 
-func validateExistingDevice(netInfo corenetwork.InterfaceInfos, device gomaasapi.Device) (bool, error) {
+func validateExistingDevice(netInfo network.InterfaceInfos, device gomaasapi.Device) (bool, error) {
 	// Compare the desired device characteristics with the actual device
 	interfaces := device.InterfaceSet()
 	if len(interfaces) < len(netInfo) {
