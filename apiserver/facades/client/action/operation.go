@@ -106,7 +106,7 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 			currentResult.Error = common.ServerError(actionErr)
 			goto failOperation
 		}
-		enqueued, actionErr = receiver.AddAction(operationID, action.Name, action.Parameters)
+		enqueued, actionErr = a.model.AddAction(receiver, operationID, action.Name, action.Parameters)
 		if actionErr != nil {
 			currentResult.Error = common.ServerError(actionErr)
 			goto failOperation

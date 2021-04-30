@@ -773,6 +773,20 @@ func (m *Model) EnqueueAction(operationID string, receiver names.Tag, actionName
 	return nil, err
 }
 
+// AddAction adds a new Action of type name and using arguments payload to
+// the receiver, and returns its ID.
+func (m *Model) AddAction(receiver ActionReceiver, operationID, name string, payload map[string]interface{}) (Action, error) {
+	payload, err := receiver.PrepareActionPayload(name, payload)
+	if err != nil {
+		_, err2 := m.EnqueueAction(operationID, receiver.Tag(), name, payload, err)
+		if err2 != nil {
+			err = err2
+		}
+		return nil, errors.Trace(err)
+	}
+	return m.EnqueueAction(operationID, receiver.Tag(), name, payload, nil)
+}
+
 // matchingActions finds actions that match ActionReceiver.
 func (st *State) matchingActions(ar ActionReceiver) ([]Action, error) {
 	return st.matchingActionsByReceiverId(ar.Tag().Id())

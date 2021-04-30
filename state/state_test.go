@@ -614,7 +614,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 				operationID, err := m.EnqueueOperation("a test")
 				c.Assert(err, jc.ErrorIsNil)
-				_, err = unit.AddAction(operationID, "snapshot", nil)
+				_, err = m.AddAction(unit, operationID, "snapshot", nil)
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -3281,7 +3281,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	operationID, err := s.Model.EnqueueOperation("something")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit.AddAction(operationID, "fakeaction", nil)
+	_, err = s.Model.AddAction(unit, operationID, "fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "arble"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3362,7 +3362,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	f, err := u.AddAction(operationID, "snapshot", nil)
+	f, err := s.Model.AddAction(u, operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	action, err := s.Model.Action(f.Id())

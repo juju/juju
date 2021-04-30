@@ -2126,23 +2126,12 @@ func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
 	return sb.MachineVolumeAttachments(m.MachineTag())
 }
 
-// AddAction is part of the ActionReceiver interface.
-func (m *Machine) AddAction(operationID, name string, payload map[string]interface{}) (_ Action, err error) {
-	model, err := m.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
+// PrepareActionPayload returns the payload to use in creating an action for this machine.
+// Note that the use of spec.InsertDefaults mutates payload.
+func (m *Machine) PrepareActionPayload(name string, payload map[string]interface{}) (map[string]interface{}, error) {
+	if len(name) == 0 {
+		return nil, errors.New("no action name given")
 	}
-
-	saveActionError := true
-	defer func() {
-		if !saveActionError || err == nil {
-			return
-		}
-		_, err2 := model.EnqueueAction(operationID, m.Tag(), name, payload, err)
-		if err2 != nil {
-			err = err2
-		}
-	}()
 
 	spec, ok := actions.PredefinedActionsSpec[name]
 	if !ok {
@@ -2150,7 +2139,7 @@ func (m *Machine) AddAction(operationID, name string, payload map[string]interfa
 	}
 
 	// Reject bad payloads before attempting to insert defaults.
-	err = spec.ValidateParams(payload)
+	err := spec.ValidateParams(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -2158,9 +2147,7 @@ func (m *Machine) AddAction(operationID, name string, payload map[string]interfa
 	if err != nil {
 		return nil, err
 	}
-
-	saveActionError = false
-	return model.EnqueueAction(operationID, m.Tag(), name, payloadWithDefaults, nil)
+	return payloadWithDefaults, nil
 }
 
 // CancelAction is part of the ActionReceiver interface.

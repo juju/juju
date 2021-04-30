@@ -270,7 +270,7 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	c.Assert(res.Results[2].Error, gc.DeepEquals, &params.Error{Message: errorString, Code: "not implemented"})
 	c.Assert(res.Results[2].Action, gc.IsNil)
 
-	c.Assert(res.Results[3].Error, gc.ErrorMatches, "no action name given")
+	c.Assert(res.Results[3].Error, gc.ErrorMatches, "action name required")
 	c.Assert(res.Results[3].Action, gc.IsNil)
 
 	c.Assert(res.Results[4].Error, gc.IsNil)
@@ -671,7 +671,7 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	added, err := unit.AddAction(operationID, "fakeaction", nil)
+	added, err := s.Model.AddAction(unit, operationID, "fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := s.action.WatchActionsProgress(

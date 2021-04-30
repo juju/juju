@@ -2556,7 +2556,7 @@ func (s *MachineSuite) TestMachineValidActions(c *gc.C) {
 		c.Logf("running test %d", i)
 		operationID, err := s.Model.EnqueueOperation("a test")
 		c.Assert(err, jc.ErrorIsNil)
-		action, err := m.AddAction(operationID, t.actionName, t.givenPayload)
+		action, err := s.Model.AddAction(m, operationID, t.actionName, t.givenPayload)
 		if t.errString != "" {
 			c.Assert(err.Error(), gc.Equals, t.errString)
 			continue
@@ -2573,7 +2573,7 @@ func (s *MachineSuite) TestAddActionWithError(c *gc.C) {
 
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = m.AddAction(operationID, "benchmark", nil)
+	_, err = s.Model.AddAction(m, operationID, "benchmark", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add action "benchmark" to a machine; only predefined actions allowed`)
 	op, err := s.Model.Operation(operationID)
 	c.Assert(err, jc.ErrorIsNil)
