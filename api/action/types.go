@@ -23,6 +23,7 @@ type Operations struct {
 type Operation struct {
 	ID        string
 	Summary   string
+	Fail      string
 	Enqueued  time.Time
 	Started   time.Time
 	Completed time.Time
@@ -224,6 +225,7 @@ func unmarshallOperations(in params.OperationResults) Operations {
 func unmarshallOperation(in params.OperationResult) Operation {
 	result := Operation{
 		Summary:   in.Summary,
+		Fail:      in.Fail,
 		Enqueued:  in.Enqueued,
 		Started:   in.Started,
 		Completed: in.Completed,

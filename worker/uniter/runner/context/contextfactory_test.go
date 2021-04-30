@@ -176,7 +176,7 @@ func (s *ContextFactorySuite) TestNewActionContextLeadershipContext(c *gc.C) {
 		s.SetCharm(c, "dummy")
 		operationID, err := s.Model(c).EnqueueOperation("a test")
 		c.Assert(err, jc.ErrorIsNil)
-		action, err := s.Model(c).EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil)
+		action, err := s.Model(c).EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 
 		actionData := &context.ActionData{
@@ -577,7 +577,7 @@ func (s *ContextFactorySuite) TestActionContext(c *gc.C) {
 	s.SetCharm(c, "dummy")
 	operationID, err := s.Model(c).EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.Model(c).EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil)
+	action, err := s.Model(c).EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actionData := &context.ActionData{

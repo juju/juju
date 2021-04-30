@@ -25,7 +25,7 @@ var _ = gc.Suite(&clusterRoleSuite{})
 func (s *clusterRoleSuite) TestApply(c *gc.C) {
 	role := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "role1",
+			Name: "role1",
 		},
 	}
 	// Create.
@@ -37,7 +37,7 @@ func (s *clusterRoleSuite) TestApply(c *gc.C) {
 
 	// Update.
 	role.SetAnnotations(map[string]string{"a": "b"})
-	clusterRoleResource = resources.NewClusterRole("role1",role)
+	clusterRoleResource = resources.NewClusterRole("role1", role)
 	c.Assert(clusterRoleResource.Apply(context.TODO(), s.client), jc.ErrorIsNil)
 
 	result, err = s.client.RbacV1().ClusterRoles().Get(context.TODO(), "role1", metav1.GetOptions{})
@@ -49,7 +49,7 @@ func (s *clusterRoleSuite) TestApply(c *gc.C) {
 func (s *clusterRoleSuite) TestGet(c *gc.C) {
 	template := rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "role1",
+			Name: "role1",
 		},
 	}
 	role1 := template
@@ -68,7 +68,7 @@ func (s *clusterRoleSuite) TestGet(c *gc.C) {
 func (s *clusterRoleSuite) TestDelete(c *gc.C) {
 	role := rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "role1",
+			Name: "role1",
 		},
 	}
 	_, err := s.client.RbacV1().ClusterRoles().Create(context.TODO(), &role, metav1.CreateOptions{})
@@ -78,7 +78,7 @@ func (s *clusterRoleSuite) TestDelete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.GetName(), gc.Equals, `role1`)
 
-	roleResource := resources.NewClusterRole("role1",&role)
+	roleResource := resources.NewClusterRole("role1", &role)
 	err = roleResource.Delete(context.TODO(), s.client)
 	c.Assert(err, jc.ErrorIsNil)
 

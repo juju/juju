@@ -258,7 +258,7 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 
 	emptyActionTag := names.ActionTag{}
 	c.Assert(res.Results[0].Error, gc.DeepEquals,
-		&params.Error{Message: fmt.Sprintf("%s not valid", arg.Actions[0].Receiver), Code: ""})
+		&params.Error{Message: fmt.Sprintf("%q not valid", arg.Actions[0].Receiver), Code: ""})
 	c.Assert(res.Results[0].Action, gc.IsNil)
 
 	c.Assert(res.Results[1].Error, gc.IsNil)
@@ -270,7 +270,7 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	c.Assert(res.Results[2].Error, gc.DeepEquals, &params.Error{Message: errorString, Code: "not implemented"})
 	c.Assert(res.Results[2].Action, gc.IsNil)
 
-	c.Assert(res.Results[3].Error, gc.ErrorMatches, "no action name given")
+	c.Assert(res.Results[3].Error, gc.ErrorMatches, "action name required")
 	c.Assert(res.Results[3].Action, gc.IsNil)
 
 	c.Assert(res.Results[4].Error, gc.IsNil)
@@ -297,6 +297,51 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(operations, gc.HasLen, 1)
 	c.Assert(operations[0].Summary(), gc.Equals, "multiple actions run on unit-wordpress-0,application-wordpress,unit-mysql-0,wordpress/leader")
+}
+
+func (s *actionSuite) TestEnqueueOperation(c *gc.C) {
+	s.toSupportNewActionID(c)
+
+	unit, err := s.State.Unit("mysql/0")
+	c.Assert(err, jc.ErrorIsNil)
+	assertReadyToTest(c, unit)
+
+	expectedParameters := map[string]interface{}{"kan jy nie": "verstaand"}
+	arg := params.Actions{
+		Actions: []params.Action{
+			// No receiver.
+			{Name: "fakeaction"},
+			// Good.
+			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: expectedParameters},
+			// Application tag instead of Unit tag.
+			{Receiver: s.wordpress.Tag().String(), Name: "fakeaction"},
+		},
+	}
+	result, err := s.action.EnqueueOperation(arg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.EnqueuedActions{
+		OperationTag: result.OperationTag,
+		Actions: []params.StringResult{{
+			Error: &params.Error{Message: `"" not valid`},
+		}, {
+			Result: "action-2",
+		}, {
+			Error: &params.Error{
+				Message: "action receiver interface on entity application-wordpress not implemented",
+				Code:    "not implemented"},
+		}},
+	})
+
+	opInfo, _, err := s.Model.ListOperations(nil, nil, nil, 0, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	// Operation is in error because at least one action was.
+	c.Assert(opInfo, gc.HasLen, 1)
+	c.Assert(opInfo[0].Operation.Status(), gc.Equals, state.ActionError)
+	c.Assert(opInfo[0].Operation.Summary(), gc.Equals, "fakeaction run on unit-wordpress-0,application-wordpress")
+	// Only the valid action gets queued.
+	c.Assert(opInfo[0].Actions, gc.HasLen, 1)
+	c.Assert(opInfo[0].Actions[0].Receiver(), gc.Equals, s.wordpressUnit.Name())
+	c.Assert(opInfo[0].Actions[0].Status(), gc.Equals, state.ActionPending)
 }
 
 type testCaseAction struct {
@@ -626,7 +671,7 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	added, err := unit.AddAction(operationID, "fakeaction", nil)
+	added, err := s.Model.AddAction(unit, operationID, "fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := s.action.WatchActionsProgress(
