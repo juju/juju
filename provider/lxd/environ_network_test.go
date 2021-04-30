@@ -4,17 +4,17 @@
 package lxd
 
 import (
-	jujulxd "github.com/juju/juju/container/lxd"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	lxdapi "github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
+
+	jujulxd "github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 )
 
 type environNetSuite struct {
@@ -33,7 +33,7 @@ func (s *environNetSuite) TestSubnetsForUnknownContainer(c *gc.C) {
 	env := s.NewEnviron(c, srv, nil).(*environ)
 
 	ctx := context.NewCloudCallContext()
-	_, err := env.Subnets(ctx, instance.Id("bogus"), nil)
+	_, err := env.Subnets(ctx, "bogus", nil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -117,7 +117,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 	env := s.NewEnviron(c, srv, nil).(*environ)
 
 	ctx := context.NewCloudCallContext()
-	subnets, err := env.Subnets(ctx, instance.Id("woot"), nil)
+	subnets, err := env.Subnets(ctx, "woot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expSubnets := []network.SubnetInfo{
@@ -183,7 +183,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C
 
 	// Filter list so we only get a single subnet
 	ctx := context.NewCloudCallContext()
-	subnets, err := env.Subnets(ctx, instance.Id("woot"), []network.Id{"subnet-lxdbr0-10.55.158.0/24"})
+	subnets, err := env.Subnets(ctx, "woot", []network.Id{"subnet-lxdbr0-10.55.158.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expSubnets := []network.SubnetInfo{
@@ -384,7 +384,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 				ParentInterfaceName: "lxdbr0",
 				InterfaceType:       network.EthernetInterface,
 				Origin:              network.OriginProvider,
-				ConfigType:          network.ConfigStatic,
+				ConfigMethod:        network.StaticAddress,
 				ProviderId:          "nic-00:16:3e:19:29:cb",
 				ProviderSubnetId:    "subnet-lxdbr0-10.55.158.0/24",
 				ProviderNetworkId:   "net-lxdbr0",
@@ -400,7 +400,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 				ParentInterfaceName: "ovsbr0",
 				InterfaceType:       network.EthernetInterface,
 				Origin:              network.OriginProvider,
-				ConfigType:          network.ConfigStatic,
+				ConfigMethod:        network.StaticAddress,
 				ProviderId:          "nic-00:16:3e:fe:fe:fe",
 				ProviderSubnetId:    "subnet-ovsbr0-10.42.42.0/24",
 				ProviderNetworkId:   "net-ovsbr0",
@@ -462,7 +462,7 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 				ParentInterfaceName: "lxdbr0",
 				InterfaceType:       network.EthernetInterface,
 				Origin:              network.OriginProvider,
-				ConfigType:          network.ConfigStatic,
+				ConfigMethod:        network.StaticAddress,
 				ProviderId:          "nic-00:16:3e:19:29:cb",
 				ProviderSubnetId:    "subnet-lxdbr0-10.55.158.0/24",
 				ProviderNetworkId:   "net-lxdbr0",

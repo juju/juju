@@ -24,7 +24,7 @@ var _ environs.Networking = (*environ)(nil)
 
 // Subnets returns basic information about subnets known by the provider for
 // the environment.
-func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, subnetIDs []network.Id) ([]network.SubnetInfo, error) {
+func (e *environ) Subnets(_ context.ProviderCallContext, inst instance.Id, subnetIDs []network.Id) ([]network.SubnetInfo, error) {
 	srv := e.server()
 
 	// All containers will have the same view on the LXD network. If an
@@ -224,7 +224,7 @@ func makeSubnetInfo(subnetID network.Id, networkID network.Id, cidr, azName stri
 // was no other error, it will return ErrNoInstances. If some but not all of
 // the instances were found, the returned slice will have some nil slots, and
 // an ErrPartialInstances error will be returned.
-func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error) {
+func (e *environ) NetworkInterfaces(_ context.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error) {
 	var (
 		missing int
 		srv     = e.server()
@@ -246,8 +246,8 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 		// Sort interfaces by name to ensure consistent device indexes
 		// across calls when we iterate the container's network map.
 		guestNetworkNames := make([]string, 0, len(state.Network))
-		for network := range state.Network {
-			guestNetworkNames = append(guestNetworkNames, network)
+		for netName := range state.Network {
+			guestNetworkNames = append(guestNetworkNames, netName)
 		}
 		sort.Strings(guestNetworkNames)
 
@@ -296,11 +296,11 @@ func makeInterfaceInfo(container *lxdapi.Container, guestNetworkName string, net
 		// We cannot tell from the API response whether the interface
 		// uses a static or DHCP configuration; assume static unless
 		// this is a loopback device (see below).
-		ConfigType: network.ConfigStatic,
+		ConfigMethod: network.StaticAddress,
 	}
 
 	if ni.InterfaceType == network.LoopbackInterface {
-		ni.ConfigType = network.ConfigLoopback
+		ni.ConfigMethod = network.LoopbackAddress
 	}
 
 	if ni.ParentInterfaceName != "" {
@@ -461,13 +461,13 @@ func (*environ) AllocateContainerAddresses(context.ProviderCallContext, instance
 }
 
 // ReleaseContainerAddresses releases the previously allocated
-// addaddresses matching the interface details passed in.
+// addresses matching the interface details passed in.
 func (*environ) ReleaseContainerAddresses(context.ProviderCallContext, []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
 }
 
-// SSHAddresses filters the input addaddresses to those suitable for SSH use.
-func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
+// SSHAddresses filters the input addresses to those suitable for SSH use.
+func (*environ) SSHAddresses(_ context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
 	return addresses, nil
 }
 
