@@ -2801,10 +2801,9 @@ func (u *Unit) UnassignFromMachine() (err error) {
 // ActionSpecsByName is a map of action names to their respective ActionSpec.
 type ActionSpecsByName map[string]charm.ActionSpec
 
-// AddAction adds a new Action of type name and using arguments payload to
-// this Unit, and returns its ID.  Note that the use of spec.InsertDefaults
-// mutates payload.
-func (u *Unit) AddAction(operationID, name string, payload map[string]interface{}) (Action, error) {
+// PrepareActionPayload returns the payload to use in creating an action for this unit.
+// Note that the use of spec.InsertDefaults mutates payload.
+func (u *Unit) PrepareActionPayload(name string, payload map[string]interface{}) (map[string]interface{}, error) {
 	if len(name) == 0 {
 		return nil, errors.New("no action name given")
 	}
@@ -2845,12 +2844,7 @@ func (u *Unit) AddAction(operationID, name string, payload map[string]interface{
 			payloadWithDefaults["workload-context"] = false
 		}
 	}
-
-	m, err := u.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return m.EnqueueAction(operationID, u.Tag(), name, payloadWithDefaults)
+	return payloadWithDefaults, nil
 }
 
 // ActionSpecs gets the ActionSpec map for the Unit's charm.

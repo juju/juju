@@ -49,8 +49,8 @@ func (s *ListOperationsSuite) TestInit(c *gc.C) {
 		expectedErr: "invalid machine id \"" + invalidMachineId + "\"",
 	}, {
 		should:      "fail with invalid status value",
-		args:        []string{"--status", "pending," + "error"},
-		expectedErr: `"error" is not a valid task status, want one of \[pending running completed failed cancelled aborting aborted\]`,
+		args:        []string{"--status", "pending," + "foo"},
+		expectedErr: `"foo" is not a valid task status, want one of \[pending running completed failed cancelled aborting aborted error\]`,
 	}, {
 		should:      "fail with multiple errors",
 		args:        []string{"--units", "valid/0," + invalidUnitId, "--apps", "valid," + invalidApplicationId},
@@ -116,11 +116,12 @@ var listOperationResults = []params.OperationResult{
 			},
 		}},
 		Summary:      "operation 1",
+		Fail:         "fail",
 		OperationTag: "operation-1",
-		Enqueued:     time.Time{},
-		Started:      time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
+		Enqueued:     time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
+		Started:      time.Time{},
 		Completed:    time.Time{},
-		Status:       "completed",
+		Status:       "error",
 	}, {
 		Actions: []params.ActionResult{{
 			Action: &params.Action{
@@ -186,11 +187,11 @@ func (s *ListOperationsSuite) TestRunPlain(c *gc.C) {
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--utc")
 		c.Assert(err, jc.ErrorIsNil)
 		expected := `
-Id  Status     Started              Finished             Task IDs  Summary
- 1  completed  2015-02-14T06:06:06                       2         operation 1
- 3  running                         2014-02-14T06:06:06  4         operation 3
- 5  pending                                              6         operation 5
- 7  error                                                          operation 7
+Id  Status   Started  Finished             Task IDs  Summary
+ 1  error                                  2         operation 1
+ 3  running           2014-02-14T06:06:06  4         operation 3
+ 5  pending                                6         operation 5
+ 7  error                                            operation 7
 
 `[1:]
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
@@ -233,6 +234,7 @@ var listOperationManyTasksResults = []params.OperationResult{
 		}},
 		Summary:      "operation 1",
 		OperationTag: "operation-1",
+		Fail:         "fail",
 		Enqueued:     time.Time{},
 		Started:      time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
 		Completed:    time.Time{},
@@ -276,12 +278,13 @@ func (s *ListOperationsSuite) TestRunYaml(c *gc.C) {
 		expected := `
 "1":
   summary: operation 1
-  status: completed
+  status: error
+  fail: fail
   action:
     name: backup
     parameters: {}
   timing:
-    started: 2015-02-14 06:06:06 +0000 UTC
+    enqueued: 2015-02-14 06:06:06 +0000 UTC
   tasks:
     "2":
       host: mysql/0

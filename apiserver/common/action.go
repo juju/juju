@@ -34,6 +34,8 @@ func ParamsActionExecutionResultsToStateActionResults(arg params.ActionExecution
 		status = state.ActionAborting
 	case params.ActionAborted:
 		status = state.ActionAborted
+	case params.ActionError:
+		status = state.ActionError
 	default:
 		return state.ActionResults{}, errors.Errorf("unrecognized action status '%s'", arg.Status)
 	}
@@ -44,17 +46,17 @@ func ParamsActionExecutionResultsToStateActionResults(arg params.ActionExecution
 	}, nil
 }
 
-// TagToActionReceiver takes a tag string and tries to convert it to an
+// TagToActionReceiverFn takes a tag string and tries to convert it to an
 // ActionReceiver. It needs a findEntity function passed in that can search for the tags in state.
 func TagToActionReceiverFn(findEntity func(names.Tag) (state.Entity, error)) func(tag string) (state.ActionReceiver, error) {
 	return func(tag string) (state.ActionReceiver, error) {
 		receiverTag, err := names.ParseTag(tag)
 		if err != nil {
-			return nil, errors.NotValidf("%s", tag)
+			return nil, errors.NotValidf("%q", tag)
 		}
 		entity, err := findEntity(receiverTag)
 		if err != nil {
-			return nil, errors.NotFoundf("%s", receiverTag)
+			return nil, errors.NotFoundf("%q", receiverTag)
 		}
 		receiver, ok := entity.(state.ActionReceiver)
 		if !ok {

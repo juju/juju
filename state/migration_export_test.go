@@ -1570,7 +1570,7 @@ func (s *MigrationExportSuite) TestActions(c *gc.C) {
 
 	operationID, err := m.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	a, err := m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil)
+	a, err := m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	a, err = a.Begin()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1603,7 +1603,7 @@ func (s *MigrationExportSuite) TestActionsSkipped(c *gc.C) {
 
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil)
+	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	model, err := s.State.ExportPartial(state.ExportConfig{
 		SkipActions: true,
@@ -1617,18 +1617,12 @@ func (s *MigrationExportSuite) TestActionsSkipped(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestOperations(c *gc.C) {
-	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
-	})
-
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	operationID, err := m.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	a, err := m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	a, err = a.Begin()
+	err = m.FailOperation(operationID, errors.New("fail"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
@@ -1637,7 +1631,8 @@ func (s *MigrationExportSuite) TestOperations(c *gc.C) {
 	c.Assert(operations, gc.HasLen, 1)
 	op := operations[0]
 	c.Check(op.Summary(), gc.Equals, "a test")
-	c.Check(op.Status(), gc.Equals, "running")
+	c.Check(op.Fail(), gc.Equals, "fail")
+	c.Check(op.Status(), gc.Equals, "error")
 }
 
 type goodToken struct{}

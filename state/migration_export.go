@@ -1652,6 +1652,7 @@ func (e *exporter) operations() error {
 	for _, op := range operations {
 		arg := description.OperationArgs{
 			Summary:           op.Summary(),
+			Fail:              op.Fail(),
 			Enqueued:          op.Enqueued(),
 			Started:           op.Started(),
 			Completed:         op.Completed(),
