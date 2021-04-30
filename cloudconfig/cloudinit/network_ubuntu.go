@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/network/netplan"
 )
 
@@ -28,7 +28,7 @@ var (
 
 // GenerateENITemplate renders an e/n/i template config for one or more network
 // interfaces, using the given non-empty interfaces list.
-func GenerateENITemplate(interfaces corenetwork.InterfaceInfos) (string, error) {
+func GenerateENITemplate(interfaces network.InterfaceInfos) (string, error) {
 	if len(interfaces) == 0 {
 		return "", errors.Errorf("missing container network config")
 	}
@@ -70,7 +70,7 @@ func GenerateENITemplate(interfaces corenetwork.InterfaceInfos) (string, error) 
 		if !hasAddress {
 			output.WriteString("iface " + name + " inet manual\n")
 			continue
-		} else if address == string(corenetwork.ConfigDHCP) {
+		} else if address == string(network.DynamicAddress) {
 			output.WriteString("iface " + name + " inet dhcp\n")
 			// We're expecting to get a default gateway
 			// from the DHCP lease.
@@ -140,7 +140,7 @@ func GenerateENITemplate(interfaces corenetwork.InterfaceInfos) (string, error) 
 
 // GenerateNetplan renders a netplan file for one or more network
 // interfaces, using the given non-empty list of interfaces.
-func GenerateNetplan(interfaces corenetwork.InterfaceInfos) (string, error) {
+func GenerateNetplan(interfaces network.InterfaceInfos) (string, error) {
 	if len(interfaces) == 0 {
 		return "", errors.Errorf("missing container network config")
 	}
@@ -156,7 +156,7 @@ func GenerateNetplan(interfaces corenetwork.InterfaceInfos) (string, error) {
 		}
 		if cidr != "" {
 			iface.Addresses = append(iface.Addresses, cidr)
-		} else if info.ConfigType == corenetwork.ConfigDHCP {
+		} else if info.ConfigMethod == network.DynamicAddress {
 			t := true
 			iface.DHCP4 = &t
 		}
@@ -168,9 +168,9 @@ func GenerateNetplan(interfaces corenetwork.InterfaceInfos) (string, error) {
 
 		if info.GatewayAddress.Value != "" {
 			switch {
-			case info.GatewayAddress.Type == corenetwork.IPv4Address:
+			case info.GatewayAddress.Type == network.IPv4Address:
 				iface.Gateway4 = info.GatewayAddress.Value
-			case info.GatewayAddress.Type == corenetwork.IPv6Address:
+			case info.GatewayAddress.Type == network.IPv6Address:
 				iface.Gateway6 = info.GatewayAddress.Value
 			}
 		}
@@ -208,7 +208,7 @@ type PreparedConfig struct {
 	DNSServers       []string
 	DNSSearchDomains []string
 	NameToAddress    map[string]string
-	NameToRoutes     map[string][]corenetwork.Route
+	NameToRoutes     map[string][]network.Route
 	NameToMTU        map[string]int
 	Gateway4Address  string
 	Gateway6Address  string
@@ -217,14 +217,14 @@ type PreparedConfig struct {
 // PrepareNetworkConfigFromInterfaces collects the necessary information to
 // render a persistent network config from the given slice of
 // network.InterfaceInfo. The result always includes the loopback interface.
-func PrepareNetworkConfigFromInterfaces(interfaces corenetwork.InterfaceInfos) (*PreparedConfig, error) {
+func PrepareNetworkConfigFromInterfaces(interfaces network.InterfaceInfos) (*PreparedConfig, error) {
 	dnsServers := set.NewStrings()
 	dnsSearchDomains := set.NewStrings()
 	gateway4Address := ""
 	gateway6Address := ""
 	namesInOrder := make([]string, 1, len(interfaces)+1)
 	nameToAddress := make(map[string]string)
-	nameToRoutes := make(map[string][]corenetwork.Route)
+	nameToRoutes := make(map[string][]network.Route)
 	nameToMTU := make(map[string]int)
 
 	// Always include the loopback.
@@ -237,9 +237,9 @@ func PrepareNetworkConfigFromInterfaces(interfaces corenetwork.InterfaceInfos) (
 	for _, info := range interfaces {
 		if info.IsDefaultGateway {
 			switch info.GatewayAddress.Type {
-			case corenetwork.IPv4Address:
+			case network.IPv4Address:
 				gateway4Address = info.GatewayAddress.Value
-			case corenetwork.IPv6Address:
+			case network.IPv6Address:
 				gateway6Address = info.GatewayAddress.Value
 			}
 		}
@@ -260,8 +260,8 @@ func PrepareNetworkConfigFromInterfaces(interfaces corenetwork.InterfaceInfos) (
 		}
 		if cidr != "" {
 			nameToAddress[ifaceName] = cidr
-		} else if info.ConfigType == corenetwork.ConfigDHCP {
-			nameToAddress[ifaceName] = string(corenetwork.ConfigDHCP)
+		} else if info.ConfigMethod == network.DynamicAddress {
+			nameToAddress[ifaceName] = string(network.DynamicAddress)
 		}
 		nameToRoutes[ifaceName] = info.Routes
 
@@ -273,10 +273,10 @@ func PrepareNetworkConfigFromInterfaces(interfaces corenetwork.InterfaceInfos) (
 
 		if info.GatewayAddress.Value != "" {
 			switch {
-			case gateway4Address == "" && info.GatewayAddress.Type == corenetwork.IPv4Address:
+			case gateway4Address == "" && info.GatewayAddress.Type == network.IPv4Address:
 				gateway4Address = info.GatewayAddress.Value
 
-			case gateway6Address == "" && info.GatewayAddress.Type == corenetwork.IPv6Address:
+			case gateway6Address == "" && info.GatewayAddress.Type == network.IPv6Address:
 				gateway6Address = info.GatewayAddress.Value
 			}
 		}
@@ -307,7 +307,7 @@ func PrepareNetworkConfigFromInterfaces(interfaces corenetwork.InterfaceInfos) (
 // AddNetworkConfig adds configuration scripts for specified interfaces
 // to cloudconfig - using boot textfiles and boot commands. It currently
 // supports e/n/i and netplan.
-func (cfg *ubuntuCloudConfig) AddNetworkConfig(interfaces corenetwork.InterfaceInfos) error {
+func (cfg *ubuntuCloudConfig) AddNetworkConfig(interfaces network.InterfaceInfos) error {
 	if len(interfaces) != 0 {
 		eni, err := GenerateENITemplate(interfaces)
 		if err != nil {

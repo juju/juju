@@ -21,7 +21,7 @@ import (
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/container"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/testing"
 )
 
@@ -32,7 +32,7 @@ type NetworkUbuntuSuite struct {
 	systemNetworkInterfacesFile string
 	jujuNetplanFile             string
 
-	fakeInterfaces corenetwork.InterfaceInfos
+	fakeInterfaces network.InterfaceInfos
 
 	expectedSampleConfigHeader      string
 	expectedSampleConfigTemplate    string
@@ -66,55 +66,55 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 	s.networkInterfacesPythonFile = filepath.Join(networkFolder, "system-interfaces.py")
 	s.jujuNetplanFile = filepath.Join(netplanFolder, "79-juju.yaml")
 
-	s.fakeInterfaces = corenetwork.InterfaceInfos{{
+	s.fakeInterfaces = network.InterfaceInfos{{
 		InterfaceName: "any0",
-		ConfigType:    corenetwork.ConfigStatic,
+		ConfigMethod:  network.StaticAddress,
 		NoAutoStart:   false,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("0.1.2.3", corenetwork.WithCIDR("0.1.2.0/24"))},
-		DNSServers:       corenetwork.NewProviderAddresses("ns1.invalid", "ns2.invalid"),
+		Addresses: network.ProviderAddresses{
+			network.NewProviderAddress("0.1.2.3", network.WithCIDR("0.1.2.0/24"))},
+		DNSServers:       network.NewProviderAddresses("ns1.invalid", "ns2.invalid"),
 		DNSSearchDomains: []string{"foo", "bar"},
-		GatewayAddress:   corenetwork.NewProviderAddress("0.1.2.1"),
+		GatewayAddress:   network.NewProviderAddress("0.1.2.1"),
 		MACAddress:       "aa:bb:cc:dd:ee:f0",
 		MTU:              8317,
 	}, {
 		InterfaceName: "any1",
-		ConfigType:    corenetwork.ConfigStatic,
+		ConfigMethod:  network.StaticAddress,
 		NoAutoStart:   false,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("0.2.2.4", corenetwork.WithCIDR("0.2.2.0/24"))},
-		DNSServers:       corenetwork.NewProviderAddresses("ns1.invalid", "ns2.invalid"),
+		Addresses: network.ProviderAddresses{
+			network.NewProviderAddress("0.2.2.4", network.WithCIDR("0.2.2.0/24"))},
+		DNSServers:       network.NewProviderAddresses("ns1.invalid", "ns2.invalid"),
 		DNSSearchDomains: []string{"foo", "bar"},
-		GatewayAddress:   corenetwork.NewProviderAddress("0.2.2.1"),
+		GatewayAddress:   network.NewProviderAddress("0.2.2.1"),
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
-		Routes: []corenetwork.Route{{
+		Routes: []network.Route{{
 			DestinationCIDR: "0.5.6.0/24",
 			GatewayIP:       "0.2.2.1",
 			Metric:          50,
 		}},
 	}, {
 		InterfaceName: "any2",
-		ConfigType:    corenetwork.ConfigDHCP,
+		ConfigMethod:  network.DynamicAddress,
 		MACAddress:    "aa:bb:cc:dd:ee:f2",
 		NoAutoStart:   true,
 	}, {
 		InterfaceName: "any3",
-		ConfigType:    corenetwork.ConfigDHCP,
+		ConfigMethod:  network.DynamicAddress,
 		MACAddress:    "aa:bb:cc:dd:ee:f3",
 		NoAutoStart:   false,
 	}, {
 		InterfaceName: "any4",
-		ConfigType:    corenetwork.ConfigManual,
+		ConfigMethod:  network.ManualAddress,
 		MACAddress:    "aa:bb:cc:dd:ee:f4",
 		NoAutoStart:   true,
 	}, {
 		InterfaceName: "any5",
-		ConfigType:    corenetwork.ConfigStatic,
+		ConfigMethod:  network.StaticAddress,
 		MACAddress:    "aa:bb:cc:dd:ee:f5",
 		NoAutoStart:   false,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("2001:db8::dead:beef", corenetwork.WithCIDR("2001:db8::/64"))},
-		GatewayAddress: corenetwork.NewProviderAddress("2001:db8::dead:f00"),
+		Addresses: network.ProviderAddresses{
+			network.NewProviderAddress("2001:db8::dead:beef", network.WithCIDR("2001:db8::/64"))},
+		GatewayAddress: network.NewProviderAddress("2001:db8::dead:f00"),
 	}}
 
 	for _, version := range []string{
