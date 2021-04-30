@@ -34,7 +34,7 @@ type sshContainerSuite struct {
 	testing.BaseSuite
 
 	modelUUID          string
-	modelName string
+	modelName          string
 	cloudCredentialAPI *mocks.MockCloudCredentialAPI
 	modelAPI           *mocks.MockModelAPI
 	applicationAPI     *mocks.MockApplicationAPI
@@ -306,7 +306,7 @@ func (s *sshContainerSuite) TestGetExecClient(c *gc.C) {
 		s.modelAPI.EXPECT().ModelInfo([]names.ModelTag{names.NewModelTag(s.modelUUID)}).
 			Return([]params.ModelInfoResult{
 				{Result: &params.ModelInfo{
-					Name: s.modelName,
+					Name:               s.modelName,
 					CloudCredentialTag: "cloudcred-microk8s_admin_microk8s"}},
 			}, nil),
 		s.cloudCredentialAPI.EXPECT().CredentialContents(cloudCredentailTag.Cloud().Id(), cloudCredentailTag.Name(), true).

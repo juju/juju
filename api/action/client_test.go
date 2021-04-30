@@ -231,7 +231,8 @@ func (s *actionSuite) TestListOperations(c *gc.C) {
 					Results: []params.OperationResult{{
 						OperationTag: "operation-1",
 						Summary:      "hello",
-						Status:       "running",
+						Fail:         "fail",
+						Status:       "error",
 						Actions: []params.ActionResult{{
 							Action: &params.Action{Tag: "action-666", Name: "test", Receiver: "unit-mysql-0"},
 						}},
@@ -258,7 +259,8 @@ func (s *actionSuite) TestListOperations(c *gc.C) {
 		Operations: []action.Operation{{
 			ID:      "1",
 			Summary: "hello",
-			Status:  "running",
+			Status:  "error",
+			Fail:    "fail",
 			Actions: []action.ActionResult{{
 				Action: &action.Action{ID: "666", Name: "test", Receiver: "unit-mysql-0"},
 			}},
@@ -300,6 +302,7 @@ func (s *actionSuite) TestOperation(c *gc.C) {
 					Results: []params.OperationResult{{
 						OperationTag: "operation-1",
 						Summary:      "hello",
+						Fail:         "fail",
 						Actions: []params.ActionResult{{
 							Action: &params.Action{Tag: "action-666", Name: "test", Receiver: "unit-mysql-0"},
 						}},
@@ -316,6 +319,7 @@ func (s *actionSuite) TestOperation(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, action.Operation{
 		ID:      "1",
 		Summary: "hello",
+		Fail:    "fail",
 		Actions: []action.ActionResult{{
 			Action: &action.Action{ID: "666", Name: "test", Receiver: "unit-mysql-0"},
 		}},

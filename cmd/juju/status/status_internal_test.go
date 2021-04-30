@@ -5338,11 +5338,11 @@ func (s *StatusSuite) TestFormatTabularCAASModelTruncatedVersion(c *gc.C) {
 				},
 			},
 			"bar": {
-				Charm: "bar",
+				Charm:       "bar",
 				CharmOrigin: "charmhub",
-				Scale:   1,
-				Address: "54.32.1.3",
-				Version: "registry.jujucharms.com/fredbloggsthethrid/bar/image:0.5",
+				Scale:       1,
+				Address:     "54.32.1.3",
+				Version:     "registry.jujucharms.com/fredbloggsthethrid/bar/image:0.5",
 				Units: map[string]unitStatus{
 					"bar/0": {
 						JujuStatusInfo: statusInfoContents{

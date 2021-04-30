@@ -43,7 +43,7 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 			// add each action from the test case.
 			for j, act := range group.Actions {
 				// add action.
-				added, err := unit.AddAction(operationID, act.Name, act.Parameters)
+				added, err := s.Model.AddAction(unit, operationID, act.Name, act.Parameters)
 				c.Assert(err, jc.ErrorIsNil)
 
 				// make expectation
@@ -129,7 +129,7 @@ func (s *actionSuite) TestListPending(c *gc.C) {
 			// add each action from the test case.
 			for _, act := range group.Actions {
 				// add action.
-				added, err := unit.AddAction(operationID, act.Name, act.Parameters)
+				added, err := s.Model.AddAction(unit, operationID, act.Name, act.Parameters)
 				c.Assert(err, jc.ErrorIsNil)
 
 				if act.Execute {
@@ -194,7 +194,7 @@ func (s *actionSuite) TestListRunning(c *gc.C) {
 			// add each action from the test case.
 			for _, act := range group.Actions {
 				// add action.
-				added, err := unit.AddAction(operationID, act.Name, act.Parameters)
+				added, err := s.Model.AddAction(unit, operationID, act.Name, act.Parameters)
 				c.Assert(err, jc.ErrorIsNil)
 
 				if act.Execute {
@@ -255,7 +255,7 @@ func (s *actionSuite) TestListCompleted(c *gc.C) {
 			// add each action from the test case.
 			for _, act := range group.Actions {
 				// add action.
-				added, err := unit.AddAction(operationID, act.Name, act.Parameters)
+				added, err := s.Model.AddAction(unit, operationID, act.Name, act.Parameters)
 				c.Assert(err, jc.ErrorIsNil)
 
 				if act.Execute {

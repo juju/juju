@@ -1910,7 +1910,7 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 
 	operationID, err := m.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil)
+	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newModel, newState := s.importModel(c, s.State)
@@ -1933,6 +1933,8 @@ func (s *MigrationImportSuite) TestOperation(c *gc.C) {
 
 	operationID, err := m.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
+	err = m.FailOperation(operationID, errors.New("fail"))
+	c.Assert(err, jc.ErrorIsNil)
 
 	newModel, newState := s.importModel(c, s.State)
 	defer func() {
@@ -1943,8 +1945,9 @@ func (s *MigrationImportSuite) TestOperation(c *gc.C) {
 	c.Assert(operations, gc.HasLen, 1)
 	op := operations[0]
 	c.Check(op.Summary(), gc.Equals, "a test")
+	c.Check(op.Fail(), gc.Equals, "fail")
 	c.Check(op.Id(), gc.Equals, operationID)
-	c.Check(op.Status(), gc.Equals, state.ActionPending)
+	c.Check(op.Status(), gc.Equals, state.ActionError)
 }
 
 func (s *MigrationImportSuite) TestVolumes(c *gc.C) {

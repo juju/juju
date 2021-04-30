@@ -83,30 +83,45 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 
 	tagToActionReceiver := common.TagToActionReceiverFn(a.state.FindEntity)
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Actions))}
+	errorRecorded := false
 	for i, action := range arg.Actions {
 		currentResult := &response.Results[i]
 		actionReceiver := action.Receiver
+		var (
+			actionErr    error
+			enqueued     state.Action
+			receiver     state.ActionReceiver
+			receiverName string
+		)
 		if strings.HasSuffix(actionReceiver, "leader") {
 			app := strings.Split(actionReceiver, "/")[0]
-			receiverName, err := getLeader(app)
-			if err != nil {
-				currentResult.Error = apiservererrors.ServerError(err)
-				continue
+			receiverName, actionErr = getLeader(app)
+			if actionErr != nil {
+				currentResult.Error = apiservererrors.ServerError(actionErr)
+				goto failOperation
 			}
 			actionReceiver = names.NewUnitTag(receiverName).String()
 		}
-		receiver, err := tagToActionReceiver(actionReceiver)
-		if err != nil {
-			currentResult.Error = apiservererrors.ServerError(err)
-			continue
+		receiver, actionErr = tagToActionReceiver(actionReceiver)
+		if actionErr != nil {
+			currentResult.Error = apiservererrors.ServerError(actionErr)
+			goto failOperation
 		}
-		enqueued, err := receiver.AddAction(operationID, action.Name, action.Parameters)
-		if err != nil {
-			currentResult.Error = apiservererrors.ServerError(err)
-			continue
+		enqueued, actionErr = a.model.AddAction(receiver, operationID, action.Name, action.Parameters)
+		if actionErr != nil {
+			currentResult.Error = apiservererrors.ServerError(actionErr)
+			goto failOperation
 		}
-
 		response.Results[i] = common.MakeActionResult(receiver.Tag(), enqueued, false)
+		continue
+
+	failOperation:
+		// If we failed to enqueue the action, record the error on the operation.
+		if !errorRecorded {
+			errorRecorded = true
+			err = a.model.FailOperation(operationID, actionErr)
+		}
+		currentResult.Error = apiservererrors.ServerError(actionErr)
 	}
 	return operationID, response, nil
 }
@@ -175,6 +190,7 @@ func (a *ActionAPI) ListOperations(arg params.OperationQueryArgs) (params.Operat
 		result.Results[i] = params.OperationResult{
 			OperationTag: r.Operation.Tag().String(),
 			Summary:      r.Operation.Summary(),
+			Fail:         r.Operation.Fail(),
 			Enqueued:     r.Operation.Enqueued(),
 			Started:      r.Operation.Started(),
 			Completed:    r.Operation.Completed(),
@@ -217,6 +233,7 @@ func (a *ActionAPI) Operations(arg params.Entities) (params.OperationResults, er
 		results.Results[i] = params.OperationResult{
 			OperationTag: op.Operation.Tag().String(),
 			Summary:      op.Operation.Summary(),
+			Fail:         op.Operation.Fail(),
 			Enqueued:     op.Operation.Enqueued(),
 			Started:      op.Operation.Started(),
 			Completed:    op.Operation.Completed(),

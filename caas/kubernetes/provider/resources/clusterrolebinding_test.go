@@ -25,11 +25,11 @@ var _ = gc.Suite(&clusterRoleBindingSuite{})
 func (s *clusterRoleBindingSuite) TestApply(c *gc.C) {
 	roleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "roleBinding1",
+			Name: "roleBinding1",
 		},
 	}
 	// Create.
-	rbResource := resources.NewClusterRoleBinding("roleBinding1",  roleBinding)
+	rbResource := resources.NewClusterRoleBinding("roleBinding1", roleBinding)
 	c.Assert(rbResource.Apply(context.TODO(), s.client), jc.ErrorIsNil)
 	result, err := s.client.RbacV1().ClusterRoleBindings().Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -37,7 +37,7 @@ func (s *clusterRoleBindingSuite) TestApply(c *gc.C) {
 
 	// Update.
 	roleBinding.SetAnnotations(map[string]string{"a": "b"})
-	rbResource = resources.NewClusterRoleBinding("roleBinding1",  roleBinding)
+	rbResource = resources.NewClusterRoleBinding("roleBinding1", roleBinding)
 	c.Assert(rbResource.Apply(context.TODO(), s.client), jc.ErrorIsNil)
 
 	result, err = s.client.RbacV1().ClusterRoleBindings().Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
@@ -49,7 +49,7 @@ func (s *clusterRoleBindingSuite) TestApply(c *gc.C) {
 func (s *clusterRoleBindingSuite) TestGet(c *gc.C) {
 	template := rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "roleBinding1",
+			Name: "roleBinding1",
 		},
 	}
 	roleBinding1 := template
@@ -57,7 +57,7 @@ func (s *clusterRoleBindingSuite) TestGet(c *gc.C) {
 	_, err := s.client.RbacV1().ClusterRoleBindings().Create(context.TODO(), &roleBinding1, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	rbResource := resources.NewClusterRoleBinding("roleBinding1",  &template)
+	rbResource := resources.NewClusterRoleBinding("roleBinding1", &template)
 	c.Assert(len(rbResource.GetAnnotations()), gc.Equals, 0)
 	err = rbResource.Get(context.TODO(), s.client)
 	c.Assert(err, jc.ErrorIsNil)
@@ -68,7 +68,7 @@ func (s *clusterRoleBindingSuite) TestGet(c *gc.C) {
 func (s *clusterRoleBindingSuite) TestDelete(c *gc.C) {
 	roleBinding := rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "roleBinding1",
+			Name: "roleBinding1",
 		},
 	}
 	_, err := s.client.RbacV1().ClusterRoleBindings().Create(context.TODO(), &roleBinding, metav1.CreateOptions{})
@@ -78,7 +78,7 @@ func (s *clusterRoleBindingSuite) TestDelete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.GetName(), gc.Equals, `roleBinding1`)
 
-	rbResource := resources.NewClusterRoleBinding("roleBinding1",  &roleBinding)
+	rbResource := resources.NewClusterRoleBinding("roleBinding1", &roleBinding)
 	err = rbResource.Delete(context.TODO(), s.client)
 	c.Assert(err, jc.ErrorIsNil)
 

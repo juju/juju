@@ -610,6 +610,9 @@
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
+                        "fail": {
+                            "type": "string"
+                        },
                         "operation": {
                             "type": "string"
                         },

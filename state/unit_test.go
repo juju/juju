@@ -2520,7 +2520,7 @@ snapshot:
 		c.Logf("running test %d", i)
 		operationID, err := s.Model.EnqueueOperation("a test")
 		c.Assert(err, jc.ErrorIsNil)
-		action, err := unit1.AddAction(operationID, t.actionName, t.givenPayload)
+		action, err := s.Model.AddAction(unit1, operationID, t.actionName, t.givenPayload)
 		if t.errString != "" {
 			c.Assert(err, gc.ErrorMatches, t.errString)
 		} else {
@@ -2529,6 +2529,16 @@ snapshot:
 			c.Assert(state.ActionOperationId(action), gc.Equals, operationID)
 		}
 	}
+}
+
+func (s *UnitSuite) TestAddActionWithError(c *gc.C) {
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.Model.AddAction(s.unit, operationID, "benchmark", nil)
+	c.Assert(err, gc.ErrorMatches, `action "benchmark" not defined on unit "wordpress/0"`)
+	op, err := s.Model.Operation(operationID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.Status(), gc.Equals, state.ActionError)
 }
 
 func (s *UnitSuite) TestUnitActionsFindsRightActions(c *gc.C) {
@@ -2553,16 +2563,16 @@ action-b-b:
 	// Add 3 actions to first unit, and 2 to the second unit
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit1.AddAction(operationID, "action-a-a", nil)
+	_, err = s.Model.AddAction(unit1, operationID, "action-a-a", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit1.AddAction(operationID, "action-a-b", nil)
+	_, err = s.Model.AddAction(unit1, operationID, "action-a-b", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit1.AddAction(operationID, "action-a-c", nil)
+	_, err = s.Model.AddAction(unit1, operationID, "action-a-c", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = unit2.AddAction(operationID, "action-b-a", nil)
+	_, err = s.Model.AddAction(unit2, operationID, "action-b-a", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit2.AddAction(operationID, "action-b-b", nil)
+	_, err = s.Model.AddAction(unit2, operationID, "action-b-b", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify that calling Actions on unit1 returns only
@@ -3105,7 +3115,7 @@ func (s *CAASUnitSuite) TestOperatorAddAction(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := unit.AddAction(operationID, "snapshot", nil)
+	action, err := s.Model.AddAction(unit, operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(action.Parameters(), jc.DeepEquals, map[string]interface{}{
 		"outfile": "abcd", "workload-context": false,
