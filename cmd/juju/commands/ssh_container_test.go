@@ -157,6 +157,34 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharm(c *gc.C) {
 	c.Assert(target.GetEntity(), gc.DeepEquals, "mariadb-k8s-0")
 }
 
+func (s *sshContainerSuite) TestResolveCharmTargetForSidecarCharm(c *gc.C) {
+	ctrl := s.setUpController(c, true, "charm")
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.applicationAPI.EXPECT().UnitsInfo([]names.UnitTag{names.NewUnitTag("mariadb-k8s/0")}).
+			Return([]application.UnitInfo{
+				{ProviderId: "mariadb-k8s-0", Charm: "test-charm-url"},
+			}, nil),
+		s.charmAPI.EXPECT().CharmInfo("test-charm-url").
+			Return(&charms.CharmInfo{
+				Manifest: &charm.Manifest{
+					Bases: []charm.Base{{
+						Name: "ubuntu",
+						Channel: charm.Channel{
+							Track: "20.04",
+							Risk:  "stable",
+						},
+					}},
+				},
+				Meta: &charm.Meta{},
+			}, nil),
+	)
+	target, err := s.sshC.ResolveTarget("mariadb-k8s/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(target.GetEntity(), gc.DeepEquals, "mariadb-k8s-0")
+}
+
 func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainer(c *gc.C) {
 	ctrl := s.setUpController(c, true, "test-container")
 	defer ctrl.Finish()
