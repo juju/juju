@@ -116,7 +116,7 @@ func prepNetworkConfig() *container.NetworkConfig {
 	return container.BridgeNetworkConfig("eth0", 1500, corenetwork.InterfaceInfos{{
 		InterfaceName:       "eth0",
 		InterfaceType:       corenetwork.EthernetInterface,
-		ConfigType:          corenetwork.ConfigDHCP,
+		ConfigMethod:        corenetwork.DynamicAddress,
 		ParentInterfaceName: "eth0",
 	}})
 }
@@ -221,7 +221,7 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 	netConfig := container.BridgeNetworkConfig("eth0", 1500, corenetwork.InterfaceInfos{{
 		InterfaceName:       "eth0",
 		InterfaceType:       corenetwork.EthernetInterface,
-		ConfigType:          corenetwork.ConfigDHCP,
+		ConfigMethod:        corenetwork.DynamicAddress,
 		ParentInterfaceName: network.DefaultLXDBridge,
 	}})
 	_, _, err = s.manager.CreateContainer(

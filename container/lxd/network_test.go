@@ -373,14 +373,14 @@ func (s *networkSuite) TestInterfaceInfoFromDevices(c *gc.C) {
 		{
 			InterfaceName:       "eno9",
 			MACAddress:          "00:16:3e:00:00:3e",
-			ConfigType:          corenetwork.ConfigDHCP,
+			ConfigMethod:        corenetwork.DynamicAddress,
 			ParentInterfaceName: "br1",
 			Origin:              corenetwork.OriginProvider,
 		},
 		{
 			InterfaceName:       "eth0",
 			MACAddress:          "00:16:3e:00:00:00",
-			ConfigType:          corenetwork.ConfigDHCP,
+			ConfigMethod:        corenetwork.DynamicAddress,
 			ParentInterfaceName: network.DefaultLXDBridge,
 			Origin:              corenetwork.OriginProvider,
 		},

@@ -164,7 +164,7 @@ var cannedObservedNetworkConfig = []params.NetworkConfig{{
 	InterfaceType:       string(corenetwork.LoopbackInterface),
 	Disabled:            false,
 	NoAutoStart:         false,
-	ConfigType:          string(corenetwork.ConfigLoopback),
+	ConfigMethod:        string(corenetwork.LoopbackAddress),
 }, {
 	DeviceIndex:         1,
 	MACAddress:          "bb:cc:dd:ee:ff:00",
@@ -175,7 +175,7 @@ var cannedObservedNetworkConfig = []params.NetworkConfig{{
 	InterfaceType:       string(corenetwork.EthernetInterface),
 	Disabled:            false,
 	NoAutoStart:         false,
-	ConfigType:          string(corenetwork.ConfigStatic),
+	ConfigMethod:        string(corenetwork.StaticAddress),
 }, {
 	DeviceIndex:         2,
 	MACAddress:          "bb:cc:dd:ee:ff:00",
@@ -186,7 +186,7 @@ var cannedObservedNetworkConfig = []params.NetworkConfig{{
 	InterfaceType:       string(corenetwork.BridgeInterface),
 	Disabled:            false,
 	NoAutoStart:         false,
-	ConfigType:          string(corenetwork.ConfigStatic),
+	ConfigMethod:        string(corenetwork.StaticAddress),
 }}
 
 func (s *hostPreparerSuite) TestPrepareHostCreateBridge(c *gc.C) {
