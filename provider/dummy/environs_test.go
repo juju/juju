@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/context"
@@ -238,7 +238,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
 
-	expectInfo := corenetwork.InterfaceInfos{{
+	expectInfo := network.InterfaceInfos{{
 		ProviderId:       "dummy-eth0",
 		ProviderSubnetId: "dummy-private",
 		DeviceIndex:      0,
@@ -248,13 +248,13 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		MACAddress:       "aa:bb:cc:dd:ee:f0",
 		Disabled:         false,
 		NoAutoStart:      false,
-		ConfigType:       corenetwork.ConfigDHCP,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("0.10.0.2", corenetwork.WithCIDR("0.10.0.0/24")),
+		ConfigMethod:     network.DynamicAddress,
+		Addresses: network.ProviderAddresses{
+			network.NewProviderAddress("0.10.0.2", network.WithCIDR("0.10.0.0/24")),
 		},
-		DNSServers:     corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress: corenetwork.NewProviderAddress("0.10.0.1"),
-		Origin:         corenetwork.OriginProvider,
+		DNSServers:     network.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress: network.NewProviderAddress("0.10.0.1"),
+		Origin:         network.OriginProvider,
 	}, {
 		ProviderId:       "dummy-eth1",
 		ProviderSubnetId: "dummy-public",
@@ -265,13 +265,13 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
 		Disabled:         false,
 		NoAutoStart:      true,
-		ConfigType:       corenetwork.ConfigDHCP,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("0.20.0.2", corenetwork.WithCIDR("0.20.0.0/24")),
+		ConfigMethod:     network.DynamicAddress,
+		Addresses: network.ProviderAddresses{
+			network.NewProviderAddress("0.20.0.2", network.WithCIDR("0.20.0.0/24")),
 		},
-		DNSServers:     corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress: corenetwork.NewProviderAddress("0.20.0.1"),
-		Origin:         corenetwork.OriginProvider,
+		DNSServers:     network.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress: network.NewProviderAddress("0.20.0.1"),
+		Origin:         network.OriginProvider,
 	}, {
 		ProviderId:       "dummy-eth2",
 		ProviderSubnetId: "dummy-disabled",
@@ -282,13 +282,13 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		MACAddress:       "aa:bb:cc:dd:ee:f2",
 		Disabled:         true,
 		NoAutoStart:      false,
-		ConfigType:       corenetwork.ConfigDHCP,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("0.30.0.2", corenetwork.WithCIDR("0.30.0.0/24")),
+		ConfigMethod:     network.DynamicAddress,
+		Addresses: network.ProviderAddresses{
+			network.NewProviderAddress("0.30.0.2", network.WithCIDR("0.30.0.0/24")),
 		},
-		DNSServers:     corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress: corenetwork.NewProviderAddress("0.30.0.1"),
-		Origin:         corenetwork.OriginProvider,
+		DNSServers:     network.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress: network.NewProviderAddress("0.30.0.1"),
+		Origin:         network.OriginProvider,
 	}}
 	infoList, err := e.NetworkInterfaces(s.callCtx, []instance.Id{instance.Id("i-42")})
 	c.Assert(err, jc.ErrorIsNil)
@@ -315,7 +315,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
 
-	expectInfo := []corenetwork.SubnetInfo{{
+	expectInfo := []network.SubnetInfo{{
 		CIDR:              "0.10.0.0/24",
 		ProviderId:        "dummy-private",
 		AvailabilityZones: []string{"zone1", "zone2"},
@@ -324,7 +324,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 		ProviderId: "dummy-public",
 	}}
 
-	ids := []corenetwork.Id{"dummy-private", "dummy-public", "foo-bar"}
+	ids := []network.Id{"dummy-private", "dummy-public", "foo-bar"}
 	netInfo, err := e.Subnets(s.callCtx, "i-foo", ids)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(netInfo, jc.DeepEquals, expectInfo)
@@ -351,7 +351,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 	c.Assert(netInfo, gc.HasLen, 0)
 }
 
-func assertInterfaces(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectInfo corenetwork.InterfaceInfos) {
+func assertInterfaces(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectInfo network.InterfaceInfos) {
 	select {
 	case op := <-opc:
 		netOp, ok := op.(dummy.OpNetworkInterfaces)
@@ -372,8 +372,8 @@ func assertSubnets(
 	e environs.Environ,
 	opc chan dummy.Operation,
 	instId instance.Id,
-	subnetIds []corenetwork.Id,
-	expectInfo []corenetwork.SubnetInfo,
+	subnetIds []network.Id,
+	expectInfo []network.SubnetInfo,
 ) {
 	select {
 	case op := <-opc:
