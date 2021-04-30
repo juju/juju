@@ -584,6 +584,15 @@ func ReadConfig(configFilePath string) (ConfigSetterWriter, error) {
 	return config, nil
 }
 
+func ParseConfigData(configData []byte) (ConfigSetterWriter, error) {
+	format, config, err := parseConfigData(configData)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	logger.Debugf("parsing agent config, format %q", format.version())
+	return config, nil
+}
+
 func (c0 *configInternal) Clone() Config {
 	c1 := *c0
 	// Deep copy only fields which may be affected
