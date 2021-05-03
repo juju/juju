@@ -277,48 +277,84 @@ func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 // findMatchingTools searches tools storage and simplestreams for tools matching the
 // given parameters. If an exact match is specified (number, series and arch)
 // and is found in tools storage, then simplestreams will not be searched.
-func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.List, error) {
+func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (result coretools.List, _ error) {
 	exactMatch := args.Number != version.Zero && (args.OSType != "" || args.Series != "") && args.Arch != ""
 
 	// TODO(juju4) - remove this logic
 	// Older versions of Juju publish agent binary metadata based on series.
-	// So we need to strip out OSType and match on everything else, then filter below.
-	compatibleMatch := false
-	wantedOSType := args.OSType
-	if args.Number.Major == 2 && args.Number.Minor <= 8 && args.OSType != "" {
-		args.OSType = ""
-		compatibleMatch = true
-	}
-
-	storageList, err := f.matchingStorageTools(args)
-	if err != nil && err != coretools.ErrNoMatches {
-		return nil, err
-	}
+	// The following functions convert the result tools list to the required format.
 
 	// For a given list of tools, return those which match the required
-	// os type based on an exact os type match or series match.
-	compatibleTools := func(tools coretools.List) coretools.List {
+	// os type. If the tools is for a series, first convert the series into
+	// the corresponding os type before doing the match.
+	// eg if ubuntu tools are requested, and we have bionic tools, say they're ubuntu.
+	wantedOSType := args.OSType
+	compatibleOSTypeTools := func() {
 		added := make(map[version.Binary]bool)
 		var matched coretools.List
-		for _, t := range tools {
+		for _, t := range result {
 			converted := *t
-			osTypeName, _ := coreseries.GetOSFromSeries(t.Version.Release)
-			if osTypeName != coreos.Unknown {
+			// t might be for a series so convert to an os type.
+			if !coreos.IsValidOSTypeName(t.Version.Release) {
+				osTypeName, err := coreseries.GetOSFromSeries(t.Version.Release)
+				if err != nil {
+					continue
+				}
 				converted.Version.Release = strings.ToLower(osTypeName.String())
+			}
+			if converted.Version.Release != wantedOSType {
+				continue
 			}
 			if added[converted.Version] {
 				continue
 			}
-			if converted.Version.Release == wantedOSType || wantedOSType == "" {
-				matched = append(matched, &converted)
-				added[converted.Version] = true
-			}
+			matched = append(matched, &converted)
+			added[converted.Version] = true
 		}
-		return matched
+		result = matched
 	}
 
-	if compatibleMatch {
-		storageList = compatibleTools(storageList)
+	// For a given list of tools, return those which match the required series.
+	// If the tools is for an os type, match on the os type of the series.
+	// The returned tools are converted to the requested series.
+	// eg if bionic tools are requested, we return bionic if we have then
+	// or convert ubuntu tools to say they're bionic.
+	compatibleSeriesTools := func() {
+		osType := coreseries.DefaultOSTypeNameFromSeries(args.Series)
+		added := make(map[version.Binary]bool)
+		var matched coretools.List
+		for _, t := range result {
+			converted := *t
+			if coreos.IsValidOSTypeName(t.Version.Release) {
+				if osType != t.Version.Release {
+					continue
+				}
+				converted.Version.Release = args.Series
+			} else if args.Series != t.Version.Release {
+				continue
+			}
+			if added[converted.Version] {
+				continue
+			}
+			matched = append(matched, &converted)
+			added[converted.Version] = true
+		}
+		result = matched
+	}
+
+	// TODO(juju4) - remove this logic
+	// Set up the final metadata conversion if old tools are requested.
+	if args.Number.Major == 2 && args.Number.Minor <= 8 && (args.OSType != "" || args.Series != "") {
+		if args.OSType != "" {
+			defer compatibleOSTypeTools()
+		}
+		if args.Series != "" {
+			defer compatibleSeriesTools()
+		}
+	}
+	storageList, err := f.matchingStorageTools(args)
+	if err != nil && err != coretools.ErrNoMatches {
+		return nil, err
 	}
 	if len(storageList) > 0 && exactMatch {
 		return storageList, nil
@@ -342,9 +378,6 @@ func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.
 	)
 	if len(storageList) == 0 && err != nil {
 		return nil, err
-	}
-	if compatibleMatch {
-		simplestreamsList = compatibleTools(simplestreamsList)
 	}
 
 	list := storageList
