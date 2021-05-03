@@ -98,6 +98,7 @@ Examples:
 
     juju destroy-model test
     juju destroy-model -y mymodel
+    juju destroy-model -y mymodel --timeout 5m
     juju destroy-model -y mymodel --destroy-storage
     juju destroy-model -y mymodel --release-storage
     juju destroy-model -y mymodel --force
@@ -431,12 +432,16 @@ func waitForModelDestroyed(
 	for {
 		select {
 		case <-interrupted:
-			ctx.Infof("ctrl+c detected, aborting...")
+			fmt.Fprint(ctx.Stderr, "\n\ndestroy model is still running in the background...")
 			printErrors()
+			msg := formatDestroyModelAbortInfo(data, false)
+			fmt.Fprintln(ctx.Stderr, msg)
 			return cmd.ErrSilent
 		case <-timeoutAfter:
 			printErrors()
-			return errors.Timeoutf("timeout after %v", timeout)
+			msg := formatDestroyModelAbortInfo(data, true)
+			fmt.Fprintln(ctx.Stderr, msg)
+			return errors.NewTimeout(nil, fmt.Sprintf("timeout after %v", timeout))
 		case <-clock.After(intervalSeconds):
 			data, erroredStatuses = getModelStatus(ctx, api, tag)
 			if data == nil {
@@ -584,6 +589,29 @@ func formatDestroyModelInfo(data *modelData) string {
 		out += fmt.Sprintf(", %d filesystems(s)", data.filesystemCount)
 	}
 	return out
+}
+
+func formatDestroyModelAbortInfo(data *modelData, timeout bool) string {
+	out := ""
+	if data.machineCount > 0 || data.applicationCount > 0 || data.volumeCount > 0 || data.filesystemCount > 0 {
+		out = "\nThe following resources have not yet been removed:"
+		if data.machineCount > 0 {
+			out += fmt.Sprintf("\n - %d machine(s)", data.machineCount)
+		}
+		if data.applicationCount > 0 {
+			out += fmt.Sprintf("\n - %d application(s)", data.applicationCount)
+		}
+		if data.volumeCount > 0 {
+			out += fmt.Sprintf("\n - %d volume(s)", data.volumeCount)
+		}
+		if data.filesystemCount > 0 {
+			out += fmt.Sprintf("\n - %d filesystems(s)", data.filesystemCount)
+		}
+	}
+	if !timeout {
+		return out
+	}
+	return out + "\nBecause the destroy model operation did not finish, there may be cloud resources left behind."
 }
 
 func (c *destroyCommand) handleError(
