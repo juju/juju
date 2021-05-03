@@ -591,6 +591,7 @@ func ParseConfigData(configData []byte) (ConfigSetterWriter, error) {
 		return nil, errors.Trace(err)
 	}
 	logger.Debugf("parsing agent config, format %q", format.version())
+	config.configFilePath = ConfigPath(config.paths.DataDir, config.tag)
 	return config, nil
 }
 
