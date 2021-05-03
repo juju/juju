@@ -126,7 +126,7 @@ func (c *mockClient) VirtualMachineObjectToManagedObject(ctx context.Context, vm
 
 	vmTplObj := buildVM(vmTpl.args.TemplateName).extraConfig(vsphereclient.ArchTag, vmTpl.args.Arch).vm()
 	c.MethodCall(c, "VirtualMachineObjectToManagedObject", ctx, vmObject)
-	return *vmTplObj, nil
+	return *vmTplObj, c.NextErr()
 }
 
 func (c *mockClient) ComputeResources(ctx context.Context) ([]vsphereclient.ComputeResource, error) {

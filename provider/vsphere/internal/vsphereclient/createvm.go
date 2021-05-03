@@ -45,6 +45,7 @@ type NetworkDevice struct {
 // That's a default network that's defined in OVF.
 const defaultNetwork = "VM Network"
 
+// StatusUpdateParams contains parameters commonly used to send status updates.
 type StatusUpdateParams struct {
 	// UpdateProgress is a function that should be called before/during
 	// long-running operations to provide a progress reporting.
@@ -59,8 +60,11 @@ type StatusUpdateParams struct {
 	Clock clock.Clock
 }
 
+// ImportOVAParameters contains the parameters needed to import a VM template
+// from simplestreams.
 type ImportOVAParameters struct {
 	StatusUpdateParams StatusUpdateParams
+
 	// ReadOVA returns the location of, and an io.ReadCloser for,
 	// the OVA from which to extract the VMDK. The location may be
 	// used for reporting progress. The ReadCloser must be closed
@@ -150,6 +154,8 @@ func acquireMutex(spec mutex.Spec) (func(), error) {
 	return func() { releaser.Release() }, nil
 }
 
+// GetTargetDatastore returns the proper datastore for a compute resource.
+// given a root disk constraint.
 func (c *Client) GetTargetDatastore(
 	ctx context.Context,
 	computeResource *mo.ComputeResource,
@@ -192,9 +198,13 @@ func (c *Client) CreateTemplateVM(
 		fmt.Sprintf("creating template VM %q", ovaArgs.TemplateName))
 	c.logger.Debugf("creating template VM in folder %s", ovaArgs.DestinationFolder)
 
-	// We can acquire the mutex here, even if we are bootstrapping.
-	// This action only runs once, no need to add a special case for something
-	// that occurs only once in the entire lifetime of a controller.
+	// Each controller maintains its own image cache. All compute
+	// provisioners (i.e. each model's) run on the same controller
+	// machine, so taking a machine lock ensures that only one
+	// process is updating VMDKs at the same time. We lock around
+	// access to the series directory.
+	// There is no need for a special case with bootstrapping as
+	// it only occurs once.
 	release, err := c.acquireMutex(mutex.Spec{
 		Name:  "vsphere-" + ovaArgs.Series,
 		Clock: ovaArgs.StatusUpdateParams.Clock,

@@ -307,7 +307,7 @@ func (c *Client) ListVMTemplates(ctx context.Context, path string) ([]*object.Vi
 	items, err := finder.VirtualMachineList(ctx, path)
 	if err != nil {
 		if _, ok := err.(*find.NotFoundError); ok {
-			return nil, errors.NotFoundf("path not found: %s", path)
+			return nil, errors.NotFoundf("path %s", path)
 		}
 		return nil, errors.Annotate(err, "listing VMs")
 	}
