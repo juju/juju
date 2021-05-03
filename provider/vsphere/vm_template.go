@@ -47,18 +47,18 @@ func (v *vmTemplateManager) EnsureTemplate(ctx context.Context, series string, a
 	logger.Debugf("looking for local templates")
 	tpl, arch, err := v.findTemplate(ctx)
 	if err == nil {
-		logger.Debugf("Found requested template for series %s", series)
+		logger.Debugf("found requested template for series %s", series)
 		return tpl, arch, nil
 	}
 	if !errors.IsNotFound(err) {
 		return nil, "", errors.Annotate(err, "searching for template")
 	}
 
-	logger.Debugf("Looking for already imported templates for series %q", series)
+	logger.Debugf("looking for already imported templates for series %q", series)
 	// Attempt to find a previously imported instance template
 	importedTemplate, arch, err := v.getImportedTemplate(ctx, series, arches)
 	if err == nil {
-		logger.Debugf("Using already imported template for series %s", series)
+		logger.Debugf("using already imported template for series %s", series)
 		return importedTemplate, arch, nil
 	}
 	logger.Debugf("could not find cached image: %s", err)
@@ -67,7 +67,7 @@ func (v *vmTemplateManager) EnsureTemplate(ctx context.Context, series string, a
 	if !errors.IsNotFound(err) {
 		return nil, "", errors.Trace(err)
 	}
-	logger.Debugf("Downloading and importing template from simplestreams")
+	logger.Debugf("downloading and importing template from simplestreams")
 	// Last resort, download and import a template.
 	return v.downloadAndImportTemplate(ctx, series, arches)
 }

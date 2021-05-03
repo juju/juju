@@ -262,6 +262,7 @@ func (c *Client) RemoveVirtualMachines(ctx context.Context, path string) error {
 	return errors.Annotate(lastError, "failed to remove instances")
 }
 
+// VirtualMachineObjectToManagedObject returns a virtual machine managed object, given an *object.VirtualMachine
 func (c *Client) VirtualMachineObjectToManagedObject(ctx context.Context, vmObject *object.VirtualMachine) (mo.VirtualMachine, error) {
 	var vm mo.VirtualMachine
 	err := c.client.RetrieveOne(ctx, vmObject.Reference(), nil, &vm)
@@ -298,6 +299,8 @@ func (c *Client) VirtualMachines(ctx context.Context, path string) ([]*mo.Virtua
 	return vms, nil
 }
 
+// ListVMTemplates returns a list of virtual machine objects in the given path,
+// that have been marked as templates.
 func (c *Client) ListVMTemplates(ctx context.Context, path string) ([]*object.VirtualMachine, error) {
 	c.logger.Tracef("ListVMTemplates() path=%q", path)
 	finder, _, err := c.finder(ctx)
