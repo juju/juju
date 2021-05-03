@@ -96,6 +96,7 @@ func (c *mockClient) ListVMTemplates(ctx context.Context, path string) ([]*objec
 
 	for _, vm := range c.virtualMachineTemplates {
 		ref := vm.args.DestinationFolder.Reference()
+
 		if strings.HasPrefix(ref.Value, path) {
 			ret = append(ret, vm.vm)
 		}
@@ -123,7 +124,7 @@ func (c *mockClient) VirtualMachineObjectToManagedObject(ctx context.Context, vm
 		panic("test data not properly set")
 	}
 
-	vmTplObj := buildVM(vmTpl.args.TemplateName).extraConfig(vsphereclient.ArchTag, vmTpl.args.Series).vm()
+	vmTplObj := buildVM(vmTpl.args.TemplateName).extraConfig(vsphereclient.ArchTag, vmTpl.args.Arch).vm()
 	c.MethodCall(c, "VirtualMachineObjectToManagedObject", ctx, vmObject)
 	return *vmTplObj, nil
 }

@@ -159,8 +159,10 @@ func (env *sessionEnviron) newRawInstance(
 
 	tplManager := vmTemplateManager{
 		imageMetadata:    args.ImageMetadata,
-		env:              env,
-		az:               availZone,
+		env:              env.environ,
+		client:           env.client,
+		vmFolder:         env.getVMFolder(),
+		azPoolRef:        availZone.pool.Reference(),
 		datastore:        datastore,
 		controllerUUID:   args.ControllerUUID,
 		statusUpdateArgs: statusUpdateArgs,
@@ -278,12 +280,6 @@ func (env *sessionEnviron) newRawInstance(
 		RootDiskSource: cons.RootDiskSource,
 	}
 	return vm, hw, err
-}
-
-func (env *sessionEnviron) controllerTemplatesFolder(controllerUUID string) string {
-	vmFolder := env.getVMFolder()
-	templateFolder := templateDirectoryName(controllerFolderName(controllerUUID))
-	return path.Join(vmFolder, templateFolder)
 }
 
 // AllInstances implements environs.InstanceBroker.
