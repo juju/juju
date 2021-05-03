@@ -460,6 +460,19 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 	c.Assert(reread, jc.DeepEquals, conf)
 }
 
+func (*suite) TestParseConfigData(c *gc.C) {
+	testParams := attributeParams
+	testParams.Paths.DataDir = c.MkDir()
+	testParams.Paths.LogDir = c.MkDir()
+	conf, err := agent.NewAgentConfig(testParams)
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := conf.Render()
+	c.Assert(err, jc.ErrorIsNil)
+	reread, err := agent.ParseConfigData(data)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(reread, jc.DeepEquals, conf)
+}
+
 func (*suite) TestAPIInfoMissingAddress(c *gc.C) {
 	conf := agent.EmptyConfig()
 	_, ok := conf.APIInfo()
