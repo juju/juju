@@ -266,6 +266,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 			},
 			PropSet: []types.DynamicProperty{
 				{Name: "name", Val: "juju-vm-template"},
+				{Name: "summary.config.template", Val: true},
 			},
 		},
 			{
@@ -420,6 +421,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "name", Val: "juju-vm-template"},
 				{Name: "runtime.powerState", Val: "poweredOff"},
 				{Name: "config.version", Val: "vmx-10"},
+				{Name: "summary.config.template", Val: true},
 				{
 					Name: "config.hardware.device",
 					Val: []types.BaseVirtualDevice{
@@ -1004,6 +1006,28 @@ func (s *clientSuite) TestVirtualMachines(c *gc.C) {
 	c.Assert(result[0].Name, gc.Equals, "juju-vm-template")
 	c.Assert(result[1].Name, gc.Equals, "juju-vm-0")
 	c.Assert(result[2].Name, gc.Equals, "juju-vm-1")
+}
+
+func (s *clientSuite) TestListVMTemplates(c *gc.C) {
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	result, err := client.ListVMTemplates(context.Background(), "foo/bar/*")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.roundTripper.CheckCalls(c, []testing.StubCall{
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeDatacenter"),
+		retrievePropertiesStubCall("FakeVmFolder"),
+		retrievePropertiesStubCall("FakeVmFolder"),
+		retrievePropertiesStubCall("FakeControllerVmFolder"),
+		retrievePropertiesStubCall("FakeModelVmFolder"),
+		retrievePropertiesStubCall("FakeVmTemplate"),
+		retrievePropertiesStubCall("FakeVm0"),
+		retrievePropertiesStubCall("FakeVm1"),
+	})
+
+	c.Assert(result, gc.HasLen, 1)
+	c.Assert(result[0].Name(), gc.Equals, "juju-vm-template")
 }
 
 func (s *clientSuite) TestDatastores(c *gc.C) {
