@@ -290,7 +290,7 @@ func (s *toolsSuite) TestFindToolsOldAgent(c *gc.C) {
 			c.Assert(major, gc.Equals, 2)
 			c.Assert(minor, gc.Equals, 8)
 			c.Assert(streams, gc.DeepEquals, test.agentStreamsUsed)
-			c.Assert(filter.OSType, gc.Equals, "")
+			c.Assert(filter.OSType, gc.Equals, "ubuntu")
 			c.Assert(filter.Arch, gc.Equals, "amd64")
 			return envtoolsList, nil
 		})
