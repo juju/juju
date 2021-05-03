@@ -386,9 +386,9 @@ func (k *kubernetesClient) OperatorExists(appName string) (caas.DeploymentState,
 	}
 	if exists || terminating {
 		if terminating {
-			logger.Tracef("operator %q exists and is terminating")
+			logger.Tracef("operator %q exists and is terminating", operatorName)
 		} else {
-			logger.Tracef("operator %q exists")
+			logger.Tracef("operator %q exists", operatorName)
 		}
 		return caas.DeploymentState{Exists: exists, Terminating: terminating}, nil
 	}
