@@ -332,52 +332,52 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 
 var expectedLinkLayerDeviceAddressesWithFinalNetworkConfig = []state.LinkLayerDeviceAddress{{
 	DeviceName:   "lo",
-	ConfigMethod: network.LoopbackAddress,
+	ConfigMethod: network.ConfigLoopback,
 	CIDRAddress:  "127.0.0.1/8",
 	Origin:       network.OriginMachine,
 }, {
 	DeviceName:   "br-eth0",
-	ConfigMethod: network.StaticAddress,
+	ConfigMethod: network.ConfigStatic,
 	CIDRAddress:  "10.20.19.100/24",
 	Origin:       network.OriginMachine,
 }, {
 	DeviceName:   "br-eth0",
-	ConfigMethod: network.StaticAddress,
+	ConfigMethod: network.ConfigStatic,
 	CIDRAddress:  "10.20.19.123/24",
 	Origin:       network.OriginMachine,
 }, {
 	DeviceName:   "br-eth0.100",
-	ConfigMethod: network.StaticAddress,
+	ConfigMethod: network.ConfigStatic,
 	CIDRAddress:  "10.100.19.100/24",
 	Origin:       network.OriginMachine,
 }, {
 	DeviceName:   "br-eth0.250",
-	ConfigMethod: network.StaticAddress,
+	ConfigMethod: network.ConfigStatic,
 	CIDRAddress:  "10.250.19.100/24",
 	Origin:       network.OriginMachine,
 }, {
 	DeviceName:   "br-eth0.50",
-	ConfigMethod: network.StaticAddress,
+	ConfigMethod: network.ConfigStatic,
 	CIDRAddress:  "10.50.19.100/24",
 	Origin:       network.OriginMachine,
 }, {
 	DeviceName:   "br-eth1",
-	ConfigMethod: network.StaticAddress,
+	ConfigMethod: network.ConfigStatic,
 	CIDRAddress:  "10.20.19.105/24",
 	Origin:       network.OriginMachine,
 }, {
 	DeviceName:   "br-eth1.11",
-	ConfigMethod: network.StaticAddress,
+	ConfigMethod: network.ConfigStatic,
 	CIDRAddress:  "10.11.19.101/24",
 	Origin:       network.OriginMachine,
 }, {
 	DeviceName:   "br-eth1.12",
-	ConfigMethod: network.StaticAddress,
+	ConfigMethod: network.ConfigStatic,
 	CIDRAddress:  "10.12.19.101/24",
 	Origin:       network.OriginMachine,
 }, {
 	DeviceName:   "br-eth1.13",
-	ConfigMethod: network.StaticAddress,
+	ConfigMethod: network.ConfigStatic,
 	CIDRAddress:  "10.13.19.101/24",
 	Origin:       network.OriginMachine,
 }}

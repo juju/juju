@@ -81,7 +81,7 @@ func (s *ipAddressesStateSuite) addNamedDeviceWithAddresses(
 	for i, address := range addresses {
 		addressesArgs[i] = state.LinkLayerDeviceAddress{
 			DeviceName:   name,
-			ConfigMethod: network.StaticAddress,
+			ConfigMethod: network.ConfigStatic,
 			CIDRAddress:  address,
 		}
 	}
@@ -266,7 +266,7 @@ func (s *ipAddressesStateSuite) TestMachineRemoveAllAddressesRemovesProviderIDRe
 	s.addNamedDevice(c, "foo")
 	addrArgs := state.LinkLayerDeviceAddress{
 		DeviceName:   "foo",
-		ConfigMethod: network.StaticAddress,
+		ConfigMethod: network.ConfigStatic,
 		CIDRAddress:  "0.1.2.3/24",
 		ProviderID:   "bar",
 	}
@@ -468,7 +468,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithEmptyDeviceName(
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithUnknownDeviceName(c *gc.C) {
 	args := state.LinkLayerDeviceAddress{
 		CIDRAddress:  "0.1.2.3/24",
-		ConfigMethod: network.StaticAddress,
+		ConfigMethod: network.ConfigStatic,
 		DeviceName:   "missing",
 	}
 	expectedError := `invalid address "0.1.2.3/24": DeviceName "missing" on machine "0" not found`
@@ -491,7 +491,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithInvalidGatewayAd
 	args := state.LinkLayerDeviceAddress{
 		CIDRAddress:    "0.1.2.3/24",
 		DeviceName:     "eth0",
-		ConfigMethod:   network.StaticAddress,
+		ConfigMethod:   network.ConfigStatic,
 		GatewayAddress: "boo hoo",
 	}
 	s.assertSetDevicesAddressesFailsValidationForArgs(c, args, `GatewayAddress "boo hoo" not valid`)
@@ -502,7 +502,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesOKWhenCIDRAddressDoesNotM
 	args := state.LinkLayerDeviceAddress{
 		CIDRAddress:  "192.168.123.42/16",
 		DeviceName:   "eth0",
-		ConfigMethod: network.StaticAddress,
+		ConfigMethod: network.ConfigStatic,
 	}
 	err := s.machine.SetDevicesAddresses(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -536,7 +536,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressMatch
 	args := state.LinkLayerDeviceAddress{
 		CIDRAddress:  "10.20.30.40/16",
 		DeviceName:   "eth0",
-		ConfigMethod: network.StaticAddress,
+		ConfigMethod: network.ConfigStatic,
 	}
 	expectedError := fmt.Sprintf(
 		"invalid address %q: subnet %q is not alive",
@@ -553,7 +553,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenMachineNotAliveO
 	args := state.LinkLayerDeviceAddress{
 		CIDRAddress:  "10.20.30.40/16",
 		DeviceName:   "eth0",
-		ConfigMethod: network.StaticAddress,
+		ConfigMethod: network.ConfigStatic,
 	}
 	err = s.otherStateMachine.SetDevicesAddresses(args)
 	c.Assert(err, gc.ErrorMatches, `.*: machine "0" not alive`)
@@ -573,7 +573,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesUpdatesExistingDocs(c *gc
 	setArgs := []state.LinkLayerDeviceAddress{{
 		// All fields that can be set are included below.
 		DeviceName:       "eth0",
-		ConfigMethod:     network.ManualAddress,
+		ConfigMethod:     network.ConfigManual,
 		CIDRAddress:      "0.1.2.3/24",
 		ProviderID:       "id-0123",
 		DNSServers:       []string{"ns1.example.com", "ns2.example.org"},
@@ -583,7 +583,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesUpdatesExistingDocs(c *gc
 		// No changed fields, just the required values are set: CIDRAddress +
 		// DeviceName (and s.machine.Id) are used to construct the DocID.
 		DeviceName:   "eth0",
-		ConfigMethod: network.StaticAddress,
+		ConfigMethod: network.ConfigStatic,
 		CIDRAddress:  "10.20.30.42/16",
 	}}
 	err := s.machine.SetDevicesAddresses(setArgs...)
@@ -605,7 +605,7 @@ func (s *ipAddressesStateSuite) TestRemoveAddressRemovesProviderID(c *gc.C) {
 	device := s.addNamedDevice(c, "eth0")
 	addrArgs := state.LinkLayerDeviceAddress{
 		DeviceName:   "eth0",
-		ConfigMethod: network.ManualAddress,
+		ConfigMethod: network.ConfigManual,
 		CIDRAddress:  "0.1.2.3/24",
 		ProviderID:   "id-0123",
 	}
@@ -626,7 +626,7 @@ func (s *ipAddressesStateSuite) TestChangeOriginOpsNoProviderID(c *gc.C) {
 
 	addrArgs := state.LinkLayerDeviceAddress{
 		DeviceName:   "eth0",
-		ConfigMethod: network.ManualAddress,
+		ConfigMethod: network.ConfigManual,
 		CIDRAddress:  "0.1.2.3/24",
 		Origin:       network.OriginMachine,
 	}
@@ -654,7 +654,7 @@ func (s *ipAddressesStateSuite) TestChangeOriginOpsWithProviderID(c *gc.C) {
 
 	addrArgs := state.LinkLayerDeviceAddress{
 		DeviceName:   "eth0",
-		ConfigMethod: network.ManualAddress,
+		ConfigMethod: network.ConfigManual,
 		CIDRAddress:  "0.1.2.3/24",
 		Origin:       network.OriginProvider,
 		ProviderID:   "p1",
@@ -682,7 +682,7 @@ func (s *ipAddressesStateSuite) TestChangeOriginOpsWithProviderID(c *gc.C) {
 	// Success means the provider ID was removed from the global collection.
 	addrArgs = state.LinkLayerDeviceAddress{
 		DeviceName:   "eth0",
-		ConfigMethod: network.ManualAddress,
+		ConfigMethod: network.ConfigManual,
 		CIDRAddress:  "0.1.2.3/24",
 		Origin:       network.OriginProvider,
 		ProviderID:   "p1",
@@ -696,7 +696,7 @@ func (s *ipAddressesStateSuite) TestSetProviderIDOps(c *gc.C) {
 
 	addrArgs := state.LinkLayerDeviceAddress{
 		DeviceName:   "eth0",
-		ConfigMethod: network.ManualAddress,
+		ConfigMethod: network.ConfigManual,
 		CIDRAddress:  "0.1.2.3/24",
 		Origin:       network.OriginMachine,
 	}
@@ -733,7 +733,7 @@ func (s *ipAddressesStateSuite) TestSetProviderNetIDsOps(c *gc.C) {
 
 	addrArgs := state.LinkLayerDeviceAddress{
 		DeviceName:        "eth0",
-		ConfigMethod:      network.ManualAddress,
+		ConfigMethod:      network.ConfigManual,
 		CIDRAddress:       "0.1.2.3/24",
 		Origin:            network.OriginMachine,
 		ProviderNetworkID: "p-net-1",
@@ -765,7 +765,7 @@ func (s *ipAddressesStateSuite) TestUpdateOps(c *gc.C) {
 
 	addrArgs := state.LinkLayerDeviceAddress{
 		DeviceName:   "eth0",
-		ConfigMethod: network.ManualAddress,
+		ConfigMethod: network.ConfigManual,
 		CIDRAddress:  "0.1.2.3/24",
 		Origin:       network.OriginMachine,
 	}
@@ -777,7 +777,7 @@ func (s *ipAddressesStateSuite) TestUpdateOps(c *gc.C) {
 
 	ops, err := addrs[0].UpdateOps(state.LinkLayerDeviceAddress{
 		DeviceName:     "eth0",
-		ConfigMethod:   network.ManualAddress,
+		ConfigMethod:   network.ConfigManual,
 		CIDRAddress:    "0.1.2.3/24",
 		Origin:         network.OriginMachine,
 		GatewayAddress: "0.1.2.0",
@@ -795,7 +795,7 @@ func (s *ipAddressesStateSuite) TestUpdateAddressFailsToChangeProviderID(c *gc.C
 	s.addNamedDevice(c, "eth0")
 	addrArgs := state.LinkLayerDeviceAddress{
 		DeviceName:   "eth0",
-		ConfigMethod: network.ManualAddress,
+		ConfigMethod: network.ConfigManual,
 		CIDRAddress:  "0.1.2.3/24",
 		ProviderID:   "id-0123",
 	}
@@ -810,7 +810,7 @@ func (s *ipAddressesStateSuite) TestUpdateAddressPreventsDuplicateProviderID(c *
 	s.addNamedDevice(c, "eth0")
 	addrArgs := state.LinkLayerDeviceAddress{
 		DeviceName:   "eth0",
-		ConfigMethod: network.ManualAddress,
+		ConfigMethod: network.ConfigManual,
 		CIDRAddress:  "0.1.2.3/24",
 	}
 	err := s.machine.SetDevicesAddresses(addrArgs)
@@ -847,12 +847,12 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesWithMultipleUpdatesOfSame
 		// No changes - same args as used by addNamedDeviceWithAddresses, so
 		// this is testing a no-op case.
 		DeviceName:   "eth0",
-		ConfigMethod: network.StaticAddress,
+		ConfigMethod: network.ConfigStatic,
 		CIDRAddress:  "0.1.2.3/24",
 	}, {
 		// Change all fields that can change.
 		DeviceName:       "eth0",
-		ConfigMethod:     network.ManualAddress,
+		ConfigMethod:     network.ConfigManual,
 		CIDRAddress:      "0.1.2.3/24",
 		ProviderID:       "id-0123",
 		DNSServers:       []string{"ns1.example.com", "ns2.example.org"},
@@ -861,7 +861,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesWithMultipleUpdatesOfSame
 	}, {
 		// Test deletes work for DNS settings, also change method, and gateway.
 		DeviceName:       "eth0",
-		ConfigMethod:     network.DynamicAddress,
+		ConfigMethod:     network.ConfigDHCP,
 		CIDRAddress:      "0.1.2.3/24",
 		ProviderID:       "id-0123", // not allowed to change ProviderID once set
 		DNSServers:       nil,
@@ -901,13 +901,13 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesMultipleDevicesWithSameAd
 	addressArgs := []state.LinkLayerDeviceAddress{
 		{
 			DeviceName:   "eth2",
-			ConfigMethod: network.StaticAddress,
+			ConfigMethod: network.ConfigStatic,
 			CIDRAddress:  "0.1.2.3/24",
 			ProviderID:   network.Id(providerID),
 		},
 		{
 			DeviceName:   "br0",
-			ConfigMethod: network.StaticAddress,
+			ConfigMethod: network.ConfigStatic,
 			CIDRAddress:  "0.1.2.3/24",
 			ProviderID:   network.Id(providerID),
 		},
@@ -917,7 +917,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesMultipleDevicesWithSameAd
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we can still change one of the addresses.
-	addressArgs[0].ConfigMethod = network.DynamicAddress
+	addressArgs[0].ConfigMethod = network.ConfigDHCP
 	err = s.machine.SetDevicesAddresses(addressArgs[0])
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -930,13 +930,13 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesMultipleDevicesWithSameAd
 	addressArgs := []state.LinkLayerDeviceAddress{
 		{
 			DeviceName:   "eth2",
-			ConfigMethod: network.StaticAddress,
+			ConfigMethod: network.ConfigStatic,
 			CIDRAddress:  "0.1.2.3/24",
 			ProviderID:   network.Id(providerID),
 		},
 		{
 			DeviceName:   "br0",
-			ConfigMethod: network.StaticAddress,
+			ConfigMethod: network.ConfigStatic,
 			CIDRAddress:  "0.1.2.4/24",
 			ProviderID:   network.Id(providerID),
 		},
@@ -971,7 +971,7 @@ func (s *ipAddressesStateSuite) addDeviceWithAddressAndProviderIDForMachine(
 	device := s.addNamedDeviceForMachine(c, "eth0", machine)
 	addressArgs := state.LinkLayerDeviceAddress{
 		DeviceName:   "eth0",
-		ConfigMethod: network.StaticAddress,
+		ConfigMethod: network.ConfigStatic,
 		CIDRAddress:  "0.1.2.3/24",
 		ProviderID:   network.Id(providerID),
 	}

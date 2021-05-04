@@ -958,3 +958,28 @@ func (s *AddressSuite) TestNetworkCIDRFromIPAndMask(c *gc.C) {
 		c.Assert(gotCIDR, gc.Equals, spec.expCIDR)
 	}
 }
+
+func (s *AddressSuite) TestIsValidAddressConfigTypeWithValidValues(c *gc.C) {
+	validTypes := []network.AddressConfigType{
+		network.ConfigLoopback,
+		network.ConfigStatic,
+		network.ConfigDHCP,
+		network.ConfigManual,
+	}
+
+	for _, value := range validTypes {
+		result := network.IsValidAddressConfigType(string(value))
+		c.Check(result, jc.IsTrue)
+	}
+}
+
+func (s *AddressSuite) TestIsValidAddressConfigTypeWithInvalidValues(c *gc.C) {
+	result := network.IsValidAddressConfigType("")
+	c.Check(result, jc.IsFalse)
+
+	result = network.IsValidAddressConfigType("anything")
+	c.Check(result, jc.IsFalse)
+
+	result = network.IsValidAddressConfigType(" ")
+	c.Check(result, jc.IsFalse)
+}

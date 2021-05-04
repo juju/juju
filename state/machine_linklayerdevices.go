@@ -501,7 +501,7 @@ type LinkLayerDeviceAddress struct {
 	DeviceName string
 
 	// ConfigMethod is the method used to configure this address.
-	ConfigMethod corenetwork.AddressConfigMethod
+	ConfigMethod corenetwork.AddressConfigType
 
 	// ProviderID is the provider-specific ID of the address. Empty when not
 	// supported. Cannot be changed once set to non-empty.
@@ -642,7 +642,7 @@ func (m *Machine) validateSetDevicesAddressesArgs(args *LinkLayerDeviceAddress) 
 		return errors.Trace(err)
 	}
 
-	if !corenetwork.IsValidAddressConfigMethod(string(args.ConfigMethod)) {
+	if !corenetwork.IsValidAddressConfigType(string(args.ConfigMethod)) {
 		return errors.NotValidf("ConfigMethod %q", args.ConfigMethod)
 	}
 

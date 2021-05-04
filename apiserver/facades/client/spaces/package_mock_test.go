@@ -19,7 +19,7 @@ import (
 	space "github.com/juju/juju/environs/space"
 	state "github.com/juju/juju/state"
 	txn "github.com/juju/mgo/v2/txn"
-	names "github.com/juju/names/v4"
+	v4 "github.com/juju/names/v4"
 	reflect "reflect"
 )
 
@@ -225,10 +225,10 @@ func (mr *MockBackingMockRecorder) ModelConfig() *gomock.Call {
 }
 
 // ModelTag mocks base method
-func (m *MockBacking) ModelTag() names.ModelTag {
+func (m *MockBacking) ModelTag() v4.ModelTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(names.ModelTag)
+	ret0, _ := ret[0].(v4.ModelTag)
 	return ret0
 }
 
@@ -1004,10 +1004,10 @@ func (m *MockAddress) EXPECT() *MockAddressMockRecorder {
 }
 
 // ConfigMethod mocks base method
-func (m *MockAddress) ConfigMethod() network.AddressConfigMethod {
+func (m *MockAddress) ConfigMethod() network.AddressConfigType {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConfigMethod")
-	ret0, _ := ret[0].(network.AddressConfigMethod)
+	ret0, _ := ret[0].(network.AddressConfigType)
 	return ret0
 }
 
@@ -1374,10 +1374,10 @@ func (m *MockAuthorizerState) EXPECT() *MockAuthorizerStateMockRecorder {
 }
 
 // ModelTag mocks base method
-func (m *MockAuthorizerState) ModelTag() names.ModelTag {
+func (m *MockAuthorizerState) ModelTag() v4.ModelTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(names.ModelTag)
+	ret0, _ := ret[0].(v4.ModelTag)
 	return ret0
 }
 

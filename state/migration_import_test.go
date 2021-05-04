@@ -1788,7 +1788,7 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	args := state.LinkLayerDeviceAddress{
 		DeviceName:        "foo",
-		ConfigMethod:      network.StaticAddress,
+		ConfigMethod:      network.ConfigStatic,
 		CIDRAddress:       "0.1.2.3/24",
 		ProviderID:        "bar",
 		DNSServers:        []string{"bam", "mam"},
@@ -1810,7 +1810,7 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	c.Assert(addr.Value(), gc.Equals, "0.1.2.3")
 	c.Assert(addr.MachineID(), gc.Equals, machine.Id())
 	c.Assert(addr.DeviceName(), gc.Equals, "foo")
-	c.Assert(addr.ConfigMethod(), gc.Equals, network.StaticAddress)
+	c.Assert(addr.ConfigMethod(), gc.Equals, network.ConfigStatic)
 	c.Assert(addr.SubnetCIDR(), gc.Equals, "0.1.2.0/24")
 	c.Assert(addr.ProviderID(), gc.Equals, network.Id("bar"))
 	c.Assert(addr.DNSServers(), jc.DeepEquals, []string{"bam", "mam"})

@@ -117,7 +117,7 @@ func (n *affectedNetworks) processMachines(machines []Machine) error {
 		var machineSubnets network.SubnetInfos
 		for _, address := range addresses {
 			// These are not going to have subnets, so just ignore them.
-			if address.ConfigMethod() == network.LoopbackAddress {
+			if address.ConfigMethod() == network.ConfigLoopback {
 				continue
 			}
 

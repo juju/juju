@@ -99,7 +99,7 @@ func (s *bridgePolicyStateSuite) createNICWithIPAndPortType(c *gc.C, machine con
 		state.LinkLayerDeviceAddress{
 			DeviceName:   deviceName,
 			CIDRAddress:  cidrAddress,
-			ConfigMethod: corenetwork.StaticAddress,
+			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -119,7 +119,7 @@ func (s *bridgePolicyStateSuite) createBridgeWithIP(c *gc.C, machine containeriz
 		state.LinkLayerDeviceAddress{
 			DeviceName:   bridgeName,
 			CIDRAddress:  cidrAddress,
-			ConfigMethod: corenetwork.StaticAddress,
+			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -160,7 +160,7 @@ func (s *bridgePolicyStateSuite) createLoopbackNIC(c *gc.C, machine containerize
 		state.LinkLayerDeviceAddress{
 			DeviceName:   "lo",
 			CIDRAddress:  "127.0.0.1/24",
-			ConfigMethod: corenetwork.StaticAddress,
+			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -275,7 +275,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyP
 		devAddresses[i] = state.LinkLayerDeviceAddress{
 			DeviceName:   devArg.Name,
 			CIDRAddress:  fmt.Sprintf("10.%d.0.10/24", subnet),
-			ConfigMethod: corenetwork.StaticAddress,
+			ConfigMethod: corenetwork.ConfigStatic,
 		}
 	}
 
@@ -357,7 +357,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesHostOneSpa
 			DeviceName: "br-eth0",
 			// In the DMZ subnet
 			CIDRAddress:  "10.10.0.20/24",
-			ConfigMethod: corenetwork.StaticAddress,
+			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -995,7 +995,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerBondedNICs(c 
 		state.LinkLayerDeviceAddress{
 			DeviceName:   "zbond0",
 			CIDRAddress:  "10.0.0.10/24",
-			ConfigMethod: corenetwork.StaticAddress,
+			ConfigMethod: corenetwork.ConfigStatic,
 		},
 		// TODO(jam): 2016-12-20 These devices *shouldn't* have IP addresses
 		// when they are in a bond, however eventually we should detect what
@@ -1005,12 +1005,12 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerBondedNICs(c 
 		state.LinkLayerDeviceAddress{
 			DeviceName:   "eth0",
 			CIDRAddress:  "10.0.0.11/24",
-			ConfigMethod: corenetwork.StaticAddress,
+			ConfigMethod: corenetwork.ConfigStatic,
 		},
 		state.LinkLayerDeviceAddress{
 			DeviceName:   "eth1",
 			CIDRAddress:  "10.0.0.12/24",
-			ConfigMethod: corenetwork.StaticAddress,
+			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1054,7 +1054,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLAN(c *gc.C)
 		state.LinkLayerDeviceAddress{
 			DeviceName:   "eth0.100",
 			CIDRAddress:  "10.10.0.11/24",
-			ConfigMethod: corenetwork.StaticAddress,
+			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1119,12 +1119,12 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLANOnBond(c 
 		state.LinkLayerDeviceAddress{
 			DeviceName:   "bond0",
 			CIDRAddress:  "10.0.0.20/24", // somespace
-			ConfigMethod: corenetwork.StaticAddress,
+			ConfigMethod: corenetwork.ConfigStatic,
 		},
 		state.LinkLayerDeviceAddress{
 			DeviceName:   "bond0.100",
 			CIDRAddress:  "10.10.0.20/24", // dmz
-			ConfigMethod: corenetwork.StaticAddress,
+			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
