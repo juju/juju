@@ -102,9 +102,6 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 		agentToolsList, err := t.oneAgentTools(canRead, tag, agentVersion)
 		if err == nil {
 			result.Results[i].ToolsList = agentToolsList
-			// TODO(axw) Get rid of this in 1.22, when all upgraders
-			// are known to ignore the flag.
-			result.Results[i].DisableSSLHostnameVerification = true
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -345,9 +342,10 @@ func (f *ToolsFinder) resultForSeriesTools(list coretools.List, series string) c
 	return matched
 }
 
-// findMatchingTools searches tools storage and simplestreams for tools matching the
-// given parameters. If an exact match is specified (number, series and arch)
-// and is found in tools storage, then simplestreams will not be searched.
+// findMatchingTools searches tools storage and simplestreams for tools
+// matching the given parameters.
+// If an exact match is specified (number, series and arch) and is found in
+// tools storage, then simplestreams will not be searched.
 func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (result coretools.List, _ error) {
 	exactMatch := args.Number != version.Zero && (args.OSType != "" || args.Series != "") && args.Arch != ""
 
@@ -400,7 +398,8 @@ func (f *ToolsFinder) matchingStorageTools(args params.FindToolsParams) (coretoo
 	if err != nil {
 		return nil, err
 	}
-	defer storage.Close()
+	defer func() { _ = storage.Close() }()
+
 	allMetadata, err := storage.AllMetadata()
 	if err != nil {
 		return nil, err
