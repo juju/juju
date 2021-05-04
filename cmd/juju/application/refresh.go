@@ -502,7 +502,7 @@ func (c *refreshCommand) isCharmHubWithRevision(source commoncharm.OriginSource)
 		return true
 	}
 	// EnsureSchema will error if input is an empty string.
-	path, err := charm.EnsureSchema(c.SwitchURL)
+	path, err := charm.EnsureSchema(c.SwitchURL, charm.CharmHub)
 	if err != nil {
 		return false
 	}
