@@ -1821,6 +1821,35 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	c.Assert(addr.Origin(), gc.Equals, network.OriginProvider)
 }
 
+func (s *MigrationImportSuite) TestIPAddressCompatibility(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+
+	_, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+	deviceArgs := state.LinkLayerDeviceArgs{
+		Name: "foo",
+		Type: network.EthernetDevice,
+	}
+	err = machine.SetLinkLayerDevices(deviceArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	args := state.LinkLayerDeviceAddress{
+		DeviceName:   "foo",
+		ConfigMethod: "dynamic",
+		CIDRAddress:  "0.1.2.3/24",
+		Origin:       network.OriginProvider,
+	}
+	err = machine.SetDevicesAddresses(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c, s.State)
+
+	addresses, _ := newSt.AllIPAddresses()
+	c.Assert(addresses, gc.HasLen, 1)
+	c.Assert(addresses[0].ConfigMethod(), gc.Equals, network.ConfigDHCP)
+}
+
 func (s *MigrationImportSuite) TestSSHHostKey(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),

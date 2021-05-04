@@ -567,6 +567,9 @@ func (a *LinkLayerDeviceAddress) addressAndSubnet() (string, string, error) {
 // - errors.NotValidError, when any of the fields in args contain invalid values;
 // - errors.NotFoundError, when any DeviceName in args refers to unknown device;
 // - ErrProviderIDNotUnique, when one or more specified ProviderIDs are not unique.
+//
+// Deprecated: (manadart 2021-05-04) This method is only used by tests and is in
+// the process of removal. Do not add new usages of it.
 func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set link-layer device addresses of machine %q", m.doc.Id)
 	if len(devicesAddresses) == 0 {
@@ -640,10 +643,6 @@ func (m *Machine) validateSetDevicesAddressesArgs(args *LinkLayerDeviceAddress) 
 	}
 	if err := m.verifyDeviceAlreadyExists(args.DeviceName); err != nil {
 		return errors.Trace(err)
-	}
-
-	if !corenetwork.IsValidAddressConfigType(string(args.ConfigMethod)) {
-		return errors.NotValidf("ConfigMethod %q", args.ConfigMethod)
 	}
 
 	if args.GatewayAddress != "" {

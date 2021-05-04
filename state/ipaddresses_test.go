@@ -476,16 +476,6 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithUnknownDeviceNam
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithInvalidConfigMethod(c *gc.C) {
-	s.addNamedDevice(c, "eth0")
-	args := state.LinkLayerDeviceAddress{
-		CIDRAddress:  "0.1.2.3/24",
-		DeviceName:   "eth0",
-		ConfigMethod: "something else",
-	}
-	s.assertSetDevicesAddressesFailsValidationForArgs(c, args, `ConfigMethod "something else" not valid`)
-}
-
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithInvalidGatewayAddress(c *gc.C) {
 	s.addNamedDevice(c, "eth0")
 	args := state.LinkLayerDeviceAddress{
