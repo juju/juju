@@ -236,7 +236,7 @@ type SettingsResults struct {
 	Results []SettingsResult `json:"results"`
 }
 
-// ConfigSettings holds unit, application or cham configuration settings
+// ConfigSettings holds unit, application or charm configuration settings
 // with string keys and arbitrary values.
 type ConfigSettings map[string]interface{}
 
@@ -560,11 +560,11 @@ type SetModelEnvironVersions struct {
 	Models []SetModelEnvironVersion `json:"models,omitempty"`
 }
 
-// SetModelEnvironVersions holds the tag and associated environ version
+// SetModelEnvironVersion holds the tag and associated environ version
 // of a model.
 type SetModelEnvironVersion struct {
 	// ModelTag is the string representation of a model tag, which
-	// should be parseable using names.ParseModelTag.
+	// should be parsable using names.ParseModelTag.
 	ModelTag string `json:"model-tag"`
 
 	// Version is the environ version to set for the model.
@@ -574,9 +574,8 @@ type SetModelEnvironVersion struct {
 // ToolsResult holds the tools and possibly error for a given
 // Tools() API call.
 type ToolsResult struct {
-	ToolsList                      tools.List `json:"tools"`
-	DisableSSLHostnameVerification bool       `json:"disable-ssl-hostname-verification"`
-	Error                          *Error     `json:"error,omitempty"`
+	ToolsList tools.List `json:"tools"`
+	Error     *Error     `json:"error,omitempty"`
 }
 
 // ToolsResults is a list of tools for various requested agents.
@@ -680,7 +679,7 @@ type RelationUnitsWatchResults struct {
 	Results []RelationUnitsWatchResult `json:"results"`
 }
 
-// RelationUnitStatusResult holds details about scope
+// RelationUnitStatus holds details about scope
 // and suspended status for a relation unit.
 type RelationUnitStatus struct {
 	RelationTag string `json:"relation-tag"`
@@ -838,7 +837,7 @@ type ProvisioningNetworkTopology struct {
 	SpaceSubnets map[string][]string `json:"space-subnets"`
 }
 
-// ProvisioningInfo holds machine provisioning info returned by
+// ProvisioningInfoV10 holds machine provisioning info returned by
 // versions 10 and above of the provisioner API facade.
 type ProvisioningInfoV10 struct {
 	ProvisioningInfoBase
@@ -852,7 +851,7 @@ type ProvisioningInfoResultV10 struct {
 	Error  *Error               `json:"error,omitempty"`
 }
 
-// ProvisioningInfoResults holds multiple machine provisioning info results
+// ProvisioningInfoResultsV10 holds multiple machine provisioning info results
 // for versions 10 and above of the provisioner API facade.
 type ProvisioningInfoResultsV10 struct {
 	Results []ProvisioningInfoResultV10 `json:"results"`
@@ -909,7 +908,7 @@ type MeterStatusResults struct {
 }
 
 // SingularClaim represents a request for exclusive administrative access
-// to an entity (model or controller) on the part of the claimaint.
+// to an entity (model or controller) on the part of the claimant.
 type SingularClaim struct {
 	EntityTag   string        `json:"entity-tag"`
 	ClaimantTag string        `json:"claimant-tag"`
