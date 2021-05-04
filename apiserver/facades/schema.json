@@ -34815,9 +34815,6 @@
                 "ToolsResult": {
                     "type": "object",
                     "properties": {
-                        "disable-ssl-hostname-verification": {
-                            "type": "boolean"
-                        },
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
@@ -34830,8 +34827,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "tools",
-                        "disable-ssl-hostname-verification"
+                        "tools"
                     ]
                 },
                 "ToolsResults": {
@@ -46737,9 +46733,6 @@
                 "ToolsResult": {
                     "type": "object",
                     "properties": {
-                        "disable-ssl-hostname-verification": {
-                            "type": "boolean"
-                        },
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
@@ -46752,8 +46745,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "tools",
-                        "disable-ssl-hostname-verification"
+                        "tools"
                     ]
                 },
                 "ToolsResults": {
