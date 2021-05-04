@@ -286,6 +286,7 @@ func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 	return fullList, nil
 }
 
+// TODO: Remove for Juju 3/4.
 func (f *ToolsFinder) resultForOSTools(list coretools.List, osType string) coretools.List {
 	added := make(map[version.Binary]bool)
 	var matched coretools.List
@@ -315,6 +316,7 @@ func (f *ToolsFinder) resultForOSTools(list coretools.List, osType string) coret
 	return matched
 }
 
+// TODO: Remove for Juju 3/4.
 func (f *ToolsFinder) resultForSeriesTools(list coretools.List, series string) coretools.List {
 	osType := coreseries.DefaultOSTypeNameFromSeries(series)
 
