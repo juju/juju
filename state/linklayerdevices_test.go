@@ -734,7 +734,7 @@ func (s *linkLayerDevicesStateSuite) createNICWithIP(c *gc.C, machine *state.Mac
 		state.LinkLayerDeviceAddress{
 			DeviceName:   deviceName,
 			CIDRAddress:  cidrAddress,
-			ConfigMethod: corenetwork.StaticAddress,
+			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -754,7 +754,7 @@ func (s *linkLayerDevicesStateSuite) createLoopbackNIC(c *gc.C, machine *state.M
 		state.LinkLayerDeviceAddress{
 			DeviceName:   "lo",
 			CIDRAddress:  "127.0.0.1/24",
-			ConfigMethod: corenetwork.StaticAddress,
+			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -774,7 +774,7 @@ func (s *linkLayerDevicesStateSuite) createBridgeWithIP(c *gc.C, machine *state.
 		state.LinkLayerDeviceAddress{
 			DeviceName:   bridgeName,
 			CIDRAddress:  cidrAddress,
-			ConfigMethod: corenetwork.StaticAddress,
+			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1097,14 +1097,14 @@ func (s *linkLayerDevicesStateSuite) TestSetDeviceAddressesWithSubnetID(c *gc.C)
 	err = s.machine.SetDevicesAddresses(
 		state.LinkLayerDeviceAddress{
 			DeviceName:        "eth1",
-			ConfigMethod:      corenetwork.StaticAddress,
+			ConfigMethod:      corenetwork.ConfigStatic,
 			ProviderNetworkID: "vpc-abcd",
 			ProviderSubnetID:  "prov-ffff",
 			CIDRAddress:       "10.20.0.42/24",
 		},
 		state.LinkLayerDeviceAddress{
 			DeviceName:        "eth2",
-			ConfigMethod:      corenetwork.StaticAddress,
+			ConfigMethod:      corenetwork.ConfigStatic,
 			ProviderNetworkID: "vpc-abcd",
 			ProviderSubnetID:  "prov-abcd",
 			CIDRAddress:       "10.30.0.99/24",

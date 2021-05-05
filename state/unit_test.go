@@ -2684,8 +2684,8 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 	err = m1.SetDevicesAddresses(
-		state.LinkLayerDeviceAddress{DeviceName: "enp5s0", CIDRAddress: "10.0.0.1/24", ConfigMethod: network.StaticAddress},
-		state.LinkLayerDeviceAddress{DeviceName: "enp5s1", CIDRAddress: "10.0.254.42/24", ConfigMethod: network.StaticAddress},
+		state.LinkLayerDeviceAddress{DeviceName: "enp5s0", CIDRAddress: "10.0.0.1/24", ConfigMethod: network.ConfigStatic},
+		state.LinkLayerDeviceAddress{DeviceName: "enp5s1", CIDRAddress: "10.0.254.42/24", ConfigMethod: network.ConfigStatic},
 	)
 	c.Assert(err, gc.IsNil)
 
@@ -2714,7 +2714,7 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 	err = m1.SetDevicesAddresses(state.LinkLayerDeviceAddress{
 		DeviceName:   "enp5s0",
 		CIDRAddress:  "10.0.0.100/24",
-		ConfigMethod: network.StaticAddress,
+		ConfigMethod: network.ConfigStatic,
 	})
 	c.Assert(err, gc.IsNil)
 	err = m1.SetProviderAddresses(network.NewSpaceAddress("10.0.0.100"))

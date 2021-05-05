@@ -4052,13 +4052,13 @@ func (sa setAddresses) step(c *gc.C, ctx *context) {
 	for i, address := range sa.addresses {
 		devName := fmt.Sprintf("eth%d", i)
 		macAddr := "aa:bb:cc:dd:ee:ff"
-		configMethod := network.StaticAddress
+		configMethod := network.ConfigStatic
 		devType := network.EthernetDevice
 		if address.Scope == network.ScopeMachineLocal ||
 			address.Value == "localhost" {
 			devName = "lo"
 			macAddr = "00:00:00:00:00:00"
-			configMethod = network.LoopbackAddress
+			configMethod = network.ConfigLoopback
 			devType = network.LoopbackDevice
 		}
 		lldevs[i] = state.LinkLayerDeviceArgs{

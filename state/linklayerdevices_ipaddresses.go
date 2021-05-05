@@ -47,7 +47,7 @@ type ipAddressDoc struct {
 	SubnetCIDR string `bson:"subnet-cidr"`
 
 	// ConfigMethod is the method used to configure this IP address.
-	ConfigMethod network.AddressConfigMethod `bson:"config-method"`
+	ConfigMethod network.AddressConfigType `bson:"config-method"`
 
 	// Value is the value of the configured IP address, e.g. 192.168.1.2 or
 	// 2001:db8::/64.
@@ -168,14 +168,14 @@ func (addr *Address) Subnet() (*Subnet, error) {
 }
 
 // ConfigMethod returns the AddressConfigMethod used for this IP address.
-func (addr *Address) ConfigMethod() network.AddressConfigMethod {
+func (addr *Address) ConfigMethod() network.AddressConfigType {
 	return addr.doc.ConfigMethod
 }
 
 // LoopbackConfigMethod returns whether AddressConfigMethod used for this IP
 // address was loopback.
 func (addr *Address) LoopbackConfigMethod() bool {
-	return addr.doc.ConfigMethod == network.LoopbackAddress
+	return addr.doc.ConfigMethod == network.ConfigLoopback
 }
 
 // Value returns the value of this IP address.

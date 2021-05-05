@@ -239,15 +239,9 @@ func networkAddressToStateArgs(
 		return state.LinkLayerDeviceAddress{}, errors.Trace(err)
 	}
 
-	var derivedConfigMethod network.AddressConfigMethod
-	switch method := network.AddressConfigMethod(dev.ConfigType); method {
-	case network.StaticAddress, network.DynamicAddress,
-		network.LoopbackAddress, network.ManualAddress:
-		derivedConfigMethod = method
-	case "dhcp": // awkward special case
-		derivedConfigMethod = network.DynamicAddress
-	default:
-		derivedConfigMethod = network.StaticAddress
+	configType := dev.ConfigType
+	if configType == network.ConfigUnknown {
+		configType = network.ConfigStatic
 	}
 
 	return state.LinkLayerDeviceAddress{
@@ -255,7 +249,7 @@ func networkAddressToStateArgs(
 		ProviderID:        dev.ProviderAddressId,
 		ProviderNetworkID: dev.ProviderNetworkId,
 		ProviderSubnetID:  dev.ProviderSubnetId,
-		ConfigMethod:      derivedConfigMethod,
+		ConfigMethod:      configType,
 		CIDRAddress:       cidrAddress,
 		DNSServers:        dev.DNSServers.ToIPAddresses(),
 		DNSSearchDomains:  dev.DNSSearchDomains,
