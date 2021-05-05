@@ -37,10 +37,20 @@ func (s *UserdataSuite) TestVsphereUnix(c *gc.C) {
 	c.Assert(string(result), jc.DeepEquals, expected)
 }
 
+func (s *UserdataSuite) TestVsphereWindows(c *gc.C) {
+	renderer := vsphere.VsphereRenderer{}
+	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}
+
+	result, err := renderer.Render(cloudcfg, os.Windows)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := base64.StdEncoding.EncodeToString(cloudcfg.YAML)
+	c.Assert(string(result), jc.DeepEquals, expected)
+}
+
 func (s *UserdataSuite) TestVsphereUnknownOS(c *gc.C) {
 	renderer := vsphere.VsphereRenderer{}
 	cloudcfg := &cloudinittest.CloudConfig{}
-	result, err := renderer.Render(cloudcfg, os.Windows)
+	result, err := renderer.Render(cloudcfg, os.GenericLinux)
 	c.Assert(result, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "Cannot encode userdata for OS: Windows")
+	c.Assert(err, gc.ErrorMatches, "Cannot encode userdata for OS: GenericLinux")
 }

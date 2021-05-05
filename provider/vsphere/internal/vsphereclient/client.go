@@ -55,6 +55,10 @@ const (
 	// disk areas will be zeroed out during cloning. This is the default
 	// disk provisioning type.
 	DiskTypeThick DiskProvisioningType = "thick"
+
+	// ArchTag is the CPU architecture tag that gets added to VM templates
+	// when imported from the image-download simplestream entries.
+	ArchTag = "arch"
 )
 
 var (
@@ -258,6 +262,16 @@ func (c *Client) RemoveVirtualMachines(ctx context.Context, path string) error {
 	return errors.Annotate(lastError, "failed to remove instances")
 }
 
+// VirtualMachineObjectToManagedObject returns a virtual machine managed object, given an *object.VirtualMachine
+func (c *Client) VirtualMachineObjectToManagedObject(ctx context.Context, vmObject *object.VirtualMachine) (mo.VirtualMachine, error) {
+	var vm mo.VirtualMachine
+	err := c.client.RetrieveOne(ctx, vmObject.Reference(), nil, &vm)
+	if err != nil {
+		return mo.VirtualMachine{}, errors.Trace(err)
+	}
+	return vm, nil
+}
+
 // VirtualMachines return list of all VMs in the system matching the given path.
 func (c *Client) VirtualMachines(ctx context.Context, path string) ([]*mo.VirtualMachine, error) {
 	c.logger.Tracef("VirtualMachines() path=%q", path)
@@ -283,6 +297,37 @@ func (c *Client) VirtualMachines(ctx context.Context, path string) ([]*mo.Virtua
 		vms[i] = &vm
 	}
 	return vms, nil
+}
+
+// ListVMTemplates returns a list of virtual machine objects in the given path,
+// that have been marked as templates.
+func (c *Client) ListVMTemplates(ctx context.Context, path string) ([]*object.VirtualMachine, error) {
+	c.logger.Tracef("ListVMTemplates() path=%q", path)
+	finder, _, err := c.finder(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	items, err := finder.VirtualMachineList(ctx, path)
+	if err != nil {
+		if _, ok := err.(*find.NotFoundError); ok {
+			return nil, errors.NotFoundf("path %s", path)
+		}
+		return nil, errors.Annotate(err, "listing VMs")
+	}
+
+	var templates []*object.VirtualMachine
+
+	for _, item := range items {
+		isTemplate, err := item.IsTemplate(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !isTemplate {
+			continue
+		}
+		templates = append(templates, item)
+	}
+	return templates, nil
 }
 
 // ComputeResources returns a slice of all compute resources in the datacenter,
@@ -735,19 +780,18 @@ func (c *Client) cloneVM(
 	args CreateVirtualMachineParams,
 	srcVM *object.VirtualMachine,
 	vmFolder *object.Folder,
-	datastore *object.Datastore,
 ) (*object.VirtualMachine, error) {
 	taskWaiter := &taskWaiter{
-		args.Clock,
-		args.UpdateProgress,
-		args.UpdateProgressInterval,
+		args.StatusUpdateParams.Clock,
+		args.StatusUpdateParams.UpdateProgress,
+		args.StatusUpdateParams.UpdateProgressInterval,
 	}
 
 	vmConfigSpec, err := c.buildConfigSpec(ctx, args, srcVM)
 	if err != nil {
 		return nil, errors.Annotate(err, "building clone VM config")
 	}
-	datastoreRef := datastore.Reference()
+	datastoreRef := args.Datastore.Reference()
 
 	diskLocators, err := c.buildDiskLocator(ctx, args, srcVM, datastoreRef)
 	if err != nil {

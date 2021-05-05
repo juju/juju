@@ -17,8 +17,8 @@ import (
 // UpgradeOperations is part of the upgrades.OperationSource interface.
 func (env *environ) UpgradeOperations(ctx context.ProviderCallContext, args environs.UpgradeOperationsParams) []environs.UpgradeOperation {
 	return []environs.UpgradeOperation{{
-		providerVersion1,
-		[]environs.UpgradeStep{
+		TargetVersion: providerVersion1,
+		Steps: []environs.UpgradeStep{
 			extraConfigUpgradeStep{env, args.ControllerUUID},
 			modelFoldersUpgradeStep{env, args.ControllerUUID},
 		},
