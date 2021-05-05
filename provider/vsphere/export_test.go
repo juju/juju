@@ -4,11 +4,12 @@
 package vsphere
 
 import (
+	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/vim25/types"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
-	"github.com/vmware/govmomi/object"
-	"github.com/vmware/govmomi/vim25/types"
 )
 
 // NewVMTemplateManager returns a new vmTemplateManager. This function

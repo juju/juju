@@ -35,10 +35,15 @@ func (s *UserdataSuite) TestVsphereUnix(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected = base64.StdEncoding.EncodeToString(cloudcfg.YAML)
 	c.Assert(string(result), jc.DeepEquals, expected)
+}
 
-	result, err = renderer.Render(cloudcfg, os.Windows)
+func (s *UserdataSuite) TestVsphereWindows(c *gc.C) {
+	renderer := vsphere.VsphereRenderer{}
+	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}
+
+	result, err := renderer.Render(cloudcfg, os.Windows)
 	c.Assert(err, jc.ErrorIsNil)
-	expected = base64.StdEncoding.EncodeToString(cloudcfg.YAML)
+	expected := base64.StdEncoding.EncodeToString(cloudcfg.YAML)
 	c.Assert(string(result), jc.DeepEquals, expected)
 }
 

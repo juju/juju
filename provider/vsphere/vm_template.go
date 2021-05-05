@@ -10,15 +10,15 @@ import (
 	"path"
 	"strings"
 
+	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/vim25/types"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
-
-	"github.com/vmware/govmomi/object"
-	"github.com/vmware/govmomi/vim25/types"
 )
 
 // vmTemplateManager implements a template registry that

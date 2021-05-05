@@ -7,6 +7,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/types"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/clock/testclock"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -16,10 +21,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/vmware/govmomi/object"
-	"github.com/vmware/govmomi/vim25/mo"
-	"github.com/vmware/govmomi/vim25/types"
-	gc "gopkg.in/check.v1"
 )
 
 type vmTemplateSuite struct {
