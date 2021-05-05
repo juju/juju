@@ -12,18 +12,19 @@ import (
 	utilexec "github.com/juju/utils/v2/exec"
 
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 // mockRunner implements Runner.
 type mockRunner struct {
-	ctx runner.Context
+	ctx context.Context
 
 	mu              sync.Mutex
 	hooksWithErrors set.Strings
 	ranActions_     []actionData
 }
 
-func (r *mockRunner) Context() runner.Context {
+func (r *mockRunner) Context() context.Context {
 	return r.ctx
 }
 
