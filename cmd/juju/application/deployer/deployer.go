@@ -83,6 +83,7 @@ func (d *factory) setConfig(cfg DeployerConfig) {
 	d.numUnits = cfg.NumUnits
 	d.attachStorage = cfg.AttachStorage
 	d.charmOrBundle = cfg.CharmOrBundle
+	d.defaultCharmSchema = cfg.DefaultCharmSchema
 	d.bundleOverlayFile = cfg.BundleOverlayFile
 	d.channel = cfg.Channel
 	d.series = cfg.Series
@@ -130,6 +131,7 @@ type DeployerConfig struct {
 	BundleStorage        map[string]map[string]storage.Constraints
 	Channel              charm.Channel
 	CharmOrBundle        string
+	DefaultCharmSchema   charm.Schema
 	ConfigOptions        common.ConfigFlag
 	ConstraintsStr       string
 	Constraints          constraints.Value
@@ -159,31 +161,32 @@ type factory struct {
 	charmReader          CharmReader
 
 	// DeployerConfig
-	placementSpec     string
-	placement         []*instance.Placement
-	numUnits          int
-	attachStorage     []string
-	charmOrBundle     string
-	bundleOverlayFile []string
-	channel           charm.Channel
-	series            string
-	force             bool
-	dryRun            bool
-	applicationName   string
-	configOptions     common.ConfigFlag
-	constraints       constraints.Value
-	modelConstraints  constraints.Value
-	storage           map[string]storage.Constraints
-	bundleStorage     map[string]map[string]storage.Constraints
-	devices           map[string]devices.Constraints
-	bundleDevices     map[string]map[string]devices.Constraints
-	resources         map[string]string
-	bindings          map[string]string
-	steps             []DeployStep
-	useExisting       bool
-	bundleMachines    map[string]string
-	trust             bool
-	flagSet           *gnuflag.FlagSet
+	defaultCharmSchema charm.Schema
+	placementSpec      string
+	placement          []*instance.Placement
+	numUnits           int
+	attachStorage      []string
+	charmOrBundle      string
+	bundleOverlayFile  []string
+	channel            charm.Channel
+	series             string
+	force              bool
+	dryRun             bool
+	applicationName    string
+	configOptions      common.ConfigFlag
+	constraints        constraints.Value
+	modelConstraints   constraints.Value
+	storage            map[string]storage.Constraints
+	bundleStorage      map[string]map[string]storage.Constraints
+	devices            map[string]devices.Constraints
+	bundleDevices      map[string]map[string]devices.Constraints
+	resources          map[string]string
+	bindings           map[string]string
+	steps              []DeployStep
+	useExisting        bool
+	bundleMachines     map[string]string
+	trust              bool
+	flagSet            *gnuflag.FlagSet
 
 	// Private
 	clock jujuclock.Clock
@@ -193,7 +196,7 @@ func (d *factory) maybePredeployedLocalCharm() (Deployer, error) {
 	// If the charm's schema is local, we should definitively attempt
 	// to deploy a charm that's already deployed in the
 	// environment.
-	userCharmURL, err := resolveCharmURL(d.charmOrBundle)
+	userCharmURL, err := resolveCharmURL(d.charmOrBundle, d.defaultCharmSchema)
 	if err != nil {
 		if _, err := d.fileSystem.Stat(d.charmOrBundle); os.IsNotExist(errors.Cause(err)) {
 			return nil, errors.Errorf("no charm was found at %q", d.charmOrBundle)
@@ -269,7 +272,7 @@ func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	db := d.newDeployBundle(ds)
+	db := d.newDeployBundle(d.defaultCharmSchema, ds)
 	db.origin = commoncharm.Origin{
 		Source:       commoncharm.OriginLocal,
 		Architecture: platform.Architecture,
@@ -282,7 +285,7 @@ func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 // newDeployBundle returns the config needed to eventually call
 // deployBundle.deploy.  This is used by all types of bundles to
 // be deployed
-func (d *factory) newDeployBundle(ds charm.BundleDataSource) deployBundle {
+func (d *factory) newDeployBundle(defaultCharmSchema charm.Schema, ds charm.BundleDataSource) deployBundle {
 	return deployBundle{
 		model:                d.model,
 		steps:                d.steps,
@@ -300,6 +303,7 @@ func (d *factory) newDeployBundle(ds charm.BundleDataSource) deployBundle {
 		bundleDir:            d.charmOrBundle,
 		modelConstraints:     d.modelConstraints,
 		charmReader:          d.charmReader,
+		defaultCharmSchema:   d.defaultCharmSchema,
 	}
 }
 
@@ -414,7 +418,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 }
 
 func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error) {
-	curl, err := resolveAndValidateCharmURL(d.charmOrBundle)
+	curl, err := resolveAndValidateCharmURL(d.charmOrBundle, d.defaultCharmSchema)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -465,7 +469,7 @@ func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error)
 		return nil, errors.Trace(err)
 	}
 
-	db := d.newDeployBundle(store.NewResolvedBundle(bundle))
+	db := d.newDeployBundle(d.defaultCharmSchema, store.NewResolvedBundle(bundle))
 	db.bundleURL = bundleURL
 	db.bundleOverlayFile = d.bundleOverlayFile
 	db.origin = bundleOrigin
@@ -474,7 +478,7 @@ func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error)
 
 func (d *factory) repositoryCharm() (Deployer, error) {
 	// Validate we have a charm store change.
-	userRequestedURL, err := resolveAndValidateCharmURL(d.charmOrBundle)
+	userRequestedURL, err := resolveAndValidateCharmURL(d.charmOrBundle, d.defaultCharmSchema)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -496,17 +500,17 @@ func (d *factory) repositoryCharm() (Deployer, error) {
 	}, nil
 }
 
-func resolveCharmURL(path string) (*charm.URL, error) {
+func resolveCharmURL(path string, defaultSchema charm.Schema) (*charm.URL, error) {
 	var err error
-	path, err = charm.EnsureSchema(path)
+	path, err = charm.EnsureSchema(path, defaultSchema)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return charm.ParseURL(path)
 }
 
-func resolveAndValidateCharmURL(path string) (*charm.URL, error) {
-	curl, err := resolveCharmURL(path)
+func resolveAndValidateCharmURL(path string, defaultSchema charm.Schema) (*charm.URL, error) {
+	curl, err := resolveCharmURL(path, defaultSchema)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -224,28 +224,42 @@ func (s *deployerSuite) TestGetDeployerCharmStoreBundleWithChannel(c *gc.C) {
 
 func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
 	tests := []struct {
-		path string
-		url  *charm.URL
-		err  error
+		defaultSchema charm.Schema
+		path          string
+		url           *charm.URL
+		err           error
 	}{{
-		path: "wordpress",
-		url:  &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
+		defaultSchema: charm.CharmHub,
+		path:          "wordpress",
+		url:           &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
 	}, {
-		path: "ch:wordpress",
-		url:  &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
+		defaultSchema: charm.CharmHub,
+		path:          "ch:wordpress",
+		url:           &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
 	}, {
-		path: "cs:wordpress",
-		url:  &charm.URL{Schema: "cs", Name: "wordpress", Revision: -1},
+		defaultSchema: charm.CharmHub,
+		path:          "cs:wordpress",
+		url:           &charm.URL{Schema: "cs", Name: "wordpress", Revision: -1},
 	}, {
-		path: "local:wordpress",
-		url:  &charm.URL{Schema: "local", Name: "wordpress", Revision: -1},
+		defaultSchema: charm.CharmHub,
+		path:          "local:wordpress",
+		url:           &charm.URL{Schema: "local", Name: "wordpress", Revision: -1},
 	}, {
-		path: "cs:~user/series/name",
-		url:  &charm.URL{Schema: "cs", User: "user", Name: "name", Series: "series", Revision: -1},
+		defaultSchema: charm.CharmHub,
+		path:          "cs:~user/series/name",
+		url:           &charm.URL{Schema: "cs", User: "user", Name: "name", Series: "series", Revision: -1},
+	}, {
+		defaultSchema: charm.CharmHub,
+		path:          "wordpress",
+		url:           &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
+	}, {
+		defaultSchema: charm.CharmStore,
+		path:          "wordpress",
+		url:           &charm.URL{Schema: "cs", Name: "wordpress", Revision: -1},
 	}}
 	for i, test := range tests {
 		c.Logf("%d %s", i, test.path)
-		url, err := resolveCharmURL(test.path)
+		url, err := resolveCharmURL(test.path, test.defaultSchema)
 		if test.err != nil {
 			c.Assert(err, gc.ErrorMatches, test.err.Error())
 		} else {
@@ -257,26 +271,39 @@ func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
 
 func (s *deployerSuite) TestResolveAndValidateCharmURL(c *gc.C) {
 	tests := []struct {
-		path string
-		url  *charm.URL
-		err  error
+		defaultSchema charm.Schema
+		path          string
+		url           *charm.URL
+		err           error
 	}{{
-		path: "ch:wordpress-42",
-		url:  &charm.URL{Schema: "ch", Name: "wordpress", Revision: 42},
-		err:  errors.Errorf("specifying a revision for wordpress is not supported, please use a channel."),
+		defaultSchema: charm.CharmHub,
+		path:          "ch:wordpress-42",
+		url:           &charm.URL{Schema: "ch", Name: "wordpress", Revision: 42},
+		err:           errors.Errorf("specifying a revision for wordpress is not supported, please use a channel."),
 	}, {
-		path: "ch:wordpress",
-		url:  &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
+		defaultSchema: charm.CharmHub,
+		path:          "ch:wordpress",
+		url:           &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
 	}, {
-		path: "cs:wordpress-42",
-		url:  &charm.URL{Schema: "cs", Name: "wordpress", Revision: 42},
+		defaultSchema: charm.CharmHub,
+		path:          "cs:wordpress-42",
+		url:           &charm.URL{Schema: "cs", Name: "wordpress", Revision: 42},
 	}, {
-		path: "local:wordpress",
-		url:  &charm.URL{Schema: "local", Name: "wordpress", Revision: -1},
+		defaultSchema: charm.CharmHub,
+		path:          "local:wordpress",
+		url:           &charm.URL{Schema: "local", Name: "wordpress", Revision: -1},
+	}, {
+		defaultSchema: charm.CharmHub,
+		path:          "wordpress",
+		url:           &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
+	}, {
+		defaultSchema: charm.CharmStore,
+		path:          "wordpress-42",
+		url:           &charm.URL{Schema: "cs", Name: "wordpress", Revision: 42},
 	}}
 	for i, test := range tests {
 		c.Logf("%d %s", i, test.path)
-		url, err := resolveAndValidateCharmURL(test.path)
+		url, err := resolveAndValidateCharmURL(test.path, test.defaultSchema)
 		if test.err != nil {
 			c.Assert(err, gc.ErrorMatches, test.err.Error())
 		} else {

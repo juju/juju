@@ -87,9 +87,9 @@ type bundleDeploySpec struct {
 //
 // Note: deployBundle expects that spec.BundleData points to a verified bundle
 // that has all required external overlays applied.
-func bundleDeploy(bundleData *charm.BundleData, spec bundleDeploySpec) (map[charm.URL]*macaroon.Macaroon, error) {
+func bundleDeploy(defaultCharmSchema charm.Schema, bundleData *charm.BundleData, spec bundleDeploySpec) (map[charm.URL]*macaroon.Macaroon, error) {
 	// TODO: move bundle parsing and checking into the handler.
-	h := makeBundleHandler(bundleData, spec)
+	h := makeBundleHandler(defaultCharmSchema, bundleData, spec)
 	if err := h.makeModel(spec.useExistingMachines, spec.bundleMachines); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -208,9 +208,12 @@ type bundleHandler struct {
 	// accountUser holds the user of the account associated with the
 	// current controller.
 	accountUser string
+
+	// The default schema to use for charm URLs that don't specify one.
+	defaultCharmSchema charm.Schema
 }
 
-func makeBundleHandler(bundleData *charm.BundleData, spec bundleDeploySpec) *bundleHandler {
+func makeBundleHandler(defaultCharmSchema charm.Schema, bundleData *charm.BundleData, spec bundleDeploySpec) *bundleHandler {
 	applications := set.NewStrings()
 	for name := range bundleData.Applications {
 		applications.Add(name)
@@ -246,6 +249,8 @@ func makeBundleHandler(bundleData *charm.BundleData, spec bundleDeploySpec) *bun
 		targetModelUUID: spec.targetModelUUID,
 		controllerName:  spec.controllerName,
 		accountUser:     spec.accountUser,
+
+		defaultCharmSchema: defaultCharmSchema,
 	}
 }
 
@@ -324,7 +329,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			continue
 		}
 
-		ch, err := resolveAndValidateCharmURL(spec.Charm)
+		ch, err := resolveAndValidateCharmURL(spec.Charm, h.defaultCharmSchema)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -388,7 +393,7 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL, charmSeries, ch
 	}
 
 	// Resolve and validate a charm URL based on passed in charm.
-	ch, err := resolveAndValidateCharmURL(charmURL)
+	ch, err := resolveAndValidateCharmURL(charmURL, h.defaultCharmSchema)
 	if err != nil {
 		return "", -1, errors.Trace(err)
 	}
@@ -614,7 +619,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	}
 
 	// Not a local charm, so grab from the store.
-	ch, err := resolveAndValidateCharmURL(chParams.Charm)
+	ch, err := resolveAndValidateCharmURL(chParams.Charm, h.defaultCharmSchema)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -705,7 +710,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 
 	p := change.Params
-	curl, err := resolveCharmURL(resolve(p.Charm, h.results))
+	curl, err := resolveCharmURL(resolve(p.Charm, h.results), h.defaultCharmSchema)
 	if err != nil {
 		return errors.Trace(err)
 	} else if curl == nil {
@@ -1137,7 +1142,7 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 
 	p := change.Params
 	resolvedCharm := resolve(p.Charm, h.results)
-	curl, err := resolveCharmURL(resolvedCharm)
+	curl, err := resolveCharmURL(resolvedCharm, h.defaultCharmSchema)
 	if err != nil {
 		return errors.Trace(err)
 	}

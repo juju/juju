@@ -2471,11 +2471,12 @@ func basicDeployerConfig(charmOrBundle string) deployer.DeployerConfig {
 	cfgOps := common.ConfigFlag{}
 	cfgOps.SetPreserveStringValue(true)
 	return deployer.DeployerConfig{
-		BundleMachines: map[string]string{},
-		CharmOrBundle:  charmOrBundle,
-		ConfigOptions:  cfgOps,
-		Constraints:    constraints.Value{},
-		NumUnits:       1,
+		BundleMachines:     map[string]string{},
+		CharmOrBundle:      charmOrBundle,
+		ConfigOptions:      cfgOps,
+		Constraints:        constraints.Value{},
+		NumUnits:           1,
+		DefaultCharmSchema: charm.CharmHub,
 	}
 }
 
@@ -2875,7 +2876,7 @@ func vanillaFakeModelAPI(cfgAttrs map[string]interface{}) *fakeDeployAPI {
 	fakeAPI.Call("ModelGet").Returns(cfgAttrs, error(nil))
 	fakeAPI.Call("ModelUUID").Returns("deadbeef-0bad-400d-8000-4b1d0d06f00d", true)
 	fakeAPI.Call("BestFacadeVersion", "Application").Returns(6)
-	fakeAPI.Call("BestFacadeVersion", "Charms").Returns(2)
+	fakeAPI.Call("BestFacadeVersion", "Charms").Returns(3)
 
 	return fakeAPI
 }

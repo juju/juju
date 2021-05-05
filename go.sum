@@ -363,8 +363,8 @@ github.com/juju/bundlechanges/v4 v4.0.0-20210223105356-e3037fe2412c/go.mod h1:J4
 github.com/juju/charm/v8 v8.0.0-20201117030444-62c13a9fe0f0/go.mod h1:3gMi15p+v4CxEquVduhcOoPLWM7IaRB+OZB6bT3Glww=
 github.com/juju/charm/v8 v8.0.0-20210115142305-1eb0c22cff4e/go.mod h1:3gMi15p+v4CxEquVduhcOoPLWM7IaRB+OZB6bT3Glww=
 github.com/juju/charm/v8 v8.0.0-20210304015923-e7ca8ffa7716/go.mod h1:fAs/8HQjkAuVkhEyE//h1O3qxB/4Nv3w5zFK6tNZNEY=
-github.com/juju/charm/v8 v8.0.0-20210422143038-0e0160321724 h1:MtmcLT3nz4fQ6jzueGDilvRGJ5KNYoH6aannrmmKwGA=
-github.com/juju/charm/v8 v8.0.0-20210422143038-0e0160321724/go.mod h1:W5J2j7v5aAbOVqep8NFysd+p/sShXFqLraG4A6iOzDM=
+github.com/juju/charm/v8 v8.0.0-20210504171051-24818e83067e h1:ubWctc0P8Qn4fAcubeBXz4PVdodfxg9b4sP2sCD2bpk=
+github.com/juju/charm/v8 v8.0.0-20210504171051-24818e83067e/go.mod h1:W5J2j7v5aAbOVqep8NFysd+p/sShXFqLraG4A6iOzDM=
 github.com/juju/charm/v9 v9.0.0-20210421060150-6a300db18162/go.mod h1:GR/jjdIQ0V9Yss8krrfqy3rRKJabbvDOXXRjfO+110M=
 github.com/juju/charmrepo/v6 v6.0.0-20201118043529-e9fbdc1a746f/go.mod h1:4V0vrJRD/0oxG+D9j/53elHpXiZ1FoBIXdJGm3Jq4Js=
 github.com/juju/charmrepo/v6 v6.0.0-20210422125831-407c8ef9471c h1:+p8LWnIJCzmptGw1Tz7mb0EtOjMEZUHARbnW5vI1oSI=

@@ -303,7 +303,7 @@ type charmStoreRefresher struct {
 // Allowed will attempt to check if the charm store is allowed to refresh.
 // Depending on the charm url, will then determine if that's true or not.
 func (r *charmStoreRefresher) Allowed(cfg RefresherConfig) (bool, error) {
-	path, err := charm.EnsureSchema(cfg.CharmRef)
+	path, err := charm.EnsureSchema(cfg.CharmRef, charm.CharmStore)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -375,7 +375,7 @@ type charmHubRefresher struct {
 // Allowed will attempt to check if the charm store is allowed to refresh.
 // Depending on the charm url, will then determine if that's true or not.
 func (r *charmHubRefresher) Allowed(cfg RefresherConfig) (bool, error) {
-	path, err := charm.EnsureSchema(cfg.CharmRef)
+	path, err := charm.EnsureSchema(cfg.CharmRef, charm.CharmHub)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
