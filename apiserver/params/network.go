@@ -298,7 +298,7 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			VLANTag:             v.VLANTag,
 			InterfaceName:       v.InterfaceName,
 			ParentInterfaceName: v.ParentInterfaceName,
-			InterfaceType:       network.InterfaceType(v.InterfaceType),
+			InterfaceType:       network.LinkLayerDeviceType(v.InterfaceType),
 			Disabled:            v.Disabled,
 			NoAutoStart:         v.NoAutoStart,
 			ConfigType:          configType,

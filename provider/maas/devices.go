@@ -196,7 +196,7 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 	for _, nic := range interfaces {
 		nicInfo := corenetwork.InterfaceInfo{
 			InterfaceName:       nic.Name,
-			InterfaceType:       corenetwork.EthernetInterface,
+			InterfaceType:       corenetwork.EthernetDevice,
 			MACAddress:          nic.MACAddress,
 			MTU:                 nic.EffectveMTU,
 			VLANTag:             nic.VLAN.VID,
@@ -273,7 +273,7 @@ func (env *maasEnviron) deviceInterfaceInfo2(
 		nicInfo := corenetwork.InterfaceInfo{
 			DeviceIndex:         idx,
 			InterfaceName:       nic.Name(),
-			InterfaceType:       corenetwork.EthernetInterface,
+			InterfaceType:       corenetwork.EthernetDevice,
 			MACAddress:          nic.MACAddress(),
 			MTU:                 nic.EffectiveMTU(),
 			VLANTag:             vlanVid,

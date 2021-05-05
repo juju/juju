@@ -308,7 +308,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyP
 	c.Assert(info, gc.HasLen, len(devicesArgs))
 	for i, dev := range info {
 		c.Check(dev.InterfaceName, gc.Equals, "eth"+strconv.Itoa(i))
-		c.Check(dev.InterfaceType, gc.Equals, corenetwork.EthernetInterface)
+		c.Check(dev.InterfaceType, gc.Equals, corenetwork.EthernetDevice)
 		c.Check(dev.MTU, gc.Equals, 0) // inherited from the parent device.
 		c.Check(dev.MACAddress, gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
 		c.Check(dev.Disabled, jc.IsFalse)
@@ -334,7 +334,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesConstraint
 	c.Assert(info, gc.HasLen, 1)
 	dev := info[0]
 	c.Check(dev.InterfaceName, gc.Equals, "eth0")
-	c.Check(dev.InterfaceType, gc.Equals, corenetwork.EthernetInterface)
+	c.Check(dev.InterfaceType, gc.Equals, corenetwork.EthernetDevice)
 	c.Check(dev.MTU, gc.Equals, 0) // inherited from the parent device.
 	c.Check(dev.MACAddress, gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
 	c.Check(dev.Disabled, jc.IsFalse)
@@ -372,7 +372,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesHostOneSpa
 	c.Assert(info, gc.HasLen, 1)
 	dev := info[0]
 	c.Check(dev.InterfaceName, gc.Equals, "eth0")
-	c.Check(dev.InterfaceType, gc.Equals, corenetwork.EthernetInterface)
+	c.Check(dev.InterfaceType, gc.Equals, corenetwork.EthernetDevice)
 	c.Check(dev.MTU, gc.Equals, 0) // inherited from the parent device.
 	c.Check(dev.MACAddress, gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
 	c.Check(dev.Disabled, jc.IsFalse)
@@ -499,7 +499,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesTwoDevices
 	c.Assert(info, gc.HasLen, 1)
 	dev := info[0]
 	c.Check(dev.InterfaceName, gc.Equals, "eth0")
-	c.Check(dev.InterfaceType, gc.Equals, corenetwork.EthernetInterface)
+	c.Check(dev.InterfaceType, gc.Equals, corenetwork.EthernetDevice)
 	c.Check(dev.MTU, gc.Equals, 0) // inherited from the parent device.
 	c.Check(dev.MACAddress, gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
 	c.Check(dev.Disabled, jc.IsFalse)

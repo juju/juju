@@ -59,16 +59,16 @@ func (s *sourceNetlinkSuite) TestNetlinkNICType(c *gc.C) {
 
 	// If we have get value, return it.
 	link.linkType = "bond"
-	c.Check(nic.Type(), gc.Equals, BondInterface)
+	c.Check(nic.Type(), gc.Equals, BondDevice)
 
 	// Infer loopback from flags.
 	link.linkType = ""
 	link.flags = net.FlagUp | net.FlagLoopback
-	c.Check(nic.Type(), gc.Equals, LoopbackInterface)
+	c.Check(nic.Type(), gc.Equals, LoopbackDevice)
 
 	// Default to ethernet otherwise.
 	link.flags = net.FlagUp | net.FlagBroadcast | net.FlagMulticast
-	c.Check(nic.Type(), gc.Equals, EthernetInterface)
+	c.Check(nic.Type(), gc.Equals, EthernetDevice)
 }
 
 func (s *sourceNetlinkSuite) TestNetlinkNICAddrs(c *gc.C) {
@@ -109,8 +109,8 @@ func (s *sourceNetlinkSuite) TestNetlinkSourceInterfaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(nics, gc.HasLen, 2)
-	c.Check(nics[0].Type(), gc.Equals, BridgeInterface)
-	c.Check(nics[1].Type(), gc.Equals, BondInterface)
+	c.Check(nics[0].Type(), gc.Equals, BridgeDevice)
+	c.Check(nics[1].Type(), gc.Equals, BondDevice)
 }
 
 // stubLink stubs netlink.Link

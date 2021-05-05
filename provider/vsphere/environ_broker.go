@@ -147,7 +147,7 @@ func (env *sessionEnviron) newRawInstance(
 	interfaces := corenetwork.InterfaceInfos{{
 		InterfaceName: "eth0",
 		MACAddress:    internalMac,
-		InterfaceType: corenetwork.EthernetInterface,
+		InterfaceType: corenetwork.EthernetDevice,
 		ConfigType:    corenetwork.ConfigDHCP,
 		Origin:        corenetwork.OriginProvider,
 	}}
@@ -164,7 +164,7 @@ func (env *sessionEnviron) newRawInstance(
 		interfaces = append(interfaces, corenetwork.InterfaceInfo{
 			InterfaceName: "eth1",
 			MACAddress:    externalMac,
-			InterfaceType: corenetwork.EthernetInterface,
+			InterfaceType: corenetwork.EthernetDevice,
 			ConfigType:    corenetwork.ConfigDHCP,
 			Origin:        corenetwork.OriginProvider,
 		})

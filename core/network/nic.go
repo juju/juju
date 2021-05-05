@@ -10,18 +10,6 @@ import (
 	"github.com/juju/errors"
 )
 
-// InterfaceType defines valid network interface types.
-type InterfaceType string
-
-const (
-	UnknownInterface    InterfaceType = ""
-	LoopbackInterface   InterfaceType = "loopback"
-	EthernetInterface   InterfaceType = "ethernet"
-	VLAN_8021QInterface InterfaceType = "802.1q"
-	BondInterface       InterfaceType = "bond"
-	BridgeInterface     InterfaceType = "bridge"
-)
-
 // VirtualPortType defines the list of known port types for virtual NICs.
 type VirtualPortType string
 
@@ -121,7 +109,7 @@ type InterfaceInfo struct {
 	ParentInterfaceName string
 
 	// InterfaceType is the type of the interface.
-	InterfaceType InterfaceType
+	InterfaceType LinkLayerDeviceType
 
 	// Disabled is true when the interface needs to be disabled on the
 	// machine, e.g. not to configure it.

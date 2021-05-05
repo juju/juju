@@ -397,7 +397,7 @@ func (o *updateMachineLinkLayerOp) processSubnets(name string) ([]txn.Op, error)
 	cidrSet := set.NewStrings()
 	var isVLAN bool
 	for _, matching := range o.Incoming().GetByName(name) {
-		if matching.InterfaceType == network.LoopbackInterface {
+		if matching.InterfaceType == network.LoopbackDevice {
 			continue
 		}
 
