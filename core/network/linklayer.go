@@ -12,6 +12,9 @@ import (
 type LinkLayerDeviceType string
 
 const (
+	// UnknownDevice indicates that the type of this device is not known.
+	UnknownDevice LinkLayerDeviceType = ""
+
 	// LoopbackDevice is used for loopback devices.
 	LoopbackDevice LinkLayerDeviceType = "loopback"
 

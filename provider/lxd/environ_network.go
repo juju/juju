@@ -163,7 +163,7 @@ func (e *environ) subnetDetectionFallback(srv Server, inst instance.Id, keepSubn
 		}
 
 		// Ignore loopback devices and NICs in down state.
-		if detectInterfaceType(netInfo.Type) == network.LoopbackInterface || netInfo.State != "up" {
+		if detectInterfaceType(netInfo.Type) == network.LoopbackDevice || netInfo.State != "up" {
 			continue
 		}
 
@@ -256,7 +256,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 			netInfo := state.Network[guestNetworkName]
 
 			// Ignore loopback devices
-			if detectInterfaceType(netInfo.Type) == network.LoopbackInterface {
+			if detectInterfaceType(netInfo.Type) == network.LoopbackDevice {
 				continue
 			}
 
@@ -299,7 +299,7 @@ func makeInterfaceInfo(container *lxdapi.Container, guestNetworkName string, net
 		ConfigType: network.ConfigStatic,
 	}
 
-	if ni.InterfaceType == network.LoopbackInterface {
+	if ni.InterfaceType == network.LoopbackDevice {
 		ni.ConfigType = network.ConfigLoopback
 	}
 
@@ -341,16 +341,16 @@ func makeInterfaceInfo(container *lxdapi.Container, guestNetworkName string, net
 	return ni, nil
 }
 
-func detectInterfaceType(lxdIfaceType string) network.InterfaceType {
+func detectInterfaceType(lxdIfaceType string) network.LinkLayerDeviceType {
 	switch lxdIfaceType {
 	case "bridge":
-		return network.BridgeInterface
+		return network.BridgeDevice
 	case "broadcast":
-		return network.EthernetInterface
+		return network.EthernetDevice
 	case "loopback":
-		return network.LoopbackInterface
+		return network.LoopbackDevice
 	default:
-		return network.UnknownInterface
+		return network.UnknownDevice
 	}
 }
 

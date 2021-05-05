@@ -115,7 +115,7 @@ func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 func prepNetworkConfig() *container.NetworkConfig {
 	return container.BridgeNetworkConfig("eth0", 1500, corenetwork.InterfaceInfos{{
 		InterfaceName:       "eth0",
-		InterfaceType:       corenetwork.EthernetInterface,
+		InterfaceType:       corenetwork.EthernetDevice,
 		ConfigType:          corenetwork.ConfigDHCP,
 		ParentInterfaceName: "eth0",
 	}})
@@ -220,7 +220,7 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 	// CIDR will cause the default bridge to be updated with IPv4 config.
 	netConfig := container.BridgeNetworkConfig("eth0", 1500, corenetwork.InterfaceInfos{{
 		InterfaceName:       "eth0",
-		InterfaceType:       corenetwork.EthernetInterface,
+		InterfaceType:       corenetwork.EthernetDevice,
 		ConfigType:          corenetwork.ConfigDHCP,
 		ParentInterfaceName: network.DefaultLXDBridge,
 	}})

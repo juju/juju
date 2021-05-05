@@ -219,7 +219,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 					corenetwork.WithCIDR(details.cidr),
 				)},
 				ShadowAddresses: shadowAddrs,
-				InterfaceType:   corenetwork.EthernetInterface,
+				InterfaceType:   corenetwork.EthernetDevice,
 				Disabled:        false,
 				NoAutoStart:     false,
 				ConfigType:      corenetwork.ConfigDHCP,

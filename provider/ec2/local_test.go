@@ -1714,7 +1714,7 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDev
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       corenetwork.ConfigDHCP,
-		InterfaceType:    corenetwork.EthernetInterface,
+		InterfaceType:    corenetwork.EthernetDevice,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
 			addr, corenetwork.WithScope(corenetwork.ScopeCloudLocal), corenetwork.WithCIDR(cidr)),
 		},

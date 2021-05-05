@@ -205,10 +205,10 @@ func maasObjectNetworkInterfaces(
 	for i, iface := range interfaces {
 		// The below works for all types except bonds and their members.
 		parentName := strings.Join(iface.Parents, "")
-		var nicType corenetwork.InterfaceType
+		var nicType corenetwork.LinkLayerDeviceType
 		switch iface.Type {
 		case typePhysical:
-			nicType = corenetwork.EthernetInterface
+			nicType = corenetwork.EthernetDevice
 			children := strings.Join(iface.Children, "")
 			if parentName == "" && len(iface.Children) == 1 && strings.HasPrefix(children, "bond") {
 				// FIXME: Verify the bond exists, regardless of its name.
@@ -218,11 +218,11 @@ func maasObjectNetworkInterfaces(
 			}
 		case typeBond:
 			parentName = ""
-			nicType = corenetwork.BondInterface
+			nicType = corenetwork.BondDevice
 		case typeVLAN:
-			nicType = corenetwork.VLAN_8021QInterface
+			nicType = corenetwork.VLAN8021QDevice
 		case typeBridge:
-			nicType = corenetwork.BridgeInterface
+			nicType = corenetwork.BridgeDevice
 		}
 
 		nicInfo := corenetwork.InterfaceInfo{
@@ -324,10 +324,10 @@ func maas2NetworkInterfaces(
 
 		// The below works for all types except bonds and their members.
 		parentName := strings.Join(iface.Parents(), "")
-		var nicType corenetwork.InterfaceType
+		var nicType corenetwork.LinkLayerDeviceType
 		switch maasInterfaceType(iface.Type()) {
 		case typePhysical:
-			nicType = corenetwork.EthernetInterface
+			nicType = corenetwork.EthernetDevice
 			children := strings.Join(iface.Children(), "")
 			if parentName == "" && len(iface.Children()) == 1 && strings.HasPrefix(children, "bond") {
 				// FIXME: Verify the bond exists, regardless of its name.
@@ -337,11 +337,11 @@ func maas2NetworkInterfaces(
 			}
 		case typeBond:
 			parentName = ""
-			nicType = corenetwork.BondInterface
+			nicType = corenetwork.BondDevice
 		case typeVLAN:
-			nicType = corenetwork.VLAN_8021QInterface
+			nicType = corenetwork.VLAN8021QDevice
 		case typeBridge:
-			nicType = corenetwork.BridgeInterface
+			nicType = corenetwork.BridgeDevice
 		}
 
 		vlanTag := 0
