@@ -248,10 +248,9 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		MACAddress:       "aa:bb:cc:dd:ee:f0",
 		Disabled:         false,
 		NoAutoStart:      false,
-		ConfigType:       corenetwork.ConfigDHCP,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("0.10.0.2", corenetwork.WithCIDR("0.10.0.0/24")),
-		},
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+			"0.10.0.2", corenetwork.WithCIDR("0.10.0.0/24"), corenetwork.WithConfigType(corenetwork.ConfigDHCP),
+		)},
 		DNSServers:     corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress: corenetwork.NewProviderAddress("0.10.0.1"),
 		Origin:         corenetwork.OriginProvider,
@@ -265,10 +264,9 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
 		Disabled:         false,
 		NoAutoStart:      true,
-		ConfigType:       corenetwork.ConfigDHCP,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("0.20.0.2", corenetwork.WithCIDR("0.20.0.0/24")),
-		},
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+			"0.20.0.2", corenetwork.WithCIDR("0.20.0.0/24"), corenetwork.WithConfigType(corenetwork.ConfigDHCP),
+		)},
 		DNSServers:     corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress: corenetwork.NewProviderAddress("0.20.0.1"),
 		Origin:         corenetwork.OriginProvider,
@@ -282,15 +280,14 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		MACAddress:       "aa:bb:cc:dd:ee:f2",
 		Disabled:         true,
 		NoAutoStart:      false,
-		ConfigType:       corenetwork.ConfigDHCP,
-		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("0.30.0.2", corenetwork.WithCIDR("0.30.0.0/24")),
-		},
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+			"0.30.0.2", corenetwork.WithCIDR("0.30.0.0/24"), corenetwork.WithConfigType(corenetwork.ConfigDHCP),
+		)},
 		DNSServers:     corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress: corenetwork.NewProviderAddress("0.30.0.1"),
 		Origin:         corenetwork.OriginProvider,
 	}}
-	infoList, err := e.NetworkInterfaces(s.callCtx, []instance.Id{instance.Id("i-42")})
+	infoList, err := e.NetworkInterfaces(s.callCtx, []instance.Id{"i-42"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(infoList, gc.HasLen, 1)
 	info := infoList[0]
@@ -300,7 +297,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 
 	// Test we can induce errors.
 	s.breakMethods(c, e, "NetworkInterfaces")
-	infoList, err = e.NetworkInterfaces(s.callCtx, []instance.Id{instance.Id("i-any")})
+	infoList, err = e.NetworkInterfaces(s.callCtx, []instance.Id{"i-any"})
 	c.Assert(err, gc.ErrorMatches, `dummy\.NetworkInterfaces is broken`)
 	c.Assert(infoList, gc.HasLen, 0)
 }
@@ -369,7 +366,7 @@ func assertInterfaces(c *gc.C, e environs.Environ, opc chan dummy.Operation, exp
 
 func assertSubnets(
 	c *gc.C,
-	e environs.Environ,
+	_ environs.Environ,
 	opc chan dummy.Operation,
 	instId instance.Id,
 	subnetIds []corenetwork.Id,
