@@ -1469,11 +1469,11 @@ func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []ins
 				MACAddress:       fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
 				Disabled:         i == 2,
 				NoAutoStart:      i%2 != 0,
-				ConfigType:       network.ConfigDHCP,
 				Addresses: network.ProviderAddresses{
 					network.NewProviderAddress(
 						fmt.Sprintf("0.%d.0.%d", (i+1)*10+idIndex, estate.maxAddr+2),
 						network.WithCIDR(fmt.Sprintf("0.%d.0.0/24", (i+1)*10)),
+						network.WithConfigType(network.ConfigDHCP),
 					),
 				},
 				DNSServers: network.NewProviderAddresses("ns1.dummy", "ns2.dummy"),

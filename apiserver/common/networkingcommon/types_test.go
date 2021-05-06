@@ -143,10 +143,13 @@ var observedNetworkConfigs = []params.NetworkConfig{{
 	InterfaceName: "br-eth1.12",
 	InterfaceType: string(network.BridgeDevice),
 	MACAddress:    "aa:bb:cc:dd:ee:f1",
-	CIDR:          "10.12.19.0/24",
-	Address:       "10.12.19.101",
+	Addresses: []params.Address{{
+		Value:       "10.12.19.101",
+		CIDR:        "10.12.19.0/24",
+		ConfigType:  string(network.ConfigStatic),
+		IsSecondary: false,
+	}},
 	MTU:           1500,
-	ConfigType:    string(network.ConfigStatic),
 	NetworkOrigin: params.NetworkOrigin(network.OriginMachine),
 }, {
 	DeviceIndex:   22,
