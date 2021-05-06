@@ -90,7 +90,7 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 		func() {
 			defer s.Reset(c)
 
-			ctx := &context{
+			ctx := &testContext{
 				s:                      s,
 				st:                     s.State,
 				uuid:                   s.State.ModelUUID(),
@@ -109,7 +109,7 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 }
 
 func (s *UniterSuite) runUniterTest(c *gc.C, steps ...stepper) {
-	ctx := &context{
+	ctx := &testContext{
 		s:                      s,
 		st:                     s.State,
 		uuid:                   s.State.ModelUUID(),
@@ -254,7 +254,7 @@ func (s *UniterSuite) TestUniterStartupStatusCharmProfile(c *gc.C) {
 	// adding an lxd profile for the charm. We do it here rather
 	// than in the charm itself to avoid modifying all of the other
 	// scenarios.
-	addCharmProfile := func(c *gc.C, ctx *context, path string) {
+	addCharmProfile := func(c *gc.C, ctx *testContext, path string) {
 		f, err := os.OpenFile(filepath.Join(path, "lxd-profile.yaml"), os.O_RDWR|os.O_CREATE, 0644)
 		c.Assert(err, jc.ErrorIsNil)
 		defer func() {
@@ -760,7 +760,7 @@ func (s *UniterSuite) TestUpdateResourceCausesUpgrade(c *gc.C) {
 	// adding a "wp-content" filesystem store. We do it here rather
 	// than in the charm itself to avoid modifying all of the other
 	// scenarios.
-	appendResource := func(c *gc.C, ctx *context, path string) {
+	appendResource := func(c *gc.C, ctx *testContext, path string) {
 		f, err := os.OpenFile(filepath.Join(path, "metadata.yaml"), os.O_RDWR|os.O_APPEND, 0644)
 		c.Assert(err, jc.ErrorIsNil)
 		defer func() {
@@ -954,7 +954,7 @@ func (s *UniterSuite) TestUniterRelationsSimpleJoinedChangedDeparted(c *gc.C) {
 
 func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	waitDyingHooks := custom{func(c *gc.C, ctx *context) {
+	waitDyingHooks := custom{func(c *gc.C, ctx *testContext) {
 		// There is no ordering relationship between relation hooks and
 		// leader-settings-changed hooks; and while we're dying we may
 		// never get to leader-settings-changed before it's time to run
@@ -1248,7 +1248,7 @@ func (s *UniterSuite) TestUniterSubordinates(c *gc.C) {
 
 func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	// Create a test context for later use.
-	ctx := &context{
+	ctx := &testContext{
 		s:                      s,
 		st:                     s.State,
 		path:                   filepath.Join(s.dataDir, "agents", "unit-u-0"),
@@ -1295,7 +1295,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 		serveCharm{},
 		startUniter{},
 		waitAddresses{},
-		custom{func(c *gc.C, ctx *context) {
+		custom{func(c *gc.C, ctx *testContext) {
 			c.Check(rel.Refresh(), gc.IsNil)
 			c.Assert(rel.Destroy(), gc.IsNil)
 		}},
@@ -1349,7 +1349,7 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 	// adding a "wp-content" filesystem store. We do it here rather
 	// than in the charm itself to avoid modifying all of the other
 	// scenarios.
-	appendStorageMetadata := func(c *gc.C, ctx *context, path string) {
+	appendStorageMetadata := func(c *gc.C, ctx *testContext, path string) {
 		f, err := os.OpenFile(filepath.Join(path, "metadata.yaml"), os.O_RDWR|os.O_APPEND, 0644)
 		c.Assert(err, jc.ErrorIsNil)
 		defer func() {

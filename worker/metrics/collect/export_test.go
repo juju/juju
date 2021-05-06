@@ -8,7 +8,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/worker/metrics/spool"
-	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 var (
@@ -29,7 +29,7 @@ var (
 )
 
 // Ensure hookContext is a runner.Context.
-var _ runner.Context = (*hookContext)(nil)
+var _ context.Context = (*hookContext)(nil)
 
 type handlerSetterStopper interface {
 	SetHandler(spool.ConnectionHandler)
@@ -45,7 +45,7 @@ func NewSocketListenerFnc(listener handlerSetterStopper) func(string, spool.Conn
 
 // NewHookContext returns a new hook context used to collect metrics.
 // It is exported here for calling from tests, but not patching.
-func NewHookContext(unitName string, recorder spool.MetricRecorder) runner.Context {
+func NewHookContext(unitName string, recorder spool.MetricRecorder) context.Context {
 	return newHookContext(hookConfig{
 		unitName: unitName,
 		recorder: recorder,

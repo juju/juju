@@ -4,7 +4,6 @@
 package context_test
 
 import (
-	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -149,7 +148,7 @@ func (s *EnvSuite) setDepartingRelation(ctx *context.HookContext) (expectVars []
 }
 
 func (s *EnvSuite) TestEnvSetsPath(c *gc.C) {
-	paths := context.OSDependentEnvVars(MockEnvPaths{}, os.Getenv)
+	paths := context.OSDependentEnvVars(MockEnvPaths{}, context.NewHostEnvironmenter())
 	c.Assert(paths, gc.Not(gc.HasLen), 0)
 	vars, err := keyvalues.Parse(paths, true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -168,34 +167,29 @@ func (s *EnvSuite) TestEnvWindows(c *gc.C) {
 		"PSModulePath=ping;pong;" + filepath.FromSlash("path-to-charm/lib/Modules"),
 	}
 
+	environmenter := context.NewRemoteEnvironmenter(
+		func() []string { return []string{} },
+		func(k string) string {
+			switch k {
+			case "Path":
+				return "foo;bar"
+			case "PSModulePath":
+				return "ping;pong"
+			default:
+				c.Errorf("unexpected get env call for %q", k)
+			}
+			return ""
+		},
+	)
+
 	ctx, contextVars := s.getContext(false)
 	paths, pathsVars := s.getPaths()
-	actualVars, err := ctx.HookVars(paths, false, func(k string) string {
-		switch k {
-		case "Path":
-			return "foo;bar"
-		case "PSModulePath":
-			return "ping;pong"
-		default:
-			c.Errorf("unexpected get env call for %q", k)
-		}
-		return ""
-	}, func() []string { return []string{} })
+	actualVars, err := ctx.HookVars(paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars)
 
 	relationVars := s.setRelation(ctx)
-	actualVars, err = ctx.HookVars(paths, false, func(k string) string {
-		switch k {
-		case "Path":
-			return "foo;bar"
-		case "PSModulePath":
-			return "ping;pong"
-		default:
-			c.Errorf("unexpected get env call for %q", k)
-		}
-		return ""
-	}, func() []string { return []string{} })
+	actualVars, err = ctx.HookVars(paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars, relationVars)
 }
@@ -220,30 +214,27 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 			ubuntuVars = append(ubuntuVars, "TERM=tmux-256color")
 		}
 
+		environmenter := context.NewRemoteEnvironmenter(
+			func() []string { return []string{} },
+			func(k string) string {
+				switch k {
+				case "PATH":
+					return "foo:bar"
+				default:
+					c.Errorf("unexpected get env call for %q", k)
+				}
+				return ""
+			},
+		)
+
 		ctx, contextVars := s.getContext(false)
 		paths, pathsVars := s.getPaths()
-		actualVars, err := ctx.HookVars(paths, false, func(k string) string {
-			switch k {
-			case "PATH":
-				return "foo:bar"
-			default:
-				c.Errorf("unexpected get env call for %q", k)
-			}
-			return ""
-		}, func() []string { return []string{} })
+		actualVars, err := ctx.HookVars(paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
 
 		relationVars := s.setDepartingRelation(ctx)
-		actualVars, err = ctx.HookVars(paths, false, func(k string) string {
-			switch k {
-			case "PATH":
-				return "foo:bar"
-			default:
-				c.Errorf("unexpected get env call for %q", k)
-			}
-			return ""
-		}, func() []string { return []string{} })
+		actualVars, err = ctx.HookVars(paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars)
 	}
@@ -267,30 +258,27 @@ func (s *EnvSuite) TestEnvCentos(c *gc.C) {
 			centosVars = append(centosVars, "TERM=tmux-256color")
 		}
 
+		environmenter := context.NewRemoteEnvironmenter(
+			func() []string { return []string{} },
+			func(k string) string {
+				switch k {
+				case "PATH":
+					return "foo:bar"
+				default:
+					c.Errorf("unexpected get env call for %q", k)
+				}
+				return ""
+			},
+		)
+
 		ctx, contextVars := s.getContext(false)
 		paths, pathsVars := s.getPaths()
-		actualVars, err := ctx.HookVars(paths, false, func(k string) string {
-			switch k {
-			case "PATH":
-				return "foo:bar"
-			default:
-				c.Errorf("unexpected get env call for %q", k)
-			}
-			return ""
-		}, func() []string { return []string{} })
+		actualVars, err := ctx.HookVars(paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertVars(c, actualVars, contextVars, pathsVars, centosVars)
 
 		relationVars := s.setRelation(ctx)
-		actualVars, err = ctx.HookVars(paths, false, func(k string) string {
-			switch k {
-			case "PATH":
-				return "foo:bar"
-			default:
-				c.Errorf("unexpected get env call for %q", k)
-			}
-			return ""
-		}, func() []string { return []string{} })
+		actualVars, err = ctx.HookVars(paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertVars(c, actualVars, contextVars, pathsVars, centosVars, relationVars)
 	}
@@ -314,30 +302,27 @@ func (s *EnvSuite) TestEnvOpenSUSE(c *gc.C) {
 			openSUSEVars = append(openSUSEVars, "TERM=tmux-256color")
 		}
 
+		environmenter := context.NewRemoteEnvironmenter(
+			func() []string { return []string{} },
+			func(k string) string {
+				switch k {
+				case "PATH":
+					return "foo:bar"
+				default:
+					c.Errorf("unexpected get env call for %q", k)
+				}
+				return ""
+			},
+		)
+
 		ctx, contextVars := s.getContext(false)
 		paths, pathsVars := s.getPaths()
-		actualVars, err := ctx.HookVars(paths, false, func(k string) string {
-			switch k {
-			case "PATH":
-				return "foo:bar"
-			default:
-				c.Errorf("unexpected get env call for %q", k)
-			}
-			return ""
-		}, func() []string { return []string{} })
+		actualVars, err := ctx.HookVars(paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertVars(c, actualVars, contextVars, pathsVars, openSUSEVars)
 
 		relationVars := s.setRelation(ctx)
-		actualVars, err = ctx.HookVars(paths, false, func(k string) string {
-			switch k {
-			case "PATH":
-				return "foo:bar"
-			default:
-				c.Errorf("unexpected get env call for %q", k)
-			}
-			return ""
-		}, func() []string { return []string{} })
+		actualVars, err = ctx.HookVars(paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertVars(c, actualVars, contextVars, pathsVars, openSUSEVars, relationVars)
 	}
@@ -353,30 +338,27 @@ func (s *EnvSuite) TestEnvGenericLinux(c *gc.C) {
 		"TERM=screen",
 	}
 
+	environmenter := context.NewRemoteEnvironmenter(
+		func() []string { return []string{} },
+		func(k string) string {
+			switch k {
+			case "PATH":
+				return "foo:bar"
+			default:
+				c.Errorf("unexpected get env call for %q", k)
+			}
+			return ""
+		},
+	)
+
 	ctx, contextVars := s.getContext(false)
 	paths, pathsVars := s.getPaths()
-	actualVars, err := ctx.HookVars(paths, false, func(k string) string {
-		switch k {
-		case "PATH":
-			return "foo:bar"
-		default:
-			c.Errorf("unexpected get env call for %q", k)
-		}
-		return ""
-	}, func() []string { return []string{} })
+	actualVars, err := ctx.HookVars(paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars)
 
 	relationVars := s.setRelation(ctx)
-	actualVars, err = ctx.HookVars(paths, false, func(k string) string {
-		switch k {
-		case "PATH":
-			return "foo:bar"
-		default:
-			c.Errorf("unexpected get env call for %q", k)
-		}
-		return ""
-	}, func() []string { return []string{} })
+	actualVars, err = ctx.HookVars(paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars)
 }
@@ -391,30 +373,27 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 		"TERM=screen",
 	}
 
+	environmenter := context.NewRemoteEnvironmenter(
+		func() []string { return []string{"KUBERNETES_SERVICE=test"} },
+		func(k string) string {
+			switch k {
+			case "PATH":
+				return "foo:bar"
+			default:
+				c.Errorf("unexpected get env call for %q", k)
+			}
+			return ""
+		},
+	)
+
 	ctx, contextVars := s.getContext(false)
 	paths, pathsVars := s.getPaths()
-	actualVars, err := ctx.HookVars(paths, false, func(k string) string {
-		switch k {
-		case "PATH":
-			return "foo:bar"
-		default:
-			c.Errorf("unexpected get env call for %q", k)
-		}
-		return ""
-	}, func() []string { return []string{"KUBERNETES_SERVICE=test"} })
+	actualVars, err := ctx.HookVars(paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, []string{"KUBERNETES_SERVICE=test"})
 
 	relationVars := s.setRelation(ctx)
-	actualVars, err = ctx.HookVars(paths, false, func(k string) string {
-		switch k {
-		case "PATH":
-			return "foo:bar"
-		default:
-			c.Errorf("unexpected get env call for %q", k)
-		}
-		return ""
-	}, func() []string { return []string{"FOO=bAR"} })
+	actualVars, err = ctx.HookVars(paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars, []string{"FOO=bAR"})
+	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars, []string{"KUBERNETES_SERVICE=test"})
 }

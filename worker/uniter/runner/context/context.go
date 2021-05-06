@@ -41,6 +41,26 @@ type logger interface{}
 
 var _ logger = struct{}{}
 
+// Context exposes hooks.Context, and additional methods needed by Runner.
+type Context interface {
+	jujuc.Context
+	Id() string
+	HookVars(
+		paths Paths,
+		remote bool,
+		env Environmenter) ([]string, error)
+	ActionData() (*ActionData, error)
+	SetProcess(process HookProcess)
+	HasExecutionSetUnitStatus() bool
+	ResetExecutionSetUnitStatus()
+	ModelType() model.ModelType
+
+	Prepare() error
+	Flush(badge string, failure error) error
+
+	GetLogger(module string) loggo.Logger
+}
+
 // Paths exposes the paths needed by Context.
 type Paths interface {
 	// GetToolsDir returns the filesystem path to the dirctory containing
@@ -954,15 +974,14 @@ func (ctx *HookContext) ActionData() (*ActionData, error) {
 func (ctx *HookContext) HookVars(
 	paths Paths,
 	remote bool,
-	getEnv GetEnvFunc,
-	osEnv OSEnvFunc,
+	env Environmenter,
 ) ([]string, error) {
 	vars := ctx.legacyProxySettings.AsEnvironmentValues()
 
 	// We add all the host env's here because hooks are starting to expect that
 	// they can see this. This in response to lp1892255. We are doing this early
 	// so our overrides come out on top.
-	vars = append(vars, osEnv()...)
+	vars = append(vars, env.Environ()...)
 
 	// TODO(thumper): as work on proxies progress, there will be additional
 	// proxy settings to be added.
@@ -1029,7 +1048,7 @@ func (ctx *HookContext) HookVars(
 		vars = append(vars, "JUJU_WORKLOAD_NAME="+ctx.workloadName)
 	}
 
-	return append(vars, OSDependentEnvVars(paths, getEnv)...), nil
+	return append(vars, OSDependentEnvVars(paths, env)...), nil
 }
 
 func (ctx *HookContext) handleReboot(ctxErr error) error {

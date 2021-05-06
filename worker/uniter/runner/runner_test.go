@@ -215,7 +215,7 @@ func (s *RunHookSuite) TestRunHookDispatchingHookHandler(c *gc.C) {
 }
 
 type MockContext struct {
-	runner.Context
+	context.Context
 	actionData      *context.ActionData
 	actionDataErr   error
 	actionParams    map[string]interface{}
@@ -239,8 +239,7 @@ func (ctx *MockContext) UnitName() string {
 func (ctx *MockContext) HookVars(
 	paths context.Paths,
 	_ bool,
-	getEnv context.GetEnvFunc,
-	_ context.OSEnvFunc,
+	envVars context.Environmenter,
 ) ([]string, error) {
 	pathKey := ""
 	if runtime.GOOS == "windows" {
@@ -248,7 +247,7 @@ func (ctx *MockContext) HookVars(
 	} else {
 		pathKey = "PATH"
 	}
-	path := getEnv(pathKey)
+	path := envVars.Getenv(pathKey)
 	newPath := fmt.Sprintf("%s=pathypathpath;%s", pathKey, path)
 	return []string{"VAR=value", newPath}, nil
 }

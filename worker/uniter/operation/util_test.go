@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	runnercontext "github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -193,10 +193,10 @@ func (cb *PrepareHookCallbacks) SetUpgradeSeriesStatus(model.UpgradeSeriesStatus
 
 type MockNotify struct {
 	gotName    *string
-	gotContext *runner.Context
+	gotContext *runnercontext.Context
 }
 
-func (mock *MockNotify) Call(hookName string, ctx runner.Context) {
+func (mock *MockNotify) Call(hookName string, ctx runnercontext.Context) {
 	mock.gotName = &hookName
 	mock.gotContext = &ctx
 }
@@ -207,11 +207,11 @@ type ExecuteHookCallbacks struct {
 	MockNotifyHookFailed    *MockNotify
 }
 
-func (cb *ExecuteHookCallbacks) NotifyHookCompleted(hookName string, ctx runner.Context) {
+func (cb *ExecuteHookCallbacks) NotifyHookCompleted(hookName string, ctx runnercontext.Context) {
 	cb.MockNotifyHookCompleted.Call(hookName, ctx)
 }
 
-func (cb *ExecuteHookCallbacks) NotifyHookFailed(hookName string, ctx runner.Context) {
+func (cb *ExecuteHookCallbacks) NotifyHookFailed(hookName string, ctx runnercontext.Context) {
 	cb.MockNotifyHookFailed.Call(hookName, ctx)
 }
 
@@ -273,12 +273,12 @@ func (mock *MockNewHookRunner) Call(hookInfo hook.Info) (runner.Runner, error) {
 }
 
 type MockNewCommandRunner struct {
-	gotInfo *context.CommandInfo
+	gotInfo *runnercontext.CommandInfo
 	runner  *MockRunner
 	err     error
 }
 
-func (mock *MockNewCommandRunner) Call(info context.CommandInfo) (runner.Runner, error) {
+func (mock *MockNewCommandRunner) Call(info runnercontext.CommandInfo) (runner.Runner, error) {
 	mock.gotInfo = &info
 	return mock.runner, mock.err
 }
@@ -297,7 +297,7 @@ func (f *MockRunnerFactory) NewHookRunner(hookInfo hook.Info) (runner.Runner, er
 	return f.MockNewHookRunner.Call(hookInfo)
 }
 
-func (f *MockRunnerFactory) NewCommandRunner(commandInfo context.CommandInfo) (runner.Runner, error) {
+func (f *MockRunnerFactory) NewCommandRunner(commandInfo runnercontext.CommandInfo) (runner.Runner, error) {
 	return f.MockNewCommandRunner.Call(commandInfo)
 }
 
@@ -311,16 +311,16 @@ func (f *MockRunnerActionWaitFactory) NewActionRunner(action *uniter.Action, can
 }
 
 type MockContext struct {
-	runner.Context
+	runnercontext.Context
 	testing.Stub
-	actionData      *context.ActionData
+	actionData      *runnercontext.ActionData
 	setStatusCalled bool
 	status          jujuc.StatusInfo
 	isLeader        bool
 	relation        *MockRelation
 }
 
-func (mock *MockContext) ActionData() (*context.ActionData, error) {
+func (mock *MockContext) ActionData() (*runnercontext.ActionData, error) {
 	if mock.actionData == nil {
 		return nil, errors.New("not an action context")
 	}
@@ -415,10 +415,10 @@ type MockRunner struct {
 	*MockRunAction
 	*MockRunCommands
 	*MockRunHook
-	context runner.Context
+	context runnercontext.Context
 }
 
-func (r *MockRunner) Context() runner.Context {
+func (r *MockRunner) Context() runnercontext.Context {
 	return r.context
 }
 
@@ -438,13 +438,13 @@ func (r *MockRunner) RunHook(hookName string) (runner.HookHandlerType, error) {
 type MockActionWaitRunner struct {
 	runner.Runner
 
-	context    runner.Context
+	context    runnercontext.Context
 	actionChan <-chan error
 
 	actionName string
 }
 
-func (r *MockActionWaitRunner) Context() runner.Context {
+func (r *MockActionWaitRunner) Context() runnercontext.Context {
 	return r.context
 }
 
@@ -486,7 +486,7 @@ func NewRunActionRunnerFactory(runErr error) *MockRunnerFactory {
 			runner: &MockRunner{
 				MockRunAction: &MockRunAction{err: runErr},
 				context: &MockContext{
-					actionData: &context.ActionData{Name: "some-action-name"},
+					actionData: &runnercontext.ActionData{Name: "some-action-name"},
 				},
 			},
 		},
@@ -499,7 +499,7 @@ func NewRunActionWaitRunnerFactory(actionChan <-chan error) *MockRunnerActionWai
 			runner: &MockActionWaitRunner{
 				actionChan: actionChan,
 				context: &MockContext{
-					actionData: &context.ActionData{
+					actionData: &runnercontext.ActionData{
 						Name: "some-action-name",
 					},
 				},

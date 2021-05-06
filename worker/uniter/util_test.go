@@ -106,7 +106,7 @@ func assertAssignUnitLXDContainer(c *gc.C, st *state.State, u *state.Unit) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type context struct {
+type testContext struct {
 	uuid                   string
 	path                   string
 	dataDir                string
@@ -139,29 +139,29 @@ type context struct {
 	deployer       *mockDeployer
 }
 
-var _ uniter.UniterExecutionObserver = (*context)(nil)
+var _ uniter.UniterExecutionObserver = (*testContext)(nil)
 
 // HookCompleted implements the UniterExecutionObserver interface.
-func (ctx *context) HookCompleted(hookName string) {
+func (ctx *testContext) HookCompleted(hookName string) {
 	ctx.mu.Lock()
 	ctx.hooksCompleted = append(ctx.hooksCompleted, hookName)
 	ctx.mu.Unlock()
 }
 
 // HookFailed implements the UniterExecutionObserver interface.
-func (ctx *context) HookFailed(hookName string) {
+func (ctx *testContext) HookFailed(hookName string) {
 	ctx.mu.Lock()
 	ctx.hooksCompleted = append(ctx.hooksCompleted, "fail-"+hookName)
 	ctx.mu.Unlock()
 }
 
-func (ctx *context) setExpectedError(err string) {
+func (ctx *testContext) setExpectedError(err string) {
 	ctx.mu.Lock()
 	ctx.err = err
 	ctx.mu.Unlock()
 }
 
-func (ctx *context) run(c *gc.C, steps []stepper) {
+func (ctx *testContext) run(c *gc.C, steps []stepper) {
 	defer func() {
 		if ctx.uniter != nil {
 			err := worker.Stop(ctx.uniter)
@@ -188,7 +188,7 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 	}
 }
 
-func (ctx *context) apiLogin(c *gc.C) {
+func (ctx *testContext) apiLogin(c *gc.C) {
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.unit.SetPassword(password)
@@ -205,7 +205,7 @@ func (ctx *context) apiLogin(c *gc.C) {
 	ctx.leaderTracker.setLeader(c, true)
 }
 
-func (ctx *context) matchHooks(c *gc.C) (match, cannotMatch, overshoot bool) {
+func (ctx *testContext) matchHooks(c *gc.C) (match, cannotMatch, overshoot bool) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	c.Logf("actual hooks: %#v", ctx.hooksCompleted)
@@ -269,17 +269,17 @@ func ut(summary string, steps ...stepper) uniterTest {
 }
 
 type stepper interface {
-	step(c *gc.C, ctx *context)
+	step(c *gc.C, ctx *testContext)
 }
 
-func step(c *gc.C, ctx *context, s stepper) {
+func step(c *gc.C, ctx *testContext, s stepper) {
 	c.Logf("%#v", s)
 	s.step(c, ctx)
 }
 
 type ensureStateWorker struct{}
 
-func (s ensureStateWorker) step(c *gc.C, ctx *context) {
+func (s ensureStateWorker) step(c *gc.C, ctx *testContext) {
 	addresses, err := ctx.st.Addresses()
 	if err != nil || len(addresses) == 0 {
 		addControllerMachine(c, ctx.st)
@@ -300,7 +300,7 @@ func addControllerMachine(c *gc.C, st *state.State) {
 type createCharm struct {
 	revision  int
 	badHooks  []string
-	customize func(*gc.C, *context, string)
+	customize func(*gc.C, *testContext, string)
 }
 
 func startupHooks(minion bool) []string {
@@ -311,7 +311,7 @@ func startupHooks(minion bool) []string {
 	return []string{"install", leaderHook, "config-changed", "start"}
 }
 
-func (s createCharm) step(c *gc.C, ctx *context) {
+func (s createCharm) step(c *gc.C, ctx *testContext) {
 	base := testcharms.Repo.ClonedDirPath(c.MkDir(), "wordpress")
 	if s.customize != nil {
 		s.customize(c, ctx, base)
@@ -331,7 +331,7 @@ type addCharm struct {
 	curl *corecharm.URL
 }
 
-func (s addCharm) step(c *gc.C, ctx *context) {
+func (s addCharm) step(c *gc.C, ctx *testContext) {
 	var buf bytes.Buffer
 	err := s.dir.ArchiveTo(&buf)
 	c.Assert(err, jc.ErrorIsNil)
@@ -354,7 +354,7 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 
 type serveCharm struct{}
 
-func (s serveCharm) step(c *gc.C, ctx *context) {
+func (s serveCharm) step(c *gc.C, ctx *testContext) {
 	testStorage := storage.NewStorage(ctx.st.ModelUUID(), ctx.st.MongoSession())
 	for storagePath, data := range ctx.charms {
 		err := testStorage.Put(storagePath, bytes.NewReader(data), int64(len(data)))
@@ -367,7 +367,7 @@ type addCharmProfileToMachine struct {
 	profiles []string
 }
 
-func (acpm addCharmProfileToMachine) step(c *gc.C, ctx *context) {
+func (acpm addCharmProfileToMachine) step(c *gc.C, ctx *testContext) {
 	machineId, err := ctx.unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := ctx.st.Machine(machineId)
@@ -382,7 +382,7 @@ type createApplicationAndUnit struct {
 	container       bool
 }
 
-func (csau createApplicationAndUnit) step(c *gc.C, ctx *context) {
+func (csau createApplicationAndUnit) step(c *gc.C, ctx *testContext) {
 	if csau.applicationName == "" {
 		csau.applicationName = "u"
 	}
@@ -409,7 +409,7 @@ func (csau createApplicationAndUnit) step(c *gc.C, ctx *context) {
 
 type deleteUnit struct{}
 
-func (d deleteUnit) step(c *gc.C, ctx *context) {
+func (d deleteUnit) step(c *gc.C, ctx *testContext) {
 	ctx.unit.DestroyWithForce(true, time.Duration(0))
 }
 
@@ -419,7 +419,7 @@ type createUniter struct {
 	translateResolverErr func(error) error
 }
 
-func (s createUniter) step(c *gc.C, ctx *context) {
+func (s createUniter) step(c *gc.C, ctx *testContext) {
 	step(c, ctx, ensureStateWorker{})
 	step(c, ctx, createApplicationAndUnit{})
 	if s.minion {
@@ -435,7 +435,7 @@ func (s createUniter) step(c *gc.C, ctx *context) {
 
 type waitAddresses struct{}
 
-func (waitAddresses) step(c *gc.C, ctx *context) {
+func (waitAddresses) step(c *gc.C, ctx *testContext) {
 	timeout := time.After(worstCase)
 	for {
 		select {
@@ -493,7 +493,7 @@ func mimicRealRebootQuerier() uniter.RebootQuerier {
 	return &fakeRebootQuerierTrueOnce{result: map[int]bool{0: rebootDetected, 1: rebootNotDetected, 2: rebootNotDetected}}
 }
 
-func (s startUniter) step(c *gc.C, ctx *context) {
+func (s startUniter) step(c *gc.C, ctx *testContext) {
 	if s.unitTag == "" {
 		s.unitTag = "unit-u-0"
 	}
@@ -535,7 +535,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		MachineLock:          processLock,
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer(),
 		NewOperationExecutor: operationExecutor,
-		NewProcessRunner: func(context runner.Context, paths runnercontext.Paths, remoteExecutor runner.ExecFunc) runner.Runner {
+		NewProcessRunner: func(context runnercontext.Context, paths runnercontext.Paths, remoteExecutor runner.ExecFunc) runner.Runner {
 			ctx.runner.ctx = context
 			return ctx.runner
 		},
@@ -574,7 +574,7 @@ type waitUniterDead struct {
 	err string
 }
 
-func (s waitUniterDead) step(c *gc.C, ctx *context) {
+func (s waitUniterDead) step(c *gc.C, ctx *testContext) {
 	if s.err != "" {
 		err := s.waitDead(c, ctx)
 		c.Log(errors.ErrorStack(err))
@@ -600,7 +600,7 @@ func (s waitUniterDead) step(c *gc.C, ctx *context) {
 	c.Assert(ctx.unit.Life(), gc.Equals, state.Dead)
 }
 
-func (s waitUniterDead) waitDead(c *gc.C, ctx *context) error {
+func (s waitUniterDead) waitDead(c *gc.C, ctx *testContext) error {
 	u := ctx.uniter
 	ctx.uniter = nil
 
@@ -624,7 +624,7 @@ type stopUniter struct {
 	err string
 }
 
-func (s stopUniter) step(c *gc.C, ctx *context) {
+func (s stopUniter) step(c *gc.C, ctx *testContext) {
 	u := ctx.uniter
 	if u == nil {
 		c.Logf("uniter not started, skipping stopUniter{}")
@@ -641,7 +641,7 @@ func (s stopUniter) step(c *gc.C, ctx *context) {
 
 type verifyWaiting struct{}
 
-func (s verifyWaiting) step(c *gc.C, ctx *context) {
+func (s verifyWaiting) step(c *gc.C, ctx *testContext) {
 	step(c, ctx, stopUniter{})
 	step(c, ctx, startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}})
 	step(c, ctx, waitHooks{})
@@ -651,7 +651,7 @@ type verifyRunning struct {
 	minion bool
 }
 
-func (s verifyRunning) step(c *gc.C, ctx *context) {
+func (s verifyRunning) step(c *gc.C, ctx *testContext) {
 	step(c, ctx, stopUniter{})
 	step(c, ctx, startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}})
 	var hooks []string
@@ -667,7 +667,7 @@ type startupError struct {
 	badHook string
 }
 
-func (s startupError) step(c *gc.C, ctx *context) {
+func (s startupError) step(c *gc.C, ctx *testContext) {
 	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
@@ -688,7 +688,7 @@ func (s startupError) step(c *gc.C, ctx *context) {
 
 type verifyDeployed struct{}
 
-func (s verifyDeployed) step(c *gc.C, ctx *context) {
+func (s verifyDeployed) step(c *gc.C, ctx *testContext) {
 	c.Assert(ctx.deployer.curl, jc.DeepEquals, curl(0))
 	c.Assert(ctx.deployer.deployed, jc.IsTrue)
 }
@@ -697,7 +697,7 @@ type quickStart struct {
 	minion bool
 }
 
-func (s quickStart) step(c *gc.C, ctx *context) {
+func (s quickStart) step(c *gc.C, ctx *testContext) {
 	step(c, ctx, createCharm{})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{minion: s.minion})
@@ -708,7 +708,7 @@ func (s quickStart) step(c *gc.C, ctx *context) {
 
 type quickStartRelation struct{}
 
-func (s quickStartRelation) step(c *gc.C, ctx *context) {
+func (s quickStartRelation) step(c *gc.C, ctx *testContext) {
 	step(c, ctx, quickStart{})
 	step(c, ctx, addRelation{})
 	step(c, ctx, addRelationUnit{})
@@ -720,7 +720,7 @@ type startupRelationError struct {
 	badHook string
 }
 
-func (s startupRelationError) step(c *gc.C, ctx *context) {
+func (s startupRelationError) step(c *gc.C, ctx *testContext) {
 	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
@@ -735,27 +735,27 @@ type resolveError struct {
 	resolved state.ResolvedMode
 }
 
-func (s resolveError) step(c *gc.C, ctx *context) {
+func (s resolveError) step(c *gc.C, ctx *testContext) {
 	err := ctx.unit.SetResolved(s.resolved)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 type statusfunc func() (status.StatusInfo, error)
 
-var unitStatusGetter = func(ctx *context) statusfunc {
+var unitStatusGetter = func(ctx *testContext) statusfunc {
 	return func() (status.StatusInfo, error) {
 		return ctx.unit.Status()
 	}
 }
 
-var agentStatusGetter = func(ctx *context) statusfunc {
+var agentStatusGetter = func(ctx *testContext) statusfunc {
 	return func() (status.StatusInfo, error) {
 		return ctx.unit.AgentStatus()
 	}
 }
 
 type waitUnitAgent struct {
-	statusGetter func(ctx *context) statusfunc
+	statusGetter func(ctx *testContext) statusfunc
 	status       status.Status
 	info         string
 	data         map[string]interface{}
@@ -763,7 +763,7 @@ type waitUnitAgent struct {
 	resolved     state.ResolvedMode
 }
 
-func (s waitUnitAgent) step(c *gc.C, ctx *context) {
+func (s waitUnitAgent) step(c *gc.C, ctx *testContext) {
 	if s.statusGetter == nil {
 		s.statusGetter = agentStatusGetter
 	}
@@ -822,7 +822,7 @@ func (s waitUnitAgent) step(c *gc.C, ctx *context) {
 
 type waitHooks []string
 
-func (s waitHooks) step(c *gc.C, ctx *context) {
+func (s waitHooks) step(c *gc.C, ctx *testContext) {
 	if len(s) == 0 {
 		// Give unwanted hooks a moment to run...
 		ctx.s.BackingState.StartSync()
@@ -888,7 +888,7 @@ type waitActionInvocation struct {
 	expectedActions []actionData
 }
 
-func (s waitActionInvocation) step(c *gc.C, ctx *context) {
+func (s waitActionInvocation) step(c *gc.C, ctx *testContext) {
 	timeout := time.After(worstCase)
 	for {
 		select {
@@ -931,7 +931,7 @@ type fixHook struct {
 	name string
 }
 
-func (s fixHook) step(_ *gc.C, ctx *context) {
+func (s fixHook) step(_ *gc.C, ctx *testContext) {
 	if ctx.runner.hooksWithErrors != nil {
 		ctx.runner.hooksWithErrors.Remove(s.name)
 	}
@@ -939,14 +939,14 @@ func (s fixHook) step(_ *gc.C, ctx *context) {
 
 type updateStatusHookTick struct{}
 
-func (s updateStatusHookTick) step(c *gc.C, ctx *context) {
+func (s updateStatusHookTick) step(c *gc.C, ctx *testContext) {
 	err := ctx.updateStatusHookTicker.Tick()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 type changeConfig map[string]interface{}
 
-func (s changeConfig) step(c *gc.C, ctx *context) {
+func (s changeConfig) step(c *gc.C, ctx *testContext) {
 	err := ctx.application.UpdateCharmConfig(model.GenerationMaster, corecharm.Settings(s))
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -956,7 +956,7 @@ type addAction struct {
 	params map[string]interface{}
 }
 
-func (s addAction) step(c *gc.C, ctx *context) {
+func (s addAction) step(c *gc.C, ctx *testContext) {
 	m, err := ctx.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	operationID, err := m.EnqueueOperation("a test")
@@ -970,7 +970,7 @@ type upgradeCharm struct {
 	forced   bool
 }
 
-func (s upgradeCharm) step(c *gc.C, ctx *context) {
+func (s upgradeCharm) step(c *gc.C, ctx *testContext) {
 	curl := curl(s.revision)
 	sch, err := ctx.st.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
@@ -990,7 +990,7 @@ type verifyCharm struct {
 	checkFiles        ft.Entries
 }
 
-func (s verifyCharm) step(c *gc.C, ctx *context) {
+func (s verifyCharm) step(c *gc.C, ctx *testContext) {
 	s.checkFiles.Check(c, filepath.Join(ctx.path, "charm"))
 	path := filepath.Join(ctx.path, "charm", "revision")
 	content, err := ioutil.ReadFile(path)
@@ -1009,7 +1009,7 @@ func (s verifyCharm) step(c *gc.C, ctx *context) {
 
 type pushResource struct{}
 
-func (s pushResource) step(c *gc.C, ctx *context) {
+func (s pushResource) step(c *gc.C, ctx *testContext) {
 	opened := resourcetesting.NewResource(c, &gt.Stub{}, "data", ctx.unit.ApplicationName(), "the bytes")
 
 	res, err := ctx.st.Resources()
@@ -1026,7 +1026,7 @@ func (s pushResource) step(c *gc.C, ctx *context) {
 
 type startUpgradeError struct{}
 
-func (s startUpgradeError) step(c *gc.C, ctx *context) {
+func (s startUpgradeError) step(c *gc.C, ctx *testContext) {
 	steps := []stepper{
 		createCharm{},
 		serveCharm{},
@@ -1039,7 +1039,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 
 		createCharm{
 			revision: 1,
-			customize: func(c *gc.C, ctx *context, path string) {
+			customize: func(c *gc.C, ctx *testContext, path string) {
 				ctx.deployer.err = charm.ErrConflict
 			},
 		},
@@ -1063,7 +1063,7 @@ type verifyWaitingUpgradeError struct {
 	revision int
 }
 
-func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
+func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *testContext) {
 	verifyCharmSteps := []stepper{
 		waitUnitAgent{
 			statusGetter: unitStatusGetter,
@@ -1075,7 +1075,7 @@ func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 	}
 	verifyWaitingSteps := []stepper{
 		stopUniter{},
-		custom{func(c *gc.C, ctx *context) {
+		custom{func(c *gc.C, ctx *testContext) {
 			// By setting status to Idle, and waiting for the restarted uniter
 			// to reset the error status, we can avoid a race in which a subsequent
 			// fixUpgradeError lands just before the restarting uniter retries the
@@ -1100,7 +1100,7 @@ func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 
 type fixUpgradeError struct{}
 
-func (s fixUpgradeError) step(_ *gc.C, ctx *context) {
+func (s fixUpgradeError) step(_ *gc.C, ctx *testContext) {
 	ctx.deployer.err = nil
 }
 
@@ -1108,7 +1108,7 @@ type addRelation struct {
 	waitJoin bool
 }
 
-func (s addRelation) step(c *gc.C, ctx *context) {
+func (s addRelation) step(c *gc.C, ctx *testContext) {
 	if ctx.relation != nil {
 		panic("don't add two relations!")
 	}
@@ -1146,7 +1146,7 @@ func (s addRelation) step(c *gc.C, ctx *context) {
 
 type addRelationUnit struct{}
 
-func (s addRelationUnit) step(c *gc.C, ctx *context) {
+func (s addRelationUnit) step(c *gc.C, ctx *testContext) {
 	u, err := ctx.relatedSvc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := ctx.relation.Unit(u)
@@ -1160,7 +1160,7 @@ type changeRelationUnit struct {
 	name string
 }
 
-func (s changeRelationUnit) step(c *gc.C, ctx *context) {
+func (s changeRelationUnit) step(c *gc.C, ctx *testContext) {
 	settings, err := ctx.relationUnits[s.name].Settings()
 	c.Assert(err, jc.ErrorIsNil)
 	key := "madness?"
@@ -1180,7 +1180,7 @@ type removeRelationUnit struct {
 	name string
 }
 
-func (s removeRelationUnit) step(c *gc.C, ctx *context) {
+func (s removeRelationUnit) step(c *gc.C, ctx *testContext) {
 	err := ctx.relationUnits[s.name].LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.relationUnits[s.name] = nil
@@ -1191,7 +1191,7 @@ type relationState struct {
 	life    state.Life
 }
 
-func (s relationState) step(c *gc.C, ctx *context) {
+func (s relationState) step(c *gc.C, ctx *testContext) {
 	err := ctx.relation.Refresh()
 	if s.removed {
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -1206,7 +1206,7 @@ type addSubordinateRelation struct {
 	ifce string
 }
 
-func (s addSubordinateRelation) step(c *gc.C, ctx *context) {
+func (s addSubordinateRelation) step(c *gc.C, ctx *testContext) {
 	if _, err := ctx.st.Application("logging"); errors.IsNotFound(err) {
 		ctx.s.AddTestingApplication(c, "logging", ctx.s.AddTestingCharm(c, "logging"))
 	}
@@ -1220,7 +1220,7 @@ type removeSubordinateRelation struct {
 	ifce string
 }
 
-func (s removeSubordinateRelation) step(c *gc.C, ctx *context) {
+func (s removeSubordinateRelation) step(c *gc.C, ctx *testContext) {
 	eps, err := ctx.st.InferEndpoints("logging", "u:"+s.ifce)
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := ctx.st.EndpointsRelation(eps...)
@@ -1233,7 +1233,7 @@ type waitSubordinateExists struct {
 	name string
 }
 
-func (s waitSubordinateExists) step(c *gc.C, ctx *context) {
+func (s waitSubordinateExists) step(c *gc.C, ctx *testContext) {
 	timeout := time.After(worstCase)
 	for {
 		ctx.s.BackingState.StartSync()
@@ -1254,7 +1254,7 @@ func (s waitSubordinateExists) step(c *gc.C, ctx *context) {
 
 type waitSubordinateDying struct{}
 
-func (waitSubordinateDying) step(c *gc.C, ctx *context) {
+func (waitSubordinateDying) step(c *gc.C, ctx *testContext) {
 	timeout := time.After(worstCase)
 	for {
 		ctx.s.BackingState.StartSync()
@@ -1274,7 +1274,7 @@ func (waitSubordinateDying) step(c *gc.C, ctx *context) {
 
 type removeSubordinate struct{}
 
-func (removeSubordinate) step(c *gc.C, ctx *context) {
+func (removeSubordinate) step(c *gc.C, ctx *testContext) {
 	err := ctx.subordinate.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.subordinate.Remove()
@@ -1287,7 +1287,7 @@ type writeFile struct {
 	mode os.FileMode
 }
 
-func (s writeFile) step(c *gc.C, ctx *context) {
+func (s writeFile) step(c *gc.C, ctx *testContext) {
 	path := filepath.Join(ctx.path, s.path)
 	dir := filepath.Dir(path)
 	err := os.MkdirAll(dir, 0755)
@@ -1298,34 +1298,34 @@ func (s writeFile) step(c *gc.C, ctx *context) {
 
 type removeCharmDir struct{}
 
-func (s removeCharmDir) step(c *gc.C, ctx *context) {
+func (s removeCharmDir) step(c *gc.C, ctx *testContext) {
 	path := filepath.Join(ctx.path, "charm")
 	err := os.RemoveAll(path)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 type custom struct {
-	f func(*gc.C, *context)
+	f func(*gc.C, *testContext)
 }
 
-func (s custom) step(c *gc.C, ctx *context) {
+func (s custom) step(c *gc.C, ctx *testContext) {
 	s.f(c, ctx)
 }
 
-var relationDying = custom{func(c *gc.C, ctx *context) {
+var relationDying = custom{func(c *gc.C, ctx *testContext) {
 	c.Check(ctx.relation.Refresh(), gc.IsNil)
 	c.Assert(ctx.relation.Destroy(), gc.IsNil)
 }}
 
-var unitDying = custom{func(c *gc.C, ctx *context) {
+var unitDying = custom{func(c *gc.C, ctx *testContext) {
 	c.Assert(ctx.unit.Destroy(), gc.IsNil)
 }}
 
-var unitDead = custom{func(c *gc.C, ctx *context) {
+var unitDead = custom{func(c *gc.C, ctx *testContext) {
 	c.Assert(ctx.unit.EnsureDead(), gc.IsNil)
 }}
 
-var subordinateDying = custom{func(c *gc.C, ctx *context) {
+var subordinateDying = custom{func(c *gc.C, ctx *testContext) {
 	c.Assert(ctx.subordinate.Destroy(), gc.IsNil)
 }}
 
@@ -1338,15 +1338,15 @@ type hookLock struct {
 }
 
 type hookStep struct {
-	stepFunc func(*gc.C, *context)
+	stepFunc func(*gc.C, *testContext)
 }
 
-func (h *hookStep) step(c *gc.C, ctx *context) {
+func (h *hookStep) step(c *gc.C, ctx *testContext) {
 	h.stepFunc(c, ctx)
 }
 
 func (h *hookLock) acquire() *hookStep {
-	return &hookStep{stepFunc: func(c *gc.C, ctx *context) {
+	return &hookStep{stepFunc: func(c *gc.C, ctx *testContext) {
 		releaser, err := processLock.Acquire(machinelock.Spec{
 			Worker:  "uniter-test",
 			Comment: "hookLock",
@@ -1358,7 +1358,7 @@ func (h *hookLock) acquire() *hookStep {
 }
 
 func (h *hookLock) release() *hookStep {
-	return &hookStep{stepFunc: func(c *gc.C, ctx *context) {
+	return &hookStep{stepFunc: func(c *gc.C, ctx *testContext) {
 		c.Assert(h.releaser, gc.NotNil)
 		h.releaser()
 		h.releaser = nil
@@ -1367,7 +1367,7 @@ func (h *hookLock) release() *hookStep {
 
 type runCommands []string
 
-func (cmds runCommands) step(c *gc.C, ctx *context) {
+func (cmds runCommands) step(c *gc.C, ctx *testContext) {
 	commands := strings.Join(cmds, "\n")
 	args := uniter.RunCommandsArgs{
 		Commands:       commands,
@@ -1384,17 +1384,17 @@ func (cmds runCommands) step(c *gc.C, ctx *context) {
 
 type forceMinion struct{}
 
-func (forceMinion) step(c *gc.C, ctx *context) {
+func (forceMinion) step(c *gc.C, ctx *testContext) {
 	ctx.leaderTracker.setLeader(c, false)
 }
 
 type forceLeader struct{}
 
-func (forceLeader) step(c *gc.C, ctx *context) {
+func (forceLeader) step(c *gc.C, ctx *testContext) {
 	ctx.leaderTracker.setLeader(c, true)
 }
 
-func newMockLeaderTracker(ctx *context) *mockLeaderTracker {
+func newMockLeaderTracker(ctx *testContext) *mockLeaderTracker {
 	return &mockLeaderTracker{
 		ctx: ctx,
 	}
@@ -1402,7 +1402,7 @@ func newMockLeaderTracker(ctx *context) *mockLeaderTracker {
 
 type mockLeaderTracker struct {
 	mu       sync.Mutex
-	ctx      *context
+	ctx      *testContext
 	isLeader bool
 	waiting  []chan struct{}
 }
@@ -1508,7 +1508,7 @@ func (t fastTicket) Wait() bool {
 
 type setLeaderSettings map[string]string
 
-func (s setLeaderSettings) step(c *gc.C, ctx *context) {
+func (s setLeaderSettings) step(c *gc.C, ctx *testContext) {
 	// We do this directly on State, not the API, so we don't have to worry
 	// about getting an API conn for whatever unit's meant to be leader.
 	err := ctx.application.UpdateLeaderSettings(successToken{}, s)
@@ -1532,7 +1532,7 @@ func (*mockCharmDirGuard) Lockdown(_ fortress.Abort) error { return nil }
 
 type provisionStorage struct{}
 
-func (s provisionStorage) step(c *gc.C, ctx *context) {
+func (s provisionStorage) step(c *gc.C, ctx *testContext) {
 	sb, err := state.NewStorageBackend(ctx.st)
 	c.Assert(err, jc.ErrorIsNil)
 	storageAttachments, err := sb.UnitStorageAttachments(ctx.unit.UnitTag())
@@ -1565,7 +1565,7 @@ func (s provisionStorage) step(c *gc.C, ctx *context) {
 
 type destroyStorageAttachment struct{}
 
-func (s destroyStorageAttachment) step(c *gc.C, ctx *context) {
+func (s destroyStorageAttachment) step(c *gc.C, ctx *testContext) {
 	sb, err := state.NewStorageBackend(ctx.st)
 	c.Assert(err, jc.ErrorIsNil)
 	storageAttachments, err := sb.UnitStorageAttachments(ctx.unit.UnitTag())
@@ -1582,7 +1582,7 @@ func (s destroyStorageAttachment) step(c *gc.C, ctx *context) {
 
 type verifyStorageDetached struct{}
 
-func (s verifyStorageDetached) step(c *gc.C, ctx *context) {
+func (s verifyStorageDetached) step(c *gc.C, ctx *testContext) {
 	sb, err := state.NewStorageBackend(ctx.st)
 	c.Assert(err, jc.ErrorIsNil)
 	storageAttachments, err := sb.UnitStorageAttachments(ctx.unit.UnitTag())
@@ -1594,7 +1594,7 @@ type expectError struct {
 	err string
 }
 
-func (s expectError) step(_ *gc.C, ctx *context) {
+func (s expectError) step(_ *gc.C, ctx *testContext) {
 	ctx.setExpectedError(s.err)
 }
 
@@ -1662,7 +1662,7 @@ type activateTestContainer struct {
 	containerName string
 }
 
-func (s activateTestContainer) step(c *gc.C, ctx *context) {
+func (s activateTestContainer) step(c *gc.C, ctx *testContext) {
 	ctx.pebbleClients[s.containerName].TriggerStart()
 }
 
@@ -1670,7 +1670,7 @@ type injectTestContainer struct {
 	containerName string
 }
 
-func (s injectTestContainer) step(c *gc.C, ctx *context) {
+func (s injectTestContainer) step(c *gc.C, ctx *testContext) {
 	c.Assert(ctx.uniter, gc.IsNil)
 	ctx.containerNames = append(ctx.containerNames, s.containerName)
 	if ctx.pebbleClients == nil {

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/juju/worker/uniter/operation Operation,Factory
@@ -220,8 +221,8 @@ type Callbacks interface {
 
 	// NotifyHook* exist so that we can defer worrying about how to untangle the
 	// callbacks inserted for uniter_test. They're only used by RunHook operations.
-	NotifyHookCompleted(string, runner.Context)
-	NotifyHookFailed(string, runner.Context)
+	NotifyHookCompleted(string, context.Context)
+	NotifyHookFailed(string, context.Context)
 
 	// The following methods exist primarily to allow us to test operation code
 	// without using a live api connection.
