@@ -1367,7 +1367,6 @@ func mapNetworkInterface(iface amzec2.NetworkInterface, subnet amzec2.Subnet) ne
 		AvailabilityZones: []string{subnet.AvailZone},
 		Disabled:          false,
 		NoAutoStart:       false,
-		ConfigType:        network.ConfigDHCP,
 		InterfaceType:     network.EthernetDevice,
 		// The describe interface responses that we get back from EC2
 		// define a *list* of private IP addresses with one entry that
@@ -1379,17 +1378,18 @@ func mapNetworkInterface(iface amzec2.NetworkInterface, subnet amzec2.Subnet) ne
 			iface.PrivateIPAddress,
 			network.WithScope(network.ScopeCloudLocal),
 			network.WithCIDR(subnet.CIDRBlock),
+			network.WithConfigType(network.ConfigDHCP),
 		)},
 		Origin: network.OriginProvider,
 	}
 
 	for _, privAddr := range iface.PrivateIPs {
 		if privAddr.Association.PublicIP != "" {
-			ni.ShadowAddresses = append(
-				ni.ShadowAddresses,
-				network.NewProviderAddress(
-					privAddr.Association.PublicIP, network.WithScope(network.ScopePublic)),
-			)
+			ni.ShadowAddresses = append(ni.ShadowAddresses, network.NewProviderAddress(
+				privAddr.Association.PublicIP,
+				network.WithScope(network.ScopePublic),
+				network.WithConfigType(network.ConfigDHCP),
+			))
 		}
 
 		if privAddr.Address == iface.PrivateIPAddress {
@@ -1402,6 +1402,7 @@ func mapNetworkInterface(iface amzec2.NetworkInterface, subnet amzec2.Subnet) ne
 			iface.PrivateIPAddress,
 			network.WithScope(network.ScopeCloudLocal),
 			network.WithCIDR(subnet.CIDRBlock),
+			network.WithConfigType(network.ConfigDHCP),
 		))
 	}
 
