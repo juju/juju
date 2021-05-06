@@ -35,11 +35,13 @@ import (
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/machinelock"
 	jnames "github.com/juju/juju/juju/names"
+	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
 	uniterworker "github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 var logger = loggo.GetLogger("juju.cmd.containeragent.unit")
@@ -236,7 +238,8 @@ func (c *containerUnitAgent) Stop() error {
 }
 
 // Done signals the machine agent is finished
-func (c *containerUnitAgent) Done(err error) {
+func (c *containerUnitAgent) Done(ctx *cmd.Context, err error) {
+	ctx.Infof("Shuting down containeragent unit command, err %#v", err)
 	c.errReason = err
 	close(c.dead)
 }
@@ -272,6 +275,8 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 		Agent:                agent.APIHostPortsSetter{Agent: c},
 		LogSource:            c.bufferedLogger.Logs(),
 		LeadershipGuarantee:  30 * time.Second,
+		UpgradeStepsLock:     upgradesteps.NewLock(agentConfig),
+		PreUpgradeSteps:      upgrades.PreUpgradeSteps,
 		AgentConfigChanged:   c.configChangedVal,
 		ValidateMigration:    c.validateMigration,
 		PrometheusRegisterer: c.prometheusRegistry,
@@ -313,7 +318,7 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 }
 
 func (c *containerUnitAgent) Run(ctx *cmd.Context) (err error) {
-	defer c.Done(err)
+	defer c.Done(ctx, err)
 	ctx.Infof("starting containeragent unit command")
 
 	agentConfig := c.CurrentConfig()
