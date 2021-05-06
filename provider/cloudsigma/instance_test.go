@@ -63,7 +63,7 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 	c.Assert(server, gc.NotNil)
 	s.instWithoutIP = &sigmaInstance{server}
 
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
 func (s *instanceSuite) TearDownTest(c *gc.C) {

@@ -33,7 +33,7 @@ func (s *imageutilsSuite) SetUpTest(c *gc.C) {
 	s.mockSender = mocks.NewSender()
 	s.client.BaseClient = compute.New("subscription-id")
 	s.client.Sender = s.mockSender
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
 func (s *imageutilsSuite) TestSeriesImageLegacy(c *gc.C) {

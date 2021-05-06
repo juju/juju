@@ -54,17 +54,17 @@ func (config MachineManifoldConfig) newWorker(a agent.Agent, apiCaller base.APIC
 
 	storageDir := filepath.Join(cfg.DataDir(), "storage")
 	w, err := NewStorageProvisioner(Config{
-		Scope:            tag,
-		StorageDir:       storageDir,
-		Volumes:          api,
-		Filesystems:      api,
-		Life:             api,
-		Registry:         provider.CommonStorageProviders(),
-		Machines:         api,
-		Status:           api,
-		Clock:            config.Clock,
-		Logger:           config.Logger,
-		CloudCallContext: common.NewCloudCallContext(credentialAPI, nil),
+		Scope:                tag,
+		StorageDir:           storageDir,
+		Volumes:              api,
+		Filesystems:          api,
+		Life:                 api,
+		Registry:             provider.CommonStorageProviders(),
+		Machines:             api,
+		Status:               api,
+		Clock:                config.Clock,
+		Logger:               config.Logger,
+		CloudCallContextFunc: common.NewCloudCallContextFunc(credentialAPI),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -21,7 +21,7 @@ var _ = gc.Suite(&environWhiteboxSuite{})
 type environWhiteboxSuite struct{}
 
 func (s *environWhiteboxSuite) TestSupportsContainerAddresses(c *gc.C) {
-	callCtx := context.NewCloudCallContext()
+	callCtx := context.NewEmptyCloudCallContext()
 	// For now this is a static method so we can use a nil environ
 	var env *environ
 	supported, err := env.SupportsContainerAddresses(callCtx)

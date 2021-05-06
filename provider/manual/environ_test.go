@@ -35,7 +35,7 @@ func (s *baseEnvironSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env.(*manualEnviron)
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
 type environSuite struct {

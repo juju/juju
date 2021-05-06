@@ -5,6 +5,7 @@ package agent
 
 import (
 	"bytes"
+	stdcontext "context"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -238,7 +239,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 	}
 
-	callCtx := context.NewCloudCallContext()
+	callCtx := context.NewCloudCallContext(stdcontext.Background())
 	// At this stage, cloud credential has not yet been stored server-side
 	// as there is no server-side. If these cloud calls will fail with
 	// invalid credential, just log it.

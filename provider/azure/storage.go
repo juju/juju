@@ -143,7 +143,7 @@ func (e *azureStorageProvider) VolumeSource(cfg *storage.Config) (storage.Volume
 	// which means it uses unmanaged disks. All models created
 	// before Juju 2.3 will have a storage account already, so
 	// it's safe to do the check up front.
-	maybeStorageClient, maybeStorageAccount, err := e.env.maybeGetStorageClient()
+	maybeStorageClient, maybeStorageAccount, err := e.env.maybeGetStorageClient(stdcontext.Background())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

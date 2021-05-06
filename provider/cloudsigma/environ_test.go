@@ -57,7 +57,7 @@ func (s *environSuite) TestBase(c *gc.C) {
 	c.Assert(cfg, gc.NotNil)
 	c.Check(cfg.Name(), gc.Equals, "testname")
 
-	c.Check(env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{}), gc.IsNil)
+	c.Check(env.PrecheckInstance(context.NewEmptyCloudCallContext(), environs.PrecheckInstanceParams{}), gc.IsNil)
 
 	hasRegion, ok := env.(simplestreams.HasRegion)
 	c.Check(ok, gc.Equals, true)
@@ -78,7 +78,7 @@ func (s *environSuite) TestUnsupportedConstraints(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 
-	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
+	validator, err := env.ConstraintsValidator(context.NewEmptyCloudCallContext())
 	c.Assert(err, gc.IsNil)
 	c.Check(validator, gc.NotNil)
 

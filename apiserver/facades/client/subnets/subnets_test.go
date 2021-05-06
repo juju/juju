@@ -84,7 +84,7 @@ func (s *SubnetSuite) TestSubnetsByCIDR(c *gc.C) {
 func (s *SubnetSuite) setupSubnetsAPI(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockResource = facademocks.NewMockResources(ctrl)
-	s.mockCloudCallContext = context.NewCloudCallContext()
+	s.mockCloudCallContext = context.NewEmptyCloudCallContext()
 	s.mockBacking = mocks.NewMockBacking(ctrl)
 
 	s.mockAuthorizer = facademocks.NewMockAuthorizer(ctrl)
@@ -143,7 +143,7 @@ func (s *SubnetsSuite) SetUpTest(c *gc.C) {
 		Controller: false,
 	}
 
-	s.callContext = context.NewCloudCallContext()
+	s.callContext = context.NewEmptyCloudCallContext()
 	var err error
 	s.facade, err = subnets.NewAPIWithBacking(
 		&stubBacking{apiservertesting.BackingInstance},

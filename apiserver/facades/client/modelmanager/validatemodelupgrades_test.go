@@ -45,7 +45,7 @@ func (s *ValidateModelUpgradesSuite) SetUpTest(c *gc.C) {
 		Tag: s.adminUser,
 	}
 
-	s.callContext = context.NewCloudCallContext()
+	s.callContext = context.NewEmptyCloudCallContext()
 }
 
 // TestValidateModelUpgradesWithNoModelTags tests that we don't fail if we don't

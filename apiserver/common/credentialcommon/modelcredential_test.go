@@ -57,7 +57,7 @@ func (s *CheckMachinesSuite) SetUpTest(c *gc.C) {
 			return []instances.Instance{s.instance}, nil
 		},
 	}
-	s.callContext = context.NewCloudCallContext()
+	s.callContext = context.NewEmptyCloudCallContext()
 }
 
 func (s *CheckMachinesSuite) TestCheckMachinesSuccess(c *gc.C) {
@@ -231,7 +231,7 @@ type ModelCredentialSuite struct {
 func (s *ModelCredentialSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.backend = createModelBackend()
-	s.callContext = context.NewCloudCallContext()
+	s.callContext = context.NewEmptyCloudCallContext()
 }
 
 func (s *ModelCredentialSuite) TestValidateNewModelCredentialUnknownModelType(c *gc.C) {

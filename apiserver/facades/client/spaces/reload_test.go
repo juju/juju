@@ -27,7 +27,7 @@ func (s *ReloadSpacesAPISuite) TestReloadSpaces(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	context := context.NewCloudCallContext()
+	context := context.NewEmptyCloudCallContext()
 	authorizer := func() error { return nil }
 
 	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
@@ -49,7 +49,7 @@ func (s *ReloadSpacesAPISuite) TestReloadSpacesWithNoEnviron(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	context := context.NewCloudCallContext()
+	context := context.NewEmptyCloudCallContext()
 	authorizer := func() error { return nil }
 
 	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
@@ -70,7 +70,7 @@ func (s *ReloadSpacesAPISuite) TestReloadSpacesWithReloadSpaceError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	context := context.NewCloudCallContext()
+	context := context.NewEmptyCloudCallContext()
 	authorizer := func() error { return nil }
 
 	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)

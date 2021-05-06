@@ -32,7 +32,7 @@ func (s *environNetSuite) TestSubnetsForUnknownContainer(c *gc.C) {
 
 	env := s.NewEnviron(c, srv, nil).(*environ)
 
-	ctx := context.NewCloudCallContext()
+	ctx := context.NewEmptyCloudCallContext()
 	_, err := env.Subnets(ctx, "bogus", nil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -45,7 +45,7 @@ func (s *environNetSuite) TestSubnetsForServersThatLackRequiredAPIExtensions(c *
 	srv.EXPECT().GetNetworkNames().Return(nil, errors.New(`server is missing the required "network" API extension`)).AnyTimes()
 
 	env := s.NewEnviron(c, srv, nil).(*environ)
-	ctx := context.NewCloudCallContext()
+	ctx := context.NewEmptyCloudCallContext()
 
 	// Space support and by extension, subnet detection is not available.
 	supportsSpaces, err := env.SupportsSpaces(ctx)
@@ -116,7 +116,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 
 	env := s.NewEnviron(c, srv, nil).(*environ)
 
-	ctx := context.NewCloudCallContext()
+	ctx := context.NewEmptyCloudCallContext()
 	subnets, err := env.Subnets(ctx, "woot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -182,7 +182,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C
 	env := s.NewEnviron(c, srv, nil).(*environ)
 
 	// Filter list so we only get a single subnet
-	ctx := context.NewCloudCallContext()
+	ctx := context.NewEmptyCloudCallContext()
 	subnets, err := env.Subnets(ctx, "woot", []network.Id{"subnet-lxdbr0-10.55.158.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -275,7 +275,7 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 
 	env := s.NewEnviron(c, srv, nil).(*environ)
 
-	ctx := context.NewCloudCallContext()
+	ctx := context.NewEmptyCloudCallContext()
 
 	// Spaces should be supported
 	supportsSpaces, err := env.SupportsSpaces(ctx)
@@ -371,7 +371,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 
 	env := s.NewEnviron(c, srv, nil).(*environ)
 
-	ctx := context.NewCloudCallContext()
+	ctx := context.NewEmptyCloudCallContext()
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot"})
 	c.Assert(err, jc.ErrorIsNil)
 	expInfos := []network.InterfaceInfos{
@@ -449,7 +449,7 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 
 	env := s.NewEnviron(c, srv, nil).(*environ)
 
-	ctx := context.NewCloudCallContext()
+	ctx := context.NewEmptyCloudCallContext()
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot", "unknown"})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances, gc.Commentf("expected a partial instances error to be returned if some of the instances were not found"))
 	expInfos := []network.InterfaceInfos{
@@ -486,7 +486,7 @@ func (s *environNetSuite) TestNetworkInterfacesNoResults(c *gc.C) {
 
 	env := s.NewEnviron(c, srv, nil).(*environ)
 
-	ctx := context.NewCloudCallContext()
+	ctx := context.NewEmptyCloudCallContext()
 	_, err := env.NetworkInterfaces(ctx, []instance.Id{"unknown1", "unknown2"})
 	c.Assert(err, gc.Equals, environs.ErrNoInstances, gc.Commentf("expected a no instances error to be returned if none of the requested instances exists"))
 }

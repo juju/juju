@@ -4,6 +4,7 @@
 package cloud
 
 import (
+	stdcontext "context"
 	"fmt"
 	"io/ioutil"
 	"sort"
@@ -177,7 +178,7 @@ type AddCloudCommand struct {
 
 // NewAddCloudCommand returns a command to add cloud information.
 func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
-	cloudCallCtx := context.NewCloudCallContext()
+	cloudCallCtx := context.NewCloudCallContext(stdcontext.Background())
 	store := jujuclient.NewFileClientStore()
 	c := &AddCloudCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{

@@ -89,7 +89,7 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 
 	s.statePool = &mockStatePool{
 		getF: func(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error) {
-			return newModelBackend(c, aCloud, modelUUID), context.NewCloudCallContext(), nil
+			return newModelBackend(c, aCloud, modelUUID), context.NewEmptyCloudCallContext(), nil
 		},
 	}
 	s.setTestAPIForUser(c, names.NewUserTag("admin"))

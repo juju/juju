@@ -4,6 +4,7 @@
 package instancepoller
 
 import (
+	stdcontext "context"
 	"time"
 
 	"github.com/juju/clock"
@@ -140,7 +141,7 @@ type updaterWorker struct {
 
 	pollGroup              [2]map[names.MachineTag]*pollGroupEntry
 	instanceIDToGroupEntry map[instance.Id]*pollGroupEntry
-	callContext            context.ProviderCallContext
+	callContextFunc        common.CloudCallContextFunc
 
 	// Hook function which tests can use to be notified when the worker
 	// has processed a full loop iteration.
@@ -161,7 +162,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 			make(map[names.MachineTag]*pollGroupEntry),
 		},
 		instanceIDToGroupEntry: make(map[instance.Id]*pollGroupEntry),
-		callContext:            common.NewCloudCallContext(config.CredentialAPI, nil),
+		callContextFunc:        common.NewCloudCallContextFunc(config.CredentialAPI),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &u.catacomb,
@@ -355,12 +356,13 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 		return nil
 	}
 
-	infoList, err := u.config.Environ.Instances(u.callContext, instList)
+	ctx := stdcontext.Background()
+	infoList, err := u.config.Environ.Instances(u.callContextFunc(ctx), instList)
 	if err != nil && !isPartialOrNoInstancesError(err) {
 		return errors.Trace(err)
 	}
 
-	netList, err := u.config.Environ.NetworkInterfaces(u.callContext, instList)
+	netList, err := u.config.Environ.NetworkInterfaces(u.callContextFunc(ctx), instList)
 	if err != nil && !(errors.IsNotSupported(errors.Cause(err)) || isPartialOrNoInstancesError(err)) {
 		return errors.Trace(err)
 	}
@@ -426,7 +428,7 @@ func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instance
 	}
 
 	// Check for status changes
-	providerStatus := info.Status(u.callContext)
+	providerStatus := info.Status(u.callContextFunc(stdcontext.Background()))
 	curInstStatus := instance.Status{
 		Status:  status.Status(curStatus.Status),
 		Message: curStatus.Info,
@@ -474,7 +476,7 @@ func (u *updaterWorker) syncProviderAddresses(entry *pollGroupEntry, instInfo in
 	// interface list from the instance info
 	// the info we need from the instance.
 	if len(providerIfaceList) == 0 {
-		addrs, err := instInfo.Addresses(u.callContext)
+		addrs, err := instInfo.Addresses(u.callContextFunc(stdcontext.Background()))
 		if err != nil {
 			return -1, errors.Trace(err)
 		}

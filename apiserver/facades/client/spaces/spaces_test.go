@@ -667,7 +667,7 @@ func (s *LegacySuite) SetUpTest(c *gc.C) {
 		Controller: false,
 	}
 
-	s.callContext = context.NewCloudCallContext()
+	s.callContext = context.NewEmptyCloudCallContext()
 	s.blockChecker = mockBlockChecker{}
 	var err error
 	s.facade, err = spaces.NewAPIWithBacking(spaces.APIConfig{
@@ -708,7 +708,7 @@ func (s *LegacySuite) TestNewAPIWithBacking(c *gc.C) {
 	facade, err = spaces.NewAPIWithBacking(spaces.APIConfig{
 		Backing:    &stubBacking{apiservertesting.BackingInstance},
 		Check:      &s.blockChecker,
-		Context:    context.NewCloudCallContext(),
+		Context:    context.NewEmptyCloudCallContext(),
 		Resources:  s.resources,
 		Authorizer: agentAuthorizer,
 	})
@@ -1101,7 +1101,7 @@ func (s *LegacySuite) TestSupportsSpacesModelConfigError(c *gc.C) {
 		errors.New("boom"), // Backing.ModelConfig()
 	)
 
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewCloudCallContext())
+	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewEmptyCloudCallContext())
 	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
 }
 
@@ -1112,7 +1112,7 @@ func (s *LegacySuite) TestSupportsSpacesEnvironNewError(c *gc.C) {
 		errors.New("boom"), // environs.New()
 	)
 
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewCloudCallContext())
+	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewEmptyCloudCallContext())
 	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
 }
 
@@ -1124,7 +1124,7 @@ func (s *LegacySuite) TestSupportsSpacesWithoutNetworking(c *gc.C) {
 		apiservertesting.WithoutSpaces,
 		apiservertesting.WithoutSubnets)
 
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewCloudCallContext())
+	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewEmptyCloudCallContext())
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
@@ -1143,12 +1143,12 @@ func (s *LegacySuite) TestSupportsSpacesWithoutSpaces(c *gc.C) {
 		errors.New("boom"), // Backing.supportsSpaces()
 	)
 
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewCloudCallContext())
+	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewEmptyCloudCallContext())
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *LegacySuite) TestSupportsSpaces(c *gc.C) {
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewCloudCallContext())
+	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewEmptyCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

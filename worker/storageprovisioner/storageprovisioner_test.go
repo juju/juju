@@ -4,6 +4,7 @@
 package storageprovisioner_test
 
 import (
+	stdcontext "context"
 	"time"
 
 	"github.com/juju/clock"
@@ -61,16 +62,18 @@ func (s *storageProvisionerSuite) SetUpTest(c *gc.C) {
 
 func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 	worker, err := storageprovisioner.NewStorageProvisioner(storageprovisioner.Config{
-		Scope:            coretesting.ModelTag,
-		Volumes:          newMockVolumeAccessor(),
-		Filesystems:      newMockFilesystemAccessor(),
-		Life:             &mockLifecycleManager{},
-		Registry:         s.registry,
-		Machines:         newMockMachineAccessor(c),
-		Status:           &mockStatusSetter{},
-		Clock:            &mockClock{},
-		Logger:           loggo.GetLogger("test"),
-		CloudCallContext: context.NewCloudCallContext(),
+		Scope:       coretesting.ModelTag,
+		Volumes:     newMockVolumeAccessor(),
+		Filesystems: newMockFilesystemAccessor(),
+		Life:        &mockLifecycleManager{},
+		Registry:    s.registry,
+		Machines:    newMockMachineAccessor(c),
+		Status:      &mockStatusSetter{},
+		Clock:       &mockClock{},
+		Logger:      loggo.GetLogger("test"),
+		CloudCallContextFunc: func(_ stdcontext.Context) context.ProviderCallContext {
+			return context.NewEmptyCloudCallContext()
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2089,17 +2092,19 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 		args.statusSetter = &mockStatusSetter{}
 	}
 	worker, err := storageprovisioner.NewStorageProvisioner(storageprovisioner.Config{
-		Scope:            args.scope,
-		StorageDir:       storageDir,
-		Volumes:          args.volumes,
-		Filesystems:      args.filesystems,
-		Life:             args.life,
-		Registry:         args.registry,
-		Machines:         args.machines,
-		Status:           args.statusSetter,
-		Clock:            args.clock,
-		Logger:           loggo.GetLogger("test"),
-		CloudCallContext: context.NewCloudCallContext(),
+		Scope:       args.scope,
+		StorageDir:  storageDir,
+		Volumes:     args.volumes,
+		Filesystems: args.filesystems,
+		Life:        args.life,
+		Registry:    args.registry,
+		Machines:    args.machines,
+		Status:      args.statusSetter,
+		Clock:       args.clock,
+		Logger:      loggo.GetLogger("test"),
+		CloudCallContextFunc: func(_ stdcontext.Context) context.ProviderCallContext {
+			return context.NewEmptyCloudCallContext()
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return worker

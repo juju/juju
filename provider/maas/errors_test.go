@@ -36,7 +36,7 @@ func (s *ErrorSuite) TestNilContext(c *gc.C) {
 }
 
 func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
-	ctx := context.NewCloudCallContext()
+	ctx := context.NewEmptyCloudCallContext()
 	ctx.InvalidateCredentialFunc = func(msg string) error {
 		return errors.New("kaboom")
 	}
@@ -77,7 +77,7 @@ func (s *ErrorSuite) TestGomaasError(c *gc.C) {
 }
 
 func (s *ErrorSuite) checkMaasPermissionHandling(c *gc.C, handled bool) {
-	ctx := context.NewCloudCallContext()
+	ctx := context.NewEmptyCloudCallContext()
 	called := false
 	ctx.InvalidateCredentialFunc = func(msg string) error {
 		c.Assert(msg, gc.Matches, "cloud denied access:.*")

@@ -4,6 +4,8 @@
 package storageprovisioner_test
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -136,7 +138,9 @@ func almostValidConfig() storageprovisioner.Config {
 	// gofmt doesn't seem to want to let me one-line any of these
 	// except the last one, so I'm standardising on multi-line.
 	return storageprovisioner.Config{
-		CloudCallContext: context.NewCloudCallContext(),
+		CloudCallContextFunc: func(_ stdcontext.Context) context.ProviderCallContext {
+			return context.NewEmptyCloudCallContext()
+		},
 		Volumes: struct {
 			storageprovisioner.VolumeAccessor
 		}{},

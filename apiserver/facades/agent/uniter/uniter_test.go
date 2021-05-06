@@ -210,7 +210,7 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAAS
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiInfo, err := environs.APIInfo(
-		context.NewCloudCallContext(),
+		context.NewEmptyCloudCallContext(),
 		s.ControllerConfig.ControllerUUID(),
 		st.ModelUUID(),
 		coretesting.CACert,

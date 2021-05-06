@@ -87,7 +87,7 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 		}
 		c.Assert(err, jc.ErrorIsNil)
 		env := e.(environs.Environ)
-		defer env.Destroy(context.NewCloudCallContext())
+		defer env.Destroy(context.NewEmptyCloudCallContext())
 
 		firewallMode := env.Config().FirewallMode()
 		c.Assert(firewallMode, gc.Equals, test.firewallMode)

@@ -204,7 +204,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		Tag: names.NewUserTag("admin"),
 	}
 
-	s.callContext = context.NewCloudCallContext()
+	s.callContext = context.NewEmptyCloudCallContext()
 
 	newBroker := func(args environs.OpenParams) (caas.Broker, error) {
 		s.caasBroker = &mockCaasBroker{namespace: args.Config.Name()}
@@ -922,7 +922,7 @@ func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	s.callContext = context.NewCloudCallContext()
+	s.callContext = context.NewEmptyCloudCallContext()
 	loggo.GetLogger("juju.apiserver.modelmanager").SetLogLevel(loggo.TRACE)
 }
 

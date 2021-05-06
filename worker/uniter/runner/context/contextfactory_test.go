@@ -327,7 +327,7 @@ func (s *ContextFactorySuite) setupPodSpec(c *gc.C) (*state.State, context.Conte
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo, err := environs.APIInfo(
-		environscontext.NewCloudCallContext(),
+		environscontext.NewEmptyCloudCallContext(),
 		s.ControllerConfig.ControllerUUID(), st.ModelUUID(), coretesting.CACert, s.ControllerConfig.APIPort(), s.Environ)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = unit.Tag()
@@ -535,7 +535,7 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo, err := environs.APIInfo(
-		environscontext.NewCloudCallContext(),
+		environscontext.NewEmptyCloudCallContext(),
 		s.ControllerConfig.ControllerUUID(), st.ModelUUID(), coretesting.CACert, s.ControllerConfig.APIPort(), s.Environ)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = unit.Tag()
