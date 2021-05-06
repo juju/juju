@@ -458,7 +458,14 @@ func (s *DestroySuite) TestDestroyCommandWait(c *gc.C) {
 	case <-done:
 		c.Assert(<-outStdErr, gc.Equals, `
 Destroying model
-Waiting for model to be removed, 5 error(s), 1 machine(s), 2 application(s), 3 volume(s), 2 filesystems(s)....`[1:])
+Waiting for model to be removed, 5 error(s), 1 machine(s), 2 application(s), 3 volume(s), 2 filesystems(s)....
+The following resources have not yet been removed:
+ - 1 machine(s)
+ - 2 application(s)
+ - 3 volume(s)
+ - 2 filesystems(s)
+Because the destroy model operation did not finish, there may be cloud resources left behind.
+`[1:])
 		c.Assert(<-outStdOut, gc.Equals, `
 
 The following errors were encountered during destroying the model.
@@ -510,7 +517,9 @@ func (s *DestroySuite) TestDestroyCommandLeanMessage(c *gc.C) {
 	case <-done:
 		c.Assert(<-outStdErr, gc.Equals, `
 Destroying model
-Waiting for model to be removed....`[1:])
+Waiting for model to be removed....
+Because the destroy model operation did not finish, there may be cloud resources left behind.
+`[1:])
 		// timeout after 3s.
 		c.Assert(<-outErr, jc.Satisfies, errors.IsTimeout)
 		checkModelExistsInStore(c, "test1:admin/test2", s.store)
