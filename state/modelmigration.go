@@ -558,24 +558,45 @@ func (mig *modelMigration) getAllAgents() (names.Set, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if m.Type() == ModelTypeCAAS {
-		applicationTags, err := mig.loadAgentTags(applicationsC, "name",
-			func(name string) names.Tag { return names.NewApplicationTag(name) },
+	if m.Type() != ModelTypeCAAS {
+		unitTags, err := mig.loadAgentTags(unitsC, "name",
+			func(name string) names.Tag { return names.NewUnitTag(name) },
 		)
 		if err != nil {
-			return nil, errors.Annotate(err, "loading application names")
+			return nil, errors.Annotate(err, "loading unit names")
 		}
-		return machineTags.Union(applicationTags), nil
+
+		return machineTags.Union(unitTags), nil
 	}
 
-	unitTags, err := mig.loadAgentTags(unitsC, "name",
-		func(name string) names.Tag { return names.NewUnitTag(name) },
+	applicationTags, err := mig.loadAgentTags(applicationsC, "name",
+		func(name string) names.Tag { return names.NewApplicationTag(name) },
 	)
 	if err != nil {
-		return nil, errors.Annotate(err, "loading unit names")
+		return nil, errors.Annotate(err, "loading application names")
 	}
-
-	return machineTags.Union(unitTags), nil
+	for _, applicationTag := range applicationTags.Values() {
+		app, err := mig.st.Application(applicationTag.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		isEmbedded, err := app.IsEmbedded()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !isEmbedded {
+			machineTags.Add(applicationTag)
+			continue
+		}
+		unitNames, err := app.UnitNames()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, unitName := range unitNames {
+			machineTags.Add(names.NewUnitTag(unitName))
+		}
+	}
+	return machineTags, nil
 }
 
 func (mig *modelMigration) loadAgentTags(collName, fieldName string, convert func(string) names.Tag) (
