@@ -82,7 +82,7 @@ type BackingSubnetInfo struct {
 // BackingSpace defines the methods supported by a Space entity stored
 // persistently.
 type BackingSpace interface {
-	// ID returns the ID of the space.
+	// Id returns the ID of the space.
 	Id() string
 
 	// Name returns the space name.
@@ -198,7 +198,7 @@ func networkDeviceToStateArgs(dev network.InterfaceInfo) state.LinkLayerDeviceAr
 		Name:            dev.InterfaceName,
 		MTU:             mtu,
 		ProviderID:      dev.ProviderId,
-		Type:            network.LinkLayerDeviceType(dev.InterfaceType),
+		Type:            dev.InterfaceType,
 		MACAddress:      dev.MACAddress,
 		IsAutoStart:     !dev.NoAutoStart,
 		IsUp:            !dev.Disabled,
@@ -239,7 +239,12 @@ func networkAddressToStateArgs(
 		return state.LinkLayerDeviceAddress{}, errors.Trace(err)
 	}
 
-	configType := dev.ConfigType
+	// Prefer the config method supplied with the address.
+	// Fallback first to the device, then to "static".
+	configType := addr.AddressConfigType()
+	if configType == network.ConfigUnknown {
+		configType = dev.ConfigType
+	}
 	if configType == network.ConfigUnknown {
 		configType = network.ConfigStatic
 	}
