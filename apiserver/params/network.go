@@ -232,12 +232,9 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 		}
 
 		result[i] = NetworkConfig{
-			DeviceIndex: v.DeviceIndex,
-			MACAddress:  v.MACAddress,
-			// TODO (manadart 2021-03-24): Retained for compatibility.
-			// Delete CIDR and ConfigType for Juju 3/4.
-			CIDR:                v.PrimaryAddress().CIDR,
-			ConfigType:          string(v.PrimaryAddress().ConfigType),
+			DeviceIndex:         v.DeviceIndex,
+			MACAddress:          v.MACAddress,
+			ConfigType:          string(v.ConfigType),
 			MTU:                 v.MTU,
 			ProviderId:          string(v.ProviderId),
 			ProviderNetworkId:   string(v.ProviderNetworkId),
@@ -251,19 +248,20 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 			InterfaceType:       string(v.InterfaceType),
 			Disabled:            v.Disabled,
 			NoAutoStart:         v.NoAutoStart,
-			// This field is retained for compatibility purposes.
-			// New code should instead use Addresses which includes
-			// scope and space information.
-			Address:          v.PrimaryAddress().Value,
-			Addresses:        FromProviderAddresses(v.Addresses...),
-			ShadowAddresses:  FromProviderAddresses(v.ShadowAddresses...),
-			DNSServers:       dnsServers,
-			DNSSearchDomains: v.DNSSearchDomains,
-			GatewayAddress:   v.GatewayAddress.Value,
-			Routes:           routes,
-			IsDefaultGateway: v.IsDefaultGateway,
-			VirtualPortType:  string(v.VirtualPortType),
-			NetworkOrigin:    NetworkOrigin(v.Origin),
+			Addresses:           FromProviderAddresses(v.Addresses...),
+			ShadowAddresses:     FromProviderAddresses(v.ShadowAddresses...),
+			DNSServers:          dnsServers,
+			DNSSearchDomains:    v.DNSSearchDomains,
+			GatewayAddress:      v.GatewayAddress.Value,
+			Routes:              routes,
+			IsDefaultGateway:    v.IsDefaultGateway,
+			VirtualPortType:     string(v.VirtualPortType),
+			NetworkOrigin:       NetworkOrigin(v.Origin),
+
+			// TODO (manadart 2021-03-24): Retained for compatibility.
+			// Delete CIDR and Address for Juju 3/4.
+			CIDR:    v.PrimaryAddress().CIDR,
+			Address: v.PrimaryAddress().Value,
 		}
 	}
 	return result
@@ -283,6 +281,8 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			}
 		}
 
+		configType := network.AddressConfigType(v.ConfigType)
+
 		result[i] = network.InterfaceInfo{
 			DeviceIndex:         v.DeviceIndex,
 			MACAddress:          v.MACAddress,
@@ -299,6 +299,7 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			InterfaceType:       network.LinkLayerDeviceType(v.InterfaceType),
 			Disabled:            v.Disabled,
 			NoAutoStart:         v.NoAutoStart,
+			ConfigType:          configType,
 			Addresses:           ToProviderAddresses(v.Addresses...),
 			ShadowAddresses:     ToProviderAddresses(v.ShadowAddresses...),
 			DNSServers:          network.NewProviderAddresses(v.DNSServers...),
@@ -328,7 +329,7 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 				result[i].Addresses[0].CIDR = v.CIDR
 			}
 			if result[i].Addresses[0].ConfigType == "" {
-				result[i].Addresses[0].ConfigType = network.AddressConfigType(v.ConfigType)
+				result[i].Addresses[0].ConfigType = configType
 			}
 		} else {
 			// 2) For even older clients that do not populate Addresses.
@@ -337,7 +338,7 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 					network.NewProviderAddress(
 						v.Address,
 						network.WithCIDR(v.CIDR),
-						network.WithConfigType(network.AddressConfigType(v.ConfigType)),
+						network.WithConfigType(configType),
 					),
 				}
 			}
