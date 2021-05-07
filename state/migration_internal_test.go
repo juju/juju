@@ -250,6 +250,9 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		// ForceDestroyed is only relevant for models that are being
 		// removed.
 		"ForceDestroyed",
+		// DestroyTimeout is only relevant for models that are being
+		// removed.
+		"DestroyTimeout",
 		// ControllerUUID is recreated when the new model is created
 		// in the new controller (yay name changes).
 		"ControllerUUID",

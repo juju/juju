@@ -4,6 +4,8 @@
 package undertaker
 
 import (
+	"time"
+
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/environs/config"
@@ -71,6 +73,10 @@ type Model interface {
 	// ForceDestroyed returns whether the dying/dead model was
 	// destroyed with --force. Always false for alive models.
 	ForceDestroyed() bool
+
+	// DestroyTimeout returns the timeout passed in when the
+	// model was destroyed.
+	DestroyTimeout() *time.Duration
 
 	// Name returns the human friendly name of the model.
 	Name() string

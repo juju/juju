@@ -30533,6 +30533,9 @@
                         },
                         "model-tag": {
                             "type": "string"
+                        },
+                        "timeout": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
@@ -41874,7 +41877,7 @@
                             "$ref": "#/definitions/NotifyWatchResults"
                         }
                     },
-                    "description": "WatchModelResources creates watchers for changes to the lifecycle of an\nmodel's machines and services."
+                    "description": "WatchModelResources creates watchers for changes to the lifecycle of an\nmodel's machines and applications and storage."
                 }
             },
             "definitions": {
@@ -42023,6 +42026,9 @@
                 "UndertakerModelInfo": {
                     "type": "object",
                     "properties": {
+                        "destroy-timeout": {
+                            "type": "integer"
+                        },
                         "force-destroyed": {
                             "type": "boolean"
                         },
@@ -42048,8 +42054,7 @@
                         "name",
                         "global-name",
                         "is-system",
-                        "life",
-                        "force-destroyed"
+                        "life"
                     ]
                 },
                 "UndertakerModelInfoResult": {

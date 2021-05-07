@@ -416,6 +416,10 @@ type DestroyModelParams struct {
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
 	MaxWait *time.Duration `json:"max-wait,omitempty"`
+
+	// Timeout specifies how long to wait for the entire destroy process before
+	// timing out.
+	Timeout *time.Duration `json:"timeout,omitempty"`
 }
 
 // ModelCredential stores information about cloud credential that a model uses:

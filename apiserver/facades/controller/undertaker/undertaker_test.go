@@ -4,6 +4,8 @@
 package undertaker_test
 
 import (
+	"time"
+
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -70,6 +72,8 @@ func (s *undertakerSuite) TestModelInfo(c *gc.C) {
 	} {
 		test.st.model.life = state.Dying
 		test.st.model.forced = true
+		minute := time.Minute
+		test.st.model.timeout = &minute
 
 		result, err := test.api.ModelInfo()
 		c.Assert(err, jc.ErrorIsNil)
@@ -84,6 +88,8 @@ func (s *undertakerSuite) TestModelInfo(c *gc.C) {
 		c.Assert(info.IsSystem, gc.Equals, test.isSystem)
 		c.Assert(info.Life, gc.Equals, life.Dying)
 		c.Assert(info.ForceDestroyed, gc.Equals, true)
+		c.Assert(info.DestroyTimeout, gc.NotNil)
+		c.Assert(*info.DestroyTimeout, gc.Equals, time.Minute)
 	}
 }
 

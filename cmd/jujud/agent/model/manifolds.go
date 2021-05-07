@@ -364,6 +364,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:      apiCallerName,
 			CloudDestroyerName: environTrackerName,
 
+			Clock:                        config.Clock,
 			Logger:                       config.LoggingContext.GetLogger("juju.worker.undertaker"),
 			NewFacade:                    undertaker.NewFacade,
 			NewWorker:                    undertaker.NewWorker,
@@ -467,6 +468,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		undertakerName: ifNotUpgrading(ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
 			APICallerName:                apiCallerName,
 			CloudDestroyerName:           caasBrokerTrackerName,
+			Clock:                        config.Clock,
 			Logger:                       config.LoggingContext.GetLogger("juju.worker.undertaker"),
 			NewFacade:                    undertaker.NewFacade,
 			NewWorker:                    undertaker.NewWorker,
