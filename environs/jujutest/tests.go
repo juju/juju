@@ -4,6 +4,7 @@
 package jujutest
 
 import (
+	stdcontext "context"
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
@@ -128,7 +129,7 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	t.toolsStorage = stor
 	t.ControllerStore = jujuclient.NewMemStore()
 	t.ControllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
-	t.ProviderCallContext = context.NewCloudCallContext()
+	t.ProviderCallContext = context.NewCloudCallContext(stdcontext.Background())
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {

@@ -479,7 +479,7 @@ func (*kubernetesClient) Provider() caas.ContainerEnvironProvider {
 }
 
 // Destroy is part of the Broker interface.
-func (k *kubernetesClient) Destroy(callbacks envcontext.ProviderCallContext) (err error) {
+func (k *kubernetesClient) Destroy(ctx envcontext.ProviderCallContext) (err error) {
 	defer func() {
 		if err != nil && k8serrors.ReasonForError(err) == v1.StatusReasonUnknown {
 			logger.Warningf("k8s cluster is not accessible: %v", err)
@@ -490,14 +490,14 @@ func (k *kubernetesClient) Destroy(callbacks envcontext.ProviderCallContext) (er
 	errChan := make(chan error, 1)
 	done := make(chan struct{})
 
-	ctx, cancel := context.WithCancel(context.Background())
+	destroyCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go k.deleteClusterScopeResourcesModelTeardown(ctx, &wg, errChan)
+	go k.deleteClusterScopeResourcesModelTeardown(destroyCtx, &wg, errChan)
 	wg.Add(1)
-	go k.deleteNamespaceModelTeardown(ctx, &wg, errChan)
+	go k.deleteNamespaceModelTeardown(destroyCtx, &wg, errChan)
 
 	go func() {
 		wg.Wait()
@@ -506,14 +506,14 @@ func (k *kubernetesClient) Destroy(callbacks envcontext.ProviderCallContext) (er
 
 	for {
 		select {
-		case <-callbacks.Dying():
-			return nil
 		case err = <-errChan:
 			if err != nil {
 				return errors.Trace(err)
 			}
+		case <-destroyCtx.Done():
+			return destroyCtx.Err()
 		case <-done:
-			return nil
+			return destroyCtx.Err()
 		}
 	}
 }

@@ -204,7 +204,7 @@ var _ = gc.Suite(&MaasPingSuite{})
 
 func (s *MaasPingSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
 func (s *MaasPingSuite) TestPingNoEndpoint(c *gc.C) {

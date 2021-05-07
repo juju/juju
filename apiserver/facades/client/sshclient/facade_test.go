@@ -50,7 +50,7 @@ func (s *facadeSuite) SetUpTest(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("igor")
 	s.authorizer.AdminTag = names.NewUserTag("igor")
 
-	s.callContext = context.NewCloudCallContext()
+	s.callContext = context.NewEmptyCloudCallContext()
 	facade, err := sshclient.InternalFacade(s.backend, s.authorizer, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade

@@ -288,7 +288,7 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, instId := s.waitProvisioned(c, unit)
-	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.Id{instId})
+	insts, err := s.Environ.Instances(context.NewEmptyCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 
 	netEnv, ok := s.Environ.(environs.Networking)
@@ -297,7 +297,7 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	// Since the dummy environ implements the environ.NetworkingEnviron,
 	// the instancepoller will pull the provider addresses directly from
 	// the environ and resolve their space ID.
-	ifLists, err := netEnv.NetworkInterfaces(context.NewCloudCallContext(), []instance.Id{instId})
+	ifLists, err := netEnv.NetworkInterfaces(context.NewEmptyCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ifLists, gc.HasLen, 1)
 

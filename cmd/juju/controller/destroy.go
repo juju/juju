@@ -6,6 +6,7 @@ package controller
 import (
 	"bufio"
 	"bytes"
+	stdcontext "context"
 	"fmt"
 	"io"
 	"strings"
@@ -655,7 +656,7 @@ func (c *destroyCommandBase) credentialAPIForControllerModel() (CredentialAPI, e
 type newCredentialAPIFunc func() (CredentialAPI, error)
 
 func cloudCallContext(newAPIFunc newCredentialAPIFunc) context.ProviderCallContext {
-	callCtx := context.NewCloudCallContext()
+	callCtx := context.NewCloudCallContext(stdcontext.Background())
 	callCtx.InvalidateCredentialFunc = func(reason string) error {
 		api, err := newAPIFunc()
 		if err != nil {

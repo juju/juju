@@ -4,6 +4,7 @@
 package modelupgrader
 
 import (
+	stdcontext "context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
 	jujuworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/gate"
@@ -217,7 +217,7 @@ func newUpgradeWorker(config Config, targetVersion int) (worker.Worker, error) {
 			currentVersion,
 			targetVersion,
 			setVersion,
-			common.NewCloudCallContext(config.CredentialAPI, nil),
+			common.NewCloudCallContextFunc(config.CredentialAPI),
 			config.Logger,
 		); err != nil {
 			info := fmt.Sprintf("failed to upgrade environ: %s", err)
@@ -241,7 +241,7 @@ func runEnvironUpgradeSteps(
 	currentVersion int,
 	targetVersion int,
 	setVersion func(int) error,
-	callCtx context.ProviderCallContext,
+	callCtxFunc common.CloudCallContextFunc,
 	logger Logger,
 ) error {
 	if wrench.IsActive("modelupgrader", "fail-all") ||
@@ -256,6 +256,7 @@ func runEnvironUpgradeSteps(
 	args := environs.UpgradeOperationsParams{
 		ControllerUUID: controllerTag.Id(),
 	}
+	callCtx := callCtxFunc(stdcontext.Background())
 	for _, op := range upgrader.UpgradeOperations(callCtx, args) {
 		if op.TargetVersion <= currentVersion {
 			// The operation is for the same as or older

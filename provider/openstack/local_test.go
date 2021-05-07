@@ -337,7 +337,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	openstack.UseTestImageData(s.imageMetadataStorage, s.cred)
 	s.storageAdapter = makeMockAdapter()
 	overrideCinderProvider(&s.CleanupSuite, s.storageAdapter)
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
 func (s *localServerSuite) TearDownTest(c *gc.C) {
@@ -2094,7 +2094,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env.(environs.Environ)
 	s.attrs = s.env.Config().AllAttrs()
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
 func (s *localHTTPSServerSuite) TearDownTest(c *gc.C) {
@@ -3216,7 +3216,7 @@ func bootstrapEnv(c *gc.C, env environs.Environ) error {
 
 func bootstrapEnvWithConstraints(c *gc.C, env environs.Environ, cons constraints.Value) error {
 	return bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
-		context.NewCloudCallContext(),
+		context.NewEmptyCloudCallContext(),
 		bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,

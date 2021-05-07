@@ -4,6 +4,7 @@
 package jujutest
 
 import (
+	stdcontext "context"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -131,7 +132,7 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
 	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c, nil))
-	t.ProviderCallContext = context.NewCloudCallContext()
+	t.ProviderCallContext = context.NewCloudCallContext(stdcontext.Background())
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {

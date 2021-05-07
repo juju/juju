@@ -71,7 +71,7 @@ type firewallerBaseSuite struct {
 func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
 var _ worker.Worker = (*firewaller.Firewaller)(nil)

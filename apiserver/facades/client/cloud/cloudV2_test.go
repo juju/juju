@@ -113,7 +113,7 @@ func (s *cloudSuiteV2) SetUpTest(c *gc.C) {
 	}
 	s.statePool = &mockStatePool{
 		getF: func(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error) {
-			return modelBackend(modelUUID), context.NewCloudCallContext(), nil
+			return modelBackend(modelUUID), context.NewEmptyCloudCallContext(), nil
 		},
 	}
 }

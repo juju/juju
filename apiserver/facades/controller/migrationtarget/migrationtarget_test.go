@@ -66,7 +66,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
-	s.callContext = context.NewCloudCallContext()
+	s.callContext = context.NewEmptyCloudCallContext()
 	s.facadeContext = facadetest.Context{
 		State_:     s.State,
 		StatePool_: s.StatePool,

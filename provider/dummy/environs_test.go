@@ -107,7 +107,7 @@ func (s *suite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.Tests.SetUpTest(c)
 	s.PatchValue(&dummy.LogDir, c.MkDir())
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
 func (s *suite) TearDownTest(c *gc.C) {
@@ -137,7 +137,7 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 	c.Assert(supported, jc.IsTrue)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), netenv,
-		context.NewCloudCallContext(), bootstrap.BootstrapParams{
+		context.NewEmptyCloudCallContext(), bootstrap.BootstrapParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			Cloud: cloud.Cloud{
 				Name:      "dummy",

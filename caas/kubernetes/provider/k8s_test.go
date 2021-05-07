@@ -1733,12 +1733,12 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 
 func (s *K8sBrokerSuite) TestDestroyController(c *gc.C) {
 	s.assertDestroy(c, true, func() error {
-		return s.broker.DestroyController(context.NewCloudCallContext(), testing.ControllerTag.Id())
+		return s.broker.DestroyController(context.NewEmptyCloudCallContext(), testing.ControllerTag.Id())
 	})
 }
 
 func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
-	s.assertDestroy(c, false, func() error { return s.broker.Destroy(context.NewCloudCallContext()) })
+	s.assertDestroy(c, false, func() error { return s.broker.Destroy(context.NewEmptyCloudCallContext()) })
 }
 
 func (s *K8sBrokerSuite) TestGetCurrentNamespace(c *gc.C) {

@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	stdcontext "context"
 	"fmt"
 	"strings"
 	"sync"
@@ -149,7 +150,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.cfg = cfg
 
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 
 	// Create a machine for the dummy bootstrap instance,
 	// so the provisioner doesn't destroy it.
@@ -1338,7 +1339,7 @@ func (s *ProvisionerSuite) newProvisionerTaskWithRetryStrategy(
 		auth,
 		imagemetadata.ReleasedStream,
 		retryStrategy,
-		s.callCtx,
+		func(_ stdcontext.Context) context.ProviderCallContext { return s.callCtx },
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return w

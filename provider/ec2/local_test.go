@@ -277,7 +277,7 @@ func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 	t.Tests.SetUpTest(c)
 
-	t.callCtx = context.NewCloudCallContext()
+	t.callCtx = context.NewEmptyCloudCallContext()
 }
 
 func (t *localServerSuite) TearDownTest(c *gc.C) {

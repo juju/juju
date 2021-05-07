@@ -79,7 +79,7 @@ func (s *ErrorsSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
 	isAuthF := func(e error) bool {
 		return true
 	}
-	ctx := context.NewCloudCallContext()
+	ctx := context.NewEmptyCloudCallContext()
 	ctx.InvalidateCredentialFunc = func(msg string) error {
 		return errors.New("kaboom")
 	}
@@ -110,7 +110,7 @@ func (s *ErrorsSuite) checkPermissionHandling(c *gc.C, e error, handled bool) {
 	isAuthF := func(e error) bool {
 		return handled
 	}
-	ctx := context.NewCloudCallContext()
+	ctx := context.NewEmptyCloudCallContext()
 	called := false
 	ctx.InvalidateCredentialFunc = func(msg string) error {
 		c.Assert(msg, gc.Matches, "cloud denied access:.*auth failure")

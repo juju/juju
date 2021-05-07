@@ -4,6 +4,8 @@
 package storageprovisioner
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -53,7 +55,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 		if len(volumeParams) == 0 {
 			continue
 		}
-		results, err := volumeSource.CreateVolumes(ctx.config.CloudCallContext, volumeParams)
+		results, err := volumeSource.CreateVolumes(ctx.config.CloudCallContextFunc(stdcontext.Background()), volumeParams)
 		if err != nil {
 			return errors.Annotatef(err, "creating volumes from source %q", sourceName)
 		}
@@ -148,7 +150,7 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 			// to do here.
 			continue
 		}
-		results, err := volumeSource.AttachVolumes(ctx.config.CloudCallContext, volumeAttachmentParams)
+		results, err := volumeSource.AttachVolumes(ctx.config.CloudCallContextFunc(stdcontext.Background()), volumeAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "attaching volumes from source %q", sourceName)
 		}
@@ -281,7 +283,7 @@ func removeVolumes(ctx *context, ops map[names.VolumeTag]*removeVolumeOp) error 
 		if len(ids) == 0 {
 			return nil
 		}
-		errs, err := f(ctx.config.CloudCallContext, ids)
+		errs, err := f(ctx.config.CloudCallContextFunc(stdcontext.Background()), ids)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -374,7 +376,7 @@ func detachVolumes(ctx *context, ops map[params.MachineStorageId]*detachVolumeOp
 			// to do here.
 			continue
 		}
-		errs, err := volumeSource.DetachVolumes(ctx.config.CloudCallContext, volumeAttachmentParams)
+		errs, err := volumeSource.DetachVolumes(ctx.config.CloudCallContextFunc(stdcontext.Background()), volumeAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "detaching volumes from source %q", sourceName)
 		}

@@ -4,6 +4,7 @@
 package undertaker
 
 import (
+	stdcontext "context"
 	"fmt"
 	"sync"
 
@@ -77,7 +78,7 @@ func NewUndertaker(config Config) (*Undertaker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	u.setCallCtx(common.NewCloudCallContext(config.CredentialAPI, u.catacomb.Dying))
+	u.setCallCtx(common.NewCloudCallContextFunc(config.CredentialAPI)(stdcontext.Background()))
 	return u, nil
 }
 

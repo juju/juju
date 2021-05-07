@@ -68,7 +68,7 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.poolManager = s.constructPoolManager()
 	s.poolsInUse = []string{}
 
-	s.callContext = context.NewCloudCallContext()
+	s.callContext = context.NewEmptyCloudCallContext()
 	s.api = storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.authorizer, s.callContext)
 	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.registry, s.poolManager, s.authorizer, s.callContext)
 	newAPI := storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.authorizer, s.callContext)
