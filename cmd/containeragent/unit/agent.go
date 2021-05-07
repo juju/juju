@@ -238,8 +238,7 @@ func (c *containerUnitAgent) Stop() error {
 }
 
 // Done signals the machine agent is finished
-func (c *containerUnitAgent) Done(ctx *cmd.Context, err error) {
-	ctx.Infof("Shuting down containeragent unit command, err %#v", err)
+func (c *containerUnitAgent) Done(err error) {
 	c.errReason = err
 	close(c.dead)
 }
@@ -318,7 +317,7 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 }
 
 func (c *containerUnitAgent) Run(ctx *cmd.Context) (err error) {
-	defer c.Done(ctx, err)
+	defer c.Done(err)
 	ctx.Infof("starting containeragent unit command")
 
 	agentConfig := c.CurrentConfig()
