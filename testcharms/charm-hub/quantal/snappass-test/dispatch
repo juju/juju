@@ -1,0 +1,3 @@
+#!/bin/sh
+
+JUJU_DISPATCH_PATH="${JUJU_DISPATCH_PATH:-$0}" PYTHONPATH=lib:venv ./src/charm.py
