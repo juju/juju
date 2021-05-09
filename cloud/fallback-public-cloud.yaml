@@ -417,72 +417,72 @@ clouds:
     auth-types: [access-key]
     regions:
       ams1:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       sin2:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       am6:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       DA3:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       pit1:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       iad2:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       sin3:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       sjc1:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       sv15:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       den42:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       dtw1:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       gsp1:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       dc13:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       fra2:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       sin1:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       lax2:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       ny5:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       syd2:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       hkg1:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       sea2:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       mci1:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       bos2:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       dfw1:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       iad1:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       nrt1:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       yyz1:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       atl2:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       sea1:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       lax1:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       mrs1:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       dfw2:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       iah1:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       phx1:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       ord4:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
       ewr1:
-        endpoint: https://api.packet.net/
+        endpoint: https://api.equinix.com/metal/v1/
