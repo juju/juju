@@ -210,7 +210,20 @@ func (st *state) setLoginResult(p loginResultParams) error {
 	st.controllerAccess = p.controllerAccess
 	st.modelAccess = p.modelAccess
 
-	hostPorts, err := addAddress(p.servers, st.addr)
+	hostPorts := p.servers
+	// if the connection is not proxied then we will add the connection address
+	// to host ports
+	if !st.IsProxied() {
+		hostPorts, err = addAddress(p.servers, st.addr)
+		if err != nil {
+			if clerr := st.Close(); clerr != nil {
+				err = errors.Annotatef(err, "error closing state: %v", clerr)
+			}
+			return err
+		}
+	}
+	st.hostPorts = hostPorts
+
 	if err != nil {
 		if clerr := st.Close(); clerr != nil {
 			err = errors.Annotatef(err, "error closing state: %v", clerr)
@@ -218,6 +231,7 @@ func (st *state) setLoginResult(p loginResultParams) error {
 		return err
 	}
 	st.hostPorts = hostPorts
+
 	st.publicDNSName = p.publicDNSName
 
 	st.facadeVersions = make(map[string][]int, len(p.facades))
