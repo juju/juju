@@ -16,23 +16,23 @@ import (
 	"github.com/packethost/packngo"
 )
 
-type equnixDevice struct {
+type equinixDevice struct {
 	e *environ
 
 	*packngo.Device
 }
 
-var _ instances.Instance = (*equnixDevice)(nil)
+var _ instances.Instance = (*equinixDevice)(nil)
 
-func (device *equnixDevice) String() string {
+func (device *equinixDevice) String() string {
 	return device.ID
 }
 
-func (device *equnixDevice) Id() instance.Id {
+func (device *equinixDevice) Id() instance.Id {
 	return instance.Id(device.ID)
 }
 
-func (device *equnixDevice) Status(ctx context.ProviderCallContext) instance.Status {
+func (device *equinixDevice) Status(ctx context.ProviderCallContext) instance.Status {
 	var jujuStatus status.Status
 
 	switch device.State {
@@ -55,7 +55,7 @@ func (device *equnixDevice) Status(ctx context.ProviderCallContext) instance.Sta
 
 // Addresses implements network.Addresses() returning generic address
 // details for the instance, and requerying the ec2 api if required.
-func (device *equnixDevice) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (device *equinixDevice) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	var addresses []corenetwork.ProviderAddress
 
 	for _, netw := range device.Network {

@@ -5,6 +5,7 @@ package equinix
 
 import (
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -103,7 +104,7 @@ func (e *environ) getPacketInstancesByTag(tags map[string]string) ([]instances.I
 		cp := d
 		cpTags := set.NewStrings(cp.Tags...)
 		if !deviceTags.Intersection(cpTags).IsEmpty() {
-			toReturn = append(toReturn, &equnixDevice{e, &cp})
+			toReturn = append(toReturn, &equinixDevice{e, &cp})
 		}
 	}
 
@@ -166,8 +167,7 @@ func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerU
 	}
 
 	for _, inst := range insts {
-		_, err = e.equnixClient.Devices.Delete(string(inst.Id()), true)
-		if err != nil {
+		if _, err = e.equnixClient.Devices.Delete(string(inst.Id()), true); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -193,18 +193,18 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 	tags := set.NewStrings("juju-model-uuid=" + e.Config().UUID())
 
 	for i, id := range ids {
-		//TODO handle case when some of the instanes are missing
 		d, resp, err := e.equnixClient.Devices.Get(string(id), nil)
-		if err != nil && resp.Request.Response.StatusCode == 404 {
+		if err != nil && resp != nil && resp.Request.Response.StatusCode == http.StatusNotFound {
 			logger.Warningf("instance %s not found", string(id))
 			missingInstanceCount = missingInstanceCount + 1
+			continue
 		} else if err != nil {
 			return nil, errors.Annotatef(err, "looking up device with ID %q", id)
 		}
 
 		deviceTags := set.NewStrings(d.Tags...)
 		if !tags.Intersection(deviceTags).IsEmpty() {
-			toReturn[i] = &equnixDevice{e, d}
+			toReturn[i] = &equinixDevice{e, d}
 		}
 	}
 
@@ -343,7 +343,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	}
 
 	// Render the required tags for the instance.
-	packetTags := []string{}
+	var packetTags []string
 	for k, v := range args.InstanceConfig.Tags {
 		packetTags = append(packetTags, fmt.Sprintf("%s=%s", k, v))
 	}
@@ -426,7 +426,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		return nil, errors.Trace(err)
 	}
 
-	inst := &equnixDevice{e, d}
+	inst := &equinixDevice{e, d}
 	amd64 := arch.AMD64
 	mem, err := strconv.ParseUint(d.Plan.Specs.Memory.Total[:len(d.Plan.Specs.Memory.Total)-2], 10, 64)
 	if err != nil {
@@ -475,7 +475,7 @@ func (e *environ) supportedInstanceTypes() ([]instances.InstanceType, error) {
 nextPlan:
 	for _, plan := range plans {
 		if !validPlan(plan, e.cloud.Region) {
-			logger.Infof("Plan %s not valid in facility %s", plan.Name, e.cloud.Region)
+			logger.Debugf("Plan %s not valid in facility %s", plan.Name, e.cloud.Region)
 			continue
 		}
 
@@ -503,9 +503,8 @@ nextPlan:
 				Mem:      mem,
 				Arches:   []string{instArch},
 				// Scale per hour costs so they can be represented as an integer for sorting purposes.
-				Cost: uint64(plan.Pricing.Hour * 1000.0),
-				// TODO: returned by packet's API but not exposed by the packngo client
-				// Deprecated: plan.Legacy,
+				Cost:       uint64(plan.Pricing.Hour * 1000.0),
+				Deprecated: plan.Legacy,
 			})
 	}
 
@@ -544,7 +543,7 @@ func (e *environ) findInstanceSpec(controller bool, allImages []*imagemetadata.I
 	if err != nil {
 		return nil, err
 	}
-	suitableImages := []*imagemetadata.ImageMetadata{}
+	var suitableImages []*imagemetadata.ImageMetadata
 
 	for _, it := range instanceTypes {
 		for _, os := range oss {
@@ -673,7 +672,7 @@ func isDistroSupported(os packngo.OS, ic *instances.InstanceConstraint) bool {
 	return true
 }
 
-// helper function which tries to extract processor architecture from plan name. 
+// helper function which tries to extract processor architecture from plan name.
 // plan names have format like c2.small.arm where in majority of cases the last bit indicates processor architecture.
 // in some cases baremeta_1 and similar are returned which are mapped to AMD64.
 func getArchitectureFromPlan(p string) string {
