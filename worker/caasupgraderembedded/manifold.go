@@ -11,18 +11,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/caasoperatorupgrader"
-	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/worker/gate"
 )
-
-// Logger represents the methods used by the worker to log details.
-type Logger interface {
-	Infof(string, ...interface{})
-	Debugf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Errorf(string, ...interface{})
-}
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
@@ -30,10 +20,70 @@ type ManifoldConfig struct {
 	AgentName            string
 	APICallerName        string
 	UpgradeStepsGateName string
-	UpgradeCheckGateName string
+
 	PreviousAgentVersion version.Number
 
-	Logger Logger
+	NewClient func(base.APICaller) UpgraderClient
+	Logger    Logger
+}
+
+// Validate is called by start to check for bad configuration.
+func (config ManifoldConfig) Validate() error {
+	if config.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
+	if config.APICallerName == "" {
+		return errors.NotValidf("empty APICallerName")
+	}
+	if config.UpgradeStepsGateName == "" {
+		return errors.NotValidf("empty UpgradeStepsGateName")
+	}
+	if config.PreviousAgentVersion == version.Zero {
+		return errors.NotValidf("previous agent version not specified")
+	}
+	if config.NewClient == nil {
+		return errors.NotValidf("nil NewClient")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	return nil
+}
+
+func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var agent agent.Agent
+	if err := context.Get(config.AgentName, &agent); err != nil {
+		return nil, err
+	}
+	currentConfig := agent.CurrentConfig()
+
+	var apiCaller base.APICaller
+	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+		return nil, err
+	}
+
+	upgraderFacade := config.NewClient(apiCaller)
+
+	var upgradeStepsWaiter gate.Waiter
+	if config.UpgradeStepsGateName == "" {
+		upgradeStepsWaiter = gate.NewLock()
+	} else {
+		if err := context.Get(config.UpgradeStepsGateName, &upgradeStepsWaiter); err != nil {
+			return nil, err
+		}
+	}
+
+	return NewUpgrader(Config{
+		UpgraderClient:     upgraderFacade,
+		AgentTag:           currentConfig.Tag(),
+		OrigAgentVersion:   config.PreviousAgentVersion,
+		UpgradeStepsWaiter: upgradeStepsWaiter,
+		Logger:             config.Logger,
+	})
 }
 
 // Manifold returns a dependency manifold that runs an upgrader
@@ -42,67 +92,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	inputs := []string{
 		config.AgentName,
 		config.APICallerName,
+		config.UpgradeStepsGateName,
 	}
-
-	// The machine agent uses these but the application agent doesn't.
-	if config.UpgradeStepsGateName != "" {
-		inputs = append(inputs, config.UpgradeStepsGateName)
-	}
-	if config.UpgradeCheckGateName != "" {
-		inputs = append(inputs, config.UpgradeCheckGateName)
-	}
-
 	return dependency.Manifold{
 		Inputs: inputs,
-		Start: func(context dependency.Context) (worker.Worker, error) {
-			if config.PreviousAgentVersion == version.Zero {
-				return nil, errors.New("previous agent version not specified")
-			}
-
-			var agent agent.Agent
-			if err := context.Get(config.AgentName, &agent); err != nil {
-				return nil, err
-			}
-			currentConfig := agent.CurrentConfig()
-
-			var apiCaller base.APICaller
-			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
-				return nil, err
-			}
-
-			upgraderFacade := upgrader.NewState(apiCaller)
-			operatorUpgraderFacade := caasoperatorupgrader.NewClient(apiCaller)
-
-			var upgradeStepsWaiter gate.Waiter
-			if config.UpgradeStepsGateName == "" {
-				upgradeStepsWaiter = gate.NewLock()
-			} else {
-				if config.PreviousAgentVersion == version.Zero {
-					return nil, errors.New("previous agent version not specified")
-				}
-				if err := context.Get(config.UpgradeStepsGateName, &upgradeStepsWaiter); err != nil {
-					return nil, err
-				}
-			}
-
-			var initialCheckUnlocker gate.Unlocker
-			if config.UpgradeCheckGateName == "" {
-				initialCheckUnlocker = gate.NewLock()
-			} else {
-				if err := context.Get(config.UpgradeCheckGateName, &initialCheckUnlocker); err != nil {
-					return nil, err
-				}
-			}
-
-			return NewUpgrader(Config{
-				UpgraderClient:              upgraderFacade,
-				CAASEmbeddedUpgrader:        operatorUpgraderFacade,
-				AgentTag:                    currentConfig.Tag(),
-				OrigAgentVersion:            config.PreviousAgentVersion,
-				UpgradeStepsWaiter:          upgradeStepsWaiter,
-				InitialUpgradeCheckComplete: initialCheckUnlocker,
-				Logger:                      config.Logger,
-			})
-		},
+		Start:  config.start,
 	}
 }

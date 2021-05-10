@@ -11,7 +11,6 @@ import (
 	"github.com/juju/worker/v2/catacomb"
 
 	coreos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/watcher"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 )
@@ -27,32 +26,17 @@ var _ logger = struct{}{}
 type Upgrader struct {
 	catacomb catacomb.Catacomb
 
-	upgraderClient   UpgraderClient
-	embeddedUpgrader CAASEmbeddedUpgrader
-	tag              names.Tag
-	config           Config
-}
-
-// UpgraderClient provides the facade methods used by the worker.
-type UpgraderClient interface {
-	DesiredVersion(tag string) (version.Number, error)
-	SetVersion(tag string, v version.Binary) error
-	WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error)
-}
-
-// CAASEmbeddedUpgrader provides method to upgrade the embedded workloads.
-type CAASEmbeddedUpgrader interface {
-	Upgrade(agentTag string, v version.Number) error
+	upgraderClient UpgraderClient
+	tag            names.Tag
+	config         Config
 }
 
 // Config contains the items the worker needs to start.
 type Config struct {
-	UpgraderClient              UpgraderClient
-	CAASEmbeddedUpgrader        CAASEmbeddedUpgrader
-	AgentTag                    names.Tag
-	OrigAgentVersion            version.Number
-	UpgradeStepsWaiter          gate.Waiter
-	InitialUpgradeCheckComplete gate.Unlocker
+	UpgraderClient     UpgraderClient
+	AgentTag           names.Tag
+	OrigAgentVersion   version.Number
+	UpgradeStepsWaiter gate.Waiter
 
 	Logger Logger
 }
@@ -62,11 +46,11 @@ func (config Config) Validate() error {
 	if config.UpgraderClient == nil {
 		return errors.NotValidf("missing UpgraderClient")
 	}
-	if config.CAASEmbeddedUpgrader == nil {
-		return errors.NotValidf("missing CAASEmbeddedUpgrader")
-	}
 	if config.Logger == nil {
 		return errors.NotValidf("missing Logger")
+	}
+	if !names.IsValidUnit(config.AgentTag.Id()) {
+		return errors.NotValidf("tag %q", config.AgentTag)
 	}
 	return nil
 }
@@ -80,10 +64,9 @@ func NewUpgrader(config Config) (*Upgrader, error) {
 		return nil, errors.Trace(err)
 	}
 	u := &Upgrader{
-		upgraderClient:   config.UpgraderClient,
-		embeddedUpgrader: config.CAASEmbeddedUpgrader,
-		tag:              config.AgentTag,
-		config:           config,
+		upgraderClient: config.UpgraderClient,
+		tag:            config.AgentTag,
+		config:         config,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &u.catacomb,
@@ -106,15 +89,19 @@ func (u *Upgrader) Wait() error {
 }
 
 func (u *Upgrader) loop() error {
-	// Only controllers set their version here - agents do it in the main agent worker loop.
 	hostOSType := coreos.HostOSTypeName()
 	if err := u.upgraderClient.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current, hostOSType)); err != nil {
 		return errors.Annotate(err, "cannot set agent version")
 	}
 
-	// TODO(embedded): implement containeragent upgrade.
-	u.config.Logger.Warningf("containeragent upgrade not implemented yet!!!")
-	select {}
+	u.config.Logger.Tracef("containeragent upgrade not implemented yet")
+	for {
+		select {
+		case <-u.catacomb.Dying():
+			return u.catacomb.ErrDying()
+			// TODO(embedded): implement containeragent upgrade.
+		}
+	}
 }
 
 func toBinaryVersion(vers version.Number, osType string) version.Binary {

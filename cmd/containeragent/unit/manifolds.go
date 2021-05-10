@@ -17,6 +17,7 @@ import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
@@ -155,16 +156,18 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			NewWorker: gate.NewFlagWorker,
 		}),
 
-		// TODO(ycliuhw): make a worker to set agent version and remove from worker/upgrader.
 		upgraderName: caasupgraderembedded.Manifold(caasupgraderembedded.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
 			PreviousAgentVersion: config.PreviousAgentVersion,
 			Logger:               loggo.GetLogger("juju.worker.caasupgraderembedded"),
+			NewClient: func(caller base.APICaller) caasupgraderembedded.UpgraderClient {
+				return upgrader.NewState(caller)
+			},
 		}),
 
-		// The upgradesteps worker runs soon after the operator
+		// The upgradesteps worker runs soon after the unit agent
 		// starts and runs any steps required to upgrade to the
 		// running jujud version. Once upgrade steps have run, the
 		// upgradesteps gate is unlocked and the worker exits.

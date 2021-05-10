@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the LGPLv3, see LICENSE file for details.
 
-package caasupgraderembedded_test
+package caasupgraderembedded
 
 import (
 	stdtesting "testing"
@@ -12,3 +12,5 @@ import (
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
+
+var ToBinaryVersion = toBinaryVersion
