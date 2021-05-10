@@ -35,7 +35,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/set"
-	"github.com/juju/version"
+	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/packethost/packngo"
