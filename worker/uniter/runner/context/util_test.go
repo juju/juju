@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	runnercontext "github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
 )
@@ -182,7 +182,7 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.apiRelunits[rel.Id()] = apiRelUnit
 }
 
-func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remote string) *context.HookContext {
+func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remote string) *runnercontext.HookContext {
 	if relid != -1 {
 		_, found := s.apiRelunits[relid]
 		c.Assert(found, jc.IsTrue)
@@ -190,16 +190,16 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remot
 	facade, err := s.st.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
 
-	relctxs := map[int]*context.ContextRelation{}
+	relctxs := map[int]*runnercontext.ContextRelation{}
 	for relId, relUnit := range s.apiRelunits {
-		cache := context.NewRelationCache(relUnit.ReadSettings, nil)
-		relctxs[relId] = context.NewContextRelation(&relUnitShim{relUnit}, cache)
+		cache := runnercontext.NewRelationCache(relUnit.ReadSettings, nil)
+		relctxs[relId] = runnercontext.NewContextRelation(&relUnitShim{relUnit}, cache)
 	}
 
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := context.NewHookContext(context.HookContextParams{
+	context, err := runnercontext.NewHookContext(runnercontext.HookContextParams{
 		Unit:                s.apiUnit,
 		State:               facade,
 		ID:                  "TestCtx",
@@ -223,7 +223,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remot
 }
 
 func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int,
-	remote string, canAddMetrics bool, metrics *charm.Metrics, paths runnertesting.RealPaths) *context.HookContext {
+	remote string, canAddMetrics bool, metrics *charm.Metrics, paths runnertesting.RealPaths) *runnercontext.HookContext {
 	if relid != -1 {
 		_, found := s.apiRelunits[relid]
 		c.Assert(found, jc.IsTrue)
@@ -231,13 +231,13 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 	facade, err := s.st.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
 
-	relctxs := map[int]*context.ContextRelation{}
+	relctxs := map[int]*runnercontext.ContextRelation{}
 	for relId, relUnit := range s.apiRelunits {
-		cache := context.NewRelationCache(relUnit.ReadSettings, nil)
-		relctxs[relId] = context.NewContextRelation(&relUnitShim{relUnit}, cache)
+		cache := runnercontext.NewRelationCache(relUnit.ReadSettings, nil)
+		relctxs[relId] = runnercontext.NewContextRelation(&relUnitShim{relUnit}, cache)
 	}
 
-	context, err := context.NewHookContext(context.HookContextParams{
+	context, err := runnercontext.NewHookContext(runnercontext.HookContextParams{
 		Unit:                s.meteredAPIUnit,
 		State:               facade,
 		ID:                  "TestCtx",
@@ -264,9 +264,9 @@ func (s *HookContextSuite) metricsDefinition(name string) *charm.Metrics {
 	return &charm.Metrics{Metrics: map[string]charm.Metric{name: {Type: charm.MetricTypeGauge, Description: "generated metric"}}}
 }
 
-func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) {
+func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *runnercontext.HookContext) {
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
-	c.Assert(context.ContextMachineTag(ctx), jc.DeepEquals, names.NewMachineTag("0"))
+	c.Assert(runnercontext.ContextMachineTag(ctx), jc.DeepEquals, names.NewMachineTag("0"))
 
 	expect, expectErr := s.unit.PrivateAddress()
 	actual, actualErr := ctx.PrivateAddress()
@@ -280,7 +280,7 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) 
 
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	name, uuid := context.ContextEnvInfo(ctx)
+	name, uuid := runnercontext.ContextEnvInfo(ctx)
 	c.Assert(name, gc.Equals, env.Name())
 	c.Assert(uuid, gc.Equals, env.UUID())
 
@@ -303,25 +303,25 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) 
 	c.Assert(az, gc.Equals, "a-zone")
 }
 
-func (s *HookContextSuite) AssertNotActionContext(c *gc.C, ctx *context.HookContext) {
+func (s *HookContextSuite) AssertNotActionContext(c *gc.C, ctx *runnercontext.HookContext) {
 	actionData, err := ctx.ActionData()
 	c.Assert(actionData, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "not running an action")
 }
 
-func (s *HookContextSuite) AssertActionContext(c *gc.C, ctx *context.HookContext) {
+func (s *HookContextSuite) AssertActionContext(c *gc.C, ctx *runnercontext.HookContext) {
 	actionData, err := ctx.ActionData()
 	c.Assert(actionData, gc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *HookContextSuite) AssertNotStorageContext(c *gc.C, ctx *context.HookContext) {
+func (s *HookContextSuite) AssertNotStorageContext(c *gc.C, ctx *runnercontext.HookContext) {
 	storageAttachment, err := ctx.HookStorage()
 	c.Assert(storageAttachment, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, ".*")
 }
 
-func (s *HookContextSuite) AssertStorageContext(c *gc.C, ctx *context.HookContext, id string, attachment storage.StorageAttachmentInfo) {
+func (s *HookContextSuite) AssertStorageContext(c *gc.C, ctx *runnercontext.HookContext, id string, attachment storage.StorageAttachmentInfo) {
 	fromCache, err := ctx.HookStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fromCache, gc.NotNil)
@@ -330,7 +330,7 @@ func (s *HookContextSuite) AssertStorageContext(c *gc.C, ctx *context.HookContex
 	c.Assert(fromCache.Location(), gc.Equals, attachment.Location)
 }
 
-func (s *HookContextSuite) AssertRelationContext(c *gc.C, ctx *context.HookContext, relId int, remoteUnit string, remoteApp string) *context.ContextRelation {
+func (s *HookContextSuite) AssertRelationContext(c *gc.C, ctx *runnercontext.HookContext, relId int, remoteUnit string, remoteApp string) *runnercontext.ContextRelation {
 	actualRemoteUnit, _ := ctx.RemoteUnitName()
 	c.Assert(actualRemoteUnit, gc.Equals, remoteUnit)
 	actualRemoteApp, _ := ctx.RemoteApplicationName()
@@ -338,21 +338,21 @@ func (s *HookContextSuite) AssertRelationContext(c *gc.C, ctx *context.HookConte
 	rel, err := ctx.HookRelation()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel.Id(), gc.Equals, relId)
-	return rel.(*context.ContextRelation)
+	return rel.(*runnercontext.ContextRelation)
 }
 
-func (s *HookContextSuite) AssertNotRelationContext(c *gc.C, ctx *context.HookContext) {
+func (s *HookContextSuite) AssertNotRelationContext(c *gc.C, ctx *runnercontext.HookContext) {
 	rel, err := ctx.HookRelation()
 	c.Assert(rel, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, ".*")
 }
 
-func (s *HookContextSuite) AssertWorkloadContext(c *gc.C, ctx *context.HookContext, workloadName string) {
+func (s *HookContextSuite) AssertWorkloadContext(c *gc.C, ctx *runnercontext.HookContext, workloadName string) {
 	actualWorkloadName, _ := ctx.WorkloadName()
 	c.Assert(actualWorkloadName, gc.Equals, workloadName)
 }
 
-func (s *HookContextSuite) AssertNotWorkloadContext(c *gc.C, ctx *context.HookContext) {
+func (s *HookContextSuite) AssertNotWorkloadContext(c *gc.C, ctx *runnercontext.HookContext) {
 	workloadName, err := ctx.WorkloadName()
 	c.Assert(err, gc.NotNil)
 	c.Assert(workloadName, gc.Equals, "")

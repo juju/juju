@@ -9,15 +9,15 @@ import (
 
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	runnercontext "github.com/juju/juju/worker/uniter/runner/context"
 )
 
 type mockRunnerFactory struct {
 	runner.Factory
-	newCommandRunner func(context.CommandInfo) (runner.Runner, error)
+	newCommandRunner func(runnercontext.CommandInfo) (runner.Runner, error)
 }
 
-func (f *mockRunnerFactory) NewCommandRunner(info context.CommandInfo) (runner.Runner, error) {
+func (f *mockRunnerFactory) NewCommandRunner(info runnercontext.CommandInfo) (runner.Runner, error) {
 	return f.newCommandRunner(info)
 }
 
@@ -26,7 +26,7 @@ type mockRunner struct {
 	runCommands func(string, runner.RunLocation) (*exec.ExecResponse, error)
 }
 
-func (r *mockRunner) Context() runner.Context {
+func (r *mockRunner) Context() runnercontext.Context {
 	return &mockRunnerContext{}
 }
 
@@ -35,7 +35,7 @@ func (r *mockRunner) RunCommands(commands string, runLocation runner.RunLocation
 }
 
 type mockRunnerContext struct {
-	runner.Context
+	runnercontext.Context
 }
 
 func (*mockRunnerContext) Prepare() error {

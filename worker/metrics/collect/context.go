@@ -43,8 +43,7 @@ func newHookContext(config hookConfig) *hookContext {
 func (ctx *hookContext) HookVars(
 	paths context.Paths,
 	remote bool,
-	getEnv context.GetEnvFunc,
-	_ context.OSEnvFunc,
+	envVars context.Environmenter,
 ) ([]string, error) {
 	vars := []string{
 		"CHARM_DIR=" + paths.GetCharmDir(), // legacy
@@ -59,7 +58,7 @@ func (ctx *hookContext) HookVars(
 			"JUJU_AGENT_CA_CERT="+path.Join(paths.GetBaseDir(), caas.CACertFile),
 		)
 	}
-	return append(vars, context.OSDependentEnvVars(paths, getEnv)...), nil
+	return append(vars, context.OSDependentEnvVars(paths, envVars)...), nil
 }
 
 // GetLogger returns the logger for the specified module.
