@@ -41,7 +41,7 @@ import (
 	"github.com/packethost/packngo"
 )
 
-var logger = loggo.GetLogger("juju.provider.equnix")
+var logger = loggo.GetLogger("juju.provider.equinix")
 
 type environConfig struct {
 	config *config.Config
@@ -49,12 +49,12 @@ type environConfig struct {
 }
 
 type environ struct {
-	ecfgMutex    sync.Mutex
-	ecfg         *environConfig
-	name         string
-	cloud        environscloudspec.CloudSpec
-	equnixClient *packngo.Client
-	namespace    instance.Namespace
+	ecfgMutex     sync.Mutex
+	ecfg          *environConfig
+	name          string
+	cloud         environscloudspec.CloudSpec
+	equinixClient *packngo.Client
+	namespace     instance.Namespace
 }
 
 // func newEMEnviron() (*environ, error) {
@@ -95,7 +95,7 @@ func (e *environ) getPacketInstancesByTag(tags map[string]string) ([]instances.I
 	for k, v := range tags {
 		deviceTags.Add(fmt.Sprintf("%s=%s", k, v))
 	}
-	devices, _, err := e.equnixClient.Devices.List(e.cloud.Credential.Attributes()["project-id"], nil)
+	devices, _, err := e.equinixClient.Devices.List(e.cloud.Credential.Attributes()["project-id"], nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -152,7 +152,7 @@ func (e *environ) Destroy(ctx context.ProviderCallContext) error {
 	}
 
 	for _, inst := range insts {
-		if _, err = e.equnixClient.Devices.Delete(string(inst.Id()), true); err != nil {
+		if _, err = e.equinixClient.Devices.Delete(string(inst.Id()), true); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -167,7 +167,7 @@ func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerU
 	}
 
 	for _, inst := range insts {
-		if _, err = e.equnixClient.Devices.Delete(string(inst.Id()), true); err != nil {
+		if _, err = e.equinixClient.Devices.Delete(string(inst.Id()), true); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -193,7 +193,7 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 	tags := set.NewStrings("juju-model-uuid=" + e.Config().UUID())
 
 	for i, id := range ids {
-		d, resp, err := e.equnixClient.Devices.Get(string(id), nil)
+		d, resp, err := e.equinixClient.Devices.Get(string(id), nil)
 		if err != nil && resp != nil && resp.Request.Response.StatusCode == http.StatusNotFound {
 			logger.Warningf("instance %s not found", string(id))
 			missingInstanceCount = missingInstanceCount + 1
@@ -372,7 +372,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	if len(subnetIDs) != 0 {
 		logger.Debugf("requesting a machine with address in subnet(s): %v", subnetIDs)
 		for _, subnetID := range subnetIDs {
-			net, _, err := e.equnixClient.ProjectIPs.Get(subnetID, &packngo.GetOptions{})
+			net, _, err := e.equinixClient.ProjectIPs.Get(subnetID, &packngo.GetOptions{})
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -416,12 +416,12 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		})
 	}
 
-	d, _, err := e.equnixClient.Devices.Create(device)
+	d, _, err := e.equinixClient.Devices.Create(device)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	d, err = waitDeviceActive(e.equnixClient, d.ID)
+	d, err = waitDeviceActive(e.equinixClient, d.ID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -466,7 +466,7 @@ func (e *environ) supportedInstanceTypes() ([]instances.InstanceType, error) {
 	opt := &packngo.ListOptions{
 		Includes: []string{"available_in"},
 	}
-	plans, _, err := e.equnixClient.Plans.List(opt)
+	plans, _, err := e.equinixClient.Plans.List(opt)
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving supported instance types")
 	}
@@ -539,7 +539,7 @@ func parseMemValue(v string) (uint64, error) {
 }
 
 func (e *environ) findInstanceSpec(controller bool, allImages []*imagemetadata.ImageMetadata, instanceTypes []instances.InstanceType, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
-	oss, _, err := e.equnixClient.OperatingSystems.List()
+	oss, _, err := e.equinixClient.OperatingSystems.List()
 	if err != nil {
 		return nil, err
 	}
@@ -591,7 +591,7 @@ func (e *environ) finishInstanceConfig(args *environs.StartInstanceParams, spec 
 
 func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	for _, id := range ids {
-		_, err := e.equnixClient.Devices.Delete(string(id), true)
+		_, err := e.equinixClient.Devices.Delete(string(id), true)
 		if err != nil {
 			return errors.Trace(err)
 		}

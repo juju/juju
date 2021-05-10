@@ -116,12 +116,12 @@ func (e *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 	e.cloud = spec
 
 	// var err error
-	e.equnixClient = equnixClient(e.cloud)
+	e.equinixClient = equinixClient(e.cloud)
 
 	return nil
 }
 
-func equnixClient(spec environscloudspec.CloudSpec) *packngo.Client {
+func equinixClient(spec environscloudspec.CloudSpec) *packngo.Client {
 	credentialAttrs := spec.Credential.Attributes()
 
 	apiToken := credentialAttrs["api-token"]
