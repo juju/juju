@@ -134,11 +134,13 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigDefaultGatewayWithAddre
 	addr1 := NewMockConfigSourceAddr(ctrl)
 	addr1.EXPECT().IP().Return(ip1)
 	addr1.EXPECT().IPNet().Return(ipNet1)
+	addr1.EXPECT().IsSecondary().Return(false)
 
 	// Not the address not in CIDR form will result in config without a CIDR.
 	addr2 := NewMockConfigSourceAddr(ctrl)
 	addr2.EXPECT().IP().Return(net.ParseIP("559c:f8c5:812a:fa1f:21fe:5613:3f20:b081"))
 	addr2.EXPECT().IPNet().Return(nil)
+	addr2.EXPECT().IsSecondary().Return(true)
 
 	nic := NewMockConfigSourceNIC(ctrl)
 	exp := nic.EXPECT()
@@ -174,8 +176,9 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigDefaultGatewayWithAddre
 					CIDR:       "1.2.3.0/24",
 					ConfigType: "static",
 				}, {
-					Value:      "559c:f8c5:812a:fa1f:21fe:5613:3f20:b081",
-					ConfigType: "static",
+					Value:       "559c:f8c5:812a:fa1f:21fe:5613:3f20:b081",
+					ConfigType:  "static",
+					IsSecondary: true,
 				},
 			},
 		},
