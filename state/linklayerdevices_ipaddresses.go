@@ -361,6 +361,7 @@ func (addr *Address) UpdateOps(args LinkLayerDeviceAddress) ([]txn.Op, error) {
 		DNSSearchDomains:  args.DNSSearchDomains,
 		GatewayAddress:    args.GatewayAddress,
 		IsDefaultGateway:  args.IsDefaultGateway,
+		IsSecondary:       args.IsSecondary,
 		Origin:            args.Origin,
 	}
 
@@ -457,6 +458,10 @@ func updateIPAddressDocOp(existingDoc, newDoc *ipAddressDoc) (txn.Op, bool) {
 
 	if existingDoc.GatewayAddress != newDoc.GatewayAddress {
 		changes["gateway-address"] = newDoc.GatewayAddress
+	}
+
+	if existingDoc.IsSecondary != newDoc.IsSecondary {
+		changes["is-secondary"] = newDoc.IsSecondary
 	}
 
 	var updates bson.D

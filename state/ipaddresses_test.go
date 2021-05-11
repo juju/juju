@@ -771,6 +771,7 @@ func (s *ipAddressesStateSuite) TestUpdateOps(c *gc.C) {
 		CIDRAddress:    "0.1.2.3/24",
 		Origin:         network.OriginMachine,
 		GatewayAddress: "0.1.2.0",
+		IsSecondary:    true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -778,7 +779,8 @@ func (s *ipAddressesStateSuite) TestUpdateOps(c *gc.C) {
 
 	addrs, err = dev.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addrs[0].GatewayAddress(), gc.Equals, "0.1.2.0")
+	c.Check(addrs[0].GatewayAddress(), gc.Equals, "0.1.2.0")
+	c.Check(addrs[0].IsSecondary(), gc.Equals, true)
 }
 
 func (s *ipAddressesStateSuite) TestUpdateAddressFailsToChangeProviderID(c *gc.C) {
