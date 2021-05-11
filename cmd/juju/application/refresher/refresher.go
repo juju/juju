@@ -129,6 +129,7 @@ func (d *factory) maybeCharmStore(authorizer store.MacaroonGetter, charmAdder st
 				charmRef:        cfg.CharmRef,
 				channel:         cfg.Channel,
 				deployedSeries:  cfg.DeployedSeries,
+				switchCharm:     cfg.Switch,
 				force:           cfg.Force,
 				forceSeries:     cfg.ForceSeries,
 				logger:          cfg.Logger,
@@ -150,6 +151,7 @@ func (d *factory) maybeCharmHub(charmAdder store.CharmAdder, charmResolver Charm
 				charmRef:        cfg.CharmRef,
 				channel:         cfg.Channel,
 				deployedSeries:  cfg.DeployedSeries,
+				switchCharm:     cfg.Switch,
 				force:           cfg.Force,
 				forceSeries:     cfg.ForceSeries,
 				logger:          cfg.Logger,
@@ -223,6 +225,7 @@ type baseRefresher struct {
 	charmRef        string
 	channel         charm.Channel
 	deployedSeries  string
+	switchCharm     bool
 	force           bool
 	forceSeries     bool
 	logger          CommandLogger
@@ -249,7 +252,7 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 	}
 
 	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	newURL, origin, supportedSeries, err := r.charmResolver.ResolveCharm(refURL, destOrigin)
+	newURL, origin, supportedSeries, err := r.charmResolver.ResolveCharm(refURL, destOrigin, r.switchCharm)
 	if err != nil {
 		return nil, commoncharm.Origin{}, errors.Trace(err)
 	}
