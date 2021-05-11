@@ -900,6 +900,9 @@
                         "cidr": {
                             "type": "string"
                         },
+                        "config-type": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -983,6 +986,9 @@
                             "$ref": "#/definitions/Address"
                         },
                         "cidr": {
+                            "type": "string"
+                        },
+                        "config-type": {
                             "type": "string"
                         },
                         "is-secondary": {
@@ -9568,6 +9574,9 @@
                         "cidr": {
                             "type": "string"
                         },
+                        "config-type": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -9681,6 +9690,9 @@
                             "$ref": "#/definitions/Address"
                         },
                         "cidr": {
+                            "type": "string"
+                        },
+                        "config-type": {
                             "type": "string"
                         },
                         "is-secondary": {
@@ -10005,6 +10017,9 @@
                         "cidr": {
                             "type": "string"
                         },
+                        "config-type": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -10284,6 +10299,9 @@
                             "$ref": "#/definitions/Address"
                         },
                         "cidr": {
+                            "type": "string"
+                        },
+                        "config-type": {
                             "type": "string"
                         },
                         "is-secondary": {
@@ -10701,6 +10719,9 @@
                         "cidr": {
                             "type": "string"
                         },
+                        "config-type": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -10841,6 +10862,9 @@
                             "$ref": "#/definitions/Address"
                         },
                         "cidr": {
+                            "type": "string"
+                        },
+                        "config-type": {
                             "type": "string"
                         },
                         "is-secondary": {
@@ -11441,6 +11465,9 @@
                     "type": "object",
                     "properties": {
                         "cidr": {
+                            "type": "string"
+                        },
+                        "config-type": {
                             "type": "string"
                         },
                         "is-secondary": {
@@ -14642,6 +14669,9 @@
                         "cidr": {
                             "type": "string"
                         },
+                        "config-type": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -15437,6 +15467,9 @@
                             "$ref": "#/definitions/Address"
                         },
                         "cidr": {
+                            "type": "string"
+                        },
+                        "config-type": {
                             "type": "string"
                         },
                         "is-secondary": {
@@ -20191,6 +20224,9 @@
                         "cidr": {
                             "type": "string"
                         },
+                        "config-type": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -20376,6 +20412,9 @@
                             "$ref": "#/definitions/Address"
                         },
                         "cidr": {
+                            "type": "string"
+                        },
+                        "config-type": {
                             "type": "string"
                         },
                         "is-secondary": {
@@ -23906,6 +23945,9 @@
                         "cidr": {
                             "type": "string"
                         },
+                        "config-type": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -26136,6 +26178,9 @@
                         "cidr": {
                             "type": "string"
                         },
+                        "config-type": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -27102,6 +27147,9 @@
                         "cidr": {
                             "type": "string"
                         },
+                        "config-type": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -27241,6 +27289,9 @@
                             "$ref": "#/definitions/Address"
                         },
                         "cidr": {
+                            "type": "string"
+                        },
+                        "config-type": {
                             "type": "string"
                         },
                         "is-secondary": {
@@ -30482,6 +30533,9 @@
                         },
                         "model-tag": {
                             "type": "string"
+                        },
+                        "timeout": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
@@ -33087,6 +33141,9 @@
                         "cidr": {
                             "type": "string"
                         },
+                        "config-type": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -33830,6 +33887,9 @@
                             "$ref": "#/definitions/Address"
                         },
                         "cidr": {
+                            "type": "string"
+                        },
+                        "config-type": {
                             "type": "string"
                         },
                         "is-secondary": {
@@ -34815,9 +34875,6 @@
                 "ToolsResult": {
                     "type": "object",
                     "properties": {
-                        "disable-ssl-hostname-verification": {
-                            "type": "boolean"
-                        },
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
@@ -34830,8 +34887,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "tools",
-                        "disable-ssl-hostname-verification"
+                        "tools"
                     ]
                 },
                 "ToolsResults": {
@@ -41821,7 +41877,7 @@
                             "$ref": "#/definitions/NotifyWatchResults"
                         }
                     },
-                    "description": "WatchModelResources creates watchers for changes to the lifecycle of an\nmodel's machines and services."
+                    "description": "WatchModelResources creates watchers for changes to the lifecycle of an\nmodel's machines and applications and storage."
                 }
             },
             "definitions": {
@@ -41970,6 +42026,9 @@
                 "UndertakerModelInfo": {
                     "type": "object",
                     "properties": {
+                        "destroy-timeout": {
+                            "type": "integer"
+                        },
                         "force-destroyed": {
                             "type": "boolean"
                         },
@@ -41995,8 +42054,7 @@
                         "name",
                         "global-name",
                         "is-system",
-                        "life",
-                        "force-destroyed"
+                        "life"
                     ]
                 },
                 "UndertakerModelInfoResult": {
@@ -43487,6 +43545,9 @@
                         "cidr": {
                             "type": "string"
                         },
+                        "config-type": {
+                            "type": "string"
+                        },
                         "is-secondary": {
                             "type": "boolean"
                         },
@@ -44186,6 +44247,9 @@
                             "$ref": "#/definitions/Address"
                         },
                         "cidr": {
+                            "type": "string"
+                        },
+                        "config-type": {
                             "type": "string"
                         },
                         "is-secondary": {
@@ -46737,9 +46801,6 @@
                 "ToolsResult": {
                     "type": "object",
                     "properties": {
-                        "disable-ssl-hostname-verification": {
-                            "type": "boolean"
-                        },
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
@@ -46752,8 +46813,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "tools",
-                        "disable-ssl-hostname-verification"
+                        "tools"
                     ]
                 },
                 "ToolsResults": {

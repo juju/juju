@@ -56,7 +56,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 	ctrl := gomock.NewController(c)
 
 	s.resource = facademocks.NewMockResources(ctrl)
-	s.cloudCallContext = context.NewCloudCallContext()
+	s.cloudCallContext = context.NewEmptyCloudCallContext()
 	s.OpFactory = NewMockOpFactory(ctrl)
 	s.Constraints = NewMockConstraints(ctrl)
 

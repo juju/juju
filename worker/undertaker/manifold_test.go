@@ -232,3 +232,6 @@ type fakeLogger struct {
 func (l *fakeLogger) Errorf(format string, args ...interface{}) {
 	l.stub.AddCall("Errorf", format, args)
 }
+
+func (l *fakeLogger) Debugf(format string, args ...interface{}) {
+}

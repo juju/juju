@@ -5,11 +5,12 @@
 package common_test
 
 import (
+	net "net"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
 	network "github.com/juju/juju/core/network"
-	net "net"
-	reflect "reflect"
 )
 
 // MockConfigSource is a mock of ConfigSource interface
@@ -204,10 +205,10 @@ func (mr *MockConfigSourceNICMockRecorder) Name() *gomock.Call {
 }
 
 // Type mocks base method
-func (m *MockConfigSourceNIC) Type() network.InterfaceType {
+func (m *MockConfigSourceNIC) Type() network.LinkLayerDeviceType {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Type")
-	ret0, _ := ret[0].(network.InterfaceType)
+	ret0, _ := ret[0].(network.LinkLayerDeviceType)
 	return ret0
 }
 

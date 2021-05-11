@@ -155,7 +155,7 @@ func (s *environNetSuite) TestSpecificInstance(c *gc.C) {
 	s.cannedData()
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
 
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.Id("moana"), nil)
+	subnets, err := s.NetEnv.Subnets(s.CallCtx, "moana", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
@@ -171,7 +171,7 @@ func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnets(c *gc.C) {
 	s.cannedData()
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
 
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.Id("moana"), []corenetwork.Id{"go-team"})
+	subnets, err := s.NetEnv.Subnets(s.CallCtx, "moana", []corenetwork.Id{"go-team"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
@@ -187,7 +187,7 @@ func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnetsWithMissing(c 
 	s.cannedData()
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
 
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.Id("moana"), []corenetwork.Id{"go-team", "shellac"})
+	subnets, err := s.NetEnv.Subnets(s.CallCtx, "moana", []corenetwork.Id{"go-team", "shellac"})
 	c.Assert(err, gc.ErrorMatches, `subnets \["shellac"\] not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(subnets, gc.IsNil)
@@ -197,7 +197,7 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 	s.cannedData()
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
 
-	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{instance.Id("moana")})
+	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{"moana"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(infoList, gc.HasLen, 1)
 	infos := infoList[0]
@@ -209,14 +209,14 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 		ProviderNetworkId: "go-team1",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		InterfaceName:     "somenetif",
-		InterfaceType:     corenetwork.EthernetInterface,
+		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
 			"10.0.10.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
+			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		)},
 		Origin: corenetwork.OriginProvider,
 	}})
@@ -243,7 +243,7 @@ func (s *environNetSuite) TestNetworkInterfaceInvalidCredentialError(c *gc.C) {
 	})
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
-	_, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{instance.Id("moana")})
+	_, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{"moana"})
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
@@ -281,8 +281,8 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 	}
 
 	infoLists, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{
-		instance.Id("i-1"),
-		instance.Id("i-2"),
+		"i-1",
+		"i-2",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(infoLists, gc.HasLen, 2)
@@ -296,14 +296,14 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		ProviderNetworkId: "go-team1",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		InterfaceName:     "somenetif",
-		InterfaceType:     corenetwork.EthernetInterface,
+		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
 			"10.0.10.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
+			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		)},
 		Origin: corenetwork.OriginProvider,
 	}})
@@ -317,14 +317,14 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		ProviderNetworkId: "go-team1",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		InterfaceName:     "netif-0",
-		InterfaceType:     corenetwork.EthernetInterface,
+		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
 			"10.0.10.42",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
+			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		)},
 		ShadowAddresses: corenetwork.ProviderAddresses{
 			corenetwork.NewProviderAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)),
@@ -337,14 +337,14 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		ProviderNetworkId: "albini",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		InterfaceName:     "netif-1",
-		InterfaceType:     corenetwork.EthernetInterface,
+		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
 			"10.0.20.42",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.20.0/24"),
+			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		)},
 		Origin: corenetwork.OriginProvider,
 	}})
@@ -355,7 +355,7 @@ func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 	baseInst1 := s.NewBaseInstance(c, "i-1")
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst1)}
 
-	infoLists, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{instance.Id("i-1"), instance.Id("bogus")})
+	infoLists, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{"i-1", "bogus"})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
 	c.Assert(infoLists, gc.HasLen, 2)
 
@@ -368,14 +368,14 @@ func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 		ProviderNetworkId: "go-team1",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		InterfaceName:     "somenetif",
-		InterfaceType:     corenetwork.EthernetInterface,
+		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
 			"10.0.10.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
+			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		)},
 		Origin: corenetwork.OriginProvider,
 	}})
@@ -403,7 +403,7 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 	})
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
-	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{instance.Id("moana")})
+	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{"moana"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(infoList, gc.HasLen, 1)
 	infos := infoList[0]
@@ -415,14 +415,14 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		ProviderNetworkId: "go-team1",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		InterfaceName:     "somenetif",
-		InterfaceType:     corenetwork.EthernetInterface,
+		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
 			"10.0.10.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
+			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		)},
 		Origin: corenetwork.OriginProvider,
 	}, {
@@ -432,14 +432,14 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		ProviderNetworkId: "albini",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		InterfaceName:     "othernetif",
-		InterfaceType:     corenetwork.EthernetInterface,
+		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
 			"10.0.20.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.20.0/24"),
+			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		)},
 		ShadowAddresses: corenetwork.ProviderAddresses{
 			corenetwork.NewProviderAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)),
@@ -466,7 +466,7 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 	}}
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
-	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{instance.Id("moana")})
+	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{"moana"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(infoList, gc.HasLen, 1)
 	infos := infoList[0]
@@ -478,14 +478,14 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 		ProviderNetworkId: "legacy",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		InterfaceName:     "somenetif",
-		InterfaceType:     corenetwork.EthernetInterface,
+		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
 			"10.240.0.2",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.240.0.0/16"),
+			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		)},
 		ShadowAddresses: corenetwork.ProviderAddresses{
 			corenetwork.NewProviderAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)),
@@ -525,14 +525,14 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 		ProviderNetworkId: "go-team1",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		InterfaceName:     "somenetif",
-		InterfaceType:     corenetwork.EthernetInterface,
+		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
 			"10.0.10.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
+			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		)},
 		Origin: corenetwork.OriginProvider,
 	}, {
@@ -542,14 +542,14 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 		ProviderNetworkId: "go-team1",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		InterfaceName:     "othernetif",
-		InterfaceType:     corenetwork.EthernetInterface,
+		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		ConfigType:        corenetwork.ConfigDHCP,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
 			"10.0.10.4",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
+			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		)},
 		ShadowAddresses: corenetwork.ProviderAddresses{
 			corenetwork.NewProviderAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)),

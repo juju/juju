@@ -75,9 +75,9 @@ func (s *maas2InstanceSuite) TestAddresses(c *gc.C) {
 	instance := &maas2Instance{machine: machine, environ: s.makeEnviron(c, controller)}
 	addresses, err := instance.Addresses(s.callCtx)
 
-	expectedAddresses := network.ProviderAddresses{
-		newAddressOnSpaceWithId("freckles", "4567", "192.168.10.1", network.WithCIDR(subnet.cidr)),
-	}
+	expectedAddresses := network.ProviderAddresses{newAddressOnSpaceWithId(
+		"freckles", "4567", "192.168.10.1", network.WithCIDR(subnet.cidr), network.WithConfigType(network.ConfigStatic),
+	)}
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, jc.SameContents, expectedAddresses)

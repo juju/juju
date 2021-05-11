@@ -196,7 +196,7 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 	for _, nic := range interfaces {
 		nicInfo := corenetwork.InterfaceInfo{
 			InterfaceName:       nic.Name,
-			InterfaceType:       corenetwork.EthernetInterface,
+			InterfaceType:       corenetwork.EthernetDevice,
 			MACAddress:          nic.MACAddress,
 			MTU:                 nic.EffectveMTU,
 			VLANTag:             nic.VLAN.VID,
@@ -215,7 +215,7 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 		}
 
 		for _, link := range nic.Links {
-			nicInfo.ConfigType = maasLinkToInterfaceConfigType(string(link.Mode))
+			configType := maasLinkToInterfaceConfigType(string(link.Mode))
 
 			if link.IPAddress == "" {
 				logger.Debugf("device %q interface %q has no address", deviceID, nic.Name)
@@ -234,7 +234,10 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 			// present in the original code. Do we need to revisit
 			// this in the future and append link addresses to the list?
 			nicInfo.Addresses = corenetwork.ProviderAddresses{corenetwork.NewProviderAddressInSpace(
-				link.Subnet.Space, link.IPAddress, corenetwork.WithCIDR(link.Subnet.CIDR),
+				link.Subnet.Space,
+				link.IPAddress,
+				corenetwork.WithCIDR(link.Subnet.CIDR),
+				corenetwork.WithConfigType(configType),
 			)}
 			nicInfo.ProviderSubnetId = corenetwork.Id(strconv.Itoa(link.Subnet.ID))
 			nicInfo.ProviderAddressId = corenetwork.Id(strconv.Itoa(link.ID))
@@ -273,7 +276,7 @@ func (env *maasEnviron) deviceInterfaceInfo2(
 		nicInfo := corenetwork.InterfaceInfo{
 			DeviceIndex:         idx,
 			InterfaceName:       nic.Name(),
-			InterfaceType:       corenetwork.EthernetInterface,
+			InterfaceType:       corenetwork.EthernetDevice,
 			MACAddress:          nic.MACAddress(),
 			MTU:                 nic.EffectiveMTU(),
 			VLANTag:             vlanVid,
@@ -306,7 +309,7 @@ func (env *maasEnviron) deviceInterfaceInfo2(
 		}
 
 		for _, link := range nic.Links() {
-			nicInfo.ConfigType = maasLinkToInterfaceConfigType(link.Mode())
+			configType := maasLinkToInterfaceConfigType(link.Mode())
 
 			subnet := link.Subnet()
 			if link.IPAddress() == "" || subnet == nil {
@@ -318,7 +321,10 @@ func (env *maasEnviron) deviceInterfaceInfo2(
 			// NOTE(achilleasa): the original code used a last-write-wins
 			// policy. Do we need to append link addresses to the list?
 			nicInfo.Addresses = corenetwork.ProviderAddresses{corenetwork.NewProviderAddressInSpace(
-				subnet.Space(), link.IPAddress(), corenetwork.WithCIDR(subnet.CIDR()),
+				subnet.Space(),
+				link.IPAddress(),
+				corenetwork.WithCIDR(subnet.CIDR()),
+				corenetwork.WithConfigType(configType),
 			)}
 			nicInfo.ProviderSubnetId = corenetwork.Id(strconv.Itoa(subnet.ID()))
 			nicInfo.ProviderAddressId = corenetwork.Id(strconv.Itoa(link.ID()))

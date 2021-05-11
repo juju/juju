@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
@@ -94,7 +93,7 @@ type environ struct {
 	ecfgUnlocked *environConfig
 
 	availabilityZonesMutex sync.Mutex
-	availabilityZones      corenetwork.AvailabilityZones
+	availabilityZones      network.AvailabilityZones
 
 	instTypesMutex sync.Mutex
 	instTypes      []instances.InstanceType
@@ -137,7 +136,7 @@ func (e *environ) Name() string {
 
 // PrepareForBootstrap is part of the Environ interface.
 func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
-	callCtx := context.NewCloudCallContext()
+	callCtx := context.NewCloudCallContext(ctx.Context())
 	// Cannot really invalidate a credential here since nothing is bootstrapped yet.
 	callCtx.InvalidateCredentialFunc = func(string) error { return nil }
 	if ctx.ShouldVerifyCredentials() {
@@ -246,7 +245,7 @@ func (z *ec2AvailabilityZone) Available() bool {
 
 // AvailabilityZones returns a slice of availability zones
 // for the configured region.
-func (e *environ) AvailabilityZones(ctx context.ProviderCallContext) (corenetwork.AvailabilityZones, error) {
+func (e *environ) AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
 	e.availabilityZonesMutex.Lock()
 	defer e.availabilityZonesMutex.Unlock()
 	if e.availabilityZones == nil {
@@ -257,7 +256,7 @@ func (e *environ) AvailabilityZones(ctx context.ProviderCallContext) (corenetwor
 			return nil, maybeConvertCredentialError(err, ctx)
 		}
 		logger.Debugf("availability zones: %+v", resp)
-		e.availabilityZones = make(corenetwork.AvailabilityZones, len(resp.Zones))
+		e.availabilityZones = make(network.AvailabilityZones, len(resp.Zones))
 		for i, z := range resp.Zones {
 			e.availabilityZones[i] = &ec2AvailabilityZone{z}
 		}
@@ -686,7 +685,7 @@ func (e *environ) finishInstanceConfig(args *environs.StartInstanceParams, spec 
 // requirements are congruent and can be met, and that the representative
 // subnet-zone map is returned, with Fan networks filtered out.
 // The returned map will be nil if there are no space requirements.
-func getValidSubnetZoneMap(args environs.StartInstanceParams) (map[corenetwork.Id][]string, error) {
+func getValidSubnetZoneMap(args environs.StartInstanceParams) (map[network.Id][]string, error) {
 	spaceCons := args.Constraints.IncludeSpaces()
 
 	bindings := set.NewStrings()
@@ -760,9 +759,9 @@ func getValidSubnetZoneMap(args environs.StartInstanceParams) (map[corenetwork.I
 	// networks which we can not consider for provisioning non-containers.
 	// We know that the index determined from the spaces union corresponds
 	// with the right mapping because of consistent sorting by the provisioner.
-	subnetZones := make(map[corenetwork.Id][]string)
+	subnetZones := make(map[network.Id][]string)
 	for id, zones := range args.SubnetsToZones[indexInCommon] {
-		if !corenetwork.IsInFanNetwork(id) {
+		if !network.IsInFanNetwork(id) {
 			subnetZones[id] = zones
 		}
 	}
@@ -772,12 +771,12 @@ func getValidSubnetZoneMap(args environs.StartInstanceParams) (map[corenetwork.I
 
 func (e *environ) selectSubnetIDForInstance(ctx context.ProviderCallContext,
 	hasVPCID bool,
-	subnetZones map[corenetwork.Id][]string,
-	placementSubnetID corenetwork.Id,
+	subnetZones map[network.Id][]string,
+	placementSubnetID network.Id,
 	availabilityZone string,
 ) (string, error) {
 	var (
-		subnetIDsForZone []corenetwork.Id
+		subnetIDsForZone []network.Id
 		err              error
 	)
 	if hasVPCID {
@@ -808,13 +807,13 @@ func (e *environ) selectSubnetIDForInstance(ctx context.ProviderCallContext,
 }
 
 func (e *environ) selectVPCSubnetIDsForZone(ctx context.ProviderCallContext,
-	subnetZones map[corenetwork.Id][]string,
-	placementSubnetID corenetwork.Id,
+	subnetZones map[network.Id][]string,
+	placementSubnetID network.Id,
 	availabilityZone string,
-) ([]corenetwork.Id, error) {
-	var allowedSubnetIDs []corenetwork.Id
+) ([]network.Id, error) {
+	var allowedSubnetIDs []network.Id
 	if placementSubnetID != "" {
-		allowedSubnetIDs = []corenetwork.Id{placementSubnetID}
+		allowedSubnetIDs = []network.Id{placementSubnetID}
 	} else {
 		for subnetID := range subnetZones {
 			allowedSubnetIDs = append(allowedSubnetIDs, subnetID)
@@ -837,11 +836,11 @@ func (e *environ) selectVPCSubnetIDsForZone(ctx context.ProviderCallContext,
 // availabilityZone.
 // TODO (stickupkid): This could be lifted into core package as openstack has
 // a very similar pattern to this.
-func (e *environ) selectSubnetIDsForZone(subnetZones map[corenetwork.Id][]string,
-	placementSubnetID corenetwork.Id,
+func (e *environ) selectSubnetIDsForZone(subnetZones map[network.Id][]string,
+	placementSubnetID network.Id,
 	availabilityZone string,
-) ([]corenetwork.Id, error) {
-	subnets, err := corenetwork.FindSubnetIDsForAvailabilityZone(availabilityZone, subnetZones)
+) ([]network.Id, error) {
+	subnets, err := network.FindSubnetIDsForAvailabilityZone(availabilityZone, subnetZones)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -851,11 +850,11 @@ func (e *environ) selectSubnetIDsForZone(subnetZones map[corenetwork.Id][]string
 
 	// Use the placement to locate a subnet ID.
 	if placementSubnetID != "" {
-		asSet := corenetwork.MakeIDSet(subnets...)
+		asSet := network.MakeIDSet(subnets...)
 		if !asSet.Contains(placementSubnetID) {
 			return nil, errors.NotFoundf("subnets %q in AZ %q", placementSubnetID, availabilityZone)
 		}
-		subnets = []corenetwork.Id{placementSubnetID}
+		subnets = []network.Id{placementSubnetID}
 	}
 
 	return subnets, nil
@@ -870,7 +869,7 @@ func (e *environ) deriveAvailabilityZone(
 
 func (e *environ) deriveAvailabilityZoneAndSubnetID(
 	ctx context.ProviderCallContext, args environs.StartInstanceParams,
-) (string, corenetwork.Id, error) {
+) (string, network.Id, error) {
 	// Determine the availability zones of existing volumes that are to be
 	// attached to the machine. They must all match, and must be the same
 	// as specified zone (if any).
@@ -915,11 +914,11 @@ func (e *environ) deriveAvailabilityZoneAndSubnetID(
 	return availabilityZone, placementSubnetID, nil
 }
 
-func (e *environ) instancePlacementZone(ctx context.ProviderCallContext, placement, volumeAttachmentsZone string) (zone string, subnet corenetwork.Id, _ error) {
+func (e *environ) instancePlacementZone(ctx context.ProviderCallContext, placement, volumeAttachmentsZone string) (zone string, subnet network.Id, _ error) {
 	if placement == "" {
 		return volumeAttachmentsZone, "", nil
 	}
-	var placementSubnetID corenetwork.Id
+	var placementSubnetID network.Id
 	instPlacement, err := e.parsePlacement(ctx, placement)
 	if err != nil {
 		return "", "", errors.Trace(err)
@@ -941,7 +940,7 @@ func (e *environ) instancePlacementZone(ctx context.ProviderCallContext, placeme
 		if instPlacement.subnet.State != availableState {
 			return "", "", errors.Errorf("subnet %q is %q", instPlacement.subnet.CIDRBlock, instPlacement.subnet.State)
 		}
-		placementSubnetID = corenetwork.Id(instPlacement.subnet.Id)
+		placementSubnetID = network.Id(instPlacement.subnet.Id)
 	}
 	return instPlacement.availabilityZone.Name, placementSubnetID, nil
 }
@@ -1183,7 +1182,7 @@ func (e *environ) gatherInstances(
 }
 
 // NetworkInterfaces implements NetworkingEnviron.NetworkInterfaces.
-func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
+func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error) {
 	switch len(ids) {
 	case 0:
 		return nil, environs.ErrNoInstances
@@ -1192,7 +1191,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 		if err != nil {
 			return nil, err
 		}
-		return []corenetwork.InterfaceInfos{ifList}, nil
+		return []network.InterfaceInfos{ifList}, nil
 	}
 
 	// Collect all available subnets into a map where keys are subnet IDs
@@ -1203,7 +1202,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 		return nil, errors.Annotate(maybeConvertCredentialError(err, ctx), "failed to retrieve subnet info")
 	}
 
-	infos := make([]corenetwork.InterfaceInfos, len(ids))
+	infos := make([]network.InterfaceInfos, len(ids))
 	idToInfosIndex := make(map[string]int)
 	for idx, id := range ids {
 		idToInfosIndex[string(id)] = idx
@@ -1268,7 +1267,7 @@ func (e *environ) subnetMap() (map[string]amzec2.Subnet, error) {
 func (e *environ) gatherNetworkInterfaceInfo(
 	ctx context.ProviderCallContext,
 	filter *amzec2.Filter,
-	infos []corenetwork.InterfaceInfos,
+	infos []network.InterfaceInfos,
 	idToInfosIndex map[string]int,
 	subMap map[string]amzec2.Subnet,
 ) error {
@@ -1312,7 +1311,7 @@ func (e *environ) gatherNetworkInterfaceInfo(
 	return nil
 }
 
-func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) (corenetwork.InterfaceInfos, error) {
+func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) (network.InterfaceInfos, error) {
 	var err error
 	var networkInterfacesResp *amzec2.NetworkInterfacesResp
 	for a := shortAttempt.Start(); a.Next(); {
@@ -1343,7 +1342,7 @@ func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, 
 		return nil, errors.Annotatef(err, "cannot get instance %q network interfaces", instId)
 	}
 	ec2Interfaces := networkInterfacesResp.Interfaces
-	result := make(corenetwork.InterfaceInfos, len(ec2Interfaces))
+	result := make(network.InterfaceInfos, len(ec2Interfaces))
 	for i, iface := range ec2Interfaces {
 		resp, err := e.ec2.Subnets([]string{iface.SubnetId}, nil)
 		if err != nil {
@@ -1358,39 +1357,39 @@ func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, 
 	return result, nil
 }
 
-func mapNetworkInterface(iface amzec2.NetworkInterface, subnet amzec2.Subnet) corenetwork.InterfaceInfo {
+func mapNetworkInterface(iface amzec2.NetworkInterface, subnet amzec2.Subnet) network.InterfaceInfo {
 	// Device names and VLAN tags are not returned by EC2.
-	ni := corenetwork.InterfaceInfo{
+	ni := network.InterfaceInfo{
 		DeviceIndex:       iface.Attachment.DeviceIndex,
 		MACAddress:        iface.MACAddress,
-		ProviderId:        corenetwork.Id(iface.Id),
-		ProviderSubnetId:  corenetwork.Id(iface.SubnetId),
+		ProviderId:        network.Id(iface.Id),
+		ProviderSubnetId:  network.Id(iface.SubnetId),
 		AvailabilityZones: []string{subnet.AvailZone},
 		Disabled:          false,
 		NoAutoStart:       false,
-		ConfigType:        corenetwork.ConfigDHCP,
-		InterfaceType:     corenetwork.EthernetInterface,
+		InterfaceType:     network.EthernetDevice,
 		// The describe interface responses that we get back from EC2
 		// define a *list* of private IP addresses with one entry that
 		// is tagged as primary and whose value is encoded in the
 		// "PrivateIPAddress" field. The code below arranges so that
 		// the primary IP is always added first with any additional
 		// private IPs appended after it.
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+		Addresses: network.ProviderAddresses{network.NewProviderAddress(
 			iface.PrivateIPAddress,
-			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
-			corenetwork.WithCIDR(subnet.CIDRBlock),
+			network.WithScope(network.ScopeCloudLocal),
+			network.WithCIDR(subnet.CIDRBlock),
+			network.WithConfigType(network.ConfigDHCP),
 		)},
-		Origin: corenetwork.OriginProvider,
+		Origin: network.OriginProvider,
 	}
 
 	for _, privAddr := range iface.PrivateIPs {
 		if privAddr.Association.PublicIP != "" {
-			ni.ShadowAddresses = append(
-				ni.ShadowAddresses,
-				corenetwork.NewProviderAddress(
-					privAddr.Association.PublicIP, corenetwork.WithScope(corenetwork.ScopePublic)),
-			)
+			ni.ShadowAddresses = append(ni.ShadowAddresses, network.NewProviderAddress(
+				privAddr.Association.PublicIP,
+				network.WithScope(network.ScopePublic),
+				network.WithConfigType(network.ConfigDHCP),
+			))
 		}
 
 		if privAddr.Address == iface.PrivateIPAddress {
@@ -1399,10 +1398,11 @@ func mapNetworkInterface(iface amzec2.NetworkInterface, subnet amzec2.Subnet) co
 
 		// An EC2 interface is connected to a single subnet,
 		// so we assume other addresses are in the same subnet.
-		ni.Addresses = append(ni.Addresses, corenetwork.NewProviderAddress(
+		ni.Addresses = append(ni.Addresses, network.NewProviderAddress(
 			iface.PrivateIPAddress,
-			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
-			corenetwork.WithCIDR(subnet.CIDRBlock),
+			network.WithScope(network.ScopeCloudLocal),
+			network.WithCIDR(subnet.CIDRBlock),
+			network.WithConfigType(network.ConfigDHCP),
 		))
 	}
 
@@ -1410,14 +1410,14 @@ func mapNetworkInterface(iface amzec2.NetworkInterface, subnet amzec2.Subnet) co
 }
 
 func makeSubnetInfo(
-	cidr string, subnetId, providerNetworkId corenetwork.Id, availZones []string,
-) (corenetwork.SubnetInfo, error) {
+	cidr string, subnetId, providerNetworkId network.Id, availZones []string,
+) (network.SubnetInfo, error) {
 	_, _, err := net.ParseCIDR(cidr)
 	if err != nil {
-		return corenetwork.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", cidr)
+		return network.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", cidr)
 	}
 
-	info := corenetwork.SubnetInfo{
+	info := network.SubnetInfo{
 		CIDR:              cidr,
 		ProviderId:        subnetId,
 		ProviderNetworkId: providerNetworkId,
@@ -1431,7 +1431,7 @@ func makeSubnetInfo(
 
 // Spaces is not implemented by the ec2 provider as we don't currently have
 // provider level spaces.
-func (e *environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceInfo, error) {
+func (e *environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
 	return nil, errors.NotSupportedf("Spaces")
 }
 
@@ -1440,9 +1440,9 @@ func (e *environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceIn
 // empty, in which case all known are returned. Implements
 // NetworkingEnviron.Subnets.
 func (e *environ) Subnets(
-	ctx context.ProviderCallContext, instId instance.Id, subnetIds []corenetwork.Id,
-) ([]corenetwork.SubnetInfo, error) {
-	var results []corenetwork.SubnetInfo
+	ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id,
+) ([]network.SubnetInfo, error) {
+	var results []network.SubnetInfo
 	subIdSet := make(map[string]bool)
 	for _, subId := range subnetIds {
 		subIdSet[string(subId)] = false
@@ -1493,7 +1493,7 @@ func (e *environ) Subnets(
 			subIdSet[subnet.Id] = true
 			cidr := subnet.CIDRBlock
 			info, err := makeSubnetInfo(
-				cidr, corenetwork.Id(subnet.Id), corenetwork.Id(subnet.VPCId), []string{subnet.AvailZone})
+				cidr, network.Id(subnet.Id), network.Id(subnet.VPCId), []string{subnet.AvailZone})
 			if err != nil {
 				// Error will already have been logged.
 				continue
@@ -1845,7 +1845,7 @@ func (e *environ) ingressRulesInGroup(ctx context.ProviderCallContext, name stri
 		if len(ips) == 0 {
 			ips = append(ips, defaultRouteCIDRBlock)
 		}
-		portRange := corenetwork.PortRange{Protocol: p.Protocol, FromPort: p.FromPort, ToPort: p.ToPort}
+		portRange := network.PortRange{Protocol: p.Protocol, FromPort: p.FromPort, ToPort: p.ToPort}
 		rules = append(rules, firewall.NewIngressRule(portRange, ips...))
 	}
 	if err := rules.Validate(); err != nil {
@@ -2444,11 +2444,11 @@ func ec2ErrCode(err error) string {
 	return ec2err.Code
 }
 
-func (e *environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
+func (e *environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo network.InterfaceInfos) (network.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("container address allocation")
 }
 
-func (e *environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []corenetwork.ProviderInterfaceInfo) error {
+func (e *environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
 }
 
@@ -2472,7 +2472,7 @@ func (e *environ) hasDefaultVPC(ctx context.ProviderCallContext) (bool, error) {
 
 // ProviderSpaceInfo implements NetworkingEnviron.
 func (*environ) ProviderSpaceInfo(
-	ctx context.ProviderCallContext, space *corenetwork.SpaceInfo,
+	ctx context.ProviderCallContext, space *network.SpaceInfo,
 ) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
@@ -2483,7 +2483,7 @@ func (*environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space
 }
 
 // SSHAddresses implements environs.SSHAddresses.
-func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddresses, error) {
+func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
 	return addresses, nil
 }
 

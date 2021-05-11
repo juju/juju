@@ -46,23 +46,23 @@ func (n netlinkNIC) Name() string {
 }
 
 // Type returns the interface type of the device.
-func (n netlinkNIC) Type() InterfaceType {
+func (n netlinkNIC) Type() LinkLayerDeviceType {
 	switch n.nic.Type() {
 	case "bridge":
-		return BridgeInterface
+		return BridgeDevice
 	case "vlan":
-		return VLAN_8021QInterface
+		return VLAN8021QDevice
 	case "bond":
-		return BondInterface
+		return BondDevice
 	}
 
 	if n.nic.Attrs().Flags&net.FlagLoopback > 0 {
-		return LoopbackInterface
+		return LoopbackDevice
 	}
 
 	// See comment on super-method.
 	// This is incorrect for veth, tuntap, macvtap et al.
-	return EthernetInterface
+	return EthernetDevice
 }
 
 // Index returns the index of the device.

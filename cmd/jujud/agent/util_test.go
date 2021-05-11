@@ -138,7 +138,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a machine and ensure it is provisioned.
-	inst, md := jujutesting.AssertStartInstance(c, s.Environ, context.NewCloudCallContext(), s.ControllerConfig.ControllerUUID(), machineId)
+	inst, md := jujutesting.AssertStartInstance(c, s.Environ, context.NewEmptyCloudCallContext(), s.ControllerConfig.ControllerUUID(), machineId)
 	c.Assert(m.SetProvisioned(inst.Id(), "", agent.BootstrapNonce, md), jc.ErrorIsNil)
 
 	// Add an address for the tests in case the initiateMongoServer
@@ -219,7 +219,7 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 	// runs it won't overwrite them.
 	instId, err := machine.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
-	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.Id{instId})
+	insts, err := s.Environ.Instances(context.NewEmptyCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 	dummy.SetInstanceAddresses(insts[0], network.NewProviderAddresses("0.1.2.3"))
 }

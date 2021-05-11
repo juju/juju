@@ -44,8 +44,7 @@ func newLimitedContext(config hookConfig) *limitedContext {
 func (ctx *limitedContext) HookVars(
 	paths context.Paths,
 	remote bool,
-	getEnv context.GetEnvFunc,
-	_ context.OSEnvFunc,
+	envVars context.Environmenter,
 ) ([]string, error) {
 	vars := []string{
 		"CHARM_DIR=" + paths.GetCharmDir(), // legacy
@@ -63,7 +62,7 @@ func (ctx *limitedContext) HookVars(
 	for key, val := range ctx.env {
 		vars = append(vars, fmt.Sprintf("%s=%s", key, val))
 	}
-	return append(vars, context.OSDependentEnvVars(paths, getEnv)...), nil
+	return append(vars, context.OSDependentEnvVars(paths, envVars)...), nil
 }
 
 // GetLogger returns the logger for the specified module.

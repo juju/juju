@@ -22,7 +22,7 @@ func NewFacade(apiCaller base.APICaller) (Facade, error) {
 	return facade, nil
 }
 
-// NewFacade creates a worker.Worker from a Config, by calling the
+// NewWorker creates a worker.Worker from a Config, by calling the
 // local constructor that returns a more specific type.
 func NewWorker(config Config) (worker.Worker, error) {
 	worker, err := NewUndertaker(config)

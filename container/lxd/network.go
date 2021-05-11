@@ -476,10 +476,10 @@ func DevicesFromInterfaceInfo(interfaces corenetwork.InterfaceInfos, machineID s
 	var unknown []string
 	var nicCount int
 	for _, v := range interfaces {
-		if v.InterfaceType == corenetwork.LoopbackInterface {
+		if v.InterfaceType == corenetwork.LoopbackDevice {
 			continue
 		}
-		if v.InterfaceType != corenetwork.EthernetInterface {
+		if v.InterfaceType != corenetwork.EthernetDevice {
 			return nil, nil, errors.Errorf("interface type %q not supported", v.InterfaceType)
 		}
 		if v.ParentInterfaceName == "" {

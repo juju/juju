@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/worker/common"
 )
 
@@ -66,7 +65,7 @@ type provisioner struct {
 	distributionGroupFinder DistributionGroupFinder
 	toolsFinder             ToolsFinder
 	catacomb                catacomb.Catacomb
-	callContext             context.ProviderCallContext
+	callContextFunc         common.CloudCallContextFunc
 }
 
 // RetryStrategy defines the retry behavior when encountering a retryable
@@ -178,7 +177,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		auth,
 		modelCfg.ImageStream(),
 		RetryStrategy{retryDelay: retryStrategyDelay, retryCount: retryStrategyCount},
-		p.callContext,
+		p.callContextFunc,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -206,7 +205,7 @@ func NewEnvironProvisioner(
 			logger:                  logger,
 			toolsFinder:             getToolsFinder(st),
 			distributionGroupFinder: getDistributionGroupFinder(st),
-			callContext:             common.NewCloudCallContext(credentialAPI, nil),
+			callContextFunc:         common.NewCloudCallContextFunc(credentialAPI),
 		},
 		environ: environ,
 	}
@@ -309,7 +308,7 @@ func NewContainerProvisioner(
 			broker:                  broker,
 			toolsFinder:             toolsFinder,
 			distributionGroupFinder: distributionGroupFinder,
-			callContext:             common.NewCloudCallContext(credentialAPI, nil),
+			callContextFunc:         common.NewCloudCallContextFunc(credentialAPI),
 		},
 		containerType: containerType,
 	}

@@ -63,7 +63,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	}
 	pool := &mockStatePool{
 		getF: func(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error) {
-			return newModelBackend(c, aCloud, modelUUID), context.NewCloudCallContext(), nil
+			return newModelBackend(c, aCloud, modelUUID), context.NewEmptyCloudCallContext(), nil
 		},
 	}
 	api, err := cloud.NewCloudAPI(backend, ctlrBackend, pool, authorizer)

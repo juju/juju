@@ -205,10 +205,10 @@ func maasObjectNetworkInterfaces(
 	for i, iface := range interfaces {
 		// The below works for all types except bonds and their members.
 		parentName := strings.Join(iface.Parents, "")
-		var nicType corenetwork.InterfaceType
+		var nicType corenetwork.LinkLayerDeviceType
 		switch iface.Type {
 		case typePhysical:
-			nicType = corenetwork.EthernetInterface
+			nicType = corenetwork.EthernetDevice
 			children := strings.Join(iface.Children, "")
 			if parentName == "" && len(iface.Children) == 1 && strings.HasPrefix(children, "bond") {
 				// FIXME: Verify the bond exists, regardless of its name.
@@ -218,11 +218,11 @@ func maasObjectNetworkInterfaces(
 			}
 		case typeBond:
 			parentName = ""
-			nicType = corenetwork.BondInterface
+			nicType = corenetwork.BondDevice
 		case typeVLAN:
-			nicType = corenetwork.VLAN_8021QInterface
+			nicType = corenetwork.VLAN8021QDevice
 		case typeBridge:
-			nicType = corenetwork.BridgeInterface
+			nicType = corenetwork.BridgeDevice
 		}
 
 		nicInfo := corenetwork.InterfaceInfo{
@@ -245,7 +245,7 @@ func maasObjectNetworkInterfaces(
 		}
 
 		for _, link := range iface.Links {
-			nicInfo.ConfigType = maasLinkToInterfaceConfigType(string(link.Mode))
+			configType := maasLinkToInterfaceConfigType(string(link.Mode))
 
 			if link.IPAddress == "" && link.Subnet == nil {
 				logger.Debugf("interface %q link %d has neither subnet nor address", iface.Name, link.ID)
@@ -259,7 +259,7 @@ func maasObjectNetworkInterfaces(
 				// present in the original code. Do we need to revisit
 				// this in the future and append link addresses to the list?
 				nicInfo.Addresses = corenetwork.ProviderAddresses{
-					corenetwork.NewProviderAddress(link.IPAddress),
+					corenetwork.NewProviderAddress(link.IPAddress, corenetwork.WithConfigType(configType)),
 				}
 				nicInfo.ProviderAddressId = corenetwork.Id(fmt.Sprintf("%v", link.ID))
 			}
@@ -281,7 +281,7 @@ func maasObjectNetworkInterfaces(
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
 			nicInfo.Addresses[0] = corenetwork.NewProviderAddressInSpace(
-				space, link.IPAddress, corenetwork.WithCIDR(sub.CIDR))
+				space, link.IPAddress, corenetwork.WithCIDR(sub.CIDR), corenetwork.WithConfigType(configType))
 
 			spaceId, ok := subnetsMap[sub.CIDR]
 			if !ok {
@@ -324,10 +324,10 @@ func maas2NetworkInterfaces(
 
 		// The below works for all types except bonds and their members.
 		parentName := strings.Join(iface.Parents(), "")
-		var nicType corenetwork.InterfaceType
+		var nicType corenetwork.LinkLayerDeviceType
 		switch maasInterfaceType(iface.Type()) {
 		case typePhysical:
-			nicType = corenetwork.EthernetInterface
+			nicType = corenetwork.EthernetDevice
 			children := strings.Join(iface.Children(), "")
 			if parentName == "" && len(iface.Children()) == 1 && strings.HasPrefix(children, "bond") {
 				// FIXME: Verify the bond exists, regardless of its name.
@@ -337,11 +337,11 @@ func maas2NetworkInterfaces(
 			}
 		case typeBond:
 			parentName = ""
-			nicType = corenetwork.BondInterface
+			nicType = corenetwork.BondDevice
 		case typeVLAN:
-			nicType = corenetwork.VLAN_8021QInterface
+			nicType = corenetwork.VLAN8021QDevice
 		case typeBridge:
-			nicType = corenetwork.BridgeInterface
+			nicType = corenetwork.BridgeDevice
 		}
 
 		vlanTag := 0
@@ -368,7 +368,7 @@ func maas2NetworkInterfaces(
 		}
 
 		for _, link := range iface.Links() {
-			nicInfo.ConfigType = maasLinkToInterfaceConfigType(link.Mode())
+			configType := maasLinkToInterfaceConfigType(link.Mode())
 
 			if link.IPAddress() == "" && link.Subnet() == nil {
 				logger.Debugf("interface %q link %d has neither subnet nor address", iface.Name(), link.ID())
@@ -380,7 +380,7 @@ func maas2NetworkInterfaces(
 				// NOTE(achilleasa): the original code used a last-write-wins
 				// policy. Do we need to append link addresses to the list?
 				nicInfo.Addresses = corenetwork.ProviderAddresses{
-					corenetwork.NewProviderAddress(link.IPAddress()),
+					corenetwork.NewProviderAddress(link.IPAddress(), corenetwork.WithConfigType(configType)),
 				}
 				nicInfo.ProviderAddressId = corenetwork.Id(fmt.Sprintf("%v", link.ID()))
 			}
@@ -402,7 +402,7 @@ func maas2NetworkInterfaces(
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
 			nicInfo.Addresses[0] = corenetwork.NewProviderAddressInSpace(
-				space, link.IPAddress(), corenetwork.WithCIDR(sub.CIDR()))
+				space, link.IPAddress(), corenetwork.WithCIDR(sub.CIDR()), corenetwork.WithConfigType(configType))
 
 			spaceId, ok := subnetsMap[sub.CIDR()]
 			if !ok {

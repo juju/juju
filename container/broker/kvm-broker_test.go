@@ -154,7 +154,7 @@ func (s *kvmBrokerSuite) TestStopInstance(c *gc.C) {
 	result2, err2 := s.startInstance(c, broker, "1/kvm/2")
 	c.Assert(err2, jc.ErrorIsNil)
 
-	callCtx := context.NewCloudCallContext()
+	callCtx := context.NewEmptyCloudCallContext()
 	err := broker.StopInstances(callCtx, result0.Instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertResults(c, broker, result1, result2)
@@ -177,7 +177,7 @@ func (s *kvmBrokerSuite) TestAllRunningInstances(c *gc.C) {
 	c.Assert(err1, jc.ErrorIsNil)
 	s.assertResults(c, broker, result0, result1)
 
-	err := broker.StopInstances(context.NewCloudCallContext(), result1.Instance.Id())
+	err := broker.StopInstances(context.NewEmptyCloudCallContext(), result1.Instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	result2, err2 := s.startInstance(c, broker, "1/kvm/2")
 	c.Assert(err2, jc.ErrorIsNil)

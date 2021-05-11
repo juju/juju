@@ -204,7 +204,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		Tag: names.NewUserTag("admin"),
 	}
 
-	s.callContext = context.NewCloudCallContext()
+	s.callContext = context.NewEmptyCloudCallContext()
 
 	newBroker := func(args environs.OpenParams) (caas.Broker, error) {
 		s.caasBroker = &mockCaasBroker{namespace: args.Config.Name()}
@@ -922,7 +922,7 @@ func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	s.callContext = context.NewCloudCallContext()
+	s.callContext = context.NewEmptyCloudCallContext()
 	loggo.GetLogger("juju.apiserver.modelmanager").SetLogLevel(loggo.TRACE)
 }
 
@@ -1174,9 +1174,13 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	force := true
+	timeout := time.Minute
 	results, err := s.modelmanager.DestroyModels(params.DestroyModelsParams{
 		Models: []params.DestroyModelParams{{
 			ModelTag: "model-" + m.UUID,
+			Force: &force,
+			Timeout: &timeout,
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1186,6 +1190,11 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	model, err = st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Life(), gc.Not(gc.Equals), state.Alive)
+	gotTimeout := model.DestroyTimeout()
+	c.Assert(gotTimeout, gc.NotNil)
+	c.Assert(*gotTimeout, gc.Equals, timeout)
+	gotForce := model.ForceDestroyed()
+	c.Assert(gotForce, jc.IsTrue)
 }
 
 func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {

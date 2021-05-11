@@ -4,7 +4,7 @@
 package applicationoffers_test
 
 import (
-	stdcontet "context"
+	stdcontext "context"
 	"fmt"
 	"strings"
 	"time"
@@ -386,7 +386,7 @@ func (m *mockState) OfferConnections(offerUUID string) ([]applicationoffers.Offe
 }
 
 func (m *mockState) GetModelCallContext() context.ProviderCallContext {
-	return context.NewCloudCallContext()
+	return context.NewEmptyCloudCallContext()
 }
 
 func (m *mockState) User(tag names.UserTag) (applicationoffers.User, error) {
@@ -525,7 +525,7 @@ type mockBakeryService struct {
 	caveats map[string][]checkers.Caveat
 }
 
-func (s *mockBakeryService) NewMacaroon(ctx stdcontet.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
+func (s *mockBakeryService) NewMacaroon(ctx stdcontext.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
 	s.MethodCall(s, "NewMacaroon", caveats)
 	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
 	if err != nil {

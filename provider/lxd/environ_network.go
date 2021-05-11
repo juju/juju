@@ -163,7 +163,7 @@ func (e *environ) subnetDetectionFallback(srv Server, inst instance.Id, keepSubn
 		}
 
 		// Ignore loopback devices and NICs in down state.
-		if detectInterfaceType(netInfo.Type) == network.LoopbackInterface || netInfo.State != "up" {
+		if detectInterfaceType(netInfo.Type) == network.LoopbackDevice || netInfo.State != "up" {
 			continue
 		}
 
@@ -224,7 +224,7 @@ func makeSubnetInfo(subnetID network.Id, networkID network.Id, cidr, azName stri
 // was no other error, it will return ErrNoInstances. If some but not all of
 // the instances were found, the returned slice will have some nil slots, and
 // an ErrPartialInstances error will be returned.
-func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error) {
+func (e *environ) NetworkInterfaces(_ context.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error) {
 	var (
 		missing int
 		srv     = e.server()
@@ -256,13 +256,13 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 			netInfo := state.Network[guestNetworkName]
 
 			// Ignore loopback devices
-			if detectInterfaceType(netInfo.Type) == network.LoopbackInterface {
+			if detectInterfaceType(netInfo.Type) == network.LoopbackDevice {
 				continue
 			}
 
 			ni, err := makeInterfaceInfo(container, guestNetworkName, netInfo)
 			if err != nil {
-				return nil, errors.Annotatef(err, "retrieving network interface info for instane %q", id)
+				return nil, errors.Annotatef(err, "retrieving network interface info for instance %q", id)
 			} else if len(ni.Addresses) == 0 {
 				continue
 			}
@@ -292,15 +292,14 @@ func makeInterfaceInfo(container *lxdapi.Container, guestNetworkName string, net
 		ParentInterfaceName: hostNetworkForGuestNetwork(container, guestNetworkName),
 		InterfaceType:       detectInterfaceType(netInfo.Type),
 		Origin:              network.OriginProvider,
-
-		// We cannot tell from the API response whether the interface
-		// uses a static or DHCP configuration; assume static unless
-		// this is a loopback device (see below).
-		ConfigType: network.ConfigStatic,
 	}
 
-	if ni.InterfaceType == network.LoopbackInterface {
-		ni.ConfigType = network.ConfigLoopback
+	// We cannot tell from the API response whether the
+	// interface uses a static or DHCP configuration.
+	// Assume static unless this is a loopback device.
+	configType := network.ConfigStatic
+	if ni.InterfaceType == network.LoopbackDevice {
+		configType = network.ConfigLoopback
 	}
 
 	if ni.ParentInterfaceName != "" {
@@ -325,6 +324,7 @@ func makeInterfaceInfo(container *lxdapi.Container, guestNetworkName string, net
 		}
 
 		netAddr.CIDR = cidr
+		netAddr.ConfigType = configType
 		ni.Addresses = append(ni.Addresses, netAddr)
 
 		// Only set provider IDs based on the first address.
@@ -341,16 +341,16 @@ func makeInterfaceInfo(container *lxdapi.Container, guestNetworkName string, net
 	return ni, nil
 }
 
-func detectInterfaceType(lxdIfaceType string) network.InterfaceType {
+func detectInterfaceType(lxdIfaceType string) network.LinkLayerDeviceType {
 	switch lxdIfaceType {
 	case "bridge":
-		return network.BridgeInterface
+		return network.BridgeDevice
 	case "broadcast":
-		return network.EthernetInterface
+		return network.EthernetDevice
 	case "loopback":
-		return network.LoopbackInterface
+		return network.LoopbackDevice
 	default:
-		return network.UnknownInterface
+		return network.UnknownDevice
 	}
 }
 

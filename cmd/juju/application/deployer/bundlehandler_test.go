@@ -83,7 +83,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleNotFoundCharmStore(c *gc.C
 		},
 	}
 
-	_, err = bundleDeploy(bundleData, s.bundleDeploySpec())
+	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, gc.ErrorMatches, `cannot resolve charm or bundle "no-such": bundle not found`)
 }
 
@@ -116,7 +116,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *gc.C) {
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundle))
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = bundleDeploy(bundleData, s.bundleDeploySpec())
+	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 2)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "xenial")
@@ -186,7 +186,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeries(c *gc.C)
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundleInvalidSeries))
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = bundleDeploy(bundleData, s.bundleDeploySpec())
+	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, gc.ErrorMatches, "mysql is not available on the following series: precise not supported")
 }
 
@@ -225,7 +225,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeriesWithForce
 	c.Assert(err, jc.ErrorIsNil)
 	spec := s.bundleDeploySpec()
 	spec.force = true
-	_, err = bundleDeploy(bundleData, spec)
+	_, err = bundleDeploy(charm.CharmHub, bundleData, spec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 2)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "bionic")
@@ -296,7 +296,7 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 	bundleData, err := charm.ReadBundleData(strings.NewReader(kubernetesGitlabBundle))
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = bundleDeploy(bundleData, s.bundleDeploySpec())
+	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 2)
 	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "kubernetes")
@@ -360,7 +360,7 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithCharm
 	bundleData, err := charm.ReadBundleData(strings.NewReader(kubernetesCharmhubGitlabBundle))
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = bundleDeploy(bundleData, s.bundleDeploySpec())
+	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 2)
 	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "focal")
@@ -423,7 +423,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundleWithStorage))
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = bundleDeploy(bundleData, s.bundleDeploySpec())
+	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 2)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "bionic")
@@ -504,7 +504,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
 			},
 		},
 	}
-	_, err = bundleDeploy(bundleData, spec)
+	_, err = bundleDeploy(charm.CharmHub, bundleData, spec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 2)
 	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "kubernetes")
@@ -571,7 +571,7 @@ func (s *BundleDeployRepositorySuite) TestDryRunExistingModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	spec := s.bundleDeploySpec()
-	_, err = bundleDeploy(bundleData, spec)
+	_, err = bundleDeploy(charm.CharmHub, bundleData, spec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 2)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "bionic")
@@ -603,7 +603,7 @@ func (s *BundleDeployRepositorySuite) TestDryRunExistingModel(c *gc.C) {
 	spec.dryRun = true
 	spec.useExistingMachines = true
 	spec.bundleMachines = map[string]string{}
-	_, err = bundleDeploy(bundleData, spec)
+	_, err = bundleDeploy(charm.CharmHub, bundleData, spec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(s.output.String(), gc.Equals, expectedOutput)
 }
@@ -641,7 +641,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleInvalidMachineContainerTyp
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(quickBundle))
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = bundleDeploy(bundleData, s.bundleDeploySpec())
+	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, gc.ErrorMatches, `cannot create machine for holding wp unit: invalid container type "bad"`)
 }
 
@@ -698,7 +698,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedToMachines(c *gc
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(quickBundle))
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = bundleDeploy(bundleData, s.bundleDeploySpec())
+	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(s.output.String(), gc.Equals, ""+
 		"Located charm \"wordpress\" in charm-store, revision 47\n"+
@@ -749,7 +749,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleExpose(c *gc.C) {
    `
 	bundleData, err := charm.ReadBundleData(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = bundleDeploy(bundleData, s.bundleDeploySpec())
+	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(s.output.String(), gc.Equals, ""+
@@ -821,7 +821,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMultipleRelations(c *gc.C)
    `
 	bundleData, err := charm.ReadBundleData(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = bundleDeploy(bundleData, s.bundleDeploySpec())
+	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "bionic")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "bionic")
@@ -894,7 +894,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *gc.C) {
 	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = bundleDeploy(bundleData, s.bundleDeploySpec())
+	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "xenial")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "xenial")

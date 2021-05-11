@@ -4,6 +4,7 @@
 package firewaller
 
 import (
+	stdcontext "context"
 	"io"
 	"sort"
 	"time"
@@ -168,7 +169,7 @@ type Firewaller struct {
 	pollClock                  clock.Clock
 	logger                     Logger
 
-	cloudCallContext context.ProviderCallContext
+	cloudCallContextFunc common.CloudCallContextFunc
 
 	// Only used for testing
 	watchMachineNotify func(tag names.MachineTag)
@@ -211,8 +212,8 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 			// For any failures, try again in 1 minute.
 			RestartDelay: time.Minute,
 		}),
-		cloudCallContext:   common.NewCloudCallContext(cfg.CredentialAPI, nil),
-		watchMachineNotify: cfg.WatchMachineNotify,
+		cloudCallContextFunc: common.NewCloudCallContextFunc(cfg.CredentialAPI),
+		watchMachineNotify:   cfg.WatchMachineNotify,
 	}
 
 	switch cfg.Mode {
@@ -578,7 +579,8 @@ func (fw *Firewaller) reconcileGlobal() error {
 	if err != nil {
 		return err
 	}
-	initialPortRanges, err := fw.environFirewaller.IngressRules(fw.cloudCallContext)
+	ctx := stdcontext.Background()
+	initialPortRanges, err := fw.environFirewaller.IngressRules(fw.cloudCallContextFunc(ctx))
 	if err != nil {
 		return err
 	}
@@ -587,13 +589,13 @@ func (fw *Firewaller) reconcileGlobal() error {
 	toOpen, toClose := initialPortRanges.Diff(want)
 	if len(toOpen) > 0 {
 		fw.logger.Infof("opening global ports %v", toOpen)
-		if err := fw.environFirewaller.OpenPorts(fw.cloudCallContext, toOpen); err != nil {
+		if err := fw.environFirewaller.OpenPorts(fw.cloudCallContextFunc(ctx), toOpen); err != nil {
 			return err
 		}
 	}
 	if len(toClose) > 0 {
 		fw.logger.Infof("closing global ports %v", toClose)
-		if err := fw.environFirewaller.ClosePorts(fw.cloudCallContext, toClose); err != nil {
+		if err := fw.environFirewaller.ClosePorts(fw.cloudCallContextFunc(ctx), toClose); err != nil {
 			return err
 		}
 	}
@@ -623,7 +625,8 @@ func (fw *Firewaller) reconcileInstances() error {
 		if err != nil {
 			return err
 		}
-		envInstances, err := fw.environInstances.Instances(fw.cloudCallContext, []instance.Id{instanceId})
+		ctx := stdcontext.Background()
+		envInstances, err := fw.environInstances.Instances(fw.cloudCallContextFunc(ctx), []instance.Id{instanceId})
 		if err == environs.ErrNoInstances {
 			return nil
 		}
@@ -637,7 +640,7 @@ func (fw *Firewaller) reconcileInstances() error {
 			return nil
 		}
 
-		initialRules, err := fwInstance.IngressRules(fw.cloudCallContext, machineId)
+		initialRules, err := fwInstance.IngressRules(fw.cloudCallContextFunc(ctx), machineId)
 		if err != nil {
 			return err
 		}
@@ -647,7 +650,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		if len(toOpen) > 0 {
 			fw.logger.Infof("opening instance port ranges %v for %q",
 				toOpen, machined.tag)
-			if err := fwInstance.OpenPorts(fw.cloudCallContext, machineId, toOpen); err != nil {
+			if err := fwInstance.OpenPorts(fw.cloudCallContextFunc(ctx), machineId, toOpen); err != nil {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
@@ -655,7 +658,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		if len(toClose) > 0 {
 			fw.logger.Infof("closing instance port ranges %v for %q",
 				toClose, machined.tag)
-			if err := fwInstance.ClosePorts(fw.cloudCallContext, machineId, toClose); err != nil {
+			if err := fwInstance.ClosePorts(fw.cloudCallContextFunc(ctx), machineId, toClose); err != nil {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
@@ -1011,10 +1014,11 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose firewall.IngressRules) 
 			delete(fw.globalIngressRuleRef, ruleName)
 		}
 	}
+	ctx := stdcontext.Background()
 	// Open and close the ports.
 	if len(toOpen) > 0 {
 		toOpen.Sort()
-		if err := fw.environFirewaller.OpenPorts(fw.cloudCallContext, toOpen); err != nil {
+		if err := fw.environFirewaller.OpenPorts(fw.cloudCallContextFunc(ctx), toOpen); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -1022,7 +1026,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose firewall.IngressRules) 
 	}
 	if len(toClose) > 0 {
 		toClose.Sort()
-		if err := fw.environFirewaller.ClosePorts(fw.cloudCallContext, toClose); err != nil {
+		if err := fw.environFirewaller.ClosePorts(fw.cloudCallContextFunc(ctx), toClose); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -1060,7 +1064,8 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if err != nil {
 		return err
 	}
-	envInstances, err := fw.environInstances.Instances(fw.cloudCallContext, []instance.Id{instanceId})
+	ctx := stdcontext.Background()
+	envInstances, err := fw.environInstances.Instances(fw.cloudCallContextFunc(ctx), []instance.Id{instanceId})
 	if err != nil {
 		return err
 	}
@@ -1073,7 +1078,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	// Open and close the ports.
 	if len(toOpen) > 0 {
 		toOpen.Sort()
-		if err := fwInstance.OpenPorts(fw.cloudCallContext, machineId, toOpen); err != nil {
+		if err := fwInstance.OpenPorts(fw.cloudCallContextFunc(ctx), machineId, toOpen); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -1081,7 +1086,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	}
 	if len(toClose) > 0 {
 		toClose.Sort()
-		if err := fwInstance.ClosePorts(fw.cloudCallContext, machineId, toClose); err != nil {
+		if err := fwInstance.ClosePorts(fw.cloudCallContextFunc(ctx), machineId, toClose); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}

@@ -110,7 +110,7 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
 
-	t.callCtx = context.NewCloudCallContext()
+	t.callCtx = context.NewEmptyCloudCallContext()
 }
 
 func (t *LiveTests) TearDownTest(c *gc.C) {

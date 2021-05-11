@@ -4,6 +4,9 @@
 package undertaker_test
 
 import (
+	"time"
+
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -26,10 +29,13 @@ var _ = gc.Suite(&UndertakerSuite{})
 
 func (s *UndertakerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+	minute := time.Minute
 	s.fix = fixture{
+		clock: testclock.NewClock(time.Now()),
 		info: params.UndertakerModelInfoResult{
 			Result: params.UndertakerModelInfo{
-				Life: "dying",
+				Life:           "dying",
+				DestroyTimeout: &minute,
 			},
 		},
 	}
@@ -173,7 +179,7 @@ func (s *UndertakerSuite) TestDestroyErrorFatal(c *gc.C) {
 	s.fix.dirty = true
 	stub := s.fix.run(c, func(w worker.Worker) {
 		err := workertest.CheckKilled(c, w)
-		c.Check(err, gc.ErrorMatches, "pow")
+		c.Check(err, gc.ErrorMatches, "cannot destroy cloud resources: pow")
 	})
 	stub.CheckCallNames(c, "ModelInfo", "SetStatus", "Destroy")
 }
@@ -201,4 +207,105 @@ func (s *UndertakerSuite) TestRemoveModelErrorFatal(c *gc.C) {
 		c.Check(err, gc.ErrorMatches, "cannot remove model: pow")
 	})
 	stub.CheckCallNames(c, "ModelInfo", "SetStatus", "Destroy", "RemoveModel")
+}
+
+func (s *UndertakerSuite) TestDestroyTimeout(c *gc.C) {
+	notEmptyErr := &params.Error{Code: params.CodeModelNotEmpty}
+	s.fix.errors = []error{nil, nil, nil, notEmptyErr, notEmptyErr, notEmptyErr, notEmptyErr, errors.Timeoutf("error")}
+	s.fix.dirty = true
+	s.fix.advance = 2 * time.Minute
+	stub := s.fix.run(c, func(w worker.Worker) {
+		err := workertest.CheckKilled(c, w)
+		c.Assert(err, gc.ErrorMatches, ".* timeout")
+	})
+	// Depending on timing there can be 1 or more ProcessDyingModel calls.
+	calls := stub.Calls()
+	var callNames []string
+	for i, call := range calls {
+		if call.FuncName == "ProcessDyingModel" {
+			continue
+		}
+		if i > 3 && call.FuncName == "SetStatus" {
+			continue
+		}
+		callNames = append(callNames, call.FuncName)
+	}
+	c.Assert(callNames, jc.DeepEquals, []string{"ModelInfo", "SetStatus", "WatchModelResources"})
+}
+
+func (s *UndertakerSuite) TestDestroyTimeoutForce(c *gc.C) {
+	s.fix.info.Result.ForceDestroyed = true
+	s.fix.advance = 2 * time.Minute
+	stub := s.fix.run(c, func(w worker.Worker) {
+		err := workertest.CheckKilled(c, w)
+		c.Assert(err, jc.ErrorIsNil)
+	})
+	// Depending on timing there can be 1 or more ProcessDyingModel calls.
+	calls := stub.Calls()
+	var callNames []string
+	for _, call := range calls {
+		if call.FuncName == "ProcessDyingModel" {
+			continue
+		}
+		callNames = append(callNames, call.FuncName)
+	}
+	c.Assert(callNames, jc.DeepEquals, []string{"ModelInfo", "SetStatus", "WatchModelResources", "SetStatus", "Destroy", "RemoveModel"})
+	s.fix.logger.stub.CheckNoCalls(c)
+}
+
+func (s *UndertakerSuite) TestEnvironDestroyTimeout(c *gc.C) {
+	timeout := time.Millisecond
+	s.fix.info.Result.DestroyTimeout = &timeout
+	s.fix.dirty = true
+	stub := s.fix.run(c, func(w worker.Worker) {
+		err := workertest.CheckKilled(c, w)
+		c.Assert(err, gc.ErrorMatches, "cannot destroy cloud resources: destroy model timeout")
+	})
+	// Depending on timing there can be 1 or more ProcessDyingModel calls.
+	calls := stub.Calls()
+	var callNames []string
+	for _, call := range calls {
+		if call.FuncName == "ProcessDyingModel" {
+			continue
+		}
+		callNames = append(callNames, call.FuncName)
+	}
+	c.Assert(callNames, jc.DeepEquals, []string{"ModelInfo", "SetStatus", "WatchModelResources", "SetStatus", "Destroy"})
+	s.fix.logger.stub.CheckNoCalls(c)
+}
+
+func (s *UndertakerSuite) TestEnvironDestroyTimeoutForce(c *gc.C) {
+	timeout := time.Millisecond
+	s.fix.info.Result.DestroyTimeout = &timeout
+	s.fix.info.Result.ForceDestroyed = true
+	s.fix.dirty = true
+	stub := s.fix.run(c, func(w worker.Worker) {
+		err := workertest.CheckKilled(c, w)
+		// We still get an error when the requested timeout is > 0.
+		c.Assert(err, gc.ErrorMatches, "cannot destroy cloud resources: destroy model timeout")
+	})
+	// Depending on timing there can be 1 or more ProcessDyingModel calls.
+	calls := stub.Calls()
+	var callNames []string
+	for _, call := range calls {
+		if call.FuncName == "ProcessDyingModel" {
+			continue
+		}
+		callNames = append(callNames, call.FuncName)
+	}
+	c.Assert(callNames, jc.DeepEquals, []string{"ModelInfo", "SetStatus", "WatchModelResources", "SetStatus", "Destroy"})
+	s.fix.logger.stub.CheckCallNames(c, "Errorf")
+}
+
+func (s *UndertakerSuite) TestEnvironDestroyForceTimeoutZero(c *gc.C) {
+	zero := time.Second * 0
+	s.fix.info.Result.DestroyTimeout = &zero
+	s.fix.info.Result.ForceDestroyed = true
+	s.fix.dirty = true
+	stub := s.fix.run(c, func(w worker.Worker) {
+		err := workertest.CheckKilled(c, w)
+		c.Assert(err, jc.ErrorIsNil)
+	})
+	stub.CheckCallNames(c, "ModelInfo", "SetStatus", "RemoveModel")
+	s.fix.logger.stub.CheckNoCalls(c)
 }

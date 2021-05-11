@@ -1788,7 +1788,7 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	args := state.LinkLayerDeviceAddress{
 		DeviceName:        "foo",
-		ConfigMethod:      network.StaticAddress,
+		ConfigMethod:      network.ConfigStatic,
 		CIDRAddress:       "0.1.2.3/24",
 		ProviderID:        "bar",
 		DNSServers:        []string{"bam", "mam"},
@@ -1810,7 +1810,7 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	c.Assert(addr.Value(), gc.Equals, "0.1.2.3")
 	c.Assert(addr.MachineID(), gc.Equals, machine.Id())
 	c.Assert(addr.DeviceName(), gc.Equals, "foo")
-	c.Assert(addr.ConfigMethod(), gc.Equals, network.StaticAddress)
+	c.Assert(addr.ConfigMethod(), gc.Equals, network.ConfigStatic)
 	c.Assert(addr.SubnetCIDR(), gc.Equals, "0.1.2.0/24")
 	c.Assert(addr.ProviderID(), gc.Equals, network.Id("bar"))
 	c.Assert(addr.DNSServers(), jc.DeepEquals, []string{"bam", "mam"})
@@ -1819,6 +1819,35 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	c.Assert(addr.ProviderNetworkID().String(), gc.Equals, "p-net-id")
 	c.Assert(addr.ProviderSubnetID().String(), gc.Equals, "p-sub-id")
 	c.Assert(addr.Origin(), gc.Equals, network.OriginProvider)
+}
+
+func (s *MigrationImportSuite) TestIPAddressCompatibility(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+
+	_, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+	deviceArgs := state.LinkLayerDeviceArgs{
+		Name: "foo",
+		Type: network.EthernetDevice,
+	}
+	err = machine.SetLinkLayerDevices(deviceArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	args := state.LinkLayerDeviceAddress{
+		DeviceName:   "foo",
+		ConfigMethod: "dynamic",
+		CIDRAddress:  "0.1.2.3/24",
+		Origin:       network.OriginProvider,
+	}
+	err = machine.SetDevicesAddresses(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c, s.State)
+
+	addresses, _ := newSt.AllIPAddresses()
+	c.Assert(addresses, gc.HasLen, 1)
+	c.Assert(addresses[0].ConfigMethod(), gc.Equals, network.ConfigDHCP)
 }
 
 func (s *MigrationImportSuite) TestSSHHostKey(c *gc.C) {

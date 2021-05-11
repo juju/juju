@@ -34,14 +34,14 @@ func (s *instanceSuite) TestID(c *gc.C) {
 }
 
 func (s *instanceSuite) TestStatus(c *gc.C) {
-	instanceStatus := s.Instance.Status(context.NewCloudCallContext())
+	instanceStatus := s.Instance.Status(context.NewEmptyCloudCallContext())
 
 	c.Check(instanceStatus.Message, gc.Equals, "Running")
 	s.CheckNoAPI(c)
 }
 
 func (s *instanceSuite) TestAddresses(c *gc.C) {
-	addresses, err := s.Instance.Addresses(context.NewCloudCallContext())
+	addresses, err := s.Instance.Addresses(context.NewEmptyCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(addresses, jc.DeepEquals, s.Addresses)

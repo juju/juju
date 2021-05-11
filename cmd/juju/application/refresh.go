@@ -341,6 +341,22 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	// Select a suitable default URL schema for charm URLs that don't
+	// provide one depending on whether the current controller supports
+	// charmhub (i.e. it is a 2.9+ controller).
+	var defaultCharmSchema = charm.CharmHub
+	if apiRoot.BestFacadeVersion("CharmHub") < 1 {
+		defaultCharmSchema = charm.CharmStore
+	}
+
+	// Ensure that the switchURL (if provided) always contains a schema. If
+	// one is missing inject the default value we selected above.
+	if c.SwitchURL != "" {
+		if c.SwitchURL, err = charm.EnsureSchema(c.SwitchURL, defaultCharmSchema); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	if c.isCharmHubWithRevision(oldOrigin.Source) {
 		return errors.Errorf("specifying a revision is not supported, please use a channel.")
 	}
@@ -501,12 +517,7 @@ func (c *refreshCommand) isCharmHubWithRevision(source commoncharm.OriginSource)
 	if source == commoncharm.OriginCharmHub && c.Revision > -1 {
 		return true
 	}
-	// EnsureSchema will error if input is an empty string.
-	path, err := charm.EnsureSchema(c.SwitchURL)
-	if err != nil {
-		return false
-	}
-	curl, err := charm.ParseURL(path)
+	curl, err := charm.ParseURL(c.SwitchURL)
 	if err != nil {
 		return false
 	}

@@ -33,7 +33,7 @@ var _ = gc.Suite(&DestroySuite{})
 
 func (s *DestroySuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
 func (s *DestroySuite) TestCannotGetInstances(c *gc.C) {

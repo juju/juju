@@ -217,12 +217,12 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 					iface.NetworkIP,
 					corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 					corenetwork.WithCIDR(details.cidr),
+					corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 				)},
 				ShadowAddresses: shadowAddrs,
-				InterfaceType:   corenetwork.EthernetInterface,
+				InterfaceType:   corenetwork.EthernetDevice,
 				Disabled:        false,
 				NoAutoStart:     false,
-				ConfigType:      corenetwork.ConfigDHCP,
 				Origin:          corenetwork.OriginProvider,
 			})
 		}

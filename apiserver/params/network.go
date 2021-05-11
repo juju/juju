@@ -232,11 +232,9 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 		}
 
 		result[i] = NetworkConfig{
-			DeviceIndex: v.DeviceIndex,
-			MACAddress:  v.MACAddress,
-			// TODO (manadart 2021-03-24): Retained for compatibility.
-			// Delete for Juju 3/4.
-			CIDR:                v.PrimaryAddress().CIDR,
+			DeviceIndex:         v.DeviceIndex,
+			MACAddress:          v.MACAddress,
+			ConfigType:          string(v.ConfigType),
 			MTU:                 v.MTU,
 			ProviderId:          string(v.ProviderId),
 			ProviderNetworkId:   string(v.ProviderNetworkId),
@@ -250,20 +248,20 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 			InterfaceType:       string(v.InterfaceType),
 			Disabled:            v.Disabled,
 			NoAutoStart:         v.NoAutoStart,
-			ConfigType:          string(v.ConfigType),
-			// This field is retained for compatibility purposes.
-			// New code should instead use Addresses which includes
-			// scope and space information.
-			Address:          v.PrimaryAddress().Value,
-			Addresses:        FromProviderAddresses(v.Addresses...),
-			ShadowAddresses:  FromProviderAddresses(v.ShadowAddresses...),
-			DNSServers:       dnsServers,
-			DNSSearchDomains: v.DNSSearchDomains,
-			GatewayAddress:   v.GatewayAddress.Value,
-			Routes:           routes,
-			IsDefaultGateway: v.IsDefaultGateway,
-			VirtualPortType:  string(v.VirtualPortType),
-			NetworkOrigin:    NetworkOrigin(v.Origin),
+			Addresses:           FromProviderAddresses(v.Addresses...),
+			ShadowAddresses:     FromProviderAddresses(v.ShadowAddresses...),
+			DNSServers:          dnsServers,
+			DNSSearchDomains:    v.DNSSearchDomains,
+			GatewayAddress:      v.GatewayAddress.Value,
+			Routes:              routes,
+			IsDefaultGateway:    v.IsDefaultGateway,
+			VirtualPortType:     string(v.VirtualPortType),
+			NetworkOrigin:       NetworkOrigin(v.Origin),
+
+			// TODO (manadart 2021-03-24): Retained for compatibility.
+			// Delete CIDR and Address for Juju 3/4.
+			CIDR:    v.PrimaryAddress().CIDR,
+			Address: v.PrimaryAddress().Value,
 		}
 	}
 	return result
@@ -298,7 +296,7 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			VLANTag:             v.VLANTag,
 			InterfaceName:       v.InterfaceName,
 			ParentInterfaceName: v.ParentInterfaceName,
-			InterfaceType:       network.InterfaceType(v.InterfaceType),
+			InterfaceType:       network.LinkLayerDeviceType(v.InterfaceType),
 			Disabled:            v.Disabled,
 			NoAutoStart:         v.NoAutoStart,
 			ConfigType:          configType,
@@ -330,11 +328,18 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			if result[i].Addresses[0].CIDR == "" {
 				result[i].Addresses[0].CIDR = v.CIDR
 			}
+			if result[i].Addresses[0].ConfigType == "" {
+				result[i].Addresses[0].ConfigType = configType
+			}
 		} else {
 			// 2) For even older clients that do not populate Addresses.
 			if v.Address != "" {
 				result[i].Addresses = network.ProviderAddresses{
-					network.NewProviderAddress(v.Address, network.WithCIDR(v.CIDR)),
+					network.NewProviderAddress(
+						v.Address,
+						network.WithCIDR(v.CIDR),
+						network.WithConfigType(configType),
+					),
 				}
 			}
 		}
@@ -464,6 +469,7 @@ type Address struct {
 	Scope           string `json:"scope"`
 	SpaceName       string `json:"space-name,omitempty"`
 	ProviderSpaceID string `json:"space-id,omitempty"`
+	ConfigType      string `json:"config-type,omitempty"`
 	IsSecondary     bool   `json:"is-secondary,omitempty"`
 }
 
@@ -475,6 +481,7 @@ func (addr Address) MachineAddress() network.MachineAddress {
 		CIDR:        addr.CIDR,
 		Type:        network.AddressType(addr.Type),
 		Scope:       network.Scope(addr.Scope),
+		ConfigType:  network.AddressConfigType(addr.ConfigType),
 		IsSecondary: addr.IsSecondary,
 	}
 }
@@ -517,6 +524,7 @@ func FromProviderAddress(addr network.ProviderAddress) Address {
 		Scope:           string(addr.Scope),
 		SpaceName:       string(addr.SpaceName),
 		ProviderSpaceID: string(addr.ProviderSpaceID),
+		ConfigType:      string(addr.ConfigType),
 		IsSecondary:     addr.IsSecondary,
 	}
 }
@@ -538,6 +546,7 @@ func FromMachineAddress(addr network.MachineAddress) Address {
 		CIDR:        addr.CIDR,
 		Type:        string(addr.Type),
 		Scope:       string(addr.Scope),
+		ConfigType:  string(addr.ConfigType),
 		IsSecondary: addr.IsSecondary,
 	}
 }

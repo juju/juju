@@ -22,14 +22,14 @@ var _ = gc.Suite(&PrecheckSuite{})
 
 func (s *PrecheckSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
 func (s *PrecheckSuite) TestSuccess(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	err := s.broker.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{
+	err := s.broker.PrecheckInstance(context.NewEmptyCloudCallContext(), environs.PrecheckInstanceParams{
 		Series:      "kubernetes",
 		Constraints: constraints.MustParse("mem=4G"),
 	})
@@ -42,7 +42,7 @@ func (s *PrecheckSuite) TestWrongSeries(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	err := s.broker.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{
+	err := s.broker.PrecheckInstance(context.NewEmptyCloudCallContext(), environs.PrecheckInstanceParams{
 		Series: "quantal",
 	})
 	c.Assert(err, gc.ErrorMatches, `series "quantal" not valid`)
@@ -52,7 +52,7 @@ func (s *PrecheckSuite) TestUnsupportedConstraints(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	err := s.broker.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{
+	err := s.broker.PrecheckInstance(context.NewEmptyCloudCallContext(), environs.PrecheckInstanceParams{
 		Series:      "kubernetes",
 		Constraints: constraints.MustParse("instance-type=foo"),
 	})
@@ -63,7 +63,7 @@ func (s *PrecheckSuite) TestPlacementNotAllowed(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	err := s.broker.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{
+	err := s.broker.PrecheckInstance(context.NewEmptyCloudCallContext(), environs.PrecheckInstanceParams{
 		Series:    "kubernetes",
 		Placement: "a",
 	})
@@ -74,12 +74,12 @@ func (s *PrecheckSuite) TestInvalidConstraints(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	err := s.broker.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{
+	err := s.broker.PrecheckInstance(context.NewEmptyCloudCallContext(), environs.PrecheckInstanceParams{
 		Series:      "kubernetes",
 		Constraints: constraints.MustParse("tags=foo"),
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid node affinity constraints: foo`)
-	err = s.broker.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{
+	err = s.broker.PrecheckInstance(context.NewEmptyCloudCallContext(), environs.PrecheckInstanceParams{
 		Series:      "kubernetes",
 		Constraints: constraints.MustParse("tags=^=bar"),
 	})

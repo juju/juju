@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	stdcontext "context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -98,6 +99,7 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.callCtx = &context.CloudCallContext{
+		Context: stdcontext.TODO(),
 		InvalidateCredentialFunc: func(string) error {
 			s.invalidCredential = true
 			return nil
@@ -668,7 +670,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 		s.auth,
 		imagemetadata.ReleasedStream,
 		retryStrategy,
-		s.callCtx,
+		func(_ stdcontext.Context) context.ProviderCallContext { return s.callCtx },
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
@@ -691,7 +693,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBroker(
 		s.auth,
 		imagemetadata.ReleasedStream,
 		provisioner.NewRetryStrategy(0*time.Second, 0),
-		s.callCtx,
+		func(_ stdcontext.Context) context.ProviderCallContext { return s.callCtx },
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return task

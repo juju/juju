@@ -77,6 +77,7 @@ func (u *UndertakerAPI) ModelInfo() (params.UndertakerModelInfoResult, error) {
 		IsSystem:       u.st.IsController(),
 		Life:           life.Value(model.Life().String()),
 		ForceDestroyed: model.ForceDestroyed(),
+		DestroyTimeout: model.DestroyTimeout(),
 	}
 
 	return result, nil
@@ -106,7 +107,7 @@ func (u *UndertakerAPI) modelEntitiesWatcher() params.NotifyWatchResult {
 }
 
 // WatchModelResources creates watchers for changes to the lifecycle of an
-// model's machines and services.
+// model's machines and applications and storage.
 func (u *UndertakerAPI) WatchModelResources() params.NotifyWatchResults {
 	return params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{

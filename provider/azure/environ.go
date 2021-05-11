@@ -270,9 +270,8 @@ func (env *azureEnviron) Bootstrap(
 		wg.Add(1)
 		go func(id string) {
 			defer wg.Done()
-			sdkCtx := stdcontext.Background()
 			cancelResult = errors.Annotatef(
-				env.cancelDeployment(callCtx, sdkCtx, id),
+				env.cancelDeployment(callCtx, id),
 				"canceling deployment %q", id,
 			)
 		}(names.NewMachineTag(agent.BootstrapControllerId).String())
@@ -300,11 +299,10 @@ func (env *azureEnviron) initResourceGroup(ctx context.ProviderCallContext, cont
 	)
 	env.mu.Unlock()
 
-	sdkCtx := stdcontext.Background()
 	resourceGroupsClient := resources.GroupsClient{env.resources}
 	if existingResourceGroup {
 		logger.Debugf("using existing resource group %q for model %q", env.resourceGroup, env.modelName)
-		g, err := resourceGroupsClient.Get(sdkCtx, env.resourceGroup)
+		g, err := resourceGroupsClient.Get(ctx, env.resourceGroup)
 		if err != nil {
 			return errorutils.HandleCredentialError(errors.Annotatef(err, "checking resource group %q", env.resourceGroup), ctx)
 		}
@@ -313,7 +311,7 @@ func (env *azureEnviron) initResourceGroup(ctx context.ProviderCallContext, cont
 		}
 	} else {
 		logger.Debugf("creating resource group %q for model %q", env.resourceGroup, env.modelName)
-		if _, err := resourceGroupsClient.CreateOrUpdate(sdkCtx, env.resourceGroup, resources.Group{
+		if _, err := resourceGroupsClient.CreateOrUpdate(ctx, env.resourceGroup, resources.Group{
 			Location: to.StringPtr(env.location),
 			Tags:     *to.StringMapPtr(tags),
 		}); err != nil {
@@ -677,7 +675,7 @@ func (env *azureEnviron) createVirtualMachine(
 		}
 	}
 
-	maybeStorageAccount, err := env.getStorageAccount()
+	maybeStorageAccount, err := env.getStorageAccount(ctx)
 	if errors.IsNotFound(err) {
 		// Only models created prior to Juju 2.3 will have a storage
 		// account. Juju 2.3 onwards exclusively uses managed disks
@@ -1219,9 +1217,8 @@ func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...i
 		wg.Add(1)
 		go func(i int, id instance.Id) {
 			defer wg.Done()
-			sdkCtx := stdcontext.Background()
 			cancelResults[i] = errors.Annotatef(
-				env.cancelDeployment(ctx, sdkCtx, string(id)),
+				env.cancelDeployment(ctx, string(id)),
 				"canceling deployment %q", id,
 			)
 		}(i, id)
@@ -1239,7 +1236,7 @@ func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...i
 		return nil
 	}
 
-	maybeStorageClient, _, err := env.maybeGetStorageClient()
+	maybeStorageClient, _, err := env.maybeGetStorageClient(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1273,10 +1270,8 @@ func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...i
 		wg.Add(1)
 		go func(i int, id instance.Id) {
 			defer wg.Done()
-			sdkCtx := stdcontext.Background()
 			err := env.deleteVirtualMachine(
 				ctx,
-				sdkCtx,
 				id,
 				maybeStorageClient,
 				instanceNics[id],
@@ -1298,10 +1293,10 @@ func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...i
 }
 
 // cancelDeployment cancels a template deployment.
-func (env *azureEnviron) cancelDeployment(ctx context.ProviderCallContext, sdkCtx stdcontext.Context, name string) error {
+func (env *azureEnviron) cancelDeployment(ctx context.ProviderCallContext, name string) error {
 	deploymentsClient := resources.DeploymentsClient{env.resources}
 	logger.Debugf("- canceling deployment %q", name)
-	cancelResult, err := deploymentsClient.Cancel(sdkCtx, env.resourceGroup, name)
+	cancelResult, err := deploymentsClient.Cancel(ctx, env.resourceGroup, name)
 	if err != nil {
 		if cancelResult.Response != nil {
 			switch cancelResult.StatusCode {
@@ -1326,7 +1321,6 @@ func (env *azureEnviron) cancelDeployment(ctx context.ProviderCallContext, sdkCt
 // it owns, and any corresponding network security rules.
 func (env *azureEnviron) deleteVirtualMachine(
 	ctx context.ProviderCallContext,
-	sdkCtx stdcontext.Context,
 	instId instance.Id,
 	maybeStorageClient internalazurestorage.Client,
 	networkInterfaces []network.Interface,
@@ -1344,13 +1338,13 @@ func (env *azureEnviron) deleteVirtualMachine(
 	// The VM must be deleted first, to release the lock on its resources.
 	logger.Debugf("- deleting virtual machine (%s)", vmName)
 	vmErrMsg := "deleting virtual machine"
-	vmFuture, err := vmClient.Delete(sdkCtx, env.resourceGroup, vmName)
+	vmFuture, err := vmClient.Delete(ctx, env.resourceGroup, vmName)
 	if err != nil {
 		if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResponse(vmFuture.Response()) {
 			return errors.Annotate(err, vmErrMsg)
 		}
 	} else {
-		err = vmFuture.WaitForCompletionRef(sdkCtx, vmClient.Client)
+		err = vmFuture.WaitForCompletionRef(ctx, vmClient.Client)
 		if err != nil {
 			return errorutils.HandleCredentialError(errors.Annotate(err, vmErrMsg), ctx)
 		}
@@ -1373,14 +1367,14 @@ func (env *azureEnviron) deleteVirtualMachine(
 	// Delete the managed OS disk.
 	logger.Debugf("- deleting OS disk (%s)", vmName)
 	diskErrMsg := "deleting OS disk"
-	diskFuture, err := diskClient.Delete(sdkCtx, env.resourceGroup, vmName)
+	diskFuture, err := diskClient.Delete(ctx, env.resourceGroup, vmName)
 	if err != nil {
 		if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResponse(diskFuture.Response()) {
 			return errors.Annotate(err, diskErrMsg)
 		}
 	}
 	if err == nil {
-		err = diskFuture.WaitForCompletionRef(sdkCtx, diskClient.Client)
+		err = diskFuture.WaitForCompletionRef(ctx, diskClient.Client)
 		if err != nil {
 			return errorutils.HandleCredentialError(errors.Annotate(err, diskErrMsg), ctx)
 		}
@@ -1393,7 +1387,6 @@ func (env *azureEnviron) deleteVirtualMachine(
 	}
 	logger.Debugf("- deleting security rules (%s)", vmName)
 	if err := deleteInstanceNetworkSecurityRules(
-		sdkCtx,
 		ctx,
 		env, instId, networkInterfaces,
 	); err != nil {
@@ -1405,13 +1398,13 @@ func (env *azureEnviron) deleteVirtualMachine(
 	for _, nic := range networkInterfaces {
 		nicName := to.String(nic.Name)
 		logger.Tracef("deleting NIC %q", nicName)
-		nicFuture, err := nicClient.Delete(sdkCtx, env.resourceGroup, nicName)
+		nicFuture, err := nicClient.Delete(ctx, env.resourceGroup, nicName)
 		if err != nil {
 			if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResponse(nicFuture.Response()) {
 				return errors.Annotate(err, networkErrMsg)
 			}
 		} else {
-			err = nicFuture.WaitForCompletionRef(sdkCtx, nicClient.Client)
+			err = nicFuture.WaitForCompletionRef(ctx, nicClient.Client)
 			if err != nil {
 				return errorutils.HandleCredentialError(errors.Annotate(err, networkErrMsg), ctx)
 			}
@@ -1429,13 +1422,13 @@ func (env *azureEnviron) deleteVirtualMachine(
 	for _, pip := range publicIPAddresses {
 		pipName := to.String(pip.Name)
 		logger.Tracef("deleting public IP %q", pipName)
-		ipFuture, err := pipClient.Delete(sdkCtx, env.resourceGroup, pipName)
+		ipFuture, err := pipClient.Delete(ctx, env.resourceGroup, pipName)
 		if err != nil {
 			if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResponse(ipFuture.Response()) {
 				return errors.Annotate(err, ipErrMsg)
 			}
 		} else {
-			err = ipFuture.WaitForCompletionRef(sdkCtx, pipClient.Client)
+			err = ipFuture.WaitForCompletionRef(ctx, pipClient.Client)
 			if err != nil {
 				return errorutils.HandleCredentialError(errors.Annotate(err, ipErrMsg), ctx)
 			}
@@ -1450,14 +1443,14 @@ func (env *azureEnviron) deleteVirtualMachine(
 
 	// The deployment must be deleted last, or we risk leaking resources.
 	logger.Debugf("- deleting deployment (%s)", vmName)
-	deploymentFuture, err := deploymentsClient.Delete(sdkCtx, env.resourceGroup, vmName)
+	deploymentFuture, err := deploymentsClient.Delete(ctx, env.resourceGroup, vmName)
 	deploymentErrMsg := "deleting deployment"
 	if err != nil {
 		if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResponse(deploymentFuture.Response()) {
 			return errors.Annotate(err, deploymentErrMsg)
 		}
 	} else {
-		err = deploymentFuture.WaitForCompletionRef(sdkCtx, deploymentsClient.Client)
+		err = deploymentFuture.WaitForCompletionRef(ctx, deploymentsClient.Client)
 		if err != nil {
 			return errorutils.HandleCredentialError(errors.Annotate(err, deploymentErrMsg), ctx)
 		}
@@ -1523,19 +1516,18 @@ func (env *azureEnviron) AdoptResources(ctx context.ProviderCallContext, control
 		return errors.Trace(err)
 	}
 
-	sdkCtx := stdcontext.Background()
-	apiVersions, err := collectAPIVersions(ctx, sdkCtx, resources.ProvidersClient{env.resources})
+	apiVersions, err := collectAPIVersions(ctx, resources.ProvidersClient{env.resources})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	resourceClient := resources.Client{env.resources}
-	res, err := resourceClient.ListByResourceGroupComplete(sdkCtx, env.resourceGroup, "", "", nil)
+	res, err := resourceClient.ListByResourceGroupComplete(ctx, env.resourceGroup, "", "", nil)
 	if err != nil {
 		return errorutils.HandleCredentialError(errors.Annotate(err, "listing resources"), ctx)
 	}
 	var failed []string
-	for ; res.NotDone(); err = res.NextWithContext(sdkCtx) {
+	for ; res.NotDone(); err = res.NextWithContext(ctx) {
 		if err != nil {
 			return errors.Annotate(err, "listing resources")
 		}
@@ -1543,7 +1535,6 @@ func (env *azureEnviron) AdoptResources(ctx context.ProviderCallContext, control
 		apiVersion := apiVersions[to.String(resource.Type)]
 		err := env.updateResourceControllerTag(
 			ctx,
-			sdkCtx,
 			resourceClient,
 			resource, controllerUUID, apiVersion,
 		)
@@ -1584,7 +1575,6 @@ func (env *azureEnviron) updateGroupControllerTag(ctx context.ProviderCallContex
 
 func (env *azureEnviron) updateResourceControllerTag(
 	ctx context.ProviderCallContext,
-	sdkCtx stdcontext.Context,
 	client resources.Client,
 	stubResource resources.GenericResourceExpanded,
 	controllerUUID string,
@@ -1598,7 +1588,7 @@ func (env *azureEnviron) updateResourceControllerTag(
 
 	// Need to get the resource individually to ensure that the
 	// properties are populated.
-	resource, err := client.GetByID(sdkCtx, to.String(stubResource.ID), apiVersion)
+	resource, err := client.GetByID(ctx, to.String(stubResource.ID), apiVersion)
 	if err != nil {
 		return errorutils.HandleCredentialError(errors.Annotatef(err, "getting full resource %q", to.String(stubResource.Name)), ctx)
 	}
@@ -1606,7 +1596,7 @@ func (env *azureEnviron) updateResourceControllerTag(
 	logger.Debugf("updating %s juju controller UUID to %s", to.String(stubResource.ID), controllerUUID)
 	resource.Tags[tags.JujuController] = to.StringPtr(controllerUUID)
 	_, err = client.CreateOrUpdateByID(
-		sdkCtx,
+		ctx,
 		to.String(stubResource.ID),
 		apiVersion,
 		resource,
@@ -1633,8 +1623,7 @@ func (env *azureEnviron) allInstances(
 	controllerOnly bool,
 ) ([]instances.Instance, error) {
 	deploymentsClient := resources.DeploymentsClient{env.resources}
-	sdkCtx := stdcontext.Background()
-	deploymentsResult, err := deploymentsClient.ListByResourceGroupComplete(sdkCtx, resourceGroup, "", nil)
+	deploymentsResult, err := deploymentsClient.ListByResourceGroupComplete(ctx, resourceGroup, "", nil)
 	if err != nil {
 		if isNotFoundResult(deploymentsResult.Response().Response) {
 			// This will occur if the resource group does not
@@ -1648,7 +1637,7 @@ func (env *azureEnviron) allInstances(
 	}
 
 	var azureInstances []*azureInstance
-	for ; deploymentsResult.NotDone(); err = deploymentsResult.NextWithContext(sdkCtx) {
+	for ; deploymentsResult.NotDone(); err = deploymentsResult.NextWithContext(ctx) {
 		if err != nil {
 			return nil, errors.Annotate(err, "listing resources")
 		}
@@ -1715,8 +1704,7 @@ func isControllerDeployment(deployment resources.DeploymentExtended) bool {
 func (env *azureEnviron) Destroy(ctx context.ProviderCallContext) error {
 	logger.Debugf("destroying model %q", env.modelName)
 	logger.Debugf("- deleting resource group %q", env.resourceGroup)
-	sdkCtx := stdcontext.Background()
-	if err := env.deleteResourceGroup(ctx, sdkCtx, env.resourceGroup); err != nil {
+	if err := env.deleteResourceGroup(ctx, env.resourceGroup); err != nil {
 		return errors.Trace(err)
 	}
 	// Resource groups are self-contained and fully encompass
@@ -1744,8 +1732,7 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx context.Provi
 		tags.JujuController, controllerUUID,
 	)
 	client := resources.GroupsClient{env.resources}
-	sdkCtx := stdcontext.Background()
-	result, err := client.List(sdkCtx, filter, nil)
+	result, err := client.List(ctx, filter, nil)
 	if err != nil {
 		return errorutils.HandleCredentialError(errors.Annotate(err, "listing resource groups"), ctx)
 	}
@@ -1755,7 +1742,7 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx context.Provi
 
 	// Walk all the pages of results so we can get a total list of groups to remove.
 	var groupNames []*string
-	for ; result.NotDone(); err = result.NextWithContext(sdkCtx) {
+	for ; result.NotDone(); err = result.NextWithContext(ctx) {
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1773,7 +1760,7 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx context.Provi
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			if err := env.deleteResourceGroup(ctx, sdkCtx, groupName); err != nil {
+			if err := env.deleteResourceGroup(ctx, groupName); err != nil {
 				errs[i] = errors.Annotatef(
 					err, "deleting resource group %q", groupName,
 				)
@@ -1803,13 +1790,13 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx context.Provi
 	return errors.New(strings.Join(combined, "; "))
 }
 
-func (env *azureEnviron) deleteResourceGroup(ctx context.ProviderCallContext, sdkCtx stdcontext.Context, resourceGroup string) error {
+func (env *azureEnviron) deleteResourceGroup(ctx context.ProviderCallContext, resourceGroup string) error {
 	// For user specified, existing resource groups, delete the contents, not the group.
 	if env.config.resourceGroupName != "" {
-		return env.deleteResourcesInGroup(ctx, sdkCtx, resourceGroup)
+		return env.deleteResourcesInGroup(ctx, resourceGroup)
 	}
 	client := resources.GroupsClient{env.resources}
-	future, err := client.Delete(sdkCtx, resourceGroup)
+	future, err := client.Delete(ctx, resourceGroup)
 	if err != nil {
 		err = errorutils.HandleCredentialError(err, ctx)
 		if !isNotFoundResponse(future.Response()) {
@@ -1817,7 +1804,7 @@ func (env *azureEnviron) deleteResourceGroup(ctx context.ProviderCallContext, sd
 		}
 		return nil
 	}
-	err = future.WaitForCompletionRef(sdkCtx, client.Client)
+	err = future.WaitForCompletionRef(ctx, client.Client)
 	if err != nil {
 		return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
 	}
@@ -1828,7 +1815,7 @@ func (env *azureEnviron) deleteResourceGroup(ctx context.ProviderCallContext, sd
 	return nil
 }
 
-func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext, sdkCtx stdcontext.Context, resourceGroup string) (err error) {
+func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext, resourceGroup string) (err error) {
 	logger.Debugf("deleting all resources in %s", resourceGroup)
 
 	defer func() {
@@ -1837,14 +1824,14 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext,
 
 	// Find all the resources tagged as belonging to this model.
 	filter := fmt.Sprintf("tagName eq '%s' and tagValue eq '%s'", tags.JujuModel, env.config.UUID())
-	resourceItems, err := env.getModelResources(sdkCtx, resourceGroup, filter)
+	resourceItems, err := env.getModelResources(ctx, resourceGroup, filter)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Older APIs can ignore the filter above, so query the hard way just in case.
 	if len(resourceItems) == 0 {
-		resourceItems, err = env.getModelResources(sdkCtx, resourceGroup, filter)
+		resourceItems, err = env.getModelResources(ctx, resourceGroup, filter)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1891,7 +1878,7 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext,
 	remainingResources := otherResources
 	retries := 0
 	for len(remainingResources) > 0 && retries < 10 {
-		remainingResources, err = env.deleteResources(sdkCtx, remainingResources)
+		remainingResources, err = env.deleteResources(ctx, remainingResources)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1903,7 +1890,7 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext,
 
 	// Lastly delete the vault resources.
 	for _, vaultName := range vaultNames {
-		if err := env.deleteVault(sdkCtx, ctx, vaultName); err != nil {
+		if err := env.deleteVault(ctx, ctx, vaultName); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -2001,12 +1988,12 @@ func (env *azureEnviron) resourceGroupName(modelTag names.ModelTag, modelName st
 	env.mu.Lock()
 	defer env.mu.Unlock()
 
-	sdkCtx := stdcontext.Background()
+	ctx := stdcontext.Background()
 	resourceGroupsClient := resources.GroupsClient{env.resources}
 
 	// First look for a resource group name with the full model UUID.
 	legacyName := legacyResourceGroupName(modelTag, modelName)
-	g, err := resourceGroupsClient.Get(sdkCtx, legacyName)
+	g, err := resourceGroupsClient.Get(ctx, legacyName)
 	if err == nil {
 		logger.Debugf("using existing legacy resource group %q for model %q", legacyName, modelName)
 		return legacyName, nil
@@ -2017,7 +2004,7 @@ func (env *azureEnviron) resourceGroupName(modelTag names.ModelTag, modelName st
 
 	logger.Debugf("legacy resource group name doesn't exist, using short name")
 	resourceGroup := resourceGroupName(modelTag, modelName)
-	g, err = resourceGroupsClient.Get(sdkCtx, resourceGroup)
+	g, err = resourceGroupsClient.Get(ctx, resourceGroup)
 	if err == nil {
 		mTag, ok := g.Tags[tags.JujuModel]
 		if !ok || to.String(mTag) != modelTag.Id() {
@@ -2074,7 +2061,7 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext)
 
 	client := compute.ResourceSkusClient{env.compute}
 
-	res, err := client.ListComplete(stdcontext.Background(), "")
+	res, err := client.ListComplete(ctx, "")
 	if err != nil {
 		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing VM sizes"), ctx)
 	}
@@ -2147,8 +2134,8 @@ nextResource:
 
 // maybeGetStorageClient returns the environment's storage client if it
 // has one, and nil if it does not.
-func (env *azureEnviron) maybeGetStorageClient() (internalazurestorage.Client, *legacystorage.Account, error) {
-	storageClient, storageAccount, err := env.getStorageClient()
+func (env *azureEnviron) maybeGetStorageClient(ctx stdcontext.Context) (internalazurestorage.Client, *legacystorage.Account, error) {
+	storageClient, storageAccount, err := env.getStorageClient(ctx)
 	if errors.IsNotFound(err) {
 		// Only models created prior to Juju 2.3 will have a storage
 		// account. Juju 2.3 onwards exclusively uses managed disks
@@ -2164,10 +2151,10 @@ func (env *azureEnviron) maybeGetStorageClient() (internalazurestorage.Client, *
 
 // getStorageClient queries the storage account key, and uses it to construct
 // a new storage client.
-func (env *azureEnviron) getStorageClient() (internalazurestorage.Client, *legacystorage.Account, error) {
+func (env *azureEnviron) getStorageClient(ctx stdcontext.Context) (internalazurestorage.Client, *legacystorage.Account, error) {
 	env.mu.Lock()
 	defer env.mu.Unlock()
-	storageAccount, err := env.getStorageAccountLocked()
+	storageAccount, err := env.getStorageAccountLocked(ctx)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting storage account")
 	}
@@ -2191,13 +2178,13 @@ func (env *azureEnviron) getStorageClient() (internalazurestorage.Client, *legac
 
 // getStorageAccount returns the storage account for this environment's
 // resource group.
-func (env *azureEnviron) getStorageAccount() (*legacystorage.Account, error) {
+func (env *azureEnviron) getStorageAccount(ctx stdcontext.Context) (*legacystorage.Account, error) {
 	env.mu.Lock()
 	defer env.mu.Unlock()
-	return env.getStorageAccountLocked()
+	return env.getStorageAccountLocked(ctx)
 }
 
-func (env *azureEnviron) getStorageAccountLocked() (*legacystorage.Account, error) {
+func (env *azureEnviron) getStorageAccountLocked(ctx stdcontext.Context) (*legacystorage.Account, error) {
 	if env.storageAccount != nil {
 		if *env.storageAccount == nil {
 			return nil, errors.NotFoundf("storage account")
@@ -2205,7 +2192,7 @@ func (env *azureEnviron) getStorageAccountLocked() (*legacystorage.Account, erro
 		return *env.storageAccount, nil
 	}
 	client := legacystorage.AccountsClient{env.storage}
-	account, err := client.GetProperties(stdcontext.Background(), env.resourceGroup, env.storageAccountName)
+	account, err := client.GetProperties(ctx, env.resourceGroup, env.storageAccountName)
 	if err != nil {
 		if isNotFoundResult(account.Response) {
 			// Remember that the account was not found

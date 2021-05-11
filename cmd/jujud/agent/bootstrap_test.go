@@ -799,7 +799,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	err = env.PrepareForBootstrap(nullContext(), "controller-1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	callCtx := envcontext.NewCloudCallContext()
+	callCtx := envcontext.NewEmptyCloudCallContext()
 	s.AddCleanup(func(c *gc.C) {
 		err := env.DestroyController(callCtx, controllerCfg.ControllerUUID())
 		c.Assert(err, jc.ErrorIsNil)

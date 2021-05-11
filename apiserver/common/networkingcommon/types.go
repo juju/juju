@@ -82,7 +82,7 @@ type BackingSubnetInfo struct {
 // BackingSpace defines the methods supported by a Space entity stored
 // persistently.
 type BackingSpace interface {
-	// ID returns the ID of the space.
+	// Id returns the ID of the space.
 	Id() string
 
 	// Name returns the space name.
@@ -198,7 +198,7 @@ func networkDeviceToStateArgs(dev network.InterfaceInfo) state.LinkLayerDeviceAr
 		Name:            dev.InterfaceName,
 		MTU:             mtu,
 		ProviderID:      dev.ProviderId,
-		Type:            network.LinkLayerDeviceType(dev.InterfaceType),
+		Type:            dev.InterfaceType,
 		MACAddress:      dev.MACAddress,
 		IsAutoStart:     !dev.NoAutoStart,
 		IsUp:            !dev.Disabled,
@@ -239,15 +239,14 @@ func networkAddressToStateArgs(
 		return state.LinkLayerDeviceAddress{}, errors.Trace(err)
 	}
 
-	var derivedConfigMethod network.AddressConfigMethod
-	switch method := network.AddressConfigMethod(dev.ConfigType); method {
-	case network.StaticAddress, network.DynamicAddress,
-		network.LoopbackAddress, network.ManualAddress:
-		derivedConfigMethod = method
-	case "dhcp": // awkward special case
-		derivedConfigMethod = network.DynamicAddress
-	default:
-		derivedConfigMethod = network.StaticAddress
+	// Prefer the config method supplied with the address.
+	// Fallback first to the device, then to "static".
+	configType := addr.AddressConfigType()
+	if configType == network.ConfigUnknown {
+		configType = dev.ConfigType
+	}
+	if configType == network.ConfigUnknown {
+		configType = network.ConfigStatic
 	}
 
 	return state.LinkLayerDeviceAddress{
@@ -255,7 +254,7 @@ func networkAddressToStateArgs(
 		ProviderID:        dev.ProviderAddressId,
 		ProviderNetworkID: dev.ProviderNetworkId,
 		ProviderSubnetID:  dev.ProviderSubnetId,
-		ConfigMethod:      derivedConfigMethod,
+		ConfigMethod:      configType,
 		CIDRAddress:       cidrAddress,
 		DNSServers:        dev.DNSServers.ToIPAddresses(),
 		DNSSearchDomains:  dev.DNSSearchDomains,

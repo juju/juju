@@ -115,7 +115,7 @@ func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 func prepNetworkConfig() *container.NetworkConfig {
 	return container.BridgeNetworkConfig("eth0", 1500, corenetwork.InterfaceInfos{{
 		InterfaceName:       "eth0",
-		InterfaceType:       corenetwork.EthernetInterface,
+		InterfaceType:       corenetwork.EthernetDevice,
 		ConfigType:          corenetwork.ConfigDHCP,
 		ParentInterfaceName: "eth0",
 	}})
@@ -178,7 +178,7 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 	instanceId := instance.Id()
 	c.Check(string(instanceId), gc.Equals, hostName)
 
-	instanceStatus := instance.Status(context.NewCloudCallContext())
+	instanceStatus := instance.Status(context.NewEmptyCloudCallContext())
 	c.Check(instanceStatus.Status, gc.Equals, status.Running)
 	c.Check(*hc.AvailabilityZone, gc.Equals, "test-availability-zone")
 
@@ -220,7 +220,7 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 	// CIDR will cause the default bridge to be updated with IPv4 config.
 	netConfig := container.BridgeNetworkConfig("eth0", 1500, corenetwork.InterfaceInfos{{
 		InterfaceName:       "eth0",
-		InterfaceType:       corenetwork.EthernetInterface,
+		InterfaceType:       corenetwork.EthernetDevice,
 		ConfigType:          corenetwork.ConfigDHCP,
 		ParentInterfaceName: network.DefaultLXDBridge,
 	}})

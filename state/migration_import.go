@@ -2043,6 +2043,12 @@ func (i *importer) addIPAddress(addr description.IPAddress) error {
 
 	modelUUID := i.st.ModelUUID()
 
+	// Compatibility shim for deployments prior to 2.9.1.
+	configType := addr.ConfigMethod()
+	if configType == "dynamic" {
+		configType = string(network.ConfigDHCP)
+	}
+
 	newDoc := &ipAddressDoc{
 		DocID:             ipAddressDocID,
 		ModelUUID:         modelUUID,
@@ -2050,7 +2056,7 @@ func (i *importer) addIPAddress(addr description.IPAddress) error {
 		DeviceName:        addr.DeviceName(),
 		MachineID:         addr.MachineID(),
 		SubnetCIDR:        subnetCIDR,
-		ConfigMethod:      network.AddressConfigMethod(addr.ConfigMethod()),
+		ConfigMethod:      network.AddressConfigType(configType),
 		Value:             addressValue,
 		DNSServers:        addr.DNSServers(),
 		DNSSearchDomains:  addr.DNSSearchDomains(),

@@ -386,7 +386,7 @@ func (e *environSuite) TestCreate(c *gc.C) {
 }
 
 func (e *environSuite) TestConstraintsValidator(c *gc.C) {
-	validator, err := e.env.ConstraintsValidator(envcontext.NewCloudCallContext())
+	validator, err := e.env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
@@ -398,7 +398,7 @@ func (e *environSuite) TestConstraintsValidator(c *gc.C) {
 }
 
 func (e *environSuite) TestConstraintsValidatorEmpty(c *gc.C) {
-	validator, err := e.env.ConstraintsValidator(envcontext.NewCloudCallContext())
+	validator, err := e.env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
@@ -408,7 +408,7 @@ func (e *environSuite) TestConstraintsValidatorEmpty(c *gc.C) {
 }
 
 func (e *environSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
-	validator, err := e.env.ConstraintsValidator(envcontext.NewCloudCallContext())
+	validator, err := e.env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
@@ -419,7 +419,7 @@ func (e *environSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 }
 
 func (e *environSuite) TestConstraintsValidatorWrongArch(c *gc.C) {
-	validator, err := e.env.ConstraintsValidator(envcontext.NewCloudCallContext())
+	validator, err := e.env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=ppc64el")

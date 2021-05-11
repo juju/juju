@@ -82,7 +82,7 @@ func (s *MachineManagerSuite) SetUpTest(c *gc.C) {
 	}
 	s.pool = &mockPool{}
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
-	s.callContext = context.NewCloudCallContext()
+	s.callContext = context.NewEmptyCloudCallContext()
 }
 
 func (s *MachineManagerSuite) setup(c *gc.C) *gomock.Controller {

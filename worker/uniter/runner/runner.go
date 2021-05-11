@@ -92,7 +92,7 @@ const (
 // Runner is responsible for invoking commands in a context.
 type Runner interface {
 	// Context returns the context against which the runner executes.
-	Context() Context
+	Context() context.Context
 
 	// RunHook executes the hook with the supplied name and returns back
 	// the type of script handling hook that was used or whether any errors
@@ -106,32 +106,11 @@ type Runner interface {
 	RunCommands(commands string, runLocation RunLocation) (*utilexec.ExecResponse, error)
 }
 
-// Context exposes hooks.Context, and additional methods needed by Runner.
-type Context interface {
-	jujuc.Context
-	Id() string
-	HookVars(
-		paths context.Paths,
-		remote bool,
-		getEnvFunc context.GetEnvFunc,
-		osEnvFunc context.OSEnvFunc) ([]string, error)
-	ActionData() (*context.ActionData, error)
-	SetProcess(process context.HookProcess)
-	HasExecutionSetUnitStatus() bool
-	ResetExecutionSetUnitStatus()
-	ModelType() model.ModelType
-
-	Prepare() error
-	Flush(badge string, failure error) error
-
-	GetLogger(module string) loggo.Logger
-}
-
 // NewRunnerFunc returns a func used to create a Runner backed by the supplied context and paths.
-type NewRunnerFunc func(context Context, paths context.Paths, remoteExecutor ExecFunc) Runner
+type NewRunnerFunc func(context context.Context, paths context.Paths, remoteExecutor ExecFunc) Runner
 
 // NewRunner returns a Runner backed by the supplied context and paths.
-func NewRunner(context Context, paths context.Paths, remoteExecutor ExecFunc) Runner {
+func NewRunner(context context.Context, paths context.Paths, remoteExecutor ExecFunc) Runner {
 	return &runner{context, paths, remoteExecutor}
 }
 
@@ -174,7 +153,7 @@ type ExecFunc func(ExecParams) (*utilexec.ExecResponse, error)
 
 // runner implements Runner.
 type runner struct {
-	context Context
+	context context.Context
 	paths   context.Paths
 	// remoteExecutor executes commands on a remote workload pod for CAAS.
 	remoteExecutor ExecFunc
@@ -184,7 +163,7 @@ func (runner *runner) logger() loggo.Logger {
 	return runner.context.GetLogger("juju.worker.uniter.runner")
 }
 
-func (runner *runner) Context() Context {
+func (runner *runner) Context() context.Context {
 	return runner.context
 }
 
@@ -241,26 +220,27 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 	}
 	defer srv.Close()
 
-	getEnv := os.Getenv
-	osEnv := os.Environ
+	environmenter := context.NewHostEnvironmenter()
 	if rMode == runOnRemote {
 		env, err := runner.getRemoteEnviron(abort)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting remote environ")
 		}
-		getEnv = func(k string) string {
-			v, _ := env[k]
-			return v
-		}
-		osEnv = func() []string {
-			rval := make([]string, 0, len(env))
-			for k, v := range env {
-				rval = append(rval, fmt.Sprintf("%s=%s", k, v))
-			}
-			return rval
-		}
+		environmenter = context.NewRemoteEnvironmenter(
+			func() []string {
+				rval := make([]string, 0, len(env))
+				for k, v := range env {
+					rval = append(rval, fmt.Sprintf("%s=%s", k, v))
+				}
+				return rval
+			},
+			func(k string) string {
+				v, _ := env[k]
+				return v
+			},
+		)
 	}
-	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote, getEnv, osEnv)
+	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote, environmenter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -416,8 +396,7 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 	}
 	defer srv.Close()
 
-	getEnv := os.Getenv
-	osEnv := os.Environ
+	environmenter := context.NewHostEnvironmenter()
 	if rMode == runOnRemote {
 		var cancel <-chan struct{}
 		actionData, err := runner.context.ActionData()
@@ -428,20 +407,22 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 		if err != nil {
 			return InvalidHookHandler, errors.Annotatef(err, "getting remote environ")
 		}
-		getEnv = func(k string) string {
-			v, _ := env[k]
-			return v
-		}
-		osEnv = func() []string {
-			rval := make([]string, 0, len(env))
-			for k, v := range env {
-				rval = append(rval, fmt.Sprintf("%s=%s", k, v))
-			}
-			return rval
-		}
+		environmenter = context.NewRemoteEnvironmenter(
+			func() []string {
+				rval := make([]string, 0, len(env))
+				for k, v := range env {
+					rval = append(rval, fmt.Sprintf("%s=%s", k, v))
+				}
+				return rval
+			},
+			func(k string) string {
+				v, _ := env[k]
+				return v
+			},
+		)
 	}
 
-	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote, getEnv, osEnv)
+	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote, environmenter)
 	if err != nil {
 		return InvalidHookHandler, errors.Trace(err)
 	}
