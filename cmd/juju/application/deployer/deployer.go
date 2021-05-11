@@ -402,7 +402,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 	}
 
 	// Avoid deploying charm if the charm series is not correct for the
-	// avaliable image streams.
+	// available image streams.
 	if err := d.validateCharmSeriesWithName(seriesName, curl.Name, imageStream); err != nil {
 		return nil, errors.Trace(err)
 	}

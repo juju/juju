@@ -119,7 +119,7 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 		// If we failed to enqueue the action, record the error on the operation.
 		if !errorRecorded {
 			errorRecorded = true
-			err = a.model.FailOperation(operationID, actionErr)
+			actionErr = a.model.FailOperation(operationID, actionErr)
 		}
 		currentResult.Error = apiservererrors.ServerError(actionErr)
 	}

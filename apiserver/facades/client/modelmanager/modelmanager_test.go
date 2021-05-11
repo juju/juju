@@ -1179,8 +1179,8 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	results, err := s.modelmanager.DestroyModels(params.DestroyModelsParams{
 		Models: []params.DestroyModelParams{{
 			ModelTag: "model-" + m.UUID,
-			Force: &force,
-			Timeout: &timeout,
+			Force:    &force,
+			Timeout:  &timeout,
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
