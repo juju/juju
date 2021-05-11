@@ -5,8 +5,6 @@ package caasupgraderembedded
 
 import (
 	"github.com/juju/version/v2"
-
-	"github.com/juju/juju/core/watcher"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/api_base_mock.go github.com/juju/juju/api/base APICaller
@@ -27,7 +25,5 @@ type Logger interface {
 
 // UpgraderClient provides the facade methods used by the worker.
 type UpgraderClient interface {
-	DesiredVersion(tag string) (version.Number, error)
 	SetVersion(tag string, v version.Binary) error
-	WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error)
 }

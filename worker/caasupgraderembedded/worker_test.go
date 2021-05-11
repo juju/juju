@@ -57,7 +57,6 @@ func (s *workerSuite) initConfig(c *gc.C) *gomock.Controller {
 	s.config = caasupgraderembedded.Config{
 		UpgraderClient:     s.upgraderClient,
 		AgentTag:           s.agentTag,
-		OrigAgentVersion:   s.confVersion,
 		UpgradeStepsWaiter: s.upgradeStepsComplete,
 		Logger:             loggo.GetLogger("test"),
 	}
@@ -101,6 +100,5 @@ func (s *workerSuite) TestStartStop(c *gc.C) {
 
 	w, err := caasupgraderembedded.NewUpgrader(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
 }

@@ -548,14 +548,13 @@ func (mig *modelMigration) minionReportId(phase migration.Phase, globalKey strin
 
 func (mig *modelMigration) getAllAgents() (names.Set, error) {
 	agentTags := names.NewSet()
-
 	machineTags, err := mig.loadAgentTags(machinesC, "machineid",
 		func(id string) names.Tag { return names.NewMachineTag(id) },
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "loading machine tags")
 	}
-	agentTags.Union(machineTags)
+	agentTags = agentTags.Union(machineTags)
 
 	m, err := mig.st.Model()
 	if err != nil {

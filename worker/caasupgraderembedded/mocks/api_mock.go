@@ -6,7 +6,6 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	watcher "github.com/juju/juju/core/watcher"
 	version "github.com/juju/version/v2"
 	reflect "reflect"
 )
@@ -34,21 +33,6 @@ func (m *MockUpgraderClient) EXPECT() *MockUpgraderClientMockRecorder {
 	return m.recorder
 }
 
-// DesiredVersion mocks base method
-func (m *MockUpgraderClient) DesiredVersion(arg0 string) (version.Number, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DesiredVersion", arg0)
-	ret0, _ := ret[0].(version.Number)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// DesiredVersion indicates an expected call of DesiredVersion
-func (mr *MockUpgraderClientMockRecorder) DesiredVersion(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DesiredVersion", reflect.TypeOf((*MockUpgraderClient)(nil).DesiredVersion), arg0)
-}
-
 // SetVersion mocks base method
 func (m *MockUpgraderClient) SetVersion(arg0 string, arg1 version.Binary) error {
 	m.ctrl.T.Helper()
@@ -61,19 +45,4 @@ func (m *MockUpgraderClient) SetVersion(arg0 string, arg1 version.Binary) error 
 func (mr *MockUpgraderClientMockRecorder) SetVersion(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetVersion", reflect.TypeOf((*MockUpgraderClient)(nil).SetVersion), arg0, arg1)
-}
-
-// WatchAPIVersion mocks base method
-func (m *MockUpgraderClient) WatchAPIVersion(arg0 string) (watcher.NotifyWatcher, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchAPIVersion", arg0)
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchAPIVersion indicates an expected call of WatchAPIVersion
-func (mr *MockUpgraderClientMockRecorder) WatchAPIVersion(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchAPIVersion", reflect.TypeOf((*MockUpgraderClient)(nil).WatchAPIVersion), arg0)
 }

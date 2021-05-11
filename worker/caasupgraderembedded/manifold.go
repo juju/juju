@@ -5,7 +5,6 @@ package caasupgraderembedded
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 
@@ -21,8 +20,6 @@ type ManifoldConfig struct {
 	APICallerName        string
 	UpgradeStepsGateName string
 
-	PreviousAgentVersion version.Number
-
 	NewClient func(base.APICaller) UpgraderClient
 	Logger    Logger
 }
@@ -37,9 +34,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.UpgradeStepsGateName == "" {
 		return errors.NotValidf("empty UpgradeStepsGateName")
-	}
-	if config.PreviousAgentVersion == version.Zero {
-		return errors.NotValidf("previous agent version not specified")
 	}
 	if config.NewClient == nil {
 		return errors.NotValidf("nil NewClient")
@@ -80,7 +74,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	return NewUpgrader(Config{
 		UpgraderClient:     upgraderFacade,
 		AgentTag:           currentConfig.Tag(),
-		OrigAgentVersion:   config.PreviousAgentVersion,
 		UpgradeStepsWaiter: upgradeStepsWaiter,
 		Logger:             config.Logger,
 	})

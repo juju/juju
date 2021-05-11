@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v2/voyeur"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -82,10 +81,6 @@ type manifoldsConfig struct {
 	// UpdateLoggerConfig is a function that will save the specified
 	// config value as the logging config in the agent.conf file.
 	UpdateLoggerConfig func(string) error
-
-	// PreviousAgentVersion passes through the version the unit
-	// agent was running before the current restart.
-	PreviousAgentVersion version.Number
 
 	// ProbePort describes the http port to operator on for receiving agent
 	// probe requests.
@@ -160,7 +155,6 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
-			PreviousAgentVersion: config.PreviousAgentVersion,
 			Logger:               loggo.GetLogger("juju.worker.caasupgraderembedded"),
 			NewClient: func(caller base.APICaller) caasupgraderembedded.UpgraderClient {
 				return upgrader.NewState(caller)

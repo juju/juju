@@ -35,7 +35,6 @@ type Upgrader struct {
 type Config struct {
 	UpgraderClient     UpgraderClient
 	AgentTag           names.Tag
-	OrigAgentVersion   version.Number
 	UpgradeStepsWaiter gate.Waiter
 
 	Logger Logger
@@ -94,13 +93,7 @@ func (u *Upgrader) loop() error {
 		return errors.Annotate(err, "cannot set agent version")
 	}
 
-	u.config.Logger.Tracef("containeragent upgrade not implemented yet")
-	for {
-		select {
-		case <-u.catacomb.Dying():
-			return u.catacomb.ErrDying()
-		}
-	}
+	return nil
 }
 
 func toBinaryVersion(vers version.Number, osType string) version.Binary {

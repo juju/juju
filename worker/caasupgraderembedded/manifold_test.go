@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2/dependency"
 	dt "github.com/juju/worker/v2/dependency/testing"
 	"github.com/juju/worker/v2/workertest"
@@ -31,8 +30,7 @@ type manifoldSuite struct {
 	client    *mocks.MockUpgraderClient
 	agent     *mocks.MockAgent
 
-	previousAgentVersion version.Number
-	agentName            string
+	agentName string
 
 	ctrl *gomock.Controller
 }
@@ -44,10 +42,6 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	s.ResetCalls()
 
 	s.agentName = names.NewUnitTag("snappass/0").Id()
-
-	var err error
-	s.previousAgentVersion, err = version.Parse("2.9.0")
-	c.Assert(err, jc.ErrorIsNil)
 
 	s.ctrl = gomock.NewController(c)
 	s.apiCaller = mocks.NewMockAPICaller(s.ctrl)
@@ -63,7 +57,6 @@ func (s *manifoldSuite) validConfig() caasupgraderembedded.ManifoldConfig {
 		AgentName:            s.agentName,
 		APICallerName:        "api-caller",
 		UpgradeStepsGateName: "upgrade-steps-gate",
-		PreviousAgentVersion: s.previousAgentVersion,
 		NewClient:            s.newClient,
 		Logger:               loggo.GetLogger("test"),
 	}
@@ -102,11 +95,7 @@ func (s *manifoldSuite) TestMissingUpgradeStepsGateName(c *gc.C) {
 	config.UpgradeStepsGateName = ""
 	s.checkConfigInvalid(c, config, "empty UpgradeStepsGateName not valid")
 }
-func (s *manifoldSuite) TestMissingPreviousAgentVersion(c *gc.C) {
-	config := s.validConfig()
-	config.PreviousAgentVersion = version.Zero
-	s.checkConfigInvalid(c, config, "previous agent version not specified not valid")
-}
+
 func (s *manifoldSuite) TestMissingNewClient(c *gc.C) {
 	config := s.validConfig()
 	config.NewClient = nil
