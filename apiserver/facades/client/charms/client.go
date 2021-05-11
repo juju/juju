@@ -511,7 +511,7 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 	}
 
 	// Validate the origin passed in.
-	if err := validateOrigin(arg.Origin, curl.Schema); err != nil {
+	if err := validateOrigin(arg.Origin, curl.Schema, arg.SwitchCharm); err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
@@ -564,12 +564,18 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 	return result
 }
 
-func validateOrigin(origin params.CharmOrigin, schema string) error {
-	if (corecharm.Local.Matches(origin.Source) && !charm.Local.Matches(schema)) ||
-		(corecharm.CharmStore.Matches(origin.Source) && !charm.CharmStore.Matches(schema)) ||
-		(corecharm.CharmHub.Matches(origin.Source) && !charm.CharmHub.Matches(schema)) {
-		return errors.NotValidf("origin source %q with schema", origin.Source)
+func validateOrigin(origin params.CharmOrigin, schema string, switchCharm bool) error {
+	// If we are switching to a different charm we can skip the following
+	// origin check; doing so allows us to switch from a charmstore charm
+	// to the equivalent charmhub charm.
+	if !switchCharm {
+		if (corecharm.Local.Matches(origin.Source) && !charm.Local.Matches(schema)) ||
+			(corecharm.CharmStore.Matches(origin.Source) && !charm.CharmStore.Matches(schema)) ||
+			(corecharm.CharmHub.Matches(origin.Source) && !charm.CharmHub.Matches(schema)) {
+			return errors.NotValidf("origin source %q with schema", origin.Source)
+		}
 	}
+
 	if corecharm.CharmHub.Matches(origin.Source) && origin.Architecture == "" {
 		return errors.NotValidf("empty architecture")
 	}
