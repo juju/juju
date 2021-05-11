@@ -57,7 +57,7 @@ run_resource_attach_large() {
 	# .txt suffix required for attach.
 	FILE=$(mktemp /tmp/resource-XXXXX.txt)
 	# Use urandom to add alpha numeric characters with new lines added to the file
-	dd if=/dev/urandom bs=1048576 count=100 2>/dev/null | base64 > "${FILE}"
+	dd if=/dev/urandom bs=1048576 count=100 2>/dev/null | base64 >"${FILE}"
 	line=$(head -n 1 "${FILE}")
 	juju attach juju-qa-test foo-file="${FILE}"
 
