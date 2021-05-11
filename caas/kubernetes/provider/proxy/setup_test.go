@@ -69,7 +69,7 @@ func (s *setupSuite) TestProxyObjCreation(c *gc.C) {
 	c.Assert(role.Rules[1].Resources, jc.DeepEquals, []string{"services"})
 	c.Assert(role.Rules[1].Verbs, jc.DeepEquals, []string{"get"})
 	c.Assert(role.Rules[2].Resources, jc.DeepEquals, []string{"pods/portforward"})
-	c.Assert(role.Rules[2].Verbs, jc.DeepEquals, []string{"create"})
+	c.Assert(role.Rules[2].Verbs, jc.DeepEquals, []string{"create", "get"})
 
 	sa, err := s.client.CoreV1().ServiceAccounts(testNamespace).Get(
 		context.TODO(),
