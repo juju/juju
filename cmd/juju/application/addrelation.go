@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
+	corerelation "github.com/juju/juju/core/relation"
 )
 
 const addRelationDoc = `
@@ -191,6 +192,7 @@ type addRelationCommand struct {
 	viaCIDRs          []string
 	viaValue          string
 	remoteEndpoint    *crossmodel.OfferURL
+	statusAPI         statusAPI
 	addRelationAPI    applicationAddRelationAPI
 	consumeDetailsAPI applicationConsumeDetailsAPI
 }
@@ -226,6 +228,10 @@ func (c *addRelationCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.viaValue, "via", "", "for cross model relations, specify the egress subnets for outbound traffic")
 }
 
+type statusAPI interface {
+	Status(pattern []string) (*params.FullStatus, error)
+}
+
 // applicationAddRelationAPI defines the API methods that application add relation command uses.
 type applicationAddRelationAPI interface {
 	Close() error
@@ -258,9 +264,17 @@ func (c *addRelationCommand) getOffersAPI(url *crossmodel.OfferURL) (application
 	return applicationoffers.NewClient(root), nil
 }
 
+func (c *addRelationCommand) getStatusAPI() (statusAPI, error) {
+	if c.statusAPI != nil {
+		return c.statusAPI, nil
+	}
+
+	return c.NewAPIClient()
+}
+
 // offerTerminatedRegexp is used to parse an error due to the remote offer being terminated.
 // (TODO) we don't have an error code for this scenario so need to rely on a string match.
-var offerTerminatedRegexp = regexp.MustCompile(".*offer (?P<offer>\\S+) .*terminated.*")
+var offerTerminatedRegexp = regexp.MustCompile(`.*offer (?P<offer>\\S+) .*terminated.*`)
 
 func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAddRelationAPI()
@@ -292,10 +306,10 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 		common.PermissionsMessage(ctx.Stderr, "add a relation")
 	}
 	if params.IsCodeAlreadyExists(err) {
-		// It's not a real error, mention about it, log it and move along
-		logger.Infof("%s", err)
-		ctx.Infof("%s", err)
-		err = nil
+		if errored, _ := c.endpointRelationsInError(c.endpoints); errored {
+			return errors.Annotatef(err, `One of the relations is in an error state, use 'juju status --relations' to check the status.`)
+		}
+		return errors.Trace(err)
 	}
 	if err != nil && offerTerminatedRegexp.MatchString(err.Error()) {
 		offerName := offerTerminatedRegexp.ReplaceAllString(err.Error(), "$offer")
@@ -305,6 +319,40 @@ To relate to a new offer with the same name, first run
 'juju remove-saas %s' to remove the SAAS record from this model.`, offerName, offerName))
 	}
 	return block.ProcessBlockedError(err, block.BlockChange)
+}
+
+func (c *addRelationCommand) endpointRelationsInError(endpoints []string) (bool, error) {
+	status, err := c.getStatusAPI()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	fullStatus, err := status.Status(nil)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	for _, relation := range fullStatus.Relations {
+		if relation.Status.Status != corerelation.Error.String() {
+			continue
+		}
+
+		relParts := strings.Split(relation.Key, ":")
+		if len(relParts) == 0 {
+			continue
+		}
+
+		for _, endpoint := range endpoints {
+			epParts := strings.Split(endpoint, ":")
+			if len(epParts) == 0 {
+				continue
+			}
+
+			if relParts[0] == epParts[0] {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }
 
 func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelationAPI) error {
