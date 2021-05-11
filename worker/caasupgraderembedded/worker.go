@@ -99,7 +99,6 @@ func (u *Upgrader) loop() error {
 		select {
 		case <-u.catacomb.Dying():
 			return u.catacomb.ErrDying()
-			// TODO(embedded): implement containeragent upgrade.
 		}
 	}
 }

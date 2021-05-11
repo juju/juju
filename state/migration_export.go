@@ -1050,7 +1050,8 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 					Size:    tools.Size,
 				})
 			}
-		} else {
+		}
+		if e.dbModel.Type() == ModelTypeCAAS {
 			// TODO(caas) - Actually use the exported cloud container details and status history.
 			// Currently these are only grabbed to make the MigrationExportSuite tests happy.
 			globalCCKey := unit.globalCloudContainerKey()

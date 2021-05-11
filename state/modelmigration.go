@@ -547,12 +547,15 @@ func (mig *modelMigration) minionReportId(phase migration.Phase, globalKey strin
 }
 
 func (mig *modelMigration) getAllAgents() (names.Set, error) {
+	agentTags := names.NewSet()
+
 	machineTags, err := mig.loadAgentTags(machinesC, "machineid",
 		func(id string) names.Tag { return names.NewMachineTag(id) },
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "loading machine tags")
 	}
+	agentTags.Union(machineTags)
 
 	m, err := mig.st.Model()
 	if err != nil {
@@ -566,7 +569,7 @@ func (mig *modelMigration) getAllAgents() (names.Set, error) {
 			return nil, errors.Annotate(err, "loading unit names")
 		}
 
-		return machineTags.Union(unitTags), nil
+		return agentTags.Union(unitTags), nil
 	}
 
 	applicationTags, err := mig.loadAgentTags(applicationsC, "name",
@@ -585,7 +588,7 @@ func (mig *modelMigration) getAllAgents() (names.Set, error) {
 			return nil, errors.Trace(err)
 		}
 		if !isEmbedded {
-			machineTags.Add(applicationTag)
+			agentTags.Add(applicationTag)
 			continue
 		}
 		unitNames, err := app.UnitNames()
@@ -593,10 +596,10 @@ func (mig *modelMigration) getAllAgents() (names.Set, error) {
 			return nil, errors.Trace(err)
 		}
 		for _, unitName := range unitNames {
-			machineTags.Add(names.NewUnitTag(unitName))
+			agentTags.Add(names.NewUnitTag(unitName))
 		}
 	}
-	return machineTags, nil
+	return agentTags, nil
 }
 
 func (mig *modelMigration) loadAgentTags(collName, fieldName string, convert func(string) names.Tag) (
