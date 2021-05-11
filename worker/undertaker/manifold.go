@@ -4,6 +4,7 @@
 package undertaker
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
@@ -21,6 +22,7 @@ type ManifoldConfig struct {
 	CloudDestroyerName string
 
 	Logger                       Logger
+	Clock                        clock.Clock
 	NewFacade                    func(base.APICaller) (Facade, error)
 	NewWorker                    func(Config) (worker.Worker, error)
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
@@ -57,6 +59,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Destroyer:     destroyer,
 		CredentialAPI: credentialAPI,
 		Logger:        config.Logger,
+		Clock:         config.Clock,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

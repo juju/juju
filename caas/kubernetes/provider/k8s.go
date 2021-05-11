@@ -481,6 +481,10 @@ func (*kubernetesClient) Provider() caas.ContainerEnvironProvider {
 // Destroy is part of the Broker interface.
 func (k *kubernetesClient) Destroy(ctx envcontext.ProviderCallContext) (err error) {
 	defer func() {
+		if errors.Cause(err) == context.DeadlineExceeded {
+			logger.Warningf("destroy k8s model timeout")
+			return
+		}
 		if err != nil && k8serrors.ReasonForError(err) == v1.StatusReasonUnknown {
 			logger.Warningf("k8s cluster is not accessible: %v", err)
 			err = nil

@@ -44,7 +44,7 @@ func (s *destroyModelSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *destroyModelSuite) TestDestroyModelSendsMetrics(c *gc.C) {
-	err := common.DestroyModel(s.modelManager, nil, nil, nil)
+	err := common.DestroyModel(s.modelManager, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.metricSender.CheckCalls(c, []jtesting.StubCall{
 		{"SendMetrics", []interface{}{s.modelManager}},
@@ -55,28 +55,30 @@ func (s *destroyModelSuite) TestDestroyModel(c *gc.C) {
 	true_ := true
 	false_ := false
 	zero := time.Second * 0
-	s.testDestroyModel(c, nil, nil, nil)
-	s.testDestroyModel(c, nil, &false_, nil)
-	s.testDestroyModel(c, nil, &false_, &zero)
-	s.testDestroyModel(c, nil, &true_, nil)
-	s.testDestroyModel(c, nil, &true_, &zero)
-	s.testDestroyModel(c, &true_, nil, nil)
-	s.testDestroyModel(c, &true_, &false_, nil)
-	s.testDestroyModel(c, &true_, &false_, &zero)
-	s.testDestroyModel(c, &true_, &true_, nil)
-	s.testDestroyModel(c, &true_, &true_, &zero)
-	s.testDestroyModel(c, &false_, nil, nil)
-	s.testDestroyModel(c, &false_, &false_, nil)
-	s.testDestroyModel(c, &false_, &false_, &zero)
-	s.testDestroyModel(c, &false_, &true_, nil)
-	s.testDestroyModel(c, &false_, &true_, &zero)
+	one := time.Second
+	s.testDestroyModel(c, nil, nil, nil, nil)
+	s.testDestroyModel(c, nil, &false_, nil, nil)
+	s.testDestroyModel(c, nil, &false_, &zero, nil)
+	s.testDestroyModel(c, nil, &true_, nil, nil)
+	s.testDestroyModel(c, nil, &true_, &zero, nil)
+	s.testDestroyModel(c, &true_, nil, nil, nil)
+	s.testDestroyModel(c, &true_, &false_, nil, nil)
+	s.testDestroyModel(c, &true_, &false_, &zero, nil)
+	s.testDestroyModel(c, &true_, &true_, nil, nil)
+	s.testDestroyModel(c, &true_, &true_, &zero, nil)
+	s.testDestroyModel(c, &false_, nil, nil, nil)
+	s.testDestroyModel(c, &false_, &false_, nil, nil)
+	s.testDestroyModel(c, &false_, &false_, &zero, nil)
+	s.testDestroyModel(c, &false_, &true_, nil, nil)
+	s.testDestroyModel(c, &false_, &true_, &zero, nil)
+	s.testDestroyModel(c, &false_, &true_, &zero, &one)
 }
 
-func (s *destroyModelSuite) testDestroyModel(c *gc.C, destroyStorage, force *bool, maxWait *time.Duration) {
+func (s *destroyModelSuite) testDestroyModel(c *gc.C, destroyStorage, force *bool, maxWait, timeout *time.Duration) {
 	s.modelManager.ResetCalls()
 	s.modelManager.models[0].ResetCalls()
 
-	err := common.DestroyModel(s.modelManager, destroyStorage, force, maxWait)
+	err := common.DestroyModel(s.modelManager, destroyStorage, force, maxWait, timeout)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCalls(c, []jtesting.StubCall{
@@ -90,6 +92,7 @@ func (s *destroyModelSuite) testDestroyModel(c *gc.C, destroyStorage, force *boo
 		DestroyStorage: destroyStorage,
 		Force:          force,
 		MaxWait:        common.MaxWait(maxWait),
+		Timeout:        timeout,
 	}}}}
 	notForcing := force == nil || !*force
 	if notForcing {
@@ -102,7 +105,7 @@ func (s *destroyModelSuite) testDestroyModel(c *gc.C, destroyStorage, force *boo
 func (s *destroyModelSuite) TestDestroyModelBlocked(c *gc.C) {
 	s.modelManager.SetErrors(errors.New("nope"))
 
-	err := common.DestroyModel(s.modelManager, nil, nil, nil)
+	err := common.DestroyModel(s.modelManager, nil, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "nope")
 
 	s.modelManager.CheckCallNames(c, "GetBlockForType")
@@ -115,7 +118,7 @@ func (s *destroyModelSuite) TestDestroyModelIgnoresErrorsWithForce(c *gc.C) {
 	)
 
 	true_ := true
-	err := common.DestroyModel(s.modelManager, nil, &true_, nil)
+	err := common.DestroyModel(s.modelManager, nil, &true_, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCallNames(c, "GetBlockForType", "GetBlockForType", "GetBlockForType", "Model")
@@ -127,7 +130,7 @@ func (s *destroyModelSuite) TestDestroyModelNotIgnoreErrorsrWithForce(c *gc.C) {
 		stateerrors.NewHasPersistentStorageError(),
 	)
 	true_ := true
-	err := common.DestroyModel(s.modelManager, nil, &true_, nil)
+	err := common.DestroyModel(s.modelManager, nil, &true_, nil, nil)
 	c.Assert(err, jc.Satisfies, state.IsHasPersistentStorageError)
 
 	s.modelManager.CheckCallNames(c, "GetBlockForType", "GetBlockForType", "GetBlockForType", "Model")
@@ -243,14 +246,14 @@ func (s *destroyModelSuite) TestDestroyControllerModelErrs(c *gc.C) {
 func (s *destroyModelSuite) TestDestroyModelWithInvalidCredentialWithoutForce(c *gc.C) {
 	s.modelManager.models[0].currentStatus = status.StatusInfo{Status: status.Suspended}
 
-	err := common.DestroyModel(s.modelManager, nil, nil, nil)
+	err := common.DestroyModel(s.modelManager, nil, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "invalid cloud credential, use --force")
 }
 
 func (s *destroyModelSuite) TestDestroyModelWithInvalidCredentialWithForce(c *gc.C) {
 	s.modelManager.models[0].currentStatus = status.StatusInfo{Status: status.Suspended}
 	true_ := true
-	s.testDestroyModel(c, nil, &true_, nil)
+	s.testDestroyModel(c, nil, &true_, nil, nil)
 }
 
 type testMetricSender struct {
