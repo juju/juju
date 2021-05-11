@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/network"
+	jujuproxy "github.com/juju/juju/proxy"
 	"github.com/juju/juju/rpc/jsoncodec"
 )
 
@@ -73,6 +74,7 @@ type TestingStateParams struct {
 	RPCConnection  RPCConnection
 	Clock          clock.Clock
 	Broken, Closed chan struct{}
+	Proxier        jujuproxy.Proxier
 }
 
 // NewTestingState creates an api.State object that can be used for testing. It
@@ -98,6 +100,7 @@ func NewTestingState(params TestingStateParams) Connection {
 		serverRootAddress: params.ServerRoot,
 		broken:            params.Broken,
 		closed:            params.Closed,
+		proxier:           params.Proxier,
 	}
 	return st
 }
