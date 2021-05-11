@@ -1,0 +1,10 @@
+applications:
+    ubuntu:
+        charm: ubuntu
+        scale: 1
+
+---
+
+applications:
+    ubuntu:
+        scale: 2
