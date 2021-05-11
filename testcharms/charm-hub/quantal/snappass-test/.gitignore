@@ -1,7 +1,0 @@
-*~
-*.charm
-.tox
-.coverage
-__pycache__
-build
-.pgimg.tar
