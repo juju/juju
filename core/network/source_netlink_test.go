@@ -8,11 +8,10 @@ package network
 import (
 	"net"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 	gc "gopkg.in/check.v1"
 )
 
