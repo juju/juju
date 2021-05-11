@@ -166,7 +166,7 @@ func (c *destroyCommand) Init(args []string) error {
 	if c.destroyStorage && c.releaseStorage {
 		return errors.New("--destroy-storage and --release-storage cannot both be specified")
 	}
-	if c.timeout <= 0 {
+	if c.timeout < 0 {
 		return errors.New("timeout must be zero or greater")
 	}
 

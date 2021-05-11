@@ -4,6 +4,7 @@
 package application
 
 import (
+	"fmt"
 	"net"
 	"regexp"
 	"strings"
@@ -257,6 +258,10 @@ func (c *addRelationCommand) getOffersAPI(url *crossmodel.OfferURL) (application
 	return applicationoffers.NewClient(root), nil
 }
 
+// offerTerminatedRegexp is used to parse an error due to the remote offer being terminated.
+// (TODO) we don't have an error code for this scenario so need to rely on a string match.
+var offerTerminatedRegexp = regexp.MustCompile(".*offer (?P<offer>\\S+) .*terminated.*")
+
 func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAddRelationAPI()
 	if err != nil {
@@ -291,6 +296,13 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 		logger.Infof("%s", err)
 		ctx.Infof("%s", err)
 		err = nil
+	}
+	if err != nil && offerTerminatedRegexp.MatchString(err.Error()) {
+		offerName := offerTerminatedRegexp.ReplaceAllString(err.Error(), "$offer")
+		return errors.New(fmt.Sprintf(
+			`Offer %q has been removed from the remote model.
+To relate to a new offer with the same name, first run
+'juju remove-saas %s' to remove the SAAS record from this model.`, offerName, offerName))
 	}
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
