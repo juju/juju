@@ -12,6 +12,20 @@ run_deploy_bundle() {
 	destroy_model "test-bundles-deploy"
 }
 
+run_deploy_bundle_overlay() {
+	echo
+
+	file="${TEST_DIR}/test-bundles-deploy-overlay.log"
+
+	ensure "test-bundles-deploy-overlay" "${file}"
+
+	bundle=./tests/suites/deploy/bundles/overlay_bundle.yaml
+	juju deploy ${bundle}
+
+	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 0)"
+	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 1)"
+}
+
 run_deploy_cmr_bundle() {
 	echo
 
@@ -173,6 +187,7 @@ test_deploy_bundles() {
 		cd .. || exit
 
 		run "run_deploy_bundle"
+		run "run_deploy_bundle_overlay"
 		run "run_deploy_cmr_bundle"
 		run "run_deploy_exported_bundle"
 		run "run_deploy_trusted_bundle"

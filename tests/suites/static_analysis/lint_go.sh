@@ -13,6 +13,7 @@ run_go_tidy() {
 	go mod tidy 2>&1
 	NEW_SHA=$(cat go.sum | shasum -a 1 | awk '{ print $1 }')
 	if [ "${CUR_SHA}" != "${NEW_SHA}" ]; then
+		git diff >&2
 		(echo >&2 -e "\\nError: go mod sum is out of sync. Run 'go mod tidy' and commit source.")
 		exit 1
 	fi

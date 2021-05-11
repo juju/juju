@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -16,6 +17,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.action")
 
 // EnqueueOperation isn't on the V5 API.
 func (*APIv5) EnqueueOperation(_, _ struct{}) {}
@@ -119,7 +122,8 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 		// If we failed to enqueue the action, record the error on the operation.
 		if !errorRecorded {
 			errorRecorded = true
-			err = a.model.FailOperation(operationID, actionErr)
+			err := a.model.FailOperation(operationID, actionErr)
+			logger.Errorf("unable to log the error on the operation: %v", err)
 		}
 		currentResult.Error = apiservererrors.ServerError(actionErr)
 	}
