@@ -6,6 +6,7 @@ package application
 import (
 	"regexp"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jtesting "github.com/juju/testing"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
+	corerelation "github.com/juju/juju/core/relation"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
 )
@@ -109,6 +111,50 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationTerminated(c *gc.C) {
 Offer "applicationname" has been removed from the remote model.
 To relate to a new offer with the same name, first run
 'juju remove-saas applicationname' to remove the SAAS record from this model.`[1:])
+}
+
+func (s *AddRemoteRelationSuiteNewAPI) TestAddReleationAlreadyExistsWithoutError(c *gc.C) {
+	msg := `cannot add relation "applicationname2:juju-info applicationname:juju-info": relation applicationname2:juju-info applicationname:juju-info`
+	s.mockAPI.addRelation = func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
+		return nil, params.Error{
+			Message: msg,
+			Code:    params.CodeAlreadyExists,
+		}
+	}
+
+	err := s.runAddRelation(c, "applicationname2", "applicationname")
+	c.Assert(err, gc.ErrorMatches, msg)
+}
+
+func (s *AddRemoteRelationSuiteNewAPI) TestAddReleationAlreadyExistsWithError(c *gc.C) {
+	msg := `cannot add relation "applicationname2:juju-info applicationname:juju-info": relation applicationname2:juju-info applicationname:juju-info`
+	s.mockAPI.addRelation = func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
+		return nil, params.Error{
+			Message: msg,
+			Code:    params.CodeAlreadyExists,
+		}
+	}
+	s.mockAPI.status = func() (*params.FullStatus, error) {
+		return &params.FullStatus{
+			Relations: []params.RelationStatus{
+				{
+					Key: "applicationname2:juju-info",
+					Status: params.DetailedStatus{
+						Status: corerelation.Error.String(),
+					},
+				},
+			},
+		}, nil
+	}
+
+	err := s.runAddRelation(c, "applicationname2", "applicationname")
+	c.Assert(err, gc.ErrorMatches, `
+cannot add relation "applicationname2:juju-info applicationname:juju-info"
+relation applicationname2:juju-info applicationname:juju-info
+
+Relations for "applicationname2" are in an error state. Use 'juju status --relations' to
+check the status or 'juju remove-relation --force' to remove the relation
+completely and then try again.`[1:])
 }
 
 func (s *AddRemoteRelationSuiteNewAPI) TestAddedRelationVia(c *gc.C) {
@@ -212,6 +258,9 @@ func (s *baseAddRemoteRelationSuite) SetUpTest(c *gc.C) {
 		addRelation: func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
 			return nil, nil
 		},
+		status: func() (*params.FullStatus, error) {
+			return &params.FullStatus{}, nil
+		},
 		mac: s.mac,
 	}
 }
@@ -222,6 +271,7 @@ func (s *baseAddRemoteRelationSuite) TearDownTest(c *gc.C) {
 
 func (s *baseAddRemoteRelationSuite) runAddRelation(c *gc.C, args ...string) error {
 	addRelationCmd := &addRelationCommand{}
+	addRelationCmd.statusAPI = s.mockAPI
 	addRelationCmd.addRelationAPI = s.mockAPI
 	addRelationCmd.consumeDetailsAPI = s.mockAPI
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(addRelationCmd), args...)
@@ -237,10 +287,15 @@ func (s *baseAddRemoteRelationSuite) assertFailAddRelationTwoRemoteApplications(
 type mockAddRelationAPI struct {
 	jtesting.Stub
 
-	// addRelation can be defined by tests to test different add-relation outcomes.
+	// addRelation can be defined by tests to test different add-relation
+	// outcomes.
 	addRelation func(endpoints, viaCidrs []string) (*params.AddRelationResults, error)
 
-	// version can be overwritten by tests interested in different behaviour based on client version.
+	// status can be defined by tests to test different add-relation outcomes.
+	status func() (*params.FullStatus, error)
+
+	// version can be overwritten by tests interested in different behaviour
+	// based on client version.
 	version int
 
 	mac *macaroon.Macaroon
@@ -281,4 +336,157 @@ func (m *mockAddRelationAPI) GetConsumeDetails(url string) (params.ConsumeOfferD
 			CACert:        testing.CACert,
 		},
 	}, nil
+}
+
+func (m *mockAddRelationAPI) Status(patterns []string) (*params.FullStatus, error) {
+	m.AddCall("Status", patterns)
+	return m.status()
+}
+
+type EndpointRelationErrorSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&EndpointRelationErrorSuite{})
+
+func (s *EndpointRelationErrorSuite) TestNoEndpoints(c *gc.C) {
+	cmd := addRelationCommand{}
+	relations, err := cmd.endpointRelationsInError(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relations, gc.IsNil)
+}
+
+func (s *EndpointRelationErrorSuite) TestNoStatus(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mock := NewMockStatusAPI(ctrl)
+	mock.EXPECT().Status(nil).Return(&params.FullStatus{}, nil)
+
+	cmd := addRelationCommand{
+		statusAPI: mock,
+	}
+	relations, err := cmd.endpointRelationsInError([]string{"app1", "app2"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relations, gc.DeepEquals, []string{})
+}
+
+func (s *EndpointRelationErrorSuite) TestStatusWithRelationsWithoutError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mock := NewMockStatusAPI(ctrl)
+	mock.EXPECT().Status(nil).Return(&params.FullStatus{
+		Relations: []params.RelationStatus{
+			{
+				Key: "app1:juju-info",
+				Status: params.DetailedStatus{
+					Status: corerelation.Joined.String(),
+				},
+			},
+		},
+	}, nil)
+
+	cmd := addRelationCommand{
+		statusAPI: mock,
+	}
+	relations, err := cmd.endpointRelationsInError([]string{"app1", "app2"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relations, gc.DeepEquals, []string{})
+}
+
+func (s *EndpointRelationErrorSuite) TestStatusWithRelationsWithError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mock := NewMockStatusAPI(ctrl)
+	mock.EXPECT().Status(nil).Return(&params.FullStatus{
+		Relations: []params.RelationStatus{
+			{
+				Key: "app1:juju-info",
+				Status: params.DetailedStatus{
+					Status: corerelation.Error.String(),
+				},
+			},
+		},
+	}, nil)
+
+	cmd := addRelationCommand{
+		statusAPI: mock,
+	}
+	relations, err := cmd.endpointRelationsInError([]string{"app1", "app2"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relations, gc.DeepEquals, []string{"app1"})
+}
+
+func (s *EndpointRelationErrorSuite) TestStatusWithRelationsWithErrorDuplicates(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mock := NewMockStatusAPI(ctrl)
+	mock.EXPECT().Status(nil).Return(&params.FullStatus{
+		Relations: []params.RelationStatus{
+			{
+				Key: "app1:juju-info",
+				Status: params.DetailedStatus{
+					Status: corerelation.Error.String(),
+				},
+			},
+			{
+				Key: "app1:db",
+				Status: params.DetailedStatus{
+					Status: corerelation.Error.String(),
+				},
+			},
+			{
+				Key: "app1:admin",
+				Status: params.DetailedStatus{
+					Status: corerelation.Joined.String(),
+				},
+			},
+			{
+				Key: "app2:admin",
+				Status: params.DetailedStatus{
+					Status: corerelation.Joined.String(),
+				},
+			},
+		},
+	}, nil)
+
+	cmd := addRelationCommand{
+		statusAPI: mock,
+	}
+	relations, err := cmd.endpointRelationsInError([]string{"app1", "app2"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relations, gc.DeepEquals, []string{"app1"})
+}
+
+func (s *EndpointRelationErrorSuite) TestStatusWithRelationsWithMultipleErrors(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mock := NewMockStatusAPI(ctrl)
+	mock.EXPECT().Status(nil).Return(&params.FullStatus{
+		Relations: []params.RelationStatus{
+			{
+				Key: "app1:juju-info",
+				Status: params.DetailedStatus{
+					Status: corerelation.Error.String(),
+				},
+			},
+			{
+				Key: "app2:admin",
+				Status: params.DetailedStatus{
+					Status: corerelation.Error.String(),
+				},
+			},
+		},
+	}, nil)
+
+	cmd := addRelationCommand{
+		statusAPI: mock,
+	}
+	relations, err := cmd.endpointRelationsInError([]string{"app1", "app2"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relations, gc.DeepEquals, []string{"app1", "app2"})
 }

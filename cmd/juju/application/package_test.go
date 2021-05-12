@@ -12,6 +12,8 @@ import (
 
 // TODO(wallyworld) - convert tests moved across from commands package to not require mongo
 
+//go:generate go run github.com/golang/mock/mockgen -package application -destination status_mock_test.go github.com/juju/juju/cmd/juju/application StatusAPI
+
 func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }

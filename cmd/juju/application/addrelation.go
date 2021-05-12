@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -192,7 +193,7 @@ type addRelationCommand struct {
 	viaCIDRs          []string
 	viaValue          string
 	remoteEndpoint    *crossmodel.OfferURL
-	statusAPI         statusAPI
+	statusAPI         StatusAPI
 	addRelationAPI    applicationAddRelationAPI
 	consumeDetailsAPI applicationConsumeDetailsAPI
 }
@@ -228,7 +229,7 @@ func (c *addRelationCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.viaValue, "via", "", "for cross model relations, specify the egress subnets for outbound traffic")
 }
 
-type statusAPI interface {
+type StatusAPI interface {
 	Status(pattern []string) (*params.FullStatus, error)
 }
 
@@ -264,7 +265,7 @@ func (c *addRelationCommand) getOffersAPI(url *crossmodel.OfferURL) (application
 	return applicationoffers.NewClient(root), nil
 }
 
-func (c *addRelationCommand) getStatusAPI() (statusAPI, error) {
+func (c *addRelationCommand) getStatusAPI() (StatusAPI, error) {
 	if c.statusAPI != nil {
 		return c.statusAPI, nil
 	}
@@ -274,7 +275,7 @@ func (c *addRelationCommand) getStatusAPI() (statusAPI, error) {
 
 // offerTerminatedRegexp is used to parse an error due to the remote offer being terminated.
 // (TODO) we don't have an error code for this scenario so need to rely on a string match.
-var offerTerminatedRegexp = regexp.MustCompile(`.*offer (?P<offer>\\S+) .*terminated.*`)
+var offerTerminatedRegexp = regexp.MustCompile(`.*offer (?P<offer>\S+) .*terminated.*`)
 
 func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAddRelationAPI()
@@ -306,8 +307,17 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 		common.PermissionsMessage(ctx.Stderr, "add a relation")
 	}
 	if params.IsCodeAlreadyExists(err) {
-		if errored, _ := c.endpointRelationsInError(c.endpoints); errored {
-			return errors.Annotatef(err, `One of the relations is in an error state, use 'juju status --relations' to check the status.`)
+		// Ignore the returning error here, as this aims to improve the error
+		// message. We don't want to compound the user with more error messages
+		// which don't relate to the original error.
+		if relations, _ := c.endpointRelationsInError(c.endpoints); len(relations) > 0 {
+			splitError := strings.Join(strings.Split(err.Error(), ": "), "\n")
+			return errors.Errorf(`%v
+
+Relations for %q are in an error state. Use 'juju status --relations' to
+check the status or 'juju remove-relation --force' to remove the relation
+completely and then try again.`,
+				splitError, strings.Join(relations, ", "))
 		}
 		return errors.Trace(err)
 	}
@@ -321,15 +331,30 @@ To relate to a new offer with the same name, first run
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
-func (c *addRelationCommand) endpointRelationsInError(endpoints []string) (bool, error) {
+func (c *addRelationCommand) endpointRelationsInError(endpoints []string) ([]string, error) {
+	if len(endpoints) != 2 {
+		return nil, nil
+	}
+
 	status, err := c.getStatusAPI()
 	if err != nil {
-		return false, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	fullStatus, err := status.Status(nil)
 	if err != nil {
-		return false, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
+
+	appNames := set.NewStrings()
+	for _, endpoint := range endpoints {
+		parts := strings.Split(endpoint, ":")
+		if len(parts) == 0 {
+			continue
+		}
+		appNames.Add(parts[0])
+	}
+
+	errors := set.NewStrings()
 	for _, relation := range fullStatus.Relations {
 		if relation.Status.Status != corerelation.Error.String() {
 			continue
@@ -340,19 +365,12 @@ func (c *addRelationCommand) endpointRelationsInError(endpoints []string) (bool,
 			continue
 		}
 
-		for _, endpoint := range endpoints {
-			epParts := strings.Split(endpoint, ":")
-			if len(epParts) == 0 {
-				continue
-			}
-
-			if relParts[0] == epParts[0] {
-				return true, nil
-			}
+		if appNames.Contains(relParts[0]) {
+			errors.Add(relParts[0])
 		}
 	}
 
-	return false, nil
+	return errors.SortedValues(), nil
 }
 
 func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelationAPI) error {
