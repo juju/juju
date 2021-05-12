@@ -21,7 +21,7 @@ jobs:
         echo "/snap/bin" >> $GITHUB_PATH
 
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v2.3.4
 
     - name: Build snap
       shell: bash

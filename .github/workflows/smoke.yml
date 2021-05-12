@@ -22,7 +22,7 @@ jobs:
         lxc network set lxdbr0 ipv6.address none
 
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v2.3.4
 
     - name: Build snap
       shell: bash
@@ -90,7 +90,7 @@ jobs:
 
     - name: Checkout
       if: env.RUN_TEST == 'RUN'
-      uses: actions/checkout@v2
+      uses: actions/checkout@v2.3.4
 
     - name: Build snap
       if: env.RUN_TEST == 'RUN'

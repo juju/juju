@@ -21,7 +21,7 @@ jobs:
         curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.36.0
 
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v2.3.4
 
     - name: Download Dependencies
       run: go mod download
@@ -59,7 +59,7 @@ jobs:
       id: go
 
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v2.3.4
 
     - name: Schema Check
       run: |
