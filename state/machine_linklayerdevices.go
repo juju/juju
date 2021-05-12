@@ -15,7 +15,6 @@ import (
 	jujutxn "github.com/juju/txn"
 
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
 )
 
 // LinkLayerDevice returns the link-layer device matching the given name. An
@@ -861,31 +860,35 @@ func (m *Machine) AllAddresses() ([]*Address, error) {
 	return allAddresses, nil
 }
 
-// AllSpaces returns the set of spaceIDs that this machine is actively
-// connected to.
+// AllSpaces returns the set of spaceIDs that this machine is
+// actively connected to.
+// TODO(jam): 2016-12-18 This should evolve to look at the
+// LinkLayerDevices directly, instead of using the Addresses
+// the devices are in to link back to spaces.
 func (m *Machine) AllSpaces() (set.Strings, error) {
-	// TODO(jam): 2016-12-18 This should evolve to look at the
-	// LinkLayerDevices directly, instead of using the Addresses the devices
-	// are in to link back to spaces.
-	spaces := set.NewStrings()
-	addresses, err := m.AllAddresses()
+	subnets, err := m.st.AllSubnets()
 	if err != nil {
+		return nil, errors.Annotate(err, "retrieving subnets")
+	}
+
+	spaces := set.NewStrings()
+	callback := func(doc *ipAddressDoc) {
+		// Don't bother with these. They are not in a space.
+		if doc.ConfigMethod == corenetwork.ConfigLoopback {
+			return
+		}
+
+		for _, sub := range subnets {
+			if sub.CIDR() == doc.SubnetCIDR {
+				spaces.Add(sub.spaceID)
+				break
+			}
+		}
+	}
+	if err := m.st.forEachIPAddressDoc(findAddressesQuery(m.doc.Id, ""), callback); err != nil {
 		return nil, errors.Trace(err)
 	}
-	for _, address := range addresses {
-		subnet, err := address.Subnet()
-		if err != nil {
-			if errors.IsNotFound(err) {
-				// We don't know what this subnet is, so it can't be a space. It
-				// might just be the loopback device.
-				continue
-			}
-			return nil, errors.Trace(err)
-		}
-		spaces.Add(subnet.SpaceID())
-	}
-	logger.Tracef("machine %q found AllSpaces() = %s",
-		m.Id(), network.QuoteSpaceSet(spaces))
+
 	return spaces, nil
 }
 
