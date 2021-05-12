@@ -163,7 +163,7 @@ jobs:
           fi
         done
 
-        VERSION=$(juju version | cut -d "-" -f 1,2 | xargs -I% echo "%.1")
+        VERSION=$(juju version | cut -d "-" -f 1 | xargs -I% echo "%.1")
         while true; do
             juju upgrade-model --agent-version="$VERSION" 2>&1 | tee output.log || true
             RES=$(cat output.log | grep "upgrade in progress" || echo "NOT-UPGRADING")
