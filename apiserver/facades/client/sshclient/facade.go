@@ -92,7 +92,7 @@ func (facade *Facade) AllAddresses(args params.Entities) (params.SSHAddressesRes
 
 	environ, supportsNetworking := environs.SupportsNetworking(env)
 	getter := func(m SSHMachine) ([]network.SpaceAddress, error) {
-		devicesAddresses, err := m.AllNetworkAddresses()
+		devicesAddresses, err := m.AllDeviceSpaceAddresses()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

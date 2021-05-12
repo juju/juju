@@ -845,12 +845,36 @@ func (m *Machine) removeAllAddressesOps() ([]txn.Op, error) {
 	return m.st.removeMatchingIPAddressesDocOps(findQuery)
 }
 
-// AllAddresses returns the all addresses assigned to all devices of the
-// machine.
+// AllAddresses returns all known addresses assigned to
+// link-layer devices on the machine.
+// TODO (manadart 2021-05-12): Rename this to AllDeviceAddresses for
+// congruence with the method below.
 func (m *Machine) AllAddresses() ([]*Address, error) {
 	var allAddresses []*Address
-	callbackFunc := func(resultDoc *ipAddressDoc) {
-		allAddresses = append(allAddresses, newIPAddress(m.st, *resultDoc))
+	callbackFunc := func(doc *ipAddressDoc) {
+		allAddresses = append(allAddresses, newIPAddress(m.st, *doc))
+	}
+
+	findQuery := findAddressesQuery(m.doc.Id, "")
+	if err := m.st.forEachIPAddressDoc(findQuery, callbackFunc); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return allAddresses, nil
+}
+
+// AllDeviceSpaceAddresses returns the SpaceAddress representation of all known
+// addresses assigned to link-layer devices on the machine.
+func (m *Machine) AllDeviceSpaceAddresses() (corenetwork.SpaceAddresses, error) {
+	var allAddresses corenetwork.SpaceAddresses
+	callbackFunc := func(doc *ipAddressDoc) {
+		allAddresses = append(allAddresses, corenetwork.SpaceAddress{
+			MachineAddress: corenetwork.NewMachineAddress(
+				doc.Value,
+				corenetwork.WithConfigType(doc.ConfigMethod),
+				corenetwork.WithCIDR(doc.SubnetCIDR),
+				corenetwork.WithSecondary(doc.IsSecondary),
+			),
+		})
 	}
 
 	findQuery := findAddressesQuery(m.doc.Id, "")
@@ -890,21 +914,4 @@ func (m *Machine) AllSpaces() (set.Strings, error) {
 	}
 
 	return spaces, nil
-}
-
-// AllNetworkAddresses returns the result of AllAddresses(), but transformed to
-// []network.Address.
-func (m *Machine) AllNetworkAddresses() (corenetwork.SpaceAddresses, error) {
-	stateAddresses, err := m.AllAddresses()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	networkAddresses := make(corenetwork.SpaceAddresses, len(stateAddresses))
-	for i := range stateAddresses {
-		networkAddresses[i] = stateAddresses[i].NetworkAddress()
-	}
-	// TODO(jam): 20161130 NetworkAddress object has a SpaceName attribute.
-	// However, we are not filling in that information here.
-	return networkAddresses, nil
 }
