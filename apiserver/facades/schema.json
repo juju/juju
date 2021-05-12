@@ -14034,6 +14034,9 @@
                         },
                         "reference": {
                             "type": "string"
+                        },
+                        "switch-charm": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false,
