@@ -10,13 +10,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v2/voyeur"
+	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/upgrader"
+	// "github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
@@ -28,7 +29,8 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/caasprober"
-	"github.com/juju/juju/worker/caasupgraderembedded"
+	"github.com/juju/juju/worker/caasupgrader"
+	// "github.com/juju/juju/worker/caasupgraderembedded"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/leadership"
@@ -63,6 +65,10 @@ type manifoldsConfig struct {
 	// migration process to check that the agent will be ok when
 	// connected to the new target controller.
 	ValidateMigration func(base.APICaller) error
+
+	// PreviousAgentVersion passes through the version the unit
+	// agent was running before the current restart.
+	PreviousAgentVersion version.Number
 
 	// UpgradeStepsLock is passed to the upgrade steps gate to
 	// coordinate workers that shouldn't do anything until the
@@ -151,14 +157,20 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			NewWorker: gate.NewFlagWorker,
 		}),
 
-		upgraderName: caasupgraderembedded.Manifold(caasupgraderembedded.ManifoldConfig{
+		// upgraderName: caasupgraderembedded.Manifold(caasupgraderembedded.ManifoldConfig{
+		// 	AgentName:            agentName,
+		// 	APICallerName:        apiCallerName,
+		// 	UpgradeStepsGateName: upgradeStepsGateName,
+		// 	Logger:               loggo.GetLogger("juju.worker.caasupgraderembedded"),
+		// 	NewClient: func(caller base.APICaller) caasupgraderembedded.UpgraderClient {
+		// 		return upgrader.NewState(caller)
+		// 	},
+		// }),
+		upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
-			Logger:               loggo.GetLogger("juju.worker.caasupgraderembedded"),
-			NewClient: func(caller base.APICaller) caasupgraderembedded.UpgraderClient {
-				return upgrader.NewState(caller)
-			},
+			PreviousAgentVersion: config.PreviousAgentVersion,
 		}),
 
 		// The upgradesteps worker runs soon after the unit agent
