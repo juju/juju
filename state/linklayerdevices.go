@@ -582,7 +582,7 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(
 		InterfaceName:       name,
 		MACAddress:          network.GenerateVirtualMACAddress(),
 		ConfigType:          network.ConfigDHCP,
-		InterfaceType:       network.EthernetInterface,
+		InterfaceType:       network.EthernetDevice,
 		MTU:                 int(dev.MTU()),
 		ParentInterfaceName: dev.Name(),
 		VirtualPortType:     dev.VirtualPortType(),

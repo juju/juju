@@ -33,8 +33,8 @@ type ToolsURLGetter interface {
 	ToolsURLs(v version.Binary) ([]string, error)
 }
 
-// APIHostPortsGetter is an interface providing the APIHostPortsForAgents
-// method.
+// APIHostPortsForAgentsGetter is an interface providing
+// the APIHostPortsForAgents method.
 type APIHostPortsForAgentsGetter interface {
 	// APIHostPortsForAgents returns the HostPorts for each API server that
 	// are suitable for agent-to-controller API communication based on the
@@ -102,9 +102,6 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 		agentToolsList, err := t.oneAgentTools(canRead, tag, agentVersion)
 		if err == nil {
 			result.Results[i].ToolsList = agentToolsList
-			// TODO(axw) Get rid of this in 1.22, when all upgraders
-			// are known to ignore the flag.
-			result.Results[i].DisableSSLHostnameVerification = true
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -239,14 +236,12 @@ func NewToolsFinder(
 
 // FindTools returns a List containing all tools matching the given parameters.
 func (f *ToolsFinder) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
-	result := params.FindToolsResult{}
 	list, err := f.findTools(args)
 	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-	} else {
-		result.List = list
+		return params.FindToolsResult{Error: apiservererrors.ServerError(err)}, nil
 	}
-	return result, nil
+
+	return params.FindToolsResult{List: list}, nil
 }
 
 // findTools calls findMatchingTools and then rewrites the URLs
@@ -256,6 +251,23 @@ func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 	if err != nil {
 		return nil, err
 	}
+
+	// This handles clients and agents that may be attempting to find tools in
+	// the context of series instead of OS type.
+	// If we get a request by series we ensure that any matched OS tools are
+	// converted to the requested series.
+	// Conversely, if we get a request by OS type, matching series tools are
+	// converted to match the OS.
+	// TODO: Remove this block and the called methods for Juju 3/4.
+	if args.Number.Major == 2 && args.Number.Minor <= 8 && (args.OSType != "" || args.Series != "") {
+		if args.OSType != "" {
+			list = f.resultForOSTools(list, args.OSType)
+		}
+		if args.Series != "" {
+			list = f.resultForSeriesTools(list, args.Series)
+		}
+	}
+
 	// Rewrite the URLs so they point at the API servers. If the
 	// tools are not in tools storage, then the API server will
 	// download and cache them if the client requests that version.
@@ -274,51 +286,74 @@ func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 	return fullList, nil
 }
 
-// findMatchingTools searches tools storage and simplestreams for tools matching the
-// given parameters. If an exact match is specified (number, series and arch)
-// and is found in tools storage, then simplestreams will not be searched.
-func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.List, error) {
-	exactMatch := args.Number != version.Zero && (args.OSType != "" || args.Series != "") && args.Arch != ""
+// TODO: Remove for Juju 3/4.
+func (f *ToolsFinder) resultForOSTools(list coretools.List, osType string) coretools.List {
+	added := make(map[version.Binary]bool)
+	var matched coretools.List
+	for _, t := range list {
+		converted := *t
 
-	// TODO(juju4) - remove this logic
-	// Older versions of Juju publish agent binary metadata based on series.
-	// So we need to strip out OSType and match on everything else, then filter below.
-	compatibleMatch := false
-	wantedOSType := args.OSType
-	if args.Number.Major == 2 && args.Number.Minor <= 8 && args.OSType != "" {
-		args.OSType = ""
-		compatibleMatch = true
+		// t might be for a series so convert to an OS type.
+		if !coreos.IsValidOSTypeName(t.Version.Release) {
+			osTypeName, err := coreseries.GetOSFromSeries(t.Version.Release)
+			if err != nil {
+				continue
+			}
+			converted.Version.Release = strings.ToLower(osTypeName.String())
+		}
+
+		if converted.Version.Release != osType {
+			continue
+		}
+		if added[converted.Version] {
+			continue
+		}
+
+		matched = append(matched, &converted)
+		added[converted.Version] = true
 	}
+
+	return matched
+}
+
+// TODO: Remove for Juju 3/4.
+func (f *ToolsFinder) resultForSeriesTools(list coretools.List, series string) coretools.List {
+	osType := coreseries.DefaultOSTypeNameFromSeries(series)
+
+	added := make(map[version.Binary]bool)
+	var matched coretools.List
+	for _, t := range list {
+		converted := *t
+
+		if coreos.IsValidOSTypeName(t.Version.Release) {
+			if osType != t.Version.Release {
+				continue
+			}
+			converted.Version.Release = series
+		} else if series != t.Version.Release {
+			continue
+		}
+		if added[converted.Version] {
+			continue
+		}
+
+		matched = append(matched, &converted)
+		added[converted.Version] = true
+	}
+
+	return matched
+}
+
+// findMatchingTools searches tools storage and simplestreams for tools
+// matching the given parameters.
+// If an exact match is specified (number, series and arch) and is found in
+// tools storage, then simplestreams will not be searched.
+func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (result coretools.List, _ error) {
+	exactMatch := args.Number != version.Zero && (args.OSType != "" || args.Series != "") && args.Arch != ""
 
 	storageList, err := f.matchingStorageTools(args)
 	if err != nil && err != coretools.ErrNoMatches {
 		return nil, err
-	}
-
-	// For a given list of tools, return those which match the required
-	// os type based on an exact os type match or series match.
-	compatibleTools := func(tools coretools.List) coretools.List {
-		added := make(map[version.Binary]bool)
-		var matched coretools.List
-		for _, t := range tools {
-			converted := *t
-			osTypeName, _ := coreseries.GetOSFromSeries(t.Version.Release)
-			if osTypeName != coreos.Unknown {
-				converted.Version.Release = strings.ToLower(osTypeName.String())
-			}
-			if added[converted.Version] {
-				continue
-			}
-			if converted.Version.Release == wantedOSType || wantedOSType == "" {
-				matched = append(matched, &converted)
-				added[converted.Version] = true
-			}
-		}
-		return matched
-	}
-
-	if compatibleMatch {
-		storageList = compatibleTools(storageList)
 	}
 	if len(storageList) > 0 && exactMatch {
 		return storageList, nil
@@ -343,9 +378,6 @@ func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.
 	if len(storageList) == 0 && err != nil {
 		return nil, err
 	}
-	if compatibleMatch {
-		simplestreamsList = compatibleTools(simplestreamsList)
-	}
 
 	list := storageList
 	found := make(map[version.Binary]bool)
@@ -368,7 +400,8 @@ func (f *ToolsFinder) matchingStorageTools(args params.FindToolsParams) (coretoo
 	if err != nil {
 		return nil, err
 	}
-	defer storage.Close()
+	defer func() { _ = storage.Close() }()
+
 	allMetadata, err := storage.AllMetadata()
 	if err != nil {
 		return nil, err

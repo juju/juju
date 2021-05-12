@@ -45,6 +45,20 @@ const (
 	ConfigLoopback AddressConfigType = "loopback"
 )
 
+// IsValidAddressConfigType returns whether the given value is a valid
+// method to configure a link-layer network device's IP address.
+// TODO (manadart 2021-05-04): There is an issue with the usage of this
+// method in state where we have denormalised the config method so it is
+// against device addresses. This is because "manual" indicates a device that
+// has no configuration by default. This could never apply to an address.
+func IsValidAddressConfigType(value string) bool {
+	switch AddressConfigType(value) {
+	case ConfigLoopback, ConfigStatic, ConfigDHCP, ConfigManual:
+		return true
+	}
+	return false
+}
+
 // AddressType represents the possible ways of specifying a machine location by
 // either a hostname resolvable by dns lookup, or IPv4 or IPv6 address.
 type AddressType string

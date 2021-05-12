@@ -33,6 +33,10 @@ const (
 	// ActionAborted is the status of an Action that was aborted.
 	// Identical to ActionFailed and can have an error.
 	ActionAborted string = "aborted"
+
+	// ActionError is the status of an Action that did not get run
+	// due to an error.
+	ActionError string = "error"
 )
 
 // Actions is a slice of Action for bulk requests.
@@ -130,6 +134,7 @@ type OperationResults struct {
 type OperationResult struct {
 	OperationTag string         `json:"operation"`
 	Summary      string         `json:"summary"`
+	Fail         string         `json:"fail,omitempty"`
 	Enqueued     time.Time      `json:"enqueued,omitempty"`
 	Started      time.Time      `json:"started,omitempty"`
 	Completed    time.Time      `json:"completed,omitempty"`

@@ -236,7 +236,7 @@ type SettingsResults struct {
 	Results []SettingsResult `json:"results"`
 }
 
-// ConfigSettings holds unit, application or cham configuration settings
+// ConfigSettings holds unit, application or charm configuration settings
 // with string keys and arbitrary values.
 type ConfigSettings map[string]interface{}
 
@@ -548,7 +548,7 @@ type SetModelEnvironVersions struct {
 // of a model.
 type SetModelEnvironVersion struct {
 	// ModelTag is the string representation of a model tag, which
-	// should be parseable using names.ParseModelTag.
+	// should be parsable using names.ParseModelTag.
 	ModelTag string `json:"model-tag"`
 
 	// Version is the environ version to set for the model.
@@ -558,9 +558,8 @@ type SetModelEnvironVersion struct {
 // ToolsResult holds the tools and possibly error for a given
 // Tools() API call.
 type ToolsResult struct {
-	ToolsList                      tools.List `json:"tools"`
-	DisableSSLHostnameVerification bool       `json:"disable-ssl-hostname-verification"`
-	Error                          *Error     `json:"error,omitempty"`
+	ToolsList tools.List `json:"tools"`
+	Error     *Error     `json:"error,omitempty"`
 }
 
 // ToolsResults is a list of tools for various requested agents.
@@ -867,7 +866,7 @@ type MeterStatusResults struct {
 }
 
 // SingularClaim represents a request for exclusive administrative access
-// to an entity (model or controller) on the part of the claimaint.
+// to an entity (model or controller) on the part of the claimant.
 type SingularClaim struct {
 	EntityTag   string        `json:"entity-tag"`
 	ClaimantTag string        `json:"claimant-tag"`

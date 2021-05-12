@@ -386,13 +386,49 @@ func (s *toolsSuite) TestDownloadModelUUIDPath(c *gc.C) {
 }
 
 // TODO(juju4) - remove
-func (s *toolsSuite) TestDownloadOldAgent(c *gc.C) {
+func (s *toolsSuite) TestDownloadOldAgentNewRequest(c *gc.C) {
 	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
 		Version: "2.8.9-focal-amd64",
 		Size:    3,
 		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
 	resp := s.downloadRequest(c, version.MustParseBinary("2.8.9-ubuntu-amd64"), s.State.ModelUUID())
+	defer resp.Body.Close()
+	data, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, gc.HasLen, int(tools.Size))
+
+	hash := sha256.New()
+	hash.Write(data)
+	c.Assert(fmt.Sprintf("%x", hash.Sum(nil)), gc.Equals, tools.SHA256)
+}
+
+// TODO(juju4) - remove
+func (s *toolsSuite) TestDownloadAgentOldRequest(c *gc.C) {
+	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
+		Version: "2.8.9-ubuntu-amd64",
+		Size:    3,
+		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+	})
+	resp := s.downloadRequest(c, version.MustParseBinary("2.8.9-focal-amd64"), s.State.ModelUUID())
+	defer resp.Body.Close()
+	data, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, gc.HasLen, int(tools.Size))
+
+	hash := sha256.New()
+	hash.Write(data)
+	c.Assert(fmt.Sprintf("%x", hash.Sum(nil)), gc.Equals, tools.SHA256)
+}
+
+// TODO(juju4) - remove
+func (s *toolsSuite) TestDownloadSeriesAgentOldRequest(c *gc.C) {
+	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
+		Version: "2.8.9-bionic-amd64",
+		Size:    3,
+		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+	})
+	resp := s.downloadRequest(c, version.MustParseBinary("2.8.9-focal-amd64"), s.State.ModelUUID())
 	defer resp.Body.Close()
 	data, err := ioutil.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)

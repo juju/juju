@@ -1095,7 +1095,7 @@ func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContex
 					network.WithCIDR(*subnet.CidrBlock),
 				),
 			},
-			InterfaceType:    network.EthernetInterface,
+			InterfaceType:    network.EthernetDevice,
 			ProviderSubnetId: network.Id(*iface.Vnic.SubnetId),
 			Origin:           network.OriginProvider,
 		}

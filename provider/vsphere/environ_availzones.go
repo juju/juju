@@ -148,7 +148,7 @@ func (env *sessionEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCal
 		return nil, errors.Trace(err)
 	}
 
-	results := make(map[instance.Id]string, 0)
+	results := make(map[instance.Id]string)
 	for _, inst := range instances {
 		if inst == nil {
 			continue

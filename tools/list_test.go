@@ -349,3 +349,11 @@ func (s *ListSuite) TestMatchVersions(c *gc.C) {
 		c.Check(actual, gc.DeepEquals, expectVersions)
 	}
 }
+
+// TODO(juju4) - remove
+func (s *ListSuite) TestMatchLegacy(c *gc.C) {
+	bionic := tools.List{mustParseTools("2.1.0-bionic-amd64")}
+	actual, err := bionic.Match(tools.Filter{OSType: "ubuntu"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actual, jc.DeepEquals, bionic)
+}

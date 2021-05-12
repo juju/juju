@@ -6,6 +6,7 @@ package vsphere_test
 import (
 	"context"
 	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/juju/testing"
@@ -33,14 +34,20 @@ type mockClient struct {
 	mu sync.Mutex
 	testing.Stub
 
-	computeResources      []vsphereclient.ComputeResource
-	resourcePools         map[string][]*object.ResourcePool
-	createdVirtualMachine *mo.VirtualMachine
-	virtualMachines       []*mo.VirtualMachine
-	folders               *object.DatacenterFolders
-	datastores            []mo.Datastore
-	vmFolder              *object.Folder
-	hasPrivilege          bool
+	computeResources        []vsphereclient.ComputeResource
+	resourcePools           map[string][]*object.ResourcePool
+	createdVirtualMachine   *mo.VirtualMachine
+	virtualMachines         []*mo.VirtualMachine
+	virtualMachineTemplates []mockTemplateVM
+	folders                 *object.DatacenterFolders
+	datastores              []mo.Datastore
+	vmFolder                *object.Folder
+	hasPrivilege            bool
+}
+
+type mockTemplateVM struct {
+	vm   *object.VirtualMachine
+	args vsphereclient.ImportOVAParameters
 }
 
 func (c *mockClient) Close(ctx context.Context) error {
@@ -48,6 +55,78 @@ func (c *mockClient) Close(ctx context.Context) error {
 	defer c.mu.Unlock()
 	c.MethodCall(c, "Close", ctx)
 	return c.NextErr()
+}
+
+func (c *mockClient) CreateTemplateVM(ctx context.Context, ovaArgs vsphereclient.ImportOVAParameters) (vm *object.VirtualMachine, err error) {
+	tpl := mockTemplateVM{
+		vm: object.NewVirtualMachine(nil, types.ManagedObjectReference{
+			Type:  "VirtualMachine",
+			Value: "juju-template-" + ovaArgs.OVASHA256,
+		}),
+		args: ovaArgs,
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.virtualMachineTemplates = append(c.virtualMachineTemplates, tpl)
+	c.MethodCall(c, "CreateTemplateVM", ctx, ovaArgs)
+	return tpl.vm, c.NextErr()
+}
+
+func (c *mockClient) GetTargetDatastore(ctx context.Context, computeResource *mo.ComputeResource, rootDiskSource string) (*object.Datastore, error) {
+	if rootDiskSource == "" {
+		for _, ds := range c.datastores {
+			if ds.Summary.Accessible {
+				rootDiskSource = ds.GetManagedEntity().Name
+				break
+			}
+		}
+	}
+	ds := object.NewDatastore(nil, types.ManagedObjectReference{
+		Type:  "Datastore",
+		Value: rootDiskSource,
+	})
+	c.MethodCall(c, "GetTargetDatastore", ctx, computeResource, rootDiskSource)
+	return ds, c.NextErr()
+}
+
+func (c *mockClient) ListVMTemplates(ctx context.Context, path string) ([]*object.VirtualMachine, error) {
+	var ret []*object.VirtualMachine
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for _, vm := range c.virtualMachineTemplates {
+		ref := vm.args.DestinationFolder.Reference()
+
+		if strings.HasPrefix(ref.Value, path) {
+			ret = append(ret, vm.vm)
+		}
+	}
+	c.MethodCall(c, "ListVMTemplates", ctx, path)
+	return ret, c.NextErr()
+}
+
+func (c *mockClient) VirtualMachineObjectToManagedObject(ctx context.Context, vmObject *object.VirtualMachine) (mo.VirtualMachine, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if vmObject == nil {
+		panic("test data not properly set")
+	}
+	var vmTpl mockTemplateVM
+	ref := vmObject.Reference()
+	for _, vm := range c.virtualMachineTemplates {
+		if vm.args.TemplateName == ref.Value {
+			vmTpl = vm
+			break
+		}
+	}
+	if vmTpl.vm == nil {
+		panic("test data not properly set")
+	}
+
+	vmTplObj := buildVM(vmTpl.args.TemplateName).extraConfig(vsphereclient.ArchTag, vmTpl.args.Arch).vm()
+	c.MethodCall(c, "VirtualMachineObjectToManagedObject", ctx, vmObject)
+	return *vmTplObj, c.NextErr()
 }
 
 func (c *mockClient) ComputeResources(ctx context.Context) ([]vsphereclient.ComputeResource, error) {
@@ -110,7 +189,10 @@ func (c *mockClient) EnsureVMFolder(ctx context.Context, credAttrFolder string, 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.MethodCall(c, "EnsureVMFolder", ctx, credAttrFolder, path)
-	return c.vmFolder, c.NextErr()
+	return object.NewFolder(nil, types.ManagedObjectReference{
+		Type:  "Folder",
+		Value: path,
+	}), c.NextErr()
 }
 
 func (c *mockClient) MoveVMFolderInto(ctx context.Context, parent string, child string) error {

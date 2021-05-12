@@ -2678,12 +2678,11 @@ func (u *Unit) UnassignFromMachine() (err error) {
 // ActionSpecsByName is a map of action names to their respective ActionSpec.
 type ActionSpecsByName map[string]charm.ActionSpec
 
-// AddAction adds a new Action of type name and using arguments payload to
-// this Unit, and returns its ID.  Note that the use of spec.InsertDefaults
-// mutates payload.
-func (u *Unit) AddAction(operationID, name string, payload map[string]interface{}, parallel *bool, executionGroup *string) (Action, error) {
+// PrepareActionPayload returns the payload to use in creating an action for this unit.
+// Note that the use of spec.InsertDefaults mutates payload.
+func (u *Unit) PrepareActionPayload(name string, payload map[string]interface{}, parallel *bool, executionGroup *string) (map[string]interface{}, bool, string, error) {
 	if len(name) == 0 {
-		return nil, errors.New("no action name given")
+		return nil, false, "", errors.New("no action name given")
 	}
 
 	// If the action is predefined inside juju, get spec from map
@@ -2691,42 +2690,38 @@ func (u *Unit) AddAction(operationID, name string, payload map[string]interface{
 	if !ok {
 		specs, err := u.ActionSpecs()
 		if err != nil {
-			return nil, err
+			return nil, false, "", err
 		}
 		spec, ok = specs[name]
 		if !ok {
-			return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
+			return nil, false, "", errors.Errorf("action %q not defined on unit %q", name, u.Name())
 		}
 	}
 	// Reject bad payloads before attempting to insert defaults.
 	err := spec.ValidateParams(payload)
 	if err != nil {
-		return nil, err
+		return nil, false, "", errors.Trace(err)
 	}
 	payloadWithDefaults, err := spec.InsertDefaults(payload)
 	if err != nil {
-		return nil, err
+		return nil, false, "", errors.Trace(err)
 	}
 
 	// For k8s operators, we run the action on the operator pod by default.
 	if _, ok := payloadWithDefaults["workload-context"]; !ok {
 		app, err := u.Application()
 		if err != nil {
-			return nil, err
+			return nil, false, "", errors.Trace(err)
 		}
 		ch, _, err := app.Charm()
 		if err != nil {
-			return nil, err
+			return nil, false, "", errors.Trace(err)
 		}
 		if ch.Meta().Deployment != nil && ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
 			payloadWithDefaults["workload-context"] = false
 		}
 	}
 
-	m, err := u.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	runParallel := spec.Parallel
 	if parallel != nil {
 		runParallel = *parallel
@@ -2735,7 +2730,7 @@ func (u *Unit) AddAction(operationID, name string, payload map[string]interface{
 	if executionGroup != nil {
 		runExecutionGroup = *executionGroup
 	}
-	return m.EnqueueAction(operationID, u.Tag(), name, payloadWithDefaults, runParallel, runExecutionGroup)
+	return payloadWithDefaults, runParallel, runExecutionGroup, nil
 }
 
 // ActionSpecs gets the ActionSpec map for the Unit's charm.

@@ -127,7 +127,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: subprocess encountered error code 255")
 }
 
-func (s *provisionerSuite) TestFinishInstancConfig(c *gc.C) {
+func (s *provisionerSuite) TestFinishInstanceConfig(c *gc.C) {
 	var series = jujuversion.DefaultSupportedLTS()
 	const arch = "amd64"
 	defer fakeSSH{

@@ -188,7 +188,7 @@ func (s *actionSuite) TestEnqueueOperation(c *gc.C) {
 
 	emptyActionTag := names.ActionTag{}
 	c.Assert(op.Actions[0].Error, gc.DeepEquals,
-		&params.Error{Message: fmt.Sprintf("%s not valid", arg.Actions[0].Receiver), Code: ""})
+		&params.Error{Message: fmt.Sprintf("%q not valid", arg.Actions[0].Receiver), Code: ""})
 	c.Assert(op.Actions[0].Action, gc.IsNil)
 
 	c.Assert(op.Actions[1].Error, gc.IsNil)
@@ -200,7 +200,7 @@ func (s *actionSuite) TestEnqueueOperation(c *gc.C) {
 	c.Assert(op.Actions[2].Error, gc.DeepEquals, &params.Error{Message: errorString, Code: "not implemented"})
 	c.Assert(op.Actions[2].Action, gc.IsNil)
 
-	c.Assert(op.Actions[3].Error, gc.ErrorMatches, "no action name given")
+	c.Assert(op.Actions[3].Error, gc.ErrorMatches, "action name required")
 	c.Assert(op.Actions[3].Action, gc.IsNil)
 
 	c.Assert(op.Actions[4].Error, gc.IsNil)
@@ -471,7 +471,7 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	added, err := unit.AddAction(operationID, "fakeaction", nil, nil, nil)
+	added, err := s.Model.AddAction(unit, operationID, "fakeaction", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := s.action.WatchActionsProgress(

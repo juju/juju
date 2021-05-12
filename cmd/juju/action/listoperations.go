@@ -128,7 +128,8 @@ func (c *listOperationsCommand) Init(args []string) error {
 			params.ActionFailed,
 			params.ActionCancelled,
 			params.ActionAborting,
-			params.ActionAborted:
+			params.ActionAborted,
+			params.ActionError:
 		default:
 			nameErrors = append(nameErrors,
 				fmt.Sprintf("%q is not a valid task status, want one of %v",
@@ -139,7 +140,8 @@ func (c *listOperationsCommand) Init(args []string) error {
 						params.ActionFailed,
 						params.ActionCancelled,
 						params.ActionAborting,
-						params.ActionAborted}))
+						params.ActionAborted,
+						params.ActionError}))
 		}
 	}
 	if len(nameErrors) > 0 {
@@ -297,6 +299,7 @@ func (s byId) Less(i, j int) bool {
 type operationInfo struct {
 	Summary string              `yaml:"summary" json:"summary"`
 	Status  string              `yaml:"status" json:"status"`
+	Fail    string              `yaml:"fail,omitempty" json:"fail,omitempty"`
 	Error   string              `yaml:"error,omitempty" json:"error,omitempty"`
 	Action  *actionSummary      `yaml:"action,omitempty" json:"action,omitempty"`
 	Timing  timingInfo          `yaml:"timing,omitempty" json:"timing,omitempty"`
@@ -329,6 +332,7 @@ type taskInfo struct {
 func formatOperationResult(operation actionapi.Operation, utc bool) operationInfo {
 	result := operationInfo{
 		Summary: operation.Summary,
+		Fail:    operation.Fail,
 		Status:  operation.Status,
 		Timing: timingInfo{
 			Enqueued:  formatTimestamp(operation.Enqueued, false, utc, false),

@@ -1448,7 +1448,7 @@ func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	args := state.LinkLayerDeviceAddress{
 		DeviceName:        "foo",
-		ConfigMethod:      network.StaticAddress,
+		ConfigMethod:      network.ConfigStatic,
 		CIDRAddress:       "0.1.2.3/24",
 		ProviderID:        "bar",
 		DNSServers:        []string{"bam", "mam"},
@@ -1470,7 +1470,7 @@ func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
 	c.Assert(addr.Value(), gc.Equals, "0.1.2.3")
 	c.Assert(addr.MachineID(), gc.Equals, machine.Id())
 	c.Assert(addr.DeviceName(), gc.Equals, "foo")
-	c.Assert(addr.ConfigMethod(), gc.Equals, string(network.StaticAddress))
+	c.Assert(addr.ConfigMethod(), gc.Equals, string(network.ConfigStatic))
 	c.Assert(addr.SubnetCIDR(), gc.Equals, "0.1.2.0/24")
 	c.Assert(addr.ProviderID(), gc.Equals, "bar")
 	c.Assert(addr.DNSServers(), jc.DeepEquals, []string{"bam", "mam"})
@@ -1496,7 +1496,7 @@ func (s *MigrationExportSuite) TestIPAddressesSkipped(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	args := state.LinkLayerDeviceAddress{
 		DeviceName:       "foo",
-		ConfigMethod:     network.StaticAddress,
+		ConfigMethod:     network.ConfigStatic,
 		CIDRAddress:      "0.1.2.3/24",
 		ProviderID:       "bar",
 		DNSServers:       []string{"bam", "mam"},
@@ -1624,7 +1624,7 @@ func (s *MigrationExportSuite) TestActions(c *gc.C) {
 
 	operationID, err := m.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	a, err := m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, true, "group")
+	a, err := m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, true, "group", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	a, err = a.Begin()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1659,7 +1659,7 @@ func (s *MigrationExportSuite) TestActionsSkipped(c *gc.C) {
 
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, false, "")
+	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, false, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	model, err := s.State.ExportPartial(state.ExportConfig{
 		SkipActions: true,
@@ -1673,18 +1673,12 @@ func (s *MigrationExportSuite) TestActionsSkipped(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestOperations(c *gc.C) {
-	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
-	})
-
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	operationID, err := m.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	a, err := m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, false, "")
-	c.Assert(err, jc.ErrorIsNil)
-	a, err = a.Begin()
+	err = m.FailOperation(operationID, errors.New("fail"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
@@ -1693,7 +1687,8 @@ func (s *MigrationExportSuite) TestOperations(c *gc.C) {
 	c.Assert(operations, gc.HasLen, 1)
 	op := operations[0]
 	c.Check(op.Summary(), gc.Equals, "a test")
-	c.Check(op.Status(), gc.Equals, "running")
+	c.Check(op.Fail(), gc.Equals, "fail")
+	c.Check(op.Status(), gc.Equals, "error")
 }
 
 type goodToken struct{}

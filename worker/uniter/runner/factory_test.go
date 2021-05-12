@@ -239,7 +239,7 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 		c.Logf("test %d", i)
 		operationID, err := s.model.EnqueueOperation("a test")
 		c.Assert(err, jc.ErrorIsNil)
-		action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), test.actionName, test.payload, true, "group")
+		action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), test.actionName, test.payload, true, "group", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		uniterAction := uniter.NewAction(
 			action.Id(),
@@ -308,7 +308,7 @@ func (s *FactorySuite) TestNewActionRunnerWithCancel(c *gc.C) {
 	cancel := make(chan struct{})
 	operationID, err := s.model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), actionName, payload, true, "group")
+	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), actionName, payload, true, "group", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	uniterAction := uniter.NewAction(
 		action.Id(),

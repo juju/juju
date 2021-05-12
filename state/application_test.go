@@ -537,7 +537,7 @@ func (s *ApplicationSuite) assignUnitOnMachineWithSpaceToApplication(c *gc.C, a 
 	err = m1.SetDevicesAddresses(state.LinkLayerDeviceAddress{
 		DeviceName:   "enp5s0",
 		CIDRAddress:  "10.0.254.42/24",
-		ConfigMethod: network.StaticAddress,
+		ConfigMethod: network.ConfigStatic,
 	})
 	c.Assert(err, gc.IsNil)
 

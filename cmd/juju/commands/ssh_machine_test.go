@@ -257,11 +257,11 @@ func (s *SSHMachineSuite) setLinkLayerDevicesAddresses(c *gc.C, m *state.Machine
 	addressesArgs := []state.LinkLayerDeviceAddress{{
 		DeviceName:   "lo",
 		CIDRAddress:  "127.0.0.1/8", // will be filtered
-		ConfigMethod: network.LoopbackAddress,
+		ConfigMethod: network.ConfigLoopback,
 	}, {
 		DeviceName:   "eth0",
 		CIDRAddress:  "0.1.2.3/24", // needs to be a valid CIDR
-		ConfigMethod: network.StaticAddress,
+		ConfigMethod: network.ConfigStatic,
 	}}
 	err = m.SetDevicesAddresses(addressesArgs...)
 	c.Assert(err, jc.ErrorIsNil)

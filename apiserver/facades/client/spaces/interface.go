@@ -32,7 +32,7 @@ type BlockChecker interface {
 // Address is an indirection for state.Address.
 type Address interface {
 	SubnetCIDR() string
-	ConfigMethod() network.AddressConfigMethod
+	ConfigMethod() network.AddressConfigType
 	Value() string
 }
 
