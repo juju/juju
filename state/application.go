@@ -1470,7 +1470,8 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	// this check. Newer charms written for multi-series have a URL
 	// with series = "".
 	if cfg.Charm.URL().Series != "" {
-		if cfg.Charm.URL().Series != a.doc.Series {
+		// Allow series change when switching to charmhub charms.
+		if cfg.Charm.URL().Schema != "ch" && cfg.Charm.URL().Series != a.doc.Series {
 			return errors.Errorf("cannot change an application's series")
 		}
 	} else if !cfg.ForceSeries {
