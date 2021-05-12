@@ -402,16 +402,6 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	if oldOrigin.Source != commoncharm.OriginLocal {
-		// If not upgrading from a local path, display the channel we
-		// are pulling the charm from.
-		var channel string
-		if ch := oldOrigin.CharmChannel().String(); ch != "" {
-			channel = fmt.Sprintf(" from channel %s", ch)
-		}
-		ctx.Infof("Looking up metadata for %s charm %q%s", oldOrigin.Source, oldURL.Name, channel)
-	}
-
 	cfg := refresher.RefresherConfig{
 		ApplicationName: c.ApplicationName,
 		CharmURL:        oldURL,
@@ -441,7 +431,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	if charmID.Origin.Source == corecharm.CharmHub || charmID.Origin.Source == corecharm.CharmStore {
 		channel = fmt.Sprintf(" in channel %s", charmID.Origin.Channel.String())
 	}
-	ctx.Infof("Added %s charm %q, revision %d%s, to the model", oldOrigin.Source, curl.Name, curl.Revision, channel)
+	ctx.Infof("Added %s charm %q, revision %d%s, to the model", charmID.Origin.Source, curl.Name, curl.Revision, channel)
 
 	// Next, upgrade resources.
 

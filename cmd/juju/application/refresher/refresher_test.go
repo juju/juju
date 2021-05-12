@@ -170,7 +170,7 @@ func (s *baseRefresherSuite) TestResolveCharm(c *gc.C) {
 		charmRef:        "meshuggah",
 		charmURL:        charm.MustParseURL("meshuggah"),
 		charmResolver:   charmResolver,
-		resolveOriginFn: charmHubResolveOrigin,
+		resolveOriginFn: charmHubOriginResolver,
 		logger:          fakeLogger{},
 	}
 	url, origin, err := refresher.ResolveCharm()
@@ -196,7 +196,7 @@ func (s *baseRefresherSuite) TestResolveCharmWithSeriesError(c *gc.C) {
 		deployedSeries:  "bionic",
 		charmURL:        charm.MustParseURL("meshuggah"),
 		charmResolver:   charmResolver,
-		resolveOriginFn: charmHubResolveOrigin,
+		resolveOriginFn: charmHubOriginResolver,
 		logger:          fakeLogger{},
 	}
 	_, _, err := refresher.ResolveCharm()
@@ -218,7 +218,7 @@ func (s *baseRefresherSuite) TestResolveCharmWithNoCharmURL(c *gc.C) {
 	refresher := baseRefresher{
 		charmRef:        "meshuggah",
 		charmResolver:   charmResolver,
-		resolveOriginFn: charmHubResolveOrigin,
+		resolveOriginFn: charmHubOriginResolver,
 		logger:          fakeLogger{},
 	}
 	_, _, err := refresher.ResolveCharm()
@@ -584,8 +584,9 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithCharmSwitch(c *gc.C) {
 	ref := "ch:aloupi-1"
 	curl := charm.MustParseURL(ref)
 	origin := commoncharm.Origin{
-		Source: commoncharm.OriginCharmHub,
-		Risk:   "beta",
+		Source:       commoncharm.OriginCharmHub,
+		Risk:         "beta",
+		Architecture: "amd64",
 	}
 
 	charmAdder := NewMockCharmAdder(ctrl)
@@ -688,7 +689,7 @@ func (s *charmHubCharmRefresherSuite) TestAllowedError(c *gc.C) {
 func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmpty(c *gc.C) {
 	origin := corecharm.Origin{}
 	channel := charm.Channel{}
-	result, err := charmHubResolveOrigin(nil, origin, channel)
+	result, err := charmHubOriginResolver(nil, origin, channel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, commoncharm.CoreCharmOrigin(origin))
 }
@@ -699,7 +700,7 @@ func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOrigin(c *gc.C) {
 	channel := charm.Channel{
 		Track: track,
 	}
-	result, err := charmHubResolveOrigin(nil, origin, channel)
+	result, err := charmHubOriginResolver(nil, origin, channel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, commoncharm.CoreCharmOrigin(corecharm.Origin{
 		Channel: &charm.Channel{
@@ -716,7 +717,7 @@ func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmptyTrackNonEmpt
 	channel := charm.Channel{
 		Risk: "edge",
 	}
-	result, err := charmHubResolveOrigin(nil, origin, channel)
+	result, err := charmHubOriginResolver(nil, origin, channel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, commoncharm.CoreCharmOrigin(corecharm.Origin{
 		Channel: &charm.Channel{
@@ -730,7 +731,7 @@ func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmptyTrackEmptyCh
 	channel := charm.Channel{
 		Risk: "edge",
 	}
-	result, err := charmHubResolveOrigin(nil, origin, channel)
+	result, err := charmHubOriginResolver(nil, origin, channel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, commoncharm.CoreCharmOrigin(corecharm.Origin{
 		Channel: &charm.Channel{},
