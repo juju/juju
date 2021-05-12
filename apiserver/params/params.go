@@ -639,6 +639,10 @@ type ResolveCharmResults struct {
 type ResolveCharmWithChannel struct {
 	Reference string      `json:"reference"`
 	Origin    CharmOrigin `json:"charm-origin"`
+
+	// SwitchCharm is set to true when the purpose of this resolve request
+	// is to switch a different charm (potentially from a different store).
+	SwitchCharm bool `json:"switch-charm,omitempty"`
 }
 
 // ResolveCharmsWithChannel contains of slice of data on charms to be

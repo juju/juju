@@ -44,7 +44,7 @@ func (s *resolveSuite) TestResolveCharm(c *gc.C) {
 	}, func() (store.DownloadBundleClient, error) {
 		return s.downloadClient, nil
 	})
-	obtainedURL, obtainedOrigin, obtainedSeries, err := charmAdapter.ResolveCharm(curl, origin)
+	obtainedURL, obtainedOrigin, obtainedSeries, err := charmAdapter.ResolveCharm(curl, origin, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedOrigin.Risk, gc.Equals, string(csparams.EdgeChannel))
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic", "focal"})
@@ -67,7 +67,7 @@ func (s *resolveSuite) TestResolveCharmWithFallback(c *gc.C) {
 	}, func() (store.DownloadBundleClient, error) {
 		return s.downloadClient, nil
 	})
-	obtainedURL, obtainedOrigin, obtainedSeries, err := charmAdapter.ResolveCharm(curl, origin)
+	obtainedURL, obtainedOrigin, obtainedSeries, err := charmAdapter.ResolveCharm(curl, origin, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedOrigin.Risk, gc.Equals, string(csparams.EdgeChannel))
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic", "focal"})
@@ -87,7 +87,7 @@ func (s *resolveSuite) TestResolveCharmNotCSCharm(c *gc.C) {
 	}, func() (store.DownloadBundleClient, error) {
 		return s.downloadClient, nil
 	})
-	_, obtainedOrigin, _, err := charmAdapter.ResolveCharm(curl, origin)
+	_, obtainedOrigin, _, err := charmAdapter.ResolveCharm(curl, origin, false)
 	c.Assert(err, gc.NotNil)
 	c.Assert(obtainedOrigin.Risk, gc.Equals, string(csparams.NoChannel))
 }
@@ -108,7 +108,7 @@ func (s *resolveSuite) TestResolveCharmFailResolveWithChannel(c *gc.C) {
 	}, func() (store.DownloadBundleClient, error) {
 		return s.downloadClient, nil
 	})
-	_, obtainedOrigin, _, err := charmAdapter.ResolveCharm(curl, origin)
+	_, obtainedOrigin, _, err := charmAdapter.ResolveCharm(curl, origin, false)
 	c.Assert(err, gc.NotNil)
 	c.Assert(obtainedOrigin.Risk, gc.Equals, string(csparams.NoChannel))
 }
@@ -129,7 +129,7 @@ func (s *resolveSuite) TestResolveCharmFailResolveWithChannelWithFallback(c *gc.
 	}, func() (store.DownloadBundleClient, error) {
 		return s.downloadClient, nil
 	})
-	_, obtainedOrigin, _, err := charmAdapter.ResolveCharm(curl, origin)
+	_, obtainedOrigin, _, err := charmAdapter.ResolveCharm(curl, origin, false)
 	c.Assert(err, gc.NotNil)
 	c.Assert(obtainedOrigin.Risk, gc.Equals, string(csparams.NoChannel))
 }

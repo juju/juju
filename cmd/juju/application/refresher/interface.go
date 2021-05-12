@@ -40,7 +40,7 @@ type CharmID struct {
 // CharmResolver defines methods required to resolve charms, as required
 // by the upgrade-charm command.
 type CharmResolver interface {
-	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error)
+	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error)
 }
 
 // CharmRepository defines methods for interaction with a charm repo.
