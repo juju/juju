@@ -39,7 +39,6 @@ func NewUpgraderFacade(st *state.State, resources facade.Resources, auth facade.
 	if err != nil {
 		return nil, apiservererrors.ErrPerm
 	}
-	logger.Criticalf("NewUpgraderAPI tag %#v", tag)
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -48,7 +47,6 @@ func NewUpgraderFacade(st *state.State, resources facade.Resources, auth facade.
 	case names.MachineTag, names.ControllerAgentTag, names.ApplicationTag, names.ModelTag:
 		return NewUpgraderAPI(st, resources, auth)
 	case names.UnitTag:
-		logger.Criticalf("NewUpgraderAPI tag %#v, model.Type() == state.ModelTypeCAAS %#v", tag, model.Type() == state.ModelTypeCAAS)
 		if model.Type() == state.ModelTypeCAAS {
 			// For embedded applications.
 			return NewUpgraderAPI(st, resources, auth)
@@ -87,7 +85,6 @@ func NewUpgraderAPI(
 		return nil, apiservererrors.ErrPerm
 	}
 	getCanReadWrite := func() (common.AuthFunc, error) {
-		logger.Criticalf("NewUpgraderAPI getCanReadWrite %#v", authorizer.GetAuthTag())
 		return authorizer.AuthOwner, nil
 	}
 	model, err := st.Model()

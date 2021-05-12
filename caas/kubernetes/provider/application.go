@@ -28,7 +28,7 @@ func (k *kubernetesClient) Application(name string, deploymentType caas.Deployme
 }
 
 func (k *kubernetesClient) upgraderApplication(agentTag names.Tag, vers version.Number) error {
-	appName, err := names.UnitApplication(agentTag.String())
+	appName, err := names.UnitApplication(agentTag.Id())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -36,5 +36,5 @@ func (k *kubernetesClient) upgraderApplication(agentTag names.Tag, vers version.
 		appName,
 		caas.DeploymentStateful, // TODO(embedded): we hardcode it to stateful for now, it needs to be fixed soon!
 	)
-	return app.Upgrader(vers)
+	return app.Upgrade(vers)
 }
