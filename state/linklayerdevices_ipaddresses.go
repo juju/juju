@@ -102,11 +102,6 @@ func newIPAddress(st *State, doc ipAddressDoc) *Address {
 	return &Address{st: st, doc: doc}
 }
 
-// NetworkAddress returns the address transformed to a network.Address.
-func (addr *Address) NetworkAddress() network.SpaceAddress {
-	return network.NewSpaceAddress(addr.Value())
-}
-
 // DocID returns the globally unique ID of the IP address, including the model
 // UUID as prefix.
 func (addr *Address) DocID() string {
