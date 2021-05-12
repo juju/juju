@@ -36,8 +36,21 @@ type workerSuite struct {
 var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
-	s.upgradeStepsComplete = gate.NewLock()
+	s.BaseSuite.SetUpTest(c)
+
 	s.agentTag = names.NewUnitTag("snappass/0")
+	s.upgradeStepsComplete = gate.NewLock()
+
+	var err error
+	s.confVersion, err = version.Parse("2.9.0")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *workerSuite) TearDownTest(c *gc.C) {
+	s.upgradeStepsComplete = nil
+	s.upgraderClient = nil
+
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *workerSuite) patchVersion(v version.Binary) {
@@ -46,25 +59,21 @@ func (s *workerSuite) patchVersion(v version.Binary) {
 	s.PatchValue(&jujuversion.Current, v.Number)
 }
 
-func (s *workerSuite) initConfig(c *gc.C) *gomock.Controller {
+func (s *workerSuite) initConfig(c *gc.C) func() {
 	ctrl := gomock.NewController(c)
-	var err error
-	s.confVersion, err = version.Parse("2.9.0")
-	c.Assert(err, jc.ErrorIsNil)
 
 	s.upgraderClient = mocks.NewMockUpgraderClient(ctrl)
-
 	s.config = caasupgraderembedded.Config{
 		UpgraderClient:     s.upgraderClient,
 		AgentTag:           s.agentTag,
 		UpgradeStepsWaiter: s.upgradeStepsComplete,
 		Logger:             loggo.GetLogger("test"),
 	}
-	return ctrl
+	return ctrl.Finish
 }
 
 func (s *workerSuite) TestValidateConfig(c *gc.C) {
-	_ = s.initConfig(c)
+	defer s.initConfig(c)()
 
 	s.testValidateConfig(c, func(config *caasupgraderembedded.Config) {
 		config.UpgraderClient = nil
@@ -87,13 +96,13 @@ func (s *workerSuite) testValidateConfig(c *gc.C, f func(*caasupgraderembedded.C
 }
 
 func (s *workerSuite) TestStartStop(c *gc.C) {
-	ctrl := s.initConfig(c)
-	defer ctrl.Finish()
+	defer s.initConfig(c)()
 
 	s.patchVersion(
 		version.Binary{
-			Number: s.confVersion,
-			Arch:   "amd64",
+			Number:  s.confVersion,
+			Arch:    "amd64",
+			Release: "ubuntu",
 		},
 	)
 	s.upgraderClient.EXPECT().SetVersion(s.agentTag.String(), caasupgraderembedded.ToBinaryVersion(s.confVersion, "ubuntu")).Return(nil)

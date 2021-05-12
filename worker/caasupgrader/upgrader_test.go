@@ -34,6 +34,8 @@ type UpgraderSuite struct {
 var _ = gc.Suite(&UpgraderSuite{})
 
 func (s *UpgraderSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
 	s.upgradeStepsComplete = gate.NewLock()
 	s.initialCheckComplete = gate.NewLock()
 	s.ch = make(chan struct{})

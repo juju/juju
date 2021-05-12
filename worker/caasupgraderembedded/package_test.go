@@ -4,12 +4,12 @@
 package caasupgraderembedded
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	gc "gopkg.in/check.v1"
 )
 
-func TestPackage(t *stdtesting.T) {
+func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
