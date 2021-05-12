@@ -292,10 +292,12 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 		common.PermissionsMessage(ctx.Stderr, "add a relation")
 	}
 	if params.IsCodeAlreadyExists(err) {
-		// It's not a real error, mention about it, log it and move along
-		logger.Infof("%s", err)
-		ctx.Infof("%s", err)
-		err = nil
+		splitError := strings.Join(strings.Split(err.Error(), ": "), "\n")
+		infoErr := errors.Errorf(`
+
+Use 'juju status --relations' to view the current relations
+for %q.`, strings.Join(c.endpoints, ", "))
+		return errors.Annotatef(infoErr, splitError)
 	}
 	if err != nil && offerTerminatedRegexp.MatchString(err.Error()) {
 		offerName := offerTerminatedRegexp.ReplaceAllString(err.Error(), "$offer")
