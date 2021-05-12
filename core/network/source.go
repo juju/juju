@@ -64,6 +64,11 @@ type ConfigSourceAddr interface {
 	// provided that it can be determined.
 	IPNet() *net.IPNet
 
+	// IsSecondary returns true if this address can be determined not to be
+	// the primary address of its NIC.
+	// Such addresses are added by HA setups like Corosync+Pacemaker.
+	IsSecondary() bool
+
 	// String returns the address in string form,
 	// including the subnet mask if known.
 	String() string

@@ -152,8 +152,9 @@ func addressesToConfig(nic params.NetworkConfig, nicAddrs []network.ConfigSource
 		}
 
 		addr := params.Address{
-			Value:      ip.String(),
-			ConfigType: nic.ConfigType,
+			Value:       ip.String(),
+			ConfigType:  nic.ConfigType,
+			IsSecondary: nicAddr.IsSecondary(),
 		}
 
 		if ipNet := nicAddr.IPNet(); ipNet != nil && ipNet.Mask != nil {

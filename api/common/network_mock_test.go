@@ -5,12 +5,11 @@
 package common_test
 
 import (
-	net "net"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
 	network "github.com/juju/juju/core/network"
+	net "net"
+	reflect "reflect"
 )
 
 // MockConfigSource is a mock of ConfigSource interface
@@ -267,6 +266,20 @@ func (m *MockConfigSourceAddr) IPNet() *net.IPNet {
 func (mr *MockConfigSourceAddrMockRecorder) IPNet() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IPNet", reflect.TypeOf((*MockConfigSourceAddr)(nil).IPNet))
+}
+
+// IsSecondary mocks base method
+func (m *MockConfigSourceAddr) IsSecondary() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsSecondary")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsSecondary indicates an expected call of IsSecondary
+func (mr *MockConfigSourceAddrMockRecorder) IsSecondary() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsSecondary", reflect.TypeOf((*MockConfigSourceAddr)(nil).IsSecondary))
 }
 
 // String mocks base method

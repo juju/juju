@@ -538,6 +538,10 @@ type LinkLayerDeviceAddress struct {
 	// It is used to determine whether the address is no longer recognised
 	// and is safe to remove.
 	Origin corenetwork.Origin
+
+	// IsSecondary if true, indicates that this address is
+	// not the primary address associated with the NIC.
+	IsSecondary bool
 }
 
 // TODO (manadart 2020-07-21): This is silly. We already received the args

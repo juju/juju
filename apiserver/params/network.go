@@ -316,7 +316,6 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 		// address collections are used, and the following fields removed from
 		// the top-level interface:
 		// - CIDR
-		// - ConfigType
 		// - Address
 
 		// 1) For clients that populate Addresses, but still set

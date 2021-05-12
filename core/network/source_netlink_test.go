@@ -11,6 +11,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 	gc "gopkg.in/check.v1"
 )
 
@@ -40,6 +41,11 @@ func (s *sourceNetlinkSuite) TestNetlinkAddr(c *gc.C) {
 	c.Check(addr.IP().String(), gc.Equals, "fe80::5054:ff:fedd:eef0")
 	c.Assert(addr.IPNet(), gc.NotNil)
 	c.Check(addr.IPNet().String(), gc.Equals, "fe80::5054:ff:fedd:eef0/64")
+
+	c.Check(addr.IsSecondary(), jc.IsFalse)
+
+	addr.addr.Flags = addr.addr.Flags | unix.IFA_F_SECONDARY
+	c.Check(addr.IsSecondary(), jc.IsTrue)
 }
 
 func (s *sourceNetlinkSuite) TestNetlinkAttrs(c *gc.C) {
