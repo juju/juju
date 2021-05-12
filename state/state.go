@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
@@ -965,7 +964,7 @@ type SaveCloudServiceArgs struct {
 	// then is wrapped with applicationGlobalKey.
 	Id         string
 	ProviderId string
-	Addresses  network.SpaceAddresses
+	Addresses  corenetwork.SpaceAddresses
 
 	Generation            int64
 	DesiredScaleProtected bool
@@ -1701,7 +1700,7 @@ func (st *State) addMachineWithPlacement(unit *Unit, data *placementData) (*Mach
 		// a constraint.  This also preserves behavior from when the
 		// AlphaSpaceName was "". This condition will be removed with
 		// the institution of universal mutable spaces.
-		if name != network.AlphaSpaceName {
+		if name != corenetwork.AlphaSpaceName {
 			spaces.Add(name)
 		}
 	}
@@ -2376,7 +2375,7 @@ func (st *State) SetAdminMongoPassword(password string) error {
 	return errors.Trace(err)
 }
 
-func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.Id) txn.Op {
+func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId corenetwork.Id) txn.Op {
 	key := st.networkEntityGlobalKey(globalKey, providerId)
 	return txn.Op{
 		C:      providerIDsC,
@@ -2386,7 +2385,7 @@ func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.I
 	}
 }
 
-func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId network.Id) txn.Op {
+func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId corenetwork.Id) txn.Op {
 	key := st.networkEntityGlobalKey(globalKey, providerId)
 	return txn.Op{
 		C:      providerIDsC,
@@ -2395,7 +2394,7 @@ func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId net
 	}
 }
 
-func (st *State) networkEntityGlobalKeyExists(globalKey string, providerId network.Id) (bool, error) {
+func (st *State) networkEntityGlobalKeyExists(globalKey string, providerId corenetwork.Id) (bool, error) {
 	col, closer := st.db().GetCollection(providerIDsC)
 	defer closer()
 
@@ -2413,7 +2412,7 @@ func (st *State) networkEntityGlobalKeyExists(globalKey string, providerId netwo
 	}
 }
 
-func (st *State) networkEntityGlobalKey(globalKey string, providerId network.Id) string {
+func (st *State) networkEntityGlobalKey(globalKey string, providerId corenetwork.Id) string {
 	return st.docID(globalKey + ":" + string(providerId))
 }
 

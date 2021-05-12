@@ -35,11 +35,13 @@ import (
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/machinelock"
 	jnames "github.com/juju/juju/juju/names"
+	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
 	uniterworker "github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 var logger = loggo.GetLogger("juju.cmd.containeragent.unit")
@@ -272,11 +274,12 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 		Agent:                agent.APIHostPortsSetter{Agent: c},
 		LogSource:            c.bufferedLogger.Logs(),
 		LeadershipGuarantee:  30 * time.Second,
+		UpgradeStepsLock:     upgradesteps.NewLock(agentConfig),
+		PreUpgradeSteps:      upgrades.PreUpgradeSteps,
 		AgentConfigChanged:   c.configChangedVal,
 		ValidateMigration:    c.validateMigration,
 		PrometheusRegisterer: c.prometheusRegistry,
 		UpdateLoggerConfig:   updateAgentConfLogging,
-		PreviousAgentVersion: agentConfig.UpgradedToVersion(),
 		ProbePort:            probePort,
 		MachineLock:          c.machineLock,
 		Clock:                c.clk,

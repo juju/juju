@@ -1057,6 +1057,25 @@ func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []
 	return ops, nil
 }
 
+// IsEmbedded returns true when using new CAAS charms in embedded mode.
+func (a *Application) IsEmbedded() (bool, error) {
+	ch, _, err := a.Charm()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	meta := ch.Meta()
+	if meta == nil {
+		return false, nil
+	}
+	m, err := a.st.Model()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	// TODO(embedded): Determine a better way represent this.
+	return m.Type() == ModelTypeCAAS && corecharm.Format(ch) == corecharm.FormatV2, nil
+}
+
 // changeCharmOps returns the operations necessary to set a application's
 // charm URL to a new value.
 func (a *Application) changeCharmOps(

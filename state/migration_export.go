@@ -950,6 +950,12 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		return errors.Trace(err)
 	}
 
+	// Set Tools for application - this is only for CAAS models.
+	isEmbedded, err := ctx.application.IsEmbedded()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for _, unit := range ctx.units {
 		agentKey := unit.globalAgentKey()
 		unitMeterStatus, found := ctx.meterStatus[agentKey]
@@ -1030,7 +1036,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		workloadVersionKey := unit.globalWorkloadVersionKey()
 		exUnit.SetWorkloadVersionHistory(e.statusHistoryArgs(workloadVersionKey))
 
-		if e.dbModel.Type() != ModelTypeCAAS && !e.cfg.SkipUnitAgentBinaries {
+		if (e.dbModel.Type() != ModelTypeCAAS && !e.cfg.SkipUnitAgentBinaries) || isEmbedded {
 			tools, err := unit.AgentTools()
 			if err != nil && !e.cfg.IgnoreIncompleteModel {
 				// This means the tools aren't set, but they should be.
@@ -1044,7 +1050,8 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 					Size:    tools.Size,
 				})
 			}
-		} else {
+		}
+		if e.dbModel.Type() == ModelTypeCAAS {
 			// TODO(caas) - Actually use the exported cloud container details and status history.
 			// Currently these are only grabbed to make the MigrationExportSuite tests happy.
 			globalCCKey := unit.globalCloudContainerKey()
@@ -1065,8 +1072,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		exUnit.SetConstraints(constraintsArgs)
 	}
 
-	// Set Tools for application - this is only for CAAS models.
-	if e.dbModel.Type() == ModelTypeCAAS {
+	if e.dbModel.Type() == ModelTypeCAAS && !isEmbedded {
 		tools, err := ctx.application.AgentTools()
 		if err != nil {
 			// This means the tools aren't set, but they should be.
