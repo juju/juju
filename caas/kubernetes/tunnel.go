@@ -52,7 +52,11 @@ const (
 
 // Close disconnects a tunnel connection
 func (t *Tunnel) Close() {
-	close(t.stopChan)
+	select {
+	case <-t.stopChan:
+	default:
+		close(t.stopChan)
+	}
 }
 
 // findSuitablePodForService when tunneling to a kubernetes service we need to
