@@ -31,11 +31,10 @@ func init() {
 	simplestreams.RegisterStructTags(OvaFileMetadata{})
 }
 
-func findImageMetadata(env environs.Environ, args environs.StartInstanceParams) (*OvaFileMetadata, error) {
-	arches := args.Tools.Arches()
+func findImageMetadata(env environs.Environ, arches []string, series string) (*OvaFileMetadata, error) {
 	ic := &imagemetadata.ImageConstraint{
 		LookupParams: simplestreams.LookupParams{
-			Releases: []string{args.InstanceConfig.Series},
+			Releases: []string{series},
 			Arches:   arches,
 			Stream:   env.Config().ImageStream(),
 		},

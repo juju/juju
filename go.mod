@@ -41,12 +41,12 @@ require (
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
 	github.com/juju/bundlechanges/v5 v5.0.0-20210224113052-f5fb3bbb6c25
-	github.com/juju/charm/v9 v9.0.0-20210427070932-bc9b40c9b0f4
+	github.com/juju/charm/v9 v9.0.0-20210512004933-c21e01ffd4ad
 	github.com/juju/charmrepo/v7 v7.0.0-20210427073450-742f84f1c0ff
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
-	github.com/juju/description/v3 v3.0.0-20210322020148-5f792d83b709
+	github.com/juju/description/v3 v3.0.0-20210429063345-9e7a833a1aae
 	github.com/juju/errors v0.0.0-20200330140219-3fe23663418f
 	github.com/juju/featureflag v0.0.0-20200423045028-e2f9e1cb1611
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d

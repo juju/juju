@@ -3439,19 +3439,6 @@ func (f *controllerIdFilter) match(key interface{}) bool {
 	return false
 }
 
-// WatchActionResults starts and returns a StringsWatcher that
-// notifies on new ActionResults being added.
-func (m *Model) WatchActionResults() StringsWatcher {
-	return m.WatchActionResultsFilteredBy()
-}
-
-// WatchActionResultsFilteredBy starts and returns a StringsWatcher
-// that notifies on new ActionResults being added for the ActionRecevers
-// being watched.
-func (m *Model) WatchActionResultsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
-	return newActionStatusWatcher(m.st, receivers, []ActionStatus{ActionCompleted, ActionCancelled, ActionFailed}...)
-}
-
 // openedPortsWatcher notifies of changes in the openedPorts
 // collection
 type openedPortsWatcher struct {

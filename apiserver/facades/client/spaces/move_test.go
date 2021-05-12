@@ -340,7 +340,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedForOverl
 	// So we expect the subnet to be looked up by the address value.
 	address := spaces.NewMockAddress(ctrl)
 	address.EXPECT().SubnetCIDR().Return("10.0.0.0/8")
-	address.EXPECT().ConfigMethod().Return(network.DynamicAddress)
+	address.EXPECT().ConfigMethod().Return(network.ConfigDHCP)
 	address.EXPECT().Value().Return("10.10.0.5")
 
 	m := spaces.NewMockMachine(ctrl)
@@ -590,13 +590,13 @@ func expectMachine(ctrl *gomock.Controller, cidrs ...string) *spaces.MockMachine
 	for i, cidr := range cidrs {
 		address := spaces.NewMockAddress(ctrl)
 		address.EXPECT().SubnetCIDR().Return(cidr)
-		address.EXPECT().ConfigMethod().Return(network.DynamicAddress)
+		address.EXPECT().ConfigMethod().Return(network.ConfigDHCP)
 		addrs[i] = address
 	}
 
 	// Add a loopback into the mix to test that we don't ask for its subnets.
 	loopback := spaces.NewMockAddress(ctrl)
-	loopback.EXPECT().ConfigMethod().Return(network.LoopbackAddress)
+	loopback.EXPECT().ConfigMethod().Return(network.ConfigLoopback)
 
 	machine := spaces.NewMockMachine(ctrl)
 	machine.EXPECT().AllAddresses().Return(append(addrs, loopback), nil)

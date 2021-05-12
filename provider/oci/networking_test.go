@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 )
 
 type networkingSuite struct {
@@ -243,16 +243,16 @@ func (n *networkingSuite) TestNetworkInterfaces(c *gc.C) {
 	info := infoList[0]
 
 	c.Assert(info, gc.HasLen, 1)
-	c.Assert(info[0].Addresses, gc.DeepEquals, corenetwork.ProviderAddresses{
-		corenetwork.NewProviderAddress(
-			"1.1.1.1", corenetwork.WithScope(corenetwork.ScopeCloudLocal), corenetwork.WithCIDR("1.0.0.0/8"))})
-	c.Assert(info[0].ShadowAddresses, gc.DeepEquals, corenetwork.ProviderAddresses{
-		corenetwork.NewProviderAddress("2.2.2.2", corenetwork.WithScope(corenetwork.ScopePublic))})
+	c.Assert(info[0].Addresses, gc.DeepEquals, network.ProviderAddresses{
+		network.NewProviderAddress(
+			"1.1.1.1", network.WithScope(network.ScopeCloudLocal), network.WithCIDR("1.0.0.0/8"))})
+	c.Assert(info[0].ShadowAddresses, gc.DeepEquals, network.ProviderAddresses{
+		network.NewProviderAddress("2.2.2.2", network.WithScope(network.ScopePublic))})
 	c.Assert(info[0].DeviceIndex, gc.Equals, 0)
-	c.Assert(info[0].ProviderId, gc.Equals, corenetwork.Id(vnicID))
+	c.Assert(info[0].ProviderId, gc.Equals, network.Id(vnicID))
 	c.Assert(info[0].MACAddress, gc.Equals, "aa:aa:aa:aa:aa:aa")
-	c.Assert(info[0].InterfaceType, gc.Equals, corenetwork.EthernetInterface)
-	c.Assert(info[0].ProviderSubnetId, gc.Equals, corenetwork.Id("fakeSubnetId"))
+	c.Assert(info[0].InterfaceType, gc.Equals, network.EthernetDevice)
+	c.Assert(info[0].ProviderSubnetId, gc.Equals, network.Id("fakeSubnetId"))
 }
 
 func (n *networkingSuite) TestSubnets(c *gc.C) {
@@ -261,15 +261,15 @@ func (n *networkingSuite) TestSubnets(c *gc.C) {
 
 	n.setupListSubnetsExpectations()
 
-	lookFor := []corenetwork.Id{
-		corenetwork.Id("fakeSubnetId"),
+	lookFor := []network.Id{
+		network.Id("fakeSubnetId"),
 	}
 	info, err := n.env.Subnets(nil, instance.UnknownId, lookFor)
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.HasLen, 1)
 	c.Assert(info[0].CIDR, gc.Equals, "1.0.0.0/8")
 
-	lookFor = []corenetwork.Id{"IDontExist"}
+	lookFor = []network.Id{"IDontExist"}
 	_, err = n.env.Subnets(nil, instance.UnknownId, lookFor)
 	c.Check(err, gc.ErrorMatches, "failed to find the following subnet ids:.*IDontExist.*")
 }
@@ -280,16 +280,16 @@ func (n *networkingSuite) TestSubnetsKnownInstanceId(c *gc.C) {
 
 	n.setupSubnetsKnownInstanceExpectations()
 
-	lookFor := []corenetwork.Id{
-		corenetwork.Id("fakeSubnetId"),
+	lookFor := []network.Id{
+		network.Id("fakeSubnetId"),
 	}
 	info, err := n.env.Subnets(nil, instance.Id(n.testInstanceID), lookFor)
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.HasLen, 1)
 	c.Assert(info[0].CIDR, gc.Equals, "1.0.0.0/8")
 
-	lookFor = []corenetwork.Id{
-		corenetwork.Id("notHere"),
+	lookFor = []network.Id{
+		network.Id("notHere"),
 	}
 	_, err = n.env.Subnets(nil, instance.Id(n.testInstanceID), lookFor)
 	c.Check(err, gc.ErrorMatches, "failed to find the following subnet ids:.*notHere.*")

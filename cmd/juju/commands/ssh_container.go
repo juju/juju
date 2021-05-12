@@ -184,6 +184,8 @@ func (c *sshContainer) cleanupRun() {
 	}
 }
 
+const charmContainerName = "charm"
+
 func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 	// If the user specified a leader unit, try to resolve it to the
 	// appropriate unit name and override the requested target name.
@@ -248,9 +250,10 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 	if isMetaV2 {
 		meta := charmInfo.Charm().Meta()
 		if c.container == "" {
-			c.container = "charm"
-		} else if _, ok := meta.Containers[c.container]; !ok {
-			containers := []string{"charm"}
+			c.container = charmContainerName
+		}
+		if _, ok := meta.Containers[c.container]; !ok && c.container != charmContainerName {
+			containers := []string{charmContainerName}
 			for k := range meta.Containers {
 				containers = append(containers, k)
 			}

@@ -76,7 +76,6 @@ func (s *toolsSuite) TestTools(c *gc.C) {
 	tools := result.Results[0].ToolsList[0]
 	c.Assert(tools.Version, gc.DeepEquals, current)
 	c.Assert(tools.URL, gc.Equals, "tools:"+current.String())
-	c.Assert(result.Results[0].DisableSSLHostnameVerification, jc.IsTrue)
 	c.Assert(result.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.NotFoundError("machine 42"))
 }
@@ -114,7 +113,6 @@ func (s *toolsSuite) TestSeriesTools(c *gc.C) {
 	tools := result.Results[0].ToolsList[0]
 	c.Assert(tools.Version, gc.DeepEquals, current)
 	c.Assert(tools.URL, gc.Equals, "tools:"+current.String())
-	c.Assert(result.Results[0].DisableSSLHostnameVerification, jc.IsTrue)
 }
 
 func (s *toolsSuite) TestToolsError(c *gc.C) {
@@ -290,7 +288,7 @@ func (s *toolsSuite) TestFindToolsOldAgent(c *gc.C) {
 			c.Assert(major, gc.Equals, 2)
 			c.Assert(minor, gc.Equals, 8)
 			c.Assert(streams, gc.DeepEquals, test.agentStreamsUsed)
-			c.Assert(filter.OSType, gc.Equals, "")
+			c.Assert(filter.OSType, gc.Equals, "ubuntu")
 			c.Assert(filter.Arch, gc.Equals, "amd64")
 			return envtoolsList, nil
 		})

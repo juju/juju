@@ -40,36 +40,36 @@ func (*sourceSuite) TestParseInterfaceType(c *gc.C) {
 	}
 
 	result := network.ParseInterfaceType(fakeSysPath, "missing")
-	c.Check(result, gc.Equals, network.UnknownInterface)
+	c.Check(result, gc.Equals, network.UnknownDevice)
 
 	writeFakeUEvent("eth0", "IFINDEX=1", "INTERFACE=eth0")
 	result = network.ParseInterfaceType(fakeSysPath, "eth0")
-	c.Check(result, gc.Equals, network.UnknownInterface)
+	c.Check(result, gc.Equals, network.UnknownDevice)
 
 	fakeUEventPath := writeFakeUEvent("eth0.42", "DEVTYPE=vlan")
 	result = network.ParseInterfaceType(fakeSysPath, "eth0.42")
-	c.Check(result, gc.Equals, network.VLAN_8021QInterface)
+	c.Check(result, gc.Equals, network.VLAN8021QDevice)
 
 	os.Chmod(fakeUEventPath, 0000) // permission denied error is OK
 	result = network.ParseInterfaceType(fakeSysPath, "eth0.42")
-	c.Check(result, gc.Equals, network.UnknownInterface)
+	c.Check(result, gc.Equals, network.UnknownDevice)
 
 	writeFakeUEvent("bond0", "DEVTYPE=bond")
 	result = network.ParseInterfaceType(fakeSysPath, "bond0")
-	c.Check(result, gc.Equals, network.BondInterface)
+	c.Check(result, gc.Equals, network.BondDevice)
 
 	writeFakeUEvent("br-ens4", "DEVTYPE=bridge")
 	result = network.ParseInterfaceType(fakeSysPath, "br-ens4")
-	c.Check(result, gc.Equals, network.BridgeInterface)
+	c.Check(result, gc.Equals, network.BridgeDevice)
 
 	// First DEVTYPE found wins.
 	writeFakeUEvent("foo", "DEVTYPE=vlan", "DEVTYPE=bridge")
 	result = network.ParseInterfaceType(fakeSysPath, "foo")
-	c.Check(result, gc.Equals, network.VLAN_8021QInterface)
+	c.Check(result, gc.Equals, network.VLAN8021QDevice)
 
 	writeFakeUEvent("fake", "DEVTYPE=warp-drive")
 	result = network.ParseInterfaceType(fakeSysPath, "fake")
-	c.Check(result, gc.Equals, network.UnknownInterface)
+	c.Check(result, gc.Equals, network.UnknownDevice)
 }
 
 func (*sourceSuite) TestGetBridgePorts(c *gc.C) {

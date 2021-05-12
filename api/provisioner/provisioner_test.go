@@ -820,7 +820,7 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 		state.LinkLayerDeviceAddress{
 			DeviceName:   "ens3",
 			CIDRAddress:  "10.0.0.10/24",
-			ConfigMethod: corenetwork.StaticAddress,
+			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

@@ -57,7 +57,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigInterfaceAddressesError
 	nic := NewMockConfigSourceNIC(ctrl)
 	exp := nic.EXPECT()
 	exp.Name().Return("eth0").MinTimes(1)
-	exp.Type().Return(network.EthernetInterface)
+	exp.Type().Return(network.EthernetDevice)
 	exp.IsUp().Return(true)
 	exp.Index().Return(2)
 	exp.HardwareAddr().Return(net.HardwareAddr{})
@@ -78,7 +78,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigNilAddressError(c *gc.C
 	nic := NewMockConfigSourceNIC(ctrl)
 	exp := nic.EXPECT()
 	exp.Name().Return("eth1").MinTimes(1)
-	exp.Type().Return(network.EthernetInterface)
+	exp.Type().Return(network.EthernetDevice)
 	exp.IsUp().Return(true)
 	exp.Index().Return(2)
 	exp.HardwareAddr().Return(parseMAC(c, "aa:bb:cc:dd:ee:ff"))
@@ -101,7 +101,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigNoInterfaceAddresses(c 
 
 	// Note that eth1 is not the default gateway.
 	exp.Name().Return("eth1").MinTimes(1)
-	exp.Type().Return(network.EthernetInterface)
+	exp.Type().Return(network.EthernetDevice)
 	exp.IsUp().Return(true)
 	exp.Index().Return(2)
 	exp.HardwareAddr().Return(parseMAC(c, "aa:bb:cc:dd:ee:ff"))
@@ -145,7 +145,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigDefaultGatewayWithAddre
 
 	// eth0 matches the device returned as the default gateway.
 	exp.Name().Return("eth0").MinTimes(1)
-	exp.Type().Return(network.EthernetInterface)
+	exp.Type().Return(network.EthernetDevice)
 	exp.IsUp().Return(true)
 	exp.Index().Return(2)
 	exp.HardwareAddr().Return(parseMAC(c, "aa:bb:cc:dd:ee:ff"))
@@ -196,7 +196,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigForOVSDevice(c *gc.C) {
 	exp := nic.EXPECT()
 
 	exp.Name().Return("ovsbr0").MinTimes(1)
-	exp.Type().Return(network.BridgeInterface)
+	exp.Type().Return(network.BridgeDevice)
 	exp.IsUp().Return(true)
 	exp.Index().Return(2)
 	exp.HardwareAddr().Return(parseMAC(c, "aa:bb:cc:dd:ee:ff"))
@@ -230,7 +230,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSe
 	exp1 := nic1.EXPECT()
 
 	exp1.Name().Return("eth1").MinTimes(1)
-	exp1.Type().Return(network.EthernetInterface)
+	exp1.Type().Return(network.EthernetDevice)
 	exp1.IsUp().Return(true)
 	exp1.Index().Return(2)
 	exp1.HardwareAddr().Return(parseMAC(c, "aa:bb:cc:dd:ee:ff"))
@@ -241,7 +241,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSe
 	exp2 := nic2.EXPECT()
 
 	exp2.Name().Return("br-eth1").MinTimes(1)
-	exp2.Type().Return(network.BridgeInterface)
+	exp2.Type().Return(network.BridgeDevice)
 	exp2.IsUp().Return(true)
 	exp2.Index().Return(3)
 	exp2.HardwareAddr().Return(parseMAC(c, "aa:bb:cc:dd:ee:ff"))

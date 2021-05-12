@@ -12,7 +12,7 @@ import (
 	"github.com/juju/collections/set"
 )
 
-// SysClassNetRoot is the full Linux SYSFS path containing
+// SysClassNetPath is the full Linux SYSFS path containing
 // information about each network interface on the system.
 // TODO (manadart 2021-02-12): This remains in the main "source.go" module
 // because there was previously only one ConfigSource implementation,
@@ -35,7 +35,7 @@ type ConfigSourceNIC interface {
 	// veth, tuntap, macvtap et al. Our parsing falls back to ethernet for such
 	// devices, which we should change in order to have a better informed
 	// networking model.
-	Type() InterfaceType
+	Type() LinkLayerDeviceType
 
 	// Index returns the index of the interface.
 	Index() int
@@ -97,14 +97,14 @@ type ConfigSource interface {
 // Example call: network.ParseInterfaceType(network.SysClassNetPath, "br-eth1")
 // TODO (manadart 2021-02-12): As with SysClassNetPath above, specific
 // implementations should be sought for this that are OS-dependent.
-func ParseInterfaceType(sysPath, interfaceName string) InterfaceType {
+func ParseInterfaceType(sysPath, interfaceName string) LinkLayerDeviceType {
 	const deviceType = "DEVTYPE="
 	location := filepath.Join(sysPath, interfaceName, "uevent")
 
 	data, err := ioutil.ReadFile(location)
 	if err != nil {
 		logger.Debugf("ignoring error reading %q: %v", location, err)
-		return UnknownInterface
+		return UnknownDevice
 	}
 
 	var devType string
@@ -117,11 +117,11 @@ func ParseInterfaceType(sysPath, interfaceName string) InterfaceType {
 		devType = strings.TrimPrefix(line, deviceType)
 		switch devType {
 		case "bridge":
-			return BridgeInterface
+			return BridgeDevice
 		case "vlan":
-			return VLAN_8021QInterface
+			return VLAN8021QDevice
 		case "bond":
-			return BondInterface
+			return BondDevice
 		case "":
 			// DEVTYPE is not present for some types, like Ethernet and loopback
 			// interfaces, so if missing do not try to guess.
@@ -129,7 +129,7 @@ func ParseInterfaceType(sysPath, interfaceName string) InterfaceType {
 		}
 	}
 
-	return UnknownInterface
+	return UnknownDevice
 }
 
 // GetBridgePorts extracts and returns the names of all interfaces configured as

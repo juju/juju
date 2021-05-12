@@ -41,6 +41,9 @@ type Operation interface {
 	// Summary is the reason for running the operation.
 	Summary() string
 
+	// Fail is why the operation failed.
+	Fail() string
+
 	// Status returns the final state of the operation.
 	Status() ActionStatus
 
@@ -57,6 +60,9 @@ type operationDoc struct {
 
 	// Summary is the reason for running the operation.
 	Summary string `bson:"summary"`
+
+	// Fail is why the operation failed.
+	Fail string `bson:"fail"`
 
 	// Enqueued is the time the operation was added.
 	Enqueued time.Time `bson:"enqueued"`
@@ -121,6 +127,11 @@ func (op *operation) Summary() string {
 	return op.doc.Summary
 }
 
+// Fail is why the operation failed.
+func (op *operation) Fail() string {
+	return op.doc.Fail
+}
+
 // Status returns the final state of the operation.
 // If not explicitly set, this is derived from the
 // status of the associated actions/tasks.
@@ -155,6 +166,7 @@ func (op *operation) Refresh() error {
 }
 
 var statusOrder = []ActionStatus{
+	ActionError,
 	ActionRunning,
 	ActionPending,
 	ActionFailed,
@@ -163,6 +175,7 @@ var statusOrder = []ActionStatus{
 }
 
 var statusCompletedOrder = []ActionStatus{
+	ActionError,
 	ActionFailed,
 	ActionCancelled,
 	ActionCompleted,
@@ -215,6 +228,36 @@ func (m *Model) EnqueueOperation(summary string) (string, error) {
 	}
 	err := m.st.db().Run(buildTxn)
 	return operationID, errors.Trace(err)
+}
+
+// FailOperation sets the operation status to "error" with the error message.
+func (m *Model) FailOperation(operationID string, opError error) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 1 {
+			operations, closer := m.st.db().GetCollection(operationsC)
+			defer closer()
+			var doc operationDoc
+			err := operations.FindId(operationID).One(&doc)
+			if err == mgo.ErrNotFound {
+				return nil, errors.NotFoundf("operation %q", operationID)
+			}
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		ops := []txn.Op{{
+			C:      operationsC,
+			Id:     m.st.docID(operationID),
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"status", ActionError},
+				{"fail", opError.Error()},
+			}}},
+		}}
+		return ops, nil
+	}
+	err := m.st.db().Run(buildTxn)
+	return errors.Trace(err)
 }
 
 // Operation returns an Operation by Id.

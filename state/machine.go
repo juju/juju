@@ -2075,26 +2075,26 @@ func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
 	return sb.MachineVolumeAttachments(m.MachineTag())
 }
 
-// AddAction is part of the ActionReceiver interface.
-func (m *Machine) AddAction(operationID, name string, payload map[string]interface{}, parallel *bool, executionGroup *string) (Action, error) {
+// PrepareActionPayload returns the payload to use in creating an action for this machine.
+// Note that the use of spec.InsertDefaults mutates payload.
+func (m *Machine) PrepareActionPayload(name string, payload map[string]interface{}, parallel *bool, executionGroup *string) (map[string]interface{}, bool, string, error) {
+	if len(name) == 0 {
+		return nil, false, "", errors.New("no action name given")
+	}
+
 	spec, ok := actions.PredefinedActionsSpec[name]
 	if !ok {
-		return nil, errors.Errorf("cannot add action %q to a machine; only predefined actions allowed", name)
+		return nil, false, "", errors.Errorf("cannot add action %q to a machine; only predefined actions allowed", name)
 	}
 
 	// Reject bad payloads before attempting to insert defaults.
 	err := spec.ValidateParams(payload)
 	if err != nil {
-		return nil, err
+		return nil, false, "", errors.Trace(err)
 	}
 	payloadWithDefaults, err := spec.InsertDefaults(payload)
 	if err != nil {
-		return nil, err
-	}
-
-	model, err := m.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, false, "", errors.Trace(err)
 	}
 
 	runParallel := spec.Parallel
@@ -2105,7 +2105,8 @@ func (m *Machine) AddAction(operationID, name string, payload map[string]interfa
 	if executionGroup != nil {
 		runExecutionGroup = *executionGroup
 	}
-	return model.EnqueueAction(operationID, m.Tag(), name, payloadWithDefaults, runParallel, runExecutionGroup)
+
+	return payloadWithDefaults, runParallel, runExecutionGroup, nil
 }
 
 // CancelAction is part of the ActionReceiver interface.

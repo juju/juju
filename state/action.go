@@ -30,6 +30,9 @@ var actionLogger = loggo.GetLogger("juju.state.action")
 type ActionStatus string
 
 const (
+	// ActionError signifies that the action did get run due to an error.
+	ActionError ActionStatus = "error"
+
 	// ActionFailed signifies that the action did not complete successfully.
 	ActionFailed ActionStatus = "failed"
 
@@ -425,6 +428,7 @@ func (a *action) removeAndLogBuildTxn(finalStatus ActionStatus, results map[stri
 				ActionCancelled,
 				ActionFailed,
 				ActionAborted,
+				ActionError,
 			}}}}}
 		// If this is the last action to be marked as completed
 		// for the parent operation, the operation itself is also
@@ -655,7 +659,7 @@ func (m *Model) FindActionsByName(name string) ([]Action, error) {
 
 // EnqueueAction caches the action doc to the database.
 func (m *Model) EnqueueAction(operationID string, receiver names.Tag,
-	actionName string, payload map[string]interface{}, parallel bool, executionGroup string) (Action, error) {
+	actionName string, payload map[string]interface{}, parallel bool, executionGroup string, actionError error) (Action, error) {
 	if len(actionName) == 0 {
 		return nil, errors.New("action name required")
 	}
@@ -669,6 +673,10 @@ func (m *Model) EnqueueAction(operationID string, receiver names.Tag,
 		return nil, errors.Trace(err)
 	}
 
+	if actionError != nil {
+		doc.Status = ActionError
+		doc.Message = actionError.Error()
+	}
 	ops := []txn.Op{{
 		C:      receiverCollectionName,
 		Id:     receiverId,
@@ -682,12 +690,15 @@ func (m *Model) EnqueueAction(operationID string, receiver names.Tag,
 		Id:     doc.DocId,
 		Assert: txn.DocMissing,
 		Insert: doc,
-	}, {
-		C:      actionNotificationsC,
-		Id:     ndoc.DocId,
-		Assert: txn.DocMissing,
-		Insert: ndoc,
 	}}
+	if actionError == nil {
+		ops = append(ops, txn.Op{
+			C:      actionNotificationsC,
+			Id:     ndoc.DocId,
+			Assert: txn.DocMissing,
+			Insert: ndoc,
+		})
+	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if notDead, err := isNotDead(m.st, receiverCollectionName, receiverId); err != nil {
@@ -707,6 +718,20 @@ func (m *Model) EnqueueAction(operationID string, receiver names.Tag,
 		return newAction(m.st, doc), nil
 	}
 	return nil, err
+}
+
+// AddAction adds a new Action of type name and using arguments payload to
+// the receiver, and returns its ID.
+func (m *Model) AddAction(receiver ActionReceiver, operationID, name string, payload map[string]interface{}, parallel *bool, executionGroup *string) (Action, error) {
+	payload, runParallel, runExecutionGroup, err := receiver.PrepareActionPayload(name, payload, parallel, executionGroup)
+	if err != nil {
+		_, err2 := m.EnqueueAction(operationID, receiver.Tag(), name, payload, runParallel, runExecutionGroup, err)
+		if err2 != nil {
+			err = err2
+		}
+		return nil, errors.Trace(err)
+	}
+	return m.EnqueueAction(operationID, receiver.Tag(), name, payload, runParallel, runExecutionGroup, nil)
 }
 
 // matchingActions finds actions that match ActionReceiver.

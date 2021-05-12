@@ -20,7 +20,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/mutex"
-	"github.com/vmware/govmomi/find"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/ovf"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -46,27 +45,25 @@ type NetworkDevice struct {
 // That's a default network that's defined in OVF.
 const defaultNetwork = "VM Network"
 
-// CreateVirtualMachineParams contains the parameters required for creating
-// a new virtual machine.
-type CreateVirtualMachineParams struct {
-	// Name is the name to give the virtual machine. The VM name is used
-	// for its hostname also.
-	Name string
+// StatusUpdateParams contains parameters commonly used to send status updates.
+type StatusUpdateParams struct {
+	// UpdateProgress is a function that should be called before/during
+	// long-running operations to provide a progress reporting.
+	UpdateProgress func(string)
 
-	// Folder is the path of the VM folder, relative to the root VM folder,
-	// in which to create the VM.
-	Folder string
+	// UpdateProgressInterval is the amount of time to wait between calls
+	// to UpdateProgress. This should be lower when the operation is
+	// interactive (bootstrap), and higher when non-interactive.
+	UpdateProgressInterval time.Duration
 
-	// RootVMFolder is the customized root vm folder.
-	RootVMFolder string
+	// Clock is used for controlling the timing of progress updates.
+	Clock clock.Clock
+}
 
-	// VMDKDirectory is the datastore path in which VMDKs are stored for
-	// this controller. Within this directory there will be subdirectories
-	// for each series, and within those the VMDKs will be stored.
-	VMDKDirectory string
-
-	// Series is the name of the OS series that the image will run.
-	Series string
+// ImportOVAParameters contains the parameters needed to import a VM template
+// from simplestreams.
+type ImportOVAParameters struct {
+	StatusUpdateParams StatusUpdateParams
 
 	// ReadOVA returns the location of, and an io.ReadCloser for,
 	// the OVA from which to extract the VMDK. The location may be
@@ -76,6 +73,36 @@ type CreateVirtualMachineParams struct {
 
 	// OVASHA256 is the expected SHA-256 hash of the OVA.
 	OVASHA256 string
+
+	// ResourcePool is a reference to the pool the VM should be
+	// created in.
+	ResourcePool types.ManagedObjectReference
+
+	// TemplateName is the name of the template that gets created
+	// from the OVA
+	TemplateName string
+
+	Datastore         *object.Datastore
+	DestinationFolder *object.Folder
+	Arch              string
+	Series            string
+}
+
+// CreateVirtualMachineParams contains the parameters required for creating
+// a new virtual machine.
+type CreateVirtualMachineParams struct {
+	StatusUpdateParams StatusUpdateParams
+
+	// Name is the name to give the virtual machine. The VM name is used
+	// for its hostname also.
+	Name string
+
+	// Folder is the path of the VM folder, relative to the root VM folder,
+	// in which to create the VM.
+	Folder string
+
+	// Series is the name of the OS series that the image will run.
+	Series string
 
 	// UserData is the cloud-init user-data.
 	UserData string
@@ -103,41 +130,17 @@ type CreateVirtualMachineParams struct {
 	// Networks contain a list of network devices the VM should have.
 	NetworkDevices []NetworkDevice
 
-	// UpdateProgress is a function that should be called before/during
-	// long-running operations to provide a progress reporting.
-	UpdateProgress func(string)
-
-	// UpdateProgressInterval is the amount of time to wait between calls
-	// to UpdateProgress. This should be lower when the operation is
-	// interactive (bootstrap), and higher when non-interactive.
-	UpdateProgressInterval time.Duration
-
-	// Clock is used for controlling the timing of progress updates.
-	Clock clock.Clock
-
 	// EnableDiskUUID controls whether the VMware disk should expose a
 	// consistent UUID to the guest OS.
 	EnableDiskUUID bool
 
-	// IsBootstrap indicates whether the requested instance will be a
-	// newly bootstrapped controller.
-	IsBootstrap bool
-
 	// DiskProvisioningType specifies how disks should be provisioned when
 	// cloning a template.
 	DiskProvisioningType DiskProvisioningType
-}
 
-// vmTemplateName returns the well-known name to
-// the template VM for this controller and its models
-func vmTemplateName(args CreateVirtualMachineParams) string {
-	return "juju-template-" + args.OVASHA256
-}
+	Datastore *object.Datastore
 
-// vmTemplatePath returns the a path inside the vSphere datastore
-// where the template VM is housed.
-func vmTemplatePath(args CreateVirtualMachineParams) string {
-	return path.Join(args.VMDKDirectory, args.Series)
+	VMTemplate *object.VirtualMachine
 }
 
 // acquireMutex claims a mutex to prevent multiple workers from
@@ -151,16 +154,24 @@ func acquireMutex(spec mutex.Spec) (func(), error) {
 	return func() { releaser.Release() }, nil
 }
 
-func (c *Client) getTargetDatastore(
+// GetTargetDatastore returns the proper datastore for a compute resource.
+// given a root disk constraint.
+func (c *Client) GetTargetDatastore(
 	ctx context.Context,
-	datacenter *object.Datacenter,
-	args CreateVirtualMachineParams,
+	computeResource *mo.ComputeResource,
+	rootDiskSource string,
 ) (*object.Datastore, error) {
+	_, datacenter, err := c.finder(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	folders, err := datacenter.Folders(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	datastoreMo, err := c.selectDatastore(ctx, args)
+
+	datastoreMo, err := c.selectDatastore(ctx, computeResource, rootDiskSource)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -170,66 +181,42 @@ func (c *Client) getTargetDatastore(
 	return datastore, nil
 }
 
-// ensureTemplateVM returns a vSphere template VM
+// CreateTemplateVM returns a vSphere template VM
 // that instances can be created from.
-func (c *Client) ensureTemplateVM(
+func (c *Client) CreateTemplateVM(
 	ctx context.Context,
-	datastore *object.Datastore,
-	args CreateVirtualMachineParams,
+	ovaArgs ImportOVAParameters,
 ) (vm *object.VirtualMachine, err error) {
-	templateFolder, err := c.FindFolder(ctx, path.Join(args.RootVMFolder, vmTemplatePath(args)))
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
-	// Consider only the case without error: it means folder already exists
-	// and we can look if there is a template inside.
-	if err == nil {
-		finder, _, err := c.finder(ctx)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		templateVM, err := finder.VirtualMachine(ctx, path.Join(templateFolder.InventoryPath, vmTemplateName(args)))
-		if err == nil && templateVM != nil {
-			return templateVM, nil
-		}
-		if _, ok := err.(*find.NotFoundError); !ok {
-			return nil, errors.Trace(nil)
-		}
-	}
-
-	spec, err := c.createImportSpec(ctx, args, datastore)
+	spec, err := c.createImportSpec(
+		ctx, ovaArgs.TemplateName, ovaArgs.ResourcePool, ovaArgs.Datastore)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating import spec")
 	}
 
-	vmFolder, err := c.EnsureVMFolder(ctx, args.RootVMFolder, vmTemplatePath(args))
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	importSpec := spec.ImportSpec
-	args.UpdateProgress(fmt.Sprintf("creating template VM %q", vmTemplateName(args)))
-	c.logger.Debugf("creating template VM in folder %s", vmFolder)
+	ovaArgs.StatusUpdateParams.UpdateProgress(
+		fmt.Sprintf("creating template VM %q", ovaArgs.TemplateName))
+	c.logger.Debugf("creating template VM in folder %s", ovaArgs.DestinationFolder)
 
-	if !args.IsBootstrap {
-		// Each controller maintains its own image cache. All compute
-		// provisioners (i.e. each model's) run on the same controller
-		// machine, so taking a machine lock ensures that only one
-		// process is updating VMDKs at the same time. We lock around
-		// access to the series directory.
-		release, err := c.acquireMutex(mutex.Spec{
-			Name:  "vsphere-" + args.Series,
-			Clock: args.Clock,
-			Delay: time.Second,
-		})
-		if err != nil {
-			return nil, errors.Annotate(err, "acquiring lock")
-		}
-		defer release()
+	// Each controller maintains its own image cache. All compute
+	// provisioners (i.e. each model's) run on the same controller
+	// machine, so taking a machine lock ensures that only one
+	// process is updating VMDKs at the same time. We lock around
+	// access to the series directory.
+	// There is no need for a special case with bootstrapping as
+	// it only occurs once.
+	release, err := c.acquireMutex(mutex.Spec{
+		Name:  "vsphere-" + ovaArgs.Series,
+		Clock: ovaArgs.StatusUpdateParams.Clock,
+		Delay: time.Second,
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "acquiring lock")
 	}
+	defer release()
 
-	resourcePool := object.NewResourcePool(c.client.Client, args.ResourcePool)
-	lease, err := resourcePool.ImportVApp(ctx, importSpec, vmFolder, nil)
+	resourcePool := object.NewResourcePool(c.client.Client, ovaArgs.ResourcePool)
+	lease, err := resourcePool.ImportVApp(ctx, importSpec, ovaArgs.DestinationFolder, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to import vapp")
 	}
@@ -249,7 +236,7 @@ func (c *Client) ensureTemplateVM(
 		}
 	}()
 
-	ovaLocation, ovaReadCloser, err := args.ReadOVA()
+	ovaLocation, ovaReadCloser, err := ovaArgs.ReadOVA()
 	if err != nil {
 		return nil, errors.Annotate(err, "fetching OVA")
 	}
@@ -264,7 +251,8 @@ func (c *Client) ensureTemplateVM(
 		if strings.HasSuffix(header.Name, ".vmdk") {
 			item := info.Items[0]
 			c.logger.Infof("Streaming VMDK from %s to %s", ovaLocation, item.URL)
-			withStatusUpdater(ctx, "streaming vmdk", args.Clock, args.UpdateProgress, args.UpdateProgressInterval,
+			statusArgs := ovaArgs.StatusUpdateParams
+			withStatusUpdater(ctx, "streaming vmdk", statusArgs.Clock, statusArgs.UpdateProgress, statusArgs.UpdateProgressInterval,
 				func(ctx context.Context, sink progress.Sinker) {
 					opts := soap.Upload{
 						ContentLength: header.Size,
@@ -292,14 +280,30 @@ func (c *Client) ensureTemplateVM(
 	if err := lease.Complete(ctx); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if fmt.Sprintf("%x", sha256sum.Sum(nil)) != args.OVASHA256 {
+	if fmt.Sprintf("%x", sha256sum.Sum(nil)) != ovaArgs.OVASHA256 {
 		return nil, errors.New("SHA-256 hash mismatch for OVA")
 	}
 	vm = object.NewVirtualMachine(c.client.Client, info.Entity)
+	if ovaArgs.Arch != "" {
+		var spec types.VirtualMachineConfigSpec
+		spec.ExtraConfig = []types.BaseOptionValue{
+			&types.OptionValue{Key: ArchTag, Value: ovaArgs.Arch},
+		}
+
+		task, err := vm.Reconfigure(ctx, spec)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if _, err := task.WaitForResult(ctx, nil); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	err = vm.MarkAsTemplate(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "marking as template")
 	}
+
 	return vm, nil
 }
 
@@ -322,33 +326,22 @@ func (c *Client) CreateVirtualMachine(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	vmFolder, err := c.FindFolder(ctx, args.Folder)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	datastore, err := c.getTargetDatastore(ctx, datacenter, args)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	templateVM, err := c.ensureTemplateVM(ctx, datastore, args)
-	if err != nil {
-		return nil, errors.Annotate(err, "creating template VM")
-	}
-
-	args.UpdateProgress("cloning template")
-	vm, err := c.cloneVM(ctx, args, templateVM, vmFolder, datastore)
+	args.StatusUpdateParams.UpdateProgress("cloning template")
+	vm, err := c.cloneVM(ctx, args, args.VMTemplate, vmFolder)
 	if err != nil {
 		return nil, errors.Annotate(err, "cloning template VM")
 	}
-	args.UpdateProgress("VM cloned")
+	args.StatusUpdateParams.UpdateProgress("VM cloned")
 
 	taskWaiter := &taskWaiter{
-		args.Clock,
-		args.UpdateProgress,
-		args.UpdateProgressInterval,
+		args.StatusUpdateParams.Clock,
+		args.StatusUpdateParams.UpdateProgress,
+		args.StatusUpdateParams.UpdateProgressInterval,
 	}
 
 	// Make sure to delete the VM if anything goes wrong before we've finished with it.
@@ -362,14 +355,14 @@ func (c *Client) CreateVirtualMachine(
 	}()
 
 	if err := c.maybeUpgradeVMHardware(ctx, args, vm, taskWaiter); err != nil {
-		args.UpdateProgress(fmt.Sprintf("VM upgrade failed: %s", err))
+		args.StatusUpdateParams.UpdateProgress(fmt.Sprintf("VM upgrade failed: %s", err))
 		return nil, errors.Annotate(err, "upgrading VM hardware")
 	}
 
 	if args.Constraints.RootDisk != nil {
 		// The user specified a root disk, so extend the VM's
 		// disk before powering the VM on.
-		args.UpdateProgress(fmt.Sprintf(
+		args.StatusUpdateParams.UpdateProgress(fmt.Sprintf(
 			"extending disk to %s",
 			humanize.IBytes(megabytesToB(*args.Constraints.RootDisk)),
 		))
@@ -382,7 +375,7 @@ func (c *Client) CreateVirtualMachine(
 		}
 	}
 
-	args.UpdateProgress("powering on")
+	args.StatusUpdateParams.UpdateProgress("powering on")
 	task, err := vm.PowerOn(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -438,18 +431,19 @@ func (c *Client) extendVMRootDisk(
 
 func (c *Client) createImportSpec(
 	ctx context.Context,
-	args CreateVirtualMachineParams,
+	templateName string,
+	resourcePool types.ManagedObjectReference,
 	datastore *object.Datastore,
 ) (*types.OvfCreateImportSpecResult, error) {
 	cisp := types.OvfCreateImportSpecParams{
-		EntityName: vmTemplateName(args),
+		EntityName: templateName,
 	}
 	c.logger.Debugf("Creating import spec: pool=%q, datastore=%q, entity=%q",
-		args.ResourcePool, datastore, cisp.EntityName)
+		resourcePool, datastore, cisp.EntityName)
 
 	c.logger.Debugf("Fetching OVF manager")
 	ovfManager := ovf.NewManager(c.client.Client)
-	spec, err := ovfManager.CreateImportSpec(ctx, UbuntuOVF, args.ResourcePool, datastore, cisp)
+	spec, err := ovfManager.CreateImportSpec(ctx, UbuntuOVF, resourcePool, datastore, cisp)
 	if err != nil {
 		c.logger.Debugf("CreateImportSpec error: err=%v", err)
 		return nil, errors.Trace(err)
@@ -468,7 +462,8 @@ func (c *Client) createImportSpec(
 
 func (c *Client) selectDatastore(
 	ctx context.Context,
-	args CreateVirtualMachineParams,
+	computeResource *mo.ComputeResource,
+	rootDiskSource string,
 ) (_ *mo.Datastore, err error) {
 	defer func() {
 		if err != nil {
@@ -479,8 +474,8 @@ func (c *Client) selectDatastore(
 	// Select a datastore. If the user specified one, use that. When no datastore
 	// is provided and there is only datastore accessible, use that. Otherwise return
 	// an error and ask for guidance.
-	refs := make([]types.ManagedObjectReference, len(args.ComputeResource.Datastore))
-	for i, ds := range args.ComputeResource.Datastore {
+	refs := make([]types.ManagedObjectReference, len(computeResource.Datastore))
+	for i, ds := range computeResource.Datastore {
 		refs[i] = ds.Reference()
 	}
 	var datastores []mo.Datastore
@@ -503,8 +498,8 @@ func (c *Client) selectDatastore(
 		return nil, errors.New("no accessible datastores available")
 	}
 
-	if args.Constraints.RootDiskSource != nil {
-		dsName := *args.Constraints.RootDiskSource
+	if rootDiskSource != "" {
+		dsName := rootDiskSource
 		c.logger.Debugf("desired datastore %q", dsName)
 		c.logger.Debugf("accessible datastores %q", datastoreNames)
 		for _, ds := range datastores {
@@ -579,7 +574,7 @@ func (c *Client) addNetworkDevice(
 	networkDevice.Key = -idx // negative to avoid conflicts
 	if mac != "" {
 		if !VerifyMAC(mac) {
-			return nil, fmt.Errorf("Invalid MAC address: %q", mac)
+			return nil, fmt.Errorf("invalid MAC address: %q", mac)
 		}
 		networkDevice.AddressType = "Manual"
 		networkDevice.MacAddress = mac

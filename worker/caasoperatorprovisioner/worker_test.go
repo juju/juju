@@ -234,6 +234,41 @@ values: {}
 	s.assertOperatorCreated(c, true, false)
 }
 
+func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperatorAgentConfAPIAddresses(c *gc.C) {
+	s.caasClient.operatorExists = true
+	s.caasClient.config = &caas.OperatorConfig{
+		OperatorImagePath: "juju-operator-image",
+		Version:           version.MustParse("2.99.0"),
+		AgentConf: []byte(fmt.Sprintf(`
+# format 2.0
+tag: application-myapp
+upgradedToVersion: 2.99.0
+controller: controller-deadbeef-1bad-500d-9000-4b1d0d06f00d
+model: model-deadbeef-0bad-400d-8000-4b1d0d06f00d
+oldpassword: wow
+cacert: %s
+apiaddresses:
+- 8.8.8.6:17070 # this address will be updated to 10.0.0.1:17070
+- 192.18.1.1:17070
+oldpassword: dxKwhgZPrNzXVTrZSxY1VLHA
+values: {}
+mongoversion: "0.0"
+`[1:], strconv.Quote(coretesting.CACert))),
+		OperatorInfo: []byte(
+			fmt.Sprintf(
+				"private-key: %s\ncert: %s\nca-cert: %s\n",
+				strconv.Quote(coretesting.ServerKey),
+				strconv.Quote(coretesting.ServerCert),
+				strconv.Quote(coretesting.CACert),
+			),
+		),
+	}
+
+	w := s.assertWorker(c)
+	defer workertest.CleanKill(c, w)
+	s.assertOperatorCreated(c, true, false)
+}
+
 func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperatorAndIssueCerts(c *gc.C) {
 	s.caasClient.operatorExists = true
 	s.caasClient.config = &caas.OperatorConfig{

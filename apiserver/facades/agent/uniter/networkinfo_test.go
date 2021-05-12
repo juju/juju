@@ -87,7 +87,7 @@ func (s *networkInfoSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machi
 
 		addressesArg := state.LinkLayerDeviceAddress{
 			DeviceName:   name,
-			ConfigMethod: network.StaticAddress,
+			ConfigMethod: network.ConfigStatic,
 			CIDRAddress:  address,
 		}
 		err = machine.SetDevicesAddresses(addressesArg)
@@ -752,7 +752,7 @@ func (s *networkInfoSuite) createNICWithIP(
 		state.LinkLayerDeviceAddress{
 			DeviceName:   deviceName,
 			CIDRAddress:  cidrAddress,
-			ConfigMethod: network.StaticAddress,
+			ConfigMethod: network.ConfigStatic,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

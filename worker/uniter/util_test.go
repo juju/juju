@@ -961,7 +961,7 @@ func (s addAction) step(c *gc.C, ctx *testContext) {
 	c.Assert(err, jc.ErrorIsNil)
 	operationID, err := m.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = m.EnqueueAction(operationID, ctx.unit.Tag(), s.name, s.params, false, "")
+	_, err = m.EnqueueAction(operationID, ctx.unit.Tag(), s.name, s.params, false, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

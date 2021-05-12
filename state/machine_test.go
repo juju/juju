@@ -2567,7 +2567,7 @@ func (s *MachineSuite) TestMachineValidActions(c *gc.C) {
 		c.Logf("running test %d", i)
 		operationID, err := s.Model.EnqueueOperation("a test")
 		c.Assert(err, jc.ErrorIsNil)
-		action, err := m.AddAction(operationID, t.actionName, t.givenPayload, nil, nil)
+		action, err := s.Model.AddAction(m, operationID, t.actionName, t.givenPayload, nil, nil)
 		if t.errString != "" {
 			c.Assert(err.Error(), gc.Equals, t.errString)
 			continue
@@ -2578,12 +2578,17 @@ func (s *MachineSuite) TestMachineValidActions(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) TestMachineAddDifferentAction(c *gc.C) {
+func (s *MachineSuite) TestAddActionWithError(c *gc.C) {
 	m, err := s.State.AddMachine("trusty", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = m.AddAction("666", "benchmark", nil, nil, nil)
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.Model.AddAction(m, operationID, "benchmark", nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add action "benchmark" to a machine; only predefined actions allowed`)
+	op, err := s.Model.Operation(operationID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.Status(), gc.Equals, state.ActionError)
 }
 
 func (s *MachineSuite) setupTestUpdateMachineSeries(c *gc.C) *state.Machine {

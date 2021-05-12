@@ -6,6 +6,7 @@ package action_test
 import (
 	"strconv"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
@@ -53,6 +54,28 @@ func (s *operationSuite) setupOperations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = a.Finish(state.ActionResults{Status: state.ActionCompleted})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *operationSuite) TestFailedOperations(c *gc.C) {
+	arg := params.Actions{
+		Actions: []params.Action{
+			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
+		}}
+
+	r, err := s.action.EnqueueOperation(arg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Actions, gc.HasLen, len(arg.Actions))
+
+	// There's only one operation created.
+	ops, err := s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, 1)
+	err = s.Model.FailOperation(ops[0].Id(), errors.New("fail"))
+	c.Assert(err, jc.ErrorIsNil)
+	op, err := s.Model.Operation(ops[0].Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.Status(), gc.Equals, state.ActionError)
+	c.Assert(op.Fail(), gc.Equals, "fail")
 }
 
 func (s *operationSuite) TestListOperationsStatusFilter(c *gc.C) {

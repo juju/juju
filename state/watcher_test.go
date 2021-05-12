@@ -76,7 +76,7 @@ func (s *watcherSuite) TestLegacyActionNotificationWatcher(c *gc.C) {
 
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := unit.AddAction(operationID, "snapshot", nil, nil, nil)
+	action, err := s.Model.AddAction(unit, operationID, "snapshot", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(action.Id())
 

@@ -10,6 +10,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
+
+	coreos "github.com/juju/juju/core/os"
+	coreseries "github.com/juju/juju/core/series"
 )
 
 // List holds tools available in an environment. The order of tools within
@@ -204,8 +207,20 @@ func (f Filter) match(agent HasVersion) bool {
 	if !ok {
 		return true
 	}
-	if f.OSType != "" && tools.Version.Release != f.OSType {
-		return false
+	// TODO(juju4) - remove this logic
+	// Older tools were based on series. So if the filter is
+	// using a os type, we need to convert the tools to the
+	// corresponding os type before matching.
+	if f.OSType != "" {
+		release := tools.Version.Release
+		if tools.Version.Major == 2 && tools.Version.Minor <= 8 {
+			if !coreos.IsValidOSTypeName(release) {
+				release = coreseries.DefaultOSTypeNameFromSeries(release)
+			}
+		}
+		if release != f.OSType {
+			return false
+		}
 	}
 	if f.Arch != "" && tools.Version.Arch != f.Arch {
 		return false

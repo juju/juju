@@ -73,7 +73,7 @@ func GetObservedNetworkConfig(source network.ConfigSource) ([]params.NetworkConf
 			nicConfig.GatewayAddress = defaultRoute.String()
 		}
 
-		if nicType == network.BridgeInterface {
+		if nicType == network.BridgeDevice {
 			updateParentForBridgePorts(source, nic.Name(), nameToConfigs)
 		}
 
@@ -128,12 +128,12 @@ func GetObservedNetworkConfig(source network.ConfigSource) ([]params.NetworkConf
 }
 
 func interfaceToNetworkConfig(nic network.ConfigSourceNIC,
-	nicType network.InterfaceType,
+	nicType network.LinkLayerDeviceType,
 	virtualPortType network.VirtualPortType,
 	networkOrigin network.Origin,
 ) params.NetworkConfig {
 	configType := network.ConfigManual
-	if nicType == network.LoopbackInterface {
+	if nicType == network.LoopbackDevice {
 		configType = network.ConfigLoopback
 	}
 

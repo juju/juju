@@ -194,14 +194,14 @@ func (s *statusSuite) TestFullStatusInterfaceScaling(c *gc.C) {
 	err = machine.SetDevicesAddresses(
 		state.LinkLayerDeviceAddress{
 			DeviceName:        "eth1",
-			ConfigMethod:      network.StaticAddress,
+			ConfigMethod:      network.ConfigStatic,
 			ProviderNetworkID: "vpc-abcd",
 			ProviderSubnetID:  "prov-ffff",
 			CIDRAddress:       "10.20.0.42/24",
 		},
 		state.LinkLayerDeviceAddress{
 			DeviceName:        "eth2",
-			ConfigMethod:      network.StaticAddress,
+			ConfigMethod:      network.ConfigStatic,
 			ProviderNetworkID: "vpc-abcd",
 			ProviderSubnetID:  "prov-abcd",
 			CIDRAddress:       "10.30.0.99/24",
@@ -246,7 +246,7 @@ func (s *statusSuite) createNICWithIP(c *gc.C, machine *state.Machine, deviceNam
 		state.LinkLayerDeviceAddress{
 			DeviceName:   deviceName,
 			CIDRAddress:  cidrAddress,
-			ConfigMethod: network.StaticAddress,
+			ConfigMethod: network.ConfigStatic,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

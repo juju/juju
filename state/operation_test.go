@@ -42,6 +42,27 @@ func (s *OperationSuite) TestEnqueueOperation(c *gc.C) {
 	c.Assert(operation.Summary(), gc.Equals, "an operation")
 }
 
+func (s *OperationSuite) TestFailOperation(c *gc.C) {
+	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	operationID, err := s.Model.EnqueueOperation("an operation")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.Model.FailOperation(operationID, errors.New("fail"))
+	c.Assert(err, jc.ErrorIsNil)
+	operation, err := s.Model.Operation(operationID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operation.Id(), gc.Equals, operationID)
+	c.Assert(operation.Tag(), gc.Equals, names.NewOperationTag(operationID))
+	c.Assert(operation.Status(), gc.Equals, state.ActionError)
+	c.Assert(operation.Enqueued(), gc.Equals, clock.Now())
+	c.Assert(operation.Started(), gc.Equals, time.Time{})
+	c.Assert(operation.Completed(), gc.Equals, time.Time{})
+	c.Assert(operation.Fail(), gc.Equals, "fail")
+}
+
 func (s *OperationSuite) TestAllOperations(c *gc.C) {
 	operationID, err := s.Model.EnqueueOperation("an operation")
 	c.Assert(err, jc.ErrorIsNil)
@@ -72,7 +93,7 @@ func (s *OperationSuite) TestOperationStatus(c *gc.C) {
 	operationID, err := s.Model.EnqueueOperation("an operation")
 	c.Assert(err, jc.ErrorIsNil)
 	clock.Advance(5 * time.Second)
-	anAction, err := s.Model.EnqueueAction(operationID, unit.Tag(), "backup", nil, false, "")
+	anAction, err := s.Model.EnqueueAction(operationID, unit.Tag(), "backup", nil, false, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = anAction.Begin()
 	c.Assert(err, jc.ErrorIsNil)
@@ -95,7 +116,7 @@ func (s *OperationSuite) TestRefresh(c *gc.C) {
 	operation, err := s.Model.Operation(operationID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	anAction, err := s.Model.EnqueueAction(operationID, unit.Tag(), "backup", nil, false, "")
+	anAction, err := s.Model.EnqueueAction(operationID, unit.Tag(), "backup", nil, false, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = anAction.Begin()
 	c.Assert(err, jc.ErrorIsNil)
@@ -121,11 +142,11 @@ func (s *OperationSuite) setupOperations(c *gc.C) names.Tag {
 	c.Assert(err, jc.ErrorIsNil)
 
 	clock.Advance(5 * time.Second)
-	anAction, err := s.Model.EnqueueAction(operationID, unit.Tag(), "backup", nil, false, "")
+	anAction, err := s.Model.EnqueueAction(operationID, unit.Tag(), "backup", nil, false, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = anAction.Begin()
 	c.Assert(err, jc.ErrorIsNil)
-	anAction2, err := s.Model.EnqueueAction(operationID2, unit.Tag(), "restore", nil, false, "")
+	anAction2, err := s.Model.EnqueueAction(operationID2, unit.Tag(), "restore", nil, false, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	a, err := anAction2.Begin()
 	c.Assert(err, jc.ErrorIsNil)
@@ -142,7 +163,7 @@ func (s *OperationSuite) setupOperations(c *gc.C) names.Tag {
 	c.Assert(err, jc.ErrorIsNil)
 	operationID3, err := s.Model.EnqueueOperation("yet another operation")
 	c.Assert(err, jc.ErrorIsNil)
-	anAction3, err := s.Model.EnqueueAction(operationID3, unit2.Tag(), "backup", nil, false, "")
+	anAction3, err := s.Model.EnqueueAction(operationID3, unit2.Tag(), "backup", nil, false, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = anAction3.Begin()
 	c.Assert(err, jc.ErrorIsNil)
@@ -233,7 +254,7 @@ func (s *OperationSuite) TestListOperationsSubset(c *gc.C) {
 	for i := 0; i < 20; i++ {
 		operationID, err := s.Model.EnqueueOperation(fmt.Sprintf("operation %d", i))
 		c.Assert(err, jc.ErrorIsNil)
-		anAction, err := s.Model.EnqueueAction(operationID, names.NewUnitTag("dummy/0"), "backup", nil, false, "")
+		anAction, err := s.Model.EnqueueAction(operationID, names.NewUnitTag("dummy/0"), "backup", nil, false, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		_, err = anAction.Begin()
 		c.Assert(err, jc.ErrorIsNil)

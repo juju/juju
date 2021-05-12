@@ -140,30 +140,30 @@ func getInterFaceInfos() network.InterfaceInfos {
 		{
 			DeviceIndex:   0,
 			InterfaceName: "br-bond0",
-			InterfaceType: network.BondInterface,
+			InterfaceType: network.BondDevice,
 		},
 		{
 			DeviceIndex:   1,
 			InterfaceName: "eth2",
-			InterfaceType: network.EthernetInterface,
+			InterfaceType: network.EthernetDevice,
 		},
 		{
 			DeviceIndex:         2,
 			InterfaceName:       "bond0",
 			ParentInterfaceName: "br-bond0",
-			InterfaceType:       network.BondInterface,
+			InterfaceType:       network.BondDevice,
 		},
 		{
 			DeviceIndex:         3,
 			InterfaceName:       "eth0",
 			ParentInterfaceName: "bond0",
-			InterfaceType:       network.BondInterface,
+			InterfaceType:       network.BondDevice,
 		},
 		{
 			DeviceIndex:         4,
 			InterfaceName:       "eth1",
 			ParentInterfaceName: "bond0",
-			InterfaceType:       network.BondInterface,
+			InterfaceType:       network.BondDevice,
 		},
 	}
 }

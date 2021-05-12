@@ -75,7 +75,7 @@ func (c *CharmAdaptor) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.
 	resolved, err := c.charmsAPI.ResolveCharms([]apicharm.CharmToResolve{{URL: url, Origin: preferredOrigin}})
 	if errors.IsNotSupported(err) {
 		if charm.CharmHub.Matches(url.Schema) {
-			return nil, commoncharm.Origin{}, nil, errors.Trace(err)
+			return nil, commoncharm.Origin{}, nil, errors.NewNotSupported(nil, "charmhub charms are not supported by the current controller; if you wish to use charmhub consider upgrading your controller to 2.9+.")
 		}
 		return c.resolveCharmFallback(url, preferredOrigin)
 	}
