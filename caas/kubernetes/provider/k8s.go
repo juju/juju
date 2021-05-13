@@ -546,28 +546,29 @@ func (k *kubernetesClient) getStorageClass(name string) (*storagev1.StorageClass
 	return storageClasses.Get(context.TODO(), name, v1.GetOptions{})
 }
 
-func getLoadBalancerAddress(svc *core.Service) string {
+func getLoadBalancerAddresses(svc *core.Service) []string {
 	// different cloud providers have a different way to report back the Load Balancer address.
 	// This covers the cases we know about so far.
+	var addr []string
 	lpAdd := svc.Spec.LoadBalancerIP
 	if lpAdd != "" {
-		return lpAdd
+		addr = append(addr, lpAdd)
 	}
 
 	ing := svc.Status.LoadBalancer.Ingress
 	if len(ing) == 0 {
-		return ""
+		return addr
 	}
 
-	// It usually has only one record.
-	firstOne := ing[0]
-	if firstOne.IP != "" {
-		return firstOne.IP
+	for _, ingressAddr := range ing {
+		if ingressAddr.IP != "" {
+			addr = append(addr, ingressAddr.IP)
+		}
+		if ingressAddr.Hostname != "" {
+			addr = append(addr, ingressAddr.Hostname)
+		}
 	}
-	if firstOne.Hostname != "" {
-		return firstOne.Hostname
-	}
-	return lpAdd
+	return addr
 }
 
 func getSvcAddresses(svc *core.Service, includeClusterIP bool) []network.ProviderAddress {
@@ -583,7 +584,7 @@ func getSvcAddresses(svc *core.Service, includeClusterIP bool) []network.Provide
 	}
 	appendUniqueAddrs := func(scope network.Scope, addrs ...string) {
 		for _, v := range addrs {
-			if v != "" && !addressExist(v) {
+			if v != "" && v != "None" && !addressExist(v) {
 				netAddrs = append(netAddrs, network.NewProviderAddress(v, network.WithScope(scope)))
 			}
 		}
@@ -599,7 +600,7 @@ func getSvcAddresses(svc *core.Service, includeClusterIP bool) []network.Provide
 	case core.ServiceTypeNodePort:
 		appendUniqueAddrs(network.ScopePublic, svc.Spec.ExternalIPs...)
 	case core.ServiceTypeLoadBalancer:
-		appendUniqueAddrs(network.ScopePublic, getLoadBalancerAddress(svc))
+		appendUniqueAddrs(network.ScopePublic, getLoadBalancerAddresses(svc)...)
 	}
 	if includeClusterIP {
 		// append clusterIP as a fixed internal address.
@@ -625,12 +626,23 @@ func (k *kubernetesClient) GetService(appName string, mode caas.DeploymentMode, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var result caas.Service
+	var (
+		result caas.Service
+		svc    *core.Service
+	)
 	// We may have the stateful set or deployment but service not done yet.
 	if len(servicesList.Items) > 0 {
-		service := servicesList.Items[0]
-		result.Id = string(service.GetUID())
-		result.Addresses = getSvcAddresses(&service, includeClusterIP)
+		for _, s := range servicesList.Items {
+			// Ignore any headless service for this app.
+			if !strings.HasSuffix(s.Name, "-endpoints") {
+				svc = &s
+				break
+			}
+		}
+		if svc != nil {
+			result.Id = string(svc.GetUID())
+			result.Addresses = getSvcAddresses(svc, includeClusterIP)
+		}
 	}
 
 	if mode == caas.ModeOperator {

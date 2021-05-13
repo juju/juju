@@ -2929,13 +2929,37 @@ func (s *K8sBrokerSuite) assertGetService(c *gc.C, mode caas.DeploymentMode, exp
 			LoadBalancerIP: "10.0.0.1",
 			ExternalName:   "ext-name",
 		},
+		Status: core.ServiceStatus{
+			LoadBalancer: core.LoadBalancerStatus{
+				Ingress: []core.LoadBalancerIngress{{
+					Hostname: "host.com.au",
+				}},
+			},
+		},
 	}
 	svc.SetUID("uid-xxxxx")
-
+	svcHeadless := core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name-endpoints",
+			Labels: labels,
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+				"a":                  "b",
+			}},
+		Spec: core.ServiceSpec{
+			Selector: labels,
+			Type:     core.ServiceTypeClusterIP,
+			Ports: []core.ServicePort{
+				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
+			},
+			ClusterIP: "192.168.1.1",
+		},
+	}
 	gomock.InOrder(
 		append([]*gomock.Call{
 			s.mockServices.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: selector}).
-				Return(&core.ServiceList{Items: []core.Service{svc}}, nil),
+				Return(&core.ServiceList{Items: []core.Service{svcHeadless, svc}}, nil),
 
 			s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
 				Return(nil, s.k8sNotFoundError()),
@@ -2956,6 +2980,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundNoWorkload(c *gc.C) {
 			Id: "uid-xxxxx",
 			Addresses: network.ProviderAddresses{
 				network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopePublic)),
+				network.NewProviderAddress("host.com.au", network.WithScope(network.ScopePublic)),
 			},
 		},
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
@@ -3046,6 +3071,7 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithStatefulSet(c *gc.C, mode c
 			Id: "uid-xxxxx",
 			Addresses: network.ProviderAddresses{
 				network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopePublic)),
+				network.NewProviderAddress("host.com.au", network.WithScope(network.ScopePublic)),
 			},
 			Scale:      intPtr(2),
 			Generation: int64Ptr(1),
@@ -3137,6 +3163,7 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithDeployment(c *gc.C, mode ca
 			Id: "uid-xxxxx",
 			Addresses: network.ProviderAddresses{
 				network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopePublic)),
+				network.NewProviderAddress("host.com.au", network.WithScope(network.ScopePublic)),
 			},
 			Scale:      intPtr(2),
 			Generation: int64Ptr(1),
@@ -3200,6 +3227,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDaemonSet(c *gc.C) {
 			Id: "uid-xxxxx",
 			Addresses: network.ProviderAddresses{
 				network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopePublic)),
+				network.NewProviderAddress("host.com.au", network.WithScope(network.ScopePublic)),
 			},
 			Scale:      intPtr(2),
 			Generation: int64Ptr(1),
