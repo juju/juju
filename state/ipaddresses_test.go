@@ -310,20 +310,24 @@ func (s *ipAddressesStateSuite) TestMachineAllAddressesSuccess(c *gc.C) {
 }
 
 func (s *ipAddressesStateSuite) TestMachineAllNetworkAddresses(c *gc.C) {
-	addedAddresses := s.addTwoDevicesWithTwoAddressesEach(c)
-	expected := make(network.SpaceAddresses, len(addedAddresses))
-	for i := range addedAddresses {
-		expected[i] = addedAddresses[i].NetworkAddress()
+	addrs := s.addTwoDevicesWithTwoAddressesEach(c)
+	expected := make(network.SpaceAddresses, len(addrs))
+	for i, addr := range addrs {
+		expected[i] = network.SpaceAddress{
+			MachineAddress: network.NewMachineAddress(
+				addr.Value(),
+				network.WithCIDR(addr.SubnetCIDR()),
+				network.WithConfigType(addr.ConfigMethod()),
+			),
+		}
 	}
-	sort.Slice(expected, func(i, j int) bool {
-		return expected[i].Value < expected[j].Value
-	})
 
-	networkAddresses, err := s.machine.AllNetworkAddresses()
+	networkAddresses, err := s.machine.AllDeviceSpaceAddresses()
 	c.Assert(err, jc.ErrorIsNil)
-	sort.Slice(networkAddresses, func(i, j int) bool {
-		return networkAddresses[i].Value < networkAddresses[j].Value
-	})
+
+	network.SortAddresses(expected)
+	network.SortAddresses(networkAddresses)
+
 	c.Assert(networkAddresses, jc.DeepEquals, expected)
 }
 

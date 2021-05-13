@@ -121,11 +121,11 @@ func (s *facadeSuite) TestAllAddresses(c *gc.C) {
 		Results: []params.SSHAddressesResult{
 			{Error: apiservertesting.NotFoundError("entity")},
 			{Addresses: []string{
-				"0.1.2.3", "1.1.1.1", "2.2.2.2", // From AllNetworkAddresses()
+				"0.1.2.3", "1.1.1.1", "2.2.2.2", // From AllDeviceSpaceAddresses()
 				"9.9.9.9", // From Addresses()
 			}},
 			{Addresses: []string{
-				"0.3.2.1", "3.3.3.3", "4.4.4.4", // From AllNetworkAddresses()
+				"0.3.2.1", "3.3.3.3", "4.4.4.4", // From AllDeviceSpaceAddresses()
 				"10.10.10.10", // From Addresses()
 			}},
 		},
@@ -266,7 +266,7 @@ func (m *mockMachine) PrivateAddress() (network.SpaceAddress, error) {
 	return network.NewSpaceAddress(m.privateAddress), nil
 }
 
-func (m *mockMachine) AllNetworkAddresses() (network.SpaceAddresses, error) {
+func (m *mockMachine) AllDeviceSpaceAddresses() (network.SpaceAddresses, error) {
 	return m.allNetworkAddresses, nil
 }
 

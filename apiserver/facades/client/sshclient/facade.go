@@ -92,21 +92,23 @@ func (facade *Facade) AllAddresses(args params.Entities) (params.SSHAddressesRes
 
 	environ, supportsNetworking := environs.SupportsNetworking(env)
 	getter := func(m SSHMachine) ([]network.SpaceAddress, error) {
-		devicesAddresses, err := m.AllNetworkAddresses()
+		devicesAddresses, err := m.AllDeviceSpaceAddresses()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		legacyAddresses := m.Addresses()
 		devicesAddresses = append(devicesAddresses, legacyAddresses...)
+
 		// Make the list unique
-		addressMap := make(map[network.SpaceAddress]bool)
-		uniqueAddresses := []network.SpaceAddress{}
+		addressMap := make(map[string]bool)
+		var uniqueAddresses []network.SpaceAddress
 		for _, address := range devicesAddresses {
-			if !addressMap[address] {
-				addressMap[address] = true
+			if !addressMap[address.Value] {
+				addressMap[address.Value] = true
 				uniqueAddresses = append(uniqueAddresses, address)
 			}
 		}
+
 		if supportsNetworking {
 			return environ.SSHAddresses(facade.callContext, uniqueAddresses)
 		} else {
