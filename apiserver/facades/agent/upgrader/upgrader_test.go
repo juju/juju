@@ -157,15 +157,6 @@ func (s *upgraderSuite) TestWatchAPIVersionControllerAgent(c *gc.C) {
 	wc.AssertClosed()
 }
 
-func (s *upgraderSuite) TestUpgraderAPIRefusesNonMachineOrApplicationAgent(c *gc.C) {
-	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = names.NewUnitTag("ubuntu/1")
-	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
-	c.Check(err, gc.NotNil)
-	c.Check(anUpgrader, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-}
-
 func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	// We are a machine agent, but not the one we are trying to track
 	anAuthorizer := s.authorizer
