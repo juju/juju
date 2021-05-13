@@ -112,7 +112,7 @@ func newApplication(
 	clock clock.Clock,
 	randomPrefix k8sutils.RandomPrefixFunc,
 	newApplier func() resources.Applier,
-) caas.Application {
+) *app {
 	return &app{
 		name:           name,
 		namespace:      namespace,
@@ -481,98 +481,30 @@ func (a *app) Upgrade(ver version.Number) error {
 		return errors.Trace(err)
 	}
 
-	if err := a.upgradeSecret(applier, ver); err != nil {
-		return errors.Trace(err)
+	for _, r := range []annotationUpdater{
+		resources.NewSecret(a.secretName(), a.namespace, nil),
+		resources.NewServiceAccount(a.serviceAccountName(), a.namespace, nil),
+		resources.NewRole(a.serviceAccountName(), a.namespace, nil),
+		resources.NewRoleBinding(a.serviceAccountName(), a.namespace, nil),
+		resources.NewClusterRole(a.qualifiedClusterName(), nil),
+		resources.NewClusterRoleBinding(a.qualifiedClusterName(), nil),
+		resources.NewService(a.name, a.namespace, nil),
+	} {
+		if err := r.Get(context.Background(), a.client); err != nil {
+			return errors.Trace(err)
+		}
+		existingAnnotations := annotations.New(r.GetAnnotations())
+		r.SetAnnotations(a.upgradeAnnotations(existingAnnotations, ver))
+		applier.Apply(r)
 	}
-	if err := a.upgradeServiceAccount(applier, ver); err != nil {
-		return errors.Trace(err)
-	}
-	if err := a.upgradeRole(applier, ver); err != nil {
-		return errors.Trace(err)
-	}
-	if err := a.upgradeRoleBinding(applier, ver); err != nil {
-		return errors.Trace(err)
-	}
-	if err := a.upgradeClusterRole(applier, ver); err != nil {
-		return errors.Trace(err)
-	}
-	if err := a.upgradeClusterRoleBinding(applier, ver); err != nil {
-		return errors.Trace(err)
-	}
-	if err := a.upgradeDefaultService(applier, ver); err != nil {
-		return errors.Trace(err)
-	}
+
 	return applier.Run(context.Background(), a.client, false)
 }
 
-func (a *app) upgradeSecret(applier resources.Applier, ver version.Number) error {
-	r := resources.NewSecret(a.secretName(), a.namespace, nil)
-	if err := r.Get(context.Background(), a.client); err != nil {
-		return errors.Trace(err)
-	}
-	r.SetAnnotations(a.upgradeAnnotations(annotations.New(r.GetAnnotations()), ver))
-	applier.Apply(r)
-	return nil
-}
-
-func (a *app) upgradeServiceAccount(applier resources.Applier, ver version.Number) error {
-	r := resources.NewServiceAccount(a.serviceAccountName(), a.namespace, nil)
-	if err := r.Get(context.Background(), a.client); err != nil {
-		return errors.Trace(err)
-	}
-	r.SetAnnotations(a.upgradeAnnotations(annotations.New(r.GetAnnotations()), ver))
-	applier.Apply(r)
-	return nil
-}
-
-func (a *app) upgradeRole(applier resources.Applier, ver version.Number) error {
-	r := resources.NewRole(a.serviceAccountName(), a.namespace, nil)
-	if err := r.Get(context.Background(), a.client); err != nil {
-		return errors.Trace(err)
-	}
-	r.SetAnnotations(a.upgradeAnnotations(annotations.New(r.GetAnnotations()), ver))
-	applier.Apply(r)
-	return nil
-}
-
-func (a *app) upgradeRoleBinding(applier resources.Applier, ver version.Number) error {
-	r := resources.NewRoleBinding(a.serviceAccountName(), a.namespace, nil)
-	if err := r.Get(context.Background(), a.client); err != nil {
-		return errors.Trace(err)
-	}
-	r.SetAnnotations(a.upgradeAnnotations(annotations.New(r.GetAnnotations()), ver))
-	applier.Apply(r)
-	return nil
-}
-
-func (a *app) upgradeClusterRole(applier resources.Applier, ver version.Number) error {
-	r := resources.NewClusterRole(a.qualifiedClusterName(), nil)
-	if err := r.Get(context.Background(), a.client); err != nil {
-		return errors.Trace(err)
-	}
-	r.SetAnnotations(a.upgradeAnnotations(annotations.New(r.GetAnnotations()), ver))
-	applier.Apply(r)
-	return nil
-}
-
-func (a *app) upgradeClusterRoleBinding(applier resources.Applier, ver version.Number) error {
-	r := resources.NewClusterRoleBinding(a.qualifiedClusterName(), nil)
-	if err := r.Get(context.Background(), a.client); err != nil {
-		return errors.Trace(err)
-	}
-	r.SetAnnotations(a.upgradeAnnotations(annotations.New(r.GetAnnotations()), ver))
-	applier.Apply(r)
-	return nil
-}
-
-func (a *app) upgradeDefaultService(applier resources.Applier, ver version.Number) error {
-	r := resources.NewService(a.name, a.namespace, nil)
-	if err := r.Get(context.Background(), a.client); err != nil {
-		return errors.Trace(err)
-	}
-	r.SetAnnotations(a.upgradeAnnotations(annotations.New(r.GetAnnotations()), ver))
-	applier.Apply(r)
-	return nil
+type annotationUpdater interface {
+	resources.Resource
+	GetAnnotations() map[string]string
+	SetAnnotations(annotations map[string]string)
 }
 
 func (a *app) upgradeHeadlessService(applier resources.Applier, ver version.Number) error {
@@ -612,7 +544,7 @@ func (a *app) upgradeMainResource(applier resources.Applier, ver version.Number)
 	case caas.DeploymentDaemon:
 		return errors.NotSupportedf("upgrade for deployment type %q", a.deploymentType)
 	default:
-		return errors.NotSupportedf("unknown deployment type")
+		return errors.NotSupportedf("unknown deployment type %q", a.deploymentType)
 	}
 	return nil
 }
