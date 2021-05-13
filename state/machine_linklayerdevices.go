@@ -862,8 +862,10 @@ func (m *Machine) AllAddresses() ([]*Address, error) {
 	return allAddresses, nil
 }
 
-// AllDeviceSpaceAddresses returns the SpaceAddress representation of all known
-// addresses assigned to link-layer devices on the machine.
+// AllDeviceSpaceAddresses returns the SpaceAddress representation of
+// all known addresses assigned to link-layer devices on the machine.
+// These addresses are populated with sufficient detail to be accurately
+// sortable by network.SortAddresses.
 func (m *Machine) AllDeviceSpaceAddresses() (corenetwork.SpaceAddresses, error) {
 	subnets, err := m.st.AllSubnets()
 	if err != nil {

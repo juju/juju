@@ -55,6 +55,14 @@ func (s *ipAddressesStateSuite) SetUpTest(c *gc.C) {
 		CIDR: "fc00::/64",
 	}, {
 		CIDR: "10.20.0.0/16",
+	}, {
+		CIDR: "30.30.30.0/24",
+	}, {
+		CIDR: "252.80.0.0/12",
+		FanInfo: &network.FanCIDRs{
+			FanLocalUnderlay: "30.30.30.0/24",
+			FanOverlay:       "252.0.0.0/8",
+		},
 	}}
 	for _, info := range subnetInfos {
 		_, err = s.State.AddSubnet(info)
@@ -330,6 +338,22 @@ func (s *ipAddressesStateSuite) TestMachineAllDeviceSpaceAddresses(c *gc.C) {
 	network.SortAddresses(networkAddresses)
 
 	c.Assert(networkAddresses, jc.DeepEquals, expected)
+}
+
+func (s *ipAddressesStateSuite) TestMachineAllDeviceSpaceAddressesFanScope(c *gc.C) {
+	_, _ = s.addNamedDeviceWithAddresses(c, "eth0", "252.80.0.100/12")
+
+	networkAddresses, err := s.machine.AllDeviceSpaceAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(networkAddresses, jc.DeepEquals, network.SpaceAddresses{{
+		MachineAddress: network.NewMachineAddress(
+			"252.80.0.100",
+			network.WithCIDR("252.80.0.0/12"),
+			network.WithConfigType(network.ConfigStatic),
+			network.WithScope(network.ScopeFanLocal),
+		),
+		SpaceID: network.AlphaSpaceId,
+	}})
 }
 
 func (s *ipAddressesStateSuite) TestLinkLayerDeviceRemoveAlsoRemovesDeviceAddresses(c *gc.C) {
