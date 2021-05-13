@@ -1969,6 +1969,7 @@ func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoi
 func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	key := relationKey(eps)
 	defer errors.DeferredAnnotatef(&err, "cannot add relation %q", key)
+
 	// Enforce basic endpoint sanity. The epCount restrictions may be relaxed
 	// in the future; if so, this method is likely to need significant rework.
 	if len(eps) != 2 {
@@ -2008,10 +2009,12 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	} else {
 		compatibleSeries = false
 	}
+
 	// We only get a unique relation id once, to save on roundtrips. If it's
 	// -1, we haven't got it yet (we don't get it at this stage, because we
 	// still don't know whether it's sane to even attempt creation).
 	id := -1
+
 	// If a application's charm is upgraded while we're trying to add a relation,
 	// we'll need to re-validate application sanity.
 	var doc *relationDoc
@@ -2021,8 +2024,14 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		if exists, err := isNotDead(st, relationsC, key); err != nil {
 			return nil, errors.Trace(err)
 		} else if exists {
-			return nil, errors.AlreadyExistsf("relation %v", key)
+			// Ignore the error here, if there is an error, we know that dying
+			// will be false and can fall through to error message below.
+			if dying, _ := isDying(st, relationsC, key); dying {
+				return nil, errors.NewAlreadyExists(nil, fmt.Sprintf("relation %v is dying, but not yet removed", key))
+			}
+			return nil, errors.NewAlreadyExists(nil, fmt.Sprintf("relation %v", key))
 		}
+
 		// Collect per-application operations, checking sanity as we go.
 		var ops []txn.Op
 		var subordinateCount int

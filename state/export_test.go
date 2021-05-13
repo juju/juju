@@ -53,6 +53,7 @@ const (
 	GUISettingsC      = guisettingsC
 	GlobalSettingsC   = globalSettingsC
 	SettingsC         = settingsC
+	UnitsC            = unitsC
 )
 
 var (
@@ -78,6 +79,10 @@ type (
 	StorageBackend         = storageBackend
 	DeviceBackend          = deviceBackend
 	ControllerNodeInstance = controllerNode
+)
+
+var (
+	IsDying = isDying
 )
 
 func NewStateSettingsForCollection(backend modelBackend, collection string) *StateSettings {
