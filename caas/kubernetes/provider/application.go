@@ -27,7 +27,7 @@ func (k *kubernetesClient) Application(name string, deploymentType caas.Deployme
 	)
 }
 
-func (k *kubernetesClient) upgraderApplication(agentTag names.Tag, vers version.Number) error {
+func (k *kubernetesClient) upgradeApplication(agentTag names.Tag, vers version.Number) error {
 	appName, err := names.UnitApplication(agentTag.Id())
 	if err != nil {
 		return errors.Trace(err)

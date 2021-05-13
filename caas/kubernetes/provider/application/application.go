@@ -481,6 +481,9 @@ func (a *app) Upgrade(ver version.Number) error {
 		return errors.Trace(err)
 	}
 
+	// TODO(embedded):  we could query the cluster for all resources with the `app.juju.is/created-by` and `app.kubernetes.io/name` labels instead
+	// (so longer as the resource also does have the juju version annotation already).
+	// Then we don't have to worry about missing anything if something is added later and not also updated here.
 	for _, r := range []annotationUpdater{
 		resources.NewSecret(a.secretName(), a.namespace, nil),
 		resources.NewServiceAccount(a.serviceAccountName(), a.namespace, nil),

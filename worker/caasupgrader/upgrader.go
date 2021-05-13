@@ -87,7 +87,7 @@ func (u *Upgrader) Wait() error {
 }
 
 func (u *Upgrader) loop() error {
-	// Only controllers set their version here - agents do it in the main agent worker loop.
+	// Only controllers and embedded unit agents set their version here - application agents do it in the main agent worker loop.
 	hostOSType := coreos.HostOSTypeName()
 	if agent.IsAllowedControllerTag(u.tag.Kind()) || u.tag.Kind() == names.UnitTagKind {
 		if err := u.upgraderClient.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current, hostOSType)); err != nil {
