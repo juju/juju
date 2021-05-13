@@ -865,16 +865,34 @@ func (m *Machine) AllAddresses() ([]*Address, error) {
 // AllDeviceSpaceAddresses returns the SpaceAddress representation of all known
 // addresses assigned to link-layer devices on the machine.
 func (m *Machine) AllDeviceSpaceAddresses() (corenetwork.SpaceAddresses, error) {
+	subnets, err := m.st.AllSubnets()
+	if err != nil {
+		return nil, errors.Annotate(err, "retrieving subnets")
+	}
+
 	var allAddresses corenetwork.SpaceAddresses
 	callbackFunc := func(doc *ipAddressDoc) {
-		allAddresses = append(allAddresses, corenetwork.SpaceAddress{
+		addr := corenetwork.SpaceAddress{
 			MachineAddress: corenetwork.NewMachineAddress(
 				doc.Value,
 				corenetwork.WithConfigType(doc.ConfigMethod),
 				corenetwork.WithCIDR(doc.SubnetCIDR),
 				corenetwork.WithSecondary(doc.IsSecondary),
 			),
-		})
+		}
+
+		// If this is not a loopback device, attempt to
+		// set the space ID based on the subnet.
+		if doc.ConfigMethod != corenetwork.ConfigLoopback && doc.SubnetCIDR != "" {
+			for _, sub := range subnets {
+				if sub.CIDR() == doc.SubnetCIDR {
+					addr.SpaceID = sub.spaceID
+					break
+				}
+			}
+		}
+
+		allAddresses = append(allAddresses, addr)
 	}
 
 	findQuery := findAddressesQuery(m.doc.Id, "")
@@ -898,7 +916,7 @@ func (m *Machine) AllSpaces() (set.Strings, error) {
 	spaces := set.NewStrings()
 	callback := func(doc *ipAddressDoc) {
 		// Don't bother with these. They are not in a space.
-		if doc.ConfigMethod == corenetwork.ConfigLoopback {
+		if doc.ConfigMethod == corenetwork.ConfigLoopback || doc.SubnetCIDR == "" {
 			return
 		}
 

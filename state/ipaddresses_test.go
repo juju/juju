@@ -309,7 +309,7 @@ func (s *ipAddressesStateSuite) TestMachineAllAddressesSuccess(c *gc.C) {
 	c.Assert(allAddresses, jc.DeepEquals, addedAddresses)
 }
 
-func (s *ipAddressesStateSuite) TestMachineAllNetworkAddresses(c *gc.C) {
+func (s *ipAddressesStateSuite) TestMachineAllDeviceSpaceAddresses(c *gc.C) {
 	addrs := s.addTwoDevicesWithTwoAddressesEach(c)
 	expected := make(network.SpaceAddresses, len(addrs))
 	for i, addr := range addrs {
@@ -319,6 +319,7 @@ func (s *ipAddressesStateSuite) TestMachineAllNetworkAddresses(c *gc.C) {
 				network.WithCIDR(addr.SubnetCIDR()),
 				network.WithConfigType(addr.ConfigMethod()),
 			),
+			SpaceID: network.AlphaSpaceId,
 		}
 	}
 
