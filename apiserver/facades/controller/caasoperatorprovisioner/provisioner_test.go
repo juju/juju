@@ -194,6 +194,27 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStorage(c *gc.C) {
 	})
 }
 
+func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoSidecarNoStorage(c *gc.C) {
+	s.st.operatorRepo = "somerepo"
+	s.st.app = &mockApplication{
+		charm: &mockCharm{
+			meta:     &charm.Meta{},
+			manifest: &charm.Manifest{Bases: []charm.Base{{}}}},
+	}
+	result, err := s.api.OperatorProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfoResults{
+		Results: []params.OperatorProvisioningInfo{{
+			ImagePath:    s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
+			Version:      version.MustParse("2.6-beta3"),
+			APIAddresses: []string{"10.0.0.1:1"},
+			Tags: map[string]string{
+				"juju-model-uuid":      coretesting.ModelTag.Id(),
+				"juju-controller-uuid": coretesting.ControllerTag.Id()},
+		}},
+	})
+}
+
 func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStoragePool(c *gc.C) {
 	s.storagePoolManager.SetErrors(errors.NotFoundf("pool"))
 	s.st.operatorRepo = "somerepo"

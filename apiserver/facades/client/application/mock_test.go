@@ -63,12 +63,18 @@ type mockCharm struct {
 	charm.Charm
 	config     *charm.Config
 	meta       *charm.Meta
+	manifest   *charm.Manifest
 	lxdProfile *charm.LXDProfile
 }
 
 func (c *mockCharm) Meta() *charm.Meta {
 	c.MethodCall(c, "Meta")
 	return c.meta
+}
+
+func (c *mockCharm) Manifest() *charm.Manifest {
+	c.MethodCall(c, "Manifest")
+	return c.manifest
 }
 
 func (c *mockCharm) Config() *charm.Config {

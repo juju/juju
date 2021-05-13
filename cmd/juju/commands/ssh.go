@@ -24,10 +24,10 @@ import (
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/statusapi_mock.go github.com/juju/juju/cmd/juju/commands StatusAPI
 
 var usageSSHSummary = `
-Initiates an SSH session or executes a command on a Juju machine.`[1:]
+Initiates an SSH session or executes a command on a Juju machine or container.`[1:]
 
 var usageSSHDetails = `
-The machine is identified by the <target> argument which is either a 'unit
+The ssh target is identified by the <target> argument which is either a 'unit
 name' or a 'machine id'. Both can be obtained by examining the output to "juju
 status".
 
@@ -59,6 +59,11 @@ where it is available. This is done by inserting them between the target and
 a possible remote command. Refer to the ssh man page for an explanation 
 of those options.
 
+For k8s charms, the --container argument is used to identity a specific
+container in the pod. For charms which run the workload in a separate pod
+to that of the charm, the default ssh target is the charm operator pod.
+The workload pod may be specified using the --remote argument.
+
 Examples:
 Connect to machine 0:
 
@@ -84,15 +89,25 @@ Connect to a mysql unit with an identity not known to juju (ssh option -i):
 
     juju ssh mysql/0 -i ~/.ssh/my_private_key echo hello
 
-Connect to a k8s unit targeting the operator pod by default:
+For k8s charms running the workload in a separate pod:
+  Connect to a k8s unit targeting the operator pod by default:
 
 	juju ssh mysql/0
 	juju ssh mysql/0 bash
 	
-Connect to a k8s unit targeting the workload pod by specifying --remote:
+  Connect to a k8s unit targeting the workload pod by specifying --remote:
 
 	juju ssh --remote mysql/0
-	
+
+For k8s charms using the sidecar pattern:
+  Connect to a k8s unit targeting the charm container (the default):
+
+	juju ssh --container charm snappass/0
+
+  Connect to a k8s unit targeting the redis container:
+
+	juju ssh --container redis snappass/0
+
 See also: 
     scp`
 

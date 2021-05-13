@@ -647,12 +647,11 @@ func caasPrecheck(
 	}
 
 	// For older charms, operator-storage model config is mandatory.
-	minver := ch.Meta().MinJujuVersion
-	if k8s.RequireOperatorStorage(minver) {
+	if k8s.RequireOperatorStorage(ch) {
 		storageClassName, _ := cfg.AllAttrs()[k8sconstants.OperatorStorageKey].(string)
 		if storageClassName == "" {
 			return errors.New(
-				"deploying a Kubernetes application requires a suitable storage class.\n" +
+				"deploying this Kubernetes application requires a suitable storage class.\n" +
 					"None have been configured. Set the operator-storage model config to " +
 					"specify which storage class should be used to allocate operator storage.\n" +
 					"See https://discourse.jujucharms.com/t/getting-started/152.",
