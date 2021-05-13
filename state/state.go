@@ -2027,7 +2027,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			// Ignore the error here, if there is an error, we know that dying
 			// will be false and can fall through to error message below.
 			if dying, _ := isDying(st, relationsC, key); dying {
-				return nil, errors.AlreadyExistsf("relation %v is dying and", key)
+				return nil, errors.NewAlreadyExists(nil, fmt.Sprintf("relation %v is dying, but not yet removed", key))
 			}
 			return nil, errors.AlreadyExistsf("relation %v", key)
 		}
