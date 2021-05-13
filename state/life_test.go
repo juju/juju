@@ -160,8 +160,13 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
 			case state.Dying:
 				err := living.Destroy()
 				c.Assert(err, jc.ErrorIsNil)
-				ok := lfix.isDying(s, c)
-				c.Assert(ok, jc.IsTrue)
+
+				// If we're already in the dead state, we can't transition, so
+				// don't test that permutation.
+				if v.dbinitial != state.Dead {
+					ok := lfix.isDying(s, c)
+					c.Assert(ok, jc.IsTrue)
+				}
 			case state.Dead:
 				err := living.EnsureDead()
 				c.Assert(err, jc.ErrorIsNil)

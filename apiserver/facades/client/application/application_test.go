@@ -3361,7 +3361,7 @@ func (s *applicationSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// And try to add it again.
 	_, err = s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation wordpress:db mysql:server already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation wordpress:db mysql:server`)
 }
 
 func (s *applicationSuite) setupRemoteApplication(c *gc.C) {
@@ -3420,7 +3420,7 @@ func (s *applicationSuite) TestAlreadyAddedRemoteRelation(c *gc.C) {
 
 	// And try to add it again.
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`cannot add relation "wordpress:db hosted-mysql:server": relation wordpress:db hosted-mysql:server already exists`))
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`cannot add relation "wordpress:db hosted-mysql:server": relation wordpress:db hosted-mysql:server`))
 }
 
 func (s *applicationSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {

@@ -2029,7 +2029,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			if dying, _ := isDying(st, relationsC, key); dying {
 				return nil, errors.NewAlreadyExists(nil, fmt.Sprintf("relation %v is dying, but not yet removed", key))
 			}
-			return nil, errors.AlreadyExistsf("relation %v", key)
+			return nil, errors.NewAlreadyExists(nil, fmt.Sprintf("relation %v", key))
 		}
 
 		// Collect per-application operations, checking sanity as we go.
