@@ -538,7 +538,7 @@ func (a *app) upgradeMainResource(applier resources.Applier, ver version.Number)
 		ss.Spec.Template.SetAnnotations(a.upgradeAnnotations(annotations.New(ss.Spec.Template.GetAnnotations()), ver))
 		ss.SetAnnotations(a.upgradeAnnotations(annotations.New(ss.GetAnnotations()), ver))
 		applier.Apply(ss)
-
+		return nil
 	case caas.DeploymentStateless:
 		return errors.NotSupportedf("upgrade for deployment type %q", a.deploymentType)
 	case caas.DeploymentDaemon:
@@ -546,7 +546,6 @@ func (a *app) upgradeMainResource(applier resources.Applier, ver version.Number)
 	default:
 		return errors.NotSupportedf("unknown deployment type %q", a.deploymentType)
 	}
-	return nil
 }
 
 // Exists indicates if the application for the specified
