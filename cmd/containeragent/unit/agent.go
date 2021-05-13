@@ -280,6 +280,7 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 		ValidateMigration:    c.validateMigration,
 		PrometheusRegisterer: c.prometheusRegistry,
 		UpdateLoggerConfig:   updateAgentConfLogging,
+		PreviousAgentVersion: agentConfig.UpgradedToVersion(),
 		ProbePort:            probePort,
 		MachineLock:          c.machineLock,
 		Clock:                c.clk,

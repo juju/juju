@@ -15,6 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v2/arch"
+	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -35,6 +36,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
 	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
+	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/status"
@@ -110,7 +112,7 @@ func newApplication(
 	clock clock.Clock,
 	randomPrefix k8sutils.RandomPrefixFunc,
 	newApplier func() resources.Applier,
-) caas.Application {
+) *app {
 	return &app{
 		name:           name,
 		namespace:      namespace,
@@ -469,6 +471,84 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	}
 
 	return applier.Run(context.Background(), a.client, false)
+}
+
+// Upgrade upgrades the app to the specified version.
+func (a *app) Upgrade(ver version.Number) error {
+	applier := a.newApplier()
+
+	if err := a.upgradeMainResource(applier, ver); err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO(embedded):  we could query the cluster for all resources with the `app.juju.is/created-by` and `app.kubernetes.io/name` labels instead
+	// (so longer as the resource also does have the juju version annotation already).
+	// Then we don't have to worry about missing anything if something is added later and not also updated here.
+	for _, r := range []annotationUpdater{
+		resources.NewSecret(a.secretName(), a.namespace, nil),
+		resources.NewServiceAccount(a.serviceAccountName(), a.namespace, nil),
+		resources.NewRole(a.serviceAccountName(), a.namespace, nil),
+		resources.NewRoleBinding(a.serviceAccountName(), a.namespace, nil),
+		resources.NewClusterRole(a.qualifiedClusterName(), nil),
+		resources.NewClusterRoleBinding(a.qualifiedClusterName(), nil),
+		resources.NewService(a.name, a.namespace, nil),
+	} {
+		if err := r.Get(context.Background(), a.client); err != nil {
+			return errors.Trace(err)
+		}
+		existingAnnotations := annotations.New(r.GetAnnotations())
+		r.SetAnnotations(a.upgradeAnnotations(existingAnnotations, ver))
+		applier.Apply(r)
+	}
+
+	return applier.Run(context.Background(), a.client, false)
+}
+
+type annotationUpdater interface {
+	resources.Resource
+	GetAnnotations() map[string]string
+	SetAnnotations(annotations map[string]string)
+}
+
+func (a *app) upgradeHeadlessService(applier resources.Applier, ver version.Number) error {
+	r := resources.NewService(headlessServiceName(a.name), a.namespace, nil)
+	if err := r.Get(context.Background(), a.client); err != nil {
+		return errors.Trace(err)
+	}
+	r.SetAnnotations(a.upgradeAnnotations(annotations.New(r.GetAnnotations()), ver))
+	applier.Apply(r)
+	return nil
+}
+
+func (a *app) upgradeMainResource(applier resources.Applier, ver version.Number) error {
+	switch a.deploymentType {
+	case caas.DeploymentStateful:
+		if err := a.upgradeHeadlessService(applier, ver); err != nil {
+			return errors.Trace(err)
+		}
+
+		ss := resources.NewStatefulSet(a.name, a.namespace, nil)
+		if err := ss.Get(context.Background(), a.client); err != nil {
+			return errors.Trace(err)
+		}
+		initContainers := ss.Spec.Template.Spec.InitContainers
+		if len(initContainers) != 1 {
+			return errors.NotValidf("init container of %q", a.name)
+		}
+		initContainer := initContainers[0]
+		initContainer.Image = podcfg.RebuildOldOperatorImagePath(initContainer.Image, ver)
+		ss.Spec.Template.Spec.InitContainers = []corev1.Container{initContainer}
+		ss.Spec.Template.SetAnnotations(a.upgradeAnnotations(annotations.New(ss.Spec.Template.GetAnnotations()), ver))
+		ss.SetAnnotations(a.upgradeAnnotations(annotations.New(ss.GetAnnotations()), ver))
+		applier.Apply(ss)
+		return nil
+	case caas.DeploymentStateless:
+		return errors.NotSupportedf("upgrade for deployment type %q", a.deploymentType)
+	case caas.DeploymentDaemon:
+		return errors.NotSupportedf("upgrade for deployment type %q", a.deploymentType)
+	default:
+		return errors.NotSupportedf("unknown deployment type %q", a.deploymentType)
+	}
 }
 
 // Exists indicates if the application for the specified
@@ -1269,6 +1349,10 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 func (a *app) annotations(config caas.ApplicationConfig) annotations.Annotation {
 	return k8sutils.ResourceTagsToAnnotations(config.ResourceTags, a.legacyLabels).
 		Merge(k8sutils.AnnotationsForVersion(config.AgentVersion.String(), a.legacyLabels))
+}
+
+func (a *app) upgradeAnnotations(anns annotations.Annotation, ver version.Number) annotations.Annotation {
+	return anns.Merge(k8sutils.AnnotationsForVersion(ver.String(), a.legacyLabels))
 }
 
 func (a *app) labels() labels.Set {

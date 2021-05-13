@@ -108,6 +108,21 @@ func (s *UpgraderSuite) TestUpgraderApplication(c *gc.C) {
 	s.operatorUpgrader.CheckCall(c, 0, "Upgrade", "application-app", s.upgraderClient.desired)
 }
 
+func (s *UpgraderSuite) TestUpgraderEmbeddedUnit(c *gc.C) {
+	vers := version.MustParseBinary("6.6.6-ubuntu-amd64")
+	s.patchVersion(vers)
+	s.upgraderClient.desired = version.MustParse("6.6.7")
+
+	u := s.makeUpgrader(c, names.NewUnitTag("cockroachdb/0"))
+	workertest.CleanKill(c, u)
+
+	s.expectInitialUpgradeCheckNotDone(c)
+	s.upgraderClient.CheckCallNames(c, "SetVersion", "DesiredVersion")
+	s.upgraderClient.CheckCall(c, 0, "SetVersion", "unit-cockroachdb-0", vers)
+	s.operatorUpgrader.CheckCallNames(c, "Upgrade")
+	s.operatorUpgrader.CheckCall(c, 0, "Upgrade", "unit-cockroachdb-0", s.upgraderClient.desired)
+}
+
 func (s *UpgraderSuite) TestUpgraderDowngradePatch(c *gc.C) {
 	vers := version.MustParse("6.6.7")
 	s.PatchValue(&jujuversion.Current, vers)

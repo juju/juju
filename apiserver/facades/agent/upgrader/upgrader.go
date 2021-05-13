@@ -39,10 +39,18 @@ func NewUpgraderFacade(st *state.State, resources facade.Resources, auth facade.
 	if err != nil {
 		return nil, apiservererrors.ErrPerm
 	}
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	switch tag.(type) {
 	case names.MachineTag, names.ControllerAgentTag, names.ApplicationTag, names.ModelTag:
 		return NewUpgraderAPI(st, resources, auth)
 	case names.UnitTag:
+		if model.Type() == state.ModelTypeCAAS {
+			// For embedded applications.
+			return NewUpgraderAPI(st, resources, auth)
+		}
 		return NewUnitUpgraderAPI(st, resources, auth)
 	}
 	// Not a machine or unit.
@@ -73,7 +81,7 @@ func NewUpgraderAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*UpgraderAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthApplicationAgent() && !authorizer.AuthModelAgent() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthApplicationAgent() && !authorizer.AuthModelAgent() && !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
 	getCanReadWrite := func() (common.AuthFunc, error) {

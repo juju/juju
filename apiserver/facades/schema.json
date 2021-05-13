@@ -46522,7 +46522,8 @@
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
-            "unit-agent"
+            "unit-agent",
+            "model-user"
         ],
         "Schema": {
             "type": "object",
