@@ -42,6 +42,8 @@ import (
 	"github.com/packethost/packngo"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -destination ./mocks/packngo.go -package mocks github.com/packethost/packngo DeviceService,OSService,PlanService,ProjectIPService
+
 var logger = loggo.GetLogger("juju.provider.equinix")
 
 type environConfig struct {
