@@ -25,7 +25,7 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.dialStub.ResetCalls()
 	s.provider = equinix.NewProvider()
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
 var _ = gc.Suite(&providerSuite{})
@@ -38,7 +38,7 @@ func (s *providerSuite) TestRegistered(c *gc.C) {
 
 func (s *providerSuite) TestOpen(c *gc.C) {
 	config := fakeConfig(c)
-	env, err := environs.Open(s.provider, environs.OpenParams{
+	env, err := environs.Open(context.NewEmptyCloudCallContext(), s.provider, environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: config,
 	})
@@ -67,7 +67,7 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 }
 
 func (s *providerSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {
-	_, err := s.provider.Open(environs.OpenParams{
+	_, err := s.provider.Open(context.NewEmptyCloudCallContext(), environs.OpenParams{
 		Cloud:  spec,
 		Config: fakeConfig(c),
 	})

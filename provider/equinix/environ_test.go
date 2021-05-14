@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -86,6 +87,97 @@ func (s *environProviderSuite) TestOpen(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
+}
+
+func (s *environProviderSuite) TestDestroy(c *gc.C) {
+	cntrl := gomock.NewController(c)
+	defer cntrl.Finish()
+	device := mocks.NewMockDeviceService(cntrl)
+	device.EXPECT().Delete(gomock.Eq("2"), gomock.Eq(true)).Times(2)
+	device.EXPECT().Delete(gomock.Eq("1"), gomock.Eq(true)).Times(2)
+	device.EXPECT().List(gomock.Eq("12345c2a-6789-4d4f-a3c4-7367d6b7cca8"), nil).
+		Return([]packngo.Device{
+			{
+				ID:   "1",
+				Tags: []string{"juju-model-uuid=deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+			},
+			{
+				ID:   "2",
+				Tags: []string{"juju-model-uuid=deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+			},
+		}, nil, nil).AnyTimes()
+	s.PatchValue(&equinixClient, func(spec environscloudspec.CloudSpec) *packngo.Client {
+		cl := &packngo.Client{}
+		cl.Devices = device
+		return cl
+	})
+	env, err := environs.Open(s.provider, environs.OpenParams{
+		Cloud:  s.spec,
+		Config: makeTestModelConfig(c),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env, gc.NotNil)
+	err = env.Destroy(context.NewCloudCallContext())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environProviderSuite) TestAllInstances(c *gc.C) {
+	cntrl := gomock.NewController(c)
+	defer cntrl.Finish()
+	device := mocks.NewMockDeviceService(cntrl)
+	device.EXPECT().List(gomock.Eq("12345c2a-6789-4d4f-a3c4-7367d6b7cca8"), nil).Return([]packngo.Device{
+		{
+			ID:   "1",
+			Tags: []string{"juju-model-uuid=deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+		},
+		{
+			ID:   "2",
+			Tags: []string{"juju-model-uuid=deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+		},
+		{
+			ID:   "3",
+			Tags: []string{"juju-model-uuid=none"},
+		},
+	}, nil, nil)
+	s.PatchValue(&equinixClient, func(spec environscloudspec.CloudSpec) *packngo.Client {
+		cl := &packngo.Client{}
+		cl.Devices = device
+		return cl
+	})
+	env, err := environs.Open(s.provider, environs.OpenParams{
+		Cloud:  s.spec,
+		Config: makeTestModelConfig(c),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env, gc.NotNil)
+	ii, err := env.AllInstances(context.NewCloudCallContext())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(ii) == 2, jc.IsTrue)
+}
+
+func (s *environProviderSuite) TestInstances(c *gc.C) {
+	cntrl := gomock.NewController(c)
+	defer cntrl.Finish()
+	device := mocks.NewMockDeviceService(cntrl)
+	device.EXPECT().Get(gomock.Eq("10"), nil).Return(&packngo.Device{
+		ID:    "10",
+		Tags:  []string{"juju-model-uuid=deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+		State: "active",
+	}, nil, nil)
+	s.PatchValue(&equinixClient, func(spec environscloudspec.CloudSpec) *packngo.Client {
+		cl := &packngo.Client{}
+		cl.Devices = device
+		return cl
+	})
+	env, err := environs.Open(s.provider, environs.OpenParams{
+		Cloud:  s.spec,
+		Config: makeTestModelConfig(c),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env, gc.NotNil)
+	ii, err := env.Instances(context.NewCloudCallContext(), []instance.Id{"10"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(ii[0].Id()), jc.Contains, "10")
 }
 
 func (s *environProviderSuite) TestStopInstance(c *gc.C) {
