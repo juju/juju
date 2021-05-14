@@ -1049,7 +1049,7 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 		return apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
-	if cloudArgs.Cloud.Type != string(k8sconstants.CAASProviderType) {
+	if cloudArgs.Cloud.Type != k8sconstants.CAASProviderType {
 		// All non-k8s cloud need to go through whitelist.
 		controllerInfo, err := api.backend.ControllerInfo()
 		if err != nil {

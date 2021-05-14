@@ -274,6 +274,7 @@ func (s *cloudSuite) TestAddCloudNotWhitelisted(c *gc.C) {
 	err := s.api.AddCloud(createAddCloudParam(""))
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`
 controller cloud type "dummy" is not whitelisted, current whitelist: 
+ - controller cloud type "kubernetes" supports [lxd maas openstack]
  - controller cloud type "lxd" supports [lxd maas openstack]
  - controller cloud type "maas" supports [maas openstack]
  - controller cloud type "openstack" supports [openstack]`[1:]))
