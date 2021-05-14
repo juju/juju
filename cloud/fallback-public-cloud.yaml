@@ -411,3 +411,58 @@ clouds:
         endpoint: https://iaas.eu-frankfurt-1.oraclecloud.com
       uk-london-1:
         endpoint: https://iaas.uk-london-1.oraclecloud.com
+  equinix:
+    type: equinix
+    description: Equinix Metal
+    auth-types: [access-key]
+    regions:
+      px:
+        endpoint: https://api.equinix.com/metal/v1/
+      dc:
+        endpoint: https://api.equinix.com/metal/v1/
+      at:
+        endpoint: https://api.equinix.com/metal/v1/
+      hk:
+        endpoint: https://api.equinix.com/metal/v1/
+      am:
+        endpoint: https://api.equinix.com/metal/v1/
+      ny:
+        endpoint: https://api.equinix.com/metal/v1/
+      sl:
+        endpoint: https://api.equinix.com/metal/v1/
+      ty:
+        endpoint: https://api.equinix.com/metal/v1/
+      fr:
+        endpoint: https://api.equinix.com/metal/v1/
+      sy:
+        endpoint: https://api.equinix.com/metal/v1/
+      ld:
+        endpoint: https://api.equinix.com/metal/v1/
+      sg:
+        endpoint: https://api.equinix.com/metal/v1/
+      kc:
+        endpoint: https://api.equinix.com/metal/v1/
+      pa:
+        endpoint: https://api.equinix.com/metal/v1/
+      tr:
+        endpoint: https://api.equinix.com/metal/v1/
+      mr:
+        endpoint: https://api.equinix.com/metal/v1/
+      YYZ:
+        endpoint: https://api.equinix.com/metal/v1/
+      ho:
+        endpoint: https://api.equinix.com/metal/v1/
+      se:
+        endpoint: https://api.equinix.com/metal/v1/
+      sv:
+        endpoint: https://api.equinix.com/metal/v1/
+      la:
+        endpoint: https://api.equinix.com/metal/v1/
+      ch:
+        endpoint: https://api.equinix.com/metal/v1/
+      da:
+        endpoint: https://api.equinix.com/metal/v1/
+      pi:
+        endpoint: https://api.equinix.com/metal/v1/
+      dt:
+        endpoint: https://api.equinix.com/metal/v1/
