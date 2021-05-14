@@ -6,11 +6,13 @@ package provider
 import (
 	"fmt"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/schema"
 	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -22,8 +24,12 @@ var (
 
 // RequireOperatorStorage returns true if the specified min-juju-version
 // defined by a charm is such that the charm requires operator storage.
-func RequireOperatorStorage(charmMinJujuVersion version.Number) bool {
-	return charmMinJujuVersion.Compare(jujuVersionForControllerStorage) < 0
+func RequireOperatorStorage(ch charm.CharmMeta) bool {
+	if corecharm.Format(ch) == corecharm.FormatV2 {
+		return false
+	}
+	minVers := ch.Meta().MinJujuVersion
+	return minVers.Compare(jujuVersionForControllerStorage) < 0
 }
 
 var configSchema = environschema.Fields{
