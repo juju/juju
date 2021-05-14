@@ -5,14 +5,19 @@ package equinix
 
 import (
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	errr "github.com/pkg/errors"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/series"
@@ -64,11 +69,11 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 }
 
 func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
-	return nil, errors.NewNotImplemented(nil, "not implemented")
+	return e.getPacketInstancesByTag(map[string]string{"juju-model-uuid": e.Config().UUID()})
 }
 
 func (e *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
-	return nil, errors.NewNotImplemented(nil, "not implemented")
+	return e.getPacketInstancesByTag(map[string]string{"juju-model-uuid": e.Config().UUID()})
 }
 
 func (e *environ) Config() *config.Config {
@@ -78,11 +83,23 @@ func (e *environ) Config() *config.Config {
 }
 
 func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
-	return nil, errors.NewNotImplemented(nil, "not implemented")
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported([]string{constraints.CpuPower, constraints.VirtType})
+	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
+	validator.RegisterVocabulary(constraints.Arch, []string{arch.AMD64, arch.ARM64, arch.I386, arch.PPC64EL})
+	return validator, nil
 }
 
 func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
-	return nil, errors.NewNotImplemented(nil, "not implemented")
+	insts, err := e.getPacketInstancesByTag(map[string]string{"juju-is-controller": "true", "juju-controller-uuid": controllerUUID})
+	if err != nil {
+		return nil, err
+	}
+	instanceIDs := make([]instance.Id, len(insts))
+	for i, inst := range insts {
+		instanceIDs[i] = inst.Id()
+	}
+	return instanceIDs, nil
 }
 
 func (e *environ) Create(ctx context.ProviderCallContext, args environs.CreateParams) error {
@@ -90,19 +107,76 @@ func (e *environ) Create(ctx context.ProviderCallContext, args environs.CreatePa
 }
 
 func (e *environ) Destroy(ctx context.ProviderCallContext) error {
-	return errors.NewNotImplemented(nil, "not implemented")
+	insts, err := e.getPacketInstancesByTag(map[string]string{"juju-model-uuid": e.Config().UUID()})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, inst := range insts {
+		if _, err = e.equinixClient.Devices.Delete(string(inst.Id()), true); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	return common.Destroy(e, ctx)
 }
 
 func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
-	return errors.NewNotImplemented(nil, "not implemented")
+	insts, err := e.getPacketInstancesByTag(map[string]string{"juju-controller-uuid": controllerUUID})
+	if err != nil {
+		return err
+	}
+
+	for _, inst := range insts {
+		if _, err = e.equinixClient.Devices.Delete(string(inst.Id()), true); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	return e.Destroy(ctx)
 }
 
 func (e *environ) InstanceTypes(context.ProviderCallContext, constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
-	panic(errors.NewNotImplemented(nil, "not implemented"))
+	i := instances.InstanceTypesWithCostMetadata{}
+	instances, err := e.supportedInstanceTypes()
+	if err != nil {
+		return i, errors.Trace(err)
+	}
+
+	i.InstanceTypes = instances
+	return i, nil
 }
 
 func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
-	panic(errors.NewNotImplemented(nil, "not implemented"))
+	toReturn := make([]instances.Instance, len(ids))
+	var missingInstanceCount int
+
+	tags := set.NewStrings("juju-model-uuid=" + e.Config().UUID())
+
+	for i, id := range ids {
+		d, resp, err := e.equinixClient.Devices.Get(string(id), nil)
+		if err != nil && resp != nil && resp.Request.Response.StatusCode == http.StatusNotFound {
+			logger.Warningf("instance %s not found", string(id))
+			missingInstanceCount = missingInstanceCount + 1
+			continue
+		} else if err != nil {
+			return nil, errors.Annotatef(err, "looking up device with ID %q", id)
+		}
+
+		deviceTags := set.NewStrings(d.Tags...)
+		if !tags.Intersection(deviceTags).IsEmpty() {
+			toReturn[i] = &equinixDevice{e, d}
+		}
+	}
+
+	if missingInstanceCount > 0 {
+		if missingInstanceCount == len(toReturn) {
+			return nil, environs.ErrNoInstances
+		}
+		return toReturn, environs.ErrPartialInstances
+
+	}
+	return toReturn, nil
 }
 
 func (e *environ) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
@@ -177,11 +251,174 @@ func newConfig(cfg, old *config.Config) (*environConfig, error) {
 }
 
 func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (result *environs.StartInstanceResult, resultErr error) {
-	panic(errors.NewNotImplemented(nil, "not implemented"))
+	instanceTypes, err := e.InstanceTypes(ctx, constraints.Value{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	spec, err := e.findInstanceSpec(
+		args.InstanceConfig.Controller != nil,
+		args.ImageMetadata,
+		instanceTypes.InstanceTypes,
+		&instances.InstanceConstraint{
+			Region:      e.cloud.Region,
+			Series:      args.InstanceConfig.Series,
+			Arches:      args.Tools.Arches(),
+			Constraints: args.Constraints,
+		},
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := e.finishInstanceConfig(&args, spec); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cloudCfg, err := cloudinit.New(args.InstanceConfig.Series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cloudCfg.AddScripts(
+		// This is a dummy script injected into packet images that
+		// confuses the init system detection logic used by juju.
+		"rm -f /sbin/initctl",
+	)
+
+	// Install additional dependencies that are present in ubuntu images
+	// but not in the versions built by equinix.
+	//
+	// NOTE(achilleasa): this is a hack and is only meant to be used
+	// temporarily; we must ensure that equinix mirrors the official
+	// ubuntu cloud images.
+	if _, err := series.UbuntuSeriesVersion(args.InstanceConfig.Series); err == nil {
+		cloudCfg.AddScripts(
+			"apt-get update",
+			"DEBIAN_FRONTEND=noninteractive apt-get --option=Dpkg::Options::=--force-confdef --option=Dpkg::Options::=--force-confold --option=Dpkg::Options::=--force-unsafe-io --assume-yes --quiet install dmidecode snapd",
+			"snap install lxd && adduser ubuntu lxd",
+		)
+	}
+
+	userdata, err := providerinit.ComposeUserData(args.InstanceConfig, cloudCfg, EquinixRenderer{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Render the required tags for the instance.
+	var packetTags []string
+	for k, v := range args.InstanceConfig.Tags {
+		packetTags = append(packetTags, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	hostname, err := e.namespace.Hostname(args.InstanceConfig.MachineId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	device := &packngo.DeviceCreateRequest{
+		Hostname:     hostname,
+		Metro:        e.cloud.Region,
+		Plan:         spec.InstanceType.Name,
+		OS:           spec.Image.Id,
+		ProjectID:    e.cloud.Credential.Attributes()["project-id"],
+		BillingCycle: "hourly",
+		UserData:     string(userdata),
+		Tags:         packetTags,
+	}
+
+	subnetIDs, err := e.getSubnetsToZoneMap(ctx, args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var requestedPublicAddr, requestedPrivateAddr bool
+	if len(subnetIDs) != 0 {
+		logger.Debugf("requesting a machine with address in subnet(s): %v", subnetIDs)
+		for _, subnetID := range subnetIDs {
+			net, _, err := e.equinixClient.ProjectIPs.Get(subnetID, &packngo.GetOptions{})
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			requestedPublicAddr = requestedPublicAddr || net.Public
+			requestedPrivateAddr = requestedPrivateAddr || !net.Public
+
+			// Packet requires us to request at least a /31 for IPV4
+			// addresses and a /127 for IPV6 ones.
+			cidrSize := 31
+			if net.AddressFamily != 4 {
+				cidrSize = 127
+			}
+
+			ipBlock := packngo.IPAddressCreateRequest{
+				AddressFamily: net.AddressFamily,
+				Public:        net.Public,
+				CIDR:          cidrSize,
+				Reservations:  []string{net.ID},
+			}
+			device.IPAddresses = append(device.IPAddresses, ipBlock)
+		}
+	}
+
+	// In order to spin up a new device, we must specify at least one
+	// public and one private address.
+	if !requestedPrivateAddr {
+		// Allocate a private address from the default address pool.
+		device.IPAddresses = append(device.IPAddresses, packngo.IPAddressCreateRequest{
+			Public:        false,
+			AddressFamily: 4,
+			CIDR:          31,
+		})
+	}
+	if !requestedPublicAddr {
+		// Allocate a public address from the default address pool.
+		device.IPAddresses = append(device.IPAddresses, packngo.IPAddressCreateRequest{
+			Public:        true,
+			AddressFamily: 4,
+			CIDR:          31,
+		})
+	}
+
+	d, _, err := e.equinixClient.Devices.Create(device)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	d, err = waitDeviceActive(ctx, e.equinixClient, d.ID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	inst := &equinixDevice{e, d}
+	amd64 := arch.AMD64
+	mem, err := strconv.ParseUint(d.Plan.Specs.Memory.Total[:len(d.Plan.Specs.Memory.Total)-2], 10, 64)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var cpus uint64 = 1
+	if inst.Plan != nil && inst.Plan.Specs != nil && len(inst.Plan.Specs.Cpus) > 0 {
+		cpus = uint64(inst.Plan.Specs.Cpus[0].Count)
+	}
+
+	return &environs.StartInstanceResult{
+		Instance: inst,
+		Hardware: &instance.HardwareCharacteristics{
+			Arch: &amd64,
+			Mem:  &mem,
+			// RootDisk: &instanceSpec.InstanceType.RootDisk,
+			CpuCores: &cpus,
+		},
+	}, nil
 }
 
 func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
-	panic(errors.NewNotImplemented(nil, "not implemented"))
+	for _, id := range ids {
+		_, err := e.equinixClient.Devices.Delete(string(id), true)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 func (e *environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
@@ -251,7 +488,7 @@ func (e *environ) supportedInstanceTypes() ([]instances.InstanceType, error) {
 nextPlan:
 	for _, plan := range plans {
 		if !validPlan(plan, e.cloud.Region) {
-			logger.Debugf("Plan %s not valid in facility %s", plan.Name, e.cloud.Region)
+			logger.Tracef("Plan %s not valid in facility %s", plan.Name, e.cloud.Region)
 			continue
 		}
 
@@ -279,8 +516,10 @@ nextPlan:
 				Mem:      mem,
 				Arches:   []string{instArch},
 				// Scale per hour costs so they can be represented as an integer for sorting purposes.
-				Cost:       uint64(plan.Pricing.Hour * 1000.0),
-				Deprecated: plan.Legacy,
+				Cost: uint64(plan.Pricing.Hour * 1000.0),
+				// The Equinix Metal API returns all plan as legacy today. There is an issue open internally to figure out why.
+				// In the meantime let's comment this https://github.com/juju/juju/pull/12983#discussion_r635324484
+				// Deprecated: plan.Legacy,
 			})
 	}
 
@@ -342,7 +581,8 @@ func (e *environ) findInstanceSpec(controller bool, allImages []*imagemetadata.I
 	}
 
 	images := instances.ImageMetadataToImages(suitableImages)
-	return instances.FindInstanceSpec(images, ic, instanceTypes)
+	spec, _ := instances.FindInstanceSpec(images, ic, instanceTypes)
+	return spec, err
 }
 
 func (e *environ) finishInstanceConfig(args *environs.StartInstanceParams, spec *instances.InstanceSpec) error {
@@ -367,12 +607,16 @@ func (e *environ) finishInstanceConfig(args *environs.StartInstanceParams, spec 
 	return nil
 }
 
+var ErrDeviceProvisioningFailed = errors.New("device provisioning failed")
+
 // waitDeviceActive is a function capable of figuring out when a Equinix Metal
 // device is active
-func waitDeviceActive(c *packngo.Client, id string) (*packngo.Device, error) {
+func waitDeviceActive(ctx context.ProviderCallContext, c *packngo.Client, id string) (*packngo.Device, error) {
+	var d *packngo.Device
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
-			d, _, err := c.Devices.Get(id, nil)
+			var err error
+			d, _, err = c.Devices.Get(id, nil)
 			if err != nil {
 				return err
 			}
@@ -380,22 +624,28 @@ func waitDeviceActive(c *packngo.Client, id string) (*packngo.Device, error) {
 				return nil
 			}
 			if d.State == "failed" {
-				return fmt.Errorf("device %s provisioning failed", id)
+				return errr.Wrap(ErrDeviceProvisioningFailed, fmt.Sprintf("device %s provisioning failed", id))
 			}
-			return nil
+			return fmt.Errorf("device in not in active state yet")
 		},
 		IsFatalError: func(err error) bool {
-			return common.IsCredentialNotValid(err)
+			if errr.Is(err, ErrDeviceProvisioningFailed) {
+				return true
+			}
+			select {
+			case <-ctx.Dying():
+				return true // treat error as fatal because we are asked to abort
+			default:
+				return common.IsCredentialNotValid(err)
+			}
 		},
 		Attempts: 180,
 		Delay:    5 * time.Second,
 		Clock:    clock.WallClock,
 	})
 
-	if err == nil {
-		d, _, er := c.Devices.Get(id, nil)
-		return d, er
-
+	if d != nil {
+		return d, nil
 	}
 
 	return nil, err
