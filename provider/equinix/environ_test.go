@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package equinix_test
+package equinix
 
 import (
 	"net/http"
@@ -19,13 +19,15 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/equinix"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/provider/equinix/mocks"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
+	jtesting "github.com/juju/testing"
 )
 
 type environProviderSuite struct {
-	testing.BaseSuite
+	jtesting.IsolationSuite
 	provider environs.EnvironProvider
 	spec     environscloudspec.CloudSpec
 	requests []*http.Request
@@ -33,13 +35,24 @@ type environProviderSuite struct {
 
 var _ = gc.Suite(&environProviderSuite{})
 
+func (s *environProviderSuite) SetUpSuite(c *gc.C) {
+	s.IsolationSuite.SetUpSuite(c)
+}
+
+func (s *environProviderSuite) TearDownSuite(c *gc.C) {
+	s.IsolationSuite.TearDownSuite(c)
+}
+func (s *environProviderSuite) TearDownTest(c *gc.C) {
+	s.IsolationSuite.TearDownTest(c)
+}
+
 func (s *environProviderSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.provider = newProvider()
+	s.IsolationSuite.SetUpTest(c)
+	s.provider = NewProvider()
 	s.spec = environscloudspec.CloudSpec{
 		Type:       "equnix",
 		Name:       "equnix metal",
-		Region:     "ams1",
+		Region:     "am",
 		Endpoint:   "https://api.packet.net/",
 		Credential: fakeServicePrincipalCredential(),
 	}
@@ -67,13 +80,32 @@ func (s *environProviderSuite) TestPrepareConfig(c *gc.C) {
 }
 
 func (s *environProviderSuite) TestOpen(c *gc.C) {
-
 	env, err := environs.Open(s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
+}
+
+func (s *environProviderSuite) TestStopInstance(c *gc.C) {
+	cntrl := gomock.NewController(c)
+	defer cntrl.Finish()
+	device := mocks.NewMockDeviceService(cntrl)
+	device.EXPECT().Delete(gomock.Eq("100"), gomock.Eq(true)).Times(1)
+	s.PatchValue(&equinixClient, func(spec environscloudspec.CloudSpec) *packngo.Client {
+		cl := &packngo.Client{}
+		cl.Devices = device
+		return cl
+	})
+	env, err := environs.Open(s.provider, environs.OpenParams{
+		Cloud:  s.spec,
+		Config: makeTestModelConfig(c),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env, gc.NotNil)
+	err = env.StopInstances(context.NewCloudCallContext(), "100")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type packngoCreateDeviceMatcher struct {
@@ -322,10 +354,6 @@ func (s *environProviderSuite) testOpenError(c *gc.C, spec environscloudspec.Clo
 	c.Assert(err, gc.ErrorMatches, expect)
 }
 
-func newProvider() environs.EnvironProvider {
-	return equinix.NewProvider()
-}
-
 func makeTestModelConfig(c *gc.C, extra ...testing.Attrs) *config.Config {
 	attrs := testing.Attrs{
 		"type":          "equinix",
@@ -338,4 +366,105 @@ func makeTestModelConfig(c *gc.C, extra ...testing.Attrs) *config.Config {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
+}
+
+type EquinixUtils struct {
+	jtesting.IsolationSuite
+}
+
+var _ = gc.Suite(&EquinixUtils{})
+
+func (*EquinixUtils) TestWaitDeviceActive_ReturnProvisioning(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cl := &packngo.Client{}
+	device := mocks.NewMockDeviceService(ctrl)
+	device.EXPECT().Get(gomock.Eq("100"), nil).Return(&packngo.Device{
+		ID:    "100",
+		State: "provisioning",
+	}, nil, nil).Times(1).Return(&packngo.Device{
+		ID:    "100",
+		State: "active",
+	}, nil, nil).Times(1)
+	cl.Devices = device
+	_, err := waitDeviceActive(context.NewCloudCallContext(), cl, "100")
+
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (*EquinixUtils) TestWaitDeviceActive_ReturnActive(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cl := &packngo.Client{}
+	device := mocks.NewMockDeviceService(ctrl)
+	device.EXPECT().Get(gomock.Eq("100"), nil).Return(&packngo.Device{
+		ID:    "100",
+		State: "active",
+	}, nil, nil).Times(1)
+	cl.Devices = device
+	_, err := waitDeviceActive(context.NewCloudCallContext(), cl, "100")
+
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (*EquinixUtils) TestWaitDeviceActive_ReturnFailed(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cl := &packngo.Client{}
+	device := mocks.NewMockDeviceService(ctrl)
+	device.EXPECT().Get(gomock.Eq("100"), nil).Return(&packngo.Device{
+		ID:    "100",
+		State: "failed",
+	}, nil, nil).Times(1)
+	cl.Devices = device
+	waitDeviceActive(context.NewCloudCallContext(), cl, "100")
+}
+
+func (*EquinixUtils) TestIsDistroSupported(c *gc.C) {
+	for _, s := range []struct {
+		os     packngo.OS
+		ic     *instances.InstanceConstraint
+		expect bool
+	}{
+		{
+			os: packngo.OS{
+				Name:    "ubuntu",
+				Version: "20.10",
+			},
+			ic: &instances.InstanceConstraint{
+				Series: "20.10",
+			},
+			expect: false,
+		},
+	} {
+		o := isDistroSupported(s.os, s.ic)
+		if o != s.expect {
+			c.Errorf("for os \"%s\" expected \"%+v\" got \"%+v\"", s.os.Name, s.expect, o)
+		}
+	}
+}
+
+func (*EquinixUtils) TestGetArchitectureFromPlan(c *gc.C) {
+	for _, s := range []struct {
+		plan   string
+		expect string
+	}{
+		{
+			plan:   "metal.medium.x86",
+			expect: "amd64",
+		},
+		{
+			plan:   "c2.small.arm",
+			expect: "arm64",
+		},
+		{
+			plan:   "default",
+			expect: "amd64",
+		},
+	} {
+		o := getArchitectureFromPlan(s.plan)
+		if o != s.expect {
+			c.Errorf("for plan \"%s\" expected \"%s\" got \"%s\"", s.plan, s.expect, o)
+		}
+	}
 }
