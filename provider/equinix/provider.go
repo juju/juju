@@ -4,6 +4,7 @@
 package equinix
 
 import (
+	stdcontext "context"
 	"fmt"
 	"net/http"
 
@@ -68,7 +69,7 @@ func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 }
 
 // Open is specified in the EnvironProvider interface.
-func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+func (p environProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q", args.Config.Name())
 
 	e := new(environ)
@@ -115,7 +116,7 @@ func (e *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 	return nil
 }
 
-func equinixClient(spec environscloudspec.CloudSpec) *packngo.Client {
+var equinixClient = func(spec environscloudspec.CloudSpec) *packngo.Client {
 	credentialAttrs := spec.Credential.Attributes()
 
 	apiToken := credentialAttrs["api-token"]
