@@ -75,7 +75,7 @@ type ToolsFinder interface {
 
 func NewProvisionerTask(
 	controllerUUID string,
-	machineTag names.MachineTag,
+	hostTag names.Tag,
 	logger Logger,
 	harvestMode config.HarvestMode,
 	machineGetter MachineGetter,
@@ -98,7 +98,7 @@ func NewProvisionerTask(
 	}
 	task := &provisionerTask{
 		controllerUUID:             controllerUUID,
-		machineTag:                 machineTag,
+		hostTag:                    hostTag,
 		logger:                     logger,
 		machineGetter:              machineGetter,
 		distributionGroupFinder:    distributionGroupFinder,
@@ -128,7 +128,7 @@ func NewProvisionerTask(
 
 type provisionerTask struct {
 	controllerUUID             string
-	machineTag                 names.MachineTag
+	hostTag                    names.Tag
 	logger                     Logger
 	machineGetter              MachineGetter
 	distributionGroupFinder    DistributionGroupFinder
@@ -182,7 +182,7 @@ func (task *provisionerTask) loop() error {
 	for {
 		select {
 		case <-task.catacomb.Dying():
-			task.logger.Infof("Shutting down provisioner task %s", task.machineTag)
+			task.logger.Infof("Shutting down provisioner task %s", task.hostTag)
 			return task.catacomb.ErrDying()
 		case ids, ok := <-task.machineChanges:
 			if !ok {
@@ -576,7 +576,7 @@ func (task *provisionerTask) constructInstanceConfig(
 		return nil, errors.Annotate(err, "failed to generate a nonce for machine "+machine.Id())
 	}
 
-	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid)
+	nonce := fmt.Sprintf("%s:%s", task.hostTag, uuid)
 	instanceConfig, err := instancecfg.NewInstanceConfig(
 		names.NewControllerTag(controller.Config(pInfo.ControllerConfig).ControllerUUID()),
 		machine.Id(),

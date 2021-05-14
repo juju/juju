@@ -147,10 +147,9 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 	if err != nil && !errors.IsNotImplemented(err) {
 		return nil, err
 	}
-	tag := p.agentConfig.Tag()
-	machineTag, ok := tag.(names.MachineTag)
-	if !ok {
-		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
+	hostTag := p.agentConfig.Tag()
+	if kind := hostTag.Kind(); kind != names.ControllerAgentTagKind && kind != names.MachineTagKind {
+		return nil, errors.Errorf("agent's tag is not a machine or controller agent tag, got %T", hostTag)
 	}
 
 	modelCfg, err := p.st.ModelConfig()
@@ -165,7 +164,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 
 	task, err := NewProvisionerTask(
 		controllerCfg.ControllerUUID(),
-		machineTag,
+		hostTag,
 		p.logger,
 		harvestMode,
 		p.st,
