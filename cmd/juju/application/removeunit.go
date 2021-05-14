@@ -142,15 +142,18 @@ func (c *removeUnitCommand) validateCAASRemoval() error {
 		// TODO(caas): enable --destroy-storage for caas model.
 		return errors.New("k8s models only support --num-units")
 	}
+	if len(c.EntityNames) == 0 {
+		return errors.Errorf("no application specified")
+	}
+	if len(c.EntityNames) != 1 {
+		return errors.Errorf("only single application supported")
+	}
 	if names.IsValidUnit(c.EntityNames[0]) {
 		msg := `
 k8s models do not support removing named units.
 Instead specify an application with --num-units.
 `[1:]
 		return errors.Errorf(msg)
-	}
-	if len(c.EntityNames) != 1 {
-		return errors.Errorf("only single application supported")
 	}
 	if !names.IsValidApplication(c.EntityNames[0]) {
 		return errors.NotValidf("application name %q", c.EntityNames[0])
