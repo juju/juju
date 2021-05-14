@@ -93,7 +93,10 @@ func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 }
 
 func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
-	insts, err := e.getPacketInstancesByTag(map[string]string{"juju-is-controller": "true", "juju-controller-uuid": controllerUUID})
+	insts, err := e.getPacketInstancesByTag(map[string]string{
+		"juju-is-controller":   "true",
+		"juju-controller-uuid": controllerUUID,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -109,30 +112,35 @@ func (e *environ) Create(ctx context.ProviderCallContext, args environs.CreatePa
 }
 
 func (e *environ) Destroy(ctx context.ProviderCallContext) error {
-	insts, err := e.getPacketInstancesByTag(map[string]string{"juju-model-uuid": e.Config().UUID()})
+	insts, err := e.getPacketInstancesByTag(map[string]string{
+		"juju-model-uuid": e.Config().UUID()})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	for _, inst := range insts {
-		if _, err = e.equinixClient.Devices.Delete(string(inst.Id()), true); err != nil {
-			return errors.Trace(err)
-		}
+	ids := []instance.Id{}
+
+	for _, i := range insts {
+		ids = append(ids, i.Id())
+	}
+
+	err = e.deleteDevicesByIDs(ctx, ids)
+	if err != nil {
+		return err
 	}
 
 	return common.Destroy(e, ctx)
 }
 
 func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
-	insts, err := e.getPacketInstancesByTag(map[string]string{"juju-controller-uuid": controllerUUID})
+	insts, err := e.ControllerInstances(ctx, controllerUUID)
 	if err != nil {
 		return err
 	}
 
-	for _, inst := range insts {
-		if _, err = e.equinixClient.Devices.Delete(string(inst.Id()), true); err != nil {
-			return errors.Trace(err)
-		}
+	err = e.deleteDevicesByIDs(ctx, insts)
+	if err != nil {
+		return err
 	}
 
 	return e.Destroy(ctx)
@@ -166,9 +174,11 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 		}
 
 		deviceTags := set.NewStrings(d.Tags...)
-		if !tags.Intersection(deviceTags).IsEmpty() {
-			toReturn[i] = &equinixDevice{e, d}
+		if tags.Intersection(deviceTags).IsEmpty() {
+			missingInstanceCount++
+			continue
 		}
+		toReturn[i] = &equinixDevice{e, d}
 	}
 
 	if missingInstanceCount > 0 {
@@ -391,7 +401,6 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	}
 
 	inst := &equinixDevice{e, d}
-	amd64 := arch.AMD64
 	mem, err := strconv.ParseUint(d.Plan.Specs.Memory.Total[:len(d.Plan.Specs.Memory.Total)-2], 10, 64)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -402,10 +411,12 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		cpus = uint64(inst.Plan.Specs.Cpus[0].Count)
 	}
 
+	arch := getArchitectureFromPlan(d.Plan.Name)
+
 	return &environs.StartInstanceResult{
 		Instance: inst,
 		Hardware: &instance.HardwareCharacteristics{
-			Arch: &amd64,
+			Arch: &arch,
 			Mem:  &mem,
 			// RootDisk: &instanceSpec.InstanceType.RootDisk,
 			CpuCores: &cpus,
@@ -414,13 +425,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 }
 
 func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
-	for _, id := range ids {
-		_, err := e.equinixClient.Devices.Delete(string(id), true)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
+	return e.deleteDevicesByIDs(ctx, ids)
 }
 
 func (e *environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
@@ -439,6 +444,16 @@ func (e *environ) Region() (simplestreams.CloudSpec, error) {
 	}, nil
 }
 
+func (e *environ) deleteDevicesByIDs(ctx context.ProviderCallContext, ids []instance.Id) error {
+	for _, id := range ids {
+		_, err := e.equinixClient.Devices.Delete(string(id), true)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 // if values tag and state are left empty it will return all instances
 func (e *environ) getPacketInstancesByTag(tags map[string]string) ([]instances.Instance, error) {
 	var toReturn []instances.Instance
@@ -448,7 +463,12 @@ func (e *environ) getPacketInstancesByTag(tags map[string]string) ([]instances.I
 		deviceTags.Add(fmt.Sprintf("%s=%s", k, v))
 	}
 
-	devices, _, err := e.equinixClient.Devices.List(e.cloud.Credential.Attributes()["project-id"], nil)
+	projectID, ok := e.cloud.Credential.Attributes()["project-id"]
+	if !ok {
+		return nil, fmt.Errorf("project-id not fond as attribute")
+	}
+
+	devices, _, err := e.equinixClient.Devices.List(projectID, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -595,7 +615,7 @@ func (e *environ) finishInstanceConfig(args *environs.StartInstanceParams, spec 
 	}
 
 	if spec.InstanceType.Deprecated {
-		logger.Infof("deprecated instance type specified: %s", spec.InstanceType.Name)
+		logger.Warningf("deprecated instance type specified: %s", spec.InstanceType.Name)
 	}
 
 	if err := args.InstanceConfig.SetTools(matchingTools); err != nil {
