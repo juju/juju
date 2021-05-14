@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/retry"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
@@ -174,7 +173,7 @@ func (n *NetworkInfoIAAS) resolveResultIngressHostNames(netInfo params.NetworkIn
 	return netInfo
 }
 
-// machineNetworkInfos sets network info for the unit's machine
+// populateMachineNetworkInfos sets network info for the unit's machine
 // based on devices with addresses in the unit's bound spaces.
 func (n *NetworkInfoIAAS) populateMachineNetworkInfos() error {
 	machineID, err := n.unit.AssignedMachineId()
@@ -191,15 +190,14 @@ func (n *NetworkInfoIAAS) populateMachineNetworkInfos() error {
 		spaceSet.Add(binding)
 	}
 
-	results := make(map[string]params.NetworkInfoResult)
-
 	var privateIPAddress string
+	n.machineNetworkInfos = make(map[string]params.NetworkInfoResult)
 
 	if spaceSet.Contains(network.AlphaSpaceId) {
 		var err error
 		privateMachineAddress, err := n.pollForAddress(machine.PrivateAddress)
 		if err != nil {
-			results[network.AlphaSpaceId] = params.NetworkInfoResult{Error: apiservererrors.ServerError(
+			n.machineNetworkInfos[network.AlphaSpaceId] = params.NetworkInfoResult{Error: apiservererrors.ServerError(
 				errors.Annotatef(err, "getting machine %q preferred private address", machine.MachineTag()))}
 
 			// Remove this ID to prevent further processing.
@@ -209,82 +207,70 @@ func (n *NetworkInfoIAAS) populateMachineNetworkInfos() error {
 		}
 	}
 
-	// Link-layer devices are set in a single transaction for all devices
-	// observed on the machine, so the first result will include them all.
-	var addresses []*state.Address
-	retryArg := n.retryFactory()
-	retryArg.Func = func() error {
-		var err error
-		addresses, err = machine.AllAddresses()
-		return err
-	}
-	retryArg.IsFatalError = func(err error) bool {
-		return err != nil
-	}
-	if err := retry.Call(retryArg); err != nil {
-		result := params.NetworkInfoResult{Error: apiservererrors.ServerError(
-			errors.Annotate(err, "getting devices addresses"))}
-		for _, id := range spaceSet.Values() {
-			if _, ok := results[id]; !ok {
-				results[id] = result
-			}
-		}
-		n.machineNetworkInfos = results
+	// This is not ideal. We need device information associated with the state
+	// Address representation, but we also need the addresses in a form that
+	// can be sorted for scope and primary/secondary status.
+	// We create a map for the information we need to return, and a separate
+	// sorted slice for iteration in the correct order.
+	addrs, err := machine.AllAddresses()
+	if err != nil {
+		n.populateMachineNetworkInfoErrors(spaceSet, err)
 		return nil
 	}
+	addrByIP := make(map[string]*state.Address)
+	for _, addr := range addrs {
+		addrByIP[addr.Value()] = addr
+	}
 
-	logger.Debugf("Looking for address from %v in spaces %v", addresses, spaceSet.Values())
+	spaceAddrs, err := machine.AllDeviceSpaceAddresses()
+	if err != nil {
+		n.populateMachineNetworkInfoErrors(spaceSet, err)
+		return nil
+	}
+	network.SortAddresses(spaceAddrs)
+
+	logger.Debugf("Looking for address from %v in spaces %v", spaceAddrs, spaceSet.Values())
 
 	var privateLinkLayerAddress *state.Address
-	for _, addr := range addresses {
-		subnet, err := addr.Subnet()
-		switch {
-		case errors.IsNotFound(err):
-			logger.Debugf("skipping %s: not linked to a known subnet (%v)", addr, err)
+	for _, spaceAddr := range spaceAddrs {
+		addr, ok := addrByIP[spaceAddr.Value]
+		if !ok {
+			return errors.Errorf("address representations inconsistent; could not find %s", spaceAddr.Value)
+		}
+
+		if spaceAddr.SpaceID == "" {
+			logger.Debugf("skipping %s: not linked to a known space.", spaceAddr)
 
 			// For a space-less model, we will not have subnets populated,
-			// and will therefore not find a subnet for the address.
+			// and will therefore not find a space for the address.
 			// Capture the link-layer information for machine private address
 			// so that we can return as much information as possible.
 			// TODO (manadart 2020-02-21): This will not be required once
 			// discovery (or population of subnets by other means) is
-			// introduced for the non-space IAAS providers (LXD, manual, etc).
-			if addr.Value() == privateIPAddress {
+			// introduced for the non-space IAAS providers (vSphere etc).
+			if spaceAddr.Value == privateIPAddress {
 				privateLinkLayerAddress = addr
 			}
-		case err != nil:
-			logger.Errorf("cannot get subnet for address %q - %q", addr, err)
-		default:
-			if spaceSet.Contains(subnet.SpaceID()) {
-				r := results[subnet.SpaceID()]
-				r.Info, err = addAddressToResult(r.Info, addr)
-				if err != nil {
-					r.Error = apiservererrors.ServerError(err)
-				} else {
-					results[subnet.SpaceID()] = r
-				}
-			}
+			continue
+		}
 
-			// TODO (manadart 2020-02-21): This reflects the behaviour prior
-			// to the introduction of the alpha space.
-			// It mimics the old behaviour for the empty space ("").
-			// If that was passed in, we included the machine's preferred
-			// local-cloud address no matter what space it was in,
-			// treating the request as space-agnostic.
-			// To preserve this behaviour, we return the address as a result
-			// in the alpha space no matter its *real* space if addresses in
-			// the alpha space were requested.
-			// This should be removed with the institution of universal mutable
-			// spaces.
-			if spaceSet.Contains(network.AlphaSpaceId) && addr.Value() == privateIPAddress {
-				r := results[network.AlphaSpaceId]
-				r.Info, err = addAddressToResult(r.Info, addr)
-				if err != nil {
-					r.Error = apiservererrors.ServerError(err)
-				} else {
-					results[network.AlphaSpaceId] = r
-				}
-			}
+		if spaceSet.Contains(spaceAddr.SpaceID) {
+			n.addAddressToResult(spaceAddr.SpaceID, addr)
+		}
+
+		// TODO (manadart 2020-02-21): This reflects the behaviour prior
+		// to the introduction of the alpha space.
+		// It mimics the old behaviour for the empty space ("").
+		// If that was passed in, we included the machine's preferred
+		// local-cloud address no matter what space it was in,
+		// treating the request as space-agnostic.
+		// To preserve this behaviour, we return the address as a result
+		// in the alpha space no matter its *real* space if addresses in
+		// the alpha space were requested.
+		// This should be removed with the institution of universal mutable
+		// spaces.
+		if spaceSet.Contains(network.AlphaSpaceId) && addr.Value() == privateIPAddress {
+			n.addAddressToResult(network.AlphaSpaceId, addr)
 		}
 	}
 
@@ -295,44 +281,50 @@ func (n *NetworkInfoIAAS) populateMachineNetworkInfos() error {
 	// the IP.
 	// TODO (manadart 2020-02-21): As mentioned above, this is not required
 	// when we have subnets populated for all providers.
-	if r, ok := results[network.AlphaSpaceId]; !ok && spaceSet.Contains(network.AlphaSpaceId) {
+	if _, ok := n.machineNetworkInfos[network.AlphaSpaceId]; !ok && spaceSet.Contains(network.AlphaSpaceId) {
 		if privateLinkLayerAddress != nil {
-			r.Info, _ = addAddressToResult(r.Info, privateLinkLayerAddress)
+			n.addAddressToResult(network.AlphaSpaceId, privateLinkLayerAddress)
 		} else {
-			r.Info = []params.NetworkInfo{{
-				Addresses: []params.InterfaceAddress{{
-					Address: privateIPAddress,
-				}},
-			}}
-		}
-
-		results[network.AlphaSpaceId] = r
-	}
-
-	for _, id := range spaceSet.Values() {
-		if _, ok := results[id]; !ok {
-			results[id] = params.NetworkInfoResult{
-				Error: apiservererrors.ServerError(
-					errors.Errorf("machine %q has no devices in space %q", machineID, id)),
+			n.machineNetworkInfos[network.AlphaSpaceId] = params.NetworkInfoResult{
+				Info: []params.NetworkInfo{{Addresses: []params.InterfaceAddress{{Address: privateIPAddress}}}},
 			}
 		}
 	}
 
-	n.machineNetworkInfos = results
+	for _, id := range spaceSet.Values() {
+		if _, ok := n.machineNetworkInfos[id]; !ok {
+			n.machineNetworkInfos[id] = params.NetworkInfoResult{Error: apiservererrors.ServerError(
+				errors.Errorf("machine %q has no addresses in space %q", machineID, id))}
+		}
+	}
+
 	return nil
 }
 
-// Add address to a device in list or create a new device with this address.
-func addAddressToResult(networkInfos []params.NetworkInfo, address *state.Address) ([]params.NetworkInfo, error) {
+// populateMachineNetworkInfoErrors populates a network
+// info result error for all of the input spaces.
+func (n *NetworkInfoIAAS) populateMachineNetworkInfoErrors(spaces set.Strings, err error) {
+	res := params.NetworkInfoResult{Error: apiservererrors.ServerError(
+		errors.Annotate(err, "getting devices addresses"))}
+	for _, id := range spaces.Values() {
+		n.machineNetworkInfos[id] = res
+	}
+}
+
+// addAddressToResult adds the network info representation
+// of the input address to the results for the input space.
+func (n *NetworkInfoIAAS) addAddressToResult(spaceID string, address *state.Address) {
+	r := n.machineNetworkInfos[spaceID]
+
 	deviceAddr := params.InterfaceAddress{
 		Address: address.Value(),
 		CIDR:    address.SubnetCIDR(),
 	}
-	for i := range networkInfos {
-		networkInfo := &networkInfos[i]
-		if networkInfo.InterfaceName == address.DeviceName() {
-			networkInfo.Addresses = append(networkInfo.Addresses, deviceAddr)
-			return networkInfos, nil
+	for i := range r.Info {
+		if r.Info[i].InterfaceName == address.DeviceName() {
+			r.Info[i].Addresses = append(r.Info[i].Addresses, deviceAddr)
+			n.machineNetworkInfos[spaceID] = r
+			return
 		}
 	}
 
@@ -341,7 +333,9 @@ func addAddressToResult(networkInfos []params.NetworkInfo, address *state.Addres
 	if err == nil {
 		MAC = device.MACAddress()
 	} else if !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
+		r.Error = apiservererrors.ServerError(err)
+		n.machineNetworkInfos[spaceID] = r
+		return
 	}
 
 	networkInfo := params.NetworkInfo{
@@ -349,7 +343,8 @@ func addAddressToResult(networkInfos []params.NetworkInfo, address *state.Addres
 		MACAddress:    MAC,
 		Addresses:     []params.InterfaceAddress{deviceAddr},
 	}
-	return append(networkInfos, networkInfo), nil
+	r.Info = append(r.Info, networkInfo)
+	n.machineNetworkInfos[spaceID] = r
 }
 
 // spaceAddressesFromNetworkInfo returns a SpaceAddresses collection
@@ -359,6 +354,12 @@ func addAddressToResult(networkInfos []params.NetworkInfo, address *state.Addres
 // information that we need.
 // The best we can do here is identify fan addresses so that they are sorted
 // after other addresses.
+// TODO (manadart 2021-05-14): Phase this out by doing the following:
+// - In populateMachineNetworkInfos, store the retrieved machine SpaceAddresses
+//   as a member of NetworkInfoIAAS.
+// - Use this in a sort method for []InterfaceAddress that works by:
+//   - filtering the SpacesAddress to the same members/order as the input and;
+//   - using the sort order of the SpaceAddresses to sort the input by proxy.
 func spaceAddressesFromNetworkInfo(netInfos []params.NetworkInfo) network.SpaceAddresses {
 	var addrs network.SpaceAddresses
 	for _, nwInfo := range netInfos {

@@ -4434,7 +4434,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	net := map[string][]string{
-		"public":     {"8.8.0.0/16", "1.0.0.0/12"},
+		"public":     {"8.8.0.0/16", "240.0.0.0/12"},
 		"internal":   {"10.0.0.0/24"},
 		"wp-default": {"100.64.0.0/16"},
 		"database":   {"192.168.1.0/24"},
@@ -4597,7 +4597,7 @@ func (s *uniterNetworkInfoSuite) makeMachineDevicesAndAddressesArgs(addrSuffix i
 		}, {
 			DeviceName:   "fan-1",
 			ConfigMethod: network.ConfigStatic,
-			CIDRAddress:  fmt.Sprintf("1.1.1.%d/12", addrSuffix),
+			CIDRAddress:  fmt.Sprintf("240.1.1.%d/12", addrSuffix),
 		}}
 }
 
@@ -4710,13 +4710,6 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 	expectedConfigWithExtraBindingName := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
-				MACAddress:    "00:11:22:33:10:50",
-				InterfaceName: "eth0",
-				Addresses: []params.InterfaceAddress{
-					{Address: "8.8.8.10", CIDR: "8.8.0.0/16"},
-				},
-			},
-			{
 				MACAddress:    "00:11:22:33:10:51",
 				InterfaceName: "eth1",
 				Addresses: []params.InterfaceAddress{
@@ -4725,17 +4718,24 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				},
 			},
 			{
+				MACAddress:    "00:11:22:33:10:50",
+				InterfaceName: "eth0",
+				Addresses: []params.InterfaceAddress{
+					{Address: "8.8.8.10", CIDR: "8.8.0.0/16"},
+				},
+			},
+			{
 				MACAddress:    "00:11:22:33:10:55",
 				InterfaceName: "fan-1",
 				Addresses: []params.InterfaceAddress{
-					{Address: "1.1.1.10", CIDR: "1.0.0.0/12"},
+					{Address: "240.1.1.10", CIDR: "240.0.0.0/12"},
 				},
 			},
 		},
 		// Egress is based on the first ingress address.
 		// Addresses are sorted, with fan always last.
 		EgressSubnets:    []string{"8.8.4.10/32"},
-		IngressAddresses: []string{"8.8.4.10", "8.8.4.11", "8.8.8.10", "1.1.1.10"},
+		IngressAddresses: []string{"8.8.4.10", "8.8.4.11", "8.8.8.10", "240.1.1.10"},
 	}
 
 	// For the "db-client" extra-binding we expect to see interfaces from default
