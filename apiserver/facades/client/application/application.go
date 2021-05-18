@@ -46,7 +46,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage"
@@ -613,13 +612,6 @@ func caasPrecheck(
 	registry storage.ProviderRegistry,
 	caasBroker caasBrokerInterface,
 ) error {
-	if ch.Meta().Deployment != nil && ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
-		if !controllerCfg.Features().Contains(feature.K8sOperators) {
-			return errors.Errorf(
-				"feature flag %q is required for deploying container operator charms", feature.K8sOperators,
-			)
-		}
-	}
 	if len(args.AttachStorage) > 0 {
 		return errors.Errorf(
 			"AttachStorage may not be specified for container models",
