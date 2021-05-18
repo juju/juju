@@ -32,9 +32,10 @@ func NewExportBundleCommand() cmd.Command {
 
 type exportBundleCommand struct {
 	modelcmd.ModelCommandBase
-	out        cmd.Output
-	newAPIFunc func() (ExportBundleAPI, ConfigAPI, error)
-	Filename   string
+	out                  cmd.Output
+	newAPIFunc           func() (ExportBundleAPI, ConfigAPI, error)
+	Filename             string
+	includeCharmDefaults bool
 }
 
 const exportBundleHelpDoc = `
@@ -47,6 +48,7 @@ Examples:
 
     juju export-bundle
     juju export-bundle --filename mymodel.yaml
+    juju export-bundle --include-charm-defaults
 
 `
 
@@ -63,6 +65,7 @@ func (c *exportBundleCommand) Info() *cmd.Info {
 func (c *exportBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.Filename, "filename", "", "Bundle file")
+	f.BoolVar(&c.includeCharmDefaults, "include-charm-defaults", false, "Whether to include charm config default values in the exported bundle")
 }
 
 // Init implements Command.
@@ -74,7 +77,7 @@ func (c *exportBundleCommand) Init(args []string) error {
 type ExportBundleAPI interface {
 	BestAPIVersion() int
 	Close() error
-	ExportBundle() (string, error)
+	ExportBundle(bool) (string, error)
 }
 
 // ConfigAPI specifies the used function calls of the ApplicationFacade.
@@ -103,7 +106,7 @@ func (c *exportBundleCommand) Run(ctx *cmd.Context) error {
 		_ = cfgClient.Close()
 	}()
 
-	result, err := bundleClient.ExportBundle()
+	result, err := bundleClient.ExportBundle(c.includeCharmDefaults)
 	if err != nil {
 		return err
 	}

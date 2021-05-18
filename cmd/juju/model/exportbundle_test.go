@@ -96,7 +96,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessNoFilename(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.fakeConfig, s.store))
 	c.Assert(err, jc.ErrorIsNil)
 	s.fakeBundle.CheckCalls(c, []jujutesting.StubCall{
-		{"ExportBundle", nil},
+		{"ExportBundle", []interface{}{false}},
 	})
 
 	out := cmdtesting.Stdout(ctx)
@@ -139,7 +139,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessFilename(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.fakeConfig, s.store), "--filename", s.fakeBundle.filename)
 	c.Assert(err, jc.ErrorIsNil)
 	s.fakeBundle.CheckCalls(c, []jujutesting.StubCall{
-		{"ExportBundle", nil},
+		{"ExportBundle", []interface{}{false}},
 	})
 
 	out := cmdtesting.Stdout(ctx)
@@ -173,7 +173,23 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccesssOverwriteFilename(c *
 	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.fakeConfig, s.store), "--filename", s.fakeBundle.filename)
 	c.Assert(err, jc.ErrorIsNil)
 	s.fakeBundle.CheckCalls(c, []jujutesting.StubCall{
-		{"ExportBundle", nil},
+		{"ExportBundle", []interface{}{false}},
+	})
+
+	out := cmdtesting.Stdout(ctx)
+	c.Assert(out, gc.Equals, fmt.Sprintf("Bundle successfully exported to %s\n", s.fakeBundle.filename))
+	output, err := ioutil.ReadFile(s.fakeBundle.filename)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(string(output), gc.Equals, "fake-data")
+}
+
+func (s *ExportBundleCommandSuite) TestExportBundleIncludeCharmDefaults(c *gc.C) {
+	s.fakeBundle.filename = filepath.Join(c.MkDir(), "mymodel")
+	s.fakeBundle.result = "fake-data"
+	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.fakeConfig, s.store), "--include-charm-defaults", "--filename", s.fakeBundle.filename)
+	c.Assert(err, jc.ErrorIsNil)
+	s.fakeBundle.CheckCalls(c, []jujutesting.StubCall{
+		{"ExportBundle", []interface{}{true}},
 	})
 
 	out := cmdtesting.Stdout(ctx)
@@ -307,8 +323,8 @@ func (f *fakeExportBundleClient) BestAPIVersion() int { return f.bestAPIVersion 
 
 func (f *fakeExportBundleClient) Close() error { return nil }
 
-func (f *fakeExportBundleClient) ExportBundle() (string, error) {
-	f.MethodCall(f, "ExportBundle")
+func (f *fakeExportBundleClient) ExportBundle(includeDefaults bool) (string, error) {
+	f.MethodCall(f, "ExportBundle", includeDefaults)
 	if err := f.NextErr(); err != nil {
 		return "", err
 	}

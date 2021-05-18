@@ -1069,6 +1069,11 @@ type PubSubMessage struct {
 	Data  map[string]interface{} `json:"data"`
 }
 
+// ExportBundleParams holds parameters for exporting Bundles.
+type ExportBundleParams struct {
+	IncludeCharmDefaults bool `json:"include-charm-defaults,omitempty"`
+}
+
 // BundleChangesParams holds parameters for making Bundle.GetChanges calls.
 type BundleChangesParams struct {
 	// BundleDataYAML is the YAML-encoded charm bundle data
