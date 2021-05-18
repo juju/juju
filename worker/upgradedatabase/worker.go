@@ -205,7 +205,7 @@ func (w *upgradeDB) upgradeDone() bool {
 	w.fromVersion = w.agent.CurrentConfig().UpgradedToVersion()
 	w.toVersion = jujuversion.Current
 	if w.fromVersion == w.toVersion {
-		w.logger.Debugf("database upgrade to %v already completed", w.toVersion)
+		w.logger.Infof("database upgrade for %v already completed", w.toVersion)
 		w.upgradeComplete.Unlock()
 		return true
 	}
@@ -214,7 +214,8 @@ func (w *upgradeDB) upgradeDone() bool {
 }
 
 func (w *upgradeDB) runUpgrade() {
-	w.setStatus(status.Started, fmt.Sprintf("upgrading database to %v", w.toVersion))
+	w.logger.Infof("running database upgrade for %v on mongodb primary", w.toVersion)
+	w.setStatus(status.Started, fmt.Sprintf("upgrading database for %v", w.toVersion))
 
 	if err := w.agent.ChangeConfig(w.runUpgradeSteps); err == nil {
 		// Update the upgrade status document to unlock the other controllers.
@@ -224,7 +225,7 @@ func (w *upgradeDB) runUpgrade() {
 			return
 		}
 
-		w.logger.Infof("database upgrade to %v completed successfully.", w.toVersion)
+		w.logger.Infof("database upgrade for %v completed successfully.", w.toVersion)
 		w.setStatus(status.Started, fmt.Sprintf("database upgrade to %v completed", w.toVersion))
 		w.upgradeComplete.Unlock()
 	}
@@ -259,6 +260,7 @@ func (w *upgradeDB) contextGetter(agentConfig agent.ConfigSetter) func() upgrade
 }
 
 func (w *upgradeDB) watchUpgrade() {
+	w.logger.Infof("waiting for database upgrade on mongodb primary")
 	w.setStatus(status.Started, fmt.Sprintf("waiting on primary database upgrade to %v", w.toVersion))
 
 	if wrench.IsActive("upgrade-database", "watch-upgrade") {
@@ -287,6 +289,7 @@ func (w *upgradeDB) watchUpgrade() {
 		// will be "finishing". We need to check against both of these statuses.
 		switch w.upgradeInfo.Status() {
 		case state.UpgradeDBComplete, state.UpgradeFinishing:
+			w.logger.Infof("finished waiting - database upgrade steps completed on mongodb primary")
 			w.setStatus(status.Started, fmt.Sprintf("confirmed primary database upgrade to %v", w.toVersion))
 			w.upgradeComplete.Unlock()
 			return
