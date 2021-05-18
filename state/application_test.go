@@ -781,8 +781,16 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) 
 	revno := 2
 	ms := s.AddMetaCharm(c, "mysql", metaBase, revno)
 	app := s.AddTestingApplication(c, "fakemysql", ms)
+
+	// Add two units so that peer relations get established and we can
+	// check that errors are raised when trying to break a peer relation.
+	_, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
 	cfg := state.SetCharmConfig{Charm: ms}
-	err := app.SetCharm(cfg)
+	err = app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, t := range setCharmEndpointsTests {
@@ -2013,6 +2021,10 @@ const onePeerMeta = `
 peers:
   cluster: mysql
 `
+const onePeerAltMeta = `
+peers:
+  minion: helper
+`
 const twoPeersMeta = `
 peers:
   cluster: mysql
@@ -2051,6 +2063,46 @@ func (s *ApplicationSuite) TestNewPeerRelationsAddedOnUpgrade(c *gc.C) {
 	err = s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	rels := s.assertApplicationRelations(c, s.mysql, "mysql:cluster", "mysql:loadbalancer")
+
+	// Check state consistency by attempting to destroy the application.
+	err = s.mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	assertRemoved(c, s.mysql)
+
+	// Check the peer relations got destroyed as well.
+	for _, rel := range rels {
+		err = rel.Refresh()
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	}
+}
+
+func (s *ApplicationSuite) TestStalePeerRelationsRemovedOnUpgrade(c *gc.C) {
+	// Original mysql charm has no peer relations.
+	// oldCh is mysql + the peer relation "mysql:cluster"
+	// newCh is mysql + the peer relation "mysql:minion"
+	oldCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+onePeerMeta, 2)
+	newCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+onePeerAltMeta, 42)
+
+	// No relations joined yet.
+	s.assertApplicationRelations(c, s.mysql)
+
+	cfg := state.SetCharmConfig{Charm: oldCh}
+	err := s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplicationRelations(c, s.mysql, "mysql:cluster")
+
+	// Since the two charms have different URLs, the following SetCharm call
+	// emulates a "juju refresh --switch" request. We expect that any prior
+	// peer relations that are not referenced by the new charm metadata
+	// to be dropped and any new peer relations to be created.
+	cfg = state.SetCharmConfig{
+		Charm:      newCh,
+		ForceUnits: true,
+	}
+	err = s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	rels := s.assertApplicationRelations(c, s.mysql, "mysql:minion")
 
 	// Check state consistency by attempting to destroy the application.
 	err = s.mysql.Destroy()
