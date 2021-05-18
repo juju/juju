@@ -15,6 +15,7 @@ import (
 	"github.com/juju/idmclient/v2/ussologin"
 	"gopkg.in/juju/environschema.v1/form"
 
+	"github.com/juju/juju/api/authentication"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -65,9 +66,12 @@ func newAPIContext(ctxt *cmd.Context, opts *AuthOpts, store jujuclient.CookieSto
 	}
 	var interactor httpbakery.Interactor
 	embedded := ctxt != nil && opts != nil && opts.Embedded
-	noBrowser := ctxt != nil && opts != nil && opts.NoBrowser
-	if !embedded {
+	if embedded {
+		// Embedded commands don't yet support macaroon discharge workflow.
+		interactor = authentication.NewNotSupportedInteractor()
+	} else {
 		// Only support discharge interactions if command is not embedded.
+		noBrowser := ctxt != nil && opts != nil && opts.NoBrowser
 		if noBrowser {
 			filler := &form.IOFiller{
 				In:  ctxt.Stdin,

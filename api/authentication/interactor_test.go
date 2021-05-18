@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery/form"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -44,6 +45,13 @@ func (s *InteractorSuite) SetUpTest(c *gc.C) {
 		s.handler.ServeHTTP(w, r)
 	}))
 	s.AddCleanup(func(c *gc.C) { s.server.Close() })
+}
+
+func (s *InteractorSuite) TestNotSupportedInteract(c *gc.C) {
+	v := authentication.NewNotSupportedInteractor()
+	c.Assert(v.Kind(), gc.Equals, "juju_userpass")
+	_, err := v.Interact(context.TODO(), nil, "", nil)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *InteractorSuite) TestLegacyInteract(c *gc.C) {

@@ -17,7 +17,7 @@ import (
 
 const authMethod = "juju_userpass"
 
-// Visitor is a httpbakery.Visitor that will login directly
+// Interactor is a httpbakery.Interactor that will login directly
 // to the Juju controller using password authentication. This
 // only applies when logging in as a local user.
 type Interactor struct {
@@ -117,4 +117,23 @@ func (i *Interactor) LegacyInteract(ctx context.Context, client *httpbakery.Clie
 		return errors.Annotate(err, "unmarshalling error")
 	}
 	return &jsonError
+}
+
+// NewNotSupportedInteractor returns an interactor that does
+// not support any discharge workflow.
+func NewNotSupportedInteractor() httpbakery.Interactor {
+	return &notSupportedInteractor{}
+}
+
+type notSupportedInteractor struct {
+}
+
+// Kind implements httpbakery.Interactor for the Interactor.
+func (i notSupportedInteractor) Kind() string {
+	return authMethod
+}
+
+// Interact implements httpbakery.Interactor for the Interactor.
+func (i notSupportedInteractor) Interact(_ context.Context, _ *httpbakery.Client, location string, _ *httpbakery.Error) (*httpbakery.DischargeToken, error) {
+	return nil, errors.NotSupportedf("interaction for %s", location)
 }
