@@ -930,7 +930,8 @@ func (a *Application) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn
 
 	isPeerToItself := func(ep Endpoint) bool {
 		// We do not want to prevent charm upgrade when endpoint relation is
-		// peer-scoped and there is only one unit of this application.
+		// peer-scoped and there is only one unit of this application or no
+		// units at all.
 		// Essentially, this is the corner case when a unit relates to itself.
 		// For example, in this case, we want to allow charm upgrade, for e.g.
 		// interface name change does not affect anything.
@@ -940,7 +941,7 @@ func (a *Application) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn
 			// We are only interested in thinking further if we can get units.
 			return false
 		}
-		return len(units) == 1 && isPeer(ep)
+		return len(units) <= 1 && isPeer(ep)
 	}
 
 	// All relations must still exist and their endpoints are implemented by the charm.
@@ -1196,12 +1197,26 @@ func (a *Application) changeCharmOps(
 
 	ops = append(ops, incCharmModifiedVersionOps(a.doc.DocID)...)
 
-	// Add any extra peer relations that need creation.
-	newPeers := a.extraPeerRelations(ch.Meta())
-	peerOps, err := a.st.addPeerRelationsOps(a.doc.Name, newPeers)
+	// Get all relations - we need to check them later.
+	relations, err := a.Relations()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// Remove any stale peer relation entries when switching charms
+	removeStalePeerOps, err := a.st.removeStalePeerRelationsOps(a.doc.Name, relations, ch.Meta())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, removeStalePeerOps...)
+
+	// Add any extra peer relations that need creation.
+	newPeers := a.extraPeerRelations(ch.Meta())
+	addPeerOps, err := a.st.addPeerRelationsOps(a.doc.Name, newPeers)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, addPeerOps...)
 
 	if len(resourceIDs) > 0 {
 		// Collect pending resource resolution operations.
@@ -1212,15 +1227,9 @@ func (a *Application) changeCharmOps(
 		ops = append(ops, resOps...)
 	}
 
-	// Get all relations - we need to check them later.
-	relations, err := a.Relations()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	// Make sure the relation count does not change.
 	sameRelCount := bson.D{{"relationcount", len(relations)}}
 
-	ops = append(ops, peerOps...)
 	// Update the relation count as well.
 	ops = append(ops, txn.Op{
 		C:      applicationsC,

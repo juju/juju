@@ -906,9 +906,75 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 	return coll, id, nil
 }
 
+// removeStalePeerRelationsOps returns the operations necessary to remove any
+// stale peer relation docs that may have been left behind after switching to
+// a different charm.
+func (st *State) removeStalePeerRelationsOps(applicationName string, relations []*Relation, newCharmMeta *charm.Meta) ([]txn.Op, error) {
+	if len(relations) == 0 {
+		return nil, nil // nothing to do
+	}
+
+	// Construct set of keys for existing peer relations.
+	oldPeerRelKeySet := set.NewStrings()
+nextRel:
+	for _, rel := range relations {
+		for _, ep := range rel.Endpoints() {
+			if ep.Role == charm.RolePeer {
+				oldPeerRelKeySet.Add(ep.String())
+				continue nextRel
+			}
+		}
+	}
+
+	// Construct set of keys for any peer relations defined by the new charm.
+	newPeerRelKeySet := set.NewStrings()
+	for _, rel := range newCharmMeta.Peers {
+		newPeerRelKeySet.Add(
+			relationKey(
+				[]Endpoint{{
+					ApplicationName: applicationName,
+					Relation:        rel,
+				}},
+			),
+		)
+	}
+
+	// Remove any stale peer relation docs
+	var ops []txn.Op
+	for peerRelKey := range oldPeerRelKeySet.Difference(newPeerRelKeySet) {
+		ops = append(ops,
+			txn.Op{
+				C:      relationsC,
+				Id:     st.docID(peerRelKey),
+				Assert: txn.DocExists,
+				Remove: true,
+			},
+		)
+	}
+
+	// If any peer relation docs are to be removed, we need to adjust the
+	// relationcount field for the application document accordingly.
+	if removals := len(ops); removals > 0 {
+		ops = append(ops,
+			txn.Op{
+				C:      applicationsC,
+				Id:     st.docID(applicationName),
+				Assert: txn.DocExists,
+				Update: bson.M{
+					"$inc": bson.M{
+						"relationcount": -removals,
+					},
+				},
+			},
+		)
+	}
+
+	return ops, nil
+}
+
 // addPeerRelationsOps returns the operations necessary to add the
 // specified application peer relations to the state.
-func (st *State) addPeerRelationsOps(applicationname string, peers map[string]charm.Relation) ([]txn.Op, error) {
+func (st *State) addPeerRelationsOps(applicationName string, peers map[string]charm.Relation) ([]txn.Op, error) {
 	now := st.clock().Now()
 	var ops []txn.Op
 	for _, rel := range peers {
@@ -917,7 +983,7 @@ func (st *State) addPeerRelationsOps(applicationname string, peers map[string]ch
 			return nil, errors.Trace(err)
 		}
 		eps := []Endpoint{{
-			ApplicationName: applicationname,
+			ApplicationName: applicationName,
 			Relation:        rel,
 		}}
 		relKey := relationKey(eps)
@@ -1244,11 +1310,11 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		//
 		// TODO(dimitern): Ensure each st.Endpoint has a space name associated in a
 		// follow-up.
-		peerOps, err := st.addPeerRelationsOps(args.Name, peers)
+		addPeerOps, err := st.addPeerRelationsOps(args.Name, peers)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops = append(ops, peerOps...)
+		ops = append(ops, addPeerOps...)
 
 		if len(args.Resources) > 0 {
 			// Collect pending resource resolution operations.
