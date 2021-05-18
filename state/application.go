@@ -928,28 +928,18 @@ func (a *Application) extraPeerRelations(newMeta *charm.Meta) map[string]charm.R
 func (a *Application) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op, error) {
 	asserts := make([]txn.Op, 0, len(relations))
 
-	isPeerToItself := func(ep Endpoint) bool {
-		// We do not want to prevent charm upgrade when endpoint relation is
-		// peer-scoped and there is only one unit of this application or no
-		// units at all.
-		// Essentially, this is the corner case when a unit relates to itself.
-		// For example, in this case, we want to allow charm upgrade, for e.g.
-		// interface name change does not affect anything.
-		units, err := a.AllUnits()
-		if err != nil {
-			// Whether we could get application units does not matter.
-			// We are only interested in thinking further if we can get units.
-			return false
-		}
-		return len(units) <= 1 && isPeer(ep)
-	}
-
 	// All relations must still exist and their endpoints are implemented by the charm.
 	for _, rel := range relations {
 		if ep, err := rel.Endpoint(a.doc.Name); err != nil {
 			return nil, err
 		} else if !ep.ImplementedBy(ch) {
-			if !isPeerToItself(ep) {
+			// When switching charms, we should allow peer
+			// relations to be broken (e.g. because a newer charm
+			// version removes a particular peer relation) even if
+			// they are already established as those particular
+			// relations will become irrelevant once the upgrade is
+			// complete.
+			if !isPeer(ep) {
 				return nil, errors.Errorf("would break relation %q", rel)
 			}
 		}

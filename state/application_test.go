@@ -739,6 +739,13 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 	})
 }
 
+var metaRelationConsumer = `
+name: sqlvampire
+summary: "connects to an sql server"
+description: "lorem ipsum"
+requires:
+  server: mysql
+`
 var metaBase = `
 name: mysql
 summary: "Fake MySQL Database engine"
@@ -781,6 +788,7 @@ name: mysql
 description: none
 summary: none
 provides:
+  server: mysql
   kludge: mysql
 requires:
   client: mysql
@@ -808,6 +816,15 @@ requires:
   client: mysql
 peers:
   kludge: mysql
+`
+var metaRemoveNonPeerRelation = `
+name: mysql
+summary: "Fake MySQL Database engine"
+description: "Complete with nonsense relations"
+requires:
+  client: mysql
+peers:
+  cluster: mysql
 `
 var metaExtraEndpoints = `
 name: mysql
@@ -842,7 +859,10 @@ var setCharmEndpointsTests = []struct {
 }, {
 	summary: "different peer",
 	meta:    metaDifferentPeer,
-	err:     `cannot upgrade application "fakemysql" to charm "local:quantal/quantal-mysql-5": would break relation "fakemysql:cluster"`,
+}, {
+	summary: "attempt to break existing non-peer relations",
+	meta:    metaRemoveNonPeerRelation,
+	err:     `.*would break relation "fakeother:server fakemysql:server"`,
 }, {
 	summary: "same relations ok",
 	meta:    metaBase,
@@ -855,12 +875,25 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) 
 	revno := 2
 	ms := s.AddMetaCharm(c, "mysql", metaBase, revno)
 	app := s.AddTestingApplication(c, "fakemysql", ms)
+	appServerEP, err := app.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
 
-	// Add two units so that peer relations get established and we can
-	// check that errors are raised when trying to break a peer relation.
-	_, err := app.AddUnit(state.AddUnitParams{})
+	otherCharm := s.AddMetaCharm(c, "dummy", metaRelationConsumer, 42)
+	otherApp := s.AddTestingApplication(c, "fakeother", otherCharm)
+	otherServerEP, err := otherApp.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add two mysql units so that peer relations get established and we
+	// can check that we are allowed to break them when we upgrade.
+	_, err = app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a unit for the other application and establish a relation.
+	_, err = otherApp.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(appServerEP, otherServerEP)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := state.SetCharmConfig{Charm: ms}
@@ -3964,6 +3997,7 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 
 	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, 42)
 	oldBindings := map[string]string{
+		"server": dbSpace.Id(),
 		"kludge": dbSpace.Id(),
 		"client": dbSpace.Id(),
 	}
@@ -3972,6 +4006,7 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveOld := map[string]string{
 		"":        network.AlphaSpaceId,
+		"server":  dbSpace.Id(),
 		"kludge":  dbSpace.Id(),
 		"client":  dbSpace.Id(),
 		"cluster": network.AlphaSpaceId,
@@ -3987,11 +4022,11 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveNew := map[string]string{
 		"": network.AlphaSpaceId,
-		// These two should be preserved from oldCharm.
+		// These three should be preserved from oldCharm.
 		"client":  dbSpace.Id(),
+		"server":  dbSpace.Id(),
 		"cluster": network.AlphaSpaceId,
-		// "kludge" is missing in newMeta, "server" is new and gets the default.
-		"server": network.AlphaSpaceId,
+		// "kludge" is missing in newMeta
 		// All the remaining are new and use the empty default.
 		"foo":  network.AlphaSpaceId,
 		"baz":  network.AlphaSpaceId,
@@ -4072,9 +4107,9 @@ func (s *ApplicationSuite) TestRenamePeerRelationOnUpgradeWithOneUnit(c *gc.C) {
 func (s *ApplicationSuite) TestRenamePeerRelationOnUpgradeWithMoreThanOneUnit(c *gc.C) {
 	obtainedV, err := s.setupApplicationWithUnitsForUpgradeCharmScenario(c, 2)
 
-	// ensure upgrade did not happen
-	c.Assert(err, gc.ErrorMatches, `*would break relation "mysql:replication"*`)
-	c.Assert(s.mysql.CharmModifiedVersion() == obtainedV, jc.IsTrue)
+	// ensure upgrade happened
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.CharmModifiedVersion() == obtainedV+1, jc.IsTrue)
 }
 
 func (s *ApplicationSuite) TestWatchCharmConfig(c *gc.C) {
