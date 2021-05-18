@@ -369,32 +369,6 @@ func (s *ApplicationSuite) TestSetCAASCharmInvalid(c *gc.C) {
 	c.Assert(msg, gc.Matches, "Juju on containers does not support updating deployment info.*")
 }
 
-func (s *ApplicationSuite) TestDeployCAASOperatorProtectedByFlag(c *gc.C) {
-	s.model.modelType = state.ModelTypeCAAS
-	s.setAPIUser(c, names.NewUserTag("admin"))
-	s.backend.charm = &mockCharm{
-		meta: &charm.Meta{
-			Deployment: &charm.Deployment{
-				DeploymentMode: charm.ModeOperator,
-			},
-		},
-	}
-	args := params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			ApplicationName: "foo",
-			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
-			NumUnits:        1,
-		}},
-	}
-	result, err := s.api.Deploy(args)
-	c.Assert(err, jc.ErrorIsNil)
-	err = result.OneError()
-	c.Assert(err, gc.NotNil)
-	msg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(msg, gc.Matches, `feature flag "k8s-operators" is required for deploying container operator charms`)
-}
-
 func (s *ApplicationSuite) TestUpdateCAASApplicationSettings(c *gc.C) {
 	s.model.modelType = state.ModelTypeCAAS
 	s.setAPIUser(c, names.NewUserTag("admin"))
