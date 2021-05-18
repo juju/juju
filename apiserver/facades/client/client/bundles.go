@@ -13,8 +13,7 @@ import (
 // GetBundleChanges returns the list of changes required to deploy the given
 // bundle data. The changes are sorted by requirements, so that they can be
 // applied in order.
-// This call is deprecated, clients should use the GetChanges endpoint on the
-// Bundle facade.
+// Deprecated: clients should use the GetChanges endpoint on the Bundle facade.
 // Note: any new feature in the future like devices will never be supported here.
 func (c *Client) GetBundleChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
 	st := c.api.state()

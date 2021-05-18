@@ -5810,8 +5810,8 @@
     },
     {
         "Name": "Bundle",
-        "Description": "APIv4 provides the Bundle API facade for version 4. It is otherwise\nidentical to V3 with the exception that the V4 now has GetChangesAsMap, which\nreturns the same data as GetChanges, but with better args data.",
-        "Version": 4,
+        "Description": "APIv5 provides the Bundle API facade for version 5. It is otherwise\nidentical to V4 with the exception that the V5 adds an arg to export\nbundle to control what is exported..",
+        "Version": 5,
         "AvailableTo": [
             "controller-user",
             "model-user"
@@ -5822,6 +5822,9 @@
                 "ExportBundle": {
                     "type": "object",
                     "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ExportBundleParams"
+                        },
                         "Result": {
                             "$ref": "#/definitions/StringResult"
                         }
@@ -5994,6 +5997,15 @@
                         "message",
                         "code"
                     ]
+                },
+                "ExportBundleParams": {
+                    "type": "object",
+                    "properties": {
+                        "include-charm-defaults": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false
                 },
                 "StringResult": {
                     "type": "object",
@@ -14304,7 +14316,7 @@
                             "$ref": "#/definitions/BundleChangesResults"
                         }
                     },
-                    "description": "GetBundleChanges returns the list of changes required to deploy the given\nbundle data. The changes are sorted by requirements, so that they can be\napplied in order.\nThis call is deprecated, clients should use the GetChanges endpoint on the\nBundle facade.\nNote: any new feature in the future like devices will never be supported here."
+                    "description": "GetBundleChanges returns the list of changes required to deploy the given\nbundle data. The changes are sorted by requirements, so that they can be\napplied in order.\nDeprecated: clients should use the GetChanges endpoint on the Bundle facade.\nNote: any new feature in the future like devices will never be supported here."
                 },
                 "GetModelConstraints": {
                     "type": "object",

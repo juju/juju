@@ -286,13 +286,37 @@ func (s *bundleMockSuite) TestFailExportBundlev1(c *gc.C) {
 			return nil
 		}, 1,
 	)
-	result, err := client.ExportBundle()
+	result, err := client.ExportBundle(false)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, "this controller version does not support bundle export feature.")
 	c.Assert(result, jc.DeepEquals, "")
 }
 
-func (s *bundleMockSuite) TestExportBundlev2(c *gc.C) {
+func (s *bundleMockSuite) TestFailExportBundleWithDefaults(c *gc.C) {
+	client := newClient(
+		func(objType string,
+			version int,
+			id,
+			request string,
+			args,
+			response interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Bundle")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ExportBundle")
+			c.Assert(args, gc.Equals, nil)
+			result := response.(*params.StringResult)
+			result.Result = ""
+			return nil
+		}, 4,
+	)
+	result, err := client.ExportBundle(true)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, "this controller version does not support bundle export with charm defaults.")
+	c.Assert(result, jc.DeepEquals, "")
+}
+
+func (s *bundleMockSuite) TestExportBundleLatest(c *gc.C) {
 	bundle := `applications:
 	ubuntu:
 		charm: cs:trusty/ubuntu
@@ -312,12 +336,15 @@ func (s *bundleMockSuite) TestExportBundlev2(c *gc.C) {
 			args,
 			response interface{},
 		) error {
+			c.Assert(args, jc.DeepEquals, params.ExportBundleParams{
+				IncludeCharmDefaults: true,
+			})
 			result := response.(*params.StringResult)
 			result.Result = bundle
 			return nil
-		}, 2,
+		}, 5,
 	)
-	result, err := client.ExportBundle()
+	result, err := client.ExportBundle(true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, bundle)
 }
@@ -337,7 +364,7 @@ func (s *bundleMockSuite) TestExportBundleNotNilParamsErrorv2(c *gc.C) {
 			return result.Error
 		}, 2,
 	)
-	result, err := client.ExportBundle()
+	result, err := client.ExportBundle(false)
 	c.Assert(err, gc.NotNil)
 	c.Assert(result, jc.DeepEquals, "")
 	c.Check(err.Error(), gc.Matches, "export failed nothing to export as there are no applications")
@@ -356,7 +383,7 @@ func (s *bundleMockSuite) TestExportBundleFailNoParamsErrorv2(c *gc.C) {
 			return errors.New("foo")
 		}, 2,
 	)
-	result, err := client.ExportBundle()
+	result, err := client.ExportBundle(false)
 	c.Assert(err, gc.NotNil)
 	c.Assert(result, jc.DeepEquals, "")
 	c.Check(err.Error(), gc.Matches, "foo")

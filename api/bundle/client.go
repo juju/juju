@@ -58,13 +58,18 @@ func (c *Client) GetChangesMapArgs(bundleURL, bundleDataYAML string) (params.Bun
 }
 
 // ExportBundle exports the current model configuration.
-func (c *Client) ExportBundle() (string, error) {
+func (c *Client) ExportBundle(includeDefaults bool) (string, error) {
 	var result params.StringResult
 	if bestVer := c.BestAPIVersion(); bestVer < 2 {
 		return "", errors.Errorf("this controller version does not support bundle export feature.")
+	} else if bestVer < 5 && includeDefaults {
+		return "", errors.Errorf("this controller version does not support bundle export with charm defaults.")
 	}
 
-	if err := c.facade.FacadeCall("ExportBundle", nil, &result); err != nil {
+	arg := params.ExportBundleParams{
+		IncludeCharmDefaults: includeDefaults,
+	}
+	if err := c.facade.FacadeCall("ExportBundle", arg, &result); err != nil {
 		return "", errors.Trace(err)
 	}
 

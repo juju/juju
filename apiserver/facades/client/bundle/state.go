@@ -4,6 +4,7 @@
 package bundle
 
 import (
+	"github.com/juju/charm/v8"
 	"github.com/juju/description/v3"
 	"github.com/juju/juju/state"
 )
@@ -11,11 +12,16 @@ import (
 type Backend interface {
 	ExportPartial(cfg state.ExportConfig) (description.Model, error)
 	GetExportConfig() state.ExportConfig
+	Charm(url *charm.URL) (charm.Charm, error)
 	state.EndpointBinding
 }
 
 type stateShim struct {
 	*state.State
+}
+
+func (m *stateShim) Charm(url *charm.URL) (charm.Charm, error) {
+	return m.State.Charm(url)
 }
 
 // GetExportConfig implements Backend.GetExportConfig.

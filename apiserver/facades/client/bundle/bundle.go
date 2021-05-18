@@ -42,20 +42,27 @@ type APIv1 struct {
 
 // APIv2 provides the Bundle API facade for version 2.
 type APIv2 struct {
-	*BundleAPI
+	*APIv3
 }
 
 // APIv3 provides the Bundle API facade for version 3. It is otherwise
 // identical to V2 with the exception that the V3 ExportBundle implementation
 // also exposes the the current trust status for each application.
 type APIv3 struct {
-	*BundleAPI
+	*APIv4
 }
 
 // APIv4 provides the Bundle API facade for version 4. It is otherwise
 // identical to V3 with the exception that the V4 now has GetChangesAsMap, which
 // returns the same data as GetChanges, but with better args data.
 type APIv4 struct {
+	*APIv5
+}
+
+// APIv5 provides the Bundle API facade for version 5. It is otherwise
+// identical to V4 with the exception that the V5 adds an arg to export
+// bundle to control what is exported..
+type APIv5 struct {
 	*BundleAPI
 }
 
@@ -81,7 +88,7 @@ func NewFacadeV1(ctx facade.Context) (*APIv1, error) {
 // NewFacadeV2 provides the signature required for facade registration
 // for version 2.
 func NewFacadeV2(ctx facade.Context) (*APIv2, error) {
-	api, err := newFacade(ctx)
+	api, err := NewFacadeV3(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -91,7 +98,7 @@ func NewFacadeV2(ctx facade.Context) (*APIv2, error) {
 // NewFacadeV3 provides the signature required for facade registration
 // for version 3.
 func NewFacadeV3(ctx facade.Context) (*APIv3, error) {
-	api, err := newFacade(ctx)
+	api, err := NewFacadeV4(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -101,11 +108,21 @@ func NewFacadeV3(ctx facade.Context) (*APIv3, error) {
 // NewFacadeV4 provides the signature required for facade registration
 // for version 4.
 func NewFacadeV4(ctx facade.Context) (*APIv4, error) {
-	api, err := newFacade(ctx)
+	api, err := NewFacadeV5(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv4{api}, nil
+}
+
+// NewFacadeV5 provides the signature required for facade registration
+// for version 5.
+func NewFacadeV5(ctx facade.Context) (*APIv5, error) {
+	api, err := newFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv5{api}, nil
 }
 
 // NewFacade provides the required signature for facade registration.
@@ -138,6 +155,8 @@ func NewBundleAPI(
 }
 
 // NewBundleAPIv1 returns the new Bundle APIv1 facade.
+// Deprecated:this only exists to support the deprecated
+// client.GetBundleChanges() API.
 func NewBundleAPIv1(
 	st Backend,
 	auth facade.Authorizer,
@@ -147,7 +166,7 @@ func NewBundleAPIv1(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &APIv1{&APIv2{api}}, nil
+	return &APIv1{&APIv2{&APIv3{&APIv4{&APIv5{api}}}}}, nil
 }
 
 func (b *BundleAPI) checkCanRead() error {
@@ -353,8 +372,13 @@ func getChangesMapArgs(
 	return results, err
 }
 
+// ExportBundle v4 did not have any parameters.
+func (b *APIv4) ExportBundle() (params.StringResult, error) {
+	return b.APIv5.ExportBundle(params.ExportBundleParams{})
+}
+
 // ExportBundle exports the current model configuration as bundle.
-func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
+func (b *BundleAPI) ExportBundle(arg params.ExportBundleParams) (params.StringResult, error) {
 	fail := func(failErr error) (params.StringResult, error) {
 		return params.StringResult{}, apiservererrors.ServerError(failErr)
 	}
@@ -370,7 +394,7 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 	}
 
 	// Fill it in charm.BundleData data structure.
-	bundleData, err := b.fillBundleData(model)
+	bundleData, err := b.fillBundleData(model, arg.IncludeCharmDefaults, b.backend)
 	if err != nil {
 		return fail(err)
 	}
@@ -449,7 +473,7 @@ func bundleOutputFromBundleData(bd *charm.BundleData) *bundleOutput {
 // Mask the new method from V1 API.
 func (u *APIv1) ExportBundle() (_, _ struct{}) { return }
 
-func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, error) {
+func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults bool, backend Backend) (*charm.BundleData, error) {
 	cfg := model.Config()
 	value, ok := cfg["default-series"]
 	if !ok {
@@ -483,6 +507,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	printEndpointBindingSpaceNames := b.printSpaceNamesInEndpointBindings(model.Applications())
 	machineIds := set.NewStrings()
 	usedSeries := set.NewStrings()
+	charmConfigCache := make(map[string]*charm.Config)
 	for _, application := range model.Applications() {
 		var newApplication *charm.ApplicationSpec
 		appSeries := application.Series()
@@ -526,13 +551,33 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 			channel = application.Channel()
 		}
 
+		charmCfg := application.CharmConfig()
+		if includeCharmDefaults {
+			// Augment the user specified config with defaults
+			// from the charm config metadata.
+			cfgInfo, ok := charmConfigCache[charmURL]
+			if !ok {
+				ch, err := backend.Charm(curl)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				cfgInfo = ch.Config()
+				charmConfigCache[charmURL] = cfgInfo
+			}
+			for name, opt := range cfgInfo.Options {
+				if _, ok := charmCfg[name]; ok {
+					continue
+				}
+				charmCfg[name] = opt.Default
+			}
+		}
 		if application.Subordinate() {
 			newApplication = &charm.ApplicationSpec{
 				Charm:            charmURL,
 				Channel:          channel,
 				Expose:           exposedFlag,
 				ExposedEndpoints: exposedEndpoints,
-				Options:          application.CharmConfig(),
+				Options:          charmCfg,
 				Annotations:      application.Annotations(),
 				EndpointBindings: endpointsWithSpaceNames,
 			}
@@ -571,7 +616,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 				To:               ut,
 				Expose:           exposedFlag,
 				ExposedEndpoints: exposedEndpoints,
-				Options:          application.CharmConfig(),
+				Options:          charmCfg,
 				Annotations:      application.Annotations(),
 				EndpointBindings: endpointsWithSpaceNames,
 			}
