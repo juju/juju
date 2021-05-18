@@ -29,24 +29,27 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.upgradesteps")
 
+// TODO (manadart 2021-05-18): These are exported for tests and in the case of
+// the timeouts, for feature tests. Those especially should dependencies of the
+// worker.
 var (
-	PerformUpgrade = upgrades.PerformUpgrade // Allow patching
+	PerformUpgrade = upgrades.PerformUpgrade
 
-	// The maximum time a master controller will wait for other
-	// controllers to come up and indicate they are ready to begin
-	// running upgrade steps.
-	UpgradeStartTimeoutMaster = time.Minute * 15
+	// UpgradeStartTimeoutPrimary the maximum time a primary controller will
+	// wait for other controllers to come up and indicate they are ready to
+	// begin running upgrade steps.
+	UpgradeStartTimeoutPrimary = time.Minute * 15
 
-	// The maximum time a secondary controller will wait for other
-	// controllers to come up and indicate they are ready to begin
-	// running upgrade steps. This is effectively "forever" because we
-	// don't really want secondaries to ever give up once they've
-	// indicated that they're ready to upgrade. It's up to the master
-	// to abort the upgrade if required.
+	// UpgradeStartTimeoutSecondary is the maximum time a secondary controller
+	// will wait for other controllers to come up and indicate they are ready
+	// to begin running upgrade steps.
 	//
-	// This should get reduced when/if master re-elections are
-	// introduce in the case a master that failing to come up for
-	// upgrade.
+	// This is effectively "forever" because we don't really want secondaries
+	// to ever give up once they have indicated that they are ready to upgrade.
+	// It is up to the primary to abort the upgrade if required.
+	//
+	// This should get reduced when/if primary re-elections are introduced in
+	// for case that a primary is failing to come up for upgrade.
 	UpgradeStartTimeoutSecondary = time.Hour * 4
 )
 
@@ -92,7 +95,7 @@ func NewWorker(
 	apiConn api.Connection,
 	isController bool,
 	openState func() (*state.StatePool, error),
-	preUpgradeSteps func(st *state.StatePool, agentConf agent.Config, isController, isMasterServer, isCaas bool) error,
+	preUpgradeSteps func(st *state.StatePool, agentConf agent.Config, isController, isPrimaryServer, isCaas bool) error,
 	entity StatusSetter,
 	isCaas bool,
 ) (worker.Worker, error) {
@@ -117,13 +120,13 @@ type upgradesteps struct {
 	agent           agent.Agent
 	apiConn         api.Connection
 	openState       func() (*state.StatePool, error)
-	preUpgradeSteps func(st *state.StatePool, agentConf agent.Config, isController, isMaster, isCaas bool) error
+	preUpgradeSteps func(st *state.StatePool, agentConf agent.Config, isController, isPrimary, isCaas bool) error
 	entity          StatusSetter
 
 	fromVersion version.Number
 	toVersion   version.Number
 	tag         names.Tag
-	isMaster    bool
+	isPrimary   bool
 	// If the agent is a machine agent for a controller, flag that state
 	// needs to be opened before running upgrade steps
 	isController bool
@@ -197,10 +200,10 @@ func (w *upgradesteps) run() error {
 			return errors.Trace(err)
 		}
 		w.isCaas = model.Type() == state.ModelTypeCAAS
-		w.isMaster = w.isCaas
+		w.isPrimary = w.isCaas
 		if !w.isCaas {
 			// TODO(caas) - will need fixing when we support HA controllers
-			if w.isMaster, err = IsMachineMaster(w.pool, w.tag.Id()); err != nil {
+			if w.isPrimary, err = IsMachinePrimary(w.pool, w.tag.Id()); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -208,7 +211,7 @@ func (w *upgradesteps) run() error {
 
 	if err := w.runUpgrades(); err != nil {
 		// Only return an error from the worker if the connection to
-		// state went away (possible mongo master change). Returning
+		// state went away (possible mongo primary change). Returning
 		// an error when the connection is lost will cause the agent
 		// to restart.
 		//
@@ -253,7 +256,7 @@ func (w *upgradesteps) runUpgrades() error {
 
 func (w *upgradesteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 	logger.Infof("checking that upgrade can proceed")
-	if err := w.preUpgradeSteps(w.pool, w.agent.CurrentConfig(), w.pool != nil, w.isMaster, w.isCaas); err != nil {
+	if err := w.preUpgradeSteps(w.pool, w.agent.CurrentConfig(), w.pool != nil, w.isPrimary, w.isCaas); err != nil {
 		return nil, errors.Annotatef(err, "%s cannot be upgraded", names.ReadableString(w.tag))
 	}
 
@@ -280,8 +283,8 @@ func (w *upgradesteps) prepareControllerForUpgrade() (*state.UpgradeInfo, error)
 			return nil, err
 		}
 		logger.Errorf(`aborted wait for other controllers: %v`, err)
-		// If master, trigger a rollback to the previous agent version.
-		if w.isMaster {
+		// If primary, trigger a rollback to the previous agent version.
+		if w.isPrimary {
 			logger.Errorf("downgrading model agent version to %v due to aborted upgrade",
 				w.fromVersion)
 			if rollbackErr := st.SetModelAgentVersion(w.fromVersion, true); rollbackErr != nil {
@@ -291,10 +294,10 @@ func (w *upgradesteps) prepareControllerForUpgrade() (*state.UpgradeInfo, error)
 		}
 		return nil, errors.Annotate(err, "aborted wait for other controllers")
 	}
-	if w.isMaster {
+	if w.isPrimary {
 		logger.Infof("finished waiting - all controllers are ready to run upgrade steps")
 	} else {
-		logger.Infof("finished waiting - the master has completed its upgrade steps")
+		logger.Infof("finished waiting - the primary has completed its upgrade steps")
 	}
 	return info, nil
 }
@@ -311,7 +314,7 @@ func (w *upgradesteps) waitForOtherControllers(info *state.UpgradeInfo) error {
 			if err := info.Refresh(); err != nil {
 				return errors.Trace(err)
 			}
-			if w.isMaster {
+			if w.isPrimary {
 				if ready, err := info.AllProvisionedControllersReady(); err != nil {
 					return errors.Trace(err)
 				} else if ready {
@@ -321,12 +324,12 @@ func (w *upgradesteps) waitForOtherControllers(info *state.UpgradeInfo) error {
 				}
 			} else {
 				if info.Status() == state.UpgradeFinishing {
-					// Master is done, ok to proceed
+					// Primary is done, ok to proceed
 					return nil
 				}
 			}
 		case <-timeout:
-			if w.isMaster {
+			if w.isPrimary {
 				if err := info.Abort(); err != nil {
 					return errors.Annotate(err, "unable to abort upgrade")
 				}
@@ -393,8 +396,8 @@ func (w *upgradesteps) finaliseUpgrade(info *state.UpgradeInfo) error {
 		return nil
 	}
 
-	if w.isMaster {
-		// Tell other controllers that the master has completed its
+	if w.isPrimary {
+		// Tell other controllers that the primary has completed its
 		// upgrade steps.
 		if err := info.SetStatus(state.UpgradeFinishing); err != nil {
 			return errors.Annotate(err, "upgrade done but")
@@ -417,20 +420,20 @@ func (w *upgradesteps) getUpgradeStartTimeout() time.Duration {
 		return time.Minute
 	}
 
-	if w.isMaster {
-		return UpgradeStartTimeoutMaster
+	if w.isPrimary {
+		return UpgradeStartTimeoutPrimary
 	}
 	return UpgradeStartTimeoutSecondary
 }
 
-var IsMachineMaster = func(pool *state.StatePool, machineId string) (bool, error) {
+var IsMachinePrimary = func(pool *state.StatePool, machineId string) (bool, error) {
 	if pool == nil {
-		// If there is no state pool, we aren't a master.
+		// If there is no state pool, we aren't a primary.
 		return false, nil
 	}
 	// Not calling the agent openState method as it does other checks
 	// we really don't care about here.  All we need here is the machine
-	// so we can determine if we are the master or not.
+	// so we can determine if we are the primary or not.
 	st := pool.SystemState()
 	machine, err := st.Machine(machineId)
 	if err != nil {
@@ -440,11 +443,11 @@ var IsMachineMaster = func(pool *state.StatePool, machineId string) (bool, error
 		// returns an error that will cause the agent to be terminated.
 		return false, errors.Trace(err)
 	}
-	isMaster, err := mongo.IsMaster(st.MongoSession(), machine)
+	isPrimary, err := mongo.IsMaster(st.MongoSession(), machine)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return isMaster, nil
+	return isPrimary, nil
 }
 
 // TODO(katco): 2016-08-09: lp:1611427
