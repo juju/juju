@@ -588,6 +588,7 @@ func (c *refreshCommand) upgradeResources(
 	meta map[string]charmresource.Meta,
 ) (map[string]string, error) {
 	filtered, err := utils.GetUpgradeResources(
+		chID.URL,
 		resourceLister,
 		c.ApplicationName,
 		c.Resources,
