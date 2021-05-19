@@ -281,19 +281,19 @@ func (c *upgradeSeriesCommand) retrieveUnits() ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	instanceID, err := getInstanceID(fullStatus, c.machineNumber)
+	machineID, err := getMachineID(fullStatus, c.machineNumber)
 	if err != nil {
 		return nil, errors.Annotatef(err, "unable to locate instance")
 	}
 	var units []string
 	for _, application := range fullStatus.Applications {
 		for name, unit := range application.Units {
-			if unit.Machine == instanceID {
+			if unit.Machine == machineID {
 				units = append(units, name)
 			}
 			for subName, subordinate := range unit.Subordinates {
-				if subordinate.Machine != "" && subordinate.Machine != instanceID {
-					return nil, errors.Errorf("subordinate %q machine has unexpected instance id %s", subName, instanceID)
+				if subordinate.Machine != "" && subordinate.Machine != machineID {
+					return nil, errors.Errorf("subordinate %q machine has unexpected instance id %s", subName, machineID)
 				}
 				units = append(units, subName)
 			}
@@ -305,7 +305,7 @@ func (c *upgradeSeriesCommand) retrieveUnits() ([]string, error) {
 	return units, nil
 }
 
-func getInstanceID(fullStatus *params.FullStatus, id string) (string, error) {
+func getMachineID(fullStatus *params.FullStatus, id string) (string, error) {
 	if machine, ok := fullStatus.Machines[id]; ok {
 		return machine.Id, nil
 	}
