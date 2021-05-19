@@ -84,8 +84,7 @@ func GetUpgradeResources(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	filtered := filterResources(newCharmURL, meta, current, cliResources)
-	return filtered, nil
+	return filterResources(newCharmURL, meta, current, cliResources)
 }
 
 func getResources(
@@ -104,14 +103,18 @@ func filterResources(
 	meta map[string]charmresource.Meta,
 	current map[string]resource.Resource,
 	uploads map[string]string,
-) map[string]charmresource.Meta {
+) (map[string]charmresource.Meta, error) {
 	filtered := make(map[string]charmresource.Meta)
 	for name, res := range meta {
-		if shouldUpgradeResource(newCharmURL, res, uploads, current) {
+		doUpgrade, err := shouldUpgradeResource(newCharmURL, res, uploads, current)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if doUpgrade {
 			filtered[name] = res
 		}
 	}
-	return filtered
+	return filtered, nil
 }
 
 // shouldUpgradeResource reports whether we should upload the metadata for the given
@@ -119,26 +122,32 @@ func filterResources(
 // flag. For resources we're not adding with --resource, we only upload metadata
 // for charmstore resources.  Previously uploaded resources stay pinned to the
 // data the user uploaded.
-func shouldUpgradeResource(newCharmURL *charm.URL, res charmresource.Meta, uploads map[string]string, current map[string]resource.Resource) bool {
+func shouldUpgradeResource(newCharmURL *charm.URL, res charmresource.Meta, uploads map[string]string, current map[string]resource.Resource) (bool, error) {
 	// Always upload metadata for resources the user is uploading during
 	// upgrade-charm.
 	if _, ok := uploads[res.Name]; ok {
 		logger.Tracef("%q provided to upgrade existing resource", res.Name)
-		return true
-	} else if newCharmURL.Schema == "local" {
+		return true, nil
+	}
+
+	cur, ok := current[res.Name]
+	if !ok {
+		// If there's no information on the server, there might be a new resource added to the charm.
+		if newCharmURL.Schema == charm.Local.String() {
+			return false, errors.NewNotValid(nil, fmt.Sprintf("new resource %q was missing, please provide it via --resource", res.Name))
+		}
+
+		logger.Tracef("resource %q does not exist in controller, so it will be uploaded", res.Name)
+		return true, nil
+	}
+	if newCharmURL.Schema == charm.Local.String() {
 		// We are switching to a local charm, and this resource was not provided
 		// by --resource, so no need to override existing resource.
 		logger.Tracef("switching to a local charm, resource %q will not be upgraded because it was not provided by --resource", res.Name)
-		return false
-	}
-	cur, ok := current[res.Name]
-	if !ok {
-		// If there's no information on the server, there should be.
-		logger.Tracef("resource %q does not exist in controller, so it will be uploaded", res.Name)
-		return true
+		return false, nil
 	}
 	// Never override existing resources a user has already uploaded.
-	return cur.Origin != charmresource.OriginUpload
+	return cur.Origin != charmresource.OriginUpload, nil
 }
 
 const maxValueSize = 5242880 // Max size for a config file.

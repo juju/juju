@@ -378,7 +378,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	if c.SwitchURL == "" && c.CharmPath == "" {
 		// If the charm we are refreshing is local, then we must
 		// specify a path or switch url to upgrade with.
-		if oldURL.Schema == "local" {
+		if oldURL.Schema == charm.Local.String() {
 			return errors.New("upgrading a local charm requires either --path or --switch")
 		}
 		// No new URL specified, but revision might have been.
