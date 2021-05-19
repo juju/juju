@@ -102,21 +102,11 @@ func (c *showCommand) Run(ctx *cmd.Context) error {
 			if !ok {
 				continue
 			}
-
-			if infoMap["default"] != nil {
-				args[argName] = actionArg{
-					Type:        infoMap["type"],
-					Description: infoMap["description"],
-					Default:     infoMap["default"],
-				}
-			} else {
-				// Don't include the default value if it's unspecified
-				args[argName] = actionArg{
-					Type:        infoMap["type"],
-					Description: infoMap["description"],
-				}
+			args[argName] = actionArg{
+				Type:        infoMap["type"],
+				Description: infoMap["description"],
+				Default:     infoMap["default"],
 			}
-
 		}
 	}
 
