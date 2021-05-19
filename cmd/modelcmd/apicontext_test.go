@@ -4,12 +4,14 @@
 package modelcmd_test
 
 import (
+	"context"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -101,7 +103,10 @@ func (s *APIContextSuite) TestNewAPIContextEmbedded(c *gc.C) {
 	opts := modelcmd.AuthOpts{Embedded: true}
 	ctx, err := modelcmd.NewAPIContext(cmdCtx, &opts, store, "testcontroller")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelcmd.Interactor(ctx), gc.IsNil)
+	interactor := modelcmd.Interactor(ctx)
+	c.Assert(interactor, gc.Not(gc.IsNil))
+	_, err = interactor.Interact(context.TODO(), nil, "", nil)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *APIContextSuite) TestNewAPIContextNoBrowser(c *gc.C) {
