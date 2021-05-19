@@ -428,11 +428,11 @@ func (c *repositoryCharm) String() string {
 // then deploys it.
 func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver, macaroonGetter store.MacaroonGetter) error {
 	userRequestedURL := c.userRequestedURL
-	location := "hub"
+	location := "charmhub"
 	if charm.CharmStore.Matches(userRequestedURL.Schema) {
-		location = "store"
+		location = "charm-store"
 	}
-	ctx.Verbosef("Preparing to deploy %q from the charm-%s", userRequestedURL.Name, location)
+	ctx.Verbosef("Preparing to deploy %q from the %s", userRequestedURL.Name, location)
 
 	// resolver.resolve potentially updates the series of anything
 	// passed in. Store this for use in seriesSelector.
@@ -474,6 +474,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 
 	// Get the series to use.
 	series, err := selector.charmSeries()
+	logger.Tracef("Using series %s from %v to deploy %v", series, supportedSeries, userRequestedURL)
 
 	// Avoid deploying charm if it's not valid for the model.
 	// We check this first before possibly suggesting --force.

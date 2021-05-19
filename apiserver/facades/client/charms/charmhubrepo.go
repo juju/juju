@@ -67,47 +67,46 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin corecharm.O
 		return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "refresh")
 	}
 
+	// bases holds a slice of all available bases that we could request for the
+	// charmhub API. We can use this to return to the callee about the supported
+	// series for a given architecture.
+	var bases []corecharm.Platform
 	if resErr := res.Error; resErr != nil {
 		switch resErr.Code {
 		case transport.ErrorCodeInvalidCharmPlatform, transport.ErrorCodeInvalidCharmBase:
-			logger.Tracef("Invalid charm platform %q %v - Default Base: %v", curl, origin, resErr.Extra.DefaultBases)
-			platform, err := c.selectNextBase(resErr.Extra.DefaultBases, origin)
-			if err != nil {
+			logger.Tracef("Invalid charm platform %q %v - Default Base: %v", curl, input, resErr.Extra.DefaultBases)
+
+			if bases, err = c.selectNextBase(resErr.Extra.DefaultBases, input); err != nil {
 				return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "refresh")
 			}
-
-			p := input.Platform
-			p.OS = platform.OS
-			p.Series = platform.Series
-
-			input.Platform = p
-
-			// Fill these back on the origin, so that we can fix the issue of
-			// bundles passing back "all" on the response type.
-			origin.Platform.OS = platform.OS
-			origin.Platform.Series = platform.Series
 
 		case transport.ErrorCodeRevisionNotFound:
-			logger.Tracef("Revision not found %q %v - Default Base: %v", curl, origin, resErr.Extra.Releases)
-			release, err := c.selectNextRelease(resErr.Extra.Releases, origin)
-			if err != nil {
+			logger.Tracef("Revision not found %q %v - Default Base: %v", curl, input, resErr.Extra.Releases)
+
+			if bases, err = c.selectNextReleases(resErr.Extra.Releases, input); err != nil {
 				return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "refresh")
 			}
-
-			p := input.Platform
-			p.OS = release.OS
-			p.Series = release.Series
-
-			input.Platform = p
-
-			// Fill these back on the origin, so that we can fix the issue of
-			// bundles passing back "all" on the response type.
-			origin.Platform.OS = release.OS
-			origin.Platform.Series = release.Series
 
 		default:
 			return nil, corecharm.Origin{}, nil, errors.Errorf("refresh error: %s", resErr.Message)
 		}
+
+		if len(bases) == 0 {
+			return nil, corecharm.Origin{}, nil, errors.NotFoundf("bases")
+		}
+		base := bases[0]
+
+		p := input.Platform
+		p.OS = base.OS
+		p.Series = base.Series
+
+		input.Platform = p
+
+		// Fill these back on the origin, so that we can fix the issue of
+		// bundles passing back "all" on the response type.
+		origin.Platform.OS = base.OS
+		origin.Platform.Series = base.Series
+
 		if origin.Platform.Series == "" {
 			return nil, corecharm.Origin{}, nil, errors.NotValidf("series for %s", curl.Name)
 		}
@@ -158,7 +157,18 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin corecharm.O
 		return nil, corecharm.Origin{}, nil, errors.Trace(err)
 	}
 	logger.Tracef("Resolved CharmHub charm %q with origin %v", resCurl, outputOrigin)
-	return resCurl, outputOrigin, []string{outputOrigin.Platform.Series}, nil
+
+	supportedSeries := make([]string, len(bases))
+	for k, base := range bases {
+		supportedSeries[k] = base.Series
+	}
+	if len(supportedSeries) == 0 {
+		supportedSeries = []string{
+			outputOrigin.Platform.Series,
+		}
+	}
+
+	return resCurl, outputOrigin, supportedSeries, nil
 }
 
 // DownloadCharm downloads the provided download URL from CharmHub using the
@@ -252,47 +262,50 @@ func (c *chRepo) refreshOne(curl *charm.URL, origin corecharm.Origin) (transport
 	return result[0], nil
 }
 
-func (c *chRepo) selectNextBase(bases []transport.Base, origin corecharm.Origin) (corecharm.Platform, error) {
+func (c *chRepo) selectNextBase(bases []transport.Base, origin corecharm.Origin) ([]corecharm.Platform, error) {
 	if len(bases) == 0 {
-		return corecharm.Platform{}, errors.Errorf("no bases available")
+		return nil, errors.Errorf("no bases available")
 	}
 	// We've got a invalid charm platform error, the error should contain
 	// a valid platform to query again to get the right information. If
 	// the platform is empty, consider it a failure.
-	var (
-		found bool
-		base  transport.Base
-	)
-	for _, base = range bases {
+	var compatible []transport.Base
+	for _, base := range bases {
 		if base.Architecture != origin.Platform.Architecture {
 			continue
 		}
-		found = true
-		break
+		compatible = append(compatible, base)
 	}
-	if !found {
-		return corecharm.Platform{}, errors.NotFoundf("bases matching architecture %q", origin.Platform.Architecture)
-	}
-
-	track, err := channelTrack(base.Channel)
-	if err != nil {
-		return corecharm.Platform{}, errors.Annotate(err, "base")
-	}
-	series, err := coreseries.VersionSeries(track)
-	if err != nil {
-		return corecharm.Platform{}, errors.Trace(err)
+	if len(compatible) == 0 {
+		return nil, errors.NotFoundf("bases matching architecture %q", origin.Platform.Architecture)
 	}
 
-	return corecharm.Platform{
-		Architecture: base.Architecture,
-		OS:           base.Name,
-		Series:       series,
-	}, nil
+	// Serialize all the platforms into core entities.
+	results := make([]corecharm.Platform, len(compatible))
+	for k, base := range compatible {
+		track, err := channelTrack(base.Channel)
+		if err != nil {
+			return nil, errors.Annotate(err, "base")
+		}
+		series, err := coreseries.VersionSeries(track)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		results[k] = corecharm.Platform{
+			Architecture: base.Architecture,
+			OS:           base.Name,
+			Series:       series,
+		}
+
+	}
+
+	return results, nil
 }
 
-func (c *chRepo) selectNextRelease(releases []transport.Release, origin corecharm.Origin) (Release, error) {
+func (c *chRepo) selectNextReleases(releases []transport.Release, origin corecharm.Origin) ([]corecharm.Platform, error) {
 	if len(releases) == 0 {
-		return Release{}, errors.Errorf("no releases available")
+		return nil, errors.Errorf("no releases available")
 	}
 	if origin.Platform.Series == "" {
 		// If the origin is empty, then we want to help the user out
@@ -302,7 +315,7 @@ func (c *chRepo) selectNextRelease(releases []transport.Release, origin corechar
 		if len(suggestions) > 0 {
 			s = fmt.Sprintf("; suggestions: %v", strings.Join(suggestions, ", "))
 		}
-		return Release{}, errSelection{
+		return nil, errSelection{
 			err: errors.Errorf("no charm or bundle matching channel or platform%s", s),
 		}
 	}
@@ -458,13 +471,7 @@ func composeSuggestions(releases []transport.Release, origin corecharm.Origin) [
 	return suggestions
 }
 
-// Release represents a release that a charm can be selected from.
-// TODO HML, what if anything to do here?
-type Release struct {
-	OS, Series string
-}
-
-func selectReleaseByArchAndChannel(releases []transport.Release, origin corecharm.Origin) (Release, error) {
+func selectReleaseByArchAndChannel(releases []transport.Release, origin corecharm.Origin) ([]corecharm.Platform, error) {
 	var (
 		empty   = origin.Channel == nil
 		channel charm.Channel
@@ -472,26 +479,31 @@ func selectReleaseByArchAndChannel(releases []transport.Release, origin corechar
 	if !empty {
 		channel = origin.Channel.Normalize()
 	}
+	var results []corecharm.Platform
 	for _, release := range releases {
 		base := release.Base
 
 		arch, os := base.Architecture, base.Name
 		track, err := channelTrack(base.Channel)
 		if err != nil {
-			return Release{}, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		series, err := coreseries.VersionSeries(track)
 		if err != nil {
-			return Release{}, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		if (empty || channel.String() == release.Channel) && (arch == "all" || arch == origin.Platform.Architecture) {
-			return Release{
-				OS:     os,
-				Series: series,
-			}, nil
+			results = append(results, corecharm.Platform{
+				Architecture: origin.Platform.Architecture,
+				OS:           os,
+				Series:       series,
+			})
 		}
 	}
-	return Release{}, errors.NotFoundf("release")
+	if len(results) == 0 {
+		return nil, errors.NotFoundf("release")
+	}
+	return results, nil
 }
 
 func channelTrack(channel string) (string, error) {

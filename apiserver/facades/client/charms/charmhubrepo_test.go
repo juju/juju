@@ -602,11 +602,11 @@ func (selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(platform, gc.DeepEquals, corecharm.Platform{
+	c.Assert(platform, gc.DeepEquals, []corecharm.Platform{{
 		Architecture: "amd64",
 		OS:           "ubuntu",
 		Series:       "focal",
-	})
+	}})
 }
 
 type composeSuggestionsSuite struct {
@@ -748,10 +748,11 @@ func (selectReleaseByChannelSuite) TestSelection(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(release, gc.DeepEquals, Release{
-		OS:     "os",
-		Series: "focal",
-	})
+	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
+		Architecture: "arch",
+		OS:           "os",
+		Series:       "focal",
+	}})
 }
 
 func (selectReleaseByChannelSuite) TestAllSelection(c *gc.C) {
@@ -771,10 +772,61 @@ func (selectReleaseByChannelSuite) TestAllSelection(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(release, gc.DeepEquals, Release{
-		OS:     "os",
-		Series: "xenial",
+	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
+		Architecture: "arch",
+		OS:           "os",
+		Series:       "xenial",
+	}})
+}
+
+func (selectReleaseByChannelSuite) TestMultipleSelectionMultipleReturned(c *gc.C) {
+	release, err := selectReleaseByArchAndChannel([]transport.Release{{
+		Base: transport.Base{
+			Name:         "a",
+			Channel:      "14.04",
+			Architecture: "c",
+		},
+		Channel: "1.0/edge",
+	}, {
+		Base: transport.Base{
+			Name:         "d",
+			Channel:      "16.04",
+			Architecture: "all",
+		},
+		Channel: "2.0/stable",
+	}, {
+		Base: transport.Base{
+			Name:         "f",
+			Channel:      "18.04",
+			Architecture: "h",
+		},
+		Channel: "3.0/stable",
+	}, {
+		Base: transport.Base{
+			Name:         "g",
+			Channel:      "20.04",
+			Architecture: "h",
+		},
+		Channel: "3.0/stable",
+	}}, corecharm.Origin{
+		Platform: corecharm.Platform{
+			Architecture: "h",
+		},
+		Channel: &charm.Channel{
+			Track: "3.0",
+			Risk:  "stable",
+		},
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
+		Architecture: "h",
+		OS:           "f",
+		Series:       "bionic",
+	}, {
+		Architecture: "h",
+		OS:           "g",
+		Series:       "focal",
+	}})
 }
 
 func (selectReleaseByChannelSuite) TestMultipleSelection(c *gc.C) {
@@ -809,10 +861,11 @@ func (selectReleaseByChannelSuite) TestMultipleSelection(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(release, gc.DeepEquals, Release{
-		OS:     "f",
-		Series: "bionic",
-	})
+	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
+		Architecture: "h",
+		OS:           "f",
+		Series:       "bionic",
+	}})
 }
 
 type channelTrackSuite struct {
