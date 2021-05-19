@@ -87,6 +87,7 @@ Arguments
 full:
   type: boolean
   description: take a full backup
+  default: true
 name:
   type: string
   description: snapshot name

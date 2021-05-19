@@ -80,10 +80,12 @@ var someCharmActions = map[string]actionapi.ActionSpec{
 				"name": map[string]interface{}{
 					"type":        "string",
 					"description": "snapshot name",
+					"default":     nil,
 				},
 				"full": map[string]interface{}{
 					"type":        "boolean",
 					"description": "take a full backup",
+					"default":     true,
 				},
 			},
 			"baz": "bar",
