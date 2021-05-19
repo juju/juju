@@ -262,26 +262,6 @@ func (n *NetworkInfoBase) resolveResultInfoHostNames(netInfo params.NetworkInfoR
 	return netInfo
 }
 
-// resolveResultIngressHostNames returns a new NetworkInfoResult with host names
-// in the `IngressAddresses` member resolved to IP addresses where possible.
-// This is slightly different to the `Info` addresses above in that we do not
-// include anything that does not resolve to a usable address.
-func (n *NetworkInfoBase) resolveResultIngressHostNames(netInfo params.NetworkInfoResult) params.NetworkInfoResult {
-	var newIngress []string
-	for _, addr := range netInfo.IngressAddresses {
-		if ip := net.ParseIP(addr); ip != nil {
-			newIngress = append(newIngress, addr)
-			continue
-		}
-		if ipAddr := n.resolveHostAddress(addr); ipAddr != "" {
-			newIngress = append(newIngress, ipAddr)
-		}
-	}
-	netInfo.IngressAddresses = newIngress
-
-	return netInfo
-}
-
 func (n *NetworkInfoBase) resolveHostAddress(hostName string) string {
 	resolved, err := n.lookupHost(hostName)
 	if err != nil {
