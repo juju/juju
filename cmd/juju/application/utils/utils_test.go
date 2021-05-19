@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package utils
+package utils_test
 
 import (
 	"github.com/golang/mock/gomock"
@@ -12,8 +12,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apicommoncharms "github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/application/utils/mocks"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/resource"
 )
 
 type utilsSuite struct{}
@@ -21,7 +23,7 @@ type utilsSuite struct{}
 var _ = gc.Suite(&utilsSuite{})
 
 func (s *utilsSuite) TestParsePlacement(c *gc.C) {
-	obtained, err := ParsePlacement("lxd:1")
+	obtained, err := utils.ParsePlacement("lxd:1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*obtained, jc.DeepEquals, instance.Placement{Scope: "lxd", Directive: "1"})
 
@@ -34,12 +36,13 @@ func (s *utilsSuite) TestGetFlags(c *gc.C) {
 	flagSet.String("m", "default", "model")
 	err := flagSet.Set("to", "lxd")
 	c.Assert(err, jc.ErrorIsNil)
-	obtained := GetFlags(flagSet, []string{"to", "force"})
+	obtained := utils.GetFlags(flagSet, []string{"to", "force"})
 	c.Assert(obtained, gc.DeepEquals, []string{"--to"})
 }
 
 type utilsResourceSuite struct {
-	charmClient *mocks.MockCharmClient
+	charmClient    *mocks.MockCharmClient
+	resourceFacade *mocks.MockResourceLister
 }
 
 var _ = gc.Suite(&utilsResourceSuite{})
@@ -50,23 +53,185 @@ func (s *utilsResourceSuite) TestGetMetaResources(c *gc.C) {
 	curl := charm.MustParseURL("local:trusty/multi-series-1")
 	s.expectCharmInfo(curl.String())
 
-	obtained, err := GetMetaResources(curl, s.charmClient)
+	obtained, err := utils.GetMetaResources(curl, s.charmClient)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, map[string]charmresource.Meta{
 		"test": {Name: "Testme"}})
 }
 
 func (s *utilsResourceSuite) TestGetUpgradeResources(c *gc.C) {
-	// TODO:
-	// Testing of GetUpgradeResources is well covered as part of
-	// the bundle handler and upgrade charm testing.  The more
-	// detailed configurations can be moved here.
-	c.Skip("ImplementMe")
+	defer s.setupMocks(c).Finish()
+
+	// switching to charm and all resources provided will be uploaded.
+	s.assertGetUpgradeResources(c, func(
+		newCharmURL *charm.URL,
+		cliResources map[string]string,
+		resourcesInController []resource.ApplicationResources,
+		resourcesInMetadata map[string]charmresource.Meta,
+	) map[string]charmresource.Meta {
+		return map[string]charmresource.Meta{
+			"redis-image":    {Name: "redis-image", Type: charmresource.TypeContainerImage},
+			"snappass-image": {Name: "snappass-image", Type: charmresource.TypeContainerImage},
+			"test-file":      {Name: "test-file", Type: charmresource.TypeFile, Path: "test.txt"},
+		}
+	})
+
+	// switching to local charm and only upgrade resources provided.
+	s.assertGetUpgradeResources(c, func(
+		newCharmURL *charm.URL,
+		cliResources map[string]string,
+		resourcesInController []resource.ApplicationResources,
+		resourcesInMetadata map[string]charmresource.Meta,
+	) map[string]charmresource.Meta {
+		delete(cliResources, "redis-image")
+		return map[string]charmresource.Meta{
+			"snappass-image": {Name: "snappass-image", Type: charmresource.TypeContainerImage},
+			"test-file":      {Name: "test-file", Type: charmresource.TypeFile, Path: "test.txt"},
+		}
+	})
+
+	// switching to charm and new resources will be uploaded.
+	s.assertGetUpgradeResources(c, func(
+		newCharmURL *charm.URL,
+		cliResources map[string]string,
+		resourcesInController []resource.ApplicationResources,
+		resourcesInMetadata map[string]charmresource.Meta,
+	) map[string]charmresource.Meta {
+		resourcesInMetadata["test-file22"] = charmresource.Meta{Name: "test-file22", Type: charmresource.TypeFile, Path: "test22.txt"}
+		cliResources["test-file22"] = "./test-file22.txt"
+		return map[string]charmresource.Meta{
+			"redis-image":    {Name: "redis-image", Type: charmresource.TypeContainerImage},
+			"snappass-image": {Name: "snappass-image", Type: charmresource.TypeContainerImage},
+			"test-file":      {Name: "test-file", Type: charmresource.TypeFile, Path: "test.txt"},
+			"test-file22":    {Name: "test-file22", Type: charmresource.TypeFile, Path: "test22.txt"},
+		}
+	})
+
+	// switching to ch charm and new empty resources will be uploaded.
+	s.assertGetUpgradeResources(c, func(
+		newCharmURL *charm.URL,
+		cliResources map[string]string,
+		resourcesInController []resource.ApplicationResources,
+		resourcesInMetadata map[string]charmresource.Meta,
+	) map[string]charmresource.Meta {
+		newCharmURL.Schema = "ch"
+		resourcesInMetadata["test-file22"] = charmresource.Meta{Name: "test-file22", Type: charmresource.TypeFile, Path: "test22.txt"}
+		return map[string]charmresource.Meta{
+			"redis-image":    {Name: "redis-image", Type: charmresource.TypeContainerImage},
+			"snappass-image": {Name: "snappass-image", Type: charmresource.TypeContainerImage},
+			"test-file":      {Name: "test-file", Type: charmresource.TypeFile, Path: "test.txt"},
+			"test-file22":    {Name: "test-file22", Type: charmresource.TypeFile, Path: "test22.txt"},
+		}
+	})
+
+	// switching to local charm and new empty resources will NOT be uploaded.
+	s.assertGetUpgradeResources(c, func(
+		newCharmURL *charm.URL,
+		cliResources map[string]string,
+		resourcesInController []resource.ApplicationResources,
+		resourcesInMetadata map[string]charmresource.Meta,
+	) map[string]charmresource.Meta {
+		c.Assert(newCharmURL.Schema, gc.Equals, `local`)
+		resourcesInMetadata["test-file22"] = charmresource.Meta{Name: "test-file22", Type: charmresource.TypeFile, Path: "test22.txt"}
+		return map[string]charmresource.Meta{
+			"redis-image":    {Name: "redis-image", Type: charmresource.TypeContainerImage},
+			"snappass-image": {Name: "snappass-image", Type: charmresource.TypeContainerImage},
+			"test-file":      {Name: "test-file", Type: charmresource.TypeFile, Path: "test.txt"},
+		}
+	})
+
+	// switching to ch charm and empty resource will be upgraded if the existing resource origin was not OriginUpload.
+	s.assertGetUpgradeResources(c, func(
+		newCharmURL *charm.URL,
+		cliResources map[string]string,
+		resourcesInController []resource.ApplicationResources,
+		resourcesInMetadata map[string]charmresource.Meta,
+	) map[string]charmresource.Meta {
+		newCharmURL.Schema = "ch"
+		delete(cliResources, "redis-image")
+
+		redis := resourcesInController[0].Resources[0]
+		redis.Origin = charmresource.OriginStore
+		resourcesInController[0].Resources[0] = redis
+
+		return map[string]charmresource.Meta{
+			"redis-image":    {Name: "redis-image", Type: charmresource.TypeContainerImage},
+			"snappass-image": {Name: "snappass-image", Type: charmresource.TypeContainerImage},
+			"test-file":      {Name: "test-file", Type: charmresource.TypeFile, Path: "test.txt"},
+		}
+	})
+
+	// switching to ch charm and empty resource will NOT be upgraded if the existing resource origin was OriginUpload.
+	s.assertGetUpgradeResources(c, func(
+		newCharmURL *charm.URL,
+		cliResources map[string]string,
+		resourcesInController []resource.ApplicationResources,
+		resourcesInMetadata map[string]charmresource.Meta,
+	) map[string]charmresource.Meta {
+		newCharmURL.Schema = "ch"
+		delete(cliResources, "redis-image")
+
+		redis := resourcesInController[0].Resources[0]
+		redis.Origin = charmresource.OriginUpload
+		resourcesInController[0].Resources[0] = redis
+
+		return map[string]charmresource.Meta{
+			"snappass-image": {Name: "snappass-image", Type: charmresource.TypeContainerImage},
+			"test-file":      {Name: "test-file", Type: charmresource.TypeFile, Path: "test.txt"},
+		}
+	})
+}
+
+func (s *utilsResourceSuite) assertGetUpgradeResources(
+	c *gc.C,
+	f func(
+		newCharmURL *charm.URL,
+		cliResources map[string]string,
+		resourcesInController []resource.ApplicationResources,
+		resourcesInMetadata map[string]charmresource.Meta,
+	) map[string]charmresource.Meta,
+) {
+	defer s.setupMocks(c).Finish()
+
+	newCharmURL := &charm.URL{Schema: "local", Name: "snappass-test", Revision: 0, Series: "focal"}
+	cliResources := map[string]string{
+		"snappass-image": "snappass-test",
+		"redis-image":    "redis",
+		"test-file":      "./test-file.txt",
+	}
+	resourcesInMetadata := map[string]charmresource.Meta{
+		"redis-image":    {Name: "redis-image", Type: charmresource.TypeContainerImage},
+		"snappass-image": {Name: "snappass-image", Type: charmresource.TypeContainerImage},
+		"test-file":      {Name: "test-file", Type: charmresource.TypeFile, Path: "test.txt"},
+	}
+	r1 := resource.Resource{}
+	r1.Name = "redis-image"
+	r2 := resource.Resource{}
+	r2.Name = "snappass-image"
+	r3 := resource.Resource{}
+	r3.Name = "test-file"
+	resourcesInController := []resource.ApplicationResources{
+		{
+			Resources: []resource.Resource{
+				r1, r2, r3,
+			},
+		},
+	}
+
+	expected := f(newCharmURL, cliResources, resourcesInController, resourcesInMetadata)
+	s.resourceFacade.EXPECT().ListResources([]string{"snappass-test"}).Return(resourcesInController, nil)
+	filtered, err := utils.GetUpgradeResources(
+		newCharmURL, s.resourceFacade, "snappass-test", cliResources, resourcesInMetadata,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filtered, gc.DeepEquals, expected) // map[string]charmresource.Meta{},
+
 }
 
 func (s *utilsResourceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.charmClient = mocks.NewMockCharmClient(ctrl)
+	s.resourceFacade = mocks.NewMockResourceLister(ctrl)
 	return ctrl
 }
 

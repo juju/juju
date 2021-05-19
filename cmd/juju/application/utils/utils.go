@@ -126,7 +126,7 @@ func shouldUpgradeResource(newCharmURL *charm.URL, res charmresource.Meta, uploa
 		logger.Tracef("%q provided to upgrade existing resource", res.Name)
 		return true
 	} else if newCharmURL.Schema == "local" {
-		// We are switching to a local charm, and this resources was not provided
+		// We are switching to a local charm, and this resource was not provided
 		// by --resource, so no need to override existing resource.
 		logger.Tracef("switching to a local charm, resource %q will not be upgraded because it was not provided by --resource", res.Name)
 		return false
