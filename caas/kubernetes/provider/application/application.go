@@ -362,6 +362,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 						Spec: *podSpec,
 					},
 					PodManagementPolicy: appsv1.ParallelPodManagement,
+					ServiceName:         headlessServiceName(a.name),
 				},
 			},
 		}

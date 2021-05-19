@@ -474,6 +474,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 						},
 					},
 					PodManagementPolicy: appsv1.ParallelPodManagement,
+					ServiceName:         "gitlab-endpoints",
 				},
 			})
 		},
@@ -1873,6 +1874,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 						},
 					},
 					PodManagementPolicy: appsv1.ParallelPodManagement,
+					ServiceName:         "gitlab-endpoints",
 				},
 			})
 		},
