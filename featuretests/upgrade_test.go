@@ -75,7 +75,7 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.oldVersion.Minor = 1
 
 	// Don't wait so long in tests.
-	s.PatchValue(&upgradesteps.UpgradeStartTimeoutMaster, time.Millisecond*50)
+	s.PatchValue(&upgradesteps.UpgradeStartTimeoutPrimary, time.Millisecond*50)
 	s.PatchValue(&upgradesteps.UpgradeStartTimeoutSecondary, time.Millisecond*60)
 
 	// Ensure we don't fail disk space check.
@@ -194,7 +194,7 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 	fakeIsMachineMaster := func(*state.StatePool, string) (bool, error) {
 		return true, nil
 	}
-	s.PatchValue(&upgradesteps.IsMachineMaster, fakeIsMachineMaster)
+	s.PatchValue(&upgradesteps.IsMachinePrimary, fakeIsMachineMaster)
 
 	// Start the agent
 	agent := s.newAgent(c, machineA)

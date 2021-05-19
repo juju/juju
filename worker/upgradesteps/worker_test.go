@@ -63,7 +63,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.oldVersion.Minor = 16
 
 	// Don't wait so long in tests.
-	s.PatchValue(&UpgradeStartTimeoutMaster, time.Millisecond*50)
+	s.PatchValue(&UpgradeStartTimeoutPrimary, time.Millisecond*50)
 	s.PatchValue(&UpgradeStartTimeoutSecondary, time.Millisecond*60)
 
 	// Allow tests to make the API connection appear to be dead.
@@ -73,10 +73,10 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.machineIsMaster = true
-	fakeIsMachineMaster := func(*state.StatePool, string) (bool, error) {
+	fakeIsMachinePrimary := func(*state.StatePool, string) (bool, error) {
 		return s.machineIsMaster, nil
 	}
-	s.PatchValue(&IsMachineMaster, fakeIsMachineMaster)
+	s.PatchValue(&IsMachinePrimary, fakeIsMachinePrimary)
 
 }
 
@@ -391,7 +391,7 @@ func (s *UpgradeSuite) TestPreUpgradeFail(c *gc.C) {
 	}})
 }
 
-// Run just the upgradesteps worker with a fake machine agent and
+// Run just the upgradeSteps worker with a fake machine agent and
 // fake agent config.
 func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, isController bool) (
 	error, *fakeConfigSetter, []StatusCall, gate.Lock,
@@ -507,20 +507,20 @@ func (s *UpgradeSuite) makeExpectedUpgradeLogs(retryCount int, target string, ex
 
 	if target == "databaseMaster" || target == "controller" {
 		outLogs = append(outLogs, jc.SimpleMessage{
-			loggo.INFO, "waiting for other controllers to be ready for upgrade",
+			Level: loggo.INFO, Message: "waiting for other controllers to be ready for upgrade",
 		})
 		var waitMsg string
 		switch target {
 		case "databaseMaster":
 			waitMsg = "all controllers are ready to run upgrade steps"
 		case "controller":
-			waitMsg = "the master has completed its upgrade steps"
+			waitMsg = "the primary has completed its upgrade steps"
 		}
-		outLogs = append(outLogs, jc.SimpleMessage{loggo.INFO, "finished waiting - " + waitMsg})
+		outLogs = append(outLogs, jc.SimpleMessage{Level: loggo.INFO, Message: "finished waiting - " + waitMsg})
 	}
 
 	outLogs = append(outLogs, jc.SimpleMessage{
-		loggo.INFO, fmt.Sprintf(
+		Level: loggo.INFO, Message: fmt.Sprintf(
 			`starting upgrade from %s to %s for "machine-0"`,
 			s.oldVersion.Number, jujuversion.Current),
 	})
@@ -530,13 +530,13 @@ func (s *UpgradeSuite) makeExpectedUpgradeLogs(retryCount int, target string, ex
 		s.oldVersion.Number, jujuversion.Current, failReason)
 
 	for i := 0; i < retryCount; i++ {
-		outLogs = append(outLogs, jc.SimpleMessage{loggo.ERROR, fmt.Sprintf(failMessage, "will retry")})
+		outLogs = append(outLogs, jc.SimpleMessage{Level: loggo.ERROR, Message: fmt.Sprintf(failMessage, "will retry")})
 	}
 	if expectFail {
-		outLogs = append(outLogs, jc.SimpleMessage{loggo.ERROR, fmt.Sprintf(failMessage, "giving up")})
+		outLogs = append(outLogs, jc.SimpleMessage{Level: loggo.ERROR, Message: fmt.Sprintf(failMessage, "giving up")})
 	} else {
-		outLogs = append(outLogs, jc.SimpleMessage{loggo.INFO,
-			fmt.Sprintf(`upgrade to %s completed successfully.`, jujuversion.Current)})
+		outLogs = append(outLogs, jc.SimpleMessage{Level: loggo.INFO,
+			Message: fmt.Sprintf(`upgrade to %s completed successfully.`, jujuversion.Current)})
 	}
 	return outLogs
 }
