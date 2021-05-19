@@ -86,7 +86,7 @@ type StatusSetter interface {
 	SetStatus(setableStatus status.Status, info string, data map[string]interface{}) error
 }
 
-// NewWorker returns a new instance of the upgradesteps worker. It
+// NewWorker returns a new instance of the upgradeSteps worker. It
 // will run any required steps to upgrade to the currently running
 // Juju version.
 func NewWorker(
@@ -99,7 +99,7 @@ func NewWorker(
 	entity StatusSetter,
 	isCaas bool,
 ) (worker.Worker, error) {
-	w := &upgradesteps{
+	w := &upgradeSteps{
 		upgradeComplete: upgradeComplete,
 		agent:           agent,
 		apiConn:         apiConn,
@@ -114,7 +114,7 @@ func NewWorker(
 	return w, nil
 }
 
-type upgradesteps struct {
+type upgradeSteps struct {
 	tomb            tomb.Tomb
 	upgradeComplete gate.Lock
 	agent           agent.Agent
@@ -135,12 +135,12 @@ type upgradesteps struct {
 }
 
 // Kill is part of the worker.Worker interface.
-func (w *upgradesteps) Kill() {
+func (w *upgradeSteps) Kill() {
 	w.tomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (w *upgradesteps) Wait() error {
+func (w *upgradeSteps) Wait() error {
 	return w.tomb.Wait()
 }
 
@@ -157,7 +157,7 @@ func isAPILostDuringUpgrade(err error) bool {
 	return ok
 }
 
-func (w *upgradesteps) wrenchKey() string {
+func (w *upgradeSteps) wrenchKey() string {
 	return wrenchKey(w.agent.CurrentConfig())
 }
 
@@ -165,7 +165,7 @@ func wrenchKey(agentConfig agent.Config) string {
 	return agentConfig.Tag().Kind() + "-agent"
 }
 
-func (w *upgradesteps) run() error {
+func (w *upgradeSteps) run() error {
 	if wrench.IsActive(w.wrenchKey(), "fail-upgrade-start") {
 		return nil // Make the worker stop
 	}
@@ -234,7 +234,7 @@ func (w *upgradesteps) run() error {
 
 // runUpgrades runs the upgrade operations for each job type and
 // updates the updatedToVersion on success.
-func (w *upgradesteps) runUpgrades() error {
+func (w *upgradeSteps) runUpgrades() error {
 	upgradeInfo, err := w.prepareForUpgrade()
 	if err != nil {
 		return err
@@ -254,7 +254,7 @@ func (w *upgradesteps) runUpgrades() error {
 	return nil
 }
 
-func (w *upgradesteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
+func (w *upgradeSteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 	logger.Infof("checking that upgrade can proceed")
 	if err := w.preUpgradeSteps(w.pool, w.agent.CurrentConfig(), w.pool != nil, w.isPrimary, w.isCaas); err != nil {
 		return nil, errors.Annotatef(err, "%s cannot be upgraded", names.ReadableString(w.tag))
@@ -266,7 +266,7 @@ func (w *upgradesteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 	return nil, nil
 }
 
-func (w *upgradesteps) prepareControllerForUpgrade() (*state.UpgradeInfo, error) {
+func (w *upgradeSteps) prepareControllerForUpgrade() (*state.UpgradeInfo, error) {
 	logger.Infof("signalling that this controller is ready for upgrade")
 	st := w.pool.SystemState()
 	info, err := st.EnsureUpgradeInfo(w.tag.Id(), w.fromVersion, w.toVersion)
@@ -302,7 +302,7 @@ func (w *upgradesteps) prepareControllerForUpgrade() (*state.UpgradeInfo, error)
 	return info, nil
 }
 
-func (w *upgradesteps) waitForOtherControllers(info *state.UpgradeInfo) error {
+func (w *upgradeSteps) waitForOtherControllers(info *state.UpgradeInfo) error {
 	watcher := info.Watch()
 	defer func() { _ = watcher.Stop() }()
 
@@ -338,7 +338,6 @@ func (w *upgradesteps) waitForOtherControllers(info *state.UpgradeInfo) error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		}
-
 	}
 }
 
@@ -348,7 +347,7 @@ func (w *upgradesteps) waitForOtherControllers(info *state.UpgradeInfo) error {
 //
 // This function conforms to the agent.ConfigMutator type and is
 // designed to be called via an agent's ChangeConfig method.
-func (w *upgradesteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
+func (w *upgradeSteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	if err := w.entity.SetStatus(status.Started, fmt.Sprintf("upgrading to %v", w.toVersion), nil); err != nil {
 		return errors.Trace(err)
 	}
@@ -380,7 +379,7 @@ func (w *upgradesteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	return nil
 }
 
-func (w *upgradesteps) reportUpgradeFailure(err error, willRetry bool) {
+func (w *upgradeSteps) reportUpgradeFailure(err error, willRetry bool) {
 	retryText := "will retry"
 	if !willRetry {
 		retryText = "giving up"
@@ -391,7 +390,7 @@ func (w *upgradesteps) reportUpgradeFailure(err error, willRetry bool) {
 		fmt.Sprintf("upgrade to %v failed (%s): %v", w.toVersion, retryText, err), nil)
 }
 
-func (w *upgradesteps) finaliseUpgrade(info *state.UpgradeInfo) error {
+func (w *upgradeSteps) finaliseUpgrade(info *state.UpgradeInfo) error {
 	if !w.isController {
 		return nil
 	}
@@ -411,7 +410,7 @@ func (w *upgradesteps) finaliseUpgrade(info *state.UpgradeInfo) error {
 	return nil
 }
 
-func (w *upgradesteps) getUpgradeStartTimeout() time.Duration {
+func (w *upgradeSteps) getUpgradeStartTimeout() time.Duration {
 	if wrench.IsActive(w.wrenchKey(), "short-upgrade-timeout") {
 		// This duration is fairly arbitrary. During manual testing it
 		// avoids the normal long wait but still provides a small

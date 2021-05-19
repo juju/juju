@@ -391,7 +391,7 @@ func (s *UpgradeSuite) TestPreUpgradeFail(c *gc.C) {
 	}})
 }
 
-// Run just the upgradesteps worker with a fake machine agent and
+// Run just the upgradeSteps worker with a fake machine agent and
 // fake agent config.
 func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, isController bool) (
 	error, *fakeConfigSetter, []StatusCall, gate.Lock,
