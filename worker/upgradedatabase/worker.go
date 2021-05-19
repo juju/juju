@@ -226,7 +226,7 @@ func (w *upgradeDB) runUpgrade() {
 		}
 
 		w.logger.Infof("database upgrade for %v completed successfully.", w.toVersion)
-		w.setStatus(status.Started, fmt.Sprintf("database upgrade to %v completed", w.toVersion))
+		w.setStatus(status.Started, fmt.Sprintf("database upgrade for %v completed", w.toVersion))
 		w.upgradeComplete.Unlock()
 	}
 }
@@ -261,7 +261,7 @@ func (w *upgradeDB) contextGetter(agentConfig agent.ConfigSetter) func() upgrade
 
 func (w *upgradeDB) watchUpgrade() {
 	w.logger.Infof("waiting for database upgrade on mongodb primary")
-	w.setStatus(status.Started, fmt.Sprintf("waiting on primary database upgrade to %v", w.toVersion))
+	w.setStatus(status.Started, fmt.Sprintf("waiting on primary database upgrade for %v", w.toVersion))
 
 	if wrench.IsActive("upgrade-database", "watch-upgrade") {
 		// Simulate an error causing the upgrade to fail.
@@ -290,7 +290,7 @@ func (w *upgradeDB) watchUpgrade() {
 		switch w.upgradeInfo.Status() {
 		case state.UpgradeDBComplete, state.UpgradeFinishing:
 			w.logger.Infof("finished waiting - database upgrade steps completed on mongodb primary")
-			w.setStatus(status.Started, fmt.Sprintf("confirmed primary database upgrade to %v", w.toVersion))
+			w.setStatus(status.Started, fmt.Sprintf("confirmed primary database upgrade for %v", w.toVersion))
 			w.upgradeComplete.Unlock()
 			return
 		default:
@@ -326,7 +326,7 @@ func (w *upgradeDB) reportUpgradeFailure(err error, willRetry bool) {
 }
 
 func (w *upgradeDB) setFailStatus() {
-	w.setStatus(status.Error, fmt.Sprintf("upgrading database to %v", w.toVersion))
+	w.setStatus(status.Error, fmt.Sprintf("upgrading database for %v", w.toVersion))
 }
 
 func (w *upgradeDB) setStatus(sts status.Status, msg string) {

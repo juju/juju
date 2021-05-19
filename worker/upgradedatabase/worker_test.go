@@ -29,6 +29,16 @@ import (
 	. "github.com/juju/juju/worker/upgradedatabase/mocks"
 )
 
+var (
+	statusUpgrading = "upgrading database for " + jujuversion.Current.String()
+	statusWaiting   = "waiting on primary database upgrade for " + jujuversion.Current.String()
+	statusCompleted = fmt.Sprintf("database upgrade for %v completed", jujuversion.Current)
+	statusConfirmed = fmt.Sprintf("confirmed primary database upgrade for " + jujuversion.Current.String())
+
+	logRunning = "running database upgrade for %v on mongodb primary"
+	logWaiting = "waiting for database upgrade on mongodb primary"
+)
+
 // baseSuite is embedded in both the worker and manifold tests.
 // Tests should not go on this suite directly.
 type baseSuite struct {
@@ -165,8 +175,7 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccess(c *gc.C) {
 
 	s.expectUpgradeRequired(false)
 
-	ver := jujuversion.Current.String()
-	s.pool.EXPECT().SetStatus("0", status.Started, "waiting on primary database upgrade to "+ver)
+	s.pool.EXPECT().SetStatus("0", status.Started, statusWaiting)
 
 	// Expect a watcher that will fire a change for the initial event
 	// and then a change for the watch loop.
@@ -179,10 +188,10 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccess(c *gc.C) {
 	// Initial state is UpgradePending
 	s.upgradeInfo.EXPECT().Refresh().Return(nil).MinTimes(1)
 	s.upgradeInfo.EXPECT().Status().Return(state.UpgradePending)
-	// After the first change is retrieved from the chanel above, we then say the upgrade is complete
+	// After the first change is retrieved from the channel above, we then say the upgrade is complete
 	s.upgradeInfo.EXPECT().Status().Return(state.UpgradeDBComplete)
 
-	s.pool.EXPECT().SetStatus("0", status.Started, "confirmed primary database upgrade to "+ver)
+	s.pool.EXPECT().SetStatus("0", status.Started, statusConfirmed)
 
 	// We don't want to kill the worker while we are in the status observation
 	// loop, so we gate on this final expectation.
@@ -207,8 +216,7 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccessFinishing(c *gc.C) 
 
 	s.expectUpgradeRequired(false)
 
-	ver := jujuversion.Current.String()
-	s.pool.EXPECT().SetStatus("0", status.Started, "waiting on primary database upgrade to "+ver)
+	s.pool.EXPECT().SetStatus("0", status.Started, statusWaiting)
 
 	// Expect a watcher that will fire a change for the initial event
 	// and then a change for the watch loop.
@@ -221,10 +229,10 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccessFinishing(c *gc.C) 
 	// Initial state is UpgradePending
 	s.upgradeInfo.EXPECT().Refresh().Return(nil).MinTimes(1)
 	s.upgradeInfo.EXPECT().Status().Return(state.UpgradePending)
-	// After the first change is retrieved from the chanel above, we then say the upgrade is complete
+	// After the first change is retrieved from the channel above, we then say the upgrade is complete
 	s.upgradeInfo.EXPECT().Status().Return(state.UpgradeFinishing)
 
-	s.pool.EXPECT().SetStatus("0", status.Started, "confirmed primary database upgrade to "+ver)
+	s.pool.EXPECT().SetStatus("0", status.Started, statusConfirmed)
 
 	// We don't want to kill the worker while we are in the status observation
 	// loop, so we gate on this final expectation.
@@ -248,8 +256,8 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *gc.C) {
 
 	s.expectUpgradeRequired(false)
 
-	ver := jujuversion.Current.String()
-	s.pool.EXPECT().SetStatus("0", status.Started, "waiting on primary database upgrade to "+ver)
+	s.logger.EXPECT().Infof(logWaiting)
+	s.pool.EXPECT().SetStatus("0", status.Started, statusWaiting)
 
 	// Expect a watcher that will fire a change for the initial event
 	// and then a change for the watch loop.
@@ -264,7 +272,7 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *gc.C) {
 	s.upgradeInfo.EXPECT().Status().Return(state.UpgradePending).AnyTimes()
 
 	s.logger.EXPECT().Errorf("timed out waiting for primary database upgrade")
-	s.pool.EXPECT().SetStatus("0", status.Error, "upgrading database to "+jujuversion.Current.String())
+	s.pool.EXPECT().SetStatus("0", status.Error, statusUpgrading)
 
 	// Note that UpgradeComplete is not unlocked.
 
@@ -287,8 +295,7 @@ func (s *workerSuite) TestNotPrimaryButPrimaryFinished(c *gc.C) {
 
 	s.expectUpgradeRequired(false)
 
-	ver := jujuversion.Current.String()
-	s.pool.EXPECT().SetStatus("0", status.Started, "waiting on primary database upgrade to "+ver)
+	s.pool.EXPECT().SetStatus("0", status.Started, statusWaiting)
 
 	// Expect the watcher to be created, and then the Status is examined.
 	// If the status is already complete, there are no calls to the Changes for the watcher.
@@ -300,7 +307,7 @@ func (s *workerSuite) TestNotPrimaryButPrimaryFinished(c *gc.C) {
 	s.upgradeInfo.EXPECT().Refresh().Return(nil).MinTimes(1)
 	s.upgradeInfo.EXPECT().Status().Return(state.UpgradeDBComplete)
 
-	s.pool.EXPECT().SetStatus("0", status.Started, "confirmed primary database upgrade to "+ver)
+	s.pool.EXPECT().SetStatus("0", status.Started, statusConfirmed)
 
 	// We don't want to kill the worker while we are in the status observation
 	// loop, so we gate on this final expectation.
@@ -327,9 +334,8 @@ func (s *workerSuite) TestUpgradedSuccessFirst(c *gc.C) {
 	s.expectExecution()
 
 	s.upgradeInfo.EXPECT().SetStatus(state.UpgradeDBComplete).Return(nil)
-	s.pool.EXPECT().SetStatus("0", status.Started, "upgrading database to "+jujuversion.Current.String())
-	s.pool.EXPECT().SetStatus(
-		"0", status.Started, fmt.Sprintf("database upgrade to %v completed", jujuversion.Current))
+	s.pool.EXPECT().SetStatus("0", status.Started, statusUpgrading)
+	s.pool.EXPECT().SetStatus("0", status.Started, statusCompleted)
 
 	s.lock.EXPECT().Unlock()
 
@@ -345,18 +351,18 @@ func (s *workerSuite) TestUpgradedRetryThenSuccess(c *gc.C) {
 	s.expectUpgradeRequired(true)
 	s.expectExecution()
 
-	s.pool.EXPECT().SetStatus("0", status.Started, "upgrading database to "+jujuversion.Current.String())
+	s.logger.EXPECT().Infof(logRunning, jujuversion.Current)
+	s.pool.EXPECT().SetStatus("0", status.Started, statusUpgrading)
 
 	cfg := s.getConfig()
 	msg := "database upgrade from %v to %v for %q failed (%s): %v"
 	s.logger.EXPECT().Errorf(msg, version.Number{}, jujuversion.Current, cfg.Tag, "will retry", gomock.Any())
 
-	s.pool.EXPECT().SetStatus("0", status.Error, "upgrading database to "+jujuversion.Current.String())
+	s.pool.EXPECT().SetStatus("0", status.Error, statusUpgrading)
 
 	s.upgradeInfo.EXPECT().SetStatus(state.UpgradeDBComplete).Return(nil)
-	s.logger.EXPECT().Infof("database upgrade to %v completed successfully.", jujuversion.Current)
-	s.pool.EXPECT().SetStatus(
-		"0", status.Started, fmt.Sprintf("database upgrade to %v completed", jujuversion.Current))
+	s.logger.EXPECT().Infof("database upgrade for %v completed successfully.", jujuversion.Current)
+	s.pool.EXPECT().SetStatus("0", status.Started, statusCompleted)
 
 	s.lock.EXPECT().Unlock()
 
@@ -384,14 +390,15 @@ func (s *workerSuite) TestUpgradedRetryAllFailed(c *gc.C) {
 	s.expectUpgradeRequired(true)
 	s.expectExecution()
 
-	s.pool.EXPECT().SetStatus("0", status.Started, "upgrading database to "+jujuversion.Current.String())
+	s.logger.EXPECT().Infof(logRunning, jujuversion.Current)
+	s.pool.EXPECT().SetStatus("0", status.Started, statusUpgrading)
 
 	cfg := s.getConfig()
 	msg := "database upgrade from %v to %v for %q failed (%s): %v"
 	s.logger.EXPECT().Errorf(msg, version.Number{}, jujuversion.Current, cfg.Tag, "will retry", gomock.Any()).MinTimes(1)
 	s.logger.EXPECT().Errorf(msg, version.Number{}, jujuversion.Current, cfg.Tag, "giving up", gomock.Any())
 
-	s.pool.EXPECT().SetStatus("0", status.Error, "upgrading database to "+jujuversion.Current.String()).MinTimes(1)
+	s.pool.EXPECT().SetStatus("0", status.Error, statusUpgrading).MinTimes(1)
 
 	// Note that UpgradeComplete is not unlocked.
 
