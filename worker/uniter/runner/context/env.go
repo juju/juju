@@ -4,6 +4,7 @@
 package context
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -22,42 +23,85 @@ type Environmenter interface {
 	// Getenv retrieves the value of the environment variable named by the key.
 	// It returns the value, which will be empty if the variable is not present.
 	Getenv(string) string
+
+	// LookupEnv retrieves the value of the environment variable named by the
+	// key. If the variable is present in the environment the value (which may
+	// be empty) is returned and the boolean is true. Otherwise the returned
+	// value will be empty and the boolean will be false.
+	LookupEnv(string) (string, bool)
 }
 
 type EnvironmentWrapper struct {
-	environ func() []string
-	getenv  func(string) string
+	environFn   func() []string
+	getenvFn    func(string) string
+	lookupEnvFn func(string) (string, bool)
+}
+
+// ContextAllowedEnvVars defines a list of allowed env vars to include from the
+// given context
+var ContextAllowedEnvVars = []string{
+	// List of Kubernetes env vars to include
+	"KUBERNETES_PORT",
+	"KUBERNETES_PORT_443_TCP",
+	"KUBERNETES_PORT_443_TCP_ADDR",
+	"KUBERNETES_PORT_443_TCP_PORT",
+	"KUBERNETES_PORT_443_TCP_PROTO",
+	"KUBERNETES_SERVICE",
+	"KUBERNETES_SERVICE_HOST",
+	"KUBERNETES_SERVICE_PORT",
+	"KUBERNETES_SERVICE_PORT_HTTPS",
 }
 
 // NewHostEnvironmenter constructs an EnvironmentWrapper target at the current
 // process host
 func NewHostEnvironmenter() *EnvironmentWrapper {
 	return &EnvironmentWrapper{
-		environ: os.Environ,
-		getenv:  os.Getenv,
+		environFn:   os.Environ,
+		getenvFn:    os.Getenv,
+		lookupEnvFn: os.LookupEnv,
 	}
 }
 
 // NewRemoveEnvironmenter constructs an EnviornmentWrapper with targets set to
 // that of the functions provided.
 func NewRemoteEnvironmenter(
-	environ func() []string,
-	getenv func(string) string,
+	environFn func() []string,
+	getenvFn func(string) string,
+	lookupEnvFn func(string) (string, bool),
 ) *EnvironmentWrapper {
 	return &EnvironmentWrapper{
-		environ: environ,
-		getenv:  getenv,
+		environFn:   environFn,
+		getenvFn:    getenvFn,
+		lookupEnvFn: lookupEnvFn,
 	}
 }
 
 // Environ implements Environmenter Environ
 func (e *EnvironmentWrapper) Environ() []string {
-	return e.environ()
+	return e.environFn()
 }
 
 // Getenv implements Environmenter Getenv
 func (e *EnvironmentWrapper) Getenv(key string) string {
-	return e.getenv(key)
+	return e.getenvFn(key)
+}
+
+// LookupEnv implements Environmenter LookupEnv
+func (e *EnvironmentWrapper) LookupEnv(key string) (string, bool) {
+	return e.lookupEnvFn(key)
+}
+
+// ContextDependentEnvVars returns the context aware enviormnent variables
+// needed for charms depending on contexts they may be operating in.
+// For example returning defined Kubernetes env variables when they're defined.
+func ContextDependentEnvVars(env Environmenter) []string {
+	rval := make([]string, 0, len(ContextAllowedEnvVars))
+	for _, envKey := range ContextAllowedEnvVars {
+		if val, exists := env.LookupEnv(envKey); exists {
+			rval = append(rval, fmt.Sprintf("%s=%s", envKey, val))
+		}
+	}
+	return rval
 }
 
 // OSDependentEnvVars returns the OS-dependent environment variables that
