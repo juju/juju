@@ -1178,7 +1178,7 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	if err != nil {
 		return errors.Trace(err)
 	}
-	filtered, err := utils.GetUpgradeResources(resourceLister, p.Application, resources, meta)
+	filtered, err := utils.GetUpgradeResources(curl, resourceLister, p.Application, resources, meta)
 	if err != nil {
 		return errors.Trace(err)
 	}
