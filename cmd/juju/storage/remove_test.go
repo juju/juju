@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
@@ -82,6 +83,24 @@ before removing.
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 }
 
+func (s *RemoveStorageSuite) TestRemoveStorageCAASError(c *gc.C) {
+	fake := fakeStorageRemover{results: []params.ErrorResult{
+		{Error: &params.Error{Message: "foo"}},
+		{Error: &params.Error{Message: "storage is attached", Code: params.CodeStorageAttached}},
+	}}
+	store := jujuclienttesting.MinimalStore()
+	m := store.Models["arthur"].Models["king/sword"]
+	m.ModelType = model.CAAS
+	store.Models["arthur"].Models["king/sword"] = m
+	removeCmd := storage.NewRemoveStorageCommandForTest(fake.new, store)
+	ctx, err := cmdtesting.RunCommand(c, removeCmd, "pgdata/0", "pgdata/1")
+	stderr := cmdtesting.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, `failed to remove pgdata/0: foo
+failed to remove pgdata/1: storage is attached
+`)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+}
+
 func (s *RemoveStorageSuite) TestRemoveStorageUnauthorizedError(c *gc.C) {
 	var fake fakeStorageRemover
 	fake.SetErrors(nil, &params.Error{Code: params.CodeUnauthorized, Message: "nope"})
@@ -97,11 +116,23 @@ You may ask an administrator to grant you access with "juju grant".
 
 func (s *RemoveStorageSuite) TestRemoveStorageInitErrors(c *gc.C) {
 	s.testRemoveStorageInitError(c, []string{}, "remove-storage requires at least one storage ID")
+	s.testRemoveStorageCAASInitError(c, []string{"--force", "storage/0"}, "forced detachment of storage on container models not supported")
 }
 
 func (s *RemoveStorageSuite) testRemoveStorageInitError(c *gc.C, args []string, expect string) {
 	var fake fakeStorageRemover
 	command := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
+	_, err := cmdtesting.RunCommand(c, command, args...)
+	c.Assert(err, gc.ErrorMatches, expect)
+}
+
+func (s *RemoveStorageSuite) testRemoveStorageCAASInitError(c *gc.C, args []string, expect string) {
+	var fake fakeStorageRemover
+	store := jujuclienttesting.MinimalStore()
+	m := store.Models["arthur"].Models["king/sword"]
+	m.ModelType = model.CAAS
+	store.Models["arthur"].Models["king/sword"] = m
+	command := storage.NewRemoveStorageCommandForTest(fake.new, store)
 	_, err := cmdtesting.RunCommand(c, command, args...)
 	c.Assert(err, gc.ErrorMatches, expect)
 }

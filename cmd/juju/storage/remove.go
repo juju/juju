@@ -14,6 +14,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 )
 
 // NewRemoveStorageCommandWithAPI returns a command
@@ -34,6 +35,7 @@ storage IDs, as output by "juju storage".
 By default, remove-storage will fail if the storage
 is attached to any units. To override this behaviour,
 you can use "juju remove-storage --force".
+Note: forced detach is not available on container models.
 
 Examples:
     # Remove the detached storage pgdata/0.
@@ -51,12 +53,12 @@ Examples:
 
 type removeStorageCommand struct {
 	StorageCommandBase
-	modelcmd.IAASOnlyCommand
 	newStorageRemoverCloser NewStorageRemoverCloserFunc
 	storageIds              []string
 	force                   bool
 	noDestroy               bool
 	NoWait                  bool
+	modelType               model.ModelType
 	fs                      *gnuflag.FlagSet
 }
 
@@ -83,6 +85,14 @@ func (c *removeStorageCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.New("remove-storage requires at least one storage ID")
 	}
+	var err error
+	if c.modelType, err = c.ModelType(); err != nil {
+		return errors.Trace(err)
+	}
+	if c.modelType == model.CAAS && c.force {
+		return errors.NotSupportedf("forced detachment of storage on container models")
+	}
+
 	c.storageIds = args
 	return nil
 }
@@ -140,7 +150,7 @@ func (c *removeStorageCommand) Run(ctx *cmd.Context) error {
 			anyFailed = true
 		}
 	}
-	if anyAttached {
+	if anyAttached && c.modelType != model.CAAS {
 		ctx.Infof(`
 Use the --force option to remove attached storage, or use
 "juju detach-storage" to explicitly detach the storage
