@@ -76,8 +76,17 @@ func (s *ContextSuite) TestHookContextEnv(c *gc.C) {
 				c.Errorf("unexpected get env call for %q", k)
 			}
 			return ""
-		}),
-	)
+		},
+		func(k string) (string, bool) {
+			switch k {
+			case "PATH", "Path":
+				return "pathy", true
+			default:
+				c.Errorf("unexpected get env call for %q", k)
+			}
+			return "", false
+		},
+	))
 	c.Assert(err, jc.ErrorIsNil)
 	varMap, err := keyvalues.Parse(vars, true)
 	c.Assert(err, jc.ErrorIsNil)

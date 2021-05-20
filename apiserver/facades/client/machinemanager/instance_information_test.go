@@ -66,7 +66,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 			Authorizer: authorizer,
 			ModelTag:   backend.ModelTag(),
 		},
-		context.NewCloudCallContext(),
+		context.NewEmptyCloudCallContext(),
 		common.NewResources(),
 		leadership,
 		nil,

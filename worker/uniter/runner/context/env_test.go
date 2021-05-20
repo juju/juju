@@ -175,10 +175,17 @@ func (s *EnvSuite) TestEnvWindows(c *gc.C) {
 				return "foo;bar"
 			case "PSModulePath":
 				return "ping;pong"
-			default:
-				c.Errorf("unexpected get env call for %q", k)
 			}
 			return ""
+		},
+		func(k string) (string, bool) {
+			switch k {
+			case "Path":
+				return "foo;bar", true
+			case "PSModulePath":
+				return "ping;pong", true
+			}
+			return "", false
 		},
 	)
 
@@ -220,10 +227,15 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 				switch k {
 				case "PATH":
 					return "foo:bar"
-				default:
-					c.Errorf("unexpected get env call for %q", k)
 				}
 				return ""
+			},
+			func(k string) (string, bool) {
+				switch k {
+				case "PATH":
+					return "foo:bar", true
+				}
+				return "", false
 			},
 		)
 
@@ -264,10 +276,15 @@ func (s *EnvSuite) TestEnvCentos(c *gc.C) {
 				switch k {
 				case "PATH":
 					return "foo:bar"
-				default:
-					c.Errorf("unexpected get env call for %q", k)
 				}
 				return ""
+			},
+			func(k string) (string, bool) {
+				switch k {
+				case "PATH":
+					return "foo:bar", true
+				}
+				return "", false
 			},
 		)
 
@@ -308,10 +325,15 @@ func (s *EnvSuite) TestEnvOpenSUSE(c *gc.C) {
 				switch k {
 				case "PATH":
 					return "foo:bar"
-				default:
-					c.Errorf("unexpected get env call for %q", k)
 				}
 				return ""
+			},
+			func(k string) (string, bool) {
+				switch k {
+				case "PATH":
+					return "foo:bar", true
+				}
+				return "", false
 			},
 		)
 
@@ -344,10 +366,15 @@ func (s *EnvSuite) TestEnvGenericLinux(c *gc.C) {
 			switch k {
 			case "PATH":
 				return "foo:bar"
-			default:
-				c.Errorf("unexpected get env call for %q", k)
 			}
 			return ""
+		},
+		func(k string) (string, bool) {
+			switch k {
+			case "PATH":
+				return "foo:bar", true
+			}
+			return "", false
 		},
 	)
 
@@ -379,10 +406,17 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 			switch k {
 			case "PATH":
 				return "foo:bar"
-			default:
-				c.Errorf("unexpected get env call for %q", k)
 			}
 			return ""
+		},
+		func(k string) (string, bool) {
+			switch k {
+			case "KUBERNETES_SERVICE":
+				return "test", true
+			case "PATH":
+				return "foo:bar", true
+			}
+			return "", false
 		},
 	)
 
@@ -396,4 +430,72 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 	actualVars, err = ctx.HookVars(paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars, []string{"KUBERNETES_SERVICE=test"})
+}
+
+func (s *EnvSuite) TestContextDependentDoesNotIncludeUnSet(c *gc.C) {
+	environmenter := context.NewRemoteEnvironmenter(
+		func() []string { return []string{} },
+		func(_ string) string { return "" },
+		func(_ string) (string, bool) { return "", false },
+	)
+
+	c.Assert(len(context.ContextDependentEnvVars(environmenter)), gc.Equals, 0)
+}
+
+func (s *EnvSuite) TestContextDependentDoesIncludeAll(c *gc.C) {
+	counter := 0
+	environmenter := context.NewRemoteEnvironmenter(
+		func() []string { return []string{} },
+		func(_ string) string { return "" },
+		func(_ string) (string, bool) {
+			counter = counter + 1
+			return "dummy-val", true
+		},
+	)
+	c.Assert(len(context.ContextDependentEnvVars(environmenter)), gc.Equals, counter)
+}
+
+func (s *EnvSuite) TestContextDependentParitalInclude(c *gc.C) {
+	counter := 0
+	environmenter := context.NewRemoteEnvironmenter(
+		func() []string { return []string{} },
+		func(_ string) string { return "" },
+		func(_ string) (string, bool) {
+			// We are just going to include the first two env vars here to make
+			// sure that both true and false statements work
+			if counter < 2 {
+				counter = counter + 1
+				return "dummy-val", true
+			}
+			return "", false
+		},
+	)
+
+	c.Assert(len(context.ContextDependentEnvVars(environmenter)), gc.Equals, counter)
+	c.Assert(counter, gc.Equals, 2)
+}
+
+func (s *EnvSuite) TestContextDependentCallsAllVarKeys(c *gc.C) {
+	queriedVars := map[string]bool{}
+	environmenter := context.NewRemoteEnvironmenter(
+		func() []string { return []string{} },
+		func(_ string) string { return "" },
+		func(k string) (string, bool) {
+			for _, envKey := range context.ContextAllowedEnvVars {
+				if envKey == k && queriedVars[k] == false {
+					queriedVars[k] = true
+					return "dummy-val", true
+				} else if envKey == k && queriedVars[envKey] == true {
+					c.Errorf("key %q has been queried more than once", k)
+					return "", false
+				}
+			}
+			c.Errorf("unexpected key %q has been queried for", k)
+			return "", false
+		},
+	)
+
+	rval := context.ContextDependentEnvVars(environmenter)
+	c.Assert(len(rval), gc.Equals, len(queriedVars))
+	c.Assert(len(queriedVars), gc.Equals, len(context.ContextAllowedEnvVars))
 }

@@ -81,7 +81,7 @@ func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 	ch, _, err := app.Charm()
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
-	} else if err == nil {
+	} else if err == nil && (op.spec != nil || op.rawSpec != nil) {
 		if ch.Meta().Deployment != nil && ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
 			return nil, errors.New("cannot set k8s spec on an operator charm")
 		}

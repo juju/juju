@@ -56,6 +56,13 @@ func (a *netAddr) IPNet() *net.IPNet {
 	return a.ipNet
 }
 
+// IsSecondary (ConfigSourceAddr) always returns false for
+// addresses from the non-*nix config source.
+// The Go stdlib does not surface the IFA_F_SECONDARY flag.
+func (a *netAddr) IsSecondary() bool {
+	return false
+}
+
 // String (ConfigSourceAddr) is a simple property accessor.
 func (a *netAddr) String() string {
 	return a.addr

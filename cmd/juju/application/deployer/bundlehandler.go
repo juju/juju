@@ -338,7 +338,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		url, origin, _, err := h.bundleResolver.ResolveCharm(ch, origin)
+		url, origin, _, err := h.bundleResolver.ResolveCharm(ch, origin, false) // no --switch possible.
 		if err != nil {
 			return errors.Annotatef(err, "cannot resolve charm or bundle %q", ch.Name)
 		}
@@ -408,7 +408,7 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL, charmSeries, ch
 		return "", -1, errors.Trace(err)
 	}
 
-	_, origin, _, err = h.bundleResolver.ResolveCharm(ch, origin)
+	_, origin, _, err = h.bundleResolver.ResolveCharm(ch, origin, false) // no --switch possible.
 	if err != nil {
 		return "", -1, errors.Annotatef(err, "cannot resolve charm or bundle %q", ch.Name)
 	}
@@ -655,7 +655,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Trace(err)
 	}
 
-	url, resolvedOrigin, _, err := h.bundleResolver.ResolveCharm(ch, origin)
+	url, resolvedOrigin, _, err := h.bundleResolver.ResolveCharm(ch, origin, false) // no --switch possible.
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve %q", ch.Name)
 	}
@@ -1178,7 +1178,7 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	if err != nil {
 		return errors.Trace(err)
 	}
-	filtered, err := utils.GetUpgradeResources(resourceLister, p.Application, resources, meta)
+	filtered, err := utils.GetUpgradeResources(curl, resourceLister, p.Application, resources, meta)
 	if err != nil {
 		return errors.Trace(err)
 	}

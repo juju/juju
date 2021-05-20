@@ -23,7 +23,7 @@ type SNISuite struct {
 
 var _ = gc.Suite(&SNISuite{})
 
-func (s *SNISuite) SetUpSuite(c *gc.C) {
+func (s *SNISuite) SetUpTest(c *gc.C) {
 	pki.DefaultKeyProfile = pkitest.OriginalDefaultKeyProfile
 	authority, err := pkitest.NewTestAuthority()
 	c.Assert(err, jc.ErrorIsNil)
@@ -118,4 +118,22 @@ func (s *SNISuite) TestAuthorityTLSGetter(c *gc.C) {
 
 		TLSCertificatesEqual(c, cert, leaf.TLSCertificate())
 	}
+}
+
+func (s *SNISuite) TestNonExistantIPLeafReturnsDefault(c *gc.C) {
+	leaf, err := s.authority.LeafRequestForGroup(pki.DefaultLeafGroup).
+		AddDNSNames("juju-app").
+		Commit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	helloRequest := &tls.ClientHelloInfo{
+		ServerName:        "",
+		SignatureSchemes:  []tls.SignatureScheme{tls.PSSWithSHA256},
+		SupportedVersions: []uint16{tls.VersionTLS13, tls.VersionTLS12},
+	}
+
+	cert, err := s.sniGetter(helloRequest)
+	c.Assert(err, jc.ErrorIsNil)
+
+	TLSCertificatesEqual(c, cert, leaf.TLSCertificate())
 }

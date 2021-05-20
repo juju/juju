@@ -281,19 +281,19 @@ func (c *upgradeSeriesCommand) retrieveUnits() ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	var units []string
-	machine, ok := fullStatus.Machines[c.machineNumber]
-	if !ok {
-		return nil, errors.NotFoundf("machine %q", c.machineNumber)
+	machineID, err := getMachineID(fullStatus, c.machineNumber)
+	if err != nil {
+		return nil, errors.Annotatef(err, "unable to locate instance")
 	}
+	var units []string
 	for _, application := range fullStatus.Applications {
 		for name, unit := range application.Units {
-			if unit.Machine == machine.Id {
+			if unit.Machine == machineID {
 				units = append(units, name)
 			}
 			for subName, subordinate := range unit.Subordinates {
-				if subordinate.Machine != "" && subordinate.Machine != machine.Id {
-					return nil, errors.Errorf("subordinate %q machine has unexpected machine id %s", subName, machine.Id)
+				if subordinate.Machine != "" && subordinate.Machine != machineID {
+					return nil, errors.Errorf("subordinate %q machine has unexpected instance id %s", subName, machineID)
 				}
 				units = append(units, subName)
 			}
@@ -303,6 +303,18 @@ func (c *upgradeSeriesCommand) retrieveUnits() ([]string, error) {
 	sort.Strings(units)
 
 	return units, nil
+}
+
+func getMachineID(fullStatus *params.FullStatus, id string) (string, error) {
+	if machine, ok := fullStatus.Machines[id]; ok {
+		return machine.Id, nil
+	}
+	for _, machine := range fullStatus.Machines {
+		if container, ok := machine.Containers[id]; ok {
+			return container.Id, nil
+		}
+	}
+	return "", errors.NotFoundf("instance %q", id)
 }
 
 // Display any progress information from the error. If there isn't any info

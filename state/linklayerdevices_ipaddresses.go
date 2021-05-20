@@ -102,11 +102,6 @@ func newIPAddress(st *State, doc ipAddressDoc) *Address {
 	return &Address{st: st, doc: doc}
 }
 
-// NetworkAddress returns the address transformed to a network.Address.
-func (addr *Address) NetworkAddress() network.SpaceAddress {
-	return network.NewSpaceAddress(addr.Value())
-}
-
 // DocID returns the globally unique ID of the IP address, including the model
 // UUID as prefix.
 func (addr *Address) DocID() string {
@@ -361,6 +356,7 @@ func (addr *Address) UpdateOps(args LinkLayerDeviceAddress) ([]txn.Op, error) {
 		DNSSearchDomains:  args.DNSSearchDomains,
 		GatewayAddress:    args.GatewayAddress,
 		IsDefaultGateway:  args.IsDefaultGateway,
+		IsSecondary:       args.IsSecondary,
 		Origin:            args.Origin,
 	}
 
@@ -457,6 +453,10 @@ func updateIPAddressDocOp(existingDoc, newDoc *ipAddressDoc) (txn.Op, bool) {
 
 	if existingDoc.GatewayAddress != newDoc.GatewayAddress {
 		changes["gateway-address"] = newDoc.GatewayAddress
+	}
+
+	if existingDoc.IsSecondary != newDoc.IsSecondary {
+		changes["is-secondary"] = newDoc.IsSecondary
 	}
 
 	var updates bson.D

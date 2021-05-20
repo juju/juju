@@ -89,7 +89,7 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 
 	s.statePool = &mockStatePool{
 		getF: func(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error) {
-			return newModelBackend(c, aCloud, modelUUID), context.NewCloudCallContext(), nil
+			return newModelBackend(c, aCloud, modelUUID), context.NewEmptyCloudCallContext(), nil
 		},
 	}
 	s.setTestAPIForUser(c, names.NewUserTag("admin"))
@@ -274,6 +274,7 @@ func (s *cloudSuite) TestAddCloudNotWhitelisted(c *gc.C) {
 	err := s.api.AddCloud(createAddCloudParam(""))
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`
 controller cloud type "dummy" is not whitelisted, current whitelist: 
+ - controller cloud type "kubernetes" supports [lxd maas openstack]
  - controller cloud type "lxd" supports [lxd maas openstack]
  - controller cloud type "maas" supports [maas openstack]
  - controller cloud type "openstack" supports [openstack]`[1:]))

@@ -47,7 +47,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage"
@@ -400,13 +399,6 @@ func caasPrecheck(
 	registry storage.ProviderRegistry,
 	caasBroker caasBrokerInterface,
 ) error {
-	if ch.Meta().Deployment != nil && ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
-		if !controllerCfg.Features().Contains(feature.K8sOperators) {
-			return errors.Errorf(
-				"feature flag %q is required for deploying container operator charms", feature.K8sOperators,
-			)
-		}
-	}
 	if len(args.AttachStorage) > 0 {
 		return errors.Errorf(
 			"AttachStorage may not be specified for container models",
@@ -434,11 +426,11 @@ func caasPrecheck(
 	}
 
 	// For older charms, operator-storage model config is mandatory.
-	if k8s.RequireOperatorStorage(ch.Meta().MinJujuVersion) {
+	if k8s.RequireOperatorStorage(ch) {
 		storageClassName, _ := cfg.AllAttrs()[k8sconstants.OperatorStorageKey].(string)
 		if storageClassName == "" {
 			return errors.New(
-				"deploying a Kubernetes application requires a suitable storage class.\n" +
+				"deploying this Kubernetes application requires a suitable storage class.\n" +
 					"None have been configured. Set the operator-storage model config to " +
 					"specify which storage class should be used to allocate operator storage.\n" +
 					"See https://discourse.jujucharms.com/t/getting-started/152.",

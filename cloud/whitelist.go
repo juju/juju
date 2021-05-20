@@ -53,6 +53,7 @@ func (w *WhiteList) Check(existing, new string) error {
 // CurrentWhiteList returns current clouds whitelist supported by Juju.
 func CurrentWhiteList() *WhiteList {
 	return &WhiteList{map[string]set.Strings{
+		"kubernetes":          set.NewStrings(lxdnames.ProviderType, "maas", "openstack"),
 		lxdnames.ProviderType: set.NewStrings(lxdnames.ProviderType, "maas", "openstack"),
 		"maas":                set.NewStrings("maas", "openstack"),
 		"openstack":           set.NewStrings("openstack"),

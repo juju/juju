@@ -35,7 +35,7 @@ func (s *tmpfsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.storageDir = c.MkDir()
 	s.fakeEtcDir = c.MkDir()
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
 func (s *tmpfsSuite) TearDownTest(c *gc.C) {

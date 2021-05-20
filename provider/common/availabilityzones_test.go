@@ -30,7 +30,7 @@ var _ = gc.Suite(&AvailabilityZoneSuite{})
 func (s *AvailabilityZoneSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 	allInstances := make([]instances.Instance, 3)
 	for i := range allInstances {
 		allInstances[i] = &mockInstance{id: fmt.Sprintf("inst%d", i)}

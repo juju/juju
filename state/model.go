@@ -124,6 +124,10 @@ type modelDoc struct {
 	// this model. It only has any meaning when the model is dying or
 	// dead.
 	ForceDestroyed bool `bson:"force-destroyed,omitempty"`
+
+	// DestroyTimeout is the timeout passed in when the
+	// model was destroyed.
+	DestroyTimeout *time.Duration `bson:"destroy-timeout,omitempty"`
 }
 
 // slaLevel enumerates the support levels available to a model.
@@ -694,6 +698,12 @@ func (m *Model) ForceDestroyed() bool {
 	return m.doc.ForceDestroyed
 }
 
+// DestroyTimeout returns the timeout passed in when the
+// model was destroyed.
+func (m *Model) DestroyTimeout() *time.Duration {
+	return m.doc.DestroyTimeout
+}
+
 // Owner returns tag representing the owner of the model.
 // The owner is the user that created the model.
 func (m *Model) Owner() names.UserTag {
@@ -1092,6 +1102,8 @@ type DestroyModelParams struct {
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
 	MaxWait time.Duration
+
+	Timeout *time.Duration
 }
 
 func (m *Model) uniqueIndexID() string {
@@ -1314,6 +1326,7 @@ func (m *Model) destroyOps(
 					{"life", nextLife},
 					{"time-of-dying", m.st.nowToTheSecond()},
 					{"force-destroyed", force},
+					{"destroy-timeout", args.Timeout},
 				},
 			},
 		}

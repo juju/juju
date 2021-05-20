@@ -1498,7 +1498,7 @@ func (s *StateSuite) TestSaveCloudServiceChangeAddressesAllGood(c *gc.C) {
 	c.Assert(svc.Addresses(), gc.DeepEquals, network.NewSpaceAddresses("2.2.2.2"))
 }
 
-func (s *StateSuite) TestSaveCloudServiceChangeProviderIdFailed(c *gc.C) {
+func (s *StateSuite) TestSaveCloudServiceChangeProviderId(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		_, err := s.State.SaveCloudService(
 			state.SaveCloudServiceArgs{
@@ -1509,16 +1509,18 @@ func (s *StateSuite) TestSaveCloudServiceChangeProviderIdFailed(c *gc.C) {
 		)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	_, err := s.State.SaveCloudService(
+	svc, err := s.State.SaveCloudService(
 		state.SaveCloudServiceArgs{
 			Id:         "cloud-svc-ID",
 			ProviderId: "provider-id-new", // ProviderId is immutable, changing this will get assert error.
 			Addresses:  network.NewSpaceAddresses("1.1.1.1"),
 		},
 	)
-	c.Assert(err, gc.ErrorMatches,
-		`cannot add cloud service "provider-id-new": failed to save cloud service: state changing too quickly; try again soon`,
-	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(svc.Refresh(), jc.ErrorIsNil)
+	c.Assert(svc.Id(), gc.Equals, "a#cloud-svc-ID")
+	c.Assert(svc.ProviderId(), gc.Equals, "provider-id-new")
+	c.Assert(svc.Addresses(), gc.DeepEquals, network.NewSpaceAddresses("1.1.1.1"))
 }
 
 func (s *StateSuite) TestAddApplication(c *gc.C) {

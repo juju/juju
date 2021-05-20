@@ -4,6 +4,8 @@
 package firewaller
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
@@ -145,7 +147,7 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 	var envIPV6CIDRSupport bool
 	if featQuerier, ok := environ.(environs.FirewallFeatureQuerier); ok {
 		var err error
-		cloudCtx := common.NewCloudCallContext(credentialAPI, nil)
+		cloudCtx := common.NewCloudCallContextFunc(credentialAPI)(stdcontext.Background())
 		if envIPV6CIDRSupport, err = featQuerier.SupportsRulesWithIPV6CIDRs(cloudCtx); err != nil {
 			return nil, errors.Trace(err)
 		}

@@ -62,7 +62,7 @@ func (s *environInstanceSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { logger.SetLogLevel(ll) })
 
 	mock.Reset()
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
 func (s *environInstanceSuite) TearDownTest(c *gc.C) {

@@ -35,6 +35,8 @@ func (k *kubernetesClient) Upgrade(agentTag string, vers version.Number) error {
 		return k.upgradeOperator(tag, vers)
 	case names.ModelTagKind:
 		return k.upgradeModelOperator(tag, vers)
+	case names.UnitTagKind:
+		return k.upgradeApplication(tag, vers)
 	}
 	return errors.NotImplementedf("k8s upgrade for agent tag %q", agentTag)
 }

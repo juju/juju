@@ -77,10 +77,11 @@ type ModelUserParams struct {
 
 // CharmParams defines the parameters for creating a charm.
 type CharmParams struct {
-	Name     string
-	Series   string
-	Revision string
-	URL      string
+	Name         string
+	Series       string
+	Revision     string
+	Architecture string
+	URL          string
 }
 
 // Params for creating a machine.
@@ -414,6 +415,41 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 	}
 
 	ch := testcharms.RepoForSeries(params.Series).CharmDir(params.Name)
+
+	curl := charm.MustParseURL(params.URL)
+	bundleSHA256 := uniqueString("bundlesha")
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "fake-storage-path",
+		SHA256:      bundleSHA256,
+	}
+	charm, err := factory.st.AddCharm(info)
+	c.Assert(err, jc.ErrorIsNil)
+	return charm
+}
+
+func (factory *Factory) MakeCharmV2(c *gc.C, params *CharmParams) *state.Charm {
+	if params == nil {
+		params = &CharmParams{}
+	}
+	if params.Name == "" {
+		params.Name = "snappass-test"
+	}
+	if params.Series == "" {
+		params.Series = "quantal"
+	}
+	if params.Architecture == "" {
+		params.Architecture = "amd64"
+	}
+	if params.Revision == "" {
+		params.Revision = fmt.Sprintf("%d", uniqueInteger())
+	}
+	if params.URL == "" {
+		params.URL = fmt.Sprintf("ch:%s/%s/%s-%s", params.Architecture, params.Series, params.Name, params.Revision)
+	}
+
+	ch := testcharms.Hub.CharmDir(params.Name)
 
 	curl := charm.MustParseURL(params.URL)
 	bundleSHA256 := uniqueString("bundlesha")

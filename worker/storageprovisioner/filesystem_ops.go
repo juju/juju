@@ -4,6 +4,7 @@
 package storageprovisioner
 
 import (
+	stdcontext "context"
 	"path/filepath"
 
 	"github.com/juju/errors"
@@ -58,7 +59,7 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 		if len(filesystemParams) == 0 {
 			continue
 		}
-		results, err := filesystemSource.CreateFilesystems(ctx.config.CloudCallContext, filesystemParams)
+		results, err := filesystemSource.CreateFilesystems(ctx.config.CloudCallContextFunc(stdcontext.Background()), filesystemParams)
 		if err != nil {
 			return errors.Annotatef(err, "creating filesystems from source %q", sourceName)
 		}
@@ -142,7 +143,7 @@ func attachFilesystems(ctx *context, ops map[params.MachineStorageId]*attachFile
 	for sourceName, filesystemAttachmentParams := range paramsBySource {
 		ctx.config.Logger.Debugf("attaching filesystems: %+v", filesystemAttachmentParams)
 		filesystemSource := filesystemSources[sourceName]
-		results, err := filesystemSource.AttachFilesystems(ctx.config.CloudCallContext, filesystemAttachmentParams)
+		results, err := filesystemSource.AttachFilesystems(ctx.config.CloudCallContextFunc(stdcontext.Background()), filesystemAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "attaching filesystems from source %q", sourceName)
 		}
@@ -221,7 +222,7 @@ func removeFilesystems(ctx *context, ops map[names.FilesystemTag]*removeFilesyst
 		if len(ids) == 0 {
 			return nil
 		}
-		errs, err := f(ctx.config.CloudCallContext, ids)
+		errs, err := f(ctx.config.CloudCallContextFunc(stdcontext.Background()), ids)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -315,7 +316,7 @@ func detachFilesystems(ctx *context, ops map[params.MachineStorageId]*detachFile
 		if !ok && ctx.isApplicationKind() {
 			continue
 		}
-		errs, err := filesystemSource.DetachFilesystems(ctx.config.CloudCallContext, filesystemAttachmentParams)
+		errs, err := filesystemSource.DetachFilesystems(ctx.config.CloudCallContextFunc(stdcontext.Background()), filesystemAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "detaching filesystems from source %q", sourceName)
 		}

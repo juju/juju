@@ -8,6 +8,9 @@ import (
 	"github.com/juju/juju/resource"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charmresource_mock.go github.com/juju/juju/cmd/juju/application/utils CharmClient
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/resourcefacade_mock.go github.com/juju/juju/cmd/juju/application/utils ResourceLister
+
 // CharmClient defines a subset of the charms facade, as required
 // by the upgrade-charm command and to GetMetaResources.
 type CharmClient interface {

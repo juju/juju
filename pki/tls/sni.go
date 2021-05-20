@@ -30,10 +30,11 @@ func AuthoritySNITLSGetter(authority pki.Authority, logger Logger) func(*tls.Cli
 		if hello.ServerName == "" {
 			logger.Debugf("tls client hello server name is empty. Attempting to provide ip address certificate")
 			leaf, err := authority.LeafForGroup(pki.ControllerIPLeafGroup)
-			if err != nil && !errors.IsNotFound(err) {
+			if err == nil {
+				cert = leaf.TLSCertificate()
+			} else if !errors.IsNotFound(err) {
 				return nil, errors.Annotate(err, "fetching ip address certificate")
 			}
-			cert = leaf.TLSCertificate()
 		} else {
 			authority.LeafRange(func(leaf pki.Leaf) bool {
 				if err := hello.SupportsCertificate(leaf.TLSCertificate()); err == nil {

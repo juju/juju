@@ -43,8 +43,9 @@ func (c *Client) IsMetered(charmURL string) (bool, error) {
 
 // CharmToResolve holds the charm url and it's channel to be resolved.
 type CharmToResolve struct {
-	URL    *charm.URL
-	Origin apicharm.Origin
+	URL         *charm.URL
+	Origin      apicharm.Origin
+	SwitchCharm bool
 }
 
 // ResolvedCharm holds resolved charm data.
@@ -69,8 +70,9 @@ func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error)
 	}
 	for i, ch := range charms {
 		args.Resolve[i] = params.ResolveCharmWithChannel{
-			Reference: ch.URL.String(),
-			Origin:    ch.Origin.ParamsCharmOrigin(),
+			Reference:   ch.URL.String(),
+			Origin:      ch.Origin.ParamsCharmOrigin(),
+			SwitchCharm: ch.SwitchCharm,
 		}
 	}
 	var result params.ResolveCharmWithChannelResults

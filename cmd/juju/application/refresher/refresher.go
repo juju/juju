@@ -124,12 +124,13 @@ func (d *factory) maybeCharmStore(authorizer store.MacaroonGetter, charmAdder st
 			baseRefresher: baseRefresher{
 				charmAdder:      charmAdder,
 				charmResolver:   charmResolver,
-				resolveOriginFn: charmStoreResolveOrigin,
+				resolveOriginFn: stdOriginResolver,
 				charmURL:        cfg.CharmURL,
 				charmOrigin:     cfg.CharmOrigin,
 				charmRef:        cfg.CharmRef,
 				channel:         cfg.Channel,
 				deployedSeries:  cfg.DeployedSeries,
+				switchCharm:     cfg.Switch,
 				force:           cfg.Force,
 				forceSeries:     cfg.ForceSeries,
 				logger:          cfg.Logger,
@@ -141,16 +142,24 @@ func (d *factory) maybeCharmStore(authorizer store.MacaroonGetter, charmAdder st
 
 func (d *factory) maybeCharmHub(charmAdder store.CharmAdder, charmResolver CharmResolver) func(RefresherConfig) (Refresher, error) {
 	return func(cfg RefresherConfig) (Refresher, error) {
+		originResolver := charmHubOriginResolver
+		if cfg.Switch {
+			// When switching, use the stdOriginResolver as it can
+			// emit the correct origin for upgrading from cs -> ch.
+			originResolver = stdOriginResolver
+		}
+
 		return &charmHubRefresher{
 			baseRefresher: baseRefresher{
 				charmAdder:      charmAdder,
 				charmResolver:   charmResolver,
-				resolveOriginFn: charmHubResolveOrigin,
+				resolveOriginFn: originResolver,
 				charmURL:        cfg.CharmURL,
 				charmOrigin:     cfg.CharmOrigin,
 				charmRef:        cfg.CharmRef,
 				channel:         cfg.Channel,
 				deployedSeries:  cfg.DeployedSeries,
+				switchCharm:     cfg.Switch,
 				force:           cfg.Force,
 				forceSeries:     cfg.ForceSeries,
 				logger:          cfg.Logger,
@@ -224,6 +233,7 @@ type baseRefresher struct {
 	charmRef        string
 	channel         charm.Channel
 	deployedSeries  string
+	switchCharm     bool
 	force           bool
 	forceSeries     bool
 	logger          CommandLogger
@@ -250,7 +260,7 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 	}
 
 	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	newURL, origin, supportedSeries, err := r.charmResolver.ResolveCharm(refURL, destOrigin)
+	newURL, origin, supportedSeries, err := r.charmResolver.ResolveCharm(refURL, destOrigin, r.switchCharm)
 	if err != nil {
 		return nil, commoncharm.Origin{}, errors.Trace(err)
 	}
@@ -285,10 +295,11 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 	return newURL, origin, nil
 }
 
-// charmStoreResolveOrigin attempts to resolve the origin required to resolve
-// a charm. It does this by deducing the origin from the charm URL and the
-// incoming channel.
-func charmStoreResolveOrigin(curl *charm.URL, origin corecharm.Origin, channel charm.Channel) (commoncharm.Origin, error) {
+// stdOriginResolver attempts to resolve the origin required to resolve a
+// charm. It works not only with charmstore charms but it also encapsulates the
+// required logic to deduce the appropriate origin for a charmstore to charmhub
+// switch.
+func stdOriginResolver(curl *charm.URL, origin corecharm.Origin, channel charm.Channel) (commoncharm.Origin, error) {
 	result, err := utils.DeduceOrigin(curl, channel, origin.Platform)
 	if err != nil {
 		return commoncharm.Origin{}, errors.Trace(err)
@@ -354,10 +365,10 @@ func (defaultCharmRepo) NewCharmAtPathForceSeries(path, series string, force boo
 	return charmrepo.NewCharmAtPathForceSeries(path, series, force)
 }
 
-// charmHubResolveOrigin attempts to resolve the origin required to resolve
+// charmHubOriginResolver attempts to resolve the origin required to resolve
 // a charm. It does this by updating the incoming origin with the user requested
 // channel, so we can correctly resolve the charm.
-func charmHubResolveOrigin(_ *charm.URL, origin corecharm.Origin, channel charm.Channel) (commoncharm.Origin, error) {
+func charmHubOriginResolver(_ *charm.URL, origin corecharm.Origin, channel charm.Channel) (commoncharm.Origin, error) {
 	if channel.Track == "" {
 		if origin.Channel != nil {
 			origin.Channel.Risk = channel.Risk

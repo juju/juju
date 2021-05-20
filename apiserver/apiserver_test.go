@@ -170,9 +170,14 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 				fmt.Fprintf(ctx.Stderr, err.Error())
 				return 1
 			}
-			cmdStr := fmt.Sprintf("%s@%s:%s -> %s", ad.User, ctrl, model, cmdPlusArgs)
-			fmt.Fprintf(ctx.Stdout, cmdStr)
-			fmt.Fprintf(ctx.Stdout, "\n")
+			if strings.Contains(cmdPlusArgs, "macaroon error") {
+				fmt.Fprintf(ctx.Stderr, "ERROR: cannot get discharge from https://controller")
+				fmt.Fprintf(ctx.Stderr, "\n")
+			} else {
+				cmdStr := fmt.Sprintf("%s@%s:%s -> %s", ad.User, ctrl, model, cmdPlusArgs)
+				fmt.Fprintf(ctx.Stdout, cmdStr)
+				fmt.Fprintf(ctx.Stdout, "\n")
+			}
 			return 0
 		},
 	}
@@ -419,6 +424,16 @@ func (s *apiserverSuite) TestEmbeddedCommandInvalidUser(c *gc.C) {
 		Commands: []string{"status --color"},
 	}
 	s.assertEmbeddedCommand(c, cmdArgs, "", &params.Error{Message: `user name "123@" not valid`})
+}
+
+func (s *apiserverSuite) TestEmbeddedCommandInvalidMacaroon(c *gc.C) {
+	cmdArgs := params.CLICommands{
+		User:     "fred",
+		Commands: []string{"status macaroon error"},
+	}
+	s.assertEmbeddedCommand(c, cmdArgs, "", &params.Error{
+		Code:    params.CodeDischargeRequired,
+		Message: `macaroon discharge required: cannot get discharge from https://controller`})
 }
 
 func (s *apiserverSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLICommands, expected string, resultErr *params.Error) {

@@ -47,7 +47,7 @@ func (s *ErrorSuite) TestNilContext(c *gc.C) {
 }
 
 func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
-	ctx := context.NewCloudCallContext()
+	ctx := context.NewEmptyCloudCallContext()
 	ctx.InvalidateCredentialFunc = func(msg string) error {
 		return errors.New("kaboom")
 	}
@@ -56,7 +56,7 @@ func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
 }
 
 func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
-	ctx := context.NewCloudCallContext()
+	ctx := context.NewEmptyCloudCallContext()
 	called := false
 	ctx.InvalidateCredentialFunc = func(msg string) error {
 		c.Assert(msg, gc.Matches, "azure cloud denied access: .*")
@@ -78,7 +78,7 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
 }
 
 func (*ErrorSuite) TestNilAzureError(c *gc.C) {
-	ctx := context.NewCloudCallContext()
+	ctx := context.NewEmptyCloudCallContext()
 	called := false
 	ctx.InvalidateCredentialFunc = func(msg string) error {
 		called = true

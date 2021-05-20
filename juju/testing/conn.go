@@ -558,7 +558,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	// Dummy provider uses a random port, which is added to cfg used to create environment.
 	apiPort := dummy.APIPort(environ.Provider())
 	s.ControllerConfig["api-port"] = apiPort
-	s.ProviderCallContext = envcontext.NewCloudCallContext()
+	s.ProviderCallContext = envcontext.NewCloudCallContext(context.Background())
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), environ, s.ProviderCallContext, bootstrap.BootstrapParams{
 		ControllerConfig: s.ControllerConfig,
 		CloudRegion:      "dummy-region",

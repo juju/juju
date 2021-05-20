@@ -30,7 +30,7 @@ type SSHMachine interface {
 	PublicAddress() (network.SpaceAddress, error)
 	PrivateAddress() (network.SpaceAddress, error)
 	Addresses() network.SpaceAddresses
-	AllNetworkAddresses() (network.SpaceAddresses, error)
+	AllDeviceSpaceAddresses() (network.SpaceAddresses, error)
 }
 
 type backend struct {

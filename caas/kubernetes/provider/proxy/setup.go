@@ -68,10 +68,12 @@ func CreateControllerProxy(
 				Resources: []string{"services"},
 				Verbs:     []string{"get"},
 			},
+			// The get verb below is not used directly by juju but is for
+			// the python lib
 			{
 				APIGroups: []string{""},
 				Resources: []string{"pods/portforward"},
-				Verbs:     []string{"create"},
+				Verbs:     []string{"create", "get"},
 			},
 		},
 	}

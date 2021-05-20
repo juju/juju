@@ -297,8 +297,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		if errors.Cause(err) == ErrCAASUnitDead {
 			errorString = err.Error()
 			err = nil
-		} else if u.embedded {
-			err = jworker.ErrRestartAgent
 		}
 		if u.runListener != nil {
 			u.runListener.UnregisterRunner(unitTag.Id())

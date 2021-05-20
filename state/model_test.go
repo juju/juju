@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
@@ -1141,6 +1142,30 @@ func (s *ModelSuite) TestForceDestroySetsForceDestroyed(c *gc.C) {
 
 	c.Assert(model.Life(), gc.Equals, state.Dying)
 	c.Assert(model.ForceDestroyed(), gc.Equals, true)
+}
+
+func (s *ModelSuite) TestDestroyWithTimeoutSetsTimeout(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.DestroyTimeout(), gc.IsNil)
+
+	timeout := time.Minute
+	err = model.Destroy(state.DestroyModelParams{
+		Timeout: &timeout,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = model.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Life(), gc.Equals, state.Dying)
+	got := model.DestroyTimeout()
+	c.Assert(got, gc.NotNil)
+	c.Assert(*got, gc.Equals, time.Minute)
 }
 
 func (s *ModelSuite) TestNonForceDestroy(c *gc.C) {

@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package utils
+package utils_test
 
 import (
 	stdtesting "testing"
@@ -12,5 +12,3 @@ import (
 func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
-
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charmresource_mock.go github.com/juju/juju/cmd/juju/application/utils CharmClient

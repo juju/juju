@@ -679,6 +679,18 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:multi-series-windows-1": OS "Ubuntu" not supported by charm`)
 }
 
+func (s *ApplicationSuite) TestSetCharmChangeSeriesWhenMovingFromCharmstoreToCharmhub(c *gc.C) {
+	// Moving from a cs to a ch charm should not prevent us from changing the series.
+	chCharm := state.AddTestingCharmhubCharmForSeries(c, s.State, "quantal", "multi-series")
+	cfg := state.SetCharmConfig{
+		Charm:      chCharm,
+		ForceUnits: true,
+	}
+
+	err := s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("expected SetCharm to work with different series when switching from a charmstore to a charmhub charm"))
+}
+
 func (s *ApplicationSuite) TestSetCharmPreconditions(c *gc.C) {
 	logging := s.AddTestingCharm(c, "logging")
 	cfg := state.SetCharmConfig{Charm: logging}

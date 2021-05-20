@@ -55,6 +55,14 @@ func (s *ipAddressesStateSuite) SetUpTest(c *gc.C) {
 		CIDR: "fc00::/64",
 	}, {
 		CIDR: "10.20.0.0/16",
+	}, {
+		CIDR: "30.30.30.0/24",
+	}, {
+		CIDR: "252.80.0.0/12",
+		FanInfo: &network.FanCIDRs{
+			FanLocalUnderlay: "30.30.30.0/24",
+			FanOverlay:       "252.0.0.0/8",
+		},
 	}}
 	for _, info := range subnetInfos {
 		_, err = s.State.AddSubnet(info)
@@ -309,22 +317,43 @@ func (s *ipAddressesStateSuite) TestMachineAllAddressesSuccess(c *gc.C) {
 	c.Assert(allAddresses, jc.DeepEquals, addedAddresses)
 }
 
-func (s *ipAddressesStateSuite) TestMachineAllNetworkAddresses(c *gc.C) {
-	addedAddresses := s.addTwoDevicesWithTwoAddressesEach(c)
-	expected := make(network.SpaceAddresses, len(addedAddresses))
-	for i := range addedAddresses {
-		expected[i] = addedAddresses[i].NetworkAddress()
+func (s *ipAddressesStateSuite) TestMachineAllDeviceSpaceAddresses(c *gc.C) {
+	addrs := s.addTwoDevicesWithTwoAddressesEach(c)
+	expected := make(network.SpaceAddresses, len(addrs))
+	for i, addr := range addrs {
+		expected[i] = network.SpaceAddress{
+			MachineAddress: network.NewMachineAddress(
+				addr.Value(),
+				network.WithCIDR(addr.SubnetCIDR()),
+				network.WithConfigType(addr.ConfigMethod()),
+			),
+			SpaceID: network.AlphaSpaceId,
+		}
 	}
-	sort.Slice(expected, func(i, j int) bool {
-		return expected[i].Value < expected[j].Value
-	})
 
-	networkAddresses, err := s.machine.AllNetworkAddresses()
+	networkAddresses, err := s.machine.AllDeviceSpaceAddresses()
 	c.Assert(err, jc.ErrorIsNil)
-	sort.Slice(networkAddresses, func(i, j int) bool {
-		return networkAddresses[i].Value < networkAddresses[j].Value
-	})
+
+	network.SortAddresses(expected)
+	network.SortAddresses(networkAddresses)
+
 	c.Assert(networkAddresses, jc.DeepEquals, expected)
+}
+
+func (s *ipAddressesStateSuite) TestMachineAllDeviceSpaceAddressesFanScope(c *gc.C) {
+	_, _ = s.addNamedDeviceWithAddresses(c, "eth0", "252.80.0.100/12")
+
+	networkAddresses, err := s.machine.AllDeviceSpaceAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(networkAddresses, jc.DeepEquals, network.SpaceAddresses{{
+		MachineAddress: network.NewMachineAddress(
+			"252.80.0.100",
+			network.WithCIDR("252.80.0.0/12"),
+			network.WithConfigType(network.ConfigStatic),
+			network.WithScope(network.ScopeFanLocal),
+		),
+		SpaceID: network.AlphaSpaceId,
+	}})
 }
 
 func (s *ipAddressesStateSuite) TestLinkLayerDeviceRemoveAlsoRemovesDeviceAddresses(c *gc.C) {
@@ -771,6 +800,7 @@ func (s *ipAddressesStateSuite) TestUpdateOps(c *gc.C) {
 		CIDRAddress:    "0.1.2.3/24",
 		Origin:         network.OriginMachine,
 		GatewayAddress: "0.1.2.0",
+		IsSecondary:    true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -778,7 +808,8 @@ func (s *ipAddressesStateSuite) TestUpdateOps(c *gc.C) {
 
 	addrs, err = dev.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addrs[0].GatewayAddress(), gc.Equals, "0.1.2.0")
+	c.Check(addrs[0].GatewayAddress(), gc.Equals, "0.1.2.0")
+	c.Check(addrs[0].IsSecondary(), gc.Equals, true)
 }
 
 func (s *ipAddressesStateSuite) TestUpdateAddressFailsToChangeProviderID(c *gc.C) {

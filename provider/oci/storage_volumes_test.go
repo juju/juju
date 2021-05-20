@@ -33,7 +33,7 @@ var _ = gc.Suite(&storageVolumeSuite{})
 func (s *storageVolumeSuite) SetUpTest(c *gc.C) {
 	s.commonSuite.SetUpTest(c)
 
-	s.environCtx = envcontext.NewCloudCallContext()
+	s.environCtx = envcontext.NewEmptyCloudCallContext()
 	var err error
 	s.provider, err = s.env.StorageProvider(oci.OciStorageProviderType)
 	c.Assert(err, gc.IsNil)

@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/worker/common"
 )
 
@@ -66,7 +65,7 @@ type provisioner struct {
 	distributionGroupFinder DistributionGroupFinder
 	toolsFinder             ToolsFinder
 	catacomb                catacomb.Catacomb
-	callContext             context.ProviderCallContext
+	callContextFunc         common.CloudCallContextFunc
 }
 
 // RetryStrategy defines the retry behavior when encountering a retryable
@@ -148,10 +147,9 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 	if err != nil && !errors.IsNotImplemented(err) {
 		return nil, err
 	}
-	tag := p.agentConfig.Tag()
-	machineTag, ok := tag.(names.MachineTag)
-	if !ok {
-		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
+	hostTag := p.agentConfig.Tag()
+	if kind := hostTag.Kind(); kind != names.ControllerAgentTagKind && kind != names.MachineTagKind {
+		return nil, errors.Errorf("agent's tag is not a machine or controller agent tag, got %T", hostTag)
 	}
 
 	modelCfg, err := p.st.ModelConfig()
@@ -166,7 +164,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 
 	task, err := NewProvisionerTask(
 		controllerCfg.ControllerUUID(),
-		machineTag,
+		hostTag,
 		p.logger,
 		harvestMode,
 		p.st,
@@ -178,7 +176,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		auth,
 		modelCfg.ImageStream(),
 		RetryStrategy{retryDelay: retryStrategyDelay, retryCount: retryStrategyCount},
-		p.callContext,
+		p.callContextFunc,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -206,7 +204,7 @@ func NewEnvironProvisioner(
 			logger:                  logger,
 			toolsFinder:             getToolsFinder(st),
 			distributionGroupFinder: getDistributionGroupFinder(st),
-			callContext:             common.NewCloudCallContext(credentialAPI, nil),
+			callContextFunc:         common.NewCloudCallContextFunc(credentialAPI),
 		},
 		environ: environ,
 	}
@@ -309,7 +307,7 @@ func NewContainerProvisioner(
 			broker:                  broker,
 			toolsFinder:             toolsFinder,
 			distributionGroupFinder: distributionGroupFinder,
-			callContext:             common.NewCloudCallContext(credentialAPI, nil),
+			callContextFunc:         common.NewCloudCallContextFunc(credentialAPI),
 		},
 		containerType: containerType,
 	}

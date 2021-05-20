@@ -260,6 +260,9 @@ type Connection interface {
 	// ping.
 	IsBroken() bool
 
+	// IsProxied returns weather the connection is proxied.
+	IsProxied() bool
+
 	// PublicDNSName returns the host name for which an officially
 	// signed certificate will be used for TLS connection to the server.
 	// If empty, the private Juju CA certificate must be used to verify

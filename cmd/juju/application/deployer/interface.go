@@ -152,7 +152,7 @@ type Bundle interface {
 type Resolver interface {
 	GetBundle(*charm.URL, commoncharm.Origin, string) (charm.Bundle, error)
 	ResolveBundleURL(*charm.URL, commoncharm.Origin) (*charm.URL, commoncharm.Origin, error)
-	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error)
+	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error)
 }
 
 type ModelConfigGetter interface {

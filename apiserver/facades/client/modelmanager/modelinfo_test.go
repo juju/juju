@@ -168,7 +168,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.callContext = context.NewCloudCallContext()
+	s.callContext = context.NewEmptyCloudCallContext()
 
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, nil, &s.authorizer, s.st.model, s.callContext)

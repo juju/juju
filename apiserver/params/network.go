@@ -232,11 +232,9 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 		}
 
 		result[i] = NetworkConfig{
-			DeviceIndex: v.DeviceIndex,
-			MACAddress:  v.MACAddress,
-			// TODO (manadart 2021-03-24): Retained for compatibility.
-			// Delete for Juju 3/4.
-			CIDR:                v.PrimaryAddress().CIDR,
+			DeviceIndex:         v.DeviceIndex,
+			MACAddress:          v.MACAddress,
+			ConfigType:          string(v.ConfigType),
 			MTU:                 v.MTU,
 			ProviderId:          string(v.ProviderId),
 			ProviderNetworkId:   string(v.ProviderNetworkId),
@@ -250,20 +248,20 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 			InterfaceType:       string(v.InterfaceType),
 			Disabled:            v.Disabled,
 			NoAutoStart:         v.NoAutoStart,
-			ConfigType:          string(v.ConfigType),
-			// This field is retained for compatibility purposes.
-			// New code should instead use Addresses which includes
-			// scope and space information.
-			Address:          v.PrimaryAddress().Value,
-			Addresses:        FromProviderAddresses(v.Addresses...),
-			ShadowAddresses:  FromProviderAddresses(v.ShadowAddresses...),
-			DNSServers:       dnsServers,
-			DNSSearchDomains: v.DNSSearchDomains,
-			GatewayAddress:   v.GatewayAddress.Value,
-			Routes:           routes,
-			IsDefaultGateway: v.IsDefaultGateway,
-			VirtualPortType:  string(v.VirtualPortType),
-			NetworkOrigin:    NetworkOrigin(v.Origin),
+			Addresses:           FromProviderAddresses(v.Addresses...),
+			ShadowAddresses:     FromProviderAddresses(v.ShadowAddresses...),
+			DNSServers:          dnsServers,
+			DNSSearchDomains:    v.DNSSearchDomains,
+			GatewayAddress:      v.GatewayAddress.Value,
+			Routes:              routes,
+			IsDefaultGateway:    v.IsDefaultGateway,
+			VirtualPortType:     string(v.VirtualPortType),
+			NetworkOrigin:       NetworkOrigin(v.Origin),
+
+			// TODO (manadart 2021-03-24): Retained for compatibility.
+			// Delete CIDR and Address for Juju 3/4.
+			CIDR:    v.PrimaryAddress().CIDR,
+			Address: v.PrimaryAddress().Value,
 		}
 	}
 	return result
@@ -318,7 +316,6 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 		// address collections are used, and the following fields removed from
 		// the top-level interface:
 		// - CIDR
-		// - ConfigType
 		// - Address
 
 		// 1) For clients that populate Addresses, but still set
@@ -330,11 +327,18 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			if result[i].Addresses[0].CIDR == "" {
 				result[i].Addresses[0].CIDR = v.CIDR
 			}
+			if result[i].Addresses[0].ConfigType == "" {
+				result[i].Addresses[0].ConfigType = configType
+			}
 		} else {
 			// 2) For even older clients that do not populate Addresses.
 			if v.Address != "" {
 				result[i].Addresses = network.ProviderAddresses{
-					network.NewProviderAddress(v.Address, network.WithCIDR(v.CIDR)),
+					network.NewProviderAddress(
+						v.Address,
+						network.WithCIDR(v.CIDR),
+						network.WithConfigType(configType),
+					),
 				}
 			}
 		}
@@ -464,6 +468,7 @@ type Address struct {
 	Scope           string `json:"scope"`
 	SpaceName       string `json:"space-name,omitempty"`
 	ProviderSpaceID string `json:"space-id,omitempty"`
+	ConfigType      string `json:"config-type,omitempty"`
 	IsSecondary     bool   `json:"is-secondary,omitempty"`
 }
 
@@ -475,6 +480,7 @@ func (addr Address) MachineAddress() network.MachineAddress {
 		CIDR:        addr.CIDR,
 		Type:        network.AddressType(addr.Type),
 		Scope:       network.Scope(addr.Scope),
+		ConfigType:  network.AddressConfigType(addr.ConfigType),
 		IsSecondary: addr.IsSecondary,
 	}
 }
@@ -517,6 +523,7 @@ func FromProviderAddress(addr network.ProviderAddress) Address {
 		Scope:           string(addr.Scope),
 		SpaceName:       string(addr.SpaceName),
 		ProviderSpaceID: string(addr.ProviderSpaceID),
+		ConfigType:      string(addr.ConfigType),
 		IsSecondary:     addr.IsSecondary,
 	}
 }
@@ -538,6 +545,7 @@ func FromMachineAddress(addr network.MachineAddress) Address {
 		CIDR:        addr.CIDR,
 		Type:        string(addr.Type),
 		Scope:       string(addr.Scope),
+		ConfigType:  string(addr.ConfigType),
 		IsSecondary: addr.IsSecondary,
 	}
 }
@@ -659,14 +667,8 @@ func FromHostPort(nhp network.HostPort) HostPort {
 	}
 }
 
-// UnitNetworkConfig holds a unit tag and an endpoint binding name.
-type UnitNetworkConfig struct {
-	UnitTag     string `json:"unit-tag"`
-	BindingName string `json:"binding-name"`
-}
-
-// SetProviderNetworkConfig holds a machine tag and a list of network interface
-// info obtained by querying the provider.
+// SetProviderNetworkConfig holds a slice of machine network configs sourced
+// from a provider.
 type SetProviderNetworkConfig struct {
 	Args []ProviderNetworkConfig `json:"args"`
 }
@@ -714,7 +716,7 @@ type SetMachineNetworkConfig struct {
 	Config []NetworkConfig `json:"config"`
 }
 
-// BackfillMachineOrigin sets all empty NetworkOrigin entries to indicate that
+// BackFillMachineOrigin sets all empty NetworkOrigin entries to indicate that
 // they are sourced from the local machine.
 // TODO (manadart 2020-05-12): This is used by superseded methods on the
 // Machiner and NetworkConfig APIs, which along with this should considered for
@@ -884,7 +886,7 @@ type APIHostPortsResult struct {
 	Servers [][]HostPort `json:"servers"`
 }
 
-// MachineHostPorts transforms the APIHostPortsResult into a slice of
+// MachineHostsPorts transforms the APIHostPortsResult into a slice of
 // MachineHostPorts.
 func (r APIHostPortsResult) MachineHostsPorts() []network.MachineHostPorts {
 	return ToMachineHostsPorts(r.Servers)
@@ -925,7 +927,7 @@ type RemoveSpaceParam struct {
 	DryRun bool `json:"dry-run,omitempty"`
 }
 
-// RemoveSpaceParam holds a single space tag and whether it should be forced.
+// RemoveSpaceParams holds a single space tag and whether it should be forced.
 type RemoveSpaceParams struct {
 	SpaceParams []RemoveSpaceParam `json:"space-param"`
 }
@@ -976,15 +978,15 @@ type AddSubnetParams struct {
 	Zones             []string `json:"zones,omitempty"`
 }
 
-// AddSubnetsParams holds the arguments of AddSubnets APIv2 call.
+// AddSubnetsParamsV2 holds the arguments of AddSubnets APIv2 call.
 type AddSubnetsParamsV2 struct {
 	Subnets []AddSubnetParamsV2 `json:"subnets"`
 }
 
-// AddSubnetParams holds a subnet and space tags, subnet provider ID,
+// AddSubnetParamsV2 holds a subnet and space tags, subnet provider ID,
 // and a list of zones to associate the subnet to. Either SubnetTag or
 // SubnetProviderId must be set, but not both. Zones can be empty if
-// they can be discovered
+// they can be discovered.
 type AddSubnetParamsV2 struct {
 	SubnetTag         string   `json:"subnet-tag,omitempty"`
 	SubnetProviderId  string   `json:"subnet-provider-id,omitempty"`
@@ -1021,12 +1023,12 @@ type RenameSpacesParams struct {
 	Changes []RenameSpaceParams `json:"changes"`
 }
 
-// CreateSpacesParams holds the arguments of the AddSpaces API call.
+// CreateSpacesParamsV4 holds the arguments of the AddSpaces API call.
 type CreateSpacesParamsV4 struct {
 	Spaces []CreateSpaceParamsV4 `json:"spaces"`
 }
 
-// CreateSpaceParams holds the space tag and at least one subnet
+// CreateSpaceParamsV4 holds the space tag and at least one subnet
 // tag required to create a new space.
 type CreateSpaceParamsV4 struct {
 	SubnetTags []string `json:"subnet-tags"`
@@ -1096,12 +1098,12 @@ type MoveSubnetsResult struct {
 	Error *Error `json:"error,omitempty"`
 }
 
-// MoveSubnetResults contains the results of a call to MoveSubnets.
+// MoveSubnetsResults contains the results of a call to MoveSubnets.
 type MoveSubnetsResults struct {
 	Results []MoveSubnetsResult `json:"results"`
 }
 
-// ListSpacesResults holds the list of all available spaces.
+// ShowSpaceResult holds the list of all available spaces.
 type ShowSpaceResult struct {
 	// Information about a given space.
 	Space Space `json:"space"`
@@ -1112,7 +1114,7 @@ type ShowSpaceResult struct {
 	Error        *Error `json:"error,omitempty"`
 }
 
-// ListSpacesResults holds the list of all available spaces.
+// ShowSpaceResults holds the list of all available spaces.
 type ShowSpaceResults struct {
 	Results []ShowSpaceResult `json:"results"`
 }
@@ -1215,6 +1217,17 @@ type NetworkInfoResults struct {
 	Results map[string]NetworkInfoResult `json:"results"`
 }
 
+// NetworkInfoResultV6 holds either and error or a list of NetworkInfos for given binding.
+type NetworkInfoResultV6 struct {
+	Error *Error        `json:"error,omitempty" yaml:"error,omitempty"`
+	Info  []NetworkInfo `json:"network-info" yaml:"info"`
+}
+
+// NetworkInfoResultsV6 holds a mapping from binding name to NetworkInfoResultV6.
+type NetworkInfoResultsV6 struct {
+	Results map[string]NetworkInfoResultV6 `json:"results"`
+}
+
 // NetworkInfoParams holds a name of the unit and list of bindings for which we want to get NetworkInfos.
 type NetworkInfoParams struct {
 	Unit       string `json:"unit"`
@@ -1274,7 +1287,7 @@ type SpaceInfo struct {
 	Subnets    []SubnetV3 `json:"subnets,omitempty"`
 }
 
-// FromFromNetworkSpaceInfos converts a network.SpaceInfos into a serializable
+// FromNetworkSpaceInfos converts a network.SpaceInfos into a serializable
 // payload that can be sent over the wire.
 func FromNetworkSpaceInfos(allInfos network.SpaceInfos) SpaceInfos {
 	res := SpaceInfos{

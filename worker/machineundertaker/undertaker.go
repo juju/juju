@@ -4,6 +4,8 @@
 package machineundertaker
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v2"
@@ -39,10 +41,10 @@ type AddressReleaser interface {
 // Undertaker is responsible for doing any provider-level
 // cleanup needed and then removing the machine.
 type Undertaker struct {
-	API         Facade
-	Releaser    AddressReleaser
-	CallContext context.ProviderCallContext
-	Logger      Logger
+	API             Facade
+	Releaser        AddressReleaser
+	CallContextFunc common.CloudCallContextFunc
+	Logger          Logger
 }
 
 // NewWorker returns a machine undertaker worker that will watch for
@@ -52,10 +54,10 @@ func NewWorker(api Facade, env environs.Environ, credentialAPI common.Credential
 	envNetworking, _ := environs.SupportsNetworking(env)
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: &Undertaker{
-			API:         api,
-			Releaser:    envNetworking,
-			CallContext: common.NewCloudCallContext(credentialAPI, nil),
-			Logger:      logger,
+			API:             api,
+			Releaser:        envNetworking,
+			CallContextFunc: common.NewCloudCallContextFunc(credentialAPI),
+			Logger:          logger,
 		},
 	})
 	if err != nil {
@@ -117,7 +119,7 @@ func (u *Undertaker) MaybeReleaseAddresses(machine names.MachineTag) error {
 		u.Logger.Debugf("%s has no addresses to release", machine)
 		return nil
 	}
-	err = u.Releaser.ReleaseContainerAddresses(u.CallContext, interfaceInfos)
+	err = u.Releaser.ReleaseContainerAddresses(u.CallContextFunc(stdcontext.Background()), interfaceInfos)
 	// Some providers say they support networking but don't
 	// actually support container addressing; don't freak out
 	// about those.

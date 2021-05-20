@@ -22,7 +22,6 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/actions"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -129,17 +128,7 @@ func (u *Unit) IsEmbedded() (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	ch, _, err := app.Charm()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	meta := ch.Meta()
-	if meta == nil {
-		return false, nil
-	}
-
-	// TODO(embedded): Determine a better way represent this.
-	return u.modelType == ModelTypeCAAS && corecharm.Format(ch) == corecharm.FormatV2, nil
+	return app.IsEmbedded()
 }
 
 // Application returns the application.

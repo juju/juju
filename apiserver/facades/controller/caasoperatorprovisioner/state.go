@@ -36,11 +36,7 @@ type Model interface {
 }
 
 type Application interface {
-	Charm() (ch Charm, force bool, err error)
-}
-
-type Charm interface {
-	Meta() *charm.Meta
+	Charm() (ch charm.CharmMeta, force bool, err error)
 }
 
 type stateShim struct {
@@ -67,6 +63,6 @@ type applicationShim struct {
 	*state.Application
 }
 
-func (a *applicationShim) Charm() (Charm, bool, error) {
+func (a *applicationShim) Charm() (charm.CharmMeta, bool, error) {
 	return a.Application.Charm()
 }

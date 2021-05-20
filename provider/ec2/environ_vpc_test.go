@@ -32,7 +32,7 @@ func (s *vpcSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stubAPI = &stubVPCAPIClient{Stub: &testing.Stub{}}
-	s.cloudCallCtx = context.NewCloudCallContext()
+	s.cloudCallCtx = context.NewEmptyCloudCallContext()
 }
 
 func (s *vpcSuite) TestValidateBootstrapVPCUnexpectedError(c *gc.C) {

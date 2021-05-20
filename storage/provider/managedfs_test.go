@@ -35,7 +35,7 @@ func (s *managedfsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.blockDevices = make(map[names.VolumeTag]storage.BlockDevice)
 	s.filesystems = make(map[names.FilesystemTag]storage.Filesystem)
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 	s.fakeEtcDir = c.MkDir()
 }
 

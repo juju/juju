@@ -4,9 +4,11 @@
 package undertaker
 
 import (
+	stdcontext "context"
 	"fmt"
-	"sync"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2/catacomb"
 
@@ -32,6 +34,7 @@ type Facade interface {
 // Logger defines a way to report non-fatal errors.
 type Logger interface {
 	Errorf(string, ...interface{})
+	Debugf(string, ...interface{})
 }
 
 // Config holds the resources and configuration necessary to run an
@@ -41,6 +44,7 @@ type Config struct {
 	Destroyer     environs.CloudDestroyer
 	CredentialAPI common.CredentialAPI
 	Logger        Logger
+	Clock         clock.Clock
 }
 
 // Validate returns an error if the config cannot be expected to drive
@@ -77,29 +81,14 @@ func NewUndertaker(config Config) (*Undertaker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	u.setCallCtx(common.NewCloudCallContext(config.CredentialAPI, u.catacomb.Dying))
 	return u, nil
 }
 
 type Undertaker struct {
-	lock     sync.Mutex
 	catacomb catacomb.Catacomb
 	config   Config
 
 	callCtx context.ProviderCallContext
-}
-
-func (u *Undertaker) getCallCtx() context.ProviderCallContext {
-	u.lock.Lock()
-	defer u.lock.Unlock()
-	ctx := u.callCtx
-	return ctx
-}
-
-func (u *Undertaker) setCallCtx(ctx context.ProviderCallContext) {
-	u.lock.Lock()
-	defer u.lock.Unlock()
-	u.callCtx = ctx
 }
 
 // Kill is part of the worker.Worker interface.
@@ -114,6 +103,10 @@ func (u *Undertaker) Wait() error {
 
 func (u *Undertaker) run() error {
 	result, err := u.config.Facade.ModelInfo()
+	// If model already gone, exit early.
+	if errors.IsNotFound(err) {
+		return nil
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -121,6 +114,10 @@ func (u *Undertaker) run() error {
 		return errors.Trace(result.Error)
 	}
 	modelInfo := result.Result
+
+	u.config.Logger.Debugf(
+		"destroying model %q with timeout %v, force=%v",
+		modelInfo.Name, modelInfo.DestroyTimeout, modelInfo.ForceDestroyed)
 
 	if modelInfo.Life == life.Alive {
 		return errors.Errorf("model still alive")
@@ -139,9 +136,11 @@ func (u *Undertaker) run() error {
 			return errors.Trace(err)
 		}
 		// Process the dying model. This blocks until the model
-		// is dead or the worker is stopped.
-		if err := u.processDyingModel(); err != nil {
-			return errors.Trace(err)
+		// is dead, the timeout expires, or the worker is stopped.
+		if err := u.processDyingModel(modelInfo.DestroyTimeout); err != nil {
+			if !errors.IsTimeout(err) || !modelInfo.ForceDestroyed {
+				return errors.Trace(err)
+			}
 		}
 	}
 
@@ -156,20 +155,14 @@ func (u *Undertaker) run() error {
 		return nil
 	}
 
-	// Now the model is known to be hosted and dying, we can tidy up any
-	// provider resources it might have used.
-	if err := u.setStatus(
-		status.Destroying, "tearing down cloud environment",
-	); err != nil {
-		return errors.Trace(err)
-	}
-	err = u.config.Destroyer.Destroy(u.getCallCtx())
-	if err != nil {
-		if !modelInfo.ForceDestroyed {
-			return errors.Trace(err)
+	if err := u.destroyEnviron(modelInfo); err != nil {
+		// If forced and destroy timeout is zero, don't exit, continue to remove the model.
+		if !modelInfo.ForceDestroyed || !errors.IsTimeout(err) ||
+			(modelInfo.DestroyTimeout != nil && *modelInfo.DestroyTimeout > 0) {
+			return errors.Annotate(err, "cannot destroy cloud resources")
 		}
-		u.config.Logger.Errorf("error tearing down cloud environment for force-destroyed model %q (%s): %v", modelInfo.GlobalName, modelInfo.UUID, err)
 	}
+
 	// Finally, the model is going to be dead, and be removed.
 	if err := u.config.Facade.RemoveModel(); err != nil {
 		return errors.Annotate(err, "cannot remove model")
@@ -177,11 +170,79 @@ func (u *Undertaker) run() error {
 	return nil
 }
 
+func (u *Undertaker) destroyEnviron(modelInfo params.UndertakerModelInfo) error {
+	timeout := modelInfo.DestroyTimeout
+	if timeout != nil && *timeout == 0 {
+		return errors.Timeoutf("destroy model")
+	}
+	u.config.Logger.Debugf("destroying cloud resources for model %v", modelInfo.Name)
+	// Now the model is known to be hosted and dying, we can tidy up any
+	// provider resources it might have used.
+	if err := u.setStatus(
+		status.Destroying, "tearing down cloud environment",
+	); err != nil {
+		return errors.Trace(err)
+	}
+
+	// We may or may not have been given a timeout to use.
+	var (
+		ctx    stdcontext.Context
+		cancel func()
+	)
+	if timeout != nil {
+		ctx, cancel = stdcontext.WithTimeout(stdcontext.Background(), *timeout)
+	} else {
+		ctx, cancel = stdcontext.WithCancel(stdcontext.Background())
+	}
+	defer cancel()
+	callCtx := common.NewCloudCallContextFunc(u.config.CredentialAPI)(ctx)
+
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- u.config.Destroyer.Destroy(callCtx)
+	}()
+
+	var destroyErr error
+	select {
+	case <-u.catacomb.Dying():
+		return nil
+	case destroyErr = <-errChan:
+	case <-ctx.Done():
+		destroyErr = ctx.Err()
+		if destroyErr == stdcontext.DeadlineExceeded {
+			destroyErr = errors.Timeoutf("destroy model")
+		}
+	}
+	if destroyErr != nil {
+		// If the destroy is forced, log the error and return nil.
+		// However, if the error was a timeout, that error is still returned
+		// so it can be processed by the caller.
+		if modelInfo.ForceDestroyed {
+			u.config.Logger.Errorf(
+				"error tearing down cloud environment for force-destroyed model %q (%s): %v",
+				modelInfo.GlobalName, modelInfo.UUID, destroyErr)
+			if !errors.IsTimeout(destroyErr) {
+				destroyErr = nil
+			}
+		}
+	}
+	return errors.Trace(destroyErr)
+}
+
 func (u *Undertaker) setStatus(modelStatus status.Status, message string) error {
 	return u.config.Facade.SetStatus(modelStatus, message, nil)
 }
 
-func (u *Undertaker) processDyingModel() error {
+func (u *Undertaker) processDyingModel(timeout *time.Duration) error {
+	if timeout != nil && *timeout == 0 {
+		return errors.Timeoutf("process dying model")
+	}
+	// Get the timeout here so tests can manipulate the clock as needed.
+	var timeoutAfter <-chan time.Time
+	if timeout != nil {
+		timeoutAfter = u.config.Clock.After(*timeout)
+	}
+
 	watcher, err := u.config.Facade.WatchModelResources()
 	if err != nil {
 		return errors.Trace(err)
@@ -195,6 +256,8 @@ func (u *Undertaker) processDyingModel() error {
 		select {
 		case <-u.catacomb.Dying():
 			return u.catacomb.ErrDying()
+		case <-timeoutAfter:
+			return errors.Timeoutf("process dying model")
 		case <-watcher.Changes():
 			err := u.config.Facade.ProcessDyingModel()
 			if err == nil {

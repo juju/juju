@@ -1537,13 +1537,13 @@ func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 		Series:       "bionic",
 		Risk:         "beta",
 	}
-	s.fakeAPI.Call("ResolveCharm", curl, origin).Returns(
+	s.fakeAPI.Call("ResolveCharm", curl, origin, false).Returns(
 		curl,
 		origin,
 		[]string{"bionic"}, // Supported series
 		error(nil),
 	)
-	s.fakeAPI.Call("ResolveCharm", curl, originWithSeries).Returns(
+	s.fakeAPI.Call("ResolveCharm", curl, originWithSeries, false).Returns(
 		curl,
 		originWithSeries,
 		[]string{"bionic"}, // Supported series
@@ -2018,7 +2018,7 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, series
 				origin, err := apputils.DeduceOrigin(url, charm.Channel{}, platform)
 				c.Assert(err, jc.ErrorIsNil)
 
-				s.fakeAPI.Call("ResolveCharm", url, origin).Returns(
+				s.fakeAPI.Call("ResolveCharm", url, origin, false).Returns(
 					resolveURL,
 					origin,
 					[]string{series},
@@ -2640,13 +2640,13 @@ func (f *fakeDeployAPI) ModelGet() (map[string]interface{}, error) {
 	return results[0].(map[string]interface{}), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) ResolveCharm(url *charm.URL, preferredChannel commoncharm.Origin) (
+func (f *fakeDeployAPI) ResolveCharm(url *charm.URL, preferredChannel commoncharm.Origin, switchCharm bool) (
 	*charm.URL,
 	commoncharm.Origin,
 	[]string,
 	error,
 ) {
-	results := f.MethodCall(f, "ResolveCharm", url, preferredChannel)
+	results := f.MethodCall(f, "ResolveCharm", url, preferredChannel, switchCharm)
 	if results == nil {
 		if url.Schema == "cs" || url.Schema == "ch" {
 			return nil, commoncharm.Origin{}, nil, errors.Errorf(
@@ -3096,7 +3096,7 @@ func withCharmRepoResolvable(
 				Architecture: arch,
 				Series:       series,
 			}
-			fakeAPI.Call("ResolveCharm", url, origin).Returns(
+			fakeAPI.Call("ResolveCharm", url, origin, false).Returns(
 				&resultURL,
 				origin,
 				[]string{"bionic"}, // Supported series
