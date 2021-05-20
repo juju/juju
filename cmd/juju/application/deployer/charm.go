@@ -492,7 +492,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	// Ensure we save the origin.
-	c.origin = origin
+	c.origin = origin.WithSeries(series)
 
 	// In-order for the url to represent the following updates to the the origin
 	// and machine, we need to ensure that the series is actually correct as
