@@ -218,6 +218,7 @@ func (s *UniterSuite) TestUniterRestartWithCharmDirInvalidThenRecover(c *gc.C) {
 				charm:  1,
 			},
 			waitHooks{"upgrade-charm", "config-changed"},
+			waitHooks{},
 			verifyCharm{revision: 1},
 			verifyRunning{},
 		),
