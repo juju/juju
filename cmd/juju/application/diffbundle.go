@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/bundlechanges/v4"
 	"github.com/juju/charm/v8"
 	"github.com/juju/charmrepo/v6"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
@@ -32,6 +31,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/bundle/changes"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
 )

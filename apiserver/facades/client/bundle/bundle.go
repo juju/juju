@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/bundlechanges/v4"
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v3"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	appFacade "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/bundle/changes"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
