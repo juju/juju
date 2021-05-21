@@ -4,6 +4,7 @@
 package resolver
 
 import (
+	corecharm "github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
 
@@ -44,6 +45,7 @@ type LoopConfig struct {
 	Abort         <-chan struct{}
 	OnIdle        func() error
 	CharmDirGuard fortress.Guard
+	CharmDir      string
 	Logger        Logger
 }
 
@@ -77,7 +79,7 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 
 	// If we're restarting the loop, ensure any pending charm upgrade is run
 	// before continuing.
-	err = checkCharmUpgrade(cfg.Logger, cfg.Watcher.Snapshot(), rf, cfg.Executor)
+	err = checkCharmUpgrade(cfg.Logger, cfg.CharmDir, cfg.Watcher.Snapshot(), rf, cfg.Executor)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -179,7 +181,7 @@ func updateCharmDir(opState operation.State, guard fortress.Guard, abort fortres
 	}
 }
 
-func checkCharmUpgrade(logger Logger, remote remotestate.Snapshot, rf *resolverOpFactory, ex operation.Executor) error {
+func checkCharmUpgrade(logger Logger, charmDir string, remote remotestate.Snapshot, rf *resolverOpFactory, ex operation.Executor) error {
 	// If we restarted due to error with a pending charm upgrade available,
 	// do the upgrade now.  There are cases (lp:1895040) where the error was
 	// caused because not all units were upgraded before relation-created
@@ -197,7 +199,13 @@ func checkCharmUpgrade(logger Logger, remote remotestate.Snapshot, rf *resolverO
 		return nil
 	}
 
-	if *local.CharmURL == *remote.CharmURL {
+	_, err := corecharm.ReadCharmDir(charmDir)
+	haveCharmDir := err == nil
+	if !haveCharmDir {
+		logger.Debugf("start to re-download charm %v because charm dir %q has gone which is usually caused by operator pod re-scheduling", remote.CharmURL, charmDir)
+	}
+
+	if haveCharmDir && *local.CharmURL == *remote.CharmURL || remote.CharmURL == nil {
 		return nil
 	}
 

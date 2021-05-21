@@ -508,6 +508,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				Abort:         u.catacomb.Dying(),
 				OnIdle:        onIdle,
 				CharmDirGuard: u.charmDirGuard,
+				CharmDir:      u.paths.State.CharmDir,
 				Logger:        u.logger.Child("resolver"),
 			}, &localState)
 
@@ -642,22 +643,6 @@ func (u *Uniter) charmState() (bool, *corecharm.URL, int, error) {
 	app, err := u.unit.Application()
 	if err != nil {
 		return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
-	}
-
-	if _, err := corecharm.ReadCharmDir(u.paths.State.CharmDir); err != nil {
-		// use appCharmURL to avoid double upgrade.
-		appCharmURL, _, err := app.CharmURL()
-		if err != nil {
-			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
-		}
-		u.logger.Debugf("start to re-download charm because charm dir has gone which is usually caused by operator pod re-scheduling")
-		op, err := u.operationFactory.NewUpgrade(appCharmURL)
-		if err != nil {
-			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
-		}
-		if err := u.operationExecutor.Run(op, nil); err != nil {
-			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
-		}
 	}
 
 	// TODO (hml) 25-09-2020 - investigate
