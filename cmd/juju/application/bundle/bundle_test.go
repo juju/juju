@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application/bundle/mocks"
-	"github.com/juju/juju/core/bundle/changes"
+	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 )

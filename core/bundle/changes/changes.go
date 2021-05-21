@@ -477,7 +477,7 @@ type AddRelationParams struct {
 	Endpoint1 string `json:"endpoint1"`
 	Endpoint2 string `json:"endpoint2"`
 
-	// These values are always refering to application names.
+	// These values are always referring to application names.
 	applicationEndpoint1 string
 	applicationEndpoint2 string
 }

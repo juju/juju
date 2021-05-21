@@ -18,7 +18,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/bundle/changes"
+	bundlechanges "github.com/juju/juju/core/bundle/changes"
 )
 
 type changesSuite struct {
@@ -375,7 +375,7 @@ applications:
 	// added to the model.
 	deployedModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
-			"apache2": &bundlechanges.Application{
+			"apache2": {
 				Name:  "apache-2",
 				Charm: "cs:apache2-26",
 			},

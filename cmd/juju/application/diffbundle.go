@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/bundle/changes"
+	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
 )

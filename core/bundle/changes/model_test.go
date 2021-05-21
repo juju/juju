@@ -71,7 +71,7 @@ func (*modelSuite) TestHasRelation(c *gc.C) {
 func (*modelSuite) TestUnitMachinesWithoutAppSourceNoTarget(c *gc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
-			"django": &Application{
+			"django": {
 				Units: []Unit{
 					{"django/0", "0"},
 					{"django/1", "10"},
@@ -88,14 +88,14 @@ func (*modelSuite) TestUnitMachinesWithoutAppSourceNoTarget(c *gc.C) {
 func (*modelSuite) TestUnitMachinesWithoutAppSourceAllTarget(c *gc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
-			"django": &Application{
+			"django": {
 				Units: []Unit{
 					{"django/0", "0"},
 					{"django/1", "1"},
 					{"django/2", "2"},
 				},
 			},
-			"nginx": &Application{
+			"nginx": {
 				Units: []Unit{
 					{"nginx/0", "0"},
 					{"nginx/1", "1"},
@@ -113,12 +113,12 @@ func (*modelSuite) TestUnitMachinesWithoutAppSourceAllTarget(c *gc.C) {
 func (*modelSuite) TestMachineHasApp(c *gc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
-			"django": &Application{
+			"django": {
 				Units: []Unit{
 					{"django/0", "0"},
 				},
 			},
-			"nginx": &Application{
+			"nginx": {
 				Units: []Unit{
 					{"nginx/0", "0/lxd/3"},
 					{"nginx/2", "2/kvm/2"},
@@ -142,14 +142,14 @@ func (*modelSuite) TestMachineHasApp(c *gc.C) {
 func (*modelSuite) TestUnsatisfiedMachineAndUnitPlacement(c *gc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
-			"django": &Application{
+			"django": {
 				Units: []Unit{
 					{"django/0", "0/lxd/0"},
 					{"django/1", "1/lxd/0"},
 					{"django/2", "2/lxd/0"},
 				},
 			},
-			"nginx": &Application{
+			"nginx": {
 				Units: []Unit{
 					{"nginx/0", "0"},
 					{"nginx/2", "2"},
@@ -186,14 +186,14 @@ func (*modelSuite) TestUnsatisfiedMachineAndUnitPlacement(c *gc.C) {
 func (*modelSuite) TestUnitMachinesWithoutAppSourceSomeTarget(c *gc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
-			"django": &Application{
+			"django": {
 				Units: []Unit{
 					{"django/0", "0"},
 					{"django/1", "1"},
 					{"django/2", "2"},
 				},
 			},
-			"nginx": &Application{
+			"nginx": {
 				Units: []Unit{
 					{"nginx/0", "0"},
 					{"nginx/2", "2/lxd/0"},
@@ -211,7 +211,7 @@ func (*modelSuite) TestUnitMachinesWithoutAppSourceSomeTarget(c *gc.C) {
 func (*modelSuite) TestUnitMachinesWithoutAppSourceSomeTargetContainer(c *gc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
-			"django": &Application{
+			"django": {
 				Units: []Unit{
 					{"django/0", "0"},
 					{"django/1", "1"},
@@ -221,7 +221,7 @@ func (*modelSuite) TestUnitMachinesWithoutAppSourceSomeTargetContainer(c *gc.C) 
 					{"django/5", "4"}, // Yes also on machine 4.
 				},
 			},
-			"nginx": &Application{
+			"nginx": {
 				Units: []Unit{
 					{"nginx/0", "0"},
 					{"nginx/1", "1/lxd/3"},
@@ -241,7 +241,7 @@ func (*modelSuite) TestUnitMachinesWithoutAppSourceSomeTargetContainer(c *gc.C) 
 func (*modelSuite) TestBundleMachineMapped(c *gc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
-			"mysql": &Application{
+			"mysql": {
 				Charm: "cs:mysql",
 				Units: []Unit{
 					{"mysql/0", "0/lxd/0"},
@@ -251,7 +251,7 @@ func (*modelSuite) TestBundleMachineMapped(c *gc.C) {
 		Machines: map[string]*Machine{
 			// We don't actually look at the content of the machines
 			// for this test, just the keys.
-			"0": nil, "0/lxd/0": nil, "2": &Machine{ID: "2"},
+			"0": nil, "0/lxd/0": nil, "2": {ID: "2"},
 		},
 		MachineMap: map[string]string{
 			"0": "2", // 0 in bundle is machine 2 in existing.
@@ -265,7 +265,7 @@ func (*modelSuite) TestBundleMachineMapped(c *gc.C) {
 func (*modelSuite) TestBundleMachineNotMapped(c *gc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
-			"mysql": &Application{
+			"mysql": {
 				Charm: "cs:mysql",
 				Units: []Unit{
 					{"mysql/0", "0/lxd/0"},
@@ -275,7 +275,7 @@ func (*modelSuite) TestBundleMachineNotMapped(c *gc.C) {
 		Machines: map[string]*Machine{
 			// We don't actually look at the content of the machines
 			// for this test, just the keys.
-			"0": nil, "0/lxd/0": nil, "2": &Machine{ID: "2"},
+			"0": nil, "0/lxd/0": nil, "2": {ID: "2"},
 		},
 	}
 	machine := model.BundleMachine("0")
@@ -346,7 +346,7 @@ func (s *inferMachineMapSuite) TestInferMachineMapPartial(c *gc.C) {
 	}
 	model := &Model{
 		Applications: map[string]*Application{
-			"django": &Application{
+			"django": {
 				Units: []Unit{
 					{"django/0", "1"},
 					{"django/1", "2"},
@@ -369,7 +369,7 @@ func (s *inferMachineMapSuite) TestInferMachineMapPartial(c *gc.C) {
 func (s *inferMachineMapSuite) TestInferMachineMapDeployedUnits(c *gc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
-			"django": &Application{
+			"django": {
 				Units: []Unit{
 					{"django/0", "0"},
 					{"django/1", "1"},
@@ -404,7 +404,7 @@ func (s *inferMachineMapSuite) TestOffest(c *gc.C) {
 `)
 	model := &Model{
 		Applications: map[string]*Application{
-			"django": &Application{
+			"django": {
 				Units: []Unit{
 					{"django/0", "0"},
 					{"django/1", "1"},
@@ -467,7 +467,7 @@ func (s *inferMachineMapSuite) TestBundleMachinesDeterminism(c *gc.C) {
 `)
 	model := &Model{
 		Applications: map[string]*Application{
-			"ubuntu": &Application{
+			"ubuntu": {
 				Units: []Unit{
 					{"ubuntu/0", "0"},
 					{"ubuntu/1", "1"},
@@ -477,7 +477,7 @@ func (s *inferMachineMapSuite) TestBundleMachinesDeterminism(c *gc.C) {
 					{"ubuntu/5", "12"},
 				},
 			},
-			"memcached": &Application{
+			"memcached": {
 				Units: []Unit{
 					{"memcached/0", "10"},
 					{"memcached/1", "11"},
@@ -486,12 +486,12 @@ func (s *inferMachineMapSuite) TestBundleMachinesDeterminism(c *gc.C) {
 			},
 		},
 		Machines: map[string]*Machine{
-			"0":  &Machine{ID: "0"},
-			"1":  &Machine{ID: "1"},
-			"2":  &Machine{ID: "2"},
-			"10": &Machine{ID: "10"},
-			"11": &Machine{ID: "11"},
-			"12": &Machine{ID: "12"},
+			"0":  {ID: "0"},
+			"1":  {ID: "1"},
+			"2":  {ID: "2"},
+			"10": {ID: "10"},
+			"11": {ID: "11"},
+			"12": {ID: "12"},
 		},
 		logger: loggo.GetLogger("bundlechanges"),
 	}

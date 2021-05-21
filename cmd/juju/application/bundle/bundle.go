@@ -13,7 +13,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/bundle/changes"
+	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"

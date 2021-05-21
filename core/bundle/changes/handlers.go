@@ -662,7 +662,7 @@ func (p *unitProcessor) placeUnitsForApplication(name string, application *charm
 		case placement.Application != "" && placement.Unit == -1:
 			// This is also fine.
 		default:
-			// Default to empty placement, because targetting a
+			// Default to empty placement, because targeting a
 			// specific machine or specific unit for multiple placed
 			// units doesn't really make sense.
 			lastPlacement = ""
