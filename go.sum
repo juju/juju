@@ -232,9 +232,8 @@ github.com/go-openapi/validate v0.19.2/go.mod h1:1tRCw7m3jtI8eNWEEliiAqUIcBztB2K
 github.com/go-openapi/validate v0.19.5/go.mod h1:8DJv2CVJQ6kGNpFW6eV9N3JviE1C85nY1c2z52x1Gk4=
 github.com/go-sql-driver/mysql v1.5.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
 github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/melR3HDY=
+github.com/gobwas/glob v0.2.3 h1:A4xDbljILXROh+kObIiy5kIaPYD8e96x1tgBhUI5J+Y=
 github.com/gobwas/glob v0.2.3/go.mod h1:d3Ez4x06l9bZtSvzIay5+Yzi0fmZzPgnTbPcKjJAkT8=
-github.com/gobwas/glob v0.2.4-0.20181002190808-e7a84e9525fe h1:zn8tqiUbec4wR94o7Qj3LZCAT6uGobhEgnDRg6isG5U=
-github.com/gobwas/glob v0.2.4-0.20181002190808-e7a84e9525fe/go.mod h1:d3Ez4x06l9bZtSvzIay5+Yzi0fmZzPgnTbPcKjJAkT8=
 github.com/godbus/dbus/v5 v5.0.3 h1:ZqHaoEF7TBzh4jzPmqVhE/5A1z9of6orkAe5uHoAeME=
 github.com/godbus/dbus/v5 v5.0.3/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
 github.com/gofrs/uuid v3.2.0+incompatible h1:y12jRkkFxsd7GpqdSZ+/KCs/fJbqpEXSGd4+jfEaewE=
@@ -358,15 +357,10 @@ github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a h1:FaWFmfWdAUKbSCtOU
 github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a/go.mod h1:UJSiEoRfvx3hP73CvoARgeLjaIOjybY9vj8PUPPFGeU=
 github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7 h1:zEIYPqGRtR6R2SNza8f74Wr+7/pkubE8mKAlnXIXdnI=
 github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7/go.mod h1:GFZ3KcDmWTesil7L3nuSsN5aeGZuL2pNdUoGWswDTgM=
-github.com/juju/bundlechanges/v4 v4.0.0-20210223105356-e3037fe2412c h1:j/fq5b7yRcBuhWt6ltScogsh/4+xFOy/R5U+J83NvQ4=
-github.com/juju/bundlechanges/v4 v4.0.0-20210223105356-e3037fe2412c/go.mod h1:J4ERN6z0gqR0VXtVlZD+DVJoh1aUd4XbL/F/AJFBZbM=
-github.com/juju/charm/v8 v8.0.0-20201117030444-62c13a9fe0f0/go.mod h1:3gMi15p+v4CxEquVduhcOoPLWM7IaRB+OZB6bT3Glww=
-github.com/juju/charm/v8 v8.0.0-20210115142305-1eb0c22cff4e/go.mod h1:3gMi15p+v4CxEquVduhcOoPLWM7IaRB+OZB6bT3Glww=
 github.com/juju/charm/v8 v8.0.0-20210304015923-e7ca8ffa7716/go.mod h1:fAs/8HQjkAuVkhEyE//h1O3qxB/4Nv3w5zFK6tNZNEY=
 github.com/juju/charm/v8 v8.0.0-20210510114941-82380ab895dc h1:17wwckkCpc8ajztV49nTN2Y/LI19CRucEf2ELG88nG0=
 github.com/juju/charm/v8 v8.0.0-20210510114941-82380ab895dc/go.mod h1:W5J2j7v5aAbOVqep8NFysd+p/sShXFqLraG4A6iOzDM=
 github.com/juju/charm/v9 v9.0.0-20210421060150-6a300db18162/go.mod h1:GR/jjdIQ0V9Yss8krrfqy3rRKJabbvDOXXRjfO+110M=
-github.com/juju/charmrepo/v6 v6.0.0-20201118043529-e9fbdc1a746f/go.mod h1:4V0vrJRD/0oxG+D9j/53elHpXiZ1FoBIXdJGm3Jq4Js=
 github.com/juju/charmrepo/v6 v6.0.0-20210422125831-407c8ef9471c h1:+p8LWnIJCzmptGw1Tz7mb0EtOjMEZUHARbnW5vI1oSI=
 github.com/juju/charmrepo/v6 v6.0.0-20210422125831-407c8ef9471c/go.mod h1:okPBT5bIwu7M231F/eThmf7uT+ct8OATcAhU7tTOpqs=
 github.com/juju/clock v0.0.0-20180524022203-d293bb356ca4/go.mod h1:nD0vlnrUjcjJhqN5WuCWZyzfd5AHZAC9/ajvbSx69xA=
@@ -453,7 +447,6 @@ github.com/juju/packaging v0.0.0-20200421095529-970596d2622a h1:dMBYD9gIFbskcksH
 github.com/juju/packaging v0.0.0-20200421095529-970596d2622a/go.mod h1:Brg98KsCnaxL6UxQ4pbVFlT4MoQO7x0kSzwnuvRbUy8=
 github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93 h1:nlmpG1/Pv5elsi69wXhLkBhefGPE19bOCJ/xVwovl7A=
 github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93/go.mod h1:zrbmo4nBKaiP/Ez3F67ewkMbzGYfXyMvRtbOfuAwG0w=
-github.com/juju/postgrestest v1.0.1/go.mod h1:/n17Y2T6iFozzXwSCO0JYJ5gSiz2caEtSwAjh/uLXDM=
 github.com/juju/postgrestest v1.1.0/go.mod h1:/n17Y2T6iFozzXwSCO0JYJ5gSiz2caEtSwAjh/uLXDM=
 github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4 h1:y2eoq0Uof/dWLAXRyKKGOJuF0TEkauPscQI7Q1XQqvM=
 github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4/go.mod h1:8eZt3fxDIlRXkEkf4N4PCNSZzryF6NxULBg07OjDofA=
@@ -924,7 +917,6 @@ golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd/go.mod h1:h1NjWce9XRLGQEsW7w
 golang.org/x/sys v0.0.0-20200331124033-c3d80250170d/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200519105757-fe76b779f299/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200615200032-f1bc736245b1/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
-golang.org/x/sys v0.0.0-20200817085935-3ff754bf58a9/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20201112073958-5cba982894dd/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20201119102817-f84b799fce68/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
@@ -1106,14 +1098,10 @@ gopkg.in/juju/names.v2 v2.0.0-20170814040430-73ecf03dfbe6/go.mod h1:XXa/v5qG1IsS
 gopkg.in/juju/names.v2 v2.0.0-20180621093930-fd59336b4621/go.mod h1:XXa/v5qG1IsStRg5KTE8JkDMndoDMOKH1YYw0jSUWaM=
 gopkg.in/juju/names.v2 v2.0.0-20190813004204-e057c73bd1be h1:xDxN+Fe8olIH8sTqvFJBMsuflBYzeHVeYC4Iz97+f5M=
 gopkg.in/juju/names.v2 v2.0.0-20190813004204-e057c73bd1be/go.mod h1:XXa/v5qG1IsStRg5KTE8JkDMndoDMOKH1YYw0jSUWaM=
-gopkg.in/juju/names.v3 v3.0.0-20191210002836-39289f373765/go.mod h1:BUnvpShrNFWsLV3tpb4UwtkDLlAzE2egyY49YS5HHW8=
 gopkg.in/juju/worker.v1 v1.0.0-20170308002458-6965b9d82671/go.mod h1:qrHtdkZtlLoAWF0wb7YwrREeiitm5EzizN0MmIbAFxA=
-gopkg.in/macaroon-bakery.v2 v2.0.0-20180423133735-a0743b6619d6/go.mod h1:B4/T17l+ZWGwxFSZQmlBwp25x+og7OkhETfr3S9MbIA=
-gopkg.in/macaroon-bakery.v2 v2.1.1-0.20190613120608-6734dc66fe81/go.mod h1:spseVueSWYSqcNJJ3cR/44ZwOk0Hb9rm5Gyo9B8isqg=
 gopkg.in/macaroon-bakery.v2 v2.3.0 h1:b40knPgPTke1QLTE8BSYeH7+R/hiIozB1A8CTLYN0Ic=
 gopkg.in/macaroon-bakery.v2 v2.3.0/go.mod h1:/8YhtPARXeRzbpEPLmRB66+gQE8/pzBBkWwg7Vz/guc=
 gopkg.in/macaroon-bakery.v2-unstable v2.0.0-20160623142747-5a131df02b23/go.mod h1:53bMIZyOgPepp72UGm3VktAilV+WdJdp6EdCx27mNy4=
-gopkg.in/macaroon.v2 v2.0.0/go.mod h1:+I6LnTMkm/uV5ew/0nsulNjL16SK4+C8yDmRUzHR17I=
 gopkg.in/macaroon.v2 v2.1.0 h1:HZcsjBCzq9t0eBPMKqTN/uSN6JOm78ZJ2INbqcBQOUI=
 gopkg.in/macaroon.v2 v2.1.0/go.mod h1:OUb+TQP/OP0WOerC2Jp/3CwhIKyIa9kQjuc7H24e6/o=
 gopkg.in/macaroon.v2-unstable v2.0.0-20180309131217-66ab28d0d56f/go.mod h1:is/o1iMtbJ8TwBvtmV/w/HLJ8r8DcuBqlU2cdi+80OI=
