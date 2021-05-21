@@ -236,7 +236,7 @@ func (s *charmHubRepositoriesSuite) TestResolveRevisionNotFoundErrorWithNoSeries
 
 	resolver := &chRepo{client: s.client}
 	_, _, _, err := resolver.ResolveWithPreferredChannel(curl, origin)
-	c.Assert(err, gc.ErrorMatches, `refresh: no charm or bundle matching channel or platform; suggestions: stable with focal`)
+	c.Assert(err, gc.ErrorMatches, `resolving with preferred channel: selecting releases: no charm or bundle matching channel or platform; suggestions: stable with focal`)
 }
 
 func (s *charmHubRepositoriesSuite) TestResolveRevisionNotFoundError(c *gc.C) {
@@ -715,8 +715,9 @@ type selectReleaseByChannelSuite struct {
 var _ = gc.Suite(&selectReleaseByChannelSuite{})
 
 func (selectReleaseByChannelSuite) TestNoReleases(c *gc.C) {
-	_, err := selectReleaseByArchAndChannel([]transport.Release{}, corecharm.Origin{})
-	c.Assert(err, gc.ErrorMatches, `release not found`)
+	release, err := selectReleaseByArchAndChannel([]transport.Release{}, corecharm.Origin{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(release, gc.DeepEquals, []corecharm.Platform(nil))
 }
 
 func (selectReleaseByChannelSuite) TestInvalidChannel(c *gc.C) {
