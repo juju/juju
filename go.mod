@@ -145,6 +145,8 @@ replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0
 
 replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5
 
+replace github.com/canonical/pebble => github.com/benhoyt/pebble v0.0.0-20210521043823-48d13055770d
+
 replace (
 	k8s.io/api v0.0.0 => k8s.io/api v0.19.6
 	k8s.io/apiextensions-apiserver v0.0.0 => k8s.io/apiextensions-apiserver v0.19.6
