@@ -560,13 +560,13 @@ var _ = gc.Suite(&selectNextBaseSuite{})
 
 func (selectNextBaseSuite) TestSelectNextBaseWithNoBases(c *gc.C) {
 	repo := &chRepo{}
-	_, err := repo.selectNextBase(nil, corecharm.Origin{})
+	_, err := repo.selectNextBases(nil, corecharm.Origin{})
 	c.Assert(err, gc.ErrorMatches, `no bases available`)
 }
 
 func (selectNextBaseSuite) TestSelectNextBaseWithInvalidBases(c *gc.C) {
 	repo := &chRepo{}
-	_, err := repo.selectNextBase([]transport.Base{{
+	_, err := repo.selectNextBases([]transport.Base{{
 		Architecture: "all",
 	}}, corecharm.Origin{
 		Platform: corecharm.Platform{
@@ -578,7 +578,7 @@ func (selectNextBaseSuite) TestSelectNextBaseWithInvalidBases(c *gc.C) {
 
 func (selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *gc.C) {
 	repo := &chRepo{}
-	_, err := repo.selectNextBase([]transport.Base{{
+	_, err := repo.selectNextBases([]transport.Base{{
 		Architecture: "amd64",
 	}}, corecharm.Origin{
 		Platform: corecharm.Platform{
@@ -590,7 +590,7 @@ func (selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *gc.C) {
 
 func (selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *gc.C) {
 	repo := &chRepo{}
-	platform, err := repo.selectNextBase([]transport.Base{{
+	platform, err := repo.selectNextBases([]transport.Base{{
 		Architecture: "amd64",
 		Name:         "ubuntu",
 		Channel:      "20.04",

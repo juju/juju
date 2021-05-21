@@ -170,14 +170,14 @@ func (c *chRepo) retryResolveWithPreferredChannel(curl *charm.URL, origin corech
 	case transport.ErrorCodeInvalidCharmPlatform, transport.ErrorCodeInvalidCharmBase:
 		logger.Tracef("Invalid charm platform %q %v - Default Base: %v", curl, origin, resErr.Extra.DefaultBases)
 
-		if bases, err = c.selectNextBase(resErr.Extra.DefaultBases, origin); err != nil {
+		if bases, err = c.selectNextBases(resErr.Extra.DefaultBases, origin); err != nil {
 			return nil, errors.Annotatef(err, "selecting next bases")
 		}
 
 	case transport.ErrorCodeRevisionNotFound:
 		logger.Tracef("Revision not found %q %v - Releases: %v", curl, origin, resErr.Extra.Releases)
 
-		if bases, err = c.selectNextReleases(resErr.Extra.Releases, origin); err != nil {
+		if bases, err = c.selectNextBasesFromReleases(resErr.Extra.Releases, origin); err != nil {
 			return nil, errors.Annotatef(err, "selecting releases")
 		}
 
@@ -306,7 +306,7 @@ func (c *chRepo) refreshOne(curl *charm.URL, origin corecharm.Origin) (transport
 	return result[0], nil
 }
 
-func (c *chRepo) selectNextBase(bases []transport.Base, origin corecharm.Origin) ([]corecharm.Platform, error) {
+func (c *chRepo) selectNextBases(bases []transport.Base, origin corecharm.Origin) ([]corecharm.Platform, error) {
 	if len(bases) == 0 {
 		return nil, errors.Errorf("no bases available")
 	}
@@ -347,7 +347,7 @@ func (c *chRepo) selectNextBase(bases []transport.Base, origin corecharm.Origin)
 	return results, nil
 }
 
-func (c *chRepo) selectNextReleases(releases []transport.Release, origin corecharm.Origin) ([]corecharm.Platform, error) {
+func (c *chRepo) selectNextBasesFromReleases(releases []transport.Release, origin corecharm.Origin) ([]corecharm.Platform, error) {
 	if len(releases) == 0 {
 		return nil, errors.Errorf("no releases available")
 	}
