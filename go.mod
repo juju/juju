@@ -15,7 +15,7 @@ require (
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
 	github.com/aws/aws-sdk-go v1.29.8
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/canonical/pebble v0.0.0-20210418225304-713a473474b7
+	github.com/canonical/pebble v0.0.0-20210523225630-645d2ba3f000
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
@@ -144,8 +144,6 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml v0.0.0-20200420012109-12a32b78d
 replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0.0.0-20141228071148-145fabdb1ab7
 
 replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5
-
-replace github.com/canonical/pebble => github.com/benhoyt/pebble v0.0.0-20210521043823-48d13055770d
 
 replace (
 	k8s.io/api v0.0.0 => k8s.io/api v0.19.6
