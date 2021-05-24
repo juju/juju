@@ -62,64 +62,35 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin corecharm.O
 
 	input := origin
 
+	// First attempt to find the charm based on the only input provided.
 	res, err := c.refreshOne(curl, input)
 	if err != nil {
-		return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "refresh")
+		return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "resolving with preferred channel")
 	}
 
-	if resErr := res.Error; resErr != nil {
-		switch resErr.Code {
-		case transport.ErrorCodeInvalidCharmPlatform, transport.ErrorCodeInvalidCharmBase:
-			logger.Tracef("Invalid charm platform %q %v - Default Base: %v", curl, origin, resErr.Extra.DefaultBases)
-			platform, err := c.selectNextBase(resErr.Extra.DefaultBases, origin)
-			if err != nil {
-				return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "refresh")
-			}
-
-			p := input.Platform
-			p.OS = platform.OS
-			p.Series = platform.Series
-
-			input.Platform = p
-
-			// Fill these back on the origin, so that we can fix the issue of
-			// bundles passing back "all" on the response type.
-			origin.Platform.OS = platform.OS
-			origin.Platform.Series = platform.Series
-
-		case transport.ErrorCodeRevisionNotFound:
-			logger.Tracef("Revision not found %q %v - Default Base: %v", curl, origin, resErr.Extra.Releases)
-			release, err := c.selectNextRelease(resErr.Extra.Releases, origin)
-			if err != nil {
-				return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "refresh")
-			}
-
-			p := input.Platform
-			p.OS = release.OS
-			p.Series = release.Series
-
-			input.Platform = p
-
-			// Fill these back on the origin, so that we can fix the issue of
-			// bundles passing back "all" on the response type.
-			origin.Platform.OS = release.OS
-			origin.Platform.Series = release.Series
-
-		default:
-			return nil, corecharm.Origin{}, nil, errors.Errorf("refresh error: %s", resErr.Message)
-		}
-		if origin.Platform.Series == "" {
-			return nil, corecharm.Origin{}, nil, errors.NotValidf("series for %s", curl.Name)
-		}
-
-		logger.Tracef("Refresh again with %q %v", curl, input)
-		res, err = c.refreshOne(curl, input)
+	// resolvableBases holds a slice of supported bases from the subsequent
+	// refresh API call. The bases can inform the consumer of the API about what
+	// they can also install *IF* the retry resolution uses a base that doesn't
+	// match their requirements. This can happen in the client if the series
+	// selection also wants to consider model-config default-series after the
+	// call.
+	var resolvableBases []corecharm.Platform
+	if res.Error != nil {
+		retryResult, err := c.retryResolveWithPreferredChannel(curl, input, res.Error)
 		if err != nil {
-			return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "refresh retry")
+			return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "resolving with preferred channel")
 		}
-		if resErr := res.Error; resErr != nil {
-			return nil, corecharm.Origin{}, nil, errors.Errorf("refresh retry: %s", resErr.Message)
-		}
+
+		res = retryResult.refreshResponse
+		resolvableBases = retryResult.bases
+		input = retryResult.origin
+
+		// Fill these back on the origin, so that we can fix the issue of
+		// bundles passing back "all" on the response type.
+		// Note: we can be sure these have at least one, because of the
+		// validation logic in retry method.
+		origin.Platform.OS = resolvableBases[0].OS
+		origin.Platform.Series = resolvableBases[0].Series
 	}
 
 	// Use the channel that was actually picked by the API. This should
@@ -129,25 +100,23 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin corecharm.O
 		return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "invalid channel")
 	}
 
-	entity := res.Entity
-
 	// Ensure we send the updated curl back, with all the correct segments.
-	revision := entity.Revision
+	revision := res.Entity.Revision
 	resCurl := curl.
 		WithSeries(input.Platform.Series).
 		WithArchitecture(input.Platform.Architecture).
 		WithRevision(revision)
 
-	// Create a resolved origin.  Keep the original values for ID and Hash, if any
-	// were passed in.  ResolveWithPreferredChannel is called for both charms to be
-	// deployed, and charms which are being upgraded.  Only charms being upgraded
-	// will have an ID and Hash.  Those values should only ever be updated in
-	// chRepro FindDownloadURL.
+	// Create a resolved origin.  Keep the original values for ID and Hash, if
+	// any were passed in.  ResolveWithPreferredChannel is called for both
+	// charms to be deployed, and charms which are being upgraded.
+	// Only charms being upgraded will have an ID and Hash. Those values should
+	// only ever be updated in FindDownloadURL.
 	resOrigin := corecharm.Origin{
 		Source:   origin.Source,
 		ID:       origin.ID,
 		Hash:     origin.Hash,
-		Type:     string(entity.Type),
+		Type:     string(res.Entity.Type),
 		Channel:  &channel,
 		Revision: &revision,
 		Platform: input.Platform,
@@ -158,7 +127,92 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin corecharm.O
 		return nil, corecharm.Origin{}, nil, errors.Trace(err)
 	}
 	logger.Tracef("Resolved CharmHub charm %q with origin %v", resCurl, outputOrigin)
-	return resCurl, outputOrigin, []string{outputOrigin.Platform.Series}, nil
+
+	// If the callee of the API defines a series and that series is pick and
+	// identified as being selected (think `juju deploy --series`) then we will
+	// never have to retry. The API will never give us back any other supported
+	// series, so we can just pass back what the callee requested.
+	// This is the happy path for resolving a charm.
+	//
+	// Unfortunately, most deployments will not pass a series flag, so we will
+	// have to ask the API to give us back a potential base. The supported
+	// bases can be passed back as a slice of supported series. The callee can
+	// then determine which base they want to use and deploy that accordingly,
+	// without another API request.
+	supportedSeries := []string{
+		outputOrigin.Platform.Series,
+	}
+	if len(resolvableBases) > 0 {
+		supportedSeries = make([]string, len(resolvableBases))
+		for k, base := range resolvableBases {
+			supportedSeries[k] = base.Series
+		}
+	}
+
+	return resCurl, outputOrigin, supportedSeries, nil
+}
+
+type retryResolveResult struct {
+	refreshResponse transport.RefreshResponse
+	origin          corecharm.Origin
+	bases           []corecharm.Platform
+}
+
+// retryResolveWithPreferredChannel will attempt to inspect the transport
+// APIError and deterimine if a retry is possible with the information gathered
+// from the error.
+func (c *chRepo) retryResolveWithPreferredChannel(curl *charm.URL, origin corecharm.Origin, resErr *transport.APIError) (*retryResolveResult, error) {
+	var (
+		err   error
+		bases []corecharm.Platform
+	)
+	switch resErr.Code {
+	case transport.ErrorCodeInvalidCharmPlatform, transport.ErrorCodeInvalidCharmBase:
+		logger.Tracef("Invalid charm platform %q %v - Default Base: %v", curl, origin, resErr.Extra.DefaultBases)
+
+		if bases, err = c.selectNextBases(resErr.Extra.DefaultBases, origin); err != nil {
+			return nil, errors.Annotatef(err, "selecting next bases")
+		}
+
+	case transport.ErrorCodeRevisionNotFound:
+		logger.Tracef("Revision not found %q %v - Releases: %v", curl, origin, resErr.Extra.Releases)
+
+		if bases, err = c.selectNextBasesFromReleases(resErr.Extra.Releases, origin); err != nil {
+			return nil, errors.Annotatef(err, "selecting releases")
+		}
+
+	default:
+		return nil, errors.Errorf("resolving error: %s", resErr.Message)
+	}
+
+	if len(bases) == 0 {
+		return nil, errors.Wrap(resErr, errors.Errorf("no channels available for selection"))
+	}
+	base := bases[0]
+
+	p := origin.Platform
+	p.OS = base.OS
+	p.Series = base.Series
+
+	origin.Platform = p
+
+	if origin.Platform.Series == "" {
+		return nil, errors.NotValidf("series for %s", curl.Name)
+	}
+
+	logger.Tracef("Refresh again with %q %v", curl, origin)
+	res, err := c.refreshOne(curl, origin)
+	if err != nil {
+		return nil, errors.Annotatef(err, "retrying")
+	}
+	if resErr := res.Error; resErr != nil {
+		return nil, errors.Errorf("resolving retry error: %s", resErr.Message)
+	}
+	return &retryResolveResult{
+		refreshResponse: res,
+		origin:          origin,
+		bases:           bases,
+	}, nil
 }
 
 // DownloadCharm downloads the provided download URL from CharmHub using the
@@ -252,47 +306,50 @@ func (c *chRepo) refreshOne(curl *charm.URL, origin corecharm.Origin) (transport
 	return result[0], nil
 }
 
-func (c *chRepo) selectNextBase(bases []transport.Base, origin corecharm.Origin) (corecharm.Platform, error) {
+func (c *chRepo) selectNextBases(bases []transport.Base, origin corecharm.Origin) ([]corecharm.Platform, error) {
 	if len(bases) == 0 {
-		return corecharm.Platform{}, errors.Errorf("no bases available")
+		return nil, errors.Errorf("no bases available")
 	}
 	// We've got a invalid charm platform error, the error should contain
 	// a valid platform to query again to get the right information. If
 	// the platform is empty, consider it a failure.
-	var (
-		found bool
-		base  transport.Base
-	)
-	for _, base = range bases {
+	var compatible []transport.Base
+	for _, base := range bases {
 		if base.Architecture != origin.Platform.Architecture {
 			continue
 		}
-		found = true
-		break
+		compatible = append(compatible, base)
 	}
-	if !found {
-		return corecharm.Platform{}, errors.NotFoundf("bases matching architecture %q", origin.Platform.Architecture)
-	}
-
-	track, err := channelTrack(base.Channel)
-	if err != nil {
-		return corecharm.Platform{}, errors.Annotate(err, "base")
-	}
-	series, err := coreseries.VersionSeries(track)
-	if err != nil {
-		return corecharm.Platform{}, errors.Trace(err)
+	if len(compatible) == 0 {
+		return nil, errors.NotFoundf("bases matching architecture %q", origin.Platform.Architecture)
 	}
 
-	return corecharm.Platform{
-		Architecture: base.Architecture,
-		OS:           base.Name,
-		Series:       series,
-	}, nil
+	// Serialize all the platforms into core entities.
+	results := make([]corecharm.Platform, len(compatible))
+	for k, base := range compatible {
+		track, err := channelTrack(base.Channel)
+		if err != nil {
+			return nil, errors.Annotate(err, "base")
+		}
+		series, err := coreseries.VersionSeries(track)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		results[k] = corecharm.Platform{
+			Architecture: base.Architecture,
+			OS:           base.Name,
+			Series:       series,
+		}
+
+	}
+
+	return results, nil
 }
 
-func (c *chRepo) selectNextRelease(releases []transport.Release, origin corecharm.Origin) (Release, error) {
+func (c *chRepo) selectNextBasesFromReleases(releases []transport.Release, origin corecharm.Origin) ([]corecharm.Platform, error) {
 	if len(releases) == 0 {
-		return Release{}, errors.Errorf("no releases available")
+		return nil, errors.Errorf("no releases available")
 	}
 	if origin.Platform.Series == "" {
 		// If the origin is empty, then we want to help the user out
@@ -302,7 +359,7 @@ func (c *chRepo) selectNextRelease(releases []transport.Release, origin corechar
 		if len(suggestions) > 0 {
 			s = fmt.Sprintf("; suggestions: %v", strings.Join(suggestions, ", "))
 		}
-		return Release{}, errSelection{
+		return nil, errSelection{
 			err: errors.Errorf("no charm or bundle matching channel or platform%s", s),
 		}
 	}
@@ -458,13 +515,7 @@ func composeSuggestions(releases []transport.Release, origin corecharm.Origin) [
 	return suggestions
 }
 
-// Release represents a release that a charm can be selected from.
-// TODO HML, what if anything to do here?
-type Release struct {
-	OS, Series string
-}
-
-func selectReleaseByArchAndChannel(releases []transport.Release, origin corecharm.Origin) (Release, error) {
+func selectReleaseByArchAndChannel(releases []transport.Release, origin corecharm.Origin) ([]corecharm.Platform, error) {
 	var (
 		empty   = origin.Channel == nil
 		channel charm.Channel
@@ -472,26 +523,28 @@ func selectReleaseByArchAndChannel(releases []transport.Release, origin corechar
 	if !empty {
 		channel = origin.Channel.Normalize()
 	}
+	var results []corecharm.Platform
 	for _, release := range releases {
 		base := release.Base
 
 		arch, os := base.Architecture, base.Name
 		track, err := channelTrack(base.Channel)
 		if err != nil {
-			return Release{}, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		series, err := coreseries.VersionSeries(track)
 		if err != nil {
-			return Release{}, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		if (empty || channel.String() == release.Channel) && (arch == "all" || arch == origin.Platform.Architecture) {
-			return Release{
-				OS:     os,
-				Series: series,
-			}, nil
+			results = append(results, corecharm.Platform{
+				Architecture: origin.Platform.Architecture,
+				OS:           os,
+				Series:       series,
+			})
 		}
 	}
-	return Release{}, errors.NotFoundf("release")
+	return results, nil
 }
 
 func channelTrack(channel string) (string, error) {

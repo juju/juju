@@ -59,7 +59,7 @@ type authContext struct {
 	_macaroonAuthError error
 }
 
-// OpenAuthorizer authorises any login operation presented to it.
+// OpenLoginAuthorizer authorises any login operation presented to it.
 type OpenLoginAuthorizer struct{}
 
 // AuthorizeOps implements OpsAuthorizer.AuthorizeOps.
@@ -158,7 +158,7 @@ func (ctxt *authContext) CheckLocalLoginRequest(ctx context.Context, req *http.R
 	return authentication.CheckLocalLoginRequest(ctx, ctxt.localUserThirdPartyBakery.Checker, req)
 }
 
-// Discharge caveats returns the caveats to add to a login discharge macaroon.
+// DischargeCaveats returns the caveats to add to a login discharge macaroon.
 func (ctxt *authContext) DischargeCaveats(tag names.UserTag) []checkers.Caveat {
 	return authentication.DischargeCaveats(tag, ctxt.clock)
 }

@@ -253,14 +253,6 @@ def parse_args():
                         help="(Relevant for the recovery test only) [default: standard]", default="standard")
     backup.add_argument("--backup", action="store_true", help="Equivalent to --backup-strategy=standard")
     backup.add_argument("--ha-backup", action="store_true", help="Equivalent to --backup-strategy=ha")
-    pass_through.add_argument('--large', '--large-test-enabled', action='store_true', dest="large_test_enabled",
-                              help="Use a large file for testing. (Relevant only with resources test)")
-    pass_through.add_argument('--agent-timeout', metavar="S", type=int, default=1800,
-                              help='The time to wait for agents to start'
-                                   ' (Relevant only with resources test) [default: 1800]')
-    pass_through.add_argument('--resource-timeout', metavar="S", type=int, default=1800,
-                              help='The time to wait for agents to start (Relevant only with resources test) ['
-                                   'default: 1800]')
     pass_through.add_argument("--clean-environment",
                               help="Clean up a the environments between runs, rather than creating one from scratch ("
                                    "Only relevant for spaces_subnets test)",
@@ -521,11 +513,6 @@ def main():
             testrun_argv.extend(["--client-interface", args.client_interface])
         if args.controller_interface:
             testrun_argv.extend(["--controller-interface", args.controller_interface])
-    elif assess == "resources":
-        if args.large_test_enabled:
-            testrun_argv.append("--large-test-enabled")
-        testrun_argv.extend(["--agent-timeout", args.agent_timeout])
-        testrun_argv.extend(["--resource-timeout", args.resource_timeout])
     elif assess == "spaces_subnets":
         if args.clean_environment:
             testrun_argv.append("--clean-environment")

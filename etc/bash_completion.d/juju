@@ -485,7 +485,8 @@ fi
 
 # Select python3, else python2
 export _juju_cmd_PYTHON
-for _juju_cmd_PYTHON in python{3,2};do
+for _python_version in {3,2};do
+  _juju_cmd_PYTHON=$(which python${_python_version})
   [ -x ${_juju_cmd_PYTHON?} ] && break
 done
 
