@@ -79,9 +79,10 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 		// Copy the API info because it's possible that the
 		// apiConfigConnect is still using it concurrently.
 		apiInfo = &api.Info{
-			ModelTag: apiInfo.ModelTag,
-			Addrs:    usableHostPorts(redirErr.Servers).Strings(),
-			CACert:   redirErr.CACert,
+			ModelTag:       apiInfo.ModelTag,
+			Addrs:          usableHostPorts(redirErr.Servers).Strings(),
+			CACert:         redirErr.CACert,
+			ControllerUUID: apiInfo.ControllerUUID,
 		}
 		st, err = args.OpenAPI(apiInfo, args.DialOpts)
 		if err != nil {
@@ -167,8 +168,9 @@ func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.Control
 	}
 
 	apiInfo := &api.Info{
-		Addrs:  controller.APIEndpoints,
-		CACert: controller.CACert,
+		Addrs:          controller.APIEndpoints,
+		CACert:         controller.CACert,
+		ControllerUUID: controller.ControllerUUID,
 	}
 	if args.ModelUUID != "" {
 		apiInfo.ModelTag = names.NewModelTag(args.ModelUUID)

@@ -41,6 +41,9 @@ type Info struct {
 	// Addrs holds the addresses of the controllers.
 	Addrs []string
 
+	// ControllerUUID is the UUID of the controller.
+	ControllerUUID string
+
 	// SNIHostName optionally holds the host name to use for
 	// server name indication (SNI) when connecting
 	// to the addresses in Addrs above. If CACert is non-empty,
