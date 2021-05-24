@@ -61,6 +61,11 @@ func UnderlyingConn(c Connection) jsoncodec.JSONConn {
 	return c.(*state).conn
 }
 
+// CookieURL returns the cookie URL of the connection.
+func CookieURL(c Connection) *url.URL {
+	return c.(*state).cookieURL
+}
+
 // TestingStateParams is the parameters for NewTestingState, so that you can
 // only set the bits that you actually want to test.
 type TestingStateParams struct {

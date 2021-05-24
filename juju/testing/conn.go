@@ -356,6 +356,7 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = "dummy-secret"
+	apiInfo.ControllerUUID = s.ControllerConfig.ControllerUUID()
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.ModelTag = model.ModelTag()

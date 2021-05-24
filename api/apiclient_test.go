@@ -264,6 +264,28 @@ func (s *apiclientSuite) TestOpen(c *gc.C) {
 	remoteVersion, versionSet := st.ServerVersion()
 	c.Assert(versionSet, jc.IsTrue)
 	c.Assert(remoteVersion, gc.Equals, jujuversion.Current)
+
+	c.Assert(api.CookieURL(st).String(), gc.Equals, "https://deadbeef-1bad-500d-9000-4b1d0d06f00d/")
+}
+
+func (s *apiclientSuite) TestOpenCookieURLUsesSNIHost(c *gc.C) {
+	info := s.APIInfo(c)
+	info.SNIHostName = "somehost"
+	st, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	c.Assert(api.CookieURL(st).String(), gc.Equals, "https://somehost/")
+}
+
+func (s *apiclientSuite) TestOpenCookieURLDefaultsToAddress(c *gc.C) {
+	info := s.APIInfo(c)
+	info.ControllerUUID = ""
+	st, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	c.Assert(api.CookieURL(st).String(), gc.Matches, "https://localhost:.*/")
 }
 
 func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
