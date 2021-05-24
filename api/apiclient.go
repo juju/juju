@@ -1312,6 +1312,11 @@ func (s *state) IsProxied() bool {
 	return s.proxier != nil
 }
 
+// Proxy returns the proxy being used with this connection if one is being used.
+func (s *state) Proxy() jujuproxy.Proxier {
+	return s.proxier
+}
+
 // ModelTag implements base.APICaller.ModelTag.
 func (s *state) ModelTag() (names.ModelTag, bool) {
 	return s.modelTag, s.modelTag.Id() != ""

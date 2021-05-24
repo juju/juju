@@ -263,6 +263,11 @@ type Connection interface {
 	// IsProxied returns weather the connection is proxied.
 	IsProxied() bool
 
+	// Proxy returns the Proxier used to establish the connection if one was
+	// used at all. If no Proxier was used then it's expected that returned
+	// Proxier will be nil. Use IsProxied() to test for the presence of a proxy.
+	Proxy() proxy.Proxier
+
 	// PublicDNSName returns the host name for which an officially
 	// signed certificate will be used for TLS connection to the server.
 	// If empty, the private Juju CA certificate must be used to verify

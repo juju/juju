@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
+	"os/signal"
+	"reflect"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -22,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/proxy"
 )
 
 // NewGUICommand creates and returns a new dashboard command.
@@ -109,7 +113,14 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Make 2 GUI URLs to try - the old and the new.
-	addr, ignoreCertError := guiAddr(conn)
+	addr, ignoreCertError, err := guiAddr(conn)
+	if err != nil {
+		return errors.Annotatef(err,
+			"getting dashboard address for controller %q",
+			controllerName,
+		)
+	}
+
 	rawGUIURL := fmt.Sprintf("https://%s/gui/%s/", addr, details.ModelUUID)
 	qualifiedModelName, err := store.QualifiedModelName(controllerName, modelName)
 	if err != nil {
@@ -153,13 +164,29 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 	if err = c.showCredentials(ctx); err != nil {
 		return errors.Trace(err)
 	}
+
+	if !conn.IsProxied() {
+		return nil
+	}
+
+	ctx.Infof("The dashboard connection for controller %q requires a proxied "+
+		"connection. This command will hold the proxy connection open until "+
+		"an interrupt or kill signal is sent.",
+		controllerName,
+	)
+
+	signalCh := make(chan os.Signal)
+	signal.Notify(signalCh, os.Interrupt, os.Kill)
+	waitSig := <-signalCh
+
+	ctx.Infof("Received signal %s, stopping dashboard proxy connection", waitSig)
 	return nil
 }
 
 // guiAddr returns an address where the Dashboard is available.
-func guiAddr(conn api.Connection) (string, bool) {
+func guiAddr(conn api.Connection) (string, bool, error) {
 	if dnsName := conn.PublicDNSName(); dnsName != "" {
-		return dnsName, false
+		return dnsName, false, nil
 	}
 	// The CLI k8s clouds connect via a proxy running on localhost.
 	// The dashboard still needs to go via the controller IP.
@@ -169,18 +196,38 @@ func guiAddr(conn api.Connection) (string, bool) {
 		return host == "localhost" || host == "127.0.0.1" || host == "::1"
 	}
 	addr := conn.Addr()
+	if conn.IsProxied() {
+		var err error
+		addr, err = proxierAddr(conn.Proxy())
+		if err != nil {
+			return "", false, err
+		}
+		return addr, false, nil
+	}
+
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil || !isLocal(host) {
-		return addr, false
+		return addr, false, nil
 	}
 	for _, hps := range conn.APIHostPorts() {
 		for _, hp := range hps {
 			if host := hp.Host(); !isLocal(host) {
-				return hp.String(), true
+				return hp.String(), true, nil
 			}
 		}
 	}
-	return addr, false
+	return addr, false, nil
+}
+
+func proxierAddr(proxier proxy.Proxier) (string, error) {
+	switch p := proxier.(type) {
+	case proxy.TunnelProxier:
+		return fmt.Sprintf("%s:%s", p.Host(), p.Port()), nil
+	default:
+		return "", errors.NotImplementedf(
+			"cannot extract proxy address for proxy type %s",
+			reflect.TypeOf(proxier))
+	}
 }
 
 // checkAvailable ensures the Juju Dashboard/GUI is available on the controller at
