@@ -1224,6 +1224,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				"run",
 				"--create-dirs",
 				"--hold",
+				"--verbose",
 			},
 			Env: []corev1.EnvVar{{
 				Name:  "JUJU_CONTAINER_NAME",
