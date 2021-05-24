@@ -236,7 +236,7 @@ func (s *charmHubRepositoriesSuite) TestResolveRevisionNotFoundErrorWithNoSeries
 
 	resolver := &chRepo{client: s.client}
 	_, _, _, err := resolver.ResolveWithPreferredChannel(curl, origin)
-	c.Assert(err, gc.ErrorMatches, `refresh: no charm or bundle matching channel or platform; suggestions: stable with focal`)
+	c.Assert(err, gc.ErrorMatches, `resolving with preferred channel: selecting releases: no charm or bundle matching channel or platform; suggestions: stable with focal`)
 }
 
 func (s *charmHubRepositoriesSuite) TestResolveRevisionNotFoundError(c *gc.C) {
@@ -560,13 +560,13 @@ var _ = gc.Suite(&selectNextBaseSuite{})
 
 func (selectNextBaseSuite) TestSelectNextBaseWithNoBases(c *gc.C) {
 	repo := &chRepo{}
-	_, err := repo.selectNextBase(nil, corecharm.Origin{})
+	_, err := repo.selectNextBases(nil, corecharm.Origin{})
 	c.Assert(err, gc.ErrorMatches, `no bases available`)
 }
 
 func (selectNextBaseSuite) TestSelectNextBaseWithInvalidBases(c *gc.C) {
 	repo := &chRepo{}
-	_, err := repo.selectNextBase([]transport.Base{{
+	_, err := repo.selectNextBases([]transport.Base{{
 		Architecture: "all",
 	}}, corecharm.Origin{
 		Platform: corecharm.Platform{
@@ -578,7 +578,7 @@ func (selectNextBaseSuite) TestSelectNextBaseWithInvalidBases(c *gc.C) {
 
 func (selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *gc.C) {
 	repo := &chRepo{}
-	_, err := repo.selectNextBase([]transport.Base{{
+	_, err := repo.selectNextBases([]transport.Base{{
 		Architecture: "amd64",
 	}}, corecharm.Origin{
 		Platform: corecharm.Platform{
@@ -590,7 +590,7 @@ func (selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *gc.C) {
 
 func (selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *gc.C) {
 	repo := &chRepo{}
-	platform, err := repo.selectNextBase([]transport.Base{{
+	platform, err := repo.selectNextBases([]transport.Base{{
 		Architecture: "amd64",
 		Name:         "ubuntu",
 		Channel:      "20.04",
@@ -602,11 +602,11 @@ func (selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(platform, gc.DeepEquals, corecharm.Platform{
+	c.Assert(platform, gc.DeepEquals, []corecharm.Platform{{
 		Architecture: "amd64",
 		OS:           "ubuntu",
 		Series:       "focal",
-	})
+	}})
 }
 
 type composeSuggestionsSuite struct {
@@ -715,8 +715,9 @@ type selectReleaseByChannelSuite struct {
 var _ = gc.Suite(&selectReleaseByChannelSuite{})
 
 func (selectReleaseByChannelSuite) TestNoReleases(c *gc.C) {
-	_, err := selectReleaseByArchAndChannel([]transport.Release{}, corecharm.Origin{})
-	c.Assert(err, gc.ErrorMatches, `release not found`)
+	release, err := selectReleaseByArchAndChannel([]transport.Release{}, corecharm.Origin{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(release, gc.DeepEquals, []corecharm.Platform(nil))
 }
 
 func (selectReleaseByChannelSuite) TestInvalidChannel(c *gc.C) {
@@ -748,10 +749,11 @@ func (selectReleaseByChannelSuite) TestSelection(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(release, gc.DeepEquals, Release{
-		OS:     "os",
-		Series: "focal",
-	})
+	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
+		Architecture: "arch",
+		OS:           "os",
+		Series:       "focal",
+	}})
 }
 
 func (selectReleaseByChannelSuite) TestAllSelection(c *gc.C) {
@@ -771,10 +773,61 @@ func (selectReleaseByChannelSuite) TestAllSelection(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(release, gc.DeepEquals, Release{
-		OS:     "os",
-		Series: "xenial",
+	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
+		Architecture: "arch",
+		OS:           "os",
+		Series:       "xenial",
+	}})
+}
+
+func (selectReleaseByChannelSuite) TestMultipleSelectionMultipleReturned(c *gc.C) {
+	release, err := selectReleaseByArchAndChannel([]transport.Release{{
+		Base: transport.Base{
+			Name:         "a",
+			Channel:      "14.04",
+			Architecture: "c",
+		},
+		Channel: "1.0/edge",
+	}, {
+		Base: transport.Base{
+			Name:         "d",
+			Channel:      "16.04",
+			Architecture: "all",
+		},
+		Channel: "2.0/stable",
+	}, {
+		Base: transport.Base{
+			Name:         "f",
+			Channel:      "18.04",
+			Architecture: "h",
+		},
+		Channel: "3.0/stable",
+	}, {
+		Base: transport.Base{
+			Name:         "g",
+			Channel:      "20.04",
+			Architecture: "h",
+		},
+		Channel: "3.0/stable",
+	}}, corecharm.Origin{
+		Platform: corecharm.Platform{
+			Architecture: "h",
+		},
+		Channel: &charm.Channel{
+			Track: "3.0",
+			Risk:  "stable",
+		},
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
+		Architecture: "h",
+		OS:           "f",
+		Series:       "bionic",
+	}, {
+		Architecture: "h",
+		OS:           "g",
+		Series:       "focal",
+	}})
 }
 
 func (selectReleaseByChannelSuite) TestMultipleSelection(c *gc.C) {
@@ -809,10 +862,11 @@ func (selectReleaseByChannelSuite) TestMultipleSelection(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(release, gc.DeepEquals, Release{
-		OS:     "f",
-		Series: "bionic",
-	})
+	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
+		Architecture: "h",
+		OS:           "f",
+		Series:       "bionic",
+	}})
 }
 
 type channelTrackSuite struct {
