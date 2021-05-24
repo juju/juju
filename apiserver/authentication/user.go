@@ -5,6 +5,7 @@ package authentication
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -138,15 +139,16 @@ func CheckLocalLoginRequest(
 	a := auth.Auth(httpbakery.RequestMacaroons(req)...)
 	ai, err := a.Allow(ctx, identchecker.LoginOp)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "local login request failed: %v", req.Header[httpbakery.MacaroonsHeader])
 	}
+	logger.Tracef("authenticated conditions: %v", ai.Conditions())
 	if len(ai.Conditions()) == 0 {
 		return &bakery.VerificationError{Reason: errors.New("no caveats available")}
 	}
 	return errors.Trace(err)
 }
 
-// Discharge caveats returns the caveats to add to a login discharge macaroon.
+// DischargeCaveats returns the caveats to add to a login discharge macaroon.
 func DischargeCaveats(tag names.UserTag, clock clock.Clock) []checkers.Caveat {
 	firstPartyCaveats := []checkers.Caveat{
 		checkers.DeclaredCaveat(usernameKey, tag.Id()),
@@ -159,8 +161,15 @@ func (u *UserAuthenticator) authenticateMacaroons(
 	ctx context.Context, entityFinder EntityFinder, tag names.UserTag, req params.LoginRequest,
 ) (state.Entity, error) {
 	// Check for a valid request macaroon.
+	if logger.IsTraceEnabled() {
+		mac, _ := json.Marshal(req.Macaroons)
+		logger.Tracef("authentication macaroons for %s: %s", tag, mac)
+	}
 	a := u.Bakery.Auth(req.Macaroons...)
 	ai, err := a.Allow(ctx, identchecker.LoginOp)
+	if err == nil {
+		logger.Tracef("authenticated conditions: %v", ai.Conditions())
+	}
 	if err != nil || len(ai.Conditions()) == 0 {
 		logger.Debugf("local-login macaroon authentication failed: %v", err)
 		cause := err

@@ -246,6 +246,15 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		fallback:    http.DefaultTransport,
 	}
 
+	// Prefer the SNI hostname or controller name for the cookie URL
+	// so that it is stable when used with a HA controller cluster.
+	host := info.SNIHostName
+	if host == "" && info.ControllerUUID != "" {
+		host = info.ControllerUUID
+	}
+	if host == "" {
+		host = dialResult.addr
+	}
 	st := &state{
 		ctx:    context.Background(),
 		client: client,
@@ -255,7 +264,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		ipAddr: dialResult.ipAddr,
 		cookieURL: &url.URL{
 			Scheme: "https",
-			Host:   dialResult.addr,
+			Host:   host,
 			Path:   "/",
 		},
 		pingerFacadeVersion: facadeVersions["Pinger"],
