@@ -34,7 +34,8 @@ Examples:
 
 See also:
     add-relation
-    offer`[1:]
+    offer
+    remove-saas`[1:]
 
 // NewConsumeCommand returns a command to add remote offers to
 // the model.
