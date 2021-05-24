@@ -5,10 +5,12 @@ package bakeryutil
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
+	"github.com/juju/loggo"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -57,7 +59,21 @@ func (s *ExpirableStorageBakery) NewMacaroon(ctx context.Context, version bakery
 	return s.Oven.NewMacaroon(ctx, version, caveats, ops...)
 }
 
+var logger = loggo.GetLogger("juju.apiserver.bakery")
+
 // Auth implements MacaroonChecker.Auth.
 func (s *ExpirableStorageBakery) Auth(mss ...macaroon.Slice) *bakery.AuthChecker {
+	if logger.IsTraceEnabled() {
+		ctx := context.Background()
+		for i, ms := range mss {
+			ops, conditions, err := s.Oven.VerifyMacaroon(ctx, ms)
+			if err != nil {
+				mac, _ := json.Marshal(ms)
+				logger.Tracef("verify macaroon err: %v\nfor\n%s", err, mac)
+				continue
+			}
+			logger.Tracef("macaroon %d: %+v : %v", i, ops, conditions)
+		}
+	}
 	return s.Checker.Auth(mss...)
 }
