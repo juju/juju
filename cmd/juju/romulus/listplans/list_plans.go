@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/gosuri/uitable"
+	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -61,7 +62,7 @@ func NewListPlansCommand() modelcmd.ControllerCommand {
 func (c *ListPlansCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "plans",
-		Args:    "",
+		Args:    "<charm-url>",
 		Purpose: "List plans.",
 		Doc:     listPlansDoc,
 		Aliases: []string{"list-plans"},
@@ -71,11 +72,18 @@ func (c *ListPlansCommand) Info() *cmd.Info {
 // Init reads and verifies the cli arguments for the ListPlansCommand
 func (c *ListPlansCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.New("missing arguments")
+		return errors.New("missing charm-store charm URL argument")
 	}
 	charmURL, args := args[0], args[1:]
 	if err := cmd.CheckEmpty(args); err != nil {
 		return errors.Errorf("unknown command line arguments: " + strings.Join(args, ","))
+	}
+	curl, err := charm.ParseURL(charmURL)
+	if err != nil {
+		return errors.Annotatef(err, "unable to parse charm URL")
+	}
+	if !charm.CharmStore.Matches(curl.Schema) {
+		return errors.NotSupportedf("non charm-store URLs")
 	}
 	c.CharmURL = charmURL
 	return c.CommandBase.Init(args)
