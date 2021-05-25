@@ -117,7 +117,7 @@ func (s *DownloadSuite) TestDownloadAndReadWithFailedStatusCode(c *gc.C) {
 
 	client := NewDownloadClient(transport, fileSystem, &FakeLogger{})
 	_, err = client.DownloadAndRead(context.TODO(), serverURL, tmpFile.Name())
-	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": unable to locate archive with status: Internal Server Error`)
+	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": unable to locate archive \(store API responded with status: Internal Server Error\)`)
 }
 
 func (s *DownloadSuite) createCharmArchieve(c *gc.C) []byte {
