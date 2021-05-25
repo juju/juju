@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -473,22 +472,4 @@ type csStateModelShim struct {
 
 func (s csStateModelShim) ModelConfig() (*config.Config, error) {
 	return s.Model.ModelConfig()
-}
-
-// lxdCharmArchiveProfiler massages a *charm.CharmArchive into a LXDProfiler
-// inside of the core package.
-type lxdCharmArchiveProfiler struct {
-	CharmArchive *charm.CharmArchive
-}
-
-// LXDProfile implements core.lxdprofile.LXDProfiler
-func (p lxdCharmArchiveProfiler) LXDProfile() lxdprofile.LXDProfile {
-	if p.CharmArchive == nil {
-		return nil
-	}
-	profile := p.CharmArchive.LXDProfile()
-	if profile == nil {
-		return nil
-	}
-	return profile
 }

@@ -7,13 +7,13 @@ package machinemanager
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
-	v8 "github.com/juju/charm/v8"
+	charm "github.com/juju/charm/v8"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
 	model "github.com/juju/juju/core/model"
 	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
-	v4 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
 	reflect "reflect"
 	time "time"
 )
@@ -242,10 +242,10 @@ func (mr *MockMachineMockRecorder) SetUpgradeSeriesStatus(arg0, arg1 interface{}
 }
 
 // Tag mocks base method
-func (m *MockMachine) Tag() v4.Tag {
+func (m *MockMachine) Tag() names.Tag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(v4.Tag)
+	ret0, _ := ret[0].(names.Tag)
 	return ret0
 }
 
@@ -435,10 +435,10 @@ func (mr *MockUnitMockRecorder) Status() *gomock.Call {
 }
 
 // UnitTag mocks base method
-func (m *MockUnit) UnitTag() v4.UnitTag {
+func (m *MockUnit) UnitTag() names.UnitTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnitTag")
-	ret0, _ := ret[0].(v4.UnitTag)
+	ret0, _ := ret[0].(names.UnitTag)
 	return ret0
 }
 
@@ -472,10 +472,10 @@ func (m *MockCharm) EXPECT() *MockCharmMockRecorder {
 }
 
 // Manifest mocks base method
-func (m *MockCharm) Manifest() *v8.Manifest {
+func (m *MockCharm) Manifest() *charm.Manifest {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Manifest")
-	ret0, _ := ret[0].(*v8.Manifest)
+	ret0, _ := ret[0].(*charm.Manifest)
 	return ret0
 }
 
@@ -486,10 +486,10 @@ func (mr *MockCharmMockRecorder) Manifest() *gomock.Call {
 }
 
 // Meta mocks base method
-func (m *MockCharm) Meta() *v8.Meta {
+func (m *MockCharm) Meta() *charm.Meta {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Meta")
-	ret0, _ := ret[0].(*v8.Meta)
+	ret0, _ := ret[0].(*charm.Meta)
 	return ret0
 }
 
@@ -514,10 +514,10 @@ func (mr *MockCharmMockRecorder) String() *gomock.Call {
 }
 
 // URL mocks base method
-func (m *MockCharm) URL() *v8.URL {
+func (m *MockCharm) URL() *charm.URL {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "URL")
-	ret0, _ := ret[0].(*v8.URL)
+	ret0, _ := ret[0].(*charm.URL)
 	return ret0
 }
 
