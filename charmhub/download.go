@@ -209,5 +209,5 @@ func (c *DownloadClient) downloadFromURL(ctx context.Context, resourceURL *url.U
 
 	// Server error, nothing we can do other than inform the user that the
 	// archive was unaviable.
-	return nil, errors.Errorf("unable to locate archive")
+	return nil, errors.Errorf("unable to locate archive (store API responded with status: %s)", resp.Status)
 }

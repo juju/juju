@@ -106,7 +106,8 @@ func (s *DownloadSuite) TestDownloadAndReadWithFailedStatusCode(c *gc.C) {
 	transport := NewMockTransport(ctrl)
 	transport.EXPECT().Do(gomock.Any()).DoAndReturn(func(r *http.Request) (*http.Response, error) {
 		return &http.Response{
-			StatusCode: 500,
+			Status:     http.StatusText(http.StatusInternalServerError),
+			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewBufferString("")),
 		}, nil
 	})
@@ -116,7 +117,7 @@ func (s *DownloadSuite) TestDownloadAndReadWithFailedStatusCode(c *gc.C) {
 
 	client := NewDownloadClient(transport, fileSystem, &FakeLogger{})
 	_, err = client.DownloadAndRead(context.TODO(), serverURL, tmpFile.Name())
-	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": unable to locate archive`)
+	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": unable to locate archive \(store API responded with status: Internal Server Error\)`)
 }
 
 func (s *DownloadSuite) createCharmArchieve(c *gc.C) []byte {
