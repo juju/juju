@@ -186,7 +186,7 @@ func (s *ListPlansCommandSuite) TestGetCommands(c *gc.C) {
 	}, {
 		about:   "invalid charm url",
 		args:    []string{"some-url"},
-		err:     `charm-store charm URLs are only supported`,
+		err:     `non charm-store URLs not supported`,
 		apiCall: []interface{}{},
 	}, {
 		about:   "unknown arguments",

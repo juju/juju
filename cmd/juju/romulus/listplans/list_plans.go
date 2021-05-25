@@ -83,7 +83,7 @@ func (c *ListPlansCommand) Init(args []string) error {
 		return errors.Annotatef(err, "unable to parse charm URL")
 	}
 	if !charm.CharmStore.Matches(curl.Schema) {
-		return errors.Errorf("charm-store charm URLs are only supported")
+		return errors.NotSupportedf("non charm-store URLs")
 	}
 	c.CharmURL = charmURL
 	return c.CommandBase.Init(args)
