@@ -38,6 +38,77 @@ func (s *networkSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *networkSuite) TestListIPsByProjectIDAndRegion(c *gc.C) {
+	cntrl := gomock.NewController(c)
+	projectIP := mocks.NewMockProjectIPService(cntrl)
+	projectIP.EXPECT().List(gomock.Eq("12345c2a-6789-4d4f-a3c4-7367d6b7cca8"), &packngo.ListOptions{
+		Includes: []string{"available_in_metros"},
+	}).Times(1).Return([]packngo.IPAddressReservation{
+		{
+			Facility: &packngo.Facility{
+				Metro: &packngo.Metro{
+					Code: "am",
+				},
+			},
+			IpAddressCommon: packngo.IpAddressCommon{
+				ID:            "100",
+				Address:       "147.75.81.53",
+				Gateway:       "147.75.81.52",
+				Network:       "147.75.81.52",
+				AddressFamily: 4,
+				Netmask:       "255.255.255.254",
+				Public:        true,
+				CIDR:          31,
+				Management:    true,
+				Manageable:    true,
+				Global:        false,
+				Metro: &packngo.Metro{
+					Code: "am",
+				},
+			},
+		},
+		{
+			Facility: &packngo.Facility{
+				Metro: &packngo.Metro{
+					Code: "to",
+				},
+			},
+			IpAddressCommon: packngo.IpAddressCommon{
+				ID:            "106",
+				Address:       "2604:1380:2000:9d00::3",
+				Gateway:       "2604:1380:2000:9d00::2",
+				Network:       "2604:1380:2000:9d00::2",
+				AddressFamily: 6,
+				Netmask:       "ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe",
+				Public:        true,
+				CIDR:          127,
+				Management:    true,
+				Manageable:    true,
+				Global:        false,
+				Metro: &packngo.Metro{
+					Code: "to",
+				},
+			},
+		},
+	}, &packngo.Response{}, nil)
+	s.PatchValue(&equinixClient, func(spec environscloudspec.CloudSpec) *packngo.Client {
+		cl := &packngo.Client{}
+		cl.ProjectIPs = projectIP
+		return cl
+	})
+	ctx := envtesting.BootstrapTODOContext(c)
+	env, err := environs.Open(ctx.Context(), s.provider, environs.OpenParams{
+		Cloud:  s.spec,
+		Config: makeTestModelConfig(c),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env, gc.NotNil)
+	netEnviron, _ := env.(*environ)
+	ips, err := netEnviron.listIPsByProjectIDAndRegion("12345c2a-6789-4d4f-a3c4-7367d6b7cca8", netEnviron.cloud.Region)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(ips), jc.DeepEquals, 1)
+}
+
 func (s *networkSuite) TestNetworkInterfaces(c *gc.C) {
 	cntrl := gomock.NewController(c)
 	defer cntrl.Finish()

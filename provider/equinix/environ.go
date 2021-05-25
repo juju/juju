@@ -307,7 +307,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		cloudCfg.AddScripts(
 			"apt-get update",
 			"DEBIAN_FRONTEND=noninteractive apt-get --option=Dpkg::Options::=--force-confdef --option=Dpkg::Options::=--force-confold --option=Dpkg::Options::=--force-unsafe-io --assume-yes --quiet install dmidecode snapd",
-			"snap install lxd && adduser ubuntu lxd",
+			"snap install lxd && sudo adduser ubuntu lxd",
 		)
 	}
 
@@ -670,7 +670,10 @@ func (e *environ) findInstanceSpec(controller bool, allImages []*imagemetadata.I
 	}
 
 	images := instances.ImageMetadataToImages(suitableImages)
-	spec, _ := instances.FindInstanceSpec(images, ic, instanceTypes)
+	spec, err := instances.FindInstanceSpec(images, ic, instanceTypes)
+	if err != nil {
+		return nil, err
+	}
 	return spec, err
 }
 
