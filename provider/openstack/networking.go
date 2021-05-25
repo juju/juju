@@ -389,6 +389,7 @@ func makeSubnetInfo(neutron *neutron.Client, subnet neutron.SubnetV2) (corenetwo
 	info := corenetwork.SubnetInfo{
 		CIDR:              subnet.Cidr,
 		ProviderId:        corenetwork.Id(subnet.Id),
+		ProviderNetworkId: corenetwork.Id(subnet.NetworkId),
 		VLANTag:           0,
 		AvailabilityZones: net.AvailabilityZones,
 	}
