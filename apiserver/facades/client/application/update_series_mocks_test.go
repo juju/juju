@@ -7,7 +7,7 @@ package application
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
-	v8 "github.com/juju/charm/v8"
+	charm "github.com/juju/charm/v8"
 	params "github.com/juju/charmrepo/v6/csclient/params"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
@@ -16,7 +16,7 @@ import (
 	state "github.com/juju/juju/state"
 	tools "github.com/juju/juju/tools"
 	schema "github.com/juju/schema"
-	environschema_v1 "gopkg.in/juju/environschema.v1"
+	environschema "gopkg.in/juju/environschema.v1"
 	reflect "reflect"
 )
 
@@ -149,10 +149,10 @@ func (mr *MockApplicationMockRecorder) Charm() *gomock.Call {
 }
 
 // CharmConfig mocks base method
-func (m *MockApplication) CharmConfig(arg0 string) (v8.Settings, error) {
+func (m *MockApplication) CharmConfig(arg0 string) (charm.Settings, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CharmConfig", arg0)
-	ret0, _ := ret[0].(v8.Settings)
+	ret0, _ := ret[0].(charm.Settings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -178,10 +178,10 @@ func (mr *MockApplicationMockRecorder) CharmOrigin() *gomock.Call {
 }
 
 // CharmURL mocks base method
-func (m *MockApplication) CharmURL() (*v8.URL, bool) {
+func (m *MockApplication) CharmURL() (*charm.URL, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CharmURL")
-	ret0, _ := ret[0].(*v8.URL)
+	ret0, _ := ret[0].(*charm.URL)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
@@ -491,7 +491,7 @@ func (mr *MockApplicationMockRecorder) UnsetExposeSettings(arg0 interface{}) *go
 }
 
 // UpdateApplicationConfig mocks base method
-func (m *MockApplication) UpdateApplicationConfig(arg0 application0.ConfigAttributes, arg1 []string, arg2 environschema_v1.Fields, arg3 schema.Defaults) error {
+func (m *MockApplication) UpdateApplicationConfig(arg0 application0.ConfigAttributes, arg1 []string, arg2 environschema.Fields, arg3 schema.Defaults) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateApplicationConfig", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -519,7 +519,7 @@ func (mr *MockApplicationMockRecorder) UpdateApplicationSeries(arg0, arg1 interf
 }
 
 // UpdateCharmConfig mocks base method
-func (m *MockApplication) UpdateCharmConfig(arg0 string, arg1 v8.Settings) error {
+func (m *MockApplication) UpdateCharmConfig(arg0 string, arg1 charm.Settings) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCharmConfig", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -556,10 +556,10 @@ func (m *MockCharm) EXPECT() *MockCharmMockRecorder {
 }
 
 // Actions mocks base method
-func (m *MockCharm) Actions() *v8.Actions {
+func (m *MockCharm) Actions() *charm.Actions {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Actions")
-	ret0, _ := ret[0].(*v8.Actions)
+	ret0, _ := ret[0].(*charm.Actions)
 	return ret0
 }
 
@@ -570,10 +570,10 @@ func (mr *MockCharmMockRecorder) Actions() *gomock.Call {
 }
 
 // Config mocks base method
-func (m *MockCharm) Config() *v8.Config {
+func (m *MockCharm) Config() *charm.Config {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Config")
-	ret0, _ := ret[0].(*v8.Config)
+	ret0, _ := ret[0].(*charm.Config)
 	return ret0
 }
 
@@ -584,10 +584,10 @@ func (mr *MockCharmMockRecorder) Config() *gomock.Call {
 }
 
 // Manifest mocks base method
-func (m *MockCharm) Manifest() *v8.Manifest {
+func (m *MockCharm) Manifest() *charm.Manifest {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Manifest")
-	ret0, _ := ret[0].(*v8.Manifest)
+	ret0, _ := ret[0].(*charm.Manifest)
 	return ret0
 }
 
@@ -598,10 +598,10 @@ func (mr *MockCharmMockRecorder) Manifest() *gomock.Call {
 }
 
 // Meta mocks base method
-func (m *MockCharm) Meta() *v8.Meta {
+func (m *MockCharm) Meta() *charm.Meta {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Meta")
-	ret0, _ := ret[0].(*v8.Meta)
+	ret0, _ := ret[0].(*charm.Meta)
 	return ret0
 }
 
@@ -612,10 +612,10 @@ func (mr *MockCharmMockRecorder) Meta() *gomock.Call {
 }
 
 // Metrics mocks base method
-func (m *MockCharm) Metrics() *v8.Metrics {
+func (m *MockCharm) Metrics() *charm.Metrics {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Metrics")
-	ret0, _ := ret[0].(*v8.Metrics)
+	ret0, _ := ret[0].(*charm.Metrics)
 	return ret0
 }
 
@@ -654,10 +654,10 @@ func (mr *MockCharmMockRecorder) String() *gomock.Call {
 }
 
 // URL mocks base method
-func (m *MockCharm) URL() *v8.URL {
+func (m *MockCharm) URL() *charm.URL {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "URL")
-	ret0, _ := ret[0].(*v8.URL)
+	ret0, _ := ret[0].(*charm.URL)
 	return ret0
 }
 

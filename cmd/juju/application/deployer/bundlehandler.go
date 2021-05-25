@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/bundlechanges/v4"
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
 	"github.com/juju/charmrepo/v6"
@@ -35,6 +34,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
+	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
