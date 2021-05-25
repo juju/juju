@@ -29,9 +29,7 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 	}
 	// We checked the presence of project-id when we were verifying the credentials.
 	projectID := attrs["project-id"]
-	ips, _, err := e.equinixClient.ProjectIPs.List(projectID, &packngo.ListOptions{
-		Includes: []string{"available_in_metros"},
-	})
+	ips, err := e.listIPsByProjectIDAndRegion(projectID, e.cloud.Region)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -48,14 +46,7 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 			return nil, errors.Trace(err)
 		}
 
-		metro := ""
-		if ipblock.Metro != nil {
-			metro = ipblock.Metro.Code
-		} else if ipblock.Facility != nil && ipblock.Facility.Metro != nil {
-			metro = ipblock.Facility.Metro.Code
-		}
-
-		if metro != e.cloud.Region || (!filterSet.IsEmpty() && !filterSet.Contains(subnetID)) {
+		if !filterSet.IsEmpty() && !filterSet.Contains(subnetID) {
 			continue
 		}
 
@@ -63,7 +54,7 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 			ProviderId:        network.Id(subnetID),
 			ProviderNetworkId: network.Id(ipblock.ID),
 			CIDR:              cidr, VLANTag: 0,
-			AvailabilityZones: []string{metro},
+			AvailabilityZones: []string{e.cloud.Region},
 		}
 		projectSubnets = append(projectSubnets, subnet)
 	}
@@ -187,9 +178,31 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 	return infos, nil
 }
 
-// SuperSubnets returns information about aggregated subnet.
-func (*environ) SuperSubnets(context.ProviderCallContext) ([]string, error) {
-	return nil, errors.NotSupportedf("super subnets")
+// SuperSubnets returns information about the reserved private subnets that can
+// be used as underlays when setting up FAN networking.
+func (e *environ) SuperSubnets(context.ProviderCallContext) ([]string, error) {
+	attrs := e.cloud.Credential.Attributes()
+	if attrs == nil {
+		return nil, errors.Trace(fmt.Errorf("empty attribute credentials"))
+
+	}
+	// We checked the presence of project-id when we were verifying the credentials.
+	projectID := attrs["project-id"]
+
+	ips, err := e.listIPsByProjectIDAndRegion(projectID, e.cloud.Region)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var privateCIDRs []string
+	for _, ipblock := range ips {
+		if ipblock.Public {
+			continue // we are only interested in private block reservations from the right region
+		}
+		privateCIDRs = append(privateCIDRs, fmt.Sprintf("%s/%d", ipblock.Network, ipblock.CIDR))
+	}
+
+	return privateCIDRs, nil
 }
 
 // SupportsContainerAddresses returns true if the current environment is
@@ -240,4 +253,27 @@ func (*environ) ProviderSpaceInfo(context.ProviderCallContext, *network.SpaceInf
 // addaddresses matching the interface details passed in.
 func (*environ) ReleaseContainerAddresses(context.ProviderCallContext, []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
+}
+
+// listIPsByProjectIDAndRegion returns a list of reserved ip addressed filtered by projectID and region
+func (e *environ) listIPsByProjectIDAndRegion(projectID, region string) ([]packngo.IPAddressReservation, error) {
+	ips, _, err := e.equinixClient.ProjectIPs.List(projectID, &packngo.ListOptions{
+		Includes: []string{"available_in_metros"},
+	})
+	if err != nil {
+		return nil, err
+	}
+	var result []packngo.IPAddressReservation
+	for _, ipblock := range ips {
+		metro := ""
+		if ipblock.Metro != nil {
+			metro = ipblock.Metro.Code
+		} else if ipblock.Facility != nil && ipblock.Facility.Metro != nil {
+			metro = ipblock.Facility.Metro.Code
+		}
+		if metro == e.cloud.Region {
+			result = append(result, ipblock)
+		}
+	}
+	return result, nil
 }
