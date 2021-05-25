@@ -72,7 +72,7 @@ func (c *ListPlansCommand) Info() *cmd.Info {
 // Init reads and verifies the cli arguments for the ListPlansCommand
 func (c *ListPlansCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.New("missing arguments")
+		return errors.New("missing charm-store charm URL argument")
 	}
 	charmURL, args := args[0], args[1:]
 	if err := cmd.CheckEmpty(args); err != nil {

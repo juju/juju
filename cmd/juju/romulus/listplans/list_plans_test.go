@@ -181,7 +181,7 @@ func (s *ListPlansCommandSuite) TestGetCommands(c *gc.C) {
 	}, {
 		about:   "missing argument",
 		args:    []string{},
-		err:     `missing arguments`,
+		err:     `missing charm-store charm URL argument`,
 		apiCall: []interface{}{},
 	}, {
 		about:   "invalid charm url",
