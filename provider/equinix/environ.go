@@ -311,6 +311,73 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		)
 	}
 
+	// NOTE(achilleasa): The following script applies a set of equinix-specific
+	// networking fixes:
+	//
+	// 1) The equinix provisioner creates a /8 route for private IP addresses.
+	// As a result, lxd is unable to find a suitable subnet to use when
+	// juju runs "lxd init --auto" and effectively prevents workloads from
+	// being deployed to equinix machines.
+	//
+	// The following fixup script queries the equinix metadata service and
+	// replaces these problematic routes with the correct ones based on the
+	// reserved block(s) that provide addresses to the machine.
+	//
+	// Another oddity inherent in equinix's network setup is that a sub-block
+	// is carved out of the reserved block and gets assigned to the machine.
+	// For instance, if the parent block is a /26, the machine gets a /31
+	// contained within the parent block. The route fixup script takes this
+	// into account and adds the right route based on the metadata details
+	// so we can route traffic to any other machine in the parent block.
+	//
+	// 2) The equinix provider requires the use of FAN for allowing
+	// container to container communication across nodes. Due to the way
+	// that the networking is configured, we need to install iptable rules
+	// to masquerade any non-FAN traffic so that containers get internet
+	// connectivity.  As Juju sets up FAN bridges via a worker, we run a
+	// script that waits for the bridge to appear and then makes the
+	// required iptable changes.
+	//
+	// The script is run once during provisioning and a cronjob is set up
+	// to ensure that it runs after each reboot.
+	cloudCfg.AddScripts(`cat << 'EOF' >> /root/juju-fixups.sh
+#!/bin/bash
+
+curl -vs http://metadata.packet.net/metadata 2>/dev/null |
+jq -r '.network.addresses | .[] | select(.public == false) | [.gateway, .parent_block.network, .parent_block.cidr] | @tsv' |
+awk '{print $1" "$2" "$3}' |
+while read -r gw net cidr; do
+    match=$(ip route show to match ${net} | grep -v default)
+    cur_route=$(echo -n ${match} | awk '{print $1}')
+    via_dev=$(echo -n ${match} | awk '{print $5}')
+    [ -z "$cur_route" ] && continue
+
+    echo "[juju fixup] replacing existing route ${cur_route} (via ${via_dev}) with ${net}/${cidr} (via ${via_dev})"
+    ip route del ${cur_route}
+    ip route add ${net}/${cidr} dev ${via_dev} via ${gw}
+done
+
+while true; do
+    fan_net=$(ip route | grep fan | awk '{print $1}')
+    if [ -z "$fan_net" ]; then
+        sleep 15
+        continue
+    fi
+
+    masq_rule=$(iptables -t nat -S POSTROUTING | egrep "${fan_net}.*MASQUERADE")
+    if [ -z "$masq_rule" ]; then
+        echo "[juju fixup] installing iptables rules to masquerade FAN traffic for destinations other than $fan_net"
+        iptables -t nat -D POSTROUTING -s $fan_net -j fan-egress
+        iptables -t nat -I POSTROUTING -s $fan_net -d $fan_net -j fan-egress
+        iptables -t nat -I POSTROUTING -s $fan_net \! -d $fan_net -j MASQUERADE
+    fi
+    exit 0
+done
+EOF`,
+		"(crontab -l 2>/dev/null; echo '@reboot bash /root/juju-fixups.sh') | crontab -",
+		"sh /root/juju-fixups.sh &", // the fixup script includes a polling section so it must be daemonized.
+	)
+
 	userdata, err := providerinit.ComposeUserData(args.InstanceConfig, cloudCfg, EquinixRenderer{})
 	if err != nil {
 		return nil, errors.Trace(err)
