@@ -25,7 +25,7 @@ if ! which $container_cmd; then
 fi
 
 echo "Wait for microk8s to be ready if needed."
-wait_result=$(microk8s.status --wait-ready --timeout 30 2>&1)
+wait_result=$(microk8s.status --wait-ready --timeout 15 2>&1)
 if [ $? -ne 0 ]; then
     echo "${wait_result}"
     exit 0
@@ -38,7 +38,7 @@ mongo_image="docker.io/jujusolutions/juju-db:4.0"
 echo "Going to cache images: $oci_image and $mongo_image."
 
 # It's not an install/refresh blocker if we can't get the images.
-timeout 2m sh <<EOT || echo "Timed out waiting to install microk8s image."
+timeout 40s sh <<EOT || echo "Timed out waiting to install microk8s image."
 echo "Pulling: $oci_image."
 $container_cmd $image_arg list | grep $oci_image || $container_cmd $image_arg pull $oci_image || true
 
