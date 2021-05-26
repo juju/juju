@@ -290,9 +290,9 @@ func (s *LoopSuite) TestCheckCharmUpgradeUpgradeCharmHook(c *gc.C) {
 		Executor: nil,
 		Stub:     envtesting.Stub{},
 		st: operation.State{
-			Started: true,
-			Kind:    operation.Continue,
-			Hook:    &hook.Info{Kind: hooks.UpgradeCharm},
+			Installed: true,
+			Kind:      operation.Continue,
+			Hook:      &hook.Info{Kind: hooks.UpgradeCharm},
 		},
 		run: nil,
 	}
@@ -304,8 +304,8 @@ func (s *LoopSuite) TestCheckCharmUpgradeSameURL(c *gc.C) {
 		Executor: nil,
 		Stub:     envtesting.Stub{},
 		st: operation.State{
-			Started: true,
-			Kind:    operation.Continue,
+			Installed: true,
+			Kind:      operation.Continue,
 		},
 		run: nil,
 	}
@@ -318,13 +318,32 @@ func (s *LoopSuite) TestCheckCharmUpgradeSameURL(c *gc.C) {
 	s.testCheckCharmUpgradeDoesNothing(c)
 }
 
+func (s *LoopSuite) TestCheckCharmUpgradeNotInstalled(c *gc.C) {
+	s.executor = &mockOpExecutor{
+		Executor: nil,
+		Stub:     envtesting.Stub{},
+		st: operation.State{
+			Kind: operation.Continue,
+		},
+		run: nil,
+	}
+	s.watcher = &mockRemoteStateWatcher{
+		snapshot: remotestate.Snapshot{
+			CharmURL: charm.MustParseURL("cs:trusty/mysql-2"),
+		},
+	}
+	s.charmDir = testcharms.Repo.CharmDirPath("mysql")
+	s.testCheckCharmUpgradeDoesNothing(c)
+}
+
 func (s *LoopSuite) TestCheckCharmUpgradeIncorrectLXDProfile(c *gc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
 		Stub:     envtesting.Stub{},
 		st: operation.State{
-			Started: true,
-			Kind:    operation.Continue,
+			Installed: true,
+			Started:   true,
+			Kind:      operation.Continue,
 		},
 		run: nil,
 	}
@@ -360,8 +379,8 @@ func (s *LoopSuite) TestCheckCharmUpgrade(c *gc.C) {
 		Executor: nil,
 		Stub:     envtesting.Stub{},
 		st: operation.State{
-			Started: true,
-			Kind:    operation.Continue,
+			Installed: true,
+			Kind:      operation.Continue,
 		},
 		run: nil,
 	}
@@ -378,8 +397,8 @@ func (s *LoopSuite) TestCheckCharmUpgradeMissingCharmDir(c *gc.C) {
 		Executor: nil,
 		Stub:     envtesting.Stub{},
 		st: operation.State{
-			Started: true,
-			Kind:    operation.Continue,
+			Installed: true,
+			Kind:      operation.Continue,
 		},
 		run: nil,
 	}
@@ -396,8 +415,9 @@ func (s *LoopSuite) TestCheckCharmUpgradeLXDProfile(c *gc.C) {
 		Executor: nil,
 		Stub:     envtesting.Stub{},
 		st: operation.State{
-			Started: true,
-			Kind:    operation.Continue,
+			Installed: true,
+			Started:   true,
+			Kind:      operation.Continue,
 		},
 		run: nil,
 	}
