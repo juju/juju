@@ -79,6 +79,11 @@ type Config struct {
 	// and allow overriding existing headers.
 	Headers http.Header
 
+	// HTTPClient represents the default http.Client to use for all API
+	// requests.
+	HTTPClient *http.Client
+
+	// Logger to use during the API requests.
 	Logger Logger
 }
 
@@ -88,6 +93,7 @@ type Option func(*options)
 type options struct {
 	url             *string
 	metadataHeaders map[string]string
+	httpClient      *http.Client
 }
 
 // WithURL sets the url on the option.
@@ -104,11 +110,19 @@ func WithMetadataHeaders(h map[string]string) Option {
 	}
 }
 
+// WithHTTPClient sets the default http.Client to use on the option.
+func WithHTTPClient(client *http.Client) Option {
+	return func(options *options) {
+		options.httpClient = client
+	}
+}
+
 // Create a options instance with default values.
 func newOptions() *options {
 	u := CharmHubServerURL
 	return &options{
-		url: &u,
+		url:        &u,
+		httpClient: DefaultHTTPTransport(),
 	}
 }
 
@@ -214,8 +228,7 @@ func NewClientWithFileSystem(config Config, fileSystem FileSystem) (*Client, err
 
 	config.Logger.Tracef("NewClient to %q", config.URL)
 
-	httpClient := DefaultHTTPTransport()
-	apiRequester := NewAPIRequester(httpClient, config.Logger)
+	apiRequester := NewAPIRequester(config.HTTPClient, config.Logger)
 	restClient := NewHTTPRESTClient(apiRequester, config.Headers)
 
 	return &Client{
@@ -226,7 +239,7 @@ func NewClientWithFileSystem(config Config, fileSystem FileSystem) (*Client, err
 		// download client doesn't require a path here, as the download could
 		// be from any server in theory. That information is found from the
 		// refresh response.
-		downloadClient:  NewDownloadClient(httpClient, fileSystem, config.Logger),
+		downloadClient:  NewDownloadClient(config.HTTPClient, fileSystem, config.Logger),
 		resourcesClient: NewResourcesClient(resourcesPath, restClient, config.Logger),
 		logger:          config.Logger,
 	}, nil

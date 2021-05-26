@@ -14,6 +14,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/charmhub/path"
@@ -36,7 +37,7 @@ type Transport interface {
 
 // DefaultHTTPTransport creates a new HTTPTransport.
 func DefaultHTTPTransport() *http.Client {
-	return &http.Client{}
+	return utils.GetHTTPClient(utils.VerifySSLHostnames)
 }
 
 // APIRequester creates a wrapper around the transport to allow for better
