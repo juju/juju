@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/juju/errors"
@@ -60,7 +61,11 @@ func NewFacade(ctx facade.Context) (*CharmHubAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return newCharmHubAPI(m, ctx.Auth(), charmHubClientFactory{})
+	// TODO (stickupkid): Get the httpClient from the facade context
+	httpClient := charmhub.DefaultHTTPTransport()
+	return newCharmHubAPI(m, ctx.Auth(), charmHubClientFactory{
+		httpClient: httpClient,
+	})
 }
 
 func newCharmHubAPI(backend Backend, authorizer facade.Authorizer, clientFactory ClientFactory) (*CharmHubAPI, error) {
@@ -129,10 +134,14 @@ func (api *CharmHubAPI) Find(ctx context.Context, arg params.Query) (params.Char
 	return params.CharmHubEntityFindResult{Results: convertCharmFindResults(results)}, nil
 }
 
-type charmHubClientFactory struct{}
+type charmHubClientFactory struct {
+	httpClient *http.Client
+}
 
-func (charmHubClientFactory) Client(url string) (Client, error) {
-	cfg, err := charmhub.CharmHubConfigFromURL(url, logger.Child("client"))
+func (f charmHubClientFactory) Client(url string) (Client, error) {
+	cfg, err := charmhub.CharmHubConfigFromURL(url, logger.Child("client"),
+		charmhub.WithHTTPClient(f.httpClient),
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
