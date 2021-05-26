@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"net/mail"
 
 	"github.com/juju/errors"
@@ -188,6 +189,9 @@ type ConnectionConfig struct {
 	// ProjectID is the project ID to use in all GCE API requests for
 	// the connection.
 	ProjectID string
+
+	// HTTPClient is the client to use for all GCE connections.
+	HTTPClient *http.Client
 }
 
 // Validate checks the connection's fields for invalid values.
@@ -203,6 +207,9 @@ func (gc ConnectionConfig) Validate() error {
 	}
 	if gc.ProjectID == "" {
 		return NewMissingConfigValue(OSEnvProjectID, "ProjectID")
+	}
+	if gc.HTTPClient == nil {
+		return errors.NotFoundf("connection config http.Client")
 	}
 	return nil
 }

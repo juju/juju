@@ -4,11 +4,13 @@
 package gce
 
 import (
+	stdcontext "context"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"google.golang.org/api/compute/v1"
 
 	jujucloud "github.com/juju/juju/cloud"
@@ -98,8 +100,8 @@ var _ environs.NetworkingEnviron = (*environ)(nil)
 // Function entry points defined as variables so they can be overridden
 // for testing purposes.
 var (
-	newConnection = func(conn google.ConnectionConfig, creds *google.Credentials) (gceConnection, error) {
-		return google.Connect(conn, creds)
+	newConnection = func(ctx stdcontext.Context, conn google.ConnectionConfig, creds *google.Credentials) (gceConnection, error) {
+		return google.Connect(ctx, conn, creds)
 	}
 	destroyEnv = common.Destroy
 	bootstrap  = common.Bootstrap
@@ -150,14 +152,27 @@ func (e *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 		ClientEmail: credAttrs[credAttrClientEmail],
 		PrivateKey:  []byte(credAttrs[credAttrPrivateKey]),
 	}
+
+	sslVerification := utils.VerifySSLHostnames
+	if spec.SkipTLSVerify {
+		sslVerification = utils.NoVerifySSLHostnames
+	}
+
 	connectionConfig := google.ConnectionConfig{
 		Region:    spec.Region,
 		ProjectID: credential.ProjectID,
+
+		// TODO (Stickupkid): Pass the http.Client through on the construction
+		// of the environ.
+		HTTPClient: utils.GetHTTPClient(sslVerification),
 	}
+
+	// TODO (stickupkid): Pass the context through the method call.
+	ctx := stdcontext.Background()
 
 	// Connect and authenticate.
 	var err error
-	e.gce, err = newConnection(connectionConfig, credential)
+	e.gce, err = newConnection(ctx, connectionConfig, credential)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -220,7 +235,7 @@ func (env *environ) Create(ctx context.ProviderCallContext, p environs.CreatePar
 	return nil
 }
 
-// Bootstrap creates a new instance, chosing the series and arch out of
+// Bootstrap creates a new instance, choosing the series and arch out of
 // available tools. The series and arch are returned along with a func
 // that must be called to finalize the bootstrap process by transferring
 // the tools and installing the initial juju controller.

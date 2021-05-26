@@ -4,6 +4,7 @@
 package gce
 
 import (
+	stdcontext "context"
 	"fmt"
 	"net/url"
 	"strings"
@@ -328,7 +329,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	// Patch out all expensive external deps.
 	s.Env.gce = s.FakeConn
-	s.PatchValue(&newConnection, func(google.ConnectionConfig, *google.Credentials) (gceConnection, error) {
+	s.PatchValue(&newConnection, func(stdcontext.Context, google.ConnectionConfig, *google.Credentials) (gceConnection, error) {
 		return s.FakeConn, nil
 	})
 	s.PatchValue(&bootstrap, s.FakeCommon.Bootstrap)

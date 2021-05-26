@@ -4,6 +4,9 @@
 package google
 
 import (
+	"context"
+	"net/http"
+
 	"github.com/juju/errors"
 	"google.golang.org/api/compute/v1"
 )
@@ -137,8 +140,8 @@ type Connection struct {
 // Connect after a successful connection has already been made will
 // result in an error. All errors that happen while authenticating and
 // connecting are returned by Connect.
-func Connect(connCfg ConnectionConfig, creds *Credentials) (*Connection, error) {
-	raw, err := newService(creds)
+func Connect(ctx context.Context, connCfg ConnectionConfig, creds *Credentials) (*Connection, error) {
+	raw, err := newService(ctx, creds, connCfg.HTTPClient)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -151,8 +154,8 @@ func Connect(connCfg ConnectionConfig, creds *Credentials) (*Connection, error) 
 	return conn, nil
 }
 
-var newService = func(creds *Credentials) (*compute.Service, error) {
-	return newComputeService(creds)
+var newService = func(ctx context.Context, creds *Credentials, httpClient *http.Client) (*compute.Service, error) {
+	return newComputeService(ctx, creds, httpClient)
 }
 
 // VerifyCredentials ensures that the authentication credentials used

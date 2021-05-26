@@ -4,6 +4,9 @@
 package google
 
 import (
+	"context"
+	"net/http"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
@@ -15,7 +18,7 @@ type authSuite struct {
 var _ = gc.Suite(&authSuite{})
 
 func (s *authSuite) TestNewComputeService(c *gc.C) {
-	_, err := newComputeService(s.Credentials)
+	_, err := newComputeService(context.TODO(), s.Credentials, http.DefaultClient)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
