@@ -79,10 +79,10 @@ var caasModelFacadeNames = set.NewStrings(
 	"CAASOperatorUpgrader",
 	"CAASUnitProvisioner",
 
-	// For embedded applications.
+	// For sidecar applications.
 	"CAASApplication",
 	"CAASApplicationProvisioner",
-	"CAASFirewallerEmbedded",
+	"CAASFirewallerEmbedded", // TODO(juju3): rename to CAASFirewallerSidecar
 )
 
 func caasModelFacadesOnly(facadeName, _ string) error {

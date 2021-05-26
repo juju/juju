@@ -432,7 +432,7 @@ func (s *MigrationExportSuite) TestCAASLegacyApplications(c *gc.C) {
 	s.assertMigrateApplications(c, false, caasSt, constraints.MustParse("arch=amd64 mem=8G"))
 }
 
-func (s *MigrationExportSuite) TestCAASEmbeddedApplications(c *gc.C) {
+func (s *MigrationExportSuite) TestCAASSidecarApplications(c *gc.C) {
 	caasSt := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
@@ -447,17 +447,17 @@ func (s *MigrationExportSuite) TestApplicationsWithRootDiskSourceConstraint(c *g
 	s.assertMigrateApplications(c, false, s.State, constraints.MustParse("arch=amd64 mem=8G root-disk-source=vonnegut"))
 }
 
-func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isEmbedded bool, st *state.State, cons constraints.Value) {
+func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool, st *state.State, cons constraints.Value) {
 	f := factory.NewFactory(st, s.StatePool)
 
 	dbModel, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	series := "quantal"
-	if dbModel.Type() == state.ModelTypeCAAS && !isEmbedded {
+	if dbModel.Type() == state.ModelTypeCAAS && !isSidecar {
 		series = "kubernetes"
 	}
 	var ch *state.Charm
-	if isEmbedded {
+	if isSidecar {
 		ch = f.MakeCharmV2(c, &factory.CharmParams{
 			Name:   "snappass-test",
 			Series: series,
@@ -504,7 +504,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isEmbedded boo
 
 		caasModel, err := dbModel.CAASModel()
 		c.Assert(err, jc.ErrorIsNil)
-		if !isEmbedded {
+		if !isSidecar {
 			err = caasModel.SetPodSpec(nil, application.ApplicationTag(), strPtr("pod spec"))
 			c.Assert(err, jc.ErrorIsNil)
 		}
@@ -515,7 +515,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isEmbedded boo
 
 	agentVer, err := version.ParseBinary("2.9.1-ubuntu-amd64")
 	c.Assert(err, jc.ErrorIsNil)
-	if dbModel.Type() == state.ModelTypeCAAS && !isEmbedded {
+	if dbModel.Type() == state.ModelTypeCAAS && !isSidecar {
 		err = application.SetAgentVersion(agentVer)
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
@@ -576,7 +576,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isEmbedded boo
 	s.checkStatusHistory(c, history[:addedHistoryCount], status.Active)
 
 	if dbModel.Type() == state.ModelTypeCAAS {
-		if !isEmbedded {
+		if !isSidecar {
 			c.Assert(exported.PodSpec(), gc.Equals, "pod spec")
 			tools, err := application.AgentTools()
 			c.Assert(err, jc.ErrorIsNil)

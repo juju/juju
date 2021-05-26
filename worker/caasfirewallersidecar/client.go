@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasfirewallerembedded
+package caasfirewallersidecar
 
 import (
 	charmscommon "github.com/juju/juju/api/common/charms"
@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/client_mock.go github.com/juju/juju/worker/caasfirewallerembedded Client,CAASFirewallerAPI,LifeGetter
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/client_mock.go github.com/juju/juju/worker/caasfirewallersidecar Client,CAASFirewallerAPI,LifeGetter
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/worker_mock.go github.com/juju/worker/v2 Worker
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/api_base_mock.go github.com/juju/juju/api/base APICaller
 

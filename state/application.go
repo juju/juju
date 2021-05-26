@@ -1048,8 +1048,8 @@ func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []
 	return ops, nil
 }
 
-// IsEmbedded returns true when using new CAAS charms in embedded mode.
-func (a *Application) IsEmbedded() (bool, error) {
+// IsSidecar returns true when using new CAAS charms in sidecar mode.
+func (a *Application) IsSidecar() (bool, error) {
 	ch, _, err := a.Charm()
 	if err != nil {
 		return false, errors.Trace(err)
@@ -1063,7 +1063,7 @@ func (a *Application) IsEmbedded() (bool, error) {
 		return false, errors.Trace(err)
 	}
 
-	// TODO(embedded): Determine a better way represent this.
+	// TODO(sidecar): Determine a better way represent this.
 	return m.Type() == ModelTypeCAAS && corecharm.Format(ch) == corecharm.FormatV2, nil
 }
 

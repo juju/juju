@@ -165,7 +165,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, cons cons
 					},
 					ResourceTags: map[string]string{"foo": "bar"},
 				},
-				// TODO(embedded): fix here - all filesystems will not be mounted if it's not in `Containers[*].Mounts`
+				// TODO(sidecar): fix here - all filesystems will not be mounted if it's not in `Containers[*].Mounts`
 				// {
 				// 	StorageName: "logs",
 				// 	Size:        200,

@@ -24,8 +24,8 @@ const (
 	ApplicationFilterNone ApplicationFilter = iota
 	// ApplicationFilterCAASLegacy filters to include only legacy applications.
 	ApplicationFilterCAASLegacy ApplicationFilter = iota
-	// ApplicationFilterCAASEmbedded filters to include only embedded applications.
-	ApplicationFilterCAASEmbedded ApplicationFilter = iota
+	// ApplicationFilterCAASSidecar filters to include only sidecar applications.
+	ApplicationFilterCAASSidecar ApplicationFilter = iota
 )
 
 // ApplicationWatcherFacade implements a common WatchApplications method for use by
@@ -140,12 +140,12 @@ func (w *applicationWatcher) handle(changes []string) ([]string, error) {
 		switch w.filter {
 		case ApplicationFilterCAASLegacy:
 			if corecharm.Format(ch) >= corecharm.FormatV2 {
-				// Filter out embedded applications.
+				// Filter out sidecar applications.
 				continue
 			}
-		case ApplicationFilterCAASEmbedded:
+		case ApplicationFilterCAASSidecar:
 			if corecharm.Format(ch) == corecharm.FormatV1 {
-				// Filter out non-embedded applications.
+				// Filter out non-sidecar applications.
 				continue
 			}
 		default:

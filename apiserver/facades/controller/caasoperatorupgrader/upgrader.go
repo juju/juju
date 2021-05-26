@@ -44,7 +44,7 @@ func NewCAASOperatorUpgraderAPI(
 ) (*API, error) {
 	if !authorizer.AuthController() &&
 		!authorizer.AuthApplicationAgent() &&
-		!authorizer.AuthUnitAgent() && // For embedded applications.
+		!authorizer.AuthUnitAgent() && // For sidecar applications.
 		!authorizer.AuthModelAgent() {
 		return nil, apiservererrors.ErrPerm
 	}

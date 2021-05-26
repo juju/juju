@@ -123,7 +123,7 @@ func (a *appWorker) loop() error {
 		return errors.Annotate(err, "failed to set application api passwords")
 	}
 
-	// TODO(embedded): support more than statefulset
+	// TODO(sidecar): support more than statefulset
 	app := a.broker.Application(a.name, caas.DeploymentStateful)
 
 	var appLife life.Value
@@ -367,7 +367,7 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			err = a.broker.AnnotateUnit(a.name, caas.ModeEmbedded, unitInfo.ProviderId, unit)
+			err = a.broker.AnnotateUnit(a.name, caas.ModeSidecar, unitInfo.ProviderId, unit)
 			if errors.IsNotFound(err) {
 				continue
 			} else if err != nil {
@@ -499,7 +499,7 @@ func (a *appWorker) alive(app caas.Application) error {
 		containers[k] = container
 	}
 
-	// TODO(embedded): container.Mounts[*].Path <= consolidate? => provisionInfo.Filesystems[*].Attachment.Path
+	// TODO(sidecar): container.Mounts[*].Path <= consolidate? => provisionInfo.Filesystems[*].Attachment.Path
 	config := caas.ApplicationConfig{
 		IntroductionSecret:   a.password,
 		AgentVersion:         provisionInfo.Version,
@@ -515,7 +515,7 @@ func (a *appWorker) alive(app caas.Application) error {
 		CharmModifiedVersion: provisionInfo.CharmModifiedVersion,
 	}
 	reason := "unchanged"
-	// TODO(embedded): implement Equals method for caas.ApplicationConfig
+	// TODO(sidecar): implement Equals method for caas.ApplicationConfig
 	if !reflect.DeepEqual(config, a.lastApplied) {
 		err = app.Ensure(config)
 		if err != nil {

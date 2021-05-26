@@ -26,7 +26,7 @@ type WatcherSuite struct {
 	coretesting.BaseSuite
 
 	modelType                    model.ModelType
-	embedded                     bool
+	sidecar                      bool
 	enforcedCharmModifiedVersion int
 	st                           *mockState
 	leadership                   *mockLeadershipTracker
@@ -48,12 +48,12 @@ type WatcherSuiteCAAS struct {
 	WatcherSuite
 }
 
-type WatcherSuiteEmbedded struct {
+type WatcherSuiteSidecar struct {
 	WatcherSuite
 }
 
-type WatcherSuiteEmbeddedCharmModVer struct {
-	WatcherSuiteEmbedded
+type WatcherSuiteSidecarCharmModVer struct {
+	WatcherSuiteSidecar
 }
 
 var _ = gc.Suite(&WatcherSuiteIAAS{
@@ -63,19 +63,19 @@ var _ = gc.Suite(&WatcherSuiteCAAS{
 	WatcherSuite{modelType: model.CAAS},
 })
 
-var _ = gc.Suite(&WatcherSuiteEmbedded{
+var _ = gc.Suite(&WatcherSuiteSidecar{
 	WatcherSuite{
 		modelType:                    model.CAAS,
-		embedded:                     true,
+		sidecar:                      true,
 		enforcedCharmModifiedVersion: 5,
 	},
 })
 
-var _ = gc.Suite(&WatcherSuiteEmbeddedCharmModVer{
-	WatcherSuiteEmbedded{
+var _ = gc.Suite(&WatcherSuiteSidecarCharmModVer{
+	WatcherSuiteSidecar{
 		WatcherSuite{
 			modelType: model.CAAS,
-			embedded:  true,
+			sidecar:   true,
 			// Use a different version than the base tests
 			enforcedCharmModifiedVersion: 4,
 		},
@@ -157,7 +157,7 @@ func (s *WatcherSuiteCAAS) SetUpTest(c *gc.C) {
 	s.watcher = w
 }
 
-func (s *WatcherSuiteEmbedded) SetUpTest(c *gc.C) {
+func (s *WatcherSuiteSidecar) SetUpTest(c *gc.C) {
 	s.WatcherSuite.SetUpTest(c)
 
 	s.st.unit.application.applicationWatcher = newMockNotifyWatcher()
@@ -177,7 +177,7 @@ func (s *WatcherSuite) setupWatcherConfig() remotestate.WatcherConfig {
 		Logger:                       loggo.GetLogger("test"),
 		State:                        s.st,
 		ModelType:                    s.modelType,
-		Embedded:                     s.embedded,
+		Sidecar:                      s.sidecar,
 		EnforcedCharmModifiedVersion: s.enforcedCharmModifiedVersion,
 		LeadershipTracker:            s.leadership,
 		UnitTag:                      s.st.unit.tag,
@@ -222,7 +222,7 @@ func (s *WatcherSuiteCAAS) TestInitialSnapshot(c *gc.C) {
 	})
 }
 
-func (s *WatcherSuiteEmbedded) TestInitialSnapshot(c *gc.C) {
+func (s *WatcherSuiteSidecar) TestInitialSnapshot(c *gc.C) {
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
 		Relations:     map[int]remotestate.RelationSnapshot{},
@@ -268,7 +268,7 @@ func (s *WatcherSuite) signalAll() {
 	s.st.updateStatusIntervalWatcher.changes <- struct{}{}
 	s.leadership.claimTicket.ch <- struct{}{}
 	s.st.unit.storageWatcher.changes <- []string{}
-	if s.st.modelType == model.IAAS || s.embedded {
+	if s.st.modelType == model.IAAS || s.sidecar {
 		s.applicationWatcher.changes <- struct{}{}
 	}
 	if s.st.modelType == model.IAAS {
@@ -300,7 +300,7 @@ func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
 	})
 }
 
-func (s *WatcherSuiteEmbedded) TestSnapshot(c *gc.C) {
+func (s *WatcherSuiteSidecar) TestSnapshot(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
@@ -957,17 +957,17 @@ func (s *WatcherSuiteCAAS) TestWatcherConfig(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "nil Logger not valid")
 }
 
-func (s *WatcherSuiteEmbedded) TestWatcherConfig(c *gc.C) {
+func (s *WatcherSuiteSidecar) TestWatcherConfig(c *gc.C) {
 	_, err := remotestate.NewWatcher(remotestate.WatcherConfig{
 		ModelType: model.IAAS,
-		Embedded:  true,
+		Sidecar:   true,
 		Logger:    loggo.GetLogger("test"),
 	})
-	c.Assert(err, gc.ErrorMatches, `embedded mode is only for "caas" model`)
+	c.Assert(err, gc.ErrorMatches, `sidecar mode is only for "caas" model`)
 
 	_, err = remotestate.NewWatcher(remotestate.WatcherConfig{
 		ModelType: model.CAAS,
-		Embedded:  true,
+		Sidecar:   true,
 		Logger:    loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -978,7 +978,7 @@ func (s *WatcherSuite) TestWatcherConfigMissingLogger(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "nil Logger not valid")
 }
 
-func (s *WatcherSuiteEmbeddedCharmModVer) TestRemoteStateChanged(c *gc.C) {
+func (s *WatcherSuiteSidecarCharmModVer) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange := func() {
 		assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 		assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
@@ -1040,7 +1040,7 @@ func (s *WatcherSuiteEmbeddedCharmModVer) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 }
 
-func (s *WatcherSuiteEmbeddedCharmModVer) TestSnapshot(c *gc.C) {
+func (s *WatcherSuiteSidecarCharmModVer) TestSnapshot(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 

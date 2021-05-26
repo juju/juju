@@ -1030,7 +1030,7 @@ func (u *fakeUnit) Status() (status.StatusInfo, error) {
 	return status.StatusInfo{Status: status.Idle}, nil
 }
 
-func (u *fakeUnit) IsEmbedded() (bool, error) {
+func (u *fakeUnit) IsSidecar() (bool, error) {
 	return false, nil
 }
 

@@ -192,7 +192,7 @@ func AllFacades() *facade.Registry {
 	// CAAS related facades.
 	// Move these to the correct place above once the feature flag disappears.
 	reg("CAASFirewaller", 1, caasfirewaller.NewStateFacadeLegacy)
-	reg("CAASFirewallerEmbedded", 1, caasfirewaller.NewStateFacadeEmbedded)
+	reg("CAASFirewallerEmbedded", 1, caasfirewaller.NewStateFacadeSidecar) // TODO(juju3): rename to CAASFirewallerSidecar
 	reg("CAASOperator", 1, caasoperator.NewStateFacade)
 	reg("CAASAdmission", 1, caasadmission.NewStateFacade)
 	reg("CAASAgent", 1, caasagent.NewStateFacade)

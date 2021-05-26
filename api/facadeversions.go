@@ -29,7 +29,7 @@ var facadeVersions = map[string]int{
 	"CAASApplication":              1,
 	"CAASApplicationProvisioner":   1,
 	"CAASFirewaller":               1,
-	"CAASFirewallerEmbedded":       1,
+	"CAASFirewallerEmbedded":       1, // TODO(juju3): rename to CAASFirewallerSidecar
 	"CAASModelOperator":            1,
 	"CAASOperator":                 1,
 	"CAASOperatorProvisioner":      1,

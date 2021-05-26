@@ -31,18 +31,19 @@ func NewClientLegacy(caller base.APICaller) *Client {
 	}
 }
 
-// ClientEmbedded allows access to the CAAS firewaller API endpoint for embedded applications.
-type ClientEmbedded struct {
+// ClientSidecar allows access to the CAAS firewaller API endpoint for sidecar applications.
+type ClientSidecar struct {
 	*Client
 	*charmscommon.CharmsClient
 }
 
-// NewClientEmbedded returns a client used to access the CAAS unit provisioner API.
-func NewClientEmbedded(caller base.APICaller) *ClientEmbedded {
-	// TODO(embedded): add OpenedPorts and ClosedPorts API for caasfirewallerembedded worker to fetch port mapping changes.
+// NewClientSidecar returns a client used to access the CAAS unit provisioner API.
+func NewClientSidecar(caller base.APICaller) *ClientSidecar {
+	// TODO(sidecar): add OpenedPorts and ClosedPorts API for caasfirewallersidecar worker to fetch port mapping changes.
+	// TODO(juju3): rename to CAASFirewallerSidecar
 	facadeCaller := base.NewFacadeCaller(caller, "CAASFirewallerEmbedded")
 	charmsClient := charmscommon.NewCharmsClient(facadeCaller)
-	return &ClientEmbedded{
+	return &ClientSidecar{
 		Client: &Client{
 			facade: facadeCaller,
 		},
@@ -51,13 +52,13 @@ func NewClientEmbedded(caller base.APICaller) *ClientEmbedded {
 }
 
 // modelTag returns the current model's tag.
-func (c *ClientEmbedded) modelTag() (names.ModelTag, bool) {
+func (c *ClientSidecar) modelTag() (names.ModelTag, bool) {
 	return c.facade.RawAPICaller().ModelTag()
 }
 
 // WatchOpenedPorts returns a StringsWatcher that notifies of
 // changes to the opened ports for the current model.
-func (c *ClientEmbedded) WatchOpenedPorts() (watcher.StringsWatcher, error) {
+func (c *ClientSidecar) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 	modelTag, ok := c.modelTag()
 	if !ok {
 		return nil, errors.New("API connection is controller-only (should never happen)")
@@ -81,7 +82,7 @@ func (c *ClientEmbedded) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 }
 
 // ApplicationCharmInfo finds the CharmInfo for an application.
-func (c *ClientEmbedded) ApplicationCharmInfo(appName string) (*charmscommon.CharmInfo, error) {
+func (c *ClientSidecar) ApplicationCharmInfo(appName string) (*charmscommon.CharmInfo, error) {
 	args := params.Entities{Entities: []params.Entity{{
 		Tag: names.NewApplicationTag(appName).String(),
 	}}}

@@ -5096,7 +5096,7 @@ func (s *ApplicationSuite) TestDeployedMachinesNotAssignedUnit(c *gc.C) {
 	c.Assert(machines, gc.HasLen, 0)
 }
 
-func (s *ApplicationSuite) TestCAASEmbeddedCharm(c *gc.C) {
+func (s *ApplicationSuite) TestCAASSidecarCharm(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS,
@@ -5121,12 +5121,12 @@ resources:
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	embedded, err := unit.IsEmbedded()
+	sidecar, err := unit.IsSidecar()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(embedded, jc.IsTrue)
+	c.Assert(sidecar, jc.IsTrue)
 }
 
-func (s *ApplicationSuite) TestCAASNonEmbeddedCharm(c *gc.C) {
+func (s *ApplicationSuite) TestCAASNonSidecarCharm(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS,
@@ -5148,9 +5148,9 @@ deployment:
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	embedded, err := unit.IsEmbedded()
+	sidecar, err := unit.IsSidecar()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(embedded, jc.IsFalse)
+	c.Assert(sidecar, jc.IsFalse)
 }
 
 func (s *ApplicationSuite) TestWatchApplicationConfigSettingsHash(c *gc.C) {

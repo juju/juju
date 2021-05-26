@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasfirewallerembedded_test
+package caasfirewallersidecar_test
 
 import (
 	"github.com/golang/mock/gomock"
@@ -15,14 +15,14 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/caasfirewallerembedded"
-	"github.com/juju/juju/worker/caasfirewallerembedded/mocks"
+	"github.com/juju/juju/worker/caasfirewallersidecar"
+	"github.com/juju/juju/worker/caasfirewallersidecar/mocks"
 )
 
 type workerSuite struct {
 	testing.BaseSuite
 
-	config caasfirewallerembedded.Config
+	config caasfirewallersidecar.Config
 	w      worker.Worker
 
 	firewallerAPI *mocks.MockCAASFirewallerAPI
@@ -50,7 +50,7 @@ func (s *workerSuite) TearDownTest(c *gc.C) {
 	s.lifeGetter = nil
 	s.logger = nil
 	s.broker = nil
-	s.config = caasfirewallerembedded.Config{}
+	s.config = caasfirewallersidecar.Config{}
 
 	s.BaseSuite.TearDownTest(c)
 }
@@ -66,7 +66,7 @@ func (s *workerSuite) initConfig(c *gc.C) *gomock.Controller {
 	s.logger = mocks.NewMockLogger(ctrl)
 	s.broker = mocks.NewMockCAASBroker(ctrl)
 
-	s.config = caasfirewallerembedded.Config{
+	s.config = caasfirewallersidecar.Config{
 		ControllerUUID: testing.ControllerTag.Id(),
 		ModelUUID:      testing.ModelTag.Id(),
 		FirewallerAPI:  s.firewallerAPI,
@@ -80,32 +80,32 @@ func (s *workerSuite) initConfig(c *gc.C) *gomock.Controller {
 func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	_ = s.initConfig(c)
 
-	s.testValidateConfig(c, func(config *caasfirewallerembedded.Config) {
+	s.testValidateConfig(c, func(config *caasfirewallersidecar.Config) {
 		config.ControllerUUID = ""
 	}, `missing ControllerUUID not valid`)
 
-	s.testValidateConfig(c, func(config *caasfirewallerembedded.Config) {
+	s.testValidateConfig(c, func(config *caasfirewallersidecar.Config) {
 		config.ModelUUID = ""
 	}, `missing ModelUUID not valid`)
 
-	s.testValidateConfig(c, func(config *caasfirewallerembedded.Config) {
+	s.testValidateConfig(c, func(config *caasfirewallersidecar.Config) {
 		config.FirewallerAPI = nil
 	}, `missing FirewallerAPI not valid`)
 
-	s.testValidateConfig(c, func(config *caasfirewallerembedded.Config) {
+	s.testValidateConfig(c, func(config *caasfirewallersidecar.Config) {
 		config.Broker = nil
 	}, `missing Broker not valid`)
 
-	s.testValidateConfig(c, func(config *caasfirewallerembedded.Config) {
+	s.testValidateConfig(c, func(config *caasfirewallersidecar.Config) {
 		config.LifeGetter = nil
 	}, `missing LifeGetter not valid`)
 
-	s.testValidateConfig(c, func(config *caasfirewallerembedded.Config) {
+	s.testValidateConfig(c, func(config *caasfirewallersidecar.Config) {
 		config.Logger = nil
 	}, `missing Logger not valid`)
 }
 
-func (s *workerSuite) testValidateConfig(c *gc.C, f func(*caasfirewallerembedded.Config), expect string) {
+func (s *workerSuite) testValidateConfig(c *gc.C, f func(*caasfirewallersidecar.Config), expect string) {
 	config := s.config
 	f(&config)
 	c.Check(config.Validate(), gc.ErrorMatches, expect)
@@ -129,10 +129,10 @@ func (s *workerSuite) TestStartStop(c *gc.C) {
 		controllerUUID string,
 		modelUUID string,
 		appName string,
-		firewallerAPI caasfirewallerembedded.CAASFirewallerAPI,
-		broker caasfirewallerembedded.CAASBroker,
-		lifeGetter caasfirewallerembedded.LifeGetter,
-		logger caasfirewallerembedded.Logger,
+		firewallerAPI caasfirewallersidecar.CAASFirewallerAPI,
+		broker caasfirewallersidecar.CAASBroker,
+		lifeGetter caasfirewallersidecar.LifeGetter,
+		logger caasfirewallersidecar.Logger,
 	) (worker.Worker, error) {
 		if appName == "app1" {
 			return app1Worker, nil
@@ -160,7 +160,7 @@ func (s *workerSuite) TestStartStop(c *gc.C) {
 	app2Worker.EXPECT().Kill()
 	app2Worker.EXPECT().Wait().Return(nil)
 
-	w, err := caasfirewallerembedded.NewWorkerForTest(s.config, workerCreator)
+	w, err := caasfirewallersidecar.NewWorkerForTest(s.config, workerCreator)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)

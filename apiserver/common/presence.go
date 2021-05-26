@@ -32,11 +32,11 @@ func (c *ModelPresenceContext) machinePresence(machine MachineStatusGetter) (boo
 func (c *ModelPresenceContext) unitPresence(unit UnitStatusGetter) (bool, error) {
 	agent := names.NewUnitTag(unit.Name()).String()
 	if !unit.ShouldBeAssigned() {
-		embedded, err := unit.IsEmbedded()
+		sidecar, err := unit.IsSidecar()
 		if err != nil {
 			return false, errors.Trace(err)
 		}
-		if !embedded {
+		if !sidecar {
 			// Units in CAAS models rely on the operator pings.
 			// These are for the application itself.
 			appName, err := names.UnitApplication(unit.Name())
