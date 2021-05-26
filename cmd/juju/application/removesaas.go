@@ -53,7 +53,11 @@ in a non-functional state.
 
 Examples:
     juju remove-saas hosted-mysql
-    juju remove-saas -m test-model hosted-mariadb`[1:]
+    juju remove-saas -m test-model hosted-mariadb
+
+See also:
+    consume
+    offer`[1:]
 
 func (c *removeSaasCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
