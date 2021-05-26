@@ -57,9 +57,9 @@ func NewCharmRevisionUpdaterAPI(ctx facade.Context) (*CharmRevisionUpdaterAPI, e
 		return charmstore.NewCachingClient(state.MacaroonCache{MacaroonCacheState: st}, controllerCfg.CharmStoreURL())
 	}
 	newCharmhubClient := func(st State, metadata map[string]string) (CharmhubRefreshClient, error) {
-		// TODO (stickupkid): Get the httpClient from the facade context
-		httpClient := charmhub.DefaultHTTPTransport()
-		return common.CharmhubClient(charmhubClientStateShim{state: st}, httpClient, logger, metadata)
+		// TODO (stickupkid): Get the http transport from the facade context
+		transport := charmhub.DefaultHTTPTransport(logger)
+		return common.CharmhubClient(charmhubClientStateShim{state: st}, transport, logger, metadata)
 	}
 	return NewCharmRevisionUpdaterAPIState(
 		StateShim{State: ctx.State()},
