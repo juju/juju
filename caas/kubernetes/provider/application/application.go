@@ -274,7 +274,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			for _, mount := range config.Containers[name].Mounts {
 				if mount.StorageName == storageName {
 					volumeMountCopy := m
-					// TODO(embedded): volumeMountCopy.MountPath was defined in `caas.ApplicationConfig.Filesystems[*].Attachment.Path`.
+					// TODO(sidecar): volumeMountCopy.MountPath was defined in `caas.ApplicationConfig.Filesystems[*].Attachment.Path`.
 					// Consolidate `caas.ApplicationConfig.Filesystems[*].Attachment.Path` and `caas.ApplicationConfig.Containers[*].Mounts[*].Path`!!!
 					volumeMountCopy.MountPath = mount.Path
 					podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, volumeMountCopy)
@@ -481,7 +481,7 @@ func (a *app) Upgrade(ver version.Number) error {
 		return errors.Trace(err)
 	}
 
-	// TODO(embedded):  we could query the cluster for all resources with the `app.juju.is/created-by` and `app.kubernetes.io/name` labels instead
+	// TODO(sidecar):  we could query the cluster for all resources with the `app.juju.is/created-by` and `app.kubernetes.io/name` labels instead
 	// (so longer as the resource also does have the juju version annotation already).
 	// Then we don't have to worry about missing anything if something is added later and not also updated here.
 	for _, r := range []annotationUpdater{
@@ -649,7 +649,7 @@ func (a *app) configureDefaultService(annotation annotations.Annotation) (err er
 // UpdateService updates the default service with specific service type and port mappings.
 func (a *app) UpdateService(param caas.ServiceParam) error {
 	// This method will be used for juju [un]expose.
-	// TODO(embedded): it might be changed later when we have proper modelling for the juju expose for the embedded charms.
+	// TODO(sidecar): it might be changed later when we have proper modelling for the juju expose for the sidecar charms.
 	svc, err := a.getService()
 	if err != nil {
 		return errors.Annotatef(err, "getting existing service %q", a.name)

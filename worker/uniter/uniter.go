@@ -81,7 +81,7 @@ type Uniter struct {
 	paths                        Paths
 	unit                         *uniter.Unit
 	modelType                    model.ModelType
-	embedded                     bool
+	sidecar                      bool
 	enforcedCharmModifiedVersion int
 	storage                      *storage.Attachments
 	clock                        clock.Clock
@@ -195,7 +195,7 @@ type UniterParams struct {
 	Observer                     UniterExecutionObserver
 	RebootQuerier                RebootQuerier
 	Logger                       Logger
-	Embedded                     bool
+	Sidecar                      bool
 	EnforcedCharmModifiedVersion int
 	ContainerNames               []string
 	NewPebbleClient              NewPebbleClientFunc
@@ -262,7 +262,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			runListener:                   uniterParams.RunListener,
 			rebootQuerier:                 uniterParams.RebootQuerier,
 			logger:                        uniterParams.Logger,
-			embedded:                      uniterParams.Embedded,
+			sidecar:                       uniterParams.Sidecar,
 			enforcedCharmModifiedVersion:  uniterParams.EnforcedCharmModifiedVersion,
 			containerNames:                uniterParams.ContainerNames,
 			newPebbleClient:               uniterParams.NewPebbleClient,
@@ -328,7 +328,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}
 
 	// Check we are running the correct charm version.
-	if u.embedded && u.enforcedCharmModifiedVersion != -1 {
+	if u.sidecar && u.enforcedCharmModifiedVersion != -1 {
 		if charmModifiedVersion != u.enforcedCharmModifiedVersion {
 			u.logger.Infof("remote charm modified version (%d) does not match agent's (%d)",
 				charmModifiedVersion, u.enforcedCharmModifiedVersion)
@@ -383,7 +383,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				ModelType:                     u.modelType,
 				Logger:                        u.logger.Child("remotestate"),
 				CanApplyCharmProfile:          canApplyCharmProfile,
-				Embedded:                      u.embedded,
+				Sidecar:                       u.sidecar,
 				EnforcedCharmModifiedVersion:  u.enforcedCharmModifiedVersion,
 				WorkloadEventChannel:          u.workloadEventChannel,
 			})
@@ -711,7 +711,7 @@ func (u *Uniter) terminate() error {
 // an individual agent for that unit.
 func (u *Uniter) stopUnitError() error {
 	u.logger.Debugf("u.modelType: %s", u.modelType)
-	if u.modelType == model.CAAS && !u.embedded {
+	if u.modelType == model.CAAS && !u.sidecar {
 		return ErrCAASUnitDead
 	}
 	return jworker.ErrTerminateAgent

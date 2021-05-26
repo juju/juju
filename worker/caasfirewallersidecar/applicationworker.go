@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasfirewallerembedded
+package caasfirewallersidecar
 
 import (
 	"reflect"
@@ -55,7 +55,7 @@ func (pg portRanges) toServicePorts() []caas.ServicePort {
 	out := make([]caas.ServicePort, len(pg))
 	for p := range pg {
 		out = append(out, caas.ServicePort{
-			// TODO(embedded): add name to `network.PortRange`?
+			// TODO(sidecar): add name to `network.PortRange`?
 			// Name:       p.Name,
 			Port:       p.FromPort,
 			TargetPort: p.ToPort,
@@ -129,12 +129,12 @@ func (w *applicationWorker) setUp() (err error) {
 		return errors.Errorf("charm must be version 2 or greater")
 	}
 
-	// TODO(embedded): support deployment other than statefulset
+	// TODO(sidecar): support deployment other than statefulset
 	app := w.broker.Application(w.appName, caas.DeploymentStateful)
 	w.portMutator = app
 	w.serviceUpdater = app
 
-	// TODO(embedded):
+	// TODO(sidecar):
 	/*
 		if ports, err := w.firewallerAPI.OpenedPorts(w.appName); err != nil {
 			return errors.Annotatef(err, "failed to get initial openned ports for application")
@@ -148,7 +148,7 @@ func (w *applicationWorker) loop() (err error) {
 	defer func() {
 		// If the application has been deleted, we can return nil.
 		if errors.IsNotFound(err) {
-			w.logger.Debugf("embedded caas firewaller application %v has been removed", w.appName)
+			w.logger.Debugf("sidecar caas firewaller application %v has been removed", w.appName)
 			err = nil
 		}
 	}()
@@ -175,7 +175,7 @@ func (w *applicationWorker) loop() (err error) {
 			if !ok {
 				return errors.New("application watcher closed")
 			}
-			// TODO(embedded): implement portWatcher to return application names having port changes,
+			// TODO(sidecar): implement portWatcher to return application names having port changes,
 			/*
 				if !sets.NewString(changes...).Contains(w.appName){continue}
 			*/
@@ -187,7 +187,7 @@ func (w *applicationWorker) loop() (err error) {
 }
 
 func (w *applicationWorker) onPortChanged() (err error) {
-	// TODO(embedded):
+	// TODO(sidecar):
 	/*
 		ports, err := w.firewallerAPI.OpenedPorts(w.appName)
 		if err != nil {
@@ -237,13 +237,13 @@ func (w *applicationWorker) onApplicationChanged() (err error) {
 }
 
 func exposeService(app ServiceUpdater) error {
-	// TODO(embedded): implement expose once it's modelled.
+	// TODO(sidecar): implement expose once it's modelled.
 	// app.UpdateService()
 	return nil
 }
 
 func unExposeService(app ServiceUpdater) error {
-	// TODO(embedded): implement un-expose once it's modelled.
+	// TODO(sidecar): implement un-expose once it's modelled.
 	// app.UpdateService()
 	return nil
 }

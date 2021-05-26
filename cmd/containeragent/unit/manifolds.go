@@ -296,7 +296,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			HookRetryStrategyName:        hookRetryStrategyName,
 			TranslateResolverErr:         uniter.TranslateFortressErrors,
 			Logger:                       loggo.GetLogger("juju.worker.uniter"),
-			Embedded:                     true,
+			Sidecar:                      true,
 			EnforcedCharmModifiedVersion: config.CharmModifiedVersion,
 			ContainerNames:               config.ContainerNames,
 		})),

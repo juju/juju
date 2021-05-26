@@ -48,7 +48,7 @@ func NewUpgraderFacade(st *state.State, resources facade.Resources, auth facade.
 		return NewUpgraderAPI(st, resources, auth)
 	case names.UnitTag:
 		if model.Type() == state.ModelTypeCAAS {
-			// For embedded applications.
+			// For sidecar applications.
 			return NewUpgraderAPI(st, resources, auth)
 		}
 		return NewUnitUpgraderAPI(st, resources, auth)

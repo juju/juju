@@ -8575,7 +8575,7 @@
     },
     {
         "Name": "CAASFirewallerEmbedded",
-        "Description": "FacadeEmbedded provides access to the CAASFireWaller API facade for embedded applications.",
+        "Description": "FacadeSidecar provides access to the CAASFirewaller API facade for sidecar applications.",
         "Version": 1,
         "AvailableTo": [
             "controller-machine-agent",

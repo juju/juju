@@ -1351,7 +1351,7 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) err
 			}
 		}
 		if len(supportedSeries) > 0 {
-			// TODO(embedded): handle computed series
+			// TODO(sidecar): handle computed series
 			seriesOS, err := series.GetOSFromSeries(args.Series)
 			if err != nil {
 				return errors.Trace(err)

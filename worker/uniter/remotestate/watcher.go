@@ -41,7 +41,7 @@ type RemoteStateWatcher struct {
 	unit                         Unit
 	application                  Application
 	modelType                    model.ModelType
-	embedded                     bool
+	sidecar                      bool
 	enforcedCharmModifiedVersion int
 	logger                       Logger
 
@@ -91,7 +91,7 @@ type WatcherConfig struct {
 	ContainerRunningStatusFunc    ContainerRunningStatusFunc
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
-	Embedded                      bool
+	Sidecar                       bool
 	EnforcedCharmModifiedVersion  int
 	Logger                        Logger
 	CanApplyCharmProfile          bool
@@ -99,11 +99,11 @@ type WatcherConfig struct {
 }
 
 func (w WatcherConfig) validate() error {
-	if w.ModelType == model.IAAS && w.Embedded {
-		return errors.NewNotValid(nil, fmt.Sprintf("embedded mode is only for %q model", model.CAAS))
+	if w.ModelType == model.IAAS && w.Sidecar {
+		return errors.NewNotValid(nil, fmt.Sprintf("sidecar mode is only for %q model", model.CAAS))
 	}
 
-	if w.ModelType == model.CAAS && !w.Embedded {
+	if w.ModelType == model.CAAS && !w.Sidecar {
 		if w.ApplicationChannel == nil {
 			return errors.NotValidf("watcher config for CAAS model with nil application channel")
 		}
@@ -151,7 +151,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 			ActionsBlocked: config.ContainerRunningStatusChannel != nil,
 			ActionChanged:  make(map[string]int),
 		},
-		embedded:                     config.Embedded,
+		sidecar:                      config.Sidecar,
 		enforcedCharmModifiedVersion: config.EnforcedCharmModifiedVersion,
 		workloadEventChannel:         config.WorkloadEventChannel,
 	}
@@ -354,12 +354,12 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 
 	// CAAS models don't use an application watcher
 	// which fires an initial event.
-	if w.modelType == model.CAAS && !w.embedded {
+	if w.modelType == model.CAAS && !w.sidecar {
 		seenApplicationChange = true
 	}
 
-	if w.modelType == model.IAAS || w.embedded {
-		// For IAAS model and embedded CAAS model, we need to watch state for
+	if w.modelType == model.IAAS || w.sidecar {
+		// For IAAS model and sidecar CAAS model, we need to watch state for
 		// application charm changes instead of being informed by the operator.
 		applicationw, err := w.application.Watch()
 		if err != nil {
@@ -803,9 +803,9 @@ func (w *RemoteStateWatcher) applicationChanged() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// CAAS embedded charms will wait for the provider to restart/recreate
+	// CAAS sidecar charms will wait for the provider to restart/recreate
 	// the unit before performing an upgrade.
-	if w.embedded && ver != w.enforcedCharmModifiedVersion {
+	if w.sidecar && ver != w.enforcedCharmModifiedVersion {
 		return nil
 	}
 	w.mu.Lock()

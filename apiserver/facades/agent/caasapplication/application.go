@@ -101,7 +101,7 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 		return errResp(errors.NotProvisionedf("application"))
 	}
 
-	// TODO(embedded): handle deployment other than statefulset
+	// TODO(sidecar): handle deployment other than statefulset
 	// ch, _, err := application.Charm()
 	// if err != nil {
 	// 	return errResp(err)

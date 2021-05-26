@@ -8,7 +8,7 @@ import (
 	"github.com/juju/version/v2"
 )
 
-// CAASUnitIntroductionArgs is used by embedded units to introduce
+// CAASUnitIntroductionArgs is used by sidecar units to introduce
 // themselves via CAASApplication facade.
 type CAASUnitIntroductionArgs struct {
 	PodName string `json:"pod-name"`
