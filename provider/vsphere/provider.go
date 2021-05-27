@@ -32,6 +32,8 @@ type environProvider struct {
 	dial DialFunc
 }
 
+var _ config.ConfigSchemaSource = (*environProvider)(nil)
+
 // EnvironProviderConfig contains configuration for the EnvironProvider.
 type EnvironProviderConfig struct {
 	// Dial is a function used for dialing connections to vCenter/ESXi.
