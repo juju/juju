@@ -39,7 +39,7 @@ type EnvironProviderConfig struct {
 }
 
 // NewEnvironProvider returns a new environs.EnvironProvider that will
-// dial vSphere connectons with the given dial function.
+// dial vSphere connections with the given dial function.
 func NewEnvironProvider(config EnvironProviderConfig) environs.CloudEnvironProvider {
 	return &environProvider{
 		dial: config.Dial,
