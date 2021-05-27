@@ -8,6 +8,7 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	path "github.com/juju/juju/charmhub/path"
+	loggo "github.com/juju/loggo"
 	http "net/http"
 	os "os"
 	reflect "reflect"
@@ -165,6 +166,20 @@ func (m *MockLogger) EXPECT() *MockLoggerMockRecorder {
 	return m.recorder
 }
 
+// Child mocks base method
+func (m *MockLogger) Child(arg0 string) loggo.Logger {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Child", arg0)
+	ret0, _ := ret[0].(loggo.Logger)
+	return ret0
+}
+
+// Child indicates an expected call of Child
+func (mr *MockLoggerMockRecorder) Child(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Child", reflect.TypeOf((*MockLogger)(nil).Child), arg0)
+}
+
 // Debugf mocks base method
 func (m *MockLogger) Debugf(arg0 string, arg1 ...interface{}) {
 	m.ctrl.T.Helper()
@@ -180,6 +195,23 @@ func (mr *MockLoggerMockRecorder) Debugf(arg0 interface{}, arg1 ...interface{}) 
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Debugf", reflect.TypeOf((*MockLogger)(nil).Debugf), varargs...)
+}
+
+// Errorf mocks base method
+func (m *MockLogger) Errorf(arg0 string, arg1 ...interface{}) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Errorf", varargs...)
+}
+
+// Errorf indicates an expected call of Errorf
+func (mr *MockLoggerMockRecorder) Errorf(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Errorf", reflect.TypeOf((*MockLogger)(nil).Errorf), varargs...)
 }
 
 // IsTraceEnabled mocks base method

@@ -3,6 +3,8 @@
 
 package charmhub
 
+import "github.com/juju/loggo"
+
 type FakeLogger struct {
 }
 
@@ -15,3 +17,7 @@ func (l *FakeLogger) Errorf(format string, args ...interface{}) {}
 func (l *FakeLogger) Debugf(format string, args ...interface{}) {}
 
 func (l *FakeLogger) Tracef(format string, args ...interface{}) {}
+
+func (l *FakeLogger) Child(string) loggo.Logger {
+	return loggo.Logger{}
+}
