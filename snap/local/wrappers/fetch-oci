@@ -24,6 +24,10 @@ if ! which $container_cmd; then
     fi
 fi
 
+# We will give up if below steps can be finished in 110s because snapd will kill us in 120s.
+# It's not an install/refresh blocker if we can't get the images.
+timeout 110s sh <<EOT || echo "Timed out waiting to install microk8s image."
+
 echo "Wait for microk8s to be ready if needed."
 wait_result=$(microk8s.status --wait-ready --timeout 30 2>&1)
 if [ $? -ne 0 ]; then
@@ -36,9 +40,6 @@ oci_image="docker.io/jujusolutions/jujud-operator:$juju_version"
 mongo_image="docker.io/jujusolutions/juju-db:4.0"
 
 echo "Going to cache images: $oci_image and $mongo_image."
-
-# It's not an install/refresh blocker if we can't get the images.
-timeout 90s sh <<EOT || echo "Timed out waiting to install microk8s image."
 echo "Pulling: $oci_image."
 $container_cmd $image_arg list | grep $oci_image || $container_cmd $image_arg pull $oci_image || true
 echo "Pulling: $mongo_image."
