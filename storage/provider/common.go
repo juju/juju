@@ -24,9 +24,3 @@ var (
 func CommonStorageProviders() storage.ProviderRegistry {
 	return storage.StaticProviderRegistry{Providers: commonStorageProviders}
 }
-
-// ValidateConfig performs storage provider config validation, including
-// any common validation.
-func ValidateConfig(p storage.Provider, cfg *storage.Config) error {
-	return p.ValidateConfig(cfg)
-}
