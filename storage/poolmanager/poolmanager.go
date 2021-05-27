@@ -7,11 +7,10 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
 )
 
+// Pool configuration attribute names.
 const (
-	// Pool configuration attribute names.
 	Name = "name"
 	Type = "type"
 )
@@ -71,7 +70,7 @@ func (pm *poolManager) validatedConfig(name string, providerType storage.Provide
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := provider.ValidateConfig(p, cfg); err != nil {
+	if err := p.ValidateConfig(cfg); err != nil {
 		return nil, errors.Annotate(err, "validating storage provider config")
 	}
 
@@ -160,7 +159,7 @@ func (pm *poolManager) configFromSettings(settings map[string]interface{}) (*sto
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := provider.ValidateConfig(p, cfg); err != nil {
+	if err := p.ValidateConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return cfg, nil

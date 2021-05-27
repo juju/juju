@@ -30,28 +30,29 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
+type storageMetadataFunc func() (poolmanager.PoolManager, storage.ProviderRegistry, error)
+
 // StorageAPI implements the latest version (v6) of the Storage API.
 type StorageAPI struct {
-	backend       backend
-	storageAccess storageAccess
-	registry      storage.ProviderRegistry
-	poolManager   poolmanager.PoolManager
-	authorizer    facade.Authorizer
-	callContext   context.ProviderCallContext
-	modelType     state.ModelType
+	backend         backend
+	storageAccess   storageAccess
+	storageMetadata storageMetadataFunc
+	authorizer      facade.Authorizer
+	callContext     context.ProviderCallContext
+	modelType       state.ModelType
 }
 
-// APIv5 implements the storage v5 API.
+// StorageAPIv5 implements the storage v5 API.
 type StorageAPIv5 struct {
 	StorageAPI
 }
 
-// APIv4 implements the storage v4 API adding AddToUnit, Import and Remove (replacing Destroy)
+// StorageAPIv4 implements the storage v4 API adding AddToUnit, Import and Remove (replacing Destroy)
 type StorageAPIv4 struct {
 	StorageAPIv5
 }
 
-// APIv3 implements the storage v3 API.
+// StorageAPIv3 implements the storage v3 API.
 type StorageAPIv3 struct {
 	StorageAPIv4
 }
@@ -63,15 +64,21 @@ func NewStorageAPI(ctx facade.Context) (*StorageAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-		model,
-		stateenvirons.GetNewEnvironFunc(environs.New),
-		stateenvirons.GetNewCAASBrokerFunc(caas.New))
-	if err != nil {
-		return nil, errors.Trace(err)
+	storageMetadata := func() (poolmanager.PoolManager, storage.ProviderRegistry, error) {
+		model, err := st.Model()
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		registry, err := stateenvirons.NewStorageProviderRegistryForModel(
+			model,
+			stateenvirons.GetNewEnvironFunc(environs.New),
+			stateenvirons.GetNewCAASBrokerFunc(caas.New))
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		pm := poolmanager.New(state.NewStateSettings(st), registry)
+		return pm, registry, nil
 	}
-	pm := poolmanager.New(state.NewStateSettings(st), registry)
-
 	storageAccessor, err := getStorageAccessor(st)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting backend")
@@ -81,26 +88,24 @@ func NewStorageAPI(ctx facade.Context) (*StorageAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	return newStorageAPI(stateShim{st}, model.Type(), storageAccessor, registry, pm, authorizer, context.CallContext(st)), nil
+	return newStorageAPI(stateShim{st}, model.Type(), storageAccessor, storageMetadata, authorizer, context.CallContext(st)), nil
 }
 
 func newStorageAPI(
 	backend backend,
 	modelType state.ModelType,
 	storageAccess storageAccess,
-	registry storage.ProviderRegistry,
-	pm poolmanager.PoolManager,
+	storageMetadata storageMetadataFunc,
 	authorizer facade.Authorizer,
 	callContext context.ProviderCallContext,
 ) *StorageAPI {
 	return &StorageAPI{
-		backend:       backend,
-		modelType:     modelType,
-		storageAccess: storageAccess,
-		registry:      registry,
-		poolManager:   pm,
-		authorizer:    authorizer,
-		callContext:   callContext,
+		backend:         backend,
+		modelType:       modelType,
+		storageAccess:   storageAccess,
+		storageMetadata: storageMetadata,
+		authorizer:      authorizer,
+		callContext:     callContext,
 	}
 }
 
@@ -379,14 +384,19 @@ func (a *StorageAPI) ensureStoragePoolFilter(filter params.StoragePoolFilter) pa
 }
 
 func (a *StorageAPI) listPools(filter params.StoragePoolFilter) ([]params.StoragePool, error) {
-	if err := a.validatePoolListFilter(filter); err != nil {
-		return nil, errors.Trace(err)
-	}
-	pools, err := a.poolManager.List()
+	pm, registry, err := a.storageMetadata()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	providers, err := a.registry.StorageProviderTypes()
+	if err := a.validatePoolListFilter(registry, filter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	pools, err := pm.List()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	providers, err := registry.StorageProviderTypes()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -454,8 +464,8 @@ func filterPools(
 	return all
 }
 
-func (a *StorageAPI) validatePoolListFilter(filter params.StoragePoolFilter) error {
-	if err := a.validateProviderCriteria(filter.Providers); err != nil {
+func (a *StorageAPI) validatePoolListFilter(registry storage.ProviderRegistry, filter params.StoragePoolFilter) error {
+	if err := a.validateProviderCriteria(registry, filter.Providers); err != nil {
 		return errors.Trace(err)
 	}
 	if err := a.validateNameCriteria(filter.Names); err != nil {
@@ -473,9 +483,9 @@ func (a *StorageAPI) validateNameCriteria(names []string) error {
 	return nil
 }
 
-func (a *StorageAPI) validateProviderCriteria(providers []string) error {
+func (a *StorageAPI) validateProviderCriteria(registry storage.ProviderRegistry, providers []string) error {
 	for _, p := range providers {
-		_, err := a.registry.StorageProvider(storage.ProviderType(p))
+		_, err := registry.StorageProvider(storage.ProviderType(p))
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -485,11 +495,13 @@ func (a *StorageAPI) validateProviderCriteria(providers []string) error {
 
 // CreatePool creates a new pool with specified parameters.
 func (a *StorageAPIv4) CreatePool(p params.StoragePool) error {
-	_, err := a.poolManager.Create(
-		p.Name,
-		storage.ProviderType(p.Provider),
-		p.Attrs)
-	return err
+	result, err := a.StorageAPIv5.CreatePool(params.StoragePoolArgs{
+		Pools: []params.StoragePool{p},
+	})
+	if err != nil {
+		return common.ServerError(err)
+	}
+	return result.OneError()
 }
 
 // CreatePool creates a new pool with specified parameters.
@@ -497,8 +509,12 @@ func (a *StorageAPI) CreatePool(p params.StoragePoolArgs) (params.ErrorResults, 
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(p.Pools)),
 	}
+	pm, _, err := a.storageMetadata()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
 	for i, pool := range p.Pools {
-		_, err := a.poolManager.Create(
+		_, err := pm.Create(
 			pool.Name,
 			storage.ProviderType(pool.Provider),
 			pool.Attrs)
@@ -1087,7 +1103,12 @@ func (a *StorageAPI) importStorage(arg params.ImportStorageParams) (*params.Impo
 		return nil, errors.NotValidf("pool name %q", arg.Pool)
 	}
 
-	cfg, err := a.poolManager.Get(arg.Pool)
+	pm, registry, err := a.storageMetadata()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cfg, err := pm.Get(arg.Pool)
 	if errors.IsNotFound(err) {
 		cfg, err = storage.NewConfig(
 			arg.Pool,
@@ -1100,7 +1121,7 @@ func (a *StorageAPI) importStorage(arg params.ImportStorageParams) (*params.Impo
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
-	provider, err := a.registry.StorageProvider(cfg.Provider())
+	provider, err := registry.StorageProvider(cfg.Provider())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1200,8 +1221,13 @@ func (a *StorageAPI) UpdatePool(p params.StoragePoolArgs) (params.ErrorResults, 
 	if err := a.checkCanWrite(); err != nil {
 		return results, errors.Trace(err)
 	}
+	pm, _, err := a.storageMetadata()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
 	for i, pool := range p.Pools {
-		err := a.poolManager.Replace(pool.Name, pool.Provider, pool.Attrs)
+		err := pm.Replace(pool.Name, pool.Provider, pool.Attrs)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 		}
@@ -1213,15 +1239,14 @@ func (a *StorageAPI) UpdatePool(p params.StoragePoolArgs) (params.ErrorResults, 
 // code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
 // so this removes the method as far as the RPC machinery is concerned.
 
-// Added in v6 api version
+// DetachStorage added in v6 api version
 func (*StorageAPIv5) DetachStorage(_, _ struct{}) {}
 
-// Added in v5 api version
+// RemovePool etc added in v5 api version
 func (*StorageAPIv4) RemovePool(_, _ struct{}) {}
 func (*StorageAPIv4) UpdatePool(_, _ struct{}) {}
 
-// Added in v4
-// Destroy was dropped in V4, replaced with Remove.
+// Remove etc added in v4 api version.
 func (*StorageAPIv3) Remove(_, _ struct{})           {}
 func (*StorageAPIv3) Import(_, _ struct{})           {}
 func (*StorageAPIv3) importStorage(_, _ struct{})    {}

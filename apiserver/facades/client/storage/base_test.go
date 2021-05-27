@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 	jujustorage "github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -69,9 +70,9 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.poolsInUse = []string{}
 
 	s.callContext = context.NewCloudCallContext()
-	s.api = storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.authorizer, s.callContext)
-	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.registry, s.poolManager, s.authorizer, s.callContext)
-	newAPI := storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.authorizer, s.callContext)
+	s.api = storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.storageMetadata, s.authorizer, s.callContext)
+	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.storageMetadata, s.authorizer, s.callContext)
+	newAPI := storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.storageMetadata, s.authorizer, s.callContext)
 	s.apiv3 = &storage.StorageAPIv3{
 		StorageAPIv4: storage.StorageAPIv4{
 			StorageAPIv5: storage.StorageAPIv5{
@@ -79,6 +80,10 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
+}
+
+func (s *baseStorageSuite) storageMetadata() (poolmanager.PoolManager, jujustorage.ProviderRegistry, error) {
+	return s.poolManager, s.registry, nil
 }
 
 // TODO(axw) get rid of assertCalls, use stub directly everywhere.

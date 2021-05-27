@@ -173,7 +173,7 @@ func (s *poolSuite) TestListNoPools(c *gc.C) {
 }
 
 func (s *poolSuite) TestListFilterEmpty(c *gc.C) {
-	err := apiserverstorage.ValidatePoolListFilter(s.api, params.StoragePoolFilter{})
+	err := apiserverstorage.ValidatePoolListFilter(s.api, s.registry, params.StoragePoolFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -188,6 +188,7 @@ func (s *poolSuite) TestListFilterValidProviders(c *gc.C) {
 	s.registerProviders(c)
 	err := apiserverstorage.ValidateProviderCriteria(
 		s.api,
+		s.registry,
 		[]string{validProvider})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -195,6 +196,7 @@ func (s *poolSuite) TestListFilterValidProviders(c *gc.C) {
 func (s *poolSuite) TestListFilterUnregisteredProvider(c *gc.C) {
 	err := apiserverstorage.ValidateProviderCriteria(
 		s.api,
+		s.registry,
 		[]string{validProvider})
 	c.Assert(err, gc.ErrorMatches, `storage provider "loop" not found`)
 }
@@ -203,6 +205,7 @@ func (s *poolSuite) TestListFilterUnknownProvider(c *gc.C) {
 	s.registerProviders(c)
 	err := apiserverstorage.ValidateProviderCriteria(
 		s.api,
+		s.registry,
 		[]string{invalidProvider})
 	c.Assert(err, gc.ErrorMatches, `storage provider "invalid" not found`)
 }
@@ -225,6 +228,7 @@ func (s *poolSuite) TestListFilterValidProvidersAndNames(c *gc.C) {
 	s.registerProviders(c)
 	err := apiserverstorage.ValidatePoolListFilter(
 		s.api,
+		s.registry,
 		params.StoragePoolFilter{
 			Providers: []string{validProvider},
 			Names:     []string{validName}})
@@ -235,6 +239,7 @@ func (s *poolSuite) TestListFilterValidProvidersAndInvalidNames(c *gc.C) {
 	s.registerProviders(c)
 	err := apiserverstorage.ValidatePoolListFilter(
 		s.api,
+		s.registry,
 		params.StoragePoolFilter{
 			Providers: []string{validProvider},
 			Names:     []string{invalidName}})
@@ -244,6 +249,7 @@ func (s *poolSuite) TestListFilterValidProvidersAndInvalidNames(c *gc.C) {
 func (s *poolSuite) TestListFilterInvalidProvidersAndValidNames(c *gc.C) {
 	err := apiserverstorage.ValidatePoolListFilter(
 		s.api,
+		s.registry,
 		params.StoragePoolFilter{
 			Providers: []string{invalidProvider},
 			Names:     []string{validName}})
@@ -253,6 +259,7 @@ func (s *poolSuite) TestListFilterInvalidProvidersAndValidNames(c *gc.C) {
 func (s *poolSuite) TestListFilterInvalidProvidersAndNames(c *gc.C) {
 	err := apiserverstorage.ValidatePoolListFilter(
 		s.api,
+		s.registry,
 		params.StoragePoolFilter{
 			Providers: []string{invalidProvider},
 			Names:     []string{invalidName}})
