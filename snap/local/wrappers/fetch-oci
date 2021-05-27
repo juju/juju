@@ -24,7 +24,7 @@ if ! which $container_cmd; then
     fi
 fi
 
-# We will give up if below steps can be finished in 110s because snapd will kill us in 120s.
+# We will give up if below steps can not be finished in 110s because snapd will kill us in 120s.
 # It's not an install/refresh blocker if we can't get the images.
 timeout 110s sh <<EOT || echo "Timed out waiting to install microk8s image."
 
