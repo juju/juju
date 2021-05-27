@@ -19,6 +19,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/caas"
@@ -713,4 +714,8 @@ func (a *app) Scale(scaleTo int) error {
 
 func (a *app) Trust(bool) error {
 	return errors.NotImplementedf("trust with ecs")
+}
+
+func (a *app) Upgrade(ver version.Number) error {
+	return errors.NotImplementedf("upgrade with ecs")
 }
