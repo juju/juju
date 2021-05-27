@@ -1002,7 +1002,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
-			UpgradeStepsGateName: upgradeStepsGateName,
 			UpgradeCheckGateName: upgradeCheckGateName,
 			PreviousAgentVersion: config.PreviousAgentVersion,
 		}),

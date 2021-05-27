@@ -204,7 +204,6 @@ var expectedOperatorManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
-		"upgrade-steps-gate",
 	},
 
 	"clock": {},

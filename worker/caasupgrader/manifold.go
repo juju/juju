@@ -21,7 +21,6 @@ import (
 type ManifoldConfig struct {
 	AgentName            string
 	APICallerName        string
-	UpgradeStepsGateName string
 	UpgradeCheckGateName string
 	PreviousAgentVersion version.Number
 }
@@ -35,9 +34,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 
 	// The machine agent uses these but the application agent doesn't.
-	if config.UpgradeStepsGateName != "" {
-		inputs = append(inputs, config.UpgradeStepsGateName)
-	}
 	if config.UpgradeCheckGateName != "" {
 		inputs = append(inputs, config.UpgradeCheckGateName)
 	}
@@ -63,18 +59,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			upgraderFacade := upgrader.NewState(apiCaller)
 			operatorUpgraderFacade := caasoperatorupgrader.NewClient(apiCaller)
 
-			var upgradeStepsWaiter gate.Waiter
-			if config.UpgradeStepsGateName == "" {
-				upgradeStepsWaiter = gate.NewLock()
-			} else {
-				if config.PreviousAgentVersion == version.Zero {
-					return nil, errors.New("previous agent version not specified")
-				}
-				if err := context.Get(config.UpgradeStepsGateName, &upgradeStepsWaiter); err != nil {
-					return nil, err
-				}
-			}
-
 			var initialCheckUnlocker gate.Unlocker
 			if config.UpgradeCheckGateName == "" {
 				initialCheckUnlocker = gate.NewLock()
@@ -89,7 +73,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				CAASOperatorUpgrader:        operatorUpgraderFacade,
 				AgentTag:                    currentConfig.Tag(),
 				OrigAgentVersion:            config.PreviousAgentVersion,
-				UpgradeStepsWaiter:          upgradeStepsWaiter,
 				InitialUpgradeCheckComplete: initialCheckUnlocker,
 			})
 		},

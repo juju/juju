@@ -27,7 +27,6 @@ type UpgraderSuite struct {
 	operatorUpgrader *mockOperatorUpgrader
 	ch               chan struct{}
 
-	upgradeStepsComplete gate.Lock
 	initialCheckComplete gate.Lock
 }
 
@@ -36,7 +35,6 @@ var _ = gc.Suite(&UpgraderSuite{})
 func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.upgradeStepsComplete = gate.NewLock()
 	s.initialCheckComplete = gate.NewLock()
 	s.ch = make(chan struct{})
 	s.upgraderClient = &mockUpgraderClient{
@@ -57,7 +55,6 @@ func (s *UpgraderSuite) makeUpgrader(c *gc.C, agent names.Tag) *caasupgrader.Upg
 		CAASOperatorUpgrader:        s.operatorUpgrader,
 		AgentTag:                    agent,
 		OrigAgentVersion:            s.confVersion,
-		UpgradeStepsWaiter:          s.upgradeStepsComplete,
 		InitialUpgradeCheckComplete: s.initialCheckComplete,
 	})
 	c.Assert(err, jc.ErrorIsNil)

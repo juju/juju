@@ -158,7 +158,6 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
-			UpgradeStepsGateName: upgradeStepsGateName,
 			PreviousAgentVersion: config.PreviousAgentVersion,
 		}),
 
