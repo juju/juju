@@ -106,7 +106,7 @@ func (s *BaseRefreshSuite) SetUpTest(c *gc.C) {
 
 	s.resolvedChannel = csclientparams.StableChannel
 	s.resolveCharm = mockCharmResolver{
-		resolveFunc: func(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error) {
+		resolveFunc: func(url *charm.URL, preferredOrigin commoncharm.Origin, _ bool) (*charm.URL, commoncharm.Origin, []string, error) {
 			s.AddCall("ResolveCharm", url, preferredOrigin)
 			if err := s.NextErr(); err != nil {
 				return nil, commoncharm.Origin{}, nil, err
@@ -948,11 +948,11 @@ func (m *mockCharmClient) CharmInfo(curl string) (*apicommoncharms.CharmInfo, er
 
 type mockCharmResolver struct {
 	testing.Stub
-	resolveFunc func(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error)
+	resolveFunc func(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error)
 }
 
-func (m *mockCharmResolver) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error) {
-	return m.resolveFunc(url, preferredOrigin)
+func (m *mockCharmResolver) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
+	return m.resolveFunc(url, preferredOrigin, switchCharm)
 }
 
 type mockCharmRefreshClient struct {

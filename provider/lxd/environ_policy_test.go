@@ -31,7 +31,7 @@ var _ = gc.Suite(&environPolicySuite{})
 
 func (s *environPolicySuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
 func (s *environPolicySuite) TestPrecheckInstanceDefaults(c *gc.C) {
@@ -125,7 +125,7 @@ func (s *environPolicySuite) TestConstraintsValidatorEmpty(c *gc.C) {
 func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(context.NewCloudCallContext())
+	validator, err := s.env.ConstraintsValidator(context.NewEmptyCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse(strings.Join([]string{
@@ -207,7 +207,7 @@ func (s *environPolicySuite) TestSupportNetworks(c *gc.C) {
 
 	isSupported := s.env.(interface {
 		SupportNetworks(context.ProviderCallContext) bool
-	}).SupportNetworks(context.NewCloudCallContext())
+	}).SupportNetworks(context.NewEmptyCloudCallContext())
 
 	c.Check(isSupported, jc.IsFalse)
 }

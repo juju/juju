@@ -54,19 +54,19 @@ func ModelManifold(config ModelManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 			w, err := config.NewWorker(Config{
-				Model:            config.Model,
-				Scope:            config.Model,
-				StorageDir:       config.StorageDir,
-				Applications:     api,
-				Volumes:          api,
-				Filesystems:      api,
-				Life:             api,
-				Registry:         registry,
-				Machines:         api,
-				Status:           api,
-				Clock:            config.Clock,
-				Logger:           config.Logger,
-				CloudCallContext: common.NewCloudCallContext(credentialAPI, nil),
+				Model:                config.Model,
+				Scope:                config.Model,
+				StorageDir:           config.StorageDir,
+				Applications:         api,
+				Volumes:              api,
+				Filesystems:          api,
+				Life:                 api,
+				Registry:             registry,
+				Machines:             api,
+				Status:               api,
+				Clock:                config.Clock,
+				Logger:               config.Logger,
+				CloudCallContextFunc: common.NewCloudCallContextFunc(credentialAPI),
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

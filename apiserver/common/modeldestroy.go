@@ -92,11 +92,13 @@ func DestroyModel(
 	destroyStorage *bool,
 	force *bool,
 	maxWait *time.Duration,
+	timeout *time.Duration,
 ) error {
 	return destroyModel(st, state.DestroyModelParams{
 		DestroyStorage: destroyStorage,
 		Force:          force,
 		MaxWait:        MaxWait(maxWait),
+		Timeout:        timeout,
 	})
 }
 

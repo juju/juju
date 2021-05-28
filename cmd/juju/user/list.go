@@ -86,6 +86,7 @@ func (c *listCommand) getModelAPI() (modelUsersAPI, error) {
 func (c *listCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "users",
+		Args:    "[model-name]",
 		Purpose: usageListUsersSummary,
 		Doc:     usageListUsersDetails,
 		Aliases: []string{"list-users"},
@@ -191,7 +192,7 @@ func (c *listCommand) formatModelUsers(writer io.Writer, value interface{}) erro
 		modelUsers.Add(name)
 	}
 	tw := output.TabWriter(writer)
-	w := output.Wrapper{tw}
+	w := output.Wrapper{TabWriter: tw}
 	w.Println("Name", "Display name", "Access", "Last connection")
 	for _, name := range modelUsers.SortedValues() {
 		user := users[name]
@@ -220,7 +221,7 @@ func (c *listCommand) formatControllerUsers(writer io.Writer, value interface{})
 	}
 
 	tw := output.TabWriter(writer)
-	w := output.Wrapper{tw}
+	w := output.Wrapper{TabWriter: tw}
 	w.Println("Controller: " + controllerName)
 	w.Println()
 	w.Println("Name", "Display name", "Access", "Date created", "Last connection")

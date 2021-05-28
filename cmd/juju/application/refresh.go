@@ -99,7 +99,7 @@ func newRefreshCommand() *refreshCommand {
 // CharmResolver defines methods required to resolve charms, as required
 // by the refresh command.
 type CharmResolver interface {
-	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error)
+	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCHarm bool) (*charm.URL, commoncharm.Origin, []string, error)
 }
 
 // NewRefreshCommand returns a command which upgrades application's charm.
@@ -361,7 +361,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	if c.SwitchURL == "" && c.CharmPath == "" {
 		// If the charm we are refreshing is local, then we must
 		// specify a path or switch url to upgrade with.
-		if oldURL.Schema == "local" {
+		if oldURL.Schema == charm.Local.String() {
 			return errors.New("upgrading a local charm requires either --path or --switch")
 		}
 		// No new URL specified, but revision might have been.
@@ -383,16 +383,6 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-	}
-
-	if oldOrigin.Source != commoncharm.OriginLocal {
-		// If not upgrading from a local path, display the channel we
-		// are pulling the charm from.
-		var channel string
-		if ch := oldOrigin.CharmChannel().String(); ch != "" {
-			channel = fmt.Sprintf(" from channel %s", ch)
-		}
-		ctx.Infof("Looking up metadata for %s charm %q%s", oldOrigin.Source, oldURL.Name, channel)
 	}
 
 	cfg := refresher.RefresherConfig{
@@ -424,7 +414,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	if charmID.Origin.Source == corecharm.CharmHub || charmID.Origin.Source == corecharm.CharmStore {
 		channel = fmt.Sprintf(" in channel %s", charmID.Origin.Channel.String())
 	}
-	ctx.Infof("Added %s charm %q, revision %d%s, to the model", oldOrigin.Source, curl.Name, curl.Revision, channel)
+	ctx.Infof("Added %s charm %q, revision %d%s, to the model", charmID.Origin.Source, curl.Name, curl.Revision, channel)
 
 	// Next, upgrade resources.
 
@@ -556,6 +546,7 @@ func (c *refreshCommand) upgradeResources(
 	meta map[string]charmresource.Meta,
 ) (map[string]string, error) {
 	filtered, err := utils.GetUpgradeResources(
+		chID.URL,
 		resourceLister,
 		c.ApplicationName,
 		c.Resources,

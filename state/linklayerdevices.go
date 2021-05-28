@@ -290,6 +290,7 @@ func (dev *LinkLayerDevice) AddAddressOps(args LinkLayerDeviceAddress) ([]txn.Op
 		GatewayAddress:   args.GatewayAddress,
 		IsDefaultGateway: args.IsDefaultGateway,
 		Origin:           args.Origin,
+		IsSecondary:      args.IsSecondary,
 	}
 	return []txn.Op{insertIPAddressDocOp(&newDoc)}, nil
 }

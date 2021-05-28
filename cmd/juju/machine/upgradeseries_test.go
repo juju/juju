@@ -36,11 +36,18 @@ func (s *UpgradeSeriesSuite) SetUpTest(c *gc.C) {
 		status: &params.FullStatus{
 			Machines: map[string]params.MachineStatus{
 				"1": {Id: "1"},
+				"2": {
+					Id: "2",
+					Containers: map[string]params.MachineStatus{
+						"2/lxd/0": {Id: "2/lxd/0"},
+					},
+				},
 			},
 			Applications: map[string]params.ApplicationStatus{
 				"foo": {
 					Units: map[string]params.UnitStatus{
 						"foo/1": {Machine: "1"},
+						"foo/2": {Machine: "2/lxd/0"},
 					},
 				},
 			},
@@ -50,8 +57,12 @@ func (s *UpgradeSeriesSuite) SetUpTest(c *gc.C) {
 	s.completeExpectation = &upgradeSeriesCompleteExpectation{gomock.Any()}
 }
 
-const machineArg = "1"
-const seriesArg = "xenial"
+const (
+	machineArg   = "1"
+	containerArg = "2/lxd/0"
+
+	seriesArg = "xenial"
+)
 
 func (s *UpgradeSeriesSuite) runUpgradeSeriesCommand(c *gc.C, args ...string) error {
 	_, err := s.runUpgradeSeriesCommandWithConfirmation(c, "y", args...)
@@ -95,9 +106,15 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(
 	return ctx, nil
 }
 
-func (s *UpgradeSeriesSuite) TestPrepareCommand(c *gc.C) {
+func (s *UpgradeSeriesSuite) TestPrepareCommandMachines(c *gc.C) {
 	s.prepareExpectation = &upgradeSeriesPrepareExpectation{machineArg, seriesArg, gomock.Eq(false)}
 	err := s.runUpgradeSeriesCommand(c, machineArg, machine.PrepareCommand, seriesArg)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *UpgradeSeriesSuite) TestPrepareCommandContainers(c *gc.C) {
+	s.prepareExpectation = &upgradeSeriesPrepareExpectation{containerArg, seriesArg, gomock.Eq(false)}
+	err := s.runUpgradeSeriesCommand(c, containerArg, machine.PrepareCommand, seriesArg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

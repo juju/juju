@@ -181,9 +181,9 @@ func (s *RelationSuite) TestAddRelation(c *gc.C) {
 
 	// Check we cannot re-add the same relation, regardless of endpoint ordering.
 	_, err = s.State.AddRelation(mysqlEP, wordpressEP)
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation wordpress:db mysql:server already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation wordpress:db mysql:server`)
 	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation wordpress:db mysql:server already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation wordpress:db mysql:server`)
 	assertOneRelation(c, mysql, 0, mysqlEP, wordpressEP)
 	assertOneRelation(c, wordpress, 0, wordpressEP, mysqlEP)
 }
@@ -219,9 +219,9 @@ func (s *RelationSuite) TestAddContainerRelation(c *gc.C) {
 
 	// Check we cannot re-add the same relation, regardless of endpoint ordering.
 	_, err = s.State.AddRelation(loggingEP, wordpressEP)
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": relation logging:info wordpress:juju-info already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": relation logging:info wordpress:juju-info`)
 	_, err = s.State.AddRelation(wordpressEP, loggingEP)
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": relation logging:info wordpress:juju-info already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": relation logging:info wordpress:juju-info`)
 	assertOneRelation(c, logging, 0, loggingEP, wordpressEP)
 	assertOneRelation(c, wordpress, 0, wordpressEP, loggingEP)
 }

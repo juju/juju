@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -173,6 +175,16 @@ done:
 				outputDone = true
 				// Wait for cmd result.
 				continue
+			}
+			// If there's been a macaroon discharge required, we don't yet
+			// process it in embedded mode so just return it so the caller
+			// can deal with it, eg login again to get another macaroon.
+			// This string is hard coded in the bakery library.
+			idx := strings.Index(line, "cannot get discharge from")
+			if idx >= 0 {
+				return apiservererrors.ServerError(&apiservererrors.DischargeRequiredError{
+					Cause: &bakery.DischargeRequiredError{Message: line[idx:]},
+				})
 			}
 
 			if err := ws.WriteJSON(params.CLICommandStatus{

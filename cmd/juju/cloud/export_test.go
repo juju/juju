@@ -36,7 +36,7 @@ func NewAddCloudCommandForTest(
 	store jujuclient.ClientStore,
 	cloudAPI func() (AddCloudAPI, error),
 ) *AddCloudCommand {
-	cloudCallCtx := context.NewCloudCallContext()
+	cloudCallCtx := context.NewEmptyCloudCallContext()
 	return &AddCloudCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
 		cloudMetadataStore:        cloudMetadataStore,

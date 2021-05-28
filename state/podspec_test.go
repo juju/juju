@@ -144,6 +144,10 @@ func (s *PodSpecSuite) TestSetPodSpecApplicationOperator(c *gc.C) {
 
 	err := s.Model.SetPodSpec(nil, s.application.ApplicationTag(), strPtr("foo"))
 	c.Assert(err, gc.ErrorMatches, "cannot set k8s spec on an operator charm")
+
+	// Nil spec allowed.
+	err = s.Model.SetPodSpec(nil, s.application.ApplicationTag(), nil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *PodSpecSuite) TestSetPodSpecApplicationDying(c *gc.C) {

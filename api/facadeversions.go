@@ -23,7 +23,7 @@ var facadeVersions = map[string]int{
 	"ApplicationScaler":            1,
 	"Backups":                      3,
 	"Block":                        2,
-	"Bundle":                       4,
+	"Bundle":                       5,
 	"CAASAgent":                    1,
 	"CAASAdmission":                1,
 	"CAASApplication":              1,

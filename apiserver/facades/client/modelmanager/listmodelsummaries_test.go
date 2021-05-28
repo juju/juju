@@ -58,7 +58,7 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 		Tag: s.adminUser,
 	}
 
-	s.callContext = context.NewCloudCallContext()
+	s.callContext = context.NewEmptyCloudCallContext()
 	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, nil, nil, nil, s.authoriser, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api

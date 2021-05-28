@@ -702,8 +702,8 @@ func (*AddressSuite) TestSortAddresses(c *gc.C) {
 	)
 
 	// Public and local-cloud secondary addresses.
-	addrs = append(addrs, network.NewSpaceAddress("6.8.8.8", network.WithSecondary()))
-	addrs = append(addrs, network.NewSpaceAddress("172.16.0.1", network.WithSecondary()))
+	addrs = append(addrs, network.NewSpaceAddress("6.8.8.8", network.WithSecondary(true)))
+	addrs = append(addrs, network.NewSpaceAddress("172.16.0.1", network.WithSecondary(true)))
 
 	network.SortAddresses(addrs)
 	c.Assert(addrs.Values(), jc.DeepEquals, []string{

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v2/voyeur"
 	"github.com/juju/version/v2"
@@ -19,13 +20,17 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/caasprober"
+	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/leadership"
 	wlogger "github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
@@ -35,6 +40,7 @@ import (
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/retrystrategy"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 // manifoldsConfig allows specialisation of the result of Manifolds.
@@ -58,6 +64,20 @@ type manifoldsConfig struct {
 	// connected to the new target controller.
 	ValidateMigration func(base.APICaller) error
 
+	// PreviousAgentVersion passes through the version the unit
+	// agent was running before the current restart.
+	PreviousAgentVersion version.Number
+
+	// UpgradeStepsLock is passed to the upgrade steps gate to
+	// coordinate workers that shouldn't do anything until the
+	// upgrade-steps worker is done.
+	UpgradeStepsLock gate.Lock
+
+	// PreUpgradeSteps is a function that is used by the upgradesteps
+	// worker to ensure that conditions are OK for an upgrade to
+	// proceed.
+	PreUpgradeSteps func(*state.StatePool, coreagent.Config, bool, bool, bool) error
+
 	// PrometheusRegisterer is a prometheus.Registerer that may be used
 	// by workers to register Prometheus metric collectors.
 	PrometheusRegisterer prometheus.Registerer
@@ -65,10 +85,6 @@ type manifoldsConfig struct {
 	// UpdateLoggerConfig is a function that will save the specified
 	// config value as the logging config in the agent.conf file.
 	UpdateLoggerConfig func(string) error
-
-	// PreviousAgentVersion passes through the version the unit
-	// agent was running before the current restart.
-	PreviousAgentVersion version.Number
 
 	// ProbePort describes the http port to operator on for receiving agent
 	// probe requests.
@@ -128,13 +144,41 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			LogSource:     config.LogSource,
 		}),
 
-		// TODO(ycliuhw): make a worker to set agent version and remove from worker/upgrader.
-		// upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
-		// 	AgentName:            agentName,
-		// 	APICallerName:        apiCallerName,
-		// 	UpgradeStepsGateName: upgradeStepsGateName,
-		// 	PreviousAgentVersion: config.PreviousAgentVersion,
-		// }),
+		// The upgrade steps gate is used to coordinate workers which
+		// shouldn't do anything until the upgrade-steps worker has
+		// finished running any required upgrade steps. The flag of
+		// similar name is used to implement the isFullyUpgraded func
+		// that keeps upgrade concerns out of unrelated manifolds.
+		upgradeStepsGateName: gate.ManifoldEx(config.UpgradeStepsLock),
+		upgradeStepsFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  upgradeStepsGateName,
+			NewWorker: gate.NewFlagWorker,
+		}),
+
+		upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			UpgradeStepsGateName: upgradeStepsGateName,
+			PreviousAgentVersion: config.PreviousAgentVersion,
+		}),
+
+		// The upgradesteps worker runs soon after the unit agent
+		// starts and runs any steps required to upgrade to the
+		// running jujud version. Once upgrade steps have run, the
+		// upgradesteps gate is unlocked and the worker exits.
+		upgradeStepsName: upgradesteps.Manifold(upgradesteps.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			UpgradeStepsGateName: upgradeStepsGateName,
+			// Realistically,  operators should not open state for any reason.
+			OpenStateForUpgrade: func() (*state.StatePool, error) {
+				return nil, errors.New("operator cannot open state")
+			},
+			PreUpgradeSteps: config.PreUpgradeSteps,
+			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
+				return &noopStatusSetter{}, nil
+			},
+		}),
 
 		// The migration workers collaborate to run migrations;
 		// and to create a mechanism for running other workers
@@ -277,6 +321,11 @@ const (
 	leadershipTrackerName = "leadership-tracker"
 	hookRetryStrategyName = "hook-retry-strategy"
 
+	upgraderName         = "upgrader"
+	upgradeStepsName     = "upgrade-steps-runner"
+	upgradeStepsGateName = "upgrade-steps-gate"
+	upgradeStepsFlagName = "upgrade-steps-flag"
+
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
@@ -288,3 +337,10 @@ const (
 	loggingConfigUpdaterName = "logging-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"
 )
+
+type noopStatusSetter struct{}
+
+// SetStatus implements upgradesteps.StatusSetter
+func (a *noopStatusSetter) SetStatus(setableStatus status.Status, info string, data map[string]interface{}) error {
+	return nil
+}

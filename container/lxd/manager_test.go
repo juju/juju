@@ -178,7 +178,7 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 	instanceId := instance.Id()
 	c.Check(string(instanceId), gc.Equals, hostName)
 
-	instanceStatus := instance.Status(context.NewCloudCallContext())
+	instanceStatus := instance.Status(context.NewEmptyCloudCallContext())
 	c.Check(instanceStatus.Status, gc.Equals, status.Running)
 	c.Check(*hc.AvailabilityZone, gc.Equals, "test-availability-zone")
 

@@ -4,6 +4,8 @@
 package common
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/credentialvalidator"
 	"github.com/juju/juju/environs/context"
@@ -19,10 +21,15 @@ func NewCredentialInvalidatorFacade(apiCaller base.APICaller) (CredentialAPI, er
 	return credentialvalidator.NewFacade(apiCaller), nil
 }
 
-// NewCloudCallContext creates a cloud call context to be used by workers.
-func NewCloudCallContext(c CredentialAPI, dying context.Dying) context.ProviderCallContext {
-	return &context.CloudCallContext{
-		DyingFunc:                dying,
-		InvalidateCredentialFunc: c.InvalidateModelCredential,
+// NewCloudCallContextFunc creates a function returning a cloud call context to be used by workers.
+func NewCloudCallContextFunc(c CredentialAPI) CloudCallContextFunc {
+	return func(ctx stdcontext.Context) context.ProviderCallContext {
+		return &context.CloudCallContext{
+			Context:                  ctx,
+			InvalidateCredentialFunc: c.InvalidateModelCredential,
+		}
 	}
 }
+
+// CloudCallContextFunc is a function returning a ProviderCallContext.
+type CloudCallContextFunc func(ctx stdcontext.Context) context.ProviderCallContext

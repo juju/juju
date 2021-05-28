@@ -368,32 +368,6 @@ func (s *ApplicationSuite) TestSetCAASCharmInvalid(c *gc.C) {
 	c.Assert(msg, gc.Matches, "Juju on containers does not support updating deployment info.*")
 }
 
-func (s *ApplicationSuite) TestDeployCAASOperatorProtectedByFlag(c *gc.C) {
-	s.model.modelType = state.ModelTypeCAAS
-	s.setAPIUser(c, names.NewUserTag("admin"))
-	s.backend.charm = &mockCharm{
-		meta: &charm.Meta{
-			Deployment: &charm.Deployment{
-				DeploymentMode: charm.ModeOperator,
-			},
-		},
-	}
-	args := params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			ApplicationName: "foo",
-			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
-			NumUnits:        1,
-		}},
-	}
-	result, err := s.api.Deploy(args)
-	c.Assert(err, jc.ErrorIsNil)
-	err = result.OneError()
-	c.Assert(err, gc.NotNil)
-	msg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(msg, gc.Matches, `feature flag "k8s-operators" is required for deploying container operator charms`)
-}
-
 func (s *ApplicationSuite) TestSetCAASConfigSettings(c *gc.C) {
 	s.model.modelType = state.ModelTypeCAAS
 	s.setAPIUser(c, names.NewUserTag("admin"))
@@ -1058,7 +1032,7 @@ func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	msg := result.OneError().Error()
-	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `deploying a Kubernetes application requires a suitable storage class.*`)
+	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `deploying this Kubernetes application requires a suitable storage class.*`)
 }
 
 func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.C) {
@@ -1069,6 +1043,28 @@ func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.
 		meta: &charm.Meta{
 			MinJujuVersion: version.MustParse("2.8.0"),
 		},
+	}
+
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
+			NumUnits:        1,
+		}},
+	}
+	result, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+}
+
+func (s *ApplicationSuite) TestDeployCAASModelSidecarCharmNeedsNoOperatorStorage(c *gc.C) {
+	s.model.modelType = state.ModelTypeCAAS
+	delete(s.model.cfg, "operator-storage")
+	s.backend.charm = &mockCharm{
+		meta:     &charm.Meta{},
+		manifest: &charm.Manifest{Bases: []charm.Base{{}}},
 	}
 
 	args := params.ApplicationsDeploy{

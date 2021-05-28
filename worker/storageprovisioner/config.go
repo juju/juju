@@ -8,8 +8,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/worker/common"
 )
 
 // Logger represents the methods used by the worker to log details.
@@ -22,19 +22,19 @@ type Logger interface {
 
 // Config holds configuration and dependencies for a storageprovisioner worker.
 type Config struct {
-	Model            names.ModelTag
-	Scope            names.Tag
-	StorageDir       string
-	Applications     ApplicationWatcher
-	Volumes          VolumeAccessor
-	Filesystems      FilesystemAccessor
-	Life             LifecycleManager
-	Registry         storage.ProviderRegistry
-	Machines         MachineAccessor
-	Status           StatusSetter
-	Clock            clock.Clock
-	Logger           Logger
-	CloudCallContext environscontext.ProviderCallContext
+	Model                names.ModelTag
+	Scope                names.Tag
+	StorageDir           string
+	Applications         ApplicationWatcher
+	Volumes              VolumeAccessor
+	Filesystems          FilesystemAccessor
+	Life                 LifecycleManager
+	Registry             storage.ProviderRegistry
+	Machines             MachineAccessor
+	Status               StatusSetter
+	Clock                clock.Clock
+	Logger               Logger
+	CloudCallContextFunc common.CloudCallContextFunc
 }
 
 // Validate returns an error if the config cannot be relied upon to start a worker.
@@ -84,8 +84,8 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if config.CloudCallContext == nil {
-		return errors.NotValidf("nil CloudCallContext")
+	if config.CloudCallContextFunc == nil {
+		return errors.NotValidf("nil CloudCallContextFunc")
 	}
 	return nil
 }

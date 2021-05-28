@@ -87,9 +87,14 @@ Arguments
 full:
   type: boolean
   description: take a full backup
+  default: true
 name:
   type: string
   description: snapshot name
+prefix:
+  type: string
+  description: prefix to snapshot name
+  default: ""
 
 `[1:]
 

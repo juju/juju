@@ -1122,9 +1122,10 @@ func (s *BundleDeployRepositorySuite) expectResolveCharm(err error, times int) {
 	s.bundleResolver.EXPECT().ResolveCharm(
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
+		false,
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, origin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error) {
+		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
 			return curl, origin, []string{"bionic", "focal", "xenial"}, err
 		}).Times(times)
 }
@@ -1360,7 +1361,7 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *gc.C)
 	resolvedOrigin := origin
 	resolvedOrigin.Revision = &rev
 
-	resolver.EXPECT().ResolveCharm(charmURL, origin).Return(charmURL, resolvedOrigin, nil, nil)
+	resolver.EXPECT().ResolveCharm(charmURL, origin, false).Return(charmURL, resolvedOrigin, nil, nil)
 
 	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1392,7 +1393,7 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelWithoutRevision(c *g
 	}
 	resolvedOrigin := origin
 
-	resolver.EXPECT().ResolveCharm(charmURL, origin).Return(charmURL, resolvedOrigin, nil, nil)
+	resolver.EXPECT().ResolveCharm(charmURL, origin, false).Return(charmURL, resolvedOrigin, nil, nil)
 
 	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch)
 	c.Assert(err, jc.ErrorIsNil)

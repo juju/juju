@@ -4,6 +4,7 @@
 package azure_test
 
 import (
+	stdcontext "context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -254,6 +255,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.callCtx = &context.CloudCallContext{
+		Context: stdcontext.TODO(),
 		InvalidateCredentialFunc: func(string) error {
 			s.invalidatedCredential = true
 			return nil
@@ -1947,7 +1949,7 @@ func (s *environSuite) TestConstraintsValidatorMerge(c *gc.C) {
 func (s *environSuite) constraintsValidator(c *gc.C) constraints.Validator {
 	env := s.openEnviron(c)
 	s.sender = azuretesting.Senders{s.resourceSkusSender()}
-	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
+	validator, err := env.ConstraintsValidator(context.NewEmptyCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	return validator
 }

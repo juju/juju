@@ -37,9 +37,6 @@ const Branches = "branches"
 // This is a deprecated flag name and is synonymous with "branches" above.
 const Generations = "generations"
 
-// K8sOperators indicates that it's allowed to deploy charms with mode=operator
-const K8sOperators = "k8s-operators"
-
 // RawK8sSpec indicates that it's allowed to set k8s spec using raw yaml format.
 const RawK8sSpec = "raw-k8s-spec"
 

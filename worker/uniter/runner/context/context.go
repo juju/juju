@@ -977,11 +977,7 @@ func (ctx *HookContext) HookVars(
 	env Environmenter,
 ) ([]string, error) {
 	vars := ctx.legacyProxySettings.AsEnvironmentValues()
-
-	// We add all the host env's here because hooks are starting to expect that
-	// they can see this. This in response to lp1892255. We are doing this early
-	// so our overrides come out on top.
-	vars = append(vars, env.Environ()...)
+	vars = append(vars, ContextDependentEnvVars(env)...)
 
 	// TODO(thumper): as work on proxies progress, there will be additional
 	// proxy settings to be added.

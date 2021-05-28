@@ -91,6 +91,12 @@ var someCharmActions = map[string]actionapi.ActionSpec{
 				"full": map[string]interface{}{
 					"type":        "boolean",
 					"description": "take a full backup",
+					"default":     true,
+				},
+				"prefix": map[string]interface{}{
+					"type":        "string",
+					"description": "prefix to snapshot name",
+					"default":     "",
 				},
 			},
 			"baz": "bar",

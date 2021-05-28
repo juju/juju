@@ -693,7 +693,7 @@ func (s *MigrationSuite) TestMinionReports(c *gc.C) {
 	c.Check(reports.Unknown, jc.SameContents, []names.Tag{m2.Tag()})
 }
 
-func (s *MigrationSuite) TestMinionReportsCAAS(c *gc.C) {
+func (s *MigrationSuite) TestMinionReportsCAASLegacy(c *gc.C) {
 	// Create some machines and units to report with.
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
@@ -715,6 +715,39 @@ func (s *MigrationSuite) TestMinionReportsCAAS(c *gc.C) {
 	c.Check(reports.Succeeded, jc.SameContents, []names.Tag{a0.Tag()})
 	c.Check(reports.Failed, jc.SameContents, []names.Tag{a1.Tag()})
 	c.Check(reports.Unknown, jc.SameContents, []names.Tag{a2.Tag()})
+}
+
+func (s *MigrationSuite) TestMinionReportsCAASEmbedded(c *gc.C) {
+	// Create some machines and units to report with.
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer st.Close()
+	factory2 := factory.NewFactory(st, s.StatePool)
+	ch := factory2.MakeCharmV2(c, &factory.CharmParams{
+		Name:   "snappass-test",
+		Series: "quantal",
+	})
+	a0 := factory2.MakeApplication(c, &factory.ApplicationParams{Name: "a0", Charm: ch})
+	u1a0, err := a0.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id0")})
+	c.Assert(err, jc.ErrorIsNil)
+	a1 := factory2.MakeApplication(c, &factory.ApplicationParams{Name: "a1", Charm: ch})
+	u1a1, err := a1.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id1")})
+	c.Assert(err, jc.ErrorIsNil)
+	a2 := factory2.MakeApplication(c, &factory.ApplicationParams{Name: "a2", Charm: ch})
+	u1a2, err := a2.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id2")})
+	c.Assert(err, jc.ErrorIsNil)
+
+	mig, err := st.CreateMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	const phase = migration.QUIESCE
+	c.Assert(mig.SubmitMinionReport(u1a0.Tag(), phase, true), jc.ErrorIsNil)
+	c.Assert(mig.SubmitMinionReport(u1a1.Tag(), phase, false), jc.ErrorIsNil)
+
+	reports, err := mig.MinionReports()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reports.Succeeded, jc.SameContents, []names.Tag{u1a0.Tag()})
+	c.Check(reports.Failed, jc.SameContents, []names.Tag{u1a1.Tag()})
+	c.Check(reports.Unknown, jc.SameContents, []names.Tag{u1a2.Tag()})
 }
 
 func (s *MigrationSuite) TestDuplicateMinionReportsSameSuccess(c *gc.C) {

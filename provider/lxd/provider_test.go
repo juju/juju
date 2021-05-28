@@ -484,7 +484,7 @@ func (s *providerSuite) TestPingFailWithNoEndpoint(c *gc.C) {
 
 	p, err := environs.Provider("lxd")
 	c.Assert(err, jc.ErrorIsNil)
-	err = p.Ping(context.NewCloudCallContext(), server.URL)
+	err = p.Ping(context.NewEmptyCloudCallContext(), server.URL)
 	c.Assert(err, gc.ErrorMatches, "no lxd server running at "+server.URL)
 }
 
@@ -494,7 +494,7 @@ func (s *providerSuite) TestPingFailWithHTTP(c *gc.C) {
 
 	p, err := environs.Provider("lxd")
 	c.Assert(err, jc.ErrorIsNil)
-	err = p.Ping(context.NewCloudCallContext(), server.URL)
+	err = p.Ping(context.NewEmptyCloudCallContext(), server.URL)
 	c.Assert(err, gc.ErrorMatches, "invalid URL \""+server.URL+"\": only HTTPS is supported")
 }
 

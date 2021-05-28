@@ -7,7 +7,6 @@ import (
 	"net"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/params"
@@ -82,7 +81,7 @@ type BackingSubnetInfo struct {
 // BackingSpace defines the methods supported by a Space entity stored
 // persistently.
 type BackingSpace interface {
-	// ID returns the ID of the space.
+	// Id returns the ID of the space.
 	Id() string
 
 	// Name returns the space name.
@@ -174,14 +173,7 @@ func NetworkInterfacesToStateArgs(devs network.InterfaceInfos) (
 		if dev.PrimaryAddress().Value == "" {
 			continue
 		}
-		addr, err := networkAddressToStateArgs(dev, dev.PrimaryAddress())
-		if err != nil {
-			logger.Warningf("ignoring address for device %+v: %v", dev, err)
-			continue
-		}
-
-		logger.Tracef("state address args for device: %+v", addr)
-		devicesAddrs = append(devicesAddrs, addr)
+		devicesAddrs = append(devicesAddrs, networkAddressesToStateArgs(dev, dev.Addresses)...)
 	}
 	logger.Tracef("seen devices: %+v", seenDeviceNames.SortedValues())
 	logger.Tracef("network interface list transformed to state args:\n%+v\n%+v", devicesArgs, devicesAddrs)
@@ -198,7 +190,7 @@ func networkDeviceToStateArgs(dev network.InterfaceInfo) state.LinkLayerDeviceAr
 		Name:            dev.InterfaceName,
 		MTU:             mtu,
 		ProviderID:      dev.ProviderId,
-		Type:            network.LinkLayerDeviceType(dev.InterfaceType),
+		Type:            dev.InterfaceType,
 		MACAddress:      dev.MACAddress,
 		IsAutoStart:     !dev.NoAutoStart,
 		IsUp:            !dev.Disabled,
@@ -207,11 +199,11 @@ func networkDeviceToStateArgs(dev network.InterfaceInfo) state.LinkLayerDeviceAr
 	}
 }
 
-// networkAddressStateArgsForDevice accommodates the fact that network
-// configuration is sometimes supplied with a duplicated device for each
-// address.
-// This is a normalisation that returns state args for all primary addresses
-// of interfaces with the input name.
+// networkAddressStateArgsForDevice accommodates the
+// fact that network configuration is sometimes supplied
+// with a duplicated device for each address.
+// This is a normalisation that returns state args for all
+// addresses of interfaces with the input name.
 func networkAddressStateArgsForDevice(devs network.InterfaceInfos, name string) []state.LinkLayerDeviceAddress {
 	var res []state.LinkLayerDeviceAddress
 
@@ -219,44 +211,51 @@ func networkAddressStateArgsForDevice(devs network.InterfaceInfos, name string) 
 		if dev.PrimaryAddress().Value == "" {
 			continue
 		}
-
-		addr, err := networkAddressToStateArgs(dev, dev.PrimaryAddress())
-		if err != nil {
-			logger.Warningf("ignoring address for device %+v: %v", dev, err)
-			continue
-		}
-		res = append(res, addr)
+		res = append(res, networkAddressesToStateArgs(dev, dev.Addresses)...)
 	}
 
 	return res
 }
 
-func networkAddressToStateArgs(
-	dev network.InterfaceInfo, addr network.ProviderAddress,
-) (state.LinkLayerDeviceAddress, error) {
-	cidrAddress, err := addr.ValueWithMask()
-	if err != nil {
-		return state.LinkLayerDeviceAddress{}, errors.Trace(err)
+func networkAddressesToStateArgs(
+	dev network.InterfaceInfo, addrs []network.ProviderAddress,
+) []state.LinkLayerDeviceAddress {
+	var res []state.LinkLayerDeviceAddress
+
+	for _, addr := range addrs {
+		cidrAddress, err := addr.ValueWithMask()
+		if err != nil {
+			logger.Warningf("ignoring address %q for device %q: %v", addr.Value, dev.InterfaceName, err)
+			continue
+		}
+
+		// Prefer the config method supplied with the address.
+		// Fallback first to the device, then to "static".
+		configType := addr.AddressConfigType()
+		if configType == network.ConfigUnknown {
+			configType = dev.ConfigType
+		}
+		if configType == network.ConfigUnknown {
+			configType = network.ConfigStatic
+		}
+
+		res = append(res, state.LinkLayerDeviceAddress{
+			DeviceName:        dev.InterfaceName,
+			ProviderID:        dev.ProviderAddressId,
+			ProviderNetworkID: dev.ProviderNetworkId,
+			ProviderSubnetID:  dev.ProviderSubnetId,
+			ConfigMethod:      configType,
+			CIDRAddress:       cidrAddress,
+			DNSServers:        dev.DNSServers.ToIPAddresses(),
+			DNSSearchDomains:  dev.DNSSearchDomains,
+			GatewayAddress:    dev.GatewayAddress.Value,
+			IsDefaultGateway:  dev.IsDefaultGateway,
+			Origin:            dev.Origin,
+			IsSecondary:       addr.IsSecondary,
+		})
 	}
 
-	configType := dev.ConfigType
-	if configType == network.ConfigUnknown {
-		configType = network.ConfigStatic
-	}
-
-	return state.LinkLayerDeviceAddress{
-		DeviceName:        dev.InterfaceName,
-		ProviderID:        dev.ProviderAddressId,
-		ProviderNetworkID: dev.ProviderNetworkId,
-		ProviderSubnetID:  dev.ProviderSubnetId,
-		ConfigMethod:      configType,
-		CIDRAddress:       cidrAddress,
-		DNSServers:        dev.DNSServers.ToIPAddresses(),
-		DNSSearchDomains:  dev.DNSSearchDomains,
-		GatewayAddress:    dev.GatewayAddress.Value,
-		IsDefaultGateway:  dev.IsDefaultGateway,
-		Origin:            dev.Origin,
-	}, nil
+	return res
 }
 
 func FanConfigToFanConfigResult(config network.FanConfig) params.FanConfigResult {

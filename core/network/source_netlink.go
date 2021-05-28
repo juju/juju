@@ -11,6 +11,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 )
 
 // netlinkAddr implements ConfigSourceAddr based on the
@@ -27,6 +28,12 @@ func (a *netlinkAddr) IP() net.IP {
 // IPNet (ConfigSourceAddr) is a simple property accessor.
 func (a *netlinkAddr) IPNet() *net.IPNet {
 	return a.addr.IPNet
+}
+
+// IsSecondary (ConfigSourceAddr) uses the IFA_F_SECONDARY flag to return
+// whether this address is not the primary one for the NIC.
+func (a *netlinkAddr) IsSecondary() bool {
+	return a.addr.Flags&unix.IFA_F_SECONDARY > 0
 }
 
 // String (ConfigSourceAddr) is a simple property accessor.

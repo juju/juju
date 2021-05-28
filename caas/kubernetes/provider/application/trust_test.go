@@ -16,13 +16,7 @@ import (
 	"github.com/juju/juju/caas"
 )
 
-type trustSuite struct {
-	applicationSuite
-}
-
-var _ = gc.Suite(&trustSuite{})
-
-func (s *trustSuite) TestTrust(c *gc.C) {
+func (s *applicationSuite) TestTrust(c *gc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
 	defer ctrl.Finish()
 
@@ -62,7 +56,7 @@ func (s *trustSuite) TestTrust(c *gc.C) {
 	})
 }
 
-func (s *trustSuite) TestTrustRoleNotFound(c *gc.C) {
+func (s *applicationSuite) TestTrustRoleNotFound(c *gc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
 	defer ctrl.Finish()
 
@@ -70,7 +64,7 @@ func (s *trustSuite) TestTrustRoleNotFound(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *trustSuite) TestTrustClusterRoleNotFound(c *gc.C) {
+func (s *applicationSuite) TestTrustClusterRoleNotFound(c *gc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
 	defer ctrl.Finish()
 
@@ -97,7 +91,7 @@ func (s *trustSuite) TestTrustClusterRoleNotFound(c *gc.C) {
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
 }
 
-func (s *trustSuite) TestRemoveTrust(c *gc.C) {
+func (s *applicationSuite) TestRemoveTrust(c *gc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
 	defer ctrl.Finish()
 

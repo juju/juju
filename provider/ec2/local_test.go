@@ -277,7 +277,7 @@ func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 	t.Tests.SetUpTest(c)
 
-	t.callCtx = context.NewCloudCallContext()
+	t.callCtx = context.NewEmptyCloudCallContext()
 }
 
 func (t *localServerSuite) TearDownTest(c *gc.C) {
@@ -1713,19 +1713,20 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDev
 		VLANTag:          0,
 		Disabled:         false,
 		NoAutoStart:      false,
-		ConfigType:       corenetwork.ConfigDHCP,
 		InterfaceType:    corenetwork.EthernetDevice,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
-			addr, corenetwork.WithScope(corenetwork.ScopeCloudLocal), corenetwork.WithCIDR(cidr)),
-		},
+			addr,
+			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
+			corenetwork.WithCIDR(cidr),
+			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
+		)},
 		// Each machine is also assigned a shadow IP with the pattern:
 		// 73.37.0.X where X=(provider iface ID + 1)
-		ShadowAddresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress(
-				fmt.Sprintf("73.37.0.%d", expIfaceID+1),
-				corenetwork.WithScope(corenetwork.ScopePublic),
-			),
-		},
+		ShadowAddresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+			fmt.Sprintf("73.37.0.%d", expIfaceID+1),
+			corenetwork.WithScope(corenetwork.ScopePublic),
+			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
+		)},
 		AvailabilityZones: zones,
 		Origin:            corenetwork.OriginProvider,
 	}

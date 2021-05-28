@@ -4,6 +4,7 @@
 package azure_test
 
 import (
+	stdcontext "context"
 	"net/http"
 	"path"
 
@@ -63,6 +64,7 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 		makeDeployment("machine-1"),
 	}
 	s.callCtx = &context.CloudCallContext{
+		Context: stdcontext.TODO(),
 		InvalidateCredentialFunc: func(string) error {
 			s.invalidteCredential = true
 			return nil

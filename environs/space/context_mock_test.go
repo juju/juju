@@ -7,6 +7,7 @@ package space
 import (
 	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+	time "time"
 )
 
 // MockProviderCallContext is a mock of ProviderCallContext interface
@@ -32,18 +33,47 @@ func (m *MockProviderCallContext) EXPECT() *MockProviderCallContextMockRecorder 
 	return m.recorder
 }
 
-// Dying mocks base method
-func (m *MockProviderCallContext) Dying() <-chan struct{} {
+// Deadline mocks base method
+func (m *MockProviderCallContext) Deadline() (time.Time, bool) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Dying")
+	ret := m.ctrl.Call(m, "Deadline")
+	ret0, _ := ret[0].(time.Time)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// Deadline indicates an expected call of Deadline
+func (mr *MockProviderCallContextMockRecorder) Deadline() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Deadline", reflect.TypeOf((*MockProviderCallContext)(nil).Deadline))
+}
+
+// Done mocks base method
+func (m *MockProviderCallContext) Done() <-chan struct{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Done")
 	ret0, _ := ret[0].(<-chan struct{})
 	return ret0
 }
 
-// Dying indicates an expected call of Dying
-func (mr *MockProviderCallContextMockRecorder) Dying() *gomock.Call {
+// Done indicates an expected call of Done
+func (mr *MockProviderCallContextMockRecorder) Done() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dying", reflect.TypeOf((*MockProviderCallContext)(nil).Dying))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Done", reflect.TypeOf((*MockProviderCallContext)(nil).Done))
+}
+
+// Err mocks base method
+func (m *MockProviderCallContext) Err() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Err")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Err indicates an expected call of Err
+func (mr *MockProviderCallContextMockRecorder) Err() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Err", reflect.TypeOf((*MockProviderCallContext)(nil).Err))
 }
 
 // InvalidateCredential mocks base method
@@ -58,4 +88,18 @@ func (m *MockProviderCallContext) InvalidateCredential(arg0 string) error {
 func (mr *MockProviderCallContextMockRecorder) InvalidateCredential(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InvalidateCredential", reflect.TypeOf((*MockProviderCallContext)(nil).InvalidateCredential), arg0)
+}
+
+// Value mocks base method
+func (m *MockProviderCallContext) Value(arg0 interface{}) interface{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Value", arg0)
+	ret0, _ := ret[0].(interface{})
+	return ret0
+}
+
+// Value indicates an expected call of Value
+func (mr *MockProviderCallContextMockRecorder) Value(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Value", reflect.TypeOf((*MockProviderCallContext)(nil).Value), arg0)
 }

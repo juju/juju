@@ -1296,7 +1296,7 @@ var _ state.ActionReceiver = (*mockAR)(nil)
 func (r mockAR) PrepareActionPayload(_ string, _ map[string]interface{}, _ *bool, _ *string) (map[string]interface{}, bool, string, error) {
 	return nil, false, "", nil
 }
-func (r mockAR) CancelAction(_ state.Action) (state.Action, error)       { return nil, nil }
+func (r mockAR) CancelAction(_ state.Action) (state.Action, error)     { return nil, nil }
 func (r mockAR) WatchActionNotifications() state.StringsWatcher        { return nil }
 func (r mockAR) WatchPendingActionNotifications() state.StringsWatcher { return nil }
 func (r mockAR) Actions() ([]state.Action, error)                      { return nil, nil }

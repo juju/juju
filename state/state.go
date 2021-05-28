@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
@@ -937,7 +936,7 @@ type SaveCloudServiceArgs struct {
 	// then is wrapped with applicationGlobalKey.
 	Id         string
 	ProviderId string
-	Addresses  network.SpaceAddresses
+	Addresses  corenetwork.SpaceAddresses
 
 	Generation            int64
 	DesiredScaleProtected bool
@@ -1672,7 +1671,7 @@ func (st *State) addMachineWithPlacement(unit *Unit, data *placementData) (*Mach
 		// a constraint.  This also preserves behavior from when the
 		// AlphaSpaceName was "". This condition will be removed with
 		// the institution of universal mutable spaces.
-		if name != network.AlphaSpaceName {
+		if name != corenetwork.AlphaSpaceName {
 			spaces.Add(name)
 		}
 	}
@@ -1941,6 +1940,7 @@ func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoi
 func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	key := relationKey(eps)
 	defer errors.DeferredAnnotatef(&err, "cannot add relation %q", key)
+
 	// Enforce basic endpoint sanity. The epCount restrictions may be relaxed
 	// in the future; if so, this method is likely to need significant rework.
 	if len(eps) != 2 {
@@ -1980,10 +1980,12 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	} else {
 		compatibleSeries = false
 	}
+
 	// We only get a unique relation id once, to save on roundtrips. If it's
 	// -1, we haven't got it yet (we don't get it at this stage, because we
 	// still don't know whether it's sane to even attempt creation).
 	id := -1
+
 	// If a application's charm is upgraded while we're trying to add a relation,
 	// we'll need to re-validate application sanity.
 	var doc *relationDoc
@@ -1993,8 +1995,14 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		if exists, err := isNotDead(st, relationsC, key); err != nil {
 			return nil, errors.Trace(err)
 		} else if exists {
-			return nil, errors.AlreadyExistsf("relation %v", key)
+			// Ignore the error here, if there is an error, we know that dying
+			// will be false and can fall through to error message below.
+			if dying, _ := isDying(st, relationsC, key); dying {
+				return nil, errors.NewAlreadyExists(nil, fmt.Sprintf("relation %v is dying, but not yet removed", key))
+			}
+			return nil, errors.NewAlreadyExists(nil, fmt.Sprintf("relation %v", key))
 		}
+
 		// Collect per-application operations, checking sanity as we go.
 		var ops []txn.Op
 		var subordinateCount int
@@ -2347,7 +2355,7 @@ func (st *State) SetAdminMongoPassword(password string) error {
 	return errors.Trace(err)
 }
 
-func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.Id) txn.Op {
+func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId corenetwork.Id) txn.Op {
 	key := st.networkEntityGlobalKey(globalKey, providerId)
 	return txn.Op{
 		C:      providerIDsC,
@@ -2357,7 +2365,7 @@ func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.I
 	}
 }
 
-func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId network.Id) txn.Op {
+func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId corenetwork.Id) txn.Op {
 	key := st.networkEntityGlobalKey(globalKey, providerId)
 	return txn.Op{
 		C:      providerIDsC,
@@ -2366,7 +2374,7 @@ func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId net
 	}
 }
 
-func (st *State) networkEntityGlobalKeyExists(globalKey string, providerId network.Id) (bool, error) {
+func (st *State) networkEntityGlobalKeyExists(globalKey string, providerId corenetwork.Id) (bool, error) {
 	col, closer := st.db().GetCollection(providerIDsC)
 	defer closer()
 
@@ -2384,7 +2392,7 @@ func (st *State) networkEntityGlobalKeyExists(globalKey string, providerId netwo
 	}
 }
 
-func (st *State) networkEntityGlobalKey(globalKey string, providerId network.Id) string {
+func (st *State) networkEntityGlobalKey(globalKey string, providerId corenetwork.Id) string {
 	return st.docID(globalKey + ":" + string(providerId))
 }
 

@@ -519,7 +519,7 @@ var _ = gc.Suite(&environBrokerSuite{})
 func (s *environBrokerSuite) setUpClient(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.callCtx = callcontext.NewCloudCallContext()
+	s.callCtx = callcontext.NewEmptyCloudCallContext()
 	s.mockClient = mocks.NewMockClient(ctrl)
 	s.provider = vsphere.NewEnvironProvider(vsphere.EnvironProviderConfig{
 		Dial: func(_ context.Context, _ *url.URL, _ string) (vsphere.Client, error) {

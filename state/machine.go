@@ -1654,45 +1654,6 @@ func (m *Machine) ProviderAddresses() (addresses network.SpaceAddresses) {
 	return
 }
 
-// AddressesBySpaceID groups the machine addresses by space id and
-// returns the result as a map where the space id is used a the key.
-// Loopback addresses are skipped.
-func (m *Machine) AddressesBySpaceID() (map[string][]network.SpaceAddress, error) {
-	res := make(map[string][]network.SpaceAddress)
-	err := m.visitAddressesInSpaces(func(subnet *Subnet, address *Address) {
-		spaceID := subnet.SpaceID()
-		res[spaceID] = append(res[spaceID], address.NetworkAddress())
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return res, nil
-}
-
-// visitAddressesInSpaces invokes visitFn for each non-loopback machine address
-// that is assigned to a space.
-func (m *Machine) visitAddressesInSpaces(visitFn func(subnet *Subnet, address *Address)) error {
-	addresses, err := m.AllAddresses()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for _, address := range addresses {
-		// Juju does not keep track of loopback subnets so we need
-		// to skip loopback addresses as the subnet lookup below will
-		// fail.
-		if address.LoopbackConfigMethod() {
-			continue
-		}
-		subnet, err := address.Subnet()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		visitFn(subnet, address)
-	}
-	return nil
-}
-
 // MachineAddresses returns any hostnames and ips associated with a machine,
 // determined by asking the machine itself.
 func (m *Machine) MachineAddresses() (addresses network.SpaceAddresses) {

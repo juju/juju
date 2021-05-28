@@ -35,6 +35,9 @@ type Application interface {
 	State() (ApplicationState, error)
 	Units() ([]Unit, error)
 
+	// Upgrade upgrades the app to the specified version.
+	Upgrade(version.Number) error
+
 	ServiceInterface
 }
 

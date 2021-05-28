@@ -11,9 +11,9 @@ type AddressMutator interface {
 	// SetCIDR sets the CIDR property of the address.
 	SetCIDR(string)
 
-	// SetSecondary indicates that this address is not the
+	// SetSecondary indicates whether this address is not the
 	// primary address of the device it is associated with.
-	SetSecondary()
+	SetSecondary(bool)
 
 	// SetConfigType indicates how this address was configured.
 	SetConfigType(AddressConfigType)
@@ -33,8 +33,8 @@ func (a *MachineAddress) SetCIDR(cidr string) {
 
 // SetSecondary (AddressMutator) sets the IsSecondary
 // member to true on the address receiver.
-func (a *MachineAddress) SetSecondary() {
-	a.IsSecondary = true
+func (a *MachineAddress) SetSecondary(isSecondary bool) {
+	a.IsSecondary = isSecondary
 }
 
 // SetConfigType (AddressMutator) sets the input
@@ -60,10 +60,10 @@ func WithCIDR(cidr string) func(AddressMutator) {
 }
 
 // WithSecondary returns a functional option that can be used to
-// indicate that an address is not the primary for its NIC.
-func WithSecondary() func(AddressMutator) {
+// indicate whether an address is not the primary for its NIC.
+func WithSecondary(isSecondary bool) func(AddressMutator) {
 	return func(a AddressMutator) {
-		a.SetSecondary()
+		a.SetSecondary(isSecondary)
 	}
 }
 

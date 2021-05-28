@@ -91,6 +91,19 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationFailure(c *gc.C) {
 	s.mockAPI.CheckCallNames(c, "GetConsumeDetails", "Consume", "Close", "AddRelation", "Close")
 }
 
+func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationTerminated(c *gc.C) {
+	msg := "remote offer applicationname is terminated"
+	s.mockAPI.addRelation = func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
+		return nil, errors.New(msg)
+	}
+
+	err := s.runAddRelation(c, "applicationname2", "applicationname")
+	c.Assert(err, gc.ErrorMatches, `
+Offer "applicationname" has been removed from the remote model.
+To relate to a new offer with the same name, first run
+'juju remove-saas applicationname' to remove the SAAS record from this model.`[1:])
+}
+
 func (s *AddRemoteRelationSuiteNewAPI) TestAddedRelationVia(c *gc.C) {
 	err := s.runAddRelation(c, "othermodel.applicationname2", "applicationname", "--via", "192.168.1.0/16, 10.0.0.0/16")
 	c.Assert(err, jc.ErrorIsNil)

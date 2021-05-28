@@ -261,8 +261,8 @@ func (s *NetworkSuite) TestPortRangeConvenience(c *gc.C) {
 func (s *NetworkSuite) TestProviderAddressConversion(c *gc.C) {
 	pAddrs := network.ProviderAddresses{
 		network.NewProviderAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal), network.WithCIDR("1.2.3.0/24")),
-		network.NewProviderAddress("1.2.3.5", network.WithScope(network.ScopeCloudLocal), network.WithSecondary()),
-		network.NewProviderAddress("2.3.4.5", network.WithScope(network.ScopePublic)),
+		network.NewProviderAddress("1.2.3.5", network.WithScope(network.ScopeCloudLocal), network.WithSecondary(true)),
+		network.NewProviderAddress("2.3.4.5", network.WithScope(network.ScopePublic), network.WithConfigType("dhcp")),
 	}
 	pAddrs[0].SpaceName = "test-space"
 	pAddrs[0].ProviderSpaceID = "666"
@@ -274,14 +274,14 @@ func (s *NetworkSuite) TestProviderAddressConversion(c *gc.C) {
 func (s *NetworkSuite) TestMachineAddressConversion(c *gc.C) {
 	mAddrs := []network.MachineAddress{
 		network.NewMachineAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal), network.WithCIDR("1.2.3.0/24")),
-		network.NewMachineAddress("1.2.3.5", network.WithScope(network.ScopeCloudLocal), network.WithSecondary()),
-		network.NewMachineAddress("2.3.4.5", network.WithScope(network.ScopePublic)),
+		network.NewMachineAddress("1.2.3.5", network.WithScope(network.ScopeCloudLocal), network.WithSecondary(true)),
+		network.NewMachineAddress("2.3.4.5", network.WithScope(network.ScopePublic), network.WithConfigType("dhcp")),
 	}
 
 	exp := []params.Address{
 		{Value: "1.2.3.4", Scope: string(network.ScopeCloudLocal), Type: string(network.IPv4Address), CIDR: "1.2.3.0/24"},
 		{Value: "1.2.3.5", Scope: string(network.ScopeCloudLocal), Type: string(network.IPv4Address), IsSecondary: true},
-		{Value: "2.3.4.5", Scope: string(network.ScopePublic), Type: string(network.IPv4Address)},
+		{Value: "2.3.4.5", Scope: string(network.ScopePublic), Type: string(network.IPv4Address), ConfigType: "dhcp"},
 	}
 	c.Assert(params.FromMachineAddresses(mAddrs...), jc.DeepEquals, exp)
 }

@@ -82,6 +82,7 @@ var stateChanges = []struct {
 type lifeFixture interface {
 	id() (coll string, id interface{})
 	setup(s *LifeSuite, c *gc.C) state.AgentLiving
+	isDying(s *LifeSuite, c *gc.C) bool
 }
 
 type unitLife struct {
@@ -90,7 +91,7 @@ type unitLife struct {
 }
 
 func (l *unitLife) id() (coll string, id interface{}) {
-	return "units", state.DocID(l.st, l.unit.Name())
+	return state.UnitsC, state.DocID(l.st, l.unit.Name())
 }
 
 func (l *unitLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
@@ -101,13 +102,20 @@ func (l *unitLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
 	return l.unit
 }
 
+func (l *unitLife) isDying(s *LifeSuite, c *gc.C) bool {
+	col, id := l.id()
+	dying, err := state.IsDying(l.st, col, id)
+	c.Assert(err, jc.ErrorIsNil)
+	return dying
+}
+
 type machineLife struct {
 	machine *state.Machine
 	st      *state.State
 }
 
 func (l *machineLife) id() (coll string, id interface{}) {
-	return "machines", state.DocID(l.st, l.machine.Id())
+	return state.MachinesC, state.DocID(l.st, l.machine.Id())
 }
 
 func (l *machineLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
@@ -115,6 +123,13 @@ func (l *machineLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
 	l.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	return l.machine
+}
+
+func (l *machineLife) isDying(s *LifeSuite, c *gc.C) bool {
+	col, id := l.id()
+	dying, err := state.IsDying(l.st, col, id)
+	c.Assert(err, jc.ErrorIsNil)
+	return dying
 }
 
 func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached, dbinitial state.Life, c *gc.C) {
@@ -145,6 +160,13 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
 			case state.Dying:
 				err := living.Destroy()
 				c.Assert(err, jc.ErrorIsNil)
+
+				// If we're already in the dead state, we can't transition, so
+				// don't test that permutation.
+				if v.dbinitial != state.Dead {
+					ok := lfix.isDying(s, c)
+					c.Assert(ok, jc.IsTrue)
+				}
 			case state.Dead:
 				err := living.EnsureDead()
 				c.Assert(err, jc.ErrorIsNil)

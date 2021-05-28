@@ -140,9 +140,9 @@ func (m *MockCharmResolver) EXPECT() *MockCharmResolverMockRecorder {
 }
 
 // ResolveCharm mocks base method
-func (m *MockCharmResolver) ResolveCharm(arg0 *v9.URL, arg1 charm.Origin) (*v9.URL, charm.Origin, []string, error) {
+func (m *MockCharmResolver) ResolveCharm(arg0 *v9.URL, arg1 charm.Origin, arg2 bool) (*v9.URL, charm.Origin, []string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ResolveCharm", arg0, arg1)
+	ret := m.ctrl.Call(m, "ResolveCharm", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*v9.URL)
 	ret1, _ := ret[1].(charm.Origin)
 	ret2, _ := ret[2].([]string)
@@ -151,9 +151,9 @@ func (m *MockCharmResolver) ResolveCharm(arg0 *v9.URL, arg1 charm.Origin) (*v9.U
 }
 
 // ResolveCharm indicates an expected call of ResolveCharm
-func (mr *MockCharmResolverMockRecorder) ResolveCharm(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockCharmResolverMockRecorder) ResolveCharm(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveCharm", reflect.TypeOf((*MockCharmResolver)(nil).ResolveCharm), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveCharm", reflect.TypeOf((*MockCharmResolver)(nil).ResolveCharm), arg0, arg1, arg2)
 }
 
 // MockCharmRepository is a mock of CharmRepository interface

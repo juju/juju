@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	stdcontext "context"
 	"fmt"
 	"sort"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2"
 	"github.com/juju/version/v2"
@@ -34,13 +36,13 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/wrench"
 )
 
@@ -73,7 +75,7 @@ type ToolsFinder interface {
 
 func NewProvisionerTask(
 	controllerUUID string,
-	machineTag names.MachineTag,
+	hostTag names.Tag,
 	logger Logger,
 	harvestMode config.HarvestMode,
 	machineGetter MachineGetter,
@@ -85,7 +87,7 @@ func NewProvisionerTask(
 	auth authentication.AuthenticationProvider,
 	imageStream string,
 	retryStartInstanceStrategy RetryStrategy,
-	cloudCallContext context.ProviderCallContext,
+	cloudCallContextFunc common.CloudCallContextFunc,
 ) (ProvisionerTask, error) {
 	machineChanges := machineWatcher.Changes()
 	workers := []worker.Worker{machineWatcher}
@@ -96,7 +98,7 @@ func NewProvisionerTask(
 	}
 	task := &provisionerTask{
 		controllerUUID:             controllerUUID,
-		machineTag:                 machineTag,
+		hostTag:                    hostTag,
 		logger:                     logger,
 		machineGetter:              machineGetter,
 		distributionGroupFinder:    distributionGroupFinder,
@@ -111,7 +113,7 @@ func NewProvisionerTask(
 		availabilityZoneMachines:   make([]*AvailabilityZoneMachine, 0),
 		imageStream:                imageStream,
 		retryStartInstanceStrategy: retryStartInstanceStrategy,
-		cloudCallCtx:               cloudCallContext,
+		cloudCallCtxFunc:           cloudCallContextFunc,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &task.catacomb,
@@ -126,7 +128,7 @@ func NewProvisionerTask(
 
 type provisionerTask struct {
 	controllerUUID             string
-	machineTag                 names.MachineTag
+	hostTag                    names.Tag
 	logger                     Logger
 	machineGetter              MachineGetter
 	distributionGroupFinder    DistributionGroupFinder
@@ -146,7 +148,7 @@ type provisionerTask struct {
 	machines                 map[string]apiprovisioner.MachineProvisioner
 	machinesMutex            sync.RWMutex
 	availabilityZoneMachines []*AvailabilityZoneMachine
-	cloudCallCtx             context.ProviderCallContext
+	cloudCallCtxFunc         common.CloudCallContextFunc
 }
 
 // Kill implements worker.Worker.Kill.
@@ -180,7 +182,7 @@ func (task *provisionerTask) loop() error {
 	for {
 		select {
 		case <-task.catacomb.Dying():
-			task.logger.Infof("Shutting down provisioner task %s", task.machineTag)
+			task.logger.Infof("Shutting down provisioner task %s", task.hostTag)
 			return task.catacomb.ErrDying()
 		case ids, ok := <-task.machineChanges:
 			if !ok {
@@ -250,14 +252,16 @@ func (task *provisionerTask) processMachinesWithTransientErrors() error {
 		task.machinesMutex.Unlock()
 		pending = append(pending, machine)
 	}
-	return task.startMachines(pending)
+	ctx := task.cloudCallCtxFunc(stdcontext.Background())
+	return task.startMachines(ctx, pending)
 }
 
 func (task *provisionerTask) processMachines(ids []string) error {
 	task.logger.Tracef("processMachines(%v)", ids)
 
+	ctx := task.cloudCallCtxFunc(stdcontext.Background())
 	// Populate the tasks maps of current instances and machines.
-	if err := task.populateMachineMaps(ids); err != nil {
+	if err := task.populateMachineMaps(ctx, ids); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -272,7 +276,7 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	}
 
 	// Start an instance for the pending ones.
-	return errors.Trace(task.startMachines(pending))
+	return errors.Trace(task.startMachines(ctx, pending))
 }
 
 func instanceIds(instances []instances.Instance) []string {
@@ -285,10 +289,10 @@ func instanceIds(instances []instances.Instance) []string {
 
 // populateMachineMaps updates task.instances. Also updates
 // task.machines map if a list of IDs is given.
-func (task *provisionerTask) populateMachineMaps(ids []string) error {
+func (task *provisionerTask) populateMachineMaps(ctx context.ProviderCallContext, ids []string) error {
 	task.instances = make(map[instance.Id]instances.Instance)
 
-	allInstances, err := task.broker.AllRunningInstances(task.cloudCallCtx)
+	allInstances, err := task.broker.AllRunningInstances(ctx)
 	if err != nil {
 		return errors.Annotate(err, "failed to get all instances from broker")
 	}
@@ -547,7 +551,7 @@ func (task *provisionerTask) stopInstances(instances []instances.Instance) error
 	for i, inst := range instances {
 		ids[i] = inst.Id()
 	}
-	if err := task.broker.StopInstances(task.cloudCallCtx, ids...); err != nil {
+	if err := task.broker.StopInstances(task.cloudCallCtxFunc(stdcontext.Background()), ids...); err != nil {
 		return errors.Annotate(err, "broker failed to stop instances")
 	}
 	return nil
@@ -572,7 +576,7 @@ func (task *provisionerTask) constructInstanceConfig(
 		return nil, errors.Annotate(err, "failed to generate a nonce for machine "+machine.Id())
 	}
 
-	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid)
+	nonce := fmt.Sprintf("%s:%s", task.hostTag, uuid)
 	instanceConfig, err := instancecfg.NewInstanceConfig(
 		names.NewControllerTag(controller.Config(pInfo.ControllerConfig).ControllerUUID()),
 		machine.Id(),
@@ -774,7 +778,7 @@ func (task *provisionerTask) populateAvailabilityZoneMachines() error {
 	// In this case, AvailabilityZoneAllocations() will return all of the "available"
 	// availability zones and their instance allocations.
 	availabilityZoneInstances, err := providercommon.AvailabilityZoneAllocations(
-		zonedEnv, task.cloudCallCtx, []instance.Id{})
+		zonedEnv, task.cloudCallCtxFunc(stdcontext.Background()), []instance.Id{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -913,7 +917,7 @@ func (a azMachineSort) Swap(i, j int) {
 
 // startMachines starts a goroutine for each specified machine to
 // start it.  Errors from individual start machine attempts will be logged.
-func (task *provisionerTask) startMachines(machines []apiprovisioner.MachineProvisioner) error {
+func (task *provisionerTask) startMachines(ctx context.ProviderCallContext, machines []apiprovisioner.MachineProvisioner) error {
 	if len(machines) == 0 {
 		return nil
 	}
@@ -944,7 +948,7 @@ func (task *provisionerTask) startMachines(machines []apiprovisioner.MachineProv
 		wg.Add(1)
 		go func(machine apiprovisioner.MachineProvisioner, dg []string, index int) {
 			defer wg.Done()
-			if err := task.startMachine(machine, dg); err != nil {
+			if err := task.startMachine(ctx, machine, dg); err != nil {
 				task.removeMachineFromAZMap(machine)
 				errMachines[index] = err
 			}
@@ -1023,12 +1027,12 @@ func (task *provisionerTask) setupToStartMachine(machine apiprovisioner.MachineP
 // populateExcludedMachines, translates the results of DeriveAvailabilityZones
 // into availabilityZoneMachines.ExcludedMachineIds for machines not to be used
 // in the given zone.
-func (task *provisionerTask) populateExcludedMachines(machineId string, startInstanceParams environs.StartInstanceParams) error {
+func (task *provisionerTask) populateExcludedMachines(ctx context.ProviderCallContext, machineId string, startInstanceParams environs.StartInstanceParams) error {
 	zonedEnv, ok := task.broker.(providercommon.ZonedEnviron)
 	if !ok {
 		return nil
 	}
-	derivedZones, err := zonedEnv.DeriveAvailabilityZones(task.cloudCallCtx, startInstanceParams)
+	derivedZones, err := zonedEnv.DeriveAvailabilityZones(ctx, startInstanceParams)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1047,6 +1051,7 @@ func (task *provisionerTask) populateExcludedMachines(machineId string, startIns
 }
 
 func (task *provisionerTask) startMachine(
+	ctx context.ProviderCallContext,
 	machine apiprovisioner.MachineProvisioner,
 	distributionGroupMachineIds []string,
 ) error {
@@ -1067,7 +1072,7 @@ func (task *provisionerTask) startMachine(
 	// Figure out if the zones available to use for a new instance are
 	// restricted based on placement, and if so exclude those machines
 	// from being started in any other zone.
-	if err := task.populateExcludedMachines(machine.Id(), startInstanceParams); err != nil {
+	if err := task.populateExcludedMachines(ctx, machine.Id(), startInstanceParams); err != nil {
 		return err
 	}
 
@@ -1092,7 +1097,7 @@ func (task *provisionerTask) startMachine(
 				machine, startInstanceParams.AvailabilityZone)
 		}
 
-		attemptResult, err := task.broker.StartInstance(task.cloudCallCtx, startInstanceParams)
+		attemptResult, err := task.broker.StartInstance(ctx, startInstanceParams)
 		if err == nil {
 			result = attemptResult
 			break
@@ -1187,7 +1192,7 @@ func (task *provisionerTask) startMachine(
 		if err2 := task.setErrorStatus("cannot register instance for machine %v: %v", machine, err); err2 != nil {
 			task.logger.Errorf("%v", errors.Annotate(err2, "cannot set machine's status"))
 		}
-		if err2 := task.broker.StopInstances(task.cloudCallCtx, instanceID); err2 != nil {
+		if err2 := task.broker.StopInstances(ctx, instanceID); err2 != nil {
 			task.logger.Errorf("%v", errors.Annotate(err2, "after failing to set instance info"))
 		}
 		return errors.Annotate(err, "cannot set instance info")

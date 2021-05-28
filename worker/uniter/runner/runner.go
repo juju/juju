@@ -238,6 +238,10 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 				v, _ := env[k]
 				return v
 			},
+			func(k string) (string, bool) {
+				v, t := env[k]
+				return v, t
+			},
 		)
 	}
 	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote, environmenter)
@@ -417,6 +421,10 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 			func(k string) string {
 				v, _ := env[k]
 				return v
+			},
+			func(k string) (string, bool) {
+				v, t := env[k]
+				return v, t
 			},
 		)
 	}

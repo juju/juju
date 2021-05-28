@@ -128,7 +128,7 @@ type mockApplication struct {
 	state.Authenticator
 	tag      names.Tag
 	password string
-	charm    caasoperatorprovisioner.Charm
+	charm    charm.CharmMeta
 }
 
 func (m *mockApplication) Tag() names.Tag {
@@ -144,16 +144,21 @@ func (a *mockApplication) Life() state.Life {
 	return state.Alive
 }
 
-func (a *mockApplication) Charm() (caasoperatorprovisioner.Charm, bool, error) {
+func (a *mockApplication) Charm() (charm.CharmMeta, bool, error) {
 	return a.charm, false, nil
 }
 
 type mockCharm struct {
-	meta *charm.Meta
+	meta     *charm.Meta
+	manifest *charm.Manifest
 }
 
 func (ch *mockCharm) Meta() *charm.Meta {
 	return ch.meta
+}
+
+func (ch *mockCharm) Manifest() *charm.Manifest {
+	return ch.manifest
 }
 
 type mockWatcher struct {

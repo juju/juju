@@ -85,7 +85,7 @@ func (s *clientValidateOriginSuite) TestValidateOrigin(c *gc.C) {
 	}
 	schema := "ch"
 
-	err := validateOrigin(origin, schema)
+	err := validateOrigin(origin, schema, false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -96,7 +96,7 @@ func (s *clientValidateOriginSuite) TestValidateOriginWithEmptyArch(c *gc.C) {
 	}
 	schema := "ch"
 
-	err := validateOrigin(origin, schema)
+	err := validateOrigin(origin, schema, false)
 	c.Assert(err, gc.ErrorMatches, "empty architecture not valid")
 }
 
@@ -107,7 +107,7 @@ func (s *clientValidateOriginSuite) TestValidateOriginWithInvalidCharmStoreSourc
 	}
 	schema := "ch"
 
-	err := validateOrigin(origin, schema)
+	err := validateOrigin(origin, schema, false)
 	c.Assert(err, gc.ErrorMatches, `origin source "charm-store" with schema not valid`)
 }
 
@@ -118,6 +118,17 @@ func (s *clientValidateOriginSuite) TestValidateOriginWithInvalidCharmHubSource(
 	}
 	schema := "cs"
 
-	err := validateOrigin(origin, schema)
+	err := validateOrigin(origin, schema, false)
 	c.Assert(err, gc.ErrorMatches, `origin source "charm-hub" with schema not valid`)
+}
+
+func (s *clientValidateOriginSuite) TestValidateOriginWhenSwitchingCharmsFromDifferentStores(c *gc.C) {
+	origin := params.CharmOrigin{
+		Source:       "charm-store",
+		Architecture: "all",
+	}
+	schema := "ch"
+
+	err := validateOrigin(origin, schema, true)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("expected validateOrigin to succeed when switching from charmstore to charmhub"))
 }

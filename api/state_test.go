@@ -16,9 +16,11 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/api/usermanager"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
+	proxytest "github.com/juju/juju/proxy/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -89,6 +91,45 @@ func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 		serverhostports,
 		{*hp},
 	})
+}
+
+func (s *stateSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C) {
+	info := s.APIInfo(c)
+	conn := newRPCConnection()
+	conn.response = &params.LoginResult{
+		ControllerTag: "controller-" + s.ControllerConfig.ControllerUUID(),
+		ServerVersion: "2.3-rc2",
+		Servers: [][]params.HostPort{
+			{
+				params.HostPort{
+					Address: params.Address{
+						Value: "fe80:abcd::1",
+						CIDR:  "128",
+					},
+					Port: 1234,
+				},
+			},
+		},
+	}
+
+	broken := make(chan struct{})
+	close(broken)
+	testState := api.NewTestingState(api.TestingStateParams{
+		RPCConnection: conn,
+		Clock:         &fakeClock{},
+		Address:       "localhost:1234",
+		Broken:        broken,
+		Closed:        make(chan struct{}),
+		Proxier:       proxytest.NewMockTunnelProxier(),
+	})
+	err := testState.Login(info.Tag, info.Password, "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	hostPortList := testState.APIHostPorts()
+	c.Assert(len(hostPortList), gc.Equals, 1)
+	c.Assert(len(hostPortList[0]), gc.Equals, 1)
+	c.Assert(hostPortList[0][0].NetPort, gc.Equals, network.NetPort(1234))
+	c.Assert(hostPortList[0][0].MachineAddress.Value, gc.Equals, "fe80:abcd::1")
 }
 
 func (s *stateSuite) TestTags(c *gc.C) {

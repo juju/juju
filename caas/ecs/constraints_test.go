@@ -4,6 +4,7 @@
 package ecs_test
 
 import (
+	stdcontext "context"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
@@ -23,14 +24,14 @@ var _ = gc.Suite(&constraintsSuite{})
 
 func (s *constraintsSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewCloudCallContext(stdcontext.TODO())
 }
 
 func (s *constraintsSuite) TestConstraintsValidatorOkay(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	validator, err := s.environ.ConstraintsValidator(context.NewCloudCallContext())
+	validator, err := s.environ.ConstraintsValidator(context.NewCloudCallContext(stdcontext.TODO()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("mem=64G")
@@ -44,7 +45,7 @@ func (s *constraintsSuite) TestConstraintsValidatorEmpty(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	validator, err := s.environ.ConstraintsValidator(context.NewCloudCallContext())
+	validator, err := s.environ.ConstraintsValidator(context.NewCloudCallContext(stdcontext.TODO()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
@@ -57,7 +58,7 @@ func (s *constraintsSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	validator, err := s.environ.ConstraintsValidator(context.NewCloudCallContext())
+	validator, err := s.environ.ConstraintsValidator(context.NewCloudCallContext(stdcontext.TODO()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse(strings.Join([]string{

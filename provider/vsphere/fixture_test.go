@@ -38,7 +38,7 @@ func (s *ProviderFixture) SetUpTest(c *gc.C) {
 	s.provider = vsphere.NewEnvironProvider(vsphere.EnvironProviderConfig{
 		Dial: newMockDialFunc(&s.dialStub, s.client),
 	})
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
 type EnvironFixture struct {
@@ -69,7 +69,7 @@ func (s *EnvironFixture) SetUpTest(c *gc.C) {
 
 	// Make sure we don't fall back to the public image sources.
 	s.PatchValue(&imagemetadata.DefaultUbuntuBaseURL, "")
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
 func serveImageMetadata(requests *[]*http.Request) *httptest.Server {

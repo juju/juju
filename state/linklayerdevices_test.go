@@ -658,6 +658,7 @@ func (s *linkLayerDevicesStateSuite) TestAddAddressOps(c *gc.C) {
 		DeviceName:  "", // Not required.
 		CIDRAddress: "10.1.1.1/24",
 		Origin:      corenetwork.OriginMachine,
+		IsSecondary: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -670,7 +671,8 @@ func (s *linkLayerDevicesStateSuite) TestAddAddressOps(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(addrs, gc.HasLen, 1)
-	c.Assert(addrs[0].Value(), gc.Equals, "10.1.1.1")
+	c.Check(addrs[0].Value(), gc.Equals, "10.1.1.1")
+	c.Check(addrs[0].IsSecondary(), gc.Equals, true)
 }
 
 func (s *linkLayerDevicesStateSuite) TestAddDeviceOpsWithAddresses(c *gc.C) {

@@ -76,7 +76,7 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.oldVersion.Major--
 
 	// Don't wait so long in tests.
-	s.PatchValue(&upgradesteps.UpgradeStartTimeoutMaster, time.Millisecond*50)
+	s.PatchValue(&upgradesteps.UpgradeStartTimeoutPrimary, time.Millisecond*50)
 	s.PatchValue(&upgradesteps.UpgradeStartTimeoutSecondary, time.Millisecond*60)
 
 	// Ensure we don't fail disk space check.
@@ -202,7 +202,7 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 	fakeIsMachineMaster := func(*state.StatePool, string) (bool, error) {
 		return true, nil
 	}
-	s.PatchValue(&upgradesteps.IsMachineMaster, fakeIsMachineMaster)
+	s.PatchValue(&upgradesteps.IsMachinePrimary, fakeIsMachineMaster)
 
 	// Start the agent
 	agent := s.newAgent(c, machineA)
@@ -276,7 +276,7 @@ func (s *upgradeSuite) configureMachine(c *gc.C, machineId string, vers version.
 
 	// Provision the machine if it isn't already
 	if _, err := m.InstanceId(); err != nil {
-		inst, md := jujutesting.AssertStartInstance(c, s.Environ, context.NewCloudCallContext(), s.ControllerConfig.ControllerUUID(), machineId)
+		inst, md := jujutesting.AssertStartInstance(c, s.Environ, context.NewEmptyCloudCallContext(), s.ControllerConfig.ControllerUUID(), machineId)
 		c.Assert(m.SetProvisioned(inst.Id(), "", agent.BootstrapNonce, md), jc.ErrorIsNil)
 	}
 

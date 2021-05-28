@@ -547,35 +547,58 @@ func (mig *modelMigration) minionReportId(phase migration.Phase, globalKey strin
 }
 
 func (mig *modelMigration) getAllAgents() (names.Set, error) {
+	agentTags := names.NewSet()
 	machineTags, err := mig.loadAgentTags(machinesC, "machineid",
 		func(id string) names.Tag { return names.NewMachineTag(id) },
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "loading machine tags")
 	}
+	agentTags = agentTags.Union(machineTags)
 
 	m, err := mig.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if m.Type() == ModelTypeCAAS {
-		applicationTags, err := mig.loadAgentTags(applicationsC, "name",
-			func(name string) names.Tag { return names.NewApplicationTag(name) },
+	if m.Type() != ModelTypeCAAS {
+		unitTags, err := mig.loadAgentTags(unitsC, "name",
+			func(name string) names.Tag { return names.NewUnitTag(name) },
 		)
 		if err != nil {
-			return nil, errors.Annotate(err, "loading application names")
+			return nil, errors.Annotate(err, "loading unit names")
 		}
-		return machineTags.Union(applicationTags), nil
+
+		return agentTags.Union(unitTags), nil
 	}
 
-	unitTags, err := mig.loadAgentTags(unitsC, "name",
-		func(name string) names.Tag { return names.NewUnitTag(name) },
+	applicationTags, err := mig.loadAgentTags(applicationsC, "name",
+		func(name string) names.Tag { return names.NewApplicationTag(name) },
 	)
 	if err != nil {
-		return nil, errors.Annotate(err, "loading unit names")
+		return nil, errors.Annotate(err, "loading application names")
 	}
-
-	return machineTags.Union(unitTags), nil
+	for _, applicationTag := range applicationTags.Values() {
+		app, err := mig.st.Application(applicationTag.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		isEmbedded, err := app.IsEmbedded()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !isEmbedded {
+			agentTags.Add(applicationTag)
+			continue
+		}
+		unitNames, err := app.UnitNames()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, unitName := range unitNames {
+			agentTags.Add(names.NewUnitTag(unitName))
+		}
+	}
+	return agentTags, nil
 }
 
 func (mig *modelMigration) loadAgentTags(collName, fieldName string, convert func(string) names.Tag) (

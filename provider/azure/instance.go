@@ -535,18 +535,17 @@ func (inst *azureInstance) ingressRulesForGroup(ctx context.ProviderCallContext,
 // i.e. both the ones opened by OpenPorts above, and the ones opened for API
 // access.
 func deleteInstanceNetworkSecurityRules(
-	sdkCtx stdcontext.Context,
 	ctx context.ProviderCallContext,
 	env *azureEnviron, id instance.Id,
 	networkInterfaces []network.Interface,
 ) error {
-	securityGroupInfos, err := getSecurityGroupInfoForInterfaces(sdkCtx, env, networkInterfaces)
+	securityGroupInfos, err := getSecurityGroupInfoForInterfaces(ctx, env, networkInterfaces)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, info := range securityGroupInfos {
 		if err := deleteSecurityRules(
-			sdkCtx, ctx, id, info,
+			ctx, ctx, id, info,
 			network.SecurityRulesClient{env.network},
 		); err != nil {
 			return errors.Trace(err)

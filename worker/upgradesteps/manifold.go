@@ -60,7 +60,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			// Get upgradesteps completed lock.
+			// Get upgradeSteps completed lock.
 			var upgradeStepsLock gate.Lock
 			if err := context.Get(config.UpgradeStepsGateName, &upgradeStepsLock); err != nil {
 				return nil, errors.Trace(err)

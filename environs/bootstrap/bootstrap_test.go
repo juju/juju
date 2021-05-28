@@ -94,7 +94,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(bootstrap.DashboardFetchMetadata, func(string, int, int, ...simplestreams.DataSource) ([]*dashboard.Metadata, error) {
 		return nil, nil
 	})
-	s.callContext = envcontext.NewCloudCallContext()
+	s.callContext = envcontext.NewEmptyCloudCallContext()
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
@@ -493,7 +493,7 @@ func (s *bootstrapSuite) setupProviderWithSomeSupportedArches(c *gc.C) bootstrap
 	s.setDummyStorage(c, env.bootstrapEnviron)
 
 	// test provider constraints only has amd64 and arm64 as supported architectures
-	consBefore, err := env.ConstraintsValidator(envcontext.NewCloudCallContext())
+	consBefore, err := env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	desiredArch := constraints.MustParse("arch=i386")
 	unsupported, err := consBefore.Validate(desiredArch)
@@ -540,7 +540,7 @@ func (s *bootstrapSuite) setupProviderWithNoSupportedArches(c *gc.C) bootstrapEn
 	}
 	s.setDummyStorage(c, env.bootstrapEnviron)
 
-	consBefore, err := env.ConstraintsValidator(envcontext.NewCloudCallContext())
+	consBefore, err := env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	// test provider constraints only has amd64 and arm64 as supported architectures
 	desiredArch := constraints.MustParse("arch=i386")

@@ -41,7 +41,7 @@ func (s *SecurityGroupSuite) SetUpTest(c *gc.C) {
 			return nil, nil
 		},
 	}
-	s.cloudCallCtx = context.NewCloudCallContext()
+	s.cloudCallCtx = context.NewEmptyCloudCallContext()
 }
 
 func (s *SecurityGroupSuite) TestDeleteSecurityGroupSuccess(c *gc.C) {

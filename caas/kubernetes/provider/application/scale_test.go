@@ -16,8 +16,8 @@ import (
 )
 
 func (s *applicationSuite) TestApplicationScaleStateful(c *gc.C) {
-	s.assertEnsure(c, caas.DeploymentStateful, constraints.Value{}, func() {})
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(c, app, constraints.Value{}, func() {})
 
 	c.Assert(app.Scale(20), jc.ErrorIsNil)
 	ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
@@ -30,8 +30,8 @@ func (s *applicationSuite) TestApplicationScaleStateful(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationScaleStateless(c *gc.C) {
-	s.assertEnsure(c, caas.DeploymentStateless, constraints.Value{}, func() {})
 	app, _ := s.getApp(c, caas.DeploymentStateless, false)
+	s.assertEnsure(c, app, constraints.Value{}, func() {})
 
 	c.Assert(app.Scale(20), jc.ErrorIsNil)
 	dep, err := s.client.AppsV1().Deployments(s.namespace).Get(
@@ -44,8 +44,8 @@ func (s *applicationSuite) TestApplicationScaleStateless(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationScaleStatefulLessThanZero(c *gc.C) {
-	s.assertEnsure(c, caas.DeploymentStateful, constraints.Value{}, func() {})
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(c, app, constraints.Value{}, func() {})
 
 	c.Assert(errors.IsNotValid(app.Scale(-1)), jc.IsTrue)
 }

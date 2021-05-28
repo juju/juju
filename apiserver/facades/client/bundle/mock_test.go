@@ -4,6 +4,7 @@
 package bundle_test
 
 import (
+	"github.com/juju/charm/v9"
 	"github.com/juju/description/v3"
 	"github.com/juju/testing"
 
@@ -12,10 +13,21 @@ import (
 	"github.com/juju/juju/state"
 )
 
+type mockCharm struct {
+	charm.Charm
+}
+
+func (c *mockCharm) Config() *charm.Config {
+	return &charm.Config{Options: map[string]charm.Option{
+		"foo": {Default: "bar"},
+	}}
+}
+
 type mockState struct {
 	testing.Stub
 	bundle.Backend
 	model  description.Model
+	charm  *mockCharm
 	Spaces map[string]string
 }
 
@@ -38,6 +50,10 @@ func (m *mockState) GetExportConfig() state.ExportConfig {
 		SkipStatusHistory:      true,
 		SkipLinkLayerDevices:   true,
 	}
+}
+
+func (m *mockState) Charm(url *charm.URL) (charm.Charm, error) {
+	return m.charm, nil
 }
 
 func (m *mockState) AllSpaceInfos() (network.SpaceInfos, error) {
