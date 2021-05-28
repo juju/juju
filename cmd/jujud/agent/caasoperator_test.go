@@ -195,7 +195,7 @@ func (s *CAASOperatorSuite) TestRunCopiesConfigTemplate(c *gc.C) {
 func (s *CAASOperatorSuite) TestChangeConfig(c *gc.C) {
 	config := FakeAgentConfig{}
 	configChanged := voyeur.NewValue(true)
-	a := UnitAgent{
+	a := CaasOperatorAgent{
 		AgentConf:        config,
 		configChangedVal: configChanged,
 	}
