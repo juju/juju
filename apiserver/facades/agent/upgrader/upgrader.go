@@ -29,7 +29,11 @@ var logger = loggo.GetLogger("juju.apiserver.upgrader")
 // do not depend on who is currently connected.
 
 // NewUpgraderFacade provides the signature required for facade registration.
-func NewUpgraderFacade(st *state.State, resources facade.Resources, auth facade.Authorizer) (Upgrader, error) {
+func NewUpgraderFacade(ctx facade.Context) (Upgrader, error) {
+	auth := ctx.Auth()
+	st := ctx.State()
+	ctrlSt := ctx.StatePool().SystemState()
+	resources := ctx.Resources()
 	// The type of upgrader we return depends on who is asking.
 	// Machines get an UpgraderAPI, units get a UnitUpgraderAPI.
 	// This is tested in the api/upgrader package since there
@@ -45,11 +49,11 @@ func NewUpgraderFacade(st *state.State, resources facade.Resources, auth facade.
 	}
 	switch tag.(type) {
 	case names.MachineTag, names.ControllerAgentTag, names.ApplicationTag, names.ModelTag:
-		return NewUpgraderAPI(st, resources, auth)
+		return NewUpgraderAPI(ctrlSt, st, resources, auth)
 	case names.UnitTag:
 		if model.Type() == state.ModelTypeCAAS {
 			// For sidecar applications.
-			return NewUpgraderAPI(st, resources, auth)
+			return NewUpgraderAPI(ctrlSt, st, resources, auth)
 		}
 		return NewUnitUpgraderAPI(st, resources, auth)
 	}
@@ -77,6 +81,7 @@ type UpgraderAPI struct {
 
 // NewUpgraderAPI creates a new server-side UpgraderAPI facade.
 func NewUpgraderAPI(
+	ctrlSt *state.State,
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -91,7 +96,7 @@ func NewUpgraderAPI(
 	if err != nil {
 		return nil, err
 	}
-	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
+	urlGetter := common.NewToolsURLGetter(model.UUID(), ctrlSt)
 	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
 	newEnviron := common.EnvironFuncForModel(model, configGetter)
 	return &UpgraderAPI{

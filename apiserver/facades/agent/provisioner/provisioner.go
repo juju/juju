@@ -134,7 +134,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}
 
-	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
+	urlGetter := common.NewToolsURLGetter(model.UUID(), ctx.StatePool().SystemState())
 	callCtx := context.CallContext(st)
 	resources := ctx.Resources()
 	api := &ProvisionerAPI{
