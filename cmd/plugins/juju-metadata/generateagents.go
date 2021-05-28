@@ -135,7 +135,8 @@ func (c *generateAgentsCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		toolsList, err = envtools.FindToolsForCloud(makeDataSources(source), simplestreams.CloudSpec{}, []string{c.stream}, -1, -1, coretools.Filter{})
+		factory := simplestreams.DefaultDataSourceFactory()
+		toolsList, err = envtools.FindToolsForCloud(factory, makeDataSources(factory, source), simplestreams.CloudSpec{}, []string{c.stream}, -1, -1, coretools.Filter{})
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -152,10 +153,10 @@ func (c *generateAgentsCommand) Run(context *cmd.Context) error {
 	return errors.Trace(mergeAndWriteMetadata(targetStorage, c.stream, c.stream, c.clean, toolsList, writeMirrors))
 }
 
-func makeDataSources(urls ...string) []simplestreams.DataSource {
+func makeDataSources(factory simplestreams.DataSourceFactory, urls ...string) []simplestreams.DataSource {
 	dataSources := make([]simplestreams.DataSource, len(urls))
 	for i, url := range urls {
-		dataSources[i] = simplestreams.NewDataSource(
+		dataSources[i] = factory.NewDataSource(
 			simplestreams.Config{
 				Description:          "local source",
 				BaseURL:              url,

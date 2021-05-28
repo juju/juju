@@ -104,6 +104,7 @@ func SyncTools(syncContext *SyncContext) error {
 	// TODO - remove this when we no longer need to support cloud storage upgrades.
 	streams := []string{syncContext.Stream, envtools.ReleasedStream}
 	sourceTools, err := envtools.FindToolsForCloud(
+		simplestreams.DefaultDataSourceFactory(),
 		[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
 		streams, syncContext.MajorVersion, syncContext.MinorVersion, coretools.Filter{})
 	if err != nil {

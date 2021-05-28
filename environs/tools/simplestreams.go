@@ -155,7 +155,7 @@ func (t *ToolsMetadata) productId() (string, error) {
 // The base URL locations are as specified - the first location which has a file is the one used.
 // Signed data is preferred, but if there is no signed data available and onlySigned is false,
 // then unsigned data is used.
-func Fetch(
+func Fetch(factory simplestreams.DataSourceFactory,
 	sources []simplestreams.DataSource, cons *ToolsConstraint,
 ) ([]*ToolsMetadata, *simplestreams.ResolveInfo, error) {
 
@@ -169,7 +169,7 @@ func Fetch(
 			ValueTemplate:   ToolsMetadata{},
 		},
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(simplestreams.DefaultDataSourceFactory(), sources, params)
+	items, resolveInfo, err := simplestreams.GetMetadata(factory, sources, params)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -340,7 +340,8 @@ func ReadMetadata(store storage.StorageReader, stream string) ([]*ToolsMetadata,
 	if err != nil {
 		return nil, err
 	}
-	metadata, _, err := Fetch([]simplestreams.DataSource{dataSource}, toolsConstraint)
+	factory := simplestreams.DefaultDataSourceFactory()
+	metadata, _, err := Fetch(factory, []simplestreams.DataSource{dataSource}, toolsConstraint)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}

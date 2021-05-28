@@ -18,6 +18,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
@@ -372,7 +373,8 @@ func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (result cor
 		requestedStream = args.AgentStream
 	}
 	streams := envtools.PreferredStreams(&args.Number, cfg.Development(), requestedStream)
-	simplestreamsList, err := envtoolsFindTools(
+	factory := simplestreams.DefaultDataSourceFactory()
+	simplestreamsList, err := envtoolsFindTools(factory,
 		env, args.MajorVersion, args.MinorVersion, streams, filter,
 	)
 	if len(storageList) == 0 && err != nil {

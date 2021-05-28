@@ -25,6 +25,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
@@ -246,7 +247,8 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 	if err != nil {
 		return md, nil, err
 	}
-	exactTools, err := envtools.FindExactTools(env, v.Number, v.Release, v.Arch)
+	factory := simplestreams.DefaultDataSourceFactory()
+	exactTools, err := envtools.FindExactTools(factory, env, v.Number, v.Release, v.Arch)
 	if err != nil {
 		return md, nil, err
 	}

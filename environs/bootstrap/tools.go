@@ -15,6 +15,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -122,6 +123,7 @@ func findBootstrapTools(env environs.BootstrapEnviron, vers *version.Number, arc
 	if vers != nil {
 		filter.Number = *vers
 	}
+	factory := simplestreams.DefaultDataSourceFactory()
 	streams := envtools.PreferredStreams(vers, env.Config().Development(), env.Config().AgentStream())
-	return findTools(env, cliVersion.Major, cliVersion.Minor, streams, filter)
+	return findTools(factory, env, cliVersion.Major, cliVersion.Minor, streams, filter)
 }
