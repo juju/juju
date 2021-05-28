@@ -541,7 +541,8 @@ func (defaultDataSourceFactory) NewDataSource(cfg Config) DataSource {
 
 // GetIndexWithFormat returns a simplestreams index of the specified format.
 // Exported for testing.
-func GetIndexWithFormat(factory DataSourceFactory, source DataSource, indexPath, indexFormat, mirrorsPath string, requireSigned bool,
+func GetIndexWithFormat(factory DataSourceFactory, source DataSource,
+	indexPath, indexFormat, mirrorsPath string, requireSigned bool,
 	cloudSpec CloudSpec, params ValueParams) (*IndexReference, error) {
 
 	data, url, err := fetchData(source, indexPath, requireSigned)

@@ -547,11 +547,6 @@ var imageData = map[string]string{
 
 var TestRoundTripper = &testing.ProxyRoundTripper{}
 
-func init() {
-	TestRoundTripper.RegisterForScheme("test")
-	TestRoundTripper.RegisterForScheme("signedtest")
-}
-
 type TestDataSuite struct{}
 
 func (s *TestDataSuite) SetUpSuite(c *gc.C) {
@@ -674,8 +669,17 @@ func (testDataSourceFactory) NewDataSource(cfg simplestreams.Config) simplestrea
 	return simplestreams.NewDataSourceWithClient(cfg, jujuhttp.NewClient(
 		jujuhttp.WithTransportMiddlewares(
 			jujuhttp.DialContextMiddleware(jujuhttp.NewLocalDialBreaker(false)),
+			FileProtocolMiddleware,
 		),
 	))
+}
+
+// FileTestingMiddleware registers support for file:// URLs on the given
+// transport.
+func FileProtocolMiddleware(transport *http.Transport) *http.Transport {
+	TestRoundTripper.RegisterForTransportScheme(transport, "test")
+	TestRoundTripper.RegisterForTransportScheme(transport, "signedtest")
+	return transport
 }
 
 func init() {
@@ -792,7 +796,8 @@ func InvalidDataSource(requireSigned bool) simplestreams.DataSource {
 }
 
 func VerifyDefaultCloudDataSource(description, baseURL string) simplestreams.DataSource {
-	return simplestreams.NewDataSource(simplestreams.Config{
+	factory := TestDataSourceFactory()
+	return factory.NewDataSource(simplestreams.Config{
 		Description:          description,
 		BaseURL:              baseURL,
 		HostnameVerification: utils.VerifySSLHostnames,
