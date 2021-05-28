@@ -60,7 +60,10 @@ func NewFacade(ctx facade.Context) (*CharmHubAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return newCharmHubAPI(m, ctx.Auth(), charmHubClientFactory{})
+	// TODO (stickupkid): Get the http transport from the facade context
+	return newCharmHubAPI(m, ctx.Auth(), charmHubClientFactory{
+		httpTransport: charmhub.DefaultHTTPTransport,
+	})
 }
 
 func newCharmHubAPI(backend Backend, authorizer facade.Authorizer, clientFactory ClientFactory) (*CharmHubAPI, error) {
@@ -129,10 +132,14 @@ func (api *CharmHubAPI) Find(ctx context.Context, arg params.Query) (params.Char
 	return params.CharmHubEntityFindResult{Results: convertCharmFindResults(results)}, nil
 }
 
-type charmHubClientFactory struct{}
+type charmHubClientFactory struct {
+	httpTransport func(charmhub.Logger) charmhub.Transport
+}
 
-func (charmHubClientFactory) Client(url string) (Client, error) {
-	cfg, err := charmhub.CharmHubConfigFromURL(url, logger.Child("client"))
+func (f charmHubClientFactory) Client(url string) (Client, error) {
+	cfg, err := charmhub.CharmHubConfigFromURL(url, logger.Child("client"),
+		charmhub.WithHTTPTransport(f.httpTransport),
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

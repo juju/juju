@@ -11,6 +11,7 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/http"
 	"github.com/juju/juju/state"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
@@ -45,6 +46,7 @@ type API struct {
 	getStrategyFunc      func(source string) StrategyFunc
 	newStorage           func(modelUUID string, session *mgo.Session) storage.Storage
 	tag                  names.ModelTag
+	httpClient           http.HTTPClient
 }
 
 type APIv2 struct {
@@ -132,6 +134,8 @@ func NewFacadeV4(ctx facade.Context) (*API, error) {
 		getStrategyFunc:      getStrategyFunc,
 		newStorage:           storage.NewStorage,
 		tag:                  m.ModelTag(),
+		// TODO (stickupkid): Get the http transport from the facade context
+		httpClient: charmhub.DefaultHTTPTransport(logger),
 	}, nil
 }
 
@@ -151,6 +155,8 @@ func NewCharmsAPI(
 		getStrategyFunc:      getStrategyFunc,
 		newStorage:           newStorage,
 		tag:                  m.ModelTag(),
+		// TODO (stickupkid): Get the http transport from the facade context
+		httpClient: charmhub.DefaultHTTPTransport(logger),
 	}, nil
 }
 
@@ -638,12 +644,20 @@ func (a *API) charmHubRepository() (corecharm.Repository, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	clientLogger := logger.Child("client")
+	options := []charmhub.Option{
+		charmhub.WithHTTPTransport(func(charmhub.Logger) charmhub.Transport {
+			return a.httpClient
+		}),
+	}
+
 	var chCfg charmhub.Config
 	chURL, ok := cfg.CharmHubURL()
 	if ok {
-		chCfg, err = charmhub.CharmHubConfigFromURL(chURL, logger.Child("client"))
+		chCfg, err = charmhub.CharmHubConfigFromURL(chURL, clientLogger, options...)
 	} else {
-		chCfg, err = charmhub.CharmHubConfig(logger.Child("client"))
+		chCfg, err = charmhub.CharmHubConfig(clientLogger, options...)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
