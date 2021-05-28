@@ -7,10 +7,10 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"net/mail"
 
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http/v2"
 )
 
 // The names of OS environment variables related to GCE.
@@ -191,7 +191,7 @@ type ConnectionConfig struct {
 	ProjectID string
 
 	// HTTPClient is the client to use for all GCE connections.
-	HTTPClient *http.Client
+	HTTPClient *jujuhttp.Client
 }
 
 // Validate checks the connection's fields for invalid values.

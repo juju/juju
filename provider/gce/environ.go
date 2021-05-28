@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	jujuhttp "github.com/juju/http/v2"
 	"google.golang.org/api/compute/v1"
 
 	jujucloud "github.com/juju/juju/cloud"
@@ -153,18 +153,15 @@ func (e *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 		PrivateKey:  []byte(credAttrs[credAttrPrivateKey]),
 	}
 
-	sslVerification := utils.VerifySSLHostnames
-	if spec.SkipTLSVerify {
-		sslVerification = utils.NoVerifySSLHostnames
-	}
-
 	connectionConfig := google.ConnectionConfig{
 		Region:    spec.Region,
 		ProjectID: credential.ProjectID,
 
 		// TODO (Stickupkid): Pass the http.Client through on the construction
 		// of the environ.
-		HTTPClient: utils.GetHTTPClient(sslVerification),
+		HTTPClient: jujuhttp.NewClient(
+			jujuhttp.WithSkipHostnameVerification(spec.SkipTLSVerify),
+		),
 	}
 
 	// TODO (stickupkid): Pass the context through the method call.

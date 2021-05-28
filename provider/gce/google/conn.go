@@ -5,9 +5,9 @@ package google
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http/v2"
 	"google.golang.org/api/compute/v1"
 )
 
@@ -154,7 +154,7 @@ func Connect(ctx context.Context, connCfg ConnectionConfig, creds *Credentials) 
 	return conn, nil
 }
 
-var newService = func(ctx context.Context, creds *Credentials, httpClient *http.Client) (*compute.Service, error) {
+var newService = func(ctx context.Context, creds *Credentials, httpClient *jujuhttp.Client) (*compute.Service, error) {
 	return newComputeService(ctx, creds, httpClient)
 }
 
