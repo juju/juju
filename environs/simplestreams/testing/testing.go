@@ -635,15 +635,6 @@ type LocalLiveSimplestreamsSuite struct {
 	ValidConstraint simplestreams.LookupConstraint
 }
 
-func (s *LocalLiveSimplestreamsSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	s.PatchValue(&jujuhttp.OutgoingAccessAllowed, false)
-}
-
-func (s *LocalLiveSimplestreamsSuite) TearDownSuite(c *gc.C) {
-	s.BaseSuite.TearDownSuite(c)
-}
-
 const (
 	Index_v1   = "index:1.0"
 	Product_v1 = "products:1.0"
@@ -671,6 +662,20 @@ func (tc *testConstraint) ProductIds() ([]string, error) {
 		ids[i] = fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", version, arch)
 	}
 	return ids, nil
+}
+
+type testDataSourceFactory struct{}
+
+func TestDataSourceFactory() simplestreams.DataSourceFactory {
+	return testDataSourceFactory{}
+}
+
+func (testDataSourceFactory) NewDataSource(cfg simplestreams.Config) simplestreams.DataSource {
+	return simplestreams.NewDataSourceWithClient(cfg, jujuhttp.NewClient(
+		jujuhttp.WithTransportMiddlewares(
+			jujuhttp.DialContextMiddleware(jujuhttp.NewLocalDialBreaker(false)),
+		),
+	))
 }
 
 func init() {
@@ -709,8 +714,14 @@ func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams
 		ValueTemplate: TestItem{},
 	}
 	return simplestreams.GetIndexWithFormat(
-		s.Source, s.IndexPath(), format, simplestreams.MirrorsPath(s.StreamsVersion), s.RequireSigned,
-		s.ValidConstraint.Params().CloudSpec, params)
+		TestDataSourceFactory(),
+		s.Source, s.IndexPath(),
+		format,
+		simplestreams.MirrorsPath(s.StreamsVersion),
+		s.RequireSigned,
+		s.ValidConstraint.Params().CloudSpec,
+		params,
+	)
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetIndexWrongFormat(c *gc.C) {
@@ -730,7 +741,7 @@ func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidCloudSpec(c *gc.
 	indexRef, err := s.GetIndexRef(Index_v1)
 	c.Assert(err, jc.ErrorIsNil)
 	ic := NewTestConstraint(simplestreams.LookupParams{
-		CloudSpec: simplestreams.CloudSpec{"bad", "spec"},
+		CloudSpec: simplestreams.CloudSpec{Region: "bad", Endpoint: "spec"},
 		Releases:  []string{"precise"},
 	})
 	_, err = indexRef.GetProductsPath(ic)

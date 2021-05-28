@@ -121,9 +121,7 @@ func makeTools(c *gc.C, metadataDir, stream string, versionStrings []string, wit
 
 // SHA256sum creates the sha256 checksum for the specified file.
 func SHA256sum(c *gc.C, path string) (int64, string) {
-	if strings.HasPrefix(path, "file://") {
-		path = path[len("file://"):]
-	}
+	path = strings.TrimPrefix(path, "file://")
 	hash, size, err := utils.ReadFileSHA256(path)
 	c.Assert(err, jc.ErrorIsNil)
 	return size, hash
@@ -148,6 +146,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string
 	indexPath := simplestreams.UnsignedIndex("v1", 2)
 	mirrorsPath := simplestreams.MirrorsPath("v1")
 	indexRef, err := simplestreams.GetIndexWithFormat(
+		simplestreams.DefaultDataSourceFactory(),
 		source, indexPath, "index:1.0", mirrorsPath, requireSigned, simplestreams.CloudSpec{}, params)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -156,7 +155,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string
 
 	// Read the products file contents.
 	r, err := stor.Get(path.Join("tools", toolsIndexMetadata.ProductsFilePath))
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := ioutil.ReadAll(r)
 	c.Assert(err, jc.ErrorIsNil)

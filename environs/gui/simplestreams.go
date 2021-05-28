@@ -66,7 +66,7 @@ func FetchMetadata(stream string, major, minor int, sources ...simplestreams.Dat
 			ValueTemplate:   Metadata{},
 		},
 	}
-	items, _, err := simplestreams.GetMetadata(sources, params)
+	items, _, err := simplestreams.GetMetadata(simplestreams.DefaultDataSourceFactory(), sources, params)
 	if err != nil {
 		return nil, errors.Annotate(err, "error fetching simplestreams metadata")
 	}

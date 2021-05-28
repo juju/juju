@@ -97,7 +97,7 @@ func Fetch(
 			ValueTemplate: Metadata{},
 		},
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(src, params)
+	items, resolveInfo, err := simplestreams.GetMetadata(simplestreams.DefaultDataSourceFactory(), src, params)
 	if err != nil {
 		return nil, resolveInfo, err
 	}

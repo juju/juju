@@ -65,7 +65,7 @@ func imageMetadataFetch(sources []simplestreams.DataSource, cons *imagemetadata.
 			ValueTemplate: OvaFileMetadata{},
 		},
 	}
-	items, _, err := simplestreams.GetMetadata(sources, params)
+	items, _, err := simplestreams.GetMetadata(simplestreams.DefaultDataSourceFactory(), sources, params)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
