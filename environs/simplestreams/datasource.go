@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/utils/v2"
 )
 
@@ -168,12 +168,11 @@ func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	// dataURL can be http:// or file://
 	// MakeFileURL will only modify the URL if it's a file URL
 	dataURL = utils.MakeFileURL(dataURL)
-	cfg := jujuhttp.Config{
-		SkipHostnameVerification: !h.hostnameVerification,
-		CACertificates:           h.caCertificates,
-		Logger:                   logger.Child("http"),
-	}
-	client := jujuhttp.NewClient(cfg)
+	client := jujuhttp.NewClient(
+		jujuhttp.WithSkipHostnameVerification(!h.hostnameVerification),
+		jujuhttp.WithCACertificates(h.caCertificates...),
+		jujuhttp.WithLogger(logger.Child("http")),
+	)
 	resp, err := client.Get(context.TODO(), dataURL)
 	if err != nil {
 		if !errors.IsNotFound(err) {

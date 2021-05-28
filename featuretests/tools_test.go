@@ -15,7 +15,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -250,7 +250,10 @@ func (s *toolsWithMacaroonsSuite) TestCanPostWithLocalLogin(c *gc.C) {
 	var prompted bool
 	bakeryClient := httpbakery.NewClient()
 	jar := apitesting.NewClearableCookieJar()
-	client := jujuhttp.NewClient(jujuhttp.Config{SkipHostnameVerification: true, Jar: jar})
+	client := jujuhttp.NewClient(
+		jujuhttp.WithSkipHostnameVerification(true),
+		jujuhttp.WithCookieJar(jar),
+	)
 	bakeryClient.Client = client.Client()
 	bakeryClient.AddInteractor(apiauthentication.NewInteractor(
 		user.UserTag().Id(),

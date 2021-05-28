@@ -16,7 +16,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -253,7 +253,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 
 	// No need to verify the server's identity because we verify the SHA-256 hash.
 	logger.Infof("fetching %v agent binaries from %v", v, exactTools.URL)
-	client := jujuhttp.NewClient(jujuhttp.Config{SkipHostnameVerification: true})
+	client := jujuhttp.NewClient(jujuhttp.WithSkipHostnameVerification(true))
 	resp, err := client.Get(context.TODO(), exactTools.URL)
 	if err != nil {
 		return md, nil, err

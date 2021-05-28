@@ -11,7 +11,7 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/utils/v2"
 )
 
@@ -21,9 +21,9 @@ import (
 func NewHTTPBlobOpener(hostnameVerification utils.SSLHostnameVerification) func(*url.URL) (io.ReadCloser, error) {
 	return func(url *url.URL) (io.ReadCloser, error) {
 		// TODO(rog) make the download operation interruptible.
-		client := jujuhttp.NewClient(jujuhttp.Config{
-			SkipHostnameVerification: !bool(hostnameVerification),
-		})
+		client := jujuhttp.NewClient(
+			jujuhttp.WithSkipHostnameVerification(!bool(hostnameVerification)),
+		)
 
 		resp, err := client.Get(context.TODO(), url.String())
 		if err != nil {

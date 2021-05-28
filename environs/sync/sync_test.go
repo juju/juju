@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http"
+	jujuhttp "github.com/juju/http/v2"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
@@ -316,7 +316,7 @@ func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, expectOST
 
 // downloadToolsRaw downloads the supplied tools and returns the raw bytes.
 func downloadToolsRaw(c *gc.C, t *coretools.Tools) []byte {
-	client := jujuhttp.NewClient(jujuhttp.Config{})
+	client := jujuhttp.NewClient()
 	resp, err := client.Get(context.TODO(), t.URL)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = resp.Body.Close() }()

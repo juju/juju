@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/http"
+	"github.com/juju/http/v2"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v2"
 	"github.com/juju/version/v2"
@@ -187,7 +187,7 @@ func copyTools(toolsDir, stream string, tools []*coretools.Tools, u ToolsUploade
 func copyOneToolsPackage(toolsDir, stream string, tools *coretools.Tools, u ToolsUploader) error {
 	toolsName := envtools.StorageName(tools.Version, toolsDir)
 	logger.Infof("downloading %q %v (%v)", stream, toolsName, tools.URL)
-	client := http.NewClient(http.Config{})
+	client := http.NewClient()
 	resp, err := client.Get(context.TODO(), tools.URL)
 	if err != nil {
 		return err

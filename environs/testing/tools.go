@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/http"
+	"github.com/juju/http/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version/v2"
@@ -109,7 +109,7 @@ func PrimeTools(c *gc.C, stor storage.Storage, dataDir, toolsDir string, vers ve
 	c.Assert(err, jc.ErrorIsNil)
 	agentTools, err := uploadFakeToolsVersion(stor, toolsDir, vers)
 	c.Assert(err, jc.ErrorIsNil)
-	client := http.NewClient(http.Config{})
+	client := http.NewClient()
 	resp, err := client.Get(context.TODO(), agentTools.URL)
 	c.Assert(err, jc.ErrorIsNil)
 	defer resp.Body.Close()

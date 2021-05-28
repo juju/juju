@@ -11,7 +11,7 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/http"
+	"github.com/juju/http/v2"
 	"github.com/juju/juju/state"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"

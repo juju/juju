@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"strings"
 
-	jujuhttp "github.com/juju/http"
+	jujuhttp "github.com/juju/http/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
