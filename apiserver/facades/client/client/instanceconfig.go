@@ -55,7 +55,7 @@ func InstanceConfig(ctrlSt *state.State, st *state.State, machineId, nonce, data
 	if !ok {
 		return nil, errors.New("no agent version set in model configuration")
 	}
-	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
+	urlGetter := common.NewToolsURLGetter(model.UUID(), ctrlSt)
 	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
 	newEnviron := func() (environs.BootstrapEnviron, error) {
 		return environs.GetEnviron(configGetter, environs.New)

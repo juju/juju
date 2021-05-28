@@ -178,7 +178,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 
 	modelUUID := model.UUID()
 
-	urlGetter := common.NewToolsURLGetter(modelUUID, st)
+	urlGetter := common.NewToolsURLGetter(modelUUID, ctx.StatePool().SystemState())
 	statusSetter := common.NewStatusSetter(st, common.AuthAlways())
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
 	blockChecker := common.NewBlockChecker(st)
