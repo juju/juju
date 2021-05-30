@@ -5,9 +5,9 @@ package google_test
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http/v2"
 	jc "github.com/juju/testing/checkers"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
@@ -24,7 +24,7 @@ var _ = gc.Suite(&connSuite{})
 func (s *connSuite) TestConnect(c *gc.C) {
 	google.SetRawConn(s.Conn, nil)
 	service := &compute.Service{}
-	s.PatchValue(google.NewService, func(ctx context.Context, creds *google.Credentials, httpClient *http.Client) (*compute.Service, error) {
+	s.PatchValue(google.NewService, func(ctx context.Context, creds *google.Credentials, httpClient *jujuhttp.Client) (*compute.Service, error) {
 		return service, nil
 	})
 
