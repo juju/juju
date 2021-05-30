@@ -75,7 +75,7 @@ func (s *dashboardSuite) dashboardURL(c *gc.C) string {
 
 func (s *dashboardSuite) TestDashboardSuccessWithBrowser(c *gc.C) {
 	var clientURL, browserURL string
-	s.patchClient(func(_ context.Context, client *httprequest.Client, u string) error {
+	s.patchClient(func(_ context.Context, _ *httprequest.Client, u string) error {
 		clientURL = u
 		return nil
 	})
@@ -86,7 +86,7 @@ func (s *dashboardSuite) TestDashboardSuccessWithBrowser(c *gc.C) {
 	out, err := s.run(c, "--browser", "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
 	dashboardURL := s.dashboardURL(c)
-	expectOut := "Opening the Juju Dashboard in your browser.\nIf it does not open, open this URL:\n" + dashboardURL
+	expectOut := "Opening the Juju Dashboard in your browser.\nIf it does not open, open this URL:\n" + dashboardURL + "\nNOTICE: Juju is using a self-signed SSL certificate, which may cause your browser to issue a site certificate warning. It is safe to ignore this warning and proceed."
 	c.Assert(out, gc.Equals, expectOut)
 	c.Assert(clientURL, gc.Equals, dashboardURL)
 	c.Assert(browserURL, gc.Equals, dashboardURL)
@@ -101,6 +101,7 @@ func (s *dashboardSuite) TestDashboardSuccessWithCredential(c *gc.C) {
 Your login credential is:
   username: admin
   password: dummy-secret`[1:])
+	c.Assert(out, jc.Contains, "NOTICE: Juju is using a self-signed SSL certificate")
 }
 
 func (s *dashboardSuite) TestDashboardSuccessNoCredential(c *gc.C) {
@@ -118,7 +119,8 @@ func (s *dashboardSuite) TestDashboardSuccessNoBrowser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
 Dashboard 4.5.6 for controller "kontroll" is enabled at:
-  %s`[1:], s.dashboardURL(c)))
+  %s
+NOTICE: Juju is using a self-signed SSL certificate, which may cause your browser to issue a site certificate warning. It is safe to ignore this warning and proceed.`[1:], s.dashboardURL(c)))
 }
 
 func (s *dashboardSuite) TestDashboardSuccessBrowserNotFound(c *gc.C) {
@@ -128,7 +130,7 @@ func (s *dashboardSuite) TestDashboardSuccessBrowserNotFound(c *gc.C) {
 	})
 	out, err := s.run(c, "--browser", "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
-	expectOut := "Open this URL in your browser:\n" + s.dashboardURL(c)
+	expectOut := "Open this URL in your browser:\n" + s.dashboardURL(c) + "\nNOTICE: Juju is using a self-signed SSL certificate, which may cause your browser to issue a site certificate warning. It is safe to ignore this warning and proceed."
 	c.Assert(out, gc.Equals, expectOut)
 }
 
@@ -182,5 +184,6 @@ func (s *dashboardDNSSuite) TestDashboardSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, `
 Dashboard 4.5.6 for controller "kontroll" is enabled at:
-  https://example.com/dashboard`[1:])
+  https://example.com/dashboard
+NOTICE: Juju is using a self-signed SSL certificate, which may cause your browser to issue a site certificate warning. It is safe to ignore this warning and proceed.`[1:])
 }
