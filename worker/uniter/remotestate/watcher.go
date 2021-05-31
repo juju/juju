@@ -58,6 +58,7 @@ type RemoteStateWatcher struct {
 	containerRunningStatusFunc    ContainerRunningStatusFunc
 	canApplyCharmProfile          bool
 	workloadEventChannel          <-chan string
+	shutdownChannel               <-chan bool
 
 	catacomb catacomb.Catacomb
 
@@ -96,6 +97,7 @@ type WatcherConfig struct {
 	Logger                        Logger
 	CanApplyCharmProfile          bool
 	WorkloadEventChannel          <-chan string
+	ShutdownChannel               <-chan bool
 }
 
 func (w WatcherConfig) validate() error {
@@ -146,14 +148,16 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		// so that we coalesce events while the observer is busy.
 		out: make(chan struct{}, 1),
 		current: Snapshot{
-			Relations:      make(map[int]RelationSnapshot),
-			Storage:        make(map[names.StorageTag]StorageSnapshot),
-			ActionsBlocked: config.ContainerRunningStatusChannel != nil,
-			ActionChanged:  make(map[string]int),
+			Relations:           make(map[int]RelationSnapshot),
+			Storage:             make(map[names.StorageTag]StorageSnapshot),
+			ActionsBlocked:      config.ContainerRunningStatusChannel != nil,
+			ActionChanged:       make(map[string]int),
+			UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
 		},
 		sidecar:                      config.Sidecar,
 		enforcedCharmModifiedVersion: config.EnforcedCharmModifiedVersion,
 		workloadEventChannel:         config.WorkloadEventChannel,
+		shutdownChannel:              config.ShutdownChannel,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -693,6 +697,14 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			w.logger.Debugf("retry hook timer triggered for %s", w.unit.Tag().Id())
 			w.retryHookTimerTriggered()
+
+		case shutdown, ok := <-w.shutdownChannel:
+			if !ok {
+				return errors.New("shutdownChannel closed")
+			}
+			if shutdown {
+				w.markShutdown()
+			}
 		}
 
 		// Something changed.
@@ -1122,4 +1134,11 @@ func (w *RemoteStateWatcher) watchStorageAttachment(
 	w.current.Storage[tag] = storageSnapshot
 	w.storageAttachmentWatchers[tag] = innerSAW
 	return nil
+}
+
+// markShutdown is called when Shutdown is called on remote state.
+func (w *RemoteStateWatcher) markShutdown() {
+	w.mu.Lock()
+	w.current.Shutdown = true
+	w.mu.Unlock()
 }

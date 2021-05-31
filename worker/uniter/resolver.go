@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -304,6 +305,13 @@ func (s *uniterResolver) nextOp(
 ) (operation.Operation, error) {
 	switch remoteState.Life {
 	case life.Alive:
+		if remoteState.Shutdown {
+			if localState.Started && !localState.Stopped {
+				return opFactory.NewRunHook(hook.Info{Kind: hooks.Stop})
+			} else if !localState.Started || localState.Stopped {
+				return nil, worker.ErrTerminateAgent
+			}
+		}
 	case life.Dying:
 		// Normally we handle relations last, but if we're dying we
 		// must ensure that all relations are broken first.

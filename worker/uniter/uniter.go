@@ -162,6 +162,10 @@ type Uniter struct {
 	// rebooted so we can notify the charms accordingly.
 	rebootQuerier RebootQuerier
 	logger        Logger
+
+	// shutdownChannel is passed to the remote state watcher. When true is
+	// sent on the channel, it causes the uniter to start the shutdown process.
+	shutdownChannel chan bool
 }
 
 // UniterParams hold all the necessary parameters for a new Uniter.
@@ -266,6 +270,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			enforcedCharmModifiedVersion:  uniterParams.EnforcedCharmModifiedVersion,
 			containerNames:                uniterParams.ContainerNames,
 			newPebbleClient:               uniterParams.NewPebbleClient,
+			shutdownChannel:               make(chan bool, 1),
 		}
 		plan := catacomb.Plan{
 			Site: &u.catacomb,
@@ -386,6 +391,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				Sidecar:                       u.sidecar,
 				EnforcedCharmModifiedVersion:  u.enforcedCharmModifiedVersion,
 				WorkloadEventChannel:          u.workloadEventChannel,
+				ShutdownChannel:               u.shutdownChannel,
 			})
 		if err != nil {
 			return errors.Trace(err)
@@ -426,17 +432,19 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}
 
 	var rebootDetected bool
+	if u.modelType == model.IAAS {
+		if rebootDetected, err = u.rebootQuerier.Query(unitTag); err != nil {
+			return errors.Annotatef(err, "could not check reboot status for %q", unitTag)
+		}
+	} else if u.modelType == model.CAAS && u.sidecar {
+		rebootDetected = true
+	}
+	rebootResolver := reboot.NewResolver(u.logger, rebootDetected)
 
 	for {
 		if err = restartWatcher(); err != nil {
 			err = errors.Annotate(err, "(re)starting watcher")
 			break
-		}
-
-		if u.modelType == model.IAAS {
-			if rebootDetected, err = u.rebootQuerier.Query(unitTag); err != nil {
-				return errors.Annotatef(err, "could not check reboot status for %q", unitTag)
-			}
 		}
 
 		cfg := ResolverConfig{
@@ -456,7 +464,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			UpgradeSeries: upgradeseries.NewResolver(
 				u.logger.Child("upgradeseries"),
 			),
-			Reboot: reboot.NewResolver(u.logger, rebootDetected, u.modelType),
+			Reboot: rebootResolver,
 			Leadership: uniterleadership.NewResolver(
 				u.logger.Child("leadership"),
 			),
@@ -532,8 +540,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				// creating LocalState.
 				charmURL = localState.CharmURL
 				charmModifiedVersion = localState.CharmModifiedVersion
-
 				// leave err assigned, causing loop to break
+			case jworker.ErrTerminateAgent:
+				// terminate agent
 			default:
 				// We need to set conflicted from here, because error
 				// handling is outside of the resolver's control.
@@ -941,4 +950,14 @@ func (u *Uniter) reportHookError(hookInfo hook.Info) error {
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookName)
 	return setAgentStatus(u, status.Error, statusMessage, statusData)
+}
+
+// Terminate terminates the Uniter worker, ensuring the stop hook is fired before
+// exiting with ErrTerminateAgent.
+func (u *Uniter) Terminate() error {
+	select {
+	case u.shutdownChannel <- true:
+	default:
+	}
+	return nil
 }
