@@ -213,7 +213,7 @@ func mapNetworkConfigsToProviderAddresses(
 		// Private addresses use the same CIDR; try to resolve them
 		// to a space and create a scoped network address
 		for _, addr := range params.ToProviderAddresses(cfg.Addresses...) {
-			spaceInfo, err := spaceInfoForAddress(spaceInfos, cfg.CIDR, cfg.ProviderSubnetId, addr.Value)
+			spaceInfo, err := spaceInfoForAddress(spaceInfos, addr.CIDR, cfg.ProviderSubnetId, addr.Value)
 			if err != nil {
 				// If we were unable to infer the space using the
 				// currently available subnet information, use
