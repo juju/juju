@@ -10,6 +10,7 @@ import (
 	"net/mail"
 
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http/v2"
 )
 
 // The names of OS environment variables related to GCE.
@@ -188,6 +189,9 @@ type ConnectionConfig struct {
 	// ProjectID is the project ID to use in all GCE API requests for
 	// the connection.
 	ProjectID string
+
+	// HTTPClient is the client to use for all GCE connections.
+	HTTPClient *jujuhttp.Client
 }
 
 // Validate checks the connection's fields for invalid values.
@@ -203,6 +207,9 @@ func (gc ConnectionConfig) Validate() error {
 	}
 	if gc.ProjectID == "" {
 		return NewMissingConfigValue(OSEnvProjectID, "ProjectID")
+	}
+	if gc.HTTPClient == nil {
+		return errors.NotFoundf("connection config http.Client")
 	}
 	return nil
 }
