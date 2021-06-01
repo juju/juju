@@ -4,35 +4,42 @@
 package provider
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/juju/juju/caas"
 )
 
 type ModelOperatorSuite struct {
+	client *fake.Clientset
 }
 
 var _ = gc.Suite(&ModelOperatorSuite{})
 
+func (m *ModelOperatorSuite) SetUpTest(c *gc.C) {
+	m.client = fake.NewSimpleClientset()
+}
+
 func (m *ModelOperatorSuite) Test(c *gc.C) {
 	var (
-		ensureClusterRoleCalled        = false
-		ensureClusterRoleBindingCalled = false
-		ensureConfigMapCalled          = false
-		ensureDeploymentCalled         = false
-		ensureRoleCalled               = false
-		ensureRoleBindingCalled        = false
-		ensureServiceCalled            = false
-		ensureServiceAccountCalled     = false
-		namespaceCalled                = false
-		modelUUID                      = "abcd-efff-face"
-		agentPath                      = "/var/app/juju"
-		model                          = "test-model"
-		namespace                      = "test-namespace"
+		ensureConfigMapCalled      = false
+		ensureDeploymentCalled     = false
+		ensureRoleCalled           = false
+		ensureRoleBindingCalled    = false
+		ensureServiceCalled        = false
+		ensureServiceAccountCalled = false
+		namespaceCalled            = false
+		modelUUID                  = "abcd-efff-face"
+		agentPath                  = "/var/app/juju"
+		model                      = "test-model"
+		namespace                  = "test-namespace"
 	)
 
 	config := caas.ModelOperatorConfig{
@@ -42,31 +49,7 @@ func (m *ModelOperatorSuite) Test(c *gc.C) {
 	}
 
 	bridge := &modelOperatorBrokerBridge{
-		ensureClusterRole: func(cr *rbac.ClusterRole) ([]func(), error) {
-			ensureClusterRoleCalled = true
-			c.Assert(cr.Name, gc.Equals, "test-model-modeloperator")
-			c.Assert(cr.Rules[0].APIGroups, jc.DeepEquals, []string{""})
-			c.Assert(cr.Rules[0].Resources, jc.DeepEquals, []string{"namespaces"})
-			c.Assert(cr.Rules[0].Verbs, jc.DeepEquals, []string{"get", "list"})
-			c.Assert(cr.Rules[1].APIGroups, jc.DeepEquals, []string{"admissionregistration.k8s.io"})
-			c.Assert(cr.Rules[1].Resources, jc.DeepEquals, []string{"mutatingwebhookconfigurations"})
-			c.Assert(cr.Rules[1].Verbs, jc.DeepEquals, []string{
-				"create",
-				"delete",
-				"get",
-				"list",
-				"update",
-			})
-			return nil, nil
-		},
-		ensureClusterRoleBinding: func(crb *rbac.ClusterRoleBinding) ([]func(), error) {
-			ensureClusterRoleBindingCalled = true
-			c.Assert(crb.Name, gc.Equals, "test-model-modeloperator")
-			c.Assert(crb.RoleRef.APIGroup, gc.Equals, "rbac.authorization.k8s.io")
-			c.Assert(crb.RoleRef.Kind, gc.Equals, "ClusterRole")
-			c.Assert(crb.RoleRef.Name, gc.Equals, "test-model-modeloperator")
-			return nil, nil
-		},
+		client: m.client,
 		ensureConfigMap: func(cm *core.ConfigMap) ([]func(), error) {
 			ensureConfigMapCalled = true
 			c.Assert(cm.Name, gc.Equals, modelOperatorName)
@@ -134,8 +117,37 @@ func (m *ModelOperatorSuite) Test(c *gc.C) {
 	err := ensureModelOperator(modelUUID, agentPath, &config, bridge)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(ensureClusterRoleCalled, jc.IsTrue)
-	c.Assert(ensureClusterRoleBindingCalled, jc.IsTrue)
+	clusterRole, err := m.client.RbacV1().ClusterRoles().Get(
+		context.TODO(),
+		"test-model-modeloperator",
+		meta.GetOptions{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clusterRole.Name, gc.Equals, "test-model-modeloperator")
+	c.Assert(clusterRole.Rules[0].APIGroups, jc.DeepEquals, []string{""})
+	c.Assert(clusterRole.Rules[0].Resources, jc.DeepEquals, []string{"namespaces"})
+	c.Assert(clusterRole.Rules[0].Verbs, jc.DeepEquals, []string{"get", "list"})
+	c.Assert(clusterRole.Rules[1].APIGroups, jc.DeepEquals, []string{"admissionregistration.k8s.io"})
+	c.Assert(clusterRole.Rules[1].Resources, jc.DeepEquals, []string{"mutatingwebhookconfigurations"})
+	c.Assert(clusterRole.Rules[1].Verbs, jc.DeepEquals, []string{
+		"create",
+		"delete",
+		"get",
+		"list",
+		"update",
+	})
+
+	clusterRoleBinding, err := m.client.RbacV1().ClusterRoleBindings().Get(
+		context.TODO(),
+		"test-model-modeloperator",
+		meta.GetOptions{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clusterRoleBinding.Name, gc.Equals, "test-model-modeloperator")
+	c.Assert(clusterRoleBinding.RoleRef.APIGroup, gc.Equals, "rbac.authorization.k8s.io")
+	c.Assert(clusterRoleBinding.RoleRef.Kind, gc.Equals, "ClusterRole")
+	c.Assert(clusterRoleBinding.RoleRef.Name, gc.Equals, "test-model-modeloperator")
+
 	c.Assert(ensureConfigMapCalled, jc.IsTrue)
 	c.Assert(ensureDeploymentCalled, jc.IsTrue)
 	c.Assert(ensureRoleCalled, jc.IsTrue)

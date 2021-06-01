@@ -90,6 +90,64 @@ func (rb *ClusterRoleBinding) Delete(ctx context.Context, client kubernetes.Inte
 	return nil
 }
 
+// Ensure ensures this cluster role exists in it's desired form inside the
+// cluster. If the object does not exist it's updated and if the object exists
+// it's updated. The method also takes an optional set of claims to test the
+// exisiting Kubernetes object with to assert ownership before overwriting it.
+func (rb *ClusterRoleBinding) Ensure(
+	ctx context.Context,
+	client kubernetes.Interface,
+	claims ...Claim,
+) ([]func(), error) {
+	cleanups := []func(){}
+	hasClaim := true
+	doUpdate := true
+
+	existing := ClusterRoleBinding{rb.ClusterRoleBinding}
+	err := existing.Get(ctx, client)
+	if err == nil {
+		hasClaim, err = RunClaims(claims...).Assert(&existing.ClusterRoleBinding)
+	}
+	if err != nil && !errors.IsNotFound(err) {
+		return cleanups, errors.Annotatef(
+			err,
+			"checking for existing cluster role binding %q",
+			rb.Name,
+		)
+	}
+
+	if !hasClaim {
+		return cleanups, errors.AlreadyExistsf(
+			"cluster role binding %q not controlled by juju", rb.Name)
+	}
+
+	if errors.IsNotFound(err) {
+		doUpdate = false
+	}
+
+	// If roleref is changed we need to delete the cluster role binding and
+	// re-create it.
+	if !errors.IsNotFound(err) && (existing.RoleRef.APIGroup != rb.RoleRef.APIGroup ||
+		existing.RoleRef.Kind != rb.RoleRef.Kind ||
+		existing.RoleRef.Name != rb.RoleRef.Name) {
+		if err := existing.Delete(ctx, client); err != nil {
+			return cleanups, errors.Annotatef(
+				err,
+				"delete cluster role binding %q because roleref has changed",
+				existing.Name)
+		}
+		doUpdate = false
+	}
+
+	cleanups = append(cleanups, func() { _ = rb.Delete(ctx, client) })
+	if !doUpdate {
+		return cleanups, rb.Apply(ctx, client)
+	} else if err := rb.Update(ctx, client); err != nil {
+		return cleanups, err
+	}
+	return cleanups, nil
+}
+
 // Events emitted by the resource.
 func (rb *ClusterRoleBinding) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
 	return ListEventsForObject(ctx, client, rb.Namespace, rb.Name, "ClusterRoleBinding")
@@ -101,4 +159,22 @@ func (rb *ClusterRoleBinding) ComputeStatus(_ context.Context, _ kubernetes.Inte
 		return "", status.Terminated, rb.DeletionTimestamp.Time, nil
 	}
 	return "", status.Active, now, nil
+}
+
+// Update updates the object in the Kubernetes cluster to the new representation
+func (rb *ClusterRoleBinding) Update(ctx context.Context, client kubernetes.Interface) error {
+	out, err := client.RbacV1().ClusterRoleBindings().Update(
+		ctx,
+		&rb.ClusterRoleBinding,
+		metav1.UpdateOptions{
+			FieldManager: JujuFieldManager,
+		},
+	)
+	if k8serrors.IsNotFound(err) {
+		return errors.Annotatef(err, "updating cluster role binding %q", rb.Name)
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	rb.ClusterRoleBinding = *out
+	return nil
 }

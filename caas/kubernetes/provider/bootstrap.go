@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
+	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloud"
@@ -704,9 +705,11 @@ func (c *controllerStack) ensureControllerServiceAccount() error {
 		return errors.Trace(err)
 	}
 
-	crb := &rbacv1.ClusterRoleBinding{
+	// name cluster role binding after the controller namespace.
+	clusterRoleBindingName := c.broker.GetCurrentNamespace()
+	crb := resources.NewClusterRoleBinding(clusterRoleBindingName, &rbacv1.ClusterRoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        c.broker.GetCurrentNamespace(), // name cluster role binding after the controller namespace.
+			Name:        clusterRoleBindingName,
 			Labels:      providerutils.LabelsForModel("controller", false),
 			Annotations: c.stackAnnotations,
 		},
@@ -720,9 +723,9 @@ func (c *controllerStack) ensureControllerServiceAccount() error {
 			Name:      "controller",
 			Namespace: c.broker.GetCurrentNamespace(),
 		}},
-	}
+	})
 
-	_, crbCleanUps, err := c.broker.ensureClusterRoleBinding(crb)
+	crbCleanUps, err := crb.Ensure(c.ctx.Context(), c.broker.client())
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q cluster role binding", crb.Name)
 		for _, v := range crbCleanUps {
