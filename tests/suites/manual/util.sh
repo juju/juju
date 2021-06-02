@@ -32,6 +32,9 @@ launch_and_wait_addr_ec2() {
 }
 
 ensure_valid_ssh_hosts() {
+	mkdir -p "${HOME}/.ssh"
+	touch "${HOME}/.ssh/known_hosts"
+
 	# shellcheck disable=SC2154
 	for addr in "$@"; do
 		ssh-keygen -f "${HOME}/.ssh/known_hosts" -R ubuntu@"${addr}"

@@ -117,6 +117,9 @@ run_deploy_manual_lxd() {
 	launch_and_wait_addr "${model1}" addr_m1
 	launch_and_wait_addr "${model2}" addr_m2
 
+	mkdir -p "${HOME}/.ssh"
+	touch "${HOME}/.ssh/known_hosts"
+
 	# shellcheck disable=SC2154
 	for addr in "${addr_c}" "${addr_m1}" "${addr_m2}"; do
 		ssh-keygen -f "${HOME}/.ssh/known_hosts" -R "${addr}"
