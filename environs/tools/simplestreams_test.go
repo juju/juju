@@ -104,8 +104,9 @@ func registerSimpleStreamsTests() {
 }
 
 func registerLiveSimpleStreamsTests(baseURL string, validToolsConstraint simplestreams.LookupConstraint, requireSigned bool) {
+	factory := sstesting.TestDataSourceFactory()
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		Source: simplestreams.NewDataSource(simplestreams.Config{
+		Source: factory.NewDataSource(simplestreams.Config{
 			Description:          "test",
 			BaseURL:              baseURL,
 			HostnameVerification: utils.VerifySSLHostnames,

@@ -1877,8 +1877,9 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 }
 
 func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
+	factory := sstesting.TestDataSourceFactory()
 	src := func(env environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewDataSource(simplestreams.Config{
+		return factory.NewDataSource(simplestreams.Config{
 			Description:          "my datasource",
 			BaseURL:              "bar",
 			HostnameVerification: false,

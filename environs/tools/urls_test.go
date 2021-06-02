@@ -76,15 +76,16 @@ func (s *URLsSuite) TestToolsSources(c *gc.C) {
 }
 
 func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
+	factory := sstesting.TestDataSourceFactory()
 	tools.RegisterToolsDataSourceFunc("id0", func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewDataSource(simplestreams.Config{
+		return factory.NewDataSource(simplestreams.Config{
 			Description:          "id0",
 			BaseURL:              "betwixt/releases",
 			HostnameVerification: utils.NoVerifySSLHostnames,
 			Priority:             simplestreams.DEFAULT_CLOUD_DATA}), nil
 	})
 	tools.RegisterToolsDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewDataSource(simplestreams.Config{
+		return factory.NewDataSource(simplestreams.Config{
 			Description:          "id1",
 			BaseURL:              "yoink",
 			HostnameVerification: utils.NoVerifySSLHostnames,

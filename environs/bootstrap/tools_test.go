@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/simplestreams"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -87,7 +88,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 	var called int
 	var filter tools.Filter
 	var findStreams []string
-	s.PatchValue(bootstrap.FindTools, func(_ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ simplestreams.DataSourceFactory, _ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		called++
 		c.Check(major, gc.Equals, jujuversion.Current.Major)
 		c.Check(minor, gc.Equals, jujuversion.Current.Minor)
@@ -167,7 +168,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsError(c *gc.C) {
-	s.PatchValue(bootstrap.FindTools, func(_ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ simplestreams.DataSourceFactory, _ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		return nil, errors.New("splat")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -176,7 +177,7 @@ func (s *toolsSuite) TestFindAvailableToolsError(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsNoUpload(c *gc.C) {
-	s.PatchValue(bootstrap.FindTools, func(_ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ simplestreams.DataSourceFactory, _ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
@@ -192,7 +193,7 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 	currentVersion.Minor = 3
 	s.PatchValue(&jujuversion.Current, currentVersion.Number)
 	var findToolsCalled int
-	s.PatchValue(bootstrap.FindTools, func(_ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ simplestreams.DataSourceFactory, _ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		c.Assert(f.Number.Major, gc.Equals, 10)
 		c.Assert(f.Number.Minor, gc.Equals, 11)
 		c.Assert(f.Number.Patch, gc.Equals, 12)
@@ -233,7 +234,7 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 		},
 	}
 
-	s.PatchValue(bootstrap.FindTools, func(_ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ simplestreams.DataSourceFactory, _ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		return allTools, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)

@@ -669,6 +669,7 @@ func (testDataSourceFactory) NewDataSource(cfg simplestreams.Config) simplestrea
 	return simplestreams.NewDataSourceWithClient(cfg, jujuhttp.NewClient(
 		jujuhttp.WithTransportMiddlewares(
 			jujuhttp.DialContextMiddleware(jujuhttp.NewLocalDialBreaker(false)),
+			jujuhttp.FileProtocolMiddleware,
 			FileProtocolMiddleware,
 		),
 	))
@@ -787,7 +788,8 @@ func (s *LocalLiveSimplestreamsSuite) AssertGetItemCollections(c *gc.C, version 
 }
 
 func InvalidDataSource(requireSigned bool) simplestreams.DataSource {
-	return simplestreams.NewDataSource(simplestreams.Config{
+	factory := TestDataSourceFactory()
+	return factory.NewDataSource(simplestreams.Config{
 		Description:          "invalid",
 		BaseURL:              "file://invalid",
 		HostnameVerification: utils.VerifySSLHostnames,

@@ -80,15 +80,16 @@ func (s *ImageMetadataSuite) TestImageMetadataURLs(c *gc.C) {
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncs(c *gc.C) {
+	factory := sstesting.TestDataSourceFactory()
 	environs.RegisterImageDataSourceFunc("id0", func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewDataSource(simplestreams.Config{
+		return factory.NewDataSource(simplestreams.Config{
 			Description:          "id0",
 			BaseURL:              "betwixt/releases",
 			HostnameVerification: utils.NoVerifySSLHostnames,
 			Priority:             simplestreams.DEFAULT_CLOUD_DATA}), nil
 	})
 	environs.RegisterImageDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewDataSource(simplestreams.Config{
+		return factory.NewDataSource(simplestreams.Config{
 			Description:          "id1",
 			BaseURL:              "yoink",
 			HostnameVerification: utils.NoVerifySSLHostnames,
@@ -99,7 +100,7 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncs(c *gc.C) {
 		return nil, errors.NewNotSupported(nil, "oyvey")
 	})
 	environs.RegisterUserImageDataSourceFunc("id2", func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewDataSource(simplestreams.Config{
+		return factory.NewDataSource(simplestreams.Config{
 			Description:          "id2",
 			BaseURL:              "foobar",
 			HostnameVerification: utils.NoVerifySSLHostnames,

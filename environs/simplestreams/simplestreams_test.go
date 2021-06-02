@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	jujuhttp "github.com/juju/http/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -344,7 +343,7 @@ func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
 		ValueParams:      simplestreams.ValueParams{DataType: "image-ids"},
 	}
 
-	items, resolveInfo, err := simplestreams.GetMetadata(testDataSourceFactory{}, sources, params)
+	items, resolveInfo, err := simplestreams.GetMetadata(sstesting.TestDataSourceFactory(), sources, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(items, gc.HasLen, 0)
 	c.Assert(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
@@ -495,7 +494,7 @@ func (s *simplestreamsSuite) TestGetMirrorMetadata(c *gc.C) {
 			MirrorContentId: "com.ubuntu.juju:released:agents",
 		}
 		indexRef, err := simplestreams.GetIndexWithFormat(
-			testDataSourceFactory{},
+			sstesting.TestDataSourceFactory(),
 			s.Source, s.IndexPath(), sstesting.Index_v1,
 			simplestreams.MirrorsPath("v1"), s.RequireSigned, cloud, params)
 		if !c.Check(err, jc.ErrorIsNil) {
@@ -515,14 +514,4 @@ func (s *simplestreamsSuite) TestGetMirrorMetadata(c *gc.C) {
 		c.Check(mirrorURL, gc.Equals, t.mirrorURL)
 		c.Check(indexRef.MirroredProductsPath, gc.Equals, t.path)
 	}
-}
-
-type testDataSourceFactory struct{}
-
-func (testDataSourceFactory) NewDataSource(cfg simplestreams.Config) simplestreams.DataSource {
-	return simplestreams.NewDataSourceWithClient(cfg, jujuhttp.NewClient(
-		jujuhttp.WithTransportMiddlewares(
-			jujuhttp.DialContextMiddleware(jujuhttp.NewLocalDialBreaker(false)),
-		),
-	))
 }
