@@ -6538,6 +6538,18 @@
                         }
                     },
                     "description": "UnitIntroduction sets the status of each given entity."
+                },
+                "UnitTerminating": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/CAASUnitTerminationResult"
+                        }
+                    },
+                    "description": "UnitTerminating should be called by the CAASUnitTerminationWorker when\nthe agent receives a signal to exit. UnitTerminating will return how\nthe agent should shutdown."
                 }
             },
             "definitions": {
@@ -6587,6 +6599,34 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "CAASUnitTerminationResult": {
+                    "type": "object",
+                    "properties": {
+                        "Error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "WillRestart": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "WillRestart",
+                        "Error"
+                    ]
+                },
+                "Entity": {
+                    "type": "object",
+                    "properties": {
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
+                    ]
                 },
                 "Error": {
                     "type": "object",

@@ -1507,3 +1507,15 @@ func executorFunc(c *gc.C) uniter.NewOperationExecutorFunc {
 		return &mockExecutor{e}, nil
 	}
 }
+
+func (s *UniterSuite) TestShutdown(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"shutdown",
+			quickStart{},
+			triggerShutdown{},
+			waitHooks{"stop"},
+			expectError{"agent should be terminated"},
+		),
+	})
+}
