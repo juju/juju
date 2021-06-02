@@ -1175,6 +1175,7 @@ type ProxyConfigResult struct {
 	SnapStoreProxyId         string      `json:"snap-store-id,omitempty"`
 	SnapStoreProxyAssertions string      `json:"snap-store-assertions,omitempty"`
 	SnapStoreProxyURL        string      `json:"snap-store-proxy-url,omitempty"`
+	AptMirror                string      `json:"apt-mirror,omitempty"`
 	Error                    *Error      `json:"error,omitempty"`
 }
 

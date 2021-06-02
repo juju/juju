@@ -129,7 +129,7 @@ func (api *APIBase) oneWatch() params.NotifyWatchResult {
 	return result
 }
 
-// WatchForProxyConfigAndAPIHostPortChanges watches for cleanups to be perfomed in state
+// WatchForProxyConfigAndAPIHostPortChanges watches for changes to the proxy and api host port settings.
 func (api *APIBase) WatchForProxyConfigAndAPIHostPortChanges(args params.Entities) params.NotifyWatchResults {
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
@@ -205,6 +205,7 @@ func (api *APIBase) proxyConfig() params.ProxyConfigResult {
 	result.LegacyProxySettings = toParams(legacyProxySettings)
 
 	result.APTProxySettings = toParams(config.AptProxySettings())
+	result.AptMirror = config.AptMirror()
 
 	result.SnapProxySettings = toParams(config.SnapProxySettings())
 	result.SnapStoreProxyId = config.SnapStoreProxy()

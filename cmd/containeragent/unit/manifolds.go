@@ -218,6 +218,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			WorkerFunc:          proxyupdater.NewWorker,
 			InProcessUpdate:     proxy.DefaultConfig.Set,
 			SupportLegacyValues: false,
+			RunFunc:             proxyupdater.RunWithStdIn,
 		})),
 
 		// The logging config updater is a leaf worker that indirectly

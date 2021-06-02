@@ -33487,7 +33487,6 @@
                         "snap-store-assertions",
                         "snap-store-proxy-id",
                         "snap-store-proxy-url",
-                        "apt-mirror",
                         "UpdateBehavior"
                     ]
                 },
@@ -35251,7 +35250,7 @@
                             "$ref": "#/definitions/NotifyWatchResults"
                         }
                     },
-                    "description": "WatchForProxyConfigAndAPIHostPortChanges watches for cleanups to be perfomed in state"
+                    "description": "WatchForProxyConfigAndAPIHostPortChanges watches for changes to the proxy and api host port settings."
                 }
             },
             "definitions": {
@@ -35364,6 +35363,9 @@
                 "ProxyConfigResult": {
                     "type": "object",
                     "properties": {
+                        "apt-mirror": {
+                            "type": "string"
+                        },
                         "apt-proxy-settings": {
                             "$ref": "#/definitions/ProxyConfig"
                         },
