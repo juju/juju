@@ -179,7 +179,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 		custom := s.uploadCustom(c, test.custom...)
 		public := s.uploadPublic(c, test.public...)
 		streams := envtools.PreferredStreams(&jujuversion.Current, s.env.Config().Development(), s.env.Config().AgentStream())
-		actual, err := envtools.FindTools(s.env, test.major, test.minor, streams, coretools.Filter{})
+		actual, err := envtools.FindTools(sstesting.TestDataSourceFactory(), s.env, test.major, test.minor, streams, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -208,7 +208,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	defer logger.SetLogLevel(logger.LogLevel())
 	logger.SetLogLevel(loggo.TRACE)
 
-	_, err := envtools.FindTools(
+	_, err := envtools.FindTools(sstesting.TestDataSourceFactory(),
 		s.env, 1, -1, []string{"released"}, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}})
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	// This is slightly overly prescriptive, but feel free to change or add
@@ -272,7 +272,7 @@ func (s *SimpleStreamsToolsSuite) TestFindExactTools(c *gc.C) {
 		s.reset(c, nil)
 		custom := s.uploadCustom(c, test.custom...)
 		public := s.uploadPublic(c, test.public...)
-		actual, err := envtools.FindExactTools(s.env, test.seek.Number, test.seek.Release, test.seek.Arch)
+		actual, err := envtools.FindExactTools(sstesting.TestDataSourceFactory(), s.env, test.seek.Number, test.seek.Release, test.seek.Arch)
 		if test.err == nil {
 			if !c.Check(err, jc.ErrorIsNil) {
 				continue
@@ -354,7 +354,8 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsWithStreamFallback(c *gc.C) {
 			"proposed": test.proposed,
 			"released": test.released,
 		})
-		actual, err := envtools.FindTools(s.env, test.major, test.minor, test.streams, coretools.Filter{})
+		actual, err := envtools.FindTools(sstesting.TestDataSourceFactory(),
+			s.env, test.major, test.minor, test.streams, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())

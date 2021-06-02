@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
+	sstestings "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/juju/keys"
@@ -360,7 +361,7 @@ Finding agent binaries in .*
 }
 
 func (s *GenerateAgentsSuite) TestToolsDataSourceHasKey(c *gc.C) {
-	ds := makeDataSources("test.me")
+	ds := makeDataSources(sstestings.TestDataSourceFactory(), "test.me")
 	// This data source does not require to contain signed data.
 	// However, it may still contain it.
 	// Since we will always try to read signed data first,

@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/instances"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/testing"
@@ -457,20 +458,6 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 	})
 }
 
-// waitInstanceId waits until the supplied machine has an instance id, then
-// asserts it is as expected.
-func (s *CommonProvisionerSuite) waitInstanceIdNoAssert(c *gc.C, m *state.Machine) {
-	s.waitHardwareCharacteristics(c, m, func() bool {
-		if _, err := m.InstanceId(); err == nil {
-			return true
-		} else if !errors.IsNotProvisioned(err) {
-			// We don't expect any errors.
-			panic(err)
-		}
-		return false
-	})
-}
-
 func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
@@ -580,7 +567,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	envtesting.AssertUploadFakeToolsVersions(c, stor, s.cfg.AgentStream(), s.cfg.AgentStream(), availableVersions...)
 
 	// Extract the tools that we expect to actually match.
-	expectedList, err := tools.FindTools(s.Environ, -1, -1, []string{s.cfg.AgentStream()}, coretools.Filter{
+	expectedList, err := tools.FindTools(sstesting.TestDataSourceFactory(), s.Environ, -1, -1, []string{s.cfg.AgentStream()}, coretools.Filter{
 		Number: currentVersion.Number,
 		OSType: "ubuntu",
 	})
@@ -1218,9 +1205,7 @@ func (s *ProvisionerSuite) TestDyingMachines(c *gc.C) {
 	c.Assert(m0.Life(), gc.Equals, state.Dying)
 }
 
-type mockMachineGetter struct {
-	machines map[names.MachineTag]*apiprovisioner.Machine
-}
+type mockMachineGetter struct{}
 
 func (mock *mockMachineGetter) Machines(tags ...names.MachineTag) ([]apiprovisioner.MachineResult, error) {
 	return nil, fmt.Errorf("error")
@@ -1935,13 +1920,4 @@ func (f mockToolsFinder) FindTools(number version.Number, series string, a strin
 		v.Arch = a
 	}
 	return coretools.List{&coretools.Tools{Version: v}}, nil
-}
-
-type mockAgent struct {
-	agent.Agent
-	config agent.Config
-}
-
-func (mock mockAgent) CurrentConfig() agent.Config {
-	return mock.config
 }

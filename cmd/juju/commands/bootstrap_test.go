@@ -2274,7 +2274,7 @@ clouds:
 
 // checkTools check if the environment contains the passed envtools.
 func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
-	list, err := envtools.FindTools(
+	list, err := envtools.FindTools(sstesting.TestDataSourceFactory(),
 		env, jujuversion.Current.Major, jujuversion.Current.Minor, []string{"released"}, coretools.Filter{})
 	c.Check(err, jc.ErrorIsNil)
 	c.Logf("found: " + list.String())

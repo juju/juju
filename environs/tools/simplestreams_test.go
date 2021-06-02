@@ -257,7 +257,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 		}
 		// Add invalid datasource and check later that resolveInfo is correct.
 		invalidSource := sstesting.InvalidDataSource(s.RequireSigned)
-		toolsMetadata, resolveInfo, err := tools.Fetch([]simplestreams.DataSource{invalidSource, s.Source}, toolsConstraint)
+		toolsMetadata, resolveInfo, err := tools.Fetch(sstesting.TestDataSourceFactory(), []simplestreams.DataSource{invalidSource, s.Source}, toolsConstraint)
 		if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
@@ -282,7 +282,7 @@ func (s *simplestreamsSuite) TestFetchNoMatchingStream(c *gc.C) {
 		Arches:    []string{},
 		Stream:    "proposed",
 	})
-	_, _, err := tools.Fetch(
+	_, _, err := tools.Fetch(sstesting.TestDataSourceFactory(),
 		[]simplestreams.DataSource{s.Source}, toolsConstraint)
 	c.Assert(err, gc.ErrorMatches, `"content-download" data not found`)
 }
@@ -294,7 +294,7 @@ func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
 		Arches:    []string{"amd64"},
 		Stream:    "released",
 	})
-	toolsMetadata, resolveInfo, err := tools.Fetch(
+	toolsMetadata, resolveInfo, err := tools.Fetch(sstesting.TestDataSourceFactory(),
 		[]simplestreams.DataSource{s.Source}, toolsConstraint)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(toolsMetadata), gc.Equals, 1)
@@ -995,7 +995,7 @@ func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
 		Arches:    []string{"amd64"},
 		Stream:    "released",
 	})
-	toolsMetadata, resolveInfo, err := tools.Fetch(
+	toolsMetadata, resolveInfo, err := tools.Fetch(sstesting.TestDataSourceFactory(),
 		[]simplestreams.DataSource{signedSource}, toolsConstraint)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(toolsMetadata), gc.Equals, 1)
