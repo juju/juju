@@ -46,7 +46,7 @@ run_spaces_manual_aws() {
 		--filters "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-${series}-?????-amd64-server-????????" 'Name=state,Values=available' \
 		--query 'reverse(sort_by(Images, &CreationDate))[:1].ImageId' \
 		--output text)
-	if [ -z "${OUT}" ]; then
+	if [[ -z ${OUT} ]]; then
 		echo "No image available: unknown state."
 		exit 1
 	fi
@@ -57,7 +57,7 @@ run_spaces_manual_aws() {
 	# See https://docs.aws.amazon.com/vpc/latest/userguide/default-vpc.html#default-vpc-components
 	OUT=$(aws ec2 describe-subnets | jq -r '.Subnets[] | select(.DefaultForAz==true) | .SubnetId')
 	len=$(echo "$OUT" | wc -w)
-	if [ "${len}" -ne "3" ]; then
+	if [[ ${len} -ne "3" ]]; then
 		echo "Expected 3 subnets from default VPC; got: ${OUT}"
 		exit 1
 	fi
@@ -65,7 +65,7 @@ run_spaces_manual_aws() {
 
 	# Ensure we have a security group allowing SSH and controller access.
 	OUT=$(aws ec2 describe-security-groups | jq '.SecurityGroups[] | select(.GroupName=="ci-spaces-manual-ssh")' || true)
-	if [ -z "${OUT}" ]; then
+	if [[ -z ${OUT} ]]; then
 		sg_id=$(aws ec2 create-security-group --group-name "ci-spaces-manual-ssh" --description "SSH access for manual spaces test" --query 'GroupId' --output text)
 		aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 22 --cidr 0.0.0.0/0
 		aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 17070 --cidr 0.0.0.0/0

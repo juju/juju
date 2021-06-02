@@ -27,7 +27,7 @@ run_deploy_manual_aws() {
 		--filters "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-${series}-?????-amd64-server-????????" 'Name=state,Values=available' \
 		--query 'reverse(sort_by(Images, &CreationDate))[:1].ImageId' \
 		--output text)
-	if [ -z "${OUT}" ]; then
+	if [[ -z ${OUT} ]]; then
 		echo "No image available: unknown state."
 		exit 1
 	fi
@@ -37,7 +37,7 @@ run_deploy_manual_aws() {
 
 	OUT=$(aws ec2 describe-vpcs | jq '.Vpcs[] | select(.Tags[]? | select((.Key=="Name") and (.Value=="manual-deploy")))' || true)
 	vpc_id=$(echo "${OUT}" | jq -r '.VpcId' || true)
-	if [ -z "${vpc_id}" ]; then
+	if [[ -z ${vpc_id} ]]; then
 		# VPC doesn't exist, create one along with all the required setup.
 		vpc_id=$(aws ec2 create-vpc --cidr-block 10.0.0.0/28 --query 'Vpc.VpcId' --output text)
 		aws ec2 wait vpc-available --vpc-ids "${vpc_id}"
@@ -65,7 +65,7 @@ run_deploy_manual_aws() {
 		aws ec2 authorize-security-group-egress --group-id "${sg_id}" --protocol udp --port 0-65535 --cidr 0.0.0.0/0
 	else
 		OUT=$(aws ec2 describe-subnets | jq '.Subnets[] | select(.Tags[]? | select((.Key=="Name") and (.Value=="manual-deploy")))' || true)
-		if [ -z "${OUT}" ]; then
+		if [[ -z ${OUT} ]]; then
 			echo "Subnet not found: unknown state."
 			echo "Delete VPC and start again."
 			exit 1
@@ -73,7 +73,7 @@ run_deploy_manual_aws() {
 		subnet_id=$(echo "${OUT}" | jq -r '.SubnetId')
 
 		OUT=$(aws ec2 describe-security-groups | jq ".SecurityGroups[] | select(.VpcId==\"${vpc_id}\" and .GroupName==\"ci-manual-deploy\")" || true)
-		if [ -z "${OUT}" ]; then
+		if [[ -z ${OUT} ]]; then
 			echo "Security group not found: unknown state."
 			echo "Delete VPC and start again."
 			exit 1
