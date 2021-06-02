@@ -38,8 +38,8 @@ func (cfg *ubuntuCloudConfig) UnsetPackageProxy() {
 
 // PackageProxy is defined on the PackageProxyConfig interface.
 func (cfg *ubuntuCloudConfig) PackageProxy() string {
-	proxy, _ := cfg.attrs["apt_proxy"].(string)
-	return proxy
+	p, _ := cfg.attrs["apt_proxy"].(string)
+	return p
 }
 
 // SetPackageMirror is defined on the PackageMirrorConfig interface.
@@ -149,17 +149,14 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	}
 
 	var cmds []string
+	pkgCmder := cfg.paccmder[jujupackaging.AptPackageManager]
 
 	// If a mirror is specified, rewrite sources.list and rename cached index files.
 	if newMirror := cfg.PackageMirror(); newMirror != "" {
-		cmds = append(cmds, LogProgressCmd("Changing apt mirror to "+newMirror))
-		cmds = append(cmds, "old_mirror=$("+config.ExtractAptSource+")")
-		cmds = append(cmds, "new_mirror="+newMirror)
-		cmds = append(cmds, `sed -i s,$old_mirror,$new_mirror, `+config.AptSourcesFile)
-		cmds = append(cmds, renameAptListFilesCommands("$new_mirror", "$old_mirror")...)
+		cmds = append(cmds, LogProgressCmd(fmt.Sprintf("Changing apt mirror to %q", newMirror)))
+		cmds = append(cmds, pkgCmder.SetMirrorCommands(newMirror, newMirror)...)
 	}
 
-	pkgCmder := cfg.paccmder[jujupackaging.AptPackageManager]
 	if len(cfg.PackageSources()) > 0 {
 		// Ensure add-apt-repository is available.
 		cmds = append(cmds, LogProgressCmd("Installing add-apt-repository"))
@@ -241,26 +238,6 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 
 	return cmds, nil
 
-}
-
-// renameAptListFilesCommands takes a new and old mirror string,
-// and returns a sequence of commands that will rename the files
-// in aptListsDirectory.
-func renameAptListFilesCommands(newMirror, oldMirror string) []string {
-	oldPrefix := "old_prefix=" + config.AptListsDirectory + "/$(echo " + oldMirror + " | " + config.AptSourceListPrefix + ")"
-	newPrefix := "new_prefix=" + config.AptListsDirectory + "/$(echo " + newMirror + " | " + config.AptSourceListPrefix + ")"
-	renameFiles := `
-for old in ${old_prefix}_*; do
-    new=$(echo $old | sed s,^$old_prefix,$new_prefix,)
-    mv $old $new
-done`
-
-	return []string{
-		oldPrefix,
-		newPrefix,
-		// Don't do anything unless the mirror/source has changed.
-		`[ "$old_prefix" != "$new_prefix" ] &&` + renameFiles,
-	}
 }
 
 // addRequiredPackages is defined on the AdvancedPackagingConfig interface.

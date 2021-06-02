@@ -114,6 +114,21 @@ func (s *ProxyUpdaterSuite) TestProxyConfigV1(c *gc.C) {
 	}
 	c.Assert(cfg.Results[0], jc.DeepEquals, r)
 }
+func (s *ProxyUpdaterSuite) TestMirrorConfig(c *gc.C) {
+	s.state.SetModelConfig(coretesting.Attrs{
+		"apt-mirror": "http://mirror",
+	})
+	// Check that the ProxyConfig combines data from ModelConfig and APIHostPorts
+	cfg := s.facade.ProxyConfig(s.oneEntity())
+
+	s.state.Stub.CheckCallNames(c,
+		"ModelConfig",
+		"APIHostPortsForAgents",
+	)
+
+	c.Assert(cfg.Results, gc.HasLen, 1)
+	c.Assert(cfg.Results[0].AptMirror, gc.Equals, "http://mirror")
+}
 
 func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 	// Check that the ProxyConfig combines data from ModelConfig and APIHostPorts
