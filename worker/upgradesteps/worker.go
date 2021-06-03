@@ -279,19 +279,10 @@ func (w *upgradeSteps) prepareControllerForUpgrade() (*state.UpgradeInfo, error)
 	logger.Infof("waiting for other controllers to be ready for upgrade")
 	if err := w.waitForOtherControllers(info); err != nil {
 		if err == tomb.ErrDying {
-			logger.Warningf(`stopped waiting for other controllers: %v`, err)
+			logger.Warningf("stopped waiting for other controllers: %v", err)
 			return nil, err
 		}
-		logger.Errorf(`aborted wait for other controllers: %v`, err)
-		// If primary, trigger a rollback to the previous agent version.
-		if w.isPrimary {
-			logger.Errorf("downgrading model agent version to %v due to aborted upgrade",
-				w.fromVersion)
-			if rollbackErr := st.SetModelAgentVersion(w.fromVersion, true); rollbackErr != nil {
-				logger.Errorf("rollback failed: %v", rollbackErr)
-				return nil, errors.Annotate(rollbackErr, "failed to roll back desired agent version")
-			}
-		}
+		logger.Errorf("aborted wait for other controllers: %v", err)
 		return nil, errors.Annotate(err, "aborted wait for other controllers")
 	}
 	if w.isPrimary {
