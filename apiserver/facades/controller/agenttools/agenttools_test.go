@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -45,7 +45,7 @@ func (s *AgentToolsSuite) TestCheckTools(c *gc.C) {
 	var (
 		calledWithMajor, calledWithMinor int
 	)
-	fakeToolFinder := func(_ simplestreams.DataSourceFactory, e environs.BootstrapEnviron, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(_ tools.SimplestreamsFetcher, e environs.BootstrapEnviron, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
 		calledWithMajor = maj
 		calledWithMinor = min
 		ver := version.Binary{Number: version.Number{Major: maj, Minor: min}}
@@ -74,7 +74,7 @@ func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *gc.C) {
 		calledWithMajor, calledWithMinor int
 		calledWithStreams                [][]string
 	)
-	fakeToolFinder := func(_ simplestreams.DataSourceFactory, e environs.BootstrapEnviron, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(_ tools.SimplestreamsFetcher, e environs.BootstrapEnviron, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
 		calledWithMajor = maj
 		calledWithMinor = min
 		calledWithStreams = append(calledWithStreams, streams)
@@ -112,7 +112,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *gc.C) {
 	}
 	s.PatchValue(&modelConfig, fakeModelConfig)
 
-	fakeToolFinder := func(_ simplestreams.DataSourceFactory, _ environs.BootstrapEnviron, _ int, _ int, _ []string, _ coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(_ tools.SimplestreamsFetcher, _ environs.BootstrapEnviron, _ int, _ int, _ []string, _ coretools.Filter) (coretools.List, error) {
 		ver := version.Binary{Number: version.Number{Major: 2, Minor: 5, Patch: 2}}
 		olderVer := version.Binary{Number: version.Number{Major: 2, Minor: 5, Patch: 1}}
 		t := coretools.Tools{Version: ver, URL: "http://example.com", Size: 1}
@@ -146,7 +146,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailabilityNoMatches(c *gc.C) {
 	s.PatchValue(&modelConfig, fakeModelConfig)
 
 	// No new tools available.
-	fakeToolFinder := func(_ simplestreams.DataSourceFactory, _ environs.BootstrapEnviron, _ int, _ int, _ []string, _ coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(_ tools.SimplestreamsFetcher, _ environs.BootstrapEnviron, _ int, _ int, _ []string, _ coretools.Filter) (coretools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	}
 

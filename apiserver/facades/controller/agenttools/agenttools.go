@@ -71,7 +71,7 @@ type ModelGetter interface {
 }
 
 type newEnvironFunc func() (environs.Environ, error)
-type toolsFinder func(simplestreams.DataSourceFactory, environs.BootstrapEnviron, int, int, []string, coretools.Filter) (coretools.List, error)
+type toolsFinder func(tools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, coretools.Filter) (coretools.List, error)
 type envVersionUpdater func(*state.Model, version.Number) error
 
 func checkToolsAvailability(newEnviron newEnvironFunc, modelCfg *config.Config, finder toolsFinder) (version.Number, error) {
@@ -85,16 +85,16 @@ func checkToolsAvailability(newEnviron newEnvironFunc, modelCfg *config.Config, 
 		return version.Zero, errors.Annotatef(err, "cannot make model")
 	}
 
-	factory := simplestreams.DefaultDataSourceFactory()
+	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 
 	// finder receives major and minor as parameters as it uses them to filter versions and
 	// only return patches for the passed major.minor (from major.minor.patch).
 	// We'll try the released stream first, then fall back to the current configured stream
 	// if no released tools are found.
-	vers, err := finder(factory, env, currentVersion.Major, currentVersion.Minor, []string{tools.ReleasedStream}, coretools.Filter{})
+	vers, err := finder(ss, env, currentVersion.Major, currentVersion.Minor, []string{tools.ReleasedStream}, coretools.Filter{})
 	preferredStream := tools.PreferredStreams(&currentVersion, modelCfg.Development(), modelCfg.AgentStream())[0]
 	if preferredStream != tools.ReleasedStream && errors.Cause(err) == coretools.ErrNoMatches {
-		vers, err = finder(factory, env, currentVersion.Major, currentVersion.Minor, []string{preferredStream}, coretools.Filter{})
+		vers, err = finder(ss, env, currentVersion.Major, currentVersion.Minor, []string{preferredStream}, coretools.Filter{})
 	}
 	if err != nil {
 		return version.Zero, errors.Annotatef(err, "cannot find available agent binaries")

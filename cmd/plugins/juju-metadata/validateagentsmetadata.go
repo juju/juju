@@ -207,7 +207,7 @@ func (c *validateAgentsMetadataCommand) Run(context *cmd.Context) error {
 		params.Endpoint = c.endpoint
 	}
 
-	factory := simplestreams.DefaultDataSourceFactory()
+	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 	if c.metadataDir != "" {
 		if _, err := c.Filesystem().Stat(c.metadataDir); err != nil {
 			return err
@@ -216,11 +216,11 @@ func (c *validateAgentsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		params.Sources = makeDataSources(factory, toolsURL)
+		params.Sources = makeDataSources(ss, toolsURL)
 	}
 	params.Stream = c.stream
 
-	versions, resolveInfo, err := tools.ValidateToolsMetadata(factory, &tools.ToolsMetadataLookupParams{
+	versions, resolveInfo, err := tools.ValidateToolsMetadata(ss, &tools.ToolsMetadataLookupParams{
 		MetadataLookupParams: *params,
 		Version:              c.exactVersion,
 		Major:                c.major,

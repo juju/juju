@@ -99,12 +99,15 @@ func SyncTools(syncContext *SyncContext) error {
 		// to override that decision.
 		syncContext.Stream = envtools.PreferredStreams(&jujuversion.Current, false, "")[0]
 	}
+	// TODO (stickupkid): We should lift this simplestreams constructor out of
+	// this function.
+	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 	// For backwards compatibility with cloud storage, if there are no tools in the specified stream,
 	// double check the release stream.
 	// TODO - remove this when we no longer need to support cloud storage upgrades.
 	streams := []string{syncContext.Stream, envtools.ReleasedStream}
 	sourceTools, err := envtools.FindToolsForCloud(
-		simplestreams.DefaultDataSourceFactory(),
+		ss,
 		[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
 		streams, syncContext.MajorVersion, syncContext.MinorVersion, coretools.Filter{})
 	if err != nil {
@@ -213,7 +216,7 @@ func copyOneToolsPackage(toolsDir, stream string, tools *coretools.Tools, u Tool
 // UploadFunc is the type of Upload, which may be
 // reassigned to control the behaviour of tools
 // uploading.
-type UploadFunc func(stor storage.Storage, stream string, forceVersion *version.Number) (*coretools.Tools, error)
+type UploadFunc func(envtools.SimplestreamsFetcher, storage.Storage, string, *version.Number) (*coretools.Tools, error)
 
 // Upload is exported for testing.
 var Upload UploadFunc = upload
@@ -222,18 +225,18 @@ var Upload UploadFunc = upload
 // uploads it to the given storage, and returns a Tools instance describing
 // them. If forceVersion is not nil, the uploaded tools bundle will report
 // the given version number.
-func upload(stor storage.Storage, stream string, forceVersion *version.Number) (*coretools.Tools, error) {
+func upload(ss envtools.SimplestreamsFetcher, store storage.Storage, stream string, forceVersion *version.Number) (*coretools.Tools, error) {
 	builtTools, err := BuildAgentTarball(true, forceVersion, stream)
 	if err != nil {
 		return nil, err
 	}
 	defer os.RemoveAll(builtTools.Dir)
-	return syncBuiltTools(stor, stream, builtTools)
+	return syncBuiltTools(ss, store, stream, builtTools)
 }
 
 // generateAgentMetadata copies the built tools tarball into a tarball for the specified
 // stream and series and generates corresponding metadata.
-func generateAgentMetadata(toolsInfo *BuiltAgent, stream string) error {
+func generateAgentMetadata(ss envtools.SimplestreamsFetcher, toolsInfo *BuiltAgent, stream string) error {
 	// Copy the tools to the target storage, recording a Tools struct for each one.
 	var targetTools coretools.List
 	targetTools = append(targetTools, &coretools.Tools{
@@ -248,7 +251,7 @@ func generateAgentMetadata(toolsInfo *BuiltAgent, stream string) error {
 		return err
 	}
 	logger.Debugf("generating agent metadata")
-	return envtools.MergeAndWriteMetadata(metadataStore, stream, stream, targetTools, false)
+	return envtools.MergeAndWriteMetadata(ss, metadataStore, stream, stream, targetTools, false)
 }
 
 // BuiltAgent contains metadata for a tools tarball resulting from
@@ -342,25 +345,30 @@ func buildAgentTarball(build bool, forceVersion *version.Number, stream string) 
 }
 
 // syncBuiltTools copies to storage a tools tarball and cloned copies for each series.
-func syncBuiltTools(stor storage.Storage, stream string, builtTools *BuiltAgent) (*coretools.Tools, error) {
-	if err := generateAgentMetadata(builtTools, stream); err != nil {
+func syncBuiltTools(ss envtools.SimplestreamsFetcher, store storage.Storage, stream string, builtTools *BuiltAgent) (*coretools.Tools, error) {
+	if err := generateAgentMetadata(ss, builtTools, stream); err != nil {
 		return nil, err
 	}
 	syncContext := &SyncContext{
-		Source:              builtTools.Dir,
-		TargetToolsFinder:   StorageToolsFinder{stor},
-		TargetToolsUploader: StorageToolsUploader{stor, false, false},
-		AllVersions:         true,
-		Stream:              stream,
-		MajorVersion:        builtTools.Version.Major,
-		MinorVersion:        -1,
+		Source:            builtTools.Dir,
+		TargetToolsFinder: StorageToolsFinder{store},
+		TargetToolsUploader: StorageToolsUploader{
+			Fetcher:       ss,
+			Storage:       store,
+			WriteMetadata: false,
+			WriteMirrors:  false,
+		},
+		AllVersions:  true,
+		Stream:       stream,
+		MajorVersion: builtTools.Version.Major,
+		MinorVersion: -1,
 	}
 	logger.Debugf("uploading agent binaries to cloud storage")
 	err := SyncTools(syncContext)
 	if err != nil {
 		return nil, err
 	}
-	url, err := stor.URL(builtTools.StorageName)
+	url, err := store.URL(builtTools.StorageName)
 	if err != nil {
 		return nil, err
 	}
@@ -386,6 +394,7 @@ func (f StorageToolsFinder) FindTools(major int, stream string) (coretools.List,
 // writes tools to the provided storage and then writes merged
 // metadata, optionally with mirrors.
 type StorageToolsUploader struct {
+	Fetcher       envtools.SimplestreamsFetcher
 	Storage       storage.Storage
 	WriteMetadata bool
 	WriteMirrors  envtools.ShouldWriteMirrors
@@ -399,7 +408,7 @@ func (u StorageToolsUploader) UploadTools(toolsDir, stream string, tools *coreto
 	if !u.WriteMetadata {
 		return nil
 	}
-	err := envtools.MergeAndWriteMetadata(u.Storage, toolsDir, stream, coretools.List{tools}, u.WriteMirrors)
+	err := envtools.MergeAndWriteMetadata(u.Fetcher, u.Storage, toolsDir, stream, coretools.List{tools}, u.WriteMirrors)
 	if err != nil {
 		logger.Errorf("error writing agent metadata: %v", err)
 		return err

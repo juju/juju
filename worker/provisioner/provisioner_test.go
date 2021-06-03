@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
@@ -567,7 +568,8 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	envtesting.AssertUploadFakeToolsVersions(c, stor, s.cfg.AgentStream(), s.cfg.AgentStream(), availableVersions...)
 
 	// Extract the tools that we expect to actually match.
-	expectedList, err := tools.FindTools(sstesting.TestDataSourceFactory(), s.Environ, -1, -1, []string{s.cfg.AgentStream()}, coretools.Filter{
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	expectedList, err := tools.FindTools(ss, s.Environ, -1, -1, []string{s.cfg.AgentStream()}, coretools.Filter{
 		Number: currentVersion.Number,
 		OSType: "ubuntu",
 	})

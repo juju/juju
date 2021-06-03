@@ -68,7 +68,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 // If minorVersion = -1, then only majorVersion is considered.
 // If no *available* tools have the supplied major.minor version number, or match the
 // supplied filter, the function returns a *NotFoundError.
-func FindTools(factory simplestreams.DataSourceFactory, env environs.BootstrapEnviron,
+func FindTools(ss SimplestreamsFetcher, env environs.BootstrapEnviron,
 	majorVersion, minorVersion int, streams []string, filter coretools.Filter,
 ) (_ coretools.List, err error) {
 	var cloudSpec simplestreams.CloudSpec
@@ -108,7 +108,7 @@ func FindTools(factory simplestreams.DataSourceFactory, env environs.BootstrapEn
 	if err != nil {
 		return nil, err
 	}
-	return FindToolsForCloud(factory, sources, cloudSpec, streams, majorVersion, minorVersion, filter)
+	return FindToolsForCloud(ss, sources, cloudSpec, streams, majorVersion, minorVersion, filter)
 }
 
 // FindToolsForCloud returns a List containing all tools in the given streams, with a given
@@ -116,7 +116,7 @@ func FindTools(factory simplestreams.DataSourceFactory, env environs.BootstrapEn
 // If minorVersion = -1, then only majorVersion is considered.
 // If no *available* tools have the supplied major.minor version number, or match the
 // supplied filter, the function returns a *NotFoundError.
-func FindToolsForCloud(factory simplestreams.DataSourceFactory,
+func FindToolsForCloud(ss SimplestreamsFetcher,
 	sources []simplestreams.DataSource, cloudSpec simplestreams.CloudSpec, streams []string,
 	majorVersion, minorVersion int, filter coretools.Filter) (coretools.List, error) {
 	var (
@@ -130,7 +130,7 @@ func FindToolsForCloud(factory simplestreams.DataSourceFactory,
 		if err != nil {
 			return nil, err
 		}
-		toolsMetadata, _, err := Fetch(factory, sources, toolsConstraint)
+		toolsMetadata, _, err := Fetch(ss, sources, toolsConstraint)
 		if errors.IsNotFound(err) {
 			noToolsCount++
 			continue
@@ -172,7 +172,7 @@ func FindToolsForCloud(factory simplestreams.DataSourceFactory,
 }
 
 // FindExactTools returns only the tools that match the supplied version.
-func FindExactTools(factory simplestreams.DataSourceFactory, env environs.Environ, vers version.Number, osType string, arch string) (_ *coretools.Tools, err error) {
+func FindExactTools(ss SimplestreamsFetcher, env environs.Environ, vers version.Number, osType string, arch string) (_ *coretools.Tools, err error) {
 	logger.Debugf("finding exact version %s", vers)
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
@@ -183,7 +183,7 @@ func FindExactTools(factory simplestreams.DataSourceFactory, env environs.Enviro
 	}
 	streams := PreferredStreams(&vers, env.Config().Development(), env.Config().AgentStream())
 	logger.Debugf("looking for agent binaries in streams %v", streams)
-	availableTools, err := FindTools(factory, env, vers.Major, vers.Minor, streams, filter)
+	availableTools, err := FindTools(ss, env, vers.Major, vers.Minor, streams, filter)
 	if err != nil {
 		return nil, err
 	}

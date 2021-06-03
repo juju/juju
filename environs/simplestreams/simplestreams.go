@@ -400,6 +400,11 @@ func NewSimpleStreams(factory DataSourceFactory) *Simplestreams {
 	}
 }
 
+// NewDataSource creates a new data source based on the config.
+func (s Simplestreams) NewDataSource(config Config) DataSource {
+	return s.factory.NewDataSource(config)
+}
+
 // GetMetadataParams defines parameters used to load simplestreams metadata.
 type GetMetadataParams struct {
 	StreamsVersion   string

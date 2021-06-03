@@ -16,8 +16,8 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	jujutesting "github.com/juju/testing"
@@ -29,7 +29,6 @@ import (
 
 	coreos "github.com/juju/juju/core/os"
 	coreseries "github.com/juju/juju/core/series"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -42,10 +41,6 @@ import (
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
 
 type syncSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
@@ -220,7 +215,6 @@ var (
 )
 
 type uploadSuite struct {
-	env environs.Environ
 	coretesting.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
 	targetStorage storage.Storage
@@ -256,8 +250,14 @@ func (s *uploadSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *uploadSuite) TestUpload(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ss := NewMockSimplestreamsFetcher(ctrl)
+	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
+
 	s.patchBundleTools(c, nil)
-	t, err := sync.Upload(s.targetStorage, "released", nil)
+	t, err := sync.Upload(ss, s.targetStorage, "released", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEqualsCurrentVersion(c, t.Version)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
@@ -266,37 +266,61 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 }
 
 func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ss := NewMockSimplestreamsFetcher(ctrl)
+	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
+
 	vers := jujuversion.Current
 	vers.Patch++
 	s.patchBundleTools(c, &vers)
-	t, err := sync.Upload(s.targetStorage, "released", &vers)
+	t, err := sync.Upload(ss, s.targetStorage, "released", &vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(t.Version, gc.Equals, coretesting.CurrentVersion(c))
 }
 
 func (s *uploadSuite) TestSyncTools(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ss := NewMockSimplestreamsFetcher(ctrl)
+	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
+
 	s.patchBundleTools(c, nil)
 	builtTools, err := sync.BuildAgentTarball(true, nil, "released")
 	c.Assert(err, jc.ErrorIsNil)
-	t, err := sync.SyncBuiltTools(s.targetStorage, "released", builtTools)
+	t, err := sync.SyncBuiltTools(ss, s.targetStorage, "released", builtTools)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEqualsCurrentVersion(c, t.Version)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
 }
 
 func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ss := NewMockSimplestreamsFetcher(ctrl)
+	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
+
 	vers := jujuversion.Current
 	vers.Patch++
 	s.patchBundleTools(c, &vers)
 	builtTools, err := sync.BuildAgentTarball(true, &vers, "released")
 	c.Assert(err, jc.ErrorIsNil)
-	t, err := sync.SyncBuiltTools(s.targetStorage, "released", builtTools)
+	t, err := sync.SyncBuiltTools(ss, s.targetStorage, "released", builtTools)
 	c.Assert(err, jc.ErrorIsNil)
 	// Reported version from build call matches the real jujud version.
 	c.Assert(t.Version, gc.Equals, coretesting.CurrentVersion(c))
 }
 
 func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, expectOSTypes []string, stream string) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ss := NewMockSimplestreamsFetcher(ctrl)
+	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
+
 	s.assertEqualsCurrentVersion(c, t.Version)
 	expectRaw := downloadToolsRaw(c, t)
 
@@ -309,7 +333,7 @@ func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, expectOST
 		actualRaw := downloadToolsRaw(c, t)
 		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
 	}
-	metadata, err := envtools.ReadMetadata(s.targetStorage, stream)
+	metadata, err := envtools.ReadMetadata(ss, s.targetStorage, stream)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata, gc.HasLen, 0)
 }
@@ -337,7 +361,6 @@ func bundleTools(c *gc.C) (version.Binary, bool, string, error) {
 }
 
 type badBuildSuite struct {
-	env environs.Environ
 	jujutesting.LoggingSuite
 	jujutesting.CleanupSuite
 	envtesting.ToolsFixture
@@ -410,17 +433,23 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
 }
 
 func (s *badBuildSuite) TestUploadToolsBadBuild(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ss := NewMockSimplestreamsFetcher(ctrl)
+	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
+
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Test that original Upload Func fails as expected
-	t, err := sync.Upload(stor, "released", nil)
+	t, err := sync.Upload(ss, stor, "released", nil)
 	c.Assert(t, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `(?m)cannot build jujud agent binary from source: .*`)
 
 	// Test that Upload func passes after BundleTools func is mocked out
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, nil))
-	t, err = sync.Upload(stor, "released", nil)
+	t, err = sync.Upload(ss, stor, "released", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEqualsCurrentVersion(c, t.Version)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
@@ -516,11 +545,18 @@ func (s *uploadSuite) TestStorageToolsUploaderDontWriteMirrors(c *gc.C) {
 }
 
 func (s *uploadSuite) testStorageToolsUploaderWriteMirrors(c *gc.C, writeMirrors envtools.ShouldWriteMirrors) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ss := NewMockSimplestreamsFetcher(ctrl)
+	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
+
 	storageDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uploader := &sync.StorageToolsUploader{
+		Fetcher:       ss,
 		Storage:       stor,
 		WriteMetadata: true,
 		WriteMirrors:  writeMirrors,

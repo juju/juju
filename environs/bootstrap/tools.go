@@ -123,7 +123,8 @@ func findBootstrapTools(env environs.BootstrapEnviron, vers *version.Number, arc
 	if vers != nil {
 		filter.Number = *vers
 	}
-	factory := simplestreams.DefaultDataSourceFactory()
+
+	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 	streams := envtools.PreferredStreams(vers, env.Config().Development(), env.Config().AgentStream())
-	return findTools(factory, env, cliVersion.Major, cliVersion.Minor, streams, filter)
+	return findTools(ss, env, cliVersion.Major, cliVersion.Minor, streams, filter)
 }

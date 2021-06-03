@@ -223,8 +223,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 				Arch:   arch.HostArch(),
 				OSType: coreos.HostOSTypeName(),
 			}
-			factory := simplestreams.DefaultDataSourceFactory()
-			_, toolsErr := envtools.FindTools(factory, env, -1, -1, streams, filter)
+			ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+			_, toolsErr := envtools.FindTools(ss, env, -1, -1, streams, filter)
 			if toolsErr == nil {
 				logger.Infof("agent binaries are available, upgrade will occur after bootstrap")
 			}

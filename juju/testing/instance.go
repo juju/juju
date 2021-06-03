@@ -171,7 +171,8 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 		filter.Arch = *params.Constraints.Arch
 	}
 	streams := tools.PreferredStreams(&agentVersion, env.Config().Development(), env.Config().AgentStream())
-	possibleTools, err := tools.FindTools(simplestreams.DefaultDataSourceFactory(), env, -1, -1, streams, filter)
+	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+	possibleTools, err := tools.FindTools(ss, env, -1, -1, streams, filter)
 	if err != nil {
 		return errors.Trace(err)
 	}

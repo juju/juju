@@ -23,6 +23,7 @@ import (
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
@@ -153,10 +154,10 @@ func makeFakeTools(vers version.Binary) ([]byte, string) {
 }
 
 // UploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.
-func UploadFakeToolsVersions(stor storage.Storage, toolsDir, stream string, versions ...version.Binary) ([]*coretools.Tools, error) {
+func UploadFakeToolsVersions(store storage.Storage, toolsDir, stream string, versions ...version.Binary) ([]*coretools.Tools, error) {
 	// Leave existing tools alone.
 	existingTools := make(map[version.Binary]*coretools.Tools)
-	existing, _ := envtools.ReadList(stor, toolsDir, 1, -1)
+	existing, _ := envtools.ReadList(store, toolsDir, 1, -1)
 	for _, tools := range existing {
 		existingTools[tools.Version] = tools
 	}
@@ -165,32 +166,33 @@ func UploadFakeToolsVersions(stor storage.Storage, toolsDir, stream string, vers
 		if tools, ok := existingTools[version]; ok {
 			agentTools[i] = tools
 		} else {
-			t, err := uploadFakeToolsVersion(stor, toolsDir, version)
+			t, err := uploadFakeToolsVersion(store, toolsDir, version)
 			if err != nil {
 				return nil, err
 			}
 			agentTools[i] = t
 		}
 	}
-	if err := envtools.MergeAndWriteMetadata(stor, toolsDir, stream, agentTools, envtools.DoNotWriteMirrors); err != nil {
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	if err := envtools.MergeAndWriteMetadata(ss, store, toolsDir, stream, agentTools, envtools.DoNotWriteMirrors); err != nil {
 		return nil, err
 	}
-	err := SignTestTools(stor)
+	err := SignTestTools(store)
 	if err != nil {
 		return nil, err
 	}
 	return agentTools, nil
 }
 
-func SignTestTools(stor storage.Storage) error {
-	files, err := stor.List("")
+func SignTestTools(store storage.Storage) error {
+	files, err := store.List("")
 	if err != nil {
 		return err
 	}
 	for _, file := range files {
 		if strings.HasSuffix(file, sstesting.UnsignedJsonSuffix) {
 			// only sign .json files and data
-			if err := SignFileData(stor, file); err != nil {
+			if err := SignFileData(store, file); err != nil {
 				return err
 			}
 		}
@@ -230,16 +232,17 @@ func AssertUploadFakeToolsVersions(c *gc.C, stor storage.Storage, toolsDir, stre
 }
 
 // MustUploadFakeToolsVersions acts as UploadFakeToolsVersions, but panics on failure.
-func MustUploadFakeToolsVersions(stor storage.Storage, stream string, versions ...version.Binary) []*coretools.Tools {
+func MustUploadFakeToolsVersions(store storage.Storage, stream string, versions ...version.Binary) []*coretools.Tools {
 	var agentTools = make(coretools.List, len(versions))
 	for i, version := range versions {
-		t, err := uploadFakeToolsVersion(stor, stream, version)
+		t, err := uploadFakeToolsVersion(store, stream, version)
 		if err != nil {
 			panic(err)
 		}
 		agentTools[i] = t
 	}
-	err := envtools.MergeAndWriteMetadata(stor, stream, stream, agentTools, envtools.DoNotWriteMirrors)
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	err := envtools.MergeAndWriteMetadata(ss, store, stream, stream, agentTools, envtools.DoNotWriteMirrors)
 	if err != nil {
 		panic(err)
 	}

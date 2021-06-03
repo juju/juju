@@ -373,8 +373,8 @@ func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (result cor
 		requestedStream = args.AgentStream
 	}
 	streams := envtools.PreferredStreams(&args.Number, cfg.Development(), requestedStream)
-	factory := simplestreams.DefaultDataSourceFactory()
-	simplestreamsList, err := envtoolsFindTools(factory,
+	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+	simplestreamsList, err := envtoolsFindTools(ss,
 		env, args.MajorVersion, args.MinorVersion, streams, filter,
 	)
 	if len(storageList) == 0 && err != nil {

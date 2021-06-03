@@ -108,13 +108,15 @@ func makeTools(c *gc.C, metadataDir, stream string, versionStrings []string, wit
 		toolsList = append(toolsList, tool)
 	}
 	// Write the tools metadata.
-	stor, err := filestorage.NewFileStorageWriter(metadataDir)
+	store, err := filestorage.NewFileStorageWriter(metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	err = tools.MergeAndWriteMetadata(stor, stream, stream, toolsList, false)
+
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	err = tools.MergeAndWriteMetadata(ss, store, stream, stream, toolsList, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Sign metadata
-	err = envtesting.SignTestTools(stor)
+	err = envtesting.SignTestTools(store)
 	c.Assert(err, jc.ErrorIsNil)
 	return toolsList
 }
@@ -145,8 +147,9 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string
 	const requireSigned = false
 	indexPath := simplestreams.UnsignedIndex("v1", 2)
 	mirrorsPath := simplestreams.MirrorsPath("v1")
-	indexRef, err := simplestreams.GetIndexWithFormat(
-		simplestreams.DefaultDataSourceFactory(),
+
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	indexRef, err := ss.GetIndexWithFormat(
 		source, indexPath, "index:1.0", mirrorsPath, requireSigned, simplestreams.CloudSpec{}, params)
 	c.Assert(err, jc.ErrorIsNil)
 
