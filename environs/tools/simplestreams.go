@@ -169,7 +169,8 @@ func Fetch(factory simplestreams.DataSourceFactory,
 			ValueTemplate:   ToolsMetadata{},
 		},
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(factory, sources, params)
+	ss := simplestreams.NewSimpleStreams(factory)
+	items, resolveInfo, err := ss.GetMetadata(sources, params)
 	if err != nil {
 		return nil, nil, err
 	}

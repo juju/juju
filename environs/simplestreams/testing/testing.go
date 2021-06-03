@@ -718,8 +718,8 @@ func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams
 		DataType:      s.DataType,
 		ValueTemplate: TestItem{},
 	}
-	return simplestreams.GetIndexWithFormat(
-		TestDataSourceFactory(),
+	ss := simplestreams.NewSimpleStreams(TestDataSourceFactory())
+	return ss.GetIndexWithFormat(
 		s.Source, s.IndexPath(),
 		format,
 		simplestreams.MirrorsPath(s.StreamsVersion),

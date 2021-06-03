@@ -216,14 +216,12 @@ func (im *ImageMetadata) productId() string {
 	return fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, im.Version, im.Arch)
 }
 
-// Fetch returns a list of images for the specified cloud matching the constraint.
-// The base URL locations are as specified - the first location which has a file is the one used.
-// Signed data is preferred, but if there is no signed data available and onlySigned is false,
-// then unsigned data is used.
-func Fetch(
-	sources []simplestreams.DataSource, cons *ImageConstraint,
-) ([]*ImageMetadata, *simplestreams.ResolveInfo, error) {
-
+// Fetch returns a list of images for the specified cloud matching the
+// constraint. The base URL locations are as specified - the first location
+// which has a file is the one used.
+// Signed data is preferred, but if there is no signed data available and
+// onlySigned is false, then unsigned data is used.
+func Fetch(sources []simplestreams.DataSource, cons *ImageConstraint) ([]*ImageMetadata, *simplestreams.ResolveInfo, error) {
 	params := simplestreams.GetMetadataParams{
 		StreamsVersion:   currentStreamsVersion,
 		LookupConstraint: cons,
@@ -233,7 +231,8 @@ func Fetch(
 			ValueTemplate: ImageMetadata{},
 		},
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(simplestreams.DefaultDataSourceFactory(), sources, params)
+	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+	items, resolveInfo, err := ss.GetMetadata(sources, params)
 	if err != nil {
 		return nil, resolveInfo, err
 	}

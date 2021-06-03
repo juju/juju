@@ -343,7 +343,8 @@ func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
 		ValueParams:      simplestreams.ValueParams{DataType: "image-ids"},
 	}
 
-	items, resolveInfo, err := simplestreams.GetMetadata(sstesting.TestDataSourceFactory(), sources, params)
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	items, resolveInfo, err := ss.GetMetadata(sources, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(items, gc.HasLen, 0)
 	c.Assert(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
@@ -493,8 +494,8 @@ func (s *simplestreamsSuite) TestGetMirrorMetadata(c *gc.C) {
 			DataType:        "content-download",
 			MirrorContentId: "com.ubuntu.juju:released:agents",
 		}
-		indexRef, err := simplestreams.GetIndexWithFormat(
-			sstesting.TestDataSourceFactory(),
+		ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+		indexRef, err := ss.GetIndexWithFormat(
 			s.Source, s.IndexPath(), sstesting.Index_v1,
 			simplestreams.MirrorsPath("v1"), s.RequireSigned, cloud, params)
 		if !c.Check(err, jc.ErrorIsNil) {
