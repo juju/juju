@@ -5113,7 +5113,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		setAgentStatus{"logging/1", status.Error, "somehow lost in all those logs", nil},
 		setUnitWorkloadVersion{"logging/1", "a bit too long, really"},
 		setUnitWorkloadVersion{"wordpress/0", "4.5.3"},
-		setUnitWorkloadVersion{"mysql/0", "5.7.13"},
+		setUnitWorkloadVersion{"mysql/0", "5.7.13\nanother"},
 		setUnitAsLeader{"mysql/0"},
 		setUnitAsLeader{"logging/1"},
 		setUnitAsLeader{"wordpress/0"},

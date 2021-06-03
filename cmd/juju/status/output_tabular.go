@@ -140,7 +140,8 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 	tw.SetColumnAlignRight(7)
 	for _, appName := range naturalsort.Sort(stringKeysFromMap(fs.Applications)) {
 		app := fs.Applications[appName]
-		version := app.Version
+		// Workload version might be multi-line; we only want the first line for tabular.
+		version := strings.Split(app.Version, "\n")[0]
 		// CAAS versions may have repo prefix we don't care about.
 		if fs.Model.Type == caasModelType && version != "" {
 			ref, err := reference.ParseNamed(version)
