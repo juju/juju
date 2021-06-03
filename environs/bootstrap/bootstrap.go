@@ -44,6 +44,12 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
+const (
+	// SimplestreamsFetcherContextKey defines a way to change the simplestreams
+	// fetcher within a context.
+	SimplestreamsFetcherContextKey = "simplestreams-fetcher"
+)
+
 const noToolsMessage = `Juju cannot bootstrap because no agent binaries are available for your model.
 You may want to use the 'agent-metadata-url' configuration setting to specify the binaries' location.
 `
@@ -454,7 +460,17 @@ func bootstrapIAAS(
 			versionTxt = fmt.Sprintf("%v.%v", agentVersion.Major, agentVersion.Minor)
 		}
 		ctx.Infof("Looking for %vpackaged Juju agent version %s for %s", latestPatchTxt, versionTxt, bootstrapArch)
-		availableTools, err = findPackagedTools(environ, args.AgentVersion, &bootstrapArch, bootstrapSeries)
+
+		var fetcher tools.SimplestreamsFetcher
+		if value := ctx.Context().Value(SimplestreamsFetcherContextKey); value == nil {
+			fetcher = simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+		} else if f, ok := value.(tools.SimplestreamsFetcher); ok {
+			fetcher = f
+		} else {
+			return errors.Errorf("expected a valid simple streams fetcher")
+		}
+
+		availableTools, err = findPackagedTools(environ, fetcher, args.AgentVersion, &bootstrapArch, bootstrapSeries)
 		if err != nil && !errors.IsNotFound(err) {
 			return err
 		}

@@ -607,7 +607,7 @@ func (s *bootstrapSuite) TestBootstrapLocalTools(c *gc.C) {
 
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.CentOS })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(bootstrap.FindTools, func(simplestreams.DataSourceFactory, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -639,7 +639,7 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsMismatchingOS(c *gc.C) {
 
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Windows })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(bootstrap.FindTools, func(simplestreams.DataSourceFactory, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -668,7 +668,7 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
 
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.GenericLinux })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(bootstrap.FindTools, func(simplestreams.DataSourceFactory, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -698,7 +698,7 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
 	// such as s390.
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
-	s.PatchValue(bootstrap.FindTools, func(simplestreams.DataSourceFactory, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		c.Fatal("should not call FindTools if BuildAgent is specified")
 		return nil, errors.NotFoundf("tools")
 	})
@@ -745,7 +745,7 @@ func (s *bootstrapSuite) assertBootstrapPackagedToolsAvailable(c *gc.C, clientAr
 		toolsArch = "amd64"
 	}
 	findToolsOk := false
-	s.PatchValue(bootstrap.FindTools, func(_ simplestreams.DataSourceFactory, _ environs.BootstrapEnviron, _ int, _ int, _ []string, filter tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ envtools.SimplestreamsFetcher, _ environs.BootstrapEnviron, _ int, _ int, _ []string, filter tools.Filter) (tools.List, error) {
 		c.Assert(filter.Arch, gc.Equals, toolsArch)
 		c.Assert(filter.OSType, gc.Equals, "ubuntu")
 		findToolsOk = true
@@ -793,7 +793,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
 	// such as s390.
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
-	s.PatchValue(bootstrap.FindTools, func(simplestreams.DataSourceFactory, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
@@ -819,7 +819,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
 	}
 
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
-	s.PatchValue(bootstrap.FindTools, func(simplestreams.DataSourceFactory, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
@@ -1488,7 +1488,7 @@ func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string {
 		return arch.S390X
 	})
-	s.PatchValue(bootstrap.FindTools, func(simplestreams.DataSourceFactory, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		c.Fatal("find packaged tools should not be called")
 		return nil, errors.New("unexpected")
 	})

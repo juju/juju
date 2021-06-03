@@ -15,7 +15,6 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -66,6 +65,7 @@ func validateUploadAllowed(env environs.ConfigGetter, toolsArch, toolsSeries *st
 // findPackagedTools returns a list of tools for in simplestreams.
 func findPackagedTools(
 	env environs.BootstrapEnviron,
+	ss envtools.SimplestreamsFetcher,
 	vers *version.Number,
 	arch, series *string,
 ) (coretools.List, error) {
@@ -80,7 +80,7 @@ func findPackagedTools(
 		}
 	}
 	logger.Infof("looking for bootstrap agent binaries: version=%v", vers)
-	toolsList, findToolsErr := findBootstrapTools(env, vers, arch, series)
+	toolsList, findToolsErr := findBootstrapTools(env, ss, vers, arch, series)
 	logger.Infof("found %d packaged agent binaries", len(toolsList))
 	if findToolsErr != nil {
 		return nil, findToolsErr
@@ -110,7 +110,7 @@ func locallyBuildableTools() (buildable coretools.List, _ version.Number, _ erro
 // which it would be reasonable to launch an environment's first machine,
 // given the supplied constraints. If a specific agent version is not requested,
 // all tools matching the current major.minor version are chosen.
-func findBootstrapTools(env environs.BootstrapEnviron, vers *version.Number, arch, series *string) (list coretools.List, err error) {
+func findBootstrapTools(env environs.BootstrapEnviron, ss envtools.SimplestreamsFetcher, vers *version.Number, arch, series *string) (list coretools.List, err error) {
 	// Construct a tools filter.
 	cliVersion := jujuversion.Current
 	var filter coretools.Filter
@@ -123,8 +123,6 @@ func findBootstrapTools(env environs.BootstrapEnviron, vers *version.Number, arc
 	if vers != nil {
 		filter.Number = *vers
 	}
-
-	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 	streams := envtools.PreferredStreams(vers, env.Config().Development(), env.Config().AgentStream())
 	return findTools(ss, env, cliVersion.Major, cliVersion.Minor, streams, filter)
 }
