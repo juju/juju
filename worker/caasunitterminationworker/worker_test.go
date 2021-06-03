@@ -32,8 +32,12 @@ type TerminationWorkerSuite struct {
 	terminator *mockTerminator
 }
 
-func (s *TerminationWorkerSuite) newWorker(c *gc.C) worker.Worker {
-	s.state = &mockState{}
+func (s *TerminationWorkerSuite) newWorker(c *gc.C, willRestart bool) worker.Worker {
+	s.state = &mockState{
+		termination: caasapplication.UnitTermination{
+			WillRestart: willRestart,
+		},
+	}
 	s.terminator = &mockTerminator{}
 	config := caasunitterminationworker.Config{
 		Agent:          &mockAgent{},
@@ -49,7 +53,7 @@ func (s *TerminationWorkerSuite) TestStartStop(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("not supported")
 	}
-	w := s.newWorker(c)
+	w := s.newWorker(c, false)
 	w.Kill()
 	err := w.Wait()
 	c.Assert(err, jc.ErrorIsNil)
@@ -59,8 +63,7 @@ func (s *TerminationWorkerSuite) TestAgentWillRestart(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("not supported")
 	}
-	w := s.newWorker(c)
-	s.state.termination.WillRestart = true
+	w := s.newWorker(c, true)
 	proc, err := os.FindProcess(os.Getpid())
 	c.Assert(err, jc.ErrorIsNil)
 	defer proc.Release()
@@ -77,8 +80,7 @@ func (s *TerminationWorkerSuite) TestAgentDying(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("not supported")
 	}
-	w := s.newWorker(c)
-	s.state.termination.WillRestart = false
+	w := s.newWorker(c, false)
 	proc, err := os.FindProcess(os.Getpid())
 	c.Assert(err, jc.ErrorIsNil)
 	defer proc.Release()
