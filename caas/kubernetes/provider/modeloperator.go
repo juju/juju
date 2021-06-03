@@ -18,10 +18,12 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/paths"
 )
@@ -30,18 +32,13 @@ import (
 // commands. This interfaces is scoped down to the exact components needed by
 // the ensure model operator routines.
 type ModelOperatorBroker interface {
+	// Client returns the Kubernetes client to use for model operator actions.
+	Client() kubernetes.Interface
+
 	// EnsureConfigMap ensures the supplied kubernetes config map exists in the
 	// targeted cluster. Error returned if this action is not able to be
 	// performed.
 	EnsureConfigMap(*core.ConfigMap) ([]func(), error)
-
-	// EnsureClusterRole ensures that the provided cluster role exists in the
-	// Kubernetes cluster
-	EnsureClusterRole(*rbac.ClusterRole) ([]func(), error)
-
-	// EnsureClusterRoleBinding ensures that the provided cluster role binding
-	// exists in the Kubernetes cluster
-	EnsureClusterRoleBinding(*rbac.ClusterRoleBinding) ([]func(), error)
 
 	// EnsureDeployment ensures the supplied kubernetes deployment object exists
 	// in the targeted cluster. Error returned if this action is not able to be
@@ -79,17 +76,16 @@ type ModelOperatorBroker interface {
 // modelOperatorBrokerBridge provides a pluggable struct of funcs to implement
 // the ModelOperatorBroker interface
 type modelOperatorBrokerBridge struct {
-	ensureClusterRole        func(*rbac.ClusterRole) ([]func(), error)
-	ensureClusterRoleBinding func(*rbac.ClusterRoleBinding) ([]func(), error)
-	ensureConfigMap          func(*core.ConfigMap) ([]func(), error)
-	ensureDeployment         func(*apps.Deployment) ([]func(), error)
-	ensureRole               func(*rbac.Role) ([]func(), error)
-	ensureRoleBinding        func(*rbac.RoleBinding) ([]func(), error)
-	ensureService            func(*core.Service) ([]func(), error)
-	ensureServiceAccount     func(*core.ServiceAccount) ([]func(), error)
-	model                    func() string
-	namespace                func() string
-	isLegacyLabels           func() bool
+	client               kubernetes.Interface
+	ensureConfigMap      func(*core.ConfigMap) ([]func(), error)
+	ensureDeployment     func(*apps.Deployment) ([]func(), error)
+	ensureRole           func(*rbac.Role) ([]func(), error)
+	ensureRoleBinding    func(*rbac.RoleBinding) ([]func(), error)
+	ensureService        func(*core.Service) ([]func(), error)
+	ensureServiceAccount func(*core.ServiceAccount) ([]func(), error)
+	model                func() string
+	namespace            func() string
+	isLegacyLabels       func() bool
 }
 
 const (
@@ -106,22 +102,9 @@ var (
 	modelOperatorName = "modeloperator"
 )
 
-//EnsureClusterRole implements ModelOperatorBroker
-func (m *modelOperatorBrokerBridge) EnsureClusterRole(cr *rbac.ClusterRole) ([]func(), error) {
-	if m.ensureClusterRole == nil {
-		return []func(){}, errors.NotImplementedf("ensure cluster role bridge")
-	}
-	return m.ensureClusterRole(cr)
-}
-
-// EnsureClusterRoleBinding implements ModelOperatorBroker
-func (m *modelOperatorBrokerBridge) EnsureClusterRoleBinding(
-	crb *rbac.ClusterRoleBinding,
-) ([]func(), error) {
-	if m.ensureClusterRoleBinding == nil {
-		return []func(){}, errors.NotImplementedf("ensure cluster role binding bridge")
-	}
-	return m.ensureClusterRoleBinding(crb)
+// Client implements ModelOperatorBroker
+func (m *modelOperatorBrokerBridge) Client() kubernetes.Interface {
+	return m.client
 }
 
 // EnsureConfigMap implements ModelOperatorBroker
@@ -201,6 +184,7 @@ func ensureModelOperator(
 	config *caas.ModelOperatorConfig,
 	broker ModelOperatorBroker) (err error) {
 
+	ctx := context.TODO()
 	operatorName := modelOperatorName
 	modelTag := names.NewModelTag(modelUUID)
 
@@ -255,6 +239,7 @@ func ensureModelOperator(
 	}
 
 	saName, c, err := ensureModelOperatorRBAC(
+		ctx,
 		broker,
 		operatorName,
 		labels,
@@ -305,15 +290,12 @@ func (k *kubernetesClient) EnsureModelOperator(
 	agentPath string,
 	config *caas.ModelOperatorConfig,
 ) error {
+	if k.client() == nil {
+		return errors.New("kubernetes client cannot be nil")
+	}
+
 	bridge := &modelOperatorBrokerBridge{
-		ensureClusterRole: func(cr *rbac.ClusterRole) ([]func(), error) {
-			_, c, err := k.ensureClusterRole(cr)
-			return c, err
-		},
-		ensureClusterRoleBinding: func(crb *rbac.ClusterRoleBinding) ([]func(), error) {
-			_, c, err := k.ensureClusterRoleBinding(crb)
-			return c, err
-		},
+		client: k.client(),
 		ensureConfigMap: func(c *core.ConfigMap) ([]func(), error) {
 			cleanUp, err := k.ensureConfigMap(c)
 			return []func(){cleanUp}, err
@@ -544,6 +526,7 @@ func modelOperatorGlobalScopedName(model, operatorName string) string {
 }
 
 func ensureModelOperatorRBAC(
+	ctx context.Context,
 	broker ModelOperatorBroker,
 	operatorName string,
 	labels map[string]string,
@@ -567,7 +550,7 @@ func ensureModelOperatorRBAC(
 		return sa.Name, cleanUpFuncs, errors.Annotate(err, "ensuring service account")
 	}
 
-	clusterRole := &rbac.ClusterRole{
+	clusterRole := resources.NewClusterRole(globalName, &rbac.ClusterRole{
 		ObjectMeta: meta.ObjectMeta{
 			Name:   globalName,
 			Labels: labels,
@@ -590,15 +573,19 @@ func ensureModelOperatorRBAC(
 				},
 			},
 		},
-	}
+	})
 
-	c, err = broker.EnsureClusterRole(clusterRole)
+	c, err = clusterRole.Ensure(
+		ctx,
+		broker.Client(),
+		resources.ClaimJujuOwnership,
+	)
 	cleanUpFuncs = append(cleanUpFuncs, c...)
 	if err != nil {
 		return sa.Name, cleanUpFuncs, errors.Annotate(err, "ensuring cluster role")
 	}
 
-	clusterRoleBinding := &rbac.ClusterRoleBinding{
+	clusterRoleBinding := resources.NewClusterRoleBinding(globalName, &rbac.ClusterRoleBinding{
 		ObjectMeta: meta.ObjectMeta{
 			Name:   globalName,
 			Labels: labels,
@@ -615,9 +602,9 @@ func ensureModelOperatorRBAC(
 				Namespace: sa.Namespace,
 			},
 		},
-	}
+	})
 
-	c, err = broker.EnsureClusterRoleBinding(clusterRoleBinding)
+	c, err = clusterRoleBinding.Ensure(ctx, broker.Client(), resources.ClaimJujuOwnership)
 	cleanUpFuncs = append(cleanUpFuncs, c...)
 	if err != nil {
 		return sa.Name, cleanUpFuncs, errors.Annotate(err, "ensuring cluster role binding")

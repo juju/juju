@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
@@ -87,4 +88,73 @@ func (s *clusterRoleSuite) TestDelete(c *gc.C) {
 
 	_, err = s.client.RbacV1().ClusterRoles().Get(context.TODO(), "role1", metav1.GetOptions{})
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
+}
+
+// This test ensures that there has not been a regression with ensure cluster
+// role where it can not update roles that have a labels change.
+// https://bugs.launchpad.net/juju/+bug/1929909
+func (s *clusterRoleSuite) TestEnsureClusterRoleRegressionOnLabelChange(c *gc.C) {
+	clusterRole := &rbacv1.ClusterRole{
+		ObjectMeta: meta.ObjectMeta{
+			Name: "test",
+			Labels: map[string]string{
+				"foo": "bar",
+			},
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Resources: []string{"namespaces"},
+				Verbs:     []string{"get", "list"},
+			},
+			{
+				APIGroups: []string{"admissionregistration.k8s.io"},
+				Resources: []string{"mutatingwebhookconfigurations"},
+				Verbs: []string{
+					"create",
+					"delete",
+					"get",
+					"list",
+					"update",
+				},
+			},
+		},
+	}
+
+	crApi := resources.NewClusterRole("test", clusterRole)
+	_, err := crApi.Ensure(
+		context.TODO(),
+		s.client,
+		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	rrole, err := s.client.RbacV1().ClusterRoles().Get(
+		context.TODO(),
+		"test",
+		meta.GetOptions{},
+	)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rrole, jc.DeepEquals, clusterRole)
+
+	crApi.ClusterRole.ObjectMeta.Labels = map[string]string{
+		"new-label": "new-value",
+	}
+
+	crApi.Ensure(
+		context.TODO(),
+		s.client,
+		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	rrole, err = s.client.RbacV1().ClusterRoles().Get(
+		context.TODO(),
+		"test",
+		meta.GetOptions{},
+	)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rrole, jc.DeepEquals, &crApi.ClusterRole)
 }
