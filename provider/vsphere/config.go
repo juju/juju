@@ -34,7 +34,7 @@ var (
 			Type:        environschema.Tstring,
 		},
 		cfgPrimaryNetwork: {
-			Description: "The primary network that VMs will be connected to. If this is not specified, Juju will look for a network named VM Network.",
+			Description: "The primary network that VMs will be connected to. If this is not specified, Juju will look for a network named \"VM Network\".",
 			Type:        environschema.Tstring,
 		},
 		cfgForceVMHardwareVersion: {
