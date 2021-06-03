@@ -178,6 +178,8 @@ func (c *validateImageMetadataCommand) Run(context *cmd.Context) error {
 }
 
 func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context) (*simplestreams.MetadataLookupParams, error) {
+	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+
 	controllerName, err := c.ControllerName()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -198,7 +200,7 @@ func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context) 
 			return nil, err
 		}
 		oes := &overrideEnvStream{environ, c.stream}
-		params.Sources, err = environs.ImageMetadataSources(oes)
+		params.Sources, err = environs.ImageMetadataSources(oes, ss)
 		if err != nil {
 			return nil, err
 		}
@@ -231,16 +233,16 @@ func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context) 
 		if _, err := c.Filesystem().Stat(dir); err != nil {
 			return nil, err
 		}
-		params.Sources = imagesDataSources(dir)
+		params.Sources = imagesDataSources(ss, dir)
 	}
 	return params, nil
 }
 
-var imagesDataSources = func(urls ...string) []simplestreams.DataSource {
+var imagesDataSources = func(ss *simplestreams.Simplestreams, urls ...string) []simplestreams.DataSource {
 	dataSources := make([]simplestreams.DataSource, len(urls))
 	publicKey, _ := simplestreams.UserPublicSigningKey()
 	for i, url := range urls {
-		dataSources[i] = simplestreams.NewDataSource(
+		dataSources[i] = ss.NewDataSource(
 			simplestreams.Config{
 				Description:          "local metadata directory",
 				BaseURL:              "file://" + url,

@@ -104,7 +104,7 @@ func FindTools(ss SimplestreamsFetcher, env environs.BootstrapEnviron,
 		logger.Debugf("filtering agent binaries by architecture: %s", filter.Arch)
 	}
 
-	sources, err := GetMetadataSources(env)
+	sources, err := GetMetadataSources(env, ss)
 	if err != nil {
 		return nil, err
 	}

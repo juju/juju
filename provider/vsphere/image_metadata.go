@@ -39,7 +39,8 @@ func findImageMetadata(env environs.Environ, arches []string, series string) (*O
 			Stream:   env.Config().ImageStream(),
 		},
 	}
-	sources, err := environs.ImageMetadataSources(env)
+	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+	sources, err := environs.ImageMetadataSources(env, ss)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -577,8 +577,9 @@ func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
 	}
 	s.setDummyStorage(c, env.bootstrapEnviron)
 
+	ctx, ss := bootstrapContext(c)
 	bootstrapCons := constraints.MustParse("arch=amd64")
-	err = bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
+	err = bootstrap.Bootstrap(ctx, env,
 		s.callContext, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              "admin-secret",
@@ -589,7 +590,7 @@ func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	datasources, err := environs.ImageMetadataSources(env)
+	datasources, err := environs.ImageMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, source := range datasources {
 		// make sure we looked in each and all...
@@ -1139,9 +1140,10 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 
+	ctx, ss := bootstrapContext(c)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	err = bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
+	err = bootstrap.Bootstrap(ctx, env,
 		s.callContext, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              "admin-secret",
@@ -1153,7 +1155,7 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(envtools.DefaultBaseURL, gc.Equals, metadataDir)
 
-	datasources, err := environs.ImageMetadataSources(env)
+	datasources, err := environs.ImageMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(datasources, gc.HasLen, 2)
 	c.Assert(datasources[0].Description(), gc.Equals, "bootstrap metadata")
@@ -1198,7 +1200,9 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesNoTools(c *gc.C) {
 	startingDefaultBaseURL := envtools.DefaultBaseURL
 	for i, suffix := range []string{"", "images"} {
 		environs.UnregisterImageDataSourceFunc("bootstrap metadata")
-		err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
+
+		ctx, ss := bootstrapContext(c)
+		err := bootstrap.Bootstrap(ctx, env,
 			s.callContext, bootstrap.BootstrapParams{
 				ControllerConfig:         coretesting.FakeControllerConfig(),
 				AdminSecret:              "admin-secret",
@@ -1210,7 +1214,7 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesNoTools(c *gc.C) {
 		c.Assert(env.bootstrapCount, gc.Equals, i+1)
 		c.Assert(envtools.DefaultBaseURL, gc.Equals, startingDefaultBaseURL)
 
-		datasources, err := environs.ImageMetadataSources(env)
+		datasources, err := environs.ImageMetadataSources(env, ss)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(datasources, gc.HasLen, 2)
 		c.Assert(datasources[0].Description(), gc.Equals, "bootstrap metadata")
@@ -1232,7 +1236,8 @@ func (s *bootstrapSuite) TestBootstrapMetadataToolsNoImages(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	for i, suffix := range []string{"", "tools"} {
-		err = bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
+		ctx, ss := bootstrapContext(c)
+		err = bootstrap.Bootstrap(ctx, env,
 			s.callContext, bootstrap.BootstrapParams{
 				ControllerConfig:         coretesting.FakeControllerConfig(),
 				AdminSecret:              "admin-secret",
@@ -1243,7 +1248,8 @@ func (s *bootstrapSuite) TestBootstrapMetadataToolsNoImages(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(env.bootstrapCount, gc.Equals, i+1)
 		c.Assert(envtools.DefaultBaseURL, gc.Equals, metadataDir)
-		datasources, err := environs.ImageMetadataSources(env)
+
+		datasources, err := environs.ImageMetadataSources(env, ss)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(datasources, gc.HasLen, 1)
 		c.Assert(datasources[0].Description(), gc.Not(gc.Equals), "bootstrap metadata")
@@ -1357,9 +1363,11 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 
+	ctx, ss := bootstrapContext(c)
+
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	err = bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
+	err = bootstrap.Bootstrap(ctx, env,
 		s.callContext, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              "admin-secret",
@@ -1370,7 +1378,7 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 
-	datasources, err := environs.ImageMetadataSources(env)
+	datasources, err := environs.ImageMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(datasources, gc.HasLen, 1)
 	c.Assert(datasources[0].Description(), gc.Equals, "default ubuntu cloud images")
@@ -1721,4 +1729,10 @@ func (e bootstrapEnvironWithHardwareDetection) DetectSeries() (string, error) {
 }
 func (e bootstrapEnvironWithHardwareDetection) DetectHardware() (*instance.HardwareCharacteristics, error) {
 	return e.detectedHW, nil
+}
+
+func bootstrapContext(c *gc.C) (environs.BootstrapContext, *simplestreams.Simplestreams) {
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	ctx := context.WithValue(context.TODO(), bootstrap.SimplestreamsFetcherContextKey, ss)
+	return envtesting.BootstrapContext(ctx, c), ss
 }

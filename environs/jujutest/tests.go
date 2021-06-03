@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -218,7 +219,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	}
 
 	e := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(stdcontext.TODO(), c), e, t.ProviderCallContext, args)
+	err := bootstrap.Bootstrap(bootstrapContext(c), e, t.ProviderCallContext, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerInstances, err := e.ControllerInstances(t.ProviderCallContext, t.ControllerUUID)
@@ -242,4 +243,10 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 
 	err = environs.Destroy(e3.Config().Name(), e3, t.ProviderCallContext, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func bootstrapContext(c *gc.C) environs.BootstrapContext {
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	ctx := stdcontext.WithValue(stdcontext.TODO(), bootstrap.SimplestreamsFetcherContextKey, ss)
+	return envtesting.BootstrapContext(ctx, c)
 }

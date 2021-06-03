@@ -207,7 +207,9 @@ func (srv *localServer) stopServer(c *gc.C) {
 }
 
 func bootstrapContext(c *gc.C) environs.BootstrapContext {
-	return envtesting.BootstrapContext(stdcontext.TODO(), c)
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	ctx := stdcontext.WithValue(stdcontext.TODO(), bootstrap.SimplestreamsFetcherContextKey, ss)
+	return envtesting.BootstrapContext(ctx, c)
 }
 
 // localServerSuite contains tests that run against a fake EC2 server
@@ -1582,7 +1584,7 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	params.Release = jujuversion.DefaultSupportedLTS()
 	params.Endpoint = region.EC2Endpoint
-	params.Sources, err = environs.ImageMetadataSources(env)
+	params.Sources, err = environs.ImageMetadataSources(env, sstesting.TestDataSourceFactory())
 	c.Assert(err, jc.ErrorIsNil)
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1593,8 +1595,10 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	t.PatchValue(&tools.DefaultBaseURL, "")
 
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+
 	env := t.Prepare(c)
-	sources, err := tools.GetMetadataSources(env)
+	sources, err := tools.GetMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 0)
 }

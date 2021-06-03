@@ -151,6 +151,8 @@ func (c *validateAgentsMetadataCommand) Init(args []string) error {
 }
 
 func (c *validateAgentsMetadataCommand) Run(context *cmd.Context) error {
+	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+
 	var params *simplestreams.MetadataLookupParams
 	if c.providerType == "" {
 		context.Infof("no provider type specified, using bootstrapped cloud")
@@ -168,7 +170,7 @@ func (c *validateAgentsMetadataCommand) Run(context *cmd.Context) error {
 			if err != nil {
 				return err
 			}
-			params.Sources, err = tools.GetMetadataSources(environ)
+			params.Sources, err = tools.GetMetadataSources(environ, ss)
 			if err != nil {
 				return err
 			}
@@ -207,7 +209,6 @@ func (c *validateAgentsMetadataCommand) Run(context *cmd.Context) error {
 		params.Endpoint = c.endpoint
 	}
 
-	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 	if c.metadataDir != "" {
 		if _, err := c.Filesystem().Stat(c.metadataDir); err != nil {
 			return err

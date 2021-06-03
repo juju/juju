@@ -154,6 +154,7 @@ func (t *ToolsMetadata) productId() (string, error) {
 // SimplestreamsFetcher defines a way to fetch metadata from the simplestreams
 // server.
 type SimplestreamsFetcher interface {
+	NewDataSource(simplestreams.Config) simplestreams.DataSource
 	GetMetadata([]simplestreams.DataSource, simplestreams.GetMetadataParams) ([]interface{}, *simplestreams.ResolveInfo, error)
 }
 

@@ -111,7 +111,7 @@ var (
 
 // OfficialDataSources returns the simplestreams datasources where official
 // image metadata can be found.
-func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
+func OfficialDataSources(dataSourceFactory simplestreams.DataSourceFactory, stream string) ([]simplestreams.DataSource, error) {
 	var result []simplestreams.DataSource
 
 	defaultUbuntuURL, err := ImageMetadataURL(DefaultUbuntuBaseURL, stream)
@@ -130,7 +130,7 @@ func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 		if err := config.Validate(); err != nil {
 			return nil, errors.Annotate(err, "simplestreams config validation failed")
 		}
-		result = append(result, simplestreams.NewDataSource(config))
+		result = append(result, dataSourceFactory.NewDataSource(config))
 	}
 
 	return result, nil
