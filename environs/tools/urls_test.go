@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -40,11 +39,11 @@ func (s *URLsSuite) TearDownTest(c *gc.C) {
 func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 	attrs := dummy.SampleConfig()
 	if toolsMetadataURL != "" {
-		attrs = attrs.Merge(testing.Attrs{
+		attrs = attrs.Merge(coretesting.Attrs{
 			"agent-metadata-url": toolsMetadataURL,
 		})
 	}
-	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c),
+	env, err := bootstrap.PrepareController(false, envtesting.BootstrapTODOContext(c),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),

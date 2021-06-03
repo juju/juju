@@ -4,6 +4,8 @@
 package dummy_test
 
 import (
+	stdcontext "context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -69,7 +71,7 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, test.errorMsg)
 			continue
 		}
-		ctx := envtesting.BootstrapContext(c)
+		ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
 		e, err := bootstrap.PrepareController(
 			false,
 			ctx, jujuclient.NewMemStore(),

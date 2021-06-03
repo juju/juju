@@ -4,6 +4,7 @@
 package manual_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -75,7 +76,7 @@ func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string
 	if err != nil {
 		return nil, err
 	}
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapContext(context.TODO(), c)
 	return ctx, env.PrepareForBootstrap(ctx, "controller-1")
 }
 

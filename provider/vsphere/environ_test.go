@@ -138,7 +138,7 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 }
 
 func (s *environSuite) TestPrepareForBootstrap(c *gc.C) {
-	err := s.env.PrepareForBootstrap(envtesting.BootstrapContext(c), "controller-1")
+	err := s.env.PrepareForBootstrap(envtesting.BootstrapContext(context.TODO(), c), "controller-1")
 	c.Check(err, jc.ErrorIsNil)
 }
 

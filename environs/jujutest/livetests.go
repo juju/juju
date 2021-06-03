@@ -153,8 +153,9 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 	if t.prepared {
 		return
 	}
+
 	args := t.prepareForBootstrapParams(c)
-	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c), t.ControllerStore, args)
+	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.TODO(), c), t.ControllerStore, args)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	t.Env = e.(environs.Environ)
@@ -228,7 +229,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	args := t.bootstrapParams()
 	args.BootstrapConstraints = cons
 	args.ModelConstraints = cons
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, t.ProviderCallContext, args)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(stdcontext.TODO(), c), t.Env, t.ProviderCallContext, args)
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = true
 }
@@ -955,7 +956,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	})
 	args := t.prepareForBootstrapParams(c)
 	args.ModelConfig = dummyCfg
-	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c),
+	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.TODO(), c),
 		jujuclient.NewMemStore(),
 		args,
 	)
@@ -969,13 +970,13 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"default-series": "quantal",
 	})
 	args.ModelConfig = attrs
-	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c),
+	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.TODO(), c),
 		t.ControllerStore,
 		args)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = environs.Destroy("livetests", env, t.ProviderCallContext, t.ControllerStore) }()
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, t.ProviderCallContext, t.bootstrapParams())
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(stdcontext.TODO(), c), env, t.ProviderCallContext, t.bootstrapParams())
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()

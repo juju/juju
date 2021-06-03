@@ -154,7 +154,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	// Create node 0: it will be used as the bootstrap node.
 	suite.newNode(c, "node0", "host0", nil)
 	suite.addSubnet(c, 9, 9, "node0")
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -357,7 +357,7 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.newNode(c, "thenode", "host", nil)
 	suite.addSubnet(c, 9, 9, "thenode")
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -375,7 +375,7 @@ func (suite *environSuite) TestBootstrapNodeNotDeployed(c *gc.C) {
 	suite.addSubnet(c, 9, 9, "thenode")
 	// Ensure node will not be reported as deployed by changing its status.
 	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "4")
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -393,7 +393,7 @@ func (suite *environSuite) TestBootstrapNodeFailedDeploy(c *gc.C) {
 	suite.addSubnet(c, 9, 9, "thenode")
 	// Set the node status to "Failed deployment"
 	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "11")
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -407,7 +407,7 @@ func (suite *environSuite) TestBootstrapNodeFailedDeploy(c *gc.C) {
 func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	env := suite.makeEnviron()
 	vers := version.MustParse("1.2.3")
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			AdminSecret:      testing.AdminSecret,
@@ -423,7 +423,7 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -969,7 +969,7 @@ func (s *environSuite) bootstrap(c *gc.C) environs.Environ {
 	s.addSubnet(c, 9, 9, "node0")
 	s.setupFakeTools(c)
 	env := s.makeEnviron()
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		s.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			Placement:                "bootstrap-host",

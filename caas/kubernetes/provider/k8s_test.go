@@ -4,6 +4,7 @@
 package provider_test
 
 import (
+	stdcontext "context"
 	"fmt"
 	"strings"
 	"time"
@@ -1276,7 +1277,7 @@ func (s *K8sBrokerSuite) TestBootstrapNoOperatorStorage(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
 	callCtx := &context.CloudCallContext{}
 	bootstrapParams := environs.BootstrapParams{
 		ControllerConfig:         testing.FakeControllerConfig(),
@@ -1297,7 +1298,7 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 	// Ensure the broker is configured with operator storage.
 	s.setupOperatorStorageConfig(c)
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
 	callCtx := &context.CloudCallContext{}
 	bootstrapParams := environs.BootstrapParams{
 		ControllerConfig:         testing.FakeControllerConfig(),
@@ -1359,7 +1360,7 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrap(c *gc.C) {
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "some-storage", v1.GetOptions{}).
 			Return(sc, nil),
 	)
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
 	c.Assert(
 		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.ErrorIsNil,
 	)
@@ -1376,7 +1377,7 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistNamespaceError(c *gc
 		s.mockNamespaces.EXPECT().Get(gomock.Any(), "controller-ctrl-1", v1.GetOptions{}).
 			Return(ns, nil),
 	)
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
 	c.Assert(
 		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.Satisfies, errors.IsAlreadyExists,
 	)
@@ -1394,7 +1395,7 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistControllerAnnotation
 		s.mockNamespaces.EXPECT().List(gomock.Any(), v1.ListOptions{}).
 			Return(&core.NamespaceList{Items: []core.Namespace{*ns}}, nil),
 	)
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
 	c.Assert(
 		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.Satisfies, errors.IsAlreadyExists,
 	)

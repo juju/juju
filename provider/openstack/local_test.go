@@ -2088,7 +2088,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	c.Assert(attrs["auth-url"].(string)[:8], gc.Equals, "https://")
 	env, err := bootstrap.PrepareController(
 		false,
-		envtesting.BootstrapContext(c),
+		envtesting.BootstrapTODOContext(c),
 		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
@@ -3067,7 +3067,7 @@ func (s *noNeutronSuite) TestSupport(c *gc.C) {
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 	_, err = bootstrap.PrepareController(
 		false,
-		envtesting.BootstrapContext(c),
+		envtesting.BootstrapTODOContext(c),
 		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
@@ -3166,7 +3166,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 
 	env, err := bootstrap.PrepareController(
 		false,
-		envtesting.BootstrapContext(c),
+		envtesting.BootstrapTODOContext(c),
 		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
@@ -3216,7 +3216,7 @@ func bootstrapEnv(c *gc.C, env environs.Environ) error {
 }
 
 func bootstrapEnvWithConstraints(c *gc.C, env environs.Environ, cons constraints.Value) error {
-	return bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+	return bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		context.NewEmptyCloudCallContext(),
 		bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
