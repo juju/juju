@@ -1049,6 +1049,8 @@ func (s *CAASStatusSuite) TestStatusWorkloadVersionSetByCharm(c *gc.C) {
 	client := s.APIState.Client()
 	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
 	c.Assert(err, jc.ErrorIsNil)
+	err = s.app.SetScale(1, 1, true)
+	c.Assert(err, jc.ErrorIsNil)
 	u, err := s.app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(u, gc.HasLen, 1)
@@ -1057,7 +1059,9 @@ func (s *CAASStatusSuite) TestStatusWorkloadVersionSetByCharm(c *gc.C) {
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Applications, gc.HasLen, 1)
-	c.Assert(status.Applications[s.app.Name()].WorkloadVersion, gc.Equals, "666")
+	app := status.Applications[s.app.Name()]
+	c.Assert(app.WorkloadVersion, gc.Equals, "666")
+	c.Assert(app.Scale, gc.Equals, 1)
 }
 
 type filteringBranchesSuite struct {

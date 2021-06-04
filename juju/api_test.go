@@ -141,6 +141,7 @@ func (s *NewAPIClientSuite) TestUpdatesLastKnownAccess(c *gc.C) {
 
 func (s *NewAPIClientSuite) TestUpdatesPublicDNSName(c *gc.C) {
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+		c.Assert(apiInfo.ControllerUUID, gc.Equals, fakeUUID)
 		conn := mockedAPIState(noFlags)
 		conn.publicDNSName = "somewhere.invalid"
 		conn.addr = "0.1.2.3:1234"
@@ -206,6 +207,7 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
 
 	openCount := 0
 	redirOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+		c.Check(apiInfo.ControllerUUID, gc.Equals, fakeUUID)
 		c.Check(apiInfo.ModelTag.Id(), gc.Equals, fakeUUID)
 		openCount++
 		switch openCount {

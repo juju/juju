@@ -6,6 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	params "github.com/juju/juju/apiserver/params"
 	watcher "github.com/juju/juju/core/watcher"
 	reflect "reflect"
 )
@@ -61,6 +62,20 @@ func (m *MockCAASUnitProvisionerFacade) ApplicationTrust(arg0 string) (bool, err
 func (mr *MockCAASUnitProvisionerFacadeMockRecorder) ApplicationTrust(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationTrust", reflect.TypeOf((*MockCAASUnitProvisionerFacade)(nil).ApplicationTrust), arg0)
+}
+
+// UpdateApplicationService mocks base method
+func (m *MockCAASUnitProvisionerFacade) UpdateApplicationService(arg0 params.UpdateApplicationServiceArg) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateApplicationService", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateApplicationService indicates an expected call of UpdateApplicationService
+func (mr *MockCAASUnitProvisionerFacadeMockRecorder) UpdateApplicationService(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationService", reflect.TypeOf((*MockCAASUnitProvisionerFacade)(nil).UpdateApplicationService), arg0)
 }
 
 // WatchApplicationScale mocks base method

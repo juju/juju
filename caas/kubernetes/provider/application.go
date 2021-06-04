@@ -34,7 +34,7 @@ func (k *kubernetesClient) upgradeApplication(agentTag names.Tag, vers version.N
 	}
 	app := k.Application(
 		appName,
-		caas.DeploymentStateful, // TODO(embedded): we hardcode it to stateful for now, it needs to be fixed soon!
+		caas.DeploymentStateful, // TODO(sidecar): we hardcode it to stateful for now, it needs to be fixed soon!
 	)
 	return app.Upgrade(vers)
 }

@@ -100,7 +100,7 @@ type DeploymentMode string
 const (
 	ModeOperator DeploymentMode = "operator"
 	ModeWorkload DeploymentMode = "workload"
-	ModeEmbedded DeploymentMode = "embedded"
+	ModeSidecar  DeploymentMode = "embedded"
 )
 
 // ServiceType defines a service type.

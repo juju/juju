@@ -21,8 +21,8 @@ type Logger interface {
 
 // NewResolver returns a resolver that runs the start hook to notify install
 // charms that the machine has been rebooted.
-func NewResolver(logger Logger, rebootDetected bool, modelType model.ModelType) resolver.Resolver {
-	if modelType != model.IAAS || !rebootDetected {
+func NewResolver(logger Logger, rebootDetected bool) resolver.Resolver {
+	if !rebootDetected {
 		return nopResolver{}
 	}
 
@@ -60,6 +60,11 @@ func (r *rebootResolver) NextOp(localState resolver.LocalState, remoteState remo
 	// can safely skip the start hook.
 	if !localState.Started {
 		r.rebootDetected = false
+		return nil, resolver.ErrNoOperation
+	}
+
+	// If there is another hook currently, wait until they are done.
+	if localState.Kind == operation.RunHook {
 		return nil, resolver.ErrNoOperation
 	}
 

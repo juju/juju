@@ -5,10 +5,9 @@ package google
 
 import (
 	"context"
-	"net/http"
-	"time"
 
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http/v2"
 	"golang.org/x/oauth2/google"
 	"golang.org/x/oauth2/jwt"
 	"google.golang.org/api/compute/v1"
@@ -30,31 +29,24 @@ var scopes = []string{
 // which is then used by the Environ.
 // This should also be relocated alongside its wrapper,
 // rather than this "auth.go" file.
-func newComputeService(creds *Credentials) (*compute.Service, error) {
+func newComputeService(ctx context.Context, creds *Credentials, httpClient *jujuhttp.Client) (*compute.Service, error) {
 	cfg, err := newJWTConfig(creds)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	ctx := context.Background()
+	// We're substituting the transport, with a wrapped GCE specific version of
+	// the original http.Client.
+	newClient := *httpClient.Client()
 
-	ts := cfg.TokenSource(ctx)
-	tsOpt := option.WithTokenSource(ts)
-
-	newTransport := http.DefaultTransport.(*http.Transport).Clone()
-	newTransport.TLSHandshakeTimeout = 20 * time.Second
-
-	httpTransport, err := transporthttp.NewTransport(ctx, newTransport, tsOpt)
-	if err != nil {
+	tsOpt := option.WithTokenSource(cfg.TokenSource(ctx))
+	if newClient.Transport, err = transporthttp.NewTransport(ctx, newClient.Transport, tsOpt); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	httpClient := &http.Client{}
-	httpClient.Transport = httpTransport
-
 	service, err := compute.NewService(ctx,
 		tsOpt,
-		option.WithHTTPClient(httpClient),
+		option.WithHTTPClient(&newClient),
 	)
 	return service, errors.Trace(err)
 }

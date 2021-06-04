@@ -8,7 +8,7 @@ import (
 	"github.com/juju/version/v2"
 )
 
-// CAASUnitIntroductionArgs is used by embedded units to introduce
+// CAASUnitIntroductionArgs is used by sidecar units to introduce
 // themselves via CAASApplication facade.
 type CAASUnitIntroductionArgs struct {
 	PodName string `json:"pod-name"`
@@ -30,6 +30,13 @@ type CAASUnitIntroductionResult struct {
 // CAASApplicationProvisioningInfoResults holds OperatorProvisioningInfo results.
 type CAASApplicationProvisioningInfoResults struct {
 	Results []CAASApplicationProvisioningInfo `json:"results"`
+}
+
+// CAASUnitTerminationResult holds result to UnitTerminating call.
+type CAASUnitTerminationResult struct {
+	// WillRestart is true if the termination of the unit is temporary.
+	WillRestart bool
+	Error       *Error
 }
 
 // CAASApplicationProvisioningInfo holds info needed to provision a caas application.

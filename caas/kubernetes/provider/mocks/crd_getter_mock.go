@@ -5,10 +5,9 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	reflect "reflect"
 )
 
 // MockCRDGetterInterface is a mock of CRDGetterInterface interface

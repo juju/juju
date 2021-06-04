@@ -119,28 +119,6 @@ func (s *dblogSuite) assertAgentLogsGoToDB(c *gc.C, tag names.Tag, isCaas bool) 
 	c.Assert(foundLogs, jc.IsTrue)
 }
 
-func (s *dblogSuite) TestUnitAgentLogsGoToDB(c *gc.C) {
-	// Create a unit and an agent for it.
-	u, password := s.Factory.MakeUnitReturningPassword(c, nil)
-	s.PrimeAgent(c, u.Tag(), password)
-	logger, err := logsender.InstallBufferedLogWriter(loggo.DefaultContext(), 1000)
-	c.Assert(err, jc.ErrorIsNil)
-	a, err := agentcmd.NewUnitAgent(nil, logger)
-	c.Assert(err, jc.ErrorIsNil)
-	s.InitAgent(c, a, "--unit-name", u.Name(), "--log-to-stderr=true")
-
-	// Ensure there's no logs to begin with.
-	c.Assert(s.getLogCount(c, u.Tag()), gc.Equals, 0)
-
-	// Start the agent.
-	ctx := cmdtesting.Context(c)
-	go func() { c.Assert(a.Run(ctx), jc.ErrorIsNil) }()
-	defer a.Stop()
-
-	foundLogs := s.waitForLogs(c, u.Tag())
-	c.Assert(foundLogs, jc.IsTrue)
-}
-
 func (s *dblogSuite) getLogCount(c *gc.C, entity names.Tag) int {
 	// TODO(mjs) - replace this with State's functionality for reading
 	// logs from the DB, once it gets this. This will happen before

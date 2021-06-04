@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -274,7 +275,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			for _, mount := range config.Containers[name].Mounts {
 				if mount.StorageName == storageName {
 					volumeMountCopy := m
-					// TODO(embedded): volumeMountCopy.MountPath was defined in `caas.ApplicationConfig.Filesystems[*].Attachment.Path`.
+					// TODO(sidecar): volumeMountCopy.MountPath was defined in `caas.ApplicationConfig.Filesystems[*].Attachment.Path`.
 					// Consolidate `caas.ApplicationConfig.Filesystems[*].Attachment.Path` and `caas.ApplicationConfig.Containers[*].Mounts[*].Path`!!!
 					volumeMountCopy.MountPath = mount.Path
 					podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, volumeMountCopy)
@@ -482,7 +483,7 @@ func (a *app) Upgrade(ver version.Number) error {
 		return errors.Trace(err)
 	}
 
-	// TODO(embedded):  we could query the cluster for all resources with the `app.juju.is/created-by` and `app.kubernetes.io/name` labels instead
+	// TODO(sidecar):  we could query the cluster for all resources with the `app.juju.is/created-by` and `app.kubernetes.io/name` labels instead
 	// (so longer as the resource also does have the juju version annotation already).
 	// Then we don't have to worry about missing anything if something is added later and not also updated here.
 	for _, r := range []annotationUpdater{
@@ -650,7 +651,7 @@ func (a *app) configureDefaultService(annotation annotations.Annotation) (err er
 // UpdateService updates the default service with specific service type and port mappings.
 func (a *app) UpdateService(param caas.ServiceParam) error {
 	// This method will be used for juju [un]expose.
-	// TODO(embedded): it might be changed later when we have proper modelling for the juju expose for the embedded charms.
+	// TODO(sidecar): it might be changed later when we have proper modelling for the juju expose for the sidecar charms.
 	svc, err := a.getService()
 	if err != nil {
 		return errors.Annotatef(err, "getting existing service %q", a.name)
@@ -681,6 +682,9 @@ func convertServicePort(p caas.ServicePort) corev1.ServicePort {
 func (a *app) getService() (*resources.Service, error) {
 	svc := resources.NewService(a.name, a.namespace, nil)
 	if err := svc.Get(context.Background(), a.client); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, errors.NotFoundf("service %q", a.name)
+		}
 		return nil, errors.Trace(err)
 	}
 	return svc, nil
@@ -941,7 +945,15 @@ func (a *app) Watch() (watcher.NotifyWatcher, error) {
 	default:
 		return nil, errors.NotSupportedf("unknown deployment type")
 	}
-	return a.newWatcher(informer, a.name, a.clock)
+	w1, err := a.newWatcher(informer, a.name, a.clock)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	w2, err := a.newWatcher(factory.Core().V1().Services().Informer(), a.name, a.clock)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return watcher.NewMultiNotifyWatcher(w1, w2), nil
 }
 
 func (a *app) WatchReplicas() (watcher.NotifyWatcher, error) {
@@ -1006,6 +1018,32 @@ func (a *app) State() (caas.ApplicationState, error) {
 	}
 	sort.Strings(state.Replicas)
 	return state, nil
+}
+
+// Service returns the service associated with the application.
+func (a *app) Service() (*caas.Service, error) {
+	svc, err := a.getService()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ctx := context.Background()
+	now := a.clock.Now()
+	statusMessage, svcStatus, since, err := svc.ComputeStatus(ctx, a.client, now)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &caas.Service{
+		Id:        string(svc.GetUID()),
+		Addresses: k8sutils.GetSvcAddresses(&svc.Service, false),
+		Status: status.StatusInfo{
+			Status:  svcStatus,
+			Message: statusMessage,
+			Since:   &since,
+		},
+		// Generate and Scale are not used here.
+		Generation: nil,
+		Scale:      nil,
+	}, nil
 }
 
 // Units of the application fetched from kubernetes by matching pod labels.
@@ -1224,6 +1262,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				"run",
 				"--create-dirs",
 				"--hold",
+				"--verbose",
 			},
 			Env: []corev1.EnvVar{{
 				Name:  "JUJU_CONTAINER_NAME",

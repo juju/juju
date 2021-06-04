@@ -122,13 +122,13 @@ func (u *Unit) ShouldBeAssigned() bool {
 	return u.modelType != ModelTypeCAAS
 }
 
-// IsEmbedded returns true when using new CAAS charms in embedded mode.
-func (u *Unit) IsEmbedded() (bool, error) {
+// IsSidecar returns true when using new CAAS charms in sidecar mode.
+func (u *Unit) IsSidecar() (bool, error) {
 	app, err := u.Application()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return app.IsEmbedded()
+	return app.IsSidecar()
 }
 
 // Application returns the application.

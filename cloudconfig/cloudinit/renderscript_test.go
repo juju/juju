@@ -219,16 +219,30 @@ func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 
 func (s *configureSuite) TestAptMirrorWrapper(c *gc.C) {
 	expectedCommands := regexp.QuoteMeta(`
-echo 'Changing apt mirror to http://woat.com' >&$JUJU_PROGRESS_FD
-old_mirror=$(awk "/^deb .* $(lsb_release -sc) .*main.*\$/{print \$2;exit}" /etc/apt/sources.list)
-new_mirror=http://woat.com
-sed -i s,$old_mirror,$new_mirror, /etc/apt/sources.list
-old_prefix=/var/lib/apt/lists/$(echo $old_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
-new_prefix=/var/lib/apt/lists/$(echo $new_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
+echo 'Changing apt mirror to "http://woat.com"' >&$JUJU_PROGRESS_FD
+old_archive_mirror=$(awk "/^deb .* $(awk -F= '/DISTRIB_CODENAME=/ {gsub(/"/,""); print $2}' /etc/lsb-release) .*main.*\$/{print \$2;exit}" /etc/apt/sources.list)
+new_archive_mirror=http://woat.com
+sed -i s,$old_archive_mirror,$new_archive_mirror, /etc/apt/sources.list
+old_prefix=/var/lib/apt/lists/$(echo $old_archive_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
+new_prefix=/var/lib/apt/lists/$(echo $new_archive_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
 [ "$old_prefix" != "$new_prefix" ] &&
 for old in ${old_prefix}_*; do
     new=$(echo $old | sed s,^$old_prefix,$new_prefix,)
-    mv $old $new
+    if [ -f $old ]; then
+      mv $old $new
+    fi
+done
+old_security_mirror=$(awk "/^deb .* $(awk -F= '/DISTRIB_CODENAME=/ {gsub(/"/,""); print $2}' /etc/lsb-release)-security .*main.*\$/{print \$2;exit}" /etc/apt/sources.list)
+new_security_mirror=http://woat.com
+sed -i s,$old_security_mirror,$new_security_mirror, /etc/apt/sources.list
+old_prefix=/var/lib/apt/lists/$(echo $old_security_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
+new_prefix=/var/lib/apt/lists/$(echo $new_security_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
+[ "$old_prefix" != "$new_prefix" ] &&
+for old in ${old_prefix}_*; do
+    new=$(echo $old | sed s,^$old_prefix,$new_prefix,)
+    if [ -f $old ]; then
+      mv $old $new
+    fi
 done`)
 	aptMirrorRegexp := "(.|\n)*" + expectedCommands + "(.|\n)*"
 	cfg, err := cloudinit.New("quantal")

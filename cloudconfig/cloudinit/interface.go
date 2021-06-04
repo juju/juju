@@ -124,7 +124,7 @@ type PackageMirrorConfig interface {
 	PackageMirror() string
 }
 
-// PackageSourceConfig is the interface for package source settings on a cloudconfig.
+// PackageSourcesConfig is the interface for package source settings on a cloudconfig.
 type PackageSourcesConfig interface {
 	// AddPackageSource adds a new repository and optional key to be
 	// used as a package source by the system's specific package manager.

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -33,6 +34,7 @@ type CAASApplicationSuite struct {
 	facade     *caasapplication.Facade
 	st         *mockState
 	clock      *testclock.Clock
+	broker     *mockBroker
 }
 
 func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
@@ -48,8 +50,9 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = newMockState()
+	s.broker = &mockBroker{}
 
-	facade, err := caasapplication.NewFacade(s.resources, s.authorizer, s.st, s.st, s.clock)
+	facade, err := caasapplication.NewFacade(s.resources, s.authorizer, s.st, s.st, s.broker, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -223,6 +226,68 @@ func (s *CAASApplicationSuite) TestMissingArgName(c *gc.C) {
 	results, err := s.facade.UnitIntroduction(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Error, gc.ErrorMatches, `pod-name not valid`)
+}
+
+func (s *CAASApplicationSuite) TestUnitTerminatingAgentWillRestart(c *gc.C) {
+	s.authorizer.Tag = names.NewUnitTag("gitlab/0")
+
+	s.broker.app = &mockCAASApplication{
+		state: caas.ApplicationState{
+			DesiredReplicas: 1,
+		},
+	}
+
+	s.st.app.scale = 1
+
+	s.st.units = map[string]*mockUnit{
+		"gitlab/0": {
+			life: state.Alive,
+			containerInfo: &mockCloudContainer{
+				providerID: "gitlab-0",
+				unit:       "gitlab/0",
+			},
+			updateOp: nil,
+		},
+	}
+
+	args := params.Entity{
+		Tag: "unit-gitlab-0",
+	}
+	results, err := s.facade.UnitTerminating(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Error, gc.IsNil)
+	c.Assert(results.WillRestart, jc.IsTrue)
+}
+
+func (s *CAASApplicationSuite) TestUnitTerminatingAgentDying(c *gc.C) {
+	s.authorizer.Tag = names.NewUnitTag("gitlab/0")
+
+	s.broker.app = &mockCAASApplication{
+		state: caas.ApplicationState{
+			DesiredReplicas: 0,
+		},
+	}
+
+	s.st.app.scale = 0
+
+	s.st.units = map[string]*mockUnit{
+		"gitlab/0": {
+			life: state.Alive,
+			containerInfo: &mockCloudContainer{
+				providerID: "gitlab-0",
+				unit:       "gitlab/0",
+			},
+			updateOp: nil,
+		},
+	}
+
+	args := params.Entity{
+		Tag: "unit-gitlab-0",
+	}
+	results, err := s.facade.UnitTerminating(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Error, gc.IsNil)
+	c.Assert(results.WillRestart, jc.IsFalse)
 }
 
 func strPtr(s string) *string {

@@ -582,11 +582,11 @@ func (mig *modelMigration) getAllAgents() (names.Set, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		isEmbedded, err := app.IsEmbedded()
+		isSidecar, err := app.IsSidecar()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if !isEmbedded {
+		if !isSidecar {
 			agentTags.Add(applicationTag)
 			continue
 		}

@@ -42,6 +42,9 @@ type Info struct {
 	// Addrs holds the addresses of the controllers.
 	Addrs []string
 
+	// ControllerUUID is the UUID of the controller.
+	ControllerUUID string
+
 	// SNIHostName optionally holds the host name to use for
 	// server name indication (SNI) when connecting
 	// to the addresses in Addrs above. If CACert is non-empty,
@@ -262,6 +265,11 @@ type Connection interface {
 
 	// IsProxied returns weather the connection is proxied.
 	IsProxied() bool
+
+	// Proxy returns the Proxier used to establish the connection if one was
+	// used at all. If no Proxier was used then it's expected that returned
+	// Proxier will be nil. Use IsProxied() to test for the presence of a proxy.
+	Proxy() proxy.Proxier
 
 	// PublicDNSName returns the host name for which an officially
 	// signed certificate will be used for TLS connection to the server.

@@ -104,6 +104,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 			HTTP:  "http-snap",
 			HTTPS: "https-snap",
 		},
+		AptMirror: "http://mirror",
 	}
 
 	called, api := newAPI(c, 2, apitesting.APICall{
@@ -138,6 +139,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 		Http:  "http-snap",
 		Https: "https-snap",
 	})
+	c.Check(config.AptMirror, gc.Equals, "http://mirror")
 }
 
 func (s *ProxyUpdaterSuite) TestProxyConfigV1(c *gc.C) {

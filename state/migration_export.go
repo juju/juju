@@ -951,7 +951,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	}
 
 	// Set Tools for application - this is only for CAAS models.
-	isEmbedded, err := ctx.application.IsEmbedded()
+	isSidecar, err := ctx.application.IsSidecar()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1036,7 +1036,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		workloadVersionKey := unit.globalWorkloadVersionKey()
 		exUnit.SetWorkloadVersionHistory(e.statusHistoryArgs(workloadVersionKey))
 
-		if (e.dbModel.Type() != ModelTypeCAAS && !e.cfg.SkipUnitAgentBinaries) || isEmbedded {
+		if (e.dbModel.Type() != ModelTypeCAAS && !e.cfg.SkipUnitAgentBinaries) || isSidecar {
 			tools, err := unit.AgentTools()
 			if err != nil && !e.cfg.IgnoreIncompleteModel {
 				// This means the tools aren't set, but they should be.
@@ -1072,7 +1072,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		exUnit.SetConstraints(constraintsArgs)
 	}
 
-	if e.dbModel.Type() == ModelTypeCAAS && !isEmbedded {
+	if e.dbModel.Type() == ModelTypeCAAS && !isSidecar {
 		tools, err := ctx.application.AgentTools()
 		if err != nil {
 			// This means the tools aren't set, but they should be.

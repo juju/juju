@@ -79,12 +79,19 @@ func NewFacadeV2(ctx facade.Context) (*API, error) {
 		schema := chID.URL.Schema
 		switch {
 		case charm.CharmHub.Matches(schema):
+
+			clientLogger := logger.Child("client")
+			options := []charmhub.Option{
+				// TODO (stickupkid): Get the httpClient from the facade context
+				charmhub.WithHTTPTransport(charmhub.DefaultHTTPTransport),
+			}
+
 			var chCfg charmhub.Config
 			chURL, ok := modelCfg.CharmHubURL()
 			if ok {
-				chCfg, err = charmhub.CharmHubConfigFromURL(chURL, logger.Child("client"))
+				chCfg, err = charmhub.CharmHubConfigFromURL(chURL, clientLogger, options...)
 			} else {
-				chCfg, err = charmhub.CharmHubConfig(logger.Child("client"))
+				chCfg, err = charmhub.CharmHubConfig(clientLogger, options...)
 			}
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -96,7 +103,10 @@ func NewFacadeV2(ctx facade.Context) (*API, error) {
 			return newCharmHubClient(chClient, chID), nil
 
 		case charm.CharmStore.Matches(schema):
-			cl, err := charmstore.NewCachingClient(state.MacaroonCache{st}, controllerCfg.CharmStoreURL())
+
+			cl, err := charmstore.NewCachingClient(state.MacaroonCache{
+				MacaroonCacheState: st,
+			}, controllerCfg.CharmStoreURL())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

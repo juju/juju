@@ -175,7 +175,7 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 	findPath, err := basePath.Join("find")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := NewAPIRequester(DefaultHTTPTransport(), &FakeLogger{})
+	apiRequester := NewAPIRequester(DefaultHTTPTransport(&FakeLogger{}), &FakeLogger{})
 	restClient := NewHTTPRESTClient(apiRequester, nil)
 
 	client := NewFindClient(findPath, restClient, &FakeLogger{})
@@ -212,7 +212,7 @@ func (s *FindSuite) TestFindErrorPayload(c *gc.C) {
 	findPath, err := basePath.Join("find")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := NewAPIRequester(DefaultHTTPTransport(), &FakeLogger{})
+	apiRequester := NewAPIRequester(DefaultHTTPTransport(&FakeLogger{}), &FakeLogger{})
 	restClient := NewHTTPRESTClient(apiRequester, nil)
 
 	client := NewFindClient(findPath, restClient, &FakeLogger{})

@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/caasprober"
+	"github.com/juju/juju/worker/caasunitterminationworker"
 	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
@@ -217,6 +218,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			WorkerFunc:          proxyupdater.NewWorker,
 			InProcessUpdate:     proxy.DefaultConfig.Set,
 			SupportLegacyValues: false,
+			RunFunc:             proxyupdater.RunWithStdIn,
 		})),
 
 		// The logging config updater is a leaf worker that indirectly
@@ -296,9 +298,18 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			HookRetryStrategyName:        hookRetryStrategyName,
 			TranslateResolverErr:         uniter.TranslateFortressErrors,
 			Logger:                       loggo.GetLogger("juju.worker.uniter"),
-			Embedded:                     true,
+			Sidecar:                      true,
 			EnforcedCharmModifiedVersion: config.CharmModifiedVersion,
 			ContainerNames:               config.ContainerNames,
+		})),
+
+		// The CAAS unit termination worker handles SIGTERM from the container runtime.
+		caasUnitTerminationWorker: ifNotMigrating(caasunitterminationworker.Manifold(caasunitterminationworker.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Clock:         config.Clock,
+			Logger:        loggo.GetLogger("juju.worker.caasunitterminationworker"),
+			UniterName:    uniterName,
 		})),
 	}
 }
@@ -336,6 +347,8 @@ const (
 	proxyConfigUpdaterName   = "proxy-config-updater"
 	loggingConfigUpdaterName = "logging-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"
+
+	caasUnitTerminationWorker = "caas-unit-termination-worker"
 )
 
 type noopStatusSetter struct{}

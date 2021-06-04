@@ -81,7 +81,7 @@ type Uniter struct {
 	paths                        Paths
 	unit                         *uniter.Unit
 	modelType                    model.ModelType
-	embedded                     bool
+	sidecar                      bool
 	enforcedCharmModifiedVersion int
 	storage                      *storage.Attachments
 	clock                        clock.Clock
@@ -162,6 +162,10 @@ type Uniter struct {
 	// rebooted so we can notify the charms accordingly.
 	rebootQuerier RebootQuerier
 	logger        Logger
+
+	// shutdownChannel is passed to the remote state watcher. When true is
+	// sent on the channel, it causes the uniter to start the shutdown process.
+	shutdownChannel chan bool
 }
 
 // UniterParams hold all the necessary parameters for a new Uniter.
@@ -195,7 +199,7 @@ type UniterParams struct {
 	Observer                     UniterExecutionObserver
 	RebootQuerier                RebootQuerier
 	Logger                       Logger
-	Embedded                     bool
+	Sidecar                      bool
 	EnforcedCharmModifiedVersion int
 	ContainerNames               []string
 	NewPebbleClient              NewPebbleClientFunc
@@ -262,10 +266,11 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			runListener:                   uniterParams.RunListener,
 			rebootQuerier:                 uniterParams.RebootQuerier,
 			logger:                        uniterParams.Logger,
-			embedded:                      uniterParams.Embedded,
+			sidecar:                       uniterParams.Sidecar,
 			enforcedCharmModifiedVersion:  uniterParams.EnforcedCharmModifiedVersion,
 			containerNames:                uniterParams.ContainerNames,
 			newPebbleClient:               uniterParams.NewPebbleClient,
+			shutdownChannel:               make(chan bool, 1),
 		}
 		plan := catacomb.Plan{
 			Site: &u.catacomb,
@@ -328,7 +333,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}
 
 	// Check we are running the correct charm version.
-	if u.embedded && u.enforcedCharmModifiedVersion != -1 {
+	if u.sidecar && u.enforcedCharmModifiedVersion != -1 {
 		if charmModifiedVersion != u.enforcedCharmModifiedVersion {
 			u.logger.Infof("remote charm modified version (%d) does not match agent's (%d)",
 				charmModifiedVersion, u.enforcedCharmModifiedVersion)
@@ -383,9 +388,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				ModelType:                     u.modelType,
 				Logger:                        u.logger.Child("remotestate"),
 				CanApplyCharmProfile:          canApplyCharmProfile,
-				Embedded:                      u.embedded,
+				Sidecar:                       u.sidecar,
 				EnforcedCharmModifiedVersion:  u.enforcedCharmModifiedVersion,
 				WorkloadEventChannel:          u.workloadEventChannel,
+				ShutdownChannel:               u.shutdownChannel,
 			})
 		if err != nil {
 			return errors.Trace(err)
@@ -426,17 +432,19 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}
 
 	var rebootDetected bool
+	if u.modelType == model.IAAS {
+		if rebootDetected, err = u.rebootQuerier.Query(unitTag); err != nil {
+			return errors.Annotatef(err, "could not check reboot status for %q", unitTag)
+		}
+	} else if u.modelType == model.CAAS && u.sidecar {
+		rebootDetected = true
+	}
+	rebootResolver := reboot.NewResolver(u.logger, rebootDetected)
 
 	for {
 		if err = restartWatcher(); err != nil {
 			err = errors.Annotate(err, "(re)starting watcher")
 			break
-		}
-
-		if u.modelType == model.IAAS {
-			if rebootDetected, err = u.rebootQuerier.Query(unitTag); err != nil {
-				return errors.Annotatef(err, "could not check reboot status for %q", unitTag)
-			}
 		}
 
 		cfg := ResolverConfig{
@@ -456,7 +464,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			UpgradeSeries: upgradeseries.NewResolver(
 				u.logger.Child("upgradeseries"),
 			),
-			Reboot: reboot.NewResolver(u.logger, rebootDetected, u.modelType),
+			Reboot: rebootResolver,
 			Leadership: uniterleadership.NewResolver(
 				u.logger.Child("leadership"),
 			),
@@ -508,6 +516,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				Abort:         u.catacomb.Dying(),
 				OnIdle:        onIdle,
 				CharmDirGuard: u.charmDirGuard,
+				CharmDir:      u.paths.State.CharmDir,
 				Logger:        u.logger.Child("resolver"),
 			}, &localState)
 
@@ -531,8 +540,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				// creating LocalState.
 				charmURL = localState.CharmURL
 				charmModifiedVersion = localState.CharmModifiedVersion
-
 				// leave err assigned, causing loop to break
+			case jworker.ErrTerminateAgent:
+				// terminate agent
 			default:
 				// We need to set conflicted from here, because error
 				// handling is outside of the resolver's control.
@@ -644,22 +654,6 @@ func (u *Uniter) charmState() (bool, *corecharm.URL, int, error) {
 		return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
 	}
 
-	if _, err := corecharm.ReadCharmDir(u.paths.State.CharmDir); err != nil {
-		// use appCharmURL to avoid double upgrade.
-		appCharmURL, _, err := app.CharmURL()
-		if err != nil {
-			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
-		}
-		u.logger.Debugf("start to re-download charm because charm dir has gone which is usually caused by operator pod re-scheduling")
-		op, err := u.operationFactory.NewUpgrade(appCharmURL)
-		if err != nil {
-			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
-		}
-		if err := u.operationExecutor.Run(op, nil); err != nil {
-			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
-		}
-	}
-
 	// TODO (hml) 25-09-2020 - investigate
 	// This assumes that the uniter is not restarting after an application
 	// changed notification, with changes to CharmModifiedVersion, but before
@@ -711,7 +705,7 @@ func (u *Uniter) terminate() error {
 // an individual agent for that unit.
 func (u *Uniter) stopUnitError() error {
 	u.logger.Debugf("u.modelType: %s", u.modelType)
-	if u.modelType == model.CAAS && !u.embedded {
+	if u.modelType == model.CAAS && !u.sidecar {
 		return ErrCAASUnitDead
 	}
 	return jworker.ErrTerminateAgent
@@ -958,4 +952,14 @@ func (u *Uniter) reportHookError(hookInfo hook.Info) error {
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookName)
 	return setAgentStatus(u, status.Error, statusMessage, statusData)
+}
+
+// Terminate terminates the Uniter worker, ensuring the stop hook is fired before
+// exiting with ErrTerminateAgent.
+func (u *Uniter) Terminate() error {
+	select {
+	case u.shutdownChannel <- true:
+	default:
+	}
+	return nil
 }

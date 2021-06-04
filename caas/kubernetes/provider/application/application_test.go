@@ -34,6 +34,7 @@ import (
 	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
 	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
@@ -165,7 +166,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, cons cons
 					},
 					ResourceTags: map[string]string{"foo": "bar"},
 				},
-				// TODO(embedded): fix here - all filesystems will not be mounted if it's not in `Containers[*].Mounts`
+				// TODO(sidecar): fix here - all filesystems will not be mounted if it's not in `Containers[*].Mounts`
 				// {
 				// 	StorageName: "logs",
 				// 	Size:        200,
@@ -350,7 +351,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           "gitlab-image:latest",
 			Command:         []string{"/charm/bin/pebble"},
-			Args:            []string{"run", "--create-dirs", "--hold"},
+			Args:            []string{"run", "--create-dirs", "--hold", "--verbose"},
 			Env: []corev1.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAME",
@@ -1781,6 +1782,34 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 					},
 				},
 			},
+		},
+	})
+}
+
+func (s *applicationSuite) TestService(c *gc.C) {
+	testSvc := getDefaultSvc()
+	testSvc.UID = "deadbeaf"
+	testSvc.Spec.ClusterIP = "10.6.6.6"
+	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), testSvc, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	svc, err := app.Service()
+	c.Assert(err, jc.ErrorIsNil)
+
+	since := time.Time{}
+	c.Assert(svc, jc.DeepEquals, &caas.Service{
+		Id: "deadbeaf",
+		Addresses: network.ProviderAddresses{{
+			MachineAddress: network.MachineAddress{
+				Value: "10.6.6.6",
+				Type:  "ipv4",
+				Scope: "local-cloud",
+			},
+		}},
+		Status: status.StatusInfo{
+			Status: "active",
+			Since:  &since,
 		},
 	})
 }

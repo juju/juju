@@ -3,10 +3,13 @@ start_server() {
 
 	path=${1}
 
-	python3 -m http.server --directory "${path}" 8666 >"${TEST_DIR}/server.log" 2>&1 &
-	SERVER_PID=$!
+	(
+		cd "${path}" || exit 1
+		python3 -m http.server 8666 >"${TEST_DIR}/server.log" 2>&1 &
+		SERVER_PID=$!
 
-	echo "${SERVER_PID}" >"${TEST_DIR}/server.pid"
+		echo "${SERVER_PID}" >"${TEST_DIR}/server.pid"
+	)
 }
 
 kill_server() {

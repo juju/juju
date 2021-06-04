@@ -15,11 +15,11 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/set"
 	"gopkg.in/yaml.v2"
 
 	actionapi "github.com/juju/juju/api/action"

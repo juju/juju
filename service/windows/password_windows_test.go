@@ -29,7 +29,7 @@ type myAmazingServiceManager struct {
 func (mgr *myAmazingServiceManager) ChangeServicePassword(name, newPassword string) error {
 	mgr.svcNames = append(mgr.svcNames, name)
 	mgr.pwd = newPassword
-	if name == "failme" {
+	if name == "jujud-unit-failme" {
 		return errors.New("wubwub")
 	}
 	return nil
@@ -48,11 +48,12 @@ func (s *ServicePasswordChangerSuite) SetUpTest(c *gc.C) {
 }
 
 func listServices() ([]string, error) {
-	return []string{"boom", "pow"}, nil
+	// all services except those prefixed with jujud-unit will be filtered out.
+	return []string{"boom", "pow", "jujud-unit-valid", "jujud-unit-another"}, nil
 }
 
 func listServicesFailingService() ([]string, error) {
-	return []string{"boom", "failme", "pow"}, nil
+	return []string{"boom", "pow", "jujud-unit-failme"}, nil
 }
 
 func brokenListServices() ([]string, error) {
@@ -62,7 +63,7 @@ func brokenListServices() ([]string, error) {
 func (s *ServicePasswordChangerSuite) TestChangeServicePasswordListSucceeds(c *gc.C) {
 	err := s.c.ChangeJujudServicesPassword("newPass", s.mgr, listServices)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mgr.svcNames, gc.DeepEquals, []string{"boom", "pow"})
+	c.Assert(s.mgr.svcNames, gc.DeepEquals, []string{"jujud-unit-valid", "jujud-unit-another"})
 	c.Assert(s.mgr.pwd, gc.Equals, "newPass")
 }
 
@@ -74,7 +75,7 @@ func (s *ServicePasswordChangerSuite) TestChangeServicePasswordListFails(c *gc.C
 func (s *ServicePasswordChangerSuite) TestChangePasswordFails(c *gc.C) {
 	err := s.c.ChangeJujudServicesPassword("newPass", s.mgr, listServicesFailingService)
 	c.Assert(err, gc.ErrorMatches, "wubwub")
-	c.Assert(s.mgr.svcNames, gc.DeepEquals, []string{"boom", "failme"})
+	c.Assert(s.mgr.svcNames, gc.DeepEquals, []string{"jujud-unit-failme"})
 	c.Assert(s.mgr.pwd, gc.Equals, "newPass")
 }
 

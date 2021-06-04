@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 )
@@ -47,6 +48,7 @@ func RBACLabels(appName, model string, global, legacy bool) map[string]string {
 func (k *kubernetesClient) ensureServiceAccountForApp(
 	appName string, annotations map[string]string, rbacDefinition k8sspecs.K8sRBACSpecConverter,
 ) (cleanups []func(), err error) {
+	ctx := context.TODO()
 
 	prefixNameSpace := func(name string) string {
 		return fmt.Sprintf("%s-%s", k.namespace, name)
@@ -145,14 +147,24 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 	}
 
 	for _, spec := range clusterroles {
-		_, cRCleanups, err := k.ensureClusterRole(&spec)
+		cr := resources.ClusterRole{spec}
+		cRCleanups, err := cr.Ensure(
+			ctx,
+			k.client(),
+			resources.ClaimJujuOwnership,
+		)
 		cleanups = append(cleanups, cRCleanups...)
 		if err != nil {
 			return cleanups, errors.Trace(err)
 		}
 	}
 	for _, spec := range clusterRoleBindings {
-		_, crbCleanups, err := k.ensureClusterRoleBinding(&spec)
+		clusterRoleBinding := resources.NewClusterRoleBinding(spec.Name, &spec)
+		crbCleanups, err := clusterRoleBinding.Ensure(
+			ctx,
+			k.client(),
+			resources.ClaimJujuOwnership,
+		)
 		cleanups = append(cleanups, crbCleanups...)
 		if err != nil {
 			return cleanups, errors.Trace(err)
@@ -357,60 +369,12 @@ func (k *kubernetesClient) listRoles(selector k8slabels.Selector) ([]rbacv1.Role
 	return rList.Items, nil
 }
 
-func (k *kubernetesClient) createClusterRole(cRole *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error) {
-	utils.PurifyResource(cRole)
-	out, err := k.client().RbacV1().ClusterRoles().Create(context.TODO(), cRole, v1.CreateOptions{})
-	if k8serrors.IsAlreadyExists(err) {
-		return nil, errors.AlreadyExistsf("cluster role %q", cRole.GetName())
-	}
-	return out, errors.Trace(err)
-}
-
-func (k *kubernetesClient) updateClusterRole(cRole *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error) {
-	out, err := k.client().RbacV1().ClusterRoles().Update(context.TODO(), cRole, v1.UpdateOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("cluster role %q", cRole.GetName())
-	}
-	return out, errors.Trace(err)
-}
-
-func (k *kubernetesClient) ensureClusterRole(cRole *rbacv1.ClusterRole) (out *rbacv1.ClusterRole, cleanups []func(), err error) {
-	out, err = k.createClusterRole(cRole)
-	if err == nil {
-		logger.Debugf("cluster role %q created", out.GetName())
-		cleanups = append(cleanups, func() { _ = k.deleteClusterRole(out.GetName(), out.GetUID()) })
-		return out, cleanups, nil
-	}
-	if !errors.IsAlreadyExists(err) {
-		return nil, cleanups, errors.Trace(err)
-	}
-	_, err = k.listClusterRoles(utils.LabelsToSelector(cRole.GetLabels()))
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// cRole.Name is already used for an existing cluster role.
-			return nil, cleanups, errors.AlreadyExistsf("cluster role %q", cRole.GetName())
-		}
-		return nil, cleanups, errors.Trace(err)
-	}
-	out, err = k.updateClusterRole(cRole)
-	logger.Debugf("updating cluster role %q", cRole.GetName())
-	return out, cleanups, errors.Trace(err)
-}
-
 func (k *kubernetesClient) getClusterRole(name string) (*rbacv1.ClusterRole, error) {
 	out, err := k.client().RbacV1().ClusterRoles().Get(context.TODO(), name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("cluster role %q", name)
 	}
 	return out, errors.Trace(err)
-}
-
-func (k *kubernetesClient) deleteClusterRole(name string, uid types.UID) error {
-	err := k.client().RbacV1().ClusterRoles().Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
 }
 
 func (k *kubernetesClient) deleteClusterRoles(selector k8slabels.Selector) error {
@@ -588,46 +552,6 @@ func (k *kubernetesClient) updateClusterRoleBinding(crb *rbacv1.ClusterRoleBindi
 		return nil, errors.NotFoundf("cluster role binding %q", crb.GetName())
 	}
 	return out, errors.Trace(err)
-}
-
-func (k *kubernetesClient) ensureClusterRoleBinding(crb *rbacv1.ClusterRoleBinding) (out *rbacv1.ClusterRoleBinding, cleanups []func(), err error) {
-	isFirstDeploy := false
-	// RoleRef is immutable, so delete first then re-create.
-	crbs, err := k.listClusterRoleBindings(utils.LabelsToSelector(crb.GetLabels()))
-	if errors.IsNotFound(err) {
-		isFirstDeploy = true
-	} else if err != nil {
-		return nil, cleanups, errors.Trace(err)
-	}
-
-	for _, v := range crbs {
-		if v.GetName() == crb.GetName() {
-			name := v.GetName()
-			UID := v.GetUID()
-			if err := k.deleteClusterRoleBinding(name, UID); err != nil {
-				return nil, cleanups, errors.Trace(err)
-			}
-			if err := ensureResourceDeleted(
-				k.clock,
-				func() error {
-					_, err := k.getClusterRoleBinding(name)
-					return errors.Trace(err)
-				},
-			); err != nil {
-				return nil, cleanups, errors.Trace(err)
-			}
-			break
-		}
-	}
-	out, err = k.createClusterRoleBinding(crb)
-	if err != nil {
-		return nil, cleanups, errors.Trace(err)
-	}
-	if isFirstDeploy {
-		cleanups = append(cleanups, func() { _ = k.deleteClusterRoleBinding(out.GetName(), out.GetUID()) })
-	}
-	logger.Debugf("cluster role binding %q created", crb.GetName())
-	return out, cleanups, nil
 }
 
 func (k *kubernetesClient) getClusterRoleBinding(name string) (*rbacv1.ClusterRoleBinding, error) {

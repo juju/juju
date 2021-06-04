@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasfirewallerembedded_test
+package caasfirewallersidecar_test
 
 import (
 	"github.com/golang/mock/gomock"
@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/api/base"
 	caasmocks "github.com/juju/juju/caas/mocks"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/caasfirewallerembedded"
-	"github.com/juju/juju/worker/caasfirewallerembedded/mocks"
+	"github.com/juju/juju/worker/caasfirewallersidecar"
+	"github.com/juju/juju/worker/caasfirewallersidecar/mocks"
 )
 
 type manifoldSuite struct {
@@ -47,11 +47,11 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	s.client = mocks.NewMockClient(s.ctrl)
 
 	s.context = s.newContext(nil)
-	s.manifold = caasfirewallerembedded.Manifold(s.validConfig())
+	s.manifold = caasfirewallersidecar.Manifold(s.validConfig())
 }
 
-func (s *manifoldSuite) validConfig() caasfirewallerembedded.ManifoldConfig {
-	return caasfirewallerembedded.ManifoldConfig{
+func (s *manifoldSuite) validConfig() caasfirewallersidecar.ManifoldConfig {
+	return caasfirewallersidecar.ManifoldConfig{
 		APICallerName:  "api-caller",
 		BrokerName:     "broker",
 		ControllerUUID: coretesting.ControllerTag.Id(),
@@ -62,12 +62,12 @@ func (s *manifoldSuite) validConfig() caasfirewallerembedded.ManifoldConfig {
 	}
 }
 
-func (s *manifoldSuite) newClient(apiCaller base.APICaller) caasfirewallerembedded.Client {
+func (s *manifoldSuite) newClient(apiCaller base.APICaller) caasfirewallersidecar.Client {
 	s.MethodCall(s, "NewClient", apiCaller)
 	return s.client
 }
 
-func (s *manifoldSuite) newWorker(config caasfirewallerembedded.Config) (worker.Worker, error) {
+func (s *manifoldSuite) newWorker(config caasfirewallersidecar.Config) (worker.Worker, error) {
 	s.MethodCall(s, "NewWorker", config)
 	if err := s.NextErr(); err != nil {
 		return nil, err
@@ -124,7 +124,7 @@ func (s *manifoldSuite) TestMissingLogger(c *gc.C) {
 	s.checkConfigInvalid(c, config, "nil Logger not valid")
 }
 
-func (s *manifoldSuite) checkConfigInvalid(c *gc.C, config caasfirewallerembedded.ManifoldConfig, expect string) {
+func (s *manifoldSuite) checkConfigInvalid(c *gc.C, config caasfirewallersidecar.ManifoldConfig, expect string) {
 	err := config.Validate()
 	c.Check(err, gc.ErrorMatches, expect)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -154,7 +154,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	s.CheckCallNames(c, "NewClient", "NewWorker")
 	s.CheckCall(c, 0, "NewClient", s.apiCaller)
 
-	s.CheckCall(c, 1, "NewWorker", caasfirewallerembedded.Config{
+	s.CheckCall(c, 1, "NewWorker", caasfirewallersidecar.Config{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
 		FirewallerAPI:  s.client,

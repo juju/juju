@@ -49,20 +49,20 @@ var _ = gc.Suite(&firewallerLegacySuite{
 	},
 })
 
-type firewallerEmbeddedSuite struct {
+type firewallerSidecarSuite struct {
 	firewallerBaseSuite
 }
 
-var _ = gc.Suite(&firewallerEmbeddedSuite{
+var _ = gc.Suite(&firewallerSidecarSuite{
 	firewallerBaseSuite{
-		objType: "CAASFirewallerEmbedded",
+		objType: "CAASFirewallerEmbedded", // TODO(juju3): rename to CAASFirewallerSidecar
 		newFunc: func(caller base.APICaller) clientCommmon {
-			return caasfirewaller.NewClientEmbedded(caller)
+			return caasfirewaller.NewClientSidecar(caller)
 		},
 	},
 })
 
-func (s *firewallerEmbeddedSuite) TestWatchOpenedPorts(c *gc.C) {
+func (s *firewallerSidecarSuite) TestWatchOpenedPorts(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, s.objType)
 		c.Check(version, gc.Equals, 0)
@@ -82,13 +82,13 @@ func (s *firewallerEmbeddedSuite) TestWatchOpenedPorts(c *gc.C) {
 		return nil
 	})
 
-	client := caasfirewaller.NewClientEmbedded(apiCaller)
+	client := caasfirewaller.NewClientSidecar(apiCaller)
 	watcher, err := client.WatchOpenedPorts()
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
-func (s *firewallerEmbeddedSuite) TestApplicationCharmInfo(c *gc.C) {
+func (s *firewallerSidecarSuite) TestApplicationCharmInfo(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, s.objType)
 		c.Check(version, gc.Equals, 0)
@@ -119,7 +119,7 @@ func (s *firewallerEmbeddedSuite) TestApplicationCharmInfo(c *gc.C) {
 		return nil
 	})
 
-	client := caasfirewaller.NewClientEmbedded(apiCaller)
+	client := caasfirewaller.NewClientSidecar(apiCaller)
 	result, err := client.ApplicationCharmInfo("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, &apicommoncharms.CharmInfo{

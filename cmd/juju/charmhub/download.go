@@ -18,6 +18,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/charmhub"
@@ -422,6 +423,10 @@ func (d downloadLogger) Debugf(msg string, args ...interface{}) {
 }
 
 func (d downloadLogger) Tracef(msg string, args ...interface{}) {}
+
+func (d downloadLogger) Child(name string) loggo.Logger {
+	return loggo.Logger{}
+}
 
 type stdoutFileSystem struct{}
 

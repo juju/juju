@@ -108,7 +108,7 @@ func (s *UpgraderSuite) TestUpgraderApplication(c *gc.C) {
 	s.operatorUpgrader.CheckCall(c, 0, "Upgrade", "application-app", s.upgraderClient.desired)
 }
 
-func (s *UpgraderSuite) TestUpgraderEmbeddedUnit(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderSidecarUnit(c *gc.C) {
 	vers := version.MustParseBinary("6.6.6-ubuntu-amd64")
 	s.patchVersion(vers)
 	s.upgraderClient.desired = version.MustParse("6.6.7")

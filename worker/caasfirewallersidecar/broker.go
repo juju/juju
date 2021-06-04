@@ -1,13 +1,13 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasfirewallerembedded
+package caasfirewallersidecar
 
 import (
 	"github.com/juju/juju/caas"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/worker/caasfirewallerembedded CAASBroker,PortMutator,ServiceUpdater
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/worker/caasfirewallersidecar CAASBroker,PortMutator,ServiceUpdater
 
 // CAASBroker exposes CAAS broker functionality to a worker.
 type CAASBroker interface {

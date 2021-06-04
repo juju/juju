@@ -70,13 +70,13 @@ func firewallerStateToAppWatcherState(st *mockState) *mockAppWatcherState {
 	}
 }
 
-type firewallerEmbeddedSuite struct {
+type firewallerSidecarSuite struct {
 	firewallerBaseSuite
 
-	facade facadeEmbedded
+	facade facadeSidecar
 }
 
-var _ = gc.Suite(&firewallerEmbeddedSuite{
+var _ = gc.Suite(&firewallerSidecarSuite{
 	firewallerBaseSuite: firewallerBaseSuite{
 		newFunc: func(c *gc.C, resources facade.Resources,
 			authorizer facade.Authorizer,
@@ -84,16 +84,16 @@ var _ = gc.Suite(&firewallerEmbeddedSuite{
 		) (facadeCommon, error) {
 			commonCharmsAPI, err := charmscommon.NewCharmsAPI(st, authorizer)
 			c.Assert(err, jc.ErrorIsNil)
-			return caasfirewaller.NewFacadeEmbeddedForTest(
+			return caasfirewaller.NewFacadeSidecarForTest(
 				resources, authorizer, st,
-				common.NewApplicationWatcherFacade(firewallerStateToAppWatcherState(st), resources, common.ApplicationFilterCAASEmbedded),
+				common.NewApplicationWatcherFacade(firewallerStateToAppWatcherState(st), resources, common.ApplicationFilterCAASSidecar),
 				commonCharmsAPI,
 			)
 		},
 	},
 })
 
-func (s *firewallerEmbeddedSuite) SetUpTest(c *gc.C) {
+func (s *firewallerSidecarSuite) SetUpTest(c *gc.C) {
 	s.firewallerBaseSuite.SetUpTest(c)
 
 	// charm.FormatV2.
@@ -108,11 +108,11 @@ func (s *firewallerEmbeddedSuite) SetUpTest(c *gc.C) {
 	}
 
 	var ok bool
-	s.facade, ok = s.firewallerBaseSuite.facade.(facadeEmbedded)
+	s.facade, ok = s.firewallerBaseSuite.facade.(facadeSidecar)
 	c.Assert(ok, jc.IsTrue)
 }
 
-func (s *firewallerEmbeddedSuite) TestWatchOpenedPorts(c *gc.C) {
+func (s *firewallerSidecarSuite) TestWatchOpenedPorts(c *gc.C) {
 	openPortsChanges := []string{"port1", "port2"}
 	s.openPortsChanges <- openPortsChanges
 
@@ -128,7 +128,7 @@ func (s *firewallerEmbeddedSuite) TestWatchOpenedPorts(c *gc.C) {
 	c.Assert(result.Changes, jc.DeepEquals, openPortsChanges)
 }
 
-func (s *firewallerEmbeddedSuite) TestApplicationCharmURLs(c *gc.C) {
+func (s *firewallerSidecarSuite) TestApplicationCharmURLs(c *gc.C) {
 	results, err := s.facade.ApplicationCharmURLs(params.Entities{
 		Entities: []params.Entity{{
 			Tag: "application-gitlab",
@@ -148,7 +148,7 @@ type facadeCommon interface {
 	Watch(args params.Entities) (params.NotifyWatchResults, error)
 }
 
-type facadeEmbedded interface {
+type facadeSidecar interface {
 	facadeCommon
 	WatchOpenedPorts(args params.Entities) (params.StringsWatchResults, error)
 	ApplicationCharmURLs(args params.Entities) (params.StringResults, error)

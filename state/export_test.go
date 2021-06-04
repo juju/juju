@@ -409,10 +409,6 @@ func WatcherMakeIdFilter(st *State, marker string, receivers ...ActionReceiver) 
 	return makeIdFilter(st, marker, receivers...)
 }
 
-func NewActionStatusWatcher(st *State, receivers []ActionReceiver, statuses ...ActionStatus) StringsWatcher {
-	return newActionStatusWatcher(st, receivers, statuses...)
-}
-
 func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 	upgradeInfos, closer := st.db().GetCollection(upgradeInfoC)
 	defer closer()

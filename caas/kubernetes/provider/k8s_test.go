@@ -3945,10 +3945,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount, v1.CreateOptions{}).Return(svcAccount, nil),
-		s.mockClusterRoles.EXPECT().Create(gomock.Any(), cr, v1.CreateOptions{}).Return(cr, nil),
-		s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/name=test"}).
-			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{}}, nil),
-		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), crb, v1.CreateOptions{}).Return(crb, nil),
+		s.mockClusterRoles.EXPECT().Get(gomock.Any(), cr.Name, gomock.Any()).Return(cr, nil),
+		s.mockClusterRoles.EXPECT().Update(gomock.Any(), cr, gomock.Any()).Return(cr, nil),
+		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), crb.Name, gomock.Any()).Return(crb, nil),
+		s.mockClusterRoleBindings.EXPECT().Update(gomock.Any(), crb, gomock.Any()).Return(crb, nil),
 		s.mockSecrets.EXPECT().Create(gomock.Any(), secretArg, v1.CreateOptions{}).Return(secretArg, nil),
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
@@ -4115,7 +4115,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			},
 		},
 	}
-	crbUID := crb.GetUID()
 
 	secretArg := s.getOCIImageSecret(c, map[string]string{"fred": "mary"})
 	gomock.InOrder(
@@ -4125,16 +4124,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 		s.mockServiceAccounts.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
 			Return(&core.ServiceAccountList{Items: []core.ServiceAccount{*svcAccount}}, nil),
 		s.mockServiceAccounts.EXPECT().Update(gomock.Any(), svcAccount, v1.UpdateOptions{}).Return(svcAccount, nil),
-		s.mockClusterRoles.EXPECT().Create(gomock.Any(), cr, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockClusterRoles.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/name=test"}).
-			Return(&rbacv1.ClusterRoleList{Items: []rbacv1.ClusterRole{*cr}}, nil),
-		s.mockClusterRoles.EXPECT().Update(gomock.Any(), cr, v1.UpdateOptions{}).Return(cr, nil),
-		s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/name=test"}).
-			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{*crb}}, nil),
-		s.mockClusterRoleBindings.EXPECT().Delete(gomock.Any(), "app-name-test-app-name", s.deleteOptions(v1.DeletePropagationForeground, crbUID)).Return(nil),
-		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), "app-name-test-app-name", v1.GetOptions{}).Return(crb, nil),
-		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), "app-name-test-app-name", v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
-		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), crb, v1.CreateOptions{}).Return(crb, nil),
+		s.mockClusterRoles.EXPECT().Get(gomock.Any(), cr.Name, gomock.Any()).Return(cr, nil),
+		s.mockClusterRoles.EXPECT().Update(gomock.Any(), cr, gomock.Any()).Return(cr, nil),
+		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), "app-name-test-app-name", gomock.Any()).Return(crb, nil),
+		s.mockClusterRoleBindings.EXPECT().Update(gomock.Any(), crb, gomock.Any()).Return(crb, nil),
 		s.mockSecrets.EXPECT().Create(gomock.Any(), secretArg, v1.CreateOptions{}).Return(secretArg, nil),
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
@@ -4170,8 +4163,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 		})
 	}()
-	err = s.clock.WaitAdvance(2*time.Second, testing.LongWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
 
 	select {
 	case err := <-errChan:
@@ -4661,10 +4652,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), rb1, v1.CreateOptions{}).Return(rb1, nil),
 
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount2, v1.CreateOptions{}).Return(svcAccount2, nil),
-		s.mockClusterRoles.EXPECT().Create(gomock.Any(), clusterrole2, v1.CreateOptions{}).Return(clusterrole2, nil),
-		s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/name=test"}).
-			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{}}, nil),
-		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), crb2, v1.CreateOptions{}).Return(crb2, nil),
+		s.mockClusterRoles.EXPECT().Get(gomock.Any(), clusterrole2.Name, gomock.Any()).Return(clusterrole2, nil),
+		s.mockClusterRoles.EXPECT().Update(gomock.Any(), clusterrole2, gomock.Any()).Return(clusterrole2, nil),
+		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), crb2.Name, gomock.Any()).Return(crb2, nil),
+		s.mockClusterRoleBindings.EXPECT().Update(gomock.Any(), crb2, gomock.Any()).Return(crb2, nil),
 
 		s.mockSecrets.EXPECT().Create(gomock.Any(), secretArg, v1.CreateOptions{}).Return(secretArg, nil),
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
@@ -4983,10 +4974,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), rb2, v1.CreateOptions{}).Return(rb2, nil),
-		s.mockClusterRoles.EXPECT().Create(gomock.Any(), clusterrole2, v1.CreateOptions{}).Return(clusterrole2, nil),
-		s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/name=test"}).
-			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{}}, nil),
-		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), crb2, v1.CreateOptions{}).Return(crb2, nil),
+		s.mockClusterRoles.EXPECT().Get(gomock.Any(), clusterrole2.Name, gomock.Any()).Return(clusterrole2, nil),
+		s.mockClusterRoles.EXPECT().Update(gomock.Any(), clusterrole2, gomock.Any()).Return(clusterrole2, nil),
+		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), crb2.Name, gomock.Any()).Return(crb2, nil),
+		s.mockClusterRoleBindings.EXPECT().Update(gomock.Any(), crb2, gomock.Any()).Return(crb2, nil),
 
 		s.mockSecrets.EXPECT().Create(gomock.Any(), secretArg, v1.CreateOptions{}).Return(secretArg, nil),
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).

@@ -68,7 +68,7 @@ func (s *MainSuite) TestParseErrors(c *gc.C) {
 	msgf := "option provided but not defined: --cheese"
 	checkMessage(c, msgf, "--cheese", "cavitate")
 
-	cmds := []string{"bootstrap-state", "unit", "machine"}
+	cmds := []string{"bootstrap-state", "machine"}
 	for _, cmd := range cmds {
 		checkMessage(c, msgf, cmd, "--cheese")
 	}
@@ -77,9 +77,6 @@ func (s *MainSuite) TestParseErrors(c *gc.C) {
 	checkMessage(c, msga,
 		"bootstrap-state",
 		"bootstrap-params-file",
-		"toastie")
-	checkMessage(c, msga, "unit",
-		"--unit-name", "un/0",
 		"toastie")
 	checkMessage(c, msga, "machine",
 		"--machine-id", "42",

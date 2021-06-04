@@ -41,7 +41,7 @@ type RemoteStateWatcher struct {
 	unit                         Unit
 	application                  Application
 	modelType                    model.ModelType
-	embedded                     bool
+	sidecar                      bool
 	enforcedCharmModifiedVersion int
 	logger                       Logger
 
@@ -58,6 +58,7 @@ type RemoteStateWatcher struct {
 	containerRunningStatusFunc    ContainerRunningStatusFunc
 	canApplyCharmProfile          bool
 	workloadEventChannel          <-chan string
+	shutdownChannel               <-chan bool
 
 	catacomb catacomb.Catacomb
 
@@ -91,19 +92,20 @@ type WatcherConfig struct {
 	ContainerRunningStatusFunc    ContainerRunningStatusFunc
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
-	Embedded                      bool
+	Sidecar                       bool
 	EnforcedCharmModifiedVersion  int
 	Logger                        Logger
 	CanApplyCharmProfile          bool
 	WorkloadEventChannel          <-chan string
+	ShutdownChannel               <-chan bool
 }
 
 func (w WatcherConfig) validate() error {
-	if w.ModelType == model.IAAS && w.Embedded {
-		return errors.NewNotValid(nil, fmt.Sprintf("embedded mode is only for %q model", model.CAAS))
+	if w.ModelType == model.IAAS && w.Sidecar {
+		return errors.NewNotValid(nil, fmt.Sprintf("sidecar mode is only for %q model", model.CAAS))
 	}
 
-	if w.ModelType == model.CAAS && !w.Embedded {
+	if w.ModelType == model.CAAS && !w.Sidecar {
 		if w.ApplicationChannel == nil {
 			return errors.NotValidf("watcher config for CAAS model with nil application channel")
 		}
@@ -146,14 +148,16 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		// so that we coalesce events while the observer is busy.
 		out: make(chan struct{}, 1),
 		current: Snapshot{
-			Relations:      make(map[int]RelationSnapshot),
-			Storage:        make(map[names.StorageTag]StorageSnapshot),
-			ActionsBlocked: config.ContainerRunningStatusChannel != nil,
-			ActionChanged:  make(map[string]int),
+			Relations:           make(map[int]RelationSnapshot),
+			Storage:             make(map[names.StorageTag]StorageSnapshot),
+			ActionsBlocked:      config.ContainerRunningStatusChannel != nil,
+			ActionChanged:       make(map[string]int),
+			UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
 		},
-		embedded:                     config.Embedded,
+		sidecar:                      config.Sidecar,
 		enforcedCharmModifiedVersion: config.EnforcedCharmModifiedVersion,
 		workloadEventChannel:         config.WorkloadEventChannel,
+		shutdownChannel:              config.ShutdownChannel,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -354,12 +358,12 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 
 	// CAAS models don't use an application watcher
 	// which fires an initial event.
-	if w.modelType == model.CAAS && !w.embedded {
+	if w.modelType == model.CAAS && !w.sidecar {
 		seenApplicationChange = true
 	}
 
-	if w.modelType == model.IAAS || w.embedded {
-		// For IAAS model and embedded CAAS model, we need to watch state for
+	if w.modelType == model.IAAS || w.sidecar {
+		// For IAAS model and sidecar CAAS model, we need to watch state for
 		// application charm changes instead of being informed by the operator.
 		applicationw, err := w.application.Watch()
 		if err != nil {
@@ -693,6 +697,14 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			w.logger.Debugf("retry hook timer triggered for %s", w.unit.Tag().Id())
 			w.retryHookTimerTriggered()
+
+		case shutdown, ok := <-w.shutdownChannel:
+			if !ok {
+				return errors.New("shutdownChannel closed")
+			}
+			if shutdown {
+				w.markShutdown()
+			}
 		}
 
 		// Something changed.
@@ -803,9 +815,9 @@ func (w *RemoteStateWatcher) applicationChanged() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// CAAS embedded charms will wait for the provider to restart/recreate
+	// CAAS sidecar charms will wait for the provider to restart/recreate
 	// the unit before performing an upgrade.
-	if w.embedded && ver != w.enforcedCharmModifiedVersion {
+	if w.sidecar && ver != w.enforcedCharmModifiedVersion {
 		return nil
 	}
 	w.mu.Lock()
@@ -1122,4 +1134,11 @@ func (w *RemoteStateWatcher) watchStorageAttachment(
 	w.current.Storage[tag] = storageSnapshot
 	w.storageAttachmentWatchers[tag] = innerSAW
 	return nil
+}
+
+// markShutdown is called when Shutdown is called on remote state.
+func (w *RemoteStateWatcher) markShutdown() {
+	w.mu.Lock()
+	w.current.Shutdown = true
+	w.mu.Unlock()
 }

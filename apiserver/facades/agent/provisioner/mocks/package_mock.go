@@ -252,20 +252,6 @@ func (mr *MockMachineMockRecorder) SetLinkLayerDevices(arg0 ...interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLinkLayerDevices", reflect.TypeOf((*MockMachine)(nil).SetLinkLayerDevices), arg0...)
 }
 
-// SetParentLinkLayerDevicesBeforeTheirChildren mocks base method
-func (m *MockMachine) SetParentLinkLayerDevicesBeforeTheirChildren(arg0 []state.LinkLayerDeviceArgs) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetParentLinkLayerDevicesBeforeTheirChildren", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetParentLinkLayerDevicesBeforeTheirChildren indicates an expected call of SetParentLinkLayerDevicesBeforeTheirChildren
-func (mr *MockMachineMockRecorder) SetParentLinkLayerDevicesBeforeTheirChildren(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetParentLinkLayerDevicesBeforeTheirChildren", reflect.TypeOf((*MockMachine)(nil).SetParentLinkLayerDevicesBeforeTheirChildren), arg0)
-}
-
 // Units mocks base method
 func (m *MockMachine) Units() ([]provisioner.Unit, error) {
 	m.ctrl.T.Helper()

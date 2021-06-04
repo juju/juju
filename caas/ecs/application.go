@@ -508,6 +508,12 @@ func computeStatus(ctx context.Context, t *ecs.Task) (statusMessage string, juju
 	return statusMessage, jujuStatus, since
 }
 
+// Service returns the service associated with the application.
+func (a *app) Service() (*caas.Service, error) {
+	// TODO
+	return nil, errors.NotImplementedf("Service")
+}
+
 // Units of the application fetched from kubernetes by matching pod labels.
 func (a *app) Units() (units []caas.Unit, err error) {
 	ctx := context.Background()
