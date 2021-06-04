@@ -219,12 +219,12 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 	return nil
 }
 
-func SetImageMetadata(env environs.Environ, dataSourceFactory simplestreams.DataSourceFactory, series, arches []string, out *[]*imagemetadata.ImageMetadata) error {
+func SetImageMetadata(env environs.Environ, fetcher imagemetadata.SimplestreamsFetcher, series, arches []string, out *[]*imagemetadata.ImageMetadata) error {
 	hasRegion, ok := env.(simplestreams.HasRegion)
 	if !ok {
 		return nil
 	}
-	sources, err := environs.ImageMetadataSources(env, dataSourceFactory)
+	sources, err := environs.ImageMetadataSources(env, fetcher)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -241,7 +241,7 @@ func SetImageMetadata(env environs.Environ, dataSourceFactory simplestreams.Data
 	if err != nil {
 		return errors.Trace(err)
 	}
-	imageMetadata, _, err := imagemetadata.Fetch(sources, imageConstraint)
+	imageMetadata, _, err := imagemetadata.Fetch(fetcher, sources, imageConstraint)
 	if err != nil {
 		return errors.Trace(err)
 	}

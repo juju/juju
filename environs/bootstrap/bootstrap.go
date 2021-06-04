@@ -854,7 +854,7 @@ func userPublicSigningKey() (string, error) {
 // state database will have the synthesised image metadata added to it.
 func bootstrapImageMetadata(
 	environ environs.BootstrapEnviron,
-	dataSourceFactory simplestreams.DataSourceFactory,
+	fetcher imagemetadata.SimplestreamsFetcher,
 	bootstrapSeries *string,
 	bootstrapArch string,
 	bootstrapImageId string,
@@ -905,7 +905,7 @@ func bootstrapImageMetadata(
 	// For providers that support making use of simplestreams
 	// image metadata, search public image metadata. We need
 	// to pass this onto Bootstrap for selecting images.
-	sources, err := environs.ImageMetadataSources(environ, dataSourceFactory)
+	sources, err := environs.ImageMetadataSources(environ, fetcher)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -923,7 +923,7 @@ func bootstrapImageMetadata(
 	// Since order of data source matters, order of image metadata matters too. Append is important here.
 	var publicImageMetadata []*imagemetadata.ImageMetadata
 	for _, source := range sources {
-		sourceMetadata, _, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, imageConstraint)
+		sourceMetadata, _, err := imagemetadata.Fetch(fetcher, []simplestreams.DataSource{source}, imageConstraint)
 		if err != nil {
 			logger.Debugf("ignoring image metadata in %s: %v", source.Description(), err)
 			// Just keep looking...
@@ -1006,7 +1006,7 @@ func isCompatibleVersion(v1, v2 version.Number) bool {
 // and adds an image metadata source after verifying the contents. If the
 // directory ends in tools, only the default tools metadata source will be
 // set. Same for images.
-func setPrivateMetadataSources(dataSourceFactory simplestreams.DataSourceFactory, metadataDir string) ([]*imagemetadata.ImageMetadata, error) {
+func setPrivateMetadataSources(fetcher imagemetadata.SimplestreamsFetcher, metadataDir string) ([]*imagemetadata.ImageMetadata, error) {
 	if _, err := os.Stat(metadataDir); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, errors.Annotate(err, "cannot access simplestreams metadata directory")
@@ -1069,14 +1069,14 @@ func setPrivateMetadataSources(dataSourceFactory simplestreams.DataSourceFactory
 	if err := dataSourceConfig.Validate(); err != nil {
 		return nil, errors.Annotate(err, "simplestreams config validation failed")
 	}
-	dataSource := dataSourceFactory.NewDataSource(dataSourceConfig)
+	dataSource := fetcher.NewDataSource(dataSourceConfig)
 
 	// Read the image metadata, as we'll want to upload it to the environment.
 	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	existingMetadata, _, err := imagemetadata.Fetch([]simplestreams.DataSource{dataSource}, imageConstraint)
+	existingMetadata, _, err := imagemetadata.Fetch(fetcher, []simplestreams.DataSource{dataSource}, imageConstraint)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Annotate(err, "cannot read image metadata")
 	}

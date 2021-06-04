@@ -1579,14 +1579,16 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	aws.Regions[region.Name] = t.srv.region
 	defer delete(aws.Regions, region.Name)
 
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+
 	env := t.Prepare(c)
 	params, err := env.(simplestreams.ImageMetadataValidator).ImageMetadataLookupParams("test")
 	c.Assert(err, jc.ErrorIsNil)
 	params.Release = jujuversion.DefaultSupportedLTS()
 	params.Endpoint = region.EC2Endpoint
-	params.Sources, err = environs.ImageMetadataSources(env, sstesting.TestDataSourceFactory())
+	params.Sources, err = environs.ImageMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
-	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
+	image_ids, _, err := imagemetadata.ValidateImageMetadata(ss, params)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(image_ids)
 	c.Assert(image_ids, gc.DeepEquals, []string{"ami-02004133", "ami-02004135", "ami-02004139"})

@@ -927,7 +927,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	}
 	err = jujutesting.SetImageMetadata(
 		t.Env,
-		sstesting.TestDataSourceFactory(),
+		simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory()),
 		[]string{"trusty"},
 		possibleTools.Arches(),
 		&params.ImageMetadata,

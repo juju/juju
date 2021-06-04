@@ -12,13 +12,14 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm/libvirt"
 	"github.com/juju/juju/core/network"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/imagedownloads"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 )
 
 type kvmContainer struct {
+	fetcher imagemetadata.SimplestreamsFetcher
 	factory *containerFactory
 	name    string
 	// started is a three state boolean, true, false, or unknown
@@ -42,7 +43,7 @@ func (c *kvmContainer) EnsureCachedImage(params StartParams) error {
 	var srcFunc func() simplestreams.DataSource
 	if params.ImageDownloadURL != "" {
 		srcFunc = func() simplestreams.DataSource {
-			return imagedownloads.NewDataSource(params.ImageDownloadURL)
+			return imagedownloads.NewDataSource(c.fetcher, params.ImageDownloadURL)
 		}
 	}
 	var fType = BIOSFType
@@ -51,6 +52,7 @@ func (c *kvmContainer) EnsureCachedImage(params StartParams) error {
 	}
 
 	sp := syncParams{
+		fetcher: c.fetcher,
 		arch:    params.Arch,
 		series:  params.Series,
 		stream:  params.Stream,
@@ -154,7 +156,7 @@ func (c *kvmContainer) String() string {
 }
 
 type interfaceInfo struct {
-	config                corenetwork.InterfaceInfo
+	config                network.InterfaceInfo
 	parentVirtualPortType network.VirtualPortType
 }
 

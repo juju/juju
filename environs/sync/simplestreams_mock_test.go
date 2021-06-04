@@ -48,3 +48,17 @@ func (mr *MockSimplestreamsFetcherMockRecorder) GetMetadata(arg0, arg1 interface
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetadata", reflect.TypeOf((*MockSimplestreamsFetcher)(nil).GetMetadata), arg0, arg1)
 }
+
+// NewDataSource mocks base method
+func (m *MockSimplestreamsFetcher) NewDataSource(arg0 simplestreams.Config) simplestreams.DataSource {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewDataSource", arg0)
+	ret0, _ := ret[0].(simplestreams.DataSource)
+	return ret0
+}
+
+// NewDataSource indicates an expected call of NewDataSource
+func (mr *MockSimplestreamsFetcherMockRecorder) NewDataSource(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewDataSource", reflect.TypeOf((*MockSimplestreamsFetcher)(nil).NewDataSource), arg0)
+}

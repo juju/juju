@@ -87,7 +87,7 @@ func GetMetadataSources(env environs.BootstrapEnviron, dataSourceFactory simples
 		if err := dataSourceConfig.Validate(); err != nil {
 			return nil, errors.Annotate(err, "simplestreams config validation failed")
 		}
-		dataSource := simplestreams.NewDataSource(dataSourceConfig)
+		dataSource := dataSourceFactory.NewDataSource(dataSourceConfig)
 		sources = append(sources, dataSource)
 	}
 

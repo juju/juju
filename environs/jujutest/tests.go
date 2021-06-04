@@ -238,7 +238,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	// Prepare again because Destroy invalidates old environments.
 	e3 := t.Prepare(c)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(stdcontext.TODO(), c), e3, t.ProviderCallContext, args)
+	err = bootstrap.Bootstrap(bootstrapContext(c), e3, t.ProviderCallContext, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = environs.Destroy(e3.Config().Name(), e3, t.ProviderCallContext, t.ControllerStore)

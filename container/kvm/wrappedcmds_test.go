@@ -17,6 +17,7 @@ import (
 	. "github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -62,9 +63,12 @@ func (s *LibVertSuite) TestSyncImagesUtilizesSimpleStreamsSource(c *gc.C) {
 		source = "mocked-url"
 	)
 	p := testSyncParams{
-		arch:    arch,
-		series:  series,
-		srcFunc: func() simplestreams.DataSource { return imagedownloads.NewDataSource(source) },
+		arch:   arch,
+		series: series,
+		srcFunc: func() simplestreams.DataSource {
+			ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+			return imagedownloads.NewDataSource(ss, source)
+		},
 		success: true,
 	}
 	err := Sync(p, fakeFetcher{}, source, nil)

@@ -31,6 +31,8 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -437,6 +439,7 @@ func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 }
 
 func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	env := suite.makeEnviron()
 	// Add a dummy file to storage so we can use that to check the
 	// obtained source later.
@@ -444,7 +447,7 @@ func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	stor := NewStorage(env)
 	err := stor.Put("tools/filename", bytes.NewBuffer(data), int64(len(data)))
 	c.Assert(err, jc.ErrorIsNil)
-	sources, err := envtools.GetMetadataSources(env)
+	sources, err := envtools.GetMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 0)
 }

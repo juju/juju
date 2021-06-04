@@ -25,7 +25,7 @@ type ValidateSuite struct {
 
 var _ = gc.Suite(&ValidateSuite{})
 
-func (s *ValidateSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint, stream string) {
+func (s *ValidateSuite) makeLocalMetadata(c *gc.C, ss *simplestreams.Simplestreams, id, region, series, endpoint, stream string) {
 	metadata := []*imagemetadata.ImageMetadata{
 		{
 			Id:     id,
@@ -39,7 +39,7 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint,
 	}
 	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	err = imagemetadata.MergeAndWriteMetadata(series, metadata, &cloudSpec, targetStorage)
+	err = imagemetadata.MergeAndWriteMetadata(ss, series, metadata, &cloudSpec, targetStorage)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -48,8 +48,8 @@ func (s *ValidateSuite) SetUpTest(c *gc.C) {
 	s.metadataDir = c.MkDir()
 }
 
-func (s *ValidateSuite) assertMatch(c *gc.C, stream string) {
-	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url", stream)
+func (s *ValidateSuite) assertMatch(c *gc.C, ss *simplestreams.Simplestreams, stream string) {
+	s.makeLocalMetadata(c, ss, "1234", "region-2", "raring", "some-auth-url", stream)
 	metadataPath := filepath.Join(s.metadataDir, "images")
 	params := &simplestreams.MetadataLookupParams{
 		Region:        "region-2",
@@ -60,7 +60,7 @@ func (s *ValidateSuite) assertMatch(c *gc.C, stream string) {
 		Sources: []simplestreams.DataSource{
 			sstesting.VerifyDefaultCloudDataSource("test", utils.MakeFileURL(metadataPath))},
 	}
-	imageIds, resolveInfo, err := imagemetadata.ValidateImageMetadata(params)
+	imageIds, resolveInfo, err := imagemetadata.ValidateImageMetadata(ss, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(imageIds, gc.DeepEquals, []string{"1234"})
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
@@ -72,13 +72,14 @@ func (s *ValidateSuite) assertMatch(c *gc.C, stream string) {
 }
 
 func (s *ValidateSuite) TestMatch(c *gc.C) {
-	s.assertMatch(c, "")
-	s.assertMatch(c, imagemetadata.ReleasedStream)
-	s.assertMatch(c, "daily")
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	s.assertMatch(c, ss, "")
+	s.assertMatch(c, ss, imagemetadata.ReleasedStream)
+	s.assertMatch(c, ss, "daily")
 }
 
-func (s *ValidateSuite) assertNoMatch(c *gc.C, stream string) {
-	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url", stream)
+func (s *ValidateSuite) assertNoMatch(c *gc.C, ss *simplestreams.Simplestreams, stream string) {
+	s.makeLocalMetadata(c, ss, "1234", "region-2", "raring", "some-auth-url", stream)
 	params := &simplestreams.MetadataLookupParams{
 		Region:        "region-2",
 		Release:       "precise",
@@ -88,12 +89,13 @@ func (s *ValidateSuite) assertNoMatch(c *gc.C, stream string) {
 		Sources: []simplestreams.DataSource{
 			sstesting.VerifyDefaultCloudDataSource("test", "file://"+s.metadataDir)},
 	}
-	_, _, err := imagemetadata.ValidateImageMetadata(params)
+	_, _, err := imagemetadata.ValidateImageMetadata(ss, params)
 	c.Assert(err, gc.Not(gc.IsNil))
 }
 
 func (s *ValidateSuite) TestNoMatch(c *gc.C) {
-	s.assertNoMatch(c, "")
-	s.assertNoMatch(c, imagemetadata.ReleasedStream)
-	s.assertNoMatch(c, "daily")
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	s.assertNoMatch(c, ss, "")
+	s.assertNoMatch(c, ss, imagemetadata.ReleasedStream)
+	s.assertNoMatch(c, ss, "daily")
 }

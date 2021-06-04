@@ -28,21 +28,21 @@ const (
 
 // DefaultSource creates a new signed simplestreams datasource for use with the
 // image-downloads datatype.
-func DefaultSource() simplestreams.DataSource {
+func DefaultSource(factory simplestreams.DataSourceFactory) func() simplestreams.DataSource {
 	ubuntuImagesURL := imagemetadata.UbuntuCloudImagesURL + "/" + imagemetadata.ReleasedImagesPath
-	return newDataSourceFunc(ubuntuImagesURL)()
+	return newDataSourceFunc(factory, ubuntuImagesURL)
 }
 
 // NewDataSource returns a new simplestreams.DataSource from the provided
 // baseURL. baseURL MUST include the image stream.
-func NewDataSource(baseURL string) simplestreams.DataSource {
-	return newDataSourceFunc(baseURL)()
+func NewDataSource(factory simplestreams.DataSourceFactory, baseURL string) simplestreams.DataSource {
+	return newDataSourceFunc(factory, baseURL)()
 }
 
 // NewDataSource returns a datasourceFunc from the baseURL provided.
-func newDataSourceFunc(baseURL string) func() simplestreams.DataSource {
+func newDataSourceFunc(factory simplestreams.DataSourceFactory, baseURL string) func() simplestreams.DataSource {
 	return func() simplestreams.DataSource {
-		return simplestreams.NewDataSource(
+		return factory.NewDataSource(
 			simplestreams.Config{
 				Description:          "ubuntu cloud images",
 				BaseURL:              baseURL,
@@ -82,6 +82,7 @@ func (m *Metadata) DownloadURL(baseURL string) (*url.URL, error) {
 // Fetch gets product results as Metadata from the provided datasources, given
 // some constraints and an optional filter function.
 func Fetch(
+	fetcher imagemetadata.SimplestreamsFetcher,
 	src []simplestreams.DataSource,
 	cons *imagemetadata.ImageConstraint,
 	ff simplestreams.AppendMatchingFunc) ([]*Metadata, *simplestreams.ResolveInfo, error) {
@@ -97,8 +98,8 @@ func Fetch(
 			ValueTemplate: Metadata{},
 		},
 	}
-	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-	items, resolveInfo, err := ss.GetMetadata(src, params)
+
+	items, resolveInfo, err := fetcher.GetMetadata(src, params)
 	if err != nil {
 		return nil, resolveInfo, err
 	}
@@ -157,12 +158,12 @@ func validateArgs(arch, release, stream, ftype string) error {
 //   - Simplestreams stream
 //   - File image type.
 // src exists to pass in a data source for testing.
-func One(arch, release, stream, ftype string, src func() simplestreams.DataSource) (*Metadata, error) {
+func One(fetcher imagemetadata.SimplestreamsFetcher, arch, release, stream, ftype string, src func() simplestreams.DataSource) (*Metadata, error) {
 	if err := validateArgs(arch, release, stream, ftype); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if src == nil {
-		src = DefaultSource
+		src = DefaultSource(fetcher)
 	}
 	ds := []simplestreams.DataSource{src()}
 	limit, err := imagemetadata.NewImageConstraint(
@@ -176,7 +177,7 @@ func One(arch, release, stream, ftype string, src func() simplestreams.DataSourc
 		return nil, errors.Trace(err)
 	}
 
-	md, _, err := Fetch(ds, limit, Filter(ftype))
+	md, _, err := Fetch(fetcher, ds, limit, Filter(ftype))
 	if err != nil {
 		// It doesn't appear that arch is vetted anywhere else so we can wind
 		// up with empty results if someone requests any arch with valid series

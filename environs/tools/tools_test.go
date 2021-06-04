@@ -224,7 +224,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 		{loggo.TRACE, "no architecture specified when finding agent binaries, looking for "},
 		{loggo.TRACE, "no os type specified when finding agent binaries, looking for \\[.*\\]"},
 	}
-	sources, err := envtools.GetMetadataSources(s.env)
+	sources, err := envtools.GetMetadataSources(s.env, ss)
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < len(sources); i++ {
 		messages = append(messages,

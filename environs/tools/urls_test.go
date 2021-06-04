@@ -58,15 +58,17 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 }
 
 func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	env := s.env(c, "")
-	sources, err := tools.GetMetadataSources(env)
+	sources, err := tools.GetMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{{"https://streams.canonical.com/juju/tools/", keys.JujuPublicKey, true}})
 }
 
 func (s *URLsSuite) TestToolsSources(c *gc.C) {
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	env := s.env(c, "config-tools-metadata-url")
-	sources, err := tools.GetMetadataSources(env)
+	sources, err := tools.GetMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
 		{"config-tools-metadata-url/", keys.JujuPublicKey, false},
@@ -75,16 +77,16 @@ func (s *URLsSuite) TestToolsSources(c *gc.C) {
 }
 
 func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
-	factory := sstesting.TestDataSourceFactory()
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	tools.RegisterToolsDataSourceFunc("id0", func(environs.Environ) (simplestreams.DataSource, error) {
-		return factory.NewDataSource(simplestreams.Config{
+		return ss.NewDataSource(simplestreams.Config{
 			Description:          "id0",
 			BaseURL:              "betwixt/releases",
 			HostnameVerification: utils.NoVerifySSLHostnames,
 			Priority:             simplestreams.DEFAULT_CLOUD_DATA}), nil
 	})
 	tools.RegisterToolsDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
-		return factory.NewDataSource(simplestreams.Config{
+		return ss.NewDataSource(simplestreams.Config{
 			Description:          "id1",
 			BaseURL:              "yoink",
 			HostnameVerification: utils.NoVerifySSLHostnames,
@@ -100,7 +102,7 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
 	defer tools.UnregisterToolsDataSourceFunc("id1")
 
 	env := s.env(c, "config-tools-metadata-url")
-	sources, err := tools.GetMetadataSources(env)
+	sources, err := tools.GetMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
 		{"config-tools-metadata-url/", keys.JujuPublicKey, false},
@@ -110,6 +112,7 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
 }
 
 func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncsError(c *gc.C) {
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	tools.RegisterToolsDataSourceFunc("id0", func(environs.Environ) (simplestreams.DataSource, error) {
 		// Non-NotSupported errors cause GetMetadataSources to fail.
 		return nil, errors.New("oyvey!")
@@ -117,7 +120,7 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncsError(c *gc.C) {
 	defer tools.UnregisterToolsDataSourceFunc("id0")
 
 	env := s.env(c, "config-tools-metadata-url")
-	_, err := tools.GetMetadataSources(env)
+	_, err := tools.GetMetadataSources(env, ss)
 	c.Assert(err, gc.ErrorMatches, "oyvey!")
 }
 

@@ -89,7 +89,8 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(id, region, series, endpo
 	if err != nil {
 		return err
 	}
-	err = imagemetadata.MergeAndWriteMetadata(series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
+	ss := simplestreams.NewSimpleStreams(sstestings.TestDataSourceFactory())
+	err = imagemetadata.MergeAndWriteMetadata(ss, series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
 		return err
 	}
