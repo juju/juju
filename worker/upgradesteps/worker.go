@@ -95,7 +95,7 @@ func NewWorker(
 	apiConn api.Connection,
 	isController bool,
 	openState func() (*state.StatePool, error),
-	preUpgradeSteps func(st *state.StatePool, agentConf agent.Config, isController, isPrimaryServer, isCaas bool) error,
+	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	entity StatusSetter,
 	isCaas bool,
 ) (worker.Worker, error) {
@@ -120,7 +120,7 @@ type upgradeSteps struct {
 	agent           agent.Agent
 	apiConn         api.Connection
 	openState       func() (*state.StatePool, error)
-	preUpgradeSteps func(st *state.StatePool, agentConf agent.Config, isController, isPrimary, isCaas bool) error
+	preUpgradeSteps upgrades.PreUpgradeStepsFunc
 	entity          StatusSetter
 
 	fromVersion version.Number
@@ -222,7 +222,6 @@ func (w *upgradeSteps) run() error {
 			return err
 		}
 		w.reportUpgradeFailure(err, false)
-
 	} else {
 		// Upgrade succeeded - signal that the upgrade is complete.
 		logger.Infof("upgrade to %v completed successfully.", w.toVersion)
@@ -256,7 +255,7 @@ func (w *upgradeSteps) runUpgrades() error {
 
 func (w *upgradeSteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 	logger.Infof("checking that upgrade can proceed")
-	if err := w.preUpgradeSteps(w.pool, w.agent.CurrentConfig(), w.pool != nil, w.isPrimary, w.isCaas); err != nil {
+	if err := w.preUpgradeSteps(w.pool, w.agent.CurrentConfig(), w.pool != nil, w.isCaas); err != nil {
 		return nil, errors.Annotatef(err, "%s cannot be upgraded", names.ReadableString(w.tag))
 	}
 

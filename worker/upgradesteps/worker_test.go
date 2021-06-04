@@ -430,7 +430,7 @@ func (s *UpgradeSuite) openStateForUpgrade() (*state.StatePool, error) {
 	return pool, nil
 }
 
-func (s *UpgradeSuite) preUpgradeSteps(pool *state.StatePool, agentConf agent.Config, isController, isMaster, isCaas bool) error {
+func (s *UpgradeSuite) preUpgradeSteps(pool *state.StatePool, agentConf agent.Config, isController, isCaas bool) error {
 	if s.preUpgradeError {
 		return errors.New("preupgrade error")
 	}

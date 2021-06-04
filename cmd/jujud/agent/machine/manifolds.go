@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/pubsub/lease"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/upgrades"
 	proxyconfig "github.com/juju/juju/utils/proxy"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
@@ -165,7 +166,7 @@ type ManifoldsConfig struct {
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
-	PreUpgradeSteps func(*state.StatePool, coreagent.Config, bool, bool, bool) error
+	PreUpgradeSteps upgrades.PreUpgradeStepsFunc
 
 	// LogSource defines the channel type used to send log message
 	// structs within the machine agent.

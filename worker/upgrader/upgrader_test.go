@@ -253,6 +253,7 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	s.patchVersion(newTools.Version)
 	err := envtools.MergeAndWriteMetadata(stor, "released", "released", coretools.List{newTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, jc.ErrorIsNil)
+
 	ugErr := &agenterrors.UpgradeReadyError{
 		AgentName: "anAgent",
 		OldTools:  oldTools.Version,
@@ -261,6 +262,7 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	}
 	err = ugErr.ChangeAgentTools(loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
+
 	target := agenttools.ToolsDir(s.DataDir(), newToolsBinary)
 	link, err := symlink.Read(agenttools.ToolsDir(s.DataDir(), "anAgent"))
 	c.Assert(err, jc.ErrorIsNil)
