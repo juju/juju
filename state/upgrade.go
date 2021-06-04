@@ -61,13 +61,9 @@ const (
 	// MongoDB has completed running the database upgrade steps.
 	UpgradeDBComplete UpgradeStatus = "db-complete"
 
-	// UpgradeRunning indicates that the master controller has started
-	// running non-DB upgrade logic, and other controllers are waiting for it.
+	// UpgradeRunning indicates that at least one controller has begun running
+	// upgrade steps.
 	UpgradeRunning UpgradeStatus = "running"
-
-	// UpgradeFinishing indicates that the master controller has finished
-	// running all upgrade logic, and other controllers are catching up.
-	UpgradeFinishing UpgradeStatus = "finishing"
 
 	// UpgradeComplete indicates that all controllers have finished running
 	// upgrade logic.
@@ -152,9 +148,6 @@ func (info *UpgradeInfo) Watch() NotifyWatcher {
 // AllProvisionedControllersReady returns true if and only if all controllers
 // that have been started by the provisioner have called EnsureUpgradeInfo with
 // matching versions.
-//
-// When this returns true the master state controller can begin it's
-// own upgrade.
 func (info *UpgradeInfo) AllProvisionedControllersReady() (bool, error) {
 	provisioned, err := info.getProvisionedControllers()
 	if err != nil {
@@ -227,22 +220,14 @@ func upgradeStatusHistoryAndOps(mb modelBackend, upgradeStatus UpgradeStatus, no
 // SetStatus sets the status of the current upgrade. Checks are made
 // to ensure that status changes are performed in the correct order.
 func (info *UpgradeInfo) SetStatus(status UpgradeStatus) error {
-	var assertSane bson.D
+	var acceptableFromStatus []UpgradeStatus
 	switch status {
 	case UpgradePending, UpgradeComplete, UpgradeAborted:
 		return errors.Errorf("cannot explicitly set upgrade status to \"%s\"", status)
 	case UpgradeDBComplete:
-		assertSane = bson.D{{"status", bson.D{{"$in",
-			[]UpgradeStatus{UpgradePending, UpgradeDBComplete},
-		}}}}
+		acceptableFromStatus = []UpgradeStatus{UpgradePending, UpgradeDBComplete}
 	case UpgradeRunning:
-		assertSane = bson.D{{"status", bson.D{{"$in",
-			[]UpgradeStatus{UpgradeDBComplete, UpgradeRunning},
-		}}}}
-	case UpgradeFinishing:
-		assertSane = bson.D{{"status", bson.D{{"$in",
-			[]UpgradeStatus{UpgradeRunning, UpgradeFinishing},
-		}}}}
+		acceptableFromStatus = []UpgradeStatus{UpgradeDBComplete, UpgradeRunning}
 	default:
 		return errors.Errorf("unknown upgrade status: %s", status)
 	}
@@ -250,37 +235,49 @@ func (info *UpgradeInfo) SetStatus(status UpgradeStatus) error {
 		return errors.New("cannot set status on non-current upgrade")
 	}
 
-	ops := []txn.Op{{
-		C:  upgradeInfoC,
-		Id: currentUpgradeId,
-		Assert: append(bson.D{{
-			"previousVersion", info.doc.PreviousVersion,
-		}, {
-			"targetVersion", info.doc.TargetVersion,
-		}}, assertSane...),
-		Update: bson.D{{"$set", bson.D{{"status", status}}}},
-	}}
+	assertSane := bson.D{{"status", bson.D{{"$in", acceptableFromStatus}}}}
 
-	extraOps, err := upgradeStatusHistoryAndOps(info.st, status, info.st.clock().Now())
-	if err != nil {
-		return errors.Trace(err)
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		doc, err := currentUpgradeInfoDoc(info.st)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		if doc.Status == status {
+			return nil, jujutxn.ErrNoOperations
+		}
+
+		ops := []txn.Op{{
+			C:  upgradeInfoC,
+			Id: currentUpgradeId,
+			Assert: append(bson.D{
+				{"previousVersion", info.doc.PreviousVersion},
+				{"targetVersion", info.doc.TargetVersion},
+			}, assertSane...),
+			Update: bson.D{{"$set", bson.D{{"status", status}}}},
+		}}
+
+		extraOps, err := upgradeStatusHistoryAndOps(info.st, status, info.st.clock().Now())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return append(ops, extraOps...), nil
 	}
-	if len(extraOps) > 0 {
-		ops = append(ops, extraOps...)
-	}
-	err = info.st.db().RunTransaction(ops)
+
+	err := info.st.db().Run(buildTxn)
 	if err == txn.ErrAborted {
 		return errors.Errorf("cannot set upgrade status to %q: Another "+
 			"status change may have occurred concurrently", status)
 	}
-	return errors.Annotate(err, "cannot set upgrade status")
+	return errors.Annotate(err, "setting upgrade status")
 }
 
 // EnsureUpgradeInfo returns an UpgradeInfo describing a current upgrade between the
 // supplied versions. If a matching upgrade is in progress, that upgrade is returned;
 // if there's a mismatch, an error is returned.
-func (st *State) EnsureUpgradeInfo(controllerId string, previousVersion, targetVersion version.Number) (*UpgradeInfo, error) {
-
+func (st *State) EnsureUpgradeInfo(
+	controllerId string, previousVersion, targetVersion version.Number,
+) (*UpgradeInfo, error) {
 	assertSanity, err := checkUpgradeInfoSanity(st, controllerId, previousVersion, targetVersion)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -421,7 +418,7 @@ func (info *UpgradeInfo) SetControllerDone(controllerId string) error {
 			return nil, errors.Trace(err)
 		}
 		switch doc.Status {
-		case UpgradePending, UpgradeRunning:
+		case UpgradePending, UpgradeDBComplete:
 			return nil, errors.New("upgrade has not yet run")
 		}
 

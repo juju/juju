@@ -284,11 +284,8 @@ func (w *upgradeSteps) prepareControllerForUpgrade() (*state.UpgradeInfo, error)
 		logger.Errorf("aborted wait for other controllers: %v", err)
 		return nil, errors.Annotate(err, "aborted wait for other controllers")
 	}
-	if w.isPrimary {
-		logger.Infof("finished waiting - all controllers are ready to run upgrade steps")
-	} else {
-		logger.Infof("finished waiting - the primary has completed its upgrade steps")
-	}
+
+	logger.Infof("finished waiting - all controllers are ready to run upgrade steps")
 	return info, nil
 }
 
@@ -304,19 +301,13 @@ func (w *upgradeSteps) waitForOtherControllers(info *state.UpgradeInfo) error {
 			if err := info.Refresh(); err != nil {
 				return errors.Trace(err)
 			}
-			if w.isPrimary {
-				if ready, err := info.AllProvisionedControllersReady(); err != nil {
-					return errors.Trace(err)
-				} else if ready {
-					// All controllers ready to start upgrade
-					err := info.SetStatus(state.UpgradeRunning)
-					return errors.Trace(err)
-				}
-			} else {
-				if info.Status() == state.UpgradeFinishing {
-					// Primary is done, ok to proceed
-					return nil
-				}
+
+			allReady, err := info.AllProvisionedControllersReady()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if allReady {
+				return errors.Trace(info.SetStatus(state.UpgradeRunning))
 			}
 		case <-timeout:
 			if w.isPrimary {
@@ -383,14 +374,6 @@ func (w *upgradeSteps) reportUpgradeFailure(err error, willRetry bool) {
 func (w *upgradeSteps) finaliseUpgrade(info *state.UpgradeInfo) error {
 	if !w.isController {
 		return nil
-	}
-
-	if w.isPrimary {
-		// Tell other controllers that the primary has completed its
-		// upgrade steps.
-		if err := info.SetStatus(state.UpgradeFinishing); err != nil {
-			return errors.Annotate(err, "upgrade done but")
-		}
 	}
 
 	if err := info.SetControllerDone(w.tag.Id()); err != nil {
