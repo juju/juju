@@ -2163,7 +2163,7 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 }
 
 func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
-	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	ss := simplestreams.NewSimpleStreams(sstesting.TestSkipVerifyDataSourceFactory())
 	// Setup a custom URL for image metadata
 	customStorage := openstack.CreateCustomStorage(s.env, "custom-metadata")
 	customURL, err := customStorage.URL("")
@@ -2273,7 +2273,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSourcesWithCertificate
 }
 
 func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
-	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	ss := simplestreams.NewSimpleStreams(sstesting.TestSkipVerifyDataSourceFactory())
 	// Setup a custom URL for image metadata
 	customStorage := openstack.CreateCustomStorage(s.env, "custom-tools-metadata")
 	customURL, err := customStorage.URL("")

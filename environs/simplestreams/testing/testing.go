@@ -675,6 +675,23 @@ func (testDataSourceFactory) NewDataSource(cfg simplestreams.Config) simplestrea
 	))
 }
 
+type testSkipVerifyDataSourceFactory struct{}
+
+func TestSkipVerifyDataSourceFactory() simplestreams.DataSourceFactory {
+	return testSkipVerifyDataSourceFactory{}
+}
+
+func (testSkipVerifyDataSourceFactory) NewDataSource(cfg simplestreams.Config) simplestreams.DataSource {
+	return simplestreams.NewDataSourceWithClient(cfg, jujuhttp.NewClient(
+		jujuhttp.WithSkipHostnameVerification(true),
+		jujuhttp.WithTransportMiddlewares(
+			jujuhttp.DialContextMiddleware(jujuhttp.NewLocalDialBreaker(false)),
+			jujuhttp.FileProtocolMiddleware,
+			FileProtocolMiddleware,
+		),
+	))
+}
+
 // FileTestingMiddleware registers support for file:// URLs on the given
 // transport.
 func FileProtocolMiddleware(transport *http.Transport) *http.Transport {
