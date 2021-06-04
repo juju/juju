@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -77,7 +78,7 @@ type manifoldsConfig struct {
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
-	PreUpgradeSteps func(*state.StatePool, coreagent.Config, bool, bool, bool) error
+	PreUpgradeSteps upgrades.PreUpgradeStepsFunc
 
 	// PrometheusRegisterer is a prometheus.Registerer that may be used
 	// by workers to register Prometheus metric collectors.
