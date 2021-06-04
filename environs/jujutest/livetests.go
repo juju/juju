@@ -229,7 +229,11 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	args := t.bootstrapParams()
 	args.BootstrapConstraints = cons
 	args.ModelConstraints = cons
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(stdcontext.TODO(), c), t.Env, t.ProviderCallContext, args)
+
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	ctx := stdcontext.WithValue(stdcontext.TODO(), bootstrap.SimplestreamsFetcherContextKey, ss)
+
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(ctx, c), t.Env, t.ProviderCallContext, args)
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = true
 }
