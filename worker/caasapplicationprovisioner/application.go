@@ -275,6 +275,31 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
+	appTag := names.NewApplicationTag(a.name).String()
+	appStatus := params.EntityStatus{}
+	svc, err := app.Service()
+	if errors.IsNotFound(err) {
+		// Do nothing
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	} else {
+		appStatus = params.EntityStatus{
+			Status: svc.Status.Status,
+			Info:   svc.Status.Message,
+			Data:   svc.Status.Data,
+		}
+		err = a.unitFacade.UpdateApplicationService(params.UpdateApplicationServiceArg{
+			ApplicationTag: appTag,
+			ProviderId:     svc.Id,
+			Addresses:      params.FromProviderAddresses(svc.Addresses...),
+		})
+		if errors.IsNotFound(err) {
+			// Do nothing
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	err = a.facade.GarbageCollect(a.name, observedUnits, st.DesiredReplicas, st.Replicas, force)
 	if errors.IsNotFound(err) {
 		return nil, nil
@@ -292,8 +317,8 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 
 	reportedStatus := make(map[string]status.StatusInfo)
 	args := params.UpdateApplicationUnits{
-		ApplicationTag: names.NewApplicationTag(a.name).String(),
-		Status:         params.EntityStatus{},
+		ApplicationTag: appTag,
+		Status:         appStatus,
 	}
 	for _, u := range units {
 		// For pods managed by the substrate, any marked as dying

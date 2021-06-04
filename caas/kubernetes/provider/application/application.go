@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -681,6 +682,9 @@ func convertServicePort(p caas.ServicePort) corev1.ServicePort {
 func (a *app) getService() (*resources.Service, error) {
 	svc := resources.NewService(a.name, a.namespace, nil)
 	if err := svc.Get(context.Background(), a.client); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, errors.NotFoundf("service %q", a.name)
+		}
 		return nil, errors.Trace(err)
 	}
 	return svc, nil
@@ -941,7 +945,15 @@ func (a *app) Watch() (watcher.NotifyWatcher, error) {
 	default:
 		return nil, errors.NotSupportedf("unknown deployment type")
 	}
-	return a.newWatcher(informer, a.name, a.clock)
+	w1, err := a.newWatcher(informer, a.name, a.clock)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	w2, err := a.newWatcher(factory.Core().V1().Services().Informer(), a.name, a.clock)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return watcher.NewMultiNotifyWatcher(w1, w2), nil
 }
 
 func (a *app) WatchReplicas() (watcher.NotifyWatcher, error) {
@@ -1006,6 +1018,32 @@ func (a *app) State() (caas.ApplicationState, error) {
 	}
 	sort.Strings(state.Replicas)
 	return state, nil
+}
+
+// Service returns the service associated with the application.
+func (a *app) Service() (*caas.Service, error) {
+	svc, err := a.getService()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ctx := context.Background()
+	now := a.clock.Now()
+	statusMessage, svcStatus, since, err := svc.ComputeStatus(ctx, a.client, now)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &caas.Service{
+		Id:        string(svc.GetUID()),
+		Addresses: k8sutils.GetSvcAddresses(&svc.Service, false),
+		Status: status.StatusInfo{
+			Status:  svcStatus,
+			Message: statusMessage,
+			Since:   &since,
+		},
+		// Generate and Scale are not used here.
+		Generation: nil,
+		Scale:      nil,
+	}, nil
 }
 
 // Units of the application fetched from kubernetes by matching pod labels.
