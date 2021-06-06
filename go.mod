@@ -15,7 +15,7 @@ require (
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
 	github.com/aws/aws-sdk-go v1.36.2
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/canonical/pebble v0.0.0-20210418225304-713a473474b7
+	github.com/canonical/pebble v0.0.0-20210523225630-645d2ba3f000
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
@@ -40,7 +40,6 @@ require (
 	github.com/imdario/mergo v0.3.10 // indirect
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
-	github.com/juju/bundlechanges/v5 v5.0.0-20210224113052-f5fb3bbb6c25
 	github.com/juju/charm/v9 v9.0.0-20210512004933-c21e01ffd4ad
 	github.com/juju/charmrepo/v7 v7.0.0-20210427073450-742f84f1c0ff
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
@@ -53,6 +52,7 @@ require (
 	github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2
 	github.com/juju/gomaasapi/v2 v2.0.0-20210323144809-92beddd020fe
 	github.com/juju/http v0.0.0-20201019013536-69ae1d429836
+	github.com/juju/http/v2 v2.0.0-20210527161802-e8d841c4e076
 	github.com/juju/idmclient/v2 v2.0.0-20210309081103-6b4a5212f851
 	github.com/juju/jsonschema v0.0.0-20210422141032-b0ff291abe9c
 	github.com/juju/jsonschema-gen v0.0.0-20200416014454-d924343d72b2
@@ -62,7 +62,7 @@ require (
 	github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
 	github.com/juju/os/v2 v2.1.2
-	github.com/juju/packaging v0.0.0-20200421095529-970596d2622a
+	github.com/juju/packaging v0.0.0-20210602012220-a1d8f0c5acd9
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
 	github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4
 	github.com/juju/pubsub v0.0.0-20190419131051-c1f7536b9cc6

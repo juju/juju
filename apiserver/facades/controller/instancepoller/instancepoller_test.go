@@ -487,7 +487,12 @@ func (s *InstancePollerSuite) TestProviderAddressesFailure(c *gc.C) {
 
 func (s *InstancePollerSuite) TestSetProviderAddressesSuccess(c *gc.C) {
 	oldAddrs := network.NewSpaceAddresses("0.1.2.3", "127.0.0.1", "8.8.8.8")
-	newAddrs := network.NewSpaceAddresses("1.2.3.4", "8.4.4.8", "2001:db8::")
+	newAddrs := network.SpaceAddresses{
+		network.NewSpaceAddress("1.2.3.4", network.WithCIDR("1.2.3.0/24")),
+		network.NewSpaceAddress("8.4.4.8", network.WithCIDR("8.4.4.0/24")),
+		network.NewSpaceAddress("2001:db8::"),
+	}
+
 	s.st.SetMachineInfo(c, machineInfo{id: "1", providerAddresses: oldAddrs})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", providerAddresses: nil})
 
@@ -564,6 +569,7 @@ func toParamAddresses(addrs network.SpaceAddresses) []params.Address {
 			Value: addr.Value,
 			Type:  string(addr.Type),
 			Scope: string(addr.Scope),
+			CIDR:  addr.CIDR,
 		}
 	}
 	return paramAddrs
@@ -756,11 +762,23 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
 				Tag: "machine-1",
 				Configs: []params.NetworkConfig{
 					{
+						// TODO (manadart 2021-05-31): This tests that we
+						// consider the individual CIDRs and not the deprecated
+						// CIDR for the device.
+						// Remove for Juju 3/4.
+						CIDR: "10.0.0.0/24",
 						Addresses: []params.Address{
 							{
 								Value: "10.0.0.42",
 								Scope: "local-cloud",
+								CIDR:  "10.0.0.0/24",
 							},
+							{
+								Value: "10.73.37.110",
+								Scope: "local-cloud",
+								CIDR:  "10.73.37.0/24",
+							},
+							// Resolved by provider's space ID.
 							{
 								Value:           "10.73.37.111",
 								Scope:           "local-cloud",
@@ -789,7 +807,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Modified, jc.IsTrue)
-	c.Assert(result.Addresses, gc.HasLen, 4)
+	c.Assert(result.Addresses, gc.HasLen, 5)
 	c.Assert(result.Addresses[0], gc.DeepEquals, params.Address{
 		Value:     "10.0.0.42",
 		Type:      "ipv4",
@@ -797,18 +815,24 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
 		SpaceName: "space1",
 	})
 	c.Assert(result.Addresses[1], gc.DeepEquals, params.Address{
-		Value:     "10.73.37.111",
+		Value:     "10.73.37.110",
 		Type:      "ipv4",
 		Scope:     "local-cloud",
 		SpaceName: "my-space-on-maas",
 	})
 	c.Assert(result.Addresses[2], gc.DeepEquals, params.Address{
+		Value:     "10.73.37.111",
+		Type:      "ipv4",
+		Scope:     "local-cloud",
+		SpaceName: "my-space-on-maas",
+	})
+	c.Assert(result.Addresses[3], gc.DeepEquals, params.Address{
 		Value:     "192.168.0.1",
 		Type:      "ipv4",
 		Scope:     "local-cloud",
 		SpaceName: "alpha",
 	})
-	c.Assert(result.Addresses[3], gc.DeepEquals, params.Address{
+	c.Assert(result.Addresses[4], gc.DeepEquals, params.Address{
 		Value:     "1.1.1.42",
 		Type:      "ipv4",
 		Scope:     "public",
@@ -821,6 +845,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
 
 	c.Assert(providerAddrs, gc.DeepEquals, network.SpaceAddresses{
 		makeSpaceAddress("10.0.0.42", network.ScopeCloudLocal, "1"),
+		makeSpaceAddress("10.73.37.110", network.ScopeCloudLocal, "2"),
 		makeSpaceAddress("10.73.37.111", network.ScopeCloudLocal, "2"),
 		makeSpaceAddress("192.168.0.1", network.ScopeCloudLocal, network.AlphaSpaceId),
 		makeSpaceAddress("1.1.1.42", network.ScopePublic, network.AlphaSpaceId),
@@ -1159,9 +1184,7 @@ func (s *InstancePollerSuite) setDefaultSpaceInfo() {
 	s.st.SetSpaceInfo(network.SpaceInfos{
 		{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName},
 		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{{CIDR: "10.0.0.0/24"}}},
-		{ID: "2", Name: "my-space-on-maas", Subnets: []network.SubnetInfo{
-			{CIDR: "10.73.37.0/24", ProviderId: "my-space-on-maas"},
-		}},
+		{ID: "2", Name: "my-space-on-maas", ProviderId: "my-space-on-maas", Subnets: []network.SubnetInfo{{CIDR: "10.73.37.0/24"}}},
 	})
 }
 

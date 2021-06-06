@@ -218,6 +218,7 @@ func (s *UniterSuite) TestUniterRestartWithCharmDirInvalidThenRecover(c *gc.C) {
 				charm:  1,
 			},
 			waitHooks{"upgrade-charm", "config-changed"},
+			waitHooks{},
 			verifyCharm{revision: 1},
 			verifyRunning{},
 		),
@@ -1505,4 +1506,16 @@ func executorFunc(c *gc.C) uniter.NewOperationExecutorFunc {
 		c.Assert(err, jc.ErrorIsNil)
 		return &mockExecutor{e}, nil
 	}
+}
+
+func (s *UniterSuite) TestShutdown(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"shutdown",
+			quickStart{},
+			triggerShutdown{},
+			waitHooks{"stop"},
+			expectError{"agent should be terminated"},
+		),
+	})
 }

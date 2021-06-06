@@ -46,7 +46,6 @@ import (
 
 const (
 	initialMachinePassword = "machine-password-1234567890"
-	initialUnitPassword    = "unit-password-1234567890"
 	startWorkerWait        = 250 * time.Millisecond
 )
 

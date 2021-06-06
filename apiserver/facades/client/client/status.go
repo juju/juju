@@ -1172,8 +1172,8 @@ func paramsJobsFromJobs(jobs []state.MachineJob) []model.MachineJob {
 
 func (context *statusContext) processApplications() map[string]params.ApplicationStatus {
 	applicationsMap := make(map[string]params.ApplicationStatus)
-	for _, s := range context.allAppsUnitsCharmBindings.applications {
-		applicationsMap[s.Name()] = context.processApplication(s)
+	for _, app := range context.allAppsUnitsCharmBindings.applications {
+		applicationsMap[app.Name()] = context.processApplication(app)
 	}
 	return applicationsMap
 }
@@ -1300,17 +1300,17 @@ func (context *statusContext) processApplication(application *state.Application)
 				processedStatus.WorkloadVersion = spec.Containers[0].Image
 			}
 		}
-		serviceInfo, err := application.ServiceInfo()
-		if err == nil {
-			processedStatus.ProviderId = serviceInfo.ProviderId()
-			if len(serviceInfo.Addresses()) > 0 {
-				processedStatus.PublicAddress = serviceInfo.Addresses()[0].Value
-			}
-		} else {
-			logger.Debugf("no service details for %v: %v", application.Name(), err)
-		}
-		processedStatus.Scale = application.GetScale()
 	}
+	serviceInfo, err := application.ServiceInfo()
+	if err == nil {
+		processedStatus.ProviderId = serviceInfo.ProviderId()
+		if len(serviceInfo.Addresses()) > 0 {
+			processedStatus.PublicAddress = serviceInfo.Addresses()[0].Value
+		}
+	} else {
+		logger.Debugf("no service details for %v: %v", application.Name(), err)
+	}
+	processedStatus.Scale = application.GetScale()
 	processedStatus.EndpointBindings = context.allAppsUnitsCharmBindings.endpointBindings[application.Name()]
 	return processedStatus
 }

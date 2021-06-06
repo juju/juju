@@ -23,6 +23,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -48,6 +49,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -1275,27 +1277,44 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientFindTools(c *gc.C) {
-	result, err := s.APIState.Client().FindTools(99, -1, "", "", "")
+	s.assertClientFindTools(c, s.APIState)
+}
+
+func (s *clientSuite) TestClientFindToolsCAAS(c *gc.C) {
+	otherSt := s.Factory.MakeCAASModel(c, nil)
+	defer otherSt.Close()
+
+	apiInfo, err := environs.APIInfo(s.ProviderCallContext, s.ControllerConfig.ControllerUUID(), coretesting.ModelTag.Id(), coretesting.CACert, s.ControllerConfig.APIPort(), s.Environ)
+	c.Assert(err, jc.ErrorIsNil)
+	apiInfo.Tag = s.AdminUserTag(c)
+	apiInfo.Password = jujutesting.AdminSecret
+	apiCaller, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertClientFindTools(c, apiCaller)
+}
+
+func (s *clientSuite) assertClientFindTools(c *gc.C, apiCaller api.Connection) {
+	result, err := apiCaller.Client().FindTools(99, -1, "", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
 	toolstesting.UploadToStorage(c, s.DefaultToolsStorage, "released", version.MustParseBinary("2.99.0-ubuntu-amd64"))
-	result, err = s.APIState.Client().FindTools(2, 99, "ubuntu", "amd64", "")
+	result, err = apiCaller.Client().FindTools(2, 99, "ubuntu", "amd64", "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.HasLen, 1)
 	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.99.0-ubuntu-amd64"))
 	url := fmt.Sprintf("https://%s/model/%s/tools/%s",
-		s.APIState.Addr(), coretesting.ModelTag.Id(), result.List[0].Version)
+		apiCaller.Addr(), coretesting.ModelTag.Id(), result.List[0].Version)
 	c.Assert(result.List[0].URL, gc.Equals, url)
 
 	toolstesting.UploadToStorage(c, s.DefaultToolsStorage, "pretend", version.MustParseBinary("3.0.1-ubuntu-amd64"))
-	result, err = s.APIState.Client().FindTools(3, 0, "ubuntu", "amd64", "pretend")
+	result, err = apiCaller.Client().FindTools(3, 0, "ubuntu", "amd64", "pretend")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.HasLen, 1)
 	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("3.0.1-ubuntu-amd64"))
 	url = fmt.Sprintf("https://%s/model/%s/tools/%s",
-		s.APIState.Addr(), coretesting.ModelTag.Id(), result.List[0].Version)
+		apiCaller.Addr(), coretesting.ModelTag.Id(), result.List[0].Version)
 	c.Assert(result.List[0].URL, gc.Equals, url)
 }
 

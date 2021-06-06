@@ -164,6 +164,6 @@ func (u *fakeStatusUnit) ShouldBeAssigned() bool {
 	return u.shouldBeAssigned
 }
 
-func (u *fakeStatusUnit) IsEmbedded() (bool, error) {
+func (u *fakeStatusUnit) IsSidecar() (bool, error) {
 	return false, nil
 }

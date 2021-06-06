@@ -4,6 +4,9 @@
 package caasapplication_test
 
 import (
+	"errors"
+
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -71,4 +74,45 @@ func (s *provisionerSuite) TestUnitIntroductionFail(c *gc.C) {
 	_, err := client.UnitIntroduction("pod-name", "pod-uuid")
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 	c.Assert(called, jc.IsTrue)
+}
+
+func (s *provisionerSuite) TestUnitTerminating(c *gc.C) {
+	tests := []struct {
+		willRestart bool
+		err         error
+	}{
+		{false, nil},
+		{true, nil},
+		{false, errors.New("oops")},
+	}
+	for _, test := range tests {
+		var called bool
+		client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+			called = true
+			c.Assert(objType, gc.Equals, "CAASApplication")
+			c.Assert(id, gc.Equals, "")
+			c.Assert(request, gc.Equals, "UnitTerminating")
+			c.Assert(a, gc.FitsTypeOf, params.Entity{})
+			args := a.(params.Entity)
+			c.Assert(args.Tag, gc.Equals, "unit-app-0")
+			c.Assert(result, gc.FitsTypeOf, &params.CAASUnitTerminationResult{})
+			var err *params.Error
+			if test.err != nil {
+				err = &params.Error{Message: test.err.Error()}
+			}
+			*(result.(*params.CAASUnitTerminationResult)) = params.CAASUnitTerminationResult{
+				WillRestart: test.willRestart,
+				Error:       err,
+			}
+			return nil
+		})
+		unitTermination, err := client.UnitTerminating(names.NewUnitTag("app/0"))
+		if test.err == nil {
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, test.err.Error())
+		}
+		c.Assert(called, jc.IsTrue)
+		c.Assert(unitTermination, gc.DeepEquals, caasapplication.UnitTermination{WillRestart: test.willRestart})
+	}
 }

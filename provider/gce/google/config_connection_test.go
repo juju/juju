@@ -4,6 +4,7 @@
 package google_test
 
 import (
+	jujuhttp "github.com/juju/http/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -18,8 +19,9 @@ var _ = gc.Suite(&connConfigSuite{})
 
 func (*connConfigSuite) TestValidateValid(c *gc.C) {
 	cfg := google.ConnectionConfig{
-		Region:    "spam",
-		ProjectID: "eggs",
+		Region:     "spam",
+		ProjectID:  "eggs",
+		HTTPClient: jujuhttp.NewClient(),
 	}
 	err := cfg.Validate()
 

@@ -261,7 +261,7 @@ func (s *UpgradeSuite) TestAPIConnectionFailure(c *gc.C) {
 	c.Assert(doneLock.IsUnlocked(), jc.IsFalse)
 }
 
-func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesntStartUpgrade(c *gc.C) {
+func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesNotStartUpgrade(c *gc.C) {
 	// This test checks when a controller is upgrading and one of
 	// the other controllers doesn't signal it is ready in time.
 

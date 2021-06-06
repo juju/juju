@@ -6240,6 +6240,18 @@
                         }
                     },
                     "description": "UnitIntroduction sets the status of each given entity."
+                },
+                "UnitTerminating": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/CAASUnitTerminationResult"
+                        }
+                    },
+                    "description": "UnitTerminating should be called by the CAASUnitTerminationWorker when\nthe agent receives a signal to exit. UnitTerminating will return how\nthe agent should shutdown."
                 }
             },
             "definitions": {
@@ -6289,6 +6301,34 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "CAASUnitTerminationResult": {
+                    "type": "object",
+                    "properties": {
+                        "Error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "WillRestart": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "WillRestart",
+                        "Error"
+                    ]
+                },
+                "Entity": {
+                    "type": "object",
+                    "properties": {
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
+                    ]
                 },
                 "Error": {
                     "type": "object",
@@ -8289,7 +8329,7 @@
     },
     {
         "Name": "CAASFirewallerEmbedded",
-        "Description": "FacadeEmbedded provides access to the CAASFireWaller API facade for embedded applications.",
+        "Description": "FacadeSidecar provides access to the CAASFirewaller API facade for sidecar applications.",
         "Version": 1,
         "AvailableTo": [
             "controller-machine-agent",
@@ -33131,7 +33171,6 @@
                         "snap-store-assertions",
                         "snap-store-proxy-id",
                         "snap-store-proxy-url",
-                        "apt-mirror",
                         "UpdateBehavior"
                     ]
                 },
@@ -34803,7 +34842,7 @@
                             "$ref": "#/definitions/NotifyWatchResults"
                         }
                     },
-                    "description": "WatchForProxyConfigAndAPIHostPortChanges watches for cleanups to be perfomed in state"
+                    "description": "WatchForProxyConfigAndAPIHostPortChanges watches for changes to the proxy and api host port settings."
                 }
             },
             "definitions": {
@@ -34916,6 +34955,9 @@
                 "ProxyConfigResult": {
                     "type": "object",
                     "properties": {
+                        "apt-mirror": {
+                            "type": "string"
+                        },
                         "apt-proxy-settings": {
                             "$ref": "#/definitions/ProxyConfig"
                         },

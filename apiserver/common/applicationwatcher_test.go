@@ -20,7 +20,7 @@ type applicationWatcherSuite struct{}
 
 var _ = gc.Suite(&applicationWatcherSuite{})
 
-func (s *applicationWatcherSuite) TestEmbeddedFilter(c *gc.C) {
+func (s *applicationWatcherSuite) TestSidecarFilter(c *gc.C) {
 	app1 := &mockAppWatcherApplication{
 		charm: mockAppWatcherCharm{
 			meta: &charm.Meta{},
@@ -59,7 +59,7 @@ func (s *applicationWatcherSuite) TestEmbeddedFilter(c *gc.C) {
 	}
 	resources := &mockAppWatcherResources{}
 	defer resources.Cleanup(c)
-	f := common.NewApplicationWatcherFacade(state, resources, common.ApplicationFilterCAASEmbedded)
+	f := common.NewApplicationWatcherFacade(state, resources, common.ApplicationFilterCAASSidecar)
 	watcher, err := f.WatchApplications()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watcher, gc.NotNil)

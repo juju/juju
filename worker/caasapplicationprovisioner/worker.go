@@ -34,6 +34,7 @@ type CAASUnitProvisionerFacade interface {
 	WatchApplicationScale(string) (watcher.NotifyWatcher, error)
 	ApplicationTrust(string) (bool, error)
 	WatchApplicationTrustHash(string) (watcher.StringsWatcher, error)
+	UpdateApplicationService(arg params.UpdateApplicationServiceArg) error
 }
 
 // CAASProvisionerFacade exposes CAAS provisioning functionality to a worker.

@@ -5,6 +5,8 @@
 package windows_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -205,4 +207,17 @@ func (s *serviceSuite) TestInstalledListError(c *gc.C) {
 	exists, err := s.mgr.Installed()
 	c.Assert(err.Error(), gc.Equals, listErr.Error())
 	c.Assert(exists, jc.IsFalse)
+}
+
+func (s *serviceSuite) TestInstallCommands(c *gc.C) {
+	commands, err := s.mgr.InstallCommands()
+	c.Assert(err, gc.IsNil)
+
+	expected := []string{
+		fmt.Sprintf("New-Service -Credential $jujuCreds -Name '%s' -DependsOn Winmgmt -DisplayName '%s' '%s'", s.name, s.conf.Desc, s.conf.ExecStart),
+		fmt.Sprintf("sc.exe failure '%s' reset=5 actions=restart/1000", s.name),
+		fmt.Sprintf("sc.exe failureflag '%s' 1", s.name),
+	}
+
+	c.Assert(commands, gc.DeepEquals, expected)
 }

@@ -33,7 +33,11 @@ type Application interface {
 	Trust(bool) error
 
 	State() (ApplicationState, error)
+
+	// Units of the application fetched from kubernetes by matching pod labels.
 	Units() ([]Unit, error)
+	// Service returns the service associated with the application.
+	Service() (*Service, error)
 
 	// Upgrade upgrades the app to the specified version.
 	Upgrade(version.Number) error

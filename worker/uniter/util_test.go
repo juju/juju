@@ -68,7 +68,7 @@ var (
 // will fail the test. Raising this value should
 // not affect the overall running time of the tests
 // unless they fail.
-const worstCase = coretesting.LongWait
+const worstCase = 100 * coretesting.LongWait
 
 // Assign the unit to a provisioned machine with dummy addresses set.
 func assertAssignUnit(c *gc.C, st *state.State, u *state.Unit) {
@@ -1679,4 +1679,12 @@ func (s injectTestContainer) step(c *gc.C, ctx *testContext) {
 	ctx.pebbleClients[s.containerName] = &fakePebbleClient{
 		err: errors.BadRequestf("not ready yet"),
 	}
+}
+
+type triggerShutdown struct {
+}
+
+func (t triggerShutdown) step(c *gc.C, ctx *testContext) {
+	err := ctx.uniter.Terminate()
+	c.Assert(err, jc.ErrorIsNil)
 }

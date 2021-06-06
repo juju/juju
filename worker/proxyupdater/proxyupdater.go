@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	stdexec "os/exec"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/os/v2/series"
@@ -65,8 +66,9 @@ type API interface {
 // changes are apt proxy configuration and the juju proxies stored in the juju
 // proxy file.
 type proxyWorker struct {
-	aptProxy proxy.Settings
-	proxy    proxy.Settings
+	aptProxy  proxy.Settings
+	aptMirror string
+	proxy     proxy.Settings
 
 	snapProxy           proxy.Settings
 	snapStoreProxy      string
@@ -216,7 +218,7 @@ func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, store
 		return
 	}
 	if w.config.RunFunc == nil {
-		w.config.Logger.Tracef("snap proxies not updated by unit agents")
+		w.config.Logger.Tracef("snap proxies not updated")
 		return
 	}
 
@@ -286,18 +288,28 @@ func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, store
 	}
 }
 
-func (w *proxyWorker) handleAptProxyValues(aptSettings proxy.Settings) error {
+func (w *proxyWorker) handleAptProxyValues(aptSettings proxy.Settings, aptMirror string) {
 	if hostOS := getHostOS(); hostOS == os.Windows || hostOS == os.CentOS {
 		w.config.Logger.Tracef("no apt proxies on %s", hostOS)
-		return nil
+		return
+	}
+
+	mirrorUpdateNeeded := aptMirror != "" && aptMirror != w.aptMirror
+	updateNeeded := w.first || aptSettings != w.aptProxy || mirrorUpdateNeeded
+	var (
+		paccmder commands.PackageCommander
+		err      error
+	)
+	if updateNeeded {
+		paccmder, err = getPackageCommander()
+		if err != nil {
+			w.config.Logger.Errorf("unable to process apt proxy changes: %v", err)
+			return
+		}
 	}
 
 	if aptSettings != w.aptProxy || w.first {
 		w.config.Logger.Debugf("new apt proxy settings %#v", aptSettings)
-		paccmder, err := getPackageCommander()
-		if err != nil {
-			return err
-		}
 		w.aptProxy = aptSettings
 
 		// Always finish with a new line.
@@ -308,7 +320,25 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxy.Settings) error {
 			w.config.Logger.Errorf("error writing apt proxy config file: %v", err)
 		}
 	}
-	return nil
+	if mirrorUpdateNeeded {
+		if w.config.RunFunc == nil {
+			w.config.Logger.Tracef("apt mirrors not updated")
+			return
+		}
+		w.config.Logger.Debugf("new apt mirror value %v", aptMirror)
+		w.aptMirror = aptMirror
+
+		cmds := paccmder.SetMirrorCommands(aptMirror, aptMirror)
+		script := []string{"#!/bin/bash", "set -e"}
+		script = append(script, "(")
+		script = append(script, cmds...)
+		script = append(script, ")")
+		w.config.Logger.Tracef(strings.Join(script, "\n"))
+		if output, err := w.config.RunFunc(noStdIn, "/bin/bash", "-c", strings.Join(script, "\n")); err != nil {
+			w.config.Logger.Warningf("unable to update apt mirrors: %v, output: %q", err, output)
+		}
+	}
+	return
 }
 
 func (w *proxyWorker) onChange() error {
@@ -319,7 +349,8 @@ func (w *proxyWorker) onChange() error {
 
 	w.handleProxyValues(config.LegacyProxy, config.JujuProxy)
 	w.handleSnapProxyValues(config.SnapProxy, config.SnapStoreProxyId, config.SnapStoreProxyAssertions, config.SnapStoreProxyURL)
-	return w.handleAptProxyValues(config.APTProxy)
+	w.handleAptProxyValues(config.APTProxy, config.AptMirror)
+	return nil
 }
 
 // SetUp is defined on the worker.NotifyWatchHandler interface.

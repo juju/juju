@@ -101,12 +101,19 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	clientLogger := logger.Child("client")
+	options := []charmhub.Option{
+		// TODO (stickupkid): Get the http transport from the facade context
+		charmhub.WithHTTPTransport(charmhub.DefaultHTTPTransport),
+	}
+
 	var chCfg charmhub.Config
 	chURL, ok := modelCfg.CharmHubURL()
 	if ok {
-		chCfg, err = charmhub.CharmHubConfigFromURL(chURL, logger.Child("client"))
+		chCfg, err = charmhub.CharmHubConfigFromURL(chURL, clientLogger, options...)
 	} else {
-		chCfg, err = charmhub.CharmHubConfig(logger.Child("client"))
+		chCfg, err = charmhub.CharmHubConfig(clientLogger, options...)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -183,20 +183,31 @@ func (c *DownloadClient) downloadFromURL(ctx context.Context, resourceURL *url.U
 		return nil, errors.Annotatef(err, "cannot make new request")
 	}
 
+	c.logger.Tracef("download from URL %s", resourceURL.String())
+
 	resp, err = c.transport.Do(req)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get archive")
 	}
-	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusNoContent {
+	// If we get anything but a 200 status code, we don't know how to correctly
+	// handle that scenario. Return early and deal with the failure later on.
+	if resp.StatusCode == http.StatusOK {
 		return resp, nil
 	}
 
-	// Clean up, as we can't really offer anything of use here.
+	c.logger.Errorf("download failed from %s: response code: %s", resourceURL.String(), resp.Status)
+
+	// Ensure we drain the response body so this connection can be reused. As
+	// there is no error message, we have no ability other than to check the
+	// status codes.
 	_, _ = io.Copy(ioutil.Discard, resp.Body)
 	_ = resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, errors.NotFoundf("archive")
 	}
-	return nil, errors.Errorf("unable to locate archive")
+
+	// Server error, nothing we can do other than inform the user that the
+	// archive was unaviable.
+	return nil, errors.Errorf("unable to locate archive (store API responded with status: %s)", resp.Status)
 }

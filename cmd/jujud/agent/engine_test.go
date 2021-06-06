@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/agent/model"
-	"github.com/juju/juju/cmd/jujud/agent/unit"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -92,34 +91,6 @@ var (
 	// to take even longer.
 	ReallyLongWait = coretesting.LongWait * 3
 
-	alwaysUnitWorkers = []string{
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"log-sender",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"migration-minion",
-		"upgrader",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-		"upgrade-check-gate",
-		"upgrade-check-flag",
-	}
-	notMigratingUnitWorkers = []string{
-		"api-address-updater",
-		"charm-dir",
-		"hook-retry-strategy",
-		"leadership-tracker",
-		"logging-config-updater",
-		"meter-status",
-		"metric-collect",
-		"metric-sender",
-		"metric-spool",
-		"proxy-config-updater",
-		"uniter",
-	}
-
 	alwaysMachineWorkers = []string{
 		"agent",
 		"api-caller",
@@ -175,19 +146,6 @@ type MachineManifoldsFunc func(config machine.ManifoldsConfig) dependency.Manifo
 
 func TrackMachines(c *gc.C, tracker *agenttest.EngineTracker, inner MachineManifoldsFunc) MachineManifoldsFunc {
 	return func(config machine.ManifoldsConfig) dependency.Manifolds {
-		raw := inner(config)
-		id := config.Agent.CurrentConfig().Tag().String()
-		if err := tracker.Install(raw, id); err != nil {
-			c.Errorf("cannot install tracker: %v", err)
-		}
-		return raw
-	}
-}
-
-type UnitManifoldsFunc func(config unit.ManifoldsConfig) dependency.Manifolds
-
-func TrackUnits(c *gc.C, tracker *agenttest.EngineTracker, inner UnitManifoldsFunc) UnitManifoldsFunc {
-	return func(config unit.ManifoldsConfig) dependency.Manifolds {
 		raw := inner(config)
 		id := config.Agent.CurrentConfig().Tag().String()
 		if err := tracker.Install(raw, id); err != nil {

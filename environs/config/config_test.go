@@ -898,6 +898,10 @@ var validationTests = []validationTest{{
 	old:   testing.Attrs{"charmhub-url": "http://a.com"},
 	new:   testing.Attrs{"charmhub-url": "http://b.com"},
 	err:   `cannot change charmhub-url from "http://a.com" to "http://b.com"`,
+}, {
+	about: "Can't clear apt-mirror",
+	old:   testing.Attrs{"apt-mirror": "http://mirror"},
+	err:   `cannot clear apt-mirror`,
 }}
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {

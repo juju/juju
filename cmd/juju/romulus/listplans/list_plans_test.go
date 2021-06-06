@@ -68,9 +68,9 @@ func (s *ListPlansCommandSuite) SetUpTest(c *gc.C) {
 
 func (s *ListPlansCommandSuite) TestTabularOutput(c *gc.C) {
 	ctx, err := s.runCommand(c, &mockCharmResolver{
-		ResolvedURL: "series/some-charm-url",
+		ResolvedURL: "cs:series/some-charm-url",
 		Stub:        s.stub,
-	}, "some-charm-url")
+	}, "cs:some-charm-url")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
 		`Plan             	Price	Description                                       
@@ -151,37 +151,42 @@ func (s *ListPlansCommandSuite) TestGetCommands(c *gc.C) {
 		apiCall          []interface{}
 	}{{
 		about:            "charm url is resolved",
-		args:             []string{"some-charm-url"},
-		resolvedCharmURL: "series/some-charm-url-1",
-		apiCall:          []interface{}{"series/some-charm-url-1"},
+		args:             []string{"cs:some-charm-url"},
+		resolvedCharmURL: "cs:series/some-charm-url-1",
+		apiCall:          []interface{}{"cs:series/some-charm-url-1"},
 	}, {
 		about:   "everything works - default format",
-		args:    []string{"some-charm-url"},
-		apiCall: []interface{}{"some-charm-url"},
+		args:    []string{"cs:some-charm-url"},
+		apiCall: []interface{}{"cs:some-charm-url"},
 	}, {
 		about:   "everything works - yaml",
-		args:    []string{"some-charm-url", "--format", "yaml"},
-		apiCall: []interface{}{"some-charm-url"},
+		args:    []string{"cs:some-charm-url", "--format", "yaml"},
+		apiCall: []interface{}{"cs:some-charm-url"},
 	}, {
 		about:   "everything works - smart",
-		args:    []string{"some-charm-url", "--format", "smart"},
-		apiCall: []interface{}{"some-charm-url"},
+		args:    []string{"cs:some-charm-url", "--format", "smart"},
+		apiCall: []interface{}{"cs:some-charm-url"},
 	}, {
 		about:   "everything works - json",
-		args:    []string{"some-charm-url", "--format", "json"},
-		apiCall: []interface{}{"some-charm-url"},
+		args:    []string{"cs:some-charm-url", "--format", "json"},
+		apiCall: []interface{}{"cs:some-charm-url"},
 	}, {
 		about:   "everything works - summary",
-		args:    []string{"some-charm-url", "--format", "summary"},
-		apiCall: []interface{}{"some-charm-url"},
+		args:    []string{"cs:some-charm-url", "--format", "summary"},
+		apiCall: []interface{}{"cs:some-charm-url"},
 	}, {
 		about:   "everything works - tabular",
-		args:    []string{"some-charm-url", "--format", "tabular"},
-		apiCall: []interface{}{"some-charm-url"},
+		args:    []string{"cs:some-charm-url", "--format", "tabular"},
+		apiCall: []interface{}{"cs:some-charm-url"},
 	}, {
 		about:   "missing argument",
 		args:    []string{},
-		err:     `missing arguments`,
+		err:     `missing charm-store charm URL argument`,
+		apiCall: []interface{}{},
+	}, {
+		about:   "invalid charm url",
+		args:    []string{"some-url"},
+		err:     `non charm-store URLs not supported`,
 		apiCall: []interface{}{},
 	}, {
 		about:   "unknown arguments",

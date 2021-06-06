@@ -10,6 +10,7 @@ import (
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -189,6 +191,17 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 				Replicas:        []string{"test-0"},
 			}, nil
 		}),
+		brokerApp.EXPECT().Service().DoAndReturn(func() (*caas.Service, error) {
+			return &caas.Service{
+				Id:        "deadbeef",
+				Addresses: network.NewProviderAddresses("10.6.6.6"),
+			}, nil
+		}),
+		unitFacade.EXPECT().UpdateApplicationService(params.UpdateApplicationServiceArg{
+			ApplicationTag: "application-test",
+			ProviderId:     "deadbeef",
+			Addresses:      params.FromProviderAddresses(network.NewProviderAddress("10.6.6.6")),
+		}).Return(nil),
 		facade.EXPECT().GarbageCollect("test", []names.Tag{names.NewUnitTag("test/0")}, 1, []string{"test-0"}, false).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
 			return nil
 		}),
@@ -281,6 +294,17 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 				Replicas:        []string(nil),
 			}, nil
 		}),
+		brokerApp.EXPECT().Service().DoAndReturn(func() (*caas.Service, error) {
+			return &caas.Service{
+				Id:        "deadbeef",
+				Addresses: network.NewProviderAddresses("10.6.6.6"),
+			}, nil
+		}),
+		unitFacade.EXPECT().UpdateApplicationService(params.UpdateApplicationServiceArg{
+			ApplicationTag: "application-test",
+			ProviderId:     "deadbeef",
+			Addresses:      params.FromProviderAddresses(network.NewProviderAddress("10.6.6.6")),
+		}).Return(nil),
 		facade.EXPECT().GarbageCollect("test", []names.Tag{names.NewUnitTag("test/0")}, 0, []string(nil), false).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
 			notifyReady <- struct{}{}
 			return nil
@@ -328,6 +352,9 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 				DesiredReplicas: 0,
 				Replicas:        []string(nil),
 			}, nil
+		}),
+		brokerApp.EXPECT().Service().DoAndReturn(func() (*caas.Service, error) {
+			return nil, errors.NotFoundf("test")
 		}),
 		facade.EXPECT().GarbageCollect("test", []names.Tag(nil), 0, []string(nil), true).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
 			close(done)

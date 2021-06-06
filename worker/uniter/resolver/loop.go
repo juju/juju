@@ -4,6 +4,7 @@
 package resolver
 
 import (
+	corecharm "github.com/juju/charm/v9"
 	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 
@@ -44,6 +45,7 @@ type LoopConfig struct {
 	Abort         <-chan struct{}
 	OnIdle        func() error
 	CharmDirGuard fortress.Guard
+	CharmDir      string
 	Logger        Logger
 }
 
@@ -77,7 +79,7 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 
 	// If we're restarting the loop, ensure any pending charm upgrade is run
 	// before continuing.
-	err = checkCharmUpgrade(cfg.Logger, cfg.Watcher.Snapshot(), rf, cfg.Executor)
+	err = checkCharmUpgrade(cfg.Logger, cfg.CharmDir, cfg.Watcher.Snapshot(), rf, cfg.Executor)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -179,7 +181,7 @@ func updateCharmDir(opState operation.State, guard fortress.Guard, abort fortres
 	}
 }
 
-func checkCharmUpgrade(logger Logger, remote remotestate.Snapshot, rf *resolverOpFactory, ex operation.Executor) error {
+func checkCharmUpgrade(logger Logger, charmDir string, remote remotestate.Snapshot, rf *resolverOpFactory, ex operation.Executor) error {
 	// If we restarted due to error with a pending charm upgrade available,
 	// do the upgrade now.  There are cases (lp:1895040) where the error was
 	// caused because not all units were upgraded before relation-created
@@ -190,18 +192,14 @@ func checkCharmUpgrade(logger Logger, remote remotestate.Snapshot, rf *resolverO
 	local := rf.LocalState
 	local.State = ex.State()
 
-	// If the unit isn't started or already upgrading, no need to start an upgrade.
-	if !local.State.Started || local.State.Kind == operation.Upgrade ||
+	// If the unit isn't installed or already upgrading, no need to start an upgrade.
+	if !local.State.Installed || local.State.Kind == operation.Upgrade ||
 		(local.State.Hook != nil && local.State.Hook.Kind == hooks.UpgradeCharm) ||
 		remote.CharmURL == nil {
 		return nil
 	}
 
-	if *local.CharmURL == *remote.CharmURL {
-		return nil
-	}
-
-	if remote.CharmProfileRequired {
+	if local.State.Started && remote.CharmProfileRequired {
 		if remote.LXDProfileName == "" {
 			return nil
 		}
@@ -215,7 +213,19 @@ func checkCharmUpgrade(logger Logger, remote remotestate.Snapshot, rf *resolverO
 		}
 	}
 
-	logger.Debugf("execute pending upgrade from %s to %s after uniter loop restart", local.CharmURL, remote.CharmURL)
+	_, err := corecharm.ReadCharmDir(charmDir)
+	haveCharmDir := err == nil
+	sameCharm := *local.CharmURL == *remote.CharmURL
+	if haveCharmDir && (!local.State.Started || sameCharm) {
+		return nil
+	}
+	if !haveCharmDir {
+		logger.Debugf("start to re-download charm %v because charm dir %q has gone which is usually caused by operator pod re-scheduling", remote.CharmURL, charmDir)
+	}
+	if !sameCharm {
+		logger.Debugf("execute pending upgrade from %s to %s after uniter loop restart", local.CharmURL, remote.CharmURL)
+	}
+
 	op, err := rf.NewUpgrade(remote.CharmURL)
 	if err != nil {
 		return errors.Trace(err)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/core/instance"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/names/v4"
 )
@@ -267,7 +268,7 @@ func (s *formattedStatus) applicationScale(name string) (string, bool) {
 			match(u)
 		}
 	}
-	if s.Model.Type == "caas" {
+	if s.Model.Type == string(coremodel.CAAS) {
 		desiredUnitCount = app.Scale
 	}
 	if currentUnitCount == desiredUnitCount {

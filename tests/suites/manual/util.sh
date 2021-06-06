@@ -32,12 +32,18 @@ launch_and_wait_addr_ec2() {
 }
 
 ensure_valid_ssh_hosts() {
+	if [[ ! -f "${HOME}/.ssh/known_hosts" ]]; then
+		mkdir -p "${HOME}/.ssh"
+		touch "${HOME}/.ssh/known_hosts"
+		chmod 600 "${HOME}/.ssh/known_hosts"
+	fi
+
 	# shellcheck disable=SC2154
 	for addr in "$@"; do
 		ssh-keygen -f "${HOME}/.ssh/known_hosts" -R ubuntu@"${addr}"
 
 		attempt=0
-		while [ ${attempt} -lt 10 ]; do
+		while [[ ${attempt} -lt 10 ]]; do
 			OUT=$(ssh -T -n -i ~/.ssh/"${name}".pem \
 				-o IdentitiesOnly=yes \
 				-o StrictHostKeyChecking=no \
@@ -53,7 +59,7 @@ ensure_valid_ssh_hosts() {
 			attempt=$((attempt + 1))
 		done
 
-		if [ "${attempt}" -ge 10 ]; then
+		if [[ ${attempt} -ge 10 ]]; then
 			echo "Failed to add key to ${addr}"
 			exit 1
 		fi
@@ -63,14 +69,14 @@ ensure_valid_ssh_hosts() {
 run_cleanup_deploy_manual_aws() {
 	set +e
 
-	if [ -f "${TEST_DIR}/ec2-instances" ]; then
+	if [[ -f "${TEST_DIR}/ec2-instances" ]]; then
 		echo "====> Cleaning up EC2 instances"
 		while read -r ec2_instance; do
 			aws ec2 terminate-instances --instance-ids="${ec2_instance}" >>"${TEST_DIR}/aws_cleanup"
 		done <"${TEST_DIR}/ec2-instances"
 	fi
 
-	if [ -f "${TEST_DIR}/ec2-key-pairs" ]; then
+	if [[ -f "${TEST_DIR}/ec2-key-pairs" ]]; then
 		echo "====> Cleaning up EC2 key-pairs"
 		while read -r ec2_keypair; do
 			aws ec2 delete-key-pair --key-name="${ec2_keypair}" >>"${TEST_DIR}/aws_cleanup"

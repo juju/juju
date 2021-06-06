@@ -121,7 +121,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 		LifeGetter:               common.NewLifeGetter(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		AgentEntityWatcher:       common.NewAgentEntityWatcher(st, resources, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		CharmsAPI:                commonCharmsAPI,
-		ApplicationWatcherFacade: common.NewApplicationWatcherFacadeFromState(st, resources, common.ApplicationFilterCAASEmbedded),
+		ApplicationWatcherFacade: common.NewApplicationWatcherFacadeFromState(st, resources, common.ApplicationFilterCAASSidecar),
 		API:                      api,
 	}
 
@@ -359,7 +359,7 @@ func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCol
 		return errors.NotValidf("cannot force unit remove while alive")
 	}
 
-	// TODO(embedded): support more than statefulset
+	// TODO(sidecar): support more than statefulset
 	/*ch, _, err := app.Charm()
 	if err != nil {
 		return errors.Trace(err)

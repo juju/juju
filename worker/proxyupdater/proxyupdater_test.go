@@ -618,3 +618,61 @@ DATA...
 		"proxy.store=WhatDoesTheBigRedButtonDo",
 	})
 }
+
+func (s *ProxyUpdaterSuite) TestAptMirror(c *gc.C) {
+	if host := jujuos.HostOS(); host == jujuos.Windows || host == jujuos.CentOS {
+		c.Skip(fmt.Sprintf("apt mirror not supported on %s", host.String()))
+	}
+
+	logger := s.config.Logger
+	calls := make(chan []string)
+	s.config.RunFunc = func(in string, cmd string, args ...string) (string, error) {
+		logger.Debugf("RunFunc(%q, %q, %#v)", in, cmd, args)
+		calls <- append([]string{in, cmd}, args...)
+		return "", nil
+	}
+
+	s.api.proxies = proxyupdaterapi.ProxyConfiguration{
+		AptMirror: "http://mirror",
+	}
+
+	updater, err := proxyupdater.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, updater)
+
+	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "system",
+		"proxy.http=",
+		"proxy.https=",
+		"proxy.store=",
+	})
+	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "/bin/bash", "-c", `
+#!/bin/bash
+set -e
+(
+old_archive_mirror=$(awk "/^deb .* $(awk -F= '/DISTRIB_CODENAME=/ {gsub(/"/,""); print $2}' /etc/lsb-release) .*main.*\$/{print \$2;exit}" /etc/apt/sources.list)
+new_archive_mirror=http://mirror
+sed -i s,$old_archive_mirror,$new_archive_mirror, /etc/apt/sources.list
+old_prefix=/var/lib/apt/lists/$(echo $old_archive_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
+new_prefix=/var/lib/apt/lists/$(echo $new_archive_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
+[ "$old_prefix" != "$new_prefix" ] &&
+for old in ${old_prefix}_*; do
+    new=$(echo $old | sed s,^$old_prefix,$new_prefix,)
+    if [ -f $old ]; then
+      mv $old $new
+    fi
+done
+old_security_mirror=$(awk "/^deb .* $(awk -F= '/DISTRIB_CODENAME=/ {gsub(/"/,""); print $2}' /etc/lsb-release)-security .*main.*\$/{print \$2;exit}" /etc/apt/sources.list)
+new_security_mirror=http://mirror
+sed -i s,$old_security_mirror,$new_security_mirror, /etc/apt/sources.list
+old_prefix=/var/lib/apt/lists/$(echo $old_security_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
+new_prefix=/var/lib/apt/lists/$(echo $new_security_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
+[ "$old_prefix" != "$new_prefix" ] &&
+for old in ${old_prefix}_*; do
+    new=$(echo $old | sed s,^$old_prefix,$new_prefix,)
+    if [ -f $old ]; then
+      mv $old $new
+    fi
+done
+)`[1:],
+	})
+}

@@ -1,7 +1,7 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package unit_test
+package bundlechanges
 
 import (
 	"testing"

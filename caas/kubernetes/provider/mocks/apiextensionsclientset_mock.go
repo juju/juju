@@ -5,12 +5,11 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	v1beta1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	discovery "k8s.io/client-go/discovery"
+	reflect "reflect"
 )
 
 // MockApiExtensionsClientInterface is a mock of Interface interface

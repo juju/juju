@@ -10,7 +10,7 @@ run_charmhub_download() {
 	check_contains "${output}" 'Fetching charm "mysql"'
 
 	juju deploy "${TEST_DIR}/mysql.charm" mysql
-	juju wait-for application mysql
+	juju wait-for application --timeout=15m mysql
 }
 
 run_charmstore_download() {

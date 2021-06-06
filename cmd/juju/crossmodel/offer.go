@@ -36,6 +36,7 @@ $ juju offer db2:db,log hosted-db2
 See also:
     consume
     relate
+    remove-saas
 `
 )
 

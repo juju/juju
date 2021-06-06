@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -30,6 +31,7 @@ type LoopSuite struct {
 	opFactory *mockOpFactory
 	executor  *mockOpExecutor
 	charmURL  *charm.URL
+	charmDir  string
 	abort     chan struct{}
 	onIdle    func() error
 }
@@ -61,6 +63,7 @@ func (s *LoopSuite) loop() (resolver.LocalState, error) {
 		Executor:      s.executor,
 		Abort:         s.abort,
 		OnIdle:        s.onIdle,
+		CharmDir:      s.charmDir,
 		CharmDirGuard: &mockCharmDirGuard{},
 		Logger:        loggo.GetLogger("test"),
 	}, &localState)
@@ -287,9 +290,9 @@ func (s *LoopSuite) TestCheckCharmUpgradeUpgradeCharmHook(c *gc.C) {
 		Executor: nil,
 		Stub:     envtesting.Stub{},
 		st: operation.State{
-			Started: true,
-			Kind:    operation.Continue,
-			Hook:    &hook.Info{Kind: hooks.UpgradeCharm},
+			Installed: true,
+			Kind:      operation.Continue,
+			Hook:      &hook.Info{Kind: hooks.UpgradeCharm},
 		},
 		run: nil,
 	}
@@ -301,16 +304,35 @@ func (s *LoopSuite) TestCheckCharmUpgradeSameURL(c *gc.C) {
 		Executor: nil,
 		Stub:     envtesting.Stub{},
 		st: operation.State{
-			Started: true,
-			Kind:    operation.Continue,
+			Installed: true,
+			Kind:      operation.Continue,
 		},
 		run: nil,
 	}
 	s.watcher = &mockRemoteStateWatcher{
 		snapshot: remotestate.Snapshot{
-			CharmURL: charm.MustParseURL("cs:trusty/mysql-1"),
+			CharmURL: s.charmURL,
 		},
 	}
+	s.charmDir = testcharms.Repo.CharmDirPath("mysql")
+	s.testCheckCharmUpgradeDoesNothing(c)
+}
+
+func (s *LoopSuite) TestCheckCharmUpgradeNotInstalled(c *gc.C) {
+	s.executor = &mockOpExecutor{
+		Executor: nil,
+		Stub:     envtesting.Stub{},
+		st: operation.State{
+			Kind: operation.Continue,
+		},
+		run: nil,
+	}
+	s.watcher = &mockRemoteStateWatcher{
+		snapshot: remotestate.Snapshot{
+			CharmURL: charm.MustParseURL("cs:trusty/mysql-2"),
+		},
+	}
+	s.charmDir = testcharms.Repo.CharmDirPath("mysql")
 	s.testCheckCharmUpgradeDoesNothing(c)
 }
 
@@ -319,8 +341,9 @@ func (s *LoopSuite) TestCheckCharmUpgradeIncorrectLXDProfile(c *gc.C) {
 		Executor: nil,
 		Stub:     envtesting.Stub{},
 		st: operation.State{
-			Started: true,
-			Kind:    operation.Continue,
+			Installed: true,
+			Started:   true,
+			Kind:      operation.Continue,
 		},
 		run: nil,
 	}
@@ -356,8 +379,8 @@ func (s *LoopSuite) TestCheckCharmUpgrade(c *gc.C) {
 		Executor: nil,
 		Stub:     envtesting.Stub{},
 		st: operation.State{
-			Started: true,
-			Kind:    operation.Continue,
+			Installed: true,
+			Kind:      operation.Continue,
 		},
 		run: nil,
 	}
@@ -369,13 +392,32 @@ func (s *LoopSuite) TestCheckCharmUpgrade(c *gc.C) {
 	s.testCheckCharmUpgradeCallsRun(c)
 }
 
+func (s *LoopSuite) TestCheckCharmUpgradeMissingCharmDir(c *gc.C) {
+	s.executor = &mockOpExecutor{
+		Executor: nil,
+		Stub:     envtesting.Stub{},
+		st: operation.State{
+			Installed: true,
+			Kind:      operation.Continue,
+		},
+		run: nil,
+	}
+	s.watcher = &mockRemoteStateWatcher{
+		snapshot: remotestate.Snapshot{
+			CharmURL: s.charmURL,
+		},
+	}
+	s.testCheckCharmUpgradeCallsRun(c)
+}
+
 func (s *LoopSuite) TestCheckCharmUpgradeLXDProfile(c *gc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
 		Stub:     envtesting.Stub{},
 		st: operation.State{
-			Started: true,
-			Kind:    operation.Continue,
+			Installed: true,
+			Started:   true,
+			Kind:      operation.Continue,
 		},
 		run: nil,
 	}

@@ -908,9 +908,9 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), controllerServiceAccount, v1.CreateOptions{}).
 			Return(controllerServiceAccount, nil),
-		s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/name=controller"}).
-			Return(&rbacv1.ClusterRoleBindingList{}, nil),
-		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), controllerServiceCRB, v1.CreateOptions{}).
+		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), controllerServiceCRB.Name, gomock.Any()).
+			Return(controllerServiceCRB, nil),
+		s.mockClusterRoleBindings.EXPECT().Update(gomock.Any(), controllerServiceCRB, gomock.Any()).
 			Return(controllerServiceCRB, nil),
 
 		// Check the operator storage exists.

@@ -561,7 +561,7 @@ var getModelConfig = func(api ModelConfigGetter) (*config.Config, error) {
 }
 
 func (d *factory) validateCharmSeries(seriesName string, imageStream string) error {
-	// TODO(embedded): handle systems
+	// TODO(sidecar): handle systems
 
 	// attempt to locate the charm series from the list of known juju series
 	// that we currently support.

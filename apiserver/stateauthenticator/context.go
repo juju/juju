@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
@@ -59,7 +60,7 @@ type authContext struct {
 	_macaroonAuthError error
 }
 
-// OpenAuthorizer authorises any login operation presented to it.
+// OpenLoginAuthorizer authorises any login operation presented to it.
 type OpenLoginAuthorizer struct{}
 
 // AuthorizeOps implements OpsAuthorizer.AuthorizeOps.
@@ -158,7 +159,7 @@ func (ctxt *authContext) CheckLocalLoginRequest(ctx context.Context, req *http.R
 	return authentication.CheckLocalLoginRequest(ctx, ctxt.localUserThirdPartyBakery.Checker, req)
 }
 
-// Discharge caveats returns the caveats to add to a login discharge macaroon.
+// DischargeCaveats returns the caveats to add to a login discharge macaroon.
 func (ctxt *authContext) DischargeCaveats(tag names.UserTag) []checkers.Caveat {
 	return authentication.DischargeCaveats(tag, ctxt.clock)
 }
@@ -235,7 +236,7 @@ func (a authenticator) localUserAuth() *authentication.UserAuthenticator {
 // logins for external users. If it fails once, it will always fail.
 func (ctxt *authContext) externalMacaroonAuth(identClient identchecker.IdentityClient) (authentication.EntityAuthenticator, error) {
 	ctxt.macaroonAuthOnce.Do(func() {
-		ctxt._macaroonAuth, ctxt._macaroonAuthError = newExternalMacaroonAuth(ctxt.st, ctxt.clock, identClient)
+		ctxt._macaroonAuth, ctxt._macaroonAuthError = newExternalMacaroonAuth(ctxt.st, ctxt.clock, externalLoginExpiryTime, identClient)
 	})
 	if ctxt._macaroonAuth == nil {
 		return nil, errors.Trace(ctxt._macaroonAuthError)
@@ -245,10 +246,15 @@ func (ctxt *authContext) externalMacaroonAuth(identClient identchecker.IdentityC
 
 var errMacaroonAuthNotConfigured = errors.New("macaroon authentication is not configured")
 
+const (
+	// TODO make this configurable via model config.
+	externalLoginExpiryTime = 24 * time.Hour
+)
+
 // newExternalMacaroonAuth returns an authenticator that can authenticate
 // macaroon-based logins for external users. This is just a helper function
 // for authCtxt.externalMacaroonAuth.
-func newExternalMacaroonAuth(st *state.State, clock clock.Clock, identClient identchecker.IdentityClient) (*authentication.ExternalMacaroonAuthenticator, error) {
+func newExternalMacaroonAuth(st *state.State, clock clock.Clock, expiryTime time.Duration, identClient identchecker.IdentityClient) (*authentication.ExternalMacaroonAuthenticator, error) {
 	controllerCfg, err := st.ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get model config")
@@ -278,17 +284,20 @@ func newExternalMacaroonAuth(st *state.State, clock clock.Clock, identClient ide
 		IdentityLocation: idURL,
 	}
 
-	// We pass in nil for the storage, which leads to in-memory storage
-	// being used. We only use in-memory storage for now, since we never
-	// expire the keys, and don't want garbage to accumulate.
+	store, err := st.NewBakeryStorage()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	store = store.ExpireAfter(expiryTime)
 	if identClient == nil {
 		identClient = &auth
 	}
-	indentBakery := identchecker.NewBakery(identchecker.BakeryParams{
+	identBakery := identchecker.NewBakery(identchecker.BakeryParams{
 		Checker:        httpbakery.NewChecker(),
 		Locator:        pkLocator,
 		Key:            key,
 		IdentityClient: identClient,
+		RootKeyStore:   store,
 		Authorizer: identchecker.ACLAuthorizer{
 			GetACL: func(ctx context.Context, op bakery.Op) ([]string, bool, error) {
 				return []string{identchecker.Everyone}, false, nil
@@ -296,6 +305,6 @@ func newExternalMacaroonAuth(st *state.State, clock clock.Clock, identClient ide
 		},
 		Location: idURL,
 	})
-	auth.Bakery = indentBakery
+	auth.Bakery = identBakery
 	return &auth, nil
 }

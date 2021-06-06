@@ -122,18 +122,18 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 	// branch ref numbers provided the map of active branches does not
 	// change.
 	i := 1
-	for _, sn := range naturalsort.Sort(stringKeysFromMap(sf.status.Branches)) {
-		s := sf.status.Branches[sn]
-		isActiveBranch := sn == sf.activeBranch
-		out.Branches[sn] = sf.formatBranch(i, s, isActiveBranch)
+	for _, name := range naturalsort.Sort(stringKeysFromMap(sf.status.Branches)) {
+		s := sf.status.Branches[name]
+		isActiveBranch := name == sf.activeBranch
+		out.Branches[name] = sf.formatBranch(i, s, isActiveBranch)
 		i += 1
 	}
 	sf.formattedBranches = out.Branches
-	for sn, s := range sf.status.Applications {
-		out.Applications[sn] = sf.formatApplication(sn, s)
+	for name, app := range sf.status.Applications {
+		out.Applications[name] = sf.formatApplication(name, app)
 	}
-	for sn, s := range sf.status.RemoteApplications {
-		out.RemoteApplications[sn] = sf.formatRemoteApplication(sn, s)
+	for name, app := range sf.status.RemoteApplications {
+		out.RemoteApplications[name] = sf.formatRemoteApplication(name, app)
 	}
 	for name, offer := range sf.status.Offers {
 		out.Offers[name] = sf.formatOffer(name, offer)

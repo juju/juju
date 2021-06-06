@@ -338,7 +338,7 @@ func NewModelManagerAPI(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
+	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), ctlrSt)
 
 	model, err := st.Model()
 	if err != nil {

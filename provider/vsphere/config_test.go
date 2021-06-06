@@ -254,3 +254,16 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 		}
 	}
 }
+
+func (s *ConfigSuite) TestSchema(c *gc.C) {
+	ps, ok := s.provider.(environs.ProviderSchema)
+	c.Assert(ok, jc.IsTrue)
+
+	fields := ps.Schema()
+
+	globalFields, err := config.Schema(nil)
+	c.Assert(err, gc.IsNil)
+	for name, field := range globalFields {
+		c.Check(fields[name], jc.DeepEquals, field)
+	}
+}

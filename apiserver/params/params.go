@@ -755,7 +755,7 @@ type ContainerConfig struct {
 	SnapStoreAssertions        string                 `json:"snap-store-assertions"`
 	SnapStoreProxyID           string                 `json:"snap-store-proxy-id"`
 	SnapStoreProxyURL          string                 `json:"snap-store-proxy-url"`
-	AptMirror                  string                 `json:"apt-mirror"`
+	AptMirror                  string                 `json:"apt-mirror,omitempty"`
 	CloudInitUserData          map[string]interface{} `json:"cloudinit-userdata,omitempty"`
 	ContainerInheritProperties string                 `json:"container-inherit-properties,omitempty"`
 	*UpdateBehavior

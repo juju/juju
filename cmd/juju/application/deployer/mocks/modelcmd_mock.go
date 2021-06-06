@@ -7,7 +7,6 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	modelcmd "github.com/juju/juju/cmd/modelcmd"
-	fs "io/fs"
 	os "os"
 	reflect "reflect"
 )
@@ -66,7 +65,7 @@ func (mr *MockFilesystemMockRecorder) Open(arg0 interface{}) *gomock.Call {
 }
 
 // OpenFile mocks base method
-func (m *MockFilesystem) OpenFile(arg0 string, arg1 int, arg2 fs.FileMode) (*os.File, error) {
+func (m *MockFilesystem) OpenFile(arg0 string, arg1 int, arg2 os.FileMode) (*os.File, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenFile", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*os.File)
@@ -95,10 +94,10 @@ func (mr *MockFilesystemMockRecorder) RemoveAll(arg0 interface{}) *gomock.Call {
 }
 
 // Stat mocks base method
-func (m *MockFilesystem) Stat(arg0 string) (fs.FileInfo, error) {
+func (m *MockFilesystem) Stat(arg0 string) (os.FileInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stat", arg0)
-	ret0, _ := ret[0].(fs.FileInfo)
+	ret0, _ := ret[0].(os.FileInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

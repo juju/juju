@@ -117,24 +117,24 @@ func (f *Facade) getApplicationConfig(tagString string) (map[string]interface{},
 	return app.ApplicationConfig()
 }
 
-// FacadeEmbedded provides access to the CAASFireWaller API facade for embedded applications.
-type FacadeEmbedded struct {
+// FacadeSidecar provides access to the CAASFirewaller API facade for sidecar applications.
+type FacadeSidecar struct {
 	*Facade
 	*charmscommon.CharmsAPI
 
 	accessModel common.GetAuthFunc
 }
 
-// NewStateFacadeEmbedded provides the signature required for facade registration.
-func NewStateFacadeEmbedded(ctx facade.Context) (*FacadeEmbedded, error) {
+// NewStateFacadeSidecar provides the signature required for facade registration.
+func NewStateFacadeSidecar(ctx facade.Context) (*FacadeSidecar, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 	commonCharmsAPI, err := charmscommon.NewCharmsAPI(ctx.State(), authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASEmbedded)
-	return newFacadeEmbedded(
+	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASSidecar)
+	return newFacadeSidecar(
 		resources,
 		authorizer,
 		&stateShim{ctx.State()},
@@ -143,19 +143,19 @@ func NewStateFacadeEmbedded(ctx facade.Context) (*FacadeEmbedded, error) {
 	)
 }
 
-func newFacadeEmbedded(
+func newFacadeSidecar(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	st CAASFirewallerState,
 	applicationWatcherFacade *common.ApplicationWatcherFacade,
 	commonCharmsAPI *charmscommon.CharmsAPI,
-) (*FacadeEmbedded, error) {
+) (*FacadeSidecar, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 	accessApplication := common.AuthFuncForTagKind(names.ApplicationTagKind)
 
-	return &FacadeEmbedded{
+	return &FacadeSidecar{
 		CharmsAPI:   commonCharmsAPI,
 		accessModel: common.AuthFuncForTagKind(names.ModelTagKind),
 		Facade: &Facade{
@@ -179,7 +179,7 @@ func newFacadeEmbedded(
 
 // WatchOpenedPorts returns a new StringsWatcher for each given
 // model tag.
-func (f *FacadeEmbedded) WatchOpenedPorts(args params.Entities) (params.StringsWatchResults, error) {
+func (f *FacadeSidecar) WatchOpenedPorts(args params.Entities) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -212,7 +212,7 @@ func (f *FacadeEmbedded) WatchOpenedPorts(args params.Entities) (params.StringsW
 }
 
 // ApplicationCharmURLs finds the CharmURL for an application.
-func (f *FacadeEmbedded) ApplicationCharmURLs(args params.Entities) (params.StringResults, error) {
+func (f *FacadeSidecar) ApplicationCharmURLs(args params.Entities) (params.StringResults, error) {
 	res := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
@@ -237,7 +237,7 @@ func (f *FacadeEmbedded) ApplicationCharmURLs(args params.Entities) (params.Stri
 	return res, nil
 }
 
-func (f *FacadeEmbedded) watchOneModelOpenedPorts(tag names.Tag) (string, []string, error) {
+func (f *FacadeSidecar) watchOneModelOpenedPorts(tag names.Tag) (string, []string, error) {
 	// NOTE: tag is ignored, as there is only one model in the
 	// state DB. Once this changes, change the code below accordingly.
 	watch := f.state.WatchOpenedPorts()
