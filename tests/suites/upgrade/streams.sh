@@ -59,13 +59,22 @@ exec_simplestream_metadata() {
 	add_clean_func "kill_server"
 	start_server "./tests/suites/upgrade/streams/tools"
 
-	ip_address=$(ip -4 -o addr show scope global | awk '{gsub(/\/.*/,"",$4); print $4}' | head -n 1)
+	# Find a routable address to the server that isn't the loopback address.
+	# Unfortunately, you can't cleanly look at the addresses and select the
+	# right one.
+	addresses=$(hostname -I)
+	server_address=""
+	for address in $(echo "${addresses}" | tr ' ' '\n'); do
+		# shellcheck disable=SC2015
+		curl "http://${address}:8666" >/dev/null 2>&1 && server_address="${address}" && break || true
+	done
 
 	name="test-upgrade-${test_name}-stream"
 
 	file="${TEST_DIR}/test-upgrade-${test_name}-stream.log"
 	/snap/bin/juju bootstrap "lxd" "${name}" \
-		--config agent-metadata-url="http://${ip_address}:8666/" \
+		--show-log \
+		--config agent-metadata-url="http://${server_address}:8666/" \
 		--config test-mode=true 2>&1 | OUTPUT "${file}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
 
