@@ -13,7 +13,7 @@ import (
 
 	"github.com/bmizerany/pat"
 	"github.com/gorilla/websocket"
-	jujuhttp "github.com/juju/http"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/rpcreflect"
 
 	"github.com/juju/juju/apiserver/observer"

@@ -4,6 +4,7 @@
 package tools_test
 
 import (
+	stdcontext "context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -105,7 +107,7 @@ func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}
 	jujuversion.Current = s.origCurrentVersion
 	dummy.Reset(c)
 	attrs = dummy.SampleConfig().Merge(attrs)
-	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c),
+	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.TODO(), c),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
@@ -173,13 +175,14 @@ var findToolsTests = []struct {
 }}
 
 func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	for i, test := range findToolsTests {
 		c.Logf("\ntest %d: %s", i, test.info)
 		s.reset(c, nil)
 		custom := s.uploadCustom(c, test.custom...)
 		public := s.uploadPublic(c, test.public...)
 		streams := envtools.PreferredStreams(&jujuversion.Current, s.env.Config().Development(), s.env.Config().AgentStream())
-		actual, err := envtools.FindTools(s.env, test.major, test.minor, streams, coretools.Filter{})
+		actual, err := envtools.FindTools(ss, s.env, test.major, test.minor, streams, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -208,7 +211,8 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	defer logger.SetLogLevel(logger.LogLevel())
 	logger.SetLogLevel(loggo.TRACE)
 
-	_, err := envtools.FindTools(
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	_, err := envtools.FindTools(ss,
 		s.env, 1, -1, []string{"released"}, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}})
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	// This is slightly overly prescriptive, but feel free to change or add
@@ -220,7 +224,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 		{loggo.TRACE, "no architecture specified when finding agent binaries, looking for "},
 		{loggo.TRACE, "no os type specified when finding agent binaries, looking for \\[.*\\]"},
 	}
-	sources, err := envtools.GetMetadataSources(s.env)
+	sources, err := envtools.GetMetadataSources(s.env, ss)
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < len(sources); i++ {
 		messages = append(messages,
@@ -267,12 +271,13 @@ var findExactToolsTests = []struct {
 }}
 
 func (s *SimpleStreamsToolsSuite) TestFindExactTools(c *gc.C) {
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	for i, test := range findExactToolsTests {
 		c.Logf("\ntest %d: %s", i, test.info)
 		s.reset(c, nil)
 		custom := s.uploadCustom(c, test.custom...)
 		public := s.uploadPublic(c, test.public...)
-		actual, err := envtools.FindExactTools(s.env, test.seek.Number, test.seek.Release, test.seek.Arch)
+		actual, err := envtools.FindExactTools(ss, s.env, test.seek.Number, test.seek.Release, test.seek.Arch)
 		if test.err == nil {
 			if !c.Check(err, jc.ErrorIsNil) {
 				continue
@@ -346,6 +351,7 @@ var findToolsFallbackTests = []struct {
 }}
 
 func (s *SimpleStreamsToolsSuite) TestFindToolsWithStreamFallback(c *gc.C) {
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	for i, test := range findToolsFallbackTests {
 		c.Logf("\ntest %d: %s", i, test.info)
 		s.reset(c, nil)
@@ -354,7 +360,8 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsWithStreamFallback(c *gc.C) {
 			"proposed": test.proposed,
 			"released": test.released,
 		})
-		actual, err := envtools.FindTools(s.env, test.major, test.minor, test.streams, coretools.Filter{})
+		actual, err := envtools.FindTools(ss,
+			s.env, test.major, test.minor, test.streams, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())

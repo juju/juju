@@ -5,6 +5,7 @@ package commands
 
 import (
 	"bytes"
+	stdcontext "context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -1249,7 +1250,8 @@ func createImageMetadata(c *gc.C) (string, []*imagemetadata.ImageMetadata) {
 	sourceDir := c.MkDir()
 	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir)
 	c.Assert(err, jc.ErrorIsNil)
-	err = imagemetadata.MergeAndWriteMetadata("xenial", im, cloudSpec, sourceStor)
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	err = imagemetadata.MergeAndWriteMetadata(ss, "xenial", im, cloudSpec, sourceStor)
 	c.Assert(err, jc.ErrorIsNil)
 	return sourceDir, im
 }
@@ -1346,7 +1348,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.PrepareForBootstrap(envtesting.BootstrapContext(c), "controller-1")
+	err = env.PrepareForBootstrap(envtesting.BootstrapContext(stdcontext.TODO(), c), "controller-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now check the available tools which are the 1.2.0 envtools.
@@ -2274,7 +2276,8 @@ clouds:
 
 // checkTools check if the environment contains the passed envtools.
 func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
-	list, err := envtools.FindTools(
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	list, err := envtools.FindTools(ss,
 		env, jujuversion.Current.Major, jujuversion.Current.Minor, []string{"released"}, coretools.Filter{})
 	c.Check(err, jc.ErrorIsNil)
 	c.Logf("found: " + list.String())

@@ -110,8 +110,9 @@ func (p LookupParams) Params() LookupParams {
 // Not every model attribute is defined here, only the ones we care about.
 // See the doc/README file in lp:simplestreams for more information.
 
-// Metadata attribute values may point to a map of attribute values (aka aliases) and these attributes
-// are used to override/augment the existing attributes.
+// Metadata attribute values may point to a map of attribute values (aka
+// aliases) and these attributes are used to override/augment the existing
+// attributes.
 type attributeValues map[string]string
 type aliasesByAttribute map[string]attributeValues
 
@@ -307,9 +308,10 @@ func (entries IndexMetadataSlice) filter(match func(*IndexMetadata) bool) IndexM
 	return result
 }
 
-// noMatchingProductsError is used to indicate that metadata files have been located,
-// but there is no metadata satisfying a product criteria.
-// It is used to distinguish from the situation where the metadata files could not be found.
+// noMatchingProductsError is used to indicate that metadata files have been
+// located, but there is no metadata satisfying a product criteria.
+// It is used to distinguish from the situation where the metadata files could
+// not be found.
 type noMatchingProductsError struct {
 	msg string
 }
@@ -337,7 +339,8 @@ const (
 	SignedSuffix           = ".sjson"
 	UnsignedSuffix         = ".json"
 
-	// These constants define the currently supported simplestreams data formats.
+	// These constants define the currently supported simplestreams data
+	// formats.
 	IndexFormat   = "index:1.0"
 	ProductFormat = "products:1.0"
 	MirrorFormat  = "mirrors:1.0"
@@ -348,7 +351,8 @@ const (
 // returned interface slice.
 type AppendMatchingFunc func(DataSource, []interface{}, map[string]interface{}, LookupConstraint) ([]interface{}, error)
 
-// ValueParams contains the information required to pull out from the metadata structs of a particular type.
+// ValueParams contains the information required to pull out from the metadata
+// structs of a particular type.
 type ValueParams struct {
 	// The simplestreams data type key.
 	DataType string
@@ -379,6 +383,28 @@ func UnsignedMirror(streamsVersion string) string {
 	return fmt.Sprintf(unsignedMirror, streamsVersion)
 }
 
+// Simplestreams defines a type for encapsulating the functionality for
+// requesting simplestreams data.
+//
+// TODO (stickupkid): This requires more work. The idea is to localize all
+// package level functions up on to this type. Passing the type through layers
+// becomes simple.
+type Simplestreams struct {
+	factory DataSourceFactory
+}
+
+// NewSimpleStreams creates a new simplestreams accessor.
+func NewSimpleStreams(factory DataSourceFactory) *Simplestreams {
+	return &Simplestreams{
+		factory: factory,
+	}
+}
+
+// NewDataSource creates a new data source based on the config.
+func (s Simplestreams) NewDataSource(config Config) DataSource {
+	return s.factory.NewDataSource(config)
+}
+
 // GetMetadataParams defines parameters used to load simplestreams metadata.
 type GetMetadataParams struct {
 	StreamsVersion   string
@@ -386,17 +412,20 @@ type GetMetadataParams struct {
 	ValueParams      ValueParams
 }
 
-// GetMetadata returns metadata records matching the specified constraint,looking in each source for signed metadata.
-// If onlySigned is false and no signed metadata is found in a source, the source is used to look for unsigned metadata.
-// Each source is tried in turn until at least one signed (or unsigned) match is found.
-func GetMetadata(sources []DataSource, params GetMetadataParams) (items []interface{}, resolveInfo *ResolveInfo, err error) {
+// GetMetadata returns metadata records matching the specified constraint,
+// looking in each source for signed metadata. If onlySigned is false and no
+// signed metadata is found in a source, the source is used to look for
+// unsigned metadata.
+// Each source is tried in turn until at least one signed (or unsigned) match
+// is found.
+func (s Simplestreams) GetMetadata(sources []DataSource, params GetMetadataParams) (items []interface{}, resolveInfo *ResolveInfo, err error) {
 	for _, source := range sources {
 		logger.Tracef("searching for signed metadata in datasource %q", source.Description())
-		items, resolveInfo, err = getMaybeSignedMetadata(source, params, true)
+		items, resolveInfo, err = s.getMaybeSignedMetadata(source, params, true)
 		// If no items are found using signed metadata, check unsigned.
 		if err != nil && len(items) == 0 && !source.RequireSigned() {
 			logger.Tracef("falling back to search for unsigned metadata in datasource %q", source.Description())
-			items, resolveInfo, err = getMaybeSignedMetadata(source, params, false)
+			items, resolveInfo, err = s.getMaybeSignedMetadata(source, params, false)
 		}
 		if err == nil {
 			break
@@ -410,7 +439,7 @@ func GetMetadata(sources []DataSource, params GetMetadataParams) (items []interf
 }
 
 // getMaybeSignedMetadata returns metadata records matching the specified constraint in params.
-func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed bool) ([]interface{}, *ResolveInfo, error) {
+func (s Simplestreams) getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed bool) ([]interface{}, *ResolveInfo, error) {
 
 	makeIndexPath := func(basePath string) string {
 		pathNoSuffix := fmt.Sprintf(basePath, params.StreamsVersion)
@@ -430,17 +459,28 @@ func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed 
 	mirrorsPath := fmt.Sprintf(defaultMirrorsPath, params.StreamsVersion)
 	cons := params.LookupConstraint
 
-	indexRef, indexURL, err := fetchIndex(
-		source, indexPath, mirrorsPath, cons.Params().CloudSpec, signed, params.ValueParams,
+	indexRef, indexURL, err := s.fetchIndex(
+		source,
+		indexPath,
+		mirrorsPath,
+		cons.Params().CloudSpec,
+		signed,
+		params.ValueParams,
 	)
 	logger.Tracef("looking for data index using URL %s", indexURL)
 	if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
 		legacyIndexPath := makeIndexPath(defaultLegacyIndexPath)
 		logger.Tracef("%s not accessed, actual error: %v", indexPath, errors.Details(err))
 		logger.Tracef("%s not accessed, trying legacy index path: %s", indexPath, legacyIndexPath)
+
 		indexPath = legacyIndexPath
-		indexRef, indexURL, err = fetchIndex(
-			source, indexPath, mirrorsPath, cons.Params().CloudSpec, signed, params.ValueParams,
+		indexRef, indexURL, err = s.fetchIndex(
+			source,
+			indexPath,
+			mirrorsPath,
+			cons.Params().CloudSpec,
+			signed,
+			params.ValueParams,
 		)
 	}
 	resolveInfo.IndexURL = indexURL
@@ -468,21 +508,28 @@ func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed 
 }
 
 // fetchIndex attempts to load the index file at indexPath in source.
-func fetchIndex(source DataSource, indexPath string, mirrorsPath string, cloudSpec CloudSpec,
+func (s Simplestreams) fetchIndex(source DataSource, indexPath string, mirrorsPath string, cloudSpec CloudSpec,
 	signed bool, params ValueParams) (indexRef *IndexReference, indexURL string, _ error) {
 	indexURL, err := source.URL(indexPath)
 	if err != nil {
-		// Some providers return an error if asked for the URL of a non-existent file.
-		// So the best we can do is use the relative path for the URL when logging messages.
+		// Some providers return an error if asked for the URL of a non-existent
+		// file. The best we can do is use the relative path for the URL when
+		// logging messages.
 		indexURL = indexPath
 	}
-	indexRef, err = GetIndexWithFormat(
-		source, indexPath, IndexFormat, mirrorsPath, signed, cloudSpec, params,
+	indexRef, err = s.GetIndexWithFormat(
+		source,
+		indexPath, IndexFormat,
+		mirrorsPath,
+		signed,
+		cloudSpec,
+		params,
 	)
 	return indexRef, indexURL, err
 }
 
-// fetchData gets all the data from the given source located at the specified path.
+// fetchData gets all the data from the given source located at the specified
+// path.
 // It returns the data found and the full URL used.
 func fetchData(source DataSource, path string, requireSigned bool) (data []byte, dataURL string, err error) {
 	rc, dataURL, err := source.Fetch(path)
@@ -502,9 +549,28 @@ func fetchData(source DataSource, path string, requireSigned bool) (data []byte,
 	return data, dataURL, nil
 }
 
+// DataSourceFactory creates new DataSources for requesting index references.
+type DataSourceFactory interface {
+	// NewDataSource creates a new DataSource from a given config.
+	NewDataSource(Config) DataSource
+}
+
+type defaultDataSourceFactory struct{}
+
+// DefaultDataSourceFactory creates a generic new data source factory that
+// creates new data sources based on the config.
+func DefaultDataSourceFactory() DataSourceFactory {
+	return defaultDataSourceFactory{}
+}
+
+func (defaultDataSourceFactory) NewDataSource(cfg Config) DataSource {
+	return NewDataSource(cfg)
+}
+
 // GetIndexWithFormat returns a simplestreams index of the specified format.
 // Exported for testing.
-func GetIndexWithFormat(source DataSource, indexPath, indexFormat, mirrorsPath string, requireSigned bool,
+func (s Simplestreams) GetIndexWithFormat(source DataSource,
+	indexPath, indexFormat, mirrorsPath string, requireSigned bool,
 	cloudSpec CloudSpec, params ValueParams) (*IndexReference, error) {
 
 	data, url, err := fetchData(source, indexPath, requireSigned)
@@ -542,16 +608,14 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat, mirrorsPath s
 			source, mirrors, params.DataType, params.MirrorContentId, cloudSpec, requireSigned)
 		if err == nil {
 			logger.Debugf("using mirrored products path: %s", path.Join(mirrorInfo.MirrorURL, mirrorInfo.Path))
-			indexRef.Source = NewDataSource(
-				Config{
-					Description:          "mirror",
-					BaseURL:              mirrorInfo.MirrorURL,
-					PublicSigningKey:     source.PublicSigningKey(),
-					HostnameVerification: utils.VerifySSLHostnames,
-					Priority:             source.Priority(),
-					RequireSigned:        requireSigned,
-				},
-			)
+			indexRef.Source = s.factory.NewDataSource(Config{
+				Description:          "mirror",
+				BaseURL:              mirrorInfo.MirrorURL,
+				PublicSigningKey:     source.PublicSigningKey(),
+				HostnameVerification: utils.VerifySSLHostnames,
+				Priority:             source.Priority(),
+				RequireSigned:        requireSigned,
+			})
 			indexRef.MirroredProductsPath = mirrorInfo.Path
 		} else {
 			logger.Tracef("no mirror information available for %s: %v", cloudSpec, err)
@@ -563,7 +627,6 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat, mirrorsPath s
 
 // getMirrorRefs parses and returns a simplestreams mirror reference.
 func getMirrorRefs(source DataSource, baseMirrorsPath string, requireSigned bool) (MirrorRefs, string, error) {
-
 	mirrorsPath := baseMirrorsPath + UnsignedSuffix
 	if requireSigned {
 		mirrorsPath = baseMirrorsPath + SignedSuffix

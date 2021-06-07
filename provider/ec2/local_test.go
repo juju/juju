@@ -4,6 +4,7 @@
 package ec2_test
 
 import (
+	stdcontext "context"
 	"fmt"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -205,6 +206,12 @@ func (srv *localServer) stopServer(c *gc.C) {
 	srv.defaultVPC = nil
 }
 
+func bootstrapContext(c *gc.C) environs.BootstrapContext {
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	ctx := stdcontext.WithValue(stdcontext.TODO(), bootstrap.SimplestreamsFetcherContextKey, ss)
+	return envtesting.BootstrapContext(ctx, c)
+}
+
 // localServerSuite contains tests that run against a fake EC2 server
 // running within the test process itself.  These tests can test things that
 // would be unreasonably slow or expensive to test on a live Amazon server.
@@ -351,7 +358,7 @@ func (t *localServerSuite) prepareWithParamsAndBootstrapWithVPCID(c *gc.C, param
 	c.Check(vpcID, gc.Equals, expectedVPCID)
 	c.Check(ok, jc.IsTrue)
 
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(bootstrapContext(c), env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -378,7 +385,7 @@ func (t *localServerSuite) TestPrepareForBootstrapWithDefaultVPCID(c *gc.C) {
 
 func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(bootstrapContext(c), env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			// TODO(redir): BBB: When we no longer support upstart based systems this can change to series.LatestLts()
@@ -456,7 +463,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 // TODO(redir): BBB: remove when trusty is no longer supported
 func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(bootstrapContext(c), env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			BootstrapSeries:          "trusty",
@@ -532,7 +539,7 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 
 func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(bootstrapContext(c), env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -569,7 +576,7 @@ func (t *localServerSuite) TestDestroyErr(c *gc.C) {
 
 func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(bootstrapContext(c), env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -735,7 +742,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(bootstrapContext(c), env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -1190,7 +1197,7 @@ func (t *localServerSuite) prepareAndBootstrapWithConfig(c *gc.C, config coretes
 	args := t.PrepareParams(c)
 	args.ModelConfig = coretesting.Attrs(args.ModelConfig).Merge(config)
 	env := t.PrepareWithParams(c, args)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(bootstrapContext(c), env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -1572,14 +1579,16 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	aws.Regions[region.Name] = t.srv.region
 	defer delete(aws.Regions, region.Name)
 
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+
 	env := t.Prepare(c)
 	params, err := env.(simplestreams.ImageMetadataValidator).ImageMetadataLookupParams("test")
 	c.Assert(err, jc.ErrorIsNil)
 	params.Release = jujuversion.DefaultSupportedLTS()
 	params.Endpoint = region.EC2Endpoint
-	params.Sources, err = environs.ImageMetadataSources(env)
+	params.Sources, err = environs.ImageMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
-	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
+	image_ids, _, err := imagemetadata.ValidateImageMetadata(ss, params)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(image_ids)
 	c.Assert(image_ids, gc.DeepEquals, []string{"ami-02004133", "ami-02004135", "ami-02004139"})
@@ -1588,8 +1597,10 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	t.PatchValue(&tools.DefaultBaseURL, "")
 
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+
 	env := t.Prepare(c)
-	sources, err := tools.GetMetadataSources(env)
+	sources, err := tools.GetMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 0)
 }
@@ -1602,7 +1613,7 @@ func (t *localServerSuite) TestSupportsNetworking(c *gc.C) {
 
 func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.NetworkingEnviron, instance.Id) {
 	env := t.prepareEnviron(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(bootstrapContext(c), env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -2065,7 +2076,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 
 	env, err := bootstrap.PrepareController(
 		false,
-		envtesting.BootstrapContext(c),
+		envtesting.BootstrapTODOContext(c),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),

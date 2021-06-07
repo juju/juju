@@ -16,7 +16,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -25,6 +25,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
@@ -246,14 +247,16 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 	if err != nil {
 		return md, nil, err
 	}
-	exactTools, err := envtools.FindExactTools(env, v.Number, v.Release, v.Arch)
+
+	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+	exactTools, err := envtools.FindExactTools(ss, env, v.Number, v.Release, v.Arch)
 	if err != nil {
 		return md, nil, err
 	}
 
 	// No need to verify the server's identity because we verify the SHA-256 hash.
 	logger.Infof("fetching %v agent binaries from %v", v, exactTools.URL)
-	client := jujuhttp.NewClient(jujuhttp.Config{SkipHostnameVerification: true})
+	client := jujuhttp.NewClient(jujuhttp.WithSkipHostnameVerification(true))
 	resp, err := client.Get(context.TODO(), exactTools.URL)
 	if err != nil {
 		return md, nil, err

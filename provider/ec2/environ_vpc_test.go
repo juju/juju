@@ -38,7 +38,7 @@ func (s *vpcSuite) SetUpTest(c *gc.C) {
 func (s *vpcSuite) TestValidateBootstrapVPCUnexpectedError(c *gc.C) {
 	s.stubAPI.SetErrors(errors.New("AWS failed!"))
 
-	err := validateBootstrapVPC(s.stubAPI, s.cloudCallCtx, "region", anyVPCID, false, envtesting.BootstrapContext(c))
+	err := validateBootstrapVPC(s.stubAPI, s.cloudCallCtx, "region", anyVPCID, false, envtesting.BootstrapTODOContext(c))
 	s.checkErrorMatchesCannotVerifyVPC(c, err)
 
 	s.stubAPI.CheckCallNames(c, "VPCs")
@@ -46,7 +46,7 @@ func (s *vpcSuite) TestValidateBootstrapVPCUnexpectedError(c *gc.C) {
 
 func (s *vpcSuite) TestValidateBootstrapVPCCredentialError(c *gc.C) {
 	s.stubAPI.SetErrors(common.NewCredentialNotValid("AWS failed!"))
-	err := validateBootstrapVPC(s.stubAPI, s.cloudCallCtx, "region", anyVPCID, false, envtesting.BootstrapContext(c))
+	err := validateBootstrapVPC(s.stubAPI, s.cloudCallCtx, "region", anyVPCID, false, envtesting.BootstrapTODOContext(c))
 	s.checkErrorMatchesCannotVerifyVPC(c, err)
 	c.Check(err, jc.Satisfies, common.IsCredentialNotValid)
 }

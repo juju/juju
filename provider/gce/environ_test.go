@@ -75,7 +75,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	}
 	s.FakeCommon.BSFinalizer = finalizer
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	params := environs.BootstrapParams{
 		ControllerConfig:         testing.FakeControllerConfig(),
 		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
@@ -96,7 +96,7 @@ func (s *environSuite) TestBootstrapInvalidCredentialError(c *gc.C) {
 		ControllerConfig:         testing.FakeControllerConfig(),
 		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 	}
-	_, err := s.Env.Bootstrap(envtesting.BootstrapContext(c), s.CallCtx, params)
+	_, err := s.Env.Bootstrap(envtesting.BootstrapTODOContext(c), s.CallCtx, params)
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
@@ -119,7 +119,7 @@ func (s *environSuite) checkAPIPorts(c *gc.C, config controller.Config, expected
 	}
 	s.FakeCommon.BSFinalizer = finalizer
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	params := environs.BootstrapParams{
 		ControllerConfig:         config,
 		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
@@ -148,7 +148,7 @@ func (s *environSuite) checkAPIPorts(c *gc.C, config controller.Config, expected
 }
 
 func (s *environSuite) TestBootstrapCommon(c *gc.C) {
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	params := environs.BootstrapParams{
 		ControllerConfig:         testing.FakeControllerConfig(),
 		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/imagedownloads"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 )
 
@@ -37,6 +38,7 @@ type Oner interface {
 
 // syncParams conveys the information necessary for calling imagedownloads.One.
 type syncParams struct {
+	fetcher                     imagemetadata.SimplestreamsFetcher
 	arch, series, stream, fType string
 	srcFunc                     func() simplestreams.DataSource
 }
@@ -46,7 +48,7 @@ func (p syncParams) One() (*imagedownloads.Metadata, error) {
 	if err := p.exists(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return imagedownloads.One(p.arch, p.series, p.stream, p.fType, p.srcFunc)
+	return imagedownloads.One(p.fetcher, p.arch, p.series, p.stream, p.fType, p.srcFunc)
 }
 
 func (p syncParams) exists() error {

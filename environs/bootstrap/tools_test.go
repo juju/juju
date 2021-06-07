@@ -15,6 +15,9 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	envtools "github.com/juju/juju/environs/tools"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -87,7 +90,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 	var called int
 	var filter tools.Filter
 	var findStreams []string
-	s.PatchValue(bootstrap.FindTools, func(_ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ envtools.SimplestreamsFetcher, _ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		called++
 		c.Check(major, gc.Equals, jujuversion.Current.Major)
 		c.Check(minor, gc.Equals, jujuversion.Current.Minor)
@@ -144,6 +147,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 		streams: []string{"devel", "proposed", "released"},
 	}}
 
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	for i, test := range tests {
 		c.Logf("test %d: %#v", i, test)
 		extra := map[string]interface{}{"development": test.dev}
@@ -151,7 +155,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 			extra["agent-stream"] = test.streams[0]
 		}
 		env := newEnviron("foo", useDefaultKeys, extra)
-		bootstrap.FindBootstrapTools(env, test.version, test.arch, test.series)
+		bootstrap.FindBootstrapTools(env, ss, test.version, test.arch, test.series)
 		c.Assert(called, gc.Equals, i+1)
 		c.Assert(filter, gc.Equals, test.filter)
 		if test.streams != nil {
@@ -167,22 +171,25 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsError(c *gc.C) {
-	s.PatchValue(bootstrap.FindTools, func(_ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
+	// TODO (stickupkid): Remove the patch and pass in a valid mock.
+	s.PatchValue(bootstrap.FindTools, func(_ envtools.SimplestreamsFetcher, _ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		return nil, errors.New("splat")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
-	_, err := bootstrap.FindPackagedTools(env, nil, nil, nil)
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	_, err := bootstrap.FindPackagedTools(env, ss, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "splat")
 }
 
 func (s *toolsSuite) TestFindAvailableToolsNoUpload(c *gc.C) {
-	s.PatchValue(bootstrap.FindTools, func(_ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ envtools.SimplestreamsFetcher, _ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
 		"agent-version": "1.17.1",
 	})
-	_, err := bootstrap.FindPackagedTools(env, nil, nil, nil)
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	_, err := bootstrap.FindPackagedTools(env, ss, nil, nil, nil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -192,7 +199,7 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 	currentVersion.Minor = 3
 	s.PatchValue(&jujuversion.Current, currentVersion.Number)
 	var findToolsCalled int
-	s.PatchValue(bootstrap.FindTools, func(_ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ envtools.SimplestreamsFetcher, _ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		c.Assert(f.Number.Major, gc.Equals, 10)
 		c.Assert(f.Number.Minor, gc.Equals, 11)
 		c.Assert(f.Number.Patch, gc.Equals, 12)
@@ -207,7 +214,8 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
 	toolsVersion := version.MustParse("10.11.12")
-	result, err := bootstrap.FindPackagedTools(env, &toolsVersion, nil, nil)
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	result, err := bootstrap.FindPackagedTools(env, ss, &toolsVersion, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(findToolsCalled, gc.Equals, 1)
 	c.Assert(result, jc.DeepEquals, tools.List{
@@ -233,11 +241,12 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 		},
 	}
 
-	s.PatchValue(bootstrap.FindTools, func(_ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ envtools.SimplestreamsFetcher, _ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		return allTools, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
-	availableTools, err := bootstrap.FindPackagedTools(env, nil, nil, nil)
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	availableTools, err := bootstrap.FindPackagedTools(env, ss, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(availableTools, gc.HasLen, len(allTools))
 	c.Assert(env.constraintsValidatorCount, gc.Equals, 0)

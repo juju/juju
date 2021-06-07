@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/utils/v2"
 )
 
@@ -70,13 +70,12 @@ const (
 
 // A urlDataSource retrieves data from an HTTP URL.
 type urlDataSource struct {
-	description          string
-	baseURL              string
-	hostnameVerification bool
-	publicSigningKey     string
-	priority             int
-	requireSigned        bool
-	caCertificates       []string
+	description      string
+	baseURL          string
+	publicSigningKey string
+	priority         int
+	requireSigned    bool
+	httpClient       *jujuhttp.Client
 }
 
 // Config has values to be used in constructing a datasource.
@@ -131,14 +130,24 @@ func (c *Config) Validate() error {
 func NewDataSource(cfg Config) DataSource {
 	// TODO (hml) 2020-01-08
 	// Move call to cfg.Validate() here and add return of error.
+	client := jujuhttp.NewClient(
+		jujuhttp.WithSkipHostnameVerification(!bool(cfg.HostnameVerification)),
+		jujuhttp.WithCACertificates(cfg.CACertificates...),
+		jujuhttp.WithLogger(logger.Child("http")),
+	)
+	return NewDataSourceWithClient(cfg, client)
+}
+
+// NewDataSourceWithClient returns a new DataSource as defines by the given
+// Config, but with the addition of a http.Client.
+func NewDataSourceWithClient(cfg Config, client *jujuhttp.Client) DataSource {
 	return &urlDataSource{
-		description:          cfg.Description,
-		baseURL:              cfg.BaseURL,
-		hostnameVerification: bool(cfg.HostnameVerification),
-		publicSigningKey:     cfg.PublicSigningKey,
-		priority:             cfg.Priority,
-		requireSigned:        cfg.RequireSigned,
-		caCertificates:       cfg.CACertificates,
+		description:      cfg.Description,
+		baseURL:          cfg.BaseURL,
+		publicSigningKey: cfg.PublicSigningKey,
+		priority:         cfg.Priority,
+		requireSigned:    cfg.RequireSigned,
+		httpClient:       client,
 	}
 }
 
@@ -168,13 +177,7 @@ func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	// dataURL can be http:// or file://
 	// MakeFileURL will only modify the URL if it's a file URL
 	dataURL = utils.MakeFileURL(dataURL)
-	cfg := jujuhttp.Config{
-		SkipHostnameVerification: !h.hostnameVerification,
-		CACertificates:           h.caCertificates,
-		Logger:                   logger.Child("http"),
-	}
-	client := jujuhttp.NewClient(cfg)
-	resp, err := client.Get(context.TODO(), dataURL)
+	resp, err := h.httpClient.Get(context.TODO(), dataURL)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			// Callers of this mask the actual error.  Therefore warn here.

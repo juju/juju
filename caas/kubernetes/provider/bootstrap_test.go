@@ -103,7 +103,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.pcfg = pcfg
 	s.controllerStackerGetter = func() provider.ControllerStackerForTest {
 		controllerStacker, err := provider.NewcontrollerStackForTest(
-			envtesting.BootstrapContext(c), "juju-controller-test", "some-storage", s.broker, s.pcfg,
+			envtesting.BootstrapContext(context.TODO(), c), "juju-controller-test", "some-storage", s.broker, s.pcfg,
 		)
 		c.Assert(err, jc.ErrorIsNil)
 		return controllerStacker

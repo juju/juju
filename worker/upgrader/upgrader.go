@@ -19,7 +19,7 @@ import (
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2/catacomb"
 
-	jujuhttp "github.com/juju/http"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/upgrader"
@@ -354,7 +354,7 @@ func (u *Upgrader) ensureTools(agentTools *coretools.Tools) error {
 	u.config.Logger.Infof("fetching agent binaries from %q", agentTools.URL)
 	// The reader MUST verify the tools' hash, so there is no
 	// need to validate the peer. We cannot anyway: see http://pad.lv/1261780.
-	client := jujuhttp.NewClient(jujuhttp.Config{SkipHostnameVerification: true})
+	client := jujuhttp.NewClient(jujuhttp.WithSkipHostnameVerification(true))
 	resp, err := client.Get(context.TODO(), agentTools.URL)
 	if err != nil {
 		return err
