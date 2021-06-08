@@ -5,5 +5,7 @@ services:
     mysql:
         charm: mysql
         num_units: 1
+        options:
+            dataset-size: 80%
 relations:
     - ["wordpress:db", "mysql:server"]

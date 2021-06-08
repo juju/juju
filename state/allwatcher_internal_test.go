@@ -400,9 +400,10 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	})
 
 	add(&multiwatcher.CharmInfo{
-		ModelUUID: modelUUID,
-		CharmURL:  applicationCharmURL(mysql).String(),
-		Life:      life.Alive,
+		ModelUUID:     modelUUID,
+		CharmURL:      applicationCharmURL(mysql).String(),
+		Life:          life.Alive,
+		DefaultConfig: map[string]interface{}{"dataset-size": "80%"},
 	})
 
 	// Set up a remote application related to the offer.
