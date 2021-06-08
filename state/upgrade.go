@@ -264,12 +264,7 @@ func (info *UpgradeInfo) SetStatus(status UpgradeStatus) error {
 		return append(ops, extraOps...), nil
 	}
 
-	err := info.st.db().Run(buildTxn)
-	if err == txn.ErrAborted {
-		return errors.Errorf("cannot set upgrade status to %q: Another "+
-			"status change may have occurred concurrently", status)
-	}
-	return errors.Annotate(err, "setting upgrade status")
+	return errors.Annotatef(info.st.db().Run(buildTxn), "setting upgrade status to %q", status)
 }
 
 // EnsureUpgradeInfo returns an UpgradeInfo describing a current upgrade between the
