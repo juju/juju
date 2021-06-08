@@ -1,5 +1,5 @@
 name: juju
-version: 2.8.11
+version: 2.8.12
 summary: juju client
 description: Through the use of charms, juju provides you with shareable, re-usable, and repeatable expressions of devops best practices.
 confinement: classic
