@@ -3487,5 +3487,30 @@ func TranslateK8sServiceTypes(pool *StatePool) error {
 // collection with the removed "dynamic" address configuration method are
 // updated to indicate the "dhcp" configuration method.
 func UpdateDHCPAddressConfigs(pool *StatePool) error {
+	st := pool.SystemState()
+
+	col, closer := st.db().GetRawCollection(ipAddressesC)
+	defer closer()
+
+	iter := col.Find(bson.M{"config-method": "dynamic"}).Iter()
+
+	var ops []txn.Op
+	var doc bson.M
+	for iter.Next(&doc) {
+		ops = append(ops, txn.Op{
+			C:      ipAddressesC,
+			Id:     doc["_id"],
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"config-method": network.ConfigDHCP}},
+		})
+	}
+
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
 	return nil
 }

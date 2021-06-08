@@ -5209,6 +5209,27 @@ func (s *upgradesSuite) TestUpdateLegacyKubernetesCloudCredentialsOAuth2Cert(c *
 	)
 }
 
+func (s *upgradesSuite) TestUpdateDHCPAddressConfigs(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	defer func() { _ = model1.Close() }()
+
+	col, closer := s.state.db().GetRawCollection(ipAddressesC)
+	defer closer()
+
+	docs := []interface{}{
+		bson.M{"_id": model1.modelUUID() + ":m#0#d#eth0#ip#10.10.10.10", "config-method": "dynamic"},
+		bson.M{"_id": model1.modelUUID() + ":m#1#d#eth1#ip#20.20.20.20", "config-method": network.ConfigStatic},
+	}
+	err := col.Insert(docs...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The first of the docs has an upgraded config method.
+	s.assertUpgradedData(c, UpdateDHCPAddressConfigs, upgradedData(col, []bson.M{
+		{"_id": model1.modelUUID() + ":m#0#d#eth0#ip#10.10.10.10", "config-method": string(network.ConfigDHCP)},
+		{"_id": model1.modelUUID() + ":m#1#d#eth1#ip#20.20.20.20", "config-method": string(network.ConfigStatic)},
+	}))
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }
