@@ -69,9 +69,9 @@ func FromData(config ChangesConfig) ([]Change, error) {
 	if model == nil {
 		model = &Model{
 			logger:           config.Logger,
-			ConstraintGetter: config.ConstraintGetter,
 		}
 	}
+	model.ConstraintGetter = config.ConstraintGetter
 	model.initializeSequence()
 	model.InferMachineMap(config.Bundle)
 	changes := &changeset{}
