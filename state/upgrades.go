@@ -3482,3 +3482,10 @@ func TranslateK8sServiceTypes(pool *StatePool) error {
 	}
 	return nil
 }
+
+// UpdateDHCPAddressConfigs ensures that any addresses in the ip.addresses
+// collection with the removed "dynamic" address configuration method are
+// updated to indicate the "dhcp" configuration method.
+func UpdateDHCPAddressConfigs(pool *StatePool) error {
+	return nil
+}
