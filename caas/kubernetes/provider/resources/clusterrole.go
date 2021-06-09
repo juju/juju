@@ -111,7 +111,7 @@ func (r *ClusterRole) Ensure(
 		return cleanups, errors.Annotatef(
 			err,
 			"checking for existing cluster role %q",
-			r.Name,
+			existing.Name,
 		)
 	}
 
@@ -154,7 +154,7 @@ func (r *ClusterRole) Update(ctx context.Context, client kubernetes.Interface) e
 		},
 	)
 	if k8serrors.IsNotFound(err) {
-		return errors.Annotatef(err, "updating cluster role %q", r.Name)
+		return errors.NewNotFound(err, "updating cluster role")
 	} else if err != nil {
 		return errors.Trace(err)
 	}

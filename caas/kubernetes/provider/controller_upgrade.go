@@ -4,9 +4,15 @@
 package provider
 
 import (
+	"context"
+
+	"github.com/juju/errors"
 	"github.com/juju/version/v2"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/juju/juju/caas/kubernetes/provider/resources"
+	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/environs/bootstrap"
 )
 
@@ -58,4 +64,57 @@ func (k *kubernetesClient) upgradeController(vers version.Number) error {
 		isLegacyFn:  k.IsLegacyLabels,
 	}
 	return controllerUpgrade(bootstrap.ControllerModelName, vers, broker)
+}
+
+// InClusterCredentialUpgrade implements upgrades.upgradeKubernetesClusterCredential
+// used in the Juju 2.9.6 upgrade step
+func (k *kubernetesClient) InClusterCredentialUpgrade() error {
+	return inClusterCredentialUpgrade(
+		k.client(),
+		k.IsLegacyLabels(),
+		k.GetCurrentNamespace(),
+	)
+}
+
+func inClusterCredentialUpgrade(
+	client kubernetes.Interface,
+	legacyLabels bool,
+	namespace string,
+) error {
+	ctx := context.TODO()
+	labels := providerutils.LabelsForApp("controller", legacyLabels)
+
+	saName, cleanUps, err := ensureControllerServiceAccount(
+		ctx,
+		client,
+		namespace,
+		labels,
+		map[string]string{},
+	)
+
+	runCleanups := func() {
+		for _, v := range cleanUps {
+			v()
+		}
+	}
+
+	if err != nil {
+		runCleanups()
+		return errors.Trace(err)
+	}
+
+	ss := resources.NewStatefulSet("controller", namespace, &appsv1.StatefulSet{})
+	if err := ss.Get(ctx, client); err != nil {
+		runCleanups()
+		return errors.Annotate(err, "updating controller for in cluster credentials")
+	}
+
+	ss.Spec.Template.Spec.ServiceAccountName = saName
+	ss.Spec.Template.Spec.AutomountServiceAccountToken = boolPtr(true)
+	if err := ss.Apply(ctx, client); err != nil {
+		runCleanups()
+		return errors.Annotate(err, "updating controller for in cluster credentials")
+	}
+
+	return nil
 }
