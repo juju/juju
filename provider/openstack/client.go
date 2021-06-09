@@ -24,7 +24,6 @@ type SSLHostnameConfig interface {
 // ClientFunc is used to create a goose client.
 type ClientFunc = func(cred identity.Credentials,
 	authMode identity.AuthMode,
-	gooseLogger gooselogging.CompatLogger,
 	sslHostnameVerification bool,
 	certs []string,
 	options ...client.Option) (client.AuthenticatingClient, error)
@@ -151,11 +150,7 @@ func (c *ClientFactory) getClientState(options ...client.Option) (client.Authent
 
 // getClientByAuthMode creates a new client for the given AuthMode.
 func (c *ClientFactory) getClientByAuthMode(authMode identity.AuthMode, cred identity.Credentials, options ...client.Option) (client.AuthenticatingClient, error) {
-	gooseLogger := gooselogging.LoggoLogger{
-		Logger: loggo.GetLogger("goose"),
-	}
-
-	newClient, err := c.clientFunc(cred, authMode, gooseLogger, c.sslHostnameConfig.SSLHostnameVerification(), c.spec.CACertificates, options...)
+	newClient, err := c.clientFunc(cred, authMode, c.sslHostnameConfig.SSLHostnameVerification(), c.spec.CACertificates, options...)
 	if err != nil {
 		return nil, errors.NewNotValid(err, "cannot create a new client")
 	}
@@ -173,21 +168,20 @@ func (c *ClientFactory) getClientByAuthMode(authMode identity.AuthMode, cred ide
 func newClientByType(
 	cred identity.Credentials,
 	authMode identity.AuthMode,
-	gooseLogger gooselogging.CompatLogger,
 	sslHostnameVerification bool,
 	certs []string,
 	options ...client.Option,
 ) (client.AuthenticatingClient, error) {
-	switch {
-	case len(certs) > 0:
-		tlsConfig := tlsConfig(certs)
-		logger.Tracef("using NewClientTLSConfig")
-		return client.NewClientTLSConfig(&cred, authMode, gooseLogger, tlsConfig, options...), nil
-	case sslHostnameVerification == false:
-		logger.Tracef("using NewNonValidatingClient")
-		return client.NewNonValidatingClient(&cred, authMode, gooseLogger, options...), nil
-	default:
-		logger.Tracef("using NewClient")
-		return client.NewClient(&cred, authMode, gooseLogger, options...), nil
+	logger := loggo.GetLogger("goose")
+	gooseLogger := gooselogging.LoggoLogger{
+		Logger: logger,
 	}
+
+	httpClient := jujuhttp.NewClient(
+		jujuhttp.WithSkipHostnameVerification(!sslHostnameVerification),
+		jujuhttp.WithCACertificates(certs...),
+		jujuhttp.WithLogger(logger.Child("http")),
+	)
+	options = append(options, client.WithHTTPClient(httpClient.Client()))
+	return client.NewClient(&cred, authMode, gooseLogger, options...), nil
 }
