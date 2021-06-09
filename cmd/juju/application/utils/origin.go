@@ -69,18 +69,6 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 // DeducePlatform attempts to create a Platform (architecture, os and series)
 // from a set of constraints or a free style series.
 func DeducePlatform(cons constraints.Value, series string, modelCons constraints.Value) (corecharm.Platform, error) {
-	var pArch string
-	if cons.HasArch() {
-		pArch = *cons.Arch
-	}
-	if pArch == "" {
-		if modelCons.HasArch() && *modelCons.Arch != "" {
-			pArch = *modelCons.Arch
-		} else {
-			pArch = arch.DefaultArchitecture
-		}
-	}
-
 	var os string
 	if series != "" {
 		sys, err := osseries.GetOSFromSeries(series)
@@ -91,7 +79,7 @@ func DeducePlatform(cons constraints.Value, series string, modelCons constraints
 	}
 
 	return corecharm.Platform{
-		Architecture: pArch,
+		Architecture: arch.ConstraintArch(cons, &modelCons),
 		OS:           os,
 		Series:       series,
 	}, nil

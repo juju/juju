@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"strings"
 
-	jujuhttp "github.com/juju/http"
+	jujuhttp "github.com/juju/http/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
@@ -547,11 +547,6 @@ var imageData = map[string]string{
 
 var TestRoundTripper = &testing.ProxyRoundTripper{}
 
-func init() {
-	TestRoundTripper.RegisterForScheme("test")
-	TestRoundTripper.RegisterForScheme("signedtest")
-}
-
 type TestDataSuite struct{}
 
 func (s *TestDataSuite) SetUpSuite(c *gc.C) {
@@ -635,15 +630,6 @@ type LocalLiveSimplestreamsSuite struct {
 	ValidConstraint simplestreams.LookupConstraint
 }
 
-func (s *LocalLiveSimplestreamsSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	s.PatchValue(&jujuhttp.OutgoingAccessAllowed, false)
-}
-
-func (s *LocalLiveSimplestreamsSuite) TearDownSuite(c *gc.C) {
-	s.BaseSuite.TearDownSuite(c)
-}
-
 const (
 	Index_v1   = "index:1.0"
 	Product_v1 = "products:1.0"
@@ -671,6 +657,47 @@ func (tc *testConstraint) ProductIds() ([]string, error) {
 		ids[i] = fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", version, arch)
 	}
 	return ids, nil
+}
+
+type testDataSourceFactory struct{}
+
+func TestDataSourceFactory() simplestreams.DataSourceFactory {
+	return testDataSourceFactory{}
+}
+
+func (testDataSourceFactory) NewDataSource(cfg simplestreams.Config) simplestreams.DataSource {
+	return simplestreams.NewDataSourceWithClient(cfg, jujuhttp.NewClient(
+		jujuhttp.WithTransportMiddlewares(
+			jujuhttp.DialContextMiddleware(jujuhttp.NewLocalDialBreaker(false)),
+			jujuhttp.FileProtocolMiddleware,
+			FileProtocolMiddleware,
+		),
+	))
+}
+
+type testSkipVerifyDataSourceFactory struct{}
+
+func TestSkipVerifyDataSourceFactory() simplestreams.DataSourceFactory {
+	return testSkipVerifyDataSourceFactory{}
+}
+
+func (testSkipVerifyDataSourceFactory) NewDataSource(cfg simplestreams.Config) simplestreams.DataSource {
+	return simplestreams.NewDataSourceWithClient(cfg, jujuhttp.NewClient(
+		jujuhttp.WithSkipHostnameVerification(true),
+		jujuhttp.WithTransportMiddlewares(
+			jujuhttp.DialContextMiddleware(jujuhttp.NewLocalDialBreaker(false)),
+			jujuhttp.FileProtocolMiddleware,
+			FileProtocolMiddleware,
+		),
+	))
+}
+
+// FileTestingMiddleware registers support for file:// URLs on the given
+// transport.
+func FileProtocolMiddleware(transport *http.Transport) *http.Transport {
+	TestRoundTripper.RegisterForTransportScheme(transport, "test")
+	TestRoundTripper.RegisterForTransportScheme(transport, "signedtest")
+	return transport
 }
 
 func init() {
@@ -708,9 +735,15 @@ func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams
 		DataType:      s.DataType,
 		ValueTemplate: TestItem{},
 	}
-	return simplestreams.GetIndexWithFormat(
-		s.Source, s.IndexPath(), format, simplestreams.MirrorsPath(s.StreamsVersion), s.RequireSigned,
-		s.ValidConstraint.Params().CloudSpec, params)
+	ss := simplestreams.NewSimpleStreams(TestDataSourceFactory())
+	return ss.GetIndexWithFormat(
+		s.Source, s.IndexPath(),
+		format,
+		simplestreams.MirrorsPath(s.StreamsVersion),
+		s.RequireSigned,
+		s.ValidConstraint.Params().CloudSpec,
+		params,
+	)
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetIndexWrongFormat(c *gc.C) {
@@ -730,7 +763,7 @@ func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidCloudSpec(c *gc.
 	indexRef, err := s.GetIndexRef(Index_v1)
 	c.Assert(err, jc.ErrorIsNil)
 	ic := NewTestConstraint(simplestreams.LookupParams{
-		CloudSpec: simplestreams.CloudSpec{"bad", "spec"},
+		CloudSpec: simplestreams.CloudSpec{Region: "bad", Endpoint: "spec"},
 		Releases:  []string{"precise"},
 	})
 	_, err = indexRef.GetProductsPath(ic)
@@ -772,7 +805,8 @@ func (s *LocalLiveSimplestreamsSuite) AssertGetItemCollections(c *gc.C, version 
 }
 
 func InvalidDataSource(requireSigned bool) simplestreams.DataSource {
-	return simplestreams.NewDataSource(simplestreams.Config{
+	factory := TestDataSourceFactory()
+	return factory.NewDataSource(simplestreams.Config{
 		Description:          "invalid",
 		BaseURL:              "file://invalid",
 		HostnameVerification: utils.VerifySSLHostnames,
@@ -781,7 +815,8 @@ func InvalidDataSource(requireSigned bool) simplestreams.DataSource {
 }
 
 func VerifyDefaultCloudDataSource(description, baseURL string) simplestreams.DataSource {
-	return simplestreams.NewDataSource(simplestreams.Config{
+	factory := TestDataSourceFactory()
+	return factory.NewDataSource(simplestreams.Config{
 		Description:          description,
 		BaseURL:              baseURL,
 		HostnameVerification: utils.VerifySSLHostnames,

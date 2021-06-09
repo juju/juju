@@ -807,7 +807,9 @@ to create a new model to deploy %sworkloads.
 
 	// Validate the storage provider config.
 	registry := stateenvirons.NewStorageProviderRegistry(environ)
-	m := poolmanager.MemSettings{make(map[string]map[string]interface{})}
+	m := poolmanager.MemSettings{
+		Settings: make(map[string]map[string]interface{}),
+	}
 	pm := poolmanager.New(m, registry)
 	for poolName, cfg := range bootstrapCfg.storagePools {
 		poolType, _ := cfg[poolmanager.Type].(string)

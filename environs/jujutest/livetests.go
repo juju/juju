@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
@@ -152,8 +153,9 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 	if t.prepared {
 		return
 	}
+
 	args := t.prepareForBootstrapParams(c)
-	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c), t.ControllerStore, args)
+	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.TODO(), c), t.ControllerStore, args)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	t.Env = e.(environs.Environ)
@@ -220,13 +222,18 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := sync.Upload(t.toolsStorage, "released", nil)
+		ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+		_, err := sync.Upload(ss, t.toolsStorage, "released", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	args := t.bootstrapParams()
 	args.BootstrapConstraints = cons
 	args.ModelConstraints = cons
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, t.ProviderCallContext, args)
+
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	ctx := stdcontext.WithValue(stdcontext.TODO(), bootstrap.SimplestreamsFetcherContextKey, ss)
+
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(ctx, c), t.Env, t.ProviderCallContext, args)
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = true
 }
@@ -863,7 +870,8 @@ func waitAgentTools(c *gc.C, w *toolsWaiter, expect version.Binary) *coretools.T
 // all the provided watchers upgrade to the requested version.
 func (t *LiveTests) checkUpgrade(c *gc.C, st *state.State, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := sync.Upload(t.toolsStorage, "released", &newVersion.Number)
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	upgradeTools, err := sync.Upload(ss, t.toolsStorage, "released", &newVersion.Number)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the put version really is the version we expect.
@@ -923,6 +931,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	}
 	err = jujutesting.SetImageMetadata(
 		t.Env,
+		simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory()),
 		[]string{"trusty"},
 		possibleTools.Arches(),
 		&params.ImageMetadata,
@@ -952,7 +961,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	})
 	args := t.prepareForBootstrapParams(c)
 	args.ModelConfig = dummyCfg
-	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c),
+	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.TODO(), c),
 		jujuclient.NewMemStore(),
 		args,
 	)
@@ -966,13 +975,13 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"default-series": "quantal",
 	})
 	args.ModelConfig = attrs
-	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c),
+	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.TODO(), c),
 		t.ControllerStore,
 		args)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = environs.Destroy("livetests", env, t.ProviderCallContext, t.ControllerStore) }()
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, t.ProviderCallContext, t.bootstrapParams())
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(stdcontext.TODO(), c), env, t.ProviderCallContext, t.bootstrapParams())
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()

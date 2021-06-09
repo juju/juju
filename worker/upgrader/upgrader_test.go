@@ -29,6 +29,8 @@ import (
 	"github.com/juju/juju/api"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -121,20 +123,27 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
 	err := statetesting.SetAgentVersion(s.State, vers.Number)
 	c.Assert(err, jc.ErrorIsNil)
-	stor := s.DefaultToolsStorage
-	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), vers)
+
+	store := s.DefaultToolsStorage
+	agentTools := envtesting.PrimeTools(c, store, s.DataDir(), s.Environ.Config().AgentStream(), vers)
 	s.patchVersion(agentTools.Version)
-	err = envtools.MergeAndWriteMetadata(stor, "released", "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
+
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	err = envtools.MergeAndWriteMetadata(ss, store, "released", "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, jc.ErrorIsNil)
+
 	_, err = s.machine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	u := s.makeUpgrader(c)
 	workertest.CleanKill(c, u)
 	s.expectInitialUpgradeCheckDone(c)
+
 	err = s.machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
+
 	gotTools, err := s.machine.AgentTools()
+
 	c.Assert(err, jc.ErrorIsNil)
 	agentTools.Version.Build = 666
 	envtesting.CheckTools(c, gotTools, agentTools)
@@ -207,6 +216,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 
 	err = stor.Remove(envtools.StorageName(newTools.Version, "released"))
 	c.Assert(err, jc.ErrorIsNil)
+
 	u := s.makeUpgrader(c)
 	defer func() { _ = workertest.CheckKilled(c, u) }()
 	s.expectInitialUpgradeCheckNotDone(c)
@@ -247,12 +257,15 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	oldTools := &coretools.Tools{
 		Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
 	}
-	stor := s.DefaultToolsStorage
+	store := s.DefaultToolsStorage
 	newToolsBinary := "5.4.3-ubuntu-amd64"
-	newTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary(newToolsBinary))
+	newTools := envtesting.PrimeTools(c, store, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary(newToolsBinary))
 	s.patchVersion(newTools.Version)
-	err := envtools.MergeAndWriteMetadata(stor, "released", "released", coretools.List{newTools}, envtools.DoNotWriteMirrors)
+
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	err := envtools.MergeAndWriteMetadata(ss, store, "released", "released", coretools.List{newTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, jc.ErrorIsNil)
+
 	ugErr := &agenterrors.UpgradeReadyError{
 		AgentName: "anAgent",
 		OldTools:  oldTools.Version,
@@ -261,6 +274,7 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	}
 	err = ugErr.ChangeAgentTools(loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
+
 	target := agenttools.ToolsDir(s.DataDir(), newToolsBinary)
 	link, err := symlink.Read(agenttools.ToolsDir(s.DataDir(), "anAgent"))
 	c.Assert(err, jc.ErrorIsNil)

@@ -16,7 +16,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v4"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
@@ -108,7 +108,7 @@ func (c *updatePublicCloudsCommand) Init(args []string) error {
 }
 
 func PublishedPublicClouds(url, key string) (map[string]jujucloud.Cloud, error) {
-	client := jujuhttp.NewClient(jujuhttp.Config{})
+	client := jujuhttp.NewClient()
 	resp, err := client.Get(context.TODO(), url)
 	if err != nil {
 		return nil, err

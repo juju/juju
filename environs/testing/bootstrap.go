@@ -42,6 +42,10 @@ func DisableFinishBootstrap() func() {
 }
 
 // BootstrapContext creates a simple bootstrap execution context.
-func BootstrapContext(c *gc.C) environs.BootstrapContext {
-	return modelcmd.BootstrapContext(context.Background(), cmdtesting.Context(c))
+func BootstrapContext(ctx context.Context, c *gc.C) environs.BootstrapContext {
+	return modelcmd.BootstrapContext(ctx, cmdtesting.Context(c))
+}
+
+func BootstrapTODOContext(c *gc.C) environs.BootstrapContext {
+	return BootstrapContext(context.TODO(), c)
 }

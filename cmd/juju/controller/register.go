@@ -22,7 +22,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v4"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
@@ -516,7 +516,10 @@ func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKe
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
-	httpClient := jujuhttp.NewClient(jujuhttp.Config{SkipHostnameVerification: true, Jar: cookieJar})
+	httpClient := jujuhttp.NewClient(
+		jujuhttp.WithSkipHostnameVerification(true),
+		jujuhttp.WithCookieJar(cookieJar),
+	)
 	httpResp, err := httpClient.Do(httpReq)
 	if err != nil {
 		return nil, errors.Trace(err)

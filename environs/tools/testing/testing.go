@@ -108,22 +108,22 @@ func makeTools(c *gc.C, metadataDir, stream string, versionStrings []string, wit
 		toolsList = append(toolsList, tool)
 	}
 	// Write the tools metadata.
-	stor, err := filestorage.NewFileStorageWriter(metadataDir)
+	store, err := filestorage.NewFileStorageWriter(metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	err = tools.MergeAndWriteMetadata(stor, stream, stream, toolsList, false)
+
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	err = tools.MergeAndWriteMetadata(ss, store, stream, stream, toolsList, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Sign metadata
-	err = envtesting.SignTestTools(stor)
+	err = envtesting.SignTestTools(store)
 	c.Assert(err, jc.ErrorIsNil)
 	return toolsList
 }
 
 // SHA256sum creates the sha256 checksum for the specified file.
 func SHA256sum(c *gc.C, path string) (int64, string) {
-	if strings.HasPrefix(path, "file://") {
-		path = path[len("file://"):]
-	}
+	path = strings.TrimPrefix(path, "file://")
 	hash, size, err := utils.ReadFileSHA256(path)
 	c.Assert(err, jc.ErrorIsNil)
 	return size, hash
@@ -147,7 +147,9 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string
 	const requireSigned = false
 	indexPath := simplestreams.UnsignedIndex("v1", 2)
 	mirrorsPath := simplestreams.MirrorsPath("v1")
-	indexRef, err := simplestreams.GetIndexWithFormat(
+
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	indexRef, err := ss.GetIndexWithFormat(
 		source, indexPath, "index:1.0", mirrorsPath, requireSigned, simplestreams.CloudSpec{}, params)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -156,7 +158,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string
 
 	// Read the products file contents.
 	r, err := stor.Get(path.Join("tools", toolsIndexMetadata.ProductsFilePath))
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := ioutil.ReadAll(r)
 	c.Assert(err, jc.ErrorIsNil)

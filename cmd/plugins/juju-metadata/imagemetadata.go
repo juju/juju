@@ -219,7 +219,8 @@ func (c *imageMetadataCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	err = imagemetadata.MergeAndWriteMetadata(c.Series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
+	fetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+	err = imagemetadata.MergeAndWriteMetadata(fetcher, c.Series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
 		return errors.Errorf("image metadata files could not be created: %v", err)
 	}

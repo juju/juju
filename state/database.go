@@ -143,7 +143,7 @@ func Apply(db Database, change Change) error {
 	return nil
 }
 
-// collectionInfo describes important features of a collection.
+// CollectionInfo describes important features of a collection.
 type CollectionInfo struct {
 
 	// explicitCreate, if non-nil, will cause the collection to be explicitly
@@ -178,7 +178,7 @@ type CollectionInfo struct {
 	rawAccess bool
 }
 
-// collectionSchema defines the set of collections used in juju.
+// CollectionSchema defines the set of collections used in juju.
 type CollectionSchema map[string]CollectionInfo
 
 // Create causes all recorded collections to be created and indexed as specified

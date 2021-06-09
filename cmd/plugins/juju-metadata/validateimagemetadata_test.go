@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	sstestings "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
@@ -88,7 +89,8 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(id, region, series, endpo
 	if err != nil {
 		return err
 	}
-	err = imagemetadata.MergeAndWriteMetadata(series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
+	ss := simplestreams.NewSimpleStreams(sstestings.TestDataSourceFactory())
+	err = imagemetadata.MergeAndWriteMetadata(ss, series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
 		return err
 	}
@@ -256,7 +258,8 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) 
 }
 
 func (s *ValidateImageMetadataSuite) TestImagesDataSourceHasKey(c *gc.C) {
-	ds := imagesDataSources("test.me")
+	ss := simplestreams.NewSimpleStreams(sstestings.TestDataSourceFactory())
+	ds := imagesDataSources(ss, "test.me")
 	// This data source does not require to contain signed data.
 	// However, it may still contain it.
 	// Since we will always try to read signed data first,

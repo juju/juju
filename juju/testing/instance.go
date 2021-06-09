@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -171,7 +172,8 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 		filter.Arch = *params.Constraints.Arch
 	}
 	streams := tools.PreferredStreams(&agentVersion, env.Config().Development(), env.Config().AgentStream())
-	possibleTools, err := tools.FindTools(env, -1, -1, streams, filter)
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	possibleTools, err := tools.FindTools(ss, env, -1, -1, streams, filter)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -179,6 +181,7 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 	if params.ImageMetadata == nil {
 		if err := SetImageMetadata(
 			env,
+			ss,
 			[]string{preferredSeries},
 			possibleTools.Arches(),
 			&params.ImageMetadata,
@@ -216,12 +219,12 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 	return nil
 }
 
-func SetImageMetadata(env environs.Environ, series, arches []string, out *[]*imagemetadata.ImageMetadata) error {
+func SetImageMetadata(env environs.Environ, fetcher imagemetadata.SimplestreamsFetcher, series, arches []string, out *[]*imagemetadata.ImageMetadata) error {
 	hasRegion, ok := env.(simplestreams.HasRegion)
 	if !ok {
 		return nil
 	}
-	sources, err := environs.ImageMetadataSources(env)
+	sources, err := environs.ImageMetadataSources(env, fetcher)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -238,7 +241,7 @@ func SetImageMetadata(env environs.Environ, series, arches []string, out *[]*ima
 	if err != nil {
 		return errors.Trace(err)
 	}
-	imageMetadata, _, err := imagemetadata.Fetch(sources, imageConstraint)
+	imageMetadata, _, err := imagemetadata.Fetch(fetcher, sources, imageConstraint)
 	if err != nil {
 		return errors.Trace(err)
 	}

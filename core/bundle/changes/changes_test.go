@@ -3958,7 +3958,6 @@ func (s *changesSuite) TestExistingAppsWithArchConstraints(c *gc.C) {
 		ConstraintsEqual: func(string, string) bool {
 			return false
 		},
-		ConstraintGetter: constraintParser,
 		Machines: map[string]*bundlechanges.Machine{
 			// We don't actually look at the content of the machines
 			// for this test, just the keys.
@@ -3996,7 +3995,6 @@ func (s *changesSuite) TestExistingAppsWithoutArchConstraints(c *gc.C) {
 		ConstraintsEqual: func(string, string) bool {
 			return false
 		},
-		ConstraintGetter: constraintParser,
 		Machines: map[string]*bundlechanges.Machine{
 			// We don't actually look at the content of the machines
 			// for this test, just the keys.
@@ -4051,20 +4049,6 @@ func (s *changesSuite) TestAppWithArchConstraints(c *gc.C) {
 		"deploy application django from charm-store",
 	}
 	s.checkBundleWithConstraintsParser(c, bundleContent, expectedChanges, constraintParser)
-}
-
-func (s *changesSuite) TestAppWithArchConstraintsWithNotFoundError(c *gc.C) {
-	bundleContent := `
-                applications:
-                    django:
-                        charm: cs:django-4
-                        constraints: arch=amd64 cpu-cores=4 cpu-power=42
-            `
-	expectedChanges := []string{
-		"upload charm django from charm-store",
-		"deploy application django from charm-store",
-	}
-	s.checkBundleWithConstraintsParser(c, bundleContent, expectedChanges, constraintParserWithError(errors.NotFoundf("arch")))
 }
 
 func (s *changesSuite) TestAppWithArchConstraintsWithError(c *gc.C) {

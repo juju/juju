@@ -123,7 +123,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissi
 		"Located charm \"wordpress-extra-bindings\" in charm-store")
 	c.Assert(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm mysql from charm-store for series xenial\n"+
+		"- upload charm mysql from charm-store for series xenial with architecture=amd64\n"+
 		"- deploy application mysql from charm-store on xenial")
 	s.assertCharmsUploaded(c, "cs:xenial/mysql-42")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{})
@@ -197,10 +197,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm mysql from charm-store for series xenial\n"+
+		"- upload charm mysql from charm-store for series xenial with architecture=amd64\n"+
 		"- deploy application mysql from charm-store on xenial\n"+
 		"- set annotations for mysql\n"+
-		"- upload charm wordpress from charm-store for series xenial\n"+
+		"- upload charm wordpress from charm-store for series xenial with architecture=amd64\n"+
 		"- deploy application wordpress from charm-store on xenial\n"+
 		"- set annotations for wordpress\n"+
 		"- add relation wordpress:db - mysql:db\n"+
@@ -247,10 +247,10 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := "" +
 		"Changes to deploy bundle:\n" +
-		"- upload charm mysql from charm-store for series xenial\n" +
+		"- upload charm mysql from charm-store for series xenial with architecture=amd64\n" +
 		"- deploy application mysql from charm-store on xenial\n" +
 		"- set annotations for mysql\n" +
-		"- upload charm wordpress from charm-store for series xenial\n" +
+		"- upload charm wordpress from charm-store for series xenial with architecture=amd64\n" +
 		"- deploy application wordpress from charm-store on xenial\n" +
 		"- set annotations for wordpress\n" +
 		"- add relation wordpress:db - mysql:db\n" +
@@ -414,7 +414,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleResources(c *gc.C) {
 
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm cs:trusty/starsay-42 for series trusty\n"+
+		"- upload charm cs:trusty/starsay-42 for series trusty with architecture=amd64\n"+
 		"- deploy application starsay on trusty using cs:trusty/starsay-42\n"+
 		"- add unit starsay/0 to new machine 0",
 	)
@@ -1067,7 +1067,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm upgrade from charm-store for series trusty\n"+
+		"- upload charm upgrade from charm-store for series trusty with architecture=amd64\n"+
 		"- upgrade up from charm-store using charm upgrade for series trusty\n"+
 		"- set constraints for up to \"mem=8G\"\n"+
 		"- set application options for wordpress\n"+
@@ -1386,9 +1386,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundlePeerContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm django from charm-store for series xenial\n"+
+		"- upload charm django from charm-store for series xenial with architecture=amd64\n"+
 		"- deploy application django from charm-store on xenial\n"+
-		"- upload charm wordpress from charm-store for series xenial\n"+
+		"- upload charm wordpress from charm-store for series xenial with architecture=amd64\n"+
 		"- deploy application wordpress from charm-store on xenial\n"+
 		"- add lxd container 0/lxd/0 on new machine 0\n"+
 		"- add lxd container 1/lxd/0 on new machine 1\n"+
@@ -1621,10 +1621,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCo
 
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm django from charm-store for series bionic\n"+
+		"- upload charm django from charm-store for series bionic with architecture=amd64\n"+
 		"- deploy application django from charm-store on bionic\n"+
 		"- set annotations for django\n"+
-		"- upload charm mem from charm-store for series bionic\n"+
+		"- upload charm mem from charm-store for series bionic with architecture=amd64\n"+
 		"- deploy application memcached from charm-store on bionic using mem\n"+
 		"- add new machine 0 (bundle machine 1)\n"+
 		"- set annotations for new machine 0\n"+
@@ -1796,7 +1796,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundlePassesSequences(c *gc.C) {
     `)
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm django from charm-store for series xenial\n"+
+		"- upload charm django from charm-store for series xenial with architecture=amd64\n"+
 		"- deploy application django from charm-store on xenial\n"+
 		"- add unit django/2 to new machine 2\n"+
 		"- add unit django/3 to new machine 3",

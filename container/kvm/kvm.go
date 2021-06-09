@@ -26,14 +26,19 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/simplestreams"
 )
 
 var (
 	logger = loggo.GetLogger("juju.container.kvm")
 
-	// KvmObjectFactory implements the container factory interface for kvm
+	// KVMObjectFactory implements the container factory interface for kvm
 	// containers.
-	KvmObjectFactory ContainerFactory = &containerFactory{}
+	// TODO (stickupkid): This _only_ exists here because we can patch it in
+	// tests. This is horrid!
+	KVMObjectFactory ContainerFactory = &containerFactory{
+		fetcher: simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory()),
+	}
 
 	// In order for Juju to be able to create the hardware characteristics of
 	// the kvm machines it creates, we need to be explicit in our definition
@@ -166,7 +171,7 @@ func (manager *containerManager) CreateContainer(
 	// Note here that the kvmObjectFactory only returns a valid container
 	// object, and doesn't actually construct the underlying kvm container on
 	// disk.
-	kvmContainer := KvmObjectFactory.New(name)
+	kvmContainer := KVMObjectFactory.New(name)
 
 	hc = &instance.HardwareCharacteristics{AvailabilityZone: &manager.availabilityZone}
 
@@ -250,7 +255,7 @@ func (manager *containerManager) IsInitialized() bool {
 
 func (manager *containerManager) DestroyContainer(id instance.Id) error {
 	name := string(id)
-	kvmContainer := KvmObjectFactory.New(name)
+	kvmContainer := KVMObjectFactory.New(name)
 	if err := kvmContainer.Stop(); err != nil {
 		logger.Errorf("failed to stop kvm container: %v", err)
 		return err
@@ -259,7 +264,7 @@ func (manager *containerManager) DestroyContainer(id instance.Id) error {
 }
 
 func (manager *containerManager) ListContainers() (result []instances.Instance, err error) {
-	containers, err := KvmObjectFactory.List()
+	containers, err := KVMObjectFactory.List()
 	if err != nil {
 		logger.Errorf("failed getting all instances: %v", err)
 		return

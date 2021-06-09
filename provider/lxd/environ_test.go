@@ -107,7 +107,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 }
 
 func (s *environSuite) TestBootstrapAPI(c *gc.C) {
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapContext(context.TODO(), c)
 	params := environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,

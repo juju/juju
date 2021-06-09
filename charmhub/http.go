@@ -14,7 +14,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http"
+	jujuhttp "github.com/juju/http/v2"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/charmhub/path"
@@ -37,9 +37,7 @@ type Transport interface {
 
 // DefaultHTTPTransport creates a new HTTPTransport.
 func DefaultHTTPTransport(logger Logger) Transport {
-	return jujuhttp.NewClient(jujuhttp.Config{
-		Logger: logger,
-	})
+	return jujuhttp.NewClient(jujuhttp.WithLogger(logger))
 }
 
 // APIRequester creates a wrapper around the transport to allow for better
