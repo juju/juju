@@ -88,11 +88,7 @@ func (s *clientSuite) setupMockFactory(ctrl *gomock.Controller, times int) *Clie
 }
 
 func makeClientFunc(mockClient *MockAuthenticatingClient) ClientFunc {
-	return func(cred identity.Credentials,
-		authMode identity.AuthMode,
-		sslHostnameVerification bool,
-		certs []string,
-		options ...client.Option) (client.AuthenticatingClient, error) {
+	return func(identity.Credentials, identity.AuthMode, ...ClientOption) (client.AuthenticatingClient, error) {
 		return mockClient, nil
 	}
 }
