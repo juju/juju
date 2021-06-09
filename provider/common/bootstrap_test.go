@@ -150,7 +150,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 
 	env.startInstance = startInstance
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		BootstrapConstraints:     checkCons,
@@ -197,7 +197,7 @@ func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 		startInstance: fakeStartInstance,
 		config:        fakeMinimalConfig(c),
 	}
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	bootstrapSeries := jujuversion.DefaultSupportedLTS()
 	availableTools := fakeAvailableTools()
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
@@ -218,7 +218,7 @@ func (s *BootstrapSuite) TestBootstrapInvalidSeries(c *gc.C) {
 		startInstance: fakeStartInstance,
 		config:        fakeMinimalConfig(c),
 	}
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	bootstrapSeries := "spock"
 	availableTools := fakeAvailableTools()
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
@@ -237,7 +237,7 @@ func (s *BootstrapSuite) TestBootstrapFallbackSeries(c *gc.C) {
 		startInstance: fakeStartInstance,
 		config:        fakeMinimalConfig(c),
 	}
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	bootstrapSeries := ""
 	availableTools := fakeAvailableTools()
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
@@ -258,7 +258,7 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *gc.C) {
 		startInstance: fakeStartInstance,
 		config:        fakeMinimalConfig(c),
 	}
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	bootstrapSeries := "xenial"
 	availableTools := fakeAvailableTools()
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
@@ -288,7 +288,7 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForceAndInvalidFallback(c *gc.C)
 		startInstance: fakeStartInstance,
 		config:        getConfig,
 	}
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	bootstrapSeries := ""
 	availableTools := fakeAvailableTools()
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
@@ -323,7 +323,7 @@ func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *gc.C) {
 		return nil, nil, nil, errors.New("bloop")
 	}
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		AvailableTools:           fakeAvailableTools(),
@@ -363,7 +363,7 @@ func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *gc.C) {
 		return nil, nil, nil, errors.New("bloop")
 	}
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		AvailableTools:           fakeAvailableTools(),
@@ -405,7 +405,7 @@ func (s *BootstrapSuite) TestStartInstanceAttemptZoneConstrained(c *gc.C) {
 		return nil, nil, nil, errors.New("bloop")
 	}
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		AvailableTools:           fakeAvailableTools(),
@@ -450,7 +450,7 @@ func (s *BootstrapSuite) TestStartInstanceNoMatchingConstraintZones(c *gc.C) {
 		return nil, nil, nil, errors.New("bloop")
 	}
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		AvailableTools:           fakeAvailableTools(),
@@ -493,7 +493,7 @@ func (s *BootstrapSuite) TestStartInstanceStopOnZoneIndependentError(c *gc.C) {
 		return nil, nil, nil, common.ZoneIndependentError(errors.New("bloop"))
 	}
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		AvailableTools:           fakeAvailableTools(),
@@ -519,7 +519,7 @@ func (s *BootstrapSuite) TestStartInstanceNoUsableZones(c *gc.C) {
 		},
 	}
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		AvailableTools:           fakeAvailableTools(),
@@ -549,7 +549,7 @@ func (s *BootstrapSuite) TestStartInstanceRootDisk(c *gc.C) {
 		startInstance: startInstance,
 		config:        fakeMinimalConfig(c),
 	}
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	availableTools := fakeAvailableTools()
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
@@ -706,7 +706,7 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 			return []instances.Instance{inst}, nil
 		},
 	}
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	bootstrapSeries := jujuversion.DefaultSupportedLTS()
 	availableTools := fakeAvailableTools()
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{

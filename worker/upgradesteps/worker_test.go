@@ -40,7 +40,6 @@ type UpgradeSuite struct {
 	oldVersion      version.Binary
 	logWriter       loggo.TestWriter
 	connectionDead  bool
-	machineIsMaster bool
 	preUpgradeError bool
 }
 
@@ -63,21 +62,13 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.oldVersion.Minor = 16
 
 	// Don't wait so long in tests.
-	s.PatchValue(&UpgradeStartTimeoutPrimary, time.Millisecond*50)
-	s.PatchValue(&UpgradeStartTimeoutSecondary, time.Millisecond*60)
+	s.PatchValue(&UpgradeStartTimeoutController, time.Millisecond*50)
 
 	// Allow tests to make the API connection appear to be dead.
 	s.connectionDead = false
 	s.PatchValue(&agenterrors.ConnectionIsDead, func(loggo.Logger, agenterrors.Breakable) bool {
 		return s.connectionDead
 	})
-
-	s.machineIsMaster = true
-	fakeIsMachinePrimary := func(*state.StatePool, string) (bool, error) {
-		return s.machineIsMaster, nil
-	}
-	s.PatchValue(&IsMachinePrimary, fakeIsMachinePrimary)
-
 }
 
 func (s *UpgradeSuite) captureLogs(c *gc.C) {
@@ -213,11 +204,6 @@ func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
 	// steps themselves fails, ensuring the something is logged and
 	// the agent status is updated.
 
-	fakePerformUpgrade := func(version.Number, []upgrades.Target, upgrades.Context) error {
-		// Delete UpgradeInfo for the upgrade so that finaliseUpgrade() will fail
-		return s.State.ClearUpgradeInfo()
-	}
-	s.PatchValue(&PerformUpgrade, fakePerformUpgrade)
 	m := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
@@ -229,16 +215,26 @@ func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
 	err = info.SetStatus(state.UpgradeDBComplete)
 	c.Assert(err, jc.ErrorIsNil)
 
-	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, true)
+	fakePerformUpgrade := func(version.Number, []upgrades.Target, upgrades.Context) error {
+		// Violate the state-machine rules so that finaliseUpgrade() will fail.
+		// Recreating the upgrade doc will put us into status "pending" without
+		// any recorded controller ready/completed entries.
+		if err := s.State.ClearUpgradeInfo(); err != nil {
+			return err
+		}
+		info, err = s.State.EnsureUpgradeInfo(m.Id(), s.oldVersion.Number, jujuversion.Current)
+		return err
+	}
+	s.PatchValue(&PerformUpgrade, fakePerformUpgrade)
 
+	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, true)
 	c.Check(workerErr, gc.IsNil)
+
 	c.Check(config.Version, gc.Equals, jujuversion.Current) // Upgrade almost finished
-	failReason := `upgrade done but: cannot set upgrade status to "finishing": ` +
-		`Another status change may have occurred concurrently`
-	c.Assert(statusCalls, jc.DeepEquals,
-		s.makeExpectedStatusCalls(0, fails, failReason))
-	c.Assert(s.logWriter.Log(), jc.LogMatches,
-		s.makeExpectedUpgradeLogs(0, "databaseMaster", fails, failReason))
+
+	failReason := `upgrade done but failed to synchronise: cannot complete upgrade: upgrade has not yet run`
+	c.Assert(statusCalls, jc.DeepEquals, s.makeExpectedStatusCalls(0, fails, failReason))
+	c.Assert(s.logWriter.Log(), jc.LogMatches, s.makeExpectedUpgradeLogs(0, "databaseMaster", fails, failReason))
 	c.Assert(doneLock.IsUnlocked(), jc.IsFalse)
 }
 
@@ -268,10 +264,6 @@ func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesNotStartUpgrade(c *gc.C) 
 	err := s.State.SetModelAgentVersion(jujuversion.Current, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// The master controller in this scenario is functionally tested
-	// elsewhere.
-	s.machineIsMaster = false
-
 	s.create3Controllers(c)
 	s.captureLogs(c)
 	attemptsP := s.countUpgradeAttempts(nil)
@@ -287,10 +279,10 @@ func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesNotStartUpgrade(c *gc.C) 
 	// It's up to the master to trigger the rollback.
 	s.assertEnvironAgentVersion(c, jujuversion.Current)
 
-	causeMsg := " timed out after 60ms"
+	causeMsg := " timed out after 50ms"
 	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
 		{loggo.INFO, "waiting for other controllers to be ready for upgrade"},
-		{loggo.ERROR, "aborted wait for other controllers: timed out after 60ms"},
+		{loggo.ERROR, "aborted wait for other controllers: timed out after 50ms"},
 		{loggo.ERROR, `upgrade from .+ to .+ for "machine-0" failed \(giving up\): ` +
 			"aborted wait for other controllers:" + causeMsg},
 	})
@@ -302,31 +294,26 @@ func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesNotStartUpgrade(c *gc.C) 
 	}})
 }
 
-func (s *UpgradeSuite) TestSuccessMaster(c *gc.C) {
-	// This test checks what happens when an upgrade works on the
-	// first attempt on a master controller.
-	s.machineIsMaster = true
+func (s *UpgradeSuite) TestSuccessLeadingController(c *gc.C) {
+	// This test checks what happens when an upgrade works on the first
+	// attempt, on the first controller to set the status to "running".
 	info := s.checkSuccess(c, "databaseMaster", func(i *state.UpgradeInfo) {
 		err := i.SetStatus(state.UpgradeDBComplete)
 		c.Assert(err, jc.ErrorIsNil)
 	})
-	c.Assert(info.Status(), gc.Equals, state.UpgradeFinishing)
+	c.Assert(info.Status(), gc.Equals, state.UpgradeRunning)
 }
 
-func (s *UpgradeSuite) TestSuccessSecondary(c *gc.C) {
-	// This test checks what happens when an upgrade works on the
-	// first attempt on a secondary controller.
-	s.machineIsMaster = false
-	mungeInfo := func(info *state.UpgradeInfo) {
+func (s *UpgradeSuite) TestSuccessFollowingController(c *gc.C) {
+	// This test checks what happens when an upgrade works on the a controller
+	// following a controller having already set the status to "running".
+	s.checkSuccess(c, "controller", func(info *state.UpgradeInfo) {
 		// Indicate that the master is done
 		err := info.SetStatus(state.UpgradeDBComplete)
 		c.Assert(err, jc.ErrorIsNil)
 		err = info.SetStatus(state.UpgradeRunning)
 		c.Assert(err, jc.ErrorIsNil)
-		err = info.SetStatus(state.UpgradeFinishing)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	s.checkSuccess(c, "controller", mungeInfo)
+	})
 }
 
 func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*state.UpgradeInfo)) *state.UpgradeInfo {
@@ -430,7 +417,7 @@ func (s *UpgradeSuite) openStateForUpgrade() (*state.StatePool, error) {
 	return pool, nil
 }
 
-func (s *UpgradeSuite) preUpgradeSteps(pool *state.StatePool, agentConf agent.Config, isController, isMaster, isCaas bool) error {
+func (s *UpgradeSuite) preUpgradeSteps(_ *state.StatePool, _ agent.Config, _, _ bool) error {
 	if s.preUpgradeError {
 		return errors.New("preupgrade error")
 	}
@@ -509,14 +496,10 @@ func (s *UpgradeSuite) makeExpectedUpgradeLogs(retryCount int, target string, ex
 		outLogs = append(outLogs, jc.SimpleMessage{
 			Level: loggo.INFO, Message: "waiting for other controllers to be ready for upgrade",
 		})
-		var waitMsg string
-		switch target {
-		case "databaseMaster":
-			waitMsg = "all controllers are ready to run upgrade steps"
-		case "controller":
-			waitMsg = "the primary has completed its upgrade steps"
-		}
-		outLogs = append(outLogs, jc.SimpleMessage{Level: loggo.INFO, Message: "finished waiting - " + waitMsg})
+		outLogs = append(outLogs, jc.SimpleMessage{
+			Level:   loggo.INFO,
+			Message: "finished waiting - all controllers are ready to run upgrade steps",
+		})
 	}
 
 	outLogs = append(outLogs, jc.SimpleMessage{

@@ -70,6 +70,12 @@ func (prt *ProxyRoundTripper) RegisterForScheme(scheme string) {
 	http.DefaultTransport.(*http.Transport).RegisterProtocol(scheme, prt)
 }
 
+// RegisterForTransportScheme registers a ProxyRoundTripper as the transport
+// roundtripper for the given URL scheme.
+func (prt *ProxyRoundTripper) RegisterForTransportScheme(transport *http.Transport, scheme string) {
+	transport.RegisterProtocol(scheme, prt)
+}
+
 func (prt *ProxyRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if prt.Sub == nil {
 		panic("An attempt was made to request file content without having" +

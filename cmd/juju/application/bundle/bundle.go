@@ -220,7 +220,7 @@ func applicationConfigValue(key string, valueMap interface{}) (interface{}, erro
 	if !found {
 		return nil, errors.Errorf("missing application config value 'source' for key %q", key)
 	}
-	if source != "user" {
+	if source == "unset" {
 		return nil, nil
 	}
 	value, found := vm["value"]

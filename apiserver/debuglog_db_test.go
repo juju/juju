@@ -8,7 +8,7 @@ import (
 	"net/url"
 
 	"github.com/gorilla/websocket"
-	jujuhttp "github.com/juju/http"
+	jujuhttp "github.com/juju/http/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

@@ -22,13 +22,12 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloud"
-	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
+	corecontext "github.com/juju/juju/core/context"
 	"github.com/juju/juju/core/series"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -42,6 +41,12 @@ import (
 	corestorage "github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
+)
+
+const (
+	// SimplestreamsFetcherContextKey defines a way to change the simplestreams
+	// fetcher within a context.
+	SimplestreamsFetcherContextKey corecontext.ContextKey = "simplestreams-fetcher"
 )
 
 const noToolsMessage = `Juju cannot bootstrap because no agent binaries are available for your model.
@@ -320,13 +325,22 @@ func bootstrapIAAS(
 	disableNetworkManagement, _ := cfg.DisableNetworkManagement()
 	logger.Debugf("network management by juju enabled: %v", !disableNetworkManagement)
 
+	var ss *simplestreams.Simplestreams
+	if value := ctx.Context().Value(SimplestreamsFetcherContextKey); value == nil {
+		ss = simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+	} else if s, ok := value.(*simplestreams.Simplestreams); ok {
+		ss = s
+	} else {
+		return errors.Errorf("expected a valid simple streams type")
+	}
+
 	// Set default tools metadata source, add image metadata source,
 	// then verify constraints. Providers may rely on image metadata
 	// for constraint validation.
 	var customImageMetadata []*imagemetadata.ImageMetadata
 	if args.MetadataDir != "" {
 		var err error
-		customImageMetadata, err = setPrivateMetadataSources(args.MetadataDir)
+		customImageMetadata, err = setPrivateMetadataSources(ss, args.MetadataDir)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -356,7 +370,7 @@ func bootstrapIAAS(
 		}
 	}
 
-	requestedBootstrapSeries, err := coreseries.ValidateSeries(
+	requestedBootstrapSeries, err := series.ValidateSeries(
 		args.SupportedBootstrapSeries,
 		args.BootstrapSeries,
 		config.PreferredSeries(cfg),
@@ -386,6 +400,7 @@ func bootstrapIAAS(
 
 	ctx.Verbosef("Loading image metadata")
 	imageMetadata, err := bootstrapImageMetadata(environ,
+		ss,
 		bootstrapSeries,
 		bootstrapArchForImageSearch,
 		args.BootstrapImage,
@@ -457,7 +472,8 @@ func bootstrapIAAS(
 			versionTxt = fmt.Sprintf("%v.%v", agentVersion.Major, agentVersion.Minor)
 		}
 		ctx.Infof("Looking for %vpackaged Juju agent version %s for %s", latestPatchTxt, versionTxt, bootstrapArch)
-		availableTools, err = findPackagedTools(environ, args.AgentVersion, &bootstrapArch, bootstrapSeries)
+
+		availableTools, err = findPackagedTools(environ, ss, args.AgentVersion, &bootstrapArch, bootstrapSeries)
 		if err != nil && !errors.IsNotFound(err) {
 			return err
 		}
@@ -574,7 +590,7 @@ func bootstrapIAAS(
 		return errors.Trace(err)
 	}
 
-	osType := coreseries.DefaultOSTypeNameFromSeries(result.Series)
+	osType := series.DefaultOSTypeNameFromSeries(result.Series)
 	matchingTools, err := bootstrapParams.AvailableTools.Match(coretools.Filter{
 		Arch:   result.Arch,
 		OSType: osType,
@@ -650,7 +666,7 @@ func Bootstrap(
 		ExtraAgentValuesForTesting: args.ExtraAgentValuesForTesting,
 	}
 	doBootstrap := bootstrapIAAS
-	if jujucloud.CloudIsCAAS(args.Cloud) {
+	if cloud.CloudIsCAAS(args.Cloud) {
 		doBootstrap = bootstrapCAAS
 	}
 
@@ -846,6 +862,7 @@ func userPublicSigningKey() (string, error) {
 // state database will have the synthesised image metadata added to it.
 func bootstrapImageMetadata(
 	environ environs.BootstrapEnviron,
+	fetcher imagemetadata.SimplestreamsFetcher,
 	bootstrapSeries *string,
 	bootstrapArch string,
 	bootstrapImageId string,
@@ -896,7 +913,7 @@ func bootstrapImageMetadata(
 	// For providers that support making use of simplestreams
 	// image metadata, search public image metadata. We need
 	// to pass this onto Bootstrap for selecting images.
-	sources, err := environs.ImageMetadataSources(environ)
+	sources, err := environs.ImageMetadataSources(environ, fetcher)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -914,7 +931,7 @@ func bootstrapImageMetadata(
 	// Since order of data source matters, order of image metadata matters too. Append is important here.
 	var publicImageMetadata []*imagemetadata.ImageMetadata
 	for _, source := range sources {
-		sourceMetadata, _, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, imageConstraint)
+		sourceMetadata, _, err := imagemetadata.Fetch(fetcher, []simplestreams.DataSource{source}, imageConstraint)
 		if err != nil {
 			logger.Debugf("ignoring image metadata in %s: %v", source.Description(), err)
 			// Just keep looking...
@@ -997,7 +1014,7 @@ func isCompatibleVersion(v1, v2 version.Number) bool {
 // and adds an image metadata source after verifying the contents. If the
 // directory ends in tools, only the default tools metadata source will be
 // set. Same for images.
-func setPrivateMetadataSources(metadataDir string) ([]*imagemetadata.ImageMetadata, error) {
+func setPrivateMetadataSources(fetcher imagemetadata.SimplestreamsFetcher, metadataDir string) ([]*imagemetadata.ImageMetadata, error) {
 	if _, err := os.Stat(metadataDir); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, errors.Annotate(err, "cannot access simplestreams metadata directory")
@@ -1060,14 +1077,14 @@ func setPrivateMetadataSources(metadataDir string) ([]*imagemetadata.ImageMetada
 	if err := dataSourceConfig.Validate(); err != nil {
 		return nil, errors.Annotate(err, "simplestreams config validation failed")
 	}
-	dataSource := simplestreams.NewDataSource(dataSourceConfig)
+	dataSource := fetcher.NewDataSource(dataSourceConfig)
 
 	// Read the image metadata, as we'll want to upload it to the environment.
 	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	existingMetadata, _, err := imagemetadata.Fetch([]simplestreams.DataSource{dataSource}, imageConstraint)
+	existingMetadata, _, err := imagemetadata.Fetch(fetcher, []simplestreams.DataSource{dataSource}, imageConstraint)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Annotate(err, "cannot read image metadata")
 	}

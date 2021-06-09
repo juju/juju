@@ -32,5 +32,5 @@ func (s *TestSuite) SetUpTest(c *gc.C) {
 	s.RemovedDir = c.MkDir()
 	s.PatchValue(&container.RemovedContainerDir, s.RemovedDir)
 	s.ContainerFactory = mock.MockFactory()
-	s.PatchValue(&kvm.KvmObjectFactory, s.ContainerFactory)
+	s.PatchValue(&kvm.KVMObjectFactory, s.ContainerFactory)
 }

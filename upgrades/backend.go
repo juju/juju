@@ -93,6 +93,7 @@ type StateBackend interface {
 	RemoveUnusedLinkLayerDeviceProviderIDs() error
 	TranslateK8sServiceTypes() error
 	UpdateKubernetesCloudCredentials() error
+	UpdateDHCPAddressConfigs() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -392,4 +393,8 @@ func (s stateBackend) TranslateK8sServiceTypes() error {
 
 func (s stateBackend) UpdateKubernetesCloudCredentials() error {
 	return state.UpdateLegacyKubernetesCloudCredentials(s.pool.SystemState())
+}
+
+func (s stateBackend) UpdateDHCPAddressConfigs() error {
+	return state.UpdateDHCPAddressConfigs(s.pool)
 }

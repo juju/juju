@@ -111,7 +111,7 @@ var (
 
 // OfficialDataSources returns the simplestreams datasources where official
 // image metadata can be found.
-func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
+func OfficialDataSources(dataSourceFactory simplestreams.DataSourceFactory, stream string) ([]simplestreams.DataSource, error) {
 	var result []simplestreams.DataSource
 
 	defaultUbuntuURL, err := ImageMetadataURL(DefaultUbuntuBaseURL, stream)
@@ -130,7 +130,7 @@ func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 		if err := config.Validate(); err != nil {
 			return nil, errors.Annotate(err, "simplestreams config validation failed")
 		}
-		result = append(result, simplestreams.NewDataSource(config))
+		result = append(result, dataSourceFactory.NewDataSource(config))
 	}
 
 	return result, nil
@@ -216,14 +216,19 @@ func (im *ImageMetadata) productId() string {
 	return fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, im.Version, im.Arch)
 }
 
-// Fetch returns a list of images for the specified cloud matching the constraint.
-// The base URL locations are as specified - the first location which has a file is the one used.
-// Signed data is preferred, but if there is no signed data available and onlySigned is false,
-// then unsigned data is used.
-func Fetch(
-	sources []simplestreams.DataSource, cons *ImageConstraint,
-) ([]*ImageMetadata, *simplestreams.ResolveInfo, error) {
+// SimplestreamsFetcher defines a way to fetch metadata from the simplestreams
+// server.
+type SimplestreamsFetcher interface {
+	NewDataSource(simplestreams.Config) simplestreams.DataSource
+	GetMetadata([]simplestreams.DataSource, simplestreams.GetMetadataParams) ([]interface{}, *simplestreams.ResolveInfo, error)
+}
 
+// Fetch returns a list of images for the specified cloud matching the
+// constraint. The base URL locations are as specified - the first location
+// which has a file is the one used.
+// Signed data is preferred, but if there is no signed data available and
+// onlySigned is false, then unsigned data is used.
+func Fetch(fetcher SimplestreamsFetcher, sources []simplestreams.DataSource, cons *ImageConstraint) ([]*ImageMetadata, *simplestreams.ResolveInfo, error) {
 	params := simplestreams.GetMetadataParams{
 		StreamsVersion:   currentStreamsVersion,
 		LookupConstraint: cons,
@@ -233,7 +238,8 @@ func Fetch(
 			ValueTemplate: ImageMetadata{},
 		},
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)
+
+	items, resolveInfo, err := fetcher.GetMetadata(sources, params)
 	if err != nil {
 		return nil, resolveInfo, err
 	}

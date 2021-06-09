@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -101,7 +102,7 @@ func (t *Tests) Prepare(c *gc.C) environs.Environ {
 
 // PrepareWithParams prepares an instance of the testing environment.
 func (t *Tests) PrepareWithParams(c *gc.C, params bootstrap.PrepareParams) environs.Environ {
-	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c), t.ControllerStore, params)
+	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.TODO(), c), t.ControllerStore, params)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", params.ModelConfig))
 	c.Assert(e, gc.NotNil)
 	t.Env = e.(environs.Environ)
@@ -112,7 +113,7 @@ func (t *Tests) AssertPrepareFailsWithConfig(c *gc.C, badConfig coretesting.Attr
 	args := t.PrepareParams(c)
 	args.ModelConfig = coretesting.Attrs(args.ModelConfig).Merge(badConfig)
 
-	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c), t.ControllerStore, args)
+	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.TODO(), c), t.ControllerStore, args)
 	c.Assert(err, gc.ErrorMatches, errorMatches)
 	c.Assert(e, gc.IsNil)
 	return err
@@ -218,7 +219,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	}
 
 	e := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, t.ProviderCallContext, args)
+	err := bootstrap.Bootstrap(bootstrapContext(c), e, t.ProviderCallContext, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerInstances, err := e.ControllerInstances(t.ProviderCallContext, t.ControllerUUID)
@@ -237,9 +238,15 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	// Prepare again because Destroy invalidates old environments.
 	e3 := t.Prepare(c)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e3, t.ProviderCallContext, args)
+	err = bootstrap.Bootstrap(bootstrapContext(c), e3, t.ProviderCallContext, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = environs.Destroy(e3.Config().Name(), e3, t.ProviderCallContext, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func bootstrapContext(c *gc.C) environs.BootstrapContext {
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	ctx := stdcontext.WithValue(stdcontext.TODO(), bootstrap.SimplestreamsFetcherContextKey, ss)
+	return envtesting.BootstrapContext(ctx, c)
 }

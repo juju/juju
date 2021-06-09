@@ -67,7 +67,7 @@ func UnregisterToolsDataSourceFunc(id string) {
 
 // GetMetadataSources returns the sources to use when looking for
 // simplestreams tools metadata for the given stream.
-func GetMetadataSources(env environs.BootstrapEnviron) ([]simplestreams.DataSource, error) {
+func GetMetadataSources(env environs.BootstrapEnviron, dataSourceFactory simplestreams.DataSourceFactory) ([]simplestreams.DataSource, error) {
 	config := env.Config()
 
 	// Add configured and environment-specific datasources.
@@ -87,7 +87,7 @@ func GetMetadataSources(env environs.BootstrapEnviron) ([]simplestreams.DataSour
 		if err := dataSourceConfig.Validate(); err != nil {
 			return nil, errors.Annotate(err, "simplestreams config validation failed")
 		}
-		dataSource := simplestreams.NewDataSource(dataSourceConfig)
+		dataSource := dataSourceFactory.NewDataSource(dataSourceConfig)
 		sources = append(sources, dataSource)
 	}
 
@@ -114,7 +114,7 @@ func GetMetadataSources(env environs.BootstrapEnviron) ([]simplestreams.DataSour
 		if err := dataSourceConfig.Validate(); err != nil {
 			return nil, errors.Annotate(err, "simplestreams config validation failed")
 		}
-		dataSource := simplestreams.NewDataSource(dataSourceConfig)
+		dataSource := dataSourceFactory.NewDataSource(dataSourceConfig)
 		sources = append(sources, dataSource)
 	}
 	return sources, nil

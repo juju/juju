@@ -21,7 +21,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/http"
+	"github.com/juju/http/v2"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"

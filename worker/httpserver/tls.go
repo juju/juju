@@ -7,7 +7,7 @@ import (
 	"crypto/tls"
 
 	"github.com/juju/errors"
-	"github.com/juju/http"
+	"github.com/juju/http/v2"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 

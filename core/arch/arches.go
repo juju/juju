@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/utils/arch"
 )
 
@@ -45,4 +46,16 @@ func (a Arches) StringList() []string {
 
 func (a Arches) String() string {
 	return strings.Join(a.set.SortedValues(), ",")
+}
+
+// ConstraintArch returns the arch for the constraint if there is one,
+// else it returns the default arch.
+func ConstraintArch(cons constraints.Value, defaultCons *constraints.Value) string {
+	if cons.HasArch() {
+		return *cons.Arch
+	}
+	if defaultCons != nil && defaultCons.HasArch() {
+		return *defaultCons.Arch
+	}
+	return DefaultArchitecture
 }

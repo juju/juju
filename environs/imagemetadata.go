@@ -80,7 +80,7 @@ func UnregisterImageDataSourceFunc(id string) {
 
 // ImageMetadataSources returns the sources to use when looking for
 // simplestreams image id metadata for the given stream.
-func ImageMetadataSources(env BootstrapEnviron) ([]simplestreams.DataSource, error) {
+func ImageMetadataSources(env BootstrapEnviron, dataSourceFactory simplestreams.DataSourceFactory) ([]simplestreams.DataSource, error) {
 	config := env.Config()
 
 	// Add configured and environment-specific datasources.
@@ -104,7 +104,7 @@ func ImageMetadataSources(env BootstrapEnviron) ([]simplestreams.DataSource, err
 		if err := cfg.Validate(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		dataSource := simplestreams.NewDataSource(cfg)
+		dataSource := dataSourceFactory.NewDataSource(cfg)
 		sources = append(sources, dataSource)
 	}
 
@@ -115,13 +115,11 @@ func ImageMetadataSources(env BootstrapEnviron) ([]simplestreams.DataSource, err
 	sources = append(sources, envDataSources...)
 
 	// Add the official image metadata datasources.
-	officialDataSources, err := imagemetadata.OfficialDataSources(config.ImageStream())
+	officialDataSources, err := imagemetadata.OfficialDataSources(dataSourceFactory, config.ImageStream())
 	if err != nil {
 		return nil, err
 	}
-	for _, source := range officialDataSources {
-		sources = append(sources, source)
-	}
+	sources = append(sources, officialDataSources...)
 	for _, ds := range sources {
 		logger.Debugf("obtained image datasource %q", ds.Description())
 	}

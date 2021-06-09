@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
@@ -221,7 +222,7 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 			SHA256:  "feedface",
 		}}
 
-		s.PatchValue(common.EnvtoolsFindTools, func(e environs.BootstrapEnviron, major, minor int, streams []string, filter coretools.Filter) (coretools.List, error) {
+		s.PatchValue(common.EnvtoolsFindTools, func(_ envtools.SimplestreamsFetcher, e environs.BootstrapEnviron, major, minor int, streams []string, filter coretools.Filter) (coretools.List, error) {
 			c.Assert(major, gc.Equals, 123)
 			c.Assert(minor, gc.Equals, 456)
 			c.Assert(streams, gc.DeepEquals, test.agentStreamsUsed)
@@ -284,7 +285,7 @@ func (s *toolsSuite) TestFindToolsOldAgent(c *gc.C) {
 			SHA256:  "feedface",
 		}}
 
-		s.PatchValue(common.EnvtoolsFindTools, func(e environs.BootstrapEnviron, major, minor int, streams []string, filter coretools.Filter) (coretools.List, error) {
+		s.PatchValue(common.EnvtoolsFindTools, func(_ envtools.SimplestreamsFetcher, e environs.BootstrapEnviron, major, minor int, streams []string, filter coretools.Filter) (coretools.List, error) {
 			c.Assert(major, gc.Equals, 2)
 			c.Assert(minor, gc.Equals, 8)
 			c.Assert(streams, gc.DeepEquals, test.agentStreamsUsed)
@@ -320,7 +321,7 @@ func (s *toolsSuite) TestFindToolsOldAgent(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindToolsNotFound(c *gc.C) {
-	s.PatchValue(common.EnvtoolsFindTools, func(e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(_ envtools.SimplestreamsFetcher, e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	newEnviron := func() (environs.BootstrapEnviron, error) {
@@ -359,7 +360,7 @@ func (s *toolsSuite) TestFindToolsExactNotInStorage(c *gc.C) {
 func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, inStorage bool, develVersion bool) {
 	var called bool
 	current := coretesting.CurrentVersion(c)
-	s.PatchValue(common.EnvtoolsFindTools, func(e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(_ envtools.SimplestreamsFetcher, e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
 		called = true
 		c.Assert(filter.Number, gc.Equals, jujuversion.Current)
 		c.Assert(filter.OSType, gc.Equals, current.Release)
@@ -394,7 +395,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 
 func (s *toolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 	var called bool
-	s.PatchValue(common.EnvtoolsFindTools, func(e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(_ envtools.SimplestreamsFetcher, e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
 		called = true
 		return nil, errors.NotFoundf("tools")
 	})

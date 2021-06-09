@@ -123,6 +123,8 @@ func (c *generateAgentsCommand) Run(context *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+
 	fmt.Fprintf(context.Stdout, "Finding agent binaries in %s for stream %s.\n", c.metadataDir, c.stream)
 	toolsList, err := envtools.ReadList(sourceStorage, c.stream, -1, -1)
 	if err == envtools.ErrNoTools {
@@ -135,7 +137,7 @@ func (c *generateAgentsCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		toolsList, err = envtools.FindToolsForCloud(makeDataSources(source), simplestreams.CloudSpec{}, []string{c.stream}, -1, -1, coretools.Filter{})
+		toolsList, err = envtools.FindToolsForCloud(ss, makeDataSources(ss, source), simplestreams.CloudSpec{}, []string{c.stream}, -1, -1, coretools.Filter{})
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -149,13 +151,13 @@ func (c *generateAgentsCommand) Run(context *cmd.Context) error {
 	if c.public {
 		writeMirrors = envtools.WriteMirrors
 	}
-	return errors.Trace(mergeAndWriteMetadata(targetStorage, c.stream, c.stream, c.clean, toolsList, writeMirrors))
+	return errors.Trace(mergeAndWriteMetadata(ss, targetStorage, c.stream, c.stream, c.clean, toolsList, writeMirrors))
 }
 
-func makeDataSources(urls ...string) []simplestreams.DataSource {
+func makeDataSources(ss *simplestreams.Simplestreams, urls ...string) []simplestreams.DataSource {
 	dataSources := make([]simplestreams.DataSource, len(urls))
 	for i, url := range urls {
-		dataSources[i] = simplestreams.NewDataSource(
+		dataSources[i] = ss.NewDataSource(
 			simplestreams.Config{
 				Description:          "local source",
 				BaseURL:              url,
@@ -171,10 +173,10 @@ func makeDataSources(urls ...string) []simplestreams.DataSource {
 // This is essentially the same as tools.MergeAndWriteMetadata, but also
 // resolves metadata for existing agents by fetching them and computing
 // size/sha256 locally.
-func mergeAndWriteMetadata(
+func mergeAndWriteMetadata(ss envtools.SimplestreamsFetcher,
 	stor storage.Storage, toolsDir, stream string, clean bool, toolsList coretools.List, writeMirrors envtools.ShouldWriteMirrors,
 ) error {
-	existing, err := envtools.ReadAllMetadata(stor)
+	existing, err := envtools.ReadAllMetadata(ss, stor)
 	if err != nil {
 		return err
 	}

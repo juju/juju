@@ -1460,7 +1460,7 @@ const resourceGroupName = "juju-testmodel-deadbeef"
 func (s *environSuite) TestBootstrap(c *gc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
@@ -1494,7 +1494,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
@@ -1527,7 +1527,7 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender, testing.Attrs{"network": "mynetwork"})
 
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
@@ -1564,7 +1564,7 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
 	s.createSenderWithUnauthorisedStatusCode(c)
@@ -1594,7 +1594,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	}
 	defer envtesting.DisableFinishBootstrap()()
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
 	s.sender = append(s.sender, s.resourceSkusSender())
@@ -1646,7 +1646,7 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 	}
 	defer envtesting.DisableFinishBootstrap()()
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender, testing.Attrs{"resource-group-name": "foo"})
 
 	s.sender = append(s.sender, s.resourceSkusSender())
@@ -1696,7 +1696,7 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
 	s.sender = s.initResourceGroupSenders(resourceGroupName)

@@ -151,6 +151,8 @@ func (c *validateAgentsMetadataCommand) Init(args []string) error {
 }
 
 func (c *validateAgentsMetadataCommand) Run(context *cmd.Context) error {
+	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+
 	var params *simplestreams.MetadataLookupParams
 	if c.providerType == "" {
 		context.Infof("no provider type specified, using bootstrapped cloud")
@@ -168,7 +170,7 @@ func (c *validateAgentsMetadataCommand) Run(context *cmd.Context) error {
 			if err != nil {
 				return err
 			}
-			params.Sources, err = tools.GetMetadataSources(environ)
+			params.Sources, err = tools.GetMetadataSources(environ, ss)
 			if err != nil {
 				return err
 			}
@@ -206,6 +208,7 @@ func (c *validateAgentsMetadataCommand) Run(context *cmd.Context) error {
 	if c.endpoint != "" {
 		params.Endpoint = c.endpoint
 	}
+
 	if c.metadataDir != "" {
 		if _, err := c.Filesystem().Stat(c.metadataDir); err != nil {
 			return err
@@ -214,11 +217,11 @@ func (c *validateAgentsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		params.Sources = makeDataSources(toolsURL)
+		params.Sources = makeDataSources(ss, toolsURL)
 	}
 	params.Stream = c.stream
 
-	versions, resolveInfo, err := tools.ValidateToolsMetadata(&tools.ToolsMetadataLookupParams{
+	versions, resolveInfo, err := tools.ValidateToolsMetadata(ss, &tools.ToolsMetadataLookupParams{
 		MetadataLookupParams: *params,
 		Version:              c.exactVersion,
 		Major:                c.major,

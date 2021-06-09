@@ -10,7 +10,7 @@ test_deploy_manual() {
 		cd .. || exit
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
-		"lxd" | "localhost")
+		"lxd" | "lxd-remote" | "localhost")
 			export BOOTSTRAP_PROVIDER="manual"
 			run "run_deploy_manual_lxd"
 			;;
