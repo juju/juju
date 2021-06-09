@@ -61,7 +61,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 		if r.constraintGetter != nil {
 			cons := r.constraintGetter(application.Constraints)
 			arch, err = cons.Arch()
-			if err != nil && !errors.IsNotFound(err) {
+			if err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -70,7 +70,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 		// if the arch and series differ from an existing charm, then we create
 		// a new charm.
 		key := applicationKey(application.Charm, arch, series, application.Channel)
-		if charms[key] == "" && !existing.matchesCharmPermutation(application.Charm, arch, series, application.Channel) {
+		if charms[key] == "" && !existing.matchesCharmPermutation(application.Charm, arch, series, application.Channel, r.constraintGetter) {
 			change = newAddCharmChange(AddCharmParams{
 				Charm:        application.Charm,
 				Series:       series,

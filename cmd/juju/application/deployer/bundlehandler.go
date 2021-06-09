@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/arch"
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -1603,10 +1604,7 @@ func (b bundleArchConstraint) Arch() (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	if !cons.HasArch() {
-		return "", errors.NotFoundf("arch")
-	}
-	return *cons.Arch, nil
+	return arch.ConstraintArch(cons, nil), nil
 }
 
 func addCharmConstraintsParser(s string) bundlechanges.ArchConstraint {

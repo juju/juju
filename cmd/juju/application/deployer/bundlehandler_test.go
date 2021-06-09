@@ -126,9 +126,9 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *gc.C) {
 		"Located charm \"mysql\" in charm-store, revision 42\n"+
 		"Located charm \"wordpress\" in charm-store, revision 47\n"+
 		"Executing changes:\n"+
-		"- upload charm mysql from charm-store for series xenial\n"+
+		"- upload charm mysql from charm-store for series xenial with architecture=amd64\n"+
 		"- deploy application mysql from charm-store on xenial\n"+
-		"- upload charm wordpress from charm-store for series xenial\n"+
+		"- upload charm wordpress from charm-store for series xenial with architecture=amd64\n"+
 		"- deploy application wordpress from charm-store on xenial\n"+
 		"- add new machine 0\n"+
 		"- add new machine 1\n"+
@@ -234,9 +234,9 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeriesWithForce
 		"Located charm \"mysql\" in charm-store, revision 42\n"+
 		"Located charm \"wordpress\" in charm-store, revision 47\n"+
 		"Executing changes:\n"+
-		"- upload charm mysql from charm-store for series precise\n"+
+		"- upload charm mysql from charm-store for series precise with architecture=amd64\n"+
 		"- deploy application mysql from charm-store on precise\n"+
-		"- upload charm wordpress from charm-store for series bionic\n"+
+		"- upload charm wordpress from charm-store for series bionic with architecture=amd64\n"+
 		"- deploy application wordpress from charm-store on bionic\n"+
 		"- add new machine 0\n"+
 		"- add new machine 1\n"+
@@ -307,9 +307,9 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 		"Located charm \"gitlab-k8s\" in charm-store\n"+
 		"Located charm \"mariadb-k8s\" in charm-store\n"+
 		"Executing changes:\n"+
-		"- upload charm gitlab-k8s from charm-store for series kubernetes\n"+
+		"- upload charm gitlab-k8s from charm-store for series kubernetes with architecture=amd64\n"+
 		"- deploy application gitlab from charm-store with 1 unit on kubernetes using gitlab-k8s\n"+
-		"- upload charm mariadb-k8s from charm-store for series kubernetes\n"+
+		"- upload charm mariadb-k8s from charm-store for series kubernetes with architecture=amd64\n"+
 		"- deploy application mariadb from charm-store with 2 units on kubernetes using mariadb-k8s\n"+
 		"- add relation gitlab:mysql - mariadb:server\n"+
 		"Deploy of bundle completed.\n")
@@ -370,9 +370,9 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithCharm
 		"Located charm \"gitlab-k8s\" in charm-hub, channel new/edge\n"+
 		"Located charm \"mariadb-k8s\" in charm-hub, channel old/stable\n"+
 		"Executing changes:\n"+
-		"- upload charm gitlab-k8s from charm-hub for series kubernetes from channel new/edge\n"+
+		"- upload charm gitlab-k8s from charm-hub for series kubernetes from channel new/edge with architecture=amd64\n"+
 		"- deploy application gitlab from charm-hub with 1 unit on kubernetes with new/edge using gitlab-k8s\n"+
-		"- upload charm mariadb-k8s from charm-hub for series kubernetes from channel old/stable\n"+
+		"- upload charm mariadb-k8s from charm-hub for series kubernetes from channel old/stable with architecture=amd64\n"+
 		"- deploy application mariadb from charm-hub with 2 units on kubernetes with old/stable using mariadb-k8s\n"+
 		"- add relation gitlab:mysql - mariadb:server\n"+
 		"Deploy of bundle completed.\n")
@@ -434,9 +434,9 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 		"Located charm \"mysql\" in charm-store, revision 42\n"+
 		"Located charm \"wordpress\" in charm-store, revision 47\n"+
 		"Executing changes:\n"+
-		"- upload charm mysql from charm-store for series bionic\n"+
+		"- upload charm mysql from charm-store for series bionic with architecture=amd64\n"+
 		"- deploy application mysql from charm-store on bionic\n"+
-		"- upload charm wordpress from charm-store for series bionic\n"+
+		"- upload charm wordpress from charm-store for series bionic with architecture=amd64\n"+
 		"- deploy application wordpress from charm-store on bionic\n"+
 		"- add new machine 0\n"+
 		"- add new machine 1\n"+
@@ -518,9 +518,9 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
 		"Located charm \"bitcoin-miner\" in charm-store\n"+
 		"Located charm \"dashboard4miner\" in charm-store\n"+
 		"Executing changes:\n"+
-		"- upload charm bitcoin-miner from charm-store for series kubernetes\n"+
+		"- upload charm bitcoin-miner from charm-store for series kubernetes with architecture=amd64\n"+
 		"- deploy application bitcoin-miner from charm-store with 1 unit on kubernetes\n"+
-		"- upload charm dashboard4miner from charm-store for series kubernetes\n"+
+		"- upload charm dashboard4miner from charm-store for series kubernetes with architecture=amd64\n"+
 		"- deploy application dashboard4miner from charm-store with 1 unit on kubernetes\n"+
 		"- add relation dashboard4miner:miner - bitcoin-miner:miner\n"+
 		"Deploy of bundle completed.\n")
@@ -581,9 +581,9 @@ func (s *BundleDeployRepositorySuite) TestDryRunExistingModel(c *gc.C) {
 		"Located charm \"mysql\" in charm-store, revision 42\n" +
 		"Located charm \"wordpress\" in charm-store, revision 47\n" +
 		"Executing changes:\n" +
-		"- upload charm mysql from charm-store for series bionic\n" +
+		"- upload charm mysql from charm-store for series bionic with architecture=amd64\n" +
 		"- deploy application mysql from charm-store on bionic\n" +
-		"- upload charm wordpress from charm-store for series bionic\n" +
+		"- upload charm wordpress from charm-store for series bionic with architecture=amd64\n" +
 		"- deploy application wordpress from charm-store on bionic\n" +
 		"- add new machine 0\n" +
 		"- add new machine 1\n" +
@@ -703,7 +703,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedToMachines(c *gc
 	c.Check(s.output.String(), gc.Equals, ""+
 		"Located charm \"wordpress\" in charm-store, revision 47\n"+
 		"Executing changes:\n"+
-		"- upload charm wordpress from charm-store for series bionic\n"+
+		"- upload charm wordpress from charm-store for series bionic with architecture=amd64\n"+
 		"- deploy application wp from charm-store on bionic using wordpress\n"+
 		"- add new machine 0 (bundle machine 4)\n"+
 		"- add new machine 1 (bundle machine 8)\n"+
@@ -755,7 +755,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleExpose(c *gc.C) {
 	c.Check(s.output.String(), gc.Equals, ""+
 		"Located charm \"wordpress\" in charm-store, revision 47\n"+
 		"Executing changes:\n"+
-		"- upload charm wordpress from charm-store\n"+
+		"- upload charm wordpress from charm-store with architecture=amd64\n"+
 		"- deploy application wordpress from charm-store\n"+
 		"- expose all endpoints of wordpress and allow access from CIDRs 0.0.0.0/0 and ::/0\n"+
 		"- add unit wordpress/0 to new machine 0\n"+
@@ -833,13 +833,13 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMultipleRelations(c *gc.C)
 		"Located charm \"varnish\" in charm-store\n"+
 		"Located charm \"wordpress\" in charm-store, revision 47\n"+
 		"Executing changes:\n"+
-		"- upload charm mysql from charm-store for series bionic\n"+
+		"- upload charm mysql from charm-store for series bionic with architecture=amd64\n"+
 		"- deploy application mysql from charm-store on bionic\n"+
-		"- upload charm postgres from charm-store for series xenial\n"+
+		"- upload charm postgres from charm-store for series xenial with architecture=amd64\n"+
 		"- deploy application postgres from charm-store on xenial\n"+
-		"- upload charm varnish from charm-store for series xenial\n"+
+		"- upload charm varnish from charm-store for series xenial with architecture=amd64\n"+
 		"- deploy application varnish from charm-store on xenial\n"+
-		"- upload charm wordpress from charm-store for series bionic\n"+
+		"- upload charm wordpress from charm-store for series bionic with architecture=amd64\n"+
 		"- deploy application wordpress from charm-store on bionic\n"+
 		"- add relation wordpress:db - mysql:server\n"+
 		"- add relation varnish:webcache - wordpress:cache\n"+
@@ -900,9 +900,9 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *gc.C) {
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "xenial")
 	expectedOutput := "" +
 		"Executing changes:\n" +
-		"- upload charm %s for series xenial\n" +
+		"- upload charm %s for series xenial with architecture=amd64\n" +
 		"- deploy application mysql on xenial\n" +
-		"- upload charm %s for series xenial\n" +
+		"- upload charm %s for series xenial with architecture=amd64\n" +
 		"- deploy application wordpress on xenial\n" +
 		"- add relation wordpress:db - mysql:server\n" +
 		"- add unit mysql/0 to new machine 0\n" +
