@@ -7,6 +7,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-goose/goose/v3/cinder"
+	gooseerrors "github.com/go-goose/goose/v3/errors"
+	"github.com/go-goose/goose/v3/identity"
+	"github.com/go-goose/goose/v3/nova"
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -14,10 +18,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/goose.v2/cinder"
-	gooseerrors "gopkg.in/goose.v2/errors"
-	"gopkg.in/goose.v2/identity"
-	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"

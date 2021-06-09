@@ -6,9 +6,9 @@ package rackspace
 import (
 	"strings"
 
+	"github.com/go-goose/goose/v3/nova"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	jujuos "github.com/juju/juju/core/os"

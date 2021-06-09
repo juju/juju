@@ -5,35 +5,36 @@
 package openstack
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	network "github.com/juju/juju/core/network"
-	reflect "reflect"
 )
 
-// MockNetworkingConfig is a mock of NetworkingConfig interface
+// MockNetworkingConfig is a mock of NetworkingConfig interface.
 type MockNetworkingConfig struct {
 	ctrl     *gomock.Controller
 	recorder *MockNetworkingConfigMockRecorder
 }
 
-// MockNetworkingConfigMockRecorder is the mock recorder for MockNetworkingConfig
+// MockNetworkingConfigMockRecorder is the mock recorder for MockNetworkingConfig.
 type MockNetworkingConfigMockRecorder struct {
 	mock *MockNetworkingConfig
 }
 
-// NewMockNetworkingConfig creates a new mock instance
+// NewMockNetworkingConfig creates a new mock instance.
 func NewMockNetworkingConfig(ctrl *gomock.Controller) *MockNetworkingConfig {
 	mock := &MockNetworkingConfig{ctrl: ctrl}
 	mock.recorder = &MockNetworkingConfigMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNetworkingConfig) EXPECT() *MockNetworkingConfigMockRecorder {
 	return m.recorder
 }
 
-// AddNetworkConfig mocks base method
+// AddNetworkConfig mocks base method.
 func (m *MockNetworkingConfig) AddNetworkConfig(arg0 network.InterfaceInfos) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddNetworkConfig", arg0)
@@ -41,7 +42,7 @@ func (m *MockNetworkingConfig) AddNetworkConfig(arg0 network.InterfaceInfos) err
 	return ret0
 }
 
-// AddNetworkConfig indicates an expected call of AddNetworkConfig
+// AddNetworkConfig indicates an expected call of AddNetworkConfig.
 func (mr *MockNetworkingConfigMockRecorder) AddNetworkConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddNetworkConfig", reflect.TypeOf((*MockNetworkingConfig)(nil).AddNetworkConfig), arg0)

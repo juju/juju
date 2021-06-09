@@ -4,13 +4,14 @@
 package openstack
 
 import (
+	"github.com/go-goose/goose/v3/client"
+	"github.com/go-goose/goose/v3/identity"
+	gooselogging "github.com/go-goose/goose/v3/logging"
+	"github.com/go-goose/goose/v3/neutron"
+	"github.com/go-goose/goose/v3/nova"
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/loggo"
-	"gopkg.in/goose.v2/client"
-	"gopkg.in/goose.v2/identity"
-	gooselogging "gopkg.in/goose.v2/logging"
-	"gopkg.in/goose.v2/neutron"
-	"gopkg.in/goose.v2/nova"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )

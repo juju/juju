@@ -4,12 +4,11 @@
 package openstack
 
 import (
+	"github.com/go-goose/goose/v3/client"
+	"github.com/go-goose/goose/v3/identity"
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/goose.v2/client"
-	"gopkg.in/goose.v2/identity"
-	gooselogging "gopkg.in/goose.v2/logging"
 
 	"github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -91,7 +90,6 @@ func (s *clientSuite) setupMockFactory(ctrl *gomock.Controller, times int) *Clie
 func makeClientFunc(mockClient *MockAuthenticatingClient) ClientFunc {
 	return func(cred identity.Credentials,
 		authMode identity.AuthMode,
-		gooseLogger gooselogging.CompatLogger,
 		sslHostnameVerification bool,
 		certs []string,
 		options ...client.Option) (client.AuthenticatingClient, error) {
