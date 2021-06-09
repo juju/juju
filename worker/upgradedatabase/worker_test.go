@@ -210,7 +210,7 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccess(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccessFinishing(c *gc.C) {
+func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccessRunning(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.ignoreLogging(c)
 
@@ -229,8 +229,9 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccessFinishing(c *gc.C) 
 	// Initial state is UpgradePending
 	s.upgradeInfo.EXPECT().Refresh().Return(nil).MinTimes(1)
 	s.upgradeInfo.EXPECT().Status().Return(state.UpgradePending)
-	// After the first change is retrieved from the channel above, we then say the upgrade is complete
-	s.upgradeInfo.EXPECT().Status().Return(state.UpgradeFinishing)
+	// After the first change is retrieved from the channel above,
+	// we then say the upgrade has moved on to running (non-db) steps.
+	s.upgradeInfo.EXPECT().Status().Return(state.UpgradeRunning)
 
 	s.pool.EXPECT().SetStatus("0", status.Started, statusConfirmed)
 

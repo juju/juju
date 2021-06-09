@@ -71,7 +71,7 @@ type Database interface {
 	// used in almost all cases.
 	GetRawCollection(name string) (*mgo.Collection, SessionCloser)
 
-	// TransactionRunner() returns a runner responsible for making changes to
+	// TransactionRunner returns a runner responsible for making changes to
 	// the database, and a func that must be called when the runner is no longer
 	// needed. The returned Runner might or might not have its own session,
 	// depending on the Database; the closer must always be called regardless.
@@ -86,7 +86,7 @@ type Database interface {
 	// transaction.
 	RunTransaction(ops []txn.Op) error
 
-	// RunTransaction is a convenience method for running a single
+	// RunTransactionFor is a convenience method for running a single
 	// transaction for the model specified.
 	RunTransactionFor(modelUUID string, ops []txn.Op) error
 
@@ -143,7 +143,7 @@ func Apply(db Database, change Change) error {
 	return nil
 }
 
-// collectionInfo describes important features of a collection.
+// CollectionInfo describes important features of a collection.
 type CollectionInfo struct {
 
 	// explicitCreate, if non-nil, will cause the collection to be explicitly
@@ -178,7 +178,7 @@ type CollectionInfo struct {
 	rawAccess bool
 }
 
-// collectionSchema defines the set of collections used in juju.
+// CollectionSchema defines the set of collections used in juju.
 type CollectionSchema map[string]CollectionInfo
 
 // Create causes all recorded collections to be created and indexed as specified

@@ -284,11 +284,11 @@ func (w *upgradeDB) watchUpgrade() {
 	}
 
 	for {
-		// If the primary has already run the database steps then the status will
-		// be "db-complete", however if it has finished all its upgrade steps, the status
-		// will be "finishing". We need to check against both of these statuses.
+		// If the primary has already run the database steps then the status
+		// will be "db-complete", however it may have progressed further on to
+		// upgrade steps, so we check for that status too.
 		switch w.upgradeInfo.Status() {
-		case state.UpgradeDBComplete, state.UpgradeFinishing:
+		case state.UpgradeDBComplete, state.UpgradeRunning:
 			w.logger.Infof("finished waiting - database upgrade steps completed on mongodb primary")
 			w.setStatus(status.Started, fmt.Sprintf("confirmed primary database upgrade for %v", w.toVersion))
 			w.upgradeComplete.Unlock()

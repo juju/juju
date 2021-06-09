@@ -65,8 +65,7 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.oldVersion.Minor = 1
 
 	// Don't wait so long in tests.
-	s.PatchValue(&upgradesteps.UpgradeStartTimeoutPrimary, time.Millisecond*50)
-	s.PatchValue(&upgradesteps.UpgradeStartTimeoutSecondary, time.Millisecond*60)
+	s.PatchValue(&upgradesteps.UpgradeStartTimeoutController, time.Millisecond*50)
 
 	// Ensure we don't fail disk space check.
 	s.PatchValue(&upgrades.MinDiskSpaceMib, uint64(0))
