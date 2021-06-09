@@ -1366,20 +1366,18 @@ func (st *State) deriveApplicationConstraints(cons constraints.Value, subordinat
 		return cons, nil
 	}
 
-	result := cons
+	var modelConstraints *constraints.Value
 	if !cons.HasArch() {
-		modelConstraints, err := st.ModelConstraints()
+		c, err := st.ModelConstraints()
 		if err != nil {
 			return constraints.Value{}, errors.Trace(err)
 		}
-
-		if modelConstraints.HasArch() {
-			result.Arch = modelConstraints.Arch
-		} else {
-			a := arch.DefaultArchitecture
-			result.Arch = &a
-		}
+		modelConstraints = &c
 	}
+
+	result := cons
+	a := arch.ConstraintArch(cons, modelConstraints)
+	result.Arch = &a
 	return result, nil
 }
 

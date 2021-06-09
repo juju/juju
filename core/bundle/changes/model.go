@@ -28,11 +28,7 @@ type Model struct {
 	// hard dependency on the juju constraints package.
 	ConstraintsEqual func(string, string) bool
 
-	// ConstraintsGetter is a function that is able to extract a constraint
-	// for inspection.
-	ConstraintGetter ConstraintGetter
-
-	// Sequence holds a map of names to the next "number" that relates
+	// Sequence holds a map of names to the next "number" that relates
 	// to the unit or machine. The keys are "application-<name>", the string
 	// "machine", or "machine-id/c" where n is a machine id, and c is a
 	// container type.
@@ -250,17 +246,17 @@ func (m *Model) hasCharm(charm string) bool {
 	return false
 }
 
-func (m *Model) matchesCharmPermutation(charm, arch, series, channel string) bool {
+func (m *Model) matchesCharmPermutation(charm, arch, series, channel string, constraintGetter ConstraintGetter) bool {
 	if arch == "" && series == "" && channel == "" {
 		return m.hasCharm(charm)
 	}
 
 	for _, app := range m.Applications {
 		var appArch string
-		if m.ConstraintGetter != nil {
+		if constraintGetter != nil {
 			// If we can't solve the constraints, then we have to skip this
 			// application.
-			cons := m.ConstraintGetter(app.Constraints)
+			cons := constraintGetter(app.Constraints)
 			var err error
 			if appArch, err = cons.Arch(); err != nil {
 				continue
