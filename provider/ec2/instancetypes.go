@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/client"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/juju/collections/set"
@@ -33,34 +31,6 @@ type awsLogger struct {
 
 func (l awsLogger) Log(args ...interface{}) {
 	logger.Tracef("awsLogger %p: %s", l.session, fmt.Sprint(args...))
-}
-
-// EC2Session returns a session with the given credentials.
-var EC2Session = func(region, accessKey, secretKey string) ec2Client {
-	sess := session.Must(session.NewSession())
-	config := &aws.Config{
-		Retryer: client.DefaultRetryer{ // these roughly match retry params in gopkg.in/amz.v3/ec2/ec2.go:EC2.query
-			NumMaxRetries:    10,
-			MinRetryDelay:    time.Second,
-			MinThrottleDelay: time.Second,
-			MaxRetryDelay:    time.Minute,
-			MaxThrottleDelay: time.Minute,
-		},
-		Region: aws.String(region),
-		Credentials: credentials.NewStaticCredentialsFromCreds(credentials.Value{
-			AccessKeyID:     accessKey,
-			SecretAccessKey: secretKey,
-		}),
-	}
-
-	// Enable request and response logging, but only if TRACE is enabled (as
-	// they're probably fairly expensive to produce).
-	if logger.IsTraceEnabled() {
-		config.Logger = awsLogger{sess}
-		config.LogLevel = aws.LogLevel(aws.LogDebug | aws.LogDebugWithRequestErrors | aws.LogDebugWithRequestRetries)
-	}
-
-	return ec2.New(sess, config)
 }
 
 // InstanceTypes implements InstanceTypesFetcher
@@ -358,7 +328,7 @@ func convertEC2InstanceType(
 }
 
 // instanceTypeCosts queries the latest spot price for the given instance types.
-func instanceTypeCosts(ec2Client ec2Client, instTypeNames []*string, zoneNames []string) (map[string]uint64, error) {
+func instanceTypeCosts(client Client, instTypeNames []*string, zoneNames []string) (map[string]uint64, error) {
 	const (
 		maxResults = 1000
 		costFactor = 1000
@@ -393,7 +363,7 @@ func instanceTypeCosts(ec2Client ec2Client, instTypeNames []*string, zoneNames [
 	costs := make(map[string]uint64)
 	for {
 		spParams.NextToken = token
-		priceResults, err := ec2Client.DescribeSpotPriceHistory(spParams)
+		priceResults, err := client.DescribeSpotPriceHistory(spParams)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

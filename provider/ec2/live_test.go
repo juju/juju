@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
@@ -23,7 +22,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/juju/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -85,20 +83,8 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.BaseSuite.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	t.BaseSuite.PatchValue(&series.HostSeries, func() (string, error) { return version.DefaultSupportedLTS(), nil })
-	// Use the real ec2 session if we are running with real creds.
-	accessKey := os.Getenv("AWS_ACCESS_KEY_ID")
-	if accessKey == "" {
-		t.BaseSuite.PatchValue(&ec2.EC2Session, func(region, accessKey, secretKey string) ec2.EC2Client {
-			c.Assert(region, gc.Equals, "test")
-			c.Assert(accessKey, gc.Equals, "x")
-			c.Assert(secretKey, gc.Equals, "x")
-			return &mockEC2Session{
-				newInstancesClient: func() *amzec2.EC2 {
-					return ec2.EnvironEC2(t.Env)
-				},
-			}
-		})
-	}
+
+	t.BootstrapContext = bootstrapLiveContext(c, liveEnvGetter{t: t.LiveTests})
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -118,6 +104,14 @@ func (t *LiveTests) TearDownTest(c *gc.C) {
 	t.BaseSuite.TearDownTest(c)
 }
 
+type liveEnvGetter struct {
+	t jujutest.LiveTests
+}
+
+func (e liveEnvGetter) Env() environs.Environ {
+	return e.t.Env
+}
+
 // TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.
 
 func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
@@ -130,7 +124,7 @@ func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 	c.Assert(hc.RootDisk, gc.NotNil)
 	c.Assert(hc.CpuCores, gc.NotNil)
 	c.Assert(hc.CpuPower, gc.NotNil)
-	addresses, err := jujutesting.WaitInstanceAddresses(t.Env, t.callCtx, inst.Id())
+	addresses, err := testing.WaitInstanceAddresses(t.Env, t.callCtx, inst.Id())
 	// TODO(niemeyer): This assert sometimes fails with "no instances found"
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)

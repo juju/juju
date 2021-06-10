@@ -40,7 +40,7 @@ func (environProvider) Version() int {
 func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q", args.Config.Name())
 
-	e := new(environ)
+	e := newEnviron()
 	e.name = args.Config.Name()
 
 	if err := e.SetCloudSpec(args.Cloud); err != nil {

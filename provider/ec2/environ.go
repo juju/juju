@@ -16,6 +16,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v2"
@@ -26,6 +27,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
+	corecontext "github.com/juju/juju/core/context"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
@@ -41,6 +43,12 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
+)
+
+const (
+	// AWSClientContextKey defines a way to change the aws client func within
+	// a context.
+	AWSClientContextKey corecontext.ContextKey = "aws-client-func"
 )
 
 const (
@@ -67,16 +75,7 @@ var (
 	_ environs.FirewallFeatureQuerier = (*environ)(nil)
 )
 
-// The subset of *ec2.EC2 methods that we currently use.
-type ec2Client interface {
-	DescribeAvailabilityZones(*ec2.DescribeAvailabilityZonesInput) (*ec2.DescribeAvailabilityZonesOutput, error)
-	DescribeInstances(*ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error)
-	DescribeInstanceTypeOfferings(*ec2.DescribeInstanceTypeOfferingsInput) (*ec2.DescribeInstanceTypeOfferingsOutput, error)
-	DescribeInstanceTypes(*ec2.DescribeInstanceTypesInput) (*ec2.DescribeInstanceTypesOutput, error)
-	DescribeSpotPriceHistory(*ec2.DescribeSpotPriceHistoryInput) (*ec2.DescribeSpotPriceHistoryOutput, error)
-}
-
-var _ ec2Client = (*ec2.EC2)(nil)
+var _ Client = (*ec2.EC2)(nil)
 
 type environ struct {
 	name  string
@@ -86,7 +85,8 @@ type environ struct {
 	// favour of the Amazon-provided awk-sdk-go (see ec2Client below).
 	ec2 *amzec2.EC2
 
-	ec2Client ec2Client
+	ec2Client     Client
+	ec2ClientFunc ClientFunc
 
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex    sync.Mutex
@@ -103,6 +103,12 @@ type environ struct {
 	defaultVPC        *amzec2.VPC
 
 	ensureGroupMutex sync.Mutex
+}
+
+func newEnviron() *environ {
+	return &environ{
+		ec2ClientFunc: clientFunc,
+	}
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -136,6 +142,17 @@ func (e *environ) Name() string {
 
 // PrepareForBootstrap is part of the Environ interface.
 func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
+	// Allow the passing of a client func through the context. This allows
+	// passing the client from outside of the environ, one that allows for
+	// custom http.Clients.
+	if value := ctx.Context().Value(AWSClientContextKey); value == nil {
+		e.ec2ClientFunc = clientFunc
+	} else if s, ok := value.(ClientFunc); ok {
+		e.ec2ClientFunc = s
+	} else {
+		return errors.Errorf("expected a valid client function type")
+	}
+
 	callCtx := context.NewCloudCallContext(ctx.Context())
 	// Cannot really invalidate a credential here since nothing is bootstrapped yet.
 	callCtx.InvalidateCredentialFunc = func(string) error { return nil }
@@ -282,7 +299,7 @@ type AvailabilityZoner interface {
 }
 
 func gatherAvailabilityZones(instances []instances.Instance) map[instance.Id]string {
-	zones := make(map[instance.Id]string, 0)
+	zones := make(map[instance.Id]string)
 	for _, inst := range instances {
 		if inst == nil {
 			continue
@@ -2530,7 +2547,13 @@ func (e *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 		return errors.Trace(err)
 	}
 
-	e.ec2Client = EC2Session(e.cloud.Region, e.ec2.AccessKey, e.ec2.SecretKey)
+	httpClient := jujuhttp.NewClient(
+		jujuhttp.WithLogger(logger.Child("http")),
+	)
+
+	e.ec2Client = e.ec2ClientFunc(e.cloud.Region, e.ec2.AccessKey, e.ec2.SecretKey,
+		WithHTTPClient(httpClient.Client()),
+	)
 
 	return nil
 }

@@ -64,7 +64,7 @@ func (e environProviderCredentials) DetectCredentials(cloudName string) (*cloud.
 		AuthCredentials: make(map[string]cloud.Credential),
 	}
 	for _, credName := range credInfo.SectionStrings() {
-		if credName == ini.DEFAULT_SECTION {
+		if credName == ini.DefaultSection {
 			// No credentials at top level.
 			continue
 		}
