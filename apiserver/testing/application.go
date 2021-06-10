@@ -14,9 +14,9 @@ import (
 )
 
 func AssertPrincipalApplicationDeployed(c *gc.C, st *state.State, applicationName string, curl *charm.URL, forced bool, bundle charm.Charm, cons constraints.Value) *state.Application {
-	service, err := st.Application(applicationName)
+	app, err := st.Application(applicationName)
 	c.Assert(err, jc.ErrorIsNil)
-	charm, force, err := service.Charm()
+	charm, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(force, gc.Equals, forced)
 	c.Assert(charm.URL(), gc.DeepEquals, curl)
@@ -33,12 +33,12 @@ func AssertPrincipalApplicationDeployed(c *gc.C, st *state.State, applicationNam
 	c.Assert(charm.Meta(), jc.DeepEquals, bundle.Meta())
 	c.Assert(charm.Config(), jc.DeepEquals, bundle.Config())
 
-	serviceCons, err := service.Constraints()
+	appCons, err := app.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(serviceCons, gc.DeepEquals, cons)
+	c.Assert(appCons, gc.DeepEquals, cons)
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		units, err := service.AllUnits()
+		units, err := app.AllUnits()
 		c.Assert(err, jc.ErrorIsNil)
 		for _, unit := range units {
 			mid, err := unit.AssignedMachineId()
@@ -55,5 +55,5 @@ func AssertPrincipalApplicationDeployed(c *gc.C, st *state.State, applicationNam
 		}
 		break
 	}
-	return service
+	return app
 }
