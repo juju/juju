@@ -9,10 +9,10 @@ import (
 	"io"
 	"sort"
 
+	"github.com/go-goose/goose/v3/client"
+	"github.com/go-goose/goose/v3/identity"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/goose.v2/client"
-	"gopkg.in/goose.v2/identity"
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/jujutest"

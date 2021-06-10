@@ -22,9 +22,10 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/dustin/go-humanize v1.0.0
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
+	github.com/go-goose/goose/v3 v3.0.0-20210609085303-5be176eecc0f
 	github.com/go-logr/logr v0.2.0
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.0-20210309064400-d73aa8f92aa2
-	github.com/golang/mock v1.4.3
+	github.com/golang/mock v1.5.0
 	github.com/google/go-querystring v1.0.0
 	github.com/googleapis/gnostic v0.4.1
 	github.com/gorilla/handlers v0.0.0-20170224193955-13d73096a474
@@ -113,7 +114,6 @@ require (
 	google.golang.org/grpc v1.33.1 // indirect
 	gopkg.in/amz.v3 v3.0.0-20201001071545-24fc1eceb27b
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
-	gopkg.in/goose.v2 v2.0.1
 	gopkg.in/httprequest.v1 v1.2.1
 	gopkg.in/ini.v1 v1.51.0
 	gopkg.in/juju/environschema.v1 v1.0.1-0.20201027142642-c89a4490670a

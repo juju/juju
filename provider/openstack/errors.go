@@ -4,8 +4,8 @@
 package openstack
 
 import (
+	gooseerrors "github.com/go-goose/goose/v3/errors"
 	"github.com/juju/errors"
-	gooseerrors "gopkg.in/goose.v2/errors"
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/common"

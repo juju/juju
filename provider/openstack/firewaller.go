@@ -10,12 +10,12 @@ import (
 	"sync"
 	"time"
 
+	gooseerrors "github.com/go-goose/goose/v3/errors"
+	"github.com/go-goose/goose/v3/neutron"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-	gooseerrors "gopkg.in/goose.v2/errors"
-	"gopkg.in/goose.v2/neutron"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
