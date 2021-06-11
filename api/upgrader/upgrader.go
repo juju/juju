@@ -34,12 +34,11 @@ func (st *State) SetVersion(tag string, v version.Binary) error {
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
 			Tag:   tag,
-			Tools: &params.Version{v},
+			Tools: &params.Version{Version: v},
 		}},
 	}
 	err := st.facade.FacadeCall("SetTools", args, &results)
 	if err != nil {
-		// TODO: Not directly tested
 		return err
 	}
 	return results.OneError()
@@ -52,11 +51,9 @@ func (st *State) DesiredVersion(tag string) (version.Number, error) {
 	}
 	err := st.facade.FacadeCall("DesiredVersion", args, &results)
 	if err != nil {
-		// TODO: Not directly tested
 		return version.Number{}, err
 	}
 	if len(results.Results) != 1 {
-		// TODO: Not directly tested
 		return version.Number{}, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
@@ -64,7 +61,6 @@ func (st *State) DesiredVersion(tag string) (version.Number, error) {
 		return version.Number{}, err
 	}
 	if result.Version == nil {
-		// TODO: Not directly tested
 		return version.Number{}, fmt.Errorf("received no error, but got a nil Version")
 	}
 	return *result.Version, nil
@@ -79,11 +75,9 @@ func (st *State) Tools(tag string) (tools.List, error) {
 	}
 	err := st.facade.FacadeCall("Tools", args, &results)
 	if err != nil {
-		// TODO: Not directly tested
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		// TODO: Not directly tested
 		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
@@ -100,16 +94,13 @@ func (st *State) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error)
 	}
 	err := st.facade.FacadeCall("WatchAPIVersion", args, &results)
 	if err != nil {
-		// TODO: Not directly tested
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		// TODO: Not directly tested
 		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		//  TODO: Not directly tested
 		return nil, result.Error
 	}
 	w := apiwatcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
