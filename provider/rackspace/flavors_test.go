@@ -4,10 +4,10 @@
 package rackspace_test
 
 import (
+	"github.com/go-goose/goose/v3/nova"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/openstack"

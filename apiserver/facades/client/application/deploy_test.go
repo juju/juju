@@ -67,7 +67,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 	s.assertCharm(c, app, s.charm.URL())
 	s.assertSettings(c, app, charm.Settings{})
 	s.assertApplicationConfig(c, app, coreapplication.ConfigAttributes(nil))
-	s.assertConstraints(c, app, constraints.MustParse("arch=amd64"))
+	s.assertConstraints(c, app, constraints.Value{})
 	s.assertMachines(c, app, constraints.Value{})
 }
 
@@ -316,7 +316,7 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 	err := s.State.SetModelConstraints(constraints.MustParse("mem=2G"))
 	c.Assert(err, jc.ErrorIsNil)
-	applicationCons := constraints.MustParse("arch=amd64 cores=2")
+	applicationCons := constraints.MustParse("cores=2")
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName: "bob",

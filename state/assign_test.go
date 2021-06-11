@@ -403,7 +403,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineSetsConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mcons, err := machine.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	expect := constraints.MustParse("mem=2G cores=2 cpu-power=400")
+	expect := constraints.MustParse("arch=amd64 mem=2G cores=2 cpu-power=400")
 	c.Assert(mcons, gc.DeepEquals, expect)
 }
 
@@ -841,7 +841,7 @@ var assignUsingConstraintsTests = []struct {
 }{
 	{
 		// 0
-		unitConstraints:         "arch=amd64",
+		unitConstraints:         "",
 		hardwareCharacteristics: "arch=amd64",
 		assignOk:                true,
 	}, {
@@ -856,7 +856,7 @@ var assignUsingConstraintsTests = []struct {
 		assignOk:                false,
 	}, {
 		// 3
-		unitConstraints:         "arch=amd64",
+		unitConstraints:         "",
 		hardwareCharacteristics: "arch=i386",
 		assignOk:                false,
 	}, {
@@ -877,8 +877,8 @@ var assignUsingConstraintsTests = []struct {
 	}, {
 		// 7
 		unitConstraints:         "mem=4G",
-		hardwareCharacteristics: "mem=4G",
-		assignOk:                false,
+		hardwareCharacteristics: "arch=amd64 mem=4G",
+		assignOk:                true,
 	}, {
 		// 8
 		unitConstraints:         "arch=amd64 mem=4G",
@@ -897,8 +897,8 @@ var assignUsingConstraintsTests = []struct {
 	}, {
 		// 11
 		unitConstraints:         "cores=2",
-		hardwareCharacteristics: "cores=2",
-		assignOk:                false,
+		hardwareCharacteristics: "arch=amd64 cores=2",
+		assignOk:                true,
 	}, {
 		// 12
 		unitConstraints:         "arch=amd64 cores=2",
@@ -927,8 +927,8 @@ var assignUsingConstraintsTests = []struct {
 	}, {
 		// 17
 		unitConstraints:         "cpu-power=50",
-		hardwareCharacteristics: "cpu-power=50",
-		assignOk:                false,
+		hardwareCharacteristics: "arch=amd64 cpu-power=50",
+		assignOk:                true,
 	}, {
 		// 18
 		unitConstraints:         "arch=amd64 cpu-power=100",
@@ -977,8 +977,8 @@ var assignUsingConstraintsTests = []struct {
 	}, {
 		// 27
 		unitConstraints:         "root-disk=8192",
-		hardwareCharacteristics: "root-disk=8192",
-		assignOk:                false,
+		hardwareCharacteristics: "arch=amd64 root-disk=8192",
+		assignOk:                true,
 	}, {
 		// 28
 		unitConstraints:         "root-disk-source=place1",

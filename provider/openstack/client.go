@@ -4,16 +4,81 @@
 package openstack
 
 import (
+	"net/http"
+
+	"github.com/go-goose/goose/v3/client"
+	goosehttp "github.com/go-goose/goose/v3/http"
+	"github.com/go-goose/goose/v3/identity"
+	gooselogging "github.com/go-goose/goose/v3/logging"
+	"github.com/go-goose/goose/v3/neutron"
+	"github.com/go-goose/goose/v3/nova"
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/loggo"
-	"gopkg.in/goose.v2/client"
-	"gopkg.in/goose.v2/identity"
-	gooselogging "gopkg.in/goose.v2/logging"
-	"gopkg.in/goose.v2/neutron"
-	"gopkg.in/goose.v2/nova"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
+
+// ClientOption to be passed into the transport construction to customize the
+// default transport.
+type ClientOption func(*clientOptions)
+
+type clientOptions struct {
+	caCertificates           []string
+	skipHostnameVerification bool
+	httpHeadersFunc          goosehttp.HeadersFunc
+	httpClient               *http.Client
+}
+
+// WithCACertificates contains Authority certificates to be used to validate
+// certificates of cloud infrastructure components.
+// The contents are Base64 encoded x.509 certs.
+func WithCACertificates(value ...string) ClientOption {
+	return func(opt *clientOptions) {
+		opt.caCertificates = value
+	}
+}
+
+// WithSkipHostnameVerification will skip hostname verification on the TLS/SSL
+// certificates.
+func WithSkipHostnameVerification(value bool) ClientOption {
+	return func(opt *clientOptions) {
+		opt.skipHostnameVerification = value
+	}
+}
+
+// WithHTTPHeadersFunc allows passing in a new HTTP headers func for the client
+// to execute for each request.
+func WithHTTPHeadersFunc(httpHeadersFunc goosehttp.HeadersFunc) ClientOption {
+	return func(clientOptions *clientOptions) {
+		clientOptions.httpHeadersFunc = httpHeadersFunc
+	}
+}
+
+// WithHTTPClient allows to define the http.Client to use.
+func WithHTTPClient(value *http.Client) ClientOption {
+	return func(opt *clientOptions) {
+		opt.httpClient = value
+	}
+}
+
+// Create a clientOptions instance with default values.
+func newOptions() *clientOptions {
+	// In this case, use a default http.Client.
+	// Ideally we should always use the NewHTTPTLSTransport,
+	// however test suites such as JujuConnSuite and some facade
+	// tests rely on settings to the http.DefaultTransport for
+	// tests to run with different protocol scheme such as "test"
+	// and some replace the RoundTripper to answer test scenarios.
+	//
+	// https://bugs.launchpad.net/juju/+bug/1888888
+	defaultCopy := *http.DefaultClient
+
+	return &clientOptions{
+		httpHeadersFunc: goosehttp.DefaultHeaders,
+		httpClient:      &defaultCopy,
+	}
+}
 
 // SSLHostnameConfig defines the options for host name verification
 type SSLHostnameConfig interface {
@@ -23,10 +88,7 @@ type SSLHostnameConfig interface {
 // ClientFunc is used to create a goose client.
 type ClientFunc = func(cred identity.Credentials,
 	authMode identity.AuthMode,
-	gooseLogger gooselogging.CompatLogger,
-	sslHostnameVerification bool,
-	certs []string,
-	options ...client.Option) (client.AuthenticatingClient, error)
+	options ...ClientOption) (client.AuthenticatingClient, error)
 
 // ClientFactory creates various goose (openstack) clients.
 // TODO (stickupkid): This should be moved into goose and the factory should
@@ -48,7 +110,7 @@ func NewClientFactory(spec environscloudspec.CloudSpec, sslHostnameConfig SSLHos
 	return &ClientFactory{
 		spec:              spec,
 		sslHostnameConfig: sslHostnameConfig,
-		clientFunc:        newClientByType,
+		clientFunc:        newClient,
 	}
 }
 
@@ -83,16 +145,14 @@ func (c *ClientFactory) Nova() (*nova.Client, error) {
 // Note: we override the http.Client headers with specific neutron client
 // headers.
 func (c *ClientFactory) Neutron() (*neutron.Client, error) {
-	httpOption := client.WithHTTPHeadersFunc(neutron.NeutronHeaders)
-
-	client, err := c.getClientState(httpOption)
+	client, err := c.getClientState(WithHTTPHeadersFunc(neutron.NeutronHeaders))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return neutron.New(client), nil
 }
 
-func (c *ClientFactory) getClientState(options ...client.Option) (client.AuthenticatingClient, error) {
+func (c *ClientFactory) getClientState(options ...ClientOption) (client.AuthenticatingClient, error) {
 	identityClientVersion, err := identityClientVersion(c.spec.Endpoint)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create a client")
@@ -149,12 +209,13 @@ func (c *ClientFactory) getClientState(options ...client.Option) (client.Authent
 }
 
 // getClientByAuthMode creates a new client for the given AuthMode.
-func (c *ClientFactory) getClientByAuthMode(authMode identity.AuthMode, cred identity.Credentials, options ...client.Option) (client.AuthenticatingClient, error) {
-	gooseLogger := gooselogging.LoggoLogger{
-		Logger: loggo.GetLogger("goose"),
-	}
-
-	newClient, err := c.clientFunc(cred, authMode, gooseLogger, c.sslHostnameConfig.SSLHostnameVerification(), c.spec.CACertificates, options...)
+func (c *ClientFactory) getClientByAuthMode(authMode identity.AuthMode, cred identity.Credentials, options ...ClientOption) (client.AuthenticatingClient, error) {
+	newClient, err := c.clientFunc(cred, authMode,
+		append(options,
+			WithSkipHostnameVerification(!c.sslHostnameConfig.SSLHostnameVerification()),
+			WithCACertificates(c.spec.CACertificates...),
+		)...,
+	)
 	if err != nil {
 		return nil, errors.NewNotValid(err, "cannot create a new client")
 	}
@@ -166,27 +227,31 @@ func (c *ClientFactory) getClientByAuthMode(authMode identity.AuthMode, cred ide
 	return newClient, nil
 }
 
-// newClientByType returns an authenticating client to talk to the
+// newClient returns an authenticating client to talk to the
 // OpenStack cloud.  CACertificate and SSLHostnameVerification == false
 // config options are mutually exclusive here.
-func newClientByType(
+func newClient(
 	cred identity.Credentials,
 	authMode identity.AuthMode,
-	gooseLogger gooselogging.CompatLogger,
-	sslHostnameVerification bool,
-	certs []string,
-	options ...client.Option,
+	clientOptions ...ClientOption,
 ) (client.AuthenticatingClient, error) {
-	switch {
-	case len(certs) > 0:
-		tlsConfig := tlsConfig(certs)
-		logger.Tracef("using NewClientTLSConfig")
-		return client.NewClientTLSConfig(&cred, authMode, gooseLogger, tlsConfig, options...), nil
-	case sslHostnameVerification == false:
-		logger.Tracef("using NewNonValidatingClient")
-		return client.NewNonValidatingClient(&cred, authMode, gooseLogger, options...), nil
-	default:
-		logger.Tracef("using NewClient")
-		return client.NewClient(&cred, authMode, gooseLogger, options...), nil
+	opts := newOptions()
+	for _, option := range clientOptions {
+		option(opts)
 	}
+
+	logger := loggo.GetLogger("goose")
+	gooseLogger := gooselogging.LoggoLogger{
+		Logger: logger,
+	}
+
+	httpClient := jujuhttp.NewClient(
+		jujuhttp.WithSkipHostnameVerification(opts.skipHostnameVerification),
+		jujuhttp.WithCACertificates(opts.caCertificates...),
+		jujuhttp.WithLogger(logger.Child("http")),
+	)
+	return client.NewClient(&cred, authMode, gooseLogger,
+		client.WithHTTPClient(httpClient.Client()),
+		client.WithHTTPHeadersFunc(opts.httpHeadersFunc),
+	), nil
 }

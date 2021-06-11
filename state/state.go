@@ -31,7 +31,6 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -1076,16 +1075,8 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return nil, errors.Trace(err)
 	}
 
-	switch model.Type() {
-	case ModelTypeIAAS:
-		// CAAS doesn't support architecture in every scenario.
-		args.Constraints, err = st.deriveApplicationConstraints(args.Constraints, args.Charm.Meta().Subordinate)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-	case ModelTypeCAAS:
-		// CAAS charms don't support volume/block storage yet.
+	// CAAS charms don't support volume/block storage yet.
+	if model.Type() == ModelTypeCAAS {
 		for name, charmStorage := range args.Charm.Meta().Storage {
 			if storageKind(charmStorage.Type) != storage.StorageKindBlock {
 				continue
@@ -1330,26 +1321,6 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return app, nil
 	}
 	return nil, errors.Trace(err)
-}
-
-func (st *State) deriveApplicationConstraints(cons constraints.Value, subordinate bool) (constraints.Value, error) {
-	if subordinate {
-		return cons, nil
-	}
-
-	var modelConstraints *constraints.Value
-	if !cons.HasArch() {
-		c, err := st.ModelConstraints()
-		if err != nil {
-			return constraints.Value{}, errors.Trace(err)
-		}
-		modelConstraints = &c
-	}
-
-	result := cons
-	a := arch.ConstraintArch(cons, modelConstraints)
-	result.Arch = &a
-	return result, nil
 }
 
 func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) error {

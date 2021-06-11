@@ -12,6 +12,7 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
@@ -1979,6 +1980,21 @@ func (u *Unit) Constraints() (*constraints.Value, error) {
 		return nil, errors.NotFoundf("unit")
 	} else if err != nil {
 		return nil, err
+	}
+	if !cons.HasArch() && !cons.HasInstanceType() {
+		app, err := u.Application()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if origin := app.CharmOrigin(); origin != nil && origin.Platform != nil {
+			if origin.Platform.Architecture != "" {
+				cons.Arch = &origin.Platform.Architecture
+			}
+		}
+		if !cons.HasArch() {
+			a := arch.DefaultArchitecture
+			cons.Arch = &a
+		}
 	}
 	return &cons, nil
 }

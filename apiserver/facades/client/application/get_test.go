@@ -74,7 +74,6 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ApplicationGetResults{
 		Application: "wordpress",
 		Charm:       "wordpress",
-		Constraints: constraints.MustParse("arch=amd64"),
 		CharmConfig: map[string]interface{}{
 			"blog-title": map[string]interface{}{
 				"default":     "My Title",
@@ -269,9 +268,8 @@ var getTests = []struct {
 		},
 	},
 }, {
-	about:       "deployed application  #2",
-	charm:       "dummy",
-	constraints: "arch=amd64",
+	about: "deployed application  #2",
+	charm: "dummy",
 	config: charm.Settings{
 		// Set title to default.
 		"title": nil,

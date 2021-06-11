@@ -9,10 +9,10 @@ import (
 	"html/template"
 	"strings"
 
+	"github.com/go-goose/goose/v3/identity"
+	"github.com/go-goose/goose/v3/nova"
+	"github.com/go-goose/goose/v3/swift"
 	"github.com/juju/errors"
-	"gopkg.in/goose.v2/identity"
-	"gopkg.in/goose.v2/nova"
-	"gopkg.in/goose.v2/swift"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"

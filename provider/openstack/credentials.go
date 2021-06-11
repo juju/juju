@@ -10,9 +10,9 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/go-goose/goose/v3/identity"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2"
-	"gopkg.in/goose.v2/identity"
 	"gopkg.in/ini.v1"
 
 	"github.com/juju/juju/cloud"
