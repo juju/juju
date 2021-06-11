@@ -43,7 +43,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state/watcher"
@@ -845,19 +844,6 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		supportedSeries = []string{chID.URL.Series}
 	}
 
-	charmSeries := chID.URL.Series
-	// If a format v1 charm has a url, but is a kubernetes charm then we need to
-	// add this to the list of supported series.
-	if corecharm.IsKubernetes(charmInfo.Charm()) {
-		switch corecharm.Format(charmInfo.Charm()) {
-		case corecharm.FormatV1:
-			charmSeries = series.Kubernetes.String()
-		case corecharm.FormatV2:
-			if p.Series == series.Kubernetes.String() {
-				p.Series = charmSeries
-			}
-		}
-	}
 	workloadSeries, err := supportedJujuSeries(h.clock.Now(), p.Series, h.modelConfig.ImageStream())
 	if err != nil {
 		return errors.Trace(err)
@@ -865,14 +851,14 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 
 	selector := seriesSelector{
 		seriesFlag:          p.Series,
-		charmURLSeries:      charmSeries,
+		charmURLSeries:      chID.URL.Series,
 		supportedSeries:     supportedSeries,
 		supportedJujuSeries: workloadSeries,
 		conf:                h.modelConfig,
 		force:               h.force,
 		fromBundle:          true,
 	}
-	series, err := selector.charmSeries()
+	selectedSeries, err := selector.charmSeries()
 	if err = charmValidationError(curl.Name, errors.Trace(err)); err != nil {
 		return errors.Trace(err)
 	}
@@ -894,7 +880,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		if origin.Track != nil {
 			track = *origin.Track
 		}
-		platform, err := utils.DeducePlatform(cons, series, h.modelConstraints)
+		platform, err := utils.DeducePlatform(cons, selectedSeries, h.modelConstraints)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -912,7 +898,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		CharmOrigin:      origin,
 		Cons:             cons,
 		ApplicationName:  p.Application,
-		Series:           series,
+		Series:           selectedSeries,
 		NumUnits:         numUnits,
 		Placement:        placement,
 		ConfigYAML:       configYAML,

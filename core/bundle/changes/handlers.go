@@ -32,9 +32,6 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 	add := r.changes.add
 	applications := r.bundle.Applications
 	defaultSeries := r.bundle.Series
-	if r.bundle.Type == kubernetes {
-		defaultSeries = kubernetes
-	}
 	existing := r.model
 
 	charms := make(map[string]string, len(applications))
