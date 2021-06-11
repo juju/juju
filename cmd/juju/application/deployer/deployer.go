@@ -285,7 +285,7 @@ func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 // newDeployBundle returns the config needed to eventually call
 // deployBundle.deploy.  This is used by all types of bundles to
 // be deployed
-func (d *factory) newDeployBundle(defaultCharmSchema charm.Schema, ds charm.BundleDataSource) deployBundle {
+func (d *factory) newDeployBundle(_ charm.Schema, ds charm.BundleDataSource) deployBundle {
 	return deployBundle{
 		model:                d.model,
 		steps:                d.steps,
