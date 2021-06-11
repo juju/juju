@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/juju/juju/api"
@@ -117,43 +118,57 @@ func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *bootstrapSuite) TestControllerCorelation(c *gc.C) {
-	s.namespace = "controller-1"
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	existingNs := core.Namespace{}
-	existingNs.SetName("controller-1")
-	existingNs.SetAnnotations(map[string]string{
-		"model.juju.is/id":                 s.cfg.UUID(),
-		"controller.juju.is/id":            testing.ControllerTag.Id(),
-		"controller.juju.is/is-controller": "true",
-	})
-
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.getNamespace())
-	c.Assert(s.broker.GetAnnotations().ToMap(), jc.DeepEquals, map[string]string{
-		"model.juju.is/id":      s.cfg.UUID(),
-		"controller.juju.is/id": testing.ControllerTag.Id(),
-	})
-
-	gomock.InOrder(
-		s.mockNamespaces.EXPECT().List(gomock.Any(), v1.ListOptions{}).
-			Return(&core.NamespaceList{Items: []core.Namespace{existingNs}}, nil),
-	)
-	ns, err := provider.ControllerCorelation(s.broker)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(
-		// "is-controller" is set as well.
-		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
-		map[string]string{
-			"model.juju.is/id":                 s.cfg.UUID(),
-			"controller.juju.is/id":            testing.ControllerTag.Id(),
-			"controller.juju.is/is-controller": "true",
+func (s *bootstrapSuite) TestFindControllerNamespace(c *gc.C) {
+	tests := []struct {
+		Namespace      core.Namespace
+		ModelName      string
+		ControllerUUID string
+	}{
+		{
+			Namespace: core.Namespace{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "controller-tlm",
+					Annotations: map[string]string{
+						"juju.io/controller": "abcd",
+					},
+					Labels: map[string]string{
+						"juju-model": "controller",
+					},
+				},
+			},
+			ModelName:      "controller",
+			ControllerUUID: "abcd",
 		},
-	)
-	// controller namespace linked back(changed from 'controller' to 'controller-1')
-	c.Assert(ns, jc.DeepEquals, "controller-1")
+		{
+			Namespace: core.Namespace{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "controller-tlm",
+					Annotations: map[string]string{
+						"controller.juju.is/id": "abcd",
+					},
+					Labels: map[string]string{
+						"model.juju.is/name": "controller",
+					},
+				},
+			},
+			ModelName:      "controller",
+			ControllerUUID: "abcd",
+		},
+	}
+
+	for _, test := range tests {
+		client := fake.NewSimpleClientset()
+		_, err := client.CoreV1().Namespaces().Create(
+			context.TODO(),
+			&test.Namespace,
+			v1.CreateOptions{},
+		)
+		c.Assert(err, jc.ErrorIsNil)
+		ns, err := provider.FindControllerNamespace(
+			client, test.ControllerUUID)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(ns, jc.DeepEquals, &test.Namespace)
+	}
 }
 
 type svcSpecTC struct {
