@@ -16,7 +16,7 @@ import (
 )
 
 // ScalePatcher provides a generic interface for patching replicas count on
-// common Kubernetes objects. The Kubernets objects must support patching of
+// common Kubernetes objects. The Kubernetes objects must support patching of
 // spec.replicas to work with this interface
 type ScalePatcher interface {
 	// Patch patches the supplied object name with a supplied patch operation.
@@ -32,7 +32,7 @@ type scalePatchSpec struct {
 	Replicas int32 `json:"replicas"`
 }
 
-// ScalePatcherFunc is a convience func to implement the ScalePatcher interface
+// ScalePatcherFunc is a convenience func to implement the ScalePatcher interface
 type ScalePatcherFunc func(context.Context, string, types.PatchType, []byte, meta.PatchOptions, ...string) (int32, error)
 
 // DeploymentScalePatcher returns a ScalePatcher suitable for use with
@@ -110,8 +110,8 @@ func PatchReplicasToScale(
 	return nil
 }
 
-// StatefulSetScalePatch returns a ScalePatcher suitable for use with
-// Statefulsets
+// StatefulSetScalePatcher returns a ScalePatcher suitable for use with
+// Statefulsets.
 func StatefulSetScalePatcher(stateSet apps.StatefulSetInterface) ScalePatcher {
 	return ScalePatcherFunc(func(
 		c context.Context,
