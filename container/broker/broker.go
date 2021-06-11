@@ -121,7 +121,7 @@ func findDNSServerConfig() (*corenetwork.DNSConfig, error) {
 			return nil, errors.Trace(err)
 		}
 		// network.ParseResolvConf returns nil error and nil dnsConfig if the
-		// file isn't found, which can lead to a panic when attemptting to
+		// file isn't found, which can lead to a panic when attempting to
 		// access the dnsConfig.Nameservers. So instead, just continue and
 		// exhaust the resolvConfFiles slice.
 		if dnsConfig == nil {

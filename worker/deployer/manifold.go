@@ -36,7 +36,7 @@ type ManifoldConfig struct {
 	NewDeployContext func(ContextConfig) (Context, error)
 }
 
-// TODO: add ManifoleConfig.Validate.
+// TODO: add ManifoldConfig.Validate.
 
 // Manifold returns a dependency manifold that runs a deployer worker,
 // using the resource names defined in the supplied config.
