@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
-	"github.com/juju/charmrepo/v6"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
@@ -593,7 +592,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 			charmPath = filepath.Join(h.bundleDir, charmPath)
 		}
 
-		ch, curl, err := charmrepo.NewCharmAtPathForceSeries(charmPath, series, h.force)
+		ch, curl, err := corecharm.NewCharmAtPathForceSeries(charmPath, series, h.force)
 		if err != nil && !os.IsNotExist(err) {
 			return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 		}
