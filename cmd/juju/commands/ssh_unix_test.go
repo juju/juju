@@ -337,25 +337,40 @@ func (s *SSHSuite) TestMaybeResolveLeaderUnit(c *gc.C) {
 	defer ctrl.Finish()
 
 	statusAPI := mocks.NewMockStatusAPI(ctrl)
-	statusAPI.EXPECT().Close().Return(nil)
-	statusAPI.EXPECT().Status([]string{"loop"}).Return(&params.FullStatus{
+	statusAPI.EXPECT().Close().AnyTimes().Return(nil)
+	statusAPI.EXPECT().Status(gomock.Any()).AnyTimes().Return(&params.FullStatus{
 		Applications: map[string]params.ApplicationStatus{
 			"loop": {
 				Units: map[string]params.UnitStatus{
-					"loop/0": {},
+					"loop/0": {
+						Subordinates: map[string]params.UnitStatus{
+							"wormhole/0": {},
+						},
+					},
 					"loop/1": {
 						Leader: true,
+						Subordinates: map[string]params.UnitStatus{
+							"wormhole/1": {Leader: true},
+						},
 					},
 				},
 			},
 		},
 	}, nil)
 
+	// Resolve principal application leader.
 	resolvedUnit, err := maybeResolveLeaderUnit(func() (StatusAPI, error) {
 		return statusAPI, nil
 	}, "loop/leader")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resolvedUnit, gc.Equals, "loop/1", gc.Commentf("expected leader to resolve to loop/1"))
+	c.Assert(resolvedUnit, gc.Equals, "loop/1", gc.Commentf("expected leader to resolve to loop/1 for principal application"))
+
+	// Resolve subordinate application leader.
+	resolvedUnit, err = maybeResolveLeaderUnit(func() (StatusAPI, error) {
+		return statusAPI, nil
+	}, "wormhole/leader")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resolvedUnit, gc.Equals, "wormhole/1", gc.Commentf("expected leader to resolve to wormhole/1 for subordinate application"))
 }
 
 type callbackAttemptStarter struct {

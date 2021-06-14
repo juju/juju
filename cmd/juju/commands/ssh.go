@@ -285,5 +285,18 @@ func maybeResolveLeaderUnit(statusAPIGetter func() (StatusAPI, error), target st
 		}
 	}
 
+	// Check if we are trying to look up a subordinate leader. Unfortunately,
+	// this means we have to iterate each principal unit's subordinate list.
+	subordinateAppPrefix := app + "/"
+	for _, appInfo := range res.Applications {
+		for _, unitStatus := range appInfo.Units {
+			for subordinateUnitName, subordinateUnitStatus := range unitStatus.Subordinates {
+				if strings.HasPrefix(subordinateUnitName, subordinateAppPrefix) && subordinateUnitStatus.Leader {
+					return subordinateUnitName, nil
+				}
+			}
+		}
+	}
+
 	return "", errors.Errorf("unable to resolve leader unit for application %q", app)
 }
