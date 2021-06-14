@@ -31,7 +31,7 @@ var (
 	OperatorPod               = operatorPod
 	ExtractRegistryURL        = extractRegistryURL
 	CreateDockerConfigJSON    = createDockerConfigJSON
-	ControllerCorelation      = controllerCorelation
+	FindControllerNamespace   = findControllerNamespace
 	GetLocalMicroK8sConfig    = getLocalMicroK8sConfig
 	AttemptMicroK8sCloud      = attemptMicroK8sCloud
 	AttemptMicroK8sCredential = attemptMicroK8sCredential
