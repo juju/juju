@@ -475,6 +475,13 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// We want to wait for the model to settle so that we get a single event
+	// from the version watcher.
+	// If we start the worker too quickly after setting the new tools,
+	// it is possible to get 2 watcher changes - the guaranteed initial event
+	// and *then* the one for the change.
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
 	var diskSpaceStub testing.Stub
 	diskSpaceStub.SetErrors(nil, errors.Errorf("full-up"))
 	diskSpaceChecked := make(chan struct{}, 1)
@@ -489,7 +496,15 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 		InitialUpgradeCheckComplete: s.initialCheckComplete,
 		CheckDiskSpace: func(dir string, size uint64) error {
 			diskSpaceStub.AddCall("CheckDiskSpace", dir, size)
-			diskSpaceChecked <- struct{}{}
+
+			// CheckDiskSpace is called twice in checkForSpace.
+			// We only care that we arrived there, so if we've already buffered
+			// a write, just proceed.
+			select {
+			case diskSpaceChecked <- struct{}{}:
+			default:
+			}
+
 			return diskSpaceStub.NextErr()
 		},
 	})
@@ -497,14 +512,13 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 
 	select {
 	case <-diskSpaceChecked:
+		workertest.CleanKill(c, u)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for disk space check.")
 	}
-	err = worker.Stop(u)
 
 	s.expectInitialUpgradeCheckNotDone(c)
 
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(diskSpaceStub.Calls(), gc.HasLen, 2)
 	diskSpaceStub.CheckCall(c, 0, "CheckDiskSpace", s.DataDir(), upgrades.MinDiskSpaceMib)
 	diskSpaceStub.CheckCall(c, 1, "CheckDiskSpace", os.TempDir(), upgrades.MinDiskSpaceMib)
