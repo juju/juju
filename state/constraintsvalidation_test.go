@@ -53,13 +53,13 @@ var setConstraintsTests = []struct {
 	effectiveUnitCons        string // unit constraints after setting consToSet on the application
 	effectiveMachineCons     string // machine constraints after setting consToSet
 }{{
-	about:        "(implictly) empty constraints are OK and stored as empty",
+	about:        "(implicitly) empty constraints are OK and stored as empty",
 	consToSet:    "",
 	consFallback: "",
 
 	effectiveModelCons:       "",
 	effectiveApplicationCons: "",
-	effectiveUnitCons:        "",
+	effectiveUnitCons:        "arch=amd64",
 	effectiveMachineCons:     "",
 }, {
 	about:        "(implicitly) empty fallback constraints never override set constraints",
@@ -91,7 +91,7 @@ var setConstraintsTests = []struct {
 
 	effectiveModelCons:       "",
 	effectiveApplicationCons: "cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
-	effectiveUnitCons:        "cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
+	effectiveUnitCons:        "arch=amd64 cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
 	effectiveMachineCons:     "cores= cpu-power= instance-type= root-disk= tags= spaces=", // container= is dropped
 }, {
 	about:        "(explicitly) empty fallback constraints are OK and stored as given",
@@ -100,7 +100,7 @@ var setConstraintsTests = []struct {
 
 	effectiveModelCons:       "cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
 	effectiveApplicationCons: "",
-	effectiveUnitCons:        "cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
+	effectiveUnitCons:        "arch=amd64 cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
 	effectiveMachineCons:     "cores= cpu-power= instance-type= root-disk= tags= spaces=", // container= is dropped
 }, {
 	about:                    "(explicitly) empty constraints and fallbacks are OK and stored as given",
@@ -108,7 +108,7 @@ var setConstraintsTests = []struct {
 	consFallback:             "cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
 	effectiveModelCons:       "cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
 	effectiveApplicationCons: "arch= mem= cores= container=",
-	effectiveUnitCons:        "arch= container= cores= cpu-power= mem= root-disk= tags= spaces=",
+	effectiveUnitCons:        "arch=amd64 container= cores= cpu-power= mem= root-disk= tags= spaces=",
 	effectiveMachineCons:     "arch= cores= cpu-power= mem= root-disk= tags= spaces=", // container= is dropped
 }, {
 	about:        "(explicitly) empty constraints override set fallbacks for deployment and provisioning",
@@ -117,7 +117,7 @@ var setConstraintsTests = []struct {
 
 	effectiveModelCons:       "cores=42 arch=amd64 tags=foo spaces=default,^dmz mem=4G",
 	effectiveApplicationCons: "cores= arch= spaces= cpu-power=",
-	effectiveUnitCons:        "arch= cores= cpu-power= mem=4G tags=foo spaces=",
+	effectiveUnitCons:        "arch=amd64 cores= cpu-power= mem=4G tags=foo spaces=",
 	effectiveMachineCons:     "arch= cores= cpu-power= mem=4G tags=foo spaces=",
 	// we're also checking if m.SetConstraints() does the same with
 	// regards to the effective constraints as AddMachine(), because
@@ -162,7 +162,7 @@ var setConstraintsTests = []struct {
 	// constraints when it comes to effective values.
 	effectiveModelCons:       "tags=foo cpu-power=42",
 	effectiveApplicationCons: "cpu-power= tags= spaces=bar",
-	effectiveUnitCons:        "cpu-power= tags= spaces=bar",
+	effectiveUnitCons:        "arch=amd64 cpu-power= tags= spaces=bar",
 	effectiveMachineCons:     "cpu-power= tags= spaces=bar",
 }, {
 	about:        "container type can only be used for deployment, not provisioning",
@@ -188,7 +188,7 @@ var setConstraintsTests = []struct {
 	// to ensure consistency in scalability.
 	effectiveModelCons:       "",
 	effectiveApplicationCons: "virt-type=kvm",
-	effectiveUnitCons:        "virt-type=kvm",
+	effectiveUnitCons:        "arch=amd64 virt-type=kvm",
 	effectiveMachineCons:     "virt-type=kvm",
 }, {
 	about:        "ensure model and application constraints are separate",
@@ -200,7 +200,7 @@ var setConstraintsTests = []struct {
 	// to ensure consistency in scalability.
 	effectiveModelCons:       "mem=2G",
 	effectiveApplicationCons: "virt-type=kvm",
-	effectiveUnitCons:        "mem=2G virt-type=kvm",
+	effectiveUnitCons:        "arch=amd64 mem=2G virt-type=kvm",
 	effectiveMachineCons:     "mem=2G virt-type=kvm",
 }}
 

@@ -15,16 +15,17 @@ require (
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
 	github.com/aws/aws-sdk-go v1.36.2
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/canonical/pebble v0.0.0-20210523225630-645d2ba3f000
+	github.com/canonical/pebble v0.0.0-20210609205628-b152ff448bbe
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/dustin/go-humanize v1.0.0
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
+	github.com/go-goose/goose/v3 v3.0.0-20210609085303-5be176eecc0f
 	github.com/go-logr/logr v0.2.0
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.0-20210309064400-d73aa8f92aa2
-	github.com/golang/mock v1.4.3
+	github.com/golang/mock v1.5.0
 	github.com/google/go-querystring v1.0.0
 	github.com/googleapis/gnostic v0.4.1
 	github.com/gorilla/handlers v0.0.0-20170224193955-13d73096a474
@@ -113,7 +114,6 @@ require (
 	google.golang.org/grpc v1.33.1 // indirect
 	gopkg.in/amz.v3 v3.0.0-20201001071545-24fc1eceb27b
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
-	gopkg.in/goose.v2 v2.0.1
 	gopkg.in/httprequest.v1 v1.2.1
 	gopkg.in/ini.v1 v1.51.0
 	gopkg.in/juju/environschema.v1 v1.0.1-0.20201027142642-c89a4490670a

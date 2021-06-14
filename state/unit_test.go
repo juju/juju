@@ -2155,6 +2155,51 @@ func (s *UnitSuite) TestPrincipalName(c *gc.C) {
 	c.Assert(principal, gc.Equals, "")
 }
 
+func (s *UnitSuite) TestConstraintsDefaultArchNotRelevant(c *gc.C) {
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "app",
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			Architecture: "arm64",
+		}},
+	})
+	err := app.SetConstraints(constraints.MustParse("instance-type=big"))
+	c.Assert(err, jc.ErrorIsNil)
+	unit0, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	cons, err := unit0.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons.String(), gc.Equals, "instance-type=big")
+
+	app = s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "app2",
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			Architecture: "arm64",
+		}},
+		Constraints: constraints.MustParse("arch=s390x"),
+	})
+	unit1, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	cons, err = unit1.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons.String(), gc.Equals, "arch=s390x")
+}
+
+func (s *UnitSuite) TestConstraintsDefaultArch(c *gc.C) {
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "app",
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			Architecture: "arm64",
+		}},
+	})
+	err := app.SetConstraints(constraints.MustParse("mem=4G"))
+	c.Assert(err, jc.ErrorIsNil)
+	unit0, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	cons, err := unit0.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons.String(), gc.Equals, "arch=arm64 mem=4096M")
+}
+
 func (s *UnitSuite) TestRelations(c *gc.C) {
 	wordpress0 := s.unit
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))

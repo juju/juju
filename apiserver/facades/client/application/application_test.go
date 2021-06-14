@@ -378,7 +378,7 @@ func (s *applicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
 		},
 	}
 
-	cons := constraints.MustParse("arch=amd64")
+	var cons constraints.Value
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
@@ -459,7 +459,7 @@ func (s *applicationSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C
 		URL: curl.String(),
 	}, s.openRepo)
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64")
+	var cons constraints.Value
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
@@ -492,7 +492,7 @@ func (s *applicationSuite) TestApplicationDeploy(c *gc.C) {
 		URL: curl.String(),
 	}, s.openRepo)
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64")
+	var cons constraints.Value
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
@@ -658,7 +658,7 @@ func (s *applicationSuite) TestApplicationDeploymentWithTrust(c *gc.C) {
 		URL: curl.String(),
 	}, s.openRepo)
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64")
+	var cons constraints.Value
 	config := map[string]string{"trust": "true"}
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
@@ -696,7 +696,7 @@ func (s *applicationSuite) TestApplicationDeploymentNoTrust(c *gc.C) {
 		URL: curl.String(),
 	}, s.openRepo)
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64")
+	var cons constraints.Value
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),

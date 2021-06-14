@@ -8,11 +8,11 @@ import (
 	"net"
 	"strings"
 
+	"github.com/go-goose/goose/v3/neutron"
+	"github.com/go-goose/goose/v3/nova"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2"
-	"gopkg.in/goose.v2/neutron"
-	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"

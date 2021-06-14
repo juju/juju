@@ -146,14 +146,12 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c 
 
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"mysql": {
-			charm:       "cs:xenial/mysql-42",
-			config:      mysqlch.Config().DefaultSettings(),
-			constraints: constraints.MustParse("arch=amd64"),
+			charm:  "cs:xenial/mysql-42",
+			config: mysqlch.Config().DefaultSettings(),
 		},
 		"wordpress-extra-bindings": {
-			charm:       "cs:xenial/wordpress-extra-bindings-47",
-			config:      wpch.Config().DefaultSettings(),
-			constraints: constraints.MustParse("arch=amd64"),
+			charm:  "cs:xenial/wordpress-extra-bindings-47",
+			config: wpch.Config().DefaultSettings(),
 		},
 	})
 	s.assertDeployedApplicationBindings(c, map[string]applicationInfo{
@@ -216,14 +214,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 	stdOut, stdErr, err = s.runDeployWithOutput(c, "cs:bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	// Nothing to do... not quite...
-	c.Check(stdOut, gc.Equals, ""+
-		"Executing changes:\n"+
-		"- set constraints for mysql to \"\"\n"+
-		"- set constraints for wordpress to \"\"",
-	)
+	c.Check(stdOut, gc.Equals, "")
 	c.Check(stdErr, gc.Equals, ""+
 		"Located bundle \"wordpress-simple\" in charm-store, revision 1\n"+
-		"Deploy of bundle completed.",
+		"No changes to apply.",
 	)
 
 	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-47")
@@ -289,9 +283,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"dummy": {
-			charm:       "local:xenial/dummy-1",
-			config:      ch.Config().DefaultSettings(),
-			constraints: constraints.MustParse("arch=amd64"),
+			charm:  "local:xenial/dummy-1",
+			config: ch.Config().DefaultSettings(),
 		},
 	})
 }
@@ -332,9 +325,8 @@ func (s *BundleDeployCharmStoreSuite) assertDeployBundleLocalPathInvalidSeriesWi
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"dummy": {
-			charm:       "local:quantal/dummy-1",
-			config:      ch.Config().DefaultSettings(),
-			constraints: constraints.MustParse("arch=amd64"),
+			charm:  "local:quantal/dummy-1",
+			config: ch.Config().DefaultSettings(),
 		},
 	})
 }
@@ -362,9 +354,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"dummy-resource": {
-			charm:       "local:bionic/dummy-resource-0",
-			config:      ch.Config().DefaultSettings(),
-			constraints: constraints.MustParse("arch=amd64"),
+			charm:  "local:bionic/dummy-resource-0",
+			config: ch.Config().DefaultSettings(),
 		},
 	})
 }
@@ -389,9 +380,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNoSeriesInCharmURL(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"dummy": {
-			charm:       "cs:~who/multi-series-0",
-			config:      ch.Config().DefaultSettings(),
-			constraints: constraints.MustParse("arch=amd64"),
+			charm:  "cs:~who/multi-series-0",
+			config: ch.Config().DefaultSettings(),
 		},
 	})
 }
@@ -764,9 +754,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentLXDProfile(
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"lxd-profile": {
-			charm:       "local:bionic/lxd-profile-0",
-			config:      lxdProfile.Config().DefaultSettings(),
-			constraints: constraints.MustParse("arch=amd64"),
+			charm:  "local:bionic/lxd-profile-0",
+			config: lxdProfile.Config().DefaultSettings(),
 		},
 	})
 	s.assertUnitsCreated(c, map[string]string{
@@ -888,14 +877,12 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"mysql": {
-			charm:       "local:xenial/mysql-1",
-			config:      mysqlch.Config().DefaultSettings(),
-			constraints: constraints.MustParse("arch=amd64"),
+			charm:  "local:xenial/mysql-1",
+			config: mysqlch.Config().DefaultSettings(),
 		},
 		"wordpress": {
-			charm:       "cs:xenial/wordpress-42",
-			config:      wpch.Config().DefaultSettings(),
-			constraints: constraints.MustParse("arch=amd64"),
+			charm:  "cs:xenial/wordpress-42",
+			config: wpch.Config().DefaultSettings(),
 		},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
@@ -926,14 +913,12 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationOptions(c *gc.C
 	s.assertCharmsUploaded(c, "cs:bionic/dummy-0", "cs:xenial/wordpress-42")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"customized": {
-			charm:       "cs:bionic/dummy-0",
-			config:      s.combinedSettings(dch, charm.Settings{"username": "who", "skill-level": int64(47)}),
-			constraints: constraints.MustParse("arch=amd64"),
+			charm:  "cs:bionic/dummy-0",
+			config: s.combinedSettings(dch, charm.Settings{"username": "who", "skill-level": int64(47)}),
 		},
 		"wordpress": {
-			charm:       "cs:xenial/wordpress-42",
-			config:      s.combinedSettings(wpch, charm.Settings{"blog-title": "these are the voyages"}),
-			constraints: constraints.MustParse("arch=amd64"),
+			charm:  "cs:xenial/wordpress-42",
+			config: s.combinedSettings(wpch, charm.Settings{"blog-title": "these are the voyages"}),
 		},
 	})
 	s.assertUnitsCreated(c, map[string]string{
@@ -966,7 +951,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationDefaultArchCons
 		},
 		"wordpress": {
 			charm:       "cs:xenial/wordpress-42",
-			constraints: constraints.MustParse("arch=amd64 mem=4G cores=2"),
+			constraints: constraints.MustParse("mem=4G cores=2"),
 			config:      wpch.Config().DefaultSettings(),
 		},
 	})
@@ -999,7 +984,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *
 		},
 		"wordpress": {
 			charm:       "cs:xenial/wordpress-42",
-			constraints: constraints.MustParse("arch=amd64 mem=4G cores=2"),
+			constraints: constraints.MustParse("mem=4G cores=2"),
 			config:      wpch.Config().DefaultSettings(),
 		},
 	})
@@ -1069,7 +1054,6 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
 		"Executing changes:\n"+
 		"- upload charm upgrade from charm-store for series trusty with architecture=amd64\n"+
 		"- upgrade up from charm-store using charm upgrade for series trusty\n"+
-		"- set constraints for up to \"mem=8G\"\n"+
 		"- set application options for wordpress\n"+
 		`- set constraints for wordpress to "spaces=new cores=8"`,
 	)
@@ -1150,9 +1134,6 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- set constraints for mysql to \"\"\n"+
-		"- set constraints for varnish to \"\"\n"+
-		"- set constraints for wp to \"\"\n"+
 		"- add relation varnish:webcache - wp:cache",
 	)
 	s.assertRelationsEstablished(c, "wp:db mysql:server", "wp:cache varnish:webcache")
@@ -1192,14 +1173,12 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachinesUnitsPlacement(c *
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"sql": {
-			charm:       "cs:xenial/mysql-2",
-			config:      mysqlch.Config().DefaultSettings(),
-			constraints: constraints.MustParse("arch=amd64"),
+			charm:  "cs:xenial/mysql-2",
+			config: mysqlch.Config().DefaultSettings(),
 		},
 		"wp": {
-			charm:       "cs:xenial/wordpress-0",
-			config:      s.combinedSettings(wpch, charm.Settings{"blog-title": "these are the voyages"}),
-			constraints: constraints.MustParse("arch=amd64"),
+			charm:  "cs:xenial/wordpress-0",
+			config: s.combinedSettings(wpch, charm.Settings{"blog-title": "these are the voyages"}),
 		},
 	})
 	s.assertRelationsEstablished(c)
@@ -1297,9 +1276,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachineAttributes(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"django": {
-			charm:       "cs:xenial/django-42",
-			config:      ch.Config().DefaultSettings(),
-			constraints: constraints.MustParse("arch=amd64"),
+			charm:  "cs:xenial/django-42",
+			config: ch.Config().DefaultSettings(),
 		},
 	})
 	s.assertRelationsEstablished(c)
@@ -1486,7 +1464,6 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSwitch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- set constraints for django to \"\"\n"+
 		"- deploy application node from charm-store on bionic using django\n"+
 		"- add unit node/0 to new machine 2",
 	)
@@ -1569,8 +1546,6 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- set constraints for django to \"\"\n"+
-		"- set constraints for memcached to \"\"\n"+
 		"- deploy application node from charm-store on bionic using django\n"+
 		"- add unit node/0 to 0/lxd/0 to satisfy [lxd:memcached]",
 	)
@@ -1578,10 +1553,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
 	// Redeploy the same bundle again and check that nothing happens.
 	stdOut, _, err = s.DeployBundleYAMLWithOutput(c, content)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stdOut, gc.Equals, ""+
-		"Executing changes:\n"+
-		"- set constraints for node to \"\"",
-	)
+	c.Assert(stdOut, gc.Equals, "")
 	s.assertUnitsCreated(c, map[string]string{
 		"django/0":    "0",
 		"django/1":    "0/lxd/0",

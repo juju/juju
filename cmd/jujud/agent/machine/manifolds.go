@@ -929,7 +929,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     upgradeseries.NewWorker,
 		})),
 
-		// The deployer worker is primary for deploying and recalling unit
+		// The deployer worker is primarily for deploying and recalling unit
 		// agents, according to changes in a set of state units; and for the
 		// final removal of its agents' units from state when they are no
 		// longer needed.
