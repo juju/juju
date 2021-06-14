@@ -475,6 +475,13 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// We want to wait for the model to settle so that we get a single event
+	// from the version watcher.
+	// If we start the worker too quickly after setting the new tools,
+	// it is possible to get 2 watcher changes - the guaranteed initial event
+	// and *then* the one for the change.
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
 	var diskSpaceStub testing.Stub
 	diskSpaceStub.SetErrors(nil, errors.Errorf("full-up"))
 	diskSpaceChecked := make(chan struct{}, 1)
@@ -505,10 +512,10 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 
 	select {
 	case <-diskSpaceChecked:
+		workertest.CleanKill(c, u)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for disk space check.")
 	}
-	workertest.CleanKill(c, u)
 
 	s.expectInitialUpgradeCheckNotDone(c)
 
