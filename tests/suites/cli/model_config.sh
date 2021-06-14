@@ -27,13 +27,15 @@ cloudinit-userdata: |
 EOF
 
 	juju model-config "${FILE}"
-	juju model-config cloudinit-userdata | grep -q "shellcheck"
+	OUT=$(juju model-config cloudinit-userdata)
+	echo "${OUT}" | grep -q "shellcheck"
 
 	# cloudinit-userdata is not present from the default tabluar output
 	! juju model-config cloudinit-userdata | grep -q "^cloudinit-userdata: |$"
 
 	# cloudinit-userdata is hidden in the normal output
-	juju model-config | grep -q "<value set, see juju model-config cloudinit-userdata>"
+	OUT=$(juju model-config)
+	echo "${OUT}" | grep -q "<value set, see juju model-config cloudinit-userdata>"
 
 	destroy_model "model-config-cloudinit-userdata"
 }
