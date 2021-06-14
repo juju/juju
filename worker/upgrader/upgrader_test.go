@@ -489,7 +489,15 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 		InitialUpgradeCheckComplete: s.initialCheckComplete,
 		CheckDiskSpace: func(dir string, size uint64) error {
 			diskSpaceStub.AddCall("CheckDiskSpace", dir, size)
-			diskSpaceChecked <- struct{}{}
+
+			// CheckDiskSpace is called twice in checkForSpace.
+			// We only care that we arrived there, so if we've already buffered
+			// a write, just proceed.
+			select {
+			case diskSpaceChecked <- struct{}{}:
+			default:
+			}
+
 			return diskSpaceStub.NextErr()
 		},
 	})
@@ -500,11 +508,10 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for disk space check.")
 	}
-	err = worker.Stop(u)
+	workertest.CleanKill(c, u)
 
 	s.expectInitialUpgradeCheckNotDone(c)
 
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(diskSpaceStub.Calls(), gc.HasLen, 2)
 	diskSpaceStub.CheckCall(c, 0, "CheckDiskSpace", s.DataDir(), upgrades.MinDiskSpaceMib)
 	diskSpaceStub.CheckCall(c, 1, "CheckDiskSpace", os.TempDir(), upgrades.MinDiskSpaceMib)
