@@ -74,6 +74,7 @@ exec_simplestream_metadata() {
 	file="${TEST_DIR}/test-upgrade-${test_name}-stream.log"
 	/snap/bin/juju bootstrap "lxd" "${name}" \
 		--show-log \
+		--bootstrap-series="${BOOTSTRAP_SERIES}" \
 		--config agent-metadata-url="http://${server_address}:8666/" \
 		--config test-mode=true 2>&1 | OUTPUT "${file}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
