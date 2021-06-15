@@ -238,13 +238,13 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
-		Args:   []interface{}{"django", "kubernetes", ""},
+		Args:   []interface{}{"django", "", ""},
 	}, {
 		Id:     "deploy-1",
 		Method: "deploy",
 		Args: []interface{}{
 			"$addCharm-0",
-			"kubernetes",
+			"",
 			"django",
 			map[string]interface{}{"debug": true},
 			"",
@@ -259,13 +259,13 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
-		Args:   []interface{}{"cs:haproxy-42", "kubernetes", ""},
+		Args:   []interface{}{"cs:haproxy-42", "", ""},
 	}, {
 		Id:     "deploy-3",
 		Method: "deploy",
 		Args: []interface{}{
 			"$addCharm-2",
-			"kubernetes",
+			"",
 			"haproxy",
 			map[string]interface{}{},
 			"",
@@ -585,7 +585,6 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 		Method: "addCharm",
 		Args: map[string]interface{}{
 			"charm":  "django",
-			"series": "kubernetes",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -600,7 +599,6 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 			"options": map[string]interface{}{
 				"debug": true,
 			},
-			"series": "kubernetes",
 			"storage": map[string]interface{}{
 				"tmpfs": "tmpfs,1G",
 			},
@@ -611,7 +609,6 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 		Method: "addCharm",
 		Args: map[string]interface{}{
 			"charm":  "cs:haproxy-42",
-			"series": "kubernetes",
 		},
 	}, {
 		Id:     "deploy-3",
@@ -619,7 +616,6 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 		Args: map[string]interface{}{
 			"application": "haproxy",
 			"charm":       "$addCharm-2",
-			"series":      "kubernetes",
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
