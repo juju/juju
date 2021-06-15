@@ -130,6 +130,7 @@ func (v *vmTemplateManager) getVMArch(ctx context.Context, vmObj *object.Virtual
 }
 
 func (v *vmTemplateManager) getImportedTemplate(ctx context.Context, series string, arches []string) (*object.VirtualMachine, string, error) {
+	logger.Tracef("getImportedTemplate for series %q, arches %q", strings.Join(arches, ", "))
 	seriesTemplatesFolder := v.seriesTemplateFolder(series)
 	seriesTemplates, err := v.client.ListVMTemplates(ctx, path.Join(seriesTemplatesFolder, "*"))
 	if err != nil {
@@ -138,7 +139,7 @@ func (v *vmTemplateManager) getImportedTemplate(ctx context.Context, series stri
 	}
 	logger.Tracef("Series templates: %v", seriesTemplates)
 	if len(seriesTemplates) == 0 {
-		return nil, "", errors.NotFoundf("valid template")
+		return nil, "", errors.NotFoundf("%s templates", series)
 	}
 	var vmTpl *object.VirtualMachine
 	var arch string
@@ -147,20 +148,21 @@ func (v *vmTemplateManager) getImportedTemplate(ctx context.Context, series stri
 			arch, err = v.getVMArch(ctx, item)
 			if err != nil {
 				if errors.IsNotFound(err) {
-					continue
+					logger.Debugf("failed find arch for template %q: %s", item.InventoryPath, err)
+				} else {
+					logger.Infof("failed to get arch for template %q: %s", item.InventoryPath, err)
 				}
+				continue
 			}
 			if !set.NewStrings(arches...).Contains(arch) {
 				continue
 			}
-
 			vmTpl = item
 			break
 		}
-		if vmTpl == nil {
-			return nil, "", errors.NotFoundf("valid template")
-		}
-	} else {
+	}
+	if vmTpl == nil {
+		// Templates created by juju before 2.9, do not have an arch tag.
 		vmTpl = seriesTemplates[0]
 	}
 
