@@ -1343,7 +1343,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	cfg, err := provider.PrepareConfig(*params)
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := environs.New(environs.OpenParams{
+	env, err := environs.New(stdcontext.TODO(), environs.OpenParams{
 		Cloud:  params.Cloud,
 		Config: cfg,
 	})

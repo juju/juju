@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -1928,7 +1929,7 @@ func updateKubernetesStorageConfig(st *State) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		broker, err := NewBroker(environs.OpenParams{Cloud: cloudSpec, Config: cfg})
+		broker, err := NewBroker(context.TODO(), environs.OpenParams{Cloud: cloudSpec, Config: cfg})
 		if err != nil {
 			return errors.Trace(err)
 		}

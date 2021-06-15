@@ -4,6 +4,7 @@
 package environ_test
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/names/v4"
@@ -246,6 +247,6 @@ func (e *mockEnviron) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 	return nil
 }
 
-func newMockEnviron(args environs.OpenParams) (environs.Environ, error) {
+func newMockEnviron(_ context.Context, args environs.OpenParams) (environs.Environ, error) {
 	return &mockEnviron{cfg: args.Config, spec: args.Cloud}, nil
 }

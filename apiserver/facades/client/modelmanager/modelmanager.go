@@ -121,7 +121,7 @@ type ModelManagerV2 interface {
 	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 }
 
-type newCaasBrokerFunc func(args environs.OpenParams) (caas.Broker, error)
+type newCaasBrokerFunc func(_ stdcontext.Context, args environs.OpenParams) (caas.Broker, error)
 
 // StatePool represents a point of use interface for getting the state from the
 // pool.
@@ -622,7 +622,7 @@ func (m *ModelManagerAPI) newCAASModel(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller config")
 	}
-	broker, err := m.getBroker(environs.OpenParams{
+	broker, err := m.getBroker(stdcontext.TODO(), environs.OpenParams{
 		ControllerUUID: controllerConfig.ControllerUUID(),
 		Cloud:          cloudSpec,
 		Config:         newConfig,

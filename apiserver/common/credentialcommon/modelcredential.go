@@ -4,6 +4,8 @@
 package credentialcommon
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -63,7 +65,7 @@ func ValidateNewModelCredential(backend PersistentBackend, callCtx context.Provi
 }
 
 func checkCAASModelCredential(brokerParams environs.OpenParams) (params.ErrorResults, error) {
-	broker, err := newCAASBroker(brokerParams)
+	broker, err := newCAASBroker(stdcontext.TODO(), brokerParams)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

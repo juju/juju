@@ -5,6 +5,7 @@ package commands
 
 import (
 	"bufio"
+	stdcontext "context"
 	stderrors "errors"
 	"fmt"
 	"io"
@@ -632,7 +633,7 @@ var getCAASBroker = func(getter environs.EnvironConfigGetter) (caas.Broker, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	env, err := caas.New(environs.OpenParams{
+	env, err := caas.New(stdcontext.TODO(), environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: modelConfig,
 	})
