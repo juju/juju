@@ -40,7 +40,7 @@ type mockProvider struct {
 	credSchemas   *map[jujucloud.AuthType]jujucloud.CredentialSchema
 }
 
-func (p *mockProvider) DetectCredentials() (*jujucloud.CloudCredential, error) {
+func (p *mockProvider) DetectCredentials(cloudName string) (*jujucloud.CloudCredential, error) {
 	if len(p.detectedCreds.AuthCredentials) == 0 {
 		return nil, errors.NotFoundf("credentials")
 	}

@@ -41,7 +41,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
-func (e environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
+func (e environProviderCredentials) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
 	dir := credentialsDir()
 	credsFile := filepath.Join(dir, "credentials")
 	credInfo, err := ini.LooseLoad(credsFile)

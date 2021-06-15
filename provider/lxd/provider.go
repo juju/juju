@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/schema"
-	"github.com/juju/utils/v2"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 
@@ -26,7 +25,7 @@ import (
 )
 
 // LXCConfigReader reads files required for the LXC configuration.
-//go:generate go run github.com/golang/mock/mockgen -package lxd -destination provider_mock_test.go github.com/juju/juju/provider/lxd LXCConfigReader
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/provider_mock.go github.com/juju/juju/provider/lxd LXCConfigReader
 type LXCConfigReader interface {
 	// ReadConfig takes a path and returns a LXCConfig.
 	// Returns an error if there is an error with the location of the config
@@ -212,15 +211,23 @@ func (*environProvider) Validate(cfg, old *config.Config) (valid *config.Config,
 
 // DetectClouds implements environs.CloudDetector.
 func (p *environProvider) DetectClouds() ([]cloud.Cloud, error) {
-	configPath := filepath.Join(utils.Home(), ".config", "lxc", "config.yml")
-	config, err := p.lxcConfigReader.ReadConfig(configPath)
-	if err != nil {
-		logger.Errorf("unable to read/parse LXC config file: %s", err)
-	}
-
+	usedNames := map[string]bool{lxdnames.ProviderType: true, lxdnames.DefaultCloud: true}
 	clouds := []cloud.Cloud{localhostCloud}
-	for name, remote := range config.Remotes {
-		if remote.Protocol == lxdnames.ProviderType {
+	for _, dir := range configDirs() {
+		configPath := filepath.Join(dir, "config.yml")
+		config, err := p.lxcConfigReader.ReadConfig(configPath)
+		if err != nil {
+			logger.Errorf("unable to read/parse LXC config file (%s): %s", configPath, err)
+		}
+		for name, remote := range config.Remotes {
+			if remote.Protocol != lxdnames.ProviderType {
+				continue
+			}
+			if usedNames[name] {
+				logger.Warningf("ignoring ambigious cloud %s", name)
+				continue
+			}
+			usedNames[name] = true
 			clouds = append(clouds, cloud.Cloud{
 				Name:        name,
 				Type:        lxdnames.ProviderType,
@@ -236,40 +243,22 @@ func (p *environProvider) DetectClouds() ([]cloud.Cloud, error) {
 			})
 		}
 	}
-
 	return clouds, nil
 }
 
 // DetectCloud implements environs.CloudDetector.
 func (p *environProvider) DetectCloud(name string) (cloud.Cloud, error) {
-	// For now we just return a hard-coded "localhost" cloud,
-	// i.e. the local LXD daemon. We may later want to detect
-	// locally-configured remotes.
-	switch name {
-	case lxdnames.ProviderType, lxdnames.DefaultCloud:
-		return localhostCloud, nil
-	default:
-		configPath := filepath.Join(utils.Home(), ".config", "lxc", "config.yml")
-		config, err := p.lxcConfigReader.ReadConfig(configPath)
-		if err != nil {
-			logger.Errorf("unable to read LXC config file %s", err)
-			break
-		}
-
-		if remote, ok := config.Remotes[name]; ok {
-			return cloud.Cloud{
-				Name:        name,
-				Type:        lxdnames.ProviderType,
-				Endpoint:    remote.Addr,
-				Description: "LXD Cluster",
-				AuthTypes: []cloud.AuthType{
-					cloud.CertificateAuthType,
-				},
-				Regions: []cloud.Region{{
-					Name:     lxdnames.DefaultRemoteRegion,
-					Endpoint: remote.Addr,
-				}},
-			}, nil
+	clouds, err := p.DetectClouds()
+	if err != nil {
+		return cloud.Cloud{}, errors.Trace(err)
+	}
+	match := name
+	if match == lxdnames.DefaultCloudAltName {
+		match = lxdnames.DefaultCloud
+	}
+	for _, cloud := range clouds {
+		if cloud.Name == match {
+			return cloud, nil
 		}
 	}
 	return cloud.Cloud{}, errors.NotFoundf("cloud %s", name)

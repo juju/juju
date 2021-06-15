@@ -48,7 +48,7 @@ func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
 		Name: ".maasrc",
 		Data: `{"Server": "http://10.0.0.1/MAAS", "OAuth": "key"}`,
 	})
-	creds, err := s.provider.DetectCredentials()
+	creds, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(creds.DefaultRegion, gc.Equals, "")
 	expected := cloud.NewCredential(
@@ -65,7 +65,7 @@ func (s *credentialsSuite) TestDetectCredentialsNoServer(c *gc.C) {
 		Name: ".maasrc",
 		Data: `{"OAuth": "key"}`,
 	})
-	creds, err := s.provider.DetectCredentials()
+	creds, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(creds.DefaultRegion, gc.Equals, "")
 	expected := cloud.NewCredential(
@@ -78,6 +78,6 @@ func (s *credentialsSuite) TestDetectCredentialsNoServer(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestDetectCredentialsNoFile(c *gc.C) {
-	_, err := s.provider.DetectCredentials()
+	_, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

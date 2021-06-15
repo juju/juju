@@ -179,7 +179,7 @@ func credentialByName(
 // be returned. If more than one credential is detected, ErrMultipleCredentials
 // will be returned.
 func DetectCredential(cloudName string, provider environs.EnvironProvider) (*cloud.CloudCredential, error) {
-	detected, err := provider.DetectCredentials()
+	detected, err := provider.DetectCredentials(cloudName)
 	if err != nil {
 		return nil, errors.Annotatef(
 			err, "detecting credentials for %q cloud provider", cloudName,

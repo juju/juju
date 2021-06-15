@@ -60,7 +60,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
-func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
+func (environProviderCredentials) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
 	// Google recommends credentials in a json file:
 	// 1. whose path is specified by the GOOGLE_APPLICATION_CREDENTIALS environment variable.
 	// 2. whose location is known to the gcloud command-line tool.

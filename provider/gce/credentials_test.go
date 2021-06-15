@@ -89,7 +89,7 @@ func (s *credentialsSuite) TestDetectCredentialsFromEnvVar(c *gc.C) {
 	s.PatchEnvironment("USER", "fred")
 	s.PatchEnvironment("GOOGLE_APPLICATION_CREDENTIALS", jsonpath)
 	s.PatchEnvironment("CLOUDSDK_COMPUTE_REGION", "region")
-	credentials, err := s.provider.DetectCredentials()
+	credentials, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials.DefaultRegion, gc.Equals, "region")
 	expected := cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{"file": jsonpath})
@@ -100,7 +100,7 @@ func (s *credentialsSuite) TestDetectCredentialsFromEnvVar(c *gc.C) {
 func (s *credentialsSuite) assertDetectCredentialsKnownLocation(c *gc.C, jsonpath string) {
 	s.PatchEnvironment("USER", "fred")
 	s.PatchEnvironment("CLOUDSDK_COMPUTE_REGION", "region")
-	credentials, err := s.provider.DetectCredentials()
+	credentials, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials.DefaultRegion, gc.Equals, "region")
 	expected := cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{"file": jsonpath})

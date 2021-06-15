@@ -2384,7 +2384,7 @@ func (noCredentialsProvider) DetectRegions() ([]cloud.Region, error) {
 	return []cloud.Region{{Name: "region"}}, nil
 }
 
-func (noCredentialsProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+func (noCredentialsProvider) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
 	return nil, errors.NotFoundf("credentials")
 }
 
@@ -2400,7 +2400,7 @@ func (manyCredentialsProvider) DetectRegions() ([]cloud.Region, error) {
 	return []cloud.Region{{Name: "region"}}, nil
 }
 
-func (manyCredentialsProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+func (manyCredentialsProvider) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
 	return &cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
 			"one": cloud.NewCredential("one", nil),
@@ -2426,7 +2426,7 @@ func (f fileCredentialProvider) DetectRegions() ([]cloud.Region, error) {
 	return []cloud.Region{{Name: "region"}}, nil
 }
 
-func (f fileCredentialProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+func (f fileCredentialProvider) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
 	credential := cloud.NewCredential(cloud.JSONFileAuthType,
 		map[string]string{"file": f.testFileName})
 	cc := &cloud.CloudCredential{AuthCredentials: map[string]cloud.Credential{
