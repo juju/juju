@@ -50,7 +50,6 @@ type Client interface {
 
 // EC2Session returns a session with the given credentials.
 func clientFunc(region, accessKey, secretKey string, clientOptions ...ClientOption) Client {
-	panic("Z")
 	opts := newOptions()
 	for _, option := range clientOptions {
 		option(opts)

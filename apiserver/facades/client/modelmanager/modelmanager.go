@@ -8,6 +8,7 @@
 package modelmanager
 
 import (
+	stdcontext "context"
 	"fmt"
 	"sort"
 	"time"
@@ -686,7 +687,7 @@ func (m *ModelManagerAPI) newModel(
 	}
 
 	// Create the Environ.
-	env, err := environs.New(environs.OpenParams{
+	env, err := environs.New(stdcontext.TODO(), environs.OpenParams{
 		ControllerUUID: controllerCfg.ControllerUUID(),
 		Cloud:          cloudSpec,
 		Config:         newConfig,

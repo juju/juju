@@ -76,7 +76,7 @@ func checkCAASModelCredential(brokerParams environs.OpenParams) (params.ErrorRes
 }
 
 func checkIAASModelCredential(openParams environs.OpenParams, backend PersistentBackend, callCtx context.ProviderCallContext, checkCloudInstances bool) (params.ErrorResults, error) {
-	env, err := newEnv(openParams)
+	env, err := newEnv(callCtx, openParams)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

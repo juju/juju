@@ -6,6 +6,7 @@ package ec2
 // TODO: Clean this up so it matches environs/openstack/config_test.go.
 
 import (
+	stdcontext "context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -67,7 +68,7 @@ func (t configTest) check(c *gc.C) {
 	}).Merge(t.config)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	e, err := environs.New(environs.OpenParams{
+	e, err := environs.New(stdcontext.TODO(), environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: cfg,
 	})

@@ -4,6 +4,8 @@
 package ec2_test
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -51,7 +53,7 @@ func (s *ProviderSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ProviderSuite) TestOpen(c *gc.C) {
-	env, err := environs.Open(s.provider, environs.OpenParams{
+	env, err := environs.Open(stdcontext.TODO(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: coretesting.ModelConfig(c),
 	})
@@ -64,7 +66,7 @@ func (s *ProviderSuite) TestOpenUnknownRegion(c *gc.C) {
 	// anything in the client. That means that when new regions are
 	// added to AWS, we'll be able to support them.
 	s.spec.Region = "foobar"
-	_, err := environs.Open(s.provider, environs.OpenParams{
+	_, err := environs.Open(stdcontext.TODO(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: coretesting.ModelConfig(c),
 	})
@@ -79,7 +81,7 @@ func (s *ProviderSuite) TestOpenKnownRegionInvalidEndpoint(c *gc.C) {
 	})
 	s.spec.Endpoint = "https://us-east-1.aws.amazon.com/v1.2/"
 
-	env, err := environs.Open(s.provider, environs.OpenParams{
+	env, err := environs.Open(stdcontext.TODO(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: coretesting.ModelConfig(c),
 	})
@@ -101,7 +103,7 @@ func (s *ProviderSuite) TestOpenKnownRegionValidEndpoint(c *gc.C) {
 	})
 	s.spec.Endpoint = "https://ec2.us-east-1.amazonaws.com"
 
-	env, err := environs.Open(s.provider, environs.OpenParams{
+	env, err := environs.Open(stdcontext.TODO(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: coretesting.ModelConfig(c),
 	})
@@ -123,7 +125,7 @@ func (s *ProviderSuite) TestOpenUnsupportedCredential(c *gc.C) {
 }
 
 func (s *ProviderSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {
-	_, err := environs.Open(s.provider, environs.OpenParams{
+	_, err := environs.Open(stdcontext.TODO(), s.provider, environs.OpenParams{
 		Cloud:  spec,
 		Config: coretesting.ModelConfig(c),
 	})
@@ -131,7 +133,7 @@ func (s *ProviderSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec,
 }
 
 func (s *ProviderSuite) TestVerifyCredentialsErrs(c *gc.C) {
-	env, err := environs.Open(s.provider, environs.OpenParams{
+	env, err := environs.Open(stdcontext.TODO(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: coretesting.ModelConfig(c),
 	})

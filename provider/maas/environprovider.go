@@ -4,6 +4,7 @@
 package maas
 
 import (
+	stdcontext "context"
 	"fmt"
 	"net/url"
 
@@ -59,7 +60,7 @@ func (MaasEnvironProvider) Version() int {
 	return 0
 }
 
-func (MaasEnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+func (MaasEnvironProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q.", args.Config.Name())
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")

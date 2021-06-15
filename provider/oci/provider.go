@@ -4,6 +4,7 @@
 package oci
 
 import (
+	stdcontext "context"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -220,7 +221,7 @@ func (e EnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*conf
 }
 
 // Open implements environs.EnvironProvider.
-func (e *EnvironProvider) Open(params environs.OpenParams) (environs.Environ, error) {
+func (e *EnvironProvider) Open(_ stdcontext.Context, params environs.OpenParams) (environs.Environ, error) {
 	logger.Infof("opening model %q", params.Config.Name())
 
 	if err := validateCloudSpec(params.Cloud); err != nil {

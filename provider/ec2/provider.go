@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	stdcontext "context"
 	"fmt"
 	"strings"
 
@@ -37,13 +38,13 @@ func (environProvider) Version() int {
 }
 
 // Open is specified in the EnvironProvider interface.
-func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+func (p environProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q", args.Config.Name())
 
 	e := newEnviron()
 	e.name = args.Config.Name()
 
-	if err := e.SetCloudSpec(args.Cloud); err != nil {
+	if err := e.SetCloudSpec(ctx, args.Cloud); err != nil {
 		return nil, err
 	}
 
@@ -190,7 +191,7 @@ var verifyCredentials = func(e *environ, ctx context.ProviderCallContext) error 
 
 // maybeConvertCredentialError examines the error received from the provider.
 // Authentication related errors are wrapped in common.CredentialNotValid.
-// Authorisation related errors are annotated with an additional
+// Authorization related errors are annotated with an additional
 // user-friendly explanation.
 // All other errors are returned un-wrapped and not annotated.
 var maybeConvertCredentialError = func(err error, ctx context.ProviderCallContext) error {

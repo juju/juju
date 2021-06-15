@@ -4,6 +4,7 @@
 package environs
 
 import (
+	stdcontext "context"
 	"io"
 
 	"github.com/juju/jsonschema"
@@ -65,7 +66,7 @@ type CloudEnvironProvider interface {
 	//
 	// Open should not perform any expensive operations, such as querying
 	// the cloud API, as it will be called frequently.
-	Open(OpenParams) (Environ, error)
+	Open(stdcontext.Context, OpenParams) (Environ, error)
 }
 
 // OpenParams contains the parameters for EnvironProvider.Open.
@@ -280,7 +281,7 @@ type ConfigSetter interface {
 // CloudSpecSetter implements access to an environment's cloud spec.
 type CloudSpecSetter interface {
 	// SetConfig updates the Environ's configuration.
-	SetCloudSpec(spec environscloudspec.CloudSpec) error
+	SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.CloudSpec) error
 }
 
 // Bootstrapper provides the way for bootstrapping controller.

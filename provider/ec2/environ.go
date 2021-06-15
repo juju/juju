@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	stdcontext "context"
 	"fmt"
 	"math/rand"
 	"net"
@@ -142,17 +143,6 @@ func (e *environ) Name() string {
 
 // PrepareForBootstrap is part of the Environ interface.
 func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
-	// Allow the passing of a client func through the context. This allows
-	// passing the client from outside of the environ, one that allows for
-	// custom http.Clients.
-	if value := ctx.Context().Value(AWSClientContextKey); value == nil {
-		e.ec2ClientFunc = clientFunc
-	} else if s, ok := value.(ClientFunc); ok {
-		e.ec2ClientFunc = s
-	} else {
-		return errors.Errorf("expected a valid client function type")
-	}
-
 	callCtx := context.NewCloudCallContext(ctx.Context())
 	// Cannot really invalidate a credential here since nothing is bootstrapped yet.
 	callCtx.InvalidateCredentialFunc = func(string) error { return nil }
@@ -2523,7 +2513,7 @@ func (e *environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (e *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
+func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.CloudSpec) error {
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 
@@ -2545,6 +2535,17 @@ func (e *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 	e.ec2, err = awsClient(e.cloud)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	// Allow the passing of a client func through the context. This allows
+	// passing the client from outside of the environ, one that allows for
+	// custom http.Clients.
+	if value := ctx.Value(AWSClientContextKey); value == nil {
+		e.ec2ClientFunc = clientFunc
+	} else if s, ok := value.(ClientFunc); ok {
+		e.ec2ClientFunc = s
+	} else {
+		return errors.Errorf("expected a valid client function type")
 	}
 
 	httpClient := jujuhttp.NewClient(

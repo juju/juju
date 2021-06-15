@@ -136,14 +136,15 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
 	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c, nil))
-	t.ProviderCallContext = context.NewCloudCallContext(stdcontext.Background())
 
+	// Setup the simplestreams bootstrap context.
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 
 	ctx := stdcontext.TODO()
 	ctx = stdcontext.WithValue(ctx, bootstrap.SimplestreamsFetcherContextKey, ss)
 
 	t.BootstrapContext = envtesting.BootstrapContext(ctx, c)
+	t.ProviderCallContext = context.NewCloudCallContext(ctx)
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
