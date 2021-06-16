@@ -2540,6 +2540,16 @@ func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.Cl
 	// Allow the passing of a client func through the context. This allows
 	// passing the client from outside of the environ, one that allows for
 	// custom http.Clients.
+	//
+	// This isn't in it's final form. It is expected that eventually the ec2
+	// client will be passed in via the constructor of the environ. That can
+	// then be passed in via the environProvider. Unfortunately the provider
+	// (factory) is registered in an init function and makes it VERY hard to
+	// override. The solution to all of this is to remove the global registry
+	// and construct that within the main (or provide sane defaults). The
+	// provider/all package can then be removed and the black magic for provider
+	// registration can then vanish and plain old dependency management can
+	// then be used.
 	if value := ctx.Value(AWSClientContextKey); value == nil {
 		e.ec2ClientFunc = clientFunc
 	} else if s, ok := value.(ClientFunc); ok {
