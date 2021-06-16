@@ -584,7 +584,7 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args: map[string]interface{}{
-			"charm":  "django",
+			"charm": "django",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -608,7 +608,7 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 		Id:     "addCharm-2",
 		Method: "addCharm",
 		Args: map[string]interface{}{
-			"charm":  "cs:haproxy-42",
+			"charm": "cs:haproxy-42",
 		},
 	}, {
 		Id:     "deploy-3",

@@ -1040,11 +1040,11 @@ func (s *changesSuite) TestKubernetesBundle(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:mediawiki-k8s-10",
+			Charm: "cs:mediawiki-k8s-10",
 		},
 		GUIArgs: []interface{}{"cs:mediawiki-k8s-10", "", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:mediawiki-k8s-10",
+			"charm": "cs:mediawiki-k8s-10",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -1118,11 +1118,11 @@ func (s *changesSuite) TestKubernetesBundle(c *gc.C) {
 		Id:     "addCharm-4",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:mysql-k8s-28",
+			Charm: "cs:mysql-k8s-28",
 		},
 		GUIArgs: []interface{}{"cs:mysql-k8s-28", "", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:mysql-k8s-28",
+			"charm": "cs:mysql-k8s-28",
 		},
 	}, {
 		Id:     "deploy-5",
