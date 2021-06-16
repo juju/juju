@@ -236,7 +236,7 @@ func (e *mockEnviron) CloudSpec() environscloudspec.CloudSpec {
 	return e.spec
 }
 
-func (e *mockEnviron) SetCloudSpec(spec environscloudspec.CloudSpec) error {
+func (e *mockEnviron) SetCloudSpec(_ context.Context, spec environscloudspec.CloudSpec) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.MethodCall(e, "SetCloudSpec", spec)

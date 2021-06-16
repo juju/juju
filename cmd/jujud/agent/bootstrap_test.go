@@ -5,6 +5,7 @@ package agent
 
 import (
 	"context"
+	stdcontext "context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -633,7 +634,7 @@ func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapWithInvalidCredentialLogs(c *gc.C) {
 	called := false
-	newEnviron := func(ps environs.OpenParams) (environs.Environ, error) {
+	newEnviron := func(_ stdcontext.Context, ps environs.OpenParams) (environs.Environ, error) {
 		called = true
 		env, _ := environs.New(context.TODO(), ps)
 		return &mockDummyEnviron{env}, nil
