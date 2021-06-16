@@ -252,7 +252,7 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 			continue
 		}
 		if detectCredentials, ok := provider.(environs.ProviderCredentials); ok {
-			detected, err := detectCredentials.DetectCredentials()
+			detected, err := detectCredentials.DetectCredentials("")
 			if err != nil && !errors.IsNotFound(err) {
 				logger.Errorf("could not detect credentials for provider %q: %v", providerName, err)
 				continue

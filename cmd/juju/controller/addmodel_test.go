@@ -791,7 +791,7 @@ type fakeProvider struct {
 	detected *cloud.CloudCredential
 }
 
-func (p *fakeProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+func (p *fakeProvider) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
 	p.MethodCall(p, "DetectCredentials")
 	return p.detected, p.NextErr()
 }

@@ -664,7 +664,7 @@ func (*environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialS
 	}
 }
 
-func (*environProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+func (*environProvider) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
 	return cloud.NewEmptyCloudCredential(), nil
 }
 

@@ -26,7 +26,9 @@ require (
 	github.com/go-logr/logr v0.2.0
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.0-20210309064400-d73aa8f92aa2
 	github.com/golang/mock v1.5.0
+	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-querystring v1.0.0
+	github.com/google/uuid v1.2.0 // indirect
 	github.com/googleapis/gnostic v0.4.1
 	github.com/gorilla/handlers v0.0.0-20170224193955-13d73096a474
 	github.com/gorilla/schema v0.0.0-20160426231512-08023a0215e7
@@ -83,7 +85,7 @@ require (
 	github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.1
-	github.com/lxc/lxd v0.0.0-20201127143816-0245f4a840c6
+	github.com/lxc/lxd v0.0.0-20210607205159-a7c206b5233d
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-isatty v0.0.12
 	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
@@ -92,6 +94,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/oracle/oci-go-sdk v5.7.0+incompatible
 	github.com/pascaldekloe/goe v0.1.0 // indirect
+	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
@@ -100,12 +103,12 @@ require (
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/vishvananda/netlink v1.1.0
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
-	golang.org/x/crypto v0.0.0-20210506145944-38f3c27a63bf
+	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
 	golang.org/x/mod v0.4.0 // indirect
-	golang.org/x/net v0.0.0-20210510120150-4163338589ed
+	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
-	golang.org/x/sys v0.0.0-20210510120138-977fb7262007
+	golang.org/x/sys v0.0.0-20210608053332-aa57babbf139
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools v0.0.0-20210105210202-9ed45478a130
 	google.golang.org/api v0.29.0

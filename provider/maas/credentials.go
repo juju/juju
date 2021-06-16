@@ -37,7 +37,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
-func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
+func (environProviderCredentials) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
 	// MAAS stores credentials in a json file: ~/.maasrc
 	// {"Server": "http://<ip>/MAAS", "OAuth": "<key>"}
 	maasrc := filepath.Join(utils.Home(), ".maasrc")

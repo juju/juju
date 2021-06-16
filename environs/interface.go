@@ -122,7 +122,10 @@ type ProviderCredentials interface {
 	//
 	// If no credentials can be detected, DetectCredentials should
 	// return an error satisfying errors.IsNotFound.
-	DetectCredentials() (*cloud.CloudCredential, error)
+	//
+	// If cloud name is not passed (empty-string), all credentials are
+	// returned, otherwise only the credential for that cloud.
+	DetectCredentials(cloudName string) (*cloud.CloudCredential, error)
 
 	// FinalizeCredential finalizes a credential, updating any attributes
 	// as necessary. This is always done client-side, when adding the

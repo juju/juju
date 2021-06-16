@@ -64,7 +64,7 @@ func (s *credentialsSuite) TestUserPassHiddenAttributes(c *gc.C) {
 
 func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
 	// No environment variables set, so no credentials should be found.
-	_, err := s.provider.DetectCredentials()
+	_, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -77,7 +77,7 @@ func (s *credentialsSuite) TestDetectCredentialsAccessKeyEnvironmentVariables(c 
 	s.PatchEnvironment("OS_SECRET_KEY", "secret-access-key")
 	s.PatchEnvironment("OS_REGION_NAME", "east")
 
-	credentials, err := s.provider.DetectCredentials()
+	credentials, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials.DefaultRegion, gc.Equals, "east")
 	expected := cloud.NewCredential(
@@ -103,7 +103,7 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassEnvironmentVariables(c *
 	s.PatchEnvironment("OS_REGION_NAME", "west")
 	s.PatchEnvironment("OS_USER_DOMAIN_NAME", "user-domain")
 
-	credentials, err := s.provider.DetectCredentials()
+	credentials, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials.DefaultRegion, gc.Equals, "west")
 	expected := cloud.NewCredential(
@@ -131,7 +131,7 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassDefaultDomain(c *gc.C) {
 	s.PatchEnvironment("OS_REGION_NAME", "west")
 	s.PatchEnvironment("OS_DEFAULT_DOMAIN_NAME", "default-domain")
 
-	credentials, err := s.provider.DetectCredentials()
+	credentials, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials.DefaultRegion, gc.Equals, "west")
 	expected := cloud.NewCredential(
@@ -176,7 +176,7 @@ OS_PROJECT_DOMAIN_NAME=project-domain
 	novarc := filepath.Join(dir, ".novarc")
 	err = ioutil.WriteFile(novarc, []byte(content), 0600)
 	c.Assert(err, jc.ErrorIsNil)
-	credentials, err := s.provider.DetectCredentials()
+	credentials, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials.DefaultRegion, gc.Equals, "region")
 	expected := cloud.NewCredential(

@@ -252,7 +252,7 @@ type mockEnvironProvider struct {
 	environs.EnvironProvider
 }
 
-func (p *mockEnvironProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+func (p *mockEnvironProvider) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
 	return cloud.NewEmptyCloudCredential(), nil
 }
 

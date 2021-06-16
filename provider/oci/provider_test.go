@@ -121,7 +121,7 @@ func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
 	result := cloud.CloudCredential{
 		AuthCredentials: make(map[string]cloud.Credential),
 	}
-	creds, err := s.provider.DetectCredentials()
+	creds, err := s.provider.DetectCredentials("")
 	c.Assert(err, gc.IsNil)
 	c.Assert(creds, gc.NotNil)
 	c.Assert(*creds, jc.DeepEquals, result)
@@ -137,7 +137,7 @@ func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
 		},
 	}
 	s.writeOCIConfig(c, cfg)
-	creds, err := s.provider.DetectCredentials()
+	creds, err := s.provider.DetectCredentials("")
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(creds.AuthCredentials), gc.Equals, 1)
 	c.Assert(creds.DefaultRegion, gc.Equals, "us-phoenix-1")
@@ -153,7 +153,7 @@ func (s *credentialsSuite) TestDetectCredentialsWrongPassphrase(c *gc.C) {
 		},
 	}
 	s.writeOCIConfig(c, cfg)
-	_, err := s.provider.DetectCredentials()
+	_, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -173,7 +173,7 @@ func (s *credentialsSuite) TestDetectCredentialsMultiSection(c *gc.C) {
 		},
 	}
 	s.writeOCIConfig(c, cfg)
-	creds, err := s.provider.DetectCredentials()
+	creds, err := s.provider.DetectCredentials("")
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(creds.AuthCredentials), gc.Equals, 2)
 	c.Assert(creds.DefaultRegion, gc.Equals, "us-ashburn-1")
@@ -197,7 +197,7 @@ func (s *credentialsSuite) TestDetectCredentialsMultiSectionInvalidConfig(c *gc.
 		},
 	}
 	s.writeOCIConfig(c, cfg)
-	creds, err := s.provider.DetectCredentials()
+	creds, err := s.provider.DetectCredentials("")
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(creds.AuthCredentials), gc.Equals, 1)
 	c.Assert(creds.DefaultRegion, gc.Equals, "")
