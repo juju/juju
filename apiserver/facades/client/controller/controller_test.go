@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	stdcontext "context"
 	"encoding/json"
 	"regexp"
 	"time"
@@ -241,7 +242,7 @@ func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *gc.C) {
 		cfg, err := config.New(config.NoDefaults, model.Config)
 		c.Assert(err, jc.ErrorIsNil)
 		spec := s.makeCloudSpec(c, model.CloudSpec)
-		_, err = environs.New(environs.OpenParams{
+		_, err = environs.New(stdcontext.TODO(), environs.OpenParams{
 			Cloud:  spec,
 			Config: cfg,
 		})

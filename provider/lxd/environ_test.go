@@ -5,6 +5,7 @@ package lxd_test
 
 import (
 	"context"
+	stdcontext "context"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/cmdtesting"
@@ -393,7 +394,7 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfile(c *gc.C) {
 	s.expectHasProfileFalse("juju-controller")
 	s.expectCreateProfile("juju-controller", nil)
 
-	err := s.cloudSpecEnv.SetCloudSpec(lxdCloudSpec())
+	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.TODO(), lxdCloudSpec())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -402,7 +403,7 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfileErrorSucceeds(c 
 	s.expectForProfileCreateRace("juju-controller")
 	s.expectCreateProfile("juju-controller", errors.New("The profile already exists"))
 
-	err := s.cloudSpecEnv.SetCloudSpec(lxdCloudSpec())
+	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.TODO(), lxdCloudSpec())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

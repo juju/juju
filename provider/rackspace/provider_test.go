@@ -4,6 +4,8 @@
 package rackspace_test
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/testing"
@@ -68,7 +70,7 @@ func (p *fakeProvider) Version() int {
 	return 0
 }
 
-func (p *fakeProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+func (p *fakeProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	p.MethodCall(p, "Open", args)
 	return nil, nil
 }

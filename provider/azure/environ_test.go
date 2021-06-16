@@ -323,7 +323,7 @@ func openEnviron(
 		makeResourceGroupNotFoundSender(fmt.Sprintf(".*/resourcegroups/juju-%s-model-deadbeef-.*", cfg.Name())),
 		makeSender(fmt.Sprintf(".*/resourcegroups/juju-%s-.*", cfg.Name()), makeResourceGroupResult()),
 	}
-	env, err := environs.Open(provider, environs.OpenParams{
+	env, err := environs.Open(stdcontext.TODO(), provider, environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: cfg,
 	})
@@ -360,7 +360,7 @@ func prepareForBootstrap(
 		makeResourceGroupNotFoundSender(".*/resourcegroups/juju-testmodel-model-deadbeef-.*"),
 		makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
 	}
-	env, err := environs.Open(provider, environs.OpenParams{
+	env, err := environs.Open(stdcontext.TODO(), provider, environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: cfg,
 	})

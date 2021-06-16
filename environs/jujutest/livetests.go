@@ -122,6 +122,15 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.TestDataSuite.SetUpSuite(c)
 	t.ControllerStore = jujuclient.NewMemStore()
 	t.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+
+	// Setup the simplestreams bootstrap context.
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+
+	ctx := stdcontext.TODO()
+	ctx = stdcontext.WithValue(ctx, bootstrap.SimplestreamsFetcherContextKey, ss)
+
+	t.BootstrapContext = envtesting.BootstrapContext(ctx, c)
+	t.ProviderCallContext = context.NewCloudCallContext(ctx)
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
@@ -136,15 +145,6 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
 	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c, nil))
-
-	// Setup the simplestreams bootstrap context.
-	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-
-	ctx := stdcontext.TODO()
-	ctx = stdcontext.WithValue(ctx, bootstrap.SimplestreamsFetcherContextKey, ss)
-
-	t.BootstrapContext = envtesting.BootstrapContext(ctx, c)
-	t.ProviderCallContext = context.NewCloudCallContext(ctx)
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
