@@ -4,6 +4,7 @@
 package lxd_test
 
 import (
+	stdcontext "context"
 	"net/http"
 	"net/http/httptest"
 	"path"
@@ -536,7 +537,7 @@ func (s *ProviderFunctionalSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ProviderFunctionalSuite) TestOpen(c *gc.C) {
-	env, err := environs.Open(s.provider, environs.OpenParams{
+	env, err := environs.Open(stdcontext.TODO(), s.provider, environs.OpenParams{
 		Cloud:  lxdCloudSpec(),
 		Config: s.Config,
 	})

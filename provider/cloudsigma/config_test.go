@@ -4,6 +4,8 @@
 package cloudsigma
 
 import (
+	stdcontext "context"
+
 	"github.com/altoros/gosigma/mock"
 	gc "gopkg.in/check.v1"
 
@@ -82,7 +84,7 @@ func (s *configSuite) TestNewModelConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		environ, err := environs.New(environs.OpenParams{
+		environ, err := environs.New(stdcontext.TODO(), environs.OpenParams{
 			Cloud:  fakeCloudSpec(),
 			Config: testConfig,
 		})
@@ -151,7 +153,7 @@ func (s *configSuite) TestSetConfig(c *gc.C) {
 	baseConfig := newConfig(c, validAttrs())
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		environ, err := environs.New(environs.OpenParams{
+		environ, err := environs.New(stdcontext.TODO(), environs.OpenParams{
 			Cloud:  fakeCloudSpec(),
 			Config: baseConfig,
 		})

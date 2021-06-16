@@ -124,14 +124,14 @@ func newEnviron(cloud environscloudspec.CloudSpec, cfg *config.Config) (*environ
 		ecfg:      ecfg,
 		namespace: namespace,
 	}
-	if err = e.SetCloudSpec(cloud); err != nil {
+	if err = e.SetCloudSpec(stdcontext.TODO(), cloud); err != nil {
 		return nil, err
 	}
 	return e, nil
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (e *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
+func (e *environ) SetCloudSpec(_ stdcontext.Context, spec environscloudspec.CloudSpec) error {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 

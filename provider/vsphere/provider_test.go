@@ -4,6 +4,7 @@
 package vsphere_test
 
 import (
+	stdcontext "context"
 	"errors"
 	"net/url"
 
@@ -32,7 +33,7 @@ func (s *providerSuite) TestRegistered(c *gc.C) {
 
 func (s *providerSuite) TestOpen(c *gc.C) {
 	config := fakeConfig(c)
-	env, err := s.provider.Open(environs.OpenParams{
+	env, err := s.provider.Open(stdcontext.TODO(), environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: config,
 	})
@@ -62,7 +63,7 @@ func (s *providerSuite) TestOpenUnsupportedCredential(c *gc.C) {
 }
 
 func (s *providerSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {
-	_, err := s.provider.Open(environs.OpenParams{
+	_, err := s.provider.Open(stdcontext.TODO(), environs.OpenParams{
 		Cloud:  spec,
 		Config: fakeConfig(c),
 	})

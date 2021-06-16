@@ -6,6 +6,7 @@ package agent
 import (
 	"bufio"
 	"bytes"
+	stdcontext "context"
 	"encoding/json"
 	"io/ioutil"
 	"os"
@@ -1053,7 +1054,7 @@ func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 	// The dummy provider blows up in the face of multi-model
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
-	s.PatchValue(&newEnvirons, func(environs.OpenParams) (environs.Environ, error) {
+	s.PatchValue(&newEnvirons, func(stdcontext.Context, environs.OpenParams) (environs.Environ, error) {
 		return &minModelWorkersEnviron{}, nil
 	})
 
@@ -1078,7 +1079,7 @@ func (s *MachineSuite) TestWorkersForHostedModelWithInvalidCredential(c *gc.C) {
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
 	loggo.GetLogger("juju.worker.dependency").SetLogLevel(loggo.TRACE)
-	s.PatchValue(&newEnvirons, func(environs.OpenParams) (environs.Environ, error) {
+	s.PatchValue(&newEnvirons, func(stdcontext.Context, environs.OpenParams) (environs.Environ, error) {
 		return &minModelWorkersEnviron{}, nil
 	})
 
@@ -1123,7 +1124,7 @@ func (s *MachineSuite) TestWorkersForHostedModelWithDeletedCredential(c *gc.C) {
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
 	loggo.GetLogger("juju.worker.dependency").SetLogLevel(loggo.TRACE)
-	s.PatchValue(&newEnvirons, func(environs.OpenParams) (environs.Environ, error) {
+	s.PatchValue(&newEnvirons, func(stdcontext.Context, environs.OpenParams) (environs.Environ, error) {
 		return &minModelWorkersEnviron{}, nil
 	})
 

@@ -118,7 +118,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 }
 
 func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {
-	env, err := environs.New(environs.OpenParams{
+	env, err := environs.New(stdcontext.TODO(), environs.OpenParams{
 		Cloud: environscloudspec.CloudSpec{
 			Type: "wondercloud",
 		},
@@ -135,7 +135,7 @@ func (*OpenSuite) TestNew(c *gc.C) {
 		},
 	))
 	c.Assert(err, jc.ErrorIsNil)
-	e, err := environs.New(environs.OpenParams{
+	e, err := environs.New(stdcontext.TODO(), environs.OpenParams{
 		Cloud:  dummy.SampleCloudSpec(),
 		Config: cfg,
 	})

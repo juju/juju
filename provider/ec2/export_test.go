@@ -14,8 +14,6 @@ import (
 	jujustorage "github.com/juju/juju/storage"
 )
 
-type EC2Client = ec2Client
-
 func StorageEC2(vs jujustorage.VolumeSource) *amzec2.EC2 {
 	return vs.(*ebsVolumeSource).env.ec2
 }

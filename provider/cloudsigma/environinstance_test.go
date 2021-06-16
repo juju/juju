@@ -4,6 +4,7 @@
 package cloudsigma
 
 import (
+	stdcontext "context"
 	"time"
 
 	"github.com/altoros/gosigma/mock"
@@ -81,7 +82,7 @@ func (s *environInstanceSuite) createEnviron(c *gc.C, cfg *config.Config) enviro
 		cfg = s.baseConfig
 	}
 
-	environ, err := environs.New(environs.OpenParams{
+	environ, err := environs.New(stdcontext.TODO(), environs.OpenParams{
 		Cloud:  s.cloud,
 		Config: cfg,
 	})

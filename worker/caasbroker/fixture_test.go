@@ -4,6 +4,7 @@
 package caasbroker_test
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/names/v4"
@@ -223,7 +224,7 @@ type mockBroker struct {
 	mu        sync.Mutex
 }
 
-func newMockBroker(args environs.OpenParams) (caas.Broker, error) {
+func newMockBroker(_ context.Context, args environs.OpenParams) (caas.Broker, error) {
 	return &mockBroker{spec: args.Cloud, namespace: args.Config.Name(), cfg: args.Config}, nil
 }
 
@@ -233,7 +234,7 @@ func (e *mockBroker) CloudSpec() environscloudspec.CloudSpec {
 	return e.spec
 }
 
-func (e *mockBroker) SetCloudSpec(spec environscloudspec.CloudSpec) error {
+func (e *mockBroker) SetCloudSpec(_ context.Context, spec environscloudspec.CloudSpec) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.MethodCall(e, "SetCloudSpec", spec)

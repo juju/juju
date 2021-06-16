@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	stdcontext "context"
 	"fmt"
 	"time"
 
@@ -5514,7 +5515,7 @@ func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
 	_, cm, _, _ := s.setupCAASModel(c)
 
 	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
-	uniter.SetNewContainerBrokerFunc(uniterAPI, func(environs.OpenParams) (caas.Broker, error) {
+	uniter.SetNewContainerBrokerFunc(uniterAPI, func(stdcontext.Context, environs.OpenParams) (caas.Broker, error) {
 		return &fakeBroker{}, nil
 	})
 

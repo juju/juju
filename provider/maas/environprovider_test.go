@@ -4,6 +4,7 @@
 package maas
 
 import (
+	stdcontext "context"
 	"errors"
 	"io/ioutil"
 	"net/http"
@@ -136,7 +137,7 @@ func (suite *EnvironProviderSuite) testMAASServerFromEndpoint(c *gc.C, endpoint 
 
 	cloudSpec := suite.cloudSpec()
 	cloudSpec.Endpoint = endpoint
-	env, err := providerInstance.Open(environs.OpenParams{
+	env, err := providerInstance.Open(stdcontext.TODO(), environs.OpenParams{
 		Config: config,
 		Cloud:  cloudSpec,
 	})
@@ -166,7 +167,7 @@ func (suite *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.
 	spec := suite.cloudSpec()
 	cred := oauthCredential("wrongly-formatted-oauth-string")
 	spec.Credential = &cred
-	env, err := providerInstance.Open(environs.OpenParams{
+	env, err := providerInstance.Open(stdcontext.TODO(), environs.OpenParams{
 		Cloud:  spec,
 		Config: config,
 	})

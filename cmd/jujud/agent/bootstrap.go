@@ -182,11 +182,14 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		Cloud:          cloudSpec,
 		Config:         args.ControllerModelConfig,
 	}
+
+	ctx := stdcontext.TODO()
+
 	var env environs.BootstrapEnviron
 	if isCAAS {
-		env, err = environsNewCAAS(openParams)
+		env, err = environsNewCAAS(ctx, openParams)
 	} else {
-		env, err = environsNewIAAS(openParams)
+		env, err = environsNewIAAS(ctx, openParams)
 	}
 	if err != nil {
 		return errors.Trace(err)
