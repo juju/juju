@@ -4,6 +4,7 @@
 package multiwatcher
 
 import (
+	"strings"
 	"time"
 
 	"github.com/juju/juju/core/constraints"
@@ -29,6 +30,7 @@ const (
 	RelationKind          = "relation"
 	RemoteApplicationKind = "remoteApplication"
 	UnitKind              = "unit"
+	UserConnectionKind    = "user-connection"
 )
 
 // Factory is used to create multiwatchers.
@@ -670,4 +672,27 @@ func (i *BranchInfo) Clone() EntityInfo {
 		}
 	}
 	return &clone
+}
+
+// UserConnectionInfo holds data about the connections users make to
+// models.
+type UserConnectionInfo struct {
+	ModelUUID      string
+	Username       string
+	LastConnection time.Time
+}
+
+// EntityID returns a unique identifier for a user in a model.
+func (i *UserConnectionInfo) EntityID() EntityID {
+	return EntityID{
+		Kind:      UserConnectionKind,
+		ModelUUID: i.ModelUUID,
+		ID:        strings.ToLower(i.Username),
+	}
+}
+
+// Clone returns a clone of the EntityInfo.
+func (i *UserConnectionInfo) Clone() EntityInfo {
+	ei := *i
+	return &ei
 }

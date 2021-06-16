@@ -16,4 +16,5 @@ var (
 	_ EntityInfo = (*ActionInfo)(nil)
 	_ EntityInfo = (*ModelUpdate)(nil)
 	_ EntityInfo = (*BranchInfo)(nil)
+	_ EntityInfo = (*UserConnectionInfo)(nil)
 )

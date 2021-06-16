@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/charm/v9"
@@ -109,6 +110,8 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		d.Entity = new(RemoteApplicationUpdate)
 	case "unit":
 		d.Entity = new(UnitInfo)
+	case "userConnection":
+		d.Entity = new(UserConnectionInfo)
 	default:
 		return errors.Errorf("Unexpected entity name %q", entityKind)
 	}
@@ -445,5 +448,19 @@ func (i *BranchInfo) EntityId() EntityId {
 		Kind:      "branch",
 		ModelUUID: i.ModelUUID,
 		Id:        i.Id,
+	}
+}
+
+type UserConnectionInfo struct {
+	ModelUUID      string    `json:"model-uuid"`
+	Username       string    `json:"user-name"`
+	LastConnection time.Time `json:"last-connection,omitempty"`
+}
+
+func (i *UserConnectionInfo) EntityId() EntityId {
+	return EntityId{
+		Kind:      "userConnection",
+		ModelUUID: i.ModelUUID,
+		Id:        strings.ToLower(i.Username),
 	}
 }

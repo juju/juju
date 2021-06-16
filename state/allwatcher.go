@@ -110,6 +110,8 @@ func makeAllWatcherCollectionInfo(collNames []string) map[string]allWatcherState
 		case podSpecsC:
 			collection.docType = reflect.TypeOf(backingPodSpec{})
 			collection.subsidiary = true
+		case modelUserLastConnectionC:
+			collection.docType = reflect.TypeOf(backingModelUserLastConnection{})
 		default:
 			allWatcherLogger.Criticalf("programming error: unknown collection %q", collName)
 		}
@@ -1576,6 +1578,29 @@ func (g *backingGeneration) mongoID() string {
 	return id
 }
 
+type backingModelUserLastConnection modelUserLastConnectionDoc
+
+func (b *backingModelUserLastConnection) updated(ctx *allWatcherContext) error {
+	allWatcherLogger.Tracef(`model-user-last-connection "%s:%s" updated`, ctx.modelUUID, ctx.id)
+	info := &multiwatcher.UserConnectionInfo{
+		ModelUUID:      b.ModelUUID,
+		Username:       b.UserName,
+		LastConnection: b.LastConnection,
+	}
+	ctx.store.Update(info)
+	return nil
+}
+
+func (b *backingModelUserLastConnection) removed(ctx *allWatcherContext) error {
+	allWatcherLogger.Tracef(`model-user-last-connection "%s:%s" removed`, ctx.modelUUID, ctx.id)
+	ctx.removeFromStore(multiwatcher.UserConnectionKind)
+	return nil
+}
+
+func (b *backingModelUserLastConnection) mongoID() string {
+	return strings.ToLower(b.UserName)
+}
+
 // backingEntityDoc is implemented by the documents in
 // collections that the allWatcherStateBacking watches.
 type backingEntityDoc interface {
@@ -1644,6 +1669,7 @@ func NewAllWatcherBacking(pool *StatePool) AllWatcherBacking {
 		remoteApplicationsC,
 		statusesC,
 		settingsC,
+		modelUserLastConnectionC,
 		// And for CAAS we need to watch these...
 		podSpecsC,
 	}

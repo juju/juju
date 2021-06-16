@@ -125,6 +125,8 @@ func (aw *SrvAllWatcher) translate(deltas []multiwatcher.Delta) []params.Delta {
 			converted = aw.translateAction(delta.Entity)
 		case multiwatcher.ApplicationOfferKind:
 			converted = aw.translateApplicationOffer(delta.Entity)
+		case multiwatcher.UserConnectionKind:
+			converted = aw.translateUserConnection(delta.Entity)
 		default:
 			// converted stays nil
 		}
@@ -511,6 +513,19 @@ func isAgent(auth facade.Authorizer) bool {
 
 func isAgentOrUser(auth facade.Authorizer) bool {
 	return isAgent(auth) || auth.AuthClient()
+}
+
+func (aw *SrvAllWatcher) translateUserConnection(info multiwatcher.EntityInfo) params.EntityInfo {
+	orig, ok := info.(*multiwatcher.UserConnectionInfo)
+	if !ok {
+		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
+		return nil
+	}
+	return &params.UserConnectionInfo{
+		ModelUUID:      orig.ModelUUID,
+		Username:       orig.Username,
+		LastConnection: orig.LastConnection,
+	}
 }
 
 func newNotifyWatcher(context facade.Context) (facade.Facade, error) {

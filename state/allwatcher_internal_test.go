@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/juju/charm/v9"
@@ -920,6 +921,10 @@ func (s *allWatcherStateSuite) TestChangeGenerations(c *gc.C) {
 	testChangeGenerations(c, s.performChangeTestCases)
 }
 
+func (s *allWatcherStateSuite) TestChangeModelUserLastConnection(c *gc.C) {
+	testChangeModelUserLastConnection(c, s.performChangeTestCases)
+}
+
 func (s *allWatcherStateSuite) TestChangeActions(c *gc.C) {
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
@@ -1662,6 +1667,10 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 		},
 	}
 	runChangeTests(c, changeTestFuncs)
+}
+
+func (s *allModelWatcherStateSuite) TestChangeModelUserLastConnection(c *gc.C) {
+	testChangeModelUserLastConnection(c, s.performChangeTestCases)
 }
 
 func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
@@ -3674,6 +3683,57 @@ func testChangeGenerations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 			}
 		},
 	}
+	runChangeTests(c, changeTestFuncs)
+}
+
+func testChangeModelUserLastConnection(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
+	var changeTestFuncs = []changeTestFunc{
+		func(c *gc.C, st *State) changeTestCase {
+			bob := names.NewUserTag("bob@external")
+			m, err := st.Model()
+			c.Assert(err, jc.ErrorIsNil)
+			err = m.UpdateLastModelConnection(bob)
+			c.Assert(err, jc.ErrorIsNil)
+			connectionTime, err := m.LastModelConnection(bob)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return changeTestCase{
+				about: "update last connection",
+				change: watcher.Change{
+					C:  modelUserLastConnectionC,
+					Id: st.docID(strings.ToLower(bob.Id())),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UserConnectionInfo{
+						ModelUUID:      st.ModelUUID(),
+						Username:       bob.Id(),
+						LastConnection: connectionTime,
+					},
+				},
+			}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			bob := names.NewUserTag("bob@external")
+
+			return changeTestCase{
+				about: "remove last connection",
+				change: watcher.Change{
+					C:     modelUserLastConnectionC,
+					Id:    st.docID(strings.ToLower(bob.Id())),
+					Revno: -1,
+				},
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UserConnectionInfo{
+						ModelUUID:      st.ModelUUID(),
+						Username:       bob.Id(),
+						LastConnection: time.Now(),
+					},
+				},
+				expectContents: []multiwatcher.EntityInfo{},
+			}
+		},
+	}
+
 	runChangeTests(c, changeTestFuncs)
 }
 

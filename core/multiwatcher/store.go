@@ -80,7 +80,7 @@ type Logger interface {
 	Criticalf(string, ...interface{})
 }
 
-// NewStore returns an Store instance holding information about the
+// NewStore returns a Store instance holding information about the
 // current state of all entities in the model.
 // It is only exposed here for testing purposes.
 func NewStore(logger Logger) Store {
