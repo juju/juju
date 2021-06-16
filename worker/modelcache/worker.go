@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/pubsub/controller"
@@ -407,6 +408,14 @@ func (c *cacheWorker) translateModel(d multiwatcher.Delta) interface{} {
 		return nil
 	}
 
+	var userPermissions map[string]permission.Access
+	if value.Users != nil {
+		userPermissions = make(map[string]permission.Access, len(value.Users))
+		for k, v := range value.Users {
+			userPermissions[k] = v.Access
+		}
+	}
+
 	return cache.ModelChange{
 		ModelUUID:       value.ModelUUID,
 		Name:            value.Name,
@@ -421,7 +430,7 @@ func (c *cacheWorker) translateModel(d multiwatcher.Delta) interface{} {
 		Config:          value.Config,
 		Status:          coreStatus(value.Status),
 		// TODO: constraints, sla
-		UserPermissions: value.UserPermissions,
+		UserPermissions: userPermissions,
 	}
 }
 

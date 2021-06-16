@@ -57,8 +57,8 @@ func (st *State) AddUser(name, displayName, password, creator string) (*User, er
 
 // AddUserWithSecretKey adds the user with the specified name, and assigns it
 // a randomly generated secret key. This secret key may be used for the user
-// and controller to mutually authenticate one another, without without relying
-// on TLS certificates.
+// and controller to mutually authenticate one another, without relying on TLS
+// certificates.
 //
 // The new user will not have a password. A password must be set, clearing the
 // secret key in the process, before the user can login normally.

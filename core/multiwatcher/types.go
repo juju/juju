@@ -570,13 +570,19 @@ type ModelInfo struct {
 	Constraints     constraints.Value
 	SLA             ModelSLAInfo
 
-	UserPermissions map[string]permission.Access
+	Users map[string]ModelUserInfo
 }
 
 // ModelSLAInfo describes the SLA info for a model.
 type ModelSLAInfo struct {
 	Level string
 	Owner string
+}
+
+// ModelUserInfo describes a model user.
+type ModelUserInfo struct {
+	Access         permission.Access
+	LastConnection *time.Time
 }
 
 // EntityID returns a unique identifier for a model.
@@ -603,10 +609,10 @@ func (i *ModelInfo) Clone() EntityInfo {
 			clone.Config[k] = v
 		}
 	}
-	if len(i.UserPermissions) > 0 {
-		clone.UserPermissions = map[string]permission.Access{}
-		for k, v := range i.UserPermissions {
-			clone.UserPermissions[k] = v
+	if len(i.Users) > 0 {
+		clone.Users = map[string]ModelUserInfo{}
+		for k, v := range i.Users {
+			clone.Users[k] = v
 		}
 	}
 	return &clone

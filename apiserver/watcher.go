@@ -146,6 +146,15 @@ func (aw *SrvAllWatcher) translateModel(info multiwatcher.EntityInfo) params.Ent
 		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
 		return nil
 	}
+	var users []params.ModelUserInfo
+	for k, v := range orig.Users {
+		users = append(users, params.ModelUserInfo{
+			UserName:       k,
+			Access:         params.UserAccessPermission(v.Access),
+			LastConnection: v.LastConnection,
+		})
+	}
+
 	return &params.ModelUpdate{
 		ModelUUID:      orig.ModelUUID,
 		Name:           orig.Name,
@@ -160,6 +169,7 @@ func (aw *SrvAllWatcher) translateModel(info multiwatcher.EntityInfo) params.Ent
 			Level: orig.SLA.Level,
 			Owner: orig.SLA.Owner,
 		},
+		Users: users,
 	}
 }
 

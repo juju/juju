@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/juju/charm/v8"
@@ -106,8 +107,10 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		SLA: multiwatcher.ModelSLAInfo{
 			Level: "unsupported",
 		},
-		UserPermissions: map[string]permission.Access{
-			"test-admin": permission.AdminAccess,
+		Users: map[string]multiwatcher.ModelUserInfo{
+			"test-admin": {
+				Access: permission.AdminAccess,
+			},
 		},
 	})
 
@@ -920,6 +923,10 @@ func (s *allWatcherStateSuite) TestChangeGenerations(c *gc.C) {
 	testChangeGenerations(c, s.performChangeTestCases)
 }
 
+func (s *allWatcherStateSuite) TestChangeModelUserLastConnection(c *gc.C) {
+	testChangeModelUserLastConnection(c, s.performChangeTestCases)
+}
+
 func (s *allWatcherStateSuite) TestChangeActions(c *gc.C) {
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
@@ -1344,8 +1351,10 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 							Level: "essential",
 							Owner: "test-sla-owner",
 						},
-						UserPermissions: map[string]permission.Access{
-							"test-admin": permission.AdminAccess,
+						Users: map[string]multiwatcher.ModelUserInfo{
+							"test-admin": {
+								Access: permission.AdminAccess,
+							},
 						},
 					}}}
 		},
@@ -1377,8 +1386,10 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 						SLA: multiwatcher.ModelSLAInfo{
 							Level: "unsupported",
 						},
-						UserPermissions: map[string]permission.Access{
-							"test-admin": permission.AdminAccess,
+						Users: map[string]multiwatcher.ModelUserInfo{
+							"test-admin": {
+								Access: permission.AdminAccess,
+							},
 						},
 					},
 				},
@@ -1408,8 +1419,10 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 						SLA: multiwatcher.ModelSLAInfo{
 							Level: "unsupported",
 						},
-						UserPermissions: map[string]permission.Access{
-							"test-admin": permission.AdminAccess,
+						Users: map[string]multiwatcher.ModelUserInfo{
+							"test-admin": {
+								Access: permission.AdminAccess,
+							},
 						},
 					}}}
 		},
@@ -1516,9 +1529,13 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					ModelUUID: st.ModelUUID(),
 					// Existence doesn't care about the other values, and they are
 					// not entirely relevant to this test.
-					UserPermissions: map[string]permission.Access{
-						"bob":  permission.ReadAccess,
-						"mary": permission.AdminAccess,
+					Users: map[string]multiwatcher.ModelUserInfo{
+						"bob": {
+							Access: permission.ReadAccess,
+						},
+						"mary": {
+							Access: permission.AdminAccess,
+						},
 					},
 				}},
 				change: watcher.Change{
@@ -1537,9 +1554,13 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					CloudRegion:     model.CloudRegion(),
 					CloudCredential: credential.Id(),
 					SLA:             multiwatcher.ModelSLAInfo{Level: "unsupported"},
-					UserPermissions: map[string]permission.Access{
-						"bob":  permission.ReadAccess,
-						"mary": permission.AdminAccess,
+					Users: map[string]multiwatcher.ModelUserInfo{
+						"bob": {
+							Access: permission.ReadAccess,
+						},
+						"mary": {
+							Access: permission.AdminAccess,
+						},
 					},
 				}}}
 		},
@@ -1562,9 +1583,13 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					Name:      model.Name(),
 					// Existence doesn't care about the other values, and they are
 					// not entirely relevant to this test.
-					UserPermissions: map[string]permission.Access{
-						"bob":  permission.ReadAccess,
-						"mary": permission.AdminAccess,
+					Users: map[string]multiwatcher.ModelUserInfo{
+						"bob": {
+							Access: permission.ReadAccess,
+						},
+						"mary": {
+							Access: permission.AdminAccess,
+						},
 					},
 				}},
 				change: watcher.Change{
@@ -1575,10 +1600,16 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
 					// When the permissions are updated, only the user permissions are changed.
-					UserPermissions: map[string]permission.Access{
-						"bob":           permission.ReadAccess,
-						"mary":          permission.AdminAccess,
-						"tony@external": permission.WriteAccess,
+					Users: map[string]multiwatcher.ModelUserInfo{
+						"bob": {
+							Access: permission.ReadAccess,
+						},
+						"mary": {
+							Access: permission.AdminAccess,
+						},
+						"tony@external": {
+							Access: permission.WriteAccess,
+						},
 					},
 				}}}
 		},
@@ -1594,9 +1625,13 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					Name:      model.Name(),
 					// Existence doesn't care about the other values, and they are
 					// not entirely relevant to this test.
-					UserPermissions: map[string]permission.Access{
-						"bob":  permission.ReadAccess,
-						"mary": permission.AdminAccess,
+					Users: map[string]multiwatcher.ModelUserInfo{
+						"bob": {
+							Access: permission.ReadAccess,
+						},
+						"mary": {
+							Access: permission.AdminAccess,
+						},
 					},
 				}},
 				change: watcher.Change{
@@ -1608,8 +1643,10 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
 					// When the permissions are updated, only the user permissions are changed.
-					UserPermissions: map[string]permission.Access{
-						"mary": permission.AdminAccess,
+					Users: map[string]multiwatcher.ModelUserInfo{
+						"mary": {
+							Access: permission.AdminAccess,
+						},
 					},
 				}}}
 		},
@@ -1641,9 +1678,13 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					Name:      model.Name(),
 					// Existence doesn't care about the other values, and they are
 					// not entirely relevant to this test.
-					UserPermissions: map[string]permission.Access{
-						"bob":  permission.ReadAccess,
-						"mary": permission.AdminAccess,
+					Users: map[string]multiwatcher.ModelUserInfo{
+						"bob": {
+							Access: permission.ReadAccess,
+						},
+						"mary": {
+							Access: permission.AdminAccess,
+						},
 					},
 				}},
 				change: watcher.Change{
@@ -1653,15 +1694,23 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
-					UserPermissions: map[string]permission.Access{
+					Users: map[string]multiwatcher.ModelUserInfo{
 						// Bob's permission updated to write.
-						"bob":  permission.WriteAccess,
-						"mary": permission.AdminAccess,
+						"bob": {
+							Access: permission.WriteAccess,
+						},
+						"mary": {
+							Access: permission.AdminAccess,
+						},
 					},
 				}}}
 		},
 	}
 	runChangeTests(c, changeTestFuncs)
+}
+
+func (s *allModelWatcherStateSuite) TestChangeModelUserLastConnection(c *gc.C) {
+	testChangeModelUserLastConnection(c, s.performChangeTestCases)
 }
 
 func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
@@ -3674,6 +3723,85 @@ func testChangeGenerations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 			}
 		},
 	}
+	runChangeTests(c, changeTestFuncs)
+}
+
+func testChangeModelUserLastConnection(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
+	var changeTestFuncs = []changeTestFunc{
+		func(c *gc.C, st *State) changeTestCase {
+			bob := names.NewUserTag("bob@external")
+			m, err := st.Model()
+			c.Assert(err, jc.ErrorIsNil)
+			err = m.UpdateLastModelConnection(bob)
+			c.Assert(err, jc.ErrorIsNil)
+			connectionTime, err := m.LastModelConnection(bob)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return changeTestCase{
+				about: "update last connection",
+				change: watcher.Change{
+					C:  modelUserLastConnectionC,
+					Id: st.docID(strings.ToLower(bob.Id())),
+				},
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.ModelInfo{
+						ModelUUID: st.ModelUUID(),
+						Users: map[string]multiwatcher.ModelUserInfo{
+							"bob@external": {
+								Access: permission.WriteAccess,
+							},
+						},
+					},
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.ModelInfo{
+						ModelUUID: st.ModelUUID(),
+						Users: map[string]multiwatcher.ModelUserInfo{
+							"bob@external": {
+								Access:         permission.WriteAccess,
+								LastConnection: &connectionTime,
+							},
+						},
+					},
+				},
+			}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			bob := names.NewUserTag("bob@external")
+			connectionTime := time.Now()
+
+			return changeTestCase{
+				about: "remove last connection",
+				change: watcher.Change{
+					C:     modelUserLastConnectionC,
+					Id:    st.docID(strings.ToLower(bob.Id())),
+					Revno: -1,
+				},
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.ModelInfo{
+						ModelUUID: st.ModelUUID(),
+						Users: map[string]multiwatcher.ModelUserInfo{
+							"bob@external": {
+								Access:         permission.WriteAccess,
+								LastConnection: &connectionTime,
+							},
+						},
+					},
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.ModelInfo{
+						ModelUUID: st.ModelUUID(),
+						Users: map[string]multiwatcher.ModelUserInfo{
+							"bob@external": {
+								Access: permission.WriteAccess,
+							},
+						},
+					},
+				},
+			}
+		},
+	}
+
 	runChangeTests(c, changeTestFuncs)
 }
 
