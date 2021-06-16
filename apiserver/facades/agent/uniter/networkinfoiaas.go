@@ -38,6 +38,12 @@ type Machine interface {
 	AllDeviceSpaceAddresses() (network.SpaceAddresses, error)
 }
 
+// machine shims the state representation of a machine in order to implement
+// the Machine indirection above.
+type machine struct {
+	*state.Machine
+}
+
 // NetworkInfoIAAS is used to provide network info for IAAS units.
 type NetworkInfoIAAS struct {
 	*NetworkInfoBase
@@ -46,7 +52,7 @@ type NetworkInfoIAAS struct {
 	machine Machine
 
 	// machineNetworkInfos contains network info for the unit's machine,
-	// keyed by space ID.
+	// keyed by spaces that the unit is bound to.
 	machineNetworkInfos map[string]params.NetworkInfoResult
 }
 
@@ -204,12 +210,18 @@ func (n *NetworkInfoIAAS) resolveResultIngressHostNames(netInfo params.NetworkIn
 }
 
 func (n *NetworkInfoIAAS) populateUnitMachine() error {
-	machineID, err := n.unit.AssignedMachineId()
+	mID, err := n.unit.AssignedMachineId()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	n.machine, err = n.st.Machine(machineID)
-	return errors.Trace(err)
+
+	m, err := n.st.Machine(mID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	n.machine = machine{m}
+	return nil
 }
 
 // populateMachineNetworkInfos sets network info for the unit's machine
