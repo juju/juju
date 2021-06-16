@@ -142,11 +142,11 @@ func (s *UpgradeSuite) TestEnsureUpgradeInfoDowngrade(c *gc.C) {
 	v111 := vers("1.1.1")
 
 	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, v123, v111)
-	c.Assert(err, gc.ErrorMatches, "cannot sanely upgrade from 1.2.3 to 1.1.1")
+	c.Assert(err, gc.ErrorMatches, "cannot upgrade from 1.2.3 to 1.1.1")
 	c.Assert(info, gc.IsNil)
 
 	info, err = s.State.EnsureUpgradeInfo(s.serverIdA, v123, v123)
-	c.Assert(err, gc.ErrorMatches, "cannot sanely upgrade from 1.2.3 to 1.2.3")
+	c.Assert(err, gc.ErrorMatches, "cannot upgrade from 1.2.3 to 1.2.3")
 	c.Assert(info, gc.IsNil)
 }
 
@@ -461,7 +461,7 @@ func (s *UpgradeSuite) TestSetStatusSetsModelStatus(c *gc.C) {
 	c.Assert(st.Message, jc.HasPrefix, "upgraded on")
 }
 
-func (s *UpgradeSuite) TestSetStatus(c *gc.C) {
+func (s *UpgradeSuite) TestSetStatusSuccess(c *gc.C) {
 	v123 := vers("1.2.3")
 	v234 := vers("2.3.4")
 	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, v123, v234)
@@ -472,6 +472,33 @@ func (s *UpgradeSuite) TestSetStatus(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(info.Status(), gc.Equals, expect)
 	}
+
+	err = info.SetStatus(state.UpgradeDBComplete)
+	c.Assert(err, jc.ErrorIsNil)
+	assertStatus(state.UpgradeDBComplete)
+
+	err = info.SetStatus(state.UpgradeRunning)
+	c.Assert(err, jc.ErrorIsNil)
+	assertStatus(state.UpgradeRunning)
+
+	// Test idempotency for when multiple controllers commence upgrade steps.
+	err = info.SetStatus(state.UpgradeRunning)
+	c.Assert(err, jc.ErrorIsNil)
+	assertStatus(state.UpgradeRunning)
+}
+
+func (s *UpgradeSuite) TestSetStatusErrors(c *gc.C) {
+	v123 := vers("1.2.3")
+	v234 := vers("2.3.4")
+	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, v123, v234)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertStatus := func(expect state.UpgradeStatus) {
+		info, err := s.State.EnsureUpgradeInfo(s.serverIdA, v123, v234)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(info.Status(), gc.Equals, expect)
+	}
+
 	err = info.SetStatus(state.UpgradePending)
 	c.Assert(err, gc.ErrorMatches, `cannot explicitly set upgrade status to "pending"`)
 	assertStatus(state.UpgradePending)
@@ -490,18 +517,7 @@ func (s *UpgradeSuite) TestSetStatus(c *gc.C) {
 
 	err = info.SetStatus(state.UpgradeRunning)
 	c.Assert(err, gc.ErrorMatches, `setting upgrade status to "running": `+
-		"state changing too quickly; try again soon")
-
-	err = info.SetStatus(state.UpgradeDBComplete)
-	c.Assert(err, jc.ErrorIsNil)
-	assertStatus(state.UpgradeDBComplete)
-
-	err = info.SetStatus(state.UpgradeRunning)
-	c.Assert(err, jc.ErrorIsNil)
-	assertStatus(state.UpgradeRunning)
-	err = info.SetStatus(state.UpgradeRunning)
-	c.Assert(err, jc.ErrorIsNil)
-	assertStatus(state.UpgradeRunning)
+		`upgrade status transition from "pending" to "running" not valid`)
 }
 
 func (s *UpgradeSuite) TestSetControllerDone(c *gc.C) {
