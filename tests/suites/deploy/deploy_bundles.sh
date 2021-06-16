@@ -24,6 +24,8 @@ run_deploy_bundle_overlay() {
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 0)"
 	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 1)"
+
+	destroy_model "test-bundles-deploy-overlay"
 }
 
 run_deploy_cmr_bundle() {
@@ -188,7 +190,6 @@ test_deploy_bundles() {
 
 		run "run_deploy_bundle"
 		run "run_deploy_bundle_overlay"
-		run "run_deploy_cmr_bundle"
 		run "run_deploy_exported_bundle"
 		run "run_deploy_trusted_bundle"
 		run "run_deploy_charmhub_bundle"
@@ -203,5 +204,9 @@ test_deploy_bundles() {
 			echo "==> TEST SKIPPED: deploy_lxd_profile_bundle - tests for LXD only"
 			;;
 		esac
+
+		# Run this last so the other tests run, there are intermittent issues
+		# in cmr tear down.
+		run "run_deploy_cmr_bundle"
 	)
 }
