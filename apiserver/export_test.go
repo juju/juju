@@ -44,7 +44,7 @@ func NewErrRoot(err error) *errRoot {
 // *barely* connected to anything.  Just enough to let you probe some
 // of the interfaces, but not enough to actually do any RPC calls.
 func TestingAPIRoot(facades *facade.Registry) rpc.Root {
-	root, err := newAPIRoot(clock.WallClock, nil, nil, facades, common.NewResources(), nil)
+	root, err := newAPIRoot(clock.WallClock, nil, nil, facades, common.NewResources(), nil, nil)
 	if err != nil {
 		// While not ideal, this is only in test code, and there are a bunch of other functions
 		// that depend on this one that don't return errors either.

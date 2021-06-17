@@ -57,6 +57,7 @@ func (ctx *charmsSuiteContext) Resources() facade.Resources                   { 
 func (ctx *charmsSuiteContext) State() *state.State                           { return ctx.cs.State }
 func (ctx *charmsSuiteContext) StatePool() *state.StatePool                   { return nil }
 func (ctx *charmsSuiteContext) ID() string                                    { return "" }
+func (ctx *charmsSuiteContext) RequestRecorder() facade.RequestRecorder       { return nil }
 func (ctx *charmsSuiteContext) Presence() facade.Presence                     { return nil }
 func (ctx *charmsSuiteContext) Hub() facade.Hub                               { return nil }
 func (ctx *charmsSuiteContext) Controller() *cache.Controller                 { return nil }

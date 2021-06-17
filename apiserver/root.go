@@ -147,7 +147,6 @@ func (r *apiHandler) Kill() {
 // and place a call on its method.
 type srvCaller struct {
 	objMethod rpcreflect.ObjMethod
-	goType    reflect.Type
 	creator   func(id string) (reflect.Value, error)
 }
 
@@ -175,26 +174,35 @@ func (s *srvCaller) Call(ctx context.Context, objId string, arg reflect.Value) (
 
 // apiRoot implements basic method dispatching to the facade registry.
 type apiRoot struct {
-	clock       clock.Clock
-	state       *state.State
-	shared      *sharedServerContext
-	facades     *facade.Registry
-	resources   *common.Resources
-	authorizer  facade.Authorizer
-	objectMutex sync.RWMutex
-	objectCache map[objectKey]reflect.Value
+	clock           clock.Clock
+	state           *state.State
+	shared          *sharedServerContext
+	facades         *facade.Registry
+	resources       *common.Resources
+	authorizer      facade.Authorizer
+	objectMutex     sync.RWMutex
+	objectCache     map[objectKey]reflect.Value
+	requestRecorder facade.RequestRecorder
 }
 
 // newAPIRoot returns a new apiRoot.
-func newAPIRoot(clock clock.Clock, st *state.State, shared *sharedServerContext, facades *facade.Registry, resources *common.Resources, authorizer facade.Authorizer) (*apiRoot, error) {
+func newAPIRoot(clock clock.Clock,
+	st *state.State,
+	shared *sharedServerContext,
+	facades *facade.Registry,
+	resources *common.Resources,
+	authorizer facade.Authorizer,
+	requestRecorder facade.RequestRecorder,
+) (*apiRoot, error) {
 	r := &apiRoot{
-		clock:       clock,
-		state:       st,
-		shared:      shared,
-		facades:     facades,
-		resources:   resources,
-		authorizer:  authorizer,
-		objectCache: make(map[objectKey]reflect.Value),
+		clock:           clock,
+		state:           st,
+		shared:          shared,
+		facades:         facades,
+		resources:       resources,
+		authorizer:      authorizer,
+		objectCache:     make(map[objectKey]reflect.Value),
+		requestRecorder: requestRecorder,
 	}
 	// Ensure that the model being requested is in our model cache.
 	// Client connections need it for status (or very soon will), and agents
@@ -498,6 +506,11 @@ func (ctx *facadeContext) MultiwatcherFactory() multiwatcher.Factory {
 // ID is part of the facade.Context interface.
 func (ctx *facadeContext) ID() string {
 	return ctx.key.objId
+}
+
+// RequestRecorder defines a metrics collector for outbound requests.
+func (ctx *facadeContext) RequestRecorder() facade.RequestRecorder {
+	return ctx.r.requestRecorder
 }
 
 // LeadershipClaimer is part of the facade.Context interface.

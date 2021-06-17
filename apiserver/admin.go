@@ -127,6 +127,9 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 		a.srv.facades,
 		a.root.resources,
 		a.root,
+		httpRequestRecorderWrapper{
+			collector: a.srv.metricsCollector,
+		},
 	)
 	if err != nil {
 		return fail, errors.Trace(err)

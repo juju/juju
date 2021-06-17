@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub"
 	"github.com/juju/ratelimit"
-	"github.com/juju/utils/v2"
 	"github.com/juju/worker/v2/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/tomb.v2"
@@ -70,7 +70,6 @@ type Server struct {
 	tag                    names.Tag
 	dataDir                string
 	logDir                 string
-	limiter                utils.Limiter
 	facades                *facade.Registry
 	authenticator          httpcontext.LocalMacaroonAuthenticator
 	offerAuthCtxt          *crossmodel.AuthContext
@@ -502,6 +501,22 @@ func (w logsinkMetricsCollectorWrapper) LogWriteCount(modelUUID, state string) p
 
 func (w logsinkMetricsCollectorWrapper) LogReadCount(modelUUID, state string) prometheus.Counter {
 	return w.collector.LogReadCount.WithLabelValues(modelUUID, state)
+}
+
+// httpRequestRecorderWrapper defines a wrapper from exposing the
+// essentials for the http request recorder.
+type httpRequestRecorderWrapper struct {
+	collector *Collector
+}
+
+// Record an outgoing request which produced an http.Response.
+func (w httpRequestRecorderWrapper) Record(method string, url *url.URL, res *http.Response, rtt time.Duration) {
+
+}
+
+// Record an outgoing request which returned back an error.
+func (w httpRequestRecorderWrapper) RecordError(method string, url *url.URL, err error) {
+
 }
 
 // loop is the main loop for the server.

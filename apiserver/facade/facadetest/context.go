@@ -25,6 +25,7 @@ type Context struct {
 	Controller_          *cache.Controller
 	MultiwatcherFactory_ multiwatcher.Factory
 	ID_                  string
+	RequestRecorder_     facade.RequestRecorder
 	Cancel_              <-chan struct{}
 
 	LeadershipClaimer_ leadership.Claimer
@@ -91,6 +92,11 @@ func (context Context) StatePool() *state.StatePool {
 // ID is part of the facade.Context interface.
 func (context Context) ID() string {
 	return context.ID_
+}
+
+// RequestRecorder defines a metrics collector for outbound requests.
+func (context Context) RequestRecorder() facade.RequestRecorder {
+	return context.RequestRecorder_
 }
 
 // Presence implements facade.Context.
