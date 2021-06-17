@@ -6,6 +6,7 @@ package resolver
 import (
 	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
+	"github.com/juju/mutex"
 
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/worker/fortress"
@@ -20,6 +21,7 @@ var logger interface{}
 // Logger represents the logging methods used in this package.
 type Logger interface {
 	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
 	Debugf(string, ...interface{})
 	Tracef(string, ...interface{})
 }
@@ -114,6 +116,19 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 			cfg.Logger.Tracef("running op: %v", op)
 			if err := cfg.Executor.Run(op, remoteStateChanged); err != nil {
 				close(done)
+
+				if errors.Cause(err) == mutex.ErrCancelled {
+					// If the lock acquisition was cancelled (such as when the
+					// migration-inactive flag drops, we do not want the
+					// resolver to surface that error. This puts the agent into
+					// the "failed" state, which causes the initial migration
+					// validation phase to fail.
+					// The safest thing to do is to bounce the loop and
+					// reevaluate our state, which is what happens upon a
+					// fortress error anyway (uniter.TranslateFortressErrors).
+					cfg.Logger.Warningf("executor lock acquisition cancelled")
+					return ErrRestart
+				}
 				return errors.Trace(err)
 			}
 			close(done)
