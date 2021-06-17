@@ -406,8 +406,8 @@ github.com/juju/gosigma v0.0.0-20200420012028-063911838a9e h1:JoXBbhRrYNw6EIPGcM
 github.com/juju/gosigma v0.0.0-20200420012028-063911838a9e/go.mod h1:OPBu48GcIJ30kNTA1cm+VbZb6GkQ6vthnr5v6NJ49eM=
 github.com/juju/http v0.0.0-20201019013536-69ae1d429836 h1:F+KhYWcKHSUf/R7Ovoz+s6VnK1wGFibaCrPXPYijFa4=
 github.com/juju/http v0.0.0-20201019013536-69ae1d429836/go.mod h1:lbZ9zbaOw9vMW7XMHGxYTgFadDDfzc4r8Aa7gP8GOYo=
-github.com/juju/http/v2 v2.0.0-20210527161802-e8d841c4e076 h1:Y9skx/w7NYVMj5N7t+rV66BYEMItpoSDG+Stb8beRuU=
-github.com/juju/http/v2 v2.0.0-20210527161802-e8d841c4e076/go.mod h1:y1PngvubGWeSpDBI4kxdaTc9f3HEThd2A5mv0MKBi74=
+github.com/juju/http/v2 v2.0.0-20210616081525-ede00d07798a h1:Moqm99huPhL1lffDs8uNZ6VJ3kAPDxPPu/kbZlMAy98=
+github.com/juju/http/v2 v2.0.0-20210616081525-ede00d07798a/go.mod h1:y1PngvubGWeSpDBI4kxdaTc9f3HEThd2A5mv0MKBi74=
 github.com/juju/httpprof v0.0.0-20141217160036-14bf14c30767 h1:COsaGcfAONDdIDnGS8yFdxOyReP7zKQEr7jFzCHKDkM=
 github.com/juju/httpprof v0.0.0-20141217160036-14bf14c30767/go.mod h1:+MaLYz4PumRkkyHYeXJ2G5g5cIW0sli2bOfpmbaMV/g=
 github.com/juju/httprequest v1.0.1/go.mod h1:K+CyYVHU/NcfbMpK7YIVobh4U4Fci3EUB2AqIRtl+xs=

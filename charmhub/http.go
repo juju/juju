@@ -11,7 +11,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 	"sort"
+	"time"
 
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
@@ -37,7 +39,34 @@ type Transport interface {
 
 // DefaultHTTPTransport creates a new HTTPTransport.
 func DefaultHTTPTransport(logger Logger) Transport {
-	return jujuhttp.NewClient(jujuhttp.WithLogger(logger))
+	return RequestRecorderHTTPTransport(loggingRequestRecorder{
+		logger: logger,
+	})(logger)
+}
+
+type loggingRequestRecorder struct {
+	logger Logger
+}
+
+// Record an outgoing request which produced an http.Response.
+func (r loggingRequestRecorder) Record(method string, url *url.URL, res *http.Response, rtt time.Duration) {
+
+}
+
+// Record an outgoing request which returned back an error.
+func (r loggingRequestRecorder) RecordError(method string, url *url.URL, err error) {
+
+}
+
+// RequestRecorderHTTPTransport creates a new HTTPTransport that records the
+// requests.
+func RequestRecorderHTTPTransport(recorder jujuhttp.RequestRecorder) func(logger Logger) Transport {
+	return func(logger Logger) Transport {
+		return jujuhttp.NewClient(
+			jujuhttp.WithRequestRecorder(recorder),
+			jujuhttp.WithLogger(logger),
+		)
+	}
 }
 
 // APIRequester creates a wrapper around the transport to allow for better
