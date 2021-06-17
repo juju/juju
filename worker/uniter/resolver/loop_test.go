@@ -10,6 +10,7 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/loggo"
+	"github.com/juju/mutex"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -261,7 +262,7 @@ func (s *LoopSuite) TestLoopWithChange(c *gc.C) {
 }
 
 func (s *LoopSuite) TestRunFails(c *gc.C) {
-	s.executor.SetErrors(errors.New("Run fails"))
+	s.executor.SetErrors(errors.New("run fails"))
 	s.resolver = resolver.ResolverFunc(func(
 		_ resolver.LocalState,
 		_ remotestate.Snapshot,
@@ -270,7 +271,7 @@ func (s *LoopSuite) TestRunFails(c *gc.C) {
 		return mockOp{}, nil
 	})
 	_, err := s.loop()
-	c.Assert(err, gc.ErrorMatches, "Run fails")
+	c.Assert(err, gc.ErrorMatches, "run fails")
 }
 
 func (s *LoopSuite) TestNextOpFails(c *gc.C) {
@@ -451,6 +452,31 @@ func (s *LoopSuite) testCheckCharmUpgradeCallsRun(c *gc.C) {
 	// Run not called
 	c.Assert(s.executor.Calls(), gc.HasLen, 4)
 	s.executor.CheckCallNames(c, "State", "State", "Run", "State")
+}
+
+func (s *LoopSuite) TestCancelledLockAcquisitionCausesRestart(c *gc.C) {
+	s.executor = &mockOpExecutor{
+		Executor: nil,
+		Stub:     envtesting.Stub{},
+		st: operation.State{
+			Started: true,
+			Kind:    operation.Continue,
+		},
+		run: func(operation.Operation, <-chan remotestate.Snapshot) error {
+			return mutex.ErrCancelled
+		},
+	}
+
+	s.resolver = resolver.ResolverFunc(func(
+		_ resolver.LocalState,
+		_ remotestate.Snapshot,
+		_ operation.Factory,
+	) (operation.Operation, error) {
+		return &mockOp{}, nil
+	})
+
+	_, err := s.loop()
+	c.Assert(err, gc.Equals, resolver.ErrRestart)
 }
 
 func waitChannel(c *gc.C, ch <-chan interface{}, activity string) interface{} {
