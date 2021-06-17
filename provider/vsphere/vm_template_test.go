@@ -100,10 +100,18 @@ func (v *vmTemplateSuite) addMockLocalTemplateToClient() {
 }
 
 func (v *vmTemplateSuite) addMockDownloadedTemplateToClient() {
+	v.mockDownloadedTemplateToClient("amd64")
+}
+
+func (v *vmTemplateSuite) addMockDownloadedTemplateToClientNoArch() {
+	v.mockDownloadedTemplateToClient("")
+}
+
+func (v *vmTemplateSuite) mockDownloadedTemplateToClient(arch string) {
 	args := vsphereclient.ImportOVAParameters{
 		OVASHA256:    ovatest.FakeOVASHA256(),
 		Series:       "trusty",
-		Arch:         "amd64",
+		Arch:         arch,
 		TemplateName: "juju-template-" + ovatest.FakeOVASHA256(),
 		DestinationFolder: object.NewFolder(nil, types.ManagedObjectReference{
 			Type: "Folder",
@@ -231,5 +239,25 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageCachedImage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tpl, gc.NotNil)
 	c.Assert(arch, gc.Equals, "amd64")
+	v.client.CheckCallNames(c, "ListVMTemplates", "VirtualMachineObjectToManagedObject")
+}
+
+func (v *vmTemplateSuite) TestEnsureTemplateImageCachedImageNoArch(c *gc.C) {
+	arches := []string{
+		"amd64",
+	}
+
+	v.addMockDownloadedTemplateToClientNoArch()
+	resPool := v.client.resourcePools["/DC/host/z1/..."][0]
+	tplMgr := vsphere.NewVMTemplateManager(
+		nil, v.env, v.client, resPool.Reference(),
+		v.datastore, v.statusUpdateParams, "",
+		coretesting.FakeControllerConfig().ControllerUUID(),
+	)
+
+	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "trusty", arches)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tpl, gc.NotNil)
+	c.Assert(arch, gc.Equals, "")
 	v.client.CheckCallNames(c, "ListVMTemplates", "VirtualMachineObjectToManagedObject")
 }

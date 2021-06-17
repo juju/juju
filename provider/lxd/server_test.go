@@ -19,6 +19,7 @@ import (
 	containerLXD "github.com/juju/juju/container/lxd"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/provider/lxd"
+	"github.com/juju/juju/provider/lxd/mocks"
 )
 
 var (
@@ -481,9 +482,9 @@ func (s *serverSuite) TestRemoteServerWithGetServerError(c *gc.C) {
 	c.Assert(errors.Cause(err).Error(), gc.Equals, "bad")
 }
 
-func (s *serverSuite) newLocalServerFactory(ctrl *gomock.Controller) (lxd.ServerFactory, *lxd.MockServer, *lxd.MockInterfaceAddress) {
-	server := lxd.NewMockServer(ctrl)
-	interfaceAddr := lxd.NewMockInterfaceAddress(ctrl)
+func (s *serverSuite) newLocalServerFactory(ctrl *gomock.Controller) (lxd.ServerFactory, *mocks.MockServer, *mocks.MockInterfaceAddress) {
+	server := mocks.NewMockServer(ctrl)
+	interfaceAddr := mocks.NewMockInterfaceAddress(ctrl)
 
 	factory := lxd.NewServerFactoryWithMocks(
 		func() (lxd.Server, error) {
@@ -497,9 +498,9 @@ func (s *serverSuite) newLocalServerFactory(ctrl *gomock.Controller) (lxd.Server
 	return factory, server, interfaceAddr
 }
 
-func (s *serverSuite) newRemoteServerFactory(ctrl *gomock.Controller) (lxd.ServerFactory, *lxd.MockServer) {
-	server := lxd.NewMockServer(ctrl)
-	interfaceAddr := lxd.NewMockInterfaceAddress(ctrl)
+func (s *serverSuite) newRemoteServerFactory(ctrl *gomock.Controller) (lxd.ServerFactory, *mocks.MockServer) {
+	server := mocks.NewMockServer(ctrl)
+	interfaceAddr := mocks.NewMockInterfaceAddress(ctrl)
 
 	return lxd.NewServerFactoryWithMocks(
 		defaultLocalServerFunc(ctrl),
@@ -513,13 +514,13 @@ func (s *serverSuite) newRemoteServerFactory(ctrl *gomock.Controller) (lxd.Serve
 
 func defaultLocalServerFunc(ctrl *gomock.Controller) func() (lxd.Server, error) {
 	return func() (lxd.Server, error) {
-		return lxd.NewMockServer(ctrl), nil
+		return mocks.NewMockServer(ctrl), nil
 	}
 }
 
 func defaultRemoteServerFunc(ctrl *gomock.Controller) func(containerLXD.ServerSpec) (lxd.Server, error) {
 	return func(containerLXD.ServerSpec) (lxd.Server, error) {
-		return lxd.NewMockServer(ctrl), nil
+		return mocks.NewMockServer(ctrl), nil
 	}
 }
 

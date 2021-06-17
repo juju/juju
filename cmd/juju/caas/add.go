@@ -5,6 +5,7 @@ package caas
 
 import (
 	"bytes"
+	stdcontext "context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -720,7 +721,7 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 		openParams.ControllerUUID = ctrlUUID
 	}
 
-	broker, err := caas.New(openParams)
+	broker, err := caas.New(stdcontext.TODO(), openParams)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

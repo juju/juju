@@ -109,6 +109,9 @@ type LiveTests struct {
 	// calls to a cloud provider.
 	ProviderCallContext context.ProviderCallContext
 
+	// BootstrapContext holds the context to bootstrap a test environment.
+	BootstrapContext environs.BootstrapContext
+
 	prepared     bool
 	bootstrapped bool
 	toolsStorage storage.Storage
@@ -119,6 +122,15 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.TestDataSuite.SetUpSuite(c)
 	t.ControllerStore = jujuclient.NewMemStore()
 	t.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+
+	// Setup the simplestreams bootstrap context.
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+
+	ctx := stdcontext.TODO()
+	ctx = stdcontext.WithValue(ctx, bootstrap.SimplestreamsFetcherContextKey, ss)
+
+	t.BootstrapContext = envtesting.BootstrapContext(ctx, c)
+	t.ProviderCallContext = context.NewCloudCallContext(ctx)
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
@@ -133,7 +145,6 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
 	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c, nil))
-	t.ProviderCallContext = context.NewCloudCallContext(stdcontext.Background())
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -155,7 +166,7 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 	}
 
 	args := t.prepareForBootstrapParams(c)
-	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.TODO(), c), t.ControllerStore, args)
+	e, err := bootstrap.PrepareController(false, t.BootstrapContext, t.ControllerStore, args)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	t.Env = e.(environs.Environ)
@@ -217,6 +228,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	if t.bootstrapped {
 		return
 	}
+
 	t.PrepareOnce(c)
 	// We only build and upload tools if there will be a state agent that
 	// we could connect to (actual live tests, rather than local-only)
@@ -230,10 +242,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	args.BootstrapConstraints = cons
 	args.ModelConstraints = cons
 
-	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	ctx := stdcontext.WithValue(stdcontext.TODO(), bootstrap.SimplestreamsFetcherContextKey, ss)
-
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(ctx, c), t.Env, t.ProviderCallContext, args)
+	err := bootstrap.Bootstrap(t.BootstrapContext, t.Env, t.ProviderCallContext, args)
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = true
 }
@@ -961,7 +970,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	})
 	args := t.prepareForBootstrapParams(c)
 	args.ModelConfig = dummyCfg
-	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.TODO(), c),
+	e, err := bootstrap.PrepareController(false, t.BootstrapContext,
 		jujuclient.NewMemStore(),
 		args,
 	)
@@ -975,13 +984,13 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"default-series": "quantal",
 	})
 	args.ModelConfig = attrs
-	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.TODO(), c),
+	env, err := bootstrap.PrepareController(false, t.BootstrapContext,
 		t.ControllerStore,
 		args)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = environs.Destroy("livetests", env, t.ProviderCallContext, t.ControllerStore) }()
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(stdcontext.TODO(), c), env, t.ProviderCallContext, t.bootstrapParams())
+	err = bootstrap.Bootstrap(t.BootstrapContext, env, t.ProviderCallContext, t.bootstrapParams())
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()

@@ -4,6 +4,7 @@
 package caasbroker_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -29,7 +30,7 @@ var _ = gc.Suite(&TrackerSuite{})
 func (s *TrackerSuite) validConfig() caasbroker.Config {
 	return caasbroker.Config{
 		ConfigAPI: &runContext{},
-		NewContainerBrokerFunc: func(environs.OpenParams) (caas.Broker, error) {
+		NewContainerBrokerFunc: func(context.Context, environs.OpenParams) (caas.Broker, error) {
 			return nil, errors.NotImplementedf("test func")
 		},
 		Logger: loggo.GetLogger("test"),
@@ -120,10 +121,10 @@ func (s *TrackerSuite) TestSuccess(c *gc.C) {
 
 func (s *TrackerSuite) TestInitialise(c *gc.C) {
 	fix := s.validFixture()
-	fix.Run(c, func(context *runContext) {
+	fix.Run(c, func(runContext *runContext) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
-			ConfigAPI: context,
-			NewContainerBrokerFunc: func(args environs.OpenParams) (caas.Broker, error) {
+			ConfigAPI: runContext,
+			NewContainerBrokerFunc: func(_ context.Context, args environs.OpenParams) (caas.Broker, error) {
 				c.Assert(args.Cloud, jc.DeepEquals, fix.initialSpec)
 				c.Assert(args.Config.Name(), jc.DeepEquals, "testmodel")
 				return nil, errors.NotValidf("cloud spec")
@@ -132,7 +133,7 @@ func (s *TrackerSuite) TestInitialise(c *gc.C) {
 		})
 		c.Check(err, gc.ErrorMatches, `cannot create caas broker: cloud spec not valid`)
 		c.Check(tracker, gc.IsNil)
-		context.CheckCallNames(c, "CloudSpec", "ModelConfig", "ControllerConfig")
+		runContext.CheckCallNames(c, "CloudSpec", "ModelConfig", "ControllerConfig")
 	})
 }
 
@@ -157,17 +158,17 @@ func (s *TrackerSuite) TestModelConfigFails(c *gc.C) {
 
 func (s *TrackerSuite) TestModelConfigInvalid(c *gc.C) {
 	fix := &fixture{}
-	fix.Run(c, func(context *runContext) {
+	fix.Run(c, func(runContext *runContext) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
-			ConfigAPI: context,
-			NewContainerBrokerFunc: func(environs.OpenParams) (caas.Broker, error) {
+			ConfigAPI: runContext,
+			NewContainerBrokerFunc: func(context.Context, environs.OpenParams) (caas.Broker, error) {
 				return nil, errors.NotValidf("config")
 			},
 			Logger: loggo.GetLogger("test"),
 		})
 		c.Check(err, gc.ErrorMatches, `cannot create caas broker: config not valid`)
 		c.Check(tracker, gc.IsNil)
-		context.CheckCallNames(c, "CloudSpec", "ModelConfig", "ControllerConfig")
+		runContext.CheckCallNames(c, "CloudSpec", "ModelConfig", "ControllerConfig")
 	})
 }
 
@@ -199,10 +200,10 @@ func (s *TrackerSuite) TestCloudSpecInvalid(c *gc.C) {
 		Region: "baz",
 	}
 	fix := &fixture{initialSpec: cloudSpec}
-	fix.Run(c, func(context *runContext) {
+	fix.Run(c, func(runContext *runContext) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
-			ConfigAPI: context,
-			NewContainerBrokerFunc: func(args environs.OpenParams) (caas.Broker, error) {
+			ConfigAPI: runContext,
+			NewContainerBrokerFunc: func(_ context.Context, args environs.OpenParams) (caas.Broker, error) {
 				c.Assert(args.Cloud, jc.DeepEquals, cloudSpec)
 				return nil, errors.NotValidf("cloud spec")
 			},
@@ -210,7 +211,7 @@ func (s *TrackerSuite) TestCloudSpecInvalid(c *gc.C) {
 		})
 		c.Check(err, gc.ErrorMatches, `cannot create caas broker: cloud spec not valid`)
 		c.Check(tracker, gc.IsNil)
-		context.CheckCallNames(c, "CloudSpec", "ModelConfig", "ControllerConfig")
+		runContext.CheckCallNames(c, "CloudSpec", "ModelConfig", "ControllerConfig")
 	})
 }
 
@@ -295,10 +296,10 @@ func (s *TrackerSuite) TestWatchedModelConfigFails(c *gc.C) {
 
 func (s *TrackerSuite) TestWatchedModelConfigIncompatible(c *gc.C) {
 	fix := &fixture{}
-	fix.Run(c, func(context *runContext) {
+	fix.Run(c, func(runContext *runContext) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
-			ConfigAPI: context,
-			NewContainerBrokerFunc: func(environs.OpenParams) (caas.Broker, error) {
+			ConfigAPI: runContext,
+			NewContainerBrokerFunc: func(context.Context, environs.OpenParams) (caas.Broker, error) {
 				broker := &mockBroker{}
 				broker.SetErrors(errors.New("SetConfig is broken"))
 				return broker, nil
@@ -308,10 +309,10 @@ func (s *TrackerSuite) TestWatchedModelConfigIncompatible(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
 
-		context.SendModelConfigNotify()
+		runContext.SendModelConfigNotify()
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches, "cannot update model config: SetConfig is broken")
-		context.CheckCallNames(c, "CloudSpec", "ModelConfig", "ControllerConfig", "WatchForModelConfigChanges", "WatchCloudSpecChanges", "ModelConfig")
+		runContext.CheckCallNames(c, "CloudSpec", "ModelConfig", "ControllerConfig", "WatchForModelConfigChanges", "WatchCloudSpecChanges", "ModelConfig")
 	})
 }
 

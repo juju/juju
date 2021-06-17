@@ -6,6 +6,7 @@
 package cloudsigma
 
 import (
+	stdcontext "context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -66,7 +67,7 @@ func (environProvider) Version() int {
 // Open opens the environment and returns it.
 // The configuration must have come from a previously
 // prepared environment.
-func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+func (environProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	logger.Infof("opening model %q", args.Config.Name())
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")

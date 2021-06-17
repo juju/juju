@@ -4,6 +4,7 @@
 package environ_test
 
 import (
+	"context"
 	"reflect"
 	"time"
 
@@ -89,15 +90,15 @@ func (s *TrackerSuite) TestModelConfigFails(c *gc.C) {
 
 func (s *TrackerSuite) TestModelConfigInvalid(c *gc.C) {
 	fix := &fixture{}
-	fix.Run(c, func(context *runContext) {
-		config := s.validConfig(context)
-		config.NewEnvironFunc = func(environs.OpenParams) (environs.Environ, error) {
+	fix.Run(c, func(runContext *runContext) {
+		config := s.validConfig(runContext)
+		config.NewEnvironFunc = func(context.Context, environs.OpenParams) (environs.Environ, error) {
 			return nil, errors.NotValidf("config")
 		}
 		tracker, err := environ.NewTracker(config)
 		c.Check(err, gc.ErrorMatches, `cannot create environ: config not valid`)
 		c.Check(tracker, gc.IsNil)
-		context.CheckCallNames(c, "ModelConfig", "CloudSpec")
+		runContext.CheckCallNames(c, "ModelConfig", "CloudSpec")
 	})
 }
 
@@ -125,16 +126,16 @@ func (s *TrackerSuite) TestCloudSpec(c *gc.C) {
 		Region: "baz",
 	}
 	fix := &fixture{initialSpec: cloudSpec}
-	fix.Run(c, func(context *runContext) {
-		config := s.validConfig(context)
-		config.NewEnvironFunc = func(args environs.OpenParams) (environs.Environ, error) {
+	fix.Run(c, func(runContext *runContext) {
+		config := s.validConfig(runContext)
+		config.NewEnvironFunc = func(_ context.Context, args environs.OpenParams) (environs.Environ, error) {
 			c.Assert(args.Cloud, jc.DeepEquals, cloudSpec)
 			return nil, errors.NotValidf("cloud spec")
 		}
 		tracker, err := environ.NewTracker(config)
 		c.Check(err, gc.ErrorMatches, `cannot create environ: cloud spec not valid`)
 		c.Check(tracker, gc.IsNil)
-		context.CheckCallNames(c, "ModelConfig", "CloudSpec")
+		runContext.CheckCallNames(c, "ModelConfig", "CloudSpec")
 	})
 }
 
@@ -203,9 +204,9 @@ func (s *TrackerSuite) TestWatchedModelConfigFails(c *gc.C) {
 
 func (s *TrackerSuite) TestWatchedModelConfigIncompatible(c *gc.C) {
 	fix := &fixture{}
-	fix.Run(c, func(context *runContext) {
-		config := s.validConfig(context)
-		config.NewEnvironFunc = func(environs.OpenParams) (environs.Environ, error) {
+	fix.Run(c, func(runContext *runContext) {
+		config := s.validConfig(runContext)
+		config.NewEnvironFunc = func(context.Context, environs.OpenParams) (environs.Environ, error) {
 			env := &mockEnviron{}
 			env.SetErrors(errors.New("SetConfig is broken"))
 			return env, nil
@@ -214,10 +215,10 @@ func (s *TrackerSuite) TestWatchedModelConfigIncompatible(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
 
-		context.SendModelConfigNotify()
+		runContext.SendModelConfigNotify()
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches, "cannot update environ config: SetConfig is broken")
-		context.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "WatchCloudSpecChanges", "ModelConfig")
+		runContext.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "WatchCloudSpecChanges", "ModelConfig")
 	})
 }
 

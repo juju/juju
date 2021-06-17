@@ -4,6 +4,7 @@
 package caas
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -48,17 +49,17 @@ func RegisterContainerProvider(name string, p ContainerEnvironProvider, alias ..
 }
 
 // New returns a new broker based on the provided configuration.
-func New(args environs.OpenParams) (Broker, error) {
+func New(ctx context.Context, args environs.OpenParams) (Broker, error) {
 	p, err := environs.Provider(args.Cloud.Type)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return Open(p, args)
+	return Open(ctx, p, args)
 }
 
 // Open creates a Broker instance and errors if the provider is not for
 // a container substrate.
-func Open(p environs.EnvironProvider, args environs.OpenParams) (Broker, error) {
+func Open(ctx context.Context, p environs.EnvironProvider, args environs.OpenParams) (Broker, error) {
 	if envProvider, ok := p.(ContainerEnvironProvider); !ok {
 		return nil, errors.NotValidf("container environ provider %T", p)
 	} else {
@@ -67,7 +68,7 @@ func Open(p environs.EnvironProvider, args environs.OpenParams) (Broker, error) 
 }
 
 // NewContainerBrokerFunc returns a Container Broker.
-type NewContainerBrokerFunc func(args environs.OpenParams) (Broker, error)
+type NewContainerBrokerFunc func(ctx context.Context, args environs.OpenParams) (Broker, error)
 
 // StatusCallbackFunc represents a function that can be called to report a status.
 type StatusCallbackFunc func(appName string, settableStatus status.Status, info string, data map[string]interface{}) error

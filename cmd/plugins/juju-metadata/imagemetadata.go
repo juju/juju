@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,12 +27,12 @@ import (
 	"github.com/juju/juju/version"
 )
 
-func prepare(context *cmd.Context, controllerName string, store jujuclient.ClientStore) (environs.Environ, error) {
+func prepare(ctx *cmd.Context, controllerName string, store jujuclient.ClientStore) (environs.Environ, error) {
 	// NOTE(axw) this is a work-around for the TODO below. This
 	// means that the command will only work if you've bootstrapped
 	// the specified environment.
 	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(
-		context, store, environs.GlobalProviderRegistry(),
+		ctx, store, environs.GlobalProviderRegistry(),
 	)(controllerName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -53,7 +54,7 @@ func prepare(context *cmd.Context, controllerName string, store jujuclient.Clien
 	// identify region and endpoint info that we need. Not sure what
 	// we'll do about simplestreams.MetadataValidator yet. Probably
 	// move it to the EnvironProvider interface.
-	return environs.New(environs.OpenParams{
+	return environs.New(context.TODO(), environs.OpenParams{
 		Cloud:  params.Cloud,
 		Config: cfg,
 	})

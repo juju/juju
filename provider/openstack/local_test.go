@@ -5,6 +5,7 @@ package openstack_test
 
 import (
 	"bytes"
+	stdcontext "context"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
@@ -185,7 +186,7 @@ func (s *localHTTPSServerSuite) envUsingCertificate(c *gc.C) environs.Environ {
 	cloudSpec.CACertificates, err = s.srv.openstackCertificate(c)
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := environs.New(environs.OpenParams{
+	env, err := environs.New(stdcontext.TODO(), environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: cfg,
 	})
@@ -355,7 +356,7 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 func (s *localServerSuite) openEnviron(c *gc.C, attrs coretesting.Attrs) environs.Environ {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(attrs))
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(environs.OpenParams{
+	env, err := environs.New(stdcontext.TODO(), environs.OpenParams{
 		Cloud:  s.CloudSpec(),
 		Config: cfg,
 	})
@@ -1342,7 +1343,7 @@ func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) 
 	s.PatchValue(openstack.MakeServiceURL, func(client.AuthenticatingClient, string, string, []string) (string, error) {
 		return "", errors.New("cannae do it captain")
 	})
-	env := s.Open(c, s.env.Config())
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	sources, err := environs.ImageMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 2)
@@ -1356,7 +1357,7 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	s.PatchValue(&tools.DefaultBaseURL, "")
 
-	env := s.Open(c, s.env.Config())
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	sources, err := tools.GetMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 2)
@@ -1374,13 +1375,13 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 }
 
 func (s *localServerSuite) TestSupportsNetworking(c *gc.C) {
-	env := s.Open(c, s.env.Config())
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	_, ok := environs.SupportsNetworking(env)
 	c.Assert(ok, jc.IsTrue)
 }
 
 func (s *localServerSuite) prepareNetworkingEnviron(c *gc.C, cfg *config.Config) environs.NetworkingEnviron {
-	env := s.Open(c, cfg)
+	env := s.Open(c, stdcontext.TODO(), cfg)
 	netenv, supported := environs.SupportsNetworking(env)
 	c.Assert(supported, jc.IsTrue)
 	return netenv
@@ -1513,7 +1514,7 @@ func (s *localServerSuite) TestSuperSubnets(c *gc.C) {
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
-	env := s.Open(c, s.env.Config())
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 
 	// An error occurs if no suitable image is found.
 	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=1G", nil)
@@ -1521,7 +1522,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 }
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
-	env := s.Open(c, s.env.Config())
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	validator, err := env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 cpu-power=10 virt-type=lxd")
@@ -1531,7 +1532,7 @@ func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 }
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
-	env := s.Open(c, s.env.Config())
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	validator, err := env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1545,7 +1546,7 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 }
 
 func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
-	env := s.Open(c, s.env.Config())
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	validator, err := env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	consA := constraints.MustParse("arch=amd64 mem=1G root-disk=10G")
@@ -1557,7 +1558,7 @@ func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
 }
 
 func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
-	env := s.Open(c, s.env.Config())
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	imageMetadata := []*imagemetadata.ImageMetadata{{
 		Id:   "image-id",
 		Arch: "amd64",
@@ -1573,7 +1574,7 @@ func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
 
 func (s *localServerSuite) TestFindInstanceImageConstraintHypervisor(c *gc.C) {
 	testVirtType := "qemu"
-	env := s.Open(c, s.env.Config())
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	imageMetadata := []*imagemetadata.ImageMetadata{{
 		Id:       "image-id",
 		Arch:     "amd64",
@@ -1592,7 +1593,7 @@ func (s *localServerSuite) TestFindInstanceImageConstraintHypervisor(c *gc.C) {
 
 func (s *localServerSuite) TestFindInstanceImageWithHypervisorNoConstraint(c *gc.C) {
 	testVirtType := "qemu"
-	env := s.Open(c, s.env.Config())
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	imageMetadata := []*imagemetadata.ImageMetadata{{
 		Id:       "image-id",
 		Arch:     "amd64",
@@ -1610,7 +1611,7 @@ func (s *localServerSuite) TestFindInstanceImageWithHypervisorNoConstraint(c *gc
 }
 
 func (s *localServerSuite) TestFindInstanceNoConstraint(c *gc.C) {
-	env := s.Open(c, s.env.Config())
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	imageMetadata := []*imagemetadata.ImageMetadata{{
 		Id:   "image-id",
 		Arch: "amd64",
@@ -1626,7 +1627,7 @@ func (s *localServerSuite) TestFindInstanceNoConstraint(c *gc.C) {
 }
 
 func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
-	env := s.Open(c, s.env.Config())
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	imageMetadata := []*imagemetadata.ImageMetadata{{
 		Id:   "image-id",
 		Arch: "amd64",
@@ -1639,21 +1640,21 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 }
 
 func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
-	env := s.Open(c, s.env.Config())
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.small")
 	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
-	env := s.Open(c, s.env.Config())
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.large")
 	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons})
 	c.Assert(err, gc.ErrorMatches, `invalid Openstack flavour "m1.large" specified`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceInvalidRootDiskConstraint(c *gc.C) {
-	env := s.Open(c, s.env.Config())
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.small root-disk=10G")
 	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons})
 	c.Assert(err, gc.ErrorMatches, `constraint root-disk cannot be specified with instance-type unless constraint root-disk-source=volume`)
@@ -1869,7 +1870,7 @@ func (s *localServerSuite) TestDeriveAvailabilityZonesConflictsVolume(c *gc.C) {
 
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	env := s.Open(c, s.env.Config())
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	params, err := env.(simplestreams.ImageMetadataValidator).ImageMetadataLookupParams("some-region")
 	c.Assert(err, jc.ErrorIsNil)
 	params.Sources, err = environs.ImageMetadataSources(env, ss)
@@ -1890,7 +1891,7 @@ func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 			Priority:             simplestreams.CUSTOM_CLOUD_DATA}), nil
 	}
 	environs.RegisterUserImageDataSourceFunc("my func", src)
-	env := s.Open(c, s.env.Config())
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	sources, err := environs.ImageMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
 	var sourceIds []string
@@ -2134,7 +2135,7 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 	newattrs["ssl-hostname-verification"] = true
 	cfg, err := config.New(config.NoDefaults, newattrs)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = environs.New(environs.OpenParams{
+	_, err = environs.New(stdcontext.TODO(), environs.OpenParams{
 		Cloud:  makeCloudSpec(s.cred),
 		Config: cfg,
 	})
@@ -2834,7 +2835,7 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 		"uuid": hostedModelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(environs.OpenParams{
+	env, err := environs.New(stdcontext.TODO(), environs.OpenParams{
 		Cloud:  makeCloudSpec(s.cred),
 		Config: cfg,
 	})
@@ -2880,7 +2881,7 @@ func (s *localServerSuite) TestAdoptResourcesNoStorage(c *gc.C) {
 		"uuid": hostedModelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(environs.OpenParams{
+	env, err := environs.New(stdcontext.TODO(), environs.OpenParams{
 		Cloud:  makeCloudSpec(s.cred),
 		Config: cfg,
 	})
@@ -3019,7 +3020,6 @@ type noNeutronSuite struct {
 	coretesting.BaseSuite
 	cred *identity.Credentials
 	srv  localServer
-	env  environs.Environ
 }
 
 func (s *noNeutronSuite) SetUpSuite(c *gc.C) {

@@ -52,7 +52,7 @@ func (s *credentialsSuite) TestAccessKeyHiddenAttributes(c *gc.C) {
 
 func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
 	// No environment variables set, so no credentials should be found.
-	_, err := s.provider.DetectCredentials()
+	_, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -69,7 +69,7 @@ func (s *credentialsSuite) TestDetectCredentialsEnvironmentVariables(c *gc.C) {
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "key-id")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret-access-key")
 
-	credentials, err := s.provider.DetectCredentials()
+	credentials, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := cloud.NewCredential(
 		cloud.AccessKeyAuthType, map[string]string{
@@ -106,7 +106,7 @@ region=region
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "key-id")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret-access-key")
 
-	credentials, err := s.provider.DetectCredentials()
+	credentials, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials.DefaultRegion, gc.Equals, "region")
 	expected := cloud.NewCredential(

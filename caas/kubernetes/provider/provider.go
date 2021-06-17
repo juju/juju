@@ -4,6 +4,7 @@
 package provider
 
 import (
+	stdcontext "context"
 	"net/url"
 
 	jujuclock "github.com/juju/clock"
@@ -45,7 +46,7 @@ var providerInstance = kubernetesEnvironProvider{
 	cmdRunner:          defaultRunner{},
 	builtinCloudGetter: attemptMicroK8sCloud,
 	brokerGetter: func(args environs.OpenParams) (k8s.ClusterMetadataChecker, error) {
-		broker, err := caas.New(args)
+		broker, err := caas.New(stdcontext.TODO(), args)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

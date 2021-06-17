@@ -5,6 +5,7 @@ package ec2_test
 
 import (
 	"bytes"
+	stdcontext "context"
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
@@ -76,7 +77,7 @@ func (s *ebsSuite) ebsProvider(c *gc.C) storage.Provider {
 			"secret-key": "x",
 		},
 	)
-	env, err := environs.Open(provider, environs.OpenParams{
+	env, err := environs.Open(stdcontext.TODO(), provider, environs.OpenParams{
 		Cloud: environscloudspec.CloudSpec{
 			Type:       "ec2",
 			Name:       "ec2test",

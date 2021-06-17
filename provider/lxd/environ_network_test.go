@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package lxd
+package lxd_test
 
 import (
 	"github.com/golang/mock/gomock"
@@ -15,10 +15,12 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/provider/lxd"
+	"github.com/juju/juju/provider/lxd/mocks"
 )
 
 type environNetSuite struct {
-	EnvironSuite
+	lxd.EnvironSuite
 }
 
 var _ = gc.Suite(&environNetSuite{})
@@ -27,10 +29,10 @@ func (s *environNetSuite) TestSubnetsForUnknownContainer(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	srv := NewMockServer(ctrl)
+	srv := mocks.NewMockServer(ctrl)
 	srv.EXPECT().FilterContainers("bogus").Return(nil, nil)
 
-	env := s.NewEnviron(c, srv, nil).(*environ)
+	env := s.NewEnviron(c, srv, nil).(environs.Networking)
 
 	ctx := context.NewEmptyCloudCallContext()
 	_, err := env.Subnets(ctx, "bogus", nil)
@@ -41,10 +43,10 @@ func (s *environNetSuite) TestSubnetsForServersThatLackRequiredAPIExtensions(c *
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	srv := NewMockServer(ctrl)
+	srv := mocks.NewMockServer(ctrl)
 	srv.EXPECT().GetNetworkNames().Return(nil, errors.New(`server is missing the required "network" API extension`)).AnyTimes()
 
-	env := s.NewEnviron(c, srv, nil).(*environ)
+	env := s.NewEnviron(c, srv, nil).(environs.Networking)
 	ctx := context.NewEmptyCloudCallContext()
 
 	// Space support and by extension, subnet detection is not available.
@@ -66,7 +68,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	srv := NewMockServer(ctrl)
+	srv := mocks.NewMockServer(ctrl)
 	srv.EXPECT().FilterContainers("woot").Return([]jujulxd.Container{
 		{},
 	}, nil)
@@ -114,7 +116,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 		Type: "physical", // should be ignored as it is not a bridge.
 	}, "", nil)
 
-	env := s.NewEnviron(c, srv, nil).(*environ)
+	env := s.NewEnviron(c, srv, nil).(environs.Networking)
 
 	ctx := context.NewEmptyCloudCallContext()
 	subnets, err := env.Subnets(ctx, "woot", nil)
@@ -141,7 +143,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	srv := NewMockServer(ctrl)
+	srv := mocks.NewMockServer(ctrl)
 	srv.EXPECT().FilterContainers("woot").Return([]jujulxd.Container{
 		{},
 	}, nil)
@@ -179,7 +181,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C
 		},
 	}, nil)
 
-	env := s.NewEnviron(c, srv, nil).(*environ)
+	env := s.NewEnviron(c, srv, nil).(environs.Networking)
 
 	// Filter list so we only get a single subnet
 	ctx := context.NewEmptyCloudCallContext()
@@ -201,7 +203,7 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	srv := NewMockServer(ctrl)
+	srv := mocks.NewMockServer(ctrl)
 
 	srv.EXPECT().GetServer().Return(&lxdapi.Server{
 		Environment: lxdapi.ServerEnvironment{
@@ -273,7 +275,7 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 		},
 	}, "etag", nil)
 
-	env := s.NewEnviron(c, srv, nil).(*environ)
+	env := s.NewEnviron(c, srv, nil).(environs.Networking)
 
 	ctx := context.NewEmptyCloudCallContext()
 
@@ -301,7 +303,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	srv := NewMockServer(ctrl)
+	srv := mocks.NewMockServer(ctrl)
 	srv.EXPECT().GetContainer("woot").Return(&lxdapi.Container{
 		ExpandedDevices: map[string]map[string]string{
 			"eth0": {
@@ -369,7 +371,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 		},
 	}, "etag", nil)
 
-	env := s.NewEnviron(c, srv, nil).(*environ)
+	env := s.NewEnviron(c, srv, nil).(environs.Networking)
 
 	ctx := context.NewEmptyCloudCallContext()
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot"})
@@ -415,7 +417,7 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	srv := NewMockServer(ctrl)
+	srv := mocks.NewMockServer(ctrl)
 	srv.EXPECT().GetContainer("woot").Return(&lxdapi.Container{
 		ExpandedDevices: map[string]map[string]string{
 			"eth0": {
@@ -445,7 +447,7 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 		},
 	}, "etag", nil)
 
-	env := s.NewEnviron(c, srv, nil).(*environ)
+	env := s.NewEnviron(c, srv, nil).(environs.Networking)
 
 	ctx := context.NewEmptyCloudCallContext()
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot", "unknown"})
@@ -477,11 +479,11 @@ func (s *environNetSuite) TestNetworkInterfacesNoResults(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	srv := NewMockServer(ctrl)
+	srv := mocks.NewMockServer(ctrl)
 	srv.EXPECT().GetContainer("unknown1").Return(nil, "", errors.New("not found"))
 	srv.EXPECT().GetContainer("unknown2").Return(nil, "", errors.New("not found"))
 
-	env := s.NewEnviron(c, srv, nil).(*environ)
+	env := s.NewEnviron(c, srv, nil).(environs.Networking)
 
 	ctx := context.NewEmptyCloudCallContext()
 	_, err := env.NetworkInterfaces(ctx, []instance.Id{"unknown1", "unknown2"})

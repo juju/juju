@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd"
+	"github.com/juju/juju/provider/lxd/mocks"
 )
 
 type environBrokerSuite struct {
@@ -78,7 +79,7 @@ func matchesContainerSpec(check func(spec containerlxd.ContainerSpec) bool) gomo
 func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	svr := mocks.NewMockServer(ctrl)
 
 	// Check that no custom devices were passed - vanilla cloud-init.
 	check := func(spec containerlxd.ContainerSpec) bool {
@@ -106,7 +107,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
 func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	svr := mocks.NewMockServer(ctrl)
 
 	nics := map[string]map[string]string{
 		"eno9": {
@@ -145,7 +146,7 @@ func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
 func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	svr := mocks.NewMockServer(ctrl)
 
 	profileNICs := map[string]map[string]string{
 		"eno9": {
@@ -236,7 +237,7 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
 func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	svr := mocks.NewMockServer(ctrl)
 
 	target := lxdtesting.NewMockContainerServer(ctrl)
 	tExp := target.EXPECT()
@@ -296,7 +297,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	svr := mocks.NewMockServer(ctrl)
 
 	members := []api.ClusterMember{{
 		ServerName: "node01",
@@ -322,7 +323,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *gc.C) {
 func (s *environBrokerSuite) TestStartInstanceWithPlacementNotAvailable(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	svr := mocks.NewMockServer(ctrl)
 
 	members := []api.ClusterMember{{
 		ServerName: "node01",
@@ -348,7 +349,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotAvailable(c *gc.C)
 func (s *environBrokerSuite) TestStartInstanceWithPlacementBadArgument(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	svr := mocks.NewMockServer(ctrl)
 
 	sExp := svr.EXPECT()
 	gomock.InOrder(
@@ -366,7 +367,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementBadArgument(c *gc.C) 
 func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	svr := mocks.NewMockServer(ctrl)
 
 	// Check that the constraints were passed through to spec.Config.
 	check := func(spec containerlxd.ContainerSpec) bool {
@@ -408,7 +409,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	svr := mocks.NewMockServer(ctrl)
 
 	// Check that the lxd profile name was passed through to spec.Config.
 	check := func(spec containerlxd.ContainerSpec) bool {
@@ -446,7 +447,7 @@ func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *gc.C) {
 func (s *environBrokerSuite) TestStartInstanceNoTools(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	svr := mocks.NewMockServer(ctrl)
 
 	exp := svr.EXPECT()
 	exp.HostArch().Return(arch.PPC64EL)
@@ -460,7 +461,7 @@ func (s *environBrokerSuite) TestStartInstanceInvalidCredentials(c *gc.C) {
 	c.Assert(s.invalidCredential, jc.IsFalse)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	svr := mocks.NewMockServer(ctrl)
 
 	exp := svr.EXPECT()
 	gomock.InOrder(
@@ -480,7 +481,7 @@ func (s *environBrokerSuite) TestStartInstanceInvalidCredentials(c *gc.C) {
 func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	svr := mocks.NewMockServer(ctrl)
 
 	svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"})
 
@@ -493,7 +494,7 @@ func (s *environBrokerSuite) TestStopInstancesInvalidCredentials(c *gc.C) {
 	c.Assert(s.invalidCredential, jc.IsFalse)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	svr := mocks.NewMockServer(ctrl)
 
 	svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"}).Return(fmt.Errorf("not authorized"))
 
@@ -506,7 +507,7 @@ func (s *environBrokerSuite) TestStopInstancesInvalidCredentials(c *gc.C) {
 func (s *environBrokerSuite) TestImageSourcesDefault(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	svr := mocks.NewMockServer(ctrl)
 
 	sources, err := lxd.GetImageSources(s.NewEnviron(c, svr, nil))
 	c.Assert(err, jc.ErrorIsNil)
@@ -519,7 +520,7 @@ func (s *environBrokerSuite) TestImageSourcesDefault(c *gc.C) {
 func (s *environBrokerSuite) TestImageMetadataURL(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	svr := mocks.NewMockServer(ctrl)
 
 	env := s.NewEnviron(c, svr, map[string]interface{}{
 		"image-metadata-url": "https://my-test.com/images/",
@@ -537,7 +538,7 @@ func (s *environBrokerSuite) TestImageMetadataURL(c *gc.C) {
 func (s *environBrokerSuite) TestImageMetadataURLEnsuresHTTPS(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	svr := mocks.NewMockServer(ctrl)
 
 	// HTTP should be converted to HTTPS.
 	env := s.NewEnviron(c, svr, map[string]interface{}{
@@ -556,7 +557,7 @@ func (s *environBrokerSuite) TestImageMetadataURLEnsuresHTTPS(c *gc.C) {
 func (s *environBrokerSuite) TestImageStreamReleased(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	svr := mocks.NewMockServer(ctrl)
 
 	env := s.NewEnviron(c, svr, map[string]interface{}{
 		"image-stream": "released",
@@ -573,7 +574,7 @@ func (s *environBrokerSuite) TestImageStreamReleased(c *gc.C) {
 func (s *environBrokerSuite) TestImageStreamDaily(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	svr := mocks.NewMockServer(ctrl)
 
 	env := s.NewEnviron(c, svr, map[string]interface{}{
 		"image-stream": "daily",
