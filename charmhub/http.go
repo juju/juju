@@ -50,19 +50,15 @@ type loggingRequestRecorder struct {
 
 // Record an outgoing request which produced an http.Response.
 func (r loggingRequestRecorder) Record(method string, url *url.URL, res *http.Response, rtt time.Duration) {
-	status := "unknown"
-	if res != nil {
-		status = res.Status
-	}
 	if r.logger.IsTraceEnabled() {
-		r.logger.Tracef("request (method: %q, url: %q, status: %q, duration: %s)", method, url, status, rtt)
+		r.logger.Tracef("request (method: %q, host: %q, path: %q, status: %q, duration: %s)", method, url.Host, url.Path, res.Status, rtt)
 	}
 }
 
 // Record an outgoing request which returned back an error.
 func (r loggingRequestRecorder) RecordError(method string, url *url.URL, err error) {
 	if r.logger.IsTraceEnabled() {
-		r.logger.Tracef("request error (method: %q, url: %q, err: %s)", method, url, err)
+		r.logger.Tracef("request error (method: %q, host: %q, path: %q, err: %s)", method, url.Host, url.Path, err)
 	}
 }
 

@@ -14,17 +14,25 @@ const (
 	apiserverSubsystemNamespace = "apiserver"
 )
 
-// MetricLabelEndpoint defines a constant for the APIConnections abd
-// PingFailureCount Labels
-const MetricLabelEndpoint = "endpoint"
+const (
+	// MetricLabelEndpoint defines a constant for the APIConnections and
+	// PingFailureCount Labels
+	MetricLabelEndpoint = "endpoint"
 
-// MetricLabelModelUUID defines a constant for the PingFailureCount and
-// LogWriteCount Labels
-// Note: prometheus doesn't allow hyphens only underscores
-const MetricLabelModelUUID = "model_uuid"
+	// MetricLabelModelUUID defines a constant for the PingFailureCount and
+	// LogWriteCount Labels
+	// Note: prometheus doesn't allow hyphens only underscores
+	MetricLabelModelUUID = "model_uuid"
 
-// MetricLabelState defines a constant for the LogWriteCount Label
-const MetricLabelState = "state"
+	// MetricLabelState defines a constant for the state Label
+	MetricLabelState = "state"
+
+	// MetricLabelHost defines a host constant for the Requests Label
+	MetricLabelHost = "host"
+
+	// MetricLabelStatus defines a status constant for the Requests Label
+	MetricLabelStatus = "status"
+)
 
 // MetricAPIConnectionsLabelNames defines a series of labels for the
 // APIConnections metric.
@@ -46,16 +54,38 @@ var MetricLogLabelNames = []string{
 	MetricLabelState,
 }
 
+// MetricTotalRequestsWithStatusLabelNames defines a series of labels for the
+// TotalRequests metric.
+var MetricTotalRequestsWithStatusLabelNames = []string{
+	MetricLabelModelUUID,
+	MetricLabelHost,
+	MetricLabelStatus,
+}
+
+// MetricTotalRequestsLabelNames defines a series of labels for the
+// TotalRequests metric.
+var MetricTotalRequestsLabelNames = []string{
+	MetricLabelModelUUID,
+	MetricLabelHost,
+}
+
 // Collector is a prometheus.Collector that collects metrics based
 // on apiserver status.
 type Collector struct {
-	TotalConnections   prometheus.Counter
+	TotalConnections prometheus.Counter
+
 	LoginAttempts      prometheus.Gauge
 	APIConnections     *prometheus.GaugeVec
 	APIRequestDuration *prometheus.SummaryVec
-	PingFailureCount   *prometheus.CounterVec
-	LogWriteCount      *prometheus.CounterVec
-	LogReadCount       *prometheus.CounterVec
+
+	PingFailureCount *prometheus.CounterVec
+
+	LogWriteCount *prometheus.CounterVec
+	LogReadCount  *prometheus.CounterVec
+
+	TotalRequests         *prometheus.CounterVec
+	TotalRequestErrors    *prometheus.CounterVec
+	TotalRequestsDuration *prometheus.SummaryVec
 }
 
 // NewMetricsCollector returns a new Collector.
@@ -91,12 +121,14 @@ func NewMetricsCollector() *Collector {
 				0.99: 0.001,
 			},
 		}, metricobserver.MetricLabelNames),
+
 		PingFailureCount: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: apiserverMetricsNamespace,
 			Subsystem: apiserverSubsystemNamespace,
 			Name:      "ping_failure_count",
 			Help:      "Current number of ping failures",
 		}, MetricPingFailureLabelNames),
+
 		LogWriteCount: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: apiserverMetricsNamespace,
 			Subsystem: apiserverSubsystemNamespace,
@@ -109,6 +141,30 @@ func NewMetricsCollector() *Collector {
 			Name:      "log_read_count",
 			Help:      "Current number of log reads",
 		}, MetricLogLabelNames),
+
+		TotalRequests: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: apiserverMetricsNamespace,
+			Subsystem: apiserverSubsystemNamespace,
+			Name:      "outbound_requests_total",
+			Help:      "Total number of http requests to outbound APIs",
+		}, MetricTotalRequestsWithStatusLabelNames),
+		TotalRequestErrors: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: apiserverMetricsNamespace,
+			Subsystem: apiserverSubsystemNamespace,
+			Name:      "outbound_request_errors_total",
+			Help:      "Total number of http request errors to outbound APIs",
+		}, MetricTotalRequestsLabelNames),
+		TotalRequestsDuration: prometheus.NewSummaryVec(prometheus.SummaryOpts{
+			Namespace: apiserverMetricsNamespace,
+			Subsystem: apiserverSubsystemNamespace,
+			Name:      "outbound_request_duration_seconds",
+			Help:      "Latency of outbound API requests in seconds.",
+			Objectives: map[float64]float64{
+				0.5:  0.05,
+				0.9:  0.01,
+				0.99: 0.001,
+			},
+		}, MetricTotalRequestsLabelNames),
 	}
 }
 
@@ -121,6 +177,9 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	c.PingFailureCount.Describe(ch)
 	c.LogWriteCount.Describe(ch)
 	c.LogReadCount.Describe(ch)
+	c.TotalRequests.Describe(ch)
+	c.TotalRequestErrors.Describe(ch)
+	c.TotalRequestsDuration.Describe(ch)
 }
 
 // Collect is part of the prometheus.Collector interface.
@@ -132,4 +191,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.PingFailureCount.Collect(ch)
 	c.LogWriteCount.Collect(ch)
 	c.LogReadCount.Collect(ch)
+	c.TotalRequests.Collect(ch)
+	c.TotalRequestErrors.Collect(ch)
+	c.TotalRequestsDuration.Collect(ch)
 }

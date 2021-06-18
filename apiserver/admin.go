@@ -129,6 +129,7 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 		a.root,
 		httpRequestRecorderWrapper{
 			collector: a.srv.metricsCollector,
+			modelUUID: a.root.model.UUID(),
 		},
 	)
 	if err != nil {

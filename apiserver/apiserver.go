@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -462,21 +463,6 @@ func (srv *Server) getAgentToken() error {
 	return nil
 }
 
-// loggoWrapper is an io.Writer() that forwards the messages to a loggo.Logger.
-// Unfortunately http takes a concrete stdlib log.Logger struct, and not an
-// interface, so we can't just proxy all of the log levels without inspecting
-// the string content. For now, we just want to get the messages into the log
-// file.
-type loggoWrapper struct {
-	logger loggo.Logger
-	level  loggo.Level
-}
-
-func (w *loggoWrapper) Write(content []byte) (int, error) {
-	w.logger.Logf(w.level, "%s", string(content))
-	return len(content), nil
-}
-
 // logsinkMetricsCollectorWrapper defines a wrapper for exposing the essentials
 // for the logsink api handler to interact with the metrics collector.
 type logsinkMetricsCollectorWrapper struct {
@@ -507,16 +493,26 @@ func (w logsinkMetricsCollectorWrapper) LogReadCount(modelUUID, state string) pr
 // essentials for the http request recorder.
 type httpRequestRecorderWrapper struct {
 	collector *Collector
+	modelUUID string
 }
 
 // Record an outgoing request which produced an http.Response.
 func (w httpRequestRecorderWrapper) Record(method string, url *url.URL, res *http.Response, rtt time.Duration) {
-
+	// Note: Do not log url.Path as REST queries _can_ include the name of the
+	// entities (charms, architectures, etc).
+	w.collector.TotalRequests.WithLabelValues(w.modelUUID, url.Host, strconv.FormatInt(int64(res.StatusCode), 10)).Inc()
+	if res.StatusCode >= 400 {
+		w.collector.TotalRequestErrors.WithLabelValues(w.modelUUID, url.Host).Inc()
+	}
+	w.collector.TotalRequestsDuration.WithLabelValues(w.modelUUID, url.Host).Observe(rtt.Seconds())
 }
 
 // Record an outgoing request which returned back an error.
 func (w httpRequestRecorderWrapper) RecordError(method string, url *url.URL, err error) {
-
+	// Note: Do not log url.Path as REST queries _can_ include the name of the
+	// entities (charms, architectures, etc).
+	w.collector.TotalRequests.WithLabelValues(w.modelUUID, url.Host, "unknown").Inc()
+	w.collector.TotalRequestErrors.WithLabelValues(w.modelUUID, url.Host).Inc()
 }
 
 // loop is the main loop for the server.
