@@ -596,6 +596,7 @@ func (s *charmsMockSuite) api(c *gc.C) *charms.API {
 	storageFunc := func(modelUUID string, session *mgo.Session) storage.Storage {
 		return s.storage
 	}
+
 	api, err := charms.NewCharmsAPI(
 		s.authorizer,
 		s.state,
@@ -688,10 +689,6 @@ func (s *charmsMockSuite) expectRun(download corecharm.DownloadResult, already b
 
 func (s *charmsMockSuite) expectValidate() {
 	s.strategy.EXPECT().Validate().Return(nil)
-}
-
-func (s *charmsMockSuite) expectPrepareCharmUpload(curl *charm.URL) {
-	s.state.EXPECT().PrepareCharmUpload(curl).Return(s.charm, nil)
 }
 
 func (s *charmsMockSuite) expectCharmURL(curl *charm.URL) {
