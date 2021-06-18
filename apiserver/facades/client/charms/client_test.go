@@ -57,6 +57,7 @@ func (ctx *charmsSuiteContext) Resources() facade.Resources                   { 
 func (ctx *charmsSuiteContext) State() *state.State                           { return ctx.cs.State }
 func (ctx *charmsSuiteContext) StatePool() *state.StatePool                   { return nil }
 func (ctx *charmsSuiteContext) ID() string                                    { return "" }
+func (ctx *charmsSuiteContext) RequestRecorder() facade.RequestRecorder       { return nil }
 func (ctx *charmsSuiteContext) Presence() facade.Presence                     { return nil }
 func (ctx *charmsSuiteContext) Hub() facade.Hub                               { return nil }
 func (ctx *charmsSuiteContext) Controller() *cache.Controller                 { return nil }
@@ -595,6 +596,7 @@ func (s *charmsMockSuite) api(c *gc.C) *charms.API {
 	storageFunc := func(modelUUID string, session *mgo.Session) storage.Storage {
 		return s.storage
 	}
+
 	api, err := charms.NewCharmsAPI(
 		s.authorizer,
 		s.state,
@@ -687,10 +689,6 @@ func (s *charmsMockSuite) expectRun(download corecharm.DownloadResult, already b
 
 func (s *charmsMockSuite) expectValidate() {
 	s.strategy.EXPECT().Validate().Return(nil)
-}
-
-func (s *charmsMockSuite) expectPrepareCharmUpload(curl *charm.URL) {
-	s.state.EXPECT().PrepareCharmUpload(curl).Return(s.charm, nil)
 }
 
 func (s *charmsMockSuite) expectCharmURL(curl *charm.URL) {
