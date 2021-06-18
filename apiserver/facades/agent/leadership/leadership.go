@@ -17,18 +17,13 @@ import (
 )
 
 const (
-	// FacadeName is the string-representation of this API used both
-	// to register the service, and for the client to resolve the
-	// service endpoint.
-	FacadeName = "LeadershipService"
-
-	// MinLeaseRequest is the shortest duration for which we will accept
+	// minLeaseRequest is the shortest duration for which we will accept
 	// a leadership claim.
-	MinLeaseRequest = 5 * time.Second
+	minLeaseRequest = 5 * time.Second
 
-	// MaxLeaseRequest is the longest duration for which we will accept
+	// maxLeaseRequest is the longest duration for which we will accept
 	// a leadership claim.
-	MaxLeaseRequest = 5 * time.Minute
+	maxLeaseRequest = 5 * time.Minute
 )
 
 // NewLeadershipServiceFacade constructs a new LeadershipService and presents
@@ -76,7 +71,7 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 			continue
 		}
 		duration := time.Duration(p.DurationSeconds * float64(time.Second))
-		if duration > MaxLeaseRequest || duration < MinLeaseRequest {
+		if duration > maxLeaseRequest || duration < minLeaseRequest {
 			result.Error = apiservererrors.ServerError(errors.New("invalid duration"))
 			continue
 		}
@@ -101,7 +96,7 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 		}
 	}
 
-	return params.ClaimLeadershipBulkResults{results}, nil
+	return params.ClaimLeadershipBulkResults{Results: results}, nil
 }
 
 // BlockUntilLeadershipReleased implements the LeadershipService interface.
