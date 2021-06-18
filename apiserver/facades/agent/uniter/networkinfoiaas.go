@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
@@ -16,12 +17,42 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// Machine describes methods required for interrogating
+// the addresses of a machine in state.
+type Machine interface {
+	// Id returns the machine's model-unique identifier.
+	Id() string
+
+	// MachineTag returns the machine's tag, specifically typed.
+	MachineTag() names.MachineTag
+
+	// PrivateAddress returns the machine's preferred private address.
+	PrivateAddress() (network.SpaceAddress, error)
+
+	// AllAddresses returns the state representation of a machine's addresses.
+	// TODO (manadart 2021-06-15): Indirect this too.
+	AllAddresses() ([]*state.Address, error)
+
+	// AllDeviceSpaceAddresses returns all known addresses
+	// from the machine's link-layer devices.
+	AllDeviceSpaceAddresses() (network.SpaceAddresses, error)
+}
+
+// machine shims the state representation of a machine in order to implement
+// the Machine indirection above.
+type machine struct {
+	*state.Machine
+}
+
 // NetworkInfoIAAS is used to provide network info for IAAS units.
 type NetworkInfoIAAS struct {
 	*NetworkInfoBase
 
-	// machineNetworkInfos container network info for the unit's machine,
-	// keyed by space ID.
+	// machine is where the unit resides.
+	machine Machine
+
+	// machineNetworkInfos contains network info for the unit's machine,
+	// keyed by spaces that the unit is bound to.
 	machineNetworkInfos map[string]params.NetworkInfoResult
 }
 
@@ -32,9 +63,14 @@ func newNetworkInfoIAAS(base *NetworkInfoBase) (*NetworkInfoIAAS, error) {
 	}
 
 	netInfo := &NetworkInfoIAAS{NetworkInfoBase: base}
+
+	if err := netInfo.populateUnitMachine(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := netInfo.populateMachineNetworkInfos(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return netInfo, nil
 }
 
@@ -173,18 +209,24 @@ func (n *NetworkInfoIAAS) resolveResultIngressHostNames(netInfo params.NetworkIn
 	return netInfo
 }
 
-// populateMachineNetworkInfos sets network info for the unit's machine
-// based on devices with addresses in the unit's bound spaces.
-func (n *NetworkInfoIAAS) populateMachineNetworkInfos() error {
-	machineID, err := n.unit.AssignedMachineId()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	machine, err := n.st.Machine(machineID)
+func (n *NetworkInfoIAAS) populateUnitMachine() error {
+	mID, err := n.unit.AssignedMachineId()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	m, err := n.st.Machine(mID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	n.machine = machine{m}
+	return nil
+}
+
+// populateMachineNetworkInfos sets network info for the unit's machine
+// based on devices with addresses in the unit's bound spaces.
+func (n *NetworkInfoIAAS) populateMachineNetworkInfos() error {
 	spaceSet := set.NewStrings()
 	for _, binding := range n.bindings {
 		spaceSet.Add(binding)
@@ -195,10 +237,10 @@ func (n *NetworkInfoIAAS) populateMachineNetworkInfos() error {
 
 	if spaceSet.Contains(network.AlphaSpaceId) {
 		var err error
-		privateMachineAddress, err := n.pollForAddress(machine.PrivateAddress)
+		privateMachineAddress, err := n.pollForAddress(n.machine.PrivateAddress)
 		if err != nil {
 			n.machineNetworkInfos[network.AlphaSpaceId] = params.NetworkInfoResult{Error: apiservererrors.ServerError(
-				errors.Annotatef(err, "getting machine %q preferred private address", machine.MachineTag()))}
+				errors.Annotatef(err, "getting machine %q preferred private address", n.machine.MachineTag()))}
 
 			// Remove this ID to prevent further processing.
 			spaceSet.Remove(network.AlphaSpaceId)
@@ -212,7 +254,7 @@ func (n *NetworkInfoIAAS) populateMachineNetworkInfos() error {
 	// can be sorted for scope and primary/secondary status.
 	// We create a map for the information we need to return, and a separate
 	// sorted slice for iteration in the correct order.
-	addrs, err := machine.AllAddresses()
+	addrs, err := n.machine.AllAddresses()
 	if err != nil {
 		n.populateMachineNetworkInfoErrors(spaceSet, err)
 		return nil
@@ -222,7 +264,7 @@ func (n *NetworkInfoIAAS) populateMachineNetworkInfos() error {
 		addrByIP[addr.Value()] = addr
 	}
 
-	spaceAddrs, err := machine.AllDeviceSpaceAddresses()
+	spaceAddrs, err := n.machine.AllDeviceSpaceAddresses()
 	if err != nil {
 		n.populateMachineNetworkInfoErrors(spaceSet, err)
 		return nil
@@ -294,7 +336,7 @@ func (n *NetworkInfoIAAS) populateMachineNetworkInfos() error {
 	for _, id := range spaceSet.Values() {
 		if _, ok := n.machineNetworkInfos[id]; !ok {
 			n.machineNetworkInfos[id] = params.NetworkInfoResult{Error: apiservererrors.ServerError(
-				errors.Errorf("machine %q has no addresses in space %q", machineID, id))}
+				errors.Errorf("machine %q has no addresses in space %q", n.machine.Id(), id))}
 		}
 	}
 

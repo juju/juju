@@ -60,7 +60,7 @@ func NewNetworkInfo(st *state.State, tag names.UnitTag) (NetworkInfo, error) {
 	return n, errors.Trace(err)
 }
 
-// NewNetworkInfoWithBehaviour initialises and returns a new NetworkInfo
+// NewNetworkInfoForStrategy initialises and returns a new NetworkInfo
 // based on the input state and unit tag, allowing further specification of
 // behaviour via the input retry factory and host resolver.
 func NewNetworkInfoForStrategy(
