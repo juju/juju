@@ -40,7 +40,7 @@ type Transport interface {
 // DefaultHTTPTransport creates a new HTTPTransport.
 func DefaultHTTPTransport(logger Logger) Transport {
 	return RequestRecorderHTTPTransport(loggingRequestRecorder{
-		logger: logger,
+		logger: logger.Child("request-recorder"),
 	})(logger)
 }
 
@@ -50,12 +50,20 @@ type loggingRequestRecorder struct {
 
 // Record an outgoing request which produced an http.Response.
 func (r loggingRequestRecorder) Record(method string, url *url.URL, res *http.Response, rtt time.Duration) {
-
+	status := "unknown"
+	if res != nil {
+		status = res.Status
+	}
+	if r.logger.IsTraceEnabled() {
+		r.logger.Tracef("request (method: %q, url: %q, status: %q, duration: %s)", method, url, status, rtt)
+	}
 }
 
 // Record an outgoing request which returned back an error.
 func (r loggingRequestRecorder) RecordError(method string, url *url.URL, err error) {
-
+	if r.logger.IsTraceEnabled() {
+		r.logger.Tracef("request error (method: %q, url: %q, err: %s)", method, url, err)
+	}
 }
 
 // RequestRecorderHTTPTransport creates a new HTTPTransport that records the
@@ -87,35 +95,13 @@ func NewAPIRequester(transport Transport, logger Logger) *APIRequester {
 // Do performs the *http.Request and returns a *http.Response or an error
 // if it fails to construct the transport.
 func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
-	if t.logger.IsTraceEnabled() {
-		if data, err := httputil.DumpRequest(req, true); err == nil {
-			t.logger.Tracef("%s request %s", req.Method, data)
-		} else {
-			t.logger.Tracef("%s request DumpRequest error %s", req.Method, err.Error())
-		}
-	}
-
 	resp, err := t.transport.Do(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if t.logger.IsTraceEnabled() {
-		if data, err := httputil.DumpResponse(resp, true); err == nil {
-			t.logger.Tracef("%s response %s", req.Method, data)
-		} else {
-			t.logger.Tracef("%s response DumpResponse error %s", req.Method, err.Error())
-		}
-	}
-
 	if resp.StatusCode >= http.StatusOK && resp.StatusCode <= http.StatusNoContent {
 		return resp, nil
-	}
-
-	if data, err := httputil.DumpResponse(resp, true); err == nil {
-		t.logger.Errorf("Response %s", data)
-	} else {
-		t.logger.Errorf("Response DumpResponse error %s", err.Error())
 	}
 
 	var potentialInvalidURL bool
@@ -146,6 +132,49 @@ func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
 	}
 
 	return resp, nil
+}
+
+// APIRequestLogger creates a wrapper around the transport to allow for better
+// logging.
+type APIRequestLogger struct {
+	transport Transport
+	logger    Logger
+}
+
+// NewAPIRequesterLogger creates a new Transport that allows logging of requests
+// for every request.
+func NewAPIRequesterLogger(transport Transport, logger Logger) *APIRequestLogger {
+	return &APIRequestLogger{
+		transport: transport,
+		logger:    logger,
+	}
+}
+
+// Do performs the *http.Request and returns a *http.Response or an error
+// if it fails to construct the transport.
+func (t *APIRequestLogger) Do(req *http.Request) (*http.Response, error) {
+	if t.logger.IsTraceEnabled() {
+		if data, err := httputil.DumpRequest(req, true); err == nil {
+			t.logger.Tracef("%s request %s", req.Method, data)
+		} else {
+			t.logger.Tracef("%s request DumpRequest error %s", req.Method, err.Error())
+		}
+	}
+
+	resp, err := t.transport.Do(req)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if t.logger.IsTraceEnabled() {
+		if data, err := httputil.DumpResponse(resp, true); err == nil {
+			t.logger.Tracef("%s response %s", req.Method, data)
+		} else {
+			t.logger.Tracef("%s response DumpResponse error %s", req.Method, err.Error())
+		}
+	}
+
+	return resp, err
 }
 
 // RESTResponse abstracts away the underlying response from the implementation.
