@@ -78,7 +78,7 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 	}
 
 	return &APIGroup{
-		ApplicationWatcherFacade: common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASLegacy),
+		ApplicationWatcherFacade: common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterNone),
 		API:                      api,
 	}, nil
 }

@@ -85,7 +85,7 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 		}
 	}
 
-	// we want to preseve the order of the supported series from the charm
+	// We want to preserve the order of the supported series from the charm
 	// metadata, so the order could be out of order ubuntu series order.
 	// i.e. precise, xenial, bionic, trusty
 	var supportedSeries []string

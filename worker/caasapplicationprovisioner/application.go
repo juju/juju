@@ -97,20 +97,17 @@ func (a *appWorker) Wait() error {
 }
 
 func (a *appWorker) loop() error {
-	charmURL, err := a.facade.ApplicationCharmURL(a.name)
+	// If charm is (now) a v1 charm, exit the worker.
+	format, err := a.charmFormat()
 	if errors.IsNotFound(err) {
 		a.logger.Debugf("application %q removed", a.name)
 		return nil
 	} else if err != nil {
-		return errors.Annotatef(err, "failed to get charm url for application")
+		return errors.Trace(err)
 	}
-	charmInfo, err := a.facade.CharmInfo(charmURL.String())
-	if err != nil {
-		return errors.Annotatef(err, "failed to get application charm deployment metadata for %q", a.name)
-	}
-	if charmInfo == nil ||
-		corecharm.Format(charmInfo.Charm()) < corecharm.FormatV2 {
-		return errors.Errorf("charm version 2 or greater required")
+	if format < corecharm.FormatV2 {
+		a.logger.Debugf("application %q v2 worker got v1 charm event, stopping", a.name)
+		return nil
 	}
 
 	// Update the password once per worker start to avoid it changing too frequently.
@@ -148,6 +145,16 @@ func (a *appWorker) loop() error {
 
 	if err := a.catacomb.Add(appTrustWatcher); err != nil {
 		return errors.Annotatef(err, "failed to watch for application %q trust changes", a.name)
+	}
+
+	// If the application has an operator pod due to an upgrade-charm from a
+	// pod-spec charm to a sidecar charm, delete it.
+	a.logger.Errorf("TODO: DeleteOperator(%q)", a.name)
+	err = a.broker.DeleteOperator(a.name)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return errors.Annotatef(err, "deleting operator pod for application %q", a.name)
+		}
 	}
 
 	done := false
@@ -230,7 +237,20 @@ func (a *appWorker) loop() error {
 		case <-a.catacomb.Dying():
 			return a.catacomb.ErrDying()
 		case <-appStateChanges:
-			// Respond to state changes.
+			// If charm is (now) a v1 charm, exit the worker.
+			format, err := a.charmFormat()
+			if errors.IsNotFound(err) {
+				a.logger.Debugf("application %q removed", a.name)
+				return nil
+			} else if err != nil {
+				return errors.Trace(err)
+			}
+			if format < corecharm.FormatV2 {
+				a.logger.Debugf("application %q v2 worker got v1 charm event, stopping", a.name)
+				return nil
+			}
+
+			// Respond to state changes for v2 charms.
 			err = handleChange()
 			if err != nil {
 				return errors.Trace(err)
@@ -258,6 +278,18 @@ func (a *appWorker) loop() error {
 			return nil
 		}
 	}
+}
+
+func (a *appWorker) charmFormat() (corecharm.MetadataFormat, error) {
+	charmURL, err := a.facade.ApplicationCharmURL(a.name)
+	if err != nil {
+		return corecharm.FormatUnknown, errors.Annotatef(err, "failed to get charm url for application %q", a.name)
+	}
+	charmInfo, err := a.facade.CharmInfo(charmURL.String())
+	if err != nil {
+		return corecharm.FormatUnknown, errors.Annotatef(err, "failed to get application charm deployment metadata for %q", a.name)
+	}
+	return corecharm.Format(charmInfo.Charm()), nil
 }
 
 func (a *appWorker) updateState(app caas.Application, force bool, lastReportedStatus map[string]status.StatusInfo) (map[string]status.StatusInfo, error) {

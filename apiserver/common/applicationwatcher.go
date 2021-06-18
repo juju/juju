@@ -36,12 +36,12 @@ type ApplicationWatcherFacade struct {
 	filter    ApplicationFilter
 }
 
-// NewApplicationWatcherFacadeFromState returns the optionally filtering WatchApplications facde call.
+// NewApplicationWatcherFacadeFromState returns the optionally filtering WatchApplications facade call.
 func NewApplicationWatcherFacadeFromState(st *state.State, resources facade.Resources, filter ApplicationFilter) *ApplicationWatcherFacade {
 	return NewApplicationWatcherFacade(&appWatcherStateShim{st}, resources, filter)
 }
 
-// NewApplicationWatcherFacade returns the optionally filtering WatchApplications facde call.
+// NewApplicationWatcherFacade returns the optionally filtering WatchApplications facade call.
 func NewApplicationWatcherFacade(st AppWatcherState, resources facade.Resources, filter ApplicationFilter) *ApplicationWatcherFacade {
 	return &ApplicationWatcherFacade{
 		state:     st,

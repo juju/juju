@@ -1178,6 +1178,7 @@ func (a *Application) changeCharmOps(
 				{"charmurl", ch.URL()},
 				{"cs-channel", channel},
 				{"forcecharm", forceUnits},
+				{"series", "focal"}, // TODO(benhoyt): only set this if provided (was "kubernetes" and now v2 charm)
 			}}},
 		},
 	}...)
@@ -1459,6 +1460,9 @@ type SetCharmConfig struct {
 	// EndpointBindings is an operator-defined map of endpoint names to
 	// space names that should be merged with any existing bindings.
 	EndpointBindings map[string]string
+
+	// Series TODO(benhoyt) - actually use this field
+	Series string
 }
 
 // SetCharm changes the charm for the application.
@@ -1488,6 +1492,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	// this check. Newer charms written for multi-series have a URL
 	// with series = "".
 	if cfg.Charm.URL().Series != "" {
+		logger.Criticalf("TODO series=%q", cfg.Charm.URL().Series)
 		// Allow series change when switching to charmhub charms.
 		if cfg.Charm.URL().Schema != "ch" && cfg.Charm.URL().Series != a.doc.Series {
 			return errors.Errorf("cannot change an application's series")
@@ -1498,6 +1503,8 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		if err != nil {
 			return errors.Trace(err)
 		}
+		logger.Criticalf("TODO !cfg.ForceSeries: charmSeries=%v doc.Series=%q",
+			charmSeries, a.doc.Series)
 		for _, oneSeries := range charmSeries {
 			if oneSeries == a.doc.Series {
 				supported = true
@@ -1526,6 +1533,8 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		if err != nil {
 			return errors.Trace(err)
 		}
+		logger.Criticalf("TODO cfg.ForceSeries: supportedSeries=%v doc.Series=%q currentOS=%s",
+			supportedSeries, a.doc.Series, currentOS)
 		for _, chSeries := range supportedSeries {
 			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
 			if err != nil {
@@ -1594,6 +1603,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}}
 
 		if a.doc.CharmURL.String() == cfg.Charm.URL().String() {
+			logger.Criticalf("TODO url equal %q", a.doc.CharmURL.String())
 			// Charm URL already set; just update the force flag and channel.
 			ops = append(ops, txn.Op{
 				C:  applicationsC,
@@ -1601,6 +1611,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				Update: bson.D{{"$set", bson.D{
 					{"cs-channel", channel},
 					{"forcecharm", cfg.ForceUnits},
+					{"series", "focal"}, // TODO(benhoyt): only set this if provided (was "kubernetes" and now v2 charm)
 				}}},
 			})
 		} else {
@@ -1675,6 +1686,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	a.doc.Channel = channel
 	a.doc.ForceCharm = cfg.ForceUnits
 	a.doc.CharmModifiedVersion = newCharmModifiedVersion
+	a.doc.Series = "focal" // TODO(benhoyt): only set this if provided (was "kubernetes" and now v2 charm)
 	return nil
 }
 

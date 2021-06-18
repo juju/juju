@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -19,9 +20,11 @@ import (
 
 	"github.com/juju/juju/agent"
 	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
+	charmscommon "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/storage"
@@ -40,6 +43,8 @@ type CAASProvisionerFacade interface {
 	SetPasswords([]apicaasprovisioner.ApplicationPassword) (params.ErrorResults, error)
 	Life(string) (life.Value, error)
 	IssueOperatorCertificate(string) (apicaasprovisioner.OperatorCertificate, error)
+	CharmInfo(string) (*charmscommon.CharmInfo, error)
+	ApplicationCharmURL(string) (*charm.URL, error)
 }
 
 // Config defines the operation of a Worker.
@@ -55,12 +60,12 @@ type Config struct {
 // NewProvisionerWorker starts and returns a new CAAS provisioner worker.
 func NewProvisionerWorker(config Config) (worker.Worker, error) {
 	p := &provisioner{
-		provisionerFacade: config.Facade,
-		broker:            config.Broker,
-		modelTag:          config.ModelTag,
-		agentConfig:       config.AgentConfig,
-		clock:             config.Clock,
-		logger:            config.Logger,
+		facade:      config.Facade,
+		broker:      config.Broker,
+		modelTag:    config.ModelTag,
+		agentConfig: config.AgentConfig,
+		clock:       config.Clock,
+		logger:      config.Logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &p.catacomb,
@@ -70,11 +75,11 @@ func NewProvisionerWorker(config Config) (worker.Worker, error) {
 }
 
 type provisioner struct {
-	catacomb          catacomb.Catacomb
-	provisionerFacade CAASProvisionerFacade
-	broker            caas.Broker
-	clock             clock.Clock
-	logger            Logger
+	catacomb catacomb.Catacomb
+	facade   CAASProvisionerFacade
+	broker   caas.Broker
+	clock    clock.Clock
+	logger   Logger
 
 	modelTag    names.ModelTag
 	agentConfig agent.Config
@@ -96,7 +101,7 @@ func (p *provisioner) loop() error {
 	// away. For some runtimes we *could* rely on the the runtime's
 	// features to do this.
 
-	appWatcher, err := p.provisionerFacade.WatchApplications()
+	appWatcher, err := p.facade.WatchApplications()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -116,7 +121,21 @@ func (p *provisioner) loop() error {
 			}
 			var newApps []string
 			for _, app := range apps {
-				appLife, err := p.provisionerFacade.Life(app)
+				// Ignore events for v2 charms.
+				format, err := p.charmFormat(app)
+				if errors.IsNotFound(err) {
+					p.logger.Debugf("application %q removed", app)
+					continue
+				} else if err != nil {
+					return errors.Trace(err)
+				}
+				if format > corecharm.FormatV1 {
+					p.logger.Debugf("application %q is v2, ignoring event", app)
+					continue
+				}
+
+				// Process events for v1 charms.
+				appLife, err := p.facade.Life(app)
 				if err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)
 				}
@@ -140,6 +159,18 @@ func (p *provisioner) loop() error {
 			}
 		}
 	}
+}
+
+func (p *provisioner) charmFormat(appName string) (corecharm.MetadataFormat, error) {
+	charmURL, err := p.facade.ApplicationCharmURL(appName)
+	if err != nil {
+		return corecharm.FormatUnknown, errors.Annotatef(err, "failed to get charm url for application %q", appName)
+	}
+	charmInfo, err := p.facade.CharmInfo(charmURL.String())
+	if err != nil {
+		return corecharm.FormatUnknown, errors.Annotatef(err, "failed to get application charm deployment metadata for %q", appName)
+	}
+	return corecharm.Format(charmInfo.Charm()), nil
 }
 
 func (p *provisioner) waitForOperatorTerminated(app string) error {
@@ -217,7 +248,7 @@ func (p *provisioner) ensureOperators(apps []string) error {
 	// If we did create any passwords for new operators, first they need
 	// to be saved so the agent can login when it starts up.
 	if len(appPasswords) > 0 {
-		errorResults, err := p.provisionerFacade.SetPasswords(appPasswords)
+		errorResults, err := p.facade.SetPasswords(appPasswords)
 		if err != nil {
 			return errors.Annotate(err, "failed to set application api passwords")
 		}
@@ -251,7 +282,7 @@ func (p *provisioner) ensureOperator(app string, config *caas.OperatorConfig) er
 }
 
 func (p *provisioner) updateOperatorConfig(appName, password string, prevCfg caas.OperatorConfig) (*caas.OperatorConfig, error) {
-	info, err := p.provisionerFacade.OperatorProvisioningInfo(appName)
+	info, err := p.facade.OperatorProvisioningInfo(appName)
 	if err != nil {
 		return nil, errors.Annotatef(err, "fetching operator provisioning info")
 	}
@@ -346,7 +377,7 @@ func (p *provisioner) updateOperatorInfo(appName string, prevOperatorInfoData []
 	if operatorInfo.Cert == "" ||
 		operatorInfo.PrivateKey == "" ||
 		operatorInfo.CACert == "" {
-		cert, err := p.provisionerFacade.IssueOperatorCertificate(appName)
+		cert, err := p.facade.IssueOperatorCertificate(appName)
 		if err != nil {
 			return nil, errors.Annotatef(err, "issuing certificate")
 		}

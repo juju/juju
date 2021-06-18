@@ -57,6 +57,7 @@ type CAASProvisionerFacade interface {
 type CAASBroker interface {
 	Application(string, caas.DeploymentType) caas.Application
 	AnnotateUnit(appName string, mode caas.DeploymentMode, podName string, unit names.UnitTag) error
+	DeleteOperator(appName string) (err error)
 }
 
 // Config defines the operation of a Worker.
