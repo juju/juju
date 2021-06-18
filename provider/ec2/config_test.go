@@ -316,7 +316,7 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestPrepareConfigSetsDefaultBlockSource(c *gc.C) {
-	s.PatchValue(&verifyCredentials, func(*environ, context.ProviderCallContext) error { return nil })
+	s.PatchValue(&verifyCredentials, func(Client, context.ProviderCallContext) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
 	})
@@ -346,7 +346,7 @@ func (s *ConfigSuite) TestPrepareConfigSetsDefaultBlockSource(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
-	s.PatchValue(&verifyCredentials, func(*environ, context.ProviderCallContext) error { return nil })
+	s.PatchValue(&verifyCredentials, func(Client, context.ProviderCallContext) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
 	})

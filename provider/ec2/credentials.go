@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2"
-	"gopkg.in/amz.v3/aws"
 	"gopkg.in/ini.v1"
 
 	"github.com/juju/juju/cloud"
@@ -106,15 +106,15 @@ func credentialsDir() string {
 }
 
 func (environProviderCredentials) detectEnvCredentials() (*cloud.CloudCredential, error) {
-	auth, err := aws.EnvAuth()
-	if err != nil {
+	cfg, err := config.NewEnvConfig()
+	if err != nil || cfg.Credentials.AccessKeyID == "" {
 		return nil, errors.NewNotFound(err, "credentials not found")
 	}
 	accessKeyCredential := cloud.NewCredential(
 		cloud.AccessKeyAuthType,
 		map[string]string{
-			"access-key": auth.AccessKey,
-			"secret-key": auth.SecretKey,
+			"access-key": cfg.Credentials.AccessKeyID,
+			"secret-key": cfg.Credentials.SecretAccessKey,
 		},
 	)
 	user, err := utils.LocalUsername()

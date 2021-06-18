@@ -4,15 +4,14 @@
 package ec2
 
 import (
-	"fmt"
 	"math"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2/arch"
@@ -24,14 +23,6 @@ import (
 )
 
 var _ environs.InstanceTypesFetcher = (*environ)(nil)
-
-type awsLogger struct {
-	session *session.Session
-}
-
-func (l awsLogger) Log(args ...interface{}) {
-	logger.Tracef("awsLogger %p: %s", l.session, fmt.Sprint(args...))
-}
 
 // InstanceTypes implements InstanceTypesFetcher
 func (e *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
@@ -83,9 +74,9 @@ func calculateCPUPower(instType string, clock *float64, vcpu uint64) uint64 {
 
 // virtType returns a virt type that matches our simplestrams metadata
 // rather than what the instance type actually reports.
-func virtType(info *ec2.InstanceTypeInfo) *string {
+func virtType(info types.InstanceTypeInfo) *string {
 	// Only very old instance types are restricted to paravirtual.
-	switch strings.SplitN(*info.InstanceType, ".", 2)[0] {
+	switch strings.SplitN(string(info.InstanceType), ".", 2)[0] {
 	case "t1", "m1", "c1", "m2":
 		return aws.String("paravirtual")
 	}
@@ -126,18 +117,18 @@ func supportsClassic(instanceType string) bool {
 	return classicTypes.Contains(strings.ToLower(parts[0]))
 }
 
-var archNames = map[string]string{
+var archNames = map[types.ArchitectureType]string{
 	"x86":     arch.I386,
 	"x86_64":  arch.AMD64,
 	"arm":     arch.ARM,
 	"aarch64": arch.ARM64,
 }
 
-func archName(in string) string {
+func archName(in types.ArchitectureType) string {
 	if archName, ok := archNames[in]; ok {
 		return archName
 	}
-	return in
+	return string(in)
 }
 
 func (e *environ) supportedInstanceTypes(ctx context.ProviderCallContext) ([]instances.InstanceType, error) {
@@ -169,49 +160,46 @@ func (e *environ) collectSupportedInstanceTypes(ctx context.ProviderCallContext)
 	)
 
 	// First get all the zone names for the current region.
-	zoneResults, err := e.ec2Client.DescribeAvailabilityZones(&ec2.DescribeAvailabilityZonesInput{
-		Filters: []*ec2.Filter{{
-			Name:   aws.String("region-name"),
-			Values: []*string{aws.String(e.cloud.Region)},
-		}},
+	zoneResults, err := e.ec2Client.DescribeAvailabilityZones(ctx, &ec2.DescribeAvailabilityZonesInput{
+		Filters: []types.Filter{makeFilter("region-name", e.cloud.Region)},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var zoneNames []string
-	zoneFilter := &ec2.Filter{Name: aws.String("location")}
+	zoneFilter := types.Filter{Name: aws.String("location")}
 	for _, z := range zoneResults.AvailabilityZones {
 		// Should never be nil.
 		if z.ZoneName == nil {
 			continue
 		}
 		zoneNames = append(zoneNames, *z.ZoneName)
-		zoneFilter.Values = append(zoneFilter.Values, z.ZoneName)
+		zoneFilter.Values = append(zoneFilter.Values, aws.ToString(z.ZoneName))
 	}
 
 	// Query the instance type names for the region and credential in use.
-	var instTypeNames []*string
-	instanceTypeZones := make(map[string]set.Strings)
+	var instTypeNames []types.InstanceType
+	instanceTypeZones := make(map[types.InstanceType]set.Strings)
 	var token *string
 	for {
-		offeringResults, err := e.ec2Client.DescribeInstanceTypeOfferings(&ec2.DescribeInstanceTypeOfferingsInput{
-			LocationType: aws.String("availability-zone"),
-			MaxResults:   aws.Int64(maxOfferingsResults),
+		offeringResults, err := e.ec2Client.DescribeInstanceTypeOfferings(ctx, &ec2.DescribeInstanceTypeOfferingsInput{
+			LocationType: "availability-zone",
+			MaxResults:   aws.Int32(maxOfferingsResults),
 			NextToken:    token,
-			Filters:      []*ec2.Filter{zoneFilter},
+			Filters:      []types.Filter{zoneFilter},
 		})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		for _, offering := range offeringResults.InstanceTypeOfferings {
-			// Should never be nil.
-			if offering.InstanceType == nil {
+			// Should never be empty.
+			if offering.InstanceType == "" {
 				continue
 			}
-			if _, ok := instanceTypeZones[*offering.InstanceType]; !ok {
-				instanceTypeZones[*offering.InstanceType] = set.NewStrings()
+			if _, ok := instanceTypeZones[offering.InstanceType]; !ok {
+				instanceTypeZones[offering.InstanceType] = set.NewStrings()
 			}
-			instanceTypeZones[*offering.InstanceType].Add(*offering.Location)
+			instanceTypeZones[offering.InstanceType].Add(*offering.Location)
 			instTypeNames = append(instTypeNames, offering.InstanceType)
 		}
 		token = offeringResults.NextToken
@@ -221,7 +209,7 @@ func (e *environ) collectSupportedInstanceTypes(ctx context.ProviderCallContext)
 	}
 
 	// Populate the costs for the instance types in use.
-	costs, err := instanceTypeCosts(e.ec2Client, instTypeNames, zoneNames)
+	costs, err := instanceTypeCosts(e.ec2Client, ctx, instTypeNames, zoneNames)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -239,13 +227,13 @@ func (e *environ) collectSupportedInstanceTypes(ctx context.ProviderCallContext)
 		instTypeParams := &ec2.DescribeInstanceTypesInput{
 			InstanceTypes: page,
 		}
-		instTypeResults, err := e.ec2Client.DescribeInstanceTypes(instTypeParams)
+		instTypeResults, err := e.ec2Client.DescribeInstanceTypes(ctx, instTypeParams)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		for _, info := range instTypeResults.InstanceTypes {
-			// Should never be nil.
-			if info.InstanceType == nil {
+			// Should never be empty.
+			if info.InstanceType == "" {
 				continue
 			}
 			allInstanceTypes = append(
@@ -278,18 +266,18 @@ func (e *environ) collectSupportedInstanceTypes(ctx context.ProviderCallContext)
 }
 
 func convertEC2InstanceType(
-	info *ec2.InstanceTypeInfo,
-	instanceTypeZones map[string]set.Strings,
-	costs map[string]uint64,
+	info types.InstanceTypeInfo,
+	instanceTypeZones map[types.InstanceType]set.Strings,
+	costs map[types.InstanceType]uint64,
 	zoneNames []string,
 ) instances.InstanceType {
-	instCost, ok := costs[*info.InstanceType]
+	instCost, ok := costs[info.InstanceType]
 	if !ok {
 		instCost = math.MaxUint64
 	}
 
 	instType := instances.InstanceType{
-		Name:       *info.InstanceType,
+		Name:       string(info.InstanceType),
 		VirtType:   virtType(info),
 		Deprecated: info.CurrentGeneration == nil || !*info.CurrentGeneration,
 		Cost:       instCost,
@@ -309,14 +297,14 @@ func convertEC2InstanceType(
 	}
 	if info.ProcessorInfo != nil {
 		for _, instArch := range info.ProcessorInfo.SupportedArchitectures {
-			// Should never be nil.
-			if instArch == nil {
+			// Should never be empty.
+			if instArch == "" {
 				continue
 			}
-			instType.Arches = append(instType.Arches, archName(*instArch))
+			instType.Arches = append(instType.Arches, archName(instArch))
 		}
 	}
-	instZones, ok := instanceTypeZones[instType.Name]
+	instZones, ok := instanceTypeZones[types.InstanceType(instType.Name)]
 	if !ok {
 		instType.Deprecated = true
 	} else {
@@ -328,7 +316,7 @@ func convertEC2InstanceType(
 }
 
 // instanceTypeCosts queries the latest spot price for the given instance types.
-func instanceTypeCosts(client Client, instTypeNames []*string, zoneNames []string) (map[string]uint64, error) {
+func instanceTypeCosts(ec2Client Client, ctx context.ProviderCallContext, instTypeNames []types.InstanceType, zoneNames []string) (map[types.InstanceType]uint64, error) {
 	const (
 		maxResults = 1000
 		costFactor = 1000
@@ -336,42 +324,31 @@ func instanceTypeCosts(client Client, instTypeNames []*string, zoneNames []strin
 	var token *string
 	spParams := &ec2.DescribeSpotPriceHistoryInput{
 		InstanceTypes: instTypeNames,
-		MaxResults:    aws.Int64(maxResults),
+		MaxResults:    aws.Int32(maxResults),
 		StartTime:     aws.Time(time.Now()),
-		Filters: []*ec2.Filter{
-			// Only look at Linux results (to reduce total number of results;
-			// it's only an estimate anyway)
-			{
-				Name: aws.String("product-description"),
-				Values: []*string{
-					aws.String("Linux/UNIX"),
-					aws.String("Linux/UNIX (Amazon VPC)"),
-				},
-			},
-		},
+		// Only look at Linux results (to reduce total number of results;
+		// it's only an estimate anyway)
+		Filters: []types.Filter{makeFilter("product-description", "Linux/UNIX", "Linux/UNIX (Amazon VPC)")},
 	}
 	if len(zoneNames) > 0 {
 		// Just return results for the first availability zone (others are
 		// probably similar, and we don't need to be too accurate here)
-		filter := &ec2.Filter{
-			Name:   aws.String("availability-zone"),
-			Values: []*string{aws.String(zoneNames[0])},
-		}
+		filter := makeFilter("availability-zone", zoneNames[0])
 		spParams.Filters = append(spParams.Filters, filter)
 	}
 
-	costs := make(map[string]uint64)
+	costs := make(map[types.InstanceType]uint64)
 	for {
 		spParams.NextToken = token
-		priceResults, err := client.DescribeSpotPriceHistory(spParams)
+		priceResults, err := ec2Client.DescribeSpotPriceHistory(ctx, spParams)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		for _, sp := range priceResults.SpotPriceHistory {
-			if _, ok := costs[*sp.InstanceType]; !ok {
+			if _, ok := costs[sp.InstanceType]; !ok {
 				price, err := strconv.ParseFloat(*sp.SpotPrice, 32)
 				if err == nil {
-					costs[*sp.InstanceType] = uint64(costFactor * price)
+					costs[sp.InstanceType] = uint64(costFactor * price)
 				}
 			}
 		}

@@ -19,10 +19,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/version/v2"
-	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
 	coreos "github.com/juju/juju/core/os"
@@ -47,17 +48,31 @@ type liveTestData struct {
 	validCloudSpec simplestreams.CloudSpec
 }
 
-var liveURLs = map[string]liveTestData{
-	"ec2": {
-		baseURL:        tools.DefaultBaseURL,
-		requireSigned:  true,
-		validCloudSpec: simplestreams.CloudSpec{"us-east-1", aws.Regions["us-east-1"].EC2Endpoint},
-	},
-	"canonistack": {
-		baseURL:        "https://swift.canonistack.canonical.com/v1/AUTH_526ad877f3e3464589dc1145dfeaac60/juju-tools",
-		requireSigned:  false,
-		validCloudSpec: simplestreams.CloudSpec{"lcy01", "https://keystone.canonistack.canonical.com:443/v1.0/"},
-	},
+func getLiveURLs() (map[string]liveTestData, error) {
+	resolver := ec2.NewDefaultEndpointResolver()
+	ep, err := resolver.ResolveEndpoint("us-east-1", ec2.EndpointResolverOptions{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return map[string]liveTestData{
+		"ec2": {
+			baseURL:       tools.DefaultBaseURL,
+			requireSigned: true,
+			validCloudSpec: simplestreams.CloudSpec{
+				Region:   "us-east-1",
+				Endpoint: ep.URL,
+			},
+		},
+		"canonistack": {
+			baseURL:       "https://swift.canonistack.canonical.com/v1/AUTH_526ad877f3e3464589dc1145dfeaac60/juju-tools",
+			requireSigned: false,
+			validCloudSpec: simplestreams.CloudSpec{
+				Region:   "lcy01",
+				Endpoint: "https://keystone.canonistack.canonical.com:443/v1.0/",
+			},
+		},
+	}, nil
 }
 
 func setupSimpleStreamsTests(t *testing.T) {
@@ -67,6 +82,10 @@ func setupSimpleStreamsTests(t *testing.T) {
 		}
 		var ok bool
 		var testData liveTestData
+		liveURLs, err := getLiveURLs()
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
 		if testData, ok = liveURLs[*vendor]; !ok {
 			keys := reflect.ValueOf(liveURLs).MapKeys()
 			t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
