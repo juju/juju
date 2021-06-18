@@ -83,25 +83,6 @@ func newUpgradeJujuCommand() cmd.Command {
 	return modelcmd.Wrap(command)
 }
 
-func newUpgradeJujuCommandForTest(
-	store jujuclient.ClientStore,
-	jujuClientAPI jujuClientAPI,
-	modelConfigAPI modelConfigAPI,
-	modelManagerAPI modelManagerAPI,
-	controllerAPI controllerAPI,
-	options ...modelcmd.WrapOption) cmd.Command {
-	command := &upgradeJujuCommand{
-		baseUpgradeCommand: baseUpgradeCommand{
-			modelConfigAPI:  modelConfigAPI,
-			modelManagerAPI: modelManagerAPI,
-			controllerAPI:   controllerAPI,
-		},
-		jujuClientAPI: jujuClientAPI,
-	}
-	command.SetClientStore(store)
-	return modelcmd.Wrap(command, options...)
-}
-
 // baseUpgradeCommand is used by both the
 // upgradeJujuCommand and upgradeControllerCommand
 // to hold flags common to both.
