@@ -23,8 +23,43 @@ type Facade interface{}
 // Factory is a callback used to create a Facade.
 type Factory func(Context) (Facade, error)
 
+// LeadershipContext describes factory methods for objects that deliver
+// specific lease-related capabilities
+type LeadershipContext interface {
+
+	// LeadershipClaimer returns a leadership.Claimer tied to a
+	// specific model.
+	LeadershipClaimer(modelUUID string) (leadership.Claimer, error)
+
+	// LeadershipRevoker returns a leadership.Revoker tied to a
+	// specific model.
+	LeadershipRevoker(modelUUID string) (leadership.Revoker, error)
+
+	// LeadershipChecker returns a leadership.Checker for this
+	// context's model.
+	LeadershipChecker() (leadership.Checker, error)
+
+	// LeadershipPinner returns a leadership.Pinner for this
+	// context's model.
+	LeadershipPinner(modelUUID string) (leadership.Pinner, error)
+
+	// LeadershipReader returns a leadership.Reader for this
+	// context's model.
+	LeadershipReader(modelUUID string) (leadership.Reader, error)
+
+	// SingularClaimer returns a lease.Claimer for singular leases for
+	// this context's model.
+	SingularClaimer() (lease.Claimer, error)
+}
+
 // Context exposes useful capabilities to a Facade.
 type Context interface {
+	// TODO (stickupkid): This shouldn't be embedded, instead this should be
+	// in the form of `context.Leadership() Leadership`, which returns the
+	// contents of the LeadershipContext.
+	// Context should have a single responsibility, and that's access to other
+	// types/objects.
+	LeadershipContext
 
 	// Cancel channel represents an indication from the API server that
 	// all interruptable calls should stop. The channel is only ever
@@ -101,30 +136,6 @@ type Context interface {
 	// into Resources to get the watcher in play. This is not really
 	// a good idea; see Resources.
 	ID() string
-
-	// LeadershipClaimer returns a leadership.Claimer tied to a
-	// specific model.
-	LeadershipClaimer(modelUUID string) (leadership.Claimer, error)
-
-	// LeadershipRevoker returns a leadership.Revoker tied to a
-	// specific model.
-	LeadershipRevoker(modelUUID string) (leadership.Revoker, error)
-
-	// LeadershipChecker returns a leadership.Checker for this
-	// context's model.
-	LeadershipChecker() (leadership.Checker, error)
-
-	// LeadershipPinner returns a leadership.Pinner for this
-	// context's model.
-	LeadershipPinner(modelUUID string) (leadership.Pinner, error)
-
-	// LeadershipReader returns a leadership.Reader for this
-	// context's model.
-	LeadershipReader(modelUUID string) (leadership.Reader, error)
-
-	// SingularClaimer returns a lease.Claimer for singular leases for
-	// this context's model.
-	SingularClaimer() (lease.Claimer, error)
 }
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Resources,Authorizer
