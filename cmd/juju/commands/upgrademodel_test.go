@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -1489,4 +1490,23 @@ func (s *upgradePrecheckSuite) expectPreparePrechecker(err error) {
 
 func (s *upgradePrecheckSuite) expectPrecheckUpgradeOperations() {
 	s.upgradeEnv.EXPECT().PrecheckUpgradeOperations().Return(s.ops)
+}
+
+func newUpgradeJujuCommandForTest(
+	store jujuclient.ClientStore,
+	jujuClientAPI jujuClientAPI,
+	modelConfigAPI modelConfigAPI,
+	modelManagerAPI modelManagerAPI,
+	controllerAPI controllerAPI,
+	options ...modelcmd.WrapOption) cmd.Command {
+	command := &upgradeJujuCommand{
+		baseUpgradeCommand: baseUpgradeCommand{
+			modelConfigAPI:  modelConfigAPI,
+			modelManagerAPI: modelManagerAPI,
+			controllerAPI:   controllerAPI,
+		},
+		jujuClientAPI: jujuClientAPI,
+	}
+	command.SetClientStore(store)
+	return modelcmd.Wrap(command, options...)
 }

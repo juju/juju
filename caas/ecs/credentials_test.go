@@ -48,11 +48,11 @@ func (s *credentialsSuite) TestHiddenAttributes(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
-	_, err := s.provider.DetectCredentials()
+	_, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-type cloudCredentailTestCase struct {
+type cloudCredentialTestCase struct {
 	credential     *cloud.Credential
 	expectedErrStr string
 }
@@ -63,7 +63,7 @@ func newCredential(authType cloud.AuthType, attributes map[string]string) *cloud
 }
 
 func (s *credentialsSuite) TestValidateCloudCredential(c *gc.C) {
-	for i, tc := range []cloudCredentailTestCase{
+	for i, tc := range []cloudCredentialTestCase{
 		{
 			credential:     nil,
 			expectedErrStr: `missing credential not valid`,

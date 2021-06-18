@@ -4,6 +4,7 @@
 package agentbootstrap
 
 import (
+	stdcontext "context"
 	"fmt"
 	"path/filepath"
 
@@ -390,9 +391,9 @@ func getEnviron(
 		Config:         modelConfig,
 	}
 	if cloud.CloudTypeIsCAAS(cloudSpec.Type) {
-		return caas.Open(provider, openParams)
+		return caas.Open(stdcontext.TODO(), provider, openParams)
 	}
-	return environs.Open(provider, openParams)
+	return environs.Open(stdcontext.TODO(), provider, openParams)
 }
 
 func initRaft(agentConfig agent.Config) error {

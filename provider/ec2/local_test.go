@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -135,7 +136,6 @@ type localServer struct {
 
 	defaultVPC *amzec2.VPC
 	zones      []amzec2.AvailabilityZoneInfo
-	subnets    []amzec2.Subnet
 }
 
 func (srv *localServer) startServer(c *gc.C) {
@@ -206,9 +206,59 @@ func (srv *localServer) stopServer(c *gc.C) {
 	srv.defaultVPC = nil
 }
 
-func bootstrapContext(c *gc.C) environs.BootstrapContext {
+type envGetter interface {
+	Env() environs.Environ
+}
+
+type localEnvGetter struct {
+	t *localServerSuite
+}
+
+func (e localEnvGetter) Env() environs.Environ {
+	return e.t.Env
+}
+
+func bootstrapContext(c *gc.C, t envGetter) environs.BootstrapContext {
+	clientFunc := func(region, accessKey, secretKey string, options ...ec2.ClientOption) ec2.Client {
+		c.Assert(region, gc.Equals, "test")
+		c.Assert(accessKey, gc.Equals, "x")
+		c.Assert(secretKey, gc.Equals, "x")
+		return &mockEC2Session{
+			newInstancesClient: func() *amzec2.EC2 {
+				return ec2.EnvironEC2(t.Env())
+			},
+		}
+	}
+	return bootstrapContextWithClientFunc(c, t, clientFunc)
+}
+
+func bootstrapLiveContext(c *gc.C, t envGetter) environs.BootstrapContext {
+	var clientFunc ec2.ClientFunc
+	// Use the real ec2 session if we are running with real creds.
+	accessKey := os.Getenv("AWS_ACCESS_KEY_ID")
+	if accessKey == "" {
+		clientFunc = func(region, accessKey, secretKey string, options ...ec2.ClientOption) ec2.Client {
+			c.Assert(region, gc.Equals, "test")
+			c.Assert(accessKey, gc.Equals, "x")
+			c.Assert(secretKey, gc.Equals, "x")
+			return &mockEC2Session{
+				newInstancesClient: func() *amzec2.EC2 {
+					return ec2.EnvironEC2(t.Env())
+				},
+			}
+		}
+	}
+	return bootstrapContextWithClientFunc(c, t, clientFunc)
+}
+
+func bootstrapContextWithClientFunc(c *gc.C, t envGetter, clientFunc ec2.ClientFunc) environs.BootstrapContext {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	ctx := stdcontext.WithValue(stdcontext.TODO(), bootstrap.SimplestreamsFetcherContextKey, ss)
+
+	ctx := stdcontext.TODO()
+	ctx = stdcontext.WithValue(ctx, bootstrap.SimplestreamsFetcherContextKey, ss)
+	if clientFunc != nil {
+		ctx = stdcontext.WithValue(ctx, ec2.AWSClientContextKey, clientFunc)
+	}
 	return envtesting.BootstrapContext(ctx, c)
 }
 
@@ -223,7 +273,6 @@ type localServerSuite struct {
 	jujutest.Tests
 	srv    localServer
 	client *amzec2.EC2
-	env    environs.Environ
 
 	callCtx context.ProviderCallContext
 }
@@ -249,16 +298,6 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	t.BaseSuite.PatchValue(&series.HostSeries, func() (string, error) { return jujuversion.DefaultSupportedLTS(), nil })
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
-	t.BaseSuite.PatchValue(&ec2.EC2Session, func(region, accessKey, secretKey string) ec2.EC2Client {
-		c.Assert(region, gc.Equals, "test")
-		c.Assert(accessKey, gc.Equals, "x")
-		c.Assert(secretKey, gc.Equals, "x")
-		return &mockEC2Session{
-			newInstancesClient: func() *amzec2.EC2 {
-				return ec2.EnvironEC2(t.Env)
-			},
-		}
-	})
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
 	// TODO(jam) I don't understand why we shouldn't do this.
@@ -284,7 +323,9 @@ func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 	t.Tests.SetUpTest(c)
 
-	t.callCtx = context.NewEmptyCloudCallContext()
+	t.Tests.BootstrapContext = bootstrapContext(c, localEnvGetter{t: t})
+	t.Tests.ProviderCallContext = context.NewCloudCallContext(t.Tests.BootstrapContext.Context())
+	t.callCtx = context.NewCloudCallContext(t.Tests.BootstrapContext.Context())
 }
 
 func (t *localServerSuite) TearDownTest(c *gc.C) {
@@ -358,7 +399,7 @@ func (t *localServerSuite) prepareWithParamsAndBootstrapWithVPCID(c *gc.C, param
 	c.Check(vpcID, gc.Equals, expectedVPCID)
 	c.Check(ok, jc.IsTrue)
 
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -385,7 +426,7 @@ func (t *localServerSuite) TestPrepareForBootstrapWithDefaultVPCID(c *gc.C) {
 
 func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			// TODO(redir): BBB: When we no longer support upstart based systems this can change to series.LatestLts()
@@ -463,7 +504,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 // TODO(redir): BBB: remove when trusty is no longer supported
 func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			BootstrapSeries:          "trusty",
@@ -539,7 +580,7 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 
 func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -576,7 +617,7 @@ func (t *localServerSuite) TestDestroyErr(c *gc.C) {
 
 func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -640,7 +681,7 @@ func (t *localServerSuite) TestDestroyControllerModelDeleteSecurityGroupInsisten
 
 func (t *localServerSuite) TestDestroyHostedModelDeleteSecurityGroupInsistentlyError(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
-	hostedEnv, err := environs.New(environs.OpenParams{
+	hostedEnv, err := environs.New(t.BootstrapContext.Context(), environs.OpenParams{
 		Cloud:  t.CloudSpec(),
 		Config: env.Config(),
 	})
@@ -667,7 +708,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 		"firewall-mode": "global",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(environs.OpenParams{
+	env, err := environs.New(t.BootstrapContext.Context(), environs.OpenParams{
 		Cloud:  t.CloudSpec(),
 		Config: cfg,
 	})
@@ -742,7 +783,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -983,19 +1024,6 @@ func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
 	c.Assert(zones[1].Available(), jc.IsFalse)
 }
 
-type mockAvailabilityZoneAllocations struct {
-	group  []instance.Id // input param
-	result []common.AvailabilityZoneInstances
-	err    error
-}
-
-func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
-	e common.ZonedEnviron, group []instance.Id,
-) ([]common.AvailabilityZoneInstances, error) {
-	t.group = group
-	return t.result, t.err
-}
-
 func (t *localServerSuite) TestDeriveAvailabilityZones(c *gc.C) {
 	var resultZones []amzec2.AvailabilityZoneInfo
 	t.PatchValue(ec2.EC2AvailabilityZones, func(e *amzec2.EC2, f *amzec2.Filter) (*amzec2.AvailabilityZonesResp, error) {
@@ -1197,7 +1225,7 @@ func (t *localServerSuite) prepareAndBootstrapWithConfig(c *gc.C, config coretes
 	args := t.PrepareParams(c)
 	args.ModelConfig = coretesting.Attrs(args.ModelConfig).Merge(config)
 	env := t.PrepareWithParams(c, args)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -1613,7 +1641,7 @@ func (t *localServerSuite) TestSupportsNetworking(c *gc.C) {
 
 func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.NetworkingEnviron, instance.Id) {
 	env := t.prepareEnviron(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -1942,7 +1970,8 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 		"firewall-mode": "global",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(environs.OpenParams{
+
+	env, err := environs.New(s.BootstrapContext.Context(), environs.OpenParams{
 		Cloud:  s.CloudSpec(),
 		Config: cfg,
 	})

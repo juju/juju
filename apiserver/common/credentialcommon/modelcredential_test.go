@@ -4,6 +4,8 @@
 package credentialcommon_test
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -347,7 +349,7 @@ func (s *ModelCredentialSuite) TestValidateExistingModelCredentialInvalidCredent
 }
 
 func (s *ModelCredentialSuite) TestOpeningProviderFails(c *gc.C) {
-	s.PatchValue(credentialcommon.NewEnv, func(environs.OpenParams) (environs.Environ, error) {
+	s.PatchValue(credentialcommon.NewEnv, func(stdcontext.Context, environs.OpenParams) (environs.Environ, error) {
 		return nil, errors.New("explosive")
 	})
 	results, err := credentialcommon.CheckIAASModelCredential(environs.OpenParams{}, s.backend, s.callContext, false)
@@ -370,7 +372,7 @@ func (s *ModelCredentialSuite) TestValidateExistingModelCredentialForIAASModel(c
 }
 
 func (s *ModelCredentialSuite) TestOpeningCAASBrokerFails(c *gc.C) {
-	s.PatchValue(credentialcommon.NewCAASBroker, func(environs.OpenParams) (caas.Broker, error) {
+	s.PatchValue(credentialcommon.NewCAASBroker, func(stdcontext.Context, environs.OpenParams) (caas.Broker, error) {
 		return nil, errors.New("explosive")
 	})
 	results, err := credentialcommon.CheckCAASModelCredential(environs.OpenParams{})
@@ -379,7 +381,7 @@ func (s *ModelCredentialSuite) TestOpeningCAASBrokerFails(c *gc.C) {
 }
 
 func (s *ModelCredentialSuite) TestCAASCredentialCheckFailed(c *gc.C) {
-	s.PatchValue(credentialcommon.NewCAASBroker, func(environs.OpenParams) (caas.Broker, error) {
+	s.PatchValue(credentialcommon.NewCAASBroker, func(stdcontext.Context, environs.OpenParams) (caas.Broker, error) {
 		return &mockCaasBroker{
 			namespacesFunc: func() ([]string, error) { return nil, errors.New("fail auth") },
 		}, nil
@@ -390,7 +392,7 @@ func (s *ModelCredentialSuite) TestCAASCredentialCheckFailed(c *gc.C) {
 }
 
 func (s *ModelCredentialSuite) TestCAASCredentialCheckSucceeds(c *gc.C) {
-	s.PatchValue(credentialcommon.NewCAASBroker, func(environs.OpenParams) (caas.Broker, error) {
+	s.PatchValue(credentialcommon.NewCAASBroker, func(stdcontext.Context, environs.OpenParams) (caas.Broker, error) {
 		return &mockCaasBroker{
 			namespacesFunc: func() ([]string, error) { return []string{}, nil },
 		}, nil
@@ -420,7 +422,7 @@ func (s *ModelCredentialSuite) ensureEnvForCAASModel(c *gc.C) {
 	s.backend.modelFunc = func() (credentialcommon.Model, error) {
 		return caasModel, nil
 	}
-	s.PatchValue(credentialcommon.NewCAASBroker, func(environs.OpenParams) (caas.Broker, error) {
+	s.PatchValue(credentialcommon.NewCAASBroker, func(stdcontext.Context, environs.OpenParams) (caas.Broker, error) {
 		return &mockCaasBroker{
 			namespacesFunc: func() ([]string, error) { return []string{}, nil },
 		}, nil
@@ -428,7 +430,7 @@ func (s *ModelCredentialSuite) ensureEnvForCAASModel(c *gc.C) {
 }
 
 func (s *ModelCredentialSuite) ensureEnvForIAASModel(c *gc.C) {
-	s.PatchValue(credentialcommon.NewEnv, func(environs.OpenParams) (environs.Environ, error) {
+	s.PatchValue(credentialcommon.NewEnv, func(stdcontext.Context, environs.OpenParams) (environs.Environ, error) {
 		return &mockEnviron{
 			mockProvider: &mockProvider{
 				Stub: &testing.Stub{},

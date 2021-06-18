@@ -4,6 +4,7 @@
 package environ
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -155,7 +156,7 @@ func (t *Tracker) loop() error {
 				continue
 			}
 			logger.Debugf("reloading cloud config")
-			if err = cloudSpecSetter.SetCloudSpec(cloudSpec); err != nil {
+			if err = cloudSpecSetter.SetCloudSpec(context.TODO(), cloudSpec); err != nil {
 				return errors.Annotate(err, "cannot update environ cloud spec")
 			}
 			t.currentCloudSpec = cloudSpec

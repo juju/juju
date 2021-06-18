@@ -223,7 +223,7 @@ func (info *UpgradeInfo) SetStatus(status UpgradeStatus) error {
 	var acceptableFromStatus []UpgradeStatus
 	switch status {
 	case UpgradePending, UpgradeComplete, UpgradeAborted:
-		return errors.Errorf("cannot explicitly set upgrade status to \"%s\"", status)
+		return errors.Errorf("cannot explicitly set upgrade status to %q", status)
 	case UpgradeDBComplete:
 		acceptableFromStatus = []UpgradeStatus{UpgradePending, UpgradeDBComplete}
 	case UpgradeRunning:
@@ -242,18 +242,37 @@ func (info *UpgradeInfo) SetStatus(status UpgradeStatus) error {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
 		if doc.Status == status {
 			return nil, jujutxn.ErrNoOperations
 		}
 
+		var validFromStatus bool
+		for _, s := range acceptableFromStatus {
+			if s == doc.Status {
+				validFromStatus = true
+				break
+			}
+		}
+		if !validFromStatus {
+			return nil, errors.NotValidf("upgrade status transition from %q to %q", doc.Status, status)
+		}
+
+		if doc.PreviousVersion != info.doc.PreviousVersion {
+			return nil, errors.Errorf(
+				"current upgrade info mismatch: expected previous version %s, got %s",
+				info.doc.PreviousVersion, doc.PreviousVersion)
+		}
+
+		if doc.TargetVersion != info.doc.TargetVersion {
+			return nil, errors.Errorf(
+				"current upgrade info mismatch: expected target version %s, got %s",
+				info.doc.TargetVersion, doc.TargetVersion)
+		}
+
 		ops := []txn.Op{{
-			C:  upgradeInfoC,
-			Id: currentUpgradeId,
-			Assert: append(bson.D{
-				{"previousVersion", info.doc.PreviousVersion},
-				{"targetVersion", info.doc.TargetVersion},
-			}, assertSane...),
+			C:      upgradeInfoC,
+			Id:     currentUpgradeId,
+			Assert: append(assertExpectedVersions(info.doc.PreviousVersion, info.doc.TargetVersion), assertSane...),
 			Update: bson.D{{"$set", bson.D{{"status", status}}}},
 		}}
 
@@ -540,7 +559,7 @@ func currentUpgradeInfoDoc(st *State) (*upgradeInfoDoc, error) {
 
 func checkUpgradeInfoSanity(st *State, machineId string, previousVersion, targetVersion version.Number) (bson.D, error) {
 	if previousVersion.Compare(targetVersion) != -1 {
-		return nil, errors.Errorf("cannot sanely upgrade from %s to %s", previousVersion, targetVersion)
+		return nil, errors.Errorf("cannot upgrade from %s to %s", previousVersion, targetVersion)
 	}
 	controllerIds, err := st.SafeControllerIds()
 	if err != nil {

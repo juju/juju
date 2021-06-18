@@ -88,7 +88,7 @@ func (x *executor) Run(op Operation, remoteStateChange <-chan remotestate.Snapsh
 		x.logger.Debugf("acquiring machine lock for %s", x.unitName)
 		releaser, err := x.acquireMachineLock(op.String(), op.ExecutionGroup())
 		if err != nil {
-			return errors.Annotatef(err, "could not acquire %q lock for %s", op, x.unitName)
+			return errors.Annotatef(err, "acquiring %q lock for %s", op, x.unitName)
 		}
 		defer x.logger.Debugf("lock released for %s", x.unitName)
 		defer releaser()

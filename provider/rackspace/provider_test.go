@@ -4,6 +4,8 @@
 package rackspace_test
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/testing"
@@ -68,7 +70,7 @@ func (p *fakeProvider) Version() int {
 	return 0
 }
 
-func (p *fakeProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+func (p *fakeProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	p.MethodCall(p, "Open", args)
 	return nil, nil
 }
@@ -108,7 +110,7 @@ func (p *fakeProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSc
 	return nil
 }
 
-func (p *fakeProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+func (p *fakeProvider) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
 	p.MethodCall(p, "DetectCredentials")
 	return nil, errors.NotFoundf("credentials")
 }

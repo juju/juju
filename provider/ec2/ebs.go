@@ -405,8 +405,8 @@ func (v *ebsVolumeSource) createVolume(ctx context.ProviderCallContext, p storag
 	}
 
 	volume := storage.Volume{
-		p.Tag,
-		storage.VolumeInfo{
+		Tag: p.Tag,
+		VolumeInfo: storage.VolumeInfo{
 			VolumeId:   volumeId,
 			Size:       gibToMib(uint64(resp.Size)),
 			Persistent: true,
@@ -758,9 +758,9 @@ func (v *ebsVolumeSource) AttachVolumes(ctx context.ProviderCallContext, attachP
 		attachmentInfo.DeviceName = deviceName
 
 		results[i].VolumeAttachment = &storage.VolumeAttachment{
-			params.Volume,
-			params.Machine,
-			attachmentInfo,
+			Volume:               params.Volume,
+			Machine:              params.Machine,
+			VolumeAttachmentInfo: attachmentInfo,
 		}
 	}
 	return results, nil

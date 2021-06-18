@@ -300,7 +300,7 @@ func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (k *kubernetesClient) SetCloudSpec(spec environscloudspec.CloudSpec) error {
+func (k *kubernetesClient) SetCloudSpec(_ context.Context, spec environscloudspec.CloudSpec) error {
 	k.lock.Lock()
 	defer k.lock.Unlock()
 

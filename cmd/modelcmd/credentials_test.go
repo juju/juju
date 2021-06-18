@@ -232,3 +232,23 @@ func (s *credentialsSuite) TestRegisterCredentialsWithCallFailure(c *gc.C) {
 	c.Assert(err.Error(), gc.Matches, `registering credentials for provider: bad`)
 	c.Assert(credentials, gc.IsNil)
 }
+
+func (s *credentialsSuite) TestDetectCredential(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	credential := &cloud.CloudCredential{
+		AuthCredentials: map[string]cloud.Credential{
+			"admin": cloud.NewCredential("certificate", map[string]string{
+				"cert": "certificate",
+			}),
+		},
+	}
+
+	mockProvider := modelcmd.NewMockTestCloudProvider(ctrl)
+	mockProvider.EXPECT().DetectCredentials("fake").Return(credential, nil)
+
+	credentials, err := modelcmd.DetectCredential("fake", mockProvider)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(credentials, gc.DeepEquals, credential)
+}

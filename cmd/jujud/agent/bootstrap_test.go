@@ -5,6 +5,7 @@ package agent
 
 import (
 	"context"
+	stdcontext "context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -682,9 +683,9 @@ func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapWithInvalidCredentialLogs(c *gc.C) {
 	called := false
-	newEnviron := func(ps environs.OpenParams) (environs.Environ, error) {
+	newEnviron := func(_ stdcontext.Context, ps environs.OpenParams) (environs.Environ, error) {
 		called = true
-		env, _ := environs.New(ps)
+		env, _ := environs.New(context.TODO(), ps)
 		return &mockDummyEnviron{env}, nil
 	}
 	s.PatchValue(&environsNewIAAS, newEnviron)
@@ -841,7 +842,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Open(provider, environs.OpenParams{
+	env, err := environs.Open(context.TODO(), provider, environs.OpenParams{
 		Cloud:  dummy.SampleCloudSpec(),
 		Config: cfg,
 	})

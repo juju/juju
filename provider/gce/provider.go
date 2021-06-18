@@ -4,6 +4,8 @@
 package gce
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/schema"
@@ -36,7 +38,7 @@ func (environProvider) Version() int {
 }
 
 // Open implements environs.EnvironProvider.
-func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+func (environProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}

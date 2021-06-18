@@ -19,6 +19,7 @@
 package dummy
 
 import (
+	stdcontext "context"
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
@@ -664,7 +665,7 @@ func (*environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialS
 	}
 }
 
-func (*environProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+func (*environProvider) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
 	return cloud.NewEmptyCloudCredential(), nil
 }
 
@@ -704,7 +705,7 @@ func (*environProvider) Version() int {
 	return 0
 }
 
-func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+func (p *environProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	ecfg, err := p.newConfig(args.Config)

@@ -44,6 +44,6 @@ func (s *credentialsSuite) TestUserPassHiddenAttributes(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
-	_, err := s.provider.DetectCredentials()
+	_, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

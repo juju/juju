@@ -4,6 +4,7 @@
 package state
 
 import (
+	stdcontext "context"
 	"fmt"
 	"sort"
 	"time"
@@ -2802,7 +2803,7 @@ func (s *upgradesSuite) TestUpdateKubernetesStorageConfig(c *gc.C) {
 	err := s.state.UpdateCloudCredential(tag, cloud.NewEmptyCredential())
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.PatchValue(&NewBroker, func(args environs.OpenParams) (caas.Broker, error) {
+	s.PatchValue(&NewBroker, func(_ stdcontext.Context, args environs.OpenParams) (caas.Broker, error) {
 		return &fakeBroker{}, nil
 	})
 
@@ -2836,7 +2837,7 @@ func (s *upgradesSuite) TestUpdateKubernetesStorageConfigWithDyingModel(c *gc.C)
 	err := s.state.UpdateCloudCredential(tag, cloud.NewEmptyCredential())
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.PatchValue(&NewBroker, func(args environs.OpenParams) (caas.Broker, error) {
+	s.PatchValue(&NewBroker, func(_ stdcontext.Context, args environs.OpenParams) (caas.Broker, error) {
 		return &fakeBroker{}, nil
 	})
 

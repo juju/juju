@@ -5,6 +5,7 @@ package commands
 
 import (
 	"bufio"
+	stdcontext "context"
 	stderrors "errors"
 	"fmt"
 	"io"
@@ -80,25 +81,6 @@ See also:
 func newUpgradeJujuCommand() cmd.Command {
 	command := &upgradeJujuCommand{}
 	return modelcmd.Wrap(command)
-}
-
-func newUpgradeJujuCommandForTest(
-	store jujuclient.ClientStore,
-	jujuClientAPI jujuClientAPI,
-	modelConfigAPI modelConfigAPI,
-	modelManagerAPI modelManagerAPI,
-	controllerAPI controllerAPI,
-	options ...modelcmd.WrapOption) cmd.Command {
-	command := &upgradeJujuCommand{
-		baseUpgradeCommand: baseUpgradeCommand{
-			modelConfigAPI:  modelConfigAPI,
-			modelManagerAPI: modelManagerAPI,
-			controllerAPI:   controllerAPI,
-		},
-		jujuClientAPI: jujuClientAPI,
-	}
-	command.SetClientStore(store)
-	return modelcmd.Wrap(command, options...)
 }
 
 // baseUpgradeCommand is used by both the
@@ -632,7 +614,7 @@ var getCAASBroker = func(getter environs.EnvironConfigGetter) (caas.Broker, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	env, err := caas.New(environs.OpenParams{
+	env, err := caas.New(stdcontext.TODO(), environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: modelConfig,
 	})

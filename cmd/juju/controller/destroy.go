@@ -581,9 +581,9 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 		Config:         cfg,
 	}
 	if cloud.CloudTypeIsCAAS(bootstrapConfig.CloudType) {
-		return caas.New(openParams)
+		return caas.New(stdcontext.TODO(), openParams)
 	}
-	return environs.New(openParams)
+	return environs.New(stdcontext.TODO(), openParams)
 }
 
 func (c *destroyCommandBase) getControllerEnvironFromAPI(
@@ -611,7 +611,7 @@ func (c *destroyCommandBase) getControllerEnvironFromAPI(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller config from API")
 	}
-	return environs.New(environs.OpenParams{
+	return environs.New(stdcontext.TODO(), environs.OpenParams{
 		ControllerUUID: ctrlCfg.ControllerUUID(),
 		Cloud:          cloudSpec,
 		Config:         cfg,

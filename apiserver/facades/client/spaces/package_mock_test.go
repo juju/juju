@@ -5,6 +5,8 @@
 package spaces
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
 	networkingcommon "github.com/juju/juju/apiserver/common/networkingcommon"
@@ -19,34 +21,33 @@ import (
 	space "github.com/juju/juju/environs/space"
 	state "github.com/juju/juju/state"
 	txn "github.com/juju/mgo/v2/txn"
-	v4 "github.com/juju/names/v4"
-	reflect "reflect"
+	names "github.com/juju/names/v4"
 )
 
-// MockBacking is a mock of Backing interface
+// MockBacking is a mock of Backing interface.
 type MockBacking struct {
 	ctrl     *gomock.Controller
 	recorder *MockBackingMockRecorder
 }
 
-// MockBackingMockRecorder is the mock recorder for MockBacking
+// MockBackingMockRecorder is the mock recorder for MockBacking.
 type MockBackingMockRecorder struct {
 	mock *MockBacking
 }
 
-// NewMockBacking creates a new mock instance
+// NewMockBacking creates a new mock instance.
 func NewMockBacking(ctrl *gomock.Controller) *MockBacking {
 	mock := &MockBacking{ctrl: ctrl}
 	mock.recorder = &MockBackingMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBacking) EXPECT() *MockBackingMockRecorder {
 	return m.recorder
 }
 
-// AddSpace mocks base method
+// AddSpace mocks base method.
 func (m *MockBacking) AddSpace(arg0 string, arg1 network.Id, arg2 []string, arg3 bool) (networkingcommon.BackingSpace, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddSpace", arg0, arg1, arg2, arg3)
@@ -55,13 +56,13 @@ func (m *MockBacking) AddSpace(arg0 string, arg1 network.Id, arg2 []string, arg3
 	return ret0, ret1
 }
 
-// AddSpace indicates an expected call of AddSpace
+// AddSpace indicates an expected call of AddSpace.
 func (mr *MockBackingMockRecorder) AddSpace(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSpace", reflect.TypeOf((*MockBacking)(nil).AddSpace), arg0, arg1, arg2, arg3)
 }
 
-// AllConstraints mocks base method
+// AllConstraints mocks base method.
 func (m *MockBacking) AllConstraints() ([]Constraints, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllConstraints")
@@ -70,13 +71,13 @@ func (m *MockBacking) AllConstraints() ([]Constraints, error) {
 	return ret0, ret1
 }
 
-// AllConstraints indicates an expected call of AllConstraints
+// AllConstraints indicates an expected call of AllConstraints.
 func (mr *MockBackingMockRecorder) AllConstraints() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllConstraints", reflect.TypeOf((*MockBacking)(nil).AllConstraints))
 }
 
-// AllEndpointBindings mocks base method
+// AllEndpointBindings mocks base method.
 func (m *MockBacking) AllEndpointBindings() (map[string]Bindings, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllEndpointBindings")
@@ -85,13 +86,13 @@ func (m *MockBacking) AllEndpointBindings() (map[string]Bindings, error) {
 	return ret0, ret1
 }
 
-// AllEndpointBindings indicates an expected call of AllEndpointBindings
+// AllEndpointBindings indicates an expected call of AllEndpointBindings.
 func (mr *MockBackingMockRecorder) AllEndpointBindings() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllEndpointBindings", reflect.TypeOf((*MockBacking)(nil).AllEndpointBindings))
 }
 
-// AllMachines mocks base method
+// AllMachines mocks base method.
 func (m *MockBacking) AllMachines() ([]Machine, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllMachines")
@@ -100,13 +101,13 @@ func (m *MockBacking) AllMachines() ([]Machine, error) {
 	return ret0, ret1
 }
 
-// AllMachines indicates an expected call of AllMachines
+// AllMachines indicates an expected call of AllMachines.
 func (mr *MockBackingMockRecorder) AllMachines() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllMachines", reflect.TypeOf((*MockBacking)(nil).AllMachines))
 }
 
-// AllSpaceInfos mocks base method
+// AllSpaceInfos mocks base method.
 func (m *MockBacking) AllSpaceInfos() (network.SpaceInfos, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllSpaceInfos")
@@ -115,13 +116,13 @@ func (m *MockBacking) AllSpaceInfos() (network.SpaceInfos, error) {
 	return ret0, ret1
 }
 
-// AllSpaceInfos indicates an expected call of AllSpaceInfos
+// AllSpaceInfos indicates an expected call of AllSpaceInfos.
 func (mr *MockBackingMockRecorder) AllSpaceInfos() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaceInfos", reflect.TypeOf((*MockBacking)(nil).AllSpaceInfos))
 }
 
-// AllSpaces mocks base method
+// AllSpaces mocks base method.
 func (m *MockBacking) AllSpaces() ([]networkingcommon.BackingSpace, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllSpaces")
@@ -130,13 +131,13 @@ func (m *MockBacking) AllSpaces() ([]networkingcommon.BackingSpace, error) {
 	return ret0, ret1
 }
 
-// AllSpaces indicates an expected call of AllSpaces
+// AllSpaces indicates an expected call of AllSpaces.
 func (mr *MockBackingMockRecorder) AllSpaces() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaces", reflect.TypeOf((*MockBacking)(nil).AllSpaces))
 }
 
-// ApplyOperation mocks base method
+// ApplyOperation mocks base method.
 func (m *MockBacking) ApplyOperation(arg0 state.ModelOperation) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplyOperation", arg0)
@@ -144,13 +145,13 @@ func (m *MockBacking) ApplyOperation(arg0 state.ModelOperation) error {
 	return ret0
 }
 
-// ApplyOperation indicates an expected call of ApplyOperation
+// ApplyOperation indicates an expected call of ApplyOperation.
 func (mr *MockBackingMockRecorder) ApplyOperation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyOperation", reflect.TypeOf((*MockBacking)(nil).ApplyOperation), arg0)
 }
 
-// CloudSpec mocks base method
+// CloudSpec mocks base method.
 func (m *MockBacking) CloudSpec() (cloudspec.CloudSpec, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudSpec")
@@ -159,13 +160,13 @@ func (m *MockBacking) CloudSpec() (cloudspec.CloudSpec, error) {
 	return ret0, ret1
 }
 
-// CloudSpec indicates an expected call of CloudSpec
+// CloudSpec indicates an expected call of CloudSpec.
 func (mr *MockBackingMockRecorder) CloudSpec() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockBacking)(nil).CloudSpec))
 }
 
-// ConstraintsBySpaceName mocks base method
+// ConstraintsBySpaceName mocks base method.
 func (m *MockBacking) ConstraintsBySpaceName(arg0 string) ([]Constraints, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConstraintsBySpaceName", arg0)
@@ -174,13 +175,13 @@ func (m *MockBacking) ConstraintsBySpaceName(arg0 string) ([]Constraints, error)
 	return ret0, ret1
 }
 
-// ConstraintsBySpaceName indicates an expected call of ConstraintsBySpaceName
+// ConstraintsBySpaceName indicates an expected call of ConstraintsBySpaceName.
 func (mr *MockBackingMockRecorder) ConstraintsBySpaceName(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConstraintsBySpaceName", reflect.TypeOf((*MockBacking)(nil).ConstraintsBySpaceName), arg0)
 }
 
-// ControllerConfig mocks base method
+// ControllerConfig mocks base method.
 func (m *MockBacking) ControllerConfig() (controller.Config, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerConfig")
@@ -189,13 +190,13 @@ func (m *MockBacking) ControllerConfig() (controller.Config, error) {
 	return ret0, ret1
 }
 
-// ControllerConfig indicates an expected call of ControllerConfig
+// ControllerConfig indicates an expected call of ControllerConfig.
 func (mr *MockBackingMockRecorder) ControllerConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockBacking)(nil).ControllerConfig))
 }
 
-// IsController mocks base method
+// IsController mocks base method.
 func (m *MockBacking) IsController() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsController")
@@ -203,13 +204,13 @@ func (m *MockBacking) IsController() bool {
 	return ret0
 }
 
-// IsController indicates an expected call of IsController
+// IsController indicates an expected call of IsController.
 func (mr *MockBackingMockRecorder) IsController() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsController", reflect.TypeOf((*MockBacking)(nil).IsController))
 }
 
-// ModelConfig mocks base method
+// ModelConfig mocks base method.
 func (m *MockBacking) ModelConfig() (*config.Config, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelConfig")
@@ -218,27 +219,27 @@ func (m *MockBacking) ModelConfig() (*config.Config, error) {
 	return ret0, ret1
 }
 
-// ModelConfig indicates an expected call of ModelConfig
+// ModelConfig indicates an expected call of ModelConfig.
 func (mr *MockBackingMockRecorder) ModelConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockBacking)(nil).ModelConfig))
 }
 
-// ModelTag mocks base method
-func (m *MockBacking) ModelTag() v4.ModelTag {
+// ModelTag mocks base method.
+func (m *MockBacking) ModelTag() names.ModelTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(v4.ModelTag)
+	ret0, _ := ret[0].(names.ModelTag)
 	return ret0
 }
 
-// ModelTag indicates an expected call of ModelTag
+// ModelTag indicates an expected call of ModelTag.
 func (mr *MockBackingMockRecorder) ModelTag() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelTag", reflect.TypeOf((*MockBacking)(nil).ModelTag))
 }
 
-// MovingSubnet mocks base method
+// MovingSubnet mocks base method.
 func (m *MockBacking) MovingSubnet(arg0 string) (MovingSubnet, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MovingSubnet", arg0)
@@ -247,13 +248,13 @@ func (m *MockBacking) MovingSubnet(arg0 string) (MovingSubnet, error) {
 	return ret0, ret1
 }
 
-// MovingSubnet indicates an expected call of MovingSubnet
+// MovingSubnet indicates an expected call of MovingSubnet.
 func (mr *MockBackingMockRecorder) MovingSubnet(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MovingSubnet", reflect.TypeOf((*MockBacking)(nil).MovingSubnet), arg0)
 }
 
-// SpaceByName mocks base method
+// SpaceByName mocks base method.
 func (m *MockBacking) SpaceByName(arg0 string) (networkingcommon.BackingSpace, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SpaceByName", arg0)
@@ -262,13 +263,13 @@ func (m *MockBacking) SpaceByName(arg0 string) (networkingcommon.BackingSpace, e
 	return ret0, ret1
 }
 
-// SpaceByName indicates an expected call of SpaceByName
+// SpaceByName indicates an expected call of SpaceByName.
 func (mr *MockBackingMockRecorder) SpaceByName(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpaceByName", reflect.TypeOf((*MockBacking)(nil).SpaceByName), arg0)
 }
 
-// SubnetByCIDR mocks base method
+// SubnetByCIDR mocks base method.
 func (m *MockBacking) SubnetByCIDR(arg0 string) (networkingcommon.BackingSubnet, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SubnetByCIDR", arg0)
@@ -277,36 +278,36 @@ func (m *MockBacking) SubnetByCIDR(arg0 string) (networkingcommon.BackingSubnet,
 	return ret0, ret1
 }
 
-// SubnetByCIDR indicates an expected call of SubnetByCIDR
+// SubnetByCIDR indicates an expected call of SubnetByCIDR.
 func (mr *MockBackingMockRecorder) SubnetByCIDR(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubnetByCIDR", reflect.TypeOf((*MockBacking)(nil).SubnetByCIDR), arg0)
 }
 
-// MockBlockChecker is a mock of BlockChecker interface
+// MockBlockChecker is a mock of BlockChecker interface.
 type MockBlockChecker struct {
 	ctrl     *gomock.Controller
 	recorder *MockBlockCheckerMockRecorder
 }
 
-// MockBlockCheckerMockRecorder is the mock recorder for MockBlockChecker
+// MockBlockCheckerMockRecorder is the mock recorder for MockBlockChecker.
 type MockBlockCheckerMockRecorder struct {
 	mock *MockBlockChecker
 }
 
-// NewMockBlockChecker creates a new mock instance
+// NewMockBlockChecker creates a new mock instance.
 func NewMockBlockChecker(ctrl *gomock.Controller) *MockBlockChecker {
 	mock := &MockBlockChecker{ctrl: ctrl}
 	mock.recorder = &MockBlockCheckerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBlockChecker) EXPECT() *MockBlockCheckerMockRecorder {
 	return m.recorder
 }
 
-// ChangeAllowed mocks base method
+// ChangeAllowed mocks base method.
 func (m *MockBlockChecker) ChangeAllowed() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ChangeAllowed")
@@ -314,13 +315,13 @@ func (m *MockBlockChecker) ChangeAllowed() error {
 	return ret0
 }
 
-// ChangeAllowed indicates an expected call of ChangeAllowed
+// ChangeAllowed indicates an expected call of ChangeAllowed.
 func (mr *MockBlockCheckerMockRecorder) ChangeAllowed() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeAllowed", reflect.TypeOf((*MockBlockChecker)(nil).ChangeAllowed))
 }
 
-// RemoveAllowed mocks base method
+// RemoveAllowed mocks base method.
 func (m *MockBlockChecker) RemoveAllowed() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveAllowed")
@@ -328,36 +329,36 @@ func (m *MockBlockChecker) RemoveAllowed() error {
 	return ret0
 }
 
-// RemoveAllowed indicates an expected call of RemoveAllowed
+// RemoveAllowed indicates an expected call of RemoveAllowed.
 func (mr *MockBlockCheckerMockRecorder) RemoveAllowed() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAllowed", reflect.TypeOf((*MockBlockChecker)(nil).RemoveAllowed))
 }
 
-// MockMachine is a mock of Machine interface
+// MockMachine is a mock of Machine interface.
 type MockMachine struct {
 	ctrl     *gomock.Controller
 	recorder *MockMachineMockRecorder
 }
 
-// MockMachineMockRecorder is the mock recorder for MockMachine
+// MockMachineMockRecorder is the mock recorder for MockMachine.
 type MockMachineMockRecorder struct {
 	mock *MockMachine
 }
 
-// NewMockMachine creates a new mock instance
+// NewMockMachine creates a new mock instance.
 func NewMockMachine(ctrl *gomock.Controller) *MockMachine {
 	mock := &MockMachine{ctrl: ctrl}
 	mock.recorder = &MockMachineMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 	return m.recorder
 }
 
-// AllAddresses mocks base method
+// AllAddresses mocks base method.
 func (m *MockMachine) AllAddresses() ([]Address, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllAddresses")
@@ -366,13 +367,13 @@ func (m *MockMachine) AllAddresses() ([]Address, error) {
 	return ret0, ret1
 }
 
-// AllAddresses indicates an expected call of AllAddresses
+// AllAddresses indicates an expected call of AllAddresses.
 func (mr *MockMachineMockRecorder) AllAddresses() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllAddresses", reflect.TypeOf((*MockMachine)(nil).AllAddresses))
 }
 
-// AllSpaces mocks base method
+// AllSpaces mocks base method.
 func (m *MockMachine) AllSpaces() (set.Strings, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllSpaces")
@@ -381,13 +382,13 @@ func (m *MockMachine) AllSpaces() (set.Strings, error) {
 	return ret0, ret1
 }
 
-// AllSpaces indicates an expected call of AllSpaces
+// AllSpaces indicates an expected call of AllSpaces.
 func (mr *MockMachineMockRecorder) AllSpaces() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaces", reflect.TypeOf((*MockMachine)(nil).AllSpaces))
 }
 
-// Units mocks base method
+// Units mocks base method.
 func (m *MockMachine) Units() ([]Unit, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Units")
@@ -396,36 +397,36 @@ func (m *MockMachine) Units() ([]Unit, error) {
 	return ret0, ret1
 }
 
-// Units indicates an expected call of Units
+// Units indicates an expected call of Units.
 func (mr *MockMachineMockRecorder) Units() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Units", reflect.TypeOf((*MockMachine)(nil).Units))
 }
 
-// MockRenameSpace is a mock of RenameSpace interface
+// MockRenameSpace is a mock of RenameSpace interface.
 type MockRenameSpace struct {
 	ctrl     *gomock.Controller
 	recorder *MockRenameSpaceMockRecorder
 }
 
-// MockRenameSpaceMockRecorder is the mock recorder for MockRenameSpace
+// MockRenameSpaceMockRecorder is the mock recorder for MockRenameSpace.
 type MockRenameSpaceMockRecorder struct {
 	mock *MockRenameSpace
 }
 
-// NewMockRenameSpace creates a new mock instance
+// NewMockRenameSpace creates a new mock instance.
 func NewMockRenameSpace(ctrl *gomock.Controller) *MockRenameSpace {
 	mock := &MockRenameSpace{ctrl: ctrl}
 	mock.recorder = &MockRenameSpaceMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRenameSpace) EXPECT() *MockRenameSpaceMockRecorder {
 	return m.recorder
 }
 
-// Id mocks base method
+// Id mocks base method.
 func (m *MockRenameSpace) Id() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Id")
@@ -433,13 +434,13 @@ func (m *MockRenameSpace) Id() string {
 	return ret0
 }
 
-// Id indicates an expected call of Id
+// Id indicates an expected call of Id.
 func (mr *MockRenameSpaceMockRecorder) Id() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Id", reflect.TypeOf((*MockRenameSpace)(nil).Id))
 }
 
-// Name mocks base method
+// Name mocks base method.
 func (m *MockRenameSpace) Name() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Name")
@@ -447,13 +448,13 @@ func (m *MockRenameSpace) Name() string {
 	return ret0
 }
 
-// Name indicates an expected call of Name
+// Name indicates an expected call of Name.
 func (mr *MockRenameSpaceMockRecorder) Name() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockRenameSpace)(nil).Name))
 }
 
-// Refresh mocks base method
+// Refresh mocks base method.
 func (m *MockRenameSpace) Refresh() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Refresh")
@@ -461,13 +462,13 @@ func (m *MockRenameSpace) Refresh() error {
 	return ret0
 }
 
-// Refresh indicates an expected call of Refresh
+// Refresh indicates an expected call of Refresh.
 func (mr *MockRenameSpaceMockRecorder) Refresh() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockRenameSpace)(nil).Refresh))
 }
 
-// RenameSpaceOps mocks base method
+// RenameSpaceOps mocks base method.
 func (m *MockRenameSpace) RenameSpaceOps(arg0 string) []txn.Op {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RenameSpaceOps", arg0)
@@ -475,36 +476,36 @@ func (m *MockRenameSpace) RenameSpaceOps(arg0 string) []txn.Op {
 	return ret0
 }
 
-// RenameSpaceOps indicates an expected call of RenameSpaceOps
+// RenameSpaceOps indicates an expected call of RenameSpaceOps.
 func (mr *MockRenameSpaceMockRecorder) RenameSpaceOps(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameSpaceOps", reflect.TypeOf((*MockRenameSpace)(nil).RenameSpaceOps), arg0)
 }
 
-// MockRenameSpaceState is a mock of RenameSpaceState interface
+// MockRenameSpaceState is a mock of RenameSpaceState interface.
 type MockRenameSpaceState struct {
 	ctrl     *gomock.Controller
 	recorder *MockRenameSpaceStateMockRecorder
 }
 
-// MockRenameSpaceStateMockRecorder is the mock recorder for MockRenameSpaceState
+// MockRenameSpaceStateMockRecorder is the mock recorder for MockRenameSpaceState.
 type MockRenameSpaceStateMockRecorder struct {
 	mock *MockRenameSpaceState
 }
 
-// NewMockRenameSpaceState creates a new mock instance
+// NewMockRenameSpaceState creates a new mock instance.
 func NewMockRenameSpaceState(ctrl *gomock.Controller) *MockRenameSpaceState {
 	mock := &MockRenameSpaceState{ctrl: ctrl}
 	mock.recorder = &MockRenameSpaceStateMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRenameSpaceState) EXPECT() *MockRenameSpaceStateMockRecorder {
 	return m.recorder
 }
 
-// ConstraintsBySpaceName mocks base method
+// ConstraintsBySpaceName mocks base method.
 func (m *MockRenameSpaceState) ConstraintsBySpaceName(arg0 string) ([]Constraints, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConstraintsBySpaceName", arg0)
@@ -513,13 +514,13 @@ func (m *MockRenameSpaceState) ConstraintsBySpaceName(arg0 string) ([]Constraint
 	return ret0, ret1
 }
 
-// ConstraintsBySpaceName indicates an expected call of ConstraintsBySpaceName
+// ConstraintsBySpaceName indicates an expected call of ConstraintsBySpaceName.
 func (mr *MockRenameSpaceStateMockRecorder) ConstraintsBySpaceName(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConstraintsBySpaceName", reflect.TypeOf((*MockRenameSpaceState)(nil).ConstraintsBySpaceName), arg0)
 }
 
-// ControllerConfig mocks base method
+// ControllerConfig mocks base method.
 func (m *MockRenameSpaceState) ControllerConfig() (controller.Config, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerConfig")
@@ -528,36 +529,36 @@ func (m *MockRenameSpaceState) ControllerConfig() (controller.Config, error) {
 	return ret0, ret1
 }
 
-// ControllerConfig indicates an expected call of ControllerConfig
+// ControllerConfig indicates an expected call of ControllerConfig.
 func (mr *MockRenameSpaceStateMockRecorder) ControllerConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockRenameSpaceState)(nil).ControllerConfig))
 }
 
-// MockSettings is a mock of Settings interface
+// MockSettings is a mock of Settings interface.
 type MockSettings struct {
 	ctrl     *gomock.Controller
 	recorder *MockSettingsMockRecorder
 }
 
-// MockSettingsMockRecorder is the mock recorder for MockSettings
+// MockSettingsMockRecorder is the mock recorder for MockSettings.
 type MockSettingsMockRecorder struct {
 	mock *MockSettings
 }
 
-// NewMockSettings creates a new mock instance
+// NewMockSettings creates a new mock instance.
 func NewMockSettings(ctrl *gomock.Controller) *MockSettings {
 	mock := &MockSettings{ctrl: ctrl}
 	mock.recorder = &MockSettingsMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSettings) EXPECT() *MockSettingsMockRecorder {
 	return m.recorder
 }
 
-// DeltaOps mocks base method
+// DeltaOps mocks base method.
 func (m *MockSettings) DeltaOps(arg0 string, arg1 settings.ItemChanges) ([]txn.Op, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeltaOps", arg0, arg1)
@@ -566,36 +567,36 @@ func (m *MockSettings) DeltaOps(arg0 string, arg1 settings.ItemChanges) ([]txn.O
 	return ret0, ret1
 }
 
-// DeltaOps indicates an expected call of DeltaOps
+// DeltaOps indicates an expected call of DeltaOps.
 func (mr *MockSettingsMockRecorder) DeltaOps(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeltaOps", reflect.TypeOf((*MockSettings)(nil).DeltaOps), arg0, arg1)
 }
 
-// MockOpFactory is a mock of OpFactory interface
+// MockOpFactory is a mock of OpFactory interface.
 type MockOpFactory struct {
 	ctrl     *gomock.Controller
 	recorder *MockOpFactoryMockRecorder
 }
 
-// MockOpFactoryMockRecorder is the mock recorder for MockOpFactory
+// MockOpFactoryMockRecorder is the mock recorder for MockOpFactory.
 type MockOpFactoryMockRecorder struct {
 	mock *MockOpFactory
 }
 
-// NewMockOpFactory creates a new mock instance
+// NewMockOpFactory creates a new mock instance.
 func NewMockOpFactory(ctrl *gomock.Controller) *MockOpFactory {
 	mock := &MockOpFactory{ctrl: ctrl}
 	mock.recorder = &MockOpFactoryMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockOpFactory) EXPECT() *MockOpFactoryMockRecorder {
 	return m.recorder
 }
 
-// NewMoveSubnetsOp mocks base method
+// NewMoveSubnetsOp mocks base method.
 func (m *MockOpFactory) NewMoveSubnetsOp(arg0 string, arg1 []MovingSubnet) (MoveSubnetsOp, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewMoveSubnetsOp", arg0, arg1)
@@ -604,13 +605,13 @@ func (m *MockOpFactory) NewMoveSubnetsOp(arg0 string, arg1 []MovingSubnet) (Move
 	return ret0, ret1
 }
 
-// NewMoveSubnetsOp indicates an expected call of NewMoveSubnetsOp
+// NewMoveSubnetsOp indicates an expected call of NewMoveSubnetsOp.
 func (mr *MockOpFactoryMockRecorder) NewMoveSubnetsOp(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewMoveSubnetsOp", reflect.TypeOf((*MockOpFactory)(nil).NewMoveSubnetsOp), arg0, arg1)
 }
 
-// NewRemoveSpaceOp mocks base method
+// NewRemoveSpaceOp mocks base method.
 func (m *MockOpFactory) NewRemoveSpaceOp(arg0 string) (state.ModelOperation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewRemoveSpaceOp", arg0)
@@ -619,13 +620,13 @@ func (m *MockOpFactory) NewRemoveSpaceOp(arg0 string) (state.ModelOperation, err
 	return ret0, ret1
 }
 
-// NewRemoveSpaceOp indicates an expected call of NewRemoveSpaceOp
+// NewRemoveSpaceOp indicates an expected call of NewRemoveSpaceOp.
 func (mr *MockOpFactoryMockRecorder) NewRemoveSpaceOp(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewRemoveSpaceOp", reflect.TypeOf((*MockOpFactory)(nil).NewRemoveSpaceOp), arg0)
 }
 
-// NewRenameSpaceOp mocks base method
+// NewRenameSpaceOp mocks base method.
 func (m *MockOpFactory) NewRenameSpaceOp(arg0, arg1 string) (state.ModelOperation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewRenameSpaceOp", arg0, arg1)
@@ -634,36 +635,36 @@ func (m *MockOpFactory) NewRenameSpaceOp(arg0, arg1 string) (state.ModelOperatio
 	return ret0, ret1
 }
 
-// NewRenameSpaceOp indicates an expected call of NewRenameSpaceOp
+// NewRenameSpaceOp indicates an expected call of NewRenameSpaceOp.
 func (mr *MockOpFactoryMockRecorder) NewRenameSpaceOp(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewRenameSpaceOp", reflect.TypeOf((*MockOpFactory)(nil).NewRenameSpaceOp), arg0, arg1)
 }
 
-// MockRemoveSpace is a mock of RemoveSpace interface
+// MockRemoveSpace is a mock of RemoveSpace interface.
 type MockRemoveSpace struct {
 	ctrl     *gomock.Controller
 	recorder *MockRemoveSpaceMockRecorder
 }
 
-// MockRemoveSpaceMockRecorder is the mock recorder for MockRemoveSpace
+// MockRemoveSpaceMockRecorder is the mock recorder for MockRemoveSpace.
 type MockRemoveSpaceMockRecorder struct {
 	mock *MockRemoveSpace
 }
 
-// NewMockRemoveSpace creates a new mock instance
+// NewMockRemoveSpace creates a new mock instance.
 func NewMockRemoveSpace(ctrl *gomock.Controller) *MockRemoveSpace {
 	mock := &MockRemoveSpace{ctrl: ctrl}
 	mock.recorder = &MockRemoveSpaceMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRemoveSpace) EXPECT() *MockRemoveSpaceMockRecorder {
 	return m.recorder
 }
 
-// Refresh mocks base method
+// Refresh mocks base method.
 func (m *MockRemoveSpace) Refresh() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Refresh")
@@ -671,13 +672,13 @@ func (m *MockRemoveSpace) Refresh() error {
 	return ret0
 }
 
-// Refresh indicates an expected call of Refresh
+// Refresh indicates an expected call of Refresh.
 func (mr *MockRemoveSpaceMockRecorder) Refresh() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockRemoveSpace)(nil).Refresh))
 }
 
-// RemoveSpaceOps mocks base method
+// RemoveSpaceOps mocks base method.
 func (m *MockRemoveSpace) RemoveSpaceOps() []txn.Op {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveSpaceOps")
@@ -685,36 +686,36 @@ func (m *MockRemoveSpace) RemoveSpaceOps() []txn.Op {
 	return ret0
 }
 
-// RemoveSpaceOps indicates an expected call of RemoveSpaceOps
+// RemoveSpaceOps indicates an expected call of RemoveSpaceOps.
 func (mr *MockRemoveSpaceMockRecorder) RemoveSpaceOps() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSpaceOps", reflect.TypeOf((*MockRemoveSpace)(nil).RemoveSpaceOps))
 }
 
-// MockSubnet is a mock of Subnet interface
+// MockSubnet is a mock of Subnet interface.
 type MockSubnet struct {
 	ctrl     *gomock.Controller
 	recorder *MockSubnetMockRecorder
 }
 
-// MockSubnetMockRecorder is the mock recorder for MockSubnet
+// MockSubnetMockRecorder is the mock recorder for MockSubnet.
 type MockSubnetMockRecorder struct {
 	mock *MockSubnet
 }
 
-// NewMockSubnet creates a new mock instance
+// NewMockSubnet creates a new mock instance.
 func NewMockSubnet(ctrl *gomock.Controller) *MockSubnet {
 	mock := &MockSubnet{ctrl: ctrl}
 	mock.recorder = &MockSubnetMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSubnet) EXPECT() *MockSubnetMockRecorder {
 	return m.recorder
 }
 
-// UpdateSpaceOps mocks base method
+// UpdateSpaceOps mocks base method.
 func (m *MockSubnet) UpdateSpaceOps(arg0 string) []txn.Op {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateSpaceOps", arg0)
@@ -722,36 +723,36 @@ func (m *MockSubnet) UpdateSpaceOps(arg0 string) []txn.Op {
 	return ret0
 }
 
-// UpdateSpaceOps indicates an expected call of UpdateSpaceOps
+// UpdateSpaceOps indicates an expected call of UpdateSpaceOps.
 func (mr *MockSubnetMockRecorder) UpdateSpaceOps(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSpaceOps", reflect.TypeOf((*MockSubnet)(nil).UpdateSpaceOps), arg0)
 }
 
-// MockConstraints is a mock of Constraints interface
+// MockConstraints is a mock of Constraints interface.
 type MockConstraints struct {
 	ctrl     *gomock.Controller
 	recorder *MockConstraintsMockRecorder
 }
 
-// MockConstraintsMockRecorder is the mock recorder for MockConstraints
+// MockConstraintsMockRecorder is the mock recorder for MockConstraints.
 type MockConstraintsMockRecorder struct {
 	mock *MockConstraints
 }
 
-// NewMockConstraints creates a new mock instance
+// NewMockConstraints creates a new mock instance.
 func NewMockConstraints(ctrl *gomock.Controller) *MockConstraints {
 	mock := &MockConstraints{ctrl: ctrl}
 	mock.recorder = &MockConstraintsMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockConstraints) EXPECT() *MockConstraintsMockRecorder {
 	return m.recorder
 }
 
-// ChangeSpaceNameOps mocks base method
+// ChangeSpaceNameOps mocks base method.
 func (m *MockConstraints) ChangeSpaceNameOps(arg0, arg1 string) []txn.Op {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ChangeSpaceNameOps", arg0, arg1)
@@ -759,13 +760,13 @@ func (m *MockConstraints) ChangeSpaceNameOps(arg0, arg1 string) []txn.Op {
 	return ret0
 }
 
-// ChangeSpaceNameOps indicates an expected call of ChangeSpaceNameOps
+// ChangeSpaceNameOps indicates an expected call of ChangeSpaceNameOps.
 func (mr *MockConstraintsMockRecorder) ChangeSpaceNameOps(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeSpaceNameOps", reflect.TypeOf((*MockConstraints)(nil).ChangeSpaceNameOps), arg0, arg1)
 }
 
-// ID mocks base method
+// ID mocks base method.
 func (m *MockConstraints) ID() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ID")
@@ -773,13 +774,13 @@ func (m *MockConstraints) ID() string {
 	return ret0
 }
 
-// ID indicates an expected call of ID
+// ID indicates an expected call of ID.
 func (mr *MockConstraintsMockRecorder) ID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ID", reflect.TypeOf((*MockConstraints)(nil).ID))
 }
 
-// Value mocks base method
+// Value mocks base method.
 func (m *MockConstraints) Value() constraints.Value {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Value")
@@ -787,36 +788,36 @@ func (m *MockConstraints) Value() constraints.Value {
 	return ret0
 }
 
-// Value indicates an expected call of Value
+// Value indicates an expected call of Value.
 func (mr *MockConstraintsMockRecorder) Value() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Value", reflect.TypeOf((*MockConstraints)(nil).Value))
 }
 
-// MockMovingSubnet is a mock of MovingSubnet interface
+// MockMovingSubnet is a mock of MovingSubnet interface.
 type MockMovingSubnet struct {
 	ctrl     *gomock.Controller
 	recorder *MockMovingSubnetMockRecorder
 }
 
-// MockMovingSubnetMockRecorder is the mock recorder for MockMovingSubnet
+// MockMovingSubnetMockRecorder is the mock recorder for MockMovingSubnet.
 type MockMovingSubnetMockRecorder struct {
 	mock *MockMovingSubnet
 }
 
-// NewMockMovingSubnet creates a new mock instance
+// NewMockMovingSubnet creates a new mock instance.
 func NewMockMovingSubnet(ctrl *gomock.Controller) *MockMovingSubnet {
 	mock := &MockMovingSubnet{ctrl: ctrl}
 	mock.recorder = &MockMovingSubnetMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMovingSubnet) EXPECT() *MockMovingSubnetMockRecorder {
 	return m.recorder
 }
 
-// CIDR mocks base method
+// CIDR mocks base method.
 func (m *MockMovingSubnet) CIDR() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CIDR")
@@ -824,13 +825,13 @@ func (m *MockMovingSubnet) CIDR() string {
 	return ret0
 }
 
-// CIDR indicates an expected call of CIDR
+// CIDR indicates an expected call of CIDR.
 func (mr *MockMovingSubnetMockRecorder) CIDR() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CIDR", reflect.TypeOf((*MockMovingSubnet)(nil).CIDR))
 }
 
-// FanLocalUnderlay mocks base method
+// FanLocalUnderlay mocks base method.
 func (m *MockMovingSubnet) FanLocalUnderlay() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FanLocalUnderlay")
@@ -838,13 +839,13 @@ func (m *MockMovingSubnet) FanLocalUnderlay() string {
 	return ret0
 }
 
-// FanLocalUnderlay indicates an expected call of FanLocalUnderlay
+// FanLocalUnderlay indicates an expected call of FanLocalUnderlay.
 func (mr *MockMovingSubnetMockRecorder) FanLocalUnderlay() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FanLocalUnderlay", reflect.TypeOf((*MockMovingSubnet)(nil).FanLocalUnderlay))
 }
 
-// ID mocks base method
+// ID mocks base method.
 func (m *MockMovingSubnet) ID() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ID")
@@ -852,13 +853,13 @@ func (m *MockMovingSubnet) ID() string {
 	return ret0
 }
 
-// ID indicates an expected call of ID
+// ID indicates an expected call of ID.
 func (mr *MockMovingSubnetMockRecorder) ID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ID", reflect.TypeOf((*MockMovingSubnet)(nil).ID))
 }
 
-// Refresh mocks base method
+// Refresh mocks base method.
 func (m *MockMovingSubnet) Refresh() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Refresh")
@@ -866,13 +867,13 @@ func (m *MockMovingSubnet) Refresh() error {
 	return ret0
 }
 
-// Refresh indicates an expected call of Refresh
+// Refresh indicates an expected call of Refresh.
 func (mr *MockMovingSubnetMockRecorder) Refresh() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockMovingSubnet)(nil).Refresh))
 }
 
-// SpaceID mocks base method
+// SpaceID mocks base method.
 func (m *MockMovingSubnet) SpaceID() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SpaceID")
@@ -880,13 +881,13 @@ func (m *MockMovingSubnet) SpaceID() string {
 	return ret0
 }
 
-// SpaceID indicates an expected call of SpaceID
+// SpaceID indicates an expected call of SpaceID.
 func (mr *MockMovingSubnetMockRecorder) SpaceID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpaceID", reflect.TypeOf((*MockMovingSubnet)(nil).SpaceID))
 }
 
-// SpaceName mocks base method
+// SpaceName mocks base method.
 func (m *MockMovingSubnet) SpaceName() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SpaceName")
@@ -894,13 +895,13 @@ func (m *MockMovingSubnet) SpaceName() string {
 	return ret0
 }
 
-// SpaceName indicates an expected call of SpaceName
+// SpaceName indicates an expected call of SpaceName.
 func (mr *MockMovingSubnetMockRecorder) SpaceName() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpaceName", reflect.TypeOf((*MockMovingSubnet)(nil).SpaceName))
 }
 
-// UpdateSpaceOps mocks base method
+// UpdateSpaceOps mocks base method.
 func (m *MockMovingSubnet) UpdateSpaceOps(arg0 string) []txn.Op {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateSpaceOps", arg0)
@@ -908,36 +909,36 @@ func (m *MockMovingSubnet) UpdateSpaceOps(arg0 string) []txn.Op {
 	return ret0
 }
 
-// UpdateSpaceOps indicates an expected call of UpdateSpaceOps
+// UpdateSpaceOps indicates an expected call of UpdateSpaceOps.
 func (mr *MockMovingSubnetMockRecorder) UpdateSpaceOps(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSpaceOps", reflect.TypeOf((*MockMovingSubnet)(nil).UpdateSpaceOps), arg0)
 }
 
-// MockMoveSubnetsOp is a mock of MoveSubnetsOp interface
+// MockMoveSubnetsOp is a mock of MoveSubnetsOp interface.
 type MockMoveSubnetsOp struct {
 	ctrl     *gomock.Controller
 	recorder *MockMoveSubnetsOpMockRecorder
 }
 
-// MockMoveSubnetsOpMockRecorder is the mock recorder for MockMoveSubnetsOp
+// MockMoveSubnetsOpMockRecorder is the mock recorder for MockMoveSubnetsOp.
 type MockMoveSubnetsOpMockRecorder struct {
 	mock *MockMoveSubnetsOp
 }
 
-// NewMockMoveSubnetsOp creates a new mock instance
+// NewMockMoveSubnetsOp creates a new mock instance.
 func NewMockMoveSubnetsOp(ctrl *gomock.Controller) *MockMoveSubnetsOp {
 	mock := &MockMoveSubnetsOp{ctrl: ctrl}
 	mock.recorder = &MockMoveSubnetsOpMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMoveSubnetsOp) EXPECT() *MockMoveSubnetsOpMockRecorder {
 	return m.recorder
 }
 
-// Build mocks base method
+// Build mocks base method.
 func (m *MockMoveSubnetsOp) Build(arg0 int) ([]txn.Op, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Build", arg0)
@@ -946,13 +947,13 @@ func (m *MockMoveSubnetsOp) Build(arg0 int) ([]txn.Op, error) {
 	return ret0, ret1
 }
 
-// Build indicates an expected call of Build
+// Build indicates an expected call of Build.
 func (mr *MockMoveSubnetsOpMockRecorder) Build(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Build", reflect.TypeOf((*MockMoveSubnetsOp)(nil).Build), arg0)
 }
 
-// Done mocks base method
+// Done mocks base method.
 func (m *MockMoveSubnetsOp) Done(arg0 error) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Done", arg0)
@@ -960,13 +961,13 @@ func (m *MockMoveSubnetsOp) Done(arg0 error) error {
 	return ret0
 }
 
-// Done indicates an expected call of Done
+// Done indicates an expected call of Done.
 func (mr *MockMoveSubnetsOpMockRecorder) Done(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Done", reflect.TypeOf((*MockMoveSubnetsOp)(nil).Done), arg0)
 }
 
-// GetMovedSubnets mocks base method
+// GetMovedSubnets mocks base method.
 func (m *MockMoveSubnetsOp) GetMovedSubnets() []MovedSubnet {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMovedSubnets")
@@ -974,36 +975,36 @@ func (m *MockMoveSubnetsOp) GetMovedSubnets() []MovedSubnet {
 	return ret0
 }
 
-// GetMovedSubnets indicates an expected call of GetMovedSubnets
+// GetMovedSubnets indicates an expected call of GetMovedSubnets.
 func (mr *MockMoveSubnetsOpMockRecorder) GetMovedSubnets() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMovedSubnets", reflect.TypeOf((*MockMoveSubnetsOp)(nil).GetMovedSubnets))
 }
 
-// MockAddress is a mock of Address interface
+// MockAddress is a mock of Address interface.
 type MockAddress struct {
 	ctrl     *gomock.Controller
 	recorder *MockAddressMockRecorder
 }
 
-// MockAddressMockRecorder is the mock recorder for MockAddress
+// MockAddressMockRecorder is the mock recorder for MockAddress.
 type MockAddressMockRecorder struct {
 	mock *MockAddress
 }
 
-// NewMockAddress creates a new mock instance
+// NewMockAddress creates a new mock instance.
 func NewMockAddress(ctrl *gomock.Controller) *MockAddress {
 	mock := &MockAddress{ctrl: ctrl}
 	mock.recorder = &MockAddressMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAddress) EXPECT() *MockAddressMockRecorder {
 	return m.recorder
 }
 
-// ConfigMethod mocks base method
+// ConfigMethod mocks base method.
 func (m *MockAddress) ConfigMethod() network.AddressConfigType {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConfigMethod")
@@ -1011,13 +1012,13 @@ func (m *MockAddress) ConfigMethod() network.AddressConfigType {
 	return ret0
 }
 
-// ConfigMethod indicates an expected call of ConfigMethod
+// ConfigMethod indicates an expected call of ConfigMethod.
 func (mr *MockAddressMockRecorder) ConfigMethod() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigMethod", reflect.TypeOf((*MockAddress)(nil).ConfigMethod))
 }
 
-// SubnetCIDR mocks base method
+// SubnetCIDR mocks base method.
 func (m *MockAddress) SubnetCIDR() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SubnetCIDR")
@@ -1025,13 +1026,13 @@ func (m *MockAddress) SubnetCIDR() string {
 	return ret0
 }
 
-// SubnetCIDR indicates an expected call of SubnetCIDR
+// SubnetCIDR indicates an expected call of SubnetCIDR.
 func (mr *MockAddressMockRecorder) SubnetCIDR() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubnetCIDR", reflect.TypeOf((*MockAddress)(nil).SubnetCIDR))
 }
 
-// Value mocks base method
+// Value mocks base method.
 func (m *MockAddress) Value() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Value")
@@ -1039,36 +1040,36 @@ func (m *MockAddress) Value() string {
 	return ret0
 }
 
-// Value indicates an expected call of Value
+// Value indicates an expected call of Value.
 func (mr *MockAddressMockRecorder) Value() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Value", reflect.TypeOf((*MockAddress)(nil).Value))
 }
 
-// MockUnit is a mock of Unit interface
+// MockUnit is a mock of Unit interface.
 type MockUnit struct {
 	ctrl     *gomock.Controller
 	recorder *MockUnitMockRecorder
 }
 
-// MockUnitMockRecorder is the mock recorder for MockUnit
+// MockUnitMockRecorder is the mock recorder for MockUnit.
 type MockUnitMockRecorder struct {
 	mock *MockUnit
 }
 
-// NewMockUnit creates a new mock instance
+// NewMockUnit creates a new mock instance.
 func NewMockUnit(ctrl *gomock.Controller) *MockUnit {
 	mock := &MockUnit{ctrl: ctrl}
 	mock.recorder = &MockUnitMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockUnit) EXPECT() *MockUnitMockRecorder {
 	return m.recorder
 }
 
-// ApplicationName mocks base method
+// ApplicationName mocks base method.
 func (m *MockUnit) ApplicationName() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplicationName")
@@ -1076,13 +1077,13 @@ func (m *MockUnit) ApplicationName() string {
 	return ret0
 }
 
-// ApplicationName indicates an expected call of ApplicationName
+// ApplicationName indicates an expected call of ApplicationName.
 func (mr *MockUnitMockRecorder) ApplicationName() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationName", reflect.TypeOf((*MockUnit)(nil).ApplicationName))
 }
 
-// Name mocks base method
+// Name mocks base method.
 func (m *MockUnit) Name() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Name")
@@ -1090,36 +1091,36 @@ func (m *MockUnit) Name() string {
 	return ret0
 }
 
-// Name indicates an expected call of Name
+// Name indicates an expected call of Name.
 func (mr *MockUnitMockRecorder) Name() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockUnit)(nil).Name))
 }
 
-// MockReloadSpaces is a mock of ReloadSpaces interface
+// MockReloadSpaces is a mock of ReloadSpaces interface.
 type MockReloadSpaces struct {
 	ctrl     *gomock.Controller
 	recorder *MockReloadSpacesMockRecorder
 }
 
-// MockReloadSpacesMockRecorder is the mock recorder for MockReloadSpaces
+// MockReloadSpacesMockRecorder is the mock recorder for MockReloadSpaces.
 type MockReloadSpacesMockRecorder struct {
 	mock *MockReloadSpaces
 }
 
-// NewMockReloadSpaces creates a new mock instance
+// NewMockReloadSpaces creates a new mock instance.
 func NewMockReloadSpaces(ctrl *gomock.Controller) *MockReloadSpaces {
 	mock := &MockReloadSpaces{ctrl: ctrl}
 	mock.recorder = &MockReloadSpacesMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockReloadSpaces) EXPECT() *MockReloadSpacesMockRecorder {
 	return m.recorder
 }
 
-// ReloadSpaces mocks base method
+// ReloadSpaces mocks base method.
 func (m *MockReloadSpaces) ReloadSpaces() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReloadSpaces")
@@ -1127,36 +1128,36 @@ func (m *MockReloadSpaces) ReloadSpaces() error {
 	return ret0
 }
 
-// ReloadSpaces indicates an expected call of ReloadSpaces
+// ReloadSpaces indicates an expected call of ReloadSpaces.
 func (mr *MockReloadSpacesMockRecorder) ReloadSpaces() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReloadSpaces", reflect.TypeOf((*MockReloadSpaces)(nil).ReloadSpaces))
 }
 
-// MockReloadSpacesState is a mock of ReloadSpacesState interface
+// MockReloadSpacesState is a mock of ReloadSpacesState interface.
 type MockReloadSpacesState struct {
 	ctrl     *gomock.Controller
 	recorder *MockReloadSpacesStateMockRecorder
 }
 
-// MockReloadSpacesStateMockRecorder is the mock recorder for MockReloadSpacesState
+// MockReloadSpacesStateMockRecorder is the mock recorder for MockReloadSpacesState.
 type MockReloadSpacesStateMockRecorder struct {
 	mock *MockReloadSpacesState
 }
 
-// NewMockReloadSpacesState creates a new mock instance
+// NewMockReloadSpacesState creates a new mock instance.
 func NewMockReloadSpacesState(ctrl *gomock.Controller) *MockReloadSpacesState {
 	mock := &MockReloadSpacesState{ctrl: ctrl}
 	mock.recorder = &MockReloadSpacesStateMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockReloadSpacesState) EXPECT() *MockReloadSpacesStateMockRecorder {
 	return m.recorder
 }
 
-// AddSpace mocks base method
+// AddSpace mocks base method.
 func (m *MockReloadSpacesState) AddSpace(arg0 string, arg1 network.Id, arg2 []string, arg3 bool) (space.Space, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddSpace", arg0, arg1, arg2, arg3)
@@ -1165,13 +1166,13 @@ func (m *MockReloadSpacesState) AddSpace(arg0 string, arg1 network.Id, arg2 []st
 	return ret0, ret1
 }
 
-// AddSpace indicates an expected call of AddSpace
+// AddSpace indicates an expected call of AddSpace.
 func (mr *MockReloadSpacesStateMockRecorder) AddSpace(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSpace", reflect.TypeOf((*MockReloadSpacesState)(nil).AddSpace), arg0, arg1, arg2, arg3)
 }
 
-// AllEndpointBindingsSpaceNames mocks base method
+// AllEndpointBindingsSpaceNames mocks base method.
 func (m *MockReloadSpacesState) AllEndpointBindingsSpaceNames() (set.Strings, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllEndpointBindingsSpaceNames")
@@ -1180,13 +1181,13 @@ func (m *MockReloadSpacesState) AllEndpointBindingsSpaceNames() (set.Strings, er
 	return ret0, ret1
 }
 
-// AllEndpointBindingsSpaceNames indicates an expected call of AllEndpointBindingsSpaceNames
+// AllEndpointBindingsSpaceNames indicates an expected call of AllEndpointBindingsSpaceNames.
 func (mr *MockReloadSpacesStateMockRecorder) AllEndpointBindingsSpaceNames() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllEndpointBindingsSpaceNames", reflect.TypeOf((*MockReloadSpacesState)(nil).AllEndpointBindingsSpaceNames))
 }
 
-// AllSpaces mocks base method
+// AllSpaces mocks base method.
 func (m *MockReloadSpacesState) AllSpaces() ([]space.Space, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllSpaces")
@@ -1195,13 +1196,13 @@ func (m *MockReloadSpacesState) AllSpaces() ([]space.Space, error) {
 	return ret0, ret1
 }
 
-// AllSpaces indicates an expected call of AllSpaces
+// AllSpaces indicates an expected call of AllSpaces.
 func (mr *MockReloadSpacesStateMockRecorder) AllSpaces() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaces", reflect.TypeOf((*MockReloadSpacesState)(nil).AllSpaces))
 }
 
-// ConstraintsBySpaceName mocks base method
+// ConstraintsBySpaceName mocks base method.
 func (m *MockReloadSpacesState) ConstraintsBySpaceName(arg0 string) ([]space.Constraints, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConstraintsBySpaceName", arg0)
@@ -1210,13 +1211,13 @@ func (m *MockReloadSpacesState) ConstraintsBySpaceName(arg0 string) ([]space.Con
 	return ret0, ret1
 }
 
-// ConstraintsBySpaceName indicates an expected call of ConstraintsBySpaceName
+// ConstraintsBySpaceName indicates an expected call of ConstraintsBySpaceName.
 func (mr *MockReloadSpacesStateMockRecorder) ConstraintsBySpaceName(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConstraintsBySpaceName", reflect.TypeOf((*MockReloadSpacesState)(nil).ConstraintsBySpaceName), arg0)
 }
 
-// DefaultEndpointBindingSpace mocks base method
+// DefaultEndpointBindingSpace mocks base method.
 func (m *MockReloadSpacesState) DefaultEndpointBindingSpace() (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DefaultEndpointBindingSpace")
@@ -1225,13 +1226,13 @@ func (m *MockReloadSpacesState) DefaultEndpointBindingSpace() (string, error) {
 	return ret0, ret1
 }
 
-// DefaultEndpointBindingSpace indicates an expected call of DefaultEndpointBindingSpace
+// DefaultEndpointBindingSpace indicates an expected call of DefaultEndpointBindingSpace.
 func (mr *MockReloadSpacesStateMockRecorder) DefaultEndpointBindingSpace() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultEndpointBindingSpace", reflect.TypeOf((*MockReloadSpacesState)(nil).DefaultEndpointBindingSpace))
 }
 
-// SaveProviderSubnets mocks base method
+// SaveProviderSubnets mocks base method.
 func (m *MockReloadSpacesState) SaveProviderSubnets(arg0 []network.SubnetInfo, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SaveProviderSubnets", arg0, arg1)
@@ -1239,36 +1240,36 @@ func (m *MockReloadSpacesState) SaveProviderSubnets(arg0 []network.SubnetInfo, a
 	return ret0
 }
 
-// SaveProviderSubnets indicates an expected call of SaveProviderSubnets
+// SaveProviderSubnets indicates an expected call of SaveProviderSubnets.
 func (mr *MockReloadSpacesStateMockRecorder) SaveProviderSubnets(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveProviderSubnets", reflect.TypeOf((*MockReloadSpacesState)(nil).SaveProviderSubnets), arg0, arg1)
 }
 
-// MockReloadSpacesEnviron is a mock of ReloadSpacesEnviron interface
+// MockReloadSpacesEnviron is a mock of ReloadSpacesEnviron interface.
 type MockReloadSpacesEnviron struct {
 	ctrl     *gomock.Controller
 	recorder *MockReloadSpacesEnvironMockRecorder
 }
 
-// MockReloadSpacesEnvironMockRecorder is the mock recorder for MockReloadSpacesEnviron
+// MockReloadSpacesEnvironMockRecorder is the mock recorder for MockReloadSpacesEnviron.
 type MockReloadSpacesEnvironMockRecorder struct {
 	mock *MockReloadSpacesEnviron
 }
 
-// NewMockReloadSpacesEnviron creates a new mock instance
+// NewMockReloadSpacesEnviron creates a new mock instance.
 func NewMockReloadSpacesEnviron(ctrl *gomock.Controller) *MockReloadSpacesEnviron {
 	mock := &MockReloadSpacesEnviron{ctrl: ctrl}
 	mock.recorder = &MockReloadSpacesEnvironMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockReloadSpacesEnviron) EXPECT() *MockReloadSpacesEnvironMockRecorder {
 	return m.recorder
 }
 
-// CloudSpec mocks base method
+// CloudSpec mocks base method.
 func (m *MockReloadSpacesEnviron) CloudSpec() (cloudspec.CloudSpec, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudSpec")
@@ -1277,13 +1278,13 @@ func (m *MockReloadSpacesEnviron) CloudSpec() (cloudspec.CloudSpec, error) {
 	return ret0, ret1
 }
 
-// CloudSpec indicates an expected call of CloudSpec
+// CloudSpec indicates an expected call of CloudSpec.
 func (mr *MockReloadSpacesEnvironMockRecorder) CloudSpec() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockReloadSpacesEnviron)(nil).CloudSpec))
 }
 
-// GetEnviron mocks base method
+// GetEnviron mocks base method.
 func (m *MockReloadSpacesEnviron) GetEnviron(arg0 environs.EnvironConfigGetter, arg1 environs.NewEnvironFunc) (environs.Environ, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetEnviron", arg0, arg1)
@@ -1292,13 +1293,13 @@ func (m *MockReloadSpacesEnviron) GetEnviron(arg0 environs.EnvironConfigGetter, 
 	return ret0, ret1
 }
 
-// GetEnviron indicates an expected call of GetEnviron
+// GetEnviron indicates an expected call of GetEnviron.
 func (mr *MockReloadSpacesEnvironMockRecorder) GetEnviron(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEnviron", reflect.TypeOf((*MockReloadSpacesEnviron)(nil).GetEnviron), arg0, arg1)
 }
 
-// ModelConfig mocks base method
+// ModelConfig mocks base method.
 func (m *MockReloadSpacesEnviron) ModelConfig() (*config.Config, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelConfig")
@@ -1307,36 +1308,36 @@ func (m *MockReloadSpacesEnviron) ModelConfig() (*config.Config, error) {
 	return ret0, ret1
 }
 
-// ModelConfig indicates an expected call of ModelConfig
+// ModelConfig indicates an expected call of ModelConfig.
 func (mr *MockReloadSpacesEnvironMockRecorder) ModelConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockReloadSpacesEnviron)(nil).ModelConfig))
 }
 
-// MockEnvironSpaces is a mock of EnvironSpaces interface
+// MockEnvironSpaces is a mock of EnvironSpaces interface.
 type MockEnvironSpaces struct {
 	ctrl     *gomock.Controller
 	recorder *MockEnvironSpacesMockRecorder
 }
 
-// MockEnvironSpacesMockRecorder is the mock recorder for MockEnvironSpaces
+// MockEnvironSpacesMockRecorder is the mock recorder for MockEnvironSpaces.
 type MockEnvironSpacesMockRecorder struct {
 	mock *MockEnvironSpaces
 }
 
-// NewMockEnvironSpaces creates a new mock instance
+// NewMockEnvironSpaces creates a new mock instance.
 func NewMockEnvironSpaces(ctrl *gomock.Controller) *MockEnvironSpaces {
 	mock := &MockEnvironSpaces{ctrl: ctrl}
 	mock.recorder = &MockEnvironSpacesMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockEnvironSpaces) EXPECT() *MockEnvironSpacesMockRecorder {
 	return m.recorder
 }
 
-// ReloadSpaces mocks base method
+// ReloadSpaces mocks base method.
 func (m *MockEnvironSpaces) ReloadSpaces(arg0 context.ProviderCallContext, arg1 ReloadSpacesState, arg2 environs.BootstrapEnviron) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReloadSpaces", arg0, arg1, arg2)
@@ -1344,73 +1345,73 @@ func (m *MockEnvironSpaces) ReloadSpaces(arg0 context.ProviderCallContext, arg1 
 	return ret0
 }
 
-// ReloadSpaces indicates an expected call of ReloadSpaces
+// ReloadSpaces indicates an expected call of ReloadSpaces.
 func (mr *MockEnvironSpacesMockRecorder) ReloadSpaces(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReloadSpaces", reflect.TypeOf((*MockEnvironSpaces)(nil).ReloadSpaces), arg0, arg1, arg2)
 }
 
-// MockAuthorizerState is a mock of AuthorizerState interface
+// MockAuthorizerState is a mock of AuthorizerState interface.
 type MockAuthorizerState struct {
 	ctrl     *gomock.Controller
 	recorder *MockAuthorizerStateMockRecorder
 }
 
-// MockAuthorizerStateMockRecorder is the mock recorder for MockAuthorizerState
+// MockAuthorizerStateMockRecorder is the mock recorder for MockAuthorizerState.
 type MockAuthorizerStateMockRecorder struct {
 	mock *MockAuthorizerState
 }
 
-// NewMockAuthorizerState creates a new mock instance
+// NewMockAuthorizerState creates a new mock instance.
 func NewMockAuthorizerState(ctrl *gomock.Controller) *MockAuthorizerState {
 	mock := &MockAuthorizerState{ctrl: ctrl}
 	mock.recorder = &MockAuthorizerStateMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAuthorizerState) EXPECT() *MockAuthorizerStateMockRecorder {
 	return m.recorder
 }
 
-// ModelTag mocks base method
-func (m *MockAuthorizerState) ModelTag() v4.ModelTag {
+// ModelTag mocks base method.
+func (m *MockAuthorizerState) ModelTag() names.ModelTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(v4.ModelTag)
+	ret0, _ := ret[0].(names.ModelTag)
 	return ret0
 }
 
-// ModelTag indicates an expected call of ModelTag
+// ModelTag indicates an expected call of ModelTag.
 func (mr *MockAuthorizerStateMockRecorder) ModelTag() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelTag", reflect.TypeOf((*MockAuthorizerState)(nil).ModelTag))
 }
 
-// MockBindings is a mock of Bindings interface
+// MockBindings is a mock of Bindings interface.
 type MockBindings struct {
 	ctrl     *gomock.Controller
 	recorder *MockBindingsMockRecorder
 }
 
-// MockBindingsMockRecorder is the mock recorder for MockBindings
+// MockBindingsMockRecorder is the mock recorder for MockBindings.
 type MockBindingsMockRecorder struct {
 	mock *MockBindings
 }
 
-// NewMockBindings creates a new mock instance
+// NewMockBindings creates a new mock instance.
 func NewMockBindings(ctrl *gomock.Controller) *MockBindings {
 	mock := &MockBindings{ctrl: ctrl}
 	mock.recorder = &MockBindingsMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBindings) EXPECT() *MockBindingsMockRecorder {
 	return m.recorder
 }
 
-// Map mocks base method
+// Map mocks base method.
 func (m *MockBindings) Map() map[string]string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Map")
@@ -1418,7 +1419,7 @@ func (m *MockBindings) Map() map[string]string {
 	return ret0
 }
 
-// Map indicates an expected call of Map
+// Map indicates an expected call of Map.
 func (mr *MockBindingsMockRecorder) Map() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Map", reflect.TypeOf((*MockBindings)(nil).Map))

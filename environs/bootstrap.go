@@ -122,16 +122,22 @@ type BootstrapResult struct {
 	CaasBootstrapFinalizer
 }
 
+// BootstrapLogger defines the logger used during a bootstrap.
+type BootstrapLogger interface {
+	GetStdin() io.Reader
+	GetStdout() io.Writer
+	GetStderr() io.Writer
+
+	Infof(format string, params ...interface{})
+	Verbosef(format string, params ...interface{})
+}
+
 // BootstrapContext is an interface that is passed to
 // Environ.Bootstrap, providing a means of obtaining
 // information about and manipulating the context in which
 // it is being invoked.
 type BootstrapContext interface {
-	GetStdin() io.Reader
-	GetStdout() io.Writer
-	GetStderr() io.Writer
-	Infof(format string, params ...interface{})
-	Verbosef(format string, params ...interface{})
+	BootstrapLogger
 
 	// InterruptNotify starts watching for interrupt signals
 	// on behalf of the caller, sending them to the supplied

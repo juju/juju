@@ -81,7 +81,7 @@ func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
 		Name: "config",
 		Data: singleConfigYAML,
 	})
-	creds, err := s.provider.DetectCredentials()
+	creds, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(creds.DefaultRegion, gc.Equals, "")
 	expected := cloud.NewNamedCredential(
