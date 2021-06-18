@@ -23,8 +23,8 @@ type Facade interface{}
 // Factory is a callback used to create a Facade.
 type Factory func(Context) (Facade, error)
 
-// LeadershipContext represents all the leadership methods that can be performed
-// on a given modelUUID.
+// LeadershipContext describes factory methods for objects that deliver
+// specific lease-related capabilities
 type LeadershipContext interface {
 
 	// LeadershipClaimer returns a leadership.Claimer tied to a
@@ -46,6 +46,10 @@ type LeadershipContext interface {
 	// LeadershipReader returns a leadership.Reader for this
 	// context's model.
 	LeadershipReader(modelUUID string) (leadership.Reader, error)
+
+	// SingularClaimer returns a lease.Claimer for singular leases for
+	// this context's model.
+	SingularClaimer() (lease.Claimer, error)
 }
 
 // Context exposes useful capabilities to a Facade.
@@ -132,10 +136,6 @@ type Context interface {
 	// into Resources to get the watcher in play. This is not really
 	// a good idea; see Resources.
 	ID() string
-
-	// SingularClaimer returns a lease.Claimer for singular leases for
-	// this context's model.
-	SingularClaimer() (lease.Claimer, error)
 }
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Resources,Authorizer
