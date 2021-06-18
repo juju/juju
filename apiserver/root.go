@@ -127,8 +127,24 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 	return r, nil
 }
 
-func (r *apiHandler) getResources() *common.Resources {
+// Resources returns the common resources.
+func (r *apiHandler) Resources() *common.Resources {
 	return r.resources
+}
+
+// State returns the underlying state.
+func (r *apiHandler) State() *state.State {
+	return r.state
+}
+
+// SharedContext returns the server shared context.
+func (r *apiHandler) SharedContext() *sharedServerContext {
+	return r.shared
+}
+
+// Authorizer returns the authorizer used for accessing API method calls.
+func (r *apiHandler) Authorizer() facade.Authorizer {
+	return r
 }
 
 func (r *apiHandler) getRpcConn() *rpc.Conn {
@@ -156,7 +172,7 @@ func (s *srvCaller) ParamsType() reflect.Type {
 	return s.objMethod.Params
 }
 
-// ReturnType defines the object that is returned from the function.`
+// ResultType defines the object that is returned from the function.`
 // See rpcreflect.MethodCaller for more detail.
 func (s *srvCaller) ResultType() reflect.Type {
 	return s.objMethod.Result
@@ -185,22 +201,31 @@ type apiRoot struct {
 	requestRecorder facade.RequestRecorder
 }
 
+type apiRootHandler interface {
+	// State returns the underlying state.
+	State() *state.State
+	// SharedContext returns the server shared context.
+	SharedContext() *sharedServerContext
+	// Resources returns the common resources.
+	Resources() *common.Resources
+	// Authorizer returns the authorizer used for accessing API method calls.
+	Authorizer() facade.Authorizer
+}
+
 // newAPIRoot returns a new apiRoot.
 func newAPIRoot(clock clock.Clock,
-	st *state.State,
-	shared *sharedServerContext,
 	facades *facade.Registry,
-	resources *common.Resources,
-	authorizer facade.Authorizer,
+	root apiRootHandler,
 	requestRecorder facade.RequestRecorder,
 ) (*apiRoot, error) {
+	st := root.State()
 	r := &apiRoot{
 		clock:           clock,
 		state:           st,
-		shared:          shared,
+		shared:          root.SharedContext(),
 		facades:         facades,
-		resources:       resources,
-		authorizer:      authorizer,
+		resources:       root.Resources(),
+		authorizer:      root.Authorizer(),
 		objectCache:     make(map[objectKey]reflect.Value),
 		requestRecorder: requestRecorder,
 	}

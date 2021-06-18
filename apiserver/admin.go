@@ -122,10 +122,7 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 	var apiRoot rpc.Root
 	apiRoot, err = newAPIRoot(
 		a.srv.clock,
-		a.root.state,
-		a.root.shared,
 		a.srv.facades,
-		a.root.resources,
 		a.root,
 		httpRequestRecorderWrapper{
 			collector: a.srv.metricsCollector,
@@ -534,7 +531,7 @@ func setupPingTimeoutDisconnect(clock clock.Clock, root *apiHandler, entity stat
 		}
 	}
 	pingTimeout := newPingTimeout(action, clock, maxClientPingInterval)
-	return root.getResources().RegisterNamed("pingTimeout", pingTimeout)
+	return root.Resources().RegisterNamed("pingTimeout", pingTimeout)
 }
 
 // errRoot implements the API that a client first sees
