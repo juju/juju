@@ -917,7 +917,7 @@ func (srv *Server) trackRequests(handler http.Handler) http.Handler {
 			// but after the tomb was killed. As we're in the process of
 			// shutting down, do not consider this request as in progress,
 			// just send a 503 and return.
-			http.Error(w, "apiserver shutdown in progress", 503)
+			http.Error(w, "apiserver shutdown in progress", http.StatusServiceUnavailable)
 		default:
 			// If we get here then the tomb was not killed therefore the
 			// listener is still open. It is safe to increment the
