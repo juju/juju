@@ -48,9 +48,8 @@ type Client interface {
 
 // CharmHubAPI API provides the CharmHub API facade for version 1.
 type CharmHubAPI struct {
-	backend Backend
-	auth    facade.Authorizer
-	client  Client
+	auth   facade.Authorizer
+	client Client
 }
 
 // NewFacade creates a new CharmHubAPI facade.
@@ -60,9 +59,8 @@ func NewFacade(ctx facade.Context) (*CharmHubAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// TODO (stickupkid): Get the http transport from the facade context
 	return newCharmHubAPI(m, ctx.Auth(), charmHubClientFactory{
-		httpTransport: charmhub.DefaultHTTPTransport,
+		httpTransport: charmhub.RequestRecorderHTTPTransport(ctx.RequestRecorder()),
 	})
 }
 

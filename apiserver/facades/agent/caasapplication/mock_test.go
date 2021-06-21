@@ -321,9 +321,15 @@ type mockCAASApplication struct {
 	caas.Application
 
 	state caas.ApplicationState
+	units []caas.Unit
 }
 
 func (a *mockCAASApplication) State() (caas.ApplicationState, error) {
 	a.MethodCall(a, "State")
 	return a.state, a.NextErr()
+}
+
+func (a *mockCAASApplication) Units() ([]caas.Unit, error) {
+	a.MethodCall(a, "Units")
+	return a.units, a.NextErr()
 }

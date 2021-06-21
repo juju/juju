@@ -39,11 +39,29 @@ func NewErrRoot(err error) *errRoot {
 	return &errRoot{err}
 }
 
+type testingAPIRootHandler struct{}
+
+func (testingAPIRootHandler) State() *state.State {
+	return nil
+}
+
+func (testingAPIRootHandler) SharedContext() *sharedServerContext {
+	return nil
+}
+
+func (testingAPIRootHandler) Authorizer() facade.Authorizer {
+	return nil
+}
+
+func (testingAPIRootHandler) Resources() *common.Resources {
+	return common.NewResources()
+}
+
 // TestingAPIRoot gives you an APIRoot as a rpc.Methodfinder that is
 // *barely* connected to anything.  Just enough to let you probe some
 // of the interfaces, but not enough to actually do any RPC calls.
 func TestingAPIRoot(facades *facade.Registry) rpc.Root {
-	root, err := newAPIRoot(clock.WallClock, nil, nil, facades, common.NewResources(), nil)
+	root, err := newAPIRoot(clock.WallClock, facades, testingAPIRootHandler{}, nil)
 	if err != nil {
 		// While not ideal, this is only in test code, and there are a bunch of other functions
 		// that depend on this one that don't return errors either.
@@ -67,7 +85,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State) (*apiHan
 	}
 	h, err := newAPIHandler(srv, st, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
 	c.Assert(err, jc.ErrorIsNil)
-	return h, h.getResources()
+	return h, h.Resources()
 }
 
 // TestingAPIHandlerWithEntity gives you the sane kind of APIHandler as
