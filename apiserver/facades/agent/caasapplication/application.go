@@ -220,10 +220,29 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 		}
 	}
 
+	// Find the pod/unit in the provider.
+	caasApp := f.broker.Application(application.Name(), caas.DeploymentStateful)
+	pods, err := caasApp.Units()
+	if err != nil {
+		return errResp(err)
+	}
+	var pod *caas.Unit
+	for _, p := range pods {
+		if p.Id == args.PodName {
+			pod = &p
+			break
+		}
+	}
+	if pod == nil {
+		return errResp(errors.NotFoundf("pod %s in provider", args.PodName))
+	}
+
 	// Force update of provider-id.
 	if unit != nil {
 		update := unit.UpdateOperation(state.UnitUpdateProperties{
 			ProviderId: &containerID,
+			Address:    &pod.Address,
+			Ports:      &pod.Ports,
 		})
 		var unitUpdate state.UpdateUnitsOperation
 		unitUpdate.Updates = append(unitUpdate.Updates, update)
@@ -239,6 +258,8 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 		unit, err = application.AddUnit(state.AddUnitParams{
 			UnitName:   unitName,
 			ProviderId: &containerID,
+			Address:    &pod.Address,
+			Ports:      &pod.Ports,
 		})
 		if err != nil {
 			return errResp(err)
