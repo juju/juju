@@ -153,16 +153,17 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 	if args.Config.Name() != environsbootstrap.ControllerModelName {
 		return broker, nil
 	}
-
-	ns, err := controllerCorelation(broker)
+	// Opening a controller model.
+	nsName, err := controllerCorelation(broker)
 	if errors.IsNotFound(err) {
+		// The controller is currently bootstrapping.
 		return broker, nil
 	} else if err != nil {
-		return broker, err
+		return nil, err
 	}
 
 	return newK8sBroker(
-		args.ControllerUUID, k8sRestConfig, args.Config, ns,
+		args.ControllerUUID, k8sRestConfig, args.Config, nsName,
 		NewK8sClients, newRestClient, k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher,
 		utils.RandomPrefix, jujuclock.WallClock)
 }

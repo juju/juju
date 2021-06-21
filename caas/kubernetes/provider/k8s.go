@@ -213,11 +213,45 @@ func newK8sBroker(
 			Add(utils.AnnotationModelUUIDKey(isLegacy), modelUUID),
 		isLegacyLabels: isLegacy,
 	}
-	if controllerUUID != "" {
-		// controllerUUID could be empty in add-k8s without -c because there might be no controller yet.
-		client.annotations.Add(utils.AnnotationControllerUUIDKey(isLegacy), controllerUUID)
+	if err := client.ensureNamespaceAnnotationForControllerUUID(controllerUUID, isLegacy); err != nil {
+		return nil, errors.Trace(err)
 	}
 	return client, nil
+}
+
+func (k *kubernetesClient) ensureNamespaceAnnotationForControllerUUID(controllerUUID string, isLegacy bool) error {
+	if len(controllerUUID) == 0 {
+		// controllerUUID could be empty in add-k8s without -c because there might be no controller yet.
+		return nil
+	}
+	ns, err := k.getNamespaceByName(k.namespace)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	nsAnnotation := k8sannotations.New(ns.GetAnnotations())
+	if !nsAnnotation.HasAll(k.annotations) {
+		// This should never happen unless we changed annotations for a new juju version.
+		// But in this case, we should have already managed to fix it in upgrade steps.
+		return errors.NewNotValid(nil,
+			fmt.Sprintf("namespace has annotations %v but %v is expected", ns.GetAnnotations(), k.annotations),
+		)
+	}
+	k.annotations.Add(utils.AnnotationControllerUUIDKey(isLegacy), controllerUUID)
+	if nsAnnotation[utils.AnnotationControllerUUIDKey(isLegacy)] == controllerUUID {
+		logger.Criticalf("controllerUUID %q not changed!!!", controllerUUID)
+		return nil
+	}
+	logger.Criticalf("model %q was migrated from controller %q to %q!!!", k.namespace,
+		nsAnnotation[utils.AnnotationControllerUUIDKey(isLegacy)], controllerUUID,
+	)
+	if err := k.ensureNamespaceAnnotations(ns); err != nil {
+		return errors.Trace(err)
+	}
+	_, err = k.client().CoreV1().Namespaces().Update(context.TODO(), ns, v1.UpdateOptions{})
+	return errors.Trace(err)
 }
 
 // GetAnnotations returns current namespace's annotations.
