@@ -261,23 +261,31 @@ func (s *MachineSuite) TestDyingMachine(c *gc.C) {
 func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	s.AgentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
 	s.AgentSuite.PatchValue(&instancepoller.ShortPollCap, 500*time.Millisecond)
+
+	stream := s.Environ.Config().AgentStream()
 	usefulVersion := version.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
 		Release: "ubuntu",
 	}
-	envtesting.AssertUploadFakeToolsVersions(
-		c, s.DefaultToolsStorage,
-		s.Environ.Config().AgentStream(),
-		s.Environ.Config().AgentStream(),
-		usefulVersion,
-	)
+	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, stream, stream, usefulVersion)
+
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, m)
-	defer a.Stop()
+	defer func() { _ = a.Stop() }()
 	go func() {
 		c.Check(a.Run(cmdtesting.Context(c)), jc.ErrorIsNil)
 	}()
+
+	// Wait for the workers to start. This ensures that the central
+	// hub referred to in startAddressPublisher has been assigned,
+	// and we will will not fail race tests with concurrent access.
+	select {
+	case <-a.WorkersStarted():
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for agent workers to start")
+	}
+
 	startAddressPublisher(s, c, a)
 
 	// Add one unit to an application;
