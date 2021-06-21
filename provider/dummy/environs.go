@@ -113,7 +113,7 @@ func SampleCloudSpec() environscloudspec.CloudSpec {
 	}
 }
 
-// SampleConfig() returns an environment configuration with all required
+// SampleConfig returns an environment configuration with all required
 // attributes set.
 func SampleConfig() testing.Attrs {
 	return testing.Attrs{
@@ -369,37 +369,37 @@ func Reset(c *gc.C) {
 	}
 }
 
-func (state *environState) destroy() {
-	state.mu.Lock()
-	defer state.mu.Unlock()
-	state.destroyLocked()
+func (s *environState) destroy() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.destroyLocked()
 }
 
-func (state *environState) destroyLocked() {
-	if !state.bootstrapped {
+func (s *environState) destroyLocked() {
+	if !s.bootstrapped {
 		return
 	}
-	apiServer := state.apiServer
-	apiStatePool := state.apiStatePool
-	leaseManager := state.leaseManager
-	multiWatcherWorker := state.multiWatcherWorker
-	modelCacheWorker := state.modelCacheWorker
-	state.apiServer = nil
-	state.apiStatePool = nil
-	state.apiState = nil
-	state.controller = nil
-	state.leaseManager = nil
-	state.bootstrapped = false
-	state.hub = nil
-	state.multiWatcherWorker = nil
-	state.modelCacheWorker = nil
+	apiServer := s.apiServer
+	apiStatePool := s.apiStatePool
+	leaseManager := s.leaseManager
+	multiWatcherWorker := s.multiWatcherWorker
+	modelCacheWorker := s.modelCacheWorker
+	s.apiServer = nil
+	s.apiStatePool = nil
+	s.apiState = nil
+	s.controller = nil
+	s.leaseManager = nil
+	s.bootstrapped = false
+	s.hub = nil
+	s.multiWatcherWorker = nil
+	s.modelCacheWorker = nil
 
 	// Release the lock while we close resources. In particular,
 	// we must not hold the lock while the API server is being
 	// closed, as it may need to interact with the Environ while
 	// shutting down.
-	state.mu.Unlock()
-	defer state.mu.Lock()
+	s.mu.Unlock()
+	defer s.mu.Lock()
 
 	// The apiServer depends on the modelCache, so stop the apiserver first.
 	if apiServer != nil {
