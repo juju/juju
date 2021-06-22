@@ -1991,6 +1991,7 @@ azure
 azure-china                                   
 cloudsigma                                    
 ecs                                           
+equinix                                       
 google                                        
 oracle                                        
 rackspace                                     \n?(localhost\s+)?(microk8s\s+)?
@@ -2054,6 +2055,7 @@ azure
 azure-china                                   
 cloudsigma                                    
 ecs                                           
+equinix                                       
 google                                        
 oracle                                        
 rackspace                                     \n?(localhost\s+)?(microk8s\s+)?
