@@ -3,7 +3,7 @@
 
 package upgrades
 
-// stateStepsFor295 returns database upgrade steps for Juju 2.9.5.
+// stateStepsFor295 returns upgrade steps for juju 2.9.5
 func stateStepsFor295() []Step {
 	return []Step{
 		&upgradeStep{

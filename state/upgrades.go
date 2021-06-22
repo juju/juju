@@ -521,6 +521,57 @@ func updateLegacyKubernetesCloudsOps(st *State) ([]txn.Op, error) {
 	return ops, nil
 }
 
+func KubernetesInClusterCredentialSpec(
+	pool *StatePool,
+) (environscloudspec.CloudSpec, *config.Config, string, error) {
+	st := pool.SystemState()
+	model, err := st.Model()
+	if err != nil {
+		return environscloudspec.CloudSpec{}, nil, "", errors.Trace(err)
+	}
+
+	if model.Type() != ModelTypeCAAS {
+		return environscloudspec.CloudSpec{}, nil, "",
+			errors.NotFoundf("controller model %q not a caas model", model.Name())
+	}
+
+	cred, ok := model.CloudCredentialTag()
+	if !ok {
+		return environscloudspec.CloudSpec{}, nil, "",
+			errors.NotFoundf("controller cloud credentials")
+	}
+
+	cloudSpec, err := cloudSpec(st, model.CloudName(), model.CloudRegion(), cred)
+	if err != nil {
+		return cloudSpec, nil, "",
+			errors.Annotate(err, "fetching controller cloud spec")
+	}
+
+	if cloudSpec.Type != k8sconstants.CAASProviderType {
+		return cloudSpec, nil, "",
+			errors.NotFoundf("controller not in a Kubernetes cloud")
+	}
+
+	if !cloudSpec.IsControllerCloud {
+		return cloudSpec, nil, "",
+			errors.NotFoundf("cloudspec is not in the controllers cloud")
+	}
+
+	cfg, err := model.Config()
+	if err != nil {
+		return cloudSpec, cfg, "",
+			errors.Annotate(err, "getting model configuration")
+	}
+
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
+		return cloudSpec, cfg, "",
+			errors.Annotate(err, "fetching controller UUID")
+	}
+	controllerUUID := controllerConfig[controller.ControllerUUIDKey].(string)
+	return cloudSpec, cfg, controllerUUID, nil
+}
+
 func updateLegacyKubernetesCredentialsOps(st *State, cloudName string) ([]txn.Op, error) {
 	coll, closer := st.db().GetRawCollection(cloudCredentialsC)
 	defer closer()
