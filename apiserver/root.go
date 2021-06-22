@@ -127,8 +127,24 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 	return r, nil
 }
 
-func (r *apiHandler) getResources() *common.Resources {
+// Resources returns the common resources.
+func (r *apiHandler) Resources() *common.Resources {
 	return r.resources
+}
+
+// State returns the underlying state.
+func (r *apiHandler) State() *state.State {
+	return r.state
+}
+
+// SharedContext returns the server shared context.
+func (r *apiHandler) SharedContext() *sharedServerContext {
+	return r.shared
+}
+
+// Authorizer returns the authorizer used for accessing API method calls.
+func (r *apiHandler) Authorizer() facade.Authorizer {
+	return r
 }
 
 func (r *apiHandler) getRpcConn() *rpc.Conn {
@@ -147,7 +163,6 @@ func (r *apiHandler) Kill() {
 // and place a call on its method.
 type srvCaller struct {
 	objMethod rpcreflect.ObjMethod
-	goType    reflect.Type
 	creator   func(id string) (reflect.Value, error)
 }
 
@@ -157,7 +172,7 @@ func (s *srvCaller) ParamsType() reflect.Type {
 	return s.objMethod.Params
 }
 
-// ReturnType defines the object that is returned from the function.`
+// ResultType defines the object that is returned from the function.`
 // See rpcreflect.MethodCaller for more detail.
 func (s *srvCaller) ResultType() reflect.Type {
 	return s.objMethod.Result
@@ -175,26 +190,44 @@ func (s *srvCaller) Call(ctx context.Context, objId string, arg reflect.Value) (
 
 // apiRoot implements basic method dispatching to the facade registry.
 type apiRoot struct {
-	clock       clock.Clock
-	state       *state.State
-	shared      *sharedServerContext
-	facades     *facade.Registry
-	resources   *common.Resources
-	authorizer  facade.Authorizer
-	objectMutex sync.RWMutex
-	objectCache map[objectKey]reflect.Value
+	clock           clock.Clock
+	state           *state.State
+	shared          *sharedServerContext
+	facades         *facade.Registry
+	resources       *common.Resources
+	authorizer      facade.Authorizer
+	objectMutex     sync.RWMutex
+	objectCache     map[objectKey]reflect.Value
+	requestRecorder facade.RequestRecorder
+}
+
+type apiRootHandler interface {
+	// State returns the underlying state.
+	State() *state.State
+	// SharedContext returns the server shared context.
+	SharedContext() *sharedServerContext
+	// Resources returns the common resources.
+	Resources() *common.Resources
+	// Authorizer returns the authorizer used for accessing API method calls.
+	Authorizer() facade.Authorizer
 }
 
 // newAPIRoot returns a new apiRoot.
-func newAPIRoot(clock clock.Clock, st *state.State, shared *sharedServerContext, facades *facade.Registry, resources *common.Resources, authorizer facade.Authorizer) (*apiRoot, error) {
+func newAPIRoot(clock clock.Clock,
+	facades *facade.Registry,
+	root apiRootHandler,
+	requestRecorder facade.RequestRecorder,
+) (*apiRoot, error) {
+	st := root.State()
 	r := &apiRoot{
-		clock:       clock,
-		state:       st,
-		shared:      shared,
-		facades:     facades,
-		resources:   resources,
-		authorizer:  authorizer,
-		objectCache: make(map[objectKey]reflect.Value),
+		clock:           clock,
+		state:           st,
+		shared:          root.SharedContext(),
+		facades:         facades,
+		resources:       root.Resources(),
+		authorizer:      root.Authorizer(),
+		objectCache:     make(map[objectKey]reflect.Value),
+		requestRecorder: requestRecorder,
 	}
 	// Ensure that the model being requested is in our model cache.
 	// Client connections need it for status (or very soon will), and agents
@@ -483,6 +516,11 @@ func (ctx *facadeContext) MultiwatcherFactory() multiwatcher.Factory {
 // ID is part of the facade.Context interface.
 func (ctx *facadeContext) ID() string {
 	return ctx.key.objId
+}
+
+// RequestRecorder defines a metrics collector for outbound requests.
+func (ctx *facadeContext) RequestRecorder() facade.RequestRecorder {
+	return ctx.r.requestRecorder
 }
 
 // LeadershipClaimer is part of the facade.Context interface.

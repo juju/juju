@@ -125,6 +125,8 @@ func NewFacadeV4(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 
+	httpTransport := charmhub.RequestRecorderHTTPTransport(ctx.RequestRecorder())
+
 	return &API{
 		CharmsAPI:            commonCharmsAPI,
 		authorizer:           authorizer,
@@ -134,11 +136,13 @@ func NewFacadeV4(ctx facade.Context) (*API, error) {
 		getStrategyFunc:      getStrategyFunc,
 		newStorage:           storage.NewStorage,
 		tag:                  m.ModelTag(),
-		// TODO (stickupkid): Get the http transport from the facade context
-		httpClient: charmhub.DefaultHTTPTransport(logger),
+		httpClient:           httpTransport(logger),
 	}, nil
 }
 
+// NewCharmsAPI is only used for testing.
+// TODO (stickupkid): We should use the latest NewFacadeV4 to better exercise
+// the API.
 func NewCharmsAPI(
 	authorizer facade.Authorizer,
 	st charmsinterfaces.BackendState,
@@ -155,8 +159,7 @@ func NewCharmsAPI(
 		getStrategyFunc:      getStrategyFunc,
 		newStorage:           newStorage,
 		tag:                  m.ModelTag(),
-		// TODO (stickupkid): Get the http transport from the facade context
-		httpClient: charmhub.DefaultHTTPTransport(logger),
+		httpClient:           charmhub.DefaultHTTPTransport(logger),
 	}, nil
 }
 
