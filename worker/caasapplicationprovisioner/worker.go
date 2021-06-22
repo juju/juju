@@ -1,6 +1,14 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// This worker is responsible for watching the life cycle of CAAS sidecar
+// applications and setting them up (or removing them). It creates a new
+// worker goroutine for every application being monitored, so most of the
+// actual operations happen in the child worker.
+//
+// Note that the separate caasoperatorprovisioner worker handles legacy CAAS
+// pod-spec applications.
+
 package caasapplicationprovisioner
 
 import (

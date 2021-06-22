@@ -1,6 +1,10 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// This worker is responsible for watching for scale changes in the number of
+// units and scaling out applications. It's also responsible for reporting the
+// service info (such as IP addresses) of unit pods.
+
 package caasunitprovisioner
 
 import (

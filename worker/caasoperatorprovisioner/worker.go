@@ -1,6 +1,14 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// This worker is responsible for watching the life cycle of CAAS pod-spec
+// applications and creating their operator pods (or removing them). Unlike
+// the caasapplicationprovisioner worker, this worker does not create a new
+// child worker for every application being monitored.
+//
+// Note that the separate caasapplicationprovisioner worker handles CAAS
+// sidecar applications.
+
 package caasoperatorprovisioner
 
 import (
