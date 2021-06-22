@@ -11,8 +11,6 @@ import (
 	"sync"
 	"time"
 
-	errr "github.com/pkg/errors"
-
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -37,8 +35,10 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version/v2"
-	"github.com/packethost/packngo"
 	"gopkg.in/juju/environschema.v1"
+
+	"github.com/packethost/packngo"
+	errr "github.com/pkg/errors"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -destination ./mocks/packngo.go -package mocks github.com/packethost/packngo DeviceService,OSService,PlanService,ProjectIPService
