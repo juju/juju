@@ -2025,8 +2025,8 @@
     },
     {
         "Name": "Application",
-        "Description": "APIv13 provides the Application API facade for version 13.\nIt adds CharmOrigin. The ApplicationsInfo call populates the exposed\nendpoints field in its response entries.",
-        "Version": 13,
+        "Description": "APIv14 provides the Application API facade for version 14.\nIt adds Series to the SetCharm method params.",
+        "Version": 14,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -2304,7 +2304,7 @@
                             "$ref": "#/definitions/ApplicationSetCharm"
                         }
                     },
-                    "description": "SetCharm sets the charm for a given for the application."
+                    "description": "SetCharm sets the charm for a given application."
                 },
                 "SetConfigs": {
                     "type": "object",
@@ -3076,6 +3076,9 @@
                                     "type": "string"
                                 }
                             }
+                        },
+                        "series": {
+                            "type": "string"
                         },
                         "storage-constraints": {
                             "type": "object",

@@ -22,6 +22,7 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/resources/client"
 	app "github.com/juju/juju/apiserver/facades/client/application"
+	"github.com/juju/juju/cmd/juju/application/seriesselector"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
@@ -462,18 +463,17 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		return errors.Trace(err)
 	}
 
-	selector := seriesSelector{
-		charmURLSeries:      userRequestedSeries,
-		seriesFlag:          c.series,
-		supportedSeries:     supportedSeries,
-		supportedJujuSeries: workloadSeries,
-		force:               c.force,
-		conf:                modelCfg,
-		fromBundle:          false,
-	}
-
 	// Get the series to use.
-	series, err := selector.charmSeries()
+	series, err := seriesselector.CharmSeries(seriesselector.CharmSeriesArgs{
+		CharmURLSeries:      userRequestedSeries,
+		SeriesFlag:          c.series,
+		SupportedSeries:     supportedSeries,
+		SupportedJujuSeries: workloadSeries,
+		Force:               c.force,
+		Config:              modelCfg,
+		FromBundle:          false,
+		Logger:              logger,
+	})
 	logger.Tracef("Using series %s from %v to deploy %v", series, supportedSeries, userRequestedURL)
 
 	// Avoid deploying charm if it's not valid for the model.

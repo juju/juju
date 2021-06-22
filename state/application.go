@@ -1178,7 +1178,6 @@ func (a *Application) changeCharmOps(
 				{"charmurl", ch.URL()},
 				{"cs-channel", channel},
 				{"forcecharm", forceUnits},
-				{"series", "focal"}, // TODO(benhoyt): only set this if provided (was "kubernetes" and now v2 charm)
 			}}},
 		},
 	}...)
@@ -1461,12 +1460,13 @@ type SetCharmConfig struct {
 	// space names that should be merged with any existing bindings.
 	EndpointBindings map[string]string
 
-	// Series TODO(benhoyt) - actually use this field
+	// Series, if set, updates the application's series.
 	Series string
 }
 
 // SetCharm changes the charm for the application.
 func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
+	logger.Criticalf("TODO: state.Application.SetCharm cfg.Series=%q", cfg.Series)
 	defer errors.DeferredAnnotatef(
 		&err, "cannot upgrade application %q to charm %q", a, cfg.Charm,
 	)
@@ -1492,7 +1492,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	// this check. Newer charms written for multi-series have a URL
 	// with series = "".
 	if cfg.Charm.URL().Series != "" {
-		logger.Criticalf("TODO series=%q", cfg.Charm.URL().Series)
 		// Allow series change when switching to charmhub charms.
 		if cfg.Charm.URL().Schema != "ch" && cfg.Charm.URL().Series != a.doc.Series {
 			return errors.Errorf("cannot change an application's series")
@@ -1503,8 +1502,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		logger.Criticalf("TODO !cfg.ForceSeries: charmSeries=%v doc.Series=%q",
-			charmSeries, a.doc.Series)
 		for _, oneSeries := range charmSeries {
 			if oneSeries == a.doc.Series {
 				supported = true
@@ -1533,8 +1530,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		logger.Criticalf("TODO cfg.ForceSeries: supportedSeries=%v doc.Series=%q currentOS=%s",
-			supportedSeries, a.doc.Series, currentOS)
 		for _, chSeries := range supportedSeries {
 			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
 			if err != nil {
@@ -1603,7 +1598,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}}
 
 		if a.doc.CharmURL.String() == cfg.Charm.URL().String() {
-			logger.Criticalf("TODO url equal %q", a.doc.CharmURL.String())
 			// Charm URL already set; just update the force flag and channel.
 			ops = append(ops, txn.Op{
 				C:  applicationsC,
@@ -1611,7 +1605,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				Update: bson.D{{"$set", bson.D{
 					{"cs-channel", channel},
 					{"forcecharm", cfg.ForceUnits},
-					{"series", "focal"}, // TODO(benhoyt): only set this if provided (was "kubernetes" and now v2 charm)
 				}}},
 			})
 		} else {
@@ -1642,6 +1635,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			ops = append(ops, chng...)
 			newCharmModifiedVersion++
 		}
+
 		if cfg.CharmOrigin != nil {
 			// Update in the application facade also calls
 			// SetCharm, though it has no current user in the
@@ -1652,6 +1646,16 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				Id: a.doc.DocID,
 				Update: bson.D{{"$set", bson.D{
 					{"charm-origin", cfg.CharmOrigin},
+				}}},
+			})
+		}
+
+		if cfg.Series != "" {
+			ops = append(ops, txn.Op{
+				C:  applicationsC,
+				Id: a.doc.DocID,
+				Update: bson.D{{"$set", bson.D{
+					{"series", cfg.Series},
 				}}},
 			})
 		}
@@ -1686,7 +1690,9 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	a.doc.Channel = channel
 	a.doc.ForceCharm = cfg.ForceUnits
 	a.doc.CharmModifiedVersion = newCharmModifiedVersion
-	a.doc.Series = "focal" // TODO(benhoyt): only set this if provided (was "kubernetes" and now v2 charm)
+	if cfg.Series != "" {
+		a.doc.Series = cfg.Series
+	}
 	return nil
 }
 

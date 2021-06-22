@@ -410,6 +410,9 @@ type SetCharmConfig struct {
 	// EndpointBindings is a map of operator-defined endpoint names to
 	// space names to be merged with any existing endpoint bindings.
 	EndpointBindings map[string]string
+
+	// Series, if set, updates the application's series.
+	Series string
 }
 
 // SetCharm sets the charm for a given application.
@@ -451,6 +454,7 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 		StorageConstraints: storageConstraints,
 		EndpointBindings:   cfg.EndpointBindings,
 		Generation:         branchName,
+		Series:             cfg.Series,
 	}
 	return c.facade.FacadeCall("SetCharm", args, nil)
 }
