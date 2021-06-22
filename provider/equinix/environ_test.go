@@ -4,6 +4,7 @@
 package equinix
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/golang/mock/gomock"
@@ -19,7 +20,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	environContext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/equinix/mocks"
 	"github.com/juju/juju/testing"
@@ -81,7 +82,7 @@ func (s *environProviderSuite) TestPrepareConfig(c *gc.C) {
 }
 
 func (s *environProviderSuite) TestOpen(c *gc.C) {
-	env, err := environs.Open(s.provider, environs.OpenParams{
+	env, err := environs.Open(context.TODO(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
@@ -111,13 +112,13 @@ func (s *environProviderSuite) TestDestroy(c *gc.C) {
 		cl.Devices = device
 		return cl
 	})
-	env, err := environs.Open(s.provider, environs.OpenParams{
+	env, err := environs.Open(context.TODO(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
-	err = env.Destroy(context.NewCloudCallContext())
+	err = env.Destroy(environContext.NewEmptyCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -144,13 +145,13 @@ func (s *environProviderSuite) TestAllInstances(c *gc.C) {
 		cl.Devices = device
 		return cl
 	})
-	env, err := environs.Open(s.provider, environs.OpenParams{
+	env, err := environs.Open(context.TODO(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
-	ii, err := env.AllInstances(context.NewCloudCallContext())
+	ii, err := env.AllInstances(environContext.NewCloudCallContext(context.TODO()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(ii) == 2, jc.IsTrue)
 }
@@ -169,13 +170,13 @@ func (s *environProviderSuite) TestInstances(c *gc.C) {
 		cl.Devices = device
 		return cl
 	})
-	env, err := environs.Open(s.provider, environs.OpenParams{
+	env, err := environs.Open(context.TODO(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
-	ii, err := env.Instances(context.NewCloudCallContext(), []instance.Id{"10"})
+	ii, err := env.Instances(environContext.NewCloudCallContext(context.TODO()), []instance.Id{"10"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(ii[0].Id()), jc.Contains, "10")
 }
@@ -190,13 +191,13 @@ func (s *environProviderSuite) TestStopInstance(c *gc.C) {
 		cl.Devices = device
 		return cl
 	})
-	env, err := environs.Open(s.provider, environs.OpenParams{
+	env, err := environs.Open(context.TODO(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
-	err = env.StopInstances(context.NewCloudCallContext(), "100")
+	err = env.StopInstances(environContext.NewCloudCallContext(context.TODO()), "100")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -413,7 +414,7 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 		cl.OperatingSystems = os
 		return cl
 	})
-	env, err := environs.Open(s.provider, environs.OpenParams{
+	env, err := environs.Open(context.TODO(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
@@ -422,7 +423,7 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 	cons := constraints.Value{}
 	iConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "focal", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = env.StartInstance(context.NewCloudCallContext(), environs.StartInstanceParams{
+	_, err = env.StartInstance(environContext.NewCloudCallContext(context.TODO()), environs.StartInstanceParams{
 		ControllerUUID:   env.Config().UUID(),
 		AvailabilityZone: "yes",
 		InstanceConfig:   iConfig,
@@ -439,7 +440,7 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 }
 
 func (s *environProviderSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {
-	_, err := environs.Open(s.provider, environs.OpenParams{
+	_, err := environs.Open(context.TODO(), s.provider, environs.OpenParams{
 		Cloud:  spec,
 		Config: makeTestModelConfig(c),
 	})
@@ -479,7 +480,7 @@ func (*EquinixUtils) TestWaitDeviceActive_ReturnProvisioning(c *gc.C) {
 		State: "active",
 	}, nil, nil).Times(1)
 	cl.Devices = device
-	_, err := waitDeviceActive(context.NewCloudCallContext(), cl, "100")
+	_, err := waitDeviceActive(environContext.NewCloudCallContext(context.TODO()), cl, "100")
 
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -494,8 +495,7 @@ func (*EquinixUtils) TestWaitDeviceActive_ReturnActive(c *gc.C) {
 		State: "active",
 	}, nil, nil).Times(1)
 	cl.Devices = device
-	_, err := waitDeviceActive(context.NewCloudCallContext(), cl, "100")
-
+	_, err := waitDeviceActive(environContext.NewEmptyCloudCallContext(), cl, "100")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -509,7 +509,7 @@ func (*EquinixUtils) TestWaitDeviceActive_ReturnFailed(c *gc.C) {
 		State: "failed",
 	}, nil, nil).Times(1)
 	cl.Devices = device
-	waitDeviceActive(context.NewCloudCallContext(), cl, "100")
+	waitDeviceActive(environContext.NewEmptyCloudCallContext(), cl, "100")
 }
 
 func (*EquinixUtils) TestIsDistroSupported(c *gc.C) {
