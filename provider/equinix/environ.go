@@ -14,6 +14,7 @@ import (
 	errr "github.com/pkg/errors"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -35,11 +36,9 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/schema"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/set"
 	"github.com/juju/version/v2"
-	"gopkg.in/juju/environschema.v1"
-
 	"github.com/packethost/packngo"
+	"gopkg.in/juju/environschema.v1"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -destination ./mocks/packngo.go -package mocks github.com/packethost/packngo DeviceService,OSService,PlanService,ProjectIPService
@@ -724,12 +723,7 @@ func waitDeviceActive(ctx context.ProviderCallContext, c *packngo.Client, id str
 			if errr.Is(err, ErrDeviceProvisioningFailed) {
 				return true
 			}
-			select {
-			case <-ctx.Dying():
-				return true // treat error as fatal because we are asked to abort
-			default:
-				return common.IsCredentialNotValid(err)
-			}
+			return common.IsCredentialNotValid(err)
 		},
 		Attempts: 180,
 		Delay:    5 * time.Second,
