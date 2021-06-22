@@ -4,8 +4,12 @@
 package ec2
 
 import (
-	"github.com/aws/aws-sdk-go/service/ec2"
-	amzec2 "gopkg.in/amz.v3/ec2"
+	stdcontext "context"
+	"errors"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
@@ -14,8 +18,8 @@ import (
 	jujustorage "github.com/juju/juju/storage"
 )
 
-func StorageEC2(vs jujustorage.VolumeSource) *amzec2.EC2 {
-	return vs.(*ebsVolumeSource).env.ec2
+func StorageEC2(vs jujustorage.VolumeSource) Client {
+	return vs.(*ebsVolumeSource).env.ec2Client
 }
 
 func JujuGroupName(e environs.Environ) string {
@@ -26,15 +30,11 @@ func MachineGroupName(e environs.Environ, machineId string) string {
 	return e.(*environ).machineGroupName(machineId)
 }
 
-func EnvironEC2(e environs.Environ) *amzec2.EC2 {
-	return e.(*environ).ec2
+func EnvironEC2Client(e environs.Environ) Client {
+	return e.(*environ).ec2Client
 }
 
-func InstanceEC2(inst instances.Instance) *amzec2.Instance {
-	return inst.(*amzInstance).Instance
-}
-
-func InstanceSDKEC2(inst instances.Instance) *ec2.Instance {
+func InstanceSDKEC2(inst instances.Instance) types.Instance {
 	return inst.(*sdkInstance).i
 }
 
@@ -42,7 +42,7 @@ func TerminatedInstances(e environs.Environ) ([]instances.Instance, error) {
 	return e.(*environ).allInstancesByState(context.NewEmptyCloudCallContext(), "shutting-down", "terminated")
 }
 
-func InstanceSecurityGroups(e environs.Environ, ctx context.ProviderCallContext, ids []instance.Id, states ...string) ([]amzec2.SecurityGroup, error) {
+func InstanceSecurityGroups(e environs.Environ, ctx context.ProviderCallContext, ids []instance.Id, states ...string) ([]types.GroupIdentifier, error) {
 	return e.(*environ).instanceSecurityGroups(ctx, ids, states...)
 }
 
@@ -57,7 +57,7 @@ func AllModelGroups(e environs.Environ, ctx context.ProviderCallContext) ([]stri
 	}
 	groupIds := make([]string, len(groups))
 	for i, g := range groups {
-		groupIds[i] = g.Id
+		groupIds[i] = aws.ToString(g.GroupId)
 	}
 	return groupIds, nil
 }
@@ -78,6 +78,16 @@ var (
 
 const VPCIDNone = vpcIDNone
 
-func VerifyCredentials(env environs.Environ, ctx context.ProviderCallContext) error {
-	return verifyCredentials(env.(*environ), ctx)
+type stubAccountAPIClient struct {
+	Client
+}
+
+func (s *stubAccountAPIClient) DescribeAccountAttributes(
+	_ stdcontext.Context, _ *ec2.DescribeAccountAttributesInput, _ ...func(*ec2.Options),
+) (*ec2.DescribeAccountAttributesOutput, error) {
+	return nil, errors.New("boom")
+}
+
+func VerifyCredentials(ctx context.ProviderCallContext) error {
+	return verifyCredentials(&stubAccountAPIClient{}, ctx)
 }

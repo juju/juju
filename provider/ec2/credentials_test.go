@@ -52,6 +52,8 @@ func (s *credentialsSuite) TestAccessKeyHiddenAttributes(c *gc.C) {
 
 func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
 	// No environment variables set, so no credentials should be found.
+	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "")
+	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "")
 	_, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

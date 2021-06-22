@@ -7,11 +7,13 @@ import (
 	"net"
 	"strings"
 
-	"gopkg.in/amz.v3/ec2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/kr/pretty"
 )
 
 type SubnetMatcher interface {
-	Match(ec2.Subnet) bool
+	Match(types.Subnet) bool
 }
 
 // CreateSubnetMatcher creates a SubnetMatcher that handles a particular method
@@ -45,14 +47,14 @@ type cidrSubnetMatcher struct {
 
 var _ SubnetMatcher = (*cidrSubnetMatcher)(nil)
 
-func (sm *cidrSubnetMatcher) Match(subnet ec2.Subnet) bool {
-	_, existingIPNet, err := net.ParseCIDR(subnet.CIDRBlock)
+func (sm *cidrSubnetMatcher) Match(subnet types.Subnet) bool {
+	_, existingIPNet, err := net.ParseCIDR(aws.ToString(subnet.CidrBlock))
 	if err != nil {
-		logger.Debugf("subnet %#v has invalid CIDRBlock", subnet)
+		logger.Debugf("subnet %s has invalid CIDRBlock", pretty.Sprint(subnet))
 		return false
 	}
 	if sm.CIDR == existingIPNet.String() {
-		logger.Debugf("found subnet %q by matching subnet CIDR: %s", subnet.Id, sm.CIDR)
+		logger.Debugf("found subnet %q by matching subnet CIDR: %s", aws.ToString(subnet.SubnetId), sm.CIDR)
 		return true
 	}
 	return false
@@ -62,9 +64,9 @@ type subnetIDMatcher struct {
 	subnetID string
 }
 
-func (sm *subnetIDMatcher) Match(subnet ec2.Subnet) bool {
-	if subnet.Id == sm.subnetID {
-		logger.Debugf("found subnet %q by ID", subnet.Id)
+func (sm *subnetIDMatcher) Match(subnet types.Subnet) bool {
+	if subnetID := aws.ToString(subnet.SubnetId); subnetID == sm.subnetID {
+		logger.Debugf("found subnet %q by ID", subnetID)
 		return true
 	}
 	return false
@@ -74,10 +76,10 @@ type subnetNameMatcher struct {
 	name string
 }
 
-func (sm *subnetNameMatcher) Match(subnet ec2.Subnet) bool {
+func (sm *subnetNameMatcher) Match(subnet types.Subnet) bool {
 	for _, tag := range subnet.Tags {
-		if tag.Key == "Name" && tag.Value == sm.name {
-			logger.Debugf("found subnet %q matching name %q", subnet.Id, sm.name)
+		if aws.ToString(tag.Key) == "Name" && aws.ToString(tag.Value) == sm.name {
+			logger.Debugf("found subnet %q matching name %q", aws.ToString(subnet.SubnetId), sm.name)
 			return true
 		}
 	}
