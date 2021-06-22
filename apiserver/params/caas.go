@@ -32,6 +32,13 @@ type CAASApplicationProvisioningInfoResults struct {
 	Results []CAASApplicationProvisioningInfo `json:"results"`
 }
 
+// CAASUnitTerminationResult holds result to UnitTerminating call.
+type CAASUnitTerminationResult struct {
+	// WillRestart is true if the termination of the unit is temporary.
+	WillRestart bool
+	Error       *Error
+}
+
 // CAASApplicationProvisioningInfo holds info needed to provision a caas application.
 type CAASApplicationProvisioningInfo struct {
 	ImagePath            string                       `json:"image-path"`

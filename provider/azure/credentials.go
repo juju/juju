@@ -94,7 +94,7 @@ func (c environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud
 // DetectCredentials is part of the environs.ProviderCredentials
 // interface. It attempts to detect subscription IDs from accounts
 // configured in the Azure CLI.
-func (c environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
+func (c environProviderCredentials) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
 	// Attempt to get accounts from az.
 	accounts, err := c.azureCLI.ListAccounts()
 	if err != nil {

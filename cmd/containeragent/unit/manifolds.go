@@ -22,12 +22,14 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/caasprober"
+	"github.com/juju/juju/worker/caasunitterminationworker"
 	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
@@ -76,7 +78,7 @@ type manifoldsConfig struct {
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
-	PreUpgradeSteps func(*state.StatePool, coreagent.Config, bool, bool, bool) error
+	PreUpgradeSteps upgrades.PreUpgradeStepsFunc
 
 	// PrometheusRegisterer is a prometheus.Registerer that may be used
 	// by workers to register Prometheus metric collectors.
@@ -217,6 +219,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			WorkerFunc:          proxyupdater.NewWorker,
 			InProcessUpdate:     proxy.DefaultConfig.Set,
 			SupportLegacyValues: false,
+			RunFunc:             proxyupdater.RunWithStdIn,
 		})),
 
 		// The logging config updater is a leaf worker that indirectly
@@ -300,6 +303,15 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			EnforcedCharmModifiedVersion: config.CharmModifiedVersion,
 			ContainerNames:               config.ContainerNames,
 		})),
+
+		// The CAAS unit termination worker handles SIGTERM from the container runtime.
+		caasUnitTerminationWorker: ifNotMigrating(caasunitterminationworker.Manifold(caasunitterminationworker.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Clock:         config.Clock,
+			Logger:        loggo.GetLogger("juju.worker.caasunitterminationworker"),
+			UniterName:    uniterName,
+		})),
 	}
 }
 
@@ -336,6 +348,8 @@ const (
 	proxyConfigUpdaterName   = "proxy-config-updater"
 	loggingConfigUpdaterName = "logging-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"
+
+	caasUnitTerminationWorker = "caas-unit-termination-worker"
 )
 
 type noopStatusSetter struct{}

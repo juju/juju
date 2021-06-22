@@ -49,3 +49,30 @@ func (c *Client) UnitIntroduction(podName string, podUUID string) (*UnitConfig, 
 		AgentConf: result.Result.AgentConf,
 	}, nil
 }
+
+// UnitTermination holds the result from calling UnitTerminating.
+type UnitTermination struct {
+	// WillRestart is true when the unit agent should restart.
+	// It will be false when the unit is dying and should shutdown normally.
+	WillRestart bool
+}
+
+// UnitTerminating is to be called by the CAASUnitTerminationWorker when the uniter is
+// shutting down.
+func (c *Client) UnitTerminating(unit names.UnitTag) (UnitTermination, error) {
+	var result params.CAASUnitTerminationResult
+	args := params.Entity{
+		Tag: unit.String(),
+	}
+	err := c.facade.FacadeCall("UnitTerminating", args, &result)
+	if err != nil {
+		return UnitTermination{}, err
+	}
+	if err := result.Error; err != nil {
+		return UnitTermination{}, err
+	}
+	term := UnitTermination{
+		WillRestart: result.WillRestart,
+	}
+	return term, nil
+}

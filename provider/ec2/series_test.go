@@ -6,8 +6,8 @@ package ec2
 import (
 	"strings"
 
-	"gopkg.in/amz.v3/aws"
-	awsec2 "gopkg.in/amz.v3/ec2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagemetadata"
@@ -30,13 +30,13 @@ func UseTestImageData(c *gc.C, files map[string]string) {
 // FabricateInstance creates a new fictitious instance
 // given an existing instance and a new id.
 func FabricateInstance(inst instances.Instance, newId string) instances.Instance {
-	oldi := inst.(*amzInstance)
-	newi := &amzInstance{
-		e:        oldi.e,
-		Instance: &awsec2.Instance{},
+	oldi := inst.(*sdkInstance)
+	newi := &sdkInstance{
+		e: oldi.e,
+		i: types.Instance{},
 	}
-	*newi.Instance = *oldi.Instance
-	newi.InstanceId = newId
+	newi.i = oldi.i
+	newi.i.InstanceId = aws.String(newId)
 	return newi
 }
 
@@ -94,9 +94,9 @@ var TestImageMetadata = []*imagemetadata.ImageMetadata{
 	makeImage("ami-02000035", "ssd", "pv", "i386", "13.04", "test"),
 }
 
-func MakeTestImageStreamsData(region aws.Region) map[string]string {
-	testImageMetadataIndex := strings.Replace(testImageMetadataIndex, "$REGION", region.Name, -1)
-	testImageMetadataIndex = strings.Replace(testImageMetadataIndex, "$ENDPOINT", region.EC2Endpoint, -1)
+func MakeTestImageStreamsData(region types.Region) map[string]string {
+	testImageMetadataIndex := strings.Replace(testImageMetadataIndex, "$REGION", aws.ToString(region.RegionName), -1)
+	testImageMetadataIndex = strings.Replace(testImageMetadataIndex, "$ENDPOINT", aws.ToString(region.Endpoint), -1)
 	return map[string]string{
 		"/streams/v1/index.json":                         testImageMetadataIndex,
 		"/streams/v1/com.ubuntu.cloud:released:aws.json": testImageMetadataProduct,

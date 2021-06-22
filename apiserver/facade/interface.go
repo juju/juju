@@ -4,6 +4,10 @@
 package facade
 
 import (
+	"net/http"
+	"net/url"
+	"time"
+
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/cache"
@@ -23,8 +27,43 @@ type Facade interface{}
 // Factory is a callback used to create a Facade.
 type Factory func(Context) (Facade, error)
 
+// LeadershipContext describes factory methods for objects that deliver
+// specific lease-related capabilities
+type LeadershipContext interface {
+
+	// LeadershipClaimer returns a leadership.Claimer tied to a
+	// specific model.
+	LeadershipClaimer(modelUUID string) (leadership.Claimer, error)
+
+	// LeadershipRevoker returns a leadership.Revoker tied to a
+	// specific model.
+	LeadershipRevoker(modelUUID string) (leadership.Revoker, error)
+
+	// LeadershipChecker returns a leadership.Checker for this
+	// context's model.
+	LeadershipChecker() (leadership.Checker, error)
+
+	// LeadershipPinner returns a leadership.Pinner for this
+	// context's model.
+	LeadershipPinner(modelUUID string) (leadership.Pinner, error)
+
+	// LeadershipReader returns a leadership.Reader for this
+	// context's model.
+	LeadershipReader(modelUUID string) (leadership.Reader, error)
+
+	// SingularClaimer returns a lease.Claimer for singular leases for
+	// this context's model.
+	SingularClaimer() (lease.Claimer, error)
+}
+
 // Context exposes useful capabilities to a Facade.
 type Context interface {
+	// TODO (stickupkid): This shouldn't be embedded, instead this should be
+	// in the form of `context.Leadership() Leadership`, which returns the
+	// contents of the LeadershipContext.
+	// Context should have a single responsibility, and that's access to other
+	// types/objects.
+	LeadershipContext
 
 	// Cancel channel represents an indication from the API server that
 	// all interruptable calls should stop. The channel is only ever
@@ -102,29 +141,18 @@ type Context interface {
 	// a good idea; see Resources.
 	ID() string
 
-	// LeadershipClaimer returns a leadership.Claimer tied to a
-	// specific model.
-	LeadershipClaimer(modelUUID string) (leadership.Claimer, error)
+	// RequestRecorder defines a metrics collector for outbound requests.
+	RequestRecorder() RequestRecorder
+}
 
-	// LeadershipRevoker returns a leadership.Revoker tied to a
-	// specific model.
-	LeadershipRevoker(modelUUID string) (leadership.Revoker, error)
+// RequestRecorder is implemented by types that can record information about
+// successful and unsuccessful http requests.
+type RequestRecorder interface {
+	// Record an outgoing request which produced an http.Response.
+	Record(method string, url *url.URL, res *http.Response, rtt time.Duration)
 
-	// LeadershipChecker returns a leadership.Checker for this
-	// context's model.
-	LeadershipChecker() (leadership.Checker, error)
-
-	// LeadershipPinner returns a leadership.Pinner for this
-	// context's model.
-	LeadershipPinner(modelUUID string) (leadership.Pinner, error)
-
-	// LeadershipReader returns a leadership.Reader for this
-	// context's model.
-	LeadershipReader(modelUUID string) (leadership.Reader, error)
-
-	// SingularClaimer returns a lease.Claimer for singular leases for
-	// this context's model.
-	SingularClaimer() (lease.Claimer, error)
+	// Record an outgoing request which returned back an error.
+	RecordError(method string, url *url.URL, err error)
 }
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Resources,Authorizer

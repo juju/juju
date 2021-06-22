@@ -74,14 +74,6 @@ func (k *kubernetesClient) ensureConfigMap(cm *core.ConfigMap) (func(), error) {
 	if !errors.IsAlreadyExists(err) {
 		return cleanUp, errors.Trace(err)
 	}
-	_, err = k.listConfigMaps(cm.GetLabels())
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// configmap name is already used for an existing secret.
-			return cleanUp, errors.AlreadyExistsf("configmap %q", cm.GetName())
-		}
-		return cleanUp, errors.Trace(err)
-	}
 	err = k.updateConfigMap(cm)
 	logger.Debugf("updating configmap %q", cm.GetName())
 	return cleanUp, errors.Trace(err)

@@ -261,7 +261,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationNoPlacement(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": failed for some reason`)
 	c.Assert(s.prechecker.precheckInstanceArgs, jc.DeepEquals, environs.PrecheckInstanceParams{
 		Series:      "quantal",
-		Constraints: constraints.MustParse("arch=amd64 root-disk=20G"),
+		Constraints: constraints.MustParse("root-disk=20G"),
 	})
 }
 
@@ -310,8 +310,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationMixedPlacement(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": hey now`)
 	c.Assert(s.prechecker.precheckInstanceArgs, jc.DeepEquals, environs.PrecheckInstanceParams{
-		Series:      "precise",
-		Placement:   "somewhere",
-		Constraints: constraints.MustParse("arch=amd64"),
+		Series:    "precise",
+		Placement: "somewhere",
 	})
 }

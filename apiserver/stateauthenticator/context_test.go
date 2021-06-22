@@ -5,13 +5,14 @@ package stateauthenticator_test
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/identchecker"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakerytest"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -31,11 +32,13 @@ type macaroonCommonSuite struct {
 	statetesting.StateSuite
 	discharger    *bakerytest.Discharger
 	authenticator *stateauthenticator.Authenticator
+	clock         *testclock.Clock
 }
 
 func (s *macaroonCommonSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
-	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, clock.WallClock)
+	s.clock = testclock.NewClock(time.Now())
+	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.authenticator = authenticator
 }
@@ -113,6 +116,29 @@ func (s *macaroonAuthSuite) TestServerBakery(c *gc.C) {
 	ai, err := authChecker.Allow(context.Background(), identchecker.LoginOp)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ai.Identity.Id(), gc.Equals, "fred")
+}
+
+func (s *macaroonAuthSuite) TestExpiredKey(c *gc.C) {
+	bsvc, err := stateauthenticator.ServerBakeryExpiresImmediately(s.authenticator, &alwaysIdent{})
+	c.Assert(err, gc.IsNil)
+
+	cav := []checkers.Caveat{
+		checkers.NeedDeclaredCaveat(
+			checkers.Caveat{
+				Condition: "is-authenticated-user",
+			},
+			"username",
+		),
+	}
+	mac, err := bsvc.Oven.NewMacaroon(context.Background(), bakery.LatestVersion, cav, bakery.NoOp)
+	c.Assert(err, gc.IsNil)
+
+	client := httpbakery.NewClient()
+	ms, err := client.DischargeAll(context.Background(), mac)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, _, err = bsvc.Oven.VerifyMacaroon(context.Background(), ms)
+	c.Assert(err, gc.ErrorMatches, "verification failed: macaroon not found in storage")
 }
 
 type macaroonAuthWrongPublicKeySuite struct {

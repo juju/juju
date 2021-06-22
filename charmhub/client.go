@@ -28,6 +28,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	charmhubpath "github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
@@ -59,6 +60,8 @@ type Logger interface {
 	Errorf(string, ...interface{})
 	Debugf(string, ...interface{})
 	Tracef(string, ...interface{})
+
+	Child(string) loggo.Logger
 }
 
 // Config holds configuration for creating a new charm hub client.
@@ -79,6 +82,11 @@ type Config struct {
 	// and allow overriding existing headers.
 	Headers http.Header
 
+	// Transport represents the default http transport to use for all API
+	// requests.
+	Transport Transport
+
+	// Logger to use during the API requests.
 	Logger Logger
 }
 
@@ -88,6 +96,7 @@ type Option func(*options)
 type options struct {
 	url             *string
 	metadataHeaders map[string]string
+	transportFunc   func(Logger) Transport
 }
 
 // WithURL sets the url on the option.
@@ -104,11 +113,21 @@ func WithMetadataHeaders(h map[string]string) Option {
 	}
 }
 
+// WithHTTPTransport sets the default http transport to use on the option.
+func WithHTTPTransport(transportFn func(Logger) Transport) Option {
+	return func(options *options) {
+		options.transportFunc = transportFn
+	}
+}
+
 // Create a options instance with default values.
 func newOptions() *options {
 	u := CharmHubServerURL
 	return &options{
 		url: &u,
+		transportFunc: func(logger Logger) Transport {
+			return DefaultHTTPTransport(logger)
+		},
 	}
 }
 
@@ -142,11 +161,12 @@ func CharmHubConfig(logger Logger, options ...Option) (Config, error) {
 	}
 
 	return Config{
-		URL:     *opts.url,
-		Version: CharmHubServerVersion,
-		Entity:  CharmHubServerEntity,
-		Headers: headers,
-		Logger:  logger,
+		URL:       *opts.url,
+		Version:   CharmHubServerVersion,
+		Entity:    CharmHubServerEntity,
+		Headers:   headers,
+		Transport: opts.transportFunc(logger.Child("transport")),
+		Logger:    logger,
 	}, nil
 }
 
@@ -214,9 +234,9 @@ func NewClientWithFileSystem(config Config, fileSystem FileSystem) (*Client, err
 
 	config.Logger.Tracef("NewClient to %q", config.URL)
 
-	httpClient := DefaultHTTPTransport()
-	apiRequester := NewAPIRequester(httpClient, config.Logger)
-	restClient := NewHTTPRESTClient(apiRequester, config.Headers)
+	apiRequester := NewAPIRequester(config.Transport, config.Logger)
+	apiRequestLogger := NewAPIRequesterLogger(apiRequester, config.Logger)
+	restClient := NewHTTPRESTClient(apiRequestLogger, config.Headers)
 
 	return &Client{
 		url:           base.String(),
@@ -226,7 +246,7 @@ func NewClientWithFileSystem(config Config, fileSystem FileSystem) (*Client, err
 		// download client doesn't require a path here, as the download could
 		// be from any server in theory. That information is found from the
 		// refresh response.
-		downloadClient:  NewDownloadClient(httpClient, fileSystem, config.Logger),
+		downloadClient:  NewDownloadClient(config.Transport, fileSystem, config.Logger),
 		resourcesClient: NewResourcesClient(resourcesPath, restClient, config.Logger),
 		logger:          config.Logger,
 	}, nil

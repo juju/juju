@@ -14,6 +14,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
@@ -1511,7 +1512,7 @@ func getApplicationArchConstraint(a description.Application) string {
 	if arch := cons.Architecture(); arch != "" {
 		return arch
 	}
-	return ""
+	return arch.DefaultArchitecture
 }
 
 func (i *importer) relationCount(application string) int {

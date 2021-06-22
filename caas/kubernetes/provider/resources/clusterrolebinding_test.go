@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
@@ -87,4 +88,130 @@ func (s *clusterRoleBindingSuite) TestDelete(c *gc.C) {
 
 	_, err = s.client.RbacV1().ClusterRoleBindings().Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
+}
+
+// This test ensures that there has not been a regression with ensure cluster
+// role where it can not update roles that have a labels change.
+// https://bugs.launchpad.net/juju/+bug/1929909
+func (s *clusterRoleBindingSuite) TestEnsureClusterRoleBindingRegressionOnLabelChange(c *gc.C) {
+	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: meta.ObjectMeta{
+			Name: "test",
+			Labels: map[string]string{
+				"foo": "bar",
+			},
+		},
+	}
+
+	crbApi := resources.NewClusterRoleBinding("test", clusterRoleBinding)
+	_, err := crbApi.Ensure(
+		context.TODO(),
+		s.client,
+		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	rroleBinding, err := s.client.RbacV1().ClusterRoleBindings().Get(
+		context.TODO(),
+		"test",
+		meta.GetOptions{},
+	)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rroleBinding, jc.DeepEquals, clusterRoleBinding)
+
+	crbApi.ClusterRoleBinding.ObjectMeta.Labels = map[string]string{
+		"new-label": "new-value",
+	}
+
+	crbApi.Ensure(
+		context.TODO(),
+		s.client,
+		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	rroleBinding, err = s.client.RbacV1().ClusterRoleBindings().Get(
+		context.TODO(),
+		"test",
+		meta.GetOptions{},
+	)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rroleBinding, jc.DeepEquals, &crbApi.ClusterRoleBinding)
+}
+
+func (s *clusterRoleBindingSuite) TestEnsureRecreatesOnRoleRefChange(c *gc.C) {
+	clusterRoleBinding := resources.NewClusterRoleBinding(
+		"test",
+		&rbacv1.ClusterRoleBinding{
+			ObjectMeta: meta.ObjectMeta{
+				Name: "test",
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				ResourceVersion: "1",
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind:      "test",
+					APIGroup:  "api",
+					Name:      "test",
+					Namespace: "test",
+				},
+			},
+			RoleRef: rbacv1.RoleRef{
+				APIGroup: "test",
+				Kind:     "test",
+				Name:     "test",
+			},
+		},
+	)
+
+	_, err := clusterRoleBinding.Ensure(
+		context.TODO(),
+		s.client,
+		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	rval, err := s.client.RbacV1().ClusterRoleBindings().Get(
+		context.TODO(),
+		"test",
+		meta.GetOptions{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rval.ObjectMeta.ResourceVersion, gc.Equals, "1")
+
+	clusterRoleBinding1 := resources.NewClusterRoleBinding(
+		"test",
+		&rbacv1.ClusterRoleBinding{
+			ObjectMeta: meta.ObjectMeta{
+				Name: "test",
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind:      "test",
+					APIGroup:  "api",
+					Name:      "test",
+					Namespace: "test",
+				},
+			},
+			RoleRef: rbacv1.RoleRef{
+				APIGroup: "test1",
+				Kind:     "test1",
+				Name:     "test1",
+			},
+		},
+	)
+
+	_, err = clusterRoleBinding1.Ensure(
+		context.TODO(),
+		s.client,
+		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
+	)
+	c.Assert(err, jc.ErrorIsNil)
 }

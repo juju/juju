@@ -3,8 +3,9 @@
 package ec2_test
 
 import (
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	jc "github.com/juju/testing/checkers"
-	amzec2 "gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/provider/ec2"
@@ -14,68 +15,68 @@ type subnetMatcherSuite struct{}
 
 var _ = gc.Suite(&subnetMatcherSuite{})
 
-var cannedSubnets = []amzec2.Subnet{{
-	Id:                  "subnet-1234abcd",
-	State:               "available",
-	VPCId:               "vpc-deadbeef",
-	CIDRBlock:           "172.30.0.0/24",
-	AvailableIPCount:    250,
-	AvailZone:           "eu-west-1a",
-	DefaultForAZ:        false,
-	MapPublicIPOnLaunch: true,
-	Tags:                []amzec2.Tag{{Key: "Name", Value: "a"}},
+var cannedSubnets = []types.Subnet{{
+	SubnetId:                aws.String("subnet-1234abcd"),
+	State:                   "available",
+	VpcId:                   aws.String("vpc-deadbeef"),
+	CidrBlock:               aws.String("172.30.0.0/24"),
+	AvailableIpAddressCount: aws.Int32(250),
+	AvailabilityZone:        aws.String("eu-west-1a"),
+	DefaultForAz:            aws.Bool(false),
+	MapPublicIpOnLaunch:     aws.Bool(true),
+	Tags:                    []types.Tag{{Key: aws.String("Name"), Value: aws.String("a")}},
 }, {
-	Id:                  "subnet-2345bcde",
-	State:               "available",
-	VPCId:               "vpc-deadbeef",
-	CIDRBlock:           "172.30.1.0/24",
-	AvailableIPCount:    250,
-	AvailZone:           "eu-west-1b",
-	DefaultForAZ:        false,
-	MapPublicIPOnLaunch: true,
-	Tags:                []amzec2.Tag{{Key: "Name", Value: "b"}},
+	SubnetId:                aws.String("subnet-2345bcde"),
+	State:                   "available",
+	VpcId:                   aws.String("vpc-deadbeef"),
+	CidrBlock:               aws.String("172.30.1.0/24"),
+	AvailableIpAddressCount: aws.Int32(250),
+	AvailabilityZone:        aws.String("eu-west-1b"),
+	DefaultForAz:            aws.Bool(false),
+	MapPublicIpOnLaunch:     aws.Bool(true),
+	Tags:                    []types.Tag{{Key: aws.String("Name"), Value: aws.String("b")}},
 }, {
-	Id:                  "subnet-3456cdef",
-	State:               "available",
-	VPCId:               "vpc-deadbeef",
-	CIDRBlock:           "172.30.2.0/24",
-	AvailableIPCount:    250,
-	AvailZone:           "eu-west-1c",
-	DefaultForAZ:        false,
-	MapPublicIPOnLaunch: true,
-	Tags:                []amzec2.Tag{{Key: "Name", Value: "c"}},
+	SubnetId:                aws.String("subnet-3456cdef"),
+	State:                   "available",
+	VpcId:                   aws.String("vpc-deadbeef"),
+	CidrBlock:               aws.String("172.30.2.0/24"),
+	AvailableIpAddressCount: aws.Int32(250),
+	AvailabilityZone:        aws.String("eu-west-1c"),
+	DefaultForAz:            aws.Bool(false),
+	MapPublicIpOnLaunch:     aws.Bool(true),
+	Tags:                    []types.Tag{{Key: aws.String("Name"), Value: aws.String("c")}},
 }, {
-	Id:                  "subnet-fedc6543",
-	State:               "available",
-	VPCId:               "vpc-deadbeef",
-	CIDRBlock:           "172.30.100.0/24",
-	AvailableIPCount:    250,
-	AvailZone:           "eu-west-1a",
-	DefaultForAZ:        false,
-	MapPublicIPOnLaunch: true,
-	Tags:                []amzec2.Tag{{Key: "Name", Value: "db-a"}},
+	SubnetId:                aws.String("subnet-fedc6543"),
+	State:                   "available",
+	VpcId:                   aws.String("vpc-deadbeef"),
+	CidrBlock:               aws.String("172.30.100.0/24"),
+	AvailableIpAddressCount: aws.Int32(250),
+	AvailabilityZone:        aws.String("eu-west-1a"),
+	DefaultForAz:            aws.Bool(false),
+	MapPublicIpOnLaunch:     aws.Bool(true),
+	Tags:                    []types.Tag{{Key: aws.String("Name"), Value: aws.String("db-a")}},
 }, {
-	Id:                  "subnet-edcb5432",
-	State:               "available",
-	VPCId:               "vpc-deadbeef",
-	CIDRBlock:           "172.30.101.0/24",
-	AvailableIPCount:    250,
-	AvailZone:           "eu-west-1b",
-	DefaultForAZ:        false,
-	MapPublicIPOnLaunch: true,
-	Tags:                []amzec2.Tag{{Key: "Name", Value: "db-b"}},
+	SubnetId:                aws.String("subnet-edcb5432"),
+	State:                   "available",
+	VpcId:                   aws.String("vpc-deadbeef"),
+	CidrBlock:               aws.String("172.30.101.0/24"),
+	AvailableIpAddressCount: aws.Int32(250),
+	AvailabilityZone:        aws.String("eu-west-1b"),
+	DefaultForAz:            aws.Bool(false),
+	MapPublicIpOnLaunch:     aws.Bool(true),
+	Tags:                    []types.Tag{{Key: aws.String("Name"), Value: aws.String("db-b")}},
 }, {
-	Id:                  "subnet-dcba4321",
-	State:               "available",
-	VPCId:               "vpc-deadbeef",
-	CIDRBlock:           "172.30.102.0/24",
-	AvailableIPCount:    250,
-	AvailZone:           "eu-west-1c",
-	DefaultForAZ:        false,
-	MapPublicIPOnLaunch: true,
-	Tags: []amzec2.Tag{
-		{Key: "UserTag", Value: "b"},
-		{Key: "Name", Value: "db-c"},
+	SubnetId:                aws.String("subnet-dcba4321"),
+	State:                   "available",
+	VpcId:                   aws.String("vpc-deadbeef"),
+	CidrBlock:               aws.String("172.30.102.0/24"),
+	AvailableIpAddressCount: aws.Int32(250),
+	AvailabilityZone:        aws.String("eu-west-1c"),
+	DefaultForAz:            aws.Bool(false),
+	MapPublicIpOnLaunch:     aws.Bool(true),
+	Tags: []types.Tag{
+		{Key: aws.String("UserTag"), Value: aws.String("b")},
+		{Key: aws.String("Name"), Value: aws.String("db-c")},
 	},
 }}
 
@@ -84,7 +85,7 @@ func checkSubnetMatch(c *gc.C, query, expectedSubnetID string) {
 	anyMatch := false
 	for _, subnet := range cannedSubnets {
 		match := matcher.Match(subnet)
-		if subnet.Id == expectedSubnetID {
+		if aws.ToString(subnet.SubnetId) == expectedSubnetID {
 			c.Check(match, jc.IsTrue,
 				gc.Commentf("query %q was supposed to match subnet %#v", query, subnet))
 		} else {

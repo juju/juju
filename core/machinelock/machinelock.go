@@ -131,7 +131,7 @@ func (s Spec) Validate() error {
 		}
 	}
 	if s.Worker == "" {
-		return errors.NotValidf("mssing Worker")
+		return errors.NotValidf("missing Worker")
 	}
 	return nil
 }

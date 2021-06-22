@@ -4,6 +4,7 @@
 package azure_test
 
 import (
+	stdcontext "context"
 	"net/http"
 	"time"
 
@@ -78,7 +79,7 @@ func (s *environProviderSuite) TestOpen(c *gc.C) {
 		makeResourceGroupNotFoundSender(".*/resourcegroups/juju-testmodel-model-deadbeef-.*"),
 		makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
 	}
-	env, err := environs.Open(s.provider, environs.OpenParams{
+	env, err := environs.Open(stdcontext.TODO(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
@@ -102,7 +103,7 @@ func (s *environProviderSuite) testOpenError(c *gc.C, spec environscloudspec.Clo
 		makeResourceGroupNotFoundSender(".*/resourcegroups/juju-testmodel-model-deadbeef-.*"),
 		makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
 	}
-	_, err := environs.Open(s.provider, environs.OpenParams{
+	_, err := environs.Open(stdcontext.TODO(), s.provider, environs.OpenParams{
 		Cloud:  spec,
 		Config: makeTestModelConfig(c),
 	})

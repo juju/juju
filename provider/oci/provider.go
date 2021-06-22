@@ -4,6 +4,7 @@
 package oci
 
 import (
+	stdcontext "context"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -220,7 +221,7 @@ func (e EnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*conf
 }
 
 // Open implements environs.EnvironProvider.
-func (e *EnvironProvider) Open(params environs.OpenParams) (environs.Environ, error) {
+func (e *EnvironProvider) Open(_ stdcontext.Context, params environs.OpenParams) (environs.Environ, error) {
 	logger.Infof("opening model %q", params.Config.Name())
 
 	if err := validateCloudSpec(params.Cloud); err != nil {
@@ -306,7 +307,7 @@ func (e EnvironProvider) CredentialSchemas() map[cloud.AuthType]cloud.Credential
 // DetectCredentials implements environs.ProviderCredentials.
 // Configuration options for the OCI SDK are detailed here:
 // https://docs.us-phoenix-1.oraclecloud.com/Content/API/Concepts/sdkconfig.htm
-func (e EnvironProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+func (e EnvironProvider) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
 	result := cloud.CloudCredential{
 		AuthCredentials: make(map[string]cloud.Credential),
 	}

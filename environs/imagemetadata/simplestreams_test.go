@@ -14,9 +14,10 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagemetadata"
@@ -34,17 +35,31 @@ type liveTestData struct {
 	validCloudSpec simplestreams.CloudSpec
 }
 
-var liveURLs = map[string]liveTestData{
-	"ec2": {
-		baseURL:        imagemetadata.DefaultUbuntuBaseURL,
-		requireSigned:  true,
-		validCloudSpec: simplestreams.CloudSpec{"us-east-1", aws.Regions["us-east-1"].EC2Endpoint},
-	},
-	"canonistack": {
-		baseURL:        "https://swift.canonistack.canonical.com/v1/AUTH_a48765cc0e864be980ee21ae26aaaed4/simplestreams/data",
-		requireSigned:  false,
-		validCloudSpec: simplestreams.CloudSpec{"lcy01", "https://keystone.canonistack.canonical.com:443/v1.0/"},
-	},
+func getLiveURLs() (map[string]liveTestData, error) {
+	resolver := ec2.NewDefaultEndpointResolver()
+	ep, err := resolver.ResolveEndpoint("us-east-1", ec2.EndpointResolverOptions{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return map[string]liveTestData{
+		"ec2": {
+			baseURL:       imagemetadata.DefaultUbuntuBaseURL,
+			requireSigned: true,
+			validCloudSpec: simplestreams.CloudSpec{
+				Region:   "us-east-1",
+				Endpoint: ep.URL,
+			},
+		},
+		"canonistack": {
+			baseURL:       "https://swift.canonistack.canonical.com/v1/AUTH_a48765cc0e864be980ee21ae26aaaed4/simplestreams/data",
+			requireSigned: false,
+			validCloudSpec: simplestreams.CloudSpec{
+				Region:   "lcy01",
+				Endpoint: "https://keystone.canonistack.canonical.com:443/v1.0/",
+			},
+		},
+	}, nil
 }
 
 func Test(t *stdtesting.T) {
@@ -54,6 +69,10 @@ func Test(t *stdtesting.T) {
 		}
 		var ok bool
 		var testData liveTestData
+		liveURLs, err := getLiveURLs()
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
 		if testData, ok = liveURLs[*vendor]; !ok {
 			keys := reflect.ValueOf(liveURLs).MapKeys()
 			t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
@@ -97,8 +116,9 @@ func registerSimpleStreamsTests(t *stdtesting.T) {
 }
 
 func registerLiveSimpleStreamsTests(baseURL string, validImageConstraint simplestreams.LookupConstraint, requireSigned bool) {
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		Source: simplestreams.NewDataSource(simplestreams.Config{
+		Source: ss.NewDataSource(simplestreams.Config{
 			Description:          "test",
 			BaseURL:              baseURL,
 			HostnameVerification: utils.VerifySSLHostnames,
@@ -127,12 +147,13 @@ func (s *simplestreamsSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *simplestreamsSuite) TestOfficialSources(c *gc.C) {
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	origKey := imagemetadata.SetSigningPublicKey(sstesting.SignedMetadataPublicKey)
 	defer func() {
 		imagemetadata.SetSigningPublicKey(origKey)
 	}()
-	ds, err := imagemetadata.OfficialDataSources("daily")
+	ds, err := imagemetadata.OfficialDataSources(ss, "daily")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ds, gc.HasLen, 1)
 	url, err := ds[0].URL("")
@@ -289,9 +310,13 @@ var fetchTests = []struct {
 }
 
 func (s *simplestreamsSuite) TestFetch(c *gc.C) {
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	for i, t := range fetchTests {
 		c.Logf("test %d", i)
-		cloudSpec := simplestreams.CloudSpec{t.region, "https://ec2.us-east-1.amazonaws.com"}
+		cloudSpec := simplestreams.CloudSpec{
+			Region:   t.region,
+			Endpoint: "https://ec2.us-east-1.amazonaws.com",
+		}
 		if t.region == "" {
 			cloudSpec = simplestreams.EmptyCloudSpec
 		}
@@ -303,7 +328,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		// Add invalid datasource and check later that resolveInfo is correct.
 		invalidSource := sstesting.InvalidDataSource(s.RequireSigned)
-		images, resolveInfo, err := imagemetadata.Fetch(
+		images, resolveInfo, err := imagemetadata.Fetch(ss,
 			[]simplestreams.DataSource{invalidSource, s.Source}, imageConstraint)
 		if !c.Check(err, jc.ErrorIsNil) {
 			continue
@@ -381,6 +406,7 @@ func (s *signedSuite) TearDownSuite(_ *gc.C) {
 }
 
 func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	signedSource := simplestreams.NewDataSource(
 		simplestreams.Config{
 			Description:          "test",
@@ -392,12 +418,15 @@ func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
 		},
 	)
 	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
-		Releases:  []string{"precise"},
-		Arches:    []string{"amd64"},
+		CloudSpec: simplestreams.CloudSpec{
+			Region:   "us-east-1",
+			Endpoint: "https://ec2.us-east-1.amazonaws.com",
+		},
+		Releases: []string{"precise"},
+		Arches:   []string{"amd64"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	images, resolveInfo, err := imagemetadata.Fetch([]simplestreams.DataSource{signedSource}, imageConstraint)
+	images, resolveInfo, err := imagemetadata.Fetch(ss, []simplestreams.DataSource{signedSource}, imageConstraint)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(images), gc.Equals, 1)
 	c.Assert(images[0].Id, gc.Equals, "ami-123456")
@@ -410,6 +439,7 @@ func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
 }
 
 func (s *signedSuite) TestSignedImageMetadataInvalidSignature(c *gc.C) {
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	signedSource := simplestreams.NewDataSource(simplestreams.Config{
 		Description:          "test",
 		BaseURL:              fmt.Sprintf("%s/signed", s.server.URL),
@@ -418,13 +448,16 @@ func (s *signedSuite) TestSignedImageMetadataInvalidSignature(c *gc.C) {
 		RequireSigned:        true,
 	})
 	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
-		Releases:  []string{"precise"},
-		Arches:    []string{"amd64"},
+		CloudSpec: simplestreams.CloudSpec{
+			Region:   "us-east-1",
+			Endpoint: "https://ec2.us-east-1.amazonaws.com",
+		},
+		Releases: []string{"precise"},
+		Arches:   []string{"amd64"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	imagemetadata.SetSigningPublicKey(s.origKey)
-	_, _, err = imagemetadata.Fetch([]simplestreams.DataSource{signedSource}, imageConstraint)
+	_, _, err = imagemetadata.Fetch(ss, []simplestreams.DataSource{signedSource}, imageConstraint)
 	c.Assert(err, gc.ErrorMatches, "cannot read index data.*")
 }
 

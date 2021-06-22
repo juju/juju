@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/juju/juju/api"
@@ -103,7 +104,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.pcfg = pcfg
 	s.controllerStackerGetter = func() provider.ControllerStackerForTest {
 		controllerStacker, err := provider.NewcontrollerStackForTest(
-			envtesting.BootstrapContext(c), "juju-controller-test", "some-storage", s.broker, s.pcfg,
+			envtesting.BootstrapContext(context.TODO(), c), "juju-controller-test", "some-storage", s.broker, s.pcfg,
 		)
 		c.Assert(err, jc.ErrorIsNil)
 		return controllerStacker
@@ -117,43 +118,57 @@ func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *bootstrapSuite) TestControllerCorelation(c *gc.C) {
-	s.namespace = "controller-1"
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	existingNs := core.Namespace{}
-	existingNs.SetName("controller-1")
-	existingNs.SetAnnotations(map[string]string{
-		"model.juju.is/id":                 s.cfg.UUID(),
-		"controller.juju.is/id":            testing.ControllerTag.Id(),
-		"controller.juju.is/is-controller": "true",
-	})
-
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.getNamespace())
-	c.Assert(s.broker.GetAnnotations().ToMap(), jc.DeepEquals, map[string]string{
-		"model.juju.is/id":      s.cfg.UUID(),
-		"controller.juju.is/id": testing.ControllerTag.Id(),
-	})
-
-	gomock.InOrder(
-		s.mockNamespaces.EXPECT().List(gomock.Any(), v1.ListOptions{}).
-			Return(&core.NamespaceList{Items: []core.Namespace{existingNs}}, nil),
-	)
-	ns, err := provider.ControllerCorelation(s.broker)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(
-		// "is-controller" is set as well.
-		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
-		map[string]string{
-			"model.juju.is/id":                 s.cfg.UUID(),
-			"controller.juju.is/id":            testing.ControllerTag.Id(),
-			"controller.juju.is/is-controller": "true",
+func (s *bootstrapSuite) TestFindControllerNamespace(c *gc.C) {
+	tests := []struct {
+		Namespace      core.Namespace
+		ModelName      string
+		ControllerUUID string
+	}{
+		{
+			Namespace: core.Namespace{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "controller-tlm",
+					Annotations: map[string]string{
+						"juju.io/controller": "abcd",
+					},
+					Labels: map[string]string{
+						"juju-model": "controller",
+					},
+				},
+			},
+			ModelName:      "controller",
+			ControllerUUID: "abcd",
 		},
-	)
-	// controller namespace linked back(changed from 'controller' to 'controller-1')
-	c.Assert(ns, jc.DeepEquals, "controller-1")
+		{
+			Namespace: core.Namespace{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "controller-tlm",
+					Annotations: map[string]string{
+						"controller.juju.is/id": "abcd",
+					},
+					Labels: map[string]string{
+						"model.juju.is/name": "controller",
+					},
+				},
+			},
+			ModelName:      "controller",
+			ControllerUUID: "abcd",
+		},
+	}
+
+	for _, test := range tests {
+		client := fake.NewSimpleClientset()
+		_, err := client.CoreV1().Namespaces().Create(
+			context.TODO(),
+			&test.Namespace,
+			v1.CreateOptions{},
+		)
+		c.Assert(err, jc.ErrorIsNil)
+		ns, err := provider.FindControllerNamespace(
+			client, test.ControllerUUID)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(ns, jc.DeepEquals, &test.Namespace)
+	}
 }
 
 type svcSpecTC struct {
@@ -891,8 +906,6 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 			Return(emptyConfigMap, nil),
 		s.mockConfigMaps.EXPECT().Create(gomock.Any(), configMapWithBootstrapParamsAdded, v1.CreateOptions{}).AnyTimes().
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockConfigMaps.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=juju-controller-test"}).
-			Return(&core.ConfigMapList{Items: []core.ConfigMap{*emptyConfigMap}}, nil),
 		s.mockConfigMaps.EXPECT().Update(gomock.Any(), configMapWithBootstrapParamsAdded, v1.UpdateOptions{}).AnyTimes().
 			Return(configMapWithBootstrapParamsAdded, nil),
 
@@ -901,16 +914,16 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 			Return(configMapWithBootstrapParamsAdded, nil),
 		s.mockConfigMaps.EXPECT().Create(gomock.Any(), configMapWithAgentConfAdded, v1.CreateOptions{}).AnyTimes().
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockConfigMaps.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=juju-controller-test"}).
-			Return(&core.ConfigMapList{Items: []core.ConfigMap{*configMapWithBootstrapParamsAdded}}, nil),
 		s.mockConfigMaps.EXPECT().Update(gomock.Any(), configMapWithAgentConfAdded, v1.UpdateOptions{}).AnyTimes().
 			Return(configMapWithAgentConfAdded, nil),
 
-		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), controllerServiceAccount, v1.CreateOptions{}).
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), controllerServiceAccount.Name, gomock.Any()).
 			Return(controllerServiceAccount, nil),
-		s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/name=controller"}).
-			Return(&rbacv1.ClusterRoleBindingList{}, nil),
-		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), controllerServiceCRB, v1.CreateOptions{}).
+		s.mockServiceAccounts.EXPECT().Update(gomock.Any(), controllerServiceAccount, gomock.Any()).
+			Return(controllerServiceAccount, nil),
+		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), controllerServiceCRB.Name, gomock.Any()).
+			Return(controllerServiceCRB, nil),
+		s.mockClusterRoleBindings.EXPECT().Update(gomock.Any(), controllerServiceCRB, gomock.Any()).
 			Return(controllerServiceCRB, nil),
 
 		// Check the operator storage exists.

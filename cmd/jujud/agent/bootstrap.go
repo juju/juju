@@ -182,11 +182,14 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		Cloud:          cloudSpec,
 		Config:         args.ControllerModelConfig,
 	}
+
+	ctx := stdcontext.TODO()
+
 	var env environs.BootstrapEnviron
 	if isCAAS {
-		env, err = environsNewCAAS(openParams)
+		env, err = environsNewCAAS(ctx, openParams)
 	} else {
-		env, err = environsNewIAAS(openParams)
+		env, err = environsNewIAAS(ctx, openParams)
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -223,7 +226,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 				Arch:   arch.HostArch(),
 				OSType: coreos.HostOSTypeName(),
 			}
-			_, toolsErr := envtools.FindTools(env, -1, -1, streams, filter)
+			ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+			_, toolsErr := envtools.FindTools(ss, env, -1, -1, streams, filter)
 			if toolsErr == nil {
 				logger.Infof("agent binaries are available, upgrade will occur after bootstrap")
 			}

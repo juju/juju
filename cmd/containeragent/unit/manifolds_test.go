@@ -62,6 +62,8 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"upgrade-steps-runner",
 		"upgrade-steps-gate",
 		"upgrade-steps-flag",
+
+		"caas-unit-termination-worker",
 	}
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
@@ -217,5 +219,17 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"api-caller",
 		"api-config-watcher",
 		"upgrade-steps-gate",
+	},
+
+	"caas-unit-termination-worker": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"charm-dir",
+		"hook-retry-strategy",
+		"leadership-tracker",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"uniter",
 	},
 }

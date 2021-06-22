@@ -151,12 +151,18 @@ func (t *ToolsMetadata) productId() (string, error) {
 	return fmt.Sprintf("com.ubuntu.juju:%s:%s", t.Release, t.Arch), nil
 }
 
+// SimplestreamsFetcher defines a way to fetch metadata from the simplestreams
+// server.
+type SimplestreamsFetcher interface {
+	NewDataSource(simplestreams.Config) simplestreams.DataSource
+	GetMetadata([]simplestreams.DataSource, simplestreams.GetMetadataParams) ([]interface{}, *simplestreams.ResolveInfo, error)
+}
+
 // Fetch returns a list of tools for the specified cloud matching the constraint.
 // The base URL locations are as specified - the first location which has a file is the one used.
 // Signed data is preferred, but if there is no signed data available and onlySigned is false,
 // then unsigned data is used.
-func Fetch(
-	sources []simplestreams.DataSource, cons *ToolsConstraint,
+func Fetch(ss SimplestreamsFetcher, sources []simplestreams.DataSource, cons *ToolsConstraint,
 ) ([]*ToolsMetadata, *simplestreams.ResolveInfo, error) {
 
 	params := simplestreams.GetMetadataParams{
@@ -169,7 +175,7 @@ func Fetch(
 			ValueTemplate:   ToolsMetadata{},
 		},
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)
+	items, resolveInfo, err := ss.GetMetadata(sources, params)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -334,13 +340,13 @@ func MergeMetadata(tmlist1, tmlist2 []*ToolsMetadata) ([]*ToolsMetadata, error) 
 }
 
 // ReadMetadata returns the tools metadata from the given storage for the specified stream.
-func ReadMetadata(store storage.StorageReader, stream string) ([]*ToolsMetadata, error) {
+func ReadMetadata(ss SimplestreamsFetcher, store storage.StorageReader, stream string) ([]*ToolsMetadata, error) {
 	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", store, storage.BaseToolsPath, simplestreams.EXISTING_CLOUD_DATA, false)
 	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, stream, -1, -1, coretools.Filter{})
 	if err != nil {
 		return nil, err
 	}
-	metadata, _, err := Fetch([]simplestreams.DataSource{dataSource}, toolsConstraint)
+	metadata, _, err := Fetch(ss, []simplestreams.DataSource{dataSource}, toolsConstraint)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
@@ -352,10 +358,10 @@ var AllMetadataStreams = []string{ReleasedStream, ProposedStream, TestingStream,
 
 // ReadAllMetadata returns the tools metadata from the given storage for all streams.
 // The result is a map of metadata slices, keyed on stream.
-func ReadAllMetadata(store storage.StorageReader) (map[string][]*ToolsMetadata, error) {
+func ReadAllMetadata(ss SimplestreamsFetcher, store storage.StorageReader) (map[string][]*ToolsMetadata, error) {
 	streamMetadata := make(map[string][]*ToolsMetadata)
 	for _, stream := range AllMetadataStreams {
-		metadata, err := ReadMetadata(store, stream)
+		metadata, err := ReadMetadata(ss, store, stream)
 		if err != nil {
 			return nil, err
 		}
@@ -491,8 +497,8 @@ const (
 // MergeAndWriteMetadata reads the existing metadata from storage (if any),
 // and merges it with metadata generated from the given tools list. The
 // resulting metadata is written to storage.
-func MergeAndWriteMetadata(stor storage.Storage, toolsDir, stream string, tools coretools.List, writeMirrors ShouldWriteMirrors) error {
-	existing, err := ReadAllMetadata(stor)
+func MergeAndWriteMetadata(ss SimplestreamsFetcher, store storage.Storage, toolsDir, stream string, tools coretools.List, writeMirrors ShouldWriteMirrors) error {
+	existing, err := ReadAllMetadata(ss, store)
 	if err != nil {
 		return err
 	}
@@ -501,7 +507,7 @@ func MergeAndWriteMetadata(stor storage.Storage, toolsDir, stream string, tools 
 		return err
 	}
 	existing[stream] = metadata
-	return WriteMetadata(stor, existing, []string{stream}, writeMirrors)
+	return WriteMetadata(store, existing, []string{stream}, writeMirrors)
 }
 
 // fetchToolsHash fetches the tools from storage and calculates

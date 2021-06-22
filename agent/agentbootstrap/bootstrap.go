@@ -4,6 +4,7 @@
 package agentbootstrap
 
 import (
+	stdcontext "context"
 	"fmt"
 	"path/filepath"
 
@@ -213,7 +214,7 @@ func InitializeState(
 
 	var controllerNode bootstrapController
 	if isCAAS {
-		if controllerNode, err = initBootstrapNode(c, st, args); err != nil {
+		if controllerNode, err = initBootstrapNode(st, args); err != nil {
 			return nil, errors.Annotate(err, "cannot initialize bootstrap controller")
 		}
 		if err := initControllerCloudService(cloudSpec, provider, st, args); err != nil {
@@ -390,9 +391,9 @@ func getEnviron(
 		Config:         modelConfig,
 	}
 	if cloudSpec.Type == cloud.CloudTypeCAAS {
-		return caas.Open(provider, openParams)
+		return caas.Open(stdcontext.TODO(), provider, openParams)
 	}
-	return environs.Open(provider, openParams)
+	return environs.Open(stdcontext.TODO(), provider, openParams)
 }
 
 func initRaft(agentConfig agent.Config) error {
@@ -425,11 +426,7 @@ func initMongo(info mongo.Info, dialOpts mongo.DialOpts, password string) (*mgo.
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.
 func initBootstrapMachine(st *state.State, args InitializeStateParams) (bootstrapController, error) {
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	logger.Infof("initialising bootstrap machine for %q model with config: %+v", model.Type(), args)
+	logger.Infof("initialising bootstrap machine with config: %+v", args)
 
 	jobs := make([]state.MachineJob, len(args.BootstrapMachineJobs))
 	for i, job := range args.BootstrapMachineJobs {
@@ -471,15 +468,10 @@ func initBootstrapMachine(st *state.State, args InitializeStateParams) (bootstra
 
 // initBootstrapNode initializes the initial caas bootstrap controller in state.
 func initBootstrapNode(
-	c agent.ConfigSetter,
 	st *state.State,
 	args InitializeStateParams,
 ) (bootstrapController, error) {
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	logger.Debugf("initialising bootstrap node for %q model with config: %+v", model.Type(), args)
+	logger.Debugf("initialising bootstrap node for with config: %+v", args)
 
 	node, err := st.AddControllerNode()
 	if err != nil {

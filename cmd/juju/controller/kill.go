@@ -4,6 +4,7 @@
 package controller
 
 import (
+	stdcontext "context"
 	"fmt"
 	"time"
 
@@ -226,9 +227,9 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 			}
 			var env environs.CloudDestroyer
 			if model.CloudSpec.Type == cloud.CloudTypeCAAS {
-				env, err = caas.Open(cloudProvider, openParams)
+				env, err = caas.Open(stdcontext.TODO(), cloudProvider, openParams)
 			} else {
-				env, err = environs.Open(cloudProvider, openParams)
+				env, err = environs.Open(stdcontext.TODO(), cloudProvider, openParams)
 			}
 			if err != nil {
 				logger.Errorf(err.Error())

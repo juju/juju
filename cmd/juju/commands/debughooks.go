@@ -8,14 +8,16 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/action"
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/charms"
+	charmscommon "github.com/juju/juju/api/common/charms"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
@@ -34,8 +36,8 @@ type debugHooksCommand struct {
 	sshCommand
 	hooks []string
 
-	actionsAPI
-	charmRelationsAPI
+	applicationAPI
+	charmAPI
 }
 
 const debugHooksDoc = `
@@ -83,18 +85,18 @@ func (c *debugHooksCommand) Init(args []string) error {
 	return nil
 }
 
-type charmRelationsAPI interface {
-	CharmRelations(applicationName string) ([]string, error)
+type applicationAPI interface {
+	GetCharmURL(branchName, applicationName string) (*charm.URL, error)
 	Close() error
 }
 
-type actionsAPI interface {
-	ApplicationCharmActions(string) (map[string]action.ActionSpec, error)
+type charmAPI interface {
+	CharmInfo(charmURL string) (*charmscommon.CharmInfo, error)
 	Close() error
 }
 
 func (c *debugHooksCommand) initAPIs() (err error) {
-	if c.actionsAPI != nil && c.charmRelationsAPI != nil {
+	if c.charmAPI != nil && c.applicationAPI != nil {
 		return nil
 	}
 
@@ -103,23 +105,23 @@ func (c *debugHooksCommand) initAPIs() (err error) {
 		return errors.Trace(err)
 	}
 
-	if c.actionsAPI == nil {
-		c.actionsAPI = action.NewClient(root)
+	if c.applicationAPI == nil {
+		c.applicationAPI = application.NewClient(root)
 	}
-	if c.charmRelationsAPI == nil {
-		c.charmRelationsAPI = application.NewClient(root)
+	if c.charmAPI == nil {
+		c.charmAPI = charms.NewClient(root)
 	}
 	return nil
 }
 
 func (c *debugHooksCommand) closeAPIs() {
-	if c.actionsAPI != nil {
-		_ = c.actionsAPI.Close()
-		c.actionsAPI = nil
+	if c.applicationAPI != nil {
+		_ = c.applicationAPI.Close()
+		c.applicationAPI = nil
 	}
-	if c.charmRelationsAPI != nil {
-		_ = c.charmRelationsAPI.Close()
-		c.charmRelationsAPI = nil
+	if c.charmAPI != nil {
+		_ = c.charmAPI.Close()
+		c.charmAPI = nil
 	}
 }
 
@@ -146,14 +148,24 @@ func (c *debugHooksCommand) validateHooksOrActions() error {
 		return err
 	}
 
+	curl, err := c.applicationAPI.GetCharmURL("", appName)
+	if err != nil {
+		return err
+	}
+
+	charmInfo, err := c.charmAPI.CharmInfo(curl.String())
+	if err != nil {
+		return err
+	}
+
 	// Get a set of valid hooks.
-	validHooks, err := c.getValidHooks(appName)
+	validHooks, err := c.getValidHooks(charmInfo.Charm())
 	if err != nil {
 		return err
 	}
 
 	// Get a set of valid actions.
-	validActions, err := c.getValidActions(appName)
+	validActions, err := c.getValidActions(charmInfo.Charm())
 	if err != nil {
 		return err
 	}
@@ -174,36 +186,21 @@ func (c *debugHooksCommand) validateHooksOrActions() error {
 	return nil
 }
 
-func (c *debugHooksCommand) getValidActions(appName string) (set.Strings, error) {
-	allActions, err := c.actionsAPI.ApplicationCharmActions(appName)
-	if err != nil {
-		return nil, err
-	}
-
+func (c *debugHooksCommand) getValidActions(ch charm.Charm) (set.Strings, error) {
 	validActions := set.NewStrings()
-	for name := range allActions {
+	for name := range ch.Actions().ActionSpecs {
 		validActions.Add(name)
 	}
 	return validActions, nil
 }
 
-func (c *debugHooksCommand) getValidHooks(appName string) (set.Strings, error) {
-	relations, err := c.charmRelationsAPI.CharmRelations(appName)
-	if err != nil {
-		return nil, err
-	}
-
+func (c *debugHooksCommand) getValidHooks(ch charm.Charm) (set.Strings, error) {
 	validHooks := set.NewStrings()
-	for _, hook := range hooks.UnitHooks() {
-		validHooks.Add(string(hook))
+	for _, hook := range hooks.RelationHooks() {
+		hook := fmt.Sprintf("juju-info-%s", hook)
+		validHooks.Add(hook)
 	}
-	for _, relation := range relations {
-		for _, hook := range hooks.RelationHooks() {
-			hook := fmt.Sprintf("%s-%s", relation, hook)
-			validHooks.Add(hook)
-		}
-	}
-	return validHooks, nil
+	return validHooks.Union(set.Strings(ch.Meta().Hooks())), nil
 }
 
 func (c *debugHooksCommand) decideEntryPoint(ctx *cmd.Context) string {

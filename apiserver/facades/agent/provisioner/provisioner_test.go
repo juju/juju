@@ -1502,17 +1502,27 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestFindTools(c *gc.C) {
+	otherSt := s.Factory.MakeModel(c, nil)
+	defer otherSt.Close()
+	provisionerAPI, err := provisioner.NewProvisionerAPI(facadetest.Context{
+		Auth_:      s.authorizer,
+		State_:     otherSt,
+		StatePool_: s.StatePool,
+		Resources_: s.resources,
+	},
+	)
+	c.Assert(err, jc.ErrorIsNil)
 	args := params.FindToolsParams{
 		MajorVersion: -1,
 		MinorVersion: -1,
 	}
-	result, err := s.provisioner.FindTools(args)
+	result, err := provisionerAPI.FindTools(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.Not(gc.HasLen), 0)
 	for _, tools := range result.List {
 		url := fmt.Sprintf("https://%s/model/%s/tools/%s",
-			s.APIState.Addr(), coretesting.ModelTag.Id(), tools.Version)
+			s.APIState.Addr(), otherSt.ModelUUID(), tools.Version)
 		c.Assert(tools.URL, gc.Equals, url)
 	}
 }

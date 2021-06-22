@@ -24,7 +24,7 @@ type BakeryThirdPartyLocator struct {
 	PublicKey bakery.PublicKey
 }
 
-// PublicKeyForLocation implements bakery.PublicKeyLocator.
+// ThirdPartyInfo implements bakery.PublicKeyLocator.
 func (b BakeryThirdPartyLocator) ThirdPartyInfo(ctx context.Context, loc string) (bakery.ThirdPartyInfo, error) {
 	return bakery.ThirdPartyInfo{
 		PublicKey: b.PublicKey,

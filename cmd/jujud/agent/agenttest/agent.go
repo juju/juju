@@ -5,7 +5,6 @@ package agenttest
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd"
@@ -25,6 +24,8 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/testing"
@@ -109,7 +110,6 @@ func (f *FakeEnsureMongo) InitiateMongo(p peergrouper.InitiateMongoParams) error
 
 // agentSuite is a fixture to be used by agent test suites.
 type AgentSuite struct {
-	oldRestartDelay time.Duration
 	testing.JujuConnSuite
 }
 
@@ -126,22 +126,28 @@ func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string) (agent.
 // configuration and the current tools.
 func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
 	c.Logf("priming agent %s", tag.String())
-	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
+
+	store, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
-	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), "released", vers)
-	err = envtools.MergeAndWriteMetadata(stor, "released", "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
+
+	agentTools := envtesting.PrimeTools(c, store, s.DataDir(), "released", vers)
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	err = envtools.MergeAndWriteMetadata(ss, store, "released", "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, jc.ErrorIsNil)
+
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag.String(), vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
 	stateInfo := s.MongoInfo()
 	apiInfo := s.APIInfo(c)
+
 	paths := agent.DefaultPaths
 	paths.DataDir = s.DataDir()
 	paths.TransientDataDir = s.TransientDataDir()
 	paths.LogDir = s.LogDir
 	paths.MetricsSpoolDir = c.MkDir()
+
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths:             paths,
@@ -157,6 +163,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 	c.Assert(err, jc.ErrorIsNil)
 	conf.SetPassword(password)
 	c.Assert(conf.Write(), gc.IsNil)
+
 	s.primeAPIHostPorts(c)
 	return conf, agentTools
 }
@@ -177,6 +184,7 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 ) {
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
+
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), "released", vers)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag.String(), vers)
 	c.Assert(err, jc.ErrorIsNil)
@@ -226,8 +234,10 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			APIPort:      apiPort,
 		})
 	c.Assert(err, jc.ErrorIsNil)
+
 	conf.SetPassword(password)
 	c.Assert(conf.Write(), gc.IsNil)
+
 	return conf
 }
 
@@ -277,11 +287,14 @@ func (s *AgentSuite) InitAgent(c *gc.C, a cmd.Command, args ...string) {
 func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) {
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
 	c.Assert(err, jc.ErrorIsNil)
+
 	info, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
+
 	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
+
 	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      config.Controller(),
@@ -296,6 +309,7 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 func (s *AgentSuite) AssertCannotOpenState(c *gc.C, tag names.Tag, dataDir string) {
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
 	c.Assert(err, jc.ErrorIsNil)
+
 	_, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsFalse)
 }

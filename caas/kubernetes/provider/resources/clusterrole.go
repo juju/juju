@@ -90,6 +90,47 @@ func (r *ClusterRole) Delete(ctx context.Context, client kubernetes.Interface) e
 	return nil
 }
 
+// Ensure ensures this cluster role exists in it's desired form inside the
+// cluster. If the object does not exist it's updated and if the object exists
+// it's updated. The method also takes an optional set of claims to test the
+// exisiting Kubernetes object with to assert ownership before overwriting it.
+func (r *ClusterRole) Ensure(
+	ctx context.Context,
+	client kubernetes.Interface,
+	claims ...Claim,
+) ([]func(), error) {
+	cleanups := []func(){}
+	hasClaim := true
+
+	existing := ClusterRole{r.ClusterRole}
+	err := existing.Get(ctx, client)
+	if err == nil {
+		hasClaim, err = RunClaims(claims...).Assert(&existing.ClusterRole)
+	}
+	if err != nil && !errors.IsNotFound(err) {
+		return cleanups, errors.Annotatef(
+			err,
+			"checking for existing cluster role %q",
+			existing.Name,
+		)
+	}
+
+	if !hasClaim {
+		return cleanups, errors.AlreadyExistsf(
+			"cluster role %q not controlled by juju", r.Name)
+	}
+
+	cleanups = append(cleanups, func() { _ = r.Delete(ctx, client) })
+	if errors.IsNotFound(err) {
+		return cleanups, r.Apply(ctx, client)
+	}
+
+	if err := r.Update(ctx, client); err != nil {
+		return cleanups, err
+	}
+	return cleanups, nil
+}
+
 // Events emitted by the resource.
 func (r *ClusterRole) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
 	return ListEventsForObject(ctx, client, r.Namespace, r.Name, "ClusterRole")
@@ -101,4 +142,22 @@ func (r *ClusterRole) ComputeStatus(_ context.Context, _ kubernetes.Interface, n
 		return "", status.Terminated, r.DeletionTimestamp.Time, nil
 	}
 	return "", status.Active, now, nil
+}
+
+// Update updates the object in the Kubernetes cluster to the new representation
+func (r *ClusterRole) Update(ctx context.Context, client kubernetes.Interface) error {
+	out, err := client.RbacV1().ClusterRoles().Update(
+		ctx,
+		&r.ClusterRole,
+		metav1.UpdateOptions{
+			FieldManager: JujuFieldManager,
+		},
+	)
+	if k8serrors.IsNotFound(err) {
+		return errors.NewNotFound(err, "updating cluster role")
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	r.ClusterRole = *out
+	return nil
 }

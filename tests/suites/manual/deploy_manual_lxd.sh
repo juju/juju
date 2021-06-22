@@ -12,7 +12,7 @@ EOF
 	echo "${PROFILE}" >"${TEST_DIR}/profile-privileged.yaml"
 
 	OUT=$(lxc profile show profile-privileged || true)
-	if [ -z "${OUT}" ]; then
+	if [[ -z ${OUT} ]]; then
 		lxc profile create profile-privileged
 		lxc profile edit profile-privileged <"${TEST_DIR}/profile-privileged.yaml"
 	fi
@@ -55,7 +55,7 @@ delete_user_profile() {
 
 	set +e
 	OUT=$(lxc profile show profile-privileged || true)
-	if [ -n "${OUT}" ]; then
+	if [[ -n ${OUT} ]]; then
 		lxc profile delete "${profile_name}"
 	fi
 	set_verbosity
@@ -97,7 +97,7 @@ run_deploy_manual_lxd() {
 		local address=""
 
 		attempt=0
-		while [ ${attempt} -lt 30 ]; do
+		while [[ ${attempt} -lt 30 ]]; do
 			address=$(lxc list "$1" --format json |
 				jq --raw-output '.[0].state.network.eth0.addresses | map(select( .family == "inet")) | .[0].address')
 
@@ -109,6 +109,11 @@ run_deploy_manual_lxd() {
 			attempt=$((attempt + 1))
 		done
 
+		if [[ -z ${address} ]]; then
+			echo "Address is empty"
+			exit 1
+		fi
+
 		# shellcheck disable=SC2086
 		eval $addr_result="'${address}'"
 	}
@@ -117,12 +122,18 @@ run_deploy_manual_lxd() {
 	launch_and_wait_addr "${model1}" addr_m1
 	launch_and_wait_addr "${model2}" addr_m2
 
+	if [[ ! -f "${HOME}/.ssh/known_hosts" ]]; then
+		mkdir -p "${HOME}/.ssh"
+		touch "${HOME}/.ssh/known_hosts"
+		chmod 600 "${HOME}/.ssh/known_hosts"
+	fi
+
 	# shellcheck disable=SC2154
 	for addr in "${addr_c}" "${addr_m1}" "${addr_m2}"; do
 		ssh-keygen -f "${HOME}/.ssh/known_hosts" -R "${addr}"
 
 		attempt=0
-		while [ ${attempt} -lt 10 ]; do
+		while [[ ${attempt} -lt 10 ]]; do
 			OUT=$(ssh -T -n -i "${TEST_DIR}/${name}" \
 				-o IdentitiesOnly=yes \
 				-o StrictHostKeyChecking=no \

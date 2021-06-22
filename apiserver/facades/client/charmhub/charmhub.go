@@ -48,9 +48,8 @@ type Client interface {
 
 // CharmHubAPI API provides the CharmHub API facade for version 1.
 type CharmHubAPI struct {
-	backend Backend
-	auth    facade.Authorizer
-	client  Client
+	auth   facade.Authorizer
+	client Client
 }
 
 // NewFacade creates a new CharmHubAPI facade.
@@ -60,7 +59,9 @@ func NewFacade(ctx facade.Context) (*CharmHubAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return newCharmHubAPI(m, ctx.Auth(), charmHubClientFactory{})
+	return newCharmHubAPI(m, ctx.Auth(), charmHubClientFactory{
+		httpTransport: charmhub.RequestRecorderHTTPTransport(ctx.RequestRecorder()),
+	})
 }
 
 func newCharmHubAPI(backend Backend, authorizer facade.Authorizer, clientFactory ClientFactory) (*CharmHubAPI, error) {
@@ -129,10 +130,14 @@ func (api *CharmHubAPI) Find(ctx context.Context, arg params.Query) (params.Char
 	return params.CharmHubEntityFindResult{Results: convertCharmFindResults(results)}, nil
 }
 
-type charmHubClientFactory struct{}
+type charmHubClientFactory struct {
+	httpTransport func(charmhub.Logger) charmhub.Transport
+}
 
-func (charmHubClientFactory) Client(url string) (Client, error) {
-	cfg, err := charmhub.CharmHubConfigFromURL(url, logger.Child("client"))
+func (f charmHubClientFactory) Client(url string) (Client, error) {
+	cfg, err := charmhub.CharmHubConfigFromURL(url, logger.Child("client"),
+		charmhub.WithHTTPTransport(f.httpTransport),
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

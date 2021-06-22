@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
-	"github.com/juju/charmrepo/v6"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -285,7 +284,7 @@ func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 // newDeployBundle returns the config needed to eventually call
 // deployBundle.deploy.  This is used by all types of bundles to
 // be deployed
-func (d *factory) newDeployBundle(defaultCharmSchema charm.Schema, ds charm.BundleDataSource) deployBundle {
+func (d *factory) newDeployBundle(_ charm.Schema, ds charm.BundleDataSource) deployBundle {
 	return deployBundle{
 		model:                d.model,
 		steps:                d.steps,
@@ -379,7 +378,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 	}
 
 	// Charm may have been supplied via a path reference.
-	ch, curl, err := charmrepo.NewCharmAtPathForceSeries(charmOrBundle, seriesName, d.force)
+	ch, curl, err := corecharm.NewCharmAtPathForceSeries(charmOrBundle, seriesName, d.force)
 	// We check for several types of known error which indicate
 	// that the supplied reference was indeed a path but there was
 	// an issue reading the charm located there.
@@ -389,7 +388,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		return nil, errors.Trace(err)
 	} else if errors.Cause(err) == zip.ErrFormat {
 		return nil, errors.Errorf("invalid charm or bundle provided at %q", charmOrBundle)
-	} else if _, ok := err.(*charmrepo.NotFoundError); ok {
+	} else if errors.IsNotFound(err) {
 		return nil, errors.Wrap(err, errors.NotFoundf("charm or bundle at %q", charmOrBundle))
 	} else if err != nil && err != os.ErrNotExist {
 		// If we get a "not exists" error then we attempt to interpret

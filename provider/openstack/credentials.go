@@ -10,9 +10,9 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/go-goose/goose/v3/identity"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2"
-	"gopkg.in/goose.v2/identity"
 	"gopkg.in/ini.v1"
 
 	"github.com/juju/juju/cloud"
@@ -106,7 +106,7 @@ func (OpenstackCredentials) CredentialSchemas() map[cloud.AuthType]cloud.Credent
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
-func (c OpenstackCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
+func (c OpenstackCredentials) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
 	result := cloud.CloudCredential{
 		AuthCredentials: make(map[string]cloud.Credential),
 	}

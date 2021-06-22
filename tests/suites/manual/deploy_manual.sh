@@ -10,7 +10,7 @@ test_deploy_manual() {
 		cd .. || exit
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
-		"lxd" | "localhost")
+		"lxd" | "lxd-remote" | "localhost")
 			export BOOTSTRAP_PROVIDER="manual"
 			run "run_deploy_manual_lxd"
 			;;
@@ -44,11 +44,13 @@ manual_deploy() {
 
 	juju enable-ha >"${TEST_DIR}/enable-ha.log" 2>&1
 
-	juju deploy percona-cluster
+	machine_series=$(juju machines --format=json | jq -r '.machines | .["0"] | .series')
 
-	wait_for "percona-cluster" "$(idle_condition "percona-cluster" 0 0)"
+	juju deploy ubuntu --to=0 --series="${machine_series}"
 
-	juju remove-application percona-cluster
+	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 0)"
+
+	juju remove-application ubuntu
 
 	destroy_controller "test-${name}"
 

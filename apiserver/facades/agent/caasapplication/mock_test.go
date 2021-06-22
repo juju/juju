@@ -13,10 +13,10 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
+	"github.com/juju/juju/caas"
 	_ "github.com/juju/juju/caas/kubernetes/provider"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 	jtesting "github.com/juju/juju/testing"
 )
@@ -154,6 +154,7 @@ type mockApplication struct {
 	name         string
 	newUnit      caasapplication.Unit
 	units        map[string]*mockUnit
+	scale        int
 }
 
 func (*mockApplication) Tag() names.Tag {
@@ -203,6 +204,11 @@ func (a *mockApplication) AddUnit(args state.AddUnitParams) (unit caasapplicatio
 	return a.newUnit, nil
 }
 
+func (a *mockApplication) GetScale() int {
+	a.MethodCall(a, "GetScale")
+	return a.scale
+}
+
 type mockUnit struct {
 	testing.Stub
 	life          state.Life
@@ -242,6 +248,11 @@ func (u *mockUnit) SetPassword(password string) error {
 	return u.NextErr()
 }
 
+func (u *mockUnit) ApplicationName() string {
+	u.MethodCall(u, "ApplicationName")
+	return "gitlab"
+}
+
 type mockCharm struct {
 	url      *charm.URL
 	sha256   string
@@ -267,12 +278,12 @@ func (ch *mockCharm) Manifest() *charm.Manifest {
 
 type mockBroker struct {
 	testing.Stub
-	watcher corewatcher.StringsWatcher
+	app *mockCAASApplication
 }
 
-func (b *mockBroker) WatchContainerStart(appName string, containerName string) (corewatcher.StringsWatcher, error) {
-	b.MethodCall(b, "WatchContainerStart", appName, containerName)
-	return b.watcher, b.NextErr()
+func (b *mockBroker) Application(appName string, deploymentType caas.DeploymentType) caas.Application {
+	b.MethodCall(b, "Application", appName, deploymentType)
+	return b.app
 }
 
 type mockCloudContainer struct {
@@ -303,4 +314,22 @@ type mockLeadershipRevoker struct {
 func (s *mockLeadershipRevoker) RevokeLeadership(applicationId, unitId string) error {
 	s.revoked.Add(unitId)
 	return nil
+}
+
+type mockCAASApplication struct {
+	testing.Stub
+	caas.Application
+
+	state caas.ApplicationState
+	units []caas.Unit
+}
+
+func (a *mockCAASApplication) State() (caas.ApplicationState, error) {
+	a.MethodCall(a, "State")
+	return a.state, a.NextErr()
+}
+
+func (a *mockCAASApplication) Units() ([]caas.Unit, error) {
+	a.MethodCall(a, "Units")
+	return a.units, a.NextErr()
 }

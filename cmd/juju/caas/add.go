@@ -5,6 +5,7 @@ package caas
 
 import (
 	"bytes"
+	stdcontext "context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -718,7 +719,7 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 		}
 		openParams.ControllerUUID = ctrlUUID
 	}
-	return caas.New(openParams)
+	return caas.New(stdcontext.TODO(), openParams)
 }
 
 func getCloudAndRegionFromOptions(cloudOption, regionOption string) (string, string, error) {

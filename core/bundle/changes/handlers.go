@@ -9,10 +9,11 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v8"
-	"github.com/juju/charmrepo/v6"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
+
+	corecharm "github.com/juju/juju/core/charm"
 )
 
 type resolver struct {
@@ -32,9 +33,6 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 	add := r.changes.add
 	applications := r.bundle.Applications
 	defaultSeries := r.bundle.Series
-	if r.bundle.Type == kubernetes {
-		defaultSeries = kubernetes
-	}
 	existing := r.model
 
 	charms := make(map[string]string, len(applications))
@@ -61,7 +59,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 		if r.constraintGetter != nil {
 			cons := r.constraintGetter(application.Constraints)
 			arch, err = cons.Arch()
-			if err != nil && !errors.IsNotFound(err) {
+			if err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -70,7 +68,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 		// if the arch and series differ from an existing charm, then we create
 		// a new charm.
 		key := applicationKey(application.Charm, arch, series, application.Channel)
-		if charms[key] == "" && !existing.matchesCharmPermutation(application.Charm, arch, series, application.Channel) {
+		if charms[key] == "" && !existing.matchesCharmPermutation(application.Charm, arch, series, application.Channel, r.constraintGetter) {
 			change = newAddCharmChange(AddCharmParams{
 				Charm:        application.Charm,
 				Series:       series,
@@ -1184,7 +1182,7 @@ func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string
 
 	// Handle local charm paths.
 	if charm.IsValidLocalCharmOrBundlePath(application.Charm) {
-		_, charmURL, err := charmrepo.NewCharmAtPath(application.Charm, defaultSeries)
+		_, charmURL, err := corecharm.NewCharmAtPath(application.Charm, defaultSeries)
 		if charm.IsMissingSeriesError(err) {
 			// local charm path is valid but the charm doesn't declare a default series.
 			return defaultSeries, nil

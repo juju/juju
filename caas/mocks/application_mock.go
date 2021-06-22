@@ -92,6 +92,21 @@ func (mr *MockApplicationMockRecorder) Scale(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Scale", reflect.TypeOf((*MockApplication)(nil).Scale), arg0)
 }
 
+// Service mocks base method
+func (m *MockApplication) Service() (*caas.Service, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Service")
+	ret0, _ := ret[0].(*caas.Service)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Service indicates an expected call of Service
+func (mr *MockApplicationMockRecorder) Service() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Service", reflect.TypeOf((*MockApplication)(nil).Service))
+}
+
 // State mocks base method
 func (m *MockApplication) State() (caas.ApplicationState, error) {
 	m.ctrl.T.Helper()

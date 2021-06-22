@@ -751,7 +751,8 @@ func (api *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.Imag
 
 // imageMetadataFromDataSources finds image metadata that match specified criteria in existing data sources.
 func (api *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
-	sources, err := environs.ImageMetadataSources(env)
+	fetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+	sources, err := environs.ImageMetadataSources(env, fetcher)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -787,7 +788,7 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, co
 	var metadataState []cloudimagemetadata.Metadata
 	for _, source := range sources {
 		logger.Debugf("looking in data source %v", source.Description())
-		found, info, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, constraint)
+		found, info, err := imagemetadata.Fetch(fetcher, []simplestreams.DataSource{source}, constraint)
 		if err != nil {
 			// Do not stop looking in other data sources if there is an issue here.
 			logger.Warningf("encountered %v while getting published images metadata from %v", err, source.Description())

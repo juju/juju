@@ -19,7 +19,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
-	jujuhttp "github.com/juju/http"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -46,7 +46,6 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/multiwatcher"
@@ -68,8 +67,6 @@ type apiserverConfigFixture struct {
 	mux           *apiserverhttp.Mux
 	tlsConfig     *tls.Config
 	config        apiserver.ServerConfig
-
-	controller *cache.Controller
 }
 
 func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
@@ -80,13 +77,13 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	s.authenticator = authenticator
 	s.mux = apiserverhttp.NewMux()
 
-	certPool, err := api.CreateCertPool(coretesting.CACert)
+	certPool, err := api.CreateCertPool(testing.CACert)
 	if err != nil {
 		panic(err)
 	}
 	s.tlsConfig = api.NewTLSConfig(certPool)
 	s.tlsConfig.ServerName = "juju-apiserver"
-	s.tlsConfig.Certificates = []tls.Certificate{*coretesting.ServerTLSCert}
+	s.tlsConfig.Certificates = []tls.Certificate{*testing.ServerTLSCert}
 	s.mux = apiserverhttp.NewMux()
 
 	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
@@ -160,17 +157,17 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 			}
 			ctrl, err := store.CurrentController()
 			if err != nil {
-				fmt.Fprintf(ctx.Stderr, err.Error())
+				fmt.Fprintf(ctx.Stderr, "%s", err.Error())
 				return 1
 			}
 			model, err := store.CurrentModel(ctrl)
 			if err != nil {
-				fmt.Fprintf(ctx.Stderr, err.Error())
+				fmt.Fprintf(ctx.Stderr, "%s", err.Error())
 				return 1
 			}
 			ad, err := store.AccountDetails(ctrl)
 			if err != nil {
-				fmt.Fprintf(ctx.Stderr, err.Error())
+				fmt.Fprintf(ctx.Stderr, "%s", err.Error())
 				return 1
 			}
 			if strings.Contains(cmdPlusArgs, "macaroon error") {
@@ -178,7 +175,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 				fmt.Fprintf(ctx.Stderr, "\n")
 			} else {
 				cmdStr := fmt.Sprintf("%s@%s:%s -> %s", ad.User, ctrl, model, cmdPlusArgs)
-				fmt.Fprintf(ctx.Stdout, cmdStr)
+				fmt.Fprintf(ctx.Stdout, "%s", cmdStr)
 				fmt.Fprintf(ctx.Stdout, "\n")
 			}
 			return 0
@@ -271,7 +268,7 @@ func (s *apiserverBaseSuite) APIInfo(server *apiserver.Server) *api.Info {
 	address := s.server.Listener.Addr().String()
 	return &api.Info{
 		Addrs:  []string{address},
-		CACert: coretesting.CACert,
+		CACert: testing.CACert,
 	}
 }
 
@@ -325,7 +322,7 @@ func dialWebsocketFromURL(c *gc.C, server string, header http.Header) (*websocke
 	}
 	header.Set("Origin", "http://localhost/")
 	caCerts := x509.NewCertPool()
-	c.Assert(caCerts.AppendCertsFromPEM([]byte(coretesting.CACert)), jc.IsTrue)
+	c.Assert(caCerts.AppendCertsFromPEM([]byte(testing.CACert)), jc.IsTrue)
 	tlsConfig := jujuhttp.SecureTLSConfig()
 	tlsConfig.RootCAs = caCerts
 	tlsConfig.ServerName = "juju-apiserver"
@@ -477,7 +474,7 @@ func (s *apiserverSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLIComman
 
 	select {
 	case <-done:
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("no command result")
 	}
 

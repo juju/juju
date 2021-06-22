@@ -361,7 +361,7 @@ func (e *environSuite) TestPrepareForBootstrap(c *gc.C) {
 		gomock.Any(), gomock.Any()).Return(
 		ociIdentity.ListAvailabilityDomainsResponse{}, errors.New("got error"))
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	err := e.env.PrepareForBootstrap(ctx, "controller-1")
 	c.Assert(err, gc.IsNil)
 
@@ -934,7 +934,7 @@ func (e *environSuite) TestBootstrap(c *gc.C) {
 
 	e.setupStartInstanceExpectations(true, true, gomock.Any())
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := e.env.Bootstrap(ctx, nil,
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
@@ -961,7 +961,7 @@ func (e *environSuite) TestBootstrapNoAllocatePublicIP(c *gc.C) {
 
 	e.setupStartInstanceExpectations(true, false, noPublicIPMatcher{})
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := e.env.Bootstrap(ctx, nil,
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
@@ -991,7 +991,7 @@ func (e *environSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 	e.setupListRouteTableExpectations(vcnId, machineTags, 0)
 	e.setupListSubnetsExpectations(vcnId, "fakeRouteTableId", machineTags, 0)
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := e.env.Bootstrap(ctx, nil,
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),

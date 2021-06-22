@@ -125,7 +125,7 @@ func (s *UpgradeSuite) TestControllersReadyCopies(c *gc.C) {
 func (s *UpgradeSuite) TestControllersDoneCopies(c *gc.C) {
 	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, vers("1.2.3"), vers("2.4.5"))
 	c.Assert(err, jc.ErrorIsNil)
-	s.setToFinishing(c, info)
+	s.setToRunning(c, info)
 	err = info.SetControllerDone("0")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -142,11 +142,11 @@ func (s *UpgradeSuite) TestEnsureUpgradeInfoDowngrade(c *gc.C) {
 	v111 := vers("1.1.1")
 
 	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, v123, v111)
-	c.Assert(err, gc.ErrorMatches, "cannot sanely upgrade from 1.2.3 to 1.1.1")
+	c.Assert(err, gc.ErrorMatches, "cannot upgrade from 1.2.3 to 1.1.1")
 	c.Assert(info, gc.IsNil)
 
 	info, err = s.State.EnsureUpgradeInfo(s.serverIdA, v123, v123)
-	c.Assert(err, gc.ErrorMatches, "cannot sanely upgrade from 1.2.3 to 1.2.3")
+	c.Assert(err, gc.ErrorMatches, "cannot upgrade from 1.2.3 to 1.2.3")
 	c.Assert(info, gc.IsNil)
 }
 
@@ -453,8 +453,6 @@ func (s *UpgradeSuite) TestSetStatusSetsModelStatus(c *gc.C) {
 	c.Assert(st.Status, gc.Equals, status.Busy)
 	c.Assert(st.Message, jc.HasPrefix, "upgrade in progress since")
 
-	err = info.SetStatus(state.UpgradeFinishing)
-	c.Assert(err, jc.ErrorIsNil)
 	err = info.SetControllerDone(s.serverIdA)
 	c.Assert(err, jc.ErrorIsNil)
 	st, err = m.Status()
@@ -463,7 +461,7 @@ func (s *UpgradeSuite) TestSetStatusSetsModelStatus(c *gc.C) {
 	c.Assert(st.Message, jc.HasPrefix, "upgraded on")
 }
 
-func (s *UpgradeSuite) TestSetStatus(c *gc.C) {
+func (s *UpgradeSuite) TestSetStatusSuccess(c *gc.C) {
 	v123 := vers("1.2.3")
 	v234 := vers("2.3.4")
 	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, v123, v234)
@@ -474,13 +472,35 @@ func (s *UpgradeSuite) TestSetStatus(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(info.Status(), gc.Equals, expect)
 	}
+
+	err = info.SetStatus(state.UpgradeDBComplete)
+	c.Assert(err, jc.ErrorIsNil)
+	assertStatus(state.UpgradeDBComplete)
+
+	err = info.SetStatus(state.UpgradeRunning)
+	c.Assert(err, jc.ErrorIsNil)
+	assertStatus(state.UpgradeRunning)
+
+	// Test idempotency for when multiple controllers commence upgrade steps.
+	err = info.SetStatus(state.UpgradeRunning)
+	c.Assert(err, jc.ErrorIsNil)
+	assertStatus(state.UpgradeRunning)
+}
+
+func (s *UpgradeSuite) TestSetStatusErrors(c *gc.C) {
+	v123 := vers("1.2.3")
+	v234 := vers("2.3.4")
+	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, v123, v234)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertStatus := func(expect state.UpgradeStatus) {
+		info, err := s.State.EnsureUpgradeInfo(s.serverIdA, v123, v234)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(info.Status(), gc.Equals, expect)
+	}
+
 	err = info.SetStatus(state.UpgradePending)
 	c.Assert(err, gc.ErrorMatches, `cannot explicitly set upgrade status to "pending"`)
-	assertStatus(state.UpgradePending)
-
-	err = info.SetStatus(state.UpgradeFinishing)
-	c.Assert(err, gc.ErrorMatches, `cannot set upgrade status to "finishing": `+
-		"Another status change may have occurred concurrently")
 	assertStatus(state.UpgradePending)
 
 	err = info.SetStatus(state.UpgradeComplete)
@@ -496,30 +516,8 @@ func (s *UpgradeSuite) TestSetStatus(c *gc.C) {
 	assertStatus(state.UpgradePending)
 
 	err = info.SetStatus(state.UpgradeRunning)
-	c.Assert(err, gc.ErrorMatches, `cannot set upgrade status to "running": `+
-		"Another status change may have occurred concurrently")
-
-	err = info.SetStatus(state.UpgradeDBComplete)
-	c.Assert(err, jc.ErrorIsNil)
-	assertStatus(state.UpgradeDBComplete)
-
-	err = info.SetStatus(state.UpgradeRunning)
-	c.Assert(err, jc.ErrorIsNil)
-	assertStatus(state.UpgradeRunning)
-	err = info.SetStatus(state.UpgradeRunning)
-	c.Assert(err, jc.ErrorIsNil)
-	assertStatus(state.UpgradeRunning)
-
-	err = info.SetStatus(state.UpgradeFinishing)
-	c.Assert(err, jc.ErrorIsNil)
-	assertStatus(state.UpgradeFinishing)
-	err = info.SetStatus(state.UpgradeFinishing)
-	c.Assert(err, jc.ErrorIsNil)
-	assertStatus(state.UpgradeFinishing)
-	err = info.SetStatus(state.UpgradeRunning)
-	c.Assert(err, gc.ErrorMatches, `cannot set upgrade status to "running": `+
-		"Another status change may have occurred concurrently")
-	assertStatus(state.UpgradeFinishing)
+	c.Assert(err, gc.ErrorMatches, `setting upgrade status to "running": `+
+		`upgrade status transition from "pending" to "running" not valid`)
 }
 
 func (s *UpgradeSuite) TestSetControllerDone(c *gc.C) {
@@ -531,13 +529,13 @@ func (s *UpgradeSuite) TestSetControllerDone(c *gc.C) {
 
 	err = info.SetStatus(state.UpgradeDBComplete)
 	c.Assert(err, jc.ErrorIsNil)
-	err = info.SetStatus(state.UpgradeRunning)
-	c.Assert(err, jc.ErrorIsNil)
+
 	err = info.SetControllerDone(s.serverIdA)
 	c.Assert(err, gc.ErrorMatches, "cannot complete upgrade: upgrade has not yet run")
 
-	err = info.SetStatus(state.UpgradeFinishing)
+	err = info.SetStatus(state.UpgradeRunning)
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = info.SetControllerDone(s.serverIdA)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpgrading(c, false)
@@ -557,7 +555,7 @@ func (s *UpgradeSuite) TestSetControllerDoneMultipleServers(c *gc.C) {
 
 	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, v111, v123)
 	c.Assert(err, jc.ErrorIsNil)
-	s.setToFinishing(c, info)
+	s.setToRunning(c, info)
 
 	err = info.SetControllerDone(s.serverIdA)
 	c.Assert(err, jc.ErrorIsNil)
@@ -590,7 +588,7 @@ func (s *UpgradeSuite) TestSetControllerDoneMultipleServersRace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.EnsureUpgradeInfo(serverIdC, v100, v200)
 	c.Assert(err, jc.ErrorIsNil)
-	s.setToFinishing(c, info)
+	s.setToRunning(c, info)
 
 	// Interrupt the transaction for controller A twice with calls
 	// from the other machines.
@@ -711,11 +709,9 @@ func (s *UpgradeSuite) TestApplicationUnitSeqToSequence(c *gc.C) {
 	s.assertUpgrading(c, true)
 }
 
-func (s *UpgradeSuite) setToFinishing(c *gc.C, info *state.UpgradeInfo) {
+func (s *UpgradeSuite) setToRunning(c *gc.C, info *state.UpgradeInfo) {
 	err := info.SetStatus(state.UpgradeDBComplete)
 	c.Assert(err, jc.ErrorIsNil)
 	err = info.SetStatus(state.UpgradeRunning)
-	c.Assert(err, jc.ErrorIsNil)
-	err = info.SetStatus(state.UpgradeFinishing)
 	c.Assert(err, jc.ErrorIsNil)
 }

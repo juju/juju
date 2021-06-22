@@ -203,7 +203,7 @@ func shquote(p string) string {
 	return utils.ShQuote(p)
 }
 
-// packageManagerProxySettings implements cloudinit.PackageManagerConfig.
+// packageManagerProxySettings implements cloudinit.PackageManagerProxyConfig.
 type packageManagerProxySettings struct {
 	aptProxy            proxy.Settings
 	aptMirror           string
@@ -213,20 +213,20 @@ type packageManagerProxySettings struct {
 	snapStoreProxyURL   string
 }
 
-// AptProxy implements cloudinit.PackageManagerConfig.
+// AptProxy implements cloudinit.PackageManagerProxyConfig.
 func (p packageManagerProxySettings) AptProxy() proxy.Settings { return p.aptProxy }
 
 // AptMirror implements cloudinit.PackageManagerConfig.
 func (p packageManagerProxySettings) AptMirror() string { return p.aptMirror }
 
-// SnapProxy implements cloudinit.PackageManagerConfig.
+// SnapProxy implements cloudinit.PackageManagerProxyConfig.
 func (p packageManagerProxySettings) SnapProxy() proxy.Settings { return p.snapProxy }
 
-// SnapStoreAssertions implements cloudinit.PackageManagerConfig.
+// SnapStoreAssertions implements cloudinit.PackageManagerProxyConfig.
 func (p packageManagerProxySettings) SnapStoreAssertions() string { return p.snapStoreAssertions }
 
-// SnapStoreProxyID implements cloudinit.PackageManagerConfig.
+// SnapStoreProxyID implements cloudinit.PackageManagerProxyConfig.
 func (p packageManagerProxySettings) SnapStoreProxyID() string { return p.snapStoreProxyID }
 
-// SnapStoreProxyURL implements cloudinit.PackageManagerConfig.
+// SnapStoreProxyURL implements cloudinit.PackageManagerProxyConfig.
 func (p packageManagerProxySettings) SnapStoreProxyURL() string { return p.snapStoreProxyURL }

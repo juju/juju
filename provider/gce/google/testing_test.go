@@ -4,6 +4,7 @@
 package google
 
 import (
+	jujuhttp "github.com/juju/http/v2"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
@@ -51,8 +52,9 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 }`[1:]),
 	}
 	s.ConnCfg = ConnectionConfig{
-		Region:    "a",
-		ProjectID: "spam",
+		Region:     "a",
+		ProjectID:  "spam",
+		HTTPClient: jujuhttp.NewClient(),
 	}
 	fake := &fakeConn{}
 	s.Conn = &Connection{

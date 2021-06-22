@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -52,11 +53,14 @@ type Tests struct {
 	// ProviderCallContext holds the context to be used to make
 	// calls to a cloud provider.
 	ProviderCallContext context.ProviderCallContext
+
+	// BootstrapContext holds the context to bootstrap a test environment.
+	BootstrapContext environs.BootstrapContext
 }
 
 // Open opens an instance of the testing environment.
-func (t *Tests) Open(c *gc.C, cfg *config.Config) environs.Environ {
-	e, err := environs.New(environs.OpenParams{
+func (t *Tests) Open(c *gc.C, ctx stdcontext.Context, cfg *config.Config) environs.Environ {
+	e, err := environs.New(ctx, environs.OpenParams{
 		Cloud:  t.CloudSpec(),
 		Config: cfg,
 	})
@@ -101,7 +105,7 @@ func (t *Tests) Prepare(c *gc.C) environs.Environ {
 
 // PrepareWithParams prepares an instance of the testing environment.
 func (t *Tests) PrepareWithParams(c *gc.C, params bootstrap.PrepareParams) environs.Environ {
-	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c), t.ControllerStore, params)
+	e, err := bootstrap.PrepareController(false, t.BootstrapContext, t.ControllerStore, params)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", params.ModelConfig))
 	c.Assert(e, gc.NotNil)
 	t.Env = e.(environs.Environ)
@@ -112,7 +116,7 @@ func (t *Tests) AssertPrepareFailsWithConfig(c *gc.C, badConfig coretesting.Attr
 	args := t.PrepareParams(c)
 	args.ModelConfig = coretesting.Attrs(args.ModelConfig).Merge(badConfig)
 
-	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c), t.ControllerStore, args)
+	e, err := bootstrap.PrepareController(false, t.BootstrapContext, t.ControllerStore, args)
 	c.Assert(err, gc.ErrorMatches, errorMatches)
 	c.Assert(e, gc.IsNil)
 	return err
@@ -129,7 +133,11 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	t.toolsStorage = stor
 	t.ControllerStore = jujuclient.NewMemStore()
 	t.ControllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
-	t.ProviderCallContext = context.NewCloudCallContext(stdcontext.Background())
+
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	ctx := stdcontext.WithValue(stdcontext.TODO(), bootstrap.SimplestreamsFetcherContextKey, ss)
+	t.BootstrapContext = envtesting.BootstrapContext(ctx, c)
+	t.ProviderCallContext = context.NewCloudCallContext(ctx)
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {
@@ -218,14 +226,14 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	}
 
 	e := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, t.ProviderCallContext, args)
+	err := bootstrap.Bootstrap(t.BootstrapContext, e, t.ProviderCallContext, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerInstances, err := e.ControllerInstances(t.ProviderCallContext, t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInstances, gc.Not(gc.HasLen), 0)
 
-	e2 := t.Open(c, e.Config())
+	e2 := t.Open(c, t.BootstrapContext.Context(), e.Config())
 	controllerInstances2, err := e2.ControllerInstances(t.ProviderCallContext, t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInstances2, gc.Not(gc.HasLen), 0)
@@ -237,7 +245,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	// Prepare again because Destroy invalidates old environments.
 	e3 := t.Prepare(c)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e3, t.ProviderCallContext, args)
+	err = bootstrap.Bootstrap(t.BootstrapContext, e3, t.ProviderCallContext, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = environs.Destroy(e3.Config().Name(), e3, t.ProviderCallContext, t.ControllerStore)

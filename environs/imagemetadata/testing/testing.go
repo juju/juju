@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 )
 
@@ -46,7 +47,9 @@ func ParseIndexMetadataFromStorage(c *gc.C, stor storage.StorageReader) (*simple
 	const requireSigned = false
 	indexPath := simplestreams.UnsignedIndex("v1", 1)
 	mirrorsPath := simplestreams.MirrorsPath("v1")
-	indexRef, err := simplestreams.GetIndexWithFormat(
+
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	indexRef, err := ss.GetIndexWithFormat(
 		source, indexPath, "index:1.0", mirrorsPath, requireSigned, simplestreams.CloudSpec{}, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(indexRef.Indexes, gc.HasLen, 1)
@@ -63,7 +66,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader) []*imagemetad
 
 	// Read the products file contents.
 	r, err := stor.Get(path.Join("images", imageIndexMetadata.ProductsFilePath))
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := ioutil.ReadAll(r)
 	c.Assert(err, jc.ErrorIsNil)

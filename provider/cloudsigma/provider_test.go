@@ -4,6 +4,7 @@
 package cloudsigma
 
 import (
+	stdcontext "context"
 	stdtesting "testing"
 
 	"github.com/juju/testing"
@@ -38,7 +39,7 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *providerSuite) TestOpen(c *gc.C) {
-	env, err := environs.Open(s.provider, environs.OpenParams{
+	env, err := environs.Open(stdcontext.TODO(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: newConfig(c, nil),
 	})
@@ -63,7 +64,7 @@ func (s *providerSuite) TestOpenUnsupportedCredential(c *gc.C) {
 }
 
 func (s *providerSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {
-	_, err := environs.Open(s.provider, environs.OpenParams{
+	_, err := environs.Open(stdcontext.TODO(), s.provider, environs.OpenParams{
 		Cloud:  spec,
 		Config: newConfig(c, nil),
 	})

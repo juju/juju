@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/caas"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
@@ -46,6 +47,7 @@ type Application interface {
 	AllUnits() ([]Unit, error)
 	UpdateUnits(unitsOp *state.UpdateUnitsOperation) error
 	AddUnit(args state.AddUnitParams) (unit Unit, err error)
+	GetScale() int
 }
 
 // Charm provides the subset of charm state required by the
@@ -117,4 +119,10 @@ type Unit interface {
 	Refresh() error
 	UpdateOperation(props state.UnitUpdateProperties) *state.UpdateUnitOperation
 	SetPassword(string) error
+	ApplicationName() string
+}
+
+// Broker contains methods from the caas.Broker interface used by the caasapplication facade.
+type Broker interface {
+	Application(string, caas.DeploymentType) caas.Application
 }

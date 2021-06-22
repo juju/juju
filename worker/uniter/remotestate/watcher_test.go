@@ -38,6 +38,7 @@ type WatcherSuite struct {
 	running              *remotestate.ContainerRunningStatus
 
 	workloadEventChannel chan string
+	shutdownChannel      chan bool
 }
 
 type WatcherSuiteIAAS struct {
@@ -123,6 +124,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Now())
 
 	s.workloadEventChannel = make(chan string)
+	s.shutdownChannel = make(chan bool)
 }
 
 func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {
@@ -184,6 +186,7 @@ func (s *WatcherSuite) setupWatcherConfig() remotestate.WatcherConfig {
 		UpdateStatusChannel:          statusTicker,
 		CanApplyCharmProfile:         s.modelType == model.IAAS,
 		WorkloadEventChannel:         s.workloadEventChannel,
+		ShutdownChannel:              s.shutdownChannel,
 	}
 }
 
@@ -206,28 +209,31 @@ func (s *WatcherSuite) TearDownTest(c *gc.C) {
 func (s *WatcherSuiteIAAS) TestInitialSnapshot(c *gc.C) {
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Relations:     map[int]remotestate.RelationSnapshot{},
-		Storage:       map[names.StorageTag]remotestate.StorageSnapshot{},
-		ActionChanged: map[string]int{},
+		Relations:           map[int]remotestate.RelationSnapshot{},
+		Storage:             map[names.StorageTag]remotestate.StorageSnapshot{},
+		ActionChanged:       map[string]int{},
+		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
 	})
 }
 
 func (s *WatcherSuiteCAAS) TestInitialSnapshot(c *gc.C) {
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Relations:      map[int]remotestate.RelationSnapshot{},
-		Storage:        map[names.StorageTag]remotestate.StorageSnapshot{},
-		ActionChanged:  map[string]int{},
-		ActionsBlocked: true,
+		Relations:           map[int]remotestate.RelationSnapshot{},
+		Storage:             map[names.StorageTag]remotestate.StorageSnapshot{},
+		ActionChanged:       map[string]int{},
+		ActionsBlocked:      true,
+		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
 	})
 }
 
 func (s *WatcherSuiteSidecar) TestInitialSnapshot(c *gc.C) {
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Relations:     map[int]remotestate.RelationSnapshot{},
-		Storage:       map[names.StorageTag]remotestate.StorageSnapshot{},
-		ActionChanged: map[string]int{},
+		Relations:           map[int]remotestate.RelationSnapshot{},
+		Storage:             map[names.StorageTag]remotestate.StorageSnapshot{},
+		ActionChanged:       map[string]int{},
+		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
 	})
 }
 
@@ -319,6 +325,7 @@ func (s *WatcherSuiteSidecar) TestSnapshot(c *gc.C) {
 		AddressesHash:         "addresseshash",
 		LeaderSettingsVersion: 1,
 		Leader:                true,
+		UpgradeSeriesStatus:   model.UpgradeSeriesNotStarted,
 	})
 }
 
@@ -340,7 +347,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		AddressesHash:          "addresseshash",
 		LeaderSettingsVersion:  1,
 		Leader:                 true,
-		UpgradeSeriesStatus:    "",
+		UpgradeSeriesStatus:    model.UpgradeSeriesNotStarted,
 		ActionsBlocked:         true,
 		ActionChanged:          map[string]int{},
 		ContainerRunningStatus: nil,
@@ -375,7 +382,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		AddressesHash:          "addresseshash",
 		LeaderSettingsVersion:  1,
 		Leader:                 true,
-		UpgradeSeriesStatus:    "",
+		UpgradeSeriesStatus:    model.UpgradeSeriesNotStarted,
 		ActionsBlocked:         true,
 		ActionChanged:          map[string]int{},
 		ProviderID:             s.st.unit.providerID,
@@ -409,7 +416,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		AddressesHash:          "addresseshash",
 		LeaderSettingsVersion:  1,
 		Leader:                 true,
-		UpgradeSeriesStatus:    "",
+		UpgradeSeriesStatus:    model.UpgradeSeriesNotStarted,
 		ActionsBlocked:         false,
 		ActionChanged:          map[string]int{},
 		ProviderID:             s.st.unit.providerID,
@@ -1059,6 +1066,7 @@ func (s *WatcherSuiteSidecarCharmModVer) TestSnapshot(c *gc.C) {
 		AddressesHash:         "addresseshash",
 		LeaderSettingsVersion: 1,
 		Leader:                true,
+		UpgradeSeriesStatus:   model.UpgradeSeriesNotStarted,
 	})
 }
 
@@ -1082,4 +1090,22 @@ func (s *WatcherSuite) TestWorkloadSignal(c *gc.C) {
 	s.watcher.WorkloadEventCompleted("0")
 	snap = s.watcher.Snapshot()
 	c.Assert(snap.WorkloadEvents, gc.HasLen, 0)
+}
+
+func (s *WatcherSuite) TestShutdown(c *gc.C) {
+	s.signalAll()
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	snap := s.watcher.Snapshot()
+	c.Assert(snap.Shutdown, jc.IsFalse)
+
+	select {
+	case s.shutdownChannel <- true:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting to signal workload event channel")
+	}
+
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	snap = s.watcher.Snapshot()
+	c.Assert(snap.Shutdown, jc.IsTrue)
 }

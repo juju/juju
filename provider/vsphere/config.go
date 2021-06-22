@@ -6,6 +6,7 @@ package vsphere
 import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
@@ -23,13 +24,31 @@ const (
 
 // configFields is the spec for each vmware config value's type.
 var (
-	configFields = schema.Fields{
-		cfgExternalNetwork:        schema.String(),
-		cfgDatastore:              schema.String(),
-		cfgPrimaryNetwork:         schema.String(),
-		cfgForceVMHardwareVersion: schema.ForceInt(),
-		cfgEnableDiskUUID:         schema.Bool(),
-		cfgDiskProvisioningType:   schema.String(),
+	configSchema = environschema.Fields{
+		cfgExternalNetwork: {
+			Description: "An external network that VMs will be connected to. The resulting IP address for a VM will be used as its public address.",
+			Type:        environschema.Tstring,
+		},
+		cfgDatastore: {
+			Description: "The datastore in which to create VMs. If this is not specified, the process will abort unless there is only one datastore available.",
+			Type:        environschema.Tstring,
+		},
+		cfgPrimaryNetwork: {
+			Description: "The primary network that VMs will be connected to. If this is not specified, Juju will look for a network named \"VM Network\".",
+			Type:        environschema.Tstring,
+		},
+		cfgForceVMHardwareVersion: {
+			Description: "The HW compatibility version to use when cloning a VM template to create a VM. The version must be supported by the remote compute resource, and greater or equal to the template’s version.",
+			Type:        environschema.Tint,
+		},
+		cfgEnableDiskUUID: {
+			Description: "Expose consistent disk UUIDs to the VM, equivalent to disk.EnableUUID. The default is True.",
+			Type:        environschema.Tbool,
+		},
+		cfgDiskProvisioningType: {
+			Description: "Specify how the disk should be provisioned when cloning the VM template. Allowed values are: thickEagerZero (default), thick and thin.",
+			Type:        environschema.Tstring,
+		},
 	}
 
 	configDefaults = schema.Defaults{
@@ -58,6 +77,14 @@ func newConfig(cfg *config.Config) *environConfig {
 		attrs:  cfg.UnknownAttrs(),
 	}
 }
+
+var configFields = func() schema.Fields {
+	fs, _, err := configSchema.ValidationSchema()
+	if err != nil {
+		panic(err)
+	}
+	return fs
+}()
 
 // newValidConfig builds a new environConfig from the provided Config
 // and returns it. The resulting config values are validated.
@@ -137,6 +164,27 @@ func (c *environConfig) diskProvisioningType() vsphereclient.DiskProvisioningTyp
 	}
 
 	return vsphereclient.DiskProvisioningType(provTypeStr)
+}
+
+// Schema returns the configuration schema for an environment.
+func (environProvider) Schema() environschema.Fields {
+	fields, err := config.Schema(configSchema)
+	if err != nil {
+		panic(err)
+	}
+	return fields
+}
+
+// ConfigSchema returns extra config attributes specific
+// to this provider only.
+func (p environProvider) ConfigSchema() schema.Fields {
+	return configFields
+}
+
+// ConfigDefaults returns the default values for the
+// provider specific config attributes.
+func (p environProvider) ConfigDefaults() schema.Defaults {
+	return configDefaults
 }
 
 // validate checks vmware-specific config values.

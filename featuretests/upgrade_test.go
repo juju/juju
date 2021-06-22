@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v4"
 	pacman "github.com/juju/packaging/manager"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -25,10 +24,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/addons"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/context"
-	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 
@@ -46,12 +42,6 @@ const (
 	FullAPIExposed       = true
 	RestrictedAPIExposed = false
 )
-
-// TODO(katco): 2016-08-09: lp:1611427
-var ShortAttempt = &utils.AttemptStrategy{
-	Total: time.Second * 10,
-	Delay: time.Millisecond * 200,
-}
 
 type upgradeSuite struct {
 	agenttest.AgentSuite
@@ -75,8 +65,7 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.oldVersion.Minor = 1
 
 	// Don't wait so long in tests.
-	s.PatchValue(&upgradesteps.UpgradeStartTimeoutPrimary, time.Millisecond*50)
-	s.PatchValue(&upgradesteps.UpgradeStartTimeoutSecondary, time.Millisecond*60)
+	s.PatchValue(&upgradesteps.UpgradeStartTimeoutController, time.Millisecond*50)
 
 	// Ensure we don't fail disk space check.
 	s.PatchValue(&upgrades.MinDiskSpaceMib, uint64(0))
@@ -157,74 +146,6 @@ func (s *upgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), jc.IsTrue)
 }
 
-func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrade(c *gc.C) {
-	coretesting.SkipIfWindowsBug(c, "lp:1446885")
-
-	// This test checks that the master triggers a downgrade if one of
-	// the other controller fails to signal it is ready for upgrade.
-	//
-	// This test is functional, ensuring that the upgrader worker
-	// terminates the machine agent with the UpgradeReadyError which
-	// makes the downgrade happen.
-
-	// Provide (fake) tools so that the upgrader has something to downgrade to.
-	envtesting.AssertUploadFakeToolsVersions(
-		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), s.oldVersion)
-
-	// Create 3 controllers
-	machineA, _ := s.makeStateAgentVersion(c, s.oldVersion)
-	// We're not going to start the agents for machines A or B - we
-	// need to make sure the API port is still set to the one picked
-	// for this machine after we create the other machines.
-	apiPort := s.ControllerConfig.APIPort()
-
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(changes.Added), gc.Equals, 2)
-	machineB, _, _ := s.configureMachine(c, changes.Added[0], s.oldVersion)
-	s.configureMachine(c, changes.Added[1], s.oldVersion)
-
-	s.SetControllerConfigAPIPort(c, apiPort)
-
-	// One of the other controllers is ready for upgrade (but machine C isn't).
-	info, err := s.State.EnsureUpgradeInfo(machineB.Id(), s.oldVersion.Number, jujuversion.Current)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the agent will think it's the master controller.
-	fakeIsMachineMaster := func(*state.StatePool, string) (bool, error) {
-		return true, nil
-	}
-	s.PatchValue(&upgradesteps.IsMachinePrimary, fakeIsMachineMaster)
-
-	// Start the agent
-	agent := s.newAgent(c, machineA)
-	defer agent.Stop()
-	agentDone := make(chan error)
-	ctx := cmdtesting.Context(c)
-	go func() {
-		agentDone <- agent.Run(ctx)
-	}()
-
-	select {
-	case agentErr := <-agentDone:
-		upgradeReadyErr, ok := agentErr.(*agenterrors.UpgradeReadyError)
-		if !ok {
-			c.Fatalf("didn't see UpgradeReadyError, instead got: %v", agentErr)
-		}
-		// Confirm that the downgrade is back to the previous version.
-		current := coretesting.CurrentVersion(c)
-		c.Assert(upgradeReadyErr.OldTools, gc.Equals, current)
-		c.Assert(upgradeReadyErr.NewTools, gc.Equals, s.oldVersion)
-
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("machine agent did not exit as expected")
-	}
-
-	// UpgradeInfo doc should now be archived.
-	err = info.Refresh()
-	c.Assert(err, gc.ErrorMatches, "current upgrade info not found")
-}
-
 // TODO(mjs) - the following should maybe be part of AgentSuite
 func (s *upgradeSuite) newAgent(c *gc.C, m *state.Machine) *agentcmd.MachineAgent {
 	agentConf := agentconf.NewAgentConf(s.DataDir())
@@ -243,7 +164,7 @@ func (s *upgradeSuite) newAgent(c *gc.C, m *state.Machine) *agentcmd.MachineAgen
 	return a
 }
 
-func noPreUpgradeSteps(_ *state.StatePool, _ agent.Config, isController, isMaster, isCaas bool) error {
+func noPreUpgradeSteps(_ *state.StatePool, _ agent.Config, isController, isCaas bool) error {
 	return nil
 }
 

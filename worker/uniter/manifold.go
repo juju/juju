@@ -154,6 +154,19 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			return uniter, nil
 		},
+		Output: func(in worker.Worker, out interface{}) error {
+			uniter, _ := in.(*Uniter)
+			if uniter == nil {
+				return errors.Errorf("expected Uniter in")
+			}
+			switch outPtr := out.(type) {
+			case **Uniter:
+				*outPtr = uniter
+			default:
+				return errors.Errorf("unknown out type")
+			}
+			return nil
+		},
 	}
 }
 

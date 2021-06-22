@@ -6,11 +6,11 @@ package main
 import (
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	sstestings "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
@@ -88,7 +89,8 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(id, region, series, endpo
 	if err != nil {
 		return err
 	}
-	err = imagemetadata.MergeAndWriteMetadata(series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
+	ss := simplestreams.NewSimpleStreams(sstestings.TestDataSourceFactory())
+	err = imagemetadata.MergeAndWriteMetadata(ss, series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
 		return err
 	}
@@ -159,12 +161,11 @@ func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ValidateImageMetadataSuite) setupEc2LocalMetadata(c *gc.C, region, stream string) {
-	ec2Region, ok := aws.Regions[region]
-	if !ok {
-		c.Fatalf("unknown ec2 region %q", region)
-	}
-	endpoint := ec2Region.EC2Endpoint
-	err := s.makeLocalMetadata("1234", region, "precise", endpoint, stream)
+	resolver := ec2.NewDefaultEndpointResolver()
+	ep, err := resolver.ResolveEndpoint(region, ec2.EndpointResolverOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.makeLocalMetadata("1234", region, "precise", ep.URL, stream)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -194,7 +195,7 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironm
 	s.PatchEnvironment("EC2_SECRET_KEY", "")
 	s.setupEc2LocalMetadata(c, "us-east-1", "")
 	_, err := runValidateImageMetadata(c, s.store, "-c", "ec2-controller", "-d", s.metadataDir)
-	c.Assert(err, gc.ErrorMatches, `detecting credentials.*AWS_SECRET_ACCESS_KEY not found in environment`)
+	c.Assert(err, gc.ErrorMatches, `detecting credentials.*not found`)
 }
 
 func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.C) {
@@ -222,7 +223,9 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 		"-p", "ec2", "-s", "precise", "-r", "region",
 		"-u", "https://ec2.region.amazonaws.com", "-d", s.metadataDir,
 	)
-	c.Check(err, gc.ErrorMatches, `unknown region "region"`)
+	c.Assert(err, gc.NotNil)
+	msg := strings.ReplaceAll(err.Error(), "\n", "")
+	c.Check(msg, gc.Matches, `index file has no data for cloud.*`)
 }
 
 func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(c *gc.C) {
@@ -256,7 +259,8 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) 
 }
 
 func (s *ValidateImageMetadataSuite) TestImagesDataSourceHasKey(c *gc.C) {
-	ds := imagesDataSources("test.me")
+	ss := simplestreams.NewSimpleStreams(sstestings.TestDataSourceFactory())
+	ds := imagesDataSources(ss, "test.me")
 	// This data source does not require to contain signed data.
 	// However, it may still contain it.
 	// Since we will always try to read signed data first,

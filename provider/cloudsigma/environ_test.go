@@ -4,6 +4,8 @@
 package cloudsigma
 
 import (
+	stdcontext "context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -47,7 +49,7 @@ func (s *environSuite) TearDownTest(c *gc.C) {
 
 func (s *environSuite) TestBase(c *gc.C) {
 	baseConfig := newConfig(c, validAttrs().Merge(testing.Attrs{"name": "testname"}))
-	env, err := environs.New(environs.OpenParams{
+	env, err := environs.New(stdcontext.TODO(), environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: baseConfig,
 	})
@@ -72,7 +74,7 @@ func (s *environSuite) TestBase(c *gc.C) {
 
 func (s *environSuite) TestUnsupportedConstraints(c *gc.C) {
 	baseConfig := newConfig(c, validAttrs().Merge(testing.Attrs{"name": "testname"}))
-	env, err := environs.New(environs.OpenParams{
+	env, err := environs.New(stdcontext.TODO(), environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: baseConfig,
 	})

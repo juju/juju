@@ -147,6 +147,9 @@ const (
 	// AptNoProxyKey stores the key for this setting.
 	AptNoProxyKey = "apt-no-proxy"
 
+	// AptMirrorKey is used to set the apt mirror.
+	AptMirrorKey = "apt-mirror"
+
 	// SnapHTTPProxyKey is used to set the snap core setting proxy.http for deployed machines.
 	SnapHTTPProxyKey = "snap-http-proxy"
 	// SnapHTTPSProxyKey is used to set the snap core setting proxy.https for deployed machines.
@@ -156,10 +159,10 @@ const (
 	// SnapStoreAssertionsKey is used to configure the deployed machines to acknowledge the
 	// store proxy assertions.
 	SnapStoreAssertionsKey = "snap-store-assertions"
-	// SnapStoreProxyURL is used to specify the URL to a snap store proxy.
+	// SnapStoreProxyURLKey is used to specify the URL to a snap store proxy.
 	SnapStoreProxyURLKey = "snap-store-proxy-url"
 
-	// NetBondReconfigureDelay is the key to pass when bridging
+	// NetBondReconfigureDelayKey is the key to pass when bridging
 	// the network for containers.
 	NetBondReconfigureDelayKey = "net-bond-reconfigure-delay"
 
@@ -167,10 +170,10 @@ const (
 	// networking method for containers.
 	ContainerNetworkingMethod = "container-networking-method"
 
-	// The default block storage source.
+	// StorageDefaultBlockSourceKey is the key for the default block storage source.
 	StorageDefaultBlockSourceKey = "storage-default-block-source"
 
-	// The default filesystem storage source.
+	// StorageDefaultFilesystemSourceKey is the key for the default filesystem storage source.
 	StorageDefaultFilesystemSourceKey = "storage-default-filesystem-source"
 
 	// ResourceTagsKey is an optional list or space-separated string
@@ -269,7 +272,7 @@ const (
 	// Deprecated Settings Attributes
 	//
 
-	// IgnoreMachineAddresses, when true, will cause the
+	// IgnoreMachineAddresses when true, will cause the
 	// machine worker not to discover any machine addresses
 	// on start up.
 	IgnoreMachineAddresses = "ignore-machine-addresses"
@@ -308,7 +311,7 @@ const (
 	HarvestDestroyed
 	// HarvestAll signifies that Juju should harvest both unknown and
 	// destroyed instances. ♫ Don't fear the reaper. ♫
-	HarvestAll HarvestMode = HarvestUnknown | HarvestDestroyed
+	HarvestAll = HarvestUnknown | HarvestDestroyed
 )
 
 // A mapping from method to description. Going this way will be the
@@ -523,7 +526,7 @@ var defaultConfigValues = map[string]interface{}{
 	AptHTTPSProxyKey: "",
 	AptFTPProxyKey:   "",
 	AptNoProxyKey:    "",
-	"apt-mirror":     "",
+	AptMirrorKey:     "",
 
 	SnapHTTPProxyKey:       "",
 	SnapHTTPSProxyKey:      "",
@@ -779,8 +782,8 @@ func Validate(cfg, old *Config) error {
 		return errors.Trace(err)
 	}
 
-	// Check the immutable config values.  These can't change
 	if old != nil {
+		// Check the immutable config values.  These can't change
 		for _, attr := range immutableAttributes {
 			oldv, ok := old.defined[attr]
 			if !ok {
@@ -799,6 +802,10 @@ func Validate(cfg, old *Config) error {
 			if _, newFound := cfg.CharmHubURL(); !newFound {
 				return errors.New("cannot clear charmhub-url")
 			}
+		}
+		// apt-mirror can't be set back to "" if it has previously been set.
+		if old.AptMirror() != "" && cfg.AptMirror() == "" {
+			return errors.New("cannot clear apt-mirror")
 		}
 	}
 
@@ -903,7 +910,7 @@ func (c *Config) DefaultSpace() string {
 	return c.asString(DefaultSpace)
 }
 
-// DefaultSeries returns the configured default Ubuntu series for the environment,
+// DefaultSeries returns the configured default Ubuntu series for the model,
 // and whether the default series was explicitly configured on the environment.
 func (c *Config) DefaultSeries() (string, bool) {
 	s, ok := c.defined["default-series"]
@@ -986,42 +993,42 @@ func (c *Config) JujuProxySettings() proxy.Settings {
 	}
 }
 
-// HTTPProxy returns the legacy http proxy for the environment.
+// HTTPProxy returns the legacy http proxy for the model.
 func (c *Config) HTTPProxy() string {
 	return c.asString(HTTPProxyKey)
 }
 
-// HTTPSProxy returns the legacy https proxy for the environment.
+// HTTPSProxy returns the legacy https proxy for the model.
 func (c *Config) HTTPSProxy() string {
 	return c.asString(HTTPSProxyKey)
 }
 
-// FTPProxy returns the legacy ftp proxy for the environment.
+// FTPProxy returns the legacy ftp proxy for the model.
 func (c *Config) FTPProxy() string {
 	return c.asString(FTPProxyKey)
 }
 
-// NoProxy returns the legacy  'no-proxy' for the environment.
+// NoProxy returns the legacy  'no-proxy' for the model.
 func (c *Config) NoProxy() string {
 	return c.asString(NoProxyKey)
 }
 
-// JujuHTTPProxy returns the http proxy for the environment.
+// JujuHTTPProxy returns the http proxy for the model.
 func (c *Config) JujuHTTPProxy() string {
 	return c.asString(JujuHTTPProxyKey)
 }
 
-// JujuHTTPSProxy returns the https proxy for the environment.
+// JujuHTTPSProxy returns the https proxy for the model.
 func (c *Config) JujuHTTPSProxy() string {
 	return c.asString(JujuHTTPSProxyKey)
 }
 
-// JujuFTPProxy returns the ftp proxy for the environment.
+// JujuFTPProxy returns the ftp proxy for the model.
 func (c *Config) JujuFTPProxy() string {
 	return c.asString(JujuFTPProxyKey)
 }
 
-// JujuNoProxy returns the 'no-proxy' for the environment.
+// JujuNoProxy returns the 'no-proxy' for the model.
 // This value can contain CIDR values.
 func (c *Config) JujuNoProxy() string {
 	return c.asString(JujuNoProxyKey)
@@ -1056,25 +1063,25 @@ func (c *Config) AptProxySettings() proxy.Settings {
 	}
 }
 
-// AptHTTPProxy returns the apt http proxy for the environment.
+// AptHTTPProxy returns the apt http proxy for the model.
 // Falls back to the default http-proxy if not specified.
 func (c *Config) AptHTTPProxy() string {
 	return addSchemeIfMissing("http", c.getWithFallback(AptHTTPProxyKey, JujuHTTPProxyKey, HTTPProxyKey))
 }
 
-// AptHTTPSProxy returns the apt https proxy for the environment.
+// AptHTTPSProxy returns the apt https proxy for the model.
 // Falls back to the default https-proxy if not specified.
 func (c *Config) AptHTTPSProxy() string {
 	return addSchemeIfMissing("https", c.getWithFallback(AptHTTPSProxyKey, JujuHTTPSProxyKey, HTTPSProxyKey))
 }
 
-// AptFTPProxy returns the apt ftp proxy for the environment.
+// AptFTPProxy returns the apt ftp proxy for the model.
 // Falls back to the default ftp-proxy if not specified.
 func (c *Config) AptFTPProxy() string {
 	return addSchemeIfMissing("ftp", c.getWithFallback(AptFTPProxyKey, JujuFTPProxyKey, FTPProxyKey))
 }
 
-// AptNoProxy returns the 'apt-no-proxy' for the environment.
+// AptNoProxy returns the 'apt-no-proxy' for the model.
 func (c *Config) AptNoProxy() string {
 	value := c.asString(AptNoProxyKey)
 	if value == "" {
@@ -1087,9 +1094,9 @@ func (c *Config) AptNoProxy() string {
 	return value
 }
 
-// AptMirror sets the apt mirror for the environment.
+// AptMirror sets the apt mirror for the model.
 func (c *Config) AptMirror() string {
-	return c.asString("apt-mirror")
+	return c.asString(AptMirrorKey)
 }
 
 // SnapProxySettings returns the two proxy settings; http, and https.
@@ -1100,27 +1107,27 @@ func (c *Config) SnapProxySettings() proxy.Settings {
 	}
 }
 
-// SnapHTTPProxy returns the snap http proxy for the environment.
+// SnapHTTPProxy returns the snap http proxy for the model.
 func (c *Config) SnapHTTPProxy() string {
 	return c.asString(SnapHTTPProxyKey)
 }
 
-// SnapHTTPSProxy returns the snap https proxy for the environment.
+// SnapHTTPSProxy returns the snap https proxy for the model.
 func (c *Config) SnapHTTPSProxy() string {
 	return c.asString(SnapHTTPSProxyKey)
 }
 
-// SnapStoreProxy returns the snap store proxy for the environment.
+// SnapStoreProxy returns the snap store proxy for the model.
 func (c *Config) SnapStoreProxy() string {
 	return c.asString(SnapStoreProxyKey)
 }
 
-// SnapStoreAssertions returns the snap store assertions for the environment.
+// SnapStoreAssertions returns the snap store assertions for the model.
 func (c *Config) SnapStoreAssertions() string {
 	return c.asString(SnapStoreAssertionsKey)
 }
 
-// SnapStoreProxyURL returns the snap store proxy URL for the environment.
+// SnapStoreProxyURL returns the snap store proxy URL for the model.
 func (c *Config) SnapStoreProxyURL() string {
 	return c.asString(SnapStoreProxyURLKey)
 }
@@ -1402,14 +1409,14 @@ func (c *Config) IgnoreMachineAddresses() (bool, bool) {
 }
 
 // StorageDefaultBlockSource returns the default block storage
-// source for the environment.
+// source for the model.
 func (c *Config) StorageDefaultBlockSource() (string, bool) {
 	bs := c.asString(StorageDefaultBlockSourceKey)
 	return bs, bs != ""
 }
 
 // StorageDefaultFilesystemSource returns the default filesystem
-// storage source for the environment.
+// storage source for the model.
 func (c *Config) StorageDefaultFilesystemSource() (string, bool) {
 	bs := c.asString(StorageDefaultFilesystemSourceKey)
 	return bs, bs != ""
@@ -1625,7 +1632,7 @@ var alwaysOptional = schema.Defaults{
 	SnapStoreProxyKey:             schema.Omit,
 	SnapStoreAssertionsKey:        schema.Omit,
 	SnapStoreProxyURLKey:          schema.Omit,
-	"apt-mirror":                  schema.Omit,
+	AptMirrorKey:                  schema.Omit,
 	AgentStreamKey:                schema.Omit,
 	GUIStreamKey:                  schema.Omit,
 	ResourceTagsKey:               schema.Omit,
@@ -1857,7 +1864,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	"apt-mirror": {
+	AptMirrorKey: {
 		// TODO document acceptable format
 		Description: "The APT mirror for the model",
 		Type:        environschema.Tstring,

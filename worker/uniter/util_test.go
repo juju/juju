@@ -1680,3 +1680,11 @@ func (s injectTestContainer) step(c *gc.C, ctx *testContext) {
 		err: errors.BadRequestf("not ready yet"),
 	}
 }
+
+type triggerShutdown struct {
+}
+
+func (t triggerShutdown) step(c *gc.C, ctx *testContext) {
+	err := ctx.uniter.Terminate()
+	c.Assert(err, jc.ErrorIsNil)
+}

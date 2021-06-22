@@ -4,6 +4,7 @@
 package dummy_test
 
 import (
+	stdcontext "context"
 	"strings"
 	stdtesting "testing"
 	"time"
@@ -120,7 +121,7 @@ func (s *suite) TearDownTest(c *gc.C) {
 func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 	e, err := bootstrap.PrepareController(
 		false,
-		envtesting.BootstrapContext(c),
+		envtesting.BootstrapContext(stdcontext.TODO(), c),
 		s.ControllerStore,
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),
@@ -136,7 +137,7 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 	netenv, supported := environs.SupportsNetworking(env)
 	c.Assert(supported, jc.IsTrue)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), netenv,
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(stdcontext.TODO(), c), netenv,
 		context.NewEmptyCloudCallContext(), bootstrap.BootstrapParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			Cloud: cloud.Cloud{

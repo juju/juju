@@ -19,7 +19,7 @@ import (
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2/catacomb"
 
-	jujuhttp "github.com/juju/http"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/upgrader"
@@ -190,6 +190,17 @@ func (u *Upgrader) loop() error {
 		return errors.Annotate(err, "cannot set agent version")
 	}
 
+	// We do not commence any actions until the upgrade-steps worker has
+	// confirmed that all steps are completed for getting us upgraded to the
+	// version that we currently on.
+	if u.config.UpgradeStepsWaiter != nil {
+		select {
+		case <-u.config.UpgradeStepsWaiter.Unlocked():
+		case <-u.catacomb.Dying():
+			return u.catacomb.ErrDying()
+		}
+	}
+
 	// Older 2.8 agents still use for tools based on series.
 	// Old upgrade the original agent will write the tool symlink
 	// also based on series so we need to copy it across to one
@@ -209,50 +220,18 @@ func (u *Upgrader) loop() error {
 		return nil
 	}
 
-	// We don't read on the dying channel until we have received the
-	// initial event from the API version watcher, thus ensuring
-	// that we attempt an upgrade even if other workers are dying
-	// all around us. Similarly, we don't want to bind the watcher
-	// to the catacomb's lifetime (yet!) lest we wait forever for a
-	// stopped watcher.
-	//
-	// However, that absolutely depends on versionWatcher's guaranteed
-	// initial event, and we should assume that it'll break its contract
-	// sometime. So we allow the watcher to wait patiently for the event
-	// for a full minute; but after that we proceed regardless.
 	versionWatcher, err := u.st.WatchAPIVersion(u.tag.String())
 	if err != nil {
 		return errors.Trace(err)
-	}
-	logger.Infof("abort check blocked until version event received")
-	mustProceed := u.config.Clock.After(time.Minute)
-	var dying <-chan struct{}
-	allowDying := func() {
-		if dying == nil {
-			logger.Infof("unblocking abort check")
-			mustProceed = nil
-			dying = u.catacomb.Dying()
-			if err := u.catacomb.Add(versionWatcher); err != nil {
-				u.catacomb.Kill(err)
-			}
-		}
 	}
 
 	var retry <-chan time.Time
 	for {
 		select {
-		// NOTE: retry and dying both start out nil, so they can't be chosen
-		// first time round the loop. However...
 		case <-retry:
-		case <-dying:
+		case <-u.catacomb.Dying():
 			return u.catacomb.ErrDying()
-		// ...*every* other case *must* allowDying(), before doing anything
-		// else, lest an error cause us to leak versionWatcher.
-		case <-mustProceed:
-			logger.Infof("version event not received after one minute")
-			allowDying()
 		case _, ok := <-versionWatcher.Changes():
-			allowDying()
 			if !ok {
 				return errors.New("version watcher closed")
 			}
@@ -264,10 +243,10 @@ func (u *Upgrader) loop() error {
 		}
 		logger.Infof("desired agent binary version: %v", wantVersion)
 
-		// If we have a desired version of Juju without the build number, ie it is
-		// not a user compiled version, reset the build number of the current version
-		// to remove the Jenkins build number. We don't care about the Jenkins build
-		// number when doing an upgrade check.
+		// If we have a desired version of Juju without the build number,
+		// i.e. it is not a user compiled version, reset the build number of
+		// the current version to remove the Jenkins build number.
+		// We don't care about the build number when checking for upgrade.
 		haveVersion := jujuversion.Current
 		if wantVersion.Build == 0 {
 			haveVersion.Build = 0
@@ -276,14 +255,8 @@ func (u *Upgrader) loop() error {
 		if wantVersion == haveVersion {
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
-		} else if !AllowedTargetVersion(
-			haveVersion,
-			wantVersion,
-		) {
-			// Don't allow downgrading to v1.x - we don't support
-			// restoring from a 1.x backup.
-			logger.Infof("desired agent binary version: %s is older than 2.0.0, refusing to downgrade",
-				wantVersion)
+		} else if !AllowedTargetVersion(haveVersion, wantVersion) {
+			logger.Infof("downgrade from %v to %v is not possible", haveVersion, wantVersion)
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
 		}
@@ -354,7 +327,7 @@ func (u *Upgrader) ensureTools(agentTools *coretools.Tools) error {
 	u.config.Logger.Infof("fetching agent binaries from %q", agentTools.URL)
 	// The reader MUST verify the tools' hash, so there is no
 	// need to validate the peer. We cannot anyway: see http://pad.lv/1261780.
-	client := jujuhttp.NewClient(jujuhttp.Config{SkipHostnameVerification: true})
+	client := jujuhttp.NewClient(jujuhttp.WithSkipHostnameVerification(true))
 	resp, err := client.Get(context.TODO(), agentTools.URL)
 	if err != nil {
 		return err

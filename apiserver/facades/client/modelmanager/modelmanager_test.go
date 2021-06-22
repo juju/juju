@@ -4,6 +4,7 @@
 package modelmanager_test
 
 import (
+	stdcontext "context"
 	"regexp"
 	"time"
 
@@ -206,7 +207,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 
 	s.callContext = context.NewEmptyCloudCallContext()
 
-	newBroker := func(args environs.OpenParams) (caas.Broker, error) {
+	newBroker := func(_ stdcontext.Context, args environs.OpenParams) (caas.Broker, error) {
 		s.caasBroker = &mockCaasBroker{namespace: args.Config.Name()}
 		return s.caasBroker, nil
 	}
@@ -221,7 +222,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 
 func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	newBroker := func(args environs.OpenParams) (caas.Broker, error) {
+	newBroker := func(_ stdcontext.Context, args environs.OpenParams) (caas.Broker, error) {
 		return s.caasBroker, nil
 	}
 	mm, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, newBroker, s.authoriser, s.st.model, s.callContext)

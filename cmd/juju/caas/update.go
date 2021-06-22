@@ -4,6 +4,7 @@
 package caas
 
 import (
+	stdcontext "context"
 	"fmt"
 
 	"github.com/juju/cmd"
@@ -159,7 +160,7 @@ func (c *UpdateCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credentia
 		}
 		openParams.ControllerUUID = ctrlUUID
 	}
-	return caas.New(openParams)
+	return caas.New(stdcontext.TODO(), openParams)
 }
 
 // maybeBuiltInCloud returns a built in cloud (eg microk8s) and the relevant credential

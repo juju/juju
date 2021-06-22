@@ -187,7 +187,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpress.SetMinUnits(units)
 	c.Assert(err, jc.ErrorIsNil)
-	err = wordpress.SetConstraints(constraints.MustParse("arch=amd64 mem=100M"))
+	err = wordpress.SetConstraints(constraints.MustParse("mem=100M"))
 	c.Assert(err, jc.ErrorIsNil)
 	setApplicationConfigAttr(c, wordpress, "blog-title", "boring")
 	pairs := map[string]string{"x": "12", "y": "99"}
@@ -198,7 +198,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		CharmURL:    applicationCharmURL(wordpress).String(),
 		Life:        life.Alive,
 		MinUnits:    units,
-		Constraints: constraints.MustParse("arch=amd64 mem=100M"),
+		Constraints: constraints.MustParse("mem=100M"),
 		Annotations: pairs,
 		Config:      charm.Settings{"blog-title": "boring"},
 		Subordinate: false,
@@ -382,12 +382,11 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	mysql := AddTestingApplication(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
 	curl := applicationCharmURL(mysql)
 	add(&multiwatcher.ApplicationInfo{
-		ModelUUID:   modelUUID,
-		Name:        "mysql",
-		CharmURL:    curl.String(),
-		Life:        life.Alive,
-		Config:      charm.Settings{},
-		Constraints: constraints.MustParse("arch=amd64"),
+		ModelUUID: modelUUID,
+		Name:      "mysql",
+		CharmURL:  curl.String(),
+		Life:      life.Alive,
+		Config:    charm.Settings{},
 		Status: multiwatcher.StatusInfo{
 			Current: "unset",
 			Message: "",
@@ -397,9 +396,10 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	})
 
 	add(&multiwatcher.CharmInfo{
-		ModelUUID: modelUUID,
-		CharmURL:  applicationCharmURL(mysql).String(),
-		Life:      life.Alive,
+		ModelUUID:     modelUUID,
+		CharmURL:      applicationCharmURL(mysql).String(),
+		Life:          life.Alive,
+		DefaultConfig: map[string]interface{}{"dataset-size": "80%"},
 	})
 
 	// Set up a remote application related to the offer.
@@ -2116,14 +2116,13 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ApplicationInfo{
-						ModelUUID:   st.ModelUUID(),
-						Name:        "wordpress",
-						Exposed:     true,
-						CharmURL:    "local:quantal/quantal-wordpress-3",
-						Life:        life.Alive,
-						MinUnits:    42,
-						Config:      charm.Settings{},
-						Constraints: constraints.MustParse("arch=amd64"),
+						ModelUUID: st.ModelUUID(),
+						Name:      "wordpress",
+						Exposed:   true,
+						CharmURL:  "local:quantal/quantal-wordpress-3",
+						Life:      life.Alive,
+						MinUnits:  42,
+						Config:    charm.Settings{},
 						Status: multiwatcher.StatusInfo{
 							Current: "unset",
 							Message: "",

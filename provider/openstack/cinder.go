@@ -10,14 +10,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-goose/goose/v3/cinder"
+	gooseerrors "github.com/go-goose/goose/v3/errors"
+	"github.com/go-goose/goose/v3/identity"
+	"github.com/go-goose/goose/v3/nova"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/utils/v2"
-	"gopkg.in/goose.v2/cinder"
-	gooseerrors "gopkg.in/goose.v2/errors"
-	"gopkg.in/goose.v2/identity"
-	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"

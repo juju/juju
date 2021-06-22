@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	jujuhttp "github.com/juju/http"
+	jujuhttp "github.com/juju/http/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/httptesting"
 	gc "gopkg.in/check.v1"
@@ -91,7 +91,7 @@ func SendHTTPRequest(c *gc.C, p HTTPRequestParams) *http.Response {
 		hp.Header.Set(params.MachineNonceHeader, p.Nonce)
 	}
 	if hp.Do == nil {
-		client := jujuhttp.NewClient(jujuhttp.Config{SkipHostnameVerification: true})
+		client := jujuhttp.NewClient(jujuhttp.WithSkipHostnameVerification(true))
 		hp.Do = client.Do
 	}
 	return httptesting.Do(c, hp)

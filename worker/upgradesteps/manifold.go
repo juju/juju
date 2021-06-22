@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/worker/gate"
 )
 
@@ -23,7 +24,7 @@ type ManifoldConfig struct {
 	APICallerName        string
 	UpgradeStepsGateName string
 	OpenStateForUpgrade  func() (*state.StatePool, error)
-	PreUpgradeSteps      func(*state.StatePool, agent.Config, bool, bool, bool) error
+	PreUpgradeSteps      upgrades.PreUpgradeStepsFunc
 	NewAgentStatusSetter func(apiConn api.Connection) (StatusSetter, error)
 }
 

@@ -3225,12 +3225,10 @@ func uint64p(val uint64) *uint64 {
 }
 
 func (s *ApplicationSuite) TestConstraints(c *gc.C) {
-	amdArch := "amd64"
+	// Constraints are initially empty (for now).
 	cons, err := s.mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, jc.DeepEquals, constraints.Value{
-		Arch: &amdArch,
-	})
+	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 
 	// Constraints can be set.
 	cons2 := constraints.Value{Mem: uint64p(4096)}
@@ -3261,30 +3259,15 @@ func (s *ApplicationSuite) TestConstraints(c *gc.C) {
 	mysql := s.AddTestingApplication(c, s.mysql.Name(), ch)
 	cons6, err := mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons6, jc.DeepEquals, constraints.Value{
-		Arch: &amdArch,
-	})
+	c.Assert(&cons6, jc.Satisfies, constraints.IsEmpty)
 }
 
 func (s *ApplicationSuite) TestArchConstraints(c *gc.C) {
 	amdArch := "amd64"
-	cons, err := s.mysql.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, jc.DeepEquals, constraints.Value{
-		Arch: &amdArch,
-	})
-
-	// Constraints can not be set if it already exists and is different than
-	// the default architecture.
 	armArch := "arm64"
-	cons1 := constraints.Value{Arch: &armArch}
-	err = s.mysql.SetConstraints(cons1)
-	c.Assert(err, gc.ErrorMatches, "changing architecture \\(amd64\\) not supported")
-
-	// Constraints can be set.
 
 	cons2 := constraints.Value{Arch: &amdArch}
-	err = s.mysql.SetConstraints(cons2)
+	err := s.mysql.SetConstraints(cons2)
 	c.Assert(err, jc.ErrorIsNil)
 	cons3, err := s.mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3308,9 +3291,7 @@ func (s *ApplicationSuite) TestArchConstraints(c *gc.C) {
 	mysql := s.AddTestingApplication(c, s.mysql.Name(), ch)
 	cons6, err := mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons6, jc.DeepEquals, constraints.Value{
-		Arch: &amdArch,
-	})
+	c.Assert(constraints.IsEmpty(&cons6), jc.IsTrue)
 }
 
 func (s *ApplicationSuite) TestSetInvalidConstraints(c *gc.C) {
@@ -3352,11 +3333,7 @@ func (s *ApplicationSuite) TestConstraintsLifecycle(c *gc.C) {
 
 	scons, err := s.mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-
-	amdArch := "amd64"
-	c.Assert(scons, jc.DeepEquals, constraints.Value{
-		Arch: &amdArch,
-	})
+	c.Assert(&scons, jc.Satisfies, constraints.IsEmpty)
 
 	// Removed (== Dead, for a application).
 	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)

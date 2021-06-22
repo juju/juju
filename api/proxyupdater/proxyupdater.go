@@ -80,6 +80,8 @@ type ProxyConfiguration struct {
 	APTProxy    proxy.Settings
 	SnapProxy   proxy.Settings
 
+	AptMirror string
+
 	SnapStoreProxyId         string
 	SnapStoreProxyAssertions string
 	SnapStoreProxyURL        string
@@ -117,6 +119,7 @@ func (api *API) ProxyConfig() (ProxyConfiguration, error) {
 		APTProxy:    proxySettingsParamToProxySettings(result.APTProxySettings),
 		SnapProxy:   proxySettingsParamToProxySettings(result.SnapProxySettings),
 
+		AptMirror:                result.AptMirror,
 		SnapStoreProxyId:         result.SnapStoreProxyId,
 		SnapStoreProxyAssertions: result.SnapStoreProxyAssertions,
 		SnapStoreProxyURL:        result.SnapStoreProxyURL,

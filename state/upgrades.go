@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -518,6 +519,57 @@ func updateLegacyKubernetesCloudsOps(st *State) ([]txn.Op, error) {
 		ops = append(ops, credOps...)
 	}
 	return ops, nil
+}
+
+func KubernetesInClusterCredentialSpec(
+	pool *StatePool,
+) (environscloudspec.CloudSpec, *config.Config, string, error) {
+	st := pool.SystemState()
+	model, err := st.Model()
+	if err != nil {
+		return environscloudspec.CloudSpec{}, nil, "", errors.Trace(err)
+	}
+
+	if model.Type() != ModelTypeCAAS {
+		return environscloudspec.CloudSpec{}, nil, "",
+			errors.NotFoundf("controller model %q not a caas model", model.Name())
+	}
+
+	cred, ok := model.CloudCredentialTag()
+	if !ok {
+		return environscloudspec.CloudSpec{}, nil, "",
+			errors.NotFoundf("controller cloud credentials")
+	}
+
+	cloudSpec, err := cloudSpec(st, model.CloudName(), model.CloudRegion(), cred)
+	if err != nil {
+		return cloudSpec, nil, "",
+			errors.Annotate(err, "fetching controller cloud spec")
+	}
+
+	if cloudSpec.Type != k8sconstants.CAASProviderType {
+		return cloudSpec, nil, "",
+			errors.NotFoundf("controller not in a Kubernetes cloud")
+	}
+
+	if !cloudSpec.IsControllerCloud {
+		return cloudSpec, nil, "",
+			errors.NotFoundf("cloudspec is not in the controllers cloud")
+	}
+
+	cfg, err := model.Config()
+	if err != nil {
+		return cloudSpec, cfg, "",
+			errors.Annotate(err, "getting model configuration")
+	}
+
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
+		return cloudSpec, cfg, "",
+			errors.Annotate(err, "fetching controller UUID")
+	}
+	controllerUUID := controllerConfig[controller.ControllerUUIDKey].(string)
+	return cloudSpec, cfg, controllerUUID, nil
 }
 
 func updateLegacyKubernetesCredentialsOps(st *State, cloudName string) ([]txn.Op, error) {
@@ -1928,7 +1980,7 @@ func updateKubernetesStorageConfig(st *State) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		broker, err := NewBroker(environs.OpenParams{Cloud: cloudSpec, Config: cfg})
+		broker, err := NewBroker(context.TODO(), environs.OpenParams{Cloud: cloudSpec, Config: cfg})
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -3477,6 +3529,38 @@ func TranslateK8sServiceTypes(pool *StatePool) error {
 	if err := iter.Close(); err != nil {
 		return errors.Trace(err)
 	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}
+
+// UpdateDHCPAddressConfigs ensures that any addresses in the ip.addresses
+// collection with the removed "dynamic" address configuration method are
+// updated to indicate the "dhcp" configuration method.
+func UpdateDHCPAddressConfigs(pool *StatePool) error {
+	st := pool.SystemState()
+
+	col, closer := st.db().GetRawCollection(ipAddressesC)
+	defer closer()
+
+	iter := col.Find(bson.M{"config-method": "dynamic"}).Iter()
+
+	var ops []txn.Op
+	var doc bson.M
+	for iter.Next(&doc) {
+		ops = append(ops, txn.Op{
+			C:      ipAddressesC,
+			Id:     doc["_id"],
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"config-method": network.ConfigDHCP}},
+		})
+	}
+
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+
 	if len(ops) > 0 {
 		return errors.Trace(st.runRawTransaction(ops))
 	}

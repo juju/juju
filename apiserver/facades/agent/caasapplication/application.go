@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.caasapplication")
@@ -35,15 +36,26 @@ type Facade struct {
 	state     State
 	model     Model
 	clock     clock.Clock
+	broker    Broker
 }
 
 // NewStateFacade provides the signature required for facade registration.
 func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
+	st := ctx.State()
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting caas client")
+	}
 	return NewFacade(resources, authorizer,
 		ctx.StatePool().SystemState(),
-		&stateShim{ctx.State()},
+		&stateShim{st},
+		broker,
 		ctx.StatePool().Clock())
 }
 
@@ -53,9 +65,10 @@ func NewFacade(
 	authorizer facade.Authorizer,
 	ctrlSt ControllerState,
 	st State,
+	broker Broker,
 	clock clock.Clock,
 ) (*Facade, error) {
-	if !authorizer.AuthApplicationAgent() {
+	if !authorizer.AuthApplicationAgent() && !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
 	model, err := st.Model()
@@ -69,6 +82,7 @@ func NewFacade(
 		state:     st,
 		model:     model,
 		clock:     clock,
+		broker:    broker,
 	}, nil
 }
 
@@ -206,10 +220,29 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 		}
 	}
 
+	// Find the pod/unit in the provider.
+	caasApp := f.broker.Application(application.Name(), caas.DeploymentStateful)
+	pods, err := caasApp.Units()
+	if err != nil {
+		return errResp(err)
+	}
+	var pod *caas.Unit
+	for _, p := range pods {
+		if p.Id == args.PodName {
+			pod = &p
+			break
+		}
+	}
+	if pod == nil {
+		return errResp(errors.NotFoundf("pod %s in provider", args.PodName))
+	}
+
 	// Force update of provider-id.
 	if unit != nil {
 		update := unit.UpdateOperation(state.UnitUpdateProperties{
 			ProviderId: &containerID,
+			Address:    &pod.Address,
+			Ports:      &pod.Ports,
 		})
 		var unitUpdate state.UpdateUnitsOperation
 		unitUpdate.Updates = append(unitUpdate.Updates, update)
@@ -225,6 +258,8 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 		unit, err = application.AddUnit(state.AddUnitParams{
 			UnitName:   unitName,
 			ProviderId: &containerID,
+			Address:    &pod.Address,
+			Ports:      &pod.Ports,
 		})
 		if err != nil {
 			return errResp(err)
@@ -298,4 +333,64 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 		},
 	}
 	return res, nil
+}
+
+// UnitTerminating should be called by the CAASUnitTerminationWorker when
+// the agent receives a signal to exit. UnitTerminating will return how
+// the agent should shutdown.
+func (f *Facade) UnitTerminating(args params.Entity) (params.CAASUnitTerminationResult, error) {
+	tag, ok := f.auth.GetAuthTag().(names.UnitTag)
+	if !ok {
+		return params.CAASUnitTerminationResult{}, apiservererrors.ErrPerm
+	}
+
+	errResp := func(err error) (params.CAASUnitTerminationResult, error) {
+		return params.CAASUnitTerminationResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+
+	unitTag, err := names.ParseUnitTag(args.Tag)
+	if err != nil {
+		return errResp(err)
+	}
+	if unitTag != tag {
+		return params.CAASUnitTerminationResult{}, apiservererrors.ErrPerm
+	}
+
+	unit, err := f.state.Unit(unitTag.Id())
+	if err != nil {
+		return errResp(err)
+	}
+	if unit.Life() != state.Alive {
+		return params.CAASUnitTerminationResult{WillRestart: false}, nil
+	}
+
+	// TODO(sidecar): handle deployment other than statefulset
+	deploymentType := caas.DeploymentStateful
+	restart := true
+
+	switch deploymentType {
+	case caas.DeploymentStateful:
+		application, err := f.state.Application(unit.ApplicationName())
+		if err != nil {
+			return errResp(err)
+		}
+		caasApp := f.broker.Application(unit.ApplicationName(), caas.DeploymentStateful)
+		appState, err := caasApp.State()
+		if err != nil {
+			return errResp(err)
+		}
+		n := unitTag.Number()
+		if n >= application.GetScale() || n >= appState.DesiredReplicas {
+			restart = false
+		}
+	case caas.DeploymentStateless, caas.DeploymentDaemon:
+		// Both handled the same way.
+		restart = true
+	default:
+		return errResp(errors.NotSupportedf("unknown deployment type"))
+	}
+
+	return params.CAASUnitTerminationResult{
+		WillRestart: restart,
+	}, nil
 }

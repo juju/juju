@@ -4,6 +4,8 @@
 package vsphere_test
 
 import (
+	stdcontext "context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -145,7 +147,7 @@ func (*ConfigSuite) TestNewModelConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		fakeConfig := test.newConfig(c)
-		environ, err := environs.New(environs.OpenParams{
+		environ, err := environs.New(stdcontext.TODO(), environs.OpenParams{
 			Cloud:  fakeCloudSpec(),
 			Config: fakeConfig,
 		})
@@ -236,7 +238,7 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		environ, err := environs.New(environs.OpenParams{
+		environ, err := environs.New(stdcontext.TODO(), environs.OpenParams{
 			Cloud:  fakeCloudSpec(),
 			Config: s.config,
 		})
@@ -252,5 +254,18 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 		} else {
 			test.checkSuccess(c, environ.Config(), err)
 		}
+	}
+}
+
+func (s *ConfigSuite) TestSchema(c *gc.C) {
+	ps, ok := s.provider.(environs.ProviderSchema)
+	c.Assert(ok, jc.IsTrue)
+
+	fields := ps.Schema()
+
+	globalFields, err := config.Schema(nil)
+	c.Assert(err, gc.IsNil)
+	for name, field := range globalFields {
+		c.Check(fields[name], jc.DeepEquals, field)
 	}
 }
