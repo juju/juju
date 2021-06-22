@@ -225,27 +225,28 @@ func (k *kubernetesClient) ensureNamespaceAnnotationForControllerUUID(controller
 		return nil
 	}
 	ns, err := k.getNamespaceByName(k.namespace)
-	if errors.IsNotFound(err) {
-		return nil
-	}
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	nsAnnotation := k8sannotations.New(ns.GetAnnotations())
-	if !nsAnnotation.HasAll(k.annotations) {
+	if ns != nil && !k8sannotations.New(ns.GetAnnotations()).HasAll(k.annotations) {
 		// This should never happen unless we changed annotations for a new juju version.
 		// But in this case, we should have already managed to fix it in upgrade steps.
 		return errors.NewNotValid(nil,
-			fmt.Sprintf("namespace has annotations %v but %v is expected", ns.GetAnnotations(), k.annotations),
+			fmt.Sprintf("annotations %v for namespace %q must include %v", ns.GetAnnotations(), k.namespace, k.annotations),
 		)
 	}
-	k.annotations.Add(utils.AnnotationControllerUUIDKey(isLegacy), controllerUUID)
-	if nsAnnotation[utils.AnnotationControllerUUIDKey(isLegacy)] == controllerUUID {
-		logger.Criticalf("controllerUUID %q not changed!!!", controllerUUID)
+	annotationControllerUUIDKey := utils.AnnotationControllerUUIDKey(isLegacy)
+	k.annotations.Add(annotationControllerUUIDKey, controllerUUID)
+	if errors.IsNotFound(err) {
 		return nil
 	}
-	logger.Criticalf("model %q was migrated from controller %q to %q!!!", k.namespace,
-		nsAnnotation[utils.AnnotationControllerUUIDKey(isLegacy)], controllerUUID,
+	if ns.GetAnnotations()[annotationControllerUUIDKey] == controllerUUID {
+		// No change needs to be done.
+		return nil
+	}
+	// The model was just migrated from a different controller.
+	logger.Debugf("model %q was migrated from controller %q, updating the controller annotation to %q", k.namespace,
+		ns.GetAnnotations()[annotationControllerUUIDKey], controllerUUID,
 	)
 	if err := k.ensureNamespaceAnnotations(ns); err != nil {
 		return errors.Trace(err)

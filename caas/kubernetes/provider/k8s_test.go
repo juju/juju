@@ -811,6 +811,70 @@ func (s *K8sBrokerSuite) assertFileSetToVolume(c *gc.C, fs specs.FileSet, result
 	resultChecker(vol, err)
 }
 
+func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(c *gc.C) {
+	ctrl := gomock.NewController(c)
+
+	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
+	randomPrefixFunc := func() (string, error) {
+		return "appuuid", nil
+	}
+
+	newControllerUUID := names.NewControllerTag("deadbeef-1bad-500d-9000-4b1d0d06f00e").Id()
+	nsBefore := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "test",
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "model.juju.is/name": "test"},
+		},
+	})
+	nsAfter := *nsBefore
+	nsAfter.SetAnnotations(annotations.New(nsAfter.GetAnnotations()).Add(
+		utils.AnnotationControllerUUIDKey(false), newControllerUUID,
+	))
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).Times(2).
+			Return(nsBefore, nil),
+		s.mockNamespaces.EXPECT().Update(gomock.Any(), &nsAfter, v1.UpdateOptions{}).Times(1).
+			Return(&nsAfter, nil),
+	)
+	s.setupBroker(c, ctrl, newControllerUUID, newK8sClientFunc, newK8sRestFunc, randomPrefixFunc).Finish()
+}
+
+func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNotMigrated(c *gc.C) {
+	ctrl := gomock.NewController(c)
+
+	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
+	randomPrefixFunc := func() (string, error) {
+		return "appuuid", nil
+	}
+
+	ns := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "test",
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "model.juju.is/name": "test"},
+		},
+	})
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).Times(2).
+			Return(ns, nil),
+	)
+	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc).Finish()
+}
+
+func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpaceNotCreatedYet(c *gc.C) {
+	ctrl := gomock.NewController(c)
+
+	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
+	randomPrefixFunc := func() (string, error) {
+		return "appuuid", nil
+	}
+
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).Times(2).
+			Return(nil, s.k8sNotFoundError()),
+	)
+	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc).Finish()
+}
+
 func (s *K8sBrokerSuite) TestFileSetToVolumeFiles(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()

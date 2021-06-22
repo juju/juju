@@ -287,10 +287,10 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		return "appuuid", nil
 	}
 	s.namespace = "controller-1"
-	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.namespace, v1.GetOptions{}).
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.namespace, v1.GetOptions{}).Times(2).
 		Return(nil, s.k8sNotFoundError())
 
-	s.setupBroker(c, ctrl, newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc)
+	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc)
 
 	// Broker's namespace is "controller" now - controllerModelConfig.Name()
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.getNamespace())
@@ -978,10 +978,10 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 		return "appuuid", nil
 	}
 	s.namespace = "controller-1"
-	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.namespace, v1.GetOptions{}).
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.namespace, v1.GetOptions{}).Times(2).
 		Return(nil, s.k8sNotFoundError())
 
-	s.setupBroker(c, ctrl, newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc)
+	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc)
 
 	// Broker's namespace is "controller" now - controllerModelConfig.Name()
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.getNamespace())
