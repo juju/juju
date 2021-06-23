@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/storage"
 )
 
 // Ensure EC2 provider supports the expected interfaces,
@@ -37,10 +38,11 @@ type Suite struct{}
 var _ = gc.Suite(&Suite{})
 
 type RootDiskTest struct {
-	series     string
-	name       string
-	constraint *uint64
-	device     types.BlockDeviceMapping
+	series         string
+	name           string
+	constraint     *uint64
+	rootDiskParams *storage.VolumeParams
+	device         types.BlockDeviceMapping
 }
 
 var commonInstanceStoreDisks = []types.BlockDeviceMapping{{
@@ -62,48 +64,110 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
 		"trusty",
 		"nil constraint ubuntu",
 		nil,
+		nil,
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
 		"trusty",
 		"too small constraint ubuntu",
 		pInt(4000),
+		nil,
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
 		"trusty",
 		"big constraint ubuntu",
 		pInt(20 * 1024),
+		nil,
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(20)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
 		"trusty",
 		"round up constraint ubuntu",
 		pInt(20*1024 + 1),
+		nil,
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(21)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
 		"win2012r2",
 		"nil constraint windows",
+		nil,
 		nil,
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(40)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
 		"win2012r2",
 		"too small constraint windows",
 		pInt(30 * 1024),
+		nil,
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(40)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
 		"win2012r2",
 		"big constraint windows",
 		pInt(50 * 1024),
+		nil,
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(50)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
 		"win2012r2",
 		"round up constraint windows",
 		pInt(50*1024 + 1),
+		nil,
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(51)}, DeviceName: aws.String("/dev/sda1")},
+	}, {
+		"trusty",
+		"nil constraint ubuntu with root encryption",
+		nil,
+		&storage.VolumeParams{
+			Attributes: map[string]interface{}{
+				"encrypted": true,
+			},
+		},
+		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8), Encrypted: aws.Bool(true), VolumeType: types.VolumeTypeGp2}, DeviceName: aws.String("/dev/sda1")},
+	}, {
+		"trusty",
+		"nil constraint ubuntu with root custom key encryption",
+		nil,
+		&storage.VolumeParams{
+			Attributes: map[string]interface{}{
+				"encrypted":  true,
+				"kms-key-id": "1234",
+			},
+		},
+		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8), Encrypted: aws.Bool(true), KmsKeyId: aws.String("1234"), VolumeType: types.VolumeTypeGp2}, DeviceName: aws.String("/dev/sda1")},
+	}, {
+		"trusty",
+		"nil constraint ubuntu with root volume type",
+		nil,
+		&storage.VolumeParams{
+			Attributes: map[string]interface{}{
+				"volume-type": "magnetic",
+			},
+		},
+		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8), VolumeType: types.VolumeTypeStandard}, DeviceName: aws.String("/dev/sda1")},
+	}, {
+		"trusty",
+		"nil constraint ubuntu with throughput",
+		nil,
+		&storage.VolumeParams{
+			Attributes: map[string]interface{}{
+				"volume-type": "gp3",
+				"throughput":  "10",
+			},
+		},
+		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8), VolumeType: types.VolumeTypeGp3, Throughput: aws.Int32(10)}, DeviceName: aws.String("/dev/sda1")},
+	}, {
+		"trusty",
+		"nil constraint ubuntu with throughput",
+		nil,
+		&storage.VolumeParams{
+			Attributes: map[string]interface{}{
+				"volume-type": "gp3",
+				"throughput":  "1G",
+			},
+		},
+		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8), VolumeType: types.VolumeTypeGp3, Throughput: aws.Int32(1024)}, DeviceName: aws.String("/dev/sda1")},
 	}}
 
 	for _, t := range rootDiskTests {
 		c.Logf("Test %s", t.name)
 		cons := constraints.Value{RootDisk: t.constraint}
-		mappings := getBlockDeviceMappings(cons, t.series, false)
+		mappings, err := getBlockDeviceMappings(cons, t.series, false, t.rootDiskParams)
+		c.Assert(err, jc.ErrorIsNil)
 		expected := append([]types.BlockDeviceMapping{t.device}, commonInstanceStoreDisks...)
 		c.Assert(mappings, gc.DeepEquals, expected)
 	}

@@ -38,17 +38,24 @@ const (
 	//   "gp2" for General Purpose (SSD) volumes
 	//   "io1" for Provisioned IOPS (SSD) volumes,
 	//   "standard" for Magnetic volumes.
+	//   see volumes types below for more.
 	EBS_VolumeType = "volume-type"
 
 	// EBS_IOPS is the number of I/O operations per second (IOPS) per GiB
-	// to provision for the volume. Only valid for Provisioned
-	// IOPS (SSD) volumes.
+	// to provision for the volume. Only valid for io1 io2 and gp3 volumes.
 	EBS_IOPS = "iops"
+
+	// EBS_Throughput is the max transfer troughput for gp3 volumes.
+	EBS_Throughput = "throughput"
 
 	// EBS_Encrypted specifies whether the volume should be encrypted.
 	EBS_Encrypted = "encrypted"
 
+	// EBS_KMSKeyID specifies what encryption key to use for the EBS volume.
+	EBS_KMSKeyID = "kms-key-id"
+
 	// Volume Aliases
+	// TODO(juju3): remove volume aliases and use the raw AWS names.
 	volumeAliasMagnetic        = "magnetic"         // standard
 	volumeAliasOptimizedHDD    = "optimized-hdd"    // sc1
 	volumeAliasColdStorage     = "cold-storage"     // sc1
@@ -58,7 +65,9 @@ const (
 	// Volume types
 	volumeTypeStandard = "standard"
 	volumeTypeGP2      = "gp2"
+	volumeTypeGP3      = "gp3"
 	volumeTypeIO1      = "io1"
+	volumeTypeIO2      = "io2"
 	volumeTypeST1      = "st1"
 	volumeTypeSC1      = "sc1"
 
@@ -178,27 +187,35 @@ var ebsConfigFields = schema.Fields{
 		schema.Const(volumeAliasProvisionedIops),
 		schema.Const(volumeTypeStandard),
 		schema.Const(volumeTypeGP2),
+		schema.Const(volumeTypeGP3),
 		schema.Const(volumeTypeIO1),
+		schema.Const(volumeTypeIO2),
 		schema.Const(volumeTypeST1),
 		schema.Const(volumeTypeSC1),
 	),
-	EBS_IOPS:      schema.ForceInt(),
-	EBS_Encrypted: schema.Bool(),
+	EBS_IOPS:       schema.ForceInt(),
+	EBS_Encrypted:  schema.Bool(),
+	EBS_KMSKeyID:   schema.String(),
+	EBS_Throughput: schema.String(),
 }
 
 var ebsConfigChecker = schema.FieldMap(
 	ebsConfigFields,
 	schema.Defaults{
-		EBS_VolumeType: volumeAliasSSD,
+		EBS_VolumeType: volumeTypeGP2,
 		EBS_IOPS:       schema.Omit,
 		EBS_Encrypted:  false,
+		EBS_KMSKeyID:   schema.Omit,
+		EBS_Throughput: schema.Omit,
 	},
 )
 
 type ebsConfig struct {
-	volumeType string
-	iops       int
-	encrypted  bool
+	volumeType   string
+	iops         int
+	encrypted    bool
+	kmsKeyID     string
+	throughputMB int
 }
 
 func newEbsConfig(attrs map[string]interface{}) (*ebsConfig, error) {
@@ -209,10 +226,13 @@ func newEbsConfig(attrs map[string]interface{}) (*ebsConfig, error) {
 	coerced := out.(map[string]interface{})
 	iops, _ := coerced[EBS_IOPS].(int)
 	volumeType := coerced[EBS_VolumeType].(string)
+	kmsKeyID, _ := coerced[EBS_KMSKeyID].(string)
+	throughput, _ := coerced[EBS_Throughput].(string)
 	ebsConfig := &ebsConfig{
 		volumeType: volumeType,
 		iops:       iops,
 		encrypted:  coerced[EBS_Encrypted].(bool),
+		kmsKeyID:   kmsKeyID,
 	}
 	switch ebsConfig.volumeType {
 	case volumeAliasMagnetic:
@@ -226,10 +246,27 @@ func newEbsConfig(attrs map[string]interface{}) (*ebsConfig, error) {
 	case volumeAliasProvisionedIops:
 		ebsConfig.volumeType = volumeTypeIO1
 	}
-	if ebsConfig.iops > 0 && ebsConfig.volumeType != volumeTypeIO1 {
-		return nil, errors.Errorf("IOPS specified, but volume type is %q", volumeType)
-	} else if ebsConfig.iops == 0 && ebsConfig.volumeType == volumeTypeIO1 {
-		return nil, errors.Errorf("volume type is %q, IOPS unspecified or zero", volumeTypeIO1)
+	if throughput != "" {
+		throughputMB, err := utils.ParseSize(throughput)
+		if err != nil {
+			return nil, errors.Annotatef(err, "parsing %q", EBS_Throughput)
+		}
+		ebsConfig.throughputMB = int(throughputMB)
+	}
+	switch ebsConfig.volumeType {
+	case volumeTypeIO1, volumeTypeIO2:
+		if ebsConfig.iops == 0 {
+			return nil, errors.Errorf("volume type is %q, IOPS unspecified or zero", volumeTypeIO1)
+		}
+	case volumeTypeGP3:
+		// iops is optional
+	default:
+		if ebsConfig.iops > 0 {
+			return nil, errors.Errorf("IOPS specified, but volume type is %q", volumeType)
+		}
+	}
+	if ebsConfig.throughputMB != 0 && ebsConfig.volumeType != volumeTypeGP3 {
+		return nil, errors.Errorf("%q cannot be specified when volume type is %q", EBS_Throughput, volumeType)
 	}
 	return ebsConfig, nil
 }
@@ -298,10 +335,6 @@ func parseVolumeOptions(size uint64, attrs map[string]interface{}) (_ ec2.Create
 	if err != nil {
 		return ec2.CreateVolumeInput{}, errors.Trace(err)
 	}
-	if ebsConfig.iops > 0 && ebsConfig.volumeType != volumeTypeIO1 {
-		return ec2.CreateVolumeInput{}, errors.Errorf(
-			"specifying iops is not supported for %q volumes", ebsConfig.volumeType)
-	}
 	if ebsConfig.iops > maxProvisionedIopsSizeRatio {
 		return ec2.CreateVolumeInput{}, errors.Errorf(
 			"specified IOPS ratio is %d/GiB, maximum is %d/GiB",
@@ -320,8 +353,14 @@ func parseVolumeOptions(size uint64, attrs map[string]interface{}) (_ ec2.Create
 		VolumeType: types.VolumeType(ebsConfig.volumeType),
 		Encrypted:  aws.Bool(ebsConfig.encrypted),
 	}
+	if ebsConfig.kmsKeyID != "" {
+		vol.KmsKeyId = aws.String(ebsConfig.kmsKeyID)
+	}
 	if iops > 0 {
 		vol.Iops = aws.Int32(int32(iops))
+	}
+	if ebsConfig.throughputMB > 0 {
+		vol.Throughput = aws.Int32(int32(ebsConfig.throughputMB))
 	}
 	return vol, nil
 }
@@ -688,10 +727,11 @@ func (v *ebsVolumeSource) ValidateVolumeParams(params storage.VolumeParams) erro
 	case volumeTypeStandard:
 		minVolumeSize = minMagneticVolumeSizeGiB
 		maxVolumeSize = maxMagneticVolumeSizeGiB
-	case volumeTypeGP2:
+	case volumeTypeGP2, types.VolumeTypeGp3:
 		minVolumeSize = minSSDVolumeSizeGiB
 		maxVolumeSize = maxSSDVolumeSizeGiB
-	case volumeTypeIO1:
+	case volumeTypeIO1, types.VolumeTypeIo2:
+		// TODO(juju3): check io2 max disk size re: io2 block express on r5b instances.
 		minVolumeSize = minProvisionedIopsVolumeSizeGiB
 		maxVolumeSize = maxProvisionedIopsVolumeSizeGiB
 	case volumeTypeST1:
@@ -1069,7 +1109,8 @@ func getBlockDeviceMappings(
 	cons constraints.Value,
 	series string,
 	controller bool,
-) []types.BlockDeviceMapping {
+	rootDisk *storage.VolumeParams,
+) ([]types.BlockDeviceMapping, error) {
 	minRootDiskSizeMiB := minRootDiskSizeMiB(series)
 	rootDiskSizeMiB := minRootDiskSizeMiB
 	if controller {
@@ -1086,13 +1127,37 @@ func getBlockDeviceMappings(
 			)
 		}
 	}
-	// The first block device is for the root disk.
-	blockDeviceMappings := []types.BlockDeviceMapping{{
+
+	rootDiskMapping := types.BlockDeviceMapping{
 		DeviceName: aws.String(rootDiskDeviceName),
 		Ebs: &types.EbsBlockDevice{
 			VolumeSize: aws.Int32(int32(mibToGib(rootDiskSizeMiB))),
 		},
-	}}
+	}
+	if rootDisk != nil {
+		config, err := newEbsConfig(rootDisk.Attributes)
+		if err != nil {
+			return nil, errors.Annotatef(err, "parsing root disk attributes")
+		}
+		if config.encrypted {
+			rootDiskMapping.Ebs.Encrypted = aws.Bool(config.encrypted)
+		}
+		if config.iops > 0 {
+			rootDiskMapping.Ebs.Iops = aws.Int32(int32(config.iops))
+		}
+		if config.volumeType != "" {
+			rootDiskMapping.Ebs.VolumeType = types.VolumeType(config.volumeType)
+		}
+		if config.kmsKeyID != "" {
+			rootDiskMapping.Ebs.KmsKeyId = aws.String(config.kmsKeyID)
+		}
+		if config.throughputMB > 0 {
+			rootDiskMapping.Ebs.Throughput = aws.Int32(int32(config.throughputMB))
+		}
+	}
+
+	// The first block device is for the root disk.
+	blockDeviceMappings := []types.BlockDeviceMapping{rootDiskMapping}
 
 	// Not all machines have this many instance stores.
 	// Instances will be started with as many of the
@@ -1111,7 +1176,7 @@ func getBlockDeviceMappings(
 		DeviceName:  aws.String("/dev/sde"),
 	}}...)
 
-	return blockDeviceMappings
+	return blockDeviceMappings, nil
 }
 
 // mibToGib converts mebibytes to gibibytes.
