@@ -199,11 +199,9 @@ func (s *serverFactory) RemoteServer(spec environscloudspec.CloudSpec) (Server, 
 	if !ok {
 		return nil, errors.NotValidf("credentials")
 	}
-	serverSpec := lxd.NewServerSpec(spec.Endpoint,
-		serverCert,
-		clientCert,
-	)
-	serverSpec.WithProxy(proxy.DefaultConfig.GetProxy)
+
+	serverSpec := lxd.NewServerSpec(spec.Endpoint, serverCert, clientCert).WithProxy(proxy.DefaultConfig.GetProxy)
+
 	svr, err := s.newRemoteServerFunc(serverSpec)
 	if err == nil {
 		err = s.bootstrapRemoteServer(svr)
