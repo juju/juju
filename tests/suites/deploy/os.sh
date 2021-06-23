@@ -11,10 +11,10 @@ test_deploy_os() {
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"ec2" | "aws")
-		#
-		# A handy place to find the current AMIs for centos
-		# https://wiki.centos.org/Cloud/AWS
-		#
+			#
+			# A handy place to find the current AMIs for centos
+			# https://wiki.centos.org/Cloud/AWS
+			#
 			run "run_deploy_centos7"
 			run "run_deploy_centos8"
 			;;

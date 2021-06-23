@@ -33,7 +33,7 @@ func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
-	credentials, err := s.provider.DetectCredentials()
+	credentials, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, jc.DeepEquals, cloud.NewEmptyCloudCredential())
 }

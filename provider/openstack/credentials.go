@@ -106,7 +106,7 @@ func (OpenstackCredentials) CredentialSchemas() map[cloud.AuthType]cloud.Credent
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
-func (c OpenstackCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
+func (c OpenstackCredentials) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
 	result := cloud.CloudCredential{
 		AuthCredentials: make(map[string]cloud.Credential),
 	}

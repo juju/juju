@@ -235,7 +235,8 @@ func NewClientWithFileSystem(config Config, fileSystem FileSystem) (*Client, err
 	config.Logger.Tracef("NewClient to %q", config.URL)
 
 	apiRequester := NewAPIRequester(config.Transport, config.Logger)
-	restClient := NewHTTPRESTClient(apiRequester, config.Headers)
+	apiRequestLogger := NewAPIRequesterLogger(apiRequester, config.Logger)
+	restClient := NewHTTPRESTClient(apiRequestLogger, config.Headers)
 
 	return &Client{
 		url:           base.String(),

@@ -13,7 +13,11 @@ require (
 	github.com/EvilSuperstars/go-cidrman v0.0.0-20170211231153-4e5a4a63d9b7
 	github.com/altoros/gosigma v0.0.0-20150408145232-31228935eec6
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
-	github.com/aws/aws-sdk-go v1.29.8
+	github.com/aws/aws-sdk-go-v2 v1.6.0
+	github.com/aws/aws-sdk-go-v2/config v1.3.0
+	github.com/aws/aws-sdk-go-v2/credentials v1.2.1
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.9.0
+	github.com/aws/smithy-go v1.4.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
 	github.com/canonical/pebble v0.0.0-20210609205628-b152ff448bbe
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
@@ -26,7 +30,9 @@ require (
 	github.com/go-logr/logr v0.2.0
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.0-20210309064400-d73aa8f92aa2
 	github.com/golang/mock v1.5.0
+	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-querystring v1.0.0
+	github.com/google/uuid v1.2.0 // indirect
 	github.com/googleapis/gnostic v0.4.1
 	github.com/gorilla/handlers v0.0.0-20170224193955-13d73096a474
 	github.com/gorilla/schema v0.0.0-20160426231512-08023a0215e7
@@ -41,7 +47,7 @@ require (
 	github.com/imdario/mergo v0.3.10 // indirect
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
-	github.com/juju/charm/v8 v8.0.0-20210510114941-82380ab895dc
+	github.com/juju/charm/v8 v8.0.0-20210615153946-469f7216a7d5
 	github.com/juju/charmrepo/v6 v6.0.0-20210422125831-407c8ef9471c
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
@@ -52,7 +58,7 @@ require (
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
 	github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2
 	github.com/juju/gomaasapi/v2 v2.0.0-20210323144809-92beddd020fe
-	github.com/juju/http/v2 v2.0.0-20210527161802-e8d841c4e076
+	github.com/juju/http/v2 v2.0.0-20210616081525-ede00d07798a
 	github.com/juju/idmclient/v2 v2.0.0-20210309081103-6b4a5212f851
 	github.com/juju/jsonschema v0.0.0-20210422141032-b0ff291abe9c
 	github.com/juju/jsonschema-gen v0.0.0-20200416014454-d924343d72b2
@@ -83,7 +89,7 @@ require (
 	github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.1
-	github.com/lxc/lxd v0.0.0-20201127143816-0245f4a840c6
+	github.com/lxc/lxd v0.0.0-20210607205159-a7c206b5233d
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-isatty v0.0.12
 	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
@@ -92,6 +98,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/oracle/oci-go-sdk v5.7.0+incompatible
 	github.com/pascaldekloe/goe v0.1.0 // indirect
+	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
@@ -100,19 +107,18 @@ require (
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/vishvananda/netlink v1.1.0
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
-	golang.org/x/crypto v0.0.0-20210506145944-38f3c27a63bf
+	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
 	golang.org/x/mod v0.4.0 // indirect
-	golang.org/x/net v0.0.0-20210510120150-4163338589ed
+	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
-	golang.org/x/sys v0.0.0-20210510120138-977fb7262007
+	golang.org/x/sys v0.0.0-20210608053332-aa57babbf139
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools v0.0.0-20210105210202-9ed45478a130
 	google.golang.org/api v0.29.0
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20200726014623-da3ae01ef02d // indirect
 	google.golang.org/grpc v1.33.1 // indirect
-	gopkg.in/amz.v3 v3.0.0-20201001071545-24fc1eceb27b
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/httprequest.v1 v1.2.1
 	gopkg.in/ini.v1 v1.51.0

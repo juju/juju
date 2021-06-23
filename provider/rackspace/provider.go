@@ -4,6 +4,7 @@
 package rackspace
 
 import (
+	stdcontext "context"
 	"strings"
 
 	"github.com/juju/errors"
@@ -39,9 +40,9 @@ func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*con
 }
 
 // Open is part of the EnvironProvider interface.
-func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+func (p *environProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	args.Cloud = transformCloudSpec(args.Cloud)
-	return p.CloudEnvironProvider.Open(args)
+	return p.CloudEnvironProvider.Open(ctx, args)
 }
 
 func transformCloudSpec(spec environscloudspec.CloudSpec) environscloudspec.CloudSpec {

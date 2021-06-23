@@ -36,7 +36,7 @@ func (CredentialSuite) TestDetectCredentialsNoDomain(c *gc.C) {
 	os.Setenv("OS_TENANT_NAME", "baz")
 	os.Setenv("OS_PASSWORD", "bar")
 	os.Setenv("OS_DOMAIN_NAME", "domain")
-	result, err := rackspace.Credentials{}.DetectCredentials()
+	result, err := rackspace.Credentials{}.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)
 	for _, v := range result.AuthCredentials {
 		attr := v.Attributes()

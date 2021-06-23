@@ -4,6 +4,7 @@
 package provider
 
 import (
+	stdcontext "context"
 	"net/url"
 
 	jujuclock "github.com/juju/clock"
@@ -44,7 +45,7 @@ var providerInstance = kubernetesEnvironProvider{
 	cmdRunner:          defaultRunner{},
 	builtinCloudGetter: attemptMicroK8sCloud,
 	brokerGetter: func(args environs.OpenParams) (caas.ClusterMetadataChecker, error) {
-		return caas.New(args)
+		return caas.New(stdcontext.TODO(), args)
 	},
 }
 
@@ -154,7 +155,8 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 		return broker, nil
 	}
 
-	ns, err := controllerCorelation(broker)
+	ns, err := findControllerNamespace(
+		broker.client(), args.ControllerUUID)
 	if errors.IsNotFound(err) {
 		return broker, nil
 	} else if err != nil {
@@ -162,7 +164,7 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 	}
 
 	return newK8sBroker(
-		args.ControllerUUID, k8sRestConfig, args.Config, ns,
+		args.ControllerUUID, k8sRestConfig, args.Config, ns.Name,
 		NewK8sClients, newRestClient, k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher,
 		utils.RandomPrefix, jujuclock.WallClock)
 }

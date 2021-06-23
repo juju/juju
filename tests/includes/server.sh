@@ -9,6 +9,10 @@ start_server() {
 		SERVER_PID=$!
 
 		echo "${SERVER_PID}" >"${TEST_DIR}/server.pid"
+
+		# Sleep to ensure the python server is up and running correctly, as it's
+		# a daemon service (&) we can't actually see if it's up easily.
+		sleep 5
 	)
 }
 

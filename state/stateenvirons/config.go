@@ -4,6 +4,8 @@
 package stateenvirons
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -54,7 +56,7 @@ func (g EnvironConfigGetter) CloudAPIVersion(spec environscloudspec.CloudSpec) (
 	if newBroker == nil {
 		newBroker = caas.New
 	}
-	broker, err := newBroker(environs.OpenParams{
+	broker, err := newBroker(context.TODO(), environs.OpenParams{
 		ControllerUUID: g.Model.ControllerUUID(),
 		Cloud:          spec,
 		Config:         cfg,
@@ -143,7 +145,7 @@ func GetNewCAASBrokerFunc(newBroker caas.NewContainerBrokerFunc) NewCAASBrokerFu
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return newBroker(environs.OpenParams{
+		return newBroker(context.TODO(), environs.OpenParams{
 			ControllerUUID: m.ControllerUUID(),
 			Cloud:          cloudSpec,
 			Config:         cfg,

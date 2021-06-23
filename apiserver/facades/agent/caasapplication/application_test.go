@@ -72,6 +72,14 @@ func (s *CAASApplicationSuite) TestAddUnit(c *gc.C) {
 		updateOp: nil,
 	}
 
+	s.broker.app = &mockCAASApplication{
+		units: []caas.Unit{{
+			Id:      "gitlab-0",
+			Address: "1.2.3.4",
+			Ports:   []string{"80"},
+		}},
+	}
+
 	results, err := s.facade.UnitIntroduction(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Error, gc.IsNil)
@@ -80,10 +88,12 @@ func (s *CAASApplicationSuite) TestAddUnit(c *gc.C) {
 
 	s.st.CheckCallNames(c, "Model", "Application", "Unit", "ControllerConfig", "APIHostPortsForAgents")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
-	s.st.app.CheckCallNames(c, "Life", "Name", "AddUnit")
-	c.Assert(s.st.app.Calls()[2].Args[0], gc.DeepEquals, state.AddUnitParams{
+	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "AddUnit")
+	c.Assert(s.st.app.Calls()[3].Args[0], gc.DeepEquals, state.AddUnitParams{
 		ProviderId: strPtr("gitlab-0"),
 		UnitName:   strPtr("gitlab/0"),
+		Address:    strPtr("1.2.3.4"),
+		Ports:      &[]string{"80"},
 	})
 }
 
@@ -101,6 +111,14 @@ func (s *CAASApplicationSuite) TestReuseUnitByName(c *gc.C) {
 		},
 	}
 
+	s.broker.app = &mockCAASApplication{
+		units: []caas.Unit{{
+			Id:      "gitlab-0",
+			Address: "1.2.3.4",
+			Ports:   []string{"80"},
+		}},
+	}
+
 	results, err := s.facade.UnitIntroduction(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Error, gc.IsNil)
@@ -109,8 +127,14 @@ func (s *CAASApplicationSuite) TestReuseUnitByName(c *gc.C) {
 
 	s.st.CheckCallNames(c, "Model", "Application", "Unit", "ControllerConfig", "APIHostPortsForAgents")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
-	s.st.app.CheckCallNames(c, "Life", "Name", "UpdateUnits")
-	c.Assert(s.st.app.Calls()[2].Args[0], gc.DeepEquals, &state.UpdateUnitsOperation{
+	s.st.units["gitlab/0"].CheckCallNames(c, "Life", "UpdateOperation", "SetPassword")
+	c.Assert(s.st.units["gitlab/0"].Calls()[1].Args[0], gc.DeepEquals, state.UnitUpdateProperties{
+		ProviderId: strPtr("gitlab-0"),
+		Address:    strPtr("1.2.3.4"),
+		Ports:      &[]string{"80"},
+	})
+	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "UpdateUnits")
+	c.Assert(s.st.app.Calls()[3].Args[0], gc.DeepEquals, &state.UpdateUnitsOperation{
 		Updates: []*state.UpdateUnitOperation{nil},
 	})
 }
@@ -156,6 +180,14 @@ func (s *CAASApplicationSuite) TestAgentConf(c *gc.C) {
 			unit:       "gitlab/0",
 		},
 		updateOp: nil,
+	}
+
+	s.broker.app = &mockCAASApplication{
+		units: []caas.Unit{{
+			Id:      "gitlab-0",
+			Address: "1.2.3.4",
+			Ports:   []string{"80"},
+		}},
 	}
 
 	results, err := s.facade.UnitIntroduction(args)

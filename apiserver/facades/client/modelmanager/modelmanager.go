@@ -8,6 +8,7 @@
 package modelmanager
 
 import (
+	stdcontext "context"
 	"fmt"
 	"sort"
 	"time"
@@ -120,7 +121,7 @@ type ModelManagerV2 interface {
 	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 }
 
-type newCaasBrokerFunc func(args environs.OpenParams) (caas.Broker, error)
+type newCaasBrokerFunc func(_ stdcontext.Context, args environs.OpenParams) (caas.Broker, error)
 
 // StatePool represents a point of use interface for getting the state from the
 // pool.
@@ -621,7 +622,7 @@ func (m *ModelManagerAPI) newCAASModel(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller config")
 	}
-	broker, err := m.getBroker(environs.OpenParams{
+	broker, err := m.getBroker(stdcontext.TODO(), environs.OpenParams{
 		ControllerUUID: controllerConfig.ControllerUUID(),
 		Cloud:          cloudSpec,
 		Config:         newConfig,
@@ -686,7 +687,7 @@ func (m *ModelManagerAPI) newModel(
 	}
 
 	// Create the Environ.
-	env, err := environs.New(environs.OpenParams{
+	env, err := environs.New(stdcontext.TODO(), environs.OpenParams{
 		ControllerUUID: controllerCfg.ControllerUUID(),
 		Cloud:          cloudSpec,
 		Config:         newConfig,

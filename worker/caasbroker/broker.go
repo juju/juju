@@ -4,6 +4,7 @@
 package caasbroker
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -87,7 +88,7 @@ func NewTracker(config Config) (*Tracker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	broker, err := config.NewContainerBrokerFunc(environs.OpenParams{
+	broker, err := config.NewContainerBrokerFunc(context.TODO(), environs.OpenParams{
 		ControllerUUID: ctrlCfg.ControllerUUID(),
 		Cloud:          cloudSpec,
 		Config:         cfg,
@@ -176,7 +177,7 @@ func (t *Tracker) loop() error {
 				continue
 			}
 			logger.Debugf("reloading cloud config")
-			if err = cloudSpecSetter.SetCloudSpec(cloudSpec); err != nil {
+			if err = cloudSpecSetter.SetCloudSpec(context.TODO(), cloudSpec); err != nil {
 				return errors.Annotate(err, "cannot update broker cloud spec")
 			}
 			t.currentCloudSpec = cloudSpec

@@ -4,6 +4,8 @@
 package azure
 
 import (
+	stdcontext "context"
+
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -121,7 +123,7 @@ func (prov *azureEnvironProvider) Version() int {
 }
 
 // Open is part of the EnvironProvider interface.
-func (prov *azureEnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+func (prov *azureEnvironProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q", args.Config.Name())
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")

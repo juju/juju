@@ -4,6 +4,7 @@
 package vsphere_test
 
 import (
+	stdcontext "context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -58,7 +59,7 @@ func (s *EnvironFixture) SetUpTest(c *gc.C) {
 		s.imageServer.Close()
 	})
 
-	env, err := s.provider.Open(environs.OpenParams{
+	env, err := s.provider.Open(stdcontext.TODO(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
 			"image-metadata-url": s.imageServer.URL,

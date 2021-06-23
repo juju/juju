@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	stdcontext "context"
 	"strings"
 	"sync"
 
@@ -76,7 +77,7 @@ func newEnviron(
 	}
 	env.base = common.DefaultProvider{Env: env}
 
-	err = env.SetCloudSpec(spec)
+	err = env.SetCloudSpec(stdcontext.TODO(), spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -148,7 +149,7 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (env *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
+func (env *environ) SetCloudSpec(_ stdcontext.Context, spec environscloudspec.CloudSpec) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
 

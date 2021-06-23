@@ -5,6 +5,7 @@ package manual_test
 
 import (
 	"context"
+	stdcontext "context"
 	"fmt"
 	"io"
 
@@ -69,7 +70,7 @@ func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string
 	if err != nil {
 		return nil, err
 	}
-	env, err := manual.ProviderInstance.Open(environs.OpenParams{
+	env, err := manual.ProviderInstance.Open(stdcontext.TODO(), environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: testConfig,
 	})

@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2"
@@ -35,7 +36,7 @@ const (
 
 // CertificateReadWriter groups methods that is required to read and write
 // certificates at a given path.
-//go:generate go run github.com/golang/mock/mockgen -package lxd -destination credentials_mock_test.go github.com/juju/juju/provider/lxd CertificateReadWriter,CertificateGenerator,NetLookup
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/credentials_mock.go github.com/juju/juju/provider/lxd CertificateReadWriter,CertificateGenerator,NetLookup
 type CertificateReadWriter interface {
 	// Read takes a path and returns both a cert and key PEM.
 	// Returns an error if there was an issue reading the certs.
@@ -143,14 +144,14 @@ func (p environProviderCredentials) RegisterCredentials(cld cloud.Cloud) (map[st
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
-func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
+func (p environProviderCredentials) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
 	nopLogf := func(msg string, args ...interface{}) {}
 	certPEM, keyPEM, err := p.readOrGenerateCert(nopLogf)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	remoteCertCredentials, err := p.detectRemoteCredentials(certPEM, keyPEM)
+	remoteCertCredentials, err := p.detectRemoteCredentials()
 	if err != nil {
 		logger.Debugf("unable to detect remote LXC credentials: %s", err)
 	}
@@ -162,10 +163,15 @@ func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 
 	authCredentials := make(map[string]cloud.Credential)
 	for k, v := range remoteCertCredentials {
+		if cloudName != "" && k != cloudName {
+			continue
+		}
 		authCredentials[k] = v
 	}
 	if localCertCredentials != nil {
-		authCredentials["localhost"] = *localCertCredentials
+		if cloudName == "" || cloudName == lxdnames.DefaultCloud || cloudName == lxdnames.DefaultCloudAltName {
+			authCredentials["localhost"] = *localCertCredentials
+		}
 	}
 	return &cloud.CloudCredential{
 		AuthCredentials: authCredentials,
@@ -191,17 +197,30 @@ func (p environProviderCredentials) detectLocalCredentials(certPEM, keyPEM []byt
 // remote lxc configurations found in `$HOME/.config/lxc/.config` file.
 // Any setups found in the configuration will then be returned as a credential
 // that can be automatically loaded into juju.
-func (p environProviderCredentials) detectRemoteCredentials(certPEM, keyPEM []byte) (map[string]cloud.Credential, error) {
-	configDir := filepath.Join(utils.Home(), ".config", "lxc")
-	configPath := filepath.Join(configDir, "config.yml")
-	config, err := p.lxcConfigReader.ReadConfig(configPath)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+func (p environProviderCredentials) detectRemoteCredentials() (map[string]cloud.Credential, error) {
 	credentials := make(map[string]cloud.Credential)
-	for name, remote := range config.Remotes {
-		if remote.Protocol == lxdnames.ProviderType {
+	for _, configDir := range configDirs() {
+		configPath := filepath.Join(configDir, "config.yml")
+		config, err := p.lxcConfigReader.ReadConfig(configPath)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		if len(config.Remotes) == 0 {
+			continue
+		}
+
+		certPEM, keyPEM, err := p.certReadWriter.Read(configDir)
+		if err != nil && !os.IsNotExist(errors.Cause(err)) {
+			return nil, errors.Trace(err)
+		} else if os.IsNotExist(err) {
+			continue
+		}
+
+		for name, remote := range config.Remotes {
+			if remote.Protocol != lxdnames.ProviderType {
+				continue
+			}
 			certPath := filepath.Join(configDir, "servercerts", fmt.Sprintf("%s.crt", name))
 			authConfig := map[string]string{
 				credAttrClientCert: string(certPEM),
@@ -225,34 +244,21 @@ func (p environProviderCredentials) detectRemoteCredentials(certPEM, keyPEM []by
 }
 
 func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...interface{})) (certPEM, keyPEM []byte, _ error) {
-	// First look in the Juju XDG_DATA dir. This allows the user
-	// to explicitly override the certificates used by the lxc
-	// client if they wish.
-	jujuLXDDir := osenv.JujuXDGDataHomePath("lxd")
-	certPEM, keyPEM, err := p.certReadWriter.Read(jujuLXDDir)
-	if err == nil {
-		logf("Loaded client cert/key from %q", jujuLXDDir)
-		return certPEM, keyPEM, nil
-	} else if !os.IsNotExist(errors.Cause(err)) {
-		return nil, nil, errors.Trace(err)
-	}
-
-	// Next we look in the LXD config dir, in case the user has
-	// a client certificate/key pair for use with the "lxc" client
-	// application.
-	lxdConfigDir := filepath.Join(utils.Home(), ".config", "lxc")
-	certPEM, keyPEM, err = p.certReadWriter.Read(lxdConfigDir)
-	if err == nil {
-		logf("Loaded client cert/key from %q", lxdConfigDir)
-		return certPEM, keyPEM, nil
-	} else if !os.IsNotExist(errors.Cause(err)) {
-		return nil, nil, errors.Trace(err)
+	for _, dir := range configDirs() {
+		certPEM, keyPEM, err := p.certReadWriter.Read(dir)
+		if err == nil {
+			logf("Loaded client cert/key from %q", dir)
+			return certPEM, keyPEM, nil
+		} else if !os.IsNotExist(errors.Cause(err)) {
+			return nil, nil, errors.Trace(err)
+		}
 	}
 
 	// No certs were found, so generate one and cache it in the
 	// Juju XDG_DATA dir. We cache the certificate so that we
 	// avoid uploading a new certificate each time we bootstrap.
-	certPEM, keyPEM, err = p.certGenerator.Generate(true, true)
+	jujuLXDDir := osenv.JujuXDGDataHomePath("lxd")
+	certPEM, keyPEM, err := p.certGenerator.Generate(true, true)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -660,4 +666,18 @@ func getClientCertificates(credentials cloud.Credential) (client *lxd.Certificat
 		KeyPEM:  []byte(clientKeyPEM),
 	}
 	return clientCert, true
+}
+
+func configDirs() []string {
+	dirs := []string{
+		osenv.JujuXDGDataHomePath("lxd"),
+	}
+	if lxdConf := os.Getenv("LXD_CONF"); lxdConf != "" {
+		dirs = append(dirs, lxdConf)
+	}
+	dirs = append(dirs, filepath.Join(utils.Home(), ".config", "lxc"))
+	if runtime.GOOS == "linux" {
+		dirs = append(dirs, filepath.Join(utils.Home(), "snap", "lxd", "current", ".config", "lxc"))
+	}
+	return dirs
 }

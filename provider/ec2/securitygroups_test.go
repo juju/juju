@@ -4,13 +4,17 @@
 package ec2_test
 
 import (
+	stdcontext "context"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsec2 "github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/smithy-go"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	amzec2 "gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/context"
@@ -21,8 +25,8 @@ import (
 type SecurityGroupSuite struct {
 	coretesting.BaseSuite
 
-	instanceStub *stubInstance
-	deleteFunc   func(ec2.SecurityGroupCleaner, context.ProviderCallContext, amzec2.SecurityGroup, clock.Clock) error
+	clientStub   *stubClient
+	deleteFunc   func(ec2.SecurityGroupCleaner, context.ProviderCallContext, types.GroupIdentifier, clock.Clock) error
 	cloudCallCtx context.ProviderCallContext
 }
 
@@ -35,9 +39,9 @@ func (s *SecurityGroupSuite) SetUpSuite(c *gc.C) {
 
 func (s *SecurityGroupSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.instanceStub = &stubInstance{
+	s.clientStub = &stubClient{
 		Stub: &testing.Stub{},
-		deleteSecurityGroup: func(group amzec2.SecurityGroup) (resp *amzec2.SimpleResp, err error) {
+		deleteSecurityGroup: func(group types.GroupIdentifier) (resp *awsec2.DeleteSecurityGroupOutput, err error) {
 			return nil, nil
 		},
 	}
@@ -45,18 +49,18 @@ func (s *SecurityGroupSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *SecurityGroupSuite) TestDeleteSecurityGroupSuccess(c *gc.C) {
-	err := s.deleteFunc(s.instanceStub, s.cloudCallCtx, amzec2.SecurityGroup{}, testclock.NewClock(time.Time{}))
+	err := s.deleteFunc(s.clientStub, s.cloudCallCtx, types.GroupIdentifier{}, testclock.NewClock(time.Time{}))
 	c.Assert(err, jc.ErrorIsNil)
-	s.instanceStub.CheckCallNames(c, "DeleteSecurityGroup")
+	s.clientStub.CheckCallNames(c, "DeleteSecurityGroup")
 }
 
 func (s *SecurityGroupSuite) TestDeleteSecurityGroupInvalidGroupNotFound(c *gc.C) {
-	s.instanceStub.deleteSecurityGroup = func(group amzec2.SecurityGroup) (resp *amzec2.SimpleResp, err error) {
-		return nil, &amzec2.Error{Code: "InvalidGroup.NotFound"}
+	s.clientStub.deleteSecurityGroup = func(group types.GroupIdentifier) (resp *awsec2.DeleteSecurityGroupOutput, err error) {
+		return nil, &smithy.GenericAPIError{Code: "InvalidGroup.NotFound"}
 	}
-	err := s.deleteFunc(s.instanceStub, s.cloudCallCtx, amzec2.SecurityGroup{}, testclock.NewClock(time.Time{}))
+	err := s.deleteFunc(s.clientStub, s.cloudCallCtx, types.GroupIdentifier{}, testclock.NewClock(time.Time{}))
 	c.Assert(err, jc.ErrorIsNil)
-	s.instanceStub.CheckCallNames(c, "DeleteSecurityGroup")
+	s.clientStub.CheckCallNames(c, "DeleteSecurityGroup")
 }
 
 func (s *SecurityGroupSuite) TestDeleteSecurityGroupFewCalls(c *gc.C) {
@@ -71,22 +75,22 @@ func (s *SecurityGroupSuite) TestDeleteSecurityGroupFewCalls(c *gc.C) {
 		t0.Add(7 * time.Second),
 		t0.Add(15 * time.Second),
 	}
-	s.instanceStub.deleteSecurityGroup = func(group amzec2.SecurityGroup) (resp *amzec2.SimpleResp, err error) {
+	s.clientStub.deleteSecurityGroup = func(group types.GroupIdentifier) (resp *awsec2.DeleteSecurityGroupOutput, err error) {
 		c.Assert(clock.Now(), gc.Equals, expectedTimes[count])
 		if count < maxCalls {
 			count++
-			return nil, &amzec2.Error{Code: "keep going"}
+			return nil, &smithy.GenericAPIError{Code: "keep going"}
 		}
 		return nil, nil
 	}
-	err := s.deleteFunc(s.instanceStub, s.cloudCallCtx, amzec2.SecurityGroup{}, clock)
+	err := s.deleteFunc(s.clientStub, s.cloudCallCtx, types.GroupIdentifier{}, clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedCalls := make([]string, maxCalls+1)
 	for i := 0; i < maxCalls+1; i++ {
 		expectedCalls[i] = "DeleteSecurityGroup"
 	}
-	s.instanceStub.CheckCallNames(c, expectedCalls...)
+	s.clientStub.CheckCallNames(c, expectedCalls...)
 }
 
 type autoAdvancingClock struct {
@@ -99,12 +103,15 @@ func (c autoAdvancingClock) After(d time.Duration) <-chan time.Time {
 	return ch
 }
 
-type stubInstance struct {
+type stubClient struct {
 	*testing.Stub
-	deleteSecurityGroup func(group amzec2.SecurityGroup) (resp *amzec2.SimpleResp, err error)
+	deleteSecurityGroup func(group types.GroupIdentifier) (*awsec2.DeleteSecurityGroupOutput, error)
 }
 
-func (s *stubInstance) DeleteSecurityGroup(group amzec2.SecurityGroup) (resp *amzec2.SimpleResp, err error) {
-	s.MethodCall(s, "DeleteSecurityGroup", group)
-	return s.deleteSecurityGroup(group)
+func (s *stubClient) DeleteSecurityGroup(ctx stdcontext.Context, input *awsec2.DeleteSecurityGroupInput, _ ...func(*awsec2.Options)) (*awsec2.DeleteSecurityGroupOutput, error) {
+	s.MethodCall(s, "DeleteSecurityGroup", aws.ToString(input.GroupId), aws.ToString(input.GroupName))
+	return s.deleteSecurityGroup(types.GroupIdentifier{
+		GroupId:   input.GroupId,
+		GroupName: input.GroupName,
+	})
 }

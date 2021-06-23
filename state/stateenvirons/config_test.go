@@ -4,6 +4,8 @@
 package stateenvirons_test
 
 import (
+	"context"
+
 	"github.com/juju/juju/caas"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -26,7 +28,7 @@ var _ = gc.Suite(&environSuite{})
 func (s *environSuite) TestGetNewEnvironFunc(c *gc.C) {
 	var calls int
 	var callArgs environs.OpenParams
-	newEnviron := func(args environs.OpenParams) (environs.Environ, error) {
+	newEnviron := func(_ context.Context, args environs.OpenParams) (environs.Environ, error) {
 		calls++
 		callArgs = args
 		return nil, nil
@@ -110,7 +112,7 @@ func (s *environSuite) TestCloudSpecForModel(c *gc.C) {
 func (s *environSuite) TestGetNewCAASBrokerFunc(c *gc.C) {
 	var calls int
 	var callArgs environs.OpenParams
-	newBroker := func(args environs.OpenParams) (caas.Broker, error) {
+	newBroker := func(_ context.Context, args environs.OpenParams) (caas.Broker, error) {
 		calls++
 		callArgs = args
 		return nil, nil
@@ -142,7 +144,7 @@ func (s *environSuite) TestCloudAPIVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred := cloud.NewNamedCredential("dummy-credential", "userpass", nil, false)
-	newBrokerFunc := func(args environs.OpenParams) (caas.Broker, error) {
+	newBrokerFunc := func(_ context.Context, args environs.OpenParams) (caas.Broker, error) {
 		c.Assert(args.Cloud, jc.DeepEquals, environscloudspec.CloudSpec{
 			Name:       "caascloud",
 			Type:       "kubernetes",

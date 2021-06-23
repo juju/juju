@@ -4,6 +4,7 @@
 package maas
 
 import (
+	stdcontext "context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -127,7 +128,7 @@ func NewEnviron(cloud environscloudspec.CloudSpec, cfg *config.Config, getCaps M
 	if err := env.SetConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := env.SetCloudSpec(cloud); err != nil {
+	if err := env.SetCloudSpec(stdcontext.TODO(), cloud); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -272,7 +273,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (env *maasEnviron) SetCloudSpec(spec environscloudspec.CloudSpec) error {
+func (env *maasEnviron) SetCloudSpec(_ stdcontext.Context, spec environscloudspec.CloudSpec) error {
 	env.ecfgMutex.Lock()
 	defer env.ecfgMutex.Unlock()
 

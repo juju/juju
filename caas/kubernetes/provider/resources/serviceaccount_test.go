@@ -93,3 +93,81 @@ func (s *serviceAccountSuite) TestDelete(c *gc.C) {
 	_, err = s.client.CoreV1().ServiceAccounts("test").Get(context.TODO(), "sa1", metav1.GetOptions{})
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
 }
+
+func (s *serviceAccountSuite) TestUpdate(c *gc.C) {
+	sa := corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "sa1",
+			Namespace: "test",
+		},
+	}
+	_, err := s.client.CoreV1().ServiceAccounts("test").Create(
+		context.TODO(),
+		&sa,
+		metav1.CreateOptions{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	sa.ObjectMeta.Labels = map[string]string{
+		"test": "label",
+	}
+
+	saResource := resources.NewServiceAccount("sa1", "test", &sa)
+	err = saResource.Update(context.TODO(), s.client)
+	c.Assert(err, jc.ErrorIsNil)
+
+	rsa, err := s.client.CoreV1().ServiceAccounts("test").Get(
+		context.TODO(),
+		"sa1",
+		metav1.GetOptions{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rsa, jc.DeepEquals, &saResource.ServiceAccount)
+}
+
+func (s *serviceAccountSuite) TestEnsureCreatesNew(c *gc.C) {
+	sa := resources.NewServiceAccount("sa1", "test", &corev1.ServiceAccount{})
+	cleanups, err := sa.Ensure(context.TODO(), s.client)
+	c.Assert(err, jc.ErrorIsNil)
+
+	obj, err := s.client.CoreV1().ServiceAccounts("test").Get(
+		context.TODO(), "sa1", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(&sa.ServiceAccount, jc.DeepEquals, obj)
+
+	for _, v := range cleanups {
+		v()
+	}
+
+	// Test cleanup removes service account
+	_, err = s.client.CoreV1().ServiceAccounts("test").Get(
+		context.TODO(), "sa1", metav1.GetOptions{})
+	c.Assert(k8serrors.IsNotFound(err), jc.IsTrue)
+}
+
+func (s *serviceAccountSuite) TestEnsureUpdates(c *gc.C) {
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "sa2",
+			Namespace: "testing",
+		},
+	}
+
+	_, err := s.client.CoreV1().ServiceAccounts("testing").Create(
+		context.TODO(), sa, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	sa.ObjectMeta.Labels = map[string]string{
+		"test": "case",
+	}
+
+	resource := resources.NewServiceAccount("sa2", "testing", sa)
+	_, err = resource.Ensure(context.TODO(), s.client)
+	c.Assert(err, jc.ErrorIsNil)
+
+	obj, err := s.client.CoreV1().ServiceAccounts("testing").Get(
+		context.TODO(), sa.Name, metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(obj, jc.DeepEquals, &resource.ServiceAccount)
+}

@@ -9,10 +9,11 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v8"
-	"github.com/juju/charmrepo/v6"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
+
+	corecharm "github.com/juju/juju/core/charm"
 )
 
 type resolver struct {
@@ -32,9 +33,6 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 	add := r.changes.add
 	applications := r.bundle.Applications
 	defaultSeries := r.bundle.Series
-	if r.bundle.Type == kubernetes {
-		defaultSeries = kubernetes
-	}
 	existing := r.model
 
 	charms := make(map[string]string, len(applications))
@@ -1184,7 +1182,7 @@ func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string
 
 	// Handle local charm paths.
 	if charm.IsValidLocalCharmOrBundlePath(application.Charm) {
-		_, charmURL, err := charmrepo.NewCharmAtPath(application.Charm, defaultSeries)
+		_, charmURL, err := corecharm.NewCharmAtPath(application.Charm, defaultSeries)
 		if charm.IsMissingSeriesError(err) {
 			// local charm path is valid but the charm doesn't declare a default series.
 			return defaultSeries, nil

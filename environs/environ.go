@@ -4,6 +4,8 @@
 package environs
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -18,7 +20,7 @@ type EnvironConfigGetter interface {
 
 // NewEnvironFunc is the type of a function that, given a model config,
 // returns an Environ. This will typically be environs.New.
-type NewEnvironFunc func(OpenParams) (Environ, error)
+type NewEnvironFunc func(context.Context, OpenParams) (Environ, error)
 
 // GetEnviron returns the environs.Environ ("provider") associated
 // with the model.
@@ -38,7 +40,7 @@ func GetEnvironAndCloud(st EnvironConfigGetter, newEnviron NewEnvironFunc) (Envi
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	env, err := newEnviron(OpenParams{
+	env, err := newEnviron(context.TODO(), OpenParams{
 		Cloud:  cloudSpec,
 		Config: modelConfig,
 	})

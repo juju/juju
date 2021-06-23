@@ -6,6 +6,7 @@
 package openstack
 
 import (
+	stdcontext "context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -43,7 +44,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
@@ -166,7 +166,7 @@ func (EnvironProvider) Version() int {
 	return 0
 }
 
-func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+func (p EnvironProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	logger.Infof("opening model %q", args.Config.Name())
 	uuid := args.Config.UUID()
 	namespace, err := instance.NewNamespace(uuid)
@@ -186,7 +186,7 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 	if err := e.SetConfig(args.Config); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := e.SetCloudSpec(args.Cloud); err != nil {
+	if err := e.SetCloudSpec(ctx, args.Cloud); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -344,7 +344,7 @@ type Environ struct {
 	keystoneToolsDataSource      simplestreams.DataSource
 
 	availabilityZonesMutex sync.Mutex
-	availabilityZones      corenetwork.AvailabilityZones
+	availabilityZones      network.AvailabilityZones
 	firewaller             Firewaller
 	networking             Networking
 	configurator           ProviderConfigurator
@@ -487,7 +487,7 @@ func (inst *openstackInstance) getAddresses(ctx context.ProviderCallContext) (ma
 
 // Addresses implements network.Addresses() returning generic address
 // details for the instances, and calling the openstack api if needed.
-func (inst *openstackInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (inst *openstackInstance) Addresses(ctx context.ProviderCallContext) (network.ProviderAddresses, error) {
 	addresses, err := inst.getAddresses(ctx)
 	if err != nil {
 		return nil, err
@@ -501,19 +501,19 @@ func (inst *openstackInstance) Addresses(ctx context.ProviderCallContext) (coren
 }
 
 // convertNovaAddresses returns nova addresses in generic format
-func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress) corenetwork.ProviderAddresses {
-	var machineAddresses []corenetwork.ProviderAddress
+func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress) network.ProviderAddresses {
+	var machineAddresses []network.ProviderAddress
 	if publicIP != "" {
-		publicAddr := corenetwork.NewProviderAddress(publicIP, corenetwork.WithScope(corenetwork.ScopePublic))
+		publicAddr := network.NewProviderAddress(publicIP, network.WithScope(network.ScopePublic))
 		machineAddresses = append(machineAddresses, publicAddr)
 	}
 	// TODO(gz) Network ordering may be significant but is not preserved by
 	// the map, see lp:1188126 for example. That could potentially be fixed
 	// in goose, or left to be derived by other means.
 	for netName, ips := range addresses {
-		networkScope := corenetwork.ScopeUnknown
+		networkScope := network.ScopeUnknown
 		if netName == "public" {
-			networkScope = corenetwork.ScopePublic
+			networkScope = network.ScopePublic
 		}
 		for _, address := range ips {
 			// If this address has already been added as a floating IP, skip it.
@@ -521,11 +521,11 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 				continue
 			}
 			// Assume IPv4 unless specified otherwise
-			addrType := corenetwork.IPv4Address
+			addrType := network.IPv4Address
 			if address.Version == 6 {
-				addrType = corenetwork.IPv6Address
+				addrType = network.IPv6Address
 			}
-			machineAddr := corenetwork.NewProviderAddress(address.Address, corenetwork.WithScope(networkScope))
+			machineAddr := network.NewProviderAddress(address.Address, network.WithScope(networkScope))
 			if machineAddr.Type != addrType {
 				logger.Warningf("derived address type %v, nova reports %v", machineAddr.Type, addrType)
 			}
@@ -627,7 +627,7 @@ func (z *openstackAvailabilityZone) Available() bool {
 }
 
 // AvailabilityZones returns a slice of availability zones.
-func (e *Environ) AvailabilityZones(ctx context.ProviderCallContext) (corenetwork.AvailabilityZones, error) {
+func (e *Environ) AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
 	e.availabilityZonesMutex.Lock()
 	defer e.availabilityZonesMutex.Unlock()
 	if e.availabilityZones == nil {
@@ -639,7 +639,7 @@ func (e *Environ) AvailabilityZones(ctx context.ProviderCallContext) (corenetwor
 			handleCredentialError(err, ctx)
 			return nil, err
 		}
-		e.availabilityZones = make(corenetwork.AvailabilityZones, len(zones))
+		e.availabilityZones = make(network.AvailabilityZones, len(zones))
 		for i, z := range zones {
 			e.availabilityZones[i] = &openstackAvailabilityZone{z}
 		}
@@ -655,7 +655,7 @@ func (e *Environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext,
 		handleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
-	zones := make(map[instance.Id]string, 0)
+	zones := make(map[instance.Id]string)
 	for _, inst := range instances {
 		if inst == nil {
 			continue
@@ -915,7 +915,7 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (e *Environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
+func (e *Environ) SetCloudSpec(_ stdcontext.Context, spec environscloudspec.CloudSpec) error {
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 
@@ -1429,12 +1429,12 @@ func (e *Environ) networksForInstance(
 	// Attempt to filter the subnet IDs for the configured availability zone.
 	// If there is no configured zone, consider all subnet IDs.
 	az := args.AvailabilityZone
-	subnetIDsForZone := make([][]corenetwork.Id, len(args.SubnetsToZones))
+	subnetIDsForZone := make([][]network.Id, len(args.SubnetsToZones))
 	for i, nic := range args.SubnetsToZones {
-		var subnetIDs []corenetwork.Id
+		var subnetIDs []network.Id
 		if az != "" {
 			var err error
-			if subnetIDs, err = corenetwork.FindSubnetIDsForAvailabilityZone(az, nic); err != nil {
+			if subnetIDs, err = network.FindSubnetIDsForAvailabilityZone(az, nic); err != nil {
 				return nil, errors.Annotatef(err, "getting subnets in zone %q", az)
 			}
 			if len(subnetIDs) == 0 {
@@ -1447,12 +1447,12 @@ func (e *Environ) networksForInstance(
 		}
 
 		// Filter out any fan networks.
-		subnetIDsForZone[i] = corenetwork.FilterInFanNetwork(subnetIDs)
+		subnetIDsForZone[i] = network.FilterInFanNetwork(subnetIDs)
 	}
 
 	/// For each list of subnet IDs that satisfy space and zone constraints,
 	// choose a single one at random.
-	subnetIDForZone := make([]corenetwork.Id, len(subnetIDsForZone))
+	subnetIDForZone := make([]network.Id, len(subnetIDsForZone))
 	for i, subnetIDs := range subnetIDsForZone {
 		if len(subnetIDs) == 1 {
 			subnetIDForZone[i] = subnetIDs[0]
@@ -1465,7 +1465,7 @@ func (e *Environ) networksForInstance(
 	// Set the subnetID on the network for all networks.
 	// For each of the subnetIDs selected, create a port for each one.
 	subnetNetworks := make([]nova.ServerNetworks, 0, len(subnetIDForZone))
-	netInfo := make(corenetwork.InterfaceInfos, len(subnetIDsForZone))
+	netInfo := make(network.InterfaceInfos, len(subnetIDsForZone))
 	for i, subnetID := range subnetIDForZone {
 		var port *neutron.PortV2
 		port, err = e.networking.CreatePort(e.uuid, networkID, subnetID)
@@ -1486,12 +1486,12 @@ func (e *Environ) networksForInstance(
 			ips[j] = fixedIP.IPAddress
 		}
 
-		netInfo[i] = corenetwork.InterfaceInfo{
+		netInfo[i] = network.InterfaceInfo{
 			InterfaceName: fmt.Sprintf("eth%d", i),
 			MACAddress:    port.MACAddress,
-			Addresses:     corenetwork.NewProviderAddresses(ips...),
-			ConfigType:    corenetwork.ConfigDHCP,
-			Origin:        corenetwork.OriginProvider,
+			Addresses:     network.NewProviderAddresses(ips...),
+			ConfigType:    network.ConfigDHCP,
+			Origin:        network.OriginProvider,
 		}
 	}
 
@@ -2300,8 +2300,8 @@ func validateAuthURL(authURL string) error {
 
 // Subnets is specified on environs.Networking.
 func (e *Environ) Subnets(
-	ctx context.ProviderCallContext, instId instance.Id, subnetIds []corenetwork.Id,
-) ([]corenetwork.SubnetInfo, error) {
+	ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id,
+) ([]network.SubnetInfo, error) {
 	subnets, err := e.networking.Subnets(instId, subnetIds)
 	if err != nil {
 		handleCredentialError(err, ctx)
@@ -2311,7 +2311,7 @@ func (e *Environ) Subnets(
 }
 
 // NetworkInterfaces is specified on environs.Networking.
-func (e *Environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
+func (e *Environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error) {
 	infos, err := e.networking.NetworkInterfaces(ids)
 	if err != nil {
 		handleCredentialError(err, ctx)
@@ -2332,7 +2332,7 @@ func (e *Environ) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool,
 }
 
 // Spaces is specified on environs.Networking.
-func (e *Environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceInfo, error) {
+func (e *Environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
 	return nil, errors.NotSupportedf("spaces")
 }
 
@@ -2356,18 +2356,18 @@ func (e *Environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error
 }
 
 // AllocateContainerAddresses is specified on environs.Networking.
-func (e *Environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
+func (e *Environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo network.InterfaceInfos) (network.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("allocate container address")
 }
 
 // ReleaseContainerAddresses is specified on environs.Networking.
-func (e *Environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []corenetwork.ProviderInterfaceInfo) error {
+func (e *Environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("release container address")
 }
 
 // ProviderSpaceInfo is specified on environs.NetworkingEnviron.
 func (*Environ) ProviderSpaceInfo(
-	ctx context.ProviderCallContext, space *corenetwork.SpaceInfo,
+	ctx context.ProviderCallContext, space *network.SpaceInfo,
 ) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
@@ -2378,7 +2378,7 @@ func (*Environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space
 }
 
 // SSHAddresses is specified on environs.SSHAddresses.
-func (*Environ) SSHAddresses(ctx context.ProviderCallContext, addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddresses, error) {
+func (*Environ) SSHAddresses(ctx context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
 	return addresses, nil
 }
 

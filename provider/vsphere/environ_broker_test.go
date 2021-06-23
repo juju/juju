@@ -5,6 +5,7 @@ package vsphere_test
 
 import (
 	"context"
+	stdcontext "context"
 	"fmt"
 	"net/url"
 	"path"
@@ -176,7 +177,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
-	env, err := s.provider.Open(environs.OpenParams{
+	env, err := s.provider.Open(stdcontext.TODO(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
 			"primary-network":    "foo",
@@ -198,7 +199,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningMissingModelConfigOption(c *gc.C) {
-	env, err := s.provider.Open(environs.OpenParams{
+	env, err := s.provider.Open(stdcontext.TODO(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
 			"image-metadata-url": s.imageServer.URL,
@@ -216,7 +217,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningMissingModel
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningDefaultOption(c *gc.C) {
-	env, err := s.provider.Open(environs.OpenParams{
+	env, err := s.provider.Open(stdcontext.TODO(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
 			"image-metadata-url":     s.imageServer.URL,
@@ -235,7 +236,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningDefaultOptio
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThinDisk(c *gc.C) {
-	env, err := s.provider.Open(environs.OpenParams{
+	env, err := s.provider.Open(stdcontext.TODO(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
 			"image-metadata-url":     s.imageServer.URL,
@@ -254,7 +255,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThinDisk(c *
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickDisk(c *gc.C) {
-	env, err := s.provider.Open(environs.OpenParams{
+	env, err := s.provider.Open(stdcontext.TODO(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
 			"image-metadata-url":     s.imageServer.URL,
@@ -273,7 +274,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickDisk(c 
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickEagerZeroDisk(c *gc.C) {
-	env, err := s.provider.Open(environs.OpenParams{
+	env, err := s.provider.Open(stdcontext.TODO(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
 			"image-metadata-url":     s.imageServer.URL,
@@ -292,7 +293,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickEagerZe
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
-	env, err := s.provider.Open(environs.OpenParams{
+	env, err := s.provider.Open(stdcontext.TODO(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
 			"name":               "supercalifragilisticexpialidocious",
@@ -314,7 +315,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskUUIDDisabled(c *gc.C) {
-	env, err := s.provider.Open(environs.OpenParams{
+	env, err := s.provider.Open(stdcontext.TODO(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
 			"enable-disk-uuid":   false,
@@ -526,7 +527,7 @@ func (s *environBrokerSuite) setUpClient(c *gc.C) *gomock.Controller {
 			return s.mockClient, nil
 		},
 	})
-	env, err := s.provider.Open(environs.OpenParams{
+	env, err := s.provider.Open(stdcontext.TODO(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
 			"image-metadata-url": s.imageServerURL,

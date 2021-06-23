@@ -6,14 +6,16 @@ package ec2_test
 import (
 	stdcontext "context"
 	"fmt"
-	"net/http/httptest"
-	"net/http/httputil"
-	"net/url"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsec2 "github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/smithy-go"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -23,9 +25,6 @@ import (
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version/v2"
-	"gopkg.in/amz.v3/aws"
-	amzec2 "gopkg.in/amz.v3/ec2"
-	"gopkg.in/amz.v3/ec2/ec2test"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/cloudspec"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -52,6 +52,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
+	ec2test "github.com/juju/juju/provider/ec2/internal/testing"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -68,15 +69,20 @@ func fakeCallback(_ status.Status, _ string, _ map[string]interface{}) error {
 }
 
 func registerLocalTests() {
-	// N.B. Make sure the region we use here
-	// has entries in the images/query txt files.
-	aws.Regions["test"] = aws.Region{
-		Name: "test",
-	}
-
 	gc.Suite(&localServerSuite{})
 	gc.Suite(&localLiveSuite{})
 	gc.Suite(&localNonUSEastSuite{})
+}
+
+var deleteSecurityGroupForTestFunc = func(client ec2.SecurityGroupCleaner, ctx context.ProviderCallContext, group types.GroupIdentifier, _ clock.Clock) error {
+	// With an exponential retry for deleting security groups,
+	// we never return from local live tests.
+	// No need to re-try in tests anyway - just call delete.
+	_, err := client.DeleteSecurityGroup(ctx, &awsec2.DeleteSecurityGroupInput{
+		GroupId:   group.GroupId,
+		GroupName: group.GroupName,
+	})
+	return err
 }
 
 // localLiveSuite runs tests from LiveTests using a fake
@@ -106,12 +112,6 @@ func (t *localLiveSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
-
-	region := t.srv.region
-	t.CloudRegion = region.Name
-	t.CloudEndpoint = region.EC2Endpoint
-	restoreEC2Patching := patchEC2ForTesting(c, region)
-	t.BaseSuite.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 }
 
 func (t *localLiveSuite) TearDownSuite(c *gc.C) {
@@ -127,15 +127,12 @@ type localServer struct {
 	// instances.
 	createRootDisks bool
 
-	ec2srv      *ec2test.Server
-	proxy       *httputil.ReverseProxy
-	proxyServer *httptest.Server
-	client      *amzec2.EC2
-	region      aws.Region
+	ec2srv *ec2test.Server
+	region types.Region
 
-	defaultVPC *amzec2.VPC
-	zones      []amzec2.AvailabilityZoneInfo
-	subnets    []amzec2.Subnet
+	defaultVPC *types.Vpc
+	zones      []types.AvailabilityZone
+	subnets    []types.Subnet
 }
 
 func (srv *localServer) startServer(c *gc.C) {
@@ -147,41 +144,29 @@ func (srv *localServer) startServer(c *gc.C) {
 	srv.ec2srv.SetCreateRootDisks(srv.createRootDisks)
 	srv.addSpice()
 
-	// Create a reverse proxy, so we can override responses.
-	endpointURL, err := url.Parse(srv.ec2srv.URL())
-	c.Assert(err, jc.ErrorIsNil)
-	backendURL := &url.URL{
-		Scheme: endpointURL.Scheme,
-		Host:   endpointURL.Host,
+	srv.region = types.Region{
+		RegionName: aws.String("test"),
+		Endpoint:   aws.String("http://foo"),
 	}
-	srv.proxy = httputil.NewSingleHostReverseProxy(backendURL)
-	srv.proxyServer = httptest.NewServer(srv.proxy)
-	endpointURL, err = url.Parse(srv.proxyServer.URL)
-	c.Assert(err, jc.ErrorIsNil)
-	srv.region = aws.Region{
-		Name:        "test",
-		EC2Endpoint: endpointURL.String(),
-	}
-	srv.client = amzec2.New(aws.Auth{}, srv.region, aws.SignV4Factory(srv.region.Name, "ec2"))
-
-	zones := make([]amzec2.AvailabilityZoneInfo, 4)
-	zones[0].Region = srv.region.Name
-	zones[0].Name = srv.region.Name + "-available"
+	regionName := srv.region.RegionName
+	zones := make([]types.AvailabilityZone, 4)
+	zones[0].RegionName = regionName
+	zones[0].ZoneName = aws.String("test-available")
 	zones[0].State = "available"
-	zones[1].Region = srv.region.Name
-	zones[1].Name = srv.region.Name + "-impaired"
+	zones[1].RegionName = regionName
+	zones[1].ZoneName = aws.String("test-impaired")
 	zones[1].State = "impaired"
-	zones[2].Region = srv.region.Name
-	zones[2].Name = srv.region.Name + "-unavailable"
+	zones[2].RegionName = regionName
+	zones[2].ZoneName = aws.String("test-unavailable")
 	zones[2].State = "unavailable"
-	zones[3].Region = srv.region.Name
-	zones[3].Name = srv.region.Name + "-available2"
+	zones[3].RegionName = regionName
+	zones[3].ZoneName = aws.String("test-available2")
 	zones[3].State = "available"
 	srv.ec2srv.SetAvailabilityZones(zones)
 	srv.ec2srv.SetInitialInstanceState(ec2test.Pending)
 	srv.zones = zones
 
-	defaultVPC, err := srv.ec2srv.AddDefaultVPCAndSubnets()
+	defaultVPC, err := srv.ec2srv.AddDefaultVpcAndSubnets()
 	c.Assert(err, jc.ErrorIsNil)
 	srv.defaultVPC = &defaultVPC
 }
@@ -189,7 +174,7 @@ func (srv *localServer) startServer(c *gc.C) {
 // addSpice adds some "spice" to the local server
 // by adding state that may cause tests to fail.
 func (srv *localServer) addSpice() {
-	states := []amzec2.InstanceState{
+	states := []types.InstanceState{
 		ec2test.ShuttingDown,
 		ec2test.Terminated,
 		ec2test.Stopped,
@@ -200,15 +185,53 @@ func (srv *localServer) addSpice() {
 }
 
 func (srv *localServer) stopServer(c *gc.C) {
-	srv.proxyServer.Close()
 	srv.ec2srv.Reset(false)
-	srv.ec2srv.Quit()
 	srv.defaultVPC = nil
 }
 
-func bootstrapContext(c *gc.C) environs.BootstrapContext {
+type envGetter interface {
+	Env() environs.Environ
+}
+
+func bootstrapContext(c *gc.C, ec2Client ec2.Client) environs.BootstrapContext {
+	clientFunc := func(ctx stdcontext.Context, spec cloudspec.CloudSpec, options ...ec2.ClientOption) (ec2.Client, error) {
+		credentialAttrs := spec.Credential.Attributes()
+		accessKey := credentialAttrs["access-key"]
+		secretKey := credentialAttrs["secret-key"]
+		c.Assert(spec.Region, gc.Equals, "test")
+		c.Assert(accessKey, gc.Equals, "x")
+		c.Assert(secretKey, gc.Equals, "x")
+		return ec2Client, nil
+	}
+	return bootstrapContextWithClientFunc(c, clientFunc)
+}
+
+func bootstrapLiveContext(c *gc.C, t envGetter) environs.BootstrapContext {
+	var clientFunc ec2.ClientFunc
+	// Use the real ec2 session if we are running with real creds.
+	accessKey := os.Getenv("AWS_ACCESS_KEY_ID")
+	if accessKey == "" {
+		clientFunc = func(ctx stdcontext.Context, spec cloudspec.CloudSpec, options ...ec2.ClientOption) (ec2.Client, error) {
+			credentialAttrs := spec.Credential.Attributes()
+			accessKey := credentialAttrs["access-key"]
+			secretKey := credentialAttrs["secret-key"]
+			c.Assert(spec.Region, gc.Equals, "test")
+			c.Assert(accessKey, gc.Equals, "x")
+			c.Assert(secretKey, gc.Equals, "x")
+			return ec2.EnvironEC2Client(t.Env()), nil
+		}
+	}
+	return bootstrapContextWithClientFunc(c, clientFunc)
+}
+
+func bootstrapContextWithClientFunc(c *gc.C, clientFunc ec2.ClientFunc) environs.BootstrapContext {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	ctx := stdcontext.WithValue(stdcontext.TODO(), bootstrap.SimplestreamsFetcherContextKey, ss)
+
+	ctx := stdcontext.TODO()
+	ctx = stdcontext.WithValue(ctx, bootstrap.SimplestreamsFetcherContextKey, ss)
+	if clientFunc != nil {
+		ctx = stdcontext.WithValue(ctx, ec2.AWSClientContextKey, clientFunc)
+	}
 	return envtesting.BootstrapContext(ctx, c)
 }
 
@@ -222,8 +245,7 @@ type localServerSuite struct {
 	coretesting.BaseSuite
 	jujutest.Tests
 	srv    localServer
-	client *amzec2.EC2
-	env    environs.Environ
+	client ec2.Client
 
 	callCtx context.ProviderCallContext
 }
@@ -249,16 +271,6 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	t.BaseSuite.PatchValue(&series.HostSeries, func() (string, error) { return jujuversion.DefaultSupportedLTS(), nil })
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
-	t.BaseSuite.PatchValue(&ec2.EC2Session, func(region, accessKey, secretKey string) ec2.EC2Client {
-		c.Assert(region, gc.Equals, "test")
-		c.Assert(accessKey, gc.Equals, "x")
-		c.Assert(secretKey, gc.Equals, "x")
-		return &mockEC2Session{
-			newInstancesClient: func() *amzec2.EC2 {
-				return ec2.EnvironEC2(t.Env)
-			},
-		}
-	})
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
 	// TODO(jam) I don't understand why we shouldn't do this.
@@ -277,14 +289,16 @@ func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
 	t.srv.startServer(c)
 	region := t.srv.region
-	t.CloudRegion = region.Name
-	t.CloudEndpoint = region.EC2Endpoint
-	t.client = t.srv.client
+	t.CloudRegion = aws.ToString(region.RegionName)
+	t.CloudEndpoint = aws.ToString(region.Endpoint)
+	t.client = t.srv.ec2srv
 	restoreEC2Patching := patchEC2ForTesting(c, region)
 	t.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 	t.Tests.SetUpTest(c)
 
-	t.callCtx = context.NewEmptyCloudCallContext()
+	t.Tests.BootstrapContext = bootstrapContext(c, t.client)
+	t.Tests.ProviderCallContext = context.NewCloudCallContext(t.Tests.BootstrapContext.Context())
+	t.callCtx = context.NewCloudCallContext(t.Tests.BootstrapContext.Context())
 }
 
 func (t *localServerSuite) TearDownTest(c *gc.C) {
@@ -317,7 +331,7 @@ func (t *localServerSuite) TestPrepareForBootstrapWithUnknownVPCID(c *gc.C) {
 
 func (t *localServerSuite) TestPrepareForBootstrapWithNotRecommendedVPCID(c *gc.C) {
 	t.makeTestingDefaultVPCUnavailable(c)
-	notRecommendedVPCIDConfig := coretesting.Attrs{"vpc-id": t.srv.defaultVPC.Id}
+	notRecommendedVPCIDConfig := coretesting.Attrs{"vpc-id": aws.ToString(t.srv.defaultVPC.VpcId)}
 
 	expectedError := `The given vpc-id does not meet one or more(.|\n)*Error details: VPC has unexpected state "unavailable"`
 	err := t.AssertPrepareFailsWithConfig(c, notRecommendedVPCIDConfig, expectedError)
@@ -329,17 +343,18 @@ func (t *localServerSuite) makeTestingDefaultVPCUnavailable(c *gc.C) {
 	// its state to unavailable, we just verify the behavior of a "not
 	// recommended VPC".
 	t.srv.defaultVPC.State = "unavailable"
-	err := t.srv.ec2srv.UpdateVPC(*t.srv.defaultVPC)
+	err := t.srv.ec2srv.UpdateVpc(*t.srv.defaultVPC)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrepareForBootstrapWithNotRecommendedButForcedVPCID(c *gc.C) {
 	t.makeTestingDefaultVPCUnavailable(c)
 	params := t.PrepareParams(c)
-	params.ModelConfig["vpc-id"] = t.srv.defaultVPC.Id
+	vpcID := aws.ToString(t.srv.defaultVPC.VpcId)
+	params.ModelConfig["vpc-id"] = vpcID
 	params.ModelConfig["vpc-id-force"] = true
 
-	t.prepareWithParamsAndBootstrapWithVPCID(c, params, t.srv.defaultVPC.Id)
+	t.prepareWithParamsAndBootstrapWithVPCID(c, params, vpcID)
 }
 
 func (t *localServerSuite) TestPrepareForBootstrapWithEmptyVPCID(c *gc.C) {
@@ -358,7 +373,7 @@ func (t *localServerSuite) prepareWithParamsAndBootstrapWithVPCID(c *gc.C, param
 	c.Check(vpcID, gc.Equals, expectedVPCID)
 	c.Check(ok, jc.IsTrue)
 
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -378,14 +393,15 @@ func (t *localServerSuite) TestPrepareForBootstrapWithVPCIDNone(c *gc.C) {
 
 func (t *localServerSuite) TestPrepareForBootstrapWithDefaultVPCID(c *gc.C) {
 	params := t.PrepareParams(c)
-	params.ModelConfig["vpc-id"] = t.srv.defaultVPC.Id
+	vpcID := aws.ToString(t.srv.defaultVPC.VpcId)
+	params.ModelConfig["vpc-id"] = vpcID
 
-	t.prepareWithParamsAndBootstrapWithVPCID(c, params, t.srv.defaultVPC.Id)
+	t.prepareWithParamsAndBootstrapWithVPCID(c, params, vpcID)
 }
 
 func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			// TODO(redir): BBB: When we no longer support upstart based systems this can change to series.LatestLts()
@@ -463,7 +479,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 // TODO(redir): BBB: remove when trusty is no longer supported
 func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			BootstrapSeries:          "trusty",
@@ -539,7 +555,7 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 
 func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -566,7 +582,7 @@ func (t *localServerSuite) TestDestroyErr(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 
 	msg := "terminate instances error"
-	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ctx context.ProviderCallContext, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
+	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2.Client, context.ProviderCallContext, ...instance.Id) ([]types.InstanceStateChange, error) {
 		return nil, errors.New(msg)
 	})
 
@@ -576,7 +592,7 @@ func (t *localServerSuite) TestDestroyErr(c *gc.C) {
 
 func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -589,10 +605,12 @@ func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 	inst1, _ := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 	inst := t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, gc.NotNil)
-	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ctx context.ProviderCallContext, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
+	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(client ec2.Client, ctx context.ProviderCallContext, ids ...instance.Id) ([]types.InstanceStateChange, error) {
 		// Terminate the one destined for termination and
 		// err out to ensure that one instance will be terminated, the other - not.
-		_, err = ec2inst.TerminateInstances([]string{string(inst1.Id())})
+		_, err = client.TerminateInstances(ctx, &awsec2.TerminateInstancesInput{
+			InstanceIds: []string{string(inst1.Id())},
+		})
 		c.Assert(err, jc.ErrorIsNil)
 		return nil, errors.New("terminate instances error")
 	})
@@ -630,7 +648,7 @@ func (t *localServerSuite) TestDestroyControllerModelDeleteSecurityGroupInsisten
 	env := t.prepareAndBootstrap(c)
 	msg := "destroy security group error"
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(
-		ec2.SecurityGroupCleaner, context.ProviderCallContext, amzec2.SecurityGroup, clock.Clock,
+		ec2.SecurityGroupCleaner, context.ProviderCallContext, types.GroupIdentifier, clock.Clock,
 	) error {
 		return errors.New(msg)
 	})
@@ -640,7 +658,7 @@ func (t *localServerSuite) TestDestroyControllerModelDeleteSecurityGroupInsisten
 
 func (t *localServerSuite) TestDestroyHostedModelDeleteSecurityGroupInsistentlyError(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
-	hostedEnv, err := environs.New(environs.OpenParams{
+	hostedEnv, err := environs.New(t.BootstrapContext.Context(), environs.OpenParams{
 		Cloud:  t.CloudSpec(),
 		Config: env.Config(),
 	})
@@ -648,7 +666,7 @@ func (t *localServerSuite) TestDestroyHostedModelDeleteSecurityGroupInsistentlyE
 
 	msg := "destroy security group error"
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(
-		ec2.SecurityGroupCleaner, context.ProviderCallContext, amzec2.SecurityGroup, clock.Clock,
+		ec2.SecurityGroupCleaner, context.ProviderCallContext, types.GroupIdentifier, clock.Clock,
 	) error {
 		return errors.New(msg)
 	})
@@ -667,7 +685,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 		"firewall-mode": "global",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(environs.OpenParams{
+	env, err := environs.New(t.BootstrapContext.Context(), environs.OpenParams{
 		Cloud:  t.CloudSpec(),
 		Config: cfg,
 	})
@@ -711,11 +729,11 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 		c.Assert(volIds, jc.SameContents, expect)
 	}
 	assertGroups := func(expect ...string) {
-		groupsResp, err := t.client.SecurityGroups(nil, nil)
+		groupsResp, err := t.client.DescribeSecurityGroups(t.callCtx, nil)
 		c.Assert(err, jc.ErrorIsNil)
-		names := make([]string, len(groupsResp.Groups))
-		for i, group := range groupsResp.Groups {
-			names[i] = group.Name
+		names := make([]string, len(groupsResp.SecurityGroups))
+		for i, group := range groupsResp.SecurityGroups {
+			names[i] = aws.ToString(group.GroupName)
 		}
 		c.Assert(names, jc.SameContents, expect)
 	}
@@ -742,7 +760,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -767,7 +785,8 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
 	inst, err := t.testStartInstanceAvailZone(c, "test-available")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, "test-available")
+	ec2Inst := ec2.InstanceSDKEC2(inst)
+	c.Assert(aws.ToString(ec2Inst.Placement.AvailabilityZone), gc.Equals, "test-available")
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneImpaired(c *gc.C) {
@@ -794,10 +813,10 @@ func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (ins
 
 func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
-	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
-		VolumeSize: 1,
-		VolumeType: "gp2",
-		AvailZone:  "volume-zone",
+	resp, err := t.client.CreateVolume(t.callCtx, &awsec2.CreateVolumeInput{
+		Size:             aws.Int32(1),
+		VolumeType:       "gp2",
+		AvailabilityZone: aws.String("volume-zone"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -810,20 +829,21 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) 
 				Machine:  names.NewMachineTag("1"),
 			},
 			Volume:   names.NewVolumeTag("23"),
-			VolumeId: resp.Id,
+			VolumeId: aws.ToString(resp.VolumeId),
 		}},
 	}
 	result, err := testing.StartInstanceWithParams(env, t.callCtx, "1", args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ec2.InstanceEC2(result.Instance).AvailZone, gc.Equals, "volume-zone")
+	ec2Inst := ec2.InstanceSDKEC2(result.Instance)
+	c.Assert(aws.ToString(ec2Inst.Placement.AvailabilityZone), gc.Equals, "volume-zone")
 }
 
 func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZonePlacementConflicts(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
-	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
-		VolumeSize: 1,
-		VolumeType: "gp2",
-		AvailZone:  "volume-zone",
+	resp, err := t.client.CreateVolume(t.callCtx, &awsec2.CreateVolumeInput{
+		Size:             aws.Int32(1),
+		VolumeType:       "gp2",
+		AvailabilityZone: aws.String("volume-zone"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -837,7 +857,7 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZonePlacementC
 				Machine:  names.NewMachineTag("1"),
 			},
 			Volume:   names.NewVolumeTag("23"),
-			VolumeId: resp.Id,
+			VolumeId: aws.ToString(resp.VolumeId),
 		}},
 	}
 	_, err = testing.StartInstanceWithParams(env, t.callCtx, "1", args)
@@ -862,8 +882,8 @@ func (t *localServerSuite) TestStartInstanceZoneIndependent(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceSubnet(c *gc.C) {
 	inst, err := t.testStartInstanceSubnet(c, "0.1.2.0/24")
 	c.Assert(err, jc.ErrorIsNil)
-	ec2Inst := ec2.InstanceEC2(inst)
-	c.Assert(ec2Inst.AvailZone, gc.Equals, "test-available")
+	ec2Inst := ec2.InstanceSDKEC2(inst)
+	c.Assert(aws.ToString(ec2Inst.Placement.AvailabilityZone), gc.Equals, "test-available")
 }
 
 func (t *localServerSuite) TestStartInstanceSubnetUnavailable(c *gc.C) {
@@ -926,11 +946,11 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneSubnetWrongVPC(c *gc.C) {
 }
 
 func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
-	var resultZones []amzec2.AvailabilityZoneInfo
+	var resultZones []types.AvailabilityZone
 	var resultErr error
-	t.PatchValue(ec2.EC2AvailabilityZones, func(e *amzec2.EC2, f *amzec2.Filter) (*amzec2.AvailabilityZonesResp, error) {
-		resp := &amzec2.AvailabilityZonesResp{
-			Zones: append([]amzec2.AvailabilityZoneInfo{}, resultZones...),
+	t.PatchValue(ec2.EC2AvailabilityZones, func(c ec2.Client, ctx stdcontext.Context, params *awsec2.DescribeAvailabilityZonesInput, optFns ...func(*awsec2.Options)) (*awsec2.DescribeAvailabilityZonesOutput, error) {
+		resp := &awsec2.DescribeAvailabilityZonesOutput{
+			AvailabilityZones: append([]types.AvailabilityZone{}, resultZones...),
 		}
 		return resp, resultErr
 	})
@@ -942,8 +962,8 @@ func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
 	c.Assert(zones, gc.IsNil)
 
 	resultErr = nil
-	resultZones = make([]amzec2.AvailabilityZoneInfo, 1)
-	resultZones[0].Name = "whatever"
+	resultZones = make([]types.AvailabilityZone, 1)
+	resultZones[0].ZoneName = aws.String("whatever")
 	zones, err = env.AvailabilityZones(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.HasLen, 1)
@@ -953,7 +973,7 @@ func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
 	// of the Environ. This will change if/when we have long-lived
 	// Environs to cut down repeated IaaS requests.
 	resultErr = fmt.Errorf("failed to get availability zones")
-	resultZones[0].Name = "andever"
+	resultZones[0].ZoneName = aws.String("andever")
 	zones, err = env.AvailabilityZones(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.HasLen, 1)
@@ -961,53 +981,40 @@ func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
 }
 
 func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
-	var resultZones []amzec2.AvailabilityZoneInfo
-	t.PatchValue(ec2.EC2AvailabilityZones, func(e *amzec2.EC2, f *amzec2.Filter) (*amzec2.AvailabilityZonesResp, error) {
-		resp := &amzec2.AvailabilityZonesResp{
-			Zones: append([]amzec2.AvailabilityZoneInfo{}, resultZones...),
+	var resultZones []types.AvailabilityZone
+	t.PatchValue(ec2.EC2AvailabilityZones, func(c ec2.Client, ctx stdcontext.Context, params *awsec2.DescribeAvailabilityZonesInput, optFns ...func(*awsec2.Options)) (*awsec2.DescribeAvailabilityZonesOutput, error) {
+		resp := &awsec2.DescribeAvailabilityZonesOutput{
+			AvailabilityZones: append([]types.AvailabilityZone{}, resultZones...),
 		}
 		return resp, nil
 	})
 	env := t.Prepare(c).(common.ZonedEnviron)
-	resultZones = make([]amzec2.AvailabilityZoneInfo, 2)
-	resultZones[0].Name = "az1"
-	resultZones[1].Name = "az2"
+	resultZones = make([]types.AvailabilityZone, 2)
+	resultZones[0].ZoneName = aws.String("az1")
+	resultZones[1].ZoneName = aws.String("az2")
 	resultZones[0].State = "available"
 	resultZones[1].State = "impaired"
 	zones, err := env.AvailabilityZones(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.HasLen, 2)
-	c.Assert(zones[0].Name(), gc.Equals, resultZones[0].Name)
-	c.Assert(zones[1].Name(), gc.Equals, resultZones[1].Name)
+	c.Assert(zones[0].Name(), gc.Equals, "az1")
+	c.Assert(zones[1].Name(), gc.Equals, "az2")
 	c.Assert(zones[0].Available(), jc.IsTrue)
 	c.Assert(zones[1].Available(), jc.IsFalse)
 }
 
-type mockAvailabilityZoneAllocations struct {
-	group  []instance.Id // input param
-	result []common.AvailabilityZoneInstances
-	err    error
-}
-
-func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
-	e common.ZonedEnviron, group []instance.Id,
-) ([]common.AvailabilityZoneInstances, error) {
-	t.group = group
-	return t.result, t.err
-}
-
 func (t *localServerSuite) TestDeriveAvailabilityZones(c *gc.C) {
-	var resultZones []amzec2.AvailabilityZoneInfo
-	t.PatchValue(ec2.EC2AvailabilityZones, func(e *amzec2.EC2, f *amzec2.Filter) (*amzec2.AvailabilityZonesResp, error) {
-		resp := &amzec2.AvailabilityZonesResp{
-			Zones: append([]amzec2.AvailabilityZoneInfo{}, resultZones...),
+	var resultZones []types.AvailabilityZone
+	t.PatchValue(ec2.EC2AvailabilityZones, func(c ec2.Client, ctx stdcontext.Context, params *awsec2.DescribeAvailabilityZonesInput, optFns ...func(*awsec2.Options)) (*awsec2.DescribeAvailabilityZonesOutput, error) {
+		resp := &awsec2.DescribeAvailabilityZonesOutput{
+			AvailabilityZones: append([]types.AvailabilityZone{}, resultZones...),
 		}
 		return resp, nil
 	})
 	env := t.Prepare(c).(common.ZonedEnviron)
-	resultZones = make([]amzec2.AvailabilityZoneInfo, 2)
-	resultZones[0].Name = "az1"
-	resultZones[1].Name = "az2"
+	resultZones = make([]types.AvailabilityZone, 2)
+	resultZones[0].ZoneName = aws.String("az1")
+	resultZones[1].ZoneName = aws.String("az2")
 	resultZones[0].State = "available"
 	resultZones[1].State = "impaired"
 
@@ -1017,17 +1024,17 @@ func (t *localServerSuite) TestDeriveAvailabilityZones(c *gc.C) {
 }
 
 func (t *localServerSuite) TestDeriveAvailabilityZonesImpaired(c *gc.C) {
-	var resultZones []amzec2.AvailabilityZoneInfo
-	t.PatchValue(ec2.EC2AvailabilityZones, func(e *amzec2.EC2, f *amzec2.Filter) (*amzec2.AvailabilityZonesResp, error) {
-		resp := &amzec2.AvailabilityZonesResp{
-			Zones: append([]amzec2.AvailabilityZoneInfo{}, resultZones...),
+	var resultZones []types.AvailabilityZone
+	t.PatchValue(ec2.EC2AvailabilityZones, func(c ec2.Client, ctx stdcontext.Context, params *awsec2.DescribeAvailabilityZonesInput, optFns ...func(*awsec2.Options)) (*awsec2.DescribeAvailabilityZonesOutput, error) {
+		resp := &awsec2.DescribeAvailabilityZonesOutput{
+			AvailabilityZones: append([]types.AvailabilityZone{}, resultZones...),
 		}
 		return resp, nil
 	})
 	env := t.Prepare(c).(common.ZonedEnviron)
-	resultZones = make([]amzec2.AvailabilityZoneInfo, 2)
-	resultZones[0].Name = "az1"
-	resultZones[1].Name = "az2"
+	resultZones = make([]types.AvailabilityZone, 2)
+	resultZones[0].ZoneName = aws.String("az1")
+	resultZones[1].ZoneName = aws.String("az2")
 	resultZones[0].State = "available"
 	resultZones[1].State = "impaired"
 
@@ -1037,10 +1044,10 @@ func (t *localServerSuite) TestDeriveAvailabilityZonesImpaired(c *gc.C) {
 }
 
 func (t *localServerSuite) TestDeriveAvailabilityZonesConflictVolume(c *gc.C) {
-	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
-		VolumeSize: 1,
-		VolumeType: "gp2",
-		AvailZone:  "volume-zone",
+	resp, err := t.client.CreateVolume(t.callCtx, &awsec2.CreateVolumeInput{
+		Size:             aws.Int32(1),
+		VolumeType:       "gp2",
+		AvailabilityZone: aws.String("volume-zone"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1054,7 +1061,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZonesConflictVolume(c *gc.C) {
 				Machine:  names.NewMachineTag("1"),
 			},
 			Volume:   names.NewVolumeTag("23"),
-			VolumeId: resp.Id,
+			VolumeId: aws.ToString(resp.VolumeId),
 		}},
 	}
 	env := t.Prepare(c).(common.ZonedEnviron)
@@ -1064,10 +1071,10 @@ func (t *localServerSuite) TestDeriveAvailabilityZonesConflictVolume(c *gc.C) {
 }
 
 func (t *localServerSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *gc.C) {
-	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
-		VolumeSize: 1,
-		VolumeType: "gp2",
-		AvailZone:  "volume-zone",
+	resp, err := t.client.CreateVolume(t.callCtx, &awsec2.CreateVolumeInput{
+		Size:             aws.Int32(1),
+		VolumeType:       "gp2",
+		AvailabilityZone: aws.String("volume-zone"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1080,7 +1087,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *gc.C)
 				Machine:  names.NewMachineTag("1"),
 			},
 			Volume:   names.NewVolumeTag("23"),
-			VolumeId: resp.Id,
+			VolumeId: aws.ToString(resp.VolumeId),
 		}},
 	}
 	env := t.Prepare(c).(common.ZonedEnviron)
@@ -1089,17 +1096,17 @@ func (t *localServerSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *gc.C)
 	c.Assert(zones, gc.DeepEquals, []string{"volume-zone"})
 }
 
-var azConstrainedErr = &amzec2.Error{
+var azConstrainedErr = &smithy.GenericAPIError{
 	Code:    "Unsupported",
 	Message: "The requested Availability Zone is currently constrained etc.",
 }
 
-var azVolumeTypeNotAvailableInZoneErr = &amzec2.Error{
+var azVolumeTypeNotAvailableInZoneErr = &smithy.GenericAPIError{
 	Code:    "VolumeTypeNotAvailableInZone",
 	Message: "blah blah",
 }
 
-var azInsufficientInstanceCapacityErr = &amzec2.Error{
+var azInsufficientInstanceCapacityErr = &smithy.GenericAPIError{
 	Code: "InsufficientInstanceCapacity",
 	Message: "We currently do not have sufficient m1.small capacity in the " +
 		"Availability Zone you requested (us-east-1d). Our system will " +
@@ -1108,7 +1115,7 @@ var azInsufficientInstanceCapacityErr = &amzec2.Error{
 		"us-east-1c, us-east-1a.",
 }
 
-var azNoDefaultSubnetErr = &amzec2.Error{
+var azNoDefaultSubnetErr = &smithy.GenericAPIError{
 	Code:    "InvalidInput",
 	Message: "No default subnet for availability zone: ''us-east-1e''.",
 }
@@ -1129,10 +1136,10 @@ func (t *localServerSuite) TestStartInstanceAvailZoneAllNoDefaultSubnet(c *gc.C)
 	t.testStartInstanceAvailZoneAllConstrained(c, azNoDefaultSubnetErr)
 }
 
-func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, runInstancesError *amzec2.Error) {
+func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, runInstancesError smithy.APIError) {
 	env := t.prepareAndBootstrap(c)
 
-	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ctx context.ProviderCallContext, ri *amzec2.RunInstances, c environs.StatusCallbackFunc) (*amzec2.RunInstancesResp, error) {
+	t.PatchValue(ec2.RunInstances, func(e ec2.Client, ctx context.ProviderCallContext, ri *awsec2.RunInstancesInput, callback environs.StatusCallbackFunc) (resp *awsec2.RunInstancesOutput, err error) {
 		return nil, runInstancesError
 	})
 
@@ -1147,7 +1154,7 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 	// *not* satisfy environs.IsAvailabilityZoneIndependent,
 	// so the caller knows to try a new zone, rather than fail.
 	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
-	c.Assert(errors.Details(err), jc.Contains, runInstancesError.Message)
+	c.Assert(errors.Details(err), jc.Contains, runInstancesError.ErrorMessage())
 }
 
 // addTestingSubnets adds a testing default VPC with 3 subnets in the EC2 test
@@ -1155,38 +1162,38 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 // "test-unavailable". Returns a slice with the IDs of the created subnets and
 // vpc id that those were added to
 func (t *localServerSuite) addTestingSubnets(c *gc.C) ([]corenetwork.Id, string) {
-	vpc := t.srv.ec2srv.AddVPC(amzec2.VPC{
-		CIDRBlock: "0.1.0.0/16",
-		IsDefault: true,
+	vpc := t.srv.ec2srv.AddVpc(types.Vpc{
+		CidrBlock: aws.String("0.1.0.0/16"),
+		IsDefault: aws.Bool(true),
 	})
 	results := make([]corenetwork.Id, 3)
-	sub1, err := t.srv.ec2srv.AddSubnet(amzec2.Subnet{
-		VPCId:        vpc.Id,
-		CIDRBlock:    "0.1.2.0/24",
-		AvailZone:    "test-available",
-		State:        "available",
-		DefaultForAZ: true,
+	sub1, err := t.srv.ec2srv.AddSubnet(types.Subnet{
+		VpcId:            vpc.VpcId,
+		CidrBlock:        aws.String("0.1.2.0/24"),
+		AvailabilityZone: aws.String("test-available"),
+		State:            "available",
+		DefaultForAz:     aws.Bool(true),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	results[0] = corenetwork.Id(sub1.Id)
-	sub2, err := t.srv.ec2srv.AddSubnet(amzec2.Subnet{
-		VPCId:     vpc.Id,
-		CIDRBlock: "0.1.3.0/24",
-		AvailZone: "test-available",
-		State:     "unavailable",
+	results[0] = corenetwork.Id(aws.ToString(sub1.SubnetId))
+	sub2, err := t.srv.ec2srv.AddSubnet(types.Subnet{
+		VpcId:            vpc.VpcId,
+		CidrBlock:        aws.String("0.1.3.0/24"),
+		AvailabilityZone: aws.String("test-available"),
+		State:            "unavailable",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	results[1] = corenetwork.Id(sub2.Id)
-	sub3, err := t.srv.ec2srv.AddSubnet(amzec2.Subnet{
-		VPCId:        vpc.Id,
-		CIDRBlock:    "0.1.4.0/24",
-		AvailZone:    "test-unavailable",
-		DefaultForAZ: true,
-		State:        "unavailable",
+	results[1] = corenetwork.Id(aws.ToString(sub2.SubnetId))
+	sub3, err := t.srv.ec2srv.AddSubnet(types.Subnet{
+		VpcId:            vpc.VpcId,
+		CidrBlock:        aws.String("0.1.4.0/24"),
+		AvailabilityZone: aws.String("test-unavailable"),
+		DefaultForAz:     aws.Bool(true),
+		State:            "unavailable",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	results[2] = corenetwork.Id(sub3.Id)
-	return results, vpc.Id
+	results[2] = corenetwork.Id(aws.ToString(sub3.SubnetId))
+	return results, aws.ToString(vpc.VpcId)
 }
 
 func (t *localServerSuite) prepareAndBootstrap(c *gc.C) environs.Environ {
@@ -1197,7 +1204,7 @@ func (t *localServerSuite) prepareAndBootstrapWithConfig(c *gc.C, config coretes
 	args := t.PrepareParams(c)
 	args.ModelConfig = coretesting.Attrs(args.ModelConfig).Merge(config)
 	env := t.PrepareWithParams(c, args)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -1330,7 +1337,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneOneNoDefaultSubnetErr(c *gc
 	t.testStartInstanceAvailZoneOneConstrained(c, azNoDefaultSubnetErr)
 }
 
-func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, runInstancesError *amzec2.Error) {
+func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, runInstancesError smithy.APIError) {
 	env := t.prepareAndBootstrap(c)
 
 	// The first call to RunInstances fails with an error indicating the AZ
@@ -1338,8 +1345,8 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 	var azArgs []string
 	realRunInstances := *ec2.RunInstances
 
-	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ctx context.ProviderCallContext, ri *amzec2.RunInstances, c environs.StatusCallbackFunc) (*amzec2.RunInstancesResp, error) {
-		azArgs = append(azArgs, ri.AvailZone)
+	t.PatchValue(ec2.RunInstances, func(e ec2.Client, ctx context.ProviderCallContext, ri *awsec2.RunInstancesInput, callback environs.StatusCallbackFunc) (resp *awsec2.RunInstancesOutput, err error) {
+		azArgs = append(azArgs, aws.ToString(ri.Placement.AvailabilityZone))
 		if len(azArgs) == 1 {
 			return nil, runInstancesError
 		}
@@ -1410,8 +1417,8 @@ func (t *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 }
 
 func (t *localServerSuite) TestConstraintsValidatorVocabNoDefaultOrSpecifiedVPC(c *gc.C) {
-	t.srv.defaultVPC.IsDefault = false
-	err := t.srv.ec2srv.UpdateVPC(*t.srv.defaultVPC)
+	t.srv.defaultVPC.IsDefault = aws.Bool(false)
+	err := t.srv.ec2srv.UpdateVpc(*t.srv.defaultVPC)
 	c.Assert(err, jc.ErrorIsNil)
 
 	env := t.Prepare(c)
@@ -1424,11 +1431,11 @@ func (t *localServerSuite) TestConstraintsValidatorVocabDefaultVPC(c *gc.C) {
 }
 
 func (t *localServerSuite) TestConstraintsValidatorVocabSpecifiedVPC(c *gc.C) {
-	t.srv.defaultVPC.IsDefault = false
-	err := t.srv.ec2srv.UpdateVPC(*t.srv.defaultVPC)
+	t.srv.defaultVPC.IsDefault = aws.Bool(false)
+	err := t.srv.ec2srv.UpdateVpc(*t.srv.defaultVPC)
 	c.Assert(err, jc.ErrorIsNil)
 
-	t.TestConfig["vpc-id"] = t.srv.defaultVPC.Id
+	t.TestConfig["vpc-id"] = aws.ToString(t.srv.defaultVPC.VpcId)
 	defer delete(t.TestConfig, "vpc-id")
 
 	env := t.Prepare(c)
@@ -1530,10 +1537,10 @@ func (t *localServerSuite) TestPrecheckInstanceVolumeAvailZoneSameZonePlacement(
 
 func (t *localServerSuite) testPrecheckInstanceVolumeAvailZone(c *gc.C, placement string) {
 	env := t.Prepare(c)
-	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
-		VolumeSize: 1,
-		VolumeType: "gp2",
-		AvailZone:  "test-available",
+	resp, err := t.client.CreateVolume(t.callCtx, &awsec2.CreateVolumeInput{
+		Size:             aws.Int32(1),
+		VolumeType:       "gp2",
+		AvailabilityZone: aws.String("test-available"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1545,7 +1552,7 @@ func (t *localServerSuite) testPrecheckInstanceVolumeAvailZone(c *gc.C, placemen
 				Provider: "ebs",
 			},
 			Volume:   names.NewVolumeTag("23"),
-			VolumeId: resp.Id,
+			VolumeId: aws.ToString(resp.VolumeId),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1553,10 +1560,10 @@ func (t *localServerSuite) testPrecheckInstanceVolumeAvailZone(c *gc.C, placemen
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneVolumeConflict(c *gc.C) {
 	env := t.Prepare(c)
-	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
-		VolumeSize: 1,
-		VolumeType: "gp2",
-		AvailZone:  "volume-zone",
+	resp, err := t.client.CreateVolume(t.callCtx, &awsec2.CreateVolumeInput{
+		Size:             aws.Int32(1),
+		VolumeType:       "gp2",
+		AvailabilityZone: aws.String("volume-zone"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1568,16 +1575,16 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneVolumeConflict(c *gc.C) 
 				Provider: "ebs",
 			},
 			Volume:   names.NewVolumeTag("23"),
-			VolumeId: resp.Id,
+			VolumeId: aws.ToString(resp.VolumeId),
 		}},
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching the requested EBS volumes in zone "volume-zone"`)
 }
 
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
-	region := t.srv.region
-	aws.Regions[region.Name] = t.srv.region
-	defer delete(aws.Regions, region.Name)
+	//region := t.srv.region
+	//aws.Regions[region.Name] = t.srv.region
+	//defer delete(aws.Regions, region.Name)
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 
@@ -1585,7 +1592,7 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	params, err := env.(simplestreams.ImageMetadataValidator).ImageMetadataLookupParams("test")
 	c.Assert(err, jc.ErrorIsNil)
 	params.Release = jujuversion.DefaultSupportedLTS()
-	params.Endpoint = region.EC2Endpoint
+	params.Endpoint = "http://foo"
 	params.Sources, err = environs.ImageMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(ss, params)
@@ -1613,7 +1620,7 @@ func (t *localServerSuite) TestSupportsNetworking(c *gc.C) {
 
 func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.NetworkingEnviron, instance.Id) {
 	env := t.prepareEnviron(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -1885,20 +1892,20 @@ func (t *localServerSuite) TestRootDiskTags(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
 
-	ec2conn := ec2.EnvironEC2(env)
-	resp, err := ec2conn.Volumes(nil, nil)
+	ec2conn := ec2.EnvironEC2Client(env)
+	resp, err := ec2conn.DescribeVolumes(t.callCtx, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.Volumes, gc.Not(gc.HasLen), 0)
 
-	var found *amzec2.Volume
+	var found types.Volume
 	for _, vol := range resp.Volumes {
 		if len(vol.Tags) != 0 {
-			found = &vol
+			found = vol
 			break
 		}
 	}
 	c.Assert(found, gc.NotNil)
-	c.Assert(found.Tags, jc.SameContents, []amzec2.Tag{
+	compareTags(c, found.Tags, []tagInfo{
 		{"Name", "juju-sample-machine-0-root"},
 		{"juju-model-uuid", coretesting.ModelTag.Id()},
 		{"juju-controller-uuid", t.ControllerUUID},
@@ -1913,13 +1920,11 @@ func (s *localServerSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	ec2inst := ec2.InstanceSDKEC2(inst[0])
 	// Controllers should be started with a burstable
 	// instance if possible, and a 32 GiB disk.
-	c.Assert(*ec2inst.InstanceType, gc.Equals, "t3a.medium")
+	c.Assert(string(ec2inst.InstanceType), gc.Equals, "t3a.medium")
 }
 
-func makeFilter(key string, values ...string) *amzec2.Filter {
-	result := amzec2.NewFilter()
-	result.Add(key, values...)
-	return result
+func makeFilter(key string, values ...string) types.Filter {
+	return types.Filter{Name: aws.String(key), Values: values}
 }
 
 func (s *localServerSuite) TestAdoptResources(c *gc.C) {
@@ -1942,7 +1947,8 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 		"firewall-mode": "global",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(environs.OpenParams{
+
+	env, err := environs.New(s.BootstrapContext.Context(), environs.OpenParams{
 		Cloud:  s.CloudSpec(),
 		Config: cfg,
 	})
@@ -1981,41 +1987,47 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	allGroups := append([]string{}, controllerGroups...)
 	allGroups = append(allGroups, modelGroups...)
 
-	ec2conn := ec2.EnvironEC2(env)
+	ec2conn := ec2.EnvironEC2Client(env)
 
 	origController := coretesting.ControllerTag.Id()
 
 	checkInstanceTags := func(controllerUUID string, expectedIds ...string) {
-		resp, err := ec2conn.Instances(
-			nil, makeFilter("tag:"+tags.JujuController, controllerUUID))
+		resp, err := ec2conn.DescribeInstances(
+			s.callCtx, &awsec2.DescribeInstancesInput{
+				Filters: []types.Filter{makeFilter("tag:"+tags.JujuController, controllerUUID)},
+			})
 		c.Assert(err, jc.ErrorIsNil)
 		actualIds := set.NewStrings()
 		for _, reservation := range resp.Reservations {
 			for _, instance := range reservation.Instances {
-				actualIds.Add(instance.InstanceId)
+				actualIds.Add(aws.ToString(instance.InstanceId))
 			}
 		}
 		c.Check(actualIds, gc.DeepEquals, set.NewStrings(expectedIds...))
 	}
 
 	checkVolumeTags := func(controllerUUID string, expectedIds ...string) {
-		resp, err := ec2conn.Volumes(
-			nil, makeFilter("tag:"+tags.JujuController, controllerUUID))
+		resp, err := ec2conn.DescribeVolumes(
+			s.callCtx, &awsec2.DescribeVolumesInput{
+				Filters: []types.Filter{makeFilter("tag:"+tags.JujuController, controllerUUID)},
+			})
 		c.Assert(err, jc.ErrorIsNil)
 		actualIds := set.NewStrings()
 		for _, vol := range resp.Volumes {
-			actualIds.Add(vol.Id)
+			actualIds.Add(aws.ToString(vol.VolumeId))
 		}
 		c.Check(actualIds, gc.DeepEquals, set.NewStrings(expectedIds...))
 	}
 
 	checkGroupTags := func(controllerUUID string, expectedIds ...string) {
-		resp, err := ec2conn.SecurityGroups(
-			nil, makeFilter("tag:"+tags.JujuController, controllerUUID))
+		resp, err := ec2conn.DescribeSecurityGroups(
+			s.callCtx, &awsec2.DescribeSecurityGroupsInput{
+				Filters: []types.Filter{makeFilter("tag:"+tags.JujuController, controllerUUID)},
+			})
 		c.Assert(err, jc.ErrorIsNil)
 		actualIds := set.NewStrings()
-		for _, group := range resp.Groups {
-			actualIds.Add(group.Id)
+		for _, group := range resp.SecurityGroups {
+			actualIds.Add(aws.ToString(group.GroupId))
 		}
 		c.Check(actualIds, gc.DeepEquals, set.NewStrings(expectedIds...))
 	}
@@ -2063,7 +2075,6 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
 	t.srv.startServer(c)
 
-	region := t.srv.region
 	credential := cloud.NewCredential(
 		cloud.AccessKeyAuthType,
 		map[string]string{
@@ -2071,8 +2082,8 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 			"secret-key": "x",
 		},
 	)
-	restoreEC2Patching := patchEC2ForTesting(c, region)
-	t.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
+	//restoreEC2Patching := patchEC2ForTesting(c, region)
+	//t.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 
 	env, err := bootstrap.PrepareController(
 		false,
@@ -2084,8 +2095,8 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 			ControllerName:   localConfigAttrs["name"].(string),
 			Cloud: environscloudspec.CloudSpec{
 				Type:       "ec2",
-				Region:     region.Name,
-				Endpoint:   region.EC2Endpoint,
+				Region:     "test",
+				Endpoint:   "http://foo",
 				Credential: &credential,
 			},
 			AdminSecret: testing.AdminSecret,
@@ -2100,7 +2111,7 @@ func (t *localNonUSEastSuite) TearDownTest(c *gc.C) {
 	t.BaseSuite.TearDownTest(c)
 }
 
-func patchEC2ForTesting(c *gc.C, region aws.Region) func() {
+func patchEC2ForTesting(c *gc.C, region types.Region) func() {
 	ec2.UseTestImageData(c, ec2.MakeTestImageStreamsData(region))
 	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()

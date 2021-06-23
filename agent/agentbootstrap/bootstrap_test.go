@@ -4,6 +4,7 @@
 package agentbootstrap_test
 
 import (
+	stdcontext "context"
 	"io/ioutil"
 	"net"
 	"path/filepath"
@@ -522,7 +523,7 @@ func (p *fakeProvider) Validate(newCfg, oldCfg *config.Config) (*config.Config, 
 	return newCfg, p.NextErr()
 }
 
-func (p *fakeProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+func (p *fakeProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	p.MethodCall(p, "Open", args)
 	p.environ = &fakeEnviron{Stub: &p.Stub, provider: p}
 	return p.environ, p.NextErr()

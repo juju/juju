@@ -63,7 +63,7 @@ func (s *credentialsSuite) TestServicePrincipalSecretHiddenAttributes(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestDetectCredentialsNoAccounts(c *gc.C) {
-	_, err := s.provider.DetectCredentials()
+	_, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	calls := s.azureCLI.Calls()
 	c.Assert(calls, gc.HasLen, 1)
@@ -72,7 +72,7 @@ func (s *credentialsSuite) TestDetectCredentialsNoAccounts(c *gc.C) {
 
 func (s *credentialsSuite) TestDetectCredentialsListError(c *gc.C) {
 	s.azureCLI.SetErrors(errors.New("test error"))
-	_, err := s.provider.DetectCredentials()
+	_, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -93,7 +93,7 @@ func (s *credentialsSuite) TestDetectCredentialsOneAccount(c *gc.C) {
 		IsActive: true,
 		Name:     "AzureCloud",
 	}}
-	cred, err := s.provider.DetectCredentials()
+	cred, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cred, gc.Not(gc.IsNil))
 	c.Assert(cred.DefaultCredential, gc.Equals, "test-account")
@@ -149,7 +149,7 @@ func (s *credentialsSuite) TestDetectCredentialsCloudError(c *gc.C) {
 		Name:     "AzureCloud",
 	}}
 	s.azureCLI.SetErrors(nil, errors.New("test error"))
-	cred, err := s.provider.DetectCredentials()
+	cred, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(cred, gc.IsNil)
 
@@ -186,7 +186,7 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccounts(c *gc.C) {
 		IsActive: true,
 		Name:     "AzureCloud",
 	}}
-	cred, err := s.provider.DetectCredentials()
+	cred, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cred, gc.Not(gc.IsNil))
 	c.Assert(cred.DefaultCredential, gc.Equals, "test-account1")
@@ -271,7 +271,7 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccountsOneError(c *gc.C) {
 		Name:     "AzureCloud",
 	}}
 	s.azureCLI.SetErrors(nil, nil, nil, nil, errors.New("test error"))
-	cred, err := s.provider.DetectCredentials()
+	cred, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cred, gc.Not(gc.IsNil))
 	c.Assert(cred.DefaultCredential, gc.Equals, "")

@@ -24,7 +24,9 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -41,6 +43,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
 )
 
@@ -152,22 +155,61 @@ type controllerStacker interface {
 	Deploy() error
 }
 
-func controllerCorelation(broker *kubernetesClient) (string, error) {
-	// ensure controller specific annotations.
-	controllerUUIDKey := k8sutils.AnnotationControllerIsControllerKey(false)
-	_ = broker.addAnnotations(controllerUUIDKey, "true")
+// findControllerNamespace is used for finding a controller's namespace based on
+// its model name and controller uuid. This function really shouldn't exist
+// and should be removed in 3.0. We have it here as we are still trying to use
+// Kubernetes annotations as database selectors in some parts of Juju.
+func findControllerNamespace(
+	client kubernetes.Interface,
+	controllerUUID string,
+) (*core.Namespace, error) {
+	// First we are going to start off by listing namespaces that are not using
+	// legacy labels as that is the direction we are moving towards and hence
+	// should be the quickest operation
+	namespaces, err := client.CoreV1().Namespaces().List(
+		context.TODO(),
+		v1.ListOptions{
+			LabelSelector: labels.Set{
+				constants.LabelJujuModelName: environsbootstrap.ControllerModelName,
+			}.String(),
+		},
+	)
 
-	ns, err := broker.listNamespacesByAnnotations(broker.GetAnnotations())
-	if errors.IsNotFound(err) || ns == nil {
-		// No existing controller found on the cluster.
-		// A controller must be bootstrapping now.
-		// It will reply on setControllerNamespace in controller stack to set namespace name.
-		return "", errors.NewNotFound(err, "controller")
-	}
 	if err != nil {
-		return "", errors.Trace(err)
+		return nil, errors.Annotate(err, "finding controller namespace with non legacy labels")
 	}
-	return ns[0].GetName(), nil
+
+	for _, ns := range namespaces.Items {
+		if ns.Annotations[k8sutils.AnnotationControllerUUIDKey(false)] == controllerUUID {
+			return &ns, nil
+		}
+	}
+
+	// We didn't find anything using new labels so lets try the old ones.
+	namespaces, err = client.CoreV1().Namespaces().List(
+		context.TODO(),
+		v1.ListOptions{
+			LabelSelector: labels.Set{
+				constants.LegacyLabelModelName: environsbootstrap.ControllerModelName,
+			}.String(),
+		},
+	)
+
+	if err != nil {
+		return nil, errors.Annotate(err, "finding controller namespace with legacy labels")
+	}
+
+	for _, ns := range namespaces.Items {
+		if ns.Annotations[k8sutils.AnnotationControllerUUIDKey(true)] == controllerUUID {
+			return &ns, nil
+		}
+	}
+
+	return nil, errors.NotFoundf(
+		"controller namespace not found for model %q and controller uuid %q",
+		environsbootstrap.ControllerModelName,
+		controllerUUID,
+	)
 }
 
 // DecideControllerNamespace decides the namespace name to use for a new controller.
@@ -411,7 +453,20 @@ func (c *controllerStack) Deploy() (err error) {
 	}
 
 	// create service account for local cluster/provider connections.
-	if err = c.ensureControllerServiceAccount(); err != nil {
+	_, saCleanUps, err := ensureControllerServiceAccount(
+		c.ctx.Context(),
+		c.broker.client(),
+		c.broker.GetCurrentNamespace(),
+		c.stackLabels,
+		c.stackAnnotations,
+	)
+	c.addCleanUp(func() {
+		logger.Debugf("delete controller service accounts")
+		for _, v := range saCleanUps {
+			v()
+		}
+	})
+	if err != nil {
 		return errors.Annotate(err, "creating service account for controller")
 	}
 	if isDone() {
@@ -679,39 +734,39 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf() error {
 	return errors.Trace(err)
 }
 
-func (c *controllerStack) ensureControllerServiceAccount() error {
-	sa := &core.ServiceAccount{
+// ensureControllerServiceAccount is responsible for making sure the in cluster
+// service account for the controller exists and is upto date. Returns the name
+// of the service account create, cleanup functions and any errors.
+func ensureControllerServiceAccount(
+	ctx context.Context,
+	client kubernetes.Interface,
+	namespace string,
+	labels map[string]string,
+	annotations map[string]string,
+) (string, []func(), error) {
+	sa := resources.NewServiceAccount("controller", namespace, &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "controller",
-			Namespace: c.broker.GetCurrentNamespace(),
 			Labels: providerutils.LabelsMerge(
-				c.stackLabels,
+				labels,
 				providerutils.LabelsJujuModelOperatorDisableWebhook,
 			),
-			Annotations: c.stackAnnotations,
+			Annotations: annotations,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
-	}
-
-	logger.Debugf("ensuring controller service account: \n%+v", sa)
-	_, cleanUps, err := c.broker.ensureServiceAccount(sa)
-	c.addCleanUp(func() {
-		logger.Debugf("deleting %q service account", sa.Name)
-		for _, v := range cleanUps {
-			v()
-		}
 	})
+
+	cleanUps, err := sa.Ensure(context.TODO(), client)
 	if err != nil {
-		return errors.Trace(err)
+		return sa.Name, cleanUps, errors.Trace(err)
 	}
 
 	// name cluster role binding after the controller namespace.
-	clusterRoleBindingName := c.broker.GetCurrentNamespace()
+	clusterRoleBindingName := namespace
 	crb := resources.NewClusterRoleBinding(clusterRoleBindingName, &rbacv1.ClusterRoleBinding{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        clusterRoleBindingName,
 			Labels:      providerutils.LabelsForModel("controller", false),
-			Annotations: c.stackAnnotations,
+			Annotations: annotations,
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
@@ -721,18 +776,13 @@ func (c *controllerStack) ensureControllerServiceAccount() error {
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
 			Name:      "controller",
-			Namespace: c.broker.GetCurrentNamespace(),
+			Namespace: namespace,
 		}},
 	})
 
-	crbCleanUps, err := crb.Ensure(c.ctx.Context(), c.broker.client())
-	c.addCleanUp(func() {
-		logger.Debugf("deleting %q cluster role binding", crb.Name)
-		for _, v := range crbCleanUps {
-			v()
-		}
-	})
-	return errors.Trace(err)
+	crbCleanUps, err := crb.Ensure(ctx, client)
+	cleanUps = append(cleanUps, crbCleanUps...)
+	return sa.Name, cleanUps, errors.Trace(err)
 }
 
 func (c *controllerStack) createControllerStatefulset() error {

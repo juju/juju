@@ -122,10 +122,10 @@ func PrepareController(
 	}
 	if isCAASController {
 		details.ModelType = model.CAAS
-		env, err = caas.Open(p, openParams)
+		env, err = caas.Open(ctx.Context(), p, openParams)
 	} else {
 		details.ModelType = model.IAAS
-		env, err = environs.Open(p, openParams)
+		env, err = environs.Open(ctx.Context(), p, openParams)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
