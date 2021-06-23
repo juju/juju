@@ -224,8 +224,7 @@ func (s *serverFactory) InsecureRemoteServer(spec environscloudspec.CloudSpec) (
 		return nil, errors.NotValidf("credentials")
 	}
 
-	serverSpec := lxd.NewInsecureServerSpec(spec.Endpoint)
-	serverSpec.
+	serverSpec := lxd.NewInsecureServerSpec(spec.Endpoint).
 		WithClientCertificate(clientCert).
 		WithSkipGetServer(true)
 	svr, err := s.newRemoteServerFunc(serverSpec)
