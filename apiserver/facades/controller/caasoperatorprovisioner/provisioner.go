@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -32,6 +33,7 @@ var logger = loggo.GetLogger("juju.apiserver.caasoperatorprovisioner")
 
 type APIGroup struct {
 	*common.ApplicationWatcherFacade
+	*charmscommon.CharmsAPI
 	*API
 }
 
@@ -58,7 +60,8 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 
-	model, err := ctx.State().Model()
+	st := ctx.State()
+	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -68,6 +71,11 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
+
+	commonCharmsAPI, err := charmscommon.NewCharmsAPI(st, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	api, err := NewCAASOperatorProvisionerAPI(resources, authorizer,
 		stateShim{ctx.StatePool().SystemState()},
@@ -79,6 +87,7 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 
 	return &APIGroup{
 		ApplicationWatcherFacade: common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterNone),
+		CharmsAPI:                commonCharmsAPI,
 		API:                      api,
 	}, nil
 }
@@ -268,6 +277,32 @@ func (a *API) ModelUUID() params.StringResult {
 		return params.StringResult{Error: apiservererrors.ServerError(err)}
 	}
 	return params.StringResult{Result: m.UUID()}
+}
+
+// ApplicationCharmURLs finds the CharmURL for an application.
+func (a *API) ApplicationCharmURLs(args params.Entities) (params.StringResults, error) {
+	res := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		appTag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		app, err := a.state.Application(appTag.Id())
+		if err != nil {
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		ch, _, err := app.Charm()
+		if err != nil {
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		res.Results[i].Result = ch.URL().String()
+	}
+	return res, nil
 }
 
 // CharmStorageParams returns filesystem parameters needed
