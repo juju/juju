@@ -14,8 +14,8 @@ import (
 	"runtime"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/packaging/commands"
-	"github.com/juju/packaging/manager"
+	"github.com/juju/packaging/v2/commands"
+	"github.com/juju/packaging/v2/manager"
 	"github.com/juju/proxy"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -106,8 +106,8 @@ func (s *InitialiserSuite) SetUpTest(c *gc.C) {
 // with an identical signature to manager.RunCommandWithRetry which saves each
 // command it receives in a slice and always returns no output, error code 0
 // and a nil error.
-func getMockRunCommandWithRetry(calledCmds *[]string) func(string, func(string) error) (string, int, error) {
-	return func(cmd string, fatalError func(string) error) (string, int, error) {
+func getMockRunCommandWithRetry(calledCmds *[]string) func(string, manager.Retryable, manager.RetryPolicy) (string, int, error) {
+	return func(cmd string, _ manager.Retryable, _ manager.RetryPolicy) (string, int, error) {
 		*calledCmds = append(*calledCmds, cmd)
 		return "", 0, nil
 	}

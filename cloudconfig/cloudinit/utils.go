@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 
 	jujupackaging "github.com/juju/juju/packaging"
-	"github.com/juju/packaging"
-	"github.com/juju/packaging/config"
+	"github.com/juju/packaging/v2"
+	"github.com/juju/packaging/v2/config"
 	"github.com/juju/utils/v2"
 )
 
