@@ -19,7 +19,6 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -202,14 +201,14 @@ func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
 		return "appuuid", nil
 	}
 
-	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).Times(2).
 		Return(nil, s.k8sNotFoundError())
 
-	return s.setupBroker(c, ctrl, newK8sClientFunc, newK8sRestFunc, randomPrefixFunc)
+	return s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc)
 }
 
 func (s *BaseSuite) setupBroker(
-	c *gc.C, ctrl *gomock.Controller,
+	c *gc.C, ctrl *gomock.Controller, controllerUUID string,
 	newK8sClientFunc provider.NewK8sClientFunc,
 	newK8sRestFunc k8sspecs.NewK8sRestClientFunc,
 	randomPrefixFunc utils.RandomPrefixFunc,
@@ -237,7 +236,7 @@ func (s *BaseSuite) setupBroker(
 	})
 
 	var err error
-	s.broker, err = provider.NewK8sBroker(testing.ControllerTag.Id(), s.k8sRestConfig, s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
+	s.broker, err = provider.NewK8sBroker(controllerUUID, s.k8sRestConfig, s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
 		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
@@ -389,10 +388,6 @@ func (s *BaseSuite) deleteOptions(policy v1.DeletionPropagation, uid types.UID) 
 		ops.Preconditions = &v1.Preconditions{UID: &uid}
 	}
 	return ops
-}
-
-func (s *BaseSuite) k8sNewFakeWatcher() *watch.RaceFreeFakeWatcher {
-	return watch.NewRaceFreeFake()
 }
 
 func (s *BaseSuite) ensureJujuNamespaceAnnotations(isController bool, ns *core.Namespace) *core.Namespace {
