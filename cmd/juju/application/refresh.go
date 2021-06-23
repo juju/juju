@@ -5,7 +5,6 @@ package application
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v8"
@@ -35,14 +34,12 @@ import (
 	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application/refresher"
-	"github.com/juju/juju/cmd/juju/application/seriesselector"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
@@ -103,7 +100,7 @@ func newRefreshCommand() *refreshCommand {
 // CharmResolver defines methods required to resolve charms, as required
 // by the refresh command.
 type CharmResolver interface {
-	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error)
+	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCHarm bool) (*charm.URL, commoncharm.Origin, []string, error)
 }
 
 // NewRefreshCommand returns a command which upgrades application's charm.
@@ -494,15 +491,6 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		EndpointBindings:   c.Bindings,
 	}
 
-	// Determine whether we need to update the application's series
-	newSeries, err := c.checkSetSeries(apiRoot, applicationInfo.Series, chID, cfg.Switch)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if newSeries != "" {
-		charmCfg.Series = newSeries
-	}
-
 	if err := block.ProcessBlockedError(charmRefreshClient.SetCharm(generation, charmCfg), block.BlockChange); err != nil {
 		return err
 	}
@@ -513,78 +501,6 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 
 	return nil
-}
-
-// checkSetSeries determines whether an update to the application's Series
-// is required, and returns the new series, or "" if update not required.
-//
-// If upgrading from a pod-spec (v1) charm to sidecar (v2), override the
-// application's series to what it would be for a fresh sidecar deploy.
-func (c *refreshCommand) checkSetSeries(
-	apiRoot api.Connection,
-	currentSeries string,
-	chID application.CharmID,
-	switchCfg bool,
-) (newSeries string, err error) {
-	logger.Criticalf("TODO: applicationInfo.Series=%q", currentSeries)
-	if currentSeries != "kubernetes" {
-		// Only required if current series is "kubernetes" (v1 K8s charm)
-		return "", nil
-	}
-
-	charmClient := c.NewCharmClient(apiRoot)
-	charmInfo, err := charmClient.CharmInfo(chID.URL.String())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	format := corecharm.Format(charmInfo.Charm())
-	logger.Criticalf("TODO: format=%v", format)
-	if format < corecharm.FormatV2 {
-		// Only required if new charm is a v2 K8s charm
-		// TODO(benhoyt) - do we need to check the new charm metadata has Containers?
-		return "", nil
-	}
-
-	// Ensure application facade has support for SetCharm with Series
-	err = c.checkApplicationFacadeSupport(apiRoot, "changing from pod-spec to sidecar charm", 14)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	// All the following code is just to determine what the new series value
-	// should be (similar to code in the deploy command).
-	resolver, _, err := c.getCharmResolver(apiRoot)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	_, _, supportedSeries, err := resolver.ResolveCharm(chID.URL, chID.Origin, switchCfg)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	modelCfg, err := c.getModelConfig(apiRoot)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	workloadSeries, err := series.WorkloadSeries(time.Now(), chID.URL.Series, modelCfg.ImageStream())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	charmSeriesArgs := seriesselector.CharmSeriesArgs{
-		SeriesFlag:          "", // refresh does not support "--series"
-		CharmURLSeries:      chID.URL.Series,
-		Config:              modelCfg,
-		SupportedSeries:     supportedSeries,
-		SupportedJujuSeries: workloadSeries,
-		Force:               c.ForceSeries,
-		FromBundle:          false,
-		Logger:              logger,
-	}
-	series, err := seriesselector.CharmSeries(charmSeriesArgs)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	logger.Criticalf("TODO: series=%q, charmSeriesArgs=%#vq", series, charmSeriesArgs)
-	return series, nil
 }
 
 func (c *refreshCommand) isCharmHubWithRevision(source commoncharm.OriginSource) bool {
@@ -781,57 +697,52 @@ func allEndpoints(ci *apicommoncharms.CharmInfo) set.Strings {
 }
 
 func (c *refreshCommand) getRefresherFactory(apiRoot api.Connection) (refresher.RefresherFactory, error) {
-	resolver, csClient, err := c.getCharmResolver(apiRoot)
+	// First, ensure the charm is added to the model.
+	conAPIRoot, err := c.NewControllerAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	csURL, err := c.CharmStoreURLGetter(conAPIRoot)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	bakeryClient, err := c.BakeryClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	csClient, charmStore := c.NewCharmStore(bakeryClient, csURL, csparams.Channel(c.Channel.Risk))
+
+	charmHubURL, err := c.getCharmHubURL(apiRoot)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	downloadClient, err := c.NewCharmHubClient(charmHubURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	deps := refresher.RefresherDependencies{
 		Authorizer:    csClient,
 		CharmAdder:    c.NewCharmAdder(apiRoot),
-		CharmResolver: resolver,
+		CharmResolver: c.NewCharmResolver(apiRoot, charmStore, downloadClient),
 	}
 	return c.NewRefresherFactory(deps), nil
 }
 
-func (c *refreshCommand) getCharmResolver(apiRoot api.Connection) (CharmResolver, store.MacaroonGetter, error) {
-	conAPIRoot, err := c.NewControllerAPIRoot()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	csURL, err := c.CharmStoreURLGetter(conAPIRoot)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	bakeryClient, err := c.BakeryClient()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	csClient, charmStore := c.NewCharmStore(bakeryClient, csURL, csparams.Channel(c.Channel.Risk))
+func (c *refreshCommand) getCharmHubURL(apiRoot base.APICallCloser) (string, error) {
+	modelConfigClient := c.ModelConfigClient(apiRoot)
 
-	modelConfig, err := c.getModelConfig(apiRoot)
+	attrs, err := modelConfigClient.ModelGet()
 	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	charmHubURL, _ := modelConfig.CharmHubURL()
-
-	downloadClient, err := c.NewCharmHubClient(charmHubURL)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
-	resolver := c.NewCharmResolver(apiRoot, charmStore, downloadClient)
-	return resolver, csClient, nil
-}
-
-func (c *refreshCommand) getModelConfig(apiRoot base.APICallCloser) (*config.Config, error) {
-	client := c.ModelConfigClient(apiRoot)
-	attrs, err := client.ModelGet()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	config, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	return config, nil
+
+	charmHubURL, _ := config.CharmHubURL()
+	return charmHubURL, nil
 }

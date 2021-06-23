@@ -29,7 +29,6 @@ import (
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
-	"github.com/juju/juju/cmd/juju/application/seriesselector"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -934,16 +933,16 @@ func (h *bundleHandler) selectedSeries(ch charm.CharmMeta, chID application.Char
 		return "", errors.Trace(err)
 	}
 
-	selectedSeries, err := seriesselector.CharmSeries(seriesselector.CharmSeriesArgs{
-		SeriesFlag:          series,
-		CharmURLSeries:      chID.URL.Series,
-		SupportedSeries:     supportedSeries,
-		SupportedJujuSeries: workloadSeries,
-		Config:              h.modelConfig,
-		Force:               h.force,
-		FromBundle:          true,
-		Logger:              logger,
-	})
+	selector := seriesSelector{
+		seriesFlag:          series,
+		charmURLSeries:      chID.URL.Series,
+		supportedSeries:     supportedSeries,
+		supportedJujuSeries: workloadSeries,
+		conf:                h.modelConfig,
+		force:               h.force,
+		fromBundle:          true,
+	}
+	selectedSeries, err := selector.charmSeries()
 	return selectedSeries, charmValidationError(curl.Name, errors.Trace(err))
 }
 

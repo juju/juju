@@ -21,7 +21,6 @@ import (
 	"github.com/juju/loggo"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/cmd/juju/application/seriesselector"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
@@ -345,19 +344,20 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		seriesSelector := seriesSelector{
+			seriesFlag:          seriesName,
+			supportedSeries:     supportedSeries,
+			supportedJujuSeries: workloadSeries,
+			force:               d.force,
+			conf:                modelCfg,
+			fromBundle:          false,
+		}
+
 		if len(supportedSeries) == 0 {
 			logger.Warningf("%s does not declare supported series in metadata.yml", ch.Meta().Name)
 		}
 
-		seriesName, err = seriesselector.CharmSeries(seriesselector.CharmSeriesArgs{
-			SeriesFlag:          seriesName,
-			SupportedSeries:     supportedSeries,
-			SupportedJujuSeries: workloadSeries,
-			Force:               d.force,
-			Config:              modelCfg,
-			FromBundle:          false,
-			Logger:              logger,
-		})
+		seriesName, err = seriesSelector.charmSeries()
 		if err = charmValidationError(ch.Meta().Name, errors.Trace(err)); err != nil {
 			return nil, errors.Trace(err)
 		}

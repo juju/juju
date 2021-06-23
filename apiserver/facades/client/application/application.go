@@ -109,12 +109,6 @@ type APIv12 struct {
 // It adds CharmOrigin. The ApplicationsInfo call populates the exposed
 // endpoints field in its response entries.
 type APIv13 struct {
-	*APIv14
-}
-
-// APIv14 provides the Application API facade for version 14.
-// It adds Series to the SetCharm method params.
-type APIv14 struct {
 	*APIBase
 }
 
@@ -231,19 +225,11 @@ func NewFacadeV12(ctx facade.Context) (*APIv12, error) {
 }
 
 func NewFacadeV13(ctx facade.Context) (*APIv13, error) {
-	api, err := NewFacadeV14(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv13{api}, nil
-}
-
-func NewFacadeV14(ctx facade.Context) (*APIv14, error) {
 	api, err := newFacadeBase(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &APIv14{api}, nil
+	return &APIv13{api}, nil
 }
 
 type caasBrokerInterface interface {
@@ -1028,7 +1014,6 @@ type setCharmParams struct {
 	StorageConstraints    map[string]params.StorageConstraints
 	EndpointBindings      map[string]string
 	Force                 forceParams
-	Series                string
 }
 
 type forceParams struct {
@@ -1142,9 +1127,8 @@ func (api *APIBase) updateOneApplicationSeries(arg params.UpdateSeriesArg) error
 	return api.updateSeries.UpdateSeries(arg.Entity.Tag, arg.Series, arg.Force)
 }
 
-// SetCharm sets the charm for a given application.
+// SetCharm sets the charm for a given for the application.
 func (api *APIv12) SetCharm(args params.ApplicationSetCharmV12) error {
-	logger.Criticalf("TODO: APIv12.SetCharm")
 	newArgs := params.ApplicationSetCharm{
 		ApplicationName:    args.ApplicationName,
 		Generation:         args.Generation,
@@ -1162,30 +1146,8 @@ func (api *APIv12) SetCharm(args params.ApplicationSetCharmV12) error {
 	return api.APIBase.SetCharm(newArgs)
 }
 
-// SetCharm sets the charm for a given application.
-func (api *APIv13) SetCharm(args params.ApplicationSetCharmV13) error {
-	logger.Criticalf("TODO: APIv13.SetCharm")
-	newArgs := params.ApplicationSetCharm{
-		ApplicationName:    args.ApplicationName,
-		Generation:         args.Generation,
-		CharmURL:           args.CharmURL,
-		CharmOrigin:        args.CharmOrigin,
-		Channel:            args.Channel,
-		ConfigSettings:     args.ConfigSettings,
-		ConfigSettingsYAML: args.ConfigSettingsYAML,
-		Force:              args.Force,
-		ForceUnits:         args.ForceUnits,
-		ForceSeries:        args.ForceSeries,
-		ResourceIDs:        args.ResourceIDs,
-		StorageConstraints: args.StorageConstraints,
-		EndpointBindings:   args.EndpointBindings,
-	}
-	return api.APIBase.SetCharm(newArgs)
-}
-
-// SetCharm sets the charm for a given application.
+// SetCharm sets the charm for a given for the application.
 func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
-	logger.Criticalf("TODO: APIBase.SetCharm args.Series=%q", args.Series)
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
@@ -1216,7 +1178,6 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 				ForceUnits:  args.ForceUnits,
 				Force:       args.Force,
 			},
-			Series: args.Series,
 		},
 		args.CharmURL,
 	)
@@ -1313,7 +1274,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 	return api.applicationSetCharm(params, newCharm, stateCharmOrigin(newOrigin))
 }
 
-// applicationSetCharm sets the charm for the given application.
+// applicationSetCharm sets the charm for the given for the application.
 func (api *APIBase) applicationSetCharm(
 	params setCharmParams,
 	stateCharm Charm,
@@ -1355,7 +1316,6 @@ func (api *APIBase) applicationSetCharm(
 		ResourceIDs:        params.ResourceIDs,
 		StorageConstraints: stateStorageConstraints,
 		EndpointBindings:   params.EndpointBindings,
-		Series:             params.Series,
 	}
 	return params.Application.SetCharm(cfg)
 }
