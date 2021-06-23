@@ -496,6 +496,9 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 
 	// Determine whether we need to update the application's series
 	newSeries, err := c.checkSetSeries(apiRoot, applicationInfo.Series, chID, cfg.Switch)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if newSeries != "" {
 		charmCfg.Series = newSeries
 	}
