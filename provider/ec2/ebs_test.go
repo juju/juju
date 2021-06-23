@@ -132,6 +132,7 @@ func (s *ebsSuite) createVolumesParams(c *gc.C, instanceId string) []storage.Vol
 	volume2 := names.NewVolumeTag("2")
 	volume3 := names.NewVolumeTag("3")
 	volume4 := names.NewVolumeTag("4")
+	volume5 := names.NewVolumeTag("5")
 	params := []storage.VolumeParams{{
 		Tag:      volume0,
 		Size:     10 * 1000,
@@ -196,6 +197,21 @@ func (s *ebsSuite) createVolumesParams(c *gc.C, instanceId string) []storage.Vol
 				InstanceId: instance.Id(instanceId),
 			},
 		},
+	}, {
+		Tag:      volume5,
+		Size:     60 * 1024,
+		Provider: ec2.EBS_ProviderType,
+		ResourceTags: map[string]string{
+			"volume-type": "gp3",
+			"encrypted":   "true",
+			"kms-key-id":  "123456789",
+			"throughput":  "500M",
+		},
+		Attachment: &storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				InstanceId: instance.Id(instanceId),
+			},
+		},
 	}}
 	return params
 }
@@ -207,7 +223,7 @@ func (s *ebsSuite) createVolumes(c *gc.C, vs storage.VolumeSource, instanceId st
 func (s *ebsSuite) assertCreateVolumes(c *gc.C, vs storage.VolumeSource, instanceId string) {
 	results, err := s.createVolumes(c, vs, instanceId)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 5)
+	c.Assert(results, gc.HasLen, 6)
 	c.Assert(results[0].Volume, jc.DeepEquals, &storage.Volume{
 		names.NewVolumeTag("0"),
 		storage.VolumeInfo{
@@ -248,16 +264,25 @@ func (s *ebsSuite) assertCreateVolumes(c *gc.C, vs storage.VolumeSource, instanc
 			Persistent: true,
 		},
 	})
+	c.Assert(results[5].Volume, jc.DeepEquals, &storage.Volume{
+		names.NewVolumeTag("5"),
+		storage.VolumeInfo{
+			Size:       61440,
+			VolumeId:   "vol-5",
+			Persistent: true,
+		},
+	})
 	ec2Client := ec2.StorageEC2(vs)
 	ec2Vols, err := ec2Client.DescribeVolumes(s.cloudCallCtx, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ec2Vols.Volumes, gc.HasLen, 5)
+	c.Assert(ec2Vols.Volumes, gc.HasLen, 6)
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(aws.ToInt32(ec2Vols.Volumes[0].Size), gc.Equals, int32(10))
 	c.Assert(aws.ToInt32(ec2Vols.Volumes[1].Size), gc.Equals, int32(20))
 	c.Assert(aws.ToInt32(ec2Vols.Volumes[2].Size), gc.Equals, int32(30))
 	c.Assert(aws.ToInt32(ec2Vols.Volumes[3].Size), gc.Equals, int32(40))
 	c.Assert(aws.ToInt32(ec2Vols.Volumes[4].Size), gc.Equals, int32(50))
+	c.Assert(aws.ToInt32(ec2Vols.Volumes[5].Size), gc.Equals, int32(60))
 }
 
 type volumeSorter struct {
@@ -292,7 +317,7 @@ func (s *ebsSuite) TestVolumeTags(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	results, err := s.createVolumes(c, vs, "")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 5)
+	c.Assert(results, gc.HasLen, 6)
 	c.Assert(results[0].Error, jc.ErrorIsNil)
 	c.Assert(results[0].Volume, jc.DeepEquals, &storage.Volume{
 		names.NewVolumeTag("0"),
@@ -338,10 +363,19 @@ func (s *ebsSuite) TestVolumeTags(c *gc.C) {
 			Persistent: true,
 		},
 	})
+	c.Assert(results[5].Error, jc.ErrorIsNil)
+	c.Assert(results[5].Volume, jc.DeepEquals, &storage.Volume{
+		names.NewVolumeTag("5"),
+		storage.VolumeInfo{
+			Size:       61440,
+			VolumeId:   "vol-5",
+			Persistent: true,
+		},
+	})
 	ec2Client := ec2.StorageEC2(vs)
 	ec2Vols, err := ec2Client.DescribeVolumes(s.cloudCallCtx, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ec2Vols.Volumes, gc.HasLen, 5)
+	c.Assert(ec2Vols.Volumes, gc.HasLen, 6)
 	sortBySize(ec2Vols.Volumes)
 	compareTags(c, ec2Vols.Volumes[0].Tags, []tagInfo{
 		{"juju-model-uuid", "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
@@ -362,6 +396,13 @@ func (s *ebsSuite) TestVolumeTags(c *gc.C) {
 	compareTags(c, ec2Vols.Volumes[4].Tags, []tagInfo{
 		{"Name", "juju-testmodel-volume-4"},
 		{"volume-type", "sc1"},
+	})
+	compareTags(c, ec2Vols.Volumes[5].Tags, []tagInfo{
+		{"Name", "juju-testmodel-volume-5"},
+		{"volume-type", "gp3"},
+		{"encrypted", "true"},
+		{"kms-key-id", "123456789"},
+		{"throughput", "500M"},
 	})
 }
 
@@ -446,7 +487,7 @@ func (s *ebsSuite) TestDestroyVolumes(c *gc.C) {
 	ec2Client := ec2.StorageEC2(vs)
 	ec2Vols, err := ec2Client.DescribeVolumes(s.cloudCallCtx, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ec2Vols.Volumes, gc.HasLen, 4)
+	c.Assert(ec2Vols.Volumes, gc.HasLen, 5)
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(aws.ToInt32(ec2Vols.Volumes[0].Size), gc.Equals, int32(20))
 	c.Assert(aws.ToInt32(ec2Vols.Volumes[1].Size), gc.Equals, int32(30))
@@ -466,7 +507,7 @@ func (s *ebsSuite) TestDestroyVolumesStillAttached(c *gc.C) {
 	ec2Client := ec2.StorageEC2(vs)
 	ec2Vols, err := ec2Client.DescribeVolumes(s.cloudCallCtx, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ec2Vols.Volumes, gc.HasLen, 4)
+	c.Assert(ec2Vols.Volumes, gc.HasLen, 5)
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(aws.ToInt32(ec2Vols.Volumes[0].Size), gc.Equals, int32(20))
 	c.Assert(aws.ToInt32(ec2Vols.Volumes[2].Size), gc.Equals, int32(40))
@@ -813,6 +854,18 @@ func (s *ebsSuite) TestCreateVolumesErrors(c *gc.C) {
 			Attachment: &attachmentParams,
 		},
 		err: `IOPS specified, but volume type is "sc1"`,
+	}, {
+		params: storage.VolumeParams{
+			Tag:      volume0,
+			Size:     10000,
+			Provider: ec2.EBS_ProviderType,
+			Attributes: map[string]interface{}{
+				"volume-type": "gp2",
+				"throughput":  "30",
+			},
+			Attachment: &attachmentParams,
+		},
+		err: `"throughput" cannot be specified when volume type is "gp2"`,
 	}} {
 		results, err := vs.CreateVolumes(s.cloudCallCtx, []storage.VolumeParams{test.params})
 		c.Assert(err, jc.ErrorIsNil)
@@ -890,7 +943,7 @@ func (s *ebsSuite) TestAttachVolumes(c *gc.C) {
 	ec2Client := ec2.StorageEC2(vs)
 	ec2Vols, err := ec2Client.DescribeVolumes(s.cloudCallCtx, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ec2Vols.Volumes, gc.HasLen, 5)
+	c.Assert(ec2Vols.Volumes, gc.HasLen, 6)
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(ec2Vols.Volumes[0].Attachments, jc.DeepEquals, []types.VolumeAttachment{{
 		VolumeId:   aws.String("vol-0"),
@@ -961,7 +1014,7 @@ func (s *ebsSuite) TestDetachVolumes(c *gc.C) {
 	ec2Client := ec2.StorageEC2(vs)
 	ec2Vols, err := ec2Client.DescribeVolumes(s.cloudCallCtx, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ec2Vols.Volumes, gc.HasLen, 5)
+	c.Assert(ec2Vols.Volumes, gc.HasLen, 6)
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(ec2Vols.Volumes[0].Attachments, gc.HasLen, 0)
 
@@ -1139,7 +1192,8 @@ func (*blockDeviceMappingSuite) TestBlockDeviceNamer(c *gc.C) {
 }
 
 func (*blockDeviceMappingSuite) TestGetBlockDeviceMappings(c *gc.C) {
-	mapping := ec2.GetBlockDeviceMappings(constraints.Value{}, "trusty", false)
+	mapping, err := ec2.GetBlockDeviceMappings(constraints.Value{}, "trusty", false, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mapping, gc.DeepEquals, []types.BlockDeviceMapping{{
 		Ebs:        &types.EbsBlockDevice{VolumeSize: aws.Int32(8)},
 		DeviceName: aws.String("/dev/sda1"),
@@ -1159,7 +1213,8 @@ func (*blockDeviceMappingSuite) TestGetBlockDeviceMappings(c *gc.C) {
 }
 
 func (*blockDeviceMappingSuite) TestGetBlockDeviceMappingsController(c *gc.C) {
-	mapping := ec2.GetBlockDeviceMappings(constraints.Value{}, "trusty", true)
+	mapping, err := ec2.GetBlockDeviceMappings(constraints.Value{}, "trusty", true, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mapping, gc.DeepEquals, []types.BlockDeviceMapping{{
 		Ebs:        &types.EbsBlockDevice{VolumeSize: aws.Int32(32)},
 		DeviceName: aws.String("/dev/sda1"),

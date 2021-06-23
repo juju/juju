@@ -572,11 +572,15 @@ func (e *environ) StartInstance(
 		return nil, annotateWrapError(err, "cannot set up groups")
 	}
 
-	blockDeviceMappings := getBlockDeviceMappings(
+	blockDeviceMappings, err := getBlockDeviceMappings(
 		args.Constraints,
 		args.InstanceConfig.Series,
 		args.InstanceConfig.Controller != nil,
+		args.RootDisk,
 	)
+	if err != nil {
+		return nil, annotateWrapError(err, "cannot get block device mapping")
+	}
 	rootDiskSize := uint64(aws.ToInt32(blockDeviceMappings[0].Ebs.VolumeSize)) * 1024
 
 	var instResp *ec2.RunInstancesOutput
@@ -1088,7 +1092,6 @@ func _runInstances(e Client, ctx context.ProviderCallContext, ri *ec2.RunInstanc
 	try := 1
 	for a := shortAttempt.Start(); a.Next(); {
 		_ = callback(status.Allocating, fmt.Sprintf("Start instance attempt %d", try), nil)
-		logger.Warningf("RUN: %s", pretty.Sprint(ri))
 		resp, err = e.RunInstances(ctx, ri)
 		if err == nil || !isNotFoundError(err) {
 			break

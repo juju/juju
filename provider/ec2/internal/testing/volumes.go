@@ -34,6 +34,8 @@ func (srv *Server) CreateVolume(ctx context.Context, in *ec2.CreateVolumeInput, 
 	}
 	volume.Encrypted = in.Encrypted
 	volume.Iops = in.Iops
+	volume.KmsKeyId = in.KmsKeyId
+	volume.Throughput = in.Throughput
 	return &ec2.CreateVolumeOutput{
 		Attachments:      nil,
 		AvailabilityZone: volume.AvailabilityZone,
@@ -44,6 +46,8 @@ func (srv *Server) CreateVolume(ctx context.Context, in *ec2.CreateVolumeInput, 
 		Tags:             volume.Tags,
 		VolumeId:         volume.VolumeId,
 		VolumeType:       volume.VolumeType,
+		KmsKeyId:         volume.KmsKeyId,
+		Throughput:       volume.Throughput,
 	}, nil
 }
 
