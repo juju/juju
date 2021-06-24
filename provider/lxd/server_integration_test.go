@@ -21,12 +21,14 @@ import (
 )
 
 var (
-	_ = gc.Suite(&serverSuite{})
+	_ = gc.Suite(&serverIntegrationSuite{})
 )
 
-type serverSuite struct{}
+// serverIntegrationSuite tests server module functionality from outside the
+// lxd package. See server_test.go for package-local unit tests.
+type serverIntegrationSuite struct{}
 
-func (s *serverSuite) TestLocalServer(c *gc.C) {
+func (s *serverIntegrationSuite) TestLocalServer(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -66,7 +68,7 @@ func (s *serverSuite) TestLocalServer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *serverSuite) TestLocalServerRetrySemantics(c *gc.C) {
+func (s *serverIntegrationSuite) TestLocalServerRetrySemantics(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -113,7 +115,7 @@ func (s *serverSuite) TestLocalServerRetrySemantics(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *serverSuite) TestLocalServerRetrySemanticsFailure(c *gc.C) {
+func (s *serverIntegrationSuite) TestLocalServerRetrySemanticsFailure(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -140,7 +142,7 @@ func (s *serverSuite) TestLocalServerRetrySemanticsFailure(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "LXD is not listening on address https://192.168.0.1 (reported addresses: [])")
 }
 
-func (s *serverSuite) TestLocalServerWithInvalidAPIVersion(c *gc.C) {
+func (s *serverIntegrationSuite) TestLocalServerWithInvalidAPIVersion(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -180,7 +182,7 @@ func (s *serverSuite) TestLocalServerWithInvalidAPIVersion(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *serverSuite) TestLocalServerErrorMessageShowsInstallMessage(c *gc.C) {
+func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsInstallMessage(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -204,7 +206,7 @@ and then configure it with:
 `)
 }
 
-func (s *serverSuite) TestLocalServerErrorMessageShowsConfigureMessage(c *gc.C) {
+func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsConfigureMessage(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -234,7 +236,7 @@ Please configure LXD by running:
 `)
 }
 
-func (s *serverSuite) TestLocalServerErrorMessageShowsConfigureMessageWhenEACCES(c *gc.C) {
+func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsConfigureMessageWhenEACCES(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -264,7 +266,7 @@ Please configure LXD by running:
 `)
 }
 
-func (s *serverSuite) TestLocalServerErrorMessageShowsInstallMessageWhenENOENT(c *gc.C) {
+func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsInstallMessageWhenENOENT(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -296,7 +298,7 @@ and then configure it with:
 `)
 }
 
-func (s *serverSuite) TestLocalServerWithStorageNotSupported(c *gc.C) {
+func (s *serverIntegrationSuite) TestLocalServerWithStorageNotSupported(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -335,7 +337,7 @@ func (s *serverSuite) TestLocalServerWithStorageNotSupported(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *serverSuite) TestRemoteServerWithEmptyEndpointYieldsLocalServer(c *gc.C) {
+func (s *serverIntegrationSuite) TestRemoteServerWithEmptyEndpointYieldsLocalServer(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -376,7 +378,7 @@ func (s *serverSuite) TestRemoteServerWithEmptyEndpointYieldsLocalServer(c *gc.C
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *serverSuite) TestRemoteServer(c *gc.C) {
+func (s *serverIntegrationSuite) TestRemoteServer(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -411,7 +413,7 @@ func (s *serverSuite) TestRemoteServer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *serverSuite) TestRemoteServerWithNoStorage(c *gc.C) {
+func (s *serverIntegrationSuite) TestRemoteServerWithNoStorage(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -443,7 +445,7 @@ func (s *serverSuite) TestRemoteServerWithNoStorage(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *serverSuite) TestRemoteServerMissingCertificates(c *gc.C) {
+func (s *serverIntegrationSuite) TestRemoteServerMissingCertificates(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -458,7 +460,7 @@ func (s *serverSuite) TestRemoteServerMissingCertificates(c *gc.C) {
 	c.Assert(errors.Cause(err).Error(), gc.Equals, "credentials not valid")
 }
 
-func (s *serverSuite) TestRemoteServerWithGetServerError(c *gc.C) {
+func (s *serverIntegrationSuite) TestRemoteServerWithGetServerError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -481,7 +483,7 @@ func (s *serverSuite) TestRemoteServerWithGetServerError(c *gc.C) {
 	c.Assert(errors.Cause(err).Error(), gc.Equals, "bad")
 }
 
-func (s *serverSuite) TestIsSupportedAPIVersion(c *gc.C) {
+func (s *serverIntegrationSuite) TestIsSupportedAPIVersion(c *gc.C) {
 	for _, t := range []struct {
 		input    string
 		expected bool
