@@ -5,6 +5,7 @@ package commands
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -37,6 +38,7 @@ type SSHCommon struct {
 	Target          string
 	Args            []string
 	apiClient       sshAPIClient
+	statusClient    statusClient
 	apiAddr         string
 	knownHostsPath  string
 	hostChecker     jujussh.ReachableChecker
@@ -44,6 +46,10 @@ type SSHCommon struct {
 }
 
 const jujuSSHClientForceAPIv1 = "JUJU_SSHCLIENT_API_V1"
+
+type statusClient interface {
+	Status(patterns []string) (*params.FullStatus, error)
+}
 
 type sshAPIClient interface {
 	BestAPIVersion() int
@@ -59,6 +65,15 @@ type resolvedTarget struct {
 	user   string
 	entity string
 	host   string
+
+	// When the resolved target is a container which cannot be directly
+	// reached by the controller (e.g. container has a fan address that the
+	// controller cannot route traffic to; see LP1932547), via will be
+	// populated with the details of the machine that hosts the container.
+	//
+	// This allows us to use the host machine as a jumpbox for connecting
+	// to the target container.
+	via *resolvedTarget
 }
 
 func (t *resolvedTarget) userHost() string {
@@ -166,7 +181,7 @@ func (c *SSHCommon) cleanupRun() {
 
 // getSSHOptions configures SSH options based on command line
 // arguments and the SSH targets specified.
-func (c *SSHCommon) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*ssh.Options, error) {
+func (c *SSHCommon) getSSHOptions(enablePty bool, targets []*resolvedTarget) (*ssh.Options, error) {
 	var options ssh.Options
 
 	if c.noHostKeyChecks {
@@ -196,7 +211,7 @@ func (c *SSHCommon) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*
 	}
 
 	if c.proxy {
-		if err := c.setProxyCommand(&options); err != nil {
+		if err := c.setProxyCommand(&options, targets); err != nil {
 			return nil, err
 		}
 	}
@@ -262,7 +277,7 @@ func (c *SSHCommon) proxySSH() (bool, error) {
 }
 
 // setProxyCommand sets the proxy command option.
-func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
+func (c *SSHCommon) setProxyCommand(options *ssh.Options, targets []*resolvedTarget) error {
 	apiServerHost, _, err := net.SplitHostPort(c.apiAddr)
 	if err != nil {
 		return errors.Errorf("failed to get proxy address: %v", err)
@@ -282,16 +297,40 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 	// controller host is encrypted and the host key of the ultimate
 	// target host is verified but it would still be better to perform
 	// this extra level of checking.
-	options.SetProxyCommand(
-		juju, "ssh",
-		"--model="+modelName,
-		"--proxy=false",
-		"--no-host-key-checks",
-		"--pty=false",
-		"ubuntu@"+apiServerHost,
-		"-q",
-		"nc %h %p",
-	)
+	if len(targets) == 1 && targets[0].via != nil {
+		// Use the controller as a jumpbox to ssh into the via target
+		// and run nc to reach the ssh port of the target.
+		//
+		// NOTE(achilleasa) this only works when we have a single
+		// target; with multiple targets we would need a different
+		// proxy command for each one
+		options.SetProxyCommand(
+			juju, "ssh",
+			"--model="+modelName,
+			// We still need to proxy through the controller to
+			// reach the via target as the target machine might not
+			// have a public IP address.
+			"--proxy=true",
+			"--no-host-key-checks",
+			"--pty=false",
+			fmt.Sprintf("%s@%s", targets[0].via.user, targets[0].via.host),
+			"-q",
+			"nc %h %p",
+		)
+	} else {
+		// Use the controller as a jumpbox and run nc to route traffic
+		// to the ssh port of the target.
+		options.SetProxyCommand(
+			juju, "ssh",
+			"--model="+modelName,
+			"--proxy=false",
+			"--no-host-key-checks",
+			"--pty=false",
+			"ubuntu@"+apiServerHost,
+			"-q",
+			"nc %h %p",
+		)
+	}
 	return nil
 }
 
@@ -310,6 +349,7 @@ func (c *SSHCommon) initAPIClient() error {
 	}
 	c.apiClient = sshclient.NewFacade(conn)
 	c.apiAddr = conn.Addr()
+	c.statusClient = conn.Client()
 	return nil
 }
 
@@ -431,6 +471,43 @@ func (c *SSHCommon) reachableAddressGetter(entity string) (string, error) {
 // `juju ssh -v application-name/0 uname -a`.
 func (c *SSHCommon) AllowInterspersedFlags() bool {
 	return false
+}
+
+func (c *SSHCommon) maybePopulateTargetViaField(target *resolvedTarget, statusGetter func([]string) (*params.FullStatus, error)) error {
+	status, err := statusGetter(nil)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, machStatus := range status.Machines {
+		if len(machStatus.IPAddresses) == 0 {
+			continue
+		}
+
+		for _, machIPAddr := range machStatus.IPAddresses {
+			if machIPAddr == target.host {
+				// We are connecting to a machine. No need to
+				// populate the via field.
+				return nil
+			}
+		}
+
+		for _, contStatus := range machStatus.Containers {
+			for _, contMachIPAddr := range contStatus.IPAddresses {
+				if contMachIPAddr == target.host {
+					target.via = &resolvedTarget{
+						user: "ubuntu",
+						// We have already checked that the host machine has at least one address
+						host: machStatus.IPAddresses[0],
+					}
+					return nil
+				}
+			}
+
+		}
+	}
+
+	return nil
 }
 
 // getJujuExecutable returns the path to the juju

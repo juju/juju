@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/params"
 	jujussh "github.com/juju/juju/network/ssh"
 )
 
@@ -237,6 +238,62 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 	expectedArgs.argsMatch = `ubuntu@0.(public|private|1\.2\.3)` // can be any of the 3 with api v2.
 	expectedArgs.check(c, cmdtesting.Stdout(ctx))
 
+}
+
+func (s *SSHSuite) TestMaybePopulateTargetViaFieldForHostMachineTarget(c *gc.C) {
+	target := &resolvedTarget{
+		host: "10.0.0.1",
+	}
+
+	statusGetter := func(_ []string) (*params.FullStatus, error) {
+		return &params.FullStatus{
+			Machines: map[string]params.MachineStatus{
+				"0": {
+					IPAddresses: []string{
+						"10.0.0.1",
+					},
+				},
+			},
+		}, nil
+	}
+
+	err := new(SSHCommon).maybePopulateTargetViaField(target, statusGetter)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(target.via, gc.IsNil, gc.Commentf("expected target.via not to be populated for a non-container target"))
+}
+
+func (s *SSHSuite) TestMaybePopulateTargetViaFieldForContainerMachineTarget(c *gc.C) {
+	target := &resolvedTarget{
+		host: "252.66.6.42",
+	}
+
+	statusGetter := func(_ []string) (*params.FullStatus, error) {
+		return &params.FullStatus{
+			Machines: map[string]params.MachineStatus{
+				"0": {
+					IPAddresses: []string{
+						"10.0.0.1",
+						"252.66.6.1",
+					},
+					Containers: map[string]params.MachineStatus{
+						"0/lxd/0": {
+							IPAddresses: []string{
+								"252.66.6.42",
+							},
+						},
+					},
+				},
+			},
+		}, nil
+	}
+
+	err := new(SSHCommon).maybePopulateTargetViaField(target, statusGetter)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(target.via, gc.Not(gc.IsNil), gc.Commentf("expected target.via to be populated for container target"))
+	c.Assert(target.via.user, gc.Equals, "ubuntu")
+	c.Assert(target.via.host, gc.Equals, "10.0.0.1", gc.Commentf("expected target.via.host to be set to the container's host machine address"))
 }
 
 func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *gc.C) {

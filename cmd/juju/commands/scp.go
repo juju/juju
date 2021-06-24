@@ -116,7 +116,19 @@ func (c *scpCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	options, err := c.getSSHOptions(false, targets...)
+	if c.proxy {
+		for _, target := range targets {
+			// If we are trying to connect to a container on a FAN address,
+			// we need to route the traffic via the machine that hosts it.
+			// This is required as the controller is unable to route fan
+			// traffic across subnets.
+			if err = c.maybePopulateTargetViaField(target, c.statusClient.Status); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+
+	options, err := c.getSSHOptions(false, targets)
 	if err != nil {
 		return err
 	}
