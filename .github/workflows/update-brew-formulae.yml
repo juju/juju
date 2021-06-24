@@ -1,0 +1,16 @@
+name: "Update homebrew tap"
+on:
+  release:
+    types: [published]
+  schedule:
+    - cron:  '0 */12 * * *'
+jobs:
+  update-brew-tap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update Homebrew formulae
+        uses: dawidd6/action-homebrew-bump-formula@master
+        with:
+          token: "${{ secrets.TOKEN }}"
+          formula: juju
+          livecheck: true
