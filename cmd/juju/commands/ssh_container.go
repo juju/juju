@@ -188,11 +188,11 @@ func (c *sshContainer) cleanupRun() {
 const charmContainerName = "charm"
 
 func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
-	if c.modelName == environsbootstrap.ControllerModelName {
+	if c.modelName == environsbootstrap.ControllerModelName && names.IsValidMachine(target) {
 		// TODO(caas): change here to controller unit tag once we refactored controller to an application.
 		if target != "0" {
 			// HA is not enabled on CaaS controller yet.
-			return nil, errors.NotValidf("target %q", target)
+			return nil, errors.NotFoundf("target %q", target)
 		}
 		return &resolvedTarget{entity: fmt.Sprintf("%s-%s", environsbootstrap.ControllerModelName, target)}, nil
 	}

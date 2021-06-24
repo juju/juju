@@ -148,7 +148,7 @@ func (s *sshContainerSuite) TestResolveTargetForControllerInvalidTarget(c *gc.C)
 	defer ctrl.Finish()
 
 	_, err := s.sshC.ResolveTarget("1")
-	c.Assert(err, gc.ErrorMatches, `target "1" not valid`)
+	c.Assert(err, gc.ErrorMatches, `target "1" not found`)
 }
 
 func (s *sshContainerSuite) TestResolveTargetForSidecarCharm(c *gc.C) {
