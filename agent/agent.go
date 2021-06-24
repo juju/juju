@@ -904,6 +904,9 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 
 // MongoInfo is defined on Config interface.
 func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
+	if c.apiDetails == nil || c.apiDetails.addresses == nil {
+		return nil, false
+	}
 	ssi, ok := c.StateServingInfo()
 	if !ok {
 		return nil, false
