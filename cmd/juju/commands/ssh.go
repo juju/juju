@@ -194,6 +194,7 @@ type sshProvider interface {
 	cleanupRun()
 	setHostChecker(checker jujussh.ReachableChecker)
 	resolveTarget(string) (*resolvedTarget, error)
+	maybePopulateTargetViaField(*resolvedTarget, func([]string) (*params.FullStatus, error)) error
 	ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 	copy(Context) error
 
@@ -215,6 +216,16 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 	target, err := c.provider.resolveTarget(c.provider.getTarget())
 	if err != nil {
 		return err
+	}
+
+	if c.proxy {
+		// If we are trying to connect to a container on a FAN address,
+		// we need to route the traffic via the machine that hosts it.
+		// This is required as the controller is unable to route fan
+		// traffic across subnets.
+		if err = c.provider.maybePopulateTargetViaField(target, c.statusClient.Status); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	var pty bool
