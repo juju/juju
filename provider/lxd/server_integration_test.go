@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/provider/lxd"
+	"github.com/juju/testing"
 )
 
 var (
@@ -26,7 +27,9 @@ var (
 
 // serverIntegrationSuite tests server module functionality from outside the
 // lxd package. See server_test.go for package-local unit tests.
-type serverIntegrationSuite struct{}
+type serverIntegrationSuite struct {
+	testing.IsolationSuite
+}
 
 func (s *serverIntegrationSuite) TestLocalServer(c *gc.C) {
 	ctrl := gomock.NewController(c)
@@ -437,6 +440,26 @@ func (s *serverIntegrationSuite) TestRemoteServerWithNoStorage(c *gc.C) {
 		"server-cert": "server-cert",
 	})
 	svr, err := factory.RemoteServer(environscloudspec.CloudSpec{
+		Endpoint:   "https://10.0.0.9:8443",
+		Credential: &creds,
+	})
+	c.Assert(svr, gc.Not(gc.IsNil))
+	c.Assert(svr, gc.Equals, server)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *serverIntegrationSuite) TestInsecureRemoteServerDoesNotCallGetServer(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	factory, server := lxd.NewRemoteServerFactory(ctrl)
+
+	creds := cloud.NewCredential("any", map[string]string{
+		"client-cert": "client-cert",
+		"client-key":  "client-key",
+		"server-cert": "server-cert",
+	})
+	svr, err := factory.InsecureRemoteServer(environscloudspec.CloudSpec{
 		Endpoint:   "https://10.0.0.9:8443",
 		Credential: &creds,
 	})
