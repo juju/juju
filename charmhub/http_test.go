@@ -6,10 +6,13 @@ package charmhub
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
+	"net/http/httptest"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -134,6 +137,74 @@ func (s *RESTSuite) TestGetWithFailure(c *gc.C) {
 	var result interface{}
 	_, err := client.Get(context.TODO(), base, &result)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
+}
+
+func (s *RESTSuite) TestGetWithFailureRetry(c *gc.C) {
+	var called int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called++
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+
+	transport := RequestHTTPTransport(nil, jujuhttp.RetryPolicy{
+		Attempts: 3,
+		Delay:    testing.ShortWait,
+		MaxDelay: testing.LongWait,
+	})(&FakeLogger{})
+	client := NewHTTPRESTClient(transport, nil)
+
+	base := MustMakePath(c, server.URL)
+
+	var result interface{}
+	_, err := client.Get(context.TODO(), base, &result)
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(called, gc.Equals, 3)
+}
+
+func (s *RESTSuite) TestGetWithFailureWithoutRetry(c *gc.C) {
+	var called int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called++
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+
+	transport := RequestHTTPTransport(nil, jujuhttp.RetryPolicy{
+		Attempts: 3,
+		Delay:    testing.ShortWait,
+		MaxDelay: testing.LongWait,
+	})(&FakeLogger{})
+	client := NewHTTPRESTClient(transport, nil)
+
+	base := MustMakePath(c, server.URL)
+
+	var result interface{}
+	_, err := client.Get(context.TODO(), base, &result)
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(called, gc.Equals, 1)
+}
+
+func (s *RESTSuite) TestGetWithNoRetry(c *gc.C) {
+	var called int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called++
+		w.Header().Set("content-type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, "{}")
+	}))
+
+	transport := RequestHTTPTransport(nil, jujuhttp.RetryPolicy{
+		Attempts: 3,
+		Delay:    testing.ShortWait,
+		MaxDelay: testing.LongWait,
+	})(&FakeLogger{})
+	client := NewHTTPRESTClient(transport, nil)
+
+	base := MustMakePath(c, server.URL)
+
+	var result interface{}
+	_, err := client.Get(context.TODO(), base, &result)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, gc.Equals, 1)
 }
 
 func (s *RESTSuite) TestGetWithUnmarshalFailure(c *gc.C) {
