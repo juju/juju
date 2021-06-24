@@ -184,7 +184,7 @@ func newK8sBroker(
 	}
 
 	isLegacy, err := utils.IsLegacyModelLabels(
-		newCfg.Config.Name(), k8sClient.CoreV1().Namespaces())
+		namespace, newCfg.Config.Name(), k8sClient.CoreV1().Namespaces())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

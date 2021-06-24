@@ -231,6 +231,7 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 			podAPI,
 			c.execClient.RawClient().CoreV1().Namespaces(),
 			appName,
+			c.execClient.NameSpace(),
 			modelName,
 		)
 

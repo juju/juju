@@ -95,7 +95,7 @@ func NewForJujuCloudSpec(
 		return nil, errors.Trace(err)
 	}
 
-	legacyLabels, err := k8sutils.IsLegacyModelLabels(modelName, c.CoreV1().Namespaces())
+	legacyLabels, err := k8sutils.IsLegacyModelLabels(modelName, modelName, c.CoreV1().Namespaces())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
