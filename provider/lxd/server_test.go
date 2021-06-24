@@ -16,7 +16,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
-	containerLXD "github.com/juju/juju/container/lxd"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/provider/lxd"
 )
@@ -46,7 +45,7 @@ func (s *serverSuite) TestLocalServer(c *gc.C) {
 		},
 	}
 
-	factory, server, interfaceAddr := s.newLocalServerFactory(ctrl)
+	factory, server, interfaceAddr := lxd.NewLocalServerFactory(ctrl)
 
 	gomock.InOrder(
 		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
@@ -89,7 +88,7 @@ func (s *serverSuite) TestLocalServerRetrySemantics(c *gc.C) {
 		},
 	}
 
-	factory, server, interfaceAddr := s.newLocalServerFactory(ctrl)
+	factory, server, interfaceAddr := lxd.NewLocalServerFactory(ctrl)
 
 	gomock.InOrder(
 		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
@@ -126,7 +125,7 @@ func (s *serverSuite) TestLocalServerRetrySemanticsFailure(c *gc.C) {
 		Addresses: []string{},
 	}
 
-	factory, server, interfaceAddr := s.newLocalServerFactory(ctrl)
+	factory, server, interfaceAddr := lxd.NewLocalServerFactory(ctrl)
 
 	server.EXPECT().GetProfile("default").Return(profile, etag, nil).Times(31)
 	server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil).Times(31)
@@ -137,6 +136,7 @@ func (s *serverSuite) TestLocalServerRetrySemanticsFailure(c *gc.C) {
 
 	svr, err := factory.LocalServer()
 	c.Assert(svr, gc.IsNil)
+	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, "LXD is not listening on address https://192.168.0.1 (reported addresses: [])")
 }
 
@@ -159,7 +159,7 @@ func (s *serverSuite) TestLocalServerWithInvalidAPIVersion(c *gc.C) {
 		},
 	}
 
-	factory, server, interfaceAddr := s.newLocalServerFactory(ctrl)
+	factory, server, interfaceAddr := lxd.NewLocalServerFactory(ctrl)
 
 	gomock.InOrder(
 		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
@@ -188,7 +188,7 @@ func (s *serverSuite) TestLocalServerErrorMessageShowsInstallMessage(c *gc.C) {
 		func() (lxd.Server, error) {
 			return nil, errors.New("bad")
 		},
-		defaultRemoteServerFunc(ctrl),
+		lxd.DefaultRemoteServerFunc(ctrl),
 		nil,
 		&lxd.MockClock{},
 	)
@@ -220,7 +220,7 @@ func (s *serverSuite) TestLocalServerErrorMessageShowsConfigureMessage(c *gc.C) 
 				},
 			}, "bad")
 		},
-		defaultRemoteServerFunc(ctrl),
+		lxd.DefaultRemoteServerFunc(ctrl),
 		nil,
 		&lxd.MockClock{},
 	)
@@ -250,7 +250,7 @@ func (s *serverSuite) TestLocalServerErrorMessageShowsConfigureMessageWhenEACCES
 				},
 			}, "bad")
 		},
-		defaultRemoteServerFunc(ctrl),
+		lxd.DefaultRemoteServerFunc(ctrl),
 		nil,
 		&lxd.MockClock{},
 	)
@@ -280,7 +280,7 @@ func (s *serverSuite) TestLocalServerErrorMessageShowsInstallMessageWhenENOENT(c
 				},
 			}, "bad")
 		},
-		defaultRemoteServerFunc(ctrl),
+		lxd.DefaultRemoteServerFunc(ctrl),
 		nil,
 		&lxd.MockClock{},
 	)
@@ -315,7 +315,7 @@ func (s *serverSuite) TestLocalServerWithStorageNotSupported(c *gc.C) {
 		},
 	}
 
-	factory, server, interfaceAddr := s.newLocalServerFactory(ctrl)
+	factory, server, interfaceAddr := lxd.NewLocalServerFactory(ctrl)
 
 	gomock.InOrder(
 		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
@@ -354,7 +354,7 @@ func (s *serverSuite) TestRemoteServerWithEmptyEndpointYieldsLocalServer(c *gc.C
 		},
 	}
 
-	factory, server, interfaceAddr := s.newLocalServerFactory(ctrl)
+	factory, server, interfaceAddr := lxd.NewLocalServerFactory(ctrl)
 
 	gomock.InOrder(
 		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
@@ -388,7 +388,7 @@ func (s *serverSuite) TestRemoteServer(c *gc.C) {
 		},
 	}
 
-	factory, server := s.newRemoteServerFactory(ctrl)
+	factory, server := lxd.NewRemoteServerFactory(ctrl)
 
 	gomock.InOrder(
 		server.EXPECT().StorageSupported().Return(true),
@@ -422,7 +422,7 @@ func (s *serverSuite) TestRemoteServerWithNoStorage(c *gc.C) {
 		},
 	}
 
-	factory, server := s.newRemoteServerFactory(ctrl)
+	factory, server := lxd.NewRemoteServerFactory(ctrl)
 
 	gomock.InOrder(
 		server.EXPECT().StorageSupported().Return(false),
@@ -447,7 +447,7 @@ func (s *serverSuite) TestRemoteServerMissingCertificates(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	factory, _ := s.newRemoteServerFactory(ctrl)
+	factory, _ := lxd.NewRemoteServerFactory(ctrl)
 
 	creds := cloud.NewCredential("any", map[string]string{})
 	svr, err := factory.RemoteServer(environscloudspec.CloudSpec{
@@ -462,7 +462,7 @@ func (s *serverSuite) TestRemoteServerWithGetServerError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	factory, server := s.newRemoteServerFactory(ctrl)
+	factory, server := lxd.NewRemoteServerFactory(ctrl)
 
 	gomock.InOrder(
 		server.EXPECT().StorageSupported().Return(false),
@@ -479,48 +479,6 @@ func (s *serverSuite) TestRemoteServerWithGetServerError(c *gc.C) {
 		Credential: &creds,
 	})
 	c.Assert(errors.Cause(err).Error(), gc.Equals, "bad")
-}
-
-func (s *serverSuite) newLocalServerFactory(ctrl *gomock.Controller) (lxd.ServerFactory, *lxd.MockServer, *lxd.MockInterfaceAddress) {
-	server := lxd.NewMockServer(ctrl)
-	interfaceAddr := lxd.NewMockInterfaceAddress(ctrl)
-
-	factory := lxd.NewServerFactoryWithMocks(
-		func() (lxd.Server, error) {
-			return server, nil
-		},
-		defaultRemoteServerFunc(ctrl),
-		interfaceAddr,
-		&lxd.MockClock{},
-	)
-
-	return factory, server, interfaceAddr
-}
-
-func (s *serverSuite) newRemoteServerFactory(ctrl *gomock.Controller) (lxd.ServerFactory, *lxd.MockServer) {
-	server := lxd.NewMockServer(ctrl)
-	interfaceAddr := lxd.NewMockInterfaceAddress(ctrl)
-
-	return lxd.NewServerFactoryWithMocks(
-		defaultLocalServerFunc(ctrl),
-		func(spec containerLXD.ServerSpec) (lxd.Server, error) {
-			return server, nil
-		},
-		interfaceAddr,
-		&lxd.MockClock{},
-	), server
-}
-
-func defaultLocalServerFunc(ctrl *gomock.Controller) func() (lxd.Server, error) {
-	return func() (lxd.Server, error) {
-		return lxd.NewMockServer(ctrl), nil
-	}
-}
-
-func defaultRemoteServerFunc(ctrl *gomock.Controller) func(containerLXD.ServerSpec) (lxd.Server, error) {
-	return func(containerLXD.ServerSpec) (lxd.Server, error) {
-		return lxd.NewMockServer(ctrl), nil
-	}
 }
 
 func (s *serverSuite) TestIsSupportedAPIVersion(c *gc.C) {
