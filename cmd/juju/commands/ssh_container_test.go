@@ -51,7 +51,10 @@ var _ = gc.Suite(&sshContainerSuite{})
 func (s *sshContainerSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.modelUUID = "e0453597-8109-4f7d-a58f-af08bc72a414"
-	s.modelName = "controller"
+}
+
+func (s *sshContainerSuite) SetUpTest(c *gc.C) {
+	s.modelName = "test"
 }
 
 func (s *sshContainerSuite) TearDownTest(c *gc.C) {
@@ -127,6 +130,25 @@ func (s *sshContainerSuite) TestResolveTargetForWorkloadPod(c *gc.C) {
 	target, err := s.sshC.ResolveTarget("mariadb-k8s/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.GetEntity(), gc.DeepEquals, "mariadb-k8s-0")
+}
+
+func (s *sshContainerSuite) TestResolveTargetForController(c *gc.C) {
+	s.modelName = "controller"
+	ctrl := s.setUpController(c, false, "")
+	defer ctrl.Finish()
+
+	target, err := s.sshC.ResolveTarget("0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(target.GetEntity(), gc.DeepEquals, "controller-0")
+}
+
+func (s *sshContainerSuite) TestResolveTargetForControllerInvalidTarget(c *gc.C) {
+	s.modelName = "controller"
+	ctrl := s.setUpController(c, false, "")
+	defer ctrl.Finish()
+
+	_, err := s.sshC.ResolveTarget("1")
+	c.Assert(err, gc.ErrorMatches, `target "1" not valid`)
 }
 
 func (s *sshContainerSuite) TestResolveTargetForSidecarCharm(c *gc.C) {
