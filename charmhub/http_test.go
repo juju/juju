@@ -145,6 +145,7 @@ func (s *RESTSuite) TestGetWithFailureRetry(c *gc.C) {
 		called++
 		w.WriteHeader(http.StatusTooManyRequests)
 	}))
+	defer server.Close()
 
 	transport := RequestHTTPTransport(nil, jujuhttp.RetryPolicy{
 		Attempts: 3,
@@ -167,6 +168,7 @@ func (s *RESTSuite) TestGetWithFailureWithoutRetry(c *gc.C) {
 		called++
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
+	defer server.Close()
 
 	transport := RequestHTTPTransport(nil, jujuhttp.RetryPolicy{
 		Attempts: 3,
@@ -191,6 +193,7 @@ func (s *RESTSuite) TestGetWithNoRetry(c *gc.C) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, "{}")
 	}))
+	defer server.Close()
 
 	transport := RequestHTTPTransport(nil, jujuhttp.RetryPolicy{
 		Attempts: 3,
