@@ -141,11 +141,7 @@ func ConnectRemote(spec ServerSpec) (lxd.ContainerServer, error) {
 		return nil, errors.Trace(err)
 	}
 	client, err := lxd.ConnectLXD(uri, spec.connectionArgs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return client, nil
+	return client, errors.Trace(err)
 }
 
 // SocketPath returns the path to the local LXD socket.

@@ -83,6 +83,10 @@ type Server interface {
 	GetNetworkState(name string) (*lxdapi.NetworkState, error)
 	GetContainer(name string) (*lxdapi.Container, string, error)
 	GetContainerState(name string) (*lxdapi.ContainerState, string, error)
+
+	// UseProject ensures that this server will use the input project.
+	// See: https://linuxcontainers.org/lxd/docs/master/projects.
+	UseProject(string)
 }
 
 // ServerFactory creates a new factory for creating servers that are required
@@ -98,7 +102,7 @@ type ServerFactory interface {
 	// RemoteServer creates a new server that connects to a remote lxd server.
 	// If the cloudSpec endpoint is nil or empty, it will assume that you want
 	// to connection to a local server and will instead use that one.
-	RemoteServer(environscloudspec.CloudSpec, string) (Server, error)
+	RemoteServer(environscloudspec.CloudSpec) (Server, error)
 
 	// InsecureRemoteServer creates a new server that connect to a remote lxd
 	// server in a insecure manner.
@@ -184,7 +188,7 @@ func (s *serverFactory) LocalServerAddress() (string, error) {
 	return s.localServerAddress, nil
 }
 
-func (s *serverFactory) RemoteServer(spec environscloudspec.CloudSpec, project string) (Server, error) {
+func (s *serverFactory) RemoteServer(spec environscloudspec.CloudSpec) (Server, error) {
 	if spec.Endpoint == "" {
 		return s.LocalServer()
 	}
@@ -201,7 +205,6 @@ func (s *serverFactory) RemoteServer(spec environscloudspec.CloudSpec, project s
 
 	serverSpec := lxd.NewServerSpec(
 		spec.Endpoint,
-		project,
 		serverCert,
 		clientCert,
 	).WithProxy(proxy.DefaultConfig.GetProxy)

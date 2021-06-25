@@ -74,14 +74,10 @@ func (c *environConfig) validate() error {
 	return nil
 }
 
-func (c *environConfig) project() *string {
-	var projectStr string
-
+func (c *environConfig) project() string {
 	project := c.attrs["project"]
 	if project == nil {
-		return &projectStr
+		return ""
 	}
-
-	projectStr = project.(string)
-	return &projectStr
+	return project.(string)
 }
