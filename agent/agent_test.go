@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -667,6 +668,14 @@ func (*suite) TestSetAPIHostPorts(c *gc.C) {
 		"0.4.0.1:4444",
 		"elsewhere.net:4444",
 	})
+}
+
+func (*suite) TestSetAPIHostPortsErrorOnEmpty(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = conf.SetAPIHostPorts([]network.HostPorts{})
+	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
 func (*suite) TestSetCACert(c *gc.C) {
