@@ -19,6 +19,7 @@ import (
 type Logger interface {
 	Debugf(string, ...interface{})
 	Infof(string, ...interface{})
+	Tracef(string, ...interface{})
 }
 
 // ManifoldConfig defines a CAAS operator provisioner's dependencies.

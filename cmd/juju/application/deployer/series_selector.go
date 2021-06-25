@@ -85,9 +85,10 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 		}
 	}
 
-	// We want to preserve the order of the supported series from the charm
-	// metadata, so the order could be out of order ubuntu series order.
-	// i.e. precise, xenial, bionic, trusty
+	// Next fall back to the charm's list of series, filtered to what's supported
+	// by Juju. Preserve the order of the supported series from the charm
+	// metadata, as the order could be out of order compared to Ubuntu series
+	// order (precise, xenial, bionic, trusty, etc).
 	var supportedSeries []string
 	for _, charmSeries := range s.supportedSeries {
 		if s.supportedJujuSeries.Contains(charmSeries) {

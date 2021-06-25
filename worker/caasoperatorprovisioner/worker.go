@@ -138,7 +138,7 @@ func (p *provisioner) loop() error {
 					return errors.Trace(err)
 				}
 				if format > corecharm.FormatV1 {
-					p.logger.Debugf("application %q is v2, ignoring event", app)
+					p.logger.Tracef("application %q is v2, ignoring event", app)
 					continue
 				}
 
