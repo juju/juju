@@ -25,7 +25,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/provider/lxd/mocks"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -45,23 +44,23 @@ func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
 type credentialsSuiteDeps struct {
 	provider       environs.EnvironProvider
 	creds          environs.ProviderCredentials
-	server         *mocks.MockServer
-	serverFactory  *mocks.MockServerFactory
-	certReadWriter *mocks.MockCertificateReadWriter
-	certGenerator  *mocks.MockCertificateGenerator
-	netLookup      *mocks.MockNetLookup
-	configReader   *mocks.MockLXCConfigReader
+	server         *lxd.MockServer
+	serverFactory  *lxd.MockServerFactory
+	certReadWriter *lxd.MockCertificateReadWriter
+	certGenerator  *lxd.MockCertificateGenerator
+	netLookup      *lxd.MockNetLookup
+	configReader   *lxd.MockLXCConfigReader
 }
 
 func (s *credentialsSuite) createProvider(ctrl *gomock.Controller) credentialsSuiteDeps {
-	server := mocks.NewMockServer(ctrl)
-	factory := mocks.NewMockServerFactory(ctrl)
+	server := lxd.NewMockServer(ctrl)
+	factory := lxd.NewMockServerFactory(ctrl)
 	factory.EXPECT().LocalServer().Return(server, nil).AnyTimes()
 
-	certReadWriter := mocks.NewMockCertificateReadWriter(ctrl)
-	certGenerator := mocks.NewMockCertificateGenerator(ctrl)
-	lookup := mocks.NewMockNetLookup(ctrl)
-	configReader := mocks.NewMockLXCConfigReader(ctrl)
+	certReadWriter := lxd.NewMockCertificateReadWriter(ctrl)
+	certGenerator := lxd.NewMockCertificateGenerator(ctrl)
+	lookup := lxd.NewMockNetLookup(ctrl)
+	configReader := lxd.NewMockLXCConfigReader(ctrl)
 	creds := lxd.NewProviderCredentials(
 		certReadWriter,
 		certGenerator,

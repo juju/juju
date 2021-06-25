@@ -31,7 +31,6 @@ import (
 
 // Server defines an interface of all localized methods that the environment
 // and provider utilizes.
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/server_mock.go github.com/juju/juju/provider/lxd Server,ServerFactory,InterfaceAddress
 type Server interface {
 	FindImage(string, string, []lxd.ServerSpec, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
 	GetServer() (server *lxdapi.Server, ETag string, err error)
@@ -224,8 +223,7 @@ func (s *serverFactory) InsecureRemoteServer(spec environscloudspec.CloudSpec) (
 		return nil, errors.NotValidf("credentials")
 	}
 
-	serverSpec := lxd.NewInsecureServerSpec(spec.Endpoint)
-	serverSpec.
+	serverSpec := lxd.NewInsecureServerSpec(spec.Endpoint).
 		WithClientCertificate(clientCert).
 		WithSkipGetServer(true)
 	svr, err := s.newRemoteServerFunc(serverSpec)

@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/provider/lxd/lxdnames"
-	"github.com/juju/juju/provider/lxd/mocks"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -48,15 +47,15 @@ type providerSuiteDeps struct {
 	provider      environs.EnvironProvider
 	creds         *testing.MockProviderCredentials
 	credsRegister *testing.MockProviderCredentialsRegister
-	factory       *mocks.MockServerFactory
-	configReader  *mocks.MockLXCConfigReader
+	factory       *lxd.MockServerFactory
+	configReader  *lxd.MockLXCConfigReader
 }
 
 func (s *providerSuite) createProvider(ctrl *gomock.Controller) providerSuiteDeps {
 	creds := testing.NewMockProviderCredentials(ctrl)
 	credsRegister := testing.NewMockProviderCredentialsRegister(ctrl)
-	factory := mocks.NewMockServerFactory(ctrl)
-	configReader := mocks.NewMockLXCConfigReader(ctrl)
+	factory := lxd.NewMockServerFactory(ctrl)
+	configReader := lxd.NewMockLXCConfigReader(ctrl)
 
 	provider := lxd.NewProviderWithMocks(creds, credsRegister, factory, configReader)
 	return providerSuiteDeps{
@@ -263,7 +262,7 @@ func (s *providerSuite) TestFinalizeCloud(c *gc.C) {
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
-	server := mocks.NewMockServer(ctrl)
+	server := lxd.NewMockServer(ctrl)
 	finalizer := deps.provider.(environs.CloudFinalizer)
 
 	deps.factory.EXPECT().LocalServer().Return(server, nil)
@@ -355,7 +354,7 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithMixedRegions(c *g
 	deps := s.createProvider(ctrl)
 	cloudFinalizer := deps.provider.(environs.CloudFinalizer)
 
-	server := mocks.NewMockServer(ctrl)
+	server := lxd.NewMockServer(ctrl)
 
 	deps.factory.EXPECT().LocalServer().Return(server, nil)
 	server.EXPECT().LocalBridgeName().Return("lxdbr0")

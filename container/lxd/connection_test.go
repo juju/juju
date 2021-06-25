@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container/lxd"
@@ -20,13 +21,13 @@ type connectionSuite struct {
 var _ = gc.Suite(&connectionSuite{})
 
 func (s *connectionSuite) TestLxdSocketPathLxdDirSet(c *gc.C) {
-	os.Setenv("LXD_DIR", "foobar")
+	c.Assert(os.Setenv("LXD_DIR", "foobar"), jc.ErrorIsNil)
 	path := lxd.SocketPath(nil)
 	c.Check(path, gc.Equals, filepath.Join("foobar", "unix.socket"))
 }
 
 func (s *connectionSuite) TestLxdSocketPathSnapSocketAndDebianSocketExists(c *gc.C) {
-	os.Setenv("LXD_DIR", "")
+	c.Assert(os.Setenv("LXD_DIR", ""), jc.ErrorIsNil)
 	isSocket := func(path string) bool {
 		return path == filepath.FromSlash("/var/snap/lxd/common/lxd/unix.socket") ||
 			path == filepath.FromSlash("/var/lib/lxd/unix.socket")
@@ -36,7 +37,7 @@ func (s *connectionSuite) TestLxdSocketPathSnapSocketAndDebianSocketExists(c *gc
 }
 
 func (s *connectionSuite) TestLxdSocketPathNoSnapSocket(c *gc.C) {
-	os.Setenv("LXD_DIR", "")
+	c.Assert(os.Setenv("LXD_DIR", ""), jc.ErrorIsNil)
 	isSocket := func(path string) bool {
 		return path == filepath.FromSlash("/var/lib/lxd/unix.socket")
 	}
