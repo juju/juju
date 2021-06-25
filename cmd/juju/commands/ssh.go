@@ -124,6 +124,16 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
+	if c.proxy {
+		// If we are trying to connect to a container on a FAN address,
+		// we need to route the traffic via the machine that hosts it.
+		// This is required as the controller is unable to route fan
+		// traffic across subnets.
+		if err = c.maybePopulateTargetViaField(target, c.statusClient.Status); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	var pty bool
 	if c.pty.b != nil {
 		pty = *c.pty.b
@@ -138,7 +148,7 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 		pty = isTerminal(ctx.Stdin)
 	}
 
-	options, err := c.getSSHOptions(pty, target)
+	options, err := c.getSSHOptions(pty, []*resolvedTarget{target})
 	if err != nil {
 		return err
 	}
