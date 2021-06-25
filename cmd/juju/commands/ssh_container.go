@@ -23,6 +23,7 @@ import (
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucloud "github.com/juju/juju/cloud"
 	corecharm "github.com/juju/juju/core/charm"
+	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
 	jujussh "github.com/juju/juju/network/ssh"
 )
@@ -187,6 +188,14 @@ func (c *sshContainer) cleanupRun() {
 const charmContainerName = "charm"
 
 func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
+	if c.modelName == environsbootstrap.ControllerModelName && names.IsValidMachine(target) {
+		// TODO(caas): change here to controller unit tag once we refactored controller to an application.
+		if target != "0" {
+			// HA is not enabled on CaaS controller yet.
+			return nil, errors.NotFoundf("target %q", target)
+		}
+		return &resolvedTarget{entity: fmt.Sprintf("%s-%s", environsbootstrap.ControllerModelName, target)}, nil
+	}
 	// If the user specified a leader unit, try to resolve it to the
 	// appropriate unit name and override the requested target name.
 	resolvedTargetName, err := maybeResolveLeaderUnit(c.statusAPIGetter, target)
