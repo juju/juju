@@ -29,7 +29,6 @@ type ServerSpec struct {
 	Name           string
 	Host           string
 	Protocol       Protocol
-	Project        string
 	connectionArgs *lxd.ConnectionArgs
 }
 
@@ -38,10 +37,9 @@ type ProxyFunc func(*http.Request) (*url.URL, error)
 
 // NewServerSpec creates a ServerSpec with default values where needed.
 // It also ensures the HTTPS for the host implicitly
-func NewServerSpec(host, project string, serverCert string, clientCert *Certificate) ServerSpec {
+func NewServerSpec(host, serverCert string, clientCert *Certificate) ServerSpec {
 	return ServerSpec{
-		Host:    EnsureHTTPS(host),
-		Project: project,
+		Host: EnsureHTTPS(host),
 		connectionArgs: &lxd.ConnectionArgs{
 			TLSServerCert: serverCert,
 			TLSClientCert: string(clientCert.CertPEM),
@@ -145,9 +143,6 @@ func ConnectRemote(spec ServerSpec) (lxd.ContainerServer, error) {
 	client, err := lxd.ConnectLXD(uri, spec.connectionArgs)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	if spec.Project != "" {
-		client.UseProject(spec.Project)
 	}
 
 	return client, nil

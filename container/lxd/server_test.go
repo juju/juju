@@ -152,7 +152,7 @@ func (s *serverSuite) TestReplaceOrAddContainerProfile(c *gc.C) {
 
 	updateOp := lxdtesting.NewMockOperation(ctrl)
 	updateOp.EXPECT().Wait().Return(nil)
-	updateOp.EXPECT().Get().Return(api.Operation{Description: "Updating ontainer"})
+	updateOp.EXPECT().Get().Return(api.Operation{Description: "Updating container"})
 
 	instId := "testme"
 	old := "old-profile"
@@ -170,4 +170,17 @@ func (s *serverSuite) TestReplaceOrAddContainerProfile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = jujuSvr.ReplaceOrAddContainerProfile(instId, old, new)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serverSuite) TestUseProject(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	cSvr.EXPECT().UseProject("my-project").Return(cSvr)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	jujuSvr.UseProject("my-project")
 }
