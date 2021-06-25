@@ -7,7 +7,7 @@ package cloudinit_test
 import (
 	"fmt"
 
-	"github.com/juju/packaging"
+	"github.com/juju/packaging/v2"
 	jc "github.com/juju/testing/checkers"
 	sshtesting "github.com/juju/utils/v2/ssh/testing"
 	gc "gopkg.in/check.v1"

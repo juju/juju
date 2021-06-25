@@ -7,7 +7,7 @@ package cloudinit
 import (
 	"strings"
 
-	"github.com/juju/packaging/config"
+	"github.com/juju/packaging/v2/config"
 )
 
 // addPackageCommandsCommon is a helper function which applies the given

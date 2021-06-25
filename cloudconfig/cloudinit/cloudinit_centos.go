@@ -10,8 +10,8 @@ import (
 
 	corenetwork "github.com/juju/juju/core/network"
 	jujupackaging "github.com/juju/juju/packaging"
-	"github.com/juju/packaging"
-	"github.com/juju/packaging/config"
+	"github.com/juju/packaging/v2"
+	"github.com/juju/packaging/v2/config"
 	"gopkg.in/yaml.v2"
 )
 

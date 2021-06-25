@@ -90,6 +90,49 @@ func (sa *ServiceAccount) Delete(ctx context.Context, client kubernetes.Interfac
 	return nil
 }
 
+func (sa *ServiceAccount) Ensure(
+	ctx context.Context,
+	client kubernetes.Interface,
+	claims ...Claim,
+) ([]func(), error) {
+	alreadyExists := false
+	cleanups := []func(){}
+	hasClaim := true
+
+	existing := ServiceAccount{sa.ServiceAccount}
+	err := existing.Get(ctx, client)
+	if err != nil && !errors.IsNotFound(err) {
+		return cleanups, errors.Annotatef(
+			err,
+			"checking for existing service account %q",
+			existing.Name,
+		)
+	}
+	if err == nil {
+		alreadyExists = true
+		hasClaim, err = RunClaims(claims...).Assert(&existing.ServiceAccount)
+		if err != nil {
+			return cleanups, errors.Annotatef(
+				err,
+				"checking claims for service account %q",
+				existing.Name,
+			)
+		}
+	}
+
+	if !hasClaim {
+		return cleanups, errors.AlreadyExistsf(
+			"service account %q not controlled by juju", sa.Name)
+	}
+
+	cleanups = append(cleanups, func() { _ = sa.Delete(ctx, client) })
+	if !alreadyExists {
+		return cleanups, sa.Apply(ctx, client)
+	}
+
+	return cleanups, errors.Trace(sa.Update(ctx, client))
+}
+
 // Events emitted by the resource.
 func (sa *ServiceAccount) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
 	return ListEventsForObject(ctx, client, sa.Namespace, sa.Name, "ServiceAccount")
@@ -101,4 +144,24 @@ func (sa *ServiceAccount) ComputeStatus(_ context.Context, _ kubernetes.Interfac
 		return "", status.Terminated, sa.DeletionTimestamp.Time, nil
 	}
 	return "", status.Active, now, nil
+}
+
+func (sa *ServiceAccount) Update(
+	ctx context.Context,
+	client kubernetes.Interface,
+) error {
+	out, err := client.CoreV1().ServiceAccounts(sa.Namespace).Update(
+		ctx,
+		&sa.ServiceAccount,
+		metav1.UpdateOptions{
+			FieldManager: JujuFieldManager,
+		},
+	)
+	if k8serrors.IsNotFound(err) {
+		return errors.NewNotFound(err, "updating service account")
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	sa.ServiceAccount = *out
+	return nil
 }

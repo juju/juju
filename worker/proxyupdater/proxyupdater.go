@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/os/v2/series"
-	"github.com/juju/packaging/commands"
-	"github.com/juju/packaging/config"
+	"github.com/juju/packaging/v2/commands"
+	"github.com/juju/packaging/v2/config"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v2/exec"
 	"github.com/juju/worker/v2"

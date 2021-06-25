@@ -14,9 +14,10 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagemetadata"
@@ -34,23 +35,31 @@ type liveTestData struct {
 	validCloudSpec simplestreams.CloudSpec
 }
 
-var liveURLs = map[string]liveTestData{
-	"ec2": {
-		baseURL:       imagemetadata.DefaultUbuntuBaseURL,
-		requireSigned: true,
-		validCloudSpec: simplestreams.CloudSpec{
-			Region:   "us-east-1",
-			Endpoint: aws.Regions["us-east-1"].EC2Endpoint,
+func getLiveURLs() (map[string]liveTestData, error) {
+	resolver := ec2.NewDefaultEndpointResolver()
+	ep, err := resolver.ResolveEndpoint("us-east-1", ec2.EndpointResolverOptions{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return map[string]liveTestData{
+		"ec2": {
+			baseURL:       imagemetadata.DefaultUbuntuBaseURL,
+			requireSigned: true,
+			validCloudSpec: simplestreams.CloudSpec{
+				Region:   "us-east-1",
+				Endpoint: ep.URL,
+			},
 		},
-	},
-	"canonistack": {
-		baseURL:       "https://swift.canonistack.canonical.com/v1/AUTH_a48765cc0e864be980ee21ae26aaaed4/simplestreams/data",
-		requireSigned: false,
-		validCloudSpec: simplestreams.CloudSpec{
-			Region:   "lcy01",
-			Endpoint: "https://keystone.canonistack.canonical.com:443/v1.0/",
+		"canonistack": {
+			baseURL:       "https://swift.canonistack.canonical.com/v1/AUTH_a48765cc0e864be980ee21ae26aaaed4/simplestreams/data",
+			requireSigned: false,
+			validCloudSpec: simplestreams.CloudSpec{
+				Region:   "lcy01",
+				Endpoint: "https://keystone.canonistack.canonical.com:443/v1.0/",
+			},
 		},
-	},
+	}, nil
 }
 
 func Test(t *stdtesting.T) {
@@ -60,6 +69,10 @@ func Test(t *stdtesting.T) {
 		}
 		var ok bool
 		var testData liveTestData
+		liveURLs, err := getLiveURLs()
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
 		if testData, ok = liveURLs[*vendor]; !ok {
 			keys := reflect.ValueOf(liveURLs).MapKeys()
 			t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)

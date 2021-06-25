@@ -60,7 +60,7 @@ func NewFacade(ctx facade.Context) (*CharmHubAPI, error) {
 	}
 
 	return newCharmHubAPI(m, ctx.Auth(), charmHubClientFactory{
-		httpTransport: charmhub.RequestRecorderHTTPTransport(ctx.RequestRecorder()),
+		httpTransport: charmhub.RequestHTTPTransport(ctx.RequestRecorder(), charmhub.DefaultRetryPolicy()),
 	})
 }
 

@@ -4,6 +4,8 @@
 package charm
 
 import (
+	"strings"
+
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -17,13 +19,16 @@ var logger = loggo.GetLogger("juju.core.charm")
 // ComputedSeries of a charm, preserving legacy behavior.  If the charm has
 // no manifest, return series from the metadata. Otherwise return the series
 // listed in the manifest Bases as channels.
-func ComputedSeries(c charm.CharmMeta) (seriesSlice []string, err error) {
+func ComputedSeries(c charm.CharmMeta) (seriesSlice []string, _ error) {
 	format := Format(c)
 	isKubernetes := IsKubernetes(c)
-	defer logger.Debugf("resolved series %v for charm %q with format %v, Kubernetes %v", seriesSlice, c.Meta().Name, format, isKubernetes)
+	meta := c.Meta()
+	defer func(s *[]string) {
+		logger.Debugf("series %q for charm %q with format %v, Kubernetes %v", strings.Join(*s, ", "), meta.Name, format, isKubernetes)
+	}(&seriesSlice)
 
 	if format < FormatV2 {
-		return c.Meta().Series, nil
+		return meta.Series, nil
 	}
 
 	// We use a set to ensure uniqueness and a slice to ensure that we

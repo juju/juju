@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	jujupackaging "github.com/juju/juju/packaging"
-	"github.com/juju/packaging/commands"
-	"github.com/juju/packaging/config"
+	"github.com/juju/packaging/v2/commands"
+	"github.com/juju/packaging/v2/config"
 	"github.com/juju/utils/v2/shell"
 	"github.com/juju/utils/v2/ssh"
 )

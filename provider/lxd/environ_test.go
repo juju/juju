@@ -23,7 +23,6 @@ import (
 	envcontext "github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/provider/lxd/mocks"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -383,7 +382,7 @@ type environCloudProfileSuite struct {
 
 	callCtx envcontext.ProviderCallContext
 
-	svr          *mocks.MockServer
+	svr          *lxd.MockServer
 	cloudSpecEnv environs.CloudSpecSetter
 }
 
@@ -409,9 +408,9 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfileErrorSucceeds(c 
 
 func (s *environCloudProfileSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.svr = mocks.NewMockServer(ctrl)
+	s.svr = lxd.NewMockServer(ctrl)
 
-	svrFactory := mocks.NewMockServerFactory(ctrl)
+	svrFactory := lxd.NewMockServerFactory(ctrl)
 	svrFactory.EXPECT().RemoteServer(lxdCloudSpec()).Return(s.svr, nil)
 
 	env, ok := s.NewEnvironWithServerFactory(c, svrFactory, nil).(environs.CloudSpecSetter)
@@ -446,7 +445,7 @@ type environProfileSuite struct {
 
 	callCtx envcontext.ProviderCallContext
 
-	svr    *mocks.MockServer
+	svr    *lxd.MockServer
 	lxdEnv environs.LXDProfiler
 }
 
@@ -550,7 +549,7 @@ func (s *environProfileSuite) TestAssignLXDProfilesErrorReturnsCurrent(c *gc.C) 
 
 func (s *environProfileSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.svr = mocks.NewMockServer(ctrl)
+	s.svr = lxd.NewMockServer(ctrl)
 	lxdEnv, ok := s.NewEnviron(c, s.svr, nil).(environs.LXDProfiler)
 	c.Assert(ok, jc.IsTrue)
 	s.lxdEnv = lxdEnv
