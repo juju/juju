@@ -89,7 +89,48 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 		UsedYesNo:        "yes",
 		CombinedOrigin:   "charmstore",
 	})
+}
 
+func (s *SvcFormatterSuite) TestFormatSvcResourceUpload(c *gc.C) {
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader("something"))
+	c.Assert(err, jc.ErrorIsNil)
+	r := resource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:        "vincent-van-gogh-blog",
+				Description: "Vincent van Gogh blog",
+				Type:        charmresource.TypeFile,
+				Path:        "foobar",
+			},
+			Origin:      charmresource.OriginUpload,
+			Fingerprint: fp,
+			Size:        10,
+		},
+		Username:      "vvgogh",
+		Timestamp:     time.Now().Add(-1 * time.Hour * 24 * 365),
+		ID:            "a-application/website",
+		ApplicationID: "a-application",
+	}
+
+	f := resourcecmd.FormatAppResource(r)
+	c.Assert(f, gc.Equals, resourcecmd.FormattedAppResource{
+		ID:               "a-application/website",
+		ApplicationID:    "a-application",
+		Name:             r.Name,
+		Type:             "file",
+		Path:             r.Path,
+		Used:             true,
+		Revision:         fmt.Sprintf("%v", r.Revision),
+		Origin:           "upload",
+		Fingerprint:      fp.String(),
+		Size:             10,
+		Description:      r.Description,
+		Timestamp:        r.Timestamp,
+		Username:         r.Username,
+		CombinedRevision: r.Timestamp.Format("2006-01-02T15:04"),
+		UsedYesNo:        "yes",
+		CombinedOrigin:   "vvgogh",
+	})
 }
 
 func (s *SvcFormatterSuite) TestNotUsed(c *gc.C) {

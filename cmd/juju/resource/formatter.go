@@ -163,7 +163,7 @@ func combinedRevision(r resource.Resource) string {
 		}
 	case charmresource.OriginUpload:
 		if !r.Timestamp.IsZero() {
-			return r.Timestamp.Format("2006-02-01T15:04")
+			return r.Timestamp.Format("2006-01-02T15:04")
 		}
 	}
 	return "-"
