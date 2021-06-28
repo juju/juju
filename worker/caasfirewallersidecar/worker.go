@@ -118,6 +118,8 @@ func (p *firewaller) loop() error {
 				return errors.New("watcher closed channel")
 			}
 			for _, appName := range apps {
+				// TODO: respond only to v2 (sidecar) events
+
 				appLife, err := p.config.LifeGetter.Life(appName)
 				if errors.IsNotFound(err) {
 					w, ok := p.appWorkers[appName]

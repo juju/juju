@@ -76,6 +76,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		ProvisioningStatusSetter: client,
 		LifeGetter:               client,
 		UnitUpdater:              client,
+		CharmGetter:              client,
 
 		Logger: config.Logger,
 	})

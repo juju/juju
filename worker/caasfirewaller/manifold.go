@@ -91,6 +91,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		ModelUUID:         config.ModelUUID,
 		ApplicationGetter: client,
 		LifeGetter:        client,
+		CharmGetter:       client,
 		ServiceExposer:    broker,
 		Logger:            config.Logger,
 	})

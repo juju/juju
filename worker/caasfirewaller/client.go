@@ -4,6 +4,7 @@
 package caasfirewaller
 
 import (
+	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
@@ -15,6 +16,7 @@ import (
 type Client interface {
 	ApplicationGetter
 	LifeGetter
+	CharmGetter
 }
 
 // ApplicationGetter provides an interface for
@@ -32,4 +34,8 @@ type ApplicationGetter interface {
 // lifecycle state value for an application.
 type LifeGetter interface {
 	Life(string) (life.Value, error)
+}
+
+type CharmGetter interface {
+	ApplicationCharmInfo(string) (*charms.CharmInfo, error)
 }

@@ -16,8 +16,7 @@ type ApplicationCharmResult struct {
 	Error  *Error            `json:"error,omitempty"`
 }
 
-// ApplicationCharmInfo contains information about an
-// application's charm.
+// ApplicationCharm contains information about an application's charm.
 type ApplicationCharm struct {
 	// URL holds the URL of the charm assigned to the
 	// application.

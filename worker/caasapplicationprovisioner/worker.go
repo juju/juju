@@ -146,6 +146,8 @@ func (p *provisioner) loop() error {
 			}
 			for _, app := range apps {
 				existingWorker, err := p.runner.Worker(app, nil)
+				p.logger.Errorf("TODO caasapplicationprovisioner got change for app %q, existing=%v, err=%v",
+					app, existingWorker, err)
 				if err == worker.ErrNotFound {
 					// Ignore.
 				} else if err == worker.ErrDead {

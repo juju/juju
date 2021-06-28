@@ -23,6 +23,7 @@ type Config struct {
 	ModelUUID         string
 	ApplicationGetter ApplicationGetter
 	LifeGetter        LifeGetter
+	CharmGetter       CharmGetter
 	ServiceExposer    ServiceExposer
 	Logger            Logger
 }
@@ -38,11 +39,14 @@ func (config Config) Validate() error {
 	if config.ApplicationGetter == nil {
 		return errors.NotValidf("missing ApplicationGetter")
 	}
-	if config.ServiceExposer == nil {
-		return errors.NotValidf("missing ServiceExposer")
-	}
 	if config.LifeGetter == nil {
 		return errors.NotValidf("missing LifeGetter")
+	}
+	if config.CharmGetter == nil {
+		return errors.NotValidf("missing CharmGetter")
+	}
+	if config.ServiceExposer == nil {
+		return errors.NotValidf("missing ServiceExposer")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("missing Logger")
@@ -98,6 +102,8 @@ func (p *firewaller) loop() error {
 				return errors.New("watcher closed channel")
 			}
 			for _, appID := range apps {
+				// TODO: respond only to v1 events (ApplicationFilterCAASLegacy)
+
 				appLife, err := p.config.LifeGetter.Life(appID)
 				if errors.IsNotFound(err) {
 					w, ok := appWorkers[appID]
@@ -124,6 +130,7 @@ func (p *firewaller) loop() error {
 					p.config.ApplicationGetter,
 					p.config.ServiceExposer,
 					p.config.LifeGetter,
+					p.config.CharmGetter,
 					logger,
 				)
 				if err != nil {

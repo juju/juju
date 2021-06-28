@@ -88,9 +88,10 @@ func (s *firewallerSidecarSuite) TestWatchOpenedPorts(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
-func (s *firewallerSidecarSuite) TestApplicationCharmInfo(c *gc.C) {
+func (s *firewallerBaseSuite) TestApplicationCharmInfo(c *gc.C) {
+	expectedObjType := "CAASFirewallerEmbedded"
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, s.objType)
+		c.Check(objType, gc.Equals, expectedObjType)
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		switch request {
@@ -119,8 +120,18 @@ func (s *firewallerSidecarSuite) TestApplicationCharmInfo(c *gc.C) {
 		return nil
 	})
 
-	client := caasfirewaller.NewClientSidecar(apiCaller)
-	result, err := client.ApplicationCharmInfo("gitlab")
+	clientSidecar := caasfirewaller.NewClientSidecar(apiCaller)
+	result, err := clientSidecar.ApplicationCharmInfo("gitlab")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, &apicommoncharms.CharmInfo{
+		Revision: 1,
+		URL:      `cs:gitlab-0`,
+		Manifest: &charm.Manifest{},
+	})
+
+	expectedObjType = "CAASFirewaller"
+	clientLegacy := caasfirewaller.NewClientLegacy(apiCaller)
+	result, err = clientLegacy.ApplicationCharmInfo("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, &apicommoncharms.CharmInfo{
 		Revision: 1,

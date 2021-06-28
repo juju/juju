@@ -21,20 +21,22 @@ import (
 // Client allows access to the CAAS firewaller API endpoint.
 type Client struct {
 	facade base.FacadeCaller
+	*charmscommon.CharmsClient
 }
 
 // NewClientLegacy returns a client used to access the CAAS unit provisioner API.
 func NewClientLegacy(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, "CAASFirewaller")
+	charmsClient := charmscommon.NewCharmsClient(facadeCaller)
 	return &Client{
-		facade: facadeCaller,
+		facade:       facadeCaller,
+		CharmsClient: charmsClient,
 	}
 }
 
 // ClientSidecar allows access to the CAAS firewaller API endpoint for sidecar applications.
 type ClientSidecar struct {
 	*Client
-	*charmscommon.CharmsClient
 }
 
 // NewClientSidecar returns a client used to access the CAAS unit provisioner API.
@@ -45,9 +47,9 @@ func NewClientSidecar(caller base.APICaller) *ClientSidecar {
 	charmsClient := charmscommon.NewCharmsClient(facadeCaller)
 	return &ClientSidecar{
 		Client: &Client{
-			facade: facadeCaller,
+			facade:       facadeCaller,
+			CharmsClient: charmsClient,
 		},
-		CharmsClient: charmsClient,
 	}
 }
 
@@ -79,29 +81,6 @@ func (c *ClientSidecar) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 	}
 	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
-}
-
-// ApplicationCharmInfo finds the CharmInfo for an application.
-func (c *ClientSidecar) ApplicationCharmInfo(appName string) (*charmscommon.CharmInfo, error) {
-	args := params.Entities{Entities: []params.Entity{{
-		Tag: names.NewApplicationTag(appName).String(),
-	}}}
-	var result params.StringResults
-	if err := c.facade.FacadeCall("ApplicationCharmURLs", args, &result); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(result.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(result.Results))
-	}
-	res := result.Results[0]
-	if res.Error != nil {
-		return nil, errors.Annotatef(res.Error, "unable to fetch charm url for %s", appName)
-	}
-	url, err := charm.ParseURL(res.Result)
-	if err != nil {
-		return nil, errors.Annotatef(err, "invalid charm url %q", res.Result)
-	}
-	return c.CharmsClient.CharmInfo(url.String())
 }
 
 func applicationTag(application string) (names.ApplicationTag, error) {
@@ -203,6 +182,29 @@ func (c *Client) IsExposed(appName string) (bool, error) {
 		return false, maybeNotFound(err)
 	}
 	return results.Results[0].Result, nil
+}
+
+// ApplicationCharmInfo finds the CharmInfo for an application.
+func (c *Client) ApplicationCharmInfo(appName string) (*charmscommon.CharmInfo, error) {
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: names.NewApplicationTag(appName).String(),
+	}}}
+	var result params.StringResults
+	if err := c.facade.FacadeCall("ApplicationCharmURLs", args, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(result.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(result.Results))
+	}
+	res := result.Results[0]
+	if res.Error != nil {
+		return nil, errors.Annotatef(res.Error, "unable to fetch charm url for %s", appName)
+	}
+	url, err := charm.ParseURL(res.Result)
+	if err != nil {
+		return nil, errors.Annotatef(err, "invalid charm url %q", res.Result)
+	}
+	return c.CharmsClient.CharmInfo(url.String())
 }
 
 // maybeNotFound returns an error satisfying errors.IsNotFound

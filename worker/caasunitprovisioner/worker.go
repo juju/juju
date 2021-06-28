@@ -14,6 +14,7 @@ import (
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/life"
 )
 
@@ -34,6 +35,7 @@ type Config struct {
 	ProvisioningStatusSetter ProvisioningStatusSetter
 	LifeGetter               LifeGetter
 	UnitUpdater              UnitUpdater
+	CharmGetter              CharmGetter
 
 	Logger Logger
 }
@@ -63,6 +65,9 @@ func (config Config) Validate() error {
 	}
 	if config.ProvisioningStatusSetter == nil {
 		return errors.NotValidf("missing ProvisioningStatusSetter")
+	}
+	if config.CharmGetter == nil {
+		return errors.NotValidf("missing CharmGetter")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("missing Logger")
@@ -151,38 +156,51 @@ func (p *provisioner) loop() error {
 			if !ok {
 				return errors.New("watcher closed channel")
 			}
-			for _, appId := range apps {
-				appLife, err := p.config.LifeGetter.Life(appId)
+			for _, appName := range apps {
+				// If charm is (now) a v2 charm, skip processing.
+				format, err := p.charmFormat(appName)
+				if errors.IsNotFound(err) {
+					p.config.Logger.Debugf("application %q removed", appName)
+					continue
+				} else if err != nil {
+					return errors.Trace(err)
+				}
+				if format >= corecharm.FormatV2 {
+					p.config.Logger.Debugf("v1 unit provisioner got event for v2 app %q, skipping", appName)
+					continue
+				}
+
+				appLife, err := p.config.LifeGetter.Life(appName)
 				if err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)
 				}
 				if err != nil || appLife == life.Dead {
 					// Once an application is deleted, remove the k8s service and ingress resources.
-					if err := p.config.ServiceBroker.UnexposeService(appId); err != nil {
+					if err := p.config.ServiceBroker.UnexposeService(appName); err != nil {
 						return errors.Trace(err)
 					}
-					if err := p.config.ServiceBroker.DeleteService(appId); err != nil {
+					if err := p.config.ServiceBroker.DeleteService(appName); err != nil {
 						return errors.Trace(err)
 					}
-					w, ok := p.getApplicationWorker(appId)
+					w, ok := p.getApplicationWorker(appName)
 					if ok {
 						// Before stopping the application worker, inform it that
 						// the app is gone so it has a chance to clean up.
 						// The worker will act on the removal prior to processing the
 						// Stop() request.
 						if err := worker.Stop(w); err != nil {
-							logger.Errorf("stopping application worker for %v: %v", appId, err)
+							logger.Errorf("stopping application worker for %v: %v", appName, err)
 						}
-						p.deleteApplicationWorker(appId)
+						p.deleteApplicationWorker(appName)
 					}
 					// Start the application undertaker worker to watch the cluster
 					// and wait for resources to be cleaned up.
-					mode, err := p.config.ApplicationGetter.DeploymentMode(appId)
+					mode, err := p.config.ApplicationGetter.DeploymentMode(appName)
 					if err != nil {
 						return errors.Trace(err)
 					}
 					uw, err := newApplicationUndertaker(
-						appId,
+						appName,
 						mode,
 						p.config.ServiceBroker,
 						p.config.ContainerBroker,
@@ -195,17 +213,17 @@ func (p *provisioner) loop() error {
 					_ = p.catacomb.Add(uw)
 					continue
 				}
-				if _, ok := p.getApplicationWorker(appId); ok || appLife == life.Dead {
+				if _, ok := p.getApplicationWorker(appName); ok || appLife == life.Dead {
 					// Already watching the application. or we're
 					// not yet watching it and it's dead.
 					continue
 				}
-				mode, err := p.config.ApplicationGetter.DeploymentMode(appId)
+				mode, err := p.config.ApplicationGetter.DeploymentMode(appName)
 				if err != nil {
 					return errors.Trace(err)
 				}
 				w, err := newApplicationWorker(
-					appId,
+					appName,
 					mode,
 					p.config.ServiceBroker,
 					p.config.ContainerBroker,
@@ -219,9 +237,17 @@ func (p *provisioner) loop() error {
 				if err != nil {
 					return errors.Trace(err)
 				}
-				p.saveApplicationWorker(appId, w)
+				p.saveApplicationWorker(appName, w)
 				_ = p.catacomb.Add(w)
 			}
 		}
 	}
+}
+
+func (p *provisioner) charmFormat(appName string) (corecharm.MetadataFormat, error) {
+	charmInfo, err := p.config.CharmGetter.ApplicationCharmInfo(appName)
+	if err != nil {
+		return corecharm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", appName)
+	}
+	return corecharm.Format(charmInfo.Charm()), nil
 }

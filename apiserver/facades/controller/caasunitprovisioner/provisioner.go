@@ -16,6 +16,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -43,6 +44,7 @@ var logger = loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner")
 type Facade struct {
 	*common.LifeGetter
 	*common.ApplicationWatcherFacade
+	*charmscommon.CharmsAPI
 
 	resources          facade.Resources
 	state              CAASUnitProvisionerState
@@ -76,7 +78,12 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
-	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASLegacy)
+	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterNone)
+
+	commonCharmsAPI, err := charmscommon.NewCharmsAPI(ctx.State(), authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	return NewFacade(
 		resources,
@@ -87,6 +94,7 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 		pm,
 		registry,
 		appWatcherFacade,
+		commonCharmsAPI,
 		clock.WallClock,
 	)
 }
@@ -101,6 +109,7 @@ func NewFacade(
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 	applicationWatcherFacade *common.ApplicationWatcherFacade,
+	commonCharmsAPI *charmscommon.CharmsAPI,
 	clock clock.Clock,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
@@ -108,6 +117,7 @@ func NewFacade(
 	}
 	return &Facade{
 		ApplicationWatcherFacade: applicationWatcherFacade,
+		CharmsAPI:                commonCharmsAPI,
 		LifeGetter: common.NewLifeGetter(
 			st, common.AuthAny(
 				common.AuthFuncForTagKind(names.ApplicationTagKind),
