@@ -443,7 +443,7 @@ type stubAgentConfig struct {
 	caCert string
 }
 
-func (mc *stubAgentConfig) SetAPIHostPorts(servers []network.HostPorts) {
+func (mc *stubAgentConfig) SetAPIHostPorts(servers []network.HostPorts) error {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
 	mc.addrs = nil
@@ -452,6 +452,7 @@ func (mc *stubAgentConfig) SetAPIHostPorts(servers []network.HostPorts) {
 			mc.addrs = append(mc.addrs, network.DialAddress(hp))
 		}
 	}
+	return nil
 }
 
 func (mc *stubAgentConfig) SetCACert(cert string) {
