@@ -83,7 +83,7 @@ func (l *LabelSuite) TestIsLegacyModelLabels(c *gc.C) {
 		_, err := l.client.CoreV1().Namespaces().Create(context.TODO(), test.Namespace, meta.CreateOptions{})
 		c.Assert(err, jc.ErrorIsNil)
 
-		legacy, err := utils.IsLegacyModelLabels(test.Model, l.client.CoreV1().Namespaces())
+		legacy, err := utils.IsLegacyModelLabels(test.Namespace.Name, test.Model, l.client.CoreV1().Namespaces())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(legacy, gc.Equals, test.IsLegacy)
 	}

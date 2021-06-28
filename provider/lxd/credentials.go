@@ -36,7 +36,6 @@ const (
 
 // CertificateReadWriter groups methods that is required to read and write
 // certificates at a given path.
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/credentials_mock.go github.com/juju/juju/provider/lxd CertificateReadWriter,CertificateGenerator,NetLookup
 type CertificateReadWriter interface {
 	// Read takes a path and returns both a cert and key PEM.
 	// Returns an error if there was an issue reading the certs.

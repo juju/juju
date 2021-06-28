@@ -454,7 +454,20 @@ func (c *controllerStack) Deploy() (err error) {
 	}
 
 	// create service account for local cluster/provider connections.
-	if err = c.ensureControllerServiceAccount(); err != nil {
+	_, saCleanUps, err := ensureControllerServiceAccount(
+		c.ctx.Context(),
+		c.broker.client(),
+		c.broker.GetCurrentNamespace(),
+		c.stackLabels,
+		c.stackAnnotations,
+	)
+	c.addCleanUp(func() {
+		logger.Debugf("delete controller service accounts")
+		for _, v := range saCleanUps {
+			v()
+		}
+	})
+	if err != nil {
 		return errors.Annotate(err, "creating service account for controller")
 	}
 	if isDone() {
@@ -722,39 +735,39 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf() error {
 	return errors.Trace(err)
 }
 
-func (c *controllerStack) ensureControllerServiceAccount() error {
-	sa := &core.ServiceAccount{
+// ensureControllerServiceAccount is responsible for making sure the in cluster
+// service account for the controller exists and is upto date. Returns the name
+// of the service account create, cleanup functions and any errors.
+func ensureControllerServiceAccount(
+	ctx context.Context,
+	client kubernetes.Interface,
+	namespace string,
+	labels map[string]string,
+	annotations map[string]string,
+) (string, []func(), error) {
+	sa := resources.NewServiceAccount("controller", namespace, &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "controller",
-			Namespace: c.broker.GetCurrentNamespace(),
 			Labels: providerutils.LabelsMerge(
-				c.stackLabels,
+				labels,
 				providerutils.LabelsJujuModelOperatorDisableWebhook,
 			),
-			Annotations: c.stackAnnotations,
+			Annotations: annotations,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
-	}
-
-	logger.Debugf("ensuring controller service account: \n%+v", sa)
-	_, cleanUps, err := c.broker.ensureServiceAccount(sa)
-	c.addCleanUp(func() {
-		logger.Debugf("deleting %q service account", sa.Name)
-		for _, v := range cleanUps {
-			v()
-		}
 	})
+
+	cleanUps, err := sa.Ensure(context.TODO(), client)
 	if err != nil {
-		return errors.Trace(err)
+		return sa.Name, cleanUps, errors.Trace(err)
 	}
 
 	// name cluster role binding after the controller namespace.
-	clusterRoleBindingName := c.broker.GetCurrentNamespace()
+	clusterRoleBindingName := namespace
 	crb := resources.NewClusterRoleBinding(clusterRoleBindingName, &rbacv1.ClusterRoleBinding{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        clusterRoleBindingName,
 			Labels:      providerutils.LabelsForModel("controller", false),
-			Annotations: c.stackAnnotations,
+			Annotations: annotations,
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
@@ -764,18 +777,13 @@ func (c *controllerStack) ensureControllerServiceAccount() error {
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
 			Name:      "controller",
-			Namespace: c.broker.GetCurrentNamespace(),
+			Namespace: namespace,
 		}},
 	})
 
-	crbCleanUps, err := crb.Ensure(c.ctx.Context(), c.broker.client())
-	c.addCleanUp(func() {
-		logger.Debugf("deleting %q cluster role binding", crb.Name)
-		for _, v := range crbCleanUps {
-			v()
-		}
-	})
-	return errors.Trace(err)
+	crbCleanUps, err := crb.Ensure(ctx, client)
+	cleanUps = append(cleanUps, crbCleanUps...)
+	return sa.Name, cleanUps, errors.Trace(err)
 }
 
 func (c *controllerStack) createControllerStatefulset() error {

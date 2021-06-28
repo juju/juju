@@ -4,14 +4,18 @@
 package ec2
 
 import (
+	"context"
 	"net/http"
-	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/client"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/smithy-go/logging"
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/environs/cloudspec"
 )
 
 // ClientOption to be passed into the transport construction to customize the
@@ -37,47 +41,79 @@ func newOptions() *clientOptions {
 	}
 }
 
-type ClientFunc = func(string, string, string, ...ClientOption) Client
+type ClientFunc = func(context.Context, cloudspec.CloudSpec, ...ClientOption) (Client, error)
 
-// The subset of *ec2.EC2 methods that we currently use.
+// Client defines the subset of *ec2.Client methods that we currently use.
 type Client interface {
-	DescribeAvailabilityZones(*ec2.DescribeAvailabilityZonesInput) (*ec2.DescribeAvailabilityZonesOutput, error)
-	DescribeInstances(*ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error)
-	DescribeInstanceTypeOfferings(*ec2.DescribeInstanceTypeOfferingsInput) (*ec2.DescribeInstanceTypeOfferingsOutput, error)
-	DescribeInstanceTypes(*ec2.DescribeInstanceTypesInput) (*ec2.DescribeInstanceTypesOutput, error)
-	DescribeSpotPriceHistory(*ec2.DescribeSpotPriceHistoryInput) (*ec2.DescribeSpotPriceHistoryOutput, error)
+	DescribeInstances(context.Context, *ec2.DescribeInstancesInput, ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)
+	DescribeInstanceTypeOfferings(context.Context, *ec2.DescribeInstanceTypeOfferingsInput, ...func(*ec2.Options)) (*ec2.DescribeInstanceTypeOfferingsOutput, error)
+	DescribeInstanceTypes(context.Context, *ec2.DescribeInstanceTypesInput, ...func(*ec2.Options)) (*ec2.DescribeInstanceTypesOutput, error)
+	DescribeSpotPriceHistory(context.Context, *ec2.DescribeSpotPriceHistoryInput, ...func(*ec2.Options)) (*ec2.DescribeSpotPriceHistoryOutput, error)
+
+	DescribeAvailabilityZones(context.Context, *ec2.DescribeAvailabilityZonesInput, ...func(*ec2.Options)) (*ec2.DescribeAvailabilityZonesOutput, error)
+	RunInstances(context.Context, *ec2.RunInstancesInput, ...func(*ec2.Options)) (*ec2.RunInstancesOutput, error)
+	TerminateInstances(context.Context, *ec2.TerminateInstancesInput, ...func(*ec2.Options)) (*ec2.TerminateInstancesOutput, error)
+
+	DescribeAccountAttributes(context.Context, *ec2.DescribeAccountAttributesInput, ...func(*ec2.Options)) (*ec2.DescribeAccountAttributesOutput, error)
+
+	DescribeSecurityGroups(context.Context, *ec2.DescribeSecurityGroupsInput, ...func(*ec2.Options)) (*ec2.DescribeSecurityGroupsOutput, error)
+	CreateSecurityGroup(context.Context, *ec2.CreateSecurityGroupInput, ...func(*ec2.Options)) (*ec2.CreateSecurityGroupOutput, error)
+	DeleteSecurityGroup(context.Context, *ec2.DeleteSecurityGroupInput, ...func(*ec2.Options)) (*ec2.DeleteSecurityGroupOutput, error)
+	AuthorizeSecurityGroupIngress(context.Context, *ec2.AuthorizeSecurityGroupIngressInput, ...func(*ec2.Options)) (*ec2.AuthorizeSecurityGroupIngressOutput, error)
+	RevokeSecurityGroupIngress(context.Context, *ec2.RevokeSecurityGroupIngressInput, ...func(*ec2.Options)) (*ec2.RevokeSecurityGroupIngressOutput, error)
+
+	CreateTags(context.Context, *ec2.CreateTagsInput, ...func(*ec2.Options)) (*ec2.CreateTagsOutput, error)
+
+	CreateVolume(context.Context, *ec2.CreateVolumeInput, ...func(*ec2.Options)) (*ec2.CreateVolumeOutput, error)
+	AttachVolume(context.Context, *ec2.AttachVolumeInput, ...func(*ec2.Options)) (*ec2.AttachVolumeOutput, error)
+	DetachVolume(context.Context, *ec2.DetachVolumeInput, ...func(*ec2.Options)) (*ec2.DetachVolumeOutput, error)
+	DeleteVolume(context.Context, *ec2.DeleteVolumeInput, ...func(*ec2.Options)) (*ec2.DeleteVolumeOutput, error)
+	DescribeVolumes(context.Context, *ec2.DescribeVolumesInput, ...func(*ec2.Options)) (*ec2.DescribeVolumesOutput, error)
+
+	DescribeNetworkInterfaces(context.Context, *ec2.DescribeNetworkInterfacesInput, ...func(*ec2.Options)) (*ec2.DescribeNetworkInterfacesOutput, error)
+	DescribeSubnets(context.Context, *ec2.DescribeSubnetsInput, ...func(*ec2.Options)) (*ec2.DescribeSubnetsOutput, error)
+	DescribeVpcs(context.Context, *ec2.DescribeVpcsInput, ...func(*ec2.Options)) (*ec2.DescribeVpcsOutput, error)
+	DescribeInternetGateways(context.Context, *ec2.DescribeInternetGatewaysInput, ...func(*ec2.Options)) (*ec2.DescribeInternetGatewaysOutput, error)
+	DescribeRouteTables(context.Context, *ec2.DescribeRouteTablesInput, ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error)
 }
 
-// EC2Session returns a session with the given credentials.
-func clientFunc(region, accessKey, secretKey string, clientOptions ...ClientOption) Client {
-	opts := newOptions()
-	for _, option := range clientOptions {
-		option(opts)
-	}
+type awsLogger struct {
+	cfg *config.Config
+}
 
-	sess := session.Must(session.NewSession())
-	config := &aws.Config{
-		HTTPClient: opts.httpClient,
-		Retryer: client.DefaultRetryer{ // these roughly match retry params in gopkg.in/amz.v3/ec2/ec2.go:EC2.query
-			NumMaxRetries:    10,
-			MinRetryDelay:    time.Second,
-			MinThrottleDelay: time.Second,
-			MaxRetryDelay:    time.Minute,
-			MaxThrottleDelay: time.Minute,
-		},
-		Region: aws.String(region),
-		Credentials: credentials.NewStaticCredentialsFromCreds(credentials.Value{
-			AccessKeyID:     accessKey,
-			SecretAccessKey: secretKey,
+func (l awsLogger) Write(p []byte) (n int, err error) {
+	logger.Tracef("awsLogger %p: %s", l.cfg, p)
+	return len(p), nil
+}
+
+// clientFunc returns a ec2 client with the given credentials.
+func clientFunc(ctx context.Context, spec cloudspec.CloudSpec, clientOptions ...ClientOption) (Client, error) {
+	credentialAttrs := spec.Credential.Attributes()
+	accessKey := credentialAttrs["access-key"]
+	secretKey := credentialAttrs["secret-key"]
+
+	cfg, err := config.LoadDefaultConfig(ctx,
+		config.WithRegion(spec.Region),
+		config.WithRetryer(func() aws.Retryer {
+			return retry.NewStandard()
 		}),
+		config.WithCredentialsProvider(
+			credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	// Enable request and response logging, but only if TRACE is enabled (as
 	// they're probably fairly expensive to produce).
 	if logger.IsTraceEnabled() {
-		config.Logger = awsLogger{sess}
-		config.LogLevel = aws.LogLevel(aws.LogDebug | aws.LogDebugWithRequestErrors | aws.LogDebugWithRequestRetries)
+		cfg.ClientLogMode = aws.LogRequest | aws.LogResponse | aws.LogRetries
+		cfg.Logger = logging.NewStandardLogger(&awsLogger{})
 	}
-
-	return ec2.New(sess, config)
+	opts := newOptions()
+	for _, option := range clientOptions {
+		option(opts)
+	}
+	cfg.HTTPClient = opts.httpClient
+	return ec2.NewFromConfig(cfg), nil
 }

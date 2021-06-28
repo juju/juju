@@ -4,14 +4,21 @@
 package ec2_test
 
 import (
+	stdcontext "context"
 	"crypto/rand"
 	"fmt"
 	"io"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	awsec2 "github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/smithy-go"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
-	amzec2 "gopkg.in/amz.v3/ec2"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -77,7 +84,22 @@ type LiveTests struct {
 func (t *LiveTests) SetUpSuite(c *gc.C) {
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
-	t.UploadArches = []string{arch.AMD64, arch.I386}
+	t.UploadArches = []string{arch.AMD64}
+
+	cfg, err := awsconfig.NewEnvConfig()
+	if err != nil {
+		c.Fatalf("detecting credentials: %v", err)
+	}
+	accessKeyCredential := cloud.NewCredential(
+		cloud.AccessKeyAuthType,
+		map[string]string{
+			"access-key": cfg.Credentials.AccessKeyID,
+			"secret-key": cfg.Credentials.SecretAccessKey,
+		},
+	)
+	t.Credential = accessKeyCredential
+	t.CloudEndpoint = "https://ec2.us-east-1.amazonaws.com"
+	t.CloudRegion = "us-east-1"
 	t.BaseSuite.SetUpSuite(c)
 	t.LiveTests.SetUpSuite(c)
 	t.BaseSuite.PatchValue(&version.Current, coretesting.FakeVersionNumber)
@@ -135,7 +157,7 @@ func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 
 	ec2inst := ec2.InstanceSDKEC2(insts[0])
 	c.Assert(*ec2inst.PublicIpAddress, gc.Equals, addresses[0].Value)
-	c.Assert(*ec2inst.InstanceType, gc.Equals, "t3a.micro")
+	c.Assert(ec2inst.InstanceType, gc.Equals, "t3a.micro")
 }
 
 func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
@@ -143,7 +165,7 @@ func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 	cons := constraints.MustParse("mem=4G")
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, t.Env, t.callCtx, t.ControllerUUID, "30", cons)
 	defer t.Env.StopInstances(t.callCtx, inst.Id())
-	ec2inst := ec2.InstanceEC2(inst)
+	ec2inst := ec2.InstanceSDKEC2(inst)
 	c.Assert(ec2inst.InstanceType, gc.Equals, "t3a.medium")
 	c.Assert(*hc.Arch, gc.Equals, "amd64")
 	c.Assert(*hc.Mem, gc.Equals, uint64(4*1024))
@@ -176,38 +198,41 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	c.Assert(allInsts, gc.HasLen, 1) // bootstrap instance
 	bootstrapInstId := allInsts[0].Id()
 
-	ec2conn := ec2.EnvironEC2(t.Env)
+	ec2conn := ec2.EnvironEC2Client(t.Env)
 
-	groups := amzec2.SecurityGroupNames(
-		ec2.JujuGroupName(t.Env),
-		ec2.MachineGroupName(t.Env, "98"),
-		ec2.MachineGroupName(t.Env, "99"),
-	)
-	info := make([]amzec2.SecurityGroupInfo, len(groups))
+	groups := []*types.SecurityGroupIdentifier{
+		{GroupName: aws.String(ec2.JujuGroupName(t.Env))},
+		{GroupName: aws.String(ec2.MachineGroupName(t.Env, "98"))},
+		{GroupName: aws.String(ec2.MachineGroupName(t.Env, "99"))},
+	}
+	info := make([]types.SecurityGroup, len(groups))
 
 	// Create a group with the same name as the juju group
 	// but with different permissions, to check that it's deleted
 	// and recreated correctly.
-	oldJujuGroup := createGroup(c, ec2conn, groups[0].Name, "old juju group")
+	oldJujuGroup := createGroup(c, ec2conn, t.callCtx, aws.ToString(groups[0].GroupName), "old juju group")
 
 	// Add two permissions: one is required and should be left alone;
 	// the other is not and should be deleted.
 	// N.B. this is unfortunately sensitive to the actual set of permissions used.
-	_, err = ec2conn.AuthorizeSecurityGroup(oldJujuGroup,
-		[]amzec2.IPPerm{
+	_, err = ec2conn.AuthorizeSecurityGroupIngress(t.callCtx, &awsec2.AuthorizeSecurityGroupIngressInput{
+		GroupId:   oldJujuGroup.GroupId,
+		GroupName: oldJujuGroup.GroupName,
+		IpPermissions: []types.IpPermission{
 			{
-				Protocol:  "tcp",
-				FromPort:  22,
-				ToPort:    22,
-				SourceIPs: []string{"0.0.0.0/0"},
+				IpProtocol: aws.String("tcp"),
+				FromPort:   aws.Int32(22),
+				ToPort:     aws.Int32(22),
+				IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
 			},
 			{
-				Protocol:  "udp",
-				FromPort:  4321,
-				ToPort:    4322,
-				SourceIPs: []string{"3.4.5.6/32"},
+				IpProtocol: aws.String("ucp"),
+				FromPort:   aws.Int32(4321),
+				ToPort:     aws.Int32(4322),
+				IpRanges:   []types.IpRange{{CidrIp: aws.String("3.4.5.6/32")}},
 			},
-		})
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	inst0, _ := testing.AssertStartControllerInstance(c, t.Env, t.callCtx, t.ControllerUUID, "98")
@@ -215,49 +240,58 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 
 	// Create a same-named group for the second instance
 	// before starting it, to check that it's reused correctly.
-	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
+	oldMachineGroup := createGroup(c, ec2conn, t.callCtx, aws.ToString(groups[2].GroupName), "old machine group")
 
 	inst1, _ := testing.AssertStartControllerInstance(c, t.Env, t.callCtx, t.ControllerUUID, "99")
 	defer t.Env.StopInstances(t.callCtx, inst1.Id())
 
-	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
+	groupNames := make([]string, len(groups))
+	for i, g := range groups {
+		g := g
+		groupNames[i] = aws.ToString(g.GroupName)
+	}
+	groupsResp, err := ec2conn.DescribeSecurityGroups(t.callCtx, &awsec2.DescribeSecurityGroupsInput{
+		GroupNames: groupNames,
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(groupsResp.Groups, gc.HasLen, len(groups))
+	c.Assert(groupsResp.SecurityGroups, gc.HasLen, len(groups))
 
 	// For each group, check that it exists and record its id.
 	for i, group := range groups {
 		found := false
-		for _, g := range groupsResp.Groups {
-			if g.Name == group.Name {
-				groups[i].Id = g.Id
+		for _, g := range groupsResp.SecurityGroups {
+			if aws.ToString(g.GroupName) == aws.ToString(group.GroupName) {
+				groups[i].GroupId = g.GroupId
 				info[i] = g
 				found = true
 				break
 			}
 		}
 		if !found {
-			c.Fatalf("group %q not found", group.Name)
+			c.Fatalf("group %q not found", aws.ToString(group.GroupName))
 		}
 	}
 
 	// The old juju group should have been reused.
-	c.Check(groups[0].Id, gc.Equals, oldJujuGroup.Id)
+	c.Check(aws.ToString(groups[0].GroupId), gc.Equals, aws.ToString(oldJujuGroup.GroupId))
 
 	// Check that it authorizes the correct ports and there
 	// are no extra permissions (in particular we are checking
 	// that the unneeded permission that we added earlier
 	// has been deleted).
-	perms := info[0].IPPerms
+	perms := info[0].IpPermissions
 	c.Assert(perms, gc.HasLen, 5)
 	checkPortAllowed(c, perms, 22) // SSH
-	checkPortAllowed(c, perms, coretesting.FakeControllerConfig().APIPort())
+	checkPortAllowed(c, perms, int32(coretesting.FakeControllerConfig().APIPort()))
 	checkSecurityGroupAllowed(c, perms, groups[0])
 
 	// The old machine group should have been reused also.
-	c.Check(groups[2].Id, gc.Equals, oldMachineGroup.Id)
+	c.Check(aws.ToString(groups[2].GroupId), gc.Equals, aws.ToString(oldMachineGroup.GroupId))
 
 	// Check that each instance is part of the correct groups.
-	resp, err := ec2conn.Instances([]string{string(inst0.Id()), string(inst1.Id())}, nil)
+	resp, err := ec2conn.DescribeInstances(t.callCtx, &awsec2.DescribeInstancesInput{
+		InstanceIds: []string{string(inst0.Id()), string(inst1.Id())},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.Reservations, gc.HasLen, 2)
 	for _, r := range resp.Reservations {
@@ -266,7 +300,7 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 		inst := r.Instances[0]
 		msg := gc.Commentf("instance %#v", inst)
 		c.Assert(hasSecurityGroup(inst, groups[0]), gc.Equals, true, msg)
-		switch instance.Id(inst.InstanceId) {
+		switch instance.Id(aws.ToString(inst.InstanceId)) {
 		case inst0.Id():
 			c.Assert(hasSecurityGroup(inst, groups[1]), gc.Equals, true, msg)
 			c.Assert(hasSecurityGroup(inst, groups[2]), gc.Equals, false, msg)
@@ -323,12 +357,14 @@ func (t *LiveTests) TestInstanceGroupsWithAutocert(c *gc.C) {
 	defer t.Env.StopInstances(t.callCtx, inst.Id())
 
 	// Get security permissions.
-	groups := amzec2.SecurityGroupNames(ec2.JujuGroupName(t.Env))
-	ec2conn := ec2.EnvironEC2(t.Env)
-	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
+	group := ec2.JujuGroupName(t.Env)
+	ec2conn := ec2.EnvironEC2Client(t.Env)
+	groupsResp, err := ec2conn.DescribeSecurityGroups(t.callCtx, &awsec2.DescribeSecurityGroupsInput{
+		GroupNames: []string{group},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(groupsResp.Groups, gc.HasLen, 1)
-	perms := groupsResp.Groups[0].IPPerms
+	c.Assert(groupsResp.SecurityGroups, gc.HasLen, 1)
+	perms := groupsResp.SecurityGroups[0].IpPermissions
 
 	// Check that the expected ports are accessible.
 	checkPortAllowed(c, perms, 22)
@@ -336,20 +372,21 @@ func (t *LiveTests) TestInstanceGroupsWithAutocert(c *gc.C) {
 	checkPortAllowed(c, perms, 443)
 }
 
-func checkPortAllowed(c *gc.C, perms []amzec2.IPPerm, port int) {
+func checkPortAllowed(c *gc.C, perms []types.IpPermission, port int32) {
 	for _, perm := range perms {
-		if perm.FromPort == port {
-			c.Check(perm.Protocol, gc.Equals, "tcp")
-			c.Check(perm.ToPort, gc.Equals, port)
-			c.Check(perm.SourceIPs, gc.DeepEquals, []string{"0.0.0.0/0"})
-			c.Check(perm.SourceGroups, gc.HasLen, 0)
+		if aws.ToInt32(perm.FromPort) == port {
+			c.Check(aws.ToString(perm.IpProtocol), gc.Equals, "tcp")
+			c.Check(aws.ToInt32(perm.ToPort), gc.Equals, port)
+			c.Check(perm.IpRanges, gc.HasLen, 1)
+			c.Check(aws.ToString(perm.IpRanges[0].CidrIp), gc.DeepEquals, "0.0.0.0/0")
+			c.Check(perm.UserIdGroupPairs, gc.HasLen, 0)
 			return
 		}
 	}
 	c.Errorf("ip port permission not found for %d in %#v", port, perms)
 }
 
-func checkSecurityGroupAllowed(c *gc.C, perms []amzec2.IPPerm, g amzec2.SecurityGroup) {
+func checkSecurityGroupAllowed(c *gc.C, perms []types.IpPermission, g *types.SecurityGroupIdentifier) {
 	protos := map[string]struct {
 		fromPort int
 		toPort   int
@@ -359,21 +396,22 @@ func checkSecurityGroupAllowed(c *gc.C, perms []amzec2.IPPerm, g amzec2.Security
 		"icmp": {-1, -1},
 	}
 	for _, perm := range perms {
-		if len(perm.SourceGroups) > 0 {
-			c.Check(perm.SourceGroups, gc.HasLen, 1)
-			c.Check(perm.SourceGroups[0].Id, gc.Equals, g.Id)
-			ports, ok := protos[perm.Protocol]
+		if len(perm.UserIdGroupPairs) > 0 {
+			c.Check(perm.UserIdGroupPairs, gc.HasLen, 1)
+			c.Check(aws.ToString(perm.UserIdGroupPairs[0].GroupId), gc.Equals, aws.ToString(g.GroupId))
+			p := aws.ToString(perm.IpProtocol)
+			ports, ok := protos[p]
 			if !ok {
-				c.Errorf("unexpected protocol in security group: %q", perm.Protocol)
+				c.Errorf("unexpected protocol in security group: %q", p)
 				continue
 			}
-			delete(protos, perm.Protocol)
-			c.Check(perm.FromPort, gc.Equals, ports.fromPort)
-			c.Check(perm.ToPort, gc.Equals, ports.toPort)
+			delete(protos, p)
+			c.Check(aws.ToInt32(perm.FromPort), gc.Equals, ports.fromPort)
+			c.Check(aws.ToInt32(perm.ToPort), gc.Equals, ports.toPort)
 		}
 	}
 	if len(protos) > 0 {
-		c.Errorf("%d security group permission not found for %#v in %#v", len(protos), g, perms)
+		c.Errorf("%d security group permission not found for %s in %s", len(protos), pretty.Sprint(g), pretty.Sprint(perms))
 	}
 }
 
@@ -414,30 +452,44 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 
 // createGroup creates a new EC2 group and returns it. If it already exists,
 // it revokes all its permissions and returns the existing group.
-func createGroup(c *gc.C, ec2conn *amzec2.EC2, name, descr string) amzec2.SecurityGroup {
-	resp, err := ec2conn.CreateSecurityGroup("", name, descr)
+func createGroup(c *gc.C, ec2conn ec2.Client, ctx stdcontext.Context, name string, descr string) types.SecurityGroupIdentifier {
+	resp, err := ec2conn.CreateSecurityGroup(ctx, &awsec2.CreateSecurityGroupInput{
+		GroupName:   aws.String(name),
+		Description: aws.String(descr),
+	})
 	if err == nil {
-		return resp.SecurityGroup
+		return types.SecurityGroupIdentifier{
+			GroupId:   resp.GroupId,
+			GroupName: aws.String(name),
+		}
 	}
-	if err.(*amzec2.Error).Code != "InvalidGroup.Duplicate" {
+	if err.(smithy.APIError).ErrorCode() != "InvalidGroup.Duplicate" {
 		c.Fatalf("cannot make group %q: %v", name, err)
 	}
 
 	// Found duplicate group, so revoke its permissions and return it.
-	gresp, err := ec2conn.SecurityGroups(amzec2.SecurityGroupNames(name), nil)
+	gresp, err := ec2conn.DescribeSecurityGroups(ctx, &awsec2.DescribeSecurityGroupsInput{
+		GroupNames: []string{name},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	gi := gresp.Groups[0]
-	if len(gi.IPPerms) > 0 {
-		_, err = ec2conn.RevokeSecurityGroup(gi.SecurityGroup, gi.IPPerms)
+	gi := gresp.SecurityGroups[0]
+	if len(gi.IpPermissions) > 0 {
+		_, err = ec2conn.RevokeSecurityGroupIngress(ctx, &awsec2.RevokeSecurityGroupIngressInput{
+			GroupId:   gi.GroupId,
+			GroupName: gi.GroupName,
+		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	return gi.SecurityGroup
+	return types.SecurityGroupIdentifier{
+		GroupId:   gi.GroupId,
+		GroupName: gi.GroupName,
+	}
 }
 
-func hasSecurityGroup(inst amzec2.Instance, group amzec2.SecurityGroup) bool {
+func hasSecurityGroup(inst types.Instance, group *types.SecurityGroupIdentifier) bool {
 	for _, instGroup := range inst.SecurityGroups {
-		if instGroup.Id == group.Id {
+		if aws.ToString(instGroup.GroupId) == aws.ToString(group.GroupId) {
 			return true
 		}
 	}

@@ -6,14 +6,11 @@ package ec2
 import (
 	stdcontext "context"
 	"fmt"
-	"strings"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
-	"gopkg.in/amz.v3/aws"
-	"gopkg.in/amz.v3/ec2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -52,48 +49,6 @@ func (p environProvider) Open(ctx stdcontext.Context, args environs.OpenParams) 
 		return nil, errors.Trace(err)
 	}
 	return e, nil
-}
-
-// isBrokenCloud reports whether the given CloudSpec is from an old,
-// broken version of public-clouds.yaml.
-func isBrokenCloud(cloud environscloudspec.CloudSpec) bool {
-	// The public-clouds.yaml from 2.0-rc2 and before was
-	// complete nonsense for general regions and for
-	// govcloud. The cn-north-1 region has a trailing slash,
-	// which we don't want as it means we won't match the
-	// simplestreams data.
-	switch cloud.Region {
-	case "us-east-1", "us-west-1", "us-west-2", "eu-west-1",
-		"eu-central-1", "ap-southeast-1", "ap-southeast-2",
-		"ap-northeast-1", "ap-northeast-2", "sa-east-1":
-		return cloud.Endpoint == fmt.Sprintf("https://%s.aws.amazon.com/v1.2/", cloud.Region)
-	case "cn-north-1":
-		return strings.HasSuffix(cloud.Endpoint, "/")
-	case "us-gov-west-1":
-		return cloud.Endpoint == "https://ec2.us-gov-west-1.amazonaws-govcloud.com"
-	}
-	return false
-}
-
-func awsClient(cloud environscloudspec.CloudSpec) (*ec2.EC2, error) {
-	if err := validateCloudSpec(cloud); err != nil {
-		return nil, errors.Annotate(err, "validating cloud spec")
-	}
-
-	credentialAttrs := cloud.Credential.Attributes()
-	accessKey := credentialAttrs["access-key"]
-	secretKey := credentialAttrs["secret-key"]
-	auth := aws.Auth{
-		AccessKey: accessKey,
-		SecretKey: secretKey,
-	}
-
-	region := aws.Region{
-		Name:        cloud.Region,
-		EC2Endpoint: cloud.Endpoint,
-	}
-	signer := aws.SignV4Factory(cloud.Region, "ec2")
-	return ec2.New(auth, region, signer), nil
 }
 
 // CloudSchema returns the schema used to validate input for add-cloud.  Since
@@ -161,13 +116,14 @@ func (p environProvider) metadataLookupParams(region string) (*simplestreams.Met
 	if region == "" {
 		return nil, fmt.Errorf("region must be specified")
 	}
-	ec2Region, ok := aws.Regions[region]
-	if !ok {
-		return nil, fmt.Errorf("unknown region %q", region)
+	resolver := ec2.NewDefaultEndpointResolver()
+	ep, err := resolver.ResolveEndpoint("us-east-1", ec2.EndpointResolverOptions{})
+	if err != nil {
+		return nil, errors.Annotatef(err, "unknown region %q", region)
 	}
 	return &simplestreams.MetadataLookupParams{
 		Region:   region,
-		Endpoint: ec2Region.EC2Endpoint,
+		Endpoint: ep.URL,
 	}, nil
 }
 
@@ -184,14 +140,14 @@ page in the AWS console.
 // verify the configured credentials. If verification fails, a user-friendly
 // error will be returned, and the original error will be logged at debug
 // level.
-var verifyCredentials = func(e *environ, ctx context.ProviderCallContext) error {
-	_, err := e.ec2.AccountAttributes()
+var verifyCredentials = func(e Client, ctx context.ProviderCallContext) error {
+	_, err := e.DescribeAccountAttributes(ctx, nil)
 	return maybeConvertCredentialError(err, ctx)
 }
 
 // maybeConvertCredentialError examines the error received from the provider.
 // Authentication related errors are wrapped in common.CredentialNotValid.
-// Authorization related errors are annotated with an additional
+// Authorisation related errors are annotated with an additional
 // user-friendly explanation.
 // All other errors are returned un-wrapped and not annotated.
 var maybeConvertCredentialError = func(err error, ctx context.ProviderCallContext) error {
@@ -208,16 +164,8 @@ var maybeConvertCredentialError = func(err error, ctx context.ProviderCallContex
 		return converted
 	}
 
-	var code string
-	switch err := err.(type) {
-	case *ec2.Error:
-		code = err.Code
-	case awserr.Error:
-		code = err.Code()
-	}
-
 	// EC2 error codes are from https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html.
-	switch code {
+	switch ec2ErrCode(err) {
 	case "AuthFailure":
 		return convert(common.CredentialNotValidf(err, badKeys))
 	case "InvalidClientTokenId":

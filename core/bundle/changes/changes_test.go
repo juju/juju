@@ -1040,13 +1040,11 @@ func (s *changesSuite) TestKubernetesBundle(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:mediawiki-k8s-10",
-			Series: "kubernetes",
+			Charm: "cs:mediawiki-k8s-10",
 		},
-		GUIArgs: []interface{}{"cs:mediawiki-k8s-10", "kubernetes", ""},
+		GUIArgs: []interface{}{"cs:mediawiki-k8s-10", "", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:mediawiki-k8s-10",
-			"series": "kubernetes",
+			"charm": "cs:mediawiki-k8s-10",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -1054,14 +1052,13 @@ func (s *changesSuite) TestKubernetesBundle(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-0",
 			Application: "mediawiki",
-			Series:      "kubernetes",
 			NumUnits:    1,
 			Options:     map[string]interface{}{"debug": false},
 			Resources:   map[string]int{"data": 3},
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-0",
-			"kubernetes",
+			"",
 			"mediawiki",
 			map[string]interface{}{"debug": false},
 			"",
@@ -1082,7 +1079,6 @@ func (s *changesSuite) TestKubernetesBundle(c *gc.C) {
 			"resources": map[string]interface{}{
 				"data": float64(3),
 			},
-			"series": "kubernetes",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -1122,13 +1118,11 @@ func (s *changesSuite) TestKubernetesBundle(c *gc.C) {
 		Id:     "addCharm-4",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:mysql-k8s-28",
-			Series: "kubernetes",
+			Charm: "cs:mysql-k8s-28",
 		},
-		GUIArgs: []interface{}{"cs:mysql-k8s-28", "kubernetes", ""},
+		GUIArgs: []interface{}{"cs:mysql-k8s-28", "", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:mysql-k8s-28",
-			"series": "kubernetes",
+			"charm": "cs:mysql-k8s-28",
 		},
 	}, {
 		Id:     "deploy-5",
@@ -1136,13 +1130,12 @@ func (s *changesSuite) TestKubernetesBundle(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:          "$addCharm-4",
 			Application:    "mysql",
-			Series:         "kubernetes",
 			NumUnits:       2,
 			LocalResources: map[string]string{"data": "./resources/data.tar"},
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-4",
-			"kubernetes",
+			"",
 			"mysql",
 			map[string]interface{}{},
 			"",
@@ -1160,7 +1153,6 @@ func (s *changesSuite) TestKubernetesBundle(c *gc.C) {
 				"data": "./resources/data.tar",
 			},
 			"num-units": float64(2),
-			"series":    "kubernetes",
 		},
 		Requires: []string{"addCharm-4"},
 	}, {
@@ -3454,6 +3446,7 @@ description: A dummy charm.
 series:
     - precise
     - trusty
+    - bionic
 `[1:]
 	err := ioutil.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3476,6 +3469,7 @@ description: A dummy charm.
 series:
     - precise
     - trusty
+    - bionic
 `[1:]
 	err := ioutil.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3526,12 +3520,12 @@ func (s *changesSuite) TestKubernetesBundleEmptyModel(c *gc.C) {
                         num_units: 2
             `
 	expectedChanges := []string{
-		"upload charm django from charm-store for series kubernetes",
-		"deploy application django from charm-store with 1 unit on kubernetes",
+		"upload charm django from charm-store",
+		"deploy application django from charm-store with 1 unit",
 		"expose all endpoints of django and allow access from CIDRs 0.0.0.0/0 and ::/0",
 		"set annotations for django",
-		"upload charm mariadb from charm-store for series kubernetes",
-		"deploy application mariadb from charm-store with 2 units on kubernetes",
+		"upload charm mariadb from charm-store",
+		"deploy application mariadb from charm-store with 2 units",
 	}
 	s.checkBundle(c, bundleContent, expectedChanges)
 }
@@ -3632,7 +3626,6 @@ applications:
 				Charm:   "cs:django-4",
 				Scale:   3,
 				Exposed: false,
-				Series:  "kubernetes",
 			},
 		},
 	}
@@ -3825,29 +3818,6 @@ func (s *changesSuite) TestAppExistsWithDifferentScale(c *gc.C) {
 		},
 	}
 	expectedChanges := []string{
-		"scale django to 2 units",
-	}
-	s.checkBundleExistingModel(c, bundleContent, existingModel, expectedChanges)
-}
-
-func (s *changesSuite) TestAppExistsMissingSeriesWithDifferentScale(c *gc.C) {
-	bundleContent := `
-                bundle: kubernetes
-                applications:
-                    django:
-                        charm: cs:django-4
-                        num_units: 2
-            `
-	existingModel := &bundlechanges.Model{
-		Applications: map[string]*bundlechanges.Application{
-			"django": {
-				Charm: "cs:django-4",
-				Scale: 3,
-			},
-		},
-	}
-	expectedChanges := []string{
-		"upload charm django from charm-store for series kubernetes",
 		"scale django to 2 units",
 	}
 	s.checkBundleExistingModel(c, bundleContent, existingModel, expectedChanges)
@@ -5462,7 +5432,6 @@ func (s *changesSuite) checkBundleImpl(c *gc.C,
 		var obtained []string
 		for _, change := range changes {
 			c.Log(change.Description())
-			//c.Logf("  %s %v", change.Method(), change.GUIArgs())
 
 			for _, descr := range change.Description() {
 				obtained = append(obtained, descr)

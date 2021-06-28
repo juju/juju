@@ -434,7 +434,6 @@ func (s *diffSuite) TestApplicationScale(c *gc.C) {
 		Applications: map[string]*bundlechanges.Application{
 			"prometheus": {
 				Name:      "prometheus",
-				Series:    "kubernetes",
 				Charm:     "cs:prometheus-7",
 				Scale:     1,
 				Placement: "foo=bar",
@@ -882,7 +881,6 @@ func (s *diffSuite) TestApplicationPlacement(c *gc.C) {
 		Applications: map[string]*bundlechanges.Application{
 			"prometheus": {
 				Name:      "prometheus",
-				Series:    "kubernetes",
 				Charm:     "cs:prometheus-7",
 				Scale:     2,
 				Placement: "foo=baz",

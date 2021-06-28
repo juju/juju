@@ -6,11 +6,11 @@ package ec2
 import (
 	"strings"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
-	gomock "github.com/golang/mock/gomock"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	amzec2 "gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/storage"
 )
 
 // Ensure EC2 provider supports the expected interfaces,
@@ -37,24 +38,25 @@ type Suite struct{}
 var _ = gc.Suite(&Suite{})
 
 type RootDiskTest struct {
-	series     string
-	name       string
-	constraint *uint64
-	device     amzec2.BlockDeviceMapping
+	series         string
+	name           string
+	constraint     *uint64
+	rootDiskParams *storage.VolumeParams
+	device         types.BlockDeviceMapping
 }
 
-var commonInstanceStoreDisks = []amzec2.BlockDeviceMapping{{
-	DeviceName:  "/dev/sdb",
-	VirtualName: "ephemeral0",
+var commonInstanceStoreDisks = []types.BlockDeviceMapping{{
+	DeviceName:  aws.String("/dev/sdb"),
+	VirtualName: aws.String("ephemeral0"),
 }, {
-	DeviceName:  "/dev/sdc",
-	VirtualName: "ephemeral1",
+	DeviceName:  aws.String("/dev/sdc"),
+	VirtualName: aws.String("ephemeral1"),
 }, {
-	DeviceName:  "/dev/sdd",
-	VirtualName: "ephemeral2",
+	DeviceName:  aws.String("/dev/sdd"),
+	VirtualName: aws.String("ephemeral2"),
 }, {
-	DeviceName:  "/dev/sde",
-	VirtualName: "ephemeral3",
+	DeviceName:  aws.String("/dev/sde"),
+	VirtualName: aws.String("ephemeral3"),
 }}
 
 func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
@@ -62,49 +64,111 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
 		"trusty",
 		"nil constraint ubuntu",
 		nil,
-		amzec2.BlockDeviceMapping{VolumeSize: 8, DeviceName: "/dev/sda1"},
+		nil,
+		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
 		"trusty",
 		"too small constraint ubuntu",
 		pInt(4000),
-		amzec2.BlockDeviceMapping{VolumeSize: 8, DeviceName: "/dev/sda1"},
+		nil,
+		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
 		"trusty",
 		"big constraint ubuntu",
 		pInt(20 * 1024),
-		amzec2.BlockDeviceMapping{VolumeSize: 20, DeviceName: "/dev/sda1"},
+		nil,
+		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(20)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
 		"trusty",
 		"round up constraint ubuntu",
 		pInt(20*1024 + 1),
-		amzec2.BlockDeviceMapping{VolumeSize: 21, DeviceName: "/dev/sda1"},
+		nil,
+		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(21)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
 		"win2012r2",
 		"nil constraint windows",
 		nil,
-		amzec2.BlockDeviceMapping{VolumeSize: 40, DeviceName: "/dev/sda1"},
+		nil,
+		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(40)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
 		"win2012r2",
 		"too small constraint windows",
 		pInt(30 * 1024),
-		amzec2.BlockDeviceMapping{VolumeSize: 40, DeviceName: "/dev/sda1"},
+		nil,
+		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(40)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
 		"win2012r2",
 		"big constraint windows",
 		pInt(50 * 1024),
-		amzec2.BlockDeviceMapping{VolumeSize: 50, DeviceName: "/dev/sda1"},
+		nil,
+		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(50)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
 		"win2012r2",
 		"round up constraint windows",
 		pInt(50*1024 + 1),
-		amzec2.BlockDeviceMapping{VolumeSize: 51, DeviceName: "/dev/sda1"},
+		nil,
+		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(51)}, DeviceName: aws.String("/dev/sda1")},
+	}, {
+		"trusty",
+		"nil constraint ubuntu with root encryption",
+		nil,
+		&storage.VolumeParams{
+			Attributes: map[string]interface{}{
+				"encrypted": true,
+			},
+		},
+		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8), Encrypted: aws.Bool(true), VolumeType: types.VolumeTypeGp2}, DeviceName: aws.String("/dev/sda1")},
+	}, {
+		"trusty",
+		"nil constraint ubuntu with root custom key encryption",
+		nil,
+		&storage.VolumeParams{
+			Attributes: map[string]interface{}{
+				"encrypted":  true,
+				"kms-key-id": "1234",
+			},
+		},
+		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8), Encrypted: aws.Bool(true), KmsKeyId: aws.String("1234"), VolumeType: types.VolumeTypeGp2}, DeviceName: aws.String("/dev/sda1")},
+	}, {
+		"trusty",
+		"nil constraint ubuntu with root volume type",
+		nil,
+		&storage.VolumeParams{
+			Attributes: map[string]interface{}{
+				"volume-type": "magnetic",
+			},
+		},
+		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8), VolumeType: types.VolumeTypeStandard}, DeviceName: aws.String("/dev/sda1")},
+	}, {
+		"trusty",
+		"nil constraint ubuntu with throughput",
+		nil,
+		&storage.VolumeParams{
+			Attributes: map[string]interface{}{
+				"volume-type": "gp3",
+				"throughput":  "10",
+			},
+		},
+		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8), VolumeType: types.VolumeTypeGp3, Throughput: aws.Int32(10)}, DeviceName: aws.String("/dev/sda1")},
+	}, {
+		"trusty",
+		"nil constraint ubuntu with throughput",
+		nil,
+		&storage.VolumeParams{
+			Attributes: map[string]interface{}{
+				"volume-type": "gp3",
+				"throughput":  "1G",
+			},
+		},
+		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8), VolumeType: types.VolumeTypeGp3, Throughput: aws.Int32(1024)}, DeviceName: aws.String("/dev/sda1")},
 	}}
 
 	for _, t := range rootDiskTests {
 		c.Logf("Test %s", t.name)
 		cons := constraints.Value{RootDisk: t.constraint}
-		mappings := getBlockDeviceMappings(cons, t.series, false)
-		expected := append([]amzec2.BlockDeviceMapping{t.device}, commonInstanceStoreDisks...)
+		mappings, err := getBlockDeviceMappings(cons, t.series, false, t.rootDiskParams)
+		c.Assert(err, jc.ErrorIsNil)
+		expected := append([]types.BlockDeviceMapping{t.device}, commonInstanceStoreDisks...)
 		c.Assert(mappings, gc.DeepEquals, expected)
 	}
 }
@@ -117,24 +181,24 @@ func (*Suite) TestPortsToIPPerms(c *gc.C) {
 	testCases := []struct {
 		about    string
 		rules    firewall.IngressRules
-		expected []amzec2.IPPerm
+		expected []types.IpPermission
 	}{{
 		about: "single port",
 		rules: firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))},
-		expected: []amzec2.IPPerm{{
-			Protocol:  "tcp",
-			FromPort:  80,
-			ToPort:    80,
-			SourceIPs: []string{"0.0.0.0/0"},
+		expected: []types.IpPermission{{
+			IpProtocol: aws.String("tcp"),
+			FromPort:   aws.Int32(80),
+			ToPort:     aws.Int32(80),
+			IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
 		}},
 	}, {
 		about: "multiple ports",
 		rules: firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80-82/tcp"))},
-		expected: []amzec2.IPPerm{{
-			Protocol:  "tcp",
-			FromPort:  80,
-			ToPort:    82,
-			SourceIPs: []string{"0.0.0.0/0"},
+		expected: []types.IpPermission{{
+			IpProtocol: aws.String("tcp"),
+			FromPort:   aws.Int32(80),
+			ToPort:     aws.Int32(82),
+			IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
 		}},
 	}, {
 		about: "multiple port ranges",
@@ -142,35 +206,35 @@ func (*Suite) TestPortsToIPPerms(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("80-82/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("100-120/tcp")),
 		},
-		expected: []amzec2.IPPerm{{
-			Protocol:  "tcp",
-			FromPort:  80,
-			ToPort:    82,
-			SourceIPs: []string{"0.0.0.0/0"},
+		expected: []types.IpPermission{{
+			IpProtocol: aws.String("tcp"),
+			FromPort:   aws.Int32(80),
+			ToPort:     aws.Int32(82),
+			IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
 		}, {
-			Protocol:  "tcp",
-			FromPort:  100,
-			ToPort:    120,
-			SourceIPs: []string{"0.0.0.0/0"},
+			IpProtocol: aws.String("tcp"),
+			FromPort:   aws.Int32(100),
+			ToPort:     aws.Int32(120),
+			IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
 		}},
 	}, {
 		about: "source ranges",
 		rules: firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80-82/tcp"), "192.168.1.0/24", "0.0.0.0/0")},
-		expected: []amzec2.IPPerm{{
-			Protocol:  "tcp",
-			FromPort:  80,
-			ToPort:    82,
-			SourceIPs: []string{"0.0.0.0/0", "192.168.1.0/24"},
+		expected: []types.IpPermission{{
+			IpProtocol: aws.String("tcp"),
+			FromPort:   aws.Int32(80),
+			ToPort:     aws.Int32(82),
+			IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}, {CidrIp: aws.String("192.168.1.0/24")}},
 		}},
 	}, {
 		about: "mixed IPV4 and IPV6 CIDRs",
 		rules: firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80-82/tcp"), "192.168.1.0/24", "0.0.0.0/0", "::/0")},
-		expected: []amzec2.IPPerm{{
-			Protocol:      "tcp",
-			FromPort:      80,
-			ToPort:        82,
-			SourceIPs:     []string{"0.0.0.0/0", "192.168.1.0/24"},
-			SourceIPV6IPs: []string{"::/0"},
+		expected: []types.IpPermission{{
+			IpProtocol: aws.String("tcp"),
+			FromPort:   aws.Int32(80),
+			ToPort:     aws.Int32(82),
+			IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}, {CidrIp: aws.String("192.168.1.0/24")}},
+			Ipv6Ranges: []types.Ipv6Range{{CidrIpv6: aws.String("::/0")}},
 		}},
 	}}
 
@@ -424,22 +488,24 @@ func (*Suite) TestGatherEmptyAZ(c *gc.C) {
 
 func (*Suite) TestGatherAZ(c *gc.C) {
 	instances := []instances.Instance{
-		&amzInstance{
-			Instance: &amzec2.Instance{
-				InstanceId: "id1",
-				AvailZone:  "aaa",
+		&sdkInstance{
+			i: types.Instance{
+				InstanceId: ptrString("id1"),
+				Placement: &types.Placement{
+					AvailabilityZone: ptrString("aaa"),
+				},
 			},
 		},
 		&sdkInstance{
-			i: &ec2.Instance{
+			i: types.Instance{
 				InstanceId: ptrString("id2"),
-				Placement: &ec2.Placement{
+				Placement: &types.Placement{
 					AvailabilityZone: ptrString("bbb"),
 				},
 			},
 		},
 		&sdkInstance{
-			i: &ec2.Instance{
+			i: types.Instance{
 				InstanceId: ptrString("id3"),
 			},
 		},

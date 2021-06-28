@@ -30,6 +30,30 @@ const (
 	JSON MIME = "application/json"
 )
 
+const (
+	// DefaultRetryAttempts defines the number of attempts that a default http
+	// transport will retry before giving up.
+	// Retries are only performed on certain status codes, nothing in the 200 to
+	// 400 range and a select few from the 500 range (deemed retryable):
+	//
+	// - http.StatusBadGateway
+	// - http.StatusGatewayTimeout
+	// - http.StatusServiceUnavailable
+	// - http.StatusTooManyRequests
+	//
+	// See: juju/http package.
+	DefaultRetryAttempts = 3
+
+	// DefaultRetryDelay holds the amount of time after a try, a new attempt
+	// will wait before another attempt.
+	DefaultRetryDelay = time.Second * 10
+
+	// DefaultRetryMaxDelay holds the amount of time before a giving up on a
+	// request. This values includes any server response from the header
+	// Retry-After.
+	DefaultRetryMaxDelay = time.Minute * 10
+)
+
 // Transport defines a type for making the actual request.
 type Transport interface {
 	// Do performs the *http.Request and returns a *http.Response or an error
@@ -39,9 +63,19 @@ type Transport interface {
 
 // DefaultHTTPTransport creates a new HTTPTransport.
 func DefaultHTTPTransport(logger Logger) Transport {
-	return RequestRecorderHTTPTransport(loggingRequestRecorder{
+	return RequestHTTPTransport(loggingRequestRecorder{
 		logger: logger.Child("request-recorder"),
-	})(logger)
+	}, DefaultRetryPolicy())(logger)
+}
+
+// DefaultRetryPolicy returns a retry policy with sane defaults for most
+// requests.
+func DefaultRetryPolicy() jujuhttp.RetryPolicy {
+	return jujuhttp.RetryPolicy{
+		Attempts: DefaultRetryAttempts,
+		Delay:    DefaultRetryDelay,
+		MaxDelay: DefaultRetryMaxDelay,
+	}
 }
 
 type loggingRequestRecorder struct {
@@ -62,12 +96,13 @@ func (r loggingRequestRecorder) RecordError(method string, url *url.URL, err err
 	}
 }
 
-// RequestRecorderHTTPTransport creates a new HTTPTransport that records the
+// RequestHTTPTransport creates a new HTTPTransport that records the
 // requests.
-func RequestRecorderHTTPTransport(recorder jujuhttp.RequestRecorder) func(logger Logger) Transport {
+func RequestHTTPTransport(recorder jujuhttp.RequestRecorder, policy jujuhttp.RetryPolicy) func(logger Logger) Transport {
 	return func(logger Logger) Transport {
 		return jujuhttp.NewClient(
 			jujuhttp.WithRequestRecorder(recorder),
+			jujuhttp.WithRequestRetrier(policy),
 			jujuhttp.WithLogger(logger),
 		)
 	}

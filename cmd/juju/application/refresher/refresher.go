@@ -362,7 +362,7 @@ func (r *charmStoreRefresher) String() string {
 type defaultCharmRepo struct{}
 
 func (defaultCharmRepo) NewCharmAtPathForceSeries(path, series string, force bool) (charm.Charm, *charm.URL, error) {
-	return charmrepo.NewCharmAtPathForceSeries(path, series, force)
+	return corecharm.NewCharmAtPathForceSeries(path, series, force)
 }
 
 // charmHubOriginResolver attempts to resolve the origin required to resolve

@@ -5,6 +5,8 @@ package ec2
 
 import (
 	stdcontext "context"
+	"encoding/base64"
+	stderrors "errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -13,7 +15,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/smithy-go"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -22,8 +27,7 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v2"
 	"github.com/juju/version/v2"
-	amzaws "gopkg.in/amz.v3/aws"
-	amzec2 "gopkg.in/amz.v3/ec2"
+	"github.com/kr/pretty"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -76,15 +80,11 @@ var (
 	_ environs.FirewallFeatureQuerier = (*environ)(nil)
 )
 
-var _ Client = (*ec2.EC2)(nil)
+var _ Client = (*ec2.Client)(nil)
 
 type environ struct {
 	name  string
 	cloud environscloudspec.CloudSpec
-
-	// This is legacy, and we are migrating away from the amz EC2 library in
-	// favour of the Amazon-provided awk-sdk-go (see ec2Client below).
-	ec2 *amzec2.EC2
 
 	ec2Client     Client
 	ec2ClientFunc ClientFunc
@@ -101,7 +101,7 @@ type environ struct {
 
 	defaultVPCMutex   sync.Mutex
 	defaultVPCChecked bool
-	defaultVPC        *amzec2.VPC
+	defaultVPC        *types.Vpc
 
 	ensureGroupMutex sync.Mutex
 }
@@ -147,13 +147,13 @@ func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerN
 	// Cannot really invalidate a credential here since nothing is bootstrapped yet.
 	callCtx.InvalidateCredentialFunc = func(string) error { return nil }
 	if ctx.ShouldVerifyCredentials() {
-		if err := verifyCredentials(e, callCtx); err != nil {
+		if err := verifyCredentials(e.ec2Client, callCtx); err != nil {
 			return err
 		}
 	}
 	ecfg := e.ecfg()
 	vpcID, forceVPCID := ecfg.vpcID(), ecfg.forceVPCID()
-	if err := validateBootstrapVPC(e.ec2, callCtx, e.cloud.Region, vpcID, forceVPCID, ctx); err != nil {
+	if err := validateBootstrapVPC(e.ec2Client, callCtx, e.cloud.Region, vpcID, forceVPCID, ctx); err != nil {
 		return errors.Trace(maybeConvertCredentialError(err, callCtx))
 	}
 	return nil
@@ -161,11 +161,11 @@ func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerN
 
 // Create is part of the Environ interface.
 func (e *environ) Create(ctx context.ProviderCallContext, args environs.CreateParams) error {
-	if err := verifyCredentials(e, ctx); err != nil {
+	if err := verifyCredentials(e.ec2Client, ctx); err != nil {
 		return err
 	}
 	vpcID := e.ecfg().vpcID()
-	if err := validateModelVPC(e.ec2, ctx, e.name, vpcID); err != nil {
+	if err := validateModelVPC(e.ec2Client, ctx, e.name, vpcID); err != nil {
 		return errors.Trace(maybeConvertCredentialError(err, ctx))
 	}
 	// TODO(axw) 2016-08-04 #1609643
@@ -236,18 +236,20 @@ func archMatches(arches []string, arch *string) bool {
 	return false
 }
 
-var ec2AvailabilityZones = (*amzec2.EC2).AvailabilityZones
+var ec2AvailabilityZones = func(client Client, ctx stdcontext.Context, in *ec2.DescribeAvailabilityZonesInput, opts ...func(*ec2.Options)) (*ec2.DescribeAvailabilityZonesOutput, error) {
+	return client.DescribeAvailabilityZones(ctx, in, opts...)
+}
 
 type ec2AvailabilityZone struct {
-	amzec2.AvailabilityZoneInfo
+	types.AvailabilityZone
 }
 
 func (z *ec2AvailabilityZone) Name() string {
-	return z.AvailabilityZoneInfo.Name
+	return aws.ToString(z.AvailabilityZone.ZoneName)
 }
 
 func (z *ec2AvailabilityZone) Available() bool {
-	return z.AvailabilityZoneInfo.State == availableState
+	return z.AvailabilityZone.State == availableState
 }
 
 // AvailabilityZones returns a slice of availability zones
@@ -256,15 +258,16 @@ func (e *environ) AvailabilityZones(ctx context.ProviderCallContext) (network.Av
 	e.availabilityZonesMutex.Lock()
 	defer e.availabilityZonesMutex.Unlock()
 	if e.availabilityZones == nil {
-		filter := amzec2.NewFilter()
-		filter.Add("region-name", e.cloud.Region)
-		resp, err := ec2AvailabilityZones(e.ec2, filter)
+		filter := makeFilter("region-name", e.cloud.Region)
+		resp, err := ec2AvailabilityZones(e.ec2Client, ctx, &ec2.DescribeAvailabilityZonesInput{
+			Filters: []types.Filter{filter},
+		})
 		if err != nil {
 			return nil, maybeConvertCredentialError(err, ctx)
 		}
-		logger.Debugf("availability zones: %+v", resp)
-		e.availabilityZones = make(network.AvailabilityZones, len(resp.Zones))
-		for i, z := range resp.Zones {
+		logger.Debugf("availability zones: %s", pretty.Sprint(resp.AvailabilityZones))
+		e.availabilityZones = make(network.AvailabilityZones, len(resp.AvailabilityZones))
+		for i, z := range resp.AvailabilityZones {
 			e.availabilityZones[i] = &ec2AvailabilityZone{z}
 		}
 	}
@@ -317,8 +320,8 @@ func (e *environ) DeriveAvailabilityZones(ctx context.ProviderCallContext, args 
 }
 
 type ec2Placement struct {
-	availabilityZone *amzec2.AvailabilityZoneInfo
-	subnet           *amzec2.Subnet
+	availabilityZone types.AvailabilityZone
+	subnet           *types.Subnet
 }
 
 func (e *environ) parsePlacement(ctx context.ProviderCallContext, placement string) (*ec2Placement, error) {
@@ -337,7 +340,7 @@ func (e *environ) parsePlacement(ctx context.ProviderCallContext, placement stri
 			if z.Name() == availabilityZone {
 				ec2AZ := z.(*ec2AvailabilityZone)
 				return &ec2Placement{
-					availabilityZone: &ec2AZ.AvailabilityZoneInfo,
+					availabilityZone: ec2AZ.AvailabilityZone,
 				}, nil
 			}
 		}
@@ -347,7 +350,7 @@ func (e *environ) parsePlacement(ctx context.ProviderCallContext, placement stri
 		matcher := CreateSubnetMatcher(value)
 		// Get all known subnets, look for a match
 		allSubnets := []string{}
-		subnetResp, vpcID, err := e.subnetsForVPC(ctx)
+		subnets, vpcID, err := e.subnetsForVPC(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -356,15 +359,15 @@ func (e *environ) parsePlacement(ctx context.ProviderCallContext, placement stri
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		for _, subnet := range subnetResp.Subnets {
-			allSubnets = append(allSubnets, fmt.Sprintf("%q:%q", subnet.Id, subnet.CIDRBlock))
+		for _, subnet := range subnets {
+			allSubnets = append(allSubnets, fmt.Sprintf("%q:%q", aws.ToString(subnet.SubnetId), aws.ToString(subnet.CidrBlock)))
 			if matcher.Match(subnet) {
 				// We found the CIDR, now see if we can find the AZs.
 				for _, zone := range zones {
-					if zone.Name() == subnet.AvailZone {
+					if zone.Name() == aws.ToString(subnet.AvailabilityZone) {
 						ec2AZ := zone.(*ec2AvailabilityZone)
 						return &ec2Placement{
-							availabilityZone: &ec2AZ.AvailabilityZoneInfo,
+							availabilityZone: ec2AZ.AvailabilityZone,
 							subnet:           &subnet,
 						}, nil
 					}
@@ -431,11 +434,12 @@ func (e *environ) metadataLookupParams(region, release string) (*simplestreams.M
 		// TODO(axw) 2016-10-04 #1630089
 		// MetadataLookupParams needs to be updated so that providers
 		// are not expected to know how to map regions to endpoints.
-		ec2Region, ok := amzaws.Regions[region]
-		if !ok {
-			return nil, errors.Errorf("unknown region %q", region)
+		resolver := ec2.NewDefaultEndpointResolver()
+		ep, err := resolver.ResolveEndpoint(region, ec2.EndpointResolverOptions{})
+		if err != nil {
+			return nil, errors.Annotatef(err, "unknown region %q", region)
 		}
-		endpoint = ec2Region.EC2Endpoint
+		endpoint = ep.URL
 	}
 	return &simplestreams.MetadataLookupParams{
 		Release:  release,
@@ -474,7 +478,7 @@ func resourceName(tag names.Tag, envName string) string {
 func (e *environ) StartInstance(
 	ctx context.ProviderCallContext, args environs.StartInstanceParams,
 ) (_ *environs.StartInstanceResult, resultErr error) {
-	var inst *amzInstance
+	var inst *sdkInstance
 	callback := args.StatusCallback
 	defer func() {
 		if resultErr == nil || inst == nil {
@@ -563,31 +567,37 @@ func (e *environ) StartInstance(
 	}
 
 	_ = callback(status.Allocating, "Setting up groups", nil)
-	groups, err := e.setUpGroups(ctx, args.ControllerUUID, args.InstanceConfig.MachineId, apiPorts)
+	groupIDs, err := e.setUpGroups(ctx, args.ControllerUUID, args.InstanceConfig.MachineId, apiPorts)
 	if err != nil {
 		return nil, annotateWrapError(err, "cannot set up groups")
 	}
 
-	blockDeviceMappings := getBlockDeviceMappings(
+	blockDeviceMappings, err := getBlockDeviceMappings(
 		args.Constraints,
 		args.InstanceConfig.Series,
 		args.InstanceConfig.Controller != nil,
+		args.RootDisk,
 	)
-	rootDiskSize := uint64(blockDeviceMappings[0].VolumeSize) * 1024
+	if err != nil {
+		return nil, annotateWrapError(err, "cannot get block device mapping")
+	}
+	rootDiskSize := uint64(aws.ToInt32(blockDeviceMappings[0].Ebs.VolumeSize)) * 1024
 
-	var instResp *amzec2.RunInstancesResp
-	commonRunArgs := &amzec2.RunInstances{
-		MinCount:            1,
-		MaxCount:            1,
-		UserData:            userData,
-		InstanceType:        spec.InstanceType.Name,
-		SecurityGroups:      groups,
+	var instResp *ec2.RunInstancesOutput
+	commonRunArgs := &ec2.RunInstancesInput{
+		MinCount:            aws.Int32(1),
+		MaxCount:            aws.Int32(1),
+		UserData:            aws.String(base64.StdEncoding.EncodeToString(userData)),
+		InstanceType:        types.InstanceType(spec.InstanceType.Name),
+		SecurityGroupIds:    groupIDs,
 		BlockDeviceMappings: blockDeviceMappings,
-		ImageId:             spec.Image.Id,
+		ImageId:             aws.String(spec.Image.Id),
 	}
 
 	runArgs := commonRunArgs
-	runArgs.AvailZone = availabilityZone
+	runArgs.Placement = &types.Placement{
+		AvailabilityZone: aws.String(availabilityZone),
+	}
 
 	subnetZones, err := getValidSubnetZoneMap(args)
 	if err != nil {
@@ -596,15 +606,16 @@ func (e *environ) StartInstance(
 
 	hasVPCID := isVPCIDSet(e.ecfg().vpcID())
 
-	runArgs.SubnetId, err = e.selectSubnetIDForInstance(ctx, hasVPCID, subnetZones, placementSubnetID, availabilityZone)
+	subnetId, err := e.selectSubnetIDForInstance(ctx, hasVPCID, subnetZones, placementSubnetID, availabilityZone)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	runArgs.SubnetId = aws.String(subnetId)
 
 	_ = callback(status.Allocating,
 		fmt.Sprintf("Trying to start instance in availability zone %q", availabilityZone), nil)
 
-	instResp, err = runInstances(e.ec2, ctx, runArgs, callback)
+	instResp, err = runInstances(e.ec2Client, ctx, runArgs, callback)
 	if err != nil {
 		if !isZoneOrSubnetConstrainedError(err) {
 			err = annotateWrapError(err, "cannot run instances")
@@ -615,14 +626,14 @@ func (e *environ) StartInstance(
 		return nil, errors.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
 	}
 
-	inst = &amzInstance{
-		e:        e,
-		Instance: &instResp.Instances[0],
+	inst = &sdkInstance{
+		e: e,
+		i: instResp.Instances[0],
 	}
-	instAZ := inst.Instance.AvailZone
+	instAZ, _ := inst.AvailabilityZone()
 	if hasVPCID {
 		instVPC := e.ecfg().vpcID()
-		instSubnet := inst.Instance.SubnetId
+		instSubnet := aws.ToString(inst.i.SubnetId)
 		logger.Infof("started instance %q in AZ %q, subnet %q, VPC %q", inst.Id(), instAZ, instSubnet, instVPC)
 	} else {
 		logger.Infof("started instance %q in AZ %q", inst.Id(), instAZ)
@@ -633,12 +644,12 @@ func (e *environ) StartInstance(
 		names.NewMachineTag(args.InstanceConfig.MachineId), e.Config().Name(),
 	)
 	args.InstanceConfig.Tags[tagName] = instanceName
-	if err := tagResources(e.ec2, ctx, args.InstanceConfig.Tags, string(inst.Id())); err != nil {
+	if err := tagResources(e.ec2Client, ctx, args.InstanceConfig.Tags, string(inst.Id())); err != nil {
 		return nil, annotateWrapError(err, "tagging instance")
 	}
 
 	// Tag the machine's root EBS volume, if it has one.
-	if inst.Instance.RootDeviceType == "ebs" {
+	if inst.i.RootDeviceType == "ebs" {
 		cfg := e.Config()
 		tags := tags.ResourceTags(
 			names.NewModelTag(cfg.UUID()),
@@ -646,7 +657,7 @@ func (e *environ) StartInstance(
 			cfg,
 		)
 		tags[tagName] = instanceName + "-root"
-		if err := tagRootDisk(e.ec2, ctx, tags, inst.Instance); err != nil {
+		if err := tagRootDisk(e.ec2Client, ctx, tags, &inst.i); err != nil {
 			return nil, annotateWrapError(err, "tagging root disk")
 		}
 	}
@@ -658,7 +669,7 @@ func (e *environ) StartInstance(
 		CpuPower: spec.InstanceType.CpuPower,
 		RootDisk: &rootDiskSize,
 		// Tags currently not supported by EC2
-		AvailabilityZone: &inst.Instance.AvailZone,
+		AvailabilityZone: &instAZ,
 	}
 	return &environs.StartInstanceResult{
 		Instance: inst,
@@ -828,7 +839,7 @@ func (e *environ) selectVPCSubnetIDsForZone(ctx context.ProviderCallContext,
 	}
 
 	subnets, err := getVPCSubnetIDsForAvailabilityZone(
-		e.ec2, ctx, e.ecfg().vpcID(), availabilityZone, allowedSubnetIDs)
+		e.ec2Client, ctx, e.ecfg().vpcID(), availabilityZone, allowedSubnetIDs)
 
 	switch {
 	case isNotFoundError(err):
@@ -880,7 +891,7 @@ func (e *environ) deriveAvailabilityZoneAndSubnetID(
 	// Determine the availability zones of existing volumes that are to be
 	// attached to the machine. They must all match, and must be the same
 	// as specified zone (if any).
-	volumeAttachmentsZone, err := volumeAttachmentsZone(e.ec2, ctx, args.VolumeAttachments)
+	volumeAttachmentsZone, err := volumeAttachmentsZone(e.ec2Client, ctx, args.VolumeAttachments)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -902,11 +913,12 @@ func (e *environ) deriveAvailabilityZoneAndSubnetID(
 		for _, z := range zones {
 			if z.Name() == args.AvailabilityZone {
 				ec2AZ := z.(*ec2AvailabilityZone)
-				if ec2AZ.AvailabilityZoneInfo.State != availableState {
+				zoneState := ec2AZ.AvailabilityZone.State
+				if zoneState != availableState {
 					return "", "", errors.Errorf(
 						"availability zone %q is %q",
-						ec2AZ.AvailabilityZoneInfo.Name,
-						ec2AZ.AvailabilityZoneInfo.State,
+						z.Name(),
+						zoneState,
 					)
 				} else {
 					availabilityZone = args.AvailabilityZone
@@ -930,32 +942,36 @@ func (e *environ) instancePlacementZone(ctx context.ProviderCallContext, placeme
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
-	if instPlacement.availabilityZone.State != availableState {
+	zoneName := aws.ToString(instPlacement.availabilityZone.ZoneName)
+	zoneState := instPlacement.availabilityZone.State
+	if zoneState != availableState {
 		return "", "", errors.Errorf(
 			"availability zone %q is %q",
-			instPlacement.availabilityZone.Name,
-			instPlacement.availabilityZone.State,
+			zoneName,
+			zoneState,
 		)
 	}
-	if volumeAttachmentsZone != "" && volumeAttachmentsZone != instPlacement.availabilityZone.Name {
+	if volumeAttachmentsZone != "" && volumeAttachmentsZone != zoneName {
 		return "", "", errors.Errorf(
 			"cannot create instance with placement %q, as this will prevent attaching the requested EBS volumes in zone %q",
 			placement, volumeAttachmentsZone,
 		)
 	}
 	if instPlacement.subnet != nil {
-		if instPlacement.subnet.State != availableState {
-			return "", "", errors.Errorf("subnet %q is %q", instPlacement.subnet.CIDRBlock, instPlacement.subnet.State)
+		subnetState := instPlacement.subnet.State
+		if subnetState != availableState {
+			return "", "", errors.Errorf("subnet %q is %q",
+				aws.ToString(instPlacement.subnet.CidrBlock), subnetState)
 		}
-		placementSubnetID = network.Id(instPlacement.subnet.Id)
+		placementSubnetID = network.Id(aws.ToString(instPlacement.subnet.SubnetId))
 	}
-	return instPlacement.availabilityZone.Name, placementSubnetID, nil
+	return zoneName, placementSubnetID, nil
 }
 
 // volumeAttachmentsZone determines the availability zone for each volume
 // identified in the volume attachment parameters, checking that they are
 // all the same, and returns the availability zone name.
-func volumeAttachmentsZone(ec2 *amzec2.EC2, ctx context.ProviderCallContext, attachments []storage.VolumeAttachmentParams) (string, error) {
+func volumeAttachmentsZone(e Client, ctx context.ProviderCallContext, attachments []storage.VolumeAttachmentParams) (string, error) {
 	volumeIds := make([]string, 0, len(attachments))
 	for _, a := range attachments {
 		if a.Provider != EBS_ProviderType {
@@ -966,7 +982,9 @@ func volumeAttachmentsZone(ec2 *amzec2.EC2, ctx context.ProviderCallContext, att
 	if len(volumeIds) == 0 {
 		return "", nil
 	}
-	resp, err := ec2.Volumes(volumeIds, nil)
+	resp, err := e.DescribeVolumes(ctx, &ec2.DescribeVolumesInput{
+		VolumeIds: volumeIds,
+	})
 	if err != nil {
 		return "", errors.Annotatef(maybeConvertCredentialError(err, ctx), "getting volume details (%s)", volumeIds)
 	}
@@ -974,47 +992,55 @@ func volumeAttachmentsZone(ec2 *amzec2.EC2, ctx context.ProviderCallContext, att
 		return "", nil
 	}
 	for i, v := range resp.Volumes[1:] {
-		if v.AvailZone != resp.Volumes[i].AvailZone {
+		zone1 := aws.ToString(resp.Volumes[i].AvailabilityZone)
+		zone2 := aws.ToString(v.AvailabilityZone)
+		if zone2 != zone1 {
 			return "", errors.Errorf(
 				"cannot attach volumes from multiple availability zones: %s is in %s, %s is in %s",
-				resp.Volumes[i].Id, resp.Volumes[i].AvailZone, v.Id, v.AvailZone,
+				aws.ToString(resp.Volumes[i].VolumeId), zone1, aws.ToString(v.VolumeId), zone2,
 			)
 		}
 	}
-	return resp.Volumes[0].AvailZone, nil
+	return aws.ToString(resp.Volumes[0].AvailabilityZone), nil
 }
 
 // tagResources calls ec2.CreateTags, tagging each of the specified resources
 // with the given tags. tagResources will retry for a short period of time
 // if it receives a *.NotFound error response from EC2.
-func tagResources(e *amzec2.EC2, ctx context.ProviderCallContext, tags map[string]string, resourceIds ...string) error {
+func tagResources(e Client, ctx context.ProviderCallContext, tags map[string]string, resourceIds ...string) error {
 	if len(tags) == 0 {
 		return nil
 	}
-	ec2Tags := make([]amzec2.Tag, 0, len(tags))
+	ec2Tags := make([]types.Tag, 0, len(tags))
 	for k, v := range tags {
-		ec2Tags = append(ec2Tags, amzec2.Tag{Key: k, Value: v})
+		ec2Tags = append(ec2Tags, types.Tag{Key: aws.String(k), Value: aws.String(v)})
 	}
 	var err error
 	for a := shortAttempt.Start(); a.Next(); {
-		_, err = e.CreateTags(resourceIds, ec2Tags)
+		_, err = e.CreateTags(ctx, &ec2.CreateTagsInput{
+			Resources: resourceIds,
+			Tags:      ec2Tags,
+		})
 		if err == nil || !strings.HasSuffix(ec2ErrCode(err), ".NotFound") {
-			return err
+			return maybeConvertCredentialError(err, ctx)
 		}
 	}
 	return maybeConvertCredentialError(err, ctx)
 }
 
-func tagRootDisk(e *amzec2.EC2, ctx context.ProviderCallContext, tags map[string]string, inst *amzec2.Instance) error {
+func tagRootDisk(e Client, ctx context.ProviderCallContext, tags map[string]string, inst *types.Instance) error {
 	if len(tags) == 0 {
 		return nil
 	}
-	findVolumeID := func(inst *amzec2.Instance) string {
+	findVolumeID := func(inst *types.Instance) string {
 		for _, m := range inst.BlockDeviceMappings {
-			if m.DeviceName != inst.RootDeviceName {
+			if aws.ToString(m.DeviceName) != aws.ToString(inst.RootDeviceName) {
 				continue
 			}
-			return m.VolumeId
+			if m.Ebs == nil {
+				continue
+			}
+			return aws.ToString(m.Ebs.VolumeId)
 		}
 		return ""
 	}
@@ -1027,7 +1053,9 @@ func tagRootDisk(e *amzec2.EC2, ctx context.ProviderCallContext, tags map[string
 		Delay: 5 * time.Second,
 	}
 	for a := waitRootDiskAttempt.Start(); volumeID == "" && a.Next(); {
-		resp, err := e.Instances([]string{inst.InstanceId}, nil)
+		resp, err := e.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+			InstanceIds: []string{aws.ToString(inst.InstanceId)},
+		})
 		if err != nil {
 			// EC2 calls are eventually consistent; if we get a
 			// NotFound error when looking up the instance we
@@ -1060,11 +1088,11 @@ var runInstances = _runInstances
 // runInstances calls ec2.RunInstances for a fixed number of attempts until
 // RunInstances returns an error code that does not indicate an error that
 // may be caused by eventual consistency.
-func _runInstances(e *amzec2.EC2, ctx context.ProviderCallContext, ri *amzec2.RunInstances, callback environs.StatusCallbackFunc) (resp *amzec2.RunInstancesResp, err error) {
+func _runInstances(e Client, ctx context.ProviderCallContext, ri *ec2.RunInstancesInput, callback environs.StatusCallbackFunc) (resp *ec2.RunInstancesOutput, err error) {
 	try := 1
 	for a := shortAttempt.Start(); a.Next(); {
 		_ = callback(status.Allocating, fmt.Sprintf("Start instance attempt %d", try), nil)
-		resp, err = e.RunInstances(ri)
+		resp, err = e.RunInstances(ctx, ri)
 		if err == nil || !isNotFoundError(err) {
 			break
 		}
@@ -1077,27 +1105,20 @@ func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance
 	return errors.Trace(e.terminateInstances(ctx, ids))
 }
 
-// groupInfoByName returns information on the security group
-// with the given name including rules and other details.
-func (e *environ) groupInfoByName(ctx context.ProviderCallContext, groupName string) (amzec2.SecurityGroupInfo, error) {
-	resp, err := e.securityGroupsByNameOrID(groupName)
+// groupByName returns the security group with the given name.
+func (e *environ) groupByName(ctx context.ProviderCallContext, groupName string) (types.SecurityGroup, error) {
+	groups, err := e.securityGroupsByNameOrID(ctx, groupName)
 	if err != nil {
-		return amzec2.SecurityGroupInfo{}, maybeConvertCredentialError(err, ctx)
+		return types.SecurityGroup{}, maybeConvertCredentialError(err, ctx)
 	}
 
-	if len(resp.Groups) != 1 {
-		return amzec2.SecurityGroupInfo{}, errors.NewNotFound(fmt.Errorf(
+	if len(groups) != 1 {
+		return types.SecurityGroup{}, errors.NewNotFound(fmt.Errorf(
 			"expected one security group named %q, got %v",
-			groupName, resp.Groups,
+			groupName, groups,
 		), "")
 	}
-	return resp.Groups[0], nil
-}
-
-// groupByName returns the security group with the given name.
-func (e *environ) groupByName(ctx context.ProviderCallContext, groupName string) (amzec2.SecurityGroup, error) {
-	groupInfo, err := e.groupInfoByName(ctx, groupName)
-	return groupInfo.SecurityGroup, err
+	return groups[0], nil
 }
 
 // isNotFoundError returns whether err is a typed NotFoundError or an EC2 error
@@ -1124,7 +1145,7 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 				need = append(need, string(ids[i]))
 			}
 		}
-		filters := []*ec2.Filter{
+		filters := []types.Filter{
 			makeFilter("instance-state-name", aliveInstanceStates...),
 			makeFilter("instance-id", need...),
 			makeModelFilter(e.uuid()),
@@ -1157,10 +1178,11 @@ func (e *environ) gatherInstances(
 	ctx context.ProviderCallContext,
 	ids []instance.Id,
 	insts []instances.Instance,
-	filters []*ec2.Filter,
+	filters []types.Filter,
 ) error {
-	req := &ec2.DescribeInstancesInput{Filters: filters}
-	resp, err := e.ec2Client.DescribeInstances(req)
+	resp, err := e.ec2Client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+		Filters: filters,
+	})
 	if err != nil {
 		return maybeConvertCredentialError(err, ctx)
 	}
@@ -1204,7 +1226,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 	// Collect all available subnets into a map where keys are subnet IDs
 	// and values are subnets. We will use this map to resolve subnets
 	// for the bulk network interface info requests below.
-	subMap, err := e.subnetMap()
+	subMap, err := e.subnetMap(ctx)
 	if err != nil {
 		return nil, errors.Annotate(maybeConvertCredentialError(err, ctx), "failed to retrieve subnet info")
 	}
@@ -1228,8 +1250,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 
 		// Network interfaces are not currently tagged so we cannot
 		// use a model filter here.
-		filter := amzec2.NewFilter()
-		filter.Add("attachment.instance-id", need...)
+		filter := makeFilter("attachment.instance-id", need...)
 		logger.Tracef("retrieving NICs for instances %v", need)
 		err = e.gatherNetworkInterfaceInfo(ctx, filter, infos, idToInfosIndex, subMap)
 		if err == nil || err != environs.ErrPartialInstances {
@@ -1252,15 +1273,15 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 }
 
 // subnetMap returns a map with all known ec2.Subnets and their IDs as keys.
-func (e *environ) subnetMap() (map[string]amzec2.Subnet, error) {
-	subnetsResp, err := e.ec2.Subnets(nil, nil)
+func (e *environ) subnetMap(ctx context.ProviderCallContext) (map[string]types.Subnet, error) {
+	subnetsResp, err := e.ec2Client.DescribeSubnets(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	subMap := make(map[string]amzec2.Subnet, len(subnetsResp.Subnets))
+	subMap := make(map[string]types.Subnet, len(subnetsResp.Subnets))
 	for _, sub := range subnetsResp.Subnets {
-		subMap[sub.Id] = sub
+		subMap[aws.ToString(sub.SubnetId)] = sub
 	}
 	return subMap, nil
 }
@@ -1273,10 +1294,10 @@ func (e *environ) subnetMap() (map[string]amzec2.Subnet, error) {
 // any nil entries.
 func (e *environ) gatherNetworkInterfaceInfo(
 	ctx context.ProviderCallContext,
-	filter *amzec2.Filter,
+	filter types.Filter,
 	infos []network.InterfaceInfos,
 	idToInfosIndex map[string]int,
-	subMap map[string]amzec2.Subnet,
+	subMap map[string]types.Subnet,
 ) error {
 	// Check how many queries have already been answered; machines must
 	// have at least one network interface attached to them.
@@ -1288,13 +1309,15 @@ func (e *environ) gatherNetworkInterfaceInfo(
 	}
 
 	// Run query
-	networkInterfacesResp, err := e.ec2.NetworkInterfaces(nil, filter)
+	networkInterfacesResp, err := e.ec2Client.DescribeNetworkInterfaces(ctx, &ec2.DescribeNetworkInterfacesInput{
+		Filters: []types.Filter{filter},
+	})
 	if err != nil {
 		return maybeConvertCredentialError(err, ctx)
 	}
 
-	for _, netIfSpec := range networkInterfacesResp.Interfaces {
-		idx, found := idToInfosIndex[netIfSpec.Attachment.InstanceId]
+	for _, netIfSpec := range networkInterfacesResp.NetworkInterfaces {
+		idx, found := idToInfosIndex[aws.ToString(netIfSpec.Attachment.InstanceId)]
 		if !found {
 			continue
 		} else if infos[idx] == nil {
@@ -1304,7 +1327,7 @@ func (e *environ) gatherNetworkInterfaceInfo(
 			pending--
 		}
 
-		subnet, found := subMap[netIfSpec.SubnetId]
+		subnet, found := subMap[aws.ToString(netIfSpec.SubnetId)]
 		if !found {
 			return errors.NotFoundf("info for subnet %q", netIfSpec.SubnetId)
 		}
@@ -1320,13 +1343,13 @@ func (e *environ) gatherNetworkInterfaceInfo(
 
 func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) (network.InterfaceInfos, error) {
 	var err error
-	var networkInterfacesResp *amzec2.NetworkInterfacesResp
+	var resp *ec2.DescribeNetworkInterfacesOutput
 	for a := shortAttempt.Start(); a.Next(); {
 		logger.Tracef("retrieving NICs for instance %q", instId)
-		filter := amzec2.NewFilter()
-		filter.Add("attachment.instance-id", string(instId))
-		networkInterfacesResp, err = e.ec2.NetworkInterfaces(nil, filter)
-		logger.Tracef("instance %q NICs: %#v (err: %v)", instId, networkInterfacesResp, err)
+		filter := makeFilter("attachment.instance-id", string(instId))
+		resp, err = e.ec2Client.DescribeNetworkInterfaces(ctx, &ec2.DescribeNetworkInterfacesInput{
+			Filters: []types.Filter{filter},
+		})
 		if err != nil {
 			err = maybeConvertCredentialError(err, ctx)
 			if common.IsCredentialNotValid(err) {
@@ -1336,11 +1359,11 @@ func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, 
 			logger.Errorf("failed to get instance %q interfaces: %v (retrying)", instId, err)
 			continue
 		}
-		if len(networkInterfacesResp.Interfaces) == 0 {
+		if len(resp.NetworkInterfaces) == 0 {
 			logger.Tracef("instance %q has no NIC attachment yet, retrying...", instId)
 			continue
 		}
-		logger.Tracef("found instance %q NICS: %#v", instId, networkInterfacesResp.Interfaces)
+		logger.Tracef("found instance %q NICs: %s", instId, pretty.Sprint(resp.NetworkInterfaces))
 		break
 	}
 	if err != nil {
@@ -1348,12 +1371,14 @@ func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, 
 		// the ec2 api
 		return nil, errors.Annotatef(err, "cannot get instance %q network interfaces", instId)
 	}
-	ec2Interfaces := networkInterfacesResp.Interfaces
+	ec2Interfaces := resp.NetworkInterfaces
 	result := make(network.InterfaceInfos, len(ec2Interfaces))
 	for i, iface := range ec2Interfaces {
-		resp, err := e.ec2.Subnets([]string{iface.SubnetId}, nil)
+		resp, err := e.ec2Client.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{
+			SubnetIds: []string{aws.ToString(iface.SubnetId)},
+		})
 		if err != nil {
-			return nil, errors.Annotatef(maybeConvertCredentialError(err, ctx), "failed to retrieve subnet %q info", iface.SubnetId)
+			return nil, errors.Annotatef(maybeConvertCredentialError(err, ctx), "failed to retrieve subnet %q info", aws.ToString(iface.SubnetId))
 		}
 		if len(resp.Subnets) != 1 {
 			return nil, errors.Errorf("expected 1 subnet, got %d", len(resp.Subnets))
@@ -1364,14 +1389,16 @@ func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, 
 	return result, nil
 }
 
-func mapNetworkInterface(iface amzec2.NetworkInterface, subnet amzec2.Subnet) network.InterfaceInfo {
+func mapNetworkInterface(iface types.NetworkInterface, subnet types.Subnet) network.InterfaceInfo {
+	privateAddress := aws.ToString(iface.PrivateIpAddress)
+	subnetCIDR := aws.ToString(subnet.CidrBlock)
 	// Device names and VLAN tags are not returned by EC2.
 	ni := network.InterfaceInfo{
-		DeviceIndex:       iface.Attachment.DeviceIndex,
-		MACAddress:        iface.MACAddress,
-		ProviderId:        network.Id(iface.Id),
-		ProviderSubnetId:  network.Id(iface.SubnetId),
-		AvailabilityZones: []string{subnet.AvailZone},
+		DeviceIndex:       int(aws.ToInt32(iface.Attachment.DeviceIndex)),
+		MACAddress:        aws.ToString(iface.MacAddress),
+		ProviderId:        network.Id(aws.ToString(iface.NetworkInterfaceId)),
+		ProviderSubnetId:  network.Id(aws.ToString(iface.SubnetId)),
+		AvailabilityZones: []string{aws.ToString(iface.AvailabilityZone)},
 		Disabled:          false,
 		NoAutoStart:       false,
 		InterfaceType:     network.EthernetDevice,
@@ -1382,33 +1409,33 @@ func mapNetworkInterface(iface amzec2.NetworkInterface, subnet amzec2.Subnet) ne
 		// the primary IP is always added first with any additional
 		// private IPs appended after it.
 		Addresses: network.ProviderAddresses{network.NewProviderAddress(
-			iface.PrivateIPAddress,
+			privateAddress,
 			network.WithScope(network.ScopeCloudLocal),
-			network.WithCIDR(subnet.CIDRBlock),
+			network.WithCIDR(subnetCIDR),
 			network.WithConfigType(network.ConfigDHCP),
 		)},
 		Origin: network.OriginProvider,
 	}
 
-	for _, privAddr := range iface.PrivateIPs {
-		if privAddr.Association.PublicIP != "" {
+	for _, privAddr := range iface.PrivateIpAddresses {
+		if ip := aws.ToString(privAddr.Association.PublicIp); ip != "" {
 			ni.ShadowAddresses = append(ni.ShadowAddresses, network.NewProviderAddress(
-				privAddr.Association.PublicIP,
+				ip,
 				network.WithScope(network.ScopePublic),
 				network.WithConfigType(network.ConfigDHCP),
 			))
 		}
 
-		if privAddr.Address == iface.PrivateIPAddress {
+		if aws.ToString(privAddr.PrivateIpAddress) == privateAddress {
 			continue // primary address has already been added.
 		}
 
 		// An EC2 interface is connected to a single subnet,
 		// so we assume other addresses are in the same subnet.
 		ni.Addresses = append(ni.Addresses, network.NewProviderAddress(
-			iface.PrivateIPAddress,
+			privateAddress,
 			network.WithScope(network.ScopeCloudLocal),
-			network.WithCIDR(subnet.CIDRBlock),
+			network.WithCIDR(subnetCIDR),
 			network.WithConfigType(network.ConfigDHCP),
 		))
 	}
@@ -1481,26 +1508,27 @@ func (e *environ) Subnets(
 			results = append(results, info)
 		}
 	} else {
-		resp, _, err := e.subnetsForVPC(ctx)
+		subnets, _, err := e.subnetsForVPC(ctx)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to retrieve subnets")
 		}
 		if len(subnetIds) == 0 {
-			for _, subnet := range resp.Subnets {
-				subIdSet[subnet.Id] = false
+			for _, subnet := range subnets {
+				subIdSet[aws.ToString(subnet.SubnetId)] = false
 			}
 		}
 
-		for _, subnet := range resp.Subnets {
-			_, ok := subIdSet[subnet.Id]
+		for _, subnet := range subnets {
+			subnetID := aws.ToString(subnet.SubnetId)
+			_, ok := subIdSet[subnetID]
 			if !ok {
-				logger.Tracef("subnet %q not in %v, skipping", subnet.Id, subnetIds)
+				logger.Tracef("subnet %q not in %v, skipping", subnetID, subnetIds)
 				continue
 			}
-			subIdSet[subnet.Id] = true
-			cidr := subnet.CIDRBlock
+			subIdSet[subnetID] = true
+			cidr := aws.ToString(subnet.CidrBlock)
 			info, err := makeSubnetInfo(
-				cidr, network.Id(subnet.Id), network.Id(subnet.VPCId), []string{subnet.AvailZone})
+				cidr, network.Id(subnetID), network.Id(aws.ToString(subnet.VpcId)), []string{aws.ToString(subnet.AvailabilityZone)})
 			if err != nil {
 				// Error will already have been logged.
 				continue
@@ -1523,17 +1551,21 @@ func (e *environ) Subnets(
 	return results, nil
 }
 
-func (e *environ) subnetsForVPC(ctx context.ProviderCallContext) (resp *amzec2.SubnetsResp, vpcId string, err error) {
-	filter := amzec2.NewFilter()
-	vpcId = e.ecfg().vpcID()
+func (e *environ) subnetsForVPC(ctx context.ProviderCallContext) ([]types.Subnet, string, error) {
+	vpcId := e.ecfg().vpcID()
 	if !isVPCIDSet(vpcId) {
 		if hasDefaultVPC, err := e.hasDefaultVPC(ctx); err == nil && hasDefaultVPC {
-			vpcId = e.defaultVPC.Id
+			vpcId = aws.ToString(e.defaultVPC.VpcId)
 		}
 	}
-	filter.Add("vpc-id", vpcId)
-	resp, err = e.ec2.Subnets(nil, filter)
-	return resp, vpcId, maybeConvertCredentialError(err, ctx)
+	filter := makeFilter("vpc-id", vpcId)
+	resp, err := e.ec2Client.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{
+		Filters: []types.Filter{filter},
+	})
+	if err != nil {
+		return nil, "", maybeConvertCredentialError(err, ctx)
+	}
+	return resp.Subnets, vpcId, maybeConvertCredentialError(err, ctx)
 }
 
 // AdoptResources is part of the Environ interface.
@@ -1561,13 +1593,13 @@ func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 	}
 	groupIds := make([]string, len(groups))
 	for i, g := range groups {
-		groupIds[i] = g.Id
+		groupIds[i] = aws.ToString(g.GroupId)
 	}
 	resourceIds = append(resourceIds, volumeIds...)
 	resourceIds = append(resourceIds, groupIds...)
 
 	tags := map[string]string{tags.JujuController: controllerUUID}
-	return errors.Annotate(tagResources(e.ec2, ctx, tags, resourceIds...), "updating tags")
+	return errors.Annotate(tagResources(e.ec2Client, ctx, tags, resourceIds...), "updating tags")
 }
 
 // AllInstances is part of the environs.InstanceBroker interface.
@@ -1614,16 +1646,16 @@ func (e *environ) allInstancesByState(ctx context.ProviderCallContext, states ..
 	} else if err != nil {
 		return nil, errors.Trace(maybeConvertCredentialError(err, ctx))
 	}
-	filters := []*ec2.Filter{
+	filters := []types.Filter{
 		makeFilter("instance-state-name", states...),
-		makeFilter("instance.group-id", group.Id),
+		makeFilter("instance.group-id", aws.ToString(group.GroupId)),
 	}
 	return e.allInstances(ctx, filters)
 }
 
 // ControllerInstances is part of the environs.Environ interface.
 func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
-	filters := []*ec2.Filter{
+	filters := []types.Filter{
 		makeFilter("instance-state-name", aliveInstanceStates...),
 		makeFilter(fmt.Sprintf("tag:%s", tags.JujuIsController), "true"),
 		makeControllerFilter(controllerUUID),
@@ -1638,14 +1670,10 @@ func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controlle
 	return ids, nil
 }
 
-func makeFilter(name string, values ...string) *ec2.Filter {
-	filter := &ec2.Filter{
+func makeFilter(name string, values ...string) types.Filter {
+	filter := types.Filter{
 		Name:   &name,
-		Values: make([]*string, len(values)),
-	}
-	for i, v := range values {
-		v := v // we're taking the address, so we need a new variable each time
-		filter.Values[i] = &v
+		Values: values,
 	}
 	return filter
 }
@@ -1656,14 +1684,14 @@ func makeFilter(name string, values ...string) *ec2.Filter {
 // Note that this requires that all instances are tagged; we cannot filter on
 // security groups, as we do not know the names of the models.
 func (e *environ) allControllerManagedInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
-	filters := []*ec2.Filter{
+	filters := []types.Filter{
 		makeFilter("instance-state-name", aliveInstanceStates...),
 		makeControllerFilter(controllerUUID),
 	}
 	return e.allInstanceIDs(ctx, filters)
 }
 
-func (e *environ) allInstanceIDs(ctx context.ProviderCallContext, filters []*ec2.Filter) ([]instance.Id, error) {
+func (e *environ) allInstanceIDs(ctx context.ProviderCallContext, filters []types.Filter) ([]instance.Id, error) {
 	insts, err := e.allInstances(ctx, filters)
 	if err != nil {
 		return nil, errors.Trace(maybeConvertCredentialError(err, ctx))
@@ -1675,9 +1703,10 @@ func (e *environ) allInstanceIDs(ctx context.ProviderCallContext, filters []*ec2
 	return ids, nil
 }
 
-func (e *environ) allInstances(ctx context.ProviderCallContext, filters []*ec2.Filter) ([]instances.Instance, error) {
-	req := &ec2.DescribeInstancesInput{Filters: filters}
-	resp, err := e.ec2Client.DescribeInstances(req)
+func (e *environ) allInstances(ctx context.ProviderCallContext, filters []types.Filter) ([]instances.Instance, error) {
+	resp, err := e.ec2Client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+		Filters: filters,
+	})
 	if err != nil {
 		return nil, errors.Annotate(maybeConvertCredentialError(err, ctx), "listing instances")
 	}
@@ -1729,7 +1758,7 @@ func (e *environ) destroyControllerManagedModels(ctx context.ProviderCallContext
 	if err != nil {
 		return errors.Annotate(err, "listing volumes")
 	}
-	errs := foreachVolume(e.ec2, ctx, volIds, destroyVolume)
+	errs := foreachVolume(e.ec2Client, ctx, volIds, destroyVolume)
 	for i, err := range errs {
 		if err == nil {
 			continue
@@ -1746,7 +1775,7 @@ func (e *environ) destroyControllerManagedModels(ctx context.ProviderCallContext
 		return errors.Trace(err)
 	}
 	for _, g := range groups {
-		if err := deleteSecurityGroupInsistently(e.ec2, ctx, g, clock.WallClock); err != nil {
+		if err := deleteSecurityGroupInsistently(e.ec2Client, ctx, g, clock.WallClock); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1754,36 +1783,32 @@ func (e *environ) destroyControllerManagedModels(ctx context.ProviderCallContext
 }
 
 func (e *environ) allControllerManagedVolumes(ctx context.ProviderCallContext, controllerUUID string, includeRootDisks bool) ([]string, error) {
-	filter := amzec2.NewFilter()
-	e.addControllerFilter(filter, controllerUUID)
-	return listVolumes(e.ec2, ctx, filter, includeRootDisks)
+	return listVolumes(e.ec2Client, ctx, includeRootDisks, makeControllerFilter(controllerUUID))
 }
 
 func (e *environ) allModelVolumes(ctx context.ProviderCallContext, includeRootDisks bool) ([]string, error) {
-	filter := amzec2.NewFilter()
-	e.addModelFilter(filter)
-	return listVolumes(e.ec2, ctx, filter, includeRootDisks)
+	return listVolumes(e.ec2Client, ctx, includeRootDisks, makeModelFilter(e.uuid()))
 }
 
-func rulesToIPPerms(rules firewall.IngressRules) []amzec2.IPPerm {
-	ipPerms := make([]amzec2.IPPerm, len(rules))
+func rulesToIPPerms(rules firewall.IngressRules) []types.IpPermission {
+	ipPerms := make([]types.IpPermission, len(rules))
 	for i, r := range rules {
-		ipPerms[i] = amzec2.IPPerm{
-			Protocol: r.PortRange.Protocol,
-			FromPort: r.PortRange.FromPort,
-			ToPort:   r.PortRange.ToPort,
+		ipPerms[i] = types.IpPermission{
+			IpProtocol: aws.String(r.PortRange.Protocol),
+			FromPort:   aws.Int32(int32(r.PortRange.FromPort)),
+			ToPort:     aws.Int32(int32(r.PortRange.ToPort)),
 		}
 		if len(r.SourceCIDRs) == 0 {
-			ipPerms[i].SourceIPs = []string{defaultRouteCIDRBlock}
+			ipPerms[i].IpRanges = []types.IpRange{{CidrIp: aws.String(defaultRouteCIDRBlock)}}
 		} else {
 			for _, cidr := range r.SourceCIDRs.SortedValues() {
 				// CIDRs are pre-validated; if an invalid CIDR
 				// reaches this loop, it will be skipped.
 				addrType, _ := network.CIDRAddressType(cidr)
 				if addrType == network.IPv4Address {
-					ipPerms[i].SourceIPs = append(ipPerms[i].SourceIPs, cidr)
+					ipPerms[i].IpRanges = append(ipPerms[i].IpRanges, types.IpRange{CidrIp: aws.String(cidr)})
 				} else if addrType == network.IPv6Address {
-					ipPerms[i].SourceIPV6IPs = append(ipPerms[i].SourceIPV6IPs, cidr)
+					ipPerms[i].Ipv6Ranges = append(ipPerms[i].Ipv6Ranges, types.Ipv6Range{CidrIpv6: aws.String(cidr)})
 				}
 			}
 		}
@@ -1801,7 +1826,11 @@ func (e *environ) openPortsInGroup(ctx context.ProviderCallContext, name string,
 		return err
 	}
 	ipPerms := rulesToIPPerms(rules)
-	_, err = e.ec2.AuthorizeSecurityGroup(g, ipPerms)
+	_, err = e.ec2Client.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
+		GroupId:       g.GroupId,
+		GroupName:     g.GroupName,
+		IpPermissions: ipPerms,
+	})
 	if err != nil && ec2ErrCode(err) == "InvalidPermission.Duplicate" {
 		if len(rules) == 1 {
 			return nil
@@ -1811,7 +1840,11 @@ func (e *environ) openPortsInGroup(ctx context.ProviderCallContext, name string,
 		// otherwise the ports that were *not* duplicates will have
 		// been ignored
 		for i := range ipPerms {
-			_, err := e.ec2.AuthorizeSecurityGroup(g, ipPerms[i:i+1])
+			_, err := e.ec2Client.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
+				GroupId:       g.GroupId,
+				GroupName:     g.GroupName,
+				IpPermissions: ipPerms[i : i+1],
+			})
 			if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
 				return errors.Annotatef(maybeConvertCredentialError(err, ctx), "cannot open port %v", ipPerms[i])
 			}
@@ -1835,7 +1868,11 @@ func (e *environ) closePortsInGroup(ctx context.ProviderCallContext, name string
 	if err != nil {
 		return err
 	}
-	_, err = e.ec2.RevokeSecurityGroup(g, rulesToIPPerms(rules))
+	_, err = e.ec2Client.RevokeSecurityGroupIngress(ctx, &ec2.RevokeSecurityGroupIngressInput{
+		GroupId:       g.GroupId,
+		GroupName:     g.GroupName,
+		IpPermissions: rulesToIPPerms(rules),
+	})
 	if err != nil {
 		return errors.Annotate(maybeConvertCredentialError(err, ctx), "cannot close ports")
 	}
@@ -1843,17 +1880,27 @@ func (e *environ) closePortsInGroup(ctx context.ProviderCallContext, name string
 }
 
 func (e *environ) ingressRulesInGroup(ctx context.ProviderCallContext, name string) (rules firewall.IngressRules, err error) {
-	group, err := e.groupInfoByName(ctx, name)
+	group, err := e.groupByName(ctx, name)
 	if err != nil {
 		return nil, err
 	}
-	for _, p := range group.IPPerms {
-		ips := append(p.SourceIPs, p.SourceIPV6IPs...)
-		if len(ips) == 0 {
-			ips = append(ips, defaultRouteCIDRBlock)
+	var sourceCIDRs []string
+	for _, p := range group.IpPermissions {
+		for _, r := range p.IpRanges {
+			sourceCIDRs = append(sourceCIDRs, aws.ToString(r.CidrIp))
 		}
-		portRange := network.PortRange{Protocol: p.Protocol, FromPort: p.FromPort, ToPort: p.ToPort}
-		rules = append(rules, firewall.NewIngressRule(portRange, ips...))
+		for _, r := range p.Ipv6Ranges {
+			sourceCIDRs = append(sourceCIDRs, aws.ToString(r.CidrIpv6))
+		}
+		if len(sourceCIDRs) == 0 {
+			sourceCIDRs = append(sourceCIDRs, defaultRouteCIDRBlock)
+		}
+		portRange := network.PortRange{
+			Protocol: aws.ToString(p.IpProtocol),
+			FromPort: int(aws.ToInt32(p.FromPort)),
+			ToPort:   int(aws.ToInt32(p.ToPort)),
+		}
+		rules = append(rules, firewall.NewIngressRule(portRange, sourceCIDRs...))
 	}
 	if err := rules.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -1895,26 +1942,29 @@ func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (e *environ) instanceSecurityGroups(ctx context.ProviderCallContext, instIDs []instance.Id, states ...string) ([]amzec2.SecurityGroup, error) {
+func (e *environ) instanceSecurityGroups(ctx context.ProviderCallContext, instIDs []instance.Id, states ...string) ([]types.GroupIdentifier, error) {
 	strInstID := make([]string, len(instIDs))
 	for i := range instIDs {
 		strInstID[i] = string(instIDs[i])
 	}
 
-	filter := amzec2.NewFilter()
+	var filter []types.Filter
 	if len(states) > 0 {
-		filter.Add("instance-state-name", states...)
+		filter = append(filter, makeFilter("instance-state-name", states...))
 	}
 
-	resp, err := e.ec2.Instances(strInstID, filter)
+	resp, err := e.ec2Client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+		InstanceIds: strInstID,
+		Filters:     filter,
+	})
 	if err != nil {
 		return nil, errors.Annotatef(maybeConvertCredentialError(err, ctx), "cannot retrieve instance information from aws to delete security groups")
 	}
 
-	securityGroups := []amzec2.SecurityGroup{}
+	var securityGroups []types.GroupIdentifier
 	for _, res := range resp.Reservations {
 		for _, inst := range res.Instances {
-			logger.Debugf("instance %q has security groups %+v", inst.InstanceId, inst.SecurityGroups)
+			logger.Debugf("instance %q has security groups %s", aws.ToString(inst.InstanceId), pretty.Sprint(inst.SecurityGroups))
 			securityGroups = append(securityGroups, inst.SecurityGroups...)
 		}
 	}
@@ -1923,30 +1973,27 @@ func (e *environ) instanceSecurityGroups(ctx context.ProviderCallContext, instID
 
 // controllerSecurityGroups returns the details of all security groups managed
 // by the environment's controller.
-func (e *environ) controllerSecurityGroups(ctx context.ProviderCallContext, controllerUUID string) ([]amzec2.SecurityGroup, error) {
-	filter := amzec2.NewFilter()
-	e.addControllerFilter(filter, controllerUUID)
-	resp, err := e.ec2.SecurityGroups(nil, filter)
-	if err != nil {
-		return nil, errors.Annotate(maybeConvertCredentialError(err, ctx), "listing security groups")
-	}
-	groups := make([]amzec2.SecurityGroup, len(resp.Groups))
-	for i, info := range resp.Groups {
-		groups[i] = amzec2.SecurityGroup{Id: info.Id, Name: info.Name}
-	}
-	return groups, nil
+func (e *environ) controllerSecurityGroups(ctx context.ProviderCallContext, controllerUUID string) ([]types.GroupIdentifier, error) {
+	return e.querySecurityGroups(ctx, makeControllerFilter(controllerUUID))
 }
 
-func (e *environ) modelSecurityGroups(ctx context.ProviderCallContext) ([]amzec2.SecurityGroup, error) {
-	filter := amzec2.NewFilter()
-	e.addModelFilter(filter)
-	resp, err := e.ec2.SecurityGroups(nil, filter)
+func (e *environ) modelSecurityGroups(ctx context.ProviderCallContext) ([]types.GroupIdentifier, error) {
+	return e.querySecurityGroups(ctx, makeModelFilter(e.uuid()))
+}
+
+func (e *environ) querySecurityGroups(ctx context.ProviderCallContext, filter types.Filter) ([]types.GroupIdentifier, error) {
+	resp, err := e.ec2Client.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
+		Filters: []types.Filter{filter},
+	})
 	if err != nil {
 		return nil, errors.Annotate(maybeConvertCredentialError(err, ctx), "listing security groups")
 	}
-	groups := make([]amzec2.SecurityGroup, len(resp.Groups))
-	for i, info := range resp.Groups {
-		groups[i] = amzec2.SecurityGroup{Id: info.Id, Name: info.Name}
+	groups := make([]types.GroupIdentifier, len(resp.SecurityGroups))
+	for i, g := range resp.SecurityGroups {
+		groups[i] = types.GroupIdentifier{
+			GroupId:   g.GroupId,
+			GroupName: g.GroupName,
+		}
 	}
 	return groups, nil
 }
@@ -1961,8 +2008,8 @@ func (e *environ) cleanModelSecurityGroups(ctx context.ProviderCallContext) erro
 		return errors.Annotatef(err, "cannot retrieve security groups for model %q", e.uuid())
 	}
 	for _, g := range groups {
-		logger.Debugf("deleting model security group %q (%q)", g.Name, g.Id)
-		if err := deleteSecurityGroupInsistently(e.ec2, ctx, g, clock.WallClock); err != nil {
+		logger.Debugf("deleting model security group %q (%q)", aws.ToString(g.GroupName), aws.ToString(g.GroupId))
+		if err := deleteSecurityGroupInsistently(e.ec2Client, ctx, g, clock.WallClock); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1991,10 +2038,10 @@ func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	// from retry with exponential delay just like security groups
 	// in defer. Bug#1567179.
 	for a := shortAttempt.Start(); a.Next(); {
-		resp, err := terminateInstancesById(e.ec2, ctx, ids...)
+		resp, err := terminateInstancesById(e.ec2Client, ctx, ids...)
 		if err == nil {
-			for i, sc := range resp.StateChanges {
-				if !terminatingStates.Contains(sc.CurrentState.Name) {
+			for i, sc := range resp {
+				if !terminatingStates.Contains(string(sc.CurrentState.Name)) {
 					logger.Warningf("instance %d has been terminated but is in state %q", ids[i], sc.CurrentState.Name)
 				}
 			}
@@ -2017,10 +2064,11 @@ func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	// So try each instance individually, ignoring a NotFound error this time.
 	deletedIDs := []instance.Id{}
 	for _, id := range ids {
-		resp, err := terminateInstancesById(e.ec2, ctx, id)
+		resp, err := terminateInstancesById(e.ec2Client, ctx, id)
 		if err == nil {
-			if !terminatingStates.Contains(resp.StateChanges[0].CurrentState.Name) {
-				logger.Warningf("instance %d has been terminated but is in state %q", id, resp.StateChanges[0].CurrentState.Name)
+			scName := string(resp[0].CurrentState.Name)
+			if !terminatingStates.Contains(scName) {
+				logger.Warningf("instance %d has been terminated but is in state %q", id, scName)
 			}
 			deletedIDs = append(deletedIDs, id)
 		}
@@ -2035,16 +2083,18 @@ func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	return nil
 }
 
-var terminateInstancesById = func(ec2inst *amzec2.EC2, ctx context.ProviderCallContext, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
+var terminateInstancesById = func(ec2inst Client, ctx context.ProviderCallContext, ids ...instance.Id) ([]types.InstanceStateChange, error) {
 	strs := make([]string, len(ids))
 	for i, id := range ids {
 		strs[i] = string(id)
 	}
-	r, err := ec2inst.TerminateInstances(strs)
+	r, err := ec2inst.TerminateInstances(ctx, &ec2.TerminateInstancesInput{
+		InstanceIds: strs,
+	})
 	if err != nil {
 		return nil, maybeConvertCredentialError(err, ctx)
 	}
-	return r, nil
+	return r.TerminatingInstances, nil
 }
 
 func (e *environ) deleteSecurityGroupsForInstances(ctx context.ProviderCallContext, ids []instance.Id) {
@@ -2068,10 +2118,10 @@ func (e *environ) deleteSecurityGroupsForInstances(ctx context.ProviderCallConte
 	jujuGroup := e.jujuGroupName()
 
 	for _, deletable := range securityGroups {
-		if deletable.Name == jujuGroup {
+		if aws.ToString(deletable.GroupName) == jujuGroup {
 			continue
 		}
-		if err := deleteSecurityGroupInsistently(e.ec2, ctx, deletable, clock.WallClock); err != nil {
+		if err := deleteSecurityGroupInsistently(e.ec2Client, ctx, deletable, clock.WallClock); err != nil {
 			// In ideal world, we would err out here.
 			// However:
 			// 1. We do not know if all instances have been terminated.
@@ -2088,10 +2138,10 @@ func (e *environ) deleteSecurityGroupsForInstances(ctx context.ProviderCallConte
 // a security group.
 type SecurityGroupCleaner interface {
 	// DeleteSecurityGroup deletes security group on the provider.
-	DeleteSecurityGroup(group amzec2.SecurityGroup) (resp *amzec2.SimpleResp, err error)
+	DeleteSecurityGroup(stdcontext.Context, *ec2.DeleteSecurityGroupInput, ...func(*ec2.Options)) (*ec2.DeleteSecurityGroupOutput, error)
 }
 
-var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, ctx context.ProviderCallContext, group amzec2.SecurityGroup, clock clock.Clock) error {
+var deleteSecurityGroupInsistently = func(client SecurityGroupCleaner, ctx context.ProviderCallContext, g types.GroupIdentifier, clock clock.Clock) error {
 	err := retry.Call(retry.CallArgs{
 		Attempts:    30,
 		Delay:       time.Second,
@@ -2099,9 +2149,12 @@ var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, ctx context
 		BackoffFunc: retry.DoubleDelay,
 		Clock:       clock,
 		Func: func() error {
-			_, err := inst.DeleteSecurityGroup(group)
+			_, err := client.DeleteSecurityGroup(ctx, &ec2.DeleteSecurityGroupInput{
+				GroupId:   g.GroupId,
+				GroupName: g.GroupName,
+			})
 			if err == nil || isNotFoundError(err) {
-				logger.Debugf("deleting security group %q", group.Name)
+				logger.Debugf("deleting security group %q", aws.ToString(g.GroupName))
 				return nil
 			}
 			return errors.Trace(maybeConvertCredentialError(err, ctx))
@@ -2110,28 +2163,21 @@ var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, ctx context
 			return common.IsCredentialNotValid(err)
 		},
 		NotifyFunc: func(err error, attempt int) {
-			logger.Debugf("deleting security group %q, attempt %d", group.Name, attempt)
+			logger.Debugf("deleting security group %q, attempt %d", aws.ToString(g.GroupName), attempt)
 		},
 	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot delete security group %q (%q): consider deleting it manually", group.Name, group.Id)
+		return errors.Annotatef(err, "cannot delete security group %q (%q): consider deleting it manually",
+			aws.ToString(g.GroupName), aws.ToString(g.GroupId))
 	}
 	return nil
 }
 
-func (e *environ) addModelFilter(f *amzec2.Filter) {
-	f.Add(fmt.Sprintf("tag:%s", tags.JujuModel), e.uuid())
-}
-
-func makeModelFilter(modelUUID string) *ec2.Filter {
+func makeModelFilter(modelUUID string) types.Filter {
 	return makeFilter(fmt.Sprintf("tag:%s", tags.JujuModel), modelUUID)
 }
 
-func (e *environ) addControllerFilter(f *amzec2.Filter, controllerUUID string) {
-	f.Add(fmt.Sprintf("tag:%s", tags.JujuController), controllerUUID)
-}
-
-func makeControllerFilter(controllerUUID string) *ec2.Filter {
+func makeControllerFilter(controllerUUID string) types.Filter {
 	return makeFilter(fmt.Sprintf("tag:%s", tags.JujuController), controllerUUID)
 }
 
@@ -2158,75 +2204,74 @@ func (e *environ) jujuGroupName() string {
 // other instances that might be running on the same EC2 account.  In
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
-func (e *environ) setUpGroups(ctx context.ProviderCallContext, controllerUUID, machineId string, apiPorts []int) ([]amzec2.SecurityGroup, error) {
-	perms := []amzec2.IPPerm{{
-		Protocol:  "tcp",
-		FromPort:  22,
-		ToPort:    22,
-		SourceIPs: []string{"0.0.0.0/0"},
+func (e *environ) setUpGroups(ctx context.ProviderCallContext, controllerUUID, machineId string, apiPorts []int) ([]string, error) {
+	openAccess := types.IpRange{CidrIp: aws.String("0.0.0.0/0")}
+	perms := []types.IpPermission{{
+		IpProtocol: aws.String("tcp"),
+		FromPort:   aws.Int32(22),
+		ToPort:     aws.Int32(22),
+		IpRanges:   []types.IpRange{openAccess},
 	}}
 	for _, apiPort := range apiPorts {
-		perms = append(perms, amzec2.IPPerm{
-			Protocol:  "tcp",
-			FromPort:  apiPort,
-			ToPort:    apiPort,
-			SourceIPs: []string{"0.0.0.0/0"},
+		perms = append(perms, types.IpPermission{
+			IpProtocol: aws.String("tcp"),
+			FromPort:   aws.Int32(int32(apiPort)),
+			ToPort:     aws.Int32(int32(apiPort)),
+			IpRanges:   []types.IpRange{openAccess},
 		})
 	}
-	perms = append(perms, amzec2.IPPerm{
-		Protocol: "tcp",
-		FromPort: 0,
-		ToPort:   65535,
-	}, amzec2.IPPerm{
-		Protocol: "udp",
-		FromPort: 0,
-		ToPort:   65535,
-	}, amzec2.IPPerm{
-		Protocol: "icmp",
-		FromPort: -1,
-		ToPort:   -1,
+	perms = append(perms, types.IpPermission{
+		IpProtocol: aws.String("tcp"),
+		FromPort:   aws.Int32(0),
+		ToPort:     aws.Int32(65535),
+	}, types.IpPermission{
+		IpProtocol: aws.String("udp"),
+		FromPort:   aws.Int32(0),
+		ToPort:     aws.Int32(65535),
+	}, types.IpPermission{
+		IpProtocol: aws.String("icmp"),
+		FromPort:   aws.Int32(-1),
+		ToPort:     aws.Int32(-1),
 	})
 	// Ensure there's a global group for Juju-related traffic.
-	jujuGroup, err := e.ensureGroup(ctx, controllerUUID, e.jujuGroupName(), perms)
+	jujuGroupID, err := e.ensureGroup(ctx, controllerUUID, e.jujuGroupName(), perms)
 	if err != nil {
 		return nil, err
 	}
 
-	var machineGroup amzec2.SecurityGroup
+	var machineGroupID string
 	switch e.Config().FirewallMode() {
 	case config.FwInstance:
-		machineGroup, err = e.ensureGroup(ctx, controllerUUID, e.machineGroupName(machineId), nil)
+		machineGroupID, err = e.ensureGroup(ctx, controllerUUID, e.machineGroupName(machineId), nil)
 	case config.FwGlobal:
-		machineGroup, err = e.ensureGroup(ctx, controllerUUID, e.globalGroupName(), nil)
+		machineGroupID, err = e.ensureGroup(ctx, controllerUUID, e.globalGroupName(), nil)
 	}
 	if err != nil {
 		return nil, err
 	}
-	return []amzec2.SecurityGroup{jujuGroup, machineGroup}, nil
+	return []string{jujuGroupID, machineGroupID}, nil
 }
-
-// zeroGroup holds the zero security group.
-var zeroGroup amzec2.SecurityGroup
 
 // securityGroupsByNameOrID calls ec2.SecurityGroups() either with the given
 // groupName or with filter by vpc-id and group-name, depending on whether
 // vpc-id is empty or not.
-func (e *environ) securityGroupsByNameOrID(groupName string) (*amzec2.SecurityGroupsResp, error) {
+func (e *environ) securityGroupsByNameOrID(ctx stdcontext.Context, groupName string) ([]types.SecurityGroup, error) {
 	var (
-		groups []amzec2.SecurityGroup
-		filter *amzec2.Filter
+		groups  []string
+		filters []types.Filter
 	)
 
 	if chosenVPCID := e.ecfg().vpcID(); isVPCIDSet(chosenVPCID) {
 		// AWS VPC API requires both of these filters (and no
 		// group names/ids set) for non-default EC2-VPC groups:
-		filter = amzec2.NewFilter()
-		filter.Add("vpc-id", chosenVPCID)
-		filter.Add("group-name", groupName)
+		filters = []types.Filter{
+			makeFilter("vpc-id", chosenVPCID),
+			makeFilter("group-name", groupName),
+		}
 	} else {
 		// EC2-Classic or EC2-VPC with implicit default VPC need to use
 		// the GroupName.X arguments instead of the filters.
-		groups = amzec2.SecurityGroupNames(groupName)
+		groups = []string{groupName}
 	}
 
 	// If the security group was just created, it might not be available
@@ -2234,9 +2279,12 @@ func (e *environ) securityGroupsByNameOrID(groupName string) (*amzec2.SecurityGr
 	// error from EC2 we will retry the request using the shortAttempt
 	// strategy before giving up.
 	for a := shortAttempt.Start(); ; a.Next() {
-		resp, err := e.ec2.SecurityGroups(groups, filter)
+		resp, err := e.ec2Client.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
+			GroupNames: groups,
+			Filters:    filters,
+		})
 		if err == nil {
-			return resp, err
+			return resp.SecurityGroups, err
 		}
 
 		// If we run out of attempts or we got an error other than NotFound
@@ -2252,7 +2300,7 @@ func (e *environ) securityGroupsByNameOrID(groupName string) (*amzec2.SecurityGr
 // If it exists, its permissions are set to perms.
 // Any entries in perms without SourceIPs will be granted for
 // the named group only.
-func (e *environ) ensureGroup(ctx context.ProviderCallContext, controllerUUID, name string, perms []amzec2.IPPerm) (g amzec2.SecurityGroup, err error) {
+func (e *environ) ensureGroup(ctx context.ProviderCallContext, controllerUUID, name string, perms []types.IpPermission) (groupID string, err error) {
 	// Due to parallelization of the provisioner, it's possible that we try
 	// to create the model security group a second time before the first time
 	// is complete causing failures.
@@ -2260,22 +2308,27 @@ func (e *environ) ensureGroup(ctx context.ProviderCallContext, controllerUUID, n
 	defer e.ensureGroupMutex.Unlock()
 
 	// Specify explicit VPC ID if needed (not for default VPC or EC2-classic).
+	var vpcIDParam *string
 	chosenVPCID := e.ecfg().vpcID()
-	inVPCLogSuffix := fmt.Sprintf(" (in VPC %q)", chosenVPCID)
-	if !isVPCIDSet(chosenVPCID) {
-		chosenVPCID = ""
-		inVPCLogSuffix = ""
+	inVPCLogSuffix := ""
+	if isVPCIDSet(chosenVPCID) {
+		inVPCLogSuffix = fmt.Sprintf(" (in VPC %q)", chosenVPCID)
+		vpcIDParam = aws.String(chosenVPCID)
 	}
 
-	resp, err := e.ec2.CreateSecurityGroup(chosenVPCID, name, "juju group")
+	groupResp, err := e.ec2Client.CreateSecurityGroup(ctx, &ec2.CreateSecurityGroupInput{
+		GroupName:   aws.String(name),
+		VpcId:       vpcIDParam,
+		Description: aws.String("juju group"),
+	})
 	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
 		err = errors.Annotatef(maybeConvertCredentialError(err, ctx), "creating security group %q%s", name, inVPCLogSuffix)
-		return zeroGroup, err
+		return "", err
 	}
 
 	var have permSet
 	if err == nil {
-		g = resp.SecurityGroup
+		groupID = aws.ToString(groupResp.GroupId)
 		// Tag the created group with the model and controller UUIDs.
 		cfg := e.Config()
 		tags := tags.ResourceTags(
@@ -2283,28 +2336,28 @@ func (e *environ) ensureGroup(ctx context.ProviderCallContext, controllerUUID, n
 			names.NewControllerTag(controllerUUID),
 			cfg,
 		)
-		if err := tagResources(e.ec2, ctx, tags, g.Id); err != nil {
-			return g, errors.Annotate(err, "tagging security group")
+		if err := tagResources(e.ec2Client, ctx, tags, aws.ToString(groupResp.GroupId)); err != nil {
+			return groupID, errors.Annotate(err, "tagging security group")
 		}
-		logger.Debugf("created security group %q with ID %q%s", name, g.Id, inVPCLogSuffix)
+		logger.Debugf("created security group %q with ID %q%s", name, aws.ToString(groupResp.GroupId), inVPCLogSuffix)
 	} else {
-		resp, err := e.securityGroupsByNameOrID(name)
+		groups, err := e.securityGroupsByNameOrID(ctx, name)
 		if err != nil {
-			return zeroGroup, errors.Annotatef(maybeConvertCredentialError(err, ctx), "fetching security group %q%s", name, inVPCLogSuffix)
+			return "", errors.Annotatef(maybeConvertCredentialError(err, ctx), "fetching security group %q%s", name, inVPCLogSuffix)
 		}
-		if len(resp.Groups) == 0 {
-			return zeroGroup, errors.NotFoundf("security group %q%s", name, inVPCLogSuffix)
+		if len(groups) == 0 {
+			return "", errors.NotFoundf("security group %q%s", name, inVPCLogSuffix)
 		}
-		info := resp.Groups[0]
+		info := groups[0]
 		// It's possible that the old group has the wrong
 		// description here, but if it does it's probably due
 		// to something deliberately playing games with juju,
 		// so we ignore it.
-		g = info.SecurityGroup
-		have = newPermSetForGroup(info.IPPerms, g)
+		groupID = aws.ToString(info.GroupId)
+		have = newPermSetForGroup(info.IpPermissions, &groupID)
 	}
 
-	want := newPermSetForGroup(perms, g)
+	want := newPermSetForGroup(perms, &groupID)
 	revoke := make(permSet)
 	for p := range have {
 		if !want[p] {
@@ -2312,9 +2365,12 @@ func (e *environ) ensureGroup(ctx context.ProviderCallContext, controllerUUID, n
 		}
 	}
 	if len(revoke) > 0 {
-		_, err := e.ec2.RevokeSecurityGroup(g, revoke.ipPerms())
+		_, err := e.ec2Client.RevokeSecurityGroupIngress(ctx, &ec2.RevokeSecurityGroupIngressInput{
+			GroupId:       aws.String(groupID),
+			IpPermissions: revoke.ipPerms(),
+		})
 		if err != nil {
-			return zeroGroup, errors.Annotatef(maybeConvertCredentialError(err, ctx), "revoking security group %q%s", g.Id, inVPCLogSuffix)
+			return "", errors.Annotatef(maybeConvertCredentialError(err, ctx), "revoking security group %q%s", groupID, inVPCLogSuffix)
 		}
 	}
 
@@ -2325,22 +2381,25 @@ func (e *environ) ensureGroup(ctx context.ProviderCallContext, controllerUUID, n
 		}
 	}
 	if len(add) > 0 {
-		_, err := e.ec2.AuthorizeSecurityGroup(g, add.ipPerms())
+		_, err := e.ec2Client.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
+			GroupId:       aws.String(groupID),
+			IpPermissions: add.ipPerms(),
+		})
 		if err != nil {
-			return zeroGroup, errors.Annotatef(maybeConvertCredentialError(err, ctx), "authorizing security group %q%s", g.Id, inVPCLogSuffix)
+			return "", errors.Annotatef(maybeConvertCredentialError(err, ctx), "authorizing security group %q%s", groupID, inVPCLogSuffix)
 		}
 	}
-	return g, nil
+	return groupID, nil
 }
 
 // permKey represents a permission for a group or an ip address range to access
 // the given range of ports. Only one of groupId or ipAddr should be non-empty.
 type permKey struct {
-	protocol string
-	fromPort int
-	toPort   int
-	groupId  string
-	ipAddr   string
+	protocol *string
+	fromPort *int32
+	toPort   *int32
+	groupId  *string
+	CidrIp   *string
 }
 
 type permSet map[permKey]bool
@@ -2349,21 +2408,21 @@ type permSet map[permKey]bool
 // given slice of IPPerms. It ignores the name and owner
 // id in source groups, and any entry with no source ips will
 // be granted for the given group only.
-func newPermSetForGroup(ps []amzec2.IPPerm, group amzec2.SecurityGroup) permSet {
+func newPermSetForGroup(ps []types.IpPermission, groupID *string) permSet {
 	m := make(permSet)
 	for _, p := range ps {
 		k := permKey{
-			protocol: p.Protocol,
+			protocol: p.IpProtocol,
 			fromPort: p.FromPort,
 			toPort:   p.ToPort,
 		}
-		if len(p.SourceIPs) > 0 {
-			for _, ip := range p.SourceIPs {
-				k.ipAddr = ip
+		if len(p.IpRanges) > 0 {
+			for _, ip := range p.IpRanges {
+				k.CidrIp = ip.CidrIp
 				m[k] = true
 			}
 		} else {
-			k.groupId = group.Id
+			k.groupId = groupID
 			m[k] = true
 		}
 	}
@@ -2372,19 +2431,19 @@ func newPermSetForGroup(ps []amzec2.IPPerm, group amzec2.SecurityGroup) permSet 
 
 // ipPerms returns m as a slice of permissions usable
 // with the ec2 package.
-func (m permSet) ipPerms() (ps []amzec2.IPPerm) {
+func (m permSet) ipPerms() (ps []types.IpPermission) {
 	// We could compact the permissions, but it
 	// hardly seems worth it.
 	for p := range m {
-		ipp := amzec2.IPPerm{
-			Protocol: p.protocol,
-			FromPort: p.fromPort,
-			ToPort:   p.toPort,
+		ipp := types.IpPermission{
+			IpProtocol: p.protocol,
+			FromPort:   p.fromPort,
+			ToPort:     p.toPort,
 		}
-		if p.ipAddr != "" {
-			ipp.SourceIPs = []string{p.ipAddr}
+		if p.CidrIp != nil {
+			ipp.IpRanges = []types.IpRange{{CidrIp: p.CidrIp}}
 		} else {
-			ipp.SourceGroups = []amzec2.UserSecurityGroup{{Id: p.groupId}}
+			ipp.UserIdGroupPairs = []types.UserIdGroupPair{{GroupId: p.groupId}}
 		}
 		ps = append(ps, ipp)
 	}
@@ -2400,20 +2459,20 @@ func isZoneOrSubnetConstrainedError(err error) bool {
 // constrained for the instance type being provisioned, or is
 // otherwise unusable for the specific request made.
 func isZoneConstrainedError(err error) bool {
-	switch err := errors.Cause(err).(type) {
-	case *amzec2.Error:
-		switch err.Code {
+	var apiErr smithy.APIError
+	if stderrors.As(errors.Cause(err), &apiErr) {
+		switch apiErr.ErrorCode() {
 		case "Unsupported", "InsufficientInstanceCapacity":
 			// A big hammer, but we've now seen several different error messages
 			// for constrained zones, and who knows how many more there might
 			// be. If the message contains "Availability Zone", it's a fair
 			// bet that it's constrained or otherwise unusable.
-			return strings.Contains(err.Message, "Availability Zone")
+			return strings.Contains(apiErr.ErrorMessage(), "Availability Zone")
 		case "InvalidInput":
 			// If the region has a default VPC, then we will receive an error
 			// if the AZ does not have a default subnet. Until we have proper
 			// support for networks, we'll skip over these.
-			return strings.HasPrefix(err.Message, "No default subnet for availability zone")
+			return strings.HasPrefix(apiErr.ErrorMessage(), "No default subnet for availability zone")
 		case "VolumeTypeNotAvailableInZone":
 			return true
 		}
@@ -2426,17 +2485,14 @@ func isZoneConstrainedError(err error) bool {
 // the instance type being provisioned, or is otherwise unusable for the
 // specific request made.
 func isSubnetConstrainedError(err error) bool {
-	switch err := errors.Cause(err).(type) {
-	case *amzec2.Error:
-		switch err.Code {
-		case "InsufficientFreeAddressesInSubnet", "InsufficientInstanceCapacity":
-			// Subnet and/or VPC general limits reached.
-			return true
-		case "InvalidSubnetID.NotFound":
-			// This shouldn't happen, as we validate the subnet IDs, but it can
-			// happen if the user manually deleted the subnet outside of Juju.
-			return true
-		}
+	switch ec2ErrCode(err) {
+	case "InsufficientFreeAddressesInSubnet", "InsufficientInstanceCapacity":
+		// Subnet and/or VPC general limits reached.
+		return true
+	case "InvalidSubnetID.NotFound":
+		// This shouldn't happen, as we validate the subnet IDs, but it can
+		// happen if the user manually deleted the subnet outside of Juju.
+		return true
 	}
 	return false
 }
@@ -2444,11 +2500,11 @@ func isSubnetConstrainedError(err error) bool {
 // If the err is of type *ec2.Error, ec2ErrCode returns
 // its code, otherwise it returns the empty string.
 func ec2ErrCode(err error) string {
-	ec2err, _ := errors.Cause(err).(*amzec2.Error)
-	if ec2err == nil {
-		return ""
+	var apiErr smithy.APIError
+	if stderrors.As(errors.Cause(err), &apiErr) {
+		return apiErr.ErrorCode()
 	}
-	return ec2err.Code
+	return ""
 }
 
 func (e *environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo network.InterfaceInfos) (network.InterfaceInfos, error) {
@@ -2463,14 +2519,15 @@ func (e *environ) hasDefaultVPC(ctx context.ProviderCallContext) (bool, error) {
 	e.defaultVPCMutex.Lock()
 	defer e.defaultVPCMutex.Unlock()
 	if !e.defaultVPCChecked {
-		filter := amzec2.NewFilter()
-		filter.Add("isDefault", "true")
-		resp, err := e.ec2.VPCs(nil, filter)
+		filter := makeFilter("isDefault", "true")
+		resp, err := e.ec2Client.DescribeVpcs(ctx, &ec2.DescribeVpcsInput{
+			Filters: []types.Filter{filter},
+		})
 		if err != nil {
 			return false, errors.Trace(maybeConvertCredentialError(err, ctx))
 		}
-		if len(resp.VPCs) > 0 {
-			e.defaultVPC = &resp.VPCs[0]
+		if len(resp.Vpcs) > 0 {
+			e.defaultVPC = &resp.Vpcs[0]
 		}
 		e.defaultVPCChecked = true
 	}
@@ -2499,13 +2556,13 @@ func (e *environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error
 	vpcId := e.ecfg().vpcID()
 	if !isVPCIDSet(vpcId) {
 		if hasDefaultVPC, err := e.hasDefaultVPC(ctx); err == nil && hasDefaultVPC {
-			vpcId = e.defaultVPC.Id
+			vpcId = aws.ToString(e.defaultVPC.VpcId)
 		}
 	}
 	if !isVPCIDSet(vpcId) {
 		return nil, errors.NotSupportedf("Not a VPC environment")
 	}
-	cidr, err := getVPCCIDR(e.ec2, ctx, vpcId)
+	cidr, err := getVPCCIDR(e.ec2Client, ctx, vpcId)
 	if err != nil {
 		return nil, err
 	}
@@ -2514,28 +2571,17 @@ func (e *environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error
 
 // SetCloudSpec is specified in the environs.Environ interface.
 func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.CloudSpec) error {
+	if err := validateCloudSpec(spec); err != nil {
+		return errors.Annotate(err, "validating cloud spec")
+	}
+
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 
 	e.cloud = spec
-	// The endpoints in public-clouds.yaml from 2.0-rc2
-	// and before were wrong, so we use whatever is defined
-	// in goamz/aws if available.
-	if isBrokenCloud(e.cloud) {
-		if region, ok := amzaws.Regions[e.cloud.Region]; ok {
-			e.cloud.Endpoint = region.EC2Endpoint
-		}
-	}
-
 	e.instTypesMutex.Lock()
 	e.instTypes = nil
 	e.instTypesMutex.Unlock()
-
-	var err error
-	e.ec2, err = awsClient(e.cloud)
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	// Allow the passing of a client func through the context. This allows
 	// passing the client from outside of the environ, one that allows for
@@ -2562,11 +2608,9 @@ func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.Cl
 		jujuhttp.WithLogger(logger.Child("http")),
 	)
 
-	e.ec2Client = e.ec2ClientFunc(e.cloud.Region, e.ec2.AccessKey, e.ec2.SecretKey,
-		WithHTTPClient(httpClient.Client()),
-	)
-
-	return nil
+	var err error
+	e.ec2Client, err = e.ec2ClientFunc(ctx, spec, WithHTTPClient(httpClient.Client()))
+	return err
 }
 
 // SupportsRulesWithIPV6CIDRs returns true if the environment supports

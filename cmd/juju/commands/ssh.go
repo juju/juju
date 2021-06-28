@@ -108,6 +108,15 @@ For k8s charms using the sidecar pattern:
 
 	juju ssh --container redis snappass/0
 
+For k8s controller:
+  Connect to the api server pod:
+
+    juju ssh --container api-server 0
+
+  Connect to the mongo db pod:
+
+    juju ssh --container mongodb 0
+
 See also: 
     scp`
 

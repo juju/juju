@@ -307,10 +307,10 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 		"Located charm \"gitlab-k8s\" in charm-store\n"+
 		"Located charm \"mariadb-k8s\" in charm-store\n"+
 		"Executing changes:\n"+
-		"- upload charm gitlab-k8s from charm-store for series kubernetes with architecture=amd64\n"+
-		"- deploy application gitlab from charm-store with 1 unit on kubernetes using gitlab-k8s\n"+
-		"- upload charm mariadb-k8s from charm-store for series kubernetes with architecture=amd64\n"+
-		"- deploy application mariadb from charm-store with 2 units on kubernetes using mariadb-k8s\n"+
+		"- upload charm gitlab-k8s from charm-store with architecture=amd64\n"+
+		"- deploy application gitlab from charm-store with 1 unit using gitlab-k8s\n"+
+		"- upload charm mariadb-k8s from charm-store with architecture=amd64\n"+
+		"- deploy application mariadb from charm-store with 2 units using mariadb-k8s\n"+
 		"- add relation gitlab:mysql - mariadb:server\n"+
 		"Deploy of bundle completed.\n")
 }
@@ -370,10 +370,10 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithCharm
 		"Located charm \"gitlab-k8s\" in charm-hub, channel new/edge\n"+
 		"Located charm \"mariadb-k8s\" in charm-hub, channel old/stable\n"+
 		"Executing changes:\n"+
-		"- upload charm gitlab-k8s from charm-hub for series kubernetes from channel new/edge with architecture=amd64\n"+
-		"- deploy application gitlab from charm-hub with 1 unit on kubernetes with new/edge using gitlab-k8s\n"+
-		"- upload charm mariadb-k8s from charm-hub for series kubernetes from channel old/stable with architecture=amd64\n"+
-		"- deploy application mariadb from charm-hub with 2 units on kubernetes with old/stable using mariadb-k8s\n"+
+		"- upload charm gitlab-k8s from charm-hub from channel new/edge with architecture=amd64\n"+
+		"- deploy application gitlab from charm-hub with 1 unit with new/edge using gitlab-k8s\n"+
+		"- upload charm mariadb-k8s from charm-hub from channel old/stable with architecture=amd64\n"+
+		"- deploy application mariadb from charm-hub with 2 units with old/stable using mariadb-k8s\n"+
 		"- add relation gitlab:mysql - mariadb:server\n"+
 		"Deploy of bundle completed.\n")
 }
@@ -518,10 +518,10 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
 		"Located charm \"bitcoin-miner\" in charm-store\n"+
 		"Located charm \"dashboard4miner\" in charm-store\n"+
 		"Executing changes:\n"+
-		"- upload charm bitcoin-miner from charm-store for series kubernetes with architecture=amd64\n"+
-		"- deploy application bitcoin-miner from charm-store with 1 unit on kubernetes\n"+
-		"- upload charm dashboard4miner from charm-store for series kubernetes with architecture=amd64\n"+
-		"- deploy application dashboard4miner from charm-store with 1 unit on kubernetes\n"+
+		"- upload charm bitcoin-miner from charm-store with architecture=amd64\n"+
+		"- deploy application bitcoin-miner from charm-store with 1 unit\n"+
+		"- upload charm dashboard4miner from charm-store with architecture=amd64\n"+
+		"- deploy application dashboard4miner from charm-store with 1 unit\n"+
 		"- add relation dashboard4miner:miner - bitcoin-miner:miner\n"+
 		"Deploy of bundle completed.\n")
 }

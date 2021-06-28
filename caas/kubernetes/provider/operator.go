@@ -44,10 +44,11 @@ const (
 func GetOperatorPodName(
 	podAPI typedcorev1.PodInterface,
 	nsAPI typedcorev1.NamespaceInterface,
-	appName string,
+	appName,
+	namespace,
 	model string,
 ) (string, error) {
-	legacyLabels, err := utils.IsLegacyModelLabels(model, nsAPI)
+	legacyLabels, err := utils.IsLegacyModelLabels(namespace, model, nsAPI)
 	if err != nil {
 		return "", errors.Annotatef(err, "determining legacy label status for model %s", model)
 	}

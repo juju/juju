@@ -302,10 +302,10 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		return "appuuid", nil
 	}
 	s.namespace = "controller-1"
-	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.namespace, v1.GetOptions{}).
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.namespace, v1.GetOptions{}).Times(2).
 		Return(nil, s.k8sNotFoundError())
 
-	s.setupBroker(c, ctrl, newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc)
+	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc)
 
 	// Broker's namespace is "controller" now - controllerModelConfig.Name()
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.getNamespace())
@@ -906,8 +906,6 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 			Return(emptyConfigMap, nil),
 		s.mockConfigMaps.EXPECT().Create(gomock.Any(), configMapWithBootstrapParamsAdded, v1.CreateOptions{}).AnyTimes().
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockConfigMaps.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=juju-controller-test"}).
-			Return(&core.ConfigMapList{Items: []core.ConfigMap{*emptyConfigMap}}, nil),
 		s.mockConfigMaps.EXPECT().Update(gomock.Any(), configMapWithBootstrapParamsAdded, v1.UpdateOptions{}).AnyTimes().
 			Return(configMapWithBootstrapParamsAdded, nil),
 
@@ -916,12 +914,12 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 			Return(configMapWithBootstrapParamsAdded, nil),
 		s.mockConfigMaps.EXPECT().Create(gomock.Any(), configMapWithAgentConfAdded, v1.CreateOptions{}).AnyTimes().
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockConfigMaps.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=juju-controller-test"}).
-			Return(&core.ConfigMapList{Items: []core.ConfigMap{*configMapWithBootstrapParamsAdded}}, nil),
 		s.mockConfigMaps.EXPECT().Update(gomock.Any(), configMapWithAgentConfAdded, v1.UpdateOptions{}).AnyTimes().
 			Return(configMapWithAgentConfAdded, nil),
 
-		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), controllerServiceAccount, v1.CreateOptions{}).
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), controllerServiceAccount.Name, gomock.Any()).
+			Return(controllerServiceAccount, nil),
+		s.mockServiceAccounts.EXPECT().Update(gomock.Any(), controllerServiceAccount, gomock.Any()).
 			Return(controllerServiceAccount, nil),
 		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), controllerServiceCRB.Name, gomock.Any()).
 			Return(controllerServiceCRB, nil),
@@ -993,10 +991,10 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 		return "appuuid", nil
 	}
 	s.namespace = "controller-1"
-	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.namespace, v1.GetOptions{}).
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.namespace, v1.GetOptions{}).Times(2).
 		Return(nil, s.k8sNotFoundError())
 
-	s.setupBroker(c, ctrl, newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc)
+	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc)
 
 	// Broker's namespace is "controller" now - controllerModelConfig.Name()
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.getNamespace())

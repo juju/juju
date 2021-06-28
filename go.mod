@@ -13,7 +13,12 @@ require (
 	github.com/EvilSuperstars/go-cidrman v0.0.0-20170211231153-4e5a4a63d9b7
 	github.com/altoros/gosigma v0.0.0-20150408145232-31228935eec6
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
-	github.com/aws/aws-sdk-go v1.36.2
+	github.com/aws/aws-sdk-go v1.38.67
+	github.com/aws/aws-sdk-go-v2 v1.6.0
+	github.com/aws/aws-sdk-go-v2/config v1.3.0
+	github.com/aws/aws-sdk-go-v2/credentials v1.2.1
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.9.0
+	github.com/aws/smithy-go v1.4.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
 	github.com/canonical/pebble v0.0.0-20210609205628-b152ff448bbe
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
@@ -43,7 +48,7 @@ require (
 	github.com/imdario/mergo v0.3.10 // indirect
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
-	github.com/juju/charm/v9 v9.0.0-20210512004933-c21e01ffd4ad
+	github.com/juju/charm/v9 v9.0.0-20210625130313-9943dc9afb18
 	github.com/juju/charmrepo/v7 v7.0.0-20210427073450-742f84f1c0ff
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
@@ -54,7 +59,7 @@ require (
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
 	github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2
 	github.com/juju/gomaasapi/v2 v2.0.0-20210323144809-92beddd020fe
-	github.com/juju/http/v2 v2.0.0-20210616081525-ede00d07798a
+	github.com/juju/http/v2 v2.0.0-20210623153641-418e83b0dab4
 	github.com/juju/idmclient/v2 v2.0.0-20210309081103-6b4a5212f851
 	github.com/juju/jsonschema v0.0.0-20210422141032-b0ff291abe9c
 	github.com/juju/jsonschema-gen v0.0.0-20200416014454-d924343d72b2
@@ -64,7 +69,7 @@ require (
 	github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
 	github.com/juju/os/v2 v2.1.2
-	github.com/juju/packaging v0.0.0-20210602012220-a1d8f0c5acd9
+	github.com/juju/packaging/v2 v2.0.0-20210622141625-c7a51bd50843
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
 	github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4
 	github.com/juju/pubsub v0.0.0-20190419131051-c1f7536b9cc6
@@ -115,7 +120,6 @@ require (
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20200726014623-da3ae01ef02d // indirect
 	google.golang.org/grpc v1.33.1 // indirect
-	gopkg.in/amz.v3 v3.0.0-20201001071545-24fc1eceb27b
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/httprequest.v1 v1.2.1
 	gopkg.in/ini.v1 v1.51.0
