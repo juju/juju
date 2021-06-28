@@ -1322,6 +1322,15 @@ func (api *APIBase) applicationSetCharm(
 		EndpointBindings:   params.EndpointBindings,
 	}
 
+	// Disallow downgrading from a v2 charm to a v1 charm.
+	oldCharm, _, err := params.Application.Charm()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if corecharm.Format(oldCharm) >= corecharm.FormatV2 && corecharm.Format(newCharm) == corecharm.FormatV1 {
+		return errors.New("cannot downgrade from v2 charm format to v1")
+	}
+
 	// If upgrading from a pod-spec (v1) charm to sidecar (v2), override the
 	// application's series to what it would be for a fresh sidecar deploy.
 	oldSeries := params.Application.Series()
