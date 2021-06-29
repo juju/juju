@@ -26,7 +26,7 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/dustin/go-humanize v1.0.0
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
-	github.com/go-goose/goose/v3 v3.0.0-20210609085303-5be176eecc0f
+	github.com/go-goose/goose/v4 v4.0.0-20210629133523-eda372ae25db
 	github.com/go-logr/logr v0.2.0
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.0-20210309064400-d73aa8f92aa2
 	github.com/golang/mock v1.5.0

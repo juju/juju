@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	gooseerrors "github.com/go-goose/goose/v3/errors"
-	"github.com/go-goose/goose/v3/neutron"
+	gooseerrors "github.com/go-goose/goose/v4/errors"
+	"github.com/go-goose/goose/v4/neutron"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"

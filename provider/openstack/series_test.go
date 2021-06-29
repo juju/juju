@@ -9,9 +9,9 @@ import (
 	"html/template"
 	"strings"
 
-	"github.com/go-goose/goose/v3/identity"
-	"github.com/go-goose/goose/v3/nova"
-	"github.com/go-goose/goose/v3/swift"
+	"github.com/go-goose/goose/v4/identity"
+	"github.com/go-goose/goose/v4/nova"
+	"github.com/go-goose/goose/v4/swift"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/constraints"
