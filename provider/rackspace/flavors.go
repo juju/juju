@@ -6,7 +6,7 @@ package rackspace
 import (
 	"strings"
 
-	"github.com/go-goose/goose/v3/nova"
+	"github.com/go-goose/goose/v4/nova"
 )
 
 func acceptRackspaceFlavor(d nova.FlavorDetail) bool {

@@ -7,7 +7,7 @@ import (
 	"context"
 	"io"
 
-	gooseerrors "github.com/go-goose/goose/v3/errors"
+	gooseerrors "github.com/go-goose/goose/v4/errors"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/ssh"

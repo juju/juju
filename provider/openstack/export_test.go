@@ -6,9 +6,9 @@ package openstack
 import (
 	"regexp"
 
-	"github.com/go-goose/goose/v3/neutron"
-	"github.com/go-goose/goose/v3/nova"
-	"github.com/go-goose/goose/v3/swift"
+	"github.com/go-goose/goose/v4/neutron"
+	"github.com/go-goose/goose/v4/nova"
+	"github.com/go-goose/goose/v4/swift"
 	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/core/instance"

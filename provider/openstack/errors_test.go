@@ -4,7 +4,7 @@
 package openstack
 
 import (
-	gooseerrors "github.com/go-goose/goose/v3/errors"
+	gooseerrors "github.com/go-goose/goose/v4/errors"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
