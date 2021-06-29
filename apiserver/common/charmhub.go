@@ -5,7 +5,7 @@ package common
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/environs/config"

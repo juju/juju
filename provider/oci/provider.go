@@ -14,7 +14,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/schema"
 	ociCore "github.com/oracle/oci-go-sdk/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/identity"

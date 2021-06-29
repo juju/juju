@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/collections/set"
 	coreseries "github.com/juju/juju/core/series"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v4"
 	pacconf "github.com/juju/packaging/v2/config"
 	"github.com/juju/proxy"

@@ -20,7 +20,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -631,8 +631,10 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	params := common.DebugLogParams{
 		IncludeEntity: []string{"a", "b"},
 		IncludeModule: []string{"c", "d"},
-		ExcludeEntity: []string{"e", "f"},
-		ExcludeModule: []string{"g", "h"},
+		IncludeLabel:  []string{"e", "f"},
+		ExcludeEntity: []string{"g", "h"},
+		ExcludeModule: []string{"i", "j"},
+		ExcludeLabel:  []string{"k", "l"},
 		Limit:         100,
 		Backlog:       200,
 		Level:         loggo.ERROR,
@@ -652,8 +654,10 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	c.Assert(values, jc.DeepEquals, url.Values{
 		"includeEntity": params.IncludeEntity,
 		"includeModule": params.IncludeModule,
+		"includeLabel":  params.IncludeLabel,
 		"excludeEntity": params.ExcludeEntity,
 		"excludeModule": params.ExcludeModule,
+		"excludeLabel":  params.ExcludeLabel,
 		"maxLines":      {"100"},
 		"backlog":       {"200"},
 		"level":         {"ERROR"},

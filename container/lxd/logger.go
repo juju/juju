@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	lxdLogger "github.com/lxc/lxd/shared/logger"
 )
 

@@ -18,7 +18,7 @@ import (
 	"github.com/juju/collections/deque"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/utils/v2"
@@ -318,9 +318,10 @@ type logDoc struct {
 	Entity   string        `bson:"n"` // e.g. "machine-0"
 	Version  string        `bson:"r"`
 	Module   string        `bson:"m"` // e.g. "juju.worker.firewaller"
-	Location string        `bson:"l"` // "filename:lineno"
+	Location string        `bson:"l"` // e.g. "filename:lineno"
 	Level    int           `bson:"v"`
 	Message  string        `bson:"x"`
+	Labels   []string      `bson:"y"` // e.g. "#http"
 }
 
 type DbLogger struct {
@@ -368,6 +369,7 @@ func (logger *DbLogger) Log(records []LogRecord) error {
 			Location: r.Location,
 			Level:    int(r.Level),
 			Message:  r.Message,
+			Labels:   r.Labels,
 		})
 	}
 	_, err := bulk.Run()
@@ -427,6 +429,7 @@ type LogRecord struct {
 	Module   string
 	Location string
 	Message  string
+	Labels   []string
 }
 
 // LogTailerParams specifies the filtering a LogTailer should apply to
@@ -441,6 +444,8 @@ type LogTailerParams struct {
 	ExcludeEntity []string
 	IncludeModule []string
 	ExcludeModule []string
+	IncludeLabel  []string
+	ExcludeLabel  []string
 	Oplog         *mgo.Collection // For testing only
 }
 
@@ -760,6 +765,14 @@ func (t *logTailer) paramsToSelector(params LogTailerParams, prefix string) bson
 		sel = append(sel,
 			bson.DocElem{"m", bson.M{"$not": bson.RegEx{Pattern: makeModulePattern(params.ExcludeModule)}}})
 	}
+	if len(params.IncludeLabel) > 0 {
+		sel = append(sel,
+			bson.DocElem{"y", bson.RegEx{Pattern: makeLabelPattern(params.IncludeLabel)}})
+	}
+	if len(params.ExcludeLabel) > 0 {
+		sel = append(sel,
+			bson.DocElem{"y", bson.M{"$not": bson.RegEx{Pattern: makeLabelPattern(params.ExcludeLabel)}}})
+	}
 	if prefix != "" {
 		for i, elem := range sel {
 			sel[i].Name = prefix + elem.Name
@@ -781,6 +794,14 @@ func makeEntityPattern(entities []string) string {
 func makeModulePattern(modules []string) string {
 	var patterns []string
 	for _, module := range modules {
+		patterns = append(patterns, regexp.QuoteMeta(module))
+	}
+	return `^(` + strings.Join(patterns, "|") + `)(\..+)?$`
+}
+
+func makeLabelPattern(labels []string) string {
+	var patterns []string
+	for _, module := range labels {
 		patterns = append(patterns, regexp.QuoteMeta(module))
 	}
 	return `^(` + strings.Join(patterns, "|") + `)(\..+)?$`
@@ -861,6 +882,7 @@ func logDocToRecord(modelUUID string, doc *logDoc) (*LogRecord, error) {
 		Module:   doc.Module,
 		Location: doc.Location,
 		Message:  doc.Message,
+		Labels:   doc.Labels,
 	}
 	return rec, nil
 }

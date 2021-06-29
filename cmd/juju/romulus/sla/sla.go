@@ -14,7 +14,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/romulus/api/sla"
 	slawire "github.com/juju/romulus/wireformat/sla"
 	"gopkg.in/macaroon.v2"

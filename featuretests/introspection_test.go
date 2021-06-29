@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"

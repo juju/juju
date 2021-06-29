@@ -13,7 +13,7 @@ import (
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/date"
 	"github.com/Azure/go-autorest/autorest/mocks"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 )
 
 var logger = loggo.GetLogger("juju.provider.azure.internal.azuretesting")

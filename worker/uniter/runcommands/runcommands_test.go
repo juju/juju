@@ -6,7 +6,7 @@ package runcommands_test
 import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/exec"
 	gc "gopkg.in/check.v1"

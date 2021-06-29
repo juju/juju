@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -88,6 +88,18 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 			expected: common.DebugLogParams{
 				ExcludeModule: []string{"juju.foo", "unit"},
 				Backlog:       10,
+			},
+		}, {
+			args: []string{"--include-label", "#http", "--include-label", "#state"},
+			expected: common.DebugLogParams{
+				IncludeLabel: []string{"#http", "#state"},
+				Backlog:      10,
+			},
+		}, {
+			args: []string{"--exclude-label", "#http", "--exclude-label", "#state"},
+			expected: common.DebugLogParams{
+				ExcludeLabel: []string{"#http", "#state"},
+				Backlog:      10,
 			},
 		}, {
 			args: []string{"--replay"},

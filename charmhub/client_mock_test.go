@@ -8,7 +8,7 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	path "github.com/juju/juju/charmhub/path"
-	loggo "github.com/juju/loggo"
+	loggo "github.com/juju/loggo/v2"
 	http "net/http"
 	os "os"
 	reflect "reflect"

@@ -12,7 +12,7 @@ import (
 
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 )
 
 // Logger for the Azure provider.

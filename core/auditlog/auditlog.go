@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/core/paths"

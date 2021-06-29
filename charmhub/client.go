@@ -28,10 +28,11 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	charmhubpath "github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
+	labels "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/version"
 )
 
@@ -61,7 +62,7 @@ type Logger interface {
 	Debugf(string, ...interface{})
 	Tracef(string, ...interface{})
 
-	Child(string) loggo.Logger
+	Child(string, ...string) loggo.Logger
 }
 
 // Config holds configuration for creating a new charm hub client.
@@ -165,7 +166,7 @@ func CharmHubConfig(logger Logger, options ...Option) (Config, error) {
 		Version:   CharmHubServerVersion,
 		Entity:    CharmHubServerEntity,
 		Headers:   headers,
-		Transport: opts.transportFunc(logger.Child("transport")),
+		Transport: opts.transportFunc(logger.Child("transport", labels.HTTP)),
 		Logger:    logger,
 	}, nil
 }

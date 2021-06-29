@@ -16,7 +16,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
@@ -576,6 +576,7 @@ func MakeLogDoc(
 	location string,
 	level loggo.Level,
 	msg string,
+	labels []string,
 ) *logDoc {
 	return &logDoc{
 		Id:       bson.NewObjectId(),
@@ -586,6 +587,7 @@ func MakeLogDoc(
 		Location: location,
 		Level:    int(level),
 		Message:  msg,
+		Labels:   labels,
 	}
 }
 

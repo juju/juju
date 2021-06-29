@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	corecharm "github.com/juju/charm/v8"
 	jujutesting "github.com/juju/testing"

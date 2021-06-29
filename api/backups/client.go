@@ -5,7 +5,7 @@ package backups
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/base"

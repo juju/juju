@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -44,8 +44,10 @@ func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 		filterLevel:   loggo.INFO,
 		includeEntity: []string{"foo"},
 		includeModule: []string{"bar"},
+		includeLabel:  []string{"#xxx"},
 		excludeEntity: []string{"baz"},
 		excludeModule: []string{"qux"},
+		excludeLabel:  []string{"#yyy"},
 	}
 
 	called := false
@@ -60,8 +62,10 @@ func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 		c.Assert(params.InitialLines, gc.Equals, 11)
 		c.Assert(params.IncludeEntity, jc.DeepEquals, []string{"foo"})
 		c.Assert(params.IncludeModule, jc.DeepEquals, []string{"bar"})
+		c.Assert(params.IncludeLabel, jc.DeepEquals, []string{"#xxx"})
 		c.Assert(params.ExcludeEntity, jc.DeepEquals, []string{"baz"})
 		c.Assert(params.ExcludeModule, jc.DeepEquals, []string{"qux"})
+		c.Assert(params.ExcludeLabel, jc.DeepEquals, []string{"#yyy"})
 
 		return newFakeLogTailer(), nil
 	})

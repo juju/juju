@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"

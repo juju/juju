@@ -20,7 +20,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v2"
 	utilexec "github.com/juju/utils/v2/exec"
 	"github.com/kballard/go-shellquote"

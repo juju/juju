@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/replicaset"

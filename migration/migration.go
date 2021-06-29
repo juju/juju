@@ -12,7 +12,7 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/naturalsort"
 	"github.com/juju/version/v2"
 

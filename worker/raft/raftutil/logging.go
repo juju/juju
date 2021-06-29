@@ -3,7 +3,7 @@
 
 package raftutil
 
-import "github.com/juju/loggo"
+import "github.com/juju/loggo/v2"
 
 // Logger defines the logging methods the LoggoWriter requires.
 type Logger interface {

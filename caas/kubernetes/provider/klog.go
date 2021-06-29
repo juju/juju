@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 )
 
 type KlogMessagePrefixes []string

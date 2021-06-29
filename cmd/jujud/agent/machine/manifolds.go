@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/proxy"
 	"github.com/juju/pubsub"
 	"github.com/juju/utils/v2/voyeur"

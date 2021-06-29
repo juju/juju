@@ -11,7 +11,7 @@ import (
 	"syscall"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v2/shell"
 
 	"github.com/juju/juju/service/common"

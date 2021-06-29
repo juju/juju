@@ -5,7 +5,7 @@ package centralhub
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub"
 	"github.com/juju/utils/v2"

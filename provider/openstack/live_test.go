@@ -9,8 +9,8 @@ import (
 	"io"
 	"sort"
 
-	"github.com/go-goose/goose/v3/client"
-	"github.com/go-goose/goose/v3/identity"
+	"github.com/go-goose/goose/v4/client"
+	"github.com/go-goose/goose/v4/identity"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

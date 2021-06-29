@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"golang.org/x/net/context"
 
 	"github.com/juju/juju/cloud"

@@ -4,7 +4,7 @@
 package application
 
 import (
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 )
 
 // Logger for all commands in the application package

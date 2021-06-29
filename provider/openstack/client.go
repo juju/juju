@@ -6,15 +6,15 @@ package openstack
 import (
 	"net/http"
 
-	"github.com/go-goose/goose/v3/client"
-	goosehttp "github.com/go-goose/goose/v3/http"
-	"github.com/go-goose/goose/v3/identity"
-	gooselogging "github.com/go-goose/goose/v3/logging"
-	"github.com/go-goose/goose/v3/neutron"
-	"github.com/go-goose/goose/v3/nova"
+	"github.com/go-goose/goose/v4/client"
+	goosehttp "github.com/go-goose/goose/v4/http"
+	"github.com/go-goose/goose/v4/identity"
+	gooselogging "github.com/go-goose/goose/v4/logging"
+	"github.com/go-goose/goose/v4/neutron"
+	"github.com/go-goose/goose/v4/nova"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
@@ -241,7 +241,7 @@ func newClient(
 	}
 
 	logger := loggo.GetLogger("goose")
-	gooseLogger := gooselogging.LoggoLogger{
+	gooseLogger := gooselogging.DebugLoggerAdapater{
 		Logger: logger,
 	}
 

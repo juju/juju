@@ -7,7 +7,7 @@ package sockets
 import (
 	"crypto/tls"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	// this is only here so that godeps will produce the right deps on all platforms
 	_ "gopkg.in/natefinch/npipe.v2"
 )

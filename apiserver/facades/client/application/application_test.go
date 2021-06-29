@@ -13,7 +13,7 @@ import (
 	charmresource "github.com/juju/charm/v8/resource"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	jtesting "github.com/juju/testing"

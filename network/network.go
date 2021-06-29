@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	corenetwork "github.com/juju/juju/core/network"
 )

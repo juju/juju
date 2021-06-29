@@ -9,7 +9,7 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/proxy"
 	"github.com/juju/schema"
 	jujutesting "github.com/juju/testing"

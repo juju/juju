@@ -20,7 +20,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/mutex"
 	"github.com/juju/names/v4"
 	gt "github.com/juju/testing"

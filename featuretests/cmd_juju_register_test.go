@@ -10,7 +10,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	cookiejar "github.com/juju/persistent-cookiejar"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/names/v4"
@@ -556,6 +556,7 @@ func (s *LogTailerSuite) TestExcludeEntityWildcard(c *gc.C) {
 	}
 	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
+
 func (s *LogTailerSuite) TestIncludeModule(c *gc.C) {
 	mod0 := logTemplate{Module: "foo.bar"}
 	mod1 := logTemplate{Module: "juju.thing"}
@@ -627,6 +628,77 @@ func (s *LogTailerSuite) TestIncludeExcludeModule(c *gc.C) {
 	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
 
+func (s *LogTailerSuite) TestIncludeLabels(c *gc.C) {
+	mod0 := logTemplate{Labels: []string{"#foobar"}}
+	mod1 := logTemplate{Labels: []string{"#jujuthing"}}
+	subMod1 := logTemplate{Labels: []string{"#jujuthinghai"}}
+	mod2 := logTemplate{Labels: []string{"#elsewhere"}}
+	writeLogs := func() {
+		s.writeLogs(c, s.otherUUID, 1, mod0)
+		s.writeLogs(c, s.otherUUID, 1, mod1)
+		s.writeLogs(c, s.otherUUID, 1, mod0)
+		s.writeLogs(c, s.otherUUID, 1, subMod1)
+		s.writeLogs(c, s.otherUUID, 1, mod0)
+		s.writeLogs(c, s.otherUUID, 1, mod2)
+	}
+	params := state.LogTailerParams{
+		IncludeLabel: []string{"jujuthing", "elsewhere"},
+	}
+	assert := func(tailer state.LogTailer) {
+		s.assertTailer(c, tailer, 1, mod1)
+		s.assertTailer(c, tailer, 1, subMod1)
+		s.assertTailer(c, tailer, 1, mod2)
+	}
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
+}
+
+func (s *LogTailerSuite) TestExcludeLabels(c *gc.C) {
+	mod0 := logTemplate{Labels: []string{"#foobar"}}
+	mod1 := logTemplate{Labels: []string{"#jujuthing"}}
+	subMod1 := logTemplate{Labels: []string{"#jujuthinghai"}}
+	mod2 := logTemplate{Labels: []string{"#elsewhere"}}
+	writeLogs := func() {
+		s.writeLogs(c, s.otherUUID, 1, mod0)
+		s.writeLogs(c, s.otherUUID, 1, mod1)
+		s.writeLogs(c, s.otherUUID, 1, mod0)
+		s.writeLogs(c, s.otherUUID, 1, subMod1)
+		s.writeLogs(c, s.otherUUID, 1, mod0)
+		s.writeLogs(c, s.otherUUID, 1, mod2)
+	}
+	params := state.LogTailerParams{
+		ExcludeLabel: []string{"jujuthing", "elsewhere"},
+	}
+	assert := func(tailer state.LogTailer) {
+		s.assertTailer(c, tailer, 2, mod0)
+	}
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
+}
+
+func (s *LogTailerSuite) TestIncludeExcludeLabels(c *gc.C) {
+	foo := logTemplate{Labels: []string{"#foo"}}
+	bar := logTemplate{Labels: []string{"#bar"}}
+	barSub := logTemplate{Labels: []string{"#barthing"}}
+	baz := logTemplate{Labels: []string{"#baz"}}
+	qux := logTemplate{Labels: []string{"#qux"}}
+	writeLogs := func() {
+		s.writeLogs(c, s.otherUUID, 1, foo)
+		s.writeLogs(c, s.otherUUID, 1, bar)
+		s.writeLogs(c, s.otherUUID, 1, barSub)
+		s.writeLogs(c, s.otherUUID, 1, baz)
+		s.writeLogs(c, s.otherUUID, 1, qux)
+	}
+	params := state.LogTailerParams{
+		IncludeLabel: []string{"foo", "bar", "qux"},
+		ExcludeLabel: []string{"foo", "bar"},
+	}
+	assert := func(tailer state.LogTailer) {
+		// Except just "qux" because "foo" and "bar" were included and
+		// then excluded.
+		s.assertTailer(c, tailer, 1, qux)
+	}
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
+}
+
 func (s *LogTailerSuite) checkLogTailerFiltering(
 	c *gc.C,
 	st *state.State,
@@ -656,6 +728,7 @@ type logTemplate struct {
 	Location string
 	Level    loggo.Level
 	Message  string
+	Labels   []string
 }
 
 // emptyTag gives us an explicit way to specify an empty tag for the
@@ -744,6 +817,7 @@ func (s *LogTailerSuite) logTemplateToDoc(lt logTemplate, t time.Time) interface
 		lt.Location,
 		lt.Level,
 		lt.Message,
+		lt.Labels,
 	)
 }
 

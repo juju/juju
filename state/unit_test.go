@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"

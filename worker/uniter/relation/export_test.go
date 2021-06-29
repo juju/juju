@@ -4,7 +4,7 @@
 package relation
 
 import (
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/worker/uniter/runner/context"
 )

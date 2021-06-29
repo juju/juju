@@ -9,7 +9,7 @@ import (
 	"runtime"
 
 	"github.com/juju/cmd"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/juju/juju/juju/osenv"

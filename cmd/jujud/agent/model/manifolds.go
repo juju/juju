@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v2/voyeur"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"

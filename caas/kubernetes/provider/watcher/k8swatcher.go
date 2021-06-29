@@ -7,7 +7,7 @@ import (
 	"time"
 
 	jujuclock "github.com/juju/clock"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v2/catacomb"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/watch"

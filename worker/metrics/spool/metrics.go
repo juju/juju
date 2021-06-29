@@ -17,7 +17,7 @@ import (
 	corecharm "github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/apiserver/params"

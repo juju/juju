@@ -5,7 +5,7 @@ package charmhub
 
 import (
 	"github.com/juju/charm/v8"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/apiserver/params"
 )

@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	jujuarch "github.com/juju/utils/v2/arch"
 	"github.com/lxc/lxd/shared/api"
 

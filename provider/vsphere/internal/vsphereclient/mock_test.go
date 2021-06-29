@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	"github.com/juju/utils/v2"
 	"github.com/vmware/govmomi/vim25/methods"

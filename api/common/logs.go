@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -28,12 +28,20 @@ type DebugLogParams struct {
 	// are set all modules are considered included.  If a module is specified,
 	// all the submodules also match.
 	IncludeModule []string
+	// IncludeLabel lists logging labels to include in the response. If none
+	// are set all labels are considered included.  If a label is specified,
+	// all the submodules of that label are also matched.
+	IncludeLabel []string
 	// ExcludeEntity lists entity tags to exclude from the response. As with
 	// IncludeEntity the values may finish with a '*'.
 	ExcludeEntity []string
-	// ExcludeModule lists logging modules to exclude from the resposne. If a
+	// ExcludeModule lists logging modules to exclude from the response. If a
 	// module is specified, all the submodules are also excluded.
 	ExcludeModule []string
+	// ExcludeLabel lists logging labels to exclude from the response. If a
+	// label is specified, all the submodules of that label are also excluded.
+	ExcludeLabel []string
+
 	// Limit defines the maximum number of lines to return. Once this many
 	// have been sent, the socket is closed.  If zero, all filtered lines are
 	// sent down the connection until the client closes the connection.
@@ -59,8 +67,10 @@ func (args DebugLogParams) URLQuery() url.Values {
 	attrs := url.Values{
 		"includeEntity": args.IncludeEntity,
 		"includeModule": args.IncludeModule,
+		"includeLabel":  args.IncludeLabel,
 		"excludeEntity": args.ExcludeEntity,
 		"excludeModule": args.ExcludeModule,
+		"excludeLabel":  args.ExcludeLabel,
 	}
 	if args.Replay {
 		attrs.Set("replay", fmt.Sprint(args.Replay))

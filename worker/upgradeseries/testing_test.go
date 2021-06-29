@@ -3,7 +3,7 @@
 package upgradeseries_test
 
 import (
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v2"
 
 	"github.com/golang/mock/gomock"

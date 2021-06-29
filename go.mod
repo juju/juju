@@ -27,6 +27,7 @@ require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
 	github.com/go-goose/goose/v3 v3.0.0-20210609085303-5be176eecc0f
+	github.com/go-goose/goose/v4 v4.0.0-00010101000000-000000000000
 	github.com/go-logr/logr v0.2.0
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.0-20210309064400-d73aa8f92aa2
 	github.com/golang/mock v1.5.0
@@ -63,6 +64,7 @@ require (
 	github.com/juju/jsonschema v0.0.0-20210422141032-b0ff291abe9c
 	github.com/juju/jsonschema-gen v0.0.0-20200416014454-d924343d72b2
 	github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e
+	github.com/juju/loggo/v2 v2.0.0-20170605014607-8232ab8918d9
 	github.com/juju/mgo/v2 v2.0.0-20210414025616-e854c672032f
 	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
 	github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0
@@ -112,7 +114,7 @@ require (
 	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
-	golang.org/x/sys v0.0.0-20210608053332-aa57babbf139
+	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools v0.0.0-20210105210202-9ed45478a130
 	google.golang.org/api v0.29.0
@@ -156,3 +158,11 @@ replace (
 	k8s.io/apimachinery v0.0.0 => k8s.io/apimachinery v0.19.6
 	k8s.io/client-go v0.0.0 => k8s.io/client-go v0.19.6
 )
+
+replace github.com/juju/loggo/v2 => /home/simon/go/src/github.com/juju/loggo
+
+replace github.com/juju/cmd => /home/simon/go/src/github.com/juju/cmd
+
+replace github.com/juju/testing => /home/simon/go/src/github.com/juju/testing
+
+replace github.com/go-goose/goose/v4 => /home/simon/go/src/github.com/go-goose/goose

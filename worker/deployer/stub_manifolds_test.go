@@ -6,7 +6,7 @@ package deployer_test
 import (
 	"time"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 	gc "gopkg.in/check.v1"

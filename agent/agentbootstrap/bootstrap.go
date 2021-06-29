@@ -11,7 +11,7 @@ import (
 	coreraft "github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"

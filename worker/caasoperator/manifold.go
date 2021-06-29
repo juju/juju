@@ -14,7 +14,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/http/v2"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
@@ -44,7 +44,7 @@ type Logger interface {
 	Errorf(string, ...interface{})
 	Warningf(string, ...interface{})
 
-	Child(string) loggo.Logger
+	Child(string, ...string) loggo.Logger
 }
 
 // ManifoldConfig defines the names of the manifolds on which a

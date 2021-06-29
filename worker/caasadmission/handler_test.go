@@ -12,7 +12,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	admission "k8s.io/api/admission/v1beta1"

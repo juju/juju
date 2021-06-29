@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/cmd/juju/commands"
 	components "github.com/juju/juju/component/all"

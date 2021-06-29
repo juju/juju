@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
@@ -74,9 +74,12 @@ func newDebugLogHandler(
 //      - if none are set, then all lines are considered included
 //   includeModule -> []string - lists logging modules to include in the response
 //      - if none are set, then all lines are considered included
+//   includeLabel -> []string - lists logging labels to include in the response
+//      - if none are set, then all lines are considered included
 //   excludeEntity -> []string - lists entity tags to exclude from the response
 //      - as with include, it may finish with a '*'
 //   excludeModule -> []string - lists logging modules to exclude from the response
+//   excludeLabel -> []string - lists logging labels to exclude from the response
 //   limit -> uint - show *at most* this many lines
 //   backlog -> uint
 //      - go back this many lines from the end before starting to filter
@@ -190,6 +193,8 @@ type debugLogParams struct {
 	excludeEntity []string
 	includeModule []string
 	excludeModule []string
+	includeLabel  []string
+	excludeLabel  []string
 }
 
 func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
@@ -247,8 +252,12 @@ func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
 
 	params.includeEntity = queryMap["includeEntity"]
 	params.excludeEntity = queryMap["excludeEntity"]
+
 	params.includeModule = queryMap["includeModule"]
 	params.excludeModule = queryMap["excludeModule"]
+
+	params.includeLabel = queryMap["includeLabel"]
+	params.excludeLabel = queryMap["excludeLabel"]
 
 	return params, nil
 }

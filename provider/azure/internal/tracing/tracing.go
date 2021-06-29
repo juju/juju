@@ -8,7 +8,7 @@ import (
 	"net/http/httputil"
 
 	"github.com/Azure/go-autorest/autorest"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 )
 
 // PrepareDecorator returns an autorest.PrepareDecorator that

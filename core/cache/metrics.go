@@ -6,7 +6,7 @@ package cache
 import (
 	"sync"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
