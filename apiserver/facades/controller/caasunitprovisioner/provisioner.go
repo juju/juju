@@ -1466,3 +1466,29 @@ func (a *Facade) SetOperatorStatus(args params.SetStatus) (params.ErrorResults, 
 	}
 	return result, nil
 }
+
+// ApplicationCharmURLs finds the CharmURL for an application.
+func (f *Facade) ApplicationCharmURLs(args params.Entities) (params.StringResults, error) {
+	res := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		appTag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		app, err := f.state.Application(appTag.Id())
+		if err != nil {
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		ch, _, err := app.Charm()
+		if err != nil {
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		res.Results[i].Result = ch.URL().String()
+	}
+	return res, nil
+}

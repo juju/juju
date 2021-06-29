@@ -137,6 +137,7 @@ func (a applicationShim) Charm() (Charm, bool, error) {
 
 type Charm interface {
 	Meta() *charm.Meta
+	URL() *charm.URL
 }
 
 type Unit interface {

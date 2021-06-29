@@ -12548,6 +12548,18 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "ApplicationCharmURLs": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResults"
+                        }
+                    },
+                    "description": "ApplicationCharmURLs finds the CharmURL for an application."
+                },
                 "ApplicationsConfig": {
                     "type": "object",
                     "properties": {
