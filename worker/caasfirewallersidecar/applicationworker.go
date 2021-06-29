@@ -120,15 +120,6 @@ func (w *applicationWorker) setUp() (err error) {
 		return errors.Trace(err)
 	}
 
-	charmInfo, err := w.firewallerAPI.ApplicationCharmInfo(w.appName)
-	if err != nil {
-		return errors.Annotatef(err, "failed to get application charm deployment metadata for %q", w.appName)
-	}
-	if charmInfo == nil ||
-		corecharm.Format(charmInfo.Charm()) < corecharm.FormatV2 {
-		return errors.Errorf("charm must be version 2 or greater")
-	}
-
 	// TODO(sidecar): support deployment other than statefulset
 	app := w.broker.Application(w.appName, caas.DeploymentStateful)
 	w.portMutator = app
