@@ -182,7 +182,7 @@ setup_vsphere_simplestreams() {
   series=${2:-"focal"}
 
   if [[ ! -f ${dir} ]]; then
-    mkdir ${dir} || true
+    mkdir "${dir}" || true
   fi
 
   cloud_endpoint=$(juju clouds --client --format=json | jq -r ".[\"$BOOTSTRAP_CLOUD\"] | .endpoint")
@@ -224,7 +224,7 @@ juju_bootstrap() {
 		echo "====> Creating image simplestream metadata for juju ($(green "${version}:${cloud}"))"
 
 	  image_streams_dir=/tmp/image-streams
-	  setup_vsphere_simplestreams ${image_streams_dir} ${BOOTSTRAP_SERIES}
+	  setup_vsphere_simplestreams ${image_streams_dir} "${BOOTSTRAP_SERIES}"
 	  image_metadata="--metadata-source ${image_streams_dir}"
 	fi
 
