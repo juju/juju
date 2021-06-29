@@ -572,7 +572,7 @@ func (s *ClientSuite) TestMinionReportTimeout(c *gc.C) {
 func (s *ClientSuite) TestStreamModelLogs(c *gc.C) {
 	caller := fakeConnector{path: new(string), attrs: &url.Values{}}
 	client := migrationmaster.NewClient(caller, nil)
-	stream, err := client.StreamModelLog(time.Date(2016, 12, 2, 10, 24, 1, 1000000, time.UTC))
+	stream, err := client.StreamModelLog(context.TODO(), time.Date(2016, 12, 2, 10, 24, 1, 1000000, time.UTC))
 	c.Assert(stream, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "colonel abrams")
 

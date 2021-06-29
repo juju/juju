@@ -5,6 +5,7 @@ package api
 
 import (
 	"archive/zip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -680,7 +681,7 @@ func (s *DeadlineStream) WriteJSON(v interface{}) error {
 // WatchDebugLog returns a channel of structured Log Messages. Only log entries
 // that match the filtering specified in the DebugLogParams are returned.
 func (c *Client) WatchDebugLog(args common.DebugLogParams) (<-chan common.LogMessage, error) {
-	return common.StreamDebugLog(c.st, args)
+	return common.StreamDebugLog(context.TODO(), c.st, args)
 }
 
 // lxdCharmProfiler massages a charm.Charm into a LXDProfiler inside of the
