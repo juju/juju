@@ -34,6 +34,7 @@ func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args envir
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.VirtType,
+	constraints.RootDiskSource,
 }
 
 // instanceTypeConstraints defines the fields defined on each of the

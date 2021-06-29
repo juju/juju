@@ -14,6 +14,7 @@ var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.VirtType,
 	constraints.AllocatePublicIP,
+	constraints.RootDiskSource,
 }
 
 // ConstraintsValidator returns a Validator instance which

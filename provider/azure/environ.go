@@ -435,6 +435,7 @@ func (env *azureEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (
 		constraints.CpuPower,
 		constraints.Tags,
 		constraints.VirtType,
+		constraints.RootDiskSource,
 	})
 	validator.RegisterVocabulary(
 		constraints.Arch,
