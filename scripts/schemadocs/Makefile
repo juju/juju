@@ -1,4 +1,4 @@
-output.html:
+output.html: ../../apiserver/facades/schema.json
 	go run ./schemadocs.go ../../apiserver/facades/schema.json > output.html
 
 open: output.html
