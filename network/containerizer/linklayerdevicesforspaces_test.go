@@ -306,7 +306,7 @@ func (s *linkLayerDevForSpacesSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *linkLayerDevForSpacesSuite) expectMachineAddressesDevices() {
 	mExp := s.machine.EXPECT()
 	mExp.AllLinkLayerDevices().Return(s.devices, nil).AnyTimes()
-	mExp.AllAddresses().Return(s.addresses, nil).AnyTimes()
+	mExp.AllDeviceAddresses().Return(s.addresses, nil).AnyTimes()
 }
 
 func (s *linkLayerDevForSpacesSuite) expectNICAndBridgeWithIP(ctrl *gomock.Controller, dev, parent, spaceID string) {

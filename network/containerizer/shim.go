@@ -68,7 +68,7 @@ var _ LinkLayerDevice = (*linkLayerDevice)(nil)
 // describing a machine that is to host containers.
 type Machine interface {
 	Id() string
-	AllAddresses() ([]Address, error)
+	AllDeviceAddresses() ([]Address, error)
 	AllSpaces() (set.Strings, error)
 	SetLinkLayerDevices(devicesArgs ...state.LinkLayerDeviceArgs) (err error)
 	AllLinkLayerDevices() ([]LinkLayerDevice, error)
@@ -112,10 +112,10 @@ func (m *MachineShim) AllLinkLayerDevices() ([]LinkLayerDevice, error) {
 	return wrapped, nil
 }
 
-// AllAddresses implements Machine by wrapping each state.Address reference
-// in returned collection with the local Address implementation.
-func (m *MachineShim) AllAddresses() ([]Address, error) {
-	addrs, err := m.Machine.AllAddresses()
+// AllDeviceAddresses implements Machine by wrapping each state.Address
+// reference in returned collection with the local Address implementation.
+func (m *MachineShim) AllDeviceAddresses() ([]Address, error) {
+	addrs, err := m.Machine.AllDeviceAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

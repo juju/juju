@@ -361,7 +361,7 @@ func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 // AllAddresses mocks base method.
 func (m *MockMachine) AllAddresses() ([]Address, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllAddresses")
+	ret := m.ctrl.Call(m, "AllDeviceAddresses")
 	ret0, _ := ret[0].([]Address)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -370,7 +370,7 @@ func (m *MockMachine) AllAddresses() ([]Address, error) {
 // AllAddresses indicates an expected call of AllAddresses.
 func (mr *MockMachineMockRecorder) AllAddresses() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllAddresses", reflect.TypeOf((*MockMachine)(nil).AllAddresses))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllDeviceAddresses", reflect.TypeOf((*MockMachine)(nil).AllAddresses))
 }
 
 // AllSpaces mocks base method.

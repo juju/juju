@@ -20,7 +20,7 @@ type machineShim struct {
 // AllAddresses implements Machine by wrapping each state.Address
 // reference in the Address indirection.
 func (m *machineShim) AllAddresses() ([]Address, error) {
-	addresses, err := m.Machine.AllAddresses()
+	addresses, err := m.Machine.AllDeviceAddresses()
 	if err != nil {
 		return nil, err
 	}

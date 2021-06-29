@@ -2776,7 +2776,7 @@ func (u *UniterAPIV4) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 	// primary address.
 	//
 	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119258804
-	addresses, err := machine.AllAddresses()
+	addresses, err := machine.AllDeviceAddresses()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get devices addresses")
 	}
