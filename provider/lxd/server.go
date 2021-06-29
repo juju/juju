@@ -31,7 +31,6 @@ import (
 
 // Server defines an interface of all localized methods that the environment
 // and provider utilizes.
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/server_mock.go github.com/juju/juju/provider/lxd Server,ServerFactory,InterfaceAddress
 type Server interface {
 	FindImage(string, string, []lxd.ServerSpec, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
 	GetServer() (server *lxdapi.Server, ETag string, err error)
@@ -84,6 +83,10 @@ type Server interface {
 	GetNetworkState(name string) (*lxdapi.NetworkState, error)
 	GetContainer(name string) (*lxdapi.Container, string, error)
 	GetContainerState(name string) (*lxdapi.ContainerState, string, error)
+
+	// UseProject ensures that this server will use the input project.
+	// See: https://linuxcontainers.org/lxd/docs/master/projects.
+	UseProject(string)
 }
 
 // ServerFactory creates a new factory for creating servers that are required
@@ -199,11 +202,13 @@ func (s *serverFactory) RemoteServer(spec environscloudspec.CloudSpec) (Server, 
 	if !ok {
 		return nil, errors.NotValidf("credentials")
 	}
-	serverSpec := lxd.NewServerSpec(spec.Endpoint,
+
+	serverSpec := lxd.NewServerSpec(
+		spec.Endpoint,
 		serverCert,
 		clientCert,
-	)
-	serverSpec.WithProxy(proxy.DefaultConfig.GetProxy)
+	).WithProxy(proxy.DefaultConfig.GetProxy)
+
 	svr, err := s.newRemoteServerFunc(serverSpec)
 	if err == nil {
 		err = s.bootstrapRemoteServer(svr)
@@ -226,8 +231,7 @@ func (s *serverFactory) InsecureRemoteServer(spec environscloudspec.CloudSpec) (
 		return nil, errors.NotValidf("credentials")
 	}
 
-	serverSpec := lxd.NewInsecureServerSpec(spec.Endpoint)
-	serverSpec.
+	serverSpec := lxd.NewInsecureServerSpec(spec.Endpoint).
 		WithClientCertificate(clientCert).
 		WithSkipGetServer(true)
 	svr, err := s.newRemoteServerFunc(serverSpec)

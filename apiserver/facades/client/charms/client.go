@@ -125,7 +125,7 @@ func NewFacadeV4(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 
-	httpTransport := charmhub.RequestRecorderHTTPTransport(ctx.RequestRecorder())
+	httpTransport := charmhub.RequestHTTPTransport(ctx.RequestRecorder(), charmhub.DefaultRetryPolicy())
 
 	return &API{
 		CharmsAPI:            commonCharmsAPI,

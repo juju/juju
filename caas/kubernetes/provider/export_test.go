@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/specs"
-	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/environs"
@@ -114,7 +113,7 @@ func NewProvider() caas.ContainerEnvironProvider {
 func NewProviderWithFakes(
 	runner CommandRunner,
 	credentialGetter func(CommandRunner) (jujucloud.Credential, error),
-	getter func(CommandRunner) (cloud.Cloud, error),
+	getter func(CommandRunner) (jujucloud.Cloud, error),
 	brokerGetter func(environs.OpenParams) (caas.ClusterMetadataChecker, error)) caas.ContainerEnvironProvider {
 	return kubernetesEnvironProvider{
 		environProviderCredentials: environProviderCredentials{

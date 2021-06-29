@@ -5,7 +5,7 @@
 package cloudinit
 
 import (
-	"github.com/juju/packaging/commands"
+	"github.com/juju/packaging/v2/commands"
 	"github.com/juju/proxy"
 )
 

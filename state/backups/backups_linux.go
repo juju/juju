@@ -138,7 +138,9 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 	// information and broken functionality between backup and restore.
 
 	APIHostPorts := network.NewSpaceHostPorts(ssi.APIPort, args.PrivateAddress, args.PublicAddress)
-	agentConfig.SetAPIHostPorts([]network.HostPorts{APIHostPorts.HostPorts()})
+	if err := agentConfig.SetAPIHostPorts([]network.HostPorts{APIHostPorts.HostPorts()}); err != nil {
+		return nil, errors.Annotate(err, "cannot set api host ports")
+	}
 	if err := agentConfig.Write(); err != nil {
 		return nil, errors.Annotate(err, "cannot write new agent configuration")
 	}

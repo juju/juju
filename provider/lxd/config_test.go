@@ -154,7 +154,6 @@ func (s *configSuite) TestNewModelConfig(c *gc.C) {
 	}
 }
 
-// TODO(wwitzel3) refactor to provider_test file
 func (s *configSuite) TestValidateNewConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
@@ -172,7 +171,6 @@ func (s *configSuite) TestValidateNewConfig(c *gc.C) {
 	}
 }
 
-// TODO(wwitzel3) refactor to the provider_test file
 func (s *configSuite) TestValidateOldConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
@@ -212,7 +210,6 @@ var changeConfigTests = []configTestSpec{{
 	expect: testing.Attrs{"unknown": "ignoti"},
 }}
 
-// TODO(wwitzel3) refactor this to the provider_test file.
 func (s *configSuite) TestValidateChange(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)

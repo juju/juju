@@ -180,7 +180,7 @@ func (s *Server) UpdateContainerConfig(name string, cfg map[string]string) error
 	return errors.Trace(resp.Wait())
 }
 
-// GetContainerProfiles returns the list of profiles that are assocated with a
+// GetContainerProfiles returns the list of profiles that are associated with a
 // container.
 func (s *Server) GetContainerProfiles(name string) ([]string, error) {
 	container, _, err := s.GetContainer(name)
@@ -190,11 +190,17 @@ func (s *Server) GetContainerProfiles(name string) ([]string, error) {
 	return container.Profiles, nil
 }
 
+// UseProject ensures that this server will use the input project.
+// See: https://linuxcontainers.org/lxd/docs/master/projects.
+func (s *Server) UseProject(project string) {
+	s.ContainerServer = s.ContainerServer.UseProject(project)
+}
+
+// ReplaceOrAddContainerProfile updates the profiles for the container with the
+// input name, using the input values.
 // TODO: HML 2-apr-2019
 // remove when provisioner_task processProfileChanges() is
 // removed.
-// ReplaceOrAddContainerProfile updates the profiles for the container with the
-// input name, using the input values.
 func (s *Server) ReplaceOrAddContainerProfile(name, oldProfile, newProfile string) error {
 	container, eTag, err := s.GetContainer(name)
 	if err != nil {

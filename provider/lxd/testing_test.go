@@ -720,6 +720,10 @@ func (conn *StubClient) Name() string {
 	return "server"
 }
 
+func (conn *StubClient) UseProject(string) {
+	panic("this stub is deprecated; use mocks instead")
+}
+
 func (*StubClient) GetNetworkNames() ([]string, error) {
 	panic("this stub is deprecated; use mocks instead")
 }

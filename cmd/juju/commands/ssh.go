@@ -108,6 +108,15 @@ For k8s charms using the sidecar pattern:
 
 	juju ssh --container redis snappass/0
 
+For k8s controller:
+  Connect to the api server pod:
+
+    juju ssh --container api-server 0
+
+  Connect to the mongo db pod:
+
+    juju ssh --container mongodb 0
+
 See also: 
     scp`
 
@@ -185,6 +194,7 @@ type sshProvider interface {
 	cleanupRun()
 	setHostChecker(checker jujussh.ReachableChecker)
 	resolveTarget(string) (*resolvedTarget, error)
+	maybePopulateTargetViaField(*resolvedTarget, func([]string) (*params.FullStatus, error)) error
 	ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 	copy(Context) error
 
@@ -206,6 +216,16 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 	target, err := c.provider.resolveTarget(c.provider.getTarget())
 	if err != nil {
 		return err
+	}
+
+	if c.proxy {
+		// If we are trying to connect to a container on a FAN address,
+		// we need to route the traffic via the machine that hosts it.
+		// This is required as the controller is unable to route fan
+		// traffic across subnets.
+		if err = c.provider.maybePopulateTargetViaField(target, c.statusClient.Status); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	var pty bool

@@ -23,7 +23,6 @@ import (
 	envcontext "github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/provider/lxd/mocks"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -383,14 +382,14 @@ type environCloudProfileSuite struct {
 
 	callCtx envcontext.ProviderCallContext
 
-	svr          *mocks.MockServer
+	svr          *lxd.MockServer
 	cloudSpecEnv environs.CloudSpecSetter
 }
 
 var _ = gc.Suite(&environCloudProfileSuite{})
 
 func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfile(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setup(c, nil).Finish()
 	s.expectHasProfileFalse("juju-controller")
 	s.expectCreateProfile("juju-controller", nil)
 
@@ -399,7 +398,7 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfile(c *gc.C) {
 }
 
 func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfileErrorSucceeds(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setup(c, nil).Finish()
 	s.expectForProfileCreateRace("juju-controller")
 	s.expectCreateProfile("juju-controller", errors.New("The profile already exists"))
 
@@ -407,14 +406,25 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfileErrorSucceeds(c 
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *environCloudProfileSuite) setup(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.svr = mocks.NewMockServer(ctrl)
+func (s *environCloudProfileSuite) TestSetCloudSpecUsesConfiguredProject(c *gc.C) {
+	defer s.setup(c, map[string]interface{}{"project": "my-project"}).Finish()
+	s.expectHasProfileFalse("juju-controller")
+	s.expectCreateProfile("juju-controller", nil)
 
-	svrFactory := mocks.NewMockServerFactory(ctrl)
+	s.svr.EXPECT().UseProject("my-project")
+
+	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.TODO(), lxdCloudSpec())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environCloudProfileSuite) setup(c *gc.C, cfgEdit map[string]interface{}) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.svr = lxd.NewMockServer(ctrl)
+
+	svrFactory := lxd.NewMockServerFactory(ctrl)
 	svrFactory.EXPECT().RemoteServer(lxdCloudSpec()).Return(s.svr, nil)
 
-	env, ok := s.NewEnvironWithServerFactory(c, svrFactory, nil).(environs.CloudSpecSetter)
+	env, ok := s.NewEnvironWithServerFactory(c, svrFactory, cfgEdit).(environs.CloudSpecSetter)
 	c.Assert(ok, jc.IsTrue)
 	s.cloudSpecEnv = env
 
@@ -446,7 +456,7 @@ type environProfileSuite struct {
 
 	callCtx envcontext.ProviderCallContext
 
-	svr    *mocks.MockServer
+	svr    *lxd.MockServer
 	lxdEnv environs.LXDProfiler
 }
 
@@ -550,7 +560,7 @@ func (s *environProfileSuite) TestAssignLXDProfilesErrorReturnsCurrent(c *gc.C) 
 
 func (s *environProfileSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.svr = mocks.NewMockServer(ctrl)
+	s.svr = lxd.NewMockServer(ctrl)
 	lxdEnv, ok := s.NewEnviron(c, s.svr, nil).(environs.LXDProfiler)
 	c.Assert(ok, jc.IsTrue)
 	s.lxdEnv = lxdEnv

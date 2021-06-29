@@ -72,8 +72,7 @@ type APIHostPortsSetter struct {
 // SetAPIHostPorts is the APIAddressSetter interface.
 func (s APIHostPortsSetter) SetAPIHostPorts(servers []network.HostPorts) error {
 	return s.ChangeConfig(func(c ConfigSetter) error {
-		c.SetAPIHostPorts(servers)
-		return nil
+		return c.SetAPIHostPorts(servers)
 	})
 }
 
@@ -314,7 +313,7 @@ type configSetterOnly interface {
 	SetUpgradedToVersion(newVersion version.Number)
 
 	// SetAPIHostPorts sets the API host/port addresses to connect to.
-	SetAPIHostPorts(servers []network.HostPorts)
+	SetAPIHostPorts(servers []network.HostPorts) error
 
 	// SetCACert sets the CA cert used for validating API connections.
 	SetCACert(string)
@@ -616,9 +615,13 @@ func (c *configInternal) SetUpgradedToVersion(newVersion version.Number) {
 	c.upgradedToVersion = newVersion
 }
 
-func (c *configInternal) SetAPIHostPorts(servers []network.HostPorts) {
+func (c *configInternal) SetAPIHostPorts(servers []network.HostPorts) error {
+	if len(servers) == 0 {
+		return errors.BadRequestf("servers not provided")
+	}
 	if c.apiDetails == nil {
-		return
+		// This shouldn't happen, NewAgentConfig checks valid addresses.
+		c.apiDetails = &apiDetails{}
 	}
 	var addrs []string
 	for _, serverHostPorts := range servers {
@@ -627,6 +630,7 @@ func (c *configInternal) SetAPIHostPorts(servers []network.HostPorts) {
 	}
 	c.apiDetails.addresses = addrs
 	logger.Debugf("API server address details %q written to agent config as %q", servers, addrs)
+	return nil
 }
 
 func (c *configInternal) SetCACert(cert string) {
@@ -904,6 +908,9 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 
 // MongoInfo is defined on Config interface.
 func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
+	if c.apiDetails == nil || c.apiDetails.addresses == nil {
+		return nil, false
+	}
 	ssi, ok := c.StateServingInfo()
 	if !ok {
 		return nil, false

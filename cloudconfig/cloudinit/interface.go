@@ -11,9 +11,9 @@ import (
 	"github.com/juju/errors"
 	corenetwork "github.com/juju/juju/core/network"
 	jujupackaging "github.com/juju/juju/packaging"
-	"github.com/juju/packaging"
-	"github.com/juju/packaging/commands"
-	"github.com/juju/packaging/config"
+	"github.com/juju/packaging/v2"
+	"github.com/juju/packaging/v2/commands"
+	"github.com/juju/packaging/v2/config"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v2/shell"
 

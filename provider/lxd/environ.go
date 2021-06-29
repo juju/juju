@@ -158,6 +158,11 @@ func (env *environ) SetCloudSpec(_ stdcontext.Context, spec environscloudspec.Cl
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	if project := env.ecfgUnlocked.project(); project != "" {
+		server.UseProject(project)
+	}
+
 	env.serverUnlocked = server
 	return env.initProfile()
 }

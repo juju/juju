@@ -19,7 +19,7 @@ import (
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	pacconf "github.com/juju/packaging/config"
+	pacconf "github.com/juju/packaging/v2/config"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"

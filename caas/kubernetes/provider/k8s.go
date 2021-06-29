@@ -184,7 +184,7 @@ func newK8sBroker(
 	}
 
 	isLegacy, err := utils.IsLegacyModelLabels(
-		newCfg.Config.Name(), k8sClient.CoreV1().Namespaces())
+		namespace, newCfg.Config.Name(), k8sClient.CoreV1().Namespaces())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -212,11 +212,46 @@ func newK8sBroker(
 			Add(utils.AnnotationModelUUIDKey(isLegacy), modelUUID),
 		isLegacyLabels: isLegacy,
 	}
-	if controllerUUID != "" {
-		// controllerUUID could be empty in add-k8s without -c because there might be no controller yet.
-		client.annotations.Add(utils.AnnotationControllerUUIDKey(isLegacy), controllerUUID)
+	if err := client.ensureNamespaceAnnotationForControllerUUID(controllerUUID, isLegacy); err != nil {
+		return nil, errors.Trace(err)
 	}
 	return client, nil
+}
+
+func (k *kubernetesClient) ensureNamespaceAnnotationForControllerUUID(controllerUUID string, isLegacy bool) error {
+	if len(controllerUUID) == 0 {
+		// controllerUUID could be empty in add-k8s without -c because there might be no controller yet.
+		return nil
+	}
+	ns, err := k.getNamespaceByName(k.namespace)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	if ns != nil && !k8sannotations.New(ns.Annotations).HasAll(k.annotations) {
+		// This should never happen unless we changed annotations for a new juju version.
+		// But in this case, we should have already managed to fix it in upgrade steps.
+		return errors.NewNotValid(nil,
+			fmt.Sprintf("annotations %v for namespace %q must include %v", ns.Annotations, k.namespace, k.annotations),
+		)
+	}
+	annotationControllerUUIDKey := utils.AnnotationControllerUUIDKey(isLegacy)
+	k.annotations.Add(annotationControllerUUIDKey, controllerUUID)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if ns.Annotations[annotationControllerUUIDKey] == controllerUUID {
+		// No change needs to be done.
+		return nil
+	}
+	// The model was just migrated from a different controller.
+	logger.Debugf("model %q was migrated from controller %q, updating the controller annotation to %q", k.namespace,
+		ns.Annotations[annotationControllerUUIDKey], controllerUUID,
+	)
+	if err := k.ensureNamespaceAnnotations(ns); err != nil {
+		return errors.Trace(err)
+	}
+	_, err = k.client().CoreV1().Namespaces().Update(context.TODO(), ns, v1.UpdateOptions{})
+	return errors.Trace(err)
 }
 
 // GetAnnotations returns current namespace's annotations.

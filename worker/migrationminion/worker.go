@@ -243,7 +243,10 @@ func (w *Worker) doSUCCESS(status watcher.MigrationStatus) error {
 	}
 
 	err = w.config.Agent.ChangeConfig(func(conf agent.ConfigSetter) error {
-		conf.SetAPIHostPorts([]network.HostPorts{hps.HostPorts()})
+		err := conf.SetAPIHostPorts([]network.HostPorts{hps.HostPorts()})
+		if err != nil {
+			return errors.Trace(err)
+		}
 		conf.SetCACert(status.TargetCACert)
 		return nil
 	})

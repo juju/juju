@@ -16,14 +16,13 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/provider/lxd/mocks"
 	"github.com/juju/juju/version"
 )
 
 type environPolicySuite struct {
 	lxd.EnvironSuite
 
-	svr     *mocks.MockServer
+	svr     *lxd.MockServer
 	env     environs.Environ
 	callCtx context.ProviderCallContext
 }
@@ -216,7 +215,7 @@ func (s *environPolicySuite) TestSupportNetworks(c *gc.C) {
 func (s *environPolicySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.svr = mocks.NewMockServer(ctrl)
+	s.svr = lxd.NewMockServer(ctrl)
 	s.svr.EXPECT().SupportedArches().Return([]string{arch.AMD64}).MaxTimes(1)
 
 	s.env = s.NewEnviron(c, s.svr, nil)

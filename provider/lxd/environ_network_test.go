@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/provider/lxd/mocks"
 )
 
 type environNetSuite struct {
@@ -29,7 +28,7 @@ func (s *environNetSuite) TestSubnetsForUnknownContainer(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	srv := mocks.NewMockServer(ctrl)
+	srv := lxd.NewMockServer(ctrl)
 	srv.EXPECT().FilterContainers("bogus").Return(nil, nil)
 
 	env := s.NewEnviron(c, srv, nil).(environs.Networking)
@@ -43,7 +42,7 @@ func (s *environNetSuite) TestSubnetsForServersThatLackRequiredAPIExtensions(c *
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	srv := mocks.NewMockServer(ctrl)
+	srv := lxd.NewMockServer(ctrl)
 	srv.EXPECT().GetNetworkNames().Return(nil, errors.New(`server is missing the required "network" API extension`)).AnyTimes()
 
 	env := s.NewEnviron(c, srv, nil).(environs.Networking)
@@ -68,7 +67,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	srv := mocks.NewMockServer(ctrl)
+	srv := lxd.NewMockServer(ctrl)
 	srv.EXPECT().FilterContainers("woot").Return([]jujulxd.Container{
 		{},
 	}, nil)
@@ -143,7 +142,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	srv := mocks.NewMockServer(ctrl)
+	srv := lxd.NewMockServer(ctrl)
 	srv.EXPECT().FilterContainers("woot").Return([]jujulxd.Container{
 		{},
 	}, nil)
@@ -203,7 +202,7 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	srv := mocks.NewMockServer(ctrl)
+	srv := lxd.NewMockServer(ctrl)
 
 	srv.EXPECT().GetServer().Return(&lxdapi.Server{
 		Environment: lxdapi.ServerEnvironment{
@@ -303,7 +302,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	srv := mocks.NewMockServer(ctrl)
+	srv := lxd.NewMockServer(ctrl)
 	srv.EXPECT().GetContainer("woot").Return(&lxdapi.Container{
 		ExpandedDevices: map[string]map[string]string{
 			"eth0": {
@@ -417,7 +416,7 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	srv := mocks.NewMockServer(ctrl)
+	srv := lxd.NewMockServer(ctrl)
 	srv.EXPECT().GetContainer("woot").Return(&lxdapi.Container{
 		ExpandedDevices: map[string]map[string]string{
 			"eth0": {
@@ -479,7 +478,7 @@ func (s *environNetSuite) TestNetworkInterfacesNoResults(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	srv := mocks.NewMockServer(ctrl)
+	srv := lxd.NewMockServer(ctrl)
 	srv.EXPECT().GetContainer("unknown1").Return(nil, "", errors.New("not found"))
 	srv.EXPECT().GetContainer("unknown2").Return(nil, "", errors.New("not found"))
 
