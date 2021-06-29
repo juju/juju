@@ -9240,7 +9240,10 @@
         "Description": "FacadeSidecar provides access to the CAASFirewaller API facade for sidecar applications.",
         "Version": 1,
         "AvailableTo": [
-            "controller-machine-agent"
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
+            "model-user"
         ],
         "Schema": {
             "type": "object",

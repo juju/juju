@@ -163,11 +163,16 @@ func NewStateFacadeSidecar(ctx facade.Context) (*FacadeSidecar, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterNone)
+	commonCharmsAPI, err := charmscommon.NewCharmsAPI(ctx.State(), authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return newFacadeSidecar(
 		resources,
 		authorizer,
 		&stateShim{ctx.State()},
 		appWatcherFacade,
+		commonCharmsAPI,
 	)
 }
 
@@ -176,6 +181,7 @@ func newFacadeSidecar(
 	authorizer facade.Authorizer,
 	st CAASFirewallerState,
 	applicationWatcherFacade *common.ApplicationWatcherFacade,
+	commonCharmsAPI *charmscommon.CharmsAPI,
 ) (*FacadeSidecar, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -196,9 +202,10 @@ func newFacadeSidecar(
 				resources,
 				accessApplication,
 			),
-			ApplicationWatcherFacade: applicationWatcherFacade,
 			resources:                resources,
 			state:                    st,
+			ApplicationWatcherFacade: applicationWatcherFacade,
+			CharmsAPI:                commonCharmsAPI,
 		},
 	}, nil
 }
