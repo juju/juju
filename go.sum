@@ -113,8 +113,8 @@ github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kB
 github.com/blang/semver v3.5.0+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnwebNt5EWlYSAyrTnjyyk=
 github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac h1:X5YRFJiteUM3rajABEYJSzw1KWgmp1ulPFKxpfLm0M4=
 github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac/go.mod h1:8rLXio+WjiTceGBHIoTvn60HIbs7Hm7bcHjyrSqYB9c=
-github.com/canonical/pebble v0.0.0-20210609205628-b152ff448bbe h1:j5CKKpGzFRoqgEb0t5DstYvigs2NVOFNII2F5NX0MUw=
-github.com/canonical/pebble v0.0.0-20210609205628-b152ff448bbe/go.mod h1:Glkg6kOpPMNw1BDDzRHH0U9i3pnc6Y+zV+pHwdX4SU0=
+github.com/canonical/pebble v0.0.0-20210629225259-602ad4b50023 h1:a6t8Dr4o08Wx4TwFgRmknw4BP5u4IjmcgX06ymaNdGI=
+github.com/canonical/pebble v0.0.0-20210629225259-602ad4b50023/go.mod h1:Glkg6kOpPMNw1BDDzRHH0U9i3pnc6Y+zV+pHwdX4SU0=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash v1.1.0 h1:a6HrQnmkObjyL+Gs60czilIUGqrzKutQD6XZog3p+ko=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
@@ -196,8 +196,8 @@ github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8/go.mod h1:xkRDCp4j0
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
-github.com/go-goose/goose/v3 v3.0.0-20210609085303-5be176eecc0f h1:VHJpwL8Mu8zNsD+CdQeN0qn/In7Vb5ghyKPZHvqtzyc=
-github.com/go-goose/goose/v3 v3.0.0-20210609085303-5be176eecc0f/go.mod h1:lAwORsjo39uJDaJVIIBXsEwp715sWHGiOXI5BIhRmgY=
+github.com/go-goose/goose/v4 v4.0.0-20210629133523-eda372ae25db h1:PAls+Pq90HA7UpJb0jGeGTubW0muNZZIwUHQ6EclLo8=
+github.com/go-goose/goose/v4 v4.0.0-20210629133523-eda372ae25db/go.mod h1:mG53mYAOc5+rfKK7FndJFcBgwMYnsa+P3ihgrpM63XI=
 github.com/go-kit/kit v0.8.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=
 github.com/go-kit/kit v0.9.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=
 github.com/go-logfmt/logfmt v0.3.0/go.mod h1:Qt1PoO58o5twSAckw1HlFXLmHsOX5/0LbT9GBnD5lWE=
@@ -473,8 +473,8 @@ github.com/juju/os v0.0.0-20191022170002-da411304426c/go.mod h1:buR1fIbfLx3neIA/
 github.com/juju/os/v2 v2.0.0/go.mod h1:S/AadPYIeAZtep7zu519c+eWGWV7dVR+Hb8RTGBR1+I=
 github.com/juju/os/v2 v2.1.2 h1:RZ1mRJ/fx6O6KpLBLaNwMbb+EMI+iEfBPTdb3CWpi7w=
 github.com/juju/os/v2 v2.1.2/go.mod h1:S/AadPYIeAZtep7zu519c+eWGWV7dVR+Hb8RTGBR1+I=
-github.com/juju/packaging/v2 v2.0.0-20210622141625-c7a51bd50843 h1:jyAlb5SVhAeCoH3DkWFA6QvjNgh3ifVwlJkllp9khE0=
-github.com/juju/packaging/v2 v2.0.0-20210622141625-c7a51bd50843/go.mod h1:QkkuIt0as7ewiNyrDrr1MyyRm3TVrabyMsLQdr97Sx8=
+github.com/juju/packaging/v2 v2.0.0-20210628104420-5487e24f1350 h1:WpkR19siuBHnaPfe8WochnyEtzVEYS7TlDoF/l83VUI=
+github.com/juju/packaging/v2 v2.0.0-20210628104420-5487e24f1350/go.mod h1:QkkuIt0as7ewiNyrDrr1MyyRm3TVrabyMsLQdr97Sx8=
 github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93 h1:nlmpG1/Pv5elsi69wXhLkBhefGPE19bOCJ/xVwovl7A=
 github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93/go.mod h1:zrbmo4nBKaiP/Ez3F67ewkMbzGYfXyMvRtbOfuAwG0w=
 github.com/juju/postgrestest v1.1.0/go.mod h1:/n17Y2T6iFozzXwSCO0JYJ5gSiz2caEtSwAjh/uLXDM=

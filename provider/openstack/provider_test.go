@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/go-goose/goose/v3/identity"
-	"github.com/go-goose/goose/v3/neutron"
-	"github.com/go-goose/goose/v3/nova"
+	"github.com/go-goose/goose/v4/identity"
+	"github.com/go-goose/goose/v4/neutron"
+	"github.com/go-goose/goose/v4/nova"
 	"github.com/golang/mock/gomock"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

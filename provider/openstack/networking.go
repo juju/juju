@@ -8,8 +8,8 @@ import (
 	"net"
 	"strings"
 
-	"github.com/go-goose/goose/v3/neutron"
-	"github.com/go-goose/goose/v3/nova"
+	"github.com/go-goose/goose/v4/neutron"
+	"github.com/go-goose/goose/v4/nova"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2"

@@ -5,35 +5,36 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/apiserver/params"
-	reflect "reflect"
 )
 
-// MockUpgradeStepsClient is a mock of UpgradeStepsClient interface
+// MockUpgradeStepsClient is a mock of UpgradeStepsClient interface.
 type MockUpgradeStepsClient struct {
 	ctrl     *gomock.Controller
 	recorder *MockUpgradeStepsClientMockRecorder
 }
 
-// MockUpgradeStepsClientMockRecorder is the mock recorder for MockUpgradeStepsClient
+// MockUpgradeStepsClientMockRecorder is the mock recorder for MockUpgradeStepsClient.
 type MockUpgradeStepsClientMockRecorder struct {
 	mock *MockUpgradeStepsClient
 }
 
-// NewMockUpgradeStepsClient creates a new mock instance
+// NewMockUpgradeStepsClient creates a new mock instance.
 func NewMockUpgradeStepsClient(ctrl *gomock.Controller) *MockUpgradeStepsClient {
 	mock := &MockUpgradeStepsClient{ctrl: ctrl}
 	mock.recorder = &MockUpgradeStepsClientMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockUpgradeStepsClient) EXPECT() *MockUpgradeStepsClientMockRecorder {
 	return m.recorder
 }
 
-// WriteAgentState mocks base method
+// WriteAgentState mocks base method.
 func (m *MockUpgradeStepsClient) WriteAgentState(arg0 []params.SetUnitStateArg) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WriteAgentState", arg0)
@@ -41,7 +42,7 @@ func (m *MockUpgradeStepsClient) WriteAgentState(arg0 []params.SetUnitStateArg) 
 	return ret0
 }
 
-// WriteAgentState indicates an expected call of WriteAgentState
+// WriteAgentState indicates an expected call of WriteAgentState.
 func (mr *MockUpgradeStepsClientMockRecorder) WriteAgentState(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteAgentState", reflect.TypeOf((*MockUpgradeStepsClient)(nil).WriteAgentState), arg0)

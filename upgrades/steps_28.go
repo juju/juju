@@ -111,12 +111,20 @@ func moveUnitAgentStateToController(ctx Context) error {
 	// Lookup the names of all unit agents installed on this machine.
 	agentConf := ctx.AgentConfig()
 	ctxTag := agentConf.Tag()
-	if ctxTag.Kind() != names.UnitTagKind {
-		logger.Infof("skipping agent %q, not a unit", ctxTag.String())
+	if ctxTag.Kind() != names.MachineTagKind {
+		logger.Infof("skipping agent %q, not a machine", ctxTag.String())
+		return nil
+	}
+	_, unitNames, _, err := service.FindAgents(agentConf.DataDir())
+	if err != nil {
+		return errors.Annotate(err, "looking up unit agents")
+	}
+	if len(unitNames) == 0 {
+		// No units, nothing to do.
 		return nil
 	}
 
-	fileNames, err := uniterState(ctx, ctxTag.String())
+	fileNames, err := uniterState(ctx, unitNames)
 	if err != nil {
 		return err
 	}
@@ -144,54 +152,57 @@ type UpgradeStepsClient interface {
 	WriteAgentState([]params.SetUnitStateArg) error
 }
 
-func uniterState(ctx Context, unitName string) ([]string, error) {
+func uniterState(ctx Context, unitNames []string) ([]string, error) {
 	// Read the uniter state for each unit on this machine.
 	// Leave in yaml format as a string to push to the controller.
 	fileNames := set.NewStrings()
+	uniterStates := make([]params.SetUnitStateArg, len(unitNames))
 	dataDir := ctx.AgentConfig().DataDir()
-	tag, err := names.ParseUnitTag(unitName)
-	if err != nil {
-		return nil, errors.Annotatef(err, "unable to parse unit agent tag %q", unitName)
-	}
+	for i, unitName := range unitNames {
+		tag, err := names.ParseUnitTag(unitName)
+		if err != nil {
+			return nil, errors.Annotatef(err, "unable to parse unit agent tag %q", unitName)
+		}
 
-	uniterState := params.SetUnitStateArg{Tag: tag.String()}
-	// e.g. /var/lib/juju/agents/unit-ubuntu-0/state/uniter
-	uniterStateDir := filepath.Join(agent.BaseDir(dataDir), unitName, "state")
+		uniterStates[i].Tag = tag.String()
+		// e.g. /var/lib/juju/agents/unit-ubuntu-0/state/uniter
+		uniterStateDir := filepath.Join(agent.BaseDir(dataDir), unitName, "state")
 
-	uniterSt, filename, err := readUniterState(uniterStateDir)
-	if err != nil && !os.IsNotExist(err) {
-		// Note: we may want to error on NotExist.  Something is very
-		// broken if the uniter state files does not exist.  On the
-		// other hand, all that will happen is that the uniter will act
-		// like the unit is just starting with regards to hook execution.
-		// With properly written idempotent charms, this is not an issue.
-		return nil, err
-	} else if err == nil {
-		fileNames.Add(filename)
-		uniterState.UniterState = &uniterSt
-	}
+		uniterSt, filename, err := readUniterState(uniterStateDir)
+		if err != nil && !os.IsNotExist(err) {
+			// Note: we may want to error on NotExist.  Something is very
+			// broken if the uniter state files does not exist.  On the
+			// other hand, all that will happen is that the uniter will act
+			// like the unit is just starting with regards to hook execution.
+			// With properly written idempotent charms, this is not an issue.
+			return nil, err
+		} else if err == nil {
+			fileNames.Add(filename)
+			uniterStates[i].UniterState = &uniterSt
+		}
 
-	storageData, err := readStorageState(uniterStateDir)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, err
-	} else if err == nil {
-		uniterState.StorageState = &storageData.dataString
-	}
-	if storageData.filename != "" {
-		fileNames.Add(storageData.filename)
-	}
+		storageData, err := readStorageState(uniterStateDir)
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, err
+		} else if err == nil {
+			uniterStates[i].StorageState = &storageData.dataString
+		}
+		if storageData.filename != "" {
+			fileNames.Add(storageData.filename)
+		}
 
-	relationData, err := readRelationState(uniterStateDir)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, err
-	} else if err == nil && len(relationData.data) > 0 {
-		uniterState.RelationState = &relationData.data
-		fileNames.Add(relationData.filename)
-	}
+		relationData, err := readRelationState(uniterStateDir)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, err
+		} else if err == nil && len(relationData.data) > 0 {
+			uniterStates[i].RelationState = &relationData.data
+			fileNames.Add(relationData.filename)
+		}
 
-	// NOTE(achilleasa): meter status is transparently migrated to
-	// the controller by the meterstatus worker so we don't need
-	// to do anything special here.
+		// NOTE(achilleasa): meter status is transparently migrated to
+		// the controller by the meterstatus worker so we don't need
+		// to do anything special here.
+	}
 
 	// No state files, nothing to do.
 	if fileNames.IsEmpty() {
@@ -199,8 +210,8 @@ func uniterState(ctx Context, unitName string) ([]string, error) {
 	}
 
 	client := getUpgradeStepsClient(ctx.APIState())
-	if err := client.WriteAgentState([]params.SetUnitStateArg{uniterState}); err != nil {
-		return nil, errors.Annotatef(err, "unable to set state for units %q", unitName)
+	if err := client.WriteAgentState(uniterStates); err != nil {
+		return nil, errors.Annotatef(err, "unable to set state for units %q", strings.Join(unitNames, ", "))
 	}
 	return fileNames.Values(), nil
 }
