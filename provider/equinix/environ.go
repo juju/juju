@@ -408,6 +408,11 @@ EOF`,
 		return nil, errors.Trace(err)
 	}
 
+	allocatedPublicIP := true
+	if args.Constraints.HasAllocatePublicIP() {
+		allocatedPublicIP = *args.Constraints.AllocatePublicIP
+	}
+
 	var requestedPublicAddr, requestedPrivateAddr bool
 	if len(subnetIDs) != 0 {
 		logger.Debugf("requesting a machine with address in subnet(s): %v", subnetIDs)
@@ -419,6 +424,10 @@ EOF`,
 
 			requestedPublicAddr = requestedPublicAddr || net.Public
 			requestedPrivateAddr = requestedPrivateAddr || !net.Public
+
+			if !allocatedPublicIP && net.Public {
+				continue
+			}
 
 			// Packet requires us to request at least a /31 for IPV4
 			// addresses and a /127 for IPV6 ones.
@@ -447,7 +456,7 @@ EOF`,
 			CIDR:          31,
 		})
 	}
-	if !requestedPublicAddr {
+	if allocatedPublicIP && !requestedPublicAddr {
 		// Allocate a public address from the default address pool.
 		device.IPAddresses = append(device.IPAddresses, packngo.IPAddressCreateRequest{
 			Public:        true,
