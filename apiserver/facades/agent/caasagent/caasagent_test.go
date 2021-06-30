@@ -21,7 +21,7 @@ type caasagentSuite struct {
 
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
-	facade     *caasagent.Facade
+	facade     *caasagent.FacadeV2
 }
 
 func (s *caasagentSuite) SetUpTest(c *gc.C) {
@@ -39,6 +39,6 @@ func (s *caasagentSuite) TestPermission(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewApplicationTag("someapp"),
 	}
-	_, err := caasagent.NewStateFacade(facadetest.Context{Auth_: s.authorizer})
+	_, err := caasagent.NewStateFacadeV2(facadetest.Context{Auth_: s.authorizer})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

@@ -11,14 +11,15 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
-// CloudSpecAPI implements common methods for use by various
-// facades for querying the cloud spec of models.
-type CloudSpecAPI interface {
+// CloudSpecer defines the CloudSpec api interface
+type CloudSpecer interface {
 	// WatchCloudSpecsChanges returns a watcher for cloud spec changes.
 	WatchCloudSpecsChanges(args params.Entities) (params.NotifyWatchResults, error)
 
@@ -29,7 +30,7 @@ type CloudSpecAPI interface {
 	GetCloudSpec(tag names.ModelTag) params.CloudSpecResult
 }
 
-type cloudSpecAPI struct {
+type CloudSpecAPI struct {
 	resources facade.Resources
 
 	getCloudSpec                           func(names.ModelTag) (environscloudspec.CloudSpec, error)
@@ -37,6 +38,14 @@ type cloudSpecAPI struct {
 	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error)
 	watchCloudSpecCredentialContent        func(tag names.ModelTag) (state.NotifyWatcher, error)
 	getAuthFunc                            common.GetAuthFunc
+}
+
+type CloudSpecAPIV2 struct {
+	CloudSpecAPI
+}
+
+type CloudSpecAPIV1 struct {
+	CloudSpecAPIV2
 }
 
 // NewCloudSpec returns a new CloudSpecAPI.
@@ -48,7 +57,7 @@ func NewCloudSpec(
 	watchCloudSpecCredentialContent func(tag names.ModelTag) (state.NotifyWatcher, error),
 	getAuthFunc common.GetAuthFunc,
 ) CloudSpecAPI {
-	return cloudSpecAPI{resources,
+	return CloudSpecAPI{resources,
 		getCloudSpec,
 		watchCloudSpec,
 		watchCloudSpecModelCredentialReference,
@@ -56,8 +65,65 @@ func NewCloudSpec(
 		getAuthFunc}
 }
 
+func NewCloudSpecV2(
+	resources facade.Resources,
+	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
+	watchCloudSpec func(tag names.ModelTag) (state.NotifyWatcher, error),
+	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error),
+	watchCloudSpecCredentialContent func(tag names.ModelTag) (state.NotifyWatcher, error),
+	getAuthFunc common.GetAuthFunc,
+) CloudSpecAPIV2 {
+	api := NewCloudSpec(
+		resources,
+		getCloudSpec,
+		watchCloudSpec,
+		watchCloudSpecModelCredentialReference,
+		watchCloudSpecCredentialContent,
+		getAuthFunc,
+	)
+	return CloudSpecAPIV2{api}
+}
+
+func NewCloudSpecV1(
+	resources facade.Resources,
+	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
+	watchCloudSpec func(tag names.ModelTag) (state.NotifyWatcher, error),
+	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error),
+	watchCloudSpecCredentialContent func(tag names.ModelTag) (state.NotifyWatcher, error),
+	getAuthFunc common.GetAuthFunc,
+) CloudSpecAPIV1 {
+	v2API := NewCloudSpecV2(
+		resources,
+		k8sCloudSpecChanger(getCloudSpec),
+		watchCloudSpec,
+		watchCloudSpecModelCredentialReference,
+		watchCloudSpecCredentialContent,
+		getAuthFunc,
+	)
+	return CloudSpecAPIV1{v2API}
+}
+
+func k8sCloudSpecChanger(
+	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
+) func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+	return func(n names.ModelTag) (environscloudspec.CloudSpec, error) {
+		spec, err := getCloudSpec(n)
+		if err != nil {
+			return spec, err
+		}
+		if spec.Type == k8sconstants.CAASProviderType {
+			cred, err := k8scloud.CredentialToLegacy(spec.Credential)
+			if err != nil {
+				return spec, errors.Annotate(err, "transforming Kubernetes credential for pre 2.9")
+			}
+			spec.Credential = &cred
+		}
+		return spec, nil
+	}
+}
+
 // CloudSpec returns the model's cloud spec.
-func (s cloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, error) {
+func (s CloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, error) {
 	authFunc, err := s.getAuthFunc()
 	if err != nil {
 		return params.CloudSpecResults{}, err
@@ -81,7 +147,7 @@ func (s cloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, 
 }
 
 // GetCloudSpec constructs the CloudSpec for a validated and authorized model.
-func (s cloudSpecAPI) GetCloudSpec(tag names.ModelTag) params.CloudSpecResult {
+func (s CloudSpecAPI) GetCloudSpec(tag names.ModelTag) params.CloudSpecResult {
 	var result params.CloudSpecResult
 	spec, err := s.getCloudSpec(tag)
 	if err != nil {
@@ -111,7 +177,7 @@ func (s cloudSpecAPI) GetCloudSpec(tag names.ModelTag) params.CloudSpecResult {
 }
 
 // WatchCloudSpecsChanges returns a watcher for cloud spec changes.
-func (s cloudSpecAPI) WatchCloudSpecsChanges(args params.Entities) (params.NotifyWatchResults, error) {
+func (s CloudSpecAPI) WatchCloudSpecsChanges(args params.Entities) (params.NotifyWatchResults, error) {
 	authFunc, err := s.getAuthFunc()
 	if err != nil {
 		return params.NotifyWatchResults{}, err
@@ -139,7 +205,7 @@ func (s cloudSpecAPI) WatchCloudSpecsChanges(args params.Entities) (params.Notif
 	return results, nil
 }
 
-func (s *cloudSpecAPI) watchCloudSpecChanges(tag names.ModelTag) (params.NotifyWatchResult, error) {
+func (s CloudSpecAPI) watchCloudSpecChanges(tag names.ModelTag) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
 	cloudWatch, err := s.watchCloudSpec(tag)
 	if err != nil {

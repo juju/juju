@@ -12,16 +12,23 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 )
 
-type Facade struct {
+// FacadeV2 is the V2 facade of the caas agent
+type FacadeV2 struct {
 	auth      facade.Authorizer
 	resources facade.Resources
-	cloudspec.CloudSpecAPI
+	cloudspec.CloudSpecer
 	*common.ModelWatcher
 	*common.ControllerConfigAPI
 }
 
-// NewStateFacade provides the signature required for facade registration.
-func NewStateFacade(ctx facade.Context) (*Facade, error) {
+// FacadeV1 is the V1 facade of the caas agent
+type FacadeV1 struct {
+	*FacadeV2
+}
+
+// NewStateFacadeV2 provides the signature required for facade registration of
+// caas agent v2
+func NewStateFacadeV2(ctx facade.Context) (*FacadeV2, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthModelAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -32,7 +39,7 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cloudSpecAPI := cloudspec.NewCloudSpec(
+	cloudSpecAPI := cloudspec.NewCloudSpecV2(
 		resources,
 		cloudspec.MakeCloudSpecGetterForModel(ctx.State()),
 		cloudspec.MakeCloudSpecWatcherForModel(ctx.State()),
@@ -40,11 +47,36 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(ctx.State()),
 		common.AuthFuncForTag(model.ModelTag()),
 	)
-	return &Facade{
-		CloudSpecAPI:        cloudSpecAPI,
+	return &FacadeV2{
+		CloudSpecer:         cloudSpecAPI,
 		ModelWatcher:        common.NewModelWatcher(model, resources, authorizer),
 		ControllerConfigAPI: common.NewStateControllerConfig(ctx.State()),
 		auth:                authorizer,
 		resources:           resources,
+	}, nil
+}
+
+// NewStateFacadeV1 provides the signature required for facade registration of
+// caas agent v1
+func NewStateFacadeV1(ctx facade.Context) (*FacadeV1, error) {
+	v2Facade, err := NewStateFacadeV2(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	model, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	v2Facade.CloudSpecer = cloudspec.NewCloudSpecV1(
+		ctx.Resources(),
+		cloudspec.MakeCloudSpecGetterForModel(ctx.State()),
+		cloudspec.MakeCloudSpecWatcherForModel(ctx.State()),
+		cloudspec.MakeCloudSpecCredentialWatcherForModel(ctx.State()),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(ctx.State()),
+		common.AuthFuncForTag(model.ModelTag()),
+	)
+	return &FacadeV1{
+		v2Facade,
 	}, nil
 }
