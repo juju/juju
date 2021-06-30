@@ -78,6 +78,8 @@ type gceConnection interface {
 }
 
 type environ struct {
+	environs.NoSpaceDiscoveryEnviron
+
 	name  string
 	uuid  string
 	cloud environscloudspec.CloudSpec

@@ -416,57 +416,37 @@ func (*environ) SuperSubnets(context.ProviderCallContext) ([]string, error) {
 // unless a general API failure occurs.
 func (e *environ) SupportsSpaces(context.ProviderCallContext) (bool, error) {
 	// Really old lxd versions (e.g. xenial/ppc64) do not even support the
-	// network API extension so the subnet discovery codepath will not
+	// network API extension so the subnet discovery code path will not
 	// work there.
 	return e.hasLXDNetworkAPISupport()
 }
 
-// SupportsSpaceDiscovery returns whether the current environment
-// supports discovering spaces from the provider. The returned error
-// satisfies errors.IsNotSupported(), unless a general API failure occurs.
-func (*environ) SupportsSpaceDiscovery(context.ProviderCallContext) (bool, error) {
-	return false, nil
-}
-
-// Spaces returns a slice of network.SpaceInfo with info, including
-// details of all associated subnets, about all spaces known to the
-// provider that have subnets available.
-func (*environ) Spaces(context.ProviderCallContext) ([]network.SpaceInfo, error) {
-	return nil, errors.NotSupportedf("spaces")
-}
-
-// ProviderSpaceInfo returns the details of the space requested as
-// a ProviderSpaceInfo.
-func (*environ) ProviderSpaceInfo(context.ProviderCallContext, *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
-	return nil, errors.NotSupportedf("spaces")
-}
-
 // AreSpacesRoutable returns whether the communication between the
-// two spaces can use cloud-local addaddresses.
+// two spaces can use cloud-local addresses.
 func (*environ) AreSpacesRoutable(context.ProviderCallContext, *environs.ProviderSpaceInfo, *environs.ProviderSpaceInfo) (bool, error) {
 	return false, errors.NotSupportedf("spaces")
 }
 
 // SupportsContainerAddresses returns true if the current environment is
-// able to allocate addaddresses for containers.
+// able to allocate addresses for containers.
 func (*environ) SupportsContainerAddresses(context.ProviderCallContext) (bool, error) {
 	return false, nil
 }
 
-// AllocateContainerAddresses allocates a static addsubnetss for each of the
+// AllocateContainerAddresses allocates a static subnets for each of the
 // container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
-// network config including all allocated addaddresses on success.
+// network config including all allocated addresses on success.
 func (*environ) AllocateContainerAddresses(context.ProviderCallContext, instance.Id, names.MachineTag, network.InterfaceInfos) (network.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("container address allocation")
 }
 
 // ReleaseContainerAddresses releases the previously allocated
-// addaddresses matching the interface details passed in.
+// addresses matching the interface details passed in.
 func (*environ) ReleaseContainerAddresses(context.ProviderCallContext, []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
 }
 
-// SSHAddresses filters the input addaddresses to those suitable for SSH use.
+// SSHAddresses filters the input addresses to those suitable for SSH use.
 func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
 	return addresses, nil
 }
