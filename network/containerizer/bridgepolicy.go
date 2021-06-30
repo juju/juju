@@ -247,7 +247,7 @@ func linkLayerDevicesForSpaces(host Machine, spaces corenetwork.SpaceInfos) (map
 
 	// First pass, iterate the addresses, lookup the associated spaces, and
 	// gather the devices.
-	addresses, err := host.AllAddresses()
+	addresses, err := host.AllDeviceAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

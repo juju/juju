@@ -847,9 +847,7 @@ func (m *Machine) removeAllAddressesOps() ([]txn.Op, error) {
 
 // AllAddresses returns all known addresses assigned to
 // link-layer devices on the machine.
-// TODO (manadart 2021-05-12): Rename this to AllDeviceAddresses for
-// congruence with the method below.
-func (m *Machine) AllAddresses() ([]*Address, error) {
+func (m *Machine) AllDeviceAddresses() ([]*Address, error) {
 	var allAddresses []*Address
 	callbackFunc := func(doc *ipAddressDoc) {
 		allAddresses = append(allAddresses, newIPAddress(m.st, *doc))
