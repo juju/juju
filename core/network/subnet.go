@@ -221,15 +221,21 @@ func (s SubnetInfos) GetByAddress(addr string) (SubnetInfos, error) {
 // GetBySpaceID returns all subnets with the input space ID,
 // including those inferred by being overlays of subnets in the space.
 func (s SubnetInfos) GetBySpaceID(spaceID string) (SubnetInfos, error) {
-	var spaceUnderlays SubnetInfos
+	var subsInSpace SubnetInfos
 	for _, sub := range s {
 		if sub.SpaceID == spaceID {
-			spaceUnderlays = append(spaceUnderlays, sub)
+			subsInSpace = append(subsInSpace, sub)
 		}
 	}
 
 	var spaceOverlays SubnetInfos
-	for _, sub := range spaceUnderlays {
+	for _, sub := range subsInSpace {
+		// If we picked up an overlay because the space was already set,
+		// don't try to find subnets for which it is an underlay.
+		if sub.FanInfo != nil {
+			continue
+		}
+
 		// TODO (manadart 2020-05-13): See comment for GetByUnderlayCIDR.
 		// This will only be correct for unique CIDRs.
 		overlays, err := s.GetByUnderlayCIDR(sub.CIDR)
@@ -237,8 +243,8 @@ func (s SubnetInfos) GetBySpaceID(spaceID string) (SubnetInfos, error) {
 			return nil, errors.Trace(err)
 		}
 
-		// Only include overlays that don't have a space ID.
-		// This makes the method idempotent and avoids duplication.
+		// Don't include overlays that already have a space ID.
+		// They will have been retrieved as subsInSpace.
 		for _, overlay := range overlays {
 			if overlay.SpaceID == "" {
 				overlay.SpaceID = spaceID
@@ -247,7 +253,7 @@ func (s SubnetInfos) GetBySpaceID(spaceID string) (SubnetInfos, error) {
 		}
 	}
 
-	return append(spaceUnderlays, spaceOverlays...), nil
+	return append(subsInSpace, spaceOverlays...), nil
 }
 
 // EqualTo returns true if this slice of SubnetInfo is equal to the input.
