@@ -280,15 +280,15 @@ type ConfigSetter interface {
 
 // CloudSpecSetter implements access to an environment's cloud spec.
 type CloudSpecSetter interface {
-	// SetConfig updates the Environ's configuration.
+	// SetCloudSpec updates the Environ's configuration.
 	SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.CloudSpec) error
 }
 
 // Bootstrapper provides the way for bootstrapping controller.
 type Bootstrapper interface {
-	// This will be called very early in the bootstrap procedure, to
-	// give an Environ a chance to perform interactive operations that
-	// are required for bootstrapping.
+	// PrepareForBootstrap will be called very early in the bootstrap
+	// procedure to give an Environ a chance to perform interactive
+	// operations that are required for bootstrapping.
 	PrepareForBootstrap(ctx BootstrapContext, controllerName string) error
 
 	// Bootstrap creates a new environment, and an instance to host the

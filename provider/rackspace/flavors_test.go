@@ -4,7 +4,7 @@
 package rackspace_test
 
 import (
-	"github.com/go-goose/goose/v3/nova"
+	"github.com/go-goose/goose/v4/nova"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

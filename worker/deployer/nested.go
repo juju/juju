@@ -15,7 +15,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
-	"github.com/kr/pretty"
 
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
@@ -156,7 +155,7 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 	// Stat all the units that context should have deployed and started.
 	units := context.deployedUnits()
 	stopped := context.stoppedUnits()
-	config.Logger.Infof("new context: units %q, stopped %q", pretty.Sprint(units), pretty.Sprint(stopped))
+	config.Logger.Infof("new context: units %q, stopped %q", strings.Join(units.Values(), ", "), strings.Join(stopped.Values(), ", "))
 	for _, u := range units.SortedValues() {
 		if u == "" {
 			config.Logger.Warningf("empty unit")

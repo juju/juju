@@ -747,6 +747,18 @@ func (mr *MockServerMockRecorder) UpdateStoragePoolVolume(arg0, arg1, arg2, arg3
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStoragePoolVolume", reflect.TypeOf((*MockServer)(nil).UpdateStoragePoolVolume), arg0, arg1, arg2, arg3, arg4)
 }
 
+// UseProject mocks base method.
+func (m *MockServer) UseProject(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "UseProject", arg0)
+}
+
+// UseProject indicates an expected call of UseProject.
+func (mr *MockServerMockRecorder) UseProject(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UseProject", reflect.TypeOf((*MockServer)(nil).UseProject), arg0)
+}
+
 // UseTargetServer mocks base method.
 func (m *MockServer) UseTargetServer(arg0 string) (*lxd.Server, error) {
 	m.ctrl.T.Helper()

@@ -410,3 +410,7 @@ func (c *sshContainer) getExecClient() (k8sexec.Executor, error) {
 	}
 	return c.execClientGetter(mInfo.Result.Name, cloudSpec)
 }
+
+func (c *sshContainer) maybePopulateTargetViaField(target *resolvedTarget, statusGetter func([]string) (*params.FullStatus, error)) error {
+	return nil
+}

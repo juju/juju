@@ -7,8 +7,8 @@ package openstack
 import (
 	reflect "reflect"
 
-	http "github.com/go-goose/goose/v3/http"
-	identity "github.com/go-goose/goose/v3/identity"
+	http "github.com/go-goose/goose/v4/http"
+	identity "github.com/go-goose/goose/v4/identity"
 	gomock "github.com/golang/mock/gomock"
 )
 

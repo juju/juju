@@ -20,14 +20,14 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.9.0
 	github.com/aws/smithy-go v1.4.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/canonical/pebble v0.0.0-20210609205628-b152ff448bbe
+	github.com/canonical/pebble v0.0.0-20210629225259-602ad4b50023
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/dustin/go-humanize v1.0.0
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
-	github.com/go-goose/goose/v3 v3.0.0-20210609085303-5be176eecc0f
+	github.com/go-goose/goose/v4 v4.0.0-20210629133523-eda372ae25db
 	github.com/go-logr/logr v0.2.0
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.0-20210309064400-d73aa8f92aa2
 	github.com/golang/mock v1.5.0
@@ -69,7 +69,7 @@ require (
 	github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
 	github.com/juju/os/v2 v2.1.2
-	github.com/juju/packaging/v2 v2.0.0-20210622141625-c7a51bd50843
+	github.com/juju/packaging/v2 v2.0.0-20210628104420-5487e24f1350
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
 	github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4
 	github.com/juju/pubsub v0.0.0-20190419131051-c1f7536b9cc6

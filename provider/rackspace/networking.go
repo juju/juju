@@ -4,7 +4,7 @@
 package rackspace
 
 import (
-	"github.com/go-goose/goose/v3/nova"
+	"github.com/go-goose/goose/v4/nova"
 
 	"github.com/juju/juju/provider/openstack"
 )

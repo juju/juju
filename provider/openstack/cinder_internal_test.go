@@ -4,8 +4,8 @@
 package openstack
 
 import (
-	"github.com/go-goose/goose/v3/client"
-	"github.com/go-goose/goose/v3/identity"
+	"github.com/go-goose/goose/v4/client"
+	"github.com/go-goose/goose/v4/identity"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

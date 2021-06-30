@@ -227,12 +227,14 @@ func (k *kubernetesClient) ensureNamespaceAnnotationForControllerUUID(controller
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	if ns != nil && !k8sannotations.New(ns.Annotations).HasAll(k.annotations) {
-		// This should never happen unless we changed annotations for a new juju version.
-		// But in this case, we should have already managed to fix it in upgrade steps.
-		return errors.NewNotValid(nil,
-			fmt.Sprintf("annotations %v for namespace %q must include %v", ns.Annotations, k.namespace, k.annotations),
-		)
+	if !isLegacy {
+		if ns != nil && !k8sannotations.New(ns.Annotations).HasAll(k.annotations) {
+			// This should never happen unless we changed annotations for a new juju version.
+			// But in this case, we should have already managed to fix it in upgrade steps.
+			return errors.NewNotValid(nil,
+				fmt.Sprintf("annotations %v for namespace %q must include %v", ns.Annotations, k.namespace, k.annotations),
+			)
+		}
 	}
 	annotationControllerUUIDKey := utils.AnnotationControllerUUIDKey(isLegacy)
 	k.annotations.Add(annotationControllerUUIDKey, controllerUUID)
