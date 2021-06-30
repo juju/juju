@@ -322,8 +322,27 @@ func (s *Subnet) updateSpaceName(spaceName string) (bool, error) {
 	return spaceNameChange && spaceName != "" && s.doc.FanLocalUnderlay == "", nil
 }
 
-// NetworkSubnet maps the subnet fields into a network.SubnetInfo.
-func (s *Subnet) NetworkSubnet() network.SubnetInfo {
+// AllSubnetInfos returns SubnetInfos for all subnets in the model.
+func (st *State) AllSubnetInfos() (network.SubnetInfos, error) {
+	subs, err := st.AllSubnets()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	result := make(network.SubnetInfos, len(subs))
+	for i, sub := range subs {
+		result[i] = sub.networkSubnet()
+	}
+	return result, nil
+}
+
+// networkSubnet maps the subnet fields into a network.SubnetInfo.
+// Note that this method should not be exported.
+// It is only called for on subnets are guaranteed, if Fan overlays,
+// to have had their space IDs correctly set based on their underlays.
+// Calling it on an overlay not processed in this way will yield a
+// space ID of "0", which may be incorrect.
+func (s *Subnet) networkSubnet() network.SubnetInfo {
 	var fanInfo *network.FanCIDRs
 	if s.doc.FanLocalUnderlay != "" || s.doc.FanOverlay != "" {
 		fanInfo = &network.FanCIDRs{
@@ -341,37 +360,12 @@ func (s *Subnet) NetworkSubnet() network.SubnetInfo {
 		AvailabilityZones: s.doc.AvailabilityZones,
 		FanInfo:           fanInfo,
 		IsPublic:          s.doc.IsPublic,
-		SpaceID:           s.doc.SpaceID,
+		SpaceID:           s.spaceID,
 		// SpaceName and ProviderSpaceID are populated by Space.NetworkSpace().
 		// For now, we do not look them up here.
 	}
 
-	// If this is a fan overlay, it will have a (numeric) space ID of 0.
-	// This is because it inherits the space of its underlay.
-	// In this case we replace it with an empty string so as not to cause
-	// confusion.
-	// Space.NetworkSpace() sets this correctly as expected.
-	// TODO (manadart 2020-04-09): We will probably need to populate this at
-	// some point.
-	if sInfo.FanLocalUnderlay() != "" {
-		sInfo.SpaceID = ""
-	}
-
 	return sInfo
-}
-
-// AllSubnetInfos returns SubnetInfos for all subnets in the model.
-func (st *State) AllSubnetInfos() (network.SubnetInfos, error) {
-	subs, err := st.AllSubnets()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	result := make(network.SubnetInfos, len(subs))
-	for i, sub := range subs {
-		result[i] = sub.NetworkSubnet()
-	}
-	return result, nil
 }
 
 // SubnetUpdate adds new info to the subnet based on provided info.

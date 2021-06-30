@@ -845,7 +845,7 @@ func (m *Machine) removeAllAddressesOps() ([]txn.Op, error) {
 	return m.st.removeMatchingIPAddressesDocOps(findQuery)
 }
 
-// AllAddresses returns all known addresses assigned to
+// AllDeviceAddresses returns all known addresses assigned to
 // link-layer devices on the machine.
 func (m *Machine) AllDeviceAddresses() ([]*Address, error) {
 	var allAddresses []*Address

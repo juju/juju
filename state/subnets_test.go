@@ -40,7 +40,6 @@ func (s *SubnetSuite) TestAddSubnetSucceedsWithFullyPopulatedInfo(c *gc.C) {
 		CIDR:              "192.168.1.0/24",
 		VLANTag:           79,
 		AvailabilityZones: []string{"Timbuktu"},
-		SpaceID:           space.Id(),
 		ProviderNetworkId: "wildbirds",
 		IsPublic:          true,
 	}
@@ -48,6 +47,11 @@ func (s *SubnetSuite) TestAddSubnetSucceedsWithFullyPopulatedInfo(c *gc.C) {
 
 	subnet, err = s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Set the expected space after adding the subnet to state.
+	// When retrieved, it should inherit the space of its underlay.
+	subnetInfo.SpaceID = space.Id()
+
 	s.assertSubnetMatchesInfo(c, subnet, subnetInfo)
 
 	// check it's been stored in state by fetching it back again
@@ -324,6 +328,32 @@ func (s *SubnetSuite) TestAllSubnets(c *gc.C) {
 			c.Check(subnet.SpaceID(), gc.Equals, space1.Id())
 		}
 		c.Check(subnet.AvailabilityZones(), gc.DeepEquals, subnetInfos[i].AvailabilityZones)
+	}
+}
+
+func (s *SubnetSuite) TestAllSubnetInfosPopulatesOverlaySpace(c *gc.C) {
+	space1, err := s.State.AddSpace("bar", "4", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnetInfos := []network.SubnetInfo{
+		{CIDR: "8.8.8.0/24", SpaceID: space1.Id()},
+		{CIDR: "253.0.0.0/8"},
+	}
+	subnetInfos[1].SetFan("8.8.8.0/24", "")
+
+	for _, info := range subnetInfos {
+		_, err := s.State.AddSubnet(info)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	subnets, err := s.State.AllSubnetInfos()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnets, gc.HasLen, len(subnetInfos))
+
+	for _, subnet := range subnets {
+		if subnet.FanLocalUnderlay() == "" {
+			c.Check(subnet.SpaceID, gc.Equals, space1.Id())
+		}
 	}
 }
 
