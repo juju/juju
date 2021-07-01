@@ -97,18 +97,49 @@ func (a *appWorker) Wait() error {
 }
 
 func (a *appWorker) loop() error {
-	// If charm is (now) a v1 charm, exit the worker.
-	format, err := a.charmFormat()
-	if errors.IsNotFound(err) {
-		a.logger.Debugf("application %q removed", a.name)
-		return nil
-	} else if err != nil {
+	// Wait till charm is upgraded to a v2 charm.
+	appStateWatcher, err := a.facade.WatchApplication(a.name)
+	if err != nil {
+		return errors.Annotatef(err, "failed to watch for changes to application %q", a.name)
+	}
+	if err := a.catacomb.Add(appStateWatcher); err != nil {
 		return errors.Trace(err)
 	}
-	if format < corecharm.FormatV2 {
-		a.logger.Debugf("application %q v2 worker got v1 charm event, stopping", a.name)
-		return nil
+	appStateChanges := appStateWatcher.Changes()
+	for {
+		format, err := a.charmFormat()
+		if errors.IsNotFound(err) {
+			a.logger.Debugf("application %q removed (TODO A)", a.name)
+			return nil
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		if format >= corecharm.FormatV2 {
+			break
+		}
+
+		appLife, err := a.facade.Life(a.name)
+		if errors.IsNotFound(err) {
+			a.logger.Debugf("application %q removed (TODO B)", a.name)
+			return nil
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		if appLife == life.Dead {
+			a.logger.Debugf("application %q removed (TODO C)", a.name)
+			return nil
+		}
+
+		a.logger.Errorf("TODO cap application.go top loop waiting for events...")
+		select {
+		case <-appStateChanges:
+			a.logger.Errorf("TODO cap application.go top loop got appStateChanges event")
+		case <-a.catacomb.Dying():
+			a.logger.Errorf("TODO cap application.go top loop got dying event")
+			return a.catacomb.ErrDying()
+		}
 	}
+	appStateChanges = nil
 
 	// Update the password once per worker start to avoid it changing too frequently.
 	a.password, err = utils.RandomPassword()
@@ -126,7 +157,7 @@ func (a *appWorker) loop() error {
 	var appLife life.Value
 	var appChanges watcher.NotifyChannel
 	var replicaChanges watcher.NotifyChannel
-	var appStateChanges watcher.NotifyChannel
+//	var appStateChanges watcher.NotifyChannel
 	var lastReportedStatus map[string]status.StatusInfo
 
 	appScaleWatcher, err := a.unitFacade.WatchApplicationScale(a.name)
@@ -231,6 +262,7 @@ func (a *appWorker) loop() error {
 			if !ok {
 				return fmt.Errorf("application %q scale watcher closed channel", a.name)
 			}
+			a.logger.Errorf("TODO cap application.go got appScaleWatcher event")
 			if err := a.ensureScale(app); err != nil {
 				return err
 			}
@@ -238,43 +270,35 @@ func (a *appWorker) loop() error {
 			if !ok {
 				return fmt.Errorf("application %q trust watcher closed channel", a.name)
 			}
+			a.logger.Errorf("TODO cap application.go got appTrustWatcher event")
 			if err := a.ensureTrust(app); err != nil {
 				return err
 			}
 		case <-a.catacomb.Dying():
+			a.logger.Errorf("TODO cap application.go got dying event")
 			return a.catacomb.ErrDying()
 		case <-appStateChanges:
-			// If charm is (now) a v1 charm, exit the worker.
-			format, err := a.charmFormat()
-			if errors.IsNotFound(err) {
-				a.logger.Debugf("application %q removed", a.name)
-				return nil
-			} else if err != nil {
-				return errors.Trace(err)
-			}
-			if format < corecharm.FormatV2 {
-				a.logger.Debugf("application %q v2 worker got v1 charm event, stopping", a.name)
-				return nil
-			}
-
-			// Respond to state changes for v2 charms.
+			a.logger.Errorf("TODO cap application.go got appStateChanges event")
 			err = handleChange()
 			if err != nil {
 				return errors.Trace(err)
 			}
 		case <-a.changes:
-			// Respond to life changes.
+			a.logger.Errorf("TODO cap application.go got life changes event")
+			// Respond to life changes (Notify called by parent worker).
 			err = handleChange()
 			if err != nil {
 				return errors.Trace(err)
 			}
 		case <-appChanges:
+			a.logger.Errorf("TODO cap application.go got life appChanges event")
 			// Respond to changes in provider application.
 			lastReportedStatus, err = a.updateState(app, false, lastReportedStatus)
 			if err != nil {
 				return errors.Trace(err)
 			}
 		case <-replicaChanges:
+			a.logger.Errorf("TODO cap application.go got life replicaChanges event")
 			// Respond to changes in replicas of the application.
 			lastReportedStatus, err = a.updateState(app, false, lastReportedStatus)
 			if err != nil {
