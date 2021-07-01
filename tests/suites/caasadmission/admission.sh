@@ -1,15 +1,12 @@
-run_deploy_microk8s() {
+run_controller_model_admission() {
+  # Echo out to ensure nice output to the test suite.
 	echo
 
-	name=${1}
-	export BOOTSTRAP_PROVIDER=microk8s
-	bootstrap microk8s "${name}"
+  # The following ensures that a bootstrap juju exists.
+  model_name="controller-model-admission"
+	file="${TEST_DIR}/test-${model_name}.log"
+	ensure "${model_name}" "${file}"
 
-	microk8s.config >"${TEST_DIR}"/kube.conf
-	export KUBE_CONFIG="${TEST_DIR}"/kube.conf
-}
-
-test_controller_model_admission() {
 	name=test-$(petname)
 
 	namespace=controller-"${BOOTSTRAPPED_JUJU_CTRL_NAME}"
@@ -81,15 +78,21 @@ EOF
 	check_contains "${juju_app}" "test-app"
 
 	echo "$juju_app" | check test-app
+
+	destroy_model "${model_name}"
 }
 
-test_new_model_admission() {
+run_new_model_admission() {
+  # Echo out to ensure nice output to the test suite.
+	echo
+
+  # The following ensures that a bootstrap juju exists.
+  model_name="new-model-admission"
+	file="${TEST_DIR}/test-${model_name}.log"
+	ensure "${model_name}" "${file}"
+
 	name=test-$(petname)
-
-	model_name=$(petname)
 	namespace=${model_name}
-
-	juju add-model "${model_name}"
 
 	kubectl --kubeconfig "${KUBE_CONFIG}" apply -f - <<EOF
 apiVersion: v1
@@ -158,12 +161,20 @@ EOF
 	check_contains "${juju_app}" "test-app"
 
 	echo "$juju_app" | check test-app
+
+	destroy_model "${model_name}"
 }
 
 # Tests that after the model operator pod restarts it can come back up without
 # having to be validated by itself.
-test_model_chicken_and_egg() {
-	name=test-$(petname)
+run_model_chicken_and_egg() {
+  # Echo out to ensure nice output to the test suite.
+	echo
+
+  # The following ensures that a bootstrap juju exists.
+  model_name="model-chicken-and-egg"
+	file="${TEST_DIR}/test-${model_name}.log"
+	ensure "${model_name}" "${file}"
 
 	namespace=controller-"${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 
@@ -175,4 +186,6 @@ test_model_chicken_and_egg() {
 	test_value=$(kubectl --kubeconfig "${KUBE_CONFIG}" get deployment -n "${namespace}" modeloperator -o=jsonpath='{.metadata.labels.test}')
 
 	check_contains "${test_value}" "foo"
+
+	destroy_model "${model_name}"
 }

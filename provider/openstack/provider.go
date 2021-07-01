@@ -323,6 +323,8 @@ func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 }
 
 type Environ struct {
+	environs.NoSpaceDiscoveryEnviron
+
 	name      string
 	uuid      string
 	namespace instance.Namespace
@@ -2322,22 +2324,12 @@ func (e *Environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 }
 
 // SupportsSpaces is specified on environs.Networking.
-func (e *Environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
+func (e *Environ) SupportsSpaces(context.ProviderCallContext) (bool, error) {
 	return true, nil
 }
 
-// SupportsSpaceDiscovery is specified on environs.Networking.
-func (e *Environ) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool, error) {
-	return false, nil
-}
-
-// Spaces is specified on environs.Networking.
-func (e *Environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
-	return nil, errors.NotSupportedf("spaces")
-}
-
 // SupportsContainerAddresses is specified on environs.Networking.
-func (e *Environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (bool, error) {
+func (e *Environ) SupportsContainerAddresses(context.ProviderCallContext) (bool, error) {
 	return false, errors.NotSupportedf("container address")
 }
 
@@ -2363,13 +2355,6 @@ func (e *Environ) AllocateContainerAddresses(ctx context.ProviderCallContext, ho
 // ReleaseContainerAddresses is specified on environs.Networking.
 func (e *Environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("release container address")
-}
-
-// ProviderSpaceInfo is specified on environs.NetworkingEnviron.
-func (*Environ) ProviderSpaceInfo(
-	ctx context.ProviderCallContext, space *network.SpaceInfo,
-) (*environs.ProviderSpaceInfo, error) {
-	return nil, errors.NotSupportedf("provider space info")
 }
 
 // AreSpacesRoutable is specified on environs.NetworkingEnviron.

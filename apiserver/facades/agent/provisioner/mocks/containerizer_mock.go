@@ -5,37 +5,38 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	network "github.com/juju/juju/core/network"
 	containerizer "github.com/juju/juju/network/containerizer"
 	state "github.com/juju/juju/state"
-	reflect "reflect"
 )
 
-// MockLinkLayerDevice is a mock of LinkLayerDevice interface
+// MockLinkLayerDevice is a mock of LinkLayerDevice interface.
 type MockLinkLayerDevice struct {
 	ctrl     *gomock.Controller
 	recorder *MockLinkLayerDeviceMockRecorder
 }
 
-// MockLinkLayerDeviceMockRecorder is the mock recorder for MockLinkLayerDevice
+// MockLinkLayerDeviceMockRecorder is the mock recorder for MockLinkLayerDevice.
 type MockLinkLayerDeviceMockRecorder struct {
 	mock *MockLinkLayerDevice
 }
 
-// NewMockLinkLayerDevice creates a new mock instance
+// NewMockLinkLayerDevice creates a new mock instance.
 func NewMockLinkLayerDevice(ctrl *gomock.Controller) *MockLinkLayerDevice {
 	mock := &MockLinkLayerDevice{ctrl: ctrl}
 	mock.recorder = &MockLinkLayerDeviceMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockLinkLayerDevice) EXPECT() *MockLinkLayerDeviceMockRecorder {
 	return m.recorder
 }
 
-// Addresses mocks base method
+// Addresses mocks base method.
 func (m *MockLinkLayerDevice) Addresses() ([]*state.Address, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Addresses")
@@ -44,13 +45,13 @@ func (m *MockLinkLayerDevice) Addresses() ([]*state.Address, error) {
 	return ret0, ret1
 }
 
-// Addresses indicates an expected call of Addresses
+// Addresses indicates an expected call of Addresses.
 func (mr *MockLinkLayerDeviceMockRecorder) Addresses() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Addresses", reflect.TypeOf((*MockLinkLayerDevice)(nil).Addresses))
 }
 
-// EthernetDeviceForBridge mocks base method
+// EthernetDeviceForBridge mocks base method.
 func (m *MockLinkLayerDevice) EthernetDeviceForBridge(arg0 string, arg1 bool) (network.InterfaceInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EthernetDeviceForBridge", arg0, arg1)
@@ -59,13 +60,13 @@ func (m *MockLinkLayerDevice) EthernetDeviceForBridge(arg0 string, arg1 bool) (n
 	return ret0, ret1
 }
 
-// EthernetDeviceForBridge indicates an expected call of EthernetDeviceForBridge
+// EthernetDeviceForBridge indicates an expected call of EthernetDeviceForBridge.
 func (mr *MockLinkLayerDeviceMockRecorder) EthernetDeviceForBridge(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EthernetDeviceForBridge", reflect.TypeOf((*MockLinkLayerDevice)(nil).EthernetDeviceForBridge), arg0, arg1)
 }
 
-// IsAutoStart mocks base method
+// IsAutoStart mocks base method.
 func (m *MockLinkLayerDevice) IsAutoStart() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsAutoStart")
@@ -73,13 +74,13 @@ func (m *MockLinkLayerDevice) IsAutoStart() bool {
 	return ret0
 }
 
-// IsAutoStart indicates an expected call of IsAutoStart
+// IsAutoStart indicates an expected call of IsAutoStart.
 func (mr *MockLinkLayerDeviceMockRecorder) IsAutoStart() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsAutoStart", reflect.TypeOf((*MockLinkLayerDevice)(nil).IsAutoStart))
 }
 
-// IsUp mocks base method
+// IsUp mocks base method.
 func (m *MockLinkLayerDevice) IsUp() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsUp")
@@ -87,13 +88,13 @@ func (m *MockLinkLayerDevice) IsUp() bool {
 	return ret0
 }
 
-// IsUp indicates an expected call of IsUp
+// IsUp indicates an expected call of IsUp.
 func (mr *MockLinkLayerDeviceMockRecorder) IsUp() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUp", reflect.TypeOf((*MockLinkLayerDevice)(nil).IsUp))
 }
 
-// MACAddress mocks base method
+// MACAddress mocks base method.
 func (m *MockLinkLayerDevice) MACAddress() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MACAddress")
@@ -101,13 +102,13 @@ func (m *MockLinkLayerDevice) MACAddress() string {
 	return ret0
 }
 
-// MACAddress indicates an expected call of MACAddress
+// MACAddress indicates an expected call of MACAddress.
 func (mr *MockLinkLayerDeviceMockRecorder) MACAddress() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MACAddress", reflect.TypeOf((*MockLinkLayerDevice)(nil).MACAddress))
 }
 
-// MTU mocks base method
+// MTU mocks base method.
 func (m *MockLinkLayerDevice) MTU() uint {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MTU")
@@ -115,13 +116,13 @@ func (m *MockLinkLayerDevice) MTU() uint {
 	return ret0
 }
 
-// MTU indicates an expected call of MTU
+// MTU indicates an expected call of MTU.
 func (mr *MockLinkLayerDeviceMockRecorder) MTU() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MTU", reflect.TypeOf((*MockLinkLayerDevice)(nil).MTU))
 }
 
-// Name mocks base method
+// Name mocks base method.
 func (m *MockLinkLayerDevice) Name() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Name")
@@ -129,13 +130,13 @@ func (m *MockLinkLayerDevice) Name() string {
 	return ret0
 }
 
-// Name indicates an expected call of Name
+// Name indicates an expected call of Name.
 func (mr *MockLinkLayerDeviceMockRecorder) Name() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockLinkLayerDevice)(nil).Name))
 }
 
-// ParentDevice mocks base method
+// ParentDevice mocks base method.
 func (m *MockLinkLayerDevice) ParentDevice() (containerizer.LinkLayerDevice, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ParentDevice")
@@ -144,13 +145,13 @@ func (m *MockLinkLayerDevice) ParentDevice() (containerizer.LinkLayerDevice, err
 	return ret0, ret1
 }
 
-// ParentDevice indicates an expected call of ParentDevice
+// ParentDevice indicates an expected call of ParentDevice.
 func (mr *MockLinkLayerDeviceMockRecorder) ParentDevice() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ParentDevice", reflect.TypeOf((*MockLinkLayerDevice)(nil).ParentDevice))
 }
 
-// ParentName mocks base method
+// ParentName mocks base method.
 func (m *MockLinkLayerDevice) ParentName() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ParentName")
@@ -158,13 +159,13 @@ func (m *MockLinkLayerDevice) ParentName() string {
 	return ret0
 }
 
-// ParentName indicates an expected call of ParentName
+// ParentName indicates an expected call of ParentName.
 func (mr *MockLinkLayerDeviceMockRecorder) ParentName() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ParentName", reflect.TypeOf((*MockLinkLayerDevice)(nil).ParentName))
 }
 
-// Type mocks base method
+// Type mocks base method.
 func (m *MockLinkLayerDevice) Type() network.LinkLayerDeviceType {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Type")
@@ -172,13 +173,13 @@ func (m *MockLinkLayerDevice) Type() network.LinkLayerDeviceType {
 	return ret0
 }
 
-// Type indicates an expected call of Type
+// Type indicates an expected call of Type.
 func (mr *MockLinkLayerDeviceMockRecorder) Type() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Type", reflect.TypeOf((*MockLinkLayerDevice)(nil).Type))
 }
 
-// VirtualPortType mocks base method
+// VirtualPortType mocks base method.
 func (m *MockLinkLayerDevice) VirtualPortType() network.VirtualPortType {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VirtualPortType")
@@ -186,7 +187,7 @@ func (m *MockLinkLayerDevice) VirtualPortType() network.VirtualPortType {
 	return ret0
 }
 
-// VirtualPortType indicates an expected call of VirtualPortType
+// VirtualPortType indicates an expected call of VirtualPortType.
 func (mr *MockLinkLayerDeviceMockRecorder) VirtualPortType() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VirtualPortType", reflect.TypeOf((*MockLinkLayerDevice)(nil).VirtualPortType))

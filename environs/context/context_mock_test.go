@@ -5,34 +5,35 @@
 package context
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
-// MockModelCredentialInvalidator is a mock of ModelCredentialInvalidator interface
+// MockModelCredentialInvalidator is a mock of ModelCredentialInvalidator interface.
 type MockModelCredentialInvalidator struct {
 	ctrl     *gomock.Controller
 	recorder *MockModelCredentialInvalidatorMockRecorder
 }
 
-// MockModelCredentialInvalidatorMockRecorder is the mock recorder for MockModelCredentialInvalidator
+// MockModelCredentialInvalidatorMockRecorder is the mock recorder for MockModelCredentialInvalidator.
 type MockModelCredentialInvalidatorMockRecorder struct {
 	mock *MockModelCredentialInvalidator
 }
 
-// NewMockModelCredentialInvalidator creates a new mock instance
+// NewMockModelCredentialInvalidator creates a new mock instance.
 func NewMockModelCredentialInvalidator(ctrl *gomock.Controller) *MockModelCredentialInvalidator {
 	mock := &MockModelCredentialInvalidator{ctrl: ctrl}
 	mock.recorder = &MockModelCredentialInvalidatorMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelCredentialInvalidator) EXPECT() *MockModelCredentialInvalidatorMockRecorder {
 	return m.recorder
 }
 
-// InvalidateModelCredential mocks base method
+// InvalidateModelCredential mocks base method.
 func (m *MockModelCredentialInvalidator) InvalidateModelCredential(arg0 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InvalidateModelCredential", arg0)
@@ -40,7 +41,7 @@ func (m *MockModelCredentialInvalidator) InvalidateModelCredential(arg0 string) 
 	return ret0
 }
 
-// InvalidateModelCredential indicates an expected call of InvalidateModelCredential
+// InvalidateModelCredential indicates an expected call of InvalidateModelCredential.
 func (mr *MockModelCredentialInvalidatorMockRecorder) InvalidateModelCredential(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InvalidateModelCredential", reflect.TypeOf((*MockModelCredentialInvalidator)(nil).InvalidateModelCredential), arg0)

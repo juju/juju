@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The dummy provider implements an environment provider for testing
+// Package dummy implements an environment provider for testing
 // purposes, registered with environs under the name "dummy".
 //
 // The configuration YAML for the testing environment
@@ -1404,7 +1404,7 @@ func (env *environ) SupportsContainerAddresses(ctx context.ProviderCallContext) 
 }
 
 // Spaces is specified on environs.Networking.
-func (env *environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
+func (env *environ) Spaces(ctx context.ProviderCallContext) (network.SpaceInfos, error) {
 	if err := env.checkBroken("Spaces"); err != nil {
 		return []network.SpaceInfo{}, err
 	}

@@ -510,8 +510,8 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 	gitLab := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitLabCh})
 
 	// Add a local-machine address.
-	// Adding it the the service instead of the container is OK here, a
-	// s we are interested in the return from unit.AllAddresses().
+	// Adding it the the service instead of the container is OK here,
+	// as we are interested in the return from unit.AllAddresses().
 	// It simulates the same thing.
 	// This should never be returned as an ingress address.
 	err := gitLab.UpdateCloudService("", network.SpaceAddresses{

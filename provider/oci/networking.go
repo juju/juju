@@ -1112,22 +1112,8 @@ func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContex
 	return info, nil
 }
 
-func (e *Environ) SupportsSpaces(ctx envcontext.ProviderCallContext) (bool, error) {
+func (e *Environ) SupportsSpaces(envcontext.ProviderCallContext) (bool, error) {
 	return false, nil
-}
-
-func (e *Environ) SupportsSpaceDiscovery(ctx envcontext.ProviderCallContext) (bool, error) {
-	return false, nil
-}
-
-func (e *Environ) Spaces(ctx envcontext.ProviderCallContext) ([]network.SpaceInfo, error) {
-	return nil, errors.NotSupportedf("Spaces")
-}
-
-func (e *Environ) ProviderSpaceInfo(
-	ctx envcontext.ProviderCallContext, space *network.SpaceInfo,
-) (*environs.ProviderSpaceInfo, error) {
-	return nil, errors.NotSupportedf("ProviderSpaceInfo")
 }
 
 func (e *Environ) AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {

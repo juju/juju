@@ -59,8 +59,8 @@ func (s machineShim) AllLinkLayerDevices() ([]networkingcommon.LinkLayerDevice, 
 	return out, nil
 }
 
-func (s machineShim) AllAddresses() ([]networkingcommon.LinkLayerAddress, error) {
-	addrList, err := s.Machine.AllAddresses()
+func (s machineShim) AllDeviceAddresses() ([]networkingcommon.LinkLayerAddress, error) {
+	addrList, err := s.Machine.AllDeviceAddresses()
 	if err != nil {
 		return nil, err
 	}

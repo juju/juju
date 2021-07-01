@@ -347,12 +347,12 @@ func (m *mockMachine) AllLinkLayerDevices() ([]networkingcommon.LinkLayerDevice,
 	return m.linkLayerDevices, nil
 }
 
-// AllAddresses implements StateMachine.
-func (m *mockMachine) AllAddresses() ([]networkingcommon.LinkLayerAddress, error) {
+// AllDeviceAddresses implements StateMachine.
+func (m *mockMachine) AllDeviceAddresses() ([]networkingcommon.LinkLayerAddress, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.MethodCall(m, "AllAddresses")
+	m.MethodCall(m, "AllDeviceAddresses")
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}

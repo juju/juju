@@ -31,10 +31,10 @@ func (m *linkLayerMachine) AllLinkLayerDevices() ([]LinkLayerDevice, error) {
 	return out, nil
 }
 
-// AllLinkLayerDevices returns all layer-3 addresses for the machine
+// AllDeviceAddresses returns all layer-3 addresses for the machine
 // as a slice of the LinkLayerAddress indirection.
-func (m *linkLayerMachine) AllAddresses() ([]LinkLayerAddress, error) {
-	addrList, err := m.Machine.AllAddresses()
+func (m *linkLayerMachine) AllDeviceAddresses() ([]LinkLayerAddress, error) {
+	addrList, err := m.Machine.AllDeviceAddresses()
 	if err != nil {
 		return nil, err
 	}
