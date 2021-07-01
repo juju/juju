@@ -219,7 +219,7 @@ func (s *ipAddressesStateSuite) assertNoAddressesOnMachine(c *gc.C, machine *sta
 func (s *ipAddressesStateSuite) assertAllAddressesOnMachineMatchCount(
 	c *gc.C, machine *state.Machine, expectedCount int,
 ) {
-	results, err := machine.AllAddresses()
+	results, err := machine.AllDeviceAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, expectedCount, gc.Commentf(
 		"expected %d, got %d: %+v", expectedCount, len(results), results))
@@ -311,7 +311,7 @@ func (s *ipAddressesStateSuite) TestMachineRemoveAllAddressesTwiceStillSucceeds(
 func (s *ipAddressesStateSuite) TestMachineAllAddressesSuccess(c *gc.C) {
 	addedAddresses := s.addTwoDevicesWithTwoAddressesEach(c)
 
-	allAddresses, err := s.machine.AllAddresses()
+	allAddresses, err := s.machine.AllDeviceAddresses()
 	sort.Sort(AddressSorter(allAddresses))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allAddresses, jc.DeepEquals, addedAddresses)

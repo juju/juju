@@ -15,45 +15,45 @@ import (
 	state "github.com/juju/juju/state"
 )
 
-// MockContainer is a mock of Container interface
+// MockContainer is a mock of Container interface.
 type MockContainer struct {
 	ctrl     *gomock.Controller
 	recorder *MockContainerMockRecorder
 }
 
-// MockContainerMockRecorder is the mock recorder for MockContainer
+// MockContainerMockRecorder is the mock recorder for MockContainer.
 type MockContainerMockRecorder struct {
 	mock *MockContainer
 }
 
-// NewMockContainer creates a new mock instance
+// NewMockContainer creates a new mock instance.
 func NewMockContainer(ctrl *gomock.Controller) *MockContainer {
 	mock := &MockContainer{ctrl: ctrl}
 	mock.recorder = &MockContainerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockContainer) EXPECT() *MockContainerMockRecorder {
 	return m.recorder
 }
 
-// AllAddresses mocks base method
-func (m *MockContainer) AllAddresses() ([]Address, error) {
+// AllDeviceAddresses mocks base method.
+func (m *MockContainer) AllDeviceAddresses() ([]Address, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllAddresses")
+	ret := m.ctrl.Call(m, "AllDeviceAddresses")
 	ret0, _ := ret[0].([]Address)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AllAddresses indicates an expected call of AllAddresses
-func (mr *MockContainerMockRecorder) AllAddresses() *gomock.Call {
+// AllDeviceAddresses indicates an expected call of AllDeviceAddresses.
+func (mr *MockContainerMockRecorder) AllDeviceAddresses() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllAddresses", reflect.TypeOf((*MockContainer)(nil).AllAddresses))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllDeviceAddresses", reflect.TypeOf((*MockContainer)(nil).AllDeviceAddresses))
 }
 
-// AllLinkLayerDevices mocks base method
+// AllLinkLayerDevices mocks base method.
 func (m *MockContainer) AllLinkLayerDevices() ([]LinkLayerDevice, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllLinkLayerDevices")
@@ -62,13 +62,13 @@ func (m *MockContainer) AllLinkLayerDevices() ([]LinkLayerDevice, error) {
 	return ret0, ret1
 }
 
-// AllLinkLayerDevices indicates an expected call of AllLinkLayerDevices
+// AllLinkLayerDevices indicates an expected call of AllLinkLayerDevices.
 func (mr *MockContainerMockRecorder) AllLinkLayerDevices() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllLinkLayerDevices", reflect.TypeOf((*MockContainer)(nil).AllLinkLayerDevices))
 }
 
-// AllSpaces mocks base method
+// AllSpaces mocks base method.
 func (m *MockContainer) AllSpaces() (set.Strings, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllSpaces")
@@ -77,13 +77,13 @@ func (m *MockContainer) AllSpaces() (set.Strings, error) {
 	return ret0, ret1
 }
 
-// AllSpaces indicates an expected call of AllSpaces
+// AllSpaces indicates an expected call of AllSpaces.
 func (mr *MockContainerMockRecorder) AllSpaces() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaces", reflect.TypeOf((*MockContainer)(nil).AllSpaces))
 }
 
-// Constraints mocks base method
+// Constraints mocks base method.
 func (m *MockContainer) Constraints() (constraints.Value, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Constraints")
@@ -92,13 +92,13 @@ func (m *MockContainer) Constraints() (constraints.Value, error) {
 	return ret0, ret1
 }
 
-// Constraints indicates an expected call of Constraints
+// Constraints indicates an expected call of Constraints.
 func (mr *MockContainerMockRecorder) Constraints() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Constraints", reflect.TypeOf((*MockContainer)(nil).Constraints))
 }
 
-// ContainerType mocks base method
+// ContainerType mocks base method.
 func (m *MockContainer) ContainerType() instance.ContainerType {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerType")
@@ -106,13 +106,13 @@ func (m *MockContainer) ContainerType() instance.ContainerType {
 	return ret0
 }
 
-// ContainerType indicates an expected call of ContainerType
+// ContainerType indicates an expected call of ContainerType.
 func (mr *MockContainerMockRecorder) ContainerType() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerType", reflect.TypeOf((*MockContainer)(nil).ContainerType))
 }
 
-// Id mocks base method
+// Id mocks base method.
 func (m *MockContainer) Id() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Id")
@@ -120,13 +120,13 @@ func (m *MockContainer) Id() string {
 	return ret0
 }
 
-// Id indicates an expected call of Id
+// Id indicates an expected call of Id.
 func (mr *MockContainerMockRecorder) Id() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Id", reflect.TypeOf((*MockContainer)(nil).Id))
 }
 
-// Raw mocks base method
+// Raw mocks base method.
 func (m *MockContainer) Raw() *state.Machine {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Raw")
@@ -134,13 +134,13 @@ func (m *MockContainer) Raw() *state.Machine {
 	return ret0
 }
 
-// Raw indicates an expected call of Raw
+// Raw indicates an expected call of Raw.
 func (mr *MockContainerMockRecorder) Raw() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Raw", reflect.TypeOf((*MockContainer)(nil).Raw))
 }
 
-// RemoveAllAddresses mocks base method
+// RemoveAllAddresses mocks base method.
 func (m *MockContainer) RemoveAllAddresses() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveAllAddresses")
@@ -148,13 +148,13 @@ func (m *MockContainer) RemoveAllAddresses() error {
 	return ret0
 }
 
-// RemoveAllAddresses indicates an expected call of RemoveAllAddresses
+// RemoveAllAddresses indicates an expected call of RemoveAllAddresses.
 func (mr *MockContainerMockRecorder) RemoveAllAddresses() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAllAddresses", reflect.TypeOf((*MockContainer)(nil).RemoveAllAddresses))
 }
 
-// SetConstraints mocks base method
+// SetConstraints mocks base method.
 func (m *MockContainer) SetConstraints(arg0 constraints.Value) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetConstraints", arg0)
@@ -162,13 +162,13 @@ func (m *MockContainer) SetConstraints(arg0 constraints.Value) error {
 	return ret0
 }
 
-// SetConstraints indicates an expected call of SetConstraints
+// SetConstraints indicates an expected call of SetConstraints.
 func (mr *MockContainerMockRecorder) SetConstraints(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConstraints", reflect.TypeOf((*MockContainer)(nil).SetConstraints), arg0)
 }
 
-// SetDevicesAddresses mocks base method
+// SetDevicesAddresses mocks base method.
 func (m *MockContainer) SetDevicesAddresses(arg0 ...state.LinkLayerDeviceAddress) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{}
@@ -180,13 +180,13 @@ func (m *MockContainer) SetDevicesAddresses(arg0 ...state.LinkLayerDeviceAddress
 	return ret0
 }
 
-// SetDevicesAddresses indicates an expected call of SetDevicesAddresses
+// SetDevicesAddresses indicates an expected call of SetDevicesAddresses.
 func (mr *MockContainerMockRecorder) SetDevicesAddresses(arg0 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDevicesAddresses", reflect.TypeOf((*MockContainer)(nil).SetDevicesAddresses), arg0...)
 }
 
-// SetLinkLayerDevices mocks base method
+// SetLinkLayerDevices mocks base method.
 func (m *MockContainer) SetLinkLayerDevices(arg0 ...state.LinkLayerDeviceArgs) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{}
@@ -198,50 +198,36 @@ func (m *MockContainer) SetLinkLayerDevices(arg0 ...state.LinkLayerDeviceArgs) e
 	return ret0
 }
 
-// SetLinkLayerDevices indicates an expected call of SetLinkLayerDevices
+// SetLinkLayerDevices indicates an expected call of SetLinkLayerDevices.
 func (mr *MockContainerMockRecorder) SetLinkLayerDevices(arg0 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLinkLayerDevices", reflect.TypeOf((*MockContainer)(nil).SetLinkLayerDevices), arg0...)
 }
 
-// SetParentLinkLayerDevicesBeforeTheirChildren mocks base method
-func (m *MockContainer) SetParentLinkLayerDevicesBeforeTheirChildren(arg0 []state.LinkLayerDeviceArgs) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetParentLinkLayerDevicesBeforeTheirChildren", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetParentLinkLayerDevicesBeforeTheirChildren indicates an expected call of SetParentLinkLayerDevicesBeforeTheirChildren
-func (mr *MockContainerMockRecorder) SetParentLinkLayerDevicesBeforeTheirChildren(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetParentLinkLayerDevicesBeforeTheirChildren", reflect.TypeOf((*MockContainer)(nil).SetParentLinkLayerDevicesBeforeTheirChildren), arg0)
-}
-
-// MockAddress is a mock of Address interface
+// MockAddress is a mock of Address interface.
 type MockAddress struct {
 	ctrl     *gomock.Controller
 	recorder *MockAddressMockRecorder
 }
 
-// MockAddressMockRecorder is the mock recorder for MockAddress
+// MockAddressMockRecorder is the mock recorder for MockAddress.
 type MockAddressMockRecorder struct {
 	mock *MockAddress
 }
 
-// NewMockAddress creates a new mock instance
+// NewMockAddress creates a new mock instance.
 func NewMockAddress(ctrl *gomock.Controller) *MockAddress {
 	mock := &MockAddress{ctrl: ctrl}
 	mock.recorder = &MockAddressMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAddress) EXPECT() *MockAddressMockRecorder {
 	return m.recorder
 }
 
-// DeviceName mocks base method
+// DeviceName mocks base method.
 func (m *MockAddress) DeviceName() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeviceName")
@@ -249,13 +235,13 @@ func (m *MockAddress) DeviceName() string {
 	return ret0
 }
 
-// DeviceName indicates an expected call of DeviceName
+// DeviceName indicates an expected call of DeviceName.
 func (mr *MockAddressMockRecorder) DeviceName() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeviceName", reflect.TypeOf((*MockAddress)(nil).DeviceName))
 }
 
-// Subnet mocks base method
+// Subnet mocks base method.
 func (m *MockAddress) Subnet() (Subnet, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Subnet")
@@ -264,36 +250,36 @@ func (m *MockAddress) Subnet() (Subnet, error) {
 	return ret0, ret1
 }
 
-// Subnet indicates an expected call of Subnet
+// Subnet indicates an expected call of Subnet.
 func (mr *MockAddressMockRecorder) Subnet() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subnet", reflect.TypeOf((*MockAddress)(nil).Subnet))
 }
 
-// MockSubnet is a mock of Subnet interface
+// MockSubnet is a mock of Subnet interface.
 type MockSubnet struct {
 	ctrl     *gomock.Controller
 	recorder *MockSubnetMockRecorder
 }
 
-// MockSubnetMockRecorder is the mock recorder for MockSubnet
+// MockSubnetMockRecorder is the mock recorder for MockSubnet.
 type MockSubnetMockRecorder struct {
 	mock *MockSubnet
 }
 
-// NewMockSubnet creates a new mock instance
+// NewMockSubnet creates a new mock instance.
 func NewMockSubnet(ctrl *gomock.Controller) *MockSubnet {
 	mock := &MockSubnet{ctrl: ctrl}
 	mock.recorder = &MockSubnetMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSubnet) EXPECT() *MockSubnetMockRecorder {
 	return m.recorder
 }
 
-// SpaceID mocks base method
+// SpaceID mocks base method.
 func (m *MockSubnet) SpaceID() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SpaceID")
@@ -301,36 +287,36 @@ func (m *MockSubnet) SpaceID() string {
 	return ret0
 }
 
-// SpaceID indicates an expected call of SpaceID
+// SpaceID indicates an expected call of SpaceID.
 func (mr *MockSubnetMockRecorder) SpaceID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpaceID", reflect.TypeOf((*MockSubnet)(nil).SpaceID))
 }
 
-// MockLinkLayerDevice is a mock of LinkLayerDevice interface
+// MockLinkLayerDevice is a mock of LinkLayerDevice interface.
 type MockLinkLayerDevice struct {
 	ctrl     *gomock.Controller
 	recorder *MockLinkLayerDeviceMockRecorder
 }
 
-// MockLinkLayerDeviceMockRecorder is the mock recorder for MockLinkLayerDevice
+// MockLinkLayerDeviceMockRecorder is the mock recorder for MockLinkLayerDevice.
 type MockLinkLayerDeviceMockRecorder struct {
 	mock *MockLinkLayerDevice
 }
 
-// NewMockLinkLayerDevice creates a new mock instance
+// NewMockLinkLayerDevice creates a new mock instance.
 func NewMockLinkLayerDevice(ctrl *gomock.Controller) *MockLinkLayerDevice {
 	mock := &MockLinkLayerDevice{ctrl: ctrl}
 	mock.recorder = &MockLinkLayerDeviceMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockLinkLayerDevice) EXPECT() *MockLinkLayerDeviceMockRecorder {
 	return m.recorder
 }
 
-// Addresses mocks base method
+// Addresses mocks base method.
 func (m *MockLinkLayerDevice) Addresses() ([]*state.Address, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Addresses")
@@ -339,13 +325,13 @@ func (m *MockLinkLayerDevice) Addresses() ([]*state.Address, error) {
 	return ret0, ret1
 }
 
-// Addresses indicates an expected call of Addresses
+// Addresses indicates an expected call of Addresses.
 func (mr *MockLinkLayerDeviceMockRecorder) Addresses() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Addresses", reflect.TypeOf((*MockLinkLayerDevice)(nil).Addresses))
 }
 
-// EthernetDeviceForBridge mocks base method
+// EthernetDeviceForBridge mocks base method.
 func (m *MockLinkLayerDevice) EthernetDeviceForBridge(arg0 string, arg1 bool) (network.InterfaceInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EthernetDeviceForBridge", arg0, arg1)
@@ -354,13 +340,13 @@ func (m *MockLinkLayerDevice) EthernetDeviceForBridge(arg0 string, arg1 bool) (n
 	return ret0, ret1
 }
 
-// EthernetDeviceForBridge indicates an expected call of EthernetDeviceForBridge
+// EthernetDeviceForBridge indicates an expected call of EthernetDeviceForBridge.
 func (mr *MockLinkLayerDeviceMockRecorder) EthernetDeviceForBridge(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EthernetDeviceForBridge", reflect.TypeOf((*MockLinkLayerDevice)(nil).EthernetDeviceForBridge), arg0, arg1)
 }
 
-// IsAutoStart mocks base method
+// IsAutoStart mocks base method.
 func (m *MockLinkLayerDevice) IsAutoStart() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsAutoStart")
@@ -368,13 +354,13 @@ func (m *MockLinkLayerDevice) IsAutoStart() bool {
 	return ret0
 }
 
-// IsAutoStart indicates an expected call of IsAutoStart
+// IsAutoStart indicates an expected call of IsAutoStart.
 func (mr *MockLinkLayerDeviceMockRecorder) IsAutoStart() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsAutoStart", reflect.TypeOf((*MockLinkLayerDevice)(nil).IsAutoStart))
 }
 
-// IsUp mocks base method
+// IsUp mocks base method.
 func (m *MockLinkLayerDevice) IsUp() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsUp")
@@ -382,13 +368,13 @@ func (m *MockLinkLayerDevice) IsUp() bool {
 	return ret0
 }
 
-// IsUp indicates an expected call of IsUp
+// IsUp indicates an expected call of IsUp.
 func (mr *MockLinkLayerDeviceMockRecorder) IsUp() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUp", reflect.TypeOf((*MockLinkLayerDevice)(nil).IsUp))
 }
 
-// MACAddress mocks base method
+// MACAddress mocks base method.
 func (m *MockLinkLayerDevice) MACAddress() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MACAddress")
@@ -396,13 +382,13 @@ func (m *MockLinkLayerDevice) MACAddress() string {
 	return ret0
 }
 
-// MACAddress indicates an expected call of MACAddress
+// MACAddress indicates an expected call of MACAddress.
 func (mr *MockLinkLayerDeviceMockRecorder) MACAddress() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MACAddress", reflect.TypeOf((*MockLinkLayerDevice)(nil).MACAddress))
 }
 
-// MTU mocks base method
+// MTU mocks base method.
 func (m *MockLinkLayerDevice) MTU() uint {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MTU")
@@ -410,13 +396,13 @@ func (m *MockLinkLayerDevice) MTU() uint {
 	return ret0
 }
 
-// MTU indicates an expected call of MTU
+// MTU indicates an expected call of MTU.
 func (mr *MockLinkLayerDeviceMockRecorder) MTU() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MTU", reflect.TypeOf((*MockLinkLayerDevice)(nil).MTU))
 }
 
-// Name mocks base method
+// Name mocks base method.
 func (m *MockLinkLayerDevice) Name() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Name")
@@ -424,13 +410,13 @@ func (m *MockLinkLayerDevice) Name() string {
 	return ret0
 }
 
-// Name indicates an expected call of Name
+// Name indicates an expected call of Name.
 func (mr *MockLinkLayerDeviceMockRecorder) Name() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockLinkLayerDevice)(nil).Name))
 }
 
-// ParentDevice mocks base method
+// ParentDevice mocks base method.
 func (m *MockLinkLayerDevice) ParentDevice() (LinkLayerDevice, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ParentDevice")
@@ -439,13 +425,13 @@ func (m *MockLinkLayerDevice) ParentDevice() (LinkLayerDevice, error) {
 	return ret0, ret1
 }
 
-// ParentDevice indicates an expected call of ParentDevice
+// ParentDevice indicates an expected call of ParentDevice.
 func (mr *MockLinkLayerDeviceMockRecorder) ParentDevice() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ParentDevice", reflect.TypeOf((*MockLinkLayerDevice)(nil).ParentDevice))
 }
 
-// ParentName mocks base method
+// ParentName mocks base method.
 func (m *MockLinkLayerDevice) ParentName() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ParentName")
@@ -453,13 +439,13 @@ func (m *MockLinkLayerDevice) ParentName() string {
 	return ret0
 }
 
-// ParentName indicates an expected call of ParentName
+// ParentName indicates an expected call of ParentName.
 func (mr *MockLinkLayerDeviceMockRecorder) ParentName() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ParentName", reflect.TypeOf((*MockLinkLayerDevice)(nil).ParentName))
 }
 
-// Type mocks base method
+// Type mocks base method.
 func (m *MockLinkLayerDevice) Type() network.LinkLayerDeviceType {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Type")
@@ -467,13 +453,13 @@ func (m *MockLinkLayerDevice) Type() network.LinkLayerDeviceType {
 	return ret0
 }
 
-// Type indicates an expected call of Type
+// Type indicates an expected call of Type.
 func (mr *MockLinkLayerDeviceMockRecorder) Type() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Type", reflect.TypeOf((*MockLinkLayerDevice)(nil).Type))
 }
 
-// VirtualPortType mocks base method
+// VirtualPortType mocks base method.
 func (m *MockLinkLayerDevice) VirtualPortType() network.VirtualPortType {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VirtualPortType")
@@ -481,7 +467,7 @@ func (m *MockLinkLayerDevice) VirtualPortType() network.VirtualPortType {
 	return ret0
 }
 
-// VirtualPortType indicates an expected call of VirtualPortType
+// VirtualPortType indicates an expected call of VirtualPortType.
 func (mr *MockLinkLayerDeviceMockRecorder) VirtualPortType() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VirtualPortType", reflect.TypeOf((*MockLinkLayerDevice)(nil).VirtualPortType))

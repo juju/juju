@@ -49,6 +49,8 @@ var (
 )
 
 type manualEnviron struct {
+	environs.NoSpaceDiscoveryEnviron
+
 	host string
 	user string
 	mu   sync.Mutex

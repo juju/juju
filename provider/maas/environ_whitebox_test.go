@@ -617,7 +617,7 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 
 	spaces, err := suite.makeEnviron().Spaces(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedSpaces := []corenetwork.SpaceInfo{{
+	expectedSpaces := corenetwork.SpaceInfos{{
 		Name:       "space-1",
 		ProviderId: "2",
 		Subnets: []corenetwork.SubnetInfo{

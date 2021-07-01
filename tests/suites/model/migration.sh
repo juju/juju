@@ -247,7 +247,7 @@ bootstrap_alt_controller() {
 	echo "====> Bootstrapping ${name}"
 
 	file="${TEST_DIR}/${name}.log"
-	juju_bootstrap "${BOOTSTRAP_PROVIDER}" "${name}" "misc" "${file}"
+	juju_bootstrap "${BOOTSTRAP_CLOUD}" "${name}" "misc" "${file}"
 
 	END_TIME=$(date +%s)
 	echo "====> Bootstrapped ${name} ($((END_TIME - START_TIME))s)"

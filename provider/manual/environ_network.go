@@ -30,16 +30,6 @@ func (e *manualEnviron) SuperSubnets(context.ProviderCallContext) ([]string, err
 	return nil, errors.NotSupportedf("super subnets")
 }
 
-// SupportsSpaceDiscovery implements environs.NetworkingEnviron.
-func (e *manualEnviron) SupportsSpaceDiscovery(context.ProviderCallContext) (bool, error) {
-	return false, nil
-}
-
-// Spaces implements environs.NetworkingEnviron.
-func (e *manualEnviron) Spaces(context.ProviderCallContext) ([]network.SpaceInfo, error) {
-	return nil, errors.NotSupportedf("spaces")
-}
-
 // SupportsContainerAddresses implements environs.NetworkingEnviron.
 func (e *manualEnviron) SupportsContainerAddresses(context.ProviderCallContext) (bool, error) {
 	return false, nil
@@ -55,13 +45,6 @@ func (e *manualEnviron) AllocateContainerAddresses(
 // ReleaseContainerAddresses implements environs.NetworkingEnviron.
 func (e *manualEnviron) ReleaseContainerAddresses(context.ProviderCallContext, []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container addresses")
-}
-
-// ProviderSpaceInfo implements environs.NetworkingEnviron.
-func (*manualEnviron) ProviderSpaceInfo(
-	context.ProviderCallContext, *network.SpaceInfo,
-) (*environs.ProviderSpaceInfo, error) {
-	return nil, errors.NotSupportedf("provider space info")
 }
 
 // AreSpacesRoutable implements environs.NetworkingEnviron.

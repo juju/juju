@@ -80,13 +80,15 @@ const (
 )
 
 type azureEnviron struct {
+	environs.NoSpaceDiscoveryEnviron
+
 	// provider is the azureEnvironProvider used to open this environment.
 	provider *azureEnvironProvider
 
 	// cloud defines the cloud configuration for this environment.
 	cloud environscloudspec.CloudSpec
 
-	// location is the canonicalized location name. Use this instead
+	// location is the canonical location name. Use this instead
 	// of cloud.Region in API calls.
 	location string
 

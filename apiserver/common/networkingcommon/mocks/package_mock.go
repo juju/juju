@@ -5,13 +5,14 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	networkingcommon "github.com/juju/juju/apiserver/common/networkingcommon"
 	life "github.com/juju/juju/core/life"
 	network "github.com/juju/juju/core/network"
 	state "github.com/juju/juju/state"
 	txn "github.com/juju/mgo/v2/txn"
-	reflect "reflect"
 )
 
 // MockBackingSpace is a mock of BackingSpace interface
@@ -575,9 +576,9 @@ func (mr *MockLinkLayerMachineMockRecorder) AddLinkLayerDeviceOps(arg0 interface
 }
 
 // AllAddresses mocks base method
-func (m *MockLinkLayerMachine) AllAddresses() ([]networkingcommon.LinkLayerAddress, error) {
+func (m *MockLinkLayerMachine) AllDeviceAddresses() ([]networkingcommon.LinkLayerAddress, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllAddresses")
+	ret := m.ctrl.Call(m, "AllDeviceAddresses")
 	ret0, _ := ret[0].([]networkingcommon.LinkLayerAddress)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -586,7 +587,7 @@ func (m *MockLinkLayerMachine) AllAddresses() ([]networkingcommon.LinkLayerAddre
 // AllAddresses indicates an expected call of AllAddresses
 func (mr *MockLinkLayerMachineMockRecorder) AllAddresses() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllAddresses", reflect.TypeOf((*MockLinkLayerMachine)(nil).AllAddresses))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllDeviceAddresses", reflect.TypeOf((*MockLinkLayerMachine)(nil).AllDeviceAddresses))
 }
 
 // AllLinkLayerDevices mocks base method

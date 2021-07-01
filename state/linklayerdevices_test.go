@@ -1114,7 +1114,7 @@ func (s *linkLayerDevicesStateSuite) TestSetDeviceAddressesWithSubnetID(c *gc.C)
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	allAddr, err := s.machine.AllAddresses()
+	allAddr, err := s.machine.AllDeviceAddresses()
 	c.Assert(err, gc.IsNil)
 
 	expSubnetID := map[string]corenetwork.Id{

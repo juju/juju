@@ -40,6 +40,8 @@ import (
 )
 
 type Environ struct {
+	environs.NoSpaceDiscoveryEnviron
+
 	Compute    providerCommon.OCIComputeClient
 	Networking providerCommon.OCINetworkingClient
 	Storage    providerCommon.OCIStorageClient
