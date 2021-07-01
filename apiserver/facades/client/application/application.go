@@ -895,18 +895,26 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
-
 	charmSettings := make(charm.Settings)
-	if len(charmYamlConfig) > 0 {
-		if charmSettings, err = ch.Config().ParseSettingsYAML([]byte(charmYamlConfig), appName); err != nil {
-			// Check if this is 'juju get' output and parse it as such
-			jujuGetSettings, pErr := charmConfigFromYamlConfigValues(charmYamlConfig)
-			if pErr != nil {
-				// Not 'juju output' either; return original error
-				return nil, nil, nil, errors.Trace(err)
-			}
-			charmSettings = jujuGetSettings
+
+	// If there isn't a charm YAML, then we can just return the charmConfig as
+	// the settings and no need to attempt to parse an empty yaml.
+	if len(charmYamlConfig) == 0 {
+		for k, v := range charmConfig {
+			charmSettings[k] = v
 		}
+		return appConfig, appCfgSchema, charmSettings, nil
+	}
+
+	// Parse the charm YAML and check the yaml against the charm config.
+	if charmSettings, err = ch.Config().ParseSettingsYAML([]byte(charmYamlConfig), appName); err != nil {
+		// Check if this is 'juju get' output and parse it as such
+		jujuGetSettings, pErr := charmConfigFromYamlConfigValues(charmYamlConfig)
+		if pErr != nil {
+			// Not 'juju output' either; return original error
+			return nil, nil, nil, errors.Trace(err)
+		}
+		charmSettings = jujuGetSettings
 	}
 
 	// Entries from the string-based config map always override any entries
