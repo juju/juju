@@ -226,7 +226,7 @@ func (*environ) SupportsSpaceDiscovery(context.ProviderCallContext) (bool, error
 // Spaces returns a slice of network.SpaceInfo with info, including
 // details of all associated subnets, about all spaces known to the
 // provider that have subnets available.
-func (*environ) Spaces(context.ProviderCallContext) ([]network.SpaceInfo, error) {
+func (*environ) Spaces(context.ProviderCallContext) (network.SpaceInfos, error) {
 	return nil, errors.NotSupportedf("spaces")
 }
 
