@@ -33,6 +33,8 @@ type baseProvider interface {
 }
 
 type environ struct {
+	environs.NoSpaceDiscoveryEnviron
+
 	cloud    environscloudspec.CloudSpec
 	provider *environProvider
 

@@ -5,35 +5,36 @@
 package sync_test
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	simplestreams "github.com/juju/juju/environs/simplestreams"
-	reflect "reflect"
 )
 
-// MockSimplestreamsFetcher is a mock of SimplestreamsFetcher interface
+// MockSimplestreamsFetcher is a mock of SimplestreamsFetcher interface.
 type MockSimplestreamsFetcher struct {
 	ctrl     *gomock.Controller
 	recorder *MockSimplestreamsFetcherMockRecorder
 }
 
-// MockSimplestreamsFetcherMockRecorder is the mock recorder for MockSimplestreamsFetcher
+// MockSimplestreamsFetcherMockRecorder is the mock recorder for MockSimplestreamsFetcher.
 type MockSimplestreamsFetcherMockRecorder struct {
 	mock *MockSimplestreamsFetcher
 }
 
-// NewMockSimplestreamsFetcher creates a new mock instance
+// NewMockSimplestreamsFetcher creates a new mock instance.
 func NewMockSimplestreamsFetcher(ctrl *gomock.Controller) *MockSimplestreamsFetcher {
 	mock := &MockSimplestreamsFetcher{ctrl: ctrl}
 	mock.recorder = &MockSimplestreamsFetcherMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSimplestreamsFetcher) EXPECT() *MockSimplestreamsFetcherMockRecorder {
 	return m.recorder
 }
 
-// GetMetadata mocks base method
+// GetMetadata mocks base method.
 func (m *MockSimplestreamsFetcher) GetMetadata(arg0 []simplestreams.DataSource, arg1 simplestreams.GetMetadataParams) ([]interface{}, *simplestreams.ResolveInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMetadata", arg0, arg1)
@@ -43,13 +44,13 @@ func (m *MockSimplestreamsFetcher) GetMetadata(arg0 []simplestreams.DataSource, 
 	return ret0, ret1, ret2
 }
 
-// GetMetadata indicates an expected call of GetMetadata
+// GetMetadata indicates an expected call of GetMetadata.
 func (mr *MockSimplestreamsFetcherMockRecorder) GetMetadata(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetadata", reflect.TypeOf((*MockSimplestreamsFetcher)(nil).GetMetadata), arg0, arg1)
 }
 
-// NewDataSource mocks base method
+// NewDataSource mocks base method.
 func (m *MockSimplestreamsFetcher) NewDataSource(arg0 simplestreams.Config) simplestreams.DataSource {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewDataSource", arg0)
@@ -57,7 +58,7 @@ func (m *MockSimplestreamsFetcher) NewDataSource(arg0 simplestreams.Config) simp
 	return ret0
 }
 
-// NewDataSource indicates an expected call of NewDataSource
+// NewDataSource indicates an expected call of NewDataSource.
 func (mr *MockSimplestreamsFetcherMockRecorder) NewDataSource(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewDataSource", reflect.TypeOf((*MockSimplestreamsFetcher)(nil).NewDataSource), arg0)

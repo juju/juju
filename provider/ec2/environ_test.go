@@ -264,8 +264,7 @@ func (*Suite) TestSupportsSpaces(c *gc.C) {
 }
 
 func (*Suite) TestSupportsSpaceDiscovery(c *gc.C) {
-	var env *environ
-	supported, err := env.SupportsSpaceDiscovery(context.NewEmptyCloudCallContext())
+	supported, err := (&environ{}).SupportsSpaceDiscovery(context.NewEmptyCloudCallContext())
 	// TODO(jam): 2016-02-01 the comment on the interface says the error should
 	// conform to IsNotSupported, but all of the implementations just return
 	// nil for error and 'false' for supported.
