@@ -895,17 +895,18 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
-	charmSettings := make(charm.Settings)
 
 	// If there isn't a charm YAML, then we can just return the charmConfig as
 	// the settings and no need to attempt to parse an empty yaml.
 	if len(charmYamlConfig) == 0 {
-		for k, v := range charmConfig {
-			charmSettings[k] = v
+		settings, err := ch.Config().ParseSettingsStrings(charmConfig)
+		if err != nil {
+			return nil, nil, nil, errors.Trace(err)
 		}
-		return appConfig, appCfgSchema, charmSettings, nil
+		return appConfig, appCfgSchema, settings, nil
 	}
 
+	var charmSettings charm.Settings
 	// Parse the charm YAML and check the yaml against the charm config.
 	if charmSettings, err = ch.Config().ParseSettingsYAML([]byte(charmYamlConfig), appName); err != nil {
 		// Check if this is 'juju get' output and parse it as such
