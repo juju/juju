@@ -61,8 +61,8 @@ bootstrap() {
 	"localhost" | "lxd")
 		cloud="lxd"
 		;;
-	"lxd-remote" | "vsphere" | "openstack"  | "k8s" )
-    cloud="${BOOTSTRAP_CLOUD}"
+	"lxd-remote" | "vsphere" | "openstack" | "k8s")
+		cloud="${BOOTSTRAP_CLOUD}"
 		;;
 	"manual")
 		manual_name=${1}
@@ -101,7 +101,7 @@ bootstrap() {
 		fi
 	fi
 	if [[ ${BOOTSTRAP_REUSE} == "true" && ${BOOTSTRAP_PROVIDER} != "k8s" ]]; then
-	  # juju show-machine not supported with k8s controllers
+		# juju show-machine not supported with k8s controllers
 		OUT=$(juju show-machine -m "${bootstrapped_name}":controller --format=json | jq -r ".machines | .[] | .series")
 		if [[ -n ${OUT} ]]; then
 			OUT=$(echo "${OUT}" | grep -oh "${BOOTSTRAP_SERIES}" || true)
@@ -158,7 +158,7 @@ add_model() {
 	fi
 
 	if [[ ${BOOTSTRAP_PROVIDER} == "vsphere" ]]; then
-	  add_image_for_vsphere
+		add_image_for_vsphere
 	fi
 
 	echo "${model}" >>"${TEST_DIR}/models"
@@ -167,26 +167,26 @@ add_model() {
 # add_images_for_vsphere is used to add-image with known vSphere template paths for LTS series
 # and shouldn't be used by any of the tests directly.
 add_images_for_vsphere() {
-  juju metadata add-image juju-ci-root/templates/focal-test-template --series focal
-  juju metadata add-image juju-ci-root/templates/bionic-test-template --series bionic
-  juju metadata add-image juju-ci-root/templates/xenial-test-template --series xenial
+	juju metadata add-image juju-ci-root/templates/focal-test-template --series focal
+	juju metadata add-image juju-ci-root/templates/bionic-test-template --series bionic
+	juju metadata add-image juju-ci-root/templates/xenial-test-template --series xenial
 }
 
 # setup_vsphere_simplestreams generates image metadata for use during vSphere bootstrap.  There is
 # an assumption made with regards to the template name in the Boston vSphere.  This is for internal
 # use only and shouldn't be used by any of the tests directly.
 setup_vsphere_simplestreams() {
-  local dir series
+	local dir series
 
-  dir=${1}
-  series=${2:-"focal"}
+	dir=${1}
+	series=${2:-"focal"}
 
-  if [[ ! -f ${dir} ]]; then
-    mkdir "${dir}" || true
-  fi
+	if [[ ! -f ${dir} ]]; then
+		mkdir "${dir}" || true
+	fi
 
-  cloud_endpoint=$(juju clouds --client --format=json | jq -r ".[\"$BOOTSTRAP_CLOUD\"] | .endpoint")
-  juju metadata generate-image -i juju-ci-root/templates/"${series}"-test-template -r "${BOOTSTRAP_REGION}" -d "${dir}" -u "${cloud_endpoint}" -s "${series}"
+	cloud_endpoint=$(juju clouds --client --format=json | jq -r ".[\"$BOOTSTRAP_CLOUD\"] | .endpoint")
+	juju metadata generate-image -i juju-ci-root/templates/"${series}"-test-template -r "${BOOTSTRAP_REGION}" -d "${dir}" -u "${cloud_endpoint}" -s "${series}"
 }
 
 # juju_bootstrap is used to bootstrap a model for tracking. This is for internal
@@ -223,11 +223,10 @@ juju_bootstrap() {
 	if [[ ${BOOTSTRAP_PROVIDER} == "vsphere" ]]; then
 		echo "====> Creating image simplestream metadata for juju ($(green "${version}:${cloud}"))"
 
-	  image_streams_dir=/tmp/image-streams
-	  setup_vsphere_simplestreams ${image_streams_dir} "${BOOTSTRAP_SERIES}"
-	  image_metadata="--metadata-source ${image_streams_dir}"
+		image_streams_dir=${TEST_DIR}/image-streams
+		setup_vsphere_simplestreams "${image_streams_dir}" "${BOOTSTRAP_SERIES}"
+		image_metadata="--metadata-source ${image_streams_dir}"
 	fi
-
 
 	# When double quotes are added to ${series}, the juju bootstrap
 	# command looks correct, and works outside of the harness, but
@@ -240,8 +239,8 @@ juju_bootstrap() {
 	echo "${name}" >>"${TEST_DIR}/jujus"
 
 	if [[ ${BOOTSTRAP_PROVIDER} == "vsphere" ]]; then
-	  rm -r "${image_streams_dir}"
-	  add_images_for_vsphere
+		rm -r "${image_streams_dir}"
+		add_images_for_vsphere
 	fi
 }
 
@@ -360,15 +359,15 @@ introspect_controller() {
 
 	name=${1}
 
-  if [[ ${BOOTSTRAP_PROVIDER} == "k8s" ]]; then
-    echo "====> TODO: Implement introspection for k8s"
-    return
-  fi
+	if [[ ${BOOTSTRAP_PROVIDER} == "k8s" ]]; then
+		echo "====> TODO: Implement introspection for k8s"
+		return
+	fi
 
 	idents=$(juju machines -m "${name}:controller" --format=json | jq ".machines | keys | .[]")
-  if [[ -z ${idents} ]]; then
+	if [[ -z ${idents} ]]; then
 		return
-  fi
+	fi
 
 	echo "${idents}" | xargs -I % juju ssh -m "${name}:controller" % bash -lc "juju_engine_report" >"${TEST_DIR}/${name}-juju_engine_reports.log" 2>/dev/null
 	echo "${idents}" | xargs -I % juju ssh -m "${name}:controller" % bash -lc "juju_goroutines" >"${TEST_DIR}/${name}-juju_goroutines.log" 2>/dev/null
