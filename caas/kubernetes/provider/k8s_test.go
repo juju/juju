@@ -4008,10 +4008,16 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount, v1.CreateOptions{}).Return(svcAccount, nil),
-		s.mockClusterRoles.EXPECT().Get(gomock.Any(), cr.Name, gomock.Any()).Return(cr, nil),
-		s.mockClusterRoles.EXPECT().Update(gomock.Any(), cr, gomock.Any()).Return(cr, nil),
-		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), crb.Name, gomock.Any()).Return(crb, nil),
-		s.mockClusterRoleBindings.EXPECT().Update(gomock.Any(), crb, gomock.Any()).Return(crb, nil),
+		s.mockClusterRoles.EXPECT().Get(gomock.Any(), cr.Name, gomock.Any()).Return(nil, s.k8sNotFoundError()),
+		s.mockClusterRoles.EXPECT().Patch(
+			gomock.Any(), cr.Name, types.StrategicMergePatchType, gomock.Any(), v1.PatchOptions{FieldManager: "juju"},
+		).Return(nil, s.k8sNotFoundError()),
+		s.mockClusterRoles.EXPECT().Create(gomock.Any(), cr, gomock.Any()).Return(cr, nil),
+		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), crb.Name, gomock.Any()).Return(nil, s.k8sNotFoundError()),
+		s.mockClusterRoleBindings.EXPECT().Patch(
+			gomock.Any(), crb.Name, types.StrategicMergePatchType, gomock.Any(), v1.PatchOptions{FieldManager: "juju"},
+		).Return(nil, s.k8sNotFoundError()),
+		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), crb, gomock.Any()).Return(crb, nil),
 		s.mockSecrets.EXPECT().Create(gomock.Any(), secretArg, v1.CreateOptions{}).Return(secretArg, nil),
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
@@ -4189,8 +4195,11 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 		s.mockServiceAccounts.EXPECT().Update(gomock.Any(), svcAccount, v1.UpdateOptions{}).Return(svcAccount, nil),
 		s.mockClusterRoles.EXPECT().Get(gomock.Any(), cr.Name, gomock.Any()).Return(cr, nil),
 		s.mockClusterRoles.EXPECT().Update(gomock.Any(), cr, gomock.Any()).Return(cr, nil),
-		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), "app-name-test-app-name", gomock.Any()).Return(crb, nil),
-		s.mockClusterRoleBindings.EXPECT().Update(gomock.Any(), crb, gomock.Any()).Return(crb, nil),
+		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), crb.Name, gomock.Any()).Return(nil, s.k8sNotFoundError()),
+		s.mockClusterRoleBindings.EXPECT().Patch(
+			gomock.Any(), crb.Name, types.StrategicMergePatchType, gomock.Any(), v1.PatchOptions{FieldManager: "juju"},
+		).Return(nil, s.k8sNotFoundError()),
+		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), crb, gomock.Any()).Return(crb, nil),
 		s.mockSecrets.EXPECT().Create(gomock.Any(), secretArg, v1.CreateOptions{}).Return(secretArg, nil),
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
@@ -4717,8 +4726,11 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount2, v1.CreateOptions{}).Return(svcAccount2, nil),
 		s.mockClusterRoles.EXPECT().Get(gomock.Any(), clusterrole2.Name, gomock.Any()).Return(clusterrole2, nil),
 		s.mockClusterRoles.EXPECT().Update(gomock.Any(), clusterrole2, gomock.Any()).Return(clusterrole2, nil),
-		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), crb2.Name, gomock.Any()).Return(crb2, nil),
-		s.mockClusterRoleBindings.EXPECT().Update(gomock.Any(), crb2, gomock.Any()).Return(crb2, nil),
+		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), crb2.Name, gomock.Any()).Return(nil, s.k8sNotFoundError()),
+		s.mockClusterRoleBindings.EXPECT().Patch(
+			gomock.Any(), crb2.Name, types.StrategicMergePatchType, gomock.Any(), v1.PatchOptions{FieldManager: "juju"},
+		).Return(nil, s.k8sNotFoundError()),
+		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), crb2, gomock.Any()).Return(crb2, nil),
 
 		s.mockSecrets.EXPECT().Create(gomock.Any(), secretArg, v1.CreateOptions{}).Return(secretArg, nil),
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
@@ -5039,8 +5051,11 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), rb2, v1.CreateOptions{}).Return(rb2, nil),
 		s.mockClusterRoles.EXPECT().Get(gomock.Any(), clusterrole2.Name, gomock.Any()).Return(clusterrole2, nil),
 		s.mockClusterRoles.EXPECT().Update(gomock.Any(), clusterrole2, gomock.Any()).Return(clusterrole2, nil),
-		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), crb2.Name, gomock.Any()).Return(crb2, nil),
-		s.mockClusterRoleBindings.EXPECT().Update(gomock.Any(), crb2, gomock.Any()).Return(crb2, nil),
+		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), crb2.Name, gomock.Any()).Return(nil, s.k8sNotFoundError()),
+		s.mockClusterRoleBindings.EXPECT().Patch(
+			gomock.Any(), crb2.Name, types.StrategicMergePatchType, gomock.Any(), v1.PatchOptions{FieldManager: "juju"},
+		).Return(nil, s.k8sNotFoundError()),
+		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), crb2, gomock.Any()).Return(crb2, nil),
 
 		s.mockSecrets.EXPECT().Create(gomock.Any(), secretArg, v1.CreateOptions{}).Return(secretArg, nil),
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).

@@ -22,6 +22,7 @@ import (
 	k8sstorage "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
@@ -922,8 +923,12 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 		s.mockServiceAccounts.EXPECT().Update(gomock.Any(), controllerServiceAccount, gomock.Any()).
 			Return(controllerServiceAccount, nil),
 		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), controllerServiceCRB.Name, gomock.Any()).
-			Return(controllerServiceCRB, nil),
-		s.mockClusterRoleBindings.EXPECT().Update(gomock.Any(), controllerServiceCRB, gomock.Any()).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockClusterRoleBindings.EXPECT().Patch(
+			gomock.Any(), controllerServiceCRB.Name, types.StrategicMergePatchType, gomock.Any(),
+			v1.PatchOptions{FieldManager: "juju"},
+		).Return(nil, s.k8sNotFoundError()),
+		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), controllerServiceCRB, gomock.Any()).
 			Return(controllerServiceCRB, nil),
 
 		// Check the operator storage exists.

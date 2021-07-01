@@ -80,7 +80,9 @@ func (rb *ClusterRoleBinding) Get(ctx context.Context, client kubernetes.Interfa
 func (rb *ClusterRoleBinding) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.RbacV1().ClusterRoleBindings()
 	err := api.Delete(ctx, rb.Name, metav1.DeleteOptions{
-		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+		PropagationPolicy:  k8sconstants.DeletePropagationBackground(),
+		GracePeriodSeconds: int64Ptr(0),
+		Preconditions:      &metav1.Preconditions{UID: &rb.UID},
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -90,53 +92,48 @@ func (rb *ClusterRoleBinding) Delete(ctx context.Context, client kubernetes.Inte
 	return nil
 }
 
+func shouldDelete(crb1, crb2 rbacv1.ClusterRoleBinding) bool {
+	return crb1.RoleRef.APIGroup != crb2.RoleRef.APIGroup ||
+		crb1.RoleRef.Kind != crb2.RoleRef.Kind ||
+		crb1.RoleRef.Name != crb2.RoleRef.Name
+}
+
 // Ensure ensures this cluster role exists in it's desired form inside the
 // cluster. If the object does not exist it's updated and if the object exists
 // it's updated. The method also takes an optional set of claims to test the
-// exisiting Kubernetes object with to assert ownership before overwriting it.
+// existing Kubernetes object with to assert ownership before overwriting it.
 func (rb *ClusterRoleBinding) Ensure(
 	ctx context.Context,
 	client kubernetes.Interface,
 	claims ...Claim,
 ) ([]func(), error) {
 	cleanups := []func(){}
-	hasClaim := true
-	doUpdate := true
 
 	existing := ClusterRoleBinding{rb.ClusterRoleBinding}
 	err := existing.Get(ctx, client)
-	if err == nil {
-		hasClaim, err = RunClaims(claims...).Assert(&existing.ClusterRoleBinding)
-	}
 	if err != nil && !errors.IsNotFound(err) {
-		return cleanups, errors.Annotatef(
-			err,
-			"checking for existing cluster role binding %q",
-			rb.Name,
-		)
+		return cleanups, errors.Annotatef(err, "getting existing cluster role binding %q", rb.Name)
 	}
-
-	if !hasClaim {
-		return cleanups, errors.AlreadyExistsf(
-			"cluster role binding %q not controlled by juju", rb.Name)
-	}
-
-	if errors.IsNotFound(err) {
-		doUpdate = false
-	}
-
-	// If roleref is changed we need to delete the cluster role binding and
-	// re-create it.
-	if !errors.IsNotFound(err) && (existing.RoleRef.APIGroup != rb.RoleRef.APIGroup ||
-		existing.RoleRef.Kind != rb.RoleRef.Kind ||
-		existing.RoleRef.Name != rb.RoleRef.Name) {
-		if err := existing.Delete(ctx, client); err != nil {
-			return cleanups, errors.Annotatef(
-				err,
-				"delete cluster role binding %q because roleref has changed",
-				existing.Name)
+	doUpdate := !errors.IsNotFound(err)
+	if err == nil {
+		hasClaim, err := RunClaims(claims...).Assert(&existing.ClusterRoleBinding)
+		if err != nil {
+			return cleanups, errors.Annotatef(err, "checking for existing cluster role binding %q", rb.Name)
 		}
-		doUpdate = false
+		if !hasClaim {
+			return cleanups, errors.AlreadyExistsf(
+				"cluster role binding %q not controlled by juju", rb.Name)
+		}
+		if shouldDelete(existing.ClusterRoleBinding, rb.ClusterRoleBinding) {
+			// RoleRef is immutable, delete the cluster role binding then re-create it.
+			if err := existing.Delete(ctx, client); err != nil {
+				return cleanups, errors.Annotatef(
+					err,
+					"delete cluster role binding %q because roleref has changed",
+					existing.Name)
+			}
+			doUpdate = false
+		}
 	}
 
 	cleanups = append(cleanups, func() { _ = rb.Delete(ctx, client) })
