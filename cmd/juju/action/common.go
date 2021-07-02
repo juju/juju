@@ -25,7 +25,6 @@ import (
 	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/actions"
-	coreactions "github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -43,7 +42,7 @@ var (
 	// nameRule describes the name format of an action or keyName must match to be valid.
 	nameRule = charm.GetActionNameRule()
 
-	//resultPollTime is how often to poll the backend for results.
+	// resultPollTime is how often to poll the backend for results.
 	resultPollTime = 2 * time.Second
 )
 
@@ -594,7 +593,7 @@ func formatTimestamp(timestamp time.Time, progressFormat, utc, plain bool) strin
 	return timestamp.Format(timestampFormat)
 }
 
-func formatLogMessage(actionMessage coreactions.ActionMessage, progressFormat, utc, plain bool) string {
+func formatLogMessage(actionMessage actions.ActionMessage, progressFormat, utc, plain bool) string {
 	return fmt.Sprintf("%v %v", formatTimestamp(actionMessage.Timestamp, progressFormat, utc, plain), actionMessage.Message)
 }
 
