@@ -356,6 +356,81 @@ Waiting for task 2...
 `[1:])
 }
 
+func (s *ExecSuite) TestAllMachinesWithError(c *gc.C) {
+	fakeClient := &fakeAPIClient{}
+	restore := s.patchAPIClient(fakeClient)
+	defer restore()
+
+	fakeClient.actionResults = []actionapi.ActionResult{{
+		Action: &actionapi.Action{
+			ID:       validActionId,
+			Receiver: "machine-0",
+		},
+		Output: map[string]interface{}{
+			"stdout":      "megatron",
+			"return-code": "2",
+		},
+		Status:    "completed",
+		Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+		Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
+		Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
+	}, {
+		Action: &actionapi.Action{
+			ID:       validActionId2,
+			Receiver: "machine-1",
+		},
+		Output: map[string]interface{}{
+			"return-code": "1",
+		},
+		Status:    "completed",
+		Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+		Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
+		Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
+	}}
+	fakeClient.machines = set.NewStrings("0", "1")
+
+	runCmd, _ := newTestExecCommand(testClock(), model.IAAS)
+	context, err := cmdtesting.RunCommand(c, runCmd,
+		"--format=yaml", "--all", "hostname", "--utc")
+	c.Assert(err, gc.ErrorMatches, `the following tasks failed:
+ - id "1" with return code 2
+ - id "2" with return code 1
+
+`)
+
+	c.Check(cmdtesting.Stdout(context), gc.Equals, `
+"0":
+  id: "1"
+  machine: "0"
+  results:
+    return-code: 2
+    stdout: megatron
+  status: completed
+  timing:
+    completed: 2015-02-14 08:17:00 +0000 UTC
+    enqueued: 2015-02-14 08:13:00 +0000 UTC
+    started: 2015-02-14 08:15:00 +0000 UTC
+"1":
+  id: "2"
+  machine: "1"
+  results:
+    return-code: 1
+  status: completed
+  timing:
+    completed: 2015-02-14 08:17:00 +0000 UTC
+    enqueued: 2015-02-14 08:13:00 +0000 UTC
+    started: 2015-02-14 08:15:00 +0000 UTC
+`[1:])
+	c.Check(cmdtesting.Stderr(context), gc.Equals, `
+Running operation 1 with 2 tasks
+  - task 1 on machine-0
+  - task 2 on machine-1
+
+Waiting for task 1...
+Waiting for task 2...
+`[1:])
+}
+
 func (s *ExecSuite) TestTimeout(c *gc.C) {
 	fakeClient := &fakeAPIClient{}
 	restore := s.patchAPIClient(fakeClient)
