@@ -35,7 +35,6 @@ func NewRunCommand() cmd.Command {
 type runCommand struct {
 	runCommandBase
 	unitReceivers []string
-	leaders       map[string]string
 	actionName    string
 	paramsYAML    cmd.FileVar
 	parseStrings  bool

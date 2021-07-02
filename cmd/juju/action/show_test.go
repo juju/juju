@@ -14,12 +14,10 @@ import (
 
 	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/cmd/juju/action"
-	"github.com/juju/juju/state"
 )
 
 type ShowSuite struct {
 	BaseActionSuite
-	app            *state.Application
 	wrappedCommand cmd.Command
 	command        *action.ShowCommand
 }

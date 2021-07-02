@@ -633,20 +633,24 @@ Waiting for task 1...
 		format  string
 		stdout  string
 		stderr  string
+		err     string
 	}{{
 		message: "smart (default)",
 		stdout:  "\n",
 		stderr:  stdErr,
+		err:     `task failed with exit code: 42`,
 	}, {
 		message: "yaml output",
 		format:  "yaml",
 		stdout:  yamlFormatted,
 		stderr:  stdErr,
+		err:     `task failed with exit code: 42`,
 	}, {
 		message: "json output",
 		format:  "json",
 		stdout:  jsonFormatted,
 		stderr:  stdErr,
+		err:     `task failed with exit code: 42`,
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		args := []string{}
@@ -657,7 +661,11 @@ Waiting for task 1...
 		runCmd, _ := newTestExecCommand(testClock(), model.IAAS)
 
 		context, err := cmdtesting.RunCommand(c, runCmd, args...)
-		c.Check(err, jc.ErrorIsNil)
+		if test.err != "" {
+			c.Check(err, gc.ErrorMatches, test.err)
+		} else {
+			c.Check(err, jc.ErrorIsNil)
+		}
 		c.Check(cmdtesting.Stdout(context), gc.Equals, test.stdout)
 		c.Check(cmdtesting.Stderr(context), gc.Equals, test.stderr)
 	}

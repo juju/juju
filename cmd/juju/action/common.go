@@ -31,17 +31,21 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.juju.action")
 
-// leaderSnippet is a regular expression for unit ID-like syntax that is used
-// to indicate the current leader for an application.
-const leaderSnippet = "(" + names.ApplicationSnippet + ")/leader"
+const (
+	// leaderSnippet is a regular expression for unit ID-like syntax that is used
+	// to indicate the current leader for an application.
+	leaderSnippet = "(" + names.ApplicationSnippet + ")/leader"
+)
 
-var validLeader = regexp.MustCompile("^" + leaderSnippet + "$")
+var (
+	validLeader = regexp.MustCompile("^" + leaderSnippet + "$")
 
-// nameRule describes the name format of an action or keyName must match to be valid.
-var nameRule = charm.GetActionNameRule()
+	// nameRule describes the name format of an action or keyName must match to be valid.
+	nameRule = charm.GetActionNameRule()
 
-//resultPollTime is how often to poll the backend for results.
-var resultPollTime = 2 * time.Second
+	//resultPollTime is how often to poll the backend for results.
+	resultPollTime = 2 * time.Second
+)
 
 type runCommandBase struct {
 	ActionCommandBase
@@ -146,15 +150,25 @@ func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *acti
 		}
 		return nil
 	}
-	return c.waitForTasks(ctx, tasks, info)
+	exitCode, err := c.waitForTasks(ctx, tasks, info)
+	if err != nil {
+		return errors.Trace(err)
+	} else if exitCode > 0 {
+		var plural string
+		if numTasks > 1 {
+			plural = "s"
+		}
+		return errors.Errorf("task%s failed with exit code: %d", plural, exitCode)
+	}
+	return nil
 }
 
-func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, info map[string]interface{}) error {
+func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, info map[string]interface{}) (int, error) {
 	var wait clock.Timer
 	if c.wait < 0 {
 		// Indefinite wait. Discard the tick.
 		wait = c.clock.NewTimer(0 * time.Second)
-		_ = <-wait.Chan()
+		<-wait.Chan()
 	} else {
 		wait = c.clock.NewTimer(c.wait)
 	}
@@ -166,7 +180,7 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, 
 		var err error
 		logsWatcher, err = c.api.WatchActionProgress(tasks[0].task)
 		if err != nil {
-			return errors.Trace(err)
+			return -1, errors.Trace(err)
 		}
 		processLogMessages(logsWatcher, actionDone, ctx, c.utc, func(ctx *cmd.Context, msg string) {
 			haveLogs = true
@@ -181,6 +195,7 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, 
 		}
 	}
 
+	exitCode := 0
 	resultReceivers := set.NewStrings()
 	for i, result := range tasks {
 		ctx.Infof("Waiting for task %v...\n", result.task)
@@ -197,18 +212,33 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, 
 		}
 		if err != nil {
 			if errors.IsTimeout(err) {
-				return c.handleTimeout(tasks, resultReceivers)
+				return -1, c.handleTimeout(tasks, resultReceivers)
 			}
-			return errors.Trace(err)
+			return -1, errors.Trace(err)
 		}
 
 		resultReceivers.Add(result.receiver)
-		d := formatActionResult(result.task, actionResult, c.utc)
-		d["id"] = result.task // Action ID is required in case we timed out.
-		info[result.receiverId()] = d
+		resultData, resultExitCode := formatActionResult(result.task, actionResult, c.utc)
+		resultData["id"] = result.task // Action ID is required in case we timed out.
+		info[result.receiverId()] = resultData
+
+		// If any of the actions have a error exit code, then inform the user
+		// that their exec failed.
+		if resultExitCode < 1 {
+			continue
+		}
+
+		// If the number of tasks is just 1, show the underlying exit code. We
+		// can't do this for multiple tasks as we don't know what the
+		// appropriate code to show (highest or lowest)?
+		if len(tasks) == 1 {
+			exitCode = resultExitCode
+		} else {
+			exitCode = 1
+		}
 	}
 
-	return c.out.Write(ctx, info)
+	return exitCode, c.out.Write(ctx, info)
 }
 
 func (c *runCommandBase) handleTimeout(tasks []enqueuedAction, got set.Strings) error {
@@ -262,14 +292,14 @@ func timerLoop(api APIClient, requestedId string, tick, wait clock.Timer) (actio
 
 		// Block until a tick happens, or the wait arrives.
 		select {
-		case _ = <-wait.Chan():
+		case <-wait.Chan():
 			switch result.Status {
 			case params.ActionRunning, params.ActionPending:
 				return result, errors.NewTimeout(err, "maximum wait time reached")
 			default:
 				return result, nil
 			}
-		case _ = <-tick.Chan():
+		case <-tick.Chan():
 			tick.Reset(resultPollTime)
 		}
 	}
@@ -409,7 +439,7 @@ func printPlainOutput(writer io.Writer, value interface{}) error {
 // formatActionResult removes empty values from the given ActionResult and
 // inserts the remaining ones in a map[string]interface{} for cmd.Output to
 // write in an easy-to-read format.
-func formatActionResult(id string, result actionapi.ActionResult, utc bool) map[string]interface{} {
+func formatActionResult(id string, result actionapi.ActionResult, utc bool) (map[string]interface{}, int) {
 	response := map[string]interface{}{"id": id, "status": result.Status}
 	if result.Error != nil {
 		response["error"] = result.Error.Error()
@@ -423,7 +453,7 @@ func formatActionResult(id string, result actionapi.ActionResult, utc bool) map[
 	if result.Message != "" {
 		response["message"] = result.Message
 	}
-	output := convertActionOutput(result.Output)
+	output, exitCode := convertActionOutput(result.Output)
 	if len(result.Output) != 0 {
 		response["results"] = output
 	}
@@ -439,7 +469,7 @@ func formatActionResult(id string, result actionapi.ActionResult, utc bool) map[
 	}
 
 	if result.Enqueued.IsZero() && result.Started.IsZero() && result.Completed.IsZero() {
-		return response
+		return response, exitCode
 	}
 
 	responseTiming := make(map[string]string)
@@ -454,13 +484,13 @@ func formatActionResult(id string, result actionapi.ActionResult, utc bool) map[
 	}
 	response["timing"] = responseTiming
 
-	return response
+	return response, exitCode
 }
 
 // convertActionOutput returns result data with stdout, stderr etc correctly formatted.
-func convertActionOutput(output map[string]interface{}) map[string]interface{} {
+func convertActionOutput(output map[string]interface{}) (map[string]interface{}, int) {
 	if output == nil {
-		return nil
+		return nil, -1
 	}
 	values := output
 	// We always want to have a string for stdout, but only show stderr,
@@ -482,15 +512,16 @@ func convertActionOutput(output map[string]interface{}) map[string]interface{} {
 	if v, ok = output["return-code"]; ok && v != nil {
 		res = fmt.Sprintf("%v", v)
 	}
+	code := -1
 	if ok && len(res) > 0 {
-		code, err := strconv.Atoi(res)
-		if err == nil {
+		var err error
+		if code, err = strconv.Atoi(res); err == nil {
 			values["return-code"] = code
 		}
 	} else {
 		delete(values, "return-code")
 	}
-	return values
+	return values, code
 }
 
 // addValueToMap adds the given value to the map on which the method is run.
@@ -536,7 +567,7 @@ const (
 )
 
 func decodeLogMessage(encodedMessage string, utc bool) (string, error) {
-	var actionMessage coreactions.ActionMessage
+	var actionMessage actions.ActionMessage
 	err := json.Unmarshal([]byte(encodedMessage), &actionMessage)
 	if err != nil {
 		return "", errors.Trace(err)

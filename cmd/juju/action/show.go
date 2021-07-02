@@ -20,8 +20,6 @@ type showCommand struct {
 
 	appName    string
 	actionName string
-
-	out cmd.Output
 }
 
 var showActionDoc = `

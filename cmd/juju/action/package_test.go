@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -47,7 +46,6 @@ func TestPackage(t *testing.T) {
 
 type BaseActionSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
-	command cmd.Command
 
 	modelFlags []string
 	store      *jujuclient.MemStore
@@ -219,10 +217,10 @@ func (c *fakeAPIClient) Actions(actionIDs []string) ([]actionapi.ActionResult, e
 	select {
 	case <-c.waitForResults:
 		return c.getActionResults(actionIDs), c.apiErr
-	case _ = <-delayChan:
+	case <-delayChan:
 		// The API delay timer is up.
 		return c.getActionResults(actionIDs), c.apiErr
-	case _ = <-timeoutChan:
+	case <-timeoutChan:
 		// Timeout to prevent tests from hanging.
 		return nil, errors.New("test timed out before wait time")
 	default:
@@ -265,10 +263,10 @@ func (c *fakeAPIClient) Operation(id string) (actionapi.Operation, error) {
 	select {
 	case <-c.waitForResults:
 		return c.getOperation(id)
-	case _ = <-delayChan:
+	case <-delayChan:
 		// The API delay timer is up.
 		return c.getOperation(id)
-	case _ = <-timeoutChan:
+	case <-timeoutChan:
 		// Timeout to prevent tests from hanging.
 		return actionapi.Operation{}, errors.New("test timed out before wait time")
 	default:
