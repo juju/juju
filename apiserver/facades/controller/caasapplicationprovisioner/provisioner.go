@@ -355,9 +355,9 @@ func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCol
 		return errors.Trace(err)
 	}
 
-	if args.Force && app.Life() == state.Alive {
-		return errors.NotValidf("cannot force unit remove while alive")
-	}
+	// if args.Force && app.Life() == state.Alive {
+	// 	return errors.NotValidf("cannot force unit remove while alive")
+	// }
 
 	// TODO(sidecar): support more than statefulset
 	/*ch, _, err := app.Charm()

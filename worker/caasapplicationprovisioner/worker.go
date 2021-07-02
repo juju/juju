@@ -67,6 +67,7 @@ type CAASBroker interface {
 	AnnotateUnit(appName string, mode caas.DeploymentMode, podName string, unit names.UnitTag) error
 	DeleteOperator(appName string) error
 	DeleteService(appName string) error
+	OperatorExists(appName string) (caas.DeploymentState, error)
 }
 
 // Config defines the operation of a Worker.
