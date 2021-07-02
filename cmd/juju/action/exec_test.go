@@ -628,6 +628,12 @@ Running operation 1 with 1 task
 Waiting for task 1...
 `[1:]
 
+	errStr := `
+the following task failed:
+ - id "1" with return code 42
+
+`[1:]
+
 	for i, test := range []struct {
 		message string
 		format  string
@@ -638,19 +644,19 @@ Waiting for task 1...
 		message: "smart (default)",
 		stdout:  "\n",
 		stderr:  stdErr,
-		err:     `task failed with exit code: 42`,
+		err:     errStr,
 	}, {
 		message: "yaml output",
 		format:  "yaml",
 		stdout:  yamlFormatted,
 		stderr:  stdErr,
-		err:     `task failed with exit code: 42`,
+		err:     errStr,
 	}, {
 		message: "json output",
 		format:  "json",
 		stdout:  jsonFormatted,
 		stderr:  stdErr,
-		err:     `task failed with exit code: 42`,
+		err:     errStr,
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		args := []string{}

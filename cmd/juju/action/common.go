@@ -149,20 +149,29 @@ func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *acti
 		}
 		return nil
 	}
-	exitCode, err := c.waitForTasks(ctx, tasks, info)
+	failed, err := c.waitForTasks(ctx, tasks, info)
 	if err != nil {
 		return errors.Trace(err)
-	} else if exitCode > 0 {
+	} else if len(failed) > 0 {
 		var plural string
-		if numTasks > 1 {
+		if len(failed) > 1 {
 			plural = "s"
 		}
-		return errors.Errorf("task%s failed with exit code: %d", plural, exitCode)
+		list := make([]string, 0, len(failed))
+		for k, v := range failed {
+			list = append(list, fmt.Sprintf(" - id %q with return code %d", k, v))
+		}
+
+		return errors.Errorf(`
+the following task%s failed:
+%s
+
+`[1:], plural, strings.Join(list, "\n"))
 	}
 	return nil
 }
 
-func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, info map[string]interface{}) (int, error) {
+func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, info map[string]interface{}) (map[string]int, error) {
 	var wait clock.Timer
 	if c.wait < 0 {
 		// Indefinite wait. Discard the tick.
@@ -179,7 +188,7 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, 
 		var err error
 		logsWatcher, err = c.api.WatchActionProgress(tasks[0].task)
 		if err != nil {
-			return -1, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		processLogMessages(logsWatcher, actionDone, ctx, c.utc, func(ctx *cmd.Context, msg string) {
 			haveLogs = true
@@ -194,7 +203,7 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, 
 		}
 	}
 
-	exitCode := 0
+	failed := make(map[string]int)
 	resultReceivers := set.NewStrings()
 	for i, result := range tasks {
 		ctx.Infof("Waiting for task %v...\n", result.task)
@@ -211,9 +220,9 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, 
 		}
 		if err != nil {
 			if errors.IsTimeout(err) {
-				return -1, c.handleTimeout(tasks, resultReceivers)
+				return nil, c.handleTimeout(tasks, resultReceivers)
 			}
-			return -1, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 
 		resultReceivers.Add(result.receiver)
@@ -227,17 +236,10 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, 
 			continue
 		}
 
-		// If the number of tasks is just 1, show the underlying exit code. We
-		// can't do this for multiple tasks as we don't know what the
-		// appropriate code to show (highest or lowest)?
-		if len(tasks) == 1 {
-			exitCode = resultExitCode
-		} else {
-			exitCode = 1
-		}
+		failed[result.task] = resultExitCode
 	}
 
-	return exitCode, c.out.Write(ctx, info)
+	return failed, c.out.Write(ctx, info)
 }
 
 func (c *runCommandBase) handleTimeout(tasks []enqueuedAction, got set.Strings) error {
