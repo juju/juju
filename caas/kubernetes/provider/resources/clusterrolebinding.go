@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/pointer"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/status"
@@ -81,7 +82,7 @@ func (rb *ClusterRoleBinding) Delete(ctx context.Context, client kubernetes.Inte
 	api := client.RbacV1().ClusterRoleBindings()
 	err := api.Delete(ctx, rb.Name, metav1.DeleteOptions{
 		PropagationPolicy:  k8sconstants.DeletePropagationBackground(),
-		GracePeriodSeconds: int64Ptr(0),
+		GracePeriodSeconds: pointer.Int64Ptr(0),
 		Preconditions:      &metav1.Preconditions{UID: &rb.UID},
 	})
 	if k8serrors.IsNotFound(err) {
@@ -116,7 +117,7 @@ func (rb *ClusterRoleBinding) Ensure(
 	if err != nil && !errors.IsNotFound(err) {
 		return cleanups, errors.Annotatef(err, "getting existing cluster role binding %q", rb.Name)
 	}
-	doUpdate := !errors.IsNotFound(err)
+	doUpdate := err == nil
 	if err == nil {
 		hasClaim, err := RunClaims(claims...).Assert(&existing.ClusterRoleBinding)
 		if err != nil {

@@ -90,7 +90,3 @@ func (a *applier) Run(ctx context.Context, client kubernetes.Interface, noRollba
 	}
 	return nil
 }
-
-func int64Ptr(v int64) *int64 {
-	return &v
-}

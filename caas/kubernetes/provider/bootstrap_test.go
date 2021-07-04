@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -514,7 +515,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				Spec: core.PodSpec{
 					RestartPolicy:                core.RestartPolicyAlways,
 					ServiceAccountName:           "controller",
-					AutomountServiceAccountToken: boolPtr(true),
+					AutomountServiceAccountToken: pointer.BoolPtr(true),
 					Volumes: []core.Volume{
 						{
 							Name: "juju-controller-test-server-pem",
@@ -752,7 +753,7 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 			},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
-		AutomountServiceAccountToken: boolPtr(true),
+		AutomountServiceAccountToken: pointer.BoolPtr(true),
 	}
 
 	controllerServiceCRB := &rbacv1.ClusterRoleBinding{

@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -170,7 +171,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Annotations: a.annotations(config),
 			},
 			// Will be automounted by the pod.
-			AutomountServiceAccountToken: boolPtr(false),
+			AutomountServiceAccountToken: pointer.BoolPtr(false),
 		},
 	}
 	applier.Apply(&serviceAccount)
@@ -339,7 +340,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 		var numPods *int32
 		if !exists {
-			numPods = int32Ptr(1)
+			numPods = pointer.Int32Ptr(1)
 		}
 		statefulset := resources.StatefulSet{
 			StatefulSet: appsv1.StatefulSet{
@@ -401,7 +402,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 		var numPods *int32
 		if !exists {
-			numPods = int32Ptr(1)
+			numPods = pointer.Int32Ptr(1)
 		}
 		// Config storage to update the podspec with storage info.
 		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource); err != nil {
@@ -1190,8 +1191,8 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
-			RunAsUser:  int64Ptr(0),
-			RunAsGroup: int64Ptr(0),
+			RunAsUser:  pointer.Int64Ptr(0),
+			RunAsGroup: pointer.Int64Ptr(0),
 		},
 		LivenessProbe: &corev1.Probe{
 			Handler: corev1.Handler{
@@ -1273,8 +1274,8 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			}},
 			// Run Pebble as root (because it's a service manager).
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  int64Ptr(0),
-				RunAsGroup: int64Ptr(0),
+				RunAsUser:  pointer.Int64Ptr(0),
+				RunAsGroup: pointer.Int64Ptr(0),
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -1578,20 +1579,4 @@ func (a *app) filesystemToVolumeInfo(name string,
 		Spec: *pvcSpec,
 	}
 	return nil, pvc, newStorageClass, nil
-}
-
-func int32Ptr(v int32) *int32 {
-	return &v
-}
-
-func int64Ptr(v int64) *int64 {
-	return &v
-}
-
-func boolPtr(b bool) *bool {
-	return &b
-}
-
-func strPtr(b string) *string {
-	return &b
 }

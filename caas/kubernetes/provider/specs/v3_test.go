@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/specs"
@@ -467,7 +468,7 @@ foo: bar
 
 	sa1 := &specs.PrimeServiceAccountSpecV3{
 		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-			AutomountServiceAccountToken: boolPtr(true),
+			AutomountServiceAccountToken: pointer.BoolPtr(true),
 			Roles: []specs.Role{
 				{
 					Rules: []specs.PolicyRule{
@@ -545,7 +546,7 @@ echo "do some stuff here for gitlab container"
 								{
 									Path:    "file1",
 									Content: expectedFileContent,
-									Mode:    int32Ptr(644),
+									Mode:    pointer.Int32Ptr(644),
 								},
 							},
 						},
@@ -575,12 +576,12 @@ echo "do some stuff here for gitlab container"
 						VolumeSource: specs.VolumeSource{
 							ConfigMap: &specs.ResourceRefVol{
 								Name:        "log-config",
-								DefaultMode: int32Ptr(511),
+								DefaultMode: pointer.Int32Ptr(511),
 								Files: []specs.FileRef{
 									{
 										Key:  "log_level",
 										Path: "log_level",
-										Mode: int32Ptr(511),
+										Mode: pointer.Int32Ptr(511),
 									},
 								},
 							},
@@ -592,12 +593,12 @@ echo "do some stuff here for gitlab container"
 						VolumeSource: specs.VolumeSource{
 							Secret: &specs.ResourceRefVol{
 								Name:        "mysecret2",
-								DefaultMode: int32Ptr(511),
+								DefaultMode: pointer.Int32Ptr(511),
 								Files: []specs.FileRef{
 									{
 										Key:  "password",
 										Path: "my-group/my-password",
-										Mode: int32Ptr(511),
+										Mode: pointer.Int32Ptr(511),
 									},
 								},
 							},
@@ -606,8 +607,8 @@ echo "do some stuff here for gitlab container"
 				},
 				ProviderContainer: &k8sspecs.K8sContainerSpec{
 					SecurityContext: &core.SecurityContext{
-						RunAsNonRoot: boolPtr(true),
-						Privileged:   boolPtr(true),
+						RunAsNonRoot: pointer.BoolPtr(true),
+						Privileged:   pointer.BoolPtr(true),
 					},
 					LivenessProbe: &core.Probe{
 						InitialDelaySeconds: 10,
@@ -690,7 +691,7 @@ echo "do some stuff here for gitlab-init container"
 				{
 					Name: "k8sServiceAccount1",
 					ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-						AutomountServiceAccountToken: boolPtr(true),
+						AutomountServiceAccountToken: pointer.BoolPtr(true),
 						Roles: []specs.Role{
 							{
 								Name:   "k8sRole",
@@ -773,7 +774,7 @@ echo "do some stuff here for gitlab-init container"
 				SpecV1: networkingv1.IngressSpec{
 					DefaultBackend: &networkingv1.IngressBackend{
 						Resource: &core.TypedLocalObjectReference{
-							APIGroup: strPtr("k8s.example.com"),
+							APIGroup: pointer.StringPtr("k8s.example.com"),
 							Kind:     "StorageBucket",
 							Name:     "static-assets",
 						},
@@ -788,7 +789,7 @@ echo "do some stuff here for gitlab-init container"
 											PathType: &pathType1,
 											Backend: networkingv1.IngressBackend{
 												Resource: &core.TypedLocalObjectReference{
-													APIGroup: strPtr("k8s.example.com"),
+													APIGroup: pointer.StringPtr("k8s.example.com"),
 													Kind:     "StorageBucket",
 													Name:     "icon-assets",
 												},
@@ -825,7 +826,7 @@ echo "do some stuff here for gitlab-init container"
 				Service: &admissionregistrationv1beta1.ServiceReference{
 					Name:      "apple-service",
 					Namespace: "apples",
-					Path:      strPtr("/apple"),
+					Path:      pointer.StringPtr("/apple"),
 				},
 				CABundle: CABundle1,
 			},
@@ -863,7 +864,7 @@ echo "do some stuff here for gitlab-init container"
 			},
 			AdmissionReviewVersions: []string{"v1", "v1beta1"},
 			SideEffects:             &sideEffects,
-			TimeoutSeconds:          int32Ptr(5),
+			TimeoutSeconds:          pointer.Int32Ptr(5),
 		}
 
 		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -908,11 +909,11 @@ echo "do some stuff here for gitlab-init container"
 				Pod: &k8sspecs.PodSpec{
 					Labels:                        map[string]string{"foo": "bax"},
 					Annotations:                   map[string]string{"foo": "baz"},
-					ActiveDeadlineSeconds:         int64Ptr(10),
+					ActiveDeadlineSeconds:         pointer.Int64Ptr(10),
 					RestartPolicy:                 core.RestartPolicyOnFailure,
-					TerminationGracePeriodSeconds: int64Ptr(20),
+					TerminationGracePeriodSeconds: pointer.Int64Ptr(20),
 					SecurityContext: &core.PodSecurityContext{
-						RunAsNonRoot:       boolPtr(true),
+						RunAsNonRoot:       pointer.BoolPtr(true),
 						SupplementalGroups: []int64{1, 2},
 					},
 					ReadinessGates: []core.PodReadinessGate{
@@ -922,7 +923,7 @@ echo "do some stuff here for gitlab-init container"
 					HostNetwork:       true,
 					HostPID:           true,
 					PriorityClassName: "system-cluster-critical",
-					Priority:          int32Ptr(2000000000),
+					Priority:          pointer.Int32Ptr(2000000000),
 				},
 				Secrets: []k8sspecs.K8sSecret{
 					{
@@ -963,7 +964,7 @@ password: shhhh`[1:],
 									{Name: "v1beta2", Served: true, Storage: false},
 								},
 								Scope:                 "Cluster",
-								PreserveUnknownFields: boolPtr(false),
+								PreserveUnknownFields: pointer.BoolPtr(false),
 								Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 									Kind:     "TFJob",
 									Plural:   "tfjobs",
@@ -990,7 +991,7 @@ password: shhhh`[1:],
 															"PS": {
 																Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 																	"replicas": {
-																		Type: "integer", Minimum: float64Ptr(1),
+																		Type: "integer", Minimum: pointer.Float64Ptr(1),
 																	},
 																},
 															},
@@ -998,8 +999,8 @@ password: shhhh`[1:],
 																Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 																	"replicas": {
 																		Type:    "integer",
-																		Minimum: float64Ptr(1),
-																		Maximum: float64Ptr(1),
+																		Minimum: pointer.Float64Ptr(1),
+																		Maximum: pointer.Float64Ptr(1),
 																	},
 																},
 															},
@@ -1007,7 +1008,7 @@ password: shhhh`[1:],
 																Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 																	"replicas": {
 																		Type:    "integer",
-																		Minimum: float64Ptr(1),
+																		Minimum: pointer.Float64Ptr(1),
 																	},
 																},
 															},
@@ -1057,7 +1058,7 @@ password: shhhh`[1:],
 										Schema: &apiextensionsv1.CustomResourceValidation{
 											OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
 												Type:                   "object",
-												XPreserveUnknownFields: boolPtr(true),
+												XPreserveUnknownFields: pointer.BoolPtr(true),
 											},
 										},
 										AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{
@@ -1468,7 +1469,7 @@ kubernetesResources:
 func (s *v3SpecsSuite) TestPrimeServiceAccountToK8sRBACResources(c *gc.C) {
 	primeSA := specs.PrimeServiceAccountSpecV3{
 		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-			AutomountServiceAccountToken: boolPtr(true),
+			AutomountServiceAccountToken: pointer.BoolPtr(true),
 			Roles: []specs.Role{
 				{
 					Global: true,
@@ -1497,7 +1498,7 @@ func (s *v3SpecsSuite) TestPrimeServiceAccountToK8sRBACResources(c *gc.C) {
 			{
 				Name: "test-app-rbac",
 				ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-					AutomountServiceAccountToken: boolPtr(true),
+					AutomountServiceAccountToken: pointer.BoolPtr(true),
 					Roles: []specs.Role{
 						{
 							Name:   "test-role",
@@ -1520,7 +1521,7 @@ func (s *v3SpecsSuite) TestPrimeServiceAccountToK8sRBACResources(c *gc.C) {
 func (s *v3SpecsSuite) TestPrimeServiceAccountValidate(c *gc.C) {
 	primeSA := specs.PrimeServiceAccountSpecV3{
 		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-			AutomountServiceAccountToken: boolPtr(true),
+			AutomountServiceAccountToken: pointer.BoolPtr(true),
 			Roles: []specs.Role{
 				{
 					Global: true,
@@ -1563,7 +1564,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesValidate(c *gc.C) {
 					{
 						Name: "sa2",
 						ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-							AutomountServiceAccountToken: boolPtr(true),
+							AutomountServiceAccountToken: pointer.BoolPtr(true),
 							Roles: []specs.Role{
 								{
 									Name:   "cluster-role2",
@@ -1599,7 +1600,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesValidate(c *gc.C) {
 					{
 						Name: "sa2",
 						ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-							AutomountServiceAccountToken: boolPtr(true),
+							AutomountServiceAccountToken: pointer.BoolPtr(true),
 							Roles: []specs.Role{
 								{
 									Name:   "cluster-role2",
@@ -1618,7 +1619,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesValidate(c *gc.C) {
 					{
 						Name: "sa2",
 						ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-							AutomountServiceAccountToken: boolPtr(true),
+							AutomountServiceAccountToken: pointer.BoolPtr(true),
 							Roles: []specs.Role{
 								{
 									Name:   "cluster-role3",
@@ -1643,7 +1644,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesValidate(c *gc.C) {
 					{
 						Name: "sa2",
 						ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-							AutomountServiceAccountToken: boolPtr(true),
+							AutomountServiceAccountToken: pointer.BoolPtr(true),
 							Roles: []specs.Role{
 								{
 									Name:   "cluster-role2",
@@ -1749,7 +1750,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 			{
 				Name: "sa1",
 				ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-					AutomountServiceAccountToken: boolPtr(true),
+					AutomountServiceAccountToken: pointer.BoolPtr(true),
 					Roles: []specs.Role{
 						{
 							Name: "role1",
@@ -1849,7 +1850,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 				Labels:      map[string]string{"juju-app": "app-name"},
 				Annotations: annotations,
 			},
-			AutomountServiceAccountToken: boolPtr(true),
+			AutomountServiceAccountToken: pointer.BoolPtr(true),
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
@@ -2121,24 +2122,4 @@ bar: a-bad-guy
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `json: unknown field "bar"`)
-}
-
-func float64Ptr(f float64) *float64 {
-	return &f
-}
-
-func int32Ptr(i int32) *int32 {
-	return &i
-}
-
-func int64Ptr(i int64) *int64 {
-	return &i
-}
-
-func boolPtr(b bool) *bool {
-	return &b
-}
-
-func strPtr(b string) *string {
-	return &b
 }

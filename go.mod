@@ -136,6 +136,7 @@ require (
 	k8s.io/apimachinery v0.19.6
 	k8s.io/client-go v0.19.6
 	k8s.io/klog/v2 v2.3.0
+	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
 )
 
 replace github.com/altoros/gosigma => github.com/juju/gosigma v0.0.0-20200420012028-063911838a9e

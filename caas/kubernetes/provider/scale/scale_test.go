@@ -13,9 +13,9 @@ import (
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/caas/kubernetes/provider/scale"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
 )
 
 type ScaleSuite struct {
@@ -45,7 +45,7 @@ func (s *ScaleSuite) TestDeploymentScale(c *gc.C) {
 				Name: "test",
 			},
 			Spec: apps.DeploymentSpec{
-				Replicas: utils.Int32Ptr(1),
+				Replicas: pointer.Int32Ptr(1),
 			},
 		},
 		meta.CreateOptions{})
@@ -112,7 +112,7 @@ func (s *ScaleSuite) TestStatefulSetScale(c *gc.C) {
 				Name: "test",
 			},
 			Spec: apps.StatefulSetSpec{
-				Replicas: utils.Int32Ptr(1),
+				Replicas: pointer.Int32Ptr(1),
 			},
 		},
 		meta.CreateOptions{})

@@ -12,6 +12,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/testing"
@@ -111,7 +112,7 @@ spec:
 			SpecV1: networkingv1.IngressSpec{
 				DefaultBackend: &networkingv1.IngressBackend{
 					Resource: &core.TypedLocalObjectReference{
-						APIGroup: strPtr("k8s.example.com"),
+						APIGroup: pointer.StringPtr("k8s.example.com"),
 						Kind:     "StorageBucket",
 						Name:     "static-assets",
 					},
@@ -126,7 +127,7 @@ spec:
 										PathType: &pathType,
 										Backend: networkingv1.IngressBackend{
 											Resource: &core.TypedLocalObjectReference{
-												APIGroup: strPtr("k8s.example.com"),
+												APIGroup: pointer.StringPtr("k8s.example.com"),
 												Kind:     "StorageBucket",
 												Name:     "icon-assets",
 											},
