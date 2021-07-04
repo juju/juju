@@ -92,10 +92,12 @@ func (rb *ClusterRoleBinding) Delete(ctx context.Context, client kubernetes.Inte
 	return nil
 }
 
-func shouldDelete(crb1, crb2 rbacv1.ClusterRoleBinding) bool {
-	return crb1.RoleRef.APIGroup != crb2.RoleRef.APIGroup ||
-		crb1.RoleRef.Kind != crb2.RoleRef.Kind ||
-		crb1.RoleRef.Name != crb2.RoleRef.Name
+// shouldDelete checks if there are any changes in the immutable field to decide
+// if the existing cluster role binding should be deleted or not.
+func shouldDelete(existing, new rbacv1.ClusterRoleBinding) bool {
+	return existing.RoleRef.APIGroup != new.RoleRef.APIGroup ||
+		existing.RoleRef.Kind != new.RoleRef.Kind ||
+		existing.RoleRef.Name != new.RoleRef.Name
 }
 
 // Ensure ensures this cluster role exists in it's desired form inside the
