@@ -1466,7 +1466,6 @@ type SetCharmConfig struct {
 
 // SetCharm changes the charm for the application.
 func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
-	logger.Criticalf("TODO: state.Application.SetCharm cfg.Series=%q", cfg.Series)
 	defer errors.DeferredAnnotatef(
 		&err, "cannot upgrade application %q to charm %q", a, cfg.Charm,
 	)

@@ -1334,8 +1334,6 @@ func (api *APIBase) applicationSetCharm(
 	// If upgrading from a pod-spec (v1) charm to sidecar (v2), override the
 	// application's series to what it would be for a fresh sidecar deploy.
 	oldSeries := params.Application.Series()
-	logger.Criticalf("TODO: SetCharm: oldSeries=%q newFormat=%v len(newContainers)=%d",
-		oldSeries, corecharm.Format(newCharm), len(newCharm.Meta().Containers))
 	if oldSeries == "kubernetes" && corecharm.Format(newCharm) >= corecharm.FormatV2 &&
 		len(newCharm.Meta().Containers) > 0 {
 		modelConfig, err := api.model.ModelConfig()
