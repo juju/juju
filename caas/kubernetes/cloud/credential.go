@@ -235,6 +235,42 @@ func MigrateLegacyCredential(cred *cloud.Credential) (cloud.Credential, error) {
 	}
 }
 
+// CredentialToLegacy transform a valid k8s cloud credential to it's pre 2.9
+// form. Kubernetes credentials were change in the Juju 2.9 release to fix bugs
+// around the credential form.
+func CredentialToLegacy(cred *cloud.Credential) (cloud.Credential, error) {
+	attributes := map[string]string{}
+	if val, exists := cred.Attributes()[RBACLabelKeyName]; exists {
+		attributes[RBACLabelKeyName] = val
+	}
+
+	switch cred.AuthType() {
+	case cloud.ClientCertificateAuthType:
+		attributes[CredAttrClientCertificateData] = cred.Attributes()[CredAttrClientCertificateData]
+		attributes[CredAttrClientKeyData] = cred.Attributes()[CredAttrClientKeyData]
+		return cloud.NewNamedCredential(
+			cred.Label,
+			cloud.OAuth2WithCertAuthType,
+			attributes,
+			cred.Revoked,
+		), nil
+	case cloud.OAuth2AuthType:
+		attributes[CredAttrToken] = cred.Attributes()[CredAttrToken]
+		return cloud.NewNamedCredential(
+			cred.Label,
+			cloud.OAuth2WithCertAuthType,
+			attributes,
+			cred.Revoked,
+		), nil
+	default:
+		return cloud.Credential{},
+			errors.NotSupportedf(
+				"credential with authtype %q cannot be converted to legacy kube credentials",
+				cred.AuthType(),
+			)
+	}
+}
+
 func migrateCertificateAuthType(cred *cloud.Credential) (cloud.Credential, error) {
 	attrs := cred.Attributes()
 	newAttrs := map[string]string{}
