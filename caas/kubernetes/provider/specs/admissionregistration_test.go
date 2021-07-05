@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/testing"
@@ -76,7 +77,7 @@ webhooks:
 						Service: &admissionregistrationv1beta1.ServiceReference{
 							Name:      "apple-service",
 							Namespace: "apples",
-							Path:      strPtr("/apple"),
+							Path:      pointer.StringPtr("/apple"),
 						},
 						CABundle: CABundle,
 					},
@@ -158,7 +159,7 @@ webhooks:
 						Service: &admissionregistrationv1beta1.ServiceReference{
 							Name:      "apple-service",
 							Namespace: "apples",
-							Path:      strPtr("/apple"),
+							Path:      pointer.StringPtr("/apple"),
 						},
 						CABundle: CABundle,
 					},
@@ -266,7 +267,7 @@ webhooks:
 					},
 					AdmissionReviewVersions: []string{"v1", "v1beta1"},
 					SideEffects:             &sideEffects,
-					TimeoutSeconds:          int32Ptr(5),
+					TimeoutSeconds:          pointer.Int32Ptr(5),
 				},
 			},
 		},
@@ -339,7 +340,7 @@ webhooks:
 					},
 					AdmissionReviewVersions: []string{"v1", "v1beta1"},
 					SideEffects:             &sideEffects,
-					TimeoutSeconds:          int32Ptr(5),
+					TimeoutSeconds:          pointer.Int32Ptr(5),
 				},
 			},
 		},

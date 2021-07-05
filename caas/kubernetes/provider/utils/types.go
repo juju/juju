@@ -3,7 +3,7 @@
 
 package utils
 
-// Returns a ptr for the supplied 32 bit integer
-func Int32Ptr(i int32) *int32 {
+// Returns a ptr for the supplied integer.
+func IntPtr(i int) *int {
 	return &i
 }

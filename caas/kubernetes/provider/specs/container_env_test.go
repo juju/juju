@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/utils/pointer"
 
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/testing"
@@ -86,7 +87,7 @@ containers:
 	envVarThing1.ValueFrom.ConfigMapKeyRef.Name = "foo"
 
 	envFromSourceSecret1 := core.EnvFromSource{
-		SecretRef: &core.SecretEnvSource{Optional: boolPtr(true)},
+		SecretRef: &core.SecretEnvSource{Optional: pointer.BoolPtr(true)},
 	}
 	envFromSourceSecret1.SecretRef.Name = "secret1"
 
@@ -96,7 +97,7 @@ containers:
 	envFromSourceSecret2.SecretRef.Name = "secret2"
 
 	envFromSourceConfigmap1 := core.EnvFromSource{
-		ConfigMapRef: &core.ConfigMapEnvSource{Optional: boolPtr(true)},
+		ConfigMapRef: &core.ConfigMapEnvSource{Optional: pointer.BoolPtr(true)},
 	}
 	envFromSourceConfigmap1.ConfigMapRef.Name = "configmap1"
 

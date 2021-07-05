@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -58,7 +59,7 @@ var operatorServiceArg = &core.Service{
 func operatorPodSpec(serviceAccountName string, withStorage bool) core.PodSpec {
 	spec := core.PodSpec{
 		ServiceAccountName:           serviceAccountName,
-		AutomountServiceAccountToken: boolPtr(true),
+		AutomountServiceAccountToken: pointer.BoolPtr(true),
 		Containers: []core.Container{{
 			Name:            "juju-operator",
 			ImagePullPolicy: core.PullIfNotPresent,
@@ -284,7 +285,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
 			Annotations: operatorAnnotations,
 		},
-		AutomountServiceAccountToken: boolPtr(true),
+		AutomountServiceAccountToken: pointer.BoolPtr(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
@@ -393,7 +394,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
 			Annotations: operatorAnnotations,
 		},
-		AutomountServiceAccountToken: boolPtr(true),
+		AutomountServiceAccountToken: pointer.BoolPtr(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
@@ -508,7 +509,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
 			Annotations: operatorAnnotations,
 		},
-		AutomountServiceAccountToken: boolPtr(true),
+		AutomountServiceAccountToken: pointer.BoolPtr(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
@@ -647,7 +648,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
 			Annotations: operatorAnnotations,
 		},
-		AutomountServiceAccountToken: boolPtr(true),
+		AutomountServiceAccountToken: pointer.BoolPtr(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
@@ -779,7 +780,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *gc.C) {
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
 			Annotations: operatorAnnotations,
 		},
-		AutomountServiceAccountToken: boolPtr(true),
+		AutomountServiceAccountToken: pointer.BoolPtr(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
@@ -882,7 +883,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
 			Annotations: operatorAnnotations,
 		},
-		AutomountServiceAccountToken: boolPtr(true),
+		AutomountServiceAccountToken: pointer.BoolPtr(true),
 	}
 	svcAccountUID := svcAccount.GetUID()
 	role := &rbacv1.Role{

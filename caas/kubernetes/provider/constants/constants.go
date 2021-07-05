@@ -46,3 +46,9 @@ func DefaultPropagationPolicy() *metav1.DeletionPropagation {
 	v := metav1.DeletePropagationForeground
 	return &v
 }
+
+// DeletePropagationBackground returns the background propagation policy.
+func DeletePropagationBackground() *metav1.DeletionPropagation {
+	v := metav1.DeletePropagationBackground
+	return &v
+}

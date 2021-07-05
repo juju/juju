@@ -21,6 +21,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/utils/pointer"
 
 	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
 	"github.com/juju/juju/testing"
@@ -53,14 +54,14 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
 													Type:    "integer",
-													Minimum: float64Ptr(1),
+													Minimum: pointer.Float64Ptr(1),
 												},
 											},
 										},
 										"PS": {
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
-													Type: "integer", Minimum: float64Ptr(1),
+													Type: "integer", Minimum: pointer.Float64Ptr(1),
 												},
 											},
 										},
@@ -68,8 +69,8 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
 													Type:    "integer",
-													Minimum: float64Ptr(1),
-													Maximum: float64Ptr(1),
+													Minimum: pointer.Float64Ptr(1),
+													Maximum: pointer.Float64Ptr(1),
 												},
 											},
 										},
@@ -111,14 +112,14 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
 													Type:    "integer",
-													Minimum: float64Ptr(1),
+													Minimum: pointer.Float64Ptr(1),
 												},
 											},
 										},
 										"PS": {
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
-													Type: "integer", Minimum: float64Ptr(1),
+													Type: "integer", Minimum: pointer.Float64Ptr(1),
 												},
 											},
 										},
@@ -126,8 +127,8 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
 													Type:    "integer",
-													Minimum: float64Ptr(1),
-													Maximum: float64Ptr(1),
+													Minimum: pointer.Float64Ptr(1),
+													Maximum: pointer.Float64Ptr(1),
 												},
 											},
 										},
@@ -321,14 +322,14 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
 													Type:    "integer",
-													Minimum: float64Ptr(1),
+													Minimum: pointer.Float64Ptr(1),
 												},
 											},
 										},
 										"PS": {
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
-													Type: "integer", Minimum: float64Ptr(1),
+													Type: "integer", Minimum: pointer.Float64Ptr(1),
 												},
 											},
 										},
@@ -336,8 +337,8 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
 													Type:    "integer",
-													Minimum: float64Ptr(1),
-													Maximum: float64Ptr(1),
+													Minimum: pointer.Float64Ptr(1),
+													Maximum: pointer.Float64Ptr(1),
 												},
 											},
 										},
@@ -377,14 +378,14 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
 													Type:    "integer",
-													Minimum: float64Ptr(1),
+													Minimum: pointer.Float64Ptr(1),
 												},
 											},
 										},
 										"PS": {
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
-													Type: "integer", Minimum: float64Ptr(1),
+													Type: "integer", Minimum: pointer.Float64Ptr(1),
 												},
 											},
 										},
@@ -392,8 +393,8 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
 													Type:    "integer",
-													Minimum: float64Ptr(1),
-													Maximum: float64Ptr(1),
+													Minimum: pointer.Float64Ptr(1),
+													Maximum: pointer.Float64Ptr(1),
 												},
 											},
 										},
