@@ -113,7 +113,7 @@ func (c *showOperationCommand) Run(ctx *cmd.Context) error {
 	wait := c.clock.NewTimer(c.wait)
 	if c.wait.Nanoseconds() == 0 {
 		// Zero duration signals indefinite wait.  Discard the tick.
-		_ = <-wait.Chan()
+		<-wait.Chan()
 	}
 
 	var result actionapi.Operation
@@ -175,14 +175,14 @@ func operationTimerLoop(api APIClient, requestedId string, tick, wait clock.Time
 
 		// Block until a tick happens, or the timeout arrives.
 		select {
-		case _ = <-wait.Chan():
+		case <-wait.Chan():
 			switch result.Status {
 			case params.ActionRunning, params.ActionPending:
 				return result, errors.NewTimeout(err, "timeout reached")
 			default:
 				return result, nil
 			}
-		case _ = <-tick.Chan():
+		case <-tick.Chan():
 			tick.Reset(resultPollTime)
 		}
 	}

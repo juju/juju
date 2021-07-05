@@ -33,7 +33,6 @@ type showTaskCommand struct {
 	ActionCommandBase
 	out         cmd.Output
 	requestedId string
-	fullSchema  bool
 	wait        time.Duration
 	watch       bool
 	utc         bool
@@ -125,7 +124,7 @@ func (c *showTaskCommand) Run(ctx *cmd.Context) error {
 	wait := c.clock.NewTimer(c.wait)
 	if c.wait.Nanoseconds() == 0 {
 		// Zero duration signals indefinite wait.  Discard the tick.
-		_ = <-wait.Chan()
+		<-wait.Chan()
 	}
 
 	actionDone := make(chan struct{})
@@ -172,7 +171,7 @@ func (c *showTaskCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	formatted := formatActionResult(c.requestedId, result, c.utc)
+	formatted, _ := formatActionResult(c.requestedId, result, c.utc)
 	if c.out.Name() != "plain" {
 		return c.out.Write(ctx, formatted)
 	}
