@@ -396,6 +396,7 @@ func (s *ExecSuite) TestAllMachinesWithError(c *gc.C) {
  - id "1" with return code 2
  - id "2" with return code 1
 
+use 'juju show-task' to inspect the failures
 `)
 
 	c.Check(cmdtesting.Stdout(context), gc.Equals, `
@@ -707,6 +708,7 @@ Waiting for task 1...
 the following task failed:
  - id "1" with return code 42
 
+use 'juju show-task' to inspect the failure
 `[1:]
 
 	for i, test := range []struct {

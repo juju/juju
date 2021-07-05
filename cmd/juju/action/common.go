@@ -166,7 +166,8 @@ func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *acti
 the following task%s failed:
 %s
 
-`[1:], plural, strings.Join(list, "\n"))
+use 'juju show-task' to inspect the failure%s
+`[1:], plural, strings.Join(list, "\n"), plural)
 	}
 	return nil
 }
