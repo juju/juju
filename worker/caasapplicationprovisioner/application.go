@@ -108,40 +108,47 @@ func (a *appWorker) loop() error {
 	for {
 		format, err := a.charmFormat()
 		if errors.IsNotFound(err) {
-			a.logger.Debugf("application %q removed (TODO A)", a.name)
+			a.logger.Debugf("application %q removed", a.name)
 			return nil
 		} else if err != nil {
 			return errors.Trace(err)
 		}
 		if format >= corecharm.FormatV2 {
+			a.logger.Debugf("application %q is now a v2 charm", a.name)
 			break
 		}
 
 		appLife, err := a.facade.Life(a.name)
 		if errors.IsNotFound(err) {
-			a.logger.Debugf("application %q removed (TODO B)", a.name)
+			a.logger.Debugf("application %q removed", a.name)
 			return nil
 		} else if err != nil {
 			return errors.Trace(err)
 		}
 		if appLife == life.Dead {
-			a.logger.Debugf("application %q removed (TODO C)", a.name)
+			a.logger.Debugf("application %q now dead", a.name)
 			return nil
 		}
 
-		a.logger.Errorf("TODO cap application.go top loop waiting for events...")
+		// Wait for next app change, then loop to check charm format again.
 		select {
 		case <-appStateChanges:
-			a.logger.Errorf("TODO cap application.go top loop got appStateChanges event")
 		case <-a.catacomb.Dying():
-			a.logger.Errorf("TODO cap application.go top loop got dying event")
 			return a.catacomb.ErrDying()
 		}
 	}
+	appStateWatcher.Kill()
 	appStateChanges = nil
 
-	didExist := false
-	for {
+	// If the application has an operator pod due to an upgrade-charm from a
+	// pod-spec charm to a sidecar charm, delete it. Also delete workload pod.
+	operatorDidExist := false
+	const maxDeleteLoops = 100
+	for i := 0; ; i++ {
+		if i >= maxDeleteLoops {
+			return fmt.Errorf("couldn't delete operator and service with %d tries", maxDeleteLoops)
+		}
+
 		exists, err := a.broker.OperatorExists(a.name)
 		if err != nil {
 			return errors.Trace(err)
@@ -149,36 +156,33 @@ func (a *appWorker) loop() error {
 		if !exists.Exists {
 			break
 		}
-		didExist = true
+		operatorDidExist = true
 
-		// If the application has an operator pod due to an upgrade-charm from a
-		// pod-spec charm to a sidecar charm, delete it. Also delete workload pod.
-		a.logger.Errorf("TODO: DeleteOperator(%q)", a.name)
+		a.logger.Infof("deleting operator and workload pods for application %q", a.name)
 		err = a.broker.DeleteOperator(a.name)
-		if err != nil {
-			if !errors.IsNotFound(err) {
-				return errors.Annotatef(err, "deleting operator pod for application %q", a.name)
-			}
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Annotatef(err, "deleting operator pod for application %q", a.name)
 		}
-		a.logger.Errorf("TODO: DeleteService(%q)", a.name)
 		err = a.broker.DeleteService(a.name)
-		if err != nil {
-			if !errors.IsNotFound(err) {
-				return errors.Annotatef(err, "deleting workload pod for application %q", a.name)
-			}
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Annotatef(err, "deleting workload pod for application %q", a.name)
 		}
 	}
 
-	if didExist {
+	// If the operator/service did exist, clean up the units in state.
+	// TODO (benhoyt) - it would be better to keep the operatorDidExist
+	// state in persistent storage in case something fails between up there
+	// and here.
+	if operatorDidExist {
+		a.logger.Infof("cleaning up units for application %q in state", a.name)
 		units, err := a.facade.Units(a.name)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		err = a.facade.GarbageCollect(a.name, units, 0, nil, true)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
-		a.logger.Errorf("TODO: CLEANED UP ALL THE GARBAGE")
 	}
 
 	// Update the password once per worker start to avoid it changing too frequently.
@@ -197,7 +201,6 @@ func (a *appWorker) loop() error {
 	var appLife life.Value
 	var appChanges watcher.NotifyChannel
 	var replicaChanges watcher.NotifyChannel
-	//	var appStateChanges watcher.NotifyChannel
 	var lastReportedStatus map[string]status.StatusInfo
 
 	appScaleWatcher, err := a.unitFacade.WatchApplicationScale(a.name)
@@ -279,83 +282,69 @@ func (a *appWorker) loop() error {
 		return nil
 	}
 
-	var scaleRetry <-chan time.Time
-	updateScale := func() error {
-		a.logger.Errorf("TODO cap application.go got appScaleWatcher event")
-		err := a.ensureScale(app)
-		if errors.IsNotFound(err) {
-			scaleRetry = time.After(time.Second)
-		} else if err != nil {
-			return err
-		}
-		return nil
-	}
-	var trustRetry <-chan time.Time
-	updateTrust := func() error {
-		a.logger.Errorf("TODO cap application.go got appTrustWatcher event")
-		err := a.ensureTrust(app)
-		if errors.IsNotFound(err) {
-			trustRetry = time.After(time.Second)
-		} else if err != nil {
-			return err
-		}
-		return nil
-	}
+	var scaleChan <-chan time.Time
+	var scaleTries int
+	var trustChan <-chan time.Time
+	var trustTries int
+	const maxRetries = 10
+	const retryDelay = 3 * time.Second
+
 	for {
 		select {
 		case _, ok := <-appScaleWatcher.Changes():
 			if !ok {
 				return fmt.Errorf("application %q scale watcher closed channel", a.name)
 			}
-			err := updateScale()
-			if err != nil {
-				return errors.Trace(err)
-			}
-		case <-scaleRetry:
-			scaleRetry = nil
-			err := updateScale()
-			if err != nil {
+			scaleTries = 0
+			scaleChan = time.After(0)
+		case <-scaleChan:
+			err := a.ensureScale(app)
+			if errors.IsNotFound(err) {
+				if scaleTries >= maxRetries {
+					return errors.Annotatef(err, "more than %d retries ensuring scale", maxRetries)
+				}
+				scaleTries++
+				scaleChan = time.After(retryDelay)
+			} else if err != nil {
 				return errors.Trace(err)
 			}
 		case _, ok := <-appTrustWatcher.Changes():
 			if !ok {
 				return fmt.Errorf("application %q trust watcher closed channel", a.name)
 			}
-			err := updateTrust()
-			if err != nil {
-				return errors.Trace(err)
-			}
-		case <-trustRetry:
-			trustRetry = nil
-			err := updateTrust()
-			if err != nil {
+			trustTries = 0
+			trustChan = time.After(0)
+		case <-trustChan:
+			err := a.ensureTrust(app)
+			if errors.IsNotFound(err) {
+				if trustTries >= maxRetries {
+					return errors.Annotatef(err, "more than %d retries ensuring trust", maxRetries)
+				}
+				trustTries++
+				trustChan = time.After(retryDelay)
+			} else if err != nil {
 				return errors.Trace(err)
 			}
 		case <-a.catacomb.Dying():
-			a.logger.Errorf("TODO cap application.go got dying event")
 			return a.catacomb.ErrDying()
 		case <-appStateChanges:
-			a.logger.Errorf("TODO cap application.go got appStateChanges event")
 			err = handleChange()
 			if err != nil {
 				return errors.Trace(err)
 			}
 		case <-a.changes:
-			a.logger.Errorf("TODO cap application.go got life changes event")
 			// Respond to life changes (Notify called by parent worker).
 			err = handleChange()
 			if err != nil {
 				return errors.Trace(err)
 			}
 		case <-appChanges:
-			a.logger.Errorf("TODO cap application.go got life appChanges event")
 			// Respond to changes in provider application.
 			lastReportedStatus, err = a.updateState(app, false, lastReportedStatus)
 			if err != nil {
 				return errors.Trace(err)
 			}
 		case <-replicaChanges:
-			a.logger.Errorf("TODO cap application.go got life replicaChanges event")
 			// Respond to changes in replicas of the application.
 			lastReportedStatus, err = a.updateState(app, false, lastReportedStatus)
 			if err != nil {
@@ -531,9 +520,6 @@ func (a *appWorker) ensureScale(app caas.Application) error {
 
 	a.logger.Debugf("updating application %q scale to %d", a.name, desiredScale)
 	err = app.Scale(desiredScale)
-	if errors.IsNotFound(err) {
-		return err
-	}
 	if err != nil {
 		return errors.Annotatef(
 			err,
@@ -553,9 +539,6 @@ func (a *appWorker) ensureTrust(app caas.Application) error {
 
 	a.logger.Debugf("updating application %q trust to %v", a.name, desiredTrust)
 	err = app.Trust(desiredTrust)
-	if errors.IsNotFound(err) {
-		return err
-	}
 	if err != nil {
 		return errors.Annotatef(
 			err,
