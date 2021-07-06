@@ -93,11 +93,15 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 		return result, errors.Annotate(err, "getting api addresses")
 	}
 
+	imagePath, err := podcfg.GetJujuOCIImagePath(controllerConf,
+		vers.ToPatch(), version.OfficialBuild)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
 	result = params.ModelOperatorInfo{
 		APIAddresses: apiAddresses.Result,
-		ImagePath: podcfg.GetJujuOCIImagePath(controllerConf,
-			vers.ToPatch(), version.OfficialBuild),
-		Version: vers,
+		ImagePath:    imagePath,
+		Version:      vers,
 	}
 	return result, nil
 }
