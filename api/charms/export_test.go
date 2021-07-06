@@ -9,6 +9,6 @@ import (
 )
 
 func NewClientWithFacade(facade base.FacadeCaller) *Client {
-	commonClient := commoncharms.NewCharmInfoClient(facade)
-	return &Client{facade: facade, CharmsClient: commonClient}
+	charmInfoClient := commoncharms.NewCharmInfoClient(facade)
+	return &Client{facade: facade, CharmInfoClient: charmInfoClient}
 }

@@ -16,14 +16,13 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type charmsMockSuite struct {
+type suite struct {
 	coretesting.BaseSuite
-	charmsCommonClient *apicommoncharms.CharmsClient
 }
 
-var _ = gc.Suite(&charmsMockSuite{})
+var _ = gc.Suite(&suite{})
 
-func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
+func (s *suite) TestCharmInfo(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -156,6 +155,43 @@ func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
 				},
 			},
 		},
+	}
+	c.Assert(got, gc.DeepEquals, want)
+}
+
+func (s *suite) TestApplicationCharmInfo(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+
+	args := params.Entity{Tag: "application-foobar"}
+	info := new(params.Charm)
+
+	params := params.Charm{
+		Revision: 1,
+		URL:      "ch:foobar",
+		Meta: &params.CharmMeta{
+			Name:           "foobar",
+			MinJujuVersion: "2.9.0",
+		},
+		// The rest of the field conversions are tested by TestCharmInfo
+	}
+
+	mockFacadeCaller.EXPECT().FacadeCall("ApplicationCharmInfo", args, info).SetArg(2, params).Return(nil)
+
+	client := apicommoncharms.NewApplicationCharmInfoClient(mockFacadeCaller)
+	got, err := client.ApplicationCharmInfo("foobar")
+	c.Assert(err, gc.IsNil)
+
+	want := &apicommoncharms.CharmInfo{
+		Revision: 1,
+		URL:      "ch:foobar",
+		Meta: &charm.Meta{
+			Name:           "foobar",
+			MinJujuVersion: version.MustParse("2.9.0"),
+		},
+		Manifest: &charm.Manifest{},
 	}
 	c.Assert(got, gc.DeepEquals, want)
 }

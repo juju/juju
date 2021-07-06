@@ -292,26 +292,6 @@ func (s *provisionerSuite) TestGarbageCollect(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *provisionerSuite) TestApplicationCharmURL(c *gc.C) {
-	client := newClient(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "ApplicationCharmURLs")
-		c.Assert(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
-		*(result.(*params.StringResults)) = params.StringResults{
-			Results: []params.StringResult{{
-				Result: "cs:charm",
-			}},
-		}
-		return nil
-	})
-
-	charmURL, err := client.ApplicationCharmURL("gitlab")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charmURL, jc.DeepEquals, &charm.URL{Schema: "cs", Name: "charm", Revision: -1})
-}
-
 func (s *provisionerSuite) TestUpdateUnits(c *gc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {

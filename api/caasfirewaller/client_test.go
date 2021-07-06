@@ -4,7 +4,6 @@
 package caasfirewaller_test
 
 import (
-	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -14,7 +13,6 @@ import (
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/caasfirewaller"
-	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
@@ -86,58 +84,6 @@ func (s *firewallerSidecarSuite) TestWatchOpenedPorts(c *gc.C) {
 	watcher, err := client.WatchOpenedPorts()
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
-}
-
-func (s *firewallerBaseSuite) TestApplicationCharmInfo(c *gc.C) {
-	expectedObjType := "CAASFirewallerEmbedded"
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, expectedObjType)
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		switch request {
-		case "ApplicationCharmURLs":
-			c.Check(arg, jc.DeepEquals, params.Entities{
-				Entities: []params.Entity{{
-					Tag: "application-gitlab",
-				}},
-			})
-			c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
-			*(result.(*params.StringResults)) = params.StringResults{
-				Results: []params.StringResult{{
-					Result: `cs:gitlab-0`,
-				}},
-			}
-		case "CharmInfo":
-			c.Check(arg, jc.DeepEquals, params.CharmURL{URL: `cs:gitlab-0`})
-			c.Assert(result, gc.FitsTypeOf, &params.Charm{})
-			*(result.(*params.Charm)) = params.Charm{
-				Revision: 1,
-				URL:      `cs:gitlab-0`,
-			}
-		default:
-			return errors.New("should never happen")
-		}
-		return nil
-	})
-
-	clientSidecar := caasfirewaller.NewClientSidecar(apiCaller)
-	result, err := clientSidecar.ApplicationCharmInfo("gitlab")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, &apicommoncharms.CharmInfo{
-		Revision: 1,
-		URL:      `cs:gitlab-0`,
-		Manifest: &charm.Manifest{},
-	})
-
-	expectedObjType = "CAASFirewaller"
-	clientLegacy := caasfirewaller.NewClientLegacy(apiCaller)
-	result, err = clientLegacy.ApplicationCharmInfo("gitlab")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, &apicommoncharms.CharmInfo{
-		Revision: 1,
-		URL:      `cs:gitlab-0`,
-		Manifest: &charm.Manifest{},
-	})
 }
 
 func (s *firewallerBaseSuite) TestIsExposed(c *gc.C) {
