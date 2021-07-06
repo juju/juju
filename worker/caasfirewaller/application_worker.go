@@ -4,7 +4,6 @@
 package caasfirewaller
 
 import (
-	corecharm "github.com/juju/juju/core/charm"
 	"strings"
 
 	"github.com/juju/errors"
@@ -12,6 +11,7 @@ import (
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/tags"
 )
 

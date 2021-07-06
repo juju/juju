@@ -17,6 +17,7 @@ type Logger interface {
 	Debugf(string, ...interface{})
 	Warningf(string, ...interface{})
 	Errorf(string, ...interface{})
+	Tracef(string, ...interface{})
 }
 
 // ManifoldConfig describes the resources used by the firewaller worker.

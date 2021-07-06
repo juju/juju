@@ -166,7 +166,7 @@ func (p *provisioner) loop() error {
 					return errors.Trace(err)
 				}
 				if format >= corecharm.FormatV2 {
-					p.config.Logger.Debugf("v1 unit provisioner got event for v2 app %q, skipping", appName)
+					p.config.Logger.Tracef("v1 unit provisioner got event for v2 app %q, skipping", appName)
 					continue
 				}
 
