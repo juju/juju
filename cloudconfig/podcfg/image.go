@@ -61,12 +61,25 @@ func RebuildOldOperatorImagePath(imagePath string, ver version.Number) string {
 	return tagImagePath(imagePath, ver)
 }
 
+func splitLast(path string, sep string) (string, string) {
+	splits := strings.Split(path, sep)
+	if len(splits) > 1 {
+		newPath := strings.Join(splits[:len(splits)-1], sep)
+		last := splits[len(splits)-1]
+		return newPath, last
+	} else {
+		return path, ""
+	}
+}
+
 func tagImagePath(path string, ver version.Number) string {
 	var verString string
-	splittedPath := strings.Split(path, ":")
-	path = splittedPath[0]
-	if len(splittedPath) > 1 {
-		verString = splittedPath[1]
+	basePath, name := splitLast(path, "/")
+	if len(name) > 0 {
+		name, verString = splitLast(name, ":")
+		path = basePath + "/" + name
+	} else {
+		path, verString = splitLast(basePath, ":")
 	}
 	if ver != version.Zero {
 		verString = ver.String()

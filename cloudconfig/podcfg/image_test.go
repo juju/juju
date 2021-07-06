@@ -33,6 +33,31 @@ func (*imageSuite) TestGetJujuOCIImagePath(c *gc.C) {
 	c.Assert(path, jc.DeepEquals, "testing-old-repo/jujud-old-operator:2.6-beta3")
 }
 
+func (*imageSuite) TestGetJujuOCIImagePathWithLocalRepo(c *gc.C) {
+	cfg := testing.FakeControllerConfig()
+	ver := version.MustParse("2.6-beta3")
+
+	cfg[controller.CAASImageRepo] = "192.168.1.1/testing-repo"
+	path := podcfg.GetJujuOCIImagePath(cfg, ver, 666)
+	c.Assert(path, jc.DeepEquals, "192.168.1.1/testing-repo/jujud-operator:2.6-beta3.666")
+
+	cfg[controller.CAASImageRepo] = "192.168.1.1:8890/testing-repo"
+	path = podcfg.GetJujuOCIImagePath(cfg, ver, 666)
+	c.Assert(path, jc.DeepEquals, "192.168.1.1:8890/testing-repo/jujud-operator:2.6-beta3.666")
+
+	cfg[controller.CAASOperatorImagePath] = "192.168.1.1/testing-old-repo/jujud-old-operator:1.6"
+	path = podcfg.GetJujuOCIImagePath(cfg, ver, 0)
+	c.Assert(path, jc.DeepEquals, "192.168.1.1/testing-old-repo/jujud-old-operator:2.6-beta3")
+
+	cfg[controller.CAASOperatorImagePath] = "192.168.1.1:8890/testing-old-repo/jujud-old-operator:1.6"
+	path = podcfg.GetJujuOCIImagePath(cfg, ver, 0)
+	c.Assert(path, jc.DeepEquals, "192.168.1.1:8890/testing-old-repo/jujud-old-operator:2.6-beta3")
+
+	cfg[controller.CAASOperatorImagePath] = "jujud-old-operator:1.6"
+	path = podcfg.GetJujuOCIImagePath(cfg, ver, 0)
+	c.Assert(path, jc.DeepEquals, "jujud-old-operator:2.6-beta3")
+}
+
 func (*imageSuite) TestImageForBase(c *gc.C) {
 	_, err := podcfg.ImageForBase("", charm.Base{})
 	c.Assert(err, gc.ErrorMatches, `empty base name not valid`)
