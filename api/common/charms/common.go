@@ -10,20 +10,52 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
 
-// CharmsClient allows access to the charms API end point.
-type CharmsClient struct {
+// CharmInfoClient allows access to the charms API endpoint.
+type CharmInfoClient struct {
 	facade base.FacadeCaller
 }
 
-// NewCharmsClient creates a new client for accessing the charms API.
-func NewCharmsClient(facade base.FacadeCaller) *CharmsClient {
-	return &CharmsClient{facade: facade}
+// NewCharmInfoClient creates a new client for accessing the charms API.
+func NewCharmInfoClient(facade base.FacadeCaller) *CharmInfoClient {
+	return &CharmInfoClient{facade: facade}
+}
+
+// CharmInfo returns information about the requested charm.
+func (c *CharmInfoClient) CharmInfo(charmURL string) (*CharmInfo, error) {
+	args := params.CharmURL{URL: charmURL}
+	var info params.Charm
+	if err := c.facade.FacadeCall("CharmInfo", args, &info); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return convertCharm(&info)
+}
+
+// ApplicationCharmInfoClient allows access to the ApplicationCharmInfo endpoint.
+type ApplicationCharmInfoClient struct {
+	facade base.FacadeCaller
+}
+
+// NewApplicationCharmInfoClient creates a new client for accessing the
+// ApplicationCharmInfo API.
+func NewApplicationCharmInfoClient(facade base.FacadeCaller) *ApplicationCharmInfoClient {
+	return &ApplicationCharmInfoClient{facade: facade}
+}
+
+// ApplicationCharmInfo returns information about an application's charm.
+func (c *ApplicationCharmInfoClient) ApplicationCharmInfo(appName string) (*CharmInfo, error) {
+	args := params.Entity{Tag: names.NewApplicationTag(appName).String()}
+	var info params.Charm
+	if err := c.facade.FacadeCall("ApplicationCharmInfo", args, &info); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return convertCharm(&info)
 }
 
 // CharmInfo holds information about a charm.
@@ -42,13 +74,7 @@ func (info *CharmInfo) Charm() charm.Charm {
 	return &charmImpl{info}
 }
 
-// CharmInfo returns information about the requested charm.
-func (c *CharmsClient) CharmInfo(charmURL string) (*CharmInfo, error) {
-	args := params.CharmURL{URL: charmURL}
-	var info params.Charm
-	if err := c.facade.FacadeCall("CharmInfo", args, &info); err != nil {
-		return nil, errors.Trace(err)
-	}
+func convertCharm(info *params.Charm) (*CharmInfo, error) {
 	meta, err := convertCharmMeta(info.Meta)
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -50,7 +50,8 @@ type APIGroup struct {
 	*common.PasswordChanger
 	*common.LifeGetter
 	*common.AgentEntityWatcher
-	*charmscommon.CharmsAPI
+	*charmscommon.CharmInfoAPI
+	*charmscommon.ApplicationCharmInfoAPI
 	*common.ApplicationWatcherFacade
 	*API
 }
@@ -92,7 +93,11 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
 
-	commonCharmsAPI, err := charmscommon.NewCharmsAPI(st, authorizer)
+	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(st, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(st, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -120,7 +125,8 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 		PasswordChanger:          common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		LifeGetter:               common.NewLifeGetter(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		AgentEntityWatcher:       common.NewAgentEntityWatcher(st, resources, common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		CharmsAPI:                commonCharmsAPI,
+		CharmInfoAPI:             commonCharmsAPI,
+		ApplicationCharmInfoAPI:  appCharmInfoAPI,
 		ApplicationWatcherFacade: common.NewApplicationWatcherFacadeFromState(st, resources, common.ApplicationFilterNone),
 		API:                      api,
 	}
@@ -538,32 +544,6 @@ func poolStorageProvider(poolManager poolmanager.PoolManager, registry storage.P
 	}
 	providerType := pool.Provider()
 	return providerType, pool.Attrs(), nil
-}
-
-// ApplicationCharmURLs finds the CharmURL for an application.
-func (a *API) ApplicationCharmURLs(args params.Entities) (params.StringResults, error) {
-	res := params.StringResults{
-		Results: make([]params.StringResult, len(args.Entities)),
-	}
-	for i, entity := range args.Entities {
-		appTag, err := names.ParseApplicationTag(entity.Tag)
-		if err != nil {
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		app, err := a.state.Application(appTag.Id())
-		if err != nil {
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		ch, _, err := app.Charm()
-		if err != nil {
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		res.Results[i].Result = ch.URL().String()
-	}
-	return res, nil
 }
 
 func (a *API) applicationFilesystemParams(

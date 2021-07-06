@@ -21,7 +21,8 @@ type Facade struct {
 	resources facade.Resources
 	state     CAASFirewallerState
 	*common.ApplicationWatcherFacade
-	*charmscommon.CharmsAPI
+	*charmscommon.CharmInfoAPI
+	*charmscommon.ApplicationCharmInfoAPI
 }
 
 // NewStateFacadeLegacy provides the signature required for facade registration.
@@ -29,7 +30,11 @@ func NewStateFacadeLegacy(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterNone)
-	commonCharmsAPI, err := charmscommon.NewCharmsAPI(ctx.State(), authorizer)
+	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(ctx.State(), authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(ctx.State(), authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -39,6 +44,7 @@ func NewStateFacadeLegacy(ctx facade.Context) (*Facade, error) {
 		&stateShim{ctx.State()},
 		appWatcherFacade,
 		commonCharmsAPI,
+		appCharmInfoAPI,
 	)
 }
 
@@ -47,7 +53,8 @@ func newFacadeLegacy(
 	authorizer facade.Authorizer,
 	st CAASFirewallerState,
 	applicationWatcherFacade *common.ApplicationWatcherFacade,
-	commonCharmsAPI *charmscommon.CharmsAPI,
+	commonCharmsAPI *charmscommon.CharmInfoAPI,
+	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -68,7 +75,8 @@ func newFacadeLegacy(
 		resources:                resources,
 		state:                    st,
 		ApplicationWatcherFacade: applicationWatcherFacade,
-		CharmsAPI:                commonCharmsAPI,
+		CharmInfoAPI:             commonCharmsAPI,
+		ApplicationCharmInfoAPI:  appCharmInfoAPI,
 	}, nil
 }
 
@@ -125,32 +133,6 @@ func (f *Facade) getApplicationConfig(tagString string) (map[string]interface{},
 	return app.ApplicationConfig()
 }
 
-// ApplicationCharmURLs finds the CharmURL for an application.
-func (f *Facade) ApplicationCharmURLs(args params.Entities) (params.StringResults, error) {
-	res := params.StringResults{
-		Results: make([]params.StringResult, len(args.Entities)),
-	}
-	for i, entity := range args.Entities {
-		appTag, err := names.ParseApplicationTag(entity.Tag)
-		if err != nil {
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		app, err := f.state.Application(appTag.Id())
-		if err != nil {
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		ch, _, err := app.Charm()
-		if err != nil {
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		res.Results[i].Result = ch.URL().String()
-	}
-	return res, nil
-}
-
 // FacadeSidecar provides access to the CAASFirewaller API facade for sidecar applications.
 type FacadeSidecar struct {
 	*Facade
@@ -163,7 +145,11 @@ func NewStateFacadeSidecar(ctx facade.Context) (*FacadeSidecar, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterNone)
-	commonCharmsAPI, err := charmscommon.NewCharmsAPI(ctx.State(), authorizer)
+	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(ctx.State(), authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(ctx.State(), authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -173,6 +159,7 @@ func NewStateFacadeSidecar(ctx facade.Context) (*FacadeSidecar, error) {
 		&stateShim{ctx.State()},
 		appWatcherFacade,
 		commonCharmsAPI,
+		appCharmInfoAPI,
 	)
 }
 
@@ -181,7 +168,8 @@ func newFacadeSidecar(
 	authorizer facade.Authorizer,
 	st CAASFirewallerState,
 	applicationWatcherFacade *common.ApplicationWatcherFacade,
-	commonCharmsAPI *charmscommon.CharmsAPI,
+	commonCharmsAPI *charmscommon.CharmInfoAPI,
+	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI,
 ) (*FacadeSidecar, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -205,7 +193,8 @@ func newFacadeSidecar(
 			resources:                resources,
 			state:                    st,
 			ApplicationWatcherFacade: applicationWatcherFacade,
-			CharmsAPI:                commonCharmsAPI,
+			CharmInfoAPI:             commonCharmsAPI,
+			ApplicationCharmInfoAPI:  appCharmInfoAPI,
 		},
 	}, nil
 }

@@ -14,7 +14,6 @@ package caasapplicationprovisioner
 import (
 	"time"
 
-	"github.com/juju/charm/v8"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -52,7 +51,7 @@ type CAASProvisionerFacade interface {
 	SetPassword(string, string) error
 	Life(string) (life.Value, error)
 	CharmInfo(string) (*charmscommon.CharmInfo, error)
-	ApplicationCharmURL(string) (*charm.URL, error)
+	ApplicationCharmInfo(string) (*charmscommon.CharmInfo, error)
 	SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error
 	Units(appName string) ([]names.Tag, error)
 	GarbageCollect(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error

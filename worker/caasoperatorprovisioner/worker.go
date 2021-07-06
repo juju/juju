@@ -17,7 +17,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -51,8 +50,7 @@ type CAASProvisionerFacade interface {
 	SetPasswords([]apicaasprovisioner.ApplicationPassword) (params.ErrorResults, error)
 	Life(string) (life.Value, error)
 	IssueOperatorCertificate(string) (apicaasprovisioner.OperatorCertificate, error)
-	CharmInfo(string) (*charmscommon.CharmInfo, error)
-	ApplicationCharmURL(string) (*charm.URL, error)
+	ApplicationCharmInfo(appName string) (*charmscommon.CharmInfo, error)
 }
 
 // Config defines the operation of a Worker.
@@ -170,13 +168,9 @@ func (p *provisioner) loop() error {
 }
 
 func (p *provisioner) charmFormat(appName string) (corecharm.MetadataFormat, error) {
-	charmURL, err := p.facade.ApplicationCharmURL(appName)
+	charmInfo, err := p.facade.ApplicationCharmInfo(appName)
 	if err != nil {
-		return corecharm.FormatUnknown, errors.Annotatef(err, "failed to get charm url for application %q", appName)
-	}
-	charmInfo, err := p.facade.CharmInfo(charmURL.String())
-	if err != nil {
-		return corecharm.FormatUnknown, errors.Annotatef(err, "failed to get application charm deployment metadata for %q", appName)
+		return corecharm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", appName)
 	}
 	return corecharm.Format(charmInfo.Charm()), nil
 }

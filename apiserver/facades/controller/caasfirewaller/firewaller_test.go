@@ -50,7 +50,7 @@ var _ = gc.Suite(&firewallerLegacySuite{
 			authorizer facade.Authorizer,
 			st *mockState,
 		) (facadeCommon, error) {
-			commonCharmsAPI, err := charmscommon.NewCharmsAPI(st, authorizer)
+			commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(st, authorizer)
 			c.Assert(err, jc.ErrorIsNil)
 			return caasfirewaller.NewFacadeLegacyForTest(
 				resources, authorizer, st,

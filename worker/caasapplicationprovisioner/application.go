@@ -358,13 +358,9 @@ func (a *appWorker) loop() error {
 }
 
 func (a *appWorker) charmFormat() (corecharm.MetadataFormat, error) {
-	charmURL, err := a.facade.ApplicationCharmURL(a.name)
+	charmInfo, err := a.facade.ApplicationCharmInfo(a.name)
 	if err != nil {
-		return corecharm.FormatUnknown, errors.Annotatef(err, "failed to get charm url for application %q", a.name)
-	}
-	charmInfo, err := a.facade.CharmInfo(charmURL.String())
-	if err != nil {
-		return corecharm.FormatUnknown, errors.Annotatef(err, "failed to get application charm deployment metadata for %q", a.name)
+		return corecharm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", a.name)
 	}
 	return corecharm.Format(charmInfo.Charm()), nil
 }

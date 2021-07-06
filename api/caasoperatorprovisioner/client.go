@@ -4,7 +4,6 @@
 package caasoperatorprovisioner
 
 import (
-	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
@@ -21,16 +20,19 @@ import (
 // Client allows access to the CAAS operator provisioner API endpoint.
 type Client struct {
 	facade base.FacadeCaller
-	*charmscommon.CharmsClient
+	*charmscommon.CharmInfoClient
+	*charmscommon.ApplicationCharmInfoClient
 }
 
 // NewClient returns a client used to access the CAAS Operator Provisioner API.
 func NewClient(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, "CAASOperatorProvisioner")
-	charmsClient := charmscommon.NewCharmsClient(facadeCaller)
+	charmInfoClient := charmscommon.NewCharmInfoClient(facadeCaller)
+	appCharmInfoClient := charmscommon.NewApplicationCharmInfoClient(facadeCaller)
 	return &Client{
-		facade:       facadeCaller,
-		CharmsClient: charmsClient,
+		facade:                     facadeCaller,
+		CharmInfoClient:            charmInfoClient,
+		ApplicationCharmInfoClient: appCharmInfoClient,
 	}
 }
 
@@ -185,28 +187,4 @@ func (c *Client) IssueOperatorCertificate(applicationName string) (OperatorCerti
 		Cert:       certInfo.Cert,
 		PrivateKey: certInfo.PrivateKey,
 	}, nil
-}
-
-// ApplicationCharmURL finds the CharmURL for an application.
-func (c *Client) ApplicationCharmURL(appName string) (*charm.URL, error) {
-	args := params.Entities{Entities: []params.Entity{{
-		Tag: names.NewApplicationTag(appName).String(),
-	}}}
-	var result params.StringResults
-	if err := c.facade.FacadeCall("ApplicationCharmURLs", args, &result); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(result.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d",
-			len(result.Results))
-	}
-	res := result.Results[0]
-	if res.Error != nil {
-		return nil, errors.Annotatef(maybeNotFound(res.Error), "unable to fetch charm url for %s", appName)
-	}
-	url, err := charm.ParseURL(res.Result)
-	if err != nil {
-		return nil, errors.Annotatef(err, "invalid charm url %q", res.Result)
-	}
-	return url, nil
 }

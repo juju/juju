@@ -6669,17 +6669,17 @@
         "Schema": {
             "type": "object",
             "properties": {
-                "ApplicationCharmURLs": {
+                "ApplicationCharmInfo": {
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
+                            "$ref": "#/definitions/Entity"
                         },
                         "Result": {
-                            "$ref": "#/definitions/StringResults"
+                            "$ref": "#/definitions/Charm"
                         }
                     },
-                    "description": "ApplicationCharmURLs finds the CharmURL for an application."
+                    "description": "ApplicationCharmInfo fetches charm information for an application."
                 },
                 "ApplicationOCIResources": {
                     "type": "object",
@@ -8161,36 +8161,6 @@
                         "entities"
                     ]
                 },
-                "StringResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
-                    ]
-                },
-                "StringResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/StringResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
                 "StringsWatchResult": {
                     "type": "object",
                     "properties": {
@@ -8367,17 +8337,17 @@
         "Schema": {
             "type": "object",
             "properties": {
-                "ApplicationCharmURLs": {
+                "ApplicationCharmInfo": {
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
+                            "$ref": "#/definitions/Entity"
                         },
                         "Result": {
-                            "$ref": "#/definitions/StringResults"
+                            "$ref": "#/definitions/Charm"
                         }
                     },
-                    "description": "ApplicationCharmURLs finds the CharmURL for an application."
+                    "description": "ApplicationCharmInfo fetches charm information for an application."
                 },
                 "ApplicationsConfig": {
                     "type": "object",
@@ -9181,36 +9151,6 @@
                         "results"
                     ]
                 },
-                "StringResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
-                    ]
-                },
-                "StringResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/StringResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
                 "StringsWatchResult": {
                     "type": "object",
                     "properties": {
@@ -9248,17 +9188,17 @@
         "Schema": {
             "type": "object",
             "properties": {
-                "ApplicationCharmURLs": {
+                "ApplicationCharmInfo": {
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
+                            "$ref": "#/definitions/Entity"
                         },
                         "Result": {
-                            "$ref": "#/definitions/StringResults"
+                            "$ref": "#/definitions/Charm"
                         }
                     },
-                    "description": "ApplicationCharmURLs finds the CharmURL for an application."
+                    "description": "ApplicationCharmInfo fetches charm information for an application."
                 },
                 "ApplicationsConfig": {
                     "type": "object",
@@ -10066,36 +10006,6 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/NotifyWatchResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "StringResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
-                    ]
-                },
-                "StringResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/StringResult"
                             }
                         }
                     },
@@ -11280,17 +11190,17 @@
                     },
                     "description": "APIHostPorts returns the API server addresses."
                 },
-                "ApplicationCharmURLs": {
+                "ApplicationCharmInfo": {
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
+                            "$ref": "#/definitions/Entity"
                         },
                         "Result": {
-                            "$ref": "#/definitions/StringResults"
+                            "$ref": "#/definitions/Charm"
                         }
                     },
-                    "description": "ApplicationCharmURLs finds the CharmURL for an application."
+                    "description": "ApplicationCharmInfo fetches charm information for an application."
                 },
                 "CharmInfo": {
                     "type": "object",
@@ -12373,21 +12283,6 @@
                         "result"
                     ]
                 },
-                "StringResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/StringResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
                 "StringsResult": {
                     "type": "object",
                     "properties": {
@@ -12548,17 +12443,17 @@
         "Schema": {
             "type": "object",
             "properties": {
-                "ApplicationCharmURLs": {
+                "ApplicationCharmInfo": {
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
+                            "$ref": "#/definitions/Entity"
                         },
                         "Result": {
-                            "$ref": "#/definitions/StringResults"
+                            "$ref": "#/definitions/Charm"
                         }
                     },
-                    "description": "ApplicationCharmURLs finds the CharmURL for an application."
+                    "description": "ApplicationCharmInfo fetches charm information for an application."
                 },
                 "ApplicationsConfig": {
                     "type": "object",

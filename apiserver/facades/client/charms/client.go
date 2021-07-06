@@ -37,7 +37,7 @@ import (
 // API implements the charms interface and is the concrete
 // implementation of the API end point.
 type API struct {
-	*charmscommon.CharmsAPI
+	*charmscommon.CharmInfoAPI
 	authorizer   facade.Authorizer
 	backendState charmsinterfaces.BackendState
 	backendModel charmsinterfaces.BackendModel
@@ -120,7 +120,7 @@ func NewFacadeV4(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 
-	commonCharmsAPI, err := charmscommon.NewCharmsAPI(st, authorizer)
+	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(st, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -128,7 +128,7 @@ func NewFacadeV4(ctx facade.Context) (*API, error) {
 	httpTransport := charmhub.RequestHTTPTransport(ctx.RequestRecorder(), charmhub.DefaultRetryPolicy())
 
 	return &API{
-		CharmsAPI:            commonCharmsAPI,
+		CharmInfoAPI:         commonCharmsAPI,
 		authorizer:           authorizer,
 		backendState:         newStateShim(st),
 		backendModel:         m,

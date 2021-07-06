@@ -19,25 +19,27 @@ import (
 type State interface {
 	Model() (*state.Model, error)
 	Charm(curl *charm.URL) (*state.Charm, error)
+	Application(appName string) (*state.Application, error)
 }
 
 type backend interface {
 	Charm(curl *charm.URL) (*state.Charm, error)
 	ModelTag() names.ModelTag
+	Application(appName string) (*state.Application, error)
 }
 
-// CharmsAPI implements the charms interface and is the concrete
-// implementation of the CharmsAPI end point.
-type CharmsAPI struct {
+// CharmInfoAPI implements the charms interface and is the concrete
+// implementation of the CharmInfoAPI end point.
+type CharmInfoAPI struct {
 	authorizer facade.Authorizer
 	backend    backend
 }
 
-func (a *CharmsAPI) checkCanRead() error {
-	if a.authorizer.AuthController() {
+func checkCanRead(authorizer facade.Authorizer, backend backend) error {
+	if authorizer.AuthController() {
 		return nil
 	}
-	canRead, err := a.authorizer.HasPermission(permission.ReadAccess, a.backend.ModelTag())
+	canRead, err := authorizer.HasPermission(permission.ReadAccess, backend.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -47,14 +49,14 @@ func (a *CharmsAPI) checkCanRead() error {
 	return nil
 }
 
-// NewCharmsAPI provides the signature required for facade registration.
-func NewCharmsAPI(st State, authorizer facade.Authorizer) (*CharmsAPI, error) {
+// NewCharmInfoAPI provides the signature required for facade registration.
+func NewCharmInfoAPI(st State, authorizer facade.Authorizer) (*CharmInfoAPI, error) {
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return &CharmsAPI{
+	return &CharmInfoAPI{
 		authorizer: authorizer,
 		backend:    getState(st, m),
 	}, nil
@@ -73,8 +75,8 @@ var getState = func(st State, m *state.Model) backend {
 
 // CharmInfo returns information about the requested charm.
 // NOTE: thumper 2016-06-29, this is not a bulk call and probably should be.
-func (a *CharmsAPI) CharmInfo(args params.CharmURL) (params.Charm, error) {
-	if err := a.checkCanRead(); err != nil {
+func (a *CharmInfoAPI) CharmInfo(args params.CharmURL) (params.Charm, error) {
+	if err := checkCanRead(a.authorizer, a.backend); err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
 
@@ -86,23 +88,68 @@ func (a *CharmsAPI) CharmInfo(args params.CharmURL) (params.Charm, error) {
 	if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
-	info := params.Charm{
-		Revision: aCharm.Revision(),
+	info := convertCharm(curl, aCharm)
+	return info, nil
+}
+
+// ApplicationCharmInfoAPI implements the ApplicationCharmInfo endpoint.
+type ApplicationCharmInfoAPI struct {
+	authorizer facade.Authorizer
+	backend    backend
+}
+
+// NewApplicationCharmInfoAPI provides the signature required for facade registration.
+func NewApplicationCharmInfoAPI(st State, authorizer facade.Authorizer) (*ApplicationCharmInfoAPI, error) {
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &ApplicationCharmInfoAPI{
+		authorizer: authorizer,
+		backend:    getState(st, m),
+	}, nil
+}
+
+// ApplicationCharmInfo fetches charm information for an application.
+func (a *ApplicationCharmInfoAPI) ApplicationCharmInfo(args params.Entity) (params.Charm, error) {
+	if err := checkCanRead(a.authorizer, a.backend); err != nil {
+		return params.Charm{}, errors.Trace(err)
+	}
+
+	appTag, err := names.ParseApplicationTag(args.Tag)
+	if err != nil {
+		return params.Charm{}, errors.Trace(err)
+	}
+	app, err := a.backend.Application(appTag.Id())
+	if err != nil {
+		return params.Charm{}, errors.Trace(err)
+	}
+	ch, _, err := app.Charm()
+	if err != nil {
+		return params.Charm{}, errors.Trace(err)
+	}
+	return convertCharm(ch.URL(), ch), nil
+}
+
+func convertCharm(curl *charm.URL, stCharm *state.Charm) params.Charm {
+	charm := params.Charm{
+		Revision: stCharm.Revision(),
 		URL:      curl.String(),
-		Config:   params.ToCharmOptionMap(aCharm.Config()),
-		Meta:     convertCharmMeta(aCharm.Meta()),
-		Actions:  convertCharmActions(aCharm.Actions()),
-		Metrics:  convertCharmMetrics(aCharm.Metrics()),
-		Manifest: convertCharmManifest(aCharm.Manifest()),
+		Config:   params.ToCharmOptionMap(stCharm.Config()),
+		Meta:     convertCharmMeta(stCharm.Meta()),
+		Actions:  convertCharmActions(stCharm.Actions()),
+		Metrics:  convertCharmMetrics(stCharm.Metrics()),
+		Manifest: convertCharmManifest(stCharm.Manifest()),
 	}
 
 	// we don't need to check that this is a charm.LXDProfiler, as we can
 	// state that the function exists.
-	if profile := aCharm.LXDProfile(); profile != nil && !profile.Empty() {
-		info.LXDProfile = convertCharmLXDProfile(profile)
+	if profile := stCharm.LXDProfile(); profile != nil && !profile.Empty() {
+		charm.LXDProfile = convertCharmLXDProfile(profile)
 	}
 
-	return info, nil
+	return charm
 }
 
 func convertCharmMeta(meta *charm.Meta) *params.CharmMeta {

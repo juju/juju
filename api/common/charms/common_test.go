@@ -91,7 +91,7 @@ func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
 
 	mockFacadeCaller.EXPECT().FacadeCall("CharmInfo", args, info).SetArg(2, params).Return(nil)
 
-	client := apicommoncharms.NewCharmsClient(mockFacadeCaller)
+	client := apicommoncharms.NewCharmInfoClient(mockFacadeCaller)
 	got, err := client.CharmInfo(url)
 	c.Assert(err, gc.IsNil)
 
