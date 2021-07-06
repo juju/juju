@@ -62,7 +62,7 @@ require (
 	github.com/juju/idmclient/v2 v2.0.0-20210309081103-6b4a5212f851
 	github.com/juju/jsonschema v0.0.0-20210422141032-b0ff291abe9c
 	github.com/juju/jsonschema-gen v0.0.0-20200416014454-d924343d72b2
-	github.com/juju/loggo v0.0.0-20210702145002-48aac3f452bc
+	github.com/juju/loggo v0.0.0-20210708153607-abb62bf570b2
 	github.com/juju/mgo/v2 v2.0.0-20210414025616-e854c672032f
 	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
 	github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0

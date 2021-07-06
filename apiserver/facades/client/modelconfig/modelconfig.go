@@ -16,6 +16,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
+var logger = loggo.GetLogger("apiserver.modelconfig")
+
 // NewFacade is used for API registration.
 func NewFacadeV2(ctx facade.Context) (*ModelConfigAPIV2, error) {
 	auth := ctx.Auth()
@@ -167,7 +169,12 @@ func (c *ModelConfigAPI) checkLogTrace() state.ValidateConfigFunc {
 		if !ok {
 			return nil
 		}
-		logCfg, err := loggo.ParseConfigString(spec.(string))
+		// This prevents a panic when trying to convert a spec which can be nil.
+		logSpec, ok := spec.(string)
+		if !ok {
+			return nil
+		}
+		logCfg, err := loggo.ParseConfigString(logSpec)
 		if err != nil {
 			return errors.Trace(err)
 		}

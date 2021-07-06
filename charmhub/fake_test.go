@@ -18,6 +18,6 @@ func (l *FakeLogger) Debugf(format string, args ...interface{}) {}
 
 func (l *FakeLogger) Tracef(format string, args ...interface{}) {}
 
-func (l *FakeLogger) Child(string) loggo.Logger {
+func (l *FakeLogger) ChildWithLabels(string, ...string) loggo.Logger {
 	return loggo.Logger{}
 }

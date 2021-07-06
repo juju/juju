@@ -190,6 +190,8 @@ type debugLogParams struct {
 	excludeEntity []string
 	includeModule []string
 	excludeModule []string
+	includeLabel  []string
+	excludeLabel  []string
 }
 
 func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {

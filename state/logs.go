@@ -321,6 +321,7 @@ type logDoc struct {
 	Location string        `bson:"l"` // "filename:lineno"
 	Level    int           `bson:"v"`
 	Message  string        `bson:"x"`
+	Labels   []string      `bson:"c,omitempty"` // e.g. http
 }
 
 type DbLogger struct {
@@ -368,6 +369,7 @@ func (logger *DbLogger) Log(records []LogRecord) error {
 			Location: r.Location,
 			Level:    int(r.Level),
 			Message:  r.Message,
+			Labels:   r.Labels,
 		})
 	}
 	_, err := bulk.Run()
@@ -427,6 +429,7 @@ type LogRecord struct {
 	Module   string
 	Location string
 	Message  string
+	Labels   []string
 }
 
 // LogTailerParams specifies the filtering a LogTailer should apply to
@@ -441,6 +444,8 @@ type LogTailerParams struct {
 	ExcludeEntity []string
 	IncludeModule []string
 	ExcludeModule []string
+	IncludeLabel  []string
+	ExcludeLabel  []string
 	Oplog         *mgo.Collection // For testing only
 }
 
@@ -760,6 +765,14 @@ func (t *logTailer) paramsToSelector(params LogTailerParams, prefix string) bson
 		sel = append(sel,
 			bson.DocElem{"m", bson.M{"$not": bson.RegEx{Pattern: makeModulePattern(params.ExcludeModule)}}})
 	}
+	if len(params.IncludeLabel) > 0 {
+		sel = append(sel,
+			bson.DocElem{"m", bson.RegEx{Pattern: makeLabelPattern(params.IncludeLabel)}})
+	}
+	if len(params.ExcludeLabel) > 0 {
+		sel = append(sel,
+			bson.DocElem{"m", bson.M{"$not": bson.RegEx{Pattern: makeLabelPattern(params.ExcludeLabel)}}})
+	}
 	if prefix != "" {
 		for i, elem := range sel {
 			sel[i].Name = prefix + elem.Name
@@ -784,6 +797,14 @@ func makeModulePattern(modules []string) string {
 		patterns = append(patterns, regexp.QuoteMeta(module))
 	}
 	return `^(` + strings.Join(patterns, "|") + `)(\..+)?$`
+}
+
+func makeLabelPattern(labels []string) string {
+	var patterns []string
+	for _, label := range labels {
+		patterns = append(patterns, regexp.QuoteMeta(label))
+	}
+	return `^(` + strings.Join(patterns, "|") + `)$`
 }
 
 func newRecentIdTracker(maxLen int) *recentIdTracker {
@@ -861,6 +882,7 @@ func logDocToRecord(modelUUID string, doc *logDoc) (*LogRecord, error) {
 		Module:   doc.Module,
 		Location: doc.Location,
 		Message:  doc.Message,
+		Labels:   doc.Labels,
 	}
 	return rec, nil
 }

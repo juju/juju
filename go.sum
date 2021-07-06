@@ -446,8 +446,8 @@ github.com/juju/loggo v0.0.0-20180524022052-584905176618/go.mod h1:vgyd7OREkbtVE
 github.com/juju/loggo v0.0.0-20190526231331-6e530bcce5d8/go.mod h1:vgyd7OREkbtVEN/8IXZe5Ooef3LQePvuBm9UWj6ZL8U=
 github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e h1:FdDd7bdI6cjq5vaoYlK1mfQYfF9sF2VZw8VEZMsl5t8=
 github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e/go.mod h1:vgyd7OREkbtVEN/8IXZe5Ooef3LQePvuBm9UWj6ZL8U=
-github.com/juju/loggo v0.0.0-20210702145002-48aac3f452bc h1:WGxk8Q48AZw9zX3kUAhxPCIWDdPzQRCpFAuNDldvRQc=
-github.com/juju/loggo v0.0.0-20210702145002-48aac3f452bc/go.mod h1:vgyd7OREkbtVEN/8IXZe5Ooef3LQePvuBm9UWj6ZL8U=
+github.com/juju/loggo v0.0.0-20210708153607-abb62bf570b2 h1:x9vxpnvnq49KqzgfTmh3FUkA93qXZX5h4LZBDZOdOb0=
+github.com/juju/loggo v0.0.0-20210708153607-abb62bf570b2/go.mod h1:NIXFioti1SmKAlKNuUwbMenNdef59IF52+ZzuOmHYkg=
 github.com/juju/lru v0.0.0-20190314140547-92a0afabdc41 h1:/ucixsNZ+l94agL5LZioJ4ECyOz7kOYY+DKb/0NN6ME=
 github.com/juju/lru v0.0.0-20190314140547-92a0afabdc41/go.mod h1:RI/7Oj7RFK3hzCrjmJVrEeMryn8PEzl6kiIz4QFb48Y=
 github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible h1:7LYjAfMZm+i6+VzOUBGhku+iOYeh0ohjIy7N9zd7JR4=
