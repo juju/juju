@@ -120,7 +120,7 @@ func (s *ModelSuite) TestConfigWatcherOneValue(c *gc.C) {
 	wc.AssertOneChange()
 }
 
-func (s *ModelSuite) TestConfigWatcherOneValueOtherChange(c *gc.C) {
+func (s *ModelSuite) TestConfigWatcherSameValueHasNoChange(c *gc.C) {
 	m := s.NewModel(modelChange)
 	w := m.WatchConfig("key")
 
@@ -144,6 +144,43 @@ func (s *ModelSuite) TestConfigWatcherOneValueOtherChange(c *gc.C) {
 
 	m.SetDetails(change)
 	wc.AssertNoChange()
+}
+
+func (s *ModelSuite) TestConfigWatcherValueHasChangeBackToOriginalValue(c *gc.C) {
+	m := s.NewModel(modelChange)
+	w := m.WatchConfig("key")
+
+	// The worker is the first and only resource (1).
+	resourceId := uint64(1)
+	s.AssertWorkerResource(c, m.Resident, resourceId, true)
+	defer func() {
+		workertest.CleanKill(c, w)
+		s.AssertWorkerResource(c, m.Resident, resourceId, false)
+	}()
+
+	wc := cache.NewNotifyWatcherC(c, w)
+	// Sends initial event.
+	wc.AssertOneChange()
+
+	change := modelChange
+	change.Config = map[string]interface{}{
+		"key":     "other",
+		"another": "changed",
+	}
+
+	m.SetDetails(change)
+	wc.AssertOneChange()
+
+	// Set it back to the original value and ensure that we do get
+	// a change event again.
+	change = modelChange
+	change.Config = map[string]interface{}{
+		"key":     "value",
+		"another": "changed",
+	}
+
+	m.SetDetails(change)
+	wc.AssertOneChange()
 }
 
 func (s *ModelSuite) TestConfigWatcherSameValuesCacheHit(c *gc.C) {

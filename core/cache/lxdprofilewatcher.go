@@ -342,7 +342,6 @@ func (w *MachineLXDProfileWatcher) removeUnit(_ string, value interface{}) {
 	if len(w.applications) > 0 && !profile.Empty() {
 		notify = true
 	}
-	return
 }
 
 // provisionedChanged notifies when called.  Topic subscribed to is specific to

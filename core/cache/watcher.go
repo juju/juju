@@ -156,6 +156,7 @@ func (w *ConfigWatcher) configChanged(topic string, value interface{}) {
 		return
 	}
 	w.notify()
+	w.hash = hash
 }
 
 // StringsWatcher will return what has changed.
@@ -270,15 +271,6 @@ type PredicateStringsWatcher struct {
 	*stringsWatcherBase
 
 	fn predicateFunc
-}
-
-// newChangeWatcher provides a PredicateStringsWatcher which notifies
-// with all strings passed to it.
-func newChangeWatcher(values ...string) *PredicateStringsWatcher {
-	return &PredicateStringsWatcher{
-		stringsWatcherBase: newStringsWatcherBase(values...),
-		fn:                 func(string) bool { return true },
-	}
 }
 
 func regexpPredicate(compiled *regexp.Regexp) func(string) bool {
