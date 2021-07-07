@@ -280,7 +280,11 @@ func (a *action) Begin() (Action, error) {
 					return nil, errors.Trace(err)
 				}
 			}
-			if err == nil && parentOperation.(*operation).doc.Status == ActionPending {
+			parentOpDetails, ok := parentOperation.(*operation)
+			if !ok {
+				return nil, errors.Errorf("parentOperation must be of type operation")
+			}
+			if err == nil && parentOpDetails.doc.Status == ActionPending {
 				updateOperationOp = &txn.Op{
 					C:      operationsC,
 					Id:     a.st.docID(parentOperation.Id()),
@@ -424,13 +428,17 @@ func (a *action) removeAndLogBuildTxn(finalStatus ActionStatus, results map[stri
 		var updateOperationOp *txn.Op
 		var err error
 		if parentOperation != nil {
+			parentOpDetails, ok := parentOperation.(*operation)
+			if !ok {
+				return nil, errors.Errorf("parentOperation must be of type operation")
+			}
 			if attempt > 0 {
 				err = parentOperation.Refresh()
 				if err != nil && !errors.IsNotFound(err) {
 					return nil, errors.Trace(err)
 				}
 			}
-			tasks := parentOperation.(*operation).taskStatus
+			tasks := parentOpDetails.taskStatus
 			statusStats := set.NewStrings(string(finalStatus))
 			var numComplete int
 			for _, status := range tasks {
@@ -439,7 +447,7 @@ func (a *action) removeAndLogBuildTxn(finalStatus ActionStatus, results map[stri
 					numComplete++
 				}
 			}
-			expectedTaskCount := parentOperation.(*operation).doc.ExpectedTaskCount
+			expectedTaskCount := parentOpDetails.doc.ExpectedTaskCount
 			if numComplete == expectedTaskCount-1 {
 				// Set the operation status based on the individual
 				// task status values. eg if any task is failed,
