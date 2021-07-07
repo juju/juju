@@ -4262,7 +4262,7 @@ func (s *uniterNetworkConfigSuite) addProvisionedMachineWithDevicesAndAddresses(
 	c.Assert(machine.SetLinkLayerDevices(devicesArgs...), jc.ErrorIsNil)
 	c.Assert(machine.SetDevicesAddresses(devicesAddrs...), jc.ErrorIsNil)
 
-	machineAddrs, err := machine.AllAddresses()
+	machineAddrs, err := machine.AllDeviceAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 
 	netAddrs := make([]network.SpaceAddress, len(machineAddrs))
@@ -4518,7 +4518,7 @@ func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c 
 	c.Assert(machine.SetLinkLayerDevices(devicesArgs...), jc.ErrorIsNil)
 	c.Assert(machine.SetDevicesAddresses(devicesAddrs...), jc.ErrorIsNil)
 
-	machineAddrs, err := machine.AllAddresses()
+	machineAddrs, err := machine.AllDeviceAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 
 	netAddrs := make([]network.SpaceAddress, len(machineAddrs))

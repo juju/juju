@@ -63,11 +63,14 @@ func ReloadSpaces(ctx context.ProviderCallContext, state ReloadSpacesState, envi
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	if canDiscoverSpaces {
 		spaces, err := netEnviron.Spaces(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
+
+		logger.Infof("discovered spaces: %s", spaces.String())
 
 		providerSpaces := NewProviderSpaces(state)
 		if err := providerSpaces.SaveSpaces(spaces); err != nil {
@@ -145,7 +148,7 @@ func (s *ProviderSpaces) SaveSpaces(providerSpaces []network.SpaceInfo) error {
 			spaceNames.Add(spaceName)
 			spaceID = space.Id()
 
-			// To ensure that we can remove spaces, we backfill the new spaces
+			// To ensure that we can remove spaces, we back-fill the new spaces
 			// onto the modelSpaceMap.
 			s.modelSpaceMap[space.ProviderId()] = space
 		}

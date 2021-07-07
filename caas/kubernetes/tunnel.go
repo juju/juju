@@ -29,6 +29,11 @@ import (
 	"github.com/juju/juju/caas/kubernetes/pod"
 )
 
+const (
+	// ForwardPortTimeout is the duration for waiting for a pod to be ready.
+	ForwardPortTimeout time.Duration = time.Minute * 10
+)
+
 // Tunnel represents an ssh like tunnel to a Kubernetes Pod or Service
 type Tunnel struct {
 	client     rest.Interface
@@ -92,10 +97,10 @@ func (t *Tunnel) findSuitablePodForService() (*corev1.Pod, error) {
 
 func (t *Tunnel) ForwardPort() error {
 	if !t.IsValidTunnelKind() {
-		return fmt.Errorf("invalid tunel kind %s", t.Kind)
+		return fmt.Errorf("invalid tunnel kind %s", t.Kind)
 	}
 
-	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Minute)
+	ctx, cancelFunc := context.WithTimeout(context.Background(), ForwardPortTimeout)
 	defer cancelFunc()
 
 	podName := t.Target

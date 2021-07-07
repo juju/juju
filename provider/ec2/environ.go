@@ -83,6 +83,8 @@ var (
 var _ Client = (*ec2.Client)(nil)
 
 type environ struct {
+	environs.NoSpaceDiscoveryEnviron
+
 	name  string
 	cloud environscloudspec.CloudSpec
 
@@ -187,11 +189,6 @@ func (e *environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) 
 // SupportsContainerAddresses is specified on environs.Networking.
 func (e *environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (bool, error) {
 	return false, errors.NotSupportedf("container address allocation")
-}
-
-// SupportsSpaceDiscovery is specified on environs.Networking.
-func (e *environ) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool, error) {
-	return false, nil
 }
 
 var unsupportedConstraints = []string{
@@ -1463,12 +1460,6 @@ func makeSubnetInfo(
 
 }
 
-// Spaces is not implemented by the ec2 provider as we don't currently have
-// provider level spaces.
-func (e *environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
-	return nil, errors.NotSupportedf("Spaces")
-}
-
 // Subnets returns basic information about the specified subnets known
 // by the provider for the specified instance or list of ids. subnetIds can be
 // empty, in which case all known are returned. Implements
@@ -2532,13 +2523,6 @@ func (e *environ) hasDefaultVPC(ctx context.ProviderCallContext) (bool, error) {
 		e.defaultVPCChecked = true
 	}
 	return e.defaultVPC != nil, nil
-}
-
-// ProviderSpaceInfo implements NetworkingEnviron.
-func (*environ) ProviderSpaceInfo(
-	ctx context.ProviderCallContext, space *network.SpaceInfo,
-) (*environs.ProviderSpaceInfo, error) {
-	return nil, errors.NotSupportedf("provider space info")
 }
 
 // AreSpacesRoutable implements NetworkingEnviron.

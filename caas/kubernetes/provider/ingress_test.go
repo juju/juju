@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -53,7 +54,7 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, IngressResources []k8ss
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
-			RevisionHistoryLimit: int32Ptr(0),
+			RevisionHistoryLimit: pointer.Int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"app.kubernetes.io/name": "app-name"},
@@ -327,7 +328,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreateV1(c *gc.C) {
 						Path: "/testpath",
 						Backend: networkingv1.IngressBackend{
 							Resource: &core.TypedLocalObjectReference{
-								APIGroup: strPtr("k8s.example.com"),
+								APIGroup: pointer.StringPtr("k8s.example.com"),
 								Kind:     "StorageBucket",
 								Name:     "icon-assets",
 							},
@@ -391,7 +392,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1(c *gc.C) {
 						Path: "/testpath",
 						Backend: networkingv1.IngressBackend{
 							Resource: &core.TypedLocalObjectReference{
-								APIGroup: strPtr("k8s.example.com"),
+								APIGroup: pointer.StringPtr("k8s.example.com"),
 								Kind:     "StorageBucket",
 								Name:     "icon-assets",
 							},
@@ -461,7 +462,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 						Path: "/testpath",
 						Backend: networkingv1.IngressBackend{
 							Resource: &core.TypedLocalObjectReference{
-								APIGroup: strPtr("k8s.example.com"),
+								APIGroup: pointer.StringPtr("k8s.example.com"),
 								Kind:     "StorageBucket",
 								Name:     "icon-assets",
 							},

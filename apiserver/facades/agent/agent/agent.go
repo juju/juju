@@ -22,22 +22,50 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-// AgentAPIV2 implements the version 2 of the API provided to an agent.
-type AgentAPIV2 struct {
+// AgentAPIV3 implements the version 3 of the API provided to an agent.
+type AgentAPIV3 struct {
 	*common.PasswordChanger
 	*common.RebootFlagClearer
 	*common.ModelWatcher
 	*common.ControllerConfigAPI
-	cloudspec.CloudSpecAPI
+	cloudspec.CloudSpecer
 
 	st        *state.State
 	auth      facade.Authorizer
 	resources facade.Resources
 }
 
+type AgentAPIV2 struct {
+	*AgentAPIV3
+}
+
 // NewAgentAPIV2 returns an object implementing version 2 of the Agent API
 // with the given authorizer representing the currently logged in client.
 func NewAgentAPIV2(st *state.State, resources facade.Resources, auth facade.Authorizer) (*AgentAPIV2, error) {
+	v3, err := NewAgentAPIV3(st, resources, auth)
+	if err != nil {
+		return nil, err
+	}
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	v3.CloudSpecer = cloudspec.NewCloudSpecV1(
+		resources,
+		cloudspec.MakeCloudSpecGetterForModel(st),
+		cloudspec.MakeCloudSpecWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
+		common.AuthFuncForTag(model.ModelTag()),
+	)
+	return &AgentAPIV2{
+		v3,
+	}, nil
+}
+
+// NewAgentAPIV3 returns an object implementing version 2 of the Agent API
+// with the given authorizer representing the currently logged in client.
+func NewAgentAPIV3(st *state.State, resources facade.Resources, auth facade.Authorizer) (*AgentAPIV3, error) {
 	// Agents are defined to be any user that's not a client user.
 	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -50,12 +78,12 @@ func NewAgentAPIV2(st *state.State, resources facade.Resources, auth facade.Auth
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &AgentAPIV2{
+	return &AgentAPIV3{
 		PasswordChanger:     common.NewPasswordChanger(st, getCanChange),
 		RebootFlagClearer:   common.NewRebootFlagClearer(st, getCanChange),
 		ModelWatcher:        common.NewModelWatcher(model, resources, auth),
 		ControllerConfigAPI: common.NewStateControllerConfig(st),
-		CloudSpecAPI: cloudspec.NewCloudSpec(
+		CloudSpecer: cloudspec.NewCloudSpecV2(
 			resources,
 			cloudspec.MakeCloudSpecGetterForModel(st),
 			cloudspec.MakeCloudSpecWatcherForModel(st),
@@ -69,7 +97,7 @@ func NewAgentAPIV2(st *state.State, resources facade.Resources, auth facade.Auth
 	}, nil
 }
 
-func (api *AgentAPIV2) GetEntities(args params.Entities) params.AgentGetEntitiesResults {
+func (api *AgentAPIV3) GetEntities(args params.Entities) params.AgentGetEntitiesResults {
 	results := params.AgentGetEntitiesResults{
 		Entities: make([]params.AgentGetEntitiesResult, len(args.Entities)),
 	}
@@ -86,7 +114,7 @@ func (api *AgentAPIV2) GetEntities(args params.Entities) params.AgentGetEntities
 	return results
 }
 
-func (api *AgentAPIV2) getEntity(tag names.Tag) (result params.AgentGetEntitiesResult, err error) {
+func (api *AgentAPIV3) getEntity(tag names.Tag) (result params.AgentGetEntitiesResult, err error) {
 	// Allow only for the owner agent.
 	// Note: having a bulk API call for this is utter madness, given that
 	// this check means we can only ever return a single object.
@@ -111,7 +139,7 @@ func (api *AgentAPIV2) getEntity(tag names.Tag) (result params.AgentGetEntitiesR
 	return
 }
 
-func (api *AgentAPIV2) StateServingInfo() (result params.StateServingInfo, err error) {
+func (api *AgentAPIV3) StateServingInfo() (result params.StateServingInfo, err error) {
 	if !api.auth.AuthController() {
 		err = apiservererrors.ErrPerm
 		return
@@ -145,7 +173,7 @@ func (api *AgentAPIV2) StateServingInfo() (result params.StateServingInfo, err e
 // be overridden by tests.
 var MongoIsMaster = mongo.IsMaster
 
-func (api *AgentAPIV2) IsMaster() (params.IsMasterResult, error) {
+func (api *AgentAPIV3) IsMaster() (params.IsMasterResult, error) {
 	if !api.auth.AuthController() {
 		return params.IsMasterResult{}, apiservererrors.ErrPerm
 	}
@@ -174,7 +202,7 @@ func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []model.MachineJob {
 }
 
 // WatchCredentials watches for changes to the specified credentials.
-func (api *AgentAPIV2) WatchCredentials(args params.Entities) (params.NotifyWatchResults, error) {
+func (api *AgentAPIV3) WatchCredentials(args params.Entities) (params.NotifyWatchResults, error) {
 	if !api.auth.AuthController() {
 		return params.NotifyWatchResults{}, apiservererrors.ErrPerm
 	}

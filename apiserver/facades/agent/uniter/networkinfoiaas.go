@@ -29,9 +29,10 @@ type Machine interface {
 	// PrivateAddress returns the machine's preferred private address.
 	PrivateAddress() (network.SpaceAddress, error)
 
-	// AllAddresses returns the state representation of a machine's addresses.
+	// AllDeviceAddresses returns the state representation of a machine's
+	// addresses.
 	// TODO (manadart 2021-06-15): Indirect this too.
-	AllAddresses() ([]*state.Address, error)
+	AllDeviceAddresses() ([]*state.Address, error)
 
 	// AllDeviceSpaceAddresses returns all known addresses
 	// from the machine's link-layer devices.
@@ -254,7 +255,7 @@ func (n *NetworkInfoIAAS) populateMachineNetworkInfos() error {
 	// can be sorted for scope and primary/secondary status.
 	// We create a map for the information we need to return, and a separate
 	// sorted slice for iteration in the correct order.
-	addrs, err := n.machine.AllAddresses()
+	addrs, err := n.machine.AllDeviceAddresses()
 	if err != nil {
 		n.populateMachineNetworkInfoErrors(spaceSet, err)
 		return nil

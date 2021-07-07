@@ -7,8 +7,8 @@ package openstack
 import (
 	reflect "reflect"
 
-	neutron "github.com/go-goose/goose/v3/neutron"
-	nova "github.com/go-goose/goose/v3/nova"
+	neutron "github.com/go-goose/goose/v4/neutron"
+	nova "github.com/go-goose/goose/v4/nova"
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
 	instance "github.com/juju/juju/core/instance"

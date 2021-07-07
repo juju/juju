@@ -39,11 +39,11 @@ func (m *MachineShim) AllLinkLayerDevices() ([]containerizer.LinkLayerDevice, er
 	return wrapped, nil
 }
 
-// AllAddresses implements Machine by wrapping each
+// AllDeviceAddresses implements Machine by wrapping each
 // state.Address reference in returned collection with
 // the containerizer Address implementation.
-func (m *MachineShim) AllAddresses() ([]containerizer.Address, error) {
-	addrs, err := m.Machine.AllAddresses()
+func (m *MachineShim) AllDeviceAddresses() ([]containerizer.Address, error) {
+	addrs, err := m.Machine.AllDeviceAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/application"
@@ -210,7 +211,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 	return corev1.PodSpec{
 		ServiceAccountName:           "gitlab",
-		AutomountServiceAccountToken: application.BoolPtr(true),
+		AutomountServiceAccountToken: pointer.BoolPtr(true),
 		InitContainers: []corev1.Container{{
 			Name:            "charm-init",
 			ImagePullPolicy: corev1.PullIfNotPresent,
@@ -438,7 +439,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 					},
 				},
 				Spec: appsv1.StatefulSetSpec{
-					Replicas: application.Int32Ptr(1),
+					Replicas: pointer.Int32Ptr(1),
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app.kubernetes.io/name": "gitlab",
@@ -464,7 +465,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 									"storage.juju.is/name": "database",
 								}},
 							Spec: corev1.PersistentVolumeClaimSpec{
-								StorageClassName: application.StrPtr("test-workload-storage"),
+								StorageClassName: pointer.StringPtr("test-workload-storage"),
 								AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 								Resources: corev1.ResourceRequirements{
 									Requests: corev1.ResourceList{
@@ -505,7 +506,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 					},
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
-					StorageClassName: application.StrPtr("test-workload-storage"),
+					StorageClassName: pointer.StringPtr("test-workload-storage"),
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: k8sresource.MustParse("100Mi"),
@@ -537,7 +538,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
-					Replicas: application.Int32Ptr(1),
+					Replicas: pointer.Int32Ptr(1),
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 					},
@@ -577,7 +578,7 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 					},
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
-					StorageClassName: application.StrPtr("test-workload-storage"),
+					StorageClassName: pointer.StringPtr("test-workload-storage"),
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: k8sresource.MustParse("100Mi"),
@@ -1009,7 +1010,7 @@ func (s *applicationSuite) TestStateStateful(c *gc.C) {
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 				},
-				Replicas: application.Int32Ptr(int32(desiredReplicas)),
+				Replicas: pointer.Int32Ptr(int32(desiredReplicas)),
 			},
 		}
 		_, err := s.client.AppsV1().StatefulSets("test").Create(context.TODO(),
@@ -1037,7 +1038,7 @@ func (s *applicationSuite) TestStateStateless(c *gc.C) {
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 				},
-				Replicas: application.Int32Ptr(int32(desiredReplicas)),
+				Replicas: pointer.Int32Ptr(int32(desiredReplicas)),
 			},
 		}
 		_, err := s.client.AppsV1().Deployments("test").Create(context.TODO(),
@@ -1866,7 +1867,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 					},
 				},
 				Spec: appsv1.StatefulSetSpec{
-					Replicas: application.Int32Ptr(1),
+					Replicas: pointer.Int32Ptr(1),
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app.kubernetes.io/name": "gitlab",
@@ -1892,7 +1893,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 									"storage.juju.is/name": "database",
 								}},
 							Spec: corev1.PersistentVolumeClaimSpec{
-								StorageClassName: application.StrPtr("test-workload-storage"),
+								StorageClassName: pointer.StringPtr("test-workload-storage"),
 								AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 								Resources: corev1.ResourceRequirements{
 									Requests: corev1.ResourceList{

@@ -17,6 +17,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -55,7 +56,7 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8ssp
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
-			RevisionHistoryLimit: int32Ptr(0),
+			RevisionHistoryLimit: pointer.Int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels: map[string]string{"app.kubernetes.io/name": "app-name"},
@@ -152,14 +153,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1
 											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 												"replicas": {
 													Type:    "integer",
-													Minimum: float64Ptr(1),
+													Minimum: pointer.Float64Ptr(1),
 												},
 											},
 										},
 										"PS": {
 											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 												"replicas": {
-													Type: "integer", Minimum: float64Ptr(1),
+													Type: "integer", Minimum: pointer.Float64Ptr(1),
 												},
 											},
 										},
@@ -167,8 +168,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1
 											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 												"replicas": {
 													Type:    "integer",
-													Minimum: float64Ptr(1),
-													Maximum: float64Ptr(1),
+													Minimum: pointer.Float64Ptr(1),
+													Maximum: pointer.Float64Ptr(1),
 												},
 											},
 										},
@@ -206,14 +207,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1
 									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 										"replicas": {
 											Type:    "integer",
-											Minimum: float64Ptr(1),
+											Minimum: pointer.Float64Ptr(1),
 										},
 									},
 								},
 								"PS": {
 									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 										"replicas": {
-											Type: "integer", Minimum: float64Ptr(1),
+											Type: "integer", Minimum: pointer.Float64Ptr(1),
 										},
 									},
 								},
@@ -221,8 +222,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1
 									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 										"replicas": {
 											Type:    "integer",
-											Minimum: float64Ptr(1),
-											Maximum: float64Ptr(1),
+											Minimum: pointer.Float64Ptr(1),
+											Maximum: pointer.Float64Ptr(1),
 										},
 									},
 								},
@@ -267,14 +268,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1beta1
 											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 												"replicas": {
 													Type:    "integer",
-													Minimum: float64Ptr(1),
+													Minimum: pointer.Float64Ptr(1),
 												},
 											},
 										},
 										"PS": {
 											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 												"replicas": {
-													Type: "integer", Minimum: float64Ptr(1),
+													Type: "integer", Minimum: pointer.Float64Ptr(1),
 												},
 											},
 										},
@@ -282,8 +283,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1beta1
 											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 												"replicas": {
 													Type:    "integer",
-													Minimum: float64Ptr(1),
-													Maximum: float64Ptr(1),
+													Minimum: pointer.Float64Ptr(1),
+													Maximum: pointer.Float64Ptr(1),
 												},
 											},
 										},
@@ -321,14 +322,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1beta1
 									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 										"replicas": {
 											Type:    "integer",
-											Minimum: float64Ptr(1),
+											Minimum: pointer.Float64Ptr(1),
 										},
 									},
 								},
 								"PS": {
 									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 										"replicas": {
-											Type: "integer", Minimum: float64Ptr(1),
+											Type: "integer", Minimum: pointer.Float64Ptr(1),
 										},
 									},
 								},
@@ -336,8 +337,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1beta1
 									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 										"replicas": {
 											Type:    "integer",
-											Minimum: float64Ptr(1),
-											Maximum: float64Ptr(1),
+											Minimum: pointer.Float64Ptr(1),
+											Maximum: pointer.Float64Ptr(1),
 										},
 									},
 								},
@@ -394,7 +395,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1(c *g
 							Schema: &apiextensionsv1.CustomResourceValidation{
 								OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
 									Type:                   "object",
-									XPreserveUnknownFields: boolPtr(true),
+									XPreserveUnknownFields: pointer.BoolPtr(true),
 								},
 							},
 							AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{
@@ -448,7 +449,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1(c *g
 					Schema: &apiextensionsv1.CustomResourceValidation{
 						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
 							Type:                   "object",
-							XPreserveUnknownFields: boolPtr(true),
+							XPreserveUnknownFields: pointer.BoolPtr(true),
 						},
 					},
 					AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{
@@ -511,7 +512,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1(c *g
 							Schema: &apiextensionsv1.CustomResourceValidation{
 								OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
 									Type:                   "object",
-									XPreserveUnknownFields: boolPtr(true),
+									XPreserveUnknownFields: pointer.BoolPtr(true),
 								},
 							},
 							AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{
@@ -565,7 +566,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1(c *g
 					Schema: &apiextensionsv1.CustomResourceValidation{
 						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
 							Type:                   "object",
-							XPreserveUnknownFields: boolPtr(true),
+							XPreserveUnknownFields: pointer.BoolPtr(true),
 						},
 					},
 					AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{
@@ -621,7 +622,7 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
-			RevisionHistoryLimit: int32Ptr(0),
+			RevisionHistoryLimit: pointer.Int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels: map[string]string{"app.kubernetes.io/name": "app-name"},
@@ -837,7 +838,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 												"PS": {
 													Properties: map[string]apiextensionsv1.JSONSchemaProps{
 														"replicas": {
-															Type: "integer", Minimum: float64Ptr(1),
+															Type: "integer", Minimum: pointer.Float64Ptr(1),
 														},
 													},
 												},
@@ -845,8 +846,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 													Properties: map[string]apiextensionsv1.JSONSchemaProps{
 														"replicas": {
 															Type:    "integer",
-															Minimum: float64Ptr(1),
-															Maximum: float64Ptr(1),
+															Minimum: pointer.Float64Ptr(1),
+															Maximum: pointer.Float64Ptr(1),
 														},
 													},
 												},
@@ -854,7 +855,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 													Properties: map[string]apiextensionsv1.JSONSchemaProps{
 														"replicas": {
 															Type:    "integer",
-															Minimum: float64Ptr(1),
+															Minimum: pointer.Float64Ptr(1),
 														},
 													},
 												},
@@ -968,7 +969,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 												"PS": {
 													Properties: map[string]apiextensionsv1.JSONSchemaProps{
 														"replicas": {
-															Type: "integer", Minimum: float64Ptr(1),
+															Type: "integer", Minimum: pointer.Float64Ptr(1),
 														},
 													},
 												},
@@ -976,8 +977,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 													Properties: map[string]apiextensionsv1.JSONSchemaProps{
 														"replicas": {
 															Type:    "integer",
-															Minimum: float64Ptr(1),
-															Maximum: float64Ptr(1),
+															Minimum: pointer.Float64Ptr(1),
+															Maximum: pointer.Float64Ptr(1),
 														},
 													},
 												},
@@ -985,7 +986,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 													Properties: map[string]apiextensionsv1.JSONSchemaProps{
 														"replicas": {
 															Type:    "integer",
-															Minimum: float64Ptr(1),
+															Minimum: pointer.Float64Ptr(1),
 														},
 													},
 												},
@@ -1102,14 +1103,14 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
 													Type:    "integer",
-													Minimum: float64Ptr(1),
+													Minimum: pointer.Float64Ptr(1),
 												},
 											},
 										},
 										"PS": {
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
-													Type: "integer", Minimum: float64Ptr(1),
+													Type: "integer", Minimum: pointer.Float64Ptr(1),
 												},
 											},
 										},
@@ -1117,8 +1118,8 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
 													Type:    "integer",
-													Minimum: float64Ptr(1),
-													Maximum: float64Ptr(1),
+													Minimum: pointer.Float64Ptr(1),
+													Maximum: pointer.Float64Ptr(1),
 												},
 											},
 										},
@@ -1162,14 +1163,14 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
 													Type:    "integer",
-													Minimum: float64Ptr(1),
+													Minimum: pointer.Float64Ptr(1),
 												},
 											},
 										},
 										"PS": {
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
-													Type: "integer", Minimum: float64Ptr(1),
+													Type: "integer", Minimum: pointer.Float64Ptr(1),
 												},
 											},
 										},
@@ -1177,8 +1178,8 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
 													Type:    "integer",
-													Minimum: float64Ptr(1),
-													Maximum: float64Ptr(1),
+													Minimum: pointer.Float64Ptr(1),
+													Maximum: pointer.Float64Ptr(1),
 												},
 											},
 										},
@@ -1264,14 +1265,14 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsAllGood(c *gc.C) {
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
 													Type:    "integer",
-													Minimum: float64Ptr(1),
+													Minimum: pointer.Float64Ptr(1),
 												},
 											},
 										},
 										"PS": {
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
-													Type: "integer", Minimum: float64Ptr(1),
+													Type: "integer", Minimum: pointer.Float64Ptr(1),
 												},
 											},
 										},
@@ -1279,8 +1280,8 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsAllGood(c *gc.C) {
 											Properties: map[string]apiextensionsv1.JSONSchemaProps{
 												"replicas": {
 													Type:    "integer",
-													Minimum: float64Ptr(1),
-													Maximum: float64Ptr(1),
+													Minimum: pointer.Float64Ptr(1),
+													Maximum: pointer.Float64Ptr(1),
 												},
 											},
 										},

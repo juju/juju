@@ -1875,7 +1875,7 @@ func (env *maasEnviron) subnetToSpaceIds(ctx context.ProviderCallContext) (map[s
 // Spaces returns all the spaces, that have subnets, known to the provider.
 // Space name is not filled in as the provider doesn't know the juju name for
 // the space.
-func (env *maasEnviron) Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceInfo, error) {
+func (env *maasEnviron) Spaces(ctx context.ProviderCallContext) (corenetwork.SpaceInfos, error) {
 	if !env.usingMAAS2() {
 		return env.spaces1(ctx)
 	}

@@ -83,9 +83,9 @@ type LinkLayerAccessor interface {
 	// layer-2 devices for the machine.
 	AllLinkLayerDevices() ([]LinkLayerDevice, error)
 
-	// AllAddresses returns all IP addresses assigned to the machine's
-	// link-layer devices
-	AllAddresses() ([]LinkLayerAddress, error)
+	// AllDeviceAddresses returns all IP addresses assigned to
+	// the machine's link-layer devices
+	AllDeviceAddresses() ([]LinkLayerAddress, error)
 }
 
 // LinkLayerWriter describes an entity that can have link-layer
@@ -210,7 +210,7 @@ func (o *MachineLinkLayerOp) PopulateExistingDevices() error {
 // link-layer device addresses for the machine.
 func (o *MachineLinkLayerOp) PopulateExistingAddresses() error {
 	var err error
-	o.existingAddrs, err = o.machine.AllAddresses()
+	o.existingAddrs, err = o.machine.AllDeviceAddresses()
 	return errors.Trace(err)
 }
 

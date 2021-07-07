@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/docker/distribution/reference"
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
@@ -15,14 +16,13 @@ import (
 )
 
 const (
-	JujudOCINamespace      = "jujusolutions"
-	JujudOCIName           = "jujud-operator"
-	JujuContainerAgentName = "containeragent"
-	JujudbOCIName          = "juju-db"
+	JujudOCINamespace = "jujusolutions"
+	JujudOCIName      = "jujud-operator"
+	JujudbOCIName     = "juju-db"
 )
 
 // GetControllerImagePath returns oci image path of jujud for a controller.
-func (cfg *ControllerPodConfig) GetControllerImagePath() string {
+func (cfg *ControllerPodConfig) GetControllerImagePath() (string, error) {
 	return GetJujuOCIImagePath(cfg.Controller.Config, cfg.JujuVersion, cfg.OfficialBuild)
 }
 
@@ -42,44 +42,44 @@ func IsJujuOCIImage(imagePath string) bool {
 }
 
 // GetJujuOCIImagePath returns the jujud oci image path.
-func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number, build int) string {
+func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number, build int) (string, error) {
 	// First check the deprecated "caas-operator-image-path" config.
 	ver.Build = build
-	imagePath := RebuildOldOperatorImagePath(
+	imagePath, err := RebuildOldOperatorImagePath(
 		controllerCfg.CAASOperatorImagePath(), ver,
 	)
-	if imagePath != "" {
-		return imagePath
+	if imagePath != "" || err != nil {
+		return imagePath, err
 	}
 	return imageRepoToPath(controllerCfg.CAASImageRepo(), ver)
 }
 
 // RebuildOldOperatorImagePath returns a updated image path for the specified juju version.
-func RebuildOldOperatorImagePath(imagePath string, ver version.Number) string {
+func RebuildOldOperatorImagePath(imagePath string, ver version.Number) (string, error) {
 	if imagePath == "" {
-		return ""
+		return "", nil
 	}
 	return tagImagePath(imagePath, ver)
 }
 
-func tagImagePath(path string, ver version.Number) string {
-	var verString string
-	splittedPath := strings.Split(path, ":")
-	path = splittedPath[0]
-	if len(splittedPath) > 1 {
-		verString = splittedPath[1]
+func tagImagePath(fullPath string, ver version.Number) (string, error) {
+	ref, err := reference.Parse(fullPath)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	imageNamed, ok := ref.(reference.Named)
+	// Safety check only - should never happen.
+	if !ok {
+		return "", errors.Errorf("unexpected docker image path type, got %T, expected reference.Named", ref)
 	}
 	if ver != version.Zero {
-		verString = ver.String()
+		// ver is always a valid tag.
+		imageNamed, _ = reference.WithTag(imageNamed, ver.String())
 	}
-	if verString != "" {
-		// tag with version.
-		path += ":" + verString
-	}
-	return path
+	return imageNamed.String(), nil
 }
 
-func imageRepoToPath(imageRepo string, ver version.Number) string {
+func imageRepoToPath(imageRepo string, ver version.Number) (string, error) {
 	if imageRepo == "" {
 		imageRepo = JujudOCINamespace
 	}

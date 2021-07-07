@@ -1781,10 +1781,10 @@ func (mr *MockNetworkingEnvironMockRecorder) SetConfig(arg0 interface{}) *gomock
 }
 
 // Spaces mocks base method.
-func (m *MockNetworkingEnviron) Spaces(arg0 context0.ProviderCallContext) ([]network.SpaceInfo, error) {
+func (m *MockNetworkingEnviron) Spaces(arg0 context0.ProviderCallContext) (network.SpaceInfos, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Spaces", arg0)
-	ret0, _ := ret[0].([]network.SpaceInfo)
+	ret0, _ := ret[0].(network.SpaceInfos)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

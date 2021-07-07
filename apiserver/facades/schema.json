@@ -1141,8 +1141,8 @@
     },
     {
         "Name": "Agent",
-        "Description": "AgentAPIV2 implements the version 2 of the API provided to an agent.",
-        "Version": 2,
+        "Description": "AgentAPIV3 implements the version 3 of the API provided to an agent.",
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -6171,8 +6171,8 @@
     },
     {
         "Name": "CAASAgent",
-        "Description": "",
-        "Version": 1,
+        "Description": "FacadeV2 is the V2 facade of the caas agent",
+        "Version": 2,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -19522,7 +19522,7 @@
     {
         "Name": "Controller",
         "Description": "ControllerAPI provides the Controller API.",
-        "Version": 9,
+        "Version": 10,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -23129,8 +23129,8 @@
     },
     {
         "Name": "Firewaller",
-        "Description": "FirewallerAPIV6 provides access to the Firewaller v6 API facade.",
-        "Version": 6,
+        "Description": "FirewallerAPIV7 provides access to the Firewaller v7 API facade.",
+        "Version": 7,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -43995,8 +43995,8 @@
     },
     {
         "Name": "Uniter",
-        "Description": "UniterAPI implements the latest version (v17) of the Uniter API, which\naugments the payload of the CommitHookChanges API call and introduces\nthe OpenedMachinePortRanges call as a replacement for AllMachinePorts.",
-        "Version": 17,
+        "Description": "UniterAPI implements the latest version (v18) of the Uniter API, which\naugments the payload of the CommitHookChanges API call and introduces\nthe OpenedMachinePortRanges call as a replacement for AllMachinePorts.",
+        "Version": 18,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",

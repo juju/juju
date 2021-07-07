@@ -6,12 +6,20 @@ test_caasadmission() {
 
 	set_verbosity
 
-	echo "==> Checking for dependencies"
-	check_dependencies juju jq petname microk8s
+  case "${BOOTSTRAP_PROVIDER:-}" in
+    "k8s")
+      echo "==> Checking for dependencies"
+      check_dependencies petname
 
-	run_deploy_microk8s "$(petname)"
+      microk8s.config >"${TEST_DIR}"/kube.conf
+      export KUBE_CONFIG="${TEST_DIR}"/kube.conf
 
-	test_controller_model_admission
-	test_new_model_admission
-	test_model_chicken_and_egg
+      run_controller_model_admission
+      run_new_model_admission
+      run_model_chicken_and_egg
+      ;;
+    *)
+      echo "==> TEST SKIPPED: caas admission tests, not a k8s provider"
+      ;;
+    esac
 }

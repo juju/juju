@@ -55,7 +55,7 @@ type Networking interface {
 	// Spaces returns a slice of network.SpaceInfo with info, including
 	// details of all associated subnets, about all spaces known to the
 	// provider that have subnets available.
-	Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error)
+	Spaces(ctx context.ProviderCallContext) (network.SpaceInfos, error)
 
 	// ProviderSpaceInfo returns the details of the space requested as
 	// a ProviderSpaceInfo. This will contain everything needed to
@@ -116,6 +116,32 @@ type NetworkingEnviron interface {
 
 	// Networking defines the methods of networking capable environments.
 	Networking
+}
+
+// NoSpaceDiscoveryEnviron implements methods from Networking that represent an
+// environ without native space support (all but MAAS at the time of writing).
+// None of the method receiver references are used, so it can be embedded
+// as nil without fear of panics.
+type NoSpaceDiscoveryEnviron struct{}
+
+// SupportsSpaceDiscovery (Networking) indicates that
+// this environ does not support space discovery.
+func (*NoSpaceDiscoveryEnviron) SupportsSpaceDiscovery(context.ProviderCallContext) (bool, error) {
+	return false, nil
+}
+
+// Spaces (Networking) indicates that this provider
+// does not support returning spaces.
+func (*NoSpaceDiscoveryEnviron) Spaces(context.ProviderCallContext) (network.SpaceInfos, error) {
+	return nil, errors.NotSupportedf("Spaces")
+}
+
+// ProviderSpaceInfo (Networking) indicates that this provider
+// does not support returning provider info for the input space.
+func (*NoSpaceDiscoveryEnviron) ProviderSpaceInfo(
+	context.ProviderCallContext, *network.SpaceInfo,
+) (*ProviderSpaceInfo, error) {
+	return nil, errors.NotSupportedf("ProviderSpaceInfo")
 }
 
 func supportsNetworking(environ BootstrapEnviron) (NetworkingEnviron, bool) {

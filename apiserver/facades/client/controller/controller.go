@@ -43,7 +43,7 @@ var logger = loggo.GetLogger("juju.apiserver.controller")
 type ControllerAPI struct {
 	*common.ControllerConfigAPI
 	*common.ModelStatusAPI
-	cloudspec.CloudSpecAPI
+	cloudspec.CloudSpecer
 
 	state      *state.State
 	statePool  *state.StatePool
@@ -57,10 +57,16 @@ type ControllerAPI struct {
 	multiwatcherFactory multiwatcher.Factory
 }
 
+// ControllerAPIv9 provides the v9 controller API. The only difference between
+// this and the v10 is that v9 use the cloudspec api v1
+type ControllerAPIv9 struct {
+	*ControllerAPI
+}
+
 // ControllerAPIv8 provides the v8 Controller API. The only difference
 // between this and v9 is that v8 doesn't have the model summary watchers.
 type ControllerAPIv8 struct {
-	*ControllerAPI
+	*ControllerAPIv9
 }
 
 // ControllerAPIv7 provides the v7 Controller API. The only difference
@@ -95,10 +101,10 @@ type ControllerAPIv3 struct {
 
 // LatestAPI is used for testing purposes to create the latest
 // controller API.
-var LatestAPI = NewControllerAPIv9
+var LatestAPI = NewControllerAPIv10
 
-// NewControllerAPIv9 creates a new ControllerAPIv9.
-func NewControllerAPIv9(ctx facade.Context) (*ControllerAPI, error) {
+// NewControllerAPIv10 creates a new ControllerAPIv10
+func NewControllerAPIv10(ctx facade.Context) (*ControllerAPI, error) {
 	st := ctx.State()
 	authorizer := ctx.Auth()
 	pool := ctx.StatePool()
@@ -118,6 +124,27 @@ func NewControllerAPIv9(ctx facade.Context) (*ControllerAPI, error) {
 		factory,
 		controller,
 	)
+}
+
+// NewControllerAPIv9 creates a new ControllerAPIv9.
+func NewControllerAPIv9(ctx facade.Context) (*ControllerAPIv9, error) {
+	v10, err := NewControllerAPIv10(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	model, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	v10.CloudSpecer = cloudspec.NewCloudSpecV1(
+		ctx.Resources(),
+		cloudspec.MakeCloudSpecGetter(ctx.StatePool()),
+		cloudspec.MakeCloudSpecWatcherForModel(ctx.State()),
+		cloudspec.MakeCloudSpecCredentialWatcherForModel(ctx.State()),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(ctx.State()),
+		common.AuthFuncForTag(model.ModelTag()),
+	)
+	return &ControllerAPIv9{v10}, nil
 }
 
 // NewControllerAPIv8 creates a new ControllerAPIv8.
@@ -205,7 +232,7 @@ func NewControllerAPI(
 			authorizer,
 			apiUser,
 		),
-		CloudSpecAPI: cloudspec.NewCloudSpec(
+		CloudSpecer: cloudspec.NewCloudSpecV2(
 			resources,
 			cloudspec.MakeCloudSpecGetter(pool),
 			cloudspec.MakeCloudSpecWatcherForModel(st),

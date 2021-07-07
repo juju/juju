@@ -250,3 +250,121 @@ func (s *credentialSuite) TestOAuth2CertMigrationWithToken(c *gc.C) {
 		"Token": "mytoken",
 	})
 }
+
+func (s *credentialSuite) TestCredentialMigrationToLegacy(c *gc.C) {
+	tests := []struct {
+		PreCred  cloud.Credential
+		PostCred cloud.Credential
+	}{
+		{
+			PreCred: cloud.NewNamedCredential(
+				"Test1",
+				cloud.ClientCertificateAuthType,
+				map[string]string{
+					"ClientCertificateData": "AA==",
+					"ClientKeyData":         "AA==",
+				},
+				false,
+			),
+			PostCred: cloud.NewNamedCredential(
+				"Test1",
+				cloud.OAuth2WithCertAuthType,
+				map[string]string{
+					"ClientCertificateData": "AA==",
+					"ClientKeyData":         "AA==",
+				},
+				false,
+			),
+		},
+		{
+			PreCred: cloud.NewNamedCredential(
+				"Test1",
+				cloud.ClientCertificateAuthType,
+				map[string]string{
+					"ClientCertificateData": "AA==",
+					"ClientKeyData":         "AA==",
+					"rbac-id":               "foo-bar",
+				},
+				false,
+			),
+			PostCred: cloud.NewNamedCredential(
+				"Test1",
+				cloud.OAuth2WithCertAuthType,
+				map[string]string{
+					"ClientCertificateData": "AA==",
+					"ClientKeyData":         "AA==",
+					"rbac-id":               "foo-bar",
+				},
+				false,
+			),
+		},
+		{
+			PreCred: cloud.NewNamedCredential(
+				"Test1",
+				cloud.OAuth2AuthType,
+				map[string]string{
+					"Token":   "AA==",
+					"rbac-id": "foo-bar",
+				},
+				false,
+			),
+			PostCred: cloud.NewNamedCredential(
+				"Test1",
+				cloud.OAuth2WithCertAuthType,
+				map[string]string{
+					"Token":   "AA==",
+					"rbac-id": "foo-bar",
+				},
+				false,
+			),
+		},
+		{
+			PreCred: cloud.NewNamedCredential(
+				"Test1",
+				cloud.OAuth2AuthType,
+				map[string]string{
+					"ClientCertificateData": "AA==",
+					"ClientKeyData":         "AA==",
+					"Token":                 "AA==",
+					"rbac-id":               "foo-bar",
+				},
+				false,
+			),
+			PostCred: cloud.NewNamedCredential(
+				"Test1",
+				cloud.OAuth2WithCertAuthType,
+				map[string]string{
+					"Token":   "AA==",
+					"rbac-id": "foo-bar",
+				},
+				false,
+			),
+		},
+		{
+			PreCred: cloud.NewNamedCredential(
+				"Test1",
+				cloud.OAuth2AuthType,
+				map[string]string{
+					"Token":   "AA==",
+					"rbac-id": "foo-bar",
+				},
+				true,
+			),
+			PostCred: cloud.NewNamedCredential(
+				"Test1",
+				cloud.OAuth2WithCertAuthType,
+				map[string]string{
+					"Token":   "AA==",
+					"rbac-id": "foo-bar",
+				},
+				true,
+			),
+		},
+	}
+
+	for _, test := range tests {
+		rval, err := k8scloud.CredentialToLegacy(&test.PreCred)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(rval, jc.DeepEquals, test.PostCred)
+	}
+}

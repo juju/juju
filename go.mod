@@ -19,14 +19,14 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.9.0
 	github.com/aws/smithy-go v1.4.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/canonical/pebble v0.0.0-20210609205628-b152ff448bbe
+	github.com/canonical/pebble v0.0.0-20210629225259-602ad4b50023
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/dustin/go-humanize v1.0.0
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
-	github.com/go-goose/goose/v3 v3.0.0-20210609085303-5be176eecc0f
+	github.com/go-goose/goose/v4 v4.0.0-20210629133523-eda372ae25db
 	github.com/go-logr/logr v0.2.0
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.0-20210309064400-d73aa8f92aa2
 	github.com/golang/mock v1.5.0
@@ -97,6 +97,7 @@ require (
 	github.com/onsi/gomega v1.10.4 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/oracle/oci-go-sdk v5.7.0+incompatible
+	github.com/packethost/packngo v0.14.0
 	github.com/pascaldekloe/goe v0.1.0 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1
@@ -136,6 +137,7 @@ require (
 	k8s.io/apimachinery v0.19.6
 	k8s.io/client-go v0.19.6
 	k8s.io/klog/v2 v2.3.0
+	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
 )
 
 replace github.com/altoros/gosigma => github.com/juju/gosigma v0.0.0-20200420012028-063911838a9e

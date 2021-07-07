@@ -34,7 +34,7 @@ type FirewallerAPIV3 struct {
 	*common.UnitsWatcher
 	*common.ModelMachinesWatcher
 	*common.InstanceIdGetter
-	cloudspec.CloudSpecAPI
+	cloudspec.CloudSpecer
 
 	st                State
 	resources         facade.Resources
@@ -65,6 +65,11 @@ type FirewallerAPIV6 struct {
 	*FirewallerAPIV5
 }
 
+// FirewallerAPIV7 provides access to the Firewaller v7 API facade.
+type FirewallerAPIV7 struct {
+	*FirewallerAPIV6
+}
+
 // NewStateFirewallerAPIV3 creates a new server-side FirewallerAPIV3 facade.
 func NewStateFirewallerAPIV3(context facade.Context) (*FirewallerAPIV3, error) {
 	st := context.State()
@@ -74,7 +79,7 @@ func NewStateFirewallerAPIV3(context facade.Context) (*FirewallerAPIV3, error) {
 		return nil, errors.Trace(err)
 	}
 
-	cloudSpecAPI := cloudspec.NewCloudSpec(
+	cloudSpecAPI := cloudspec.NewCloudSpecV1(
 		context.Resources(),
 		cloudspec.MakeCloudSpecGetterForModel(st),
 		cloudspec.MakeCloudSpecWatcherForModel(st),
@@ -108,7 +113,7 @@ func NewStateFirewallerAPIV5(context facade.Context) (*FirewallerAPIV5, error) {
 	}, nil
 }
 
-// NewStateFirewallerAPIV5 creates a new server-side FirewallerAPIV6 facade.
+// NewStateFirewallerAPIV6 creates a new server-side FirewallerAPIV6 facade.
 func NewStateFirewallerAPIV6(context facade.Context) (*FirewallerAPIV6, error) {
 	facadev5, err := NewStateFirewallerAPIV5(context)
 	if err != nil {
@@ -119,12 +124,37 @@ func NewStateFirewallerAPIV6(context facade.Context) (*FirewallerAPIV6, error) {
 	}, nil
 }
 
+// NewStateFirewallerAPIV7 creates a new server-side FirewallerAPIv7 facade.
+func NewStateFirewallerAPIV7(context facade.Context) (*FirewallerAPIV7, error) {
+	facadev6, err := NewStateFirewallerAPIV6(context)
+	if err != nil {
+		return nil, err
+	}
+	m, err := context.State().Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cloudSpecAPI := cloudspec.NewCloudSpecV2(
+		context.Resources(),
+		cloudspec.MakeCloudSpecGetterForModel(context.State()),
+		cloudspec.MakeCloudSpecWatcherForModel(context.State()),
+		cloudspec.MakeCloudSpecCredentialWatcherForModel(context.State()),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(context.State()),
+		common.AuthFuncForTag(m.ModelTag()),
+	)
+	facadev6.FirewallerAPIV3.CloudSpecer = cloudSpecAPI
+	return &FirewallerAPIV7{
+		FirewallerAPIV6: facadev6,
+	}, nil
+}
+
 // NewFirewallerAPI creates a new server-side FirewallerAPIV3 facade.
 func NewFirewallerAPI(
 	st State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	cloudSpecAPI cloudspec.CloudSpecAPI,
+	cloudSpecAPI cloudspec.CloudSpecer,
 ) (*FirewallerAPIV3, error) {
 	if !authorizer.AuthController() {
 		// Firewaller must run as a controller.
@@ -180,7 +210,7 @@ func NewFirewallerAPI(
 		UnitsWatcher:         unitsWatcher,
 		ModelMachinesWatcher: machinesWatcher,
 		InstanceIdGetter:     instanceIdGetter,
-		CloudSpecAPI:         cloudSpecAPI,
+		CloudSpecer:          cloudSpecAPI,
 		st:                   st,
 		resources:            resources,
 		authorizer:           authorizer,
