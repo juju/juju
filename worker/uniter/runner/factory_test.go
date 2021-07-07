@@ -239,7 +239,7 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		operationID, err := s.model.EnqueueOperation("a test")
+		operationID, err := s.model.EnqueueOperation("a test", 1)
 		c.Assert(err, jc.ErrorIsNil)
 		action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), test.actionName, test.payload, nil)
 		c.Assert(err, jc.ErrorIsNil)
@@ -290,7 +290,7 @@ func (s *FactorySuite) TestNewActionRunnerBadCharm(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionRunnerBadName(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	operationID, err := s.model.EnqueueOperation("a test")
+	operationID, err := s.model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "no-such-action", nil, nil)
 	c.Assert(err, jc.ErrorIsNil) // this will fail when using AddAction on unit
@@ -302,7 +302,7 @@ func (s *FactorySuite) TestNewActionRunnerBadName(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionRunnerBadParams(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	operationID, err := s.model.EnqueueOperation("a test")
+	operationID, err := s.model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "snapshot", map[string]interface{}{
 		"outfile": 123,
@@ -316,7 +316,7 @@ func (s *FactorySuite) TestNewActionRunnerBadParams(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionRunnerMissingAction(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	operationID, err := s.model.EnqueueOperation("a test")
+	operationID, err := s.model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -332,7 +332,7 @@ func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
 	s.SetCharm(c, "dummy")
 	otherUnit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	operationID, err := s.model.EnqueueOperation("a test")
+	operationID, err := s.model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.model.EnqueueAction(operationID, otherUnit.Tag(), "snapshot", nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -349,7 +349,7 @@ func (s *FactorySuite) TestNewActionRunnerWithCancel(c *gc.C) {
 		"outfile": "/some/file.bz2",
 	}
 	cancel := make(chan struct{})
-	operationID, err := s.model.EnqueueOperation("a test")
+	operationID, err := s.model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), actionName, payload, nil)
 	c.Assert(err, jc.ErrorIsNil)

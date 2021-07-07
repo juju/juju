@@ -928,7 +928,7 @@ func (s *allWatcherStateSuite) TestChangeActions(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			m, err := st.Model()
 			c.Assert(err, jc.ErrorIsNil)
-			operationID, err := m.EnqueueOperation("a test")
+			operationID, err := m.EnqueueOperation("a test", 1)
 			c.Assert(err, jc.ErrorIsNil)
 			action, err := m.EnqueueAction(operationID, u.Tag(), "vacuumdb", map[string]interface{}{}, nil)
 			c.Assert(err, jc.ErrorIsNil)

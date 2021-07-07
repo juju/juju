@@ -81,6 +81,11 @@ type operationDoc struct {
 	// If not explicitly set, this is derived from the
 	// status of the associated actions.
 	Status ActionStatus `bson:"status"`
+
+	// ExpectedTaskCount is the number of tasks expected to be completed.
+	// It is used internally for mgo asserts and not exposed via the
+	// Operation interface.
+	ExpectedTaskCount int `bson:"expected-count-count"`
 }
 
 // operation represents a group of associated actions.
@@ -191,7 +196,7 @@ func newOperation(st *State, doc operationDoc, taskStatus []ActionStatus) Operat
 }
 
 // newOperationDoc builds a new operationDoc.
-func newOperationDoc(mb modelBackend, summary string) (operationDoc, string, error) {
+func newOperationDoc(mb modelBackend, summary string, count int) (operationDoc, string, error) {
 	id, err := sequenceWithMin(mb, "task", 1)
 	if err != nil {
 		return operationDoc{}, "", errors.Trace(err)
@@ -199,21 +204,22 @@ func newOperationDoc(mb modelBackend, summary string) (operationDoc, string, err
 	operationID := strconv.Itoa(id)
 	modelUUID := mb.modelUUID()
 	return operationDoc{
-		DocId:     mb.docID(operationID),
-		ModelUUID: modelUUID,
-		Enqueued:  mb.nowToTheSecond(),
-		Status:    ActionPending,
-		Summary:   summary,
+		DocId:             mb.docID(operationID),
+		ModelUUID:         modelUUID,
+		Enqueued:          mb.nowToTheSecond(),
+		Status:            ActionPending,
+		Summary:           summary,
+		ExpectedTaskCount: count,
 	}, operationID, nil
 }
 
 // EnqueueOperation records the start of an operation.
-func (m *Model) EnqueueOperation(summary string) (string, error) {
+func (m *Model) EnqueueOperation(summary string, count int) (string, error) {
 	var operationID string
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var doc operationDoc
 		var err error
-		doc, operationID, err = newOperationDoc(m.st, summary)
+		doc, operationID, err = newOperationDoc(m.st, summary, count)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

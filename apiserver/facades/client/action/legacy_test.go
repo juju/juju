@@ -38,7 +38,7 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			assertReadyToTest(c, unit)
 
-			operationID, err := s.Model.EnqueueOperation("a test")
+			operationID, err := s.Model.EnqueueOperation("a test", 1)
 			c.Assert(err, jc.ErrorIsNil)
 			// add each action from the test case.
 			for j, act := range group.Actions {
@@ -124,7 +124,7 @@ func (s *actionSuite) TestListPending(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			assertReadyToTest(c, unit)
 
-			operationID, err := s.Model.EnqueueOperation("a test")
+			operationID, err := s.Model.EnqueueOperation("a test", 1)
 			c.Assert(err, jc.ErrorIsNil)
 			// add each action from the test case.
 			for _, act := range group.Actions {
@@ -189,7 +189,7 @@ func (s *actionSuite) TestListRunning(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			assertReadyToTest(c, unit)
 
-			operationID, err := s.Model.EnqueueOperation("a test")
+			operationID, err := s.Model.EnqueueOperation("a test", 1)
 			c.Assert(err, jc.ErrorIsNil)
 			// add each action from the test case.
 			for _, act := range group.Actions {
@@ -250,7 +250,7 @@ func (s *actionSuite) TestListCompleted(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			assertReadyToTest(c, unit)
 
-			operationID, err := s.Model.EnqueueOperation("a test")
+			operationID, err := s.Model.EnqueueOperation("a test", 1)
 			c.Assert(err, jc.ErrorIsNil)
 			// add each action from the test case.
 			for _, act := range group.Actions {
