@@ -669,7 +669,7 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertReadyToTest(c, unit)
 
-	operationID, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	added, err := s.Model.AddAction(unit, operationID, "fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
