@@ -191,7 +191,10 @@ func operatorUpgrade(
 		return errors.Trace(err)
 	}
 
-	operatorImagePath := podcfg.RebuildOldOperatorImagePath(operator.Config.OperatorImagePath, vers)
+	operatorImagePath, err := podcfg.RebuildOldOperatorImagePath(operator.Config.OperatorImagePath, vers)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if len(operatorImagePath) == 0 {
 		// This should never happen.
 		return errors.NotValidf("no resource is upgradable for application %q", appName)

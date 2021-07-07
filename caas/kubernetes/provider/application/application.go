@@ -539,7 +539,11 @@ func (a *app) upgradeMainResource(applier resources.Applier, ver version.Number)
 			return errors.NotValidf("init container of %q", a.name)
 		}
 		initContainer := initContainers[0]
-		initContainer.Image = podcfg.RebuildOldOperatorImagePath(initContainer.Image, ver)
+		var err error
+		initContainer.Image, err = podcfg.RebuildOldOperatorImagePath(initContainer.Image, ver)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		ss.Spec.Template.Spec.InitContainers = []corev1.Container{initContainer}
 		ss.Spec.Template.SetAnnotations(a.upgradeAnnotations(annotations.New(ss.Spec.Template.GetAnnotations()), ver))
 		ss.SetAnnotations(a.upgradeAnnotations(annotations.New(ss.GetAnnotations()), ver))
