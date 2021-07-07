@@ -1012,7 +1012,7 @@ func (s spaceAddressCandidate) IsSecondary() bool {
 func (s *AddressSuite) TestConvertToSpaceAddresses(c *gc.C) {
 	subs := network.SubnetInfos{
 		{ID: "1", CIDR: "192.168.0.0/24", SpaceID: "666"},
-		{ID: "2", CIDR: "10.10.10.0/24", SpaceID: "999"},
+		{ID: "2", CIDR: "252.80.0.0/12", SpaceID: "999"},
 	}
 
 	candidates := []network.SpaceAddressCandidate{
@@ -1022,9 +1022,9 @@ func (s *AddressSuite) TestConvertToSpaceAddresses(c *gc.C) {
 			subnetCIDR:   "192.168.0.0/24",
 		},
 		spaceAddressCandidate{
-			value:        "10.10.10.66",
+			value:        "252.80.0.100",
 			configMethod: network.ConfigStatic,
-			subnetCIDR:   "10.10.10.0/24",
+			subnetCIDR:   "252.80.0.0/12",
 			isSecondary:  true,
 		},
 	}
@@ -1046,11 +1046,11 @@ func (s *AddressSuite) TestConvertToSpaceAddresses(c *gc.C) {
 		},
 		{
 			MachineAddress: network.MachineAddress{
-				Value:       "10.10.10.66",
+				Value:       "252.80.0.100",
 				Type:        network.IPv4Address,
-				Scope:       network.ScopeCloudLocal,
+				Scope:       network.ScopeFanLocal,
 				ConfigType:  network.ConfigStatic,
-				CIDR:        "10.10.10.0/24",
+				CIDR:        "252.80.0.0/12",
 				IsSecondary: true,
 			},
 			SpaceID: "999",
