@@ -82,10 +82,10 @@ type operationDoc struct {
 	// status of the associated actions.
 	Status ActionStatus `bson:"status"`
 
-	// ExpectedTaskCount is the number of tasks expected to be completed.
-	// It is used internally for mgo asserts and not exposed via the
-	// Operation interface.
-	ExpectedTaskCount int `bson:"expected-count-count"`
+	// SpawnedTaskCount is the number of tasks to be completed in
+	// this operation. It is used internally for mgo asserts and
+	// not exposed via the Operation interface.
+	SpawnedTaskCount int `bson:"spawned-task-count"`
 }
 
 // operation represents a group of associated actions.
@@ -204,12 +204,12 @@ func newOperationDoc(mb modelBackend, summary string, count int) (operationDoc, 
 	operationID := strconv.Itoa(id)
 	modelUUID := mb.modelUUID()
 	return operationDoc{
-		DocId:             mb.docID(operationID),
-		ModelUUID:         modelUUID,
-		Enqueued:          mb.nowToTheSecond(),
-		Status:            ActionPending,
-		Summary:           summary,
-		ExpectedTaskCount: count,
+		DocId:            mb.docID(operationID),
+		ModelUUID:        modelUUID,
+		Enqueued:         mb.nowToTheSecond(),
+		Status:           ActionPending,
+		Summary:          summary,
+		SpawnedTaskCount: count,
 	}, operationID, nil
 }
 
