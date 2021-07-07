@@ -73,11 +73,12 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
 
-	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(st, authorizer)
+	commonState := &charmscommon.StateShim{st}
+	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(st, authorizer)
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

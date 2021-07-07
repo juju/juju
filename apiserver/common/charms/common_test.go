@@ -38,7 +38,7 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.api, err = charms.NewCharmInfoAPI(s.State, s.auth)
+	s.api, err = charms.NewCharmInfoAPI(&charms.StateShim{s.State}, s.auth)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -139,7 +139,7 @@ func (s *charmsSuite) TestClientCharmInfoCAAS(c *gc.C) {
 
 		c.Assert(err, jc.ErrorIsNil)
 
-		s.api, err = charms.NewCharmInfoAPI(otherModel.State(), s.auth)
+		s.api, err = charms.NewCharmInfoAPI(&charms.StateShim{otherModel.State()}, s.auth)
 		c.Assert(err, jc.ErrorIsNil)
 
 		info, err := s.api.CharmInfo(params.CharmURL{URL: t.url})

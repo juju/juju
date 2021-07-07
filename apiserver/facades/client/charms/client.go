@@ -120,7 +120,8 @@ func NewFacadeV4(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 
-	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(st, authorizer)
+	commonState := &charmscommon.StateShim{st}
+	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

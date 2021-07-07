@@ -6,10 +6,10 @@ package caasunitprovisioner
 import (
 	"time"
 
-	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
@@ -90,7 +90,7 @@ type Application interface {
 	GetPlacement() string
 	SetOperatorStatus(sInfo status.StatusInfo) error
 	SetStatus(statusInfo status.StatusInfo) error
-	Charm() (Charm, bool, error)
+	Charm() (charmscommon.Charm, bool, error)
 	ClearResources() error
 	CharmModifiedVersion() int
 }
@@ -131,13 +131,8 @@ func (a applicationShim) AllUnits() ([]Unit, error) {
 	return result, nil
 }
 
-func (a applicationShim) Charm() (Charm, bool, error) {
+func (a applicationShim) Charm() (charmscommon.Charm, bool, error) {
 	return a.Application.Charm()
-}
-
-type Charm interface {
-	Meta() *charm.Meta
-	URL() *charm.URL
 }
 
 type Unit interface {

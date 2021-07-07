@@ -81,11 +81,12 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
 	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterNone)
 
-	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(ctx.State(), authorizer)
+	commonState := &charmscommon.StateShim{ctx.State()}
+	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(ctx.State(), authorizer)
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/common"
+	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/state"
@@ -75,7 +76,7 @@ type mockApplication struct {
 }
 
 func (*mockApplication) Tag() names.Tag {
-	panic("should not be called")
+	panic("not called")
 }
 
 func (a *mockApplication) Life() state.Life {
@@ -98,7 +99,7 @@ func (a *mockApplication) Watch() state.NotifyWatcher {
 	return a.watcher
 }
 
-func (a *mockApplication) Charm() (caasfirewaller.Charm, bool, error) {
+func (a *mockApplication) Charm() (charmscommon.Charm, bool, error) {
 	a.MethodCall(a, "Charm")
 	return &a.charm, false, nil
 }
@@ -141,6 +142,12 @@ type mockAppWatcherCharm struct {
 	url      *charm.URL
 }
 
+func (s *mockAppWatcherCharm) Revision() int                 { panic("not called") }
+func (s *mockAppWatcherCharm) Config() *charm.Config         { panic("not called") }
+func (s *mockAppWatcherCharm) Metrics() *charm.Metrics       { panic("not called") }
+func (s *mockAppWatcherCharm) Actions() *charm.Actions       { panic("not called") }
+func (s *mockAppWatcherCharm) LXDProfile() *state.LXDProfile { panic("not called") }
+
 func (s *mockAppWatcherCharm) Meta() *charm.Meta {
 	s.MethodCall(s, "Meta")
 	return s.meta
@@ -154,4 +161,32 @@ func (s *mockAppWatcherCharm) Manifest() *charm.Manifest {
 func (s *mockAppWatcherCharm) URL() *charm.URL {
 	s.MethodCall(s, "URL")
 	return s.url
+}
+
+type mockCommonStateShim struct {
+	*mockState
+}
+
+func (s *mockCommonStateShim) Model() (charmscommon.Model, error) {
+	return s.mockState.Model()
+}
+
+func (s *mockCommonStateShim) Charm(curl *charm.URL) (charmscommon.Charm, error) {
+	return s.mockState.Charm(curl)
+}
+
+func (s *mockCommonStateShim) Application(id string) (charmscommon.Application, error) {
+	app, err := s.mockState.Application(id)
+	if err != nil {
+		return nil, err
+	}
+	return &mockCommonApplicationShim{app}, nil
+}
+
+type mockCommonApplicationShim struct {
+	caasfirewaller.Application
+}
+
+func (a *mockCommonApplicationShim) Charm() (st charmscommon.Charm, force bool, err error) {
+	return a.Application.Charm()
 }

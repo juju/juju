@@ -467,35 +467,13 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectForced(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 	s.st.CheckCallNames(c, "Application", "Model")
-	s.st.app.CheckCallNames(c, "Life", "AllUnits", "UpdateUnits")
+	s.st.app.CheckCallNames(c, "AllUnits", "UpdateUnits")
 	s.st.model.CheckCallNames(c, "Containers")
-	c.Assert(s.st.app.Calls()[2].Args[0].(*state.UpdateUnitsOperation).Deletes, gc.HasLen, 4)
-	c.Assert(s.st.app.Calls()[2].Args[0].(*state.UpdateUnitsOperation).Deletes[0], gc.Equals, destroyOp)
-	c.Assert(s.st.app.Calls()[2].Args[0].(*state.UpdateUnitsOperation).Deletes[1], gc.Equals, destroyOp)
-	c.Assert(s.st.app.Calls()[2].Args[0].(*state.UpdateUnitsOperation).Deletes[2], gc.Equals, destroyOp)
-	c.Assert(s.st.app.Calls()[2].Args[0].(*state.UpdateUnitsOperation).Deletes[3], gc.Equals, destroyOp)
-}
-
-func (s *CAASApplicationProvisionerSuite) TestApplicationCharmURLs(c *gc.C) {
-	s.st.app = &mockApplication{
-		life: state.Alive,
-		charm: &mockCharm{
-			meta: &charm.Meta{},
-			url: &charm.URL{
-				Schema:   "cs",
-				Name:     "gitlab",
-				Revision: -1,
-			},
-		},
-	}
-	result, err := s.api.ApplicationCharmURLs(params.Entities{
-		Entities: []params.Entity{{
-			Tag: "application-gitlab",
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].Result, gc.Equals, "cs:gitlab")
+	c.Assert(s.st.app.Calls()[1].Args[0].(*state.UpdateUnitsOperation).Deletes, gc.HasLen, 4)
+	c.Assert(s.st.app.Calls()[1].Args[0].(*state.UpdateUnitsOperation).Deletes[0], gc.Equals, destroyOp)
+	c.Assert(s.st.app.Calls()[1].Args[0].(*state.UpdateUnitsOperation).Deletes[1], gc.Equals, destroyOp)
+	c.Assert(s.st.app.Calls()[1].Args[0].(*state.UpdateUnitsOperation).Deletes[2], gc.Equals, destroyOp)
+	c.Assert(s.st.app.Calls()[1].Args[0].(*state.UpdateUnitsOperation).Deletes[3], gc.Equals, destroyOp)
 }
 
 func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {

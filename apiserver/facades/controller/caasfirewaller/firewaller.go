@@ -30,14 +30,17 @@ func NewStateFacadeLegacy(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterNone)
-	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(ctx.State(), authorizer)
+
+	commonState := &charmscommon.StateShim{ctx.State()}
+	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(ctx.State(), authorizer)
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return newFacadeLegacy(
 		resources,
 		authorizer,
@@ -145,11 +148,13 @@ func NewStateFacadeSidecar(ctx facade.Context) (*FacadeSidecar, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterNone)
-	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(ctx.State(), authorizer)
+
+	commonState := &charmscommon.StateShim{ctx.State()}
+	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(ctx.State(), authorizer)
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

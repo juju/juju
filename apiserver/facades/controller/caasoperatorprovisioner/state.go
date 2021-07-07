@@ -4,10 +4,10 @@
 package caasoperatorprovisioner
 
 import (
-	"github.com/juju/charm/v8"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -36,13 +36,7 @@ type Model interface {
 }
 
 type Application interface {
-	Charm() (ch Charm, force bool, err error)
-}
-
-type Charm interface {
-	Meta() *charm.Meta
-	Manifest() *charm.Manifest
-	URL() *charm.URL
+	Charm() (ch charmscommon.Charm, force bool, err error)
 }
 
 type stateShim struct {
@@ -69,6 +63,6 @@ type applicationShim struct {
 	*state.Application
 }
 
-func (a *applicationShim) Charm() (Charm, bool, error) {
+func (a *applicationShim) Charm() (charmscommon.Charm, bool, error) {
 	return a.Application.Charm()
 }

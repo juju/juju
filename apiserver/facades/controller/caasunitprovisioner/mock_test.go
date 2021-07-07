@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 
+	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
@@ -218,11 +219,19 @@ type mockCharm struct {
 	meta charm.Meta
 }
 
+func (m *mockCharm) URL() *charm.URL               { panic("not called") }
+func (m *mockCharm) Revision() int                 { panic("not called") }
+func (m *mockCharm) Config() *charm.Config         { panic("not called") }
+func (m *mockCharm) Manifest() *charm.Manifest     { panic("not called") }
+func (m *mockCharm) Metrics() *charm.Metrics       { panic("not called") }
+func (m *mockCharm) Actions() *charm.Actions       { panic("not called") }
+func (m *mockCharm) LXDProfile() *state.LXDProfile { panic("not called") }
+
 func (m *mockCharm) Meta() *charm.Meta {
 	return &m.meta
 }
 
-func (a *mockApplication) Charm() (caasunitprovisioner.Charm, bool, error) {
+func (a *mockApplication) Charm() (charmscommon.Charm, bool, error) {
 	a.MethodCall(a, "Charm")
 	return a.charm, false, nil
 }

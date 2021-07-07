@@ -50,12 +50,18 @@ var _ = gc.Suite(&firewallerLegacySuite{
 			authorizer facade.Authorizer,
 			st *mockState,
 		) (facadeCommon, error) {
-			commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(st, authorizer)
+			commonState := &mockCommonStateShim{st}
+			commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
+			c.Assert(err, jc.ErrorIsNil)
+			appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
 			c.Assert(err, jc.ErrorIsNil)
 			return caasfirewaller.NewFacadeLegacyForTest(
-				resources, authorizer, st,
+				resources,
+				authorizer,
+				st,
 				common.NewApplicationWatcherFacade(firewallerStateToAppWatcherState(st), resources, common.ApplicationFilterCAASLegacy),
 				commonCharmsAPI,
+				appCharmInfoAPI,
 			)
 		},
 	},
@@ -85,9 +91,18 @@ var _ = gc.Suite(&firewallerSidecarSuite{
 			authorizer facade.Authorizer,
 			st *mockState,
 		) (facadeCommon, error) {
+			commonState := &mockCommonStateShim{st}
+			commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
+			c.Assert(err, jc.ErrorIsNil)
+			appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
+			c.Assert(err, jc.ErrorIsNil)
 			return caasfirewaller.NewFacadeSidecarForTest(
-				resources, authorizer, st,
+				resources,
+				authorizer,
+				st,
 				common.NewApplicationWatcherFacade(firewallerStateToAppWatcherState(st), resources, common.ApplicationFilterCAASSidecar),
+				commonCharmsAPI,
+				appCharmInfoAPI,
 			)
 		},
 	},
@@ -134,7 +149,7 @@ type facadeCommon interface {
 	WatchApplications() (params.StringsWatchResult, error)
 	Life(args params.Entities) (params.LifeResults, error)
 	Watch(args params.Entities) (params.NotifyWatchResults, error)
-	ApplicationCharmURLs(args params.Entities) (params.StringResults, error)
+	ApplicationCharmInfo(args params.Entity) (params.Charm, error)
 }
 
 type facadeSidecar interface {
@@ -274,16 +289,4 @@ func (s *firewallerBaseSuite) TestApplicationConfig(c *gc.C) {
 		Message: `"unit-gitlab-0" is not a valid application tag`,
 	})
 	c.Assert(results.Results[0].Config, jc.DeepEquals, map[string]interface{}{"foo": "bar"})
-}
-
-func (s *firewallerBaseSuite) TestApplicationCharmURLs(c *gc.C) {
-	results, err := s.facade.ApplicationCharmURLs(params.Entities{
-		Entities: []params.Entity{{
-			Tag: "application-gitlab",
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	result := results.Results[0]
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Result, gc.Equals, "cs:gitlab")
 }
