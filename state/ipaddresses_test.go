@@ -317,45 +317,6 @@ func (s *ipAddressesStateSuite) TestMachineAllAddressesSuccess(c *gc.C) {
 	c.Assert(allAddresses, jc.DeepEquals, addedAddresses)
 }
 
-func (s *ipAddressesStateSuite) TestMachineAllDeviceSpaceAddresses(c *gc.C) {
-	addrs := s.addTwoDevicesWithTwoAddressesEach(c)
-	expected := make(network.SpaceAddresses, len(addrs))
-	for i, addr := range addrs {
-		expected[i] = network.SpaceAddress{
-			MachineAddress: network.NewMachineAddress(
-				addr.Value(),
-				network.WithCIDR(addr.SubnetCIDR()),
-				network.WithConfigType(addr.ConfigMethod()),
-			),
-			SpaceID: network.AlphaSpaceId,
-		}
-	}
-
-	networkAddresses, err := s.machine.AllDeviceSpaceAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-
-	network.SortAddresses(expected)
-	network.SortAddresses(networkAddresses)
-
-	c.Assert(networkAddresses, jc.DeepEquals, expected)
-}
-
-func (s *ipAddressesStateSuite) TestMachineAllDeviceSpaceAddressesFanScope(c *gc.C) {
-	_, _ = s.addNamedDeviceWithAddresses(c, "eth0", "252.80.0.100/12")
-
-	networkAddresses, err := s.machine.AllDeviceSpaceAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(networkAddresses, jc.DeepEquals, network.SpaceAddresses{{
-		MachineAddress: network.NewMachineAddress(
-			"252.80.0.100",
-			network.WithCIDR("252.80.0.0/12"),
-			network.WithConfigType(network.ConfigStatic),
-			network.WithScope(network.ScopeFanLocal),
-		),
-		SpaceID: network.AlphaSpaceId,
-	}})
-}
-
 func (s *ipAddressesStateSuite) TestLinkLayerDeviceRemoveAlsoRemovesDeviceAddresses(c *gc.C) {
 	device, _ := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.30.40/16", "fc00::/64")
 	s.assertAllAddressesOnMachineMatchCount(c, s.machine, 2)
@@ -365,10 +326,9 @@ func (s *ipAddressesStateSuite) TestLinkLayerDeviceRemoveAlsoRemovesDeviceAddres
 	s.assertNoAddressesOnMachine(c, s.machine)
 }
 
-func (s *ipAddressesStateSuite) TestMachineRemoveAlsoRemoveAllAddresses(c *gc.C) {
+func (s *ipAddressesStateSuite) TestMachineRemoveAlsoRemovesAllAddresses(c *gc.C) {
 	s.addTwoDevicesWithTwoAddressesEach(c)
 	s.ensureMachineDeadAndRemove(c, s.machine)
-
 	s.assertNoAddressesOnMachine(c, s.machine)
 }
 

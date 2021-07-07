@@ -860,48 +860,6 @@ func (m *Machine) AllDeviceAddresses() ([]*Address, error) {
 	return allAddresses, nil
 }
 
-// AllDeviceSpaceAddresses returns the SpaceAddress representation of
-// all known addresses assigned to link-layer devices on the machine.
-// These addresses are populated with sufficient detail to be accurately
-// sortable by network.SortAddresses.
-func (m *Machine) AllDeviceSpaceAddresses() (corenetwork.SpaceAddresses, error) {
-	subnets, err := m.st.AllSubnets()
-	if err != nil {
-		return nil, errors.Annotate(err, "retrieving subnets")
-	}
-
-	var allAddresses corenetwork.SpaceAddresses
-	callbackFunc := func(doc *ipAddressDoc) {
-		addr := corenetwork.SpaceAddress{
-			MachineAddress: corenetwork.NewMachineAddress(
-				doc.Value,
-				corenetwork.WithConfigType(doc.ConfigMethod),
-				corenetwork.WithCIDR(doc.SubnetCIDR),
-				corenetwork.WithSecondary(doc.IsSecondary),
-			),
-		}
-
-		// If this is not a loopback device, attempt to
-		// set the space ID based on the subnet.
-		if doc.ConfigMethod != corenetwork.ConfigLoopback && doc.SubnetCIDR != "" {
-			for _, sub := range subnets {
-				if sub.CIDR() == doc.SubnetCIDR {
-					addr.SpaceID = sub.spaceID
-					break
-				}
-			}
-		}
-
-		allAddresses = append(allAddresses, addr)
-	}
-
-	findQuery := findAddressesQuery(m.doc.Id, "")
-	if err := m.st.forEachIPAddressDoc(findQuery, callbackFunc); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return allAddresses, nil
-}
-
 // AllSpaces returns the set of spaceIDs that this machine is
 // actively connected to.
 // TODO(jam): 2016-12-18 This should evolve to look at the
