@@ -20,16 +20,16 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type charmsSuite struct {
+type charmInfoSuite struct {
 	// TODO(anastasiamac) mock to remove JujuConnSuite
 	jujutesting.JujuConnSuite
 	api  *charms.CharmInfoAPI
 	auth facade.Authorizer
 }
 
-var _ = gc.Suite(&charmsSuite{})
+var _ = gc.Suite(&charmInfoSuite{})
 
-func (s *charmsSuite) SetUpTest(c *gc.C) {
+func (s *charmInfoSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	s.auth = testing.FakeAuthorizer{
@@ -42,7 +42,7 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *charmsSuite) TestClientCharmInfoCAAS(c *gc.C) {
+func (s *charmInfoSuite) TestClientCharmInfoCAAS(c *gc.C) {
 	var clientCharmInfoTests = []struct {
 		about    string
 		series   string
@@ -154,7 +154,7 @@ func (s *charmsSuite) TestClientCharmInfoCAAS(c *gc.C) {
 	}
 }
 
-func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
+func (s *charmInfoSuite) TestClientCharmInfo(c *gc.C) {
 	var clientCharmInfoTests = []struct {
 		about    string
 		charm    string

@@ -16,6 +16,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mocks.go github.com/juju/juju/apiserver/common/charms State,Application,Charm,Model
+
 type State interface {
 	Model() (Model, error)
 	Charm(curl *charm.URL) (Charm, error)
