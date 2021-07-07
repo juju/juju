@@ -447,7 +447,7 @@ func (a *action) removeAndLogBuildTxn(finalStatus ActionStatus, results map[stri
 					numComplete++
 				}
 			}
-			expectedTaskCount := parentOpDetails.doc.ExpectedTaskCount
+			expectedTaskCount := parentOpDetails.doc.SpawnedTaskCount
 			if numComplete == expectedTaskCount-1 {
 				// Set the operation status based on the individual
 				// task status values. eg if any task is failed,
