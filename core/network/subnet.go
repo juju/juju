@@ -256,6 +256,12 @@ func (s SubnetInfos) GetBySpaceID(spaceID string) (SubnetInfos, error) {
 	return append(subsInSpace, spaceOverlays...), nil
 }
 
+// AllSubnetInfos implements SubnetLookup
+// by returning all of the subnets.
+func (s SubnetInfos) AllSubnetInfos() (SubnetInfos, error) {
+	return s, nil
+}
+
 // EqualTo returns true if this slice of SubnetInfo is equal to the input.
 func (s SubnetInfos) EqualTo(other SubnetInfos) bool {
 	if len(s) != len(other) {
