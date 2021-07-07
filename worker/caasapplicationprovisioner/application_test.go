@@ -120,9 +120,10 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	done := make(chan struct{})
 	gomock.InOrder(
 		// Initialize in loop.
-		facade.EXPECT().ApplicationCharmURL("test").DoAndReturn(func(string) (*charm.URL, error) {
-			return appCharmURL, nil
-		}),
+		// TODO(benhoyt) - update
+		//facade.EXPECT().ApplicationCharmURL("test").DoAndReturn(func(string) (*charm.URL, error) {
+		//	return appCharmURL, nil
+		//}),
 		facade.EXPECT().CharmInfo("cs:test").DoAndReturn(func(string) (*charmscommon.CharmInfo, error) {
 			return appCharmInfo, nil
 		}),
