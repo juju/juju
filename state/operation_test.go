@@ -258,7 +258,15 @@ func (s *OperationSuite) TestListOperationsByReceiver(c *gc.C) {
 
 func (s *OperationSuite) TestListOperationsSubset(c *gc.C) {
 	s.setupOperations(c)
-	operations, truncated, err := s.Model.ListOperations(nil, nil, nil, 1, 1)
+	for i := 0; i < 20; i++ {
+		operationID, err := s.Model.EnqueueOperation(fmt.Sprintf("operation %d", i), 20)
+		c.Assert(err, jc.ErrorIsNil)
+		anAction, err := s.Model.EnqueueAction(operationID, names.NewUnitTag("dummy/0"), "backup", nil, nil)
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = anAction.Begin()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	operations, truncated, err := s.Model.ListOperations(nil, nil, nil, 14, 1)
 	c.Assert(truncated, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(operations, gc.HasLen, 1)
