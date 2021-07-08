@@ -42,6 +42,11 @@ func (ss *StatefulSet) Clone() Resource {
 	return &clone
 }
 
+// ID returns a comparable ID for the Resource
+func (r *StatefulSet) ID() ID {
+	return ID{"StatefulSet", r.Name, r.Namespace}
+}
+
 // Apply patches the resource change.
 func (ss *StatefulSet) Apply(ctx context.Context, client kubernetes.Interface) error {
 	api := client.AppsV1().StatefulSets(ss.Namespace)

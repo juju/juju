@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/cloudconfig/podcfg"
@@ -161,6 +162,11 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		},
 	}
 	applier.Apply(&secret)
+
+	err = a.ensureImagePullSecrets(applier, config)
+	if err != nil {
+		return errors.Annotatef(err, "applying image pull secrets")
+	}
 
 	serviceAccount := resources.ServiceAccount{
 		ServiceAccount: corev1.ServiceAccount{
@@ -478,6 +484,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 
 // Upgrade upgrades the app to the specified version.
 func (a *app) Upgrade(ver version.Number) error {
+	// TODO(sidecar): Unify this with Ensure
 	applier := a.newApplier()
 
 	if err := a.upgradeMainResource(applier, ver); err != nil {
@@ -927,6 +934,28 @@ func (a *app) Delete() error {
 	applier.Delete(resources.NewClusterRoleBinding(a.qualifiedClusterName(), nil))
 	applier.Delete(resources.NewClusterRole(a.qualifiedClusterName(), nil))
 	applier.Delete(resources.NewServiceAccount(a.serviceAccountName(), a.namespace, nil))
+
+	// Cleanup lists of resources.
+	cleanup := []resources.Resource(nil)
+
+	// List secrets to be deleted.
+	secrets, err := resources.ListSecrets(context.Background(), a.client, a.namespace, metav1.ListOptions{
+		LabelSelector: a.labelSelector(),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, s := range secrets {
+		secret := s
+		if a.matchImagePullSecret(secret.Name) {
+			cleanup = append(cleanup, &secret)
+		}
+	}
+
+	if len(cleanup) > 0 {
+		applier.Delete(cleanup...)
+	}
+
 	return applier.Run(context.Background(), a.client, false)
 }
 
@@ -1257,6 +1286,8 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		},
 	}}
 
+	imagePullSecrets := []corev1.LocalObjectReference(nil)
+
 	for _, v := range containers {
 		container := corev1.Container{
 			Name:            v.Name,
@@ -1295,6 +1326,9 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				},
 			},
 		}
+		if v.Image.Password != "" {
+			imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: a.imagePullSecretName(v.Name)})
+		}
 		containerSpecs = append(containerSpecs, container)
 	}
 
@@ -1323,6 +1357,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		AutomountServiceAccountToken: &automountToken,
 		ServiceAccountName:           a.serviceAccountName(),
 		NodeSelector:                 nodeSelector,
+		ImagePullSecrets:             imagePullSecrets,
 		InitContainers: []corev1.Container{{
 			Name:            "charm-init",
 			ImagePullPolicy: corev1.PullIfNotPresent,
@@ -1391,6 +1426,52 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	}, nil
 }
 
+func (a *app) ensureImagePullSecrets(applier resources.Applier, config caas.ApplicationConfig) error {
+	desired := []resources.Resource(nil)
+	for _, container := range config.Containers {
+		if container.Image.Password == "" {
+			continue
+		}
+		secretData, err := utils.CreateDockerConfigJSON(container.Image.Username, container.Image.Password, container.Image.RegistryPath)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		secret := &resources.Secret{
+			Secret: corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        a.imagePullSecretName(container.Name),
+					Namespace:   a.namespace,
+					Labels:      a.labels(),
+					Annotations: a.annotations(config),
+				},
+				Type: corev1.SecretTypeDockerConfigJson,
+				Data: map[string][]byte{
+					corev1.DockerConfigJsonKey: secretData,
+				},
+			},
+		}
+		desired = append(desired, secret)
+	}
+
+	secrets, err := resources.ListSecrets(context.Background(), a.client, a.namespace, metav1.ListOptions{
+		LabelSelector: a.labelSelector(),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	existing := []resources.Resource(nil)
+	for _, s := range secrets {
+		secret := s
+		if a.matchImagePullSecret(secret.Name) {
+			existing = append(existing, &secret)
+		}
+	}
+
+	applier.ApplySet(existing, desired)
+	return nil
+}
+
 func (a *app) annotations(config caas.ApplicationConfig) annotations.Annotation {
 	return k8sutils.ResourceTagsToAnnotations(config.ResourceTags, a.legacyLabels).
 		Merge(k8sutils.AnnotationsForVersion(config.AgentVersion.String(), a.legacyLabels))
@@ -1432,6 +1513,15 @@ func (a *app) serviceAccountName() string {
 
 func (a *app) qualifiedClusterName() string {
 	return fmt.Sprintf("%s-%s", a.modelName, a.name)
+}
+
+func (a *app) imagePullSecretName(containerName string) string {
+	// A pod may have multiple containers with different images and thus different secrets
+	return a.name + "-" + containerName + "-secret"
+}
+
+func (a *app) matchImagePullSecret(name string) bool {
+	return strings.HasPrefix(name, a.name+"-") && strings.HasSuffix(name, "-secret")
 }
 
 type annotationGetter interface {

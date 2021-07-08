@@ -42,6 +42,11 @@ func (rb *RoleBinding) Clone() Resource {
 	return &clone
 }
 
+// ID returns a comparable ID for the Resource
+func (r *RoleBinding) ID() ID {
+	return ID{"RoleBinding", r.Name, r.Namespace}
+}
+
 // Apply patches the resource change.
 func (rb *RoleBinding) Apply(ctx context.Context, client kubernetes.Interface) error {
 	api := client.RbacV1().RoleBindings(rb.Namespace)

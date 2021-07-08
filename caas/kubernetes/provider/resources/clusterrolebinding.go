@@ -42,6 +42,11 @@ func (rb *ClusterRoleBinding) Clone() Resource {
 	return &clone
 }
 
+// ID returns a comparable ID for the Resource
+func (r *ClusterRoleBinding) ID() ID {
+	return ID{"ClusterRoleBinding", r.Name, r.Namespace}
+}
+
 // Apply patches the resource change.
 func (rb *ClusterRoleBinding) Apply(ctx context.Context, client kubernetes.Interface) error {
 	api := client.RbacV1().ClusterRoleBindings()
@@ -110,6 +115,7 @@ func (rb *ClusterRoleBinding) Ensure(
 	client kubernetes.Interface,
 	claims ...Claim,
 ) ([]func(), error) {
+	// TODO(caas): roll this into Apply()
 	cleanups := []func(){}
 
 	existing := ClusterRoleBinding{rb.ClusterRoleBinding}
