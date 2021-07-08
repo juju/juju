@@ -36,14 +36,26 @@ type Resource interface {
 	ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error)
 	// Events emitted by the object.
 	Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error)
+	// ID returns a comparable ID for the Resource
+	ID() ID
 }
 
 // Applier defines methods for processing a slice of resource operations.
 type Applier interface {
-	// Apply adds an apply operation to the applier.
-	Apply(Resource)
-	// Delete adds an delete operation to the applier.
-	Delete(Resource)
+	// Apply adds apply operations to the applier.
+	Apply(...Resource)
+	// Delete adds delete operations to the applier.
+	Delete(...Resource)
+	// ApplySet deletes Resources in the current slice that don't exist in the
+	// desired slice. All items in the desired slice are applied.
+	ApplySet(current []Resource, desired []Resource)
 	// Run processes the slice of the operations.
 	Run(ctx context.Context, client kubernetes.Interface, noRollback bool) error
+}
+
+// ID represents a compareable identifier for Resources.
+type ID struct {
+	Type      string
+	Name      string
+	Namespace string
 }

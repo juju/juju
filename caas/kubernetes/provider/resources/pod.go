@@ -35,7 +35,7 @@ func NewPod(name string, namespace string, in *corev1.Pod) *Pod {
 	return &Pod{*in}
 }
 
-// ListPods returns a list of storage classes.
+// ListPods returns a list of Pods.
 func ListPods(ctx context.Context, client kubernetes.Interface, namespace string, opts metav1.ListOptions) ([]Pod, error) {
 	api := client.CoreV1().Pods(namespace)
 	var items []Pod
@@ -59,6 +59,11 @@ func ListPods(ctx context.Context, client kubernetes.Interface, namespace string
 func (p *Pod) Clone() Resource {
 	clone := *p
 	return &clone
+}
+
+// ID returns a comparable ID for the Resource
+func (r *Pod) ID() ID {
+	return ID{"Pod", r.Name, r.Namespace}
 }
 
 // Apply patches the resource change.

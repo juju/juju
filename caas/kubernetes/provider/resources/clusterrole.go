@@ -41,6 +41,11 @@ func (r *ClusterRole) Clone() Resource {
 	return &clone
 }
 
+// ID returns a comparable ID for the Resource
+func (r *ClusterRole) ID() ID {
+	return ID{"ClusterRole", r.Name, r.Namespace}
+}
+
 // Apply patches the resource change.
 func (r *ClusterRole) Apply(ctx context.Context, client kubernetes.Interface) error {
 	api := client.RbacV1().ClusterRoles()
@@ -99,6 +104,7 @@ func (r *ClusterRole) Ensure(
 	client kubernetes.Interface,
 	claims ...Claim,
 ) ([]func(), error) {
+	// TODO(caas): roll this into Apply()
 	cleanups := []func(){}
 	hasClaim := true
 

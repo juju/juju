@@ -42,6 +42,11 @@ func (d *Deployment) Clone() Resource {
 	return &clone
 }
 
+// ID returns a comparable ID for the Resource
+func (r *Deployment) ID() ID {
+	return ID{"Deployment", r.Name, r.Namespace}
+}
+
 // Apply patches the resource change.
 func (d *Deployment) Apply(ctx context.Context, client kubernetes.Interface) error {
 	api := client.AppsV1().Deployments(d.Namespace)
