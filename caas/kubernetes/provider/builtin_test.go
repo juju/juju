@@ -5,6 +5,7 @@ package provider_test
 
 import (
 	"io"
+	"runtime"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -51,9 +52,15 @@ type builtinSuite struct {
 	runner dummyRunner
 
 	kubeCloudParams provider.KubeCloudParams
+	findCMD         string
 }
 
 func (s *builtinSuite) SetUpTest(c *gc.C) {
+	s.findCMD = "which microk8s"
+	if runtime.GOOS == "windows" {
+		s.findCMD = "where.exe microk8s"
+	}
+
 	var logger loggo.Logger
 	s.runner = dummyRunner{CallMocker: testing.NewCallMocker(logger)}
 	s.kubeCloudParams = provider.KubeCloudParams{
@@ -98,7 +105,7 @@ MIIDBDCCAeygAwIBAgIJAPUHbpCysNxyMA0GCSqGSIb3DQEBCwUAMBcxFTATBgNV`[1:],
 func (s *builtinSuite) TestGetLocalMicroK8sConfigNotInstalled(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: "which microk8s.config"}).Returns(&exec.ExecResponse{Code: 1}, nil)
+		exec.RunParams{Commands: s.findCMD}).Returns(&exec.ExecResponse{Code: 1}, nil)
 
 	result, err := provider.GetLocalMicroK8sConfig(s.runner)
 	c.Assert(err, gc.ErrorMatches, `microk8s not found`)
@@ -109,10 +116,10 @@ func (s *builtinSuite) TestGetLocalMicroK8sConfigNotInstalled(c *gc.C) {
 func (s *builtinSuite) TestGetLocalMicroK8sConfigCallFails(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: "which microk8s.config"}).Returns(&exec.ExecResponse{Code: 0}, nil)
+		exec.RunParams{Commands: s.findCMD}).Returns(&exec.ExecResponse{Code: 0}, nil)
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: "microk8s.config"}).Returns(&exec.ExecResponse{Code: 1, Stderr: []byte("cannot find config")}, nil)
+		exec.RunParams{Commands: "microk8s config"}).Returns(&exec.ExecResponse{Code: 1, Stderr: []byte("cannot find config")}, nil)
 	result, err := provider.GetLocalMicroK8sConfig(s.runner)
 	c.Assert(err, gc.ErrorMatches, `cannot find config`)
 	c.Assert(result, gc.HasLen, 0)
@@ -121,10 +128,10 @@ func (s *builtinSuite) TestGetLocalMicroK8sConfigCallFails(c *gc.C) {
 func (s *builtinSuite) TestGetLocalMicroK8sConfig(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: "which microk8s.config"}).Returns(&exec.ExecResponse{Code: 0}, nil)
+		exec.RunParams{Commands: s.findCMD}).Returns(&exec.ExecResponse{Code: 0}, nil)
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: "microk8s.config"}).Returns(&exec.ExecResponse{Code: 0, Stdout: []byte("a bunch of config")}, nil)
+		exec.RunParams{Commands: "microk8s config"}).Returns(&exec.ExecResponse{Code: 0, Stdout: []byte("a bunch of config")}, nil)
 
 	result, err := provider.GetLocalMicroK8sConfig(s.runner)
 	c.Assert(err, jc.ErrorIsNil)
@@ -134,10 +141,10 @@ func (s *builtinSuite) TestGetLocalMicroK8sConfig(c *gc.C) {
 func (s *builtinSuite) TestAttemptMicroK8sCloud(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: "which microk8s.config"}).Returns(&exec.ExecResponse{Code: 0}, nil)
+		exec.RunParams{Commands: s.findCMD}).Returns(&exec.ExecResponse{Code: 0}, nil)
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: "microk8s.config"}).Returns(&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sConfig)}, nil)
+		exec.RunParams{Commands: "microk8s config"}).Returns(&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sConfig)}, nil)
 
 	k8sCloud, err := provider.AttemptMicroK8sCloud(s.runner)
 	c.Assert(err, jc.ErrorIsNil)
@@ -163,7 +170,7 @@ func (s *builtinSuite) TestAttemptMicroK8sCloud(c *gc.C) {
 func (s *builtinSuite) TestAttemptMicroK8sCloudErrors(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: "which microk8s.config"}).Returns(&exec.ExecResponse{Code: 1}, nil)
+		exec.RunParams{Commands: s.findCMD}).Returns(&exec.ExecResponse{Code: 1}, nil)
 	k8sCloud, err := provider.AttemptMicroK8sCloud(s.runner)
 	c.Assert(err, gc.ErrorMatches, `microk8s not found`)
 	c.Assert(k8sCloud, gc.DeepEquals, cloud.Cloud{})

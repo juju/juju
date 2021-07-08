@@ -27,10 +27,9 @@ var (
 type detectCloudSuite struct{}
 
 type builtinCloudRet struct {
-	cloud          cloud.Cloud
-	credential     jujucloud.Credential
-	credentialName string
-	err            error
+	cloud      cloud.Cloud
+	credential jujucloud.Credential
+	err        error
 }
 
 type dummyRunner struct {

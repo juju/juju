@@ -309,9 +309,9 @@ func (c *controllerStack) getResourceName(name string) string {
 
 func (c *controllerStack) pathJoin(elem ...string) string {
 	// Setting series for bootstrapping to kubernetes is currently not supported.
-	// Always use forward-slash for now.
+	// We always use forward-slash because Linux is the only OS we support now.
 	pathSeparator := "/"
-	return strings.Join(elem, string(pathSeparator))
+	return strings.Join(elem, pathSeparator)
 }
 
 func (c *controllerStack) getControllerSecret() (secret *core.Secret, err error) {

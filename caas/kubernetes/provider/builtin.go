@@ -73,7 +73,7 @@ func getLocalMicroK8sConfig(cmdRunner CommandRunner) ([]byte, error) {
 		Commands: cmd,
 	})
 	if err != nil || result.Code != 0 {
-		return []byte{}, errors.NotFoundf("command microk8s")
+		return []byte{}, errors.NotFoundf("microk8s")
 	}
 	execParams := exec.RunParams{
 		Commands: "microk8s config",
