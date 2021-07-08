@@ -1141,7 +1141,7 @@ func (a *app) Units() ([]caas.Unit, error) {
 					fsInfo.StorageName = constants.PVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
 				}
 			}
-			logger.Debugf("filesystem info for %v: %+v", volMount.Name, *fsInfo)
+			logger.Tracef("filesystem info for %v: %+v", volMount.Name, *fsInfo)
 			unitInfo.FilesystemInfo = append(unitInfo.FilesystemInfo, *fsInfo)
 		}
 		units = append(units, unitInfo)

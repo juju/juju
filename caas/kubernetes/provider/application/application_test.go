@@ -1555,24 +1555,49 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 				},
 			},
 		)
-		// Add a volume with a secret for lp:1925721, the secret name must contain
-		// `-token` to be ignored.
+		// Ensure these volume sources are ignored
 		podSpec.Volumes = append(podSpec.Volumes,
 			corev1.Volume{
-				Name: "testme",
+				Name: "vol-secret",
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 					Secret: &corev1.SecretVolumeSource{
+						// secret name must have "-token" suffix to be ignored (see lp:1925721)
 						SecretName: "charm-data-token",
 					},
 				},
 			},
+			corev1.Volume{
+				Name: "vol-projected",
+				VolumeSource: corev1.VolumeSource{
+					Projected: &corev1.ProjectedVolumeSource{},
+				},
+			},
+			corev1.Volume{
+				Name: "vol-configmap",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{},
+				},
+			},
+			corev1.Volume{
+				Name: "vol-hostpath",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{},
+				},
+			},
+			corev1.Volume{
+				Name: "vol-emptydir",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
 		)
 		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts,
-			corev1.VolumeMount{
-				Name:      "testme",
-				MountPath: "path/to/here",
-			},
+			corev1.VolumeMount{Name: "vol-secret", MountPath: "path/secret"},
+			corev1.VolumeMount{Name: "vol-projected", MountPath: "path/projected"},
+			corev1.VolumeMount{Name: "vol-configmap", MountPath: "path/configmap"},
+			corev1.VolumeMount{Name: "vol-hostpath", MountPath: "path/hostpath"},
+			corev1.VolumeMount{Name: "vol-emptydir", MountPath: "path/emptydir"},
 		)
 		pod := corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
