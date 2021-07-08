@@ -338,7 +338,7 @@ func (st *State) AllSubnetInfos() (network.SubnetInfos, error) {
 
 // networkSubnet maps the subnet fields into a network.SubnetInfo.
 // Note that this method should not be exported.
-// It is only called for on subnets are guaranteed, if Fan overlays,
+// It is only called on subnets that are guaranteed, if Fan overlays,
 // to have had their space IDs correctly set based on their underlays.
 // Calling it on an overlay not processed in this way will yield a
 // space ID of "0", which may be incorrect.
