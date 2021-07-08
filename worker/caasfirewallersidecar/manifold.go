@@ -12,8 +12,6 @@ import (
 	"github.com/juju/juju/caas"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/logger_mock.go github.com/juju/juju/worker/caasfirewallersidecar Logger
-
 // Logger represents the methods used by the worker to log details.
 type Logger interface {
 	Debugf(string, ...interface{})

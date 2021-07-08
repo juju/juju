@@ -9,6 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
@@ -31,7 +32,6 @@ type appWorkerSuite struct {
 
 	firewallerAPI *mocks.MockCAASFirewallerAPI
 	lifeGetter    *mocks.MockLifeGetter
-	logger        *mocks.MockLogger
 	broker        *mocks.MockCAASBroker
 	brokerApp     *caasmocks.MockApplication
 
@@ -61,7 +61,6 @@ func (s *appWorkerSuite) getController(c *gc.C) *gomock.Controller {
 	s.firewallerAPI = mocks.NewMockCAASFirewallerAPI(ctrl)
 
 	s.lifeGetter = mocks.NewMockLifeGetter(ctrl)
-	s.logger = mocks.NewMockLogger(ctrl)
 	s.broker = mocks.NewMockCAASBroker(ctrl)
 	s.brokerApp = caasmocks.NewMockApplication(ctrl)
 
@@ -76,7 +75,7 @@ func (s *appWorkerSuite) getWorker(c *gc.C) worker.Worker {
 		s.firewallerAPI,
 		s.broker,
 		s.lifeGetter,
-		s.logger,
+		noopLogger{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
@@ -88,7 +87,7 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 
 	done := make(chan struct{})
 
-	appCharmInfo := &charmscommon.CharmInfo{
+	charmInfo := &charmscommon.CharmInfo{ // v2 charm
 		Meta: &charm.Meta{
 			Name: "test",
 
@@ -116,17 +115,14 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 
 	go func() {
 		s.portsChanges <- []string{"port changes"}
-
 		s.applicationChanges <- struct{}{}
 	}()
 
 	gomock.InOrder(
 		s.firewallerAPI.EXPECT().WatchApplication(s.appName).Return(s.appsWatcher, nil),
 		s.firewallerAPI.EXPECT().WatchOpenedPorts().Return(s.portsWatcher, nil),
-		s.firewallerAPI.EXPECT().ApplicationCharmInfo(s.appName).Return(appCharmInfo, nil),
-
 		s.broker.EXPECT().Application(s.appName, caas.DeploymentStateful).Return(s.brokerApp),
-
+		s.firewallerAPI.EXPECT().ApplicationCharmInfo(s.appName).Return(charmInfo, nil),
 		s.firewallerAPI.EXPECT().IsExposed(s.appName).DoAndReturn(func(_ string) (bool, error) {
 			close(done)
 			return false, nil
@@ -134,11 +130,68 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 	)
 
 	w := s.getWorker(c)
+	s.waitDone(c, done)
+	workertest.CleanKill(c, w)
+}
 
+func (s *appWorkerSuite) waitDone(c *gc.C, done <-chan struct{}) {
 	select {
 	case <-done:
 	case <-time.After(testing.ShortWait):
 		c.Errorf("timed out waiting for worker")
 	}
+}
+
+func (s *appWorkerSuite) TestV1CharmStopsWorker(c *gc.C) {
+	ctrl := s.getController(c)
+	defer ctrl.Finish()
+
+	done := make(chan struct{})
+
+	go func() {
+		s.applicationChanges <- struct{}{}
+	}()
+
+	gomock.InOrder(
+		s.firewallerAPI.EXPECT().WatchApplication(s.appName).Return(s.appsWatcher, nil),
+		s.firewallerAPI.EXPECT().WatchOpenedPorts().Return(s.portsWatcher, nil),
+		s.broker.EXPECT().Application(s.appName, caas.DeploymentStateful).Return(s.brokerApp),
+		s.firewallerAPI.EXPECT().ApplicationCharmInfo(s.appName).DoAndReturn(func(_ string) (*charmscommon.CharmInfo, error) {
+			close(done)
+			charmInfo := &charmscommon.CharmInfo{ // v1 charm
+				Meta:     &charm.Meta{},
+				Manifest: &charm.Manifest{},
+			}
+			return charmInfo, nil
+		}),
+	)
+
+	w := s.getWorker(c)
+	s.waitDone(c, done)
+	workertest.CleanKill(c, w)
+}
+
+func (s *appWorkerSuite) TestNotFoundCharmStopsWorker(c *gc.C) {
+	ctrl := s.getController(c)
+	defer ctrl.Finish()
+
+	done := make(chan struct{})
+
+	go func() {
+		s.applicationChanges <- struct{}{}
+	}()
+
+	gomock.InOrder(
+		s.firewallerAPI.EXPECT().WatchApplication(s.appName).Return(s.appsWatcher, nil),
+		s.firewallerAPI.EXPECT().WatchOpenedPorts().Return(s.portsWatcher, nil),
+		s.broker.EXPECT().Application(s.appName, caas.DeploymentStateful).Return(s.brokerApp),
+		s.firewallerAPI.EXPECT().ApplicationCharmInfo(s.appName).DoAndReturn(func(appName string) (*charmscommon.CharmInfo, error) {
+			close(done)
+			return nil, errors.NotFoundf("charm %q", appName)
+		}),
+	)
+
+	w := s.getWorker(c)
+	s.waitDone(c, done)
 	workertest.CleanKill(c, w)
 }

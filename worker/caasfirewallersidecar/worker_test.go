@@ -5,12 +5,14 @@ package caasfirewallersidecar_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -27,13 +29,19 @@ type workerSuite struct {
 
 	firewallerAPI *mocks.MockCAASFirewallerAPI
 	lifeGetter    *mocks.MockLifeGetter
-	logger        *mocks.MockLogger
 	broker        *mocks.MockCAASBroker
 
 	applicationChanges chan []string
 
 	appsWatcher watcher.StringsWatcher
 }
+
+type noopLogger struct{}
+
+func (noopLogger) Tracef(string, ...interface{})   {}
+func (noopLogger) Debugf(string, ...interface{})   {}
+func (noopLogger) Errorf(string, ...interface{})   {}
+func (noopLogger) Warningf(string, ...interface{}) {}
 
 var _ = gc.Suite(&workerSuite{})
 
@@ -48,7 +56,6 @@ func (s *workerSuite) TearDownTest(c *gc.C) {
 
 	s.firewallerAPI = nil
 	s.lifeGetter = nil
-	s.logger = nil
 	s.broker = nil
 	s.config = caasfirewallersidecar.Config{}
 
@@ -63,7 +70,6 @@ func (s *workerSuite) initConfig(c *gc.C) *gomock.Controller {
 	s.firewallerAPI.EXPECT().WatchApplications().AnyTimes().Return(s.appsWatcher, nil)
 
 	s.lifeGetter = mocks.NewMockLifeGetter(ctrl)
-	s.logger = mocks.NewMockLogger(ctrl)
 	s.broker = mocks.NewMockCAASBroker(ctrl)
 
 	s.config = caasfirewallersidecar.Config{
@@ -72,7 +78,7 @@ func (s *workerSuite) initConfig(c *gc.C) *gomock.Controller {
 		FirewallerAPI:  s.firewallerAPI,
 		Broker:         s.broker,
 		LifeGetter:     s.lifeGetter,
-		Logger:         s.logger,
+		Logger:         noopLogger{},
 	}
 	return ctrl
 }
@@ -142,25 +148,69 @@ func (s *workerSuite) TestStartStop(c *gc.C) {
 		return nil, errors.New("never happen")
 	}
 
+	charmInfo := &charms.CharmInfo{
+		Meta:     &charm.Meta{},
+		Manifest: &charm.Manifest{Bases: []charm.Base{{}}}, // bases make it a v2 charm
+	}
+	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app1").Return(charmInfo, nil)
 	s.lifeGetter.EXPECT().Life("app1").Return(life.Alive, nil)
 	// Added app1's worker to catacomb.
 	app1Worker.EXPECT().Wait().Return(nil)
 
+	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app2").Return(charmInfo, nil)
 	s.lifeGetter.EXPECT().Life("app2").Return(life.Alive, nil)
 	// Added app2's worker to catacomb.
 	app2Worker.EXPECT().Wait().Return(nil)
 
+	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app1").Return(charmInfo, nil)
 	s.lifeGetter.EXPECT().Life("app1").Return(life.Value(""), errors.NotFoundf("%q", "app1"))
 	// Stopped app1's worker.
 	app1Worker.EXPECT().Kill()
 	app1Worker.EXPECT().Wait().Return(nil)
 
+	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app2").Return(charmInfo, nil)
 	s.lifeGetter.EXPECT().Life("app2").Return(life.Value(""), errors.NotFoundf("%q", "app2"))
 	// Stopped app2's worker.
 	app2Worker.EXPECT().Kill()
 	app2Worker.EXPECT().Wait().Return(nil)
 
 	w, err := caasfirewallersidecar.NewWorkerForTest(s.config, workerCreator)
+	c.Assert(err, jc.ErrorIsNil)
+	workertest.CheckAlive(c, w)
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestV1CharmSkipsProcessing(c *gc.C) {
+	ctrl := s.initConfig(c)
+	defer ctrl.Finish()
+
+	go func() {
+		s.applicationChanges <- []string{"app1"}
+	}()
+
+	charmInfo := &charms.CharmInfo{ // v1 charm
+		Meta:     &charm.Meta{},
+		Manifest: &charm.Manifest{},
+	}
+	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app1").Return(charmInfo, nil)
+
+	w, err := caasfirewallersidecar.NewWorkerForTest(s.config, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	workertest.CheckAlive(c, w)
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestNotFoundCharmSkipsProcessing(c *gc.C) {
+	ctrl := s.initConfig(c)
+	defer ctrl.Finish()
+
+	go func() {
+		s.applicationChanges <- []string{"app1"}
+	}()
+
+	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app1").Return(nil, errors.NotFoundf("app1"))
+
+	w, err := caasfirewallersidecar.NewWorkerForTest(s.config, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
