@@ -182,21 +182,21 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:" opt; do
 		export BOOTSTRAP_PROVIDER="${OPTARG}"
 		;;
 	c)
-	  PROVIDER=$(juju clouds --client --format=json | jq -r ".[\"${OPTARG}\"] | .type")
-	  export BOOTSTRAP_PROVIDER="${PROVIDER}"
-	  num_regions=$(juju clouds --client --format=json | jq -r ".[\"${OPTARG}\"] | .regions | length")
-	  if [[ ${num_regions} -gt 1 ]] ; then
-	    echo "more than 1 region, must specify"
-	    exit 1
-	  fi
-	  CLOUD="${OPTARG}"
-	  REGION=$(juju clouds --client --format=json | jq -r ".[\"${CLOUD}\"] | .regions | keys[0]")
-	  export BOOTSTRAP_REGION="${REGION}"
-	  export BOOTSTRAP_CLOUD="${CLOUD}"
-	  ;;
+		PROVIDER=$(juju clouds --client --format=json | jq -r ".[\"${OPTARG}\"] | .type")
+		export BOOTSTRAP_PROVIDER="${PROVIDER}"
+		num_regions=$(juju clouds --client --format=json | jq -r ".[\"${OPTARG}\"] | .regions | length")
+		if [[ ${num_regions} -gt 1 ]]; then
+			echo "more than 1 region, must specify"
+			exit 1
+		fi
+		CLOUD="${OPTARG}"
+		REGION=$(juju clouds --client --format=json | jq -r ".[\"${CLOUD}\"] | .regions | keys[0]")
+		export BOOTSTRAP_REGION="${REGION}"
+		export BOOTSTRAP_CLOUD="${CLOUD}"
+		;;
 	R)
-	  export BOOTSTRAP_REGION="${OPTARG}"
-	  ;;
+		export BOOTSTRAP_REGION="${OPTARG}"
+		;;
 	S)
 		export BOOTSTRAP_SERIES="${OPTARG}"
 		;;
