@@ -50,8 +50,8 @@ type APIGroup struct {
 	*common.PasswordChanger
 	*common.LifeGetter
 	*common.AgentEntityWatcher
-	*charmscommon.CharmInfoAPI
-	*charmscommon.ApplicationCharmInfoAPI
+	charmInfoAPI    *charmscommon.CharmInfoAPI
+	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
 	*common.ApplicationWatcherFacade
 	*API
 }
@@ -126,13 +126,21 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 		PasswordChanger:          common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		LifeGetter:               common.NewLifeGetter(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		AgentEntityWatcher:       common.NewAgentEntityWatcher(st, resources, common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		CharmInfoAPI:             commonCharmsAPI,
-		ApplicationCharmInfoAPI:  appCharmInfoAPI,
+		charmInfoAPI:             commonCharmsAPI,
+		appCharmInfoAPI:          appCharmInfoAPI,
 		ApplicationWatcherFacade: common.NewApplicationWatcherFacadeFromState(st, resources, common.ApplicationFilterNone),
 		API:                      api,
 	}
 
 	return apiGroup, nil
+}
+
+func (a *APIGroup) CharmInfo(args params.CharmURL) (params.Charm, error) {
+	return a.charmInfoAPI.CharmInfo(args)
+}
+
+func (a *APIGroup) ApplicationCharmInfo(args params.Entity) (params.Charm, error) {
+	return a.appCharmInfoAPI.ApplicationCharmInfo(args)
 }
 
 // NewCAASApplicationProvisionerAPI returns a new CAAS operator provisioner API facade.

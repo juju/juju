@@ -21,8 +21,8 @@ type Facade struct {
 	resources facade.Resources
 	state     CAASFirewallerState
 	*common.ApplicationWatcherFacade
-	*charmscommon.CharmInfoAPI
-	*charmscommon.ApplicationCharmInfoAPI
+	charmInfoAPI    *charmscommon.CharmInfoAPI
+	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
 }
 
 // NewStateFacadeLegacy provides the signature required for facade registration.
@@ -32,7 +32,7 @@ func NewStateFacadeLegacy(ctx facade.Context) (*Facade, error) {
 	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterNone)
 
 	commonState := &charmscommon.StateShim{ctx.State()}
-	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
+	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -46,7 +46,7 @@ func NewStateFacadeLegacy(ctx facade.Context) (*Facade, error) {
 		authorizer,
 		&stateShim{ctx.State()},
 		appWatcherFacade,
-		commonCharmsAPI,
+		charmInfoAPI,
 		appCharmInfoAPI,
 	)
 }
@@ -56,7 +56,7 @@ func newFacadeLegacy(
 	authorizer facade.Authorizer,
 	st CAASFirewallerState,
 	applicationWatcherFacade *common.ApplicationWatcherFacade,
-	commonCharmsAPI *charmscommon.CharmInfoAPI,
+	charmInfoAPI *charmscommon.CharmInfoAPI,
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
@@ -78,9 +78,17 @@ func newFacadeLegacy(
 		resources:                resources,
 		state:                    st,
 		ApplicationWatcherFacade: applicationWatcherFacade,
-		CharmInfoAPI:             commonCharmsAPI,
-		ApplicationCharmInfoAPI:  appCharmInfoAPI,
+		charmInfoAPI:             charmInfoAPI,
+		appCharmInfoAPI:          appCharmInfoAPI,
 	}, nil
+}
+
+func (f *Facade) CharmInfo(args params.CharmURL) (params.Charm, error) {
+	return f.charmInfoAPI.CharmInfo(args)
+}
+
+func (f *Facade) ApplicationCharmInfo(args params.Entity) (params.Charm, error) {
+	return f.appCharmInfoAPI.ApplicationCharmInfo(args)
 }
 
 // IsExposed returns whether the specified applications are exposed.
@@ -198,8 +206,8 @@ func newFacadeSidecar(
 			resources:                resources,
 			state:                    st,
 			ApplicationWatcherFacade: applicationWatcherFacade,
-			CharmInfoAPI:             commonCharmsAPI,
-			ApplicationCharmInfoAPI:  appCharmInfoAPI,
+			charmInfoAPI:             commonCharmsAPI,
+			appCharmInfoAPI:          appCharmInfoAPI,
 		},
 	}, nil
 }

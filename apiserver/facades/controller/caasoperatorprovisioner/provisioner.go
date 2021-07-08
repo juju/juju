@@ -33,9 +33,17 @@ var logger = loggo.GetLogger("juju.apiserver.caasoperatorprovisioner")
 
 type APIGroup struct {
 	*common.ApplicationWatcherFacade
-	*charmscommon.CharmInfoAPI
-	*charmscommon.ApplicationCharmInfoAPI
+	charmInfoAPI    *charmscommon.CharmInfoAPI
+	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
 	*API
+}
+
+func (a *APIGroup) CharmInfo(args params.CharmURL) (params.Charm, error) {
+	return a.charmInfoAPI.CharmInfo(args)
+}
+
+func (a *APIGroup) ApplicationCharmInfo(args params.Entity) (params.Charm, error) {
+	return a.appCharmInfoAPI.ApplicationCharmInfo(args)
 }
 
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
@@ -93,8 +101,8 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 
 	return &APIGroup{
 		ApplicationWatcherFacade: common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterNone),
-		CharmInfoAPI:             commonCharmsAPI,
-		ApplicationCharmInfoAPI:  appCharmInfoAPI,
+		charmInfoAPI:             commonCharmsAPI,
+		appCharmInfoAPI:          appCharmInfoAPI,
 		API:                      api,
 	}, nil
 }

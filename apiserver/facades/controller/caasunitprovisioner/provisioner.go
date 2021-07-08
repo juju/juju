@@ -44,8 +44,8 @@ var logger = loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner")
 type Facade struct {
 	*common.LifeGetter
 	*common.ApplicationWatcherFacade
-	*charmscommon.CharmInfoAPI
-	*charmscommon.ApplicationCharmInfoAPI
+	charmInfoAPI    *charmscommon.CharmInfoAPI
+	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
 
 	resources          facade.Resources
 	state              CAASUnitProvisionerState
@@ -82,7 +82,7 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterNone)
 
 	commonState := &charmscommon.StateShim{ctx.State()}
-	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
+	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -100,7 +100,7 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 		pm,
 		registry,
 		appWatcherFacade,
-		commonCharmsAPI,
+		charmInfoAPI,
 		appCharmInfoAPI,
 		clock.WallClock,
 	)
@@ -116,7 +116,7 @@ func NewFacade(
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 	applicationWatcherFacade *common.ApplicationWatcherFacade,
-	commonCharmsAPI *charmscommon.CharmInfoAPI,
+	charmInfoAPI *charmscommon.CharmInfoAPI,
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI,
 	clock clock.Clock,
 ) (*Facade, error) {
@@ -125,8 +125,8 @@ func NewFacade(
 	}
 	return &Facade{
 		ApplicationWatcherFacade: applicationWatcherFacade,
-		CharmInfoAPI:             commonCharmsAPI,
-		ApplicationCharmInfoAPI:  appCharmInfoAPI,
+		charmInfoAPI:             charmInfoAPI,
+		appCharmInfoAPI:          appCharmInfoAPI,
 		LifeGetter: common.NewLifeGetter(
 			st, common.AuthAny(
 				common.AuthFuncForTagKind(names.ApplicationTagKind),
@@ -141,6 +141,14 @@ func NewFacade(
 		registry:           registry,
 		clock:              clock,
 	}, nil
+}
+
+func (f *Facade) CharmInfo(args params.CharmURL) (params.Charm, error) {
+	return f.charmInfoAPI.CharmInfo(args)
+}
+
+func (f *Facade) ApplicationCharmInfo(args params.Entity) (params.Charm, error) {
+	return f.appCharmInfoAPI.ApplicationCharmInfo(args)
 }
 
 // WatchApplicationsScale starts a NotifyWatcher to watch changes

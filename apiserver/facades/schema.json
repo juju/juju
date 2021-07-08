@@ -6678,8 +6678,7 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    },
-                    "description": "ApplicationCharmInfo fetches charm information for an application."
+                    }
                 },
                 "ApplicationOCIResources": {
                     "type": "object",
@@ -6714,8 +6713,7 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    },
-                    "description": "CharmInfo returns information about the requested charm.\nNOTE: thumper 2016-06-29, this is not a bulk call and probably should be."
+                    }
                 },
                 "Life": {
                     "type": "object",
@@ -8343,8 +8341,7 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    },
-                    "description": "ApplicationCharmInfo fetches charm information for an application."
+                    }
                 },
                 "ApplicationsConfig": {
                     "type": "object",
@@ -8367,8 +8364,7 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    },
-                    "description": "CharmInfo returns information about the requested charm.\nNOTE: thumper 2016-06-29, this is not a bulk call and probably should be."
+                    }
                 },
                 "IsExposed": {
                     "type": "object",
@@ -9191,8 +9187,7 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    },
-                    "description": "ApplicationCharmInfo fetches charm information for an application."
+                    }
                 },
                 "ApplicationsConfig": {
                     "type": "object",
@@ -9215,8 +9210,7 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    },
-                    "description": "CharmInfo returns information about the requested charm.\nNOTE: thumper 2016-06-29, this is not a bulk call and probably should be."
+                    }
                 },
                 "IsExposed": {
                     "type": "object",
@@ -11193,8 +11187,7 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    },
-                    "description": "ApplicationCharmInfo fetches charm information for an application."
+                    }
                 },
                 "CharmInfo": {
                     "type": "object",
@@ -11205,8 +11198,7 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    },
-                    "description": "CharmInfo returns information about the requested charm.\nNOTE: thumper 2016-06-29, this is not a bulk call and probably should be."
+                    }
                 },
                 "IssueOperatorCertificate": {
                     "type": "object",
@@ -12446,8 +12438,7 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    },
-                    "description": "ApplicationCharmInfo fetches charm information for an application."
+                    }
                 },
                 "ApplicationsConfig": {
                     "type": "object",
@@ -12494,8 +12485,7 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    },
-                    "description": "CharmInfo returns information about the requested charm.\nNOTE: thumper 2016-06-29, this is not a bulk call and probably should be."
+                    }
                 },
                 "ClearApplicationsResources": {
                     "type": "object",
@@ -14704,8 +14694,7 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    },
-                    "description": "CharmInfo returns information about the requested charm.\nNOTE: thumper 2016-06-29, this is not a bulk call and probably should be."
+                    }
                 },
                 "CheckCharmPlacement": {
                     "type": "object",
