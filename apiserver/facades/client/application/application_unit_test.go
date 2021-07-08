@@ -266,6 +266,20 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 					"juju-info": "myspace",
 				},
 			},
+			"app-v1charm": {
+				name:   "app-v1charm",
+				series: "kubernetes",
+				charm: &mockCharm{
+					meta: &charm.Meta{Name: "app-v1charm"},
+				},
+			},
+			"app-v2charm": {
+				name: "app-v2charm",
+				charm: &mockCharm{
+					meta:     &charm.Meta{Name: "app-v2charm"},
+					manifest: &charm.Manifest{Bases: []charm.Base{{}}},
+				},
+			},
 		},
 		remoteApplications: map[string]application.RemoteApplication{
 			"hosted-db2": &mockRemoteApplication{},
@@ -337,7 +351,8 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	app := s.backend.applications["postgresql"]
-	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
+	app.CheckCallNames(c, "Charm", "AgentTools", "Charm", "Series", "SetCharm")
+	app.CheckCall(c, 4, "SetCharm", state.SetCharmConfig{
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
@@ -504,13 +519,54 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"]
-	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
+	app.CheckCallNames(c, "Charm", "AgentTools", "Charm", "Series", "SetCharm")
+	app.CheckCall(c, 4, "SetCharm", state.SetCharmConfig{
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
 			Platform: &state.Platform{},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
+	})
+}
+
+func (s *ApplicationSuite) TestSetCharmDisallowDowngradeFormat(c *gc.C) {
+	s.backend.charm = &mockCharm{
+		meta: &charm.Meta{Name: "app-v2charm"}, // new charm is actually v1 charm format
+	}
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "app-v2charm",
+		CharmURL:        "ch:app-v2charm",
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot downgrade from v2 charm format to v1")
+}
+
+func (s *ApplicationSuite) TestSetCharmUpgradeFormat(c *gc.C) {
+	s.model.cfg["default-series"] = "focal"
+	s.backend.charm = &mockCharm{
+		meta: &charm.Meta{
+			Name: "app-v1charm",
+			Containers: map[string]charm.Container{ // sidecar charm has containers
+				"c1": {Resource: "c1-image"},
+			},
+		},
+		manifest: &charm.Manifest{Bases: []charm.Base{{}}}, // len(Bases)>0 means it's a v2 charm
+	}
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "app-v1charm",
+		CharmURL:        "ch:app-v1charm",
+		CharmOrigin:     &params.CharmOrigin{Source: "charm-hub"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	app := s.backend.applications["app-v1charm"]
+	app.CheckCallNames(c, "Charm", "Charm", "Series", "SetCharm")
+	app.CheckCall(c, 3, "SetCharm", state.SetCharmConfig{
+		Charm: &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{
+			Source:   "charm-hub",
+			Platform: &state.Platform{},
+		},
+		Series: "focal",
 	})
 }
 
@@ -527,7 +583,8 @@ postgresql:
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"]
-	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
+	app.CheckCallNames(c, "Charm", "AgentTools", "Charm", "Series", "SetCharm")
+	app.CheckCall(c, 4, "SetCharm", state.SetCharmConfig{
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
@@ -547,8 +604,8 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "Charm", "AgentTools", "SetCharm")
-	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
+	app.CheckCallNames(c, "Charm", "AgentTools", "Charm", "Series", "SetCharm")
+	app.CheckCall(c, 4, "SetCharm", state.SetCharmConfig{
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
@@ -589,8 +646,8 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "Charm", "AgentTools", "SetCharm")
-	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
+	app.CheckCallNames(c, "Charm", "AgentTools", "Charm", "Series", "SetCharm")
+	app.CheckCall(c, 4, "SetCharm", state.SetCharmConfig{
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
