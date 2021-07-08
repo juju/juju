@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -161,6 +162,7 @@ func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *acti
 		for k, v := range failed {
 			list = append(list, fmt.Sprintf(" - id %q with return code %d", k, v))
 		}
+		sort.Strings(list)
 
 		return errors.Errorf(`
 the following task%s failed:
