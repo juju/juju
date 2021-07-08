@@ -138,7 +138,10 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 		modelConfig,
 	)
 
-	imagePath := podcfg.GetJujuOCIImagePath(cfg, vers.ToPatch(), version.OfficialBuild)
+	imagePath, err := podcfg.GetJujuOCIImagePath(cfg, vers.ToPatch(), version.OfficialBuild)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
 	apiAddresses, err := a.APIAddresses()
 	if err == nil && apiAddresses.Error != nil {
 		err = apiAddresses.Error

@@ -276,7 +276,10 @@ func (c *baseUpgradeCommand) initCAASVersions(
 	controllerCfg controller.Config, majorVersion int, streamsAgents tools.List,
 ) (tools.Versions, error) {
 	logger.Debugf("searching for agent images with major: %d", majorVersion)
-	imagePath := podcfg.GetJujuOCIImagePath(controllerCfg, version.Zero, 0)
+	imagePath, err := podcfg.GetJujuOCIImagePath(controllerCfg, version.Zero, 0)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	availableTags, err := docker.ListOperatorImages(imagePath)
 	if err != nil {
 		return nil, err

@@ -9,6 +9,7 @@ import (
 	core "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/specs"
@@ -209,8 +210,8 @@ echo "do some stuff here for gitlab container"
 				},
 				ProviderContainer: &k8sspecs.K8sContainerSpec{
 					SecurityContext: &core.SecurityContext{
-						RunAsNonRoot: boolPtr(true),
-						Privileged:   boolPtr(true),
+						RunAsNonRoot: pointer.BoolPtr(true),
+						Privileged:   pointer.BoolPtr(true),
 					},
 					LivenessProbe: &core.Probe{
 						InitialDelaySeconds: 10,
@@ -297,10 +298,10 @@ echo "do some stuff here for gitlab-init container"
 					Labels:                        map[string]string{"foo": "bax"},
 					Annotations:                   map[string]string{"foo": "baz"},
 					RestartPolicy:                 core.RestartPolicyOnFailure,
-					ActiveDeadlineSeconds:         int64Ptr(10),
-					TerminationGracePeriodSeconds: int64Ptr(20),
+					ActiveDeadlineSeconds:         pointer.Int64Ptr(10),
+					TerminationGracePeriodSeconds: pointer.Int64Ptr(20),
 					SecurityContext: &core.PodSecurityContext{
-						RunAsNonRoot:       boolPtr(true),
+						RunAsNonRoot:       pointer.BoolPtr(true),
 						SupplementalGroups: []int64{1, 2},
 					},
 					ReadinessGates: []core.PodReadinessGate{
@@ -330,7 +331,7 @@ echo "do some stuff here for gitlab-init container"
 													"PS": {
 														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 															"replicas": {
-																Type: "integer", Minimum: float64Ptr(1),
+																Type: "integer", Minimum: pointer.Float64Ptr(1),
 															},
 														},
 													},
@@ -338,8 +339,8 @@ echo "do some stuff here for gitlab-init container"
 														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 															"replicas": {
 																Type:    "integer",
-																Minimum: float64Ptr(1),
-																Maximum: float64Ptr(1),
+																Minimum: pointer.Float64Ptr(1),
+																Maximum: pointer.Float64Ptr(1),
 															},
 														},
 													},
@@ -347,7 +348,7 @@ echo "do some stuff here for gitlab-init container"
 														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 															"replicas": {
 																Type:    "integer",
-																Minimum: float64Ptr(1),
+																Minimum: pointer.Float64Ptr(1),
 															},
 														},
 													},

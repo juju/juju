@@ -30,11 +30,13 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/cloudconfig/podcfg"
@@ -161,6 +163,11 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	}
 	applier.Apply(&secret)
 
+	err = a.ensureImagePullSecrets(applier, config)
+	if err != nil {
+		return errors.Annotatef(err, "applying image pull secrets")
+	}
+
 	serviceAccount := resources.ServiceAccount{
 		ServiceAccount: corev1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
@@ -170,7 +177,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Annotations: a.annotations(config),
 			},
 			// Will be automounted by the pod.
-			AutomountServiceAccountToken: boolPtr(false),
+			AutomountServiceAccountToken: pointer.BoolPtr(false),
 		},
 	}
 	applier.Apply(&serviceAccount)
@@ -339,7 +346,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 		var numPods *int32
 		if !exists {
-			numPods = int32Ptr(1)
+			numPods = pointer.Int32Ptr(1)
 		}
 		statefulset := resources.StatefulSet{
 			StatefulSet: appsv1.StatefulSet{
@@ -401,7 +408,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 		var numPods *int32
 		if !exists {
-			numPods = int32Ptr(1)
+			numPods = pointer.Int32Ptr(1)
 		}
 		// Config storage to update the podspec with storage info.
 		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource); err != nil {
@@ -477,6 +484,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 
 // Upgrade upgrades the app to the specified version.
 func (a *app) Upgrade(ver version.Number) error {
+	// TODO(sidecar): Unify this with Ensure
 	applier := a.newApplier()
 
 	if err := a.upgradeMainResource(applier, ver); err != nil {
@@ -538,7 +546,11 @@ func (a *app) upgradeMainResource(applier resources.Applier, ver version.Number)
 			return errors.NotValidf("init container of %q", a.name)
 		}
 		initContainer := initContainers[0]
-		initContainer.Image = podcfg.RebuildOldOperatorImagePath(initContainer.Image, ver)
+		var err error
+		initContainer.Image, err = podcfg.RebuildOldOperatorImagePath(initContainer.Image, ver)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		ss.Spec.Template.Spec.InitContainers = []corev1.Container{initContainer}
 		ss.Spec.Template.SetAnnotations(a.upgradeAnnotations(annotations.New(ss.Spec.Template.GetAnnotations()), ver))
 		ss.SetAnnotations(a.upgradeAnnotations(annotations.New(ss.GetAnnotations()), ver))
@@ -922,6 +934,28 @@ func (a *app) Delete() error {
 	applier.Delete(resources.NewClusterRoleBinding(a.qualifiedClusterName(), nil))
 	applier.Delete(resources.NewClusterRole(a.qualifiedClusterName(), nil))
 	applier.Delete(resources.NewServiceAccount(a.serviceAccountName(), a.namespace, nil))
+
+	// Cleanup lists of resources.
+	cleanup := []resources.Resource(nil)
+
+	// List secrets to be deleted.
+	secrets, err := resources.ListSecrets(context.Background(), a.client, a.namespace, metav1.ListOptions{
+		LabelSelector: a.labelSelector(),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, s := range secrets {
+		secret := s
+		if a.matchImagePullSecret(secret.Name) {
+			cleanup = append(cleanup, &secret)
+		}
+	}
+
+	if len(cleanup) > 0 {
+		applier.Delete(cleanup...)
+	}
+
 	return applier.Run(context.Background(), a.client, false)
 }
 
@@ -1190,8 +1224,8 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
-			RunAsUser:  int64Ptr(0),
-			RunAsGroup: int64Ptr(0),
+			RunAsUser:  pointer.Int64Ptr(0),
+			RunAsGroup: pointer.Int64Ptr(0),
 		},
 		LivenessProbe: &corev1.Probe{
 			Handler: corev1.Handler{
@@ -1252,6 +1286,8 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		},
 	}}
 
+	imagePullSecrets := []corev1.LocalObjectReference(nil)
+
 	for _, v := range containers {
 		container := corev1.Container{
 			Name:            v.Name,
@@ -1273,8 +1309,8 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			}},
 			// Run Pebble as root (because it's a service manager).
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  int64Ptr(0),
-				RunAsGroup: int64Ptr(0),
+				RunAsUser:  pointer.Int64Ptr(0),
+				RunAsGroup: pointer.Int64Ptr(0),
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -1289,6 +1325,9 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 					SubPath:   fmt.Sprintf("charm/containers/%s", v.Name),
 				},
 			},
+		}
+		if v.Image.Password != "" {
+			imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: a.imagePullSecretName(v.Name)})
 		}
 		containerSpecs = append(containerSpecs, container)
 	}
@@ -1318,6 +1357,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		AutomountServiceAccountToken: &automountToken,
 		ServiceAccountName:           a.serviceAccountName(),
 		NodeSelector:                 nodeSelector,
+		ImagePullSecrets:             imagePullSecrets,
 		InitContainers: []corev1.Container{{
 			Name:            "charm-init",
 			ImagePullPolicy: corev1.PullIfNotPresent,
@@ -1387,6 +1427,52 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	}, nil
 }
 
+func (a *app) ensureImagePullSecrets(applier resources.Applier, config caas.ApplicationConfig) error {
+	desired := []resources.Resource(nil)
+	for _, container := range config.Containers {
+		if container.Image.Password == "" {
+			continue
+		}
+		secretData, err := utils.CreateDockerConfigJSON(container.Image.Username, container.Image.Password, container.Image.RegistryPath)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		secret := &resources.Secret{
+			Secret: corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        a.imagePullSecretName(container.Name),
+					Namespace:   a.namespace,
+					Labels:      a.labels(),
+					Annotations: a.annotations(config),
+				},
+				Type: corev1.SecretTypeDockerConfigJson,
+				Data: map[string][]byte{
+					corev1.DockerConfigJsonKey: secretData,
+				},
+			},
+		}
+		desired = append(desired, secret)
+	}
+
+	secrets, err := resources.ListSecrets(context.Background(), a.client, a.namespace, metav1.ListOptions{
+		LabelSelector: a.labelSelector(),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	existing := []resources.Resource(nil)
+	for _, s := range secrets {
+		secret := s
+		if a.matchImagePullSecret(secret.Name) {
+			existing = append(existing, &secret)
+		}
+	}
+
+	applier.ApplySet(existing, desired)
+	return nil
+}
+
 func (a *app) annotations(config caas.ApplicationConfig) annotations.Annotation {
 	return k8sutils.ResourceTagsToAnnotations(config.ResourceTags, a.legacyLabels).
 		Merge(k8sutils.AnnotationsForVersion(config.AgentVersion.String(), a.legacyLabels))
@@ -1428,6 +1514,15 @@ func (a *app) serviceAccountName() string {
 
 func (a *app) qualifiedClusterName() string {
 	return fmt.Sprintf("%s-%s", a.modelName, a.name)
+}
+
+func (a *app) imagePullSecretName(containerName string) string {
+	// A pod may have multiple containers with different images and thus different secrets
+	return a.name + "-" + containerName + "-secret"
+}
+
+func (a *app) matchImagePullSecret(name string) bool {
+	return strings.HasPrefix(name, a.name+"-") && strings.HasSuffix(name, "-secret")
 }
 
 type annotationGetter interface {
@@ -1579,20 +1674,4 @@ func (a *app) filesystemToVolumeInfo(name string,
 		Spec: *pvcSpec,
 	}
 	return nil, pvc, newStorageClass, nil
-}
-
-func int32Ptr(v int32) *int32 {
-	return &v
-}
-
-func int64Ptr(v int64) *int64 {
-	return &v
-}
-
-func boolPtr(b bool) *bool {
-	return &b
-}
-
-func strPtr(b string) *string {
-	return &b
 }

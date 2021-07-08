@@ -134,8 +134,12 @@ func upgradePodTemplateSpec(
 	}
 
 	if imagePath == "" {
-		imagePath = podcfg.RebuildOldOperatorImagePath(
+		var err error
+		imagePath, err = podcfg.RebuildOldOperatorImagePath(
 			podTemplate.Spec.Containers[jujudContainerIdx].Image, vers)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	upgradedTemp := podTemplate.DeepCopy()

@@ -12,6 +12,7 @@ import (
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sstorage "github.com/juju/juju/caas/kubernetes/provider/storage"
@@ -81,7 +82,7 @@ func (k *kubernetesClient) configureStatefulSet(
 			Selector: &v1.LabelSelector{
 				MatchLabels: selectorLabels,
 			},
-			RevisionHistoryLimit: utils.Int32Ptr(statefulSetRevisionHistoryLimit),
+			RevisionHistoryLimit: pointer.Int32Ptr(statefulSetRevisionHistoryLimit),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels:      utils.LabelsMerge(workloadSpec.Pod.Labels, selectorLabels),

@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/application"
@@ -146,6 +147,22 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, cons cons
 			}},
 		},
 	}
+	pullSecretConfig, _ := k8sutils.CreateDockerConfigJSON("username", "password", "nginx-image:latest")
+	nginxPullSecret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gitlab-nginx-secret",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{"juju.is/version": "1.1.1"},
+		},
+		Type: corev1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			corev1.DockerConfigJsonKey: pullSecretConfig,
+		},
+	}
 
 	c.Assert(app.Ensure(
 		caas.ApplicationConfig{
@@ -190,6 +207,14 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, cons cons
 						},
 					},
 				},
+				"nginx": {
+					Name: "nginx",
+					Image: coreresources.DockerImageDetails{
+						RegistryPath: "nginx-image:latest",
+						Username:     "username",
+						Password:     "password",
+					},
+				},
 			},
 			Constraints: cons,
 		},
@@ -199,6 +224,10 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, cons cons
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(secret, gc.DeepEquals, &appSecret)
 
+	secret, err = s.client.CoreV1().Secrets("test").Get(context.TODO(), "gitlab-nginx-secret", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(secret, gc.DeepEquals, &nginxPullSecret)
+
 	svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(svc, gc.DeepEquals, &appSvc)
@@ -206,11 +235,57 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, cons cons
 	checkMainResource()
 }
 
+func (s *applicationSuite) assertDelete(c *gc.C, app caas.Application) {
+	err := app.Delete()
+	c.Assert(err, jc.ErrorIsNil)
+
+	clusterRoles, err := s.client.RbacV1().ClusterRoles().List(context.TODO(), metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clusterRoles.Items, gc.IsNil)
+
+	clusterRoleBinding, err := s.client.RbacV1().ClusterRoleBindings().List(context.TODO(), metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clusterRoleBinding.Items, gc.IsNil)
+
+	daemonSets, err := s.client.AppsV1().DaemonSets(s.namespace).List(context.TODO(), metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(daemonSets.Items, gc.IsNil)
+
+	deployments, err := s.client.AppsV1().Deployments(s.namespace).List(context.TODO(), metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deployments.Items, gc.IsNil)
+
+	roles, err := s.client.RbacV1().Roles(s.namespace).List(context.TODO(), metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(roles.Items, gc.IsNil)
+
+	roleBindings, err := s.client.RbacV1().RoleBindings(s.namespace).List(context.TODO(), metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(roleBindings.Items, gc.IsNil)
+
+	secrets, err := s.client.CoreV1().Secrets(s.namespace).List(context.TODO(), metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(secrets.Items, gc.IsNil)
+
+	services, err := s.client.CoreV1().Services(s.namespace).List(context.TODO(), metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(services.Items, gc.IsNil)
+
+	serviceAccounts, err := s.client.CoreV1().ServiceAccounts(s.namespace).List(context.TODO(), metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(serviceAccounts.Items, gc.IsNil)
+
+	statefulSets, err := s.client.AppsV1().StatefulSets(s.namespace).List(context.TODO(), metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statefulSets.Items, gc.IsNil)
+}
+
 func getPodSpec(c *gc.C) corev1.PodSpec {
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 	return corev1.PodSpec{
 		ServiceAccountName:           "gitlab",
-		AutomountServiceAccountToken: application.BoolPtr(true),
+		AutomountServiceAccountToken: pointer.BoolPtr(true),
+		ImagePullSecrets:             []corev1.LocalObjectReference{{Name: "gitlab-nginx-secret"}},
 		InitContainers: []corev1.Container{{
 			Name:            "charm-init",
 			ImagePullPolicy: corev1.PullIfNotPresent,
@@ -221,7 +296,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 			Env: []corev1.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAMES",
-					Value: "gitlab",
+					Value: "gitlab,nginx",
 				},
 				{
 					Name: "JUJU_K8S_POD_NAME",
@@ -277,7 +352,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 			Env: []corev1.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAMES",
-					Value: "gitlab",
+					Value: "gitlab,nginx",
 				},
 				{
 					Name:  constants.EnvAgentHTTPProbePort,
@@ -383,6 +458,39 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 					MountPath: "path/to/here",
 				},
 			},
+		}, {
+			Name:            "nginx",
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Image:           "nginx-image:latest",
+			Command:         []string{"/charm/bin/pebble"},
+			Args:            []string{"run", "--create-dirs", "--hold", "--verbose"},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "JUJU_CONTAINER_NAME",
+					Value: "nginx",
+				},
+				{
+					Name:  "PEBBLE_SOCKET",
+					Value: "/charm/container/pebble.socket",
+				},
+			},
+			SecurityContext: &corev1.SecurityContext{
+				RunAsUser:  int64Ptr(0),
+				RunAsGroup: int64Ptr(0),
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "charm-data",
+					MountPath: "/charm/bin/pebble",
+					SubPath:   "charm/bin/pebble",
+					ReadOnly:  true,
+				},
+				{
+					Name:      "charm-data",
+					MountPath: "/charm/container",
+					SubPath:   "charm/containers/nginx",
+				},
+			},
 		}},
 		Volumes: []corev1.Volume{
 			{
@@ -438,7 +546,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 					},
 				},
 				Spec: appsv1.StatefulSetSpec{
-					Replicas: application.Int32Ptr(1),
+					Replicas: pointer.Int32Ptr(1),
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app.kubernetes.io/name": "gitlab",
@@ -464,7 +572,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 									"storage.juju.is/name": "database",
 								}},
 							Spec: corev1.PersistentVolumeClaimSpec{
-								StorageClassName: application.StrPtr("test-workload-storage"),
+								StorageClassName: pointer.StringPtr("test-workload-storage"),
 								AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 								Resources: corev1.ResourceRequirements{
 									Requests: corev1.ResourceList{
@@ -480,6 +588,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 			})
 		},
 	)
+	s.assertDelete(c, app)
 }
 
 func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
@@ -505,7 +614,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 					},
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
-					StorageClassName: application.StrPtr("test-workload-storage"),
+					StorageClassName: pointer.StringPtr("test-workload-storage"),
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: k8sresource.MustParse("100Mi"),
@@ -537,7 +646,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
-					Replicas: application.Int32Ptr(1),
+					Replicas: pointer.Int32Ptr(1),
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 					},
@@ -552,6 +661,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 			})
 		},
 	)
+	s.assertDelete(c, app)
 }
 
 func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
@@ -577,7 +687,7 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 					},
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
-					StorageClassName: application.StrPtr("test-workload-storage"),
+					StorageClassName: pointer.StringPtr("test-workload-storage"),
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: k8sresource.MustParse("100Mi"),
@@ -623,6 +733,7 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 			})
 		},
 	)
+	s.assertDelete(c, app)
 }
 
 func (s *applicationSuite) TestExistsNotSupported(c *gc.C) {
@@ -1009,7 +1120,7 @@ func (s *applicationSuite) TestStateStateful(c *gc.C) {
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 				},
-				Replicas: application.Int32Ptr(int32(desiredReplicas)),
+				Replicas: pointer.Int32Ptr(int32(desiredReplicas)),
 			},
 		}
 		_, err := s.client.AppsV1().StatefulSets("test").Create(context.TODO(),
@@ -1037,7 +1148,7 @@ func (s *applicationSuite) TestStateStateless(c *gc.C) {
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 				},
-				Replicas: application.Int32Ptr(int32(desiredReplicas)),
+				Replicas: pointer.Int32Ptr(int32(desiredReplicas)),
 			},
 		}
 		_, err := s.client.AppsV1().Deployments("test").Create(context.TODO(),
@@ -1866,7 +1977,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 					},
 				},
 				Spec: appsv1.StatefulSetSpec{
-					Replicas: application.Int32Ptr(1),
+					Replicas: pointer.Int32Ptr(1),
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app.kubernetes.io/name": "gitlab",
@@ -1892,7 +2003,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 									"storage.juju.is/name": "database",
 								}},
 							Spec: corev1.PersistentVolumeClaimSpec{
-								StorageClassName: application.StrPtr("test-workload-storage"),
+								StorageClassName: pointer.StringPtr("test-workload-storage"),
 								AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 								Resources: corev1.ResourceRequirements{
 									Requests: corev1.ResourceList{
@@ -1908,6 +2019,65 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 			})
 		},
 	)
+}
+
+func (s *applicationSuite) TestPullSecretUpdate(c *gc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+
+	unusedPullSecret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gitlab-oldcontainer-secret",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{"juju.is/version": "1.1.1"},
+		},
+		Type: corev1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			corev1.DockerConfigJsonKey: []byte("wow"),
+		},
+	}
+
+	_, err := s.client.CoreV1().Secrets(s.namespace).Create(context.TODO(), &unusedPullSecret,
+		metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	pullSecretConfig, _ := k8sutils.CreateDockerConfigJSON("username-old", "password-old", "nginx-image:latest")
+	nginxPullSecret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gitlab-nginx-secret",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{"juju.is/version": "1.1.1"},
+		},
+		Type: corev1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			corev1.DockerConfigJsonKey: pullSecretConfig,
+		},
+	}
+	_, err = s.client.CoreV1().Secrets(s.namespace).Create(context.TODO(), &nginxPullSecret,
+		metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertEnsure(c, app, constraints.Value{}, func() {})
+
+	_, err = s.client.CoreV1().Secrets(s.namespace).Get(context.TODO(), "gitlab-oldcontainer-secret", metav1.GetOptions{})
+	c.Assert(err, gc.ErrorMatches, `secrets "gitlab-oldcontainer-secret" not found`)
+
+	secret, err := s.client.CoreV1().Secrets(s.namespace).Get(context.TODO(), "gitlab-nginx-secret", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(secret, gc.NotNil)
+	newPullSecretConfig, _ := k8sutils.CreateDockerConfigJSON("username", "password", "nginx-image:latest")
+	newNginxPullSecret := nginxPullSecret
+	newNginxPullSecret.Data = map[string][]byte{
+		corev1.DockerConfigJsonKey: newPullSecretConfig,
+	}
+	c.Assert(*secret, jc.DeepEquals, newNginxPullSecret)
 }
 
 func int64Ptr(a int64) *int64 {
