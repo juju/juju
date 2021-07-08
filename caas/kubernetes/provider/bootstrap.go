@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -306,6 +305,13 @@ func getBootstrapResourceName(stackName string, name string) string {
 
 func (c *controllerStack) getResourceName(name string) string {
 	return getBootstrapResourceName(c.stackName, name)
+}
+
+func (c *controllerStack) pathJoin(elem ...string) string {
+	// Setting series for bootstrapping to kubernetes is currently not supported.
+	// Always use forward-slash for now.
+	pathSeparator := "/"
+	return strings.Join(elem, string(pathSeparator))
 }
 
 func (c *controllerStack) getControllerSecret() (secret *core.Secret, err error) {
@@ -1109,14 +1115,14 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 				"--ssl",
 				"--sslAllowInvalidHostnames",
 				"--sslAllowInvalidCertificates",
-				fmt.Sprintf("--sslPEMKeyFile=%s/%s", c.pcfg.DataDir, c.fileNameSSLKey),
+				fmt.Sprintf("--sslPEMKeyFile=%s", c.pathJoin(c.pcfg.DataDir, c.fileNameSSLKey)),
 				"--eval",
 				"db.adminCommand('ping')",
 			},
 		}
 		args := []string{
-			fmt.Sprintf("--dbpath=%s/db", c.pcfg.DataDir),
-			fmt.Sprintf("--sslPEMKeyFile=%s/%s", c.pcfg.DataDir, c.fileNameSSLKey),
+			fmt.Sprintf("--dbpath=%s", c.pathJoin(c.pcfg.DataDir, "db")),
+			fmt.Sprintf("--sslPEMKeyFile=%s", c.pathJoin(c.pcfg.DataDir, c.fileNameSSLKey)),
 			"--sslPEMKeyPassword=ignored",
 			"--sslMode=requireSSL",
 			fmt.Sprintf("--port=%d", c.portMongoDB),
@@ -1126,7 +1132,7 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 			"--oplogSize=1024",
 			"--ipv6",
 			"--auth",
-			fmt.Sprintf("--keyFile=%s/%s", c.pcfg.DataDir, c.fileNameSharedSecret),
+			fmt.Sprintf("--keyFile=%s", c.pathJoin(c.pcfg.DataDir, c.fileNameSharedSecret)),
 			"--storageEngine=wiredTiger",
 			"--bind_ip_all",
 		}
@@ -1175,18 +1181,18 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 				},
 				{
 					Name:      c.pvcNameControllerPodStorage,
-					MountPath: filepath.Join(c.pcfg.DataDir, "db"),
+					MountPath: c.pathJoin(c.pcfg.DataDir, "db"),
 					SubPath:   "db",
 				},
 				{
 					Name:      c.resourceNameVolSSLKey,
-					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSSLKeyMount),
+					MountPath: c.pathJoin(c.pcfg.DataDir, c.fileNameSSLKeyMount),
 					SubPath:   c.fileNameSSLKeyMount,
 					ReadOnly:  true,
 				},
 				{
 					Name:      c.resourceNameVolSharedSecret,
-					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSharedSecret),
+					MountPath: c.pathJoin(c.pcfg.DataDir, c.fileNameSharedSecret),
 					SubPath:   c.fileNameSharedSecret,
 					ReadOnly:  true,
 				},
@@ -1218,7 +1224,7 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 				},
 				{
 					Name: c.resourceNameVolAgentConf,
-					MountPath: filepath.Join(
+					MountPath: c.pathJoin(
 						c.pcfg.DataDir,
 						"agents",
 						"controller-"+c.pcfg.ControllerId,
@@ -1228,19 +1234,19 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 				},
 				{
 					Name:      c.resourceNameVolSSLKey,
-					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSSLKeyMount),
+					MountPath: c.pathJoin(c.pcfg.DataDir, c.fileNameSSLKeyMount),
 					SubPath:   c.fileNameSSLKeyMount,
 					ReadOnly:  true,
 				},
 				{
 					Name:      c.resourceNameVolSharedSecret,
-					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSharedSecret),
+					MountPath: c.pathJoin(c.pcfg.DataDir, c.fileNameSharedSecret),
 					SubPath:   c.fileNameSharedSecret,
 					ReadOnly:  true,
 				},
 				{
 					Name:      c.resourceNameVolBootstrapParams,
-					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameBootstrapParams),
+					MountPath: c.pathJoin(c.pcfg.DataDir, c.fileNameBootstrapParams),
 					SubPath:   c.fileNameBootstrapParams,
 					ReadOnly:  true,
 				},
@@ -1257,7 +1263,7 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		loggingOption = "--debug"
 	}
 
-	agentConfigRelativePath := filepath.Join(
+	agentConfigRelativePath := c.pathJoin(
 		"agents",
 		fmt.Sprintf("controller-%s", c.pcfg.ControllerId),
 		c.fileNameAgentConf,
@@ -1273,15 +1279,17 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		}
 		// only do bootstrap-state on the bootstrap controller - controller-0.
 		jujudCmd += "\n" + fmt.Sprintf(
-			"test -e $JUJU_DATA_DIR/%s || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/%s --data-dir $JUJU_DATA_DIR %s --timeout %s",
-			agentConfigRelativePath,
-			c.fileNameBootstrapParams,
+			"test -e %s || %s bootstrap-state %s --data-dir $JUJU_DATA_DIR %s --timeout %s",
+			c.pathJoin("$JUJU_DATA_DIR", agentConfigRelativePath),
+			c.pathJoin("$JUJU_TOOLS_DIR", "jujud"),
+			c.pathJoin("$JUJU_DATA_DIR", c.fileNameBootstrapParams),
 			loggingOption,
 			c.timeout.String(),
 		)
 	}
 	jujudCmd += "\n" + fmt.Sprintf(
-		"$JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id %s --log-to-stderr %s",
+		"%s machine --data-dir $JUJU_DATA_DIR --controller-id %s --log-to-stderr %s",
+		c.pathJoin("$JUJU_TOOLS_DIR", "jujud"),
 		c.pcfg.ControllerId,
 		loggingOption,
 	)
@@ -1309,7 +1317,8 @@ func (c *controllerStack) setUpGUICommand() (string, error) {
 		"mkdir -p $gui",
 	)
 	// Download the GUI from simplestreams.
-	command := "curl -sSf -o $gui/gui.tar.bz2 --retry 10"
+	guiPath := c.pathJoin("$gui", "gui.tar.bz2")
+	command := fmt.Sprintf("curl -sSf -o %s --retry 10", guiPath)
 	if c.pcfg.DisableSSLHostnameVerification {
 		command += " --insecure"
 	}
@@ -1321,11 +1330,20 @@ func (c *controllerStack) setUpGUICommand() (string, error) {
 	// model to be bootstrapped. Better no GUI than no Juju at all.
 	command += " || echo Unable to retrieve Juju Dashboard"
 	guiCmds = append(guiCmds, command)
+	guiSHAPath := c.pathJoin("$gui", "jujugui.sha256")
 	guiCmds = append(guiCmds,
-		"[ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256",
 		fmt.Sprintf(
-			`[ -f $gui/jujugui.sha256 ] && (grep '%s' $gui/jujugui.sha256 && printf %%s %s > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)`,
-			c.pcfg.Bootstrap.GUI.SHA256, utils.ShQuote(string(guiJson))),
+			"[ -f %s ] && sha256sum %s > %s",
+			guiPath, guiPath, guiSHAPath,
+		),
+		fmt.Sprintf(
+			`[ -f %s ] && (grep '%s' %s && printf %%s %s > %s || echo Juju GUI checksum mismatch)`,
+			guiSHAPath,
+			c.pcfg.Bootstrap.GUI.SHA256,
+			guiSHAPath,
+			utils.ShQuote(string(guiJson)),
+			c.pathJoin("$gui", "downloaded-gui.txt"),
+		),
 	)
 	return strings.Join(guiCmds, "\n"), nil
 }
