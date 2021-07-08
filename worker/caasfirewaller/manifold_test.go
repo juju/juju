@@ -155,6 +155,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		ApplicationGetter: &s.client,
 		ServiceExposer:    &s.broker,
 		LifeGetter:        &s.client,
+		CharmGetter:       &s.client,
 		Logger:            loggo.GetLogger("test"),
 	})
 }

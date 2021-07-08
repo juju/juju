@@ -4,9 +4,11 @@
 package caasfirewaller_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
@@ -92,4 +94,20 @@ func (m *mockLifeGetter) Life(entityName string) (life.Value, error) {
 		return "", err
 	}
 	return m.life, nil
+}
+
+type mockCharmGetter struct {
+	testing.Stub
+	charmInfo *charms.CharmInfo
+}
+
+func (m *mockCharmGetter) ApplicationCharmInfo(appName string) (*charms.CharmInfo, error) {
+	m.MethodCall(m, "ApplicationCharmInfo", appName)
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
+	if m.charmInfo == nil {
+		return nil, errors.NotFoundf("application %q", appName)
+	}
+	return m.charmInfo, nil
 }
