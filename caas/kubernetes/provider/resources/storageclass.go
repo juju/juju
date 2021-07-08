@@ -61,6 +61,11 @@ func (sc *StorageClass) Clone() Resource {
 	return &clone
 }
 
+// ID returns a comparable ID for the Resource
+func (r *StorageClass) ID() ID {
+	return ID{"StorageClass", r.Name, r.Namespace}
+}
+
 // Apply patches the resource change.
 func (sc *StorageClass) Apply(ctx context.Context, client kubernetes.Interface) error {
 	api := client.StorageV1().StorageClasses()

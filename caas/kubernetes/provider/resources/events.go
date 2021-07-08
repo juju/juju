@@ -32,9 +32,7 @@ func ListEventsForObject(ctx context.Context, client kubernetes.Interface,
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		for _, v := range res.Items {
-			items = append(items, v)
-		}
+		items = append(items, res.Items...)
 		if res.RemainingItemCount == nil || *res.RemainingItemCount == 0 {
 			break
 		}

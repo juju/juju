@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provider_test
+package utils_test
 
 import (
 	"encoding/json"
@@ -9,8 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/caas/specs"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/testing"
 )
 
@@ -37,28 +36,26 @@ func (s *DockerConfigSuite) TestExtractRegistryURL(c *gc.C) {
 		registryPath: "me/mygitlab:latest",
 		expectedURL:  "docker.io",
 	}} {
-		result, err := provider.ExtractRegistryURL(registryTest.registryPath)
+		result, err := utils.ExtractRegistryURL(registryTest.registryPath)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(result, gc.Equals, registryTest.expectedURL)
 	}
 }
 
 func (s *DockerConfigSuite) TestCreateDockerConfigJSON(c *gc.C) {
-	imageDetails := specs.ImageDetails{
-		ImagePath: "registry.staging.jujucharms.com/tester/caas-mysql/mysql-image:5.7",
-		Username:  "docker-registry",
-		Password:  "hunter2",
-	}
+	imagePath := "registry.staging.jujucharms.com/tester/caas-mysql/mysql-image:5.7"
+	username := "docker-registry"
+	password := "hunter2"
 
-	config, err := provider.CreateDockerConfigJSON(&imageDetails)
+	config, err := utils.CreateDockerConfigJSON(username, password, imagePath)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var result provider.DockerConfigJSON
+	var result utils.DockerConfigJSON
 	err = json.Unmarshal(config, &result)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(result, jc.DeepEquals, provider.DockerConfigJSON{
-		Auths: map[string]provider.DockerConfigEntry{
+	c.Assert(result, jc.DeepEquals, utils.DockerConfigJSON{
+		Auths: map[string]utils.DockerConfigEntry{
 			"registry.staging.jujucharms.com": {
 				Username: "docker-registry",
 				Password: "hunter2",

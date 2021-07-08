@@ -41,6 +41,11 @@ func (pvc *PersistentVolumeClaim) Clone() Resource {
 	return &clone
 }
 
+// ID returns a comparable ID for the Resource
+func (r *PersistentVolumeClaim) ID() ID {
+	return ID{"PersistentVolumeClaim", r.Name, r.Namespace}
+}
+
 // Apply patches the resource change.
 func (pvc *PersistentVolumeClaim) Apply(ctx context.Context, client kubernetes.Interface) error {
 	api := client.CoreV1().PersistentVolumeClaims(pvc.Namespace)
