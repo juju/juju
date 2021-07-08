@@ -260,7 +260,7 @@ func (s *OperationSuite) TestListOperationsByReceiver(c *gc.C) {
 func (s *OperationSuite) TestListOperationsSubset(c *gc.C) {
 	s.setupOperations(c)
 	for i := 0; i < 20; i++ {
-		operationID, err := s.Model.EnqueueOperation(fmt.Sprintf("operation %d", i))
+		operationID, err := s.Model.EnqueueOperation(fmt.Sprintf("operation %d", i), 20)
 		c.Assert(err, jc.ErrorIsNil)
 		anAction, err := s.Model.EnqueueAction(operationID, names.NewUnitTag("dummy/0"), "backup", nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
