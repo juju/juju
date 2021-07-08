@@ -321,3 +321,15 @@ func (*subnetSuite) TestSubnetInfosGetBySpaceID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(subs, gc.DeepEquals, s[2:])
 }
+
+func (*subnetSuite) TestSubnetInfosAllSubnetInfos(c *gc.C) {
+	s := network.SubnetInfos{
+		{ID: "1", CIDR: "10.10.10.0/24", ProviderId: "1"},
+		{ID: "2", CIDR: "10.10.10.0/24", ProviderId: "2"},
+		{ID: "3", CIDR: "20.20.20.0/24"},
+	}
+
+	allSubs, err := s.AllSubnetInfos()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(allSubs, gc.DeepEquals, s)
+}

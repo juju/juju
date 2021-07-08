@@ -37732,7 +37732,7 @@
                             "$ref": "#/definitions/SSHAddressResults"
                         }
                     },
-                    "description": "PublicAddress reports the preferred public network address for one\nor more entities. Machines and units are suppored."
+                    "description": "PublicAddress reports the preferred public network address for one\nor more entities. Machines and units are supported."
                 },
                 "PublicKeys": {
                     "type": "object",

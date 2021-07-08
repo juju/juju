@@ -33,13 +33,36 @@ type SSHMachine interface {
 	AllDeviceSpaceAddresses() (network.SpaceAddresses, error)
 }
 
-type backend struct {
-	modelTag names.ModelTag
-	*state.State
-	stateenvirons.EnvironConfigGetter
+type sshMachine struct {
+	*state.Machine
+
+	st *state.State
 }
 
-// ModelTag() returns the model tag of the backend.
+// AllDeviceSpaceAddresses returns all machine link-layer
+// device addresses as SpaceAddresses.
+func (m *sshMachine) AllDeviceSpaceAddresses() (network.SpaceAddresses, error) {
+	addrs, err := m.Machine.AllDeviceAddresses()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	candidates := make([]network.SpaceAddressCandidate, len(addrs))
+	for i, addr := range addrs {
+		candidates[i] = addr
+	}
+
+	return network.ConvertToSpaceAddresses(candidates, m.st)
+}
+
+type backend struct {
+	*state.State
+	stateenvirons.EnvironConfigGetter
+
+	modelTag names.ModelTag
+}
+
+// ModelTag returns the model tag of the backend.
 func (b *backend) ModelTag() names.ModelTag {
 	return b.modelTag
 }
@@ -54,11 +77,11 @@ func (b *backend) GetMachineForEntity(tagString string) (SSHMachine, error) {
 
 	switch tag := tag.(type) {
 	case names.MachineTag:
-		machine, err := b.State.Machine(tag.Id())
+		m, err := b.State.Machine(tag.Id())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return machine, nil
+		return &sshMachine{Machine: m, st: b.State}, nil
 	case names.UnitTag:
 		unit, err := b.State.Unit(tag.Id())
 		if err != nil {
@@ -68,11 +91,11 @@ func (b *backend) GetMachineForEntity(tagString string) (SSHMachine, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		machine, err := b.State.Machine(machineId)
+		m, err := b.State.Machine(machineId)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return machine, nil
+		return &sshMachine{Machine: m, st: b.State}, nil
 	default:
 		return nil, errors.Errorf("unsupported entity: %q", tagString)
 	}

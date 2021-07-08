@@ -859,6 +859,57 @@ func NetworkCIDRFromIPAndMask(ip net.IP, netmask net.IPMask) string {
 	return fmt.Sprintf("%s/%d", ip.Mask(netmask), hostBits)
 }
 
+// SpaceAddressCandidate describes property methods required
+// for conversion to sortable space addresses.
+type SpaceAddressCandidate interface {
+	Value() string
+	ConfigMethod() AddressConfigType
+	SubnetCIDR() string
+	IsSecondary() bool
+}
+
+// ConvertToSpaceAddresses returns SpaceAddresses representing the
+// input candidate addresses, by using the input subnet lookup to
+// associate them with spaces.
+func ConvertToSpaceAddresses(addrs []SpaceAddressCandidate, lookup SubnetLookup) (SpaceAddresses, error) {
+	subnets, err := lookup.AllSubnetInfos()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	spaceAddrs := make(SpaceAddresses, len(addrs))
+	for i, addr := range addrs {
+		cidr := addr.SubnetCIDR()
+
+		spaceAddr := SpaceAddress{
+			MachineAddress: NewMachineAddress(
+				addr.Value(),
+				WithCIDR(cidr),
+				WithConfigType(addr.ConfigMethod()),
+				WithSecondary(addr.IsSecondary()),
+			),
+		}
+
+		// If this is not a loopback device, attempt to
+		// set the space ID based on the subnet.
+		if addr.ConfigMethod() != ConfigLoopback && cidr != "" {
+			allMatching, err := subnets.GetByCIDR(cidr)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			// This only holds true while CIDRs uniquely identify subnets.
+			if len(allMatching) != 0 {
+				spaceAddr.SpaceID = allMatching[0].SpaceID
+			}
+		}
+
+		spaceAddrs[i] = spaceAddr
+	}
+
+	return spaceAddrs, nil
+}
+
 // noAddress represents an error when an address is requested but not available.
 type noAddress struct {
 	errors.Err
