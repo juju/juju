@@ -80,8 +80,14 @@ func (hi Info) Validate() error {
 			return fmt.Errorf("%q hook requires a workload name", hi.Kind)
 		}
 		return nil
-	case hooks.Install, hooks.Remove, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationCreated, hooks.RelationBroken,
-		hooks.CollectMetrics, hooks.MeterStatusChanged, hooks.UpdateStatus, hooks.PreSeriesUpgrade, hooks.PostSeriesUpgrade:
+	case hooks.PreSeriesUpgrade:
+		if hi.SeriesUpgradeTarget == "" {
+			return fmt.Errorf("%q hook requires a target series", hi.Kind)
+		}
+		return nil
+	case hooks.Install, hooks.Remove, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop,
+		hooks.RelationCreated, hooks.RelationBroken, hooks.CollectMetrics, hooks.MeterStatusChanged, hooks.UpdateStatus,
+		hooks.PostSeriesUpgrade:
 		return nil
 	case hooks.Action:
 		return fmt.Errorf("hooks.Kind Action is deprecated")
