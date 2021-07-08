@@ -5,10 +5,10 @@ package provider
 
 import (
 	"bytes"
+	osexec "os/exec"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	jujuos "github.com/juju/os/v2"
 	"github.com/juju/utils/v2/exec"
 
 	"github.com/juju/juju/caas"
@@ -65,20 +65,14 @@ func attemptMicroK8sCredential(cmdRunner CommandRunner) (jujucloud.Credential, e
 }
 
 func getLocalMicroK8sConfig(cmdRunner CommandRunner) ([]byte, error) {
-	cmd := "which microk8s"
-	if jujuos.HostOS() == jujuos.Windows {
-		cmd = "where.exe microk8s"
-	}
-	result, err := cmdRunner.RunCommands(exec.RunParams{
-		Commands: cmd,
-	})
-	if err != nil || result.Code != 0 {
+	_, err := osexec.LookPath("microk8s")
+	if err != nil {
 		return []byte{}, errors.NotFoundf("microk8s")
 	}
 	execParams := exec.RunParams{
 		Commands: "microk8s config",
 	}
-	result, err = cmdRunner.RunCommands(execParams)
+	result, err := cmdRunner.RunCommands(execParams)
 	if err != nil {
 		return []byte{}, err
 	}
