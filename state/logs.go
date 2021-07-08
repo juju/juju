@@ -767,11 +767,11 @@ func (t *logTailer) paramsToSelector(params LogTailerParams, prefix string) bson
 	}
 	if len(params.IncludeLabel) > 0 {
 		sel = append(sel,
-			bson.DocElem{"m", bson.RegEx{Pattern: makeLabelPattern(params.IncludeLabel)}})
+			bson.DocElem{"c", bson.M{"$in": params.IncludeLabel}})
 	}
 	if len(params.ExcludeLabel) > 0 {
 		sel = append(sel,
-			bson.DocElem{"m", bson.M{"$not": bson.RegEx{Pattern: makeLabelPattern(params.ExcludeLabel)}}})
+			bson.DocElem{"c", bson.M{"$nin": params.ExcludeLabel}})
 	}
 	if prefix != "" {
 		for i, elem := range sel {
@@ -797,14 +797,6 @@ func makeModulePattern(modules []string) string {
 		patterns = append(patterns, regexp.QuoteMeta(module))
 	}
 	return `^(` + strings.Join(patterns, "|") + `)(\..+)?$`
-}
-
-func makeLabelPattern(labels []string) string {
-	var patterns []string
-	for _, label := range labels {
-		patterns = append(patterns, regexp.QuoteMeta(label))
-	}
-	return `^(` + strings.Join(patterns, "|") + `)$`
 }
 
 func newRecentIdTracker(maxLen int) *recentIdTracker {

@@ -252,5 +252,12 @@ func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
 	params.includeModule = queryMap["includeModule"]
 	params.excludeModule = queryMap["excludeModule"]
 
+	if label, ok := queryMap["includeLabel"]; ok {
+		params.includeLabel = label
+	}
+	if label, ok := queryMap["excludeLabel"]; ok {
+		params.excludeLabel = label
+	}
+
 	return params, nil
 }
