@@ -447,8 +447,8 @@ func (a *action) removeAndLogBuildTxn(finalStatus ActionStatus, results map[stri
 					numComplete++
 				}
 			}
-			expectedTaskCount := parentOpDetails.doc.SpawnedTaskCount
-			if numComplete == expectedTaskCount-1 {
+			spawnedTaskCount := parentOpDetails.doc.SpawnedTaskCount
+			if numComplete == spawnedTaskCount-1 {
 				// Set the operation status based on the individual
 				// task status values. eg if any task is failed,
 				// the entire operation is considered failed.
@@ -463,11 +463,11 @@ func (a *action) removeAndLogBuildTxn(finalStatus ActionStatus, results map[stri
 					C:  operationsC,
 					Id: a.st.docID(parentOperation.Id()),
 					Assert: append(assertNotComplete,
-						bson.DocElem{"complete-task-count", bson.D{{"$eq", expectedTaskCount - 1}}}),
+						bson.DocElem{"complete-task-count", bson.D{{"$eq", spawnedTaskCount - 1}}}),
 					Update: bson.D{{"$set", bson.D{
 						{"status", finalOperationStatus},
 						{"completed", completedTime},
-						{"complete-task-count", expectedTaskCount},
+						{"complete-task-count", spawnedTaskCount},
 					}}},
 				}
 			} else {
@@ -476,7 +476,7 @@ func (a *action) removeAndLogBuildTxn(finalStatus ActionStatus, results map[stri
 					Id: a.st.docID(parentOperation.Id()),
 					Assert: append(assertNotComplete,
 						bson.DocElem{"complete-task-count",
-							bson.D{{"$lt", expectedTaskCount - 1}}}),
+							bson.D{{"$lt", spawnedTaskCount - 1}}}),
 					Update: bson.D{{"$inc", bson.D{
 						{"complete-task-count", 1},
 					}}},
