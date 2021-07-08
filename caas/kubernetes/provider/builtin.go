@@ -8,26 +8,26 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
+	jujuos "github.com/juju/os/v2"
 	"github.com/juju/utils/v2/exec"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 )
 
-func attemptMicroK8sCloud(cmdRunner CommandRunner) (cloud.Cloud, error) {
+func attemptMicroK8sCloud(cmdRunner CommandRunner) (jujucloud.Cloud, error) {
 	microk8sConfig, err := getLocalMicroK8sConfig(cmdRunner)
 	if err != nil {
-		return cloud.Cloud{}, err
+		return jujucloud.Cloud{}, err
 	}
 
 	k8sCloud, err := k8scloud.CloudFromKubeConfigClusterReader(
 		caas.MicroK8sClusterName,
 		bytes.NewReader(microk8sConfig),
 		k8scloud.CloudParamaters{
-			Description: cloud.DefaultCloudDescription(cloud.CloudTypeCAAS),
+			Description: jujucloud.DefaultCloudDescription(jujucloud.CloudTypeCAAS),
 			Name:        caas.K8sCloudMicrok8s,
 			Regions: []jujucloud.Region{{
 				Name: caas.Microk8sRegion,
@@ -38,41 +38,45 @@ func attemptMicroK8sCloud(cmdRunner CommandRunner) (cloud.Cloud, error) {
 	return k8sCloud, err
 }
 
-func attemptMicroK8sCredential(cmdRunner CommandRunner) (cloud.Credential, error) {
+func attemptMicroK8sCredential(cmdRunner CommandRunner) (jujucloud.Credential, error) {
 	microk8sConfig, err := getLocalMicroK8sConfig(cmdRunner)
 	if err != nil {
-		return cloud.Credential{}, err
+		return jujucloud.Credential{}, err
 	}
 
 	k8sConfig, err := k8scloud.ConfigFromReader(bytes.NewReader(microk8sConfig))
 	if err != nil {
-		return cloud.Credential{}, errors.Annotate(err, "processing microk8s config to make juju credentials")
+		return jujucloud.Credential{}, errors.Annotate(err, "processing microk8s config to make juju credentials")
 	}
 
 	contextName, err := k8scloud.PickContextByClusterName(k8sConfig, caas.MicroK8sClusterName)
 	if err != nil {
-		return cloud.Credential{}, errors.Trace(err)
+		return jujucloud.Credential{}, errors.Trace(err)
 	}
 
 	context := k8sConfig.Contexts[contextName]
 	resolver := clientconfig.GetJujuAdminServiceAccountResolver(jujuclock.WallClock)
 	conf, err := resolver(caas.K8sCloudMicrok8s, k8sConfig, contextName)
 	if err != nil {
-		return cloud.Credential{}, errors.Annotate(err, "resolving microk8s credentials")
+		return jujucloud.Credential{}, errors.Annotate(err, "resolving microk8s credentials")
 	}
 
 	return k8scloud.CredentialFromKubeConfig(context.AuthInfo, conf)
 }
 
 func getLocalMicroK8sConfig(cmdRunner CommandRunner) ([]byte, error) {
+	cmd := "which microk8s"
+	if jujuos.HostOS() == jujuos.Windows {
+		cmd = "where.exe microk8s"
+	}
 	result, err := cmdRunner.RunCommands(exec.RunParams{
-		Commands: "which microk8s.config",
+		Commands: cmd,
 	})
 	if err != nil || result.Code != 0 {
-		return []byte{}, errors.NotFoundf("microk8s")
+		return []byte{}, errors.NotFoundf("command microk8s")
 	}
 	execParams := exec.RunParams{
-		Commands: "microk8s.config",
+		Commands: "microk8s config",
 	}
 	result, err = cmdRunner.RunCommands(execParams)
 	if err != nil {
