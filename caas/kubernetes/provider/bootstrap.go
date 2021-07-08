@@ -1098,7 +1098,7 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 	if c.pcfg.Controller.Config.MongoMemoryProfile() == string(mongo.MemoryProfileLow) {
 		wiredTigerCacheSize = mongo.LowCacheSize
 	}
-	generateContainerSpecs := func(jujudCmd string) []core.Container {
+	generateContainerSpecs := func(jujudCmd string) ([]core.Container, error) {
 		var containerSpec []core.Container
 		// add container mongoDB.
 		// TODO(bootstrap): refactor mongo package to make it usable for IAAS and CAAS,
@@ -1195,10 +1195,14 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		})
 
 		// add container API server.
+		controllerImage, err := c.pcfg.GetControllerImagePath()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		containerSpec = append(containerSpec, core.Container{
 			Name:            apiServerContainerName,
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           c.pcfg.GetControllerImagePath(),
+			Image:           controllerImage,
 			Command: []string{
 				"/bin/sh",
 			},
@@ -1248,7 +1252,7 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 			},
 		})
 		c.containerCount = len(containerSpec)
-		return containerSpec
+		return containerSpec, nil
 	}
 
 	loggingOption := "--show-log"
@@ -1286,7 +1290,11 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		c.pcfg.ControllerId,
 		loggingOption,
 	)
-	statefulset.Spec.Template.Spec.Containers = generateContainerSpecs(jujudCmd)
+	containers, err := generateContainerSpecs(jujudCmd)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	statefulset.Spec.Template.Spec.Containers = containers
 	return nil
 }
 

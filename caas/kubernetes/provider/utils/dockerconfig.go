@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provider
+package utils
 
 import (
 	// Import shas that are used for docker image validation.
@@ -11,8 +11,6 @@ import (
 
 	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/caas/specs"
 )
 
 // These Docker Config datatypes have been pulled from
@@ -36,12 +34,12 @@ type DockerConfigEntry struct {
 	Email    string
 }
 
-func createDockerConfigJSON(imageDetails *specs.ImageDetails) ([]byte, error) {
+func CreateDockerConfigJSON(username, password, imagePath string) ([]byte, error) {
 	dockerEntry := DockerConfigEntry{
-		Username: imageDetails.Username,
-		Password: imageDetails.Password,
+		Username: username,
+		Password: password,
 	}
-	registryURL, err := extractRegistryURL(imageDetails.ImagePath)
+	registryURL, err := ExtractRegistryURL(imagePath)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -54,8 +52,8 @@ func createDockerConfigJSON(imageDetails *specs.ImageDetails) ([]byte, error) {
 	return json.Marshal(dockerConfig)
 }
 
-// extractRegistryName returns the registry URL part of an images path
-func extractRegistryURL(imagePath string) (string, error) {
+// ExtractRegistryName returns the registry URL part of an images path
+func ExtractRegistryURL(imagePath string) (string, error) {
 	imageNamed, err := reference.ParseNormalizedNamed(imagePath)
 	if err != nil {
 		return "", errors.Annotate(err, "extracting registry from path")

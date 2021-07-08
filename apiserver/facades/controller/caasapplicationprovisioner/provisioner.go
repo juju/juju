@@ -226,7 +226,10 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 			fmt.Sprintf("agent version is missing in model config %q", modelConfig.Name()),
 		)
 	}
-	imagePath := podcfg.GetJujuOCIImagePath(cfg, vers.ToPatch(), version.OfficialBuild)
+	imagePath, err := podcfg.GetJujuOCIImagePath(cfg, vers.ToPatch(), version.OfficialBuild)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	apiHostPorts, err := a.ctrlSt.APIHostPortsForAgents()
 	if err != nil {

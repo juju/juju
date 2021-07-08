@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/pointer"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/status"
@@ -39,6 +40,11 @@ func NewClusterRoleBinding(name string, in *rbacv1.ClusterRoleBinding) *ClusterR
 func (rb *ClusterRoleBinding) Clone() Resource {
 	clone := *rb
 	return &clone
+}
+
+// ID returns a comparable ID for the Resource
+func (r *ClusterRoleBinding) ID() ID {
+	return ID{"ClusterRoleBinding", r.Name, r.Namespace}
 }
 
 // Apply patches the resource change.
@@ -80,7 +86,9 @@ func (rb *ClusterRoleBinding) Get(ctx context.Context, client kubernetes.Interfa
 func (rb *ClusterRoleBinding) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.RbacV1().ClusterRoleBindings()
 	err := api.Delete(ctx, rb.Name, metav1.DeleteOptions{
-		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+		PropagationPolicy:  k8sconstants.DeletePropagationBackground(),
+		GracePeriodSeconds: pointer.Int64Ptr(0),
+		Preconditions:      &metav1.Preconditions{UID: &rb.UID},
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -90,53 +98,51 @@ func (rb *ClusterRoleBinding) Delete(ctx context.Context, client kubernetes.Inte
 	return nil
 }
 
+// shouldDelete checks if there are any changes in the immutable field to decide
+// if the existing cluster role binding should be deleted or not.
+func shouldDelete(existing, new rbacv1.ClusterRoleBinding) bool {
+	return existing.RoleRef.APIGroup != new.RoleRef.APIGroup ||
+		existing.RoleRef.Kind != new.RoleRef.Kind ||
+		existing.RoleRef.Name != new.RoleRef.Name
+}
+
 // Ensure ensures this cluster role exists in it's desired form inside the
 // cluster. If the object does not exist it's updated and if the object exists
 // it's updated. The method also takes an optional set of claims to test the
-// exisiting Kubernetes object with to assert ownership before overwriting it.
+// existing Kubernetes object with to assert ownership before overwriting it.
 func (rb *ClusterRoleBinding) Ensure(
 	ctx context.Context,
 	client kubernetes.Interface,
 	claims ...Claim,
 ) ([]func(), error) {
+	// TODO(caas): roll this into Apply()
 	cleanups := []func(){}
-	hasClaim := true
-	doUpdate := true
 
 	existing := ClusterRoleBinding{rb.ClusterRoleBinding}
 	err := existing.Get(ctx, client)
-	if err == nil {
-		hasClaim, err = RunClaims(claims...).Assert(&existing.ClusterRoleBinding)
-	}
 	if err != nil && !errors.IsNotFound(err) {
-		return cleanups, errors.Annotatef(
-			err,
-			"checking for existing cluster role binding %q",
-			rb.Name,
-		)
+		return cleanups, errors.Annotatef(err, "getting existing cluster role binding %q", rb.Name)
 	}
-
-	if !hasClaim {
-		return cleanups, errors.AlreadyExistsf(
-			"cluster role binding %q not controlled by juju", rb.Name)
-	}
-
-	if errors.IsNotFound(err) {
-		doUpdate = false
-	}
-
-	// If roleref is changed we need to delete the cluster role binding and
-	// re-create it.
-	if !errors.IsNotFound(err) && (existing.RoleRef.APIGroup != rb.RoleRef.APIGroup ||
-		existing.RoleRef.Kind != rb.RoleRef.Kind ||
-		existing.RoleRef.Name != rb.RoleRef.Name) {
-		if err := existing.Delete(ctx, client); err != nil {
-			return cleanups, errors.Annotatef(
-				err,
-				"delete cluster role binding %q because roleref has changed",
-				existing.Name)
+	doUpdate := err == nil
+	if err == nil {
+		hasClaim, err := RunClaims(claims...).Assert(&existing.ClusterRoleBinding)
+		if err != nil {
+			return cleanups, errors.Annotatef(err, "checking for existing cluster role binding %q", rb.Name)
 		}
-		doUpdate = false
+		if !hasClaim {
+			return cleanups, errors.AlreadyExistsf(
+				"cluster role binding %q not controlled by juju", rb.Name)
+		}
+		if shouldDelete(existing.ClusterRoleBinding, rb.ClusterRoleBinding) {
+			// RoleRef is immutable, delete the cluster role binding then re-create it.
+			if err := existing.Delete(ctx, client); err != nil {
+				return cleanups, errors.Annotatef(
+					err,
+					"delete cluster role binding %q because roleref has changed",
+					existing.Name)
+			}
+			doUpdate = false
+		}
 	}
 
 	cleanups = append(cleanups, func() { _ = rb.Delete(ctx, client) })

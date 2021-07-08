@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/specs"
@@ -332,7 +333,7 @@ foo: bar
 
 	sa1 := &specs.PrimeServiceAccountSpecV3{
 		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-			AutomountServiceAccountToken: boolPtr(true),
+			AutomountServiceAccountToken: pointer.BoolPtr(true),
 			Roles: []specs.Role{
 				{
 					Global: true,
@@ -414,8 +415,8 @@ echo "do some stuff here for gitlab container"
 				},
 				ProviderContainer: &k8sspecs.K8sContainerSpec{
 					SecurityContext: &core.SecurityContext{
-						RunAsNonRoot: boolPtr(true),
-						Privileged:   boolPtr(true),
+						RunAsNonRoot: pointer.BoolPtr(true),
+						Privileged:   pointer.BoolPtr(true),
 					},
 					LivenessProbe: &core.Probe{
 						InitialDelaySeconds: 10,
@@ -498,7 +499,7 @@ echo "do some stuff here for gitlab-init container"
 				{
 					Name: "k8sServiceAccount1",
 					ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-						AutomountServiceAccountToken: boolPtr(true),
+						AutomountServiceAccountToken: pointer.BoolPtr(true),
 						Roles: []specs.Role{
 							{
 								Global: true,
@@ -581,7 +582,7 @@ echo "do some stuff here for gitlab-init container"
 				Service: &admissionregistration.ServiceReference{
 					Name:      "apple-service",
 					Namespace: "apples",
-					Path:      strPtr("/apple"),
+					Path:      pointer.StringPtr("/apple"),
 				},
 				CABundle: CABundle1,
 			},
@@ -619,7 +620,7 @@ echo "do some stuff here for gitlab-init container"
 			},
 			AdmissionReviewVersions: []string{"v1", "v1beta1"},
 			SideEffects:             &sideEffects,
-			TimeoutSeconds:          int32Ptr(5),
+			TimeoutSeconds:          pointer.Int32Ptr(5),
 		}
 
 		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -628,11 +629,11 @@ echo "do some stuff here for gitlab-init container"
 				Pod: &k8sspecs.PodSpec{
 					Labels:                        map[string]string{"foo": "bax"},
 					Annotations:                   map[string]string{"foo": "baz"},
-					ActiveDeadlineSeconds:         int64Ptr(10),
+					ActiveDeadlineSeconds:         pointer.Int64Ptr(10),
 					RestartPolicy:                 core.RestartPolicyOnFailure,
-					TerminationGracePeriodSeconds: int64Ptr(20),
+					TerminationGracePeriodSeconds: pointer.Int64Ptr(20),
 					SecurityContext: &core.PodSecurityContext{
-						RunAsNonRoot:       boolPtr(true),
+						RunAsNonRoot:       pointer.BoolPtr(true),
 						SupplementalGroups: []int64{1, 2},
 					},
 					ReadinessGates: []core.PodReadinessGate{
@@ -642,7 +643,7 @@ echo "do some stuff here for gitlab-init container"
 					HostNetwork:       true,
 					HostPID:           true,
 					PriorityClassName: "system-cluster-critical",
-					Priority:          int32Ptr(2000000000),
+					Priority:          pointer.Int32Ptr(2000000000),
 				},
 				Secrets: []k8sspecs.K8sSecret{
 					{
@@ -677,7 +678,7 @@ password: shhhh`[1:],
 									{Name: "v1beta2", Served: true, Storage: false},
 								},
 								Scope:                 "Cluster",
-								PreserveUnknownFields: boolPtr(false),
+								PreserveUnknownFields: pointer.BoolPtr(false),
 								Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 									Kind:     "TFJob",
 									Plural:   "tfjobs",
@@ -704,7 +705,7 @@ password: shhhh`[1:],
 															"PS": {
 																Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 																	"replicas": {
-																		Type: "integer", Minimum: float64Ptr(1),
+																		Type: "integer", Minimum: pointer.Float64Ptr(1),
 																	},
 																},
 															},
@@ -712,8 +713,8 @@ password: shhhh`[1:],
 																Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 																	"replicas": {
 																		Type:    "integer",
-																		Minimum: float64Ptr(1),
-																		Maximum: float64Ptr(1),
+																		Minimum: pointer.Float64Ptr(1),
+																		Maximum: pointer.Float64Ptr(1),
 																	},
 																},
 															},
@@ -721,7 +722,7 @@ password: shhhh`[1:],
 																Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 																	"replicas": {
 																		Type:    "integer",
-																		Minimum: float64Ptr(1),
+																		Minimum: pointer.Float64Ptr(1),
 																	},
 																},
 															},

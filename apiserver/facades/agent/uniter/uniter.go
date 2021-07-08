@@ -42,7 +42,7 @@ var logger = loggo.GetLogger("juju.apiserver.uniter")
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
 // from the next version of this facade.
 
-// UniterAPI implements the latest version (v17) of the Uniter API, which
+// UniterAPI implements the latest version (v18) of the Uniter API, which
 // augments the payload of the CommitHookChanges API call and introduces
 // the OpenedMachinePortRanges call as a replacement for AllMachinePorts.
 type UniterAPI struct {
@@ -80,12 +80,18 @@ type UniterAPI struct {
 	// application that is authorised for this API facade.
 	// We do not need to use an AuthFunc, because we do not need to pass a tag.
 	accessCloudSpec func() (func() bool, error)
-	cloudSpec       cloudspec.CloudSpecAPI
+	cloudSpecer     cloudspec.CloudSpecer
+}
+
+// UniterAPIV17 implements version (v17) of the Uniter API, which adds
+// CloudSpec v2
+type UniterAPIV17 struct {
+	UniterAPI
 }
 
 // UniterAPIV16 implements version (v16) of the Uniter API.
 type UniterAPIV16 struct {
-	UniterAPI
+	UniterAPIV17
 }
 
 // NewUniterAPI creates a new instance of the core Uniter API.
@@ -132,7 +138,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	}
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
-	cloudSpec := cloudspec.NewCloudSpec(resources,
+	cloudSpec := cloudspec.NewCloudSpecV2(resources,
 		cloudspec.MakeCloudSpecGetterForModel(st),
 		cloudspec.MakeCloudSpecWatcherForModel(st),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
@@ -173,20 +179,44 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		accessApplication: accessApplication,
 		accessMachine:     accessMachine,
 		accessCloudSpec:   accessCloudSpec,
-		cloudSpec:         cloudSpec,
+		cloudSpecer:       cloudSpec,
 		StorageAPI:        storageAPI,
+	}, nil
+}
+
+// NewUniterAPIV17 creates an instance of the V17 uniter API.
+func NewUniterAPIV17(context facade.Context) (*UniterAPIV17, error) {
+	uniterAPI, err := NewUniterAPI(context)
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := context.State().Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	uniterAPI.cloudSpecer = cloudspec.NewCloudSpecV1(context.Resources(),
+		cloudspec.MakeCloudSpecGetterForModel(context.State()),
+		cloudspec.MakeCloudSpecWatcherForModel(context.State()),
+		cloudspec.MakeCloudSpecCredentialWatcherForModel(context.State()),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(context.State()),
+		common.AuthFuncForTag(m.ModelTag()),
+	)
+	return &UniterAPIV17{
+		UniterAPI: *uniterAPI,
 	}, nil
 }
 
 // NewUniterAPIV16 creates an instance of the V16 uniter API.
 // Deprecated: V16 of the uniter facade retained to allow upgrading from 2.8.9 (LTS).
 func NewUniterAPIV16(context facade.Context) (*UniterAPIV16, error) {
-	uniterAPI, err := NewUniterAPI(context)
+	uniterAPI, err := NewUniterAPIV17(context)
 	if err != nil {
 		return nil, err
 	}
 	return &UniterAPIV16{
-		UniterAPI: *uniterAPI,
+		UniterAPIV17: *uniterAPI,
 	}, nil
 }
 
@@ -2434,7 +2464,7 @@ func (u *UniterAPI) CloudSpec() (params.CloudSpecResult, error) {
 		return params.CloudSpecResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
 	}
 
-	return u.cloudSpec.GetCloudSpec(u.m.Tag().(names.ModelTag)), nil
+	return u.cloudSpecer.GetCloudSpec(u.m.Tag().(names.ModelTag)), nil
 }
 
 // GoalStates returns information of charm units and relations.

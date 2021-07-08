@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
@@ -399,7 +400,7 @@ func modelOperatorDeployment(
 			),
 		},
 		Spec: apps.DeploymentSpec{
-			Replicas: utils.Int32Ptr(1),
+			Replicas: pointer.Int32Ptr(1),
 			Selector: &meta.LabelSelector{
 				MatchLabels: selectorLabels,
 			},

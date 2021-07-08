@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/utils/pointer"
 
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/testing"
@@ -95,7 +96,7 @@ spec:
 					{Name: "v1beta2", Served: true, Storage: false},
 				},
 				Scope:                 "Cluster",
-				PreserveUnknownFields: boolPtr(false),
+				PreserveUnknownFields: pointer.BoolPtr(false),
 				Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 					Kind:     "TFJob",
 					Plural:   "tfjobs",
@@ -122,7 +123,7 @@ spec:
 											"PS": {
 												Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 													"replicas": {
-														Type: "integer", Minimum: float64Ptr(1),
+														Type: "integer", Minimum: pointer.Float64Ptr(1),
 													},
 												},
 											},
@@ -130,8 +131,8 @@ spec:
 												Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 													"replicas": {
 														Type:    "integer",
-														Minimum: float64Ptr(1),
-														Maximum: float64Ptr(1),
+														Minimum: pointer.Float64Ptr(1),
+														Maximum: pointer.Float64Ptr(1),
 													},
 												},
 											},
@@ -139,7 +140,7 @@ spec:
 												Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 													"replicas": {
 														Type:    "integer",
-														Minimum: float64Ptr(1),
+														Minimum: pointer.Float64Ptr(1),
 													},
 												},
 											},
@@ -234,7 +235,7 @@ spec:
 						Schema: &apiextensionsv1.CustomResourceValidation{
 							OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
 								Type:                   "object",
-								XPreserveUnknownFields: boolPtr(true),
+								XPreserveUnknownFields: pointer.BoolPtr(true),
 							},
 						},
 						AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{

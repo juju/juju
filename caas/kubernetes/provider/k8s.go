@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -1666,7 +1667,7 @@ func (k *kubernetesClient) configureDaemonSet(
 			Selector: &v1.LabelSelector{
 				MatchLabels: selectorLabels,
 			},
-			RevisionHistoryLimit: utils.Int32Ptr(daemonsetRevisionHistoryLimit),
+			RevisionHistoryLimit: pointer.Int32Ptr(daemonsetRevisionHistoryLimit),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
@@ -1768,7 +1769,7 @@ func (k *kubernetesClient) configureDeployment(
 		Spec: apps.DeploymentSpec{
 			// TODO(caas): MinReadySeconds, ProgressDeadlineSeconds support.
 			Replicas:             replicas,
-			RevisionHistoryLimit: utils.Int32Ptr(deploymentRevisionHistoryLimit),
+			RevisionHistoryLimit: pointer.Int32Ptr(deploymentRevisionHistoryLimit),
 			Selector: &v1.LabelSelector{
 				MatchLabels: selectorLabels,
 			},

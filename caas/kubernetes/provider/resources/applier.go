@@ -64,12 +64,29 @@ func (op *operation) process(ctx context.Context, api kubernetes.Interface, roll
 	return errors.Trace(err)
 }
 
-func (a *applier) Apply(r Resource) {
-	a.ops = append(a.ops, operation{opApply, r})
+func (a *applier) Apply(resources ...Resource) {
+	for _, r := range resources {
+		a.ops = append(a.ops, operation{opApply, r})
+	}
 }
 
-func (a *applier) Delete(r Resource) {
-	a.ops = append(a.ops, operation{opDelete, r})
+func (a *applier) Delete(resources ...Resource) {
+	for _, r := range resources {
+		a.ops = append(a.ops, operation{opDelete, r})
+	}
+}
+
+func (a *applier) ApplySet(current []Resource, desired []Resource) {
+	desiredMap := map[ID]bool{}
+	for _, r := range desired {
+		desiredMap[r.ID()] = true
+	}
+	for _, r := range current {
+		if ok := desiredMap[r.ID()]; !ok {
+			a.Delete(r)
+		}
+	}
+	a.Apply(desired...)
 }
 
 func (a *applier) Run(ctx context.Context, client kubernetes.Interface, noRollback bool) (err error) {

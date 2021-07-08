@@ -15,6 +15,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -23,10 +24,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/testing"
 )
-
-func strPtr(b string) *string {
-	return &b
-}
 
 func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8sspecs.K8sMutatingWebhook, assertCalls ...*gomock.Call) {
 
@@ -56,7 +53,7 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
-			RevisionHistoryLimit: int32Ptr(0),
+			RevisionHistoryLimit: pointer.Int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"app.kubernetes.io/name": "app-name"},
@@ -156,7 +153,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1Beta1(c 
 			Service: &admissionregistrationv1beta1.ServiceReference{
 				Name:      "apple-service",
 				Namespace: "apples",
-				Path:      strPtr("/apple"),
+				Path:      pointer.StringPtr("/apple"),
 			},
 			CABundle: CABundle,
 		},
@@ -222,7 +219,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepNameV1
 			Service: &admissionregistrationv1beta1.ServiceReference{
 				Name:      "apple-service",
 				Namespace: "apples",
-				Path:      strPtr("/apple"),
+				Path:      pointer.StringPtr("/apple"),
 			},
 			CABundle: CABundle,
 		},
@@ -291,7 +288,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdateV1Beta1(c 
 			Service: &admissionregistrationv1beta1.ServiceReference{
 				Name:      "apple-service",
 				Namespace: "apples",
-				Path:      strPtr("/apple"),
+				Path:      pointer.StringPtr("/apple"),
 			},
 			CABundle: CABundle,
 		},
@@ -364,7 +361,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1(c *gc.C
 			Service: &admissionregistrationv1.ServiceReference{
 				Name:      "apple-service",
 				Namespace: "apples",
-				Path:      strPtr("/apple"),
+				Path:      pointer.StringPtr("/apple"),
 			},
 			CABundle: CABundle,
 		},
@@ -430,7 +427,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepNameV1
 			Service: &admissionregistrationv1.ServiceReference{
 				Name:      "apple-service",
 				Namespace: "apples",
-				Path:      strPtr("/apple"),
+				Path:      pointer.StringPtr("/apple"),
 			},
 			CABundle: CABundle,
 		},
@@ -499,7 +496,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdateV1(c *gc.C
 			Service: &admissionregistrationv1.ServiceReference{
 				Name:      "apple-service",
 				Namespace: "apples",
-				Path:      strPtr("/apple"),
+				Path:      pointer.StringPtr("/apple"),
 			},
 			CABundle: CABundle,
 		},
@@ -574,7 +571,7 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
-			RevisionHistoryLimit: int32Ptr(0),
+			RevisionHistoryLimit: pointer.Int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"app.kubernetes.io/name": "app-name"},
@@ -670,7 +667,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1Beta1(
 			Service: &admissionregistrationv1beta1.ServiceReference{
 				Name:      "apple-service",
 				Namespace: "apples",
-				Path:      strPtr("/apple"),
+				Path:      pointer.StringPtr("/apple"),
 			},
 			CABundle: CABundle,
 		},
@@ -736,7 +733,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepName
 			Service: &admissionregistrationv1beta1.ServiceReference{
 				Name:      "apple-service",
 				Namespace: "apples",
-				Path:      strPtr("/apple"),
+				Path:      pointer.StringPtr("/apple"),
 			},
 			CABundle: CABundle,
 		},
@@ -805,7 +802,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdateV1Beta1(
 			Service: &admissionregistrationv1beta1.ServiceReference{
 				Name:      "apple-service",
 				Namespace: "apples",
-				Path:      strPtr("/apple"),
+				Path:      pointer.StringPtr("/apple"),
 			},
 			CABundle: CABundle,
 		},
@@ -878,7 +875,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1(c *gc
 			Service: &admissionregistrationv1.ServiceReference{
 				Name:      "apple-service",
 				Namespace: "apples",
-				Path:      strPtr("/apple"),
+				Path:      pointer.StringPtr("/apple"),
 			},
 			CABundle: CABundle,
 		},
@@ -944,7 +941,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepName
 			Service: &admissionregistrationv1.ServiceReference{
 				Name:      "apple-service",
 				Namespace: "apples",
-				Path:      strPtr("/apple"),
+				Path:      pointer.StringPtr("/apple"),
 			},
 			CABundle: CABundle,
 		},
@@ -1013,7 +1010,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdateV1(c *gc
 			Service: &admissionregistrationv1.ServiceReference{
 				Name:      "apple-service",
 				Namespace: "apples",
-				Path:      strPtr("/apple"),
+				Path:      pointer.StringPtr("/apple"),
 			},
 			CABundle: CABundle,
 		},
