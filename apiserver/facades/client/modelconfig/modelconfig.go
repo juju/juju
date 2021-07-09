@@ -16,8 +16,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("apiserver.modelconfig")
-
 // NewFacade is used for API registration.
 func NewFacadeV2(ctx facade.Context) (*ModelConfigAPIV2, error) {
 	auth := ctx.Auth()
