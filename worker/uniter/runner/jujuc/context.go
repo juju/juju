@@ -131,7 +131,8 @@ type ContextUnit interface {
 	// UnitName returns the executing unit's name.
 	UnitName() string
 
-	// Config returns the current application configuration of the executing unit.
+	// ConfigSettings returns the current application
+	// configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)
 
 	// GoalState returns the goal state for the current unit.

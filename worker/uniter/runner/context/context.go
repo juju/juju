@@ -67,7 +67,7 @@ type Paths interface {
 	// the hook tool symlinks.
 	GetToolsDir() string
 
-	// GetCharmDir returns the filesystem path to the directory in which
+	// GetBaseDir returns the filesystem path to the directory in which
 	// the charm is installed.
 	GetBaseDir() string
 
