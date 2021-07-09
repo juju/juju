@@ -87,6 +87,7 @@ type StateBackend interface {
 	ResetDefaultRelationLimitInCharmMetadata() error
 	RemoveUnusedLinkLayerDeviceProviderIDs() error
 	TranslateK8sServiceTypes() error
+	AddSpawnedTaskCountToOperations() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -362,4 +363,8 @@ func (s stateBackend) RemoveUnusedLinkLayerDeviceProviderIDs() error {
 
 func (s stateBackend) TranslateK8sServiceTypes() error {
 	return state.TranslateK8sServiceTypes(s.pool)
+}
+
+func (s stateBackend) AddSpawnedTaskCountToOperations() error {
+	return state.AddSpawnedTaskCountToOperations(s.pool)
 }
