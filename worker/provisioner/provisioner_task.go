@@ -6,6 +6,7 @@ package provisioner
 import (
 	stdcontext "context"
 	"fmt"
+	"math/rand"
 	"sort"
 	"strings"
 	"sync"
@@ -163,13 +164,6 @@ func (task *provisionerTask) Wait() error {
 
 func (task *provisionerTask) loop() error {
 
-	// Get existing machine distributions.
-	err := task.populateAvailabilityZoneMachines()
-	// Not all providers implement ZonedEnviron
-	if err != nil && !errors.IsNotImplemented(err) {
-		return errors.Trace(err)
-	}
-
 	// Don't allow the harvesting mode to change until we have read at
 	// least one set of changes, which will populate the task.machines
 	// map. Otherwise we will potentially see all legitimate instances
@@ -262,6 +256,13 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	ctx := task.cloudCallCtxFunc(stdcontext.Background())
 	// Populate the tasks maps of current instances and machines.
 	if err := task.populateMachineMaps(ctx, ids); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Get existing machine distributions.
+	err := task.populateAvailabilityZoneMachines()
+	// Not all providers implement ZonedEnviron
+	if err != nil && !errors.IsNotImplemented(err) {
 		return errors.Trace(err)
 	}
 
@@ -853,31 +854,52 @@ func (task *provisionerTask) machineAvailabilityZoneDistribution(
 	// accommodating any supplied zone constraints.
 	// If the machine has a distribution group, assign based on lowest zone
 	// population of the distribution group machine.
-	var machineZone string
-	zoneMap := azMachineSort(task.availabilityZoneMachines)
+	// If more than one zone has the same number of machines, pick one of those at random.
+	zoneMachines := task.availabilityZoneMachines
 	if len(distGroupMachineIds) > 0 {
-		zoneMap = azMachineSort(task.populateDistributionGroupZoneMap(distGroupMachineIds))
+		zoneMachines = task.populateDistributionGroupZoneMap(distGroupMachineIds)
 	}
 
-	sort.Sort(zoneMap)
-	for _, zoneMachines := range zoneMap {
-		if !zoneMachines.MatchesConstraints(cons) {
-			task.logger.Debugf("machine %s does not match az %s: constraints do not match",
-				machineId, zoneMachines.ZoneName)
-			continue
+	// Make a map of zone machines keyed on count.
+	zoneMap := make(map[int][]*AvailabilityZoneMachine)
+	for _, zm := range zoneMachines {
+		machineCount := zm.MachineIds.Size()
+		zoneMap[machineCount] = append(zoneMap[machineCount], zm)
+	}
+	// Sort the counts we have by size so
+	// we can process starting with the lowest.
+	var zoneCounts []int
+	for k := range zoneMap {
+		zoneCounts = append(zoneCounts, k)
+	}
+	sort.Ints(zoneCounts)
+
+	var machineZone string
+done:
+	// Starting with the lowest count first, find a suitable AZ.
+	for _, count := range zoneCounts {
+		zmList := zoneMap[count]
+		for len(zmList) > 0 {
+			// Pick a random AZ to try.
+			index := rand.Intn(len(zmList))
+			zoneMachines := zmList[index]
+			if !zoneMachines.MatchesConstraints(cons) {
+				task.logger.Debugf("machine %s does not match az %s: constraints do not match",
+					machineId, zoneMachines.ZoneName)
+			} else if zoneMachines.FailedMachineIds.Contains(machineId) {
+				task.logger.Debugf("machine %s does not match az %s: excluded in failed machine ids",
+					machineId, zoneMachines.ZoneName)
+			} else if zoneMachines.ExcludedMachineIds.Contains(machineId) {
+				task.logger.Debugf("machine %s does not match az %s: excluded machine id",
+					machineId, zoneMachines.ZoneName)
+			} else {
+				// Success, we're out of here.
+				machineZone = zoneMachines.ZoneName
+				break done
+			}
+			// Zone not suitable so remove it from the list and try the next one.
+			zmList = append(zmList[:index], zmList[index+1:]...)
 		}
-		if zoneMachines.FailedMachineIds.Contains(machineId) {
-			task.logger.Debugf("machine %s does not match az %s: excluded in failed machine ids",
-				machineId, zoneMachines.ZoneName)
-			continue
-		}
-		if zoneMachines.ExcludedMachineIds.Contains(machineId) {
-			task.logger.Debugf("machine %s does not match az %s: excluded machine id",
-				machineId, zoneMachines.ZoneName)
-			continue
-		}
-		machineZone = zoneMachines.ZoneName
-		break
 	}
 
 	if machineZone == "" {
@@ -891,28 +913,6 @@ func (task *provisionerTask) machineAvailabilityZoneDistribution(
 		}
 	}
 	return machineZone, nil
-}
-
-// azMachineSort extends a slice of AvailabilityZoneMachine references
-// with a sort implementation by zone population and name.
-type azMachineSort []*AvailabilityZoneMachine
-
-func (a azMachineSort) Len() int {
-	return len(a)
-}
-
-func (a azMachineSort) Less(i, j int) bool {
-	switch {
-	case a[i].MachineIds.Size() < a[j].MachineIds.Size():
-		return true
-	case a[i].MachineIds.Size() == a[j].MachineIds.Size():
-		return a[i].ZoneName < a[j].ZoneName
-	}
-	return false
-}
-
-func (a azMachineSort) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
 }
 
 // startMachines starts a goroutine for each specified machine to

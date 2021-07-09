@@ -718,7 +718,7 @@ func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	status, err := w.upgradeSeriesStatus()
+	status, target, err := w.upgradeSeriesStatus()
 	if errors.IsNotFound(err) {
 		// There is no remote state so no upgrade is started.
 		w.logger.Debugf("no upgrade series in progress, reinitializing local upgrade series state")
@@ -726,26 +726,29 @@ func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
 		return nil
 	}
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
+
 	w.current.UpgradeSeriesStatus = status
+	w.current.UpgradeSeriesTarget = target
+
 	return nil
 }
 
-func (w *RemoteStateWatcher) upgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
-	status, err := w.unit.UpgradeSeriesStatus()
+func (w *RemoteStateWatcher) upgradeSeriesStatus() (model.UpgradeSeriesStatus, string, error) {
+	status, target, err := w.unit.UpgradeSeriesStatus()
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", "", errors.Trace(err)
 	}
 
 	graph := model.UpgradeSeriesGraph()
 	if err := graph.Validate(); err != nil {
-		return "", errors.Trace(err)
+		return "", "", errors.Trace(err)
 	}
 	if !graph.ValidState(status) {
-		return "", errors.NotValidf("upgrade series %q is", status)
+		return "", "", errors.NotValidf("upgrade series %q is", status)
 	}
-	return status, nil
+	return status, target, nil
 }
 
 // updateStatusChanged is called when the update status timer expires.

@@ -6,6 +6,7 @@ package provider
 import (
 	stdcontext "context"
 	"net/url"
+	osexec "os/exec"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
@@ -67,12 +68,17 @@ func (kubernetesEnvironProvider) Version() int {
 // CommandRunner allows to run commands on the underlying system
 type CommandRunner interface {
 	RunCommands(run exec.RunParams) (*exec.ExecResponse, error)
+	LookPath(string) (string, error)
 }
 
 type defaultRunner struct{}
 
 func (defaultRunner) RunCommands(run exec.RunParams) (*exec.ExecResponse, error) {
 	return exec.RunCommands(run)
+}
+
+func (defaultRunner) LookPath(file string) (string, error) {
+	return osexec.LookPath(file)
 }
 
 // NewK8sClients returns the k8s clients to access a cluster.

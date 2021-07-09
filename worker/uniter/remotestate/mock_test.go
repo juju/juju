@@ -294,8 +294,8 @@ func (u *mockUnit) WatchInstanceData() (watcher.NotifyWatcher, error) {
 	return u.instanceDataWatcher, nil
 }
 
-func (u *mockUnit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
-	return model.UpgradeSeriesPrepareStarted, nil
+func (u *mockUnit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, string, error) {
+	return model.UpgradeSeriesPrepareStarted, "focal", nil
 }
 
 func (u *mockUnit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error {

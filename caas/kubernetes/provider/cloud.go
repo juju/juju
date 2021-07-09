@@ -9,6 +9,7 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
+	jujuos "github.com/juju/os/v2"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/exec"
 	"gopkg.in/yaml.v2"
@@ -61,7 +62,7 @@ func updateK8sCloud(k8sCloud *cloud.Cloud, clusterMetadata *k8s.ClusterMetadata,
 		} else {
 			storageMsg += "\nand "
 		}
-		storageMsg += fmt.Sprintf("operator storage provisioned by the workload storage class")
+		storageMsg += "operator storage provisioned by the workload storage class"
 	}
 
 	if clusterMetadata.NominatedStorageClass != nil {
@@ -300,7 +301,14 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	return cld, nil
 }
 
-func ensureMicroK8sSuitable(cmdRunner CommandRunner) error {
+func checkMicrok8sUserGroupSetup(cmdRunner CommandRunner) error {
+	if jujuos.HostOS() == jujuos.Windows {
+		// The microk8s on windows is running on a vm managed by multipass.
+		// Even the vm does not have the user group properly configured but it is not
+		// a problem because microk8s CLI uses `multipass exec` with sudo to run the commands.
+		// https://github.com/ubuntu/microk8s/blob/master/installer/vm_providers/_multipass/_multipass.py#L50
+		return nil
+	}
 	resp, err := cmdRunner.RunCommands(exec.RunParams{
 		Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`,
 	})
@@ -318,8 +326,15 @@ Users in that group are granted access to microk8s commands and this
 is needed for Juju to be able to interact with microk8s.
 
 Add yourself to that group before trying again:
-  sudo usermod -a -G microk8s %s
+	sudo usermod -a -G microk8s %s
 `[1:], user)
+	}
+	return nil
+}
+
+func ensureMicroK8sSuitable(cmdRunner CommandRunner) error {
+	if err := checkMicrok8sUserGroupSetup(cmdRunner); err != nil {
+		return errors.Trace(err)
 	}
 
 	status, err := microK8sStatus(cmdRunner)
@@ -346,7 +361,7 @@ Add yourself to that group before trying again:
 func microK8sStatus(cmdRunner CommandRunner) (microk8sStatus, error) {
 	var status microk8sStatus
 	result, err := cmdRunner.RunCommands(exec.RunParams{
-		Commands: "microk8s.status --wait-ready --timeout 15 --yaml",
+		Commands: "microk8s status --wait-ready --timeout 15 --yaml",
 	})
 	if err != nil {
 		return status, errors.Trace(err)
@@ -357,7 +372,7 @@ func microK8sStatus(cmdRunner CommandRunner) (microk8sStatus, error) {
 			msg = string(result.Stdout)
 		}
 		if msg == "" {
-			msg = "unknown error running microk8s.status"
+			msg = "unknown error running microk8s status"
 		}
 		return status, errors.New(msg)
 	}

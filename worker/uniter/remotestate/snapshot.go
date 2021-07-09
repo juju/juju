@@ -89,11 +89,16 @@ type Snapshot struct {
 	// executed by this unit.
 	Commands []string
 
-	// UpgradeSeriesStatus is the preparation status of any currently running
-	// series upgrade
+	// UpgradeSeriesStatus is the preparation status of
+	// any currently running series upgrade.
 	UpgradeSeriesStatus model.UpgradeSeriesStatus
 
-	// ContainerRunningStatus is set on CAAS models for remote init/upgrade of charm.
+	// UpgradeSeriesTarget is the OS series that an in-flight
+	// series upgrade is transitioning to.
+	UpgradeSeriesTarget string
+
+	// ContainerRunningStatus is set on CAAS models
+	// for remote init/upgrade of charm.
 	ContainerRunningStatus *ContainerRunningStatus
 
 	// LXDProfileName is the name of the lxd profile applied to the unit's
