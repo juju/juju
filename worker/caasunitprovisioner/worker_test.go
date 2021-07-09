@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/charm/v8"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -19,6 +20,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
+	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/specs"
@@ -43,6 +45,7 @@ type WorkerSuite struct {
 	containerBroker    mockContainerBroker
 	podSpecGetter      mockProvisioningInfoGetterGetter
 	lifeGetter         mockLifeGetter
+	charmGetter        mockCharmGetter
 	unitUpdater        mockUnitUpdater
 	statusSetter       *caasunitprovisioner.MockProvisioningStatusSetter
 
@@ -177,6 +180,12 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 	s.lifeGetter = mockLifeGetter{}
 	s.lifeGetter.setLife(life.Alive)
+	s.charmGetter = mockCharmGetter{
+		charmInfo: &charms.CharmInfo{
+			Meta:     &charm.Meta{},
+			Manifest: &charm.Manifest{},
+		},
+	}
 	s.serviceBroker = mockServiceBroker{
 		ensured:        s.serviceEnsured,
 		deleted:        s.serviceDeleted,
@@ -220,8 +229,16 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	}, `missing LifeGetter not valid`)
 
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
+		config.UnitUpdater = nil
+	}, `missing UnitUpdater not valid`)
+
+	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
 		config.ProvisioningStatusSetter = nil
 	}, `missing ProvisioningStatusSetter not valid`)
+
+	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
+		config.CharmGetter = nil
+	}, `missing CharmGetter not valid`)
 
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
 		config.Logger = nil
@@ -256,11 +273,7 @@ func (s *WorkerSuite) setupNewUnitScenario(c *gc.C) worker.Worker {
 
 	s.podSpecGetter.SetErrors(nil, errors.NotFoundf("spec"))
 
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
+	s.sendApplicationChanges(c, "gitlab")
 
 	s.applicationGetter.scale = 1
 	select {
@@ -625,11 +638,7 @@ func (s *WorkerSuite) TestApplicationDeadRemovesService(c *gc.C) {
 	s.containerBroker.ResetCalls()
 
 	s.lifeGetter.SetErrors(errors.NotFoundf("application"))
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending application change")
-	}
+	s.sendApplicationChanges(c, "gitlab")
 
 	select {
 	case <-s.serviceDeleted:
@@ -650,11 +659,7 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.lifeGetter.setLife(life.Dead)
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
+	s.sendApplicationChanges(c, "gitlab")
 
 	select {
 	case <-s.serviceDeleted:
@@ -680,11 +685,7 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplicationScale(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
+	s.sendApplicationChanges(c, "gitlab")
 
 	// Check that the gitlab worker is running or not;
 	// given it time to startup.
@@ -705,11 +706,7 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplicationScale(c *gc.C
 	caasunitprovisioner.NewAppWorker(w, "mysql")
 
 	s.lifeGetter.SetErrors(errors.NotFoundf("application"))
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
+	s.sendApplicationChanges(c, "gitlab")
 
 	select {
 	case <-s.serviceDeleted:
@@ -740,11 +737,7 @@ func (s *WorkerSuite) TestRemoveWorkloadApplicationWaitsForResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
+	s.sendApplicationChanges(c, "gitlab")
 
 	// Check that the gitlab worker is running or not;
 	// given it time to startup.
@@ -762,11 +755,7 @@ func (s *WorkerSuite) TestRemoveWorkloadApplicationWaitsForResources(c *gc.C) {
 	c.Assert(running, jc.IsTrue)
 
 	s.lifeGetter.SetErrors(errors.NotFoundf("application"))
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
+	s.sendApplicationChanges(c, "gitlab")
 
 	select {
 	case <-s.serviceDeleted:
@@ -815,11 +804,7 @@ func (s *WorkerSuite) TestRemoveOperatorApplicationWaitsForResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
+	s.sendApplicationChanges(c, "gitlab")
 
 	// Check that the gitlab worker is running or not;
 	// given it time to startup.
@@ -837,11 +822,7 @@ func (s *WorkerSuite) TestRemoveOperatorApplicationWaitsForResources(c *gc.C) {
 	c.Assert(running, jc.IsTrue)
 
 	s.lifeGetter.SetErrors(errors.NotFoundf("application"))
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
+	s.sendApplicationChanges(c, "gitlab")
 
 	select {
 	case <-s.serviceDeleted:
@@ -882,11 +863,7 @@ func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
 	defer workertest.DirtyKill(c, w)
 
 	s.applicationGetter.scale = 1
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
+	s.sendApplicationChanges(c, "gitlab")
 
 	select {
 	case s.applicationScaleChanges <- struct{}{}:
@@ -906,11 +883,7 @@ func (s *WorkerSuite) TestUnitsChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
+	s.sendApplicationChanges(c, "gitlab")
 	defer workertest.CleanKill(c, w)
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
@@ -934,11 +907,7 @@ func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
+	s.sendApplicationChanges(c, "gitlab")
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if len(s.containerBroker.Calls()) >= 2 {
@@ -980,6 +949,51 @@ func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
 	s.containerBroker.CheckCallNames(c, "Operator")
 	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
 
+}
+
+func (s *WorkerSuite) TestV2CharmSkipsProcessing(c *gc.C) {
+	ctrl := s.setupMocks(c)
+
+	// Make it a v2 charm
+	s.charmGetter.charmInfo.Manifest = &charm.Manifest{Bases: []charm.Base{{}}}
+
+	w, err := caasunitprovisioner.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.sendApplicationChanges(c, "gitlab")
+
+	s.lifeGetter.CheckNoCalls(c)
+
+	workertest.CheckAlive(c, w)
+	workertest.CleanKill(c, w)
+
+	ctrl.Finish()
+}
+
+func (s *WorkerSuite) TestNotFoundCharmSkipsProcessing(c *gc.C) {
+	ctrl := s.setupMocks(c)
+
+	s.charmGetter.charmInfo = nil // ApplicationCharmInfo will return NotFound error
+
+	w, err := caasunitprovisioner.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.sendApplicationChanges(c, "gitlab")
+
+	s.lifeGetter.CheckNoCalls(c)
+
+	workertest.CheckAlive(c, w)
+	workertest.CleanKill(c, w)
+
+	ctrl.Finish()
+}
+
+func (s *WorkerSuite) sendApplicationChanges(c *gc.C, appNames ...string) {
+	select {
+	case s.applicationChanges <- appNames:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending applications change")
+	}
 }
 
 func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expectedUnitStatus status.Status) {
@@ -1042,6 +1056,7 @@ func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
 		ContainerBroker:          &s.containerBroker,
 		ProvisioningInfoGetter:   &s.podSpecGetter,
 		LifeGetter:               &s.lifeGetter,
+		CharmGetter:              &s.charmGetter,
 		UnitUpdater:              &s.unitUpdater,
 		ProvisioningStatusSetter: s.statusSetter,
 		Logger:                   loggo.GetLogger("test"),
