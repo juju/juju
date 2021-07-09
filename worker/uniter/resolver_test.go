@@ -748,6 +748,7 @@ func (s *rebootResolverSuite) TestStartHookDeferredWhenUpgradeIsInProgress(c *gc
 	for _, statusTest := range statusChecks {
 		c.Logf("triggering resolver with upgrade status: %s", statusTest.status)
 		s.remoteState.UpgradeSeriesStatus = statusTest.status
+		s.remoteState.UpgradeSeriesTarget = "focal"
 
 		op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 		if statusTest.expErr != nil {
