@@ -219,10 +219,7 @@ juju_bootstrap() {
 
 	pre_bootstrap
 
-	# When double quotes are added to ${series}, the juju bootstrap
-	# command looks correct, and works outside of the harness, but
-	# does not run, goes directly to cleanup.
-	command="juju bootstrap ${series} --build-agent=${BUILD_AGENT} ${cloud} ${name} -d ${model} ${BOOTSTRAP_ADD_ON}"
+	command="juju bootstrap ${series} --build-agent=${BUILD_AGENT} ${cloud} ${name} -d ${model} ${BOOTSTRAP_ADDITIONAL_ARGS}"
 	# keep $@ here, otherwise hit SC2124
 	${command} "$@" 2>&1 | OUTPUT "${output}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
@@ -233,13 +230,15 @@ juju_bootstrap() {
 # pre_bootstrap contains setup required before bootstrap specific to providers
 # and shouldn't be used by any of the tests directly.
 pre_bootstrap() {
+	# ensure BOOTSTRAP_ADDITIONAL_ARGS is defined, even if not necessary.
+	export BOOTSTRAP_ADDITIONAL_ARGS=""
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"vsphere")
 		echo "====> Creating image simplestream metadata for juju ($(green "${version}:${cloud}"))"
 
 		image_streams_dir=${TEST_DIR}/image-streams
 		setup_vsphere_simplestreams "${image_streams_dir}" "${BOOTSTRAP_SERIES}"
-		export BOOTSTRAP_ADD_ON="--metadata-source ${image_streams_dir}"
+		export BOOTSTRAP_ADDITIONAL_ARGS="--metadata-source ${image_streams_dir}"
 		;;
 	esac
 }
