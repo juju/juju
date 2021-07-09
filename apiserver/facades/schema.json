@@ -45833,6 +45833,9 @@
                         },
                         "status": {
                             "type": "string"
+                        },
+                        "target": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false
@@ -46395,6 +46398,9 @@
                             "$ref": "#/definitions/Error"
                         },
                         "status": {
+                            "type": "string"
+                        },
+                        "target": {
                             "type": "string"
                         }
                     },

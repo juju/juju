@@ -66,7 +66,7 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	if err != nil && !params.IsCodeNoAddressSet(err) {
 		return nil, err
 	}
-	ctx.availabilityzone, err = hcParams.Unit.AvailabilityZone()
+	ctx.availabilityZone, err = hcParams.Unit.AvailabilityZone()
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +192,7 @@ func NewModelHookContext(p ModelHookContextParams) *HookContext {
 		},
 		relationId:         -1,
 		assignedMachineTag: p.MachineTag,
-		availabilityzone:   p.AvailZone,
+		availabilityZone:   p.AvailZone,
 		slaLevel:           p.SLALevel,
 		principal:          p.UnitName,
 		cloudAPIVersion:    "6.66",
