@@ -22,6 +22,7 @@ import (
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/charmrepo/v6"
 	csclientparams "github.com/juju/charmrepo/v6/csclient/params"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
@@ -2848,6 +2849,11 @@ func (f *fakeDeployAPI) GrantOffer(user, access string, offerURLs ...string) err
 	return jujutesting.TypeAssertError(res[0])
 }
 
+func (f *fakeDeployAPI) ResolveWithPreferredChannel(url *charm.URL, risk csparams.Channel) (*charm.URL, csparams.Channel, []string, error) {
+	results := f.MethodCall(f, "ResolveWithPreferredChannel", url)
+	return results[0].(*charm.URL), results[1].(csparams.Channel), results[2].([]string), results[3].(error)
+}
+
 type fakeCharmStoreAPI struct {
 	*fakeDeployAPI
 }
@@ -2872,7 +2878,9 @@ func vanillaFakeModelAPI(cfgAttrs map[string]interface{}) *fakeDeployAPI {
 	var logger loggo.Logger
 	fakeAPI := &fakeDeployAPI{CallMocker: jujutesting.NewCallMocker(logger)}
 	fakeAPI.charmRepoFunc = func() (*store.CharmStoreAdaptor, error) {
-		return &store.CharmStoreAdaptor{MacaroonGetter: &noopMacaroonGetter{}}, nil
+		return &store.CharmStoreAdaptor{
+			MacaroonGetter: &noopMacaroonGetter{},
+		}, nil
 	}
 
 	fakeAPI.Call("Close").Returns(error(nil))
