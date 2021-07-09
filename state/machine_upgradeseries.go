@@ -378,28 +378,8 @@ func (m *Machine) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	return lock.MachineStatus, errors.Trace(err)
 }
 
-// UnitStatus returns the series upgrade status for the input unit.
-func (m *Machine) UpgradeSeriesUnitStatus(unitName string) (model.UpgradeSeriesStatus, error) {
-	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
-	defer closer()
-
-	var lock upgradeSeriesLockDoc
-	err := coll.FindId(m.Id()).One(&lock)
-	if err == mgo.ErrNotFound {
-		return "", errors.NotFoundf("upgrade series lock for machine %q", m.Id())
-	}
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if _, ok := lock.UnitStatuses[unitName]; !ok {
-		return "", errors.NotFoundf("unit %q of machine %q", unitName, m.Id())
-	}
-
-	return lock.UnitStatuses[unitName].Status, nil
-}
-
-// UnitStatus returns the unit statuses from the upgrade-series lock
-// for this machine.
+// UpgradeSeriesUnitStatuses returns the unit statuses
+// from the upgrade-series lock for this machine.
 func (m *Machine) UpgradeSeriesUnitStatuses() (map[string]UpgradeSeriesUnitStatus, error) {
 	lock, err := m.getUpgradeSeriesLock()
 	if err != nil {

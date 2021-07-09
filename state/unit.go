@@ -2944,12 +2944,30 @@ func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]stat
 }
 
 // UpgradeSeriesStatus returns the upgrade status of the units assigned machine.
-func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
-	machine, err := u.machine()
+func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, string, error) {
+	mID, err := u.AssignedMachineId()
 	if err != nil {
-		return "", err
+		return "", "", errors.Trace(err)
 	}
-	return machine.UpgradeSeriesUnitStatus(u.Name())
+
+	coll, closer := u.st.db().GetCollection(machineUpgradeSeriesLocksC)
+	defer closer()
+
+	var lock upgradeSeriesLockDoc
+	err = coll.FindId(mID).One(&lock)
+	if err == mgo.ErrNotFound {
+		return "", "", errors.NotFoundf("upgrade series lock for machine %q", mID)
+	}
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+
+	sts, ok := lock.UnitStatuses[u.Name()]
+	if !ok {
+		return "", "", errors.NotFoundf("unit %q of machine %q", u.Name(), mID)
+	}
+
+	return sts.Status, lock.ToSeries, nil
 }
 
 // SetUpgradeSeriesStatus sets the upgrade status of the units assigned machine.
