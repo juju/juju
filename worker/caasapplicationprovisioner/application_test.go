@@ -55,12 +55,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	appCharmURL := &charm.URL{
-		Schema:   "cs",
-		Name:     "test",
-		Revision: -1,
-	}
-	appCharmInfo := &charmscommon.CharmInfo{
+	charmInfo := &charmscommon.CharmInfo{
 		Meta: &charm.Meta{
 			Name: "test",
 
@@ -86,8 +81,12 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		},
 	}
 	appProvisioningInfo := api.ProvisioningInfo{
-		Series:   "focal",
-		CharmURL: appCharmURL,
+		Series: "focal",
+		CharmURL: &charm.URL{
+			Schema:   "cs",
+			Name:     "test",
+			Revision: -1,
+		},
 	}
 	ociResources := map[string]resources.DockerImageDetails{
 		"test-oci": {
@@ -120,12 +119,11 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	done := make(chan struct{})
 	gomock.InOrder(
 		// Initialize in loop.
-		// TODO(benhoyt) - update
-		//facade.EXPECT().ApplicationCharmURL("test").DoAndReturn(func(string) (*charm.URL, error) {
-		//	return appCharmURL, nil
-		//}),
+		facade.EXPECT().ApplicationCharmInfo("test").DoAndReturn(func(string) (*charmscommon.CharmInfo, error) {
+			return charmInfo, nil
+		}),
 		facade.EXPECT().CharmInfo("cs:test").DoAndReturn(func(string) (*charmscommon.CharmInfo, error) {
-			return appCharmInfo, nil
+			return charmInfo, nil
 		}),
 		facade.EXPECT().SetPassword("test", gomock.Any()).Return(nil),
 		broker.EXPECT().Application("test", caas.DeploymentStateful).DoAndReturn(
@@ -146,7 +144,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			return appProvisioningInfo, nil
 		}),
 		facade.EXPECT().CharmInfo("cs:test").DoAndReturn(func(string) (*charmscommon.CharmInfo, error) {
-			return appCharmInfo, nil
+			return charmInfo, nil
 		}),
 		brokerApp.EXPECT().Exists().DoAndReturn(func() (caas.DeploymentState, error) {
 			return caas.DeploymentState{}, nil
@@ -271,7 +269,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			return appProvisioningInfo, nil
 		}),
 		facade.EXPECT().CharmInfo("cs:test").DoAndReturn(func(string) (*charmscommon.CharmInfo, error) {
-			return appCharmInfo, nil
+			return charmInfo, nil
 		}),
 		brokerApp.EXPECT().Exists().DoAndReturn(func() (caas.DeploymentState, error) {
 			return caas.DeploymentState{}, nil
