@@ -12,7 +12,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -646,7 +645,6 @@ func (s *LogTailerSuite) TestIncludeLabels(c *gc.C) {
 	}
 	assert := func(tailer state.LogTailer) {
 		s.assertTailer(c, tailer, 1, mod1)
-		s.assertTailer(c, tailer, 1, subMod1)
 		s.assertTailer(c, tailer, 1, mod2)
 	}
 	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
@@ -666,7 +664,7 @@ func (s *LogTailerSuite) TestExcludeLabels(c *gc.C) {
 		s.writeLogs(c, s.otherUUID, 1, mod2)
 	}
 	params := state.LogTailerParams{
-		ExcludeLabel: []string{"juju.thing", "elsewhere"},
+		ExcludeLabel: []string{"juju_thing", "juju_thing_hai", "elsewhere"},
 	}
 	assert := func(tailer state.LogTailer) {
 		s.assertTailer(c, tailer, 2, mod0)
@@ -730,14 +728,6 @@ type logTemplate struct {
 	Message  string
 	Labels   []string
 }
-
-// emptyTag gives us an explicit way to specify an empty tag for the
-// logTemplate.
-type emptyTag struct {
-	names.Tag
-}
-
-func (emptyTag) String() string { return "" }
 
 // writeLogs creates count log messages at the current time using
 // the supplied template. As well as writing to the logs collection,
@@ -832,12 +822,14 @@ func (s *LogTailerSuite) assertTailer(c *gc.C, tailer state.LogTailer, expectedC
 			if !ok {
 				c.Fatalf("tailer died unexpectedly: %v", tailer.Err())
 			}
+
 			c.Assert(log.Version, gc.Equals, lt.Version)
 			c.Assert(log.Entity, gc.Equals, lt.Entity)
 			c.Assert(log.Module, gc.Equals, lt.Module)
 			c.Assert(log.Location, gc.Equals, lt.Location)
 			c.Assert(log.Level, gc.Equals, lt.Level)
 			c.Assert(log.Message, gc.Equals, lt.Message)
+			c.Assert(log.Labels, gc.DeepEquals, lt.Labels)
 			count++
 			if count == expectedCount {
 				return
