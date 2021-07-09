@@ -1229,6 +1229,7 @@ type DumpModelRequest struct {
 type UpgradeSeriesStatusResult struct {
 	Error  *Error                    `json:"error,omitempty"`
 	Status model.UpgradeSeriesStatus `json:"status,omitempty"`
+	Target string                    `json:"target,omitempty"`
 }
 
 // UpgradeSeriesStatusResults contains the upgrade series status results for

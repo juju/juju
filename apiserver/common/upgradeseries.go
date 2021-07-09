@@ -44,7 +44,7 @@ type UpgradeSeriesMachine interface {
 type UpgradeSeriesUnit interface {
 	Tag() names.Tag
 	AssignedMachineId() (string, error)
-	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
+	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, string, error)
 	SetUpgradeSeriesStatus(model.UpgradeSeriesStatus, string) error
 }
 
@@ -234,17 +234,17 @@ func (u *UpgradeSeriesAPI) setUnitStatus(args params.UpgradeSeriesStatusParams) 
 			continue
 		}
 
-		current, err := unit.UpgradeSeriesStatus()
+		sts, _, err := unit.UpgradeSeriesStatus()
 		if err != nil {
 			logger.Tracef("unit upgrade series status not found, fallback to not-started: %v", err)
-			current = model.UpgradeSeriesNotStarted
+			sts = model.UpgradeSeriesNotStarted
 		}
-		if !graph.ValidState(current) {
-			result.Results[i].Error = apiservererrors.ServerError(errors.NotValidf("current upgrade series status %q", current))
+		if !graph.ValidState(sts) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotValidf("current upgrade series status %q", sts))
 			continue
 		}
 
-		fsm, err := model.NewUpgradeSeriesFSM(graph, current)
+		fsm, err := model.NewUpgradeSeriesFSM(graph, sts)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -285,12 +285,13 @@ func (u *UpgradeSeriesAPI) unitStatus(args params.Entities) (params.UpgradeSerie
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		status, err := unit.UpgradeSeriesStatus()
+		status, target, err := unit.UpgradeSeriesStatus()
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results[i].Status = status
+		results[i].Target = target
 	}
 	return params.UpgradeSeriesStatusResults{Results: results}, nil
 }
