@@ -11,14 +11,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/juju/core/network"
-
 	"github.com/golang/mock/gomock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -47,6 +48,7 @@ import (
 type ProvisionerTaskSuite struct {
 	testing.IsolationSuite
 
+	setupDone            chan bool
 	modelMachinesChanges chan []string
 	modelMachinesWatcher watcher.StringsWatcher
 
@@ -71,6 +73,7 @@ var _ = gc.Suite(&ProvisionerTaskSuite{})
 func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	s.setupDone = make(chan bool)
 	s.modelMachinesChanges = make(chan []string)
 	s.modelMachinesWatcher = watchertest.NewMockStringsWatcher(s.modelMachinesChanges)
 
@@ -94,7 +97,7 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
 		Stub:      &testing.Stub{},
 		callsChan: make(chan string, 2),
 		allInstancesFunc: func(ctx context.ProviderCallContext) ([]instances.Instance, error) {
-			return s.instances, nil
+			return s.instances, s.instanceBroker.NextErr()
 		},
 	}
 
@@ -206,11 +209,88 @@ func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *gc.C) {
 	s.instanceBroker.CheckCallNames(c, "StartInstance", "StartInstance")
 }
 
+func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// There are 3 available usedZones, so test with 4 machines
+	// to ensure even spread across usedZones.
+	machines := []*testMachine{{
+		id: "0",
+	}, {
+		id: "1",
+	}, {
+		id: "2",
+	}, {
+		id: "3",
+	}}
+	broker := s.setUpZonedEnviron(ctrl, machines...)
+	azConstraints := newAZConstraintStartInstanceParamsMatcher()
+	broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil).Times(len(machines))
+
+	var usedZones []string
+	expectedIds := set.NewStrings()
+	for _, m := range machines {
+		expectedIds.Add(m.id)
+		broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(&environs.StartInstanceResult{
+			Instance: &testInstance{id: "instance-" + m.id},
+		}, nil).Do(func(ctx, params interface{}) {
+			usedZones = append(usedZones, params.(environs.StartInstanceParams).AvailabilityZone)
+		})
+	}
+	broker.EXPECT().StopInstances(s.callCtx, gomock.Any()).Do(func(ctx interface{}, ids ...interface{}) {
+		for _, id := range ids {
+			expectedIds.Remove(fmt.Sprintf("%s", id))
+		}
+		c.Assert(expectedIds.Size(), gc.Equals, 0)
+	})
+
+	task := s.newProvisionerTaskWithBroker(c, broker, nil)
+	s.sendModelMachinesChange(c, expectedIds.Values()...)
+
+	shortAttempt := &utils.AttemptStrategy{
+		Total: coretesting.LongWait,
+		Delay: 10 * time.Millisecond,
+	}
+	for a := shortAttempt.Start(); a.Next(); {
+		if len(usedZones) == 4 {
+			break
+		}
+	}
+	zoneCounts := make(map[string]int)
+	for _, z := range usedZones {
+		count := zoneCounts[z] + 1
+		zoneCounts[z] = count
+	}
+	for z, count := range zoneCounts {
+		if count == 0 || count > 2 {
+			c.Fatalf("expected either 1 or 2 machines for %v, got %d", z, count)
+		}
+	}
+	c.Assert(set.NewStrings(usedZones...).SortedValues(), jc.DeepEquals, []string{"az1", "az2", "az3"})
+
+	workertest.CleanKill(c, task)
+}
+
 func (s *ProvisionerTaskSuite) TestMultipleSpaceConstraints(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	broker := s.setUpZonedEnviron(ctrl)
+	m0 := &testMachine{
+		id:          "0",
+		constraints: "spaces=alpha,beta",
+		topology: params.ProvisioningNetworkTopology{
+			SubnetAZs: map[string][]string{
+				"subnet-1": {"az-1"},
+				"subnet-2": {"az-2"},
+			},
+			SpaceSubnets: map[string][]string{
+				"alpha": {"subnet-1"},
+				"beta":  {"subnet-2"},
+			},
+		},
+	}
+	broker := s.setUpZonedEnviron(ctrl, m0)
 	spaceConstraints := newSpaceConstraintStartInstanceParamsMatcher("alpha", "beta")
 
 	spaceConstraints.addMatch("subnets-to-zones", func(p environs.StartInstanceParams) bool {
@@ -246,28 +326,14 @@ func (s *ProvisionerTaskSuite) TestMultipleSpaceConstraints(c *gc.C) {
 	// Use satisfaction of this call as the synchronisation point.
 	started := make(chan struct{})
 	broker.EXPECT().StartInstance(s.callCtx, spaceConstraints).Return(&environs.StartInstanceResult{
-		Instance: &testInstance{id: "instance-1"},
+		Instance: &testInstance{id: "instance-0"},
 	}, nil).Do(func(_ ...interface{}) {
 		go func() { started <- struct{}{} }()
 	})
 	task := s.newProvisionerTaskWithBroker(c, broker, nil)
+	broker.EXPECT().StopInstances(s.callCtx, []instance.Id{"0"})
 
-	m0 := &testMachine{
-		id:          "0",
-		constraints: "spaces=alpha,beta",
-		topology: params.ProvisioningNetworkTopology{
-			SubnetAZs: map[string][]string{
-				"subnet-1": {"az-1"},
-				"subnet-2": {"az-2"},
-			},
-			SpaceSubnets: map[string][]string{
-				"alpha": {"subnet-1"},
-				"beta":  {"subnet-2"},
-			},
-		},
-	}
-	s.machineStatusResults = []apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}
-	s.sendMachineErrorRetryChange(c)
+	s.sendModelMachinesChange(c, "0")
 
 	select {
 	case <-started:
@@ -282,21 +348,21 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoZoneAvailable(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	broker := s.setUpZonedEnviron(ctrl)
+	m0 := &testMachine{
+		id:          "0",
+		constraints: "zones=az9",
+	}
+	broker := s.setUpZonedEnviron(ctrl, m0)
 
 	// Constraint for availability zone az9 can not be satisfied;
 	// this broker only knows of az1, az2, az3.
 	azConstraints := newAZConstraintStartInstanceParamsMatcher("az9")
 	broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil)
 
+	broker.EXPECT().StopInstances(s.callCtx, []instance.Id{"0"})
 	task := s.newProvisionerTaskWithBroker(c, broker, nil)
-
-	m0 := &testMachine{
-		id:          "0",
-		constraints: "zones=az9",
-	}
-	s.machineStatusResults = []apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}
-	s.sendMachineErrorRetryChange(c)
+	s.sendModelMachinesChange(c, "0")
+	s.waitForWorkerSetup(c, "worker not set up")
 
 	// Wait for instance status to be set.
 	timeout := time.After(coretesting.LongWait)
@@ -320,7 +386,11 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroup(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	broker := s.setUpZonedEnviron(ctrl)
+	m0 := &testMachine{
+		id:          "0",
+		constraints: "zones=az1",
+	}
+	broker := s.setUpZonedEnviron(ctrl, m0)
 	azConstraints := newAZConstraintStartInstanceParamsMatcher("az1")
 	broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil)
 
@@ -335,19 +405,15 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroup(c *gc.C) {
 	// Use satisfaction of this call as the synchronisation point.
 	started := make(chan struct{})
 	broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(&environs.StartInstanceResult{
-		Instance: &testInstance{id: "instance-1"},
+		Instance: &testInstance{id: "instance-0"},
 	}, nil).Do(func(_ ...interface{}) {
 		go func() { started <- struct{}{} }()
 	})
+	broker.EXPECT().StopInstances(s.callCtx, []instance.Id{"0"})
 
 	task := s.newProvisionerTaskWithBroker(c, broker, nil)
 
-	m0 := &testMachine{
-		id:          "0",
-		constraints: "zones=az1",
-	}
-	s.machineStatusResults = []apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}
-	s.sendMachineErrorRetryChange(c)
+	s.sendModelMachinesChange(c, "0")
 
 	select {
 	case <-started:
@@ -364,14 +430,6 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroupRetry(c *gc
 
 	broker := s.setUpZonedEnviron(ctrl)
 	azConstraints := newAZConstraintStartInstanceParamsMatcher("az1")
-
-	// For the call to start instance, we expect the same zone constraint to
-	// be present, but we also expect that the zone in start instance params
-	// matches the constraint, based on being available in this environ.
-	azConstraintsAndDerivedZone := newAZConstraintStartInstanceParamsMatcher("az1")
-	azConstraintsAndDerivedZone.addMatch("availability zone: az1", func(p environs.StartInstanceParams) bool {
-		return p.AvailabilityZone == "az1"
-	})
 
 	failedErr := errors.Errorf("oh no")
 	// Use satisfaction of this call as the synchronisation point.
@@ -410,7 +468,12 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *gc.C)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	broker := s.setUpZonedEnviron(ctrl)
+	m0 := &testMachine{
+		id:          "0",
+		constraints: "zones=az1,az2",
+	}
+	broker := s.setUpZonedEnviron(ctrl, m0)
+
 	azConstraints := newAZConstraintStartInstanceParamsMatcher("az1", "az2")
 	broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil)
 
@@ -426,10 +489,11 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *gc.C)
 	// Use satisfaction of this call as the synchronisation point.
 	started := make(chan struct{})
 	broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(&environs.StartInstanceResult{
-		Instance: &testInstance{id: "instance-1"},
+		Instance: &testInstance{id: "instance-0"},
 	}, nil).Do(func(_ ...interface{}) {
 		go func() { started <- struct{}{} }()
 	})
+	broker.EXPECT().StopInstances(s.callCtx, []instance.Id{"0"})
 
 	// Another machine from the same distribution group is already in az1,
 	// so we expect the machine to be created in az2.
@@ -437,13 +501,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *gc.C)
 		names.NewMachineTag("0"): {"az1"},
 	})
 
-	m0 := &testMachine{
-		id:          "0",
-		constraints: "zones=az1,az2",
-	}
-	s.machineStatusResults = []apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}
-	s.sendMachineErrorRetryChange(c)
-
+	s.sendModelMachinesChange(c, "0")
 	select {
 	case <-started:
 	case <-time.After(coretesting.LongWait):
@@ -459,15 +517,6 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroupRetry(c *
 
 	broker := s.setUpZonedEnviron(ctrl)
 	azConstraints := newAZConstraintStartInstanceParamsMatcher("az1", "az2")
-
-	// For the call to start instance, we expect the same zone constraints to
-	// be present, but we also expect that the zone in start instance params
-	// was selected from the constraints, based on a machine from the same
-	// distribution group already being in one of the zones.
-	azConstraintsAndDerivedZone := newAZConstraintStartInstanceParamsMatcher("az1", "az2")
-	azConstraintsAndDerivedZone.addMatch("availability zone: az1", func(p environs.StartInstanceParams) bool {
-		return p.AvailabilityZone == "az2"
-	})
 
 	// Use satisfaction of this call as the synchronisation point.
 	failedErr := errors.Errorf("oh no")
@@ -513,15 +562,6 @@ func (s *ProvisionerTaskSuite) TestZoneRestrictiveConstraintsWithDistributionGro
 	broker := s.setUpZonedEnviron(ctrl)
 	azConstraints := newAZConstraintStartInstanceParamsMatcher("az2")
 
-	// For the call to start instance, we expect the same zone constraints to
-	// be present, but we also expect that the zone in start instance params
-	// was selected from the constraints, based on a machine from the same
-	// distribution group already being in one of the zones.
-	azConstraintsAndDerivedZone := newAZConstraintStartInstanceParamsMatcher("az2")
-	azConstraintsAndDerivedZone.addMatch("availability zone: az2", func(p environs.StartInstanceParams) bool {
-		return p.AvailabilityZone == "az2"
-	})
-
 	// Use satisfaction of this call as the synchronisation point.
 	failedErr := errors.Errorf("oh no")
 	started := make(chan struct{})
@@ -566,21 +606,37 @@ func (s *ProvisionerTaskSuite) TestPopulateAZMachinesErrorWorkerStopped(c *gc.C)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	// `ProvisionerTask.populateAvailabilityZoneMachines` calls through to this method.
 	broker := mocks.NewMockZonedEnviron(ctrl)
-	broker.EXPECT().AllRunningInstances(s.callCtx).Return(nil, errors.New("boom"))
+	broker.EXPECT().AllRunningInstances(s.callCtx).Return(nil, errors.New("boom")).Do(func(_ ...interface{}) {
+		go func() { close(s.setupDone) }()
+	})
 
 	task := s.newProvisionerTaskWithBroker(c, broker, map[names.MachineTag][]string{
 		names.NewMachineTag("0"): {"az1"},
 	})
+	s.sendModelMachinesChange(c, "0")
+	s.waitForWorkerSetup(c, "worker not set up")
 
 	err := workertest.CheckKill(c, task)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, gc.ErrorMatches, "failed to process updated machines: .* boom")
 }
 
 // setUpZonedEnviron creates a mock environ with instances based on those set
 // on the test suite, and 3 availability zones.
-func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller) *mocks.MockZonedEnviron {
+func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller, machines ...*testMachine) *mocks.MockZonedEnviron {
+	broker := mocks.NewMockZonedEnviron(ctrl)
+	if len(machines) == 0 {
+		return broker
+	}
+	for _, m := range machines {
+		inst := &testInstance{id: m.id}
+		s.instances = append(s.instances, inst)
+		s.machinesResults = append(s.machinesResults, apiprovisioner.MachineResult{Machine: m})
+		s.machineStatusResults = append(s.machineStatusResults, apiprovisioner.MachineStatusResult{Machine: m, Status: params.StatusResult{
+			Status: "pending",
+		}})
+	}
+
 	instanceIds := make([]instance.Id, len(s.instances))
 	for i, inst := range s.instances {
 		instanceIds[i] = inst.Id()
@@ -595,12 +651,21 @@ func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller) *mocks
 		zones[i] = az
 	}
 
-	broker := mocks.NewMockZonedEnviron(ctrl)
 	exp := broker.EXPECT()
-	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil)
-	exp.InstanceAvailabilityZoneNames(s.callCtx, instanceIds).Return(map[instance.Id]string{}, nil)
+	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil).Times(2)
+	exp.InstanceAvailabilityZoneNames(s.callCtx, instanceIds).Return(map[instance.Id]string{}, nil).Do(func(_ ...interface{}) {
+		go func() { close(s.setupDone) }()
+	})
 	exp.AvailabilityZones(s.callCtx).Return(zones, nil)
 	return broker
+}
+
+func (s *ProvisionerTaskSuite) waitForWorkerSetup(c *gc.C, msg string) {
+	select {
+	case <-s.setupDone:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf(msg)
+	}
 }
 
 func (s *ProvisionerTaskSuite) waitForTask(c *gc.C, expectedCalls []string) {
@@ -786,6 +851,9 @@ func (m *testMachine) Life() life.Value {
 }
 
 func (m *testMachine) InstanceId() (instance.Id, error) {
+	if m.instance == nil {
+		return "", params.Error{Code: "not provisioned"}
+	}
 	return m.instance.Id(), nil
 }
 
@@ -842,7 +910,7 @@ func (m *testMachine) SetStatus(_ status.Status, _ string, _ map[string]interfac
 }
 
 func (m *testMachine) Status() (status.Status, string, error) {
-	return "", "", nil
+	return "pending", "", nil
 }
 
 func (m *testMachine) ModelAgentVersion() (*version.Number, error) {
@@ -911,7 +979,7 @@ func (m *startInstanceParamsMatcher) addMatch(msg string, match func(environs.St
 func newAZConstraintStartInstanceParamsMatcher(zones ...string) *startInstanceParamsMatcher {
 	match := func(p environs.StartInstanceParams) bool {
 		if !p.Constraints.HasZones() {
-			return false
+			return len(zones) == 0
 		}
 		cZones := *p.Constraints.Zones
 		if len(cZones) != len(zones) {
