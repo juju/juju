@@ -5,11 +5,6 @@ package provider_test
 
 import (
 	"io"
-	"io/ioutil"
-	"os"
-	osexec "os/exec"
-	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -104,22 +99,8 @@ MIIDBDCCAeygAwIBAgIJAPUHbpCysNxyMA0GCSqGSIb3DQEBCwUAMBcxFTATBgNV`[1:],
 	}
 }
 
-func (s *builtinSuite) ensureMicrok8s(c *gc.C) func() {
-	tmpDir := c.MkDir()
-	if runtime.GOOS == "windows" {
-		err := ioutil.WriteFile(filepath.Join(tmpDir, "microk8s.exe"), []byte("#!/usr/bin/env powershell"), 0777)
-		c.Check(err, jc.ErrorIsNil)
-	} else {
-		err := ioutil.WriteFile(filepath.Join(tmpDir, "microk8s"), []byte("#!/bin/bash"), 0777)
-		c.Check(err, jc.ErrorIsNil)
-	}
-	s.PatchEnvironment("PATH", tmpDir)
-	_, err := osexec.LookPath("microk8s")
-	c.Assert(err, jc.ErrorIsNil)
-	return func() { os.RemoveAll(tmpDir) }
-}
-
 func (s *builtinSuite) TestGetLocalMicroK8sConfigNotInstalled(c *gc.C) {
+	s.runner.Call("LookPath", "microk8s").Returns("", errors.NotFoundf("microk8s"))
 	result, err := provider.GetLocalMicroK8sConfig(s.runner)
 	c.Assert(err, gc.ErrorMatches, `microk8s not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -127,7 +108,7 @@ func (s *builtinSuite) TestGetLocalMicroK8sConfigNotInstalled(c *gc.C) {
 }
 
 func (s *builtinSuite) TestGetLocalMicroK8sConfigCallFails(c *gc.C) {
-	s.ensureMicrok8s(c)
+	s.runner.Call("LookPath", "microk8s").Returns("", nil)
 	s.runner.Call(
 		"RunCommands",
 		exec.RunParams{Commands: "microk8s config"}).Returns(&exec.ExecResponse{Code: 1, Stderr: []byte("cannot find config")}, nil)
@@ -137,7 +118,7 @@ func (s *builtinSuite) TestGetLocalMicroK8sConfigCallFails(c *gc.C) {
 }
 
 func (s *builtinSuite) TestGetLocalMicroK8sConfig(c *gc.C) {
-	s.ensureMicrok8s(c)
+	s.runner.Call("LookPath", "microk8s").Returns("", nil)
 	s.runner.Call(
 		"RunCommands",
 		exec.RunParams{Commands: "microk8s config"}).Returns(&exec.ExecResponse{Code: 0, Stdout: []byte("a bunch of config")}, nil)
@@ -148,7 +129,7 @@ func (s *builtinSuite) TestGetLocalMicroK8sConfig(c *gc.C) {
 }
 
 func (s *builtinSuite) TestAttemptMicroK8sCloud(c *gc.C) {
-	s.ensureMicrok8s(c)
+	s.runner.Call("LookPath", "microk8s").Returns("", nil)
 	s.runner.Call(
 		"RunCommands",
 		exec.RunParams{Commands: "microk8s config"}).Returns(&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sConfig)}, nil)
@@ -175,6 +156,7 @@ func (s *builtinSuite) TestAttemptMicroK8sCloud(c *gc.C) {
 }
 
 func (s *builtinSuite) TestAttemptMicroK8sCloudErrors(c *gc.C) {
+	s.runner.Call("LookPath", "microk8s").Returns("", errors.NotFoundf("microk8s"))
 	k8sCloud, err := provider.AttemptMicroK8sCloud(s.runner)
 	c.Assert(err, gc.ErrorMatches, `microk8s not found`)
 	c.Assert(k8sCloud, gc.DeepEquals, cloud.Cloud{})

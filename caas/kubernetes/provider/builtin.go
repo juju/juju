@@ -5,7 +5,6 @@ package provider
 
 import (
 	"bytes"
-	osexec "os/exec"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
@@ -65,7 +64,7 @@ func attemptMicroK8sCredential(cmdRunner CommandRunner) (jujucloud.Credential, e
 }
 
 func getLocalMicroK8sConfig(cmdRunner CommandRunner) ([]byte, error) {
-	_, err := osexec.LookPath("microk8s")
+	_, err := cmdRunner.LookPath("microk8s")
 	if err != nil {
 		return []byte{}, errors.NotFoundf("microk8s")
 	}
