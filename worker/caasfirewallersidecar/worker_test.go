@@ -7,6 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
@@ -78,7 +79,7 @@ func (s *workerSuite) initConfig(c *gc.C) *gomock.Controller {
 		FirewallerAPI:  s.firewallerAPI,
 		Broker:         s.broker,
 		LifeGetter:     s.lifeGetter,
-		Logger:         noopLogger{},
+		Logger:         loggo.GetLogger("test"),
 	}
 	return ctrl
 }

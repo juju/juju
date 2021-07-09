@@ -10,6 +10,7 @@ import (
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
@@ -75,7 +76,7 @@ func (s *appWorkerSuite) getWorker(c *gc.C) worker.Worker {
 		s.firewallerAPI,
 		s.broker,
 		s.lifeGetter,
-		noopLogger{},
+		loggo.GetLogger("test"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
