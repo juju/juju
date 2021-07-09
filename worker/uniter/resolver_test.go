@@ -190,7 +190,10 @@ func (s *iaasResolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
 			Started:   true,
 		},
 	}
+
 	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesPrepareStarted
+	s.remoteState.UpgradeSeriesTarget = "focal"
+
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run pre-series-upgrade hook")
