@@ -1697,6 +1697,10 @@ func (e *exporter) operations() error {
 	}
 	e.logger.Debugf("read %d operations", len(operations))
 	for _, op := range operations {
+		opDetails, ok := op.(*operation)
+		if !ok {
+			return errors.Errorf("operation must be of type operation")
+		}
 		arg := description.OperationArgs{
 			Summary:           op.Summary(),
 			Fail:              op.Fail(),
@@ -1704,7 +1708,8 @@ func (e *exporter) operations() error {
 			Started:           op.Started(),
 			Completed:         op.Completed(),
 			Status:            string(op.Status()),
-			CompleteTaskCount: op.(*operation).doc.CompleteTaskCount,
+			CompleteTaskCount: opDetails.doc.CompleteTaskCount,
+			SpawnedTaskCount:  opDetails.doc.SpawnedTaskCount,
 			Id:                op.Id(),
 		}
 		e.model.AddOperation(arg)

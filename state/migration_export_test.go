@@ -1667,7 +1667,7 @@ func (s *MigrationExportSuite) TestActions(c *gc.C) {
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	operationID, err := m.EnqueueOperation("a test")
+	operationID, err := m.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	a, err := m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1700,7 +1700,7 @@ func (s *MigrationExportSuite) TestActionsSkipped(c *gc.C) {
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	operationID, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1719,7 +1719,7 @@ func (s *MigrationExportSuite) TestOperations(c *gc.C) {
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	operationID, err := m.EnqueueOperation("a test")
+	operationID, err := m.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.FailOperation(operationID, errors.New("fail"))
 	c.Assert(err, jc.ErrorIsNil)

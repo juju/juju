@@ -74,7 +74,7 @@ func (s *watcherSuite) TestLegacyActionNotificationWatcher(c *gc.C) {
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange()
 
-	operationID, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.Model.AddAction(unit, operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)

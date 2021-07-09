@@ -280,7 +280,11 @@ func (a *action) Begin() (Action, error) {
 					return nil, errors.Trace(err)
 				}
 			}
-			if err == nil && parentOperation.(*operation).doc.Status == ActionPending {
+			parentOpDetails, ok := parentOperation.(*operation)
+			if !ok {
+				return nil, errors.Errorf("parentOperation must be of type operation")
+			}
+			if err == nil && parentOpDetails.doc.Status == ActionPending {
 				updateOperationOp = &txn.Op{
 					C:      operationsC,
 					Id:     a.st.docID(parentOperation.Id()),
@@ -424,13 +428,17 @@ func (a *action) removeAndLogBuildTxn(finalStatus ActionStatus, results map[stri
 		var updateOperationOp *txn.Op
 		var err error
 		if parentOperation != nil {
+			parentOpDetails, ok := parentOperation.(*operation)
+			if !ok {
+				return nil, errors.Errorf("parentOperation must be of type operation")
+			}
 			if attempt > 0 {
 				err = parentOperation.Refresh()
 				if err != nil && !errors.IsNotFound(err) {
 					return nil, errors.Trace(err)
 				}
 			}
-			tasks := parentOperation.(*operation).taskStatus
+			tasks := parentOpDetails.taskStatus
 			statusStats := set.NewStrings(string(finalStatus))
 			var numComplete int
 			for _, status := range tasks {
@@ -439,7 +447,8 @@ func (a *action) removeAndLogBuildTxn(finalStatus ActionStatus, results map[stri
 					numComplete++
 				}
 			}
-			if numComplete == len(tasks)-1 {
+			spawnedTaskCount := parentOpDetails.doc.SpawnedTaskCount
+			if numComplete == spawnedTaskCount-1 {
 				// Set the operation status based on the individual
 				// task status values. eg if any task is failed,
 				// the entire operation is considered failed.
@@ -451,20 +460,23 @@ func (a *action) removeAndLogBuildTxn(finalStatus ActionStatus, results map[stri
 					}
 				}
 				updateOperationOp = &txn.Op{
-					C:      operationsC,
-					Id:     a.st.docID(parentOperation.Id()),
-					Assert: assertNotComplete,
+					C:  operationsC,
+					Id: a.st.docID(parentOperation.Id()),
+					Assert: append(assertNotComplete,
+						bson.DocElem{"complete-task-count", bson.D{{"$eq", spawnedTaskCount - 1}}}),
 					Update: bson.D{{"$set", bson.D{
 						{"status", finalOperationStatus},
 						{"completed", completedTime},
-						{"complete-task-count", numComplete + 1},
+						{"complete-task-count", spawnedTaskCount},
 					}}},
 				}
 			} else {
 				updateOperationOp = &txn.Op{
-					C:      operationsC,
-					Id:     a.st.docID(parentOperation.Id()),
-					Assert: bson.D{{"complete-task-count", bson.D{{"$lt", len(tasks) - 1}}}},
+					C:  operationsC,
+					Id: a.st.docID(parentOperation.Id()),
+					Assert: append(assertNotComplete,
+						bson.DocElem{"complete-task-count",
+							bson.D{{"$lt", spawnedTaskCount - 1}}}),
 					Update: bson.D{{"$inc", bson.D{
 						{"complete-task-count", 1},
 					}}},

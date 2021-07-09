@@ -79,7 +79,7 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 		}
 	}
 	summary := fmt.Sprintf("%v run on %v", operationName, strings.Join(receivers, ","))
-	operationID, err := a.model.EnqueueOperation(summary)
+	operationID, err := a.model.EnqueueOperation(summary, len(receivers))
 	if err != nil {
 		return "", params.ActionResults{}, errors.Annotate(err, "creating operation for actions")
 	}
