@@ -4,6 +4,7 @@
 package migrationmaster
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -302,8 +303,8 @@ func (c *Client) MinionReportTimeout() (time.Duration, error) {
 // will yield the logs on or after that time - these are the logs that
 // need to be transferred to the target after the migration is
 // successful.
-func (c *Client) StreamModelLog(start time.Time) (<-chan common.LogMessage, error) {
-	return common.StreamDebugLog(c.caller.RawAPICaller(), common.DebugLogParams{
+func (c *Client) StreamModelLog(ctx context.Context, start time.Time) (<-chan common.LogMessage, error) {
+	return common.StreamDebugLog(ctx, c.caller.RawAPICaller(), common.DebugLogParams{
 		Replay:    true,
 		NoTail:    true,
 		StartTime: start,

@@ -4,6 +4,7 @@
 package migrationmaster_test
 
 import (
+	"context"
 	"net/http"
 	"net/textproto"
 	"net/url"
@@ -762,7 +763,7 @@ func (s *Suite) TestSUCCESSMinionWaitTimeout(c *gc.C) {
 			{"facade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{"StreamModelLog", []interface{}{time.Time{}}},
+			{"StreamModelLog", []interface{}{context.TODO(), time.Time{}}},
 			openDestLogStreamCall,
 			{"facade.SetPhase", []interface{}{coremigration.REAP}},
 			{"facade.Reap", nil},

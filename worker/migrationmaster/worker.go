@@ -4,6 +4,7 @@
 package migrationmaster
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -109,7 +110,7 @@ type Facade interface {
 	// will yield the logs on or after that time - these are the logs
 	// that need to be transferred to the target after the migration
 	// is successful.
-	StreamModelLog(time.Time) (<-chan common.LogMessage, error)
+	StreamModelLog(context.Context, time.Time) (<-chan common.LogMessage, error)
 }
 
 // Config defines the operation of a Worker.
@@ -582,7 +583,10 @@ func (w *Worker) transferLogs(targetInfo coremigration.TargetInfo, modelUUID str
 
 	throwWrench := latestLogTime == utcZero && wrench.IsActive("migrationmaster", "die-after-500-log-messages")
 
-	logSource, err := w.config.Facade.StreamModelLog(latestLogTime)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	logSource, err := w.config.Facade.StreamModelLog(ctx, latestLogTime)
 	if err != nil {
 		return errors.Annotate(err, "opening source log stream")
 	}
