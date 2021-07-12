@@ -33,10 +33,6 @@ type Machine interface {
 	// addresses.
 	// TODO (manadart 2021-06-15): Indirect this too.
 	AllDeviceAddresses() ([]*state.Address, error)
-
-	// AllDeviceSpaceAddresses returns all known addresses
-	// from the machine's link-layer devices.
-	AllDeviceSpaceAddresses() (network.SpaceAddresses, error)
 }
 
 // machine shims the state representation of a machine in order to implement
@@ -52,6 +48,9 @@ type NetworkInfoIAAS struct {
 	// machine is where the unit resides.
 	machine Machine
 
+	// subs is the collection of subnets in the machine's model.
+	subs network.SubnetInfos
+
 	// machineNetworkInfos contains network info for the unit's machine,
 	// keyed by spaces that the unit is bound to.
 	machineNetworkInfos map[string]params.NetworkInfoResult
@@ -65,10 +64,14 @@ func newNetworkInfoIAAS(base *NetworkInfoBase) (*NetworkInfoIAAS, error) {
 
 	netInfo := &NetworkInfoIAAS{NetworkInfoBase: base}
 
-	if err := netInfo.populateUnitMachine(); err != nil {
+	var err error
+	if err = netInfo.populateUnitMachine(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := netInfo.populateMachineNetworkInfos(); err != nil {
+	if netInfo.subs, err = netInfo.st.AllSubnetInfos(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err = netInfo.populateMachineNetworkInfos(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -265,7 +268,12 @@ func (n *NetworkInfoIAAS) populateMachineNetworkInfos() error {
 		addrByIP[addr.Value()] = addr
 	}
 
-	spaceAddrs, err := n.machine.AllDeviceSpaceAddresses()
+	candidates := make([]network.SpaceAddressCandidate, len(addrs))
+	for i, addr := range addrs {
+		candidates[i] = addr
+	}
+
+	spaceAddrs, err := network.ConvertToSpaceAddresses(candidates, n.subs)
 	if err != nil {
 		n.populateMachineNetworkInfoErrors(spaceSet, err)
 		return nil

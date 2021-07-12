@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -307,6 +306,13 @@ func getBootstrapResourceName(stackName string, name string) string {
 
 func (c *controllerStack) getResourceName(name string) string {
 	return getBootstrapResourceName(c.stackName, name)
+}
+
+func (c *controllerStack) pathJoin(elem ...string) string {
+	// Setting series for bootstrapping to kubernetes is currently not supported.
+	// We always use forward-slash because Linux is the only OS we support now.
+	pathSeparator := "/"
+	return strings.Join(elem, pathSeparator)
 }
 
 func (c *controllerStack) getControllerSecret() (secret *core.Secret, err error) {
@@ -1110,14 +1116,14 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 				"--tls",
 				"--tlsAllowInvalidHostnames",
 				"--tlsAllowInvalidCertificates",
-				fmt.Sprintf("--tlsCertificateKeyFile=%s/%s", c.pcfg.DataDir, c.fileNameSSLKey),
+				fmt.Sprintf("--tlsCertificateKeyFile=%s", c.pathJoin(c.pcfg.DataDir, c.fileNameSSLKey)),
 				"--eval",
 				"db.adminCommand('ping')",
 			},
 		}
 		args := []string{
-			fmt.Sprintf("--dbpath=%s/db", c.pcfg.DataDir),
-			fmt.Sprintf("--tlsCertificateKeyFile=%s/%s", c.pcfg.DataDir, c.fileNameSSLKey),
+			fmt.Sprintf("--dbpath=%s", c.pathJoin(c.pcfg.DataDir, "db")),
+			fmt.Sprintf("--tlsCertificateKeyFile=%s", c.pathJoin(c.pcfg.DataDir, c.fileNameSSLKey)),
 			"--tlsCertificateKeyFilePassword=ignored",
 			"--tlsMode=requireTLS",
 			fmt.Sprintf("--port=%d", c.portMongoDB),
@@ -1127,7 +1133,7 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 			"--oplogSize=1024",
 			"--ipv6",
 			"--auth",
-			fmt.Sprintf("--keyFile=%s/%s", c.pcfg.DataDir, c.fileNameSharedSecret),
+			fmt.Sprintf("--keyFile=%s", c.pathJoin(c.pcfg.DataDir, c.fileNameSharedSecret)),
 			"--storageEngine=wiredTiger",
 			"--bind_ip_all",
 		}
@@ -1176,18 +1182,18 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 				},
 				{
 					Name:      c.pvcNameControllerPodStorage,
-					MountPath: filepath.Join(c.pcfg.DataDir, "db"),
+					MountPath: c.pathJoin(c.pcfg.DataDir, "db"),
 					SubPath:   "db",
 				},
 				{
 					Name:      c.resourceNameVolSSLKey,
-					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSSLKeyMount),
+					MountPath: c.pathJoin(c.pcfg.DataDir, c.fileNameSSLKeyMount),
 					SubPath:   c.fileNameSSLKeyMount,
 					ReadOnly:  true,
 				},
 				{
 					Name:      c.resourceNameVolSharedSecret,
-					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSharedSecret),
+					MountPath: c.pathJoin(c.pcfg.DataDir, c.fileNameSharedSecret),
 					SubPath:   c.fileNameSharedSecret,
 					ReadOnly:  true,
 				},
@@ -1223,7 +1229,7 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 				},
 				{
 					Name: c.resourceNameVolAgentConf,
-					MountPath: filepath.Join(
+					MountPath: c.pathJoin(
 						c.pcfg.DataDir,
 						"agents",
 						"controller-"+c.pcfg.ControllerId,
@@ -1233,19 +1239,19 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 				},
 				{
 					Name:      c.resourceNameVolSSLKey,
-					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSSLKeyMount),
+					MountPath: c.pathJoin(c.pcfg.DataDir, c.fileNameSSLKeyMount),
 					SubPath:   c.fileNameSSLKeyMount,
 					ReadOnly:  true,
 				},
 				{
 					Name:      c.resourceNameVolSharedSecret,
-					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSharedSecret),
+					MountPath: c.pathJoin(c.pcfg.DataDir, c.fileNameSharedSecret),
 					SubPath:   c.fileNameSharedSecret,
 					ReadOnly:  true,
 				},
 				{
 					Name:      c.resourceNameVolBootstrapParams,
-					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameBootstrapParams),
+					MountPath: c.pathJoin(c.pcfg.DataDir, c.fileNameBootstrapParams),
 					SubPath:   c.fileNameBootstrapParams,
 					ReadOnly:  true,
 				},
@@ -1262,7 +1268,7 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		loggingOption = "--debug"
 	}
 
-	agentConfigRelativePath := filepath.Join(
+	agentConfigRelativePath := c.pathJoin(
 		"agents",
 		fmt.Sprintf("controller-%s", c.pcfg.ControllerId),
 		c.fileNameAgentConf,
@@ -1278,15 +1284,17 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		}
 		// only do bootstrap-state on the bootstrap controller - controller-0.
 		jujudCmd += "\n" + fmt.Sprintf(
-			"test -e $JUJU_DATA_DIR/%s || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/%s --data-dir $JUJU_DATA_DIR %s --timeout %s",
-			agentConfigRelativePath,
-			c.fileNameBootstrapParams,
+			"test -e %s || %s bootstrap-state %s --data-dir $JUJU_DATA_DIR %s --timeout %s",
+			c.pathJoin("$JUJU_DATA_DIR", agentConfigRelativePath),
+			c.pathJoin("$JUJU_TOOLS_DIR", "jujud"),
+			c.pathJoin("$JUJU_DATA_DIR", c.fileNameBootstrapParams),
 			loggingOption,
 			c.timeout.String(),
 		)
 	}
 	jujudCmd += "\n" + fmt.Sprintf(
-		"$JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id %s --log-to-stderr %s",
+		"%s machine --data-dir $JUJU_DATA_DIR --controller-id %s --log-to-stderr %s",
+		c.pathJoin("$JUJU_TOOLS_DIR", "jujud"),
 		c.pcfg.ControllerId,
 		loggingOption,
 	)

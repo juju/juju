@@ -67,7 +67,7 @@ type Paths interface {
 	// the hook tool symlinks.
 	GetToolsDir() string
 
-	// GetCharmDir returns the filesystem path to the directory in which
+	// GetBaseDir returns the filesystem path to the directory in which
 	// the charm is installed.
 	GetBaseDir() string
 
@@ -186,8 +186,9 @@ type HookContext struct {
 	// address.
 	publicAddress string
 
-	// availabilityzone is the cached value of the unit's availability zone name.
-	availabilityzone string
+	// availabilityZone is the cached value of the unit's
+	// availability zone name.
+	availabilityZone string
 
 	// configSettings holds the application configuration.
 	configSettings charm.Settings
@@ -246,10 +247,12 @@ type HookContext struct {
 	// apiAddrs contains the API server addresses.
 	apiAddrs []string
 
-	// legacyProxySettings are the current legacy proxy settings that the uniter knows about.
+	// legacyProxySettings are the current legacy proxy settings
+	// that the uniter knows about.
 	legacyProxySettings proxy.Settings
 
-	// jujuProxySettings are the current juju proxy settings that the uniter knows about.
+	// jujuProxySettings are the current juju proxy settings
+	// that the uniter knows about.
 	jujuProxySettings proxy.Settings
 
 	// meterStatus is the status of the unit's metering.
@@ -266,14 +269,16 @@ type HookContext struct {
 	// like a juju-exec command or a hook
 	process HookProcess
 
-	// rebootPriority tells us when the hook wants to reboot. If rebootPriority is hooks.RebootNow
-	// the hook will be killed and requeued
+	// rebootPriority tells us when the hook wants to reboot. If rebootPriority
+	// is hooks.RebootNow the hook will be killed and requeued.
 	rebootPriority jujuc.RebootPriority
 
-	// storage provides access to the information about storage attached to the unit.
+	// storage provides access to the information about storage
+	// attached to the unit.
 	storage StorageContextAccessor
 
-	// storageId is the tag of the storage instance associated with the running hook.
+	// storageId is the tag of the storage instance associated
+	// with the running hook.
 	storageTag names.StorageTag
 
 	// hasRunSetStatus is true if a call to the status-set was made during the
@@ -321,6 +326,10 @@ type HookContext struct {
 
 	// workloadName is the name of the container which the hook is in relation to.
 	workloadName string
+
+	// seriesUpgradeTarget is the series that the unit's machine is to be
+	// updated to when Juju is issued the `upgrade-series` command.
+	seriesUpgradeTarget string
 
 	mu sync.Mutex
 }
@@ -667,10 +676,10 @@ func (ctx *HookContext) PrivateAddress() (string, error) {
 // if it was not found (or is not available).
 // Implements jujuc.HookContext.ContextInstance, part of runner.Context.
 func (ctx *HookContext) AvailabilityZone() (string, error) {
-	if ctx.availabilityzone == "" {
+	if ctx.availabilityZone == "" {
 		return "", errors.NotFoundf("availability zone")
 	}
-	return ctx.availabilityzone, nil
+	return ctx.availabilityZone, nil
 }
 
 // StorageTags returns a list of tags for storage instances
@@ -995,7 +1004,7 @@ func (ctx *HookContext) HookVars(
 		"JUJU_SLA="+ctx.slaLevel,
 		"JUJU_MACHINE_ID="+ctx.assignedMachineTag.Id(),
 		"JUJU_PRINCIPAL_UNIT="+ctx.principal,
-		"JUJU_AVAILABILITY_ZONE="+ctx.availabilityzone,
+		"JUJU_AVAILABILITY_ZONE="+ctx.availabilityZone,
 		"JUJU_VERSION="+version.Current.String(),
 		"CLOUD_API_VERSION="+ctx.cloudAPIVersion,
 		// Some of these will be empty, but that is fine, better
@@ -1044,6 +1053,11 @@ func (ctx *HookContext) HookVars(
 		vars = append(vars, "JUJU_WORKLOAD_NAME="+ctx.workloadName)
 	}
 
+	if ctx.seriesUpgradeTarget != "" {
+		vars = append(vars,
+			"JUJU_TARGET_SERIES="+ctx.seriesUpgradeTarget,
+		)
+	}
 	return append(vars, OSDependentEnvVars(paths, env)...), nil
 }
 
