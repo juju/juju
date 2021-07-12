@@ -103,9 +103,9 @@ func (s *relationNetworksSuite) TestSaveAdminOverrides(c *gc.C) {
 }
 
 func (s *relationNetworksSuite) TestSaveIdempotent(c *gc.C) {
-	rin, err := s.relationNetworks.Save("wordpress:db mysql:server", false, []string{"192.168.1.0/16"})
+	_, err := s.relationNetworks.Save("wordpress:db mysql:server", false, []string{"192.168.1.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
-	rin, err = s.relationNetworks.Save("wordpress:db mysql:server", false, []string{"192.168.1.0/16"})
+	rin, err := s.relationNetworks.Save("wordpress:db mysql:server", false, []string{"192.168.1.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rin.RelationKey(), gc.Equals, "wordpress:db mysql:server")
 	c.Assert(rin.CIDRS(), jc.DeepEquals, []string{"192.168.1.0/16"})

@@ -533,7 +533,7 @@ func (*suite) TestPromotedMongoInfo(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attrParams)
 	c.Assert(err, jc.ErrorIsNil)
 
-	mongoInfo, ok := conf.MongoInfo()
+	_, ok := conf.MongoInfo()
 	c.Assert(ok, jc.IsFalse)
 
 	// Promote the agent to a controller by
@@ -542,7 +542,7 @@ func (*suite) TestPromotedMongoInfo(c *gc.C) {
 	// to use MongoInfo.
 	conf.SetStateServingInfo(stateServingInfo())
 
-	mongoInfo, ok = conf.MongoInfo()
+	mongoInfo, ok := conf.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69", "3.4.2.1:69"})
 	c.Check(mongoInfo.Info.DisableTLS, jc.IsFalse)
