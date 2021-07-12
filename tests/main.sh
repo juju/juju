@@ -19,6 +19,7 @@ OPTIND=1
 VERBOSE=1
 RUN_ALL="false"
 SKIP_LIST=""
+RUN_LIST=""
 ARITFACT_FILE=""
 OUTPUT_FILE=""
 
@@ -330,6 +331,21 @@ if [[ $# -gt 0 ]]; then
 		export RUN_SUBTEST="${2}"
 		echo "==> Running subtest: ${2}"
 		run_test "test_${1}" "" "" "${TEST}"
+		TEST_RESULT=success
+		exit
+	fi
+	# shellcheck disable=SC2143
+	if [[ "$(echo "${2}" | grep -E "^test_")" ]]; then
+		TEST="$(grep -lr "${2}" "suites/${1}")"
+		if [[ -z ${TEST} ]]; then
+			echo "==> Unable to find test ${2} in ${1}."
+			echo "    Try and run the test suite directly."
+			exit 1
+		fi
+
+		export RUN_LIST="test_${1},${2}"
+		echo "==> Running subtest ${2} for ${1} suite"
+		run_test "test_${1}" "${1}" "" ""
 		TEST_RESULT=success
 		exit
 	fi
