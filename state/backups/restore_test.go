@@ -54,10 +54,9 @@ func (r *RestoreSuite) TestReplicasetIsReset(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer server.DestroyWithLog()
 	mgoAddr := server.Addr()
-	dialInfo := server.DialInfo()
 
 	var cfg *replicaset.Config
-	dialInfo = server.DialInfo()
+	dialInfo := server.DialInfo()
 	dialInfo.Addrs = []string{mgoAddr}
 	err = resetReplicaSet(dialInfo, mgoAddr)
 	c.Assert(err, jc.ErrorIsNil)
