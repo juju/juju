@@ -1060,6 +1060,7 @@ type LogRecord struct {
 	Level    string    `json:"v"`
 	Message  string    `json:"x"`
 	Entity   string    `json:"e,omitempty"`
+	Labels   []string  `json:"c,omitempty"`
 }
 
 // PubSubMessage is used to propagate pubsub messages from one api server to the

@@ -52,13 +52,18 @@ The '--include-module' and '--exclude-module' options filter by (dotted)
 logging module name. The module name can be truncated such that all loggers
 with the prefix will match.
 
+The '--include-label' and '--exclude-label' options filter by logging label. 
+
 The filtering options combine as follows:
 * All --include options are logically ORed together.
 * All --exclude options are logically ORed together.
 * All --include-module options are logically ORed together.
 * All --exclude-module options are logically ORed together.
-* The combined --include, --exclude, --include-module and --exclude-module
-  selections are logically ANDed to form the complete filter.
+* All --include-labels options are logically ORed together.
+* All --exclude-labels options are logically ORed together.
+* The combined --include, --exclude, --include-module, --exclude-module,
+  --include-labels and --exclude-labels selections are logically ANDed to form 
+  the complete filter.
 
 Examples:
 
@@ -150,6 +155,8 @@ func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeEntity), "exclude", "Do not show log messages for these entities")
 	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeModule), "include-module", "Only show log messages for these logging modules")
 	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeModule), "exclude-module", "Do not show log messages for these logging modules")
+	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeLabel), "include-label", "Only show log messages for these logging labels")
+	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeLabel), "exclude-label", "Do not show log messages for these logging labels")
 
 	f.StringVar(&c.level, "l", "", "Log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR]")
 	f.StringVar(&c.level, "level", "", "")
@@ -310,6 +317,9 @@ func (c *debugLogCommand) writeLogRecord(w *ansiterm.Writer, r common.LogMessage
 	fmt.Fprintf(w, " %s ", r.Module)
 	if c.location {
 		loggocolor.LocationColor.Fprintf(w, "%s ", r.Location)
+	}
+	if len(r.Labels) > 0 {
+		fmt.Fprintf(w, "%v", r.Labels)
 	}
 	fmt.Fprintln(w, r.Message)
 }

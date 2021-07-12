@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -135,7 +136,7 @@ type charmHubClientFactory struct {
 }
 
 func (f charmHubClientFactory) Client(url string) (Client, error) {
-	cfg, err := charmhub.CharmHubConfigFromURL(url, logger.Child("client"),
+	cfg, err := charmhub.CharmHubConfigFromURL(url, logger.ChildWithLabels("client", corelogger.HTTP),
 		charmhub.WithHTTPTransport(f.httpTransport),
 	)
 	if err != nil {
