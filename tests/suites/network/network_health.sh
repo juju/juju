@@ -19,9 +19,8 @@ run_network_health() {
 	juju add-relation network-health-xenial mongodb
 	juju add-relation network-health-bionic ubuntu-bionic
 
-	wait_for "mongodb" "$(idle_condition "mongodb")"
-	wait_for "ubuntu-bionic" "$(idle_condition "ubuntu-bionic" 4)"
-	wait_for "ubuntu-focal" "$(idle_condition "ubuntu-focal" 5)"
+	wait_for "mongodb" "$(idle_condition "mongodb" 0)"
+	wait_for "ubuntu-bionic" "$(idle_condition "ubuntu-bionic" 3)"
 	wait_for "network-health-xenial" "$(idle_subordinate_condition "network-health-xenial" "mongodb")"
 	wait_for "network-health-bionic" "$(idle_subordinate_condition "network-health-bionic" "ubuntu-bionic")"
 
@@ -46,13 +45,13 @@ check_default_routes() {
 check_accessibility() {
 	echo "[+] checking neighbour connectivity and external access"
 
-	for net_health_unit in "network-health-xenial/0" "network-health-bionic/0" "network-health-focal/0"; do
+	for net_health_unit in "network-health-xenial/0" "network-health-bionic/0"; do
 		ip="$(juju show-unit $net_health_unit --format json | jq -r ".[\"$net_health_unit\"] | .[\"public-address\"]")"
 
 		curl_cmd="curl 2>/dev/null ${ip}:8039"
 
 		# Check that each of the principles can access the subordinate.
-		for principle_unit in "mongodb/0" "ubuntu-bionic/0" "ubuntu-focal/0"; do
+		for principle_unit in "mongodb/0" "ubuntu-bionic/0"; do
 			check_contains "$(juju run --unit $principle_unit "$curl_cmd")" "pass"
 		done
 
