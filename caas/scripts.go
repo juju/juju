@@ -14,15 +14,13 @@ cp /opt/jujud $JUJU_TOOLS_DIR/jujud
 %[3]s
 `[1:]
 
-	// ContainerAgentStartUpSh is the start script for in-pod style k8s agents.
-	ContainerAgentStartUpSh = `
-export JUJU_DATA_DIR=%[1]s
-export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/%[2]s
-
-mkdir -p $JUJU_TOOLS_DIR
-cp /opt/containeragent $JUJU_TOOLS_DIR/containeragent
-# The in-pod style agent uses for hooks - hook tools are symlinks of jujuc.
-cp /opt/jujuc $JUJU_TOOLS_DIR/jujuc
-%[3]s
+	// MongoStartupShTemplate is used to generate the start script for mongodb.
+	MongoStartupShTemplate = `
+args="%s"
+ipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)
+if [ $ipv6Disabled -eq 0 ]; then
+  args="${args} --ipv6"
+fi
+$(mongod ${args})
 `[1:]
 )
