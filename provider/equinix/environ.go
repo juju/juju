@@ -476,15 +476,6 @@ EOF`,
 	}
 
 	inst := &equinixDevice{e, d}
-	mem, err := strconv.ParseUint(d.Plan.Specs.Memory.Total[:len(d.Plan.Specs.Memory.Total)-2], 10, 64)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var cpus uint64 = 1
-	if inst.Plan != nil && inst.Plan.Specs != nil && len(inst.Plan.Specs.Cpus) > 0 {
-		cpus = uint64(inst.Plan.Specs.Cpus[0].Count)
-	}
 
 	arch := getArchitectureFromPlan(d.Plan.Name)
 
@@ -492,9 +483,9 @@ EOF`,
 		Instance: inst,
 		Hardware: &instance.HardwareCharacteristics{
 			Arch: &arch,
-			Mem:  &mem,
+			Mem:  &spec.InstanceType.Mem,
 			// RootDisk: &instanceSpec.InstanceType.RootDisk,
-			CpuCores: &cpus,
+			CpuCores: &spec.InstanceType.CpuCores,
 		},
 	}, nil
 }
