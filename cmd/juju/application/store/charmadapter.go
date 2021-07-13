@@ -73,16 +73,22 @@ func NewCharmAdaptor(charmsAPI CharmsAPI, charmStoreRepoFunc CharmStoreRepoFunc,
 // Charms API version of 3 or greater.
 func (c *CharmAdaptor) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
 	resolved, err := c.charmsAPI.ResolveCharms([]apicharm.CharmToResolve{{URL: url, Origin: preferredOrigin, SwitchCharm: switchCharm}})
-	if errors.IsNotSupported(err) {
-		if charm.CharmHub.Matches(url.Schema) {
+	if err == nil && len(resolved) > 0 && resolved[0].Error == nil {
+		res := resolved[0]
+		return res.URL, res.Origin, res.SupportedSeries, nil
+	}
+
+	// In order to maintain backwards compatibility with the charmstore, we need
+	// to correctly handle charmhub vs charmstore failures.
+	// The following attempts to correctly fallback if the url is a charmhub
+	// charm, otherwise fallback to how the old client worked.
+	if charm.CharmHub.Matches(url.Schema) {
+		if errors.IsNotSupported(err) {
 			return nil, commoncharm.Origin{}, nil, errors.NewNotSupported(nil, "charmhub charms are not supported by the current controller; if you wish to use charmhub consider upgrading your controller to 2.9+.")
 		}
-		return c.resolveCharmFallback(url, preferredOrigin)
-	}
-	if err != nil {
 		return nil, commoncharm.Origin{}, nil, errors.Trace(err)
 	}
-	return resolved[0].URL, resolved[0].Origin, resolved[0].SupportedSeries, resolved[0].Error
+	return c.resolveCharmFallback(url, preferredOrigin)
 }
 
 func (c *CharmAdaptor) resolveCharmFallback(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error) {

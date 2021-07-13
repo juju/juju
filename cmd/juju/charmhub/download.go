@@ -424,7 +424,7 @@ func (d downloadLogger) Debugf(msg string, args ...interface{}) {
 
 func (d downloadLogger) Tracef(msg string, args ...interface{}) {}
 
-func (d downloadLogger) Child(name string) loggo.Logger {
+func (d downloadLogger) ChildWithLabels(name string, labels ...string) loggo.Logger {
 	return loggo.Logger{}
 }
 

@@ -908,6 +908,7 @@ type LogMessage struct {
 	Module    string    `json:"mod"`
 	Location  string    `json:"loc"`
 	Message   string    `json:"msg"`
+	Labels    []string  `json:"lab"`
 }
 
 // ResourceUploadResult is used to return some details about an

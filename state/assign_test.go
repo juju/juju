@@ -796,7 +796,7 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *gc.C) {
 	// Add a state management machine which can host units and check it is not chosen.
 	// Note that this must the first machine added, as AddMachine can only
 	// be used to add state-manager machines for the bootstrap machine.
-	m, err = s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
+	_, err = s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	m, err = s.assignUnit(unit)
 	c.Assert(m, gc.IsNil)

@@ -44,11 +44,11 @@ func (s *initialisationSuite) TestDetectionError(c *gc.C) {
 	// if the script fails for whatever reason, then checkProvisioned
 	// will return an error. stderr will be included in the error message.
 	defer installFakeSSH(c, sshprovisioner.DetectionScript, []string{scriptResponse, "oh noes"}, 33)()
-	hc, _, err := sshprovisioner.DetectSeriesAndHardwareCharacteristics("hostname")
+	_, _, err := sshprovisioner.DetectSeriesAndHardwareCharacteristics("hostname")
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 33 \\(oh noes\\)")
 	// if the script doesn't fail, stderr is simply ignored.
 	defer installFakeSSH(c, sshprovisioner.DetectionScript, []string{scriptResponse, "non-empty-stderr"}, 0)()
-	hc, _, err = sshprovisioner.DetectSeriesAndHardwareCharacteristics("hostname")
+	hc, _, err := sshprovisioner.DetectSeriesAndHardwareCharacteristics("hostname")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hc.String(), gc.Equals, "arch=armhf cores=1 mem=4M")
 }

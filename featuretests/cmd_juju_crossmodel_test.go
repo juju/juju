@@ -488,7 +488,7 @@ func (s *crossmodelSuite) TestFindOffersWithPermission(c *gc.C) {
 	s.addOtherModelApplication(c)
 	s.createTestUser(c)
 	s.loginTestUser(c)
-	ctx, err := cmdtesting.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
+	_, err := cmdtesting.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
 		"otheruser/othermodel", "--format", "yaml")
 	c.Assert(err, gc.ErrorMatches, ".*no matching application offers found.*")
 
@@ -497,7 +497,7 @@ func (s *crossmodelSuite) TestFindOffersWithPermission(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.loginTestUser(c)
-	ctx, err = cmdtesting.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
+	ctx, err := cmdtesting.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
 		"otheruser/othermodel", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
@@ -562,7 +562,7 @@ func (s *crossmodelSuite) TestConsumeWithPermission(c *gc.C) {
 	s.addOtherModelApplication(c)
 	s.createTestUser(c)
 	s.loginTestUser(c)
-	ctx, err := cmdtesting.RunCommand(c, application.NewConsumeCommand(),
+	_, err := cmdtesting.RunCommand(c, application.NewConsumeCommand(),
 		"-m", "admin/controller", "otheruser/othermodel.hosted-mysql")
 	c.Assert(err, gc.ErrorMatches, `application offer "otheruser/othermodel.hosted-mysql" not found`)
 
@@ -573,7 +573,7 @@ func (s *crossmodelSuite) TestConsumeWithPermission(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.loginTestUser(c)
-	ctx, err = cmdtesting.RunCommand(c, application.NewConsumeCommand(),
+	ctx, err := cmdtesting.RunCommand(c, application.NewConsumeCommand(),
 		"-m", "admin/controller", "otheruser/othermodel.hosted-mysql", "othermysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, `

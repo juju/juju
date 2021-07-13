@@ -87,6 +87,7 @@ func (s *migrationLoggingStrategy) WriteLog(m params.LogRecord) error {
 		Location: m.Location,
 		Level:    level,
 		Message:  m.Message,
+		Labels:   m.Labels,
 	}})
 	if err == nil {
 		err = s.tracker.Track(m.Time)

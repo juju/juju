@@ -583,8 +583,10 @@ func (s *ClientSuite) TestStreamModelLogs(c *gc.C) {
 		"startTime":     {"2016-12-02T10:24:01.001Z"},
 		"includeEntity": nil,
 		"includeModule": nil,
+		"includeLabel":  nil,
 		"excludeEntity": nil,
 		"excludeModule": nil,
+		"excludeLabel":  nil,
 	})
 }
 

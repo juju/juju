@@ -2195,6 +2195,8 @@ func (i *importer) addAction(action description.Action) error {
 	return nil
 }
 
+// operations takes the imported operations data and writes it to
+// the new model.
 func (i *importer) operations() error {
 	i.logger.Debugf("importing operations")
 	for _, op := range i.model.Operations() {
@@ -2220,6 +2222,7 @@ func (i *importer) addOperation(op description.Operation) error {
 		Completed:         op.Completed(),
 		Status:            ActionStatus(op.Status()),
 		CompleteTaskCount: op.CompleteTaskCount(),
+		SpawnedTaskCount:  i.countActionTasksForOperation(op),
 	}
 	ops := []txn.Op{{
 		C:      operationsC,
@@ -2231,6 +2234,20 @@ func (i *importer) addOperation(op description.Operation) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (i *importer) countActionTasksForOperation(op description.Operation) int {
+	if op.SpawnedTaskCount() > 0 {
+		return op.SpawnedTaskCount()
+	}
+	opID := op.Id()
+	var count int
+	for _, action := range i.model.Actions() {
+		if action.Operation() == opID {
+			count += 1
+		}
+	}
+	return count
 }
 
 func (i *importer) importStatusHistory(globalKey string, history []description.Status) error {

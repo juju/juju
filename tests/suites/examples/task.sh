@@ -1,5 +1,5 @@
 test_examples() {
-	if [ "$(skip 'test_example')" ]; then
+	if [ "$(skip 'test_examples')" ]; then
 		echo "==> TEST SKIPPED: example tests"
 		return
 	fi

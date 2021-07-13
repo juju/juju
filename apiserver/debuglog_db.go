@@ -77,6 +77,8 @@ func makeLogTailerParams(reqParams debugLogParams) state.LogTailerParams {
 		ExcludeEntity: reqParams.excludeEntity,
 		IncludeModule: reqParams.includeModule,
 		ExcludeModule: reqParams.excludeModule,
+		IncludeLabel:  reqParams.includeLabel,
+		ExcludeLabel:  reqParams.excludeLabel,
 	}
 	if reqParams.fromTheStart {
 		params.InitialLines = 0
@@ -92,6 +94,7 @@ func formatLogRecord(r *state.LogRecord) *params.LogMessage {
 		Module:    r.Module,
 		Location:  r.Location,
 		Message:   r.Message,
+		Labels:    r.Labels,
 	}
 }
 

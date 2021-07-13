@@ -71,7 +71,7 @@ bootstrap() {
 		cloud="${manual_name}"
 		;;
 	*)
-		echo "Unexpected bootstrap cloud (${BOOTSTRAP_PROVIDER})."
+		echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."
 		exit 1
 		;;
 	esac
@@ -157,9 +157,7 @@ add_model() {
 		juju add-model -c "${controller}" "${model}" 2>&1 | OUTPUT "${output}"
 	fi
 
-	if [[ ${BOOTSTRAP_PROVIDER} == "vsphere" ]]; then
-		add_image_for_vsphere
-	fi
+	post_add_model
 
 	echo "${model}" >>"${TEST_DIR}/models"
 }
@@ -186,7 +184,8 @@ setup_vsphere_simplestreams() {
 	fi
 
 	cloud_endpoint=$(juju clouds --client --format=json | jq -r ".[\"$BOOTSTRAP_CLOUD\"] | .endpoint")
-	juju metadata generate-image -i juju-ci-root/templates/"${series}"-test-template -r "${BOOTSTRAP_REGION}" -d "${dir}" -u "${cloud_endpoint}" -s "${series}"
+	# pipe output to test dir, otherwise becomes part of the return value.
+	juju metadata generate-image -i juju-ci-root/templates/"${series}"-test-template -r "${BOOTSTRAP_REGION}" -d "${dir}" -u "${cloud_endpoint}" -s "${series}" >>"${TEST_DIR}"/simplestreams 2>&1
 }
 
 # juju_bootstrap is used to bootstrap a model for tracking. This is for internal
@@ -218,30 +217,52 @@ juju_bootstrap() {
 		;;
 	esac
 
-	image_metadata=""
+	pre_bootstrap
 
-	if [[ ${BOOTSTRAP_PROVIDER} == "vsphere" ]]; then
+	command="juju bootstrap ${series} --build-agent=${BUILD_AGENT} ${cloud} ${name} -d ${model} ${BOOTSTRAP_ADDITIONAL_ARGS}"
+	# keep $@ here, otherwise hit SC2124
+	${command} "$@" 2>&1 | OUTPUT "${output}"
+	echo "${name}" >>"${TEST_DIR}/jujus"
+
+	post_bootstrap
+}
+
+# pre_bootstrap contains setup required before bootstrap specific to providers
+# and shouldn't be used by any of the tests directly.
+pre_bootstrap() {
+	# ensure BOOTSTRAP_ADDITIONAL_ARGS is defined, even if not necessary.
+	export BOOTSTRAP_ADDITIONAL_ARGS=""
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"vsphere")
 		echo "====> Creating image simplestream metadata for juju ($(green "${version}:${cloud}"))"
 
 		image_streams_dir=${TEST_DIR}/image-streams
 		setup_vsphere_simplestreams "${image_streams_dir}" "${BOOTSTRAP_SERIES}"
-		image_metadata="--metadata-source ${image_streams_dir}"
-	fi
+		export BOOTSTRAP_ADDITIONAL_ARGS="--metadata-source ${image_streams_dir}"
+		;;
+	esac
+}
 
-	# When double quotes are added to ${series}, the juju bootstrap
-	# command looks correct, and works outside of the harness, but
-	# does not run, goes directly to cleanup.
-	#shellcheck disable=SC2086
-	juju bootstrap ${series} \
-		--build-agent=${BUILD_AGENT} \
-		"${cloud}" "${name}" -d "${model}" ${image_metadata} "$@" 2>&1 | OUTPUT "${output}"
+# post_bootstrap contains actions required after bootstrap specific to providers
+# and shouldn't be used by any of the tests directly.  Calls post_add_model
+# models are added during bootstrap.
+post_bootstrap() {
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"vsphere")
+		rm -r "${TEST_DIR}"/image-streams
+		;;
+	esac
+	post_add_model
+}
 
-	echo "${name}" >>"${TEST_DIR}/jujus"
-
-	if [[ ${BOOTSTRAP_PROVIDER} == "vsphere" ]]; then
-		rm -r "${image_streams_dir}"
+# post_add_model does provider specific config required after a new model is added
+# and shouldn't be used by any of the tests directly.
+post_add_model() {
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"vsphere")
 		add_images_for_vsphere
-	fi
+		;;
+	esac
 }
 
 # destroy_model takes a model name and destroys a model. It first checks if the

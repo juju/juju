@@ -293,8 +293,5 @@ func (c charmMeta) Manifest() *charm.Manifest {
 // is available.
 func isKubernetes(series []string) bool {
 	seriesSet := set.NewStrings(series...)
-	if seriesSet.Contains("kubernetes") {
-		return true
-	}
-	return false
+	return seriesSet.Contains("kubernetes")
 }

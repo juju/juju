@@ -3584,3 +3584,46 @@ func UpdateDHCPAddressConfigs(pool *StatePool) error {
 	}
 	return nil
 }
+
+func AddSpawnedTaskCountToOperations(pool *StatePool) error {
+	st := pool.SystemState()
+
+	opsCol, closer := st.db().GetRawCollection(operationsC)
+	defer closer()
+	iter := opsCol.Find(nil).Iter()
+
+	actionsCol, closer := st.db().GetRawCollection(actionsC)
+	defer closer()
+
+	var ops []txn.Op
+	var doc operationDoc
+	for iter.Next(&doc) {
+		_, localID, ok := splitDocID(doc.DocId)
+		if !ok {
+			return errors.Errorf("bad data, operation _id %s", doc.DocId)
+		}
+		criteria := bson.D{
+			{"model-uuid", doc.ModelUUID},
+			{"operation", localID},
+		}
+		count, err := actionsCol.Find(criteria).Count()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops = append(ops, txn.Op{
+			C:      operationsC,
+			Id:     doc.DocId,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"spawned-task-count": count}},
+		})
+	}
+
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}

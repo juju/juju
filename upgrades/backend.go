@@ -95,6 +95,7 @@ type StateBackend interface {
 	UpdateKubernetesCloudCredentials() error
 	UpdateDHCPAddressConfigs() error
 	KubernetesInClusterCredentialSpec() (environscloudspec.CloudSpec, *config.Config, string, error)
+	AddSpawnedTaskCountToOperations() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -403,4 +404,8 @@ func (s stateBackend) UpdateDHCPAddressConfigs() error {
 func (s stateBackend) KubernetesInClusterCredentialSpec() (
 	environscloudspec.CloudSpec, *config.Config, string, error) {
 	return state.KubernetesInClusterCredentialSpec(s.pool)
+}
+
+func (s stateBackend) AddSpawnedTaskCountToOperations() error {
+	return state.AddSpawnedTaskCountToOperations(s.pool)
 }

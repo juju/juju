@@ -92,12 +92,13 @@ func (s *resolveSuite) TestResolveCharmNotCSCharm(c *gc.C) {
 	c.Assert(obtainedOrigin.Risk, gc.Equals, string(csparams.NoChannel))
 }
 
-func (s *resolveSuite) TestResolveCharmFailResolveWithChannel(c *gc.C) {
+func (s *resolveSuite) TestResolveCharmFailWithFallbackSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	curl, err := charm.ParseURL("cs:testme-3")
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectCharmResolutionCall(curl, csparams.EdgeChannel, errors.New("fail the test"))
+	s.expectCharmFallbackCall(curl, csparams.BetaChannel, csparams.EdgeChannel, nil)
 	origin := commoncharm.Origin{
 		Source: commoncharm.OriginCharmStore,
 		Risk:   "beta",
@@ -109,8 +110,8 @@ func (s *resolveSuite) TestResolveCharmFailResolveWithChannel(c *gc.C) {
 		return s.downloadClient, nil
 	})
 	_, obtainedOrigin, _, err := charmAdapter.ResolveCharm(curl, origin, false)
-	c.Assert(err, gc.NotNil)
-	c.Assert(obtainedOrigin.Risk, gc.Equals, string(csparams.NoChannel))
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtainedOrigin.Risk, gc.Equals, string(csparams.EdgeChannel))
 }
 
 func (s *resolveSuite) TestResolveCharmFailResolveWithChannelWithFallback(c *gc.C) {
@@ -291,6 +292,10 @@ func (s *resolveSuite) expectCharmResolutionCall(curl *charm.URL, out csparams.C
 
 func (s *resolveSuite) expectCharmFallbackResolutionCall(curl *charm.URL, in, out csparams.Channel, err error) {
 	s.charmsAPI.EXPECT().ResolveCharms(gomock.Any()).Return(nil, errors.NotSupportedf("ResolveCharms"))
+	s.expectCharmFallbackCall(curl, in, out, err)
+}
+
+func (s *resolveSuite) expectCharmFallbackCall(curl *charm.URL, in, out csparams.Channel, err error) {
 	s.charmRepo.EXPECT().ResolveWithPreferredChannel(
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		in,

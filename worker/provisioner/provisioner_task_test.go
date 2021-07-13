@@ -228,14 +228,20 @@ func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *gc.C) {
 	azConstraints := newAZConstraintStartInstanceParamsMatcher()
 	broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil).Times(len(machines))
 
+	// We need to coordinate access to usedZones by the worker, executing the
+	// expectations below on a separate Goroutine, and the test logic.
+	zoneLock := sync.Mutex{}
 	var usedZones []string
+
 	expectedIds := set.NewStrings()
 	for _, m := range machines {
 		expectedIds.Add(m.id)
 		broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(&environs.StartInstanceResult{
 			Instance: &testInstance{id: "instance-" + m.id},
 		}, nil).Do(func(ctx, params interface{}) {
+			zoneLock.Lock()
 			usedZones = append(usedZones, params.(environs.StartInstanceParams).AvailabilityZone)
+			zoneLock.Unlock()
 		})
 	}
 	broker.EXPECT().StopInstances(s.callCtx, gomock.Any()).Do(func(ctx interface{}, ids ...interface{}) {
@@ -253,9 +259,11 @@ func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *gc.C) {
 		Delay: 10 * time.Millisecond,
 	}
 	for a := shortAttempt.Start(); a.Next(); {
+		zoneLock.Lock()
 		if len(usedZones) == 4 {
 			break
 		}
+		zoneLock.Unlock()
 	}
 	zoneCounts := make(map[string]int)
 	for _, z := range usedZones {
@@ -654,7 +662,7 @@ func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller, machin
 	exp := broker.EXPECT()
 	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil).Times(2)
 	exp.InstanceAvailabilityZoneNames(s.callCtx, instanceIds).Return(map[instance.Id]string{}, nil).Do(func(_ ...interface{}) {
-		go func() { close(s.setupDone) }()
+		close(s.setupDone)
 	})
 	exp.AvailabilityZones(s.callCtx).Return(zones, nil)
 	return broker

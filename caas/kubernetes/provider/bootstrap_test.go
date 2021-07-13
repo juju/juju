@@ -604,7 +604,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			ImagePullPolicy: core.PullIfNotPresent,
 			Image:           "jujusolutions/juju-db:4.4",
 			Command: []string{
-				"mongod",
+				"/bin/sh",
 			},
 			Args: []string{
 				"--dbpath=/var/lib/juju/db",

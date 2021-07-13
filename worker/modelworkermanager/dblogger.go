@@ -58,6 +58,7 @@ func (l *dbLogger) Write(entry loggo.Entry) {
 		Location: fmt.Sprintf("%s:%d", filepath.Base(entry.Filename), entry.Line),
 		Level:    entry.Level,
 		Message:  entry.Message,
+		Labels:   entry.Labels,
 	}})
 
 	if err != nil {

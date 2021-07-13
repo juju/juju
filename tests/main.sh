@@ -19,6 +19,7 @@ OPTIND=1
 VERBOSE=1
 RUN_ALL="false"
 SKIP_LIST=""
+RUN_LIST=""
 ARITFACT_FILE=""
 OUTPUT_FILE=""
 
@@ -252,6 +253,8 @@ cleanup() {
 
 	echo "==> Cleaning up"
 
+	archive_logs "partial"
+
 	cleanup_jujus
 	cleanup_funcs
 
@@ -266,19 +269,7 @@ cleanup() {
 	fi
 	echo "==> Test result: ${TEST_RESULT}"
 
-	# Move any artifacts to the choosen location
-	if [[ -n ${ARITFACT_FILE} ]]; then
-		echo "==> Test artifact: ${ARITFACT_FILE}"
-		if [[ -f ${OUTPUT_FILE} ]]; then
-			cp "${OUTPUT_FILE}" "${TEST_DIR}"
-		fi
-		TAR_OUTPUT=$(tar -C "${TEST_DIR}" --transform s/./artifacts/ -zcvf "${ARITFACT_FILE}" ./ 2>&1)
-		# shellcheck disable=SC2181
-		if [[ $? -ne 0 ]]; then
-			echo "${TAR_OUTPUT}"
-			exit 1
-		fi
-	fi
+	archive_logs "full"
 
 	if [ "${TEST_RESULT}" = "success" ]; then
 		rm -rf "${TEST_DIR}"
@@ -286,6 +277,29 @@ cleanup() {
 	fi
 
 	echo "==> TEST COMPLETE"
+}
+
+# Move any artifacts to the choosen location
+archive_logs() {
+	if [[ -z ${ARITFACT_FILE} ]]; then
+		return
+	fi
+
+	archive_type="${1}"
+
+	echo "==> Test ${archive_type} artifact: ${ARITFACT_FILE}"
+	if [[ -f ${OUTPUT_FILE} ]]; then
+		cp "${OUTPUT_FILE}" "${TEST_DIR}"
+	fi
+	TAR_OUTPUT=$(tar -C "${TEST_DIR}" --transform s/./artifacts/ -zcvf "${ARITFACT_FILE}" ./ 2>&1)
+	# shellcheck disable=SC2181
+	if [[ $? -eq 0 ]]; then
+		echo "==> Test ${archive_type} artifact: COMPLETED"
+	else
+		echo "${TAR_OUTPUT}"
+		TEST_RESULT=failure
+	fi
+	
 }
 
 TEST_CURRENT=setup
@@ -330,6 +344,21 @@ if [[ $# -gt 0 ]]; then
 		export RUN_SUBTEST="${2}"
 		echo "==> Running subtest: ${2}"
 		run_test "test_${1}" "" "" "${TEST}"
+		TEST_RESULT=success
+		exit
+	fi
+	# shellcheck disable=SC2143
+	if [[ "$(echo "${2}" | grep -E "^test_")" ]]; then
+		TEST="$(grep -lr "${2}" "suites/${1}")"
+		if [[ -z ${TEST} ]]; then
+			echo "==> Unable to find test ${2} in ${1}."
+			echo "    Try and run the test suite directly."
+			exit 1
+		fi
+
+		export RUN_LIST="test_${1},${2}"
+		echo "==> Running subtest ${2} for ${1} suite"
+		run_test "test_${1}" "${1}" "" ""
 		TEST_RESULT=success
 		exit
 	fi

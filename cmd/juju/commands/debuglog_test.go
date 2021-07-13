@@ -90,6 +90,18 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 				Backlog:       10,
 			},
 		}, {
+			args: []string{"--include-label", "http", "--include-label", "apiserver"},
+			expected: common.DebugLogParams{
+				IncludeLabel: []string{"http", "apiserver"},
+				Backlog:      10,
+			},
+		}, {
+			args: []string{"--exclude-label", "http", "--exclude-label", "apiserver"},
+			expected: common.DebugLogParams{
+				ExcludeLabel: []string{"http", "apiserver"},
+				Backlog:      10,
+			},
+		}, {
 			args: []string{"--replay"},
 			expected: common.DebugLogParams{
 				Backlog: 10,

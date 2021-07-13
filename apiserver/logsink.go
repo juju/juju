@@ -174,6 +174,7 @@ func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 		Location: m.Location,
 		Level:    level,
 		Message:  m.Message,
+		Labels:   m.Labels,
 	}}), "logging to DB failed")
 
 	// If the log entries cannot be inserted to the DB log out an error
@@ -213,6 +214,7 @@ func logToFile(writer io.Writer, prefix string, m params.LogRecord) error {
 		m.Module,
 		m.Location,
 		m.Message,
+		strings.Join(m.Labels, ","),
 	}, " ") + "\n"))
 	return err
 }

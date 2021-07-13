@@ -20,6 +20,7 @@ import (
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/charmhub/path"
+	corelogger "github.com/juju/juju/core/logger"
 )
 
 // MIME represents a MIME type for identifying requests and response bodies.
@@ -64,7 +65,7 @@ type Transport interface {
 // DefaultHTTPTransport creates a new HTTPTransport.
 func DefaultHTTPTransport(logger Logger) Transport {
 	return RequestHTTPTransport(loggingRequestRecorder{
-		logger: logger.Child("request-recorder"),
+		logger: logger.ChildWithLabels("request-recorder", corelogger.METRICS),
 	}, DefaultRetryPolicy())(logger)
 }
 
