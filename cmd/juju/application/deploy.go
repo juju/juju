@@ -260,6 +260,9 @@ type DeployCommand struct {
 
 	channelStr string
 
+	// Revision is the revision of the charm to deploy.
+	Revision int
+
 	// Series is the series of the charm to deploy.
 	Series string
 
@@ -618,6 +621,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewAppendStringsValue(&c.BundleOverlayFile), "overlay", "Bundles to overlay on the primary bundle, applied in order")
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
+	f.IntVar(&c.Revision, "revision", -1, "The revision to deploy")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the bundle deploy would do")
 	f.BoolVar(&c.Force, "force", false, "Allow a charm/bundle to be deployed which bypasses checks such as supported series or LXD profile allow list")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
@@ -880,6 +884,7 @@ func (c *DeployCommand) getDeployerFactory(defaultCharmSchema charm.Schema) (dep
 		PlacementSpec:      c.PlacementSpec,
 		Placement:          c.Placement,
 		Resources:          c.Resources,
+		Revision:           c.Revision,
 		Series:             c.Series,
 		Storage:            c.Storage,
 		Trust:              c.Trust,

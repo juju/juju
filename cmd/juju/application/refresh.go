@@ -353,10 +353,6 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	if c.isCharmHubWithRevision(oldOrigin.Source) {
-		return errors.Errorf("specifying a revision is not supported, please use a channel.")
-	}
-
 	if c.BindToSpaces != "" {
 		if err := c.checkApplicationFacadeSupport(apiRoot, "specifying bindings", 11); err != nil {
 			return err
@@ -497,20 +493,6 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 
 	return nil
-}
-
-func (c *refreshCommand) isCharmHubWithRevision(source commoncharm.OriginSource) bool {
-	if source == commoncharm.OriginCharmHub && c.Revision > -1 {
-		return true
-	}
-	curl, err := charm.ParseURL(c.SwitchURL)
-	if err != nil {
-		return false
-	}
-	if charm.CharmHub.Matches(curl.Schema) && curl.Revision > -1 {
-		return true
-	}
-	return false
 }
 
 func (c *refreshCommand) validateEndpointNames(newCharmEndpoints set.Strings, oldEndpointsMap, userBindings map[string]string) error {

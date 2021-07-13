@@ -96,6 +96,7 @@ func (d *factory) setConfig(cfg DeployerConfig) {
 	d.devices = cfg.Devices
 	d.bundleDevices = cfg.BundleDevices
 	d.resources = cfg.Resources
+	d.revision = cfg.Revision
 	d.bindings = cfg.Bindings
 	d.useExisting = cfg.UseExisting
 	d.bundleMachines = cfg.BundleMachines
@@ -144,6 +145,7 @@ type DeployerConfig struct {
 	PlacementSpec        string
 	Placement            []*instance.Placement
 	Resources            map[string]string
+	Revision             int
 	Series               string
 	Storage              map[string]storage.Constraints
 	Trust                bool
@@ -167,6 +169,7 @@ type factory struct {
 	charmOrBundle      string
 	bundleOverlayFile  []string
 	channel            charm.Channel
+	revision           int
 	series             string
 	force              bool
 	dryRun             bool
@@ -402,21 +405,29 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 }
 
 func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error) {
-	curl, err := resolveAndValidateCharmURL(d.charmOrBundle, d.defaultCharmSchema)
+	curl, err := resolveCharmURL(d.charmOrBundle, d.defaultCharmSchema)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	if curl.Revision != -1 && charm.CharmHub.Matches(curl.Schema) {
+		return nil, errors.Errorf("cannot specify revision in a charm or bundle name. Please use --revision.")
 	}
 	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	origin, err := utils.DeduceOrigin(curl, d.channel, platform)
+
+	urlForOrigin := curl
+	if d.revision != -1 {
+		urlForOrigin = urlForOrigin.WithRevision(d.revision)
+	}
+	origin, err := utils.DeduceOrigin(urlForOrigin, d.channel, platform)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// Resolve the bundle URL using the channel supplied via the channel
-	// supplied. All charms with in this bundle unless pinned via a channel are
+	// supplied. All charms within this bundle unless pinned via a channel are
 	// NOT expected to be in the same channel as the bundle channel.
 	// The pinning of a bundle does not flow down to charms as well. Each charm
 	// has it's own channel supplied via a bundle, if no is supplied then the
@@ -432,6 +443,9 @@ func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	if d.revision != -1 && !d.channel.Empty() && charm.CharmHub.Matches(curl.Schema) {
+		return nil, errors.Errorf("revision and channel are mutually exclusive when deploying a bundle. Please choose one.")
 	}
 	if err := d.validateBundleFlags(); err != nil {
 		return nil, errors.Trace(err)
@@ -462,15 +476,28 @@ func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error)
 
 func (d *factory) repositoryCharm() (Deployer, error) {
 	// Validate we have a charm store change.
-	userRequestedURL, err := resolveAndValidateCharmURL(d.charmOrBundle, d.defaultCharmSchema)
+	userRequestedURL, err := resolveCharmURL(d.charmOrBundle, d.defaultCharmSchema)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	if charm.CharmHub.Matches(userRequestedURL.Schema) {
+		if userRequestedURL.Revision != -1 {
+			return nil, errors.Errorf("cannot specify revision in a charm or bundle name. Please use --revision.")
+		}
+		if d.revision != -1 && d.channel.Empty() {
+			return nil, errors.Errorf("specifying a revision requires a channel for future upgrades. Please use --channel")
+		}
 	}
 	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	origin, err := utils.DeduceOrigin(userRequestedURL, d.channel, platform)
+
+	urlForOrigin := userRequestedURL
+	if d.revision != -1 {
+		urlForOrigin = urlForOrigin.WithRevision(d.revision)
+	}
+	origin, err := utils.DeduceOrigin(urlForOrigin, d.channel, platform)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -493,20 +520,6 @@ func resolveCharmURL(path string, defaultSchema charm.Schema) (*charm.URL, error
 		return nil, errors.Trace(err)
 	}
 	return charm.ParseURL(path)
-}
-
-func resolveAndValidateCharmURL(path string, defaultSchema charm.Schema) (*charm.URL, error) {
-	curl, err := resolveCharmURL(path, defaultSchema)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Deploy by revision is not supported with CharmHub charms,
-	// check now.
-	if charm.CharmHub.Matches(curl.Schema) && curl.Revision > -1 {
-		return nil, errors.Errorf("specifying a revision for %s is not supported, please use a channel.", curl.Name)
-	}
-	return curl, nil
 }
 
 func isLocalSchema(u string) bool {

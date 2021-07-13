@@ -194,7 +194,7 @@ func (c installByRevisionOne) Build() (transport.RefreshRequest, error) {
 			Revision:          c.Revision,
 			ResourceRevisions: c.resourceRevisions,
 		}},
-		Fields: []string{"bases", "download", "id", "revision", "version", "resources"},
+		Fields: []string{"bases", "download", "id", "revision", "version", "resources", "type"},
 	}
 	return req, nil
 }

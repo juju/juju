@@ -494,7 +494,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevision(c *gc.C) {
 			Name:        &name,
 			Revision:    &revision,
 		}},
-		Fields: []string{"bases", "download", "id", "revision", "version", "resources"},
+		Fields: []string{"bases", "download", "id", "revision", "version", "resources", "type"},
 	})
 }
 
@@ -523,7 +523,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevisionResources(c *gc.C) {
 				{Name: "testme", Revision: 3},
 			},
 		}},
-		Fields: []string{"bases", "download", "id", "revision", "version", "resources"},
+		Fields: []string{"bases", "download", "id", "revision", "version", "resources", "type"},
 	})
 }
 
@@ -846,7 +846,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 			Name:        &name4,
 			Revision:    &rev4,
 		}},
-		Fields: []string{"bases", "download", "id", "revision", "version", "resources"},
+		Fields: []string{"bases", "download", "id", "revision", "version", "resources", "type"},
 	})
 }
 
