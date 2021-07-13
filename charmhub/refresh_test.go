@@ -333,6 +333,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevision(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
+		Fields: []string{"bases", "download", "id", "revision", "version", "resources"},
 	})
 }
 
@@ -364,6 +365,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
+		Fields: []string{"bases", "download", "id", "revision", "version", "resources"},
 	})
 }
 
@@ -393,6 +395,7 @@ func (s *RefreshConfigSuite) TestInstallOneWithPartialPlatform(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
+		Fields: []string{"bases", "download", "id", "revision", "version", "resources"},
 	})
 }
 
@@ -484,6 +487,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
+		Fields: []string{"bases", "download", "id", "revision", "version", "resources"},
 	})
 }
 
@@ -514,6 +518,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuildK8s(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
+		Fields: []string{"bases", "download", "id", "revision", "version", "resources"},
 	})
 }
 
@@ -634,6 +639,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 			},
 			Channel: &channel,
 		}},
+		Fields: []string{"bases", "download", "id", "revision", "version", "resources"},
 	})
 }
 

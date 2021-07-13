@@ -206,8 +206,9 @@ type executeOne struct {
 	Base     RefreshBase
 	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
-	action      Action
-	instanceKey string
+	action            Action
+	instanceKey       string
+	resourceRevisions []transport.RefreshResourceRevision
 }
 
 // InstanceKey returns the underlying instance key.
@@ -326,19 +327,26 @@ func (c executeOne) Build() (transport.RefreshRequest, Headers, error) {
 		name = &c.Name
 	}
 
-	return transport.RefreshRequest{
+	req := transport.RefreshRequest{
 		// Context is required here, even if it looks optional.
 		Context: []transport.RefreshRequestContext{},
 		Actions: []transport.RefreshRequestAction{{
-			Action:      string(c.action),
-			InstanceKey: c.instanceKey,
-			ID:          id,
-			Name:        name,
-			Revision:    c.Revision,
-			Channel:     c.Channel,
-			Base:        &base,
+			Action:            string(c.action),
+			InstanceKey:       c.instanceKey,
+			ID:                id,
+			Name:              name,
+			Base:              &base,
+			ResourceRevisions: c.resourceRevisions,
 		}},
-	}, constructMetadataHeaders(c.Base), nil
+		Fields: []string{"bases", "download", "id", "revision", "version", "resources"},
+	}
+	if c.Revision != nil {
+		req.Actions[0].Revision = c.Revision
+	} else if c.Channel != nil {
+		req.Actions[0].Revision = c.Revision
+		req.Actions[0].Channel = c.Channel
+	}
+	return req, constructMetadataHeaders(c.Base), nil
 }
 
 // Ensure that the request back contains the information we requested.
@@ -370,6 +378,23 @@ func (c executeOne) String() string {
 		c.action, c.instanceKey, using, revision, channel, c.Base)
 }
 
+// AddResource adds resource revision data to a executeOne config.
+// Used for install by revision.
+func AddResource(config RefreshConfig, name string, revision int) (RefreshConfig, bool) {
+	c, ok := config.(executeOne)
+	if !ok {
+		return config, false
+	}
+	if len(c.resourceRevisions) == 0 {
+		c.resourceRevisions = make([]transport.RefreshResourceRevision, 0)
+	}
+	c.resourceRevisions = append(c.resourceRevisions, transport.RefreshResourceRevision{
+		Name:     name,
+		Revision: revision,
+	})
+	return c, true
+}
+
 type refreshMany struct {
 	Configs []RefreshConfig
 }
@@ -397,6 +422,7 @@ func (c refreshMany) Build() (transport.RefreshRequest, Headers, error) {
 		}
 		result.Context = append(result.Context, req.Context...)
 		result.Actions = append(result.Actions, req.Actions...)
+		result.Fields = append(result.Fields, req.Fields...)
 		composedHeaders = composeMetadataHeaders(composedHeaders, headers)
 	}
 	return result, composedHeaders, nil

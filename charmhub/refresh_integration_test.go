@@ -22,20 +22,8 @@ var _ = gc.Suite(&RefreshClientSuite{})
 
 func (s *RefreshClientSuite) TestLiveRefreshRequest(c *gc.C) {
 	c.Skip("It works on the cli with curl using the created req.Body.Reader data.")
-	logger := &FakeLogger{}
 
-	config, err := CharmHubConfig(logger)
-	c.Assert(err, jc.ErrorIsNil)
-	basePath, err := config.BasePath()
-	c.Assert(err, jc.ErrorIsNil)
-
-	refreshPath, err := basePath.Join("refresh")
-	c.Assert(err, jc.ErrorIsNil)
-
-	apiRequester := NewAPIRequester(DefaultHTTPTransport(logger), logger)
-	restClient := NewHTTPRESTClient(apiRequester, nil)
-
-	client := NewRefreshClient(refreshPath, restClient, logger)
+	client := refreshClient(c)
 
 	charmConfig, err := RefreshOne("wordpress", 0, "latest/stable", RefreshBase{
 		Channel:      "18.04",
@@ -43,7 +31,7 @@ func (s *RefreshClientSuite) TestLiveRefreshRequest(c *gc.C) {
 		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	charmConfig = DefineID(c, charmConfig, "mny7cXFEre1BFZQnXyyyIhCHBpiLTRNi")
+	charmConfig = defineID(c, charmConfig, "mny7cXFEre1BFZQnXyyyIhCHBpiLTRNi")
 
 	response, err := client.Refresh(context.TODO(), charmConfig)
 	c.Assert(err, jc.ErrorIsNil)
@@ -53,20 +41,8 @@ func (s *RefreshClientSuite) TestLiveRefreshRequest(c *gc.C) {
 
 func (s *RefreshClientSuite) TestLiveRefreshManyRequest(c *gc.C) {
 	c.Skip("It works on the cli with curl using the created req.Body.Reader data.")
-	logger := &FakeLogger{}
 
-	config, err := CharmHubConfig(logger)
-	c.Assert(err, jc.ErrorIsNil)
-	basePath, err := config.BasePath()
-	c.Assert(err, jc.ErrorIsNil)
-
-	refreshPath, err := basePath.Join("refresh")
-	c.Assert(err, jc.ErrorIsNil)
-
-	apiRequester := NewAPIRequester(DefaultHTTPTransport(logger), logger)
-	restClient := NewHTTPRESTClient(apiRequester, nil)
-
-	client := NewRefreshClient(refreshPath, restClient, logger)
+	client := refreshClient(c)
 
 	wordpressConfig, err := RefreshOne("wordpress", 0, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
@@ -74,7 +50,7 @@ func (s *RefreshClientSuite) TestLiveRefreshManyRequest(c *gc.C) {
 		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	wordpressConfig = DefineID(c, wordpressConfig, "mny7cXFEre1BFZQnXyyyIhCHBpiLTRNi")
+	wordpressConfig = defineID(c, wordpressConfig, "mny7cXFEre1BFZQnXyyyIhCHBpiLTRNi")
 
 	mysqlConfig, err := RefreshOne("mysql", 58, "latest/candidate", RefreshBase{
 		Name:         "ubuntu",
@@ -82,7 +58,7 @@ func (s *RefreshClientSuite) TestLiveRefreshManyRequest(c *gc.C) {
 		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	mysqlConfig = DefineID(c, mysqlConfig, "XcESKcQ4R00AM6dOUpCl9YY4QpAEjnXe")
+	mysqlConfig = defineID(c, mysqlConfig, "XcESKcQ4R00AM6dOUpCl9YY4QpAEjnXe")
 
 	charmsConfig := RefreshMany(wordpressConfig, mysqlConfig)
 
@@ -94,20 +70,7 @@ func (s *RefreshClientSuite) TestLiveRefreshManyRequest(c *gc.C) {
 }
 
 func (s *RefreshClientSuite) TestLiveInstallRequest(c *gc.C) {
-	logger := &FakeLogger{}
-
-	config, err := CharmHubConfig(logger)
-	c.Assert(err, jc.ErrorIsNil)
-	basePath, err := config.BasePath()
-	c.Assert(err, jc.ErrorIsNil)
-
-	refreshPath, err := basePath.Join("refresh")
-	c.Assert(err, jc.ErrorIsNil)
-
-	apiRequester := NewAPIRequester(DefaultHTTPTransport(logger), logger)
-	restClient := NewHTTPRESTClient(apiRequester, nil)
-
-	client := NewRefreshClient(refreshPath, restClient, logger)
+	client := refreshClient(c)
 
 	charmConfig, err := InstallOneFromRevision("wordpress", 0, RefreshBase{
 		Name:         "ubuntu",
@@ -121,7 +84,46 @@ func (s *RefreshClientSuite) TestLiveInstallRequest(c *gc.C) {
 	c.Assert(response[0].Result, gc.Equals, "install", gc.Commentf("%s", pretty.Sprint(response)))
 }
 
-func DefineID(c *gc.C, config RefreshConfig, id string) RefreshConfig {
+func (s *RefreshClientSuite) TestLiveInstallRequestNoBase(c *gc.C) {
+	client := refreshClient(c)
+
+	charmConfig, err := InstallOneFromRevision("wordpress", 0, RefreshBase{
+		Architecture: "NA",
+		Name:         "NA",
+		Channel:      "NA",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	response, err := client.Refresh(context.TODO(), charmConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(response[0].Result, gc.Equals, "install", gc.Commentf("%s", pretty.Sprint(response)))
+	c.Assert(len(response[0].Entity.Bases), jc.GreaterThan, 0)
+}
+
+func (s *RefreshClientSuite) TestLiveInstallRequestWithResourceRevisions(c *gc.C) {
+	client := refreshClient(c)
+
+	charmConfig, err := InstallOneFromRevision("prometheus-ceph-exporter", 13, RefreshBase{
+		Architecture: "NA",
+		Name:         "NA",
+		Channel:      "NA",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	charmConfig, ok := AddResource(charmConfig, "core", 0)
+	c.Assert(ok, jc.IsTrue)
+	charmConfig, ok = AddResource(charmConfig, "prometheus-ceph-exporter", 0)
+	c.Assert(ok, jc.IsTrue)
+	charmConfig, ok = AddResource(charmConfig, "dashboards", 0)
+	c.Assert(ok, jc.IsTrue)
+
+	response, err := client.Refresh(context.TODO(), charmConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(response[0].Result, gc.Equals, "install", gc.Commentf("%s", pretty.Sprint(response)))
+	c.Assert(len(response[0].Entity.Resources), gc.Equals, 3)
+}
+
+func defineID(c *gc.C, config RefreshConfig, id string) RefreshConfig {
 	switch t := config.(type) {
 	case refreshOne:
 		t.ID = id
@@ -130,4 +132,21 @@ func DefineID(c *gc.C, config RefreshConfig, id string) RefreshConfig {
 		c.Fatalf("unexpected config %T", config)
 	}
 	return nil
+}
+
+func refreshClient(c *gc.C) *RefreshClient{
+	logger := &FakeLogger{}
+
+	config, err := CharmHubConfig(logger)
+	c.Assert(err, jc.ErrorIsNil)
+	basePath, err := config.BasePath()
+	c.Assert(err, jc.ErrorIsNil)
+
+	refreshPath, err := basePath.Join("refresh")
+	c.Assert(err, jc.ErrorIsNil)
+
+	apiRequester := NewAPIRequester(DefaultHTTPTransport(logger), logger)
+	restClient := NewHTTPRESTClient(apiRequester, nil)
+
+	return NewRefreshClient(refreshPath, restClient, logger)
 }
