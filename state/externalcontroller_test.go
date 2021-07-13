@@ -64,9 +64,9 @@ func (s *externalControllerSuite) TestSave(c *gc.C) {
 func (s *externalControllerSuite) TestSaveIdempotent(c *gc.C) {
 	controllerInfo := defaultControllerInfo()
 	uuid1 := utils.MustNewUUID().String()
-	ec, err := s.externalControllers.Save(controllerInfo, uuid1)
+	_, err := s.externalControllers.Save(controllerInfo, uuid1)
 	c.Assert(err, jc.ErrorIsNil)
-	ec, err = s.externalControllers.Save(controllerInfo, uuid1)
+	ec, err := s.externalControllers.Save(controllerInfo, uuid1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ec.Id(), gc.Equals, testing.ControllerTag.Id())
 	c.Assert(ec.ControllerInfo(), jc.DeepEquals, controllerInfo)

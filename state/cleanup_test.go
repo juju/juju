@@ -746,7 +746,7 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	// check no cleanups
 	s.assertDoesNotNeedCleanup(c)
 
-	operationID, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test", 2)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add a couple actions to the unit
 	_, err = s.Model.AddAction(unit, operationID, "snapshot", nil, nil, nil)
@@ -799,7 +799,7 @@ func (s *CleanupSuite) TestCleanupWithCompletedActions(c *gc.C) {
 		s.assertDoesNotNeedCleanup(c)
 
 		// Add a completed action to the unit.
-		operationID, err := s.Model.EnqueueOperation("a test")
+		operationID, err := s.Model.EnqueueOperation("a test", 1)
 		c.Assert(err, jc.ErrorIsNil)
 		action, err := s.Model.AddAction(unit, operationID, "snapshot", nil, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)

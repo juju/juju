@@ -237,7 +237,7 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		operationID, err := s.model.EnqueueOperation("a test")
+		operationID, err := s.model.EnqueueOperation("a test", 1)
 		c.Assert(err, jc.ErrorIsNil)
 		action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), test.actionName, test.payload, true, "group", nil)
 		c.Assert(err, jc.ErrorIsNil)
@@ -313,7 +313,7 @@ func (s *FactorySuite) TestNewActionRunnerWithCancel(c *gc.C) {
 		"outfile": "/some/file.bz2",
 	}
 	cancel := make(chan struct{})
-	operationID, err := s.model.EnqueueOperation("a test")
+	operationID, err := s.model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), actionName, payload, true, "group", nil)
 	c.Assert(err, jc.ErrorIsNil)

@@ -2563,7 +2563,7 @@ snapshot:
 
 	for i, t := range tests {
 		c.Logf("running test %d", i)
-		operationID, err := s.Model.EnqueueOperation("a test")
+		operationID, err := s.Model.EnqueueOperation("a test", 1)
 		c.Assert(err, jc.ErrorIsNil)
 		action, err := s.Model.AddAction(unit1, operationID, t.actionName, t.givenPayload, nil, nil)
 		if t.errString != "" {
@@ -2577,7 +2577,7 @@ snapshot:
 }
 
 func (s *UnitSuite) TestAddActionWithError(c *gc.C) {
-	operationID, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.Model.AddAction(s.unit, operationID, "benchmark", nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `action "benchmark" not defined on unit "wordpress/0"`)
@@ -2606,7 +2606,7 @@ action-b-b:
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add 3 actions to first unit, and 2 to the second unit
-	operationID, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test", 5)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.Model.AddAction(unit1, operationID, "action-a-a", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3158,7 +3158,7 @@ func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
 func (s *CAASUnitSuite) TestOperatorAddAction(c *gc.C) {
 	unit, err := s.operatorApp.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	operationID, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.Model.AddAction(unit, operationID, "snapshot", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
