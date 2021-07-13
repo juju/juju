@@ -237,6 +237,7 @@ func (h *logStreamRequestHandler) apiFromRecords(records []*state.LogRecord) par
 			Location:  rec.Location,
 			Level:     rec.Level.String(),
 			Message:   rec.Message,
+			Labels:    rec.Labels,
 		}
 		result.Records[i] = apiRec
 	}

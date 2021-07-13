@@ -613,6 +613,7 @@ func (w *Worker) transferLogs(targetInfo coremigration.TargetInfo, modelUUID str
 				Location: msg.Location,
 				Level:    msg.Severity,
 				Message:  msg.Message,
+				Labels:   msg.Labels,
 			})
 			if err != nil {
 				return errors.Trace(err)

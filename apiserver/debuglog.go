@@ -190,6 +190,8 @@ type debugLogParams struct {
 	excludeEntity []string
 	includeModule []string
 	excludeModule []string
+	includeLabel  []string
+	excludeLabel  []string
 }
 
 func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
@@ -249,6 +251,13 @@ func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
 	params.excludeEntity = queryMap["excludeEntity"]
 	params.includeModule = queryMap["includeModule"]
 	params.excludeModule = queryMap["excludeModule"]
+
+	if label, ok := queryMap["includeLabel"]; ok {
+		params.includeLabel = label
+	}
+	if label, ok := queryMap["excludeLabel"]; ok {
+		params.excludeLabel = label
+	}
 
 	return params, nil
 }

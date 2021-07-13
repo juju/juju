@@ -1159,7 +1159,7 @@ func (s *uniterSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 }
 
 func (s *uniterSuite) TestLogActionMessage(c *gc.C) {
-	operationID, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	anAction, err := s.Model.AddAction(s.wordpressUnit, operationID, "fakeaction", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1193,7 +1193,7 @@ func (s *uniterSuite) TestLogActionMessage(c *gc.C) {
 }
 
 func (s *uniterSuite) TestLogActionMessageAborting(c *gc.C) {
-	operationID, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	anAction, err := s.Model.AddAction(s.wordpressUnit, operationID, "fakeaction", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1253,7 +1253,7 @@ func (s *uniterSuite) TestWatchActionNotifications(c *gc.C) {
 	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 
-	operationID, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	addedAction, err := s.Model.AddAction(s.wordpressUnit, operationID, "fakeaction", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1276,7 +1276,7 @@ func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	operationID, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	action1, err := s.Model.AddAction(s.wordpressUnit, operationID, "fakeaction", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1336,7 +1336,7 @@ func (s *uniterSuite) TestWatchActionNotificationsMalformedUnitName(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWatchActionNotificationsNotUnit(c *gc.C) {
-	operationID, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.Model.AddAction(s.mysqlUnit, operationID, "fakeaction", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1717,7 +1717,7 @@ func (s *uniterSuite) TestActions(c *gc.C) {
 	for i, actionTest := range actionTests {
 		c.Logf("test %d: %s", i, actionTest.description)
 
-		operationID, err := s.Model.EnqueueOperation("a test")
+		operationID, err := s.Model.EnqueueOperation("a test", 1)
 		c.Assert(err, jc.ErrorIsNil)
 		a, err := s.Model.AddAction(s.wordpressUnit,
 			operationID,
@@ -1767,7 +1767,7 @@ func (s *uniterSuite) TestActionsWrongUnit(c *gc.C) {
 	}
 	mysqlUnitFacade := s.newUniterAPI(c, s.State, mysqlUnitAuthorizer)
 
-	operationID, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.Model.AddAction(s.wordpressUnit, operationID, "fakeaction", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1783,7 +1783,7 @@ func (s *uniterSuite) TestActionsWrongUnit(c *gc.C) {
 }
 
 func (s *uniterSuite) TestActionsPermissionDenied(c *gc.C) {
-	operationID, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.Model.AddAction(s.mysqlUnit, operationID, "fakeaction", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1806,7 +1806,7 @@ func (s *uniterSuite) TestFinishActionsSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, ([]state.Action)(nil))
 
-	operationID, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.Model.AddAction(s.wordpressUnit, operationID, testName, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1840,7 +1840,7 @@ func (s *uniterSuite) TestFinishActionsFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, ([]state.Action)(nil))
 
-	operationID, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.Model.AddAction(s.wordpressUnit, operationID, testName, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1868,7 +1868,7 @@ func (s *uniterSuite) TestFinishActionsFailure(c *gc.C) {
 }
 
 func (s *uniterSuite) TestFinishActionsAuthAccess(c *gc.C) {
-	operationID, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test", 2)
 	c.Assert(err, jc.ErrorIsNil)
 	good, err := s.Model.AddAction(s.wordpressUnit, operationID, "fakeaction", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1912,7 +1912,7 @@ func (s *uniterSuite) TestFinishActionsAuthAccess(c *gc.C) {
 
 func (s *uniterSuite) TestBeginActions(c *gc.C) {
 	ten_seconds_ago := time.Now().Add(-10 * time.Second)
-	operationID, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	good, err := s.Model.AddAction(s.wordpressUnit, operationID, "fakeaction", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)

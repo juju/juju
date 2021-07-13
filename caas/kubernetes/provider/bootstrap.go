@@ -1131,7 +1131,6 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 			fmt.Sprintf("--replSet=%s", mongo.ReplicaSetName),
 			"--quiet",
 			"--oplogSize=1024",
-			"--ipv6",
 			"--auth",
 			fmt.Sprintf("--keyFile=%s", c.pathJoin(c.pcfg.DataDir, c.fileNameSharedSecret)),
 			"--storageEngine=wiredTiger",
@@ -1140,14 +1139,26 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		if wiredTigerCacheSize > 0 {
 			args = append(args, fmt.Sprintf("--wiredTigerCacheSizeGB=%v", wiredTigerCacheSize))
 		}
+		// Create the script used to start mongo.
+		const mongoSh = "/root/mongo.sh"
+		mongoStartup := fmt.Sprintf(caas.MongoStartupShTemplate, strings.Join(args, " "))
+		// Write it to a file so it can be executed.
+		mongoStartup = strings.ReplaceAll(mongoStartup, "\n", "\\n")
+		makeMongoCmd := fmt.Sprintf("printf '%s'>%s", mongoStartup, mongoSh)
+		mongoArgs := fmt.Sprintf("%[1]s && chmod a+x %[2]s && %[2]s", makeMongoCmd, mongoSh)
+		logger.Debugf("mongodb container args:\n%s", mongoArgs)
+
 		containerSpec = append(containerSpec, core.Container{
 			Name:            mongoDBContainerName,
 			ImagePullPolicy: core.PullIfNotPresent,
 			Image:           c.pcfg.GetJujuDbOCIImagePath(),
 			Command: []string{
-				"mongod",
+				"/bin/sh",
 			},
-			Args: args,
+			Args: []string{
+				"-c",
+				mongoArgs,
+			},
 			Ports: []core.ContainerPort{
 				{
 					Name:          "mongodb",
