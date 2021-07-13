@@ -17,6 +17,7 @@ type Logger interface {
 	Debugf(string, ...interface{})
 	Warningf(string, ...interface{})
 	Errorf(string, ...interface{})
+	Tracef(string, ...interface{})
 }
 
 // ManifoldConfig defines a CAAS unit provisioner's dependencies.
@@ -76,6 +77,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		ProvisioningStatusSetter: client,
 		LifeGetter:               client,
 		UnitUpdater:              client,
+		CharmGetter:              client,
 
 		Logger: config.Logger,
 	})

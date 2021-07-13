@@ -17,7 +17,3 @@ var (
 	NewFacadeLegacyForTest  = newFacadeLegacy
 	NewFacadeSidecarForTest = newFacadeSidecar
 )
-
-type (
-	StateShim = stateShim
-)

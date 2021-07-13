@@ -142,6 +142,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		ProvisioningInfoGetter:   &s.client,
 		ProvisioningStatusSetter: &s.client,
 		LifeGetter:               &s.client,
+		CharmGetter:              &s.client,
 		UnitUpdater:              &s.client,
 		Logger:                   loggo.GetLogger("test"),
 	})

@@ -11,30 +11,30 @@ import (
 	caas "github.com/juju/juju/caas"
 )
 
-// MockCAASBroker is a mock of CAASBroker interface
+// MockCAASBroker is a mock of CAASBroker interface.
 type MockCAASBroker struct {
 	ctrl     *gomock.Controller
 	recorder *MockCAASBrokerMockRecorder
 }
 
-// MockCAASBrokerMockRecorder is the mock recorder for MockCAASBroker
+// MockCAASBrokerMockRecorder is the mock recorder for MockCAASBroker.
 type MockCAASBrokerMockRecorder struct {
 	mock *MockCAASBroker
 }
 
-// NewMockCAASBroker creates a new mock instance
+// NewMockCAASBroker creates a new mock instance.
 func NewMockCAASBroker(ctrl *gomock.Controller) *MockCAASBroker {
 	mock := &MockCAASBroker{ctrl: ctrl}
 	mock.recorder = &MockCAASBrokerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCAASBroker) EXPECT() *MockCAASBrokerMockRecorder {
 	return m.recorder
 }
 
-// Application mocks base method
+// Application mocks base method.
 func (m *MockCAASBroker) Application(arg0 string, arg1 caas.DeploymentType) caas.Application {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Application", arg0, arg1)
@@ -42,36 +42,36 @@ func (m *MockCAASBroker) Application(arg0 string, arg1 caas.DeploymentType) caas
 	return ret0
 }
 
-// Application indicates an expected call of Application
+// Application indicates an expected call of Application.
 func (mr *MockCAASBrokerMockRecorder) Application(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockCAASBroker)(nil).Application), arg0, arg1)
 }
 
-// MockPortMutator is a mock of PortMutator interface
+// MockPortMutator is a mock of PortMutator interface.
 type MockPortMutator struct {
 	ctrl     *gomock.Controller
 	recorder *MockPortMutatorMockRecorder
 }
 
-// MockPortMutatorMockRecorder is the mock recorder for MockPortMutator
+// MockPortMutatorMockRecorder is the mock recorder for MockPortMutator.
 type MockPortMutatorMockRecorder struct {
 	mock *MockPortMutator
 }
 
-// NewMockPortMutator creates a new mock instance
+// NewMockPortMutator creates a new mock instance.
 func NewMockPortMutator(ctrl *gomock.Controller) *MockPortMutator {
 	mock := &MockPortMutator{ctrl: ctrl}
 	mock.recorder = &MockPortMutatorMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockPortMutator) EXPECT() *MockPortMutatorMockRecorder {
 	return m.recorder
 }
 
-// UpdatePorts mocks base method
+// UpdatePorts mocks base method.
 func (m *MockPortMutator) UpdatePorts(arg0 []caas.ServicePort, arg1 bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdatePorts", arg0, arg1)
@@ -79,36 +79,36 @@ func (m *MockPortMutator) UpdatePorts(arg0 []caas.ServicePort, arg1 bool) error 
 	return ret0
 }
 
-// UpdatePorts indicates an expected call of UpdatePorts
+// UpdatePorts indicates an expected call of UpdatePorts.
 func (mr *MockPortMutatorMockRecorder) UpdatePorts(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePorts", reflect.TypeOf((*MockPortMutator)(nil).UpdatePorts), arg0, arg1)
 }
 
-// MockServiceUpdater is a mock of ServiceUpdater interface
+// MockServiceUpdater is a mock of ServiceUpdater interface.
 type MockServiceUpdater struct {
 	ctrl     *gomock.Controller
 	recorder *MockServiceUpdaterMockRecorder
 }
 
-// MockServiceUpdaterMockRecorder is the mock recorder for MockServiceUpdater
+// MockServiceUpdaterMockRecorder is the mock recorder for MockServiceUpdater.
 type MockServiceUpdaterMockRecorder struct {
 	mock *MockServiceUpdater
 }
 
-// NewMockServiceUpdater creates a new mock instance
+// NewMockServiceUpdater creates a new mock instance.
 func NewMockServiceUpdater(ctrl *gomock.Controller) *MockServiceUpdater {
 	mock := &MockServiceUpdater{ctrl: ctrl}
 	mock.recorder = &MockServiceUpdaterMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockServiceUpdater) EXPECT() *MockServiceUpdaterMockRecorder {
 	return m.recorder
 }
 
-// UpdateService mocks base method
+// UpdateService mocks base method.
 func (m *MockServiceUpdater) UpdateService(arg0 caas.ServiceParam) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateService", arg0)
@@ -116,7 +116,7 @@ func (m *MockServiceUpdater) UpdateService(arg0 caas.ServiceParam) error {
 	return ret0
 }
 
-// UpdateService indicates an expected call of UpdateService
+// UpdateService indicates an expected call of UpdateService.
 func (mr *MockServiceUpdaterMockRecorder) UpdateService(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateService", reflect.TypeOf((*MockServiceUpdater)(nil).UpdateService), arg0)

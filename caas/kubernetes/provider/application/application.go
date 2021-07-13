@@ -1132,6 +1132,9 @@ func (a *app) Units() ([]caas.Unit, error) {
 				logger.Warningf("volume for volume mount %q not found", volMount.Name)
 				continue
 			}
+
+			// Ignore volume sources for volumes created for K8s pod-spec charms.
+			// See: https://discourse.charmhub.io/t/k8s-spec-v3-changes/2698
 			if vol.Secret != nil && strings.Contains(vol.Secret.SecretName, "-token") {
 				logger.Tracef("ignoring volume source for service account secret: %v", vol.Name)
 				continue
@@ -1140,6 +1143,19 @@ func (a *app) Units() ([]caas.Unit, error) {
 				logger.Tracef("ignoring volume source for projected volume: %v", vol.Name)
 				continue
 			}
+			if vol.ConfigMap != nil {
+				logger.Tracef("ignoring volume source for configMap volume: %v", vol.Name)
+				continue
+			}
+			if vol.HostPath != nil {
+				logger.Tracef("ignoring volume source for hostPath volume: %v", vol.Name)
+				continue
+			}
+			if vol.EmptyDir != nil {
+				logger.Tracef("ignoring volume source for emptyDir volume: %v", vol.Name)
+				continue
+			}
+
 			fsInfo, err := storage.FilesystemInfo(ctx, a.client, a.namespace, vol, volMount, now)
 			if err != nil {
 				return nil, errors.Annotatef(err, "finding filesystem info for %v", volMount.Name)
@@ -1154,7 +1170,7 @@ func (a *app) Units() ([]caas.Unit, error) {
 					fsInfo.StorageName = constants.PVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
 				}
 			}
-			logger.Debugf("filesystem info for %v: %+v", volMount.Name, *fsInfo)
+			logger.Tracef("filesystem info for %v: %+v", volMount.Name, *fsInfo)
 			unitInfo.FilesystemInfo = append(unitInfo.FilesystemInfo, *fsInfo)
 		}
 		units = append(units, unitInfo)

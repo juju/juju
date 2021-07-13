@@ -20,15 +20,15 @@ import (
 // Client allows access to the charms API end point.
 type Client struct {
 	base.ClientFacade
-	*commoncharms.CharmsClient
+	*commoncharms.CharmInfoClient
 	facade base.FacadeCaller
 }
 
 // NewClient creates a new client for accessing the charms API.
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "Charms")
-	commonClient := commoncharms.NewCharmsClient(backend)
-	return &Client{ClientFacade: frontend, CharmsClient: commonClient, facade: backend}
+	commonClient := commoncharms.NewCharmInfoClient(backend)
+	return &Client{ClientFacade: frontend, CharmInfoClient: commonClient, facade: backend}
 }
 
 // IsMetered returns whether or not the charm is metered.

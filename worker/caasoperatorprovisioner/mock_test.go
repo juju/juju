@@ -6,6 +6,7 @@ package caasoperatorprovisioner_test
 import (
 	"sync"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/juju/storage"
 	"github.com/juju/names/v4"
@@ -15,22 +16,22 @@ import (
 
 	"github.com/juju/juju/agent"
 	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
+	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/caasoperatorprovisioner"
 )
 
 type mockProvisionerFacade struct {
-	mu   sync.Mutex
-	stub *testing.Stub
-	caasoperatorprovisioner.CAASProvisionerFacade
+	mu                  sync.Mutex
+	stub                *testing.Stub
 	applicationsWatcher *mockStringsWatcher
 	apiWatcher          *mockNotifyWatcher
 	life                life.Value
 	withStorage         bool
+	charmInfo           *charms.CharmInfo
 }
 
 func newMockProvisionerFacade(stub *testing.Stub) *mockProvisionerFacade {
@@ -39,6 +40,10 @@ func newMockProvisionerFacade(stub *testing.Stub) *mockProvisionerFacade {
 		applicationsWatcher: newMockStringsWatcher(),
 		apiWatcher:          newMockNotifyWatcher(),
 		withStorage:         true,
+		charmInfo: &charms.CharmInfo{
+			Meta:     &charm.Meta{},
+			Manifest: &charm.Manifest{},
+		},
 	}
 }
 
@@ -98,6 +103,19 @@ func (m *mockProvisionerFacade) Life(entityName string) (life.Value, error) {
 		return "", err
 	}
 	return m.life, nil
+}
+
+func (m *mockProvisionerFacade) ApplicationCharmInfo(appName string) (*charms.CharmInfo, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stub.MethodCall(m, "ApplicationCharmInfo", appName)
+	if err := m.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	if m.charmInfo == nil {
+		return nil, errors.NotFoundf("charm %q", appName)
+	}
+	return m.charmInfo, nil
 }
 
 func (m *mockProvisionerFacade) SetPasswords(passwords []apicaasprovisioner.ApplicationPassword) (params.ErrorResults, error) {

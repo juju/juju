@@ -16,28 +16,49 @@ import (
 	"github.com/juju/juju/state"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mocks.go github.com/juju/juju/apiserver/common/charms State,Application,Charm,Model
+
 type State interface {
-	Model() (*state.Model, error)
-	Charm(curl *charm.URL) (*state.Charm, error)
+	Model() (Model, error)
+	Charm(curl *charm.URL) (Charm, error)
+	Application(appName string) (Application, error)
 }
 
-type backend interface {
-	Charm(curl *charm.URL) (*state.Charm, error)
+type Application interface {
+	Charm() (ch Charm, force bool, err error)
+}
+
+type Charm interface {
+	URL() *charm.URL
+	Revision() int
+	Meta() *charm.Meta
+	Config() *charm.Config
+	Manifest() *charm.Manifest
+	Metrics() *charm.Metrics
+	Actions() *charm.Actions
+	LXDProfile() *state.LXDProfile
+}
+
+type Model interface {
 	ModelTag() names.ModelTag
 }
 
-// CharmsAPI implements the charms interface and is the concrete
-// implementation of the CharmsAPI end point.
-type CharmsAPI struct {
+// CharmInfoAPI implements the charms interface and is the concrete
+// implementation of the CharmInfoAPI end point.
+type CharmInfoAPI struct {
 	authorizer facade.Authorizer
-	backend    backend
+	state      State
 }
 
-func (a *CharmsAPI) checkCanRead() error {
-	if a.authorizer.AuthController() {
+func checkCanRead(authorizer facade.Authorizer, state State) error {
+	model, err := state.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if authorizer.AuthController() {
 		return nil
 	}
-	canRead, err := a.authorizer.HasPermission(permission.ReadAccess, a.backend.ModelTag())
+	canRead, err := authorizer.HasPermission(permission.ReadAccess, model.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -47,34 +68,18 @@ func (a *CharmsAPI) checkCanRead() error {
 	return nil
 }
 
-// NewCharmsAPI provides the signature required for facade registration.
-func NewCharmsAPI(st State, authorizer facade.Authorizer) (*CharmsAPI, error) {
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return &CharmsAPI{
+// NewCharmInfoAPI provides the signature required for facade registration.
+func NewCharmInfoAPI(st State, authorizer facade.Authorizer) (*CharmInfoAPI, error) {
+	return &CharmInfoAPI{
 		authorizer: authorizer,
-		backend:    getState(st, m),
+		state:      st,
 	}, nil
-}
-
-// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
-// removed once all relevant methods are moved from state to model.
-type stateShim struct {
-	State
-	*state.Model
-}
-
-var getState = func(st State, m *state.Model) backend {
-	return stateShim{st, m}
 }
 
 // CharmInfo returns information about the requested charm.
 // NOTE: thumper 2016-06-29, this is not a bulk call and probably should be.
-func (a *CharmsAPI) CharmInfo(args params.CharmURL) (params.Charm, error) {
-	if err := a.checkCanRead(); err != nil {
+func (a *CharmInfoAPI) CharmInfo(args params.CharmURL) (params.Charm, error) {
+	if err := checkCanRead(a.authorizer, a.state); err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
 
@@ -82,27 +87,67 @@ func (a *CharmsAPI) CharmInfo(args params.CharmURL) (params.Charm, error) {
 	if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
-	aCharm, err := a.backend.Charm(curl)
+	aCharm, err := a.state.Charm(curl)
 	if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
-	info := params.Charm{
-		Revision: aCharm.Revision(),
+	info := convertCharm(curl, aCharm)
+	return info, nil
+}
+
+// ApplicationCharmInfoAPI implements the ApplicationCharmInfo endpoint.
+type ApplicationCharmInfoAPI struct {
+	authorizer facade.Authorizer
+	state      State
+}
+
+// NewApplicationCharmInfoAPI provides the signature required for facade registration.
+func NewApplicationCharmInfoAPI(st State, authorizer facade.Authorizer) (*ApplicationCharmInfoAPI, error) {
+	return &ApplicationCharmInfoAPI{
+		authorizer: authorizer,
+		state:      st,
+	}, nil
+}
+
+// ApplicationCharmInfo fetches charm information for an application.
+func (a *ApplicationCharmInfoAPI) ApplicationCharmInfo(args params.Entity) (params.Charm, error) {
+	if err := checkCanRead(a.authorizer, a.state); err != nil {
+		return params.Charm{}, errors.Trace(err)
+	}
+
+	appTag, err := names.ParseApplicationTag(args.Tag)
+	if err != nil {
+		return params.Charm{}, errors.Trace(err)
+	}
+	app, err := a.state.Application(appTag.Id())
+	if err != nil {
+		return params.Charm{}, errors.Trace(err)
+	}
+	ch, _, err := app.Charm()
+	if err != nil {
+		return params.Charm{}, errors.Trace(err)
+	}
+	return convertCharm(ch.URL(), ch), nil
+}
+
+func convertCharm(curl *charm.URL, ch Charm) params.Charm {
+	charm := params.Charm{
+		Revision: ch.Revision(),
 		URL:      curl.String(),
-		Config:   params.ToCharmOptionMap(aCharm.Config()),
-		Meta:     convertCharmMeta(aCharm.Meta()),
-		Actions:  convertCharmActions(aCharm.Actions()),
-		Metrics:  convertCharmMetrics(aCharm.Metrics()),
-		Manifest: convertCharmManifest(aCharm.Manifest()),
+		Config:   params.ToCharmOptionMap(ch.Config()),
+		Meta:     convertCharmMeta(ch.Meta()),
+		Actions:  convertCharmActions(ch.Actions()),
+		Metrics:  convertCharmMetrics(ch.Metrics()),
+		Manifest: convertCharmManifest(ch.Manifest()),
 	}
 
 	// we don't need to check that this is a charm.LXDProfiler, as we can
 	// state that the function exists.
-	if profile := aCharm.LXDProfile(); profile != nil && !profile.Empty() {
-		info.LXDProfile = convertCharmLXDProfile(profile)
+	if profile := ch.LXDProfile(); profile != nil && !profile.Empty() {
+		charm.LXDProfile = convertCharmLXDProfile(profile)
 	}
 
-	return info, nil
+	return charm
 }
 
 func convertCharmMeta(meta *charm.Meta) *params.CharmMeta {
@@ -395,4 +440,32 @@ func convertCharmMounts(input []charm.Mount) []params.CharmMount {
 		})
 	}
 	return mounts
+}
+
+type StateShim struct {
+	State *state.State
+}
+
+func (s *StateShim) Model() (Model, error) {
+	return s.State.Model()
+}
+
+func (s *StateShim) Charm(curl *charm.URL) (Charm, error) {
+	return s.State.Charm(curl)
+}
+
+func (s *StateShim) Application(id string) (Application, error) {
+	app, err := s.State.Application(id)
+	if err != nil {
+		return nil, err
+	}
+	return &applicationShim{app}, nil
+}
+
+type applicationShim struct {
+	app *state.Application
+}
+
+func (a *applicationShim) Charm() (ch Charm, force bool, err error) {
+	return a.app.Charm()
 }

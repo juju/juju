@@ -20,16 +20,16 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type charmsSuite struct {
+type charmInfoSuite struct {
 	// TODO(anastasiamac) mock to remove JujuConnSuite
 	jujutesting.JujuConnSuite
-	api  *charms.CharmsAPI
+	api  *charms.CharmInfoAPI
 	auth facade.Authorizer
 }
 
-var _ = gc.Suite(&charmsSuite{})
+var _ = gc.Suite(&charmInfoSuite{})
 
-func (s *charmsSuite) SetUpTest(c *gc.C) {
+func (s *charmInfoSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	s.auth = testing.FakeAuthorizer{
@@ -38,11 +38,11 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.api, err = charms.NewCharmsAPI(s.State, s.auth)
+	s.api, err = charms.NewCharmInfoAPI(&charms.StateShim{s.State}, s.auth)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *charmsSuite) TestClientCharmInfoCAAS(c *gc.C) {
+func (s *charmInfoSuite) TestClientCharmInfoCAAS(c *gc.C) {
 	var clientCharmInfoTests = []struct {
 		about    string
 		series   string
@@ -139,7 +139,7 @@ func (s *charmsSuite) TestClientCharmInfoCAAS(c *gc.C) {
 
 		c.Assert(err, jc.ErrorIsNil)
 
-		s.api, err = charms.NewCharmsAPI(otherModel.State(), s.auth)
+		s.api, err = charms.NewCharmInfoAPI(&charms.StateShim{otherModel.State()}, s.auth)
 		c.Assert(err, jc.ErrorIsNil)
 
 		info, err := s.api.CharmInfo(params.CharmURL{URL: t.url})
@@ -154,7 +154,7 @@ func (s *charmsSuite) TestClientCharmInfoCAAS(c *gc.C) {
 	}
 }
 
-func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
+func (s *charmInfoSuite) TestClientCharmInfo(c *gc.C) {
 	var clientCharmInfoTests = []struct {
 		about    string
 		charm    string

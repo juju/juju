@@ -11,11 +11,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -94,7 +94,7 @@ func (s *CAASProvisionerSuite) TestWorkerStarts(c *gc.C) {
 
 func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, updateCerts bool) {
 	s.provisionerFacade.life = "alive"
-	s.provisionerFacade.applicationsWatcher.changes <- []string{"myapp"}
+	s.sendApplicationChanges(c, "myapp")
 
 	expectedCalls := 3
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
@@ -165,7 +165,7 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, updateCert
 	}
 
 	if exists {
-		callNames := []string{"Life", "OperatorProvisioningInfo"}
+		callNames := []string{"ApplicationCharmInfo", "Life", "OperatorProvisioningInfo"}
 		if updateCerts {
 			callNames = append(callNames, "IssueOperatorCertificate")
 		}
@@ -175,9 +175,9 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, updateCert
 		return
 	}
 
-	s.provisionerFacade.stub.CheckCallNames(c, "Life", "OperatorProvisioningInfo", "IssueOperatorCertificate", "SetPasswords")
+	s.provisionerFacade.stub.CheckCallNames(c, "ApplicationCharmInfo", "Life", "OperatorProvisioningInfo", "IssueOperatorCertificate", "SetPasswords")
 	c.Assert(s.provisionerFacade.stub.Calls()[0].Args[0], gc.Equals, "myapp")
-	passwords := s.provisionerFacade.stub.Calls()[3].Args[0].([]apicaasprovisioner.ApplicationPassword)
+	passwords := s.provisionerFacade.stub.Calls()[4].Args[0].([]apicaasprovisioner.ApplicationPassword)
 
 	c.Assert(passwords, gc.HasLen, 1)
 	c.Assert(passwords[0].Name, gc.Equals, "myapp")
@@ -306,7 +306,7 @@ func (s *CAASProvisionerSuite) TestNewApplicationWaitsOperatorTerminated(c *gc.C
 
 	s.caasClient.setTerminating(true)
 	s.provisionerFacade.life = "alive"
-	s.provisionerFacade.applicationsWatcher.changes <- []string{"myapp"}
+	s.sendApplicationChanges(c, "myapp")
 
 	lastLen := 0
 	gotOperatorCall := false
@@ -340,9 +340,8 @@ func (s *CAASProvisionerSuite) TestApplicationDeletedRemovesOperator(c *gc.C) {
 
 	s.assertOperatorCreated(c, false, false)
 	s.caasClient.ResetCalls()
-	s.provisionerFacade.stub.SetErrors(errors.NotFoundf("myapp"))
 	s.provisionerFacade.life = "dead"
-	s.provisionerFacade.applicationsWatcher.changes <- []string{"myapp"}
+	s.sendApplicationChanges(c, "myapp")
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if len(s.caasClient.Calls()) > 0 {
@@ -351,4 +350,32 @@ func (s *CAASProvisionerSuite) TestApplicationDeletedRemovesOperator(c *gc.C) {
 	}
 	s.caasClient.CheckCallNames(c, "DeleteOperator")
 	c.Assert(s.caasClient.Calls()[0].Args[0], gc.Equals, "myapp")
+}
+
+func (s *CAASProvisionerSuite) TestV2CharmSkipsProcessing(c *gc.C) {
+	w := s.assertWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.provisionerFacade.charmInfo.Manifest.Bases = []charm.Base{{}}
+	s.sendApplicationChanges(c, "app")
+
+	workertest.CheckAlive(c, w)
+}
+
+func (s *CAASProvisionerSuite) TestNotFoundCharmSkipsProcessing(c *gc.C) {
+	w := s.assertWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.provisionerFacade.charmInfo = nil
+	s.sendApplicationChanges(c, "no-app")
+
+	workertest.CheckAlive(c, w)
+}
+
+func (s *CAASProvisionerSuite) sendApplicationChanges(c *gc.C, appNames ...string) {
+	select {
+	case s.provisionerFacade.applicationsWatcher.changes <- appNames:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending applications change")
+	}
 }

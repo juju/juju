@@ -42,7 +42,7 @@ type cloudServiceDoc struct {
 	Addresses  []address `bson:"addresses"`
 
 	// Generation is the version of current service configuration.
-	// It prevents the scale updated to replicas of the older/previous gerenations of deployment/statefulset.
+	// It prevents the scale updated to replicas of the older/previous generations of deployment/statefulset.
 	// Currently only DesiredScale is versioned.
 	Generation int64 `bson:"generation"`
 

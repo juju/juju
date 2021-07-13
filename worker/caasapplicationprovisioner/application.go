@@ -17,7 +17,6 @@ import (
 	"github.com/juju/utils/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
-	"github.com/juju/worker/v2/dependency"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -97,20 +96,96 @@ func (a *appWorker) Wait() error {
 }
 
 func (a *appWorker) loop() error {
-	charmURL, err := a.facade.ApplicationCharmURL(a.name)
-	if errors.IsNotFound(err) {
-		a.logger.Debugf("application %q removed", a.name)
-		return nil
-	} else if err != nil {
-		return errors.Annotatef(err, "failed to get charm url for application")
-	}
-	charmInfo, err := a.facade.CharmInfo(charmURL.String())
+	// Wait till charm is upgraded to a v2 charm.
+	appStateWatcher, err := a.facade.WatchApplication(a.name)
 	if err != nil {
-		return errors.Annotatef(err, "failed to get application charm deployment metadata for %q", a.name)
+		return errors.Annotatef(err, "failed to watch for changes to application %q", a.name)
 	}
-	if charmInfo == nil ||
-		corecharm.Format(charmInfo.Charm()) < corecharm.FormatV2 {
-		return errors.Errorf("charm version 2 or greater required")
+	if err := a.catacomb.Add(appStateWatcher); err != nil {
+		return errors.Trace(err)
+	}
+	appStateChanges := appStateWatcher.Changes()
+	for {
+		format, err := a.charmFormat()
+		if errors.IsNotFound(err) {
+			a.logger.Debugf("application %q no longer exists", a.name)
+			return nil
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		if format >= corecharm.FormatV2 {
+			a.logger.Debugf("application %q is now a v2 charm", a.name)
+			break
+		}
+
+		appLife, err := a.facade.Life(a.name)
+		if errors.IsNotFound(err) {
+			a.logger.Debugf("application %q no longer exists", a.name)
+			return nil
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		if appLife == life.Dead {
+			a.logger.Debugf("application %q now dead", a.name)
+			return nil
+		}
+
+		// Wait for next app change, then loop to check charm format again.
+		select {
+		case <-appStateChanges:
+		case <-a.catacomb.Dying():
+			return a.catacomb.ErrDying()
+		}
+	}
+	appStateWatcher.Kill()
+	appStateChanges = nil
+
+	// If the application has an operator pod due to an upgrade-charm from a
+	// pod-spec charm to a sidecar charm, delete it. Also delete workload pod.
+	operatorDidExist := false
+	const maxDeleteLoops = 100
+	for i := 0; ; i++ {
+		if i >= maxDeleteLoops {
+			return fmt.Errorf("couldn't delete operator and service with %d tries", maxDeleteLoops)
+		}
+		if i > 0 {
+			time.Sleep(time.Second)
+		}
+
+		exists, err := a.broker.OperatorExists(a.name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !exists.Exists {
+			break
+		}
+		operatorDidExist = true
+
+		a.logger.Infof("deleting operator and workload pods for application %q", a.name)
+		err = a.broker.DeleteOperator(a.name)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Annotatef(err, "deleting operator pod for application %q", a.name)
+		}
+		err = a.broker.DeleteService(a.name)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Annotatef(err, "deleting workload pod for application %q", a.name)
+		}
+	}
+
+	// If the operator/service did exist, clean up the units in state.
+	// TODO (benhoyt) - it would be better to keep the operatorDidExist
+	// state in persistent storage in case something fails between up there
+	// and here.
+	if operatorDidExist {
+		a.logger.Infof("cleaning up units for application %q in state", a.name)
+		units, err := a.facade.Units(a.name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = a.facade.GarbageCollect(a.name, units, 0, nil, true)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	// Update the password once per worker start to avoid it changing too frequently.
@@ -129,7 +204,6 @@ func (a *appWorker) loop() error {
 	var appLife life.Value
 	var appChanges watcher.NotifyChannel
 	var replicaChanges watcher.NotifyChannel
-	var appStateChanges watcher.NotifyChannel
 	var lastReportedStatus map[string]status.StatusInfo
 
 	appScaleWatcher, err := a.unitFacade.WatchApplicationScale(a.name)
@@ -211,32 +285,58 @@ func (a *appWorker) loop() error {
 		return nil
 	}
 
+	var scaleChan <-chan time.Time
+	var scaleTries int
+	var trustChan <-chan time.Time
+	var trustTries int
+	const maxRetries = 10
+	const retryDelay = 3 * time.Second
+
 	for {
 		select {
 		case _, ok := <-appScaleWatcher.Changes():
 			if !ok {
 				return fmt.Errorf("application %q scale watcher closed channel", a.name)
 			}
-			if err := a.ensureScale(app); err != nil {
-				return err
+			scaleTries = 0
+			scaleChan = time.After(0)
+		case <-scaleChan:
+			err := a.ensureScale(app)
+			if errors.IsNotFound(err) {
+				if scaleTries >= maxRetries {
+					return errors.Annotatef(err, "more than %d retries ensuring scale", maxRetries)
+				}
+				scaleTries++
+				scaleChan = time.After(retryDelay)
+			} else if err != nil {
+				return errors.Trace(err)
 			}
 		case _, ok := <-appTrustWatcher.Changes():
 			if !ok {
 				return fmt.Errorf("application %q trust watcher closed channel", a.name)
 			}
-			if err := a.ensureTrust(app); err != nil {
-				return err
+			trustTries = 0
+			trustChan = time.After(0)
+		case <-trustChan:
+			err := a.ensureTrust(app)
+			if errors.IsNotFound(err) {
+				if trustTries >= maxRetries {
+					return errors.Annotatef(err, "more than %d retries ensuring trust", maxRetries)
+				}
+				trustTries++
+				trustChan = time.After(retryDelay)
+			} else if err != nil {
+				return errors.Trace(err)
 			}
 		case <-a.catacomb.Dying():
 			return a.catacomb.ErrDying()
 		case <-appStateChanges:
-			// Respond to state changes.
 			err = handleChange()
 			if err != nil {
 				return errors.Trace(err)
 			}
 		case <-a.changes:
-			// Respond to life changes.
+			// Respond to life changes (Notify called by parent worker).
 			err = handleChange()
 			if err != nil {
 				return errors.Trace(err)
@@ -258,6 +358,14 @@ func (a *appWorker) loop() error {
 			return nil
 		}
 	}
+}
+
+func (a *appWorker) charmFormat() (corecharm.MetadataFormat, error) {
+	charmInfo, err := a.facade.ApplicationCharmInfo(a.name)
+	if err != nil {
+		return corecharm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", a.name)
+	}
+	return corecharm.Format(charmInfo.Charm()), nil
 }
 
 func (a *appWorker) updateState(app caas.Application, force bool, lastReportedStatus map[string]status.StatusInfo) (map[string]status.StatusInfo, error) {
@@ -411,9 +519,6 @@ func (a *appWorker) ensureScale(app caas.Application) error {
 
 	a.logger.Debugf("updating application %q scale to %d", a.name, desiredScale)
 	err = app.Scale(desiredScale)
-	if errors.IsNotFound(err) {
-		return dependency.ErrBounce
-	}
 	if err != nil {
 		return errors.Annotatef(
 			err,
@@ -433,9 +538,6 @@ func (a *appWorker) ensureTrust(app caas.Application) error {
 
 	a.logger.Debugf("updating application %q trust to %v", a.name, desiredTrust)
 	err = app.Trust(desiredTrust)
-	if errors.IsNotFound(err) {
-		return dependency.ErrBounce
-	}
 	if err != nil {
 		return errors.Annotatef(
 			err,

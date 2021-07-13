@@ -1459,6 +1459,9 @@ type SetCharmConfig struct {
 	// EndpointBindings is an operator-defined map of endpoint names to
 	// space names that should be merged with any existing bindings.
 	EndpointBindings map[string]string
+
+	// Series, if set, updates the application's series.
+	Series string
 }
 
 // SetCharm changes the charm for the application.
@@ -1631,6 +1634,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			ops = append(ops, chng...)
 			newCharmModifiedVersion++
 		}
+
 		if cfg.CharmOrigin != nil {
 			// Update in the application facade also calls
 			// SetCharm, though it has no current user in the
@@ -1641,6 +1645,16 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				Id: a.doc.DocID,
 				Update: bson.D{{"$set", bson.D{
 					{"charm-origin", cfg.CharmOrigin},
+				}}},
+			})
+		}
+
+		if cfg.Series != "" {
+			ops = append(ops, txn.Op{
+				C:  applicationsC,
+				Id: a.doc.DocID,
+				Update: bson.D{{"$set", bson.D{
+					{"series", cfg.Series},
 				}}},
 			})
 		}
@@ -1675,6 +1689,9 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	a.doc.Channel = channel
 	a.doc.ForceCharm = cfg.ForceUnits
 	a.doc.CharmModifiedVersion = newCharmModifiedVersion
+	if cfg.Series != "" {
+		a.doc.Series = cfg.Series
+	}
 	return nil
 }
 
