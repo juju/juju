@@ -405,6 +405,7 @@ type ModelUpdate struct {
 	Status         StatusInfo             `json:"status"`
 	Constraints    constraints.Value      `json:"constraints"`
 	SLA            ModelSLAInfo           `json:"sla"`
+	Users          []ModelUserInfo        `json:"users"`
 }
 
 // EntityId returns a unique identifier for a model.

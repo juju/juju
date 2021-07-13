@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
@@ -110,6 +111,10 @@ func makeAllWatcherCollectionInfo(collNames []string) map[string]allWatcherState
 		case podSpecsC:
 			collection.docType = reflect.TypeOf(backingPodSpec{})
 			collection.subsidiary = true
+		case modelUserLastConnectionC:
+			// Last Connection times are attached to the model that was connected to.
+			collection.docType = reflect.TypeOf(backingModelUserLastConnection{})
+			collection.subsidiary = true
 		default:
 			allWatcherLogger.Criticalf("programming error: unknown collection %q", collName)
 		}
@@ -203,19 +208,19 @@ func (e *backingModel) updated(ctx *allWatcherContext) error {
 			return errors.Trace(err)
 		}
 
-		permissions, err := ctx.permissionsForModel(e.UUID)
+		users, err := ctx.usersForModel(e.UUID)
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		info.UserPermissions = permissions
+		info.Users = users
 	} else {
 		oldInfo := oldInfo.(*multiwatcher.ModelInfo)
 		info.Annotations = oldInfo.Annotations
 		info.Config = oldInfo.Config
 		info.Constraints = oldInfo.Constraints
 		info.Status = oldInfo.Status
-		info.UserPermissions = oldInfo.UserPermissions
+		info.Users = oldInfo.Users
 	}
 
 	ctx.store.Update(info)
@@ -264,7 +269,9 @@ func (e *backingPermission) updated(ctx *allWatcherContext) error {
 	}
 
 	// Set the access for the user in the permission map of the model.
-	info.UserPermissions[user] = permission.Access(e.Access)
+	ui := info.Users[user]
+	ui.Access = permission.Access(e.Access)
+	info.Users[user] = ui
 
 	ctx.store.Update(info)
 	return nil
@@ -284,7 +291,7 @@ func (e *backingPermission) removed(ctx *allWatcherContext) error {
 		return nil
 	}
 
-	delete(info.UserPermissions, user)
+	delete(info.Users, user)
 
 	ctx.store.Update(info)
 	return nil
@@ -1574,6 +1581,66 @@ func (g *backingGeneration) mongoID() string {
 	return id
 }
 
+type backingModelUserLastConnection modelUserLastConnectionDoc
+
+func (b *backingModelUserLastConnection) updated(ctx *allWatcherContext) error {
+	allWatcherLogger.Tracef(`model-user-last-connection "%s:%s" updated`, ctx.modelUUID, ctx.id)
+
+	info := b.getModelInfo(ctx)
+	if info == nil {
+		return nil
+	}
+
+	// Set the last connection time for the user.
+	ui := info.Users[ctx.id]
+	t := b.LastConnection
+	ui.LastConnection = &t
+	info.Users[ctx.id] = ui
+	ctx.store.Update(info)
+
+	return nil
+}
+
+func (b *backingModelUserLastConnection) removed(ctx *allWatcherContext) error {
+	allWatcherLogger.Tracef(`model-user-last-connection "%s:%s" removed`, ctx.modelUUID, ctx.id)
+
+	info := b.getModelInfo(ctx)
+	if info == nil {
+		return nil
+	}
+
+	// It should be really unusual to remove the last-connected without
+	// removing the whole user. If the stored info contains the user
+	// then set the last connected time nil, otherwise ignore the
+	// update.
+	ui, ok := info.Users[ctx.id]
+	if !ok {
+		return nil
+	}
+	ui.LastConnection = nil
+	info.Users[ctx.id] = ui
+	ctx.store.Update(info)
+
+	return nil
+}
+
+func (b *backingModelUserLastConnection) getModelInfo(ctx *allWatcherContext) *multiwatcher.ModelInfo {
+	key := &multiwatcher.ModelInfo{
+		ModelUUID: ctx.modelUUID,
+	}
+	info0 := ctx.store.Get(key.EntityID())
+	if info0 == nil {
+		return nil
+	}
+
+	info, _ := info0.(*multiwatcher.ModelInfo)
+	return info
+}
+
+func (b *backingModelUserLastConnection) mongoID() string {
+	return strings.ToLower(b.UserName)
+}
+
 // backingEntityDoc is implemented by the documents in
 // collections that the allWatcherStateBacking watches.
 type backingEntityDoc interface {
@@ -1642,6 +1709,7 @@ func NewAllWatcherBacking(pool *StatePool) AllWatcherBacking {
 		remoteApplicationsC,
 		statusesC,
 		settingsC,
+		modelUserLastConnectionC,
 		// And for CAAS we need to watch these...
 		podSpecsC,
 	}
@@ -1866,7 +1934,7 @@ type allWatcherContext struct {
 	instances   map[string]instanceData
 	// A map of the existing MachinePortRanges where the keys are machine IDs.
 	openPortRanges map[string]MachinePortRanges
-	userAccess     map[string]map[string]permission.Access
+	users          map[string]map[string]multiwatcher.ModelUserInfo
 }
 
 func (ctx *allWatcherContext) loadSubsidiaryCollections() error {
@@ -1888,8 +1956,8 @@ func (ctx *allWatcherContext) loadSubsidiaryCollections() error {
 	if err := ctx.loadOpenedPortRanges(); err != nil {
 		return errors.Annotatef(err, "cache opened ports")
 	}
-	if err := ctx.loadPermissions(); err != nil {
-		return errors.Annotatef(err, "permissions")
+	if err := ctx.loadUsers(); err != nil {
+		return errors.Annotatef(err, "user information")
 	}
 	return nil
 }
@@ -1979,7 +2047,7 @@ func (ctx *allWatcherContext) loadOpenedPortRanges() error {
 	return nil
 }
 
-func (ctx *allWatcherContext) loadPermissions() error {
+func (ctx *allWatcherContext) loadUsers() error {
 	col, closer := ctx.state.db().GetCollection(permissionsC)
 	defer closer()
 
@@ -1988,18 +2056,20 @@ func (ctx *allWatcherContext) loadPermissions() error {
 		return errors.Annotate(err, "cannot read all permissions")
 	}
 
-	ctx.userAccess = make(map[string]map[string]permission.Access)
+	ctx.users = make(map[string]map[string]multiwatcher.ModelUserInfo)
 	for _, doc := range docs {
 		modelUUID, user, ok := doc.modelAndUser(doc.ID)
 		if !ok {
 			continue
 		}
-		modelPermissions := ctx.userAccess[modelUUID]
-		if modelPermissions == nil {
-			modelPermissions = make(map[string]permission.Access)
-			ctx.userAccess[modelUUID] = modelPermissions
+		modelUsers := ctx.users[modelUUID]
+		if modelUsers == nil {
+			modelUsers = make(map[string]multiwatcher.ModelUserInfo)
+			ctx.users[modelUUID] = modelUsers
 		}
-		modelPermissions[user] = permission.Access(doc.Access)
+		modelUsers[user] = multiwatcher.ModelUserInfo{
+			Access: permission.Access(doc.Access),
+		}
 	}
 
 	return nil
@@ -2122,22 +2192,32 @@ func (ctx *allWatcherContext) getInstanceData(id string) (instanceData, error) {
 	return getInstanceData(ctx.state, id)
 }
 
-func (ctx *allWatcherContext) permissionsForModel(uuid string) (map[string]permission.Access, error) {
-	if ctx.userAccess != nil {
-		return ctx.userAccess[uuid], nil
+func (ctx *allWatcherContext) usersForModel(uuid string) (map[string]multiwatcher.ModelUserInfo, error) {
+	if ctx.users != nil {
+		return ctx.users[uuid], nil
 	}
 	permissions, err := ctx.state.usersPermissions(modelKey(uuid))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make(map[string]permission.Access)
+	result := make(map[string]multiwatcher.ModelUserInfo)
 	for _, perm := range permissions {
 		user := userIDFromGlobalKey(perm.doc.SubjectGlobalKey)
 		if user == perm.doc.SubjectGlobalKey {
 			// Not a user subject
 			continue
 		}
-		result[user] = perm.access()
+		ui := multiwatcher.ModelUserInfo{
+			Access: perm.access(),
+		}
+		m, err := ctx.state.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if t, err := m.LastModelConnection(names.NewUserTag(user)); err == nil {
+			ui.LastConnection = &t
+		}
+		result[user] = ui
 	}
 	return result, nil
 }
