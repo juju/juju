@@ -160,7 +160,7 @@ func (w *applicationWorker) loop() (err error) {
 			// If charm is (now) a v1 charm, exit the worker.
 			format, err := w.charmFormat()
 			if errors.IsNotFound(err) {
-				w.logger.Debugf("application %q removed", w.appName)
+				w.logger.Debugf("application %q no longer exists", w.appName)
 				return nil
 			} else if err != nil {
 				return errors.Trace(err)

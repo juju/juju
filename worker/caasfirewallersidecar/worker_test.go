@@ -37,13 +37,6 @@ type workerSuite struct {
 	appsWatcher watcher.StringsWatcher
 }
 
-type noopLogger struct{}
-
-func (noopLogger) Tracef(string, ...interface{})   {}
-func (noopLogger) Debugf(string, ...interface{})   {}
-func (noopLogger) Errorf(string, ...interface{})   {}
-func (noopLogger) Warningf(string, ...interface{}) {}
-
 var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) SetUpTest(c *gc.C) {

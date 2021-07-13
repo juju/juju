@@ -108,7 +108,7 @@ func (a *appWorker) loop() error {
 	for {
 		format, err := a.charmFormat()
 		if errors.IsNotFound(err) {
-			a.logger.Debugf("application %q removed", a.name)
+			a.logger.Debugf("application %q no longer exists", a.name)
 			return nil
 		} else if err != nil {
 			return errors.Trace(err)
@@ -120,7 +120,7 @@ func (a *appWorker) loop() error {
 
 		appLife, err := a.facade.Life(a.name)
 		if errors.IsNotFound(err) {
-			a.logger.Debugf("application %q removed", a.name)
+			a.logger.Debugf("application %q no longer exists", a.name)
 			return nil
 		} else if err != nil {
 			return errors.Trace(err)
@@ -147,6 +147,9 @@ func (a *appWorker) loop() error {
 	for i := 0; ; i++ {
 		if i >= maxDeleteLoops {
 			return fmt.Errorf("couldn't delete operator and service with %d tries", maxDeleteLoops)
+		}
+		if i > 0 {
+			time.Sleep(time.Second)
 		}
 
 		exists, err := a.broker.OperatorExists(a.name)

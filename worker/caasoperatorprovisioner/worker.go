@@ -130,7 +130,7 @@ func (p *provisioner) loop() error {
 				// Ignore events for v2 charms.
 				format, err := p.charmFormat(app)
 				if errors.IsNotFound(err) {
-					p.logger.Debugf("application %q removed", app)
+					p.logger.Debugf("application %q no longer exists", app)
 					continue
 				} else if err != nil {
 					return errors.Trace(err)

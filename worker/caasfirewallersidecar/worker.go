@@ -122,7 +122,7 @@ func (p *firewaller) loop() error {
 				// If charm is (now) a v1 charm, skip processing.
 				format, err := p.charmFormat(appName)
 				if errors.IsNotFound(err) {
-					p.config.Logger.Debugf("application %q removed", appName)
+					p.config.Logger.Debugf("application %q no longer exists", appName)
 					continue
 				} else if err != nil {
 					return errors.Trace(err)

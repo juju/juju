@@ -68,15 +68,12 @@ func (st *mockState) Model() (*state.Model, error) {
 
 type mockApplication struct {
 	testing.Stub
-	life    state.Life
-	exposed bool
-	watcher state.NotifyWatcher
+	state.Entity // Pull in Tag method (which tests don't use)
+	life         state.Life
+	exposed      bool
+	watcher      state.NotifyWatcher
 
 	charm mockAppWatcherCharm
-}
-
-func (*mockApplication) Tag() names.Tag {
-	panic("not called")
 }
 
 func (a *mockApplication) Life() state.Life {
@@ -137,16 +134,11 @@ func (s *mockAppWatcherApplication) Charm() (charm.CharmMeta, bool, error) {
 
 type mockAppWatcherCharm struct {
 	testing.Stub
-	meta     *charm.Meta
-	manifest *charm.Manifest
-	url      *charm.URL
+	charmscommon.Charm // Override only the methods the tests use
+	meta               *charm.Meta
+	manifest           *charm.Manifest
+	url                *charm.URL
 }
-
-func (s *mockAppWatcherCharm) Revision() int                 { panic("not called") }
-func (s *mockAppWatcherCharm) Config() *charm.Config         { panic("not called") }
-func (s *mockAppWatcherCharm) Metrics() *charm.Metrics       { panic("not called") }
-func (s *mockAppWatcherCharm) Actions() *charm.Actions       { panic("not called") }
-func (s *mockAppWatcherCharm) LXDProfile() *state.LXDProfile { panic("not called") }
 
 func (s *mockAppWatcherCharm) Meta() *charm.Meta {
 	s.MethodCall(s, "Meta")
