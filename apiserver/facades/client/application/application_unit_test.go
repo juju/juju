@@ -550,7 +550,15 @@ func (s *ApplicationSuite) TestSetCharmUpgradeFormat(c *gc.C) {
 				"c1": {Resource: "c1-image"},
 			},
 		},
-		manifest: &charm.Manifest{Bases: []charm.Base{{}}}, // len(Bases)>0 means it's a v2 charm
+		manifest: &charm.Manifest{Bases: []charm.Base{ // len(Bases)>0 means it's a v2 charm
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Track: "20.04",
+					Risk:  "stable",
+				},
+			},
+		}},
 	}
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "app-v1charm",

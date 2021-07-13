@@ -1487,60 +1487,12 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			return errors.New("cannot change a charm's deployment mode")
 		}
 	}
-	// For old style charms written for only one series, we still retain
-	// this check. Newer charms written for multi-series have a URL
-	// with series = "".
-	if cfg.Charm.URL().Series != "" {
-		// Allow series change when switching to charmhub charms.
-		if cfg.Charm.URL().Schema != "ch" && cfg.Charm.URL().Series != a.doc.Series {
-			return errors.Errorf("cannot change an application's series")
-		}
-	} else if !cfg.ForceSeries {
-		supported := false
-		charmSeries, err := corecharm.ComputedSeries(cfg.Charm)
+
+	// If it's a v1 or v2 machine charm (no containers), check series.
+	if corecharm.Format(cfg.Charm) == corecharm.FormatV1 || len(cfg.Charm.Meta().Containers) == 0 {
+		err := setCharmCheckSeries(a.doc.Series, cfg.Charm, cfg.ForceSeries)
 		if err != nil {
 			return errors.Trace(err)
-		}
-		for _, oneSeries := range charmSeries {
-			if oneSeries == a.doc.Series {
-				supported = true
-				break
-			}
-		}
-		if !supported {
-			supportedSeries := "no series"
-			if len(charmSeries) > 0 {
-				supportedSeries = strings.Join(charmSeries, ", ")
-			}
-			return errors.Errorf("only these series are supported: %v", supportedSeries)
-		}
-	} else {
-		// Even with forceSeries=true, we do not allow a charm to be used which is for
-		// a different OS. This assumes the charm declares it has supported series which
-		// we can check for OS compatibility. Otherwise, we just accept the series supplied.
-		currentOS, err := series.GetOSFromSeries(a.doc.Series)
-		if err != nil {
-			// We don't expect an error here but there's not much we can
-			// do to recover.
-			return err
-		}
-		supportedOS := false
-		supportedSeries, err := corecharm.ComputedSeries(cfg.Charm)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		for _, chSeries := range supportedSeries {
-			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
-			if err != nil {
-				return nil
-			}
-			if currentOS == charmSeriesOS {
-				supportedOS = true
-				break
-			}
-		}
-		if !supportedOS && len(supportedSeries) > 0 {
-			return errors.Errorf("OS %q not supported by charm", currentOS)
 		}
 	}
 
@@ -1691,6 +1643,66 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	a.doc.CharmModifiedVersion = newCharmModifiedVersion
 	if cfg.Series != "" {
 		a.doc.Series = cfg.Series
+	}
+	return nil
+}
+
+func setCharmCheckSeries(curSeries string, charm *Charm, forceSeries bool) error {
+	// For old style charms written for only one series, we still retain
+	// this check. Newer charms written for multi-series have a URL
+	// with series = "".
+	if charm.URL().Series != "" {
+		// Allow series change when switching to charmhub charms.
+		if charm.URL().Schema != "ch" && charm.URL().Series != curSeries {
+			return errors.Errorf("cannot change an application's series")
+		}
+	} else if !forceSeries {
+		supported := false
+		charmSeries, err := corecharm.ComputedSeries(charm)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, oneSeries := range charmSeries {
+			if oneSeries == curSeries {
+				supported = true
+				break
+			}
+		}
+		if !supported {
+			supportedSeries := "no series"
+			if len(charmSeries) > 0 {
+				supportedSeries = strings.Join(charmSeries, ", ")
+			}
+			return errors.Errorf("only these series are supported: %v", supportedSeries)
+		}
+	} else {
+		// Even with forceSeries=true, we do not allow a charm to be used which is for
+		// a different OS. This assumes the charm declares it has supported series which
+		// we can check for OS compatibility. Otherwise, we just accept the series supplied.
+		currentOS, err := series.GetOSFromSeries(curSeries)
+		if err != nil {
+			// We don't expect an error here but there's not much we can
+			// do to recover.
+			return err
+		}
+		supportedOS := false
+		supportedSeries, err := corecharm.ComputedSeries(charm)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, chSeries := range supportedSeries {
+			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
+			if err != nil {
+				return nil
+			}
+			if currentOS == charmSeriesOS {
+				supportedOS = true
+				break
+			}
+		}
+		if !supportedOS && len(supportedSeries) > 0 {
+			return errors.Errorf("OS %q not supported by charm", currentOS)
+		}
 	}
 	return nil
 }

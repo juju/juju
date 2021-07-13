@@ -1349,7 +1349,17 @@ func (api *APIBase) applicationSetCharm(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		newSeries, err := sidecarUpgradeSeries(modelConfig, newCharm.Meta().Series)
+
+		var supported []string
+		for _, base := range newCharm.Manifest().Bases {
+			series, err := series.VersionSeries(base.Channel.Track)
+			if err != nil {
+				continue
+			}
+			supported = append(supported, series)
+		}
+
+		newSeries, err := sidecarUpgradeSeries(modelConfig, supported)
 		if err != nil {
 			return errors.Trace(err)
 		}
