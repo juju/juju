@@ -3,7 +3,11 @@
 
 package jujuc_test
 
-import "github.com/juju/juju/worker/uniter/runner/jujuc"
+import (
+	"github.com/juju/loggo"
+
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
+)
 
 type restrictedContext struct {
 	*jujuc.RestrictedContext
@@ -12,5 +16,9 @@ type restrictedContext struct {
 // UnitName completes the hooks.Context implementation, which the
 // RestrictedContext leaves out.
 func (*restrictedContext) UnitName() string { return "restricted" }
+
+func (r *restrictedContext) GetLogger(m string) loggo.Logger {
+	return loggo.GetLogger(m)
+}
 
 var _ jujuc.Context = (*restrictedContext)(nil)
