@@ -607,20 +607,8 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				"/bin/sh",
 			},
 			Args: []string{
-				"--dbpath=/var/lib/juju/db",
-				"--tlsCertificateKeyFile=/var/lib/juju/server.pem",
-				"--tlsCertificateKeyFilePassword=ignored",
-				"--tlsMode=requireTLS",
-				fmt.Sprintf("--port=%d", s.controllerCfg.StatePort()),
-				"--journal",
-				"--replSet=juju",
-				"--quiet",
-				"--oplogSize=1024",
-				"--ipv6",
-				"--auth",
-				"--keyFile=/var/lib/juju/shared-secret",
-				"--storageEngine=wiredTiger",
-				"--bind_ip_all",
+				"-c",
+				`printf 'args="--dbpath=/var/lib/juju/db --tlsCertificateKeyFile=/var/lib/juju/server.pem --tlsCertificateKeyFilePassword=ignored --tlsMode=requireTLS --port=1234 --journal --replSet=juju --quiet --oplogSize=1024 --auth --keyFile=/var/lib/juju/shared-secret --storageEngine=wiredTiger --bind_ip_all"\nipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)\nif [ $ipv6Disabled -eq 0 ]; then\n  args="${args} --ipv6"\nfi\n$(mongod ${args})\n'>/root/mongo.sh && chmod a+x /root/mongo.sh && /root/mongo.sh`,
 			},
 			Ports: []core.ContainerPort{
 				{
