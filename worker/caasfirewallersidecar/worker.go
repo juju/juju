@@ -119,7 +119,7 @@ func (p *firewaller) loop() error {
 				return errors.New("watcher closed channel")
 			}
 			for _, appName := range apps {
-				// If charm is (now) a v1 charm, skip processing.
+				// If charm is a v1 charm, skip processing.
 				format, err := p.charmFormat(appName)
 				if errors.IsNotFound(err) {
 					p.config.Logger.Debugf("application %q no longer exists", appName)

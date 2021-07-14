@@ -157,7 +157,7 @@ func (w *applicationWorker) loop() (err error) {
 				return errors.New("application watcher closed")
 			}
 
-			// If charm is (now) a v1 charm, exit the worker.
+			// If charm is a v1 charm, exit the worker.
 			format, err := w.charmFormat()
 			if errors.IsNotFound(err) {
 				w.logger.Debugf("application %q no longer exists", w.appName)

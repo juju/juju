@@ -1440,6 +1440,9 @@ type SetCharmConfig struct {
 	// the charm's supported series.
 	ForceSeries bool
 
+	// Series, if set, updates the application's series.
+	Series string
+
 	// Force forces the overriding of the lxd profile validation even if the
 	// profile doesn't validate.
 	Force bool
@@ -1459,9 +1462,6 @@ type SetCharmConfig struct {
 	// EndpointBindings is an operator-defined map of endpoint names to
 	// space names that should be merged with any existing bindings.
 	EndpointBindings map[string]string
-
-	// Series, if set, updates the application's series.
-	Series string
 }
 
 // SetCharm changes the charm for the application.
