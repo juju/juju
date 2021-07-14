@@ -547,6 +547,7 @@ func (refreshConfigSuite) TestRefreshByChannel(c *gc.C) {
 			},
 		}},
 		Context: []transport.RefreshRequestContext{},
+		Fields:  []string{"bases", "download", "id", "revision", "version", "resources"},
 	})
 }
 
@@ -580,6 +581,7 @@ func (refreshConfigSuite) TestRefreshByChannelVersion(c *gc.C) {
 			},
 		}},
 		Context: []transport.RefreshRequestContext{},
+		Fields:  []string{"bases", "download", "id", "revision", "version", "resources"},
 	})
 }
 
@@ -608,6 +610,7 @@ func (refreshConfigSuite) TestRefreshByRevision(c *gc.C) {
 			Base:        &transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "20.04"},
 		}},
 		Context: []transport.RefreshRequestContext{},
+		Fields:  []string{"bases", "download", "id", "revision", "version", "resources"},
 	})
 }
 
@@ -645,6 +648,7 @@ func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
 				Architecture: "amd64",
 			},
 		}},
+		//Fields:[]string{"bases", "download", "id", "revision", "version", "resources"},
 	})
 }
 
