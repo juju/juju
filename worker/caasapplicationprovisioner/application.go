@@ -96,49 +96,13 @@ func (a *appWorker) Wait() error {
 }
 
 func (a *appWorker) loop() error {
-	// Wait till charm is upgraded to a v2 charm.
-	appStateWatcher, err := a.facade.WatchApplication(a.name)
+	shouldExit, err := a.verifyCharmUpgraded()
 	if err != nil {
-		return errors.Annotatef(err, "failed to watch for changes to application %q", a.name)
-	}
-	if err := a.catacomb.Add(appStateWatcher); err != nil {
 		return errors.Trace(err)
 	}
-	appStateChanges := appStateWatcher.Changes()
-	for {
-		format, err := a.charmFormat()
-		if errors.IsNotFound(err) {
-			a.logger.Debugf("application %q no longer exists", a.name)
-			return nil
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-		if format >= corecharm.FormatV2 {
-			a.logger.Debugf("application %q is now a v2 charm", a.name)
-			break
-		}
-
-		appLife, err := a.facade.Life(a.name)
-		if errors.IsNotFound(err) {
-			a.logger.Debugf("application %q no longer exists", a.name)
-			return nil
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-		if appLife == life.Dead {
-			a.logger.Debugf("application %q now dead", a.name)
-			return nil
-		}
-
-		// Wait for next app change, then loop to check charm format again.
-		select {
-		case <-appStateChanges:
-		case <-a.catacomb.Dying():
-			return a.catacomb.ErrDying()
-		}
+	if shouldExit {
+		return nil
 	}
-	appStateWatcher.Kill()
-	appStateChanges = nil
 
 	// If the application has an operator pod due to an upgrade-charm from a
 	// pod-spec charm to a sidecar charm, delete it. Also delete workload pod.
@@ -203,6 +167,7 @@ func (a *appWorker) loop() error {
 
 	var appLife life.Value
 	var appChanges watcher.NotifyChannel
+	var appStateChanges watcher.NotifyChannel
 	var replicaChanges watcher.NotifyChannel
 	var lastReportedStatus map[string]status.StatusInfo
 
@@ -366,6 +331,52 @@ func (a *appWorker) charmFormat() (corecharm.MetadataFormat, error) {
 		return corecharm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", a.name)
 	}
 	return corecharm.Format(charmInfo.Charm()), nil
+}
+
+// verifyCharmUpgraded waits till the charm is upgraded to a v2 charm.
+func (a *appWorker) verifyCharmUpgraded() (shouldExit bool, err error) {
+	appStateWatcher, err := a.facade.WatchApplication(a.name)
+	if err != nil {
+		return false, errors.Annotatef(err, "failed to watch for changes to application %q", a.name)
+	}
+	if err := a.catacomb.Add(appStateWatcher); err != nil {
+		return false, errors.Trace(err)
+	}
+	defer appStateWatcher.Kill()
+
+	appStateChanges := appStateWatcher.Changes()
+	for {
+		format, err := a.charmFormat()
+		if errors.IsNotFound(err) {
+			a.logger.Debugf("application %q no longer exists", a.name)
+			return true, nil
+		} else if err != nil {
+			return false, errors.Trace(err)
+		}
+		if format >= corecharm.FormatV2 {
+			a.logger.Debugf("application %q is now a v2 charm", a.name)
+			return false, nil
+		}
+
+		appLife, err := a.facade.Life(a.name)
+		if errors.IsNotFound(err) {
+			a.logger.Debugf("application %q no longer exists", a.name)
+			return true, nil
+		} else if err != nil {
+			return false, errors.Trace(err)
+		}
+		if appLife == life.Dead {
+			a.logger.Debugf("application %q now dead", a.name)
+			return true, nil
+		}
+
+		// Wait for next app change, then loop to check charm format again.
+		select {
+		case <-appStateChanges:
+		case <-a.catacomb.Dying():
+			return false, a.catacomb.ErrDying()
+		}
+	}
 }
 
 func (a *appWorker) updateState(app caas.Application, force bool, lastReportedStatus map[string]status.StatusInfo) (map[string]status.StatusInfo, error) {
