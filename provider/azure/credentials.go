@@ -19,9 +19,10 @@ import (
 )
 
 const (
-	credAttrAppId          = "application-id"
-	credAttrSubscriptionId = "subscription-id"
-	credAttrAppPassword    = "application-password"
+	credAttrAppId               = "application-id"
+	credAttrApplicationObjectId = "application-object-id"
+	credAttrSubscriptionId      = "subscription-id"
+	credAttrAppPassword         = "application-password"
 
 	// clientCredentialsAuthType is the auth-type for the
 	// "client credentials" OAuth flow, which requires a
@@ -34,8 +35,8 @@ const (
 )
 
 type ServicePrincipalCreator interface {
-	InteractiveCreate(sdkCtx context.Context, stderr io.Writer, params azureauth.ServicePrincipalParams) (appid, password string, _ error)
-	Create(sdkCtx context.Context, params azureauth.ServicePrincipalParams) (appid, password string, _ error)
+	InteractiveCreate(sdkCtx context.Context, stderr io.Writer, params azureauth.ServicePrincipalParams) (appid, spid, password string, _ error)
+	Create(sdkCtx context.Context, params azureauth.ServicePrincipalParams) (appid, spid, password string, _ error)
 }
 
 type AzureCLI interface {
@@ -79,6 +80,11 @@ func (c environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud
 		clientCredentialsAuthType: {
 			{
 				credAttrAppId, cloud.CredentialAttr{Description: "Azure Active Directory application ID"},
+			}, {
+				credAttrApplicationObjectId, cloud.CredentialAttr{
+					Description: "Azure Active Directory application Object ID",
+					Optional:    true,
+				},
 			}, {
 				credAttrSubscriptionId, cloud.CredentialAttr{Description: "Azure subscription ID"},
 			}, {
@@ -183,14 +189,15 @@ func (c environProviderCredentials) deviceCodeCredential(
 	params azureauth.ServicePrincipalParams,
 ) (*cloud.Credential, error) {
 	sdkCtx := context.Background()
-	applicationId, password, err := c.servicePrincipalCreator.InteractiveCreate(sdkCtx, ctx.GetStderr(), params)
+	applicationId, spObjectId, password, err := c.servicePrincipalCreator.InteractiveCreate(sdkCtx, ctx.GetStderr(), params)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	out := cloud.NewCredential(clientCredentialsAuthType, map[string]string{
-		credAttrSubscriptionId: params.SubscriptionId,
-		credAttrAppId:          applicationId,
-		credAttrAppPassword:    password,
+		credAttrSubscriptionId:      params.SubscriptionId,
+		credAttrAppId:               applicationId,
+		credAttrApplicationObjectId: spObjectId,
+		credAttrAppPassword:         password,
 	})
 	out.Label = args.Credential.Label
 	return &out, nil
@@ -218,14 +225,15 @@ func (c environProviderCredentials) azureCLICredential(
 	params.ResourceManagerAuthorizer = autorest.NewBearerAuthorizer(resourceManagerAuthorizer.Token())
 
 	sdkCtx := context.Background()
-	applicationId, password, err := c.servicePrincipalCreator.Create(sdkCtx, params)
+	applicationId, spObjectId, password, err := c.servicePrincipalCreator.Create(sdkCtx, params)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get service principal")
 	}
 	out := cloud.NewCredential(clientCredentialsAuthType, map[string]string{
-		credAttrSubscriptionId: params.SubscriptionId,
-		credAttrAppId:          applicationId,
-		credAttrAppPassword:    password,
+		credAttrSubscriptionId:      params.SubscriptionId,
+		credAttrAppId:               applicationId,
+		credAttrApplicationObjectId: spObjectId,
+		credAttrAppPassword:         password,
 	})
 	out.Label = args.Credential.Label
 	return &out, nil
@@ -244,7 +252,7 @@ func (c environProviderCredentials) accountCredential(
 		return cloud.Credential{}, errors.Annotatef(err, "cannot get access token for %s", acc.ID)
 	}
 	sdkCtx := context.Background()
-	applicationId, password, err := c.servicePrincipalCreator.Create(sdkCtx, azureauth.ServicePrincipalParams{
+	applicationId, spObjectId, password, err := c.servicePrincipalCreator.Create(sdkCtx, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             cloudInfo.Endpoints.ActiveDirectoryGraphResourceID,
 		GraphResourceId:           cloudInfo.Endpoints.ActiveDirectoryGraphResourceID,
 		GraphAuthorizer:           autorest.NewBearerAuthorizer(graphToken.Token()),
@@ -259,9 +267,10 @@ func (c environProviderCredentials) accountCredential(
 	}
 
 	return cloud.NewCredential(clientCredentialsAuthType, map[string]string{
-		credAttrSubscriptionId: acc.ID,
-		credAttrAppId:          applicationId,
-		credAttrAppPassword:    password,
+		credAttrSubscriptionId:      acc.ID,
+		credAttrAppId:               applicationId,
+		credAttrApplicationObjectId: spObjectId,
+		credAttrAppPassword:         password,
 	}), nil
 }
 

@@ -192,7 +192,7 @@ func (s *InteractiveSuite) TestInteractive(c *gc.C) {
 	subscriptionId := "22222222-2222-2222-2222-222222222222"
 	sdkCtx := context.Background()
 
-	appId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
+	appId, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",
@@ -202,6 +202,7 @@ func (s *InteractiveSuite) TestInteractive(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appId, gc.Equals, "60a04dc9-1857-425f-8076-5ba81ca53d66")
 	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
+	c.Assert(spObjectId, gc.Equals, "sp-object-id")
 	c.Assert(stderr.String(), gc.Equals, `
 Initiating interactive authentication.
 
@@ -270,7 +271,7 @@ func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *gc.C) {
 		NewUUID:          s.newUUID,
 	}
 	sdkCtx := context.Background()
-	_, _, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
+	_, _, _, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",
@@ -302,7 +303,7 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalAlreadyExists(c *gc.C)
 		NewUUID:          s.newUUID,
 	}
 	sdkCtx := context.Background()
-	_, password, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
+	_, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",
@@ -311,6 +312,7 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalAlreadyExists(c *gc.C)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
+	c.Assert(spObjectId, gc.Equals, "sp-object-id")
 
 	c.Assert(requests, gc.HasLen, 12)
 	c.Check(requests[0].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222")
@@ -370,7 +372,7 @@ func (s *InteractiveSuite) testInteractiveRetriesCreateServicePrincipal(c *gc.C,
 		NewUUID: s.newUUID,
 	}
 	sdkCtx := context.Background()
-	_, password, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
+	_, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",
@@ -379,6 +381,7 @@ func (s *InteractiveSuite) testInteractiveRetriesCreateServicePrincipal(c *gc.C,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
+	c.Assert(spObjectId, gc.Equals, "sp-object-id")
 
 	c.Assert(requests, gc.HasLen, 10)
 	c.Check(requests[0].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222")
@@ -416,7 +419,7 @@ func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *gc.C) {
 		NewUUID: s.newUUID,
 	}
 	sdkCtx := context.Background()
-	_, password, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
+	_, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",
@@ -425,6 +428,7 @@ func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
+	c.Assert(spObjectId, gc.Equals, "sp-object-id")
 
 	c.Assert(requests, gc.HasLen, 10)
 	c.Check(requests[0].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222")

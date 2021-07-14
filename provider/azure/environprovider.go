@@ -123,14 +123,18 @@ func (prov *azureEnvironProvider) Version() int {
 }
 
 // Open is part of the EnvironProvider interface.
-func (prov *azureEnvironProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
+func (prov *azureEnvironProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q", args.Config.Name())
-	if err := validateCloudSpec(args.Cloud); err != nil {
-		return nil, errors.Annotate(err, "validating cloud spec")
+	environ := &azureEnviron{
+		provider: prov,
 	}
-	environ, err := newEnviron(prov, args.Cloud, args.Config)
-	if err != nil {
-		return nil, errors.Annotate(err, "opening model")
+	// Config is needed before cloud spec.
+	if err := environ.SetConfig(args.Config); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := environ.SetCloudSpec(ctx, args.Cloud); err != nil {
+		return nil, errors.Trace(err)
 	}
 	return environ, nil
 }
