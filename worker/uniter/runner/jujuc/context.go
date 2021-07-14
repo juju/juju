@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/params"
@@ -45,6 +46,10 @@ type HookContext interface {
 	ContextComponents
 	ContextRelations
 	ContextVersion
+
+	// GetLogger returns a juju loggo Logger for the supplied module that is
+	// correctly wired up for the given context
+	GetLogger(module string) loggo.Logger
 }
 
 // UnitHookContext is the context for a unit hook.
