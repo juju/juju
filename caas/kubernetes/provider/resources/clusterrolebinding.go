@@ -90,7 +90,6 @@ func (rb *ClusterRoleBinding) Delete(ctx context.Context, client kubernetes.Inte
 		PropagationPolicy:  k8sconstants.DeletePropagationBackground(),
 		GracePeriodSeconds: pointer.Int64Ptr(0),
 		Preconditions:      utils.NewUIDPreconditions(rb.UID),
-		// Preconditions: &metav1.Preconditions{UID: &rb.UID},
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
