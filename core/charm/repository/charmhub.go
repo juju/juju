@@ -481,7 +481,7 @@ func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.Refre
 		// If there is a revision, install it using that. If there is no origin
 		// ID, we haven't downloaded this charm before.
 		// No channel, try with revision.
-		cfg, err = charmhub.InstallOneFromRevision(charmURL.Name, rev, base)
+		cfg, err = charmhub.InstallOneFromRevision(charmURL.Name, rev)
 	case MethodID:
 		// This must be a charm upgrade if we have an ID.  Use the refresh
 		// action for metric keeping on the CharmHub side.

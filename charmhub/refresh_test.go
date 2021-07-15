@@ -361,6 +361,9 @@ func DefineInstanceKey(c *gc.C, config RefreshConfig, key string) RefreshConfig 
 	case executeOne:
 		t.instanceKey = key
 		return t
+	case installByRevisionOne:
+		t.instanceKey = key
+		return t
 	default:
 		c.Fatalf("unexpected config %T", config)
 	}
@@ -476,11 +479,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevision(c *gc.C) {
 	revision := 1
 
 	name := "foo"
-	config, err := InstallOneFromRevision(name, revision, RefreshBase{
-		Name:         "ubuntu",
-		Channel:      "20.04",
-		Architecture: arch.DefaultArchitecture,
-	})
+	config, err := InstallOneFromRevision(name, revision)
 	c.Assert(err, jc.ErrorIsNil)
 
 	config = DefineInstanceKey(c, config, "foo-bar")
@@ -494,11 +493,6 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevision(c *gc.C) {
 			InstanceKey: "foo-bar",
 			Name:        &name,
 			Revision:    &revision,
-			Base: &transport.Base{
-				Name:         "ubuntu",
-				Channel:      "20.04",
-				Architecture: arch.DefaultArchitecture,
-			},
 		}},
 		Fields: []string{"bases", "download", "id", "revision", "version", "resources"},
 	})
@@ -509,11 +503,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevisionResources(c *gc.C) {
 	revision := 1
 
 	name := "foo"
-	config, err := InstallOneFromRevision(name, revision, RefreshBase{
-		Name:         "ubuntu",
-		Channel:      "20.04",
-		Architecture: arch.DefaultArchitecture,
-	})
+	config, err := InstallOneFromRevision(name, revision)
 	c.Assert(err, jc.ErrorIsNil)
 
 	config = DefineInstanceKey(c, config, "foo-bar")
@@ -529,11 +519,6 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevisionResources(c *gc.C) {
 			InstanceKey: "foo-bar",
 			Name:        &name,
 			Revision:    &revision,
-			Base: &transport.Base{
-				Name:         "ubuntu",
-				Channel:      "20.04",
-				Architecture: arch.DefaultArchitecture,
-			},
 			ResourceRevisions: []transport.RefreshResourceRevision{
 				{Name: "testme", Revision: 3},
 			},
@@ -581,7 +566,6 @@ func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
-		Fields: []string{"bases", "download", "id", "revision", "version", "resources"},
 	})
 }
 
@@ -611,7 +595,6 @@ func (s *RefreshConfigSuite) TestInstallOneWithPartialPlatform(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
-		Fields: []string{"bases", "download", "id", "revision", "version", "resources"},
 	})
 }
 
@@ -703,7 +686,6 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
-		Fields: []string{"bases", "download", "id", "revision", "version", "resources"},
 	})
 }
 
@@ -734,7 +716,6 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuildK8s(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
-		Fields: []string{"bases", "download", "id", "revision", "version", "resources"},
 	})
 }
 
@@ -808,7 +789,14 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 
 	config3 = DefineInstanceKey(c, config3, "foo-taz")
 
-	config := RefreshMany(config1, config2, config3)
+	name4 := "forty-two"
+	rev4 := 42
+	config4, err := InstallOneFromRevision(name4, rev4)
+	c.Assert(err, jc.ErrorIsNil)
+
+	config4 = DefineInstanceKey(c, config4, "foo-two")
+
+	config := RefreshMany(config1, config2, config3, config4)
 
 	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
@@ -852,6 +840,11 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 			Channel: &channel,
+		}, {
+			Action:      "install",
+			InstanceKey: "foo-two",
+			Name:        &name4,
+			Revision:    &rev4,
 		}},
 		Fields: []string{"bases", "download", "id", "revision", "version", "resources"},
 	})
