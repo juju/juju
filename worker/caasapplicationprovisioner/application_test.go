@@ -559,8 +559,9 @@ func (s *ApplicationWorkerSuite) TestDeleteOperator(c *gc.C) {
 		broker.EXPECT().OperatorExists("test").Return(caas.DeploymentState{Exists: true}, nil),
 		broker.EXPECT().DeleteOperator("test").Return(nil),
 		broker.EXPECT().DeleteService("test").DoAndReturn(func(appName string) error {
-			// TODO(benhoyt)
-			//s.clock.WaitAdvance(time.Second, time.Second, 1)
+			go func() {
+				c.Assert(s.clock.WaitAdvance(time.Second, coretesting.ShortWait, 1), jc.ErrorIsNil)
+			}()
 			return nil
 		}),
 		broker.EXPECT().OperatorExists("test").Return(caas.DeploymentState{Exists: false}, nil),
