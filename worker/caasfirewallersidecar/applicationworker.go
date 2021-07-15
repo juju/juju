@@ -12,7 +12,6 @@ import (
 	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/caas"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 )
@@ -156,20 +155,8 @@ func (w *applicationWorker) loop() (err error) {
 			if !ok {
 				return errors.New("application watcher closed")
 			}
-
-			// If charm is a v1 charm, exit the worker.
-			format, err := w.charmFormat()
-			if errors.IsNotFound(err) {
-				w.logger.Debugf("application %q no longer exists", w.appName)
-				return nil
-			} else if err != nil {
-				return errors.Trace(err)
-			}
-			if format < corecharm.FormatV2 {
-				w.logger.Debugf("application %q v2 worker got v1 charm event, stopping", w.appName)
-				return nil
-			}
-
+			// We know this is a v2 charm at this point, because this child
+			// worker is only ever started for v2 charms.
 			if err := w.onApplicationChanged(); err != nil {
 				if strings.Contains(err.Error(), "unexpected EOF") {
 					return nil
@@ -189,14 +176,6 @@ func (w *applicationWorker) loop() (err error) {
 			}
 		}
 	}
-}
-
-func (w *applicationWorker) charmFormat() (corecharm.MetadataFormat, error) {
-	charmInfo, err := w.firewallerAPI.ApplicationCharmInfo(w.appName)
-	if err != nil {
-		return corecharm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", w.appName)
-	}
-	return corecharm.Format(charmInfo.Charm()), nil
 }
 
 func (w *applicationWorker) onPortChanged() (err error) {
