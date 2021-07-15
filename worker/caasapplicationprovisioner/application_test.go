@@ -118,40 +118,26 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 
 	done := make(chan struct{})
 	gomock.InOrder(
-		// Initialize in loop.
-		facade.EXPECT().ApplicationCharmInfo("test").DoAndReturn(func(string) (*charmscommon.CharmInfo, error) {
-			return charmInfo, nil
-		}),
-		facade.EXPECT().CharmInfo("cs:test").DoAndReturn(func(string) (*charmscommon.CharmInfo, error) {
-			return charmInfo, nil
-		}),
-		facade.EXPECT().SetPassword("test", gomock.Any()).Return(nil),
-		broker.EXPECT().Application("test", caas.DeploymentStateful).DoAndReturn(
-			func(string, caas.DeploymentType) caas.Application {
-				return brokerApp
-			},
-		),
+		// Verify charm is v2
+		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
+		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfo, nil),
 
+		// Operator delete loop
+		broker.EXPECT().OperatorExists("test").Return(caas.DeploymentState{Exists: false}, nil),
+
+		// Pre-loop setup
+		facade.EXPECT().SetPassword("test", gomock.Any()).Return(nil),
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(brokerApp),
 		unitFacade.EXPECT().WatchApplicationScale("test").Return(appScaleWatcher, nil),
 		unitFacade.EXPECT().WatchApplicationTrustHash("test").Return(appTrushHashWatcher, nil),
 
 		// Initial run - Ensure() for the application.
-		facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
-			return life.Alive, nil
-		}),
+		facade.EXPECT().Life("test").Return(life.Alive, nil),
 		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
-		facade.EXPECT().ProvisioningInfo("test").DoAndReturn(func(string) (api.ProvisioningInfo, error) {
-			return appProvisioningInfo, nil
-		}),
-		facade.EXPECT().CharmInfo("cs:test").DoAndReturn(func(string) (*charmscommon.CharmInfo, error) {
-			return charmInfo, nil
-		}),
-		brokerApp.EXPECT().Exists().DoAndReturn(func() (caas.DeploymentState, error) {
-			return caas.DeploymentState{}, nil
-		}),
-		facade.EXPECT().ApplicationOCIResources("test").DoAndReturn(func(string) (map[string]resources.DockerImageDetails, error) {
-			return ociResources, nil
-		}),
+		facade.EXPECT().ProvisioningInfo("test").Return(appProvisioningInfo, nil),
+		facade.EXPECT().CharmInfo("cs:test").Return(charmInfo, nil),
+		brokerApp.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
+		facade.EXPECT().ApplicationOCIResources("test").Return(ociResources, nil),
 		brokerApp.EXPECT().Ensure(gomock.Any()).DoAndReturn(func(config caas.ApplicationConfig) error {
 			mc := jc.NewMultiChecker()
 			mc.AddExpr(`_.IntroductionSecret`, gc.HasLen, 24)

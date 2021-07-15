@@ -254,7 +254,7 @@ func (a *appWorker) loop() error {
 	var scaleTries int
 	var trustChan <-chan time.Time
 	var trustTries int
-	const maxRetries = 10
+	const maxRetries = 20
 	const retryDelay = 3 * time.Second
 
 	for {
