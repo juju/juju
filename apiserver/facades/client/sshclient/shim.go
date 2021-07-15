@@ -47,12 +47,18 @@ func (m *sshMachine) AllDeviceSpaceAddresses() (network.SpaceAddresses, error) {
 		return nil, errors.Trace(err)
 	}
 
-	candidates := make([]network.SpaceAddressCandidate, len(addrs))
-	for i, addr := range addrs {
-		candidates[i] = addr
+	subs, err := m.st.AllSubnetInfos()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	return network.ConvertToSpaceAddresses(candidates, m.st)
+	spaceAddrs := make(network.SpaceAddresses, len(addrs))
+	for i, addr := range addrs {
+		if spaceAddrs[i], err = network.ConvertToSpaceAddress(addr, subs); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return spaceAddrs, nil
 }
 
 type backend struct {

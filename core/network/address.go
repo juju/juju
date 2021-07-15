@@ -868,46 +868,41 @@ type SpaceAddressCandidate interface {
 	IsSecondary() bool
 }
 
-// ConvertToSpaceAddresses returns SpaceAddresses representing the
-// input candidate addresses, by using the input subnet lookup to
-// associate them with spaces.
-func ConvertToSpaceAddresses(addrs []SpaceAddressCandidate, lookup SubnetLookup) (SpaceAddresses, error) {
+// ConvertToSpaceAddress returns a SpaceAddress representing the
+// input candidate address, by using the input subnet lookup to
+// associate the address with a space..
+func ConvertToSpaceAddress(addr SpaceAddressCandidate, lookup SubnetLookup) (SpaceAddress, error) {
 	subnets, err := lookup.AllSubnetInfos()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return SpaceAddress{}, errors.Trace(err)
 	}
 
-	spaceAddrs := make(SpaceAddresses, len(addrs))
-	for i, addr := range addrs {
-		cidr := addr.SubnetCIDR()
+	cidr := addr.SubnetCIDR()
 
-		spaceAddr := SpaceAddress{
-			MachineAddress: NewMachineAddress(
-				addr.Value(),
-				WithCIDR(cidr),
-				WithConfigType(addr.ConfigMethod()),
-				WithSecondary(addr.IsSecondary()),
-			),
-		}
-
-		// If this is not a loopback device, attempt to
-		// set the space ID based on the subnet.
-		if addr.ConfigMethod() != ConfigLoopback && cidr != "" {
-			allMatching, err := subnets.GetByCIDR(cidr)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			// This only holds true while CIDRs uniquely identify subnets.
-			if len(allMatching) != 0 {
-				spaceAddr.SpaceID = allMatching[0].SpaceID
-			}
-		}
-
-		spaceAddrs[i] = spaceAddr
+	spaceAddr := SpaceAddress{
+		MachineAddress: NewMachineAddress(
+			addr.Value(),
+			WithCIDR(cidr),
+			WithConfigType(addr.ConfigMethod()),
+			WithSecondary(addr.IsSecondary()),
+		),
 	}
 
-	return spaceAddrs, nil
+	// If this is not a loopback device, attempt to
+	// set the space ID based on the subnet.
+	if addr.ConfigMethod() != ConfigLoopback && cidr != "" {
+		allMatching, err := subnets.GetByCIDR(cidr)
+		if err != nil {
+			return SpaceAddress{}, errors.Trace(err)
+		}
+
+		// This only holds true while CIDRs uniquely identify subnets.
+		if len(allMatching) != 0 {
+			spaceAddr.SpaceID = allMatching[0].SpaceID
+		}
+	}
+
+	return spaceAddr, nil
 }
 
 // noAddress represents an error when an address is requested but not available.
