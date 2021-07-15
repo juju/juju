@@ -541,6 +541,220 @@ relations:
     - ["dashboard4miner:miner", "bitcoin-miner:miner"]
 `
 
+func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundle(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectEmptyModelToStart(c)
+	s.expectWatchAll()
+
+	bitcoinCurl, err := charm.ParseURL("bitcoin-miner")
+	c.Assert(err, jc.ErrorIsNil)
+	dashboardCurl, err := charm.ParseURL("dashboard4miner")
+	c.Assert(err, jc.ErrorIsNil)
+	chUnits := []charmUnit{
+		{
+			curl:          bitcoinCurl,
+			machineSeries: "kubernetes",
+		},
+		{
+			curl:          dashboardCurl,
+			machineSeries: "kubernetes",
+		},
+	}
+	s.setupCharmUnits(chUnits)
+	s.expectAddRelation([]string{"dashboard4miner:miner", "bitcoin-miner:miner"})
+
+	bundleData, err := charm.ReadBundleData(strings.NewReader(kubernetesBitcoinBundleWithoutDevices))
+	c.Assert(err, jc.ErrorIsNil)
+
+	spec := s.bundleDeploySpec()
+	_, err = bundleDeploy(charm.CharmHub, bundleData, spec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.deployArgs, gc.HasLen, 2)
+	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "focal")
+	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "focal")
+
+	c.Check(s.output.String(), gc.Equals, ""+
+		"Located charm \"bitcoin-miner\" in charm-hub\n"+
+		"Located charm \"dashboard4miner\" in charm-hub\n"+
+		"Executing changes:\n"+
+		"- upload charm bitcoin-miner from charm-hub for series focal with architecture=amd64\n"+
+		"- deploy application bitcoin-miner from charm-hub with 1 unit on focal\n"+
+		"- upload charm dashboard4miner from charm-hub for series focal with architecture=amd64\n"+
+		"- deploy application dashboard4miner from charm-hub with 1 unit on focal\n"+
+		"- add relation dashboard4miner:miner - bitcoin-miner:miner\n"+
+		"Deploy of bundle completed.\n")
+}
+
+func (s *BundleDeployRepositorySuite) TestDeployKubernetesV1BundleWithResolveCharmFocal(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectEmptyModelToStart(c)
+	s.expectWatchAll()
+
+	bitcoinCurl, err := charm.ParseURL("bitcoin-miner")
+	c.Assert(err, jc.ErrorIsNil)
+	dashboardCurl, err := charm.ParseURL("dashboard4miner")
+	c.Assert(err, jc.ErrorIsNil)
+	chUnits := []charmUnit{
+		{
+			curl:            bitcoinCurl,
+			charmMetaSeries: []string{"kubernetes"},
+			machineSeries:   "kubernetes",
+		},
+		{
+			curl:            dashboardCurl,
+			charmMetaSeries: []string{"kubernetes"},
+			machineSeries:   "kubernetes",
+		},
+	}
+	s.setupCharmUnits(chUnits)
+	s.expectAddRelation([]string{"dashboard4miner:miner", "bitcoin-miner:miner"})
+
+	bundleData, err := charm.ReadBundleData(strings.NewReader(kubernetesBitcoinBundleWithoutDevices))
+	c.Assert(err, jc.ErrorIsNil)
+
+	spec := s.bundleDeploySpec()
+	_, err = bundleDeploy(charm.CharmHub, bundleData, spec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.deployArgs, gc.HasLen, 2)
+	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "kubernetes")
+	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "kubernetes")
+
+	c.Check(s.output.String(), gc.Equals, ""+
+		"Located charm \"bitcoin-miner\" in charm-hub\n"+
+		"Located charm \"dashboard4miner\" in charm-hub\n"+
+		"Executing changes:\n"+
+		"- upload charm bitcoin-miner from charm-hub for series focal with architecture=amd64\n"+
+		"- deploy application bitcoin-miner from charm-hub with 1 unit on focal\n"+
+		"- upload charm dashboard4miner from charm-hub for series focal with architecture=amd64\n"+
+		"- deploy application dashboard4miner from charm-hub with 1 unit on focal\n"+
+		"- add relation dashboard4miner:miner - bitcoin-miner:miner\n"+
+		"Deploy of bundle completed.\n")
+}
+
+const kubernetesBitcoinBundleWithoutDevices = `
+bundle: kubernetes
+applications:
+    dashboard4miner:
+        charm: dashboard4miner
+        num_units: 1
+        series: focal
+    bitcoin-miner:
+        charm: bitcoin-miner
+        num_units: 1
+        series: focal
+relations:
+    - ["dashboard4miner:miner", "bitcoin-miner:miner"]
+`
+
+func (s *BundleDeployRepositorySuite) TestDeployKubernetesV1Bundle(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectEmptyModelToStart(c)
+	s.expectWatchAll()
+
+	bitcoinCurl, err := charm.ParseURL("bitcoin-miner")
+	c.Assert(err, jc.ErrorIsNil)
+	dashboardCurl, err := charm.ParseURL("dashboard4miner")
+	c.Assert(err, jc.ErrorIsNil)
+	chUnits := []charmUnit{
+		{
+			curl:            bitcoinCurl,
+			resolveSeries:   []string{"focal"},
+			charmMetaSeries: []string{"kubernetes"},
+			machineSeries:   "kubernetes",
+		},
+		{
+			curl:            dashboardCurl,
+			resolveSeries:   []string{"focal"},
+			charmMetaSeries: []string{"kubernetes"},
+			machineSeries:   "kubernetes",
+		},
+	}
+	s.setupCharmUnits(chUnits)
+	s.expectAddRelation([]string{"dashboard4miner:miner", "bitcoin-miner:miner"})
+
+	bundleData, err := charm.ReadBundleData(strings.NewReader(kubernetesBitcoinBundleWithoutSeriesAndDevices))
+	c.Assert(err, jc.ErrorIsNil)
+
+	spec := s.bundleDeploySpec()
+	_, err = bundleDeploy(charm.CharmHub, bundleData, spec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.deployArgs, gc.HasLen, 2)
+	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "kubernetes")
+	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "kubernetes")
+
+	c.Check(s.output.String(), gc.Equals, ""+
+		"Located charm \"bitcoin-miner\" in charm-hub\n"+
+		"Located charm \"dashboard4miner\" in charm-hub\n"+
+		"Executing changes:\n"+
+		"- upload charm bitcoin-miner from charm-hub with architecture=amd64\n"+
+		"- deploy application bitcoin-miner from charm-hub with 1 unit\n"+
+		"- upload charm dashboard4miner from charm-hub with architecture=amd64\n"+
+		"- deploy application dashboard4miner from charm-hub with 1 unit\n"+
+		"- add relation dashboard4miner:miner - bitcoin-miner:miner\n"+
+		"Deploy of bundle completed.\n")
+}
+
+func (s *BundleDeployRepositorySuite) TestDeployKubernetesV1BundleWithKubernetesResolved(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectEmptyModelToStart(c)
+	s.expectWatchAll()
+
+	bitcoinCurl, err := charm.ParseURL("bitcoin-miner")
+	c.Assert(err, jc.ErrorIsNil)
+	dashboardCurl, err := charm.ParseURL("dashboard4miner")
+	c.Assert(err, jc.ErrorIsNil)
+	chUnits := []charmUnit{
+		{
+			curl:            bitcoinCurl,
+			resolveSeries:   []string{"kubernetes"},
+			charmMetaSeries: []string{"kubernetes"},
+			machineSeries:   "kubernetes",
+		},
+		{
+			curl:            dashboardCurl,
+			resolveSeries:   []string{"kubernetes"},
+			charmMetaSeries: []string{"kubernetes"},
+			machineSeries:   "kubernetes",
+		},
+	}
+	s.setupCharmUnits(chUnits)
+	s.expectAddRelation([]string{"dashboard4miner:miner", "bitcoin-miner:miner"})
+
+	bundleData, err := charm.ReadBundleData(strings.NewReader(kubernetesBitcoinBundleWithoutSeriesAndDevices))
+	c.Assert(err, jc.ErrorIsNil)
+
+	spec := s.bundleDeploySpec()
+	_, err = bundleDeploy(charm.CharmHub, bundleData, spec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.deployArgs, gc.HasLen, 2)
+	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "kubernetes")
+	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "kubernetes")
+
+	c.Check(s.output.String(), gc.Equals, ""+
+		"Located charm \"bitcoin-miner\" in charm-hub\n"+
+		"Located charm \"dashboard4miner\" in charm-hub\n"+
+		"Executing changes:\n"+
+		"- upload charm bitcoin-miner from charm-hub with architecture=amd64\n"+
+		"- deploy application bitcoin-miner from charm-hub with 1 unit\n"+
+		"- upload charm dashboard4miner from charm-hub with architecture=amd64\n"+
+		"- deploy application dashboard4miner from charm-hub with 1 unit\n"+
+		"- add relation dashboard4miner:miner - bitcoin-miner:miner\n"+
+		"Deploy of bundle completed.\n")
+}
+
+const kubernetesBitcoinBundleWithoutSeriesAndDevices = `
+bundle: kubernetes
+applications:
+    dashboard4miner:
+        charm: dashboard4miner
+        num_units: 1
+    bitcoin-miner:
+        charm: bitcoin-miner
+        num_units: 1
+relations:
+    - ["dashboard4miner:miner", "bitcoin-miner:miner"]
+`
+
 func (s *BundleDeployRepositorySuite) TestDryRunExistingModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
@@ -957,6 +1171,7 @@ func (s *BundleDeployRepositorySuite) assertDeployArgsDevices(c *gc.C, appName s
 
 type charmUnit struct {
 	curl            *charm.URL
+	resolveSeries   []string
 	charmMetaSeries []string
 	force           bool
 	machine         string
@@ -966,8 +1181,12 @@ type charmUnit struct {
 func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
 	for _, chUnit := range charmUnits {
 		switch chUnit.curl.Schema {
-		case "cs":
-			s.expectResolveCharm(nil, 2)
+		case "cs", "ch":
+			resolveSeries := chUnit.resolveSeries
+			if len(resolveSeries) == 0 {
+				resolveSeries = []string{"bionix", "focal", "xenial"}
+			}
+			s.expectResolveCharmWithSeries(resolveSeries, nil, 2)
 			s.expectAddCharm(chUnit.force)
 		case "local":
 			s.expectAddLocalCharm(chUnit.curl, chUnit.force)
@@ -1118,7 +1337,7 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIModelGet(c *gc.C) {
 	s.deployerAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil)
 }
 
-func (s *BundleDeployRepositorySuite) expectResolveCharm(err error, times int) {
+func (s *BundleDeployRepositorySuite) expectResolveCharmWithSeries(series []string, err error, times int) {
 	s.bundleResolver.EXPECT().ResolveCharm(
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
@@ -1126,12 +1345,12 @@ func (s *BundleDeployRepositorySuite) expectResolveCharm(err error, times int) {
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
 		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
-			return curl, origin, []string{"bionic", "focal", "xenial"}, err
+			return curl, origin, series, err
 		}).Times(times)
 }
 
-func (s *BundleDeployRepositorySuite) expectBestFacadeVersion() {
-	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(6)
+func (s *BundleDeployRepositorySuite) expectResolveCharm(err error, times int) {
+	s.expectResolveCharmWithSeries([]string{"bionic", "focal", "xenial"}, err, times)
 }
 
 func (s *BundleDeployRepositorySuite) expectAddCharm(force bool) {
@@ -1157,7 +1376,7 @@ func (m charmInterfaceMatcher) Matches(arg interface{}) bool {
 }
 
 func (m charmInterfaceMatcher) String() string {
-	return fmt.Sprintf("Require charm.Charm as arg")
+	return "Require charm.Charm as arg"
 }
 
 func (s *BundleDeployRepositorySuite) expectCharmInfo(name string, info *apicharms.CharmInfo) {
