@@ -112,9 +112,10 @@ func (a *appWorker) loop() error {
 		if i >= maxDeleteLoops {
 			return fmt.Errorf("couldn't delete operator and service with %d tries", maxDeleteLoops)
 		}
-		if i > 0 {
-			time.Sleep(time.Second)
-		}
+		// TODO(benhoyt)
+		//if i > 0 {
+		//	<-a.clock.After(time.Second)
+		//}
 
 		exists, err := a.broker.OperatorExists(a.name)
 		if err != nil {

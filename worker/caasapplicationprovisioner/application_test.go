@@ -51,7 +51,6 @@ func (s *ApplicationWorkerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
-	var err error
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -348,6 +347,30 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		}),
 	)
 
+	appWorker := s.startAppWorker(c, facade, broker, unitFacade)
+
+	go func(w appNotifyWorker) {
+		for {
+			select {
+			case _, ok := <-notifyReady:
+				if !ok {
+					return
+				}
+				w.Notify()
+			}
+		}
+	}(appWorker.(appNotifyWorker))
+
+	s.waitDone(c, done)
+	workertest.CleanKill(c, appWorker)
+}
+
+func (s *ApplicationWorkerSuite) startAppWorker(
+	c *gc.C,
+	facade caasapplicationprovisioner.CAASProvisionerFacade,
+	broker caasapplicationprovisioner.CAASBroker,
+	unitFacade caasapplicationprovisioner.CAASUnitProvisionerFacade,
+) worker.Worker {
 	config := caasapplicationprovisioner.AppWorkerConfig{
 		Name:       "test",
 		Facade:     facade,
@@ -362,29 +385,200 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	appWorker, err := startFunc()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appWorker, gc.NotNil)
+	return appWorker
+}
 
-	go func(w appNotifyWorker) {
-		for {
-			select {
-			case _, ok := <-notifyReady:
-				if !ok {
-					return
-				}
-				w.Notify()
-			}
-		}
-	}(appWorker.(appNotifyWorker))
-
+func (s *ApplicationWorkerSuite) waitDone(c *gc.C, done chan struct{}) {
 	select {
 	case <-done:
 	case <-time.After(coretesting.ShortWait):
 		c.Errorf("timed out waiting for worker")
 	}
-
-	workertest.CleanKill(c, appWorker)
 }
 
 type appNotifyWorker interface {
 	worker.Worker
 	Notify()
+}
+
+func (s *ApplicationWorkerSuite) TestUpgrade(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	charmInfoV1 := &charmscommon.CharmInfo{
+		Meta: &charm.Meta{Name: "test"},
+	}
+	charmInfoV2 := &charmscommon.CharmInfo{
+		Meta:     &charm.Meta{Name: "test"},
+		Manifest: &charm.Manifest{Bases: []charm.Base{{}}},
+	}
+
+	appStateChan := make(chan struct{}, 1)
+	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
+	broker := mocks.NewMockCAASBroker(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	done := make(chan struct{})
+
+	gomock.InOrder(
+		// Wait till charm is v2
+		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
+		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV1, nil),
+		facade.EXPECT().Life("test").DoAndReturn(func(appName string) (life.Value, error) {
+			appStateChan <- struct{}{}
+			return life.Alive, nil
+		}),
+		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV2, nil),
+
+		// Operator delete loop
+		broker.EXPECT().OperatorExists("test").Return(caas.DeploymentState{Exists: false}, nil),
+
+		// Make SetPassword return an error to exit early (we've tested what
+		// we want to above).
+		facade.EXPECT().SetPassword("test", gomock.Any()).DoAndReturn(func(appName, password string) error {
+			done <- struct{}{}
+			return errors.New("exit early error")
+		}),
+	)
+
+	appWorker := s.startAppWorker(c, facade, broker, nil)
+
+	s.waitDone(c, done)
+	workertest.DirtyKill(c, appWorker)
+}
+
+func (s *ApplicationWorkerSuite) TestUpgradeInfoNotFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appStateChan := make(chan struct{}, 1)
+	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
+	broker := mocks.NewMockCAASBroker(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	done := make(chan struct{})
+
+	gomock.InOrder(
+		// Wait till charm is v2
+		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
+		facade.EXPECT().ApplicationCharmInfo("test").DoAndReturn(func(appName string) (*charmscommon.CharmInfo, error) {
+			done <- struct{}{}
+			return nil, errors.NotFoundf("test charm")
+		}),
+	)
+
+	appWorker := s.startAppWorker(c, facade, broker, nil)
+
+	s.waitDone(c, done)
+	workertest.CleanKill(c, appWorker)
+}
+
+func (s *ApplicationWorkerSuite) TestUpgradeLifeNotFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	charmInfoV1 := &charmscommon.CharmInfo{
+		Meta: &charm.Meta{Name: "test"},
+	}
+
+	appStateChan := make(chan struct{}, 1)
+	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
+	broker := mocks.NewMockCAASBroker(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	done := make(chan struct{})
+
+	gomock.InOrder(
+		// Wait till charm is v2
+		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
+		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV1, nil),
+		facade.EXPECT().Life("test").DoAndReturn(func(appName string) (life.Value, error) {
+			done <- struct{}{}
+			return "", errors.NotFoundf("test charm")
+		}),
+	)
+
+	appWorker := s.startAppWorker(c, facade, broker, nil)
+
+	s.waitDone(c, done)
+	workertest.CleanKill(c, appWorker)
+}
+
+func (s *ApplicationWorkerSuite) TestUpgradeLifeDead(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	charmInfoV1 := &charmscommon.CharmInfo{
+		Meta: &charm.Meta{Name: "test"},
+	}
+
+	appStateChan := make(chan struct{}, 1)
+	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
+	broker := mocks.NewMockCAASBroker(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	done := make(chan struct{})
+
+	gomock.InOrder(
+		// Wait till charm is v2
+		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
+		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV1, nil),
+		facade.EXPECT().Life("test").DoAndReturn(func(appName string) (life.Value, error) {
+			done <- struct{}{}
+			return life.Dead, nil
+		}),
+	)
+
+	appWorker := s.startAppWorker(c, facade, broker, nil)
+
+	s.waitDone(c, done)
+	workertest.CleanKill(c, appWorker)
+}
+
+func (s *ApplicationWorkerSuite) TestDeleteOperator(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	charmInfo := &charmscommon.CharmInfo{
+		Meta:     &charm.Meta{Name: "test"},
+		Manifest: &charm.Manifest{Bases: []charm.Base{{}}},
+	}
+	units := []names.Tag{
+		names.NewUnitTag("test/0"),
+		names.NewUnitTag("test/1"),
+	}
+
+	appStateChan := make(chan struct{}, 1)
+	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
+	broker := mocks.NewMockCAASBroker(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	done := make(chan struct{})
+
+	gomock.InOrder(
+		// Verify charm is v2
+		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
+		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfo, nil),
+
+		// Operator delete loop (with a retry)
+		broker.EXPECT().OperatorExists("test").Return(caas.DeploymentState{Exists: true}, nil),
+		broker.EXPECT().DeleteOperator("test").Return(nil),
+		broker.EXPECT().DeleteService("test").DoAndReturn(func(appName string) error {
+			// TODO(benhoyt)
+			//s.clock.WaitAdvance(time.Second, time.Second, 1)
+			return nil
+		}),
+		broker.EXPECT().OperatorExists("test").Return(caas.DeploymentState{Exists: false}, nil),
+
+		// Clean up units
+		facade.EXPECT().Units("test").Return(units, nil),
+		facade.EXPECT().GarbageCollect("test", units, 0, nil, true).Return(nil),
+
+		// Make SetPassword return an error to exit early (we've tested what
+		// we want to above).
+		facade.EXPECT().SetPassword("test", gomock.Any()).DoAndReturn(func(appName, password string) error {
+			done <- struct{}{}
+			return errors.New("exit early error")
+		}),
+	)
+
+	appWorker := s.startAppWorker(c, facade, broker, nil)
+
+	s.waitDone(c, done)
+	workertest.DirtyKill(c, appWorker)
 }
