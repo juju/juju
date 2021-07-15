@@ -492,7 +492,7 @@ func dupeAndSort(a []network.SpaceHostPorts) []network.SpaceHostPorts {
 		for _, hp := range val {
 			inner = append(inner, hp)
 		}
-		network.SortHostPorts(inner)
+		sort.Sort(inner)
 		result = append(result, inner)
 	}
 	sort.Sort(hostsPortsSlice(result))

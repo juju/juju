@@ -5,6 +5,7 @@ package peergrouper
 
 import (
 	"reflect"
+	"sort"
 	"sync"
 
 	"github.com/juju/errors"
@@ -30,7 +31,7 @@ func (s *CachingAPIHostPortsSetter) SetAPIHostPorts(apiServers []network.SpaceHo
 	sorted := make([]network.SpaceHostPorts, len(apiServers))
 	for i, hostPorts := range apiServers {
 		sorted[i] = append(network.SpaceHostPorts{}, hostPorts...)
-		network.SortHostPorts(sorted[i])
+		sort.Sort(sorted[i])
 	}
 
 	s.mu.Lock()
