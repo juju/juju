@@ -337,6 +337,55 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevision(c *gc.C) {
 	})
 }
 
+func (s *RefreshConfigSuite) TestInstallOneBuildRevisionResources(c *gc.C) {
+	// Tests InstallOne by revision with specific resources.
+	revision := 1
+
+	name := "foo"
+	config, err := InstallOneFromRevision(name, revision, RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
+		Architecture: arch.DefaultArchitecture,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config = DefineInstanceKey(c, config, "foo-bar")
+	config, ok := AddResource(config, "testme", 3)
+	c.Assert(ok, jc.IsTrue)
+
+	req, _, err := config.Build()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
+		Context: []transport.RefreshRequestContext{},
+		Actions: []transport.RefreshRequestAction{{
+			Action:      "install",
+			InstanceKey: "foo-bar",
+			Name:        &name,
+			Revision:    &revision,
+			Base: &transport.Base{
+				Name:         "ubuntu",
+				Channel:      "20.04",
+				Architecture: arch.DefaultArchitecture,
+			},
+			ResourceRevisions: []transport.RefreshResourceRevision{
+				{Name: "testme", Revision: 3},
+			},
+		}},
+		Fields: []string{"bases", "download", "id", "revision", "version", "resources"},
+	})
+}
+
+func (s *RefreshConfigSuite) TestAddResourceFail(c *gc.C) {
+	config, err := RefreshOne("testingID", 7, "latest/edge", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
+		Architecture: arch.DefaultArchitecture,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, ok := AddResource(config, "testme", 3)
+	c.Assert(ok, jc.IsFalse)
+}
+
 func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
 	channel := "latest/stable"
 
