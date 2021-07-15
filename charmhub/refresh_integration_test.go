@@ -72,11 +72,7 @@ func (s *RefreshClientSuite) TestLiveRefreshManyRequest(c *gc.C) {
 func (s *RefreshClientSuite) TestLiveInstallRequest(c *gc.C) {
 	client := refreshClient(c)
 
-	charmConfig, err := InstallOneFromRevision("wordpress", 0, RefreshBase{
-		Name:         "ubuntu",
-		Channel:      "18.04",
-		Architecture: "amd64",
-	})
+	charmConfig, err := InstallOneFromRevision("wordpress", 0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	response, err := client.Refresh(context.TODO(), charmConfig)
@@ -87,11 +83,7 @@ func (s *RefreshClientSuite) TestLiveInstallRequest(c *gc.C) {
 func (s *RefreshClientSuite) TestLiveInstallRequestNoBase(c *gc.C) {
 	client := refreshClient(c)
 
-	charmConfig, err := InstallOneFromRevision("wordpress", 0, RefreshBase{
-		Architecture: "NA",
-		Name:         "NA",
-		Channel:      "NA",
-	})
+	charmConfig, err := InstallOneFromRevision("wordpress", 0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	response, err := client.Refresh(context.TODO(), charmConfig)
@@ -103,11 +95,7 @@ func (s *RefreshClientSuite) TestLiveInstallRequestNoBase(c *gc.C) {
 func (s *RefreshClientSuite) TestLiveInstallRequestWithResourceRevisions(c *gc.C) {
 	client := refreshClient(c)
 
-	charmConfig, err := InstallOneFromRevision("prometheus-ceph-exporter", 13, RefreshBase{
-		Architecture: "NA",
-		Name:         "NA",
-		Channel:      "NA",
-	})
+	charmConfig, err := InstallOneFromRevision("prometheus-ceph-exporter", 13)
 	c.Assert(err, jc.ErrorIsNil)
 
 	charmConfig, ok := AddResource(charmConfig, "core", 0)
@@ -134,7 +122,7 @@ func defineID(c *gc.C, config RefreshConfig, id string) RefreshConfig {
 	return nil
 }
 
-func refreshClient(c *gc.C) *RefreshClient{
+func refreshClient(c *gc.C) *RefreshClient {
 	logger := &FakeLogger{}
 
 	config, err := CharmHubConfig(logger)
