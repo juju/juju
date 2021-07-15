@@ -135,40 +135,38 @@ type azureEnviron struct {
 
 var _ environs.Environ = (*azureEnviron)(nil)
 
-// newEnviron creates a new azureEnviron.
-func newEnviron(
-	provider *azureEnvironProvider,
-	cloud environscloudspec.CloudSpec,
-	cfg *config.Config,
-) (*azureEnviron, error) {
+// SetCloudSpec is specified in the environs.Environ interface.
+func (env *azureEnviron) SetCloudSpec(ctx stdcontext.Context, cloud environscloudspec.CloudSpec) error {
+	if err := validateCloudSpec(cloud); err != nil {
+		return errors.Annotate(err, "validating cloud spec")
+	}
+
+	env.mu.Lock()
+	defer env.mu.Unlock()
 
 	// The Azure storage code wants the endpoint host only, not the URL.
 	storageEndpointURL, err := url.Parse(cloud.StorageEndpoint)
 	if err != nil {
-		return nil, errors.Annotate(err, "parsing storage endpoint URL")
+		return errors.Annotate(err, "parsing storage endpoint URL")
 	}
+	env.cloud = cloud
+	env.location = canonicalLocation(cloud.Region)
+	env.storageEndpoint = storageEndpointURL.Host
 
-	env := azureEnviron{
-		provider:        provider,
-		cloud:           cloud,
-		location:        canonicalLocation(cloud.Region),
-		storageEndpoint: storageEndpointURL.Host,
-	}
 	if err := env.initEnviron(); err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
-	if err := env.SetConfig(cfg); err != nil {
-		return nil, errors.Trace(err)
+	cfg := env.config
+	if env.resourceGroup == "" {
+		env.resourceGroup = cfg.resourceGroupName
 	}
-
-	env.resourceGroup = env.config.resourceGroupName
 	// If no user specified resource group, make one from the model UUID.
 	if env.resourceGroup == "" {
 		modelTag := names.NewModelTag(cfg.UUID())
 		resourceGroupName, err := env.resourceGroupName(modelTag, cfg.Name())
 		if err != nil {
-			return nil, errors.Trace(err)
+			return errors.Trace(err)
 		}
 		env.resourceGroup = resourceGroupName
 	}
@@ -186,7 +184,7 @@ func newEnviron(
 	uuidAlphaNumeric := strings.Replace(env.config.Config.UUID(), "-", "", -1)
 	env.storageAccountName = "juju" + uuidAlphaNumeric[len(uuidAlphaNumeric)-20:]
 
-	return &env, nil
+	return nil
 }
 
 func (env *azureEnviron) initEnviron() error {
@@ -1987,9 +1985,6 @@ func (env *azureEnviron) Provider() environs.EnvironProvider {
 // resourceGroupName returns the name of the model's resource group to use.
 // It may be that a legacy group name is already in use, so use that if present.
 func (env *azureEnviron) resourceGroupName(modelTag names.ModelTag, modelName string) (string, error) {
-	env.mu.Lock()
-	defer env.mu.Unlock()
-
 	ctx := stdcontext.Background()
 	resourceGroupsClient := resources.GroupsClient{env.resources}
 

@@ -39,12 +39,21 @@ const (
 	jujuApplicationId = "60a04dc9-1857-425f-8076-5ba81ca53d66"
 
 	// JujuApplicationObjectId is the ObjectId of the Azure application.
-	JujuApplicationObjectId = "8b744cea-179d-4a73-9dff-20d52126030a"
+	jujuApplicationObjectId = "8b744cea-179d-4a73-9dff-20d52126030a"
 
 	// passwordExpiryDuration is how long the application password we
 	// set will remain valid.
 	passwordExpiryDuration = 365 * 24 * time.Hour
 )
+
+// MaybeJujuApplicationObjectID returns the Juju Application Object ID
+// if the passed in application ID is the Juju Enterprise App.
+func MaybeJujuApplicationObjectID(appID string) (string, error) {
+	if appID == jujuApplicationId {
+		return jujuApplicationObjectId, nil
+	}
+	return "", errors.Errorf("unexpected application ID %q", appID)
+}
 
 type ServicePrincipalParams struct {
 	// GraphEndpoint of the Azure graph API.
@@ -136,7 +145,7 @@ type ServicePrincipalCreator struct {
 // GraphResourceId, ResourceManagerEndpoint, ResourceManagerResourceId
 // and SubscriptionId need to be specified in params, the other values
 // will be derived.
-func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stderr io.Writer, params ServicePrincipalParams) (appid, password string, _ error) {
+func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stderr io.Writer, params ServicePrincipalParams) (appid, spid, password string, _ error) {
 	subscriptionsClient := subscriptions.Client{
 		subscriptions.NewWithBaseURI(params.ResourceManagerEndpoint),
 	}
@@ -150,7 +159,7 @@ func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stde
 		params.SubscriptionId,
 	)
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", "", errors.Trace(err)
 	}
 
 	client := autorest.NewClientWithUserAgent("")
@@ -167,12 +176,12 @@ func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stde
 	clientId := jujuApplicationId
 	deviceCode, err := adal.InitiateDeviceAuthWithContext(sdkCtx, &client, *oauthConfig, clientId, params.ResourceManagerResourceId)
 	if err != nil {
-		return "", "", errors.Annotate(err, "initiating interactive authentication")
+		return "", "", "", errors.Annotate(err, "initiating interactive authentication")
 	}
 	fmt.Fprintln(stderr, to.String(deviceCode.Message)+"\n")
 	token, err := adal.WaitForUserCompletionWithContext(sdkCtx, &client, deviceCode)
 	if err != nil {
-		return "", "", errors.Annotate(err, "waiting for interactive authentication to completed")
+		return "", "", "", errors.Annotate(err, "waiting for interactive authentication to completed")
 	}
 
 	// Create service principal tokens that we can use to authorize API
@@ -181,11 +190,11 @@ func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stde
 	// service principal password that can be used to obtain new tokens.
 	armSpt, err := adal.NewServicePrincipalTokenFromManualToken(*oauthConfig, clientId, params.ResourceManagerResourceId, *token)
 	if err != nil {
-		return "", "", errors.Annotate(err, "creating temporary ARM service principal token")
+		return "", "", "", errors.Annotate(err, "creating temporary ARM service principal token")
 	}
 	armSpt.SetSender(&client)
 	if err := armSpt.Refresh(); err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", "", errors.Trace(err)
 	}
 
 	// The application requires permissions for both ARM and AD, so we
@@ -194,11 +203,11 @@ func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stde
 	graphToken.Resource = params.GraphResourceId
 	graphSpt, err := adal.NewServicePrincipalTokenFromManualToken(*oauthConfig, clientId, params.GraphResourceId, graphToken)
 	if err != nil {
-		return "", "", errors.Annotate(err, "creating temporary Graph service principal token")
+		return "", "", "", errors.Annotate(err, "creating temporary Graph service principal token")
 	}
 	graphSpt.SetSender(&client)
 	if err := graphSpt.Refresh(); err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", "", errors.Trace(err)
 	}
 	params.GraphAuthorizer = autorest.NewBearerAuthorizer(graphSpt)
 	params.ResourceManagerAuthorizer = autorest.NewBearerAuthorizer(armSpt)
@@ -206,7 +215,7 @@ func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stde
 
 	userObject, err := graphrbac.SignedInUserClient{params.directoryClient(c.Sender, c.RequestInspector)}.Get(sdkCtx)
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", "", errors.Trace(err)
 	}
 	fmt.Fprintf(stderr, "Authenticated as %q.\n", to.String(userObject.DisplayName))
 
@@ -214,15 +223,15 @@ func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stde
 }
 
 // Create creates a new service principal using the values specified in params.
-func (c *ServicePrincipalCreator) Create(sdkCtx context.Context, params ServicePrincipalParams) (appid, password string, _ error) {
+func (c *ServicePrincipalCreator) Create(sdkCtx context.Context, params ServicePrincipalParams) (appid, spid, password string, _ error) {
 	servicePrincipalObjectId, password, err := c.createOrUpdateServicePrincipal(sdkCtx, params)
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", "", errors.Trace(err)
 	}
 	if err := c.createRoleAssignment(sdkCtx, params, servicePrincipalObjectId); err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", "", errors.Trace(err)
 	}
-	return jujuApplicationId, password, nil
+	return jujuApplicationId, servicePrincipalObjectId, password, nil
 }
 
 func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(sdkCtx context.Context, params ServicePrincipalParams) (servicePrincipalObjectId, password string, _ error) {
@@ -283,7 +292,7 @@ func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(sdkCtx context.
 	// The service principal already exists, so we need to query
 	// its object ID, and fetch the existing password credentials
 	// to update.
-	servicePrincipal, err = getServicePrincipal(sdkCtx, client)
+	servicePrincipal, err = getServicePrincipal(sdkCtx, client, jujuApplicationId)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -348,16 +357,18 @@ func addServicePrincipalPasswordCredential(
 	return errors.Trace(err)
 }
 
-func getServicePrincipal(sdkCtx context.Context, client graphrbac.ServicePrincipalsClient) (graphrbac.ServicePrincipal, error) {
-	// TODO(axw) filter by Service Principal Name (SPN).
-	// It works without that, but the response is noisy.
-	it, err := client.ListComplete(sdkCtx, "")
+func getServicePrincipal(sdkCtx context.Context, client graphrbac.ServicePrincipalsClient, appID string) (graphrbac.ServicePrincipal, error) {
+	filter := fmt.Sprintf(
+		"appId eq '%s'",
+		appID,
+	)
+	it, err := client.ListComplete(sdkCtx, filter)
 	if err != nil {
 		return graphrbac.ServicePrincipal{}, errors.Annotate(err, "listing service principals")
 	}
 	for it.NotDone() {
 		sp := it.Value()
-		if to.String(sp.AppID) == jujuApplicationId {
+		if to.String(sp.AppID) == appID {
 			return sp, nil
 		}
 		if err := it.NextWithContext(sdkCtx); err != nil {
