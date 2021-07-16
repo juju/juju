@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	fakeApplicationId  = "00000000-0000-0000-0000-000000000000"
+	fakeApplicationId  = "60a04dc9-1857-425f-8076-5ba81ca53d66"
 	fakeSubscriptionId = "22222222-2222-2222-2222-222222222222"
 )
 

@@ -1017,20 +1017,24 @@ func (s *AddressSuite) TestConvertToSpaceAddresses(c *gc.C) {
 
 	candidates := []network.SpaceAddressCandidate{
 		spaceAddressCandidate{
-			value:        "192.168.0.66",
-			configMethod: network.ConfigDHCP,
-			subnetCIDR:   "192.168.0.0/24",
-		},
-		spaceAddressCandidate{
 			value:        "252.80.0.100",
 			configMethod: network.ConfigStatic,
 			subnetCIDR:   "252.80.0.0/12",
 			isSecondary:  true,
 		},
+		spaceAddressCandidate{
+			value:        "192.168.0.66",
+			configMethod: network.ConfigDHCP,
+			subnetCIDR:   "192.168.0.0/24",
+		},
 	}
 
-	addrs, err := network.ConvertToSpaceAddresses(candidates, subs)
-	c.Assert(err, jc.ErrorIsNil)
+	addrs := make(network.SpaceAddresses, len(candidates))
+	for i, ca := range candidates {
+		var err error
+		addrs[i], err = network.ConvertToSpaceAddress(ca, subs)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	network.SortAddresses(addrs)
 	c.Check(addrs, gc.DeepEquals, network.SpaceAddresses{
