@@ -719,7 +719,7 @@ func (runner *runner) startJujucServer(token string, rMode runMode) (*jujuc.Serv
 	return srv, nil
 }
 
-// getKigger returns the logger for a particular unit's hook.
+// getLogger returns the logger for a particular unit's hook.
 func (runner *runner) getLogger(hookName string) loggo.Logger {
 	return runner.context.GetLogger(fmt.Sprintf("unit.%s.%s", runner.context.UnitName(), hookName))
 }

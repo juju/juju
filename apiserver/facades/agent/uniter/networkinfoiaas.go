@@ -268,15 +268,12 @@ func (n *NetworkInfoIAAS) populateMachineNetworkInfos() error {
 		addrByIP[addr.Value()] = addr
 	}
 
-	candidates := make([]network.SpaceAddressCandidate, len(addrs))
+	spaceAddrs := make([]network.SpaceAddress, len(addrs))
 	for i, addr := range addrs {
-		candidates[i] = addr
-	}
-
-	spaceAddrs, err := network.ConvertToSpaceAddresses(candidates, n.subs)
-	if err != nil {
-		n.populateMachineNetworkInfoErrors(spaceSet, err)
-		return nil
+		if spaceAddrs[i], err = network.ConvertToSpaceAddress(addr, n.subs); err != nil {
+			n.populateMachineNetworkInfoErrors(spaceSet, err)
+			return nil
+		}
 	}
 	network.SortAddresses(spaceAddrs)
 

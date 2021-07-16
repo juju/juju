@@ -73,9 +73,19 @@ func NewCharmAdaptor(charmsAPI CharmsAPI, charmStoreRepoFunc CharmStoreRepoFunc,
 // Charms API version of 3 or greater.
 func (c *CharmAdaptor) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
 	resolved, err := c.charmsAPI.ResolveCharms([]apicharm.CharmToResolve{{URL: url, Origin: preferredOrigin, SwitchCharm: switchCharm}})
-	if err == nil && len(resolved) > 0 && resolved[0].Error == nil {
-		res := resolved[0]
-		return res.URL, res.Origin, res.SupportedSeries, nil
+	if err == nil {
+		if num := len(resolved); num == 0 {
+			return nil, commoncharm.Origin{}, nil, errors.NotFoundf(url.Name)
+		}
+
+		// Ensure we output the error correctly from the API call.
+		if resolved[0].Error == nil {
+			res := resolved[0]
+			return res.URL, res.Origin, res.SupportedSeries, nil
+		}
+		// If we do have an API call, then set it to the error, allowing us to
+		// bubble it up the stack.
+		err = resolved[0].Error
 	}
 
 	// In order to maintain backwards compatibility with the charmstore, we need

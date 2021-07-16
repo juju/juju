@@ -17,6 +17,7 @@ import (
 	"github.com/juju/retry"
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
@@ -223,9 +224,25 @@ func (env *azureEnviron) ensureVault(
 	// Create the vault with full access for the tenant.
 	allKeyPermissions := keyvault.PossibleKeyPermissionsValues()
 
+	credAttrs := env.cloud.Credential.Attributes()
+	appObjectID := credAttrs[credAttrApplicationObjectId]
+	// Older credentials don't have the application object id set,
+	// so look it up here and record it for next time.
+	if appObjectID == "" {
+		appID := credAttrs[credAttrAppId]
+		var err error
+		appObjectID, err = azureauth.MaybeJujuApplicationObjectID(appID)
+		if err != nil {
+			return nil, nil, errors.Annotatef(err, "credential missing %s for %q", credAttrApplicationObjectId, appID)
+		}
+		credAttrs[credAttrApplicationObjectId] = appObjectID
+		cred := cloud.NewCredential(env.cloud.Credential.AuthType(), credAttrs)
+		env.cloud.Credential = &cred
+	}
+
 	vaultAccessPolicies := []keyvault.AccessPolicyEntry{{
 		TenantID: &vaultTenantID,
-		ObjectID: to.StringPtr(azureauth.JujuApplicationObjectId),
+		ObjectID: to.StringPtr(appObjectID),
 		Permissions: &keyvault.Permissions{
 			Keys: &allKeyPermissions,
 		},

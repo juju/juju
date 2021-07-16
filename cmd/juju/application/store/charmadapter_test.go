@@ -51,6 +51,26 @@ func (s *resolveSuite) TestResolveCharm(c *gc.C) {
 	c.Assert(obtainedURL, gc.Equals, curl)
 }
 
+func (s *resolveSuite) TestResolveCharmWithAPIError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	curl, err := charm.ParseURL("testme")
+	c.Assert(err, jc.ErrorIsNil)
+	s.expectCharmResolutionCallWithAPIError(curl, csparams.EdgeChannel, errors.New("bad"))
+
+	origin := commoncharm.Origin{
+		Source: commoncharm.OriginCharmStore,
+		Risk:   "beta",
+	}
+	charmAdapter := store.NewCharmAdaptor(s.charmsAPI, func() (store.CharmrepoForDeploy, error) {
+		return s.charmRepo, nil
+	}, func() (store.DownloadBundleClient, error) {
+		return s.downloadClient, nil
+	})
+	_, _, _, err = charmAdapter.ResolveCharm(curl, origin, false)
+	c.Assert(err, gc.ErrorMatches, `bad`)
+}
+
 func (s *resolveSuite) TestResolveCharmWithFallback(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -288,6 +308,20 @@ func (s *resolveSuite) expectCharmResolutionCall(curl *charm.URL, out csparams.C
 		SupportedSeries: []string{"bionic", "focal"},
 	}}
 	s.charmsAPI.EXPECT().ResolveCharms(gomock.Any()).Return(retVal, err)
+}
+
+func (s *resolveSuite) expectCharmResolutionCallWithAPIError(curl *charm.URL, out csparams.Channel, err error) {
+	origin := commoncharm.Origin{
+		Source: commoncharm.OriginCharmStore,
+		Risk:   string(out),
+	}
+	retVal := []apicharm.ResolvedCharm{{
+		URL:             curl,
+		Origin:          origin,
+		SupportedSeries: []string{"bionic", "focal"},
+		Error:           err,
+	}}
+	s.charmsAPI.EXPECT().ResolveCharms(gomock.Any()).Return(retVal, nil)
 }
 
 func (s *resolveSuite) expectCharmFallbackResolutionCall(curl *charm.URL, in, out csparams.Channel, err error) {

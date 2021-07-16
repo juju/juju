@@ -90,6 +90,30 @@ func (s *clusterRoleBindingSuite) TestDelete(c *gc.C) {
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
 }
 
+func (s *clusterRoleBindingSuite) TestDeleteWithoutPreconditions(c *gc.C) {
+	roleBinding := rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "roleBinding1",
+		},
+	}
+	_, err := s.client.RbacV1().ClusterRoleBindings().Create(context.TODO(), &roleBinding, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.client.RbacV1().ClusterRoleBindings().Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.GetName(), gc.Equals, `roleBinding1`)
+
+	rbResource := resources.NewClusterRoleBinding("roleBinding1", nil)
+	err = rbResource.Delete(context.TODO(), s.client)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = rbResource.Get(context.TODO(), s.client)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	_, err = s.client.RbacV1().ClusterRoleBindings().Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
+	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
+}
+
 // This test ensures that there has not been a regression with ensure cluster
 // role where it can not update roles that have a labels change.
 // https://bugs.launchpad.net/juju/+bug/1929909

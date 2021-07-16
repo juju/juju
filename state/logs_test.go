@@ -137,6 +137,7 @@ func (s *LogsSuite) TestIndexesCreated(c *gc.C) {
 		"_id",   // default index
 		"t-_id", // timestamp and ID
 		"n",     // entity
+		"c",     // optional labels
 	})
 }
 
