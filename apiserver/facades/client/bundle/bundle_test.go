@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/description/v3"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -1169,12 +1170,18 @@ func (s *bundleSuite) addApplicationToModel(model description.Model, name string
 	if model.Type() == "caas" {
 		series = "kubernetes"
 	}
+
 	var charmURL string
 	var channel string
+
 	if strings.HasPrefix(name, "ch:") {
 		charmURL = name
 		name = name[3:]
 		channel = "stable"
+	} else if strings.HasPrefix(name, "local:") {
+		charmURL = name
+		curl := charm.MustParseURL(name)
+		name = curl.Name
 	} else {
 		charmURL = "cs:" + name
 	}
@@ -1967,6 +1974,74 @@ applications:
   wordpress:
     charm: wordpress
     channel: stable
+    num_units: 2
+    to:
+    - "0"
+    - "1"
+machines:
+  "0": {}
+  "1": {}
+relations:
+- - wordpress:db
+  - mysql:mysql
+`[1:]
+	expectedResult := params.StringResult{Result: output}
+
+	c.Assert(result, gc.Equals, expectedResult)
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) TestExportLocalBundle(c *gc.C) {
+	model := s.newModel("iaas", "local:wordpress", "local:mysql")
+	model.SetStatus(description.StatusArgs{Value: "available"})
+
+	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	output := `
+series: xenial
+applications:
+  mysql:
+    charm: local:mysql
+    num_units: 1
+    to:
+    - "0"
+  wordpress:
+    charm: local:wordpress
+    num_units: 2
+    to:
+    - "0"
+    - "1"
+machines:
+  "0": {}
+  "1": {}
+relations:
+- - wordpress:db
+  - mysql:mysql
+`[1:]
+	expectedResult := params.StringResult{Result: output}
+
+	c.Assert(result, gc.Equals, expectedResult)
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) TestExportLocalBundleWithSeries(c *gc.C) {
+	model := s.newModel("iaas", "local:focal/wordpress", "local:mysql")
+	model.SetStatus(description.StatusArgs{Value: "available"})
+
+	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	output := `
+series: xenial
+applications:
+  mysql:
+    charm: local:mysql
+    num_units: 1
+    to:
+    - "0"
+  wordpress:
+    charm: local:wordpress
     num_units: 2
     to:
     - "0"
