@@ -5,6 +5,7 @@ package uniter
 
 import (
 	"net"
+	"sort"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -122,7 +123,7 @@ func (n *NetworkInfoIAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 
 		if len(info.IngressAddresses) == 0 {
 			ingress := spaceAddressesFromNetworkInfo(n.machineNetworkInfos[space].Info)
-			network.SortAddresses(ingress)
+			sort.Sort(ingress)
 			info.IngressAddresses = ingress.Values()
 		}
 
@@ -183,7 +184,7 @@ func (n *NetworkInfoIAAS) NetworksForRelation(
 		ingress = spaceAddressesFromNetworkInfo(n.machineNetworkInfos[boundSpace].Info)
 	}
 
-	network.SortAddresses(ingress)
+	sort.Sort(ingress)
 
 	egress, err := n.getEgressForRelation(rel, ingress)
 	if err != nil {
@@ -268,14 +269,14 @@ func (n *NetworkInfoIAAS) populateMachineNetworkInfos() error {
 		addrByIP[addr.Value()] = addr
 	}
 
-	spaceAddrs := make([]network.SpaceAddress, len(addrs))
+	spaceAddrs := make(network.SpaceAddresses, len(addrs))
 	for i, addr := range addrs {
 		if spaceAddrs[i], err = network.ConvertToSpaceAddress(addr, n.subs); err != nil {
 			n.populateMachineNetworkInfoErrors(spaceSet, err)
 			return nil
 		}
 	}
-	network.SortAddresses(spaceAddrs)
+	sort.Sort(spaceAddrs)
 
 	logger.Debugf("Looking for address from %v in spaces %v", spaceAddrs, spaceSet.Values())
 

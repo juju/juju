@@ -4,6 +4,8 @@
 package uniter
 
 import (
+	"sort"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
@@ -28,7 +30,7 @@ func newNetworkInfoCAAS(base *NetworkInfoBase) (*NetworkInfoCAAS, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	network.SortAddresses(addrs)
+	sort.Sort(addrs)
 
 	return &NetworkInfoCAAS{
 		NetworkInfoBase: base,
@@ -153,7 +155,7 @@ func (n *NetworkInfoCAAS) NetworksForRelation(
 		}
 	}
 
-	network.SortAddresses(ingress)
+	sort.Sort(ingress)
 
 	egress, err := n.getEgressForRelation(rel, ingress)
 	if err != nil {

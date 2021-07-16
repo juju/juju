@@ -5,6 +5,7 @@ package network_test
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -187,7 +188,7 @@ func (s *HostPortSuite) assertHostPorts(c *gc.C, actual network.HostPorts, expec
 
 func (s *HostPortSuite) TestSortHostPorts(c *gc.C) {
 	hps := s.makeHostPorts()
-	network.SortHostPorts(hps)
+	sort.Sort(hps)
 	s.assertHostPorts(c, hps.HostPorts(),
 		// Public IPv4 addresses on top.
 		"0.1.2.0:1234",

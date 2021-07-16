@@ -5,7 +5,6 @@ package network
 
 import (
 	"net"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -207,8 +206,8 @@ func (hp ProviderHostPorts) HostPorts() HostPorts {
 	return addrs
 }
 
-// ParseMachineHostPorts creates a slice of MachineHostPorts parsing each given
-// string containing address:port.
+// ParseProviderHostPorts creates a slice of MachineHostPorts parsing
+// each given string containing address:port.
 // An error is returned if any string cannot be parsed as a MachineHostPort.
 func ParseProviderHostPorts(hostPorts ...string) (ProviderHostPorts, error) {
 	hps := make(ProviderHostPorts, len(hostPorts))
@@ -246,8 +245,8 @@ func (hp SpaceHostPort) GoString() string {
 // Less reports whether hp is ordered before hp2
 // according to the criteria used by SortHostPorts.
 func (hp SpaceHostPort) Less(hp2 SpaceHostPort) bool {
-	order1 := hp.sortOrder()
-	order2 := hp2.sortOrder()
+	order1 := SortOrderMostPublic(hp)
+	order2 := SortOrderMostPublic(hp2)
 	if order1 == order2 {
 		if hp.SpaceAddress.Value == hp2.SpaceAddress.Value {
 			return hp.Port() < hp2.Port()
@@ -352,6 +351,12 @@ func (hps SpaceHostPorts) ToProviderHostPorts(lookup SpaceLookup) (ProviderHostP
 	return pHPs, nil
 }
 
+func (hps SpaceHostPorts) Len() int      { return len(hps) }
+func (hps SpaceHostPorts) Swap(i, j int) { hps[i], hps[j] = hps[j], hps[i] }
+func (hps SpaceHostPorts) Less(i, j int) bool {
+	return hps[i].Less(hps[j])
+}
+
 // SpaceAddressesWithPort returns the input SpaceAddresses
 // all associated with the given port.
 func SpaceAddressesWithPort(addrs SpaceAddresses, port int) SpaceHostPorts {
@@ -363,20 +368,6 @@ func SpaceAddressesWithPort(addrs SpaceAddresses, port int) SpaceHostPorts {
 		}
 	}
 	return hps
-}
-
-type hostPortsPreferringIPv4 []SpaceHostPort
-
-func (hp hostPortsPreferringIPv4) Len() int      { return len(hp) }
-func (hp hostPortsPreferringIPv4) Swap(i, j int) { hp[i], hp[j] = hp[j], hp[i] }
-func (hp hostPortsPreferringIPv4) Less(i, j int) bool {
-	return hp[i].Less(hp[j])
-}
-
-// SortHostPorts sorts the given SpaceHostPort slice according to the sortOrder of
-// each SpaceHostPort's embedded Address. See Address.sortOrder() for more info.
-func SortHostPorts(hps []SpaceHostPort) {
-	sort.Sort(hostPortsPreferringIPv4(hps))
 }
 
 // APIHostPortsToNoProxyString converts list of lists of NetAddrs() to
