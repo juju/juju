@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state/watcher"
@@ -919,7 +920,11 @@ func (h *bundleHandler) deviceConstraints(application string, deviceMap map[stri
 	return deviceConstraints, nil
 }
 
-func (h *bundleHandler) selectedSeries(ch charm.CharmMeta, chID application.CharmID, curl *charm.URL, series string) (string, error) {
+func (h *bundleHandler) selectedSeries(ch charm.CharmMeta, chID application.CharmID, curl *charm.URL, chSeries string) (string, error) {
+	if corecharm.IsKubernetes(ch) && corecharm.Format(ch) == corecharm.FormatV1 {
+		chSeries = series.Kubernetes.String()
+	}
+
 	supportedSeries, err := corecharm.ComputedSeries(ch)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -928,13 +933,13 @@ func (h *bundleHandler) selectedSeries(ch charm.CharmMeta, chID application.Char
 		supportedSeries = []string{chID.URL.Series}
 	}
 
-	workloadSeries, err := supportedJujuSeries(h.clock.Now(), series, h.modelConfig.ImageStream())
+	workloadSeries, err := supportedJujuSeries(h.clock.Now(), chSeries, h.modelConfig.ImageStream())
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
 	selector := seriesSelector{
-		seriesFlag:          series,
+		seriesFlag:          chSeries,
 		charmURLSeries:      chID.URL.Series,
 		supportedSeries:     supportedSeries,
 		supportedJujuSeries: workloadSeries,
