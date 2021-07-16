@@ -106,7 +106,6 @@ func (a *appWorker) loop() error {
 
 	// If the application has an operator pod due to an upgrade-charm from a
 	// pod-spec charm to a sidecar charm, delete it. Also delete workload pod.
-	operatorDidExist := false
 	const maxDeleteLoops = 100
 	for i := 0; ; i++ {
 		if i >= maxDeleteLoops {
@@ -123,32 +122,15 @@ func (a *appWorker) loop() error {
 		if !exists.Exists {
 			break
 		}
-		operatorDidExist = true
 
 		a.logger.Infof("deleting operator and workload pods for application %q", a.name)
-		err = a.broker.DeleteOperator(a.name)
-		if err != nil && !errors.IsNotFound(err) {
-			return errors.Annotatef(err, "deleting operator pod for application %q", a.name)
-		}
 		err = a.broker.DeleteService(a.name)
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Annotatef(err, "deleting workload pod for application %q", a.name)
 		}
-	}
-
-	// If the operator/service did exist, clean up the units in state.
-	// TODO (benhoyt) - it would be better to keep the operatorDidExist
-	// state in persistent storage in case something fails between up there
-	// and here.
-	if operatorDidExist {
-		a.logger.Infof("cleaning up units for application %q in state", a.name)
-		units, err := a.facade.Units(a.name)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = a.facade.GarbageCollect(a.name, units, 0, nil, true)
-		if err != nil {
-			return errors.Trace(err)
+		err = a.broker.DeleteOperator(a.name)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Annotatef(err, "deleting operator pod for application %q", a.name)
 		}
 	}
 

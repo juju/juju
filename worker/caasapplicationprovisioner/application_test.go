@@ -539,10 +539,6 @@ func (s *ApplicationWorkerSuite) TestDeleteOperator(c *gc.C) {
 		Meta:     &charm.Meta{Name: "test"},
 		Manifest: &charm.Manifest{Bases: []charm.Base{{}}},
 	}
-	units := []names.Tag{
-		names.NewUnitTag("test/0"),
-		names.NewUnitTag("test/1"),
-	}
 
 	appStateChan := make(chan struct{}, 1)
 	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
@@ -557,18 +553,14 @@ func (s *ApplicationWorkerSuite) TestDeleteOperator(c *gc.C) {
 
 		// Operator delete loop (with a retry)
 		broker.EXPECT().OperatorExists("test").Return(caas.DeploymentState{Exists: true}, nil),
-		broker.EXPECT().DeleteOperator("test").Return(nil),
-		broker.EXPECT().DeleteService("test").DoAndReturn(func(appName string) error {
+		broker.EXPECT().DeleteService("test").Return(nil),
+		broker.EXPECT().DeleteOperator("test").DoAndReturn(func(appName string) error {
 			go func() {
 				c.Assert(s.clock.WaitAdvance(time.Second, coretesting.ShortWait, 1), jc.ErrorIsNil)
 			}()
 			return nil
 		}),
 		broker.EXPECT().OperatorExists("test").Return(caas.DeploymentState{Exists: false}, nil),
-
-		// Clean up units
-		facade.EXPECT().Units("test").Return(units, nil),
-		facade.EXPECT().GarbageCollect("test", units, 0, nil, true).Return(nil),
 
 		// Make SetPassword return an error to exit early (we've tested what
 		// we want to above).
