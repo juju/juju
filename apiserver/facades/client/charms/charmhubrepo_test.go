@@ -545,7 +545,6 @@ func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
 				Architecture: "amd64",
 			},
 		}},
-		//Fields:[]string{"bases", "download", "id", "revision", "version", "resources"},
 	})
 }
 
