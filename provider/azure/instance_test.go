@@ -8,8 +8,9 @@ import (
 	"net/http"
 	"path"
 
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-06-01/resources"
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/Azure/go-autorest/autorest/to"
 	jc "github.com/juju/testing/checkers"
@@ -35,6 +36,7 @@ type instanceSuite struct {
 	sender            azuretesting.Senders
 	env               environs.Environ
 	deployments       []resources.DeploymentExtended
+	vms               []compute.VirtualMachine
 	networkInterfaces []network.Interface
 	publicIPAddresses []network.PublicIPAddress
 
@@ -60,9 +62,18 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 	}
 	s.publicIPAddresses = nil
 	s.deployments = []resources.DeploymentExtended{
-		makeDeployment("machine-0"),
-		makeDeployment("machine-1"),
+		makeDeployment("machine-0", resources.ProvisioningStateSucceeded),
+		makeDeployment("machine-1", resources.ProvisioningStateCreating),
 	}
+	s.vms = []compute.VirtualMachine{{
+		Name: to.StringPtr("machine-0"),
+		Tags: map[string]*string{
+			"juju-controller-uuid": to.StringPtr("foo"),
+			"juju-is-controller":   to.StringPtr("true"),
+		},
+		VirtualMachineProperties: &compute.VirtualMachineProperties{
+			ProvisioningState: to.StringPtr("Succeeded")},
+	}}
 	s.callCtx = &context.CloudCallContext{
 		Context: stdcontext.TODO(),
 		InvalidateCredentialFunc: func(string) error {
@@ -72,7 +83,7 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func makeDeployment(name string) resources.DeploymentExtended {
+func makeDeployment(name string, provisioningState resources.ProvisioningState) resources.DeploymentExtended {
 	dependsOn := []resources.BasicDependency{{
 		ResourceType: to.StringPtr("Microsoft.Compute/availabilitySets"),
 		ResourceName: to.StringPtr("mysql"),
@@ -84,7 +95,7 @@ func makeDeployment(name string) resources.DeploymentExtended {
 	return resources.DeploymentExtended{
 		Name: to.StringPtr(name),
 		Properties: &resources.DeploymentPropertiesExtended{
-			ProvisioningState: to.StringPtr("Succeeded"),
+			ProvisioningState: provisioningState,
 			Dependencies:      &dependencies,
 		},
 	}
@@ -147,8 +158,8 @@ func makeSecurityRule(name, ipAddress, ports string) network.SecurityRule {
 	}
 }
 
-func (s *instanceSuite) getInstance(c *gc.C) instances.Instance {
-	instances := s.getInstances(c, "machine-0")
+func (s *instanceSuite) getInstance(c *gc.C, instID instance.Id) instances.Instance {
+	instances := s.getInstances(c, instID)
 	c.Assert(instances, gc.HasLen, 1)
 	return instances[0]
 }
@@ -167,6 +178,10 @@ func (s *instanceSuite) getInstancesSender() azuretesting.Senders {
 		Value: &s.deployments,
 	})
 	deploymentsSender.PathPattern = ".*/deployments"
+	vmSender := azuretesting.NewSenderWithValue(&compute.VirtualMachineListResult{
+		Value: &s.vms,
+	})
+	vmSender.PathPattern = ".*/virtualMachines"
 	nicsSender := azuretesting.NewSenderWithValue(&network.InterfaceListResult{
 		Value: &s.networkInterfaces,
 	})
@@ -175,7 +190,7 @@ func (s *instanceSuite) getInstancesSender() azuretesting.Senders {
 		Value: &s.publicIPAddresses,
 	})
 	pipsSender.PathPattern = ".*/publicIPAddresses"
-	return azuretesting.Senders{deploymentsSender, nicsSender, pipsSender}
+	return azuretesting.Senders{deploymentsSender, vmSender, nicsSender, pipsSender}
 }
 
 func networkSecurityGroupSender(rules []network.SecurityRule) *azuretesting.MockSender {
@@ -189,25 +204,31 @@ func networkSecurityGroupSender(rules []network.SecurityRule) *azuretesting.Mock
 }
 
 func (s *instanceSuite) TestInstanceStatus(c *gc.C) {
-	inst := s.getInstance(c)
+	inst := s.getInstance(c, "machine-0")
 	assertInstanceStatus(c, inst.Status(s.callCtx), status.Running, "")
 }
 
+func (s *instanceSuite) TestInstanceStatusDeploying(c *gc.C) {
+	s.deployments[1].Properties.ProvisioningState = resources.ProvisioningStateCreating
+	inst := s.getInstance(c, "machine-1")
+	assertInstanceStatus(c, inst.Status(s.callCtx), status.Provisioning, "")
+}
+
 func (s *instanceSuite) TestInstanceStatusDeploymentFailed(c *gc.C) {
-	s.deployments[0].Properties.ProvisioningState = to.StringPtr("Failed")
-	inst := s.getInstance(c)
+	s.deployments[1].Properties.ProvisioningState = resources.ProvisioningStateFailed
+	inst := s.getInstance(c, "machine-1")
 	assertInstanceStatus(c, inst.Status(s.callCtx), status.ProvisioningError, "Failed")
 }
 
 func (s *instanceSuite) TestInstanceStatusDeploymentCanceled(c *gc.C) {
-	s.deployments[0].Properties.ProvisioningState = to.StringPtr("Canceled")
-	inst := s.getInstance(c)
-	assertInstanceStatus(c, inst.Status(s.callCtx), status.ProvisioningError, "Canceled")
+	s.deployments[1].Properties.ProvisioningState = resources.ProvisioningStateCanceled
+	inst := s.getInstance(c, "machine-1")
+	assertInstanceStatus(c, inst.Status(s.callCtx), status.ProvisioningError, "Failed")
 }
 
-func (s *instanceSuite) TestInstanceStatusNilProvisioningState(c *gc.C) {
-	s.deployments[0].Properties.ProvisioningState = nil
-	inst := s.getInstance(c)
+func (s *instanceSuite) TestInstanceStatusUnsetProvisioningState(c *gc.C) {
+	s.deployments[1].Properties.ProvisioningState = resources.ProvisioningStateNotSpecified
+	inst := s.getInstance(c, "machine-1")
 	assertInstanceStatus(c, inst.Status(s.callCtx), status.Allocating, "")
 }
 
@@ -219,7 +240,7 @@ func assertInstanceStatus(c *gc.C, actual instance.Status, status status.Status,
 }
 
 func (s *instanceSuite) TestInstanceAddressesEmpty(c *gc.C) {
-	addresses, err := s.getInstance(c).Addresses(s.callCtx)
+	addresses, err := s.getInstance(c, "machine-0").Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.HasLen, 0)
 }
@@ -245,7 +266,7 @@ func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
 		// unrelated PIP
 		makePublicIPAddress("pip-2", "machine-1", "1.2.3.6"),
 	}
-	addresses, err := s.getInstance(c).Addresses(s.callCtx)
+	addresses, err := s.getInstance(c, "machine-0").Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, jc.DeepEquals, corenetwork.NewProviderAddresses(
 		"10.0.0.4", "10.0.0.5", "1.2.3.4", "1.2.3.5",
@@ -280,7 +301,7 @@ func (s *instanceSuite) TestMultipleInstanceAddresses(c *gc.C) {
 }
 
 func (s *instanceSuite) TestIngressRulesEmpty(c *gc.C) {
-	inst := s.getInstance(c)
+	inst := s.getInstance(c, "machine-0")
 	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 	nsgSender := networkSecurityGroupSender(nil)
@@ -407,7 +428,7 @@ func (s *instanceSuite) TestIngressRules(c *gc.C) {
 		},
 	}}
 	nsgSender := s.setupSecurityGroupRules(nsgRules...)
-	inst := s.getInstance(c)
+	inst := s.getInstance(c, "machine-0")
 	s.sender = *nsgSender
 
 	fwInst, ok := inst.(instances.InstanceFirewaller)
@@ -425,7 +446,7 @@ func (s *instanceSuite) TestIngressRules(c *gc.C) {
 
 func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 	nsgSender := s.setupSecurityGroupRules()
-	inst := s.getInstance(c)
+	inst := s.getInstance(c, "machine-0")
 	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
@@ -458,7 +479,7 @@ func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 
 func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	nsgSender := s.setupSecurityGroupRules()
-	inst := s.getInstance(c)
+	inst := s.getInstance(c, "machine-0")
 	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
@@ -550,7 +571,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 		},
 	}
 	nsgSender := s.setupSecurityGroupRules(nsgRule)
-	inst := s.getInstance(c)
+	inst := s.getInstance(c, "machine-0")
 	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
@@ -588,7 +609,7 @@ func (s *instanceSuite) TestInstanceOpenPortsNoInternalAddress(c *gc.C) {
 	s.networkInterfaces = []network.Interface{
 		makeNetworkInterface("nic-0", "machine-0"),
 	}
-	inst := s.getInstance(c)
+	inst := s.getInstance(c, "machine-0")
 	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 	err := fwInst.OpenPorts(s.callCtx, "0", nil)
@@ -614,8 +635,17 @@ func (s *instanceSuite) TestAllRunningInstances(c *gc.C) {
 	c.Assert(instances[1].Id(), gc.Equals, instance.Id("machine-1"))
 }
 
+func (s *instanceSuite) TestControllerInstancesSomePending(c *gc.C) {
+	*(*(*s.deployments[1].Properties.Dependencies)[0].DependsOn)[0].ResourceName = "juju-controller"
+	s.sender = s.getInstancesSender()
+	ids, err := s.env.ControllerInstances(s.callCtx, "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ids, gc.HasLen, 2)
+	c.Assert(ids[0], gc.Equals, instance.Id("machine-0"))
+	c.Assert(ids[1], gc.Equals, instance.Id("machine-1"))
+}
+
 func (s *instanceSuite) TestControllerInstances(c *gc.C) {
-	*(*(*s.deployments[0].Properties.Dependencies)[0].DependsOn)[0].ResourceName = "juju-controller"
 	s.sender = s.getInstancesSender()
 	ids, err := s.env.ControllerInstances(s.callCtx, "foo")
 	c.Assert(err, jc.ErrorIsNil)
