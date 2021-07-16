@@ -1345,6 +1345,13 @@ func (api *APIBase) applicationSetCharm(
 	oldSeries := params.Application.Series()
 	if oldSeries == "kubernetes" && corecharm.Format(newCharm) >= corecharm.FormatV2 &&
 		len(newCharm.Meta().Containers) > 0 {
+		// Disallow upgrading from a v1 DaemonSet or Deployment type charm
+		// (only StatefulSet is supported in v2 right now).
+		deployment := oldCharm.Meta().Deployment
+		if deployment != nil && deployment.DeploymentType != charm.DeploymentStateful {
+			return errors.Errorf("cannot upgrade from v1 %s deployment to v2", deployment.DeploymentType)
+		}
+
 		modelConfig, err := api.model.ModelConfig()
 		if err != nil {
 			return errors.Trace(err)
