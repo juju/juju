@@ -554,9 +554,10 @@ func (s *ApplicationWorkerSuite) TestDeleteOperator(c *gc.C) {
 		// Operator delete loop (with a retry)
 		broker.EXPECT().OperatorExists("test").Return(caas.DeploymentState{Exists: true}, nil),
 		broker.EXPECT().DeleteService("test").Return(nil),
+		broker.EXPECT().Units("test", caas.ModeWorkload).Return([]caas.Unit{}, nil),
 		broker.EXPECT().DeleteOperator("test").DoAndReturn(func(appName string) error {
 			go func() {
-				c.Assert(s.clock.WaitAdvance(time.Second, coretesting.ShortWait, 1), jc.ErrorIsNil)
+				c.Assert(s.clock.WaitAdvance(3*time.Second, coretesting.ShortWait, 1), jc.ErrorIsNil)
 			}()
 			return nil
 		}),

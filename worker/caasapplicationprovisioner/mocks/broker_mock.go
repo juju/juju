@@ -105,3 +105,18 @@ func (mr *MockCAASBrokerMockRecorder) OperatorExists(arg0 interface{}) *gomock.C
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OperatorExists", reflect.TypeOf((*MockCAASBroker)(nil).OperatorExists), arg0)
 }
+
+// Units mocks base method.
+func (m *MockCAASBroker) Units(arg0 string, arg1 caas.DeploymentMode) ([]caas.Unit, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Units", arg0, arg1)
+	ret0, _ := ret[0].([]caas.Unit)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Units indicates an expected call of Units.
+func (mr *MockCAASBrokerMockRecorder) Units(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Units", reflect.TypeOf((*MockCAASBroker)(nil).Units), arg0, arg1)
+}

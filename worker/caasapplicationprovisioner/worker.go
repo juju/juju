@@ -67,6 +67,7 @@ type CAASBroker interface {
 	DeleteOperator(appName string) error
 	DeleteService(appName string) error
 	OperatorExists(appName string) (caas.DeploymentState, error)
+	Units(appName string, mode caas.DeploymentMode) ([]caas.Unit, error)
 }
 
 // Config defines the operation of a Worker.

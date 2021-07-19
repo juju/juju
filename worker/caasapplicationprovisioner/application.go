@@ -106,13 +106,13 @@ func (a *appWorker) loop() error {
 
 	// If the application has an operator pod due to an upgrade-charm from a
 	// pod-spec charm to a sidecar charm, delete it. Also delete workload pod.
-	const maxDeleteLoops = 100
+	const maxDeleteLoops = 20
 	for i := 0; ; i++ {
 		if i >= maxDeleteLoops {
 			return fmt.Errorf("couldn't delete operator and service with %d tries", maxDeleteLoops)
 		}
 		if i > 0 {
-			<-a.clock.After(time.Second)
+			<-a.clock.After(3 * time.Second)
 		}
 
 		exists, err := a.broker.OperatorExists(a.name)
@@ -123,11 +123,30 @@ func (a *appWorker) loop() error {
 			break
 		}
 
-		a.logger.Infof("deleting operator and workload pods for application %q", a.name)
+		a.logger.Infof("deleting workload and operator pods for application %q", a.name)
 		err = a.broker.DeleteService(a.name)
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Annotatef(err, "deleting workload pod for application %q", a.name)
 		}
+
+		// Wait till the units are gone, to ensure worker code isn't messing
+		// with old units, only new sidecar pods.
+		const maxUnitsLoops = 20
+		for j := 0; ; j++ {
+			if j >= maxUnitsLoops {
+				return fmt.Errorf("pods still present after %d tries", maxUnitsLoops)
+			}
+			units, err := a.broker.Units(a.name, caas.ModeWorkload)
+			if err != nil && !errors.IsNotFound(err) {
+				return errors.Annotatef(err, "fetching workload units for application %q", a.name)
+			}
+			if len(units) == 0 {
+				break
+			}
+			a.logger.Debugf("%q: waiting for workload pods to be deleted", a.name)
+			<-a.clock.After(3 * time.Second)
+		}
+
 		err = a.broker.DeleteOperator(a.name)
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Annotatef(err, "deleting operator pod for application %q", a.name)
