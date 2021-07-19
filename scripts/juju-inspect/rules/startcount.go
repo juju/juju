@@ -4,8 +4,8 @@
 package rules
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"sort"
 )
 
@@ -19,17 +19,14 @@ func NewStartCountRule() *StartCountRule {
 	}
 }
 
-func (r *StartCountRule) Run(name string, report Report) {
+func (r *StartCountRule) Run(name string, report Report) error {
 	for manifoldName, manifold := range report.Manifolds {
 		if _, ok := r.counts[name]; !ok {
 			r.counts[name] = make(map[string]int)
 		}
 		r.counts[name][manifoldName] = manifold.StartCount
 	}
-}
-
-func (r *StartCountRule) Summary() string {
-	return "Start Counts:"
+	return nil
 }
 
 type namedCount struct {
@@ -37,22 +34,25 @@ type namedCount struct {
 	count int
 }
 
-func (r *StartCountRule) Analyse() string {
+func (r *StartCountRule) Write(w io.Writer) {
+	fmt.Fprintln(w, "Start Counts:")
+	fmt.Fprintln(w, "")
+
 	// Gather
 	total := make(map[string]int, len(r.counts))
-	highest := make(map[string]namedCount, len(r.counts))
+	highest := make(map[string][]namedCount, len(r.counts))
 	for ctrl, manifolds := range r.counts {
 		for name, v := range manifolds {
 			total[ctrl] += v
 
-			nc := highest[ctrl]
-			if v > nc.count {
-				highest[ctrl] = namedCount{
-					name:  name,
-					count: v,
-				}
-			}
+			highest[ctrl] = append(highest[ctrl], namedCount{
+				name:  name,
+				count: v,
+			})
 		}
+		sort.Slice(highest[ctrl], func(i, j int) bool {
+			return highest[ctrl][i].count > highest[ctrl][j].count
+		})
 	}
 
 	order := make([]string, 0, len(total))
@@ -62,11 +62,21 @@ func (r *StartCountRule) Analyse() string {
 	sort.Strings(order)
 
 	// Report
-	buf := new(bytes.Buffer)
 	for _, ctrl := range order {
 		t := total[ctrl]
-		fmt.Fprintf(buf, "%s start-count: %d\n", ctrl, t)
-		fmt.Fprintf(buf, "  - max: %q with: %d\n", highest[ctrl].name, highest[ctrl].count)
+		fmt.Fprintf(w, "\t%s start-count: %d\n", ctrl, t)
+
+		n := 3
+		h := highest[ctrl]
+		if num := len(h); num < n {
+			n = num
+		}
+
+		for i := 0; i < n; i++ {
+			counter := highest[ctrl][i]
+			fmt.Fprintf(w, "\t  - max: %q with: %d\n", counter.name, counter.count)
+		}
+		fmt.Fprintln(w, "")
 	}
-	return buf.String()
+	fmt.Fprintln(w, "")
 }

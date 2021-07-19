@@ -3,7 +3,10 @@
 
 package rules
 
-import "fmt"
+import (
+	"fmt"
+	"io"
+)
 
 type RaftRule struct {
 	found   map[string]bool
@@ -17,28 +20,36 @@ func NewRaftRule() *RaftRule {
 	}
 }
 
-func (r *RaftRule) Run(name string, report Report) {
+func (r *RaftRule) Run(name string, report Report) error {
 	raft, ok := report.Manifolds["raft"]
 	if !ok {
 		r.found[name] = false
-		return
+		return nil
 	}
 
 	r.found[name] = true
-	r.leaders[name] = raft.Report.State == "Leader"
+
+	var out RaftReport
+	if err := raft.UnmarshalReport(&out); err != nil {
+		return err
+	}
+
+	r.leaders[name] = out.State == "Leader"
+
+	return nil
 }
 
-func (r *RaftRule) Summary() string {
-	return "Raft Leader:"
-}
+func (r *RaftRule) Write(w io.Writer) {
+	fmt.Fprintln(w, "Raft Leader:")
+	fmt.Fprintln(w, "")
 
-func (r *RaftRule) Analyse() string {
 	var leader bool
 	var ctrl string
 	for name, ldr := range r.leaders {
 		if leader && ldr {
 			// Two or more leaders
-			return "Two or more leaders have been found in the files!"
+			fmt.Fprintln(w, "\tTwo or more leaders have been found in the files!")
+			return
 		}
 		if ldr {
 			leader = true
@@ -46,7 +57,13 @@ func (r *RaftRule) Analyse() string {
 		}
 	}
 	if !leader {
-		return "There are no leaders found."
+		fmt.Fprintln(w, "\tThere are no leaders found.")
+		return
 	}
-	return fmt.Sprintf("%s is the leader.", ctrl)
+	fmt.Fprintf(w, "\t%s is the leader.\n", ctrl)
+	fmt.Fprintln(w, "")
+}
+
+type RaftReport struct {
+	State string `yaml:"state"`
 }

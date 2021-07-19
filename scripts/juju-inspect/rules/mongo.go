@@ -3,7 +3,10 @@
 
 package rules
 
-import "fmt"
+import (
+	"fmt"
+	"io"
+)
 
 type MongoRule struct {
 	found     map[string]bool
@@ -17,28 +20,30 @@ func NewMongoRule() *MongoRule {
 	}
 }
 
-func (r *MongoRule) Run(name string, report Report) {
+func (r *MongoRule) Run(name string, report Report) error {
 	mgo, ok := report.Manifolds["transaction-pruner"]
 	if !ok {
 		r.found[name] = false
-		return
+		return nil
 	}
 
 	r.found[name] = true
 	r.primaries[name] = mgo.State == "started"
+
+	return nil
 }
 
-func (r *MongoRule) Summary() string {
-	return "Mongo Primary:"
-}
+func (r *MongoRule) Write(w io.Writer) {
+	fmt.Fprintln(w, "Mongo Primary:")
+	fmt.Fprintln(w, "")
 
-func (r *MongoRule) Analyse() string {
 	var primary bool
 	var ctrl string
 	for name, ldr := range r.primaries {
 		if primary && ldr {
 			// Two or more primaries
-			return "Two or more primaries have been found in the files!"
+			fmt.Fprintln(w, "\tTwo or more primaries have been found in the files!")
+			return
 		}
 		if ldr {
 			primary = true
@@ -46,7 +51,9 @@ func (r *MongoRule) Analyse() string {
 		}
 	}
 	if !primary {
-		return "There are no primaries found."
+		fmt.Fprintln(w, "\tThere are no primaries found.")
+		return
 	}
-	return fmt.Sprintf("%s is the primary.", ctrl)
+	fmt.Fprintf(w, "\t%s is the primary.\n", ctrl)
+	fmt.Fprintln(w, "")
 }

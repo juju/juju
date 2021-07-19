@@ -11,7 +11,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/juju/juju/scripts/juju-inspect/rules"
 	"gopkg.in/yaml.v2"
@@ -58,33 +57,35 @@ func main() {
 			log.Fatal(err)
 		}
 
-		// TODO (pick a better name somehow - agent.name?)
-		name := report.Manifolds["agent"].Report.Agent
+		agent := report.Manifolds["agent"]
+
+		var out AgentReport
+		if err := agent.UnmarshalReport(&out); err != nil {
+			log.Fatal(err)
+		}
 		for _, rule := range allRules {
-			rule.Run(name, report)
+			if err := rule.Run(out.Agent, report); err != nil {
+				fmt.Printf("Skipping %T, because of error: %v", rule, err)
+			}
 		}
 	}
 
 	fmt.Println("")
 	fmt.Println("Analysis of Engine Report:")
 	fmt.Println("")
+
+	buf := new(bytes.Buffer)
 	for _, rule := range allRules {
-		fmt.Println(rule.Summary())
-
-		analysis := rule.Analyse()
-
-		buf := new(bytes.Buffer)
-		scanner := bufio.NewScanner(strings.NewReader(analysis))
-		for scanner.Scan() {
-			fmt.Fprintf(buf, "\t%s\n", scanner.Text())
-		}
-
-		fmt.Printf("%s\n", buf.String())
+		rule.Write(buf)
 	}
+	fmt.Println(buf)
 }
 
 type Rule interface {
-	Run(string, rules.Report)
-	Summary() string
-	Analyse() string
+	Run(string, rules.Report) error
+	Write(io.Writer)
+}
+
+type AgentReport struct {
+	Agent string `yaml:"agent"`
 }

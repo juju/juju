@@ -4,8 +4,8 @@
 package rules
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 )
 
 type ManifoldsRule struct {
@@ -18,18 +18,16 @@ func NewManifoldsRule() *ManifoldsRule {
 	}
 }
 
-func (r *ManifoldsRule) Run(name string, report Report) {
+func (r *ManifoldsRule) Run(name string, report Report) error {
 	r.counts[name] = len(report.Manifolds)
+	return nil
 }
 
-func (r *ManifoldsRule) Summary() string {
-	return "Manifolds:"
-}
-
-func (r *ManifoldsRule) Analyse() string {
-	buf := new(bytes.Buffer)
+func (r *ManifoldsRule) Write(w io.Writer) {
+	fmt.Fprintln(w, "Manifolds:")
+	fmt.Fprintln(w, "")
 	for ctrl, t := range r.counts {
-		fmt.Fprintf(buf, "%s has %d manifolds\n", ctrl, t)
+		fmt.Fprintf(w, "\t%s has %d manifolds\n", ctrl, t)
 	}
-	return buf.String()
+	fmt.Fprintln(w, "")
 }
