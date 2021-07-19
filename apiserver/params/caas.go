@@ -111,8 +111,8 @@ type CAASUnitInfo struct {
 
 // CAASUnit holds CAAS unit information.
 type CAASUnit struct {
-	Tag        names.Tag   `json:"tag"`
-	UnitStatus *UnitStatus `json:"unit-status,omitempty"`
+	Tag        names.Tag
+	UnitStatus *UnitStatus
 }
 
 // CAASUnitsResult holds a slice of CAAS unit information or an error.

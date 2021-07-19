@@ -257,7 +257,16 @@ func (a *appWorker) loop() error {
 		if done {
 			return nil
 		}
+		a.refreshApplicationStatus(app, appLife)
 	}
+}
+
+func getTagsFromUnits(in []params.CAASUnit) []names.Tag {
+	var out []names.Tag
+	for _, v := range in {
+		out = append(out, v.Tag)
+	}
+	return out
 }
 
 func (a *appWorker) updateState(app caas.Application, force bool, lastReportedStatus map[string]status.StatusInfo) (map[string]status.StatusInfo, error) {
@@ -288,6 +297,8 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 			Info:   svc.Status.Message,
 			Data:   svc.Status.Data,
 		}
+		a.logger.Warningf("svc.Status %#v", svc.Status)
+		a.logger.Warningf("appStatus %#v", appStatus)
 		err = a.unitFacade.UpdateApplicationService(params.UpdateApplicationServiceArg{
 			ApplicationTag: appTag,
 			ProviderId:     svc.Id,
@@ -300,7 +311,7 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 		}
 	}
 
-	err = a.facade.GarbageCollect(a.name, observedUnits, st.DesiredReplicas, st.Replicas, force)
+	err = a.facade.GarbageCollect(a.name, getTagsFromUnits(observedUnits), st.DesiredReplicas, st.Replicas, force)
 	if errors.IsNotFound(err) {
 		return nil, nil
 	} else if err != nil {
@@ -327,6 +338,7 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 			continue
 		}
 		unitStatus := u.Status
+		a.logger.Warningf("updateState unitStatus.Status %q", unitStatus.Status)
 		lastStatus, ok := lastReportedStatus[u.Id]
 		reportedStatus[u.Id] = unitStatus
 		// TODO: Determine a better way to propagate status
@@ -401,6 +413,39 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 		}
 	}
 	return reportedStatus, nil
+}
+
+func (a *appWorker) refreshApplicationStatus(app caas.Application, appLife life.Value) error {
+	st, err := app.State()
+	if errors.IsNotFound(err) {
+		// Do nothing.
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	// refresh the units information.
+	units, err := a.facade.Units(a.name)
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	readyUnitsCount := 0
+	for _, unit := range units {
+		a.logger.Warningf("refreshApplicationStatus unit.UnitStatus.AgentStatus %#v", unit.UnitStatus.AgentStatus)
+		if unit.UnitStatus.AgentStatus.Status == string(status.Active) {
+			readyUnitsCount++
+		}
+	}
+	a.logger.Warningf("updateState len(units) %d, gotActiveUnit %d", len(units), readyUnitsCount)
+	if appLife == life.Alive {
+		if st.DesiredReplicas > 0 && st.DesiredReplicas > readyUnitsCount {
+			return a.setApplicationStatus(status.Waiting, "waiting for units settled down", nil)
+		}
+		return a.setApplicationStatus(status.Active, "", nil)
+	}
+	return nil
 }
 
 func (a *appWorker) ensureScale(app caas.Application) error {
@@ -542,9 +587,9 @@ func (a *appWorker) alive(app caas.Application) error {
 	reason := "unchanged"
 	// TODO(sidecar): implement Equals method for caas.ApplicationConfig
 	if !reflect.DeepEqual(config, a.lastApplied) {
-		err = app.Ensure(config)
-		if err != nil {
-			return errors.Annotate(err, "ensuring application")
+		if err = app.Ensure(config); err != nil {
+			_ = a.setApplicationStatus(status.Error, err.Error(), nil)
+			return errors.Annotatef(err, "ensuring application %q", a.name)
 		}
 		a.lastApplied = config
 		reason = "deployed"
@@ -552,13 +597,13 @@ func (a *appWorker) alive(app caas.Application) error {
 			reason = "updated"
 		}
 	}
-
-	err = a.facade.SetOperatorStatus(a.name, status.Active, reason, nil)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
+	a.logger.Debugf("application %q was %q", a.name, reason)
 	return nil
+}
+
+func (a *appWorker) setApplicationStatus(s status.Status, reason string, data map[string]interface{}) error {
+	a.logger.Warningf("SetOperatorStatus %q, %q, %#v", s, reason, data)
+	return a.facade.SetOperatorStatus(a.name, s, reason, data)
 }
 
 func (a *appWorker) dying(app caas.Application) error {
