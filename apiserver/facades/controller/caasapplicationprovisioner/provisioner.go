@@ -292,35 +292,55 @@ func (a *API) setStatus(tag names.ApplicationTag, info status.StatusInfo) error 
 }
 
 // Units returns all the units for each application specified.
-func (a *API) Units(args params.Entities) (params.EntitiesResults, error) {
-	result := params.EntitiesResults{
-		Results: make([]params.EntitiesResult, len(args.Entities)),
+func (a *API) Units(args params.Entities) (params.CAASUnitsResults, error) {
+	results := params.CAASUnitsResults{
+		Results: make([]params.CAASUnitsResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
 		appName, err := names.ParseApplicationTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		app, err := a.state.Application(appName.Id())
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		units, err := app.AllUnits()
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		entities := make([]params.Entity, 0, len(units))
-		for _, unit := range units {
-			entities = append(entities, params.Entity{
-				Tag: unit.Tag().String(),
-			})
+		result := params.CAASUnitsResult{
+			Units: make([]params.CAASUnitInfo, len(units)),
 		}
-		result.Results[i].Entities = entities
+		for uIdx, unit := range units {
+			unitStatus, err := unit.Status()
+			if err != nil {
+				result.Error = apiservererrors.ServerError(err)
+				break
+			}
+			result.Units[uIdx] = params.CAASUnitInfo{
+				Tag: unit.Tag().String(),
+				UnitStatus: &params.UnitStatus{
+					AgentStatus:    statusInfoToDetailedStatus(unitStatus),
+					WorkloadStatus: statusInfoToDetailedStatus(unitStatus),
+				},
+			}
+		}
+		results.Results[i] = result
 	}
-	return result, nil
+	return results, nil
+}
+
+func statusInfoToDetailedStatus(in status.StatusInfo) params.DetailedStatus {
+	return params.DetailedStatus{
+		Status: in.Status.String(),
+		Info:   in.Message,
+		Since:  in.Since,
+		Data:   in.Data,
+	}
 }
 
 // CAASApplicationGarbageCollect cleans up units that have gone away permanently.

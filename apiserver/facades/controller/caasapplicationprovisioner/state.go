@@ -71,6 +71,7 @@ type Unit interface {
 	EnsureDead() error
 	ContainerInfo() (state.CloudContainer, error)
 	UpdateOperation(props state.UnitUpdateProperties) *state.UpdateUnitOperation
+	Status() (status.StatusInfo, error)
 }
 
 type Resources interface {

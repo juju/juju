@@ -4,8 +4,10 @@
 package params
 
 import (
-	"github.com/juju/juju/core/constraints"
+	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
+
+	"github.com/juju/juju/core/constraints"
 )
 
 // CAASUnitIntroductionArgs is used by sidecar units to introduce
@@ -99,4 +101,27 @@ type CAASApplicationOCIResourceResult struct {
 // CAASApplicationOCIResources holds a list of image OCI resources.
 type CAASApplicationOCIResources struct {
 	Images map[string]DockerImageInfo `json:"images"`
+}
+
+// CAASUnitInfo holds CAAS unit information.
+type CAASUnitInfo struct {
+	Tag        string      `json:"tag"`
+	UnitStatus *UnitStatus `json:"unit-status,omitempty"`
+}
+
+// CAASUnit holds CAAS unit information.
+type CAASUnit struct {
+	Tag        names.Tag   `json:"tag"`
+	UnitStatus *UnitStatus `json:"unit-status,omitempty"`
+}
+
+// CAASUnitsResult holds a slice of CAAS unit information or an error.
+type CAASUnitsResult struct {
+	Units []CAASUnitInfo `json:"units,omitempty"`
+	Error *Error         `json:"error,omitempty"`
+}
+
+// CAASUnitsResults contains multiple CAAS units result.
+type CAASUnitsResults struct {
+	Results []CAASUnitsResult `json:"results"`
 }
