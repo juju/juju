@@ -36,15 +36,17 @@ func ComputedSeries(c charm.CharmMeta) (seriesSlice []string, _ error) {
 	seriesSet := set.NewStrings()
 
 	manifest := c.Manifest()
-	for _, base := range manifest.Bases {
-		version := base.Channel.Track
-		series, err := coreseries.VersionSeries(version)
-		if err != nil {
-			return []string{}, errors.Trace(err)
-		}
-		if !seriesSet.Contains(series) {
-			seriesSet.Add(series)
-			seriesSlice = append(seriesSlice, series)
+	if manifest != nil {
+		for _, base := range manifest.Bases {
+			version := base.Channel.Track
+			series, err := coreseries.VersionSeries(version)
+			if err != nil {
+				return []string{}, errors.Trace(err)
+			}
+			if !seriesSet.Contains(series) {
+				seriesSet.Add(series)
+				seriesSlice = append(seriesSlice, series)
+			}
 		}
 	}
 	if isKubernetes && !seriesSet.Contains(coreseries.Kubernetes.String()) {
