@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -22,7 +23,6 @@ import (
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucloud "github.com/juju/juju/cloud"
-	corecharm "github.com/juju/juju/core/charm"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
 	jujussh "github.com/juju/juju/network/ssh"
@@ -226,7 +226,7 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 		return nil, errors.Annotatef(err, "getting charm info for %q", resolvedTargetName)
 	}
 
-	isMetaV2 := (corecharm.Format(charmInfo.Charm()) == corecharm.FormatV2)
+	isMetaV2 := (charm.MetaFormat(charmInfo.Charm()) == charm.FormatV2)
 	var providerID string
 	if !isMetaV2 && !c.remote {
 		// We don't want to introduce CaaS broker here, but only use exec client.

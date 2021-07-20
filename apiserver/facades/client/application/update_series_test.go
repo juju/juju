@@ -97,8 +97,8 @@ func (s StateValidatorSuite) TestValidateApplication(c *gc.C) {
 	ch := NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{
 		Series: []string{"focal", "bionic"},
-	}).Times(2)
-	ch.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	}).MinTimes(2)
+	ch.EXPECT().Manifest().Return(nil).AnyTimes()
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
@@ -115,8 +115,8 @@ func (s StateValidatorSuite) TestValidateApplicationWithFallbackSeries(c *gc.C) 
 	url := charm.MustParseURL("cs:focal/foo-1")
 
 	ch := NewMockCharm(ctrl)
-	ch.EXPECT().Meta().Return(&charm.Meta{}).Times(2)
-	ch.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	ch.EXPECT().Meta().Return(&charm.Meta{}).MinTimes(2)
+	ch.EXPECT().Manifest().Return(nil).AnyTimes()
 	ch.EXPECT().URL().Return(url)
 
 	application := NewMockApplication(ctrl)
@@ -134,8 +134,8 @@ func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeries(c *gc.
 	ch := NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{
 		Series: []string{"xenial", "bionic"},
-	}).Times(2)
-	ch.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	}).MinTimes(2)
+	ch.EXPECT().Manifest().Return(nil).AnyTimes()
 	ch.EXPECT().String().Return("cs:foo-1")
 
 	application := NewMockApplication(ctrl)
@@ -153,8 +153,8 @@ func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeriesWithFor
 	ch := NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{
 		Series: []string{"xenial", "bionic"},
-	}).Times(2)
-	ch.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	}).MinTimes(2)
+	ch.EXPECT().Manifest().Return(nil).AnyTimes()
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)

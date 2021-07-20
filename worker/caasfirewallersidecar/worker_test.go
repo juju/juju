@@ -23,7 +23,6 @@ type workerSuite struct {
 	testing.BaseSuite
 
 	config caasfirewallersidecar.Config
-	w      worker.Worker
 
 	firewallerAPI *mocks.MockCAASFirewallerAPI
 	lifeGetter    *mocks.MockLifeGetter

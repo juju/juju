@@ -28,7 +28,7 @@ func (s *computedSeriesSuite) TestComputedSeriesLegacy(c *gc.C) {
 		Description: "c",
 		Series:      []string{"bionic"},
 	}).AnyTimes()
-	cm.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	cm.EXPECT().Manifest().Return(nil).AnyTimes()
 	series, err := ComputedSeries(cm)
 	c.Assert(err, gc.IsNil)
 	c.Assert(series, jc.DeepEquals, []string{"bionic"})

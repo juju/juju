@@ -22,8 +22,8 @@ func (s *kubernetesSuite) TestMetadataV1NoKubernetes(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cm := NewMockCharmMeta(ctrl)
-	cm.EXPECT().Meta().Return(&charm.Meta{Series: []string{"bionic"}})
-	cm.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	cm.EXPECT().Meta().Return(&charm.Meta{Series: []string{"bionic"}}).MinTimes(2)
+	cm.EXPECT().Manifest().Return(nil).AnyTimes()
 
 	c.Assert(IsKubernetes(cm), jc.IsFalse)
 }
@@ -32,8 +32,8 @@ func (s *kubernetesSuite) TestMetadataV1Kubernetes(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cm := NewMockCharmMeta(ctrl)
-	cm.EXPECT().Meta().Return(&charm.Meta{Series: []string{"kubernetes"}})
-	cm.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	cm.EXPECT().Meta().Return(&charm.Meta{Series: []string{"kubernetes"}}).MinTimes(2)
+	cm.EXPECT().Manifest().Return(nil).AnyTimes()
 
 	c.Assert(IsKubernetes(cm), jc.IsTrue)
 }

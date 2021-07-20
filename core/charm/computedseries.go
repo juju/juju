@@ -20,14 +20,14 @@ var logger = loggo.GetLogger("juju.core.charm")
 // no manifest, return series from the metadata. Otherwise return the series
 // listed in the manifest Bases as channels.
 func ComputedSeries(c charm.CharmMeta) (seriesSlice []string, _ error) {
-	format := Format(c)
+	format := charm.MetaFormat(c)
 	isKubernetes := IsKubernetes(c)
 	meta := c.Meta()
 	defer func(s *[]string) {
 		logger.Debugf("series %q for charm %q with format %v, Kubernetes %v", strings.Join(*s, ", "), meta.Name, format, isKubernetes)
 	}(&seriesSlice)
 
-	if format < FormatV2 {
+	if format < charm.FormatV2 {
 		return meta.Series, nil
 	}
 

@@ -6,7 +6,6 @@ package common
 import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 
@@ -139,12 +138,12 @@ func (w *applicationWatcher) handle(changes []string) ([]string, error) {
 		// TODO(CAAS): Improve application filtering logic.
 		switch w.filter {
 		case ApplicationFilterCAASLegacy:
-			if corecharm.Format(ch) >= corecharm.FormatV2 {
+			if charm.MetaFormat(ch) >= charm.FormatV2 {
 				// Filter out sidecar applications.
 				continue
 			}
 		case ApplicationFilterCAASSidecar:
-			if corecharm.Format(ch) == corecharm.FormatV1 {
+			if charm.MetaFormat(ch) == charm.FormatV1 {
 				// Filter out non-sidecar applications.
 				continue
 			}
