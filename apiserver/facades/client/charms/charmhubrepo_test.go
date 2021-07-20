@@ -505,13 +505,9 @@ func (refreshConfigSuite) TestRefreshByRevision(c *gc.C) {
 			InstanceKey: instanceKey,
 			Name:        &curl.Name,
 			Revision:    &revision,
-			Base: &transport.Base{
-				Name:         "ubuntu",
-				Channel:      "20.04",
-				Architecture: "amd64",
-			},
 		}},
 		Context: []transport.RefreshRequestContext{},
+		Fields:  []string{"bases", "download", "id", "revision", "version", "resources"},
 	})
 }
 

@@ -32,7 +32,7 @@ func (s *FindClientSuite) TestLiveFindRequest(c *gc.C) {
 	findPath, err := basePath.Join("find")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := charmhub.NewAPIRequester(charmhub.DefaultHTTPTransport(), logger)
+	apiRequester := charmhub.NewAPIRequester(charmhub.DefaultHTTPTransport(logger), logger)
 	restClient := charmhub.NewHTTPRESTClient(apiRequester, nil)
 
 	client := charmhub.NewFindClient(findPath, restClient, logger)
