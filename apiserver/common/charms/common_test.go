@@ -186,7 +186,6 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 						Description: "The name of the initial account (given admin permissions).",
 						Default:     "admin001"},
 				},
-				Manifest: &params.CharmManifest{},
 				Meta: &params.CharmMeta{
 					Name:           "dummy",
 					Summary:        "That's a dummy charm.",
@@ -223,7 +222,6 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 				Revision: 0,
 				URL:      "local:quantal/lxd-profile-0",
 				Config:   map[string]params.CharmOption{},
-				Manifest: &params.CharmManifest{},
 				Meta: &params.CharmMeta{
 					Name:           "lxd-profile",
 					Summary:        "start a juju machine with a lxd profile",
@@ -296,7 +294,6 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 						Default:     "My Title",
 					},
 				},
-				Manifest: &params.CharmManifest{},
 				Meta: &params.CharmMeta{
 					Name:        "wordpress",
 					Summary:     "Blog engine",
