@@ -1064,7 +1064,7 @@ func (a *Application) IsSidecar() (bool, error) {
 	}
 
 	// TODO(sidecar): Determine a better way represent this.
-	return m.Type() == ModelTypeCAAS && corecharm.Format(ch) == corecharm.FormatV2, nil
+	return m.Type() == ModelTypeCAAS && charm.MetaFormat(ch) == charm.FormatV2, nil
 }
 
 // changeCharmOps returns the operations necessary to set a application's
@@ -3029,7 +3029,7 @@ func CheckApplicationExpectsWorkload(m *Model, appName string) (bool, error) {
 		return false, errors.Trace(err)
 	}
 
-	if corecharm.Format(ch) == corecharm.FormatV2 {
+	if charm.MetaFormat(ch) == charm.FormatV2 {
 		return false, nil
 	}
 

@@ -5325,6 +5325,91 @@ func (s *upgradesSuite) TestAddSpawnedTaskCountToOperations(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestTransformEmptyManifestsToNil(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	coll, closer := s.state.db().GetRawCollection(charmsC)
+	defer closer()
+
+	err := coll.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "charm1"),
+		"model-uuid": uuid1,
+		"url":        charm.MustParseURL("cs:test").String(),
+		"manifest":   nil,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "charm2"),
+		"model-uuid": uuid2,
+		"url":        charm.MustParseURL("local:test").String(),
+		"manifest":   &charm.Manifest{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "charm3"),
+		"model-uuid": uuid2,
+		"url":        charm.MustParseURL("ch:test").String(),
+		"manifest": &charm.Manifest{
+			Bases: []charm.Base{},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "charm4"),
+		"model-uuid": uuid1,
+		"url":        charm.MustParseURL("ch:test2").String(),
+		"manifest": &charm.Manifest{
+			Bases: []charm.Base{
+				{Name: "ubuntu"},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		{
+			"_id":        ensureModelUUID(uuid1, "charm1"),
+			"model-uuid": uuid1,
+			"url":        "cs:test",
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "charm2"),
+			"model-uuid": uuid2,
+			"url":        "local:test",
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "charm3"),
+			"model-uuid": uuid2,
+			"url":        "ch:test",
+		},
+		{
+			"_id":        ensureModelUUID(uuid1, "charm4"),
+			"model-uuid": uuid1,
+			"url":        "ch:test2",
+			"manifest": bson.M{
+				"bases": []interface{}{
+					bson.M{
+						"name": "ubuntu",
+					},
+				},
+			},
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, TransformEmptyManifestsToNil,
+		upgradedData(coll, expected),
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

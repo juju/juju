@@ -921,7 +921,7 @@ func (h *bundleHandler) deviceConstraints(application string, deviceMap map[stri
 }
 
 func (h *bundleHandler) selectedSeries(ch charm.CharmMeta, chID application.CharmID, curl *charm.URL, chSeries string) (string, error) {
-	if corecharm.IsKubernetes(ch) && corecharm.Format(ch) == corecharm.FormatV1 {
+	if corecharm.IsKubernetes(ch) && charm.MetaFormat(ch) == charm.FormatV1 {
 		chSeries = series.Kubernetes.String()
 	}
 

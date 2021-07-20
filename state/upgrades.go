@@ -3609,3 +3609,35 @@ func AddSpawnedTaskCountToOperations(pool *StatePool) error {
 	}
 	return nil
 }
+
+func TransformEmptyManifestsToNil(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(charmsC)
+		defer closer()
+
+		var docs []charmDoc
+		if err := col.Find(nil).All(&docs); err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, doc := range docs {
+			if doc.Manifest == nil || len(doc.Manifest.Bases) == 0 {
+				ops = append(ops, txn.Op{
+					C:      charmsC,
+					Id:     doc.DocID,
+					Assert: txn.DocExists,
+					Update: bson.D{{
+						"$unset", bson.D{{
+							"manifest", nil,
+						}},
+					}},
+				})
+			}
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
+	}))
+}
