@@ -6,6 +6,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -17,7 +18,11 @@ import (
 )
 
 func main() {
-	files := os.Args[1:]
+	var startCountAmount int
+	flag.IntVar(&startCountAmount, "start-count-amount", 3, "number of start counts to show")
+	flag.Parse()
+
+	files := flag.Args()
 	if len(files) == 0 {
 		log.Fatal("expected at least on file")
 	}
@@ -26,7 +31,7 @@ func main() {
 		rules.NewMongoRule(),
 		rules.NewPubsubRule(),
 		rules.NewManifoldsRule(),
-		rules.NewStartCountRule(),
+		rules.NewStartCountRule(startCountAmount),
 	}
 
 	if len(files) == 1 {

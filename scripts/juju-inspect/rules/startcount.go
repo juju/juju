@@ -10,12 +10,14 @@ import (
 )
 
 type StartCountRule struct {
-	counts map[string]map[string]int
+	highestListNum int
+	counts         map[string]map[string]int
 }
 
-func NewStartCountRule() *StartCountRule {
+func NewStartCountRule(highestListNum int) *StartCountRule {
 	return &StartCountRule{
-		counts: make(map[string]map[string]int),
+		highestListNum: highestListNum,
+		counts:         make(map[string]map[string]int),
 	}
 }
 
@@ -66,7 +68,7 @@ func (r *StartCountRule) Write(w io.Writer) {
 		t := total[ctrl]
 		fmt.Fprintf(w, "\t%s start-count: %d\n", ctrl, t)
 
-		n := 3
+		n := r.highestListNum
 		h := highest[ctrl]
 		if num := len(h); num < n {
 			n = num
