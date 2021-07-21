@@ -20,6 +20,10 @@ import (
 type NetInfoAddress interface {
 	network.Address
 
+	// SpaceAddr returns the SpaceAddress representation for
+	// the address, which was determined from its subnet.
+	SpaceAddr() network.SpaceAddress
+
 	// DeviceName is the name of the link-layer device
 	// with which this address is associated.
 	DeviceName() string
@@ -27,15 +31,12 @@ type NetInfoAddress interface {
 	// HWAddr returns the hardware address (MAC or Infiniband GUID)
 	// for the the device with which this address is associated.
 	HWAddr() (string, error)
-
-	// SpaceAddr returns the SpaceAddress representation for
-	// the address, which was determined from its subnet.
-	SpaceAddr() network.SpaceAddress
 }
 
 type netInfoAddress struct {
-	*state.Address
 	network.SpaceAddress
+
+	addr *state.Address
 }
 
 // SpaceAddr implements NetInfoAddress by
@@ -44,8 +45,26 @@ func (a netInfoAddress) SpaceAddr() network.SpaceAddress {
 	return a.SpaceAddress
 }
 
+// DeviceName implements NetInfoAddress by returning the address' device name.
+// For the case where we construct this from the machine's preferred
+// private address, there will be no addr member, so return an empty string.
+func (a netInfoAddress) DeviceName() string {
+	if a.addr == nil {
+		return ""
+	}
+	return a.addr.DeviceName()
+}
+
+// HWAddr implements NetInfoAddress by returning
+// the MAC for this address' device.
+// For the case where we construct this from the machine's preferred
+// private address, there will be no addr member, so return a not found error.
 func (a netInfoAddress) HWAddr() (string, error) {
-	dev, err := a.Address.Device()
+	if a.addr == nil {
+		return "", errors.NotFoundf("device hardware address")
+	}
+
+	dev, err := a.addr.Device()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -87,7 +106,7 @@ func (m *machine) AllDeviceAddresses(subs network.SubnetInfos) ([]NetInfoAddress
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		res[i] = netInfoAddress{Address: addr, SpaceAddress: spaceAddr}
+		res[i] = netInfoAddress{SpaceAddress: spaceAddr, addr: addr}
 	}
 	return res, nil
 }
@@ -296,7 +315,9 @@ func (n *NetworkInfoIAAS) populateMachineAddresses() error {
 		var err error
 		privateMachineAddress, err = n.pollForAddress(n.machine.PrivateAddress)
 		if err != nil {
-			return errors.Annotatef(err, "getting machine %q preferred private address", n.machine.MachineTag())
+			logger.Errorf("unable to obtain preferred private address for machine %q: %s", n.machine.Id(), err.Error())
+			// Remove this ID to prevent further processing.
+			spaceSet.Remove(network.AlphaSpaceId)
 		}
 	}
 
@@ -406,6 +427,7 @@ func (n *NetworkInfoIAAS) networkInfoForSpace(spaceID string) params.NetworkInfo
 			if res.Info[i].InterfaceName == addr.DeviceName() {
 				res.Info[i].Addresses = append(res.Info[i].Addresses, deviceAddr)
 				found = true
+				break
 			}
 		}
 		if found {

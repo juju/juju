@@ -297,8 +297,15 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, spaceID3)
-	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewSpaceAddress("10.2.3.4", network.WithScope(network.ScopeCloudLocal))})
+
+	exp := network.SpaceAddresses{network.NewSpaceAddress(
+		"10.2.3.4",
+		network.WithScope(network.ScopeCloudLocal),
+		network.WithConfigType(network.ConfigStatic),
+		network.WithCIDR("10.2.0.0/16"),
+	)}
+	exp[0].SpaceID = "3"
+	c.Assert(ingress, gc.DeepEquals, exp)
 	c.Assert(egress, gc.DeepEquals, []string{"10.2.3.4/32"})
 }
 
@@ -632,33 +639,27 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 
 	resDefault, ok := res[spaceIDDefault]
 	c.Assert(ok, jc.IsTrue)
-	c.Check(resDefault.Error, gc.IsNil)
-	c.Assert(resDefault.Info, gc.HasLen, 1)
-	c.Check(resDefault.Info[0].InterfaceName, gc.Equals, "br-eth0")
-	c.Assert(resDefault.Info[0].Addresses, gc.HasLen, 1)
-	c.Check(resDefault.Info[0].Addresses[0].Address, gc.Equals, "10.0.0.20")
-	c.Check(resDefault.Info[0].Addresses[0].CIDR, gc.Equals, "10.0.0.0/24")
+	c.Assert(resDefault, gc.HasLen, 1)
+	c.Check(resDefault[0].DeviceName(), gc.Equals, "br-eth0")
+	c.Check(resDefault[0].Host(), gc.Equals, "10.0.0.20")
+	c.Check(resDefault[0].AddressCIDR(), gc.Equals, "10.0.0.0/24")
 
 	resPublic, ok := res[spaceIDPublic]
 	c.Assert(ok, jc.IsTrue)
-	c.Check(resPublic.Error, gc.IsNil)
-	c.Assert(resPublic.Info, gc.HasLen, 1)
-	c.Check(resPublic.Info[0].InterfaceName, gc.Equals, "eth1")
-	c.Assert(resPublic.Info[0].Addresses, gc.HasLen, 1)
-	c.Check(resPublic.Info[0].Addresses[0].Address, gc.Equals, "10.10.0.20")
-	c.Check(resPublic.Info[0].Addresses[0].CIDR, gc.Equals, "10.10.0.0/24")
+	c.Assert(resPublic, gc.HasLen, 1)
+	c.Check(resPublic[0].DeviceName(), gc.Equals, "eth1")
+	c.Check(resPublic[0].Host(), gc.Equals, "10.10.0.20")
+	c.Check(resPublic[0].AddressCIDR(), gc.Equals, "10.10.0.0/24")
 
 	// The implicit juju-info endpoint is bound to alpha.
 	// With no NICs in this space, we pick the NIC that matches the machine's
 	// local-cloud address, even though it is actually in the private space.
 	resEmpty, ok := res[network.AlphaSpaceId]
 	c.Assert(ok, jc.IsTrue)
-	c.Check(resEmpty.Error, gc.IsNil)
-	c.Assert(resEmpty.Info, gc.HasLen, 1)
-	c.Check(resEmpty.Info[0].InterfaceName, gc.Equals, "eth2")
-	c.Assert(resEmpty.Info[0].Addresses, gc.HasLen, 1)
-	c.Check(resEmpty.Info[0].Addresses[0].Address, gc.Equals, "10.20.0.20")
-	c.Check(resEmpty.Info[0].Addresses[0].CIDR, gc.Equals, "10.20.0.0/24")
+	c.Assert(resEmpty, gc.HasLen, 1)
+	c.Check(resEmpty[0].DeviceName(), gc.Equals, "eth2")
+	c.Check(resEmpty[0].Host(), gc.Equals, "10.20.0.20")
+	c.Check(resEmpty[0].AddressCIDR(), gc.Equals, "10.20.0.0/24")
 }
 
 // TODO (manadart 2020-02-21): This test can be removed after universal subnet
@@ -697,12 +698,10 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 
 	resEmpty, ok := res[network.AlphaSpaceId]
 	c.Assert(ok, jc.IsTrue)
-	c.Check(resEmpty.Error, gc.IsNil)
-	c.Assert(resEmpty.Info, gc.HasLen, 1)
-	c.Check(resEmpty.Info[0].InterfaceName, gc.Equals, "eth2")
-	c.Assert(resEmpty.Info[0].Addresses, gc.HasLen, 1)
-	c.Check(resEmpty.Info[0].Addresses[0].Address, gc.Equals, "10.20.0.20")
-	c.Check(resEmpty.Info[0].Addresses[0].CIDR, gc.Equals, "10.20.0.0/24")
+	c.Assert(resEmpty, gc.HasLen, 1)
+	c.Check(resEmpty[0].DeviceName(), gc.Equals, "eth2")
+	c.Check(resEmpty[0].Host(), gc.Equals, "10.20.0.20")
+	c.Check(resEmpty[0].AddressCIDR(), gc.Equals, "10.20.0.0/24")
 }
 
 func (s *networkInfoSuite) setupSpace(c *gc.C, spaceName, cidr string) string {
