@@ -48,6 +48,6 @@ func PatchGetStorageStateError(patcher patcher, err error) {
 }
 
 func (n *NetworkInfoIAAS) MachineNetworkInfos() (map[string]params.NetworkInfoResult, error) {
-	err := n.populateMachineNetworkInfos()
-	return n.machineNetworkInfos, err
+	err := n.populateMachineAddresses()
+	return n.machineAddresses, err
 }
