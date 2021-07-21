@@ -523,6 +523,174 @@ func (s *ApplicationWorkerSuite) TestTrustChanges(c *gc.C) {
 	}
 }
 
+func (s *ApplicationWorkerSuite) assertRefreshApplicationStatus(
+	c *gc.C, workerGetter func(additionalAssertCalls ...*gomock.Call) worker.Worker,
+	assertionCalls ...*gomock.Call,
+) {
+	appWorker := workerGetter(assertionCalls...)
+	go func(w appNotifyWorker) {
+		<-s.notifyReady
+		w.Notify()
+	}(appWorker.(appNotifyWorker))
+}
+
+func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNewUnitsAllocating(c *gc.C) {
+	newAppWorker, ctrl := s.getWorker(c)
+	defer ctrl.Finish()
+
+	done := make(chan struct{})
+
+	s.assertRefreshApplicationStatus(c, newAppWorker,
+		s.facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
+			return life.Alive, nil
+		}),
+		s.facade.EXPECT().ProvisioningInfo("test").DoAndReturn(func(string) (api.ProvisioningInfo, error) {
+			return s.appProvisioningInfo, nil
+		}),
+		s.facade.EXPECT().CharmInfo("cs:test").DoAndReturn(func(string) (*charmscommon.CharmInfo, error) {
+			return s.appCharmInfo, nil
+		}),
+		s.brokerApp.EXPECT().Exists().DoAndReturn(func() (caas.DeploymentState, error) {
+			return caas.DeploymentState{}, nil
+		}),
+		s.facade.EXPECT().ApplicationOCIResources("test").DoAndReturn(func(string) (map[string]resources.DockerImageDetails, error) {
+			return s.ociResources, nil
+		}),
+
+		// Desired: 3;
+		s.brokerApp.EXPECT().State().
+			DoAndReturn(func() (caas.ApplicationState, error) {
+				return caas.ApplicationState{DesiredReplicas: 3}, nil
+			}),
+		// Active unit: 1;
+		s.facade.EXPECT().Units("test").DoAndReturn(func(string) ([]params.CAASUnit, error) {
+			c.Assert(len(unitsAPIResult), gc.DeepEquals, 1)
+			return unitsAPIResult, nil
+		}),
+		s.facade.EXPECT().SetOperatorStatus("test", status.Waiting, "waiting for units settled down", nil).
+			DoAndReturn(func(string, status.Status, string, map[string]interface{}) error {
+				close(done)
+				return nil
+			}),
+	)
+	select {
+	case <-done:
+	case <-time.After(coretesting.ShortWait):
+		c.Errorf("timed out waiting for worker")
+	}
+}
+
+func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusAllUnitsAreSettled(c *gc.C) {
+	newAppWorker, ctrl := s.getWorker(c)
+	defer ctrl.Finish()
+
+	done := make(chan struct{})
+
+	s.assertRefreshApplicationStatus(c, newAppWorker,
+		s.facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
+			return life.Alive, nil
+		}),
+		s.facade.EXPECT().ProvisioningInfo("test").DoAndReturn(func(string) (api.ProvisioningInfo, error) {
+			return s.appProvisioningInfo, nil
+		}),
+		s.facade.EXPECT().CharmInfo("cs:test").DoAndReturn(func(string) (*charmscommon.CharmInfo, error) {
+			return s.appCharmInfo, nil
+		}),
+		s.brokerApp.EXPECT().Exists().DoAndReturn(func() (caas.DeploymentState, error) {
+			return caas.DeploymentState{}, nil
+		}),
+		s.facade.EXPECT().ApplicationOCIResources("test").DoAndReturn(func(string) (map[string]resources.DockerImageDetails, error) {
+			return s.ociResources, nil
+		}),
+
+		// Desired: 1;
+		s.brokerApp.EXPECT().State().
+			DoAndReturn(func() (caas.ApplicationState, error) {
+				return caas.ApplicationState{DesiredReplicas: 1}, nil
+			}),
+		// Active unit: 1;
+		s.facade.EXPECT().Units("test").DoAndReturn(func(string) ([]params.CAASUnit, error) {
+			c.Assert(len(unitsAPIResult), gc.DeepEquals, 1)
+			return unitsAPIResult, nil
+		}),
+		s.facade.EXPECT().SetOperatorStatus("test", status.Active, "", nil).
+			DoAndReturn(func(string, status.Status, string, map[string]interface{}) error {
+				close(done)
+				return nil
+			}),
+	)
+	select {
+	case <-done:
+	case <-time.After(coretesting.ShortWait):
+		c.Errorf("timed out waiting for worker")
+	}
+}
+
+func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNoOpsForDyingApplication(c *gc.C) {
+	newAppWorker, ctrl := s.getWorker(c)
+	defer ctrl.Finish()
+
+	done := make(chan struct{})
+
+	s.assertRefreshApplicationStatus(c, newAppWorker,
+		s.facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
+			return life.Dying, nil
+		}),
+		s.brokerApp.EXPECT().Delete().DoAndReturn(func() error {
+			close(done)
+			return nil
+		}),
+	)
+	select {
+	case <-done:
+	case <-time.After(coretesting.ShortWait):
+		c.Errorf("timed out waiting for worker")
+	}
+}
+
+func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNoOpsForDeadApplication(c *gc.C) {
+	newAppWorker, ctrl := s.getWorker(c)
+	defer ctrl.Finish()
+
+	done := make(chan struct{})
+
+	s.assertRefreshApplicationStatus(c, newAppWorker,
+		s.facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
+			return life.Dead, nil
+		}),
+		s.brokerApp.EXPECT().Delete().DoAndReturn(func() error {
+			return nil
+		}),
+		s.brokerApp.EXPECT().Exists().DoAndReturn(func() (caas.DeploymentState, error) {
+			return caas.DeploymentState{
+				Exists:      false,
+				Terminating: false,
+			}, nil
+		}),
+		s.facade.EXPECT().Units("test").DoAndReturn(func(string) ([]params.CAASUnit, error) {
+			return []params.CAASUnit(nil), nil
+		}),
+		s.brokerApp.EXPECT().State().DoAndReturn(func() (caas.ApplicationState, error) {
+			return caas.ApplicationState{
+				DesiredReplicas: 0,
+				Replicas:        []string(nil),
+			}, nil
+		}),
+		s.brokerApp.EXPECT().Service().DoAndReturn(func() (*caas.Service, error) {
+			return nil, errors.NotFoundf("test")
+		}),
+		s.facade.EXPECT().GarbageCollect("test", []names.Tag(nil), 0, []string(nil), true).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
+			close(done)
+			return nil
+		}),
+	)
+	select {
+	case <-done:
+	case <-time.After(coretesting.ShortWait):
+		c.Errorf("timed out waiting for worker")
+	}
+}
+
 type appNotifyWorker interface {
 	worker.Worker
 	Notify()
