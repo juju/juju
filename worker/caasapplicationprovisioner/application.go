@@ -257,7 +257,9 @@ func (a *appWorker) loop() error {
 		if done {
 			return nil
 		}
-		a.refreshApplicationStatus(app, appLife)
+		if err = a.refreshApplicationStatus(app, appLife); err != nil {
+			return errors.Annotatef(err, "refreshing application status for %q", a.name)
+		}
 	}
 }
 
@@ -416,6 +418,9 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 }
 
 func (a *appWorker) refreshApplicationStatus(app caas.Application, appLife life.Value) error {
+	if appLife != life.Alive {
+		return nil
+	}
 	st, err := app.State()
 	if errors.IsNotFound(err) {
 		// Do nothing.
@@ -433,19 +438,14 @@ func (a *appWorker) refreshApplicationStatus(app caas.Application, appLife life.
 	}
 	readyUnitsCount := 0
 	for _, unit := range units {
-		a.logger.Warningf("refreshApplicationStatus unit.UnitStatus.AgentStatus %#v", unit.UnitStatus.AgentStatus)
 		if unit.UnitStatus.AgentStatus.Status == string(status.Active) {
 			readyUnitsCount++
 		}
 	}
-	a.logger.Warningf("updateState len(units) %d, gotActiveUnit %d", len(units), readyUnitsCount)
-	if appLife == life.Alive {
-		if st.DesiredReplicas > 0 && st.DesiredReplicas > readyUnitsCount {
-			return a.setApplicationStatus(status.Waiting, "waiting for units settled down", nil)
-		}
-		return a.setApplicationStatus(status.Active, "", nil)
+	if st.DesiredReplicas > 0 && st.DesiredReplicas > readyUnitsCount {
+		return a.setApplicationStatus(status.Waiting, "waiting for units settled down", nil)
 	}
-	return nil
+	return a.setApplicationStatus(status.Active, "", nil)
 }
 
 func (a *appWorker) ensureScale(app caas.Application) error {
@@ -602,7 +602,7 @@ func (a *appWorker) alive(app caas.Application) error {
 }
 
 func (a *appWorker) setApplicationStatus(s status.Status, reason string, data map[string]interface{}) error {
-	a.logger.Warningf("SetOperatorStatus %q, %q, %#v", s, reason, data)
+	a.logger.Debugf("updating application %q status to %q, %q, %v", a.name, s, reason, data)
 	return a.facade.SetOperatorStatus(a.name, s, reason, data)
 }
 
