@@ -409,8 +409,18 @@ func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// To deploy by revision, the revision number must be in the origin for a
+	// charmhub bundle and in the url for a charmstore bundle.
 	if curl.Revision != -1 && charm.CharmHub.Matches(curl.Schema) {
 		return nil, errors.Errorf("cannot specify revision in a charm or bundle name. Please use --revision.")
+	}
+	if charm.CharmStore.Matches(curl.Schema) && d.revision != -1 {
+		if curl.Revision != -1 && curl.Revision != d.revision {
+			return nil, errors.Errorf("two different revisions to deploy: specified %d and %d, please choose one.", curl.Revision, d.revision)
+		}
+		if curl.Revision == -1 {
+			curl = curl.WithRevision(d.revision)
+		}
 	}
 	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
 	if err != nil {
@@ -480,12 +490,21 @@ func (d *factory) repositoryCharm() (Deployer, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// To deploy by revision, the revision number must be in the origin for a
+	// charmhub charm and in the url for a charmstore charm.
 	if charm.CharmHub.Matches(userRequestedURL.Schema) {
 		if userRequestedURL.Revision != -1 {
 			return nil, errors.Errorf("cannot specify revision in a charm or bundle name. Please use --revision.")
 		}
 		if d.revision != -1 && d.channel.Empty() {
 			return nil, errors.Errorf("specifying a revision requires a channel for future upgrades. Please use --channel")
+		}
+	} else if charm.CharmStore.Matches(userRequestedURL.Schema) {
+		if userRequestedURL.Revision != -1 && d.revision != -1 && userRequestedURL.Revision != d.revision {
+			return nil, errors.Errorf("two different revisions to deploy: specified %d and %d, please choose one.", userRequestedURL.Revision, d.revision)
+		}
+		if userRequestedURL.Revision == -1 && d.revision != -1 {
+			userRequestedURL = userRequestedURL.WithRevision(d.revision)
 		}
 	}
 	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
