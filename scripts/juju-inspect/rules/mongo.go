@@ -43,6 +43,7 @@ func (r *MongoRule) Write(w io.Writer) {
 		if primary && ldr {
 			// Two or more primaries
 			fmt.Fprintln(w, "\tTwo or more primaries have been found in the files!")
+			fmt.Fprintln(w, "")
 			return
 		}
 		if ldr {
@@ -52,6 +53,7 @@ func (r *MongoRule) Write(w io.Writer) {
 	}
 	if !primary {
 		fmt.Fprintln(w, "\tThere are no primaries found.")
+		fmt.Fprintln(w, "")
 		return
 	}
 	fmt.Fprintf(w, "\t%s is the primary.\n", ctrl)

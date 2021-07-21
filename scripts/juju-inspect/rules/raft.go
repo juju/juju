@@ -49,6 +49,7 @@ func (r *RaftRule) Write(w io.Writer) {
 		if leader && ldr {
 			// Two or more leaders
 			fmt.Fprintln(w, "\tTwo or more leaders have been found in the files!")
+			fmt.Fprintln(w, "")
 			return
 		}
 		if ldr {
@@ -58,6 +59,7 @@ func (r *RaftRule) Write(w io.Writer) {
 	}
 	if !leader {
 		fmt.Fprintln(w, "\tThere are no leaders found.")
+		fmt.Fprintln(w, "")
 		return
 	}
 	fmt.Fprintf(w, "\t%s is the leader.\n", ctrl)
