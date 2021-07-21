@@ -18,7 +18,9 @@ import (
 )
 
 func main() {
+	var includeNested bool
 	var startCountAmount int
+	flag.BoolVar(&includeNested, "include-nested", false, "inlcude nested agents")
 	flag.IntVar(&startCountAmount, "start-count-amount", 3, "number of start counts to show")
 	flag.Parse()
 
@@ -30,8 +32,8 @@ func main() {
 		rules.NewRaftRule(),
 		rules.NewMongoRule(),
 		rules.NewPubsubRule(),
-		rules.NewManifoldsRule(),
-		rules.NewStartCountRule(startCountAmount),
+		rules.NewManifoldsRule(includeNested),
+		rules.NewStartCountRule(includeNested, startCountAmount),
 	}
 
 	if len(files) == 1 {

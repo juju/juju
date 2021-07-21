@@ -10,12 +10,14 @@ import (
 )
 
 type StartCountRule struct {
+	includeNested  bool
 	highestListNum int
 	counts         map[string]map[string]int
 }
 
-func NewStartCountRule(highestListNum int) *StartCountRule {
+func NewStartCountRule(includeNested bool, highestListNum int) *StartCountRule {
 	return &StartCountRule{
+		includeNested:  includeNested,
 		highestListNum: highestListNum,
 		counts:         make(map[string]map[string]int),
 	}
@@ -26,8 +28,34 @@ func (r *StartCountRule) Run(name string, report Report) error {
 		if _, ok := r.counts[name]; !ok {
 			r.counts[name] = make(map[string]int)
 		}
-		r.counts[name][manifoldName] = manifold.StartCount
+		r.counts[name][manifoldName] += manifold.StartCount
 	}
+
+	if !r.includeNested {
+		return nil
+	}
+
+	manager, ok := report.Manifolds["model-worker-manager"]
+	if !ok {
+		return nil
+	}
+
+	var nested NestedReport
+	if err := manager.UnmarshalReport(&nested); err != nil {
+		return err
+	}
+
+	for subName, worker := range nested.Workers {
+		var nestedReport Report
+		if err := worker.UnmarshalReport(&nestedReport); err != nil {
+			return err
+		}
+
+		if err := r.Run(fmt.Sprintf("%s:%s", name, subName), nestedReport); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
