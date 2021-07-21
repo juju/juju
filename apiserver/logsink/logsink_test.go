@@ -43,13 +43,8 @@ type logsinkSuite struct {
 
 	abort chan struct{}
 
-	mu      sync.Mutex
-	opened  int
-	closed  int
 	stub    *testing.Stub
 	written chan params.LogRecord
-
-	logs loggo.TestWriter
 
 	lastStack []byte
 	stackMu   sync.Mutex
@@ -145,6 +140,76 @@ func (s *logsinkSuite) TestLogMessages(c *gc.C) {
 			c.Assert(log.Level, jc.LessThan, loggo.ERROR, gc.Commentf("log: %#v", log))
 		}
 	}
+}
+
+func (s *logsinkSuite) TestSuccessWithLabels(c *gc.C) {
+	srv, finish := s.createServer(c)
+	defer finish()
+
+	var logs loggo.TestWriter
+	writer := loggo.NewMinimumLevelWriter(&logs, loggo.INFO)
+	c.Assert(loggo.RegisterWriter("logsink-tests", writer), jc.ErrorIsNil)
+
+	conn := s.dialWebsocket(c, srv)
+	websockettest.AssertJSONInitialErrorNil(c, conn)
+
+	t0 := time.Date(2015, time.June, 1, 23, 2, 1, 0, time.UTC)
+	records := []params.LogRecord{{
+		Time:     t0,
+		Module:   "some.where",
+		Location: "foo.go:42",
+		Level:    loggo.INFO.String(),
+		Message:  "all is well",
+	}, {
+		Time:     t0,
+		Module:   "some.where.else",
+		Location: "bar.go:122",
+		Level:    loggo.INFO.String(),
+		Message:  "all is nice",
+		Entity:   "entity.name",
+		Labels:   []string{"bar"},
+	}, {
+		Time:     t0,
+		Module:   "some.where",
+		Location: "foo.go:33",
+		Level:    loggo.INFO.String(),
+		Message:  "all is fine",
+	}}
+	for _, record := range records {
+		err := conn.WriteJSON(&record)
+		c.Assert(err, jc.ErrorIsNil)
+
+		select {
+		case written, ok := <-s.written:
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(written, jc.DeepEquals, record)
+		case <-time.After(coretesting.LongWait):
+			c.Fatal("timed out waiting for log record to be written")
+		}
+		select {
+		case <-s.written:
+			c.Fatal("unexpected log record")
+		case <-time.After(coretesting.ShortWait):
+		}
+
+	}
+
+	s.stub.CheckCallNames(c, "Open", "WriteLog", "WriteLog", "WriteLog")
+
+	s.stackMu.Lock()
+	if s.lastStack != nil {
+		c.Logf("last Close call stack: \n%s", string(s.lastStack))
+	}
+	s.stackMu.Unlock()
+
+	err := conn.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	for a := longAttempt.Start(); a.Next(); {
+		if len(s.stub.Calls()) == 3 {
+			break
+		}
+	}
+	s.stub.CheckCallNames(c, "Open", "WriteLog", "WriteLog", "WriteLog", "Close")
 }
 
 func (s *logsinkSuite) TestLogOpenFails(c *gc.C) {
