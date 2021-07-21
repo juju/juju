@@ -33,6 +33,7 @@ type Client interface {
 // model, and fetching their details.
 type ApplicationGetter interface {
 	WatchApplications() (watcher.StringsWatcher, error)
+	WatchApplication(appName string) (watcher.NotifyWatcher, error)
 	ApplicationConfig(string) (application.ConfigAttributes, error)
 	DeploymentMode(string) (caas.DeploymentMode, error)
 	WatchApplicationScale(string) (watcher.NotifyWatcher, error)

@@ -44,6 +44,7 @@ var logger = loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner")
 type Facade struct {
 	*common.LifeGetter
 	*common.ApplicationWatcherFacade
+	entityWatcher   *common.AgentEntityWatcher
 	charmInfoAPI    *charmscommon.CharmInfoAPI
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
 
@@ -123,8 +124,10 @@ func NewFacade(
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
+	accessApplication := common.AuthFuncForTagKind(names.ApplicationTagKind)
 	return &Facade{
 		ApplicationWatcherFacade: applicationWatcherFacade,
+		entityWatcher:            common.NewAgentEntityWatcher(st, resources, accessApplication),
 		charmInfoAPI:             charmInfoAPI,
 		appCharmInfoAPI:          appCharmInfoAPI,
 		LifeGetter: common.NewLifeGetter(
@@ -149,6 +152,10 @@ func (f *Facade) CharmInfo(args params.CharmURL) (params.Charm, error) {
 
 func (f *Facade) ApplicationCharmInfo(args params.Entity) (params.Charm, error) {
 	return f.appCharmInfoAPI.ApplicationCharmInfo(args)
+}
+
+func (f *Facade) Watch(args params.Entities) (params.NotifyWatchResults, error) {
+	return f.entityWatcher.Watch(args)
 }
 
 // WatchApplicationsScale starts a NotifyWatcher to watch changes

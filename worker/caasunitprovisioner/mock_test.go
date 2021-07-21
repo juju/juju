@@ -150,6 +150,7 @@ func (m *mockContainerBroker) AnnotateUnit(appName string, mode caas.DeploymentM
 type mockApplicationGetter struct {
 	testing.Stub
 	watcher        *watchertest.MockStringsWatcher
+	appWatcher     *watchertest.MockNotifyWatcher // TODO: set this
 	scaleWatcher   *watchertest.MockNotifyWatcher
 	deploymentMode caas.DeploymentMode
 	scale          int
@@ -161,6 +162,14 @@ func (m *mockApplicationGetter) WatchApplications() (watcher.StringsWatcher, err
 		return nil, err
 	}
 	return m.watcher, nil
+}
+
+func (m *mockApplicationGetter) WatchApplication(appName string) (watcher.NotifyWatcher, error) {
+	m.MethodCall(m, "WatchApplication")
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
+	return m.appWatcher, nil
 }
 
 func (a *mockApplicationGetter) ApplicationConfig(appName string) (application.ConfigAttributes, error) {

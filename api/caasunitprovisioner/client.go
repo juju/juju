@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	charmscommon "github.com/juju/juju/api/common/charms"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -69,6 +70,16 @@ func (c *Client) WatchApplications() (watcher.StringsWatcher, error) {
 	}
 	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
+}
+
+// WatchApplication returns a NotifyWatcher that notifies of
+// changes to the application in the current model.
+func (c *Client) WatchApplication(appName string) (watcher.NotifyWatcher, error) {
+	appTag, err := applicationTag(appName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return common.Watch(c.facade, "Watch", appTag)
 }
 
 // ApplicationConfig returns the config for the specified application.

@@ -12571,6 +12571,17 @@
                     },
                     "description": "UpdateApplicationsUnits updates the Juju data model to reflect the given\nunits of the specified application."
                 },
+                "Watch": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResults"
+                        }
+                    }
+                },
                 "WatchApplications": {
                     "type": "object",
                     "properties": {

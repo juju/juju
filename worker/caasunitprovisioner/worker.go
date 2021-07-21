@@ -232,6 +232,7 @@ func (p *provisioner) loop() error {
 					p.config.ApplicationGetter,
 					p.config.ApplicationUpdater,
 					p.config.UnitUpdater,
+					p.config.CharmGetter,
 					logger,
 				)
 				if err != nil {
