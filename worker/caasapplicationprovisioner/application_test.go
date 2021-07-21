@@ -492,6 +492,37 @@ func (s *ApplicationWorkerSuite) TestScaleChanges(c *gc.C) {
 	}
 }
 
+func (s *ApplicationWorkerSuite) TestTrustChanges(c *gc.C) {
+	newAppWorker, ctrl := s.getWorker(c)
+	defer ctrl.Finish()
+
+	done := make(chan struct{})
+	assertionCalls := []*gomock.Call{
+		s.unitFacade.EXPECT().ApplicationTrust("test").Return(true, nil),
+		s.brokerApp.EXPECT().Trust(true).Return(nil),
+
+		// refresh application status - test seperately.
+		s.brokerApp.EXPECT().State().
+			DoAndReturn(func() (caas.ApplicationState, error) {
+				close(done)
+				return caas.ApplicationState{}, errors.NotFoundf("")
+			}),
+	}
+
+	appWorker := newAppWorker(assertionCalls...)
+
+	go func(w appNotifyWorker) {
+		<-s.notifyReady
+		s.appTrustHashChan <- []string{"test"}
+	}(appWorker.(appNotifyWorker))
+
+	select {
+	case <-done:
+	case <-time.After(coretesting.ShortWait):
+		c.Errorf("timed out waiting for worker")
+	}
+}
+
 type appNotifyWorker interface {
 	worker.Worker
 	Notify()
