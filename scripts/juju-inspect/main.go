@@ -42,6 +42,8 @@ func main() {
 			log.Fatal(err)
 		}
 
+		// Engine reports aren't actually valid yaml files. Instead they have a
+		// header that isn't a comment! This code exists to skip that line.
 		row1, _, err := bufio.NewReader(f).ReadLine()
 		if err != nil {
 			log.Fatal(err)
