@@ -207,11 +207,19 @@ func checkCharmUpgrade(logger Logger, charmDir string, remote remotestate.Snapsh
 	local := rf.LocalState
 	local.State = ex.State()
 
-	// If the unit isn't installed or already upgrading, no need to start an upgrade.
-	if !local.State.Installed || local.State.Kind == operation.Upgrade ||
-		(local.State.Hook != nil && local.State.Hook.Kind == hooks.UpgradeCharm) ||
-		remote.CharmURL == nil {
+	// If the unit isn't installed, no need to start an upgrade.
+	if !local.State.Installed || remote.CharmURL == nil {
 		return nil
+	}
+
+	_, err := corecharm.ReadCharmDir(charmDir)
+	haveCharmDir := err == nil
+	if haveCharmDir {
+		// If the unit is installed and already upgrading and the charm dir
+		// exists no need to start an upgrade.
+		if local.State.Kind == operation.Upgrade || (local.State.Hook != nil && local.State.Hook.Kind == hooks.UpgradeCharm) {
+			return nil
+		}
 	}
 
 	if local.State.Started && remote.CharmProfileRequired {
@@ -228,8 +236,6 @@ func checkCharmUpgrade(logger Logger, charmDir string, remote remotestate.Snapsh
 		}
 	}
 
-	_, err := corecharm.ReadCharmDir(charmDir)
-	haveCharmDir := err == nil
 	sameCharm := *local.CharmURL == *remote.CharmURL
 	if haveCharmDir && (!local.State.Started || sameCharm) {
 		return nil
