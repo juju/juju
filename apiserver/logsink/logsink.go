@@ -304,6 +304,9 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn,
 		defer close(logCh)
 		var m params.LogRecord
 		for {
+			// ResetOptionalFields will remove any stale data for a log record
+			// that might have stale data when reading the JSON.
+			m.ResetOptionalFields()
 			// Receive() blocks until data arrives but will also be
 			// unblocked when the API handler calls socket.Close as it
 			// finishes.

@@ -1053,6 +1053,9 @@ type RebootActionResult struct {
 // LogRecord is used to transmit log messages to the logsink API
 // endpoint.  Single character field names are used for serialisation
 // to keep the size down. These messages are going to be sent a lot.
+//
+// WARNING: Enure when you use this LogRecord to call ResetOptionalFields if
+// using the same log record instance for unmarshalling.
 type LogRecord struct {
 	Time     time.Time `json:"t"`
 	Module   string    `json:"m"`
@@ -1061,6 +1064,14 @@ type LogRecord struct {
 	Message  string    `json:"x"`
 	Entity   string    `json:"e,omitempty"`
 	Labels   []string  `json:"c,omitempty"`
+}
+
+// ResetOptionalFields will clear the fields of a LogRecord which are optional.
+// This will allow us to reuse the same record when unmarshalling the log record
+// and removes the stale data.
+func (m LogRecord) ResetOptionalFields() {
+	m.Entity = ""
+	m.Labels = nil
 }
 
 // PubSubMessage is used to propagate pubsub messages from one api server to the
