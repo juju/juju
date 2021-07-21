@@ -1001,8 +1001,6 @@ func (a *app) WatchReplicas() (watcher.NotifyWatcher, error) {
 }
 
 func (a *app) State() (caas.ApplicationState, error) {
-	// TODO: include workload pods status for application status.
-	// FYI: func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 	state := caas.ApplicationState{}
 	switch a.deploymentType {
 	case caas.DeploymentStateful:

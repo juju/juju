@@ -198,7 +198,7 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 			s.brokerApp.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
 				return watchertest.NewMockNotifyWatcher(s.appReplicasChan), nil
 			}),
-			// refresh application status - test seperately.
+			// refresh application status - test separately.
 			s.brokerApp.EXPECT().State().
 				DoAndReturn(func() (caas.ApplicationState, error) {
 					s.notifyReady <- struct{}{}
@@ -316,7 +316,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			return nil, nil
 		}),
 
-		// refresh application status - test seperately.
+		// refresh application status - test separately.
 		s.brokerApp.EXPECT().State().
 			DoAndReturn(func() (caas.ApplicationState, error) {
 				s.notifyReady <- struct{}{}
@@ -341,7 +341,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			return s.ociResources, nil
 		}),
 
-		// refresh application status - test seperately.
+		// refresh application status - test separately.
 		s.brokerApp.EXPECT().State().
 			DoAndReturn(func() (caas.ApplicationState, error) {
 				s.notifyReady <- struct{}{}
@@ -385,7 +385,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			Status:         params.EntityStatus{},
 		}).Return(nil, nil),
 
-		// refresh application status - test seperately.
+		// refresh application status - test separately.
 		s.brokerApp.EXPECT().State().
 			DoAndReturn(func() (caas.ApplicationState, error) {
 				s.notifyReady <- struct{}{}
@@ -470,7 +470,7 @@ func (s *ApplicationWorkerSuite) TestScaleChanges(c *gc.C) {
 		s.unitFacade.EXPECT().ApplicationScale("test").Return(3, nil),
 		s.brokerApp.EXPECT().Scale(3).Return(nil),
 
-		// refresh application status - test seperately.
+		// refresh application status - test separately.
 		s.brokerApp.EXPECT().State().
 			DoAndReturn(func() (caas.ApplicationState, error) {
 				close(done)
@@ -501,7 +501,7 @@ func (s *ApplicationWorkerSuite) TestTrustChanges(c *gc.C) {
 		s.unitFacade.EXPECT().ApplicationTrust("test").Return(true, nil),
 		s.brokerApp.EXPECT().Trust(true).Return(nil),
 
-		// refresh application status - test seperately.
+		// refresh application status - test separately.
 		s.brokerApp.EXPECT().State().
 			DoAndReturn(func() (caas.ApplicationState, error) {
 				close(done)
