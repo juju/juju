@@ -417,11 +417,19 @@ func (c *repositoryCharm) String() string {
 	if isEmptyOrigin(origin, commoncharm.OriginCharmStore) {
 		return str
 	}
+	var revision string
+	if origin.Revision != nil && *origin.Revision != -1 {
+		revision = fmt.Sprintf(" with revision %d", *origin.Revision)
+	}
 	var channel string
 	if ch := origin.CharmChannel().String(); ch != "" {
-		channel = fmt.Sprintf(" from channel %s", ch)
+		if revision != "" {
+			channel = fmt.Sprintf(" will refresh from channel %s", ch)
+		} else {
+			channel = fmt.Sprintf(" from channel %s", ch)
+		}
 	}
-	return fmt.Sprintf("%s%s", str, channel)
+	return fmt.Sprintf("%s%s%s", str, revision, channel)
 }
 
 // PrepareAndDeploy finishes preparing to deploy a charm store charm,
