@@ -108,6 +108,21 @@ func (s *deployerSuite) TestGetDeployerLocalCharmError(c *gc.C) {
 }
 
 func (s *deployerSuite) TestGetDeployerCharmStoreCharm(c *gc.C) {
+	ch := charm.MustParseURL("cs:test-charm")
+	s.testGetDeployerRepositoryCharm(c, ch)
+}
+
+func (s *deployerSuite) TestGetDeployerCharmStoreCharmWithRevisionInURL(c *gc.C) {
+	ch := charm.MustParseURL("cs:test-charm-7")
+	s.testGetDeployerRepositoryCharm(c, ch)
+}
+
+func (s *deployerSuite) TestGetDeployerCharmHubCharm(c *gc.C) {
+	ch := charm.MustParseURL("ch:test-charm")
+	s.testGetDeployerRepositoryCharm(c, ch)
+}
+
+func (s *deployerSuite) testGetDeployerRepositoryCharm(c *gc.C, ch *charm.URL) {
 	defer s.setupMocks(c).Finish()
 	s.expectFilesystem()
 	s.expectModelType()
@@ -116,7 +131,6 @@ func (s *deployerSuite) TestGetDeployerCharmStoreCharm(c *gc.C) {
 	s.expectResolveBundleURL(errors.NotValidf("not a bundle"), 1)
 
 	cfg := s.basicDeployerConfig()
-	ch := charm.MustParseURL("cs:test-charm")
 	s.expectStat(ch.String(), errors.NotFoundf("file"))
 	cfg.CharmOrBundle = ch.String()
 
@@ -124,6 +138,51 @@ func (s *deployerSuite) TestGetDeployerCharmStoreCharm(c *gc.C) {
 	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm: %s", ch.String()))
+}
+
+func (s *deployerSuite) TestGetDeployerCharmStoreCharmWithRevision(c *gc.C) {
+	cfg := s.basicDeployerConfig()
+	cfg.Revision = 8
+	ch := charm.MustParseURL("cs:test-charm")
+	s.expectStat(ch.String(), errors.NotFoundf("file"))
+	cfg.CharmOrBundle = ch.String()
+
+	deployer, err := s.testGetDeployerRepositoryCharmWithRevision(c, ch, cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm: %s", ch.WithRevision(8).String()))
+}
+
+func (s *deployerSuite) TestGetDeployerCharmHubCharmWithRevision(c *gc.C) {
+	cfg := s.channelDeployerConfig()
+	cfg.Revision = 42
+	ch := charm.MustParseURL("ch:test-charm")
+	deployer, err := s.testGetDeployerRepositoryCharmWithRevision(c, ch, cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	str := fmt.Sprintf("deploy charm: %s with revision %d will refresh from channel %s", ch.String(), cfg.Revision, cfg.Channel.String())
+	c.Assert(deployer.String(), gc.Equals, str)
+}
+
+func (s *deployerSuite) TestGetDeployerCharmHubCharmWithRevisionFail(c *gc.C) {
+	cfg := s.basicDeployerConfig()
+	cfg.Revision = 42
+	ch := charm.MustParseURL("ch:test-charm")
+	_, err := s.testGetDeployerRepositoryCharmWithRevision(c, ch, cfg)
+	c.Assert(err, gc.ErrorMatches, "specifying a revision requires a channel for future upgrades. Please use --channel")
+}
+
+func (s *deployerSuite) testGetDeployerRepositoryCharmWithRevision(c *gc.C, ch *charm.URL, cfg DeployerConfig) (Deployer, error) {
+	defer s.setupMocks(c).Finish()
+	s.expectFilesystem()
+	s.expectModelType()
+	// NotValid ensures that maybeReadRepositoryBundle won't find
+	// charmOrBundle is a bundle.
+	s.expectResolveBundleURL(errors.NotValidf("not a bundle"), 1)
+
+	cfg.CharmOrBundle = ch.String()
+	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
+
+	factory := s.newDeployerFactory()
+	return factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
 }
 
 func (s *deployerSuite) TestCharmStoreSeriesOverride(c *gc.C) {
@@ -179,47 +238,89 @@ func (s *deployerSuite) TestGetDeployerLocalBundle(c *gc.C) {
 }
 
 func (s *deployerSuite) TestGetDeployerCharmStoreBundle(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectFilesystem()
-
-	s.expectResolveBundleURL(nil, 1)
-
 	bundle := charm.MustParseURL("cs:test-bundle")
 	cfg := s.basicDeployerConfig()
-	cfg.Series = "bionic"
-	cfg.FlagSet = &gnuflag.FlagSet{}
-	cfg.CharmOrBundle = bundle.String()
-	s.expectStat(bundle.String(), errors.NotFoundf("file"))
-	s.expectModelType()
-	s.expectGetBundle(nil)
-	s.expectData()
 
-	factory := s.newDeployerFactory()
-	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
+	cfg.CharmOrBundle = bundle.String()
+
+	deployer, err := s.testGetDeployerRepositoryBundle(c, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy bundle: %s", bundle.String()))
 }
 
 func (s *deployerSuite) TestGetDeployerCharmStoreBundleWithChannel(c *gc.C) {
+	bundle := charm.MustParseURL("cs:test-bundle")
+	cfg := s.channelDeployerConfig()
+	cfg.CharmOrBundle = bundle.String()
+
+	deployer, err := s.testGetDeployerRepositoryBundle(c, cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy bundle: %s from channel edge", bundle.String()))
+}
+
+func (s *deployerSuite) TestGetDeployerCharmHubBundleWithRevision(c *gc.C) {
+	bundle := charm.MustParseURL("ch:test-bundle")
+	cfg := s.basicDeployerConfig()
+	cfg.Revision = 8
+	cfg.CharmOrBundle = bundle.String()
+
+	deployer, err := s.testGetDeployerRepositoryBundle(c, cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy bundle: %s with revision 8", bundle.String()))
+}
+
+func (s *deployerSuite) testGetDeployerRepositoryBundle(c *gc.C, cfg DeployerConfig) (Deployer, error) {
 	defer s.setupMocks(c).Finish()
 	s.expectFilesystem()
 
 	s.expectResolveBundleURL(nil, 1)
 
-	bundle := charm.MustParseURL("cs:test-bundle")
-	cfg := s.channelDeployerConfig()
 	cfg.Series = "bionic"
 	cfg.FlagSet = &gnuflag.FlagSet{}
-	cfg.CharmOrBundle = bundle.String()
-	s.expectStat(bundle.String(), errors.NotFoundf("file"))
+	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
 	s.expectModelType()
 	s.expectGetBundle(nil)
 	s.expectData()
 
 	factory := s.newDeployerFactory()
-	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy bundle: %s from channel edge", bundle.String()))
+	return factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
+}
+
+func (s *deployerSuite) TestGetDeployerCharmHubBundleWithRevisionURL(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectFilesystem()
+
+	bundle := charm.MustParseURL("ch:test-bundle-8")
+	cfg := s.basicDeployerConfig()
+	cfg.CharmOrBundle = bundle.String()
+	cfg.Series = "bionic"
+	cfg.FlagSet = &gnuflag.FlagSet{}
+	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
+	s.expectModelType()
+
+	factory := s.newDeployerFactory()
+	_, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
+	c.Assert(err, gc.ErrorMatches, "cannot specify revision in a charm or bundle name. Please use --revision.")
+}
+
+func (s *deployerSuite) TestGetDeployerCharmHubBundleError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectFilesystem()
+
+	s.expectResolveBundleURL(nil, 1)
+
+	bundle := charm.MustParseURL("ch:test-bundle")
+	cfg := s.channelDeployerConfig()
+	cfg.Revision = 42
+	cfg.CharmOrBundle = bundle.String()
+	cfg.Series = "bionic"
+	cfg.FlagSet = &gnuflag.FlagSet{}
+	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
+	s.expectModelType()
+
+	factory := s.newDeployerFactory()
+	_, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
+	c.Assert(err, gc.ErrorMatches, "revision and channel are mutually exclusive when deploying a bundle. Please choose one.")
 }
 
 func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
@@ -389,7 +490,8 @@ func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 
 func (s *deployerSuite) basicDeployerConfig() DeployerConfig {
 	return DeployerConfig{
-		Series: "focal",
+		Series:   "focal",
+		Revision: -1,
 	}
 }
 
@@ -399,6 +501,7 @@ func (s *deployerSuite) channelDeployerConfig() DeployerConfig {
 		Channel: charm.Channel{
 			Risk: "edge",
 		},
+		Revision: -1,
 	}
 }
 
