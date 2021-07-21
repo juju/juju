@@ -460,6 +460,38 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	}
 }
 
+func (s *ApplicationWorkerSuite) TestScaleChanges(c *gc.C) {
+	newAppWorker, ctrl := s.getWorker(c)
+	defer ctrl.Finish()
+
+	done := make(chan struct{})
+
+	assertionCalls := []*gomock.Call{
+		s.unitFacade.EXPECT().ApplicationScale("test").Return(3, nil),
+		s.brokerApp.EXPECT().Scale(3).Return(nil),
+
+		// refresh application status - test seperately.
+		s.brokerApp.EXPECT().State().
+			DoAndReturn(func() (caas.ApplicationState, error) {
+				close(done)
+				return caas.ApplicationState{}, errors.NotFoundf("")
+			}),
+	}
+
+	appWorker := newAppWorker(assertionCalls...)
+
+	go func(w appNotifyWorker) {
+		<-s.notifyReady
+		s.appScaleChan <- struct{}{}
+	}(appWorker.(appNotifyWorker))
+
+	select {
+	case <-done:
+	case <-time.After(coretesting.ShortWait):
+		c.Errorf("timed out waiting for worker")
+	}
+}
+
 type appNotifyWorker interface {
 	worker.Worker
 	Notify()
