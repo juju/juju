@@ -216,16 +216,9 @@ func (a *mockApplication) StorageConstraints() (map[string]state.StorageConstrai
 }
 
 type mockCharm struct {
+	charmscommon.Charm
 	meta charm.Meta
 }
-
-func (m *mockCharm) URL() *charm.URL               { panic("not called") }
-func (m *mockCharm) Revision() int                 { panic("not called") }
-func (m *mockCharm) Config() *charm.Config         { panic("not called") }
-func (m *mockCharm) Manifest() *charm.Manifest     { panic("not called") }
-func (m *mockCharm) Metrics() *charm.Metrics       { panic("not called") }
-func (m *mockCharm) Actions() *charm.Actions       { panic("not called") }
-func (m *mockCharm) LXDProfile() *state.LXDProfile { panic("not called") }
 
 func (m *mockCharm) Meta() *charm.Meta {
 	return &m.meta

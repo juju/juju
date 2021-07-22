@@ -6,12 +6,12 @@ package caasoperatorprovisioner_test
 import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
@@ -150,16 +150,10 @@ func (a *mockApplication) Charm() (charmscommon.Charm, bool, error) {
 }
 
 type mockCharm struct {
+	charmscommon.Charm
 	meta     *charm.Meta
 	manifest *charm.Manifest
 }
-
-func (ch *mockCharm) URL() *charm.URL               { panic("not called") }
-func (ch *mockCharm) Revision() int                 { panic("not called") }
-func (ch *mockCharm) Config() *charm.Config         { panic("not called") }
-func (ch *mockCharm) Metrics() *charm.Metrics       { panic("not called") }
-func (ch *mockCharm) Actions() *charm.Actions       { panic("not called") }
-func (ch *mockCharm) LXDProfile() *state.LXDProfile { panic("not called") }
 
 func (ch *mockCharm) Meta() *charm.Meta {
 	return ch.meta
