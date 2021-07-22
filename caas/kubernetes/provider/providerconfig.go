@@ -12,7 +12,6 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -25,7 +24,7 @@ var (
 // RequireOperatorStorage returns true if the specified min-juju-version
 // defined by a charm is such that the charm requires operator storage.
 func RequireOperatorStorage(ch charm.CharmMeta) bool {
-	if corecharm.Format(ch) == corecharm.FormatV2 {
+	if charm.MetaFormat(ch) == charm.FormatV2 {
 		return false
 	}
 	minVers := ch.Meta().MinJujuVersion

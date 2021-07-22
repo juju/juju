@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/podcfg"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/series"
@@ -109,7 +108,7 @@ func (a *appWorker) loop() error {
 		return errors.Annotatef(err, "failed to get application charm deployment metadata for %q", a.name)
 	}
 	if charmInfo == nil ||
-		corecharm.Format(charmInfo.Charm()) < corecharm.FormatV2 {
+		charm.MetaFormat(charmInfo.Charm()) < charm.FormatV2 {
 		return errors.Errorf("charm version 2 or greater required")
 	}
 

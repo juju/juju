@@ -302,11 +302,17 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn,
 		// we leak goroutines on client disconnect, because the server
 		// isn't shutting down so h.abort is never closed.
 		defer close(logCh)
-		var m params.LogRecord
 		for {
 			// Receive() blocks until data arrives but will also be
 			// unblocked when the API handler calls socket.Close as it
 			// finishes.
+
+			// Do not lift the LogRecord outside of the for-loop as any fields
+			// with omitempty will not get cleared between iterations. The
+			// logsink has to work with different versions of juju we need to
+			// ensure that we have consistent data, even at the cost of
+			// performance.
+			var m params.LogRecord
 			if err := socket.ReadJSON(&m); err != nil {
 				if gorillaws.IsCloseError(err, gorillaws.CloseNormalClosure, gorillaws.CloseGoingAway) {
 					logger.Tracef("logsink closed: %v", err)

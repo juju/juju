@@ -206,16 +206,18 @@ juju_bootstrap() {
 	shift
 
 	series=
-	case "${BOOTSTRAP_SERIES}" in
-	"${CURRENT_LTS}")
-		series="--bootstrap-series=${BOOTSTRAP_SERIES} --config image-stream=daily --force"
-		;;
-	"") ;;
+	if [[ ${BOOTSTRAP_PROVIDER} != "k8s" ]]; then
+		case "${BOOTSTRAP_SERIES}" in
+		"${CURRENT_LTS}")
+			series="--bootstrap-series=${BOOTSTRAP_SERIES} --config image-stream=daily --force"
+			;;
+		"") ;;
 
-	*)
-		series="--bootstrap-series=${BOOTSTRAP_SERIES}"
-		;;
-	esac
+		*)
+			series="--bootstrap-series=${BOOTSTRAP_SERIES}"
+			;;
+		esac
+	fi
 
 	pre_bootstrap
 

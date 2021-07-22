@@ -143,10 +143,10 @@ func (w *BufferedLogWriter) loop() {
 			w.mu.Unlock()
 		}
 	}
-
 }
 
-// Write sends a new log message to the writer. This implements the loggo.Writer interface.
+// Write sends a new log message to the writer.
+// This implements the loggo.Writer interface.
 func (w *BufferedLogWriter) Write(entry loggo.Entry) {
 	w.in <- &LogRecord{
 		Time:     entry.Timestamp,

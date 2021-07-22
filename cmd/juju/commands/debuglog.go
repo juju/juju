@@ -319,7 +319,7 @@ func (c *debugLogCommand) writeLogRecord(w *ansiterm.Writer, r common.LogMessage
 		loggocolor.LocationColor.Fprintf(w, "%s ", r.Location)
 	}
 	if len(r.Labels) > 0 {
-		fmt.Fprintf(w, "%v", r.Labels)
+		fmt.Fprintf(w, "%v ", strings.Join(r.Labels, ","))
 	}
 	fmt.Fprintln(w, r.Message)
 }

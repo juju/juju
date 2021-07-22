@@ -412,8 +412,8 @@ func (s StateValidatorSuite) TestValidateApplications(c *gc.C) {
 	defer ctrl.Finish()
 
 	ch := NewMockCharm(ctrl)
-	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"focal", "bionic"}}).Times(2)
-	ch.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"focal", "bionic"}}).MinTimes(2)
+	ch.EXPECT().Manifest().Return(nil).AnyTimes()
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
@@ -432,8 +432,8 @@ func (s StateValidatorSuite) TestValidateApplicationsWithFallbackSeries(c *gc.C)
 	url := charm.MustParseURL("cs:focal/foo-1")
 
 	ch := NewMockCharm(ctrl)
-	ch.EXPECT().Meta().Return(&charm.Meta{}).Times(2)
-	ch.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	ch.EXPECT().Meta().Return(&charm.Meta{}).MinTimes(2)
+	ch.EXPECT().Manifest().Return(nil).AnyTimes()
 	ch.EXPECT().URL().Return(url)
 
 	application := NewMockApplication(ctrl)
@@ -451,8 +451,8 @@ func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeries(c *gc
 	defer ctrl.Finish()
 
 	ch := NewMockCharm(ctrl)
-	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"xenial", "bionic"}}).Times(2)
-	ch.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"xenial", "bionic"}}).MinTimes(2)
+	ch.EXPECT().Manifest().Return(nil).AnyTimes()
 	ch.EXPECT().String().Return("cs:foo-1")
 
 	application := NewMockApplication(ctrl)
@@ -470,8 +470,8 @@ func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeriesWithFo
 	defer ctrl.Finish()
 
 	ch := NewMockCharm(ctrl)
-	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"xenial", "bionic"}}).Times(2)
-	ch.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"xenial", "bionic"}}).MinTimes(2)
+	ch.EXPECT().Manifest().Return(nil).AnyTimes()
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)

@@ -1747,7 +1747,7 @@ func (s *MachineSuite) TestSetProviderAddresses(c *gc.C) {
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	network.SortAddresses(addresses)
+	sort.Sort(addresses)
 	c.Assert(machine.Addresses(), jc.DeepEquals, addresses)
 }
 

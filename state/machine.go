@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -1749,7 +1750,7 @@ func (m *Machine) setAddressesOps(
 	fromNetwork := func(in network.SpaceAddresses, origin network.Origin) []address {
 		sorted := make(network.SpaceAddresses, len(in))
 		copy(sorted, in)
-		network.SortAddresses(sorted)
+		sort.Sort(sorted)
 		return fromNetworkAddresses(sorted, origin)
 	}
 

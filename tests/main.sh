@@ -299,7 +299,7 @@ archive_logs() {
 		echo "${TAR_OUTPUT}"
 		TEST_RESULT=failure
 	fi
-	
+
 }
 
 TEST_CURRENT=setup
