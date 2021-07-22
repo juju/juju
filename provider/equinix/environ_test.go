@@ -122,6 +122,45 @@ func (s *environProviderSuite) TestDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *environProviderSuite) TestGetPacketInstancesByTag(c *gc.C) {
+	cntrl := gomock.NewController(c)
+	defer cntrl.Finish()
+	device := mocks.NewMockDeviceService(cntrl)
+	device.EXPECT().Delete(gomock.Eq("1"), gomock.Eq(true))
+	device.EXPECT().List(gomock.Eq("12345c2a-6789-4d4f-a3c4-7367d6b7cca8"), nil).
+		Return([]packngo.Device{
+			{
+				ID: "1",
+				Tags: []string{
+					"juju-is-controller=true",
+					"juju-controller-uuid=deadbeef-0bad-400d-8000-4b1d0d06f00d",
+				},
+			},
+			// This controller has a different model-uuid and should be ignored.
+			{
+				ID: "42",
+				Tags: []string{
+					"juju-is-controller=true",
+					"juju-controller-uuid=this-is-not-the-controller-you-are-looking-for",
+				},
+			},
+		}, nil, nil).AnyTimes()
+	s.PatchValue(&equinixClient, func(spec environscloudspec.CloudSpec) *packngo.Client {
+		cl := &packngo.Client{}
+		cl.Devices = device
+		return cl
+	})
+	env, err := environs.Open(context.TODO(), s.provider, environs.OpenParams{
+		Cloud:  s.spec,
+		Config: makeTestModelConfig(c),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env, gc.NotNil)
+
+	err = env.DestroyController(environContext.NewEmptyCloudCallContext(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *environProviderSuite) TestAllInstances(c *gc.C) {
 	cntrl := gomock.NewController(c)
 	defer cntrl.Finish()
