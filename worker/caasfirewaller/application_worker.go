@@ -19,7 +19,7 @@ type applicationWorker struct {
 	catacomb          catacomb.Catacomb
 	controllerUUID    string
 	modelUUID         string
-	appName           string
+	application       string
 	applicationGetter ApplicationGetter
 	serviceExposer    ServiceExposer
 	lifeGetter        LifeGetter
@@ -44,7 +44,7 @@ func newApplicationWorker(
 	w := &applicationWorker{
 		controllerUUID:    controllerUUID,
 		modelUUID:         modelUUID,
-		appName:           application,
+		application:       application,
 		applicationGetter: applicationGetter,
 		serviceExposer:    applicationExposer,
 		lifeGetter:        lifeGetter,
@@ -75,11 +75,11 @@ func (w *applicationWorker) loop() (err error) {
 	defer func() {
 		// If the application has been deleted, we can return nil.
 		if errors.IsNotFound(err) {
-			w.logger.Debugf("caas firewaller application %v has been removed", w.appName)
+			w.logger.Debugf("caas firewaller application %v has been removed", w.application)
 			err = nil
 		}
 	}()
-	appWatcher, err := w.applicationGetter.WatchApplication(w.appName)
+	appWatcher, err := w.applicationGetter.WatchApplication(w.application)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -99,13 +99,13 @@ func (w *applicationWorker) loop() (err error) {
 			// If charm is (now) a v2 charm, exit the worker.
 			format, err := w.charmFormat()
 			if errors.IsNotFound(err) {
-				w.logger.Debugf("application %q no longer exists", w.appName)
+				w.logger.Debugf("application %q no longer exists", w.application)
 				return nil
 			} else if err != nil {
 				return errors.Trace(err)
 			}
 			if format >= charm.FormatV2 {
-				w.logger.Debugf("application %q v1 worker got v2 charm event, stopping", w.appName)
+				w.logger.Debugf("application %q v1 worker got v2 charm event, stopping", w.application)
 				return nil
 			}
 
@@ -120,9 +120,9 @@ func (w *applicationWorker) loop() (err error) {
 }
 
 func (w *applicationWorker) charmFormat() (charm.Format, error) {
-	charmInfo, err := w.charmGetter.ApplicationCharmInfo(w.appName)
+	charmInfo, err := w.charmGetter.ApplicationCharmInfo(w.application)
 	if err != nil {
-		return charm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", w.appName)
+		return charm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", w.application)
 	}
 	return charm.MetaFormat(charmInfo.Charm()), nil
 }
@@ -133,17 +133,17 @@ func (w *applicationWorker) processApplicationChange() (err error) {
 		// no container service created yet as the app is still being set up.
 		if errors.IsNotFound(err) {
 			// Perhaps the app got removed while we were processing.
-			if _, err2 := w.lifeGetter.Life(w.appName); err2 != nil {
+			if _, err2 := w.lifeGetter.Life(w.application); err2 != nil {
 				err = err2
 				return
 			}
 			// Ignore not found error because the ip could be not ready yet at this stage.
-			w.logger.Warningf("processing change for application %q, %v", w.appName, err)
+			w.logger.Warningf("processing change for application %q, %v", w.application, err)
 			err = nil
 		}
 	}()
 
-	exposed, err := w.applicationGetter.IsExposed(w.appName)
+	exposed, err := w.applicationGetter.IsExposed(w.application)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -154,7 +154,7 @@ func (w *applicationWorker) processApplicationChange() (err error) {
 	w.initial = false
 	w.previouslyExposed = exposed
 	if exposed {
-		appConfig, err := w.applicationGetter.ApplicationConfig(w.appName)
+		appConfig, err := w.applicationGetter.ApplicationConfig(w.application)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -162,12 +162,12 @@ func (w *applicationWorker) processApplicationChange() (err error) {
 			names.NewModelTag(w.modelUUID),
 			names.NewControllerTag(w.controllerUUID),
 		)
-		if err := w.serviceExposer.ExposeService(w.appName, resourceTags, appConfig); err != nil {
+		if err := w.serviceExposer.ExposeService(w.application, resourceTags, appConfig); err != nil {
 			return errors.Trace(err)
 		}
 		return nil
 	}
-	if err := w.serviceExposer.UnexposeService(w.appName); err != nil {
+	if err := w.serviceExposer.UnexposeService(w.application); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
