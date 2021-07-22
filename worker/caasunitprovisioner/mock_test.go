@@ -150,7 +150,7 @@ func (m *mockContainerBroker) AnnotateUnit(appName string, mode caas.DeploymentM
 type mockApplicationGetter struct {
 	testing.Stub
 	watcher        *watchertest.MockStringsWatcher
-	appWatcher     *watchertest.MockNotifyWatcher // TODO: set this
+	appWatcher     *watchertest.MockNotifyWatcher
 	scaleWatcher   *watchertest.MockNotifyWatcher
 	deploymentMode caas.DeploymentMode
 	scale          int

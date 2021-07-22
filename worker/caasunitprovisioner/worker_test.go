@@ -59,6 +59,7 @@ type WorkerSuite struct {
 	serviceEnsured          chan struct{}
 	serviceUpdated          chan struct{}
 	resourcesCleared        chan struct{}
+	appChanges              chan struct{}
 	clock                   *testclock.Clock
 }
 
@@ -129,9 +130,11 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.serviceEnsured = make(chan struct{})
 	s.serviceUpdated = make(chan struct{})
 	s.resourcesCleared = make(chan struct{})
+	s.appChanges = make(chan struct{})
 
 	s.applicationGetter = mockApplicationGetter{
 		watcher:        watchertest.NewMockStringsWatcher(s.applicationChanges),
+		appWatcher:     watchertest.NewMockNotifyWatcher(s.appChanges),
 		scaleWatcher:   watchertest.NewMockNotifyWatcher(s.applicationScaleChanges),
 		deploymentMode: caas.ModeWorkload,
 	}
@@ -314,7 +317,12 @@ func (s *WorkerSuite) TestScaleChangedInJuju(c *gc.C) {
 	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
-	s.applicationGetter.CheckCallNames(c, "WatchApplications", "DeploymentMode", "WatchApplicationScale", "ApplicationScale", "ApplicationConfig")
+	var appCallNames []string
+	for _, call := range s.applicationGetter.Calls() {
+		appCallNames = append(appCallNames, call.FuncName)
+	}
+	c.Check(appCallNames, jc.SameContents, []string{"WatchApplications", "DeploymentMode", "WatchApplicationScale", "WatchApplication", "ApplicationScale", "ApplicationConfig"})
+
 	s.podSpecGetter.CheckCallNames(c, "WatchPodSpec", "ProvisioningInfo", "ProvisioningInfo")
 	s.podSpecGetter.CheckCall(c, 0, "WatchPodSpec", "gitlab")
 	s.podSpecGetter.CheckCall(c, 1, "ProvisioningInfo", "gitlab") // not found
@@ -986,6 +994,53 @@ func (s *WorkerSuite) TestNotFoundCharmSkipsProcessing(c *gc.C) {
 	workertest.CleanKill(c, w)
 
 	ctrl.Finish()
+}
+
+func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	w, err := caasunitprovisioner.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	waitCharmGetterCalls := func(n int, names ...string) {
+		for a := coretesting.LongAttempt.Start(); a.Next(); {
+			if len(s.charmGetter.Calls()) >= 1 {
+				break
+			}
+		}
+		s.charmGetter.CheckCallNames(c, names...)
+		s.charmGetter.ResetCalls()
+	}
+
+	// Will trigger ApplicationCharmInfo call in main worker
+	s.sendApplicationChanges(c, "gitlab")
+	waitCharmGetterCalls(1, "ApplicationCharmInfo")
+
+	// Trigger ApplicationCharmInfo call in application worker
+	select {
+	case s.appChanges <- struct{}{}:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatal("timed out sending app change")
+	}
+	waitCharmGetterCalls(1, "ApplicationCharmInfo")
+
+	// Make it a v2 charm (will make the application worker exit)
+	s.charmGetter.charmInfo.Manifest = &charm.Manifest{Bases: []charm.Base{{}}}
+
+	// Trigger another ApplicationCharmInfo call in application worker
+	select {
+	case s.appChanges <- struct{}{}:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatal("timed out sending app change")
+	}
+	waitCharmGetterCalls(1, "ApplicationCharmInfo")
+
+	// Ensure application worker exited due to charm becoming v2
+	aw, _ := caasunitprovisioner.AppWorker(w, "gitlab")
+	err = workertest.CheckKilled(c, aw)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *WorkerSuite) sendApplicationChanges(c *gc.C, appNames ...string) {
