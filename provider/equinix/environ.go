@@ -524,9 +524,9 @@ func (e *environ) deleteDevicesByIDs(ctx context.ProviderCallContext, ids []inst
 func (e *environ) getPacketInstancesByTag(tags map[string]string) ([]instances.Instance, error) {
 	var toReturn []instances.Instance
 
-	deviceTags := set.NewStrings()
+	queryTags := set.NewStrings()
 	for k, v := range tags {
-		deviceTags.Add(fmt.Sprintf("%s=%s", k, v))
+		queryTags.Add(fmt.Sprintf("%s=%s", k, v))
 	}
 
 	projectID, ok := e.cloud.Credential.Attributes()["project-id"]
@@ -539,11 +539,12 @@ func (e *environ) getPacketInstancesByTag(tags map[string]string) ([]instances.I
 		return nil, errors.Trace(err)
 	}
 
-	for _, d := range devices {
-		cp := d
-		cpTags := set.NewStrings(cp.Tags...)
-		if !deviceTags.Intersection(cpTags).IsEmpty() {
-			toReturn = append(toReturn, &equinixDevice{e, &cp})
+	for _, dev := range devices {
+		// Retain devices that contain all tags present in the query.
+		deviceTags := set.NewStrings(dev.Tags...)
+		if queryTags.Intersection(deviceTags).Size() == queryTags.Size() {
+			devCopy := dev
+			toReturn = append(toReturn, &equinixDevice{e, &devCopy})
 		}
 	}
 
