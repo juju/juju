@@ -37,7 +37,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
 	"github.com/juju/juju/caas/specs"
@@ -689,7 +689,8 @@ var primeServiceAccount = &specs.PrimeServiceAccountSpecV3{
 }
 
 func (s *K8sBrokerSuite) getOCIImageSecret(c *gc.C, annotations map[string]string) *core.Secret {
-	secretData, err := provider.CreateDockerConfigJSON(&getBasicPodspec().Containers[0].ImageDetails)
+	details := getBasicPodspec().Containers[0].ImageDetails
+	secretData, err := k8sutils.CreateDockerConfigJSON(details.Username, details.Password, details.ImagePath)
 	c.Assert(err, jc.ErrorIsNil)
 	if annotations == nil {
 		annotations = map[string]string{}
@@ -810,7 +811,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(
 	})
 	nsAfter := *nsBefore
 	nsAfter.SetAnnotations(annotations.New(nsAfter.GetAnnotations()).Add(
-		utils.AnnotationControllerUUIDKey(false), newControllerUUID,
+		k8sutils.AnnotationControllerUUIDKey(false), newControllerUUID,
 	))
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).Times(2).
@@ -2523,7 +2524,7 @@ password: shhhh`[1:],
 				"cloud.google.com/load-balancer-type": "Internal",
 			}},
 		Spec: core.ServiceSpec{
-			Selector: utils.LabelForKeyValue("app", "MyApp"),
+			Selector: k8sutils.LabelForKeyValue("app", "MyApp"),
 			Type:     core.ServiceTypeLoadBalancer,
 			Ports: []core.ServicePort{
 				{
@@ -2773,7 +2774,7 @@ password: shhhh`[1:],
 				"cloud.google.com/load-balancer-type": "Internal",
 			}},
 		Spec: core.ServiceSpec{
-			Selector: utils.LabelForKeyValue("app", "MyApp"),
+			Selector: k8sutils.LabelForKeyValue("app", "MyApp"),
 			Type:     core.ServiceTypeLoadBalancer,
 			Ports: []core.ServicePort{
 				{
@@ -2951,9 +2952,9 @@ func (s *K8sBrokerSuite) assertGetService(c *gc.C, mode caas.DeploymentMode, exp
 		selectorLabels = map[string]string{
 			"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "app-name", "operator.juju.is/target": "application"}
 	}
-	labels := utils.LabelsMerge(selectorLabels, utils.LabelsJuju)
+	labels := k8sutils.LabelsMerge(selectorLabels, k8sutils.LabelsJuju)
 
-	selector := utils.LabelsToSelector(labels).String()
+	selector := k8sutils.LabelsToSelector(labels).String()
 	svc := core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
@@ -3117,7 +3118,7 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithStatefulSet(c *gc.C, mode c
 				network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopePublic)),
 				network.NewProviderAddress("host.com.au", network.WithScope(network.ScopePublic)),
 			},
-			Scale:      utils.IntPtr(2),
+			Scale:      k8sutils.IntPtr(2),
 			Generation: pointer.Int64Ptr(1),
 			Status: status.StatusInfo{
 				Status: status.Active,
@@ -3209,7 +3210,7 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithDeployment(c *gc.C, mode ca
 				network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopePublic)),
 				network.NewProviderAddress("host.com.au", network.WithScope(network.ScopePublic)),
 			},
-			Scale:      utils.IntPtr(2),
+			Scale:      k8sutils.IntPtr(2),
 			Generation: pointer.Int64Ptr(1),
 			Status: status.StatusInfo{
 				Status: status.Active,
@@ -3273,7 +3274,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDaemonSet(c *gc.C) {
 				network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopePublic)),
 				network.NewProviderAddress("host.com.au", network.WithScope(network.ScopePublic)),
 			},
-			Scale:      utils.IntPtr(2),
+			Scale:      k8sutils.IntPtr(2),
 			Generation: pointer.Int64Ptr(1),
 			Status: status.StatusInfo{
 				Status: status.Active,
@@ -7662,7 +7663,7 @@ func (s *K8sBrokerSuite) TestExposeServiceIngressClassProvided(c *gc.C) {
 				"controller.juju.is/id": testing.ControllerTag.Id(),
 			}},
 		Spec: core.ServiceSpec{
-			Selector: utils.LabelForKeyValue("app", "gitlab"),
+			Selector: k8sutils.LabelForKeyValue("app", "gitlab"),
 			Type:     core.ServiceTypeClusterIP,
 			Ports: []core.ServicePort{
 				{
@@ -7735,7 +7736,7 @@ func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClassFromResource(c *
 				"controller.juju.is/id": testing.ControllerTag.Id(),
 			}},
 		Spec: core.ServiceSpec{
-			Selector: utils.LabelForKeyValue("app", "gitlab"),
+			Selector: k8sutils.LabelForKeyValue("app", "gitlab"),
 			Type:     core.ServiceTypeClusterIP,
 			Ports: []core.ServicePort{
 				{
@@ -7819,7 +7820,7 @@ func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClass(c *gc.C) {
 				"controller.juju.is/id": testing.ControllerTag.Id(),
 			}},
 		Spec: core.ServiceSpec{
-			Selector: utils.LabelForKeyValue("app", "gitlab"),
+			Selector: k8sutils.LabelForKeyValue("app", "gitlab"),
 			Type:     core.ServiceTypeClusterIP,
 			Ports: []core.ServicePort{
 				{

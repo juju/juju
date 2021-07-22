@@ -5231,6 +5231,185 @@ func (s *upgradesSuite) TestUpdateDHCPAddressConfigs(c *gc.C) {
 	}))
 }
 
+func (s *upgradesSuite) TestAddSpawnedTaskCountToOperations(c *gc.C) {
+	operationsCol, closerOne := s.state.db().GetRawCollection(operationsC)
+	defer closerOne()
+
+	actionsCol, closerTwo := s.state.db().GetRawCollection(actionsC)
+	defer closerTwo()
+
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	err := operationsCol.Insert(
+		// ---- model 1 ----
+		bson.M{
+			"_id":        ensureModelUUID(uuid1, "2"),
+			"model-uuid": uuid1,
+		},
+		bson.M{
+			"_id":        ensureModelUUID(uuid1, "10"),
+			"model-uuid": uuid1,
+		},
+		// ---- model 2 ----
+		bson.M{
+			"_id":        ensureModelUUID(uuid2, "2"),
+			"model-uuid": uuid2,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = actionsCol.Insert(
+		bson.M{
+			"_id":        ensureModelUUID(uuid1, "3"),
+			"model-uuid": uuid1,
+			"operation":  "2",
+		},
+		bson.M{
+			"_id":        ensureModelUUID(uuid1, "11"),
+			"model-uuid": uuid1,
+			"operation":  "10",
+		},
+		bson.M{
+			"_id":        ensureModelUUID(uuid1, "12"),
+			"model-uuid": uuid1,
+			"operation":  "10",
+		},
+		bson.M{
+			"_id":        ensureModelUUID(uuid2, "3"),
+			"operation":  "2",
+			"model-uuid": uuid2,
+		},
+		bson.M{
+			"_id":        ensureModelUUID(uuid2, "4"),
+			"operation":  "2",
+			"model-uuid": uuid2,
+		},
+		bson.M{
+			"_id":        ensureModelUUID(uuid2, "5"),
+			"operation":  "2",
+			"model-uuid": uuid2,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedOperations := bsonMById{
+		{
+			"_id":                ensureModelUUID(uuid1, "2"),
+			"model-uuid":         uuid1,
+			"spawned-task-count": 1,
+		},
+		{
+			"_id":                ensureModelUUID(uuid1, "10"),
+			"model-uuid":         uuid1,
+			"spawned-task-count": 2,
+		},
+		{
+			"_id":                ensureModelUUID(uuid2, "2"),
+			"model-uuid":         uuid2,
+			"spawned-task-count": 3,
+		},
+	}
+
+	sort.Sort(expectedOperations)
+
+	s.assertUpgradedData(c, AddSpawnedTaskCountToOperations,
+		upgradedData(operationsCol, expectedOperations),
+	)
+}
+
+func (s *upgradesSuite) TestTransformEmptyManifestsToNil(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	coll, closer := s.state.db().GetRawCollection(charmsC)
+	defer closer()
+
+	err := coll.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "charm1"),
+		"model-uuid": uuid1,
+		"url":        charm.MustParseURL("cs:test").String(),
+		"manifest":   nil,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "charm2"),
+		"model-uuid": uuid2,
+		"url":        charm.MustParseURL("local:test").String(),
+		"manifest":   &charm.Manifest{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "charm3"),
+		"model-uuid": uuid2,
+		"url":        charm.MustParseURL("ch:test").String(),
+		"manifest": &charm.Manifest{
+			Bases: []charm.Base{},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "charm4"),
+		"model-uuid": uuid1,
+		"url":        charm.MustParseURL("ch:test2").String(),
+		"manifest": &charm.Manifest{
+			Bases: []charm.Base{
+				{Name: "ubuntu"},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		{
+			"_id":        ensureModelUUID(uuid1, "charm1"),
+			"model-uuid": uuid1,
+			"url":        "cs:test",
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "charm2"),
+			"model-uuid": uuid2,
+			"url":        "local:test",
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "charm3"),
+			"model-uuid": uuid2,
+			"url":        "ch:test",
+		},
+		{
+			"_id":        ensureModelUUID(uuid1, "charm4"),
+			"model-uuid": uuid1,
+			"url":        "ch:test2",
+			"manifest": bson.M{
+				"bases": []interface{}{
+					bson.M{
+						"name": "ubuntu",
+					},
+				},
+			},
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, TransformEmptyManifestsToNil,
+		upgradedData(coll, expected),
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

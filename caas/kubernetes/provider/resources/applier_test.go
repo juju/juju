@@ -123,3 +123,35 @@ func (s *applierSuite) TestRunDeleteFailedWithRollBack(c *gc.C) {
 	)
 	c.Assert(applier.Run(context.TODO(), nil, false), gc.ErrorMatches, `something was wrong`)
 }
+
+func (s *applierSuite) TestApplySet(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	r1 := mocks.NewMockResource(ctrl)
+	r1.EXPECT().ID().AnyTimes().Return(resources.ID{"A", "r1", "namespace"})
+	r1.EXPECT().Clone().AnyTimes().Return(r1)
+	r2 := mocks.NewMockResource(ctrl)
+	r2.EXPECT().ID().AnyTimes().Return(resources.ID{"B", "r2", "namespace"})
+	r2.EXPECT().Clone().AnyTimes().Return(r2)
+	r2Copy := mocks.NewMockResource(ctrl)
+	r2Copy.EXPECT().ID().AnyTimes().Return(resources.ID{"B", "r2", "namespace"})
+	r2Copy.EXPECT().Clone().AnyTimes().Return(r2)
+	r3 := mocks.NewMockResource(ctrl)
+	r3.EXPECT().ID().AnyTimes().Return(resources.ID{"A", "r3", "namespace"})
+	r3.EXPECT().Clone().AnyTimes().Return(r3)
+
+	applier := resources.NewApplierForTest()
+	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
+	applier.ApplySet([]resources.Resource{r1, r2}, []resources.Resource{r2Copy, r3})
+
+	gomock.InOrder(
+		r1.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil),
+		r1.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil),
+		r2.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil),
+		r2Copy.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(nil),
+		r3.EXPECT().Get(gomock.Any(), gomock.Any()).Return(errors.NotFoundf("missing aye")),
+		r3.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(nil),
+	)
+	c.Assert(applier.Run(context.TODO(), nil, false), jc.ErrorIsNil)
+}

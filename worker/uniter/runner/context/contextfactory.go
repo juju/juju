@@ -182,7 +182,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		logger:             f.logger,
 		componentDir:       f.paths.ComponentDir,
 		componentFuncs:     registeredComponentFuncs,
-		availabilityzone:   f.zone,
+		availabilityZone:   f.zone,
 		principal:          f.principal,
 	}
 	if err := f.updateContext(ctx); err != nil {
@@ -245,6 +245,9 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 	if hookInfo.Kind.IsWorkload() {
 		ctx.workloadName = hookInfo.WorkloadName
 		hookName = fmt.Sprintf("%s-%s", hookInfo.WorkloadName, hookName)
+	}
+	if hookInfo.Kind == hooks.PreSeriesUpgrade {
+		ctx.seriesUpgradeTarget = hookInfo.SeriesUpgradeTarget
 	}
 	ctx.id = f.newId(hookName)
 	ctx.hookName = hookName

@@ -740,6 +740,7 @@ func (s *unitSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 		*(result.(*params.UpgradeSeriesStatusResults)) = params.UpgradeSeriesStatusResults{
 			Results: []params.UpgradeSeriesStatusResult{{
 				Status: "completed",
+				Target: "focal",
 			}},
 		}
 		return nil
@@ -747,24 +748,10 @@ func (s *unitSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	seriesStatus, err := unit.UpgradeSeriesStatus()
+	seriesStatus, target, err := unit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(seriesStatus, gc.Equals, model.UpgradeSeriesCompleted)
-}
-
-func (s *unitSuite) TestUpgradeSeriesStatusMultipleReturnsError(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(result, gc.FitsTypeOf, &params.UpgradeSeriesStatusResults{})
-		*(result.(*params.UpgradeSeriesStatusResults)) = params.UpgradeSeriesStatusResults{
-			Results: []params.UpgradeSeriesStatusResult{{}, {}},
-		}
-		return nil
-	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-
-	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	_, err := unit.UpgradeSeriesStatus()
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+	c.Check(seriesStatus, gc.Equals, model.UpgradeSeriesCompleted)
+	c.Check(target, gc.Equals, "focal")
 }
 
 func (s *unitSuite) TestRelationStatus(c *gc.C) {

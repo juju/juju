@@ -959,7 +959,7 @@ type addAction struct {
 func (s addAction) step(c *gc.C, ctx *testContext) {
 	m, err := ctx.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	operationID, err := m.EnqueueOperation("a test")
+	operationID, err := m.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = m.EnqueueAction(operationID, ctx.unit.Tag(), s.name, s.params, nil)
 	c.Assert(err, jc.ErrorIsNil)

@@ -22,6 +22,7 @@ type LogRecord struct {
 	Location string // e.g. "foo.go:42"
 	Level    loggo.Level
 	Message  string
+	Labels   []string
 
 	// Number of messages dropped after this one due to buffer limit.
 	DroppedAfter int
@@ -142,10 +143,10 @@ func (w *BufferedLogWriter) loop() {
 			w.mu.Unlock()
 		}
 	}
-
 }
 
-// Write sends a new log message to the writer. This implements the loggo.Writer interface.
+// Write sends a new log message to the writer.
+// This implements the loggo.Writer interface.
 func (w *BufferedLogWriter) Write(entry loggo.Entry) {
 	w.in <- &LogRecord{
 		Time:     entry.Timestamp,
@@ -153,6 +154,7 @@ func (w *BufferedLogWriter) Write(entry loggo.Entry) {
 		Location: fmt.Sprintf("%s:%d", filepath.Base(entry.Filename), entry.Line),
 		Level:    entry.Level,
 		Message:  entry.Message,
+		Labels:   entry.Labels,
 	}
 }
 

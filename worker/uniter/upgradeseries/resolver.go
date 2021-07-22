@@ -51,7 +51,10 @@ func (r *upgradeSeriesResolver) NextOp(
 	if localState.Kind == operation.Continue {
 		if localState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted &&
 			remoteState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareStarted {
-			return opFactory.NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade})
+			return opFactory.NewRunHook(hook.Info{
+				Kind:                hooks.PreSeriesUpgrade,
+				SeriesUpgradeTarget: remoteState.UpgradeSeriesTarget,
+			})
 		}
 
 		// The uniter's local state will be in the "not started" state if the

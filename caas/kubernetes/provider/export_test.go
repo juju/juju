@@ -28,8 +28,6 @@ import (
 var (
 	PrepareWorkloadSpec       = prepareWorkloadSpec
 	OperatorPod               = operatorPod
-	ExtractRegistryURL        = extractRegistryURL
-	CreateDockerConfigJSON    = createDockerConfigJSON
 	FindControllerNamespace   = findControllerNamespace
 	GetLocalMicroK8sConfig    = getLocalMicroK8sConfig
 	AttemptMicroK8sCloud      = attemptMicroK8sCloud

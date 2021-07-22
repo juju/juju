@@ -11,14 +11,14 @@ import (
 )
 
 func IsKubernetes(cm charm.CharmMeta) bool {
-	switch Format(cm) {
-	case FormatV2:
+	switch charm.MetaFormat(cm) {
+	case charm.FormatV2:
 		if len(cm.Meta().Containers) > 0 {
 			return true
 		}
 		// TODO (hml) 2021-04-19
 		// Enhance with logic around Assumes once that is finalized.
-	case FormatV1:
+	case charm.FormatV1:
 		if set.NewStrings(cm.Meta().Series...).Contains(series.Kubernetes.String()) {
 			return true
 		}

@@ -1336,14 +1336,14 @@ func (api *APIBase) applicationSetCharm(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if corecharm.Format(oldCharm) >= corecharm.FormatV2 && corecharm.Format(newCharm) == corecharm.FormatV1 {
+	if charm.MetaFormat(oldCharm) >= charm.FormatV2 && charm.MetaFormat(newCharm) == charm.FormatV1 {
 		return errors.New("cannot downgrade from v2 charm format to v1")
 	}
 
 	// If upgrading from a pod-spec (v1) charm to sidecar (v2), override the
 	// application's series to what it would be for a fresh sidecar deploy.
 	oldSeries := params.Application.Series()
-	if oldSeries == "kubernetes" && corecharm.Format(newCharm) >= corecharm.FormatV2 &&
+	if oldSeries == "kubernetes" && charm.MetaFormat(newCharm) >= charm.FormatV2 &&
 		len(newCharm.Meta().Containers) > 0 {
 		// Disallow upgrading from a v1 DaemonSet or Deployment type charm
 		// (only StatefulSet is supported in v2 right now).

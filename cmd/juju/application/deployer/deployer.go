@@ -394,7 +394,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		// If we get a "not exists" error then we attempt to interpret
 		// the supplied charm reference as a URL elsewhere, otherwise
 		// we return the error.
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "attempting to deploy %q", charmOrBundle)
 	} else if err != nil {
 		logger.Debugf("cannot interpret as local charm: %v", err)
 		return nil, nil

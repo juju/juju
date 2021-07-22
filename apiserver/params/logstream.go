@@ -24,6 +24,7 @@ type LogStreamRecord struct {
 	Location  string    `json:"lo"`
 	Level     string    `json:"lv"`
 	Message   string    `json:"msg"`
+	Labels    []string  `json:"lab"`
 }
 
 // LogStreamConfig holds all the information necessary to open a

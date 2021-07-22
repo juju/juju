@@ -1754,7 +1754,8 @@ func (s *ProvisionerSuite) TestProvisioningMachinesClearAZFailures(c *gc.C) {
 	c.Assert(count, gc.Equals, 3)
 	machineAZ, err := machine.AvailabilityZone()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineAZ, gc.Equals, "zone1")
+	// Zones 3 and 4 have the same machine count, one is picked at random.
+	c.Assert(set.NewStrings("zone3", "zone4").Contains(machineAZ), jc.IsTrue)
 }
 
 func (s *ProvisionerSuite) TestProvisioningMachinesDerivedAZ(c *gc.C) {

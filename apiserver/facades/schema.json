@@ -39400,7 +39400,7 @@
                             "$ref": "#/definitions/SSHAddressResults"
                         }
                     },
-                    "description": "PublicAddress reports the preferred public network address for one\nor more entities. Machines and units are suppored."
+                    "description": "PublicAddress reports the preferred public network address for one\nor more entities. Machines and units are supported."
                 },
                 "PublicKeys": {
                     "type": "object",
@@ -47501,6 +47501,9 @@
                         },
                         "status": {
                             "type": "string"
+                        },
+                        "target": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false
@@ -48063,6 +48066,9 @@
                             "$ref": "#/definitions/Error"
                         },
                         "status": {
+                            "type": "string"
+                        },
+                        "target": {
                             "type": "string"
                         }
                     },

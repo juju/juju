@@ -303,6 +303,7 @@ func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		UpgradeSeriesStatus:   model.UpgradeSeriesPrepareStarted,
+		UpgradeSeriesTarget:   "focal",
 	})
 }
 

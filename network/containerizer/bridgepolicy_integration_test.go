@@ -669,6 +669,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerTwoSpacesOneM
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"somespace", "dmz"},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
 	c.Assert(err, jc.ErrorIsNil)

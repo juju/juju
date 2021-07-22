@@ -694,10 +694,10 @@ func (s *linkLayerDevicesStateSuite) TestAddDeviceOpsWithAddresses(c *gc.C) {
 
 	state.RunTransaction(c, s.State, ops)
 
-	dev, err := s.machine.LinkLayerDevice(devName)
+	_, err = s.machine.LinkLayerDevice(devName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	dev, err = s.machine.LinkLayerDevice("eth0")
+	dev, err := s.machine.LinkLayerDevice("eth0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, err := dev.Addresses()

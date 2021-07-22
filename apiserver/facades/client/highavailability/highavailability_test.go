@@ -521,10 +521,10 @@ func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAErrors(c *gc.C) {
-	enableHAResult, err := s.enableHA(c, -1, emptyCons, defaultSeries, nil)
+	_, err := s.enableHA(c, -1, emptyCons, defaultSeries, nil)
 	c.Assert(err, gc.ErrorMatches, "number of controllers must be odd and non-negative")
 
-	enableHAResult, err = s.enableHA(c, 3, emptyCons, defaultSeries, nil)
+	enableHAResult, err := s.enableHA(c, 3, emptyCons, defaultSeries, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
 	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})

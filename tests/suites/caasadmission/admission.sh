@@ -1,9 +1,9 @@
 run_controller_model_admission() {
-  # Echo out to ensure nice output to the test suite.
+	# Echo out to ensure nice output to the test suite.
 	echo
 
-  # The following ensures that a bootstrap juju exists.
-  model_name="controller-model-admission"
+	# The following ensures that a bootstrap juju exists.
+	model_name="controller-model-admission"
 	file="${TEST_DIR}/test-${model_name}.log"
 	ensure "${model_name}" "${file}"
 
@@ -83,11 +83,11 @@ EOF
 }
 
 run_new_model_admission() {
-  # Echo out to ensure nice output to the test suite.
+	# Echo out to ensure nice output to the test suite.
 	echo
 
-  # The following ensures that a bootstrap juju exists.
-  model_name="new-model-admission"
+	# The following ensures that a bootstrap juju exists.
+	model_name="new-model-admission"
 	file="${TEST_DIR}/test-${model_name}.log"
 	ensure "${model_name}" "${file}"
 
@@ -168,11 +168,11 @@ EOF
 # Tests that after the model operator pod restarts it can come back up without
 # having to be validated by itself.
 run_model_chicken_and_egg() {
-  # Echo out to ensure nice output to the test suite.
+	# Echo out to ensure nice output to the test suite.
 	echo
 
-  # The following ensures that a bootstrap juju exists.
-  model_name="model-chicken-and-egg"
+	# The following ensures that a bootstrap juju exists.
+	model_name="model-chicken-and-egg"
 	file="${TEST_DIR}/test-${model_name}.log"
 	ensure "${model_name}" "${file}"
 

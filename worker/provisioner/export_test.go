@@ -50,10 +50,19 @@ func GetCopyAvailabilityZoneMachines(p ProvisionerTask) []AvailabilityZoneMachin
 	task.machinesMutex.RLock()
 	defer task.machinesMutex.RUnlock()
 	// sort to make comparisons in the tests easier.
-	sort.Sort(azMachineSort(task.availabilityZoneMachines))
-	retvalues := make([]AvailabilityZoneMachine, len(task.availabilityZoneMachines))
-	for i := range task.availabilityZoneMachines {
-		retvalues[i] = *task.availabilityZoneMachines[i]
+	zoneMachines := task.availabilityZoneMachines
+	sort.Slice(task.availabilityZoneMachines, func(i, j int) bool {
+		switch {
+		case zoneMachines[i].MachineIds.Size() < zoneMachines[j].MachineIds.Size():
+			return true
+		case zoneMachines[i].MachineIds.Size() == zoneMachines[j].MachineIds.Size():
+			return zoneMachines[i].ZoneName < zoneMachines[j].ZoneName
+		}
+		return false
+	})
+	retvalues := make([]AvailabilityZoneMachine, len(zoneMachines))
+	for i := range zoneMachines {
+		retvalues[i] = *zoneMachines[i]
 	}
 	return retvalues
 }

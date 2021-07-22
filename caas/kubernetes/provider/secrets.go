@@ -70,7 +70,7 @@ func (k *kubernetesClient) ensureOCIImageSecret(
 	if imageDetails.Password == "" {
 		return errors.New("attempting to create a secret with no password")
 	}
-	secretData, err := createDockerConfigJSON(imageDetails)
+	secretData, err := utils.CreateDockerConfigJSON(imageDetails.Username, imageDetails.Password, imageDetails.ImagePath)
 	if err != nil {
 		return errors.Trace(err)
 	}

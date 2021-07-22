@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/collections/set"
@@ -24,7 +25,7 @@ import (
 
 type azureInstance struct {
 	vmName            string
-	provisioningState string
+	provisioningState compute.ProvisioningState
 	env               *azureEnviron
 	networkInterfaces []network.Interface
 	publicIPAddresses []network.PublicIPAddress
@@ -41,9 +42,9 @@ func (inst *azureInstance) Id() instance.Id {
 // Status is specified in the Instance interface.
 func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	var instanceStatus status.Status
-	message := inst.provisioningState
+	message := string(inst.provisioningState)
 	switch inst.provisioningState {
-	case "Succeeded":
+	case compute.ProvisioningStateSucceeded:
 		// TODO(axw) once a VM has been started, we should
 		// start using its power state to show if it's
 		// really running or not. This is just a nice to
@@ -51,14 +52,14 @@ func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.Stat
 		// be stopped.
 		instanceStatus = status.Running
 		message = ""
-	case "Canceled", "Failed":
+	case compute.ProvisioningStateDeleting, compute.ProvisioningStateFailed:
 		// TODO(axw) if the provisioning state is "Failed", then we
 		// should use the error message from the deployment description
 		// as the Message. The error details are not currently exposed
 		// in the Azure SDK. See:
 		//     https://github.com/Azure/azure-sdk-for-go/issues/399
 		instanceStatus = status.ProvisioningError
-	case "Running":
+	case compute.ProvisioningStateCreating:
 		message = ""
 		fallthrough
 	default:

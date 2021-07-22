@@ -63,13 +63,22 @@ type ModelSessioner interface {
 	ModelUUID() string
 }
 
+// LogIndex represents a way to configure a series of log indexes.
+type LogIndex struct {
+	Key    []string
+	Sparse bool
+}
+
 // logIndexes defines the indexes we need on the log collection.
-var logIndexes = [][]string{
+var logIndexes = []LogIndex{
 	// This index needs to include _id because
 	// logTailer.processCollection uses _id to ensure log records with
 	// the same time have a consistent ordering.
-	{"t", "_id"},
-	{"n"},
+	{Key: []string{"t", "_id"}},
+	{Key: []string{"n"}},
+	// The label field is optional, so we need a sparse index.
+	// See: https://docs.mongodb.com/manual/core/index-sparse/
+	{Key: []string{"c"}, Sparse: true},
 }
 
 func logCollectionName(modelUUID string) string {
@@ -196,8 +205,8 @@ func InitDbLogsForModel(session *mgo.Session, modelUUID string, size int) error 
 
 	// Ensure all the right indices are created. When converting to a capped
 	// collection, the indices are dropped.
-	for _, key := range logIndexes {
-		err := logsColl.EnsureIndex(mgo.Index{Key: key})
+	for _, index := range logIndexes {
+		err := logsColl.EnsureIndex(mgo.Index{Key: index.Key, Sparse: index.Sparse})
 		if err != nil {
 			return errors.Annotatef(err, "cannot create index for logs collection %v", logsColl.Name)
 		}
@@ -321,6 +330,7 @@ type logDoc struct {
 	Location string        `bson:"l"` // "filename:lineno"
 	Level    int           `bson:"v"`
 	Message  string        `bson:"x"`
+	Labels   []string      `bson:"c,omitempty"` // e.g. http
 }
 
 type DbLogger struct {
@@ -368,6 +378,7 @@ func (logger *DbLogger) Log(records []LogRecord) error {
 			Location: r.Location,
 			Level:    int(r.Level),
 			Message:  r.Message,
+			Labels:   r.Labels,
 		})
 	}
 	_, err := bulk.Run()
@@ -427,6 +438,7 @@ type LogRecord struct {
 	Module   string
 	Location string
 	Message  string
+	Labels   []string
 }
 
 // LogTailerParams specifies the filtering a LogTailer should apply to
@@ -441,6 +453,8 @@ type LogTailerParams struct {
 	ExcludeEntity []string
 	IncludeModule []string
 	ExcludeModule []string
+	IncludeLabel  []string
+	ExcludeLabel  []string
 	Oplog         *mgo.Collection // For testing only
 }
 
@@ -760,6 +774,14 @@ func (t *logTailer) paramsToSelector(params LogTailerParams, prefix string) bson
 		sel = append(sel,
 			bson.DocElem{"m", bson.M{"$not": bson.RegEx{Pattern: makeModulePattern(params.ExcludeModule)}}})
 	}
+	if len(params.IncludeLabel) > 0 {
+		sel = append(sel,
+			bson.DocElem{"c", bson.M{"$in": params.IncludeLabel}})
+	}
+	if len(params.ExcludeLabel) > 0 {
+		sel = append(sel,
+			bson.DocElem{"c", bson.M{"$nin": params.ExcludeLabel}})
+	}
 	if prefix != "" {
 		for i, elem := range sel {
 			sel[i].Name = prefix + elem.Name
@@ -861,6 +883,7 @@ func logDocToRecord(modelUUID string, doc *logDoc) (*LogRecord, error) {
 		Module:   doc.Module,
 		Location: doc.Location,
 		Message:  doc.Message,
+		Labels:   doc.Labels,
 	}
 	return rec, nil
 }

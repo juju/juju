@@ -6,6 +6,7 @@ package provider_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -598,29 +599,26 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			"db.adminCommand('ping')",
 		},
 	}
+	expectedArgs := []string{
+		`printf 'args="--dbpath=/var/lib/juju/db --sslPEMKeyFile=/var/lib/juju/server.pem --sslPEMKeyPassword=ignored --sslMode=requireSSL --port=1234 --journal --replSet=juju --quiet --oplogSize=1024 --auth --keyFile=/var/lib/juju/shared-secret --storageEngine=wiredTiger --bind_ip_all"`,
+		`ipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)`,
+		`if [ $ipv6Disabled -eq 0 ]; then`,
+		`  args="${args} --ipv6"`,
+		`fi`,
+		`$(mongod ${args})`,
+		`'>/root/mongo.sh && chmod a+x /root/mongo.sh && /root/mongo.sh`,
+	}
 	statefulSetSpec.Spec.Template.Spec.Containers = []core.Container{
 		{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
 			Image:           "jujusolutions/juju-db:4.0",
 			Command: []string{
-				"mongod",
+				"/bin/sh",
 			},
 			Args: []string{
-				"--dbpath=/var/lib/juju/db",
-				"--sslPEMKeyFile=/var/lib/juju/server.pem",
-				"--sslPEMKeyPassword=ignored",
-				"--sslMode=requireSSL",
-				fmt.Sprintf("--port=%d", s.controllerCfg.StatePort()),
-				"--journal",
-				"--replSet=juju",
-				"--quiet",
-				"--oplogSize=1024",
-				"--ipv6",
-				"--auth",
-				"--keyFile=/var/lib/juju/shared-secret",
-				"--storageEngine=wiredTiger",
-				"--bind_ip_all",
+				"-c",
+				strings.Join(expectedArgs, "\\n"),
 			},
 			Ports: []core.ContainerPort{
 				{

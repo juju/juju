@@ -649,9 +649,9 @@ func (s *provisionerSuite) TestWatchModelMachines(c *gc.C) {
 	wc.AssertChange(s.machine.Id())
 
 	// Add another 2 machines make sure they are detected.
-	otherMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	otherMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	otherMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("1", "2")
 

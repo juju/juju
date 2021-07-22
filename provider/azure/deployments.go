@@ -6,7 +6,7 @@ package azure
 import (
 	stdcontext "context"
 
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-06-01/resources"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs/context"

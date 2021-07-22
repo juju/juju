@@ -61,6 +61,7 @@ func (s *dumpLogsCommandSuite) TestRun(c *gc.C) {
 				Location: "location",
 				Level:    loggo.INFO,
 				Message:  fmt.Sprintf("%d", i),
+				Labels:   []string{"http"},
 			}})
 			c.Assert(err, jc.ErrorIsNil)
 		}
@@ -72,7 +73,7 @@ func (s *dumpLogsCommandSuite) TestRun(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the log file for each environment
-	expectedLog := "machine-42: 2015-11-04 03:02:01 INFO module %d"
+	expectedLog := "machine-42: 2015-11-04 03:02:01 INFO module %d http"
 	for _, st := range states {
 		logName := context.AbsPath(fmt.Sprintf("%s.log", st.ModelUUID()))
 		logFile, err := os.Open(logName)

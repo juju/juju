@@ -6,7 +6,6 @@ package jujuc_test
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
@@ -33,16 +32,16 @@ func (s *JujuLogSuite) newJujuLogCommand(c *gc.C) cmd.Command {
 	return jujuc.NewJujucCommandWrappedForTest(cmd)
 }
 
-func (s *JujuLogSuite) newJujuLogCommandWithMocks(ctrl *gomock.Controller, name string) (cmd.Command, *mocks.MockJujuLogContext, *mocks.MockJujuLogCommandLogger) {
-	logger := mocks.NewMockJujuLogCommandLogger(ctrl)
-
-	factory := mocks.NewMockJujuLogCommandLoggerFactory(ctrl)
-	factory.EXPECT().GetLogger(fmt.Sprintf("unit.%s.juju-log", name)).Return(logger)
-
+func (s *JujuLogSuite) newJujuLogCommandWithMocks(ctrl *gomock.Controller, name string) (cmd.Command, *mocks.MockJujuLogContext, *loggo.TestWriter) {
 	ctx := mocks.NewMockJujuLogContext(ctrl)
+	moduleName := fmt.Sprintf("unit.%s.juju-log", name)
+	logCtx := loggo.NewContext(loggo.UNSPECIFIED)
+	testWriter := &loggo.TestWriter{}
+	logCtx.AddWriter("test", testWriter)
+	ctx.EXPECT().GetLogger(moduleName).Return(logCtx.GetLogger(moduleName))
 
-	cmd := jujuc.NewJujuLogCommandWithMocks(ctx, factory)
-	return jujuc.NewJujucCommandWrappedForTest(cmd), ctx, logger
+	cmd := jujuc.NewJujuLogCommandWithMocks(ctx)
+	return jujuc.NewJujucCommandWrappedForTest(cmd), ctx, testWriter
 }
 
 func (s *JujuLogSuite) TestRequiresMessage(c *gc.C) {
@@ -81,9 +80,7 @@ func (s *JujuLogSuite) TestRunWithNoErrorsLogsOnRun(c *gc.C) {
 	defer ctrl.Finish()
 
 	messages := []string{"foo", "msg"}
-
-	cmd, context, logger := s.newJujuLogCommandWithMocks(ctrl, "")
-	logger.EXPECT().Logf(loggo.INFO, "%s%s", ": ", strings.Join(messages, " "))
+	cmd, context, _ := s.newJujuLogCommandWithMocks(ctrl, "")
 
 	relation := mocks.NewMockContextRelation(ctrl)
 	relation.EXPECT().FakeId().Return("")
@@ -102,9 +99,7 @@ func (s *JujuLogSuite) TestRunWithErrorIsNotImplementedLogsOnRun(c *gc.C) {
 	defer ctrl.Finish()
 
 	messages := []string{"foo", "msg"}
-
-	cmd, context, logger := s.newJujuLogCommandWithMocks(ctrl, "")
-	logger.EXPECT().Logf(loggo.INFO, "%s%s", "", strings.Join(messages, " "))
+	cmd, context, _ := s.newJujuLogCommandWithMocks(ctrl, "")
 
 	context.EXPECT().HookRelation().Return(nil, errors.NotImplementedf("not implemented"))
 	context.EXPECT().UnitName().Return("")
@@ -120,9 +115,7 @@ func (s *JujuLogSuite) TestRunWithErrorIsNotFoundLogsOnRun(c *gc.C) {
 	defer ctrl.Finish()
 
 	messages := []string{"foo", "msg"}
-
-	cmd, context, logger := s.newJujuLogCommandWithMocks(ctrl, "")
-	logger.EXPECT().Logf(loggo.INFO, "%s%s", "", strings.Join(messages, " "))
+	cmd, context, _ := s.newJujuLogCommandWithMocks(ctrl, "")
 
 	context.EXPECT().HookRelation().Return(nil, errors.NotFoundf("not found"))
 	context.EXPECT().UnitName().Return("")

@@ -3566,3 +3566,78 @@ func UpdateDHCPAddressConfigs(pool *StatePool) error {
 	}
 	return nil
 }
+
+func AddSpawnedTaskCountToOperations(pool *StatePool) error {
+	st := pool.SystemState()
+
+	opsCol, closer := st.db().GetRawCollection(operationsC)
+	defer closer()
+	iter := opsCol.Find(nil).Iter()
+
+	actionsCol, closer := st.db().GetRawCollection(actionsC)
+	defer closer()
+
+	var ops []txn.Op
+	var doc operationDoc
+	for iter.Next(&doc) {
+		_, localID, ok := splitDocID(doc.DocId)
+		if !ok {
+			return errors.Errorf("bad data, operation _id %s", doc.DocId)
+		}
+		criteria := bson.D{
+			{"model-uuid", doc.ModelUUID},
+			{"operation", localID},
+		}
+		count, err := actionsCol.Find(criteria).Count()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops = append(ops, txn.Op{
+			C:      operationsC,
+			Id:     doc.DocId,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"spawned-task-count": count}},
+		})
+	}
+
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}
+
+func TransformEmptyManifestsToNil(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(charmsC)
+		defer closer()
+
+		var docs []charmDoc
+		if err := col.Find(nil).All(&docs); err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, doc := range docs {
+			if doc.Manifest == nil || len(doc.Manifest.Bases) == 0 {
+				ops = append(ops, txn.Op{
+					C:      charmsC,
+					Id:     doc.DocID,
+					Assert: txn.DocExists,
+					Update: bson.D{{
+						"$unset", bson.D{{
+							"manifest", nil,
+						}},
+					}},
+				})
+			}
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
+	}))
+}

@@ -4,7 +4,6 @@
 package caasfirewallersidecar
 
 import (
-	"reflect"
 	"strings"
 
 	"github.com/juju/errors"
@@ -12,7 +11,6 @@ import (
 	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -36,32 +34,7 @@ type applicationWorker struct {
 	initial           bool
 	previouslyExposed bool
 
-	currentPorts portRanges
-
 	logger Logger
-}
-
-type portRanges map[network.PortRange]bool
-
-func (pg portRanges) equal(in portRanges) bool {
-	if len(pg) != len(in) {
-		return false
-	}
-	return reflect.DeepEqual(pg, in)
-}
-
-func (pg portRanges) toServicePorts() []caas.ServicePort {
-	out := make([]caas.ServicePort, len(pg))
-	for p := range pg {
-		out = append(out, caas.ServicePort{
-			// TODO(sidecar): add name to `network.PortRange`?
-			// Name:       p.Name,
-			Port:       p.FromPort,
-			TargetPort: p.ToPort,
-			Protocol:   p.Protocol,
-		})
-	}
-	return out
 }
 
 func newApplicationWorker(

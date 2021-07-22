@@ -23,16 +23,16 @@ const (
 type Info struct {
 	Kind hooks.Kind `yaml:"kind"`
 
-	// RelationId identifies the relation associated with the hook. It is
-	// only set when Kind indicates a relation hook.
+	// RelationId identifies the relation associated with the hook.
+	// It is only set when Kind indicates a relation hook.
 	RelationId int `yaml:"relation-id,omitempty"`
 
 	// RemoteUnit is the name of the unit that triggered the hook. It is only
 	// set when Kind indicates a relation hook other than relation-broken.
 	RemoteUnit string `yaml:"remote-unit,omitempty"`
 
-	// RemoteApplication is always set if either an app or a unit triggers the hook.
-	// If the app triggers the hook, then RemoteUnit will be empty
+	// RemoteApplication is always set if either an app or a unit triggers
+	// the hook. If the app triggers the hook, then RemoteUnit will be empty.
 	RemoteApplication string `yaml:"remote-application,omitempty"`
 
 	// ChangeVersion identifies the most recent unit settings change
@@ -48,6 +48,11 @@ type Info struct {
 
 	// WorkloadName is the name of the sidecar container or workload relevant to the hook.
 	WorkloadName string `yaml:"workload-name,omitempty"`
+
+	// SeriesUpgradeTarget is the series that the unit's machine is to be
+	// updated to when Juju is issued the `upgrade-series` command.
+	// It is only set for the pre-series-upgrade hook.
+	SeriesUpgradeTarget string `yaml:"series-upgrade-target,omitempty"`
 }
 
 // Validate returns an error if the info is not valid.
@@ -75,8 +80,14 @@ func (hi Info) Validate() error {
 			return fmt.Errorf("%q hook requires a workload name", hi.Kind)
 		}
 		return nil
-	case hooks.Install, hooks.Remove, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationCreated, hooks.RelationBroken,
-		hooks.CollectMetrics, hooks.MeterStatusChanged, hooks.UpdateStatus, hooks.PreSeriesUpgrade, hooks.PostSeriesUpgrade:
+	case hooks.PreSeriesUpgrade:
+		if hi.SeriesUpgradeTarget == "" {
+			return fmt.Errorf("%q hook requires a target series", hi.Kind)
+		}
+		return nil
+	case hooks.Install, hooks.Remove, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop,
+		hooks.RelationCreated, hooks.RelationBroken, hooks.CollectMetrics, hooks.MeterStatusChanged, hooks.UpdateStatus,
+		hooks.PostSeriesUpgrade:
 		return nil
 	case hooks.Action:
 		return fmt.Errorf("hooks.Kind Action is deprecated")

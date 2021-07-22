@@ -301,6 +301,7 @@ func (s *RegisterSuite) TestControllerUUIDExists(c *gc.C) {
 		ControllerUUID: mockControllerUUID,
 		CACert:         testing.CACert,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{

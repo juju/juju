@@ -42,6 +42,11 @@ func (ds *DaemonSet) Clone() Resource {
 	return &clone
 }
 
+// ID returns a comparable ID for the Resource
+func (r *DaemonSet) ID() ID {
+	return ID{"DaemonSet", r.Name, r.Namespace}
+}
+
 // Apply patches the resource change.
 func (ds *DaemonSet) Apply(ctx context.Context, client kubernetes.Interface) error {
 	api := client.AppsV1().DaemonSets(ds.Namespace)

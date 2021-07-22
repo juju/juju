@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 )
@@ -27,10 +26,9 @@ var (
 type detectCloudSuite struct{}
 
 type builtinCloudRet struct {
-	cloud          cloud.Cloud
-	credential     jujucloud.Credential
-	credentialName string
-	err            error
+	cloud      jujucloud.Cloud
+	credential jujucloud.Credential
+	err        error
 }
 
 type dummyRunner struct {
@@ -42,13 +40,18 @@ func (d dummyRunner) RunCommands(run exec.RunParams) (*exec.ExecResponse, error)
 	return results[0].(*exec.ExecResponse), testing.TypeAssertError(results[1])
 }
 
-func cloudGetterFunc(args builtinCloudRet) func(provider.CommandRunner) (cloud.Cloud, error) {
-	return func(provider.CommandRunner) (cloud.Cloud, error) {
+func (d dummyRunner) LookPath(file string) (string, error) {
+	results := d.MethodCall(d, "LookPath", file)
+	return results[0].(string), testing.TypeAssertError(results[1])
+}
+
+func cloudGetterFunc(args builtinCloudRet) func(provider.CommandRunner) (jujucloud.Cloud, error) {
+	return func(provider.CommandRunner) (jujucloud.Cloud, error) {
 		return args.cloud, args.err
 	}
 }
 
-func credentialGetterFunc(args builtinCloudRet) func(provider.CommandRunner) (cloud.Credential, error) {
+func credentialGetterFunc(args builtinCloudRet) func(provider.CommandRunner) (jujucloud.Credential, error) {
 	return func(provider.CommandRunner) (jujucloud.Credential, error) {
 		return args.credential, args.err
 	}

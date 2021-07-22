@@ -196,7 +196,11 @@ func (s *RunHookSuite) getExecuteRunnerTest(
 		MockNotifyHookFailed:    &MockNotify{},
 	}
 	factory := newOpFactory(runnerFactory, callbacks)
-	op, err := newHook(factory, hook.Info{Kind: kind})
+
+	// Target is supplied for the special-cased pre-series-upgrade hook.
+	// This is the only one of the designated unit hooks with validation.
+	op, err := newHook(factory, hook.Info{Kind: kind, SeriesUpgradeTarget: "focal"})
+
 	c.Assert(err, jc.ErrorIsNil)
 	return op, callbacks, runnerFactory
 }
@@ -211,11 +215,9 @@ func (s *RunHookSuite) TestExecuteMissingHookError(c *gc.C) {
 
 		newState, err := op.Execute(operation.State{})
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(newState, gc.DeepEquals, &operation.State{
-			Kind: operation.RunHook,
-			Step: operation.Done,
-			Hook: &hook.Info{Kind: kind},
-		})
+
+		s.assertStateMatches(c, newState, operation.RunHook, operation.Done, kind)
+
 		c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
 		c.Assert(callbacks.MockNotifyHookCompleted.gotName, gc.IsNil)
 		c.Assert(callbacks.MockNotifyHookFailed.gotName, gc.IsNil)
@@ -226,6 +228,15 @@ func (s *RunHookSuite) TestExecuteMissingHookError(c *gc.C) {
 	}
 }
 
+func (s *RunHookSuite) assertStateMatches(
+	c *gc.C, st *operation.State, opKind operation.Kind, step operation.Step, hookKind hooks.Kind,
+) {
+	c.Assert(st.Kind, gc.Equals, opKind)
+	c.Assert(st.Step, gc.Equals, step)
+	c.Assert(st.Hook, gc.NotNil)
+	c.Assert(st.Hook.Kind, gc.Equals, hookKind)
+}
+
 func (s *RunHookSuite) TestExecuteRequeueRebootError(c *gc.C) {
 	runErr := context.ErrRequeueAndReboot
 	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, hooks.ConfigChanged, runErr)
@@ -234,11 +245,9 @@ func (s *RunHookSuite) TestExecuteRequeueRebootError(c *gc.C) {
 
 	newState, err := op.Execute(operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrNeedsReboot)
-	c.Assert(newState, gc.DeepEquals, &operation.State{
-		Kind: operation.RunHook,
-		Step: operation.Queued,
-		Hook: &hook.Info{Kind: hooks.ConfigChanged},
-	})
+
+	s.assertStateMatches(c, newState, operation.RunHook, operation.Queued, hooks.ConfigChanged)
+
 	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookCompleted.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookCompleted.gotContext, gc.Equals, runnerFactory.MockNewHookRunner.runner.context)
@@ -253,11 +262,9 @@ func (s *RunHookSuite) TestExecuteRebootError(c *gc.C) {
 
 	newState, err := op.Execute(operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrNeedsReboot)
-	c.Assert(newState, gc.DeepEquals, &operation.State{
-		Kind: operation.RunHook,
-		Step: operation.Done,
-		Hook: &hook.Info{Kind: hooks.ConfigChanged},
-	})
+
+	s.assertStateMatches(c, newState, operation.RunHook, operation.Done, hooks.ConfigChanged)
+
 	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookCompleted.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookCompleted.gotContext, gc.Equals, runnerFactory.MockNewHookRunner.runner.context)
@@ -328,7 +335,11 @@ func (s *RunHookSuite) testExecuteSuccess(
 
 	newState, err := op.Execute(*midState)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newState, gc.DeepEquals, &after)
+
+	s.assertStateMatches(c, newState, after.Kind, after.Step, after.Hook.Kind)
+	c.Assert(newState.Started, gc.Equals, after.Started)
+	c.Assert(newState.StatusSet, gc.Equals, after.StatusSet)
+
 	c.Check(callbacks.executingMessage, gc.Equals, "running some-hook-name hook")
 }
 
@@ -373,7 +384,10 @@ func (s *RunHookSuite) testExecuteThenCharmStatus(
 
 	newState, err := op.Execute(*midState)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newState, gc.DeepEquals, &after)
+
+	s.assertStateMatches(c, newState, after.Kind, after.Step, after.Hook.Kind)
+	c.Assert(newState.Started, gc.Equals, after.Started)
+	c.Assert(newState.StatusSet, gc.Equals, after.StatusSet)
 
 	status, err := f.MockNewHookRunner.runner.Context().UnitStatus()
 	c.Assert(err, jc.ErrorIsNil)

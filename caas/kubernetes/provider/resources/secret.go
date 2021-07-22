@@ -35,10 +35,35 @@ func NewSecret(name string, namespace string, in *corev1.Secret) *Secret {
 	return &Secret{*in}
 }
 
+// ListSecrets returns a list of Secrets.
+func ListSecrets(ctx context.Context, client kubernetes.Interface, namespace string, opts metav1.ListOptions) ([]Secret, error) {
+	api := client.CoreV1().Secrets(namespace)
+	var items []Secret
+	for {
+		res, err := api.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, v := range res.Items {
+			items = append(items, Secret{Secret: v})
+		}
+		if res.RemainingItemCount == nil || *res.RemainingItemCount == 0 {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
+}
+
 // Clone returns a copy of the resource.
 func (s *Secret) Clone() Resource {
 	clone := *s
 	return &clone
+}
+
+// ID returns a comparable ID for the Resource
+func (r *Secret) ID() ID {
+	return ID{"Secret", r.Name, r.Namespace}
 }
 
 // Apply patches the resource change.

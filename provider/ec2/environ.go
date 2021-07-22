@@ -1603,7 +1603,7 @@ func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Ins
 
 // AllRunningInstances is part of the environs.InstanceBroker interface.
 func (e *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
-	return e.allInstancesByState(ctx, "pending", "running")
+	return e.allInstancesByState(ctx, aliveInstanceStates...)
 }
 
 // allInstancesByState returns all instances in the environment

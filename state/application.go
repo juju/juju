@@ -1064,7 +1064,7 @@ func (a *Application) IsSidecar() (bool, error) {
 	}
 
 	// TODO(sidecar): Determine a better way represent this.
-	return m.Type() == ModelTypeCAAS && corecharm.Format(ch) == corecharm.FormatV2, nil
+	return m.Type() == ModelTypeCAAS && charm.MetaFormat(ch) == charm.FormatV2, nil
 }
 
 // changeCharmOps returns the operations necessary to set a application's
@@ -1489,7 +1489,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	}
 
 	// If it's a v1 or v2 machine charm (no containers), check series.
-	if corecharm.Format(cfg.Charm) == corecharm.FormatV1 || len(cfg.Charm.Meta().Containers) == 0 {
+	if charm.MetaFormat(cfg.Charm) == charm.FormatV1 || len(cfg.Charm.Meta().Containers) == 0 {
 		err := setCharmCheckSeries(a.doc.Series, cfg.Charm, cfg.ForceSeries)
 		if err != nil {
 			return errors.Trace(err)
@@ -3058,7 +3058,7 @@ func CheckApplicationExpectsWorkload(m *Model, appName string) (bool, error) {
 		return false, errors.Trace(err)
 	}
 
-	if corecharm.Format(ch) == corecharm.FormatV2 {
+	if charm.MetaFormat(ch) == charm.FormatV2 {
 		return false, nil
 	}
 

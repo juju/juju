@@ -35,7 +35,9 @@ func (s *upgradeSeriesSuite) SetUpTest(c *gc.C) {
 	s.unitTag2 = names.NewUnitTag("redis/1")
 }
 
-func (s *upgradeSeriesSuite) assertBackendApi(c *gc.C, tag names.Tag) (*common.UpgradeSeriesAPI, *gomock.Controller, *mocks.MockUpgradeSeriesBackend) {
+func (s *upgradeSeriesSuite) assertBackendApi(
+	c *gc.C, tag names.Tag,
+) (*common.UpgradeSeriesAPI, *gomock.Controller, *mocks.MockUpgradeSeriesBackend) {
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: tag,
@@ -130,7 +132,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTag(c *gc.C) {
 	mockUnit := mocks.NewMockUpgradeSeriesUnit(ctrl)
 
 	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil)
-	mockUnit.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesPrepareRunning, nil)
+	mockUnit.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesPrepareRunning, "focal", nil)
 	mockUnit.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, gomock.Any()).Return(nil)
 
 	args := params.UpgradeSeriesStatusParams{
@@ -162,7 +164,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTagWithInvalidStatus(
 	mockUnit := mocks.NewMockUpgradeSeriesUnit(ctrl)
 
 	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil)
-	mockUnit.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesNotStarted, nil)
+	mockUnit.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesNotStarted, "", nil)
 
 	args := params.UpgradeSeriesStatusParams{
 		Params: []params.UpgradeSeriesStatusParam{
@@ -188,7 +190,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *gc.C) {
 	mockUnit := mocks.NewMockUpgradeSeriesUnit(ctrl)
 
 	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil)
-	mockUnit.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesPrepareCompleted, nil)
+	mockUnit.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesPrepareCompleted, "focal", nil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -201,7 +203,10 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
 		Results: []params.UpgradeSeriesStatusResult{
-			{Status: model.UpgradeSeriesPrepareCompleted},
+			{
+				Status: model.UpgradeSeriesPrepareCompleted,
+				Target: "focal",
+			},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})

@@ -365,7 +365,6 @@ func (m *Model) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttr
 	// applied as a delta to what's on disk; if there has
 	// been a concurrent update, the change may not be what
 	// the user asked for.
-
 	modelSettings, err := readSettings(st.db(), settingsC, modelGlobalKey)
 	if err != nil {
 		return errors.Annotatef(err, "model %q", m.UUID())

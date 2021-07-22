@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v2"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -393,10 +393,10 @@ func (aw *applicationWorker) clusterChanged(
 	return nil
 }
 
-func (aw *applicationWorker) charmFormat() (charm.MetadataFormat, error) {
+func (aw *applicationWorker) charmFormat() (charm.Format, error) {
 	charmInfo, err := aw.charmGetter.ApplicationCharmInfo(aw.application)
 	if err != nil {
 		return charm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", aw.application)
 	}
-	return charm.Format(charmInfo.Charm()), nil
+	return charm.MetaFormat(charmInfo.Charm()), nil
 }

@@ -19,7 +19,7 @@ import (
 	keyvaultservices "github.com/Azure/azure-sdk-for-go/services/keyvault/2016-10-01/keyvault"
 	"github.com/Azure/azure-sdk-for-go/services/keyvault/mgmt/2018-02-14/keyvault"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-06-01/resources"
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
@@ -268,7 +268,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 
 	s.commonDeployment = &resources.DeploymentExtended{
 		Properties: &resources.DeploymentPropertiesExtended{
-			ProvisioningState: to.StringPtr("Succeeded"),
+			ProvisioningState: resources.ProvisioningStateSucceeded,
 		},
 	}
 
@@ -649,7 +649,7 @@ func (s *environSuite) TestCloudEndpointManagementURI(c *gc.C) {
 	s.requests = nil
 	env.AllRunningInstances(s.callCtx) // trigger a query
 
-	c.Assert(s.requests, gc.HasLen, 1)
+	c.Assert(s.requests, gc.HasLen, 3)
 	c.Assert(s.requests[0].URL.Host, gc.Equals, "api.azurestack.local")
 }
 
@@ -885,7 +885,7 @@ func (s *environSuite) TestStartInstanceCommonDeployment(c *gc.C) {
 	// successfully before creating the VM deployment. If the deployment
 	// is seen to be in a terminal state, the process will stop
 	// immediately.
-	s.commonDeployment.Properties.ProvisioningState = to.StringPtr("Failed")
+	s.commonDeployment.Properties.ProvisioningState = resources.ProvisioningStateFailed
 
 	env := s.openEnviron(c)
 	senders := s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
@@ -960,7 +960,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentWithStorageAccountAndAva
 func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 	// StartInstance waits for the "common" deployment to complete
 	// successfully before creating the VM deployment.
-	s.commonDeployment.Properties.ProvisioningState = to.StringPtr("Running")
+	s.commonDeployment.Properties.ProvisioningState = resources.ProvisioningStateCreating
 
 	env := s.openEnviron(c)
 	senders := s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
@@ -1888,7 +1888,7 @@ func (s *environSuite) TestAllRunningInstancesResourceGroupNotFound(c *gc.C) {
 	sender.AppendAndRepeatResponse(mocks.NewResponseWithStatus(
 		"resource group not found", http.StatusNotFound,
 	), 2)
-	s.sender = azuretesting.Senders{sender}
+	s.sender = azuretesting.Senders{sender, sender}
 	_, err := env.AllRunningInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1903,13 +1903,13 @@ func (s *environSuite) TestAllRunningInstancesIgnoresCommonDeployment(c *gc.C) {
 		// common deployment should be ignored
 		Name: to.StringPtr("common"),
 		Properties: &resources.DeploymentPropertiesExtended{
-			ProvisioningState: to.StringPtr("Succeeded"),
+			ProvisioningState: resources.ProvisioningStateSucceeded,
 			Dependencies:      &dependencies,
 		},
 	}}
-	result := resources.DeploymentListResult{Value: &deployments}
 	s.sender = azuretesting.Senders{
-		makeSender("/deployments", result),
+		makeSender("/deployments", resources.DeploymentListResult{Value: &deployments}),
+		makeSender("/virtualMachines", compute.VirtualMachineListResult{}),
 	}
 
 	instances, err := env.AllRunningInstances(s.callCtx)
@@ -2402,13 +2402,13 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 		c.Check(req.URL.Query().Get("api-version"), gc.Equals, expectedVersion)
 	}
 	// Resource group get and update.
-	checkAPIVersion(0, "GET", "2018-05-01")
-	checkAPIVersion(1, "PUT", "2018-05-01")
+	checkAPIVersion(0, "GET", "2020-06-01")
+	checkAPIVersion(1, "PUT", "2020-06-01")
 	// Resources.
-	checkAPIVersion(4, "GET", "2018-05-01")
-	checkAPIVersion(5, "PUT", "2018-05-01")
-	checkAPIVersion(6, "GET", "2018-05-01")
-	checkAPIVersion(7, "PUT", "2018-05-01")
+	checkAPIVersion(4, "GET", "2020-06-01")
+	checkAPIVersion(5, "PUT", "2020-06-01")
+	checkAPIVersion(6, "GET", "2020-06-01")
+	checkAPIVersion(7, "PUT", "2020-06-01")
 
 	checkTagsAndProperties := func(ix uint) {
 		req := s.requests[ix]
@@ -2454,7 +2454,7 @@ func makeProvidersResult() resources.ProviderListResult {
 			APIVersions:  &[]string{"2016-12-15", "2014-02-02"},
 		}, {
 			ResourceType: to.StringPtr("liars/scissor"),
-			APIVersions:  &[]string{"2018-05-01", "2015-03-02"},
+			APIVersions:  &[]string{"2020-06-01", "2015-03-02"},
 		}},
 	}, {
 		Namespace: to.StringPtr("Tuneyards.Bizness"),
@@ -2463,7 +2463,7 @@ func makeProvidersResult() resources.ProviderListResult {
 			APIVersions:  &[]string{"2016-12-14", "2014-04-02"},
 		}, {
 			ResourceType: to.StringPtr("micachu"),
-			APIVersions:  &[]string{"2018-05-01", "2015-05-02"},
+			APIVersions:  &[]string{"2020-06-01", "2015-05-02"},
 		}},
 	}}
 	return resources.ProviderListResult{Value: &providers}

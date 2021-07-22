@@ -90,6 +90,18 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 				Backlog:       10,
 			},
 		}, {
+			args: []string{"--include-label", "http", "--include-label", "apiserver"},
+			expected: common.DebugLogParams{
+				IncludeLabel: []string{"http", "apiserver"},
+				Backlog:      10,
+			},
+		}, {
+			args: []string{"--exclude-label", "http", "--exclude-label", "apiserver"},
+			expected: common.DebugLogParams{
+				ExcludeLabel: []string{"http", "apiserver"},
+				Backlog:      10,
+			},
+		}, {
 			args: []string{"--replay"},
 			expected: common.DebugLogParams{
 				Backlog: 10,
@@ -182,6 +194,49 @@ func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 	checkOutput(
 		"--location",
 		"machine-0: 14:15:23 INFO test.module somefile.go:123 this is the log output\n")
+}
+
+func (s *DebugLogSuite) TestLogOutputWithLogs(c *gc.C) {
+	// test timezone is 6 hours east of UTC
+	tz := time.FixedZone("test", 6*60*60)
+	s.PatchValue(&getDebugLogAPI, func(_ *debugLogCommand) (DebugLogAPI, error) {
+		return &fakeDebugLogAPI{log: []common.LogMessage{
+			{
+				Entity:    "machine-0",
+				Timestamp: time.Date(2016, 10, 9, 8, 15, 23, 345000000, time.UTC),
+				Severity:  "INFO",
+				Module:    "test.module",
+				Location:  "somefile.go:123",
+				Message:   "this is the log output",
+				Labels:    []string{"http,foo"},
+			},
+		}}, nil
+	})
+	checkOutput := func(args ...string) {
+		count := len(args)
+		args, expected := args[:count-1], args[count-1]
+		ctx, err := cmdtesting.RunCommand(c, newDebugLogCommandTZ(jujuclienttesting.MinimalStore(), tz), args...)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+
+	}
+	checkOutput(
+		"machine-0: 14:15:23 INFO test.module http,foo this is the log output\n")
+	checkOutput(
+		"--ms",
+		"machine-0: 14:15:23.345 INFO test.module http,foo this is the log output\n")
+	checkOutput(
+		"--utc",
+		"machine-0: 08:15:23 INFO test.module http,foo this is the log output\n")
+	checkOutput(
+		"--date",
+		"machine-0: 2016-10-09 14:15:23 INFO test.module http,foo this is the log output\n")
+	checkOutput(
+		"--utc", "--date",
+		"machine-0: 2016-10-09 08:15:23 INFO test.module http,foo this is the log output\n")
+	checkOutput(
+		"--location",
+		"machine-0: 14:15:23 INFO test.module somefile.go:123 http,foo this is the log output\n")
 }
 
 type fakeDebugLogAPI struct {

@@ -4,11 +4,11 @@
 package caasfirewaller
 
 import (
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/life"
 )
 
@@ -111,7 +111,7 @@ func (p *firewaller) loop() error {
 				} else if err != nil {
 					return errors.Trace(err)
 				}
-				if format >= corecharm.FormatV2 {
+				if format >= charm.FormatV2 {
 					p.config.Logger.Tracef("v1 caasfirewaller got event for v2 app %q, skipping", appName)
 					continue
 				}
@@ -155,10 +155,10 @@ func (p *firewaller) loop() error {
 	}
 }
 
-func (p *firewaller) charmFormat(appName string) (corecharm.MetadataFormat, error) {
+func (p *firewaller) charmFormat(appName string) (charm.Format, error) {
 	charmInfo, err := p.config.CharmGetter.ApplicationCharmInfo(appName)
 	if err != nil {
-		return corecharm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", appName)
+		return charm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", appName)
 	}
-	return corecharm.Format(charmInfo.Charm()), nil
+	return charm.MetaFormat(charmInfo.Charm()), nil
 }

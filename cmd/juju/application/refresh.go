@@ -17,7 +17,6 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v2/catacomb"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -177,9 +176,6 @@ type refreshCommand struct {
 	// Storage is a map of storage constraints, keyed on the storage name
 	// defined in charm storage metadata, to add or update during upgrade.
 	Storage map[string]storage.Constraints
-
-	catacomb catacomb.Catacomb
-	plan     catacomb.Plan
 }
 
 const refreshDoc = `

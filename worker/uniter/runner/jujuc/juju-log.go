@@ -15,34 +15,22 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 )
 
-// JujuLogCommandLogger provides a Logger interface for the juju-log command.
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/juju-log_mock.go github.com/juju/juju/worker/uniter/runner/jujuc JujuLogCommandLogger,JujuLogCommandLoggerFactory,JujuLogContext
-type JujuLogCommandLogger interface {
-	Logf(level loggo.Level, message string, args ...interface{})
-	Warningf(message string, args ...interface{})
-}
-
-// JujuLogCommandLoggerFactory is used to create new loggers
-// (stickupkid) We should derive this from the context itself.
-type JujuLogCommandLoggerFactory interface {
-	GetLogger(name string) JujuLogCommandLogger
-}
-
 // JujuLogContext is the Context for the JujuLogCommand
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/juju-log_mock.go github.com/juju/juju/worker/uniter/runner/jujuc JujuLogContext
 type JujuLogContext interface {
 	UnitName() string
 	HookRelation() (ContextRelation, error)
+	GetLogger(module string) loggo.Logger
 }
 
 // JujuLogCommand implements the juju-log command.
 type JujuLogCommand struct {
 	cmd.CommandBase
-	ctx           JujuLogContext
-	Message       string
-	Debug         bool
-	Level         string
-	formatFlag    string // deprecated
-	loggerFactory JujuLogCommandLoggerFactory
+	ctx        JujuLogContext
+	Message    string
+	Debug      bool
+	Level      string
+	formatFlag string // deprecated
 }
 
 func NewJujuLogCommand(ctx Context) (cmd.Command, error) {
@@ -69,9 +57,6 @@ func (c *JujuLogCommand) Init(args []string) error {
 		return errors.New("no message specified")
 	}
 	c.Message = strings.Join(args, " ")
-	if c.loggerFactory == nil {
-		c.loggerFactory = loggoLoggerFactory{}
-	}
 	return nil
 }
 
@@ -79,7 +64,7 @@ func (c *JujuLogCommand) Run(ctx *cmd.Context) error {
 	if c.formatFlag != "" {
 		fmt.Fprintf(ctx.Stderr, "--format flag deprecated for command %q", c.Info().Name)
 	}
-	logger := c.loggerFactory.GetLogger(fmt.Sprintf("unit.%s.juju-log", c.ctx.UnitName()))
+	logger := c.ctx.GetLogger(fmt.Sprintf("unit.%s.juju-log", c.ctx.UnitName()))
 
 	logLevel := loggo.INFO
 	if c.Debug {
@@ -105,10 +90,4 @@ func (c *JujuLogCommand) Run(ctx *cmd.Context) error {
 
 	logger.Logf(logLevel, "%s%s", prefix, c.Message)
 	return nil
-}
-
-type loggoLoggerFactory struct{}
-
-func (l loggoLoggerFactory) GetLogger(name string) JujuLogCommandLogger {
-	return loggo.GetLogger(name)
 }

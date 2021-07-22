@@ -41,6 +41,11 @@ func (s *Service) Clone() Resource {
 	return &clone
 }
 
+// ID returns a comparable ID for the Resource
+func (r *Service) ID() ID {
+	return ID{"Service", r.Name, r.Namespace}
+}
+
 // Apply patches the resource change.
 func (s *Service) Apply(ctx context.Context, client kubernetes.Interface) error {
 	api := client.CoreV1().Services(s.Namespace)

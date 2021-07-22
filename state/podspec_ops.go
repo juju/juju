@@ -10,7 +10,6 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/leadership"
 )
 
@@ -86,7 +85,7 @@ func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 		if ch.Meta().Deployment != nil && ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
 			return nil, errors.New("cannot set k8s spec on an operator charm")
 		}
-		if corecharm.Format(ch) >= corecharm.FormatV2 {
+		if charm.MetaFormat(ch) >= charm.FormatV2 {
 			return nil, errors.New("cannot set k8s spec on a v2 charm")
 		}
 	}

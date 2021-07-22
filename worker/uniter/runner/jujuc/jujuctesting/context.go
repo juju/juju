@@ -6,6 +6,7 @@ package jujuctesting
 import (
 	"fmt"
 
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 )
 
@@ -106,4 +107,8 @@ func NewContext(stub *testing.Stub, info *ContextInfo) *Context {
 	ctx.ContextWorkloadHook.stub = stub
 	ctx.ContextWorkloadHook.info = &info.WorkloadHook
 	return &ctx
+}
+
+func (c *Context) GetLogger(module string) loggo.Logger {
+	return loggo.GetLogger(module)
 }

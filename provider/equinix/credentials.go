@@ -47,13 +47,15 @@ func (e environProviderCredentials) DetectCredentials(cloudName string) (*cloud.
 	if val, present := os.LookupEnv("METAL_AUTH_TOKEN"); present {
 		creds.AuthToken = val
 	} else {
-		return nil, errors.Errorf("equinix metal auth token not present")
+		logger.Debugf("METAL_AUTH_TOKEN environment variable not set")
+		return nil, errors.NotFoundf("equinix metal auth token")
 	}
 
 	if val, present := os.LookupEnv("METAL_PROJECT_ID"); present {
 		creds.ProjectID = val
 	} else {
-		return nil, errors.Errorf("equinix metal project ID not present")
+		logger.Debugf("METAL_PROJECT_ID environment variable not set")
+		return nil, errors.NotFoundf("equinix metal project ID")
 	}
 
 	result.AuthCredentials["default"] = cloud.NewCredential(

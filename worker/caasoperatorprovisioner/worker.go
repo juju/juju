@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -31,7 +32,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/storage"
@@ -135,7 +135,7 @@ func (p *provisioner) loop() error {
 				} else if err != nil {
 					return errors.Trace(err)
 				}
-				if format > corecharm.FormatV1 {
+				if format > charm.FormatV1 {
 					p.logger.Tracef("application %q is v2, ignoring event", app)
 					continue
 				}
@@ -167,12 +167,12 @@ func (p *provisioner) loop() error {
 	}
 }
 
-func (p *provisioner) charmFormat(appName string) (corecharm.MetadataFormat, error) {
+func (p *provisioner) charmFormat(appName string) (charm.Format, error) {
 	charmInfo, err := p.facade.ApplicationCharmInfo(appName)
 	if err != nil {
-		return corecharm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", appName)
+		return charm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", appName)
 	}
-	return corecharm.Format(charmInfo.Charm()), nil
+	return charm.MetaFormat(charmInfo.Charm()), nil
 }
 
 func (p *provisioner) waitForOperatorTerminated(app string) error {

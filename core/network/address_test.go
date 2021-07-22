@@ -6,6 +6,7 @@ package network_test
 import (
 	"fmt"
 	"net"
+	"sort"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -705,7 +706,7 @@ func (*AddressSuite) TestSortAddresses(c *gc.C) {
 	addrs = append(addrs, network.NewSpaceAddress("6.8.8.8", network.WithSecondary(true)))
 	addrs = append(addrs, network.NewSpaceAddress("172.16.0.1", network.WithSecondary(true)))
 
-	network.SortAddresses(addrs)
+	sort.Sort(addrs)
 	c.Assert(addrs.Values(), jc.DeepEquals, []string{
 		// Public IPv4 addresses on top.
 		"7.8.8.8",
@@ -982,4 +983,82 @@ func (s *AddressSuite) TestIsValidAddressConfigTypeWithInvalidValues(c *gc.C) {
 
 	result = network.IsValidAddressConfigType(" ")
 	c.Check(result, jc.IsFalse)
+}
+
+// spaceAddressCandidate implements the SpaceAddressCandidate
+// interface from the core/network package.
+type spaceAddressCandidate struct {
+	value        string
+	configMethod network.AddressConfigType
+	subnetCIDR   string
+	isSecondary  bool
+}
+
+func (s spaceAddressCandidate) Value() string {
+	return s.value
+}
+
+func (s spaceAddressCandidate) ConfigMethod() network.AddressConfigType {
+	return s.configMethod
+}
+
+func (s spaceAddressCandidate) SubnetCIDR() string {
+	return s.subnetCIDR
+}
+
+func (s spaceAddressCandidate) IsSecondary() bool {
+	return s.isSecondary
+}
+
+func (s *AddressSuite) TestConvertToSpaceAddresses(c *gc.C) {
+	subs := network.SubnetInfos{
+		{ID: "1", CIDR: "192.168.0.0/24", SpaceID: "666"},
+		{ID: "2", CIDR: "252.80.0.0/12", SpaceID: "999"},
+	}
+
+	candidates := []network.SpaceAddressCandidate{
+		spaceAddressCandidate{
+			value:        "252.80.0.100",
+			configMethod: network.ConfigStatic,
+			subnetCIDR:   "252.80.0.0/12",
+			isSecondary:  true,
+		},
+		spaceAddressCandidate{
+			value:        "192.168.0.66",
+			configMethod: network.ConfigDHCP,
+			subnetCIDR:   "192.168.0.0/24",
+		},
+	}
+
+	addrs := make(network.SpaceAddresses, len(candidates))
+	for i, ca := range candidates {
+		var err error
+		addrs[i], err = network.ConvertToSpaceAddress(ca, subs)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	sort.Sort(addrs)
+	c.Check(addrs, gc.DeepEquals, network.SpaceAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value:      "192.168.0.66",
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeCloudLocal,
+				ConfigType: network.ConfigDHCP,
+				CIDR:       "192.168.0.0/24",
+			},
+			SpaceID: "666",
+		},
+		{
+			MachineAddress: network.MachineAddress{
+				Value:       "252.80.0.100",
+				Type:        network.IPv4Address,
+				Scope:       network.ScopeFanLocal,
+				ConfigType:  network.ConfigStatic,
+				CIDR:        "252.80.0.0/12",
+				IsSecondary: true,
+			},
+			SpaceID: "999",
+		},
+	})
 }

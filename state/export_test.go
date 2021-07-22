@@ -576,6 +576,7 @@ func MakeLogDoc(
 	location string,
 	level loggo.Level,
 	msg string,
+	labels []string,
 ) *logDoc {
 	return &logDoc{
 		Id:       bson.NewObjectId(),
@@ -586,6 +587,7 @@ func MakeLogDoc(
 		Location: location,
 		Level:    int(level),
 		Message:  msg,
+		Labels:   labels,
 	}
 }
 

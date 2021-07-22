@@ -156,6 +156,7 @@ func (w *ConfigWatcher) configChanged(topic string, value interface{}) {
 		return
 	}
 	w.notify()
+	w.hash = hash
 }
 
 // StringsWatcher will return what has changed.

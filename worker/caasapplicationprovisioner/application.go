@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/podcfg"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/series"
@@ -326,12 +325,12 @@ func (a *appWorker) loop() error {
 	}
 }
 
-func (a *appWorker) charmFormat() (corecharm.MetadataFormat, error) {
+func (a *appWorker) charmFormat() (charm.Format, error) {
 	charmInfo, err := a.facade.ApplicationCharmInfo(a.name)
 	if err != nil {
-		return corecharm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", a.name)
+		return charm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", a.name)
 	}
-	return corecharm.Format(charmInfo.Charm()), nil
+	return charm.MetaFormat(charmInfo.Charm()), nil
 }
 
 // verifyCharmUpgraded waits till the charm is upgraded to a v2 charm.
@@ -354,7 +353,7 @@ func (a *appWorker) verifyCharmUpgraded() (shouldExit bool, err error) {
 		} else if err != nil {
 			return false, errors.Trace(err)
 		}
-		if format >= corecharm.FormatV2 {
+		if format >= charm.FormatV2 {
 			a.logger.Debugf("application %q is now a v2 charm", a.name)
 			return false, nil
 		}

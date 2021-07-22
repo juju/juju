@@ -19,6 +19,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/status"
 )
 
@@ -40,6 +41,11 @@ func NewClusterRoleBinding(name string, in *rbacv1.ClusterRoleBinding) *ClusterR
 func (rb *ClusterRoleBinding) Clone() Resource {
 	clone := *rb
 	return &clone
+}
+
+// ID returns a comparable ID for the Resource
+func (r *ClusterRoleBinding) ID() ID {
+	return ID{"ClusterRoleBinding", r.Name, r.Namespace}
 }
 
 // Apply patches the resource change.
@@ -83,7 +89,7 @@ func (rb *ClusterRoleBinding) Delete(ctx context.Context, client kubernetes.Inte
 	err := api.Delete(ctx, rb.Name, metav1.DeleteOptions{
 		PropagationPolicy:  k8sconstants.DeletePropagationBackground(),
 		GracePeriodSeconds: pointer.Int64Ptr(0),
-		Preconditions:      &metav1.Preconditions{UID: &rb.UID},
+		Preconditions:      utils.NewUIDPreconditions(rb.UID),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -110,6 +116,7 @@ func (rb *ClusterRoleBinding) Ensure(
 	client kubernetes.Interface,
 	claims ...Claim,
 ) ([]func(), error) {
+	// TODO(caas): roll this into Apply()
 	cleanups := []func(){}
 
 	existing := ClusterRoleBinding{rb.ClusterRoleBinding}

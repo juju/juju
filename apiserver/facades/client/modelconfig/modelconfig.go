@@ -167,7 +167,12 @@ func (c *ModelConfigAPI) checkLogTrace() state.ValidateConfigFunc {
 		if !ok {
 			return nil
 		}
-		logCfg, err := loggo.ParseConfigString(spec.(string))
+		// This prevents a panic when trying to convert a spec which can be nil.
+		logSpec, ok := spec.(string)
+		if !ok {
+			return nil
+		}
+		logCfg, err := loggo.ParseConfigString(logSpec)
 		if err != nil {
 			return errors.Trace(err)
 		}

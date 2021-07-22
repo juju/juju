@@ -6,39 +6,40 @@ package mocks
 
 import (
 	context "context"
+	reflect "reflect"
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
 	resources "github.com/juju/juju/caas/kubernetes/provider/resources"
 	status "github.com/juju/juju/core/status"
 	v1 "k8s.io/api/core/v1"
 	kubernetes "k8s.io/client-go/kubernetes"
-	reflect "reflect"
-	time "time"
 )
 
-// MockResource is a mock of Resource interface
+// MockResource is a mock of Resource interface.
 type MockResource struct {
 	ctrl     *gomock.Controller
 	recorder *MockResourceMockRecorder
 }
 
-// MockResourceMockRecorder is the mock recorder for MockResource
+// MockResourceMockRecorder is the mock recorder for MockResource.
 type MockResourceMockRecorder struct {
 	mock *MockResource
 }
 
-// NewMockResource creates a new mock instance
+// NewMockResource creates a new mock instance.
 func NewMockResource(ctrl *gomock.Controller) *MockResource {
 	mock := &MockResource{ctrl: ctrl}
 	mock.recorder = &MockResourceMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockResource) EXPECT() *MockResourceMockRecorder {
 	return m.recorder
 }
 
-// Apply mocks base method
+// Apply mocks base method.
 func (m *MockResource) Apply(arg0 context.Context, arg1 kubernetes.Interface) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Apply", arg0, arg1)
@@ -46,13 +47,13 @@ func (m *MockResource) Apply(arg0 context.Context, arg1 kubernetes.Interface) er
 	return ret0
 }
 
-// Apply indicates an expected call of Apply
+// Apply indicates an expected call of Apply.
 func (mr *MockResourceMockRecorder) Apply(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockResource)(nil).Apply), arg0, arg1)
 }
 
-// Clone mocks base method
+// Clone mocks base method.
 func (m *MockResource) Clone() resources.Resource {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Clone")
@@ -60,13 +61,13 @@ func (m *MockResource) Clone() resources.Resource {
 	return ret0
 }
 
-// Clone indicates an expected call of Clone
+// Clone indicates an expected call of Clone.
 func (mr *MockResourceMockRecorder) Clone() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clone", reflect.TypeOf((*MockResource)(nil).Clone))
 }
 
-// ComputeStatus mocks base method
+// ComputeStatus mocks base method.
 func (m *MockResource) ComputeStatus(arg0 context.Context, arg1 kubernetes.Interface, arg2 time.Time) (string, status.Status, time.Time, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ComputeStatus", arg0, arg1, arg2)
@@ -77,13 +78,13 @@ func (m *MockResource) ComputeStatus(arg0 context.Context, arg1 kubernetes.Inter
 	return ret0, ret1, ret2, ret3
 }
 
-// ComputeStatus indicates an expected call of ComputeStatus
+// ComputeStatus indicates an expected call of ComputeStatus.
 func (mr *MockResourceMockRecorder) ComputeStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ComputeStatus", reflect.TypeOf((*MockResource)(nil).ComputeStatus), arg0, arg1, arg2)
 }
 
-// Delete mocks base method
+// Delete mocks base method.
 func (m *MockResource) Delete(arg0 context.Context, arg1 kubernetes.Interface) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
@@ -91,13 +92,13 @@ func (m *MockResource) Delete(arg0 context.Context, arg1 kubernetes.Interface) e
 	return ret0
 }
 
-// Delete indicates an expected call of Delete
+// Delete indicates an expected call of Delete.
 func (mr *MockResourceMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockResource)(nil).Delete), arg0, arg1)
 }
 
-// Events mocks base method
+// Events mocks base method.
 func (m *MockResource) Events(arg0 context.Context, arg1 kubernetes.Interface) ([]v1.Event, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Events", arg0, arg1)
@@ -106,13 +107,13 @@ func (m *MockResource) Events(arg0 context.Context, arg1 kubernetes.Interface) (
 	return ret0, ret1
 }
 
-// Events indicates an expected call of Events
+// Events indicates an expected call of Events.
 func (mr *MockResourceMockRecorder) Events(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Events", reflect.TypeOf((*MockResource)(nil).Events), arg0, arg1)
 }
 
-// Get mocks base method
+// Get mocks base method.
 func (m *MockResource) Get(arg0 context.Context, arg1 kubernetes.Interface) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0, arg1)
@@ -120,13 +121,27 @@ func (m *MockResource) Get(arg0 context.Context, arg1 kubernetes.Interface) erro
 	return ret0
 }
 
-// Get indicates an expected call of Get
+// Get indicates an expected call of Get.
 func (mr *MockResourceMockRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockResource)(nil).Get), arg0, arg1)
 }
 
-// String mocks base method
+// ID mocks base method.
+func (m *MockResource) ID() resources.ID {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ID")
+	ret0, _ := ret[0].(resources.ID)
+	return ret0
+}
+
+// ID indicates an expected call of ID.
+func (mr *MockResourceMockRecorder) ID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ID", reflect.TypeOf((*MockResource)(nil).ID))
+}
+
+// String mocks base method.
 func (m *MockResource) String() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "String")
@@ -134,60 +149,80 @@ func (m *MockResource) String() string {
 	return ret0
 }
 
-// String indicates an expected call of String
+// String indicates an expected call of String.
 func (mr *MockResourceMockRecorder) String() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockResource)(nil).String))
 }
 
-// MockApplier is a mock of Applier interface
+// MockApplier is a mock of Applier interface.
 type MockApplier struct {
 	ctrl     *gomock.Controller
 	recorder *MockApplierMockRecorder
 }
 
-// MockApplierMockRecorder is the mock recorder for MockApplier
+// MockApplierMockRecorder is the mock recorder for MockApplier.
 type MockApplierMockRecorder struct {
 	mock *MockApplier
 }
 
-// NewMockApplier creates a new mock instance
+// NewMockApplier creates a new mock instance.
 func NewMockApplier(ctrl *gomock.Controller) *MockApplier {
 	mock := &MockApplier{ctrl: ctrl}
 	mock.recorder = &MockApplierMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplier) EXPECT() *MockApplierMockRecorder {
 	return m.recorder
 }
 
-// Apply mocks base method
-func (m *MockApplier) Apply(arg0 resources.Resource) {
+// Apply mocks base method.
+func (m *MockApplier) Apply(arg0 ...resources.Resource) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Apply", arg0)
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Apply", varargs...)
 }
 
-// Apply indicates an expected call of Apply
-func (mr *MockApplierMockRecorder) Apply(arg0 interface{}) *gomock.Call {
+// Apply indicates an expected call of Apply.
+func (mr *MockApplierMockRecorder) Apply(arg0 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockApplier)(nil).Apply), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockApplier)(nil).Apply), arg0...)
 }
 
-// Delete mocks base method
-func (m *MockApplier) Delete(arg0 resources.Resource) {
+// ApplySet mocks base method.
+func (m *MockApplier) ApplySet(arg0, arg1 []resources.Resource) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Delete", arg0)
+	m.ctrl.Call(m, "ApplySet", arg0, arg1)
 }
 
-// Delete indicates an expected call of Delete
-func (mr *MockApplierMockRecorder) Delete(arg0 interface{}) *gomock.Call {
+// ApplySet indicates an expected call of ApplySet.
+func (mr *MockApplierMockRecorder) ApplySet(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockApplier)(nil).Delete), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplySet", reflect.TypeOf((*MockApplier)(nil).ApplySet), arg0, arg1)
 }
 
-// Run mocks base method
+// Delete mocks base method.
+func (m *MockApplier) Delete(arg0 ...resources.Resource) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Delete", varargs...)
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockApplierMockRecorder) Delete(arg0 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockApplier)(nil).Delete), arg0...)
+}
+
+// Run mocks base method.
 func (m *MockApplier) Run(arg0 context.Context, arg1 kubernetes.Interface, arg2 bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Run", arg0, arg1, arg2)
@@ -195,7 +230,7 @@ func (m *MockApplier) Run(arg0 context.Context, arg1 kubernetes.Interface, arg2 
 	return ret0
 }
 
-// Run indicates an expected call of Run
+// Run indicates an expected call of Run.
 func (mr *MockApplierMockRecorder) Run(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockApplier)(nil).Run), arg0, arg1, arg2)

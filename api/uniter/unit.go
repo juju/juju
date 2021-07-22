@@ -661,15 +661,8 @@ func (u *Unit) LogActionMessage(tag names.ActionTag, message string) error {
 }
 
 // UpgradeSeriesStatus returns the upgrade series status of a unit from remote state
-func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
-	res, err := u.st.UpgradeSeriesUnitStatus()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if len(res) != 1 {
-		return "", errors.Errorf("expected 1 result, got %d", len(res))
-	}
-	return res[0], nil
+func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, string, error) {
+	return u.st.UpgradeSeriesUnitStatus()
 }
 
 // SetUpgradeSeriesStatus sets the upgrade series status of the unit in the remote state

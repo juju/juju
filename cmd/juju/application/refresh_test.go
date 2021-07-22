@@ -17,6 +17,7 @@ import (
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	csclientparams "github.com/juju/charmrepo/v6/csclient/params"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -450,8 +451,12 @@ func (s *RefreshErrorsStateSuite) deployApplication(c *gc.C) {
 
 func (s *RefreshErrorsStateSuite) TestInvalidSwitchURL(c *gc.C) {
 	s.deployApplication(c)
+
+	url := charm.MustParseURL("cs:missing")
+	s.fakeAPI.Call("ResolveWithPreferredChannel", url).Returns(url, csparams.Channel("stable"), []string{}, errors.Errorf(`bad`))
+
 	_, err := s.runRefresh(c, s.cmd, "riak", "--switch=cs:missing")
-	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:missing":.*`)
+	c.Assert(err, gc.ErrorMatches, `bad`)
 }
 
 func (s *RefreshErrorsStateSuite) TestNoPathFails(c *gc.C) {

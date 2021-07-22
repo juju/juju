@@ -87,6 +87,15 @@ run_linter() {
 
 skip() {
 	CMD="${1}"
+
+	if [[ -n ${RUN_LIST} ]]; then
+		# shellcheck disable=SC2143,SC2046
+		if [[ ! $(echo "${RUN_LIST}" | grep -w "${CMD}") ]]; then
+			echo "SKIP"
+			exit 1
+		fi
+	fi
+
 	# shellcheck disable=SC2143,SC2046
 	if [[ $(echo "${SKIP_LIST:-}" | grep -w "${CMD}") ]]; then
 		echo "SKIP"
