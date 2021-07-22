@@ -50,7 +50,7 @@ type RefreshRequestAction struct {
 	Name              *string                   `json:"name,omitempty"`
 	Channel           *string                   `json:"channel,omitempty"`
 	Revision          *int                      `json:"revision,omitempty"`
-	Base              *Base                     `json:"base,omitempty"`
+	Base              *Base                     `json:"base"`
 	ResourceRevisions []RefreshResourceRevision `json:"resource-revisions,omitempty"`
 }
 
