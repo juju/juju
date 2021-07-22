@@ -48,7 +48,7 @@ require (
 	github.com/imdario/mergo v0.3.10 // indirect
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
-	github.com/juju/charm/v9 v9.0.0-20210625130313-9943dc9afb18
+	github.com/juju/charm/v9 v9.0.0-20210722104222-d3c79ce32e77
 	github.com/juju/charmrepo/v7 v7.0.0-20210427073450-742f84f1c0ff
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9

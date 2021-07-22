@@ -28,12 +28,12 @@ func (e credentialsSuite) TestDetectCredentials_NoMetalToken(c *gc.C) {
 	cred := environProviderCredentials{}
 	os.Setenv("METAL_PROJECT_ID", "project-id")
 	_, err := cred.DetectCredentials("equinix_test")
-	c.Assert(err.Error(), jc.Contains, "equinix metal auth token not present")
+	c.Assert(err.Error(), jc.Contains, "equinix metal auth token not found")
 }
 
 func (e credentialsSuite) TestDetectCredentials_NoProject(c *gc.C) {
 	cred := environProviderCredentials{}
 	os.Setenv("METAL_AUTH_TOKEN", "metal")
 	_, err := cred.DetectCredentials("equinix_test")
-	c.Assert(err.Error(), jc.Contains, "equinix metal project ID not present")
+	c.Assert(err.Error(), jc.Contains, "equinix metal project ID not found")
 }

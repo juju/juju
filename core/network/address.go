@@ -115,6 +115,10 @@ type Address interface {
 
 	// AddressConfigType returns the configuration method of the address.
 	AddressConfigType() AddressConfigType
+
+	// AddressIsSecondary returns whether this address is not the
+	// primary address associated with the network device.
+	AddressIsSecondary() bool
 }
 
 // ScopeMatchFunc is an alias for a function that accepts an Address,
@@ -130,6 +134,55 @@ func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
 		}
 	}
 	return false
+}
+
+// SortOrderMostPublic calculates the "weight" of the address to use when
+// sorting such that the most accessible addresses will appear first:
+// - public IPs first;
+// - hostnames after that, but "localhost" will be last if present;
+// - cloud-local next;
+// - fan-local next;
+// - machine-local next;
+// - link-local next;
+// - non-hostnames with unknown scope last.
+// Secondary addresses with otherwise equal weight will be sorted to come after
+// primary addresses, including host names *except* localhost.
+func SortOrderMostPublic(a Address) int {
+	order := 100
+
+	switch a.AddressScope() {
+	case ScopePublic:
+		order = 0
+		// Special case to ensure that these follow non-localhost host names.
+		if a.AddressIsSecondary() {
+			order = 10
+		}
+	case ScopeCloudLocal:
+		order = 30
+	case ScopeFanLocal:
+		order = 50
+	case ScopeMachineLocal:
+		order = 70
+	case ScopeLinkLocal:
+		order = 90
+	}
+
+	switch a.AddressType() {
+	case HostName:
+		order = 10
+		if a.Host() == "localhost" {
+			order = 20
+		}
+	case IPv6Address:
+		order++
+	case IPv4Address:
+	}
+
+	if a.AddressIsSecondary() {
+		order += 2
+	}
+
+	return order
 }
 
 // MachineAddress represents an address without associated space or provider
@@ -184,6 +237,12 @@ func (a MachineAddress) AddressConfigType() AddressConfigType {
 	return a.ConfigType
 }
 
+// AddressIsSecondary returns whether this address is not the
+// primary address associated with the network device.
+func (a MachineAddress) AddressIsSecondary() bool {
+	return a.IsSecondary
+}
+
 // GoString implements fmt.GoStringer.
 func (a MachineAddress) GoString() string {
 	return a.String()
@@ -226,54 +285,6 @@ func (a MachineAddress) ValueWithMask() (string, error) {
 
 	ipNet.IP = ip
 	return ipNet.String(), nil
-}
-
-// sortOrder calculates the "weight" of the address when sorting:
-// - public IPs first;
-// - hostnames after that, but "localhost" will be last if present;
-// - cloud-local next;
-// - fan-local next;
-// - machine-local next;
-// - link-local next;
-// - non-hostnames with unknown scope last.
-// Secondary addresses with otherwise equal weight will be sorted to come after
-// primary addresses, including host names *except* localhost.
-func (a MachineAddress) sortOrder() int {
-	order := 100
-
-	switch a.Scope {
-	case ScopePublic:
-		order = 0
-		// Special case to ensure that these follow non-localhost host names.
-		if a.IsSecondary {
-			order = 10
-		}
-	case ScopeCloudLocal:
-		order = 30
-	case ScopeFanLocal:
-		order = 50
-	case ScopeMachineLocal:
-		order = 70
-	case ScopeLinkLocal:
-		order = 90
-	}
-
-	switch a.Type {
-	case HostName:
-		order = 10
-		if a.Value == "localhost" {
-			order = 20
-		}
-	case IPv6Address:
-		order++
-	case IPv4Address:
-	}
-
-	if a.IsSecondary {
-		order += 2
-	}
-
-	return order
 }
 
 // NewMachineAddress creates a new MachineAddress,
@@ -638,8 +649,8 @@ func (sas SpaceAddresses) EqualTo(other SpaceAddresses) bool {
 		return false
 	}
 
-	SortAddresses(sas)
-	SortAddresses(other)
+	sort.Sort(sas)
+	sort.Sort(other)
 	for i := 0; i < len(sas); i++ {
 		if sas[i].String() != other[i].String() {
 			return false
@@ -647,6 +658,19 @@ func (sas SpaceAddresses) EqualTo(other SpaceAddresses) bool {
 	}
 
 	return true
+}
+
+func (sas SpaceAddresses) Len() int      { return len(sas) }
+func (sas SpaceAddresses) Swap(i, j int) { sas[i], sas[j] = sas[j], sas[i] }
+func (sas SpaceAddresses) Less(i, j int) bool {
+	addr1 := sas[i]
+	addr2 := sas[j]
+	order1 := SortOrderMostPublic(addr1)
+	order2 := SortOrderMostPublic(addr2)
+	if order1 == order2 {
+		return addr1.Value < addr2.Value
+	}
+	return order1 < order2
 }
 
 // DeriveAddressType attempts to detect the type of address given.
@@ -778,27 +802,6 @@ func scopeMatchHierarchy() []ScopeMatch {
 		firstFallbackScopeIPv4, firstFallbackScope,
 		secondFallbackScopeIPv4, secondFallbackScope,
 	}
-}
-
-type addressesPreferringIPv4 []SpaceAddress
-
-func (a addressesPreferringIPv4) Len() int      { return len(a) }
-func (a addressesPreferringIPv4) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a addressesPreferringIPv4) Less(i, j int) bool {
-	addr1 := a[i]
-	addr2 := a[j]
-	order1 := addr1.sortOrder()
-	order2 := addr2.sortOrder()
-	if order1 == order2 {
-		return addr1.Value < addr2.Value
-	}
-	return order1 < order2
-}
-
-// SortAddresses sorts the given Address slice according to the sortOrder of
-// each address. See Address.sortOrder() for more info.
-func SortAddresses(addrs []SpaceAddress) {
-	sort.Sort(addressesPreferringIPv4(addrs))
 }
 
 // MergedAddresses provides a single list of addresses without duplicates

@@ -541,6 +541,11 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 		charmURL := application.CharmURL()
 		if charm.CharmHub.Matches(curl.Schema) {
 			charmURL = curl.Name
+		} else if charm.Local.Matches(curl.Schema) {
+			charmURL = fmt.Sprintf("local:%s", curl.Name)
+			if curl.Revision >= 0 {
+				charmURL = fmt.Sprintf("%s-%d", charmURL, curl.Revision)
+			}
 		}
 
 		var channel string

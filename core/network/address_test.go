@@ -6,6 +6,7 @@ package network_test
 import (
 	"fmt"
 	"net"
+	"sort"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -705,7 +706,7 @@ func (*AddressSuite) TestSortAddresses(c *gc.C) {
 	addrs = append(addrs, network.NewSpaceAddress("6.8.8.8", network.WithSecondary(true)))
 	addrs = append(addrs, network.NewSpaceAddress("172.16.0.1", network.WithSecondary(true)))
 
-	network.SortAddresses(addrs)
+	sort.Sort(addrs)
 	c.Assert(addrs.Values(), jc.DeepEquals, []string{
 		// Public IPv4 addresses on top.
 		"7.8.8.8",
@@ -1036,7 +1037,7 @@ func (s *AddressSuite) TestConvertToSpaceAddresses(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	network.SortAddresses(addrs)
+	sort.Sort(addrs)
 	c.Check(addrs, gc.DeepEquals, network.SpaceAddresses{
 		{
 			MachineAddress: network.MachineAddress{
