@@ -57,7 +57,10 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		life: life.Alive,
 	}
 	s.charmGetter = mockCharmGetter{
-		charmInfo: &charms.CharmInfo{},
+		charmInfo: &charms.CharmInfo{
+			Manifest: &charm.Manifest{},
+			Meta:     &charm.Meta{},
+		},
 	}
 	s.serviceExposer = mockServiceExposer{
 		exposed:   s.serviceExposed,
@@ -308,15 +311,24 @@ func (s *WorkerSuite) TestCharmChangesToV2(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.sendApplicationChange(c, "gitlab")
-	s.charmGetter.CheckCallNames(c, "ApplicationCharmInfo")
-	s.charmGetter.ResetCalls()
+	s.waitCharmGetterCalls(c, "ApplicationCharmInfo")
 	s.lifeGetter.CheckCallNames(c, "Life")
 
 	s.charmGetter.charmInfo.Manifest = &charm.Manifest{Bases: []charm.Base{{}}}
 	s.charmGetter.charmInfo.Meta = &charm.Meta{}
 	s.sendApplicationExposedChange(c)
-	s.charmGetter.CheckCallNames(c, "ApplicationCharmInfo")
+	s.waitCharmGetterCalls(c, "ApplicationCharmInfo")
 
 	err = workertest.CheckKilled(c, s.applicationGetter.appWatcher)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *WorkerSuite) waitCharmGetterCalls(c *gc.C, names ...string) {
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.charmGetter.Calls()) >= len(names) {
+			break
+		}
+	}
+	s.charmGetter.CheckCallNames(c, names...)
+	s.charmGetter.ResetCalls()
 }

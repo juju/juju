@@ -1004,9 +1004,9 @@ func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	waitCharmGetterCalls := func(n int, names ...string) {
+	waitCharmGetterCalls := func(names ...string) {
 		for a := coretesting.LongAttempt.Start(); a.Next(); {
-			if len(s.charmGetter.Calls()) >= 1 {
+			if len(s.charmGetter.Calls()) >= len(names) {
 				break
 			}
 		}
@@ -1016,7 +1016,7 @@ func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
 
 	// Will trigger ApplicationCharmInfo call in main worker
 	s.sendApplicationChanges(c, "gitlab")
-	waitCharmGetterCalls(1, "ApplicationCharmInfo")
+	waitCharmGetterCalls("ApplicationCharmInfo")
 
 	// Trigger ApplicationCharmInfo call in application worker
 	select {
@@ -1024,7 +1024,7 @@ func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
 	case <-time.After(coretesting.ShortWait):
 		c.Fatal("timed out sending app change")
 	}
-	waitCharmGetterCalls(1, "ApplicationCharmInfo")
+	waitCharmGetterCalls("ApplicationCharmInfo")
 
 	// Make it a v2 charm (will make the application worker exit)
 	s.charmGetter.charmInfo.Manifest = &charm.Manifest{Bases: []charm.Base{{}}}
@@ -1035,7 +1035,7 @@ func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
 	case <-time.After(coretesting.ShortWait):
 		c.Fatal("timed out sending app change")
 	}
-	waitCharmGetterCalls(1, "ApplicationCharmInfo")
+	waitCharmGetterCalls("ApplicationCharmInfo")
 
 	// Ensure application worker exited due to charm becoming v2
 	aw, _ := caasunitprovisioner.AppWorker(w, "gitlab")
