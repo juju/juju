@@ -253,6 +253,8 @@ func (a *appWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
+		case <-a.clock.After(10 * time.Second):
+			// for refresh application status.
 		}
 		if done {
 			return nil
@@ -299,8 +301,6 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 			Info:   svc.Status.Message,
 			Data:   svc.Status.Data,
 		}
-		a.logger.Warningf("svc.Status %#v", svc.Status)
-		a.logger.Warningf("appStatus %#v", appStatus)
 		err = a.unitFacade.UpdateApplicationService(params.UpdateApplicationServiceArg{
 			ApplicationTag: appTag,
 			ProviderId:     svc.Id,
@@ -340,7 +340,6 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 			continue
 		}
 		unitStatus := u.Status
-		a.logger.Warningf("updateState unitStatus.Status %q", unitStatus.Status)
 		lastStatus, ok := lastReportedStatus[u.Id]
 		reportedStatus[u.Id] = unitStatus
 		// TODO: Determine a better way to propagate status
@@ -443,6 +442,9 @@ func (a *appWorker) refreshApplicationStatus(app caas.Application, appLife life.
 		}
 	}
 	if st.DesiredReplicas > 0 && st.DesiredReplicas > readyUnitsCount {
+		// Only set status to waiting for scale up.
+		// When the application gets scaled down, the desired units will be kept running and
+		// the application should be active always.
 		return a.setApplicationStatus(status.Waiting, "waiting for units settled down", nil)
 	}
 	return a.setApplicationStatus(status.Active, "", nil)
@@ -602,7 +604,7 @@ func (a *appWorker) alive(app caas.Application) error {
 }
 
 func (a *appWorker) setApplicationStatus(s status.Status, reason string, data map[string]interface{}) error {
-	a.logger.Debugf("updating application %q status to %q, %q, %v", a.name, s, reason, data)
+	a.logger.Tracef("updating application %q status to %q, %q, %v", a.name, s, reason, data)
 	return a.facade.SetOperatorStatus(a.name, s, reason, data)
 }
 
