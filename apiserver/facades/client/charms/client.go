@@ -639,7 +639,6 @@ func (a *API) charmHubRepository() (corecharm.Repository, error) {
 		return nil, errors.Trace(err)
 	}
 
-	clientLogger := logger.Child("client")
 	options := []charmhub.Option{
 		charmhub.WithHTTPTransport(func(charmhub.Logger) charmhub.Transport {
 			return a.httpClient
@@ -649,9 +648,9 @@ func (a *API) charmHubRepository() (corecharm.Repository, error) {
 	var chCfg charmhub.Config
 	chURL, ok := cfg.CharmHubURL()
 	if ok {
-		chCfg, err = charmhub.CharmHubConfigFromURL(chURL, clientLogger, options...)
+		chCfg, err = charmhub.CharmHubConfigFromURL(chURL, logger, options...)
 	} else {
-		chCfg, err = charmhub.CharmHubConfig(clientLogger, options...)
+		chCfg, err = charmhub.CharmHubConfig(logger, options...)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
