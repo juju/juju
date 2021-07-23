@@ -183,6 +183,8 @@ type BootstrapParams struct {
 	// ControllerCharmPath is a local controller charm archive.
 	ControllerCharmPath string
 
+	ControllerCharmRisk string
+
 	// ExtraAgentValuesForTesting are testing only values written to the agent config file.
 	ExtraAgentValuesForTesting map[string]string
 }
@@ -623,6 +625,7 @@ func bootstrapIAAS(
 	if err := instanceConfig.SetControllerCharm(args.ControllerCharmPath); err != nil {
 		return errors.Trace(err)
 	}
+	instanceConfig.Bootstrap.ControllerCharmRisk = args.ControllerCharmRisk
 
 	var environVersion int
 	if e, ok := environ.(environs.Environ); ok {
@@ -749,6 +752,7 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.JujuDbSnapPath = args.JujuDbSnapPath
 	icfg.Bootstrap.JujuDbSnapAssertionsPath = args.JujuDbSnapAssertionsPath
 	icfg.Bootstrap.ControllerCharm = args.ControllerCharmPath
+	icfg.Bootstrap.ControllerCharmRisk = args.ControllerCharmRisk
 	return nil
 }
 

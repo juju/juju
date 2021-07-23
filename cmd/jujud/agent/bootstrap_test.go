@@ -10,17 +10,18 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
@@ -29,19 +30,25 @@ import (
 	"github.com/juju/utils/v2"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
+	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
+	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -143,6 +150,14 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.writeDownloadedDashboard(c, &tools.DashboardArchive{
 		Version: version.MustParse("2.0.42"),
 	})
+
+	// Create fake local controller charm.
+	controllerCharmPath := filepath.Join(s.dataDir, "charms")
+	err = os.MkdirAll(controllerCharmPath, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	pathToArchive := testcharms.Repo.CharmArchivePath(controllerCharmPath, "juju-controller")
+	err = os.Rename(pathToArchive, filepath.Join(controllerCharmPath, "controller.charm"))
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
@@ -287,19 +302,9 @@ func (s *BootstrapSuite) TestDashboardArchiveSuccess(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestLocalControllerCharm(c *gc.C) {
-	ch := testcharms.RepoForSeries("quantal").CharmDir("juju-controller")
-	dir, err := charm.ReadCharmDir(ch.Path)
-	c.Assert(err, jc.ErrorIsNil)
-
-	controllerCharmDir := filepath.Join(s.dataDir, "charms")
-	err = os.MkdirAll(controllerCharmDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	f, err := os.Create(filepath.Join(controllerCharmDir, "controller.charm"))
-	c.Assert(err, jc.ErrorIsNil)
-	err = dir.ArchiveTo(f)
-	_ = f.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
+	if runtime.GOOS != "linux" {
+		c.Skip("controller charm only supported on Ubuntu")
+	}
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -314,7 +319,84 @@ func (s *BootstrapSuite) TestLocalControllerCharm(c *gc.C) {
 		loggo.DEBUG,
 		`Successfully deployed local Juju controller charm`,
 	}})
+	s.assertControllerApplication(c)
+}
 
+func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
+	if runtime.GOOS != "linux" {
+		c.Skip("controller charm only supported on Ubuntu")
+	}
+	// Remove the local controller charm so we use the store one.
+	controllerCharmPath := filepath.Join(s.dataDir, "charms", "controller.charm")
+	err := os.Remove(controllerCharmPath)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	repo := mocks.NewMockRepository(ctrl)
+	s.PatchValue(&newCharmRepo, func(cfg services.CharmRepoFactoryConfig) (corecharm.Repository, error) {
+		return repo, nil
+	})
+	downloader := mocks.NewMockDownloader(ctrl)
+	s.PatchValue(&newCharmDownloader, func(cfg services.CharmDownloaderConfig) (interfaces.Downloader, error) {
+		return downloader, nil
+	})
+
+	curl := charm.MustParseURL(controllerCharmURL)
+	channel := corecharm.MakeRiskOnlyChannel("beta")
+	origin := corecharm.Origin{
+		Source:  corecharm.CharmHub,
+		Type:    "charm",
+		Channel: &channel,
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Series:       "NA",
+		},
+	}
+
+	storeCurl := *curl
+	storeCurl.Revision = 666
+	storeCurl.Series = "focal"
+	storeCurl.Architecture = "amd64"
+	storeOrigin := origin
+	storeOrigin.Platform.Series = "focal"
+	repo.EXPECT().ResolveWithPreferredChannel(curl, origin, nil).Return(&storeCurl, storeOrigin, nil, nil)
+
+	origin.Platform.Series = "focal"
+	downloadURL, err := url.Parse("ch:amd64/focal/juju-controller-666")
+	c.Assert(err, jc.ErrorIsNil)
+	downloader.EXPECT().DownloadAndStore(downloadURL.String(), storeOrigin, nil, false).
+		DoAndReturn(func(charmURL string, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, force bool) (*charm.CharmArchive, error) {
+			controllerCharm := testcharms.Repo.CharmArchive(c.MkDir(), "juju-controller")
+			st, closer := s.getSystemState(c)
+			defer closer()
+			_, err = st.AddCharm(state.CharmInfo{
+				Charm: controllerCharm,
+				ID:    charm.MustParseURL(charmURL),
+			})
+			c.Assert(err, jc.ErrorIsNil)
+			return controllerCharm, nil
+		})
+
+	_, cmd, err := s.initBootstrapCommand(c, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var tw loggo.TestWriter
+	err = loggo.RegisterWriter("bootstrap-test", &tw)
+	c.Assert(err, jc.ErrorIsNil)
+	defer loggo.RemoveWriter("bootstrap-test")
+
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
+		loggo.DEBUG,
+		`Successfully deployed store Juju controller charm`,
+	}})
+	s.assertControllerApplication(c)
+}
+
+func (s *BootstrapSuite) assertControllerApplication(c *gc.C) {
 	st, closer := s.getSystemState(c)
 	defer closer()
 
@@ -525,21 +607,6 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	m, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Jobs(), gc.DeepEquals, expectedJobs)
-}
-
-func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
-	jobs := []model.MachineJob{model.JobManageModel}
-	_, cmd, err := s.initBootstrapCommand(c, jobs)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	st, closer := s.getSystemState(c)
-	defer closer()
-
-	m, err := st.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
 }
 
 func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
@@ -882,6 +949,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 		Type:      "dummy",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 	}
+	args.ControllerCharmRisk = "beta"
 	s.bootstrapParams = args
 	s.writeBootstrapParamsFile(c)
 }

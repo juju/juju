@@ -49,7 +49,7 @@ type Storage interface {
 	Store(*charm.URL, DownloadedCharm) error
 }
 
-// DownloadResult encapsulates the details of a downloaded charm.
+// DownloadedCharm encapsulates the details of a downloaded charm.
 type DownloadedCharm struct {
 	// Charm provides information about the charm contents.
 	Charm charm.Charm

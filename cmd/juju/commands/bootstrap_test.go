@@ -2141,7 +2141,7 @@ func (s *BootstrapSuite) TestBootstrapTestingOptions(c *gc.C) {
 	c.Assert(gotArgs.ExtraAgentValuesForTesting, jc.DeepEquals, map[string]string{"foo": "bar", "hello": "world"})
 }
 
-func (s *BootstrapSuite) TestBootstrapWithControllerCharm(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapWithLocalControllerCharm(c *gc.C) {
 	for _, test := range []struct {
 		charmPath string
 		err       string
@@ -2150,13 +2150,13 @@ func (s *BootstrapSuite) TestBootstrapWithControllerCharm(c *gc.C) {
 			charmPath: testcharms.Repo.CharmDir("juju-controller").Path,
 		}, {
 			charmPath: testcharms.Repo.CharmDir("mysql").Path,
-			err:       `--controller-charm ".*mysql" is not a "juju-controller" charm`,
+			err:       `--controller-charm-path ".*mysql" is not a "juju-controller" charm`,
 		}, {
 			charmPath: c.MkDir(),
-			err:       `--controller-charm ".*" is not a valid charm`,
+			err:       `--controller-charm-path ".*" is not a valid charm`,
 		}, {
 			charmPath: "/invalid/path",
-			err:       `problem with --controller-charm: .* /invalid/path: .*`,
+			err:       `problem with --controller-charm-path: .* /invalid/path: .*`,
 		},
 	} {
 		var gotArgs bootstrap.BootstrapParams
@@ -2170,7 +2170,7 @@ func (s *BootstrapSuite) TestBootstrapWithControllerCharm(c *gc.C) {
 			return bootstrapFuncs
 		})
 		_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
-			"dummy", "devcontroller", "--controller-charm", test.charmPath,
+			"dummy", "devcontroller", "--controller-charm-path", test.charmPath,
 		)
 		if test.err == "" {
 			c.Assert(err, gc.Equals, cmd.ErrSilent)
@@ -2179,6 +2179,11 @@ func (s *BootstrapSuite) TestBootstrapWithControllerCharm(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		}
 	}
+}
+
+func (s *BootstrapSuite) TestBootstrapInvalidControllerCharmRisk(c *gc.C) {
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "--controller-charm-risk", "foo")
+	c.Assert(err, gc.ErrorMatches, `controller charm risk "foo" not valid`)
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {

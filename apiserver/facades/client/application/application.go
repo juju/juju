@@ -980,7 +980,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 		if unsupportedReason != "" {
 			return errors.NotSupportedf(unsupportedReason)
 		}
-		return api.applicationSetCharm(params, newCharm, stateCharmOrigin(newOrigin))
+		return api.applicationSetCharm(params, newCharm, newOrigin)
 	}
 
 	// Check if the controller agent tools version is greater than the
@@ -1007,14 +1007,14 @@ func (api *APIBase) setCharmWithAgentValidation(
 		}
 	}
 
-	return api.applicationSetCharm(params, newCharm, stateCharmOrigin(newOrigin))
+	return api.applicationSetCharm(params, newCharm, newOrigin)
 }
 
 // applicationSetCharm sets the charm for the given for the application.
 func (api *APIBase) applicationSetCharm(
 	params setCharmParams,
 	stateCharm Charm,
-	stateOrigin *state.CharmOrigin,
+	origin corecharm.Origin,
 ) error {
 	var err error
 	var settings charm.Settings
@@ -1043,7 +1043,7 @@ func (api *APIBase) applicationSetCharm(
 	force := params.Force
 	cfg := state.SetCharmConfig{
 		Charm:              api.stateCharm(stateCharm),
-		CharmOrigin:        stateOrigin,
+		CharmOrigin:        StateCharmOrigin(origin),
 		Channel:            params.Channel,
 		ConfigSettings:     settings,
 		ForceSeries:        force.ForceSeries,
