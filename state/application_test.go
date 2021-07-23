@@ -146,6 +146,42 @@ func (s *ApplicationSuite) TestSetCharmSeries(c *gc.C) {
 	c.Assert(s.mysql.Series(), gc.DeepEquals, "new-series")
 }
 
+func (s *ApplicationSuite) TestUploadedCharmOrigin(c *gc.C) {
+	// Add a compatible charm.
+	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
+	rev := sch.Revision()
+	origin := &state.CharmOrigin{
+		Source:   "charm-store",
+		Revision: &rev,
+		ID:       "42",
+		Type:     "charm",
+		Hash:     "b4dc0ffee",
+		Channel: &state.Channel{
+			Track:  "2.9",
+			Risk:   "stable",
+			Branch: "yolo",
+		},
+		Platform: &state.Platform{
+			Architecture: "arm64",
+			OS:           "ubuntu",
+			Series:       "focal",
+		},
+	}
+	cfg := state.SetCharmConfig{
+		Charm:       sch,
+		CharmOrigin: origin,
+	}
+	err := s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Search for the application-stored origin using the charm URL.
+	obtainedOrigin, err := s.State.UploadedCharmOrigin(sch.URL())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedOrigin, gc.DeepEquals, origin.AsCoreCharmOrigin())
+}
+
 func (s *ApplicationSuite) TestSetCharmCharmOriginNoChange(c *gc.C) {
 	// Add a compatible charm.
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
