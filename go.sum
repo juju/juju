@@ -38,8 +38,6 @@ github.com/PuerkitoBio/purell v1.1.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbt
 github.com/PuerkitoBio/purell v1.1.1/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
 github.com/PuerkitoBio/urlesc v0.0.0-20160726150825-5bd2802263f2/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
 github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
-github.com/SimonRichardson/pubsub/v2 v2.0.0-20210723115204-8d13ba3eb76d h1:knXZK1sZf2e1UhEJ7pHDZmmDyLsUH9Xyznu+b8fahuw=
-github.com/SimonRichardson/pubsub/v2 v2.0.0-20210723115204-8d13ba3eb76d/go.mod h1:muz5gqZ/u1pTC84e9scTKhEtmvE02wbuK1kvyLzIwQc=
 github.com/agnivade/levenshtein v1.0.1/go.mod h1:CURSv5d9Uaml+FovSIICkLbAUZ9S4RqaHDIsdSBg7lM=
 github.com/ajstarks/svgo v0.0.0-20181006003313-6ce6a3bcf6cd h1:JdtityihAc6A+gVfYh6vGXfZQg+XOLyBvla/7NbXFCg=
 github.com/ajstarks/svgo v0.0.0-20181006003313-6ce6a3bcf6cd/go.mod h1:K08gAheRH3/J6wwsYMMT4xOr94bZjxIelGM0+d/wbFw=
@@ -413,6 +411,8 @@ github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4 h1:y2eoq0Uof/dWLAXRyKKG
 github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4/go.mod h1:8eZt3fxDIlRXkEkf4N4PCNSZzryF6NxULBg07OjDofA=
 github.com/juju/pubsub v0.0.0-20190419131051-c1f7536b9cc6 h1:2aARJxmMC2IF9GqVtt5PYcIy4jyuAcR44byqwXKTK0o=
 github.com/juju/pubsub v0.0.0-20190419131051-c1f7536b9cc6/go.mod h1:umz/NzotkJCFQHT3hqeLRISzYNCZzyV1sogjeAILCWw=
+github.com/juju/pubsub/v2 v2.0.0-20210723162818-835a4be34289 h1:JPKuGuO4eDWUstv4puLCAdikIiI4235jYUCiYILjgjI=
+github.com/juju/pubsub/v2 v2.0.0-20210723162818-835a4be34289/go.mod h1:muz5gqZ/u1pTC84e9scTKhEtmvE02wbuK1kvyLzIwQc=
 github.com/juju/qthttptest v0.0.1/go.mod h1://LCf/Ls22/rPw2u1yWukUJvYtfPY4nYpWUl2uZhryo=
 github.com/juju/qthttptest v0.1.1 h1:JPju5P5CDMCy8jmBJV2wGLjDItUsx2KKL514EfOYueM=
 github.com/juju/qthttptest v0.1.1/go.mod h1:aTlAv8TYaflIiTDIQYzxnl1QdPjAg8Q8qJMErpKy6A4=
