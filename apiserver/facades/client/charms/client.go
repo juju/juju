@@ -4,19 +4,15 @@
 package charms
 
 import (
-	"fmt"
-	"io"
 	"strings"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/http/v2"
-	"github.com/juju/juju/state"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
-	"github.com/juju/utils/v2"
 	"gopkg.in/macaroon.v2"
 
 	apiresources "github.com/juju/juju/api/resources"
@@ -24,15 +20,16 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	charmsinterfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
+	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
-	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/storage"
-	jujuversion "github.com/juju/juju/version"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.charms")
 
 // API implements the charms interface and is the concrete
 // implementation of the API end point.
@@ -42,11 +39,13 @@ type API struct {
 	backendState charmsinterfaces.BackendState
 	backendModel charmsinterfaces.BackendModel
 
-	csResolverGetterFunc CSResolverGetterFunc
-	getStrategyFunc      func(source string) StrategyFunc
-	newStorage           func(modelUUID string, session *mgo.Session) storage.Storage
-	tag                  names.ModelTag
-	httpClient           http.HTTPClient
+	tag        names.ModelTag
+	httpClient http.HTTPClient
+
+	newStorage     func(modelUUID string) services.Storage
+	newRepoFactory func(services.CharmRepoFactoryConfig) corecharm.RepositoryFactory
+	repoFactory    corecharm.RepositoryFactory
+	newDownloader  func(services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error)
 }
 
 type APIv2 struct {
@@ -134,15 +133,21 @@ func NewFacadeV4(ctx facade.Context) (*API, error) {
 	httpTransport := charmhub.RequestHTTPTransport(ctx.RequestRecorder(), charmhub.DefaultRetryPolicy())
 
 	return &API{
-		charmInfoAPI:         charmInfoAPI,
-		authorizer:           authorizer,
-		backendState:         newStateShim(st),
-		backendModel:         m,
-		csResolverGetterFunc: csResolverGetter,
-		getStrategyFunc:      getStrategyFunc,
-		newStorage:           storage.NewStorage,
-		tag:                  m.ModelTag(),
-		httpClient:           httpTransport(logger),
+		charmInfoAPI: charmInfoAPI,
+		authorizer:   authorizer,
+		backendState: newStateShim(st),
+		backendModel: m,
+		newStorage: func(modelUUID string) services.Storage {
+			return storage.NewStorage(modelUUID, st.MongoSession())
+		},
+		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {
+			return services.NewCharmRepoFactory(cfg)
+		},
+		newDownloader: func(cfg services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error) {
+			return services.NewCharmDownloader(cfg)
+		},
+		tag:        m.ModelTag(),
+		httpClient: httpTransport(logger),
 	}, nil
 }
 
@@ -153,19 +158,19 @@ func NewCharmsAPI(
 	authorizer facade.Authorizer,
 	st charmsinterfaces.BackendState,
 	m charmsinterfaces.BackendModel,
-	csResolverFunc CSResolverGetterFunc,
-	getStrategyFunc func(source string) StrategyFunc,
-	newStorage func(modelUUID string, session *mgo.Session) storage.Storage,
+	newStorage func(modelUUID string) services.Storage,
+	repoFactory corecharm.RepositoryFactory,
+	newDownloader func(cfg services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error),
 ) (*API, error) {
 	return &API{
-		authorizer:           authorizer,
-		backendState:         st,
-		backendModel:         m,
-		csResolverGetterFunc: csResolverFunc,
-		getStrategyFunc:      getStrategyFunc,
-		newStorage:           newStorage,
-		tag:                  m.ModelTag(),
-		httpClient:           charmhub.DefaultHTTPTransport(logger),
+		authorizer:    authorizer,
+		backendState:  st,
+		backendModel:  m,
+		newStorage:    newStorage,
+		repoFactory:   repoFactory,
+		newDownloader: newDownloader,
+		tag:           m.ModelTag(),
+		httpClient:    charmhub.DefaultHTTPTransport(logger),
 	}, nil
 }
 
@@ -239,12 +244,17 @@ func (a *API) getDownloadInfo(arg params.CharmURLAndOrigin) (params.DownloadInfo
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
 
-	repo, err := a.repository(charmOrigin, arg.Macaroon)
+	repo, err := a.getCharmRepository(corecharm.Source(charmOrigin.Source))
 	if err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
 
-	url, origin, err := repo.FindDownloadURL(curl, convertParamsOrigin(charmOrigin))
+	var macaroons macaroon.Slice
+	if arg.Macaroon != nil {
+		macaroons = append(macaroons, arg.Macaroon)
+	}
+
+	url, origin, err := repo.GetDownloadURL(curl, convertParamsOrigin(charmOrigin), macaroons)
 	if err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
@@ -344,148 +354,30 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, err
 	}
 
-	strategy, err := a.charmStrategy(args)
+	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
+		Logger:         logger,
+		Transport:      a.httpClient,
+		StorageFactory: a.newStorage,
+		StateBackend:   a.backendState,
+		ModelBackend:   a.backendModel,
+	})
 	if err != nil {
 		return params.CharmOriginResult{}, errors.Trace(err)
 	}
 
-	// Validate the strategy before running the download procedure.
-	if err := strategy.Validate(); err != nil {
-		return params.CharmOriginResult{}, errors.Trace(err)
-	}
-
-	defer func() {
-		// Ensure we sign up any required clean ups.
-		_ = strategy.Finish()
-	}()
-
-	// Run the strategy.
-	result, alreadyExists, origin, err := strategy.Run(a.backendState, versionValidator{}, convertParamsOrigin(args.Origin))
-	if err != nil {
-		return params.CharmOriginResult{}, errors.Trace(err)
-	} else if alreadyExists {
-		// Nothing to do here, as it already exists in state.
-		// However we still need the origin with ID and hash for
-		// CharmHub charms.
-		return params.CharmOriginResult{
-			Origin: convertOrigin(origin),
-		}, nil
-	}
-
-	ca := CharmArchive{
-		ID:           strategy.CharmURL(),
-		Charm:        result.Charm,
-		Data:         result.Data,
-		Size:         result.Size,
-		SHA256:       result.SHA256,
-		CharmVersion: result.Charm.Version(),
-	}
-
+	var macaroons macaroon.Slice
 	if args.CharmStoreMacaroon != nil {
-		ca.Macaroon = macaroon.Slice{args.CharmStoreMacaroon}
+		macaroons = append(macaroons, args.CharmStoreMacaroon)
 	}
 
-	OriginResult := params.CharmOriginResult{
-		Origin: convertOrigin(origin),
-	}
-
-	// Store the charm archive in environment storage.
-	if err = a.storeCharmArchive(ca); err != nil {
-		OriginResult.Error = apiservererrors.ServerError(err)
-	}
-
-	return OriginResult, nil
-}
-
-type versionValidator struct{}
-
-func (versionValidator) Validate(meta *charm.Meta) error {
-	minver := meta.MinJujuVersion
-	return jujuversion.CheckJujuMinVersion(minver, jujuversion.Current)
-}
-
-// CharmArchive is the data that needs to be stored for a charm archive in
-// state.
-type CharmArchive struct {
-	// ID is the charm URL for which we're storing the archive.
-	ID *charm.URL
-
-	// Charm is the metadata about the charm for the archive.
-	Charm charm.Charm
-
-	// Data contains the bytes of the archive.
-	Data io.Reader
-
-	// Size is the number of bytes in Data.
-	Size int64
-
-	// SHA256 is the hash of the bytes in Data.
-	SHA256 string
-
-	// Macaroon is the authorization macaroon for accessing the charmstore.
-	Macaroon macaroon.Slice
-
-	// Charm Version contains semantic version of charm, typically the output of git describe.
-	CharmVersion string
-}
-
-// storeCharmArchive stores a charm archive in environment storage.
-//
-// TODO: (hml) 2020-09-01
-// This is a duplicate of application.StoreCharmArchive.  Once use
-// is transferred to this facade, it can be marked deprecated.
-func (a *API) storeCharmArchive(archive CharmArchive) error {
-	logger.Tracef("storeCharmArchive %q", archive.ID)
-	storage := a.newStorage(a.backendState.ModelUUID(), a.backendState.MongoSession())
-	storagePath, err := charmArchiveStoragePath(archive.ID)
+	actualOrigin, err := downloader.DownloadAndStore(args.URL, convertParamsOrigin(args.Origin), macaroons, args.Force)
 	if err != nil {
-		return errors.Annotate(err, "cannot generate charm archive name")
-	}
-	if err := storage.Put(storagePath, archive.Data, archive.Size); err != nil {
-		return errors.Annotate(err, "cannot add charm to storage")
+		return params.CharmOriginResult{}, errors.Trace(err)
 	}
 
-	info := state.CharmInfo{
-		Charm:       archive.Charm,
-		ID:          archive.ID,
-		StoragePath: storagePath,
-		SHA256:      archive.SHA256,
-		Macaroon:    archive.Macaroon,
-		Version:     archive.CharmVersion,
-	}
-
-	// Now update the charm data in state and mark it as no longer pending.
-	_, err = a.backendState.UpdateUploadedCharm(info)
-	if err != nil {
-		alreadyUploaded := err == stateerrors.ErrCharmRevisionAlreadyModified ||
-			errors.Cause(err) == stateerrors.ErrCharmRevisionAlreadyModified ||
-			stateerrors.IsCharmAlreadyUploadedError(err)
-		if err := storage.Remove(storagePath); err != nil {
-			if alreadyUploaded {
-				logger.Errorf("cannot remove duplicated charm archive from storage: %v", err)
-			} else {
-				logger.Errorf("cannot remove unsuccessfully recorded charm archive from storage: %v", err)
-			}
-		}
-		if alreadyUploaded {
-			// Somebody else managed to upload and update the charm in
-			// state before us. This is not an error.
-			return nil
-		}
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-// charmArchiveStoragePath returns a string that is suitable as a
-// storage path, using a random UUID to avoid colliding with concurrent
-// uploads.
-func charmArchiveStoragePath(curl *charm.URL) (string, error) {
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("charms/%s-%s", curl.String(), uuid), nil
+	return params.CharmOriginResult{
+		Origin: convertOrigin(actualOrigin),
+	}, nil
 }
 
 // ResolveCharms is not available via the V2 API.
@@ -526,16 +418,18 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 		return result
 	}
 
-	// If we can guarantee that each charm to be resolved uses the
-	// same url source and channel, there is no need to get a new repository
-	// each time.
-	resolver, err := a.repository(arg.Origin, mac)
+	repo, err := a.getCharmRepository(corecharm.Source(arg.Origin.Source))
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
 
-	resultURL, origin, supportedSeries, err := resolver.ResolveWithPreferredChannel(curl, convertParamsOrigin(arg.Origin))
+	var macaroons macaroon.Slice
+	if mac != nil {
+		macaroons = append(macaroons, mac)
+	}
+
+	resultURL, origin, supportedSeries, err := repo.ResolveWithPreferredChannel(curl, convertParamsOrigin(arg.Origin), macaroons)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
@@ -588,85 +482,17 @@ func validateOrigin(origin params.CharmOrigin, schema string, switchCharm bool) 
 	return nil
 }
 
-func (a *API) charmStrategy(args params.AddCharmWithAuth) (Strategy, error) {
-	repo, err := a.repository(args.Origin, args.CharmStoreMacaroon)
-	if err != nil {
-		return nil, err
-	}
-	fn := a.getStrategyFunc(args.Origin.Source)
-	return fn(repo, args.URL, args.Force)
-}
-
-// StrategyFunc defines a function for executing a strategy for downloading a
-// charm.
-type StrategyFunc func(charmRepo corecharm.Repository, url string, force bool) (Strategy, error)
-
-func getStrategyFunc(source string) StrategyFunc {
-	if source == "charm-store" {
-		return func(charmRepo corecharm.Repository, url string, force bool) (Strategy, error) {
-			return corecharm.DownloadFromCharmStore(logger.Child("strategy"), charmRepo, url, force)
-		}
-	}
-	return func(charmRepo corecharm.Repository, url string, force bool) (Strategy, error) {
-		return corecharm.DownloadFromCharmHub(logger.Child("strategy"), charmRepo, url, force)
-	}
-}
-
-func (a *API) repository(origin params.CharmOrigin, mac *macaroon.Macaroon) (corecharm.Repository, error) {
-	switch origin.Source {
-	case corecharm.CharmHub.String():
-		return a.charmHubRepository()
-	case corecharm.CharmStore.String():
-		return a.charmStoreRepository(origin, mac)
-	}
-	return nil, errors.BadRequestf("Not charm hub nor charm store charm")
-}
-
-func (a *API) charmStoreRepository(origin params.CharmOrigin, mac *macaroon.Macaroon) (corecharm.Repository, error) {
-	controllerCfg, err := a.backendState.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	client, err := a.csResolverGetterFunc(
-		ResolverGetterParams{
-			CSURL:              controllerCfg.CharmStoreURL(),
-			Channel:            origin.Risk,
-			CharmStoreMacaroon: mac,
+func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, error) {
+	if a.repoFactory == nil {
+		a.repoFactory = a.newRepoFactory(services.CharmRepoFactoryConfig{
+			Logger:       logger,
+			Transport:    a.httpClient,
+			StateBackend: a.backendState,
+			ModelBackend: a.backendModel,
 		})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &csRepo{repo: client}, nil
-}
-
-func (a *API) charmHubRepository() (corecharm.Repository, error) {
-	cfg, err := a.backendModel.Config()
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 
-	options := []charmhub.Option{
-		charmhub.WithHTTPTransport(func(charmhub.Logger) charmhub.Transport {
-			return a.httpClient
-		}),
-	}
-
-	var chCfg charmhub.Config
-	chURL, ok := cfg.CharmHubURL()
-	if ok {
-		chCfg, err = charmhub.CharmHubConfigFromURL(chURL, logger, options...)
-	} else {
-		chCfg, err = charmhub.CharmHubConfig(logger, options...)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	chClient, err := charmhub.NewClient(chCfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &chRepo{chClient}, nil
+	return a.repoFactory.GetCharmRepository(src)
 }
 
 // IsMetered returns whether or not the charm is metered.
@@ -864,14 +690,6 @@ func (a *API) listOneCharmResources(arg params.CharmURLAndOrigin) ([]params.Char
 		return nil, apiservererrors.ServerError(errors.NotValidf("charm %q", curl.Name))
 	}
 
-	// If we can guarantee that each charm to be resolved uses the
-	// same url source and channel, there is no need to get a new repository
-	// each time.
-	resolver, err := a.repository(arg.Origin, nil)
-	if err != nil {
-		return nil, apiservererrors.ServerError(err)
-	}
-
 	defaultArch, err := a.getDefaultArch()
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
@@ -882,7 +700,17 @@ func (a *API) listOneCharmResources(arg params.CharmURLAndOrigin) ([]params.Char
 		return nil, apiservererrors.ServerError(err)
 	}
 
-	resources, err := resolver.ListResources(curl, convertParamsOrigin(charmOrigin))
+	repo, err := a.getCharmRepository(corecharm.Source(curl.Schema))
+	if err != nil {
+		return nil, apiservererrors.ServerError(err)
+	}
+
+	var macaroons macaroon.Slice
+	if arg.Macaroon != nil {
+		macaroons = append(macaroons, arg.Macaroon)
+	}
+
+	resources, err := repo.ListResources(curl, convertParamsOrigin(charmOrigin), macaroons)
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}
