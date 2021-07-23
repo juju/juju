@@ -18,18 +18,17 @@ import (
 // Hub defines the only method of the apiserver centralhub that
 // the observer uses.
 type Hub interface {
-	Publish(topic string, data interface{}) (<-chan struct{}, error)
+	Publish(topic string, data interface{}) (func(), error)
 }
 
 // RequestObserver serves as a sink for API server requests and
 // responses.
 type RequestObserver struct {
-	clock              clock.Clock
-	hub                Hub
-	logger             loggo.Logger
-	connLogger         loggo.Logger
-	pingLogger         loggo.Logger
-	apiConnectionCount func() int64
+	clock      clock.Clock
+	hub        Hub
+	logger     loggo.Logger
+	connLogger loggo.Logger
+	pingLogger loggo.Logger
 
 	// state represents information that's built up as methods on this
 	// type are called. We segregate this to ensure it's clear what
@@ -46,8 +45,8 @@ type RequestObserver struct {
 	}
 }
 
-// RequestObservercontext provides information needed for a
-// RequestObserverContext to operate correctly.
+// RequestObserverContext provides information needed for a
+// RequestObserver to operate correctly.
 type RequestObserverContext struct {
 
 	// Clock is the clock to use for all time operations on this type.
@@ -95,7 +94,7 @@ func (n *RequestObserver) Login(entity names.Tag, model names.ModelTag, fromCont
 		if !n.state.fromController {
 			n.connLogger.Infof("agent login: %s for %s", n.state.tag, n.state.model)
 		}
-		n.hub.Publish(apiserver.ConnectTopic, apiserver.APIConnection{
+		_, _ = n.hub.Publish(apiserver.ConnectTopic, apiserver.APIConnection{
 			AgentTag:        n.state.tag,
 			ControllerAgent: fromController,
 			ModelUUID:       model.Id(),
@@ -124,7 +123,7 @@ func (n *RequestObserver) Leave() {
 		if !n.state.fromController {
 			n.connLogger.Infof("agent disconnected: %s for %s", n.state.tag, n.state.model)
 		}
-		n.hub.Publish(apiserver.DisconnectTopic, apiserver.APIConnection{
+		_, _ = n.hub.Publish(apiserver.DisconnectTopic, apiserver.APIConnection{
 			AgentTag:        n.state.tag,
 			ControllerAgent: n.state.fromController,
 			ModelUUID:       n.state.model,

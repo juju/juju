@@ -210,5 +210,5 @@ type ModelPresence interface {
 
 // Hub represents the central hub that the API server has.
 type Hub interface {
-	Publish(topic string, data interface{}) (<-chan struct{}, error)
+	Publish(topic string, data interface{}) (func(), error)
 }

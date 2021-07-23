@@ -199,11 +199,11 @@ func (u *Unit) setDetails(details UnitChange) {
 	// Publish a unit addition event if a unit gets a machine ID for the first
 	// time, or if this is a subordinate that was not previously in the cache.
 	if landingOnMachine || newSubordinate {
-		u.model.hub.Publish(modelUnitAdd, toPublish)
+		_ = u.model.hub.Publish(modelUnitAdd, toPublish)
 	}
 
 	// Publish change event for those that may be waiting.
-	u.model.hub.Publish(unitChangeTopic(details.Name), &toPublish)
+	_ = u.model.hub.Publish(unitChangeTopic(details.Name), &toPublish)
 }
 
 // copy returns a copy of the unit, ensuring appropriate deep copying.

@@ -20,7 +20,7 @@ import (
 // Hub defines the publish method that the handler uses to publish
 // messages on the centralhub of the apiserver.
 type Hub interface {
-	Publish(string, interface{}) (<-chan struct{}, error)
+	Publish(string, interface{}) (func(), error)
 }
 
 func newPubSubHandler(h httpContext, hub Hub) http.Handler {

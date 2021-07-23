@@ -60,6 +60,7 @@ require (
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
 	github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4
 	github.com/juju/pubsub v0.0.0-20190419131051-c1f7536b9cc6
+	github.com/juju/pubsub/v2 v2.0.0-00010101000000-000000000000
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441
 	github.com/juju/replicaset v0.0.0-20210302050932-0303c8575745
 	github.com/juju/retry v0.0.0-20180821225755-9058e192b216
@@ -121,3 +122,5 @@ replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0
 replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5
 
 replace gopkg.in/juju/names.v3 => github.com/juju/names v0.0.0-20200331100531-2c9a102df211
+
+replace github.com/juju/pubsub/v2 => github.com/SimonRichardson/pubsub/v2 v2.0.0-20210723115204-8d13ba3eb76d
