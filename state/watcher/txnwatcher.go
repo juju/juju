@@ -19,7 +19,7 @@ import (
 // Hub represents a pubsub hub. The TxnWatcher only ever publishes
 // events to the hub.
 type Hub interface {
-	Publish(topic string, data interface{}) <-chan struct{}
+	Publish(topic string, data interface{}) func()
 }
 
 // Clock represents the time methods used.
@@ -60,12 +60,6 @@ var (
 	// callbacks each time the database has been polled and processed.
 	TxnPollNotifyFunc func()
 )
-
-type txnChange struct {
-	collection string
-	docID      interface{}
-	revID      int64
-}
 
 // A TxnWatcher watches the txns.log collection and publishes all change events
 // to the hub.
@@ -235,7 +229,7 @@ func (w *TxnWatcher) loop() error {
 	backoff := PollStrategy.NewTimer(now)
 	d, _ := backoff.NextSleep(now)
 	next := w.clock.After(d)
-	w.hub.Publish(TxnWatcherStarting, nil)
+	_ = w.hub.Publish(TxnWatcherStarting, nil)
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -274,7 +268,7 @@ func (w *TxnWatcher) loop() error {
 
 		added, err := w.sync()
 		if err != nil {
-			w.hub.Publish(TxnWatcherSyncErr, nil)
+			_ = w.hub.Publish(TxnWatcherSyncErr, nil)
 			return errors.Trace(err)
 		}
 		w.flush()
@@ -294,7 +288,7 @@ func (w *TxnWatcher) flush() {
 	// refreshEvents are stored newest first.
 	for i := len(w.syncEvents) - 1; i >= 0; i-- {
 		e := w.syncEvents[i]
-		w.hub.Publish(TxnWatcherCollection, e)
+		_ = w.hub.Publish(TxnWatcherCollection, e)
 	}
 	w.averageSyncLen = (filterFactor * float64(len(w.syncEvents))) + ((1.0 - filterFactor) * w.averageSyncLen)
 	w.syncEventsLastLen = len(w.syncEvents)

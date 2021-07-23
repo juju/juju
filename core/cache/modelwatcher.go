@@ -6,7 +6,7 @@ package cache
 import (
 	"sync"
 
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"gopkg.in/tomb.v2"
 )
 

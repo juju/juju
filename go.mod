@@ -59,7 +59,7 @@ require (
 	github.com/juju/packaging v0.0.0-20210322161715-32d1b6c12454
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
 	github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4
-	github.com/juju/pubsub v0.0.0-20190419131051-c1f7536b9cc6
+	github.com/juju/pubsub/v2 v2.0.0-20210723162818-835a4be34289
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441
 	github.com/juju/replicaset v0.0.0-20210302050932-0303c8575745
 	github.com/juju/retry v0.0.0-20180821225755-9058e192b216

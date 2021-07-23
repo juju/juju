@@ -37,7 +37,7 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/retry"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
@@ -56,7 +56,7 @@ func (s *HubWatcherSuite) SetUpTest(c *gc.C) {
 func (s *HubWatcherSuite) publish(c *gc.C, changes ...watcher.Change) {
 	var processed <-chan struct{}
 	for _, change := range changes {
-		processed = s.hub.Publish(watcher.TxnWatcherCollection, change)
+		processed = pubsub.Wait(s.hub.Publish(watcher.TxnWatcherCollection, change))
 	}
 	select {
 	case <-processed:

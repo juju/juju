@@ -25,7 +25,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/v2"
 	"github.com/juju/version"
