@@ -6772,7 +6772,7 @@
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/EntitiesResults"
+                            "$ref": "#/definitions/CAASUnitsResults"
                         }
                     },
                     "description": "Units returns all the units for each application specified."
@@ -7050,6 +7050,51 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/CAASApplicationProvisioningInfo"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "CAASUnitInfo": {
+                    "type": "object",
+                    "properties": {
+                        "tag": {
+                            "type": "string"
+                        },
+                        "unit-status": {
+                            "$ref": "#/definitions/UnitStatus"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
+                    ]
+                },
+                "CAASUnitsResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "units": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CAASUnitInfo"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CAASUnitsResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CAASUnitsResult"
                             }
                         }
                     },
@@ -7611,6 +7656,52 @@
                         "url"
                     ]
                 },
+                "DetailedStatus": {
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "err": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "info": {
+                            "type": "string"
+                        },
+                        "kind": {
+                            "type": "string"
+                        },
+                        "life": {
+                            "type": "string"
+                        },
+                        "since": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "status": {
+                            "type": "string"
+                        },
+                        "version": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "status",
+                        "info",
+                        "data",
+                        "since",
+                        "kind",
+                        "version",
+                        "life"
+                    ]
+                },
                 "DockerImageInfo": {
                     "type": "object",
                     "properties": {
@@ -7642,39 +7733,6 @@
                     "additionalProperties": false,
                     "required": [
                         "entities"
-                    ]
-                },
-                "EntitiesResult": {
-                    "type": "object",
-                    "properties": {
-                        "entities": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Entity"
-                            }
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "entities"
-                    ]
-                },
-                "EntitiesResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/EntitiesResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "Entity": {
@@ -8210,6 +8268,63 @@
                     "additionalProperties": false,
                     "required": [
                         "watcher-id"
+                    ]
+                },
+                "UnitStatus": {
+                    "type": "object",
+                    "properties": {
+                        "address": {
+                            "type": "string"
+                        },
+                        "agent-status": {
+                            "$ref": "#/definitions/DetailedStatus"
+                        },
+                        "charm": {
+                            "type": "string"
+                        },
+                        "leader": {
+                            "type": "boolean"
+                        },
+                        "machine": {
+                            "type": "string"
+                        },
+                        "opened-ports": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "public-address": {
+                            "type": "string"
+                        },
+                        "subordinates": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/UnitStatus"
+                                }
+                            }
+                        },
+                        "workload-status": {
+                            "$ref": "#/definitions/DetailedStatus"
+                        },
+                        "workload-version": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "agent-status",
+                        "workload-status",
+                        "workload-version",
+                        "machine",
+                        "opened-ports",
+                        "public-address",
+                        "charm",
+                        "subordinates"
                     ]
                 },
                 "UpdateApplicationUnitArgs": {

@@ -352,6 +352,7 @@ type mockUnit struct {
 	life                state.Life
 	destroyOp           *state.DestroyUnitOperation
 	containerInfo       *mockCloudContainer
+	status              status.StatusInfo
 	tag                 names.Tag
 	updateUnitOperation *state.UpdateUnitOperation
 }
@@ -363,6 +364,11 @@ func (u *mockUnit) Tag() names.Tag {
 func (u *mockUnit) DestroyOperation() *state.DestroyUnitOperation {
 	u.MethodCall(u, "DestroyOperation")
 	return u.destroyOp
+}
+
+func (u *mockUnit) Status() (status.StatusInfo, error) {
+	u.MethodCall(u, "Status")
+	return u.status, u.NextErr()
 }
 
 func (u *mockUnit) EnsureDead() error {

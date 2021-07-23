@@ -244,11 +244,11 @@ func (c *Client) SetOperatorStatus(appName string, status status.Status, message
 }
 
 // Units returns all the units for an Application.
-func (c *Client) Units(appName string) ([]names.Tag, error) {
+func (c *Client) Units(appName string) ([]params.CAASUnit, error) {
 	args := params.Entities{Entities: []params.Entity{{
 		Tag: names.NewApplicationTag(appName).String(),
 	}}}
-	var result params.EntitiesResults
+	var result params.CAASUnitsResults
 	if err := c.facade.FacadeCall("Units", args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -260,15 +260,18 @@ func (c *Client) Units(appName string) ([]names.Tag, error) {
 	if res.Error != nil {
 		return nil, errors.Annotatef(maybeNotFound(res.Error), "unable to fetch units for %s", appName)
 	}
-	tags := make([]names.Tag, 0, len(res.Entities))
-	for _, v := range res.Entities {
+	out := make([]params.CAASUnit, len(res.Units))
+	for i, v := range res.Units {
 		tag, err := names.ParseUnitTag(v.Tag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		tags = append(tags, tag)
+		out[i] = params.CAASUnit{
+			Tag:        tag,
+			UnitStatus: v.UnitStatus,
+		}
 	}
-	return tags, nil
+	return out, nil
 }
 
 // GarbageCollect cleans up units that have gone away permanently.
