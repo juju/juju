@@ -13962,7 +13962,7 @@
                             "$ref": "#/definitions/AddCharm"
                         }
                     },
-                    "description": "NOTE: AddCharm is deprecated as of juju 2.9 and charms facade version 3.\nPlease discontinue use and move to the charms facade version.\n\nTODO: remove in juju 3.0"
+                    "description": "Method was deprecated as of juju 2.9 and removed in juju 3.0. Please use the\nclient/charms facade instead."
                 },
                 "AddCharmWithAuthorization": {
                     "type": "object",
@@ -13971,7 +13971,7 @@
                             "$ref": "#/definitions/AddCharmWithAuthorization"
                         }
                     },
-                    "description": "AddCharmWithAuthorization adds the given charm URL (which must include\nrevision) to the model, if it does not exist yet. Local charms are not\nsupported, only charm store URLs. See also AddLocalCharm().\n\nThe authorization macaroon, args.CharmStoreMacaroon, may be omitted, in\nwhich case this call is equivalent to AddCharm.\n\nNOTE: AddCharmWithAuthorization is deprecated as of juju 2.9 and charms\nfacade version 3. Please discontinue use and move to the charms facade\nversion.\n\nTODO: remove in juju 3.0"
+                    "description": "Method was deprecated as of juju 2.9 and removed in juju 3.0. Please use the\nclient/charms facade instead."
                 },
                 "AddMachines": {
                     "type": "object",
@@ -14172,7 +14172,7 @@
                             "$ref": "#/definitions/ResolveCharmResults"
                         }
                     },
-                    "description": "ResolveCharm resolves the best available charm URLs with series, for charm\nlocations without a series specified.\n\nNOTE: ResolveCharms is deprecated as of juju 2.9 and charms facade version 3.\nPlease discontinue use and move to the charms facade version.\n\nTODO: remove in juju 3.0"
+                    "description": "Method was deprecated as of juju 2.9 and removed in juju 3.0. Please use the\nclient/charms facade instead."
                 },
                 "Resolved": {
                     "type": "object",
