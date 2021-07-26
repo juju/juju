@@ -1,7 +1,7 @@
 [![Juju logo](doc/juju-logo.png?raw=true)](https://juju.is/)
 
 [Juju is a model-driven **Operator Lifecycle Manager**
-(OLM)](https://juju.is/overview). Juju greatly improves the experience of
+(OLM)](https://juju.is/about). Juju greatly improves the experience of
 running Kubernetes operators, especially in projects that integrate many
 operators from different publishers.
 
@@ -9,16 +9,12 @@ operators from different publishers.
 
 A Kubernetes operator is [a container that drives the config and operation
 of a workload](https://charmhub.io/about). By encapsulating ops code as a
-reusable container, the operator pattern moves [beyond traditional config
-management](https://juju.is/beyond-configuration-management) to allow much
-more agile operations for complex cloud workloads.
+reusable container, the operator pattern moves beyond traditional config
+management to allow much more agile operations for complex cloud workloads.
 
-Shared, open source operators **take infra as code to the next level** with
-community-driven ops and integration code. Reuse of ops code [improves
-quality](https://juju.is/ops-code-quality) and encourages wider community
-engagement and contribution. Operators also improve security through
-consistent automation. Juju operators are a [community-driven
-devsecops](https://juju.is/devsecops) approach to open source operations.
+Shared, open source operators **take infrastructure as code to the next level** with community-driven ops and integration code. Reuse of ops code improves
+quality and encourages wider [community engagement and contribution](https://juju.is/about#collaboration). Operators also improve security through
+consistent automation. Juju operators are a [community-driven devsecops](https://juju.is/about#automate-everything) approach to open source operations.
 
 Juju implements the Kubernetes operator pattern, but is also a **universal
 OLM** that extends the operator pattern to traditional applications (without
@@ -32,7 +28,7 @@ same app.
 
 **Juju excels at application integration**. Instead of simply focusing on
 lifecycle management, the Juju OLM provides a [rich application graph
-model](https://juju.is/model-driven-operations) that tells operators how to
+model](https://juju.is/about#integration-simplicity) that tells operators how to
 integrate with one another. This dramatically simplifies the operations of
 large deployments.
 
@@ -40,13 +36,11 @@ A key focus for Juju is to **simplify operator design, development and
 usage**.  Instead of making very complex operators for specific scenarios,
 Juju encourages devops to make composable operators, each of which drives a
 single Docker image, and which can be reused in different settings.
-[Composable operators](https://juju.is/integration) enable very rich
-scenarios to be constructed out of simpler **operators that do one thing and
-do it well**.
+[Composable operators](https://juju.is/about#integration-simplicity) enable very rich scenarios to be constructed out of simpler **operators that do one thing and do it well**.
 
 The OLM provides a central mechanism for operator instantiation,
 configuration, upgrades, integration and administration. The OLM provides a
-range of [operator lifecycle services](https://juju.is/operator-services)
+range of [operator lifecycle services](https://juju.is/docs/sdk/events)
 including leader election and persistent state. Instead of manually
 deploying and configuring operators, the OLM manages all the operators in a
 model at the direction of the administrator.
@@ -82,7 +76,7 @@ The [Python Operator Framework](https://pythonoperatorframework.io/) makes
 it easy to write an operator. The framework handles all the details of
 communication between integrated operators, so you can focus on your own
 [application lifecycle
-management](https://juju.is/operator-lifecycle-manager).
+management](https://juju.is/docs/olm).
 
 Code sharing between operator publishers is simplified making it much faster
 to collaborate on distributed systems involving components from many
@@ -92,10 +86,7 @@ to your charm by the framework.
 
 ## Architecture
 
-The Juju [client, server and agent](https://juju.is/architecture) are all
-written in Golang. The standard Juju packaging includes an embedded database
-for centralised logging and persistence, but there is no need to manage that
-database separately.
+The Juju client, server and agent are all written in Golang. The standard Juju packaging includes an embedded database for centralised logging and ersistence, but there is no need to manage that database separately.
 
 Operators can be written in any language but we do encourage new authors to
 use the Python Operator Framework for ease of contribution, support and
@@ -104,7 +95,7 @@ community participation.
 ## Production grade
 
 The Juju server has built-in support for [high
-availability](https://juju.is/high-availability-enterprise-olm) when scaled
+availability](https://juju.is/docs/olm/high-availability) when scaled
 out to three instances. It can monitor itself and grow additional instances
 in the event of failure, within predetermined limits. Juju supports backup,
 restore, and rolling upgrade operations appropriate for large-scale
@@ -112,13 +103,7 @@ centralised enterprise grade management and operations systems.
 
 ## Get started
 
-Our community hangs out at the [Charmhub
-discourse](https://discourse.juju.is/) which serves as a combination mailing
-list and web forum. Keep up with the news and get a feel for operator
-engineering and usage there. Get  the Juju CLI on Windows, macOS or Linux
-with the [install instructions](https://juju.is/docs/installing) and [try
-the tutorials](https://juju.is/docs/tutorials). All you need is a small K8s
-cluster, or an Ubuntu machine or VM to run MicroK8s.
+Our community hangs out at the [Charmhub discourse](https://discourse.juju.is/) which serves as a combination mailing list and web forum. Keep up with the news and get a feel for operator engineering and usage there. Get  the Juju CLI on Windows, macOS or Linux with the [install instructions](https://juju.is/docs/installing) and [try the tutorials](https://juju.is/docs/tutorials). All you need is a small K8s cluster, or an Ubuntu machine or VM to run MicroK8s.
 
 Read the [documentation](https://juju.is/docs) for a comprehensive reference
 of commands and usage.
