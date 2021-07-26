@@ -1147,10 +1147,14 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		mongoArgs := fmt.Sprintf("%[1]s && chmod a+x %[2]s && %[2]s", makeMongoCmd, mongoSh)
 		logger.Debugf("mongodb container args:\n%s", mongoArgs)
 
+		dbImage, err := c.pcfg.GetJujuDbOCIImagePath()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		containerSpec = append(containerSpec, core.Container{
 			Name:            mongoDBContainerName,
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           c.pcfg.GetJujuDbOCIImagePath(),
+			Image:           dbImage,
 			Command: []string{
 				"/bin/sh",
 			},
