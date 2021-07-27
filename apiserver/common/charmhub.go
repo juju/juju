@@ -33,7 +33,7 @@ func CharmhubClient(mg ModelGetter, httpClient charmhub.Transport, logger loggo.
 	}
 	url, _ := modelConfig.CharmHubURL()
 
-	config, err := charmhub.CharmHubConfigFromURL(url, logger.Child("charmhub"),
+	config, err := charmhub.CharmHubConfigFromURL(url, logger,
 		charmhub.WithMetadataHeaders(metadata),
 		charmhub.WithHTTPTransport(func(charmhub.Logger) charmhub.Transport {
 			return httpClient
