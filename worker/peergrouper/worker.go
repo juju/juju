@@ -107,7 +107,7 @@ var (
 // grouper uses.
 type Hub interface {
 	Subscribe(topic string, handler interface{}) (func(), error)
-	Publish(topic string, data interface{}) (<-chan struct{}, error)
+	Publish(topic string, data interface{}) (func(), error)
 }
 
 // pgWorker is a worker which watches the controller nodes in state

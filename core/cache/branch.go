@@ -4,7 +4,7 @@
 package cache
 
 import (
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 
 	"github.com/juju/juju/core/settings"
 )
@@ -87,7 +87,7 @@ func (b *Branch) setDetails(details BranchChange) {
 	})
 
 	b.details = details
-	b.hub.Publish(branchChange, b.copy())
+	_ = b.hub.Publish(branchChange, b.copy())
 }
 
 // copy returns a copy of the branch, ensuring appropriate deep copying.

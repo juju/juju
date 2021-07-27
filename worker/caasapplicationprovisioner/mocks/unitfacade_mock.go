@@ -5,36 +5,37 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/apiserver/params"
 	watcher "github.com/juju/juju/core/watcher"
-	reflect "reflect"
 )
 
-// MockCAASUnitProvisionerFacade is a mock of CAASUnitProvisionerFacade interface
+// MockCAASUnitProvisionerFacade is a mock of CAASUnitProvisionerFacade interface.
 type MockCAASUnitProvisionerFacade struct {
 	ctrl     *gomock.Controller
 	recorder *MockCAASUnitProvisionerFacadeMockRecorder
 }
 
-// MockCAASUnitProvisionerFacadeMockRecorder is the mock recorder for MockCAASUnitProvisionerFacade
+// MockCAASUnitProvisionerFacadeMockRecorder is the mock recorder for MockCAASUnitProvisionerFacade.
 type MockCAASUnitProvisionerFacadeMockRecorder struct {
 	mock *MockCAASUnitProvisionerFacade
 }
 
-// NewMockCAASUnitProvisionerFacade creates a new mock instance
+// NewMockCAASUnitProvisionerFacade creates a new mock instance.
 func NewMockCAASUnitProvisionerFacade(ctrl *gomock.Controller) *MockCAASUnitProvisionerFacade {
 	mock := &MockCAASUnitProvisionerFacade{ctrl: ctrl}
 	mock.recorder = &MockCAASUnitProvisionerFacadeMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCAASUnitProvisionerFacade) EXPECT() *MockCAASUnitProvisionerFacadeMockRecorder {
 	return m.recorder
 }
 
-// ApplicationScale mocks base method
+// ApplicationScale mocks base method.
 func (m *MockCAASUnitProvisionerFacade) ApplicationScale(arg0 string) (int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplicationScale", arg0)
@@ -43,13 +44,13 @@ func (m *MockCAASUnitProvisionerFacade) ApplicationScale(arg0 string) (int, erro
 	return ret0, ret1
 }
 
-// ApplicationScale indicates an expected call of ApplicationScale
+// ApplicationScale indicates an expected call of ApplicationScale.
 func (mr *MockCAASUnitProvisionerFacadeMockRecorder) ApplicationScale(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationScale", reflect.TypeOf((*MockCAASUnitProvisionerFacade)(nil).ApplicationScale), arg0)
 }
 
-// ApplicationTrust mocks base method
+// ApplicationTrust mocks base method.
 func (m *MockCAASUnitProvisionerFacade) ApplicationTrust(arg0 string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplicationTrust", arg0)
@@ -58,13 +59,13 @@ func (m *MockCAASUnitProvisionerFacade) ApplicationTrust(arg0 string) (bool, err
 	return ret0, ret1
 }
 
-// ApplicationTrust indicates an expected call of ApplicationTrust
+// ApplicationTrust indicates an expected call of ApplicationTrust.
 func (mr *MockCAASUnitProvisionerFacadeMockRecorder) ApplicationTrust(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationTrust", reflect.TypeOf((*MockCAASUnitProvisionerFacade)(nil).ApplicationTrust), arg0)
 }
 
-// UpdateApplicationService mocks base method
+// UpdateApplicationService mocks base method.
 func (m *MockCAASUnitProvisionerFacade) UpdateApplicationService(arg0 params.UpdateApplicationServiceArg) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateApplicationService", arg0)
@@ -72,13 +73,13 @@ func (m *MockCAASUnitProvisionerFacade) UpdateApplicationService(arg0 params.Upd
 	return ret0
 }
 
-// UpdateApplicationService indicates an expected call of UpdateApplicationService
+// UpdateApplicationService indicates an expected call of UpdateApplicationService.
 func (mr *MockCAASUnitProvisionerFacadeMockRecorder) UpdateApplicationService(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationService", reflect.TypeOf((*MockCAASUnitProvisionerFacade)(nil).UpdateApplicationService), arg0)
 }
 
-// WatchApplicationScale mocks base method
+// WatchApplicationScale mocks base method.
 func (m *MockCAASUnitProvisionerFacade) WatchApplicationScale(arg0 string) (watcher.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchApplicationScale", arg0)
@@ -87,13 +88,13 @@ func (m *MockCAASUnitProvisionerFacade) WatchApplicationScale(arg0 string) (watc
 	return ret0, ret1
 }
 
-// WatchApplicationScale indicates an expected call of WatchApplicationScale
+// WatchApplicationScale indicates an expected call of WatchApplicationScale.
 func (mr *MockCAASUnitProvisionerFacadeMockRecorder) WatchApplicationScale(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationScale", reflect.TypeOf((*MockCAASUnitProvisionerFacade)(nil).WatchApplicationScale), arg0)
 }
 
-// WatchApplicationTrustHash mocks base method
+// WatchApplicationTrustHash mocks base method.
 func (m *MockCAASUnitProvisionerFacade) WatchApplicationTrustHash(arg0 string) (watcher.StringsWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchApplicationTrustHash", arg0)
@@ -102,7 +103,7 @@ func (m *MockCAASUnitProvisionerFacade) WatchApplicationTrustHash(arg0 string) (
 	return ret0, ret1
 }
 
-// WatchApplicationTrustHash indicates an expected call of WatchApplicationTrustHash
+// WatchApplicationTrustHash indicates an expected call of WatchApplicationTrustHash.
 func (mr *MockCAASUnitProvisionerFacadeMockRecorder) WatchApplicationTrustHash(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationTrustHash", reflect.TypeOf((*MockCAASUnitProvisionerFacade)(nil).WatchApplicationTrustHash), arg0)

@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/replicaset/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/voyeur"
@@ -1133,8 +1133,8 @@ func (nopAPIHostPortsSetter) SetAPIHostPorts(apiServers []network.SpaceHostPorts
 
 type nopHub struct{}
 
-func (nopHub) Publish(topic string, data interface{}) (<-chan struct{}, error) {
-	return nil, nil
+func (nopHub) Publish(topic string, data interface{}) (func(), error) {
+	return func() {}, nil
 }
 
 func (nopHub) Subscribe(topic string, handler interface{}) (func(), error) {
