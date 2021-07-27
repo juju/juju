@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2/workertest"
@@ -182,7 +182,7 @@ func (s *RemoteServerSuite) TestConnectRetryInterruptedOnTargetConnection(c *gc.
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	select {
-	case <-done:
+	case <-pubsub.Wait(done):
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("worker didn't consume the event")
 	}

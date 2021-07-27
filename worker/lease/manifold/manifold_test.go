@@ -12,7 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"

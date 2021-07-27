@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2/workertest"
@@ -133,7 +133,7 @@ func (s *WorkerSuite) TestUpdateMongoProfile(c *gc.C) {
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
-	case <-handled:
+	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
 		c.Fatalf("event not handled")
 	}
@@ -145,7 +145,7 @@ func (s *WorkerSuite) TestUpdateMongoProfile(c *gc.C) {
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
-	case <-handled:
+	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
 		c.Fatalf("event not handled")
 	}
@@ -164,7 +164,7 @@ func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *gc.C) {
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
-	case <-handled:
+	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
 		c.Fatalf("event not handled")
 	}
@@ -176,7 +176,7 @@ func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *gc.C) {
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
-	case <-handled:
+	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
 		c.Fatalf("event not handled")
 	}
@@ -195,7 +195,7 @@ func (s *WorkerSuite) TestUpdateSyncWritesToRaftLog(c *gc.C) {
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
-	case <-handled:
+	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
 		c.Fatalf("event not handled")
 	}
@@ -207,7 +207,7 @@ func (s *WorkerSuite) TestUpdateSyncWritesToRaftLog(c *gc.C) {
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
-	case <-handled:
+	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
 		c.Fatalf("event not handled")
 	}

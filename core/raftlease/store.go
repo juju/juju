@@ -12,7 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/core/globalclock"
@@ -247,7 +247,7 @@ func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
 
 	start := time.Now()
 	defer func() {
-		elapsed := time.Now().Sub(start)
+		elapsed := time.Since(start)
 		logger.Tracef("runOnLeader %v, elapsed from publish: %v", command.Operation, elapsed.Round(time.Millisecond))
 	}()
 
@@ -265,7 +265,7 @@ func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
 	// This is an explicit step so that we can more accurately diagnose issues
 	// in-theatre.
 	select {
-	case <-delivered:
+	case <-pubsub.Wait(delivered):
 	case <-s.config.Clock.After(s.config.ForwardTimeout):
 		logger.Warningf("delivery timeout waiting for %s to be processed", command)
 		s.record(command.Operation, "delivery timeout", start)
