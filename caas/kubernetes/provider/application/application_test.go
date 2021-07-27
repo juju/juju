@@ -2105,6 +2105,78 @@ func (s *applicationSuite) TestPullSecretUpdate(c *gc.C) {
 	c.Assert(*secret, jc.DeepEquals, newNginxPullSecret)
 }
 
+func (s *applicationSuite) TestPVCNames(c *gc.C) {
+	claims := []*corev1.PersistentVolumeClaim{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "storage_a-abcd1234-gitlab-0",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/managed-by": "juju",
+					"app.kubernetes.io/name":       "gitlab",
+					"storage.juju.is/name":         "storage_a",
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "gitlab-storage_b-abcd1235-gitlab-0",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/managed-by": "juju",
+					"app.kubernetes.io/name":       "gitlab",
+					"storage.juju.is/name":         "storage_b",
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "juju-storage_c-42",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/managed-by": "juju",
+					"app.kubernetes.io/name":       "gitlab",
+					"storage.juju.is/name":         "storage_c",
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "storage_d-abcd1234-gitlab-0",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/managed-by": "juju",
+					"app.kubernetes.io/name":       "another-app",
+					"storage.juju.is/name":         "storage_d",
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "storage_e-abcd1236-gitlab-0",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/managed-by": "juju",
+					"app.kubernetes.io/name":       "gitlab",
+					// no "storage.juju.is/name" label -- will be ignored
+				},
+			},
+		},
+	}
+	for _, claim := range claims {
+		_, err := s.client.CoreV1().PersistentVolumeClaims("test").Create(context.Background(), claim, metav1.CreateOptions{})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	names, err := application.PVCNames(s.client, "test", "gitlab")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(names, gc.DeepEquals, map[string]string{
+		"gitlab-storage_a": "storage_a-abcd1234",
+		"gitlab-storage_b": "gitlab-storage_b-abcd1235",
+		"gitlab-storage_c": "juju-storage_c-42",
+	})
+}
+
 func int64Ptr(a int64) *int64 {
 	return &a
 }

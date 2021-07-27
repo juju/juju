@@ -1566,8 +1566,8 @@ func (a *app) volumeName(storageName string) string {
 	return fmt.Sprintf("%s-%s", a.name, storageName)
 }
 
-// getPVCNames returns a mapping of volume name to PVC name for this app's PVCs.
-func (a *app) getPVCNames() (map[string]string, error) {
+// pvcNames returns a mapping of volume name to PVC name for this app's PVCs.
+func (a *app) pvcNames() (map[string]string, error) {
 	// Fetch all Juju PVCs associated with this app
 	opts := metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("app.kubernetes.io/managed-by = juju, app.kubernetes.io/name = %s", a.name),
@@ -1577,7 +1577,7 @@ func (a *app) getPVCNames() (map[string]string, error) {
 		return nil, errors.Annotate(err, "fetching persistent volume claims")
 	}
 
-	prefixes := make(map[string]string)
+	names := make(map[string]string)
 	for _, pvc := range pvcs {
 		// Look up Juju storage name
 		s, ok := pvc.Labels["storage.juju.is/name"]
@@ -1601,12 +1601,12 @@ func (a *app) getPVCNames() (map[string]string, error) {
 			}
 			match := r.FindString(pvc.Name)
 			if match != "" {
-				prefixes[a.volumeName(s)] = match
+				names[a.volumeName(s)] = match
 				break
 			}
 		}
 	}
-	return prefixes, nil
+	return names, nil
 }
 
 func (a *app) configureStorage(
@@ -1623,7 +1623,7 @@ func (a *app) configureStorage(
 		storageClassMap[v.Name] = v
 	}
 
-	pvcNames, err := a.getPVCNames()
+	pvcNames, err := a.pvcNames()
 	if err != nil {
 		return errors.Trace(err)
 	}
