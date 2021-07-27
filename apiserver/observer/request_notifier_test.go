@@ -144,9 +144,9 @@ type connectionHub struct {
 	details apiserver.APIConnection
 }
 
-func (hub *connectionHub) Publish(topic string, data interface{}) (<-chan struct{}, error) {
+func (hub *connectionHub) Publish(topic string, data interface{}) (func(), error) {
 	hub.called++
 	hub.topic = topic
 	hub.details = data.(apiserver.APIConnection)
-	return nil, nil
+	return func() {}, nil
 }

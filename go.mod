@@ -72,7 +72,7 @@ require (
 	github.com/juju/packaging/v2 v2.0.0-20210628104420-5487e24f1350
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
 	github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4
-	github.com/juju/pubsub v0.0.0-20190419131051-c1f7536b9cc6
+	github.com/juju/pubsub/v2 v2.0.0-20210723162818-835a4be34289
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441
 	github.com/juju/replicaset/v2 v2.0.0-20210310024806-bbbdc5f31eb3
 	github.com/juju/retry v0.0.0-20180821225755-9058e192b216
@@ -109,6 +109,7 @@ require (
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/vishvananda/netlink v1.1.0
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
+	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
 	golang.org/x/mod v0.4.0 // indirect
 	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
@@ -120,7 +121,6 @@ require (
 	google.golang.org/api v0.29.0
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20200726014623-da3ae01ef02d // indirect
-	google.golang.org/grpc v1.33.1 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/httprequest.v1 v1.2.1
 	gopkg.in/ini.v1 v1.51.0

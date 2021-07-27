@@ -24,7 +24,7 @@ import (
 // that are used. The context uses an interface to allow mocking
 // of the hub.
 type SharedHub interface {
-	Publish(topic string, data interface{}) (<-chan struct{}, error)
+	Publish(topic string, data interface{}) (func(), error)
 	Subscribe(topic string, handler interface{}) (func(), error)
 }
 

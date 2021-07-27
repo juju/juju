@@ -7,7 +7,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver"

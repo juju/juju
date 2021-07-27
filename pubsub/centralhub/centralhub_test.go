@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -46,7 +46,7 @@ func (s *CentralHubSuite) TestSetsOrigin(c *gc.C) {
 
 	done, err := hub.Publish(topic, map[string]interface{}{"key": "value"})
 	c.Assert(err, jc.ErrorIsNil)
-	s.waitForSubscribers(c, done)
+	s.waitForSubscribers(c, pubsub.Wait(done))
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -74,7 +74,7 @@ func (s *CentralHubSuite) TestYAMLMarshalling(c *gc.C) {
 	// With the default JSON marshalling, integers are marshalled to floats into the map.
 	done, err := hub.Publish(topic, IntStruct{1234})
 	c.Assert(err, jc.ErrorIsNil)
-	s.waitForSubscribers(c, done)
+	s.waitForSubscribers(c, pubsub.Wait(done))
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -111,6 +111,6 @@ func (s *CentralHubSuite) TestPostProcessingMaps(c *gc.C) {
 		Key:    "value",
 		Nested: IntStruct{1234}})
 	c.Assert(err, jc.ErrorIsNil)
-	s.waitForSubscribers(c, done)
+	s.waitForSubscribers(c, pubsub.Wait(done))
 	c.Assert(called, jc.IsTrue)
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/pubsub/apiserver"

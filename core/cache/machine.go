@@ -169,7 +169,7 @@ func (m *Machine) setDetails(details MachineChange) {
 	m.details = details
 
 	if provisioned {
-		m.model.hub.Publish(m.topic(machineProvisioned), nil)
+		_ = m.model.hub.Publish(m.topic(machineProvisioned), nil)
 	}
 
 	configHash, err := hashSettings(details.Config)

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/charmstore"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/resource/repositories"
 )
 
@@ -50,13 +51,12 @@ func newCharmHubClient(st chClientState) (ResourceClient, error) {
 		return &CharmHubClient{}, errors.Trace(err)
 	}
 
-	chLogger := logger.Child("charmhub")
 	var chCfg charmhub.Config
 	chURL, ok := modelCfg.CharmHubURL()
 	if ok {
-		chCfg, err = charmhub.CharmHubConfigFromURL(chURL, chLogger.Child("client"))
+		chCfg, err = charmhub.CharmHubConfigFromURL(chURL, logger)
 	} else {
-		chCfg, err = charmhub.CharmHubConfig(chLogger.Child("client"))
+		chCfg, err = charmhub.CharmHubConfig(logger)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -65,7 +65,7 @@ func newCharmHubClient(st chClientState) (ResourceClient, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &CharmHubClient{client: chClient, logger: chLogger}, nil
+	return &CharmHubClient{client: chClient, logger: logger.ChildWithLabels("charmhub", corelogger.CHARMHUB)}, nil
 }
 
 type CharmHubClient struct {

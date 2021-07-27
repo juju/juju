@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/go-msgpack/codec"
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 

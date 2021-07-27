@@ -8,7 +8,7 @@ import (
 
 	"github.com/hashicorp/raft"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
@@ -550,7 +550,7 @@ func (s *WorkerSuite) publishDetails(c *gc.C, serverAddrs map[string]string) {
 	received, err := s.hub.Publish(apiserver.DetailsTopic, details)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
-	case <-received:
+	case <-pubsub.Wait(received):
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for details to be received")
 	}

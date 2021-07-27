@@ -50,14 +50,14 @@ type Clock interface {
 
 // SimpleHub is a pubsub hub used for internal messaging.
 type SimpleHub interface {
-	Publish(topic string, data interface{}) <-chan struct{}
+	Publish(topic string, data interface{}) func()
 	Subscribe(topic string, handler func(string, interface{})) func()
 }
 
 // StructuredHub is a pubsub hub used for messaging within the HA
 // controller applications.
 type StructuredHub interface {
-	Publish(topic string, data interface{}) (<-chan struct{}, error)
+	Publish(topic string, data interface{}) (func(), error)
 	Subscribe(topic string, handler interface{}) (func(), error)
 }
 
