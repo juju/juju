@@ -80,7 +80,6 @@ func (f *CharmRepoFactory) GetCharmRepository(src corecharm.Source) (corecharm.R
 			return nil, errors.Trace(err)
 		}
 
-		clientLogger := f.logger.Child("client")
 		options := []charmhub.Option{
 			charmhub.WithHTTPTransport(func(charmhub.Logger) charmhub.Transport {
 				return f.charmhubTransport
@@ -90,9 +89,9 @@ func (f *CharmRepoFactory) GetCharmRepository(src corecharm.Source) (corecharm.R
 		var chCfg charmhub.Config
 		chURL, ok := cfg.CharmHubURL()
 		if ok {
-			chCfg, err = charmhub.CharmHubConfigFromURL(chURL, clientLogger, options...)
+			chCfg, err = charmhub.CharmHubConfigFromURL(chURL, f.logger, options...)
 		} else {
-			chCfg, err = charmhub.CharmHubConfig(clientLogger, options...)
+			chCfg, err = charmhub.CharmHubConfig(f.logger, options...)
 		}
 		if err != nil {
 			return nil, errors.Trace(err)
