@@ -7,7 +7,6 @@ import "github.com/juju/juju/state"
 
 var (
 	ParseSettingsCompatible = parseSettingsCompatible
-	NewStateStorage         = &newStateStorage
 	GetStorageState         = getStorageState
 )
 

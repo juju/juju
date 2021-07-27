@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -78,7 +77,6 @@ type Client struct {
 	newEnviron  common.NewEnvironFunc
 	check       *common.BlockChecker
 	callContext context.ProviderCallContext
-	openCSRepo  application.OpenCSRepoFunc
 }
 
 // ClientV1 serves the (v1) client-specific API methods.
@@ -214,7 +212,6 @@ func newFacade(ctx facade.Context) (*Client, error) {
 		leadershipReader,
 		modelCache,
 		factory,
-		application.OpenCSRepo,
 	)
 }
 
@@ -234,7 +231,6 @@ func NewClient(
 	leadershipReader leadership.Reader,
 	modelCache *cache.Model,
 	factory multiwatcher.Factory,
-	openCSRepo application.OpenCSRepoFunc,
 ) (*Client, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -256,7 +252,6 @@ func NewClient(
 		newEnviron:  newEnviron,
 		check:       blockChecker,
 		callContext: callCtx,
-		openCSRepo:  openCSRepo,
 	}
 	return client, nil
 }
@@ -813,58 +808,22 @@ func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult,
 	return c.api.toolsFinder.FindTools(args)
 }
 
-// NOTE: AddCharm is deprecated as of juju 2.9 and charms facade version 3.
-// Please discontinue use and move to the charms facade version.
-//
-// TODO: remove in juju 3.0
+// Method was deprecated as of juju 2.9 and removed in juju 3.0. Please use the
+// client/charms facade instead.
 func (c *Client) AddCharm(args params.AddCharm) error {
-	if err := c.checkCanWrite(); err != nil {
-		return err
-	}
-
-	shim := application.NewStateShim(c.api.state())
-	return application.AddCharmWithAuthorization(shim, params.AddCharmWithAuthorization{
-		URL:     args.URL,
-		Channel: args.Channel,
-		Force:   args.Force,
-	}, c.openCSRepo)
+	return errors.NewNotSupported(nil, "Deprecated AddCharm call has been removed in Juju 3.0; please use the charms facade instead")
 }
 
-// AddCharmWithAuthorization adds the given charm URL (which must include
-// revision) to the model, if it does not exist yet. Local charms are not
-// supported, only charm store URLs. See also AddLocalCharm().
-//
-// The authorization macaroon, args.CharmStoreMacaroon, may be omitted, in
-// which case this call is equivalent to AddCharm.
-//
-// NOTE: AddCharmWithAuthorization is deprecated as of juju 2.9 and charms
-// facade version 3. Please discontinue use and move to the charms facade
-// version.
-//
-// TODO: remove in juju 3.0
+// Method was deprecated as of juju 2.9 and removed in juju 3.0. Please use the
+// client/charms facade instead.
 func (c *Client) AddCharmWithAuthorization(args params.AddCharmWithAuthorization) error {
-	if err := c.checkCanWrite(); err != nil {
-		return err
-	}
-
-	shim := application.NewStateShim(c.api.state())
-	return application.AddCharmWithAuthorization(shim, args, c.openCSRepo)
+	return errors.NewNotSupported(nil, "Deprecated AddCharmWithAuthorization call has been removed in Juju 3.0; please use the charms facade instead")
 }
 
-// ResolveCharm resolves the best available charm URLs with series, for charm
-// locations without a series specified.
-//
-// NOTE: ResolveCharms is deprecated as of juju 2.9 and charms facade version 3.
-// Please discontinue use and move to the charms facade version.
-//
-// TODO: remove in juju 3.0
+// Method was deprecated as of juju 2.9 and removed in juju 3.0. Please use the
+// client/charms facade instead.
 func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmResults, error) {
-	if err := c.checkCanWrite(); err != nil {
-		return params.ResolveCharmResults{}, err
-	}
-
-	shim := application.NewStateShim(c.api.state())
-	return application.ResolveCharms(shim, args, c.openCSRepo)
+	return params.ResolveCharmResults{}, errors.NewNotSupported(nil, "Deprecated ResolveChamrs call has been removed in Juju 3.0; please use the charms facade instead")
 }
 
 // RetryProvisioning marks a provisioning error as transient on the machines.

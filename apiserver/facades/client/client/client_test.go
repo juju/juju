@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
-	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
@@ -902,10 +901,6 @@ func (s *clientRepoSuite) SetUpTest(c *gc.C) {
 	s.repo = &mockRepo{
 		CallMocker: jtesting.NewCallMocker(logger),
 	}
-
-	s.PatchValue(&application.OpenCSRepo, func(args application.OpenCSRepoParams) (application.Repository, error) {
-		return s.repo, nil
-	})
 }
 
 func (s *clientRepoSuite) UploadCharm(url string) {
@@ -1664,90 +1659,6 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(script, gc.Not(jc.Contains), "apt-get update")
 	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
-}
-
-func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
-	resolveCharmTests := []struct {
-		about      string
-		url        string
-		resolved   string
-		parseErr   string
-		resolveErr string
-	}{{
-		about:    "wordpress resolved",
-		url:      "cs:wordpress",
-		resolved: "cs:trusty/wordpress",
-	}, {
-		about:    "mysql resolved",
-		url:      "cs:mysql",
-		resolved: "cs:precise/mysql",
-	}, {
-		about:    "fully qualified char reference",
-		url:      "cs:utopic/riak-5",
-		resolved: "cs:utopic/riak-5",
-	}, {
-		about:    "charm with series and no revision",
-		url:      "cs:precise/wordpress",
-		resolved: "cs:precise/wordpress",
-	}, {
-		about:      "fully qualified reference not found",
-		url:        "cs:utopic/riak-42",
-		resolveErr: `cannot resolve URL "cs:utopic/riak-42": charm not found`,
-	}, {
-		about:      "reference not found",
-		url:        "cs:no-such",
-		resolveErr: `cannot resolve URL "cs:no-such": charm or bundle not found`,
-	}, {
-		about: "invalid charm name",
-		url:   "cs:",
-		// go-1.9 replaces 'cs:' with 'cs://', but not go-1.10
-		parseErr: `cannot parse URL "cs:(\/\/)?": name "" not valid`,
-	}, {
-		about:      "local charm",
-		url:        "local:wordpress",
-		resolveErr: `only charm store charm references are supported, with cs: schema`,
-	}}
-
-	// Add some charms to be resolved later.
-	for _, url := range []string{
-		"cs:precise/wordpress-1",
-		"cs:trusty/wordpress-2",
-		"cs:precise/mysql-3",
-		"cs:trusty/riak-4",
-		"cs:utopic/riak-5",
-	} {
-		s.UploadCharm(url)
-	}
-
-	// Run the tests.
-	for i, test := range resolveCharmTests {
-		c.Logf("test %d: %s", i, test.about)
-
-		client := s.APIState.Client()
-		ref, err := charm.ParseURL(test.url)
-		if test.parseErr == "" {
-			if c.Check(err, jc.ErrorIsNil) == false {
-				continue
-			}
-		} else {
-			if c.Check(err, gc.NotNil) == false {
-				continue
-			}
-			c.Check(err, gc.ErrorMatches, test.parseErr)
-			continue
-		}
-
-		curl, err := client.ResolveCharm(ref)
-		if test.resolveErr == "" {
-			if c.Check(err, jc.ErrorIsNil) == false {
-				continue
-			}
-			c.Check(curl.String(), gc.Equals, test.resolved)
-			continue
-		}
-		c.Check(err, gc.ErrorMatches, test.resolveErr)
-		c.Check(curl, gc.IsNil)
-	}
 }
 
 func (s *clientSuite) TestRetryProvisioning(c *gc.C) {

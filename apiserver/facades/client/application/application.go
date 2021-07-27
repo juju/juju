@@ -7,9 +7,11 @@
 package application
 
 import (
+	"fmt"
 	"math"
 	"net"
 	"reflect"
+	"strings"
 
 	"github.com/juju/charm/v9"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
@@ -2749,6 +2751,29 @@ func (api *APIBase) crossModelRelationData(rel Relation, appName string, erd *pa
 			}
 		}
 		erd.UnitRelationData[ru.UnitName()] = urd
+	}
+	return nil
+}
+
+func checkCAASMinVersion(ch charm.Charm, caasVersion *version.Number) (err error) {
+	// check caas min version.
+	charmDeployment := ch.Meta().Deployment
+	if caasVersion == nil || charmDeployment == nil || charmDeployment.MinVersion == "" {
+		return nil
+	}
+	if len(strings.Split(charmDeployment.MinVersion, ".")) == 2 {
+		// append build number if it's not specified.
+		charmDeployment.MinVersion += ".0"
+	}
+	minver, err := version.Parse(charmDeployment.MinVersion)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if minver != version.Zero && minver.Compare(*caasVersion) > 0 {
+		return errors.NewNotValid(nil, fmt.Sprintf(
+			"charm requires a minimum k8s version of %v but the cluster only runs version %v",
+			minver, caasVersion,
+		))
 	}
 	return nil
 }

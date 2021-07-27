@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
-	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/state"
 )
@@ -23,7 +23,15 @@ func newStateShim(st *state.State) interfaces.BackendState {
 	}
 }
 
-func (s stateShim) PrepareCharmUpload(curl *charm.URL) (corecharm.StateCharm, error) {
+func (s stateShim) UpdateUploadedCharm(charmInfo state.CharmInfo) (services.UploadedCharm, error) {
+	ch, err := s.State.UpdateUploadedCharm(charmInfo)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return stateCharmShim{Charm: ch}, nil
+}
+
+func (s stateShim) PrepareCharmUpload(curl *charm.URL) (services.UploadedCharm, error) {
 	ch, err := s.State.PrepareCharmUpload(curl)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -110,12 +118,4 @@ func (p storeCharmLXDProfiler) LXDProfile() lxdprofile.LXDProfile {
 		return nil
 	}
 	return profile
-}
-
-// Strategy represents a core charm Strategy
-type Strategy interface {
-	CharmURL() *charm.URL
-	Finish() error
-	Run(corecharm.State, corecharm.JujuVersionValidator, corecharm.Origin) (corecharm.DownloadResult, bool, corecharm.Origin, error)
-	Validate() error
 }

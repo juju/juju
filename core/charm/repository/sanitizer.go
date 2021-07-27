@@ -1,20 +1,16 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charms
+package repository
 
 import (
 	"strings"
 
-	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/os/v2/series"
 
 	corecharm "github.com/juju/juju/core/charm"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.charms")
 
 // sanitizeCharmOrigin attempts to ensure that any fields we receive from
 // the API are valid and juju knows about them.
@@ -53,17 +49,4 @@ func sanitizeCharmOrigin(received, requested corecharm.Origin) (corecharm.Origin
 	}
 
 	return result, nil
-}
-
-// Metadata represents the return type for both charm types (charm and bundles)
-type Metadata interface {
-	ComputedSeries() []string
-}
-
-type bundleMetadata struct {
-	*charm.BundleData
-}
-
-func (b bundleMetadata) ComputedSeries() []string {
-	return []string{b.BundleData.Series}
 }

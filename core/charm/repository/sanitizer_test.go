@@ -1,29 +1,15 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charms
+package repository
 
 import (
-	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 )
-
-type charmStoreResolversSuite struct {
-	repo CSRepository
-}
-
-var _ = gc.Suite(&charmStoreResolversSuite{})
-
-func (s *charmStoreResolversSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.repo = mocks.NewMockCSRepository(ctrl)
-	return ctrl
-}
 
 type sanitizeCharmOriginSuite struct{}
 
