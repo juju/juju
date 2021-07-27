@@ -18,7 +18,7 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
