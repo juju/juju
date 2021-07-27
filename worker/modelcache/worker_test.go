@@ -12,7 +12,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	jt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
@@ -275,7 +275,7 @@ func (s *WorkerSuite) TestControllerConfigPubsubChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
-	case <-handled:
+	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
 		c.Fatalf("config changed not handled")
 	}

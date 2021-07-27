@@ -25,6 +25,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
@@ -1401,7 +1402,7 @@ func startAddressPublisher(suite cleanupSuite, c *gc.C, agent *MachineAgent) {
 
 				// Ensure that it has been sent, before moving on.
 				select {
-				case <-sent:
+				case <-pubsub.Wait(sent):
 				case <-time.After(testing.ShortWait):
 				}
 			}

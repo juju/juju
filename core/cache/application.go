@@ -7,7 +7,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 
 	"github.com/juju/juju/core/status"
 )
@@ -145,7 +145,7 @@ func (a *Application) setDetails(details ApplicationChange) {
 	})
 
 	if a.details.CharmURL != details.CharmURL {
-		a.hub.Publish(applicationCharmURLChange, appCharmUrlChange{appName: a.details.Name, chURL: details.CharmURL})
+		_ = a.hub.Publish(applicationCharmURLChange, appCharmUrlChange{appName: a.details.Name, chURL: details.CharmURL})
 	}
 
 	a.details = details
@@ -156,7 +156,7 @@ func (a *Application) setDetails(details ApplicationChange) {
 		a.configHash = configHash
 		a.hashCache = hashCache
 		a.hashCache.incMisses()
-		a.hub.Publish(a.topic(applicationConfigChange), hashCache)
+		_ = a.hub.Publish(a.topic(applicationConfigChange), hashCache)
 	}
 }
 

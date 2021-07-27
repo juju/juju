@@ -4,7 +4,7 @@
 package cache
 
 import (
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 
 	"github.com/juju/juju/core/lxdprofile"
 )

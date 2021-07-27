@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"gopkg.in/tomb.v2"
 )
 
@@ -327,7 +327,7 @@ func (c *Controller) modelWatcher(uuid string) ModelWatcher {
 func (c *Controller) updateModel(ch ModelChange) {
 	model := c.ensureModel(ch.ModelUUID)
 	model.setDetails(ch)
-	c.hub.Publish(modelUpdatedTopic, model)
+	_ = c.hub.Publish(modelUpdatedTopic, model)
 }
 
 // removeModel removes the model from the cache.
@@ -341,7 +341,7 @@ func (c *Controller) removeModel(ch RemoveModel) error {
 			return errors.Trace(err)
 		}
 		delete(c.models, ch.ModelUUID)
-		c.hub.Publish(modelRemovedTopic, ch.ModelUUID)
+		_ = c.hub.Publish(modelRemovedTopic, ch.ModelUUID)
 	}
 	return nil
 }

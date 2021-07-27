@@ -9,7 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2/workertest"
 	"github.com/prometheus/client_golang/prometheus"
@@ -160,9 +160,9 @@ type stubHub struct {
 	published []string
 }
 
-func (s *stubHub) Publish(topic string, data interface{}) (<-chan struct{}, error) {
+func (s *stubHub) Publish(topic string, data interface{}) (func(), error) {
 	s.published = append(s.published, topic)
-	return nil, nil
+	return func() {}, nil
 }
 
 func (s *sharedServerContextSuite) TestControllerConfigChanged(c *gc.C) {
@@ -180,7 +180,7 @@ func (s *sharedServerContextSuite) TestControllerConfigChanged(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
-	case <-done:
+	case <-pubsub.Wait(done):
 	case <-time.After(testing.LongWait):
 		c.Fatalf("handler didn't")
 	}

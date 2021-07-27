@@ -6,7 +6,7 @@ package agentconfigupdater_test
 import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
