@@ -361,7 +361,7 @@ func DefineInstanceKey(c *gc.C, config RefreshConfig, key string) RefreshConfig 
 	case executeOne:
 		t.instanceKey = key
 		return t
-	case installByRevisionOne:
+	case executeOneByRevision:
 		t.instanceKey = key
 		return t
 	default:
@@ -737,11 +737,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelEnsure(c *gc.C) {
 
 func (s *RefreshConfigSuite) TestRefreshManyBuildContextNotNil(c *gc.C) {
 	id1 := "foo"
-	config1, err := DownloadOneFromRevision(id1, 1, RefreshBase{
-		Name:         "ubuntu",
-		Channel:      "20.04",
-		Architecture: arch.DefaultArchitecture,
-	})
+	config1, err := DownloadOneFromRevision(id1, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	config1 = DefineInstanceKey(c, config1, "foo-bar")
 
