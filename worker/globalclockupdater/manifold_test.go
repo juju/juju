@@ -6,6 +6,7 @@ package globalclockupdater_test
 import (
 	"time"
 
+	"github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -96,7 +97,7 @@ func (s *ManifoldSuite) TestStartMissingLeaseManager(c *gc.C) {
 	manifold := globalclockupdater.Manifold(s.config)
 	context := dt.StubContext(nil, map[string]interface{}{
 		"lease-manager": dependency.ErrMissing,
-		"raft":          nil,
+		"raft":          new(raft.Raft),
 	})
 
 	worker, err := manifold.Start(context)
@@ -124,7 +125,7 @@ func (s *ManifoldSuite) TestStartNewWorkerSuccessWithLeaseManager(c *gc.C) {
 	worker, err := s.startManifoldWithContext(c, map[string]interface{}{
 		"clock":         fakeClock{},
 		"lease-manager": &updater,
-		"raft":          nil,
+		"raft":          new(raft.Raft),
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, s.worker)

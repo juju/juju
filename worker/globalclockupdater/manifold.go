@@ -6,6 +6,7 @@ package globalclockupdater
 import (
 	"time"
 
+	"github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2"
@@ -58,17 +59,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-// start is a method on ManifoldConfig because it's more readable than a closure.
+// start creates and returns a new clock updater worker based on this config.
 func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// This enforces a dependency on the Raft forwarder,
-	// effectively ensuring this worker is only active on the Raft leader.
-	// By extension, this also ensures that Raft is running on the node
-	// before we begin updating its FSM clock.
-	if err := context.Get(config.RaftName, nil); err != nil {
+	var r *raft.Raft
+	if err := context.Get(config.RaftName, &r); err != nil {
 		return nil, errors.Trace(err)
 	}
 

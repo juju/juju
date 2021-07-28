@@ -547,19 +547,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:            loggo.GetLogger("juju.worker.migrationminion"),
 		}),
 
-		// We start clock updaters for every controller machine to ensure the
-		// lease clock is updated monotonically and at a rate no faster than
-		// real time.
-		// In practice, dependency on the Raft forwarder means that this worker
-		// will only ever be running on the Raft leader node.
-		leaseClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
+		// We ensure the lease clock is updated monotonically and at a rate
+		// no faster than real time.
+		// This worker will only ever be running on the Raft leader node.
+		leaseClockUpdaterName: ifRaftLeader(globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
 			Clock:            config.Clock,
 			LeaseManagerName: leaseManagerName,
-			RaftName:         raftForwarderName,
+			RaftName:         raftName,
 			NewWorker:        globalclockupdater.NewWorker,
 			UpdateInterval:   globalClockUpdaterUpdateInterval,
 			Logger:           loggo.GetLogger("juju.worker.globalclockupdater.raft"),
-		}),
+		})),
 
 		// Each controller machine runs a singular worker which will
 		// attempt to claim responsibility for running certain workers
