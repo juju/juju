@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v2/dependency"
 
 	"github.com/juju/juju/core/globalclock"
+	"github.com/juju/juju/core/raftlease"
 )
 
 // ManifoldConfig holds the information necessary to run a GlobalClockUpdater
@@ -21,6 +22,7 @@ type ManifoldConfig struct {
 	Clock    clock.Clock
 	RaftName string
 
+	FSM            raftlease.ReadOnlyClock
 	NewWorker      func(Config) (worker.Worker, error)
 	UpdateInterval time.Duration
 	Logger         Logger
@@ -32,6 +34,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.RaftName == "" {
 		return errors.NotValidf("empty RaftName")
+	}
+	if config.FSM == nil {
+		return errors.NotValidf("nil FSM")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -66,7 +71,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 
 	w, err := config.NewWorker(Config{
-		NewUpdater:     func() globalclock.Updater { return &updater{raft: r} },
+		NewUpdater:     func() globalclock.Updater { return newUpdater(r, config.FSM) },
 		LocalClock:     config.Clock,
 		UpdateInterval: config.UpdateInterval,
 		Logger:         config.Logger,

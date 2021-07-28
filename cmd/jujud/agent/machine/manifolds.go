@@ -553,6 +553,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		leaseClockUpdaterName: ifRaftLeader(globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
 			Clock:          config.Clock,
 			RaftName:       raftName,
+			FSM:            config.LeaseFSM,
 			NewWorker:      globalclockupdater.NewWorker,
 			UpdateInterval: globalClockUpdaterUpdateInterval,
 			Logger:         loggo.GetLogger("juju.worker.globalclockupdater.raft"),

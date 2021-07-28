@@ -38,6 +38,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.config = globalclockupdater.ManifoldConfig{
 		Clock:          fakeClock{},
 		RaftName:       "raft",
+		FSM:            stubFSM{},
 		NewWorker:      s.newWorker,
 		UpdateInterval: time.Second,
 		Logger:         s.logger,
@@ -63,6 +64,11 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 func (s *ManifoldSuite) TestStartValidateClock(c *gc.C) {
 	s.config.Clock = nil
 	s.testStartValidateConfig(c, "nil Clock not valid")
+}
+
+func (s *ManifoldSuite) TestStartValidateFSM(c *gc.C) {
+	s.config.FSM = nil
+	s.testStartValidateConfig(c, "nil FSM not valid")
 }
 
 func (s *ManifoldSuite) TestStartValidateRaftName(c *gc.C) {
@@ -129,4 +135,10 @@ func (s *ManifoldSuite) startManifoldWithContext(c *gc.C, data map[string]interf
 
 type fakeClock struct {
 	clock.Clock
+}
+
+type stubFSM struct{}
+
+func (stubFSM) GlobalTime() time.Time {
+	return time.Now()
 }
