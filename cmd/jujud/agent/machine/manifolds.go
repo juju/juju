@@ -551,12 +551,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// no faster than real time.
 		// This worker will only ever be running on the Raft leader node.
 		leaseClockUpdaterName: ifRaftLeader(globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
-			Clock:            config.Clock,
-			LeaseManagerName: leaseManagerName,
-			RaftName:         raftName,
-			NewWorker:        globalclockupdater.NewWorker,
-			UpdateInterval:   globalClockUpdaterUpdateInterval,
-			Logger:           loggo.GetLogger("juju.worker.globalclockupdater.raft"),
+			Clock:          config.Clock,
+			RaftName:       raftName,
+			NewWorker:      globalclockupdater.NewWorker,
+			UpdateInterval: globalClockUpdaterUpdateInterval,
+			Logger:         loggo.GetLogger("juju.worker.globalclockupdater.raft"),
 		})),
 
 		// Each controller machine runs a singular worker which will

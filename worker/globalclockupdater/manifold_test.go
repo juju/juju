@@ -18,7 +18,6 @@ import (
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/worker/globalclockupdater"
 )
 
@@ -37,12 +36,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.stub.ResetCalls()
 	s.logger = loggo.GetLogger("globalclockupdater_test")
 	s.config = globalclockupdater.ManifoldConfig{
-		Clock:            fakeClock{},
-		LeaseManagerName: "lease-manager",
-		RaftName:         "raft",
-		NewWorker:        s.newWorker,
-		UpdateInterval:   time.Second,
-		Logger:           s.logger,
+		Clock:          fakeClock{},
+		RaftName:       "raft",
+		NewWorker:      s.newWorker,
+		UpdateInterval: time.Second,
+		Logger:         s.logger,
 	}
 	s.worker = worker.NewRunner(worker.RunnerParams{})
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, s.worker) })
@@ -58,18 +56,13 @@ func (s *ManifoldSuite) newWorker(config globalclockupdater.Config) (worker.Work
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	manifold := globalclockupdater.Manifold(s.config)
-	expectInputs := []string{"lease-manager", "raft"}
+	expectInputs := []string{"raft"}
 	c.Check(manifold.Inputs, jc.SameContents, expectInputs)
 }
 
 func (s *ManifoldSuite) TestStartValidateClock(c *gc.C) {
 	s.config.Clock = nil
 	s.testStartValidateConfig(c, "nil Clock not valid")
-}
-
-func (s *ManifoldSuite) TestStartValidateLeaseManagerName(c *gc.C) {
-	s.config.LeaseManagerName = ""
-	s.testStartValidateConfig(c, "empty LeaseManagerName not valid")
 }
 
 func (s *ManifoldSuite) TestStartValidateRaftName(c *gc.C) {
@@ -85,32 +78,17 @@ func (s *ManifoldSuite) TestStartValidateUpdateInterval(c *gc.C) {
 func (s *ManifoldSuite) testStartValidateConfig(c *gc.C, expect string) {
 	manifold := globalclockupdater.Manifold(s.config)
 	context := dt.StubContext(nil, map[string]interface{}{
-		"raft":          nil,
-		"lease-manager": nil,
+		"raft": nil,
 	})
 	worker, err := manifold.Start(context)
 	c.Check(err, gc.ErrorMatches, expect)
 	c.Check(worker, gc.IsNil)
 }
 
-func (s *ManifoldSuite) TestStartMissingLeaseManager(c *gc.C) {
-	manifold := globalclockupdater.Manifold(s.config)
-	context := dt.StubContext(nil, map[string]interface{}{
-		"lease-manager": dependency.ErrMissing,
-		"raft":          new(raft.Raft),
-	})
-
-	worker, err := manifold.Start(context)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
-	c.Check(worker, gc.IsNil)
-}
-
 func (s *ManifoldSuite) TestStartMissingRaft(c *gc.C) {
-	updater := fakeUpdater{}
 	manifold := globalclockupdater.Manifold(s.config)
 	context := dt.StubContext(nil, map[string]interface{}{
-		"lease-manager": &updater,
-		"raft":          dependency.ErrMissing,
+		"raft": dependency.ErrMissing,
 	})
 
 	worker, err := manifold.Start(context)
@@ -118,14 +96,11 @@ func (s *ManifoldSuite) TestStartMissingRaft(c *gc.C) {
 	c.Check(worker, gc.IsNil)
 }
 
-func (s *ManifoldSuite) TestStartNewWorkerSuccessWithLeaseManager(c *gc.C) {
-	updater := fakeUpdater{}
-	s.config.LeaseManagerName = "lease-manager"
+func (s *ManifoldSuite) TestStartNewWorkerSuccess(c *gc.C) {
 	s.config.RaftName = "raft"
 	worker, err := s.startManifoldWithContext(c, map[string]interface{}{
-		"clock":         fakeClock{},
-		"lease-manager": &updater,
-		"raft":          new(raft.Raft),
+		"clock": fakeClock{},
+		"raft":  new(raft.Raft),
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, s.worker)
@@ -133,8 +108,6 @@ func (s *ManifoldSuite) TestStartNewWorkerSuccessWithLeaseManager(c *gc.C) {
 	s.stub.CheckCallNames(c, "NewWorker")
 	config := s.stub.Calls()[0].Args[0].(globalclockupdater.Config)
 	c.Assert(config.NewUpdater, gc.NotNil)
-
-	c.Assert(config.NewUpdater(), gc.Equals, &updater)
 
 	config.NewUpdater = nil
 	c.Assert(config, jc.DeepEquals, globalclockupdater.Config{
@@ -156,8 +129,4 @@ func (s *ManifoldSuite) startManifoldWithContext(c *gc.C, data map[string]interf
 
 type fakeClock struct {
 	clock.Clock
-}
-
-type fakeUpdater struct {
-	globalclock.Updater
 }

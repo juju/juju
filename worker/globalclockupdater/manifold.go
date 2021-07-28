@@ -18,9 +18,8 @@ import (
 // ManifoldConfig holds the information necessary to run a GlobalClockUpdater
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
-	Clock            clock.Clock
-	LeaseManagerName string
-	RaftName         string
+	Clock    clock.Clock
+	RaftName string
 
 	NewWorker      func(Config) (worker.Worker, error)
 	UpdateInterval time.Duration
@@ -30,9 +29,6 @@ type ManifoldConfig struct {
 func (config ManifoldConfig) Validate() error {
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
-	}
-	if config.LeaseManagerName == "" {
-		return errors.NotValidf("empty LeaseManagerName")
 	}
 	if config.RaftName == "" {
 		return errors.NotValidf("empty RaftName")
@@ -52,9 +48,8 @@ func (config ManifoldConfig) Validate() error {
 // Manifold returns a dependency.Manifold that will run a global clock
 // updater worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	inputs := []string{config.LeaseManagerName, config.RaftName}
 	return dependency.Manifold{
-		Inputs: inputs,
+		Inputs: []string{config.RaftName},
 		Start:  config.start,
 	}
 }
@@ -70,13 +65,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var updater globalclock.Updater
-	if err := context.Get(config.LeaseManagerName, &updater); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	w, err := config.NewWorker(Config{
-		NewUpdater:     func() globalclock.Updater { return updater },
+		NewUpdater:     func() globalclock.Updater { return &updater{raft: r} },
 		LocalClock:     config.Clock,
 		UpdateInterval: config.UpdateInterval,
 		Logger:         config.Logger,
