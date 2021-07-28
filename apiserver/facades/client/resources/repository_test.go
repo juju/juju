@@ -22,14 +22,13 @@ var _ = gc.Suite(&CharmHubClientSuite{})
 
 type CharmHubClientSuite struct {
 	client *mocks.MockCharmHub
+	logger *mocks.MockLogger
 }
 
 func (s *CharmHubClientSuite) TestResolveResources(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	s.client = mocks.NewMockCharmHub(ctrl)
+	defer s.setupMocks(c).Finish()
 	s.expectRefresh()
+	s.expectListResourceRevisions(2)
 
 	fp, err := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
 	c.Assert(err, jc.ErrorIsNil)
@@ -63,12 +62,9 @@ func (s *CharmHubClientSuite) TestResolveResources(c *gc.C) {
 }
 
 func (s *CharmHubClientSuite) TestResolveResourcesFromStore(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	s.client = mocks.NewMockCharmHub(ctrl)
+	defer s.setupMocks(c).Finish()
 	s.expectRefresh()
-	s.expectRefreshWithRevision(1)
+	s.expectListResourceRevisions(1)
 
 	fp, err := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
 	c.Assert(err, jc.ErrorIsNil)
@@ -88,13 +84,33 @@ func (s *CharmHubClientSuite) TestResolveResourcesFromStore(c *gc.C) {
 	}})
 }
 
-func (s *CharmHubClientSuite) TestResolveResourcesNoMatchingRevision(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+func (s *CharmHubClientSuite) TestResolveResourcesFromStoreNoRevision(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectRefreshWithRevision(1)
 
-	s.client = mocks.NewMockCharmHub(ctrl)
+	fp, err := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := s.newClient().ResolveResources([]charmresource.Resource{{
+		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
+		Origin:   charmresource.OriginStore,
+		Revision: -1,
+		Size:     0,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, []charmresource.Resource{{
+		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
+		Origin:      charmresource.OriginStore,
+		Revision:    1,
+		Fingerprint: fp,
+		Size:        0,
+	}})
+}
+
+func (s *CharmHubClientSuite) TestResolveResourcesNoMatchingRevision(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	s.expectRefresh()
 	s.expectRefreshWithRevision(99)
+	s.expectListResourceRevisions(3)
 
 	_, err := s.newClient().ResolveResources([]charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
@@ -106,14 +122,12 @@ func (s *CharmHubClientSuite) TestResolveResourcesNoMatchingRevision(c *gc.C) {
 }
 
 func (s *CharmHubClientSuite) TestResolveResourcesUpload(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.client = mocks.NewMockCharmHub(ctrl)
+	defer s.setupMocks(c).Finish()
 	s.expectRefresh()
 
 	result, err := s.newClient().ResolveResources([]charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
-		Origin:   1,
+		Origin:   charmresource.OriginUpload,
 		Revision: 3,
 		Fingerprint: charmresource.Fingerprint{
 			Fingerprint: hash.Fingerprint{}},
@@ -122,7 +136,7 @@ func (s *CharmHubClientSuite) TestResolveResourcesUpload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
-		Origin:   1,
+		Origin:   charmresource.OriginUpload,
 		Revision: 3,
 		Fingerprint: charmresource.Fingerprint{
 			Fingerprint: hash.Fingerprint{}},
@@ -130,7 +144,24 @@ func (s *CharmHubClientSuite) TestResolveResourcesUpload(c *gc.C) {
 	}})
 }
 
-func (s *CharmHubClientSuite) newClient() NewCharmRepository {
+func (s *CharmHubClientSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.client = mocks.NewMockCharmHub(ctrl)
+	s.logger = mocks.NewMockLogger(ctrl)
+	s.logger.EXPECT().Tracef(gomock.Any(), gomock.Any()).AnyTimes().Do(
+		func(msg string, args ...interface{}) {
+			c.Logf("Trace: "+msg, args...)
+		},
+	)
+	s.logger.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes().Do(
+		func(msg string, args ...interface{}) {
+			c.Logf("Debug: "+msg, args...)
+		},
+	)
+	return ctrl
+}
+
+func (s *CharmHubClientSuite) newClient() *charmHubClient {
 	curl := charm.MustParseURL("ubuntu")
 	channel, _ := charm.ParseChannel("stable")
 	c := &charmHubClient{
@@ -151,12 +182,28 @@ func (s *CharmHubClientSuite) newClient() NewCharmRepository {
 				},
 			},
 		},
+		logger: s.logger,
 	}
 	return c
 }
 
 func (s *CharmHubClientSuite) expectRefresh() {
 	s.expectRefreshWithRevision(0)
+}
+
+func resourceRevision(rev int) transport.ResourceRevision {
+	return transport.ResourceRevision{
+		Download: transport.Download{
+			HashSHA384: "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b",
+			Size:       0,
+			URL:        "https://api.staging.charmhub.io/api/v1/resources/download/charm_jmeJLrjWpJX9OglKSeUHCwgyaCNuoQjD.wal-e_0",
+		},
+		Name:        "wal-e",
+		Revision:    rev,
+		Type:        "file",
+		Filename:    "wal-e.snap",
+		Description: "WAL-E Snap Package",
+	}
 }
 
 func (s *CharmHubClientSuite) expectRefreshWithRevision(rev int) {
@@ -168,18 +215,7 @@ func (s *CharmHubClientSuite) expectRefreshWithRevision(rev int) {
 				ID:        "jmeJLrjWpJX9OglKSeUHCwgyaCNuoQjD",
 				Name:      "ubuntu",
 				Resources: []transport.ResourceRevision{
-					{
-						Download: transport.Download{
-							HashSHA384: "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b",
-							Size:       0,
-							URL:        "https://api.staging.charmhub.io/api/v1/resources/download/charm_jmeJLrjWpJX9OglKSeUHCwgyaCNuoQjD.wal-e_0",
-						},
-						Name:        "wal-e",
-						Revision:    rev,
-						Type:        "file",
-						Filename:    "wal-e.snap",
-						Description: "WAL-E Snap Package",
-					},
+					resourceRevision(rev),
 				},
 				Summary: "PostgreSQL object-relational SQL database (supported version)",
 				Version: "208",
@@ -191,4 +227,11 @@ func (s *CharmHubClientSuite) expectRefreshWithRevision(rev int) {
 		},
 	}
 	s.client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return(resp, nil)
+}
+
+func (s *CharmHubClientSuite) expectListResourceRevisions(rev int) {
+	resp := []transport.ResourceRevision{
+		resourceRevision(rev),
+	}
+	s.client.EXPECT().ListResourceRevisions(gomock.Any(), gomock.Any(), gomock.Any()).Return(resp, nil)
 }

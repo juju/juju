@@ -99,7 +99,7 @@ func NewFacadeV2(ctx facade.Context) (*API, error) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return newCharmHubClient(chClient, chID), nil
+			return newCharmHubClient(chClient, logger.ChildWithLabels("charmhub", "charmhub"), chID), nil
 
 		case charm.CharmStore.Matches(schema):
 

@@ -14,3 +14,4 @@ func Test(t *testing.T) {
 }
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charmhub.go github.com/juju/juju/apiserver/facades/client/resources CharmHub
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/logger.go github.com/juju/juju/apiserver/facades/client/resources Logger
