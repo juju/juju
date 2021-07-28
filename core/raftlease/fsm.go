@@ -357,8 +357,8 @@ func (r *response) Error() error {
 
 // Notify is part of FSMResponse.
 func (r *response) Notify(target NotifyTarget) {
-	// This response is either for a claim (in which case claimer will
-	// be set) or a set-time (so it will have zero or more expiries).
+	// This response is either for a claim (in which case claimer will be set)
+	// or a set-time (so it will have zero or more expirations).
 	if r.claimer != "" {
 		target.Claimed(r.claimed, r.claimer)
 	}
