@@ -78,9 +78,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 
 	w, err := config.NewWorker(Config{
-		NewUpdater: func() (globalclock.Updater, error) {
-			return updater, nil
-		},
+		NewUpdater:     func() globalclock.Updater { return updater },
 		LocalClock:     config.Clock,
 		UpdateInterval: config.UpdateInterval,
 		Logger:         config.Logger,

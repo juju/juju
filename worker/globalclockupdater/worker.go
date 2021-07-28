@@ -24,7 +24,7 @@ type Logger interface {
 // Config contains the configuration for the global clock updater worker.
 type Config struct {
 	// NewUpdater returns a new global clock updater.
-	NewUpdater func() (globalclock.Updater, error)
+	NewUpdater func() globalclock.Updater
 
 	// LocalClock is the local wall clock. The times returned must
 	// contain a monotonic component (Go 1.9+).
@@ -60,13 +60,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating config")
 	}
-	updater, err := config.NewUpdater()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting new updater")
-	}
 	w := &updaterWorker{
 		config:  config,
-		updater: updater,
+		updater: config.NewUpdater(),
 	}
 	w.tomb.Go(w.loop)
 	return w, nil

@@ -132,9 +132,9 @@ func (s *ManifoldSuite) TestStartNewWorkerSuccessWithLeaseManager(c *gc.C) {
 	s.stub.CheckCallNames(c, "NewWorker")
 	config := s.stub.Calls()[0].Args[0].(globalclockupdater.Config)
 	c.Assert(config.NewUpdater, gc.NotNil)
-	actualUpdater, err := config.NewUpdater()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actualUpdater, gc.Equals, &updater)
+
+	c.Assert(config.NewUpdater(), gc.Equals, &updater)
+
 	config.NewUpdater = nil
 	c.Assert(config, jc.DeepEquals, globalclockupdater.Config{
 		LocalClock:     fakeClock{},
