@@ -57,15 +57,21 @@ type NotifyTarget interface {
 // the transaction is applied.
 type TrapdoorFunc func(lease.Key, string) lease.Trapdoor
 
+// ReadOnlyClock describes a clock from which global time can be read.
+type ReadOnlyClock interface {
+	GlobalTime() time.Time
+}
+
 // ReadonlyFSM defines the methods of the lease FSM the store can use
 // - any writes must go through the hub.
 type ReadonlyFSM interface {
+	ReadOnlyClock
+
 	// Leases and LeaseGroup receive a func for retrieving time,
 	// because it needs to be determined after potential lock-waiting
 	// to be accurate.
 	Leases(func() time.Time, ...lease.Key) map[lease.Key]lease.Info
 	LeaseGroup(func() time.Time, string, string) map[lease.Key]lease.Info
-	GlobalTime() time.Time
 	Pinned() map[lease.Key][]string
 }
 
