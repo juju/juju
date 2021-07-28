@@ -136,7 +136,7 @@ func InstallOneFromRevision(name string, revision int) (RefreshConfig, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return installByRevisionOne{
+	return executeOneByRevision{
 		action:      InstallAction,
 		instanceKey: uuid.String(),
 		Name:        name,
@@ -147,7 +147,7 @@ func InstallOneFromRevision(name string, revision int) (RefreshConfig, error) {
 // AddResource adds resource revision data to a executeOne config.
 // Used for install by revision.
 func AddResource(config RefreshConfig, name string, revision int) (RefreshConfig, bool) {
-	c, ok := config.(installByRevisionOne)
+	c, ok := config.(executeOneByRevision)
 	if !ok {
 		return config, false
 	}
@@ -201,20 +201,16 @@ func DownloadOne(id string, revision int, channel string, base RefreshBase) (Ref
 
 // DownloadOneFromRevision creates a request config using the revision and not
 // the channel for requesting only one charm.
-func DownloadOneFromRevision(id string, revision int, base RefreshBase) (RefreshConfig, error) {
-	if err := validateBase(base); err != nil {
-		return nil, errors.Trace(err)
-	}
+func DownloadOneFromRevision(id string, revision int) (RefreshConfig, error) {
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return executeOne{
+	return executeOneByRevision{
 		action:      DownloadAction,
 		instanceKey: uuid.String(),
 		ID:          id,
 		Revision:    &revision,
-		Base:        base,
 	}, nil
 }
 
