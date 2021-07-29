@@ -159,10 +159,10 @@ func (mr *MockCAASProvisionerFacadeMockRecorder) SetPassword(arg0, arg1 interfac
 }
 
 // Units mocks base method.
-func (m *MockCAASProvisionerFacade) Units(arg0 string) ([]names.Tag, error) {
+func (m *MockCAASProvisionerFacade) Units(arg0 string) ([]params.CAASUnit, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Units", arg0)
-	ret0, _ := ret[0].([]names.Tag)
+	ret0, _ := ret[0].([]params.CAASUnit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

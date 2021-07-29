@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2/workertest"
@@ -261,15 +261,15 @@ func (s *NestedContextSuite) TestStopStartUnits(c *gc.C) {
 		}
 	})
 
-	handled := s.hub.Publish(message.StopUnitTopic, message.Units{
+	done := s.hub.Publish(message.StopUnitTopic, message.Units{
 		Names: []string{"first/0", "second/0", "unknown/2"},
 	})
-	s.waitForEventHandled(c, handled)
+	s.waitForEventHandled(c, pubsub.Wait(done))
 	// Call the stop topic again, and the results are the same.
-	handled = s.hub.Publish(message.StopUnitTopic, message.Units{
+	done = s.hub.Publish(message.StopUnitTopic, message.Units{
 		Names: []string{"first/0", "second/0", "unknown/2"},
 	})
-	s.waitForEventHandled(c, handled)
+	s.waitForEventHandled(c, pubsub.Wait(done))
 	s.waitForEventHandled(c, handledBothCalls)
 	unsub()
 
@@ -290,15 +290,15 @@ func (s *NestedContextSuite) TestStopStartUnits(c *gc.C) {
 	})
 
 	// Start one back up again.
-	handled = s.hub.Publish(message.StartUnitTopic, message.Units{
+	done = s.hub.Publish(message.StartUnitTopic, message.Units{
 		Names: []string{"first/0", "unknown/2"},
 	})
-	s.waitForEventHandled(c, handled)
+	s.waitForEventHandled(c, pubsub.Wait(done))
 	// Called again gets the same results.
-	handled = s.hub.Publish(message.StartUnitTopic, message.Units{
+	done = s.hub.Publish(message.StartUnitTopic, message.Units{
 		Names: []string{"first/0", "unknown/2"},
 	})
-	s.waitForEventHandled(c, handled)
+	s.waitForEventHandled(c, pubsub.Wait(done))
 	s.waitForEventHandled(c, handledBothCalls)
 	unsub()
 
@@ -325,13 +325,13 @@ func (s *NestedContextSuite) TestUnitStatus(c *gc.C) {
 	ctx := s.newContext(c)
 	s.deployThreeUnits(c, ctx)
 	// And stop one.
-	handled := s.hub.Publish(message.StopUnitTopic, message.Units{
+	done := s.hub.Publish(message.StopUnitTopic, message.Units{
 		Names: []string{"second/0"},
 	})
-	s.waitForEventHandled(c, handled)
+	s.waitForEventHandled(c, pubsub.Wait(done))
 
-	handled = s.hub.Publish(message.UnitStatusTopic, nil)
-	s.waitForEventHandled(c, handled)
+	done = s.hub.Publish(message.UnitStatusTopic, nil)
+	s.waitForEventHandled(c, pubsub.Wait(done))
 	s.waitForEventHandled(c, responseHandled)
 }
 

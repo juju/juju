@@ -393,7 +393,7 @@ func newFakeHub(c *gc.C, expected int) *fakeHub {
 	}
 }
 
-func (hub *fakeHub) Publish(topic string, data interface{}) <-chan struct{} {
+func (hub *fakeHub) Publish(topic string, data interface{}) func() {
 	switch topic {
 	case watcher.TxnWatcherStarting:
 		close(hub.started)

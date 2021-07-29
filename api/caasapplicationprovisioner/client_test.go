@@ -253,10 +253,12 @@ func (s *provisionerSuite) TestAllUnits(c *gc.C) {
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "Units")
 		c.Assert(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.EntitiesResults{})
-		*(result.(*params.EntitiesResults)) = params.EntitiesResults{
-			Results: []params.EntitiesResult{{
-				Entities: []params.Entity{{"unit-gitlab-0"}},
+		c.Assert(result, gc.FitsTypeOf, &params.CAASUnitsResults{})
+		*(result.(*params.CAASUnitsResults)) = params.CAASUnitsResults{
+			Results: []params.CAASUnitsResult{{
+				Units: []params.CAASUnitInfo{
+					{Tag: "unit-gitlab-0"},
+				},
 			}},
 		}
 		return nil
@@ -264,7 +266,9 @@ func (s *provisionerSuite) TestAllUnits(c *gc.C) {
 
 	tags, err := client.Units("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tags, jc.SameContents, []names.Tag{names.NewUnitTag("gitlab/0")})
+	c.Assert(tags, jc.SameContents, []params.CAASUnit{
+		{Tag: names.NewUnitTag("gitlab/0")},
+	})
 }
 
 func (s *provisionerSuite) TestGarbageCollect(c *gc.C) {

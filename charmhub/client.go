@@ -161,13 +161,14 @@ func CharmHubConfig(logger Logger, options ...Option) (Config, error) {
 		headers.Add(MetadataHeader, k+"="+m[k])
 	}
 
+	chLogger := logger.ChildWithLabels("client", corelogger.CHARMHUB)
 	return Config{
 		URL:       *opts.url,
 		Version:   CharmHubServerVersion,
 		Entity:    CharmHubServerEntity,
 		Headers:   headers,
-		Transport: opts.transportFunc(logger.ChildWithLabels("transport", corelogger.HTTP)),
-		Logger:    logger,
+		Transport: opts.transportFunc(chLogger.ChildWithLabels("transport", corelogger.HTTP)),
+		Logger:    chLogger,
 	}, nil
 }
 

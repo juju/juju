@@ -318,11 +318,24 @@ func (a *appWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
+		case <-a.clock.After(10 * time.Second):
+			// for refresh application status.
 		}
 		if done {
 			return nil
 		}
+		if err = a.refreshApplicationStatus(app, appLife); err != nil {
+			return errors.Annotatef(err, "refreshing application status for %q", a.name)
+		}
 	}
+}
+
+func getTagsFromUnits(in []params.CAASUnit) []names.Tag {
+	var out []names.Tag
+	for _, v := range in {
+		out = append(out, v.Tag)
+	}
+	return out
 }
 
 func (a *appWorker) charmFormat() (charm.Format, error) {
@@ -419,7 +432,7 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 		}
 	}
 
-	err = a.facade.GarbageCollect(a.name, observedUnits, st.DesiredReplicas, st.Replicas, force)
+	err = a.facade.GarbageCollect(a.name, getTagsFromUnits(observedUnits), st.DesiredReplicas, st.Replicas, force)
 	if errors.IsNotFound(err) {
 		return nil, nil
 	} else if err != nil {
@@ -520,6 +533,40 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 		}
 	}
 	return reportedStatus, nil
+}
+
+func (a *appWorker) refreshApplicationStatus(app caas.Application, appLife life.Value) error {
+	if appLife != life.Alive {
+		return nil
+	}
+	st, err := app.State()
+	if errors.IsNotFound(err) {
+		// Do nothing.
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	// refresh the units information.
+	units, err := a.facade.Units(a.name)
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	readyUnitsCount := 0
+	for _, unit := range units {
+		if unit.UnitStatus.AgentStatus.Status == string(status.Active) {
+			readyUnitsCount++
+		}
+	}
+	if st.DesiredReplicas > 0 && st.DesiredReplicas > readyUnitsCount {
+		// Only set status to waiting for scale up.
+		// When the application gets scaled down, the desired units will be kept running and
+		// the application should be active always.
+		return a.setApplicationStatus(status.Waiting, "waiting for units settled down", nil)
+	}
+	return a.setApplicationStatus(status.Active, "", nil)
 }
 
 func (a *appWorker) ensureScale(app caas.Application) error {
@@ -655,9 +702,9 @@ func (a *appWorker) alive(app caas.Application) error {
 	reason := "unchanged"
 	// TODO(sidecar): implement Equals method for caas.ApplicationConfig
 	if !reflect.DeepEqual(config, a.lastApplied) {
-		err = app.Ensure(config)
-		if err != nil {
-			return errors.Annotate(err, "ensuring application")
+		if err = app.Ensure(config); err != nil {
+			_ = a.setApplicationStatus(status.Error, err.Error(), nil)
+			return errors.Annotatef(err, "ensuring application %q", a.name)
 		}
 		a.lastApplied = config
 		reason = "deployed"
@@ -665,13 +712,13 @@ func (a *appWorker) alive(app caas.Application) error {
 			reason = "updated"
 		}
 	}
-
-	err = a.facade.SetOperatorStatus(a.name, status.Active, reason, nil)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
+	a.logger.Debugf("application %q was %q", a.name, reason)
 	return nil
+}
+
+func (a *appWorker) setApplicationStatus(s status.Status, reason string, data map[string]interface{}) error {
+	a.logger.Tracef("updating application %q status to %q, %q, %v", a.name, s, reason, data)
+	return a.facade.SetOperatorStatus(a.name, s, reason, data)
 }
 
 func (a *appWorker) dying(app caas.Application) error {

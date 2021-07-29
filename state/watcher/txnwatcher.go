@@ -21,7 +21,7 @@ import (
 // Hub represents a pubsub hub. The TxnWatcher only ever publishes
 // events to the hub.
 type Hub interface {
-	Publish(topic string, data interface{}) <-chan struct{}
+	Publish(topic string, data interface{}) func()
 }
 
 // Clock represents the time methods used.
@@ -288,7 +288,7 @@ func (w *TxnWatcher) loop() error {
 	backoff := backoffStrategy.NewTimer(now)
 	d, _ := backoff.NextSleep(now)
 	next := w.clock.After(d)
-	w.hub.Publish(TxnWatcherStarting, nil)
+	_ = w.hub.Publish(TxnWatcherStarting, nil)
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -355,7 +355,7 @@ func (w *TxnWatcher) loop() error {
 			w.logger.Warningf("txn watcher sync error: %v\ncurrent retry count %d", err, syncRetryCount)
 			_, isSyncError := errors.Cause(err).(outOfSyncError)
 			if isSyncError || syncRetryCount > maxSyncRetries {
-				w.hub.Publish(TxnWatcherSyncErr, err)
+				_ = w.hub.Publish(TxnWatcherSyncErr, err)
 				return errors.Trace(err)
 			}
 			logCollection = nil
@@ -377,7 +377,7 @@ func (w *TxnWatcher) flush() {
 	// refreshEvents are stored newest first.
 	for i := len(w.syncEvents) - 1; i >= 0; i-- {
 		e := w.syncEvents[i]
-		w.hub.Publish(TxnWatcherCollection, e)
+		_ = w.hub.Publish(TxnWatcherCollection, e)
 	}
 	w.averageSyncLen = (filterFactor * float64(len(w.syncEvents))) + ((1.0 - filterFactor) * w.averageSyncLen)
 	w.syncEventsLastLen = len(w.syncEvents)

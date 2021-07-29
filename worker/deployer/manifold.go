@@ -19,7 +19,7 @@ import (
 
 // Hub is a pubsub hub used for internal messaging.
 type Hub interface {
-	Publish(topic string, data interface{}) <-chan struct{}
+	Publish(topic string, data interface{}) func()
 	Subscribe(topic string, handler func(string, interface{})) func()
 }
 

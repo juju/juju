@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -430,7 +430,7 @@ func (m *Model) removeUnit(ch RemoveUnit) error {
 
 	unit, ok := m.units[ch.Name]
 	if ok {
-		m.hub.Publish(modelUnitRemove, unit.copy())
+		_ = m.hub.Publish(modelUnitRemove, unit.copy())
 		if err := unit.evict(); err != nil {
 			return errors.Trace(err)
 		}
@@ -501,7 +501,7 @@ func (m *Model) updateMachine(ch MachineChange, rm *residentManager) {
 	if !found {
 		machine = newMachine(m, rm.new())
 		m.machines[ch.Id] = machine
-		m.hub.Publish(modelAddRemoveMachine, []string{ch.Id})
+		_ = m.hub.Publish(modelAddRemoveMachine, []string{ch.Id})
 	}
 	machine.setDetails(ch)
 
@@ -515,7 +515,7 @@ func (m *Model) removeMachine(ch RemoveMachine) error {
 
 	machine, ok := m.machines[ch.Id]
 	if ok {
-		m.hub.Publish(modelAddRemoveMachine, []string{ch.Id})
+		_ = m.hub.Publish(modelAddRemoveMachine, []string{ch.Id})
 		if err := machine.evict(); err != nil {
 			return errors.Trace(err)
 		}
@@ -548,7 +548,7 @@ func (m *Model) removeBranch(ch RemoveBranch) error {
 
 	branch, ok := m.branches[ch.Id]
 	if ok {
-		m.hub.Publish(modelBranchRemove, branch.Name())
+		_ = m.hub.Publish(modelBranchRemove, branch.Name())
 		if err := branch.evict(); err != nil {
 			return errors.Trace(err)
 		}
@@ -570,7 +570,7 @@ func (m *Model) setDetails(details ModelChange) {
 		m.configHash = configHash
 		m.hashCache = hashCache
 		m.hashCache.incMisses()
-		m.hub.Publish(modelConfigChange, hashCache)
+		_ = m.hub.Publish(modelConfigChange, hashCache)
 	}
 
 	m.updateSummary()
@@ -764,6 +764,6 @@ func (m *Model) updateSummary() {
 		visibleTo: m.visibleTo,
 		hash:      hash,
 	}
-	m.lastSummaryPublish = m.controllerHub.Publish(modelSummaryUpdatedTopic, payload)
+	m.lastSummaryPublish = pubsub.Wait(m.controllerHub.Publish(modelSummaryUpdatedTopic, payload))
 	m.summaryHash = hash
 }

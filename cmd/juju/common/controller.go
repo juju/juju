@@ -130,6 +130,7 @@ func WaitForAgentInitialisation(
 			strings.HasSuffix(errorMessage, "target machine actively refused it."), // Winsock message for connection refused
 			strings.HasSuffix(errorMessage, "connection is shut down"),
 			strings.HasSuffix(errorMessage, "i/o timeout"),
+			strings.HasSuffix(errorMessage, "network is unreachable"),
 			strings.HasSuffix(errorMessage, "deadline exceeded"),
 			strings.HasSuffix(errorMessage, "no api connection available"):
 			ctx.Verbosef("Still waiting for API to become available: %v", err)

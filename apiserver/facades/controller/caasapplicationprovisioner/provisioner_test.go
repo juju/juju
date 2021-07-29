@@ -153,9 +153,24 @@ func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {
 			},
 		},
 		units: []*mockUnit{
-			{tag: names.NewUnitTag("gitlab/0")},
-			{tag: names.NewUnitTag("gitlab/1")},
-			{tag: names.NewUnitTag("gitlab/2")},
+			{
+				tag: names.NewUnitTag("gitlab/0"),
+				status: status.StatusInfo{
+					Status: status.Active,
+				},
+			},
+			{
+				tag: names.NewUnitTag("gitlab/1"),
+				status: status.StatusInfo{
+					Status: status.Maintenance,
+				},
+			},
+			{
+				tag: names.NewUnitTag("gitlab/2"),
+				status: status.StatusInfo{
+					Status: status.Unknown,
+				},
+			},
 		},
 	}
 	result, err := s.api.Units(params.Entities{
@@ -165,10 +180,28 @@ func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].Entities, gc.DeepEquals, []params.Entity{
-		{Tag: "unit-gitlab-0"},
-		{Tag: "unit-gitlab-1"},
-		{Tag: "unit-gitlab-2"},
+	c.Assert(result.Results[0].Units, gc.DeepEquals, []params.CAASUnitInfo{
+		{
+			Tag: "unit-gitlab-0",
+			UnitStatus: &params.UnitStatus{
+				AgentStatus:    params.DetailedStatus{Status: "active"},
+				WorkloadStatus: params.DetailedStatus{Status: "active"},
+			},
+		},
+		{
+			Tag: "unit-gitlab-1",
+			UnitStatus: &params.UnitStatus{
+				AgentStatus:    params.DetailedStatus{Status: "maintenance"},
+				WorkloadStatus: params.DetailedStatus{Status: "maintenance"},
+			},
+		},
+		{
+			Tag: "unit-gitlab-2",
+			UnitStatus: &params.UnitStatus{
+				AgentStatus:    params.DetailedStatus{Status: "unknown"},
+				WorkloadStatus: params.DetailedStatus{Status: "unknown"},
+			},
+		},
 	})
 }
 

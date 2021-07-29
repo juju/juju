@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
@@ -82,7 +82,7 @@ func (s *WorkerSuite) TestNoChange(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	select {
-	case <-processed:
+	case <-pubsub.Wait(processed):
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for processed")
 	}
@@ -97,7 +97,7 @@ func (s *WorkerSuite) TestChange(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	select {
-	case <-processed:
+	case <-pubsub.Wait(processed):
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for processed")
 	}

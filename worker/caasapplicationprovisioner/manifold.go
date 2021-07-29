@@ -22,6 +22,7 @@ type Logger interface {
 	Infof(string, ...interface{})
 	Errorf(string, ...interface{})
 	Warningf(string, ...interface{})
+	Tracef(string, ...interface{})
 
 	Child(string) loggo.Logger
 }
