@@ -1569,8 +1569,12 @@ func (a *app) volumeName(storageName string) string {
 // pvcNames returns a mapping of volume name to PVC name for this app's PVCs.
 func (a *app) pvcNames() (map[string]string, error) {
 	// Fetch all Juju PVCs associated with this app
+	labelSelectors := map[string]string{
+		"app.kubernetes.io/managed-by": "juju",
+		"app.kubernetes.io/name":       a.name,
+	}
 	opts := metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("app.kubernetes.io/managed-by = juju, app.kubernetes.io/name = %s", a.name),
+		LabelSelector: utils.LabelsToSelector(labelSelectors).String(),
 	}
 	pvcs, err := resources.ListPersistentVolumeClaims(context.Background(), a.client, a.namespace, opts)
 	if err != nil {
