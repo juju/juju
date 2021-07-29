@@ -20,6 +20,7 @@ import (
 
 	corecharm "github.com/juju/juju/core/charm"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -206,17 +207,20 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 		return nil, errors.New("*charm.URL was nil")
 	}
 
+	pendingUpload := info.SHA256 != "" && info.StoragePath != ""
+
 	doc := charmDoc{
-		DocID:        info.ID.String(),
-		URL:          info.ID,
-		CharmVersion: info.Version,
-		Meta:         info.Charm.Meta(),
-		Config:       safeConfig(info.Charm),
-		Manifest:     info.Charm.Manifest(),
-		Metrics:      info.Charm.Metrics(),
-		Actions:      info.Charm.Actions(),
-		BundleSha256: info.SHA256,
-		StoragePath:  info.StoragePath,
+		DocID:         info.ID.String(),
+		URL:           info.ID,
+		CharmVersion:  info.Version,
+		Meta:          info.Charm.Meta(),
+		Config:        safeConfig(info.Charm),
+		Manifest:      info.Charm.Manifest(),
+		Metrics:       info.Charm.Metrics(),
+		Actions:       info.Charm.Actions(),
+		BundleSha256:  info.SHA256,
+		StoragePath:   info.StoragePath,
+		PendingUpload: pendingUpload,
 	}
 	lpc, ok := info.Charm.(charm.LXDProfiler)
 	if !ok {
@@ -773,17 +777,24 @@ func (st *State) AllCharms() ([]*Charm, error) {
 	return charms, errors.Trace(iter.Close())
 }
 
-// Charm returns the charm with the given URL. Charms pending upload
-// to storage and placeholders are never returned.
+// Charm returns the charm with the given URL. Charm placeholders are never
+// returned. Charms pending to be uploaded are only returned if the
+// async charm download feature flag is set.
+//
+// TODO(achilleasa) remove the feature flag check once the server-side bundle
+// expansion work lands.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
+	var (
+		cdoc    charmDoc
+		charmID = curl.String()
+	)
+
 	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
-	cdoc := &charmDoc{}
 	what := bson.D{
 		{"_id", curl.String()},
 		{"placeholder", bson.D{{"$ne", true}}},
-		{"pendingupload", bson.D{{"$ne", true}}},
 	}
 	what = append(what, nsLife.notDead()...)
 	err := charms.Find(what).One(&cdoc)
@@ -794,11 +805,18 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
 	}
 
-	ch := newCharm(st, cdoc)
-	if err := charm.CheckMeta(ch); err != nil {
-		return nil, errors.Annotatef(err, "malformed charm metadata found in state")
+	// This check ensures that we don't break the existing deploy logic
+	// until the server-side bundle expansion work lands.
+	cfg, err := st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return ch, nil
+	returnPendingCharms := cfg.Features().Contains(feature.AsynchronousCharmDownloads)
+	if cdoc.PendingUpload && !returnPendingCharms {
+		return nil, errors.NotFoundf("charm %q", charmID)
+	}
+
+	return newCharm(st, &cdoc), nil
 }
 
 // LatestPlaceholderCharm returns the latest charm described by the
