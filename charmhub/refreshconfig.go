@@ -159,9 +159,11 @@ func (c executeOne) String() string {
 		c.action, c.instanceKey, using, revision, channel, c.Base)
 }
 
-type installByRevisionOne struct {
-	Name              string
-	Revision          *int
+type executeOneByRevision struct {
+	Name     string
+	Revision *int
+	// ID is only used for download by revision
+	ID                string
 	resourceRevisions []transport.RefreshResourceRevision
 	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
@@ -170,15 +172,18 @@ type installByRevisionOne struct {
 }
 
 // InstanceKey returns the underlying instance key.
-func (c installByRevisionOne) InstanceKey() string {
+func (c executeOneByRevision) InstanceKey() string {
 	return c.instanceKey
 }
 
 // Build a refresh request for sending to the API.
-func (c installByRevisionOne) Build() (transport.RefreshRequest, Headers, error) {
-	var name *string
+func (c executeOneByRevision) Build() (transport.RefreshRequest, Headers, error) {
+	var name, id *string
 	if c.Name != "" {
 		name = &c.Name
+	}
+	if c.ID != "" {
+		id = &c.ID
 	}
 
 	req := transport.RefreshRequest{
@@ -188,6 +193,7 @@ func (c installByRevisionOne) Build() (transport.RefreshRequest, Headers, error)
 			Action:            string(c.action),
 			InstanceKey:       c.instanceKey,
 			Name:              name,
+			ID:                id,
 			Revision:          c.Revision,
 			ResourceRevisions: c.resourceRevisions,
 		}},
@@ -197,7 +203,7 @@ func (c installByRevisionOne) Build() (transport.RefreshRequest, Headers, error)
 }
 
 // Ensure that the request back contains the information we requested.
-func (c installByRevisionOne) Ensure(responses []transport.RefreshResponse) error {
+func (c executeOneByRevision) Ensure(responses []transport.RefreshResponse) error {
 	for _, resp := range responses {
 		if resp.InstanceKey == c.instanceKey {
 			return nil
@@ -207,7 +213,7 @@ func (c installByRevisionOne) Ensure(responses []transport.RefreshResponse) erro
 }
 
 // String describes the underlying refresh config.
-func (c installByRevisionOne) String() string {
+func (c executeOneByRevision) String() string {
 	var revision string
 	if c.Revision != nil {
 		revision = fmt.Sprintf(" with revision: %+v", c.Revision)

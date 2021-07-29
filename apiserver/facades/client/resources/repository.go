@@ -170,14 +170,14 @@ func (ch *charmHubClient) ResourceInfo(curl *charm.URL, origin corecharm.Origin,
 		configs = append(configs, cfg)
 	}
 	if rev := origin.Revision; rev != nil {
-		cfg, err := charmhub.DownloadOneFromRevision(origin.ID, *rev, refBase)
+		cfg, err := charmhub.DownloadOneFromRevision(origin.ID, *rev)
 		if err != nil {
 			return charmresource.Resource{}, errors.Trace(err)
 		}
 		configs = append(configs, cfg)
 	}
 	if rev := curl.Revision; rev >= 0 {
-		cfg, err := charmhub.DownloadOneFromRevision(origin.ID, rev, refBase)
+		cfg, err := charmhub.DownloadOneFromRevision(origin.ID, rev)
 		if err != nil {
 			return charmresource.Resource{}, errors.Trace(err)
 		}
