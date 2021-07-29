@@ -1489,7 +1489,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	}
 
 	// If it's a v1 or v2 machine charm (no containers), check series.
-	if charm.MetaFormat(cfg.Charm) == charm.FormatV1 || len(cfg.Charm.Meta().Containers) == 0 {
+	if charm.MetaFormat(cfg.Charm) == charm.FormatV1 || !corecharm.IsKubernetes(cfg.Charm) {
 		err := checkSeriesForSetCharm(a.doc.Series, cfg.Charm, cfg.ForceSeries)
 		if err != nil {
 			return errors.Trace(err)

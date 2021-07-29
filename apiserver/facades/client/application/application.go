@@ -1342,8 +1342,7 @@ func (api *APIBase) applicationSetCharm(
 	// If upgrading from a pod-spec (v1) charm to sidecar (v2), override the
 	// application's series to what it would be for a fresh sidecar deploy.
 	oldSeries := params.Application.Series()
-	if oldSeries == "kubernetes" && charm.MetaFormat(newCharm) >= charm.FormatV2 &&
-		len(newCharm.Meta().Containers) > 0 {
+	if oldSeries == series.Kubernetes.String() && charm.MetaFormat(newCharm) >= charm.FormatV2 && corecharm.IsKubernetes(newCharm) {
 		// Disallow upgrading from a v1 DaemonSet or Deployment type charm
 		// (only StatefulSet is supported in v2 right now).
 		deployment := oldCharm.Meta().Deployment
