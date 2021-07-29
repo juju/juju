@@ -106,7 +106,7 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 		},
 	}
 	s.appProvisioningInfo = api.ProvisioningInfo{
-		Series:   "focal",
+		Series: "focal",
 		CharmURL: &charm.URL{
 			Schema:   "cs",
 			Name:     "test",

@@ -1490,7 +1490,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 
 	// If it's a v1 or v2 machine charm (no containers), check series.
 	if charm.MetaFormat(cfg.Charm) == charm.FormatV1 || len(cfg.Charm.Meta().Containers) == 0 {
-		err := setCharmCheckSeries(a.doc.Series, cfg.Charm, cfg.ForceSeries)
+		err := checkSeriesForSetCharm(a.doc.Series, cfg.Charm, cfg.ForceSeries)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1647,7 +1647,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	return nil
 }
 
-func setCharmCheckSeries(curSeries string, charm *Charm, forceSeries bool) error {
+func checkSeriesForSetCharm(curSeries string, charm *Charm, forceSeries bool) error {
 	// For old style charms written for only one series, we still retain
 	// this check. Newer charms written for multi-series have a URL
 	// with series = "".

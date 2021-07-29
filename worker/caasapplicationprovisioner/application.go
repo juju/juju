@@ -111,7 +111,11 @@ func (a *appWorker) loop() error {
 			return fmt.Errorf("couldn't delete operator and service with %d tries", maxDeleteLoops)
 		}
 		if i > 0 {
-			<-a.clock.After(3 * time.Second)
+			select {
+			case <-a.clock.After(3 * time.Second):
+			case <-a.catacomb.Dying():
+				return a.catacomb.ErrDying()
+			}
 		}
 
 		exists, err := a.broker.OperatorExists(a.name)
@@ -143,7 +147,11 @@ func (a *appWorker) loop() error {
 				break
 			}
 			a.logger.Debugf("%q: waiting for workload pods to be deleted", a.name)
-			<-a.clock.After(3 * time.Second)
+			select {
+			case <-a.clock.After(3 * time.Second):
+			case <-a.catacomb.Dying():
+				return a.catacomb.ErrDying()
+			}
 		}
 
 		err = a.broker.DeleteOperator(a.name)
@@ -263,8 +271,10 @@ func (a *appWorker) loop() error {
 			if !ok {
 				return fmt.Errorf("application %q scale watcher closed channel", a.name)
 			}
-			scaleTries = 0
-			scaleChan = time.After(0)
+			if scaleChan == nil {
+				scaleTries = 0
+				scaleChan = time.After(0)
+			}
 		case <-scaleChan:
 			err := a.ensureScale(app)
 			if errors.IsNotFound(err) {
@@ -275,13 +285,17 @@ func (a *appWorker) loop() error {
 				scaleChan = time.After(retryDelay)
 			} else if err != nil {
 				return errors.Trace(err)
+			} else {
+				scaleChan = nil
 			}
 		case _, ok := <-appTrustWatcher.Changes():
 			if !ok {
 				return fmt.Errorf("application %q trust watcher closed channel", a.name)
 			}
-			trustTries = 0
-			trustChan = time.After(0)
+			if trustChan == nil {
+				trustTries = 0
+				trustChan = time.After(0)
+			}
 		case <-trustChan:
 			err := a.ensureTrust(app)
 			if errors.IsNotFound(err) {
@@ -292,6 +306,8 @@ func (a *appWorker) loop() error {
 				trustChan = time.After(retryDelay)
 			} else if err != nil {
 				return errors.Trace(err)
+			} else {
+				trustChan = nil
 			}
 		case <-a.catacomb.Dying():
 			return a.catacomb.ErrDying()
