@@ -33,13 +33,35 @@ func BlockDeviceFromState(in state.BlockDeviceInfo) storage.BlockDevice {
 	}
 }
 
-// MatchingBlockDevice finds the block device that matches the
+// MatchingVolumeBlockDevice finds the block device that matches the
 // provided volume info and volume attachment info.
-func MatchingBlockDevice(
+func MatchingVolumeBlockDevice(
 	blockDevices []state.BlockDeviceInfo,
 	volumeInfo state.VolumeInfo,
 	attachmentInfo state.VolumeAttachmentInfo,
 	planBlockInfo state.BlockDeviceInfo,
+) (*state.BlockDeviceInfo, bool) {
+	return matchingBlockDevice(blockDevices, volumeInfo, attachmentInfo, planBlockInfo, false)
+}
+
+// MatchingFilesystemBlockDevice finds the block device that matches the
+// provided volume info and volume attachment info, preferring a matching
+// device of type partition.
+func MatchingFilesystemBlockDevice(
+	blockDevices []state.BlockDeviceInfo,
+	volumeInfo state.VolumeInfo,
+	attachmentInfo state.VolumeAttachmentInfo,
+	planBlockInfo state.BlockDeviceInfo,
+) (*state.BlockDeviceInfo, bool) {
+	return matchingBlockDevice(blockDevices, volumeInfo, attachmentInfo, planBlockInfo, true)
+}
+
+func matchingBlockDevice(
+	blockDevices []state.BlockDeviceInfo,
+	volumeInfo state.VolumeInfo,
+	attachmentInfo state.VolumeAttachmentInfo,
+	planBlockInfo state.BlockDeviceInfo,
+	allowPartitions bool,
 ) (*state.BlockDeviceInfo, bool) {
 	logger.Tracef("looking for block device to match one of planBlockInfo %#v volumeInfo %#v attachmentInfo %#v",
 		planBlockInfo, volumeInfo, attachmentInfo)
@@ -121,9 +143,9 @@ func MatchingBlockDevice(
 	devMatch:
 		for _, dev := range blockDevices {
 			for _, link := range dev.DeviceLinks {
-				if attachmentInfo.DeviceLink == link || attachmentInfo.DeviceLink+"-part1" == link {
+				if attachmentInfo.DeviceLink == link || (allowPartitions && attachmentInfo.DeviceLink+"-part1" == link) {
 					devCopy := dev
-					if dev.UUID != "" {
+					if dev.UUID != "" && allowPartitions {
 						devWithUUID = &devCopy
 					} else {
 						parentDev = &devCopy
