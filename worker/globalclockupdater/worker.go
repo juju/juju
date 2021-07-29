@@ -105,7 +105,7 @@ func (w *updaterWorker) loop() error {
 				// If the error is known and retryable, just keep attempting to
 				// tick the clock.
 				// The specific error is already logged at warning level by
-				// the lease store.
+				// the updater.
 				if globalclock.IsTimeout(err) || globalclock.IsOutOfSyncUpdate(err) {
 					w.config.Logger.Infof("retrying lease clock update in %s", interval)
 					timer.Reset(interval)
