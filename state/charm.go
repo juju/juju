@@ -207,7 +207,7 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 		return nil, errors.New("*charm.URL was nil")
 	}
 
-	pendingUpload := info.SHA256 != "" && info.StoragePath != ""
+	pendingUpload := info.SHA256 == "" || info.StoragePath == ""
 
 	doc := charmDoc{
 		DocID:         info.ID.String(),
@@ -717,6 +717,10 @@ func (c *Charm) UpdateMacaroon(m macaroon.Slice) error {
 
 // AddCharm adds the ch charm with curl to the state.
 // On success the newly added charm state is returned.
+//
+// TODO(achilleasa) Overwrite this implementation with the body of the
+// AddCharmMetadata method once the server-side bundle expansion work is
+// complete.
 func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
@@ -901,6 +905,9 @@ func isValidPlaceholderCharmURL(curl *charm.URL) bool {
 //
 // The url's schema must be charmstore ("cs") or a charmhub ("ch") and it must
 // include a revision that isn't a negative value.
+//
+// TODO(achilleas): This call will be removed once the server-side bundle
+// deployment work lands.
 func (st *State) PrepareCharmUpload(curl *charm.URL) (*Charm, error) {
 	// Perform a few sanity checks first.
 	if !isValidPlaceholderCharmURL(curl) {
@@ -996,6 +1003,9 @@ func (st *State) AddCharmPlaceholder(curl *charm.URL) (err error) {
 
 // UpdateUploadedCharm marks the given charm URL as uploaded and
 // updates the rest of its data, returning it as *state.Charm.
+//
+// TODO(achilleas): This call will be removed once the server-side bundle
+// deployment work lands.
 func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
@@ -1020,4 +1030,44 @@ func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 		return nil, onAbort(err, stateerrors.ErrCharmRevisionAlreadyModified)
 	}
 	return st.Charm(info.ID)
+}
+
+// AddCharmMetadata creates a charm document in state and populates it with the
+// provided charm metadata details. If the charm document already exists it
+// will be returned back as a *charm.Charm.
+//
+// If the provided CharmInfo does not include a SHA256 and storage path entry,
+// then the charm document will be created with the PendingUpload flag set
+// to true.
+//
+// The charm URL must either have a charmstore ("cs") or a charmhub ("ch")
+// schema and it must include a revision that isn't a negative value. Otherwise,
+// an error will be returned.
+func (st *State) AddCharmMetadata(info CharmInfo) (*Charm, error) {
+	// Perform a few sanity checks first.
+	if !isValidPlaceholderCharmURL(info.ID) {
+		return nil, errors.Errorf("expected charm URL with a valid schema, got %q", info.ID)
+	}
+	if info.ID.Revision < 0 {
+		return nil, errors.Errorf("expected charm URL with revision, got %q", info.ID)
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// Check if the charm doc already exists.
+		if _, err := st.Charm(info.ID); err == nil {
+			return nil, jujutxn.ErrNoOperations
+		}
+
+		return insertCharmOps(st, info)
+	}
+
+	if err := st.db().Run(buildTxn); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ch, err := st.Charm(info.ID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ch, nil
 }
