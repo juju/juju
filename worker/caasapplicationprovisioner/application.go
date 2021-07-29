@@ -266,6 +266,7 @@ func (a *appWorker) loop() error {
 	const retryDelay = 3 * time.Second
 
 	for {
+		shouldRefresh := true
 		select {
 		case _, ok := <-appScaleWatcher.Changes():
 			if !ok {
@@ -273,8 +274,9 @@ func (a *appWorker) loop() error {
 			}
 			if scaleChan == nil {
 				scaleTries = 0
-				scaleChan = time.After(0)
+				scaleChan = a.clock.After(0)
 			}
+			shouldRefresh = false
 		case <-scaleChan:
 			err := a.ensureScale(app)
 			if errors.IsNotFound(err) {
@@ -282,7 +284,7 @@ func (a *appWorker) loop() error {
 					return errors.Annotatef(err, "more than %d retries ensuring scale", maxRetries)
 				}
 				scaleTries++
-				scaleChan = time.After(retryDelay)
+				scaleChan = a.clock.After(retryDelay)
 			} else if err != nil {
 				return errors.Trace(err)
 			} else {
@@ -294,8 +296,9 @@ func (a *appWorker) loop() error {
 			}
 			if trustChan == nil {
 				trustTries = 0
-				trustChan = time.After(0)
+				trustChan = a.clock.After(0)
 			}
+			shouldRefresh = false
 		case <-trustChan:
 			err := a.ensureTrust(app)
 			if errors.IsNotFound(err) {
@@ -303,7 +306,7 @@ func (a *appWorker) loop() error {
 					return errors.Annotatef(err, "more than %d retries ensuring trust", maxRetries)
 				}
 				trustTries++
-				trustChan = time.After(retryDelay)
+				trustChan = a.clock.After(retryDelay)
 			} else if err != nil {
 				return errors.Trace(err)
 			} else {
@@ -335,13 +338,15 @@ func (a *appWorker) loop() error {
 				return errors.Trace(err)
 			}
 		case <-a.clock.After(10 * time.Second):
-			// for refresh application status.
+			// Force refresh of application status.
 		}
 		if done {
 			return nil
 		}
-		if err = a.refreshApplicationStatus(app, appLife); err != nil {
-			return errors.Annotatef(err, "refreshing application status for %q", a.name)
+		if shouldRefresh {
+			if err = a.refreshApplicationStatus(app, appLife); err != nil {
+				return errors.Annotatef(err, "refreshing application status for %q", a.name)
+			}
 		}
 	}
 }
