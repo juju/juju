@@ -135,10 +135,12 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 	return apiGroup, nil
 }
 
+// CharmInfo returns information about the requested charm.
 func (a *APIGroup) CharmInfo(args params.CharmURL) (params.Charm, error) {
 	return a.charmInfoAPI.CharmInfo(args)
 }
 
+// ApplicationCharmInfo returns information about an application's charm.
 func (a *APIGroup) ApplicationCharmInfo(args params.Entity) (params.Charm, error) {
 	return a.appCharmInfoAPI.ApplicationCharmInfo(args)
 }

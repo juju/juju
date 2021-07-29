@@ -146,14 +146,17 @@ func NewFacade(
 	}, nil
 }
 
+// CharmInfo returns information about the requested charm.
 func (f *Facade) CharmInfo(args params.CharmURL) (params.Charm, error) {
 	return f.charmInfoAPI.CharmInfo(args)
 }
 
+// ApplicationCharmInfo returns information about an application's charm.
 func (f *Facade) ApplicationCharmInfo(args params.Entity) (params.Charm, error) {
 	return f.appCharmInfoAPI.ApplicationCharmInfo(args)
 }
 
+// Watch starts a NotifyWatcher for each entity given.
 func (f *Facade) Watch(args params.Entities) (params.NotifyWatchResults, error) {
 	return f.entityWatcher.Watch(args)
 }

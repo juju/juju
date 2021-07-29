@@ -57,6 +57,7 @@ type APIv3 struct {
 	*API
 }
 
+// CharmInfo returns information about the requested charm.
 func (a *API) CharmInfo(args params.CharmURL) (params.Charm, error) {
 	return a.charmInfoAPI.CharmInfo(args)
 }

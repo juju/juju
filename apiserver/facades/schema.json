@@ -6678,7 +6678,8 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    }
+                    },
+                    "description": "ApplicationCharmInfo returns information about an application's charm."
                 },
                 "ApplicationOCIResources": {
                     "type": "object",
@@ -6713,7 +6714,8 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    }
+                    },
+                    "description": "CharmInfo returns information about the requested charm."
                 },
                 "Life": {
                     "type": "object",
@@ -8456,7 +8458,8 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    }
+                    },
+                    "description": "ApplicationCharmInfo returns information about an application's charm."
                 },
                 "ApplicationsConfig": {
                     "type": "object",
@@ -8479,7 +8482,8 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    }
+                    },
+                    "description": "CharmInfo returns information about the requested charm."
                 },
                 "IsExposed": {
                     "type": "object",
@@ -9302,7 +9306,8 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    }
+                    },
+                    "description": "ApplicationCharmInfo returns information about an application's charm."
                 },
                 "ApplicationsConfig": {
                     "type": "object",
@@ -9325,7 +9330,8 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    }
+                    },
+                    "description": "CharmInfo returns information about the requested charm."
                 },
                 "IsExposed": {
                     "type": "object",
@@ -11302,7 +11308,8 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    }
+                    },
+                    "description": "ApplicationCharmInfo returns information about an application's charm."
                 },
                 "CharmInfo": {
                     "type": "object",
@@ -11313,7 +11320,8 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    }
+                    },
+                    "description": "CharmInfo returns information about the requested charm."
                 },
                 "IssueOperatorCertificate": {
                     "type": "object",
@@ -12553,7 +12561,8 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    }
+                    },
+                    "description": "ApplicationCharmInfo returns information about an application's charm."
                 },
                 "ApplicationsConfig": {
                     "type": "object",
@@ -12600,7 +12609,8 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    }
+                    },
+                    "description": "CharmInfo returns information about the requested charm."
                 },
                 "ClearApplicationsResources": {
                     "type": "object",
@@ -12695,7 +12705,8 @@
                         "Result": {
                             "$ref": "#/definitions/NotifyWatchResults"
                         }
-                    }
+                    },
+                    "description": "Watch starts a NotifyWatcher for each entity given."
                 },
                 "WatchApplications": {
                     "type": "object",
@@ -14820,7 +14831,8 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    }
+                    },
+                    "description": "CharmInfo returns information about the requested charm."
                 },
                 "CheckCharmPlacement": {
                     "type": "object",
