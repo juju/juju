@@ -37,6 +37,11 @@ func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state
 	return st, nil
 }
 
+// statePool returns the StatePool for this controller.
+func (ctxt *httpContext) statePool() *state.StatePool {
+	return ctxt.srv.shared.statePool
+}
+
 // stateForRequestAuthenticated returns a state instance appropriate for
 // using for the model implicit in the given request.
 // It also returns the authenticated entity.
