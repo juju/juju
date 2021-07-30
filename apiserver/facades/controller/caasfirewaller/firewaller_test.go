@@ -59,25 +59,12 @@ var _ = gc.Suite(&firewallerLegacySuite{
 				resources,
 				authorizer,
 				st,
-				common.NewApplicationWatcherFacade(firewallerStateToAppWatcherState(st), resources, common.ApplicationFilterCAASLegacy),
 				commonCharmsAPI,
 				appCharmInfoAPI,
 			)
 		},
 	},
 })
-
-func firewallerStateToAppWatcherState(st *mockState) *mockAppWatcherState {
-	return &mockAppWatcherState{
-		app: &mockAppWatcherApplication{
-			charm: mockAppWatcherCharm{
-				meta:     st.application.charm.meta,
-				manifest: st.application.charm.manifest,
-			},
-		},
-		watcher: st.applicationsWatcher,
-	}
-}
 
 type firewallerSidecarSuite struct {
 	firewallerBaseSuite
@@ -100,7 +87,6 @@ var _ = gc.Suite(&firewallerSidecarSuite{
 				resources,
 				authorizer,
 				st,
-				common.NewApplicationWatcherFacade(firewallerStateToAppWatcherState(st), resources, common.ApplicationFilterCAASSidecar),
 				commonCharmsAPI,
 				appCharmInfoAPI,
 			)
@@ -168,7 +154,7 @@ func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 		application: mockApplication{
 			life:    state.Alive,
 			watcher: appExposedWatcher,
-			charm: mockAppWatcherCharm{
+			charm: mockCharm{
 				meta: &charm.Meta{
 					Deployment: &charm.Deployment{},
 				},
