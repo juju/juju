@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/version"
@@ -32,7 +33,6 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.caasoperatorprovisioner")
 
 type APIGroup struct {
-	*common.ApplicationWatcherFacade
 	charmInfoAPI    *charmscommon.CharmInfoAPI
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
 	*API
@@ -102,10 +102,9 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 	}
 
 	return &APIGroup{
-		ApplicationWatcherFacade: common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterNone),
-		charmInfoAPI:             commonCharmsAPI,
-		appCharmInfoAPI:          appCharmInfoAPI,
-		API:                      api,
+		charmInfoAPI:    commonCharmsAPI,
+		appCharmInfoAPI: appCharmInfoAPI,
+		API:             api,
 	}, nil
 }
 
@@ -132,6 +131,20 @@ func NewCAASOperatorProvisionerAPI(
 		storagePoolManager: storagePoolManager,
 		registry:           registry,
 	}, nil
+}
+
+// WatchApplications starts a StringsWatcher to watch applications
+// deployed to this model.
+func (a *API) WatchApplications() (params.StringsWatchResult, error) {
+	watch := a.state.WatchApplications()
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		return params.StringsWatchResult{
+			StringsWatcherId: a.resources.Register(watch),
+			Changes:          changes,
+		}, nil
+	}
+	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
 }
 
 // OperatorProvisioningInfo returns the info needed to provision an operator.

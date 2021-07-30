@@ -18,9 +18,8 @@ import (
 type Facade struct {
 	*common.LifeGetter
 	*common.AgentEntityWatcher
-	resources facade.Resources
-	state     CAASFirewallerState
-	*common.ApplicationWatcherFacade
+	resources       facade.Resources
+	state           CAASFirewallerState
 	charmInfoAPI    *charmscommon.CharmInfoAPI
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
 }
@@ -29,7 +28,6 @@ type Facade struct {
 func NewStateFacadeLegacy(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
-	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterNone)
 
 	commonState := &charmscommon.StateShim{ctx.State()}
 	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
@@ -45,7 +43,6 @@ func NewStateFacadeLegacy(ctx facade.Context) (*Facade, error) {
 		resources,
 		authorizer,
 		&stateShim{ctx.State()},
-		appWatcherFacade,
 		charmInfoAPI,
 		appCharmInfoAPI,
 	)
@@ -55,7 +52,6 @@ func newFacadeLegacy(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	st CAASFirewallerState,
-	applicationWatcherFacade *common.ApplicationWatcherFacade,
 	charmInfoAPI *charmscommon.CharmInfoAPI,
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI,
 ) (*Facade, error) {
@@ -75,11 +71,10 @@ func newFacadeLegacy(
 			resources,
 			accessApplication,
 		),
-		resources:                resources,
-		state:                    st,
-		ApplicationWatcherFacade: applicationWatcherFacade,
-		charmInfoAPI:             charmInfoAPI,
-		appCharmInfoAPI:          appCharmInfoAPI,
+		resources:       resources,
+		state:           st,
+		charmInfoAPI:    charmInfoAPI,
+		appCharmInfoAPI: appCharmInfoAPI,
 	}, nil
 }
 
@@ -146,6 +141,20 @@ func (f *Facade) getApplicationConfig(tagString string) (map[string]interface{},
 	return app.ApplicationConfig()
 }
 
+// WatchApplications starts a StringsWatcher to watch applications
+// deployed to this model.
+func (f *Facade) WatchApplications() (params.StringsWatchResult, error) {
+	watch := f.state.WatchApplications()
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		return params.StringsWatchResult{
+			StringsWatcherId: f.resources.Register(watch),
+			Changes:          changes,
+		}, nil
+	}
+	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
+}
+
 // FacadeSidecar provides access to the CAASFirewaller API facade for sidecar applications.
 type FacadeSidecar struct {
 	*Facade
@@ -157,7 +166,6 @@ type FacadeSidecar struct {
 func NewStateFacadeSidecar(ctx facade.Context) (*FacadeSidecar, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
-	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterNone)
 
 	commonState := &charmscommon.StateShim{ctx.State()}
 	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
@@ -172,7 +180,6 @@ func NewStateFacadeSidecar(ctx facade.Context) (*FacadeSidecar, error) {
 		resources,
 		authorizer,
 		&stateShim{ctx.State()},
-		appWatcherFacade,
 		commonCharmsAPI,
 		appCharmInfoAPI,
 	)
@@ -182,7 +189,6 @@ func newFacadeSidecar(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	st CAASFirewallerState,
-	applicationWatcherFacade *common.ApplicationWatcherFacade,
 	commonCharmsAPI *charmscommon.CharmInfoAPI,
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI,
 ) (*FacadeSidecar, error) {
@@ -205,11 +211,10 @@ func newFacadeSidecar(
 				resources,
 				accessApplication,
 			),
-			resources:                resources,
-			state:                    st,
-			ApplicationWatcherFacade: applicationWatcherFacade,
-			charmInfoAPI:             commonCharmsAPI,
-			appCharmInfoAPI:          appCharmInfoAPI,
+			resources:       resources,
+			state:           st,
+			charmInfoAPI:    commonCharmsAPI,
+			appCharmInfoAPI: appCharmInfoAPI,
 		},
 	}, nil
 }

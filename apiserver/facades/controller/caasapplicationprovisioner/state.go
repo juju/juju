@@ -26,6 +26,7 @@ type CAASApplicationProvisionerState interface {
 	Application(string) (Application, error)
 	ResolveConstraints(cons constraints.Value) (constraints.Value, error)
 	Resources() (Resources, error)
+	WatchApplications() state.StringsWatcher
 }
 
 // CAASApplicationProvisionerState provides the subset of controller state

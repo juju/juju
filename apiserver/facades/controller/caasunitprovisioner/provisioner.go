@@ -43,7 +43,6 @@ var logger = loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner")
 
 type Facade struct {
 	*common.LifeGetter
-	*common.ApplicationWatcherFacade
 	entityWatcher   *common.AgentEntityWatcher
 	charmInfoAPI    *charmscommon.CharmInfoAPI
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
@@ -80,7 +79,6 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
-	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterNone)
 
 	commonState := &charmscommon.StateShim{ctx.State()}
 	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
@@ -100,7 +98,6 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 		db,
 		pm,
 		registry,
-		appWatcherFacade,
 		charmInfoAPI,
 		appCharmInfoAPI,
 		clock.WallClock,
@@ -116,7 +113,6 @@ func NewFacade(
 	db DeviceBackend,
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
-	applicationWatcherFacade *common.ApplicationWatcherFacade,
 	charmInfoAPI *charmscommon.CharmInfoAPI,
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI,
 	clock clock.Clock,
@@ -126,10 +122,9 @@ func NewFacade(
 	}
 	accessApplication := common.AuthFuncForTagKind(names.ApplicationTagKind)
 	return &Facade{
-		ApplicationWatcherFacade: applicationWatcherFacade,
-		entityWatcher:            common.NewAgentEntityWatcher(st, resources, accessApplication),
-		charmInfoAPI:             charmInfoAPI,
-		appCharmInfoAPI:          appCharmInfoAPI,
+		entityWatcher:   common.NewAgentEntityWatcher(st, resources, accessApplication),
+		charmInfoAPI:    charmInfoAPI,
+		appCharmInfoAPI: appCharmInfoAPI,
 		LifeGetter: common.NewLifeGetter(
 			st, common.AuthAny(
 				common.AuthFuncForTagKind(names.ApplicationTagKind),
@@ -144,6 +139,19 @@ func NewFacade(
 		registry:           registry,
 		clock:              clock,
 	}, nil
+}
+
+// WatchApplications starts a StringsWatcher to watch applications
+// deployed to this model.
+func (f *Facade) WatchApplications() (params.StringsWatchResult, error) {
+	watch := f.state.WatchApplications()
+	if changes, ok := <-watch.Changes(); ok {
+		return params.StringsWatchResult{
+			StringsWatcherId: f.resources.Register(watch),
+			Changes:          changes,
+		}, nil
+	}
+	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
 }
 
 // CharmInfo returns information about the requested charm.

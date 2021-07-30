@@ -6808,7 +6808,7 @@
                             "$ref": "#/definitions/StringsWatchResult"
                         }
                     },
-                    "description": "WatchApplications starts a StringsWatcher to watch applications deployed to this model."
+                    "description": "WatchApplications starts a StringsWatcher to watch applications\ndeployed to this model."
                 }
             },
             "definitions": {
@@ -8528,7 +8528,7 @@
                             "$ref": "#/definitions/StringsWatchResult"
                         }
                     },
-                    "description": "WatchApplications starts a StringsWatcher to watch applications deployed to this model."
+                    "description": "WatchApplications starts a StringsWatcher to watch applications\ndeployed to this model."
                 }
             },
             "definitions": {
@@ -9376,7 +9376,7 @@
                             "$ref": "#/definitions/StringsWatchResult"
                         }
                     },
-                    "description": "WatchApplications starts a StringsWatcher to watch applications deployed to this model."
+                    "description": "WatchApplications starts a StringsWatcher to watch applications\ndeployed to this model."
                 },
                 "WatchOpenedPorts": {
                     "type": "object",
@@ -11396,7 +11396,7 @@
                             "$ref": "#/definitions/StringsWatchResult"
                         }
                     },
-                    "description": "WatchApplications starts a StringsWatcher to watch applications deployed to this model."
+                    "description": "WatchApplications starts a StringsWatcher to watch applications\ndeployed to this model."
                 }
             },
             "definitions": {
@@ -12715,7 +12715,7 @@
                             "$ref": "#/definitions/StringsWatchResult"
                         }
                     },
-                    "description": "WatchApplications starts a StringsWatcher to watch applications deployed to this model."
+                    "description": "WatchApplications starts a StringsWatcher to watch applications\ndeployed to this model."
                 },
                 "WatchApplicationsScale": {
                     "type": "object",

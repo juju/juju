@@ -106,7 +106,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 
 	facade, err := caasunitprovisioner.NewFacade(
 		s.resources, s.authorizer, s.st, s.storage, s.devices,
-		s.storagePoolManager, s.registry, nil, nil, nil, s.clock)
+		s.storagePoolManager, s.registry, nil, nil, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -117,8 +117,21 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 	}
 	_, err := caasunitprovisioner.NewFacade(
 		s.resources, s.authorizer, s.st, s.storage, s.devices,
-		s.storagePoolManager, s.registry, nil, nil, nil, s.clock)
+		s.storagePoolManager, s.registry, nil, nil, s.clock)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *CAASProvisionerSuite) TestWatchApplications(c *gc.C) {
+	applicationNames := []string{"db2", "hadoop"}
+	s.applicationsChanges <- applicationNames
+	result, err := s.facade.WatchApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.StringsWatcherId, gc.Equals, "1")
+	c.Assert(result.Changes, jc.DeepEquals, applicationNames)
+
+	resource := s.resources.Get("1")
+	c.Assert(resource, gc.Equals, s.st.applicationsWatcher)
 }
 
 func (s *CAASProvisionerSuite) TestWatchPodSpec(c *gc.C) {

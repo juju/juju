@@ -59,7 +59,6 @@ var _ = gc.Suite(&firewallerLegacySuite{
 				resources,
 				authorizer,
 				st,
-				common.NewApplicationWatcherFacade(firewallerStateToAppWatcherState(st), resources, common.ApplicationFilterCAASLegacy),
 				commonCharmsAPI,
 				appCharmInfoAPI,
 			)
@@ -100,7 +99,6 @@ var _ = gc.Suite(&firewallerSidecarSuite{
 				resources,
 				authorizer,
 				st,
-				common.NewApplicationWatcherFacade(firewallerStateToAppWatcherState(st), resources, common.ApplicationFilterCAASSidecar),
 				commonCharmsAPI,
 				appCharmInfoAPI,
 			)
