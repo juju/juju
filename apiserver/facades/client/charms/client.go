@@ -4,7 +4,10 @@
 package charms
 
 import (
+	"io/ioutil"
+	"os"
 	"strings"
+	"sync"
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
@@ -26,6 +29,8 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 )
 
@@ -43,9 +48,11 @@ type API struct {
 	httpClient http.HTTPClient
 
 	newStorage     func(modelUUID string) services.Storage
-	newRepoFactory func(services.CharmRepoFactoryConfig) corecharm.RepositoryFactory
-	repoFactory    corecharm.RepositoryFactory
 	newDownloader  func(services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error)
+	newRepoFactory func(services.CharmRepoFactoryConfig) corecharm.RepositoryFactory
+
+	mu          sync.Mutex
+	repoFactory corecharm.RepositoryFactory
 }
 
 type APIv2 struct {
@@ -359,6 +366,26 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, err
 	}
 
+	ctrlCfg, err := a.backendState.ControllerConfig()
+	if err != nil {
+		return params.CharmOriginResult{}, err
+	}
+
+	// TODO(achilleasa): This escape hatch allows us to test the asynchronous
+	// charm download code-path without breaking the existing deploy logic.
+	//
+	// It will be removed once the new universal deploy facade is into place.
+	if ctrlCfg.Features().Contains(feature.AsynchronousCharmDownloads) {
+		actualOrigin, err := a.queueAsyncCharmDownload(args)
+		if err != nil {
+			return params.CharmOriginResult{}, errors.Trace(err)
+		}
+
+		return params.CharmOriginResult{
+			Origin: convertOrigin(actualOrigin),
+		}, nil
+	}
+
 	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
 		Logger:         logger,
 		Transport:      a.httpClient,
@@ -383,6 +410,66 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 	return params.CharmOriginResult{
 		Origin: convertOrigin(actualOrigin),
 	}, nil
+}
+
+func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.Origin, error) {
+	charmURL, err := charm.ParseURL(args.URL)
+	if err != nil {
+		return corecharm.Origin{}, err
+	}
+
+	// Fetch the charm metadata and add charm entry pending to be downloaded.
+	requestedOrigin := convertParamsOrigin(args.Origin)
+	repo, err := a.getCharmRepository(requestedOrigin.Source)
+	if err != nil {
+		return corecharm.Origin{}, errors.Trace(err)
+	}
+
+	var macaroons macaroon.Slice
+	if args.CharmStoreMacaroon != nil {
+		macaroons = append(macaroons, args.CharmStoreMacaroon)
+	}
+
+	// Check if a charm doc already exists for this charm URL. If so, the
+	// charm has already been queued for download so this is a no-op. We
+	// still need to resolve and return back a suitable origin as charmhub
+	// may refer to the same blob using the same revision in different
+	// channels.
+	if _, err := a.backendState.Charm(charmURL); err == nil {
+		_, resolvedOrigin, _, err := repo.ResolveWithPreferredChannel(charmURL, requestedOrigin, macaroons)
+		return resolvedOrigin, errors.Trace(err)
+	}
+
+	// TODO(achilleasa):
+	// At this stage we are only interested in the charm metadata and lxd
+	// profile. However, the repo does not (yet) support metadata-only
+	// lookups so we will use the download API and extract the metadata
+	// we need.
+	//
+	// This will be rectified as part of the work for the new deploy facade.
+	tmpFile, err := ioutil.TempFile("", "charm-")
+	if err != nil {
+		return corecharm.Origin{}, errors.Trace(err)
+	}
+	_ = tmpFile.Close()
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+
+	chArchive, resolvedOrigin, err := repo.DownloadCharm(charmURL, requestedOrigin, macaroons, tmpFile.Name())
+	if err != nil {
+		return corecharm.Origin{}, errors.Trace(err)
+	}
+
+	_, err = a.backendState.AddCharmMetadata(state.CharmInfo{
+		Charm:    chArchive,
+		ID:       charmURL,
+		Macaroon: macaroons,
+		Version:  chArchive.Version(),
+	})
+	if err != nil {
+		return corecharm.Origin{}, errors.Trace(err)
+	}
+
+	return resolvedOrigin, nil
 }
 
 // ResolveCharms is not available via the V2 API.
@@ -488,6 +575,9 @@ func validateOrigin(origin params.CharmOrigin, schema string, switchCharm bool) 
 }
 
 func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	if a.repoFactory == nil {
 		a.repoFactory = a.newRepoFactory(services.CharmRepoFactoryConfig{
 			Logger:       logger,
