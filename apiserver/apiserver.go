@@ -645,9 +645,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
 	}
 	modelToolsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
-	modelToolsDownloadHandler := &toolsDownloadHandler{
-		ctxt: httpCtxt,
-	}
+	modelToolsDownloadHandler := newToolsDownloadHandler(httpCtxt)
 	resourcesHandler := &ResourcesHandler{
 		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, state.PoolHelper, names.Tag, error) {
 			st, entity, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)

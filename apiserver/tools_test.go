@@ -14,6 +14,8 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -23,6 +25,10 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	apitesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/storage"
+	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/state"
@@ -458,6 +464,45 @@ func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {
 		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
 	s.testDownload(c, tools, "")
+}
+
+func (s *toolsSuite) TestDownloadMissingConcurrent(c *gc.C) {
+	closer, testStorage, _ := envtesting.CreateLocalTestStorage(c)
+	defer closer.Close()
+
+	var mut sync.Mutex
+	resolutions := 0
+	envtools.RegisterToolsDataSourceFunc("local storage", func(environs.Environ) (simplestreams.DataSource, error) {
+		// Add some delay to make sure all goroutines are waiting.
+		time.Sleep(10 * time.Millisecond)
+		mut.Lock()
+		defer mut.Unlock()
+		resolutions++
+		return storage.NewStorageSimpleStreamsDataSource("test datasource", testStorage, "tools", simplestreams.CUSTOM_CLOUD_DATA, false), nil
+	})
+	defer envtools.UnregisterToolsDataSourceFunc("local storage")
+
+	toolsBinaries := []version.Binary{
+		version.MustParseBinary("2.9.98-ubuntu-amd64"),
+		version.MustParseBinary("2.9.99-ubuntu-amd64"),
+	}
+	stream := "released"
+	tools, err := envtesting.UploadFakeToolsVersions(testStorage, stream, stream, toolsBinaries...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var wg sync.WaitGroup
+	const n = 8
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		tool := tools[i%len(toolsBinaries)]
+		go func() {
+			defer wg.Done()
+			s.testDownload(c, tool, s.State.ModelUUID())
+		}()
+	}
+	wg.Wait()
+
+	c.Assert(resolutions, gc.Equals, len(toolsBinaries))
 }
 
 func (s *toolsSuite) storeFakeTools(c *gc.C, st *state.State, content string, metadata binarystorage.Metadata) *coretools.Tools {
