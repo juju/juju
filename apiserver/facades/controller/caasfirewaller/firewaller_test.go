@@ -66,18 +66,6 @@ var _ = gc.Suite(&firewallerLegacySuite{
 	},
 })
 
-func firewallerStateToAppWatcherState(st *mockState) *mockAppWatcherState {
-	return &mockAppWatcherState{
-		app: &mockAppWatcherApplication{
-			charm: mockAppWatcherCharm{
-				meta:     st.application.charm.meta,
-				manifest: st.application.charm.manifest,
-			},
-		},
-		watcher: st.applicationsWatcher,
-	}
-}
-
 type firewallerSidecarSuite struct {
 	firewallerBaseSuite
 
@@ -166,7 +154,7 @@ func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 		application: mockApplication{
 			life:    state.Alive,
 			watcher: appExposedWatcher,
-			charm: mockAppWatcherCharm{
+			charm: mockCharm{
 				meta: &charm.Meta{
 					Deployment: &charm.Deployment{},
 				},

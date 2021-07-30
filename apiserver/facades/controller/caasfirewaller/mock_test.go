@@ -8,7 +8,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/apiserver/common"
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/core/application"
@@ -73,7 +72,7 @@ type mockApplication struct {
 	exposed      bool
 	watcher      state.NotifyWatcher
 
-	charm mockAppWatcherCharm
+	charm mockCharm
 }
 
 func (a *mockApplication) Life() state.Life {
@@ -101,38 +100,7 @@ func (a *mockApplication) Charm() (charmscommon.Charm, bool, error) {
 	return &a.charm, false, nil
 }
 
-type mockAppWatcherState struct {
-	testing.Stub
-	app     *mockAppWatcherApplication
-	watcher *statetesting.MockStringsWatcher
-}
-
-func (s *mockAppWatcherState) WatchApplications() state.StringsWatcher {
-	s.MethodCall(s, "WatchApplications")
-	return s.watcher
-}
-
-func (s *mockAppWatcherState) Application(name string) (common.AppWatcherApplication, error) {
-	s.MethodCall(s, "Application", name)
-	return s.app, nil
-}
-
-type mockAppWatcherApplication struct {
-	testing.Stub
-	force bool
-	charm mockAppWatcherCharm
-}
-
-func (s *mockAppWatcherApplication) Charm() (charm.CharmMeta, bool, error) {
-	s.MethodCall(s, "Charm")
-	err := s.NextErr()
-	if err != nil {
-		return nil, false, err
-	}
-	return &s.charm, s.force, nil
-}
-
-type mockAppWatcherCharm struct {
+type mockCharm struct {
 	testing.Stub
 	charmscommon.Charm // Override only the methods the tests use
 	meta               *charm.Meta
@@ -140,17 +108,17 @@ type mockAppWatcherCharm struct {
 	url                *charm.URL
 }
 
-func (s *mockAppWatcherCharm) Meta() *charm.Meta {
+func (s *mockCharm) Meta() *charm.Meta {
 	s.MethodCall(s, "Meta")
 	return s.meta
 }
 
-func (s *mockAppWatcherCharm) Manifest() *charm.Manifest {
+func (s *mockCharm) Manifest() *charm.Manifest {
 	s.MethodCall(s, "Manifest")
 	return s.manifest
 }
 
-func (s *mockAppWatcherCharm) URL() *charm.URL {
+func (s *mockCharm) URL() *charm.URL {
 	s.MethodCall(s, "URL")
 	return s.url
 }
