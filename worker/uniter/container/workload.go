@@ -61,6 +61,9 @@ type WorkloadEvents interface {
 	// Events returns all the currently queued events pending processing.
 	// Useful for debugging/testing.
 	Events() []WorkloadEvent
+
+	// EventIDs returns all the ids for the events currently queued.
+	EventIDs() []string
 }
 
 type workloadEvents struct {
@@ -107,11 +110,21 @@ func (c *workloadEvents) GetWorkloadEvent(id string) (WorkloadEvent, WorkloadEve
 func (c *workloadEvents) Events() []WorkloadEvent {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	events := []WorkloadEvent(nil)
+	events := make([]WorkloadEvent, 0, len(c.pending))
 	for _, v := range c.pending {
 		events = append(events, v.WorkloadEvent)
 	}
 	return events
+}
+
+func (c *workloadEvents) EventIDs() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	ids := make([]string, 0, len(c.pending))
+	for id := range c.pending {
+		ids = append(ids, id)
+	}
+	return ids
 }
 
 type workloadHookResolver struct {

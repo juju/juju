@@ -17,6 +17,7 @@ type Logger interface {
 	Debugf(string, ...interface{})
 	Warningf(string, ...interface{})
 	Errorf(string, ...interface{})
+	Tracef(string, ...interface{})
 }
 
 // ManifoldConfig describes the resources used by the firewaller worker.
@@ -91,6 +92,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		ModelUUID:         config.ModelUUID,
 		ApplicationGetter: client,
 		LifeGetter:        client,
+		CharmGetter:       client,
 		ServiceExposer:    broker,
 		Logger:            config.Logger,
 	})

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/utils/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
-	"github.com/juju/worker/v2/dependency"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -96,20 +95,69 @@ func (a *appWorker) Wait() error {
 }
 
 func (a *appWorker) loop() error {
-	charmURL, err := a.facade.ApplicationCharmURL(a.name)
-	if errors.IsNotFound(err) {
-		a.logger.Debugf("application %q removed", a.name)
-		return nil
-	} else if err != nil {
-		return errors.Annotatef(err, "failed to get charm url for application")
-	}
-	charmInfo, err := a.facade.CharmInfo(charmURL.String())
+	shouldExit, err := a.verifyCharmUpgraded()
 	if err != nil {
-		return errors.Annotatef(err, "failed to get application charm deployment metadata for %q", a.name)
+		return errors.Trace(err)
 	}
-	if charmInfo == nil ||
-		charm.MetaFormat(charmInfo.Charm()) < charm.FormatV2 {
-		return errors.Errorf("charm version 2 or greater required")
+	if shouldExit {
+		return nil
+	}
+
+	// If the application has an operator pod due to an upgrade-charm from a
+	// pod-spec charm to a sidecar charm, delete it. Also delete workload pod.
+	const maxDeleteLoops = 20
+	for i := 0; ; i++ {
+		if i >= maxDeleteLoops {
+			return fmt.Errorf("couldn't delete operator and service with %d tries", maxDeleteLoops)
+		}
+		if i > 0 {
+			select {
+			case <-a.clock.After(3 * time.Second):
+			case <-a.catacomb.Dying():
+				return a.catacomb.ErrDying()
+			}
+		}
+
+		exists, err := a.broker.OperatorExists(a.name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !exists.Exists {
+			break
+		}
+
+		a.logger.Infof("deleting workload and operator pods for application %q", a.name)
+		err = a.broker.DeleteService(a.name)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Annotatef(err, "deleting workload pod for application %q", a.name)
+		}
+
+		// Wait till the units are gone, to ensure worker code isn't messing
+		// with old units, only new sidecar pods.
+		const maxUnitsLoops = 20
+		for j := 0; ; j++ {
+			if j >= maxUnitsLoops {
+				return fmt.Errorf("pods still present after %d tries", maxUnitsLoops)
+			}
+			units, err := a.broker.Units(a.name, caas.ModeWorkload)
+			if err != nil && !errors.IsNotFound(err) {
+				return errors.Annotatef(err, "fetching workload units for application %q", a.name)
+			}
+			if len(units) == 0 {
+				break
+			}
+			a.logger.Debugf("%q: waiting for workload pods to be deleted", a.name)
+			select {
+			case <-a.clock.After(3 * time.Second):
+			case <-a.catacomb.Dying():
+				return a.catacomb.ErrDying()
+			}
+		}
+
+		err = a.broker.DeleteOperator(a.name)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Annotatef(err, "deleting operator pod for application %q", a.name)
+		}
 	}
 
 	// Update the password once per worker start to avoid it changing too frequently.
@@ -127,8 +175,8 @@ func (a *appWorker) loop() error {
 
 	var appLife life.Value
 	var appChanges watcher.NotifyChannel
-	var replicaChanges watcher.NotifyChannel
 	var appStateChanges watcher.NotifyChannel
+	var replicaChanges watcher.NotifyChannel
 	var lastReportedStatus map[string]status.StatusInfo
 
 	appScaleWatcher, err := a.unitFacade.WatchApplicationScale(a.name)
@@ -210,32 +258,71 @@ func (a *appWorker) loop() error {
 		return nil
 	}
 
+	var scaleChan <-chan time.Time
+	var scaleTries int
+	var trustChan <-chan time.Time
+	var trustTries int
+	const maxRetries = 20
+	const retryDelay = 3 * time.Second
+
 	for {
+		shouldRefresh := true
 		select {
 		case _, ok := <-appScaleWatcher.Changes():
 			if !ok {
 				return fmt.Errorf("application %q scale watcher closed channel", a.name)
 			}
-			if err := a.ensureScale(app); err != nil {
-				return err
+			if scaleChan == nil {
+				scaleTries = 0
+				scaleChan = a.clock.After(0)
+			}
+			shouldRefresh = false
+		case <-scaleChan:
+			err := a.ensureScale(app)
+			if errors.IsNotFound(err) {
+				if scaleTries >= maxRetries {
+					return errors.Annotatef(err, "more than %d retries ensuring scale", maxRetries)
+				}
+				scaleTries++
+				scaleChan = a.clock.After(retryDelay)
+				shouldRefresh = false
+			} else if err != nil {
+				return errors.Trace(err)
+			} else {
+				scaleChan = nil
 			}
 		case _, ok := <-appTrustWatcher.Changes():
 			if !ok {
 				return fmt.Errorf("application %q trust watcher closed channel", a.name)
 			}
-			if err := a.ensureTrust(app); err != nil {
-				return err
+			if trustChan == nil {
+				trustTries = 0
+				trustChan = a.clock.After(0)
+			}
+			shouldRefresh = false
+		case <-trustChan:
+			err := a.ensureTrust(app)
+			if errors.IsNotFound(err) {
+				if trustTries >= maxRetries {
+					return errors.Annotatef(err, "more than %d retries ensuring trust", maxRetries)
+				}
+				trustTries++
+				trustChan = a.clock.After(retryDelay)
+				shouldRefresh = false
+			} else if err != nil {
+				return errors.Trace(err)
+			} else {
+				trustChan = nil
 			}
 		case <-a.catacomb.Dying():
 			return a.catacomb.ErrDying()
 		case <-appStateChanges:
-			// Respond to state changes.
 			err = handleChange()
 			if err != nil {
 				return errors.Trace(err)
 			}
 		case <-a.changes:
-			// Respond to life changes.
+			// Respond to life changes (Notify called by parent worker).
 			err = handleChange()
 			if err != nil {
 				return errors.Trace(err)
@@ -253,13 +340,15 @@ func (a *appWorker) loop() error {
 				return errors.Trace(err)
 			}
 		case <-a.clock.After(10 * time.Second):
-			// for refresh application status.
+			// Force refresh of application status.
 		}
 		if done {
 			return nil
 		}
-		if err = a.refreshApplicationStatus(app, appLife); err != nil {
-			return errors.Annotatef(err, "refreshing application status for %q", a.name)
+		if shouldRefresh {
+			if err = a.refreshApplicationStatus(app, appLife); err != nil {
+				return errors.Annotatef(err, "refreshing application status for %q", a.name)
+			}
 		}
 	}
 }
@@ -270,6 +359,60 @@ func getTagsFromUnits(in []params.CAASUnit) []names.Tag {
 		out = append(out, v.Tag)
 	}
 	return out
+}
+
+func (a *appWorker) charmFormat() (charm.Format, error) {
+	charmInfo, err := a.facade.ApplicationCharmInfo(a.name)
+	if err != nil {
+		return charm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", a.name)
+	}
+	return charm.MetaFormat(charmInfo.Charm()), nil
+}
+
+// verifyCharmUpgraded waits till the charm is upgraded to a v2 charm.
+func (a *appWorker) verifyCharmUpgraded() (shouldExit bool, err error) {
+	appStateWatcher, err := a.facade.WatchApplication(a.name)
+	if err != nil {
+		return false, errors.Annotatef(err, "failed to watch for changes to application %q", a.name)
+	}
+	if err := a.catacomb.Add(appStateWatcher); err != nil {
+		return false, errors.Trace(err)
+	}
+	defer appStateWatcher.Kill()
+
+	appStateChanges := appStateWatcher.Changes()
+	for {
+		format, err := a.charmFormat()
+		if errors.IsNotFound(err) {
+			a.logger.Debugf("application %q no longer exists", a.name)
+			return true, nil
+		} else if err != nil {
+			return false, errors.Trace(err)
+		}
+		if format >= charm.FormatV2 {
+			a.logger.Debugf("application %q is now a v2 charm", a.name)
+			return false, nil
+		}
+
+		appLife, err := a.facade.Life(a.name)
+		if errors.IsNotFound(err) {
+			a.logger.Debugf("application %q no longer exists", a.name)
+			return true, nil
+		} else if err != nil {
+			return false, errors.Trace(err)
+		}
+		if appLife == life.Dead {
+			a.logger.Debugf("application %q now dead", a.name)
+			return true, nil
+		}
+
+		// Wait for next app change, then loop to check charm format again.
+		select {
+		case <-appStateChanges:
+		case <-a.catacomb.Dying():
+			return false, a.catacomb.ErrDying()
+		}
+	}
 }
 
 func (a *appWorker) updateState(app caas.Application, force bool, lastReportedStatus map[string]status.StatusInfo) (map[string]status.StatusInfo, error) {
@@ -457,9 +600,6 @@ func (a *appWorker) ensureScale(app caas.Application) error {
 
 	a.logger.Debugf("updating application %q scale to %d", a.name, desiredScale)
 	err = app.Scale(desiredScale)
-	if errors.IsNotFound(err) {
-		return dependency.ErrBounce
-	}
 	if err != nil {
 		return errors.Annotatef(
 			err,
@@ -479,9 +619,6 @@ func (a *appWorker) ensureTrust(app caas.Application) error {
 
 	a.logger.Debugf("updating application %q trust to %v", a.name, desiredTrust)
 	err = app.Trust(desiredTrust)
-	if errors.IsNotFound(err) {
-		return dependency.ErrBounce
-	}
 	if err != nil {
 		return errors.Annotatef(
 			err,

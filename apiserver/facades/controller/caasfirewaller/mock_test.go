@@ -9,6 +9,7 @@ import (
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/common"
+	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/state"
@@ -67,15 +68,12 @@ func (st *mockState) Model() (*state.Model, error) {
 
 type mockApplication struct {
 	testing.Stub
-	life    state.Life
-	exposed bool
-	watcher state.NotifyWatcher
+	state.Entity // Pull in Tag method (which tests don't use)
+	life         state.Life
+	exposed      bool
+	watcher      state.NotifyWatcher
 
 	charm mockAppWatcherCharm
-}
-
-func (*mockApplication) Tag() names.Tag {
-	panic("should not be called")
 }
 
 func (a *mockApplication) Life() state.Life {
@@ -98,7 +96,7 @@ func (a *mockApplication) Watch() state.NotifyWatcher {
 	return a.watcher
 }
 
-func (a *mockApplication) Charm() (caasfirewaller.Charm, bool, error) {
+func (a *mockApplication) Charm() (charmscommon.Charm, bool, error) {
 	a.MethodCall(a, "Charm")
 	return &a.charm, false, nil
 }
@@ -136,9 +134,10 @@ func (s *mockAppWatcherApplication) Charm() (charm.CharmMeta, bool, error) {
 
 type mockAppWatcherCharm struct {
 	testing.Stub
-	meta     *charm.Meta
-	manifest *charm.Manifest
-	url      *charm.URL
+	charmscommon.Charm // Override only the methods the tests use
+	meta               *charm.Meta
+	manifest           *charm.Manifest
+	url                *charm.URL
 }
 
 func (s *mockAppWatcherCharm) Meta() *charm.Meta {
@@ -154,4 +153,32 @@ func (s *mockAppWatcherCharm) Manifest() *charm.Manifest {
 func (s *mockAppWatcherCharm) URL() *charm.URL {
 	s.MethodCall(s, "URL")
 	return s.url
+}
+
+type mockCommonStateShim struct {
+	*mockState
+}
+
+func (s *mockCommonStateShim) Model() (charmscommon.Model, error) {
+	return s.mockState.Model()
+}
+
+func (s *mockCommonStateShim) Charm(curl *charm.URL) (charmscommon.Charm, error) {
+	return s.mockState.Charm(curl)
+}
+
+func (s *mockCommonStateShim) Application(id string) (charmscommon.Application, error) {
+	app, err := s.mockState.Application(id)
+	if err != nil {
+		return nil, err
+	}
+	return &mockCommonApplicationShim{app}, nil
+}
+
+type mockCommonApplicationShim struct {
+	caasfirewaller.Application
+}
+
+func (a *mockCommonApplicationShim) Charm() (st charmscommon.Charm, force bool, err error) {
+	return a.Application.Charm()
 }

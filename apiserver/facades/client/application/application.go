@@ -10,6 +10,7 @@ import (
 	"math"
 	"net"
 	"reflect"
+	"time"
 
 	"github.com/juju/charm/v8"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
@@ -44,8 +45,10 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage"
@@ -1285,15 +1288,15 @@ func (api *APIBase) setCharmWithAgentValidation(
 // applicationSetCharm sets the charm for the given for the application.
 func (api *APIBase) applicationSetCharm(
 	params setCharmParams,
-	stateCharm Charm,
-	stateOrigin *state.CharmOrigin,
+	newCharm Charm,
+	newOrigin *state.CharmOrigin,
 ) error {
 	var err error
 	var settings charm.Settings
 	if params.ConfigSettingsYAML != "" {
-		settings, err = stateCharm.Config().ParseSettingsYAML([]byte(params.ConfigSettingsYAML), params.AppName)
+		settings, err = newCharm.Config().ParseSettingsYAML([]byte(params.ConfigSettingsYAML), params.AppName)
 	} else if len(params.ConfigSettingsStrings) > 0 {
-		settings, err = parseSettingsCompatible(stateCharm.Config(), params.ConfigSettingsStrings)
+		settings, err = parseSettingsCompatible(newCharm.Config(), params.ConfigSettingsStrings)
 	}
 	if err != nil {
 		return errors.Annotate(err, "parsing config settings")
@@ -1312,10 +1315,11 @@ func (api *APIBase) applicationSetCharm(
 			stateStorageConstraints[name] = stateCons
 		}
 	}
+
 	force := params.Force
 	cfg := state.SetCharmConfig{
-		Charm:              api.stateCharm(stateCharm),
-		CharmOrigin:        stateOrigin,
+		Charm:              api.stateCharm(newCharm),
+		CharmOrigin:        newOrigin,
 		Channel:            params.Channel,
 		ConfigSettings:     settings,
 		ForceSeries:        force.ForceSeries,
@@ -1325,7 +1329,90 @@ func (api *APIBase) applicationSetCharm(
 		StorageConstraints: stateStorageConstraints,
 		EndpointBindings:   params.EndpointBindings,
 	}
+
+	// Disallow downgrading from a v2 charm to a v1 charm.
+	oldCharm, _, err := params.Application.Charm()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if charm.MetaFormat(oldCharm) >= charm.FormatV2 && charm.MetaFormat(newCharm) == charm.FormatV1 {
+		return errors.New("cannot downgrade from v2 charm format to v1")
+	}
+
+	// If upgrading from a pod-spec (v1) charm to sidecar (v2), override the
+	// application's series to what it would be for a fresh sidecar deploy.
+	oldSeries := params.Application.Series()
+	if oldSeries == series.Kubernetes.String() && charm.MetaFormat(newCharm) >= charm.FormatV2 && corecharm.IsKubernetes(newCharm) {
+		// Disallow upgrading from a v1 DaemonSet or Deployment type charm
+		// (only StatefulSet is supported in v2 right now).
+		deployment := oldCharm.Meta().Deployment
+		if deployment != nil && deployment.DeploymentType != charm.DeploymentStateful {
+			return errors.Errorf("cannot upgrade from v1 %s deployment to v2", deployment.DeploymentType)
+		}
+
+		modelConfig, err := api.model.ModelConfig()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var supported []string
+		for _, base := range newCharm.Manifest().Bases {
+			series, err := series.VersionSeries(base.Channel.Track)
+			if err != nil {
+				continue
+			}
+			supported = append(supported, series)
+		}
+
+		newSeries, err := sidecarUpgradeSeries(modelConfig, supported)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Debugf("upgrading pod-spec to sidecar charm, setting series to %q", newSeries)
+		cfg.Series = newSeries
+	}
+
 	return params.Application.SetCharm(cfg)
+}
+
+// sidecarUpgradeSeries is a cut-down version of seriesSelector.charmSeries
+// for a refresh from a pod-spec to a sidecar charm. It looks at the model's
+// default and falls back to the charm's series (no support for "--series",
+// series in charm URL, or default LTS).
+func sidecarUpgradeSeries(modelConfig *config.Config, supported []string) (string, error) {
+	supportedJuju, err := series.WorkloadSeries(time.Now(), "", modelConfig.ImageStream())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	// Use model default series, if explicitly set and supported by the charm.
+	if selected, explicit := modelConfig.DefaultSeries(); explicit {
+		if _, err := charm.SeriesForCharm(selected, supported); err == nil {
+			// validate the series we get from the charm
+			if !supportedJuju.Contains(selected) {
+				return "", errors.NotSupportedf("series: %q", selected)
+			}
+			return selected, nil
+		}
+	}
+
+	// Fall back to the charm's list of series, filtered to what's supported
+	// by Juju. Preserve the order of the supported series from the charm
+	// metadata, as the order could be out of order compared to Ubuntu series
+	// order (precise, xenial, bionic, trusty, etc).
+	var filtered []string
+	for _, charmSeries := range supported {
+		if supportedJuju.Contains(charmSeries) {
+			filtered = append(filtered, charmSeries)
+		}
+	}
+	selected, err := charm.SeriesForCharm("", filtered)
+	if err == nil {
+		return selected, nil
+	}
+
+	// Otherwise it's an error
+	return "", err
 }
 
 // charmConfigFromYamlConfigValues will parse a yaml produced by juju get and

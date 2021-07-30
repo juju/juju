@@ -9,6 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -43,7 +44,6 @@ type ApplicationWorkerSuite struct {
 	logger   loggo.Logger
 
 	appCharmInfo        *charmscommon.CharmInfo
-	appCharmURL         *charm.URL
 	appProvisioningInfo api.ProvisioningInfo
 	ociResources        map[string]resources.DockerImageDetails
 }
@@ -81,15 +81,9 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 	tc.unitFacade = mocks.NewMockCAASUnitProvisionerFacade(ctrl)
 	tc.brokerApp = caasmocks.NewMockApplication(ctrl)
 
-	s.appCharmURL = &charm.URL{
-		Schema:   "cs",
-		Name:     "test",
-		Revision: -1,
-	}
 	s.appCharmInfo = &charmscommon.CharmInfo{
 		Meta: &charm.Meta{
 			Name: "test",
-
 			Containers: map[string]charm.Container{
 				"test": {
 					Resource: "test-oci",
@@ -112,8 +106,12 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 		},
 	}
 	s.appProvisioningInfo = api.ProvisioningInfo{
-		Series:   "focal",
-		CharmURL: s.appCharmURL,
+		Series: "focal",
+		CharmURL: &charm.URL{
+			Schema:   "cs",
+			Name:     "test",
+			Revision: -1,
+		},
 	}
 	s.ociResources = map[string]resources.DockerImageDetails{
 		"test-oci": {
@@ -138,36 +136,27 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 			Logger:     s.logger,
 			UnitFacade: tc.unitFacade,
 		}
-		expectedCalls := append([]*gomock.Call{
-			// Initialize in loop.
-			tc.facade.EXPECT().ApplicationCharmURL("test").DoAndReturn(func(string) (*charm.URL, error) {
-				return s.appCharmURL, nil
-			}),
-			tc.facade.EXPECT().CharmInfo("cs:test").DoAndReturn(func(string) (*charmscommon.CharmInfo, error) {
-				return s.appCharmInfo, nil
-			}),
+		expectedCalls := append([]*gomock.Call{},
+			// Verify charm is v2
+			tc.facade.EXPECT().WatchApplication("test").Return(watchertest.NewMockNotifyWatcher(tc.appStateChan), nil),
+			tc.facade.EXPECT().ApplicationCharmInfo("test").Return(s.appCharmInfo, nil),
+
+			// Operator delete loop
+			tc.broker.EXPECT().OperatorExists("test").Return(caas.DeploymentState{Exists: false}, nil),
+
+			// Pre-loop setup
 			tc.facade.EXPECT().SetPassword("test", gomock.Any()).Return(nil),
-			tc.broker.EXPECT().Application("test", caas.DeploymentStateful).AnyTimes().Return(tc.brokerApp),
+			tc.broker.EXPECT().Application("test", caas.DeploymentStateful).Return(tc.brokerApp),
 			tc.unitFacade.EXPECT().WatchApplicationScale("test").Return(watchertest.NewMockNotifyWatcher(tc.appScaleChan), nil),
 			tc.unitFacade.EXPECT().WatchApplicationTrustHash("test").Return(watchertest.NewMockStringsWatcher(tc.appTrustHashChan), nil),
-		},
-			// ROUND 0 - Ensure() for the application.
-			tc.facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
-				return life.Alive, nil
-			}),
+
+			// Initial run - Ensure() for the application.
+			tc.facade.EXPECT().Life("test").Return(life.Alive, nil),
 			tc.facade.EXPECT().WatchApplication("test").Return(watchertest.NewMockNotifyWatcher(tc.appStateChan), nil),
-			tc.facade.EXPECT().ProvisioningInfo("test").DoAndReturn(func(string) (api.ProvisioningInfo, error) {
-				return s.appProvisioningInfo, nil
-			}),
-			tc.facade.EXPECT().CharmInfo("cs:test").DoAndReturn(func(string) (*charmscommon.CharmInfo, error) {
-				return s.appCharmInfo, nil
-			}),
-			tc.brokerApp.EXPECT().Exists().DoAndReturn(func() (caas.DeploymentState, error) {
-				return caas.DeploymentState{}, nil
-			}),
-			tc.facade.EXPECT().ApplicationOCIResources("test").DoAndReturn(func(string) (map[string]resources.DockerImageDetails, error) {
-				return s.ociResources, nil
-			}),
+			tc.facade.EXPECT().ProvisioningInfo("test").Return(s.appProvisioningInfo, nil),
+			tc.facade.EXPECT().CharmInfo("cs:test").Return(s.appCharmInfo, nil),
+			tc.brokerApp.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
+			tc.facade.EXPECT().ApplicationOCIResources("test").Return(s.ociResources, nil),
 			tc.brokerApp.EXPECT().Ensure(gomock.Any()).DoAndReturn(func(config caas.ApplicationConfig) error {
 				mc := jc.NewMultiChecker()
 				mc.AddExpr(`_.IntroductionSecret`, gc.HasLen, 24)
@@ -213,6 +202,14 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 		return appWorker
 	}
 	return startFunc, tc, ctrl
+}
+
+func (s *ApplicationWorkerSuite) waitDone(c *gc.C, done chan struct{}) {
+	select {
+	case <-done:
+	case <-time.After(coretesting.ShortWait):
+		c.Errorf("timed out waiting for worker")
+	}
 }
 
 var unitsAPIResultSingleActive = []params.CAASUnit{
@@ -470,11 +467,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		}
 	}(appWorker.(appNotifyWorker))
 
-	select {
-	case <-done:
-	case <-time.After(coretesting.ShortWait):
-		c.Errorf("timed out waiting for worker")
-	}
+	s.waitDone(c, done)
 }
 
 func (s *ApplicationWorkerSuite) TestScaleChanges(c *gc.C) {
@@ -482,7 +475,6 @@ func (s *ApplicationWorkerSuite) TestScaleChanges(c *gc.C) {
 	defer ctrl.Finish()
 
 	done := make(chan struct{})
-
 	assertionCalls := []*gomock.Call{
 		tc.unitFacade.EXPECT().ApplicationScale("test").Return(3, nil),
 		tc.brokerApp.EXPECT().Scale(3).Return(nil),
@@ -502,11 +494,44 @@ func (s *ApplicationWorkerSuite) TestScaleChanges(c *gc.C) {
 		tc.appScaleChan <- struct{}{}
 	}(appWorker.(appNotifyWorker))
 
-	select {
-	case <-done:
-	case <-time.After(coretesting.ShortWait):
-		c.Errorf("timed out waiting for worker")
+	s.waitDone(c, done)
+}
+
+func (s *ApplicationWorkerSuite) TestScaleRetry(c *gc.C) {
+	newAppWorker, tc, ctrl := s.getWorker(c)
+	defer ctrl.Finish()
+
+	done := make(chan struct{})
+	assertionCalls := []*gomock.Call{
+		tc.unitFacade.EXPECT().ApplicationScale("test").Return(3, nil),
+		tc.brokerApp.EXPECT().Scale(3).DoAndReturn(func(int) error {
+			go func() {
+				// n is 5 due to:
+				// * three times around the main select for the After(10s)
+				// * After(0) from the initial appScaleWatcher change
+				// * After(3s) for the retry
+				err := tc.clock.WaitAdvance(3*time.Second, coretesting.ShortWait, 5)
+				c.Assert(err, jc.ErrorIsNil)
+			}()
+			return errors.NotFoundf("")
+		}),
+		tc.unitFacade.EXPECT().ApplicationScale("test").Return(3, nil),
+		tc.brokerApp.EXPECT().Scale(3).Return(nil),
+		tc.brokerApp.EXPECT().State().
+			DoAndReturn(func() (caas.ApplicationState, error) {
+				close(done)
+				return caas.ApplicationState{}, errors.NotFoundf("")
+			}),
 	}
+
+	appWorker := newAppWorker(assertionCalls...)
+
+	go func(w appNotifyWorker) {
+		<-tc.notifyReady
+		tc.appScaleChan <- struct{}{}
+	}(appWorker.(appNotifyWorker))
+
+	s.waitDone(c, done)
 }
 
 func (s *ApplicationWorkerSuite) TestTrustChanges(c *gc.C) {
@@ -533,11 +558,44 @@ func (s *ApplicationWorkerSuite) TestTrustChanges(c *gc.C) {
 		tc.appTrustHashChan <- []string{"test"}
 	}(appWorker.(appNotifyWorker))
 
-	select {
-	case <-done:
-	case <-time.After(coretesting.ShortWait):
-		c.Errorf("timed out waiting for worker")
+	s.waitDone(c, done)
+}
+
+func (s *ApplicationWorkerSuite) TestTrustRetry(c *gc.C) {
+	newAppWorker, tc, ctrl := s.getWorker(c)
+	defer ctrl.Finish()
+
+	done := make(chan struct{})
+	assertionCalls := []*gomock.Call{
+		tc.unitFacade.EXPECT().ApplicationTrust("test").Return(true, nil),
+		tc.brokerApp.EXPECT().Trust(true).DoAndReturn(func(bool) error {
+			go func() {
+				// n is 5 due to:
+				// * three times around the main select for the After(10s)
+				// * After(0) from the initial appTrustWatcher change
+				// * After(3s) for the retry
+				err := tc.clock.WaitAdvance(3*time.Second, coretesting.ShortWait, 5)
+				c.Assert(err, jc.ErrorIsNil)
+			}()
+			return errors.NotFoundf("")
+		}),
+		tc.unitFacade.EXPECT().ApplicationTrust("test").Return(true, nil),
+		tc.brokerApp.EXPECT().Trust(true).Return(nil),
+		tc.brokerApp.EXPECT().State().
+			DoAndReturn(func() (caas.ApplicationState, error) {
+				close(done)
+				return caas.ApplicationState{}, errors.NotFoundf("")
+			}),
 	}
+
+	appWorker := newAppWorker(assertionCalls...)
+
+	go func(w appNotifyWorker) {
+		<-tc.notifyReady
+		tc.appTrustHashChan <- []string{"test"}
+	}(appWorker.(appNotifyWorker))
+
+	s.waitDone(c, done)
 }
 
 func (s *ApplicationWorkerSuite) assertRefreshApplicationStatus(
@@ -590,11 +648,7 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNewUnitsAllocating(
 				return nil
 			}),
 	)
-	select {
-	case <-done:
-	case <-time.After(coretesting.ShortWait):
-		c.Errorf("timed out waiting for worker")
-	}
+	s.waitDone(c, done)
 }
 
 func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusAllUnitsAreSettled(c *gc.C) {
@@ -636,11 +690,7 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusAllUnitsAreSettled(
 				return nil
 			}),
 	)
-	select {
-	case <-done:
-	case <-time.After(coretesting.ShortWait):
-		c.Errorf("timed out waiting for worker")
-	}
+	s.waitDone(c, done)
 }
 
 func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusTransitionFromWaitingToActive(c *gc.C) {
@@ -686,11 +736,7 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusTransitionFromWaiti
 			}),
 	)
 
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		c.Errorf("timed out waiting for worker")
-	}
+	s.waitDone(c, done)
 }
 
 func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNoOpsForDyingApplication(c *gc.C) {
@@ -708,11 +754,7 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNoOpsForDyingApplic
 			return nil
 		}),
 	)
-	select {
-	case <-done:
-	case <-time.After(coretesting.ShortWait):
-		c.Errorf("timed out waiting for worker")
-	}
+	s.waitDone(c, done)
 }
 
 func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNoOpsForDeadApplication(c *gc.C) {
@@ -751,14 +793,212 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNoOpsForDeadApplica
 			return nil
 		}),
 	)
-	select {
-	case <-done:
-	case <-time.After(coretesting.ShortWait):
-		c.Errorf("timed out waiting for worker")
-	}
+	s.waitDone(c, done)
 }
 
 type appNotifyWorker interface {
 	worker.Worker
 	Notify()
+}
+
+func (s *ApplicationWorkerSuite) TestUpgrade(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	charmInfoV1 := &charmscommon.CharmInfo{
+		Meta: &charm.Meta{Name: "test"},
+	}
+	charmInfoV2 := &charmscommon.CharmInfo{
+		Meta:     &charm.Meta{Name: "test"},
+		Manifest: &charm.Manifest{Bases: []charm.Base{{}}},
+	}
+
+	appStateChan := make(chan struct{}, 1)
+	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
+	broker := mocks.NewMockCAASBroker(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	done := make(chan struct{})
+
+	gomock.InOrder(
+		// Wait till charm is v2
+		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
+		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV1, nil),
+		facade.EXPECT().Life("test").DoAndReturn(func(appName string) (life.Value, error) {
+			appStateChan <- struct{}{}
+			return life.Alive, nil
+		}),
+		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV2, nil),
+
+		// Operator delete loop
+		broker.EXPECT().OperatorExists("test").Return(caas.DeploymentState{Exists: false}, nil),
+
+		// Make SetPassword return an error to exit early (we've tested what
+		// we want to above).
+		facade.EXPECT().SetPassword("test", gomock.Any()).DoAndReturn(func(appName, password string) error {
+			close(done)
+			return errors.New("exit early error")
+		}),
+	)
+
+	appWorker := s.startAppWorker(c, nil, facade, broker, nil)
+
+	s.waitDone(c, done)
+	workertest.DirtyKill(c, appWorker)
+}
+
+func (s *ApplicationWorkerSuite) startAppWorker(
+	c *gc.C,
+	clk clock.Clock,
+	facade caasapplicationprovisioner.CAASProvisionerFacade,
+	broker caasapplicationprovisioner.CAASBroker,
+	unitFacade caasapplicationprovisioner.CAASUnitProvisionerFacade,
+) worker.Worker {
+	config := caasapplicationprovisioner.AppWorkerConfig{
+		Name:       "test",
+		Facade:     facade,
+		Broker:     broker,
+		ModelTag:   s.modelTag,
+		Clock:      clk,
+		Logger:     s.logger,
+		UnitFacade: unitFacade,
+	}
+	startFunc := caasapplicationprovisioner.NewAppWorker(config)
+	c.Assert(startFunc, gc.NotNil)
+	appWorker, err := startFunc()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appWorker, gc.NotNil)
+	return appWorker
+}
+
+func (s *ApplicationWorkerSuite) TestUpgradeInfoNotFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appStateChan := make(chan struct{}, 1)
+	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
+	broker := mocks.NewMockCAASBroker(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	done := make(chan struct{})
+
+	gomock.InOrder(
+		// Wait till charm is v2
+		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
+		facade.EXPECT().ApplicationCharmInfo("test").DoAndReturn(func(appName string) (*charmscommon.CharmInfo, error) {
+			close(done)
+			return nil, errors.NotFoundf("test charm")
+		}),
+	)
+
+	appWorker := s.startAppWorker(c, nil, facade, broker, nil)
+
+	s.waitDone(c, done)
+	workertest.CleanKill(c, appWorker)
+}
+
+func (s *ApplicationWorkerSuite) TestUpgradeLifeNotFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	charmInfoV1 := &charmscommon.CharmInfo{
+		Meta: &charm.Meta{Name: "test"},
+	}
+
+	appStateChan := make(chan struct{}, 1)
+	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
+	broker := mocks.NewMockCAASBroker(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	done := make(chan struct{})
+
+	gomock.InOrder(
+		// Wait till charm is v2
+		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
+		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV1, nil),
+		facade.EXPECT().Life("test").DoAndReturn(func(appName string) (life.Value, error) {
+			close(done)
+			return "", errors.NotFoundf("test charm")
+		}),
+	)
+
+	appWorker := s.startAppWorker(c, nil, facade, broker, nil)
+
+	s.waitDone(c, done)
+	workertest.CleanKill(c, appWorker)
+}
+
+func (s *ApplicationWorkerSuite) TestUpgradeLifeDead(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	charmInfoV1 := &charmscommon.CharmInfo{
+		Meta: &charm.Meta{Name: "test"},
+	}
+
+	appStateChan := make(chan struct{}, 1)
+	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
+	broker := mocks.NewMockCAASBroker(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	done := make(chan struct{})
+
+	gomock.InOrder(
+		// Wait till charm is v2
+		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
+		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV1, nil),
+		facade.EXPECT().Life("test").DoAndReturn(func(appName string) (life.Value, error) {
+			close(done)
+			return life.Dead, nil
+		}),
+	)
+
+	appWorker := s.startAppWorker(c, nil, facade, broker, nil)
+
+	s.waitDone(c, done)
+	workertest.CleanKill(c, appWorker)
+}
+
+func (s *ApplicationWorkerSuite) TestDeleteOperator(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	charmInfo := &charmscommon.CharmInfo{
+		Meta:     &charm.Meta{Name: "test"},
+		Manifest: &charm.Manifest{Bases: []charm.Base{{}}},
+	}
+
+	appStateChan := make(chan struct{}, 1)
+	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
+	broker := mocks.NewMockCAASBroker(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	done := make(chan struct{})
+
+	clk := testclock.NewClock(time.Time{})
+	gomock.InOrder(
+		// Verify charm is v2
+		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
+		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfo, nil),
+
+		// Operator delete loop (with a retry)
+		broker.EXPECT().OperatorExists("test").Return(caas.DeploymentState{Exists: true}, nil),
+		broker.EXPECT().DeleteService("test").Return(nil),
+		broker.EXPECT().Units("test", caas.ModeWorkload).Return([]caas.Unit{}, nil),
+		broker.EXPECT().DeleteOperator("test").DoAndReturn(func(appName string) error {
+			go func() {
+				err := clk.WaitAdvance(3*time.Second, coretesting.ShortWait, 1)
+				c.Assert(err, jc.ErrorIsNil)
+			}()
+			return nil
+		}),
+		broker.EXPECT().OperatorExists("test").Return(caas.DeploymentState{Exists: false}, nil),
+
+		// Make SetPassword return an error to exit early (we've tested what
+		// we want to above).
+		facade.EXPECT().SetPassword("test", gomock.Any()).DoAndReturn(func(appName, password string) error {
+			close(done)
+			return errors.New("exit early error")
+		}),
+	)
+
+	appWorker := s.startAppWorker(c, clk, facade, broker, nil)
+
+	s.waitDone(c, done)
+	workertest.DirtyKill(c, appWorker)
 }

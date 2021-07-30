@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -32,7 +33,19 @@ var logger = loggo.GetLogger("juju.apiserver.caasoperatorprovisioner")
 
 type APIGroup struct {
 	*common.ApplicationWatcherFacade
+	charmInfoAPI    *charmscommon.CharmInfoAPI
+	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
 	*API
+}
+
+// CharmInfo returns information about the requested charm.
+func (a *APIGroup) CharmInfo(args params.CharmURL) (params.Charm, error) {
+	return a.charmInfoAPI.CharmInfo(args)
+}
+
+// ApplicationCharmInfo returns information about an application's charm.
+func (a *APIGroup) ApplicationCharmInfo(args params.Entity) (params.Charm, error) {
+	return a.appCharmInfoAPI.ApplicationCharmInfo(args)
 }
 
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
@@ -58,7 +71,8 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 
-	model, err := ctx.State().Model()
+	st := ctx.State()
+	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -69,6 +83,16 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
 
+	commonState := &charmscommon.StateShim{st}
+	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	api, err := NewCAASOperatorProvisionerAPI(resources, authorizer,
 		stateShim{ctx.StatePool().SystemState()},
 		stateShim{ctx.State()},
@@ -78,7 +102,9 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 	}
 
 	return &APIGroup{
-		ApplicationWatcherFacade: common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASLegacy),
+		ApplicationWatcherFacade: common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterNone),
+		charmInfoAPI:             commonCharmsAPI,
+		appCharmInfoAPI:          appCharmInfoAPI,
 		API:                      api,
 	}, nil
 }

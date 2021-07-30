@@ -16,6 +16,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -43,6 +44,9 @@ var logger = loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner")
 type Facade struct {
 	*common.LifeGetter
 	*common.ApplicationWatcherFacade
+	entityWatcher   *common.AgentEntityWatcher
+	charmInfoAPI    *charmscommon.CharmInfoAPI
+	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
 
 	resources          facade.Resources
 	state              CAASUnitProvisionerState
@@ -76,7 +80,17 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
-	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASLegacy)
+	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterNone)
+
+	commonState := &charmscommon.StateShim{ctx.State()}
+	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	return NewFacade(
 		resources,
@@ -87,6 +101,8 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 		pm,
 		registry,
 		appWatcherFacade,
+		charmInfoAPI,
+		appCharmInfoAPI,
 		clock.WallClock,
 	)
 }
@@ -101,13 +117,19 @@ func NewFacade(
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 	applicationWatcherFacade *common.ApplicationWatcherFacade,
+	charmInfoAPI *charmscommon.CharmInfoAPI,
+	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI,
 	clock clock.Clock,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
+	accessApplication := common.AuthFuncForTagKind(names.ApplicationTagKind)
 	return &Facade{
 		ApplicationWatcherFacade: applicationWatcherFacade,
+		entityWatcher:            common.NewAgentEntityWatcher(st, resources, accessApplication),
+		charmInfoAPI:             charmInfoAPI,
+		appCharmInfoAPI:          appCharmInfoAPI,
 		LifeGetter: common.NewLifeGetter(
 			st, common.AuthAny(
 				common.AuthFuncForTagKind(names.ApplicationTagKind),
@@ -122,6 +144,21 @@ func NewFacade(
 		registry:           registry,
 		clock:              clock,
 	}, nil
+}
+
+// CharmInfo returns information about the requested charm.
+func (f *Facade) CharmInfo(args params.CharmURL) (params.Charm, error) {
+	return f.charmInfoAPI.CharmInfo(args)
+}
+
+// ApplicationCharmInfo returns information about an application's charm.
+func (f *Facade) ApplicationCharmInfo(args params.Entity) (params.Charm, error) {
+	return f.appCharmInfoAPI.ApplicationCharmInfo(args)
+}
+
+// Watch starts a NotifyWatcher for each entity given.
+func (f *Facade) Watch(args params.Entities) (params.NotifyWatchResults, error) {
+	return f.entityWatcher.Watch(args)
 }
 
 // WatchApplicationsScale starts a NotifyWatcher to watch changes
@@ -577,7 +614,7 @@ func (f *Facade) getApplicationConfig(tagString string) (map[string]interface{},
 
 // UpdateApplicationsUnits updates the Juju data model to reflect the given
 // units of the specified application.
-func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) (params.UpdateApplicationUnitResults, error) {
+func (f *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) (params.UpdateApplicationUnitResults, error) {
 	result := params.UpdateApplicationUnitResults{
 		Results: make([]params.UpdateApplicationUnitResult, len(args.Args)),
 	}
@@ -590,14 +627,14 @@ func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) 
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		app, err := a.state.Application(appTag.Id())
+		app, err := f.state.Application(appTag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		appStatus := appUpdate.Status
 		if appStatus.Status != "" && appStatus.Status != status.Unknown {
-			now := a.clock.Now()
+			now := f.clock.Now()
 			err = app.SetStatus(status.StatusInfo{
 				Status:  appStatus.Status,
 				Message: appStatus.Info,
@@ -609,7 +646,7 @@ func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) 
 				continue
 			}
 		}
-		appUnitInfo, err := a.updateUnitsFromCloud(app, appUpdate.Scale, appUpdate.Generation, appUpdate.Units)
+		appUnitInfo, err := f.updateUnitsFromCloud(app, appUpdate.Scale, appUpdate.Generation, appUpdate.Units)
 		if err != nil {
 			// Mask any not found errors as the worker (caller) treats them specially
 			// and they are not relevant here.
@@ -627,7 +664,7 @@ func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) 
 }
 
 // updateStatus constructs the agent and cloud container status values.
-func (a *Facade) updateStatus(params params.ApplicationUnitParams) (
+func (f *Facade) updateStatus(params params.ApplicationUnitParams) (
 	agentStatus *status.StatusInfo,
 	cloudContainerStatus *status.StatusInfo,
 ) {
@@ -675,7 +712,7 @@ func (a *Facade) updateStatus(params params.ApplicationUnitParams) (
 // source (typically a cloud update event) and merges that with the existing unit
 // data model in state. The passed in units are the complete set for the cloud, so
 // any existing units in state with provider ids which aren't in the set will be removed.
-func (a *Facade) updateUnitsFromCloud(app Application, scale *int,
+func (f *Facade) updateUnitsFromCloud(app Application, scale *int,
 	generation *int64, unitUpdates []params.ApplicationUnitParams) ([]params.ApplicationUnitInfo, error) {
 	logger.Debugf("unit updates: %#v", unitUpdates)
 	if scale != nil {
@@ -814,7 +851,7 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int,
 		unitInfo.removedUnits = append(unitInfo.removedUnits, u)
 	}
 
-	if err := a.updateStateUnits(app, unitInfo); err != nil {
+	if err := f.updateStateUnits(app, unitInfo); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -822,7 +859,7 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int,
 	for _, u := range unitUpdates {
 		providerIds = append(providerIds, u.ProviderId)
 	}
-	m, err := a.state.Model()
+	m, err := f.state.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -886,7 +923,7 @@ type volumeInfo struct {
 	volumeId   string
 }
 
-func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitParams) error {
+func (f *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitParams) error {
 
 	if app.Life() != state.Alive {
 		// We ignore any updates for dying applications.
@@ -910,12 +947,12 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 
 	for _, u := range unitInfo.removedUnits {
 		// If a unit is removed from the cloud, all filesystems are considered detached.
-		unitStorage, err := a.storage.UnitStorageAttachments(u.UnitTag())
+		unitStorage, err := f.storage.UnitStorageAttachments(u.UnitTag())
 		if err != nil {
 			return errors.Trace(err)
 		}
 		for _, sa := range unitStorage {
-			fs, err := a.storage.StorageInstanceFilesystem(sa.StorageInstance())
+			fs, err := f.storage.StorageInstanceFilesystem(sa.StorageInstance())
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -945,7 +982,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 	}
 
 	processUnitParams := func(unitParams params.ApplicationUnitParams) *state.UnitUpdateProperties {
-		agentStatus, cloudContainerStatus := a.updateStatus(unitParams)
+		agentStatus, cloudContainerStatus := f.updateStatus(unitParams)
 		return &state.UnitUpdateProperties{
 			ProviderId:           &unitParams.ProviderId,
 			Address:              &unitParams.Address,
@@ -972,7 +1009,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 				continue
 			}
 
-			unitStorage, err := a.storage.UnitStorageAttachments(unitTag)
+			unitStorage, err := f.storage.UnitStorageAttachments(unitTag)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -981,7 +1018,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 			// relevant for storageName.
 			// TODO(caas) - Add storage bankend API to get all unit storage instances for a named storage.
 			for _, sa := range unitStorage {
-				si, err := a.storage.StorageInstance(sa.StorageInstance())
+				si, err := f.storage.StorageInstance(sa.StorageInstance())
 				if errors.IsNotFound(err) {
 					logger.Warningf("ignoring non-existent storage instance %v for unit %v", sa.StorageInstance(), unitTag.Id())
 					continue
@@ -992,7 +1029,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 				if si.StorageName() != storageName {
 					continue
 				}
-				fs, err := a.storage.StorageInstanceFilesystem(sa.StorageInstance())
+				fs, err := f.storage.StorageInstanceFilesystem(sa.StorageInstance())
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -1020,7 +1057,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 
 				// If the filesystem has a backing volume, get that info also.
 				if _, err := fs.Volume(); err == nil {
-					vol, err := a.storage.StorageInstanceVolume(sa.StorageInstance())
+					vol, err := f.storage.StorageInstanceVolume(sa.StorageInstance())
 					if err != nil {
 						return errors.Trace(err)
 					}
@@ -1108,7 +1145,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 			providerIds = append(providerIds, unitParams.ProviderId)
 		}
 	}
-	m, err := a.state.Model()
+	m, err := f.state.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1147,22 +1184,22 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 	// side and so any previously attached filesystems become orphaned and need to
 	// be cleaned up.
 	appName := app.Name()
-	if err := a.cleanupOrphanedFilesystems(processedFilesystemIds); err != nil {
+	if err := f.cleanupOrphanedFilesystems(processedFilesystemIds); err != nil {
 		return errors.Annotatef(err, "deleting orphaned filesystems for %v", appName)
 	}
 
 	// First do the volume updates as volumes need to be attached before the filesystem updates.
-	if err := a.updateVolumeInfo(volumeUpdates, volumeStatus); err != nil {
+	if err := f.updateVolumeInfo(volumeUpdates, volumeStatus); err != nil {
 		return errors.Annotatef(err, "updating volume information for %v", appName)
 	}
 
-	err = a.updateFilesystemInfo(filesystemUpdates, filesystemStatus)
+	err = f.updateFilesystemInfo(filesystemUpdates, filesystemStatus)
 	return errors.Annotatef(err, "updating filesystem information for %v", appName)
 }
 
-func (a *Facade) cleanupOrphanedFilesystems(processedFilesystemIds set.Strings) error {
+func (f *Facade) cleanupOrphanedFilesystems(processedFilesystemIds set.Strings) error {
 	// TODO(caas) - record unit id on the filesystem so we can query by unit
-	allFilesystems, err := a.storage.AllFilesystems()
+	allFilesystems, err := f.storage.AllFilesystems()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1186,7 +1223,7 @@ func (a *Facade) cleanupOrphanedFilesystems(processedFilesystemIds set.Strings) 
 			continue
 		}
 
-		si, err := a.storage.StorageInstance(storageTag)
+		si, err := f.storage.StorageInstance(storageTag)
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
@@ -1201,11 +1238,11 @@ func (a *Facade) cleanupOrphanedFilesystems(processedFilesystemIds set.Strings) 
 		logger.Debugf("found orphaned filesystem %v", fs.FilesystemTag())
 		// TODO (anastasiamac 2019-04-04) We can now force storage removal
 		// but for now, while we have not an arg passed in, just hardcode.
-		err = a.storage.DestroyStorageInstance(storageTag, false, false, time.Duration(0))
+		err = f.storage.DestroyStorageInstance(storageTag, false, false, time.Duration(0))
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
-		err = a.storage.DestroyFilesystem(fs.FilesystemTag(), false)
+		err = f.storage.DestroyFilesystem(fs.FilesystemTag(), false)
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
@@ -1213,7 +1250,7 @@ func (a *Facade) cleanupOrphanedFilesystems(processedFilesystemIds set.Strings) 
 	return nil
 }
 
-func (a *Facade) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeStatus map[string]status.StatusInfo) error {
+func (f *Facade) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeStatus map[string]status.StatusInfo) error {
 	// Do it in sorted order so it's deterministic for tests.
 	var volTags []string
 	for tag := range volumeUpdates {
@@ -1226,7 +1263,7 @@ func (a *Facade) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeSta
 		volTag, _ := names.ParseVolumeTag(tagString)
 		volData := volumeUpdates[tagString]
 
-		vol, err := a.storage.Volume(volTag)
+		vol, err := f.storage.Volume(volTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1238,7 +1275,7 @@ func (a *Facade) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeSta
 		}
 		if err != nil {
 			// Provisioning info not set yet.
-			err = a.storage.SetVolumeInfo(volTag, state.VolumeInfo{
+			err = f.storage.SetVolumeInfo(volTag, state.VolumeInfo{
 				Size:       volData.size,
 				VolumeId:   volData.volumeId,
 				Persistent: volData.persistent,
@@ -1248,7 +1285,7 @@ func (a *Facade) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeSta
 			}
 		}
 
-		err = a.storage.SetVolumeAttachmentInfo(volData.unitTag, volTag, state.VolumeAttachmentInfo{
+		err = f.storage.SetVolumeAttachmentInfo(volData.unitTag, volTag, state.VolumeAttachmentInfo{
 			ReadOnly: volData.readOnly,
 		})
 		if err != nil {
@@ -1267,11 +1304,11 @@ func (a *Facade) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeSta
 	for _, tagString := range volTags {
 		volTag, _ := names.ParseVolumeTag(tagString)
 		volStatus := volumeStatus[tagString]
-		vol, err := a.storage.Volume(volTag)
+		vol, err := f.storage.Volume(volTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		now := a.clock.Now()
+		now := f.clock.Now()
 		err = vol.SetStatus(status.StatusInfo{
 			Status:  volStatus.Status,
 			Message: volStatus.Message,
@@ -1286,7 +1323,7 @@ func (a *Facade) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeSta
 	return nil
 }
 
-func (a *Facade) updateFilesystemInfo(filesystemUpdates map[string]filesystemInfo, filesystemStatus map[string]status.StatusInfo) error {
+func (f *Facade) updateFilesystemInfo(filesystemUpdates map[string]filesystemInfo, filesystemStatus map[string]status.StatusInfo) error {
 	// Do it in sorted order so it's deterministic for tests.
 	var fsTags []string
 	for tag := range filesystemUpdates {
@@ -1299,7 +1336,7 @@ func (a *Facade) updateFilesystemInfo(filesystemUpdates map[string]filesystemInf
 		fsTag, _ := names.ParseFilesystemTag(tagString)
 		fsData := filesystemUpdates[tagString]
 
-		fs, err := a.storage.Filesystem(fsTag)
+		fs, err := f.storage.Filesystem(fsTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1311,7 +1348,7 @@ func (a *Facade) updateFilesystemInfo(filesystemUpdates map[string]filesystemInf
 		}
 		if err != nil {
 			// Provisioning info not set yet.
-			err = a.storage.SetFilesystemInfo(fsTag, state.FilesystemInfo{
+			err = f.storage.SetFilesystemInfo(fsTag, state.FilesystemInfo{
 				Size:         fsData.size,
 				FilesystemId: fsData.filesystemId,
 			})
@@ -1320,7 +1357,7 @@ func (a *Facade) updateFilesystemInfo(filesystemUpdates map[string]filesystemInf
 			}
 		}
 
-		err = a.storage.SetFilesystemAttachmentInfo(fsData.unitTag, fsTag, state.FilesystemAttachmentInfo{
+		err = f.storage.SetFilesystemAttachmentInfo(fsData.unitTag, fsTag, state.FilesystemAttachmentInfo{
 			MountPoint: fsData.mountPoint,
 			ReadOnly:   fsData.readOnly,
 		})
@@ -1340,11 +1377,11 @@ func (a *Facade) updateFilesystemInfo(filesystemUpdates map[string]filesystemInf
 	for _, tagString := range fsTags {
 		fsTag, _ := names.ParseFilesystemTag(tagString)
 		fsStatus := filesystemStatus[tagString]
-		fs, err := a.storage.Filesystem(fsTag)
+		fs, err := f.storage.Filesystem(fsTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		now := a.clock.Now()
+		now := f.clock.Now()
 		err = fs.SetStatus(status.StatusInfo{
 			Status:  fsStatus.Status,
 			Message: fsStatus.Message,
@@ -1361,7 +1398,7 @@ func (a *Facade) updateFilesystemInfo(filesystemUpdates map[string]filesystemInf
 
 // ClearApplicationsResources clears the flags which indicate
 // applications still have resources in the cluster.
-func (a *Facade) ClearApplicationsResources(args params.Entities) (params.ErrorResults, error) {
+func (f *Facade) ClearApplicationsResources(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -1374,7 +1411,7 @@ func (a *Facade) ClearApplicationsResources(args params.Entities) (params.ErrorR
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		app, err := a.state.Application(appTag.Id())
+		app, err := f.state.Application(appTag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -1389,7 +1426,7 @@ func (a *Facade) ClearApplicationsResources(args params.Entities) (params.ErrorR
 
 // UpdateApplicationsService updates the Juju data model to reflect the given
 // service details of the specified application.
-func (a *Facade) UpdateApplicationsService(args params.UpdateApplicationServiceArgs) (params.ErrorResults, error) {
+func (f *Facade) UpdateApplicationsService(args params.UpdateApplicationServiceArgs) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -1402,13 +1439,13 @@ func (a *Facade) UpdateApplicationsService(args params.UpdateApplicationServiceA
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		app, err := a.state.Application(appTag.Id())
+		app, err := f.state.Application(appTag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		sAddrs, err := params.ToProviderAddresses(appUpdate.Addresses...).ToSpaceAddresses(a.state)
+		sAddrs, err := params.ToProviderAddresses(appUpdate.Addresses...).ToSpaceAddresses(f.state)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -1431,7 +1468,7 @@ func (a *Facade) UpdateApplicationsService(args params.UpdateApplicationServiceA
 }
 
 // SetOperatorStatus updates the operator status for each given application.
-func (a *Facade) SetOperatorStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (f *Facade) SetOperatorStatus(args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -1441,12 +1478,12 @@ func (a *Facade) SetOperatorStatus(args params.SetStatus) (params.ErrorResults, 
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		app, err := a.state.Application(appTag.Id())
+		app, err := f.state.Application(appTag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		now := a.clock.Now()
+		now := f.clock.Now()
 		s := status.StatusInfo{
 			Status:  status.Status(arg.Status),
 			Message: arg.Info,
