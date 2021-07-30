@@ -1591,12 +1591,12 @@ func (a *app) pvcNames() (map[string]string, error) {
 
 		// Try to match different PVC name formats that have evolved over time
 		regexes := []string{
-			// Legacy "juju-{storageName}-{n}", e.g., "juju-test-1-dex-auth-0"
-			"^juju-" + regexp.QuoteMeta(s) + `-[0-9]+`,
-			// Pod-spec "{storageName}-{uniqueId}", e.g., "test-0837847d-dex-auth-0"
-			"^" + regexp.QuoteMeta(s) + `-[0-9a-f]{8}`,
 			// Sidecar "{appName}-{storageName}-{uniqueId}", e.g., "dex-auth-test-0837847d-dex-auth-0"
 			"^" + regexp.QuoteMeta(a.name+"-"+s) + `-[0-9a-f]{8}`,
+			// Pod-spec "{storageName}-{uniqueId}", e.g., "test-0837847d-dex-auth-0"
+			"^" + regexp.QuoteMeta(s) + `-[0-9a-f]{8}`,
+			// Legacy "juju-{storageName}-{n}", e.g., "juju-test-1-dex-auth-0"
+			"^juju-" + regexp.QuoteMeta(s) + `-[0-9]+`,
 		}
 		for _, regex := range regexes {
 			r, err := regexp.Compile(regex)
