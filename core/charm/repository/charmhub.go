@@ -456,7 +456,7 @@ const (
 // If the origin.ID is set, a refresh config is returned.
 //
 // NOTE: There is one idiosyncrasy of this method.  The charm URL and and
-// origin have a revision number in them when called by FindDownloadURL
+// origin have a revision number in them when called by GetDownloadURL
 // to install a charm. Potentially causing an unexpected install by revision.
 // This is okay as all of the data is ready and correct in the origin.
 func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.RefreshConfig, error) {
