@@ -114,20 +114,18 @@ func NewDownloader(logger Logger, storage Storage, repoGetter RepositoryGetter) 
 // API so it can be persisted.
 //
 // The method ensures that all temporary resources are cleaned up before returning.
-func (d *Downloader) DownloadAndStore(charmURL string, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, force bool) (corecharm.Origin, error) {
-	curl, err := charm.ParseURL(charmURL)
-	if err != nil {
-		return corecharm.Origin{}, errors.Trace(err)
-	}
-
-	seriesOrigin := requestedOrigin
-	seriesOrigin.Platform, err = d.normalizePlatform(curl, requestedOrigin.Platform)
+func (d *Downloader) DownloadAndStore(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, force bool) (corecharm.Origin, error) {
+	var (
+		err          error
+		seriesOrigin = requestedOrigin
+	)
+	seriesOrigin.Platform, err = d.normalizePlatform(charmURL, requestedOrigin.Platform)
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
 	}
 
 	// Notify the storage layer that we are preparing to upload a charm.
-	if err := d.storage.PrepareToStoreCharm(curl); err != nil {
+	if err := d.storage.PrepareToStoreCharm(charmURL); err != nil {
 		// The charm blob is already uploaded this is a no-op. However,
 		// as the original origin might be different that the one
 		// requested by the caller, make sure to return the correct one.
@@ -140,7 +138,7 @@ func (d *Downloader) DownloadAndStore(charmURL string, requestedOrigin corecharm
 	}
 
 	// Download charm blob to a temp file
-	tmpFile, err := ioutil.TempFile("", curl.Name)
+	tmpFile, err := ioutil.TempFile("", charmURL.Name)
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
 	}
@@ -151,7 +149,7 @@ func (d *Downloader) DownloadAndStore(charmURL string, requestedOrigin corecharm
 		}
 	}()
 
-	downloadedCharm, actualOrigin, err := d.downloadAndHash(curl, seriesOrigin, macaroons, tmpFile.Name())
+	downloadedCharm, actualOrigin, err := d.downloadAndHash(charmURL, seriesOrigin, macaroons, tmpFile.Name())
 	if err != nil {
 		return corecharm.Origin{}, errors.Annotatef(err, "downloading charm %q from origin %v", charmURL, requestedOrigin)
 	}
@@ -162,7 +160,7 @@ func (d *Downloader) DownloadAndStore(charmURL string, requestedOrigin corecharm
 	}
 
 	// Store Charm
-	if err := d.storeCharm(curl, downloadedCharm, tmpFile.Name()); err != nil {
+	if err := d.storeCharm(charmURL, downloadedCharm, tmpFile.Name()); err != nil {
 		return corecharm.Origin{}, errors.Annotatef(err, "storing charm %q from origin %v", charmURL, requestedOrigin)
 	}
 

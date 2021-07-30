@@ -151,7 +151,7 @@ func (s downloaderSuite) TestCharmAlreadyStored(c *gc.C) {
 	)
 
 	dl := s.newDownloader()
-	gotOrigin, err := dl.DownloadAndStore(curl.String(), requestedOrigin, nil, false)
+	gotOrigin, err := dl.DownloadAndStore(curl, requestedOrigin, nil, false)
 	c.Assert(gotOrigin, gc.DeepEquals, knownOrigin, gc.Commentf("expected to get back the known origin for the existing charm"))
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -167,7 +167,7 @@ func (s downloaderSuite) TestPrepareToStoreCharmError(c *gc.C) {
 	)
 
 	dl := s.newDownloader()
-	gotOrigin, err := dl.DownloadAndStore(curl.String(), requestedOrigin, nil, false)
+	gotOrigin, err := dl.DownloadAndStore(curl, requestedOrigin, nil, false)
 	c.Assert(gotOrigin, gc.DeepEquals, corecharm.Origin{}, gc.Commentf("expected a blank origin when encountering errors"))
 	c.Assert(err, gc.ErrorMatches, "something went wrong")
 }
@@ -253,7 +253,7 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 	s.charmArchive.EXPECT().LXDProfile().Return(nil)
 
 	dl := s.newDownloader()
-	gotOrigin, err := dl.DownloadAndStore(curl.String(), requestedOrigin, macaroons, false)
+	gotOrigin, err := dl.DownloadAndStore(curl, requestedOrigin, macaroons, false)
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin, gc.Commentf("expected to get back the resolved origin"))
 	c.Assert(err, jc.ErrorIsNil)
 }

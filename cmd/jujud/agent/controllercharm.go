@@ -139,7 +139,7 @@ func populateStoreControllerCharm(st *state.State, charmRisk, series, arch strin
 	if err != nil {
 		return nil, nil, err
 	}
-	resOrigin, err := charmDownloader.DownloadAndStore(curl.String(), origin, nil, false)
+	resOrigin, err := charmDownloader.DownloadAndStore(curl, origin, nil, false)
 	if err != nil {
 		return nil, nil, err
 	}
