@@ -475,12 +475,48 @@ func (s *ApplicationWorkerSuite) TestScaleChanges(c *gc.C) {
 	defer ctrl.Finish()
 
 	done := make(chan struct{})
-
 	assertionCalls := []*gomock.Call{
 		tc.unitFacade.EXPECT().ApplicationScale("test").Return(3, nil),
 		tc.brokerApp.EXPECT().Scale(3).Return(nil),
 
 		// refresh application status - test separately.
+		tc.brokerApp.EXPECT().State().
+			DoAndReturn(func() (caas.ApplicationState, error) {
+				close(done)
+				return caas.ApplicationState{}, errors.NotFoundf("")
+			}),
+	}
+
+	appWorker := newAppWorker(assertionCalls...)
+
+	go func(w appNotifyWorker) {
+		<-tc.notifyReady
+		tc.appScaleChan <- struct{}{}
+	}(appWorker.(appNotifyWorker))
+
+	s.waitDone(c, done)
+}
+
+func (s *ApplicationWorkerSuite) TestScaleRetry(c *gc.C) {
+	newAppWorker, tc, ctrl := s.getWorker(c)
+	defer ctrl.Finish()
+
+	done := make(chan struct{})
+	assertionCalls := []*gomock.Call{
+		tc.unitFacade.EXPECT().ApplicationScale("test").Return(3, nil),
+		tc.brokerApp.EXPECT().Scale(3).DoAndReturn(func(int) error {
+			go func() {
+				// n is 5 due to:
+				// * three times around the main select for the After(10s)
+				// * After(0) from the initial appScaleWatcher change
+				// * After(3s) for the retry
+				err := tc.clock.WaitAdvance(3*time.Second, coretesting.ShortWait, 5)
+				c.Assert(err, jc.ErrorIsNil)
+			}()
+			return errors.NotFoundf("")
+		}),
+		tc.unitFacade.EXPECT().ApplicationScale("test").Return(3, nil),
+		tc.brokerApp.EXPECT().Scale(3).Return(nil),
 		tc.brokerApp.EXPECT().State().
 			DoAndReturn(func() (caas.ApplicationState, error) {
 				close(done)
@@ -508,6 +544,43 @@ func (s *ApplicationWorkerSuite) TestTrustChanges(c *gc.C) {
 		tc.brokerApp.EXPECT().Trust(true).Return(nil),
 
 		// refresh application status - test separately.
+		tc.brokerApp.EXPECT().State().
+			DoAndReturn(func() (caas.ApplicationState, error) {
+				close(done)
+				return caas.ApplicationState{}, errors.NotFoundf("")
+			}),
+	}
+
+	appWorker := newAppWorker(assertionCalls...)
+
+	go func(w appNotifyWorker) {
+		<-tc.notifyReady
+		tc.appTrustHashChan <- []string{"test"}
+	}(appWorker.(appNotifyWorker))
+
+	s.waitDone(c, done)
+}
+
+func (s *ApplicationWorkerSuite) TestTrustRetry(c *gc.C) {
+	newAppWorker, tc, ctrl := s.getWorker(c)
+	defer ctrl.Finish()
+
+	done := make(chan struct{})
+	assertionCalls := []*gomock.Call{
+		tc.unitFacade.EXPECT().ApplicationTrust("test").Return(true, nil),
+		tc.brokerApp.EXPECT().Trust(true).DoAndReturn(func(bool) error {
+			go func() {
+				// n is 5 due to:
+				// * three times around the main select for the After(10s)
+				// * After(0) from the initial appTrustWatcher change
+				// * After(3s) for the retry
+				err := tc.clock.WaitAdvance(3*time.Second, coretesting.ShortWait, 5)
+				c.Assert(err, jc.ErrorIsNil)
+			}()
+			return errors.NotFoundf("")
+		}),
+		tc.unitFacade.EXPECT().ApplicationTrust("test").Return(true, nil),
+		tc.brokerApp.EXPECT().Trust(true).Return(nil),
 		tc.brokerApp.EXPECT().State().
 			DoAndReturn(func() (caas.ApplicationState, error) {
 				close(done)
@@ -909,7 +982,8 @@ func (s *ApplicationWorkerSuite) TestDeleteOperator(c *gc.C) {
 		broker.EXPECT().Units("test", caas.ModeWorkload).Return([]caas.Unit{}, nil),
 		broker.EXPECT().DeleteOperator("test").DoAndReturn(func(appName string) error {
 			go func() {
-				c.Assert(clk.WaitAdvance(3*time.Second, coretesting.ShortWait, 1), jc.ErrorIsNil)
+				err := clk.WaitAdvance(3*time.Second, coretesting.ShortWait, 1)
+				c.Assert(err, jc.ErrorIsNil)
 			}()
 			return nil
 		}),

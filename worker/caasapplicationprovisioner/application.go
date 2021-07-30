@@ -285,6 +285,7 @@ func (a *appWorker) loop() error {
 				}
 				scaleTries++
 				scaleChan = a.clock.After(retryDelay)
+				shouldRefresh = false
 			} else if err != nil {
 				return errors.Trace(err)
 			} else {
@@ -307,6 +308,7 @@ func (a *appWorker) loop() error {
 				}
 				trustTries++
 				trustChan = a.clock.After(retryDelay)
+				shouldRefresh = false
 			} else if err != nil {
 				return errors.Trace(err)
 			} else {
