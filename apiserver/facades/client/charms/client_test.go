@@ -312,7 +312,7 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 		},
 	}
 
-	s.downloader.EXPECT().DownloadAndStore(curl.String(), requestedOrigin, nil, false).Return(resolvedOrigin, nil)
+	s.downloader.EXPECT().DownloadAndStore(curl, requestedOrigin, nil, false).Return(resolvedOrigin, nil)
 
 	api := s.api(c)
 
@@ -357,7 +357,7 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	macaroons := macaroon.Slice{mac}
 
-	s.downloader.EXPECT().DownloadAndStore(curl.String(), requestedOrigin, macaroons, false).Return(resolvedOrigin, nil)
+	s.downloader.EXPECT().DownloadAndStore(curl, requestedOrigin, macaroons, false).Return(resolvedOrigin, nil)
 
 	api := s.api(c)
 

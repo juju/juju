@@ -354,6 +354,11 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, err
 	}
 
+	charmURL, err := charm.ParseURL(args.URL)
+	if err != nil {
+		return params.CharmOriginResult{}, err
+	}
+
 	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
 		Logger:         logger,
 		Transport:      a.httpClient,
@@ -370,7 +375,7 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		macaroons = append(macaroons, args.CharmStoreMacaroon)
 	}
 
-	actualOrigin, err := downloader.DownloadAndStore(args.URL, convertParamsOrigin(args.Origin), macaroons, args.Force)
+	actualOrigin, err := downloader.DownloadAndStore(charmURL, convertParamsOrigin(args.Origin), macaroons, args.Force)
 	if err != nil {
 		return params.CharmOriginResult{}, errors.Trace(err)
 	}
