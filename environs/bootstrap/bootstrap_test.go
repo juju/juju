@@ -1118,6 +1118,21 @@ func (s *bootstrapSuite) TestBootstrapControllerCharmLocal(c *gc.C) {
 	c.Assert(env.instanceConfig.Bootstrap.ControllerCharm, gc.Equals, path)
 }
 
+func (s *bootstrapSuite) TestBootstrapControllerCharmRisk(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), env,
+		s.callContext, bootstrap.BootstrapParams{
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: supportedJujuSeries,
+			ControllerCharmRisk:      "beta",
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerCharmRisk, gc.Equals, "beta")
+}
+
 // createImageMetadata creates some image metadata in a local directory.
 func createImageMetadata(c *gc.C) (dir string, _ []*imagemetadata.ImageMetadata) {
 	return createImageMetadataForArch(c, "amd64")

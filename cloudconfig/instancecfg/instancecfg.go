@@ -306,6 +306,9 @@ type StateInitializationParams struct {
 	// to a controller.
 	ControllerConfig controller.Config
 
+	// ControllerCharmRisk is used when deploying the controller charm.
+	ControllerCharmRisk string
+
 	// ControllerInheritedConfig is a set of config attributes to be shared by all
 	// models managed by this controller.
 	ControllerInheritedConfig map[string]interface{}
@@ -362,6 +365,7 @@ type stateInitializationParamsInternal struct {
 	ControllerCloudRegion                   string                            `yaml:"controller-cloud-region"`
 	ControllerCloudCredentialName           string                            `yaml:"controller-cloud-credential-name,omitempty"`
 	ControllerCloudCredential               *cloud.Credential                 `yaml:"controller-cloud-credential,omitempty"`
+	ControllerCharmRisk                     string                            `yaml:"controller-charm-risk,omitempty"`
 }
 
 // Marshal marshals StateInitializationParams to an opaque byte array.
@@ -375,22 +379,23 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		return nil, errors.Annotate(err, "marshalling cloud definition")
 	}
 	internal := stateInitializationParamsInternal{
-		p.ControllerConfig,
-		p.ControllerModelConfig.AllAttrs(),
-		p.ControllerModelEnvironVersion,
-		p.ControllerInheritedConfig,
-		p.RegionInheritedConfig,
-		p.HostedModelConfig,
-		p.StoragePools,
-		p.BootstrapMachineInstanceId,
-		p.BootstrapMachineConstraints,
-		p.BootstrapMachineHardwareCharacteristics,
-		p.ModelConstraints,
-		string(customImageMetadataJSON),
-		string(controllerCloud),
-		p.ControllerCloudRegion,
-		p.ControllerCloudCredentialName,
-		p.ControllerCloudCredential,
+		ControllerConfig:                        p.ControllerConfig,
+		ControllerModelConfig:                   p.ControllerModelConfig.AllAttrs(),
+		ControllerModelEnvironVersion:           p.ControllerModelEnvironVersion,
+		ControllerInheritedConfig:               p.ControllerInheritedConfig,
+		RegionInheritedConfig:                   p.RegionInheritedConfig,
+		HostedModelConfig:                       p.HostedModelConfig,
+		StoragePools:                            p.StoragePools,
+		BootstrapMachineInstanceId:              p.BootstrapMachineInstanceId,
+		BootstrapMachineConstraints:             p.BootstrapMachineConstraints,
+		BootstrapMachineHardwareCharacteristics: p.BootstrapMachineHardwareCharacteristics,
+		ModelConstraints:                        p.ModelConstraints,
+		CustomImageMetadataJSON:                 string(customImageMetadataJSON),
+		ControllerCloud:                         string(controllerCloud),
+		ControllerCloudRegion:                   p.ControllerCloudRegion,
+		ControllerCloudCredentialName:           p.ControllerCloudCredentialName,
+		ControllerCloudCredential:               p.ControllerCloudCredential,
+		ControllerCharmRisk:                     p.ControllerCharmRisk,
 	}
 	return yaml.Marshal(&internal)
 }
@@ -431,6 +436,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		ControllerCloudRegion:                   internal.ControllerCloudRegion,
 		ControllerCloudCredentialName:           internal.ControllerCloudCredentialName,
 		ControllerCloudCredential:               internal.ControllerCloudCredential,
+		ControllerCharmRisk:                     internal.ControllerCharmRisk,
 	}
 	return nil
 }

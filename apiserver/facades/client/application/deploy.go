@@ -76,7 +76,7 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 		Name:              args.ApplicationName,
 		Series:            args.Series,
 		Charm:             args.Charm,
-		CharmOrigin:       stateCharmOrigin(args.CharmOrigin),
+		CharmOrigin:       StateCharmOrigin(args.CharmOrigin),
 		Channel:           args.Channel,
 		Storage:           stateStorageConstraints(args.Storage),
 		Devices:           stateDeviceConstraints(args.Devices),
@@ -159,7 +159,8 @@ func stateDeviceConstraints(cons map[string]devices.Constraints) map[string]stat
 	return result
 }
 
-func stateCharmOrigin(origin corecharm.Origin) *state.CharmOrigin {
+// StateCharmOrigin returns a state layer CharmOrigin given a core Origin.
+func StateCharmOrigin(origin corecharm.Origin) *state.CharmOrigin {
 	var ch *state.Channel
 	if c := origin.Channel; c != nil {
 		normalizedC := c.Normalize()
