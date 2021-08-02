@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 
+	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
@@ -215,6 +216,7 @@ func (a *mockApplication) StorageConstraints() (map[string]state.StorageConstrai
 }
 
 type mockCharm struct {
+	charmscommon.Charm
 	meta charm.Meta
 }
 
@@ -222,7 +224,7 @@ func (m *mockCharm) Meta() *charm.Meta {
 	return &m.meta
 }
 
-func (a *mockApplication) Charm() (caasunitprovisioner.Charm, bool, error) {
+func (a *mockApplication) Charm() (charmscommon.Charm, bool, error) {
 	a.MethodCall(a, "Charm")
 	return a.charm, false, nil
 }

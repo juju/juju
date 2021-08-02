@@ -6,6 +6,7 @@ package caasfirewaller_test
 import (
 	"time"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -27,6 +29,7 @@ type WorkerSuite struct {
 	applicationGetter mockApplicationGetter
 	serviceExposer    mockServiceExposer
 	lifeGetter        mockLifeGetter
+	charmGetter       mockCharmGetter
 
 	applicationChanges chan []string
 	appExposedChange   chan struct{}
@@ -53,6 +56,12 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.lifeGetter = mockLifeGetter{
 		life: life.Alive,
 	}
+	s.charmGetter = mockCharmGetter{
+		charmInfo: &charms.CharmInfo{
+			Manifest: &charm.Manifest{},
+			Meta:     &charm.Meta{},
+		},
+	}
 	s.serviceExposer = mockServiceExposer{
 		exposed:   s.serviceExposed,
 		unexposed: s.serviceUnexposed,
@@ -64,6 +73,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		ApplicationGetter: &s.applicationGetter,
 		ServiceExposer:    &s.serviceExposer,
 		LifeGetter:        &s.lifeGetter,
+		CharmGetter:       &s.charmGetter,
 		Logger:            loggo.GetLogger("test"),
 	}
 }
@@ -98,6 +108,10 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	}, `missing LifeGetter not valid`)
 
 	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
+		config.CharmGetter = nil
+	}, `missing CharmGetter not valid`)
+
+	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
 		config.Logger = nil
 	}, `missing Logger not valid`)
 }
@@ -119,16 +133,20 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *WorkerSuite) sendApplicationChange(c *gc.C, appName string) {
+	select {
+	case s.applicationChanges <- []string{appName}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending applications change")
+	}
+}
+
 func (s *WorkerSuite) TestExposedChange(c *gc.C) {
 	w, err := caasfirewaller.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
+	s.sendApplicationChange(c, "gitlab")
 
 	s.sendApplicationExposedChange(c)
 	// The last known state on start up was unexposed
@@ -164,11 +182,7 @@ func (s *WorkerSuite) TestUnexposedChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
+	s.sendApplicationChange(c, "gitlab")
 
 	s.applicationGetter.exposed = true
 	s.sendApplicationExposedChange(c)
@@ -200,11 +214,7 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.lifeGetter.life = life.Dead
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
+	s.sendApplicationChange(c, "gitlab")
 
 	select {
 	case s.appExposedChange <- struct{}{}:
@@ -225,17 +235,8 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
-
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
+	s.sendApplicationChange(c, "gitlab")
+	s.sendApplicationChange(c, "gitlab")
 
 	err = workertest.CheckKilled(c, s.applicationGetter.appWatcher)
 	c.Assert(err, jc.ErrorIsNil)
@@ -252,11 +253,7 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
+	s.sendApplicationChange(c, "gitlab")
 
 	s.applicationGetter.exposed = true
 	s.sendApplicationExposedChange(c)
@@ -272,15 +269,66 @@ func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
+	s.sendApplicationChange(c, "gitlab")
 
 	s.applicationGetter.appWatcher.KillErr(errors.New("splat"))
 	workertest.CheckKilled(c, s.applicationGetter.appWatcher)
 	workertest.CheckKilled(c, s.applicationGetter.allWatcher)
 	err = workertest.CheckKilled(c, w)
 	c.Assert(err, gc.ErrorMatches, "splat")
+}
+
+func (s *WorkerSuite) TestV2CharmSkipProcessing(c *gc.C) {
+	w, err := caasfirewaller.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	s.charmGetter.charmInfo.Manifest = &charm.Manifest{Bases: []charm.Base{{}}}
+	s.charmGetter.charmInfo.Meta = &charm.Meta{}
+
+	s.sendApplicationChange(c, "gitlab")
+
+	s.charmGetter.CheckCallNames(c, "ApplicationCharmInfo")
+	s.lifeGetter.CheckNoCalls(c)
+}
+
+func (s *WorkerSuite) TestCharmNotFound(c *gc.C) {
+	w, err := caasfirewaller.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	s.charmGetter.charmInfo = nil
+
+	s.sendApplicationChange(c, "gitlab")
+
+	s.charmGetter.CheckCallNames(c, "ApplicationCharmInfo")
+	s.lifeGetter.CheckNoCalls(c)
+}
+
+func (s *WorkerSuite) TestCharmChangesToV2(c *gc.C) {
+	w, err := caasfirewaller.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	s.sendApplicationChange(c, "gitlab")
+	s.waitCharmGetterCalls(c, "ApplicationCharmInfo")
+	s.lifeGetter.CheckCallNames(c, "Life")
+
+	s.charmGetter.charmInfo.Manifest = &charm.Manifest{Bases: []charm.Base{{}}}
+	s.charmGetter.charmInfo.Meta = &charm.Meta{}
+	s.sendApplicationExposedChange(c)
+	s.waitCharmGetterCalls(c, "ApplicationCharmInfo")
+
+	err = workertest.CheckKilled(c, s.applicationGetter.appWatcher)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *WorkerSuite) waitCharmGetterCalls(c *gc.C, names ...string) {
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.charmGetter.Calls()) >= len(names) {
+			break
+		}
+	}
+	s.charmGetter.CheckCallNames(c, names...)
+	s.charmGetter.ResetCalls()
 }

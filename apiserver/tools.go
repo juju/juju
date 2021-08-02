@@ -12,12 +12,14 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/version/v2"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
@@ -65,7 +67,14 @@ type toolsUploadHandler struct {
 
 // toolsHandler handles tool download through HTTPS in the API server.
 type toolsDownloadHandler struct {
-	ctxt httpContext
+	ctxt      httpContext
+	fetchOnce singleflight.Group
+}
+
+func newToolsDownloadHandler(httpCtxt httpContext) *toolsDownloadHandler {
+	return &toolsDownloadHandler{
+		ctxt: httpCtxt,
+	}
 }
 
 func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -215,9 +224,14 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 		if osTypeName != "" {
 			storageVers.Release = osTypeName
 		}
-		md, reader, err = h.fetchAndCacheTools(vers, storageVers, storage, st)
+		_, err, _ = h.fetchOnce.Do(storageVers.String(), func() (interface{}, error) {
+			return nil, h.fetchAndCacheTools(vers, storageVers)
+		})
 		if err != nil {
+			h.fetchOnce.Forget(storageVers.String())
 			err = errors.Annotate(err, "error fetching agent binaries")
+		} else {
+			md, reader, err = storage.Open(storageVers.String())
 		}
 	}
 	if err != nil {
@@ -233,25 +247,23 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 func (h *toolsDownloadHandler) fetchAndCacheTools(
 	v version.Binary,
 	storageVers version.Binary,
-	stor binarystorage.Storage,
-	st *state.State,
-) (binarystorage.Metadata, io.ReadCloser, error) {
-	md := binarystorage.Metadata{Version: v.String()}
+) error {
+	systemState := h.ctxt.statePool().SystemState()
 
-	model, err := st.Model()
+	controllerModel, err := systemState.Model()
 	if err != nil {
-		return md, nil, err
+		return err
 	}
 	newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
-	env, err := newEnviron(model)
+	env, err := newEnviron(controllerModel)
 	if err != nil {
-		return md, nil, err
+		return err
 	}
 
 	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 	exactTools, err := envtools.FindExactTools(ss, env, v.Number, v.Release, v.Arch)
 	if err != nil {
-		return md, nil, err
+		return err
 	}
 
 	// No need to verify the server's identity because we verify the SHA-256 hash.
@@ -259,7 +271,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 	client := jujuhttp.NewClient(jujuhttp.WithSkipHostnameVerification(true))
 	resp, err := client.Get(context.TODO(), exactTools.URL)
 	if err != nil {
-		return md, nil, err
+		return err
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
@@ -267,27 +279,37 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 		if body, err := ioutil.ReadAll(resp.Body); err == nil {
 			msg += fmt.Sprintf(" (%s)", bytes.TrimSpace(body))
 		}
-		return md, nil, errors.New(msg)
+		return errors.New(msg)
 	}
 
-	data, respSha256, err := readAndHash(resp.Body)
+	controllerStorage, err := systemState.ToolsStorage()
 	if err != nil {
-		return md, nil, err
+		return err
 	}
-	if int64(len(data)) != exactTools.Size {
-		return md, nil, errors.Errorf("size mismatch for %s", exactTools.URL)
-	}
-	md.Size = exactTools.Size
-	if respSha256 != exactTools.SHA256 {
-		return md, nil, errors.Errorf("hash mismatch for %s", exactTools.URL)
-	}
-	md.SHA256 = exactTools.SHA256
+	defer controllerStorage.Close()
 
-	md.Version = storageVers.String()
-	if err := stor.Add(bytes.NewReader(data), md); err != nil {
-		return md, nil, errors.Annotate(err, "error caching agent binaries")
+	data, respSha256, size, err := tmpCacheAndHash(resp.Body)
+	if err != nil {
+		return err
 	}
-	return md, ioutil.NopCloser(bytes.NewReader(data)), nil
+	defer data.Close()
+	if size != exactTools.Size {
+		return errors.Errorf("size mismatch for %s", exactTools.URL)
+	}
+	if respSha256 != exactTools.SHA256 {
+		return errors.Errorf("hash mismatch for %s", exactTools.URL)
+	}
+
+	md := binarystorage.Metadata{
+		Version: storageVers.String(),
+		Size:    exactTools.Size,
+		SHA256:  exactTools.SHA256,
+	}
+	if err := controllerStorage.Add(data, md); err != nil {
+		return errors.Annotate(err, "error caching agent binaries")
+	}
+
+	return nil
 }
 
 // sendTools streams the tools tarball to the client.
@@ -358,11 +380,13 @@ func (h *toolsUploadHandler) handleUpload(r io.Reader, toolsVersions []version.B
 	defer storage.Close()
 
 	// Read the tools tarball from the request, calculating the sha256 along the way.
-	data, sha256, err := readAndHash(r)
+	data, sha256, size, err := tmpCacheAndHash(r)
 	if err != nil {
 		return nil, err
 	}
-	if len(data) == 0 {
+	defer data.Close()
+
+	if size == 0 {
 		return nil, errors.BadRequestf("no agent binaries uploaded")
 	}
 
@@ -372,29 +396,61 @@ func (h *toolsUploadHandler) handleUpload(r io.Reader, toolsVersions []version.B
 	for _, v := range toolsVersions {
 		metadata := binarystorage.Metadata{
 			Version: v.String(),
-			Size:    int64(len(data)),
+			Size:    size,
 			SHA256:  sha256,
 		}
 		logger.Debugf("uploading agent binaries %+v to storage", metadata)
-		if err := storage.Add(bytes.NewReader(data), metadata); err != nil {
+		if err := storage.Add(data, metadata); err != nil {
 			return nil, err
 		}
 	}
 
 	tools := &tools.Tools{
 		Version: toolsVersions[0],
-		Size:    int64(len(data)),
+		Size:    size,
 		SHA256:  sha256,
 		URL:     common.ToolsURL(serverRoot, toolsVersions[0]),
 	}
 	return tools, nil
 }
 
-func readAndHash(r io.Reader) (data []byte, sha256hex string, err error) {
-	hash := sha256.New()
-	data, err = ioutil.ReadAll(io.TeeReader(r, hash))
-	if err != nil {
-		return nil, "", errors.Annotate(err, "error processing file upload")
+type cleanupCloser struct {
+	io.ReadCloser
+	cleanup func()
+}
+
+func (c *cleanupCloser) Close() error {
+	if c.cleanup != nil {
+		c.cleanup()
 	}
-	return data, fmt.Sprintf("%x", hash.Sum(nil)), nil
+	return c.ReadCloser.Close()
+}
+
+func tmpCacheAndHash(r io.Reader) (data io.ReadCloser, sha256hex string, size int64, err error) {
+	tmpFile, err := ioutil.TempFile("", "jujutools*")
+	tmpFilename := tmpFile.Name()
+	cleanup := func() {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFilename)
+	}
+	defer func() {
+		if err != nil {
+			cleanup()
+		}
+	}()
+	tr := io.TeeReader(r, tmpFile)
+	hasher := sha256.New()
+	_, err = io.Copy(hasher, tr)
+	if err != nil {
+		return nil, "", 0, errors.Annotatef(err, "failed to hash agent tools and write to file %q", tmpFilename)
+	}
+	_, err = tmpFile.Seek(0, 0)
+	if err != nil {
+		return nil, "", 0, errors.Trace(err)
+	}
+	stat, err := tmpFile.Stat()
+	if err != nil {
+		return nil, "", 0, errors.Trace(err)
+	}
+	return &cleanupCloser{tmpFile, cleanup}, fmt.Sprintf("%x", hasher.Sum(nil)), stat.Size(), nil
 }

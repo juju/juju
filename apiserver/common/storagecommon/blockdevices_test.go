@@ -32,7 +32,7 @@ func (s *BlockDeviceSuite) TestBlockDeviceMatchingSerialID(c *gc.C) {
 	}
 	atachmentInfo := state.VolumeAttachmentInfo{}
 	planBlockInfo := state.BlockDeviceInfo{}
-	blockDeviceInfo, ok := storagecommon.MatchingBlockDevice(blockDevices, volumeInfo, atachmentInfo, planBlockInfo)
+	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(blockDevices, volumeInfo, atachmentInfo, planBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &state.BlockDeviceInfo{
 		DeviceName: "sdb",
@@ -55,7 +55,7 @@ func (s *BlockDeviceSuite) TestBlockDeviceMatchingHardwareID(c *gc.C) {
 	}
 	atachmentInfo := state.VolumeAttachmentInfo{}
 	planBlockInfo := state.BlockDeviceInfo{}
-	blockDeviceInfo, ok := storagecommon.MatchingBlockDevice(blockDevices, volumeInfo, atachmentInfo, planBlockInfo)
+	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(blockDevices, volumeInfo, atachmentInfo, planBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &state.BlockDeviceInfo{
 		DeviceName: "sdb",
@@ -64,7 +64,7 @@ func (s *BlockDeviceSuite) TestBlockDeviceMatchingHardwareID(c *gc.C) {
 }
 
 func (s *BlockDeviceSuite) TestBlockDevicesAWS(c *gc.C) {
-	blockDeviceInfo, ok := storagecommon.MatchingBlockDevice(awsTestBlockDevices, awsTestVolumeInfo, awsTestAttachmentInfo, awsTestPlanBlockInfo)
+	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(awsTestBlockDevices, awsTestVolumeInfo, awsTestAttachmentInfo, awsTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &state.BlockDeviceInfo{
 		DeviceName: "nvme0n1",
@@ -87,7 +87,7 @@ var (
 )
 
 func (s *BlockDeviceSuite) TestBlockDevicesGCE(c *gc.C) {
-	blockDeviceInfo, ok := storagecommon.MatchingBlockDevice(gceTestBlockDevices, gceTestVolumeInfo, gceTestAttachmentInfo, gceTestPlanBlockInfo)
+	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(gceTestBlockDevices, gceTestVolumeInfo, gceTestAttachmentInfo, gceTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &state.BlockDeviceInfo{
 		DeviceName: "sdd",
@@ -104,7 +104,7 @@ func (s *BlockDeviceSuite) TestBlockDevicesGCE(c *gc.C) {
 }
 
 func (s *BlockDeviceSuite) TestBlockDevicesGCEPreferUUID(c *gc.C) {
-	blockDeviceInfo, ok := storagecommon.MatchingBlockDevice(gceTestBlockDevices, gceTestVolumeInfo, gceTestAttachmentInfoForUUID, gceTestPlanBlockInfo)
+	blockDeviceInfo, ok := storagecommon.MatchingFilesystemBlockDevice(gceTestBlockDevices, gceTestVolumeInfo, gceTestAttachmentInfoForUUID, gceTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &state.BlockDeviceInfo{
 		DeviceName: "sda1",
@@ -137,7 +137,7 @@ var (
 )
 
 func (s *BlockDeviceSuite) TestBlockDevicesOpenStack(c *gc.C) {
-	blockDeviceInfo, ok := storagecommon.MatchingBlockDevice(osTestBlockDevices, osTestVolumeInfo, osTestAttachmentInfo, osTestPlanBlockInfo)
+	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(osTestBlockDevices, osTestVolumeInfo, osTestAttachmentInfo, osTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &state.BlockDeviceInfo{
 		DeviceName: "vdd",
@@ -159,7 +159,7 @@ var (
 )
 
 func (s *BlockDeviceSuite) TestBlockDevicesOCI(c *gc.C) {
-	blockDeviceInfo, ok := storagecommon.MatchingBlockDevice(ociTestBlockDevices, ociTestVolumeInfo, ociTestAttachmentInfo, ociTestPlanBlockInfo)
+	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(ociTestBlockDevices, ociTestVolumeInfo, ociTestAttachmentInfo, ociTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &state.BlockDeviceInfo{
 		DeviceName: "loop2",
@@ -175,7 +175,7 @@ var (
 )
 
 func (s *BlockDeviceSuite) TestBlockDevicesVSphere(c *gc.C) {
-	blockDeviceInfo, ok := storagecommon.MatchingBlockDevice(vsphereTestBlockDevices, vsphereTestVolumeInfo, vsphereTestAttachmentInfo, vsphereTestPlanBlockInfo)
+	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(vsphereTestBlockDevices, vsphereTestVolumeInfo, vsphereTestAttachmentInfo, vsphereTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(blockDeviceInfo, jc.DeepEquals, &state.BlockDeviceInfo{
 		DeviceName: "loop0",

@@ -391,6 +391,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				Sidecar:                       u.sidecar,
 				EnforcedCharmModifiedVersion:  u.enforcedCharmModifiedVersion,
 				WorkloadEventChannel:          u.workloadEventChannel,
+				InitialWorkloadEventIDs:       u.workloadEvents.EventIDs(),
 				ShutdownChannel:               u.shutdownChannel,
 			})
 		if err != nil {

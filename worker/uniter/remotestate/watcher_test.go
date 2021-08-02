@@ -1084,6 +1084,13 @@ func (s *WatcherSuite) TestWorkloadSignal(c *gc.C) {
 		c.Fatalf("timed out waiting to signal workload event channel")
 	}
 
+	// Adding same event twice shouldn't re-add it.
+	select {
+	case s.workloadEventChannel <- "0":
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting to signal workload event channel")
+	}
+
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	snap = s.watcher.Snapshot()
 	c.Assert(snap.WorkloadEvents, gc.DeepEquals, []string{"0"})
@@ -1091,6 +1098,18 @@ func (s *WatcherSuite) TestWorkloadSignal(c *gc.C) {
 	s.watcher.WorkloadEventCompleted("0")
 	snap = s.watcher.Snapshot()
 	c.Assert(snap.WorkloadEvents, gc.HasLen, 0)
+}
+
+func (s *WatcherSuite) TestInitialWorkloadEventIDs(c *gc.C) {
+	config := remotestate.WatcherConfig{
+		InitialWorkloadEventIDs: []string{"a", "b", "c"},
+		Logger:                  loggo.GetLogger("test"),
+	}
+	watcher, err := remotestate.NewWatcher(config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	snapshot := watcher.Snapshot()
+	c.Assert(snapshot.WorkloadEvents, gc.DeepEquals, []string{"a", "b", "c"})
 }
 
 func (s *WatcherSuite) TestShutdown(c *gc.C) {

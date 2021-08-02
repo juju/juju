@@ -5,6 +5,7 @@ package caasunitprovisioner
 
 import (
 	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
+	charmscommon "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
@@ -23,6 +24,7 @@ type Client interface {
 	LifeGetter
 	UnitUpdater
 	ProvisioningStatusSetter
+	CharmGetter
 }
 
 // ApplicationGetter provides an interface for
@@ -31,6 +33,7 @@ type Client interface {
 // model, and fetching their details.
 type ApplicationGetter interface {
 	WatchApplications() (watcher.StringsWatcher, error)
+	WatchApplication(appName string) (watcher.NotifyWatcher, error)
 	ApplicationConfig(string) (application.ConfigAttributes, error)
 	DeploymentMode(string) (caas.DeploymentMode, error)
 	WatchApplicationScale(string) (watcher.NotifyWatcher, error)
@@ -69,4 +72,8 @@ type UnitUpdater interface {
 type ProvisioningStatusSetter interface {
 	// SetOperatorStatus sets the status for the application operator.
 	SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error
+}
+
+type CharmGetter interface {
+	ApplicationCharmInfo(appName string) (*charmscommon.CharmInfo, error)
 }

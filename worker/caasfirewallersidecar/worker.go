@@ -4,6 +4,7 @@
 package caasfirewallersidecar
 
 import (
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
@@ -118,6 +119,19 @@ func (p *firewaller) loop() error {
 				return errors.New("watcher closed channel")
 			}
 			for _, appName := range apps {
+				// If charm is a v1 charm, skip processing.
+				format, err := p.charmFormat(appName)
+				if errors.IsNotFound(err) {
+					p.config.Logger.Debugf("application %q no longer exists", appName)
+					continue
+				} else if err != nil {
+					return errors.Trace(err)
+				}
+				if format < charm.FormatV2 {
+					p.config.Logger.Tracef("v2 caasfirewallersidecar got event for v1 app %q, skipping", appName)
+					continue
+				}
+
 				appLife, err := p.config.LifeGetter.Life(appName)
 				if errors.IsNotFound(err) {
 					w, ok := p.appWorkers[appName]
@@ -159,4 +173,12 @@ func (p *firewaller) loop() error {
 			}
 		}
 	}
+}
+
+func (p *firewaller) charmFormat(appName string) (charm.Format, error) {
+	charmInfo, err := p.config.FirewallerAPI.ApplicationCharmInfo(appName)
+	if err != nil {
+		return charm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", appName)
+	}
+	return charm.MetaFormat(charmInfo.Charm()), nil
 }

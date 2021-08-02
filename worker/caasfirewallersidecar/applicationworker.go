@@ -6,7 +6,6 @@ package caasfirewallersidecar
 import (
 	"strings"
 
-	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
@@ -93,15 +92,6 @@ func (w *applicationWorker) setUp() (err error) {
 		return errors.Trace(err)
 	}
 
-	charmInfo, err := w.firewallerAPI.ApplicationCharmInfo(w.appName)
-	if err != nil {
-		return errors.Annotatef(err, "failed to get application charm deployment metadata for %q", w.appName)
-	}
-	if charmInfo == nil ||
-		charm.MetaFormat(charmInfo.Charm()) < charm.FormatV2 {
-		return errors.Errorf("charm must be version 2 or greater")
-	}
-
 	// TODO(sidecar): support deployment other than statefulset
 	app := w.broker.Application(w.appName, caas.DeploymentStateful)
 	w.portMutator = app
@@ -138,6 +128,8 @@ func (w *applicationWorker) loop() (err error) {
 			if !ok {
 				return errors.New("application watcher closed")
 			}
+			// We know this is a v2 charm at this point, because this child
+			// worker is only ever started for v2 charms.
 			if err := w.onApplicationChanged(); err != nil {
 				if strings.Contains(err.Error(), "unexpected EOF") {
 					return nil

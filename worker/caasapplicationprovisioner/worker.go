@@ -1,12 +1,19 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// This worker is responsible for watching the life cycle of CAAS sidecar
+// applications and setting them up (or removing them). It creates a new
+// worker goroutine for every application being monitored, so most of the
+// actual operations happen in the child worker.
+//
+// Note that the separate caasoperatorprovisioner worker handles legacy CAAS
+// pod-spec applications.
+
 package caasapplicationprovisioner
 
 import (
 	"time"
 
-	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -44,7 +51,7 @@ type CAASProvisionerFacade interface {
 	SetPassword(string, string) error
 	Life(string) (life.Value, error)
 	CharmInfo(string) (*charmscommon.CharmInfo, error)
-	ApplicationCharmURL(string) (*charm.URL, error)
+	ApplicationCharmInfo(string) (*charmscommon.CharmInfo, error)
 	SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error
 	Units(appName string) ([]params.CAASUnit, error)
 	GarbageCollect(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error
@@ -57,6 +64,10 @@ type CAASProvisionerFacade interface {
 type CAASBroker interface {
 	Application(string, caas.DeploymentType) caas.Application
 	AnnotateUnit(appName string, mode caas.DeploymentMode, podName string, unit names.UnitTag) error
+	DeleteOperator(appName string) error
+	DeleteService(appName string) error
+	OperatorExists(appName string) (caas.DeploymentState, error)
+	Units(appName string, mode caas.DeploymentMode) ([]caas.Unit, error)
 }
 
 // Config defines the operation of a Worker.
