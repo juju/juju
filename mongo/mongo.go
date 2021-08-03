@@ -227,7 +227,7 @@ func EnsureServer(args EnsureServerParams) error {
 	return ensureServer(args, mongoKernelTweaks)
 }
 
-func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) error {
+func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) (err error) {
 	tweakSysctlForMongo(mongoKernelTweaks)
 
 	hostSeries, err := series.HostSeries()
@@ -263,7 +263,24 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 	}
 
 	// TODO(wallyworld) - set up Numactl if requested in args.SetNUMAControlPolicy
-	svc, err := installMongod(mongoDep, hostSeries, args.DataDir, args.ConfigDir)
+	svc, err := mongoSnapService(args.DataDir, args.ConfigDir)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Ensure the snap service is refreshed since operations
+	// like upgrading the snap require a manual restart before
+	// connectivity can be re-established.
+	defer func(svc *snap.Service) {
+		if svc == nil || err != nil {
+			return
+		}
+		if err = svc.Restart(); err != nil {
+			logger.Criticalf("unable to (re)start mongod snap service: %v", err)
+		}
+	}(svc)
+
+	err = installMongod(mongoDep, hostSeries, svc)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -296,17 +313,7 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 	}
 
 	// Update the systemd service configuration.
-	if err := svc.ConfigOverride(); err != nil {
-		return errors.Trace(err)
-	}
-
-	err = svc.Restart()
-	if err != nil {
-		logger.Criticalf("unable to (re)start mongod snap service: %v", err)
-		return errors.Trace(err)
-	}
-
-	return nil
+	return svc.ConfigOverride()
 }
 
 func setupDataDirectory(args EnsureServerParams) error {
@@ -375,10 +382,7 @@ func logVersion(mongoPath string) {
 	logger.Debugf("using mongod: %s --version: %q", mongoPath, output)
 }
 
-// Override for testing.
-var installMongo = packaging.InstallDependency
-
-func installMongod(mongoDep packaging.Dependency, hostSeries, dataDir, configDir string) (*snap.Service, error) {
+func mongoSnapService(dataDir, configDir string) (*snap.Service, error) {
 	snapName := JujuDbSnap
 	jujuDbLocalSnapPattern := regexp.MustCompile(`juju-db_[0-9]+\.snap`)
 
@@ -406,24 +410,23 @@ func installMongod(mongoDep packaging.Dependency, hostSeries, dataDir, configDir
 		Limit: mongoULimits,
 	}
 	snapChannel := fmt.Sprintf("%s/%s", SnapTrack, SnapRisk)
-	snapSvc, err := snap.NewService(
+	svc, err := snap.NewService(
 		snapName, ServiceName, conf, snap.Command, configDir, snapChannel, "", backgroundServices, []snap.Installable{})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	return &svc, errors.Trace(err)
+}
 
+// Override for testing.
+var installMongo = packaging.InstallDependency
+
+func installMongod(mongoDep packaging.Dependency, hostSeries string, snapSvc *snap.Service) error {
 	// Do either a local snap install or a real install from the store.
-	if snapName == ServiceName {
+	if snapSvc.Name() == ServiceName {
 		// Package.
-		err = installMongo(mongoDep, hostSeries)
+		return installMongo(mongoDep, hostSeries)
 	} else {
 		// Local snap.
-		err = snapSvc.Install()
+		return snapSvc.Install()
 	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &snapSvc, nil
 }
 
 // dbDir returns the dir where mongo storage is.

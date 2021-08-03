@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v2"
@@ -30,6 +31,7 @@ type applicationWorker struct {
 	applicationGetter        ApplicationGetter
 	applicationUpdater       ApplicationUpdater
 	unitUpdater              UnitUpdater
+	charmGetter              CharmGetter
 
 	logger Logger
 }
@@ -44,6 +46,7 @@ func newApplicationWorker(
 	applicationGetter ApplicationGetter,
 	applicationUpdater ApplicationUpdater,
 	unitUpdater UnitUpdater,
+	charmGetter CharmGetter,
 	logger Logger,
 ) (*applicationWorker, error) {
 	w := &applicationWorker{
@@ -56,6 +59,7 @@ func newApplicationWorker(
 		applicationGetter:        applicationGetter,
 		applicationUpdater:       applicationUpdater,
 		unitUpdater:              unitUpdater,
+		charmGetter:              charmGetter,
 		logger:                   logger,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -104,6 +108,12 @@ func (aw *applicationWorker) loop() error {
 		appDeploymentWatcher watcher.NotifyWatcher
 		appDeploymentChannel watcher.NotifyChannel
 	)
+
+	appChangesWatcher, err := aw.applicationGetter.WatchApplication(aw.application)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// The caas watcher can just die from underneath hence it needs to be
 	// restarted all the time. So we don't abuse the catacomb by adding new
 	// workers unbounded, use a defer to stop the running worker.
@@ -117,6 +127,7 @@ func (aw *applicationWorker) loop() error {
 		if appDeploymentWatcher != nil {
 			_ = worker.Stop(appDeploymentWatcher)
 		}
+		_ = worker.Stop(appChangesWatcher)
 	}()
 
 	// Cache the last reported status information
@@ -255,6 +266,22 @@ func (aw *applicationWorker) loop() error {
 					return errors.Trace(err)
 				}
 			}
+		case _, ok := <-appChangesWatcher.Changes():
+			if !ok {
+				return errors.New("application watcher closed")
+			}
+			// If charm is (now) a v2 charm, exit the worker.
+			format, err := aw.charmFormat()
+			if errors.IsNotFound(err) {
+				aw.logger.Debugf("application %q no longer exists", aw.application)
+				return nil
+			} else if err != nil {
+				return errors.Trace(err)
+			}
+			if format >= charm.FormatV2 {
+				aw.logger.Debugf("application %q v1 worker got v2 charm event, stopping", aw.application)
+				return nil
+			}
 		}
 	}
 }
@@ -364,4 +391,12 @@ func (aw *applicationWorker) clusterChanged(
 		}
 	}
 	return nil
+}
+
+func (aw *applicationWorker) charmFormat() (charm.Format, error) {
+	charmInfo, err := aw.charmGetter.ApplicationCharmInfo(aw.application)
+	if err != nil {
+		return charm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", aw.application)
+	}
+	return charm.MetaFormat(charmInfo.Charm()), nil
 }

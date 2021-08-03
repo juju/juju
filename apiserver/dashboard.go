@@ -5,7 +5,6 @@ package apiserver
 
 import (
 	"archive/tar"
-	"bytes"
 	"compress/bzip2"
 	"encoding/json"
 	"io"
@@ -432,11 +431,15 @@ func (h *dashboardArchiveHandler) handlePost(w http.ResponseWriter, req *http.Re
 	defer storage.Close()
 
 	// Read and validate the archive data.
-	data, hash, err := readAndHash(req.Body)
+	data, hash, size, err := tmpCacheAndHash(req.Body)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	size := int64(len(data))
+	defer data.Close()
+
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if size != req.ContentLength {
 		return errors.BadRequestf("archive does not match provided content length")
 	}
@@ -450,7 +453,7 @@ func (h *dashboardArchiveHandler) handlePost(w http.ResponseWriter, req *http.Re
 		Size:    size,
 		SHA256:  hash,
 	}
-	if err := storage.Add(bytes.NewReader(data), metadata); err != nil {
+	if err := storage.Add(data, metadata); err != nil {
 		return errors.Annotate(err, "cannot add Dashboard archive to storage")
 	}
 

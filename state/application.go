@@ -1447,6 +1447,9 @@ type SetCharmConfig struct {
 	// the charm's supported series.
 	ForceSeries bool
 
+	// Series, if set, updates the application's series.
+	Series string
+
 	// Force forces the overriding of the lxd profile validation even if the
 	// profile doesn't validate.
 	Force bool
@@ -1491,60 +1494,12 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			return errors.New("cannot change a charm's deployment mode")
 		}
 	}
-	// For old style charms written for only one series, we still retain
-	// this check. Newer charms written for multi-series have a URL
-	// with series = "".
-	if cfg.Charm.URL().Series != "" {
-		// Allow series change when switching to charmhub charms.
-		if cfg.Charm.URL().Schema != "ch" && cfg.Charm.URL().Series != a.doc.Series {
-			return errors.Errorf("cannot change an application's series")
-		}
-	} else if !cfg.ForceSeries {
-		supported := false
-		charmSeries, err := corecharm.ComputedSeries(cfg.Charm)
+
+	// If it's a v1 or v2 machine charm (no containers), check series.
+	if charm.MetaFormat(cfg.Charm) == charm.FormatV1 || !corecharm.IsKubernetes(cfg.Charm) {
+		err := checkSeriesForSetCharm(a.doc.Series, cfg.Charm, cfg.ForceSeries)
 		if err != nil {
 			return errors.Trace(err)
-		}
-		for _, oneSeries := range charmSeries {
-			if oneSeries == a.doc.Series {
-				supported = true
-				break
-			}
-		}
-		if !supported {
-			supportedSeries := "no series"
-			if len(charmSeries) > 0 {
-				supportedSeries = strings.Join(charmSeries, ", ")
-			}
-			return errors.Errorf("only these series are supported: %v", supportedSeries)
-		}
-	} else {
-		// Even with forceSeries=true, we do not allow a charm to be used which is for
-		// a different OS. This assumes the charm declares it has supported series which
-		// we can check for OS compatibility. Otherwise, we just accept the series supplied.
-		currentOS, err := series.GetOSFromSeries(a.doc.Series)
-		if err != nil {
-			// We don't expect an error here but there's not much we can
-			// do to recover.
-			return err
-		}
-		supportedOS := false
-		supportedSeries, err := corecharm.ComputedSeries(cfg.Charm)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		for _, chSeries := range supportedSeries {
-			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
-			if err != nil {
-				return nil
-			}
-			if currentOS == charmSeriesOS {
-				supportedOS = true
-				break
-			}
-		}
-		if !supportedOS && len(supportedSeries) > 0 {
-			return errors.Errorf("OS %q not supported by charm", currentOS)
 		}
 	}
 
@@ -1639,6 +1594,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			ops = append(ops, chng...)
 			newCharmModifiedVersion++
 		}
+
 		if cfg.CharmOrigin != nil {
 			// Update in the application facade also calls
 			// SetCharm, though it has no current user in the
@@ -1650,6 +1606,16 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				Assert: txn.DocExists,
 				Update: bson.D{{"$set", bson.D{
 					{"charm-origin", cfg.CharmOrigin},
+				}}},
+			})
+		}
+
+		if cfg.Series != "" {
+			ops = append(ops, txn.Op{
+				C:  applicationsC,
+				Id: a.doc.DocID,
+				Update: bson.D{{"$set", bson.D{
+					{"series", cfg.Series},
 				}}},
 			})
 		}
@@ -1684,6 +1650,69 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	a.doc.Channel = channel
 	a.doc.ForceCharm = cfg.ForceUnits
 	a.doc.CharmModifiedVersion = newCharmModifiedVersion
+	if cfg.Series != "" {
+		a.doc.Series = cfg.Series
+	}
+	return nil
+}
+
+func checkSeriesForSetCharm(curSeries string, charm *Charm, forceSeries bool) error {
+	// For old style charms written for only one series, we still retain
+	// this check. Newer charms written for multi-series have a URL
+	// with series = "".
+	if charm.URL().Series != "" {
+		// Allow series change when switching to charmhub charms.
+		if charm.URL().Schema != "ch" && charm.URL().Series != curSeries {
+			return errors.Errorf("cannot change an application's series")
+		}
+	} else if !forceSeries {
+		supported := false
+		charmSeries, err := corecharm.ComputedSeries(charm)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, oneSeries := range charmSeries {
+			if oneSeries == curSeries {
+				supported = true
+				break
+			}
+		}
+		if !supported {
+			supportedSeries := "no series"
+			if len(charmSeries) > 0 {
+				supportedSeries = strings.Join(charmSeries, ", ")
+			}
+			return errors.Errorf("only these series are supported: %v", supportedSeries)
+		}
+	} else {
+		// Even with forceSeries=true, we do not allow a charm to be used which is for
+		// a different OS. This assumes the charm declares it has supported series which
+		// we can check for OS compatibility. Otherwise, we just accept the series supplied.
+		currentOS, err := series.GetOSFromSeries(curSeries)
+		if err != nil {
+			// We don't expect an error here but there's not much we can
+			// do to recover.
+			return err
+		}
+		supportedOS := false
+		supportedSeries, err := corecharm.ComputedSeries(charm)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, chSeries := range supportedSeries {
+			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
+			if err != nil {
+				return nil
+			}
+			if currentOS == charmSeriesOS {
+				supportedOS = true
+				break
+			}
+		}
+		if !supportedOS && len(supportedSeries) > 0 {
+			return errors.Errorf("OS %q not supported by charm", currentOS)
+		}
+	}
 	return nil
 }
 

@@ -51,3 +51,12 @@ func NewApplicationForTest(
 		client, newWatcher, clock, randomPrefix, newApplier,
 	)
 }
+
+func PVCNames(client kubernetes.Interface, namespace, appName string) (map[string]string, error) {
+	a := &app{
+		name:      appName,
+		namespace: namespace,
+		client:    client,
+	}
+	return a.pvcNames()
+}

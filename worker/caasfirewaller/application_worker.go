@@ -6,6 +6,7 @@ package caasfirewaller
 import (
 	"strings"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v2"
@@ -21,8 +22,8 @@ type applicationWorker struct {
 	application       string
 	applicationGetter ApplicationGetter
 	serviceExposer    ServiceExposer
-
-	lifeGetter LifeGetter
+	lifeGetter        LifeGetter
+	charmGetter       CharmGetter
 
 	initial           bool
 	previouslyExposed bool
@@ -37,6 +38,7 @@ func newApplicationWorker(
 	applicationGetter ApplicationGetter,
 	applicationExposer ServiceExposer,
 	lifeGetter LifeGetter,
+	charmGetter CharmGetter,
 	logger Logger,
 ) (worker.Worker, error) {
 	w := &applicationWorker{
@@ -46,6 +48,7 @@ func newApplicationWorker(
 		applicationGetter: applicationGetter,
 		serviceExposer:    applicationExposer,
 		lifeGetter:        lifeGetter,
+		charmGetter:       charmGetter,
 		initial:           true,
 		logger:            logger,
 	}
@@ -92,6 +95,20 @@ func (w *applicationWorker) loop() (err error) {
 			if !ok {
 				return errors.New("application watcher closed")
 			}
+
+			// If charm is (now) a v2 charm, exit the worker.
+			format, err := w.charmFormat()
+			if errors.IsNotFound(err) {
+				w.logger.Debugf("application %q no longer exists", w.application)
+				return nil
+			} else if err != nil {
+				return errors.Trace(err)
+			}
+			if format >= charm.FormatV2 {
+				w.logger.Debugf("application %q v1 worker got v2 charm event, stopping", w.application)
+				return nil
+			}
+
 			if err := w.processApplicationChange(); err != nil {
 				if strings.Contains(err.Error(), "unexpected EOF") {
 					return nil
@@ -100,6 +117,14 @@ func (w *applicationWorker) loop() (err error) {
 			}
 		}
 	}
+}
+
+func (w *applicationWorker) charmFormat() (charm.Format, error) {
+	charmInfo, err := w.charmGetter.ApplicationCharmInfo(w.application)
+	if err != nil {
+		return charm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", w.application)
+	}
+	return charm.MetaFormat(charmInfo.Charm()), nil
 }
 
 func (w *applicationWorker) processApplicationChange() (err error) {

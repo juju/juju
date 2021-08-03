@@ -8,6 +8,8 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
+	charmscommon "github.com/juju/juju/api/common/charms"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -23,13 +25,19 @@ import (
 // Client allows access to the CAAS unit provisioner API endpoint.
 type Client struct {
 	facade base.FacadeCaller
+	*charmscommon.CharmInfoClient
+	*charmscommon.ApplicationCharmInfoClient
 }
 
 // NewClient returns a client used to access the CAAS unit provisioner API.
 func NewClient(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, "CAASUnitProvisioner")
+	charmInfoClient := charmscommon.NewCharmInfoClient(facadeCaller)
+	appCharmInfoClient := charmscommon.NewApplicationCharmInfoClient(facadeCaller)
 	return &Client{
-		facade: facadeCaller,
+		facade:                     facadeCaller,
+		CharmInfoClient:            charmInfoClient,
+		ApplicationCharmInfoClient: appCharmInfoClient,
 	}
 }
 
@@ -62,6 +70,16 @@ func (c *Client) WatchApplications() (watcher.StringsWatcher, error) {
 	}
 	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
+}
+
+// WatchApplication returns a NotifyWatcher that notifies of
+// changes to the application in the current model.
+func (c *Client) WatchApplication(appName string) (watcher.NotifyWatcher, error) {
+	appTag, err := applicationTag(appName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return common.Watch(c.facade, "Watch", appTag)
 }
 
 // ApplicationConfig returns the config for the specified application.

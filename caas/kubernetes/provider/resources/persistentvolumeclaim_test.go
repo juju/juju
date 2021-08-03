@@ -5,6 +5,7 @@ package resources_test
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -92,4 +93,37 @@ func (s *persistentVolumeClaimSuite) TestDelete(c *gc.C) {
 
 	_, err = s.client.CoreV1().PersistentVolumeClaims("test").Get(context.TODO(), "ds1", metav1.GetOptions{})
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
+}
+
+func (s *persistentVolumeClaimSuite) TestList(c *gc.C) {
+	// Unfortunately with the K8s fake/testing API there doesn't seem to be a
+	// way to call List multiple times with "Continue" set.
+
+	// Create fake persistent volume claims, some of which have a label
+	for i := 0; i < 7; i++ {
+		pvc := corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("pvc%d", i),
+				Namespace: "test",
+			},
+		}
+		if i%3 == 0 {
+			pvc.ObjectMeta.Labels = map[string]string{"modulo": "three"}
+		}
+		_, err := s.client.CoreV1().PersistentVolumeClaims("test").Create(context.Background(), &pvc, metav1.CreateOptions{})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// List PVCs filtered by the label
+	listed, err := resources.ListPersistentVolumeClaims(context.Background(), s.client, "test", metav1.ListOptions{
+		LabelSelector: "modulo == three",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that we fetch the right ones
+	c.Assert(len(listed), gc.Equals, 3)
+	for i, pvc := range listed {
+		c.Assert(pvc.Name, gc.Equals, fmt.Sprintf("pvc%d", i*3))
+		c.Assert(pvc.Labels, gc.DeepEquals, map[string]string{"modulo": "three"})
+	}
 }

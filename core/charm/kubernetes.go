@@ -10,6 +10,9 @@ import (
 	"github.com/juju/juju/core/series"
 )
 
+// IsKubernetes reports whether the given charm should be deployed to
+// Kubernetes, that is, a v1 charm with series "kubernetes", or a v2 charm
+// with containers specified.
 func IsKubernetes(cm charm.CharmMeta) bool {
 	switch charm.MetaFormat(cm) {
 	case charm.FormatV2:

@@ -35,6 +35,26 @@ func NewPersistentVolumeClaim(name string, namespace string, in *corev1.Persiste
 	return &PersistentVolumeClaim{*in}
 }
 
+// ListPersistentVolumeClaims returns a list of persistent volume claims.
+func ListPersistentVolumeClaims(ctx context.Context, client kubernetes.Interface, namespace string, opts metav1.ListOptions) ([]PersistentVolumeClaim, error) {
+	api := client.CoreV1().PersistentVolumeClaims(namespace)
+	var items []PersistentVolumeClaim
+	for {
+		res, err := api.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, item := range res.Items {
+			items = append(items, PersistentVolumeClaim{PersistentVolumeClaim: item})
+		}
+		if res.RemainingItemCount == nil || *res.RemainingItemCount == 0 {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
+}
+
 // Clone returns a copy of the resource.
 func (pvc *PersistentVolumeClaim) Clone() Resource {
 	clone := *pvc

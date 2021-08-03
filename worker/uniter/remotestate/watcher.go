@@ -97,6 +97,7 @@ type WatcherConfig struct {
 	Logger                        Logger
 	CanApplyCharmProfile          bool
 	WorkloadEventChannel          <-chan string
+	InitialWorkloadEventIDs       []string
 	ShutdownChannel               <-chan bool
 }
 
@@ -153,6 +154,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 			ActionsBlocked:      config.ContainerRunningStatusChannel != nil,
 			ActionChanged:       make(map[string]int),
 			UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
+			WorkloadEvents:      config.InitialWorkloadEventIDs,
 		},
 		sidecar:                      config.Sidecar,
 		enforcedCharmModifiedVersion: config.EnforcedCharmModifiedVersion,
@@ -768,8 +770,14 @@ func (w *RemoteStateWatcher) commandsChanged(id string) {
 // workloadEventsChanged is called when a container event is enqueued.
 func (w *RemoteStateWatcher) workloadEventsChanged(id string) {
 	w.mu.Lock()
+	defer w.mu.Unlock()
+	// Ensure we don't add the same ID twice.
+	for _, otherId := range w.current.WorkloadEvents {
+		if otherId == id {
+			return
+		}
+	}
 	w.current.WorkloadEvents = append(w.current.WorkloadEvents, id)
-	w.mu.Unlock()
 }
 
 // retryHookTimerTriggered is called when the retry hook timer expires.

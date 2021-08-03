@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/version"
@@ -31,8 +33,19 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.caasoperatorprovisioner")
 
 type APIGroup struct {
-	*common.ApplicationWatcherFacade
+	charmInfoAPI    *charmscommon.CharmInfoAPI
+	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
 	*API
+}
+
+// CharmInfo returns information about the requested charm.
+func (a *APIGroup) CharmInfo(args params.CharmURL) (params.Charm, error) {
+	return a.charmInfoAPI.CharmInfo(args)
+}
+
+// ApplicationCharmInfo returns information about an application's charm.
+func (a *APIGroup) ApplicationCharmInfo(args params.Entity) (params.Charm, error) {
+	return a.appCharmInfoAPI.ApplicationCharmInfo(args)
 }
 
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
@@ -58,7 +71,8 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 
-	model, err := ctx.State().Model()
+	st := ctx.State()
+	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -69,6 +83,16 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
 
+	commonState := &charmscommon.StateShim{st}
+	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	api, err := NewCAASOperatorProvisionerAPI(resources, authorizer,
 		stateShim{ctx.StatePool().SystemState()},
 		stateShim{ctx.State()},
@@ -78,8 +102,9 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 	}
 
 	return &APIGroup{
-		ApplicationWatcherFacade: common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASLegacy),
-		API:                      api,
+		charmInfoAPI:    commonCharmsAPI,
+		appCharmInfoAPI: appCharmInfoAPI,
+		API:             api,
 	}, nil
 }
 
@@ -106,6 +131,20 @@ func NewCAASOperatorProvisionerAPI(
 		storagePoolManager: storagePoolManager,
 		registry:           registry,
 	}, nil
+}
+
+// WatchApplications starts a StringsWatcher to watch applications
+// deployed to this model.
+func (a *API) WatchApplications() (params.StringsWatchResult, error) {
+	watch := a.state.WatchApplications()
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		return params.StringsWatchResult{
+			StringsWatcherId: a.resources.Register(watch),
+			Changes:          changes,
+		}, nil
+	}
+	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
 }
 
 // OperatorProvisioningInfo returns the info needed to provision an operator.

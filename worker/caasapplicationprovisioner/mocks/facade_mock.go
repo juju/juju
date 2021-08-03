@@ -8,7 +8,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v9"
 	caasapplicationprovisioner "github.com/juju/juju/api/caasapplicationprovisioner"
 	charms "github.com/juju/juju/api/common/charms"
 	params "github.com/juju/juju/apiserver/params"
@@ -42,19 +41,19 @@ func (m *MockCAASProvisionerFacade) EXPECT() *MockCAASProvisionerFacadeMockRecor
 	return m.recorder
 }
 
-// ApplicationCharmURL mocks base method.
-func (m *MockCAASProvisionerFacade) ApplicationCharmURL(arg0 string) (*charm.URL, error) {
+// ApplicationCharmInfo mocks base method.
+func (m *MockCAASProvisionerFacade) ApplicationCharmInfo(arg0 string) (*charms.CharmInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationCharmURL", arg0)
-	ret0, _ := ret[0].(*charm.URL)
+	ret := m.ctrl.Call(m, "ApplicationCharmInfo", arg0)
+	ret0, _ := ret[0].(*charms.CharmInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ApplicationCharmURL indicates an expected call of ApplicationCharmURL.
-func (mr *MockCAASProvisionerFacadeMockRecorder) ApplicationCharmURL(arg0 interface{}) *gomock.Call {
+// ApplicationCharmInfo indicates an expected call of ApplicationCharmInfo.
+func (mr *MockCAASProvisionerFacadeMockRecorder) ApplicationCharmInfo(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationCharmURL", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).ApplicationCharmURL), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationCharmInfo", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).ApplicationCharmInfo), arg0)
 }
 
 // ApplicationOCIResources mocks base method.

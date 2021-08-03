@@ -1026,6 +1026,10 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, er
 		a.mongoTxnCollector.AfterRunTransaction,
 	)
 	if err != nil {
+		// On error, force a mongo refresh.
+		a.mongoInitMutex.Lock()
+		a.mongoInitialized = false
+		a.mongoInitMutex.Unlock()
 		return nil, err
 	}
 	logger.Infof("juju database opened")

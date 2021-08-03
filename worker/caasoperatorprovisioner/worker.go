@@ -1,6 +1,14 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// This worker is responsible for watching the life cycle of CAAS pod-spec
+// applications and creating their operator pods (or removing them). Unlike
+// the caasapplicationprovisioner worker, this worker does not create a new
+// child worker for every application being monitored.
+//
+// Note that the separate caasapplicationprovisioner worker handles CAAS
+// sidecar applications.
+
 package caasoperatorprovisioner
 
 import (
@@ -9,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -19,6 +28,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
+	charmscommon "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -40,6 +50,7 @@ type CAASProvisionerFacade interface {
 	SetPasswords([]apicaasprovisioner.ApplicationPassword) (params.ErrorResults, error)
 	Life(string) (life.Value, error)
 	IssueOperatorCertificate(string) (apicaasprovisioner.OperatorCertificate, error)
+	ApplicationCharmInfo(appName string) (*charmscommon.CharmInfo, error)
 }
 
 // Config defines the operation of a Worker.
@@ -116,6 +127,20 @@ func (p *provisioner) loop() error {
 			}
 			var newApps []string
 			for _, app := range apps {
+				// Ignore events for v2 charms.
+				format, err := p.charmFormat(app)
+				if errors.IsNotFound(err) {
+					p.logger.Debugf("application %q no longer exists", app)
+					continue
+				} else if err != nil {
+					return errors.Trace(err)
+				}
+				if format > charm.FormatV1 {
+					p.logger.Tracef("application %q is v2, ignoring event", app)
+					continue
+				}
+
+				// Process events for v1 charms.
 				appLife, err := p.provisionerFacade.Life(app)
 				if err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)
@@ -140,6 +165,14 @@ func (p *provisioner) loop() error {
 			}
 		}
 	}
+}
+
+func (p *provisioner) charmFormat(appName string) (charm.Format, error) {
+	charmInfo, err := p.provisionerFacade.ApplicationCharmInfo(appName)
+	if err != nil {
+		return charm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", appName)
+	}
+	return charm.MetaFormat(charmInfo.Charm()), nil
 }
 
 func (p *provisioner) waitForOperatorTerminated(app string) error {

@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/version"
@@ -50,8 +51,8 @@ type APIGroup struct {
 	*common.PasswordChanger
 	*common.LifeGetter
 	*common.AgentEntityWatcher
-	*charmscommon.CharmsAPI
-	*common.ApplicationWatcherFacade
+	charmInfoAPI    *charmscommon.CharmInfoAPI
+	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
 	*API
 }
 
@@ -92,7 +93,12 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
 
-	commonCharmsAPI, err := charmscommon.NewCharmsAPI(st, authorizer)
+	commonState := &charmscommon.StateShim{st}
+	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -117,15 +123,25 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 	}
 
 	apiGroup := &APIGroup{
-		PasswordChanger:          common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		LifeGetter:               common.NewLifeGetter(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		AgentEntityWatcher:       common.NewAgentEntityWatcher(st, resources, common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		CharmsAPI:                commonCharmsAPI,
-		ApplicationWatcherFacade: common.NewApplicationWatcherFacadeFromState(st, resources, common.ApplicationFilterCAASSidecar),
-		API:                      api,
+		PasswordChanger:    common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
+		LifeGetter:         common.NewLifeGetter(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
+		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, common.AuthFuncForTagKind(names.ApplicationTagKind)),
+		charmInfoAPI:       commonCharmsAPI,
+		appCharmInfoAPI:    appCharmInfoAPI,
+		API:                api,
 	}
 
 	return apiGroup, nil
+}
+
+// CharmInfo returns information about the requested charm.
+func (a *APIGroup) CharmInfo(args params.CharmURL) (params.Charm, error) {
+	return a.charmInfoAPI.CharmInfo(args)
+}
+
+// ApplicationCharmInfo returns information about an application's charm.
+func (a *APIGroup) ApplicationCharmInfo(args params.Entity) (params.Charm, error) {
+	return a.appCharmInfoAPI.ApplicationCharmInfo(args)
 }
 
 // NewCAASApplicationProvisionerAPI returns a new CAAS operator provisioner API facade.
@@ -155,6 +171,20 @@ func NewCAASApplicationProvisionerAPI(
 		registry:           registry,
 		clock:              clock,
 	}, nil
+}
+
+// WatchApplications starts a StringsWatcher to watch applications
+// deployed to this model.
+func (a *API) WatchApplications() (params.StringsWatchResult, error) {
+	watch := a.state.WatchApplications()
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		return params.StringsWatchResult{
+			StringsWatcherId: a.resources.Register(watch),
+			Changes:          changes,
+		}, nil
+	}
+	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
 }
 
 // ProvisioningInfo returns the info needed to provision a caas application.
@@ -378,10 +408,6 @@ func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCol
 		return errors.Trace(err)
 	}
 
-	if args.Force && app.Life() == state.Alive {
-		return errors.NotValidf("cannot force unit remove while alive")
-	}
-
 	// TODO(sidecar): support more than statefulset
 	/*ch, _, err := app.Charm()
 	if err != nil {
@@ -565,32 +591,6 @@ func poolStorageProvider(poolManager poolmanager.PoolManager, registry storage.P
 	}
 	providerType := pool.Provider()
 	return providerType, pool.Attrs(), nil
-}
-
-// ApplicationCharmURLs finds the CharmURL for an application.
-func (a *API) ApplicationCharmURLs(args params.Entities) (params.StringResults, error) {
-	res := params.StringResults{
-		Results: make([]params.StringResult, len(args.Entities)),
-	}
-	for i, entity := range args.Entities {
-		appTag, err := names.ParseApplicationTag(entity.Tag)
-		if err != nil {
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		app, err := a.state.Application(appTag.Id())
-		if err != nil {
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		ch, _, err := app.Charm()
-		if err != nil {
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		res.Results[i].Result = ch.URL().String()
-	}
-	return res, nil
 }
 
 func (a *API) applicationFilesystemParams(

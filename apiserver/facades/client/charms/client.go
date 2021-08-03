@@ -34,7 +34,7 @@ var logger = loggo.GetLogger("juju.apiserver.charms")
 // API implements the charms interface and is the concrete
 // implementation of the API end point.
 type API struct {
-	*charmscommon.CharmsAPI
+	charmInfoAPI *charmscommon.CharmInfoAPI
 	authorizer   facade.Authorizer
 	backendState charmsinterfaces.BackendState
 	backendModel charmsinterfaces.BackendModel
@@ -54,6 +54,11 @@ type APIv2 struct {
 
 type APIv3 struct {
 	*API
+}
+
+// CharmInfo returns information about the requested charm.
+func (a *API) CharmInfo(args params.CharmURL) (params.Charm, error) {
+	return a.charmInfoAPI.CharmInfo(args)
 }
 
 func (a *API) checkCanRead() error {
@@ -119,7 +124,8 @@ func NewFacadeV4(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 
-	commonCharmsAPI, err := charmscommon.NewCharmsAPI(st, authorizer)
+	commonState := &charmscommon.StateShim{st}
+	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -127,7 +133,7 @@ func NewFacadeV4(ctx facade.Context) (*API, error) {
 	httpTransport := charmhub.RequestHTTPTransport(ctx.RequestRecorder(), charmhub.DefaultRetryPolicy())
 
 	return &API{
-		CharmsAPI:    commonCharmsAPI,
+		charmInfoAPI: charmInfoAPI,
 		authorizer:   authorizer,
 		backendState: newStateShim(st),
 		backendModel: m,

@@ -85,6 +85,9 @@ func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 		if ch.Meta().Deployment != nil && ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
 			return nil, errors.New("cannot set k8s spec on an operator charm")
 		}
+		if charm.MetaFormat(ch) >= charm.FormatV2 {
+			return nil, errors.New("cannot set k8s spec on a v2 charm")
+		}
 	}
 	prereqOps = append(prereqOps, txn.Op{
 		C:      applicationsC,
