@@ -5,7 +5,6 @@ package client_test
 
 import (
 	"fmt"
-	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -33,7 +32,6 @@ import (
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/controller"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -879,11 +877,6 @@ func (m *mockRepo) Resolve(ref *charm.URL) (canonRef *charm.URL, supportedSeries
 func (m *mockRepo) DownloadCharm(downloadURL, archivePath string) (*charm.CharmArchive, error) {
 	m.MethodCall(m, "DownloadCharm", downloadURL, archivePath)
 	return nil, nil
-}
-
-func (m *mockRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
-	m.MethodCall(m, "FindDownloadURL", curl, origin)
-	return nil, corecharm.Origin{}, nil
 }
 
 type clientRepoSuite struct {
