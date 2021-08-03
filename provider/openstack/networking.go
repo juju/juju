@@ -331,6 +331,13 @@ func generateUniquePortName(name string) string {
 
 func resolveNeutronNetwork(client *neutron.Client, name string, external bool) (string, error) {
 	if utils.IsValidUUIDString(name) {
+		// NOTE: There is an OpenStack cloud, whitestack, which has the network used
+		// to create servers specified as an External network, contrary to how all
+		// the other OpenStacks that we know of work.  Juju can use this OpenStack
+		// by setting the "network" config by UUID, which we do no verify, nor check
+		// to ensure it's an internal network.
+		// TODO hml 2021-08-03
+		// Verify that the UUID is of a valid network, without type.
 		return name, nil
 	}
 	// Mimic unintentional, now expected behavior. Prior to OpenStack Rocky,
