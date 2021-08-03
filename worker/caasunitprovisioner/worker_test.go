@@ -1018,18 +1018,17 @@ func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
 	s.sendApplicationChanges(c, "gitlab")
 	waitCharmGetterCalls("ApplicationCharmInfo")
 
-	// Trigger ApplicationCharmInfo call in application worker
-	select {
-	case s.appChanges <- struct{}{}:
-	case <-time.After(coretesting.ShortWait):
-		c.Fatal("timed out sending app change")
+	// Wait till Life() is called to synchronize (ensure charmInfo is done).
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.lifeGetter.Calls()) > 0 {
+			break
+		}
 	}
-	waitCharmGetterCalls("ApplicationCharmInfo")
 
 	// Make it a v2 charm (will make the application worker exit)
 	s.charmGetter.charmInfo.Manifest = &charm.Manifest{Bases: []charm.Base{{}}}
 
-	// Trigger another ApplicationCharmInfo call in application worker
+	// Trigger ApplicationCharmInfo call in application worker
 	select {
 	case s.appChanges <- struct{}{}:
 	case <-time.After(coretesting.ShortWait):
