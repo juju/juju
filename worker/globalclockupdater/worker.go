@@ -18,6 +18,7 @@ import (
 type Logger interface {
 	Tracef(string, ...interface{})
 	Infof(string, ...interface{})
+	Errorf(string, ...interface{})
 	Warningf(string, ...interface{})
 }
 

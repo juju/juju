@@ -36,31 +36,29 @@ type RaftApplier interface {
 	State() raft.RaftState
 }
 
-// updater implements globalClock.Updater by applying
-// a clock advance operation to its raft member.
+// updater implements globalClock.Updater by applying a clock advance operation
+// to its raft member.
 type updater struct {
-	raft     RaftApplier
-	clock    raftlease.ReadOnlyClock
-	prevTime time.Time
-	logger   Logger
-	// TODO (manadart 2021-07-29): We need to thread this in via the manifold.
+	raft               RaftApplier
+	clock              raftlease.ReadOnlyClock
+	prevTime           time.Time
+	logger             Logger
 	expiryNotifyTarget raftlease.NotifyTarget
 }
 
-func newUpdater(r *raft.Raft, clock raftlease.ReadOnlyClock, logger Logger) *updater {
+func newUpdater(r *raft.Raft, notifyTarget raftlease.NotifyTarget, clock raftlease.ReadOnlyClock, logger Logger) *updater {
 	return &updater{
-		raft:     r,
-		clock:    clock,
-		prevTime: clock.GlobalTime(),
-		logger:   logger,
+		raft:               r,
+		expiryNotifyTarget: notifyTarget,
+		clock:              clock,
+		prevTime:           clock.GlobalTime(),
+		logger:             logger,
 	}
 }
 
-// Advance applies the clock advance operation
-// to Raft if it is the current leader.
+// Advance applies the clock advance operation to Raft if it is the current
+// leader.
 func (u *updater) Advance(duration time.Duration, stop <-chan struct{}) error {
-	becomeLeaderTimeout := time.After(leaderTimeout)
-
 	for {
 		newTime := u.prevTime.Add(duration)
 		cmd, err := u.createCommand(newTime)
@@ -105,7 +103,7 @@ func (u *updater) Advance(duration time.Duration, stop <-chan struct{}) error {
 		select {
 		case <-stop:
 			return errors.Annotatef(lease.ErrAborted, raftlease.OperationSetTime)
-		case <-becomeLeaderTimeout:
+		case <-time.After(leaderTimeout):
 			return errors.Errorf("timed out waiting for local Raft state to be %q", raft.Leader)
 		default:
 			time.Sleep(time.Second)

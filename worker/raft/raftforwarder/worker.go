@@ -134,11 +134,13 @@ func (w *forwarder) handleRequest(_ string, req raftlease.ForwardRequest, err er
 			w.catacomb.Kill(errors.Annotate(err, "applying command"))
 			return
 		}
+
 		_, err = w.config.Hub.Publish(req.ResponseTopic, response)
 		if err != nil {
 			w.catacomb.Kill(errors.Annotate(err, "publishing response"))
 			return
 		}
+
 		w.metrics.record(start, "full")
 	}()
 }

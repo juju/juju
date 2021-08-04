@@ -5,14 +5,11 @@ package raftforwarder_test
 
 import (
 	"io"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -22,9 +19,7 @@ import (
 	"github.com/juju/worker/v2/workertest"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -39,7 +34,6 @@ type manifoldSuite struct {
 	manifold dependency.Manifold
 	config   raftforwarder.ManifoldConfig
 
-	agent        *mockAgent
 	raft         *raft.Raft
 	stateTracker *stubStateTracker
 	hub          *pubsub.StructuredHub
@@ -47,8 +41,7 @@ type manifoldSuite struct {
 	worker       worker.Worker
 	target       raftlease.NotifyTarget
 
-	logDir string
-	stub   testing.Stub
+	stub testing.Stub
 }
 
 var _ = gc.Suite(&manifoldSuite{})
@@ -58,11 +51,6 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 
 	s.stub.ResetCalls()
 
-	s.logDir = c.MkDir()
-	s.agent = &mockAgent{conf: mockAgentConfig{
-		logDir: s.logDir,
-		uuid:   "controller-uuid",
-	}}
 	s.stateTracker = &stubStateTracker{
 		done: make(chan struct{}),
 	}
@@ -76,12 +64,12 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 
 	s.context = s.newContext(nil)
 	s.config = raftforwarder.ManifoldConfig{
-		AgentName:            "agent",
 		RaftName:             "raft",
 		StateName:            "state",
 		CentralHubName:       "hub",
 		RequestTopic:         "test.request",
 		Logger:               &s.logger,
+		LeaseLog:             &noopLeaseLog{},
 		PrometheusRegisterer: &noopRegisterer{},
 		NewWorker:            s.newWorker,
 		NewTarget:            s.newTarget,
@@ -91,7 +79,6 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *manifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"agent": s.agent,
 		"raft":  s.raft,
 		"state": s.stateTracker,
 		"hub":   s.hub,
@@ -122,8 +109,8 @@ func (s *manifoldSuite) TestValidate(c *gc.C) {
 		expect string
 	}
 	tests := []test{{
-		func(cfg *raftforwarder.ManifoldConfig) { cfg.AgentName = "" },
-		"empty AgentName not valid",
+		func(cfg *raftforwarder.ManifoldConfig) { cfg.LeaseLog = nil },
+		"nil LeaseLog not valid",
 	}, {
 		func(cfg *raftforwarder.ManifoldConfig) { cfg.StateName = "" },
 		"empty StateName not valid",
@@ -156,7 +143,7 @@ func (s *manifoldSuite) TestValidate(c *gc.C) {
 }
 
 var expectedInputs = []string{
-	"agent", "raft", "state", "hub",
+	"raft", "state", "hub",
 }
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
@@ -185,14 +172,8 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	args := s.stub.Calls()[0].Args
 	c.Assert(args, gc.HasLen, 3)
 	c.Assert(args[0], gc.Equals, s.stateTracker.pool.SystemState())
-	c.Assert(args[1], gc.FitsTypeOf, &lumberjack.Logger{})
-
-	expectedPath := filepath.Join(s.logDir, "lease.log")
-	c.Assert(args[1].(*lumberjack.Logger).Filename, gc.Equals, expectedPath)
-	stat, err := os.Stat(expectedPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stat.Mode(), gc.Equals, os.FileMode(0640))
-	c.Assert(args[2], gc.Equals, &s.logger)
+	var logWriter io.Writer
+	c.Assert(args[1], gc.Implements, &logWriter)
 
 	args = s.stub.Calls()[1].Args
 	c.Assert(args, gc.HasLen, 1)
@@ -226,29 +207,6 @@ func (s *manifoldSuite) TestStoppingWorkerReleasesState(c *gc.C) {
 
 	s.stateTracker.waitDone(c)
 	s.stateTracker.CheckCallNames(c, "Use", "Done")
-}
-
-type mockAgent struct {
-	agent.Agent
-	conf mockAgentConfig
-}
-
-func (ma *mockAgent) CurrentConfig() agent.Config {
-	return &ma.conf
-}
-
-type mockAgentConfig struct {
-	agent.Config
-	logDir string
-	uuid   string
-}
-
-func (c *mockAgentConfig) LogDir() string {
-	return c.logDir
-}
-
-func (c *mockAgentConfig) Controller() names.ControllerTag {
-	return names.NewControllerTag(c.uuid)
 }
 
 type stubStateTracker struct {
@@ -298,4 +256,12 @@ func (noopRegisterer) Register(prometheus.Collector) error {
 
 func (noopRegisterer) Unregister(prometheus.Collector) bool {
 	return true
+}
+
+type noopLeaseLog struct {
+	io.Writer
+}
+
+func (noopLeaseLog) Write(p []byte) (n int, err error) {
+	return len(p), nil
 }
