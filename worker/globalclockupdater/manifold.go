@@ -103,7 +103,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	notifyTarget := config.NewTarget(st, config.LeaseLog, config.Logger)
 	w, err := config.NewWorker(Config{
 		NewUpdater: func() globalclock.Updater {
-			return newUpdater(r, notifyTarget, config.FSM, config.Logger)
+			return newUpdater(r, notifyTarget, config.FSM, timeSleeper{}, config.Logger)
 		},
 		LocalClock:     config.Clock,
 		UpdateInterval: config.UpdateInterval,
@@ -119,4 +119,10 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 // NewTarget is a shim to construct a raftlease.NotifyTarget for testability.
 func NewTarget(st *state.State, logFile io.Writer, errorLog Logger) raftlease.NotifyTarget {
 	return st.LeaseNotifyTarget(logFile, errorLog)
+}
+
+type timeSleeper struct{}
+
+func (timeSleeper) Sleep(d time.Duration) {
+	time.Sleep(d)
 }

@@ -36,6 +36,12 @@ type RaftApplier interface {
 	State() raft.RaftState
 }
 
+// Sleeper represents an interface for sleeping for a given duration.
+// This is required to improve testing.
+type Sleeper interface {
+	Sleep(time.Duration)
+}
+
 // updater implements globalClock.Updater by applying a clock advance operation
 // to its raft member.
 type updater struct {
@@ -43,15 +49,17 @@ type updater struct {
 	clock              raftlease.ReadOnlyClock
 	prevTime           time.Time
 	logger             Logger
+	sleeper            Sleeper
 	expiryNotifyTarget raftlease.NotifyTarget
 }
 
-func newUpdater(r *raft.Raft, notifyTarget raftlease.NotifyTarget, clock raftlease.ReadOnlyClock, logger Logger) *updater {
+func newUpdater(r RaftApplier, notifyTarget raftlease.NotifyTarget, clock raftlease.ReadOnlyClock, sleeper Sleeper, logger Logger) *updater {
 	return &updater{
 		raft:               r,
 		expiryNotifyTarget: notifyTarget,
 		clock:              clock,
 		prevTime:           clock.GlobalTime(),
+		sleeper:            sleeper,
 		logger:             logger,
 	}
 }
@@ -106,7 +114,7 @@ func (u *updater) Advance(duration time.Duration, stop <-chan struct{}) error {
 		case <-time.After(leaderTimeout):
 			return errors.Errorf("timed out waiting for local Raft state to be %q", raft.Leader)
 		default:
-			time.Sleep(time.Second)
+			u.sleeper.Sleep(time.Second)
 		}
 	}
 
