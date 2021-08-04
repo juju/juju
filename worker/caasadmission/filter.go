@@ -21,6 +21,36 @@ var admissionObjectIgnores = []apis.GroupVersionKind{
 		Kind:    "SelfSubjectRulesReview",
 		Version: "v1",
 	},
+	{
+		Group:   "authorization.k8s.io",
+		Kind:    "SelfSubjectAccessReview",
+		Version: "v1beta1",
+	},
+	{
+		Group:   "authorization.k8s.io",
+		Kind:    "SelfSubjectRulesReview",
+		Version: "v1beta1",
+	},
+	{
+		Group:   "authorization.k8s.io",
+		Kind:    "SubjectAccessReview",
+		Version: "v1",
+	},
+	{
+		Group:   "authorization.k8s.io",
+		Kind:    "SubjectAccessReview",
+		Version: "v1beta1",
+	},
+	{
+		Group:   "authorization.k8s.io",
+		Kind:    "LocalSubjectAccessReview",
+		Version: "v1",
+	},
+	{
+		Group:   "authorization.k8s.io",
+		Kind:    "LocalSubjectAccessReview",
+		Version: "v1beta1",
+	},
 }
 
 // compareAPIGroupVersionKind compares two api GroupVersionKind objects for
