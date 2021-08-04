@@ -39,7 +39,6 @@ func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 		nil, // resources
 		authorizer,
 		nil,                                // presence
-		nil,                                // statusSetter
 		nil,                                // toolsFinder
 		nil,                                // newEnviron
 		nil,                                // blockChecker

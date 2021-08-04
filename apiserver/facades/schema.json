@@ -16265,7 +16265,7 @@
                             "$ref": "#/definitions/ResolveCharmResults"
                         }
                     },
-                    "description": "ResolveCharm resolves the best available charm URLs with series, for charm\nlocations without a series specified.\n\nNOTE: ResolveCharms is deprecated as of juju 2.9 and charms facade version 3.\nPlease discontinue use and move to the charms facade version.\n\nTODO: remove in juju 3.0"
+                    "description": "ResolveCharms resolves the best available charm URLs with series, for charm\nlocations without a series specified.\n\nNOTE: ResolveCharms is deprecated as of juju 2.9 and charms facade version 3.\nPlease discontinue use and move to the charms facade version.\n\nTODO: remove in juju 3.0"
                 },
                 "Resolved": {
                     "type": "object",
@@ -22014,18 +22014,6 @@
                         }
                     },
                     "description": "SetStatus sets the status of the specified entities."
-                },
-                "UpdateStatus": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetStatus"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "UpdateStatus updates the status data of each given entity.\nTODO(fwereade): WTF. This method exists *only* for the convenience of the\n*client* API -- and is itself completely broken -- but we still expose it\nin every facade with a StatusSetter? FFS."
                 },
                 "WatchAPIHostPorts": {
                     "type": "object",
@@ -28938,18 +28926,6 @@
                     },
                     "description": "SetStatus sets the status of each given entity."
                 },
-                "UpdateStatus": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetStatus"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "UpdateStatus updates the status data of each given entity.\nTODO(fwereade): WTF. This method exists *only* for the convenience of the\n*client* API -- and is itself completely broken -- but we still expose it\nin every facade with a StatusSetter? FFS."
-                },
                 "Watch": {
                     "type": "object",
                     "properties": {
@@ -34883,18 +34859,6 @@
                         }
                     },
                     "description": "Tools finds the tools necessary for the given agents."
-                },
-                "UpdateStatus": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetStatus"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "UpdateStatus updates the status data of each given entity.\nTODO(fwereade): WTF. This method exists *only* for the convenience of the\n*client* API -- and is itself completely broken -- but we still expose it\nin every facade with a StatusSetter? FFS."
                 },
                 "WatchAPIHostPorts": {
                     "type": "object",
@@ -41889,18 +41853,6 @@
                     },
                     "description": "SetVolumeInfo records the details of newly provisioned volumes."
                 },
-                "UpdateStatus": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetStatus"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "UpdateStatus updates the status data of each given entity.\nTODO(fwereade): WTF. This method exists *only* for the convenience of the\n*client* API -- and is itself completely broken -- but we still expose it\nin every facade with a StatusSetter? FFS."
-                },
                 "VolumeAttachmentParams": {
                     "type": "object",
                     "properties": {
@@ -43709,18 +43661,6 @@
                         }
                     },
                     "description": "SetStatus sets the status of each given entity."
-                },
-                "UpdateStatus": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetStatus"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "UpdateStatus updates the status data of each given entity.\nTODO(fwereade): WTF. This method exists *only* for the convenience of the\n*client* API -- and is itself completely broken -- but we still expose it\nin every facade with a StatusSetter? FFS."
                 },
                 "WatchModelResources": {
                     "type": "object",
