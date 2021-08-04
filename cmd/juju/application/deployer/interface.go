@@ -147,7 +147,7 @@ type Bundle interface {
 	ContainsOverlays() bool
 }
 
-// Resolver defines what we need  to resolve a charm or bundle and
+// Resolver defines what we need to resolve a charm or bundle and
 // read the bundle data.
 type Resolver interface {
 	GetBundle(*charm.URL, commoncharm.Origin, string) (charm.Bundle, error)
@@ -189,4 +189,13 @@ type ModelCommand interface {
 type CharmReader interface {
 	// ReadCharm reads a given charm from the filesystem.
 	ReadCharm(string) (charm.Charm, error)
+}
+
+// DeployConfigFlag defines methods required for charm config when deploying a charm.
+type DeployConfigFlag interface {
+	// AbsoluteFileNames returns the absolute path of any file names specified.
+	AbsoluteFileNames(ctx *cmd.Context) ([]string, error)
+
+	// ReadConfigPairs returns just the k=v attributes
+	ReadConfigPairs(ctx *cmd.Context) (map[string]interface{}, error)
 }

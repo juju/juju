@@ -10,8 +10,10 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/resource"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/macaroon.v2"
@@ -36,7 +38,7 @@ type deployCharm struct {
 	applicationName  string
 	attachStorage    []string
 	bindings         map[string]string
-	configOptions    common.ConfigFlag
+	configOptions    DeployConfigFlag
 	constraints      constraints.Value
 	modelConstraints constraints.Value
 	csMac            *macaroon.Macaroon
@@ -51,6 +53,7 @@ type deployCharm struct {
 	placement        []*instance.Placement
 	placementSpec    string
 	resources        map[string]string
+	revision         int
 	series           string
 	steps            []DeployStep
 	storage          map[string]storage.Constraints
@@ -70,6 +73,14 @@ func (d *deployCharm) deploy(
 	charmInfo, err := deployAPI.CharmInfo(id.URL.String())
 	if err != nil {
 		return err
+	}
+
+	if d.revision != -1 {
+		// If a revision was specified on the CLI, ensure that all resources used by the
+		// charm have specified revisions, or filenames.
+		if err := d.verifySpecifiedResources(charmInfo.Meta.Resources); err != nil {
+			return errors.Annotate(err, "when deploying a charm by revision, charm resource must be specified")
+		}
 	}
 
 	if len(d.attachStorage) > 0 && deployAPI.BestFacadeVersion("Application") < 5 {
@@ -262,6 +273,25 @@ func (d *deployCharm) deploy(
 	}
 	return errors.Trace(err)
 
+}
+
+func (d *deployCharm) verifySpecifiedResources(charmResources map[string]resource.Meta) error {
+	if len(charmResources) == 0 || !charm.CharmHub.Matches(d.id.URL.Schema) {
+		return nil
+	}
+	revisionsNotFound := set.NewStrings()
+	for k, meta := range charmResources {
+		if meta.Type == resource.TypeContainerImage {
+			continue
+		}
+		if _, ok := d.resources[k]; !ok {
+			revisionsNotFound.Add(k)
+		}
+	}
+	if revisionsNotFound.Size() == 0 {
+		return nil
+	}
+	return errors.BadRequestf("%s", strings.Join(revisionsNotFound.SortedValues(), ", "))
 }
 
 var (
