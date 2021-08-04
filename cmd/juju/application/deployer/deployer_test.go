@@ -4,7 +4,6 @@
 package deployer
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -48,14 +47,12 @@ type deployerSuite struct {
 	charm             *mocks.MockCharm
 
 	deployResourceIDs map[string]string
-	output            *bytes.Buffer
 }
 
 var _ = gc.Suite(&deployerSuite{})
 
 func (s *deployerSuite) SetUpTest(_ *gc.C) {
 	s.deployResourceIDs = make(map[string]string)
-	s.output = bytes.NewBuffer([]byte{})
 }
 
 func (s *deployerSuite) TestGetDeployerPredeployedLocalCharm(c *gc.C) {
