@@ -4,12 +4,12 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -66,6 +66,20 @@ func (s *storageTestSuite) TestPrepareToStoreAlreadyUploadedCharm(c *gc.C) {
 
 	expErr := downloader.NewCharmAlreadyStoredError(curl.String(), dlOrigin)
 	c.Assert(err, gc.Equals, expErr)
+}
+
+func (s *storageTestSuite) TestPrepareToStoreAlreadyUploadedCharmOriginNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	curl := charm.MustParseURL("ch:ubuntu-lite")
+
+	s.stateBackend.EXPECT().PrepareCharmUpload(curl).Return(s.uploadedCharm, nil)
+	s.uploadedCharm.EXPECT().IsUploaded().Return(true)
+
+	s.stateBackend.EXPECT().UploadedCharmOrigin(curl).Return(corecharm.Origin{}, errors.NotFoundf("charm origin"))
+
+	err := s.storage.PrepareToStoreCharm(curl)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *storageTestSuite) TestStoreBlobFails(c *gc.C) {

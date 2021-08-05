@@ -56,13 +56,21 @@ func (s *CharmStorage) PrepareToStoreCharm(charmURL *charm.URL) error {
 	}
 
 	if ch.IsUploaded() {
-		// Since the charm is already uploaded this call should not fail.
-		// We can safely ignore errors here.
-		dlOrigin, _ := s.stateBackend.UploadedCharmOrigin(charmURL)
-		return charmdownloader.NewCharmAlreadyStoredError(charmURL.String(), dlOrigin)
+		// UploadedCharmOrigin can fail if the charm has been downloaded, but the
+		// current model does not have the application in it.  E.g. if deploy fails
+		// after AddCharm is run with charm having resources.  Only return the origin,
+		// if no error, otherwise we'll fail later due to lack of an origin leaving
+		// the user temporarily stranded.
+		dlOrigin, uploadError := s.stateBackend.UploadedCharmOrigin(charmURL)
+		if uploadError == nil {
+			return charmdownloader.NewCharmAlreadyStoredError(charmURL.String(), dlOrigin)
+		}
+		if !errors.IsNotFound(uploadError) {
+			err = uploadError
+		}
 	}
 
-	return nil
+	return err
 }
 
 // CharmStorage attempts to store the contents of a downloaded charm.
