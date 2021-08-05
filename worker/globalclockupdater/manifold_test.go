@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/state"
+	raftleasestore "github.com/juju/juju/state/raftlease"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/globalclockupdater"
@@ -70,8 +71,8 @@ func (s *ManifoldSuite) newWorker(config globalclockupdater.Config) (worker.Work
 	return s.worker, nil
 }
 
-func (s *ManifoldSuite) newTarget(st *state.State, logFile io.Writer, errorLog globalclockupdater.Logger) raftlease.NotifyTarget {
-	s.stub.AddCall("NewTarget", st, logFile, errorLog)
+func (s *ManifoldSuite) newTarget(st *state.State, logger raftleasestore.Logger) raftlease.NotifyTarget {
+	s.stub.AddCall("NewTarget", st, logger)
 	return s.target
 }
 

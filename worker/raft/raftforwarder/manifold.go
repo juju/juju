@@ -4,7 +4,9 @@
 package raftforwarder
 
 import (
+	"fmt"
 	"io"
+	"log"
 
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
@@ -15,6 +17,7 @@ import (
 
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/state"
+	raftleasestore "github.com/juju/juju/state/raftlease"
 	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
 )
@@ -31,7 +34,7 @@ type ManifoldConfig struct {
 	LeaseLog             io.Writer
 	Logger               Logger
 	NewWorker            func(Config) (worker.Worker, error)
-	NewTarget            func(*state.State, io.Writer, Logger) raftlease.NotifyTarget
+	NewTarget            func(*state.State, raftleasestore.Logger) raftlease.NotifyTarget
 }
 
 // Validate checks that the config has all the required values.
@@ -88,7 +91,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	st := statePool.SystemState()
 
-	notifyTarget := config.NewTarget(st, config.LeaseLog, config.Logger)
+	notifyTarget := config.NewTarget(st, newTargetLogger(config.LeaseLog, config.Logger))
 	w, err := config.NewWorker(Config{
 		Raft:                 r,
 		Hub:                  hub,
@@ -118,6 +121,30 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // NewTarget is a shim to construct a raftlease.NotifyTarget for testability.
-func NewTarget(st *state.State, logFile io.Writer, errorLog Logger) raftlease.NotifyTarget {
-	return st.LeaseNotifyTarget(logFile, errorLog)
+func NewTarget(st *state.State, logger raftleasestore.Logger) raftlease.NotifyTarget {
+	return st.LeaseNotifyTarget(logger)
+}
+
+type targetLogger struct {
+	leaseLogger *log.Logger
+	errorLogger Logger
+}
+
+func newTargetLogger(leaseLogger io.Writer, errorLogger Logger) raftleasestore.Logger {
+	return &targetLogger{
+		leaseLogger: log.New(leaseLogger, "", log.LstdFlags|log.Lmicroseconds|log.LUTC),
+		errorLogger: errorLogger,
+	}
+}
+
+func (l *targetLogger) Infof(message string, args ...interface{}) {
+	msg := fmt.Sprintf(message, args...)
+	if err := l.leaseLogger.Output(4, msg); err != nil {
+		l.errorLogger.Errorf("couldn't write to lease log with messags %q: %s", msg, err.Error())
+	}
+}
+
+func (l *targetLogger) Errorf(message string, args ...interface{}) {
+	l.Infof(message, args...)
+	l.errorLogger.Errorf(message, args...)
 }

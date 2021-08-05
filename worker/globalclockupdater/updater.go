@@ -67,6 +67,7 @@ func newUpdater(r RaftApplier, notifyTarget raftlease.NotifyTarget, clock raftle
 // Advance applies the clock advance operation to Raft if it is the current
 // leader.
 func (u *updater) Advance(duration time.Duration, stop <-chan struct{}) error {
+	becomingLeaderTimeout := time.After(leaderTimeout)
 	for {
 		newTime := u.prevTime.Add(duration)
 		cmd, err := u.createCommand(newTime)
@@ -111,7 +112,7 @@ func (u *updater) Advance(duration time.Duration, stop <-chan struct{}) error {
 		select {
 		case <-stop:
 			return errors.Annotatef(lease.ErrAborted, raftlease.OperationSetTime)
-		case <-time.After(leaderTimeout):
+		case <-becomingLeaderTimeout:
 			return errors.Errorf("timed out waiting for local Raft state to be %q", raft.Leader)
 		default:
 			u.sleeper.Sleep(time.Second)

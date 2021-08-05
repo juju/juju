@@ -1378,16 +1378,6 @@ func (a *MachineAgent) createSymlink(target, link string) error {
 	return symlink.New(target, fullLink)
 }
 
-func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
-	for _, link := range jujudSymlinks {
-		err := os.Remove(utils.EnsureBaseDir(a.rootDir, link))
-		if err != nil && !os.IsNotExist(err) {
-			errs = append(errs, errors.Annotatef(err, "failed to remove %s symlink", link))
-		}
-	}
-	return
-}
-
 // statePoolIntrospectionReporter wraps a (possibly nil) state.StatePool,
 // calling its IntrospectionReport method or returning a message if it
 // is nil.

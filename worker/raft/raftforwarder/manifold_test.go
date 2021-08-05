@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/state"
+	raftleasestore "github.com/juju/juju/state/raftlease"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/raft/raftforwarder"
@@ -97,8 +98,8 @@ func (s *manifoldSuite) newWorker(config raftforwarder.Config) (worker.Worker, e
 	return s.worker, nil
 }
 
-func (s *manifoldSuite) newTarget(st *state.State, logFile io.Writer, logger raftforwarder.Logger) raftlease.NotifyTarget {
-	s.stub.MethodCall(s, "NewTarget", st, logFile, logger)
+func (s *manifoldSuite) newTarget(st *state.State, logger raftleasestore.Logger) raftlease.NotifyTarget {
+	s.stub.MethodCall(s, "NewTarget", st, logger)
 	return s.target
 }
 
