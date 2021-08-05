@@ -573,6 +573,8 @@ func (e *environ) supportedInstanceTypes() ([]instances.InstanceType, error) {
 	opt := &packngo.ListOptions{
 		Includes: []string{"available_in_metros"},
 	}
+	opt.Filter("line", "baremetal")
+	opt.Filter("deployment_type", "on_demand")
 	plans, _, err := e.equinixClient.Plans.List(opt)
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving supported instance types")
@@ -622,10 +624,21 @@ nextPlan:
 
 func validPlan(plan packngo.Plan, region string) bool {
 	// some plans may not be servers
-	if plan.Pricing == nil ||
+	if plan.Line != "baremetal" ||
+		plan.Pricing == nil ||
 		plan.Specs == nil ||
 		plan.Specs.Memory == nil ||
 		len(plan.Specs.Cpus) == 0 || plan.Specs.Cpus[0].Count == 0 {
+		return false
+	}
+	var validDeploymentType bool
+	for _, d := range plan.DeploymentTypes {
+		if d == "on_demand" {
+			validDeploymentType = true
+			break
+		}
+	}
+	if !validDeploymentType {
 		return false
 	}
 	for _, a := range plan.AvailableInMetros {
