@@ -16,10 +16,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/im7mortal/kmutex"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/version/v2"
-	"golang.org/x/sync/singleflight"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
@@ -67,13 +67,14 @@ type toolsUploadHandler struct {
 
 // toolsHandler handles tool download through HTTPS in the API server.
 type toolsDownloadHandler struct {
-	ctxt      httpContext
-	fetchOnce singleflight.Group
+	ctxt       httpContext
+	fetchMutex *kmutex.Kmutex
 }
 
 func newToolsDownloadHandler(httpCtxt httpContext) *toolsDownloadHandler {
 	return &toolsDownloadHandler{
-		ctxt: httpCtxt,
+		ctxt:       httpCtxt,
+		fetchMutex: kmutex.New(),
 	}
 }
 
@@ -215,6 +216,10 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 		}
 	}
 
+	locker := h.fetchMutex.Locker(storageVers.String())
+	locker.Lock()
+	defer locker.Unlock()
+
 	md, reader, err := storage.Open(storageVers.String())
 	if errors.IsNotFound(err) {
 		// Tools could not be found in tools storage,
@@ -224,11 +229,8 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 		if osTypeName != "" {
 			storageVers.Release = osTypeName
 		}
-		_, err, _ = h.fetchOnce.Do(storageVers.String(), func() (interface{}, error) {
-			return nil, h.fetchAndCacheTools(vers, storageVers)
-		})
+		err = h.fetchAndCacheTools(vers, storageVers)
 		if err != nil {
-			h.fetchOnce.Forget(storageVers.String())
 			err = errors.Annotate(err, "error fetching agent binaries")
 		} else {
 			md, reader, err = storage.Open(storageVers.String())
