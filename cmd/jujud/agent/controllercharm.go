@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v9"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	coreos "github.com/juju/juju/core/os"
 
@@ -23,7 +22,6 @@ import (
 	corearch "github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
@@ -96,34 +94,28 @@ func populateStoreControllerCharm(st *state.State, charmRisk, series, arch strin
 	if err != nil {
 		return nil, nil, err
 	}
+
 	curl := charm.MustParseURL(controllerCharmURL)
-	channel := corecharm.MakeRiskOnlyChannel(charmRisk)
+	channel, err := charm.ParseChannelNormalize(charmRisk)
+	if err != nil {
+		return nil, nil, err
+	}
 	origin := corecharm.Origin{
 		Source:  corecharm.CharmHub,
-		Type:    "charm",
 		Channel: &channel,
 		Platform: corecharm.Platform{
 			Architecture: arch,
 			OS:           strings.ToLower(coreos.Ubuntu.String()),
-			Series:       charmhub.NotAvailable,
+			Series:       series,
 		},
 	}
 
-	var supportedSeries []string
-	curl, origin, supportedSeries, err = charmRepo.ResolveWithPreferredChannel(curl, origin, nil)
+	// Since we're running on the machine to which the controller charm will be
+	// deployed, we know the exact platform to ask for, not need to review the
+	// supported series.
+	curl, origin, _, err = charmRepo.ResolveWithPreferredChannel(curl, origin, nil)
 	if err != nil {
 		return nil, nil, err
-	}
-	// We prefer the latest LTS series but if the controller charm supported series
-	// matches that of the machine, use that one. The controller charm doesn't have
-	// any series specific code.
-	if charmSeries := set.NewStrings(supportedSeries...); charmSeries.Contains(series) {
-		curl = curl.WithSeries(series)
-	} else if charmSeries.Contains(coreseries.LatestLts()) {
-		curl = curl.WithSeries(coreseries.LatestLts())
-	} else {
-		// Fallback in case controller charm is out of date.
-		curl = curl.WithSeries("focal")
 	}
 
 	storageFactory := func(modelUUID string) services.Storage {
