@@ -42,6 +42,10 @@ type Sleeper interface {
 	Sleep(time.Duration)
 }
 
+type Timer interface {
+	After(time.Duration) <-chan time.Time
+}
+
 // updater implements globalClock.Updater by applying a clock advance operation
 // to its raft member.
 type updater struct {
@@ -50,16 +54,18 @@ type updater struct {
 	prevTime           time.Time
 	logger             Logger
 	sleeper            Sleeper
+	timer              Timer
 	expiryNotifyTarget raftlease.NotifyTarget
 }
 
-func newUpdater(r RaftApplier, notifyTarget raftlease.NotifyTarget, clock raftlease.ReadOnlyClock, sleeper Sleeper, logger Logger) *updater {
+func newUpdater(r RaftApplier, notifyTarget raftlease.NotifyTarget, clock raftlease.ReadOnlyClock, sleeper Sleeper, timer Timer, logger Logger) *updater {
 	return &updater{
 		raft:               r,
 		expiryNotifyTarget: notifyTarget,
 		clock:              clock,
 		prevTime:           clock.GlobalTime(),
 		sleeper:            sleeper,
+		timer:              timer,
 		logger:             logger,
 	}
 }
@@ -67,7 +73,7 @@ func newUpdater(r RaftApplier, notifyTarget raftlease.NotifyTarget, clock raftle
 // Advance applies the clock advance operation to Raft if it is the current
 // leader.
 func (u *updater) Advance(duration time.Duration, stop <-chan struct{}) error {
-	becomingLeaderTimeout := time.After(leaderTimeout)
+	becomingLeaderTimeout := u.timer.After(leaderTimeout)
 	for {
 		newTime := u.prevTime.Add(duration)
 		cmd, err := u.createCommand(newTime)

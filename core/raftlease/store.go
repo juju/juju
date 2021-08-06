@@ -195,37 +195,6 @@ func (s *Store) pinOp(operation string, key lease.Key, entity string, stop <-cha
 	}, stop))
 }
 
-// Advance is part of globalclock.Updater.
-func (s *Store) Advance(duration time.Duration, stop <-chan struct{}) error {
-	s.prevTimeMu.Lock()
-	defer s.prevTimeMu.Unlock()
-
-	newTime := s.prevTime.Add(duration)
-	err := s.runOnLeader(&Command{
-		Version:   CommandVersion,
-		Operation: OperationSetTime,
-		OldTime:   s.prevTime,
-		NewTime:   newTime,
-	}, stop)
-
-	if err != nil {
-		// If we timed out, convert the error to match the Updater interface.
-		if lease.IsTimeout(err) {
-			return globalclock.ErrTimeout
-		}
-
-		// If we had an incorrect notion of global time, resync with the FSM.
-		if globalclock.IsOutOfSyncUpdate(err) {
-			s.prevTime = s.fsm.GlobalTime()
-		}
-
-		return errors.Trace(err)
-	}
-
-	s.prevTime = newTime
-	return nil
-}
-
 func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
 	bytes, err := command.Marshal()
 	if err != nil {

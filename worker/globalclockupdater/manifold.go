@@ -104,7 +104,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	notifyTarget := config.NewTarget(st, raftlease.NewTargetLogger(config.LeaseLog, config.Logger))
 	w, err := config.NewWorker(Config{
 		NewUpdater: func() globalclock.Updater {
-			return newUpdater(r, notifyTarget, config.FSM, timeSleeper{}, config.Logger)
+			return newUpdater(r, notifyTarget, config.FSM, timeSleeper{}, timeTimer{}, config.Logger)
 		},
 		LocalClock:     config.Clock,
 		UpdateInterval: config.UpdateInterval,
@@ -126,4 +126,10 @@ type timeSleeper struct{}
 
 func (timeSleeper) Sleep(d time.Duration) {
 	time.Sleep(d)
+}
+
+type timeTimer struct{}
+
+func (timeTimer) After(d time.Duration) <-chan time.Time {
+	return time.After(d)
 }
