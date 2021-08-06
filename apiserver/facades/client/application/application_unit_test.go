@@ -2324,7 +2324,7 @@ func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 			Endpoint:        "db",
 			CrossModel:      true,
 			RelatedEndpoint: "server",
-			ApplicationData: map[string]interface{}{"app-postgresql": "setting"},
+			ApplicationData: map[string]interface{}{"app-gitlab": "setting"},
 			UnitRelationData: map[string]params.RelationData{
 				"gitlab/2": {
 					InScope:  true,
