@@ -54,6 +54,24 @@ func (s *MinimalStatusSuite) TestGoodCall(c *gc.C) {
 	c.Assert(s.clock.waits, gc.HasLen, 0)
 }
 
+func (s *MinimalStatusSuite) TestGoodCallWatch(c *gc.C) {
+	t := time.NewTimer(time.Second)
+	var err error = nil
+	go func() {
+		for {
+			select {
+			case <-t.C:
+				return
+			default:
+				_, err = s.runStatus(c, "--watch", "300ms")
+			}
+		}
+	}()
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.clock.waits, gc.HasLen, 0)
+}
+
 func (s *MinimalStatusSuite) TestGoodCallWithStorage(c *gc.C) {
 	context, err := s.runStatus(c, "--storage")
 	c.Assert(err, jc.ErrorIsNil)
