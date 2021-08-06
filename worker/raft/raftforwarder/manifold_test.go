@@ -171,9 +171,9 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	s.stub.CheckCallNames(c, "NewTarget", "NewWorker")
 
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 3)
+	c.Assert(args, gc.HasLen, 2)
 	c.Assert(args[0], gc.Equals, s.stateTracker.pool.SystemState())
-	var logWriter io.Writer
+	var logWriter raftleasestore.Logger
 	c.Assert(args[1], gc.Implements, &logWriter)
 
 	args = s.stub.Calls()[1].Args

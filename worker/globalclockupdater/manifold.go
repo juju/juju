@@ -4,9 +4,7 @@
 package globalclockupdater
 
 import (
-	"fmt"
 	"io"
-	"log"
 	"time"
 
 	"github.com/hashicorp/raft"
@@ -103,7 +101,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	st := statePool.SystemState()
 
-	notifyTarget := config.NewTarget(st, newTargetLogger(config.LeaseLog, config.Logger))
+	notifyTarget := config.NewTarget(st, raftlease.NewTargetLogger(config.LeaseLog, config.Logger))
 	w, err := config.NewWorker(Config{
 		NewUpdater: func() globalclock.Updater {
 			return newUpdater(r, notifyTarget, config.FSM, timeSleeper{}, config.Logger)
@@ -128,28 +126,4 @@ type timeSleeper struct{}
 
 func (timeSleeper) Sleep(d time.Duration) {
 	time.Sleep(d)
-}
-
-type targetLogger struct {
-	leaseLogger *log.Logger
-	errorLogger Logger
-}
-
-func newTargetLogger(leaseLogger io.Writer, errorLogger Logger) raftleasestore.Logger {
-	return &targetLogger{
-		leaseLogger: log.New(leaseLogger, "", log.LstdFlags|log.Lmicroseconds|log.LUTC),
-		errorLogger: errorLogger,
-	}
-}
-
-func (l *targetLogger) Infof(message string, args ...interface{}) {
-	msg := fmt.Sprintf(message, args...)
-	if err := l.leaseLogger.Output(4, msg); err != nil {
-		l.errorLogger.Errorf("couldn't write to lease log with messags %q: %s", msg, err.Error())
-	}
-}
-
-func (l *targetLogger) Errorf(message string, args ...interface{}) {
-	l.Infof(message, args...)
-	l.errorLogger.Errorf(message, args...)
 }
