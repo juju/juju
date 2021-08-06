@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v8/resource"
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
@@ -627,6 +628,8 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 			}
 		}
 
+		newApplication.Resources = applicationDataResources(application.Resources())
+
 		if appSeries != defaultSeries {
 			newApplication.Series = appSeries
 		}
@@ -728,6 +731,21 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 	}
 
 	return data, nil
+}
+
+func applicationDataResources(resources []description.Resource) map[string]interface{} {
+	var resourceData map[string]interface{}
+	for _, res := range resources {
+		appRev := res.ApplicationRevision()
+		if appRev == nil || appRev.Origin() != resource.OriginStore.String() {
+			continue
+		}
+		if resourceData == nil {
+			resourceData = make(map[string]interface{})
+		}
+		resourceData[res.Name()] = res.ApplicationRevision().Revision()
+	}
+	return resourceData
 }
 
 // mapExposedEndpoints converts the description package representation of the
