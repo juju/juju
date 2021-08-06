@@ -137,8 +137,8 @@ Examples:
     # Provide output as valid JSON
     juju status --format=json
 
-	# Watch the status of the mysql application every five seconds
-	juju status --watch 5s mysql
+    # Watch the status of the mysql application every five seconds
+    juju status --watch 5s mysql
 
 Further reading:
 
