@@ -221,7 +221,7 @@ func (d *factory) newDeployCharm() deployCharm {
 		applicationName:  d.applicationName,
 		attachStorage:    d.attachStorage,
 		bindings:         d.bindings,
-		configOptions:    d.configOptions,
+		configOptions:    &d.configOptions,
 		constraints:      d.constraints,
 		modelConstraints: d.modelConstraints,
 		devices:          d.devices,
