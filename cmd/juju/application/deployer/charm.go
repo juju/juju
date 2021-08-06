@@ -36,7 +36,7 @@ type deployCharm struct {
 	applicationName  string
 	attachStorage    []string
 	bindings         map[string]string
-	configOptions    common.ConfigFlag
+	configOptions    DeployConfigFlag
 	constraints      constraints.Value
 	modelConstraints constraints.Value
 	csMac            *macaroon.Macaroon
