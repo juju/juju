@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/resource"
 	"github.com/juju/description/v3"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -764,6 +765,59 @@ applications:
   ubuntu:
     charm: cs:trusty/ubuntu
     channel: stable
+    num_units: 1
+    to:
+    - "0"
+    options:
+      key: value
+    bindings:
+      another: alpha
+      juju-info: vlan2
+`[1:]}
+
+	c.Assert(result, gc.Equals, expectedResult)
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) TestExportBundleWithApplicationResources(c *gc.C) {
+	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+		Config: map[string]interface{}{
+			"name": "awesome",
+			"uuid": "some-uuid",
+		},
+		CloudRegion: "some-region"})
+
+	app := s.st.model.AddApplication(s.minimalApplicationArgs(description.IAAS))
+	app.SetStatus(minimalStatusArgs())
+
+	res := app.AddResource(description.ResourceArgs{Name: "foo-file"})
+	res.SetApplicationRevision(description.ResourceRevisionArgs{
+		Revision: 42,
+		Type:     "file",
+		Origin:   resource.OriginStore.String(),
+	})
+	res2 := app.AddResource(description.ResourceArgs{Name: "bar-file"})
+	res2.SetApplicationRevision(description.ResourceRevisionArgs{
+		Revision: 0,
+		Type:     "file",
+		Origin:   resource.OriginUpload.String(),
+	})
+
+	u := app.AddUnit(minimalUnitArgs(app.Type()))
+	u.SetAgentStatus(minimalStatusArgs())
+
+	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
+
+	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	expectedResult := params.StringResult{Result: `
+series: trusty
+applications:
+  ubuntu:
+    charm: cs:trusty/ubuntu
+    channel: stable
+    resources:
+      foo-file: 42
     num_units: 1
     to:
     - "0"
