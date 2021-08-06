@@ -4,15 +4,13 @@
 package raftlease
 
 import (
+	"context"
 	"fmt"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/pubsub/v2"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/core/globalclock"
@@ -77,37 +75,29 @@ type ReadonlyFSM interface {
 
 // StoreConfig holds resources and settings needed to run the Store.
 type StoreConfig struct {
-	FSM           ReadonlyFSM
-	Hub           *pubsub.StructuredHub
-	Trapdoor      TrapdoorFunc
-	RequestTopic  string
-	ResponseTopic func(requestID uint64) string
+	FSM              ReadonlyFSM
+	Client           Client
+	Trapdoor         TrapdoorFunc
+	Clock            clock.Clock
+	MetricsCollector MetricsCollector
+}
 
-	Clock          clock.Clock
-	ForwardTimeout time.Duration
+// Store manages a raft FSM and forwards writes through a pubsub hub.
+type Store struct {
+	fsm     ReadonlyFSM
+	config  StoreConfig
+	metrics MetricsCollector
+	client  Client
 }
 
 // NewStore returns a core/lease.Store that manages leases in Raft.
 func NewStore(config StoreConfig) *Store {
 	return &Store{
-		fsm:      config.FSM,
-		hub:      config.Hub,
-		config:   config,
-		prevTime: config.FSM.GlobalTime(),
-		metrics:  newMetricsCollector(),
+		fsm:     config.FSM,
+		config:  config,
+		client:  config.Client,
+		metrics: config.MetricsCollector,
 	}
-}
-
-// Store manages a raft FSM and forwards writes through a pubsub hub.
-type Store struct {
-	fsm       ReadonlyFSM
-	hub       *pubsub.StructuredHub
-	requestID uint64
-	config    StoreConfig
-	metrics   *metricsCollector
-
-	prevTimeMu sync.Mutex
-	prevTime   time.Time
 }
 
 // ClaimLease is part of lease.Store.
@@ -196,94 +186,26 @@ func (s *Store) pinOp(operation string, key lease.Key, entity string, stop <-cha
 }
 
 func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
-	bytes, err := command.Marshal()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	requestID := atomic.AddUint64(&s.requestID, 1)
-	responseTopic := s.config.ResponseTopic(requestID)
-
-	responseChan := make(chan ForwardResponse)
-	errChan := make(chan error)
-	unsubscribe, err := s.hub.Subscribe(
-		responseTopic,
-		func(_ string, resp ForwardResponse, err error) {
-			if err != nil {
-				errChan <- err
-			} else {
-				responseChan <- resp
-			}
-		},
-	)
-	if err != nil {
-		return errors.Annotatef(err, "running %s", command)
-	}
-	defer unsubscribe()
-
-	start := time.Now()
+	start := s.config.Clock.Now()
 	defer func() {
-		elapsed := time.Since(start)
+		elapsed := s.config.Clock.Now().Sub(start)
 		logger.Tracef("runOnLeader %v, elapsed from publish: %v", command.Operation, elapsed.Round(time.Millisecond))
 	}()
 
-	delivered, err := s.hub.Publish(s.config.RequestTopic, ForwardRequest{
-		Command:       string(bytes),
-		ResponseTopic: responseTopic,
-	})
-	if err != nil {
-		s.record(command.Operation, "error", start)
-		return errors.Annotatef(err, "publishing %s", command)
-	}
+	ch := make(chan struct{})
+	defer close(ch)
 
-	// First block until subscribers are notified.
-	// In practice, this will be the Raft forwarder running on the leader node.
-	// This is an explicit step so that we can more accurately diagnose issues
-	// in-theatre.
-	select {
-	case <-pubsub.Wait(delivered):
-	case <-s.config.Clock.After(s.config.ForwardTimeout):
-		logger.Warningf("delivery timeout waiting for %s to be processed", command)
-		s.record(command.Operation, "delivery timeout", start)
-		return lease.ErrTimeout
-	}
-
-	// Now wait for the response.
-	// The timeout starts again here, which is deliberate.
-	// It is the same timeout that is used by the Raft forwarder
-	// when `Apply` is called on the FSM.
-	select {
-	case response := <-responseChan:
-		err := RecoverError(response.Error)
-		logger.Tracef("got response, err %v", err)
-		result := "success"
-		if err != nil {
-			logger.Warningf("command %s: %v", command, err)
-			result = "failure"
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	go func() {
+		select {
+		case <-stop:
+			cancel()
+		case <-ch:
 		}
-		s.record(command.Operation, result, start)
-		return err
-	case err := <-errChan:
-		logger.Warningf("processing %s: %v", command, err)
-		s.record(command.Operation, "error", start)
-		return errors.Trace(err)
-	case <-stop:
-		return aborted(command)
-	case <-s.config.Clock.After(s.config.ForwardTimeout):
-		// TODO (thumper) 2019-12-20, bug 1857072
-		// Scale testing hit this a *lot*,
-		// perhaps we need to consider batching messages to run on the leader?
-		logger.Warningf("response timeout waiting for %s to be processed", command)
-		s.record(command.Operation, "response timeout", start)
-		return lease.ErrTimeout
-	}
-}
+	}()
 
-func (s *Store) record(operation, result string, start time.Time) {
-	elapsedMS := float64(time.Now().Sub(start)) / float64(time.Millisecond)
-	s.metrics.requests.With(prometheus.Labels{
-		"operation": operation,
-		"result":    result,
-	}).Observe(elapsedMS)
+	return s.client.Request(ctx, command)
 }
 
 // ForwardRequest is a message sent over the hub to the raft forwarder

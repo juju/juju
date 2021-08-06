@@ -43,16 +43,23 @@ func (s *storeSuite) SetUpTest(c *gc.C) {
 		globalTime: s.clock.Now(),
 	}
 	s.hub = pubsub.NewStructuredHub(nil)
+
+	metrics := raftlease.NewOperationClientMetrics(s.clock)
 	s.store = raftlease.NewStore(raftlease.StoreConfig{
-		FSM:          s.fsm,
-		Hub:          s.hub,
-		Trapdoor:     FakeTrapdoor,
-		RequestTopic: "lease.request",
-		ResponseTopic: func(reqID uint64) string {
-			return fmt.Sprintf("lease.request.%d", reqID)
-		},
-		Clock:          s.clock,
-		ForwardTimeout: time.Second,
+		FSM:      s.fsm,
+		Trapdoor: FakeTrapdoor,
+		Client: raftlease.NewPubsubClient(raftlease.PubsubClientConfig{
+			Hub:          s.hub,
+			RequestTopic: "lease.request",
+			ResponseTopic: func(reqID uint64) string {
+				return fmt.Sprintf("lease.request.%d", reqID)
+			},
+			Clock:          s.clock,
+			ForwardTimeout: time.Second,
+			ClientMetrics:  metrics,
+		}),
+		Clock:            s.clock,
+		MetricsCollector: metrics,
 	})
 }
 
