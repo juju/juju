@@ -281,7 +281,7 @@ func (c *statusCommand) getStorageInfo(ctx *cmd.Context) (*storage.CombinedStora
 		})
 }
 
-func (c *statusCommand) runStatus(ctx *cmd.Context) error {
+func (c *statusCommand) runStatus(ctx *cmd.Context) (int, error) {
 	// Always attempt to get the status at least once, and retry if it fails.
 	status, err := c.getStatus()
 	if err != nil && !modelcmd.IsModelMigratedError(err) {
@@ -297,24 +297,27 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 		}
 	}
 
+	// number of lines to be written
+	numLines := 0
+
 	if err != nil {
 		if status == nil {
 			// Status call completely failed, there is nothing to report
-			return errors.Trace(err)
+			return numLines, errors.Trace(err)
 		}
 		// Display any error, but continue to print status if some was returned
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
 	} else if status == nil {
-		return errors.Errorf("unable to obtain the current status")
+		return numLines, errors.Errorf("unable to obtain the current status")
 	}
 
 	controllerName, err := c.ControllerName()
 	if err != nil {
-		return errors.Trace(err)
+		return numLines, errors.Trace(err)
 	}
 	activeBranch, err := c.ActiveBranch()
 	if err != nil {
-		return errors.Trace(err)
+		return numLines, errors.Trace(err)
 	}
 
 	showRelations := c.relations
@@ -345,7 +348,7 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 	if showStorage {
 		storageInfo, err := c.getStorageInfo(ctx)
 		if err != nil {
-			return errors.Trace(err)
+			return numLines, errors.Trace(err)
 		}
 		formatterParams.storage = storageInfo
 		if storageInfo == nil || storageInfo.Empty() {
@@ -358,20 +361,20 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 
 	formatted, err := newStatusFormatter(formatterParams).format()
 	if err != nil {
-		return errors.Trace(err)
+		return numLines, errors.Trace(err)
 	}
 
 	if err = c.out.Write(ctx, formatted); err != nil {
-		return err
+		return numLines, err
 	}
 
 	if !status.IsEmpty() {
-		return nil
+		return numLines, nil
 	}
 	if len(c.patterns) == 0 {
 		modelName, err := c.ModelIdentifier()
 		if err != nil {
-			return err
+			return numLines, err
 		}
 		ctx.Infof("Model %q is empty.", modelName)
 	} else {
@@ -384,13 +387,17 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 		ctx.Infof("Nothing matched specified filter%v.", plural())
 	}
 
-	return nil
+	return numLines, nil
 }
 
 func (c *statusCommand) Run(ctx *cmd.Context) error {
 	defer c.close()
 
-	err := c.runStatus(ctx)
+	if c.watch != 0 {
+		fmt.Printf("\u001Bc")
+	}
+
+	_, err := c.runStatus(ctx)
 	if err != nil || c.watch == 0 {
 		return err
 	}
@@ -399,7 +406,8 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	ticker := time.NewTicker(c.watch)
 
 	for range ticker.C {
-		err := c.runStatus(ctx)
+		fmt.Printf("\u001Bc")
+		_, err := c.runStatus(ctx)
 		if err != nil {
 			return err
 		}
