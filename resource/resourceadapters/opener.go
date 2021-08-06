@@ -4,8 +4,11 @@
 package resourceadapters
 
 import (
+	"fmt"
 	"io"
+	"sync"
 
+	"github.com/im7mortal/kmutex"
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
@@ -145,6 +148,7 @@ func (ro *ResourceOpener) OpenResource(name string) (o resource.Opened, err erro
 		userID:      ro.userID,
 		unit:        ro.unit,
 		application: ro.application,
+		modelUUID:   ro.st.ModelUUID(),
 	}
 
 	res, reader, err := repositories.GetResource(repositories.GetResourceArgs{
@@ -164,30 +168,40 @@ func (ro *ResourceOpener) OpenResource(name string) (o resource.Opened, err erro
 	return opened, nil
 }
 
-// resourceState adapts between resource state and charmstore.EntityCache.
+// resourceState adapts between resource state and repositories.EntityRepository
 type resourceState struct {
 	st          Resources
 	userID      names.Tag
 	unit        resource.Unit
 	application Application
+	modelUUID   string
 }
 
-// GetResource implements charmstore.EntityCache.
+// GetResource implements repositories.EntityRepository
 func (s *resourceState) GetResource(name string) (resource.Resource, error) {
 	return s.st.GetResource(s.application.Name(), name)
 }
 
-// SetResource implements charmstore.EntityCache.
+// SetResource implements repositories.EntityRepository
 func (s *resourceState) SetResource(chRes charmresource.Resource, reader io.Reader, incrementCharmModifiedVersion corestate.IncrementCharmModifiedVersionType) (resource.Resource, error) {
 	return s.st.SetResource(s.application.Name(), s.userID.Id(), chRes, reader, incrementCharmModifiedVersion)
 }
 
-// OpenResource implements charmstore.EntityCache.
+// OpenResource implements repositories.EntityRepository
 func (s *resourceState) OpenResource(name string) (resource.Resource, io.ReadCloser, error) {
 	if s.unit == nil {
 		return s.st.OpenResource(s.application.Name(), name)
 	}
 	return s.st.OpenResourceForUniter(s.unit, name)
+}
+
+// TODO(juju3): use raft to lock the resource for writes.
+var resourceMutex = kmutex.New()
+
+// FetchLock implements repositories.EntityRepository
+func (s *resourceState) FetchLock(name string) sync.Locker {
+	lockName := fmt.Sprintf("%s/%s/%s", s.modelUUID, s.application.Name(), name)
+	return resourceMutex.Locker(lockName)
 }
 
 // nopOpener is a type for creating no resource requests for accessing local

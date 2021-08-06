@@ -5,36 +5,37 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	charmstore "github.com/juju/juju/charmstore"
 	repositories "github.com/juju/juju/resource/repositories"
-	reflect "reflect"
 )
 
-// MockResourceGetter is a mock of ResourceGetter interface
+// MockResourceGetter is a mock of ResourceGetter interface.
 type MockResourceGetter struct {
 	ctrl     *gomock.Controller
 	recorder *MockResourceGetterMockRecorder
 }
 
-// MockResourceGetterMockRecorder is the mock recorder for MockResourceGetter
+// MockResourceGetterMockRecorder is the mock recorder for MockResourceGetter.
 type MockResourceGetterMockRecorder struct {
 	mock *MockResourceGetter
 }
 
-// NewMockResourceGetter creates a new mock instance
+// NewMockResourceGetter creates a new mock instance.
 func NewMockResourceGetter(ctrl *gomock.Controller) *MockResourceGetter {
 	mock := &MockResourceGetter{ctrl: ctrl}
 	mock.recorder = &MockResourceGetterMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockResourceGetter) EXPECT() *MockResourceGetterMockRecorder {
 	return m.recorder
 }
 
-// GetResource mocks base method
+// GetResource mocks base method.
 func (m *MockResourceGetter) GetResource(arg0 repositories.ResourceRequest) (charmstore.ResourceData, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetResource", arg0)
@@ -43,7 +44,7 @@ func (m *MockResourceGetter) GetResource(arg0 repositories.ResourceRequest) (cha
 	return ret0, ret1
 }
 
-// GetResource indicates an expected call of GetResource
+// GetResource indicates an expected call of GetResource.
 func (mr *MockResourceGetterMockRecorder) GetResource(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResource", reflect.TypeOf((*MockResourceGetter)(nil).GetResource), arg0)

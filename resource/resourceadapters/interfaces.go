@@ -36,6 +36,7 @@ type ResourceOpenerState interface {
 	Resources() (Resources, error)
 	Unit(string) (Unit, error)
 	Application(string) (Application, error)
+	ModelUUID() string
 }
 
 // Model represents model methods required to open a resource.
