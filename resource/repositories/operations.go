@@ -99,6 +99,10 @@ func GetResource(args GetResourceArgs) (resource.Resource, io.ReadCloser, error)
 		repo: args.Repository,
 	}
 
+	locker := opRepo.resourceLocker(args.Name)
+	locker.Lock()
+	defer locker.Unlock()
+
 	res, reader, err := opRepo.get(args.Name)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
@@ -132,7 +136,6 @@ func GetResource(args GetResourceArgs) (resource.Resource, io.ReadCloser, error)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
-
 	res, reader, err = opRepo.set(data.Resource, data, state.DoNotIncrementCharmModifiedVersion)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
