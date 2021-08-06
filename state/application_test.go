@@ -182,6 +182,15 @@ func (s *ApplicationSuite) TestUploadedCharmOrigin(c *gc.C) {
 	c.Assert(obtainedOrigin, gc.DeepEquals, origin.AsCoreCharmOrigin())
 }
 
+func (s *ApplicationSuite) TestUploadedCharmOriginFail(c *gc.C) {
+	// Add a compatible charm.
+	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
+
+	// Search for the application-stored origin using the charm URL.
+	_, err := s.State.UploadedCharmOrigin(sch.URL())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *ApplicationSuite) TestSetCharmCharmOriginNoChange(c *gc.C) {
 	// Add a compatible charm.
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)

@@ -3589,6 +3589,8 @@ func (st *State) UploadedCharmOrigin(charmURL *charm.URL) (corecharm.Origin, err
 	}).One(&doc)
 	if err == mgo.ErrNotFound || doc.CharmOrigin == nil {
 		return corecharm.Origin{}, errors.NotFoundf("download origin for charm %q", charmURL)
+	} else if err != nil {
+		return corecharm.Origin{}, errors.Trace(err)
 	}
 
 	return doc.CharmOrigin.AsCoreCharmOrigin(), nil
