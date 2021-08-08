@@ -5,6 +5,7 @@ package repositories
 
 import (
 	"io"
+	"sync"
 
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
@@ -27,6 +28,9 @@ type EntityRepository interface {
 	// OpenResource returns metadata about the resource, and a reader
 	// for the resource.
 	OpenResource(name string) (resource.Resource, io.ReadCloser, error)
+
+	// FetchLock provides a lock to serialize resource fetching.
+	FetchLock(name string) sync.Locker
 }
 
 // operationsRepository is a wrapper around EntityRepository. It supports
@@ -85,4 +89,11 @@ func (cfo operationsRepository) set(chRes charmresource.Resource, reader io.Read
 	}
 
 	return res, reader, nil
+}
+
+func (cfo operationsRepository) resourceLocker(name string) sync.Locker {
+	if cfo.repo == nil {
+		return &sync.Mutex{}
+	}
+	return cfo.repo.FetchLock(name)
 }

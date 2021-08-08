@@ -235,7 +235,7 @@ func (s *cmdModelSuite) TestRetryProvisioning(c *gc.C) {
 	ctx := s.run(c, "retry-provisioning", "0")
 	output := cmdtesting.Stderr(ctx)
 	stripped := strings.Replace(output, "\n", "", -1)
-	c.Check(stripped, gc.Equals, `machine 0 is not in an error state`)
+	c.Check(stripped, gc.Equals, `machine 0 is not in an error state (pending)`)
 }
 
 func (s *cmdModelSuite) TestDumpModel(c *gc.C) {

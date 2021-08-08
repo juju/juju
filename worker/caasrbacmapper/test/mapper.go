@@ -20,7 +20,7 @@ type Mapper struct {
 // found error
 func (m *Mapper) AppNameForServiceAccount(t types.UID) (string, error) {
 	if m.AppNameForServiceAccountFunc == nil {
-		return "", errors.NotFoundf("no service account for app found with id %v", t)
+		return "", errors.NotFoundf("service account for app found with id %v", t)
 	}
 	return m.AppNameForServiceAccountFunc(t)
 }

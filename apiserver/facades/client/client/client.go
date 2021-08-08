@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -51,9 +52,7 @@ type API struct {
 
 	multiwatcherFactory multiwatcher.Factory
 
-	client *Client
-	// statusSetter provides common methods for updating an entity's provisioning status.
-	statusSetter     *common.StatusSetter
+	client           *Client
 	toolsFinder      *common.ToolsFinder
 	leadershipReader leadership.Reader
 	modelCache       *cache.Model
@@ -177,7 +176,6 @@ func newFacade(ctx facade.Context) (*Client, error) {
 	modelUUID := model.UUID()
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, ctx.StatePool().SystemState())
-	statusSetter := common.NewStatusSetter(st, common.AuthAlways())
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
 	blockChecker := common.NewBlockChecker(st)
 	backend := modelconfig.NewStateBackend(model)
@@ -204,7 +202,6 @@ func newFacade(ctx facade.Context) (*Client, error) {
 		resources,
 		authorizer,
 		presence,
-		statusSetter,
 		toolsFinder,
 		newEnviron,
 		blockChecker,
@@ -223,7 +220,6 @@ func NewClient(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	presence facade.Presence,
-	statusSetter *common.StatusSetter,
 	toolsFinder *common.ToolsFinder,
 	newEnviron common.NewEnvironFunc,
 	blockChecker *common.BlockChecker,
@@ -243,7 +239,6 @@ func NewClient(
 			auth:                authorizer,
 			resources:           resources,
 			presence:            presence,
-			statusSetter:        statusSetter,
 			toolsFinder:         toolsFinder,
 			leadershipReader:    leadershipReader,
 			modelCache:          modelCache,
@@ -820,8 +815,13 @@ func (c *Client) AddCharmWithAuthorization(args params.AddCharmWithAuthorization
 	return errors.NewNotSupported(nil, "Deprecated AddCharmWithAuthorization call has been removed in Juju 3.0; please use the charms facade instead")
 }
 
-// Method was deprecated as of juju 2.9 and removed in juju 3.0. Please use the
-// client/charms facade instead.
+// ResolveCharms resolves the best available charm URLs with series, for charm
+// locations without a series specified.
+//
+// NOTE: ResolveCharms is deprecated as of juju 2.9 and charms facade version 3.
+// Please discontinue use and move to the charms facade version.
+//
+// TODO: remove in juju 3.0
 func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmResults, error) {
 	return params.ResolveCharmResults{}, errors.NewNotSupported(nil, "Deprecated ResolveChamrs call has been removed in Juju 3.0; please use the charms facade instead")
 }
@@ -835,13 +835,60 @@ func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, erro
 	if err := c.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	entityStatus := make([]params.EntityStatusArgs, len(p.Entities))
-	for i, entity := range p.Entities {
-		entityStatus[i] = params.EntityStatusArgs{Tag: entity.Tag, Data: map[string]interface{}{"transient": true}}
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(p.Entities)),
 	}
-	return c.api.statusSetter.UpdateStatus(params.SetStatus{
-		Entities: entityStatus,
-	})
+	for i, e := range p.Entities {
+		tag, err := names.ParseMachineTag(e.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if err := c.updateInstanceStatus(tag, map[string]interface{}{"transient": true}); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+		}
+	}
+	return result, nil
+}
+
+type instanceStatus interface {
+	InstanceStatus() (status.StatusInfo, error)
+	SetInstanceStatus(sInfo status.StatusInfo) error
+}
+
+func (c *Client) updateInstanceStatus(tag names.Tag, data map[string]interface{}) error {
+	entity0, err := c.api.stateAccessor.FindEntity(tag)
+	if err != nil {
+		return err
+	}
+	statusGetterSetter, ok := entity0.(instanceStatus)
+	if !ok {
+		return apiservererrors.NotSupportedError(tag, "getting status")
+	}
+	existingStatusInfo, err := statusGetterSetter.InstanceStatus()
+	if err != nil {
+		return err
+	}
+	newData := existingStatusInfo.Data
+	if newData == nil {
+		newData = data
+	} else {
+		for k, v := range data {
+			newData[k] = v
+		}
+	}
+	if len(newData) > 0 && existingStatusInfo.Status != status.Error && existingStatusInfo.Status != status.ProvisioningError {
+		return fmt.Errorf("%s is not in an error state (%v)", names.ReadableString(tag), existingStatusInfo.Status)
+	}
+	// TODO(perrito666) 2016-05-02 lp:1558657
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  existingStatusInfo.Status,
+		Message: existingStatusInfo.Message,
+		Data:    newData,
+		Since:   &now,
+	}
+	return statusGetterSetter.SetInstanceStatus(sInfo)
 }
 
 // APIHostPorts returns the API host/port addresses stored in state.

@@ -97,6 +97,7 @@ func (s *OpenerSuite) setupMocks(c *gc.C, includeUnit bool) *gomock.Controller {
 	s.resourceGetter = mocks.NewMockResourceGetter(ctrl)
 	s.resources = mocks.NewMockResources(ctrl)
 	s.resourceOpenerState = mocks.NewMockResourceOpenerState(ctrl)
+	s.resourceOpenerState.EXPECT().ModelUUID().Return("00000000-0000-0000-0000-000000000000").AnyTimes()
 
 	curl, _ := charm.ParseURL("postgresql")
 	if s.unit != nil {

@@ -2748,13 +2748,6 @@ func (api *APIBase) relationData(app Application, myUnit Unit) ([]params.Endpoin
 			ApplicationData:  make(map[string]interface{}),
 			UnitRelationData: make(map[string]params.RelationData),
 		}
-		appSettings, err := rel.ApplicationSettings(app.Name())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for k, v := range appSettings {
-			erd.ApplicationData[k] = v
-		}
 		relatedEps, err := rel.RelatedEndpoints(app.Name())
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -2762,6 +2755,14 @@ func (api *APIBase) relationData(app Application, myUnit Unit) ([]params.Endpoin
 		// There is only one related endpoint.
 		related := relatedEps[0]
 		erd.RelatedEndpoint = related.Name
+
+		appSettings, err := rel.ApplicationSettings(related.ApplicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for k, v := range appSettings {
+			erd.ApplicationData[k] = v
+		}
 
 		otherApp, err := api.backend.Application(related.ApplicationName)
 		if errors.IsNotFound(err) {

@@ -248,6 +248,7 @@ const (
 	Focal   SeriesName = "focal"
 	Groovy  SeriesName = "groovy"
 	Hirsute SeriesName = "hirsute"
+	Impish  SeriesName = "impish"
 )
 
 var ubuntuSeries = map[SeriesName]seriesVersion{
@@ -333,11 +334,14 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 	Groovy: {
 		WorkloadType: ControllerWorkloadType,
 		Version:      "20.10",
-		Supported:    true,
 	},
 	Hirsute: {
 		WorkloadType: ControllerWorkloadType,
 		Version:      "21.04",
+	},
+	Impish: {
+		WorkloadType: ControllerWorkloadType,
+		Version:      "21.10",
 	},
 }
 
@@ -345,7 +349,6 @@ const (
 	Centos7      SeriesName = "centos7"
 	Centos8      SeriesName = "centos8"
 	OpenSUSELeap SeriesName = "opensuseleap"
-	GenericLinux SeriesName = "genericlinux"
 	Kubernetes   SeriesName = "kubernetes"
 )
 
