@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	metricsNamespace = "juju_pubsub"
+	metricsNamespace = "juju"
+	metricsSubsytem  = "pubsub"
 )
 
 // PubsubMetrics implements pubsub.Metrics for gaining information about the
@@ -30,11 +31,13 @@ func NewPubsubMetrics() *PubsubMetrics {
 	return &PubsubMetrics{
 		subscriptions: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: metricsNamespace,
+			Subsystem: metricsSubsytem,
 			Name:      "subscriptions",
 			Help:      "Number of subscriptions on a hub",
 		}),
 		published: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: metricsNamespace,
+			Subsystem: metricsSubsytem,
 			Name:      "published",
 			Help:      "Number of published message per topic",
 		}, []string{
@@ -42,6 +45,7 @@ func NewPubsubMetrics() *PubsubMetrics {
 		}),
 		queue: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: metricsNamespace,
+			Subsystem: metricsSubsytem,
 			Name:      "queue",
 			Help:      "Queue length for a given callback identifier",
 		}, []string{
@@ -49,6 +53,7 @@ func NewPubsubMetrics() *PubsubMetrics {
 		}),
 		consumed: prometheus.NewSummaryVec(prometheus.SummaryOpts{
 			Namespace: metricsNamespace,
+			Subsystem: metricsSubsytem,
 			Name:      "consumed",
 			Help:      "Consumed times for a pubsub message",
 			Objectives: map[float64]float64{
