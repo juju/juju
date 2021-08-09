@@ -23,7 +23,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/globalclock"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/state"
@@ -189,11 +188,6 @@ func (s *manifoldSuite) TestOutput(c *gc.C) {
 	w, err := s.manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var updater globalclock.Updater
-	err = s.manifold.Output(w, &updater)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(updater, gc.Equals, s.store)
-
 	var manager corelease.Manager
 	err = s.manifold.Output(w, &manager)
 	c.Assert(err, jc.ErrorIsNil)
@@ -201,7 +195,7 @@ func (s *manifoldSuite) TestOutput(c *gc.C) {
 
 	var other io.Writer
 	err = s.manifold.Output(w, &other)
-	c.Assert(err, gc.ErrorMatches, `expected output of type \*globalclock.Updater or \*core/lease.Manager, got \*io.Writer`)
+	c.Assert(err, gc.ErrorMatches, `expected output of type \*core/lease.Manager, got \*io.Writer`)
 }
 
 func (s *manifoldSuite) TestStoppingWorkerReleasesState(c *gc.C) {

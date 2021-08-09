@@ -129,6 +129,10 @@ func (f *FSM) claim(key lease.Key, holder string, duration time.Duration) *respo
 		// If a claim (instead of an extension) is being made by the lease
 		// holder, this may be due to a HA situation where the local Raft node
 		// is not in sync with the leader. Let them retry.
+		logger.Tracef(
+			"lease for %q in model %q is already held by claimant %q; allow retry",
+			key.Namespace, key.ModelUUID, holder,
+		)
 		return invalidResponse()
 	}
 	entries[key] = &entry{
@@ -149,6 +153,10 @@ func (f *FSM) extend(key lease.Key, holder string, duration time.Duration) *resp
 		return invalidResponse()
 	}
 	if entry.holder != holder {
+		logger.Tracef(
+			"unable to extend lease for %q in model %q; requested for %q, but held by %q",
+			key.Namespace, key.ModelUUID, entry.holder, holder,
+		)
 		return invalidResponse()
 	}
 	expiry := f.globalTime.Add(duration)
@@ -174,6 +182,10 @@ func (f *FSM) revoke(key lease.Key, holder string) *response {
 		return invalidResponse()
 	}
 	if entry.holder != holder {
+		logger.Tracef(
+			"unable to revoke lease for %q in model %q; requested for %q, but held by %q",
+			key.Namespace, key.ModelUUID, entry.holder, holder,
+		)
 		return invalidResponse()
 	}
 	delete(entries, key)
@@ -357,8 +369,8 @@ func (r *response) Error() error {
 
 // Notify is part of FSMResponse.
 func (r *response) Notify(target NotifyTarget) {
-	// This response is either for a claim (in which case claimer will
-	// be set) or a set-time (so it will have zero or more expiries).
+	// This response is either for a claim (in which case claimer will be set)
+	// or a set-time (so it will have zero or more expirations).
 	if r.claimer != "" {
 		target.Claimed(r.claimed, r.claimer)
 	}

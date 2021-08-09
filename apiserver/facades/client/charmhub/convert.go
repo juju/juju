@@ -147,7 +147,6 @@ func transformInfoChannelMap(channelMap []transport.InfoChannelMap, isKub bool) 
 			seen.Add(ch.Track)
 			trackList = append(trackList, ch.Track)
 		}
-
 	}
 	return trackList, channels
 }

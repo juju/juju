@@ -5,8 +5,6 @@ package raftlease
 
 import (
 	"fmt"
-	"io"
-	"log"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -87,20 +85,18 @@ type Mongo interface {
 	GetCollection(name string) (collection mongo.Collection, closer func())
 }
 
-// Logger allows us to report errors if we can't write to the database
-// for some reason.
 type Logger interface {
+	Infof(string, ...interface{})
 	Errorf(string, ...interface{})
 }
 
 // NewNotifyTarget returns something that can be used to report lease
 // changes.
-func NewNotifyTarget(mongo Mongo, collection string, logDest io.Writer, errorLogger Logger) raftlease.NotifyTarget {
+func NewNotifyTarget(mongo Mongo, collection string, logger Logger) raftlease.NotifyTarget {
 	return &notifyTarget{
-		mongo:       mongo,
-		collection:  collection,
-		logger:      log.New(logDest, "", log.LstdFlags|log.Lmicroseconds|log.LUTC),
-		errorLogger: errorLogger,
+		mongo:      mongo,
+		collection: collection,
+		logger:     logger,
 	}
 }
 
@@ -110,17 +106,9 @@ func NewNotifyTarget(mongo Mongo, collection string, logDest io.Writer, errorLog
 // a logger for write errors as well as a destination for tracing
 // lease changes.
 type notifyTarget struct {
-	mongo       Mongo
-	collection  string
-	logger      *log.Logger
-	errorLogger Logger
-}
-
-func (t *notifyTarget) log(message string, args ...interface{}) {
-	err := t.logger.Output(2, fmt.Sprintf(message, args...))
-	if err != nil {
-		t.errorLogger.Errorf("couldn't write to lease log: %s", err.Error())
-	}
+	mongo      Mongo
+	collection string
+	logger     Logger
 }
 
 func buildClaimedOps(coll mongo.Collection, docId string, key lease.Key, holder string) ([]txn.Op, error) {
@@ -168,6 +156,7 @@ func buildClaimedOps(coll mongo.Collection, docId string, key lease.Key, holder 
 func applyClaimed(mongo Mongo, collection string, docId string, key lease.Key, holder string) (bool, error) {
 	coll, closer := mongo.GetCollection(collection)
 	defer closer()
+
 	var writeNeeded bool
 	err := mongo.RunTransaction(func(int) ([]txn.Op, error) {
 		ops, err := buildClaimedOps(coll, docId, key, holder)
@@ -180,12 +169,13 @@ func applyClaimed(mongo Mongo, collection string, docId string, key lease.Key, h
 // Claimed is part of raftlease.NotifyTarget.
 func (t *notifyTarget) Claimed(key lease.Key, holder string) {
 	docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
-	t.log("claimed %q for %q", docId, holder)
+	t.logger.Infof("claimed %q for %q", docId, holder)
+
 	_, err := applyClaimed(t.mongo, t.collection, docId, key, holder)
 	if err != nil {
-		t.errorLogger.Errorf("couldn't claim lease %q for %q in db: %s", docId, holder, err.Error())
-		t.log("couldn't claim lease %q for %q in db: %s", docId, holder, err.Error())
-		return
+		t.logger.Errorf("couldn't claim lease %q for %q in db: %s", docId, holder, err.Error())
+	} else {
+		t.logger.Infof("successfully claimed lease %q for %q", docId, holder)
 	}
 }
 
@@ -194,7 +184,7 @@ func (t *notifyTarget) Expired(key lease.Key) {
 	coll, closer := t.mongo.GetCollection(t.collection)
 	defer closer()
 	docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
-	t.log("expired %q", docId)
+	t.logger.Infof("expired %q", docId)
 	err := t.mongo.RunTransaction(func(_ int) ([]txn.Op, error) {
 		existingDoc, err := getRecord(coll, docId)
 		if err == mgo.ErrNotFound {
@@ -214,9 +204,9 @@ func (t *notifyTarget) Expired(key lease.Key) {
 	})
 
 	if err != nil {
-		t.errorLogger.Errorf("couldn't expire lease %q in db: %s", docId, err.Error())
-		t.log("couldn't expire lease %q in db: %s", docId, err.Error())
-		return
+		t.logger.Errorf("couldn't expire lease %q in db: %s", docId, err.Error())
+	} else {
+		t.logger.Infof("successfully expired lease %q", docId)
 	}
 }
 
