@@ -37,7 +37,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		testclock = clock.WallClock
 	}
 	fakeOrigin := names.NewMachineTag("0")
-	hub := centralhub.New(fakeOrigin)
+	hub := centralhub.New(fakeOrigin, centralhub.PubsubNoOpMetrics{})
 	return apiserver.ServerConfig{
 		Clock:               testclock,
 		Tag:                 names.NewMachineTag("0"),

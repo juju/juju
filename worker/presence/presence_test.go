@@ -39,7 +39,7 @@ var _ = gc.Suite(&PresenceSuite{})
 
 func (s *PresenceSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.hub = centralhub.New(ourTag)
+	s.hub = centralhub.New(ourTag, centralhub.PubsubNoOpMetrics{})
 	s.clock = testclock.NewClock(time.Time{})
 	s.recorder = corepresence.New(s.clock)
 	s.recorder.Enable()

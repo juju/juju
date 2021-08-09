@@ -98,7 +98,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
 
 	machineTag := names.NewMachineTag("0")
-	hub := centralhub.New(machineTag)
+	hub := centralhub.New(machineTag, centralhub.PubsubNoOpMetrics{})
 
 	initialized := gate.NewLock()
 	modelCache, err := modelcache.NewWorker(modelcache.Config{

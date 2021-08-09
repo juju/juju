@@ -52,7 +52,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 			Addrs:    []string{"testing.invalid:1234"},
 		},
 		DialConn:      rafttransport.DialConn,
-		Hub:           centralhub.New(tag),
+		Hub:           centralhub.New(tag, centralhub.PubsubNoOpMetrics{}),
 		Mux:           apiserverhttp.NewMux(),
 		Authenticator: &mockAuthenticator{auth: s.auth},
 		Path:          "/raft/path",

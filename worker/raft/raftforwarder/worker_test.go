@@ -44,7 +44,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		response: s.response,
 	}}
 	s.target = &fakeTarget{}
-	s.hub = centralhub.New(names.NewMachineTag("17"))
+	s.hub = centralhub.New(names.NewMachineTag("17"), centralhub.PubsubNoOpMetrics{})
 	s.config = raftforwarder.Config{
 		Hub:                  s.hub,
 		Raft:                 s.raft,
