@@ -1,3 +1,6 @@
+// Copyright 2021 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package globalclockupdater
 
 import (
@@ -36,12 +39,13 @@ type RaftApplier interface {
 	State() raft.RaftState
 }
 
-// Sleeper represents an interface for sleeping for a given duration.
-// This is required to improve testing.
+// Sleeper describes functionality for sleeping on the current Goroutine.
 type Sleeper interface {
 	Sleep(time.Duration)
 }
 
+// Timer describes the ability to receive a notification via
+// channel after some duration has expired.
 type Timer interface {
 	After(time.Duration) <-chan time.Time
 }
@@ -58,7 +62,14 @@ type updater struct {
 	expiryNotifyTarget raftlease.NotifyTarget
 }
 
-func newUpdater(r RaftApplier, notifyTarget raftlease.NotifyTarget, clock raftlease.ReadOnlyClock, sleeper Sleeper, timer Timer, logger Logger) *updater {
+func newUpdater(
+	r RaftApplier,
+	notifyTarget raftlease.NotifyTarget,
+	clock raftlease.ReadOnlyClock,
+	sleeper Sleeper,
+	timer Timer,
+	logger Logger,
+) *updater {
 	return &updater{
 		raft:               r,
 		expiryNotifyTarget: notifyTarget,
