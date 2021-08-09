@@ -129,7 +129,10 @@ func (f *FSM) claim(key lease.Key, holder string, duration time.Duration) *respo
 		// If a claim (instead of an extension) is being made by the lease
 		// holder, this may be due to a HA situation where the local Raft node
 		// is not in sync with the leader. Let them retry.
-		logger.Tracef("Attempt on claim, but already the held by the same holder. Allow retry. Current: %q, Requested: %q", entry.holder, holder)
+		logger.Tracef(
+			"lease for %q in model %q is already held by claimant %q; allow retry",
+			key.Namespace, key.ModelUUID, holder,
+		)
 		return invalidResponse()
 	}
 	entries[key] = &entry{
@@ -150,7 +153,10 @@ func (f *FSM) extend(key lease.Key, holder string, duration time.Duration) *resp
 		return invalidResponse()
 	}
 	if entry.holder != holder {
-		logger.Tracef("Can not extend lease, as we're not the holder. Current: %q, Requested: %q", entry.holder, holder)
+		logger.Tracef(
+			"unable to extend lease for %q in model %q; requested for %q, but held by %q",
+			key.Namespace, key.ModelUUID, entry.holder, holder,
+		)
 		return invalidResponse()
 	}
 	expiry := f.globalTime.Add(duration)
@@ -176,7 +182,10 @@ func (f *FSM) revoke(key lease.Key, holder string) *response {
 		return invalidResponse()
 	}
 	if entry.holder != holder {
-		logger.Tracef("Can not revoke lease, as we're not the holder. Current: %q, Requested: %q", entry.holder, holder)
+		logger.Tracef(
+			"unable to revoke lease for %q in model %q; requested for %q, but held by %q",
+			key.Namespace, key.ModelUUID, entry.holder, holder,
+		)
 		return invalidResponse()
 	}
 	delete(entries, key)

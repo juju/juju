@@ -8,11 +8,12 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/globalclock"
-	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/globalclock"
+	"github.com/juju/juju/core/raftlease"
 )
 
 type updaterSuite struct {
