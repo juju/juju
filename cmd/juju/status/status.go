@@ -394,7 +394,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	defer c.close()
 
 	if c.watch != 0 {
-		fmt.Printf("\u001Bc")
+		ClearScreen()
 	}
 
 	_, err := c.runStatus(ctx)
@@ -406,7 +406,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	ticker := time.NewTicker(c.watch)
 
 	for range ticker.C {
-		fmt.Printf("\u001Bc")
+		ClearScreen()
 		_, err := c.runStatus(ctx)
 		if err != nil {
 			return err
