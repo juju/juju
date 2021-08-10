@@ -55,6 +55,7 @@ import (
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -402,6 +403,23 @@ Please bootstrap again and choose a different controller name.`, controllerName)
 // namespace is already used by another model.
 func (k *kubernetesClient) Create(envcontext.ProviderCallContext, environs.CreateParams) error {
 	return errors.Trace(k.createNamespace(k.namespace))
+}
+
+// EnsureImageRepoSecret ensures the image pull secret gets created.
+func (k *kubernetesClient) EnsureImageRepoSecret(imageRepo docker.ImageRepoDetails) error {
+	if !imageRepo.IsPrivate() {
+		return nil
+	}
+	secretData, err := imageRepo.SecretData()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = k.ensureOCIImageSecret(
+		constants.CAASImageRepoSecretName,
+		utils.LabelsJuju, secretData,
+		k.annotations,
+	)
+	return errors.Trace(err)
 }
 
 // Bootstrap deploys controller with mongoDB together into k8s cluster.
@@ -1218,7 +1236,9 @@ func (k *kubernetesClient) ensureService(
 			continue
 		}
 		imageSecretName := appSecretName(deploymentName, c.Name)
-		if err := k.ensureOCIImageSecret(imageSecretName, appName, &c.ImageDetails, annotations.Copy()); err != nil {
+		if err := k.ensureOCIImageSecretForApp(
+			imageSecretName, appName, &c.ImageDetails, annotations.Copy(),
+		); err != nil {
 			return errors.Annotatef(err, "creating secrets for container: %s", c.Name)
 		}
 		cleanups = append(cleanups, func() { _ = k.deleteSecret(imageSecretName, "") })
