@@ -4,6 +4,7 @@
 package machine
 
 import (
+	"io"
 	"net/http"
 	"runtime"
 	"time"
@@ -266,6 +267,10 @@ type ManifoldsConfig struct {
 	// LeaseFSM represents the internal finite state machine for lease
 	// management.
 	LeaseFSM *raftlease.FSM
+
+	// LeaseLog represents the internal lease raft log, used to output lease
+	// changes.
+	LeaseLog io.Writer
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -542,19 +547,20 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:            loggo.GetLogger("juju.worker.migrationminion"),
 		}),
 
-		// We start clock updaters for every controller machine to ensure the
-		// lease clock is updated monotonically and at a rate no faster than
-		// real time.
-		// In practice, dependency on the Raft forwarder means that this worker
-		// will only ever be running on the Raft leader node.
-		leaseClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
-			Clock:            config.Clock,
-			LeaseManagerName: leaseManagerName,
-			RaftName:         raftForwarderName,
-			NewWorker:        globalclockupdater.NewWorker,
-			UpdateInterval:   globalClockUpdaterUpdateInterval,
-			Logger:           loggo.GetLogger("juju.worker.globalclockupdater.raft"),
-		}),
+		// We ensure the lease clock is updated monotonically and at a rate
+		// no faster than real time.
+		// This worker will only ever be running on the Raft leader node.
+		leaseClockUpdaterName: ifRaftLeader(globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
+			RaftName:       raftName,
+			StateName:      stateName,
+			Clock:          config.Clock,
+			FSM:            config.LeaseFSM,
+			LeaseLog:       config.LeaseLog,
+			NewWorker:      globalclockupdater.NewWorker,
+			NewTarget:      globalclockupdater.NewTarget,
+			UpdateInterval: globalClockUpdaterUpdateInterval,
+			Logger:         loggo.GetLogger("juju.worker.globalclockupdater.raft"),
+		})),
 
 		// Each controller machine runs a singular worker which will
 		// attempt to claim responsibility for running certain workers
@@ -778,13 +784,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The raft forwarder accepts FSM commands from the hub and
 		// applies them to the raft leader.
 		raftForwarderName: ifRaftLeader(raftforwarder.Manifold(raftforwarder.ManifoldConfig{
-			AgentName:            agentName,
 			RaftName:             raftName,
 			StateName:            stateName,
 			CentralHubName:       centralHubName,
 			RequestTopic:         lease.LeaseRequestTopic,
 			Logger:               loggo.GetLogger("juju.worker.raft.raftforwarder"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
+			LeaseLog:             config.LeaseLog,
 			NewWorker:            raftforwarder.NewWorker,
 			NewTarget:            raftforwarder.NewTarget,
 		})),

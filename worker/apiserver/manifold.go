@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v2"

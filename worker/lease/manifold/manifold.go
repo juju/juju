@@ -22,7 +22,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/globalclock"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/worker/common"
@@ -178,14 +177,11 @@ func (s *manifoldState) output(in worker.Worker, out interface{}) error {
 		return errors.Errorf("expected input of type *worker/lease.Manager, got %T", in)
 	}
 	switch out := out.(type) {
-	case *globalclock.Updater:
-		*out = s.store
-		return nil
 	case *corelease.Manager:
 		*out = manager
 		return nil
 	default:
-		return errors.Errorf("expected output of type *globalclock.Updater or *core/lease.Manager, got %T", out)
+		return errors.Errorf("expected output of type *core/lease.Manager, got %T", out)
 	}
 }
 

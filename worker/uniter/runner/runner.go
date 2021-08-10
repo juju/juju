@@ -18,7 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v2"

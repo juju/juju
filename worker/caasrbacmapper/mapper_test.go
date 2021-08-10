@@ -8,11 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/caas/kubernetes/provider/mocks"
-	jujutest "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/caasrbacmapper"
-
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -23,6 +18,12 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/caas/kubernetes/provider/mocks"
+	coretesting "github.com/juju/juju/testing"
+	jujutest "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/caasrbacmapper"
 )
 
 type MapperSuite struct {
@@ -194,40 +195,42 @@ func (m *MapperSuite) TestRBACMapperDeleteSync(c *gc.C) {
 		},
 	}
 
-	waitGroup.Add(1)
 	m.mockSALister.EXPECT().ServiceAccounts(gomock.Eq(namespace)).
 		Return(m.mockSANamespaceLister).AnyTimes()
-	m.mockSANamespaceLister.EXPECT().Get(gomock.Eq(name)).
-		DoAndReturn(func(_ string) (*core.ServiceAccount, error) {
-			waitGroup.Done()
-			return sa, nil
-		})
-
+	m.mockSANamespaceLister.EXPECT().Get(gomock.Eq(name)).Return(sa, nil)
 	eventHandlers.OnAdd(sa)
-	waitGroup.Wait()
 
-	rAppName, err := mapper.AppNameForServiceAccount(uid)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rAppName, gc.Equals, appName)
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		rAppName, err := mapper.AppNameForServiceAccount(uid)
+		if err == nil {
+			c.Assert(rAppName, gc.Equals, appName)
+			break
+		}
+		if !a.HasNext() {
+			c.Fatal("timed out waiting for service account app")
+		}
+	}
 
 	// Update SA with a new app name to check propagation
-	waitGroup.Add(1)
-	m.mockSANamespaceLister.EXPECT().Get(gomock.Eq(name)).
-		DoAndReturn(func(_ string) (*core.ServiceAccount, error) {
-			waitGroup.Done()
-			return nil, k8serrors.NewNotFound(core.Resource("serviceaccount"), name)
-		})
+	m.mockSANamespaceLister.EXPECT().Get(gomock.Eq(name)).Return(
+		nil, k8serrors.NewNotFound(core.Resource("serviceaccount"), name))
 
 	//Send the delete event for the service account
 	eventHandlers.OnDelete(sa)
-	waitGroup.Wait()
 
 	mapper.Kill()
 	mapper.Wait()
 
-	time.Sleep(jujutest.ShortWait)
-	_, err = mapper.AppNameForServiceAccount(uid)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		_, err = mapper.AppNameForServiceAccount(uid)
+		if err != nil {
+			c.Assert(errors.IsNotFound(err), jc.IsTrue)
+			break
+		}
+		if !a.HasNext() {
+			c.Fatal("timed out waiting for service account app to be removed")
+		}
+	}
 }
 
 func (m *MapperSuite) TestRBACMapperNotFound(c *gc.C) {

@@ -15,7 +15,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/os/v2/series"

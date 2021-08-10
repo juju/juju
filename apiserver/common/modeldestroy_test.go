@@ -139,12 +139,12 @@ func (s *destroyModelSuite) TestDestroyModelNotIgnoreErrorsrWithForce(c *gc.C) {
 
 func (s *destroyModelSuite) TestDestroyControllerNonControllerModel(c *gc.C) {
 	s.modelManager.models[0].tag = s.modelManager.models[1].tag
-	err := common.DestroyController(s.modelManager, false, nil)
+	err := common.DestroyController(s.modelManager, false, nil, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `expected state for controller model UUID deadbeef-0bad-400d-8000-4b1d0d06f33d, got deadbeef-0bad-400d-8000-4b1d0d06f00d`)
 }
 
 func (s *destroyModelSuite) TestDestroyController(c *gc.C) {
-	err := common.DestroyController(s.modelManager, false, nil)
+	err := common.DestroyController(s.modelManager, false, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCalls(c, []jtesting.StubCall{
@@ -156,13 +156,15 @@ func (s *destroyModelSuite) TestDestroyController(c *gc.C) {
 	})
 	s.modelManager.models[0].CheckCalls(c, []jtesting.StubCall{
 		{"Status", nil},
-		{"Destroy", []interface{}{state.DestroyModelParams{}}},
+		{"Destroy", []interface{}{state.DestroyModelParams{
+			MaxWait: common.MaxWait(nil),
+		}}},
 	})
 }
 
 func (s *destroyModelSuite) TestDestroyControllerReleaseStorage(c *gc.C) {
 	destroyStorage := false
-	err := common.DestroyController(s.modelManager, false, &destroyStorage)
+	err := common.DestroyController(s.modelManager, false, &destroyStorage, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCalls(c, []jtesting.StubCall{
@@ -176,12 +178,36 @@ func (s *destroyModelSuite) TestDestroyControllerReleaseStorage(c *gc.C) {
 		{"Status", nil},
 		{"Destroy", []interface{}{state.DestroyModelParams{
 			DestroyStorage: &destroyStorage,
+			MaxWait:        common.MaxWait(nil),
+		}}},
+	})
+}
+
+func (s *destroyModelSuite) TestDestroyControllerForce(c *gc.C) {
+	force := true
+	timeout := time.Hour
+	maxWait := time.Second
+	err := common.DestroyController(s.modelManager, false, nil, &force, &maxWait, &timeout)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.modelManager.CheckCalls(c, []jtesting.StubCall{
+		{"ControllerModelTag", nil},
+		{"GetBlockForType", []interface{}{state.DestroyBlock}},
+		{"GetBlockForType", []interface{}{state.RemoveBlock}},
+		{"GetBlockForType", []interface{}{state.ChangeBlock}},
+		{"Model", nil},
+	})
+	s.modelManager.models[0].CheckCalls(c, []jtesting.StubCall{
+		{"Destroy", []interface{}{state.DestroyModelParams{
+			Force:   &force,
+			Timeout: &timeout,
+			MaxWait: maxWait,
 		}}},
 	})
 }
 
 func (s *destroyModelSuite) TestDestroyControllerDestroyHostedModels(c *gc.C) {
-	err := common.DestroyController(s.modelManager, true, nil)
+	err := common.DestroyController(s.modelManager, true, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCalls(c, []jtesting.StubCall{
@@ -207,6 +233,7 @@ func (s *destroyModelSuite) TestDestroyControllerDestroyHostedModels(c *gc.C) {
 		{"Status", nil},
 		{"Destroy", []interface{}{state.DestroyModelParams{
 			DestroyHostedModels: true,
+			MaxWait:             common.MaxWait(nil),
 		}}},
 	})
 	s.metricSender.CheckCalls(c, []jtesting.StubCall{
@@ -227,7 +254,7 @@ func (s *destroyModelSuite) TestDestroyControllerModelErrs(c *gc.C) {
 		nil, // for GetBlockForType, 1st model
 		errors.NotFoundf("pretend I am not here"), // for GetBackend, 2nd model
 	)
-	err := common.DestroyController(s.modelManager, true, nil)
+	err := common.DestroyController(s.modelManager, true, nil, nil, nil, nil)
 	// Processing continued despite one model erring out.
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -238,7 +265,7 @@ func (s *destroyModelSuite) TestDestroyControllerModelErrs(c *gc.C) {
 		nil,                            // for GetBlockForType, 1st model
 		errors.New("I have a problem"), // for GetBackend, 2nd model
 	)
-	err = common.DestroyController(s.modelManager, true, nil)
+	err = common.DestroyController(s.modelManager, true, nil, nil, nil, nil)
 	// Processing erred out since a model seriously failed.
 	c.Assert(err, gc.ErrorMatches, "I have a problem")
 }

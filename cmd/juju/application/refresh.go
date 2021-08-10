@@ -11,7 +11,7 @@ import (
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/charmrepo/v7"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"

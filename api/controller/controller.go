@@ -5,6 +5,7 @@ package controller
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -148,6 +149,18 @@ type DestroyControllerParams struct {
 	// storage in the model (or hosted models), an error with the code
 	// params.CodeHasPersistentStorage will be returned.
 	DestroyStorage *bool
+
+	// Force specifies whether model destruction will be forced, i.e.
+	// keep going despite operational errors.
+	Force *bool `json:"force,omitempty"`
+
+	// MaxWait specifies the amount of time that each step in model destroy process
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration `json:"max-wait,omitempty"`
+
+	// ModelTimeout specifies how long to wait for the destroy process for each model.
+	ModelTimeout *time.Duration `json:"model-timeout,omitempty"`
 }
 
 // DestroyController puts the controller model into a "dying" state,
@@ -159,9 +172,16 @@ func (c *Client) DestroyController(args DestroyControllerParams) error {
 		}
 		args.DestroyStorage = nil
 	}
+	if c.BestAPIVersion() < 11 && args.Force != nil && *args.Force {
+		return errors.New("this Juju controller does not support force destroy")
+	}
+
 	return c.facade.FacadeCall("DestroyController", params.DestroyControllerArgs{
 		DestroyModels:  args.DestroyModels,
 		DestroyStorage: args.DestroyStorage,
+		Force:          args.Force,
+		MaxWait:        args.MaxWait,
+		ModelTimeout:   args.ModelTimeout,
 	}, nil)
 }
 

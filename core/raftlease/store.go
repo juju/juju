@@ -57,15 +57,21 @@ type NotifyTarget interface {
 // the transaction is applied.
 type TrapdoorFunc func(lease.Key, string) lease.Trapdoor
 
+// ReadOnlyClock describes a clock from which global time can be read.
+type ReadOnlyClock interface {
+	GlobalTime() time.Time
+}
+
 // ReadonlyFSM defines the methods of the lease FSM the store can use
 // - any writes must go through the hub.
 type ReadonlyFSM interface {
+	ReadOnlyClock
+
 	// Leases and LeaseGroup receive a func for retrieving time,
 	// because it needs to be determined after potential lock-waiting
 	// to be accurate.
 	Leases(func() time.Time, ...lease.Key) map[lease.Key]lease.Info
 	LeaseGroup(func() time.Time, string, string) map[lease.Key]lease.Info
-	GlobalTime() time.Time
 	Pinned() map[lease.Key][]string
 }
 
@@ -187,37 +193,6 @@ func (s *Store) pinOp(operation string, key lease.Key, entity string, stop <-cha
 		Lease:     key.Lease,
 		PinEntity: entity,
 	}, stop))
-}
-
-// Advance is part of globalclock.Updater.
-func (s *Store) Advance(duration time.Duration, stop <-chan struct{}) error {
-	s.prevTimeMu.Lock()
-	defer s.prevTimeMu.Unlock()
-
-	newTime := s.prevTime.Add(duration)
-	err := s.runOnLeader(&Command{
-		Version:   CommandVersion,
-		Operation: OperationSetTime,
-		OldTime:   s.prevTime,
-		NewTime:   newTime,
-	}, stop)
-
-	if err != nil {
-		// If we timed out, convert the error to match the Updater interface.
-		if lease.IsTimeout(err) {
-			return globalclock.ErrTimeout
-		}
-
-		// If we had an incorrect notion of global time, resync with the FSM.
-		if globalclock.IsOutOfSyncUpdate(err) {
-			s.prevTime = s.fsm.GlobalTime()
-		}
-
-		return errors.Trace(err)
-	}
-
-	s.prevTime = newTime
-	return nil
 }
 
 func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {

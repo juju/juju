@@ -4,7 +4,6 @@
 package upgrades
 
 import (
-	"io"
 	"time"
 
 	"github.com/juju/replicaset/v2"
@@ -24,7 +23,7 @@ type StateBackend interface {
 	ControllerUUID() string
 	StateServingInfo() (controller.StateServingInfo, error)
 	ControllerConfig() (controller.Config, error)
-	LeaseNotifyTarget(io.Writer, raftleasestore.Logger) raftlease.NotifyTarget
+	LeaseNotifyTarget(raftleasestore.Logger) raftlease.NotifyTarget
 
 	StripLocalUserDomain() error
 	RenameAddModelPermission() error
@@ -247,8 +246,8 @@ func (s stateBackend) ControllerConfig() (controller.Config, error) {
 	return s.pool.SystemState().ControllerConfig()
 }
 
-func (s stateBackend) LeaseNotifyTarget(w io.Writer, logger raftleasestore.Logger) raftlease.NotifyTarget {
-	return s.pool.SystemState().LeaseNotifyTarget(w, logger)
+func (s stateBackend) LeaseNotifyTarget(logger raftleasestore.Logger) raftlease.NotifyTarget {
+	return s.pool.SystemState().LeaseNotifyTarget(logger)
 }
 
 func (s stateBackend) LegacyLeases(localTime time.Time) (map[lease.Key]lease.Info, error) {

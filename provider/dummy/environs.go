@@ -22,7 +22,6 @@ import (
 	stdcontext "context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http/httptest"
 	"os"
@@ -1050,7 +1049,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 
 func leaseManager(controllerUUID string, st *state.State) (*lease.Manager, error) {
 	target := st.LeaseNotifyTarget(
-		ioutil.Discard,
 		loggo.GetLogger("juju.state.raftlease"),
 	)
 	dummyStore := newLeaseStore(clock.WallClock, target, st.LeaseTrapdoorFunc())

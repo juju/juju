@@ -5,6 +5,9 @@ package raftlease_test
 
 import (
 	"bytes"
+	"fmt"
+	"io"
+	"log"
 	"strings"
 
 	"github.com/juju/errors"
@@ -65,7 +68,7 @@ func (s *targetSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *targetSuite) newTarget() coreraftlease.NotifyTarget {
-	return raftlease.NewNotifyTarget(s.mongo, collection, s.leaseLog, s.errorLog)
+	return raftlease.NewNotifyTarget(s.mongo, collection, newTestLogger(s.leaseLog, s.errorLog))
 }
 
 func (s *targetSuite) getRows(c *gc.C) []bson.M {
@@ -90,7 +93,10 @@ func (s *targetSuite) TestClaimedNoRecord(c *gc.C) {
 		"lease":      "ankles",
 		"holder":     "tailpipe",
 	}})
-	s.assertLogMatches(c, `claimed "model:ns#ankles#" for "tailpipe"`)
+	s.assertLogMatches(c,
+		`claimed "model:ns#ankles#" for "tailpipe"`,
+		`successfully claimed lease "model:ns#ankles#" for "tailpipe"`,
+	)
 }
 
 func (s *targetSuite) TestClaimedAlreadyHolder(c *gc.C) {
@@ -115,7 +121,10 @@ func (s *targetSuite) TestClaimedAlreadyHolder(c *gc.C) {
 		"lease":      "twin",
 		"holder":     "voiid",
 	}})
-	s.assertLogMatches(c, `claimed "model:leadership#twin#" for "voiid"`)
+	s.assertLogMatches(c,
+		`claimed "model:leadership#twin#" for "voiid"`,
+		`successfully claimed lease "model:leadership#twin#" for "voiid"`,
+	)
 }
 
 func (s *targetSuite) TestClaimedDifferentHolder(c *gc.C) {
@@ -140,7 +149,10 @@ func (s *targetSuite) TestClaimedDifferentHolder(c *gc.C) {
 		"lease":      "twin",
 		"holder":     "voiid",
 	}})
-	s.assertLogMatches(c, `claimed "model:leadership#twin#" for "voiid"`)
+	s.assertLogMatches(c,
+		`claimed "model:leadership#twin#" for "voiid"`,
+		`successfully claimed lease "model:leadership#twin#" for "voiid"`,
+	)
 }
 
 func (s *targetSuite) TestClaimedRecordsChangeBetweenAttempts(c *gc.C) {
@@ -167,7 +179,10 @@ func (s *targetSuite) TestClaimedRecordsChangeBetweenAttempts(c *gc.C) {
 		"lease":      "twin",
 		"holder":     "voiid",
 	}})
-	s.assertLogMatches(c, `claimed "model:leadership#twin#" for "voiid"`)
+	s.assertLogMatches(c,
+		`claimed "model:leadership#twin#" for "voiid"`,
+		`successfully claimed lease "model:leadership#twin#" for "voiid"`,
+	)
 }
 
 func (s *targetSuite) TestClaimedError(c *gc.C) {
@@ -185,15 +200,6 @@ func (s *targetSuite) TestClaimedError(c *gc.C) {
 	)
 }
 
-func (s *targetSuite) assertLogMatches(c *gc.C, expectLines ...string) {
-	lines := strings.Split(string(s.leaseLog.Bytes()), "\n")
-	c.Assert(lines, gc.HasLen, len(expectLines)+1)
-	for i, expected := range expectLines {
-		c.Assert(lines[i], gc.Matches, logPrefix+expected, gc.Commentf("line %d", i))
-	}
-	c.Assert(lines[len(expectLines)], gc.Equals, "")
-}
-
 func (s *targetSuite) TestExpired(c *gc.C) {
 	err := s.db.C(collection).Insert(
 		bson.M{
@@ -207,13 +213,19 @@ func (s *targetSuite) TestExpired(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.newTarget().Expired(lease.Key{"leadership", "model", "twin"})
 	c.Assert(s.getRows(c), gc.HasLen, 0)
-	s.assertLogMatches(c, `expired "model:leadership#twin#"`)
+	s.assertLogMatches(c,
+		`expired "model:leadership#twin#"`,
+		`successfully expired lease "model:leadership#twin#"`,
+	)
 }
 
 func (s *targetSuite) TestExpiredNoRecord(c *gc.C) {
 	s.newTarget().Expired(lease.Key{"leadership", "model", "twin"})
 	c.Assert(s.getRows(c), gc.HasLen, 0)
-	s.assertLogMatches(c, `expired "model:leadership#twin#"`)
+	s.assertLogMatches(c,
+		`expired "model:leadership#twin#"`,
+		`successfully expired lease "model:leadership#twin#"`,
+	)
 }
 
 func (s *targetSuite) TestExpiredRemovedWhileRunning(c *gc.C) {
@@ -233,7 +245,10 @@ func (s *targetSuite) TestExpiredRemovedWhileRunning(c *gc.C) {
 	}).Check()
 	s.newTarget().Expired(lease.Key{"leadership", "model", "twin"})
 	c.Assert(s.getRows(c), gc.HasLen, 0)
-	s.assertLogMatches(c, `expired "model:leadership#twin#"`)
+	s.assertLogMatches(c,
+		`expired "model:leadership#twin#"`,
+		`successfully expired lease "model:leadership#twin#"`,
+	)
 }
 
 func (s *targetSuite) TestExpiredError(c *gc.C) {
@@ -392,6 +407,15 @@ func (s *targetSuite) TestLeaseHolders(c *gc.C) {
 	})
 }
 
+func (s *targetSuite) assertLogMatches(c *gc.C, expectLines ...string) {
+	lines := strings.Split(s.leaseLog.String(), "\n")
+	c.Assert(lines, gc.HasLen, len(expectLines)+1)
+	for i, expected := range expectLines {
+		c.Assert(lines[i], gc.Matches, logPrefix+expected, gc.Commentf("line %d", i))
+	}
+	c.Assert(lines[len(expectLines)], gc.Equals, "")
+}
+
 // Mongo exposes database operations. It uses a real database -- we can't mock
 // mongo out, we need to check it really actually works -- but it's good to
 // have the runner accessible for adversarial transaction tests.
@@ -422,4 +446,25 @@ func (m *Mongo) RunTransaction(getTxn jujutxn.TransactionSource) error {
 		return m.txnErr
 	}
 	return m.runner.Run(getTxn)
+}
+
+type testLogger struct {
+	leaseLogger *log.Logger
+	errorLogger raftlease.Logger
+}
+
+func newTestLogger(leaseLogger io.Writer, errorLogger raftlease.Logger) raftlease.Logger {
+	return &testLogger{
+		leaseLogger: log.New(leaseLogger, "", log.LstdFlags|log.Lmicroseconds|log.LUTC),
+		errorLogger: errorLogger,
+	}
+}
+
+func (l *testLogger) Infof(message string, args ...interface{}) {
+	l.leaseLogger.Output(2, fmt.Sprintf(message, args...))
+}
+
+func (l *testLogger) Errorf(message string, args ...interface{}) {
+	l.Infof(message, args...)
+	l.errorLogger.Errorf(message, args...)
 }

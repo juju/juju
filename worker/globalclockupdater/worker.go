@@ -18,13 +18,14 @@ import (
 type Logger interface {
 	Tracef(string, ...interface{})
 	Infof(string, ...interface{})
+	Errorf(string, ...interface{})
 	Warningf(string, ...interface{})
 }
 
 // Config contains the configuration for the global clock updater worker.
 type Config struct {
 	// NewUpdater returns a new global clock updater.
-	NewUpdater func() (globalclock.Updater, error)
+	NewUpdater func() globalclock.Updater
 
 	// LocalClock is the local wall clock. The times returned must
 	// contain a monotonic component (Go 1.9+).
@@ -60,13 +61,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating config")
 	}
-	updater, err := config.NewUpdater()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting new updater")
-	}
 	w := &updaterWorker{
 		config:  config,
-		updater: updater,
+		updater: config.NewUpdater(),
 	}
 	w.tomb.Go(w.loop)
 	return w, nil
@@ -109,7 +106,7 @@ func (w *updaterWorker) loop() error {
 				// If the error is known and retryable, just keep attempting to
 				// tick the clock.
 				// The specific error is already logged at warning level by
-				// the lease store.
+				// the updater.
 				if globalclock.IsTimeout(err) || globalclock.IsOutOfSyncUpdate(err) {
 					w.config.Logger.Infof("retrying lease clock update in %s", interval)
 					timer.Reset(interval)

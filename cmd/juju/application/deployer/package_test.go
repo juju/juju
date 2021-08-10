@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deploy_mock.go github.com/juju/juju/cmd/juju/application/deployer DeployerAPI,DeployStepAPI,CharmReader
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deploy_mock.go github.com/juju/juju/cmd/juju/application/deployer DeployerAPI,DeployStepAPI,CharmReader,DeployConfigFlag
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deployer_mock.go github.com/juju/juju/cmd/juju/application/deployer ModelCommand,ConsumeDetails,ModelConfigGetter
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/resolver_mock.go github.com/juju/juju/cmd/juju/application/deployer Resolver,Bundle
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/store_mock.go github.com/juju/juju/cmd/juju/application/store CharmrepoForDeploy,MacaroonGetter

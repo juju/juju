@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/charm/v9"
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/v2/keyvalues"

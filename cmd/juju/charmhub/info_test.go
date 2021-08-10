@@ -6,7 +6,7 @@ package charmhub
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
-	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/juju/api/base"
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/core/arch"

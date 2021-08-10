@@ -37,9 +37,9 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		added: make(chan time.Duration, 1),
 	}
 	s.config = globalclockupdater.Config{
-		NewUpdater: func() (globalclock.Updater, error) {
+		NewUpdater: func() globalclock.Updater {
 			s.stub.AddCall("NewUpdater")
-			return &s.updater, s.stub.NextErr()
+			return &s.updater
 		},
 		LocalClock:     s.localClock,
 		UpdateInterval: time.Second,
@@ -65,13 +65,6 @@ func (s *WorkerSuite) TestNewWorkerValidateUpdateInterval(c *gc.C) {
 func (s *WorkerSuite) testNewWorkerValidateConfig(c *gc.C, expect string) {
 	worker, err := globalclockupdater.NewWorker(s.config)
 	c.Check(err, gc.ErrorMatches, expect)
-	c.Check(worker, gc.IsNil)
-}
-
-func (s *WorkerSuite) TestNewWorkerNewUpdaterError(c *gc.C) {
-	s.stub.SetErrors(errors.New("nup"))
-	worker, err := globalclockupdater.NewWorker(s.config)
-	c.Check(err, gc.ErrorMatches, "getting new updater: nup")
 	c.Check(worker, gc.IsNil)
 }
 
