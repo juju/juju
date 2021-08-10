@@ -174,7 +174,7 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.retryCount, "retry-count", 3, "Number of times to retry API failures")
 	f.DurationVar(&c.retryDelay, "retry-delay", 100*time.Millisecond, "Time to wait between retry attempts")
 
-	f.DurationVar(&c.watch, "watch", 0, "Watch the status every N seconds")
+	f.DurationVar(&c.watch, "watch", 0, "Watch the status every period of time")
 
 	c.checkProvidedIgnoredFlagF = func() set.Strings {
 		ignoredFlagForNonTabularFormat := set.NewStrings(
@@ -281,7 +281,7 @@ func (c *statusCommand) getStorageInfo(ctx *cmd.Context) (*storage.CombinedStora
 		})
 }
 
-func (c *statusCommand) runStatus(ctx *cmd.Context) (int, error) {
+func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 	// Always attempt to get the status at least once, and retry if it fails.
 	status, err := c.getStatus()
 	if err != nil && !modelcmd.IsModelMigratedError(err) {
@@ -297,27 +297,24 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) (int, error) {
 		}
 	}
 
-	// number of lines to be written
-	numLines := 0
-
 	if err != nil {
 		if status == nil {
 			// Status call completely failed, there is nothing to report
-			return numLines, errors.Trace(err)
+			return errors.Trace(err)
 		}
 		// Display any error, but continue to print status if some was returned
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
 	} else if status == nil {
-		return numLines, errors.Errorf("unable to obtain the current status")
+		return errors.Errorf("unable to obtain the current status")
 	}
 
 	controllerName, err := c.ControllerName()
 	if err != nil {
-		return numLines, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	activeBranch, err := c.ActiveBranch()
 	if err != nil {
-		return numLines, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	showRelations := c.relations
@@ -348,7 +345,7 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) (int, error) {
 	if showStorage {
 		storageInfo, err := c.getStorageInfo(ctx)
 		if err != nil {
-			return numLines, errors.Trace(err)
+			return errors.Trace(err)
 		}
 		formatterParams.storage = storageInfo
 		if storageInfo == nil || storageInfo.Empty() {
@@ -361,20 +358,20 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) (int, error) {
 
 	formatted, err := newStatusFormatter(formatterParams).format()
 	if err != nil {
-		return numLines, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	if err = c.out.Write(ctx, formatted); err != nil {
-		return numLines, err
+		return err
 	}
 
 	if !status.IsEmpty() {
-		return numLines, nil
+		return nil
 	}
 	if len(c.patterns) == 0 {
 		modelName, err := c.ModelIdentifier()
 		if err != nil {
-			return numLines, err
+			return err
 		}
 		ctx.Infof("Model %q is empty.", modelName)
 	} else {
@@ -387,7 +384,7 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) (int, error) {
 		ctx.Infof("Nothing matched specified filter%v.", plural())
 	}
 
-	return numLines, nil
+	return nil
 }
 
 func (c *statusCommand) Run(ctx *cmd.Context) error {
@@ -397,7 +394,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		ClearScreen()
 	}
 
-	_, err := c.runStatus(ctx)
+	err := c.runStatus(ctx)
 	if err != nil || c.watch == 0 {
 		return err
 	}
@@ -407,7 +404,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 
 	for range ticker.C {
 		ClearScreen()
-		_, err := c.runStatus(ctx)
+		err := c.runStatus(ctx)
 		if err != nil {
 			return err
 		}
