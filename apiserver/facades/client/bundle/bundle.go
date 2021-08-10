@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/resource"
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
@@ -481,12 +482,7 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 	}
 	defaultSeries := fmt.Sprintf("%v", value)
 
-	data := &charm.BundleData{
-		Saas:         make(map[string]*charm.SaasSpec),
-		Applications: make(map[string]*charm.ApplicationSpec),
-		Machines:     make(map[string]*charm.MachineSpec),
-		Relations:    [][]string{},
-	}
+	data := &charm.BundleData{}
 
 	isCAAS := model.Type() == description.CAAS
 	if isCAAS {
@@ -499,23 +495,80 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 		return nil, errors.Errorf("nothing to export as there are no applications")
 	}
 
-	allSpacesInfoLookup, err := b.backend.AllSpaceInfos()
+	// Application bundle data.
+	applications, machineIds, usedSeries, err := b.bundleDataApplications(model.Applications(), defaultSeries, isCAAS, includeCharmDefaults, backend)
 	if err != nil {
-		return nil, errors.Annotate(err, "unable to retrieve all space information")
+		return nil, err
+	}
+	data.Applications = applications
+
+	// Machine bundle data.
+	var machineSeries set.Strings
+	data.Machines, machineSeries = b.bundleDataMachines(model.Machines(), machineIds, defaultSeries)
+	usedSeries = usedSeries.Union(machineSeries)
+
+	// Remote Application bundle data.
+	data.Saas = bundleDataRemoteApplications(model.RemoteApplications())
+
+	// Relation bundle data.
+	data.Relations = bundleDataRelations(model.Relations())
+
+	// If there is only one series used, make it the default and remove
+	// series from all the apps and machines.
+	size := usedSeries.Size()
+	switch {
+	case size == 1:
+		used := usedSeries.Values()[0]
+		if used != defaultSeries {
+			data.Series = used
+			for _, app := range data.Applications {
+				app.Series = ""
+			}
+			for _, mac := range data.Machines {
+				mac.Series = ""
+			}
+		}
+	case size > 1:
+		if !usedSeries.Contains(defaultSeries) {
+			data.Series = ""
+		}
 	}
 
-	printEndpointBindingSpaceNames := b.printSpaceNamesInEndpointBindings(model.Applications())
+	if isCAAS {
+		// Kubernetes bundles don't specify series right now.
+		data.Series = ""
+	}
+
+	return data, nil
+}
+
+func (b *BundleAPI) bundleDataApplications(
+	apps []description.Application,
+	defaultSeries string,
+	isCAAS, includeCharmDefaults bool,
+	backend Backend,
+) (map[string]*charm.ApplicationSpec, set.Strings, set.Strings, error) {
+
+	allSpacesInfoLookup, err := b.backend.AllSpaceInfos()
+	if err != nil {
+		return nil, nil, nil, errors.Annotate(err, "unable to retrieve all space information")
+	}
+
+	applicationData := make(map[string]*charm.ApplicationSpec)
 	machineIds := set.NewStrings()
 	usedSeries := set.NewStrings()
+
 	charmConfigCache := make(map[string]*charm.Config)
-	for _, application := range model.Applications() {
+	printEndpointBindingSpaceNames := b.printSpaceNamesInEndpointBindings(apps)
+
+	for _, application := range apps {
 		var newApplication *charm.ApplicationSpec
 		appSeries := application.Series()
 		usedSeries.Add(appSeries)
 
 		endpointsWithSpaceNames, err := b.endpointBindings(application.EndpointBindings(), allSpacesInfoLookup, printEndpointBindingSpaceNames)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, nil, nil, errors.Trace(err)
 		}
 
 		// For security purposes we do not allow both the expose flag
@@ -526,7 +579,7 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 		// made accessible from 0.0.0.0/0.
 		exposedEndpoints, err := mapExposedEndpoints(application.ExposedEndpoints(), allSpacesInfoLookup)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, nil, nil, errors.Trace(err)
 		}
 		exposedFlag := application.Exposed() && len(exposedEndpoints) == 0
 
@@ -535,7 +588,7 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 		// representation, in that only the application name should be rendered.
 		curl, err := charm.ParseURL(application.CharmURL())
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, nil, nil, errors.Trace(err)
 		}
 
 		charmURL := application.CharmURL()
@@ -564,7 +617,7 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 			if !ok {
 				ch, err := backend.Charm(curl)
 				if err != nil {
-					return nil, errors.Trace(err)
+					return nil, nil, nil, errors.Trace(err)
 				}
 				cfgInfo = ch.Config()
 				charmConfigCache[charmURL] = cfgInfo
@@ -627,6 +680,8 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 			}
 		}
 
+		newApplication.Resources = applicationDataResources(application.Resources())
+
 		if appSeries != defaultSeries {
 			newApplication.Series = appSeries
 		}
@@ -657,10 +712,30 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 			}
 		}
 
-		data.Applications[application.Name()] = newApplication
+		applicationData[application.Name()] = newApplication
 	}
+	return applicationData, machineIds, usedSeries, nil
+}
 
-	for _, machine := range model.Machines() {
+func applicationDataResources(resources []description.Resource) map[string]interface{} {
+	var resourceData map[string]interface{}
+	for _, res := range resources {
+		appRev := res.ApplicationRevision()
+		if appRev == nil || appRev.Origin() != resource.OriginStore.String() {
+			continue
+		}
+		if resourceData == nil {
+			resourceData = make(map[string]interface{})
+		}
+		resourceData[res.Name()] = res.ApplicationRevision().Revision()
+	}
+	return resourceData
+}
+
+func (b *BundleAPI) bundleDataMachines(machines []description.Machine, machineIds set.Strings, defaultSeries string) (map[string]*charm.MachineSpec, set.Strings) {
+	usedSeries := set.NewStrings()
+	machineData := make(map[string]*charm.MachineSpec)
+	for _, machine := range machines {
 		if !machineIds.Contains(machine.Tag().Id()) {
 			continue
 		}
@@ -677,43 +752,25 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 			newMachine.Constraints = strings.Join(result, " ")
 		}
 
-		data.Machines[machine.Id()] = newMachine
+		machineData[machine.Id()] = newMachine
 	}
+	return machineData, usedSeries
+}
 
-	for _, application := range model.RemoteApplications() {
+func bundleDataRemoteApplications(remoteApps []description.RemoteApplication) map[string]*charm.SaasSpec {
+	Saas := make(map[string]*charm.SaasSpec, len(remoteApps))
+	for _, application := range remoteApps {
 		newSaas := &charm.SaasSpec{
 			URL: application.URL(),
 		}
-		data.Saas[application.Name()] = newSaas
+		Saas[application.Name()] = newSaas
 	}
+	return Saas
+}
 
-	// If there is only one series used, make it the default and remove
-	// series from all the apps and machines.
-	size := usedSeries.Size()
-	switch {
-	case size == 1:
-		used := usedSeries.Values()[0]
-		if used != defaultSeries {
-			data.Series = used
-			for _, app := range data.Applications {
-				app.Series = ""
-			}
-			for _, mac := range data.Machines {
-				mac.Series = ""
-			}
-		}
-	case size > 1:
-		if !usedSeries.Contains(defaultSeries) {
-			data.Series = ""
-		}
-	}
-
-	// Kubernetes bundles don't specify series right now.
-	if isCAAS {
-		data.Series = ""
-	}
-
-	for _, relation := range model.Relations() {
+func bundleDataRelations(relations []description.Relation) [][]string {
+	var relationData [][]string
+	for _, relation := range relations {
 		var endpointRelation []string
 		for _, endpoint := range relation.Endpoints() {
 			// skipping the 'peer' role which is not of concern in exporting the current model configuration.
@@ -723,11 +780,10 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 			endpointRelation = append(endpointRelation, endpoint.ApplicationName()+":"+endpoint.Name())
 		}
 		if len(endpointRelation) != 0 {
-			data.Relations = append(data.Relations, endpointRelation)
+			relationData = append(relationData, endpointRelation)
 		}
 	}
-
-	return data, nil
+	return relationData
 }
 
 // mapExposedEndpoints converts the description package representation of the
