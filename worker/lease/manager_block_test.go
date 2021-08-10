@@ -31,15 +31,6 @@ func (s *WaitUntilExpiredSuite) SetUpTest(c *gc.C) {
 	logger.SetLogLevel(loggo.TRACE)
 }
 
-func (s *WaitUntilExpiredSuite) TestLeadershipNotHeld(c *gc.C) {
-	fix := &Fixture{}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
-		blockTest := newBlockTest(c, manager, key("redis"))
-		err := blockTest.assertUnblocked(c)
-		c.Check(err, jc.ErrorIsNil)
-	})
-}
-
 func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *gc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
@@ -245,11 +236,8 @@ func (bt *blockTest) assertBlocked(c *gc.C) {
 	select {
 	case err := <-bt.done:
 		c.Errorf("unblocked unexpectedly with %v", err)
-	case <-time.After(time.Millisecond):
-		// happy that we are still blocked, success
-		// TODO(jam): 2019-02-05 should this be testing.ShortWait? It used to be
-		//  just plain 'default:', which didn't even give the helper goroutine
-		//  a timeslice to start to even evaluate if WaitUntilExpired had returned.
+	case <-time.After(testing.ShortWait):
+		// Happy that we are still blocked; success.
 	}
 }
 
