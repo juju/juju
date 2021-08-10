@@ -12,7 +12,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
-	cmd "github.com/juju/cmd"
+	cmd "github.com/juju/cmd/v3"
 	api "github.com/juju/juju/api"
 	application "github.com/juju/juju/api/application"
 	base "github.com/juju/juju/api/base"

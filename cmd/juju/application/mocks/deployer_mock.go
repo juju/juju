@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	cmd "github.com/juju/cmd"
+	cmd "github.com/juju/cmd/v3"
 	deployer "github.com/juju/juju/cmd/juju/application/deployer"
 	store "github.com/juju/juju/cmd/juju/application/store"
 	reflect "reflect"

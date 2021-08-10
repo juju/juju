@@ -19,8 +19,8 @@ import (
 
 	"github.com/hashicorp/raft"
 	"github.com/juju/clock"
-	"github.com/juju/cmd"
-	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"

@@ -46,12 +46,12 @@ require (
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/imdario/mergo v0.3.10 // indirect
-	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
+	github.com/juju/ansiterm v0.0.0-20210706145210-9283cdf370b5
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
 	github.com/juju/charm/v8 v8.0.0-20210722102001-7d7bf2b0acef
 	github.com/juju/charmrepo/v6 v6.0.0-20210422125831-407c8ef9471c
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
-	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
+	github.com/juju/cmd/v3 v3.0.0-20210809234809-65029dab4cd0
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
 	github.com/juju/description/v3 v3.0.0-20210709162012-5f861fa82eab
 	github.com/juju/errors v0.0.0-20200330140219-3fe23663418f
@@ -91,8 +91,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.1
 	github.com/lxc/lxd v0.0.0-20210607205159-a7c206b5233d
-	github.com/mattn/go-colorable v0.1.8 // indirect
-	github.com/mattn/go-isatty v0.0.12
+	github.com/mattn/go-isatty v0.0.13
 	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
 	github.com/onsi/ginkgo v1.14.2 // indirect
 	github.com/onsi/gomega v1.10.4 // indirect
@@ -110,12 +109,12 @@ require (
 	github.com/vishvananda/netlink v1.1.0
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	go.opencensus.io v0.23.0 // indirect
-	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
+	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
 	golang.org/x/mod v0.4.0 // indirect
-	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
+	golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
-	golang.org/x/sys v0.0.0-20210608053332-aa57babbf139
+	golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools v0.0.0-20210105210202-9ed45478a130
 	google.golang.org/api v0.29.0

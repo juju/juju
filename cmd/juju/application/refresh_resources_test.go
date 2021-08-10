@@ -15,7 +15,7 @@ import (
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	csclientparams "github.com/juju/charmrepo/v6/csclient/params"
-	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

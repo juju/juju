@@ -4,7 +4,7 @@
 package machine
 
 import (
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"

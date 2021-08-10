@@ -4,7 +4,7 @@
 package gui
 
 import (
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v8"
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"

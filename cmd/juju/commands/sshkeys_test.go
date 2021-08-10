@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/cmd/v3/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	sshtesting "github.com/juju/utils/v2/ssh/testing"
 	gc "gopkg.in/check.v1"

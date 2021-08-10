@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/cmd"
-	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v3/cmdtesting"
 	api "github.com/juju/romulus/api/plan"
 	wireformat "github.com/juju/romulus/wireformat/plan"
 	"github.com/juju/testing"
