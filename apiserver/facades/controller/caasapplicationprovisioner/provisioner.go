@@ -256,7 +256,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		Devices:              devices,
 		Constraints:          mergedCons,
 		Series:               app.Series(),
-		ImageRepo:            cfg.CAASImageRepo(),
+		ImageRepo:            cfg.CAASImageRepo().Repository,
 		CharmModifiedVersion: app.CharmModifiedVersion(),
 		CharmURL:             charmURL.String(),
 	}, nil

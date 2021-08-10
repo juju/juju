@@ -9649,6 +9649,70 @@
         }
     },
     {
+        "Name": "CAASModelConfigManager",
+        "Description": "Facade allows model config manager clients to watch config changes.",
+        "Version": 1,
+        "AvailableTo": [
+            "controller-machine-agent"
+        ],
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "WatchControllerConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResult"
+                        }
+                    },
+                    "description": "Watch returns a watcher that sends the names of services whose\nunit count may be below their configured minimum."
+                }
+            },
+            "definitions": {
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "NotifyWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "NotifyWatcherId": {
+                            "type": "string"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "NotifyWatcherId"
+                    ]
+                }
+            }
+        }
+    },
+    {
         "Name": "CAASModelOperator",
         "Description": "API represents the controller model operator facade.",
         "Version": 1,
