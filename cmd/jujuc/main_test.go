@@ -15,7 +15,7 @@ import (
 	"runtime"
 	stdtesting "testing"
 
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"

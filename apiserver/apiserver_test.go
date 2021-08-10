@@ -17,7 +17,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/clock"
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/loggo"

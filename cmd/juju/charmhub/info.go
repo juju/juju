@@ -7,7 +7,7 @@ import (
 	"io"
 
 	"github.com/juju/charm/v8"
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 

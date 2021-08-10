@@ -7,7 +7,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 
 	"github.com/juju/juju/api"
 	actionapi "github.com/juju/juju/api/action"

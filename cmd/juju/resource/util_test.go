@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	charmresource "github.com/juju/charm/v8/resource"
-	jujucmd "github.com/juju/cmd"
-	"github.com/juju/cmd/cmdtesting"
+	jujucmd "github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v3/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )

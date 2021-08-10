@@ -10,7 +10,7 @@ import (
 	"os/exec"
 	stdtesting "testing"
 
-	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 )
