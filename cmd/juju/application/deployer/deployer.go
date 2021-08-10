@@ -20,6 +20,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/api/application"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
@@ -223,7 +224,7 @@ func (d *factory) newDeployCharm() deployCharm {
 		applicationName:  d.applicationName,
 		attachStorage:    d.attachStorage,
 		bindings:         d.bindings,
-		configOptions:    d.configOptions,
+		configOptions:    &d.configOptions,
 		constraints:      d.constraints,
 		modelConstraints: d.modelConstraints,
 		devices:          d.devices,
@@ -537,7 +538,9 @@ func (d *factory) repositoryCharm() (Deployer, error) {
 	}
 
 	deployCharm := d.newDeployCharm()
-	deployCharm.origin = origin
+	deployCharm.id = application.CharmID{
+		Origin: origin,
+	}
 	return &repositoryCharm{
 		deployCharm:      deployCharm,
 		userRequestedURL: userRequestedURL,

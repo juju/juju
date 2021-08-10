@@ -5,7 +5,6 @@ package upgrades
 
 import (
 	"bytes"
-	"io/ioutil"
 	"net"
 	"path/filepath"
 	"strconv"
@@ -191,7 +190,7 @@ func MigrateLegacyLeases(context Context) error {
 	}
 
 	entries := make(map[raftlease.SnapshotKey]raftlease.SnapshotEntry, len(legacyLeases))
-	target := st.LeaseNotifyTarget(ioutil.Discard, logger)
+	target := st.LeaseNotifyTarget(logger)
 
 	// Populate the snapshot and the leaseholders collection.
 	for key, info := range legacyLeases {

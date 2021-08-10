@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	jujuclock "github.com/juju/clock"
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
@@ -90,7 +90,7 @@ that --force will also remove all units of the application, its subordinates
 and, potentially, machines without given them the opportunity to shutdown cleanly.
 
 Model destruction is a multi-step process. Under normal circumstances, Juju will not
-proceed to a next step until the current step has finished. 
+proceed to the next step until the current step has finished. 
 However, when using --force, users can also specify --no-wait to progress through steps 
 without delay waiting for each step to complete.
 

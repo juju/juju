@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
-	jujucmd "github.com/juju/cmd"
+	jujucmd "github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

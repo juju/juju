@@ -43,6 +43,9 @@ func DestroyController(
 	st ModelManagerBackend,
 	destroyHostedModels bool,
 	destroyStorage *bool,
+	force *bool,
+	maxWait *time.Duration,
+	modelTimeout *time.Duration,
 ) error {
 	modelTag := st.ModelTag()
 	controllerModelTag := st.ControllerModelTag()
@@ -82,6 +85,9 @@ func DestroyController(
 	return destroyModel(st, state.DestroyModelParams{
 		DestroyHostedModels: destroyHostedModels,
 		DestroyStorage:      destroyStorage,
+		Force:               force,
+		MaxWait:             MaxWait(maxWait),
+		Timeout:             modelTimeout,
 	})
 }
 

@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/cmd/v3/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/ssh"

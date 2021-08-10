@@ -4,7 +4,6 @@
 package migrationtarget_test
 
 import (
-	"io/ioutil"
 	"time"
 
 	"github.com/juju/description/v3"
@@ -162,10 +161,7 @@ func (s *Suite) TestImportLeadership(c *gc.C) {
 	for i := 0; i < 3; i++ {
 		s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 	}
-	target := s.State.LeaseNotifyTarget(
-		ioutil.Discard,
-		loggo.GetLogger("migrationtarget_test"),
-	)
+	target := s.State.LeaseNotifyTarget(loggo.GetLogger("migrationtarget_test"))
 	target.Claimed(
 		lease.Key{"application-leadership", s.State.ModelUUID(), "wordpress"},
 		"wordpress/2",

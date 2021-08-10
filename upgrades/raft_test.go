@@ -4,7 +4,6 @@
 package upgrades_test
 
 import (
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -549,8 +548,8 @@ func (s *mockState) DropLeasesCollection() error {
 	return s.stub.NextErr()
 }
 
-func (s *mockState) LeaseNotifyTarget(log io.Writer, errorLog raftleasestore.Logger) raftlease.NotifyTarget {
-	s.stub.AddCall("LeaseNotifyTarget", log, errorLog)
+func (s *mockState) LeaseNotifyTarget(logger raftleasestore.Logger) raftlease.NotifyTarget {
+	s.stub.AddCall("LeaseNotifyTarget", logger)
 	return s.target
 }
 

@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )

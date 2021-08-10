@@ -4,7 +4,7 @@
 package all
 
 import (
-	jujucmd "github.com/juju/cmd"
+	jujucmd "github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 

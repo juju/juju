@@ -6,7 +6,7 @@ package action
 import (
 	"fmt"
 
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"gopkg.in/yaml.v2"

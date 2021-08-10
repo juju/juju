@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/charm/v9"
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	gc "gopkg.in/check.v1"
 

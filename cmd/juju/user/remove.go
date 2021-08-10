@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 

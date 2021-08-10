@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/exec"

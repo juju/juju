@@ -12,7 +12,7 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/os/v2/series"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/arch"

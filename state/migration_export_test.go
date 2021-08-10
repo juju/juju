@@ -107,7 +107,6 @@ func (s *MigrationBaseSuite) makeApplicationWithUnits(c *gc.C, applicationName s
 
 func (s *MigrationBaseSuite) makeUnitApplicationLeader(c *gc.C, unitName, applicationName string) {
 	target := s.State.LeaseNotifyTarget(
-		ioutil.Discard,
 		loggo.GetLogger("migration_export_test"),
 	)
 	target.Claimed(

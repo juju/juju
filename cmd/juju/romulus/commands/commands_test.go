@@ -6,7 +6,7 @@ package commands_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/romulus/commands"

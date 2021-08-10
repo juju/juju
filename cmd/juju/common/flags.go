@@ -9,7 +9,7 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2"
 	"gopkg.in/yaml.v2"

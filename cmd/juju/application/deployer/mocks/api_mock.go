@@ -5,35 +5,36 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/apiserver/params"
-	reflect "reflect"
 )
 
-// MockAllWatch is a mock of AllWatch interface
+// MockAllWatch is a mock of AllWatch interface.
 type MockAllWatch struct {
 	ctrl     *gomock.Controller
 	recorder *MockAllWatchMockRecorder
 }
 
-// MockAllWatchMockRecorder is the mock recorder for MockAllWatch
+// MockAllWatchMockRecorder is the mock recorder for MockAllWatch.
 type MockAllWatchMockRecorder struct {
 	mock *MockAllWatch
 }
 
-// NewMockAllWatch creates a new mock instance
+// NewMockAllWatch creates a new mock instance.
 func NewMockAllWatch(ctrl *gomock.Controller) *MockAllWatch {
 	mock := &MockAllWatch{ctrl: ctrl}
 	mock.recorder = &MockAllWatchMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAllWatch) EXPECT() *MockAllWatchMockRecorder {
 	return m.recorder
 }
 
-// Next mocks base method
+// Next mocks base method.
 func (m *MockAllWatch) Next() ([]params.Delta, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Next")
@@ -42,13 +43,13 @@ func (m *MockAllWatch) Next() ([]params.Delta, error) {
 	return ret0, ret1
 }
 
-// Next indicates an expected call of Next
+// Next indicates an expected call of Next.
 func (mr *MockAllWatchMockRecorder) Next() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Next", reflect.TypeOf((*MockAllWatch)(nil).Next))
 }
 
-// Stop mocks base method
+// Stop mocks base method.
 func (m *MockAllWatch) Stop() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stop")
@@ -56,7 +57,7 @@ func (m *MockAllWatch) Stop() error {
 	return ret0
 }
 
-// Stop indicates an expected call of Stop
+// Stop indicates an expected call of Stop.
 func (mr *MockAllWatchMockRecorder) Stop() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockAllWatch)(nil).Stop))

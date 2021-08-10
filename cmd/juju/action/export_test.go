@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 
 	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/cmd/modelcmd"

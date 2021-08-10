@@ -57,10 +57,16 @@ type ControllerAPI struct {
 	multiwatcherFactory multiwatcher.Factory
 }
 
+// ControllerAPIv10 provides the v10 controller API. The only difference between
+// this and the v11 is that v10 doesn't support force destroy.
+type ControllerAPIv10 struct {
+	*ControllerAPI
+}
+
 // ControllerAPIv9 provides the v9 controller API. The only difference between
 // this and the v10 is that v9 use the cloudspec api v1
 type ControllerAPIv9 struct {
-	*ControllerAPI
+	*ControllerAPIv10
 }
 
 // ControllerAPIv8 provides the v8 Controller API. The only difference
@@ -101,10 +107,10 @@ type ControllerAPIv3 struct {
 
 // LatestAPI is used for testing purposes to create the latest
 // controller API.
-var LatestAPI = NewControllerAPIv10
+var LatestAPI = NewControllerAPIv11
 
-// NewControllerAPIv10 creates a new ControllerAPIv10
-func NewControllerAPIv10(ctx facade.Context) (*ControllerAPI, error) {
+// NewControllerAPIv11 creates a new ControllerAPIv11
+func NewControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
 	st := ctx.State()
 	authorizer := ctx.Auth()
 	pool := ctx.StatePool()
@@ -124,6 +130,15 @@ func NewControllerAPIv10(ctx facade.Context) (*ControllerAPI, error) {
 		factory,
 		controller,
 	)
+}
+
+// NewControllerAPIv10 creates a new ControllerAPIv10.
+func NewControllerAPIv10(ctx facade.Context) (*ControllerAPIv10, error) {
+	v11, err := NewControllerAPIv11(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ControllerAPIv10{v11}, nil
 }
 
 // NewControllerAPIv9 creates a new ControllerAPIv9.

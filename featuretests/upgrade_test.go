@@ -9,7 +9,7 @@ package featuretests
 import (
 	"time"
 
-	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"

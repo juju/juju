@@ -137,10 +137,7 @@ func (s *ImportSuite) makeApplicationWithUnits(c *gc.C, applicationname string, 
 }
 
 func (s *ImportSuite) makeUnitApplicationLeader(c *gc.C, unitName, applicationName string) {
-	target := s.State.LeaseNotifyTarget(
-		ioutil.Discard,
-		loggo.GetLogger("migration_import_test"),
-	)
+	target := s.State.LeaseNotifyTarget(loggo.GetLogger("migration_import_test"))
 	target.Claimed(
 		lease.Key{"application-leadership", s.State.ModelUUID(), applicationName},
 		unitName,
