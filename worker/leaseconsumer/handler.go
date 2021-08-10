@@ -2,31 +2,155 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 package leaseconsumer
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+
+	gorillaws "github.com/gorilla/websocket"
+	"github.com/juju/clock"
+
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket"
+)
 
 // Handler is an http.Handler suitable for serving lease consuming connections.
 type Handler struct {
-	abort <-chan struct{}
+	operations chan<- operation
+	abort      <-chan struct{}
+	clock      clock.Clock
+	logger     Logger
 }
 
-// NewHandler returns a new Handler that sends connections to the
-// given connections channel, and stops accepting connections after
+// NewHandler returns a new Handler that sends operations to the
+// given operations channel, and stops accepting operations after
 // the abort channel is closed.
 func NewHandler(
+	operations chan<- operation,
 	abort <-chan struct{},
+	clock clock.Clock,
+	logger Logger,
 ) *Handler {
 	return &Handler{
-		abort: abort,
+		operations: operations,
+		abort:      abort,
+		clock:      clock,
+		logger:     logger,
 	}
 }
 
 // ServeHTTP is part of the http.Handler interface.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Fail immediately if we've been closed.
-	select {
-	case <-h.abort:
-		http.Error(w, "lease consumer closed", http.StatusGone)
+	handler := func(socket *websocket.Conn) {
+		h.logger.Debugf("start of *leaseconsumer.ServeHTTP")
+		defer socket.Close()
+
+		// If we get to here, no more errors to report, so we report a nil
+		// error.  This way the first line of the socket is always a json
+		// formatted simple error.
+		h.sendError(socket, nil)
+
+		// Here we configure the ping/pong handling for the websocket so
+		// the server can notice when the client goes away.
+		// See the long note in logsink.go for the rationale.
+		_ = socket.SetReadDeadline(h.clock.Now().Add(websocket.PongDelay))
+		socket.SetPongHandler(func(string) error {
+			_ = socket.SetReadDeadline(h.clock.Now().Add(websocket.PongDelay))
+			return nil
+		})
+		ticker := time.NewTicker(websocket.PingPeriod)
+		defer ticker.Stop()
+
+		operations := h.receiveOperations(socket)
+		for {
+			select {
+			case <-h.abort:
+				return
+			case <-ticker.C:
+				deadline := time.Now().Add(websocket.WriteWait)
+				if err := socket.WriteControl(gorillaws.PingMessage, []byte{}, deadline); err != nil {
+					// This error is expected if the other end goes away. By
+					// returning we close the socket through the defer call.
+					h.logger.Debugf("failed to write ping: %s", err)
+					return
+				}
+			case op := <-operations:
+				select {
+				case <-h.abort:
+					return
+				case h.operations <- op:
+				}
+			}
+		}
+	}
+	websocket.Serve(w, r, handler)
+}
+
+func (h *Handler) receiveOperations(socket *websocket.Conn) <-chan operation {
+	operations := make(chan operation)
+
+	go func() {
+		for {
+			// The message needs to be new each time through the loop to ensure
+			// the map is not reused.
+			var m params.LeaseOperation
+			// Receive() blocks until data arrives but will also be
+			// unblocked when the API handler calls socket.Close as it
+			// finishes.
+			if err := socket.ReadJSON(&m); err != nil {
+				h.handleSocketError(err)
+				return
+			}
+
+			// Wrap the command in an operation. The operation has a callback so
+			// that we can send a result to the socket.
+			op := operation{
+				Command: m.Command,
+				Callback: func(err error) {
+					// As some time may have passed, we want to ensure that we
+					// haven't aborted in between the callback being called.
+					select {
+					case <-h.abort:
+					default:
+					}
+
+					result := params.LeaseOperationResult{
+						SentCommand: m.Command,
+						Error:       err,
+					}
+
+					if err := socket.WriteJSON(result); err != nil {
+						h.handleSocketError(err)
+					}
+				},
+			}
+
+			// Send the log message.
+			select {
+			case <-h.abort:
+				return
+			case operations <- op:
+			}
+		}
+	}()
+
+	return operations
+}
+
+func (h *Handler) handleSocketError(err error) {
+	// Since we don't give a list of expected error codes,
+	// any CloseError type is considered unexpected.
+	if gorillaws.IsUnexpectedCloseError(err) {
+		h.logger.Tracef("websocket closed")
+	} else {
+		h.logger.Errorf("leaseconsumer receive error: %v", err)
+	}
+}
+
+// sendError sends a JSON-encoded error response.
+func (h *Handler) sendError(ws *websocket.Conn, err error) {
+	if sendErr := ws.SendInitialErrorV0(err); sendErr != nil {
+		h.logger.Errorf("closing websocket, %v", err)
+		ws.Close()
 		return
-	default:
 	}
 }

@@ -3,14 +3,32 @@
 package leaseconsumer
 
 import (
+	"io"
+
+	"github.com/hashicorp/raft"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
+	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/juju/state"
+	raftleasestore "github.com/juju/juju/state/raftlease"
+	"github.com/juju/juju/worker/common"
+	workerstate "github.com/juju/juju/worker/state"
 )
+
+// Logger specifies the interface we use from loggo.Logger.
+type Logger interface {
+	Tracef(string, ...interface{})
+	Debugf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Errorf(string, ...interface{})
+}
 
 // ManifoldConfig holds the information necessary to run an apiserver-based
 // lease consumer worker in a dependency.Engine.
@@ -18,11 +36,19 @@ type ManifoldConfig struct {
 	AgentName         string
 	AuthenticatorName string
 	MuxName           string
+	RaftName          string
+	StateName         string
 
 	NewWorker func(Config) (worker.Worker, error)
+	NewTarget func(*state.State, raftleasestore.Logger) raftlease.NotifyTarget
 
 	// Path is the path of the lease HTTP endpoint.
 	Path string
+
+	LeaseLog             io.Writer
+	Logger               Logger
+	Clock                clock.Clock
+	PrometheusRegisterer prometheus.Registerer
 }
 
 // Validate validates the manifold configuration.
@@ -36,11 +62,29 @@ func (config ManifoldConfig) Validate() error {
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
 	}
+	if config.RaftName == "" {
+		return errors.NotValidf("empty RaftName")
+	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
+	if config.NewTarget == nil {
+		return errors.NotValidf("nil NewTarget")
+	}
 	if config.Path == "" {
 		return errors.NotValidf("empty Path")
+	}
+	if config.LeaseLog == nil {
+		return errors.NotValidf("nil LeaseLog")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
+	if config.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
 	}
 	return nil
 }
@@ -53,6 +97,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.AuthenticatorName,
 			config.MuxName,
+			config.RaftName,
+			config.StateName,
 		},
 		Start: config.start,
 	}
@@ -60,6 +106,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var r *raft.Raft
+	if err := context.Get(config.RaftName, &r); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -73,14 +124,41 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var stTracker workerstate.StateTracker
+	if err := context.Get(config.StateName, &stTracker); err != nil {
+		return nil, errors.Trace(err)
+	}
+	statePool, err := stTracker.Use()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	st := statePool.SystemState()
+
 	var mux *apiserverhttp.Mux
 	if err := context.Get(config.MuxName, &mux); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return config.NewWorker(Config{
-		Authenticator: authenticator,
-		Mux:           mux,
-		Path:          config.Path,
+	notifyTarget := config.NewTarget(st, raftlease.NewTargetLogger(config.LeaseLog, config.Logger))
+	w, err := config.NewWorker(Config{
+		Authenticator:        authenticator,
+		Mux:                  mux,
+		Path:                 config.Path,
+		Raft:                 r,
+		Target:               notifyTarget,
+		Logger:               config.Logger,
+		Clock:                config.Clock,
+		PrometheusRegisterer: config.PrometheusRegisterer,
 	})
+	if err != nil {
+		_ = stTracker.Done()
+		return nil, errors.Trace(err)
+	}
+	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
+}
+
+// NewTarget is a shim to construct a raftlease.NotifyTarget for testability.
+func NewTarget(st *state.State, logger raftleasestore.Logger) raftlease.NotifyTarget {
+	return st.LeaseNotifyTarget(logger)
 }

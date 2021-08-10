@@ -1070,6 +1070,17 @@ type PubSubMessage struct {
 	Data  map[string]interface{} `json:"data"`
 }
 
+// LeaseOperation is used to send raft operational messages between controllers.
+type LeaseOperation struct {
+	Command string `json:"command"`
+}
+
+// LeaseOperationResult returns if the lease operation was successful or not.
+type LeaseOperationResult struct {
+	SentCommand string `json:"command"`
+	Error       error  `json:"error"`
+}
+
 // ExportBundleParams holds parameters for exporting Bundles.
 type ExportBundleParams struct {
 	IncludeCharmDefaults bool `json:"include-charm-defaults,omitempty"`
