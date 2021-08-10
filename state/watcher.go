@@ -1899,7 +1899,7 @@ func (m *Machine) WatchInstanceData() NotifyWatcher {
 	return newEntityWatcher(m.st, instanceDataC, m.doc.DocID)
 }
 
-// WatchControllerInfo returns a NotifyWatcher for the controllers collection
+// WatchControllerInfo returns a StringsWatcher for the controllers collection
 func (st *State) WatchControllerInfo() StringsWatcher {
 	return newCollectionWatcher(st, colWCfg{col: controllerNodesC})
 }

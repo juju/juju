@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/storage"
 )
@@ -229,6 +230,9 @@ type Broker interface {
 	// Application returns the broker interface for an Application
 	Application(string, DeploymentType) Application
 
+	// EnsureImageRepoSecret ensures the image pull secret gets created.
+	EnsureImageRepoSecret(docker.ImageRepoDetails) error
+
 	// ClusterMetadataChecker provides an API to query cluster metadata.
 	ClusterMetadataChecker
 
@@ -412,6 +416,9 @@ type ModelOperatorConfig struct {
 type OperatorConfig struct {
 	// OperatorImagePath is the docker registry URL for the image.
 	OperatorImagePath string
+
+	// OperatorImagePullSecretName is the secret name for image pulling.
+	OperatorImagePullSecretName string
 
 	// Version is the Juju version of the operator image.
 	Version version.Number

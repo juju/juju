@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/worker/caasenvironupgrader"
 	"github.com/juju/juju/worker/caasfirewaller"
 	"github.com/juju/juju/worker/caasfirewallersidecar"
+	"github.com/juju/juju/worker/caasmodelconfigmanager"
 	"github.com/juju/juju/worker/caasmodeloperator"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
 	"github.com/juju/juju/worker/caasunitprovisioner"
@@ -517,6 +518,14 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ModelUUID:     agentConfig.Model().Id(),
 		})),
 
+		caasmodelconfigmanagerName: ifResponsible(caasmodelconfigmanager.Manifold(caasmodelconfigmanager.ManifoldConfig{
+			APICallerName: apiCallerName,
+			BrokerName:    caasBrokerTrackerName,
+			Logger:        loggo.GetLogger("juju.worker.caasmodelconfigmanager"),
+			NewWorker:     caasmodelconfigmanager.NewWorker,
+			NewFacade:     caasmodelconfigmanager.NewFacade,
+		})),
+
 		caasOperatorProvisionerName: ifNotMigrating(caasoperatorprovisioner.Manifold(
 			caasoperatorprovisioner.ManifoldConfig{
 				AgentName:     agentName,
@@ -691,6 +700,7 @@ const (
 	caasFirewallerNameLegacy       = "caas-firewaller-legacy"
 	caasFirewallerNameSidecar      = "caas-firewaller-embedded"
 	caasModelOperatorName          = "caas-model-operator"
+	caasmodelconfigmanagerName     = "caas-model-config-manager"
 	caasOperatorProvisionerName    = "caas-operator-provisioner"
 	caasApplicationProvisionerName = "caas-application-provisioner"
 	caasUnitProvisionerName        = "caas-unit-provisioner"
