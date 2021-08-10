@@ -3,7 +3,11 @@
 
 package params
 
-import "github.com/juju/juju/core/life"
+import (
+	"time"
+
+	"github.com/juju/juju/core/life"
+)
 
 // DestroyControllerArgs holds the arguments for destroying a controller.
 type DestroyControllerArgs struct {
@@ -19,6 +23,18 @@ type DestroyControllerArgs struct {
 	// storage in the model (or hosted models), an error with the code
 	// params.CodeHasPersistentStorage will be returned.
 	DestroyStorage *bool `json:"destroy-storage,omitempty"`
+
+	// Force specifies whether hosted model destruction will be forced,
+	// i.e. keep going despite operational errors.
+	Force *bool `json:"force,omitempty"`
+
+	// MaxWait specifies the amount of time that each hosted model destroy step
+	// will wait before forcing the next step to kick-off.
+	// This parameter only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration `json:"max-wait,omitempty"`
+
+	// ModelTimeout specifies how long to wait for each hosted model destroy process.
+	ModelTimeout *time.Duration `json:"model-timeout,omitempty"`
 }
 
 // ModelBlockInfo holds information about an model and its

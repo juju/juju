@@ -213,6 +213,7 @@ func AllFacades() *facade.Registry {
 	reg("Controller", 8, controller.NewControllerAPIv8)
 	reg("Controller", 9, controller.NewControllerAPIv9)
 	reg("Controller", 10, controller.NewControllerAPIv10)
+	reg("Controller", 11, controller.NewControllerAPIv11)
 	reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPIV1)
 	reg("CrossModelRelations", 2, crossmodelrelations.NewStateCrossModelRelationsAPI) // Adds WatchRelationChanges, removes WatchRelationUnits
 	reg("CrossController", 1, crosscontroller.NewStateCrossControllerAPI)

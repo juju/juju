@@ -61,6 +61,9 @@ type destroyCommand struct {
 	destroyModels  bool
 	destroyStorage bool
 	releaseStorage bool
+	modelTimeout   time.Duration
+	force          bool
+	noWait         bool
 }
 
 // usageDetails has backticks which we want to keep for markdown processing.
@@ -74,6 +77,18 @@ specifying `[1:] + "`--destroy-all-models`." + `
 If there is persistent storage in any of the models managed by the
 controller, then you must choose to either destroy or release the
 storage, using ` + "`--destroy-storage` or `--release-storage` respectively." + `
+
+Sometimes, the destruction of a hosted model may fail as Juju encounters errors
+that need to be dealt with before that model can be destroyed.
+However, at times, there is a need to destroy a controller ignoring
+such model errors. In these rare cases, use --force option but note 
+that --force will also remove all units of any hosted applications, their subordinates
+and, potentially, machines without given them the opportunity to shutdown cleanly.
+
+Model destruction is a multi-step process. Under normal circumstances, Juju will not
+proceed to a next step until the current step has finished. 
+However, when using --force, users can also specify --no-wait to progress through steps 
+without delay waiting for each step to complete.
 
 Examples:
     # Destroy the controller and all hosted models. If there is
@@ -89,6 +104,11 @@ Examples:
     # Destroy the controller and all hosted models, releasing
     # any remaining persistent storage from Juju's control.
     juju destroy-controller --destroy-all-models --release-storage
+
+    # Destroy the controller and all hosted models, continuing
+    # even if there are operational errors.
+    juju destroy-controller --destroy-all-models --force
+    juju destroy-controller --destroy-all-models --force --no-wait
 
 See also:
     kill-controller
@@ -141,12 +161,17 @@ func (c *destroyCommand) Info() *cmd.Info {
 	})
 }
 
+const defaultTimeout = 30 * time.Minute
+
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.destroyCommandBase.SetFlags(f)
 	f.BoolVar(&c.destroyModels, "destroy-all-models", false, "Destroy all hosted models in the controller")
 	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage instances managed by the controller")
 	f.BoolVar(&c.releaseStorage, "release-storage", false, "Release all storage instances from management of the controller, without destroying them")
+	f.DurationVar(&c.modelTimeout, "model-timeout", defaultTimeout, "Timeout before each individual hosted model destruction is aborted")
+	f.BoolVar(&c.force, "force", false, "Force destroy hosted models ignoring any errors")
+	f.BoolVar(&c.noWait, "no-wait", false, "Rush through hosted model destruction without waiting for each individual step to complete")
 }
 
 // Init implements Command.Init.
@@ -240,9 +265,23 @@ upgrade the controller to version 2.3 or greater.
 			// is specified, respectively.
 			destroyStorage = &c.destroyStorage
 		}
+
+		var force *bool
+		var maxWait *time.Duration
+		if c.force {
+			force = &c.force
+			if c.noWait {
+				zeroSec := 0 * time.Second
+				maxWait = &zeroSec
+			}
+		}
+
 		err = api.DestroyController(controllerapi.DestroyControllerParams{
 			DestroyModels:  c.destroyModels,
 			DestroyStorage: destroyStorage,
+			Force:          force,
+			MaxWait:        maxWait,
+			ModelTimeout:   &c.modelTimeout,
 		})
 		if err != nil {
 			if params.IsCodeHasHostedModels(err) {
