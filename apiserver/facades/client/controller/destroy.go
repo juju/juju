@@ -69,6 +69,7 @@ func destroyController(
 	backend := common.NewModelManagerBackend(model, pool)
 	return errors.Trace(common.DestroyController(
 		backend, args.DestroyModels, args.DestroyStorage,
+		args.Force, args.MaxWait, args.ModelTimeout,
 	))
 }
 

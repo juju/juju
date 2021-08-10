@@ -5,6 +5,7 @@ package controller_test
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -30,7 +31,7 @@ type Suite struct {
 
 var _ = gc.Suite(&Suite{})
 
-func (s *Suite) TestDestroyControllerAPIVersion(c *gc.C) {
+func (s *Suite) TestDestroyControllerStorageAPIVersion(c *gc.C) {
 	apiCaller := apitesting.BestVersionCaller{BestVersion: 3}
 	client := controller.NewClient(apiCaller)
 	for _, destroyStorage := range []*bool{nil, new(bool)} {
@@ -42,10 +43,20 @@ func (s *Suite) TestDestroyControllerAPIVersion(c *gc.C) {
 
 }
 
+func (s *Suite) TestDestroyControllerForceAPIVersion(c *gc.C) {
+	apiCaller := apitesting.BestVersionCaller{BestVersion: 10}
+	client := controller.NewClient(apiCaller)
+	force := true
+	err := client.DestroyController(controller.DestroyControllerParams{
+		Force: &force,
+	})
+	c.Assert(err, gc.ErrorMatches, "this Juju controller does not support force destroy")
+}
+
 func (s *Suite) TestDestroyController(c *gc.C) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.BestVersionCaller{
-		BestVersion: 4,
+		BestVersion: 11,
 		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
 			stub.AddCall(objType+"."+request, arg)
 			return stub.NextErr()
@@ -54,9 +65,15 @@ func (s *Suite) TestDestroyController(c *gc.C) {
 	client := controller.NewClient(apiCaller)
 
 	destroyStorage := true
+	force := true
+	maxWait := time.Minute
+	timeout := time.Hour
 	err := client.DestroyController(controller.DestroyControllerParams{
 		DestroyModels:  true,
 		DestroyStorage: &destroyStorage,
+		Force:          &force,
+		MaxWait:        &maxWait,
+		ModelTimeout:   &timeout,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -64,6 +81,9 @@ func (s *Suite) TestDestroyController(c *gc.C) {
 		{"Controller.DestroyController", []interface{}{params.DestroyControllerArgs{
 			DestroyModels:  true,
 			DestroyStorage: &destroyStorage,
+			Force:          &force,
+			MaxWait:        &maxWait,
+			ModelTimeout:   &timeout,
 		}}},
 	})
 }

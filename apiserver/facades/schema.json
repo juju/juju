@@ -19649,7 +19649,7 @@
     {
         "Name": "Controller",
         "Description": "ControllerAPI provides the Controller API.",
-        "Version": 10,
+        "Version": 11,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -20102,6 +20102,15 @@
                         },
                         "destroy-storage": {
                             "type": "boolean"
+                        },
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "max-wait": {
+                            "type": "integer"
+                        },
+                        "model-timeout": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
