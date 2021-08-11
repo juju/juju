@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
 
+	"github.com/juju/juju/api/secrets"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -102,6 +103,14 @@ func NewMockUnitHookContextWithState(unitName string, mockUnit *mocks.MockHookUn
 		state:            state,
 		logger:           loggo.GetLogger("test"),
 		portRangeChanges: newPortRangeChangeRecorder(names.NewUnitTag(unitName), nil),
+	}
+}
+
+func NewMockUnitHookContextWithSecrets(unitName string, mockUnit *mocks.MockHookUnit, client *secrets.Client) *HookContext {
+	return &HookContext{
+		unit:         mockUnit,
+		secretFacade: client,
+		logger:       loggo.GetLogger("test"),
 	}
 }
 

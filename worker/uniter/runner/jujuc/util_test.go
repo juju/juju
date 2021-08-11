@@ -10,6 +10,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/juju/juju/feature"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
@@ -42,6 +43,7 @@ type ContextSuite struct {
 }
 
 func (s *ContextSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.Secrets)
 	s.ContextSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
 }
