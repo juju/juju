@@ -138,16 +138,22 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 	source := rand.NewSource(clock.Now().UnixNano())
 	runID := rand.New(source).Int31()
 
+	metrics := raftlease.NewOperationClientMetrics(clock)
 	s.store = s.config.NewStore(raftlease.StoreConfig{
-		FSM:          s.config.FSM,
-		Hub:          hub,
-		Trapdoor:     st.LeaseTrapdoorFunc(),
-		RequestTopic: s.config.RequestTopic,
-		ResponseTopic: func(requestID uint64) string {
-			return fmt.Sprintf("%s.%08x.%d", s.config.RequestTopic, runID, requestID)
-		},
-		Clock:          clock,
-		ForwardTimeout: ForwardTimeout,
+		FSM:      s.config.FSM,
+		Trapdoor: st.LeaseTrapdoorFunc(),
+		Client: raftlease.NewPubsubClient(raftlease.PubsubClientConfig{
+			Hub:          hub,
+			RequestTopic: s.config.RequestTopic,
+			ResponseTopic: func(requestID uint64) string {
+				return fmt.Sprintf("%s.%08x.%d", s.config.RequestTopic, runID, requestID)
+			},
+			Clock:          clock,
+			ForwardTimeout: ForwardTimeout,
+			ClientMetrics:  metrics,
+		}),
+		Clock:            clock,
+		MetricsCollector: metrics,
 	})
 
 	controllerUUID := agent.CurrentConfig().Controller().Id()
