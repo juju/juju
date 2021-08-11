@@ -88,7 +88,7 @@ func NewFSM() *FSM {
 
 // FSM stores the state of leases in the system.
 type FSM struct {
-	mu         sync.Mutex
+	mu         sync.RWMutex
 	globalTime time.Time
 	groups     map[groupKey]map[lease.Key]*entry
 
@@ -256,7 +256,7 @@ func (f *FSM) Leases(getLocalTime func() time.Time, keys ...lease.Key) map[lease
 // filter list and retrieving from entries will be fastest by far.
 func (f *FSM) filteredLeases(getLocalTime func() time.Time, keys []lease.Key) map[lease.Key]lease.Info {
 	results := make(map[lease.Key]lease.Info)
-	f.mu.Lock()
+	f.mu.RLock()
 	localTime := getLocalTime()
 	for _, key := range keys {
 		entries, found := f.getGroup(key)
@@ -267,20 +267,20 @@ func (f *FSM) filteredLeases(getLocalTime func() time.Time, keys []lease.Key) ma
 			results[key] = f.infoFromEntry(localTime, key, entry)
 		}
 	}
-	f.mu.Unlock()
+	f.mu.RUnlock()
 	return results
 }
 
 func (f *FSM) allLeases(getLocalTime func() time.Time) map[lease.Key]lease.Info {
 	results := make(map[lease.Key]lease.Info)
-	f.mu.Lock()
+	f.mu.RLock()
 	localTime := getLocalTime()
 	for _, entries := range f.groups {
 		for key, entry := range entries {
 			results[key] = f.infoFromEntry(localTime, key, entry)
 		}
 	}
-	f.mu.Unlock()
+	f.mu.RUnlock()
 	return results
 }
 
@@ -306,8 +306,8 @@ func (f *FSM) infoFromEntry(localTime time.Time, key lease.Key, entry *entry) le
 // when there are many models this is more efficient than getting all
 // the leases and filtering by model.
 func (f *FSM) LeaseGroup(getLocalTime func() time.Time, namespace, modelUUID string) map[lease.Key]lease.Info {
-	f.mu.Lock()
-	defer f.mu.Unlock()
+	f.mu.RLock()
+	defer f.mu.RUnlock()
 	gKey := groupKey{namespace: namespace, modelUUID: modelUUID}
 	entries, found := f.groups[gKey]
 	if !found {
@@ -324,14 +324,14 @@ func (f *FSM) LeaseGroup(getLocalTime func() time.Time, namespace, modelUUID str
 // Pinned returns all of the currently known lease pins and applications
 // requiring the pinned behaviour.
 func (f *FSM) Pinned() map[lease.Key][]string {
-	f.mu.Lock()
+	f.mu.RLock()
 	pinned := make(map[lease.Key][]string)
 	for key, entities := range f.pinned {
 		if !entities.IsEmpty() {
 			pinned[key] = entities.SortedValues()
 		}
 	}
-	f.mu.Unlock()
+	f.mu.RUnlock()
 	return pinned
 }
 
@@ -413,7 +413,7 @@ func (f *FSM) Apply(log *raft.Log) interface{} {
 
 // Snapshot is part of raft.FSM.
 func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
-	f.mu.Lock()
+	f.mu.RLock()
 
 	entries := make(map[SnapshotKey]SnapshotEntry)
 	for _, group := range f.groups {
@@ -442,7 +442,7 @@ func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 		}] = entities.SortedValues()
 	}
 
-	f.mu.Unlock()
+	f.mu.RUnlock()
 
 	return &Snapshot{
 		Version:    SnapshotVersion,
