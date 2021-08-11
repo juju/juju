@@ -38,7 +38,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	tag := names.NewMachineTag("23")
 	s.raft = &mockRaft{}
 	s.logStore = &mockLogStore{}
-	s.hub = centralhub.New(tag)
+	s.hub = centralhub.New(tag, centralhub.PubsubNoOpMetrics{})
 	s.config = raftbackstop.Config{
 		Raft:     s.raft,
 		LogStore: s.logStore,

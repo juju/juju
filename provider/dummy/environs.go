@@ -945,7 +945,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			machineTag := names.NewMachineTag("0")
 			estate.httpServer.StartTLS()
 			estate.presence = &fakePresence{make(map[string]presence.Status)}
-			estate.hub = centralhub.New(machineTag)
+			estate.hub = centralhub.New(machineTag, centralhub.PubsubNoOpMetrics{})
 
 			estate.leaseManager, err = leaseManager(
 				icfg.Controller.Config.ControllerUUID(),
