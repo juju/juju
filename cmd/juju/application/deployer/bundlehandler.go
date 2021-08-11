@@ -68,6 +68,7 @@ type bundleDeploySpec struct {
 	authorizer           store.MacaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
 	deployResources      resourceadapters.DeployResourcesFunc
+	getResourceLister    func(DeployerAPI) (utils.ResourceLister, error)
 
 	useExistingMachines bool
 	bundleMachines      map[string]string
@@ -144,6 +145,7 @@ type bundleHandler struct {
 	authorizer           store.MacaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
 	deployResources      resourceadapters.DeployResourcesFunc
+	getResourceLister    func(DeployerAPI) (utils.ResourceLister, error)
 
 	// bundleStorage contains a mapping of application-specific storage
 	// constraints. For each application, the storage constraints in the
@@ -234,6 +236,7 @@ func makeBundleHandler(defaultCharmSchema charm.Schema, bundleData *charm.Bundle
 		authorizer:           spec.authorizer,
 		getConsumeDetailsAPI: spec.getConsumeDetailsAPI,
 		deployResources:      spec.deployResources,
+		getResourceLister:    spec.getResourceLister,
 		bundleStorage:        spec.bundleStorage,
 		bundleDevices:        spec.bundleDevices,
 		ctx:                  spec.ctx,
@@ -1179,39 +1182,10 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 		URL:    curl,
 		Origin: origin,
 	}
-	macaroon := h.macaroons[*curl]
 
-	meta, err := utils.GetMetaResources(curl, h.deployAPI)
+	resNames2IDs, err := h.upgradeCharmResources(chID, p)
 	if err != nil {
 		return errors.Trace(err)
-	}
-	resources := h.makeResourceMap(meta, p.Resources, p.LocalResources)
-
-	resourceLister, err := resourceadapters.NewAPIClient(h.deployAPI)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	filtered, err := utils.GetUpgradeResources(curl, resourceLister, p.Application, resources, meta)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	var resNames2IDs map[string]string
-	if len(filtered) != 0 {
-		resNames2IDs, err = h.deployResources(
-			p.Application,
-			client.CharmID{
-				URL:    chID.URL,
-				Origin: chID.Origin,
-			},
-			macaroon,
-			resources,
-			filtered,
-			h.deployAPI,
-			h.filesystem,
-		)
-		if err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	cfg := application.SetCharmConfig{
@@ -1227,6 +1201,43 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	h.writeAddedResources(resNames2IDs)
 
 	return nil
+}
+
+func (h *bundleHandler) upgradeCharmResources(chID application.CharmID, param bundlechanges.UpgradeCharmParams) (map[string]string, error) {
+	meta, err := utils.GetMetaResources(chID.URL, h.deployAPI)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	resources := h.makeResourceMap(meta, param.Resources, param.LocalResources)
+
+	resourceLister, err := h.getResourceLister(h.deployAPI)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	filtered, err := utils.GetUpgradeResources(chID.URL, resourceLister, param.Application, resources, meta)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	mac := h.macaroons[*chID.URL]
+	var resNames2IDs map[string]string
+	if len(filtered) != 0 {
+		resNames2IDs, err = h.deployResources(
+			param.Application,
+			client.CharmID{
+				URL:    chID.URL,
+				Origin: chID.Origin,
+			},
+			mac,
+			resources,
+			filtered,
+			h.deployAPI,
+			h.filesystem,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return resNames2IDs, nil
 }
 
 // setOptions updates application configuration settings.
