@@ -83,6 +83,7 @@ import (
 	"github.com/juju/juju/worker/raft/raftclusterer"
 	"github.com/juju/juju/worker/raft/raftflag"
 	"github.com/juju/juju/worker/raft/raftforwarder"
+	"github.com/juju/juju/worker/raft/raftleaseconsumer"
 	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/restorewatcher"
@@ -806,6 +807,23 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewTarget:            raftforwarder.NewTarget,
 		})),
 
+		// THe raft lease consumer offers a endpoint for accepting FSM commands
+		// and applies them to the raft leader.
+		raftLeaseConsumerName: ifRaftLeader(raftleaseconsumer.Manifold(raftleaseconsumer.ManifoldConfig{
+			AgentName:            agentName,
+			RaftName:             raftName,
+			MuxName:              httpServerArgsName,
+			StateName:            stateName,
+			Logger:               loggo.GetLogger("juju.worker.raft.raftleaseconsumer"),
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			LeaseLog:             config.LeaseLog,
+			Clock:                config.Clock,
+			NewWorker:            raftleaseconsumer.NewWorker,
+			NewTarget:            raftleaseconsumer.NewTarget,
+			GetState:             raftleaseconsumer.GetState,
+			Path:                 "/raft/lease",
+		})),
+
 		// The global lease manager tracks lease information in the raft
 		// cluster rather than in mongo.
 		leaseManagerName: ifController(leasemanager.Manifold(leasemanager.ManifoldConfig{
@@ -1153,12 +1171,13 @@ const (
 	httpServerArgsName = "http-server-args"
 	apiServerName      = "api-server"
 
-	raftTransportName = "raft-transport"
-	raftName          = "raft"
-	raftClustererName = "raft-clusterer"
-	raftFlagName      = "raft-leader-flag"
-	raftBackstopName  = "raft-backstop"
-	raftForwarderName = "raft-forwarder"
+	raftTransportName     = "raft-transport"
+	raftName              = "raft"
+	raftClustererName     = "raft-clusterer"
+	raftFlagName          = "raft-leader-flag"
+	raftBackstopName      = "raft-backstop"
+	raftForwarderName     = "raft-forwarder"
+	raftLeaseConsumerName = "raft-lease-consumer"
 
 	validCredentialFlagName = "valid-credential-flag"
 
