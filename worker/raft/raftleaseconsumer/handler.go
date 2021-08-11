@@ -49,14 +49,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// formatted simple error.
 		h.sendError(socket, nil)
 
-		// Here we configure the ping/pong handling for the websocket so
-		// the server can notice when the client goes away.
-		// See the long note in logsink.go for the rationale.
-		_ = socket.SetReadDeadline(h.clock.Now().Add(websocket.PongDelay))
-		socket.SetPongHandler(func(string) error {
-			_ = socket.SetReadDeadline(h.clock.Now().Add(websocket.PongDelay))
-			return nil
-		})
+		// Ensure we set the read deadline on the sockets for the Ping/Pong
+		// messages. That way we can workout if a client has actually gone away
+		// or not.
+		h.ensureReadDeadline(socket)
+
 		ticker := time.NewTicker(websocket.PingPeriod)
 		defer ticker.Stop()
 
@@ -113,12 +110,20 @@ func (h *Handler) receiveOperations(socket *websocket.Conn) <-chan operation {
 					default:
 					}
 
-					result := params.LeaseOperationResult{
-						SentCommand: m.Command,
-						Error:       err,
+					var pErr *params.Error
+					if err != nil {
+						pErr = &params.Error{
+							Message: err.Error(),
+							Code:    params.CodeBadRequest,
+						}
 					}
 
-					if err := socket.WriteJSON(result); err != nil {
+					result := params.LeaseOperationResult{
+						SentCommand: m.Command,
+						Error:       pErr,
+					}
+
+					if err := socket.WriteJSON(&result); err != nil {
 						h.handleSocketError(err)
 					}
 				},
@@ -134,6 +139,23 @@ func (h *Handler) receiveOperations(socket *websocket.Conn) <-chan operation {
 	}()
 
 	return operations
+}
+
+// Here we configure the ping/pong handling for the websocket so
+// the server can notice when the client goes away.
+// See the long note in logsink.go for the rationale.
+func (h *Handler) ensureReadDeadline(socket *websocket.Conn) {
+	pongDelay := h.clock.Now().Add(websocket.PongDelay)
+	if err := socket.SetReadDeadline(pongDelay); err != nil {
+		h.logger.Errorf("unable to set read deadline to %s", pongDelay)
+	}
+	socket.SetPongHandler(func(string) error {
+		pongDelay := h.clock.Now().Add(websocket.PongDelay)
+		if err := socket.SetReadDeadline(pongDelay); err != nil {
+			h.logger.Errorf("unable to set pong read deadline to %s", pongDelay)
+		}
+		return nil
+	})
 }
 
 func (h *Handler) handleSocketError(err error) {

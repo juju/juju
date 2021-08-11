@@ -1078,7 +1078,7 @@ type LeaseOperation struct {
 // LeaseOperationResult returns if the lease operation was successful or not.
 type LeaseOperationResult struct {
 	SentCommand string `json:"command"`
-	Error       error  `json:"error"`
+	Error       *Error `json:"error"`
 }
 
 // ExportBundleParams holds parameters for exporting Bundles.
