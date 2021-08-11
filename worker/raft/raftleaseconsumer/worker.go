@@ -1,6 +1,6 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
-package leaseconsumer
+package raftleaseconsumer
 
 import (
 	"net/http"

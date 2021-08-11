@@ -1,6 +1,6 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
-package leaseconsumer
+package raftleaseconsumer
 
 import (
 	"net/http"
@@ -41,7 +41,7 @@ func NewHandler(
 // ServeHTTP is part of the http.Handler interface.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	handler := func(socket *websocket.Conn) {
-		h.logger.Debugf("start of *leaseconsumer.ServeHTTP")
+		h.logger.Debugf("start of *raftleaseconsumer.ServeHTTP")
 		defer socket.Close()
 
 		// If we get to here, no more errors to report, so we report a nil
@@ -142,7 +142,7 @@ func (h *Handler) handleSocketError(err error) {
 	if gorillaws.IsUnexpectedCloseError(err) {
 		h.logger.Tracef("websocket closed")
 	} else {
-		h.logger.Errorf("leaseconsumer receive error: %v", err)
+		h.logger.Errorf("raftleaseconsumer receive error: %v", err)
 	}
 }
 
