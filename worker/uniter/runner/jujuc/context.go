@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/storage"
 )
 
@@ -46,6 +47,7 @@ type HookContext interface {
 	ContextComponents
 	ContextRelations
 	ContextVersion
+	ContextSecrets
 
 	// GetLogger returns a juju loggo Logger for the supplied module that is
 	// correctly wired up for the given context
@@ -159,6 +161,15 @@ type ContextUnit interface {
 
 	// CloudSpec returns the unit's cloud specification
 	CloudSpec() (*params.CloudSpec, error)
+}
+
+// ContextSecrets is the part of a hook context related to secrets.
+type ContextSecrets interface {
+	// GetSecret returns the value of the specified secret.
+	GetSecret(ID string) (secrets.SecretValue, error)
+
+	// CreateSecret creates a secret with the specified data.
+	CreateSecret(name string, value secrets.SecretValue) (string, error)
 }
 
 // ContextStatus is the part of a hook context related to the unit's status.

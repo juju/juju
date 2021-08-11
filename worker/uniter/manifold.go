@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/secrets"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -126,9 +127,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if !ok {
 				return nil, errors.Errorf("expected a unit tag, got %v", tag)
 			}
-			uniterFacade := uniter.NewState(apiConn, unitTag)
 			uniter, err := NewUniter(&UniterParams{
-				UniterFacade:                 uniterFacade,
+				UniterFacade:                 uniter.NewState(apiConn, unitTag),
+				SecretsFacade:                secrets.NewClient(apiConn),
 				UnitTag:                      unitTag,
 				ModelType:                    config.ModelType,
 				LeadershipTrackerFunc:        leadershipTrackerFunc,

@@ -10,6 +10,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
+	"github.com/juju/juju/api/secrets"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -862,4 +863,34 @@ func (s *mockHookContextSuite) TestMissingAction(c *gc.C) {
 	context.WithActionContext(hookContext, nil, nil)
 	err := hookContext.Flush("action", charmrunner.NewMissingHookError("noaction"))
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Secrets")
+		c.Assert(version, gc.Equals, 0)
+		c.Assert(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "GetSecrets")
+		return nil
+	})
+	client := secrets.NewClient(apiCaller)
+	hookContext := context.NewMockUnitHookContextWithSecrets("wordpress/0", s.mockUnit, client)
+	_, err := hookContext.GetSecret("password")
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+}
+
+func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Secrets")
+		c.Assert(version, gc.Equals, 0)
+		c.Assert(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "CreateSecrets")
+		return nil
+	})
+	client := secrets.NewClient(apiCaller)
+	hookContext := context.NewMockUnitHookContextWithSecrets("wordpress/0", s.mockUnit, client)
+	_, err := hookContext.CreateSecret("password", nil)
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 }

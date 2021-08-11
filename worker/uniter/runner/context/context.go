@@ -20,6 +20,7 @@ import (
 	"github.com/juju/proxy"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/secrets"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/quota"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/version"
@@ -171,6 +173,9 @@ type HookContext struct {
 	// over fully to API calls on State.  This adds that ability, but we're
 	// not fully there yet.
 	state *uniter.State
+
+	// secretFacade allows the context to access the secrets backend.
+	secretFacade *secrets.Client
 
 	// LeadershipContext supplies several hooks.Context methods.
 	LeadershipContext
@@ -744,7 +749,7 @@ func (ctx *HookContext) OpenedPortRanges() network.GroupedPortRanges {
 	return ctx.portRangeChanges.OpenedUnitPortRanges()
 }
 
-// Config returns the current application configuration of the executing unit.
+// ConfigSettings returns the current application configuration of the executing unit.
 // Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	if ctx.configSettings == nil {
@@ -759,6 +764,22 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 		result[name] = value
 	}
 	return result, nil
+}
+
+// GetSecret returns the value of the specified secret.
+func (ctx *HookContext) GetSecret(name string) (coresecrets.SecretValue, error) {
+	v, err := ctx.secretFacade.GetValue(name)
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// CreateSecret creates a secret with the specified data.
+func (ctx *HookContext) CreateSecret(name string, value coresecrets.SecretValue) (string, error) {
+	app, _ := names.UnitApplication(ctx.UnitName())
+	name = fmt.Sprintf("%s.%s", app, name)
+	return ctx.secretFacade.Create(name, value)
 }
 
 // GoalState returns the goal state for the current unit.

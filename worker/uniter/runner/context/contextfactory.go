@@ -13,6 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/api/secrets"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -67,6 +68,7 @@ type contextFactory struct {
 	// API connection fields; unit should be deprecated, but isn't yet.
 	unit    *uniter.Unit
 	state   *uniter.State
+	secrets *secrets.Client
 	tracker leadership.Tracker
 
 	logger loggo.Logger
@@ -94,6 +96,7 @@ type contextFactory struct {
 // for the context factory.
 type FactoryConfig struct {
 	State            *uniter.State
+	Secrets          *secrets.Client
 	Unit             *uniter.Unit
 	Tracker          leadership.Tracker
 	GetRelationInfos RelationsFunc
@@ -135,6 +138,7 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 	f := &contextFactory{
 		unit:             config.Unit,
 		state:            config.State,
+		secrets:          config.Secrets,
 		tracker:          config.Tracker,
 		logger:           config.Logger,
 		paths:            config.Paths,
@@ -169,6 +173,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 	ctx := &HookContext{
 		unit:               f.unit,
 		state:              f.state,
+		secretFacade:       f.secrets,
 		LeadershipContext:  leadershipContext,
 		uuid:               f.modelUUID,
 		modelName:          f.modelName,
