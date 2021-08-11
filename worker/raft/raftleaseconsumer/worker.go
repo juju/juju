@@ -98,6 +98,10 @@ type Worker struct {
 
 // NewWorker returns a new apiserver lease consumer worker.
 func NewWorker(config Config) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := &Worker{
 		config:     config,
 		operations: make(chan operation),

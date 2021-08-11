@@ -20,6 +20,7 @@ type WorkerSuite struct {
 	testing.IsolationSuite
 
 	worker *Worker
+	config Config
 
 	auth        *MockAuthenticator
 	target      *MockNotifyTarget
@@ -91,6 +92,41 @@ func (s *WorkerSuite) TestWorkerNotifyError(c *gc.C) {
 	workertest.CleanKill(c, s.worker)
 }
 
+func (s *WorkerSuite) TestValidateErrors(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	type test struct {
+		f      func(*Config)
+		expect string
+	}
+	tests := []test{{
+		func(cfg *Config) { cfg.Raft = nil },
+		"nil Raft not valid",
+	}, {
+		func(cfg *Config) { cfg.Mux = nil },
+		"nil Mux not valid",
+	}, {
+		func(cfg *Config) { cfg.Path = "" },
+		"empty Path not valid",
+	}, {
+		func(cfg *Config) { cfg.Target = nil },
+		"nil Target not valid",
+	}, {
+		func(cfg *Config) { cfg.Logger = nil },
+		"nil Logger not valid",
+	}, {
+		func(cfg *Config) { cfg.PrometheusRegisterer = nil },
+		"nil PrometheusRegisterer not valid",
+	}, {
+		func(cfg *Config) { cfg.Clock = nil },
+		"nil Clock not valid",
+	}}
+	for i, test := range tests {
+		c.Logf("test #%d (%s)", i, test.expect)
+		s.testValidateError(c, test.f, test.expect)
+	}
+}
+
 func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -106,22 +142,36 @@ func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.mux = apiserverhttp.NewMux()
 
 	s.clock.EXPECT().Now().Return(time.Now()).AnyTimes()
-	s.registerer.EXPECT().Register(gomock.Any())
-	s.registerer.EXPECT().Unregister(gomock.Any())
+	s.registerer.EXPECT().Register(gomock.Any()).AnyTimes()
+	s.registerer.EXPECT().Unregister(gomock.Any()).AnyTimes()
 
-	worker, err := NewWorker(Config{
+	s.config = Config{
 		Authenticator:        s.auth,
 		Mux:                  s.mux,
-		Path:                 "",
+		Path:                 "lease",
 		Raft:                 s.raft,
 		Target:               s.target,
 		PrometheusRegisterer: s.registerer,
 		Clock:                s.clock,
 		Logger:               s.logger,
-	})
+	}
+
+	worker, err := NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.worker = worker.(*Worker)
 
 	return ctrl
+}
+
+func (s *WorkerSuite) testValidateError(c *gc.C, f func(*Config), expect string) {
+	config := s.config
+	f(&config)
+	w, err := NewWorker(config)
+	if !c.Check(err, gc.NotNil) {
+		workertest.DirtyKill(c, w)
+		return
+	}
+	c.Check(w, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, expect)
 }
