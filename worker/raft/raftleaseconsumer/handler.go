@@ -101,7 +101,7 @@ func (h *Handler) receiveOperations(socket *websocket.Conn) <-chan operation {
 			// Wrap the command in an operation. The operation has a callback so
 			// that we can send a result to the socket.
 			op := operation{
-				Command: m.Command,
+				Commands: []string{m.Command},
 				Callback: func(err error) {
 					// As some time may have passed, we want to ensure that we
 					// haven't aborted in between the callback being called.

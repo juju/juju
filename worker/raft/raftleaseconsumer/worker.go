@@ -84,7 +84,7 @@ func (config Config) Validate() error {
 }
 
 type operation struct {
-	Command  string
+	Commands []string
 	Callback func(error)
 }
 
@@ -147,9 +147,18 @@ func (w *Worker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case op := <-w.operations:
-			op.Callback(w.processCommand(op.Command))
+			op.Callback(w.processCommands(op.Commands))
 		}
 	}
+}
+
+func (w *Worker) processCommands(commands []string) error {
+	for _, command := range commands {
+		if err := w.processCommand(command); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 func (w *Worker) processCommand(command string) error {

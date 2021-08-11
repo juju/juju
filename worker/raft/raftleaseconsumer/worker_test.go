@@ -47,7 +47,7 @@ func (s *WorkerSuite) TestWorkerNotify(c *gc.C) {
 
 	done := make(chan struct{})
 	s.worker.operations <- operation{
-		Command: "claim",
+		Commands: []string{"claim"},
 		Callback: func(err error) {
 			c.Assert(err, jc.ErrorIsNil)
 			done <- struct{}{}
@@ -73,7 +73,7 @@ func (s *WorkerSuite) TestWorkerNotifyError(c *gc.C) {
 
 	done := make(chan struct{})
 	s.worker.operations <- operation{
-		Command: "claim",
+		Commands: []string{"claim"},
 		Callback: func(err error) {
 			c.Assert(err, gc.ErrorMatches, `boom`)
 			done <- struct{}{}

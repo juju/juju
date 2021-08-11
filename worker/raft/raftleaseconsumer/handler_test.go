@@ -117,8 +117,8 @@ func (s *HandlerSuite) TestHandlerSendsMessagesOutOfOrder(c *gc.C) {
 			select {
 			case <-done:
 				return
-			case op := <-s.operations:
-				if op.Command == "claim" {
+			case op := <-operations:
+				if op.Commands[0] == "claim" {
 					stashed = &op
 					continue
 				}
