@@ -31,6 +31,27 @@ func (s *WaitUntilExpiredSuite) SetUpTest(c *gc.C) {
 	logger.SetLogLevel(loggo.TRACE)
 }
 
+func (s *WaitUntilExpiredSuite) TestLeadershipNoLeaseBlockEvaluatedNextTick(c *gc.C) {
+	fix := &Fixture{
+		leases: map[corelease.Key]corelease.Info{
+			key("redis"): {
+				Holder: "postgresql/0",
+				Expiry: offset(time.Second),
+			},
+		},
+	}
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
+		blockTest := newBlockTest(c, manager, key("redis"))
+		blockTest.assertBlocked(c)
+
+		// Check that *another* lease expiry causes the unassociated block to
+		// be checked and in the absence of its lease, get unblocked.
+		c.Assert(clock.WaitAdvance(time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
+		err := blockTest.assertUnblocked(c)
+		c.Check(err, jc.ErrorIsNil)
+	})
+}
+
 func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *gc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
