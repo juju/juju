@@ -23,8 +23,6 @@ import (
 type HandlerSuite struct {
 	testing.IsolationSuite
 
-	operations chan operation
-
 	logger *MockLogger
 	clock  *MockClock
 }
@@ -34,7 +32,9 @@ var _ = gc.Suite(&HandlerSuite{})
 func (s *HandlerSuite) TestHandlerStartsAndCloses(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	handler := NewHandler(s.operations, nil, s.clock, s.logger)
+	operations := make(chan operation)
+
+	handler := NewHandler(operations, nil, s.clock, s.logger)
 
 	url, shutdown := s.setupServer(c, handler)
 	defer shutdown()
@@ -53,17 +53,19 @@ func (s *HandlerSuite) TestHandlerStartsAndCloses(c *gc.C) {
 func (s *HandlerSuite) TestHandlerSendsMessage(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	operations := make(chan operation)
+
 	done := make(chan struct{})
 	defer close(done)
 
-	handler := NewHandler(s.operations, nil, s.clock, s.logger)
+	handler := NewHandler(operations, nil, s.clock, s.logger)
 
 	go func() {
 		for {
 			select {
 			case <-done:
 				return
-			case op := <-s.operations:
+			case op := <-operations:
 				op.Callback(nil)
 				done <- struct{}{}
 			}
@@ -106,10 +108,12 @@ func (s *HandlerSuite) TestHandlerSendsMessage(c *gc.C) {
 func (s *HandlerSuite) TestHandlerSendsMessagesOutOfOrder(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	operations := make(chan operation)
+
 	done := make(chan struct{})
 	defer close(done)
 
-	handler := NewHandler(s.operations, nil, s.clock, s.logger)
+	handler := NewHandler(operations, nil, s.clock, s.logger)
 
 	go func() {
 		var stashed *operation
@@ -187,17 +191,19 @@ func (s *HandlerSuite) TestHandlerSendsMessagesOutOfOrder(c *gc.C) {
 func (s *HandlerSuite) TestHandlerSendsError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	operations := make(chan operation)
+
 	done := make(chan struct{})
 	defer close(done)
 
-	handler := NewHandler(s.operations, nil, s.clock, s.logger)
+	handler := NewHandler(operations, nil, s.clock, s.logger)
 
 	go func() {
 		for {
 			select {
 			case <-done:
 				return
-			case op := <-s.operations:
+			case op := <-operations:
 				op.Callback(errors.New("boom"))
 				done <- struct{}{}
 			}
@@ -243,8 +249,6 @@ func (s *HandlerSuite) TestHandlerSendsError(c *gc.C) {
 
 func (s *HandlerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-
-	s.operations = make(chan operation)
 
 	s.logger = NewMockLogger(ctrl)
 	s.clock = NewMockClock(ctrl)
