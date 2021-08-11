@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	metricsNamespace = "juju_raftforwarder"
+	metricsNamespace = "juju"
+	metricsSubsystem = "raftleaseconsumer"
 )
 
 // metricsCollector is a prometheus.Collector that collects metrics
@@ -26,6 +27,7 @@ func newMetricsCollector(clock clock.Clock) *metricsCollector {
 	return &metricsCollector{
 		requests: prometheus.NewSummaryVec(prometheus.SummaryOpts{
 			Namespace: metricsNamespace,
+			Subsystem: metricsSubsystem,
 			Name:      "request",
 			Help:      "Request times for raft forwarder operations in ms",
 			Objectives: map[float64]float64{
