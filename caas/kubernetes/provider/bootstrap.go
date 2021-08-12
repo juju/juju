@@ -289,7 +289,7 @@ func newcontrollerStack(
 	cs.resourceNameService = cs.getResourceName("service")
 	cs.resourceNameConfigMap = cs.getResourceName("configmap")
 	cs.resourceNameSecret = cs.getResourceName("secret")
-	cs.resourceNamedockerSecret = cs.getResourceName("docker-secret")
+	cs.resourceNamedockerSecret = constants.CAASImageRepoSecretName
 
 	cs.resourceNameVolSharedSecret = cs.getResourceName(cs.fileNameSharedSecret)
 	cs.resourceNameVolSSLKey = cs.getResourceName(cs.fileNameSSLKey)
@@ -691,18 +691,6 @@ func (c *controllerStack) createDockerSecret() (string, error) {
 		return "", errors.NotValidf("empty docker secret data")
 	}
 	logger.Criticalf("createDockerSecret c.dockerAuthSecretData %q", string(c.dockerAuthSecretData))
-	// newSecret := &core.Secret{
-	// 	ObjectMeta: v1.ObjectMeta{
-	// 		Name:        c.resourceNamedockerSecret,
-	// 		Labels:      c.stackLabels,
-	// 		Namespace:   c.broker.GetCurrentNamespace(),
-	// 		Annotations: c.stackAnnotations,
-	// 	},
-	// 	Type: core.SecretTypeDockerConfigJson,
-	// 	Data: map[string][]byte{
-	// 		core.DockerConfigJsonKey: c.dockerAuthSecretData,
-	// 	},
-	// }
 	name := c.resourceNamedockerSecret
 	logger.Debugf("ensuring docker secret %q", name)
 	cleanUp, err := c.broker.ensureOCIImageSecret(

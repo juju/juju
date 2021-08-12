@@ -408,8 +408,10 @@ func (k *kubernetesClient) Create(envcontext.ProviderCallContext, environs.Creat
 // EnsureImageRepoSecret ensures the image pull secret gets created.
 func (k *kubernetesClient) EnsureImageRepoSecret(imageRepo docker.ImageRepoDetails) error {
 	if !imageRepo.IsPrivate() {
+		logger.Criticalf("image repo %q is not private, no need to create secret", imageRepo.Repository)
 		return nil
 	}
+	logger.Criticalf("creating secret for image repo %q", imageRepo.Repository)
 	secretData, err := imageRepo.SecretData()
 	if err != nil {
 		return errors.Trace(err)
