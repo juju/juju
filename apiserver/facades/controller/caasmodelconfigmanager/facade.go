@@ -7,7 +7,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -15,16 +14,19 @@ import (
 type Facade struct {
 	backend   Backend
 	resources facade.Resources
+	ctrlSt    ControllerState
 }
 
 // NewFacade creates a new authorized Facade.
-func NewFacade(st *state.State, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
-	if !auth.AuthController() {
+func NewFacade(ctx facade.Context) (*Facade, error) {
+	if !ctx.Auth().AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
+	st := ctx.State()
 	return &Facade{
 		backend:   getState(st),
-		resources: res,
+		resources: ctx.Resources(),
+		ctrlSt:    ctx.StatePool().SystemState(),
 	}, nil
 }
 
@@ -40,4 +42,15 @@ func (facade *Facade) WatchControllerConfig() (params.NotifyWatchResult, error) 
 	return params.NotifyWatchResult{
 		Error: apiservererrors.ServerError(watcher.EnsureErr(watch)),
 	}, nil
+}
+
+// ControllerConfig returns the controller's configuration.
+func (facade *Facade) ControllerConfig() (params.ControllerConfigResult, error) {
+	result := params.ControllerConfigResult{}
+	config, err := facade.ctrlSt.ControllerConfig()
+	if err != nil {
+		return result, err
+	}
+	result.Config = params.ControllerConfig(config)
+	return result, nil
 }

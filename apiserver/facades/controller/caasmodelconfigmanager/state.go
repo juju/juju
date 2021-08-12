@@ -3,10 +3,19 @@
 
 package caasmodelconfigmanager
 
-import "github.com/juju/juju/state"
+import (
+	jujucontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/state"
+)
 
 type Backend interface {
 	WatchControllerConfig() state.NotifyWatcher
+}
+
+// ControllerState provides the subset of controller state
+// required by the CAAS application facade.
+type ControllerState interface {
+	ControllerConfig() (jujucontroller.Config, error)
 }
 
 type stateShim struct {

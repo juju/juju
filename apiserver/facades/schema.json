@@ -9658,6 +9658,15 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "ControllerConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/ControllerConfigResult"
+                        }
+                    },
+                    "description": "ControllerConfig returns the controller's configuration."
+                },
                 "WatchControllerConfig": {
                     "type": "object",
                     "properties": {
@@ -9669,6 +9678,24 @@
                 }
             },
             "definitions": {
+                "ControllerConfigResult": {
+                    "type": "object",
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "config"
+                    ]
+                },
                 "Error": {
                     "type": "object",
                     "properties": {
