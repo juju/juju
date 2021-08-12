@@ -1203,7 +1203,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	containerSpecs := []corev1.Container{{
 		Name:            unitContainerName,
 		ImagePullPolicy: corev1.PullIfNotPresent,
-		Image:           config.CharmBaseImage.RegistryPath,
+		Image:           config.CharmBaseImagePath,
 		WorkingDir:      jujuDataDir,
 		Command:         []string{"/charm/bin/containeragent"},
 		Args: []string{

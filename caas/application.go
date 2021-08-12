@@ -77,11 +77,12 @@ type ApplicationState struct {
 type ApplicationConfig struct {
 	// AgentVersion is the Juju version of the agent image.
 	AgentVersion version.Number
-	// AgentImagePath is the docker registry URL for the image.
+
+	// AgentImagePath is the docker registry URL for the charm container.
 	AgentImagePath string
 
-	// CharmBaseImage is the docker image used by the charm.
-	CharmBaseImage resources.DockerImageDetails
+	// CharmBaseImagePath is the docker registry URL for the workload containers to run pebble.
+	CharmBaseImagePath string
 
 	// IsPrivateImageRepo indicates if the images repositories are private or not.
 	// If they are, we need to set the image pull secret.

@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -536,8 +535,7 @@ func (a *appWorker) alive(app caas.Application) error {
 	}
 
 	ch := charmInfo.Charm()
-	charmBaseImage := resources.DockerImageDetails{}
-	charmBaseImage.RegistryPath, err = podcfg.ImageForBase(provisionInfo.ImageRepo.Repository, charm.Base{
+	charmBaseImage, err := podcfg.ImageForBase(provisionInfo.ImageRepo.Repository, charm.Base{
 		Name: strings.ToLower(os.String()),
 		Channel: charm.Channel{
 			Track: ver,
@@ -582,7 +580,7 @@ func (a *appWorker) alive(app caas.Application) error {
 		Constraints:          provisionInfo.Constraints,
 		Filesystems:          provisionInfo.Filesystems,
 		Devices:              provisionInfo.Devices,
-		CharmBaseImage:       charmBaseImage,
+		CharmBaseImagePath:       charmBaseImage,
 		Containers:           containers,
 		CharmModifiedVersion: provisionInfo.CharmModifiedVersion,
 	}
