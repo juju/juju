@@ -57,10 +57,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ticker := time.NewTicker(websocket.PingPeriod)
 		defer ticker.Stop()
 
-		operations := h.receiveOperations(socket)
+		operations, closed := h.receiveOperations(socket)
 		for {
 			select {
 			case <-h.abort:
+				return
+			case <-closed:
+				// We received an error, there isn't much we can do here, other
+				// than death.
 				return
 			case <-ticker.C:
 				deadline := time.Now().Add(websocket.WriteWait)
@@ -82,8 +86,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	websocket.Serve(w, r, handler)
 }
 
-func (h *Handler) receiveOperations(socket *websocket.Conn) <-chan operation {
-	operations := make(chan operation)
+func (h *Handler) receiveOperations(socket *websocket.Conn) (<-chan operation, <-chan struct{}) {
+	var (
+		operations = make(chan operation)
+		done       = make(chan struct{})
+	)
 
 	go func() {
 		for {
@@ -94,7 +101,9 @@ func (h *Handler) receiveOperations(socket *websocket.Conn) <-chan operation {
 			// unblocked when the API handler calls socket.Close as it
 			// finishes.
 			if err := socket.ReadJSON(&m); err != nil {
-				h.handleSocketError(err)
+				if closed := h.handleSocketError(err); closed {
+					close(done)
+				}
 				return
 			}
 
@@ -124,7 +133,9 @@ func (h *Handler) receiveOperations(socket *websocket.Conn) <-chan operation {
 					}
 
 					if err := socket.WriteJSON(&result); err != nil {
-						h.handleSocketError(err)
+						if closed := h.handleSocketError(err); closed {
+							close(done)
+						}
 					}
 				},
 			}
@@ -138,7 +149,7 @@ func (h *Handler) receiveOperations(socket *websocket.Conn) <-chan operation {
 		}
 	}()
 
-	return operations
+	return operations, done
 }
 
 // Here we configure the ping/pong handling for the websocket so
@@ -158,14 +169,16 @@ func (h *Handler) ensureReadDeadline(socket *websocket.Conn) {
 	})
 }
 
-func (h *Handler) handleSocketError(err error) {
+func (h *Handler) handleSocketError(err error) bool {
 	// Since we don't give a list of expected error codes,
 	// any CloseError type is considered unexpected.
 	if gorillaws.IsUnexpectedCloseError(err) {
 		h.logger.Tracef("websocket closed")
+		return true
 	} else {
 		h.logger.Errorf("raftleaseconsumer receive error: %v", err)
 	}
+	return false
 }
 
 // sendError sends a JSON-encoded error response.
