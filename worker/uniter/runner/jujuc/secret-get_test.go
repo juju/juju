@@ -24,8 +24,8 @@ var _ = gc.Suite(&SecretGetSuite{})
 
 func (s *SecretGetSuite) TestSecretGetSingularString(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
-	hctx.ContextSecrets.SecretValue = secrets.NewSecretValue(map[string][]byte{
-		"data": []byte(base64.StdEncoding.EncodeToString([]byte("s3cret!"))),
+	hctx.ContextSecrets.SecretValue = secrets.NewSecretValue(map[string]string{
+		"data": base64.StdEncoding.EncodeToString([]byte("s3cret!")),
 	})
 
 	com, err := jujuc.NewCommand(hctx, cmdString("secret-get"))
@@ -41,8 +41,8 @@ func (s *SecretGetSuite) TestSecretGetSingularString(c *gc.C) {
 
 func (s *SecretGetSuite) TestSecretGetStringJson(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
-	hctx.ContextSecrets.SecretValue = secrets.NewSecretValue(map[string][]byte{
-		"key": []byte(base64.StdEncoding.EncodeToString([]byte("s3cret!"))),
+	hctx.ContextSecrets.SecretValue = secrets.NewSecretValue(map[string]string{
+		"key": base64.StdEncoding.EncodeToString([]byte("s3cret!")),
 	})
 
 	com, err := jujuc.NewCommand(hctx, cmdString("secret-get"))
@@ -58,8 +58,8 @@ func (s *SecretGetSuite) TestSecretGetStringJson(c *gc.C) {
 
 func (s *SecretGetSuite) TestSecretGetSingularEncoded(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
-	hctx.ContextSecrets.SecretValue = secrets.NewSecretValue(map[string][]byte{
-		"data": []byte(base64.StdEncoding.EncodeToString([]byte("s3cret!"))),
+	hctx.ContextSecrets.SecretValue = secrets.NewSecretValue(map[string]string{
+		"data": base64.StdEncoding.EncodeToString([]byte("s3cret!")),
 	})
 
 	com, err := jujuc.NewCommand(hctx, cmdString("secret-get"))
@@ -75,9 +75,9 @@ func (s *SecretGetSuite) TestSecretGetSingularEncoded(c *gc.C) {
 
 func (s *SecretGetSuite) TestSecretGet(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
-	hctx.ContextSecrets.SecretValue = secrets.NewSecretValue(map[string][]byte{
-		"cert": []byte(base64.StdEncoding.EncodeToString([]byte("cert"))),
-		"key":  []byte(base64.StdEncoding.EncodeToString([]byte("key"))),
+	hctx.ContextSecrets.SecretValue = secrets.NewSecretValue(map[string]string{
+		"cert": base64.StdEncoding.EncodeToString([]byte("cert")),
+		"key":  base64.StdEncoding.EncodeToString([]byte("key")),
 	})
 
 	com, err := jujuc.NewCommand(hctx, cmdString("secret-get"))
@@ -97,9 +97,9 @@ key: key
 
 func (s *SecretGetSuite) TestSecretGetEncoded(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
-	hctx.ContextSecrets.SecretValue = secrets.NewSecretValue(map[string][]byte{
-		"cert": []byte(base64.StdEncoding.EncodeToString([]byte("cert"))),
-		"key":  []byte(base64.StdEncoding.EncodeToString([]byte("key"))),
+	hctx.ContextSecrets.SecretValue = secrets.NewSecretValue(map[string]string{
+		"cert": base64.StdEncoding.EncodeToString([]byte("cert")),
+		"key":  base64.StdEncoding.EncodeToString([]byte("key")),
 	})
 
 	com, err := jujuc.NewCommand(hctx, cmdString("secret-get"))

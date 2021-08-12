@@ -55,7 +55,7 @@ type secretValue struct {
 
 // NewSecretValue returns a secret using the specified map of values.
 // The map values are assumed to be already base64 encoded.
-func NewSecretValue(data map[string][]byte) SecretValue {
+func NewSecretValue(data map[string]string) SecretValue {
 	dataCopy := make(map[string][]byte, len(data))
 	for k, v := range data {
 		dataCopy[k] = append([]byte(nil), v...)

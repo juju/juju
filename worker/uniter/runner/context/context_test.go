@@ -10,19 +10,20 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/secrets"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	basetesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/secretsmanager"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/quota"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common/charmrunner"
@@ -868,29 +869,64 @@ func (s *mockHookContextSuite) TestMissingAction(c *gc.C) {
 func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Secrets")
+		c.Assert(objType, gc.Equals, "SecretsManager")
 		c.Assert(version, gc.Equals, 0)
 		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "GetSecrets")
+		c.Assert(request, gc.Equals, "GetSecretValues")
+		c.Assert(arg, gc.DeepEquals, params.GetSecretArgs{
+			Args: []params.GetSecretArg{{
+				ID: "secret://foo",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.SecretValueResults{})
+		*(result.(*params.SecretValueResults)) = params.SecretValueResults{
+			[]params.SecretValueResult{{
+				Name: "foo",
+				Data: map[string]string{"foo": "bar"},
+			}},
+		}
 		return nil
 	})
-	client := secrets.NewClient(apiCaller)
-	hookContext := context.NewMockUnitHookContextWithSecrets("wordpress/0", s.mockUnit, client)
-	_, err := hookContext.GetSecret("password")
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
+	client := secretsmanager.NewClient(apiCaller)
+	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
+	value, err := hookContext.GetSecret("secret://foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
+		"foo": "bar",
+	})
 }
 
 func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	data := map[string]string{"foo": "bar"}
+	value := secrets.NewSecretValue(data)
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Secrets")
+		c.Assert(objType, gc.Equals, "SecretsManager")
 		c.Assert(version, gc.Equals, 0)
 		c.Assert(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "CreateSecrets")
+		c.Check(arg, gc.DeepEquals, params.CreateSecretArgs{
+			Args: []params.CreateSecretArg{{
+				Type:  "blob",
+				Path:  "wordpress.password",
+				Scope: "application",
+				Data:  data,
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		*(result.(*params.StringResults)) = params.StringResults{
+			[]params.StringResult{{
+				Result: "secret://foo",
+			}},
+		}
 		return nil
 	})
-	client := secrets.NewClient(apiCaller)
-	hookContext := context.NewMockUnitHookContextWithSecrets("wordpress/0", s.mockUnit, client)
-	_, err := hookContext.CreateSecret("password", nil)
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
+	client := secretsmanager.NewClient(apiCaller)
+	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
+	id, err := hookContext.CreateSecret("password", value)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(id, gc.Equals, "secret://foo")
 }

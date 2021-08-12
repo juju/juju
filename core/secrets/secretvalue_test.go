@@ -12,17 +12,14 @@ import (
 	"github.com/juju/juju/core/secrets"
 )
 
-type SecretValueSuite struct {
-	base64Foo []byte
-	base64Bar []byte
-}
+type SecretValueSuite struct{}
 
 var _ = gc.Suite(&SecretValueSuite{})
 
 func (s *SecretValueSuite) TestEncodedValues(c *gc.C) {
-	in := map[string][]byte{
-		"a": []byte(base64.StdEncoding.EncodeToString([]byte("foo"))),
-		"b": []byte(base64.StdEncoding.EncodeToString([]byte("1"))),
+	in := map[string]string{
+		"a": base64.StdEncoding.EncodeToString([]byte("foo")),
+		"b": base64.StdEncoding.EncodeToString([]byte("1")),
 	}
 	val := secrets.NewSecretValue(in)
 
@@ -37,9 +34,9 @@ func (s *SecretValueSuite) TestEncodedValues(c *gc.C) {
 }
 
 func (s *SecretValueSuite) TestValues(c *gc.C) {
-	in := map[string][]byte{
-		"a": []byte(base64.StdEncoding.EncodeToString([]byte("foo"))),
-		"b": []byte(base64.StdEncoding.EncodeToString([]byte("1"))),
+	in := map[string]string{
+		"a": base64.StdEncoding.EncodeToString([]byte("foo")),
+		"b": base64.StdEncoding.EncodeToString([]byte("1")),
 	}
 	val := secrets.NewSecretValue(in)
 
@@ -55,8 +52,8 @@ func (s *SecretValueSuite) TestValues(c *gc.C) {
 }
 
 func (s *SecretValueSuite) TestSingularValue(c *gc.C) {
-	in := map[string][]byte{
-		"data": []byte(base64.StdEncoding.EncodeToString([]byte("foo"))),
+	in := map[string]string{
+		"data": base64.StdEncoding.EncodeToString([]byte("foo")),
 	}
 	val := secrets.NewSecretValue(in)
 
@@ -66,13 +63,13 @@ func (s *SecretValueSuite) TestSingularValue(c *gc.C) {
 }
 
 func (s *SecretValueSuite) TestSingularEncodedValue(c *gc.C) {
-	in := map[string][]byte{
-		"data": []byte(base64.StdEncoding.EncodeToString([]byte("foo"))),
+	in := map[string]string{
+		"data": base64.StdEncoding.EncodeToString([]byte("foo")),
 	}
 	val := secrets.NewSecretValue(in)
 	c.Assert(val.Singular(), jc.IsTrue)
 
 	bval, err := val.EncodedValue()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bval, gc.Equals, string(in["data"]))
+	c.Assert(bval, gc.Equals, in["data"])
 }

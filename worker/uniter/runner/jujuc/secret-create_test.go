@@ -57,7 +57,7 @@ func (s *SecretCreateSuite) TestCreateSecret(c *gc.C) {
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"password", "secret"})
 
 	c.Assert(code, gc.Equals, 0)
-	val := coresecrets.NewSecretValue(map[string][]byte{"data": []byte("c2VjcmV0")})
+	val := coresecrets.NewSecretValue(map[string]string{"data": "c2VjcmV0"})
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "CreateSecret", Args: []interface{}{"password", val}}})
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret://app.password\n")
 }
@@ -71,7 +71,7 @@ func (s *SecretCreateSuite) TestCreateSecretBase64(c *gc.C) {
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--base64", "apikey", "token=key="})
 
 	c.Assert(code, gc.Equals, 0)
-	val := coresecrets.NewSecretValue(map[string][]byte{"token": []byte("key=")})
+	val := coresecrets.NewSecretValue(map[string]string{"token": "key="})
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "CreateSecret", Args: []interface{}{"apikey", val}}})
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret://app.apikey\n")
 }
