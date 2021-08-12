@@ -478,10 +478,9 @@ func (manager *Manager) handleCheck(check check) error {
 			manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, found held by %s",
 				manager.logContext, key.Lease, check.holderName, info.Holder)
 		} else {
-			// Someone thought they were the leader and held a Claim or they wouldn't
-			// have tried to do a mutating operation. However, when they actually
-			// got to this point, we detected that they were, actually, out of
-			// date. Schedule a sync
+			// Someone thought they were the lease-holder, otherwise they
+			// wouldn't be confirming via the check. However, the lease has
+			// expired, and they are out of sync. Schedule a block check.
 			manager.ensureNextTimeout(time.Millisecond)
 
 			manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found",
@@ -520,18 +519,15 @@ func (manager *Manager) checkBlocks(blocks blocks) {
 
 // computeNextTimeout iterates the leases and finds out what the next time we
 // want to wake up, expire any leases and then handle any unblocks that happen.
-// It is based on the MaxSleep time, and on any expire that is going to expire
-// after now but before MaxSleep.
-// it's worth checking for stalled collaborators.
+// It is the earliest lease expiration due in the future, but before MaxSleep.
 func (manager *Manager) computeNextTimeout(lastTick time.Time, leases map[lease.Key]lease.Info) {
 	now := manager.config.Clock.Now()
 	nextTick := now.Add(manager.config.MaxSleep)
 	for _, info := range leases {
 		if !info.Expiry.After(lastTick) {
-			// The previous expire will expire this lease eventually,
-			// or the manager will die with an error.
-			// Either way, we don't need to worry about expirations for
-			// a previous tick here.
+			// We expect the lease clock tick processing to expire this lease
+			// soon. It is not our responsibility to handle this case.
+			manager.config.Logger.Tracef("[%s] found lease holder past expiry: %s", manager.logContext, info.Holder)
 			continue
 		}
 		if info.Expiry.After(nextTick) {
@@ -539,8 +535,14 @@ func (manager *Manager) computeNextTimeout(lastTick time.Time, leases map[lease.
 		}
 		nextTick = info.Expiry
 	}
-	manager.config.Logger.Tracef("[%s] next expire in %v %v",
-		manager.logContext, nextTick.Sub(now).Round(time.Millisecond), nextTick)
+
+	// The lease clock is ticked every second, so sub-second durations
+	// can cause block checks resulting in no action. This is wasteful because
+	// accessing leases from the FSM causes read-locks, potentially
+	// contributing to contention. Round *up* to the nearest second.
+	nextDuration := (nextTick.Sub(now) + 500*time.Millisecond).Round(time.Second)
+	nextTick = now.Add(nextDuration)
+	manager.config.Logger.Tracef("[%s] next expire in %v %v", manager.logContext, nextDuration, nextTick)
 	manager.setNextTimeout(nextTick)
 }
 

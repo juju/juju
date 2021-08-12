@@ -32,7 +32,7 @@ func (s *CrossSuite) testClaims(c *gc.C, lease1, lease2 corelease.Key) {
 			method: "ClaimLease",
 			args: []interface{}{
 				lease1,
-				corelease.Request{"sgt-howie", time.Minute},
+				corelease.Request{Holder: "sgt-howie", Duration: time.Minute},
 			},
 			callback: func(leases map[corelease.Key]corelease.Info) {
 				leases[lease1] = corelease.Info{
@@ -44,7 +44,7 @@ func (s *CrossSuite) testClaims(c *gc.C, lease1, lease2 corelease.Key) {
 			method: "ClaimLease",
 			args: []interface{}{
 				lease2,
-				corelease.Request{"rowan", time.Minute},
+				corelease.Request{Holder: "rowan", Duration: time.Minute},
 			},
 			callback: func(leases map[corelease.Key]corelease.Info) {
 				leases[lease2] = corelease.Info{
@@ -104,7 +104,7 @@ func (s *CrossSuite) testWaits(c *gc.C, lease1, lease2 corelease.Key) {
 		b1.assertBlocked(c)
 		b2.assertBlocked(c)
 
-		clock.Advance(time.Second)
+		clock.Advance(2 * time.Second)
 
 		err := b1.assertUnblocked(c)
 		c.Assert(err, jc.ErrorIsNil)
@@ -210,12 +210,12 @@ func (s *CrossSuite) TestDifferentNamespaceValidation(c *gc.C) {
 type OtherSecretary struct{}
 
 // CheckLease is part of the lease.Secretary interface.
-func (OtherSecretary) CheckLease(key corelease.Key) error {
+func (OtherSecretary) CheckLease(_ corelease.Key) error {
 	return errors.NotValidf("lease name")
 }
 
 // CheckHolder is part of the lease.Secretary interface.
-func (OtherSecretary) CheckHolder(name string) error {
+func (OtherSecretary) CheckHolder(_ string) error {
 	return errors.NotValidf("holder name")
 }
 
