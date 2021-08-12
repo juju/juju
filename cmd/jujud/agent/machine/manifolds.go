@@ -83,7 +83,7 @@ import (
 	"github.com/juju/juju/worker/raft/raftclusterer"
 	"github.com/juju/juju/worker/raft/raftflag"
 	"github.com/juju/juju/worker/raft/raftforwarder"
-	"github.com/juju/juju/worker/raft/raftleaseconsumer"
+	"github.com/juju/juju/worker/raft/raftleaseservice"
 	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/restorewatcher"
@@ -809,19 +809,19 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The raft lease consumer offers a endpoint for accepting FSM commands
 		// and applies them to the raft leader.
-		raftLeaseConsumerName: ifRaftLeader(raftleaseconsumer.Manifold(raftleaseconsumer.ManifoldConfig{
+		raftLeaseConsumerName: ifRaftLeader(raftleaseservice.Manifold(raftleaseservice.ManifoldConfig{
 			AgentName:            agentName,
 			RaftName:             raftName,
 			MuxName:              httpServerArgsName,
 			AuthenticatorName:    httpServerArgsName,
 			StateName:            stateName,
-			Logger:               loggo.GetLogger("juju.worker.raft.raftleaseconsumer"),
+			Logger:               loggo.GetLogger("juju.worker.raft.raftleaseservice"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			LeaseLog:             config.LeaseLog,
 			Clock:                config.Clock,
-			NewWorker:            raftleaseconsumer.NewWorker,
-			NewTarget:            raftleaseconsumer.NewTarget,
-			GetState:             raftleaseconsumer.GetState,
+			NewWorker:            raftleaseservice.NewWorker,
+			NewTarget:            raftleaseservice.NewTarget,
+			GetState:             raftleaseservice.GetState,
 			Path:                 "/raft/lease",
 		})),
 

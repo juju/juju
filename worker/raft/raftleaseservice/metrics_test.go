@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package raftleaseconsumer
+package raftleaseservice
 
 import (
 	time "time"
@@ -32,7 +32,7 @@ func (s *MetricsSuite) TestDescribe(c *gc.C) {
 		descs = append(descs, desc)
 	}
 	c.Assert(descs, gc.HasLen, 1)
-	c.Assert(descs[0].String(), gc.Matches, `.*fqName: "juju_raftleaseconsumer_request".*`)
+	c.Assert(descs[0].String(), gc.Matches, `.*fqName: "juju_raftleaseservice_request".*`)
 }
 
 func (s *MetricsSuite) TestCollect(c *gc.C) {

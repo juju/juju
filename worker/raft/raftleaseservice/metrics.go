@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package raftleaseconsumer
+package raftleaseservice
 
 import (
 	"time"
@@ -12,7 +12,7 @@ import (
 
 const (
 	metricsNamespace = "juju"
-	metricsSubsystem = "raftleaseconsumer"
+	metricsSubsystem = "raftleaseservice"
 )
 
 // metricsCollector is a prometheus.Collector that collects metrics

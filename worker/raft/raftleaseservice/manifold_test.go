@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package raftleaseconsumer
+package raftleaseservice
 
 import (
 	"github.com/golang/mock/gomock"
@@ -124,7 +124,7 @@ func (s *ManifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 		Logger:               s.logger,
 		Clock:                s.clock,
 		PrometheusRegisterer: s.registerer,
-		Path:                 "raftleaseconsumer/path",
+		Path:                 "raftleaseservice/path",
 		GetState:             s.getState(c),
 	})
 
@@ -150,7 +150,7 @@ func (s *ManifoldSuite) newWorker(c *gc.C) func(Config) (worker.Worker, error) {
 		c.Assert(config, gc.DeepEquals, Config{
 			Authenticator:        s.auth,
 			Mux:                  s.mux,
-			Path:                 "raftleaseconsumer/path",
+			Path:                 "raftleaseservice/path",
 			Raft:                 s.raft,
 			Target:               s.target,
 			Logger:               s.logger,
