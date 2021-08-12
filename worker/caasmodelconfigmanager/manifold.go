@@ -68,6 +68,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		ModelTag: modelTag,
 		Facade:   config.NewFacade(apiCaller),
 		Broker:   broker,
+		Logger:   config.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -31,7 +31,6 @@ type Logger interface {
 }
 
 type Facade interface {
-	// TODO: move to facade!
 	ControllerConfig() (controller.Config, error)
 	WatchControllerConfig() (watcher.NotifyWatcher, error)
 }
@@ -46,6 +45,7 @@ type Config struct {
 
 	Facade Facade
 	Broker CAASBroker
+	Logger Logger
 }
 
 // Validate returns an error if the config cannot be expected
@@ -67,8 +67,10 @@ func (config Config) Validate() error {
 type manager struct {
 	catacomb catacomb.Catacomb
 
-	name          string
-	config        Config
+	name   string
+	config Config
+	logger Logger
+
 	imageRepoInfo docker.ImageRepoDetails
 }
 
@@ -84,6 +86,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	w := &manager{
 		name:   config.ModelTag.Id(),
 		config: config,
+		logger: config.Logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -110,6 +113,7 @@ func (w *manager) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	w.logger.Errorf("start to watch controller config")
 	if err := w.catacomb.Add(controllerConfigWatcher); err != nil {
 		return errors.Trace(err)
 	}
@@ -118,6 +122,7 @@ func (w *manager) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case _, ok := <-controllerConfigWatcher.Changes():
+			w.logger.Errorf("got controller config changes")
 			if !ok {
 				return fmt.Errorf("controller config watcher %q closed channel", w.name)
 			}
@@ -126,6 +131,10 @@ func (w *manager) loop() error {
 				return errors.Trace(err)
 			}
 			newImageRepoInfo := controllerConfig.CAASImageRepo()
+			w.logger.Errorf("newImageRepoInfo -> %#v", newImageRepoInfo)
+			if newImageRepoInfo != nil {
+				w.logger.Errorf("!w.imageRepoInfo.AuthEqual(*newImageRepoInfo) -> %v", !w.imageRepoInfo.AuthEqual(*newImageRepoInfo))
+			}
 			if newImageRepoInfo != nil && !w.imageRepoInfo.AuthEqual(*newImageRepoInfo) {
 				if err := w.config.Broker.EnsureImageRepoSecret(*newImageRepoInfo); err != nil {
 					return errors.Trace(err)
