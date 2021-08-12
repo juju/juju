@@ -537,7 +537,7 @@ func (a *appWorker) alive(app caas.Application) error {
 
 	ch := charmInfo.Charm()
 	charmBaseImage := resources.DockerImageDetails{}
-	charmBaseImage.RegistryPath, err = podcfg.ImageForBase(provisionInfo.ImageRepo, charm.Base{
+	charmBaseImage.RegistryPath, err = podcfg.ImageForBase(provisionInfo.ImageRepo.Repository, charm.Base{
 		Name: strings.ToLower(os.String()),
 		Channel: charm.Channel{
 			Track: ver,
@@ -572,6 +572,7 @@ func (a *appWorker) alive(app caas.Application) error {
 
 	// TODO(sidecar): container.Mounts[*].Path <= consolidate? => provisionInfo.Filesystems[*].Attachment.Path
 	config := caas.ApplicationConfig{
+		IsPrivateImageRepo:   provisionInfo.ImageRepo.IsPrivate(),
 		IntroductionSecret:   a.password,
 		AgentVersion:         provisionInfo.Version,
 		AgentImagePath:       provisionInfo.ImagePath,

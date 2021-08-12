@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/pki"
@@ -138,10 +139,16 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 		modelConfig,
 	)
 
-	imagePath, err := podcfg.GetJujuOCIImagePath(cfg, vers.ToPatch(), version.OfficialBuild)
-	if err != nil {
+	imageDetails := resources.DockerImageDetails{}
+	if imageRepo := cfg.CAASImageRepo(); imageRepo != nil {
+		imageDetails.ImageRepoDetails = *imageRepo
+	}
+	if imageDetails.RegistryPath, err = podcfg.GetJujuOCIImagePath(
+		cfg, vers.ToPatch(), version.OfficialBuild,
+	); err != nil {
 		return result, errors.Trace(err)
 	}
+
 	apiAddresses, err := a.APIAddresses()
 	if err == nil && apiAddresses.Error != nil {
 		err = apiAddresses.Error
@@ -169,7 +176,7 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 			}
 		}
 		return params.OperatorProvisioningInfo{
-			ImagePath:    imagePath,
+			ImageDetails: imageDetails,
 			Version:      vers,
 			APIAddresses: apiAddresses.Result,
 			CharmStorage: charmStorageParams,

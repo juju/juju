@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/storage"
 )
 
@@ -116,16 +117,18 @@ type ProvisioningInfo struct {
 	Filesystems          []storage.KubernetesFilesystemParams
 	Devices              []devices.KubernetesDeviceParams
 	Series               string
-	ImageRepo            string
+	ImageRepo            *docker.ImageRepoDetails
 	CharmModifiedVersion int
 	CharmURL             *charm.URL
 }
 
 // ProvisioningInfo returns the info needed to provision an operator for an application.
 func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, error) {
-	args := params.Entities{[]params.Entity{
-		{Tag: names.NewApplicationTag(applicationName).String()},
-	}}
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewApplicationTag(applicationName).String()},
+		},
+	}
 	var result params.CAASApplicationProvisioningInfoResults
 	if err := c.facade.FacadeCall("ProvisioningInfo", args, &result); err != nil {
 		return ProvisioningInfo{}, err
@@ -322,11 +325,12 @@ func (c *Client) ApplicationOCIResources(appName string) (map[string]resources.D
 	}
 	images := make(map[string]resources.DockerImageDetails)
 	for k, v := range res.Result.Images {
-		images[k] = resources.DockerImageDetails{
+		details := resources.DockerImageDetails{
 			RegistryPath: v.RegistryPath,
-			Username:     v.Username,
-			Password:     v.Password,
 		}
+		details.Username = v.Username
+		details.Password = v.Password
+		images[k] = details
 	}
 	return images, nil
 }

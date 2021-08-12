@@ -8,6 +8,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/docker"
 )
 
 // CAASUnitIntroductionArgs is used by sidecar units to introduce
@@ -53,7 +54,7 @@ type CAASApplicationProvisioningInfo struct {
 	Volumes              []KubernetesVolumeParams     `json:"volumes,omitempty"`
 	Devices              []KubernetesDeviceParams     `json:"devices,omitempty"`
 	Series               string                       `json:"series,omitempty"`
-	ImageRepo            string                       `json:"image-repo,omitempty"`
+	ImageRepo            *docker.ImageRepoDetails     `json:"image-repo,omitempty"`
 	CharmModifiedVersion int                          `json:"charm-modified-version,omitempty"`
 	CharmURL             string                       `json:"charm-url,omitempty"`
 	Error                *Error                       `json:"error,omitempty"`

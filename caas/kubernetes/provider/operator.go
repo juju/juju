@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -260,8 +261,8 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		appName,
 		svc.Spec.ClusterIP,
 		agentPath,
-		config.OperatorImagePath,
 		config.Version.String(),
+		config.ImageDetails,
 		selectorLabels,
 		annotations.Copy(),
 		sa.GetName(),
@@ -676,7 +677,9 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 	}
 	for _, container := range opPod.Spec.Containers {
 		if container.Name == operatorContainerName {
-			cfg.OperatorImagePath = container.Image
+			cfg.ImageDetails = resources.DockerImageDetails{
+				RegistryPath: container.Image,
+			}
 			break
 		}
 	}
@@ -714,8 +717,8 @@ func operatorPod(
 	appName,
 	operatorServiceIP,
 	agentPath,
-	operatorImagePath,
 	version string,
+	operatorImageDetails resources.DockerImageDetails,
 	selectorLabels map[string]string,
 	annotations k8sannotations.Annotation,
 	serviceAccountName string,
@@ -731,7 +734,7 @@ func operatorPod(
 	jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud caasoperator --application-name=%s --debug", appName)
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 	mountToken := true
-	return &core.Pod{
+	pod := &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        podName,
 			Annotations: podAnnotations(annotations.Copy()).ToMap(),
@@ -743,7 +746,7 @@ func operatorPod(
 			Containers: []core.Container{{
 				Name:            operatorContainerName,
 				ImagePullPolicy: core.PullIfNotPresent,
-				Image:           operatorImagePath,
+				Image:           operatorImageDetails.RegistryPath,
 				WorkingDir:      jujuDataDir,
 				Command: []string{
 					"/bin/sh",
@@ -805,7 +808,13 @@ func operatorPod(
 				},
 			}},
 		},
-	}, nil
+	}
+	if operatorImageDetails.IsPrivate() {
+		pod.Spec.ImagePullSecrets = []core.LocalObjectReference{
+			{Name: k8sconstants.CAASImageRepoSecretName},
+		}
+	}
+	return pod, nil
 }
 
 func operatorConfigMapAgentConfKey(appName string) string {

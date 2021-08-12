@@ -110,12 +110,12 @@ func (dr *dockerMetadataStorage) Get(resourceID string) (io.ReadCloser, int64, e
 	if err != nil {
 		return nil, -1, errors.Trace(err)
 	}
-	data, err := json.Marshal(
-		resources.DockerImageDetails{
-			RegistryPath: doc.RegistryPath,
-			Username:     doc.Username,
-			Password:     doc.Password,
-		})
+	details := resources.DockerImageDetails{
+		RegistryPath: doc.RegistryPath,
+	}
+	details.Username = doc.Username
+	details.Password = doc.Password
+	data, err := json.Marshal(details)
 	if err != nil {
 		return nil, -1, errors.Trace(err)
 	}

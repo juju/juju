@@ -6881,6 +6881,18 @@
                         "info"
                     ]
                 },
+                "BasicAuthConfig": {
+                    "type": "object",
+                    "properties": {
+                        "password": {
+                            "type": "string"
+                        },
+                        "username": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "CAASApplicationGarbageCollectArg": {
                     "type": "object",
                     "properties": {
@@ -7011,7 +7023,7 @@
                             "type": "string"
                         },
                         "image-repo": {
-                            "type": "string"
+                            "$ref": "#/definitions/ImageRepoDetails"
                         },
                         "series": {
                             "type": "string"
@@ -7887,6 +7899,25 @@
                         "results"
                     ]
                 },
+                "ImageRepoDetails": {
+                    "type": "object",
+                    "properties": {
+                        "BasicAuthConfig": {
+                            "$ref": "#/definitions/BasicAuthConfig"
+                        },
+                        "TokenAuthConfig": {
+                            "$ref": "#/definitions/TokenAuthConfig"
+                        },
+                        "repository": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "BasicAuthConfig",
+                        "TokenAuthConfig"
+                    ]
+                },
                 "KubernetesDeviceParams": {
                     "type": "object",
                     "properties": {
@@ -8269,6 +8300,27 @@
                     "required": [
                         "watcher-id"
                     ]
+                },
+                "TokenAuthConfig": {
+                    "type": "object",
+                    "properties": {
+                        "auth": {
+                            "type": "string"
+                        },
+                        "email": {
+                            "type": "string"
+                        },
+                        "identitytoken": {
+                            "type": "string"
+                        },
+                        "registrytoken": {
+                            "type": "string"
+                        },
+                        "serveraddress": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
                 },
                 "UnitStatus": {
                     "type": "object",
@@ -9861,6 +9913,34 @@
                         "scope"
                     ]
                 },
+                "BasicAuthConfig": {
+                    "type": "object",
+                    "properties": {
+                        "password": {
+                            "type": "string"
+                        },
+                        "username": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "DockerImageDetails": {
+                    "type": "object",
+                    "properties": {
+                        "ImageName": {
+                            "type": "string"
+                        },
+                        "ImageRepoDetails": {
+                            "$ref": "#/definitions/ImageRepoDetails"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "ImageName",
+                        "ImageRepoDetails"
+                    ]
+                },
                 "EntityPassword": {
                     "type": "object",
                     "properties": {
@@ -9984,6 +10064,25 @@
                         "port"
                     ]
                 },
+                "ImageRepoDetails": {
+                    "type": "object",
+                    "properties": {
+                        "BasicAuthConfig": {
+                            "$ref": "#/definitions/BasicAuthConfig"
+                        },
+                        "TokenAuthConfig": {
+                            "$ref": "#/definitions/TokenAuthConfig"
+                        },
+                        "repository": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "BasicAuthConfig",
+                        "TokenAuthConfig"
+                    ]
+                },
                 "ModelOperatorInfo": {
                     "type": "object",
                     "properties": {
@@ -9993,8 +10092,8 @@
                                 "type": "string"
                             }
                         },
-                        "image-path": {
-                            "type": "string"
+                        "image-details": {
+                            "$ref": "#/definitions/DockerImageDetails"
                         },
                         "version": {
                             "$ref": "#/definitions/Number"
@@ -10003,7 +10102,7 @@
                     "additionalProperties": false,
                     "required": [
                         "api-addresses",
-                        "image-path",
+                        "image-details",
                         "version"
                     ]
                 },
@@ -10076,6 +10175,27 @@
                             "items": {
                                 "type": "string"
                             }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "TokenAuthConfig": {
+                    "type": "object",
+                    "properties": {
+                        "auth": {
+                            "type": "string"
+                        },
+                        "email": {
+                            "type": "string"
+                        },
+                        "identitytoken": {
+                            "type": "string"
+                        },
+                        "registrytoken": {
+                            "type": "string"
+                        },
+                        "serveraddress": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false
@@ -11006,6 +11126,34 @@
                         "scope"
                     ]
                 },
+                "BasicAuthConfig": {
+                    "type": "object",
+                    "properties": {
+                        "password": {
+                            "type": "string"
+                        },
+                        "username": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "DockerImageDetails": {
+                    "type": "object",
+                    "properties": {
+                        "ImageName": {
+                            "type": "string"
+                        },
+                        "ImageRepoDetails": {
+                            "$ref": "#/definitions/ImageRepoDetails"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "ImageName",
+                        "ImageRepoDetails"
+                    ]
+                },
                 "Entities": {
                     "type": "object",
                     "properties": {
@@ -11154,6 +11302,25 @@
                         "scope",
                         "Address",
                         "port"
+                    ]
+                },
+                "ImageRepoDetails": {
+                    "type": "object",
+                    "properties": {
+                        "BasicAuthConfig": {
+                            "$ref": "#/definitions/BasicAuthConfig"
+                        },
+                        "TokenAuthConfig": {
+                            "$ref": "#/definitions/TokenAuthConfig"
+                        },
+                        "repository": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "BasicAuthConfig",
+                        "TokenAuthConfig"
                     ]
                 },
                 "IssueOperatorCertificateResult": {
@@ -11340,8 +11507,8 @@
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
-                        "image-path": {
-                            "type": "string"
+                        "image-details": {
+                            "$ref": "#/definitions/DockerImageDetails"
                         },
                         "tags": {
                             "type": "object",
@@ -11357,7 +11524,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "image-path",
+                        "image-details",
                         "version",
                         "api-addresses"
                     ]
@@ -11427,6 +11594,27 @@
                     "required": [
                         "watcher-id"
                     ]
+                },
+                "TokenAuthConfig": {
+                    "type": "object",
+                    "properties": {
+                        "auth": {
+                            "type": "string"
+                        },
+                        "email": {
+                            "type": "string"
+                        },
+                        "identitytoken": {
+                            "type": "string"
+                        },
+                        "registrytoken": {
+                            "type": "string"
+                        },
+                        "serveraddress": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
                 }
             }
         }

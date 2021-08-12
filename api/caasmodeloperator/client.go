@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/resources"
 )
 
 // Client is a caas model operator facade client
@@ -28,7 +29,7 @@ func NewClient(caller base.APICaller) *Client {
 // provisioning a caas model operator
 type ModelOperatorProvisioningInfo struct {
 	APIAddresses []string
-	ImagePath    string
+	ImageDetails resources.DockerImageDetails
 	Version      version.Number
 }
 
@@ -42,7 +43,7 @@ func (c *Client) ModelOperatorProvisioningInfo() (ModelOperatorProvisioningInfo,
 
 	return ModelOperatorProvisioningInfo{
 		APIAddresses: result.APIAddresses,
-		ImagePath:    result.ImagePath,
+		ImageDetails: result.ImageDetails,
 		Version:      result.Version,
 	}, nil
 }

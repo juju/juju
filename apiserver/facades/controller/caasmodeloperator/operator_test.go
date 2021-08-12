@@ -49,7 +49,7 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
 
 	imagePath, err := podcfg.GetJujuOCIImagePath(controllerConf, info.Version, version.OfficialBuild)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(imagePath, gc.Equals, info.ImagePath)
+	c.Assert(imagePath, gc.Equals, info.ImageDetails.RegistryPath)
 
 	model, err := m.state.Model()
 	c.Assert(err, jc.ErrorIsNil)
