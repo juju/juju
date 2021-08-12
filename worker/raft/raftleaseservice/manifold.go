@@ -12,7 +12,6 @@ import (
 	"github.com/juju/worker/v2/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/core/raftlease"
@@ -37,7 +36,6 @@ type State interface {
 // ManifoldConfig holds the information necessary to run an apiserver-based
 // lease consumer worker in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName         string
 	AuthenticatorName string
 	MuxName           string
 	RaftName          string
@@ -59,9 +57,6 @@ type ManifoldConfig struct {
 
 // Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
 	if config.AuthenticatorName == "" {
 		return errors.NotValidf("empty AuthenticatorName")
 	}
@@ -103,7 +98,6 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.AuthenticatorName,
 			config.MuxName,
 			config.RaftName,
@@ -120,11 +114,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	var r RaftApplier
 	if err := context.Get(config.RaftName, &r); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var agent agent.Agent
-	if err := context.Get(config.AgentName, &agent); err != nil {
 		return nil, errors.Trace(err)
 	}
 

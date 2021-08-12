@@ -21,7 +21,7 @@ import (
 	workerstate "github.com/juju/juju/worker/state"
 )
 
-var expectedInputs = []string{"agent", "auth", "mux", "raft", "state"}
+var expectedInputs = []string{"auth", "mux", "raft", "state"}
 
 type ManifoldSuite struct {
 	testing.IsolationSuite
@@ -30,7 +30,6 @@ type ManifoldSuite struct {
 	context  dependency.Context
 	mux      *apiserverhttp.Mux
 
-	agent       *MockAgent
 	auth        *MockAuthenticator
 	worker      *MockWorker
 	target      *MockNotifyTarget
@@ -96,7 +95,6 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 func (s *ManifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.agent = NewMockAgent(ctrl)
 	s.auth = NewMockAuthenticator(ctrl)
 	s.worker = NewMockWorker(ctrl)
 	s.target = NewMockNotifyTarget(ctrl)
@@ -111,7 +109,6 @@ func (s *ManifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.context = s.newContext(nil)
 	s.manifold = Manifold(ManifoldConfig{
-		AgentName:         "agent",
 		AuthenticatorName: "auth",
 		MuxName:           "mux",
 		RaftName:          "raft",
@@ -133,7 +130,6 @@ func (s *ManifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"agent": s.agent,
 		"auth":  s.auth,
 		"mux":   s.mux,
 		"raft":  s.raft,
