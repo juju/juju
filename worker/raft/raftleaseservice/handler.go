@@ -43,7 +43,7 @@ func NewHandler(
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	handler := func(socket *websocket.Conn) {
 		h.logger.Debugf("start of *raftleaseservice.ServeHTTP")
-		defer socket.Close()
+		defer func() { _ = socket.Close() }()
 
 		// If we get to here, no more errors to report, so we report a nil
 		// error.  This way the first line of the socket is always a json
@@ -186,7 +186,7 @@ func (h *Handler) handleSocketError(err error) bool {
 func (h *Handler) sendError(ws *websocket.Conn, err error) {
 	if sendErr := ws.SendInitialErrorV0(err); sendErr != nil {
 		h.logger.Errorf("closing websocket, %v", err)
-		ws.Close()
+		_ = ws.Close()
 		return
 	}
 }
