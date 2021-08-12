@@ -807,12 +807,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewTarget:            raftforwarder.NewTarget,
 		})),
 
-		// THe raft lease consumer offers a endpoint for accepting FSM commands
+		// The raft lease consumer offers a endpoint for accepting FSM commands
 		// and applies them to the raft leader.
 		raftLeaseConsumerName: ifRaftLeader(raftleaseconsumer.Manifold(raftleaseconsumer.ManifoldConfig{
 			AgentName:            agentName,
 			RaftName:             raftName,
 			MuxName:              httpServerArgsName,
+			AuthenticatorName:    httpServerArgsName,
 			StateName:            stateName,
 			Logger:               loggo.GetLogger("juju.worker.raft.raftleaseconsumer"),
 			PrometheusRegisterer: config.PrometheusRegisterer,

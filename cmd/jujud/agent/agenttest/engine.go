@@ -156,7 +156,6 @@ func (tracker *EngineTracker) Install(raw dependency.Manifolds, id string) error
 
 func (tracker *EngineTracker) startFunc(id string, names []string) dependency.StartFunc {
 	return func(context dependency.Context) (worker.Worker, error) {
-
 		seen := set.NewStrings()
 		for _, name := range names {
 			err := context.Get(name, nil)
@@ -196,7 +195,7 @@ func AssertManifoldsDependencies(c *gc.C, manifolds dependency.Manifolds, expect
 
 	for name, manifold := range manifolds {
 		manifoldNames.Add(name)
-		dependencies[name] = ManifoldDependencies(manifolds, name, manifold).SortedValues()
+		dependencies[name] = ManifoldDependencies(manifolds, manifold).SortedValues()
 	}
 
 	empty := set.NewStrings()
@@ -213,11 +212,11 @@ func AssertManifoldsDependencies(c *gc.C, manifolds dependency.Manifolds, expect
 }
 
 // ManifoldDependencies returns all - direct and indirect - manifold dependencies.
-func ManifoldDependencies(all dependency.Manifolds, name string, manifold dependency.Manifold) set.Strings {
+func ManifoldDependencies(all dependency.Manifolds, manifold dependency.Manifold) set.Strings {
 	result := set.NewStrings()
 	for _, input := range manifold.Inputs {
 		result.Add(input)
-		result = result.Union(ManifoldDependencies(all, input, all[input]))
+		result = result.Union(ManifoldDependencies(all, all[input]))
 	}
 	return result
 }

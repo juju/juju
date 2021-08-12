@@ -105,6 +105,7 @@ func (ms *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"raft-clusterer",
 			"raft-forwarder",
 			"raft-leader-flag",
+			"raft-lease-consumer",
 			"raft-transport",
 			"reboot-executor",
 			"restore-watcher",
@@ -175,6 +176,7 @@ func (ms *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"raft-clusterer",
 			"raft-forwarder",
 			"raft-leader-flag",
+			"raft-lease-consumer",
 			"raft-transport",
 			"restore-watcher",
 			"ssh-identity-writer",
@@ -270,6 +272,7 @@ func (ms *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"raft-clusterer",
 		"raft-forwarder",
 		"raft-leader-flag",
+		"raft-lease-consumer",
 		"raft-transport",
 		"valid-credential-flag",
 	)
@@ -912,6 +915,24 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
+	"raft-lease-consumer": {
+		"agent",
+		"central-hub",
+		"clock",
+		"controller-port",
+		"http-server-args",
+		"is-controller-flag",
+		"raft",
+		"raft-leader-flag",
+		"raft-transport",
+		"state",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
 	"raft-transport": {
 		"agent",
 		"central-hub",
@@ -935,7 +956,11 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"restore-watcher": {"agent", "state", "state-config-watcher"},
+	"restore-watcher": {
+		"agent",
+		"state",
+		"state-config-watcher",
+	},
 
 	"ssh-authkeys-updater": {
 		"agent",
