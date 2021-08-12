@@ -82,6 +82,7 @@ func (s *HandlerSuite) TestHandlerSendsMessage(c *gc.C) {
 	websockettest.AssertJSONInitialErrorNil(c, conn)
 
 	writeOp := params.LeaseOperation{
+		UUID:    "aaaabbbbcccc",
 		Command: "claim",
 	}
 	err := conn.WriteJSON(&writeOp)
@@ -97,7 +98,7 @@ func (s *HandlerSuite) TestHandlerSendsMessage(c *gc.C) {
 	err = conn.ReadJSON(&readOp)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(readOp, gc.DeepEquals, params.LeaseOperationResult{
-		SentCommand: "claim",
+		UUID: "aaaabbbbcccc",
 	})
 
 	// Close connection.
@@ -147,12 +148,14 @@ func (s *HandlerSuite) TestHandlerSendsMessagesOutOfOrder(c *gc.C) {
 
 	// Allow out of order read/write.
 	writeOp1 := params.LeaseOperation{
+		UUID:    "aaaabbbbcccc",
 		Command: "claim",
 	}
 	err := conn.WriteJSON(&writeOp1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	writeOp2 := params.LeaseOperation{
+		UUID:    "xxxxyyyyzzzz",
 		Command: "extend",
 	}
 	err = conn.WriteJSON(&writeOp2)
@@ -168,7 +171,7 @@ func (s *HandlerSuite) TestHandlerSendsMessagesOutOfOrder(c *gc.C) {
 	err = conn.ReadJSON(&readOp)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(readOp, gc.DeepEquals, params.LeaseOperationResult{
-		SentCommand: "extend",
+		UUID: "xxxxyyyyzzzz",
 	})
 
 	select {
@@ -180,7 +183,7 @@ func (s *HandlerSuite) TestHandlerSendsMessagesOutOfOrder(c *gc.C) {
 	err = conn.ReadJSON(&readOp)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(readOp, gc.DeepEquals, params.LeaseOperationResult{
-		SentCommand: "claim",
+		UUID: "aaaabbbbcccc",
 	})
 
 	// Close connection.
@@ -220,6 +223,7 @@ func (s *HandlerSuite) TestHandlerSendsError(c *gc.C) {
 	websockettest.AssertJSONInitialErrorNil(c, conn)
 
 	writeOp := params.LeaseOperation{
+		UUID:    "aaaabbbbcccc",
 		Command: "claim",
 	}
 	err := conn.WriteJSON(&writeOp)
@@ -235,7 +239,7 @@ func (s *HandlerSuite) TestHandlerSendsError(c *gc.C) {
 	err = conn.ReadJSON(&readOp)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(readOp, gc.DeepEquals, params.LeaseOperationResult{
-		SentCommand: "claim",
+		UUID: "aaaabbbbcccc",
 		Error: &params.Error{
 			Message: "boom",
 			Code:    params.CodeBadRequest,

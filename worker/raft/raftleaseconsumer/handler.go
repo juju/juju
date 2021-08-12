@@ -119,8 +119,8 @@ func (h *Handler) receiveOperations(socket *websocket.Conn) <-chan operation {
 					}
 
 					result := params.LeaseOperationResult{
-						SentCommand: m.Command,
-						Error:       pErr,
+						UUID:  m.UUID,
+						Error: pErr,
 					}
 
 					if err := socket.WriteJSON(&result); err != nil {
