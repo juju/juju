@@ -20,7 +20,7 @@ import (
 	"github.com/juju/proxy"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/secrets"
+	"github.com/juju/juju/api/secretsmanager"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -175,7 +175,7 @@ type HookContext struct {
 	state *uniter.State
 
 	// secretFacade allows the context to access the secrets backend.
-	secretFacade *secrets.Client
+	secretFacade *secretsmanager.Client
 
 	// LeadershipContext supplies several hooks.Context methods.
 	LeadershipContext
@@ -778,8 +778,7 @@ func (ctx *HookContext) GetSecret(name string) (coresecrets.SecretValue, error) 
 // CreateSecret creates a secret with the specified data.
 func (ctx *HookContext) CreateSecret(name string, value coresecrets.SecretValue) (string, error) {
 	app, _ := names.UnitApplication(ctx.UnitName())
-	name = fmt.Sprintf("%s.%s", app, name)
-	return ctx.secretFacade.Create(name, value)
+	return ctx.secretFacade.Create(coresecrets.NewSecretConfig(app, name), value)
 }
 
 // GoalState returns the goal state for the current unit.

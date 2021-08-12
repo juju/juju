@@ -13,7 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/secrets"
+	"github.com/juju/juju/api/secretsmanager"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -68,7 +68,7 @@ type contextFactory struct {
 	// API connection fields; unit should be deprecated, but isn't yet.
 	unit    *uniter.Unit
 	state   *uniter.State
-	secrets *secrets.Client
+	secrets *secretsmanager.Client
 	tracker leadership.Tracker
 
 	logger loggo.Logger
@@ -96,7 +96,7 @@ type contextFactory struct {
 // for the context factory.
 type FactoryConfig struct {
 	State            *uniter.State
-	Secrets          *secrets.Client
+	Secrets          *secretsmanager.Client
 	Unit             *uniter.Unit
 	Tracker          leadership.Tracker
 	GetRelationInfos RelationsFunc

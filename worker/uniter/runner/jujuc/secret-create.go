@@ -20,7 +20,7 @@ type secretCreateCommand struct {
 
 	id       string
 	asBase64 bool
-	data     map[string][]byte
+	data     map[string]string
 }
 
 // NewSecretCreateCommand returns a command to create a secret.

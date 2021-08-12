@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/secrets"
+	"github.com/juju/juju/api/secretsmanager"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -129,7 +129,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			uniter, err := NewUniter(&UniterParams{
 				UniterFacade:                 uniter.NewState(apiConn, unitTag),
-				SecretsFacade:                secrets.NewClient(apiConn),
+				SecretsFacade:                secretsmanager.NewClient(apiConn),
 				UnitTag:                      unitTag,
 				ModelType:                    config.ModelType,
 				LeadershipTrackerFunc:        leadershipTrackerFunc,

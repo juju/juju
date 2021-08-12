@@ -12,7 +12,7 @@ import (
 )
 
 // SecretData holds secret key values.
-type SecretData map[string][]byte
+type SecretData map[string]string
 
 // CreatSecretData creates a secret data bag from a list of arguments.
 // The arguments are either all key=value or a singular value.
@@ -54,7 +54,7 @@ func CreatSecretData(asBase64 bool, args []string) (SecretData, error) {
 		if !asBase64 {
 			value = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%v", value)))
 		}
-		data[key] = []byte(value)
+		data[key] = value
 	}
 	return data, nil
 }

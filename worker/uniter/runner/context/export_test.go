@@ -10,7 +10,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
 
-	"github.com/juju/juju/api/secrets"
+	"github.com/juju/juju/api/secretsmanager"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -106,8 +106,9 @@ func NewMockUnitHookContextWithState(unitName string, mockUnit *mocks.MockHookUn
 	}
 }
 
-func NewMockUnitHookContextWithSecrets(unitName string, mockUnit *mocks.MockHookUnit, client *secrets.Client) *HookContext {
+func NewMockUnitHookContextWithSecrets(mockUnit *mocks.MockHookUnit, client *secretsmanager.Client) *HookContext {
 	return &HookContext{
+		unitName:     mockUnit.Tag().Id(),
 		unit:         mockUnit,
 		secretFacade: client,
 		logger:       loggo.GetLogger("test"),

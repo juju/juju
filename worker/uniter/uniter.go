@@ -18,7 +18,7 @@ import (
 	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/api/secrets"
+	"github.com/juju/juju/api/secretsmanager"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -79,7 +79,7 @@ type RemoteInitFunc func(remotestate.ContainerRunningStatus, <-chan struct{}) er
 type Uniter struct {
 	catacomb                     catacomb.Catacomb
 	st                           *uniter.State
-	secrets                      *secrets.Client
+	secrets                      *secretsmanager.Client
 	paths                        Paths
 	unit                         *uniter.Unit
 	modelType                    model.ModelType
@@ -173,7 +173,7 @@ type Uniter struct {
 // UniterParams hold all the necessary parameters for a new Uniter.
 type UniterParams struct {
 	UniterFacade                  *uniter.State
-	SecretsFacade                 *secrets.Client
+	SecretsFacade                 *secretsmanager.Client
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
 	LeadershipTrackerFunc         func(names.UnitTag) leadership.TrackerWorker

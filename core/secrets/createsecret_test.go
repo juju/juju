@@ -29,7 +29,7 @@ func (s *CreateSecretSuite) TestSingularValue(c *gc.C) {
 	data, err := secrets.CreatSecretData(false, []string{"token"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, jc.DeepEquals, secrets.SecretData{
-		"data": []byte("dG9rZW4="),
+		"data": "dG9rZW4=",
 	})
 }
 
@@ -37,7 +37,7 @@ func (s *CreateSecretSuite) TestSingularValueBase64(c *gc.C) {
 	data, err := secrets.CreatSecretData(true, []string{"key="})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, jc.DeepEquals, secrets.SecretData{
-		"data": []byte("key="),
+		"data": "key=",
 	})
 }
 
@@ -45,8 +45,8 @@ func (s *CreateSecretSuite) TestValues(c *gc.C) {
 	data, err := secrets.CreatSecretData(false, []string{"foo=bar", "hello=world"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, jc.DeepEquals, secrets.SecretData{
-		"foo":   []byte("YmFy"),
-		"hello": []byte("d29ybGQ="),
+		"foo":   "YmFy",
+		"hello": "d29ybGQ=",
 	})
 }
 
@@ -54,7 +54,7 @@ func (s *CreateSecretSuite) TestValuesBase64(c *gc.C) {
 	data, err := secrets.CreatSecretData(true, []string{"foo=bar", "hello=world"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, jc.DeepEquals, secrets.SecretData{
-		"foo":   []byte("bar"),
-		"hello": []byte("world"),
+		"foo":   "bar",
+		"hello": "world",
 	})
 }
