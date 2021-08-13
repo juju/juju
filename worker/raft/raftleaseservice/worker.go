@@ -116,7 +116,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 		Authorizer:    httpcontext.AuthorizerFunc(controllerAuthorizer),
 	}
 
-	_ = w.config.Mux.AddHandler("GET", w.config.Path, h)
+	err := w.config.Mux.AddHandler("GET", w.config.Path, h)
+	config.Logger.Errorf("unable to add handler for path %v, err: %v", w.config.Path, err)
 
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,

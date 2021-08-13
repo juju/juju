@@ -14,13 +14,13 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/worker/common"
@@ -28,6 +28,8 @@ import (
 	"github.com/juju/juju/worker/raft/raftleaseservice"
 	workerstate "github.com/juju/juju/worker/state"
 )
+
+var logger = loggo.GetLogger("*********")
 
 const (
 	// MaxSleep is the longest the manager will sleep before checking
@@ -154,19 +156,14 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 	if !ok {
 		return nil, dependency.ErrMissing
 	}
-	certPool, err := api.CreateCertPool(apiInfo.CACert)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	client, err := raftleaseservice.NewLeaseServiceClient(raftleaseservice.LeaseServiceClientConfig{
-		Hub:            hub,
-		APIInfo:        apiInfo,
-		TLSConfig:      api.NewTLSConfig(certPool),
-		Path:           "/raft/lease",
-		RequestTimeout: ForwardTimeout,
-		ClientMetrics:  metrics,
-		Clock:          clock,
+		Hub:           hub,
+		APIInfo:       apiInfo,
+		NewWriter:     raftleaseservice.NewMessageWriter,
+		ClientMetrics: metrics,
+		Clock:         clock,
+		Logger:        logger,
 	})
 	if err != nil {
 		_ = stTracker.Done()

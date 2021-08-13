@@ -5,64 +5,106 @@ package raftleaseservice
 
 import (
 	"context"
-	"crypto/tls"
-	"net/http"
-	"net/url"
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/retry"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/raftleaseservice"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/pubsub/apiserver"
 )
 
+// MessageWriter defines the two methods called for sending lease messages.
+type MessageWriter interface {
+	// Send sends the given message to the server.
+	Send(*params.LeaseOperation) error
+	Close()
+}
+
+var dialOpts = api.DialOpts{
+	DialAddressInterval: 20 * time.Millisecond,
+	// If for some reason we are getting rate limited, there is a standard
+	// five second delay before we get the login response. Ideally we need
+	// to wait long enough for this response to get back to us.
+	// Ideally the apiserver wouldn't be rate limiting connections from other
+	// API servers, see bug #1733256.
+	Timeout:    10 * time.Second,
+	RetryDelay: 1 * time.Second,
+}
+
+// NewMessageWriter will connect to the remote defined by the info,
+// and return a MessageWriter.
+func NewMessageWriter(info *api.Info) (MessageWriter, error) {
+	conn, err := api.Open(info, dialOpts)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	a := raftleaseservice.NewAPI(conn)
+	writer, err := a.OpenMessageWriter()
+	if err != nil {
+		conn.Close()
+		return nil, errors.Trace(err)
+	}
+	return &remoteConnection{
+		connection:    conn,
+		MessageWriter: writer,
+	}, nil
+}
+
+// remoteConnection represents an api connection to another
+// API server for the purpose of forwarding pubsub messages.
+type remoteConnection struct {
+	connection api.Connection
+
+	raftleaseservice.MessageWriter
+}
+
+func (r *remoteConnection) Close() {
+	r.MessageWriter.Close()
+	r.connection.Close()
+}
+
 // LeaseServiceClient defines a client for sending commands over to the raft
 // lease service.
 type LeaseServiceClient struct {
-	mutex          sync.RWMutex
-	apiInfo        *api.Info
-	addresses      []string
-	tlsConfig      *tls.Config
-	path           string
-	metrics        raftlease.ClientMetrics
-	clock          clock.Clock
-	unsubscribe    func()
-	conn           *websocket.Conn
-	requestTimeout time.Duration
+	mutex       sync.RWMutex
+	info        *api.Info
+	metrics     raftlease.ClientMetrics
+	clock       clock.Clock
+	unsubscribe func()
+	logger      Logger
+
+	newWriter      func(*api.Info) (MessageWriter, error)
+	conn           MessageWriter
+	stopConnecting chan struct{}
 }
 
 // LeaseServiceClientConfig holds resources and settings needed to run the
 // LeaseServiceClient.
 type LeaseServiceClientConfig struct {
-	Hub            *pubsub.StructuredHub
-	APIInfo        *api.Info
-	TLSConfig      *tls.Config
-	Path           string
-	RequestTimeout time.Duration
-	ClientMetrics  raftlease.ClientMetrics
-	Clock          clock.Clock
+	Hub           *pubsub.StructuredHub
+	APIInfo       *api.Info
+	NewWriter     func(*api.Info) (MessageWriter, error)
+	ClientMetrics raftlease.ClientMetrics
+	Clock         clock.Clock
+	Logger        Logger
 }
 
 // NewLeaseServiceClient creates a new lease service client.
 func NewLeaseServiceClient(config LeaseServiceClientConfig) (*LeaseServiceClient, error) {
 	client := &LeaseServiceClient{
-		apiInfo: config.APIInfo,
-		// Ensure we have at least some addresses, as pubsub may fail us and we
-		// need to have some addresses before making a request.
-		addresses:      config.APIInfo.Addrs,
-		tlsConfig:      config.TLSConfig,
-		path:           config.Path,
-		requestTimeout: config.RequestTimeout,
-		metrics:        config.ClientMetrics,
-		clock:          config.Clock,
+		info:      config.APIInfo,
+		newWriter: config.NewWriter,
+		metrics:   config.ClientMetrics,
+		clock:     config.Clock,
+		logger:    config.Logger,
 	}
 
 	// Watch for apiserver details changes.
@@ -83,137 +125,42 @@ func NewLeaseServiceClient(config LeaseServiceClientConfig) (*LeaseServiceClient
 }
 
 func (c *LeaseServiceClient) Request(ctx context.Context, command *raftlease.Command) error {
+	c.logger.Criticalf("Attempt Request %v", command)
+	c.mutex.Lock()
+	conn := c.conn
+	c.mutex.Unlock()
+	if conn == nil {
+		if err := c.connect(); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}
+
 	bytes, err := command.Marshal()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// TODO (stickupkid): We need to serialize the requests, so that only
-	// one request can happen at one time.
-
-	// We have an existing connection attempt to use that. If that isn't
-	// successful, fallback to iterating each address.
-	if c.conn != nil {
-		if err := c.do(ctx, c.conn, bytes); err == nil {
-			return nil
-		}
-	}
-
-	// Unfortunately we don't have a cached connection, instead we now have to
-	// iterate the list of address to find one that we can send our command to.
-	urls := c.constructURLs()
-
-	return retry.Call(retry.CallArgs{
-		Func: func() error {
-			url := urls[len(urls)]
-			conn, err := c.dial(ctx, url)
-			if err != nil {
-				return errors.Trace(err)
-			}
-
-			if err = c.do(ctx, conn, bytes); err == nil {
-				// Cache the request so that we don't have to perform this
-				// request everytime.
-				c.conn = conn
-			}
-			return errors.Trace(err)
-		},
-		IsFatalError: func(err error) bool {
-			return errors.IsBadRequest(err)
-		},
-		MaxDuration: c.requestTimeout,
-	})
-}
-
-func (c *LeaseServiceClient) Close() error {
-	c.unsubscribe()
-	if c.conn == nil {
-		return nil
-	}
-
-	return c.conn.Close()
-}
-
-func (c *LeaseServiceClient) do(ctx context.Context, conn *websocket.Conn, command []byte) error {
-	applyTicker := c.clock.After(c.requestTimeout)
-
-	// Generate a new unique UUID for every request.
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	writeOp := params.LeaseOperation{
-		Command: string(command),
+	c.logger.Criticalf("Request %v", command)
+
+	return c.conn.Send(&params.LeaseOperation{
+		Command: string(bytes),
 		UUID:    uuid.String(),
-	}
-	if err := conn.WriteJSON(&writeOp); err != nil {
-		return errors.Trace(err)
-	}
-
-	var readOp params.LeaseOperationResult
-	for {
-		select {
-		case <-applyTicker:
-			return errors.Errorf("timeout requesting")
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		if err := conn.ReadJSON(&readOp); err != nil {
-			return errors.Trace(err)
-		}
-		if readOp.UUID == uuid.String() {
-			break
-		}
-	}
-	return readOp.Error
+	})
 }
 
-// constructURLs turns a series of addresses into websocket urls that can
-// query the service endpoint.
-func (c *LeaseServiceClient) constructURLs() []*url.URL {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	urls := make([]*url.URL, len(c.addresses))
-	for k, address := range c.addresses {
-		urls[k] = &url.URL{
-			Scheme: "wss",
-			Host:   address,
-			Path:   c.path,
-		}
+func (c *LeaseServiceClient) Close() error {
+	c.unsubscribe()
+	c.interruptConnecting()
+	if c.conn != nil {
+		c.conn.Close()
 	}
-
-	return urls
-}
-
-func (c *LeaseServiceClient) dial(ctx context.Context, url *url.URL) (*websocket.Conn, error) {
-	header, err := c.dialHeaders()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	dialer := websocket.Dialer{
-		TLSClientConfig: c.tlsConfig,
-	}
-	conn, resp, err := dialer.DialContext(ctx, url.String(), header)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer resp.Body.Close()
-
-	switch resp.StatusCode {
-	case http.StatusOK:
-		return conn, nil
-	case http.StatusBadRequest:
-		// The content mad this terminal.
-		_ = conn.Close()
-		return nil, errors.BadRequestf("request was invalid")
-	}
-	_ = conn.Close()
-	return nil, errors.NotFoundf("%v", url)
+	return nil
 }
 
 func (c *LeaseServiceClient) apiserverDetailsChanged(topic string, details apiserver.Details, err error) {
@@ -222,22 +169,74 @@ func (c *LeaseServiceClient) apiserverDetailsChanged(topic string, details apise
 		addresses = append(addresses, server.InternalAddress)
 	}
 
+	c.logger.Criticalf("ADDRESSES %v", addresses)
+
+	// There are no addresses to try and change.
+	if len(addresses) == 0 {
+		return
+	}
+
+	c.mutex.Lock()
+	c.info.Addrs = addresses
+	c.mutex.Unlock()
+
+	c.interruptConnecting()
+	if err := c.connect(); err != nil {
+		c.logger.Errorf("unable to get message writer %v", err)
+	}
+}
+
+func (c *LeaseServiceClient) connect() error {
+	stop := make(chan struct{})
+	c.mutex.Lock()
+	c.stopConnecting = stop
+
+	info := c.info
+	c.mutex.Unlock()
+
+	c.logger.Debugf("connecting")
+
+	var conn MessageWriter
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			c.logger.Debugf("open api to %v", info.Addrs)
+			var err error
+			conn, err = c.newWriter(info)
+			if err != nil {
+				c.logger.Tracef("unable to get message writer, reconnecting... : %v\n%s", err, errors.ErrorStack(err))
+				return errors.Trace(err)
+			}
+			return nil
+		},
+		Attempts:    retry.UnlimitedAttempts,
+		Delay:       time.Second,
+		MaxDelay:    5 * time.Minute,
+		BackoffFunc: retry.DoubleDelay,
+		Stop:        stop,
+		Clock:       c.clock,
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.addresses = addresses
+	if conn != nil {
+		c.conn = conn
+		return nil
+	}
+	return errors.Errorf("unable to connect to %v", c.info.Addrs)
 }
 
-func (c *LeaseServiceClient) dialHeaders() (http.Header, error) {
-	header := http.Header{}
-	if tag := c.apiInfo.Tag.String(); tag != "" {
-		// Note that password may be empty here; we still
-		// want to pass the tag along. An empty password
-		// indicates that we're using macaroon authentication.
-		api.SetBasicAuthHeader(header, tag, c.apiInfo.Password)
+func (c *LeaseServiceClient) interruptConnecting() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if c.stopConnecting != nil {
+		c.logger.Debugf("interrupting the pending connect loop")
+
+		close(c.stopConnecting)
+		c.stopConnecting = nil
 	}
-	if err := api.AuthHTTPHeader(header, c.apiInfo.Nonce, c.apiInfo.Macaroons); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return header, nil
 }

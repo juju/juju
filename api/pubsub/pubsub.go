@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// MessageWriter is the interface that allows sending pub/sub messges to the
+// MessageWriter is the interface that allows sending pub/sub messages to the
 // server.
 type MessageWriter interface {
 	// ForwardMessage forwards the given message to the server.
