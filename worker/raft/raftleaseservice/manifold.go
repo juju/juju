@@ -6,6 +6,7 @@ package raftleaseservice
 import (
 	"io"
 
+	"github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2"
@@ -112,7 +113,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var r RaftApplier
+	var r *raft.Raft
 	if err := context.Get(config.RaftName, &r); err != nil {
 		return nil, errors.Trace(err)
 	}

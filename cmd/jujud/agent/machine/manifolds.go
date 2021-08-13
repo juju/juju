@@ -809,7 +809,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The raft lease consumer offers a endpoint for accepting FSM commands
 		// and applies them to the raft leader.
-		raftLeaseConsumerName: ifRaftLeader(raftleaseservice.Manifold(raftleaseservice.ManifoldConfig{
+		raftLeaseServiceName: ifRaftLeader(raftleaseservice.Manifold(raftleaseservice.ManifoldConfig{
 			RaftName:             raftName,
 			MuxName:              httpServerArgsName,
 			AuthenticatorName:    httpServerArgsName,
@@ -1171,13 +1171,13 @@ const (
 	httpServerArgsName = "http-server-args"
 	apiServerName      = "api-server"
 
-	raftTransportName     = "raft-transport"
-	raftName              = "raft"
-	raftClustererName     = "raft-clusterer"
-	raftFlagName          = "raft-leader-flag"
-	raftBackstopName      = "raft-backstop"
-	raftForwarderName     = "raft-forwarder"
-	raftLeaseConsumerName = "raft-lease-consumer"
+	raftTransportName    = "raft-transport"
+	raftName             = "raft"
+	raftClustererName    = "raft-clusterer"
+	raftFlagName         = "raft-leader-flag"
+	raftBackstopName     = "raft-backstop"
+	raftForwarderName    = "raft-forwarder"
+	raftLeaseServiceName = "raft-lease-service"
 
 	validCredentialFlagName = "valid-credential-flag"
 

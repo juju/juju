@@ -5,6 +5,7 @@ package raftleaseservice
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -28,12 +29,13 @@ type ManifoldSuite struct {
 
 	manifold dependency.Manifold
 	context  dependency.Context
-	mux      *apiserverhttp.Mux
+
+	mux  *apiserverhttp.Mux
+	raft RaftApplier
 
 	auth        *MockAuthenticator
 	worker      *MockWorker
 	target      *MockNotifyTarget
-	raft        *MockRaftApplier
 	state       *MockState
 	workerState *MockStateTracker
 	leaseLogger *MockWriter
@@ -106,6 +108,7 @@ func (s *ManifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.registerer = NewMockRegisterer(ctrl)
 
 	s.mux = &apiserverhttp.Mux{}
+	s.raft = new(raft.Raft)
 
 	s.context = s.newContext(nil)
 	s.manifold = Manifold(ManifoldConfig{
