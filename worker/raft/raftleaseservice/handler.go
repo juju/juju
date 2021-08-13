@@ -42,7 +42,7 @@ func NewHandler(
 // ServeHTTP is part of the http.Handler interface.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	handler := func(socket *websocket.Conn) {
-		h.logger.Debugf("start of *raftleaseservice.ServeHTTP")
+		h.logger.Criticalf("start of *raftleaseservice.ServeHTTP")
 		defer func() { _ = socket.Close() }()
 
 		// If we get to here, no more errors to report, so we report a nil

@@ -102,19 +102,25 @@ func authHTTPRequest(req *http.Request, tag, password, nonce string, macaroons [
 		// Note that password may be empty here; we still
 		// want to pass the tag along. An empty password
 		// indicates that we're using macaroon authentication.
-		req.SetBasicAuth(tag, password)
+		SetBasicAuthHeader(req.Header, tag, password)
 	}
+	return AuthHTTPHeader(req.Header, nonce, macaroons)
+}
+
+// AuthHTTPHeader adds Juju auth info (nonce, macaroons) to the given HTTP
+// header, suitable for sending to a Juju API server.
+func AuthHTTPHeader(header http.Header, nonce string, macaroons []macaroon.Slice) error {
 	if nonce != "" {
-		req.Header.Set(params.MachineNonceHeader, nonce)
+		header.Set(params.MachineNonceHeader, nonce)
 	}
-	req.Header.Set(params.JujuClientVersion, jujuversion.Current.String())
-	req.Header.Set(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
+	header.Set(params.JujuClientVersion, jujuversion.Current.String())
+	header.Set(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
 	for _, ms := range macaroons {
 		encoded, err := encodeMacaroonSlice(ms)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		req.Header.Add(httpbakery.MacaroonsHeader, encoded)
+		header.Add(httpbakery.MacaroonsHeader, encoded)
 	}
 	return nil
 }
@@ -126,6 +132,29 @@ func encodeMacaroonSlice(ms macaroon.Slice) (string, error) {
 		return "", errors.Trace(err)
 	}
 	return base64.StdEncoding.EncodeToString(data), nil
+}
+
+// SetBasicAuthHeader sets the headers's Authorization header to use HTTP
+// Basic Authentication with the provided username and password.
+//
+// With HTTP Basic Authentication the provided username and password
+// are not encrypted.
+//
+// Some protocols may impose additional requirements on pre-escaping the
+// username and password. For instance, when used with OAuth2, both arguments
+// must be URL encoded first with url.QueryEscape.
+func SetBasicAuthHeader(header http.Header, username, password string) {
+	header.Set("Authorization", "Basic "+basicAuth(username, password))
+}
+
+// See 2 (end of page 4) https://www.ietf.org/rfc/rfc2617.txt
+// "To receive authorization, the client sends the userid and password,
+// separated by a single colon (":") character, within a base64
+// encoded string in the credentials."
+// It is not meant to be urlencoded.
+func basicAuth(username, password string) string {
+	auth := username + ":" + password
+	return base64.StdEncoding.EncodeToString([]byte(auth))
 }
 
 // unmarshalHTTPErrorResponse unmarshals an error response from

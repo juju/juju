@@ -27,6 +27,7 @@ type Logger interface {
 	Debugf(string, ...interface{})
 	Warningf(string, ...interface{})
 	Errorf(string, ...interface{})
+	Criticalf(string, ...interface{})
 }
 
 // State defines the methods used from state.

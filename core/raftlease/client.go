@@ -18,6 +18,7 @@ import (
 // Client defines the methods for broadcasting a command.
 type Client interface {
 	Request(context.Context, *Command) error
+	Close() error
 }
 
 // ClientMetrics represents the metrics during a client request.
@@ -136,6 +137,11 @@ func (c *PubsubClient) Request(ctx context.Context, command *Command) error {
 		c.record(command.Operation, "response timeout", start)
 		return lease.ErrTimeout
 	}
+}
+
+func (c *PubsubClient) Close() error {
+	// Do nothing.
+	return nil
 }
 
 func (c PubsubClient) record(operation, result string, start time.Time) {

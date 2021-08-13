@@ -174,6 +174,13 @@ func (s *Store) Pinned() map[lease.Key][]string {
 	return s.fsm.Pinned()
 }
 
+// Close the store and any underlying clients.
+func (s *Store) Close() {
+	if s.client != nil {
+		s.client.Close()
+	}
+}
+
 func (s *Store) pinOp(operation string, key lease.Key, entity string, stop <-chan struct{}) error {
 	return errors.Trace(s.runOnLeader(&Command{
 		Version:   CommandVersion,

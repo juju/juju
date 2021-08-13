@@ -10,8 +10,6 @@ package manifold
 // import cycle.
 
 import (
-	"fmt"
-	"math/rand"
 	"time"
 
 	"github.com/juju/clock"
@@ -22,10 +20,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/lease"
+	"github.com/juju/juju/worker/raft/raftleaseservice"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -135,14 +135,11 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 
 	st := statePool.SystemState()
 
-	source := rand.NewSource(clock.Now().UnixNano())
-	runID := rand.New(source).Int31()
-
 	metrics := raftlease.NewOperationClientMetrics(clock)
-	s.store = s.config.NewStore(raftlease.StoreConfig{
-		FSM:      s.config.FSM,
-		Trapdoor: st.LeaseTrapdoorFunc(),
-		Client: raftlease.NewPubsubClient(raftlease.PubsubClientConfig{
+	/*
+		source := rand.NewSource(clock.Now().UnixNano())
+		runID := rand.New(source).Int31()
+		client := raftlease.NewPubsubClient(raftlease.PubsubClientConfig{
 			Hub:          hub,
 			RequestTopic: s.config.RequestTopic,
 			ResponseTopic: func(requestID uint64) string {
@@ -151,7 +148,35 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 			Clock:          clock,
 			ForwardTimeout: ForwardTimeout,
 			ClientMetrics:  metrics,
-		}),
+		})
+	*/
+	apiInfo, ok := agent.CurrentConfig().APIInfo()
+	if !ok {
+		return nil, dependency.ErrMissing
+	}
+	certPool, err := api.CreateCertPool(apiInfo.CACert)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	client, err := raftleaseservice.NewLeaseServiceClient(raftleaseservice.LeaseServiceClientConfig{
+		Hub:            hub,
+		APIInfo:        apiInfo,
+		TLSConfig:      api.NewTLSConfig(certPool),
+		Path:           "/raft/lease",
+		RequestTimeout: ForwardTimeout,
+		ClientMetrics:  metrics,
+		Clock:          clock,
+	})
+	if err != nil {
+		_ = stTracker.Done()
+		return nil, errors.Trace(err)
+	}
+
+	s.store = s.config.NewStore(raftlease.StoreConfig{
+		FSM:              s.config.FSM,
+		Trapdoor:         st.LeaseTrapdoorFunc(),
+		Client:           client,
 		Clock:            clock,
 		MetricsCollector: metrics,
 	})
@@ -169,9 +194,13 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 	})
 	if err != nil {
 		_ = stTracker.Done()
+		_ = client.Close()
 		return nil, errors.Trace(err)
 	}
-	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
+	return common.NewCleanupWorker(w, func() {
+		_ = stTracker.Done()
+		_ = client.Close()
+	}), nil
 }
 
 func (s *manifoldState) output(in worker.Worker, out interface{}) error {
