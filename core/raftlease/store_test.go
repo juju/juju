@@ -49,11 +49,8 @@ func (s *storeSuite) SetUpTest(c *gc.C) {
 		FSM:      s.fsm,
 		Trapdoor: FakeTrapdoor,
 		Client: raftlease.NewPubsubClient(raftlease.PubsubClientConfig{
-			Hub:          s.hub,
-			RequestTopic: "lease.request",
-			ResponseTopic: func(reqID uint64) string {
-				return fmt.Sprintf("lease.request.%d", reqID)
-			},
+			Hub:            s.hub,
+			RequestTopic:   "lease.request",
 			Clock:          s.clock,
 			ForwardTimeout: time.Second,
 			ClientMetrics:  metrics,
