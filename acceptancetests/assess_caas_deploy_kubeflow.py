@@ -319,6 +319,7 @@ def prepare(caas_client, caas_provider, build):
 
     caas_client.sh('rm', '-rf', f'{KUBEFLOW_DIR}')
     caas_client.sh('git', 'clone', KUBEFLOW_REPO_URI, KUBEFLOW_DIR)
+    caas_client.sh('pip3', 'install', 'tox')
     caas_client.sh(
         'pip3', 'install',
         '-r', f'{KUBEFLOW_DIR}/requirements.txt',
@@ -354,7 +355,8 @@ def run_test(caas_provider, caas_client, k8s_model, bundle, build):
             # TODO: tmp fix, remove me later once current kubeflow master branch published.
             caas_client.sh('git', 'reset', '--hard', '5e0b6fcb')
 
-        run("sg", "microk8s", "-c", f"{KUBEFLOW_DIR}/tests/run.sh -m {bundle}")
+        run("tox", "-e", "tests", "--", f"-m {bundle} -k 'not selenium'")
+        run("tox", "-e", "tests", "--", f"-m {bundle} -k 'selenium'")
 
 
 def dump_k8s_log(artifacts_dir, file_name, content):
