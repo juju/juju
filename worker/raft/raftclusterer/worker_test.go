@@ -31,7 +31,7 @@ type workerFixture struct {
 func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.FSM = &jujuraft.SimpleFSM{}
 	s.RaftFixture.SetUpTest(c)
-	s.hub = centralhub.New(names.NewMachineTag("0"))
+	s.hub = centralhub.New(names.NewMachineTag("0"), centralhub.PubsubNoOpMetrics{})
 	s.config = raftclusterer.Config{
 		Raft: s.Raft,
 		Hub:  s.hub,

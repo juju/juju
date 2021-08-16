@@ -149,16 +149,15 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.FitsTypeOf, raftlease.StoreConfig{})
 	storeConfig := args[0].(raftlease.StoreConfig)
-	c.Assert(storeConfig.ResponseTopic(1234), gc.Matches, "lease.manifold_test.[0-9a-f]{8}.1234")
-	storeConfig.ResponseTopic = nil
+
 	assertTrapdoorFuncsEqual(c, storeConfig.Trapdoor, s.stateTracker.pool.SystemState().LeaseTrapdoorFunc())
 	storeConfig.Trapdoor = nil
+	storeConfig.Client = nil
+	storeConfig.MetricsCollector = nil
+
 	c.Assert(storeConfig, gc.DeepEquals, raftlease.StoreConfig{
-		FSM:            s.fsm,
-		Hub:            s.hub,
-		RequestTopic:   "lease.manifold_test",
-		Clock:          s.clock,
-		ForwardTimeout: 5 * time.Second,
+		FSM:   s.fsm,
+		Clock: s.clock,
 	})
 
 	args = s.stub.Calls()[1].Args

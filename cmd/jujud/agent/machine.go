@@ -348,6 +348,9 @@ func (a *MachineAgent) registerPrometheusCollectors() error {
 	if err := a.prometheusRegistry.Register(a.mongoDialCollector); err != nil {
 		return errors.Annotate(err, "registering mongo dial collector")
 	}
+	if err := a.prometheusRegistry.Register(a.pubsubMetrics); err != nil {
+		return errors.Annotate(err, "registering pubsub collector")
+	}
 	return nil
 }
 
@@ -386,7 +389,8 @@ type MachineAgent struct {
 
 	// Only API servers have hubs. This is temporary until the apiserver and
 	// peergrouper have manifolds.
-	centralHub *pubsub.StructuredHub
+	centralHub    *pubsub.StructuredHub
+	pubsubMetrics *centralhub.PubsubMetrics
 
 	isCaasAgent bool
 }
@@ -473,17 +477,19 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 
 	// When the API server and peergrouper have manifolds, they can
 	// have dependencies on a central hub worker.
-	a.centralHub = centralhub.New(a.Tag())
+	a.pubsubMetrics = centralhub.NewPubsubMetrics()
+	a.centralHub = centralhub.New(a.Tag(), a.pubsubMetrics)
 
-	// Before doing anything else, we need to make sure the certificate generated for
-	// use by mongo to validate controller connections is correct. This needs to be done
-	// before any possible restart of the mongo service.
+	// Before doing anything else, we need to make sure the certificate
+	// generated for use by mongo to validate controller connections is correct.
+	// This needs to be done before any possible restart of the mongo service.
 	// See bug http://pad.lv/1434680
 	if err := a.AgentConfigWriter.ChangeConfig(upgradeCertificateDNSNames); err != nil {
 		return errors.Annotate(err, "error upgrading server certificate")
 	}
 
-	// moved from NewMachineAgent here because the agent config could not be ready yet there.
+	// Moved from NewMachineAgent here because the agent config could not be
+	// ready yet there.
 	if err := a.registerPrometheusCollectors(); err != nil {
 		return errors.Trace(err)
 	}

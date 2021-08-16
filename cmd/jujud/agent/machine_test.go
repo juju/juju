@@ -119,7 +119,7 @@ func bootstrapRaft(c *gc.C, dataDir string) {
 	err := raftworker.Bootstrap(raftworker.Config{
 		Clock:      clock.WallClock,
 		StorageDir: filepath.Join(dataDir, "raft"),
-		LocalID:    raft.ServerID("0"),
+		LocalID:    "0",
 		Logger:     loggo.GetLogger("machine_test.raft"),
 	})
 	c.Assert(err, jc.ErrorIsNil)

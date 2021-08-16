@@ -31,10 +31,22 @@ func (s *WaitUntilExpiredSuite) SetUpTest(c *gc.C) {
 	logger.SetLogLevel(loggo.TRACE)
 }
 
-func (s *WaitUntilExpiredSuite) TestLeadershipNotHeld(c *gc.C) {
-	fix := &Fixture{}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
+func (s *WaitUntilExpiredSuite) TestLeadershipNoLeaseBlockEvaluatedNextTick(c *gc.C) {
+	fix := &Fixture{
+		leases: map[corelease.Key]corelease.Info{
+			key("redis"): {
+				Holder: "postgresql/0",
+				Expiry: offset(time.Second),
+			},
+		},
+	}
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		blockTest := newBlockTest(c, manager, key("redis"))
+		blockTest.assertBlocked(c)
+
+		// Check that *another* lease expiry causes the unassociated block to
+		// be checked and in the absence of its lease, get unblocked.
+		c.Assert(clock.WaitAdvance(time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
 		err := blockTest.assertUnblocked(c)
 		c.Check(err, jc.ErrorIsNil)
 	})
@@ -245,11 +257,8 @@ func (bt *blockTest) assertBlocked(c *gc.C) {
 	select {
 	case err := <-bt.done:
 		c.Errorf("unblocked unexpectedly with %v", err)
-	case <-time.After(time.Millisecond):
-		// happy that we are still blocked, success
-		// TODO(jam): 2019-02-05 should this be testing.ShortWait? It used to be
-		//  just plain 'default:', which didn't even give the helper goroutine
-		//  a timeslice to start to even evaluate if WaitUntilExpired had returned.
+	case <-time.After(testing.ShortWait):
+		// Happy that we are still blocked; success.
 	}
 }
 

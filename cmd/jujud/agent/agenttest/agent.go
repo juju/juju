@@ -99,7 +99,7 @@ func (f *FakeEnsureMongo) InitiateMongo(p peergrouper.InitiateMongoParams) error
 	return nil
 }
 
-// agentSuite is a fixture to be used by agent test suites.
+// AgentSuite is a fixture to be used by agent test suites.
 type AgentSuite struct {
 	testing.JujuConnSuite
 }
