@@ -28,7 +28,7 @@ func (*CentralHubSuite) waitForSubscribers(c *gc.C, done <-chan struct{}) {
 }
 
 func (s *CentralHubSuite) TestSetsOrigin(c *gc.C) {
-	hub := centralhub.New(names.NewControllerAgentTag("42"))
+	hub := centralhub.New(names.NewControllerAgentTag("42"), centralhub.PubsubNoOpMetrics{})
 	topic := "testing"
 	var called bool
 	unsub, err := hub.SubscribeMatch(pubsub.MatchAll, func(t string, data map[string]interface{}) {
@@ -55,7 +55,7 @@ type IntStruct struct {
 }
 
 func (s *CentralHubSuite) TestYAMLMarshalling(c *gc.C) {
-	hub := centralhub.New(names.NewMachineTag("42"))
+	hub := centralhub.New(names.NewMachineTag("42"), centralhub.PubsubNoOpMetrics{})
 	topic := "testing"
 	var called bool
 	unsub, err := hub.SubscribeMatch(pubsub.MatchAll, func(t string, data map[string]interface{}) {
@@ -87,7 +87,7 @@ func (s *CentralHubSuite) TestPostProcessingMaps(c *gc.C) {
 	// Due to the need to send the resulting maps over the API, nested structs
 	// need to be map[string]interface{} not map[interface{}]interface{},
 	// which is what the YAML marshaller will give us.
-	hub := centralhub.New(names.NewMachineTag("42"))
+	hub := centralhub.New(names.NewMachineTag("42"), centralhub.PubsubNoOpMetrics{})
 	topic := "testing"
 	var called bool
 	unsub, err := hub.SubscribeMatch(pubsub.MatchAll, func(t string, data map[string]interface{}) {

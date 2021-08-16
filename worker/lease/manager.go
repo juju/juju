@@ -218,14 +218,8 @@ func (manager *Manager) choose(blocks blocks) error {
 	case unpin := <-manager.unpins:
 		manager.handleUnpin(unpin)
 	case block := <-manager.blocks:
-		// TODO(raftlease): Include the other key items.
 		manager.config.Logger.Tracef("[%s] adding block for: %s", manager.logContext, block.leaseKey.Lease)
 		blocks.add(block)
-
-		if _, exists := manager.lookupLease(block.leaseKey); !exists {
-			// Nobody holds this lease, so immediately unblock it.
-			blocks.unblock(block.leaseKey)
-		}
 	}
 	return nil
 }
@@ -534,10 +528,10 @@ func (manager *Manager) computeNextTimeout(lastTick time.Time, leases map[lease.
 	nextTick := now.Add(manager.config.MaxSleep)
 	for _, info := range leases {
 		if !info.Expiry.After(lastTick) {
-			// The previous expire will expire this lease eventually, or
-			// the manager will die with an error. Either way, we
-			// don't need to worry about expiries in a previous expire
-			// here.
+			// The previous expire will expire this lease eventually,
+			// or the manager will die with an error.
+			// Either way, we don't need to worry about expirations for
+			// a previous tick here.
 			continue
 		}
 		if info.Expiry.After(nextTick) {

@@ -58,7 +58,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.auth = &mockAuthenticator{}
-	s.hub = centralhub.New(tag)
+	s.hub = centralhub.New(tag, centralhub.PubsubNoOpMetrics{})
 	s.mux = &apiserverhttp.Mux{}
 	s.stub.ResetCalls()
 	s.worker = &mockTransportWorker{

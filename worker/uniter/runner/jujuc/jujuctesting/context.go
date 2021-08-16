@@ -73,6 +73,7 @@ type Context struct {
 	ContextActionHook
 	ContextVersion
 	ContextWorkloadHook
+	ContextSecrets
 }
 
 // NewContext builds a jujuc.Context test double.
@@ -106,6 +107,7 @@ func NewContext(stub *testing.Stub, info *ContextInfo) *Context {
 	ctx.ContextUnitCharmState.info = &info.UnitCharmState
 	ctx.ContextWorkloadHook.stub = stub
 	ctx.ContextWorkloadHook.info = &info.WorkloadHook
+	ctx.ContextSecrets.stub = stub
 	return &ctx
 }
 

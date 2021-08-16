@@ -11,6 +11,14 @@ const (
 	metricsNamespace = "juju_raftlease"
 )
 
+type MetricsCollector interface {
+	// Describe is part of prometheus.Collector.
+	Describe(ch chan<- *prometheus.Desc)
+
+	// Collect is part of prometheus.Collector.
+	Collect(ch chan<- prometheus.Metric)
+}
+
 // metricsCollector is a prometheus.Collector that collects metrics
 // about lease store operations.
 type metricsCollector struct {

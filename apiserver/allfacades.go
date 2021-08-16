@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/reboot"
 	"github.com/juju/juju/apiserver/facades/agent/resourceshookcontext"
 	"github.com/juju/juju/apiserver/facades/agent/retrystrategy"
+	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
 	"github.com/juju/juju/apiserver/facades/agent/unitassigner"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
@@ -294,6 +295,7 @@ func AllFacades() *facade.Registry {
 	reg("Resumer", 2, resumer.NewResumerAPI)
 	reg("RetryStrategy", 1, retrystrategy.NewRetryStrategyAPI)
 	reg("Singular", 2, singular.NewExternalFacade)
+	reg("SecretsManager", 1, secretsmanager.NewSecretManagerAPI)
 
 	reg("SSHClient", 1, sshclient.NewFacade)
 	reg("SSHClient", 2, sshclient.NewFacade) // v2 adds AllAddresses() method.

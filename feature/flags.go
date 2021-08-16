@@ -42,3 +42,6 @@ const RawK8sSpec = "raw-k8s-spec"
 
 // ActionsV2 enables the next generation actions UX.
 const ActionsV2 = "actions-v2"
+
+// Secrets enables the secrets feature.
+const Secrets = "secrets"
