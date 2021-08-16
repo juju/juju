@@ -5,13 +5,13 @@ package raftlease
 
 import (
 	"context"
-	"sync/atomic"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/pubsub/v2"
+	"github.com/juju/utils/v2"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -29,7 +29,6 @@ type PubsubClient struct {
 	hub            *pubsub.StructuredHub
 	requestID      uint64
 	requestTopic   string
-	responseTopic  func(uint64) string
 	metrics        ClientMetrics
 	forwardTimeout time.Duration
 	clock          clock.Clock
@@ -40,7 +39,6 @@ type PubsubClient struct {
 type PubsubClientConfig struct {
 	Hub            *pubsub.StructuredHub
 	RequestTopic   string
-	ResponseTopic  func(requestID uint64) string
 	ClientMetrics  ClientMetrics
 	Clock          clock.Clock
 	ForwardTimeout time.Duration
@@ -51,7 +49,6 @@ func NewPubsubClient(config PubsubClientConfig) *PubsubClient {
 	return &PubsubClient{
 		hub:            config.Hub,
 		requestTopic:   config.RequestTopic,
-		responseTopic:  config.ResponseTopic,
 		metrics:        config.ClientMetrics,
 		forwardTimeout: config.ForwardTimeout,
 		clock:          config.Clock,
@@ -66,8 +63,7 @@ func (c *PubsubClient) Request(ctx context.Context, command *Command) error {
 
 	start := time.Now()
 
-	requestID := atomic.AddUint64(&c.requestID, 1)
-	responseTopic := c.responseTopic(requestID)
+	responseTopic := utils.MustNewUUID().String()
 
 	responseChan := make(chan ForwardResponse)
 	errChan := make(chan error)
