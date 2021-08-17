@@ -31,7 +31,7 @@ type API struct {
 	authorizer facade.Authorizer
 }
 
-// NewAPI creates a new server-side API facade backed by global state.
+// NewAPIv1 creates a new server-side API facade backed by global state.
 func NewAPIv1(ctx facade.Context) (*APIv1, error) {
 	api, err := NewAPI(ctx)
 	if err != nil {
@@ -44,7 +44,7 @@ func NewAPIv1(ctx facade.Context) (*APIv1, error) {
 func NewAPI(ctx facade.Context) (*API, error) {
 	return NewRemoteRelationsAPI(
 		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
-		common.NewStateControllerConfig(ctx.State()),
+		common.NewStateControllerConfig(ctx.StatePool().SystemState()),
 		ctx.Resources(), ctx.Auth(),
 	)
 }
