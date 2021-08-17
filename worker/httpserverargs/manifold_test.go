@@ -4,11 +4,13 @@
 package httpserverargs_test
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
@@ -17,6 +19,8 @@ import (
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/state"
@@ -32,6 +36,9 @@ type ManifoldSuite struct {
 	clock         *testclock.Clock
 	state         stubStateTracker
 	authenticator mockLocalMacaroonAuthenticator
+	agent         stubAgent
+	agentConfig   stubAgentConfig
+	hub           *pubsub.StructuredHub
 
 	stub testing.Stub
 }
@@ -43,20 +50,31 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.clock = testclock.NewClock(time.Time{})
 	s.state = stubStateTracker{}
+	s.agentConfig = stubAgentConfig{}
+	s.agent = stubAgent{
+		config: &s.agentConfig,
+	}
 	s.stub.ResetCalls()
+
+	s.hub = &pubsub.StructuredHub{}
 
 	s.context = s.newContext(nil)
 	s.config = httpserverargs.ManifoldConfig{
+		AgentName:             "agent",
+		HubName:               "hub",
 		ClockName:             "clock",
 		StateName:             "state",
 		ControllerPortName:    "controller-port",
 		NewStateAuthenticator: s.newStateAuthenticator,
+		NewNotFoundHandler:    s.newNotFoundHandler,
 	}
 	s.manifold = httpserverargs.Manifold(s.config)
 }
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
+		"agent":           &s.agent,
+		"hub":             s.hub,
 		"clock":           s.clock,
 		"state":           &s.state,
 		"controller-port": nil,
@@ -80,7 +98,11 @@ func (s *ManifoldSuite) newStateAuthenticator(
 	return &s.authenticator, nil
 }
 
-var expectedInputs = []string{"state", "clock", "controller-port"}
+func (s *ManifoldSuite) newNotFoundHandler(apiInfo *api.Info, hub *pubsub.StructuredHub) (http.Handler, error) {
+	return nil, nil
+}
+
+var expectedInputs = []string{"state", "clock", "controller-port", "agent", "hub"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -168,6 +190,12 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		func(cfg *httpserverargs.ManifoldConfig) { cfg.StateName = "" },
 		"empty StateName not valid",
 	}, {
+		func(cfg *httpserverargs.ManifoldConfig) { cfg.AgentName = "" },
+		"empty AgentName not valid",
+	}, {
+		func(cfg *httpserverargs.ManifoldConfig) { cfg.HubName = "" },
+		"empty HubName not valid",
+	}, {
 		func(cfg *httpserverargs.ManifoldConfig) { cfg.ClockName = "" },
 		"empty ClockName not valid",
 	}, {
@@ -210,4 +238,23 @@ func (s *stubStateTracker) Done() error {
 func (s *stubStateTracker) Report() map[string]interface{} {
 	s.MethodCall(s, "Report")
 	return nil
+}
+
+type stubAgent struct {
+	testing.Stub
+	agent.Agent
+	config agent.Config
+}
+
+func (a *stubAgent) CurrentConfig() agent.Config {
+	return a.config
+}
+
+type stubAgentConfig struct {
+	testing.Stub
+	agent.Config
+}
+
+func (c *stubAgentConfig) APIInfo() (*api.Info, bool) {
+	return &api.Info{}, true
 }

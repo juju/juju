@@ -43,7 +43,7 @@ type patternHandler struct {
 }
 
 // NewMux returns a new, empty mux.
-func NewMux(opts ...muxOption) *Mux {
+func NewMux(opts ...MuxOption) *Mux {
 	m := &Mux{
 		p:     pat.New(),
 		added: make(map[string][]patternHandler),
@@ -54,7 +54,17 @@ func NewMux(opts ...muxOption) *Mux {
 	return m
 }
 
-type muxOption func(*Mux)
+// MuxOption defines a option that can be chained together to create options to
+// be passed into the Mux.
+type MuxOption func(*Mux)
+
+// NotFoundHandlerOption defines a new notFound handler. This allows the
+// creation of a mux with a different not found setup.
+func NotFoundHandlerOption(notFound http.Handler) MuxOption {
+	return func(mux *Mux) {
+		mux.p.NotFound = notFound
+	}
+}
 
 // ServeHTTP is part of the http.Handler interface.
 //
