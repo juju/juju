@@ -142,10 +142,6 @@ Examples:
 	# Only available for unix-based systems.
     juju status --watch 5s mysql
 
-Further reading:
-
-    https://juju.is/docs/command/status
-
 See also:
 
     machines
