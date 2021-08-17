@@ -44,7 +44,6 @@ type SecretValueResults struct {
 
 // SecretValueResult is the result of getting a secret value.
 type SecretValueResult struct {
-	Name  string            `json:"name"`
 	Data  map[string]string `json:"data"`
 	Error *Error            `json:"error,omitempty"`
 }

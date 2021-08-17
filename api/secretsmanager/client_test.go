@@ -92,7 +92,6 @@ func (s *SecretsSuite) TestGetSecret(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.SecretValueResults{})
 		*(result.(*params.SecretValueResults)) = params.SecretValueResults{
 			[]params.SecretValueResult{{
-				Name: "foo",
 				Data: map[string]string{"foo": "bar"},
 			}},
 		}

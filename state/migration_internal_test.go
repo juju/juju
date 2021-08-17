@@ -220,6 +220,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// sure the leader units' leases are claimed in the target
 		// controller when leases are managed in raft.
 		leaseHoldersC,
+
+		// secrets
+		secretMetadataC,
+		secretValuesC,
 	)
 
 	modelCollections := set.NewStrings()
