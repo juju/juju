@@ -58,6 +58,11 @@ func (s secretsService) GetSecretValue(ctx context.Context, URL *coresecrets.URL
 	return s.backend.GetSecretValue(URL)
 }
 
+// ListSecrets implements SecretsService.
+func (s secretsService) ListSecrets(ctx context.Context, filter secrets.Filter) ([]*coresecrets.SecretMetadata, error) {
+	return s.backend.ListSecrets(state.SecretsFilter{})
+}
+
 // TODO(wallyworld)
 
 // UpdateSecret implements SecretsService.
@@ -73,9 +78,4 @@ func (s secretsService) GetSecret(ctx context.Context, URL *coresecrets.URL) (*c
 // DeleteSecret implements SecretsService.
 func (s secretsService) DeleteSecret(ctx context.Context, URL *coresecrets.URL) error {
 	return errors.NotImplementedf("DeleteSecret")
-}
-
-// ListSecrets implements SecretsService.
-func (s secretsService) ListSecrets(ctx context.Context, filter secrets.Filter) ([]*coresecrets.SecretMetadata, error) {
-	return nil, errors.NotImplementedf("ListSecrets")
 }

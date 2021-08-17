@@ -261,15 +261,7 @@ func (c *Client) WatchAll() (params.AllWatcherId, error) {
 	if err := c.checkCanRead(); err != nil {
 		return params.AllWatcherId{}, err
 	}
-	model, err := c.api.state().Model()
-	if err != nil {
-		return params.AllWatcherId{}, errors.Trace(err)
-	}
-
-	// Since we know this is a user tag (because AuthClient is true),
-	// we just do the type assertion to the UserTag.
-	apiUser, _ := c.api.auth.GetAuthTag().(names.UserTag)
-	isAdmin, err := common.HasModelAdmin(c.api.auth, apiUser, c.api.stateAccessor.ControllerTag(), model)
+	isAdmin, err := common.HasModelAdmin(c.api.auth, c.api.stateAccessor.ControllerTag(), names.NewModelTag(c.api.state().ModelUUID()))
 	if err != nil {
 		return params.AllWatcherId{}, errors.Trace(err)
 	}

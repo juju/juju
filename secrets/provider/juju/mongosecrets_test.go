@@ -107,3 +107,18 @@ func (s *SecretsManagerSuite) TestGetSecretValue(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, val)
 }
+
+func (s *SecretsManagerSuite) TestListSecrets(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	service := juju.NewTestService(s.secretsStore)
+
+	metadata := []*coresecrets.SecretMetadata{{ID: 666}}
+	s.secretsStore.EXPECT().ListSecrets(state.SecretsFilter{}).Return(
+		metadata, nil,
+	)
+
+	result, err := service.ListSecrets(ctx.Background(), secrets.Filter{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, metadata)
+}

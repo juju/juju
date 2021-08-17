@@ -29,10 +29,14 @@ type CreateSecretParams struct {
 	Data           map[string]string
 }
 
+// TODO(wallyworld)
+type SecretsFilter struct{}
+
 // SecretsStore instances use mongo as a secrets store.
 type SecretsStore interface {
 	CreateSecret(p CreateSecretParams) (*secrets.URL, *secrets.SecretMetadata, error)
 	GetSecretValue(URL *secrets.URL) (secrets.SecretValue, error)
+	ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetadata, error)
 }
 
 // NewSecretsStore creates a new mongo backed secrets store.
@@ -96,8 +100,8 @@ func (s *secretsStore) secretMetadataDoc(URL *secrets.URL, p *CreateSecretParams
 		ID:          id,
 		ProviderID:  "",
 		Revision:    1,
-		CreateTime:  s.st.clock().Now(),
-		UpdateTime:  s.st.clock().Now(),
+		CreateTime:  s.st.nowToTheSecond(),
+		UpdateTime:  s.st.nowToTheSecond(),
 	}, nil
 }
 
@@ -187,4 +191,34 @@ func (s *secretsStore) GetSecretValue(URL *secrets.URL) (secrets.SecretValue, er
 		data[k] = fmt.Sprintf("%v", v)
 	}
 	return secrets.NewSecretValue(data), nil
+}
+
+// ListSecrets list the secrets using the specified filter.
+// TODO(wallywolrd) - implement filter
+func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetadata, error) {
+	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
+	defer closer()
+
+	var docs []secretMetadataDoc
+	// TODO(wallywolrd) - use filter
+	err := secretMetadataCollection.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]*secrets.SecretMetadata, len(docs))
+	for i, doc := range docs {
+		result[i] = &secrets.SecretMetadata{
+			Path:        doc.Path,
+			Scope:       secrets.Scope(doc.Scope),
+			Version:     doc.Version,
+			Description: doc.Description,
+			Tags:        doc.Tags,
+			ID:          doc.ID,
+			ProviderID:  doc.ProviderID,
+			Revision:    doc.Revision,
+			CreateTime:  doc.CreateTime,
+			UpdateTime:  doc.UpdateTime,
+		}
+	}
+	return result, nil
 }
