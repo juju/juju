@@ -7,12 +7,9 @@ package ec2
 
 import (
 	stdcontext "context"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -26,8 +23,7 @@ import (
 // Use local suite since this file lives in the ec2 package
 // for testing internals.
 type ConfigSuite struct {
-	testing.BaseSuite
-	savedHome, savedAccessKey, savedSecretKey string
+	jujutesting.IsolationSuite
 }
 
 var _ = gc.Suite(&ConfigSuite{})
@@ -285,27 +281,6 @@ var configTests = []configTest{
 			"future": "hammerstein",
 		},
 	},
-}
-
-func (s *ConfigSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.savedHome = utils.Home()
-
-	home := c.MkDir()
-	sshDir := filepath.Join(home, ".ssh")
-	err := os.Mkdir(sshDir, 0777)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(sshDir, "id_rsa.pub"), []byte("sshkey\n"), 0666)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = utils.SetHome(home)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *ConfigSuite) TearDownTest(c *gc.C) {
-	err := utils.SetHome(s.savedHome)
-	c.Assert(err, jc.ErrorIsNil)
-	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *ConfigSuite) TestConfig(c *gc.C) {
