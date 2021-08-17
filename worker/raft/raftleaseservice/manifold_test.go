@@ -15,6 +15,7 @@ import (
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/core/raftlease"
 	raftleasestore "github.com/juju/juju/state/raftlease"
@@ -22,7 +23,7 @@ import (
 	workerstate "github.com/juju/juju/worker/state"
 )
 
-var expectedInputs = []string{"auth", "mux", "raft", "state"}
+var expectedInputs = []string{"agent", "auth", "mux", "raft", "state"}
 
 type ManifoldSuite struct {
 	testing.IsolationSuite
@@ -33,7 +34,10 @@ type ManifoldSuite struct {
 	mux  *apiserverhttp.Mux
 	raft RaftApplier
 
+	apiInfo     *api.Info
 	auth        *MockAuthenticator
+	agent       *MockAgent
+	config      *MockConfig
 	worker      *MockWorker
 	target      *MockNotifyTarget
 	state       *MockState
@@ -67,11 +71,15 @@ func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 func (s *ManifoldSuite) TestStart(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectAPIInfo(c)
+
 	s.startWorkerClean(c)
 }
 
 func (s *ManifoldSuite) TestStoppingWorkerReleasesState(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	s.expectAPIInfo(c)
 
 	s.worker.EXPECT().Kill()
 	s.worker.EXPECT().Wait().Return(nil)
@@ -97,6 +105,9 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 func (s *ManifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.apiInfo = &api.Info{}
+	s.agent = NewMockAgent(ctrl)
+	s.config = NewMockConfig(ctrl)
 	s.auth = NewMockAuthenticator(ctrl)
 	s.worker = NewMockWorker(ctrl)
 	s.target = NewMockNotifyTarget(ctrl)
@@ -112,6 +123,7 @@ func (s *ManifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.context = s.newContext(nil)
 	s.manifold = Manifold(ManifoldConfig{
+		AgentName:         "agent",
 		AuthenticatorName: "auth",
 		MuxName:           "mux",
 		RaftName:          "raft",
@@ -133,6 +145,7 @@ func (s *ManifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
+		"agent": s.agent,
 		"auth":  s.auth,
 		"mux":   s.mux,
 		"raft":  s.raft,
@@ -147,6 +160,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 func (s *ManifoldSuite) newWorker(c *gc.C) func(Config) (worker.Worker, error) {
 	return func(config Config) (worker.Worker, error) {
 		c.Assert(config, gc.DeepEquals, Config{
+			APIInfo:              s.apiInfo,
 			Authenticator:        s.auth,
 			Mux:                  s.mux,
 			Path:                 "raftleaseservice/path",
@@ -172,4 +186,9 @@ func (s *ManifoldSuite) getState(c *gc.C) func(workerstate.StateTracker) (State,
 
 		return s.state, nil
 	}
+}
+
+func (s *ManifoldSuite) expectAPIInfo(c *gc.C) {
+	s.agent.EXPECT().CurrentConfig().Return(s.config)
+	s.config.EXPECT().APIInfo().Return(s.apiInfo, true)
 }

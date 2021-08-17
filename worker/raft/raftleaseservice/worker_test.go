@@ -10,6 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	api "github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/testing"
@@ -20,8 +21,9 @@ import (
 type WorkerSuite struct {
 	testing.IsolationSuite
 
-	worker *Worker
-	config Config
+	worker  *Worker
+	config  Config
+	apiInfo *api.Info
 
 	auth        *MockAuthenticator
 	target      *MockNotifyTarget
@@ -101,6 +103,9 @@ func (s *WorkerSuite) TestValidateErrors(c *gc.C) {
 		expect string
 	}
 	tests := []test{{
+		func(cfg *Config) { cfg.APIInfo = nil },
+		"nil APIInfo not valid",
+	}, {
 		func(cfg *Config) { cfg.Raft = nil },
 		"nil Raft not valid",
 	}, {
@@ -131,6 +136,8 @@ func (s *WorkerSuite) TestValidateErrors(c *gc.C) {
 func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.apiInfo = &api.Info{}
+
 	s.auth = NewMockAuthenticator(ctrl)
 	s.target = NewMockNotifyTarget(ctrl)
 	s.logger = NewMockLogger(ctrl)
@@ -147,6 +154,7 @@ func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.registerer.EXPECT().Unregister(gomock.Any()).AnyTimes()
 
 	s.config = Config{
+		APIInfo:              s.apiInfo,
 		Authenticator:        s.auth,
 		Mux:                  s.mux,
 		Path:                 "lease",

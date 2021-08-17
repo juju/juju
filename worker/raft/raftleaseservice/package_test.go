@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package raftleaseservice -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
 //go:generate go run github.com/golang/mock/mockgen -package raftleaseservice -destination worker_mock_test.go github.com/juju/worker/v2 Worker
 //go:generate go run github.com/golang/mock/mockgen -package raftleaseservice -destination auth_mock_test.go github.com/juju/juju/apiserver/httpcontext Authenticator
 //go:generate go run github.com/golang/mock/mockgen -package raftleaseservice -destination raft_mock_test.go github.com/juju/juju/worker/raft/raftleaseservice RaftApplier,State,Logger

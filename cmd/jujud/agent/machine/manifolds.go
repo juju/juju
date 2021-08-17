@@ -810,6 +810,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The raft lease consumer offers a endpoint for accepting FSM commands
 		// and applies them to the raft leader.
 		raftLeaseServiceName: ifRaftLeader(raftleaseservice.Manifold(raftleaseservice.ManifoldConfig{
+			AgentName:            agentName,
 			RaftName:             raftName,
 			MuxName:              httpServerArgsName,
 			AuthenticatorName:    httpServerArgsName,

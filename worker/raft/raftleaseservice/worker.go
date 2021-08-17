@@ -14,6 +14,7 @@ import (
 	"github.com/juju/worker/v2/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/core/raftlease"
@@ -29,6 +30,9 @@ type RaftApplier interface {
 // Config is the configuration required for running an aposerver-based
 // leases consumer worker.
 type Config struct {
+	// APIInfo contains the information, excluding addresses,
+	// required to connect to an API server.
+	APIInfo *api.Info
 	// Authenticator is the HTTP request authenticator to use for
 	// the lease consumer endpoint.
 	Authenticator httpcontext.Authenticator
@@ -57,6 +61,9 @@ type Config struct {
 
 // Validate validates the raft worker configuration.
 func (config Config) Validate() error {
+	if config.APIInfo == nil {
+		return errors.NotValidf("nil APIInfo")
+	}
 	if config.Authenticator == nil {
 		return errors.NotValidf("nil Authenticator")
 	}
@@ -114,6 +121,10 @@ func NewWorker(config Config) (worker.Worker, error) {
 		Handler:       h,
 		Authenticator: w.config.Authenticator,
 		Authorizer:    httpcontext.AuthorizerFunc(controllerAuthorizer),
+	}
+	h = &httpcontext.ImpliedModelHandler{
+		Handler:   h,
+		ModelUUID: w.config.APIInfo.ModelTag.Id(),
 	}
 
 	_ = w.config.Mux.AddHandler("GET", w.config.Path, h)
