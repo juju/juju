@@ -21187,7 +21187,7 @@
                             "$ref": "#/definitions/RegisterRemoteRelationResults"
                         }
                     },
-                    "description": "RegisterRemoteRelationArgs sets up the model to participate\nin the specified relations. This operation is idempotent."
+                    "description": "RegisterRemoteRelations sets up the model to participate\nin the specified relations. This operation is idempotent."
                 },
                 "WatchEgressAddressesForRelations": {
                     "type": "object",
