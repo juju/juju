@@ -1947,11 +1947,7 @@ func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (descr
 
 	var channel charm.Channel
 	if origin.Channel != nil {
-		var err error
-		channel, err = charm.MakeChannel(origin.Channel.Track, origin.Channel.Risk, origin.Channel.Branch)
-		if err != nil {
-			return description.CharmOriginArgs{}, errors.Trace(err)
-		}
+		channel = charm.MakePermissiveChannel(origin.Channel.Track, origin.Channel.Risk, origin.Channel.Branch)
 	}
 	var platform corecharm.Platform
 	if origin.Platform != nil {

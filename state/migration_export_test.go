@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
 	coreseries "github.com/juju/juju/core/series"
@@ -507,7 +506,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 			err = caasModel.SetPodSpec(nil, application.ApplicationTag(), strPtr("pod spec"))
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		addr := network.NewSpaceAddress("192.168.1.1", corenetwork.WithScope(corenetwork.ScopeCloudLocal))
+		addr := network.NewSpaceAddress("192.168.1.1", network.WithScope(network.ScopeCloudLocal))
 		err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -607,6 +606,73 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 		_, err := application.AgentTools()
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
+}
+
+func (s *MigrationExportSuite) TestMalformedApplications(c *gc.C) {
+	f := factory.NewFactory(s.State, s.StatePool)
+
+	dbModel, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	series := "quantal"
+	ch := f.MakeCharm(c, &factory.CharmParams{Series: series})
+
+	application := f.MakeApplication(c, &factory.ApplicationParams{
+		Charm: ch,
+		CharmConfig: map[string]interface{}{
+			"foo": "bar",
+		},
+		CharmOrigin: &state.CharmOrigin{
+			Channel: &state.Channel{},
+			Platform: &state.Platform{
+				Architecture: "amd64",
+				Series:       "focal",
+			},
+		},
+		ApplicationConfig: map[string]interface{}{
+			"app foo": "app bar",
+		},
+		ApplicationConfigFields: environschema.Fields{
+			"app foo": environschema.Attr{Type: environschema.Tstring}},
+		DesiredScale: 3,
+	})
+
+	err = application.UpdateLeaderSettings(&goodToken{}, map[string]string{
+		"leader": "true",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = application.SetMetricCredentials([]byte("sekrit"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = dbModel.SetAnnotations(application, testAnnotations)
+	c.Assert(err, jc.ErrorIsNil)
+
+	agentVer, err := version.ParseBinary("2.9.1-ubuntu-amd64")
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := application.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	for _, unit := range units {
+		err = unit.SetAgentVersion(agentVer)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	s.primeStatusHistory(c, application, status.Active, addedHistoryCount)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	applications := model.Applications()
+	c.Assert(applications, gc.HasLen, 1)
+
+	exported := applications[0]
+	c.Assert(exported.Name(), gc.Equals, application.Name())
+	c.Assert(exported.Tag(), gc.Equals, application.ApplicationTag())
+	c.Assert(exported.Type(), gc.Equals, string(dbModel.Type()))
+	c.Assert(exported.Series(), gc.Equals, application.Series())
+	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
+
+	origin := exported.CharmOrigin()
+	c.Assert(origin.Channel(), gc.Equals, "stable")
+	c.Assert(origin.Platform(), gc.Equals, "amd64/ubuntu/focal")
 }
 
 func (s *MigrationExportSuite) TestMultipleApplications(c *gc.C) {
@@ -985,7 +1051,7 @@ func (s *MigrationExportSuite) TestUnitOpenPortRanges(c *gc.C) {
 	})
 	c.Assert(unit.AssignToMachine(machine), jc.ErrorIsNil)
 
-	state.MustOpenUnitPortRange(c, s.State, machine, unit.Name(), allEndpoints, corenetwork.MustParsePortRange("1234-2345/tcp"))
+	state.MustOpenUnitPortRange(c, s.State, machine, unit.Name(), allEndpoints, network.MustParsePortRange("1234-2345/tcp"))
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
