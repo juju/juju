@@ -96,6 +96,7 @@ type StateBackend interface {
 	KubernetesInClusterCredentialSpec() (environscloudspec.CloudSpec, *config.Config, string, error)
 	AddSpawnedTaskCountToOperations() error
 	TransformEmptyManifestsToNil() error
+	EnsureCharmOriginRisk() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -412,4 +413,8 @@ func (s stateBackend) AddSpawnedTaskCountToOperations() error {
 
 func (s stateBackend) TransformEmptyManifestsToNil() error {
 	return state.TransformEmptyManifestsToNil(s.pool)
+}
+
+func (s stateBackend) EnsureCharmOriginRisk() error {
+	return state.EnsureCharmOriginRisk(s.pool)
 }
