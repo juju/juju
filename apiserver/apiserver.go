@@ -346,11 +346,13 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	// The auth context for authenticating access to application offers.
 	srv.offerAuthCtxt, err = newOfferAuthcontext(cfg.StatePool)
 	if err != nil {
+		unsubscribeControllerConfig()
 		return nil, errors.Trace(err)
 	}
 
 	model, err := srv.shared.statePool.SystemState().Model()
 	if err != nil {
+		unsubscribeControllerConfig()
 		return nil, errors.Trace(err)
 	}
 	if model.Type() == state.ModelTypeCAAS {
@@ -367,6 +369,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		srv.tomb.Kill(dependency.ErrBounce)
 	})
 	if err != nil {
+		unsubscribeControllerConfig()
 		return nil, errors.Annotate(err, "unable to subscribe to restart message")
 	}
 
