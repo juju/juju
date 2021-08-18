@@ -219,10 +219,10 @@ juju_bootstrap() {
 		esac
 	fi
 
-  # TODO(walllyworld) - remove when we fix the nested lxd and snap/focal issue
-  # Snap doesn't work in nested focal LXD containers.
-  # So we force the model default series to be bionic.
-  model_default_series=
+	# TODO(walllyworld) - remove when we fix the nested lxd and snap/focal issue
+	# Snap doesn't work in nested focal LXD containers.
+	# So we force the model default series to be bionic.
+	model_default_series=
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"localhost" | "lxd" | "lxd-remote")
 		model_default_series="--model-default default-series=bionic"
