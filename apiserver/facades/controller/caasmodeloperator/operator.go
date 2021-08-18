@@ -95,9 +95,7 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 	}
 
 	imageDetails := resources.DockerImageDetails{}
-	if imageRepo := controllerConf.CAASImageRepo(); imageRepo != nil {
-		imageDetails.ImageRepoDetails = *imageRepo
-	}
+	imageDetails.ImageRepoDetails = controllerConf.CAASImageRepo()
 	if imageDetails.RegistryPath, err = podcfg.GetJujuOCIImagePath(controllerConf,
 		vers.ToPatch(), version.OfficialBuild); err != nil {
 		return result, errors.Trace(err)

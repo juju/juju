@@ -13,7 +13,7 @@ import (
 	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/api/base"
-	caasmodelconfigmanagerapi "github.com/juju/juju/api/caasmodelconfigmanager"
+	api "github.com/juju/juju/api/caasmodelconfigmanager"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/docker"
@@ -74,8 +74,9 @@ type manager struct {
 	imageRepoInfo docker.ImageRepoDetails
 }
 
+// NewFacade returns a facade for caasapplicationprovisioner worker to use.
 func NewFacade(caller base.APICaller) Facade {
-	return caasmodelconfigmanagerapi.NewClient(caller)
+	return api.NewClient(caller)
 }
 
 // NewWorker returns a worker that unlocks the model upgrade gate.
@@ -122,7 +123,7 @@ func (w *manager) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case _, ok := <-controllerConfigWatcher.Changes():
-			w.logger.Errorf("got controller config changes")
+			w.logger.Debugf("got controller config changes")
 			if !ok {
 				return fmt.Errorf("controller config watcher %q closed channel", w.name)
 			}
@@ -131,15 +132,11 @@ func (w *manager) loop() error {
 				return errors.Trace(err)
 			}
 			newImageRepoInfo := controllerConfig.CAASImageRepo()
-			w.logger.Errorf("newImageRepoInfo -> %#v", newImageRepoInfo)
-			if newImageRepoInfo != nil {
-				w.logger.Errorf("!w.imageRepoInfo.AuthEqual(*newImageRepoInfo) -> %v", !w.imageRepoInfo.AuthEqual(*newImageRepoInfo))
-			}
-			if newImageRepoInfo != nil && !w.imageRepoInfo.AuthEqual(*newImageRepoInfo) {
-				if err := w.config.Broker.EnsureImageRepoSecret(*newImageRepoInfo); err != nil {
+			if !w.imageRepoInfo.AuthEqual(newImageRepoInfo) {
+				if err := w.config.Broker.EnsureImageRepoSecret(newImageRepoInfo); err != nil {
 					return errors.Trace(err)
 				}
-				w.imageRepoInfo = *newImageRepoInfo
+				w.imageRepoInfo = newImageRepoInfo
 			}
 		}
 	}

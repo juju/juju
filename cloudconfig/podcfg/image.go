@@ -28,8 +28,7 @@ func (cfg *ControllerPodConfig) GetControllerImagePath() (string, error) {
 
 // GetJujuDbOCIImagePath returns the juju-db oci image path.
 func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() (string, error) {
-	imageRepoDetails := cfg.Controller.Config.CAASImageRepo()
-	imageRepo := imageRepoDetails.Repository
+	imageRepo := cfg.Controller.Config.CAASImageRepo().Repository
 	if imageRepo == "" {
 		imageRepo = JujudOCINamespace
 	}

@@ -833,18 +833,20 @@ func (c Config) JujuManagementSpace() string {
 
 // CAASOperatorImagePath sets the url of the docker image
 // used for the application operator.
-func (c Config) CAASOperatorImagePath() *docker.ImageRepoDetails {
-	o, _ := docker.NewImageRepoDetails(c.asString(CAASOperatorImagePath))
+func (c Config) CAASOperatorImagePath() (o docker.ImageRepoDetails) {
+	if repoDetails, _ := docker.NewImageRepoDetails(c.asString(CAASOperatorImagePath)); repoDetails != nil {
+		return *repoDetails
+	}
 	return o
-	// return c.asString(CAASOperatorImagePath)
 }
 
 // CAASImageRepo sets the url of the docker repo
 // used for the jujud operator and mongo images.
-func (c Config) CAASImageRepo() *docker.ImageRepoDetails {
-	o, _ := docker.NewImageRepoDetails(c.asString(CAASImageRepo))
+func (c Config) CAASImageRepo() (o docker.ImageRepoDetails) {
+	if repoDetails, _ := docker.NewImageRepoDetails(c.asString(CAASImageRepo)); repoDetails != nil {
+		return *repoDetails
+	}
 	return o
-	// return c.asString(CAASImageRepo)
 }
 
 // MeteringURL returns the URL to use for metering api calls.

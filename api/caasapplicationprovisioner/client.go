@@ -117,7 +117,7 @@ type ProvisioningInfo struct {
 	Filesystems          []storage.KubernetesFilesystemParams
 	Devices              []devices.KubernetesDeviceParams
 	Series               string
-	ImageRepo            *docker.ImageRepoDetails
+	ImageRepo            docker.ImageRepoDetails
 	CharmModifiedVersion int
 	CharmURL             *charm.URL
 }

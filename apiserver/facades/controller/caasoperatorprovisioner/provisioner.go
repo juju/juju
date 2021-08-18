@@ -140,9 +140,8 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 	)
 
 	imageDetails := resources.DockerImageDetails{}
-	if imageRepo := cfg.CAASImageRepo(); imageRepo != nil {
-		imageDetails.ImageRepoDetails = *imageRepo
-	}
+	imageDetails.ImageRepoDetails = cfg.CAASImageRepo()
+
 	if imageDetails.RegistryPath, err = podcfg.GetJujuOCIImagePath(
 		cfg, vers.ToPatch(), version.OfficialBuild,
 	); err != nil {

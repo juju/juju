@@ -6884,6 +6884,9 @@
                 "BasicAuthConfig": {
                     "type": "object",
                     "properties": {
+                        "auth": {
+                            "type": "string"
+                        },
                         "password": {
                             "type": "string"
                         },
@@ -7910,6 +7913,9 @@
                         },
                         "repository": {
                             "type": "string"
+                        },
+                        "serveraddress": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
@@ -8304,9 +8310,6 @@
                 "TokenAuthConfig": {
                     "type": "object",
                     "properties": {
-                        "auth": {
-                            "type": "string"
-                        },
                         "email": {
                             "type": "string"
                         },
@@ -8314,9 +8317,6 @@
                             "type": "string"
                         },
                         "registrytoken": {
-                            "type": "string"
-                        },
-                        "serveraddress": {
                             "type": "string"
                         }
                     },
@@ -9916,6 +9916,9 @@
                 "BasicAuthConfig": {
                     "type": "object",
                     "properties": {
+                        "auth": {
+                            "type": "string"
+                        },
                         "password": {
                             "type": "string"
                         },
@@ -10075,6 +10078,9 @@
                         },
                         "repository": {
                             "type": "string"
+                        },
+                        "serveraddress": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
@@ -10182,9 +10188,6 @@
                 "TokenAuthConfig": {
                     "type": "object",
                     "properties": {
-                        "auth": {
-                            "type": "string"
-                        },
                         "email": {
                             "type": "string"
                         },
@@ -10192,9 +10195,6 @@
                             "type": "string"
                         },
                         "registrytoken": {
-                            "type": "string"
-                        },
-                        "serveraddress": {
                             "type": "string"
                         }
                     },
@@ -11129,6 +11129,9 @@
                 "BasicAuthConfig": {
                     "type": "object",
                     "properties": {
+                        "auth": {
+                            "type": "string"
+                        },
                         "password": {
                             "type": "string"
                         },
@@ -11314,6 +11317,9 @@
                             "$ref": "#/definitions/TokenAuthConfig"
                         },
                         "repository": {
+                            "type": "string"
+                        },
+                        "serveraddress": {
                             "type": "string"
                         }
                     },
@@ -11598,9 +11604,6 @@
                 "TokenAuthConfig": {
                     "type": "object",
                     "properties": {
-                        "auth": {
-                            "type": "string"
-                        },
                         "email": {
                             "type": "string"
                         },
@@ -11608,9 +11611,6 @@
                             "type": "string"
                         },
                         "registrytoken": {
-                            "type": "string"
-                        },
-                        "serveraddress": {
                             "type": "string"
                         }
                     },

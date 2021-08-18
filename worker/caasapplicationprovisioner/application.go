@@ -580,7 +580,7 @@ func (a *appWorker) alive(app caas.Application) error {
 		Constraints:          provisionInfo.Constraints,
 		Filesystems:          provisionInfo.Filesystems,
 		Devices:              provisionInfo.Devices,
-		CharmBaseImagePath:       charmBaseImage,
+		CharmBaseImagePath:   charmBaseImage,
 		Containers:           containers,
 		CharmModifiedVersion: provisionInfo.CharmModifiedVersion,
 	}
