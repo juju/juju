@@ -1,4 +1,4 @@
-// Copyright 2019 Canonical Ltd.
+// Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package docker
@@ -22,11 +22,6 @@ const defaultServerAddress = "https://index.docker.io/v1/"
 // Juju does not support the docker credential helper because k8s does not support it either.
 // https://kubernetes.io/docs/concepts/containers/images/#configuring-nodes-to-authenticate-to-a-private-registry
 type TokenAuthConfig struct {
-	// Auth is the base64 encoded "username:password" string.
-	Auth string `json:"auth,omitempty" yaml:"auth,omitempty"`
-
-	ServerAddress string `json:"serveraddress,omitempty" yaml:"serveraddress,omitempty"`
-
 	Email string `json:"email,omitempty" yaml:"email,omitempty"`
 
 	// IdentityToken is used to authenticate the user and get
@@ -38,17 +33,17 @@ type TokenAuthConfig struct {
 }
 
 func (ac TokenAuthConfig) Empty() bool {
-	return ac.Auth == "" && ac.IdentityToken == "" && ac.RegistryToken == ""
+	return ac.IdentityToken == "" && ac.RegistryToken == ""
 }
 
 func (ac *TokenAuthConfig) Validate() error {
-	if !ac.Empty() && ac.ServerAddress == "" {
-		return errors.NotValidf("empty serveraddress for a private repository")
-	}
 	return nil
 }
 
 type BasicAuthConfig struct {
+	// Auth is the base64 encoded "username:password" string.
+	Auth string `json:"auth,omitempty" yaml:"auth,omitempty"`
+
 	// Username holds the username used to gain access to a non-public image.
 	Username string `json:"username,omitempty" yaml:"username,omitempty"`
 
@@ -57,7 +52,7 @@ type BasicAuthConfig struct {
 }
 
 func (ba BasicAuthConfig) Empty() bool {
-	return ba.Username == "" && ba.Password == ""
+	return ba.Auth == "" && ba.Username == "" && ba.Password == ""
 }
 
 func (ba BasicAuthConfig) Validate() error {
@@ -67,7 +62,9 @@ func (ba BasicAuthConfig) Validate() error {
 type ImageRepoDetails struct {
 	BasicAuthConfig `json:",inline" yaml:",inline"`
 	TokenAuthConfig `json:",inline" yaml:",inline"`
-	Repository      string `json:"repository,omitempty" yaml:"repository,omitempty"`
+
+	Repository    string `json:"repository,omitempty" yaml:"repository,omitempty"`
+	ServerAddress string `json:"serveraddress,omitempty" yaml:"serveraddress,omitempty"`
 }
 
 func (rid ImageRepoDetails) AuthEqual(r ImageRepoDetails) bool {
@@ -85,8 +82,6 @@ type dockerConfigData struct {
 
 func (rid ImageRepoDetails) SecretData() ([]byte, error) {
 	if rid.BasicAuthConfig.Empty() && rid.TokenAuthConfig.Empty() {
-		logger.Criticalf("ImageRepoDetails SecretData EMPTY!!!!")
-
 		// No auth information is required for a public repository.
 		return nil, nil
 	}
@@ -96,13 +91,18 @@ func (rid ImageRepoDetails) SecretData() ([]byte, error) {
 			rid.ServerAddress: rid,
 		},
 	}
-	logger.Criticalf("ImageRepoDetails SecretData -> %#v", rid)
 	return json.Marshal(o)
 }
 
 func (rid *ImageRepoDetails) String() string {
 	d, _ := yaml.Marshal(rid)
 	return string(d)
+}
+
+// NormalizedRepository returns normalized OCI name.
+func (rid ImageRepoDetails) RepositoryPath() string {
+	named, _ := reference.ParseNormalizedNamed(rid.Repository)
+	return reference.Path(named)
 }
 
 func (rid ImageRepoDetails) Validate() error {
@@ -134,8 +134,6 @@ func fileExists(p string) (bool, error) {
 }
 
 func NewImageRepoDetails(contentOrPath string) (*ImageRepoDetails, error) {
-	logger.Criticalf("NewImageRepoDetails, contentOrPath -> %q", contentOrPath)
-
 	data := []byte(contentOrPath)
 	if isPath, err := fileExists(contentOrPath); err != nil {
 		return nil, errors.Trace(err)
@@ -145,11 +143,13 @@ func NewImageRepoDetails(contentOrPath string) (*ImageRepoDetails, error) {
 			return nil, errors.Trace(err)
 		}
 	}
-	logger.Criticalf("NewImageRepoDetails, data -> %q", string(data))
 	o := &ImageRepoDetails{}
-	if err := yaml.Unmarshal([]byte(data), o); err != nil {
-		logger.Criticalf("probably a public dockerhub image path, err -> %#v", err)
+	err := yaml.Unmarshal([]byte(data), o)
+	if err != nil {
 		return &ImageRepoDetails{Repository: contentOrPath}, nil
+	}
+	if o.ServerAddress == "" {
+		o.ServerAddress = defaultServerAddress
 	}
 	return o, nil
 }
