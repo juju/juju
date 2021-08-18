@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/worker/caasmodeloperator"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
 	"github.com/juju/juju/worker/caasunitprovisioner"
+	"github.com/juju/juju/worker/charmdownloader"
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/common"
@@ -402,6 +403,10 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewRemoteRelationsFacade:     firewaller.NewRemoteRelationsFacade,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
+		charmDownloaderName: ifNotMigrating(ifCredentialValid(charmdownloader.Manifold(charmdownloader.ManifoldConfig{
+			APICallerName: apiCallerName,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.charmdownloader"),
+		}))),
 		unitAssignerName: ifNotMigrating(unitassigner.Manifold(unitassigner.ManifoldConfig{
 			APICallerName: apiCallerName,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.unitassigner"),
@@ -566,6 +571,11 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 			NewWorker:                    storageprovisioner.NewCaasWorker,
 		}))),
+
+		charmDownloaderName: ifNotMigrating(ifCredentialValid(charmdownloader.Manifold(charmdownloader.ManifoldConfig{
+			APICallerName: apiCallerName,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.charmdownloader"),
+		}))),
 	}
 	result := commonManifolds(config)
 	for name, manifold := range manifolds {
@@ -673,6 +683,7 @@ const (
 	undertakerName           = "undertaker"
 	computeProvisionerName   = "compute-provisioner"
 	storageProvisionerName   = "storage-provisioner"
+	charmDownloaderName      = "charm-downloader"
 	firewallerName           = "firewaller"
 	unitAssignerName         = "unit-assigner"
 	applicationScalerName    = "application-scaler"
