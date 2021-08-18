@@ -32,6 +32,11 @@ func NewHTTPBlobOpener(hostnameVerification utils.SSLHostnameVerification) func(
 		if resp.StatusCode != http.StatusOK {
 			// resp.Body is always non-nil. (see https://golang.org/pkg/net/http/#Response)
 			_ = resp.Body.Close()
+
+			// Blob is pending to be downloaded
+			if resp.StatusCode == http.StatusConflict {
+				return nil, errors.NotYetAvailablef("blob contents")
+			}
 			return nil, errors.Errorf("bad http response: %v", resp.Status)
 		}
 		return resp.Body, nil
