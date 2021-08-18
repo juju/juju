@@ -14,6 +14,7 @@ import (
 
 	apisecrets "github.com/juju/juju/api/secrets"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/secrets"
@@ -99,7 +100,8 @@ type secretDisplayDetails struct {
 	Version     int                 `json:"version" yaml:"version"`
 	Description string              `json:"description,omitempty" yaml:"description,omitempty"`
 	Tags        map[string]string   `json:"tags,omitempty" yaml:"tags,omitempty"`
-	ProviderID  string              `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
+	Provider    string              `json:"backend" yaml:"backend"`
+	ProviderID  string              `json:"backend-id,omitempty" yaml:"backend-id,omitempty"`
 	CreateTime  time.Time           `json:"create-time" yaml:"create-time"`
 	UpdateTime  time.Time           `json:"update-time" yaml:"update-time"`
 	Value       *secretValueDetails `json:"value,omitempty" yaml:"value,omitempty"`
@@ -131,6 +133,7 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 			Description: m.Metadata.Description,
 			Tags:        m.Metadata.Tags,
 			ID:          m.Metadata.ID,
+			Provider:    m.Metadata.Provider,
 			ProviderID:  m.Metadata.ProviderID,
 			Revision:    m.Metadata.Revision,
 			CreateTime:  m.Metadata.CreateTime,
@@ -165,12 +168,14 @@ func formatSecretsTabular(writer io.Writer, value interface{}) error {
 	w := output.Wrapper{tw}
 	w.SetColumnAlignRight(1)
 
-	w.Println("ID", "Scope", "Revision", "Path")
+	w.Println("ID", "Scope", "Revision", "Backend", "Path", "Age")
 	sort.Slice(secrets, func(i, j int) bool {
 		return secrets[i].Path < secrets[j].Path
 	})
+	now := time.Now()
 	for _, s := range secrets {
-		w.Print(s.ID, s.Scope, s.Revision, s.Path)
+		age := common.UserFriendlyDuration(s.UpdateTime, now)
+		w.Print(s.ID, s.Scope, s.Revision, s.Provider, s.Path, age)
 		w.Println()
 	}
 	return tw.Flush()

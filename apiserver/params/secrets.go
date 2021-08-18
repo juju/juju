@@ -70,6 +70,7 @@ type ListSecretResult struct {
 	Description string             `json:"description,omitempty"`
 	Tags        map[string]string  `json:"tags,omitempty"`
 	ID          int                `json:"int"`
+	Provider    string             `json:"provider"`
 	ProviderID  string             `json:"provider-id,omitempty"`
 	Revision    int                `json:"revision"`
 	CreateTime  time.Time          `json:"create-time"`

@@ -21,6 +21,7 @@ import (
 type CreateSecretParams struct {
 	ControllerUUID string
 	ModelUUID      string
+	ProviderLabel  string
 	Version        int
 	Type           string
 	Path           string
@@ -53,6 +54,7 @@ type secretMetadataDoc struct {
 	Description string            `bson:"description"`
 	Tags        map[string]string `bson:"tags"`
 	ID          int               `bson:"id"`
+	Provider    string            `bson:"provider"`
 	ProviderID  string            `bson:"provider-id"`
 	Revision    int               `bson:"revision"`
 	CreateTime  time.Time         `bson:"create-time"`
@@ -98,6 +100,7 @@ func (s *secretsStore) secretMetadataDoc(URL *secrets.URL, p *CreateSecretParams
 		Description: "",
 		Tags:        nil,
 		ID:          id,
+		Provider:    p.ProviderLabel,
 		ProviderID:  "",
 		Revision:    1,
 		CreateTime:  s.st.nowToTheSecond(),
@@ -166,6 +169,7 @@ func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc) *secrets.SecretM
 		Description: doc.Description,
 		Tags:        doc.Tags,
 		ID:          doc.ID,
+		Provider:    doc.Provider,
 		ProviderID:  doc.ProviderID,
 		Revision:    doc.Revision,
 		CreateTime:  doc.CreateTime,
@@ -207,18 +211,7 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 	}
 	result := make([]*secrets.SecretMetadata, len(docs))
 	for i, doc := range docs {
-		result[i] = &secrets.SecretMetadata{
-			Path:        doc.Path,
-			Scope:       secrets.Scope(doc.Scope),
-			Version:     doc.Version,
-			Description: doc.Description,
-			Tags:        doc.Tags,
-			ID:          doc.ID,
-			ProviderID:  doc.ProviderID,
-			Revision:    doc.Revision,
-			CreateTime:  doc.CreateTime,
-			UpdateTime:  doc.UpdateTime,
-		}
+		result[i] = s.toSecretMetadata(&doc)
 	}
 	return result, nil
 }

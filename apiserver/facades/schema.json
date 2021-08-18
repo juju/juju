@@ -39738,6 +39738,9 @@
                         "path": {
                             "type": "string"
                         },
+                        "provider": {
+                            "type": "string"
+                        },
                         "provider-id": {
                             "type": "string"
                         },
@@ -39772,6 +39775,7 @@
                         "scope",
                         "version",
                         "int",
+                        "provider",
                         "revision",
                         "create-time",
                         "update-time"

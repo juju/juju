@@ -48,7 +48,7 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				ID: 666, Scope: coresecrets.ScopeApplication,
-				Revision: 2, Path: "app.password"},
+				Revision: 2, Path: "app.password", Provider: "juju"},
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
@@ -56,8 +56,8 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
-ID         Scope  Revision  Path
-666  application  2         app.password  
+ID         Scope  Revision  Backend  Path          Age
+666  application  2         juju     app.password  0001-01-01  
 
 `[1:])
 }
@@ -69,7 +69,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				ID: 666, Scope: coresecrets.ScopeApplication,
-				Version: 1, Revision: 2, Path: "app.password"},
+				Version: 1, Revision: 2, Path: "app.password", Provider: "juju"},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
@@ -83,6 +83,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
   path: app.password
   scope: application
   version: 1
+  backend: juju
   create-time: 0001-01-01T00:00:00Z
   update-time: 0001-01-01T00:00:00Z
   value:
@@ -97,7 +98,7 @@ func (s *ListSuite) TestListJSON(c *gc.C) {
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				ID: 666, Scope: coresecrets.ScopeApplication,
-				Version: 1, Revision: 2, Path: "app.password"},
+				Version: 1, Revision: 2, Path: "app.password", Provider: "juju"},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
@@ -106,6 +107,6 @@ func (s *ListSuite) TestListJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
-[{"ID":666,"revision":2,"path":"app.password","scope":"application","version":1,"create-time":"0001-01-01T00:00:00Z","update-time":"0001-01-01T00:00:00Z","value":{"Data":{"foo":"bar"}}}]
+[{"ID":666,"revision":2,"path":"app.password","scope":"application","version":1,"backend":"juju","create-time":"0001-01-01T00:00:00Z","update-time":"0001-01-01T00:00:00Z","value":{"Data":{"foo":"bar"}}}]
 `[1:])
 }

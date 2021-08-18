@@ -40,6 +40,7 @@ func (s secretsService) CreateSecret(ctx context.Context, p secrets.CreateParams
 	url, metadata, err := s.backend.CreateSecret(state.CreateSecretParams{
 		ControllerUUID: p.ControllerUUID,
 		ModelUUID:      p.ModelUUID,
+		ProviderLabel:  Provider,
 		Version:        p.Version,
 		Type:           p.Type,
 		Path:           p.Path,

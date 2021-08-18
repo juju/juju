@@ -18,6 +18,7 @@ const (
 type CreateParams struct {
 	ControllerUUID string
 	ModelUUID      string
+	ProviderLabel  string
 	Version        int
 	Type           string
 	Path           string

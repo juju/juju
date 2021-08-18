@@ -50,6 +50,7 @@ func (api *Client) ListSecrets(showSecrets bool) ([]SecretDetails, error) {
 				Description: r.Description,
 				Tags:        r.Tags,
 				ID:          r.ID,
+				Provider:    r.Provider,
 				ProviderID:  r.ProviderID,
 				Revision:    r.Revision,
 				CreateTime:  r.CreateTime,

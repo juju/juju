@@ -89,19 +89,21 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 	if err != nil {
 		return result, errors.Trace(err)
 	}
+	result.Results = make([]params.ListSecretResult, len(metadata))
 	for i, m := range metadata {
-		result.Results = append(result.Results, params.ListSecretResult{
+		secretResult := params.ListSecretResult{
 			Path:        m.Path,
 			Scope:       string(m.Scope),
 			Version:     m.Version,
 			Description: m.Description,
 			Tags:        m.Tags,
 			ID:          m.ID,
+			Provider:    m.Provider,
 			ProviderID:  m.ProviderID,
 			Revision:    m.Revision,
 			CreateTime:  m.CreateTime,
 			UpdateTime:  m.UpdateTime,
-		})
+		}
 		if arg.ShowSecrets {
 			URL := &coresecrets.URL{
 				Version:        fmt.Sprintf("v%d", m.Version),
@@ -116,8 +118,9 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			if err == nil {
 				valueResult.Data = val.EncodedValues()
 			}
-			result.Results[i].Value = valueResult
+			secretResult.Value = valueResult
 		}
+		result.Results[i] = secretResult
 	}
 	return result, nil
 }

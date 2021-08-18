@@ -1,6 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+//go:build go1.3
 // +build go1.3
 
 package upgrades
