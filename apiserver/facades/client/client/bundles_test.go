@@ -34,29 +34,13 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 	r, err := s.client.GetBundleChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
-		Id:     "addCharm-0",
-		Method: "addCharm",
-		Args:   []interface{}{"django", "", ""},
-	}, {
-		Id:     "deploy-1",
-		Method: "deploy",
-		Args: []interface{}{
-			"$addCharm-0",
-			"",
-			"django",
-			map[string]interface{}{"debug": true},
-			"",
-			map[string]string{"tmpfs": "tmpfs,1G"},
-			map[string]string{},
-			map[string]int{},
-			0,
-			"",
-		},
-		Requires: []string{"addCharm-0"},
-	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
 		Args:   []interface{}{"cs:trusty/haproxy-42", "trusty", ""},
+	}, {
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Args:   []interface{}{"django", "", ""},
 	}, {
 		Id:     "deploy-3",
 		Method: "deploy",
@@ -73,6 +57,22 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 			"",
 		},
 		Requires: []string{"addCharm-2"},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-0",
+			"",
+			"django",
+			map[string]interface{}{"debug": true},
+			"",
+			map[string]string{"tmpfs": "tmpfs,1G"},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
+		},
+		Requires: []string{"addCharm-0"},
 	}, {
 		Id:       "addRelation-4",
 		Method:   "addRelation",
