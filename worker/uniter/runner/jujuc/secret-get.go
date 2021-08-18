@@ -4,12 +4,13 @@
 package jujuc
 
 import (
-	"errors"
 	"fmt"
 	"io"
 
 	"github.com/juju/cmd/v3"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/juju/core/secrets"
 
 	jujucmd "github.com/juju/juju/cmd"
 )
@@ -19,7 +20,7 @@ type secretGetCommand struct {
 	ctx Context
 	out cmd.Output
 
-	id       string
+	URL      *secrets.URL
 	asBase64 bool
 }
 
@@ -69,17 +70,20 @@ func printPlainOutput(writer io.Writer, val interface{}) error {
 }
 
 // Init implements cmd.Command.
-func (c *secretGetCommand) Init(args []string) error {
+func (c *secretGetCommand) Init(args []string) (err error) {
 	if len(args) < 1 {
 		return errors.New("missing secret ID")
 	}
-	c.id = args[0]
+	c.URL, err = secrets.ParseURL(args[0])
+	if err != nil {
+		return errors.NotValidf("secret URL %q", args[0])
+	}
 	return cmd.CheckEmpty(args[1:])
 }
 
 // Run implements cmd.Command.
 func (c *secretGetCommand) Run(ctx *cmd.Context) error {
-	value, err := c.ctx.GetSecret(c.id)
+	value, err := c.ctx.GetSecret(c.URL.String())
 	if err != nil {
 		return err
 	}
@@ -89,7 +93,12 @@ func (c *secretGetCommand) Run(ctx *cmd.Context) error {
 		if value.Singular() {
 			val, _ = value.EncodedValue()
 		} else {
-			val = value.EncodedValues()
+			valMap := value.EncodedValues()
+			if c.URL.Attribute != "" {
+				val = valMap[c.URL.Attribute]
+			} else {
+				val = valMap
+			}
 		}
 	} else {
 		if value.Singular() {
@@ -98,9 +107,14 @@ func (c *secretGetCommand) Run(ctx *cmd.Context) error {
 				return err
 			}
 		} else {
-			val, err = value.Values()
+			valMap, err := value.Values()
 			if err != nil {
 				return err
+			}
+			if c.URL.Attribute != "" {
+				val = valMap[c.URL.Attribute]
+			} else {
+				val = valMap
 			}
 		}
 	}

@@ -89,13 +89,13 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 	)
 
 	var valueResult *params.SecretValueResult
+	URL := &coresecrets.URL{
+		Version:        "v1",
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		Path:           "app.password",
+	}
 	if show {
-		URL := &coresecrets.URL{
-			Version:        "v1",
-			ControllerUUID: coretesting.ControllerTag.Id(),
-			ModelUUID:      coretesting.ModelTag.Id(),
-			Path:           "app.password",
-		}
 		valueResult = &params.SecretValueResult{
 			Data: map[string]string{"foo": "bar"},
 		}
@@ -108,6 +108,7 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
+			URL:         URL.String(),
 			Path:        "app.password",
 			Scope:       "application",
 			Version:     1,

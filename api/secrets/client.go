@@ -42,8 +42,16 @@ func (api *Client) ListSecrets(showSecrets bool) ([]SecretDetails, error) {
 	}
 	result := make([]SecretDetails, len(response.Results))
 	for i, r := range response.Results {
+		URL, err := secrets.ParseURL(r.URL)
+		if err != nil {
+			result[i] = SecretDetails{
+				Error: err,
+			}
+			continue
+		}
 		result[i] = SecretDetails{
 			Metadata: secrets.SecretMetadata{
+				URL:         URL,
 				Path:        r.Path,
 				Scope:       secrets.Scope(r.Scope),
 				Version:     r.Version,

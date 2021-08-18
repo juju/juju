@@ -39762,6 +39762,9 @@
                             "type": "string",
                             "format": "date-time"
                         },
+                        "url": {
+                            "type": "string"
+                        },
                         "value": {
                             "$ref": "#/definitions/SecretValueResult"
                         },
@@ -39771,6 +39774,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
+                        "url",
                         "path",
                         "scope",
                         "version",

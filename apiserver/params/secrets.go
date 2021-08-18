@@ -64,6 +64,7 @@ type ListSecretResults struct {
 
 // ListSecretResult is the result of getting secret metadata.
 type ListSecretResult struct {
+	URL         string             `json:"url"`
 	Path        string             `json:"path"`
 	Scope       string             `json:"scope"`
 	Version     int                `json:"version"`

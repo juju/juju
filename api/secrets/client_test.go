@@ -44,6 +44,7 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.ListSecretResults{})
 		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
 			[]params.ListSecretResult{{
+				URL:         "secret://v1/app.password",
 				Path:        "app.password",
 				Scope:       "application",
 				Version:     1,
@@ -63,8 +64,10 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 	client := apisecrets.NewClient(apiCaller)
 	result, err := client.ListSecrets(true)
 	c.Assert(err, jc.ErrorIsNil)
+	URL := secrets.NewURL(1, "", "", "app.password", "")
 	c.Assert(result, jc.DeepEquals, []apisecrets.SecretDetails{{
 		Metadata: secrets.SecretMetadata{
+			URL:         URL,
 			Path:        "app.password",
 			Scope:       "application",
 			Version:     1,
@@ -85,6 +88,7 @@ func (s *SecretsSuite) TestListSecretsError(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
 			[]params.ListSecretResult{{
+				URL: "secret://v1/app.password",
 				Value: &params.SecretValueResult{
 					Error: &params.Error{Message: "boom"},
 				},

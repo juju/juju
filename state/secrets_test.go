@@ -110,6 +110,49 @@ func (s *SecretsSuite) TestGetValue(c *gc.C) {
 	})
 }
 
+func (s *SecretsSuite) TestGetValueAttribute(c *gc.C) {
+	p := state.CreateSecretParams{
+		ControllerUUID: s.State.ControllerUUID(),
+		ModelUUID:      s.State.ModelUUID(),
+		Version:        1,
+		ProviderLabel:  "juju",
+		Type:           "blob",
+		Path:           "app.password",
+		Scope:          "application",
+		Params:         nil,
+		Data:           map[string]string{"foo": "bar", "hello": "world"},
+	}
+	URL, _, err := s.store.CreateSecret(p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	URL.Attribute = "hello"
+	val, err := s.store.GetSecretValue(URL)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{
+		"hello": "world",
+	})
+}
+
+func (s *SecretsSuite) TestGetValueAttributeNotFound(c *gc.C) {
+	p := state.CreateSecretParams{
+		ControllerUUID: s.State.ControllerUUID(),
+		ModelUUID:      s.State.ModelUUID(),
+		Version:        1,
+		ProviderLabel:  "juju",
+		Type:           "blob",
+		Path:           "app.password",
+		Scope:          "application",
+		Params:         nil,
+		Data:           map[string]string{"foo": "bar", "hello": "world"},
+	}
+	URL, _, err := s.store.CreateSecret(p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	URL.Attribute = "goodbye"
+	_, err = s.store.GetSecretValue(URL)
+	c.Assert(err, gc.ErrorMatches, `secret attribute "goodbye" not found`)
+}
+
 func (s *SecretsSuite) TestList(c *gc.C) {
 	p := state.CreateSecretParams{
 		ControllerUUID: s.State.ControllerUUID(),

@@ -183,7 +183,7 @@ func (s *secretsStore) GetSecretValue(URL *secrets.URL) (secrets.SecretValue, er
 	defer closer()
 
 	var doc secretValueDoc
-	err := secretValuesCollection.FindId(URL.String()).One(&doc)
+	err := secretValuesCollection.FindId(URL.ID()).One(&doc)
 	if errors.Cause(err) == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("secret %q", URL.String())
 	}
@@ -192,7 +192,13 @@ func (s *secretsStore) GetSecretValue(URL *secrets.URL) (secrets.SecretValue, er
 	}
 	data := make(secrets.SecretData)
 	for k, v := range doc.Data {
+		if URL.Attribute != "" && k != URL.Attribute {
+			continue
+		}
 		data[k] = fmt.Sprintf("%v", v)
+	}
+	if URL.Attribute != "" && len(data) == 0 {
+		return nil, errors.NotFoundf("secret attribute %q", URL.Attribute)
 	}
 	return secrets.NewSecretValue(data), nil
 }

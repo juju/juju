@@ -65,10 +65,12 @@ ID         Scope  Revision  Backend  Path          Age
 func (s *ListSuite) TestListYAML(c *gc.C) {
 	defer s.setup(c).Finish()
 
+	URL, err := coresecrets.ParseURL("secret://v1/app.password")
+	c.Assert(err, jc.ErrorIsNil)
 	s.secretsAPI.EXPECT().ListSecrets(true).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
-				ID: 666, Scope: coresecrets.ScopeApplication,
+				URL: URL, ID: 666, Scope: coresecrets.ScopeApplication,
 				Version: 1, Revision: 2, Path: "app.password", Provider: "juju"},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}}, nil)
@@ -79,6 +81,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
 - ID: 666
+  URL: secret://v1/app.password
   revision: 2
   path: app.password
   scope: application
@@ -94,10 +97,12 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 func (s *ListSuite) TestListJSON(c *gc.C) {
 	defer s.setup(c).Finish()
 
+	URL, err := coresecrets.ParseURL("secret://v1/app.password")
+	c.Assert(err, jc.ErrorIsNil)
 	s.secretsAPI.EXPECT().ListSecrets(true).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
-				ID: 666, Scope: coresecrets.ScopeApplication,
+				URL: URL, ID: 666, Scope: coresecrets.ScopeApplication,
 				Version: 1, Revision: 2, Path: "app.password", Provider: "juju"},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}}, nil)
@@ -107,6 +112,6 @@ func (s *ListSuite) TestListJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
-[{"ID":666,"revision":2,"path":"app.password","scope":"application","version":1,"backend":"juju","create-time":"0001-01-01T00:00:00Z","update-time":"0001-01-01T00:00:00Z","value":{"Data":{"foo":"bar"}}}]
+[{"ID":666,"URL":"secret://v1/app.password","revision":2,"path":"app.password","scope":"application","version":1,"backend":"juju","create-time":"0001-01-01T00:00:00Z","update-time":"0001-01-01T00:00:00Z","value":{"Data":{"foo":"bar"}}}]
 `[1:])
 }
