@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -41,6 +42,7 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedURL := fmt.Sprintf("secret://v1/%s/%s/app.password", p.ControllerUUID, p.ModelUUID)
 	c.Assert(URL.String(), gc.Equals, expectedURL)
+	now := s.Clock.Now().Round(time.Second).UTC()
 	c.Assert(md, jc.DeepEquals, &secrets.SecretMetadata{
 		Path:        p.Path,
 		Scope:       secrets.Scope(p.Scope),
@@ -50,8 +52,8 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 		ID:          1,
 		ProviderID:  "",
 		Revision:    1,
-		CreateTime:  s.Clock.Now(),
-		UpdateTime:  s.Clock.Now(),
+		CreateTime:  now,
+		UpdateTime:  now,
 	})
 
 	_, _, err = s.store.CreateSecret(p)
@@ -91,6 +93,7 @@ func (s *SecretsSuite) TestGetValue(c *gc.C) {
 		ControllerUUID: s.State.ControllerUUID(),
 		ModelUUID:      s.State.ModelUUID(),
 		Version:        1,
+		ProviderLabel:  "juju",
 		Type:           "blob",
 		Path:           "app.password",
 		Scope:          "application",
@@ -105,4 +108,37 @@ func (s *SecretsSuite) TestGetValue(c *gc.C) {
 	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{
 		"foo": "bar",
 	})
+}
+
+func (s *SecretsSuite) TestList(c *gc.C) {
+	p := state.CreateSecretParams{
+		ControllerUUID: s.State.ControllerUUID(),
+		ModelUUID:      s.State.ModelUUID(),
+		Version:        1,
+		ProviderLabel:  "juju",
+		Type:           "blob",
+		Path:           "app.password",
+		Scope:          "application",
+		Params:         nil,
+		Data:           map[string]string{"foo": "bar"},
+	}
+	_, _, err := s.store.CreateSecret(p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	list, err := s.store.ListSecrets(state.SecretsFilter{})
+	c.Assert(err, jc.ErrorIsNil)
+	now := s.Clock.Now().Round(time.Second).UTC()
+	c.Assert(list, jc.DeepEquals, []*secrets.SecretMetadata{{
+		Path:        "app.password",
+		Scope:       "application",
+		Version:     1,
+		Description: "",
+		Tags:        map[string]string{},
+		ID:          1,
+		Provider:    "juju",
+		ProviderID:  "",
+		Revision:    1,
+		CreateTime:  now,
+		UpdateTime:  now,
+	}})
 }

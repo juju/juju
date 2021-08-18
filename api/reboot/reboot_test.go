@@ -2,6 +2,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+//go:build !ppc64
 // +build !ppc64
 
 package reboot_test

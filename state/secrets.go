@@ -21,6 +21,7 @@ import (
 type CreateSecretParams struct {
 	ControllerUUID string
 	ModelUUID      string
+	ProviderLabel  string
 	Version        int
 	Type           string
 	Path           string
@@ -29,10 +30,14 @@ type CreateSecretParams struct {
 	Data           map[string]string
 }
 
+// TODO(wallyworld)
+type SecretsFilter struct{}
+
 // SecretsStore instances use mongo as a secrets store.
 type SecretsStore interface {
 	CreateSecret(p CreateSecretParams) (*secrets.URL, *secrets.SecretMetadata, error)
 	GetSecretValue(URL *secrets.URL) (secrets.SecretValue, error)
+	ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetadata, error)
 }
 
 // NewSecretsStore creates a new mongo backed secrets store.
@@ -49,6 +54,7 @@ type secretMetadataDoc struct {
 	Description string            `bson:"description"`
 	Tags        map[string]string `bson:"tags"`
 	ID          int               `bson:"id"`
+	Provider    string            `bson:"provider"`
 	ProviderID  string            `bson:"provider-id"`
 	Revision    int               `bson:"revision"`
 	CreateTime  time.Time         `bson:"create-time"`
@@ -94,10 +100,11 @@ func (s *secretsStore) secretMetadataDoc(URL *secrets.URL, p *CreateSecretParams
 		Description: "",
 		Tags:        nil,
 		ID:          id,
+		Provider:    p.ProviderLabel,
 		ProviderID:  "",
 		Revision:    1,
-		CreateTime:  s.st.clock().Now(),
-		UpdateTime:  s.st.clock().Now(),
+		CreateTime:  s.st.nowToTheSecond(),
+		UpdateTime:  s.st.nowToTheSecond(),
 	}, nil
 }
 
@@ -162,6 +169,7 @@ func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc) *secrets.SecretM
 		Description: doc.Description,
 		Tags:        doc.Tags,
 		ID:          doc.ID,
+		Provider:    doc.Provider,
 		ProviderID:  doc.ProviderID,
 		Revision:    doc.Revision,
 		CreateTime:  doc.CreateTime,
@@ -187,4 +195,23 @@ func (s *secretsStore) GetSecretValue(URL *secrets.URL) (secrets.SecretValue, er
 		data[k] = fmt.Sprintf("%v", v)
 	}
 	return secrets.NewSecretValue(data), nil
+}
+
+// ListSecrets list the secrets using the specified filter.
+// TODO(wallywolrd) - implement filter
+func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetadata, error) {
+	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
+	defer closer()
+
+	var docs []secretMetadataDoc
+	// TODO(wallywolrd) - use filter
+	err := secretMetadataCollection.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]*secrets.SecretMetadata, len(docs))
+	for i, doc := range docs {
+		result[i] = s.toSecretMetadata(&doc)
+	}
+	return result, nil
 }

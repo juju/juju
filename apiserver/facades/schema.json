@@ -39674,6 +39674,161 @@
         }
     },
     {
+        "Name": "Secrets",
+        "Description": "SecretsAPI is the backend for the Secrets facade.",
+        "Version": 1,
+        "AvailableTo": [
+            "model-user"
+        ],
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "ListSecrets": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ListSecretsArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ListSecretResults"
+                        }
+                    },
+                    "description": "ListSecrets lists available secrets."
+                }
+            },
+            "definitions": {
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "ListSecretResult": {
+                    "type": "object",
+                    "properties": {
+                        "create-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "int": {
+                            "type": "integer"
+                        },
+                        "path": {
+                            "type": "string"
+                        },
+                        "provider": {
+                            "type": "string"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "tags": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "update-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "value": {
+                            "$ref": "#/definitions/SecretValueResult"
+                        },
+                        "version": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "path",
+                        "scope",
+                        "version",
+                        "int",
+                        "provider",
+                        "revision",
+                        "create-time",
+                        "update-time"
+                    ]
+                },
+                "ListSecretResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ListSecretResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "ListSecretsArgs": {
+                    "type": "object",
+                    "properties": {
+                        "show-secrets": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "show-secrets"
+                    ]
+                },
+                "SecretValueResult": {
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            }
+        }
+    },
+    {
         "Name": "SecretsManager",
         "Description": "SecretsManagerAPI is the backend for the SecretsManager facade.",
         "Version": 1,
@@ -39828,10 +39983,7 @@
                             "$ref": "#/definitions/Error"
                         }
                     },
-                    "additionalProperties": false,
-                    "required": [
-                        "data"
-                    ]
+                    "additionalProperties": false
                 },
                 "SecretValueResults": {
                     "type": "object",

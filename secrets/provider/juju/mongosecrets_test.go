@@ -62,6 +62,7 @@ func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
 		Version:        secrets.Version,
+		ProviderLabel:  juju.Provider,
 		Type:           "blob",
 		Path:           "app.password",
 		Scope:          "application",
@@ -75,6 +76,7 @@ func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 		ControllerUUID: p.ControllerUUID,
 		ModelUUID:      p.ModelUUID,
 		Version:        p.Version,
+		ProviderLabel:  "juju",
 		Type:           p.Type,
 		Path:           p.Path,
 		Scope:          p.Scope,
@@ -106,4 +108,19 @@ func (s *SecretsManagerSuite) TestGetSecretValue(c *gc.C) {
 	result, err := service.GetSecretValue(ctx.Background(), URL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, val)
+}
+
+func (s *SecretsManagerSuite) TestListSecrets(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	service := juju.NewTestService(s.secretsStore)
+
+	metadata := []*coresecrets.SecretMetadata{{ID: 666}}
+	s.secretsStore.EXPECT().ListSecrets(state.SecretsFilter{}).Return(
+		metadata, nil,
+	)
+
+	result, err := service.ListSecrets(ctx.Background(), secrets.Filter{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, metadata)
 }

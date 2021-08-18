@@ -1,6 +1,7 @@
 // Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+//go:build !skip_state_tests
 // +build !skip_state_tests
 
 package state

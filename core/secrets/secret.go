@@ -189,6 +189,8 @@ type SecretMetadata struct {
 	// ID is a Juju ID for the secret.
 	ID int
 
+	// Provider is the name of the backend secrets store.
+	Provider string
 	// ProviderID is the ID used by the underlying secrets provider.
 	ProviderID string
 	// Revision is incremented each time the corresponding
