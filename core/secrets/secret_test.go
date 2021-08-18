@@ -179,3 +179,19 @@ func (s *SecretURLSuite) TestShortString(c *gc.C) {
 	expected.ModelUUID = ""
 	c.Assert(url, jc.DeepEquals, expected)
 }
+
+func (s *SecretURLSuite) TestID(c *gc.C) {
+	expected := &secrets.URL{
+		Version:        "v1",
+		ControllerUUID: controllerUUID,
+		ModelUUID:      modelUUID,
+		Path:           "app.password",
+		Attribute:      "attr",
+	}
+	c.Assert(expected.ID(), gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password")
+}
+
+func (s *SecretURLSuite) TestNewURL(c *gc.C) {
+	URL := secrets.NewURL(1, controllerUUID, modelUUID, "app.password", "attr")
+	c.Assert(URL.String(), gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password#attr")
+}

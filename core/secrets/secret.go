@@ -142,8 +142,32 @@ func ParseURL(str string) (*URL, error) {
 	return result, nil
 }
 
+// NewURL returns a URL with the specified attributes.
+func NewURL(version int, controllerUUID, modelUUID, path, attribute string) *URL {
+	return &URL{
+		Version:        fmt.Sprintf("v%d", version),
+		ControllerUUID: controllerUUID,
+		ModelUUID:      modelUUID,
+		Path:           path,
+		Attribute:      attribute,
+	}
+}
+
+// ID returns the URL string without any Attribute.
+func (u *URL) ID() string {
+	if u == nil {
+		return ""
+	}
+	urlCopy := *u
+	urlCopy.Attribute = ""
+	return urlCopy.String()
+}
+
 // ShortString prints the URL without controller or model UUID.
 func (u *URL) ShortString() string {
+	if u == nil {
+		return ""
+	}
 	fullPath := []string{"secret:/", u.Version}
 	fullPath = append(fullPath, u.Path)
 	str := strings.Join(fullPath, "/")
@@ -155,6 +179,9 @@ func (u *URL) ShortString() string {
 
 // String prints the URL as a string.
 func (u *URL) String() string {
+	if u == nil {
+		return ""
+	}
 	fullPath := []string{"secret:/", u.Version}
 	if u.ControllerUUID != "" {
 		fullPath = append(fullPath, u.ControllerUUID)
@@ -173,6 +200,7 @@ func (u *URL) String() string {
 // SecretMetadata holds metadata about a secret.
 type SecretMetadata struct {
 	// Read only after creation.
+	URL   *URL
 	Path  string
 	Scope Scope
 

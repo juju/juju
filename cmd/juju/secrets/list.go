@@ -94,6 +94,7 @@ type secretValueDetails struct {
 
 type secretDisplayDetails struct {
 	ID          int                 `json:"ID" yaml:"ID"`
+	URL         string              `json:"URL" yaml:"URL"`
 	Revision    int                 `json:"revision" yaml:"revision"`
 	Path        string              `json:"path" yaml:"path"`
 	Scope       secrets.Scope       `json:"scope" yaml:"scope"`
@@ -120,13 +121,14 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 	}
 	defer api.Close()
 
-	secrets, err := api.ListSecrets(c.showSecrets)
+	result, err := api.ListSecrets(c.showSecrets)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	details := make([]secretDisplayDetails, len(secrets))
-	for i, m := range secrets {
+	details := make([]secretDisplayDetails, len(result))
+	for i, m := range result {
 		details[i] = secretDisplayDetails{
+			URL:         m.Metadata.URL.ShortString(),
 			Path:        m.Metadata.Path,
 			Scope:       m.Metadata.Scope,
 			Version:     m.Metadata.Version,

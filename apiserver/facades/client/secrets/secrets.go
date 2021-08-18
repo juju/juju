@@ -5,17 +5,16 @@ package secrets
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/common"
-	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/permission"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/secrets/provider/juju"
@@ -91,7 +90,9 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 	}
 	result.Results = make([]params.ListSecretResult, len(metadata))
 	for i, m := range metadata {
+		URL := coresecrets.NewURL(m.Version, s.controllerUUID, s.modelUUID, m.Path, "")
 		secretResult := params.ListSecretResult{
+			URL:         URL.String(),
 			Path:        m.Path,
 			Scope:       string(m.Scope),
 			Version:     m.Version,
@@ -105,12 +106,6 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			UpdateTime:  m.UpdateTime,
 		}
 		if arg.ShowSecrets {
-			URL := &coresecrets.URL{
-				Version:        fmt.Sprintf("v%d", m.Version),
-				ControllerUUID: s.controllerUUID,
-				ModelUUID:      s.modelUUID,
-				Path:           m.Path,
-			}
 			val, err := s.secretsService.GetSecretValue(ctx, URL)
 			valueResult := &params.SecretValueResult{
 				Error: apiservererrors.ServerError(err),
