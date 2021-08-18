@@ -212,6 +212,7 @@ const (
 	CodeCloudRegionRequired       = "cloud region required"
 	CodeIncompatibleClouds        = "incompatible clouds"
 	CodeQuotaLimitExceeded        = "quota limit exceeded"
+	CodeNotYetAvailable           = "not yet available; try again later"
 )
 
 // ErrCode returns the error code associated with
@@ -259,6 +260,10 @@ func IsCodeNoCreds(err error) bool {
 
 func IsCodeLoginExpired(err error) bool {
 	return ErrCode(err) == CodeLoginExpired
+}
+
+func IsCodeNotYetAvailable(err error) bool {
+	return ErrCode(err) == CodeNotYetAvailable
 }
 
 // IsCodeNotFoundOrCodeUnauthorized is used in API clients which,

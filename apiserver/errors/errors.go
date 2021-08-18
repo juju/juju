@@ -277,6 +277,14 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		status = http.StatusUnauthorized
 	case params.CodeRedirect:
 		status = http.StatusMovedPermanently
+	case params.CodeNotYetAvailable:
+		// The request could not be completed due to a conflict with
+		// the current state of the resource. This code is only allowed
+		// in situations where it is expected that the user might be
+		// able to resolve the conflict and resubmit the request.
+		//
+		// See https://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.10
+		status = http.StatusConflict
 	}
 	return err1, status
 }
@@ -376,6 +384,8 @@ func ServerError(err error) *params.Error {
 		}.AsMap()
 	case errors.IsQuotaLimitExceeded(err):
 		code = params.CodeQuotaLimitExceeded
+	case errors.IsNotYetAvailable(err):
+		code = params.CodeNotYetAvailable
 	case params.IsIncompatibleClientError(err):
 		code = params.CodeIncompatibleClient
 		rawErr := errors.Cause(err).(*params.IncompatibleClientError)
@@ -478,6 +488,8 @@ func RestoreError(err error) error {
 		return err
 	case params.IsCodeQuotaLimitExceeded(err):
 		return errors.NewQuotaLimitExceeded(nil, msg)
+	case params.IsCodeNotYetAvailable(err):
+		return errors.NewNotYetAvailable(nil, msg)
 	default:
 		return err
 	}
