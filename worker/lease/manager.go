@@ -292,14 +292,6 @@ func (manager *Manager) retryingClaim(claim claim) {
 			claim.respond(lease.ErrClaimDenied)
 			return
 		}
-		// now, this isn't strictly true, as the lease can be given for longer
-		// than the requested duration. However, it cannot be shorter.
-		// Doing it this way, we'll wake up, and then see we can sleep
-		// for a bit longer. But we'll always wake up in time.
-		manager.ensureNextTimeout(claim.duration)
-		// respond after ensuring the timeout, at least for the test suite to
-		// be sure the timer has been updated by the time it gets Claim()
-		// to return.
 		claim.respond(nil)
 	} else {
 		switch {
