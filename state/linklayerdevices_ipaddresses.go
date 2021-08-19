@@ -14,7 +14,7 @@ import (
 )
 
 // ipAddressDoc describes the persistent state of an IP address assigned to a
-// link-layer network device (a.k.a network interface card - NIC).
+// link-layer network device (a.k.a. network interface card - NIC).
 type ipAddressDoc struct {
 	// DocID is the IP address global key, prefixed by ModelUUID.
 	DocID string `bson:"_id"`
@@ -133,12 +133,6 @@ func (addr *Address) Machine() (*Machine, error) {
 	return addr.st.Machine(addr.doc.MachineID)
 }
 
-// machineProxy is a convenience wrapper for calling Machine methods from an
-// *Address.
-func (addr *Address) machineProxy() *Machine {
-	return &Machine{st: addr.st, doc: machineDoc{Id: addr.doc.MachineID}}
-}
-
 // DeviceName returns the name of the link-layer device this IP address is
 // assigned to.
 func (addr *Address) DeviceName() string {
@@ -147,7 +141,9 @@ func (addr *Address) DeviceName() string {
 
 // Device returns the LinkLayerDevice this IP address is assigned to.
 func (addr *Address) Device() (*LinkLayerDevice, error) {
-	return addr.machineProxy().LinkLayerDevice(addr.doc.DeviceName)
+	devID := linkLayerDeviceDocIDFromName(addr.st, addr.doc.MachineID, addr.doc.DeviceName)
+	dev, err := addr.st.LinkLayerDevice(devID)
+	return dev, errors.Trace(err)
 }
 
 // SubnetCIDR returns the CIDR of the subnet this IP address comes from.
