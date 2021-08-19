@@ -69,6 +69,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelmanager" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/payloads"
 	"github.com/juju/juju/apiserver/facades/client/resources"
+	"github.com/juju/juju/apiserver/facades/client/secrets"
 	"github.com/juju/juju/apiserver/facades/client/spaces"    // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/sshclient" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/storage"
@@ -295,6 +296,7 @@ func AllFacades() *facade.Registry {
 	reg("Resumer", 2, resumer.NewResumerAPI)
 	reg("RetryStrategy", 1, retrystrategy.NewRetryStrategyAPI)
 	reg("Singular", 2, singular.NewExternalFacade)
+	reg("Secrets", 1, secrets.NewSecretsAPI)
 	reg("SecretsManager", 1, secretsmanager.NewSecretManagerAPI)
 
 	reg("SSHClient", 1, sshclient.NewFacade)

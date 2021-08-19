@@ -21,16 +21,13 @@ import (
 // error satisfying errors.IsNotFound() is returned when no such device exists
 // on the machine.
 func (m *Machine) LinkLayerDevice(name string) (*LinkLayerDevice, error) {
-	dev, err := m.st.LinkLayerDevice(m.linkLayerDeviceDocIDFromName(name))
+	devID := linkLayerDeviceDocIDFromName(m.st, m.doc.Id, name)
+	dev, err := m.st.LinkLayerDevice(devID)
 	return dev, errors.Trace(err)
 }
 
-func (m *Machine) linkLayerDeviceDocIDFromName(deviceName string) string {
-	return m.st.docID(m.linkLayerDeviceGlobalKeyFromName(deviceName))
-}
-
-func (m *Machine) linkLayerDeviceGlobalKeyFromName(deviceName string) string {
-	return linkLayerDeviceGlobalKey(m.doc.Id, deviceName)
+func linkLayerDeviceDocIDFromName(st *State, machineID, deviceName string) string {
+	return st.docID(linkLayerDeviceGlobalKey(machineID, deviceName))
 }
 
 // AllLinkLayerDevices returns all exiting link-layer devices of the machine.
@@ -358,7 +355,7 @@ func (m *Machine) verifyParentDeviceExists(parentName string) error {
 }
 
 func (m *Machine) newLinkLayerDeviceDocFromArgs(args *LinkLayerDeviceArgs) *linkLayerDeviceDoc {
-	linkLayerDeviceDocID := m.linkLayerDeviceDocIDFromName(args.Name)
+	linkLayerDeviceDocID := linkLayerDeviceDocIDFromName(m.st, m.doc.Id, args.Name)
 
 	providerID := string(args.ProviderID)
 	modelUUID := m.st.ModelUUID()
@@ -440,7 +437,7 @@ func (m *Machine) parentDocIDFromDeviceDoc(doc *linkLayerDeviceDoc) (string, err
 	}
 	if parentName == "" {
 		// doc.ParentName is not a global key, but on the same machine.
-		return m.linkLayerDeviceDocIDFromName(doc.ParentName), nil
+		return linkLayerDeviceDocIDFromName(m.st, m.doc.Id, doc.ParentName), nil
 	}
 	// doc.ParentName is a global key, on a different host machine.
 	return m.st.docID(linkLayerDeviceGlobalKey(hostMachineID, parentName)), nil
@@ -729,7 +726,7 @@ func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.
 	for _, newDoc := range newDocs {
 		var thisDeviceOps []txn.Op
 		hasChanges := false
-		deviceDocID := m.linkLayerDeviceDocIDFromName(newDoc.DeviceName)
+		deviceDocID := linkLayerDeviceDocIDFromName(m.st, m.doc.Id, newDoc.DeviceName)
 		thisDeviceOps = append(thisDeviceOps, assertLinkLayerDeviceExistsOp(deviceDocID))
 
 		var existingDoc ipAddressDoc

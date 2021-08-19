@@ -92,6 +92,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		LocalOnly: true,
 	}
 	if _, err := config.Hub.Publish(apiserver.DetailsRequestTopic, req); err != nil {
+		unsubscribe()
 		return nil, errors.Annotate(err, "requesting current apiserver details")
 	}
 

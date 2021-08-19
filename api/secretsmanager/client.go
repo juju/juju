@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 )
 
-// Client is the api client for the Secrets facade.
+// Client is the api client for the SecretsManager facade.
 type Client struct {
 	facade base.FacadeCaller
 }

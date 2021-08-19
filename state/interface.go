@@ -113,7 +113,7 @@ type UnitsWatcher interface {
 	WatchUnits() StringsWatcher
 }
 
-// ModelMachinesWatcher defines a the methods required for listening to
+// ModelMachinesWatcher defines the methods required for listening to
 // machine lifecycle events or a combination of lifecycle events and changes
 // to the agent start time field.
 // WatchModelMachines.

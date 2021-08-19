@@ -28,7 +28,7 @@ import (
 type remoteApplicationWorker struct {
 	catacomb catacomb.Catacomb
 
-	// These attribute are relevant to dealing with a specific
+	// These attributes are relevant to dealing with a specific
 	// remote application proxy.
 	offerUUID             string
 	applicationName       string // name of the remote application proxy in the local model
@@ -135,7 +135,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 		if err := w.newRemoteRelationsFacadeWithRedirect(); err != nil {
 			return errors.Trace(err)
 		}
-		defer func() { w.remoteModelFacade.Close() }()
+		defer func() { _ = w.remoteModelFacade.Close() }()
 
 		arg := params.OfferArg{
 			OfferUUID: w.offerUUID,

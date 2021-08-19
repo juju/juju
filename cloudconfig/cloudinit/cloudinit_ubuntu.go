@@ -279,6 +279,23 @@ func (cfg *ubuntuCloudConfig) addRequiredPackages() {
 	}
 }
 
+var waitSnapSeeded = `
+n=1
+while true; do
+
+printf "Attempt $n to wait for snapd to be seeded...\n"
+snap wait core seed.loaded && break
+if [ $n -eq 5 ]; then
+  echo "snapd not initialised"
+  break
+fi
+
+echo "Wait for snapd failed, retrying in 5s"
+sleep 5
+n=$((n+1))
+done
+`[1:]
+
 // Updates proxy settings used when rendering the conf as a script
 func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyConfig) error {
 	// Write out the apt proxy settings
@@ -291,11 +308,20 @@ func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyCo
 			filename))
 	}
 
+	once := false
+	addWaitSnapSeeded := func() {
+		if once {
+			return
+		}
+		cfg.AddRunCmd(waitSnapSeeded)
+		once = true
+	}
 	// Write out the snap http/https proxy settings
 	if snapProxy := proxyCfg.SnapProxy(); (snapProxy != proxy.Settings{}) {
+		addWaitSnapSeeded()
 		pkgCmder := cfg.paccmder[jujupackaging.SnapPackageManager]
 		for _, cmd := range pkgCmder.SetProxyCmds(snapProxy) {
-			cfg.AddBootCmd(cmd)
+			cfg.AddRunCmd(cmd)
 		}
 	}
 
@@ -307,8 +333,10 @@ func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyCo
 		}
 		logger.Infof("auto-detected snap store assertions from proxy")
 		logger.Infof("auto-detected snap store ID as %q", storeID)
+		addWaitSnapSeeded()
 		cfg.genSnapStoreProxyCmds(assertions, storeID)
 	} else if proxyCfg.SnapStoreAssertions() != "" && proxyCfg.SnapStoreProxyID() != "" {
+		addWaitSnapSeeded()
 		cfg.genSnapStoreProxyCmds(proxyCfg.SnapStoreAssertions(), proxyCfg.SnapStoreProxyID())
 	}
 
@@ -316,10 +344,10 @@ func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyCo
 }
 
 func (cfg *ubuntuCloudConfig) genSnapStoreProxyCmds(assertions, storeID string) {
-	cfg.AddBootCmd(fmt.Sprintf(
+	cfg.AddRunCmd(fmt.Sprintf(
 		`printf '%%s\n' %s > %s`,
 		utils.ShQuote(assertions),
 		"/etc/snap.assertions"))
-	cfg.AddBootCmd("snap ack /etc/snap.assertions")
-	cfg.AddBootCmd("snap set core proxy.store=" + storeID)
+	cfg.AddRunCmd("snap ack /etc/snap.assertions")
+	cfg.AddRunCmd("snap set core proxy.store=" + storeID)
 }

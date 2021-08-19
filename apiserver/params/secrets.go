@@ -3,6 +3,10 @@
 
 package params
 
+import (
+	"time"
+)
+
 // CreateSecretArgs holds args for creating secrets.
 type CreateSecretArgs struct {
 	Args []CreateSecretArg `json:"args"`
@@ -44,7 +48,33 @@ type SecretValueResults struct {
 
 // SecretValueResult is the result of getting a secret value.
 type SecretValueResult struct {
-	Name  string            `json:"name"`
-	Data  map[string]string `json:"data"`
+	Data  map[string]string `json:"data,omitempty"`
 	Error *Error            `json:"error,omitempty"`
+}
+
+// ListSecretsArgs holds the args for listing secrets.
+type ListSecretsArgs struct {
+	ShowSecrets bool `json:"show-secrets"`
+}
+
+// ListSecretResults holds secret metadata results.
+type ListSecretResults struct {
+	Results []ListSecretResult `json:"results"`
+}
+
+// ListSecretResult is the result of getting secret metadata.
+type ListSecretResult struct {
+	URL         string             `json:"url"`
+	Path        string             `json:"path"`
+	Scope       string             `json:"scope"`
+	Version     int                `json:"version"`
+	Description string             `json:"description,omitempty"`
+	Tags        map[string]string  `json:"tags,omitempty"`
+	ID          int                `json:"int"`
+	Provider    string             `json:"provider"`
+	ProviderID  string             `json:"provider-id,omitempty"`
+	Revision    int                `json:"revision"`
+	CreateTime  time.Time          `json:"create-time"`
+	UpdateTime  time.Time          `json:"update-time"`
+	Value       *SecretValueResult `json:"value,omitempty"`
 }

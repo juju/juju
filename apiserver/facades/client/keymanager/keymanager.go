@@ -99,11 +99,7 @@ func (api *KeyManagerAPI) checkCanWrite(sshUser string) error {
 		// users cannot modify the system key.
 		return apiservererrors.ErrPerm
 	}
-	model, err := api.state.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	ok, err := common.HasModelAdmin(api.authorizer, api.apiUser, api.state.ControllerTag(), model)
+	ok, err := common.HasModelAdmin(api.authorizer, api.state.ControllerTag(), names.NewModelTag(api.state.ModelUUID()))
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -1,6 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+//go:build linux
 // +build linux
 
 package lxd

@@ -3659,3 +3659,63 @@ func TransformEmptyManifestsToNil(pool *StatePool) error {
 		return nil
 	}))
 }
+
+func EnsureCharmOriginRisk(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(applicationsC)
+		defer closer()
+
+		var docs []applicationDoc
+		if err := col.Find(nil).All(&docs); err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, doc := range docs {
+			// This should never happen, instead we should always have one.
+			// See: AddCharmOriginToApplications
+			if doc.CharmOrigin == nil {
+				continue
+			}
+
+			// If the "cs-channel" is empty, then we want to ensure that the
+			// channel isn't just empty, but also set to something useful.
+			channel := doc.Channel
+			if channel == "" {
+				channel = "stable"
+			}
+
+			var originChannel *Channel
+			if doc.CharmOrigin.Channel == nil {
+				originChannel = &Channel{
+					Risk: channel,
+				}
+			} else if doc.CharmOrigin.Channel.Risk == "" {
+				originChannel = &Channel{
+					Risk:   channel,
+					Track:  doc.CharmOrigin.Channel.Track,
+					Branch: doc.CharmOrigin.Channel.Branch,
+				}
+			}
+			// Nothing to do, we have a valid channel.
+			if originChannel == nil {
+				continue
+			}
+
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{
+					"$set", bson.D{{
+						"charm-origin.channel", originChannel,
+					}},
+				}},
+			})
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
+	}))
+}
