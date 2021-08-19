@@ -46,7 +46,7 @@ func (s *WaitUntilExpiredSuite) TestLeadershipNoLeaseBlockEvaluatedNextTick(c *g
 
 		// Check that *another* lease expiry causes the unassociated block to
 		// be checked and in the absence of its lease, get unblocked.
-		c.Assert(clock.WaitAdvance(time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(2*time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
 		err := blockTest.assertUnblocked(c)
 		c.Check(err, jc.ErrorIsNil)
 	})
@@ -66,7 +66,7 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *gc.C) {
 		blockTest.assertBlocked(c)
 
 		// Trigger expiry.
-		c.Assert(clock.WaitAdvance(time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(2*time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
 		err := blockTest.assertUnblocked(c)
 		c.Check(err, jc.ErrorIsNil)
 	})
