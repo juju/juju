@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	raft "github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
@@ -180,6 +181,8 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 			}
 			return 0
 		},
+		Raft:     &raft.Raft{},
+		LeaseLog: ioutil.Discard,
 	}
 }
 

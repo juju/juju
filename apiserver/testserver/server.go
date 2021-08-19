@@ -6,10 +6,12 @@ package testserver
 import (
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -54,6 +56,8 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 			return state.RestoreNotActive
 		},
 		MetricsCollector: apiserver.NewMetricsCollector(),
+		Raft:             &raft.Raft{},
+		LeaseLog:         ioutil.Discard,
 	}
 }
 

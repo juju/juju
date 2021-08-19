@@ -14,11 +14,11 @@ import (
 	"github.com/juju/juju/api/base"
 	apipubsub "github.com/juju/juju/api/pubsub"
 	"github.com/juju/juju/apiserver/params"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/testing"
 )
 
 type PubSubSuite struct {
-	coretesting.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&PubSubSuite{})

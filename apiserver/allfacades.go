@@ -99,6 +99,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	"github.com/juju/juju/apiserver/facades/controller/modelupgrader"
+	"github.com/juju/juju/apiserver/facades/controller/raftlease"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
 	"github.com/juju/juju/apiserver/facades/controller/resumer"
 	"github.com/juju/juju/apiserver/facades/controller/singular"
@@ -317,6 +318,9 @@ func AllFacades() *facade.Registry {
 
 	reg("ProxyUpdater", 1, proxyupdater.NewFacadeV1)
 	reg("ProxyUpdater", 2, proxyupdater.NewFacadeV2)
+
+	reg("RaftLease", 1, raftlease.NewFacadeV1)
+
 	reg("Reboot", 2, reboot.NewRebootAPI)
 	reg("RemoteRelations", 1, remoterelations.NewAPIv1)
 	reg("RemoteRelations", 2, remoterelations.NewAPI) // Adds UpdateControllersForModels and WatchLocalRelationChanges.
