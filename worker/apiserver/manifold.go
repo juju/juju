@@ -4,9 +4,11 @@
 package apiserver
 
 import (
+	"io"
 	"net/http"
 	"strings"
 
+	"github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -47,11 +49,13 @@ type ManifoldConfig struct {
 	AuditConfigUpdaterName string
 	LeaseManagerName       string
 	RaftTransportName      string
+	RaftName               string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	Hub                               *pubsub.StructuredHub
 	Presence                          presence.Recorder
+	LeaseLog                          io.Writer
 
 	NewWorker           func(Config) (worker.Worker, error)
 	NewMetricsCollector func() *apiserver.Collector
@@ -95,6 +99,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.RaftTransportName == "" {
 		return errors.NotValidf("empty RaftTransportName")
 	}
+	if config.RaftName == "" {
+		return errors.NotValidf("empty RaftName")
+	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
 	}
@@ -106,6 +113,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Presence == nil {
 		return errors.NotValidf("nil Presence")
+	}
+	if config.LeaseLog == nil {
+		return errors.NotValidf("nil LeaseLog")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -134,6 +144,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AuditConfigUpdaterName,
 			config.LeaseManagerName,
 			config.RaftTransportName,
+			config.RaftName,
 		},
 		Start: config.start,
 	}
@@ -207,6 +218,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var r *raft.Raft
+	if err := context.Get(config.RaftName, &r); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Get the state pool after grabbing dependencies so we don't need
 	// to remember to call Done on it if they're not running yet.
 	statePool, err := stTracker.Use()
@@ -243,6 +259,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		NewServer:                         newServerShim,
 		MetricsCollector:                  metricsCollector,
 		EmbeddedCommand:                   execEmbeddedCommand,
+		Raft:                              r,
+		LeaseLog:                          config.LeaseLog,
 	})
 	if err != nil {
 		_ = stTracker.Done()

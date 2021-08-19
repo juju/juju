@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/raft"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
 )
@@ -28,13 +30,24 @@ type SharedHub interface {
 	Subscribe(topic string, handler interface{}) (func(), error)
 }
 
-// sharedServerContext contains a number of components that are unchangeable in the API server.
-// These components need to be exposed through the facade.Context. Instead of having the methods
-// of newAPIHandler and newAPIRoot take ever increasing numbers of parameters, they will instead
-// have a pointer to the sharedServerContext.
+// Raft represent the methods of the raft.Raft that are used. The context uses
+// an interface to allow for mocking the raft implementation.
+type Raft interface {
+	State() raft.RaftState
+	Leader() raft.ServerAddress
+	GetConfiguration() raft.ConfigurationFuture
+	Apply([]byte, time.Duration) raft.ApplyFuture
+}
+
+// sharedServerContext contains a number of components that are unchangeable in
+// the API server. These components need to be exposed through the
+// facade.Context. Instead of having the methods of newAPIHandler and newAPIRoot
+// take ever increasing numbers of parameters, they will instead have a pointer
+// to the sharedServerContext.
 //
-// All attributes in the context should be goroutine aware themselves, like the state pool, hub, and
-// presence, or protected and only accessed through methods on this context object.
+// All attributes in the context should be goroutine aware themselves, like the
+// state pool, hub, and presence, or protected and only accessed through methods
+// on this context object.
 type sharedServerContext struct {
 	statePool           *state.StatePool
 	controller          *cache.Controller
@@ -43,6 +56,8 @@ type sharedServerContext struct {
 	presence            presence.Recorder
 	leaseManager        lease.Manager
 	logger              loggo.Logger
+	raft                Raft
+	leaseNotifyTarget   raftlease.NotifyTarget
 	cancel              <-chan struct{}
 
 	configMutex      sync.RWMutex
@@ -60,6 +75,8 @@ type sharedServerConfig struct {
 	presence            presence.Recorder
 	leaseManager        lease.Manager
 	controllerConfig    jujucontroller.Config
+	raft                Raft
+	leaseNotifyTarget   raftlease.NotifyTarget
 	logger              loggo.Logger
 }
 
@@ -85,6 +102,12 @@ func (c *sharedServerConfig) validate() error {
 	if c.controllerConfig == nil {
 		return errors.NotValidf("nil controllerConfig")
 	}
+	if c.raft == nil {
+		return errors.NotValidf("nil raft")
+	}
+	if c.leaseNotifyTarget == nil {
+		return errors.NotValidf("nil leaseNotifyTarget")
+	}
 	return nil
 }
 
@@ -101,6 +124,8 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		leaseManager:        config.leaseManager,
 		logger:              config.logger,
 		controllerConfig:    config.controllerConfig,
+		raft:                config.raft,
+		leaseNotifyTarget:   config.leaseNotifyTarget,
 	}
 	ctx.features = config.controllerConfig.Features()
 	// We are able to get the current controller config before subscribing to changes

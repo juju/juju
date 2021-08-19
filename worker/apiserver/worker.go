@@ -4,8 +4,10 @@
 package apiserver
 
 import (
+	"io"
 	"net/http"
 
+	"github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
@@ -42,6 +44,8 @@ type Config struct {
 	NewServer                         NewServerFunc
 	MetricsCollector                  *apiserver.Collector
 	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
+	Raft                              *raft.Raft
+	LeaseLog                          io.Writer
 }
 
 // NewServerFunc is the type of function that will be used
@@ -94,6 +98,12 @@ func (config Config) Validate() error {
 	}
 	if config.MetricsCollector == nil {
 		return errors.NotValidf("nil MetricsCollector")
+	}
+	if config.Raft == nil {
+		return errors.NotValidf("nil Raft")
+	}
+	if config.LeaseLog == nil {
+		return errors.NotValidf("nil LeaseLog")
 	}
 	return nil
 }
@@ -148,6 +158,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 		GetAuditConfig:                config.GetAuditConfig,
 		LeaseManager:                  config.LeaseManager,
 		ExecEmbeddedCommand:           config.EmbeddedCommand,
+		Raft:                          config.Raft,
+		LeaseLog:                      config.LeaseLog,
 	}
 	return config.NewServer(serverConfig)
 }

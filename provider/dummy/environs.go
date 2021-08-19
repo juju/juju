@@ -22,6 +22,7 @@ import (
 	stdcontext "context"
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http/httptest"
 	"os"
@@ -31,6 +32,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
@@ -291,7 +293,6 @@ type environ struct {
 	cloud        environscloudspec.CloudSpec
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
-	spacesMutex  sync.RWMutex
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -1023,6 +1024,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 					return state.RestoreNotActive
 				},
 				MetricsCollector: apiserver.NewMetricsCollector(),
+				Raft:             &raft.Raft{},
+				LeaseLog:         ioutil.Discard,
 			})
 			if err != nil {
 				panic(err)

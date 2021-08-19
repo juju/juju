@@ -6,6 +6,7 @@ package apiserver
 import (
 	"time"
 
+	"github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -17,6 +18,7 @@ import (
 
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
+	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
@@ -70,6 +72,9 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	controllerConfig, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
+	raft := &raft.Raft{}
+	leaseNotifyTarget := noopLeaseNotifyTarget{}
+
 	s.config = sharedServerConfig{
 		statePool:           s.StatePool,
 		controller:          controller,
@@ -78,6 +83,8 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		presence:            presence.New(clock.WallClock),
 		leaseManager:        &lease.Manager{},
 		controllerConfig:    controllerConfig,
+		raft:                raft,
+		leaseNotifyTarget:   leaseNotifyTarget,
 		logger:              loggo.GetLogger("test"),
 	}
 }
@@ -202,3 +209,9 @@ func (noopRegisterer) Register(prometheus.Collector) error {
 func (noopRegisterer) Unregister(prometheus.Collector) bool {
 	return true
 }
+
+type noopLeaseNotifyTarget struct{}
+
+func (noopLeaseNotifyTarget) Claimed(corelease.Key, string) {}
+
+func (noopLeaseNotifyTarget) Expired(corelease.Key) {}
