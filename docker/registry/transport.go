@@ -5,6 +5,7 @@ package registry
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/juju/errors"
@@ -16,7 +17,7 @@ type basicTransport struct {
 	repoDetails *docker.ImageRepoDetails
 }
 
-func newBasicTransport(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails) *basicTransport {
+func newBasicTransport(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails) http.RoundTripper {
 	return &basicTransport{
 		transport:   transport,
 		repoDetails: repoDetails,
@@ -55,6 +56,7 @@ func (t basicTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err := t.authorizeRequest(req); err != nil {
 		return nil, errors.Trace(err)
 	}
+	logger.Warningf("basicTransport Header ===> %#v", req.Header)
 	resp, err := t.transport.RoundTrip(req)
 	return resp, errors.Trace(err)
 }
@@ -66,7 +68,7 @@ type registryTokenTransport struct {
 
 func newRegistryTokenTransport(
 	transport http.RoundTripper, repoDetails *docker.ImageRepoDetails,
-) *registryTokenTransport {
+) http.RoundTripper {
 	return &registryTokenTransport{
 		transport:   transport,
 		repoDetails: repoDetails,
@@ -94,7 +96,34 @@ func (t registryTokenTransport) RoundTrip(req *http.Request) (*http.Response, er
 	return resp, errors.Trace(err)
 }
 
+type errorTransport struct {
+	transport http.RoundTripper
+}
+
+func (t errorTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	resp, err := t.transport.RoundTrip(request)
+	if err != nil {
+		return resp, err
+	}
+
+	if resp.StatusCode >= 400 {
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, errors.Annotatef(err, "reading bad response body with status code %d", resp.StatusCode)
+		}
+
+		return nil, errors.New(fmt.Sprintf("non-successful response (status=%d body=%q)", resp.StatusCode, body))
+	}
+
+	return resp, err
+}
+
 func wrapTransport(r *registry) error {
+	defer func() {
+		r.client.Transport = errorTransport{r.client.Transport}
+	}()
+
 	transport := r.client.Transport
 	if !r.repoDetails.BasicAuthConfig.Empty() {
 		r.client.Transport = newBasicTransport(transport, r.repoDetails)

@@ -135,16 +135,15 @@ func fileExists(p string) (bool, error) {
 
 func NewImageRepoDetails(contentOrPath string) (*ImageRepoDetails, error) {
 	data := []byte(contentOrPath)
-	if isPath, err := fileExists(contentOrPath); err != nil {
-		return nil, errors.Trace(err)
-	} else if isPath {
+	isPath, err := fileExists(contentOrPath)
+	if err == nil && isPath {
 		data, err = ioutil.ReadFile(contentOrPath)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
 	o := &ImageRepoDetails{}
-	err := yaml.Unmarshal([]byte(data), o)
+	err = yaml.Unmarshal([]byte(data), o)
 	if err != nil {
 		return &ImageRepoDetails{Repository: contentOrPath}, nil
 	}
