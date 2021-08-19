@@ -10,7 +10,9 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-// Facade allows model config manager clients to watch config changes.
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/context_mock.go github.com/juju/juju/apiserver/facade Authorizer,Context,Resources
+
+// Facade allows model config manager clients to watch controller config changes and fetch controller config.
 type Facade struct {
 	backend   Backend
 	resources facade.Resources
@@ -23,20 +25,31 @@ func NewFacade(ctx facade.Context) (*Facade, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 	st := ctx.State()
+	return newFacade(
+		getState(st),
+		ctx.Resources(),
+		ctx.StatePool().SystemState(),
+	)
+}
+
+func newFacade(
+	backend Backend,
+	resources facade.Resources,
+	ctrlSt ControllerState,
+) (*Facade, error) {
 	return &Facade{
-		backend:   getState(st),
-		resources: ctx.Resources(),
-		ctrlSt:    ctx.StatePool().SystemState(),
+		backend:   backend,
+		resources: resources,
+		ctrlSt:    ctrlSt,
 	}, nil
 }
 
-// Watch returns a watcher that sends the names of services whose
-// unit count may be below their configured minimum.
-func (facade *Facade) WatchControllerConfig() (params.NotifyWatchResult, error) {
-	watch := facade.backend.WatchControllerConfig()
+// Watch returns a watcher that notifies controller config changes.
+func (f *Facade) WatchControllerConfig() (params.NotifyWatchResult, error) {
+	watch := f.backend.WatchControllerConfig()
 	if _, ok := <-watch.Changes(); ok {
 		return params.NotifyWatchResult{
-			NotifyWatcherId: facade.resources.Register(watch),
+			NotifyWatcherId: f.resources.Register(watch),
 		}, nil
 	}
 	return params.NotifyWatchResult{
@@ -45,9 +58,9 @@ func (facade *Facade) WatchControllerConfig() (params.NotifyWatchResult, error) 
 }
 
 // ControllerConfig returns the controller's configuration.
-func (facade *Facade) ControllerConfig() (params.ControllerConfigResult, error) {
+func (f *Facade) ControllerConfig() (params.ControllerConfigResult, error) {
 	result := params.ControllerConfigResult{}
-	config, err := facade.ctrlSt.ControllerConfig()
+	config, err := f.ctrlSt.ControllerConfig()
 	if err != nil {
 		return result, err
 	}

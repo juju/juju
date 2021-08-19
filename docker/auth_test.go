@@ -7,15 +7,15 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/docker"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type authSuite struct {
-	coretesting.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&authSuite{})

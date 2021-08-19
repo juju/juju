@@ -8,6 +8,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/apiserver/facades/controller/caasmodelconfigmanager Backend,ControllerState
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/state NotifyWatcher
+
 type Backend interface {
 	WatchControllerConfig() state.NotifyWatcher
 }
@@ -19,13 +22,13 @@ type ControllerState interface {
 }
 
 type stateShim struct {
-	st *state.State
+	st Backend
 }
 
 func (shim stateShim) WatchControllerConfig() state.NotifyWatcher {
 	return shim.st.WatchControllerConfig()
 }
 
-var getState = func(st *state.State) Backend {
+var getState = func(st Backend) Backend {
 	return stateShim{st}
 }

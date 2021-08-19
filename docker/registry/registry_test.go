@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -16,12 +17,11 @@ import (
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/docker/registry/mocks"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
 
 type registrySuite struct {
-	coretesting.BaseSuite
+	testing.IsolationSuite
 
 	mockRoundTripper *mocks.MockRoundTripper
 	imageRepoDetails docker.ImageRepoDetails
@@ -31,7 +31,7 @@ type registrySuite struct {
 var _ = gc.Suite(&registrySuite{})
 
 func (s *registrySuite) TearDownTest(c *gc.C) {
-	s.BaseSuite.TearDownTest(c)
+	s.IsolationSuite.TearDownTest(c)
 
 	s.mockRoundTripper = nil
 	s.tokenAuth = false
@@ -145,5 +145,5 @@ func (s *registrySuite) TestTagsErrorResponse(c *gc.C) {
 		}),
 	)
 	_, err := reg.Tags("jujud-operator")
-	c.Assert(err, gc.ErrorMatches, `Get "https://quay.io/v2/jujuqa/jujud-operator/tags/list": non-successful response (status=403 body="{"errors":[{"code":"UNAUTHORIZED","message":"authentication required"}]}")`)
+	c.Assert(err, gc.ErrorMatches, `Get "https://quay.io/v2/jujuqa/jujud-operator/tags/list": non-successful response \(status=403 body=.*\)`)
 }
