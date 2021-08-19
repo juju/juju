@@ -115,7 +115,7 @@ func (s *ConfigSuite) TestConfigInvalidCACert(c *gc.C) {
 	s.testConfigError(c, map[string]interface{}{
 		"ca-cert":        invalidCACert,
 		"ca-private-key": testing.CAKey,
-	}, "validating ca-cert and ca-private-key: asn1: syntax error: data truncated")
+	}, "validating ca-cert and ca-private-key: x509: malformed certificate")
 }
 
 func (s *ConfigSuite) TestConfigInvalidCAKey(c *gc.C) {

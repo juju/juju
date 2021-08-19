@@ -172,17 +172,20 @@ endif
 # Install packages required to develop Juju and run tests.
 install-snap-dependencies:
 ## install-snap-dependencies: Install the supported snap dependencies
-ifeq ($(shell go version | grep -o "go1.16" || true),go1.16)
-	@echo Using installed go-1.16
+ifeq ($(shell go version | grep -o "go1.17" || true),go1.17)
+	@echo Using installed go-1.17
 else
-	@echo Installing go-1.16 snap
-	@sudo snap install go --channel=1.16/stable --classic
+	@echo Installing go-1.17 snap
+	@sudo snap install go --channel=1.17/stable --classic
 endif
+
+WAIT_FOR_DPKG=sh -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
 
 install-mongo-dependencies:
 ## install-mongo-dependencies: Install Mongo and its dependencies
 	@echo Installing 4.4 juju-db snap for mongodb
 	@sudo snap install juju-db --channel=4.4/stable
+	@$(WAIT_FOR_DPKG)
 	@sudo apt-get --yes install  $(strip $(DEPENDENCIES))
 
 install-dependencies: install-snap-dependencies install-mongo-dependencies
