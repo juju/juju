@@ -15,6 +15,7 @@ var _ = gc.Suite(HelperSuite{})
 type fakeCfg struct {
 	CloudConfig
 	packageProxySettings proxy.Settings
+	snapProxySettings    proxy.Settings
 	packageMirror        string
 	addUpdateScripts     bool
 	addUpgradeScripts    bool
@@ -38,6 +39,7 @@ func (f *fakeCfg) addRequiredPackages() {
 }
 func (f *fakeCfg) updateProxySettings(s PackageManagerProxyConfig) error {
 	f.packageProxySettings = s.AptProxy()
+	f.snapProxySettings = s.SnapProxy()
 	return nil
 }
 
@@ -50,9 +52,13 @@ func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
 		Ftp:     "ftp",
 		NoProxy: "noproxy",
 	}
+	sps := proxy.Settings{
+		Http: "snap-http",
+	}
 	proxyCfg := packageManagerProxySettings{
 		aptProxy:  pps,
 		aptMirror: "mirror",
+		snapProxy: sps,
 	}
 
 	upd, upg := true, true
@@ -60,6 +66,7 @@ func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
 	err := addPackageCommandsCommon(f, proxyCfg, upd, upg, "trusty")
 	c.Assert(err, gc.IsNil)
 	c.Assert(f.packageProxySettings, gc.Equals, pps)
+	c.Assert(f.snapProxySettings, gc.Equals, sps)
 	c.Assert(f.packageMirror, gc.Equals, proxyCfg.aptMirror)
 	c.Assert(f.addUpdateScripts, gc.Equals, upd)
 	c.Assert(f.addUpgradeScripts, gc.Equals, upg)
@@ -70,6 +77,7 @@ func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
 	err = addPackageCommandsCommon(f, proxyCfg, upd, upg, "trusty")
 	c.Assert(err, gc.IsNil)
 	c.Assert(f.packageProxySettings, gc.Equals, pps)
+	c.Assert(f.snapProxySettings, gc.Equals, sps)
 	c.Assert(f.packageMirror, gc.Equals, proxyCfg.aptMirror)
 	c.Assert(f.addUpdateScripts, gc.Equals, upd)
 	c.Assert(f.addUpgradeScripts, gc.Equals, upg)
@@ -80,6 +88,7 @@ func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
 	err = addPackageCommandsCommon(f, proxyCfg, upd, upg, "precise")
 	c.Assert(err, gc.IsNil)
 	c.Assert(f.packageProxySettings, gc.Equals, pps)
+	c.Assert(f.snapProxySettings, gc.Equals, sps)
 	c.Assert(f.packageMirror, gc.Equals, proxyCfg.aptMirror)
 	// for precise we need to override addUpdateScripts to always be true
 	c.Assert(f.addUpdateScripts, gc.Equals, true)
