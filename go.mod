@@ -38,6 +38,7 @@ require (
 	github.com/gorilla/schema v0.0.0-20160426231512-08023a0215e7
 	github.com/gorilla/websocket v1.4.2
 	github.com/gosuri/uitable v0.0.1
+	github.com/hashicorp/go-hclog v0.9.1
 	github.com/hashicorp/go-immutable-radix v1.3.0 // indirect
 	github.com/hashicorp/go-msgpack v0.5.5
 	github.com/hashicorp/go-uuid v1.0.1 // indirect
