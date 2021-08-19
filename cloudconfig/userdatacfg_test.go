@@ -1257,7 +1257,7 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 		`export HTTP_PROXY=http://user@10.0.0.1`,
 		`export no_proxy=0.1.2.3,10.0.3.1,localhost`,
 		`export NO_PROXY=0.1.2.3,10.0.3.1,localhost`,
-                ``,
+		``,
 		`(printf '%s\n' 'export http_proxy=http://user@10.0.0.1
 export HTTP_PROXY=http://user@10.0.0.1
 export no_proxy=0.1.2.3,10.0.3.1,localhost
