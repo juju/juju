@@ -99,12 +99,6 @@ func (rid *ImageRepoDetails) String() string {
 	return string(d)
 }
 
-// NormalizedRepository returns normalized OCI name.
-func (rid ImageRepoDetails) RepositoryPath() string {
-	named, _ := reference.ParseNormalizedNamed(rid.Repository)
-	return reference.Path(named)
-}
-
 func (rid ImageRepoDetails) Validate() error {
 	if rid.Repository == "" {
 		return errors.NotValidf("empty repository")

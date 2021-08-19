@@ -26,6 +26,8 @@ const (
 	defaultTimeout = 15 * time.Second
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/http_mock.go net/http RoundTripper
+
 type registry struct {
 	baseURL     *url.URL
 	client      *http.Client
@@ -41,10 +43,14 @@ type Registry interface {
 
 // NewRegistry creates a new registery.
 func NewRegistry(repoDetails docker.ImageRepoDetails) (Registry, error) {
+	return newRegistry(repoDetails, http.DefaultTransport)
+}
+
+func newRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) (Registry, error) {
 	r := &registry{
 		repoDetails: &repoDetails,
 		client: &http.Client{
-			Transport: http.DefaultTransport,
+			Transport: transport,
 			Timeout:   defaultTimeout,
 		},
 	}
@@ -105,7 +111,7 @@ type tagsResponse struct {
 }
 
 func (r registry) Tags(imageName string) (versions tools.Versions, err error) {
-	path := fmt.Sprintf("%s/%s", r.repoDetails.RepositoryPath(), imageName)
+	path := fmt.Sprintf("%s/%s", r.repoDetails.Repository, imageName)
 	url := r.url("/v2/%s/tags/list", path)
 
 	pushVersions := func(tags []string) {

@@ -56,7 +56,6 @@ func (t basicTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err := t.authorizeRequest(req); err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Warningf("basicTransport Header ===> %#v", req.Header)
 	resp, err := t.transport.RoundTrip(req)
 	return resp, errors.Trace(err)
 }
