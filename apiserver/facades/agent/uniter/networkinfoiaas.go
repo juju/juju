@@ -29,7 +29,7 @@ type NetInfoAddress interface {
 	DeviceName() string
 
 	// HWAddr returns the hardware address (MAC or Infiniband GUID)
-	// for the the device with which this address is associated.
+	// for the device with which this address is associated.
 	HWAddr() (string, error)
 }
 
@@ -37,18 +37,19 @@ type netInfoAddress struct {
 	network.SpaceAddress
 
 	addr *state.Address
+	dev  *state.LinkLayerDevice
 }
 
 // SpaceAddr implements NetInfoAddress by
 // returning the embedded SpaceAddress.
-func (a netInfoAddress) SpaceAddr() network.SpaceAddress {
+func (a *netInfoAddress) SpaceAddr() network.SpaceAddress {
 	return a.SpaceAddress
 }
 
 // DeviceName implements NetInfoAddress by returning the address' device name.
 // For the case where we construct this from the machine's preferred
 // private address, there will be no addr member, so return an empty string.
-func (a netInfoAddress) DeviceName() string {
+func (a *netInfoAddress) DeviceName() string {
 	if a.addr == nil {
 		return ""
 	}
@@ -59,16 +60,26 @@ func (a netInfoAddress) DeviceName() string {
 // the MAC for this address' device.
 // For the case where we construct this from the machine's preferred
 // private address, there will be no addr member, so return a not found error.
-func (a netInfoAddress) HWAddr() (string, error) {
+func (a *netInfoAddress) HWAddr() (string, error) {
 	if a.addr == nil {
 		return "", errors.NotFoundf("device hardware address")
 	}
 
-	dev, err := a.addr.Device()
-	if err != nil {
+	if err := a.ensureDevice(); err != nil {
 		return "", errors.Trace(err)
 	}
-	return dev.MACAddress(), nil
+
+	return a.dev.MACAddress(), nil
+}
+
+func (a *netInfoAddress) ensureDevice() error {
+	if a.dev != nil {
+		return nil
+	}
+
+	var err error
+	a.dev, err = a.addr.Device()
+	return errors.Trace(err)
 }
 
 // Machine describes methods required for interrogating
@@ -106,7 +117,7 @@ func (m *machine) AllDeviceAddresses(subs network.SubnetInfos) ([]NetInfoAddress
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		res[i] = netInfoAddress{SpaceAddress: spaceAddr, addr: addr}
+		res[i] = &netInfoAddress{SpaceAddress: spaceAddr, addr: addr}
 	}
 	return res, nil
 }
@@ -393,7 +404,7 @@ func (n *NetworkInfoIAAS) populateMachineAddresses() error {
 		if privateLinkLayerAddress != nil {
 			n.addAddressToResult(network.AlphaSpaceId, privateLinkLayerAddress)
 		} else {
-			n.addAddressToResult(network.AlphaSpaceId, netInfoAddress{SpaceAddress: privateMachineAddress})
+			n.addAddressToResult(network.AlphaSpaceId, &netInfoAddress{SpaceAddress: privateMachineAddress})
 		}
 	}
 
@@ -411,7 +422,7 @@ func (n *NetworkInfoIAAS) addAddressToResult(spaceID string, address NetInfoAddr
 }
 
 // networkInfoForSpace transforms the addresses in the input space into
-// a NetworkInfoResult to return for for the network info request.
+// a NetworkInfoResult to return for the network info request.
 func (n *NetworkInfoIAAS) networkInfoForSpace(spaceID string) params.NetworkInfoResult {
 	res := params.NetworkInfoResult{}
 
@@ -434,7 +445,7 @@ func (n *NetworkInfoIAAS) networkInfoForSpace(spaceID string) params.NetworkInfo
 			continue
 		}
 
-		// Otherwise add a new device.
+		// Otherwise, add a new device.
 		var MAC string
 		mac, err := addr.HWAddr()
 		if err == nil {
