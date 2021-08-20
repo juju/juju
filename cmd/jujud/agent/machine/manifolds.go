@@ -680,7 +680,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName:            stateName,
 			MuxName:              httpServerArgsName,
 			APIServerName:        apiServerName,
-			RaftTransportName:    raftTransportName,
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			AgentName:            config.AgentName,
 			Clock:                config.Clock,
@@ -694,6 +693,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		apiServerName: ifModelCacheInitialized(apiserver.Manifold(apiserver.ManifoldConfig{
 			AgentName:              agentName,
+			RaftName:               raftName,
 			AuthenticatorName:      httpServerArgsName,
 			ClockName:              clockName,
 			StateName:              stateName,

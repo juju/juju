@@ -218,6 +218,6 @@ func NewNotLeaderError(serverAddress, serverID string) error {
 
 // IsNotLeaderError returns true if the error is the NotLeaderError.
 func IsNotLeaderError(err error) bool {
-	_, ok := err.(*NotLeaderError)
+	_, ok := errors.Cause(err).(*NotLeaderError)
 	return ok
 }

@@ -34,6 +34,7 @@ type Logger interface {
 	Infof(string, ...interface{})
 	Warningf(string, ...interface{})
 	Errorf(string, ...interface{})
+	Criticalf(string, ...interface{})
 }
 
 // ManagerConfig contains the resources and information required to create a

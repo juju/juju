@@ -20,6 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
+	raftleaseclient "github.com/juju/juju/api/raftlease"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/worker/common"
@@ -134,21 +135,44 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 	st := statePool.SystemState()
 
 	metrics := raftlease.NewOperationClientMetrics(clock)
-	s.store = s.config.NewStore(raftlease.StoreConfig{
-		FSM:      s.config.FSM,
-		Trapdoor: st.LeaseTrapdoorFunc(),
-		Client: raftlease.NewPubsubClient(raftlease.PubsubClientConfig{
+	/*
+		client := raftlease.NewPubsubClient(raftlease.PubsubClientConfig{
 			Hub:            hub,
 			RequestTopic:   s.config.RequestTopic,
 			Clock:          clock,
 			ForwardTimeout: ForwardTimeout,
 			ClientMetrics:  metrics,
-		}),
+		})
+	*/
+
+	config := agent.CurrentConfig()
+	apiInfo, ok := config.APIInfo()
+	if !ok {
+		return nil, dependency.ErrMissing
+	}
+
+	controllerUUID := config.Controller().Id()
+	apiInfo.ControllerUUID = controllerUUID
+
+	client, err := raftleaseclient.NewClient(raftleaseclient.Config{
+		Hub:       hub,
+		APIInfo:   apiInfo,
+		NewRemote: raftleaseclient.NewRemote,
+		Clock:     clock,
+		Logger:    s.config.Logger,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	s.store = s.config.NewStore(raftlease.StoreConfig{
+		FSM:              s.config.FSM,
+		Trapdoor:         st.LeaseTrapdoorFunc(),
+		Client:           client,
 		Clock:            clock,
 		MetricsCollector: metrics,
 	})
 
-	controllerUUID := agent.CurrentConfig().Controller().Id()
 	w, err := s.config.NewWorker(lease.ManagerConfig{
 		Secretary:            lease.SecretaryFinder(controllerUUID),
 		Store:                s.store,

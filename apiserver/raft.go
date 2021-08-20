@@ -13,16 +13,24 @@ import (
 	"github.com/juju/juju/core/raftlease"
 )
 
+type Logger interface {
+	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
+}
+
 // raftMediator encapsulates raft related capabilities to the facades.
 type raftMediator struct {
 	raft         Raft
 	notifyTarget raftlease.NotifyTarget
+	logger       Logger
 }
 
 // ApplyLease attempts to apply the command on to the raft FSM.
 func (ctx *raftMediator) ApplyLease(cmd []byte, timeout time.Duration) error {
-	if ctx.raft.State() != raft.Leader {
+	if state := ctx.raft.State(); state != raft.Leader {
 		leaderAddress := ctx.raft.Leader()
+
+		ctx.logger.Debugf("Attempt to apply the lease failed, we're not the leader. State: %v, Leader: %v", state, leaderAddress)
 
 		// If the leaderAddress is empty, this implies that either we don't
 		// have a leader or there is no raft cluster setup.
@@ -56,6 +64,8 @@ func (ctx *raftMediator) ApplyLease(cmd []byte, timeout time.Duration) error {
 
 		return apiservererrors.NewNotLeaderError(string(leaderAddress), leaderID)
 	}
+
+	ctx.logger.Tracef("Applying command %v", string(cmd))
 
 	future := ctx.raft.Apply(cmd, timeout)
 	if err := future.Error(); err != nil {

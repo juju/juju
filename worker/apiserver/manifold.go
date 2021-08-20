@@ -12,6 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
@@ -220,6 +221,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	var r *raft.Raft
 	if err := context.Get(config.RaftName, &r); err != nil {
+		loggo.GetLogger("APISERVER").Criticalf("ERR %v", err)
 		return nil, errors.Trace(err)
 	}
 
@@ -240,6 +242,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		jujuCmd := commands.NewJujuCommandWithStore(ctx, store, nil, "", `Type "help" to see a list of commands`, whitelist, true)
 		return cmd.Main(jujuCmd, ctx, strings.Split(cmdPlusARgs, " "))
 	}
+
+	loggo.GetLogger("APISERVER").Criticalf("Success!")
 
 	w, err := config.NewWorker(Config{
 		AgentConfig:                       agent.CurrentConfig(),

@@ -4,9 +4,11 @@
 package apiserver_test
 
 import (
+	"io/ioutil"
 	"net/http"
 	"time"
 
+	"github.com/hashicorp/raft"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
@@ -35,6 +37,7 @@ type workerFixture struct {
 	controller           *cache.Controller
 	hub                  pubsub.StructuredHub
 	mux                  *apiserverhttp.Mux
+	raft                 *raft.Raft
 	prometheusRegisterer stubPrometheusRegisterer
 	leaseManager         lease.Manager
 	config               apiserver.Config
@@ -61,6 +64,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
 	s.mux = apiserverhttp.NewMux()
+	s.raft = &raft.Raft{}
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.leaseManager = &struct{ lease.Manager }{}
 	s.metricsCollector = coreapiserver.NewMetricsCollector()
@@ -73,6 +77,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		Clock:                             s.clock,
 		Controller:                        s.controller,
 		Hub:                               &s.hub,
+		Raft:                              s.raft,
 		Presence:                          presence.New(s.clock),
 		Mux:                               s.mux,
 		MultiwatcherFactory:               s.multiwatcherFactory,
@@ -83,6 +88,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		RestoreStatus:                     func() state.RestoreStatus { return "" },
 		NewServer:                         s.newServer,
 		MetricsCollector:                  s.metricsCollector,
+		LeaseLog:                          ioutil.Discard,
 	}
 }
 
@@ -146,6 +152,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *apiserver.Config) { cfg.NewServer = nil },
 		"nil NewServer not valid",
+	}, {
+		func(cfg *apiserver.Config) { cfg.Raft = nil },
+		"nil Raft not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)

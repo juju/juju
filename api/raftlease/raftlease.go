@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/base"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -42,7 +43,7 @@ func (api *API) ApplyLease(command string, applyTimeout time.Duration) error {
 		}},
 	}, &results)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 
 	if len(results.Results) != 1 {
@@ -50,7 +51,7 @@ func (api *API) ApplyLease(command string, applyTimeout time.Duration) error {
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return result.Error
+		return apiservererrors.RestoreError(result.Error)
 	}
 	return nil
 }

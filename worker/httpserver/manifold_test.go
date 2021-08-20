@@ -75,7 +75,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		StateName:            "state",
 		MuxName:              "mux",
 		APIServerName:        "api-server",
-		RaftTransportName:    "raft-transport",
 		Clock:                s.clock,
 		PrometheusRegisterer: &s.prometheusRegisterer,
 		MuxShutdownWait:      1 * time.Minute,
@@ -90,12 +89,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"authority":      s.authority,
-		"state":          &s.state,
-		"hub":            s.hub,
-		"mux":            s.mux,
-		"raft-transport": nil,
-		"api-server":     nil,
+		"authority":  s.authority,
+		"state":      &s.state,
+		"hub":        s.hub,
+		"mux":        s.mux,
+		"api-server": nil,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -136,7 +134,6 @@ var expectedInputs = []string{
 	"state",
 	"mux",
 	"hub",
-	"raft-transport",
 	"api-server",
 }
 
@@ -203,9 +200,6 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 	}, {
 		func(cfg *httpserver.ManifoldConfig) { cfg.LogDir = "" },
 		"empty LogDir not valid",
-	}, {
-		func(cfg *httpserver.ManifoldConfig) { cfg.RaftTransportName = "" },
-		"empty RaftTransportName not valid",
 	}, {
 		func(cfg *httpserver.ManifoldConfig) { cfg.APIServerName = "" },
 		"empty APIServerName not valid",

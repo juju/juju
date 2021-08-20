@@ -613,6 +613,7 @@ func (ctx *facadeContext) Raft() facade.RaftContext {
 	return &raftMediator{
 		raft:         ctx.r.shared.raft,
 		notifyTarget: ctx.r.shared.leaseNotifyTarget,
+		logger:       ctx.r.shared.logger,
 	}
 }
 
