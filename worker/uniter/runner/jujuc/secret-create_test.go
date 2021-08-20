@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	"time"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -36,6 +38,9 @@ func (s *SecretCreateSuite) TestCreateSecretInvalidArgs(c *gc.C) {
 		}, {
 			args: []string{"password", "foo=bar", "s3cret"},
 			err:  `ERROR singular value "s3cret" not valid when other key values are specified`,
+		}, {
+			args: []string{"password", "foo=bar", "--rotate", "-1h"},
+			err:  `ERROR rotate duration "-1h0m0s" not valid`,
 		},
 	} {
 		com, err := jujuc.NewCommand(hctx, cmdString("secret-create"))
@@ -54,11 +59,15 @@ func (s *SecretCreateSuite) TestCreateSecret(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("secret-create"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"password", "secret"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"password", "secret", "--rotate", "1h"})
 
 	c.Assert(code, gc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"data": "c2VjcmV0"})
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "CreateSecret", Args: []interface{}{"password", val}}})
+	args := &jujuc.UpsertArgs{
+		Value:          val,
+		RotateDuration: time.Hour,
+	}
+	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "CreateSecret", Args: []interface{}{"password", args}}})
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret://app.password\n")
 }
 
@@ -72,6 +81,9 @@ func (s *SecretCreateSuite) TestCreateSecretBase64(c *gc.C) {
 
 	c.Assert(code, gc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"token": "key="})
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "CreateSecret", Args: []interface{}{"apikey", val}}})
+	args := &jujuc.UpsertArgs{
+		Value: val,
+	}
+	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "CreateSecret", Args: []interface{}{"apikey", args}}})
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret://app.apikey\n")
 }

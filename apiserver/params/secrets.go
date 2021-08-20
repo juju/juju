@@ -21,9 +21,8 @@ type CreateSecretArg struct {
 	Type string `json:"type"`
 	// Path represents a unique string used to identify a secret.
 	Path string `json:"path"`
-	// Scope defines the context in which a secret can be used.
-	// eg "application" or "model".
-	Scope string `json:"scope"`
+	// RotateDuration is how often a secret should be rotated.
+	RotateDuration time.Duration `json:"rotate-duration"`
 	// Params are used when generating secrets server side.
 	// See core/secrets/secret.go.
 	Params map[string]interface{} `json:"params,omitempty"`
@@ -64,17 +63,17 @@ type ListSecretResults struct {
 
 // ListSecretResult is the result of getting secret metadata.
 type ListSecretResult struct {
-	URL         string             `json:"url"`
-	Path        string             `json:"path"`
-	Scope       string             `json:"scope"`
-	Version     int                `json:"version"`
-	Description string             `json:"description,omitempty"`
-	Tags        map[string]string  `json:"tags,omitempty"`
-	ID          int                `json:"int"`
-	Provider    string             `json:"provider"`
-	ProviderID  string             `json:"provider-id,omitempty"`
-	Revision    int                `json:"revision"`
-	CreateTime  time.Time          `json:"create-time"`
-	UpdateTime  time.Time          `json:"update-time"`
-	Value       *SecretValueResult `json:"value,omitempty"`
+	URL            string             `json:"url"`
+	Path           string             `json:"path"`
+	Version        int                `json:"version"`
+	RotateDuration time.Duration      `json:"rotate-duration"`
+	Description    string             `json:"description,omitempty"`
+	Tags           map[string]string  `json:"tags,omitempty"`
+	ID             int                `json:"int"`
+	Provider       string             `json:"provider"`
+	ProviderID     string             `json:"provider-id,omitempty"`
+	Revision       int                `json:"revision"`
+	CreateTime     time.Time          `json:"create-time"`
+	UpdateTime     time.Time          `json:"update-time"`
+	Value          *SecretValueResult `json:"value,omitempty"`
 }

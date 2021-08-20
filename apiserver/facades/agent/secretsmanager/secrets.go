@@ -59,20 +59,20 @@ func (s *SecretsManagerAPI) CreateSecrets(args params.CreateSecretArgs) (params.
 }
 
 func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateSecretArg) (string, error) {
-	url, _, err := s.secretsService.CreateSecret(ctx, secrets.CreateParams{
+	md, err := s.secretsService.CreateSecret(ctx, secrets.CreateParams{
 		ControllerUUID: s.controllerUUID,
 		ModelUUID:      s.modelUUID,
 		Version:        secrets.Version,
 		Type:           arg.Type,
 		Path:           arg.Path,
-		Scope:          arg.Scope,
+		RotateDuration: arg.RotateDuration,
 		Params:         arg.Params,
 		Data:           arg.Data,
 	})
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return url.String(), nil
+	return md.URL.String(), nil
 }
 
 // GetSecretValues returns the secret values for the specified secrets.

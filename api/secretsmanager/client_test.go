@@ -4,6 +4,8 @@
 package secretsmanager_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -37,9 +39,9 @@ func (s *SecretsSuite) TestCreateSecret(c *gc.C) {
 		c.Check(request, gc.Equals, "CreateSecrets")
 		c.Check(arg, gc.DeepEquals, params.CreateSecretArgs{
 			Args: []params.CreateSecretArg{{
-				Type:  "password",
-				Path:  "app.password",
-				Scope: "application",
+				Type:           "password",
+				Path:           "app.password",
+				RotateDuration: time.Hour,
 				Params: map[string]interface{}{
 					"password-length":        10,
 					"password-special-chars": true,
@@ -57,7 +59,9 @@ func (s *SecretsSuite) TestCreateSecret(c *gc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	value := secrets.NewSecretValue(data)
-	result, err := client.Create(secrets.NewPasswordSecretConfig(10, true, "app", "password"), value)
+	cfg := secrets.NewPasswordSecretConfig(10, true, "app", "password")
+	cfg.RotateDuration = time.Hour
+	result, err := client.Create(cfg, value)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, "secret://foo")
 }

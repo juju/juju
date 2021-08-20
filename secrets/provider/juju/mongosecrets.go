@@ -36,22 +36,22 @@ func NewSecretService(cfg secrets.ProviderConfig) (*secretsService, error) {
 }
 
 // CreateSecret implements SecretsService.
-func (s secretsService) CreateSecret(ctx context.Context, p secrets.CreateParams) (*coresecrets.URL, *coresecrets.SecretMetadata, error) {
-	url, metadata, err := s.backend.CreateSecret(state.CreateSecretParams{
+func (s secretsService) CreateSecret(ctx context.Context, p secrets.CreateParams) (*coresecrets.SecretMetadata, error) {
+	metadata, err := s.backend.CreateSecret(state.CreateSecretParams{
 		ControllerUUID: p.ControllerUUID,
 		ModelUUID:      p.ModelUUID,
 		ProviderLabel:  Provider,
 		Version:        p.Version,
 		Type:           p.Type,
 		Path:           p.Path,
-		Scope:          p.Scope,
+		RotateDuration: p.RotateDuration,
 		Params:         p.Params,
 		Data:           p.Data,
 	})
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "saving secret metadata")
+		return nil, errors.Annotate(err, "saving secret metadata")
 	}
-	return url, metadata, nil
+	return metadata, nil
 }
 
 // GetSecretValue implements SecretsService.
@@ -64,12 +64,20 @@ func (s secretsService) ListSecrets(ctx context.Context, filter secrets.Filter) 
 	return s.backend.ListSecrets(state.SecretsFilter{})
 }
 
-// TODO(wallyworld)
-
 // UpdateSecret implements SecretsService.
 func (s secretsService) UpdateSecret(ctx context.Context, URL *coresecrets.URL, p secrets.UpdateParams) (*coresecrets.SecretMetadata, error) {
-	return nil, errors.NotImplementedf("UpdateSecret")
+	metadata, err := s.backend.UpdateSecret(URL, state.UpdateSecretParams{
+		RotateDuration: p.RotateDuration,
+		Params:         p.Params,
+		Data:           p.Data,
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "saving secret metadata")
+	}
+	return metadata, nil
 }
+
+// TODO(wallyworld)
 
 // GetSecret implements SecretsService.
 func (s secretsService) GetSecret(ctx context.Context, URL *coresecrets.URL) (*coresecrets.SecretMetadata, error) {

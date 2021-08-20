@@ -38,11 +38,11 @@ func (c *Client) Create(cfg *secrets.SecretConfig, value secrets.SecretValue) (s
 
 	if err := c.facade.FacadeCall("CreateSecrets", params.CreateSecretArgs{
 		Args: []params.CreateSecretArg{{
-			Type:   string(cfg.Type),
-			Path:   cfg.Path,
-			Scope:  string(cfg.Scope),
-			Params: cfg.Params,
-			Data:   data,
+			Type:           string(cfg.Type),
+			Path:           cfg.Path,
+			RotateDuration: cfg.RotateDuration,
+			Params:         cfg.Params,
+			Data:           data,
 		}},
 	}, &results); err != nil {
 		return "", errors.Trace(err)

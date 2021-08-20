@@ -4,8 +4,11 @@
 package secrets
 
 import (
+	"fmt"
 	"io"
+	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -93,19 +96,19 @@ type secretValueDetails struct {
 }
 
 type secretDisplayDetails struct {
-	ID          int                 `json:"ID" yaml:"ID"`
-	URL         string              `json:"URL" yaml:"URL"`
-	Revision    int                 `json:"revision" yaml:"revision"`
-	Path        string              `json:"path" yaml:"path"`
-	Scope       secrets.Scope       `json:"scope" yaml:"scope"`
-	Version     int                 `json:"version" yaml:"version"`
-	Description string              `json:"description,omitempty" yaml:"description,omitempty"`
-	Tags        map[string]string   `json:"tags,omitempty" yaml:"tags,omitempty"`
-	Provider    string              `json:"backend" yaml:"backend"`
-	ProviderID  string              `json:"backend-id,omitempty" yaml:"backend-id,omitempty"`
-	CreateTime  time.Time           `json:"create-time" yaml:"create-time"`
-	UpdateTime  time.Time           `json:"update-time" yaml:"update-time"`
-	Value       *secretValueDetails `json:"value,omitempty" yaml:"value,omitempty"`
+	ID             int                 `json:"ID" yaml:"ID"`
+	URL            string              `json:"URL" yaml:"URL"`
+	Revision       int                 `json:"revision" yaml:"revision"`
+	Path           string              `json:"path" yaml:"path"`
+	RotateDuration time.Duration       `json:"rotate-duration,omitempty" yaml:"rotate-duration,omitempty"`
+	Version        int                 `json:"version" yaml:"version"`
+	Description    string              `json:"description,omitempty" yaml:"description,omitempty"`
+	Tags           map[string]string   `json:"tags,omitempty" yaml:"tags,omitempty"`
+	Provider       string              `json:"backend" yaml:"backend"`
+	ProviderID     string              `json:"backend-id,omitempty" yaml:"backend-id,omitempty"`
+	CreateTime     time.Time           `json:"create-time" yaml:"create-time"`
+	UpdateTime     time.Time           `json:"update-time" yaml:"update-time"`
+	Value          *secretValueDetails `json:"value,omitempty" yaml:"value,omitempty"`
 }
 
 // Run implements cmd.Run.
@@ -128,18 +131,18 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 	details := make([]secretDisplayDetails, len(result))
 	for i, m := range result {
 		details[i] = secretDisplayDetails{
-			URL:         m.Metadata.URL.ShortString(),
-			Path:        m.Metadata.Path,
-			Scope:       m.Metadata.Scope,
-			Version:     m.Metadata.Version,
-			Description: m.Metadata.Description,
-			Tags:        m.Metadata.Tags,
-			ID:          m.Metadata.ID,
-			Provider:    m.Metadata.Provider,
-			ProviderID:  m.Metadata.ProviderID,
-			Revision:    m.Metadata.Revision,
-			CreateTime:  m.Metadata.CreateTime,
-			UpdateTime:  m.Metadata.UpdateTime,
+			URL:            m.Metadata.URL.ShortString(),
+			Path:           m.Metadata.Path,
+			RotateDuration: m.Metadata.RotateDuration,
+			Version:        m.Metadata.Version,
+			Description:    m.Metadata.Description,
+			Tags:           m.Metadata.Tags,
+			ID:             m.Metadata.ID,
+			Provider:       m.Metadata.Provider,
+			ProviderID:     m.Metadata.ProviderID,
+			Revision:       m.Metadata.Revision,
+			CreateTime:     m.Metadata.CreateTime,
+			UpdateTime:     m.Metadata.UpdateTime,
 		}
 		if c.showSecrets && m.Value != nil {
 			details[i].Value = &secretValueDetails{
@@ -159,6 +162,42 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 	return c.out.Write(ctxt, details)
 }
 
+func humanizeDuration(duration time.Duration) string {
+	if duration <= 0 {
+		return "never"
+	}
+
+	days := int64(duration.Hours() / 24)
+	hours := int64(math.Mod(duration.Hours(), 24))
+	minutes := int64(math.Mod(duration.Minutes(), 60))
+	seconds := int64(math.Mod(duration.Seconds(), 60))
+
+	chunks := []struct {
+		singularName string
+		amount       int64
+	}{
+		{"day", days},
+		{"hour", hours},
+		{"minute", minutes},
+		{"second", seconds},
+	}
+
+	parts := []string{}
+
+	for _, chunk := range chunks {
+		switch chunk.amount {
+		case 0:
+			continue
+		case 1:
+			parts = append(parts, fmt.Sprintf("%d %s", chunk.amount, chunk.singularName))
+		default:
+			parts = append(parts, fmt.Sprintf("%d %ss", chunk.amount, chunk.singularName))
+		}
+	}
+
+	return strings.Join(parts, " ")
+}
+
 // formatSecretsTabular writes a tabular summary of secret information.
 func formatSecretsTabular(writer io.Writer, value interface{}) error {
 	secrets, ok := value.([]secretDisplayDetails)
@@ -170,14 +209,14 @@ func formatSecretsTabular(writer io.Writer, value interface{}) error {
 	w := output.Wrapper{tw}
 	w.SetColumnAlignRight(1)
 
-	w.Println("ID", "Scope", "Revision", "Backend", "Path", "Age")
+	w.Println("ID", "Revision", "Rotate", "Backend", "Path", "Age")
 	sort.Slice(secrets, func(i, j int) bool {
-		return secrets[i].Path < secrets[j].Path
+		return secrets[i].ID < secrets[j].ID
 	})
 	now := time.Now()
 	for _, s := range secrets {
 		age := common.UserFriendlyDuration(s.UpdateTime, now)
-		w.Print(s.ID, s.Scope, s.Revision, s.Provider, s.Path, age)
+		w.Print(s.ID, s.Revision, humanizeDuration(s.RotateDuration), s.Provider, s.Path, age)
 		w.Println()
 	}
 	return tw.Flush()

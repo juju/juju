@@ -4,6 +4,8 @@
 package secrets_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3/cmdtesting"
 	jujutesting "github.com/juju/testing"
@@ -47,8 +49,12 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 	s.secretsAPI.EXPECT().ListSecrets(false).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
-				ID: 666, Scope: coresecrets.ScopeApplication,
+				ID: 666, RotateDuration: time.Hour,
 				Revision: 2, Path: "app.password", Provider: "juju"},
+		}, {
+			Metadata: coresecrets.SecretMetadata{
+				ID:       667,
+				Revision: 1, Path: "app.apitoken", Provider: "juju"},
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
@@ -56,8 +62,9 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
-ID         Scope  Revision  Backend  Path          Age
-666  application  2         juju     app.password  0001-01-01  
+ID   Revision  Rotate  Backend  Path          Age
+666         2  1 hour  juju     app.password  0001-01-01  
+667         1  never   juju     app.apitoken  0001-01-01  
 
 `[1:])
 }
@@ -70,7 +77,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 	s.secretsAPI.EXPECT().ListSecrets(true).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
-				URL: URL, ID: 666, Scope: coresecrets.ScopeApplication,
+				URL: URL, ID: 666, RotateDuration: time.Hour,
 				Version: 1, Revision: 2, Path: "app.password", Provider: "juju"},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}}, nil)
@@ -84,7 +91,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
   URL: secret://v1/app.password
   revision: 2
   path: app.password
-  scope: application
+  rotate-duration: 1h0m0s
   version: 1
   backend: juju
   create-time: 0001-01-01T00:00:00Z
@@ -102,7 +109,7 @@ func (s *ListSuite) TestListJSON(c *gc.C) {
 	s.secretsAPI.EXPECT().ListSecrets(true).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
-				URL: URL, ID: 666, Scope: coresecrets.ScopeApplication,
+				URL: URL, ID: 666,
 				Version: 1, Revision: 2, Path: "app.password", Provider: "juju"},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}}, nil)
@@ -112,6 +119,6 @@ func (s *ListSuite) TestListJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
-[{"ID":666,"URL":"secret://v1/app.password","revision":2,"path":"app.password","scope":"application","version":1,"backend":"juju","create-time":"0001-01-01T00:00:00Z","update-time":"0001-01-01T00:00:00Z","value":{"Data":{"foo":"bar"}}}]
+[{"ID":666,"URL":"secret://v1/app.password","revision":2,"path":"app.password","version":1,"backend":"juju","create-time":"0001-01-01T00:00:00Z","update-time":"0001-01-01T00:00:00Z","value":{"Data":{"foo":"bar"}}}]
 `[1:])
 }

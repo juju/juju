@@ -19,10 +19,10 @@ func (s *SecretConfigSuite) TestNewSecretConfig(c *gc.C) {
 	err := cfg.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals, &secrets.SecretConfig{
-		Type:   secrets.TypeBlob,
-		Path:   "app.catalog",
-		Scope:  secrets.ScopeApplication,
-		Params: nil,
+		Type:           secrets.TypeBlob,
+		Path:           "app.catalog",
+		RotateDuration: 0,
+		Params:         nil,
 	})
 }
 
@@ -31,21 +31,14 @@ func (s *SecretConfigSuite) TestNewPasswordSecretConfig(c *gc.C) {
 	err := cfg.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals, &secrets.SecretConfig{
-		Type:  secrets.TypePassword,
-		Path:  "app.password",
-		Scope: secrets.ScopeApplication,
+		Type:           secrets.TypePassword,
+		Path:           "app.password",
+		RotateDuration: 0,
 		Params: map[string]interface{}{
 			"password-length":        10,
 			"password-special-chars": true,
 		},
 	})
-}
-
-func (s *SecretConfigSuite) TestSecretConfigInvalidScope(c *gc.C) {
-	cfg := secrets.NewPasswordSecretConfig(10, true, "app", "password")
-	cfg.Scope = "foo"
-	err := cfg.Validate()
-	c.Assert(err, gc.ErrorMatches, `secret scope "foo" not valid`)
 }
 
 func (s *SecretConfigSuite) TestSecretConfigInvalidType(c *gc.C) {
@@ -94,11 +87,22 @@ func (s *SecretURLSuite) TestParseURL(c *gc.C) {
 			str: "secret://a.b#",
 			err: `secret URL "secret://a.b#" not valid`,
 		}, {
+			str: "secret://app.password?revision=xxx",
+			err: `secret URL "secret://app.password\?revision=xxx" not valid`,
+		}, {
 			str:      "secret://v1/app.password",
 			shortStr: "secret://v1/app.password",
 			expected: &secrets.URL{
 				Version: "v1",
 				Path:    "app.password",
+			},
+		}, {
+			str:      "secret://v1/app.password?revision=666",
+			shortStr: "secret://v1/app.password?revision=666",
+			expected: &secrets.URL{
+				Version:  "v1",
+				Path:     "app.password",
+				Revision: 666,
 			},
 		}, {
 			str:      "secret://v1/app.password#attr",
@@ -107,6 +111,15 @@ func (s *SecretURLSuite) TestParseURL(c *gc.C) {
 				Version:   "v1",
 				Path:      "app.password",
 				Attribute: "attr",
+			},
+		}, {
+			str:      "secret://v1/app.password?revision=666#attr",
+			shortStr: "secret://v1/app.password?revision=666#attr",
+			expected: &secrets.URL{
+				Version:   "v1",
+				Path:      "app.password",
+				Attribute: "attr",
+				Revision:  666,
 			},
 		}, {
 			str:      "secret://v1/" + controllerUUID + "/app.password",
@@ -163,6 +176,24 @@ func (s *SecretURLSuite) TestString(c *gc.C) {
 	c.Assert(url, jc.DeepEquals, expected)
 }
 
+func (s *SecretURLSuite) TestStringWithRevision(c *gc.C) {
+	URL := &secrets.URL{
+		Version:        "v1",
+		ControllerUUID: controllerUUID,
+		ModelUUID:      modelUUID,
+		Path:           "app.password",
+		Attribute:      "attr",
+	}
+	str := URL.String()
+	c.Assert(str, gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password#attr")
+	URL.Revision = 1
+	str = URL.String()
+	c.Assert(str, gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password#attr")
+	URL.Revision = 2
+	str = URL.String()
+	c.Assert(str, gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password?revision=2#attr")
+}
+
 func (s *SecretURLSuite) TestShortString(c *gc.C) {
 	expected := &secrets.URL{
 		Version:        "v1",
@@ -189,6 +220,18 @@ func (s *SecretURLSuite) TestID(c *gc.C) {
 		Attribute:      "attr",
 	}
 	c.Assert(expected.ID(), gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password")
+}
+
+func (s *SecretURLSuite) TestWithRevision(c *gc.C) {
+	expected := &secrets.URL{
+		Version:        "v1",
+		ControllerUUID: controllerUUID,
+		ModelUUID:      modelUUID,
+		Path:           "app.password",
+		Attribute:      "attr",
+	}
+	expected = expected.WithRevision(666)
+	c.Assert(expected.ID(), gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password?revision=666")
 }
 
 func (s *SecretURLSuite) TestNewURL(c *gc.C) {

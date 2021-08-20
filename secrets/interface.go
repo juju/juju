@@ -5,6 +5,7 @@ package secrets
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/juju/core/secrets"
 )
@@ -22,15 +23,16 @@ type CreateParams struct {
 	Version        int
 	Type           string
 	Path           string
-	Scope          string
+	RotateDuration time.Duration
 	Params         map[string]interface{}
 	Data           map[string]string
 }
 
 // UpdateParams are used to update a secret.
 type UpdateParams struct {
-	Params map[string]interface{}
-	Data   map[string]string
+	RotateDuration time.Duration
+	Params         map[string]interface{}
+	Data           map[string]string
 }
 
 // Filter is used when querying secrets.
@@ -41,7 +43,7 @@ type Filter struct {
 // SecretsService instances provide a backend for storing secrets values.
 type SecretsService interface {
 	// CreateSecret creates a new secret and returns a URL for accessing the secret value.
-	CreateSecret(ctx context.Context, p CreateParams) (*secrets.URL, *secrets.SecretMetadata, error)
+	CreateSecret(ctx context.Context, p CreateParams) (*secrets.SecretMetadata, error)
 
 	// UpdateSecret updates a given secret with a new secret value.
 	UpdateSecret(ctx context.Context, URL *secrets.URL, p UpdateParams) (*secrets.SecretMetadata, error)

@@ -51,18 +51,18 @@ func (api *Client) ListSecrets(showSecrets bool) ([]SecretDetails, error) {
 		}
 		result[i] = SecretDetails{
 			Metadata: secrets.SecretMetadata{
-				URL:         URL,
-				Path:        r.Path,
-				Scope:       secrets.Scope(r.Scope),
-				Version:     r.Version,
-				Description: r.Description,
-				Tags:        r.Tags,
-				ID:          r.ID,
-				Provider:    r.Provider,
-				ProviderID:  r.ProviderID,
-				Revision:    r.Revision,
-				CreateTime:  r.CreateTime,
-				UpdateTime:  r.UpdateTime,
+				URL:            URL,
+				Path:           r.Path,
+				RotateDuration: r.RotateDuration,
+				Version:        r.Version,
+				Description:    r.Description,
+				Tags:           r.Tags,
+				ID:             r.ID,
+				Provider:       r.Provider,
+				ProviderID:     r.ProviderID,
+				Revision:       r.Revision,
+				CreateTime:     r.CreateTime,
+				UpdateTime:     r.UpdateTime,
 			},
 		}
 		if showSecrets && r.Value != nil {
