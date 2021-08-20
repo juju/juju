@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/core/paths"
 	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -166,11 +167,9 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, cons cons
 
 	c.Assert(app.Ensure(
 		caas.ApplicationConfig{
-			AgentVersion:   version.MustParse("1.1.1"),
-			AgentImagePath: "operator/image-path:1.1.1",
-			CharmBaseImage: coreresources.DockerImageDetails{
-				RegistryPath: "ubuntu:20.04",
-			},
+			AgentVersion:         version.MustParse("1.1.1"),
+			AgentImagePath:       "operator/image-path:1.1.1",
+			CharmBaseImagePath:   "ubuntu:20.04",
 			CharmModifiedVersion: 9001,
 			Filesystems: []storage.KubernetesFilesystemParams{
 				{
@@ -211,8 +210,12 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, cons cons
 					Name: "nginx",
 					Image: coreresources.DockerImageDetails{
 						RegistryPath: "nginx-image:latest",
-						Username:     "username",
-						Password:     "password",
+						ImageRepoDetails: docker.ImageRepoDetails{
+							BasicAuthConfig: docker.BasicAuthConfig{
+								Username: "username",
+								Password: "password",
+							},
+						},
 					},
 				},
 			},

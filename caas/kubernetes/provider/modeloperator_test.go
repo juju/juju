@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/resources"
 )
 
 type ModelOperatorSuite struct {
@@ -43,9 +44,9 @@ func (m *ModelOperatorSuite) Test(c *gc.C) {
 	)
 
 	config := caas.ModelOperatorConfig{
-		AgentConf:         []byte("testconf"),
-		OperatorImagePath: "juju/juju:123",
-		Port:              int32(5497),
+		AgentConf:    []byte("testconf"),
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "juju/juju:123"},
+		Port:         int32(5497),
 	}
 
 	bridge := &modelOperatorBrokerBridge{
@@ -64,7 +65,7 @@ func (m *ModelOperatorSuite) Test(c *gc.C) {
 			ensureDeploymentCalled = true
 			c.Assert(d.Name, gc.Equals, modelOperatorName)
 			c.Assert(d.Namespace, gc.Equals, namespace)
-			c.Assert(d.Spec.Template.Spec.Containers[0].Image, gc.Equals, config.OperatorImagePath)
+			c.Assert(d.Spec.Template.Spec.Containers[0].Image, gc.Equals, config.ImageDetails.RegistryPath)
 			c.Assert(d.Spec.Template.Spec.Containers[0].Ports[0].ContainerPort, gc.Equals, config.Port)
 			return nil, nil
 		},

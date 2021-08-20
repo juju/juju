@@ -408,10 +408,9 @@ func (k *kubernetesClient) Create(envcontext.ProviderCallContext, environs.Creat
 // EnsureImageRepoSecret ensures the image pull secret gets created.
 func (k *kubernetesClient) EnsureImageRepoSecret(imageRepo docker.ImageRepoDetails) error {
 	if !imageRepo.IsPrivate() {
-		logger.Criticalf("image repo %q is not private, no need to create secret", imageRepo.Repository)
 		return nil
 	}
-	logger.Criticalf("creating secret for image repo %q", imageRepo.Repository)
+	logger.Debugf("creating secret for image repo %q", imageRepo.Repository)
 	secretData, err := imageRepo.SecretData()
 	if err != nil {
 		return errors.Trace(err)
@@ -2480,23 +2479,6 @@ func (k *kubernetesClient) getStatusFromEvents(name, kind string, jujuStatus sta
 		}
 	}
 	return statusMessage, jujuStatus, nil
-}
-
-func (k *kubernetesClient) jujuStatus(podPhase core.PodPhase, terminated bool) status.Status {
-	if terminated {
-		return status.Terminated
-	}
-
-	switch podPhase {
-	case core.PodRunning:
-		return status.Running
-	case core.PodFailed:
-		return status.Error
-	case core.PodPending:
-		return status.Allocating
-	default:
-		return status.Unknown
-	}
 }
 
 // filesetConfigMap returns a *core.ConfigMap for a pod

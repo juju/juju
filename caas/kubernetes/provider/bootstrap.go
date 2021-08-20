@@ -690,7 +690,6 @@ func (c *controllerStack) createDockerSecret() (string, error) {
 	if len(c.dockerAuthSecretData) == 0 {
 		return "", errors.NotValidf("empty docker secret data")
 	}
-	logger.Criticalf("createDockerSecret c.dockerAuthSecretData %q", string(c.dockerAuthSecretData))
 	name := c.resourceNamedockerSecret
 	logger.Debugf("ensuring docker secret %q", name)
 	cleanUp, err := c.broker.ensureOCIImageSecret(
@@ -707,8 +706,6 @@ func (c *controllerStack) createDockerSecret() (string, error) {
 }
 
 func (c *controllerStack) patchServiceAccountForImagePullSecret(saName string) error {
-	logger.Criticalf("patchServiceAccountForImagePullSecret c.dockerAuthSecretData %q", string(c.dockerAuthSecretData))
-
 	if !c.isPrivateRepo() {
 		return nil
 	}
@@ -720,9 +717,10 @@ func (c *controllerStack) patchServiceAccountForImagePullSecret(saName string) e
 	if err != nil {
 		return errors.Trace(err)
 	}
-	sa.ImagePullSecrets = []core.LocalObjectReference{
-		{Name: dockerSecretName},
-	}
+	sa.ImagePullSecrets = append(
+		sa.ImagePullSecrets,
+		core.LocalObjectReference{Name: dockerSecretName},
+	)
 	_, err = c.broker.updateServiceAccount(sa)
 	return errors.Trace(err)
 }
