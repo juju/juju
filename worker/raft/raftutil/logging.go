@@ -3,7 +3,12 @@
 
 package raftutil
 
-import "github.com/juju/loggo"
+import (
+	"fmt"
+
+	"github.com/hashicorp/go-hclog"
+	"github.com/juju/loggo"
+)
 
 // Logger defines the logging methods the LoggoWriter requires.
 type Logger interface {
@@ -16,10 +21,25 @@ type Logger interface {
 type LoggoWriter struct {
 	Logger Logger
 	Level  loggo.Level
+	Prefix string
 }
 
 // Write is part of the io.Writer interface.
 func (w *LoggoWriter) Write(p []byte) (int, error) {
-	w.Logger.Logf(w.Level, "%s", p[:len(p)-1]) // omit trailing newline
+	w.Logger.Logf(w.Level, "%s%s", w.Prefix, p[:len(p)-1]) // omit trailing newline
 	return len(p), nil
+}
+
+func NewHCLLogger(name string, logger Logger) hclog.Logger {
+	logWriter := &LoggoWriter{
+		Logger: logger,
+		Level:  loggo.DEBUG,
+		Prefix: fmt.Sprintf("[%s] ", name),
+	}
+
+	return hclog.New(&hclog.LoggerOptions{
+		Name:   name,
+		Output: logWriter,
+		Level:  hclog.DefaultLevel,
+	})
 }
