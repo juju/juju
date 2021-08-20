@@ -30,11 +30,13 @@ type Logger interface {
 	Child(string) loggo.Logger
 }
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/worker/caasmodelconfigmanager Facade
 type Facade interface {
 	ControllerConfig() (controller.Config, error)
 	WatchControllerConfig() (watcher.NotifyWatcher, error)
 }
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/worker/caasmodelconfigmanager CAASBroker
 type CAASBroker interface {
 	EnsureImageRepoSecret(docker.ImageRepoDetails) error
 }
@@ -51,15 +53,17 @@ type Config struct {
 // Validate returns an error if the config cannot be expected
 // to drive a functional worker.
 func (config Config) Validate() error {
+	if config.ModelTag == (names.ModelTag{}) {
+		return errors.NotValidf("ModelTag is missing")
+	}
 	if config.Facade == nil {
-		return errors.NotValidf("nil Facade")
+		return errors.NotValidf("Facade is missing")
 	}
 	if config.Broker == nil {
-		return errors.NotValidf("nil Broker")
+		return errors.NotValidf("Broker is missing")
 	}
-
-	if config.ModelTag == (names.ModelTag{}) {
-		return errors.NotValidf("empty ModelTag")
+	if config.Logger == nil {
+		return errors.NotValidf("Logger is missing")
 	}
 	return nil
 }
