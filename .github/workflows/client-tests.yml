@@ -58,7 +58,7 @@ jobs:
     - name: "Install Mongo Dependencies: ubuntu-latest"
       if: |
         (matrix.os == 'ubuntu-latest') &
-        steps.cache-mongo-ubuntu.outputs.cache-hit != 'true'
+        (steps.cache-mongo-ubuntu.outputs.cache-hit != 'true')
       run: |
         # Remove the default mongo
         for version in "4.2" "4.4"; do
@@ -69,21 +69,9 @@ jobs:
         sudo rm -rf /usr/bin/mongo* || true
 
         make install-mongo-dependencies
-    
-    # Check if we have already installed mongo on windows
-    - name: Cache install mongo windows
-      uses: actions/cache@v2
-      id: cache-mongo-windows
-      if: (matrix.os == 'windows-latest')
-      with: 
-        path: /usr/bin/mongo*
-        key: ${{ runner.os }}-cache-mongo-windows
-    
-    # Install mongo iff cache-mongo-windows failed.
+    s
     - name: "Remove Mongo Dependencies: windows-latest"
-      if: |
-        (matrix.os == 'windows-latest') &
-        steps.cache-mongo-windows.outputs.cache-hit != 'true'
+      if: (matrix.os == 'windows-latest')
       uses: crazy-max/ghaction-chocolatey@v1
       with:
         args: uninstall mongodb mongodb.install -y --all-versions
@@ -110,8 +98,8 @@ jobs:
     # we specifically need 4.0.21, otherwise our tests will not pass
     - name: "Install Mongo Dependencies: macOS-latest"
       if: |
-        (matrix.os == 'macOS-latest')
-        steps.cache-mongo-macos.outputs.cache-hit != 'true'
+        (matrix.os == 'macOS-latest') &
+        (steps.cache-mongo-macos.outputs.cache-hit != 'true')
       run: |
         curl -o mongodb-4.0.21.tgz https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-4.0.21.tgz
         tar xzvf mongodb-4.0.21.tgz
