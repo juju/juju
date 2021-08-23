@@ -11,7 +11,7 @@ jobs:
       uses: actions/cache@v2
       id: cache-go
       with: 
-        path: /usr/local/go/bin/go
+        path: /home/runner/go
         key: ${{ runner.os }}-go
 
     - name: Set up Go 1.14
