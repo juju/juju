@@ -69,7 +69,7 @@ jobs:
         sudo rm -rf /usr/bin/mongo* || true
 
         make install-mongo-dependencies
-    s
+    
     - name: "Remove Mongo Dependencies: windows-latest"
       if: (matrix.os == 'windows-latest')
       uses: crazy-max/ghaction-chocolatey@v1
