@@ -4,11 +4,8 @@
 package secrets
 
 import (
-	"fmt"
 	"io"
-	"math"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -100,7 +97,7 @@ type secretDisplayDetails struct {
 	URL            string              `json:"URL" yaml:"URL"`
 	Revision       int                 `json:"revision" yaml:"revision"`
 	Path           string              `json:"path" yaml:"path"`
-	RotateDuration time.Duration       `json:"rotate-duration,omitempty" yaml:"rotate-duration,omitempty"`
+	RotateInterval time.Duration       `json:"rotate-interval,omitempty" yaml:"rotate-interval,omitempty"`
 	Version        int                 `json:"version" yaml:"version"`
 	Description    string              `json:"description,omitempty" yaml:"description,omitempty"`
 	Tags           map[string]string   `json:"tags,omitempty" yaml:"tags,omitempty"`
@@ -133,7 +130,7 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 		details[i] = secretDisplayDetails{
 			URL:            m.Metadata.URL.ShortString(),
 			Path:           m.Metadata.Path,
-			RotateDuration: m.Metadata.RotateDuration,
+			RotateInterval: m.Metadata.RotateInterval,
 			Version:        m.Metadata.Version,
 			Description:    m.Metadata.Description,
 			Tags:           m.Metadata.Tags,
@@ -162,42 +159,6 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 	return c.out.Write(ctxt, details)
 }
 
-func humanizeDuration(duration time.Duration) string {
-	if duration <= 0 {
-		return "never"
-	}
-
-	days := int64(duration.Hours() / 24)
-	hours := int64(math.Mod(duration.Hours(), 24))
-	minutes := int64(math.Mod(duration.Minutes(), 60))
-	seconds := int64(math.Mod(duration.Seconds(), 60))
-
-	chunks := []struct {
-		singularName string
-		amount       int64
-	}{
-		{"day", days},
-		{"hour", hours},
-		{"minute", minutes},
-		{"second", seconds},
-	}
-
-	parts := []string{}
-
-	for _, chunk := range chunks {
-		switch chunk.amount {
-		case 0:
-			continue
-		case 1:
-			parts = append(parts, fmt.Sprintf("%d %s", chunk.amount, chunk.singularName))
-		default:
-			parts = append(parts, fmt.Sprintf("%d %ss", chunk.amount, chunk.singularName))
-		}
-	}
-
-	return strings.Join(parts, " ")
-}
-
 // formatSecretsTabular writes a tabular summary of secret information.
 func formatSecretsTabular(writer io.Writer, value interface{}) error {
 	secrets, ok := value.([]secretDisplayDetails)
@@ -216,7 +177,7 @@ func formatSecretsTabular(writer io.Writer, value interface{}) error {
 	now := time.Now()
 	for _, s := range secrets {
 		age := common.UserFriendlyDuration(s.UpdateTime, now)
-		w.Print(s.ID, s.Revision, humanizeDuration(s.RotateDuration), s.Provider, s.Path, age)
+		w.Print(s.ID, s.Revision, common.HumaniseInterval(s.RotateInterval), s.Provider, s.Path, age)
 		w.Println()
 	}
 	return tw.Flush()

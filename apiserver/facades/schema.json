@@ -39747,7 +39747,7 @@
                         "revision": {
                             "type": "integer"
                         },
-                        "rotate-duration": {
+                        "rotate-interval": {
                             "type": "integer"
                         },
                         "tags": {
@@ -39777,7 +39777,7 @@
                         "url",
                         "path",
                         "version",
-                        "rotate-duration",
+                        "rotate-interval",
                         "int",
                         "provider",
                         "revision",
@@ -39891,7 +39891,7 @@
                         "path": {
                             "type": "string"
                         },
-                        "rotate-duration": {
+                        "rotate-interval": {
                             "type": "integer"
                         },
                         "type": {
@@ -39902,7 +39902,7 @@
                     "required": [
                         "type",
                         "path",
-                        "rotate-duration"
+                        "rotate-interval"
                     ]
                 },
                 "CreateSecretArgs": {

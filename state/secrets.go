@@ -25,7 +25,7 @@ type CreateSecretParams struct {
 	Version        int
 	Type           string
 	Path           string
-	RotateDuration time.Duration
+	RotateInterval time.Duration
 	Params         map[string]interface{}
 	Data           secrets.SecretData
 }
@@ -33,7 +33,7 @@ type CreateSecretParams struct {
 // UpdateSecretParams are used to update a secret.
 // TODO(wallyworld) - add tags and description etc
 type UpdateSecretParams struct {
-	RotateDuration time.Duration
+	RotateInterval time.Duration
 	Params         map[string]interface{}
 	Data           secrets.SecretData
 }
@@ -59,7 +59,7 @@ type secretMetadataDoc struct {
 
 	Path           string            `bson:"path"`
 	Version        int               `bson:"version"`
-	RotateDuration time.Duration     `bson:"rotate_duration"`
+	RotateInterval time.Duration     `bson:"rotate-interval"`
 	Description    string            `bson:"description"`
 	Tags           map[string]string `bson:"tags"`
 	ID             int               `bson:"id"`
@@ -105,7 +105,7 @@ func (s *secretsStore) secretMetadataDoc(URL *secrets.URL, p *CreateSecretParams
 		DocID:          URL.String(),
 		Path:           p.Path,
 		Version:        p.Version,
-		RotateDuration: p.RotateDuration,
+		RotateInterval: p.RotateInterval,
 		Description:    "",
 		Tags:           nil,
 		ID:             id,
@@ -119,7 +119,7 @@ func (s *secretsStore) secretMetadataDoc(URL *secrets.URL, p *CreateSecretParams
 
 func (s *secretsStore) updateSecretMetadataDoc(doc *secretMetadataDoc, p *UpdateSecretParams) {
 	doc.UpdateTime = s.st.nowToTheSecond()
-	doc.RotateDuration = p.RotateDuration
+	doc.RotateInterval = p.RotateInterval
 	doc.Revision = doc.Revision + 1
 }
 
@@ -232,7 +232,7 @@ func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc) *secrets.SecretM
 	return &secrets.SecretMetadata{
 		Path:           doc.Path,
 		Version:        doc.Version,
-		RotateDuration: doc.RotateDuration,
+		RotateInterval: doc.RotateInterval,
 		Description:    doc.Description,
 		Tags:           doc.Tags,
 		ID:             doc.ID,

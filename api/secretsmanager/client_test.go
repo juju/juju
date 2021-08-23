@@ -41,7 +41,7 @@ func (s *SecretsSuite) TestCreateSecret(c *gc.C) {
 			Args: []params.CreateSecretArg{{
 				Type:           "password",
 				Path:           "app.password",
-				RotateDuration: time.Hour,
+				RotateInterval: time.Hour,
 				Params: map[string]interface{}{
 					"password-length":        10,
 					"password-special-chars": true,
@@ -60,7 +60,7 @@ func (s *SecretsSuite) TestCreateSecret(c *gc.C) {
 	client := secretsmanager.NewClient(apiCaller)
 	value := secrets.NewSecretValue(data)
 	cfg := secrets.NewPasswordSecretConfig(10, true, "app", "password")
-	cfg.RotateDuration = time.Hour
+	cfg.RotateInterval = time.Hour
 	result, err := client.Create(cfg, value)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, "secret://foo")

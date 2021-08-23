@@ -21,8 +21,8 @@ type CreateSecretArg struct {
 	Type string `json:"type"`
 	// Path represents a unique string used to identify a secret.
 	Path string `json:"path"`
-	// RotateDuration is how often a secret should be rotated.
-	RotateDuration time.Duration `json:"rotate-duration"`
+	// RotateInterval is how often a secret should be rotated.
+	RotateInterval time.Duration `json:"rotate-interval"`
 	// Params are used when generating secrets server side.
 	// See core/secrets/secret.go.
 	Params map[string]interface{} `json:"params,omitempty"`
@@ -66,7 +66,7 @@ type ListSecretResult struct {
 	URL            string             `json:"url"`
 	Path           string             `json:"path"`
 	Version        int                `json:"version"`
-	RotateDuration time.Duration      `json:"rotate-duration"`
+	RotateInterval time.Duration      `json:"rotate-interval"`
 	Description    string             `json:"description,omitempty"`
 	Tags           map[string]string  `json:"tags,omitempty"`
 	ID             int                `json:"int"`

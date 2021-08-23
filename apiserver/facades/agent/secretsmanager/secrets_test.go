@@ -60,7 +60,7 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 		Version:        secrets.Version,
 		Type:           "blob",
 		Path:           "app.password",
-		RotateDuration: time.Hour,
+		RotateInterval: time.Hour,
 		Params:         map[string]interface{}{"param": 1},
 		Data:           map[string]string{"foo": "bar"},
 	}
@@ -79,15 +79,23 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 		Args: []params.CreateSecretArg{{
 			Type:           "blob",
 			Path:           "app.password",
-			RotateDuration: time.Hour,
+			RotateInterval: time.Hour,
 			Params:         map[string]interface{}{"param": 1},
 			Data:           map[string]string{"foo": "bar"},
+		}, {
+			RotateInterval: -1 * time.Hour,
+		}, {
+			Data: nil,
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{{
 			Result: "secret://v1/app.password",
+		}, {
+			Error: &params.Error{Message: `rotate interval "-1h0m0s" not valid`},
+		}, {
+			Error: &params.Error{Message: `empty secret value not valid`},
 		}},
 	})
 }

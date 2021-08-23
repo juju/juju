@@ -910,7 +910,7 @@ func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
 			Args: []params.CreateSecretArg{{
 				Type:           "blob",
 				Path:           "wordpress.password",
-				RotateDuration: time.Hour,
+				RotateInterval: time.Hour,
 				Data:           data,
 			}},
 		})
@@ -927,7 +927,7 @@ func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
 	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
 	id, err := hookContext.CreateSecret("password", &jujuc.UpsertArgs{
 		Value:          value,
-		RotateDuration: time.Hour,
+		RotateInterval: time.Hour,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(id, gc.Equals, "secret://foo")

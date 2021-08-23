@@ -779,7 +779,7 @@ func (ctx *HookContext) GetSecret(name string) (coresecrets.SecretValue, error) 
 func (ctx *HookContext) CreateSecret(name string, args *jujuc.UpsertArgs) (string, error) {
 	app, _ := names.UnitApplication(ctx.UnitName())
 	cfg := coresecrets.NewSecretConfig(app, name)
-	cfg.RotateDuration = args.RotateDuration
+	cfg.RotateInterval = args.RotateInterval
 	return ctx.secretFacade.Create(cfg, args.Value)
 }
 

@@ -66,7 +66,7 @@ func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 		ProviderLabel:  juju.Provider,
 		Type:           "blob",
 		Path:           "app.password",
-		RotateDuration: time.Hour,
+		RotateInterval: time.Hour,
 		Params:         map[string]interface{}{"param": 1},
 		Data:           map[string]string{"foo": "bar"},
 	}
@@ -77,7 +77,7 @@ func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 		ProviderLabel:  "juju",
 		Type:           p.Type,
 		Path:           p.Path,
-		RotateDuration: time.Hour,
+		RotateInterval: time.Hour,
 		Params:         p.Params,
 		Data:           p.Data,
 	}
@@ -106,12 +106,12 @@ func (s *SecretsManagerSuite) TestUpdateSecret(c *gc.C) {
 	service := juju.NewTestService(s.secretsStore)
 
 	p := secrets.UpdateParams{
-		RotateDuration: time.Hour,
+		RotateInterval: time.Hour,
 		Params:         map[string]interface{}{"param": 1},
 		Data:           map[string]string{"foo": "bar"},
 	}
 	expectedP := state.UpdateSecretParams{
-		RotateDuration: time.Hour,
+		RotateInterval: time.Hour,
 		Params:         p.Params,
 		Data:           p.Data,
 	}

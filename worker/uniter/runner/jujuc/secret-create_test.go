@@ -40,7 +40,7 @@ func (s *SecretCreateSuite) TestCreateSecretInvalidArgs(c *gc.C) {
 			err:  `ERROR singular value "s3cret" not valid when other key values are specified`,
 		}, {
 			args: []string{"password", "foo=bar", "--rotate", "-1h"},
-			err:  `ERROR rotate duration "-1h0m0s" not valid`,
+			err:  `ERROR rotate interval "-1h0m0s" not valid`,
 		},
 	} {
 		com, err := jujuc.NewCommand(hctx, cmdString("secret-create"))
@@ -65,7 +65,7 @@ func (s *SecretCreateSuite) TestCreateSecret(c *gc.C) {
 	val := coresecrets.NewSecretValue(map[string]string{"data": "c2VjcmV0"})
 	args := &jujuc.UpsertArgs{
 		Value:          val,
-		RotateDuration: time.Hour,
+		RotateInterval: time.Hour,
 	}
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "CreateSecret", Args: []interface{}{"password", args}}})
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret://app.password\n")

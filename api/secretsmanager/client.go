@@ -40,7 +40,7 @@ func (c *Client) Create(cfg *secrets.SecretConfig, value secrets.SecretValue) (s
 		Args: []params.CreateSecretArg{{
 			Type:           string(cfg.Type),
 			Path:           cfg.Path,
-			RotateDuration: cfg.RotateDuration,
+			RotateInterval: cfg.RotateInterval,
 			Params:         cfg.Params,
 			Data:           data,
 		}},

@@ -34,7 +34,7 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 		Version:        1,
 		Type:           "blob",
 		Path:           "app.password",
-		RotateDuration: time.Hour,
+		RotateInterval: time.Hour,
 		Params:         nil,
 		Data:           map[string]string{"foo": "bar"},
 	}
@@ -47,7 +47,7 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 	now := s.Clock.Now().Round(time.Second).UTC()
 	c.Assert(md, jc.DeepEquals, &secrets.SecretMetadata{
 		Path:           p.Path,
-		RotateDuration: time.Hour,
+		RotateInterval: time.Hour,
 		Version:        1,
 		Description:    "",
 		Tags:           nil,
@@ -69,7 +69,7 @@ func (s *SecretsSuite) TestCreateIncrementsID(c *gc.C) {
 		Version:        1,
 		Type:           "blob",
 		Path:           "app.password",
-		RotateDuration: time.Hour,
+		RotateInterval: time.Hour,
 		Params:         nil,
 		Data:           map[string]string{"foo": "bar"},
 	}
@@ -98,7 +98,7 @@ func (s *SecretsSuite) TestGetValue(c *gc.C) {
 		ProviderLabel:  "juju",
 		Type:           "blob",
 		Path:           "app.password",
-		RotateDuration: time.Hour,
+		RotateInterval: time.Hour,
 		Params:         nil,
 		Data:           map[string]string{"foo": "bar"},
 	}
@@ -120,7 +120,7 @@ func (s *SecretsSuite) TestGetValueAttribute(c *gc.C) {
 		ProviderLabel:  "juju",
 		Type:           "blob",
 		Path:           "app.password",
-		RotateDuration: time.Hour,
+		RotateInterval: time.Hour,
 		Params:         nil,
 		Data:           map[string]string{"foo": "bar", "hello": "world"},
 	}
@@ -143,7 +143,7 @@ func (s *SecretsSuite) TestGetValueAttributeNotFound(c *gc.C) {
 		ProviderLabel:  "juju",
 		Type:           "blob",
 		Path:           "app.password",
-		RotateDuration: time.Hour,
+		RotateInterval: time.Hour,
 		Params:         nil,
 		Data:           map[string]string{"foo": "bar", "hello": "world"},
 	}
@@ -163,7 +163,7 @@ func (s *SecretsSuite) TestList(c *gc.C) {
 		ProviderLabel:  "juju",
 		Type:           "blob",
 		Path:           "app.password",
-		RotateDuration: time.Hour,
+		RotateInterval: time.Hour,
 		Params:         nil,
 		Data:           map[string]string{"foo": "bar"},
 	}
@@ -175,7 +175,7 @@ func (s *SecretsSuite) TestList(c *gc.C) {
 	now := s.Clock.Now().Round(time.Second).UTC()
 	c.Assert(list, jc.DeepEquals, []*secrets.SecretMetadata{{
 		Path:           "app.password",
-		RotateDuration: time.Hour,
+		RotateInterval: time.Hour,
 		Version:        1,
 		Description:    "",
 		Tags:           map[string]string{},
@@ -196,7 +196,7 @@ func (s *SecretsSuite) TestUpdate(c *gc.C) {
 		ProviderLabel:  "juju",
 		Type:           "blob",
 		Path:           "app.password",
-		RotateDuration: time.Hour,
+		RotateInterval: time.Hour,
 		Params:         nil,
 		Data:           map[string]string{"foo": "bar"},
 	}
@@ -209,7 +209,7 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, URL *secrets.URL, revision i
 	created := s.Clock.Now().Round(time.Second).UTC()
 
 	up := state.UpdateSecretParams{
-		RotateDuration: 2 * time.Hour,
+		RotateInterval: 2 * time.Hour,
 		Params:         nil,
 		Data:           map[string]string{"foo": "bar", "hello": "world"},
 	}
@@ -224,7 +224,7 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, URL *secrets.URL, revision i
 		Version:        1,
 		Description:    "",
 		Tags:           map[string]string{},
-		RotateDuration: 2 * time.Hour,
+		RotateInterval: 2 * time.Hour,
 		ID:             1,
 		Provider:       "juju",
 		ProviderID:     "",
@@ -237,7 +237,7 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, URL *secrets.URL, revision i
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(list, jc.DeepEquals, []*secrets.SecretMetadata{{
 		Path:           "app.password",
-		RotateDuration: 2 * time.Hour,
+		RotateInterval: 2 * time.Hour,
 		Version:        1,
 		Description:    "",
 		Tags:           map[string]string{},
@@ -258,7 +258,7 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 		ProviderLabel:  "juju",
 		Type:           "blob",
 		Path:           "app.password",
-		RotateDuration: time.Hour,
+		RotateInterval: time.Hour,
 		Params:         nil,
 		Data:           map[string]string{"foo": "bar"},
 	}
@@ -266,7 +266,7 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 
 	state.SetBeforeHooks(c, s.State, func() {
 		up := state.UpdateSecretParams{
-			RotateDuration: 3 * time.Hour,
+			RotateInterval: 3 * time.Hour,
 			Params:         nil,
 			Data:           map[string]string{"foo": "baz", "goodbye": "world"},
 		}

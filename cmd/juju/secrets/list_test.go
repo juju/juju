@@ -49,7 +49,7 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 	s.secretsAPI.EXPECT().ListSecrets(false).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
-				ID: 666, RotateDuration: time.Hour,
+				ID: 666, RotateInterval: time.Hour,
 				Revision: 2, Path: "app.password", Provider: "juju"},
 		}, {
 			Metadata: coresecrets.SecretMetadata{
@@ -63,7 +63,7 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
 ID   Revision  Rotate  Backend  Path          Age
-666         2  1 hour  juju     app.password  0001-01-01  
+666         2  1h      juju     app.password  0001-01-01  
 667         1  never   juju     app.apitoken  0001-01-01  
 
 `[1:])
@@ -77,7 +77,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 	s.secretsAPI.EXPECT().ListSecrets(true).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
-				URL: URL, ID: 666, RotateDuration: time.Hour,
+				URL: URL, ID: 666, RotateInterval: time.Hour,
 				Version: 1, Revision: 2, Path: "app.password", Provider: "juju"},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}}, nil)
@@ -91,7 +91,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
   URL: secret://v1/app.password
   revision: 2
   path: app.password
-  rotate-duration: 1h0m0s
+  rotate-interval: 1h0m0s
   version: 1
   backend: juju
   create-time: 0001-01-01T00:00:00Z

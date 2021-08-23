@@ -44,7 +44,7 @@ func (s secretsService) CreateSecret(ctx context.Context, p secrets.CreateParams
 		Version:        p.Version,
 		Type:           p.Type,
 		Path:           p.Path,
-		RotateDuration: p.RotateDuration,
+		RotateInterval: p.RotateInterval,
 		Params:         p.Params,
 		Data:           p.Data,
 	})
@@ -67,7 +67,7 @@ func (s secretsService) ListSecrets(ctx context.Context, filter secrets.Filter) 
 // UpdateSecret implements SecretsService.
 func (s secretsService) UpdateSecret(ctx context.Context, URL *coresecrets.URL, p secrets.UpdateParams) (*coresecrets.SecretMetadata, error) {
 	metadata, err := s.backend.UpdateSecret(URL, state.UpdateSecretParams{
-		RotateDuration: p.RotateDuration,
+		RotateInterval: p.RotateInterval,
 		Params:         p.Params,
 		Data:           p.Data,
 	})

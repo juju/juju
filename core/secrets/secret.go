@@ -32,7 +32,7 @@ var validTypes = map[SecretType]bool{
 type SecretConfig struct {
 	Type           SecretType
 	Path           string
-	RotateDuration time.Duration
+	RotateInterval time.Duration
 	Params         map[string]interface{}
 }
 
@@ -217,7 +217,7 @@ type SecretMetadata struct {
 	// These can be updated after creation.
 	Description    string
 	Tags           map[string]string
-	RotateDuration time.Duration
+	RotateInterval time.Duration
 
 	// Set by service on creation/update.
 

@@ -73,7 +73,7 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 	now := time.Now()
 	metadata := []*coresecrets.SecretMetadata{{
 		Path:           "app.password",
-		RotateDuration: time.Hour,
+		RotateInterval: time.Hour,
 		Version:        1,
 		Description:    "shhh",
 		Tags:           map[string]string{"foo": "bar"},
@@ -110,7 +110,7 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 		Results: []params.ListSecretResult{{
 			URL:            URL.String(),
 			Path:           "app.password",
-			RotateDuration: time.Hour,
+			RotateInterval: time.Hour,
 			Version:        1,
 			Description:    "shhh",
 			Tags:           map[string]string{"foo": "bar"},

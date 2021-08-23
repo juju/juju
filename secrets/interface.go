@@ -23,14 +23,14 @@ type CreateParams struct {
 	Version        int
 	Type           string
 	Path           string
-	RotateDuration time.Duration
+	RotateInterval time.Duration
 	Params         map[string]interface{}
 	Data           map[string]string
 }
 
 // UpdateParams are used to update a secret.
 type UpdateParams struct {
-	RotateDuration time.Duration
+	RotateInterval time.Duration
 	Params         map[string]interface{}
 	Data           map[string]string
 }

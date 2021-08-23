@@ -21,7 +21,7 @@ func (s *SecretConfigSuite) TestNewSecretConfig(c *gc.C) {
 	c.Assert(cfg, jc.DeepEquals, &secrets.SecretConfig{
 		Type:           secrets.TypeBlob,
 		Path:           "app.catalog",
-		RotateDuration: 0,
+		RotateInterval: 0,
 		Params:         nil,
 	})
 }
@@ -33,7 +33,7 @@ func (s *SecretConfigSuite) TestNewPasswordSecretConfig(c *gc.C) {
 	c.Assert(cfg, jc.DeepEquals, &secrets.SecretConfig{
 		Type:           secrets.TypePassword,
 		Path:           "app.password",
-		RotateDuration: 0,
+		RotateInterval: 0,
 		Params: map[string]interface{}{
 			"password-length":        10,
 			"password-special-chars": true,

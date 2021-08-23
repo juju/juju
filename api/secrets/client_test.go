@@ -46,7 +46,7 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 			[]params.ListSecretResult{{
 				URL:            "secret://v1/app.password",
 				Path:           "app.password",
-				RotateDuration: time.Hour,
+				RotateInterval: time.Hour,
 				Version:        1,
 				Description:    "shhh",
 				Tags:           map[string]string{"foo": "bar"},
@@ -69,7 +69,7 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 		Metadata: secrets.SecretMetadata{
 			URL:            URL,
 			Path:           "app.password",
-			RotateDuration: time.Hour,
+			RotateInterval: time.Hour,
 			Version:        1,
 			Description:    "shhh",
 			Tags:           map[string]string{"foo": "bar"},

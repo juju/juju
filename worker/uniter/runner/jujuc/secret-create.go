@@ -21,13 +21,16 @@ type secretCreateCommand struct {
 
 	id             string
 	asBase64       bool
-	rotateDuration time.Duration
+	rotateInterval time.Duration
 	data           map[string]string
 }
 
 // NewSecretCreateCommand returns a command to create a secret.
 func NewSecretCreateCommand(ctx Context) (cmd.Command, error) {
-	return &secretCreateCommand{ctx: ctx}, nil
+	return &secretCreateCommand{
+		ctx:            ctx,
+		rotateInterval: -1,
+	}, nil
 }
 
 // Info implements cmd.Command.
@@ -50,7 +53,7 @@ prior to being stored.
 func (c *secretCreateCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.asBase64, "base64", false,
 		`specify the supplied values are base64 encoded strings`)
-	f.DurationVar(&c.rotateDuration, "rotate", 0, "how often the secret should be rotated")
+	f.DurationVar(&c.rotateInterval, "rotate", 0, "how often the secret should be rotated")
 }
 
 // Init implements cmd.Command.
@@ -61,8 +64,8 @@ func (c *secretCreateCommand) Init(args []string) error {
 	if len(args) < 2 {
 		return errors.New("missing secret value")
 	}
-	if c.rotateDuration < 0 {
-		return errors.NotValidf("rotate duration %q", c.rotateDuration)
+	if c.rotateInterval < 0 {
+		return errors.NotValidf("rotate interval %q", c.rotateInterval)
 	}
 	c.id = args[0]
 
@@ -76,7 +79,7 @@ func (c *secretCreateCommand) Run(ctx *cmd.Context) error {
 	value := secrets.NewSecretValue(c.data)
 	id, err := c.ctx.CreateSecret(c.id, &UpsertArgs{
 		Value:          value,
-		RotateDuration: c.rotateDuration,
+		RotateInterval: c.rotateInterval,
 	})
 	if err != nil {
 		return err

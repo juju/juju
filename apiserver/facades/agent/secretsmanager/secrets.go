@@ -59,13 +59,19 @@ func (s *SecretsManagerAPI) CreateSecrets(args params.CreateSecretArgs) (params.
 }
 
 func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateSecretArg) (string, error) {
+	if arg.RotateInterval < 0 {
+		return "", errors.NotValidf("rotate interval %q", arg.RotateInterval)
+	}
+	if len(arg.Data) == 0 {
+		return "", errors.NotValidf("empty secret value")
+	}
 	md, err := s.secretsService.CreateSecret(ctx, secrets.CreateParams{
 		ControllerUUID: s.controllerUUID,
 		ModelUUID:      s.modelUUID,
 		Version:        secrets.Version,
 		Type:           arg.Type,
 		Path:           arg.Path,
-		RotateDuration: arg.RotateDuration,
+		RotateInterval: arg.RotateInterval,
 		Params:         arg.Params,
 		Data:           arg.Data,
 	})

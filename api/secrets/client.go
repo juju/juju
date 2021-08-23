@@ -53,7 +53,7 @@ func (api *Client) ListSecrets(showSecrets bool) ([]SecretDetails, error) {
 			Metadata: secrets.SecretMetadata{
 				URL:            URL,
 				Path:           r.Path,
-				RotateDuration: r.RotateDuration,
+				RotateInterval: r.RotateInterval,
 				Version:        r.Version,
 				Description:    r.Description,
 				Tags:           r.Tags,
