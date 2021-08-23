@@ -500,7 +500,7 @@ var configTests = []configTest{
 			"syslog-client-cert": testing.CACert,
 			"syslog-client-key":  testing.CAKey,
 		}),
-		err: `invalid syslog forwarding config: validating TLS config: parsing CA certificate: asn1: syntax error: data truncated`,
+		err: `invalid syslog forwarding config: validating TLS config: parsing CA certificate: x509: malformed certificate`,
 	}, {
 		about:       "invalid syslog cert",
 		useDefaults: config.UseDefaults,
@@ -511,7 +511,7 @@ var configTests = []configTest{
 			"syslog-client-cert": invalidCACert,
 			"syslog-client-key":  testing.CAKey,
 		}),
-		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: asn1: syntax error: data truncated`,
+		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: x509: malformed certificate`,
 	}, {
 		about:       "invalid syslog key",
 		useDefaults: config.UseDefaults,

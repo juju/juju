@@ -13,7 +13,7 @@ JUJU_BUILD_NUMBER=${JUJU_BUILD_NUMBER:-}
 # Docker variables
 DOCKER_USERNAME=${DOCKER_USERNAME:-jujusolutions}
 DOCKER_STAGING_DIR="${BUILD_DIR}/docker-staging"
-DOCKER_BIN=${DOCKER_BIN:-$(which docker)}
+DOCKER_BIN=${DOCKER_BIN:-$(which docker || true)}
 
 _base_image() {
     IMG_linux_amd64="amd64/ubuntu:20.04" \
@@ -67,4 +67,11 @@ build_operator_image() {
 
     # Cleanup
     rm -rf "${WORKDIR}"
+}
+
+wait_for_dpkg() {
+    while sudo lsof /var/lib/dpkg/lock-frontend 2> /dev/null; do
+        echo "Waiting for dpkg lock..."
+        sleep 10
+    done
 }

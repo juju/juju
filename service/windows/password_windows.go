@@ -2,6 +2,7 @@
 // Copyright 2015 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+//go:build windows
 // +build windows
 
 package windows

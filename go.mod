@@ -1,6 +1,6 @@
 module github.com/juju/juju
 
-go 1.16
+go 1.17
 
 require (
 	github.com/Azure/azure-sdk-for-go v46.4.0+incompatible
@@ -137,6 +137,85 @@ require (
 	k8s.io/client-go v0.19.6
 	k8s.io/klog/v2 v2.3.0
 	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
+)
+
+require (
+	cloud.google.com/go v0.56.0 // indirect
+	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
+	github.com/Azure/go-autorest/logger v0.2.0 // indirect
+	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
+	github.com/Azure/go-ntlmssp v0.0.0-20180810175552-4a21cbd618b4 // indirect
+	github.com/ChrisTrenkamp/goxpath v0.0.0-20170922090931-c385f95c6022 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.1.1 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.0.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.1.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.2.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.4.1 // indirect
+	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/cespare/xxhash/v2 v2.1.1 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
+	github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96 // indirect
+	github.com/evanphx/json-patch v4.9.0+incompatible // indirect
+	github.com/go-macaroon-bakery/macaroonpb v1.0.0 // indirect
+	github.com/gobwas/glob v0.2.3 // indirect
+	github.com/godbus/dbus/v5 v5.0.3 // indirect
+	github.com/gofrs/uuid v3.2.0+incompatible // indirect
+	github.com/gogo/protobuf v1.3.1 // indirect
+	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
+	github.com/google/go-cmp v0.5.5 // indirect
+	github.com/google/gofuzz v1.1.0 // indirect
+	github.com/googleapis/gax-go/v2 v2.0.5 // indirect
+	github.com/gorilla/mux v1.8.0 // indirect
+	github.com/jessevdk/go-flags v1.4.0 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
+	github.com/json-iterator/go v1.1.10 // indirect
+	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9 // indirect
+	github.com/juju/go4 v0.0.0-20160222163258-40d72ab9641a // indirect
+	github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f // indirect
+	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
+	github.com/juju/httpprof v0.0.0-20141217160036-14bf14c30767 // indirect
+	github.com/juju/lru v0.0.0-20190314140547-92a0afabdc41 // indirect
+	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a // indirect
+	github.com/juju/usso v1.0.1 // indirect
+	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
+	github.com/julienschmidt/httprouter v1.3.0 // indirect
+	github.com/kr/text v0.2.0 // indirect
+	github.com/lestrrat/go-jspointer v0.0.0-20160229021354-f4881e611bdb // indirect
+	github.com/lestrrat/go-jsref v0.0.0-20160601013240-e452c7b5801d // indirect
+	github.com/lestrrat/go-jsschema v0.0.0-20160903131957-b09d7650b822 // indirect
+	github.com/lestrrat/go-jsval v0.0.0-20161012045717-b1258a10419f // indirect
+	github.com/lestrrat/go-pdebug v0.0.0-20160817063333-2e6eaaa5717f // indirect
+	github.com/lestrrat/go-structinfo v0.0.0-20160308131105-f74c056fe41f // indirect
+	github.com/lunixbochs/vtclean v1.0.0 // indirect
+	github.com/masterzen/simplexml v0.0.0-20160608183007-4572e39b1ab9 // indirect
+	github.com/masterzen/winrm v0.0.0-20200615185753-c42b5136ff88 // indirect
+	github.com/mattn/go-colorable v0.1.8 // indirect
+	github.com/mattn/go-runewidth v0.0.2 // indirect
+	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
+	github.com/modern-go/reflect2 v1.0.1 // indirect
+	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
+	github.com/prometheus/common v0.10.0 // indirect
+	github.com/prometheus/procfs v0.1.3 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
+	go.etcd.io/bbolt v1.3.5 // indirect
+	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 // indirect
+	golang.org/x/text v0.3.6 // indirect
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	google.golang.org/grpc v1.33.2 // indirect
+	google.golang.org/protobuf v1.26.0 // indirect
+	gopkg.in/errgo.v1 v1.0.1 // indirect
+	gopkg.in/gobwas/glob.v0 v0.2.3 // indirect
+	gopkg.in/inf.v0 v0.9.1 // indirect
+	gopkg.in/juju/names.v2 v2.0.0-20190813004204-e057c73bd1be // indirect
+	gopkg.in/macaroon-bakery.v2 v2.3.0 // indirect
+	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22 // indirect
+	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
+	k8s.io/kube-openapi v0.0.0-20200805222855-6aeccd4b50c6 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.0.1 // indirect
+	sigs.k8s.io/yaml v1.2.0 // indirect
 )
 
 replace github.com/altoros/gosigma => github.com/juju/gosigma v0.0.0-20200420012028-063911838a9e
