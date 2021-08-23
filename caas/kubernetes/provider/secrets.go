@@ -74,19 +74,7 @@ func (k *kubernetesClient) ensureOCIImageSecretForApp(
 		return errors.Trace(err)
 	}
 
-	// newSecret := &core.Secret{
-	// 	ObjectMeta: v1.ObjectMeta{
-	// 		Name:        imageSecretName,
-	// 		Namespace:   k.namespace,
-	// 		Labels:      getSecretLabels(appName, k.IsLegacyLabels()),
-	// 		Annotations: annotations.ToMap()},
-	// 	Type: core.SecretTypeDockerConfigJson,
-	// 	Data: map[string][]byte{
-	// 		core.DockerConfigJsonKey: secretData,
-	// 	},
-	// }
 	logger.Debugf("ensuring docker secret %q", imageSecretName)
-	// _, err = k.ensureSecret(newSecret)
 	_, err = k.ensureOCIImageSecret(
 		imageSecretName,
 		getSecretLabels(appName, k.IsLegacyLabels()),

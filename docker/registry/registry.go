@@ -27,6 +27,7 @@ const (
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/http_mock.go net/http RoundTripper
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/registry_mock.go github.com/juju/juju/docker/registry Registry
 
 type registry struct {
 	baseURL     *url.URL

@@ -24,7 +24,6 @@ func Test(t *stdtesting.T) {
 
 type ConfigSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	home string
 }
 
 var _ = gc.Suite(&ConfigSuite{})
@@ -172,37 +171,37 @@ var newConfigTests = []struct {
 	config: controller.Config{
 		controller.CAASImageRepo: "foo?bar",
 	},
-	expectError: `docker image path "foo\?bar" not valid`,
+	expectError: `docker image path "foo\?bar": invalid reference format`,
 }, {
 	about: "invalid CAAS operator docker image repo - leading colon",
 	config: controller.Config{
 		controller.CAASImageRepo: ":foo",
 	},
-	expectError: `docker image path ":foo" not valid`,
+	expectError: `docker image path ":foo": invalid reference format`,
 }, {
 	about: "invalid CAAS docker image repo - trailing colon",
 	config: controller.Config{
 		controller.CAASImageRepo: "foo:",
 	},
-	expectError: `docker image path "foo:" not valid`,
+	expectError: `empty repository not valid`,
 }, {
 	about: "invalid CAAS docker image repo - extra colon",
 	config: controller.Config{
 		controller.CAASImageRepo: "foo::bar",
 	},
-	expectError: `docker image path "foo::bar" not valid`,
+	expectError: `docker image path "foo::bar": invalid reference format`,
 }, {
 	about: "invalid CAAS docker image repo - leading /",
 	config: controller.Config{
 		controller.CAASImageRepo: "/foo",
 	},
-	expectError: `docker image path "/foo" not valid`,
+	expectError: `docker image path "/foo": invalid reference format`,
 }, {
 	about: "invalid CAAS docker image repo - extra /",
 	config: controller.Config{
 		controller.CAASImageRepo: "foo//bar",
 	},
-	expectError: `docker image path "foo//bar" not valid`,
+	expectError: `docker image path "foo//bar": invalid reference format`,
 }, {
 	about: "negative controller-api-port",
 	config: controller.Config{
@@ -592,21 +591,35 @@ func (s *ConfigSuite) TestConfigNoSpacesNilSpaceConfigPreserved(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
-	for _, imageRepo := range []string{
-		"", //used to reset since we don't have a --reset option
-		"juju-operator-repo",
-		"registry.foo.com",
-		"registry.foo.com/me",
+	type tc struct {
+		content  string
+		expected string
+	}
+	for _, imageRepo := range []tc{
+		//used to reset since we don't have a --reset option
+		{content: "", expected: ""},
+		{content: "juju-operator-repo", expected: ""},
+		{content: "registry.foo.com", expected: ""},
+		{content: "registry.foo.com/me", expected: ""},
+		{content: `
+{
+    "serveraddress": "quay.io",
+    "auth": "xxxxx==",
+    "repository": "test-account"
+}`[1:], expected: "test-account"},
 	} {
+		if imageRepo.expected == "" {
+			imageRepo.expected = imageRepo.content
+		}
 		cfg, err := controller.NewConfig(
 			testing.ControllerTag.Id(),
 			testing.CACert,
 			map[string]interface{}{
-				controller.CAASImageRepo: imageRepo,
+				controller.CAASImageRepo: imageRepo.content,
 			},
 		)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cfg.CAASImageRepo(), gc.Equals, imageRepo)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(cfg.CAASImageRepo().Repository, gc.Equals, imageRepo.expected)
 	}
 }
 

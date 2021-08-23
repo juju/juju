@@ -19,7 +19,6 @@ import (
 	"github.com/juju/utils/v2"
 	"gopkg.in/juju/environschema.v1"
 
-	// "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/pki"
 )
@@ -425,8 +424,6 @@ var (
 		PublicDNSAddress,
 		JujuHASpace,
 		JujuManagementSpace,
-		// CAASOperatorImagePath,
-		// CAASImageRepo,
 		Features,
 		MaxCharmStateSize,
 		MaxAgentStateSize,
@@ -1008,7 +1005,6 @@ func Validate(c Config) error {
 	}
 
 	if v, ok := c[CAASOperatorImagePath].(string); ok && v != "" {
-		// if err := resources.ValidateDockerRegistryPath(v); err != nil {
 		imageDetails, err := docker.NewImageRepoDetails(v)
 		if err != nil {
 			return errors.Trace(err)
@@ -1017,11 +1013,9 @@ func Validate(c Config) error {
 			return errors.Trace(err)
 		}
 		c[CAASOperatorImagePath] = imageDetails.String()
-		fmt.Printf("c[CAASOperatorImagePath] -> %q", c[CAASOperatorImagePath])
 	}
 
 	if v, ok := c[CAASImageRepo].(string); ok && v != "" {
-		// if err := resources.ValidateDockerRegistryPath(v); err != nil {
 		imageDetails, err := docker.NewImageRepoDetails(v)
 		if err != nil {
 			return errors.Trace(err)
@@ -1030,7 +1024,6 @@ func Validate(c Config) error {
 			return errors.Trace(err)
 		}
 		c[CAASImageRepo] = imageDetails.String()
-		fmt.Printf("c[CAASImageRepo] -> %q", c[CAASImageRepo])
 	}
 
 	var auditLogMaxSize int
