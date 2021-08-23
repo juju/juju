@@ -6894,7 +6894,11 @@
                             "type": "string"
                         }
                     },
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "required": [
+                        "username",
+                        "password"
+                    ]
                 },
                 "CAASApplicationGarbageCollectArg": {
                     "type": "object",
@@ -10440,7 +10444,11 @@
                             "type": "string"
                         }
                     },
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "required": [
+                        "username",
+                        "password"
+                    ]
                 },
                 "DockerImageDetails": {
                     "type": "object",
@@ -11677,7 +11685,11 @@
                             "type": "string"
                         }
                     },
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "required": [
+                        "username",
+                        "password"
+                    ]
                 },
                 "Charm": {
                     "type": "object",
