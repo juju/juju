@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -113,7 +112,7 @@ func (c *upgradeControllerCommand) getModelConfigAPI() (modelConfigAPI, error) {
 	return modelconfig.NewClient(api), nil
 }
 
-func (c *upgradeControllerCommand) getControllerAPI() (controllerAPI, error) {
+func (c *upgradeControllerCommand) getControllerAPI() (ControllerAPI, error) {
 	if c.controllerAPI != nil {
 		return c.controllerAPI, nil
 	}
@@ -269,7 +268,7 @@ func (c *upgradeControllerCommand) upgradeCAASController(ctx *cmd.Context) error
 	return c.notifyControllerUpgrade(ctx, client, context)
 }
 
-func listOperatorImages(controllerCfg controller.Config) (tools.Versions, error) {
+func (c *baseUpgradeCommand) listOperatorImages(controllerCfg controller.Config) (tools.Versions, error) {
 	imagePath, err := podcfg.GetJujuOCIImagePath(controllerCfg, version.Zero, 0)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -279,7 +278,7 @@ func listOperatorImages(controllerCfg controller.Config) (tools.Versions, error)
 	if !imageRepoDetails.IsPrivate() {
 		return docker.ListOperatorImages(imagePath)
 	}
-	reg, err := registry.NewRegistry(imageRepoDetails)
+	reg, err := c.registryAPINewer(imageRepoDetails)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -295,7 +294,7 @@ func (c *baseUpgradeCommand) initCAASVersions(
 	controllerCfg controller.Config, majorVersion int, streamsAgents tools.List,
 ) (tools.Versions, error) {
 	logger.Debugf("searching for agent images with major: %d", majorVersion)
-	availableTags, err := listOperatorImages(controllerCfg)
+	availableTags, err := c.listOperatorImages(controllerCfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

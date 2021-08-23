@@ -30,6 +30,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/docker"
+	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -80,6 +82,7 @@ See also:
 
 func newUpgradeJujuCommand() cmd.Command {
 	command := &upgradeJujuCommand{}
+	command.registryAPINewer = registry.NewRegistry
 	return modelcmd.Wrap(command)
 }
 
@@ -88,13 +91,16 @@ func newUpgradeJujuCommandForTest(
 	jujuClientAPI jujuClientAPI,
 	modelConfigAPI modelConfigAPI,
 	modelManagerAPI modelManagerAPI,
-	controllerAPI controllerAPI,
-	options ...modelcmd.WrapOption) cmd.Command {
+	controllerAPI ControllerAPI,
+	registryAPINewer registryAPINewer,
+	options ...modelcmd.WrapOption,
+) cmd.Command {
 	command := &upgradeJujuCommand{
 		baseUpgradeCommand: baseUpgradeCommand{
-			modelConfigAPI:  modelConfigAPI,
-			modelManagerAPI: modelManagerAPI,
-			controllerAPI:   controllerAPI,
+			modelConfigAPI:   modelConfigAPI,
+			modelManagerAPI:  modelManagerAPI,
+			controllerAPI:    controllerAPI,
+			registryAPINewer: registryAPINewer,
 		},
 		jujuClientAPI: jujuClientAPI,
 	}
@@ -121,9 +127,10 @@ type baseUpgradeCommand struct {
 	rawArgs        []string
 	upgradeMessage string
 
-	modelConfigAPI  modelConfigAPI
-	modelManagerAPI modelManagerAPI
-	controllerAPI   controllerAPI
+	modelConfigAPI   modelConfigAPI
+	modelManagerAPI  modelManagerAPI
+	controllerAPI    ControllerAPI
+	registryAPINewer registryAPINewer
 }
 
 func (c *baseUpgradeCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -318,12 +325,15 @@ type modelManagerAPI interface {
 	Close() error
 }
 
-type controllerAPI interface {
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/controller_mock.go github.com/juju/juju/cmd/juju/commands ControllerAPI
+type ControllerAPI interface {
 	CloudSpec(modelTag names.ModelTag) (environscloudspec.CloudSpec, error)
 	ControllerConfig() (controller.Config, error)
 	ModelConfig() (map[string]interface{}, error)
 	Close() error
 }
+
+type registryAPINewer func(docker.ImageRepoDetails) (registry.Registry, error)
 
 func (c *upgradeJujuCommand) getJujuClientAPI() (jujuClientAPI, error) {
 	if c.jujuClientAPI != nil {
@@ -353,7 +363,7 @@ func (c *upgradeJujuCommand) getModelConfigAPI() (modelConfigAPI, error) {
 	return modelconfig.NewClient(api), nil
 }
 
-func (c *upgradeJujuCommand) getControllerAPI() (controllerAPI, error) {
+func (c *upgradeJujuCommand) getControllerAPI() (ControllerAPI, error) {
 	if c.controllerAPI != nil {
 		return c.controllerAPI, nil
 	}
@@ -600,7 +610,7 @@ func (c *upgradeJujuCommand) validateModelUpgrade() error {
 // to allow controller versions of the methods to be used for getting
 // the current environ.
 type environConfigGetter struct {
-	controllerAPI
+	controllerAPI ControllerAPI
 
 	modelTag names.ModelTag
 }
@@ -652,7 +662,7 @@ type UpgradePrecheckEnviron interface {
 
 // precheckEnviron looks for available PrecheckUpgradeOperations from
 // the current environs and runs them for the controller model.
-func (c *upgradeJujuCommand) precheckEnviron(upgradeCtx *upgradeContext, api controllerAPI, agentVersion version.Number) error {
+func (c *upgradeJujuCommand) precheckEnviron(upgradeCtx *upgradeContext, api ControllerAPI, agentVersion version.Number) error {
 	modelName, details, err := c.ModelCommandBase.ModelDetails()
 	if err != nil {
 		return err
