@@ -5,7 +5,6 @@ package raft
 
 import (
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -398,9 +397,7 @@ func NewRaftConfig(config Config) (*raft.Config, error) {
 	// Having ShutdownOnRemove true means that the raft node also
 	// stops when it's demoted if it's the leader.
 	raftConfig.ShutdownOnRemove = false
-
-	logWriter := &raftutil.LoggoWriter{Logger: config.Logger, Level: loggo.DEBUG}
-	raftConfig.Logger = log.New(logWriter, "", 0)
+	raftConfig.Logger = raftutil.NewHCLLogger("raft", config.Logger)
 
 	maybeOverrideDuration := func(d time.Duration, target *time.Duration) {
 		if d != 0 {
@@ -455,12 +452,10 @@ func NewSnapshotStore(
 	retain int,
 	logger Logger,
 ) (raft.SnapshotStore, error) {
-	const logPrefix = "[snapshot] "
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, errors.Trace(err)
 	}
-	logWriter := &raftutil.LoggoWriter{Logger: logger, Level: loggo.DEBUG}
-	logLogger := log.New(logWriter, logPrefix, 0)
+	logLogger := raftutil.NewHCLLogger("snapshot", logger)
 
 	snaps, err := raft.NewFileSnapshotStoreWithLogger(dir, retain, logLogger)
 	if err != nil {

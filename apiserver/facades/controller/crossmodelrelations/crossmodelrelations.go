@@ -171,7 +171,7 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 	return results, nil
 }
 
-// RegisterRemoteRelationArgs sets up the model to participate
+// RegisterRemoteRelations sets up the model to participate
 // in the specified relations. This operation is idempotent.
 func (api *CrossModelRelationsAPI) RegisterRemoteRelations(
 	relations params.RegisterRemoteRelationArgs,

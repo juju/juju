@@ -5,6 +5,7 @@ package jujuc
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -18,14 +19,18 @@ type secretCreateCommand struct {
 	cmd.CommandBase
 	ctx Context
 
-	id       string
-	asBase64 bool
-	data     map[string]string
+	id             string
+	asBase64       bool
+	rotateInterval time.Duration
+	data           map[string]string
 }
 
 // NewSecretCreateCommand returns a command to create a secret.
 func NewSecretCreateCommand(ctx Context) (cmd.Command, error) {
-	return &secretCreateCommand{ctx: ctx}, nil
+	return &secretCreateCommand{
+		ctx:            ctx,
+		rotateInterval: -1,
+	}, nil
 }
 
 // Info implements cmd.Command.
@@ -48,6 +53,7 @@ prior to being stored.
 func (c *secretCreateCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.asBase64, "base64", false,
 		`specify the supplied values are base64 encoded strings`)
+	f.DurationVar(&c.rotateInterval, "rotate", 0, "how often the secret should be rotated")
 }
 
 // Init implements cmd.Command.
@@ -57,6 +63,9 @@ func (c *secretCreateCommand) Init(args []string) error {
 	}
 	if len(args) < 2 {
 		return errors.New("missing secret value")
+	}
+	if c.rotateInterval < 0 {
+		return errors.NotValidf("rotate interval %q", c.rotateInterval)
 	}
 	c.id = args[0]
 
@@ -68,7 +77,10 @@ func (c *secretCreateCommand) Init(args []string) error {
 // Run implements cmd.Command.
 func (c *secretCreateCommand) Run(ctx *cmd.Context) error {
 	value := secrets.NewSecretValue(c.data)
-	id, err := c.ctx.CreateSecret(c.id, value)
+	id, err := c.ctx.CreateSecret(c.id, &UpsertArgs{
+		Value:          value,
+		RotateInterval: c.rotateInterval,
+	})
 	if err != nil {
 		return err
 	}

@@ -189,7 +189,7 @@ func (mr *MockContextMockRecorder) ConfigSettings() *gomock.Call {
 }
 
 // CreateSecret mocks base method.
-func (m *MockContext) CreateSecret(arg0 string, arg1 secrets.SecretValue) (string, error) {
+func (m *MockContext) CreateSecret(arg0 string, arg1 *jujuc.UpsertArgs) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateSecret", arg0, arg1)
 	ret0, _ := ret[0].(string)

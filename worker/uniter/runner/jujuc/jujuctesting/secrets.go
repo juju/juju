@@ -5,6 +5,7 @@ package jujuctesting
 
 import (
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 // ContextSecrets is a test double for jujuc.ContextSecrets.
@@ -21,7 +22,7 @@ func (c *ContextSecrets) GetSecret(ID string) (secrets.SecretValue, error) {
 }
 
 // CreateSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) CreateSecret(name string, value secrets.SecretValue) (string, error) {
-	c.stub.AddCall("CreateSecret", name, value)
+func (c *ContextSecrets) CreateSecret(name string, args *jujuc.UpsertArgs) (string, error) {
+	c.stub.AddCall("CreateSecret", name, args)
 	return "secret://app." + name, nil
 }

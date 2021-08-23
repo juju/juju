@@ -4,7 +4,6 @@
 package raft_test
 
 import (
-	"log"
 	"time"
 
 	coreraft "github.com/hashicorp/raft"
@@ -74,7 +73,7 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		"empty LocalID not valid",
 	}, {
 		func(cfg *raft.Config) { cfg.HeartbeatTimeout = time.Millisecond },
-		"validating raft config: Heartbeat timeout is too low",
+		"validating raft config: HeartbeatTimeout is too low",
 	}, {
 		func(cfg *raft.Config) { cfg.Transport = nil },
 		"nil Transport not valid",
@@ -259,10 +258,7 @@ func (s *WorkerSuite) newRaft(c *gc.C, id coreraft.ServerID) (
 	raftConfig.HeartbeatTimeout = 100 * time.Millisecond
 	raftConfig.ElectionTimeout = raftConfig.HeartbeatTimeout
 	raftConfig.LeaderLeaseTimeout = raftConfig.HeartbeatTimeout
-	raftConfig.Logger = log.New(&raftutil.LoggoWriter{
-		loggo.GetLogger("juju.worker.raft_test_" + string(id)),
-		loggo.DEBUG,
-	}, "", 0)
+	raftConfig.Logger = raftutil.NewHCLLogger("test", loggo.GetLogger("juju.worker.raft_test_"+string(id)))
 	r, err := coreraft.NewRaft(
 		raftConfig,
 		&raft.SimpleFSM{},

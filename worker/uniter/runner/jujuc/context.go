@@ -163,13 +163,22 @@ type ContextUnit interface {
 	CloudSpec() (*params.CloudSpec, error)
 }
 
+// UpsertArgs specifies args used to create or update a secret.
+type UpsertArgs struct {
+	// Value is the new secret value or nil to not update.
+	Value secrets.SecretValue
+
+	// RotateInterval is the new rotate interval or -1 to not update.
+	RotateInterval time.Duration
+}
+
 // ContextSecrets is the part of a hook context related to secrets.
 type ContextSecrets interface {
 	// GetSecret returns the value of the specified secret.
 	GetSecret(ID string) (secrets.SecretValue, error)
 
 	// CreateSecret creates a secret with the specified data.
-	CreateSecret(name string, value secrets.SecretValue) (string, error)
+	CreateSecret(name string, args *UpsertArgs) (string, error)
 }
 
 // ContextStatus is the part of a hook context related to the unit's status.
