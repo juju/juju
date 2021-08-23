@@ -42,7 +42,7 @@ type Registry interface {
 	Ping() error
 }
 
-// NewRegistry creates a new registery.
+// NewRegistry creates a new registry.
 func NewRegistry(repoDetails docker.ImageRepoDetails) (Registry, error) {
 	return newRegistry(repoDetails, http.DefaultTransport)
 }

@@ -23,7 +23,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
@@ -337,8 +336,8 @@ func (k *kubernetesClient) operatorVolumeClaim(
 		}
 		return existingClaim, nil
 	}
-	if storageParams.Provider != constants.StorageProviderType {
-		return nil, errors.Errorf("expected charm storage provider %q, got %q", constants.StorageProviderType, storageParams.Provider)
+	if storageParams.Provider != k8sconstants.StorageProviderType {
+		return nil, errors.Errorf("expected charm storage provider %q, got %q", k8sconstants.StorageProviderType, storageParams.Provider)
 	}
 
 	// Charm needs storage so set it up.
@@ -554,7 +553,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
 	configMapName := operatorConfigMapName(operatorName)
 	err = configMaps.Delete(context.TODO(), configMapName, v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -566,7 +565,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 		configMapName = "juju-" + configMapName
 	}
 	err = configMaps.Delete(context.TODO(), configMapName, v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -609,7 +608,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 		// for operators as the volume is an inseparable part of the operator.
 		for _, volName := range volumeNames {
 			err = pvs.Delete(context.TODO(), volName, v1.DeleteOptions{
-				PropagationPolicy: constants.DefaultPropagationPolicy(),
+				PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 			})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return errors.Annotatef(err, "deleting operator persistent volume %v for %v",
@@ -782,8 +781,8 @@ func operatorPod(
 				},
 				VolumeMounts: []core.VolumeMount{{
 					Name:      configVolName,
-					MountPath: filepath.Join(agent.Dir(agentPath, appTag), constants.TemplateFileNameAgentConf),
-					SubPath:   constants.TemplateFileNameAgentConf,
+					MountPath: filepath.Join(agent.Dir(agentPath, appTag), k8sconstants.TemplateFileNameAgentConf),
+					SubPath:   k8sconstants.TemplateFileNameAgentConf,
 				}, {
 					Name:      configVolName,
 					MountPath: filepath.Join(agent.Dir(agentPath, appTag), caas.OperatorInfoFile),
@@ -799,7 +798,7 @@ func operatorPod(
 						},
 						Items: []core.KeyToPath{{
 							Key:  operatorConfigMapAgentConfKey(appName),
-							Path: constants.TemplateFileNameAgentConf,
+							Path: k8sconstants.TemplateFileNameAgentConf,
 						}, {
 							Key:  caas.OperatorInfoFile,
 							Path: caas.OperatorInfoFile,

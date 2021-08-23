@@ -107,10 +107,10 @@ func (rid ImageRepoDetails) Validate() error {
 	if err != nil {
 		return errors.NewNotValid(err, fmt.Sprintf("docker image path %q", rid.Repository))
 	}
-	if rid.BasicAuthConfig.Validate(); err != nil {
+	if err := rid.BasicAuthConfig.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	if rid.TokenAuthConfig.Validate(); err != nil {
+	if err := rid.TokenAuthConfig.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -137,7 +137,7 @@ func NewImageRepoDetails(contentOrPath string) (*ImageRepoDetails, error) {
 		}
 	}
 	o := &ImageRepoDetails{}
-	err = yaml.Unmarshal([]byte(data), o)
+	err = yaml.Unmarshal(data, o)
 	if err != nil {
 		return &ImageRepoDetails{Repository: contentOrPath}, nil
 	}

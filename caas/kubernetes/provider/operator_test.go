@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/testing"
@@ -376,7 +377,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
+func (s *K8sBrokerSuite) assertEnsureOperatorCreate(c *gc.C, isPrivateImageRepo bool) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -441,6 +442,11 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 		},
 	}
 	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage", "test-operator", true)
+	if isPrivateImageRepo {
+		statefulSetArg.Spec.Template.Spec.ImagePullSecrets = []core.LocalObjectReference{
+			{Name: k8sconstants.CAASImageRepoSecretName},
+		}
+	}
 
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-test", v1.GetOptions{}).
@@ -470,9 +476,12 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 		s.mockStatefulSets.EXPECT().Create(gomock.Any(), statefulSetArg, v1.CreateOptions{}).
 			Return(statefulSetArg, nil),
 	)
-
+	imageDetails := resources.DockerImageDetails{RegistryPath: "/path/to/image"}
+	if isPrivateImageRepo {
+		imageDetails.TokenAuthConfig.RegistryToken = "xxxxxxxx==="
+	}
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		ImageDetails: resources.DockerImageDetails{RegistryPath: "/path/to/image"},
+		ImageDetails: imageDetails,
 		Version:      version.MustParse("2.99.0"),
 		AgentConf:    []byte("agent-conf-data"),
 		OperatorInfo: []byte("operator-info-data"),
@@ -488,6 +497,14 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
+	s.assertEnsureOperatorCreate(c, false)
+}
+
+func (s *K8sBrokerSuite) TestEnsureOperatorCreatePrivateImageRepo(c *gc.C) {
+	s.assertEnsureOperatorCreate(c, true)
 }
 
 func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
