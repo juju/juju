@@ -4,24 +4,32 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    #if: github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false
     steps:
 
     - name: Cache install go
       uses: actions/cache@v2
-      id: cache-go
+      id: lint-cache-go
       with: 
         path: /home/runner/go
         key: ${{ runner.os }}-go
 
     - name: Set up Go 1.14
-      if: steps.cache-go.outputs.cache-hit != 'true'
+      if: steps.lint-cache-go.outputs.cache-hit != 'true'
       uses: actions/setup-go@v2.1.3
       with:
         go-version: 1.14
       id: go
 
+    - name: Cache install dependencies
+      uses: actions/cache@v2
+      id: cache-install-dependencies
+      with:
+        path: /home/runner/go/bin/golangci-lint
+        key: ${{ runner.os }}-golangci-lint
+
     - name: Install Dependencies
+      if: steps.cache-install-dependencies.cache-hit != 'true'
       run: |
         echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
@@ -59,8 +67,15 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     steps:
+    - name: Cache install go
+      uses: actions/cache@v2
+      id: schema-cache-go
+      with: 
+        path: /home/runner/go
+        key: ${{ runner.os }}-go
 
     - name: Set up Go 1.14
+      if: steps.schema-cache-go.outputs.cache-hit != 'true'
       uses: actions/setup-go@v2.1.3
       with:
         go-version: 1.14
