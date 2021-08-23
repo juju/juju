@@ -25,9 +25,17 @@ type CreateSecretParams struct {
 	Version        int
 	Type           string
 	Path           string
-	Scope          string
+	RotateInterval time.Duration
 	Params         map[string]interface{}
-	Data           map[string]string
+	Data           secrets.SecretData
+}
+
+// UpdateSecretParams are used to update a secret.
+// TODO(wallyworld) - add tags and description etc
+type UpdateSecretParams struct {
+	RotateInterval time.Duration
+	Params         map[string]interface{}
+	Data           secrets.SecretData
 }
 
 // TODO(wallyworld)
@@ -35,7 +43,8 @@ type SecretsFilter struct{}
 
 // SecretsStore instances use mongo as a secrets store.
 type SecretsStore interface {
-	CreateSecret(p CreateSecretParams) (*secrets.URL, *secrets.SecretMetadata, error)
+	CreateSecret(p CreateSecretParams) (*secrets.SecretMetadata, error)
+	UpdateSecret(URL *secrets.URL, p UpdateSecretParams) (*secrets.SecretMetadata, error)
 	GetSecretValue(URL *secrets.URL) (secrets.SecretValue, error)
 	ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetadata, error)
 }
@@ -48,17 +57,17 @@ func NewSecretsStore(st *State) *secretsStore {
 type secretMetadataDoc struct {
 	DocID string `bson:"_id"`
 
-	Path        string            `bson:"path"`
-	Scope       string            `bson:"scope"`
-	Version     int               `bson:"version"`
-	Description string            `bson:"description"`
-	Tags        map[string]string `bson:"tags"`
-	ID          int               `bson:"id"`
-	Provider    string            `bson:"provider"`
-	ProviderID  string            `bson:"provider-id"`
-	Revision    int               `bson:"revision"`
-	CreateTime  time.Time         `bson:"create-time"`
-	UpdateTime  time.Time         `bson:"update-time"`
+	Path           string            `bson:"path"`
+	Version        int               `bson:"version"`
+	RotateInterval time.Duration     `bson:"rotate-interval"`
+	Description    string            `bson:"description"`
+	Tags           map[string]string `bson:"tags"`
+	ID             int               `bson:"id"`
+	Provider       string            `bson:"provider"`
+	ProviderID     string            `bson:"provider-id"`
+	Revision       int               `bson:"revision"`
+	CreateTime     time.Time         `bson:"create-time"`
+	UpdateTime     time.Time         `bson:"update-time"`
 }
 
 type secretValueDoc struct {
@@ -93,49 +102,56 @@ func (s *secretsStore) secretMetadataDoc(URL *secrets.URL, p *CreateSecretParams
 		return nil, errors.Trace(err)
 	}
 	return &secretMetadataDoc{
-		DocID:       URL.String(),
-		Path:        p.Path,
-		Scope:       p.Scope,
-		Version:     p.Version,
-		Description: "",
-		Tags:        nil,
-		ID:          id,
-		Provider:    p.ProviderLabel,
-		ProviderID:  "",
-		Revision:    1,
-		CreateTime:  s.st.nowToTheSecond(),
-		UpdateTime:  s.st.nowToTheSecond(),
+		DocID:          URL.String(),
+		Path:           p.Path,
+		Version:        p.Version,
+		RotateInterval: p.RotateInterval,
+		Description:    "",
+		Tags:           nil,
+		ID:             id,
+		Provider:       p.ProviderLabel,
+		ProviderID:     "",
+		Revision:       1,
+		CreateTime:     s.st.nowToTheSecond(),
+		UpdateTime:     s.st.nowToTheSecond(),
 	}, nil
 }
 
-func (s *secretsStore) secretValueDoc(url *secrets.URL, p *CreateSecretParams) *secretValueDoc {
-	data := make(secretsDataMap)
-	for k, v := range p.Data {
-		data[k] = v
+func (s *secretsStore) updateSecretMetadataDoc(doc *secretMetadataDoc, p *UpdateSecretParams) {
+	doc.UpdateTime = s.st.nowToTheSecond()
+	doc.RotateInterval = p.RotateInterval
+	doc.Revision = doc.Revision + 1
+}
+
+func (s *secretsStore) secretValueDoc(url *secrets.URL, data secrets.SecretData) *secretValueDoc {
+	dataCopy := make(secretsDataMap)
+	for k, v := range data {
+		dataCopy[k] = v
 	}
 	return &secretValueDoc{
 		DocID: url.String(),
-		Data:  data,
+		Data:  dataCopy,
 	}
 }
 
 // CreateSecret creates a new secret.
-func (s *secretsStore) CreateSecret(p CreateSecretParams) (*secrets.URL, *secrets.SecretMetadata, error) {
+func (s *secretsStore) CreateSecret(p CreateSecretParams) (*secrets.SecretMetadata, error) {
 	URL := &secrets.URL{
 		Version:        fmt.Sprintf("v%d", p.Version),
 		ControllerUUID: p.ControllerUUID,
 		ModelUUID:      p.ModelUUID,
 		Path:           p.Path,
+		Revision:       1,
 	}
 	metadataDoc, err := s.secretMetadataDoc(URL, &p)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	valueDoc := s.secretValueDoc(URL, &p)
+	valueDoc := s.secretValueDoc(URL, p.Data)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if _, err := s.GetSecretValue(URL); err == nil {
-				return nil, errors.AlreadyExistsf("secret value for %q", URL.String())
+				return nil, errors.AlreadyExistsf("secret value for %q", URL.ID())
 			}
 		}
 		ops := []txn.Op{
@@ -155,25 +171,76 @@ func (s *secretsStore) CreateSecret(p CreateSecretParams) (*secrets.URL, *secret
 	}
 	err = s.st.db().Run(buildTxn)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	metadata := s.toSecretMetadata(metadataDoc)
-	return URL, metadata, nil
+	metadata.URL = URL
+	return metadata, nil
+}
+
+// UpdateSecret updates an existing secret.
+func (s *secretsStore) UpdateSecret(URL *secrets.URL, p UpdateSecretParams) (*secrets.SecretMetadata, error) {
+	if URL.Revision > 0 {
+		return nil, errors.New("cannot specify a revision when updating a secret")
+	}
+	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
+	defer closer()
+
+	var metadataDoc secretMetadataDoc
+	baseURL := URL.WithRevision(0)
+	updatedURL := *URL
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		err := secretMetadataCollection.FindId(baseURL.ID()).One(&metadataDoc)
+		if errors.Cause(err) == mgo.ErrNotFound {
+			return nil, errors.NotFoundf("secret %q", baseURL.ID())
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		s.updateSecretMetadataDoc(&metadataDoc, &p)
+		updatedURL = *updatedURL.WithRevision(metadataDoc.Revision)
+		if _, err := s.GetSecretValue(&updatedURL); err == nil {
+			return nil, errors.AlreadyExistsf("secret value for %q", URL.ID())
+		}
+
+		valueDoc := s.secretValueDoc(&updatedURL, p.Data)
+		ops := []txn.Op{
+			{
+				C:      secretMetadataC,
+				Id:     metadataDoc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.M{"$set": metadataDoc},
+			}, {
+				C:      secretValuesC,
+				Id:     valueDoc.DocID,
+				Assert: txn.DocMissing,
+				Insert: *valueDoc,
+			},
+		}
+		return ops, nil
+	}
+	err := s.st.db().Run(buildTxn)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	metadata := s.toSecretMetadata(&metadataDoc)
+	metadata.URL = &updatedURL
+	return metadata, nil
 }
 
 func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc) *secrets.SecretMetadata {
 	return &secrets.SecretMetadata{
-		Path:        doc.Path,
-		Scope:       secrets.Scope(doc.Scope),
-		Version:     doc.Version,
-		Description: doc.Description,
-		Tags:        doc.Tags,
-		ID:          doc.ID,
-		Provider:    doc.Provider,
-		ProviderID:  doc.ProviderID,
-		Revision:    doc.Revision,
-		CreateTime:  doc.CreateTime,
-		UpdateTime:  doc.UpdateTime,
+		Path:           doc.Path,
+		Version:        doc.Version,
+		RotateInterval: doc.RotateInterval,
+		Description:    doc.Description,
+		Tags:           doc.Tags,
+		ID:             doc.ID,
+		Provider:       doc.Provider,
+		ProviderID:     doc.ProviderID,
+		Revision:       doc.Revision,
+		CreateTime:     doc.CreateTime,
+		UpdateTime:     doc.UpdateTime,
 	}
 }
 

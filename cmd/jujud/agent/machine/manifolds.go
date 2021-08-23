@@ -83,7 +83,6 @@ import (
 	"github.com/juju/juju/worker/raft/raftclusterer"
 	"github.com/juju/juju/worker/raft/raftflag"
 	"github.com/juju/juju/worker/raft/raftforwarder"
-	"github.com/juju/juju/worker/raft/raftleaseservice"
 	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/resumer"
@@ -796,24 +795,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewTarget:            raftforwarder.NewTarget,
 		})),
 
-		// The raft lease consumer offers a endpoint for accepting FSM commands
-		// and applies them to the raft leader.
-		raftLeaseServiceName: ifRaftLeader(raftleaseservice.Manifold(raftleaseservice.ManifoldConfig{
-			AgentName:            agentName,
-			RaftName:             raftName,
-			MuxName:              httpServerArgsName,
-			AuthenticatorName:    httpServerArgsName,
-			StateName:            stateName,
-			Logger:               loggo.GetLogger("juju.worker.raft.raftleaseservice"),
-			PrometheusRegisterer: config.PrometheusRegisterer,
-			LeaseLog:             config.LeaseLog,
-			Clock:                config.Clock,
-			NewWorker:            raftleaseservice.NewWorker,
-			NewTarget:            raftleaseservice.NewTarget,
-			GetState:             raftleaseservice.GetState,
-			Path:                 "/raft/lease",
-		})),
-
 		// The global lease manager tracks lease information in the raft
 		// cluster rather than in mongo.
 		leaseManagerName: ifController(leasemanager.Manifold(leasemanager.ManifoldConfig{
@@ -1161,13 +1142,12 @@ const (
 	httpServerArgsName = "http-server-args"
 	apiServerName      = "api-server"
 
-	raftTransportName    = "raft-transport"
-	raftName             = "raft"
-	raftClustererName    = "raft-clusterer"
-	raftFlagName         = "raft-leader-flag"
-	raftBackstopName     = "raft-backstop"
-	raftForwarderName    = "raft-forwarder"
-	raftLeaseServiceName = "raft-lease-service"
+	raftTransportName = "raft-transport"
+	raftName          = "raft"
+	raftClustererName = "raft-clusterer"
+	raftFlagName      = "raft-leader-flag"
+	raftBackstopName  = "raft-backstop"
+	raftForwarderName = "raft-forwarder"
 
 	validCredentialFlagName = "valid-credential-flag"
 

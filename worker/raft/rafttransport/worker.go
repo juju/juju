@@ -6,7 +6,6 @@ package rafttransport
 import (
 	"context"
 	"crypto/tls"
-	"log"
 	"net"
 	"net/http"
 	"time"
@@ -132,9 +131,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		apiPort:      apiPorts[0],
 	}
 
-	const logPrefix = "[transport] "
-	logWriter := &raftutil.LoggoWriter{logger, loggo.DEBUG}
-	logLogger := log.New(logWriter, logPrefix, 0)
 	stream, err := newStreamLayer(config.LocalID, config.Hub, w.connections, config.Clock, &Dialer{
 		APIInfo: config.APIInfo,
 		DialRaw: w.dialRaw,
@@ -144,7 +140,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	transport := raft.NewNetworkTransportWithConfig(&raft.NetworkTransportConfig{
-		Logger:  logLogger,
+		Logger:  raftutil.NewHCLLogger("transport", logger),
 		MaxPool: maxPoolSize,
 		Stream:  stream,
 		Timeout: config.Timeout,
@@ -188,7 +184,6 @@ type Worker struct {
 	config       Config
 	connections  chan net.Conn
 	dialRequests chan dialRequest
-	tlsConfig    *tls.Config
 	apiPort      int
 }
 

@@ -34,29 +34,31 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 		Version:        1,
 		Type:           "blob",
 		Path:           "app.password",
-		Scope:          "application",
+		RotateInterval: time.Hour,
 		Params:         nil,
 		Data:           map[string]string{"foo": "bar"},
 	}
-	URL, md, err := s.store.CreateSecret(p)
+	md, err := s.store.CreateSecret(p)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md.URL.Revision, gc.Equals, 1)
 	expectedURL := fmt.Sprintf("secret://v1/%s/%s/app.password", p.ControllerUUID, p.ModelUUID)
-	c.Assert(URL.String(), gc.Equals, expectedURL)
+	c.Assert(md.URL.String(), gc.Equals, expectedURL)
+	md.URL = nil
 	now := s.Clock.Now().Round(time.Second).UTC()
 	c.Assert(md, jc.DeepEquals, &secrets.SecretMetadata{
-		Path:        p.Path,
-		Scope:       secrets.Scope(p.Scope),
-		Version:     1,
-		Description: "",
-		Tags:        nil,
-		ID:          1,
-		ProviderID:  "",
-		Revision:    1,
-		CreateTime:  now,
-		UpdateTime:  now,
+		Path:           p.Path,
+		RotateInterval: time.Hour,
+		Version:        1,
+		Description:    "",
+		Tags:           nil,
+		ID:             1,
+		ProviderID:     "",
+		Revision:       1,
+		CreateTime:     now,
+		UpdateTime:     now,
 	})
 
-	_, _, err = s.store.CreateSecret(p)
+	_, err = s.store.CreateSecret(p)
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
@@ -67,18 +69,18 @@ func (s *SecretsSuite) TestCreateIncrementsID(c *gc.C) {
 		Version:        1,
 		Type:           "blob",
 		Path:           "app.password",
-		Scope:          "application",
+		RotateInterval: time.Hour,
 		Params:         nil,
 		Data:           map[string]string{"foo": "bar"},
 	}
-	_, _, err := s.store.CreateSecret(p)
+	_, err := s.store.CreateSecret(p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p.Path = "app.password2"
 	expectedURL := fmt.Sprintf("secret://v1/%s/%s/app.password2", p.ControllerUUID, p.ModelUUID)
-	URL, md, err := s.store.CreateSecret(p)
+	md, err := s.store.CreateSecret(p)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(URL.String(), gc.Equals, expectedURL)
+	c.Assert(md.URL.String(), gc.Equals, expectedURL)
 	c.Assert(md.ID, gc.Equals, 2)
 }
 
@@ -96,14 +98,14 @@ func (s *SecretsSuite) TestGetValue(c *gc.C) {
 		ProviderLabel:  "juju",
 		Type:           "blob",
 		Path:           "app.password",
-		Scope:          "application",
+		RotateInterval: time.Hour,
 		Params:         nil,
 		Data:           map[string]string{"foo": "bar"},
 	}
-	URL, _, err := s.store.CreateSecret(p)
+	md, err := s.store.CreateSecret(p)
 	c.Assert(err, jc.ErrorIsNil)
 
-	val, err := s.store.GetSecretValue(URL)
+	val, err := s.store.GetSecretValue(md.URL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -118,15 +120,15 @@ func (s *SecretsSuite) TestGetValueAttribute(c *gc.C) {
 		ProviderLabel:  "juju",
 		Type:           "blob",
 		Path:           "app.password",
-		Scope:          "application",
+		RotateInterval: time.Hour,
 		Params:         nil,
 		Data:           map[string]string{"foo": "bar", "hello": "world"},
 	}
-	URL, _, err := s.store.CreateSecret(p)
+	md, err := s.store.CreateSecret(p)
 	c.Assert(err, jc.ErrorIsNil)
 
-	URL.Attribute = "hello"
-	val, err := s.store.GetSecretValue(URL)
+	md.URL.Attribute = "hello"
+	val, err := s.store.GetSecretValue(md.URL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{
 		"hello": "world",
@@ -141,15 +143,15 @@ func (s *SecretsSuite) TestGetValueAttributeNotFound(c *gc.C) {
 		ProviderLabel:  "juju",
 		Type:           "blob",
 		Path:           "app.password",
-		Scope:          "application",
+		RotateInterval: time.Hour,
 		Params:         nil,
 		Data:           map[string]string{"foo": "bar", "hello": "world"},
 	}
-	URL, _, err := s.store.CreateSecret(p)
+	md, err := s.store.CreateSecret(p)
 	c.Assert(err, jc.ErrorIsNil)
 
-	URL.Attribute = "goodbye"
-	_, err = s.store.GetSecretValue(URL)
+	md.URL.Attribute = "goodbye"
+	_, err = s.store.GetSecretValue(md.URL)
 	c.Assert(err, gc.ErrorMatches, `secret attribute "goodbye" not found`)
 }
 
@@ -161,27 +163,115 @@ func (s *SecretsSuite) TestList(c *gc.C) {
 		ProviderLabel:  "juju",
 		Type:           "blob",
 		Path:           "app.password",
-		Scope:          "application",
+		RotateInterval: time.Hour,
 		Params:         nil,
 		Data:           map[string]string{"foo": "bar"},
 	}
-	_, _, err := s.store.CreateSecret(p)
+	_, err := s.store.CreateSecret(p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	list, err := s.store.ListSecrets(state.SecretsFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	now := s.Clock.Now().Round(time.Second).UTC()
 	c.Assert(list, jc.DeepEquals, []*secrets.SecretMetadata{{
-		Path:        "app.password",
-		Scope:       "application",
-		Version:     1,
-		Description: "",
-		Tags:        map[string]string{},
-		ID:          1,
-		Provider:    "juju",
-		ProviderID:  "",
-		Revision:    1,
-		CreateTime:  now,
-		UpdateTime:  now,
+		Path:           "app.password",
+		RotateInterval: time.Hour,
+		Version:        1,
+		Description:    "",
+		Tags:           map[string]string{},
+		ID:             1,
+		Provider:       "juju",
+		ProviderID:     "",
+		Revision:       1,
+		CreateTime:     now,
+		UpdateTime:     now,
 	}})
+}
+
+func (s *SecretsSuite) TestUpdate(c *gc.C) {
+	cp := state.CreateSecretParams{
+		ControllerUUID: s.State.ControllerUUID(),
+		ModelUUID:      s.State.ModelUUID(),
+		Version:        1,
+		ProviderLabel:  "juju",
+		Type:           "blob",
+		Path:           "app.password",
+		RotateInterval: time.Hour,
+		Params:         nil,
+		Data:           map[string]string{"foo": "bar"},
+	}
+	md, err := s.store.CreateSecret(cp)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUpdatedSecret(c, md.URL, 2)
+}
+
+func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, URL *secrets.URL, revision int) {
+	created := s.Clock.Now().Round(time.Second).UTC()
+
+	up := state.UpdateSecretParams{
+		RotateInterval: 2 * time.Hour,
+		Params:         nil,
+		Data:           map[string]string{"foo": "bar", "hello": "world"},
+	}
+	s.Clock.Advance(time.Hour)
+	updated := s.Clock.Now().Round(time.Second).UTC()
+	md, err := s.store.UpdateSecret(URL.WithRevision(0), up)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md.URL.Revision, gc.Equals, revision)
+	c.Assert(md, jc.DeepEquals, &secrets.SecretMetadata{
+		URL:            md.URL,
+		Path:           "app.password",
+		Version:        1,
+		Description:    "",
+		Tags:           map[string]string{},
+		RotateInterval: 2 * time.Hour,
+		ID:             1,
+		Provider:       "juju",
+		ProviderID:     "",
+		Revision:       revision,
+		CreateTime:     created,
+		UpdateTime:     updated,
+	})
+
+	list, err := s.store.ListSecrets(state.SecretsFilter{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(list, jc.DeepEquals, []*secrets.SecretMetadata{{
+		Path:           "app.password",
+		RotateInterval: 2 * time.Hour,
+		Version:        1,
+		Description:    "",
+		Tags:           map[string]string{},
+		ID:             1,
+		Provider:       "juju",
+		ProviderID:     "",
+		Revision:       revision,
+		CreateTime:     created,
+		UpdateTime:     updated,
+	}})
+}
+
+func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
+	cp := state.CreateSecretParams{
+		ControllerUUID: s.State.ControllerUUID(),
+		ModelUUID:      s.State.ModelUUID(),
+		Version:        1,
+		ProviderLabel:  "juju",
+		Type:           "blob",
+		Path:           "app.password",
+		RotateInterval: time.Hour,
+		Params:         nil,
+		Data:           map[string]string{"foo": "bar"},
+	}
+	md, err := s.store.CreateSecret(cp)
+
+	state.SetBeforeHooks(c, s.State, func() {
+		up := state.UpdateSecretParams{
+			RotateInterval: 3 * time.Hour,
+			Params:         nil,
+			Data:           map[string]string{"foo": "baz", "goodbye": "world"},
+		}
+		md, err = s.store.UpdateSecret(md.URL.WithRevision(0), up)
+		c.Assert(err, jc.ErrorIsNil)
+	})
+	s.assertUpdatedSecret(c, md.URL, 3)
 }
