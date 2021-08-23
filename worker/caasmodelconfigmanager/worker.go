@@ -118,7 +118,7 @@ func (w *manager) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	w.logger.Errorf("start to watch controller config")
+	w.logger.Debugf("start to watch controller config for model %q", w.name)
 	if err := w.catacomb.Add(controllerConfigWatcher); err != nil {
 		return errors.Trace(err)
 	}
@@ -127,7 +127,7 @@ func (w *manager) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case _, ok := <-controllerConfigWatcher.Changes():
-			w.logger.Debugf("got controller config changes")
+			w.logger.Debugf("got controller config changes for model %q", w.name)
 			if !ok {
 				return fmt.Errorf("controller config watcher %q closed channel", w.name)
 			}

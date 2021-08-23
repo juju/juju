@@ -5,7 +5,6 @@ package caasoperatorprovisioner_test
 
 import (
 	"fmt"
-	"github.com/juju/juju/core/resources"
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/agent"
 	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/resources"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
 )

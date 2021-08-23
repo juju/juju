@@ -11,6 +11,7 @@ import (
 
 	modeloperatorapi "github.com/juju/juju/api/caasmodeloperator"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/worker/caasmodeloperator"
 )
 
@@ -79,7 +80,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerConstruction(c *gc.C
 			apiCalled = true
 			return modeloperatorapi.ModelOperatorProvisioningInfo{
 				APIAddresses: apiAddresses,
-				ImagePath:    imagePath,
+				ImageDetails: resources.DockerImageDetails{RegistryPath: imagePath},
 				Version:      ver,
 			}, nil
 		},
@@ -87,7 +88,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerConstruction(c *gc.C
 
 	broker := &dummyBroker{
 		ensureModelOperator: func(_, _ string, conf *caas.ModelOperatorConfig) error {
-			c.Assert(conf.OperatorImagePath, gc.Equals, imagePath)
+			c.Assert(conf.ImageDetails.RegistryPath, gc.Equals, imagePath)
 			brokerCalled = true
 			return nil
 		},
