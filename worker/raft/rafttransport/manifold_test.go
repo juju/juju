@@ -13,7 +13,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
@@ -58,7 +58,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.auth = &mockAuthenticator{}
-	s.hub = centralhub.New(tag)
+	s.hub = centralhub.New(tag, centralhub.PubsubNoOpMetrics{})
 	s.mux = &apiserverhttp.Mux{}
 	s.stub.ResetCalls()
 	s.worker = &mockTransportWorker{

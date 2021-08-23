@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -30,13 +30,12 @@ import (
 )
 
 const (
-	modelDefaultsSummary = `Displays or sets default configuration settings for a model.`
+	modelDefaultsSummary = `Displays or sets default configuration settings for new models.`
 	modelDefaultsHelpDoc = `
 By default, all default configuration (keys and values) are
 displayed if a key is not specified. Supplying key=value will set the
 supplied key to the supplied value. This can be repeated for multiple keys.
 You can also specify a yaml file containing key values.
-By default, the model is the current model.
 
 Model default configuration settings are specific to the cloud on which the
 model is deployed.

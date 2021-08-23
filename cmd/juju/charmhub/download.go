@@ -14,7 +14,7 @@ import (
 	"syscall"
 
 	"github.com/juju/charm/v8"
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -424,7 +424,7 @@ func (d downloadLogger) Debugf(msg string, args ...interface{}) {
 
 func (d downloadLogger) Tracef(msg string, args ...interface{}) {}
 
-func (d downloadLogger) ChildWithLabels(name string, labels ...string) loggo.Logger {
+func (d downloadLogger) ChildWithLabels(string, ...string) loggo.Logger {
 	return loggo.Logger{}
 }
 

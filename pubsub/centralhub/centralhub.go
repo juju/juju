@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v2"
 	"gopkg.in/yaml.v2"
 )
@@ -15,7 +15,7 @@ import (
 // New returns a new structured hub using yaml marshalling with an origin
 // specified. The post processing ensures that the maps all have string keys
 // so they messages can be marshalled between apiservers.
-func New(origin names.Tag) *pubsub.StructuredHub {
+func New(origin names.Tag, metrics pubsub.Metrics) *pubsub.StructuredHub {
 	return pubsub.NewStructuredHub(
 		&pubsub.StructuredHubConfig{
 			Logger:     loggo.GetLogger("juju.centralhub"),
@@ -23,6 +23,7 @@ func New(origin names.Tag) *pubsub.StructuredHub {
 			Annotations: map[string]interface{}{
 				"origin": origin.String(),
 			},
+			Metrics:     metrics,
 			PostProcess: ensureStringMaps,
 		})
 }

@@ -22,7 +22,6 @@ import (
 	stdcontext "context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http/httptest"
 	"os"
@@ -37,7 +36,7 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/retry"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
@@ -946,7 +945,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			machineTag := names.NewMachineTag("0")
 			estate.httpServer.StartTLS()
 			estate.presence = &fakePresence{make(map[string]presence.Status)}
-			estate.hub = centralhub.New(machineTag)
+			estate.hub = centralhub.New(machineTag, centralhub.PubsubNoOpMetrics{})
 
 			estate.leaseManager, err = leaseManager(
 				icfg.Controller.Config.ControllerUUID(),
@@ -1053,7 +1052,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 
 func leaseManager(controllerUUID string, st *state.State) (*lease.Manager, error) {
 	target := st.LeaseNotifyTarget(
-		ioutil.Discard,
 		loggo.GetLogger("juju.state.raftlease"),
 	)
 	dummyStore := newLeaseStore(clock.WallClock, target, st.LeaseTrapdoorFunc())

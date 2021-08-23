@@ -6,6 +6,7 @@ package cache
 import (
 	"time"
 
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v2/workertest"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
@@ -111,7 +112,7 @@ func (s *modelWatcherSuite) TestMultipleUpdates(c *gc.C) {
 	// We know the events are handled in order, so we only need to wait for the
 	// last of the three events to have been processed.
 	select {
-	case <-handled:
+	case <-pubsub.Wait(handled):
 	case <-time.After(testing.LongWait):
 		c.Errorf("publish event not handled")
 	}

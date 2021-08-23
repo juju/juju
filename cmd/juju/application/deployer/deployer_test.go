@@ -4,7 +4,6 @@
 package deployer
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -15,7 +14,7 @@ import (
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/clock"
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
@@ -48,14 +47,12 @@ type deployerSuite struct {
 	charm             *mocks.MockCharm
 
 	deployResourceIDs map[string]string
-	output            *bytes.Buffer
 }
 
 var _ = gc.Suite(&deployerSuite{})
 
 func (s *deployerSuite) SetUpTest(_ *gc.C) {
 	s.deployResourceIDs = make(map[string]string)
-	s.output = bytes.NewBuffer([]byte{})
 }
 
 func (s *deployerSuite) TestGetDeployerPredeployedLocalCharm(c *gc.C) {

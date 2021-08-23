@@ -17,7 +17,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/clock"
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/loggo"
@@ -98,7 +98,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
 
 	machineTag := names.NewMachineTag("0")
-	hub := centralhub.New(machineTag)
+	hub := centralhub.New(machineTag, centralhub.PubsubNoOpMetrics{})
 
 	initialized := gate.NewLock()
 	modelCache, err := modelcache.NewWorker(modelcache.Config{

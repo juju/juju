@@ -96,13 +96,12 @@ func GetPermission(accessGetter userAccessFunc, userTag names.UserTag, target na
 // model.
 func HasModelAdmin(
 	authorizer facade.Authorizer,
-	user names.UserTag,
 	controllerTag names.ControllerTag,
-	model Model,
+	modelTag names.ModelTag,
 ) (bool, error) {
 	// superusers have admin for all models.
 	if isSuperUser, err := authorizer.HasPermission(permission.SuperuserAccess, controllerTag); err != nil || isSuperUser {
 		return isSuperUser, err
 	}
-	return authorizer.HasPermission(permission.AdminAccess, model.ModelTag())
+	return authorizer.HasPermission(permission.AdminAccess, modelTag)
 }

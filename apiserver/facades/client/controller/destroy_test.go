@@ -4,6 +4,8 @@
 package controller_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -55,7 +57,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	testController, err := controller.NewControllerAPIv10(
+	testController, err := controller.NewControllerAPIv11(
 		facadetest.Context{
 			State_:     s.State,
 			StatePool_: s.StatePool,
@@ -279,4 +281,19 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecifiedV3(
 		DestroyStorage: &destroyStorage,
 	})
 	c.Assert(err, gc.ErrorMatches, "destroy-storage unexpected on the v3 API")
+}
+
+func (s *destroyControllerSuite) TestDestroyControllerForce(c *gc.C) {
+	force := true
+	timeout := 1 * time.Hour
+	err := s.controller.DestroyController(params.DestroyControllerArgs{
+		DestroyModels: true,
+		Force:         &force,
+		ModelTimeout:  &timeout,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.ForceDestroyed(), jc.IsTrue)
+	c.Assert(model.DestroyTimeout().Hours(), gc.Equals, 1.0)
 }

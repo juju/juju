@@ -10,7 +10,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -43,16 +43,20 @@ func (s *storeSuite) SetUpTest(c *gc.C) {
 		globalTime: s.clock.Now(),
 	}
 	s.hub = pubsub.NewStructuredHub(nil)
+
+	metrics := raftlease.NewOperationClientMetrics(s.clock)
 	s.store = raftlease.NewStore(raftlease.StoreConfig{
-		FSM:          s.fsm,
-		Hub:          s.hub,
-		Trapdoor:     FakeTrapdoor,
-		RequestTopic: "lease.request",
-		ResponseTopic: func(reqID uint64) string {
-			return fmt.Sprintf("lease.request.%d", reqID)
-		},
-		Clock:          s.clock,
-		ForwardTimeout: time.Second,
+		FSM:      s.fsm,
+		Trapdoor: FakeTrapdoor,
+		Client: raftlease.NewPubsubClient(raftlease.PubsubClientConfig{
+			Hub:            s.hub,
+			RequestTopic:   "lease.request",
+			Clock:          s.clock,
+			ForwardTimeout: time.Second,
+			ClientMetrics:  metrics,
+		}),
+		Clock:            s.clock,
+		MetricsCollector: metrics,
 	})
 }
 
@@ -729,168 +733,6 @@ func (s *storeSuite) handleHubRequest(
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for hub message")
 	}
-}
-
-func (s *storeSuite) TestAdvance(c *gc.C) {
-	fromTime := s.clock.Now()
-
-	s.handleHubRequest(c,
-		func() {
-			err := s.store.Advance(10*time.Second, nil)
-			c.Assert(err, jc.ErrorIsNil)
-		},
-		raftlease.Command{
-			Version:   1,
-			Operation: raftlease.OperationSetTime,
-			OldTime:   fromTime,
-			NewTime:   fromTime.Add(10 * time.Second),
-		},
-		func(req raftlease.ForwardRequest) {
-			c.Check(req.ResponseTopic, gc.Equals, "lease.request.1")
-			_, err := s.hub.Publish(
-				req.ResponseTopic,
-				raftlease.ForwardResponse{},
-			)
-			c.Check(err, jc.ErrorIsNil)
-		},
-	)
-	// The store time advances, as seen in the next update.
-	s.handleHubRequest(c,
-		func() {
-			err := s.store.Advance(5*time.Second, nil)
-			c.Assert(err, jc.ErrorIsNil)
-		},
-		raftlease.Command{
-			Version:   1,
-			Operation: raftlease.OperationSetTime,
-			OldTime:   fromTime.Add(10 * time.Second),
-			NewTime:   fromTime.Add(15 * time.Second),
-		},
-		func(req raftlease.ForwardRequest) {
-			c.Check(req.ResponseTopic, gc.Equals, "lease.request.2")
-			_, err := s.hub.Publish(
-				req.ResponseTopic,
-				raftlease.ForwardResponse{},
-			)
-			c.Check(err, jc.ErrorIsNil)
-		},
-	)
-}
-
-func (s *storeSuite) TestAdvanceConcurrentUpdate(c *gc.C) {
-	fromTime := s.clock.Now()
-	plus5Sec := fromTime.Add(5 * time.Second)
-	plus10Sec := fromTime.Add(10 * time.Second)
-	s.fsm.globalTime = plus5Sec
-
-	s.handleHubRequest(c,
-		func() {
-			err := s.store.Advance(10*time.Second, nil)
-			c.Assert(err, jc.Satisfies, globalclock.IsOutOfSyncUpdate)
-		},
-		raftlease.Command{
-			Version:   1,
-			Operation: raftlease.OperationSetTime,
-			OldTime:   fromTime,
-			NewTime:   plus10Sec,
-		},
-		func(req raftlease.ForwardRequest) {
-			_, err := s.hub.Publish(
-				req.ResponseTopic,
-				raftlease.ForwardResponse{
-					Error: &raftlease.ResponseError{
-						Code: "out-of-sync",
-					},
-				},
-			)
-			c.Check(err, jc.ErrorIsNil)
-		},
-	)
-
-	// Check that the store updates time from the FSM for when we try
-	// again.
-	s.handleHubRequest(c,
-		func() {
-			err := s.store.Advance(10*time.Second, nil)
-			c.Assert(err, jc.ErrorIsNil)
-		},
-		raftlease.Command{
-			Version:   1,
-			Operation: raftlease.OperationSetTime,
-			OldTime:   plus5Sec,
-			NewTime:   fromTime.Add(15 * time.Second),
-		},
-		func(req raftlease.ForwardRequest) {
-			c.Check(req.ResponseTopic, gc.Equals, "lease.request.2")
-			_, err := s.hub.Publish(
-				req.ResponseTopic,
-				raftlease.ForwardResponse{},
-			)
-			c.Check(err, jc.ErrorIsNil)
-		},
-	)
-}
-
-func (s *storeSuite) TestAdvanceTimeout(c *gc.C) {
-	fromTime := s.clock.Now()
-	s.handleHubRequest(c,
-		func() {
-			errChan := make(chan error)
-			go func() {
-				errChan <- s.store.Advance(10*time.Second, nil)
-			}()
-
-			// Move time forward to trigger the timeout.
-			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 2), jc.ErrorIsNil)
-
-			select {
-			case err := <-errChan:
-				c.Assert(err, jc.Satisfies, globalclock.IsTimeout)
-			case <-time.After(coretesting.LongWait):
-				c.Fatalf("timed out waiting for advance error")
-			}
-		},
-		raftlease.Command{
-			Version:   1,
-			Operation: raftlease.OperationSetTime,
-			OldTime:   fromTime,
-			NewTime:   fromTime.Add(10 * time.Second),
-		},
-		func(raftlease.ForwardRequest) {
-			// No response sent, to trigger the timeout.
-		})
-}
-
-func (s *storeSuite) TestAdvanceAborted(c *gc.C) {
-	fromTime := s.clock.Now()
-	s.handleHubRequest(c,
-		func() {
-			errChan := make(chan error)
-			stopChan := make(chan struct{})
-			go func() {
-				errChan <- s.store.Advance(10*time.Second, stopChan)
-			}()
-
-			// close the abort channel to stop the request
-			close(stopChan)
-
-			select {
-			case err := <-errChan:
-				c.Check(err, jc.Satisfies, lease.IsAborted)
-				c.Check(err, gc.ErrorMatches, `setTime: lease operation aborted`)
-			case <-time.After(coretesting.LongWait):
-				c.Fatalf("timed out waiting for advance error")
-			}
-		},
-		raftlease.Command{
-			Version:   1,
-			Operation: raftlease.OperationSetTime,
-			OldTime:   fromTime,
-			NewTime:   fromTime.Add(10 * time.Second),
-		},
-		func(raftlease.ForwardRequest) {
-			// No response sent, to trigger the timeout.
-		})
 }
 
 func (s *storeSuite) TestAsResponseError(c *gc.C) {

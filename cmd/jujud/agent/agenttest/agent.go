@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd"
-	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
@@ -108,7 +108,7 @@ func (f *FakeEnsureMongo) InitiateMongo(p peergrouper.InitiateMongoParams) error
 	return nil
 }
 
-// agentSuite is a fixture to be used by agent test suites.
+// AgentSuite is a fixture to be used by agent test suites.
 type AgentSuite struct {
 	testing.JujuConnSuite
 }

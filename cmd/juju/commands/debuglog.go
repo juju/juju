@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/ansiterm"
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/juju/jujuclient"
@@ -59,10 +59,10 @@ The filtering options combine as follows:
 * All --exclude options are logically ORed together.
 * All --include-module options are logically ORed together.
 * All --exclude-module options are logically ORed together.
-* All --include-labels options are logically ORed together.
-* All --exclude-labels options are logically ORed together.
+* All --include-label options are logically ORed together.
+* All --exclude-label options are logically ORed together.
 * The combined --include, --exclude, --include-module, --exclude-module,
-  --include-labels and --exclude-labels selections are logically ANDed to form 
+  --include-label and --exclude-label selections are logically ANDed to form
   the complete filter.
 
 Examples:

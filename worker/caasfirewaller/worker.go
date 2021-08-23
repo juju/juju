@@ -4,6 +4,7 @@
 package caasfirewaller
 
 import (
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
@@ -23,6 +24,7 @@ type Config struct {
 	ModelUUID         string
 	ApplicationGetter ApplicationGetter
 	LifeGetter        LifeGetter
+	CharmGetter       CharmGetter
 	ServiceExposer    ServiceExposer
 	Logger            Logger
 }
@@ -38,11 +40,14 @@ func (config Config) Validate() error {
 	if config.ApplicationGetter == nil {
 		return errors.NotValidf("missing ApplicationGetter")
 	}
-	if config.ServiceExposer == nil {
-		return errors.NotValidf("missing ServiceExposer")
-	}
 	if config.LifeGetter == nil {
 		return errors.NotValidf("missing LifeGetter")
+	}
+	if config.CharmGetter == nil {
+		return errors.NotValidf("missing CharmGetter")
+	}
+	if config.ServiceExposer == nil {
+		return errors.NotValidf("missing ServiceExposer")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("missing Logger")
@@ -97,22 +102,35 @@ func (p *firewaller) loop() error {
 			if !ok {
 				return errors.New("watcher closed channel")
 			}
-			for _, appID := range apps {
-				appLife, err := p.config.LifeGetter.Life(appID)
+			for _, appName := range apps {
+				// If charm is (now) a v2 charm, skip processing.
+				format, err := p.charmFormat(appName)
 				if errors.IsNotFound(err) {
-					w, ok := appWorkers[appID]
+					p.config.Logger.Debugf("application %q no longer exists", appName)
+					continue
+				} else if err != nil {
+					return errors.Trace(err)
+				}
+				if format >= charm.FormatV2 {
+					p.config.Logger.Tracef("v1 caasfirewaller got event for v2 app %q, skipping", appName)
+					continue
+				}
+
+				appLife, err := p.config.LifeGetter.Life(appName)
+				if errors.IsNotFound(err) {
+					w, ok := appWorkers[appName]
 					if ok {
 						if err := worker.Stop(w); err != nil {
 							logger.Errorf("error stopping caas firewaller: %v", err)
 						}
-						delete(appWorkers, appID)
+						delete(appWorkers, appName)
 					}
 					continue
 				}
 				if err != nil {
 					return errors.Trace(err)
 				}
-				if _, ok := appWorkers[appID]; ok || appLife == life.Dead {
+				if _, ok := appWorkers[appName]; ok || appLife == life.Dead {
 					// Already watching the application. or we're
 					// not yet watching it and it's dead.
 					continue
@@ -120,18 +138,27 @@ func (p *firewaller) loop() error {
 				w, err := newApplicationWorker(
 					p.config.ControllerUUID,
 					p.config.ModelUUID,
-					appID,
+					appName,
 					p.config.ApplicationGetter,
 					p.config.ServiceExposer,
 					p.config.LifeGetter,
+					p.config.CharmGetter,
 					logger,
 				)
 				if err != nil {
 					return errors.Trace(err)
 				}
-				appWorkers[appID] = w
+				appWorkers[appName] = w
 				_ = p.catacomb.Add(w)
 			}
 		}
 	}
+}
+
+func (p *firewaller) charmFormat(appName string) (charm.Format, error) {
+	charmInfo, err := p.config.CharmGetter.ApplicationCharmInfo(appName)
+	if err != nil {
+		return charm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", appName)
+	}
+	return charm.MetaFormat(charmInfo.Charm()), nil
 }

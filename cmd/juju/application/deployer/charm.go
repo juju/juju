@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	jujuclock "github.com/juju/clock"
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/macaroon.v2"
@@ -36,7 +36,7 @@ type deployCharm struct {
 	applicationName  string
 	attachStorage    []string
 	bindings         map[string]string
-	configOptions    common.ConfigFlag
+	configOptions    DeployConfigFlag
 	constraints      constraints.Value
 	modelConstraints constraints.Value
 	csMac            *macaroon.Macaroon
@@ -47,7 +47,6 @@ type deployCharm struct {
 	flagSet          *gnuflag.FlagSet
 	model            ModelCommand
 	numUnits         int
-	origin           commoncharm.Origin
 	placement        []*instance.Placement
 	placementSpec    string
 	resources        map[string]string
@@ -237,7 +236,7 @@ func (d *deployCharm) deploy(
 	ctx.Infof(d.formatDeployingText())
 	args := applicationapi.DeployArgs{
 		CharmID:          id,
-		CharmOrigin:      d.origin,
+		CharmOrigin:      id.Origin,
 		Cons:             d.constraints,
 		ApplicationName:  applicationName,
 		Series:           d.series,
@@ -303,11 +302,12 @@ type predeployedLocalCharm struct {
 // String returns a string description of the deployer.
 func (d *predeployedLocalCharm) String() string {
 	str := fmt.Sprintf("deploy predeployed local charm: %s", d.userCharmURL.String())
-	if isEmptyOrigin(d.origin, commoncharm.OriginLocal) {
+	origin := d.id.Origin
+	if isEmptyOrigin(origin, commoncharm.OriginLocal) {
 		return str
 	}
 	var channel string
-	if ch := d.origin.CharmChannel().String(); ch != "" {
+	if ch := origin.CharmChannel().String(); ch != "" {
 		channel = fmt.Sprintf(" from channel %s", ch)
 	}
 	return fmt.Sprintf("%s%s", str, channel)
@@ -357,7 +357,6 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		Origin: origin,
 	}
 	d.series = userCharmURL.Series
-	d.origin = origin
 	return d.deploy(ctx, deployAPI)
 }
 
@@ -401,7 +400,6 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		// Local charms don't need a channel.
 	}
 	l.series = l.curl.Series
-	l.origin = origin
 	return l.deploy(ctx, deployAPI)
 }
 
@@ -414,11 +412,12 @@ type repositoryCharm struct {
 // String returns a string description of the deployer.
 func (c *repositoryCharm) String() string {
 	str := fmt.Sprintf("deploy charm: %s", c.userRequestedURL.String())
-	if isEmptyOrigin(c.origin, commoncharm.OriginCharmStore) {
+	origin := c.id.Origin
+	if isEmptyOrigin(origin, commoncharm.OriginCharmStore) {
 		return str
 	}
 	var channel string
-	if ch := c.origin.CharmChannel().String(); ch != "" {
+	if ch := origin.CharmChannel().String(); ch != "" {
 		channel = fmt.Sprintf(" from channel %s", ch)
 	}
 	return fmt.Sprintf("%s%s", str, channel)
@@ -452,7 +451,8 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// Charm or bundle has been supplied as a URL so we resolve and
 	// deploy using the store but pass in the origin command line
 	// argument so users can target a specific origin.
-	storeCharmOrBundleURL, origin, supportedSeries, err := resolver.ResolveCharm(userRequestedURL, c.origin, false) // no --switch possible.
+	origin := c.id.Origin
+	storeCharmOrBundleURL, origin, supportedSeries, err := resolver.ResolveCharm(userRequestedURL, origin, false) // no --switch possible.
 	if charm.IsUnsupportedSeriesError(err) {
 		return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 	} else if err != nil {
@@ -492,18 +492,18 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	// Ensure we save the origin.
-	c.origin = origin.WithSeries(series)
+	origin = origin.WithSeries(series)
 
 	// In-order for the url to represent the following updates to the the origin
 	// and machine, we need to ensure that the series is actually correct as
 	// well in the url.
 	deployableURL := storeCharmOrBundleURL
 	if charm.CharmHub.Matches(storeCharmOrBundleURL.Schema) {
-		deployableURL = storeCharmOrBundleURL.WithSeries(c.origin.Series)
+		deployableURL = storeCharmOrBundleURL.WithSeries(origin.Series)
 	}
 
 	// Store the charm in the controller
-	curl, csMac, csOrigin, err := store.AddCharmWithAuthorizationFromURL(deployAPI, macaroonGetter, deployableURL, c.origin, c.force)
+	curl, csMac, csOrigin, err := store.AddCharmWithAuthorizationFromURL(deployAPI, macaroonGetter, deployableURL, origin, c.force)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
@@ -528,10 +528,9 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 
 	c.series = series
 	c.csMac = csMac
-	c.origin = csOrigin
 	c.id = application.CharmID{
 		URL:    curl,
-		Origin: c.origin,
+		Origin: csOrigin,
 	}
 	return c.deploy(ctx, deployAPI)
 }

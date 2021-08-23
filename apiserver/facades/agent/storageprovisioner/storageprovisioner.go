@@ -1261,7 +1261,7 @@ func (s *StorageProvisionerAPIv3) oneVolumeBlockDevice(
 	if err != nil {
 		return state.BlockDeviceInfo{}, err
 	}
-	blockDevice, ok := storagecommon.MatchingBlockDevice(
+	blockDevice, ok := storagecommon.MatchingFilesystemBlockDevice(
 		blockDevices,
 		volumeInfo,
 		volumeAttachmentInfo,

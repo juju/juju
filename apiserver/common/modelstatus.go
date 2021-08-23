@@ -65,7 +65,7 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	isAdmin, err := HasModelAdmin(c.authorizer, c.apiUser, c.backend.ControllerTag(), model)
+	isAdmin, err := HasModelAdmin(c.authorizer, c.backend.ControllerTag(), model.ModelTag())
 	if err != nil {
 		return status, errors.Trace(err)
 	}

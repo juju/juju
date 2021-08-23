@@ -38,11 +38,6 @@ type StatusGetter interface {
 	Status() (StatusInfo, error)
 }
 
-// InstanceStatusGetter represents a type whose instance status can be read.
-type InstanceStatusGetter interface {
-	InstanceStatus() (StatusInfo, error)
-}
-
 // ModificationStatusGetter represents a type whose modification status can be
 // read.
 type ModificationStatusGetter interface {
@@ -206,7 +201,7 @@ const (
 	// Broken is the status for when a relation life goes to Dead.
 	Broken Status = "broken"
 
-	// Suspended is used to signify that a relation will be temporarily broken
+	// Suspending is used to signify that a relation will be temporarily broken
 	// pending action to resume it.
 	Suspending Status = "suspending"
 

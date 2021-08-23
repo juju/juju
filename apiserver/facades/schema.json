@@ -6669,17 +6669,17 @@
         "Schema": {
             "type": "object",
             "properties": {
-                "ApplicationCharmURLs": {
+                "ApplicationCharmInfo": {
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
+                            "$ref": "#/definitions/Entity"
                         },
                         "Result": {
-                            "$ref": "#/definitions/StringResults"
+                            "$ref": "#/definitions/Charm"
                         }
                     },
-                    "description": "ApplicationCharmURLs finds the CharmURL for an application."
+                    "description": "ApplicationCharmInfo returns information about an application's charm."
                 },
                 "ApplicationOCIResources": {
                     "type": "object",
@@ -6715,7 +6715,7 @@
                             "$ref": "#/definitions/Charm"
                         }
                     },
-                    "description": "CharmInfo returns information about the requested charm.\nNOTE: thumper 2016-06-29, this is not a bulk call and probably should be."
+                    "description": "CharmInfo returns information about the requested charm."
                 },
                 "Life": {
                     "type": "object",
@@ -6808,7 +6808,7 @@
                             "$ref": "#/definitions/StringsWatchResult"
                         }
                     },
-                    "description": "WatchApplications starts a StringsWatcher to watch applications deployed to this model."
+                    "description": "WatchApplications starts a StringsWatcher to watch applications\ndeployed to this model."
                 }
             },
             "definitions": {
@@ -8256,36 +8256,6 @@
                         "entities"
                     ]
                 },
-                "StringResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
-                    ]
-                },
-                "StringResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/StringResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
                 "StringsWatchResult": {
                     "type": "object",
                     "properties": {
@@ -8531,6 +8501,18 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "ApplicationCharmInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/Charm"
+                        }
+                    },
+                    "description": "ApplicationCharmInfo returns information about an application's charm."
+                },
                 "ApplicationsConfig": {
                     "type": "object",
                     "properties": {
@@ -8542,6 +8524,18 @@
                         }
                     },
                     "description": "ApplicationsConfig returns the config for the specified applications."
+                },
+                "CharmInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/CharmURL"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/Charm"
+                        }
+                    },
+                    "description": "CharmInfo returns information about the requested charm."
                 },
                 "IsExposed": {
                     "type": "object",
@@ -8586,7 +8580,7 @@
                             "$ref": "#/definitions/StringsWatchResult"
                         }
                     },
-                    "description": "WatchApplications starts a StringsWatcher to watch applications deployed to this model."
+                    "description": "WatchApplications starts a StringsWatcher to watch applications\ndeployed to this model."
                 }
             },
             "definitions": {
@@ -8633,6 +8627,559 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "Charm": {
+                    "type": "object",
+                    "properties": {
+                        "actions": {
+                            "$ref": "#/definitions/CharmActions"
+                        },
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmOption"
+                                }
+                            }
+                        },
+                        "lxd-profile": {
+                            "$ref": "#/definitions/CharmLXDProfile"
+                        },
+                        "manifest": {
+                            "$ref": "#/definitions/CharmManifest"
+                        },
+                        "meta": {
+                            "$ref": "#/definitions/CharmMeta"
+                        },
+                        "metrics": {
+                            "$ref": "#/definitions/CharmMetrics"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "revision",
+                        "url",
+                        "config"
+                    ]
+                },
+                "CharmActionSpec": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "params": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "description",
+                        "params"
+                    ]
+                },
+                "CharmActions": {
+                    "type": "object",
+                    "properties": {
+                        "specs": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmActionSpec"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CharmBase": {
+                    "type": "object",
+                    "properties": {
+                        "architectures": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CharmContainer": {
+                    "type": "object",
+                    "properties": {
+                        "mounts": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmMount"
+                            }
+                        },
+                        "resource": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CharmDeployment": {
+                    "type": "object",
+                    "properties": {
+                        "min-version": {
+                            "type": "string"
+                        },
+                        "mode": {
+                            "type": "string"
+                        },
+                        "service": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type",
+                        "mode",
+                        "service",
+                        "min-version"
+                    ]
+                },
+                "CharmDevice": {
+                    "type": "object",
+                    "properties": {
+                        "CountMax": {
+                            "type": "integer"
+                        },
+                        "CountMin": {
+                            "type": "integer"
+                        },
+                        "Description": {
+                            "type": "string"
+                        },
+                        "Name": {
+                            "type": "string"
+                        },
+                        "Type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Name",
+                        "Description",
+                        "Type",
+                        "CountMin",
+                        "CountMax"
+                    ]
+                },
+                "CharmLXDProfile": {
+                    "type": "object",
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "devices": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "patternProperties": {
+                                        ".*": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "config",
+                        "description",
+                        "devices"
+                    ]
+                },
+                "CharmManifest": {
+                    "type": "object",
+                    "properties": {
+                        "bases": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmBase"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CharmMeta": {
+                    "type": "object",
+                    "properties": {
+                        "assumes": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "categories": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "containers": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmContainer"
+                                }
+                            }
+                        },
+                        "deployment": {
+                            "$ref": "#/definitions/CharmDeployment"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "devices": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmDevice"
+                                }
+                            }
+                        },
+                        "extra-bindings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "min-juju-version": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "payload-classes": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmPayloadClass"
+                                }
+                            }
+                        },
+                        "peers": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmRelation"
+                                }
+                            }
+                        },
+                        "provides": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmRelation"
+                                }
+                            }
+                        },
+                        "requires": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmRelation"
+                                }
+                            }
+                        },
+                        "resources": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmResourceMeta"
+                                }
+                            }
+                        },
+                        "series": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "storage": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmStorage"
+                                }
+                            }
+                        },
+                        "subordinate": {
+                            "type": "boolean"
+                        },
+                        "summary": {
+                            "type": "string"
+                        },
+                        "tags": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "terms": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "summary",
+                        "description",
+                        "subordinate"
+                    ]
+                },
+                "CharmMetric": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type",
+                        "description"
+                    ]
+                },
+                "CharmMetrics": {
+                    "type": "object",
+                    "properties": {
+                        "metrics": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmMetric"
+                                }
+                            }
+                        },
+                        "plan": {
+                            "$ref": "#/definitions/CharmPlan"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "metrics",
+                        "plan"
+                    ]
+                },
+                "CharmMount": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string"
+                        },
+                        "storage": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CharmOption": {
+                    "type": "object",
+                    "properties": {
+                        "default": {
+                            "type": "object",
+                            "additionalProperties": true
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type"
+                    ]
+                },
+                "CharmPayloadClass": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "type"
+                    ]
+                },
+                "CharmPlan": {
+                    "type": "object",
+                    "properties": {
+                        "required": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "required"
+                    ]
+                },
+                "CharmRelation": {
+                    "type": "object",
+                    "properties": {
+                        "interface": {
+                            "type": "string"
+                        },
+                        "limit": {
+                            "type": "integer"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "optional": {
+                            "type": "boolean"
+                        },
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "role",
+                        "interface",
+                        "optional",
+                        "limit",
+                        "scope"
+                    ]
+                },
+                "CharmResourceMeta": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "path": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "type",
+                        "path",
+                        "description"
+                    ]
+                },
+                "CharmStorage": {
+                    "type": "object",
+                    "properties": {
+                        "count-max": {
+                            "type": "integer"
+                        },
+                        "count-min": {
+                            "type": "integer"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "location": {
+                            "type": "string"
+                        },
+                        "minimum-size": {
+                            "type": "integer"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "properties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "read-only": {
+                            "type": "boolean"
+                        },
+                        "shared": {
+                            "type": "boolean"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "description",
+                        "type",
+                        "shared",
+                        "read-only",
+                        "count-min",
+                        "count-max",
+                        "minimum-size"
+                    ]
+                },
+                "CharmURL": {
+                    "type": "object",
+                    "properties": {
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "url"
                     ]
                 },
                 "ConfigResult": {
@@ -8797,25 +9344,22 @@
         "Description": "FacadeSidecar provides access to the CAASFirewaller API facade for sidecar applications.",
         "Version": 1,
         "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
+            "controller-machine-agent"
         ],
         "Schema": {
             "type": "object",
             "properties": {
-                "ApplicationCharmURLs": {
+                "ApplicationCharmInfo": {
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
+                            "$ref": "#/definitions/Entity"
                         },
                         "Result": {
-                            "$ref": "#/definitions/StringResults"
+                            "$ref": "#/definitions/Charm"
                         }
                     },
-                    "description": "ApplicationCharmURLs finds the CharmURL for an application."
+                    "description": "ApplicationCharmInfo returns information about an application's charm."
                 },
                 "ApplicationsConfig": {
                     "type": "object",
@@ -8839,7 +9383,7 @@
                             "$ref": "#/definitions/Charm"
                         }
                     },
-                    "description": "CharmInfo returns information about the requested charm.\nNOTE: thumper 2016-06-29, this is not a bulk call and probably should be."
+                    "description": "CharmInfo returns information about the requested charm."
                 },
                 "IsExposed": {
                     "type": "object",
@@ -8884,7 +9428,7 @@
                             "$ref": "#/definitions/StringsWatchResult"
                         }
                     },
-                    "description": "WatchApplications starts a StringsWatcher to watch applications deployed to this model."
+                    "description": "WatchApplications starts a StringsWatcher to watch applications\ndeployed to this model."
                 },
                 "WatchOpenedPorts": {
                     "type": "object",
@@ -9623,36 +10167,6 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/NotifyWatchResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "StringResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
-                    ]
-                },
-                "StringResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/StringResult"
                             }
                         }
                     },
@@ -10996,6 +11510,30 @@
                     },
                     "description": "APIHostPorts returns the API server addresses."
                 },
+                "ApplicationCharmInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/Charm"
+                        }
+                    },
+                    "description": "ApplicationCharmInfo returns information about an application's charm."
+                },
+                "CharmInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/CharmURL"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/Charm"
+                        }
+                    },
+                    "description": "CharmInfo returns information about the requested charm."
+                },
                 "IssueOperatorCertificate": {
                     "type": "object",
                     "properties": {
@@ -11069,7 +11607,7 @@
                             "$ref": "#/definitions/StringsWatchResult"
                         }
                     },
-                    "description": "WatchApplications starts a StringsWatcher to watch applications deployed to this model."
+                    "description": "WatchApplications starts a StringsWatcher to watch applications\ndeployed to this model."
                 }
             },
             "definitions": {
@@ -11140,6 +11678,559 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "Charm": {
+                    "type": "object",
+                    "properties": {
+                        "actions": {
+                            "$ref": "#/definitions/CharmActions"
+                        },
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmOption"
+                                }
+                            }
+                        },
+                        "lxd-profile": {
+                            "$ref": "#/definitions/CharmLXDProfile"
+                        },
+                        "manifest": {
+                            "$ref": "#/definitions/CharmManifest"
+                        },
+                        "meta": {
+                            "$ref": "#/definitions/CharmMeta"
+                        },
+                        "metrics": {
+                            "$ref": "#/definitions/CharmMetrics"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "revision",
+                        "url",
+                        "config"
+                    ]
+                },
+                "CharmActionSpec": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "params": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "description",
+                        "params"
+                    ]
+                },
+                "CharmActions": {
+                    "type": "object",
+                    "properties": {
+                        "specs": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmActionSpec"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CharmBase": {
+                    "type": "object",
+                    "properties": {
+                        "architectures": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CharmContainer": {
+                    "type": "object",
+                    "properties": {
+                        "mounts": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmMount"
+                            }
+                        },
+                        "resource": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CharmDeployment": {
+                    "type": "object",
+                    "properties": {
+                        "min-version": {
+                            "type": "string"
+                        },
+                        "mode": {
+                            "type": "string"
+                        },
+                        "service": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type",
+                        "mode",
+                        "service",
+                        "min-version"
+                    ]
+                },
+                "CharmDevice": {
+                    "type": "object",
+                    "properties": {
+                        "CountMax": {
+                            "type": "integer"
+                        },
+                        "CountMin": {
+                            "type": "integer"
+                        },
+                        "Description": {
+                            "type": "string"
+                        },
+                        "Name": {
+                            "type": "string"
+                        },
+                        "Type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Name",
+                        "Description",
+                        "Type",
+                        "CountMin",
+                        "CountMax"
+                    ]
+                },
+                "CharmLXDProfile": {
+                    "type": "object",
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "devices": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "patternProperties": {
+                                        ".*": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "config",
+                        "description",
+                        "devices"
+                    ]
+                },
+                "CharmManifest": {
+                    "type": "object",
+                    "properties": {
+                        "bases": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmBase"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CharmMeta": {
+                    "type": "object",
+                    "properties": {
+                        "assumes": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "categories": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "containers": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmContainer"
+                                }
+                            }
+                        },
+                        "deployment": {
+                            "$ref": "#/definitions/CharmDeployment"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "devices": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmDevice"
+                                }
+                            }
+                        },
+                        "extra-bindings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "min-juju-version": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "payload-classes": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmPayloadClass"
+                                }
+                            }
+                        },
+                        "peers": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmRelation"
+                                }
+                            }
+                        },
+                        "provides": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmRelation"
+                                }
+                            }
+                        },
+                        "requires": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmRelation"
+                                }
+                            }
+                        },
+                        "resources": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmResourceMeta"
+                                }
+                            }
+                        },
+                        "series": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "storage": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmStorage"
+                                }
+                            }
+                        },
+                        "subordinate": {
+                            "type": "boolean"
+                        },
+                        "summary": {
+                            "type": "string"
+                        },
+                        "tags": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "terms": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "summary",
+                        "description",
+                        "subordinate"
+                    ]
+                },
+                "CharmMetric": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type",
+                        "description"
+                    ]
+                },
+                "CharmMetrics": {
+                    "type": "object",
+                    "properties": {
+                        "metrics": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmMetric"
+                                }
+                            }
+                        },
+                        "plan": {
+                            "$ref": "#/definitions/CharmPlan"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "metrics",
+                        "plan"
+                    ]
+                },
+                "CharmMount": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string"
+                        },
+                        "storage": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CharmOption": {
+                    "type": "object",
+                    "properties": {
+                        "default": {
+                            "type": "object",
+                            "additionalProperties": true
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type"
+                    ]
+                },
+                "CharmPayloadClass": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "type"
+                    ]
+                },
+                "CharmPlan": {
+                    "type": "object",
+                    "properties": {
+                        "required": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "required"
+                    ]
+                },
+                "CharmRelation": {
+                    "type": "object",
+                    "properties": {
+                        "interface": {
+                            "type": "string"
+                        },
+                        "limit": {
+                            "type": "integer"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "optional": {
+                            "type": "boolean"
+                        },
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "role",
+                        "interface",
+                        "optional",
+                        "limit",
+                        "scope"
+                    ]
+                },
+                "CharmResourceMeta": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "path": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "type",
+                        "path",
+                        "description"
+                    ]
+                },
+                "CharmStorage": {
+                    "type": "object",
+                    "properties": {
+                        "count-max": {
+                            "type": "integer"
+                        },
+                        "count-min": {
+                            "type": "integer"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "location": {
+                            "type": "string"
+                        },
+                        "minimum-size": {
+                            "type": "integer"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "properties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "read-only": {
+                            "type": "boolean"
+                        },
+                        "shared": {
+                            "type": "boolean"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "description",
+                        "type",
+                        "shared",
+                        "read-only",
+                        "count-min",
+                        "count-max",
+                        "minimum-size"
+                    ]
+                },
+                "CharmURL": {
+                    "type": "object",
+                    "properties": {
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "url"
+                    ]
                 },
                 "DockerImageDetails": {
                     "type": "object",
@@ -11740,6 +12831,18 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "ApplicationCharmInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/Charm"
+                        }
+                    },
+                    "description": "ApplicationCharmInfo returns information about an application's charm."
+                },
                 "ApplicationsConfig": {
                     "type": "object",
                     "properties": {
@@ -11775,6 +12878,18 @@
                         }
                     },
                     "description": "ApplicationsTrust returns the trust status for specified applications in this model."
+                },
+                "CharmInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/CharmURL"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/Charm"
+                        }
+                    },
+                    "description": "CharmInfo returns information about the requested charm."
                 },
                 "ClearApplicationsResources": {
                     "type": "object",
@@ -11860,6 +12975,18 @@
                     },
                     "description": "UpdateApplicationsUnits updates the Juju data model to reflect the given\nunits of the specified application."
                 },
+                "Watch": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResults"
+                        }
+                    },
+                    "description": "Watch starts a NotifyWatcher for each entity given."
+                },
                 "WatchApplications": {
                     "type": "object",
                     "properties": {
@@ -11867,7 +12994,7 @@
                             "$ref": "#/definitions/StringsWatchResult"
                         }
                     },
-                    "description": "WatchApplications starts a StringsWatcher to watch applications deployed to this model."
+                    "description": "WatchApplications starts a StringsWatcher to watch applications\ndeployed to this model."
                 },
                 "WatchApplicationsScale": {
                     "type": "object",
@@ -12054,6 +13181,559 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "Charm": {
+                    "type": "object",
+                    "properties": {
+                        "actions": {
+                            "$ref": "#/definitions/CharmActions"
+                        },
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmOption"
+                                }
+                            }
+                        },
+                        "lxd-profile": {
+                            "$ref": "#/definitions/CharmLXDProfile"
+                        },
+                        "manifest": {
+                            "$ref": "#/definitions/CharmManifest"
+                        },
+                        "meta": {
+                            "$ref": "#/definitions/CharmMeta"
+                        },
+                        "metrics": {
+                            "$ref": "#/definitions/CharmMetrics"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "revision",
+                        "url",
+                        "config"
+                    ]
+                },
+                "CharmActionSpec": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "params": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "description",
+                        "params"
+                    ]
+                },
+                "CharmActions": {
+                    "type": "object",
+                    "properties": {
+                        "specs": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmActionSpec"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CharmBase": {
+                    "type": "object",
+                    "properties": {
+                        "architectures": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CharmContainer": {
+                    "type": "object",
+                    "properties": {
+                        "mounts": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmMount"
+                            }
+                        },
+                        "resource": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CharmDeployment": {
+                    "type": "object",
+                    "properties": {
+                        "min-version": {
+                            "type": "string"
+                        },
+                        "mode": {
+                            "type": "string"
+                        },
+                        "service": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type",
+                        "mode",
+                        "service",
+                        "min-version"
+                    ]
+                },
+                "CharmDevice": {
+                    "type": "object",
+                    "properties": {
+                        "CountMax": {
+                            "type": "integer"
+                        },
+                        "CountMin": {
+                            "type": "integer"
+                        },
+                        "Description": {
+                            "type": "string"
+                        },
+                        "Name": {
+                            "type": "string"
+                        },
+                        "Type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Name",
+                        "Description",
+                        "Type",
+                        "CountMin",
+                        "CountMax"
+                    ]
+                },
+                "CharmLXDProfile": {
+                    "type": "object",
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "devices": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "patternProperties": {
+                                        ".*": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "config",
+                        "description",
+                        "devices"
+                    ]
+                },
+                "CharmManifest": {
+                    "type": "object",
+                    "properties": {
+                        "bases": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmBase"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CharmMeta": {
+                    "type": "object",
+                    "properties": {
+                        "assumes": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "categories": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "containers": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmContainer"
+                                }
+                            }
+                        },
+                        "deployment": {
+                            "$ref": "#/definitions/CharmDeployment"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "devices": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmDevice"
+                                }
+                            }
+                        },
+                        "extra-bindings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "min-juju-version": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "payload-classes": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmPayloadClass"
+                                }
+                            }
+                        },
+                        "peers": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmRelation"
+                                }
+                            }
+                        },
+                        "provides": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmRelation"
+                                }
+                            }
+                        },
+                        "requires": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmRelation"
+                                }
+                            }
+                        },
+                        "resources": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmResourceMeta"
+                                }
+                            }
+                        },
+                        "series": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "storage": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmStorage"
+                                }
+                            }
+                        },
+                        "subordinate": {
+                            "type": "boolean"
+                        },
+                        "summary": {
+                            "type": "string"
+                        },
+                        "tags": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "terms": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "summary",
+                        "description",
+                        "subordinate"
+                    ]
+                },
+                "CharmMetric": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type",
+                        "description"
+                    ]
+                },
+                "CharmMetrics": {
+                    "type": "object",
+                    "properties": {
+                        "metrics": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmMetric"
+                                }
+                            }
+                        },
+                        "plan": {
+                            "$ref": "#/definitions/CharmPlan"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "metrics",
+                        "plan"
+                    ]
+                },
+                "CharmMount": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string"
+                        },
+                        "storage": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CharmOption": {
+                    "type": "object",
+                    "properties": {
+                        "default": {
+                            "type": "object",
+                            "additionalProperties": true
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type"
+                    ]
+                },
+                "CharmPayloadClass": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "type"
+                    ]
+                },
+                "CharmPlan": {
+                    "type": "object",
+                    "properties": {
+                        "required": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "required"
+                    ]
+                },
+                "CharmRelation": {
+                    "type": "object",
+                    "properties": {
+                        "interface": {
+                            "type": "string"
+                        },
+                        "limit": {
+                            "type": "integer"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "optional": {
+                            "type": "boolean"
+                        },
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "role",
+                        "interface",
+                        "optional",
+                        "limit",
+                        "scope"
+                    ]
+                },
+                "CharmResourceMeta": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "path": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "type",
+                        "path",
+                        "description"
+                    ]
+                },
+                "CharmStorage": {
+                    "type": "object",
+                    "properties": {
+                        "count-max": {
+                            "type": "integer"
+                        },
+                        "count-min": {
+                            "type": "integer"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "location": {
+                            "type": "string"
+                        },
+                        "minimum-size": {
+                            "type": "integer"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "properties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "read-only": {
+                            "type": "boolean"
+                        },
+                        "shared": {
+                            "type": "boolean"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "description",
+                        "type",
+                        "shared",
+                        "read-only",
+                        "count-min",
+                        "count-max",
+                        "minimum-size"
+                    ]
+                },
+                "CharmURL": {
+                    "type": "object",
+                    "properties": {
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "url"
                     ]
                 },
                 "ConfigResult": {
@@ -13431,7 +15111,7 @@
                             "$ref": "#/definitions/Charm"
                         }
                     },
-                    "description": "CharmInfo returns information about the requested charm.\nNOTE: thumper 2016-06-29, this is not a bulk call and probably should be."
+                    "description": "CharmInfo returns information about the requested charm."
                 },
                 "CheckCharmPlacement": {
                     "type": "object",
@@ -14864,7 +16544,7 @@
                             "$ref": "#/definitions/ResolveCharmResults"
                         }
                     },
-                    "description": "ResolveCharm resolves the best available charm URLs with series, for charm\nlocations without a series specified.\n\nNOTE: ResolveCharms is deprecated as of juju 2.9 and charms facade version 3.\nPlease discontinue use and move to the charms facade version.\n\nTODO: remove in juju 3.0"
+                    "description": "ResolveCharms resolves the best available charm URLs with series, for charm\nlocations without a series specified.\n\nNOTE: ResolveCharms is deprecated as of juju 2.9 and charms facade version 3.\nPlease discontinue use and move to the charms facade version.\n\nTODO: remove in juju 3.0"
                 },
                 "Resolved": {
                     "type": "object",
@@ -18248,7 +19928,7 @@
     {
         "Name": "Controller",
         "Description": "ControllerAPI provides the Controller API.",
-        "Version": 10,
+        "Version": 11,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -18701,6 +20381,15 @@
                         },
                         "destroy-storage": {
                             "type": "boolean"
+                        },
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "max-wait": {
+                            "type": "integer"
+                        },
+                        "model-timeout": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
@@ -19777,7 +21466,7 @@
                             "$ref": "#/definitions/RegisterRemoteRelationResults"
                         }
                     },
-                    "description": "RegisterRemoteRelationArgs sets up the model to participate\nin the specified relations. This operation is idempotent."
+                    "description": "RegisterRemoteRelations sets up the model to participate\nin the specified relations. This operation is idempotent."
                 },
                 "WatchEgressAddressesForRelations": {
                     "type": "object",
@@ -20613,18 +22302,6 @@
                         }
                     },
                     "description": "SetStatus sets the status of the specified entities."
-                },
-                "UpdateStatus": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetStatus"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "UpdateStatus updates the status data of each given entity.\nTODO(fwereade): WTF. This method exists *only* for the convenience of the\n*client* API -- and is itself completely broken -- but we still expose it\nin every facade with a StatusSetter? FFS."
                 },
                 "WatchAPIHostPorts": {
                     "type": "object",
@@ -27537,18 +29214,6 @@
                     },
                     "description": "SetStatus sets the status of each given entity."
                 },
-                "UpdateStatus": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetStatus"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "UpdateStatus updates the status data of each given entity.\nTODO(fwereade): WTF. This method exists *only* for the convenience of the\n*client* API -- and is itself completely broken -- but we still expose it\nin every facade with a StatusSetter? FFS."
-                },
                 "Watch": {
                     "type": "object",
                     "properties": {
@@ -33483,18 +35148,6 @@
                     },
                     "description": "Tools finds the tools necessary for the given agents."
                 },
-                "UpdateStatus": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetStatus"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "UpdateStatus updates the status data of each given entity.\nTODO(fwereade): WTF. This method exists *only* for the convenience of the\n*client* API -- and is itself completely broken -- but we still expose it\nin every facade with a StatusSetter? FFS."
-                },
                 "WatchAPIHostPorts": {
                     "type": "object",
                     "properties": {
@@ -38300,6 +39953,370 @@
         }
     },
     {
+        "Name": "Secrets",
+        "Description": "SecretsAPI is the backend for the Secrets facade.",
+        "Version": 1,
+        "AvailableTo": [
+            "model-user"
+        ],
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "ListSecrets": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ListSecretsArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ListSecretResults"
+                        }
+                    },
+                    "description": "ListSecrets lists available secrets."
+                }
+            },
+            "definitions": {
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "ListSecretResult": {
+                    "type": "object",
+                    "properties": {
+                        "create-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "int": {
+                            "type": "integer"
+                        },
+                        "path": {
+                            "type": "string"
+                        },
+                        "provider": {
+                            "type": "string"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "rotate-interval": {
+                            "type": "integer"
+                        },
+                        "tags": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "update-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "url": {
+                            "type": "string"
+                        },
+                        "value": {
+                            "$ref": "#/definitions/SecretValueResult"
+                        },
+                        "version": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "url",
+                        "path",
+                        "version",
+                        "rotate-interval",
+                        "int",
+                        "provider",
+                        "revision",
+                        "create-time",
+                        "update-time"
+                    ]
+                },
+                "ListSecretResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ListSecretResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "ListSecretsArgs": {
+                    "type": "object",
+                    "properties": {
+                        "show-secrets": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "show-secrets"
+                    ]
+                },
+                "SecretValueResult": {
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            }
+        }
+    },
+    {
+        "Name": "SecretsManager",
+        "Description": "SecretsManagerAPI is the backend for the SecretsManager facade.",
+        "Version": 1,
+        "AvailableTo": [
+            "unit-agent"
+        ],
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "CreateSecrets": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/CreateSecretArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResults"
+                        }
+                    },
+                    "description": "CreateSecrets creates new secrets."
+                },
+                "GetSecretValues": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/GetSecretArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SecretValueResults"
+                        }
+                    },
+                    "description": "GetSecretValues returns the secret values for the specified secrets."
+                }
+            },
+            "definitions": {
+                "CreateSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "params": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "path": {
+                            "type": "string"
+                        },
+                        "rotate-interval": {
+                            "type": "integer"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type",
+                        "path",
+                        "rotate-interval"
+                    ]
+                },
+                "CreateSecretArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CreateSecretArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
+                    ]
+                },
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "GetSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "id"
+                    ]
+                },
+                "GetSecretArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/GetSecretArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
+                    ]
+                },
+                "SecretValueResult": {
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "SecretValueResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretValueResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "StringResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result"
+                    ]
+                },
+                "StringResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/StringResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                }
+            }
+        }
+    },
+    {
         "Name": "Singular",
         "Description": "Facade allows controller machines to request exclusive rights to administer\nsome specific model or controller for a limited time.",
         "Version": 2,
@@ -40488,18 +42505,6 @@
                     },
                     "description": "SetVolumeInfo records the details of newly provisioned volumes."
                 },
-                "UpdateStatus": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetStatus"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "UpdateStatus updates the status data of each given entity.\nTODO(fwereade): WTF. This method exists *only* for the convenience of the\n*client* API -- and is itself completely broken -- but we still expose it\nin every facade with a StatusSetter? FFS."
-                },
                 "VolumeAttachmentParams": {
                     "type": "object",
                     "properties": {
@@ -42308,18 +44313,6 @@
                         }
                     },
                     "description": "SetStatus sets the status of each given entity."
-                },
-                "UpdateStatus": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetStatus"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "UpdateStatus updates the status data of each given entity.\nTODO(fwereade): WTF. This method exists *only* for the convenience of the\n*client* API -- and is itself completely broken -- but we still expose it\nin every facade with a StatusSetter? FFS."
                 },
                 "WatchModelResources": {
                     "type": "object",

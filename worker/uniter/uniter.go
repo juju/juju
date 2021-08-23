@@ -18,6 +18,7 @@ import (
 	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/api/secretsmanager"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -78,6 +79,7 @@ type RemoteInitFunc func(remotestate.ContainerRunningStatus, <-chan struct{}) er
 type Uniter struct {
 	catacomb                     catacomb.Catacomb
 	st                           *uniter.State
+	secrets                      *secretsmanager.Client
 	paths                        Paths
 	unit                         *uniter.Unit
 	modelType                    model.ModelType
@@ -171,6 +173,7 @@ type Uniter struct {
 // UniterParams hold all the necessary parameters for a new Uniter.
 type UniterParams struct {
 	UniterFacade                  *uniter.State
+	SecretsFacade                 *secretsmanager.Client
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
 	LeadershipTrackerFunc         func(names.UnitTag) leadership.TrackerWorker
@@ -243,6 +246,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 	startFunc := func() (worker.Worker, error) {
 		u := &Uniter{
 			st:                            uniterParams.UniterFacade,
+			secrets:                       uniterParams.SecretsFacade,
 			paths:                         NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
 			modelType:                     uniterParams.ModelType,
 			hookLock:                      uniterParams.MachineLock,
@@ -391,6 +395,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				Sidecar:                       u.sidecar,
 				EnforcedCharmModifiedVersion:  u.enforcedCharmModifiedVersion,
 				WorkloadEventChannel:          u.workloadEventChannel,
+				InitialWorkloadEventIDs:       u.workloadEvents.EventIDs(),
 				ShutdownChannel:               u.shutdownChannel,
 			})
 		if err != nil {
@@ -796,6 +801,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
 		State:            u.st,
+		Secrets:          u.secrets,
 		Unit:             u.unit,
 		Tracker:          u.leadershipTracker,
 		GetRelationInfos: u.relationStateTracker.GetInfo,

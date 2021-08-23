@@ -12,7 +12,7 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
@@ -38,7 +38,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	tag := names.NewMachineTag("23")
 	s.raft = &mockRaft{}
 	s.logStore = &mockLogStore{}
-	s.hub = centralhub.New(tag)
+	s.hub = centralhub.New(tag, centralhub.PubsubNoOpMetrics{})
 	s.config = raftbackstop.Config{
 		Raft:     s.raft,
 		LogStore: s.logStore,
@@ -348,7 +348,7 @@ func (s *WorkerSuite) publishDetails(c *gc.C, serverAddrs map[string]string) {
 	received, err := s.hub.Publish(apiserver.DetailsTopic, details)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
-	case <-received:
+	case <-pubsub.Wait(received):
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for details to be received")
 	}

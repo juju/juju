@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
@@ -137,7 +137,7 @@ func (s *SubscriberSuite) SetUpTest(c *gc.C) {
 	// loggo.GetLogger("pubsub").SetLogLevel(loggo.TRACE)
 	tag := names.NewMachineTag("42")
 	s.clock = testclock.NewClock(time.Now())
-	s.hub = centralhub.New(tag)
+	s.hub = centralhub.New(tag, centralhub.PubsubNoOpMetrics{})
 	s.origin = tag.String()
 	s.remotes = &fakeRemoteTracker{
 		remotes: make(map[string]*fakeRemote),
@@ -201,7 +201,7 @@ func (s *SubscriberSuite) enableHA(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
-	case <-done:
+	case <-pubsub.Wait(done):
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("message handling not completed")
 	}
@@ -252,7 +252,7 @@ func (s *SubscriberSuite) TestEnableHAInternalAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
-	case <-done:
+	case <-pubsub.Wait(done):
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("message handling not completed")
 	}
@@ -276,7 +276,7 @@ func (s *SubscriberSuite) TestSameMessagesForwardedForMachine(c *gc.C) {
 		expected = append(expected, message)
 		done, err := s.hub.Publish(message.Topic, nil)
 		c.Assert(err, jc.ErrorIsNil)
-		last = done
+		last = pubsub.Wait(done)
 	}
 	select {
 	case <-last:
@@ -296,7 +296,7 @@ func (s *SubscriberSuite) TestSameMessagesForwardedForMachine(c *gc.C) {
 func (s *SubscriberSuite) TestSameMessagesForwardedForController(c *gc.C) {
 	tag := names.NewControllerAgentTag("42")
 	s.origin = tag.String()
-	s.hub = centralhub.New(tag)
+	s.hub = centralhub.New(tag, centralhub.PubsubNoOpMetrics{})
 	s.config.Origin = s.origin
 	s.config.Hub = s.hub
 	s.config.APIInfo.Tag = tag
@@ -313,7 +313,7 @@ func (s *SubscriberSuite) TestSameMessagesForwardedForController(c *gc.C) {
 		expected = append(expected, message)
 		done, err := s.hub.Publish(message.Topic, nil)
 		c.Assert(err, jc.ErrorIsNil)
-		last = done
+		last = pubsub.Wait(done)
 	}
 	select {
 	case <-last:
@@ -340,7 +340,7 @@ func (s *SubscriberSuite) TestLocalMessagesNotForwarded(c *gc.C) {
 			"local-only": true,
 		})
 		c.Assert(err, jc.ErrorIsNil)
-		last = done
+		last = pubsub.Wait(done)
 	}
 	select {
 	case <-last:
@@ -367,7 +367,7 @@ func (s *SubscriberSuite) TestOtherOriginMessagesNotForwarded(c *gc.C) {
 			"origin": "other",
 		})
 		c.Assert(err, jc.ErrorIsNil)
-		last = done
+		last = pubsub.Wait(done)
 	}
 	select {
 	case <-last:

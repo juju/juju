@@ -4,7 +4,6 @@
 package rafttest
 
 import (
-	"log"
 	"time"
 
 	"github.com/hashicorp/raft"
@@ -79,9 +78,6 @@ func (s *RaftFixture) DefaultConfig(id raft.ServerID) *raft.Config {
 	raftConfig.HeartbeatTimeout = 100 * time.Millisecond
 	raftConfig.ElectionTimeout = raftConfig.HeartbeatTimeout
 	raftConfig.LeaderLeaseTimeout = raftConfig.HeartbeatTimeout
-	raftConfig.Logger = log.New(&raftutil.LoggoWriter{
-		loggo.GetLogger("juju.worker.raft.raftclusterer_test_" + string(id)),
-		loggo.DEBUG,
-	}, "", 0)
+	raftConfig.Logger = raftutil.NewHCLLogger("test", loggo.GetLogger("juju.worker.raft.raftclusterer_test"+string(id)))
 	return raftConfig
 }

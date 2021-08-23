@@ -5,6 +5,8 @@ package common
 
 import (
 	"fmt"
+	"math"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -49,6 +51,39 @@ func UserFriendlyDuration(when, now time.Time) string {
 		return fmt.Sprintf("%d seconds ago", int(since.Seconds()))
 	}
 	return "just now"
+}
+
+// HumaniseInterval is used instead of String() on time.Duration.
+func HumaniseInterval(interval time.Duration) string {
+	if interval <= 0 {
+		return "never"
+	}
+
+	days := int64(interval.Hours() / 24)
+	hours := int64(math.Mod(interval.Hours(), 24))
+	minutes := int64(math.Mod(interval.Minutes(), 60))
+	seconds := int64(math.Mod(interval.Seconds(), 60))
+
+	chunks := []struct {
+		intervalName string
+		amount       int64
+	}{
+		{"d", days},
+		{"h", hours},
+		{"m", minutes},
+		{"s", seconds},
+	}
+
+	parts := []string{}
+
+	for _, chunk := range chunks {
+		if chunk.amount == 0 {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%d%s", chunk.amount, chunk.intervalName))
+	}
+
+	return strings.Join(parts, " ")
 }
 
 // FormatTime returns a string with the local time formatted

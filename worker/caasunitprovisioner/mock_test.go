@@ -12,12 +12,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
+	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
@@ -148,6 +150,7 @@ func (m *mockContainerBroker) AnnotateUnit(appName string, mode caas.DeploymentM
 type mockApplicationGetter struct {
 	testing.Stub
 	watcher        *watchertest.MockStringsWatcher
+	appWatcher     *watchertest.MockNotifyWatcher
 	scaleWatcher   *watchertest.MockNotifyWatcher
 	deploymentMode caas.DeploymentMode
 	scale          int
@@ -159,6 +162,14 @@ func (m *mockApplicationGetter) WatchApplications() (watcher.StringsWatcher, err
 		return nil, err
 	}
 	return m.watcher, nil
+}
+
+func (m *mockApplicationGetter) WatchApplication(appName string) (watcher.NotifyWatcher, error) {
+	m.MethodCall(m, "WatchApplication")
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
+	return m.appWatcher, nil
 }
 
 func (a *mockApplicationGetter) ApplicationConfig(appName string) (application.ConfigAttributes, error) {
@@ -296,4 +307,20 @@ func (m *mockUnitUpdater) UpdateUnits(arg params.UpdateApplicationUnits) (*param
 		return nil, err
 	}
 	return m.unitsInfo, nil
+}
+
+type mockCharmGetter struct {
+	testing.Stub
+	charmInfo *charms.CharmInfo
+}
+
+func (m *mockCharmGetter) ApplicationCharmInfo(appName string) (*charms.CharmInfo, error) {
+	m.MethodCall(m, "ApplicationCharmInfo", appName)
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
+	if m.charmInfo == nil {
+		return nil, errors.NotFoundf("application %q", appName)
+	}
+	return m.charmInfo, nil
 }

@@ -5,12 +5,11 @@ package raft
 
 import (
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
 
-	humanize "github.com/dustin/go-humanize"
+	"github.com/dustin/go-humanize"
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb"
 	"github.com/juju/clock"
@@ -181,7 +180,7 @@ func Bootstrap(config Config) error {
 	// During bootstrap we use an in-memory transport. We just need
 	// to make sure we use the same local address as we'll use later.
 	_, transport := raft.NewInmemTransport(bootstrapAddress)
-	defer transport.Close()
+	defer func() { _ = transport.Close() }()
 	config.Transport = transport
 
 	// During bootstrap, we do not require an FSM.
@@ -267,8 +266,8 @@ func (w *Worker) Raft() (*raft.Raft, error) {
 			return nil, err
 		}
 		return nil, ErrWorkerStopped
-	case raft := <-w.raftCh:
-		return raft, nil
+	case r := <-w.raftCh:
+		return r, nil
 	}
 }
 
@@ -319,7 +318,7 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 	// StableStore methods, because we aren't giving out a reference
 	// to the StableStore - only the raft instance uses it.
 	logStore := &syncLogStore{store: rawLogStore}
-	defer logStore.Close()
+	defer func() { _ = logStore.Close() }()
 
 	snapshotRetention := w.config.SnapshotRetention
 	if snapshotRetention == 0 {
@@ -398,9 +397,7 @@ func NewRaftConfig(config Config) (*raft.Config, error) {
 	// Having ShutdownOnRemove true means that the raft node also
 	// stops when it's demoted if it's the leader.
 	raftConfig.ShutdownOnRemove = false
-
-	logWriter := &raftutil.LoggoWriter{config.Logger, loggo.DEBUG}
-	raftConfig.Logger = log.New(logWriter, "", 0)
+	raftConfig.Logger = raftutil.NewHCLLogger("raft", config.Logger)
 
 	maybeOverrideDuration := func(d time.Duration, target *time.Duration) {
 		if d != 0 {
@@ -417,22 +414,23 @@ func NewRaftConfig(config Config) (*raft.Config, error) {
 	return raftConfig, nil
 }
 
-// SyncMode defines the supported sync modes when writing to the raft log store.
+// SyncMode defines the supported sync modes
+// when writing to the raft log store.
 type SyncMode bool
 
 const (
-	// SyncWrites ensures that an fsync call is performed after each write.
+	// SyncAfterWrite ensures that an fsync call is performed after each write.
 	SyncAfterWrite SyncMode = false
 
-	// NoSyncAfterWrite ensures that no fsync calls are performed between
-	// writes.
+	// NoSyncAfterWrite ensures that no fsync
+	// calls are performed between writes.
 	NoSyncAfterWrite SyncMode = true
 )
 
 // NewLogStore opens a boltDB logstore in the specified directory. If the
 // directory doesn't already exist it'll be created. If the caller passes
-// NonSyncedAfterWrite as the value of the syncMode argument, the underlying store
-// will NOT perform fsync calls between log writes.
+// NonSyncedAfterWrite as the value of the syncMode argument, the underlying
+// store will NOT perform fsync calls between log writes.
 func NewLogStore(dir string, syncMode SyncMode) (*raftboltdb.BoltStore, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, errors.Trace(err)
@@ -454,12 +452,10 @@ func NewSnapshotStore(
 	retain int,
 	logger Logger,
 ) (raft.SnapshotStore, error) {
-	const logPrefix = "[snapshot] "
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, errors.Trace(err)
 	}
-	logWriter := &raftutil.LoggoWriter{logger, loggo.DEBUG}
-	logLogger := log.New(logWriter, logPrefix, 0)
+	logLogger := raftutil.NewHCLLogger("snapshot", logger)
 
 	snaps, err := raft.NewFileSnapshotStoreWithLogger(dir, retain, logLogger)
 	if err != nil {
@@ -473,7 +469,7 @@ func NewSnapshotStore(
 type BootstrapFSM struct{}
 
 // Apply is part of raft.FSM.
-func (BootstrapFSM) Apply(log *raft.Log) interface{} {
+func (BootstrapFSM) Apply(_ *raft.Log) interface{} {
 	panic("Apply should not be called during bootstrap")
 }
 

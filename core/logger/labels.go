@@ -13,4 +13,8 @@ const (
 	// METRICS defines a common label for dealing with metric output. This
 	// should be used as a fallback for when prometheus isn't available.
 	METRICS Label = "metrics"
+
+	// CHARMHUB defines a common label for dealing with the charmhub client
+	// and callers.
+	CHARMHUB Label = "charmhub"
 )

@@ -22,7 +22,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/ratelimit"
 	"github.com/juju/worker/v2/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -346,11 +346,13 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	// The auth context for authenticating access to application offers.
 	srv.offerAuthCtxt, err = newOfferAuthcontext(cfg.StatePool)
 	if err != nil {
+		unsubscribeControllerConfig()
 		return nil, errors.Trace(err)
 	}
 
 	model, err := srv.shared.statePool.SystemState().Model()
 	if err != nil {
+		unsubscribeControllerConfig()
 		return nil, errors.Trace(err)
 	}
 	if model.Type() == state.ModelTypeCAAS {
@@ -367,6 +369,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		srv.tomb.Kill(dependency.ErrBounce)
 	})
 	if err != nil {
+		unsubscribeControllerConfig()
 		return nil, errors.Annotate(err, "unable to subscribe to restart message")
 	}
 
@@ -645,9 +648,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
 	}
 	modelToolsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
-	modelToolsDownloadHandler := &toolsDownloadHandler{
-		ctxt: httpCtxt,
-	}
+	modelToolsDownloadHandler := newToolsDownloadHandler(httpCtxt)
 	resourcesHandler := &ResourcesHandler{
 		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, state.PoolHelper, names.Tag, error) {
 			st, entity, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)

@@ -1,7 +1,7 @@
 // Copyright 2012, 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The worker/uniter/runner/jujuc package implements the server side of the
+// Package jujuc implements the server side of the
 // jujuc proxy tool, which forwards command invocations to the unit agent
 // process so that they can be executed against specific state.
 package jujuc
@@ -17,12 +17,14 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v2/exec"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/sockets"
 )
 
@@ -92,6 +94,11 @@ func constructCommandCreator(name string, newCmd functionCmdCreator) creator {
 	}
 }
 
+var secretCommands = map[string]creator{
+	"secret-create" + cmdSuffix: NewSecretCreateCommand,
+	"secret-get" + cmdSuffix:    NewSecretGetCommand,
+}
+
 var storageCommands = map[string]creator{
 	"storage-add" + cmdSuffix:  NewStorageAddCommand,
 	"storage-get" + cmdSuffix:  NewStorageGetCommand,
@@ -114,6 +121,9 @@ func allEnabledCommands() map[string]creator {
 	add(baseCommands)
 	add(storageCommands)
 	add(leaderCommands)
+	if featureflag.Enabled(feature.Secrets) {
+		add(secretCommands)
+	}
 	add(registeredCommands)
 	return all
 }

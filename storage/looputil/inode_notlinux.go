@@ -1,7 +1,8 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-//+build !linux
+//go:build !linux
+// +build !linux
 
 package looputil
 

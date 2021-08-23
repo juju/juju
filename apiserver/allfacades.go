@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/reboot"
 	"github.com/juju/juju/apiserver/facades/agent/resourceshookcontext"
 	"github.com/juju/juju/apiserver/facades/agent/retrystrategy"
+	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
 	"github.com/juju/juju/apiserver/facades/agent/unitassigner"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
@@ -68,6 +69,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelmanager" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/payloads"
 	"github.com/juju/juju/apiserver/facades/client/resources"
+	"github.com/juju/juju/apiserver/facades/client/secrets"
 	"github.com/juju/juju/apiserver/facades/client/spaces"    // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/sshclient" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/storage"
@@ -215,6 +217,7 @@ func AllFacades() *facade.Registry {
 	reg("Controller", 8, controller.NewControllerAPIv8)
 	reg("Controller", 9, controller.NewControllerAPIv9)
 	reg("Controller", 10, controller.NewControllerAPIv10)
+	reg("Controller", 11, controller.NewControllerAPIv11)
 	reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPIV1)
 	reg("CrossModelRelations", 2, crossmodelrelations.NewStateCrossModelRelationsAPI) // Adds WatchRelationChanges, removes WatchRelationUnits
 	reg("CrossController", 1, crosscontroller.NewStateCrossControllerAPI)
@@ -327,6 +330,8 @@ func AllFacades() *facade.Registry {
 	reg("Resumer", 2, resumer.NewResumerAPI)
 	reg("RetryStrategy", 1, retrystrategy.NewRetryStrategyAPI)
 	reg("Singular", 2, singular.NewExternalFacade)
+	reg("Secrets", 1, secrets.NewSecretsAPI)
+	reg("SecretsManager", 1, secretsmanager.NewSecretManagerAPI)
 
 	reg("SSHClient", 1, sshclient.NewFacade)
 	reg("SSHClient", 2, sshclient.NewFacade) // v2 adds AllAddresses() method.

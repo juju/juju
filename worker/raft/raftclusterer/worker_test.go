@@ -8,7 +8,7 @@ import (
 
 	"github.com/hashicorp/raft"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
@@ -31,7 +31,7 @@ type workerFixture struct {
 func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.FSM = &jujuraft.SimpleFSM{}
 	s.RaftFixture.SetUpTest(c)
-	s.hub = centralhub.New(names.NewMachineTag("0"))
+	s.hub = centralhub.New(names.NewMachineTag("0"), centralhub.PubsubNoOpMetrics{})
 	s.config = raftclusterer.Config{
 		Raft: s.Raft,
 		Hub:  s.hub,
@@ -550,7 +550,7 @@ func (s *WorkerSuite) publishDetails(c *gc.C, serverAddrs map[string]string) {
 	received, err := s.hub.Publish(apiserver.DetailsTopic, details)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
-	case <-received:
+	case <-pubsub.Wait(received):
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for details to be received")
 	}

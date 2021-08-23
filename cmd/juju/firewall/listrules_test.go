@@ -6,8 +6,8 @@ package firewall_test
 import (
 	"strings"
 
-	"github.com/juju/cmd"
-	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"

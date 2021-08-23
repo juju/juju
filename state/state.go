@@ -8,7 +8,6 @@ package state
 
 import (
 	"fmt"
-	"io"
 	"regexp"
 	"sort"
 	"strconv"
@@ -25,7 +24,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/v2"
 	"github.com/juju/version/v2"
@@ -435,8 +434,8 @@ func (st *State) ApplicationLeaders() (map[string]string, error) {
 
 // LeaseNotifyTarget returns a raftlease.NotifyTarget for storing
 // lease changes in the database.
-func (st *State) LeaseNotifyTarget(logDest io.Writer, errorLogger raftleasestore.Logger) raftlease.NotifyTarget {
-	return raftleasestore.NewNotifyTarget(&environMongo{st}, leaseHoldersC, logDest, errorLogger)
+func (st *State) LeaseNotifyTarget(logger raftleasestore.Logger) raftlease.NotifyTarget {
+	return raftleasestore.NewNotifyTarget(&environMongo{st}, leaseHoldersC, logger)
 }
 
 // LeaseTrapdoorFunc returns a raftlease.TrapdoorFunc for checking

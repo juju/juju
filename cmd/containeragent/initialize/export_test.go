@@ -1,12 +1,13 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+//go:build !windows
 // +build !windows
 
 package initialize
 
 import (
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 
 	"github.com/juju/juju/cmd/containeragent/utils"
 )

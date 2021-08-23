@@ -2,6 +2,7 @@
 // Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+//go:build !windows
 // +build !windows
 
 package commands
@@ -11,7 +12,7 @@ import (
 	"reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

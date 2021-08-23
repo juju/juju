@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
@@ -39,7 +39,7 @@ var _ = gc.Suite(&PresenceSuite{})
 
 func (s *PresenceSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.hub = centralhub.New(ourTag)
+	s.hub = centralhub.New(ourTag, centralhub.PubsubNoOpMetrics{})
 	s.clock = testclock.NewClock(time.Time{})
 	s.recorder = corepresence.New(s.clock)
 	s.recorder.Enable()
@@ -195,7 +195,7 @@ func (s *PresenceSuite) TestForwarderDisconnectConnectFromOther(c *gc.C) {
 		forwarder.DisconnectedTopic,
 		apiserver.OriginTarget{Origin: ourServer, Target: otherServer})
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertDone(c, done)
+	s.AssertDone(c, pubsub.Wait(done))
 	s.AssertConnections(c, alive(agent1), missing(agent2))
 }
 
@@ -209,7 +209,7 @@ func (s *PresenceSuite) TestForwarderDisconnectOthersIgnored(c *gc.C) {
 		forwarder.DisconnectedTopic,
 		apiserver.OriginTarget{Origin: "machine-7", Target: otherServer})
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertDone(c, done)
+	s.AssertDone(c, pubsub.Wait(done))
 	s.AssertConnections(c, alive(agent1), alive(agent2))
 }
 
@@ -228,7 +228,7 @@ func (s *PresenceSuite) TestConnectTopic(c *gc.C) {
 			UserData:        "test",
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertDone(c, done)
+	s.AssertDone(c, pubsub.Wait(done))
 	s.AssertConnections(c, corepresence.Value{
 		Model:           "model-uuid",
 		Server:          "machine-5",
@@ -253,7 +253,7 @@ func (s *PresenceSuite) TestDisconnectTopic(c *gc.C) {
 			ConnectionID: agent2.ConnectionID,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertDone(c, done)
+	s.AssertDone(c, pubsub.Wait(done))
 	s.AssertConnections(c, alive(agent1))
 }
 
@@ -323,7 +323,7 @@ func (s *PresenceSuite) TestPresenceResponse(c *gc.C) {
 			},
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertDone(c, done)
+	s.AssertDone(c, pubsub.Wait(done))
 
 	s.AssertConnections(c, alive(agent1), alive(agent2), alive(agent3), alive(agent4))
 }

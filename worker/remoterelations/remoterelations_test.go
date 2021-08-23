@@ -37,7 +37,7 @@ import (
 var _ = gc.Suite(&remoteRelationsSuite{})
 
 type remoteRelationsSuite struct {
-	coretesting.BaseSuite
+	jujutesting.IsolationSuite
 
 	remoteControllerInfo  *api.Info
 	resources             *common.Resources
@@ -49,7 +49,7 @@ type remoteRelationsSuite struct {
 }
 
 func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 
 	s.remoteControllerInfo = &api.Info{
 		Addrs:  []string{"1.2.3.4:1234"},

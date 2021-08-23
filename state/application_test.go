@@ -130,6 +130,22 @@ func (s *ApplicationSuite) TestSetCharmCharmOrigin(c *gc.C) {
 	c.Assert(obtainedOrigin, gc.DeepEquals, origin)
 }
 
+func (s *ApplicationSuite) TestSetCharmSeries(c *gc.C) {
+	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
+
+	cfg := state.SetCharmConfig{
+		Charm:  sch,
+		Series: "new-series",
+	}
+	err := s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.Series(), gc.DeepEquals, "new-series")
+
+	err = s.mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.Series(), gc.DeepEquals, "new-series")
+}
+
 func (s *ApplicationSuite) TestSetCharmCharmOriginNoChange(c *gc.C) {
 	// Add a compatible charm.
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)

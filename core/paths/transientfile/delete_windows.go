@@ -1,7 +1,8 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-//+build windows
+//go:build windows
+// +build windows
 
 // Package transientfile provides helpers for creating files that do not
 // survive machine reboots.

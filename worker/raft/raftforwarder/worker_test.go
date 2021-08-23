@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
@@ -44,7 +44,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		response: s.response,
 	}}
 	s.target = &fakeTarget{}
-	s.hub = centralhub.New(names.NewMachineTag("17"))
+	s.hub = centralhub.New(names.NewMachineTag("17"), centralhub.PubsubNoOpMetrics{})
 	s.config = raftforwarder.Config{
 		Hub:                  s.hub,
 		Raft:                 s.raft,

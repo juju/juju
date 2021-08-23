@@ -63,7 +63,7 @@ type FSMResponse interface {
 	Notify(NotifyTarget)
 }
 
-// groupKey stores the namespace and model uuid that identifies all of
+// groupKey stores the namespace and model uuid that identifies all
 // the leases for a particular model and lease type.
 type groupKey struct {
 	namespace string
@@ -88,7 +88,7 @@ func NewFSM() *FSM {
 
 // FSM stores the state of leases in the system.
 type FSM struct {
-	mu         sync.Mutex
+	mu         sync.RWMutex
 	globalTime time.Time
 	groups     map[groupKey]map[lease.Key]*entry
 
@@ -97,8 +97,8 @@ type FSM struct {
 	// against their key.
 	// This allows different Juju concerns to pin leases, but remove only
 	// their own pins. It is done to avoid restoring normal expiration
-	// to a lease pinned by another concern operating under under the
-	// assumption that the lease holder will not change.
+	// to a lease pinned by another concern operating under the
+	// assumption that the lease-holder will not change.
 	pinned map[lease.Key]set.Strings
 }
 
@@ -121,7 +121,7 @@ func (f *FSM) claim(key lease.Key, holder string, duration time.Duration) *respo
 	entries := f.ensureGroup(key)
 	if entry, found := entries[key]; found {
 		// If the claim is for a lease held by someone else,
-		// indicate it is already held so they should not retry.
+		// indicate it is already held, so they should not retry.
 		if entry.holder != holder {
 			return alreadyHeldResponse()
 		}
@@ -129,6 +129,10 @@ func (f *FSM) claim(key lease.Key, holder string, duration time.Duration) *respo
 		// If a claim (instead of an extension) is being made by the lease
 		// holder, this may be due to a HA situation where the local Raft node
 		// is not in sync with the leader. Let them retry.
+		logger.Tracef(
+			"lease for %q in model %q is already held by claimant %q; allow retry",
+			key.Namespace, key.ModelUUID, holder,
+		)
 		return invalidResponse()
 	}
 	entries[key] = &entry{
@@ -149,6 +153,10 @@ func (f *FSM) extend(key lease.Key, holder string, duration time.Duration) *resp
 		return invalidResponse()
 	}
 	if entry.holder != holder {
+		logger.Tracef(
+			"unable to extend lease for %q in model %q; requested for %q, but held by %q",
+			key.Namespace, key.ModelUUID, entry.holder, holder,
+		)
 		return invalidResponse()
 	}
 	expiry := f.globalTime.Add(duration)
@@ -174,6 +182,10 @@ func (f *FSM) revoke(key lease.Key, holder string) *response {
 		return invalidResponse()
 	}
 	if entry.holder != holder {
+		logger.Tracef(
+			"unable to revoke lease for %q in model %q; requested for %q, but held by %q",
+			key.Namespace, key.ModelUUID, entry.holder, holder,
+		)
 		return invalidResponse()
 	}
 	delete(entries, key)
@@ -206,8 +218,9 @@ func (f *FSM) setTime(oldTime, newTime time.Time) *response {
 	return &response{expired: f.removeExpired(newTime)}
 }
 
-// expired returns a collection of keys for leases that have expired.
-// Any pinned leases are not included in the return.
+// removeExpired deletes leases that have expired and
+// returns a collection of the deleted lease keys.
+// Pinned leases are not deleted.
 func (f *FSM) removeExpired(newTime time.Time) []lease.Key {
 	var expired []lease.Key
 	for gKey, entries := range f.groups {
@@ -230,7 +243,7 @@ func (f *FSM) GlobalTime() time.Time {
 	return f.globalTime
 }
 
-// Leases gets information about all of the leases in the system,
+// Leases gets information about all the leases in the system,
 // optionally filtered by the input lease keys.
 func (f *FSM) Leases(getLocalTime func() time.Time, keys ...lease.Key) map[lease.Key]lease.Info {
 	if len(keys) > 0 {
@@ -244,8 +257,11 @@ func (f *FSM) Leases(getLocalTime func() time.Time, keys ...lease.Key) map[lease
 // filter list and retrieving from entries will be fastest by far.
 func (f *FSM) filteredLeases(getLocalTime func() time.Time, keys []lease.Key) map[lease.Key]lease.Info {
 	results := make(map[lease.Key]lease.Info)
-	f.mu.Lock()
 	localTime := getLocalTime()
+
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
 	for _, key := range keys {
 		entries, found := f.getGroup(key)
 		if !found {
@@ -255,20 +271,21 @@ func (f *FSM) filteredLeases(getLocalTime func() time.Time, keys []lease.Key) ma
 			results[key] = f.infoFromEntry(localTime, key, entry)
 		}
 	}
-	f.mu.Unlock()
 	return results
 }
 
 func (f *FSM) allLeases(getLocalTime func() time.Time) map[lease.Key]lease.Info {
 	results := make(map[lease.Key]lease.Info)
-	f.mu.Lock()
 	localTime := getLocalTime()
+
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
 	for _, entries := range f.groups {
 		for key, entry := range entries {
 			results[key] = f.infoFromEntry(localTime, key, entry)
 		}
 	}
-	f.mu.Unlock()
 	return results
 }
 
@@ -294,8 +311,9 @@ func (f *FSM) infoFromEntry(localTime time.Time, key lease.Key, entry *entry) le
 // when there are many models this is more efficient than getting all
 // the leases and filtering by model.
 func (f *FSM) LeaseGroup(getLocalTime func() time.Time, namespace, modelUUID string) map[lease.Key]lease.Info {
-	f.mu.Lock()
-	defer f.mu.Unlock()
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
 	gKey := groupKey{namespace: namespace, modelUUID: modelUUID}
 	entries, found := f.groups[gKey]
 	if !found {
@@ -309,17 +327,19 @@ func (f *FSM) LeaseGroup(getLocalTime func() time.Time, namespace, modelUUID str
 	return results
 }
 
-// Pinned returns all of the currently known lease pins and applications
-// requiring the pinned behaviour.
+// Pinned returns all the currently known lease pins and
+// applications requiring the pinned behaviour.
 func (f *FSM) Pinned() map[lease.Key][]string {
-	f.mu.Lock()
 	pinned := make(map[lease.Key][]string)
+
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
 	for key, entities := range f.pinned {
 		if !entities.IsEmpty() {
 			pinned[key] = entities.SortedValues()
 		}
 	}
-	f.mu.Unlock()
 	return pinned
 }
 
@@ -357,8 +377,8 @@ func (r *response) Error() error {
 
 // Notify is part of FSMResponse.
 func (r *response) Notify(target NotifyTarget) {
-	// This response is either for a claim (in which case claimer will
-	// be set) or a set-time (so it will have zero or more expiries).
+	// This response is either for a claim (in which case claimer will be set)
+	// or a set-time (so it will have zero or more expirations).
 	if r.claimer != "" {
 		target.Claimed(r.claimed, r.claimer)
 	}
@@ -401,9 +421,11 @@ func (f *FSM) Apply(log *raft.Log) interface{} {
 
 // Snapshot is part of raft.FSM.
 func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
-	f.mu.Lock()
-
 	entries := make(map[SnapshotKey]SnapshotEntry)
+
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
 	for _, group := range f.groups {
 		for key, entry := range group {
 			entries[SnapshotKey{
@@ -429,8 +451,6 @@ func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 			Lease:     key.Lease,
 		}] = entities.SortedValues()
 	}
-
-	f.mu.Unlock()
 
 	return &Snapshot{
 		Version:    SnapshotVersion,
@@ -489,10 +509,11 @@ func (f *FSM) Restore(reader io.ReadCloser) error {
 	}
 
 	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	f.globalTime = snapshot.GlobalTime
 	f.groups = newGroups
 	f.pinned = newPinned
-	f.mu.Unlock()
 
 	return nil
 }
@@ -542,8 +563,8 @@ type SnapshotEntry struct {
 
 // Command captures the details of an operation to be run on the FSM.
 type Command struct {
-	// Version of the command format, in case it changes and we need
-	// to handle multiple formats.
+	// Version of the command format in case it changes,
+	// and we need to handle multiple formats.
 	Version int `yaml:"version"`
 
 	// Operation is one of claim, extend, expire or setTime.

@@ -6,6 +6,7 @@ package application
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -1131,6 +1132,9 @@ func (a *app) Units() ([]caas.Unit, error) {
 				logger.Warningf("volume for volume mount %q not found", volMount.Name)
 				continue
 			}
+
+			// Ignore volume sources for volumes created for K8s pod-spec charms.
+			// See: https://discourse.charmhub.io/t/k8s-spec-v3-changes/2698
 			if vol.Secret != nil && strings.Contains(vol.Secret.SecretName, "-token") {
 				logger.Tracef("ignoring volume source for service account secret: %v", vol.Name)
 				continue
@@ -1139,6 +1143,19 @@ func (a *app) Units() ([]caas.Unit, error) {
 				logger.Tracef("ignoring volume source for projected volume: %v", vol.Name)
 				continue
 			}
+			if vol.ConfigMap != nil {
+				logger.Tracef("ignoring volume source for configMap volume: %v", vol.Name)
+				continue
+			}
+			if vol.HostPath != nil {
+				logger.Tracef("ignoring volume source for hostPath volume: %v", vol.Name)
+				continue
+			}
+			if vol.EmptyDir != nil {
+				logger.Tracef("ignoring volume source for emptyDir volume: %v", vol.Name)
+				continue
+			}
+
 			fsInfo, err := storage.FilesystemInfo(ctx, a.client, a.namespace, vol, volMount, now)
 			if err != nil {
 				return nil, errors.Annotatef(err, "finding filesystem info for %v", volMount.Name)
@@ -1153,7 +1170,7 @@ func (a *app) Units() ([]caas.Unit, error) {
 					fsInfo.StorageName = constants.PVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
 				}
 			}
-			logger.Debugf("filesystem info for %v: %+v", volMount.Name, *fsInfo)
+			logger.Tracef("filesystem info for %v: %+v", volMount.Name, *fsInfo)
 			unitInfo.FilesystemInfo = append(unitInfo.FilesystemInfo, *fsInfo)
 		}
 		units = append(units, unitInfo)
@@ -1553,6 +1570,53 @@ func (a *app) volumeName(storageName string) string {
 	return fmt.Sprintf("%s-%s", a.name, storageName)
 }
 
+// pvcNames returns a mapping of volume name to PVC name for this app's PVCs.
+func (a *app) pvcNames() (map[string]string, error) {
+	// Fetch all Juju PVCs associated with this app
+	labelSelectors := map[string]string{
+		"app.kubernetes.io/managed-by": "juju",
+		"app.kubernetes.io/name":       a.name,
+	}
+	opts := metav1.ListOptions{
+		LabelSelector: utils.LabelsToSelector(labelSelectors).String(),
+	}
+	pvcs, err := resources.ListPersistentVolumeClaims(context.Background(), a.client, a.namespace, opts)
+	if err != nil {
+		return nil, errors.Annotate(err, "fetching persistent volume claims")
+	}
+
+	names := make(map[string]string)
+	for _, pvc := range pvcs {
+		// Look up Juju storage name
+		s, ok := pvc.Labels["storage.juju.is/name"]
+		if !ok {
+			continue
+		}
+
+		// Try to match different PVC name formats that have evolved over time
+		regexes := []string{
+			// Sidecar "{appName}-{storageName}-{uniqueId}", e.g., "dex-auth-test-0837847d-dex-auth-0"
+			"^" + regexp.QuoteMeta(a.name+"-"+s) + `-[0-9a-f]{8}`,
+			// Pod-spec "{storageName}-{uniqueId}", e.g., "test-0837847d-dex-auth-0"
+			"^" + regexp.QuoteMeta(s) + `-[0-9a-f]{8}`,
+			// Legacy "juju-{storageName}-{n}", e.g., "juju-test-1-dex-auth-0"
+			"^juju-" + regexp.QuoteMeta(s) + `-[0-9]+`,
+		}
+		for _, regex := range regexes {
+			r, err := regexp.Compile(regex)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			match := r.FindString(pvc.Name)
+			if match != "" {
+				names[a.volumeName(s)] = match
+				break
+			}
+		}
+	}
+	return names, nil
+}
+
 func (a *app) configureStorage(
 	storageUniqueID string,
 	filesystems []jujustorage.KubernetesFilesystemParams,
@@ -1566,6 +1630,12 @@ func (a *app) configureStorage(
 	for _, v := range storageClasses {
 		storageClassMap[v.Name] = v
 	}
+
+	pvcNames, err := a.pvcNames()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Tracef("persistent volume claim name mapping = %v", pvcNames)
 
 	fsNames := set.NewStrings()
 	for index, fs := range filesystems {
@@ -1582,7 +1652,13 @@ func (a *app) configureStorage(
 		}
 
 		name := a.volumeName(fs.StorageName)
-		pvcNameGetter := func(volName string) string { return fmt.Sprintf("%s-%s", volName, storageUniqueID) }
+		pvcNameGetter := func(volName string) string {
+			if n, ok := pvcNames[volName]; ok {
+				logger.Debugf("using existing persistent volume claim %q (volume %q)", n, volName)
+				return n
+			}
+			return fmt.Sprintf("%s-%s", volName, storageUniqueID)
+		}
 
 		vol, pvc, sc, err := a.filesystemToVolumeInfo(name, fs, storageClassMap, pvcNameGetter)
 		if err != nil {
@@ -1622,7 +1698,8 @@ func (a *app) configureStorage(
 	return nil
 }
 
-func (a *app) filesystemToVolumeInfo(name string,
+func (a *app) filesystemToVolumeInfo(
+	name string,
 	fs jujustorage.KubernetesFilesystemParams,
 	storageClasses map[string]resources.StorageClass,
 	pvcNameGetter func(volName string) string,

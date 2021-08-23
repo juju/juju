@@ -35,6 +35,7 @@ func (s *workloadSuite) TestWorkloadEventList(c *gc.C) {
 	})
 	c.Assert(id, gc.Not(gc.Equals), "")
 	c.Assert(events.Events(), gc.DeepEquals, []container.WorkloadEvent{evt})
+	c.Assert(events.EventIDs(), gc.DeepEquals, []string{id})
 	evt2, cb, err := events.GetWorkloadEvent(id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cb, gc.NotNil)

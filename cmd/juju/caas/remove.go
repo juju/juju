@@ -6,7 +6,7 @@ package caas
 import (
 	"fmt"
 
-	"github.com/juju/cmd"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 
 	cloudapi "github.com/juju/juju/api/cloud"

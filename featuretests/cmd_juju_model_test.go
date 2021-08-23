@@ -6,8 +6,8 @@ package featuretests
 import (
 	"strings"
 
-	"github.com/juju/cmd"
-	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -235,7 +235,7 @@ func (s *cmdModelSuite) TestRetryProvisioning(c *gc.C) {
 	ctx := s.run(c, "retry-provisioning", "0")
 	output := cmdtesting.Stderr(ctx)
 	stripped := strings.Replace(output, "\n", "", -1)
-	c.Check(stripped, gc.Equals, `machine 0 is not in an error state`)
+	c.Check(stripped, gc.Equals, `machine 0 is not in an error state (pending)`)
 }
 
 func (s *cmdModelSuite) TestDumpModel(c *gc.C) {

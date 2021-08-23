@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/go-msgpack/codec"
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 
@@ -92,6 +92,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		LocalOnly: true,
 	}
 	if _, err := config.Hub.Publish(apiserver.DetailsRequestTopic, req); err != nil {
+		unsubscribe()
 		return nil, errors.Annotate(err, "requesting current apiserver details")
 	}
 

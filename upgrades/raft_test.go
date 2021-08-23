@@ -4,13 +4,12 @@
 package upgrades_test
 
 import (
-	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb"
 	"github.com/juju/loggo"
@@ -117,7 +116,10 @@ func withRaft(c *gc.C, dataDir string, fsm raft.FSM, checkFunc func(*raft.Raft))
 	output := captureWriter{c}
 	config := raft.DefaultConfig()
 	config.LocalID = "23"
-	config.Logger = log.New(output, "", 0)
+	config.Logger = hclog.New(&hclog.LoggerOptions{
+		Output: output,
+		Level:  hclog.DefaultLevel,
+	})
 	c.Assert(raft.ValidateConfig(config), jc.ErrorIsNil)
 
 	raftDir := filepath.Join(dataDir, "raft")
@@ -549,8 +551,8 @@ func (s *mockState) DropLeasesCollection() error {
 	return s.stub.NextErr()
 }
 
-func (s *mockState) LeaseNotifyTarget(log io.Writer, errorLog raftleasestore.Logger) raftlease.NotifyTarget {
-	s.stub.AddCall("LeaseNotifyTarget", log, errorLog)
+func (s *mockState) LeaseNotifyTarget(logger raftleasestore.Logger) raftlease.NotifyTarget {
+	s.stub.AddCall("LeaseNotifyTarget", logger)
 	return s.target
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/secrets"
 )
 
 // ErrRestrictedContext indicates a method is not implemented in the given context.
@@ -218,5 +219,15 @@ func (*RestrictedContext) SetUnitWorkloadVersion(string) error {
 
 // WorkloadName implements hooks.Context.
 func (*RestrictedContext) WorkloadName() (string, error) {
+	return "", ErrRestrictedContext
+}
+
+// GetSecret implements runner.Context.
+func (ctx *RestrictedContext) GetSecret(ID string) (secrets.SecretValue, error) {
+	return nil, ErrRestrictedContext
+}
+
+// CreateSecret implements runner.Context.
+func (ctx *RestrictedContext) CreateSecret(name string, args *UpsertArgs) (string, error) {
 	return "", ErrRestrictedContext
 }

@@ -8,7 +8,7 @@ import (
 
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
-	"github.com/juju/pubsub"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
@@ -134,11 +134,13 @@ func (w *forwarder) handleRequest(_ string, req raftlease.ForwardRequest, err er
 			w.catacomb.Kill(errors.Annotate(err, "applying command"))
 			return
 		}
+
 		_, err = w.config.Hub.Publish(req.ResponseTopic, response)
 		if err != nil {
 			w.catacomb.Kill(errors.Annotate(err, "publishing response"))
 			return
 		}
+
 		w.metrics.record(start, "full")
 	}()
 }

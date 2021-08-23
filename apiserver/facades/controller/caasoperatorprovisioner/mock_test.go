@@ -11,6 +11,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
@@ -128,7 +129,7 @@ type mockApplication struct {
 	state.Authenticator
 	tag      names.Tag
 	password string
-	charm    charm.CharmMeta
+	charm    *mockCharm
 }
 
 func (m *mockApplication) Tag() names.Tag {
@@ -144,11 +145,12 @@ func (a *mockApplication) Life() state.Life {
 	return state.Alive
 }
 
-func (a *mockApplication) Charm() (charm.CharmMeta, bool, error) {
+func (a *mockApplication) Charm() (charmscommon.Charm, bool, error) {
 	return a.charm, false, nil
 }
 
 type mockCharm struct {
+	charmscommon.Charm
 	meta     *charm.Meta
 	manifest *charm.Manifest
 }

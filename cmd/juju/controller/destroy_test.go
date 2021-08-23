@@ -7,8 +7,8 @@ import (
 	"bytes"
 	"time"
 
-	"github.com/juju/cmd"
-	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
@@ -331,8 +331,10 @@ func (s *DestroySuite) TestDestroyWithDestroyAllModelsFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-models")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "DestroyController", "AllModels", "ModelStatus", "Close")
+	timeout := 30 * time.Minute
 	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
 		DestroyModels: true,
+		ModelTimeout:  &timeout,
 	})
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
@@ -341,8 +343,10 @@ func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	destroyStorage := true
+	timeout := 30 * time.Minute
 	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
 		DestroyStorage: &destroyStorage,
+		ModelTimeout:   &timeout,
 	})
 }
 
@@ -350,14 +354,27 @@ func (s *DestroySuite) TestDestroyWithDestroyReleaseStorageFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y", "--release-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	destroyStorage := false
+	timeout := 30 * time.Minute
 	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
 		DestroyStorage: &destroyStorage,
+		ModelTimeout:   &timeout,
 	})
 }
 
 func (s *DestroySuite) TestDestroyWithDestroyDestroyReleaseStorageFlagsMutuallyExclusive(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-storage", "--release-storage")
 	c.Assert(err, gc.ErrorMatches, "--destroy-storage and --release-storage cannot both be specified")
+}
+
+func (s *DestroySuite) TestDestroyWithForceFlag(c *gc.C) {
+	_, err := s.runDestroyCommand(c, "test1", "-y", "--force", "--model-timeout", "10m")
+	c.Assert(err, jc.ErrorIsNil)
+	force := true
+	timeout := 10 * time.Minute
+	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
+		Force:        &force,
+		ModelTimeout: &timeout,
+	})
 }
 
 func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecified(c *gc.C) {

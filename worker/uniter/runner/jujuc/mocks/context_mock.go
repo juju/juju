@@ -13,6 +13,7 @@ import (
 	params "github.com/juju/juju/apiserver/params"
 	application "github.com/juju/juju/core/application"
 	network "github.com/juju/juju/core/network"
+	secrets "github.com/juju/juju/core/secrets"
 	jujuc "github.com/juju/juju/worker/uniter/runner/jujuc"
 	loggo "github.com/juju/loggo"
 	names "github.com/juju/names/v4"
@@ -187,6 +188,21 @@ func (mr *MockContextMockRecorder) ConfigSettings() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigSettings", reflect.TypeOf((*MockContext)(nil).ConfigSettings))
 }
 
+// CreateSecret mocks base method.
+func (m *MockContext) CreateSecret(arg0 string, arg1 *jujuc.UpsertArgs) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateSecret", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateSecret indicates an expected call of CreateSecret.
+func (mr *MockContextMockRecorder) CreateSecret(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecret", reflect.TypeOf((*MockContext)(nil).CreateSecret), arg0, arg1)
+}
+
 // DeleteCharmStateValue mocks base method.
 func (m *MockContext) DeleteCharmStateValue(arg0 string) error {
 	m.ctrl.T.Helper()
@@ -273,6 +289,21 @@ func (m *MockContext) GetRawK8sSpec() (string, error) {
 func (mr *MockContextMockRecorder) GetRawK8sSpec() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRawK8sSpec", reflect.TypeOf((*MockContext)(nil).GetRawK8sSpec))
+}
+
+// GetSecret mocks base method.
+func (m *MockContext) GetSecret(arg0 string) (secrets.SecretValue, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecret", arg0)
+	ret0, _ := ret[0].(secrets.SecretValue)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecret indicates an expected call of GetSecret.
+func (mr *MockContextMockRecorder) GetSecret(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockContext)(nil).GetSecret), arg0)
 }
 
 // GoalState mocks base method.

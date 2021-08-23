@@ -54,7 +54,7 @@ func (d *DefaultMapper) AppNameForServiceAccount(id types.UID) (string, error) {
 	defer d.lock.RUnlock()
 	appName, found := d.saUIDAppMap[id]
 	if !found {
-		return "", errors.NotFoundf("no service account for app found with id %v", id)
+		return "", errors.NotFoundf("service account for app with id %v", id)
 	}
 	return appName, nil
 }

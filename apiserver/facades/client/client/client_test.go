@@ -1753,12 +1753,14 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 		Message: "error",
 		Since:   &now,
 	}
-	err = machine.SetStatus(sInfo)
+	err = machine.SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
+	result, err := s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+	c.Assert(result[0].Error, gc.IsNil)
 
-	statusInfo, err := machine.Status()
+	statusInfo, err := machine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Error)
 	c.Assert(statusInfo.Message, gc.Equals, "error")
@@ -1774,7 +1776,7 @@ func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
 		Message: "error",
 		Since:   &now,
 	}
-	err = machine.SetStatus(sInfo)
+	err = machine.SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }
@@ -1782,7 +1784,7 @@ func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
 func (s *clientSuite) assertRetryProvisioning(c *gc.C, machine *state.Machine) {
 	_, err := s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err := machine.Status()
+	statusInfo, err := machine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Error)
 	c.Assert(statusInfo.Message, gc.Equals, "error")

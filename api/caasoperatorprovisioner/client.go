@@ -9,6 +9,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
+	charmscommon "github.com/juju/juju/api/common/charms"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
@@ -20,13 +21,19 @@ import (
 // Client allows access to the CAAS operator provisioner API endpoint.
 type Client struct {
 	facade base.FacadeCaller
+	*charmscommon.CharmInfoClient
+	*charmscommon.ApplicationCharmInfoClient
 }
 
 // NewClient returns a client used to access the CAAS Operator Provisioner API.
 func NewClient(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, "CAASOperatorProvisioner")
+	charmInfoClient := charmscommon.NewCharmInfoClient(facadeCaller)
+	appCharmInfoClient := charmscommon.NewApplicationCharmInfoClient(facadeCaller)
 	return &Client{
-		facade: facadeCaller,
+		facade:                     facadeCaller,
+		CharmInfoClient:            charmInfoClient,
+		ApplicationCharmInfoClient: appCharmInfoClient,
 	}
 }
 

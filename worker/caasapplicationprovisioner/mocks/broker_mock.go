@@ -62,3 +62,61 @@ func (mr *MockCAASBrokerMockRecorder) Application(arg0, arg1 interface{}) *gomoc
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockCAASBroker)(nil).Application), arg0, arg1)
 }
+
+// DeleteOperator mocks base method.
+func (m *MockCAASBroker) DeleteOperator(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteOperator", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteOperator indicates an expected call of DeleteOperator.
+func (mr *MockCAASBrokerMockRecorder) DeleteOperator(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteOperator", reflect.TypeOf((*MockCAASBroker)(nil).DeleteOperator), arg0)
+}
+
+// DeleteService mocks base method.
+func (m *MockCAASBroker) DeleteService(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteService", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteService indicates an expected call of DeleteService.
+func (mr *MockCAASBrokerMockRecorder) DeleteService(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteService", reflect.TypeOf((*MockCAASBroker)(nil).DeleteService), arg0)
+}
+
+// OperatorExists mocks base method.
+func (m *MockCAASBroker) OperatorExists(arg0 string) (caas.DeploymentState, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OperatorExists", arg0)
+	ret0, _ := ret[0].(caas.DeploymentState)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// OperatorExists indicates an expected call of OperatorExists.
+func (mr *MockCAASBrokerMockRecorder) OperatorExists(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OperatorExists", reflect.TypeOf((*MockCAASBroker)(nil).OperatorExists), arg0)
+}
+
+// Units mocks base method.
+func (m *MockCAASBroker) Units(arg0 string, arg1 caas.DeploymentMode) ([]caas.Unit, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Units", arg0, arg1)
+	ret0, _ := ret[0].([]caas.Unit)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Units indicates an expected call of Units.
+func (mr *MockCAASBrokerMockRecorder) Units(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Units", reflect.TypeOf((*MockCAASBroker)(nil).Units), arg0, arg1)
+}

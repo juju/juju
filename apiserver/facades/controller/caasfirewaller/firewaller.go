@@ -18,21 +18,33 @@ import (
 type Facade struct {
 	*common.LifeGetter
 	*common.AgentEntityWatcher
-	resources facade.Resources
-	state     CAASFirewallerState
-	*common.ApplicationWatcherFacade
+	resources       facade.Resources
+	state           CAASFirewallerState
+	charmInfoAPI    *charmscommon.CharmInfoAPI
+	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
 }
 
 // NewStateFacadeLegacy provides the signature required for facade registration.
 func NewStateFacadeLegacy(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
-	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASLegacy)
+
+	commonState := &charmscommon.StateShim{ctx.State()}
+	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return newFacadeLegacy(
 		resources,
 		authorizer,
 		&stateShim{ctx.State()},
-		appWatcherFacade,
+		charmInfoAPI,
+		appCharmInfoAPI,
 	)
 }
 
@@ -40,7 +52,8 @@ func newFacadeLegacy(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	st CAASFirewallerState,
-	applicationWatcherFacade *common.ApplicationWatcherFacade,
+	charmInfoAPI *charmscommon.CharmInfoAPI,
+	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -58,10 +71,21 @@ func newFacadeLegacy(
 			resources,
 			accessApplication,
 		),
-		resources:                resources,
-		state:                    st,
-		ApplicationWatcherFacade: applicationWatcherFacade,
+		resources:       resources,
+		state:           st,
+		charmInfoAPI:    charmInfoAPI,
+		appCharmInfoAPI: appCharmInfoAPI,
 	}, nil
+}
+
+// CharmInfo returns information about the requested charm.
+func (f *Facade) CharmInfo(args params.CharmURL) (params.Charm, error) {
+	return f.charmInfoAPI.CharmInfo(args)
+}
+
+// ApplicationCharmInfo returns information about an application's charm.
+func (f *Facade) ApplicationCharmInfo(args params.Entity) (params.Charm, error) {
+	return f.appCharmInfoAPI.ApplicationCharmInfo(args)
 }
 
 // IsExposed returns whether the specified applications are exposed.
@@ -117,10 +141,23 @@ func (f *Facade) getApplicationConfig(tagString string) (map[string]interface{},
 	return app.ApplicationConfig()
 }
 
+// WatchApplications starts a StringsWatcher to watch applications
+// deployed to this model.
+func (f *Facade) WatchApplications() (params.StringsWatchResult, error) {
+	watch := f.state.WatchApplications()
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		return params.StringsWatchResult{
+			StringsWatcherId: f.resources.Register(watch),
+			Changes:          changes,
+		}, nil
+	}
+	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
+}
+
 // FacadeSidecar provides access to the CAASFirewaller API facade for sidecar applications.
 type FacadeSidecar struct {
 	*Facade
-	*charmscommon.CharmsAPI
 
 	accessModel common.GetAuthFunc
 }
@@ -129,17 +166,22 @@ type FacadeSidecar struct {
 func NewStateFacadeSidecar(ctx facade.Context) (*FacadeSidecar, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
-	commonCharmsAPI, err := charmscommon.NewCharmsAPI(ctx.State(), authorizer)
+
+	commonState := &charmscommon.StateShim{ctx.State()}
+	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASSidecar)
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return newFacadeSidecar(
 		resources,
 		authorizer,
 		&stateShim{ctx.State()},
-		appWatcherFacade,
 		commonCharmsAPI,
+		appCharmInfoAPI,
 	)
 }
 
@@ -147,8 +189,8 @@ func newFacadeSidecar(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	st CAASFirewallerState,
-	applicationWatcherFacade *common.ApplicationWatcherFacade,
-	commonCharmsAPI *charmscommon.CharmsAPI,
+	commonCharmsAPI *charmscommon.CharmInfoAPI,
+	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI,
 ) (*FacadeSidecar, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -156,7 +198,6 @@ func newFacadeSidecar(
 	accessApplication := common.AuthFuncForTagKind(names.ApplicationTagKind)
 
 	return &FacadeSidecar{
-		CharmsAPI:   commonCharmsAPI,
 		accessModel: common.AuthFuncForTagKind(names.ModelTagKind),
 		Facade: &Facade{
 			LifeGetter: common.NewLifeGetter(
@@ -170,9 +211,10 @@ func newFacadeSidecar(
 				resources,
 				accessApplication,
 			),
-			ApplicationWatcherFacade: applicationWatcherFacade,
-			resources:                resources,
-			state:                    st,
+			resources:       resources,
+			state:           st,
+			charmInfoAPI:    commonCharmsAPI,
+			appCharmInfoAPI: appCharmInfoAPI,
 		},
 	}, nil
 }
@@ -209,32 +251,6 @@ func (f *FacadeSidecar) WatchOpenedPorts(args params.Entities) (params.StringsWa
 		result.Results[i].Changes = initial
 	}
 	return result, nil
-}
-
-// ApplicationCharmURLs finds the CharmURL for an application.
-func (f *FacadeSidecar) ApplicationCharmURLs(args params.Entities) (params.StringResults, error) {
-	res := params.StringResults{
-		Results: make([]params.StringResult, len(args.Entities)),
-	}
-	for i, entity := range args.Entities {
-		appTag, err := names.ParseApplicationTag(entity.Tag)
-		if err != nil {
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		app, err := f.state.Application(appTag.Id())
-		if err != nil {
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		ch, _, err := app.Charm()
-		if err != nil {
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		res.Results[i].Result = ch.URL().String()
-	}
-	return res, nil
 }
 
 func (f *FacadeSidecar) watchOneModelOpenedPorts(tag names.Tag) (string, []string, error) {

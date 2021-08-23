@@ -636,9 +636,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"controller-port",
 		"http-server-args",
 		"is-controller-flag",
-		"lease-manager",
 		"raft",
-		"raft-forwarder",
 		"raft-leader-flag",
 		"raft-transport",
 		"state",
@@ -937,7 +935,11 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"restore-watcher": {"agent", "state", "state-config-watcher"},
+	"restore-watcher": {
+		"agent",
+		"state",
+		"state-config-watcher",
+	},
 
 	"ssh-authkeys-updater": {
 		"agent",
