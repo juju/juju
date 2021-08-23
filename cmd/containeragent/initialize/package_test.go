@@ -81,6 +81,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"core/status",
 		"core/watcher",
 		"downloader",
+		"docker",
 		"environs/cloudspec",
 		"environs/config",
 		"environs/context",
