@@ -45,8 +45,20 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
-    - name: "Install Mongo Dependencies: ubuntu-latest"
+    # Check if we have already installed mongo
+    - name: Cache install mongo ubuntu
+      uses: actions/cache@v2
+      id: cache-mongo-ubuntu
       if: (matrix.os == 'ubuntu-latest')
+      with: 
+        path: /usr/bin/mongo*
+        key: ${{ runner.os }}-cache-mongo-ubuntu
+
+    # Install mongo iff cache-mongo-ubuntu failed
+    - name: "Install Mongo Dependencies: ubuntu-latest"
+      if: |
+        (matrix.os == 'ubuntu-latest') &
+        steps.cache-mongo-ubuntu.outputs.cache-hit != 'true'
       run: |
         # Remove the default mongo
         for version in "4.2" "4.4"; do
@@ -57,9 +69,21 @@ jobs:
         sudo rm -rf /usr/bin/mongo* || true
 
         make install-mongo-dependencies
-
-    - name: "Remove Mongo Dependencies: windows-latest"
+    
+    # Check if we have already installed mongo on windows
+    - name: Cache install mongo windows
+      uses: actions/cache@v2
+      id: cache-mongo-windows
       if: (matrix.os == 'windows-latest')
+      with: 
+        path: /usr/bin/mongo*
+        key: ${{ runner.os }}-cache-mongo-windows
+    
+    # Install mongo iff cache-mongo-windows failed.
+    - name: "Remove Mongo Dependencies: windows-latest"
+      if: |
+        (matrix.os == 'windows-latest') &
+        steps.cache-mongo-windows.outputs.cache-hit != 'true'
       uses: crazy-max/ghaction-chocolatey@v1
       with:
         args: uninstall mongodb mongodb.install -y --all-versions
@@ -70,10 +94,24 @@ jobs:
       with:
         args: install mongodb.install --version=4.0.21 --allow-downgrade
 
+
+    # Check if we have already installed mongo on macos.
+    # It simply checks if if the folder after download and running
+    # tar is already there.
+    - name: Cache install mongo macos
+      uses: actions/cache@v2
+      id: cache-mongo-macos
+      if: (matrix.os == 'macos-latest')
+      with: 
+        path: mongodb-osx-x86_64-4.0.21
+        key: ${{ runner.os }}-cache-mongo-windows
+
     # GitHub runners already have preinstalled version of mongodb, but
     # we specifically need 4.0.21, otherwise our tests will not pass
     - name: "Install Mongo Dependencies: macOS-latest"
-      if: (matrix.os == 'macOS-latest')
+      if: |
+        (matrix.os == 'macOS-latest')
+        steps.cache-mongo-macos.outputs.cache-hit != 'true'
       run: |
         curl -o mongodb-4.0.21.tgz https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-4.0.21.tgz
         tar xzvf mongodb-4.0.21.tgz
