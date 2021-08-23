@@ -260,6 +260,8 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	imageRepo := cfg.CAASImageRepo()
+	imageRepo.ServerAddress = ""
 
 	apiHostPorts, err := a.ctrlSt.APIHostPortsForAgents()
 	if err != nil {
@@ -286,7 +288,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		Devices:              devices,
 		Constraints:          mergedCons,
 		Series:               app.Series(),
-		ImageRepo:            cfg.CAASImageRepo(),
+		ImageRepo:            imageRepo,
 		CharmModifiedVersion: app.CharmModifiedVersion(),
 		CharmURL:             charmURL.String(),
 	}, nil

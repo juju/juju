@@ -45,10 +45,10 @@ type BasicAuthConfig struct {
 	Auth string `json:"auth,omitempty" yaml:"auth,omitempty"`
 
 	// Username holds the username used to gain access to a non-public image.
-	Username string `json:"username,omitempty" yaml:"username,omitempty"`
+	Username string `json:"username" yaml:"username"`
 
 	// Password holds the password used to gain access to a non-public image.
-	Password string `json:"password,omitempty" yaml:"password,omitempty"`
+	Password string `json:"password" yaml:"password"`
 }
 
 func (ba BasicAuthConfig) Empty() bool {
