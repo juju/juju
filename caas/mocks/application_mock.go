@@ -5,37 +5,38 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	caas "github.com/juju/juju/caas"
 	watcher "github.com/juju/juju/core/watcher"
 	version "github.com/juju/version/v2"
-	reflect "reflect"
 )
 
-// MockApplication is a mock of Application interface
+// MockApplication is a mock of Application interface.
 type MockApplication struct {
 	ctrl     *gomock.Controller
 	recorder *MockApplicationMockRecorder
 }
 
-// MockApplicationMockRecorder is the mock recorder for MockApplication
+// MockApplicationMockRecorder is the mock recorder for MockApplication.
 type MockApplicationMockRecorder struct {
 	mock *MockApplication
 }
 
-// NewMockApplication creates a new mock instance
+// NewMockApplication creates a new mock instance.
 func NewMockApplication(ctrl *gomock.Controller) *MockApplication {
 	mock := &MockApplication{ctrl: ctrl}
 	mock.recorder = &MockApplicationMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 	return m.recorder
 }
 
-// Delete mocks base method
+// Delete mocks base method.
 func (m *MockApplication) Delete() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete")
@@ -43,13 +44,13 @@ func (m *MockApplication) Delete() error {
 	return ret0
 }
 
-// Delete indicates an expected call of Delete
+// Delete indicates an expected call of Delete.
 func (mr *MockApplicationMockRecorder) Delete() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockApplication)(nil).Delete))
 }
 
-// Ensure mocks base method
+// Ensure mocks base method.
 func (m *MockApplication) Ensure(arg0 caas.ApplicationConfig) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Ensure", arg0)
@@ -57,13 +58,13 @@ func (m *MockApplication) Ensure(arg0 caas.ApplicationConfig) error {
 	return ret0
 }
 
-// Ensure indicates an expected call of Ensure
+// Ensure indicates an expected call of Ensure.
 func (mr *MockApplicationMockRecorder) Ensure(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ensure", reflect.TypeOf((*MockApplication)(nil).Ensure), arg0)
 }
 
-// Exists mocks base method
+// Exists mocks base method.
 func (m *MockApplication) Exists() (caas.DeploymentState, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Exists")
@@ -72,13 +73,13 @@ func (m *MockApplication) Exists() (caas.DeploymentState, error) {
 	return ret0, ret1
 }
 
-// Exists indicates an expected call of Exists
+// Exists indicates an expected call of Exists.
 func (mr *MockApplicationMockRecorder) Exists() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exists", reflect.TypeOf((*MockApplication)(nil).Exists))
 }
 
-// Scale mocks base method
+// Scale mocks base method.
 func (m *MockApplication) Scale(arg0 int) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Scale", arg0)
@@ -86,13 +87,13 @@ func (m *MockApplication) Scale(arg0 int) error {
 	return ret0
 }
 
-// Scale indicates an expected call of Scale
+// Scale indicates an expected call of Scale.
 func (mr *MockApplicationMockRecorder) Scale(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Scale", reflect.TypeOf((*MockApplication)(nil).Scale), arg0)
 }
 
-// Service mocks base method
+// Service mocks base method.
 func (m *MockApplication) Service() (*caas.Service, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Service")
@@ -101,13 +102,13 @@ func (m *MockApplication) Service() (*caas.Service, error) {
 	return ret0, ret1
 }
 
-// Service indicates an expected call of Service
+// Service indicates an expected call of Service.
 func (mr *MockApplicationMockRecorder) Service() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Service", reflect.TypeOf((*MockApplication)(nil).Service))
 }
 
-// State mocks base method
+// State mocks base method.
 func (m *MockApplication) State() (caas.ApplicationState, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "State")
@@ -116,13 +117,13 @@ func (m *MockApplication) State() (caas.ApplicationState, error) {
 	return ret0, ret1
 }
 
-// State indicates an expected call of State
+// State indicates an expected call of State.
 func (mr *MockApplicationMockRecorder) State() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockApplication)(nil).State))
 }
 
-// Trust mocks base method
+// Trust mocks base method.
 func (m *MockApplication) Trust(arg0 bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Trust", arg0)
@@ -130,13 +131,13 @@ func (m *MockApplication) Trust(arg0 bool) error {
 	return ret0
 }
 
-// Trust indicates an expected call of Trust
+// Trust indicates an expected call of Trust.
 func (mr *MockApplicationMockRecorder) Trust(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Trust", reflect.TypeOf((*MockApplication)(nil).Trust), arg0)
 }
 
-// Units mocks base method
+// Units mocks base method.
 func (m *MockApplication) Units() ([]caas.Unit, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Units")
@@ -145,13 +146,13 @@ func (m *MockApplication) Units() ([]caas.Unit, error) {
 	return ret0, ret1
 }
 
-// Units indicates an expected call of Units
+// Units indicates an expected call of Units.
 func (mr *MockApplicationMockRecorder) Units() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Units", reflect.TypeOf((*MockApplication)(nil).Units))
 }
 
-// UpdatePorts mocks base method
+// UpdatePorts mocks base method.
 func (m *MockApplication) UpdatePorts(arg0 []caas.ServicePort, arg1 bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdatePorts", arg0, arg1)
@@ -159,13 +160,13 @@ func (m *MockApplication) UpdatePorts(arg0 []caas.ServicePort, arg1 bool) error 
 	return ret0
 }
 
-// UpdatePorts indicates an expected call of UpdatePorts
+// UpdatePorts indicates an expected call of UpdatePorts.
 func (mr *MockApplicationMockRecorder) UpdatePorts(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePorts", reflect.TypeOf((*MockApplication)(nil).UpdatePorts), arg0, arg1)
 }
 
-// UpdateService mocks base method
+// UpdateService mocks base method.
 func (m *MockApplication) UpdateService(arg0 caas.ServiceParam) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateService", arg0)
@@ -173,13 +174,13 @@ func (m *MockApplication) UpdateService(arg0 caas.ServiceParam) error {
 	return ret0
 }
 
-// UpdateService indicates an expected call of UpdateService
+// UpdateService indicates an expected call of UpdateService.
 func (mr *MockApplicationMockRecorder) UpdateService(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateService", reflect.TypeOf((*MockApplication)(nil).UpdateService), arg0)
 }
 
-// Upgrade mocks base method
+// Upgrade mocks base method.
 func (m *MockApplication) Upgrade(arg0 version.Number) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upgrade", arg0)
@@ -187,13 +188,13 @@ func (m *MockApplication) Upgrade(arg0 version.Number) error {
 	return ret0
 }
 
-// Upgrade indicates an expected call of Upgrade
+// Upgrade indicates an expected call of Upgrade.
 func (mr *MockApplicationMockRecorder) Upgrade(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upgrade", reflect.TypeOf((*MockApplication)(nil).Upgrade), arg0)
 }
 
-// Watch mocks base method
+// Watch mocks base method.
 func (m *MockApplication) Watch() (watcher.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Watch")
@@ -202,13 +203,13 @@ func (m *MockApplication) Watch() (watcher.NotifyWatcher, error) {
 	return ret0, ret1
 }
 
-// Watch indicates an expected call of Watch
+// Watch indicates an expected call of Watch.
 func (mr *MockApplicationMockRecorder) Watch() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockApplication)(nil).Watch))
 }
 
-// WatchReplicas mocks base method
+// WatchReplicas mocks base method.
 func (m *MockApplication) WatchReplicas() (watcher.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchReplicas")
@@ -217,7 +218,7 @@ func (m *MockApplication) WatchReplicas() (watcher.NotifyWatcher, error) {
 	return ret0, ret1
 }
 
-// WatchReplicas indicates an expected call of WatchReplicas
+// WatchReplicas indicates an expected call of WatchReplicas.
 func (mr *MockApplicationMockRecorder) WatchReplicas() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchReplicas", reflect.TypeOf((*MockApplication)(nil).WatchReplicas))

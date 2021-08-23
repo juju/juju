@@ -95,7 +95,7 @@ func (s *authSuite) TestSecretData(c *gc.C) {
 	}
 	data, err := imageRepoDetails.SecretData()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), jc.DeepEquals, `{"auths":{"quay.io":{"auth":"xxxxx==","serveraddress":"quay.io"}}}`)
+	c.Assert(string(data), jc.DeepEquals, `{"auths":{"quay.io":{"auth":"xxxxx==","username":"","password":"","serveraddress":"quay.io"}}}`)
 
 	imageRepoDetails = docker.ImageRepoDetails{
 		Repository:    "test-account",
