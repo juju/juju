@@ -36,13 +36,12 @@ func (m *MockSecretsStore) EXPECT() *MockSecretsStoreMockRecorder {
 }
 
 // CreateSecret mocks base method.
-func (m *MockSecretsStore) CreateSecret(arg0 state.CreateSecretParams) (*secrets.URL, *secrets.SecretMetadata, error) {
+func (m *MockSecretsStore) CreateSecret(arg0 state.CreateSecretParams) (*secrets.SecretMetadata, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateSecret", arg0)
-	ret0, _ := ret[0].(*secrets.URL)
-	ret1, _ := ret[1].(*secrets.SecretMetadata)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret0, _ := ret[0].(*secrets.SecretMetadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateSecret indicates an expected call of CreateSecret.
@@ -79,4 +78,19 @@ func (m *MockSecretsStore) ListSecrets(arg0 state.SecretsFilter) ([]*secrets.Sec
 func (mr *MockSecretsStoreMockRecorder) ListSecrets(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecrets", reflect.TypeOf((*MockSecretsStore)(nil).ListSecrets), arg0)
+}
+
+// UpdateSecret mocks base method.
+func (m *MockSecretsStore) UpdateSecret(arg0 *secrets.URL, arg1 state.UpdateSecretParams) (*secrets.SecretMetadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1)
+	ret0, _ := ret[0].(*secrets.SecretMetadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateSecret indicates an expected call of UpdateSecret.
+func (mr *MockSecretsStoreMockRecorder) UpdateSecret(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockSecretsStore)(nil).UpdateSecret), arg0, arg1)
 }

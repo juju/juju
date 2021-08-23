@@ -92,18 +92,18 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 	for i, m := range metadata {
 		URL := coresecrets.NewURL(m.Version, s.controllerUUID, s.modelUUID, m.Path, "")
 		secretResult := params.ListSecretResult{
-			URL:         URL.String(),
-			Path:        m.Path,
-			Scope:       string(m.Scope),
-			Version:     m.Version,
-			Description: m.Description,
-			Tags:        m.Tags,
-			ID:          m.ID,
-			Provider:    m.Provider,
-			ProviderID:  m.ProviderID,
-			Revision:    m.Revision,
-			CreateTime:  m.CreateTime,
-			UpdateTime:  m.UpdateTime,
+			URL:            URL.String(),
+			Path:           m.Path,
+			RotateInterval: m.RotateInterval,
+			Version:        m.Version,
+			Description:    m.Description,
+			Tags:           m.Tags,
+			ID:             m.ID,
+			Provider:       m.Provider,
+			ProviderID:     m.ProviderID,
+			Revision:       m.Revision,
+			CreateTime:     m.CreateTime,
+			UpdateTime:     m.UpdateTime,
 		}
 		if arg.ShowSecrets {
 			val, err := s.secretsService.GetSecretValue(ctx, URL)

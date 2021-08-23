@@ -39747,8 +39747,8 @@
                         "revision": {
                             "type": "integer"
                         },
-                        "scope": {
-                            "type": "string"
+                        "rotate-interval": {
+                            "type": "integer"
                         },
                         "tags": {
                             "type": "object",
@@ -39776,8 +39776,8 @@
                     "required": [
                         "url",
                         "path",
-                        "scope",
                         "version",
+                        "rotate-interval",
                         "int",
                         "provider",
                         "revision",
@@ -39891,8 +39891,8 @@
                         "path": {
                             "type": "string"
                         },
-                        "scope": {
-                            "type": "string"
+                        "rotate-interval": {
+                            "type": "integer"
                         },
                         "type": {
                             "type": "string"
@@ -39902,7 +39902,7 @@
                     "required": [
                         "type",
                         "path",
-                        "scope"
+                        "rotate-interval"
                     ]
                 },
                 "CreateSecretArgs": {

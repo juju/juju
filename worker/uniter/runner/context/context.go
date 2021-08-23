@@ -776,9 +776,11 @@ func (ctx *HookContext) GetSecret(name string) (coresecrets.SecretValue, error) 
 }
 
 // CreateSecret creates a secret with the specified data.
-func (ctx *HookContext) CreateSecret(name string, value coresecrets.SecretValue) (string, error) {
+func (ctx *HookContext) CreateSecret(name string, args *jujuc.UpsertArgs) (string, error) {
 	app, _ := names.UnitApplication(ctx.UnitName())
-	return ctx.secretFacade.Create(coresecrets.NewSecretConfig(app, name), value)
+	cfg := coresecrets.NewSecretConfig(app, name)
+	cfg.RotateInterval = args.RotateInterval
+	return ctx.secretFacade.Create(cfg, args.Value)
 }
 
 // GoalState returns the goal state for the current unit.

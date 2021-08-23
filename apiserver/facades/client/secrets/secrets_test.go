@@ -72,17 +72,17 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 
 	now := time.Now()
 	metadata := []*coresecrets.SecretMetadata{{
-		Path:        "app.password",
-		Scope:       "application",
-		Version:     1,
-		Description: "shhh",
-		Tags:        map[string]string{"foo": "bar"},
-		ID:          666,
-		Provider:    "juju",
-		ProviderID:  "abcd",
-		Revision:    2,
-		CreateTime:  now,
-		UpdateTime:  now.Add(time.Second),
+		Path:           "app.password",
+		RotateInterval: time.Hour,
+		Version:        1,
+		Description:    "shhh",
+		Tags:           map[string]string{"foo": "bar"},
+		ID:             666,
+		Provider:       "juju",
+		ProviderID:     "abcd",
+		Revision:       2,
+		CreateTime:     now,
+		UpdateTime:     now.Add(time.Second),
 	}}
 	s.secretsService.EXPECT().ListSecrets(gomock.Any(), secrets.Filter{}).Return(
 		metadata, nil,
@@ -108,19 +108,19 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
-			URL:         URL.String(),
-			Path:        "app.password",
-			Scope:       "application",
-			Version:     1,
-			Description: "shhh",
-			Tags:        map[string]string{"foo": "bar"},
-			ID:          666,
-			Provider:    "juju",
-			ProviderID:  "abcd",
-			Revision:    2,
-			CreateTime:  now,
-			UpdateTime:  now.Add(time.Second),
-			Value:       valueResult,
+			URL:            URL.String(),
+			Path:           "app.password",
+			RotateInterval: time.Hour,
+			Version:        1,
+			Description:    "shhh",
+			Tags:           map[string]string{"foo": "bar"},
+			ID:             666,
+			Provider:       "juju",
+			ProviderID:     "abcd",
+			Revision:       2,
+			CreateTime:     now,
+			UpdateTime:     now.Add(time.Second),
+			Value:          valueResult,
 		}},
 	})
 }

@@ -4,6 +4,9 @@
 package secretsmanager_test
 
 import (
+	"context"
+	"time"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -57,29 +60,42 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 		Version:        secrets.Version,
 		Type:           "blob",
 		Path:           "app.password",
-		Scope:          "application",
+		RotateInterval: time.Hour,
 		Params:         map[string]interface{}{"param": 1},
 		Data:           map[string]string{"foo": "bar"},
 	}
-	md := &coresecrets.SecretMetadata{}
 	URL, _ := coresecrets.ParseURL("secret://v1/app.password")
-	s.secretsService.EXPECT().CreateSecret(gomock.Any(), p).Return(
-		URL, md, nil,
+	s.secretsService.EXPECT().CreateSecret(gomock.Any(), p).DoAndReturn(
+		func(_ context.Context, p secrets.CreateParams) (*coresecrets.SecretMetadata, error) {
+			md := &coresecrets.SecretMetadata{
+				URL:  URL,
+				Path: "app.password",
+			}
+			return md, nil
+		},
 	)
 
 	results, err := facade.CreateSecrets(params.CreateSecretArgs{
 		Args: []params.CreateSecretArg{{
-			Type:   "blob",
-			Path:   "app.password",
-			Scope:  "application",
-			Params: map[string]interface{}{"param": 1},
-			Data:   map[string]string{"foo": "bar"},
+			Type:           "blob",
+			Path:           "app.password",
+			RotateInterval: time.Hour,
+			Params:         map[string]interface{}{"param": 1},
+			Data:           map[string]string{"foo": "bar"},
+		}, {
+			RotateInterval: -1 * time.Hour,
+		}, {
+			Data: nil,
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{{
 			Result: "secret://v1/app.password",
+		}, {
+			Error: &params.Error{Message: `rotate interval "-1h0m0s" not valid`},
+		}, {
+			Error: &params.Error{Message: `empty secret value not valid`},
 		}},
 	})
 }

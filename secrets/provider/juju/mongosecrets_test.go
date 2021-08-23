@@ -4,7 +4,8 @@
 package juju_test
 
 import (
-	ctx "context"
+	"context"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/testing"
@@ -65,13 +66,10 @@ func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 		ProviderLabel:  juju.Provider,
 		Type:           "blob",
 		Path:           "app.password",
-		Scope:          "application",
+		RotateInterval: time.Hour,
 		Params:         map[string]interface{}{"param": 1},
 		Data:           map[string]string{"foo": "bar"},
 	}
-	md := &coresecrets.SecretMetadata{}
-	URL, _ := coresecrets.ParseURL("secret://v1/app.password")
-
 	expectedP := state.CreateSecretParams{
 		ControllerUUID: p.ControllerUUID,
 		ModelUUID:      p.ModelUUID,
@@ -79,18 +77,61 @@ func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 		ProviderLabel:  "juju",
 		Type:           p.Type,
 		Path:           p.Path,
-		Scope:          p.Scope,
+		RotateInterval: time.Hour,
 		Params:         p.Params,
 		Data:           p.Data,
 	}
-	s.secretsStore.EXPECT().CreateSecret(expectedP).Return(
-		URL, md, nil,
+	URL, _ := coresecrets.ParseURL("secret://v1/app.password")
+	s.secretsStore.EXPECT().CreateSecret(expectedP).DoAndReturn(
+		func(p state.CreateSecretParams) (*coresecrets.SecretMetadata, error) {
+			md := &coresecrets.SecretMetadata{
+				URL:  URL,
+				Path: "app.password",
+			}
+			return md, nil
+		},
 	)
 
-	resultURL, resultMeta, err := service.CreateSecret(ctx.Background(), p)
+	resultMeta, err := service.CreateSecret(context.Background(), p)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resultURL, jc.DeepEquals, URL)
-	c.Assert(resultMeta, jc.DeepEquals, md)
+	c.Assert(resultMeta, jc.DeepEquals, &coresecrets.SecretMetadata{
+		URL:  URL,
+		Path: "app.password",
+	})
+}
+
+func (s *SecretsManagerSuite) TestUpdateSecret(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	service := juju.NewTestService(s.secretsStore)
+
+	p := secrets.UpdateParams{
+		RotateInterval: time.Hour,
+		Params:         map[string]interface{}{"param": 1},
+		Data:           map[string]string{"foo": "bar"},
+	}
+	expectedP := state.UpdateSecretParams{
+		RotateInterval: time.Hour,
+		Params:         p.Params,
+		Data:           p.Data,
+	}
+	URL, _ := coresecrets.ParseURL("secret://v1/app.password")
+	s.secretsStore.EXPECT().UpdateSecret(URL, expectedP).DoAndReturn(
+		func(URL *coresecrets.URL, p state.UpdateSecretParams) (*coresecrets.SecretMetadata, error) {
+			md := &coresecrets.SecretMetadata{
+				URL:  URL.WithRevision(2),
+				Path: "app.password",
+			}
+			return md, nil
+		},
+	)
+
+	resultMeta, err := service.UpdateSecret(context.Background(), URL, p)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resultMeta, jc.DeepEquals, &coresecrets.SecretMetadata{
+		URL:  URL.WithRevision(2),
+		Path: "app.password",
+	})
 }
 
 func (s *SecretsManagerSuite) TestGetSecretValue(c *gc.C) {
@@ -105,7 +146,7 @@ func (s *SecretsManagerSuite) TestGetSecretValue(c *gc.C) {
 		val, nil,
 	)
 
-	result, err := service.GetSecretValue(ctx.Background(), URL)
+	result, err := service.GetSecretValue(context.Background(), URL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, val)
 }
@@ -120,7 +161,7 @@ func (s *SecretsManagerSuite) TestListSecrets(c *gc.C) {
 		metadata, nil,
 	)
 
-	result, err := service.ListSecrets(ctx.Background(), secrets.Filter{})
+	result, err := service.ListSecrets(context.Background(), secrets.Filter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, metadata)
 }

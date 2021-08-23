@@ -201,13 +201,13 @@ func (s *ConformSuite) TestConformYAML(c *gc.C) {
 	}
 }
 
-type userFriendlyDurationSuite struct {
+type HumaniseSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&userFriendlyDurationSuite{})
+var _ = gc.Suite(&HumaniseSuite{})
 
-func (*userFriendlyDurationSuite) TestFormat(c *gc.C) {
+func (*HumaniseSuite) TestUserFriendlyDuration(c *gc.C) {
 	// lp:1558657
 	now := time.Now()
 	for _, test := range []struct {
@@ -259,6 +259,33 @@ func (*userFriendlyDurationSuite) TestFormat(c *gc.C) {
 		},
 	} {
 		obtained := common.UserFriendlyDuration(test.other, now)
+		c.Check(obtained, gc.Equals, test.expected)
+	}
+}
+
+func (*HumaniseSuite) TestHumaniseInterval(c *gc.C) {
+	for _, test := range []struct {
+		interval time.Duration
+		expected string
+	}{
+		{
+			interval: 24 * time.Hour,
+			expected: "1d",
+		}, {
+			interval: time.Hour,
+			expected: "1h",
+		}, {
+			interval: time.Minute,
+			expected: "1m",
+		}, {
+			interval: time.Second,
+			expected: "1s",
+		}, {
+			interval: 26*time.Hour + 3*time.Minute + 4*time.Second,
+			expected: "1d 2h 3m 4s",
+		},
+	} {
+		obtained := common.HumaniseInterval(test.interval)
 		c.Check(obtained, gc.Equals, test.expected)
 	}
 }
