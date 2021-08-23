@@ -56,9 +56,7 @@ jobs:
 
     # Install mongo iff cache-mongo-ubuntu failed
     - name: "Install Mongo Dependencies: ubuntu-latest"
-      if: |
-        (matrix.os == 'ubuntu-latest') &
-        (steps.cache-mongo-ubuntu.outputs.cache-hit != 'true')
+      if: (matrix.os == 'ubuntu-latest' && steps.cache-mongo-ubuntu.outputs.cache-hit != 'true')
       run: |
         # Remove the default mongo
         for version in "4.2" "4.4"; do
@@ -97,9 +95,7 @@ jobs:
     # GitHub runners already have preinstalled version of mongodb, but
     # we specifically need 4.0.21, otherwise our tests will not pass
     - name: "Install Mongo Dependencies: macOS-latest"
-      if: |
-        (matrix.os == 'macOS-latest') &
-        (steps.cache-mongo-macos.outputs.cache-hit != 'true')
+      if: (matrix.os == 'macOS-latest' && steps.cache-mongo-macos.outputs.cache-hit != 'true')
       run: |
         curl -o mongodb-4.0.21.tgz https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-4.0.21.tgz
         tar xzvf mongodb-4.0.21.tgz
