@@ -30,7 +30,6 @@ var validTypes = map[SecretType]bool{
 
 // SecretConfig is used when cresting a secret.
 type SecretConfig struct {
-	Type           SecretType
 	Path           string
 	RotateInterval time.Duration
 	Params         map[string]interface{}
@@ -39,7 +38,6 @@ type SecretConfig struct {
 // NewSecretConfig is used to create an application scoped blob secret.
 func NewSecretConfig(nameParts ...string) *SecretConfig {
 	return &SecretConfig{
-		Type: TypeBlob,
 		Path: strings.Join(nameParts, "."),
 	}
 }
@@ -53,7 +51,6 @@ const (
 // NewPasswordSecretConfig is used to create an application scoped password secret.
 func NewPasswordSecretConfig(length int, specialChars bool, nameParts ...string) *SecretConfig {
 	return &SecretConfig{
-		Type: TypePassword,
 		Path: strings.Join(nameParts, "."),
 		Params: map[string]interface{}{
 			PasswordLength:       length,
@@ -66,9 +63,6 @@ var pathRegexp = regexp.MustCompile(`^[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*$`)
 
 // Validate returns an error if the config is not valid.
 func (c *SecretConfig) Validate() error {
-	if _, ok := validTypes[c.Type]; !ok {
-		return errors.NotValidf("secret type %q", c.Type)
-	}
 	if !pathRegexp.MatchString(c.Path) {
 		return errors.NotValidf("secret path %q", c.Path)
 	}
@@ -139,14 +133,11 @@ func ParseURL(str string) (*URL, error) {
 	return result, nil
 }
 
-// NewURL returns a URL with the specified attributes.
-func NewURL(version int, controllerUUID, modelUUID, path, attribute string) *URL {
+// NewSimpleURL returns a URL with the specified path.
+func NewSimpleURL(version int, path string) *URL {
 	return &URL{
 		Version:        fmt.Sprintf("v%d", version),
-		ControllerUUID: controllerUUID,
-		ModelUUID:      modelUUID,
 		Path:           path,
-		Attribute:      attribute,
 	}
 }
 
@@ -160,14 +151,22 @@ func (u *URL) WithRevision(revision int) *URL {
 	return &uCopy
 }
 
+// WithAttribute returns the URL with the specified attribute.
+func (u *URL) WithAttribute(attr string) *URL {
+	if u == nil {
+		return nil
+	}
+	uCopy := *u
+	uCopy.Attribute = attr
+	return &uCopy
+}
+
 // ID returns the URL string without any Attribute.
 func (u *URL) ID() string {
 	if u == nil {
 		return ""
 	}
-	urlCopy := *u
-	urlCopy.Attribute = ""
-	return urlCopy.String()
+	return u.WithAttribute("").String()
 }
 
 // ShortString prints the URL without controller or model UUID.
@@ -195,7 +194,7 @@ func (u *URL) String() string {
 	}
 	fullPath = append(fullPath, u.Path)
 	str := strings.Join(fullPath, "/")
-	if u.Revision > 1 {
+	if u.Revision > 0 {
 		str += fmt.Sprintf("?revision=%d", u.Revision)
 	}
 	if u.Attribute != "" {

@@ -100,5 +100,5 @@ func (s *SecretsSuite) TestListSecretsError(c *gc.C) {
 	result, err := client.ListSecrets(true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
-	c.Assert(result[0].Error, gc.ErrorMatches, "boom")
+	c.Assert(result[0].Error, gc.Equals, "boom")
 }

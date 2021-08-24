@@ -30,6 +30,26 @@ type CreateSecretArg struct {
 	Data map[string]string `json:"data,omitempty"`
 }
 
+// UpdateSecretArgs holds args for creating secrets.
+type UpdateSecretArgs struct {
+	Args []UpdateSecretArg `json:"args"`
+}
+
+// UpdateSecretArg holds the args for creating a secret.
+type UpdateSecretArg struct {
+	// URL identifies the secret to update.
+	URL string `json:"url"`
+	// RotateInterval is how often a secret should be rotated.
+	// Use a value < 0 to keep the current rotate interval.
+	RotateInterval time.Duration `json:"rotate-interval"`
+	// Params are used when generating secrets server side.
+	// See core/secrets/secret.go.
+	Params map[string]interface{} `json:"params,omitempty"`
+	// Data is the key values of the secret value itself.
+	// Use an empty value to keep the current value.
+	Data map[string]string `json:"data,omitempty"`
+}
+
 // GetSecretArgs holds the args for getting secrets.
 type GetSecretArgs struct {
 	Args []GetSecretArg `json:"args"`

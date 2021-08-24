@@ -742,6 +742,21 @@ func (mr *MockContextMockRecorder) UpdateActionResults(arg0, arg1 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateActionResults", reflect.TypeOf((*MockContext)(nil).UpdateActionResults), arg0, arg1)
 }
 
+// UpdateSecret mocks base method.
+func (m *MockContext) UpdateSecret(arg0 string, arg1 *jujuc.UpsertArgs) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateSecret indicates an expected call of UpdateSecret.
+func (mr *MockContextMockRecorder) UpdateSecret(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockContext)(nil).UpdateSecret), arg0, arg1)
+}
+
 // WorkloadName mocks base method.
 func (m *MockContext) WorkloadName() (string, error) {
 	m.ctrl.T.Helper()

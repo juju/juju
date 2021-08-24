@@ -780,7 +780,16 @@ func (ctx *HookContext) CreateSecret(name string, args *jujuc.UpsertArgs) (strin
 	app, _ := names.UnitApplication(ctx.UnitName())
 	cfg := coresecrets.NewSecretConfig(app, name)
 	cfg.RotateInterval = args.RotateInterval
-	return ctx.secretFacade.Create(cfg, args.Value)
+	return ctx.secretFacade.Create(cfg, args.Type, args.Value)
+}
+
+// UpdateSecret creates a secret with the specified data.
+func (ctx *HookContext) UpdateSecret(name string, args *jujuc.UpsertArgs) (string, error) {
+	app, _ := names.UnitApplication(ctx.UnitName())
+	cfg := coresecrets.NewSecretConfig(app, name)
+	cfg.RotateInterval = args.RotateInterval
+	URL := coresecrets.NewSimpleURL(1, cfg.Path)
+	return ctx.secretFacade.Update(URL, cfg, args.Value)
 }
 
 // GoalState returns the goal state for the current unit.

@@ -100,6 +100,62 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	})
 }
 
+func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthUnitAgent()
+	facade, err := secretsmanager.NewTestAPI(s.secretsService, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := secrets.UpdateParams{
+		RotateInterval: time.Hour,
+		Params:         map[string]interface{}{"param": 1},
+		Data:           map[string]string{"foo": "bar"},
+	}
+	URL, _ := coresecrets.ParseURL("secret://v1/app.password")
+	expectURL := *URL
+	expectURL.ControllerUUID = coretesting.ControllerTag.Id()
+	expectURL.ModelUUID = coretesting.ModelTag.Id()
+	s.secretsService.EXPECT().UpdateSecret(gomock.Any(), &expectURL, p).DoAndReturn(
+		func(_ context.Context, URL *coresecrets.URL, p secrets.UpdateParams) (*coresecrets.SecretMetadata, error) {
+			md := &coresecrets.SecretMetadata{
+				URL:  URL,
+				Path: "app.password",
+				Revision: 2,
+			}
+			return md, nil
+		},
+	)
+
+	results, err := facade.UpdateSecrets(params.UpdateSecretArgs{
+		Args: []params.UpdateSecretArg{{
+			URL:            URL.String(),
+			RotateInterval: time.Hour,
+			Params:         map[string]interface{}{"param": 1},
+			Data:           map[string]string{"foo": "bar"},
+		}, {
+			URL:            URL.String(),
+			RotateInterval: -1 * time.Hour,
+		}, {
+			URL:            URL.WithAttribute("password").String(),
+		}, {
+			URL:            URL.WithRevision(2).String(),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{{
+			Result: expectURL.WithRevision(2).String(),
+		}, {
+			Error: &params.Error{Message: `either rotate interval or data must be specified`},
+		}, {
+			Error: &params.Error{Code: "not supported", Message: `updating a single secret attribute "password" not supported`},
+		}, {
+			Error: &params.Error{Code: "not supported", Message: `updating secret revision 2 not supported`},
+		}},
+	})
+}
+
 func (s *SecretsManagerSuite) TestGetSecretValues(c *gc.C) {
 	defer s.setup(c).Finish()
 
