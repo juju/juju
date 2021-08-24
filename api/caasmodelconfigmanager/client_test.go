@@ -20,31 +20,12 @@ type caasmodelconfigmanagerSuite struct {
 
 var _ = gc.Suite(&caasmodelconfigmanagerSuite{})
 
-func newClient(f basetesting.APICallerFunc) *caasmodelconfigmanager.Client {
+func newClient(f basetesting.APICallerFunc) (*caasmodelconfigmanager.Client, error) {
 	return caasmodelconfigmanager.NewClient(basetesting.BestVersionCaller{APICallerFunc: f, BestVersion: 1})
 }
 
-func (s *caasmodelconfigmanagerSuite) TestWatchControllerConfig(c *gc.C) {
-	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
-		called = true
-		c.Check(objType, gc.Equals, "CAASModelConfigManager")
-		c.Check(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "WatchControllerConfig")
-		c.Assert(a, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResult{})
-		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
-			Error: &params.Error{Message: "FAIL"},
-		}
-		return nil
-	})
-	_, err := client.WatchControllerConfig()
-	c.Check(err, gc.ErrorMatches, "FAIL")
-	c.Check(called, jc.IsTrue)
-}
-
 func (s *caasmodelconfigmanagerSuite) TestControllerConfig(c *gc.C) {
-	client := newClient(func(objType string, version int, id, request string, arg, result interface{}) error {
+	client, err := newClient(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CAASModelConfigManager")
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "ControllerConfig")
@@ -63,6 +44,7 @@ func (s *caasmodelconfigmanagerSuite) TestControllerConfig(c *gc.C) {
 		}
 		return nil
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := client.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)

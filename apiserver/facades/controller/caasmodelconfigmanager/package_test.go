@@ -12,5 +12,3 @@ import (
 func TestAll(t *testing.T) {
 	gc.TestingT(t)
 }
-
-var NewFacadeForTest = newFacade
