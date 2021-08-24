@@ -1228,7 +1228,7 @@ func (cs *changeset) dependents() map[string][]string {
 func (cs *changeset) sorted() ([]Change, error) {
 	// Exit it early if there is nothing to sort.
 	if len(cs.changes) == 0 {
-		return []Change{}, nil
+		return nil, nil
 	}
 
 	// Create a map to sort the data.
@@ -1242,7 +1242,7 @@ func (cs *changeset) sorted() ([]Change, error) {
 		data[c.Id()] = c.Requires()
 		dataOrder[i] = c.Id()
 	}
-	sortedChangeIDs, err := toposort_flatten(dataOrder, data)
+	sortedChangeIDs, err := toposortFlatten(dataOrder, data)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1261,14 +1261,16 @@ func (cs *changeset) sorted() ([]Change, error) {
 	return sortedChanges, nil
 }
 
-// toposort_flatten performs a topographical flattened sort on the provided
+// toposortFlatten performs a topographical flattened sort on the provided
 // data.  dataOrder is a slice of the originally ordered changes. data is a
 // map of change to requirements.  To be idempotent, requirements must be in
 // the same order each time.  Use along with data to ensure that this method
 // is deterministic.
 //
 // Adapted from https://tylercipriani.com/blog/2017/09/13/topographical-sorting-in-golang/
-func toposort_flatten(dataOrder []string, data map[string][]string) ([]string, error) {
+// Blog post: Topographical Sorting in Golang
+// Copyright © 2017 Tyler Cipriani
+func toposortFlatten(dataOrder []string, data map[string][]string) ([]string, error) {
 
 	// Create a map to handle degrees, all vertices start at 0.
 	inDegree := make(map[string]int, len(dataOrder))
