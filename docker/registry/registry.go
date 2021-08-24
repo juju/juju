@@ -89,6 +89,7 @@ func (r registry) url(pathTemplate string, args ...interface{}) string {
 	return url.String()
 }
 
+// Ping pings the base endpoint.
 func (r registry) Ping() error {
 	url := r.url("/v2/")
 	logger.Debugf("registry ping %q", url)
@@ -111,6 +112,7 @@ type tagsResponse struct {
 	Tags []string `json:"tags"`
 }
 
+// Tags fetches tags for an OCI image.
 func (r registry) Tags(imageName string) (versions tools.Versions, err error) {
 	path := fmt.Sprintf("%s/%s", r.repoDetails.Repository, imageName)
 	url := r.url("/v2/%s/tags/list", path)
@@ -130,7 +132,7 @@ func (r registry) Tags(imageName string) (versions tools.Versions, err error) {
 	for {
 		url, err = r.getPaginatedJSON(url, &response)
 		switch err {
-		case ErrNoMorePages:
+		case errNoMorePages:
 			pushVersions(response.Tags)
 			return versions, nil
 		case nil:
@@ -159,7 +161,7 @@ func (r registry) getPaginatedJSON(url string, response interface{}) (string, er
 
 var (
 	nextLinkRE     = regexp.MustCompile(`^ *<?([^;>]+)>? *(?:;[^;]*)*; *rel="?next"?(?:;.*)?`)
-	ErrNoMorePages = errors.New("no more pages")
+	errNoMorePages = errors.New("no more pages")
 )
 
 func getNextLink(resp *http.Response) (string, error) {
@@ -169,5 +171,5 @@ func getNextLink(resp *http.Response) (string, error) {
 			return parts[1], nil
 		}
 	}
-	return "", ErrNoMorePages
+	return "", errNoMorePages
 }

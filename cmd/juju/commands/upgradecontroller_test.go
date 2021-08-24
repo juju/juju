@@ -276,11 +276,11 @@ var upgradeCAASControllerTests = []upgradeTest{{
 }}
 
 func (s *UpgradeCAASControllerSuite) upgradeControllerCommand(
-	controllerAPI ControllerAPI, registryAPINewer registryAPINewer,
+	controllerAPI ControllerAPI, registryAPIFunc registryAPINewer,
 ) cmd.Command {
 	cmd := &upgradeControllerCommand{}
 	cmd.controllerAPI = controllerAPI
-	cmd.registryAPINewer = registryAPINewer
+	cmd.registryAPIFunc = registryAPIFunc
 	cmd.SetClientStore(s.ControllerStore)
 	return modelcmd.WrapController(cmd)
 }
@@ -313,15 +313,15 @@ func (s *UpgradeCAASControllerSuite) TestUpgradePrivateRegistry(c *gc.C) {
     "auth": "xxxxx==",
     "repository": "test-account"
 }`[1:]
-	registryAPINewerCalled := false
+	registryAPIFuncCalled := false
 	controllerAPI := mocks.NewMockControllerAPI(ctrl)
 	registryAPI := registrymocks.NewMockRegistry(ctrl)
-	registryAPINewer := func(imageRepo docker.ImageRepoDetails) (registry.Registry, error) {
+	registryAPIFunc := func(imageRepo docker.ImageRepoDetails) (registry.Registry, error) {
 		c.Assert(imageRepo.Repository, gc.DeepEquals, "test-account")
 		c.Assert(imageRepo.ServerAddress, gc.DeepEquals, "quay.io")
 		c.Assert(imageRepo.Auth, gc.DeepEquals, "xxxxx==")
 		c.Assert(imageRepo.IsPrivate(), jc.IsTrue)
-		registryAPINewerCalled = true
+		registryAPIFuncCalled = true
 		return registryAPI, nil
 	}
 
@@ -341,9 +341,9 @@ func (s *UpgradeCAASControllerSuite) TestUpgradePrivateRegistry(c *gc.C) {
 	}
 
 	s.assertUpgradeTests(c, upgradeCAASModelTests, assertAndMocks, func() cmd.Command {
-		return s.upgradeControllerCommand(controllerAPI, registryAPINewer)
+		return s.upgradeControllerCommand(controllerAPI, registryAPIFunc)
 	})
-	c.Assert(registryAPINewerCalled, jc.IsTrue)
+	c.Assert(registryAPIFuncCalled, jc.IsTrue)
 }
 
 func (s *UpgradeCAASControllerSuite) assertUpgradeTests(

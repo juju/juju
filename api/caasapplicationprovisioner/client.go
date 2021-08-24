@@ -144,6 +144,20 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		return ProvisioningInfo{}, errors.Trace(maybeNotFound(err))
 	}
 
+	imageRepo := docker.ImageRepoDetails{
+		Repository:    r.ImageRepo.Repository,
+		ServerAddress: r.ImageRepo.ServerAddress,
+		BasicAuthConfig: docker.BasicAuthConfig{
+			Username: r.ImageRepo.Username,
+			Password: r.ImageRepo.Password,
+			Auth:     r.ImageRepo.Auth,
+		},
+		TokenAuthConfig: docker.TokenAuthConfig{
+			IdentityToken: r.ImageRepo.IdentityToken,
+			RegistryToken: r.ImageRepo.RegistryToken,
+			Email:         r.ImageRepo.Email,
+		},
+	}
 	info := ProvisioningInfo{
 		ImagePath:            r.ImagePath,
 		Version:              r.Version,
@@ -152,7 +166,7 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		Tags:                 r.Tags,
 		Constraints:          r.Constraints,
 		Series:               r.Series,
-		ImageRepo:            r.ImageRepo,
+		ImageRepo:            imageRepo,
 		CharmModifiedVersion: r.CharmModifiedVersion,
 	}
 
@@ -304,12 +318,15 @@ func (c *Client) ApplicationOCIResources(appName string) (map[string]resources.D
 	}
 	images := make(map[string]resources.DockerImageDetails)
 	for k, v := range res.Result.Images {
-		details := resources.DockerImageDetails{
+		images[k] = resources.DockerImageDetails{
 			RegistryPath: v.RegistryPath,
+			ImageRepoDetails: docker.ImageRepoDetails{
+				BasicAuthConfig: docker.BasicAuthConfig{
+					Username: v.Username,
+					Password: v.Password,
+				},
+			},
 		}
-		details.Username = v.Username
-		details.Password = v.Password
-		images[k] = details
 	}
 	return images, nil
 }

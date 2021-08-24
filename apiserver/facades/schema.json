@@ -6881,25 +6881,6 @@
                         "info"
                     ]
                 },
-                "BasicAuthConfig": {
-                    "type": "object",
-                    "properties": {
-                        "auth": {
-                            "type": "string"
-                        },
-                        "password": {
-                            "type": "string"
-                        },
-                        "username": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "username",
-                        "password"
-                    ]
-                },
                 "CAASApplicationGarbageCollectArg": {
                     "type": "object",
                     "properties": {
@@ -7030,7 +7011,7 @@
                             "type": "string"
                         },
                         "image-repo": {
-                            "$ref": "#/definitions/ImageRepoDetails"
+                            "$ref": "#/definitions/DockerImageInfo"
                         },
                         "series": {
                             "type": "string"
@@ -7724,10 +7705,28 @@
                 "DockerImageInfo": {
                     "type": "object",
                     "properties": {
+                        "auth": {
+                            "type": "string"
+                        },
+                        "email": {
+                            "type": "string"
+                        },
+                        "identitytoken": {
+                            "type": "string"
+                        },
                         "image-name": {
                             "type": "string"
                         },
                         "password": {
+                            "type": "string"
+                        },
+                        "registrytoken": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "serveraddress": {
                             "type": "string"
                         },
                         "username": {
@@ -7904,28 +7903,6 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
-                    ]
-                },
-                "ImageRepoDetails": {
-                    "type": "object",
-                    "properties": {
-                        "BasicAuthConfig": {
-                            "$ref": "#/definitions/BasicAuthConfig"
-                        },
-                        "TokenAuthConfig": {
-                            "$ref": "#/definitions/TokenAuthConfig"
-                        },
-                        "repository": {
-                            "type": "string"
-                        },
-                        "serveraddress": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "BasicAuthConfig",
-                        "TokenAuthConfig"
                     ]
                 },
                 "KubernetesDeviceParams": {
@@ -8280,21 +8257,6 @@
                     "required": [
                         "watcher-id"
                     ]
-                },
-                "TokenAuthConfig": {
-                    "type": "object",
-                    "properties": {
-                        "email": {
-                            "type": "string"
-                        },
-                        "identitytoken": {
-                            "type": "string"
-                        },
-                        "registrytoken": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "UnitStatus": {
                     "type": "object",
@@ -10234,17 +10196,7 @@
                         "Result": {
                             "$ref": "#/definitions/ControllerConfigResult"
                         }
-                    },
-                    "description": "ControllerConfig returns the controller's configuration."
-                },
-                "WatchControllerConfig": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/NotifyWatchResult"
-                        }
-                    },
-                    "description": "Watch returns a watcher that notifies controller config changes."
+                    }
                 }
             },
             "definitions": {
@@ -10264,46 +10216,6 @@
                     "additionalProperties": false,
                     "required": [
                         "config"
-                    ]
-                },
-                "Error": {
-                    "type": "object",
-                    "properties": {
-                        "code": {
-                            "type": "string"
-                        },
-                        "info": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "message": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "message",
-                        "code"
-                    ]
-                },
-                "NotifyWatchResult": {
-                    "type": "object",
-                    "properties": {
-                        "NotifyWatcherId": {
-                            "type": "string"
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "NotifyWatcherId"
                     ]
                 }
             }
@@ -10431,13 +10343,31 @@
                         "scope"
                     ]
                 },
-                "BasicAuthConfig": {
+                "DockerImageInfo": {
                     "type": "object",
                     "properties": {
                         "auth": {
                             "type": "string"
                         },
+                        "email": {
+                            "type": "string"
+                        },
+                        "identitytoken": {
+                            "type": "string"
+                        },
+                        "image-name": {
+                            "type": "string"
+                        },
                         "password": {
+                            "type": "string"
+                        },
+                        "registrytoken": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "serveraddress": {
                             "type": "string"
                         },
                         "username": {
@@ -10446,24 +10376,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "username",
-                        "password"
-                    ]
-                },
-                "DockerImageDetails": {
-                    "type": "object",
-                    "properties": {
-                        "ImageName": {
-                            "type": "string"
-                        },
-                        "ImageRepoDetails": {
-                            "$ref": "#/definitions/ImageRepoDetails"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "ImageName",
-                        "ImageRepoDetails"
+                        "image-name"
                     ]
                 },
                 "EntityPassword": {
@@ -10589,28 +10502,6 @@
                         "port"
                     ]
                 },
-                "ImageRepoDetails": {
-                    "type": "object",
-                    "properties": {
-                        "BasicAuthConfig": {
-                            "$ref": "#/definitions/BasicAuthConfig"
-                        },
-                        "TokenAuthConfig": {
-                            "$ref": "#/definitions/TokenAuthConfig"
-                        },
-                        "repository": {
-                            "type": "string"
-                        },
-                        "serveraddress": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "BasicAuthConfig",
-                        "TokenAuthConfig"
-                    ]
-                },
                 "ModelOperatorInfo": {
                     "type": "object",
                     "properties": {
@@ -10621,7 +10512,7 @@
                             }
                         },
                         "image-details": {
-                            "$ref": "#/definitions/DockerImageDetails"
+                            "$ref": "#/definitions/DockerImageInfo"
                         },
                         "version": {
                             "$ref": "#/definitions/Number"
@@ -10703,21 +10594,6 @@
                             "items": {
                                 "type": "string"
                             }
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "TokenAuthConfig": {
-                    "type": "object",
-                    "properties": {
-                        "email": {
-                            "type": "string"
-                        },
-                        "identitytoken": {
-                            "type": "string"
-                        },
-                        "registrytoken": {
-                            "type": "string"
                         }
                     },
                     "additionalProperties": false
@@ -11672,25 +11548,6 @@
                         "scope"
                     ]
                 },
-                "BasicAuthConfig": {
-                    "type": "object",
-                    "properties": {
-                        "auth": {
-                            "type": "string"
-                        },
-                        "password": {
-                            "type": "string"
-                        },
-                        "username": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "username",
-                        "password"
-                    ]
-                },
                 "Charm": {
                     "type": "object",
                     "properties": {
@@ -12244,20 +12101,40 @@
                         "url"
                     ]
                 },
-                "DockerImageDetails": {
+                "DockerImageInfo": {
                     "type": "object",
                     "properties": {
-                        "ImageName": {
+                        "auth": {
                             "type": "string"
                         },
-                        "ImageRepoDetails": {
-                            "$ref": "#/definitions/ImageRepoDetails"
+                        "email": {
+                            "type": "string"
+                        },
+                        "identitytoken": {
+                            "type": "string"
+                        },
+                        "image-name": {
+                            "type": "string"
+                        },
+                        "password": {
+                            "type": "string"
+                        },
+                        "registrytoken": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "serveraddress": {
+                            "type": "string"
+                        },
+                        "username": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "ImageName",
-                        "ImageRepoDetails"
+                        "image-name"
                     ]
                 },
                 "Entities": {
@@ -12408,28 +12285,6 @@
                         "scope",
                         "Address",
                         "port"
-                    ]
-                },
-                "ImageRepoDetails": {
-                    "type": "object",
-                    "properties": {
-                        "BasicAuthConfig": {
-                            "$ref": "#/definitions/BasicAuthConfig"
-                        },
-                        "TokenAuthConfig": {
-                            "$ref": "#/definitions/TokenAuthConfig"
-                        },
-                        "repository": {
-                            "type": "string"
-                        },
-                        "serveraddress": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "BasicAuthConfig",
-                        "TokenAuthConfig"
                     ]
                 },
                 "IssueOperatorCertificateResult": {
@@ -12617,7 +12472,7 @@
                             "$ref": "#/definitions/Error"
                         },
                         "image-details": {
-                            "$ref": "#/definitions/DockerImageDetails"
+                            "$ref": "#/definitions/DockerImageInfo"
                         },
                         "tags": {
                             "type": "object",
@@ -12703,21 +12558,6 @@
                     "required": [
                         "watcher-id"
                     ]
-                },
-                "TokenAuthConfig": {
-                    "type": "object",
-                    "properties": {
-                        "email": {
-                            "type": "string"
-                        },
-                        "identitytoken": {
-                            "type": "string"
-                        },
-                        "registrytoken": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false
                 }
             }
         }

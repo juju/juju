@@ -261,7 +261,15 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		return nil, errors.Trace(err)
 	}
 	imageRepo := cfg.CAASImageRepo()
-	imageRepo.ServerAddress = ""
+	imageInfo := params.DockerImageInfo{
+		Username:      imageRepo.Username,
+		Password:      imageRepo.Password,
+		Auth:          imageRepo.Auth,
+		IdentityToken: imageRepo.IdentityToken,
+		RegistryToken: imageRepo.RegistryToken,
+		Email:         imageRepo.Email,
+		Repository:    imageRepo.Repository,
+	}
 
 	apiHostPorts, err := a.ctrlSt.APIHostPortsForAgents()
 	if err != nil {
@@ -288,7 +296,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		Devices:              devices,
 		Constraints:          mergedCons,
 		Series:               app.Series(),
-		ImageRepo:            imageRepo,
+		ImageRepo:            imageInfo,
 		CharmModifiedVersion: app.CharmModifiedVersion(),
 		CharmURL:             charmURL.String(),
 	}, nil

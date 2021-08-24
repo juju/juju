@@ -38,7 +38,7 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
 
 		*(result.(*params.ModelOperatorInfo)) = params.ModelOperatorInfo{
 			APIAddresses: apiAddresses,
-			ImageDetails: resources.DockerImageDetails{RegistryPath: imagePath},
+			ImageDetails: params.DockerImageInfo{RegistryPath: imagePath},
 			Version:      ver,
 		}
 		return nil

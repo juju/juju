@@ -4,7 +4,6 @@
 package registry_test
 
 import (
-	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -67,7 +66,7 @@ func (s *registrySuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Control
 					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer xxxxx=="}})
 					c.Assert(req.Method, jc.DeepEquals, `GET`)
 					c.Assert(req.URL.String(), jc.DeepEquals, `https://quay.io/v2`)
-					return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
+					return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
 				},
 			),
 		)
@@ -86,7 +85,7 @@ func (s *registrySuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Control
 					c.Assert(req.Header, jc.DeepEquals, http.Header{"Basic": []string{"xxxxx=="}})
 					c.Assert(req.Method, jc.DeepEquals, `GET`)
 					c.Assert(req.URL.String(), jc.DeepEquals, `https://quay.io/v2`)
-					return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
+					return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
 				},
 			),
 		)

@@ -278,7 +278,7 @@ func (c *baseUpgradeCommand) listOperatorImages(controllerCfg controller.Config)
 	if !imageRepoDetails.IsPrivate() {
 		return docker.ListOperatorImages(imagePath)
 	}
-	reg, err := c.registryAPINewer(imageRepoDetails)
+	reg, err := c.registryAPIFunc(imageRepoDetails)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

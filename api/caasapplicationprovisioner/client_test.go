@@ -152,7 +152,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 				APIAddresses:         []string{"10.0.0.1:1"},
 				Tags:                 map[string]string{"foo": "bar"},
 				Series:               "bionic",
-				ImageRepo:            docker.ImageRepoDetails{Repository: "jujuqa"},
+				ImageRepo:            params.DockerImageInfo{Repository: "jujuqa"},
 				CharmModifiedVersion: 1,
 				CharmURL:             "cs:~test/charm-1",
 			}}}

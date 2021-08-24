@@ -82,7 +82,7 @@ See also:
 
 func newUpgradeJujuCommand() cmd.Command {
 	command := &upgradeJujuCommand{}
-	command.registryAPINewer = registry.NewRegistry
+	command.registryAPIFunc = registry.NewRegistry
 	return modelcmd.Wrap(command)
 }
 
@@ -92,15 +92,15 @@ func newUpgradeJujuCommandForTest(
 	modelConfigAPI modelConfigAPI,
 	modelManagerAPI modelManagerAPI,
 	controllerAPI ControllerAPI,
-	registryAPINewer registryAPINewer,
+	registryAPIFunc registryAPINewer,
 	options ...modelcmd.WrapOption,
 ) cmd.Command {
 	command := &upgradeJujuCommand{
 		baseUpgradeCommand: baseUpgradeCommand{
-			modelConfigAPI:   modelConfigAPI,
-			modelManagerAPI:  modelManagerAPI,
-			controllerAPI:    controllerAPI,
-			registryAPINewer: registryAPINewer,
+			modelConfigAPI:  modelConfigAPI,
+			modelManagerAPI: modelManagerAPI,
+			controllerAPI:   controllerAPI,
+			registryAPIFunc: registryAPIFunc,
 		},
 		jujuClientAPI: jujuClientAPI,
 	}
@@ -127,10 +127,10 @@ type baseUpgradeCommand struct {
 	rawArgs        []string
 	upgradeMessage string
 
-	modelConfigAPI   modelConfigAPI
-	modelManagerAPI  modelManagerAPI
-	controllerAPI    ControllerAPI
-	registryAPINewer registryAPINewer
+	modelConfigAPI  modelConfigAPI
+	modelManagerAPI modelManagerAPI
+	controllerAPI   ControllerAPI
+	registryAPIFunc registryAPINewer
 }
 
 func (c *baseUpgradeCommand) SetFlags(f *gnuflag.FlagSet) {

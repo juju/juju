@@ -14,6 +14,7 @@ import (
 	"github.com/juju/mgo/v2/txn"
 
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/docker"
 )
 
 // dockerMetadataStorage implements DockerMetadataStorage
@@ -112,9 +113,13 @@ func (dr *dockerMetadataStorage) Get(resourceID string) (io.ReadCloser, int64, e
 	}
 	details := resources.DockerImageDetails{
 		RegistryPath: doc.RegistryPath,
+		ImageRepoDetails: docker.ImageRepoDetails{
+			BasicAuthConfig: docker.BasicAuthConfig{
+				Username: doc.Username,
+				Password: doc.Password,
+			},
+		},
 	}
-	details.Username = doc.Username
-	details.Password = doc.Password
 	data, err := json.Marshal(details)
 	if err != nil {
 		return nil, -1, errors.Trace(err)

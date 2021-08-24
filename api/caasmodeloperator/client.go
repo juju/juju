@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/docker"
 )
 
 // Client is a caas model operator facade client
@@ -40,10 +41,28 @@ func (c *Client) ModelOperatorProvisioningInfo() (ModelOperatorProvisioningInfo,
 	if err := c.facade.FacadeCall("ModelOperatorProvisioningInfo", nil, &result); err != nil {
 		return ModelOperatorProvisioningInfo{}, err
 	}
+	d := result.ImageDetails
+	imageRepo := resources.DockerImageDetails{
+		RegistryPath: d.RegistryPath,
+		ImageRepoDetails: docker.ImageRepoDetails{
+			Repository:    d.Repository,
+			ServerAddress: d.ServerAddress,
+			BasicAuthConfig: docker.BasicAuthConfig{
+				Username: d.Username,
+				Password: d.Password,
+				Auth:     d.Auth,
+			},
+			TokenAuthConfig: docker.TokenAuthConfig{
+				IdentityToken: d.IdentityToken,
+				RegistryToken: d.RegistryToken,
+				Email:         d.Email,
+			},
+		},
+	}
 
 	return ModelOperatorProvisioningInfo{
 		APIAddresses: result.APIAddresses,
-		ImageDetails: result.ImageDetails,
+		ImageDetails: imageRepo,
 		Version:      result.Version,
 	}, nil
 }

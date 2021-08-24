@@ -166,7 +166,7 @@ func (s *provisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.OperatorProvisioningInfoResults{})
 		*(result.(*params.OperatorProvisioningInfoResults)) = params.OperatorProvisioningInfoResults{
 			Results: []params.OperatorProvisioningInfo{{
-				ImageDetails: resources.DockerImageDetails{RegistryPath: "juju-operator-image"},
+				ImageDetails: params.DockerImageInfo{RegistryPath: "juju-operator-image"},
 				Version:      vers,
 				APIAddresses: []string{"10.0.0.1:1"},
 				Tags:         map[string]string{"foo": "bar"},

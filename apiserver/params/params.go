@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
@@ -366,9 +365,9 @@ type ConfigResult struct {
 
 // ModelOperatorInfo
 type ModelOperatorInfo struct {
-	APIAddresses []string                     `json:"api-addresses"`
-	ImageDetails resources.DockerImageDetails `json:"image-details"`
-	Version      version.Number               `json:"version"`
+	APIAddresses []string        `json:"api-addresses"`
+	ImageDetails DockerImageInfo `json:"image-details"`
+	Version      version.Number  `json:"version"`
 }
 
 // OperatorProvisioningInfoResults holds OperatorProvisioningInfo results.
@@ -378,12 +377,12 @@ type OperatorProvisioningInfoResults struct {
 
 // OperatorProvisioningInfo holds info need to provision an operator.
 type OperatorProvisioningInfo struct {
-	ImageDetails resources.DockerImageDetails `json:"image-details"`
-	Version      version.Number               `json:"version"`
-	APIAddresses []string                     `json:"api-addresses"`
-	Tags         map[string]string            `json:"tags,omitempty"`
-	CharmStorage *KubernetesFilesystemParams  `json:"charm-storage,omitempty"`
-	Error        *Error                       `json:"error,omitempty"`
+	ImageDetails DockerImageInfo             `json:"image-details"`
+	Version      version.Number              `json:"version"`
+	APIAddresses []string                    `json:"api-addresses"`
+	Tags         map[string]string           `json:"tags,omitempty"`
+	CharmStorage *KubernetesFilesystemParams `json:"charm-storage,omitempty"`
+	Error        *Error                      `json:"error,omitempty"`
 }
 
 // IssueOperatorCertificateResult contains an x509 certificate
