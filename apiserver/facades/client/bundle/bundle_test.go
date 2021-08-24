@@ -164,30 +164,13 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 	r, err := s.facade.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
-		Id:     "addCharm-0",
-		Method: "addCharm",
-		Args:   []interface{}{"django", "", ""},
-	}, {
-		Id:     "deploy-1",
-		Method: "deploy",
-		Args: []interface{}{
-			"$addCharm-0",
-			"",
-			"django",
-			map[string]interface{}{"debug": true},
-			"",
-			map[string]string{"tmpfs": "tmpfs,1G"},
-			map[string]string{"bitcoinminer": "2,nvidia.com/gpu"},
-			map[string]string{},
-			map[string]int{},
-			0,
-			"",
-		},
-		Requires: []string{"addCharm-0"},
-	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
 		Args:   []interface{}{"cs:trusty/haproxy-42", "trusty", ""},
+	}, {
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Args:   []interface{}{"django", "", ""},
 	}, {
 		Id:     "deploy-3",
 		Method: "deploy",
@@ -205,6 +188,23 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 			"",
 		},
 		Requires: []string{"addCharm-2"},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-0",
+			"",
+			"django",
+			map[string]interface{}{"debug": true},
+			"",
+			map[string]string{"tmpfs": "tmpfs,1G"},
+			map[string]string{"bitcoinminer": "2,nvidia.com/gpu"},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
+		},
+		Requires: []string{"addCharm-0"},
 	}, {
 		Id:       "addRelation-4",
 		Method:   "addRelation",
@@ -238,30 +238,12 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 	r, err := s.facade.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
-		Id:     "addCharm-0",
-		Method: "addCharm",
-		Args:   []interface{}{"django", "", ""},
-	}, {
-		Id:     "deploy-1",
-		Method: "deploy",
-		Args: []interface{}{
-			"$addCharm-0",
-			"",
-			"django",
-			map[string]interface{}{"debug": true},
-			"",
-			map[string]string{"tmpfs": "tmpfs,1G"},
-			map[string]string{"bitcoinminer": "2,nvidia.com/gpu"},
-			map[string]string{},
-			map[string]int{},
-			1,
-			"",
-		},
-		Requires: []string{"addCharm-0"},
-	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
 		Args:   []interface{}{"cs:haproxy-42", "", ""},
+	}, {Id: "addCharm-0",
+		Method: "addCharm",
+		Args:   []interface{}{"django", "", ""},
 	}, {
 		Id:     "deploy-3",
 		Method: "deploy",
@@ -279,6 +261,23 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 			"",
 		},
 		Requires: []string{"addCharm-2"},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-0",
+			"",
+			"django",
+			map[string]interface{}{"debug": true},
+			"",
+			map[string]string{"tmpfs": "tmpfs,1G"},
+			map[string]string{"bitcoinminer": "2,nvidia.com/gpu"},
+			map[string]string{},
+			map[string]int{},
+			1,
+			"",
+		},
+		Requires: []string{"addCharm-0"},
 	}, {
 		Id:       "addRelation-4",
 		Method:   "addRelation",
@@ -313,29 +312,13 @@ func (s *bundleSuite) TestGetChangesSuccessV1(c *gc.C) {
 	r, err := apiv1.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
-		Id:     "addCharm-0",
-		Method: "addCharm",
-		Args:   []interface{}{"django", "", ""},
-	}, {
-		Id:     "deploy-1",
-		Method: "deploy",
-		Args: []interface{}{
-			"$addCharm-0",
-			"",
-			"django",
-			map[string]interface{}{"debug": true},
-			"",
-			map[string]string{"tmpfs": "tmpfs,1G"},
-			map[string]string{},
-			map[string]int{},
-			0,
-			"",
-		},
-		Requires: []string{"addCharm-0"},
-	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
 		Args:   []interface{}{"cs:trusty/haproxy-42", "trusty", ""},
+	}, {
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Args:   []interface{}{"django", "", ""},
 	}, {
 		Id:     "deploy-3",
 		Method: "deploy",
@@ -352,6 +335,22 @@ func (s *bundleSuite) TestGetChangesSuccessV1(c *gc.C) {
 			"",
 		},
 		Requires: []string{"addCharm-2"},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-0",
+			"",
+			"django",
+			map[string]interface{}{"debug": true},
+			"",
+			map[string]string{"tmpfs": "tmpfs,1G"},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
+		},
+		Requires: []string{"addCharm-0"},
 	}, {
 		Id:       "addRelation-4",
 		Method:   "addRelation",
@@ -509,11 +508,27 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
 	r, err := s.facade.GetChangesMapArgs(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
+		Id:     "addCharm-2",
+		Method: "addCharm",
+		Args: map[string]interface{}{
+			"charm":  "cs:trusty/haproxy-42",
+			"series": "trusty",
+		},
+	}, {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args: map[string]interface{}{
 			"charm": "django",
 		},
+	}, {
+		Id:     "deploy-3",
+		Method: "deploy",
+		Args: map[string]interface{}{
+			"application": "haproxy",
+			"charm":       "$addCharm-2",
+			"series":      "trusty",
+		},
+		Requires: []string{"addCharm-2"},
 	}, {
 		Id:     "deploy-1",
 		Method: "deploy",
@@ -531,22 +546,6 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
 			},
 		},
 		Requires: []string{"addCharm-0"},
-	}, {
-		Id:     "addCharm-2",
-		Method: "addCharm",
-		Args: map[string]interface{}{
-			"charm":  "cs:trusty/haproxy-42",
-			"series": "trusty",
-		},
-	}, {
-		Id:     "deploy-3",
-		Method: "deploy",
-		Args: map[string]interface{}{
-			"application": "haproxy",
-			"charm":       "$addCharm-2",
-			"series":      "trusty",
-		},
-		Requires: []string{"addCharm-2"},
 	}, {
 		Id:     "addRelation-4",
 		Method: "addRelation",
@@ -583,11 +582,25 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 	r, err := s.facade.GetChangesMapArgs(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
+		Id:     "addCharm-2",
+		Method: "addCharm",
+		Args: map[string]interface{}{
+			"charm": "cs:haproxy-42",
+		},
+	}, {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args: map[string]interface{}{
 			"charm": "django",
 		},
+	}, {
+		Id:     "deploy-3",
+		Method: "deploy",
+		Args: map[string]interface{}{
+			"application": "haproxy",
+			"charm":       "$addCharm-2",
+		},
+		Requires: []string{"addCharm-2"},
 	}, {
 		Id:     "deploy-1",
 		Method: "deploy",
@@ -606,20 +619,6 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 			},
 		},
 		Requires: []string{"addCharm-0"},
-	}, {
-		Id:     "addCharm-2",
-		Method: "addCharm",
-		Args: map[string]interface{}{
-			"charm": "cs:haproxy-42",
-		},
-	}, {
-		Id:     "deploy-3",
-		Method: "deploy",
-		Args: map[string]interface{}{
-			"application": "haproxy",
-			"charm":       "$addCharm-2",
-		},
-		Requires: []string{"addCharm-2"},
 	}, {
 		Id:     "addRelation-4",
 		Method: "addRelation",

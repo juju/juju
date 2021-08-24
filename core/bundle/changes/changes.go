@@ -106,7 +106,7 @@ func FromData(config ChangesConfig) ([]Change, error) {
 			return nil, errors.Trace(err)
 		}
 	}
-	return changes.sorted(), nil
+	return changes.sorted()
 }
 
 // alreadyDeployedApplicationsFromBundle returns a set consisting of the
@@ -1225,29 +1225,112 @@ func (cs *changeset) dependents() map[string][]string {
 }
 
 // sorted returns the changes sorted by requirements, required first.
-func (cs *changeset) sorted() []Change {
-	done := set.NewStrings()
-	var sorted []Change
-	changes := cs.changes[:]
-mainloop:
-	for len(changes) != 0 {
-		// Note that all valid bundles have at least two changes
-		// (add one charm and deploy one application).
-		change := changes[0]
-		changes = changes[1:]
-		for _, r := range change.Requires() {
-			if !done.Contains(r) {
+func (cs *changeset) sorted() ([]Change, error) {
+	// Exit it early if there is nothing to sort.
+	if len(cs.changes) == 0 {
+		return nil, nil
+	}
 
-				// This change requires a change which is not yet listed.
-				// Push this change at the end of the list and retry later.
-				changes = append(changes, change)
-				continue mainloop
+	// Create a map to sort the data.
+	data := make(map[string][]string, len(cs.changes))
+	dataOrder := make([]string, len(cs.changes))
+	for i, c := range cs.changes {
+		// Sorting the requirements can be removed if the place in
+		// handlers.go where the order of requirements is not
+		// idempotent can be found and fixed.
+		sort.Sort(sort.StringSlice(c.Requires()))
+		data[c.Id()] = c.Requires()
+		dataOrder[i] = c.Id()
+	}
+	sortedChangeIDs, err := toposortFlatten(dataOrder, data)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// convert the sorted change IDs to a sorted slice
+	// of changes
+	var sortedChanges []Change
+	for _, changeID := range sortedChangeIDs {
+		for _, change := range cs.changes {
+			if changeID == change.Id() {
+				sortedChanges = append(sortedChanges, change)
+				break
 			}
 		}
-		done.Add(change.Id())
-		sorted = append(sorted, change)
 	}
-	return sorted
+	return sortedChanges, nil
+}
+
+// toposortFlatten performs a topographical flattened sort on the provided
+// data.  dataOrder is a slice of the originally ordered changes. data is a
+// map of change to requirements.  To be idempotent, requirements must be in
+// the same order each time.  Use along with data to ensure that this method
+// is deterministic.
+//
+// Adapted from https://tylercipriani.com/blog/2017/09/13/topographical-sorting-in-golang/
+// Blog post: Topographical Sorting in Golang
+// Copyright © 2017 Tyler Cipriani
+func toposortFlatten(dataOrder []string, data map[string][]string) ([]string, error) {
+
+	// Create a map to handle degrees, all vertices start at 0.
+	inDegree := make(map[string]int, len(dataOrder))
+	for n := range data {
+		inDegree[n] = 0
+	}
+
+	// For each vertex, adjacent to "u", increment the degree.
+	for _, adjacent := range data {
+		for _, v := range adjacent {
+			inDegree[v]++
+		}
+	}
+
+	// Make a list of next, containing all vertex that have a degree
+	// of 0.
+	var next []string
+	for _, k := range dataOrder {
+		v := inDegree[k]
+		if v != 0 {
+			continue
+		}
+		next = append(next, k)
+	}
+
+	// Use an idx to insert items into the linearOrder from
+	// the end to the beginning, to avoid reversing the order later.
+	linearOrder := make([]string, len(dataOrder))
+	idx := len(linearOrder)
+
+	// While next is not empty
+	for ; len(next) > 0; idx -= 1 {
+		// Pop a vertex off next list
+		u := next[0]
+		next = next[1:]
+
+		if idx > 0 {
+			// Add it the linearOrder of vertices, starting
+			// from the end.
+			linearOrder[idx-1] = u
+		}
+
+		// For each vertex adjacent to the current one,
+		// decrement the degree, and if now 0, add to the
+		// next list.
+		for _, v := range data[u] {
+			inDegree[v]--
+			if inDegree[v] == 0 {
+				next = append(next, v)
+			}
+		}
+	}
+
+	if idx != 0 {
+		intersection := set.NewStrings(linearOrder...).Difference(set.NewStrings(dataOrder...))
+		return nil, errors.Errorf("sort failed, %q is not a valid changeID",
+			strings.Join(intersection.SortedValues(), ", "))
+	}
+
+	return linearOrder, nil
 }
 
 func storeLocation(schema string) string {
