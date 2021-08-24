@@ -287,11 +287,13 @@ func (m *containerManager) networkDevicesFromConfig(netConfig *container.Network
 	if len(netConfig.Interfaces) > 0 {
 		return DevicesFromInterfaceInfo(netConfig.Interfaces, machineID)
 	} else if netConfig.Device != "" {
+		// For the eth0 case do not generate an interface name, instead let
+		// LXD select a host_name for that device.
 		return map[string]device{
 			"eth0": newNICDevice(
 				"eth0",
 				netConfig.Device,
-				makeHostInterfaceName(machineID, 0),
+				"",
 				corenetwork.GenerateVirtualMACAddress(),
 				netConfig.MTU,
 			),
