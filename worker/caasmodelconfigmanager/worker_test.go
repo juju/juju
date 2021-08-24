@@ -15,8 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/docker"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasmodelconfigmanager"
@@ -79,9 +77,6 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	facade := mocks.NewMockFacade(ctrl)
 	broker := mocks.NewMockCAASBroker(ctrl)
 
-	controllerConfigChangeChan := make(chan struct{}, 1)
-	controllerConfigChangeWatcher := watchertest.NewMockNotifyWatcher(controllerConfigChangeChan)
-
 	controllerConfig := coretesting.FakeControllerConfig()
 	controllerConfig[controller.CAASImageRepo] = `
 {
@@ -90,38 +85,10 @@ func (s *workerSuite) TestWorker(c *gc.C) {
     "repository": "test-account"
 }`[1:]
 
-	controllerConfig2 := coretesting.FakeControllerConfig()
-	controllerConfig2[controller.CAASImageRepo] = `
-{
-    "serveraddress": "gcr.io",
-    "auth": "yyyy==",
-    "repository": "test-account"
-}`[1:]
-
-	go func() {
-		controllerConfigChangeChan <- struct{}{}
-		controllerConfigChangeChan <- struct{}{}
-		controllerConfigChangeChan <- struct{}{}
-	}()
-
 	done := make(chan struct{}, 1)
 	gomock.InOrder(
-		facade.EXPECT().WatchControllerConfig().DoAndReturn(func() (watcher.NotifyWatcher, error) {
-			return controllerConfigChangeWatcher, nil
-		}),
-		// 1st round.
 		facade.EXPECT().ControllerConfig().Return(controllerConfig, nil),
 		broker.EXPECT().EnsureImageRepoSecret(controllerConfig.CAASImageRepo()).DoAndReturn(func(docker.ImageRepoDetails) error {
-			return nil
-		}),
-
-		// 2nd round - no change, no ops.
-		facade.EXPECT().ControllerConfig().DoAndReturn(func() (controller.Config, error) {
-			return controllerConfig, nil
-		}),
-		// 3rd round - got config changes, apply now.
-		facade.EXPECT().ControllerConfig().Return(controllerConfig2, nil),
-		broker.EXPECT().EnsureImageRepoSecret(controllerConfig2.CAASImageRepo()).DoAndReturn(func(docker.ImageRepoDetails) error {
 			close(done)
 			return nil
 		}),

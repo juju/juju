@@ -4,8 +4,6 @@
 package caasmodelconfigmanager
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -15,7 +13,6 @@ import (
 	"github.com/juju/juju/api/base"
 	api "github.com/juju/juju/api/caasmodelconfigmanager"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/docker"
 )
 
@@ -33,7 +30,6 @@ type Logger interface {
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/worker/caasmodelconfigmanager Facade
 type Facade interface {
 	ControllerConfig() (controller.Config, error)
-	WatchControllerConfig() (watcher.NotifyWatcher, error)
 }
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/worker/caasmodelconfigmanager CAASBroker
@@ -74,8 +70,6 @@ type manager struct {
 	name   string
 	config Config
 	logger Logger
-
-	imageRepoInfo docker.ImageRepoDetails
 }
 
 // NewFacade returns a facade for caasapplicationprovisioner worker to use.
@@ -114,34 +108,12 @@ func (w *manager) Wait() error {
 }
 
 func (w *manager) loop() error {
-	controllerConfigWatcher, err := w.config.Facade.WatchControllerConfig()
+	controllerConfig, err := w.config.Facade.ControllerConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	w.logger.Debugf("start to watch controller config for model %q", w.name)
-	if err := w.catacomb.Add(controllerConfigWatcher); err != nil {
+	if err := w.config.Broker.EnsureImageRepoSecret(controllerConfig.CAASImageRepo()); err != nil {
 		return errors.Trace(err)
 	}
-	for {
-		select {
-		case <-w.catacomb.Dying():
-			return w.catacomb.ErrDying()
-		case _, ok := <-controllerConfigWatcher.Changes():
-			w.logger.Debugf("got controller config changes for model %q", w.name)
-			if !ok {
-				return fmt.Errorf("controller config watcher %q closed channel", w.name)
-			}
-			controllerConfig, err := w.config.Facade.ControllerConfig()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			newImageRepoInfo := controllerConfig.CAASImageRepo()
-			if !w.imageRepoInfo.AuthEqual(newImageRepoInfo) {
-				if err := w.config.Broker.EnsureImageRepoSecret(newImageRepoInfo); err != nil {
-					return errors.Trace(err)
-				}
-				w.imageRepoInfo = newImageRepoInfo
-			}
-		}
-	}
+	return nil
 }
