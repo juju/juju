@@ -91,7 +91,7 @@ func (s *SecretsSuite) TestUpdateSecret(c *gc.C) {
 		c.Check(request, gc.Equals, "UpdateSecrets")
 		c.Check(arg, gc.DeepEquals, params.UpdateSecretArgs{
 			Args: []params.UpdateSecretArg{{
-				URL: "secret://v1/foo",
+				URL:            "secret://v1/foo",
 				RotateInterval: time.Hour,
 				Params: map[string]interface{}{
 					"password-length":        10,

@@ -17,8 +17,6 @@ const (
 
 // CreateParams are used to create a secret.
 type CreateParams struct {
-	ControllerUUID string
-	ModelUUID      string
 	ProviderLabel  string
 	Version        int
 	Type           string
@@ -43,7 +41,7 @@ type Filter struct {
 // SecretsService instances provide a backend for storing secrets values.
 type SecretsService interface {
 	// CreateSecret creates a new secret and returns a URL for accessing the secret value.
-	CreateSecret(ctx context.Context, p CreateParams) (*secrets.SecretMetadata, error)
+	CreateSecret(ctx context.Context, URL *secrets.URL, p CreateParams) (*secrets.SecretMetadata, error)
 
 	// UpdateSecret updates a given secret with a new secret value.
 	UpdateSecret(ctx context.Context, URL *secrets.URL, p UpdateParams) (*secrets.SecretMetadata, error)

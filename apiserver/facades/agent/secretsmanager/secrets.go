@@ -65,11 +65,12 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 	if len(arg.Data) == 0 {
 		return "", errors.NotValidf("empty secret value")
 	}
-	md, err := s.secretsService.CreateSecret(ctx, secrets.CreateParams{
-		ControllerUUID: s.controllerUUID,
-		ModelUUID:      s.modelUUID,
-		Version:        secrets.Version,
+	URL := coresecrets.NewSimpleURL(secrets.Version, arg.Path)
+	URL.ControllerUUID = s.controllerUUID
+	URL.ModelUUID = s.modelUUID
+	md, err := s.secretsService.CreateSecret(ctx, URL, secrets.CreateParams{
 		Type:           arg.Type,
+		Version:        secrets.Version,
 		Path:           arg.Path,
 		RotateInterval: arg.RotateInterval,
 		Params:         arg.Params,
@@ -105,6 +106,12 @@ func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateS
 	}
 	if URL.Revision > 0 {
 		return "", errors.NotSupportedf("updating secret revision %d", URL.Revision)
+	}
+	if URL.ControllerUUID != "" && URL.ControllerUUID != s.controllerUUID {
+		return "", errors.NotValidf("secret URL with controller UUID %q", URL.ControllerUUID)
+	}
+	if URL.ModelUUID != "" && URL.ModelUUID != s.modelUUID {
+		return "", errors.NotValidf("secret URL with model UUID %q", URL.ModelUUID)
 	}
 	if arg.RotateInterval < 0 && len(arg.Data) == 0 {
 		return "", errors.New("either rotate interval or data must be specified")

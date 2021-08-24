@@ -55,8 +55,6 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := secrets.CreateParams{
-		ControllerUUID: coretesting.ControllerTag.Id(),
-		ModelUUID:      coretesting.ModelTag.Id(),
 		Version:        secrets.Version,
 		Type:           "blob",
 		Path:           "app.password",
@@ -64,9 +62,11 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 		Params:         map[string]interface{}{"param": 1},
 		Data:           map[string]string{"foo": "bar"},
 	}
-	URL, _ := coresecrets.ParseURL("secret://v1/app.password")
-	s.secretsService.EXPECT().CreateSecret(gomock.Any(), p).DoAndReturn(
-		func(_ context.Context, p secrets.CreateParams) (*coresecrets.SecretMetadata, error) {
+	URL := coresecrets.NewSimpleURL(1, "app.password")
+	URL.ControllerUUID = coretesting.ControllerTag.Id()
+	URL.ModelUUID = coretesting.ModelTag.Id()
+	s.secretsService.EXPECT().CreateSecret(gomock.Any(), URL, p).DoAndReturn(
+		func(_ context.Context, URL *coresecrets.URL, p secrets.CreateParams) (*coresecrets.SecretMetadata, error) {
 			md := &coresecrets.SecretMetadata{
 				URL:  URL,
 				Path: "app.password",
@@ -91,7 +91,7 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{{
-			Result: "secret://v1/app.password",
+			Result: URL.String(),
 		}, {
 			Error: &params.Error{Message: `rotate interval "-1h0m0s" not valid`},
 		}, {
@@ -112,20 +112,25 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 		Params:         map[string]interface{}{"param": 1},
 		Data:           map[string]string{"foo": "bar"},
 	}
-	URL, _ := coresecrets.ParseURL("secret://v1/app.password")
+	URL := coresecrets.NewSimpleURL(1, "app.password")
 	expectURL := *URL
 	expectURL.ControllerUUID = coretesting.ControllerTag.Id()
 	expectURL.ModelUUID = coretesting.ModelTag.Id()
 	s.secretsService.EXPECT().UpdateSecret(gomock.Any(), &expectURL, p).DoAndReturn(
 		func(_ context.Context, URL *coresecrets.URL, p secrets.UpdateParams) (*coresecrets.SecretMetadata, error) {
 			md := &coresecrets.SecretMetadata{
-				URL:  URL,
-				Path: "app.password",
+				URL:      URL,
+				Path:     "app.password",
 				Revision: 2,
 			}
 			return md, nil
 		},
 	)
+	URL1 := *URL
+	URL1.ControllerUUID = "deadbeef-1bad-500d-9000-4b1d0d061111"
+	URL2 := *URL
+	URL2.ControllerUUID = coretesting.ControllerTag.Id()
+	URL2.ModelUUID = "deadbeef-1bad-500d-9000-4b1d0d061111"
 
 	results, err := facade.UpdateSecrets(params.UpdateSecretArgs{
 		Args: []params.UpdateSecretArg{{
@@ -137,9 +142,13 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 			URL:            URL.String(),
 			RotateInterval: -1 * time.Hour,
 		}, {
-			URL:            URL.WithAttribute("password").String(),
+			URL: URL.WithAttribute("password").String(),
 		}, {
-			URL:            URL.WithRevision(2).String(),
+			URL: URL.WithRevision(2).String(),
+		}, {
+			URL: URL1.String(),
+		}, {
+			URL: URL2.String(),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -152,6 +161,10 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 			Error: &params.Error{Code: "not supported", Message: `updating a single secret attribute "password" not supported`},
 		}, {
 			Error: &params.Error{Code: "not supported", Message: `updating secret revision 2 not supported`},
+		}, {
+			Error: &params.Error{Code: "", Message: `secret URL with controller UUID "deadbeef-1bad-500d-9000-4b1d0d061111" not valid`},
+		}, {
+			Error: &params.Error{Code: "", Message: `secret URL with model UUID "deadbeef-1bad-500d-9000-4b1d0d061111" not valid`},
 		}},
 	})
 }

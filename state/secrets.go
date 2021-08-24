@@ -19,8 +19,6 @@ import (
 // CreateSecretParams are used to create a secret.
 // TODO(wallyworld) - add tags and description etc
 type CreateSecretParams struct {
-	ControllerUUID string
-	ModelUUID      string
 	ProviderLabel  string
 	Version        int
 	Type           string
@@ -43,7 +41,7 @@ type SecretsFilter struct{}
 
 // SecretsStore instances use mongo as a secrets store.
 type SecretsStore interface {
-	CreateSecret(p CreateSecretParams) (*secrets.SecretMetadata, error)
+	CreateSecret(URL *secrets.URL, p CreateSecretParams) (*secrets.SecretMetadata, error)
 	UpdateSecret(URL *secrets.URL, p UpdateSecretParams) (*secrets.SecretMetadata, error)
 	GetSecret(URL *secrets.URL) (*secrets.SecretMetadata, error)
 	GetSecretValue(URL *secrets.URL) (secrets.SecretValue, error)
@@ -97,7 +95,7 @@ type secretsStore struct {
 	st *State
 }
 
-func (s *secretsStore) secretMetadataDoc(p *CreateSecretParams) (*secrets.URL, *secretMetadataDoc, error) {
+func (s *secretsStore) secretMetadataDoc(baseURL *secrets.URL, p *CreateSecretParams) (*secrets.URL, *secretMetadataDoc, error) {
 	id, err := sequenceWithMin(s.st, "secret", 1)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -106,11 +104,8 @@ func (s *secretsStore) secretMetadataDoc(p *CreateSecretParams) (*secrets.URL, *
 	if interval < 0 {
 		interval = 0
 	}
-	URL := secrets.NewSimpleURL(p.Version, p.Path)
-	URL.ControllerUUID = p.ControllerUUID
-	URL.ModelUUID = p.ModelUUID
 	md := &secretMetadataDoc{
-		DocID:          URL.String(),
+		DocID:          baseURL.String(),
 		Path:           p.Path,
 		Version:        p.Version,
 		RotateInterval: interval,
@@ -123,7 +118,7 @@ func (s *secretsStore) secretMetadataDoc(p *CreateSecretParams) (*secrets.URL, *
 		CreateTime:     s.st.nowToTheSecond(),
 		UpdateTime:     s.st.nowToTheSecond(),
 	}
-	return URL.WithRevision(md.Revision), md, nil
+	return baseURL.WithRevision(md.Revision), md, nil
 }
 
 func (s *secretsStore) updateSecretMetadataDoc(doc *secretMetadataDoc, baseURL *secrets.URL, p *UpdateSecretParams) *secrets.URL {
@@ -150,8 +145,8 @@ func (s *secretsStore) secretValueDoc(url *secrets.URL, data secrets.SecretData)
 }
 
 // CreateSecret creates a new secret.
-func (s *secretsStore) CreateSecret(p CreateSecretParams) (*secrets.SecretMetadata, error) {
-	URL, metadataDoc, err := s.secretMetadataDoc(&p)
+func (s *secretsStore) CreateSecret(baseURL *secrets.URL, p CreateSecretParams) (*secrets.SecretMetadata, error) {
+	URL, metadataDoc, err := s.secretMetadataDoc(baseURL, &p)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

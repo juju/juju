@@ -36,10 +36,8 @@ func NewSecretService(cfg secrets.ProviderConfig) (*secretsService, error) {
 }
 
 // CreateSecret implements SecretsService.
-func (s secretsService) CreateSecret(ctx context.Context, p secrets.CreateParams) (*coresecrets.SecretMetadata, error) {
-	metadata, err := s.backend.CreateSecret(state.CreateSecretParams{
-		ControllerUUID: p.ControllerUUID,
-		ModelUUID:      p.ModelUUID,
+func (s secretsService) CreateSecret(ctx context.Context, URL *coresecrets.URL, p secrets.CreateParams) (*coresecrets.SecretMetadata, error) {
+	metadata, err := s.backend.CreateSecret(URL, state.CreateSecretParams{
 		ProviderLabel:  Provider,
 		Version:        p.Version,
 		Type:           p.Type,

@@ -23,11 +23,6 @@ const (
 	TypePassword = SecretType("password")
 )
 
-var validTypes = map[SecretType]bool{
-	TypeBlob:     true,
-	TypePassword: true,
-}
-
 // SecretConfig is used when cresting a secret.
 type SecretConfig struct {
 	Path           string
@@ -136,8 +131,8 @@ func ParseURL(str string) (*URL, error) {
 // NewSimpleURL returns a URL with the specified path.
 func NewSimpleURL(version int, path string) *URL {
 	return &URL{
-		Version:        fmt.Sprintf("v%d", version),
-		Path:           path,
+		Version: fmt.Sprintf("v%d", version),
+		Path:    path,
 	}
 }
 
@@ -185,7 +180,7 @@ func (u *URL) String() string {
 	if u == nil {
 		return ""
 	}
-	fullPath := []string{"secret:/", u.Version}
+	fullPath := []string{u.Version}
 	if u.ControllerUUID != "" {
 		fullPath = append(fullPath, u.ControllerUUID)
 	}
@@ -194,13 +189,15 @@ func (u *URL) String() string {
 	}
 	fullPath = append(fullPath, u.Path)
 	str := strings.Join(fullPath, "/")
+	urlValue := url.URL{
+		Scheme:   "secret",
+		Path:     str,
+		Fragment: u.Attribute,
+	}
 	if u.Revision > 0 {
-		str += fmt.Sprintf("?revision=%d", u.Revision)
+		urlValue.RawQuery = fmt.Sprintf("revision=%d", u.Revision)
 	}
-	if u.Attribute != "" {
-		str += "#" + u.Attribute
-	}
-	return str
+	return urlValue.String()
 }
 
 // SecretMetadata holds metadata about a secret.
