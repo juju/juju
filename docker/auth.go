@@ -12,7 +12,10 @@ import (
 
 	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"gopkg.in/yaml.v2"
+
+	"github.com/juju/juju/feature"
 )
 
 // The default server address - https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#-em-secret-docker-registry-em-
@@ -143,6 +146,11 @@ func NewImageRepoDetails(contentOrPath string) (*ImageRepoDetails, error) {
 	}
 	if o.ServerAddress == "" {
 		o.ServerAddress = defaultServerAddress
+	}
+	if o.IsPrivate() && !featureflag.Enabled(feature.PrivateRegistry) {
+		return nil, errors.New(
+			fmt.Sprintf("private registry support is under development, enable feature flag %q to test it out", feature.PrivateRegistry),
+		)
 	}
 	return o, nil
 }

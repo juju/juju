@@ -53,3 +53,6 @@ const ActionsV2 = "actions-v2"
 
 // Secrets enables the secrets feature.
 const Secrets = "secrets"
+
+// PrivateRegistry enables the private registry feature.
+const PrivateRegistry = "private-registry"

@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/docker/registry"
 	registrymocks "github.com/juju/juju/docker/registry/mocks"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -212,6 +213,7 @@ type UpgradeCAASControllerSuite struct {
 
 func (s *UpgradeCAASControllerSuite) SetUpTest(c *gc.C) {
 	s.UpgradeBaseSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.PrivateRegistry)
 	err := s.ControllerStore.RemoveModel(jujutesting.ControllerName, "admin/controller")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.ControllerStore.UpdateModel(jujutesting.ControllerName, "admin/controller", jujuclient.ModelDetails{

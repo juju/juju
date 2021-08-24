@@ -39,8 +39,8 @@ func (s *manifoldSuite) validConfig() caasmodelconfigmanager.ManifoldConfig {
 		NewWorker: func(config caasmodelconfigmanager.Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewFacade: func(caller base.APICaller) caasmodelconfigmanager.Facade {
-			return nil
+		NewFacade: func(caller base.APICaller) (caasmodelconfigmanager.Facade, error) {
+			return nil, nil
 		},
 		Logger: loggo.GetLogger("test"),
 	}
@@ -86,8 +86,8 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	defer ctrl.Finish()
 
 	called := false
-	s.config.NewFacade = func(caller base.APICaller) caasmodelconfigmanager.Facade {
-		return mocks.NewMockFacade(ctrl)
+	s.config.NewFacade = func(caller base.APICaller) (caasmodelconfigmanager.Facade, error) {
+		return mocks.NewMockFacade(ctrl), nil
 	}
 	s.config.NewWorker = func(config caasmodelconfigmanager.Config) (worker.Worker, error) {
 		called = true

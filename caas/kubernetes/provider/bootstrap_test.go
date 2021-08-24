@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -63,6 +64,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	controllerName := "controller-1"
 
 	s.BaseSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.PrivateRegistry)
 
 	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
 		config.NameKey:                  "controller-1",

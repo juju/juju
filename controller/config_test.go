@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 )
 
@@ -591,6 +592,8 @@ func (s *ConfigSuite) TestConfigNoSpacesNilSpaceConfigPreserved(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
+	s.SetFeatureFlags(feature.PrivateRegistry)
+
 	type tc struct {
 		content  string
 		expected string

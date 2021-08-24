@@ -73,7 +73,7 @@ type manager struct {
 }
 
 // NewFacade returns a facade for caasapplicationprovisioner worker to use.
-func NewFacade(caller base.APICaller) Facade {
+func NewFacade(caller base.APICaller) (Facade, error) {
 	return api.NewClient(caller)
 }
 

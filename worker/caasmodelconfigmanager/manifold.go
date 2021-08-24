@@ -18,7 +18,7 @@ type ManifoldConfig struct {
 	APICallerName string
 	BrokerName    string
 
-	NewFacade func(base.APICaller) Facade
+	NewFacade func(base.APICaller) (Facade, error)
 	NewWorker func(Config) (worker.Worker, error)
 
 	Logger Logger
@@ -64,9 +64,13 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.New("API connection is controller-only (should never happen)")
 	}
 
+	facade, err := config.NewFacade(apiCaller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	worker, err := config.NewWorker(Config{
 		ModelTag: modelTag,
-		Facade:   config.NewFacade(apiCaller),
+		Facade:   facade,
 		Broker:   broker,
 		Logger:   config.Logger,
 	})

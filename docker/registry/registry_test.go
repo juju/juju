@@ -18,11 +18,14 @@ import (
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/docker/registry/mocks"
+	"github.com/juju/juju/feature"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
 
 type registrySuite struct {
 	testing.IsolationSuite
+	coretesting.JujuOSEnvSuite
 
 	mockRoundTripper *mocks.MockRoundTripper
 	imageRepoDetails docker.ImageRepoDetails
@@ -31,8 +34,15 @@ type registrySuite struct {
 
 var _ = gc.Suite(&registrySuite{})
 
+func (s *registrySuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	s.JujuOSEnvSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.PrivateRegistry)
+}
+
 func (s *registrySuite) TearDownTest(c *gc.C) {
 	s.IsolationSuite.TearDownTest(c)
+	s.JujuOSEnvSuite.TearDownTest(c)
 
 	s.mockRoundTripper = nil
 	s.tokenAuth = false
