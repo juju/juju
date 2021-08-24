@@ -24,7 +24,7 @@ func NewClient(caller base.APICaller) *Client {
 }
 
 // Create creates a new secret.
-func (c *Client) Create(cfg *secrets.SecretConfig, value secrets.SecretValue) (string, error) {
+func (c *Client) Create(cfg *secrets.SecretConfig, secretType secrets.SecretType, value secrets.SecretValue) (string, error) {
 	if err := cfg.Validate(); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -38,8 +38,43 @@ func (c *Client) Create(cfg *secrets.SecretConfig, value secrets.SecretValue) (s
 
 	if err := c.facade.FacadeCall("CreateSecrets", params.CreateSecretArgs{
 		Args: []params.CreateSecretArg{{
-			Type:           string(cfg.Type),
+			Type:           string(secretType),
 			Path:           cfg.Path,
+			RotateInterval: cfg.RotateInterval,
+			Params:         cfg.Params,
+			Data:           data,
+		}},
+	}, &results); err != nil {
+		return "", errors.Trace(err)
+	}
+	if n := len(results.Results); n != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", n)
+	}
+	if err := results.Results[0].Error; err != nil {
+		return "", err
+	}
+	return results.Results[0].Result, nil
+}
+
+// Update updates an existing secret value and/or config like rotate interval.
+func (c *Client) Update(URL *secrets.URL, cfg *secrets.SecretConfig, value secrets.SecretValue) (string, error) {
+	if err := cfg.Validate(); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	var data secrets.SecretData
+	if value != nil {
+		data = value.EncodedValues()
+		if len(data) == 0 {
+			data = nil
+		}
+	}
+
+	var results params.StringResults
+
+	if err := c.facade.FacadeCall("UpdateSecrets", params.UpdateSecretArgs{
+		Args: []params.UpdateSecretArg{{
+			URL:            URL.ID(),
 			RotateInterval: cfg.RotateInterval,
 			Params:         cfg.Params,
 			Data:           data,

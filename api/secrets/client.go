@@ -27,7 +27,7 @@ func NewClient(caller base.APICallCloser) *Client {
 type SecretDetails struct {
 	Metadata secrets.SecretMetadata
 	Value    secrets.SecretValue
-	Error    error
+	Error    string
 }
 
 // ListSecrets lists the available secrets.
@@ -42,16 +42,8 @@ func (api *Client) ListSecrets(showSecrets bool) ([]SecretDetails, error) {
 	}
 	result := make([]SecretDetails, len(response.Results))
 	for i, r := range response.Results {
-		URL, err := secrets.ParseURL(r.URL)
-		if err != nil {
-			result[i] = SecretDetails{
-				Error: err,
-			}
-			continue
-		}
-		result[i] = SecretDetails{
+		details := SecretDetails{
 			Metadata: secrets.SecretMetadata{
-				URL:            URL,
 				Path:           r.Path,
 				RotateInterval: r.RotateInterval,
 				Version:        r.Version,
@@ -65,13 +57,20 @@ func (api *Client) ListSecrets(showSecrets bool) ([]SecretDetails, error) {
 				UpdateTime:     r.UpdateTime,
 			},
 		}
+		URL, err := secrets.ParseURL(r.URL)
+		if err == nil {
+			details.Metadata.URL = URL
+		} else {
+			details.Error = err.Error()
+		}
 		if showSecrets && r.Value != nil {
 			if r.Value.Error == nil {
-				result[i].Value = secrets.NewSecretValue(r.Value.Data)
+				details.Value = secrets.NewSecretValue(r.Value.Data)
 			} else {
-				result[i].Error = r.Value.Error
+				details.Error = r.Value.Error.Error()
 			}
 		}
+		result[i] = details
 	}
 	return result, err
 }

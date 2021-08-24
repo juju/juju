@@ -15,7 +15,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 )
 
-type secretCreateCommand struct {
+type secretUpdateCommand struct {
 	cmd.CommandBase
 	ctx Context
 
@@ -25,65 +25,62 @@ type secretCreateCommand struct {
 	data           map[string]string
 }
 
-// NewSecretCreateCommand returns a command to create a secret.
-func NewSecretCreateCommand(ctx Context) (cmd.Command, error) {
-	return &secretCreateCommand{
-		ctx:            ctx,
-		rotateInterval: -1,
-	}, nil
+// NewSecretUpdateCommand returns a command to create a secret.
+func NewSecretUpdateCommand(ctx Context) (cmd.Command, error) {
+	return &secretUpdateCommand{ctx: ctx, rotateInterval: -1}, nil
 }
 
 // Info implements cmd.Command.
-func (c *secretCreateCommand) Info() *cmd.Info {
+func (c *secretUpdateCommand) Info() *cmd.Info {
 	doc := `
-Create a secret with either a single value or a list of key values.
+Update a secret with either a single value or a list of key values.
 If --base64 is specified, the values are already in base64 format and no
 encoding will be performed, otherwise the values will be base64 encoded
 prior to being stored.
-
+To just update the rotate interval, do not specify any secret value.
+	
 Examples:
-    secret-create apitoken 34ae35facd4
-    secret-create --base64 password AA==
-    secret-create --rotate 5d password s3cret 
+    secret-update apitoken 34ae35facd4
+    secret-update --base64 password AA==
+    secret-update --rotate 5d password s3cret
+    secret-update --rotate 10d password
 `
 	return jujucmd.Info(&cmd.Info{
-		Name:    "secret-create",
+		Name:    "secret-update",
 		Args:    "<id> [value|key=value...]",
-		Purpose: "create a new secret",
+		Purpose: "update an existing secret",
 		Doc:     doc,
 	})
 }
 
 // SetFlags implements cmd.Command.
-func (c *secretCreateCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *secretUpdateCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.asBase64, "base64", false,
 		`specify the supplied values are base64 encoded strings`)
-	f.DurationVar(&c.rotateInterval, "rotate", 0, "how often the secret should be rotated")
+	f.DurationVar(&c.rotateInterval, "rotate", -1, "how often the secret should be rotated")
 }
 
 // Init implements cmd.Command.
-func (c *secretCreateCommand) Init(args []string) error {
+func (c *secretUpdateCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.New("missing secret id")
 	}
-	if len(args) < 2 {
-		return errors.New("missing secret value")
-	}
-	if c.rotateInterval < 0 {
+	if c.rotateInterval < -1 {
 		return errors.NotValidf("rotate interval %q", c.rotateInterval)
 	}
 	c.id = args[0]
 
 	var err error
-	c.data, err = secrets.CreatSecretData(c.asBase64, args[1:])
+	if len(args) > 1 {
+		c.data, err = secrets.CreatSecretData(c.asBase64, args[1:])
+	}
 	return err
 }
 
 // Run implements cmd.Command.
-func (c *secretCreateCommand) Run(ctx *cmd.Context) error {
+func (c *secretUpdateCommand) Run(ctx *cmd.Context) error {
 	value := secrets.NewSecretValue(c.data)
-	id, err := c.ctx.CreateSecret(c.id, &UpsertArgs{
-		Type:           secrets.TypeBlob,
+	id, err := c.ctx.UpdateSecret(c.id, &UpsertArgs{
 		Value:          value,
 		RotateInterval: c.rotateInterval,
 	})

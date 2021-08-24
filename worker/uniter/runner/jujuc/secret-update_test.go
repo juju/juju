@@ -16,13 +16,13 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-type SecretCreateSuite struct {
+type SecretUpdateSuite struct {
 	ContextSuite
 }
 
-var _ = gc.Suite(&SecretCreateSuite{})
+var _ = gc.Suite(&SecretUpdateSuite{})
 
-func (s *SecretCreateSuite) TestCreateSecretInvalidArgs(c *gc.C) {
+func (s *SecretUpdateSuite) TestUpdateSecretInvalidArgs(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	for _, t := range []struct {
@@ -32,9 +32,6 @@ func (s *SecretCreateSuite) TestCreateSecretInvalidArgs(c *gc.C) {
 		{
 			args: []string{},
 			err:  "ERROR missing secret id",
-		}, {
-			args: []string{"password"},
-			err:  "ERROR missing secret value",
 		}, {
 			args: []string{"password", "s3cret", "foo=bar"},
 			err:  `ERROR key value "foo=bar" not valid when a singular value has already been specified`,
@@ -46,7 +43,7 @@ func (s *SecretCreateSuite) TestCreateSecretInvalidArgs(c *gc.C) {
 			err:  `ERROR rotate interval "-1h0m0s" not valid`,
 		},
 	} {
-		com, err := jujuc.NewCommand(hctx, cmdString("secret-create"))
+		com, err := jujuc.NewCommand(hctx, cmdString("secret-update"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -56,10 +53,10 @@ func (s *SecretCreateSuite) TestCreateSecretInvalidArgs(c *gc.C) {
 	}
 }
 
-func (s *SecretCreateSuite) TestCreateSecret(c *gc.C) {
+func (s *SecretUpdateSuite) TestUpdateSecret(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewCommand(hctx, cmdString("secret-create"))
+	com, err := jujuc.NewCommand(hctx, cmdString("secret-update"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"password", "secret", "--rotate", "1h"})
@@ -67,18 +64,17 @@ func (s *SecretCreateSuite) TestCreateSecret(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"data": "c2VjcmV0"})
 	args := &jujuc.UpsertArgs{
-		Type:           coresecrets.TypeBlob,
 		Value:          val,
 		RotateInterval: time.Hour,
 	}
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "CreateSecret", Args: []interface{}{"password", args}}})
+	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"password", args}}})
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret://app.password\n")
 }
 
-func (s *SecretCreateSuite) TestCreateSecretBase64(c *gc.C) {
+func (s *SecretUpdateSuite) TestUpdateSecretBase64(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewCommand(hctx, cmdString("secret-create"))
+	com, err := jujuc.NewCommand(hctx, cmdString("secret-update"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--base64", "apikey", "token=key="})
@@ -86,9 +82,26 @@ func (s *SecretCreateSuite) TestCreateSecretBase64(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"token": "key="})
 	args := &jujuc.UpsertArgs{
-		Type:  coresecrets.TypeBlob,
-		Value: val,
+		Value:          val,
+		RotateInterval: -1,
 	}
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "CreateSecret", Args: []interface{}{"apikey", args}}})
+	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"apikey", args}}})
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret://app.apikey\n")
+}
+
+func (s *SecretUpdateSuite) TestUpdateSecretRotateInterval(c *gc.C) {
+	hctx, _ := s.ContextSuite.NewHookContext()
+
+	com, err := jujuc.NewCommand(hctx, cmdString("secret-update"))
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := cmdtesting.Context(c)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--rotate", "5h", "apikey"})
+
+	c.Assert(code, gc.Equals, 0)
+	args := &jujuc.UpsertArgs{
+		Value:          coresecrets.NewSecretValue(nil),
+		RotateInterval: 5 * time.Hour,
+	}
+	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"apikey", args}}})
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret://app.apikey\n")
 }
