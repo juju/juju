@@ -473,7 +473,7 @@ func (manager *Manager) handleCheck(check check) error {
 			// Someone thought they were the lease-holder, otherwise they
 			// wouldn't be confirming via the check. However, the lease has
 			// expired, and they are out of sync. Schedule a block check.
-			manager.ensureNextTimeout(time.Millisecond)
+			manager.setNextTimeout(manager.config.Clock.Now().Add(time.Second))
 
 			manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found",
 				manager.logContext, key.Lease, check.holderName)
@@ -541,7 +541,15 @@ func (manager *Manager) computeNextTimeout(leases map[lease.Key]lease.Info) {
 
 func (manager *Manager) setNextTimeout(t time.Time) {
 	manager.muNextTimeout.Lock()
+	defer manager.muNextTimeout.Unlock()
+
+	// Ensure we never walk the next check back without have performed a
+	// scheduled check *unless* we're just starting up.
+	if !manager.nextTimeout.IsZero() && t.After(manager.nextTimeout) {
+		return
+	}
 	manager.nextTimeout = t
+
 	d := t.Sub(manager.config.Clock.Now())
 	if manager.timer == nil {
 		manager.timer = manager.config.Clock.NewTimer(d)
@@ -559,22 +567,6 @@ func (manager *Manager) setNextTimeout(t time.Time) {
 		}
 		manager.timer.Reset(d)
 	}
-	manager.muNextTimeout.Unlock()
-}
-
-// ensureNextTimeout makes sure that the next timeout happens no-later than
-// duration from now.
-func (manager *Manager) ensureNextTimeout(d time.Duration) {
-	manager.muNextTimeout.Lock()
-	next := manager.nextTimeout
-	proposed := manager.config.Clock.Now().Add(d)
-	if next.After(proposed) {
-		manager.config.Logger.Tracef("[%s] ensuring we wake up before %v at %v\n",
-			manager.logContext, d, proposed)
-		manager.nextTimeout = proposed
-		manager.timer.Reset(d)
-	}
-	manager.muNextTimeout.Unlock()
 }
 
 func (manager *Manager) startRetry() *retry.Attempt {
