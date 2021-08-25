@@ -81,8 +81,7 @@ func (s *authSuite) TestNewImageRepoDetailsReadDefaultServerAddress(c *gc.C) {
 	imageRepoDetails, err := docker.NewImageRepoDetails(data)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(imageRepoDetails, jc.DeepEquals, &docker.ImageRepoDetails{
-		Repository:    "qabot",
-		ServerAddress: "https://index.docker.io/v1/",
+		Repository: "qabot",
 		BasicAuthConfig: docker.BasicAuthConfig{
 			Auth: "xxxxx==",
 		},

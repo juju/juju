@@ -29,6 +29,11 @@ const (
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/http_mock.go net/http RoundTripper
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/registry_mock.go github.com/juju/juju/docker/registry Registry
 
+const (
+	dockerServerAddressV1 = "https://registry.hub.docker.com/"
+	dockerServerAddressV2 = "https://index.docker.io/"
+)
+
 type registry struct {
 	baseURL     *url.URL
 	client      *http.Client
@@ -56,7 +61,7 @@ func newRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTrippe
 		},
 	}
 	var err error
-	if r.baseURL, err = url.Parse(repoDetails.ServerAddress); err != nil {
+	if r.baseURL, err = r.decideBaseURL(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := newClientWithOpts(r, wrapTransport); err != nil {
@@ -79,6 +84,21 @@ func newClientWithOpts(r *registry, ops ...opt) error {
 	return nil
 }
 
+func (r registry) decideBaseURL() (*url.URL, error) {
+	if r.repoDetails.ServerAddress != "" {
+		return url.Parse(r.repoDetails.ServerAddress)
+	}
+	switch r.repoDetails.APIVersion() {
+	case docker.APIVersionV1:
+		return url.Parse(dockerServerAddressV1)
+	case docker.APIVersionV2:
+		return url.Parse(dockerServerAddressV2)
+	default:
+		// This should never happen.
+		return nil, errors.NewNotValid(nil, "cant not decide base url for image repo details")
+	}
+}
+
 func (r registry) url(pathTemplate string, args ...interface{}) string {
 	pathSuffix := fmt.Sprintf(pathTemplate, args...)
 	url := *r.baseURL
@@ -91,7 +111,7 @@ func (r registry) url(pathTemplate string, args ...interface{}) string {
 
 // Ping pings the base endpoint.
 func (r registry) Ping() error {
-	url := r.url("/v2/")
+	url := r.url("/")
 	logger.Debugf("registry ping %q", url)
 	resp, err := r.client.Get(url)
 	if resp != nil {
@@ -108,15 +128,54 @@ func (r *registry) Close() error {
 	return nil
 }
 
-type tagsResponse struct {
+type tagsResponseLayerV1 struct {
+	Name string `json:"name"`
+}
+
+type tagsResponseV1 []tagsResponseLayerV1
+
+func (r tagsResponseV1) GetTags() []string {
+	var tags []string
+	for _, v := range r {
+		tags = append(tags, v.Name)
+	}
+	return tags
+}
+
+type tagsResponseV2 struct {
 	Tags []string `json:"tags"`
+}
+
+func (r tagsResponseV2) GetTags() []string {
+	return r.Tags
+}
+
+type tagsGetter interface {
+	GetTags() []string
 }
 
 // Tags fetches tags for an OCI image.
 func (r registry) Tags(imageName string) (versions tools.Versions, err error) {
-	path := fmt.Sprintf("%s/%s", r.repoDetails.Repository, imageName)
-	url := r.url("/v2/%s/tags/list", path)
+	// TODO: merge ListOperatorImages with registry and refactor registry to embed different API version handllers properly.
+	apiVersion := r.repoDetails.APIVersion()
 
+	if r.repoDetails.APIVersion() == docker.APIVersionV1 {
+		urlTemplate := "/%s/repositories/%s/%s/tags"
+		url := r.url(urlTemplate, string(apiVersion), r.repoDetails.Repository, imageName)
+		var response tagsResponseV1
+		return r.fetchTags(url, &response)
+	}
+	if r.repoDetails.APIVersion() == docker.APIVersionV2 {
+		urlTemplate := "/%s/%s/%s/tags/list"
+		url := r.url(urlTemplate, string(apiVersion), r.repoDetails.Repository, imageName)
+		var response tagsResponseV2
+		return r.fetchTags(url, &response)
+	}
+
+	return nil, nil
+}
+
+func (r registry) fetchTags(url string, res tagsGetter) (versions tools.Versions, err error) {
 	pushVersions := func(tags []string) {
 		for _, tag := range tags {
 			v, err := version.Parse(tag)
@@ -127,16 +186,14 @@ func (r registry) Tags(imageName string) (versions tools.Versions, err error) {
 			versions = append(versions, docker.NewImageInfo(v))
 		}
 	}
-
-	var response tagsResponse
 	for {
-		url, err = r.getPaginatedJSON(url, &response)
+		url, err = r.getPaginatedJSON(url, &res)
 		switch err {
 		case errNoMorePages:
-			pushVersions(response.Tags)
+			pushVersions(res.GetTags())
 			return versions, nil
 		case nil:
-			pushVersions(response.Tags)
+			pushVersions(res.GetTags())
 			continue
 		default:
 			return nil, errors.Trace(err)

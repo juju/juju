@@ -18,8 +18,15 @@ import (
 	"github.com/juju/juju/feature"
 )
 
-// The default server address - https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#-em-secret-docker-registry-em-
-const defaultServerAddress = "https://index.docker.io/v1/"
+// APIVersion is the API version type.
+type APIVersion string
+
+const (
+	// APIVersionV1 is the API version v1.
+	APIVersionV1 APIVersion = "v1"
+	// APIVersionV2 is the API version v2.
+	APIVersionV2 APIVersion = "v2"
+)
 
 // TokenAuthConfig contains authorization information for token auth.
 // Juju does not support the docker credential helper because k8s does not support it either.
@@ -131,6 +138,14 @@ func (rid ImageRepoDetails) Validate() error {
 	return nil
 }
 
+func (rid ImageRepoDetails) APIVersion() APIVersion {
+	v := APIVersionV1
+	if !rid.TokenAuthConfig.Empty() {
+		v = APIVersionV2
+	}
+	return v
+}
+
 func fileExists(p string) (bool, error) {
 	info, err := os.Stat(p)
 	if os.IsNotExist(err) {
@@ -143,7 +158,10 @@ func fileExists(p string) (bool, error) {
 }
 
 // NewImageRepoDetails tries to parse a file path or file content and returns an instance of ImageRepoDetails.
-func NewImageRepoDetails(contentOrPath string) (*ImageRepoDetails, error) {
+func NewImageRepoDetails(contentOrPath string) (o *ImageRepoDetails, err error) {
+	if contentOrPath == "" {
+		return o, nil
+	}
 	data := []byte(contentOrPath)
 	isPath, err := fileExists(contentOrPath)
 	if err == nil && isPath {
@@ -152,14 +170,12 @@ func NewImageRepoDetails(contentOrPath string) (*ImageRepoDetails, error) {
 			return nil, errors.Trace(err)
 		}
 	}
-	o := &ImageRepoDetails{}
+	o = &ImageRepoDetails{}
 	err = yaml.Unmarshal(data, o)
 	if err != nil {
 		return &ImageRepoDetails{Repository: contentOrPath}, nil
 	}
-	if o.ServerAddress == "" {
-		o.ServerAddress = defaultServerAddress
-	}
+
 	if o.IsPrivate() && !featureflag.Enabled(feature.PrivateRegistry) {
 		return nil, errors.New(
 			fmt.Sprintf("private registry support is under development, enable feature flag %q to test it out", feature.PrivateRegistry),

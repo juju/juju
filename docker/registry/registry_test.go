@@ -65,7 +65,7 @@ func (s *registrySuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Control
 				func(req *http.Request) (*http.Response, error) {
 					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer xxxxx=="}})
 					c.Assert(req.Method, jc.DeepEquals, `GET`)
-					c.Assert(req.URL.String(), jc.DeepEquals, `https://quay.io/v2`)
+					c.Assert(req.URL.String(), jc.DeepEquals, `https://quay.io`)
 					return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
 				},
 			),
@@ -84,7 +84,7 @@ func (s *registrySuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Control
 				func(req *http.Request) (*http.Response, error) {
 					c.Assert(req.Header, jc.DeepEquals, http.Header{"Basic": []string{"xxxxx=="}})
 					c.Assert(req.Method, jc.DeepEquals, `GET`)
-					c.Assert(req.URL.String(), jc.DeepEquals, `https://quay.io/v2`)
+					c.Assert(req.URL.String(), jc.DeepEquals, `https://quay.io`)
 					return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
 				},
 			),
@@ -107,7 +107,37 @@ func (s *registrySuite) TestPingTokenAuth(c *gc.C) {
 	defer ctrl.Finish()
 }
 
-func (s *registrySuite) TestTags(c *gc.C) {
+func (s *registrySuite) TestTagsV1(c *gc.C) {
+	reg, ctrl := s.getRegistry(c)
+	defer ctrl.Finish()
+
+	data := `
+[{"name": "2.9.10.1"},{"name": "2.9.10.2"},{"name": "2.9.10"}]
+`[1:]
+
+	gomock.InOrder(
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.Header, jc.DeepEquals, http.Header{"Basic": []string{"xxxxx=="}})
+			c.Assert(req.Method, jc.DeepEquals, `GET`)
+			c.Assert(req.URL.String(), jc.DeepEquals, `https://quay.io/v1/repositories/jujuqa/jujud-operator/tags`)
+			resps := &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       ioutil.NopCloser(strings.NewReader(data)),
+			}
+			return resps, nil
+		}),
+	)
+	vers, err := reg.Tags("jujud-operator")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vers, jc.DeepEquals, tools.Versions{
+		docker.NewImageInfo(version.MustParse("2.9.10.1")),
+		docker.NewImageInfo(version.MustParse("2.9.10.2")),
+		docker.NewImageInfo(version.MustParse("2.9.10")),
+	})
+}
+
+func (s *registrySuite) TestTagsV2(c *gc.C) {
+	s.tokenAuth = true
 	reg, ctrl := s.getRegistry(c)
 	defer ctrl.Finish()
 
@@ -117,7 +147,7 @@ func (s *registrySuite) TestTags(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Basic": []string{"xxxxx=="}})
+			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer xxxxx=="}})
 			c.Assert(req.Method, jc.DeepEquals, `GET`)
 			c.Assert(req.URL.String(), jc.DeepEquals, `https://quay.io/v2/jujuqa/jujud-operator/tags/list`)
 			resps := &http.Response{
@@ -148,7 +178,7 @@ func (s *registrySuite) TestTagsErrorResponse(c *gc.C) {
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 			c.Assert(req.Header, jc.DeepEquals, http.Header{"Basic": []string{"xxxxx=="}})
 			c.Assert(req.Method, jc.DeepEquals, `GET`)
-			c.Assert(req.URL.String(), jc.DeepEquals, `https://quay.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Assert(req.URL.String(), jc.DeepEquals, `https://quay.io/v1/repositories/jujuqa/jujud-operator/tags`)
 			resps := &http.Response{
 				StatusCode: http.StatusForbidden,
 				Body:       ioutil.NopCloser(strings.NewReader(data)),
@@ -157,5 +187,5 @@ func (s *registrySuite) TestTagsErrorResponse(c *gc.C) {
 		}),
 	)
 	_, err := reg.Tags("jujud-operator")
-	c.Assert(err, gc.ErrorMatches, `Get "https://quay.io/v2/jujuqa/jujud-operator/tags/list": non-successful response \(status=403 body=.*\)`)
+	c.Assert(err, gc.ErrorMatches, `Get "https://quay.io/v1/repositories/jujuqa/jujud-operator/tags": non-successful response \(status=403 body=.*\)`)
 }

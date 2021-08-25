@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -63,6 +64,7 @@ See also:
 
 func newUpgradeControllerCommand(options ...modelcmd.WrapControllerOption) cmd.Command {
 	command := &upgradeControllerCommand{}
+	command.registryAPIFunc = registry.NewRegistry
 	return modelcmd.WrapController(command, options...)
 }
 
@@ -276,6 +278,7 @@ func (c *baseUpgradeCommand) listOperatorImages(controllerCfg controller.Config)
 
 	imageRepoDetails := controllerCfg.CAASImageRepo()
 	if !imageRepoDetails.IsPrivate() {
+		// TODO(ycliuhw): merge ListOperatorImages to Registry API.
 		return docker.ListOperatorImages(imagePath)
 	}
 	reg, err := c.registryAPIFunc(imageRepoDetails)

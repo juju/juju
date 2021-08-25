@@ -108,6 +108,7 @@ func (t errorTransport) RoundTrip(request *http.Request) (*http.Response, error)
 	if resp.StatusCode >= 400 {
 		defer resp.Body.Close()
 		body, err := ioutil.ReadAll(resp.Body)
+		logger.Tracef("request.Header -> %#v", request.Header)
 		if err != nil {
 			return nil, errors.Annotatef(err, "reading bad response body with status code %d", resp.StatusCode)
 		}
