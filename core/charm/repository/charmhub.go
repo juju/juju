@@ -65,10 +65,6 @@ func NewCharmHubRepository(logger Logger, chClient CharmHubClient) *CharmHubRepo
 // When charmstore goes, we could potentially rework how the client requests
 // the store.
 func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice) (*charm.URL, corecharm.Origin, []string, error) {
-	if charmURL.Revision != -1 {
-		return nil, corecharm.Origin{}, nil, errors.Errorf("specifying a revision is not supported, please use a channel.")
-	}
-
 	c.logger.Tracef("Resolving CharmHub charm %q with origin %v", charmURL, requestedOrigin)
 
 	// First attempt to find the charm based on the only input provided.
