@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/config"
@@ -31,7 +30,6 @@ type BackendState interface {
 	AllCharms() ([]*state.Charm, error)
 	Application(string) (Application, error)
 	Charm(curl *charm.URL) (*state.Charm, error)
-	UploadedCharmOrigin(curl *charm.URL) (corecharm.Origin, error)
 	ControllerConfig() (controller.Config, error)
 	ControllerTag() names.ControllerTag
 	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)

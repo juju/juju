@@ -3579,23 +3579,3 @@ func appUnitNames(st *State, appName string) ([]string, error) {
 	}
 	return unitNames, nil
 }
-
-// UploadedCharmOrigin looks up the application that references the provided
-// charm URL and returns the origin from where it was downloaded.
-func (st *State) UploadedCharmOrigin(charmURL *charm.URL) (corecharm.Origin, error) {
-	applications, closer := st.db().GetCollection(applicationsC)
-	defer closer()
-
-	doc := struct {
-		CharmOrigin *CharmOrigin `bson:"charm-origin"`
-	}{}
-	err := applications.Find(bson.M{
-		"charmurl": charmURL,
-		"life":     Alive,
-	}).One(&doc)
-	if err == mgo.ErrNotFound || doc.CharmOrigin == nil {
-		return corecharm.Origin{}, errors.NotFoundf("download origin for charm %q", charmURL)
-	}
-
-	return doc.CharmOrigin.AsCoreCharmOrigin(), nil
-}

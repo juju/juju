@@ -35,6 +35,7 @@ type CharmArchive interface {
 
 // CharmRepository provides an API for downloading charms/bundles.
 type CharmRepository interface {
+	ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice) (*charm.URL, corecharm.Origin, []string, error)
 	DownloadCharm(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error)
 }
 
@@ -128,10 +129,16 @@ func (d *Downloader) DownloadAndStore(charmURL *charm.URL, requestedOrigin corec
 	if err := d.storage.PrepareToStoreCharm(charmURL); err != nil {
 		// The charm blob is already uploaded this is a no-op. However,
 		// as the original origin might be different that the one
-		// requested by the caller, make sure to return the correct one.
+		// requested by the caller, make sure to resolve it again.
 		if alreadyUploadedErr, valid := errors.Cause(err).(errCharmAlreadyStored); valid {
 			d.logger.Debugf("%v", alreadyUploadedErr)
-			return alreadyUploadedErr.origin, nil
+
+			repo, err := d.getRepo(requestedOrigin.Source)
+			if err != nil {
+				return corecharm.Origin{}, errors.Trace(err)
+			}
+			_, resolvedOrigin, _, err := repo.ResolveWithPreferredChannel(charmURL, requestedOrigin, macaroons)
+			return resolvedOrigin, errors.Trace(err)
 		}
 
 		return corecharm.Origin{}, errors.Trace(err)
@@ -149,7 +156,12 @@ func (d *Downloader) DownloadAndStore(charmURL *charm.URL, requestedOrigin corec
 		}
 	}()
 
-	downloadedCharm, actualOrigin, err := d.downloadAndHash(charmURL, seriesOrigin, macaroons, tmpFile.Name())
+	repo, err := d.getRepo(requestedOrigin.Source)
+	if err != nil {
+		return corecharm.Origin{}, errors.Trace(err)
+	}
+
+	downloadedCharm, actualOrigin, err := d.downloadAndHash(charmURL, seriesOrigin, macaroons, repo, tmpFile.Name())
 	if err != nil {
 		return corecharm.Origin{}, errors.Annotatef(err, "downloading charm %q from origin %v", charmURL, requestedOrigin)
 	}
@@ -167,17 +179,13 @@ func (d *Downloader) DownloadAndStore(charmURL *charm.URL, requestedOrigin corec
 	return actualOrigin, nil
 }
 
-func (d *Downloader) downloadAndHash(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, dstPath string) (DownloadedCharm, corecharm.Origin, error) {
-	repo, err := d.getRepo(requestedOrigin.Source)
-	if err != nil {
-		return DownloadedCharm{}, corecharm.Origin{}, errors.Trace(err)
-	}
-
-	d.logger.Debugf("downloading charm %q from origin %v", charmURL, requestedOrigin)
+func (d *Downloader) downloadAndHash(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, repo CharmRepository, dstPath string) (DownloadedCharm, corecharm.Origin, error) {
+	d.logger.Debugf("downloading charm %q from requested origin %v", charmURL, requestedOrigin)
 	chArchive, actualOrigin, err := repo.DownloadCharm(charmURL, requestedOrigin, macaroons, dstPath)
 	if err != nil {
 		return DownloadedCharm{}, corecharm.Origin{}, errors.Trace(err)
 	}
+	d.logger.Debugf("downloaded charm %q from actual origin %v", charmURL, actualOrigin)
 
 	// Calculate SHA256 for the downloaded archive
 	f, err := os.Open(dstPath)

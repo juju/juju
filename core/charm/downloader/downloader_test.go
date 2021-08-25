@@ -126,13 +126,12 @@ func (s *downloaderSuite) TestDownloadAndHash(c *gc.C) {
 	requestedOrigin := corecharm.Origin{Source: corecharm.CharmHub, Channel: mustParseChannel(c, "20.04/edge")}
 	resolvedOrigin := corecharm.Origin{Source: corecharm.CharmHub, Channel: mustParseChannel(c, "20.04/candidate")}
 
-	s.repoGetter.EXPECT().GetCharmRepository(corecharm.CharmHub).Return(repoAdapter{s.repo}, nil)
 	s.repo.EXPECT().DownloadCharm(curl, requestedOrigin, nil, tmpFile).Return(s.charmArchive, resolvedOrigin, nil)
 	s.charmArchive.EXPECT().Version().Return("the-version")
 	s.charmArchive.EXPECT().LXDProfile().Return(nil)
 
 	dl := s.newDownloader()
-	dc, gotOrigin, err := dl.downloadAndHash(curl, requestedOrigin, nil, tmpFile)
+	dc, gotOrigin, err := dl.downloadAndHash(curl, requestedOrigin, nil, repoAdapter{s.repo}, tmpFile)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin, gc.Commentf("expected to get back the resolved origin"))
 	c.Assert(dc.SHA256, gc.Equals, "4e97ed7423be2ea12939e8fdd592cfb3dcd4d0097d7d193ef998ab6b4db70461")
@@ -147,8 +146,10 @@ func (s downloaderSuite) TestCharmAlreadyStored(c *gc.C) {
 	knownOrigin := corecharm.Origin{Source: corecharm.CharmHub, Channel: mustParseChannel(c, "20.04/candidate")}
 
 	s.storage.EXPECT().PrepareToStoreCharm(curl).Return(
-		NewCharmAlreadyStoredError(curl.String(), knownOrigin),
+		NewCharmAlreadyStoredError(curl.String()),
 	)
+	s.repoGetter.EXPECT().GetCharmRepository(corecharm.CharmHub).Return(repoAdapter{s.repo}, nil)
+	s.repo.EXPECT().ResolveWithPreferredChannel(curl, requestedOrigin, nil).Return(curl, knownOrigin, nil, nil)
 
 	dl := s.newDownloader()
 	gotOrigin, err := dl.DownloadAndStore(curl, requestedOrigin, nil, false)
@@ -292,4 +293,8 @@ type repoAdapter struct {
 
 func (r repoAdapter) DownloadCharm(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error) {
 	return r.repo.DownloadCharm(charmURL, requestedOrigin, macaroons, archivePath)
+}
+
+func (r repoAdapter) ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice) (*charm.URL, corecharm.Origin, []string, error) {
+	return r.repo.ResolveWithPreferredChannel(charmURL, requestedOrigin, macaroons)
 }
