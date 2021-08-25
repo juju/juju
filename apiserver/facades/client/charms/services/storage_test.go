@@ -17,7 +17,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/charm/downloader"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -51,20 +50,13 @@ func (s *storageTestSuite) TestPrepareToStoreAlreadyUploadedCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	curl := charm.MustParseURL("ch:ubuntu-lite")
-	dlOrigin := corecharm.Origin{
-		Source: corecharm.CharmHub,
-		Type:   "charm",
-		ID:     "42",
-		Hash:   "092134u093ruj23",
-	}
 
 	s.stateBackend.EXPECT().PrepareCharmUpload(curl).Return(s.uploadedCharm, nil)
 	s.uploadedCharm.EXPECT().IsUploaded().Return(true)
-	s.stateBackend.EXPECT().UploadedCharmOrigin(curl).Return(dlOrigin, nil)
 
 	err := s.storage.PrepareToStoreCharm(curl)
 
-	expErr := downloader.NewCharmAlreadyStoredError(curl.String(), dlOrigin)
+	expErr := downloader.NewCharmAlreadyStoredError(curl.String())
 	c.Assert(err, gc.Equals, expErr)
 }
 

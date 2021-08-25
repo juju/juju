@@ -207,21 +207,6 @@ func (mr *MockBackendStateMockRecorder) UpdateUploadedCharm(arg0 interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUploadedCharm", reflect.TypeOf((*MockBackendState)(nil).UpdateUploadedCharm), arg0)
 }
 
-// UploadedCharmOrigin mocks base method.
-func (m *MockBackendState) UploadedCharmOrigin(arg0 *charm.URL) (charm0.Origin, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UploadedCharmOrigin", arg0)
-	ret0, _ := ret[0].(charm0.Origin)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UploadedCharmOrigin indicates an expected call of UploadedCharmOrigin.
-func (mr *MockBackendStateMockRecorder) UploadedCharmOrigin(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadedCharmOrigin", reflect.TypeOf((*MockBackendState)(nil).UploadedCharmOrigin), arg0)
-}
-
 // MockBackendModel is a mock of BackendModel interface.
 type MockBackendModel struct {
 	ctrl     *gomock.Controller
