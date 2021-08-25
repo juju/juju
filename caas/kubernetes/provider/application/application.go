@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/annotations"
@@ -71,7 +70,7 @@ type app struct {
 	clock          clock.Clock
 
 	// randomPrefix generates an annotation for stateful sets.
-	randomPrefix k8sutils.RandomPrefixFunc
+	randomPrefix utils.RandomPrefixFunc
 
 	newApplier func() resources.Applier
 }
@@ -87,7 +86,7 @@ func NewApplication(
 	client kubernetes.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
-	randomPrefix k8sutils.RandomPrefixFunc,
+	randomPrefix utils.RandomPrefixFunc,
 ) caas.Application {
 	return newApplication(
 		name,
@@ -114,7 +113,7 @@ func newApplication(
 	client kubernetes.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
-	randomPrefix k8sutils.RandomPrefixFunc,
+	randomPrefix utils.RandomPrefixFunc,
 	newApplier func() resources.Applier,
 ) *app {
 	return &app{
@@ -356,7 +355,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 					Namespace: a.namespace,
 					Labels:    a.labels(),
 					Annotations: a.annotations(config).
-						Add(k8sutils.AnnotationKeyApplicationUUID(false), storageUniqueID),
+						Add(utils.AnnotationKeyApplicationUUID(false), storageUniqueID),
 				},
 				Spec: appsv1.StatefulSetSpec{
 					Replicas: numPods,
@@ -422,7 +421,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 					Namespace: a.namespace,
 					Labels:    a.labels(),
 					Annotations: a.annotations(config).
-						Add(k8sutils.AnnotationKeyApplicationUUID(false), storageUniqueID),
+						Add(utils.AnnotationKeyApplicationUUID(false), storageUniqueID),
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: numPods,
@@ -459,7 +458,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 					Namespace: a.namespace,
 					Labels:    a.labels(),
 					Annotations: a.annotations(config).
-						Add(k8sutils.AnnotationKeyApplicationUUID(false), storageUniqueID),
+						Add(utils.AnnotationKeyApplicationUUID(false), storageUniqueID),
 				},
 				Spec: appsv1.DaemonSetSpec{
 					Selector: &metav1.LabelSelector{
@@ -1069,7 +1068,7 @@ func (a *app) Service() (*caas.Service, error) {
 	}
 	return &caas.Service{
 		Id:        string(svc.GetUID()),
-		Addresses: k8sutils.GetSvcAddresses(&svc.Service, false),
+		Addresses: utils.GetSvcAddresses(&svc.Service, false),
 		Status: status.StatusInfo{
 			Status:  svcStatus,
 			Message: statusMessage,
@@ -1221,7 +1220,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	containerSpecs := []corev1.Container{{
 		Name:            unitContainerName,
 		ImagePullPolicy: corev1.PullIfNotPresent,
-		Image:           config.CharmBaseImage.RegistryPath,
+		Image:           config.CharmBaseImagePath,
 		WorkingDir:      jujuDataDir,
 		Command:         []string{"/charm/bin/containeragent"},
 		Args: []string{
@@ -1304,6 +1303,11 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	}}
 
 	imagePullSecrets := []corev1.LocalObjectReference(nil)
+	if config.IsPrivateImageRepo {
+		imagePullSecrets = append(imagePullSecrets,
+			corev1.LocalObjectReference{Name: constants.CAASImageRepoSecretName},
+		)
+	}
 
 	for _, v := range containers {
 		container := corev1.Container{
@@ -1490,26 +1494,26 @@ func (a *app) ensureImagePullSecrets(applier resources.Applier, config caas.Appl
 }
 
 func (a *app) annotations(config caas.ApplicationConfig) annotations.Annotation {
-	return k8sutils.ResourceTagsToAnnotations(config.ResourceTags, a.legacyLabels).
-		Merge(k8sutils.AnnotationsForVersion(config.AgentVersion.String(), a.legacyLabels))
+	return utils.ResourceTagsToAnnotations(config.ResourceTags, a.legacyLabels).
+		Merge(utils.AnnotationsForVersion(config.AgentVersion.String(), a.legacyLabels))
 }
 
 func (a *app) upgradeAnnotations(anns annotations.Annotation, ver version.Number) annotations.Annotation {
-	return anns.Merge(k8sutils.AnnotationsForVersion(ver.String(), a.legacyLabels))
+	return anns.Merge(utils.AnnotationsForVersion(ver.String(), a.legacyLabels))
 }
 
 func (a *app) labels() labels.Set {
 	// TODO: add modelUUID for global resources?
-	return k8sutils.LabelsForApp(a.name, a.legacyLabels)
+	return utils.LabelsForApp(a.name, a.legacyLabels)
 }
 
 func (a *app) selectorLabels() labels.Set {
-	return k8sutils.SelectorLabelsForApp(a.name, a.legacyLabels)
+	return utils.SelectorLabelsForApp(a.name, a.legacyLabels)
 }
 
 func (a *app) labelSelector() string {
-	return k8sutils.LabelsToSelector(
-		k8sutils.SelectorLabelsForApp(a.name, a.legacyLabels),
+	return utils.LabelsToSelector(
+		utils.SelectorLabelsForApp(a.name, a.legacyLabels),
 	).String()
 }
 
@@ -1548,7 +1552,7 @@ type annotationGetter interface {
 func (a *app) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (string, error) {
 	if r, err := getMeta(); err == nil {
 		// TODO: remove this function with existing one once we consolidated the annotation keys.
-		if uniqID := r.GetAnnotations()[k8sutils.AnnotationKeyApplicationUUID(false)]; len(uniqID) > 0 {
+		if uniqID := r.GetAnnotations()[utils.AnnotationKeyApplicationUUID(false)]; len(uniqID) > 0 {
 			return uniqID, nil
 		}
 	} else if !errors.IsNotFound(err) {
@@ -1734,17 +1738,17 @@ func (a *app) filesystemToVolumeInfo(
 		params.StorageConfig.StorageClass = newStorageClass.Name
 	}
 
-	labels := k8sutils.LabelsMerge(
-		k8sutils.LabelsForStorage(fs.StorageName, a.legacyLabels),
-		k8sutils.LabelsJuju)
+	labels := utils.LabelsMerge(
+		utils.LabelsForStorage(fs.StorageName, a.legacyLabels),
+		utils.LabelsJuju)
 
 	pvcSpec := storage.PersistentVolumeClaimSpec(*params)
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   params.Name,
 			Labels: labels,
-			Annotations: k8sutils.ResourceTagsToAnnotations(fs.ResourceTags, a.legacyLabels).
-				Merge(k8sutils.AnnotationsForStorage(fs.StorageName, a.legacyLabels)).
+			Annotations: utils.ResourceTagsToAnnotations(fs.ResourceTags, a.legacyLabels).
+				Merge(utils.AnnotationsForStorage(fs.StorageName, a.legacyLabels)).
 				ToMap(),
 		},
 		Spec: *pvcSpec,

@@ -136,7 +136,9 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoDefault(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfoResults{
 		Results: []params.OperatorProvisioningInfo{{
-			ImagePath:    "jujusolutions/jujud-operator:2.6-beta3.666",
+			ImageDetails: params.DockerImageInfo{
+				RegistryPath: "jujusolutions/jujud-operator:2.6-beta3.666",
+			},
 			Version:      version.MustParse("2.6-beta3"),
 			APIAddresses: []string{"10.0.0.1:1"},
 			Tags: map[string]string{
@@ -167,7 +169,10 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfoResults{
 		Results: []params.OperatorProvisioningInfo{{
-			ImagePath:    s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
+			ImageDetails: params.DockerImageInfo{
+				RegistryPath: s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
+				Repository:   s.st.operatorRepo,
+			},
 			Version:      version.MustParse("2.6-beta3"),
 			APIAddresses: []string{"10.0.0.1:1"},
 			Tags: map[string]string{
@@ -199,7 +204,10 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfoResults{
 		Results: []params.OperatorProvisioningInfo{{
-			ImagePath:    s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
+			ImageDetails: params.DockerImageInfo{
+				RegistryPath: s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
+				Repository:   s.st.operatorRepo,
+			},
 			Version:      version.MustParse("2.6-beta3"),
 			APIAddresses: []string{"10.0.0.1:1"},
 			Tags: map[string]string{
@@ -220,7 +228,10 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoSidecarNoStorage(c *g
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfoResults{
 		Results: []params.OperatorProvisioningInfo{{
-			ImagePath:    s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
+			ImageDetails: params.DockerImageInfo{
+				RegistryPath: s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
+				Repository:   s.st.operatorRepo,
+			},
 			Version:      version.MustParse("2.6-beta3"),
 			APIAddresses: []string{"10.0.0.1:1"},
 			Tags: map[string]string{
@@ -241,7 +252,10 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStoragePool(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfoResults{
 		Results: []params.OperatorProvisioningInfo{{
-			ImagePath:    s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
+			ImageDetails: params.DockerImageInfo{
+				RegistryPath: s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
+				Repository:   s.st.operatorRepo,
+			},
 			Version:      version.MustParse("2.6-beta3"),
 			APIAddresses: []string{"10.0.0.1:1"},
 			Tags: map[string]string{

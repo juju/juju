@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/docker"
 )
 
 type provisionerSuite struct {
@@ -151,7 +152,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 				APIAddresses:         []string{"10.0.0.1:1"},
 				Tags:                 map[string]string{"foo": "bar"},
 				Series:               "bionic",
-				ImageRepo:            "jujuqa",
+				ImageRepo:            params.DockerImageInfo{Repository: "jujuqa"},
 				CharmModifiedVersion: 1,
 				CharmURL:             "cs:~test/charm-1",
 			}}}
@@ -165,7 +166,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 		APIAddresses:         []string{"10.0.0.1:1"},
 		Tags:                 map[string]string{"foo": "bar"},
 		Series:               "bionic",
-		ImageRepo:            "jujuqa",
+		ImageRepo:            docker.ImageRepoDetails{Repository: "jujuqa"},
 		CharmModifiedVersion: 1,
 		CharmURL:             &charm.URL{Schema: "cs", User: "test", Name: "charm", Revision: 1},
 	})
@@ -199,8 +200,12 @@ func (s *provisionerSuite) TestApplicationOCIResources(c *gc.C) {
 	c.Assert(imageResources, jc.DeepEquals, map[string]resources.DockerImageDetails{
 		"cockroachdb-image": {
 			RegistryPath: "cockroachdb/cockroach:v20.1.4",
-			Username:     "jujuqa",
-			Password:     "pwd",
+			ImageRepoDetails: docker.ImageRepoDetails{
+				BasicAuthConfig: docker.BasicAuthConfig{
+					Username: "jujuqa",
+					Password: "pwd",
+				},
+			},
 		},
 	})
 }

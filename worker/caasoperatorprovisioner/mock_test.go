@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -65,7 +66,7 @@ func (m *mockProvisionerFacade) OperatorProvisioningInfo(appName string) (apicaa
 		return apicaasprovisioner.OperatorProvisioningInfo{}, err
 	}
 	result := apicaasprovisioner.OperatorProvisioningInfo{
-		ImagePath:    "juju-operator-image",
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "juju-operator-image"},
 		Version:      version.MustParse("2.99.0"),
 		APIAddresses: []string{"10.0.0.1:17070", "192.18.1.1:17070"},
 		Tags:         map[string]string{"fred": "mary"},
@@ -217,12 +218,6 @@ type mockWatcher struct {
 	tomb.Tomb
 	mu         sync.Mutex
 	terminated bool
-}
-
-func (w *mockWatcher) killed() bool {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.terminated
 }
 
 func (w *mockWatcher) Kill() {

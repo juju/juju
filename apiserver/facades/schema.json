@@ -7011,7 +7011,7 @@
                             "type": "string"
                         },
                         "image-repo": {
-                            "type": "string"
+                            "$ref": "#/definitions/DockerImageInfo"
                         },
                         "series": {
                             "type": "string"
@@ -7705,10 +7705,28 @@
                 "DockerImageInfo": {
                     "type": "object",
                     "properties": {
+                        "auth": {
+                            "type": "string"
+                        },
+                        "email": {
+                            "type": "string"
+                        },
+                        "identitytoken": {
+                            "type": "string"
+                        },
                         "image-name": {
                             "type": "string"
                         },
                         "password": {
+                            "type": "string"
+                        },
+                        "registrytoken": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "serveraddress": {
                             "type": "string"
                         },
                         "username": {
@@ -10163,6 +10181,47 @@
         }
     },
     {
+        "Name": "CAASModelConfigManager",
+        "Description": "Facade allows model config manager clients to watch controller config changes and fetch controller config.",
+        "Version": 1,
+        "AvailableTo": [
+            "controller-machine-agent"
+        ],
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "ControllerConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/ControllerConfigResult"
+                        }
+                    }
+                }
+            },
+            "definitions": {
+                "ControllerConfigResult": {
+                    "type": "object",
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "config"
+                    ]
+                }
+            }
+        }
+    },
+    {
         "Name": "CAASModelOperator",
         "Description": "API represents the controller model operator facade.",
         "Version": 1,
@@ -10282,6 +10341,42 @@
                         "value",
                         "type",
                         "scope"
+                    ]
+                },
+                "DockerImageInfo": {
+                    "type": "object",
+                    "properties": {
+                        "auth": {
+                            "type": "string"
+                        },
+                        "email": {
+                            "type": "string"
+                        },
+                        "identitytoken": {
+                            "type": "string"
+                        },
+                        "image-name": {
+                            "type": "string"
+                        },
+                        "password": {
+                            "type": "string"
+                        },
+                        "registrytoken": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "serveraddress": {
+                            "type": "string"
+                        },
+                        "username": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "image-name"
                     ]
                 },
                 "EntityPassword": {
@@ -10416,8 +10511,8 @@
                                 "type": "string"
                             }
                         },
-                        "image-path": {
-                            "type": "string"
+                        "image-details": {
+                            "$ref": "#/definitions/DockerImageInfo"
                         },
                         "version": {
                             "$ref": "#/definitions/Number"
@@ -10426,7 +10521,7 @@
                     "additionalProperties": false,
                     "required": [
                         "api-addresses",
-                        "image-path",
+                        "image-details",
                         "version"
                     ]
                 },
@@ -12006,6 +12101,42 @@
                         "url"
                     ]
                 },
+                "DockerImageInfo": {
+                    "type": "object",
+                    "properties": {
+                        "auth": {
+                            "type": "string"
+                        },
+                        "email": {
+                            "type": "string"
+                        },
+                        "identitytoken": {
+                            "type": "string"
+                        },
+                        "image-name": {
+                            "type": "string"
+                        },
+                        "password": {
+                            "type": "string"
+                        },
+                        "registrytoken": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "serveraddress": {
+                            "type": "string"
+                        },
+                        "username": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "image-name"
+                    ]
+                },
                 "Entities": {
                     "type": "object",
                     "properties": {
@@ -12340,8 +12471,8 @@
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
-                        "image-path": {
-                            "type": "string"
+                        "image-details": {
+                            "$ref": "#/definitions/DockerImageInfo"
                         },
                         "tags": {
                             "type": "object",
@@ -12357,7 +12488,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "image-path",
+                        "image-details",
                         "version",
                         "api-addresses"
                     ]

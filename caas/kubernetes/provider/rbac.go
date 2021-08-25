@@ -369,14 +369,6 @@ func (k *kubernetesClient) listRoles(selector k8slabels.Selector) ([]rbacv1.Role
 	return rList.Items, nil
 }
 
-func (k *kubernetesClient) getClusterRole(name string) (*rbacv1.ClusterRole, error) {
-	out, err := k.client().RbacV1().ClusterRoles().Get(context.TODO(), name, v1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("cluster role %q", name)
-	}
-	return out, errors.Trace(err)
-}
-
 func (k *kubernetesClient) deleteClusterRoles(selector k8slabels.Selector) error {
 	err := k.client().RbacV1().ClusterRoles().DeleteCollection(context.TODO(), v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
@@ -408,14 +400,6 @@ func (k *kubernetesClient) createRoleBinding(rb *rbacv1.RoleBinding) (*rbacv1.Ro
 	out, err := k.client().RbacV1().RoleBindings(k.namespace).Create(context.TODO(), rb, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("role binding %q", rb.GetName())
-	}
-	return out, errors.Trace(err)
-}
-
-func (k *kubernetesClient) updateRoleBinding(rb *rbacv1.RoleBinding) (*rbacv1.RoleBinding, error) {
-	out, err := k.client().RbacV1().RoleBindings(k.namespace).Update(context.TODO(), rb, v1.UpdateOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("role binding %q", rb.GetName())
 	}
 	return out, errors.Trace(err)
 }
@@ -535,39 +519,6 @@ func (k *kubernetesClient) listRoleBindings(selector k8slabels.Selector) ([]rbac
 		return nil, errors.NotFoundf("role binding with selector %q", selector)
 	}
 	return rBList.Items, nil
-}
-
-func (k *kubernetesClient) createClusterRoleBinding(crb *rbacv1.ClusterRoleBinding) (*rbacv1.ClusterRoleBinding, error) {
-	utils.PurifyResource(crb)
-	out, err := k.client().RbacV1().ClusterRoleBindings().Create(context.TODO(), crb, v1.CreateOptions{})
-	if k8serrors.IsAlreadyExists(err) {
-		return nil, errors.AlreadyExistsf("cluster role binding %q", crb.GetName())
-	}
-	return out, errors.Trace(err)
-}
-
-func (k *kubernetesClient) updateClusterRoleBinding(crb *rbacv1.ClusterRoleBinding) (*rbacv1.ClusterRoleBinding, error) {
-	out, err := k.client().RbacV1().ClusterRoleBindings().Update(context.TODO(), crb, v1.UpdateOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("cluster role binding %q", crb.GetName())
-	}
-	return out, errors.Trace(err)
-}
-
-func (k *kubernetesClient) getClusterRoleBinding(name string) (*rbacv1.ClusterRoleBinding, error) {
-	out, err := k.client().RbacV1().ClusterRoleBindings().Get(context.TODO(), name, v1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("cluster role binding %q", name)
-	}
-	return out, errors.Trace(err)
-}
-
-func (k *kubernetesClient) deleteClusterRoleBinding(name string, uid types.UID) error {
-	err := k.client().RbacV1().ClusterRoleBindings().Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
 }
 
 func (k *kubernetesClient) deleteClusterRoleBindings(selector k8slabels.Selector) error {

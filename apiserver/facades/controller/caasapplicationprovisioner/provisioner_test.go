@@ -22,6 +22,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/docker"
 	jujuresource "github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -532,8 +533,12 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
 	s.st.resource = &mockResources{
 		resource: &resources.DockerImageDetails{
 			RegistryPath: "gitlab:latest",
-			Username:     "jujuqa",
-			Password:     "pwd",
+			ImageRepoDetails: docker.ImageRepoDetails{
+				BasicAuthConfig: docker.BasicAuthConfig{
+					Username: "jujuqa",
+					Password: "pwd",
+				},
+			},
 		},
 	}
 

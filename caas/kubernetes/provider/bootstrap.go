@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
-	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig"
@@ -41,7 +40,6 @@ import (
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
 )
@@ -141,8 +139,10 @@ type controllerStack struct {
 
 	resourceNameStatefulSet, resourceNameService,
 	resourceNameConfigMap, resourceNameSecret,
-	pvcNameControllerPodStorage,
+	pvcNameControllerPodStorage, resourceNamedockerSecret,
 	resourceNameVolSharedSecret, resourceNameVolSSLKey, resourceNameVolBootstrapParams, resourceNameVolAgentConf string
+
+	dockerAuthSecretData []byte
 
 	containerCount int
 
@@ -179,7 +179,7 @@ func findControllerNamespace(
 	}
 
 	for _, ns := range namespaces.Items {
-		if ns.Annotations[k8sutils.AnnotationControllerUUIDKey(false)] == controllerUUID {
+		if ns.Annotations[providerutils.AnnotationControllerUUIDKey(false)] == controllerUUID {
 			return &ns, nil
 		}
 	}
@@ -199,7 +199,7 @@ func findControllerNamespace(
 	}
 
 	for _, ns := range namespaces.Items {
-		if ns.Annotations[k8sutils.AnnotationControllerUUIDKey(true)] == controllerUUID {
+		if ns.Annotations[providerutils.AnnotationControllerUUIDKey(true)] == controllerUUID {
 			return &ns, nil
 		}
 	}
@@ -259,7 +259,7 @@ func newcontrollerStack(
 	selectorLabels := providerutils.SelectorLabelsForApp(stackName, false)
 	labels := providerutils.LabelsForApp(stackName, false)
 
-	controllerUUIDKey := k8sutils.AnnotationControllerUUIDKey(false)
+	controllerUUIDKey := providerutils.AnnotationControllerUUIDKey(false)
 	cs := &controllerStack{
 		ctx:              ctx,
 		stackName:        stackName,
@@ -289,6 +289,7 @@ func newcontrollerStack(
 	cs.resourceNameService = cs.getResourceName("service")
 	cs.resourceNameConfigMap = cs.getResourceName("configmap")
 	cs.resourceNameSecret = cs.getResourceName("secret")
+	cs.resourceNamedockerSecret = constants.CAASImageRepoSecretName
 
 	cs.resourceNameVolSharedSecret = cs.getResourceName(cs.fileNameSharedSecret)
 	cs.resourceNameVolSSLKey = cs.getResourceName(cs.fileNameSSLKey)
@@ -296,7 +297,15 @@ func newcontrollerStack(
 	cs.resourceNameVolAgentConf = cs.getResourceName(cs.fileNameAgentConf)
 
 	cs.pvcNameControllerPodStorage = "storage"
+
+	if cs.dockerAuthSecretData, err = pcfg.Controller.Config.CAASImageRepo().SecretData(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return cs, nil
+}
+
+func (c *controllerStack) isPrivateRepo() bool {
+	return len(c.dockerAuthSecretData) > 0
 }
 
 func getBootstrapResourceName(stackName string, name string) string {
@@ -396,7 +405,7 @@ func (c *controllerStack) Deploy() (err error) {
 		}
 	}
 	if isDone() {
-		return bootstrap.Cancelled()
+		return environsbootstrap.Cancelled()
 	}
 
 	defer func() {
@@ -410,7 +419,7 @@ func (c *controllerStack) Deploy() (err error) {
 		return errors.Annotate(err, "creating service for controller")
 	}
 	if isDone() {
-		return bootstrap.Cancelled()
+		return environsbootstrap.Cancelled()
 	}
 
 	// create the proxy resources for services of type cluster ip
@@ -423,7 +432,7 @@ func (c *controllerStack) Deploy() (err error) {
 		return errors.Annotate(err, "creating shared-secret secret for controller")
 	}
 	if isDone() {
-		return bootstrap.Cancelled()
+		return environsbootstrap.Cancelled()
 	}
 
 	// create server.pem secret for controller pod.
@@ -431,7 +440,7 @@ func (c *controllerStack) Deploy() (err error) {
 		return errors.Annotate(err, "creating server.pem secret for controller")
 	}
 	if isDone() {
-		return bootstrap.Cancelled()
+		return environsbootstrap.Cancelled()
 	}
 
 	// create mongo admin account secret for controller pod.
@@ -439,7 +448,7 @@ func (c *controllerStack) Deploy() (err error) {
 		return errors.Annotate(err, "creating mongo admin account secret for controller")
 	}
 	if isDone() {
-		return bootstrap.Cancelled()
+		return environsbootstrap.Cancelled()
 	}
 
 	// create bootstrap-params configmap for controller pod.
@@ -447,7 +456,7 @@ func (c *controllerStack) Deploy() (err error) {
 		return errors.Annotate(err, "creating bootstrap-params configmap for controller")
 	}
 	if isDone() {
-		return bootstrap.Cancelled()
+		return environsbootstrap.Cancelled()
 	}
 
 	// Note: create agent config configmap for controller pod lastly because agentConfig has been updated in previous steps.
@@ -455,11 +464,11 @@ func (c *controllerStack) Deploy() (err error) {
 		return errors.Annotate(err, "creating agent config configmap for controller")
 	}
 	if isDone() {
-		return bootstrap.Cancelled()
+		return environsbootstrap.Cancelled()
 	}
 
 	// create service account for local cluster/provider connections.
-	_, saCleanUps, err := ensureControllerServiceAccount(
+	saName, saCleanUps, err := ensureControllerServiceAccount(
 		c.ctx.Context(),
 		c.broker.client(),
 		c.broker.GetCurrentNamespace(),
@@ -476,7 +485,14 @@ func (c *controllerStack) Deploy() (err error) {
 		return errors.Annotate(err, "creating service account for controller")
 	}
 	if isDone() {
-		return bootstrap.Cancelled()
+		return environsbootstrap.Cancelled()
+	}
+
+	if err = c.patchServiceAccountForImagePullSecret(saName); err != nil {
+		return errors.Annotate(err, "patching image pull secret for controller service account")
+	}
+	if isDone() {
+		return environsbootstrap.Cancelled()
 	}
 
 	// create statefulset to ensure controller stack.
@@ -484,7 +500,7 @@ func (c *controllerStack) Deploy() (err error) {
 		return errors.Annotate(err, "creating statefulset for controller")
 	}
 	if isDone() {
-		return bootstrap.Cancelled()
+		return environsbootstrap.Cancelled()
 	}
 
 	return nil
@@ -668,6 +684,45 @@ func (c *controllerStack) createControllerSecretSharedSecret() error {
 		_ = c.broker.deleteSecret(secret.GetName(), secret.GetUID())
 	})
 	return c.broker.updateSecret(secret)
+}
+
+func (c *controllerStack) createDockerSecret() (string, error) {
+	if len(c.dockerAuthSecretData) == 0 {
+		return "", errors.NotValidf("empty docker secret data")
+	}
+	name := c.resourceNamedockerSecret
+	logger.Debugf("ensuring docker secret %q", name)
+	cleanUp, err := c.broker.ensureOCIImageSecret(
+		name, c.stackLabels, c.dockerAuthSecretData, c.stackAnnotations,
+	)
+	c.addCleanUp(func() {
+		logger.Debugf("deleting %q", name)
+		cleanUp()
+	})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return name, nil
+}
+
+func (c *controllerStack) patchServiceAccountForImagePullSecret(saName string) error {
+	if !c.isPrivateRepo() {
+		return nil
+	}
+	dockerSecretName, err := c.createDockerSecret()
+	if err != nil {
+		return errors.Annotate(err, "creating docker secret for controller")
+	}
+	sa, err := c.broker.getServiceAccount(saName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	sa.ImagePullSecrets = append(
+		sa.ImagePullSecrets,
+		core.LocalObjectReference{Name: dockerSecretName},
+	)
+	_, err = c.broker.updateServiceAccount(sa)
+	return errors.Trace(err)
 }
 
 func (c *controllerStack) createControllerSecretServerPem() error {
@@ -1147,10 +1202,14 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		mongoArgs := fmt.Sprintf("%[1]s && chmod a+x %[2]s && %[2]s", makeMongoCmd, mongoSh)
 		logger.Debugf("mongodb container args:\n%s", mongoArgs)
 
+		dbImage, err := c.pcfg.GetJujuDbOCIImagePath()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		containerSpec = append(containerSpec, core.Container{
 			Name:            mongoDBContainerName,
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           c.pcfg.GetJujuDbOCIImagePath(),
+			Image:           dbImage,
 			Command: []string{
 				"/bin/sh",
 			},

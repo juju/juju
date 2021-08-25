@@ -12,8 +12,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
-type klogWriter func([]byte) (int, error)
-
 const volBindModeWaitFirstConsumer = "WaitForFirstConsumer"
 
 var (
@@ -146,8 +144,4 @@ func compileLifecycleModelTeardownSelector() k8slabels.Selector {
 				labelResourceLifeCycleValuePersistent,
 			}},
 	)
-}
-
-func (k klogWriter) Write(p []byte) (n int, err error) {
-	return k(p)
 }

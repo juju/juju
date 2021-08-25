@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api/resources/client"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/docker"
 )
 
 type DeploySuite struct {
@@ -488,8 +489,12 @@ password: hunter2
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dets, gc.DeepEquals, resources.DockerImageDetails{
 		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
-		Username:     "docker-registry",
-		Password:     "hunter2",
+		ImageRepoDetails: docker.ImageRepoDetails{
+			BasicAuthConfig: docker.BasicAuthConfig{
+				Username: "docker-registry",
+				Password: "hunter2",
+			},
+		},
 	})
 
 	content = `
@@ -504,8 +509,12 @@ password: hunter2
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dets, gc.DeepEquals, resources.DockerImageDetails{
 		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
-		Username:     "docker-registry",
-		Password:     "hunter2",
+		ImageRepoDetails: docker.ImageRepoDetails{
+			BasicAuthConfig: docker.BasicAuthConfig{
+				Username: "docker-registry",
+				Password: "hunter2",
+			},
+		},
 	})
 
 	content = `
@@ -532,8 +541,12 @@ func (s DeploySuite) TestGetDockerDetailsData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
 		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
-		Username:     "",
-		Password:     "",
+		ImageRepoDetails: docker.ImageRepoDetails{
+			BasicAuthConfig: docker.BasicAuthConfig{
+				Username: "",
+				Password: "",
+			},
+		},
 	})
 
 	_, err = getDockerDetailsData("/path/doesnt/exist.yaml", fs.Open)
@@ -550,8 +563,12 @@ func (s DeploySuite) TestGetDockerDetailsData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
 		RegistryPath: "mariadb/mariadb:10.2",
-		Username:     "",
-		Password:     "",
+		ImageRepoDetails: docker.ImageRepoDetails{
+			BasicAuthConfig: docker.BasicAuthConfig{
+				Username: "",
+				Password: "",
+			},
+		},
 	})
 }
 

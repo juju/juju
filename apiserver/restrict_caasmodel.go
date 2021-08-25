@@ -78,6 +78,7 @@ var caasModelFacadeNames = set.NewStrings(
 	"CAASOperatorProvisioner",
 	"CAASOperatorUpgrader",
 	"CAASUnitProvisioner",
+	"CAASModelConfigManager",
 
 	// For sidecar applications.
 	"CAASApplication",

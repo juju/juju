@@ -13,7 +13,9 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/storage"
 )
 
@@ -110,7 +112,7 @@ func (c *Client) Life(appName string) (life.Value, error) {
 
 // OperatorProvisioningInfo holds the info needed to provision an operator.
 type OperatorProvisioningInfo struct {
-	ImagePath    string
+	ImageDetails resources.DockerImageDetails
 	Version      version.Number
 	APIAddresses []string
 	Tags         map[string]string
@@ -133,8 +135,25 @@ func (c *Client) OperatorProvisioningInfo(applicationName string) (OperatorProvi
 	if err := info.Error; err != nil {
 		return OperatorProvisioningInfo{}, errors.Trace(err)
 	}
+	imageRepo := resources.DockerImageDetails{
+		RegistryPath: info.ImageDetails.RegistryPath,
+		ImageRepoDetails: docker.ImageRepoDetails{
+			Repository:    info.ImageDetails.Repository,
+			ServerAddress: info.ImageDetails.ServerAddress,
+			BasicAuthConfig: docker.BasicAuthConfig{
+				Username: info.ImageDetails.Username,
+				Password: info.ImageDetails.Password,
+				Auth:     info.ImageDetails.Auth,
+			},
+			TokenAuthConfig: docker.TokenAuthConfig{
+				IdentityToken: info.ImageDetails.IdentityToken,
+				RegistryToken: info.ImageDetails.RegistryToken,
+				Email:         info.ImageDetails.Email,
+			},
+		},
+	}
 	return OperatorProvisioningInfo{
-		ImagePath:    info.ImagePath,
+		ImageDetails: imageRepo,
 		Version:      info.Version,
 		APIAddresses: info.APIAddresses,
 		Tags:         info.Tags,

@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/agent"
 	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/resources"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
 )
@@ -123,7 +124,7 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, updateCert
 	c.Assert(args[1], gc.Equals, "/var/lib/juju")
 	c.Assert(args[2], gc.FitsTypeOf, &caas.OperatorConfig{})
 	config := args[2].(*caas.OperatorConfig)
-	c.Assert(config.OperatorImagePath, gc.Equals, "juju-operator-image")
+	c.Assert(config.ImageDetails.RegistryPath, gc.Equals, "juju-operator-image")
 	c.Assert(config.Version, gc.Equals, version.MustParse("2.99.0"))
 	c.Assert(config.ResourceTags, jc.DeepEquals, map[string]string{"fred": "mary"})
 	if s.provisionerFacade.withStorage {
@@ -202,8 +203,8 @@ func (s *CAASProvisionerSuite) TestNewApplicationNoStorage(c *gc.C) {
 func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperator(c *gc.C) {
 	s.caasClient.operatorExists = true
 	s.caasClient.config = &caas.OperatorConfig{
-		OperatorImagePath: "juju-operator-image",
-		Version:           version.MustParse("2.99.0"),
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "juju-operator-image"},
+		Version:      version.MustParse("2.99.0"),
 		AgentConf: []byte(fmt.Sprintf(`
 # format 2.0
 tag: application-myapp
@@ -238,8 +239,8 @@ mongoversion: "0.0"
 func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperatorAgentConfAPIAddresses(c *gc.C) {
 	s.caasClient.operatorExists = true
 	s.caasClient.config = &caas.OperatorConfig{
-		OperatorImagePath: "juju-operator-image",
-		Version:           version.MustParse("2.99.0"),
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "juju-operator-image"},
+		Version:      version.MustParse("2.99.0"),
 		AgentConf: []byte(fmt.Sprintf(`
 # format 2.0
 tag: application-myapp
@@ -273,8 +274,8 @@ mongoversion: "0.0"
 func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperatorAndIssueCerts(c *gc.C) {
 	s.caasClient.operatorExists = true
 	s.caasClient.config = &caas.OperatorConfig{
-		OperatorImagePath: "juju-operator-image",
-		Version:           version.MustParse("2.99.0"),
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "juju-operator-image"},
+		Version:      version.MustParse("2.99.0"),
 		AgentConf: []byte(fmt.Sprintf(`
 # format 2.0
 tag: application-myapp

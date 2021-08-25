@@ -118,20 +118,6 @@ func (k *kubernetesClient) deleteConfigMap(name string, uid types.UID) error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) listConfigMaps(labels map[string]string) ([]core.ConfigMap, error) {
-	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(labels).String(),
-	}
-	cmList, err := k.client().CoreV1().ConfigMaps(k.namespace).List(context.TODO(), listOps)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(cmList.Items) == 0 {
-		return nil, errors.NotFoundf("configmap with labels %v", labels)
-	}
-	return cmList.Items, nil
-}
-
 func (k *kubernetesClient) deleteConfigMaps(appName string) error {
 	err := k.client().CoreV1().ConfigMaps(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),

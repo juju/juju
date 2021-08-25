@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/state"
 )
 
@@ -90,8 +91,12 @@ func (s *dockerMetadataStorageSuite) TestGet(c *gc.C) {
 	id := "test-123"
 	resource := resources.DockerImageDetails{
 		RegistryPath: "url@sha256:abc123",
-		Username:     "testuser",
-		Password:     "hunter2",
+		ImageRepoDetails: docker.ImageRepoDetails{
+			BasicAuthConfig: docker.BasicAuthConfig{
+				Username: "testuser",
+				Password: "hunter2",
+			},
+		},
 	}
 	err := s.metadataStorage.Save(id, resource)
 	c.Assert(err, jc.ErrorIsNil)

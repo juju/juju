@@ -12,6 +12,8 @@ import (
 	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
+
+	"github.com/juju/juju/docker"
 )
 
 // DockerImageDetails holds the details for a Docker resource type.
@@ -19,11 +21,12 @@ type DockerImageDetails struct {
 	// RegistryPath holds the path of the Docker image (including host and sha256) in a docker registry.
 	RegistryPath string `json:"ImageName" yaml:"registrypath"`
 
-	// Username holds the username used to gain access to a non-public image.
-	Username string `json:"Username" yaml:"username"`
+	docker.ImageRepoDetails `json:",inline" yaml:",inline"`
+}
 
-	// Password holds the password used to gain access to a non-public image.
-	Password string `json:"Password,omitempty" yaml:"password"`
+// IsPrivate shows if the image repo is private or not.
+func (did DockerImageDetails) IsPrivate() bool {
+	return did.ImageRepoDetails.IsPrivate()
 }
 
 // ValidateDockerRegistryPath ensures the registry path is valid (i.e. api.jujucharms.com@sha256:deadbeef)
