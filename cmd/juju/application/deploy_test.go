@@ -2255,15 +2255,6 @@ func (s *ParseMachineMapSuite) TestMappingWithExisting(c *gc.C) {
 	})
 }
 
-func (s *ParseMachineMapSuite) TestSpaces(c *gc.C) {
-	existing, mapping, err := parseMachineMap("1=2, 3=4, existing")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(existing, jc.IsTrue)
-	c.Check(mapping, jc.DeepEquals, map[string]string{
-		"1": "2", "3": "4",
-	})
-}
-
 func (s *ParseMachineMapSuite) TestErrors(c *gc.C) {
 	checkErr := func(value, expect string) {
 		_, _, err := parseMachineMap(value)
