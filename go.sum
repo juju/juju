@@ -496,8 +496,8 @@ github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93 h1:nlmpG
 github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93/go.mod h1:zrbmo4nBKaiP/Ez3F67ewkMbzGYfXyMvRtbOfuAwG0w=
 github.com/juju/postgrestest v1.1.0/go.mod h1:/n17Y2T6iFozzXwSCO0JYJ5gSiz2caEtSwAjh/uLXDM=
 github.com/juju/proxy v0.0.0-20180516023828-df38202e4713/go.mod h1:8eZt3fxDIlRXkEkf4N4PCNSZzryF6NxULBg07OjDofA=
-github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4 h1:y2eoq0Uof/dWLAXRyKKGOJuF0TEkauPscQI7Q1XQqvM=
-github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4/go.mod h1:8eZt3fxDIlRXkEkf4N4PCNSZzryF6NxULBg07OjDofA=
+github.com/juju/proxy v0.0.0-20210817195502-c6015cfe0258 h1:oQ4i531nGh54FPEkAA5j1rbXPANQjUw84FM9O7EsNOo=
+github.com/juju/proxy v0.0.0-20210817195502-c6015cfe0258/go.mod h1:8eZt3fxDIlRXkEkf4N4PCNSZzryF6NxULBg07OjDofA=
 github.com/juju/pubsub/v2 v2.0.0-20210804115646-050d38a80f5b h1:EwjCZIeRDkUzIM7hFFmq339tBZA5NBXIzOUXM6KR3U8=
 github.com/juju/pubsub/v2 v2.0.0-20210804115646-050d38a80f5b/go.mod h1:+fw+MJGVa006M85prHvwS9pQrCjkkaaH8Ds1wvEMpXQ=
 github.com/juju/qthttptest v0.0.1/go.mod h1://LCf/Ls22/rPw2u1yWukUJvYtfPY4nYpWUl2uZhryo=
