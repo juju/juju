@@ -31,6 +31,11 @@ type NetInfoAddress interface {
 	// HWAddr returns the hardware address (MAC or Infiniband GUID)
 	// for the device with which this address is associated.
 	HWAddr() (string, error)
+
+	// ParentDeviceName returns the name of the network device that
+	// is the parent of this one.
+	// An empty string is returned if no parent can be determined.
+	ParentDeviceName() string
 }
 
 type netInfoAddress struct {
@@ -70,6 +75,22 @@ func (a *netInfoAddress) HWAddr() (string, error) {
 	}
 
 	return a.dev.MACAddress(), nil
+}
+
+// ParentDeviceName implements NetInfoAddress by returning the device name of
+// this NIC's parent. This is used in populateMachineAddresses to sort bridge
+// devices before their bridged NICs. As such, an error return is not useful;
+// just return empty if no determination can be made.
+func (a *netInfoAddress) ParentDeviceName() string {
+	if a.addr == nil {
+		return ""
+	}
+
+	if err := a.ensureDevice(); err != nil {
+		return ""
+	}
+
+	return a.dev.ParentID()
 }
 
 func (a *netInfoAddress) ensureDevice() error {
@@ -336,16 +357,20 @@ func (n *NetworkInfoIAAS) populateMachineAddresses() error {
 	if err != nil {
 		return errors.Annotatef(err, "getting machine %q addresses", n.machine.MachineTag())
 	}
-	addrByIP := make(map[string]NetInfoAddress)
-	for _, addr := range addrs {
-		addrByIP[addr.Host()] = addr
-	}
 	sort.Slice(addrs, func(i, j int) bool {
 		addr1 := addrs[i]
 		addr2 := addrs[j]
 		order1 := network.SortOrderMostPublic(addr1)
 		order2 := network.SortOrderMostPublic(addr2)
 		if order1 == order2 {
+			// It is possible to get the same address on multiple devices when
+			// we have bridged a device (effectively moving the IP onto the new
+			// bridge), but the instance-poller is maintaining the provider's
+			// view of the interface with the IP against the original device.
+			// In this case, sort parent devices ahead of children.
+			if addr1.Host() == addr2.Host() {
+				return addr1.ParentDeviceName() < addr2.ParentDeviceName()
+			}
 			return addr1.Host() < addr2.Host()
 		}
 		return order1 < order2
@@ -425,8 +450,17 @@ func (n *NetworkInfoIAAS) addAddressToResult(spaceID string, address NetInfoAddr
 // a NetworkInfoResult to return for the network info request.
 func (n *NetworkInfoIAAS) networkInfoForSpace(spaceID string) params.NetworkInfoResult {
 	res := params.NetworkInfoResult{}
+	hosts := set.NewStrings()
 
 	for _, addr := range n.machineAddresses[spaceID] {
+		// If we have already added this address, then we are done.
+		// The sort ordering means that we will use a parent device
+		// over its child if we have it on more than one.
+		if hosts.Contains(addr.Host()) {
+			continue
+		}
+		hosts.Add(addr.Host())
+
 		deviceAddr := params.InterfaceAddress{
 			Address: addr.Host(),
 			CIDR:    addr.AddressCIDR(),
