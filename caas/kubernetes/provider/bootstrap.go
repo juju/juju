@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
@@ -41,6 +42,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
 )
 
@@ -1342,32 +1344,52 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		fmt.Sprintf("controller-%s", c.pcfg.ControllerId),
 		c.fileNameAgentConf,
 	)
-	var jujudCmd string
+	var jujudCmds []string
+	pushCMD := func(cmd string) {
+		jujudCmds = append(jujudCmds, cmd)
+	}
+	featureFlags := featureflag.AsEnvironmentValue()
+	if featureFlags != "" {
+		featureFlags = fmt.Sprintf("%s=%s ", osenv.JujuFeatureFlagEnvKey, featureFlags)
+	}
 	if c.pcfg.ControllerId == agent.BootstrapControllerId {
 		guiCmd, err := c.setUpGUICommand()
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if guiCmd != "" {
-			jujudCmd += "\n" + guiCmd
+			pushCMD(guiCmd)
 		}
 		// only do bootstrap-state on the bootstrap controller - controller-0.
-		jujudCmd += "\n" + fmt.Sprintf(
-			"test -e %s || %s bootstrap-state %s --data-dir $JUJU_DATA_DIR %s --timeout %s",
-			c.pathJoin("$JUJU_DATA_DIR", agentConfigRelativePath),
+		bootstrapStateCMD := fmt.Sprintf(
+			"%s bootstrap-state %s --data-dir $JUJU_DATA_DIR %s --timeout %s",
 			c.pathJoin("$JUJU_TOOLS_DIR", "jujud"),
 			c.pathJoin("$JUJU_DATA_DIR", c.fileNameBootstrapParams),
 			loggingOption,
 			c.timeout.String(),
 		)
+		if featureFlags != "" {
+			bootstrapStateCMD = fmt.Sprintf("%s %s", featureFlags, bootstrapStateCMD)
+		}
+		pushCMD(
+			fmt.Sprintf(
+				"test -e %s || %s",
+				c.pathJoin("$JUJU_DATA_DIR", agentConfigRelativePath),
+				bootstrapStateCMD,
+			),
+		)
 	}
-	jujudCmd += "\n" + fmt.Sprintf(
+	machineCMD := fmt.Sprintf(
 		"%s machine --data-dir $JUJU_DATA_DIR --controller-id %s --log-to-stderr %s",
 		c.pathJoin("$JUJU_TOOLS_DIR", "jujud"),
 		c.pcfg.ControllerId,
 		loggingOption,
 	)
-	containers, err := generateContainerSpecs(jujudCmd)
+	if featureFlags != "" {
+		machineCMD = fmt.Sprintf("%s %s", featureFlags, machineCMD)
+	}
+	pushCMD(machineCMD)
+	containers, err := generateContainerSpecs(strings.Join(jujudCmds, "\n"))
 	if err != nil {
 		return errors.Trace(err)
 	}
