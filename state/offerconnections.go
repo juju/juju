@@ -222,6 +222,17 @@ func (st *State) RemoteConnectionStatus(offerUUID string) (*RemoteConnectionStat
 	for _, conn := range conns {
 		rel, err := st.KeyRelation(conn.RelationKey())
 		if err != nil {
+			// If we can't find the KeyRelation using the conn.RelationKey, then
+			// we have a connection that is hanging around that shouldn't be.
+			// Unfortunately this isn't the place to die. Instead we should
+			// continue on and ignore it, as it's not imperative to the
+			// remote connection status.
+			//
+			// Note: apiserver/facades/client/client/status.go#fetchOffers also
+			// performs the same check.
+			if errors.IsNotFound(err) {
+				continue
+			}
 			return nil, errors.Trace(err)
 		}
 		relStatus, err := rel.Status()
