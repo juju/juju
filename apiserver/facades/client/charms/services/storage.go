@@ -56,10 +56,7 @@ func (s *CharmStorage) PrepareToStoreCharm(charmURL *charm.URL) error {
 	}
 
 	if ch.IsUploaded() {
-		// Since the charm is already uploaded this call should not fail.
-		// We can safely ignore errors here.
-		dlOrigin, _ := s.stateBackend.UploadedCharmOrigin(charmURL)
-		return charmdownloader.NewCharmAlreadyStoredError(charmURL.String(), dlOrigin)
+		return charmdownloader.NewCharmAlreadyStoredError(charmURL.String())
 	}
 
 	return nil

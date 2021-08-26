@@ -9,14 +9,12 @@ import (
 	"github.com/juju/charm/v9"
 
 	"github.com/juju/juju/controller"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
 // StateBackend describes an API for accessing/mutating information in state.
 type StateBackend interface {
-	UploadedCharmOrigin(curl *charm.URL) (corecharm.Origin, error)
 	ControllerConfig() (controller.Config, error)
 	UpdateUploadedCharm(info state.CharmInfo) (UploadedCharm, error)
 	PrepareCharmUpload(curl *charm.URL) (UploadedCharm, error)

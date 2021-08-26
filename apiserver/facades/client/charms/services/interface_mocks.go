@@ -11,7 +11,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	v9 "github.com/juju/charm/v9"
 	controller "github.com/juju/juju/controller"
-	charm "github.com/juju/juju/core/charm"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
 )
@@ -96,21 +95,6 @@ func (m *MockStateBackend) UpdateUploadedCharm(arg0 state.CharmInfo) (UploadedCh
 func (mr *MockStateBackendMockRecorder) UpdateUploadedCharm(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUploadedCharm", reflect.TypeOf((*MockStateBackend)(nil).UpdateUploadedCharm), arg0)
-}
-
-// UploadedCharmOrigin mocks base method.
-func (m *MockStateBackend) UploadedCharmOrigin(arg0 *v9.URL) (charm.Origin, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UploadedCharmOrigin", arg0)
-	ret0, _ := ret[0].(charm.Origin)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UploadedCharmOrigin indicates an expected call of UploadedCharmOrigin.
-func (mr *MockStateBackendMockRecorder) UploadedCharmOrigin(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadedCharmOrigin", reflect.TypeOf((*MockStateBackend)(nil).UploadedCharmOrigin), arg0)
 }
 
 // MockModelBackend is a mock of ModelBackend interface.

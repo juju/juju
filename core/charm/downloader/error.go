@@ -5,25 +5,21 @@ package downloader
 
 import (
 	"fmt"
-
-	corecharm "github.com/juju/juju/core/charm"
 )
 
 type errCharmAlreadyStored struct {
 	charmURL string
-	origin   corecharm.Origin
 }
 
 // Error implements error.
 func (e errCharmAlreadyStored) Error() string {
-	return fmt.Sprintf("charm %q has already been downloaded from origin %v", e.charmURL, e.origin)
+	return fmt.Sprintf("charm %q has already been downloaded", e.charmURL)
 }
 
 // NewCharmAlreadyStoredError creates an error that indicates that a charm has
-// already been stored using the specified origin.
-func NewCharmAlreadyStoredError(charmURL string, origin corecharm.Origin) error {
+// already been stored.
+func NewCharmAlreadyStoredError(charmURL string) error {
 	return errCharmAlreadyStored{
 		charmURL: charmURL,
-		origin:   origin,
 	}
 }

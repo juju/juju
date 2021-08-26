@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -364,16 +363,16 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 	repo.EXPECT().ResolveWithPreferredChannel(curl, origin, nil).Return(&storeCurl, storeOrigin, nil, nil)
 
 	origin.Platform.Series = "focal"
-	downloadURL, err := url.Parse("ch:amd64/focal/juju-controller-666")
-	c.Assert(err, jc.ErrorIsNil)
-	downloader.EXPECT().DownloadAndStore(downloadURL.String(), storeOrigin, nil, false).
-		DoAndReturn(func(charmURL string, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, force bool) (*charm.CharmArchive, error) {
+	downloader.EXPECT().DownloadAndStore(&storeCurl, storeOrigin, nil, false).
+		DoAndReturn(func(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, force bool) (*charm.CharmArchive, error) {
 			controllerCharm := testcharms.Repo.CharmArchive(c.MkDir(), "juju-controller")
 			st, closer := s.getSystemState(c)
 			defer closer()
 			_, err = st.AddCharm(state.CharmInfo{
-				Charm: controllerCharm,
-				ID:    charm.MustParseURL(charmURL),
+				Charm:       controllerCharm,
+				ID:          charmURL,
+				StoragePath: "foo", // required to flag the charm as uploaded
+				SHA256:      "bar", // required to flag the charm as uploaded
 			})
 			c.Assert(err, jc.ErrorIsNil)
 			return controllerCharm, nil
