@@ -4,6 +4,7 @@
 package docker
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -27,6 +28,10 @@ const (
 	// APIVersionV2 is the API version v2.
 	APIVersionV2 APIVersion = "v2"
 )
+
+func (v APIVersion) String() string {
+	return string(v)
+}
 
 // TokenAuthConfig contains authorization information for token auth.
 // Juju does not support the docker credential helper because k8s does not support it either.
@@ -70,7 +75,13 @@ func (ba BasicAuthConfig) Empty() bool {
 }
 
 // Validate validates the spec.
-func (ba BasicAuthConfig) Validate() error {
+func (ba *BasicAuthConfig) Validate() error {
+	if ba.Empty() {
+		return nil
+	}
+	if ba.Auth == "" {
+		ba.Auth = base64.StdEncoding.EncodeToString([]byte(ba.Username + ":" + ba.Password))
+	}
 	return nil
 }
 
@@ -115,13 +126,13 @@ func (rid ImageRepoDetails) SecretData() ([]byte, error) {
 }
 
 // String returns yaml format.
-func (rid *ImageRepoDetails) String() string {
+func (rid ImageRepoDetails) String() string {
 	d, _ := yaml.Marshal(rid)
 	return string(d)
 }
 
 // Validate validates the spec.
-func (rid ImageRepoDetails) Validate() error {
+func (rid *ImageRepoDetails) Validate() error {
 	if rid.Repository == "" {
 		return errors.NotValidf("empty repository")
 	}
@@ -176,6 +187,9 @@ func NewImageRepoDetails(contentOrPath string) (o *ImageRepoDetails, err error) 
 		return &ImageRepoDetails{Repository: contentOrPath}, nil
 	}
 
+	if err = o.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if o.IsPrivate() && !featureflag.Enabled(feature.PrivateRegistry) {
 		return nil, errors.New(
 			fmt.Sprintf("private registry support is under development, enable feature flag %q to test it out", feature.PrivateRegistry),

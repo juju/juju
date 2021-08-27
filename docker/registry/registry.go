@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"path"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -23,16 +24,12 @@ import (
 var logger = loggo.GetLogger("juju.docker.registry")
 
 const (
-	defaultTimeout = 15 * time.Second
+	defaultTimeout      = 15 * time.Second
+	dockerServerAddress = "index.docker.io"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/http_mock.go net/http RoundTripper
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/registry_mock.go github.com/juju/juju/docker/registry Registry
-
-const (
-	dockerServerAddressV1 = "https://registry.hub.docker.com/"
-	dockerServerAddressV2 = "https://index.docker.io/"
-)
 
 type registry struct {
 	baseURL     *url.URL
@@ -45,6 +42,7 @@ type Registry interface {
 	Tags(string) (tools.Versions, error)
 	Close() error
 	Ping() error
+	ImageRepoDetails() docker.ImageRepoDetails
 }
 
 // NewRegistry creates a new registry.
@@ -84,24 +82,32 @@ func newClientWithOpts(r *registry, ops ...opt) error {
 	return nil
 }
 
-func (r registry) decideBaseURL() (*url.URL, error) {
+func (r *registry) decideBaseURL() (*url.URL, error) {
 	if r.repoDetails.ServerAddress != "" {
+		// TODO(ycliuhw): refactor registry to embed different API version handllers properly.
 		return url.Parse(r.repoDetails.ServerAddress)
 	}
-	switch r.repoDetails.APIVersion() {
-	case docker.APIVersionV1:
-		return url.Parse(dockerServerAddressV1)
-	case docker.APIVersionV2:
-		return url.Parse(dockerServerAddressV2)
-	default:
-		// This should never happen.
-		return nil, errors.NewNotValid(nil, "cant not decide base url for image repo details")
+	url, err := url.Parse(dockerServerAddress)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	// This "/" matters because docker uses url.String() for the credential key and expects the trailing slash.
+	url.Path = path.Join(url.Path, r.repoDetails.APIVersion().String(), "/")
+	if url.Scheme == "" {
+		url.Scheme = "https"
+	}
+	r.repoDetails.ServerAddress = url.String() + "/"
+	logger.Tracef("deciding base URL %q", url.String())
+	return url, nil
 }
 
 func (r registry) url(pathTemplate string, args ...interface{}) string {
 	pathSuffix := fmt.Sprintf(pathTemplate, args...)
 	url := *r.baseURL
+	ver := r.repoDetails.APIVersion().String()
+	if !strings.HasSuffix(strings.TrimRight(url.Path, "/"), ver) {
+		url.Path = path.Join(url.Path, ver)
+	}
 	if url.Scheme == "" {
 		url.Scheme = "https"
 	}
@@ -118,6 +124,13 @@ func (r registry) Ping() error {
 		defer resp.Body.Close()
 	}
 	return errors.Trace(err)
+}
+
+func (r registry) ImageRepoDetails() (o docker.ImageRepoDetails) {
+	if r.repoDetails != nil {
+		return *r.repoDetails
+	}
+	return o
 }
 
 // Close closes the transport used by the client.
@@ -159,19 +172,17 @@ func (r registry) Tags(imageName string) (versions tools.Versions, err error) {
 	// TODO: merge ListOperatorImages with registry and refactor registry to embed different API version handllers properly.
 	apiVersion := r.repoDetails.APIVersion()
 
-	if r.repoDetails.APIVersion() == docker.APIVersionV1 {
-		urlTemplate := "/%s/repositories/%s/%s/tags"
-		url := r.url(urlTemplate, string(apiVersion), r.repoDetails.Repository, imageName)
+	if apiVersion == docker.APIVersionV1 {
+		url := r.url("/repositories/%s/%s/tags", r.repoDetails.Repository, imageName)
 		var response tagsResponseV1
 		return r.fetchTags(url, &response)
 	}
-	if r.repoDetails.APIVersion() == docker.APIVersionV2 {
-		urlTemplate := "/%s/%s/%s/tags/list"
-		url := r.url(urlTemplate, string(apiVersion), r.repoDetails.Repository, imageName)
+	if apiVersion == docker.APIVersionV2 {
+		url := r.url("/%s/%s/tags/list", r.repoDetails.Repository, imageName)
 		var response tagsResponseV2
 		return r.fetchTags(url, &response)
 	}
-
+	// This should never happen.
 	return nil, nil
 }
 

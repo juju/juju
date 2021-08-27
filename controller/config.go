@@ -856,10 +856,11 @@ func validateCAASImageRepo(imageRepo string) (string, error) {
 	if err = imageDetails.Validate(); err != nil {
 		return "", errors.Trace(err)
 	}
-	if _, err = registry.NewRegistry(*imageDetails); err != nil {
+	r, err := registry.NewRegistry(*imageDetails)
+	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return imageDetails.String(), nil
+	return r.ImageRepoDetails().String(), nil
 }
 
 // CAASImageRepo sets the url of the docker repo
