@@ -320,6 +320,34 @@ func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnChange(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
+func (s *remoteRelationsSuite) TestRemoteWatcherNotFoundError(c *gc.C) {
+	w := s.assertRemoteRelationsWorkers(c)
+	defer workertest.CleanKill(c, w)
+
+	s.stub.ResetCalls()
+
+	s.relationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
+		localApplicationName: "django",
+		localEndpoint: params.RemoteEndpoint{
+			Name:      "db2",
+			Role:      "requires",
+			Interface: "db2",
+		},
+		remoteEndpointName: "data",
+	}
+
+	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher.changes <- []string{"db2:db django:db"}
+
+	expected := []jujutesting.StubCall{
+		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
+	}
+	changeWatcher, ok := s.remoteRelationsFacade.remoteRelationWatcher("token-db2:db django:db")
+	c.Check(ok, jc.IsTrue)
+	changeWatcher.kill(params.Error{Code: params.CodeNotFound})
+	s.waitForWorkerStubCalls(c, expected)
+}
+
 func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Worker {
 	s.relationsFacade.relations["db2:db django:db"] = newMockRelation(123)
 	w := s.assertRemoteApplicationWorkers(c)
