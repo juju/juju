@@ -395,16 +395,18 @@ func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context, affectedUnit
 	affectedMsg := ""
 	if len(affectedUnits) > 0 {
 		apps := set.NewStrings()
+		units := set.NewStrings()
 		for _, unit := range affectedUnits {
 			app, err := names.UnitApplication(unit)
 			if err != nil {
 				return errors.Annotatef(err, "deriving application for unit %q", unit)
 			}
-			apps.Add(app)
+			apps.Add(fmt.Sprintf("- %s", app))
+			units.Add(fmt.Sprintf("- %s", unit))
 		}
 
 		affectedMsg = fmt.Sprintf(
-			upgradeSeriesAffectedMsg, strings.Join(affectedUnits, "\n  "), strings.Join(apps.SortedValues(), "\n  "))
+			upgradeSeriesAffectedMsg, strings.Join(units.SortedValues(), "\n  "), strings.Join(apps.SortedValues(), "\n  "))
 	}
 
 	fmt.Fprintf(ctx.Stdout, upgradeSeriesConfirmationMsg, c.machineNumber, c.series, affectedMsg)
