@@ -329,8 +329,7 @@ func (r *relationStateTracker) IsImplicit(id int) (bool, error) {
 	if rel := r.relationers[id]; rel != nil {
 		return rel.IsImplicit(), nil
 	}
-
-	return false, errors.Errorf("unknown relation: %d", id)
+	return false, errors.NotFoundf("relation: %d", id)
 }
 
 // IsPeerRelation returns true if the endpoint for a relation ID has a Peer role.
@@ -339,7 +338,7 @@ func (r *relationStateTracker) IsPeerRelation(id int) (bool, error) {
 		return r.isPeerRelation[id], nil
 	}
 
-	return false, errors.Errorf("unknown relation: %d", id)
+	return false, errors.NotFoundf("relation: %d", id)
 }
 
 // HasContainerScope returns true if the specified relation ID has a container
@@ -349,7 +348,7 @@ func (r *relationStateTracker) HasContainerScope(id int) (bool, error) {
 		return rel.RelationUnit().Endpoint().Scope == charm.ScopeContainer, nil
 	}
 
-	return false, errors.Errorf("unknown relation: %d", id)
+	return false, errors.NotFoundf("relation: %d", id)
 }
 
 // RelationCreated returns true if a relation created hook has been
@@ -371,7 +370,7 @@ func (r *relationStateTracker) State(id int) (*State, error) {
 		return r.stateMgr.Relation(id)
 	}
 
-	return nil, errors.Errorf("unknown relation: %d", id)
+	return nil, errors.NotFoundf("relation: %d", id)
 }
 
 func (r *relationStateTracker) StateFound(id int) bool {
@@ -438,7 +437,7 @@ func (r *relationStateTracker) GetInfo() map[int]*context.RelationInfo {
 func (r *relationStateTracker) Name(id int) (string, error) {
 	relationer, found := r.relationers[id]
 	if !found {
-		return "", errors.Errorf("unknown relation: %d", id)
+		return "", errors.NotFoundf("relation: %d", id)
 	}
 	return relationer.RelationUnit().Endpoint().Name, nil
 }

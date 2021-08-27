@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -802,7 +803,17 @@ func (s waitUnitAgent) step(c *gc.C, ctx *testContext) {
 			}
 			if s.data != nil {
 				if len(statusInfo.Data) != len(s.data) {
-					c.Logf("want %d status data value(s), got %d; still waiting", len(s.data), len(statusInfo.Data))
+					wantKeys := []string{}
+					for k := range s.data {
+						wantKeys = append(wantKeys, k)
+					}
+					sort.Strings(wantKeys)
+					gotKeys := []string{}
+					for k := range statusInfo.Data {
+						gotKeys = append(gotKeys, k)
+					}
+					sort.Strings(gotKeys)
+					c.Logf("want {%s} status data value(s), got {%s}; still waiting", strings.Join(wantKeys, ", "), strings.Join(gotKeys, ", "))
 					continue
 				}
 				for key, value := range s.data {
