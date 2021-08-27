@@ -84,6 +84,9 @@ func (ba *BasicAuthConfig) Validate() error {
 }
 
 func (ba *BasicAuthConfig) init() error {
+	if ba.Empty() {
+		return nil
+	}
 	if ba.Auth == "" {
 		ba.Auth = base64.StdEncoding.EncodeToString([]byte(ba.Username + ":" + ba.Password))
 	}
