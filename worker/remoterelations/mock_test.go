@@ -430,17 +430,11 @@ func newMockRemoteRelationWatcher() *mockRemoteRelationWatcher {
 	return w
 }
 
+func (w *mockRemoteRelationWatcher) kill(err error) {
+	w.Tomb.Kill(err)
+}
+
 func (w *mockRemoteRelationWatcher) Changes() <-chan params.RemoteRelationChangeEvent {
-	w.MethodCall(w, "Changes")
-	return w.changes
-}
-
-type mockRelationUnitsWatcher struct {
-	mockWatcher
-	changes chan watcher.RelationUnitsChange
-}
-
-func (w *mockRelationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 	w.MethodCall(w, "Changes")
 	return w.changes
 }
