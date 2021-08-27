@@ -94,6 +94,21 @@ func (s *offerConnectionsSuite) TestAddOfferConnection(c *gc.C) {
 		gc.Equals, fmt.Sprintf(`connection to "offer-uuid" by "fred" for relation %d`, s.activeRel.Id()))
 }
 
+func (s *offerConnectionsSuite) TestAddOfferConnectioNotFound(c *gc.C) {
+	_, err := s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		SourceModelUUID: testing.ModelTag.Id(),
+		RelationId:      s.activeRel.Id(),
+		Username:        "fred",
+		OfferUUID:       "offer-uuid",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	rc, err := s.State.RemoteConnectionStatus("offer-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rc.TotalConnectionCount(), gc.Equals, 1)
+	c.Assert(rc.ActiveConnectionCount(), gc.Equals, 0)
+}
+
 func (s *offerConnectionsSuite) TestAddOfferConnectionTwice(c *gc.C) {
 	_, err := s.State.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: testing.ModelTag.Id(),
