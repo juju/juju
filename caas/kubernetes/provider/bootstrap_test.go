@@ -722,8 +722,8 @@ mkdir -p $gui
 curl -sSf -o $gui/gui.tar.bz2 --retry 10 'http://gui-url' || echo Unable to retrieve Juju Dashboard
 [ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256
 [ -f $gui/jujugui.sha256 ] && (grep 'deadbeef' $gui/jujugui.sha256 && printf %s '{"version":"6.6.6","url":"http://gui-url","sha256":"deadbeef","size":999}' > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)
-test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/bootstrap-params --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s
-$JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
+test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf || JUJU_DEV_FEATURE_FLAGS=private-registry $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/bootstrap-params --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s
+JUJU_DEV_FEATURE_FLAGS=private-registry $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
 `[1:],
 			},
 			WorkingDir: "/var/lib/juju",

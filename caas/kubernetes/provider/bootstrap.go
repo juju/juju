@@ -1345,12 +1345,12 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		c.fileNameAgentConf,
 	)
 	var jujudCmds []string
-	pushCMD := func(cmd string) {
+	pushCmd := func(cmd string) {
 		jujudCmds = append(jujudCmds, cmd)
 	}
 	featureFlags := featureflag.AsEnvironmentValue()
 	if featureFlags != "" {
-		featureFlags = fmt.Sprintf("%s=%s ", osenv.JujuFeatureFlagEnvKey, featureFlags)
+		featureFlags = fmt.Sprintf("%s=%s", osenv.JujuFeatureFlagEnvKey, featureFlags)
 	}
 	if c.pcfg.ControllerId == agent.BootstrapControllerId {
 		guiCmd, err := c.setUpGUICommand()
@@ -1358,10 +1358,10 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 			return errors.Trace(err)
 		}
 		if guiCmd != "" {
-			pushCMD(guiCmd)
+			pushCmd(guiCmd)
 		}
 		// only do bootstrap-state on the bootstrap controller - controller-0.
-		bootstrapStateCMD := fmt.Sprintf(
+		bootstrapStateCmd := fmt.Sprintf(
 			"%s bootstrap-state %s --data-dir $JUJU_DATA_DIR %s --timeout %s",
 			c.pathJoin("$JUJU_TOOLS_DIR", "jujud"),
 			c.pathJoin("$JUJU_DATA_DIR", c.fileNameBootstrapParams),
@@ -1369,26 +1369,26 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 			c.timeout.String(),
 		)
 		if featureFlags != "" {
-			bootstrapStateCMD = fmt.Sprintf("%s %s", featureFlags, bootstrapStateCMD)
+			bootstrapStateCmd = fmt.Sprintf("%s %s", featureFlags, bootstrapStateCmd)
 		}
-		pushCMD(
+		pushCmd(
 			fmt.Sprintf(
 				"test -e %s || %s",
 				c.pathJoin("$JUJU_DATA_DIR", agentConfigRelativePath),
-				bootstrapStateCMD,
+				bootstrapStateCmd,
 			),
 		)
 	}
-	machineCMD := fmt.Sprintf(
+	machineCmd := fmt.Sprintf(
 		"%s machine --data-dir $JUJU_DATA_DIR --controller-id %s --log-to-stderr %s",
 		c.pathJoin("$JUJU_TOOLS_DIR", "jujud"),
 		c.pcfg.ControllerId,
 		loggingOption,
 	)
 	if featureFlags != "" {
-		machineCMD = fmt.Sprintf("%s %s", featureFlags, machineCMD)
+		machineCmd = fmt.Sprintf("%s %s", featureFlags, machineCmd)
 	}
-	pushCMD(machineCMD)
+	pushCmd(machineCmd)
 	containers, err := generateContainerSpecs(strings.Join(jujudCmds, "\n"))
 	if err != nil {
 		return errors.Trace(err)
