@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/resources/mocks"
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	corecharm "github.com/juju/juju/core/charm"
 )
@@ -27,7 +28,7 @@ type CharmHubClientSuite struct {
 
 func (s *CharmHubClientSuite) TestResolveResources(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectRefresh()
+	s.expectRefresh(true)
 	s.expectListResourceRevisions(2)
 
 	fp, err := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
@@ -44,7 +45,7 @@ func (s *CharmHubClientSuite) TestResolveResources(c *gc.C) {
 		Revision:    2,
 		Fingerprint: fp,
 		Size:        0,
-	}})
+	}}, charmID())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []charmresource.Resource{{
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
@@ -63,17 +64,19 @@ func (s *CharmHubClientSuite) TestResolveResources(c *gc.C) {
 
 func (s *CharmHubClientSuite) TestResolveResourcesFromStore(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectRefresh()
+	s.expectRefresh(false)
 	s.expectListResourceRevisions(1)
 
 	fp, err := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
 	c.Assert(err, jc.ErrorIsNil)
+	id := charmID()
+	id.Origin.ID = ""
 	result, err := s.newClient().ResolveResources([]charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   charmresource.OriginStore,
 		Revision: 1,
 		Size:     0,
-	}})
+	}}, id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []charmresource.Resource{{
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
@@ -86,7 +89,7 @@ func (s *CharmHubClientSuite) TestResolveResourcesFromStore(c *gc.C) {
 
 func (s *CharmHubClientSuite) TestResolveResourcesFromStoreNoRevision(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectRefreshWithRevision(1)
+	s.expectRefreshWithRevision(1, true)
 
 	fp, err := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
 	c.Assert(err, jc.ErrorIsNil)
@@ -95,7 +98,7 @@ func (s *CharmHubClientSuite) TestResolveResourcesFromStoreNoRevision(c *gc.C) {
 		Origin:   charmresource.OriginStore,
 		Revision: -1,
 		Size:     0,
-	}})
+	}}, charmID())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []charmresource.Resource{{
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
@@ -108,8 +111,8 @@ func (s *CharmHubClientSuite) TestResolveResourcesFromStoreNoRevision(c *gc.C) {
 
 func (s *CharmHubClientSuite) TestResolveResourcesNoMatchingRevision(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectRefresh()
-	s.expectRefreshWithRevision(99)
+	s.expectRefresh(true)
+	s.expectRefreshWithRevision(99, true)
 	s.expectListResourceRevisions(3)
 
 	_, err := s.newClient().ResolveResources([]charmresource.Resource{{
@@ -117,14 +120,16 @@ func (s *CharmHubClientSuite) TestResolveResourcesNoMatchingRevision(c *gc.C) {
 		Origin:   charmresource.OriginStore,
 		Revision: 1,
 		Size:     0,
-	}})
+	}}, charmID())
 	c.Assert(err, gc.ErrorMatches, `charm resource "wal-e" at revision 1 not found`)
 }
 
 func (s *CharmHubClientSuite) TestResolveResourcesUpload(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectRefresh()
+	s.expectRefresh(false)
 
+	id := charmID()
+	id.Origin.ID = ""
 	result, err := s.newClient().ResolveResources([]charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   charmresource.OriginUpload,
@@ -132,7 +137,7 @@ func (s *CharmHubClientSuite) TestResolveResourcesUpload(c *gc.C) {
 		Fingerprint: charmresource.Fingerprint{
 			Fingerprint: hash.Fingerprint{}},
 		Size: 0,
-	}})
+	}}, id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
@@ -158,37 +163,44 @@ func (s *CharmHubClientSuite) setupMocks(c *gc.C) *gomock.Controller {
 			c.Logf("Debug: "+msg, args...)
 		},
 	)
+	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes().Do(
+		func(msg string, args ...interface{}) {
+			c.Logf("Error: "+msg, args...)
+		},
+	)
 	return ctrl
 }
 
-func (s *CharmHubClientSuite) newClient() *charmHubClient {
+func charmID() CharmID {
 	curl := charm.MustParseURL("ubuntu")
 	channel, _ := charm.ParseChannel("stable")
+	return CharmID{
+		URL: curl,
+		Origin: corecharm.Origin{
+			ID:      "meshuggah",
+			Source:  corecharm.CharmHub,
+			Channel: &channel,
+			Platform: corecharm.Platform{
+				OS:           "ubuntu",
+				Series:       "focal",
+				Architecture: "amd64",
+			},
+		}}
+}
+
+func (s *CharmHubClientSuite) newClient() *charmHubClient {
 	c := &charmHubClient{
 		client: s.client,
 	}
 	c.resourceClient = resourceClient{
 		client: c,
-		id: CharmID{
-			URL: curl,
-			Origin: corecharm.Origin{
-				ID:      "meshuggah",
-				Source:  corecharm.CharmHub,
-				Channel: &channel,
-				Platform: corecharm.Platform{
-					OS:           "ubuntu",
-					Series:       "focal",
-					Architecture: "amd64",
-				},
-			},
-		},
 		logger: s.logger,
 	}
 	return c
 }
 
-func (s *CharmHubClientSuite) expectRefresh() {
-	s.expectRefreshWithRevision(0)
+func (s *CharmHubClientSuite) expectRefresh(id bool) {
+	s.expectRefreshWithRevision(0, id)
 }
 
 func resourceRevision(rev int) transport.ResourceRevision {
@@ -206,7 +218,7 @@ func resourceRevision(rev int) transport.ResourceRevision {
 	}
 }
 
-func (s *CharmHubClientSuite) expectRefreshWithRevision(rev int) {
+func (s *CharmHubClientSuite) expectRefreshWithRevision(rev int, id bool) {
 	resp := []transport.RefreshResponse{
 		{
 			Entity: transport.RefreshEntity{
@@ -226,7 +238,38 @@ func (s *CharmHubClientSuite) expectRefreshWithRevision(rev int) {
 			Result:           "download",
 		},
 	}
-	s.client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return(resp, nil)
+	s.client.EXPECT().Refresh(gomock.Any(), charmhubConfigMatcher{id: id}).Return(resp, nil)
+}
+
+// charmhubConfigMatcher matches only the charm IDs and revisions of a
+// charmhub.RefreshMany config.
+type charmhubConfigMatcher struct {
+	id bool
+}
+
+func (m charmhubConfigMatcher) Matches(x interface{}) bool {
+	config, ok := x.(charmhub.RefreshConfig)
+	if !ok {
+		return false
+	}
+	h, _, err := config.Build()
+	if err != nil {
+		return false
+	}
+	if m.id && h.Actions[0].ID != nil && *h.Actions[0].ID == "meshuggah" {
+		return true
+	}
+	if !m.id && h.Actions[0].Name != nil && *h.Actions[0].Name == "ubuntu" {
+		return true
+	}
+	return false
+}
+
+func (m charmhubConfigMatcher) String() string {
+	if m.id {
+		return "match id"
+	}
+	return "match name"
 }
 
 func (s *CharmHubClientSuite) expectListResourceRevisions(rev int) {

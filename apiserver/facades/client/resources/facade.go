@@ -40,7 +40,7 @@ type API struct {
 	// backend is the data source for the facade.
 	backend Backend
 
-	factory func(chID CharmID) (NewCharmRepository, error)
+	factory func(*charm.URL) (NewCharmRepository, error)
 }
 
 type APIv1 struct {
@@ -75,11 +75,10 @@ func NewFacadeV2(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 
-	factory := func(chID CharmID) (NewCharmRepository, error) {
-		schema := chID.URL.Schema
+	factory := func(curl *charm.URL) (NewCharmRepository, error) {
+		schema := curl.Schema
 		switch {
 		case charm.CharmHub.Matches(schema):
-
 			options := []charmhub.Option{
 				// TODO (stickupkid): Get the httpClient from the facade context
 				charmhub.WithHTTPTransport(charmhub.DefaultHTTPTransport),
@@ -99,23 +98,22 @@ func NewFacadeV2(ctx facade.Context) (*API, error) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return newCharmHubClient(chClient, logger.ChildWithLabels("charmhub", "charmhub"), chID), nil
+			return newCharmHubClient(chClient, logger.ChildWithLabels("charmhub", "charmhub")), nil
 
 		case charm.CharmStore.Matches(schema):
-
 			cl, err := charmstore.NewCachingClient(state.MacaroonCache{
 				MacaroonCacheState: st,
 			}, controllerCfg.CharmStoreURL())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return newCharmStoreClient(cl, chID), nil
+			return newCharmStoreClient(cl), nil
 
 		case charm.Local.Matches(schema):
 			return &localClient{}, nil
 
 		default:
-			return nil, errors.Errorf("unrecognized charm schema %q", chID.URL.Schema)
+			return nil, errors.Errorf("unrecognized charm schema %q", curl.Schema)
 		}
 	}
 
@@ -135,7 +133,7 @@ func NewFacadeV1(ctx facade.Context) (*APIv1, error) {
 }
 
 // NewResourcesAPI returns a new resources API facade.
-func NewResourcesAPI(backend Backend, factory func(chID CharmID) (NewCharmRepository, error)) (*API, error) {
+func NewResourcesAPI(backend Backend, factory func(*charm.URL) (NewCharmRepository, error)) (*API, error) {
 	if backend == nil {
 		return nil, errors.Errorf("missing data backend")
 	}
@@ -240,11 +238,11 @@ func (a *API) addPendingResources(appName, chRef string, origin corecharm.Origin
 			URL:    cURL,
 			Origin: origin,
 		}
-		repository, err := a.factory(id)
+		repository, err := a.factory(id.URL)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		resources, err = repository.ResolveResources(resources)
+		resources, err = repository.ResolveResources(resources, id)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

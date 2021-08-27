@@ -7,6 +7,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -42,14 +43,14 @@ func (s *BaseSuite) newCSClient() (CharmStore, error) {
 	return s.csClient, nil
 }
 
-func (s *BaseSuite) newCSFactory() func(CharmID) (NewCharmRepository, error) {
-	return func(chID CharmID) (NewCharmRepository, error) {
-		return newCharmStoreClient(s.csClient, chID), nil
+func (s *BaseSuite) newCSFactory() func(_ *charm.URL) (NewCharmRepository, error) {
+	return func(_ *charm.URL) (NewCharmRepository, error) {
+		return newCharmStoreClient(s.csClient), nil
 	}
 }
 
-func (s *BaseSuite) newLocalFactory() func(CharmID) (NewCharmRepository, error) {
-	return func(chID CharmID) (NewCharmRepository, error) {
+func (s *BaseSuite) newLocalFactory() func(_ *charm.URL) (NewCharmRepository, error) {
+	return func(_ *charm.URL) (NewCharmRepository, error) {
 		return &localClient{}, nil
 	}
 }
@@ -188,8 +189,8 @@ type stubFactory struct {
 	ReturnResources []charmresource.Resource
 }
 
-func (s *stubFactory) ResolveResources(resources []charmresource.Resource) ([]charmresource.Resource, error) {
-	s.AddCall("ResolveResources", resources)
+func (s *stubFactory) ResolveResources(resources []charmresource.Resource, charmID CharmID) ([]charmresource.Resource, error) {
+	s.AddCall("ResolveResources", resources, charmID)
 
 	if err := s.NextErr(); err != nil {
 		return nil, errors.Trace(err)
