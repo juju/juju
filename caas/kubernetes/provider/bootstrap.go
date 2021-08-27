@@ -1350,7 +1350,7 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 	}
 	featureFlags := featureflag.AsEnvironmentValue()
 	if featureFlags != "" {
-		featureFlags = fmt.Sprintf("%s=%s ", osenv.JujuFeatureFlagEnvKey, featureFlags)
+		featureFlags = fmt.Sprintf("%s=%s", osenv.JujuFeatureFlagEnvKey, featureFlags)
 	}
 	if c.pcfg.ControllerId == agent.BootstrapControllerId {
 		guiCmd, err := c.setUpGUICommand()
