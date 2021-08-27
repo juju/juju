@@ -185,6 +185,10 @@ func (d *deployBundle) makeBundleDeploySpec(ctx *cmd.Context, apiRoot DeployerAP
 		return d.newConsumeDetailsAPI(url)
 	}
 
+	getResourceLister := func(deployerAPI DeployerAPI) (utils.ResourceLister, error) {
+		return resourceadapters.NewAPIClient(deployerAPI)
+	}
+
 	return bundleDeploySpec{
 		ctx:                  ctx,
 		filesystem:           d.model.Filesystem(),
@@ -202,6 +206,7 @@ func (d *deployBundle) makeBundleDeploySpec(ctx *cmd.Context, apiRoot DeployerAP
 		authorizer:           d.authorizer,
 		getConsumeDetailsAPI: getConsumeDetails,
 		deployResources:      d.deployResources,
+		getResourceLister:    getResourceLister,
 		useExistingMachines:  d.useExistingMachines,
 		bundleMachines:       d.bundleMachines,
 		bundleStorage:        d.bundleStorage,
