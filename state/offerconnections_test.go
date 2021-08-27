@@ -94,7 +94,8 @@ func (s *offerConnectionsSuite) TestAddOfferConnection(c *gc.C) {
 		gc.Equals, fmt.Sprintf(`connection to "offer-uuid" by "fred" for relation %d`, s.activeRel.Id()))
 }
 
-func (s *offerConnectionsSuite) TestAddOfferConnectioNotFound(c *gc.C) {
+func (s *offerConnectionsSuite) TestAddOfferConnectionNotFound(c *gc.C) {
+	// Note: missing RelationKey to trigger a not-found error.
 	_, err := s.State.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: testing.ModelTag.Id(),
 		RelationId:      s.activeRel.Id(),

@@ -220,7 +220,8 @@ func (st *State) RemoteConnectionStatus(offerUUID string) (*RemoteConnectionStat
 		totalCount: len(conns),
 	}
 	for _, conn := range conns {
-		rel, err := st.KeyRelation(conn.RelationKey())
+		key := conn.RelationKey()
+		rel, err := st.KeyRelation(key)
 		if err != nil {
 			// If we can't find the KeyRelation using the conn.RelationKey, then
 			// we have a connection that is hanging around that shouldn't be.
@@ -231,6 +232,7 @@ func (st *State) RemoteConnectionStatus(offerUUID string) (*RemoteConnectionStat
 			// Note: apiserver/facades/client/client/status.go#fetchOffers also
 			// performs the same check.
 			if errors.IsNotFound(err) {
+				logger.Errorf("KeyRelation from offer connection (%s) not found, unable to locate relation key %q.", conn.String(), key)
 				continue
 			}
 			return nil, errors.Trace(err)
