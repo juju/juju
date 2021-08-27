@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -238,6 +239,20 @@ func (s *environProviderSuite) TestStopInstance(c *gc.C) {
 	c.Assert(env, gc.NotNil)
 	err = env.StopInstances(environContext.NewCloudCallContext(context.TODO()), "100")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environProviderSuite) TestMapJujuSubnetsToReservationIDs(c *gc.C) {
+	in := []map[network.Id][]string{
+		{
+			"subnet-abcdef-aa": []string{"fr"},
+		},
+		{
+			"subnet-INFAN-42": []string{""},
+		},
+	}
+	exp := []string{"abcdef-aa"}
+	got := mapJujuSubnetsToReservationIDs(in)
+	c.Assert(got, gc.DeepEquals, exp, gc.Commentf("expected FAN subnet to be filtered out"))
 }
 
 type packngoCreateDeviceMatcher struct {
