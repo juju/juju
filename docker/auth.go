@@ -57,6 +57,10 @@ func (ac *TokenAuthConfig) Validate() error {
 	return nil
 }
 
+func (ac *TokenAuthConfig) init() error {
+	return nil
+}
+
 // BasicAuthConfig contains authorization information for basic auth.
 type BasicAuthConfig struct {
 	// Auth is the base64 encoded "username:password" string.
@@ -76,9 +80,10 @@ func (ba BasicAuthConfig) Empty() bool {
 
 // Validate validates the spec.
 func (ba *BasicAuthConfig) Validate() error {
-	if ba.Empty() {
-		return nil
-	}
+	return nil
+}
+
+func (ba *BasicAuthConfig) init() error {
 	if ba.Auth == "" {
 		ba.Auth = base64.StdEncoding.EncodeToString([]byte(ba.Username + ":" + ba.Password))
 	}
@@ -149,6 +154,16 @@ func (rid *ImageRepoDetails) Validate() error {
 	return nil
 }
 
+func (rid *ImageRepoDetails) init() error {
+	if err := rid.BasicAuthConfig.init(); err != nil {
+		return errors.Annotatef(err, "initializing basic auth config for repository %q", rid.Repository)
+	}
+	if err := rid.TokenAuthConfig.init(); err != nil {
+		return errors.Annotatef(err, "initializing token auth config for repository %q", rid.Repository)
+	}
+	return nil
+}
+
 func (rid ImageRepoDetails) APIVersion() APIVersion {
 	v := APIVersionV1
 	if !rid.TokenAuthConfig.Empty() {
@@ -188,6 +203,9 @@ func NewImageRepoDetails(contentOrPath string) (o *ImageRepoDetails, err error) 
 	}
 
 	if err = o.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err = o.init(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if o.IsPrivate() && !featureflag.Enabled(feature.PrivateRegistry) {
