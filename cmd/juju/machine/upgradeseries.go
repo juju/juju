@@ -249,13 +249,13 @@ func (c *upgradeSeriesCommand) trapInterrupt(ctx *cmd.Context) func() {
 			select {
 			case <-cancelCtx.Done():
 				// Ctrl-C already pressed
-				_, _ = fmt.Fprintln(ctx.GetStderr(), "\nCtrl-C pressed, cancelling an upgrade-series.")
+				_, _ = fmt.Fprintln(ctx.Stdout, "\nCtrl-C pressed, cancelling an upgrade-series.")
 				os.Exit(1)
 				return
 			default:
 				// Newline prefix is intentional, so output appears as
 				// "^C\nCtrl-C pressed" instead of "^CCtrl-C pressed".
-				_, _ = fmt.Fprintln(ctx.GetStderr(), "\nCtrl-C pressed, cancelling an upgrade-series is not recommended. Ctrl-C to proceed anyway.")
+				_, _ = fmt.Fprintln(ctx.Stdout, "\nCtrl-C pressed, cancelling an upgrade-series is not recommended. Ctrl-C to proceed anyway.")
 				cancel()
 			}
 		}
