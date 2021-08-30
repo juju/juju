@@ -856,8 +856,12 @@ func validateCAASImageRepo(imageRepo string) (string, error) {
 	if err = imageDetails.Validate(); err != nil {
 		return "", errors.Trace(err)
 	}
-	if _, err = registry.NewRegistry(*imageDetails); err != nil {
-		return "", errors.Trace(err)
+	if imageDetails.IsPrivate() {
+		r, err := registry.NewRegistry(*imageDetails)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		*imageDetails = r.ImageRepoDetails()
 	}
 	return imageDetails.String(), nil
 }

@@ -8,6 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	docker "github.com/juju/juju/docker"
 	tools "github.com/juju/juju/tools"
 )
 
@@ -46,6 +47,20 @@ func (m *MockRegistry) Close() error {
 func (mr *MockRegistryMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockRegistry)(nil).Close))
+}
+
+// ImageRepoDetails mocks base method.
+func (m *MockRegistry) ImageRepoDetails() docker.ImageRepoDetails {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ImageRepoDetails")
+	ret0, _ := ret[0].(docker.ImageRepoDetails)
+	return ret0
+}
+
+// ImageRepoDetails indicates an expected call of ImageRepoDetails.
+func (mr *MockRegistryMockRecorder) ImageRepoDetails() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImageRepoDetails", reflect.TypeOf((*MockRegistry)(nil).ImageRepoDetails))
 }
 
 // Ping mocks base method.
