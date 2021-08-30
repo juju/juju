@@ -4,9 +4,12 @@
 package controller_test
 
 import (
+	"io/ioutil"
+	"net/http"
 	stdtesting "testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/charmrepo/v6/csclient"
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
@@ -15,6 +18,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/docker/registry"
+	"github.com/juju/juju/docker/registry/mocks"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 )
@@ -599,6 +604,25 @@ func (s *ConfigSuite) TestConfigNoSpacesNilSpaceConfigPreserved(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	mockRoundTripper := mocks.NewMockRoundTripper(ctrl)
+	gomock.InOrder(
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{"Basic": []string{"xxxxx=="}})
+				c.Assert(req.Method, gc.Equals, `GET`)
+				c.Assert(req.URL.String(), gc.Equals, `https://quay.io/v1`)
+				resps := &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       ioutil.NopCloser(nil),
+				}
+				return resps, nil
+			},
+		),
+	)
+	s.PatchValue(&registry.DefaultTransport, mockRoundTripper)
+
 	s.SetFeatureFlags(feature.PrivateRegistry)
 
 	type tc struct {

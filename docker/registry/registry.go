@@ -28,6 +28,11 @@ const (
 	dockerServerAddress = "index.docker.io"
 )
 
+var (
+	// Override for testing.
+	DefaultTransport = http.DefaultTransport
+)
+
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/http_mock.go net/http RoundTripper
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/registry_mock.go github.com/juju/juju/docker/registry Registry
 
@@ -47,7 +52,7 @@ type Registry interface {
 
 // NewRegistry creates a new registry.
 func NewRegistry(repoDetails docker.ImageRepoDetails) (Registry, error) {
-	return newRegistry(repoDetails, http.DefaultTransport)
+	return newRegistry(repoDetails, DefaultTransport)
 }
 
 func newRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) (Registry, error) {
