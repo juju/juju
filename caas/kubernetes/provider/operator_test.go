@@ -78,6 +78,7 @@ export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 
 mkdir -p $JUJU_TOOLS_DIR
 cp /opt/jujud $JUJU_TOOLS_DIR/jujud
+
 $JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 `[1:],
 			},

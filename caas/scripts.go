@@ -11,6 +11,7 @@ export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/%[2]s
 
 mkdir -p $JUJU_TOOLS_DIR
 cp /opt/jujud $JUJU_TOOLS_DIR/jujud
+
 %[3]s
 `[1:]
 
