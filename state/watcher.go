@@ -2944,7 +2944,7 @@ func (w *collectionWatcher) initial() ([]string, error) {
 // Additionally, mergeIds strips the model UUID prefix from the id
 // before emitting it through the watcher.
 func (w *collectionWatcher) mergeIds(changes *[]string, updates map[interface{}]bool) error {
-	return mergeIds(w.backend, changes, updates, w.convertId)
+	return mergeIds(changes, updates, w.convertId)
 }
 
 func (w *collectionWatcher) convertId(id string) (string, error) {
@@ -2963,7 +2963,7 @@ func (w *collectionWatcher) convertId(id string) (string, error) {
 	return id, nil
 }
 
-func mergeIds(st modelBackend, changes *[]string, updates map[interface{}]bool, idconv func(string) (string, error)) error {
+func mergeIds(changes *[]string, updates map[interface{}]bool, idconv func(string) (string, error)) error {
 	for val, idExists := range updates {
 		id, ok := val.(string)
 		if !ok {
@@ -3170,7 +3170,7 @@ func (w *actionNotificationWatcher) filterPendingAndMergeIds(changes *[]string, 
 }
 
 func (w *actionNotificationWatcher) mergeIds(changes *[]string, updates map[interface{}]bool) error {
-	return mergeIds(w.backend, changes, updates, func(id string) (string, error) {
+	return mergeIds(changes, updates, func(id string) (string, error) {
 		return actionNotificationIdToActionId(id), nil
 	})
 }

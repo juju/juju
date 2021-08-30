@@ -603,8 +603,8 @@ func (w *relationStatusWatcher) loop(initialChanges []params.RelationLifeSuspend
 				// at this point, so just return.
 				return nil
 			}
-			new := copyChanges(data.(*params.RelationLifeSuspendedStatusWatchResult).Changes)
-			changes = w.mergeChanges(changes, new)
+			newChanges := copyChanges(data.(*params.RelationLifeSuspendedStatusWatchResult).Changes)
+			changes = w.mergeChanges(changes, newChanges)
 			out = w.out
 		case out <- changes:
 			out = nil
@@ -695,8 +695,8 @@ func (w *offerStatusWatcher) loop(initialChanges []params.OfferStatusChange) err
 				// at this point, so just return.
 				return nil
 			}
-			new := copyChanges(data.(*params.OfferStatusWatchResult).Changes)
-			changes = w.mergeChanges(changes, new)
+			newChanges := copyChanges(data.(*params.OfferStatusWatchResult).Changes)
+			changes = w.mergeChanges(changes, newChanges)
 			out = w.out
 		case out <- changes:
 			out = nil

@@ -57,6 +57,27 @@ func (s byTime) Less(i, j int) bool {
 	return s[i].Since.Before(*s[j].Since)
 }
 
+// applicationStatusHistory returns status history for the given (remote) application.
+func (c *Client) applicationStatusHistory(appTag names.ApplicationTag, filter status.StatusHistoryFilter, kind status.HistoryKind) ([]params.DetailedStatus, error) {
+	var (
+		app status.StatusHistoryGetter
+		err error
+	)
+	if kind == status.KindApplication {
+		app, err = c.api.stateAccessor.Application(appTag.Name)
+	} else {
+		app, err = c.api.stateAccessor.RemoteApplication(appTag.Name)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	sInfo, err := app.StatusHistory(filter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return agentStatusFromStatusInfo(sInfo, kind), nil
+}
+
 // unitStatusHistory returns a list of status history entries for unit agents or workloads.
 func (c *Client) unitStatusHistory(unitTag names.UnitTag, filter status.StatusHistoryFilter, kind status.HistoryKind) ([]params.DetailedStatus, error) {
 	unit, err := c.api.stateAccessor.Unit(unitTag.Id())
@@ -163,6 +184,11 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 			var u names.UnitTag
 			if u, err = names.ParseUnitTag(request.Tag); err == nil {
 				hist, err = c.unitStatusHistory(u, filter, kind)
+			}
+		case status.KindApplication, status.KindSAAS:
+			var app names.ApplicationTag
+			if app, err = names.ParseApplicationTag(request.Tag); err == nil {
+				hist, err = c.applicationStatusHistory(app, filter, kind)
 			}
 		default:
 			var m names.MachineTag

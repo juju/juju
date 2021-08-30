@@ -862,6 +862,24 @@ func (s *remoteApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, re
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *remoteApplicationSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
+	err := s.application.SetStatus(status.StatusInfo{
+		Status: status.Active,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	filter := status.StatusHistoryFilter{Size: 100}
+	agentInfo, err := s.application.StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(agentInfo), gc.Equals, 1)
+
+	err = s.application.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	agentInfo, err = s.application.StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(agentInfo, gc.HasLen, 0)
+}
+
 func (s *remoteApplicationSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScope bool) {
 	ok, err := relUnit.InScope()
 	c.Assert(err, jc.ErrorIsNil)
