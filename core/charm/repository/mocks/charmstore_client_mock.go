@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	io "io"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -48,6 +49,36 @@ func (m *MockCharmStoreClient) Get(arg0 *charm.URL, arg1 string) (*charm.CharmAr
 func (mr *MockCharmStoreClientMockRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockCharmStoreClient)(nil).Get), arg0, arg1)
+}
+
+// GetFileFromArchive mocks base method.
+func (m *MockCharmStoreClient) GetFileFromArchive(arg0 *charm.URL, arg1 string) (io.ReadCloser, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFileFromArchive", arg0, arg1)
+	ret0, _ := ret[0].(io.ReadCloser)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFileFromArchive indicates an expected call of GetFileFromArchive.
+func (mr *MockCharmStoreClientMockRecorder) GetFileFromArchive(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFileFromArchive", reflect.TypeOf((*MockCharmStoreClient)(nil).GetFileFromArchive), arg0, arg1)
+}
+
+// Meta mocks base method.
+func (m *MockCharmStoreClient) Meta(arg0 *charm.URL, arg1 interface{}) (*charm.URL, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Meta", arg0, arg1)
+	ret0, _ := ret[0].(*charm.URL)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Meta indicates an expected call of Meta.
+func (mr *MockCharmStoreClientMockRecorder) Meta(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Meta", reflect.TypeOf((*MockCharmStoreClient)(nil).Meta), arg0, arg1)
 }
 
 // ResolveWithPreferredChannel mocks base method.

@@ -4,6 +4,10 @@
 package repository
 
 import (
+	"io"
+	"io/ioutil"
+	"strings"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
@@ -162,6 +166,130 @@ func (s *charmStoreRepositorySuite) TestGetDownloadURL(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotURL.String(), gc.Equals, "cs:charm/ubuntu-lite")
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin)
+}
+
+func (s *charmStoreRepositorySuite) TestGetEssentialMetadataWithLXDProfile(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	curl := charm.MustParseURL("cs:ubuntu-lite")
+	requestedOrigin := corecharm.Origin{
+		Source:  "charm-store",
+		Channel: &charm.Channel{Risk: "edge"},
+	}
+	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	macaroons := macaroon.Slice{mac}
+
+	expMeta := new(charm.Meta)
+	expConfig := new(charm.Config)
+	expManifest := new(charm.Manifest)
+	rawProfile := `
+description: lxd profile for testing, will pass validation
+config:
+  security.nesting: "true"
+  security.privileged: "true"
+  linux.kernel_modules: openvswitch,nbd,ip_tables,ip6_tables
+  environment.http_proxy: ""
+devices:
+  tun:
+    path: /dev/net/tun
+    type: unix-char
+  sony:
+    type: usb
+    vendorid: 0fce
+    productid: 51da
+  bdisk:
+    type: unix-block
+    source: /dev/loop0
+  gpu:
+    type: gpu
+`[1:]
+	expProfile, err := charm.ReadLXDProfile(strings.NewReader(rawProfile))
+	c.Assert(err, jc.ErrorIsNil)
+
+	repo := NewCharmStoreRepository(s.logger, "store-api-endpoint")
+	repo.clientFactory = func(gotStoreURL string, gotChannel csparams.Channel, gotMacaroons macaroon.Slice) (CharmStoreClient, error) {
+		c.Assert(gotStoreURL, gc.Equals, "store-api-endpoint", gc.Commentf("the provided store API endpoint was not passed to the client factory"))
+		c.Assert(gotChannel, gc.Equals, csparams.Channel("edge"), gc.Commentf("the channel from the provided origin was not passed to the client factory"))
+		c.Assert(gotMacaroons, gc.DeepEquals, macaroons, gc.Commentf("the provided macaroons were not passed to the client factory"))
+		return s.client, nil
+	}
+	s.client.EXPECT().Meta(curl, gomock.Any()).DoAndReturn(
+		func(charmURL *charm.URL, dstIface interface{}) (*charm.URL, error) {
+			dst := dstIface.(*corecharm.EssentialMetadata)
+			dst.Meta = expMeta
+			dst.Config = expConfig
+			dst.Manifest = expManifest
+			return charmURL, nil
+		},
+	)
+	s.client.EXPECT().GetFileFromArchive(curl, "lxd-profile.yaml").DoAndReturn(
+		func(*charm.URL, string) (io.ReadCloser, error) {
+			return ioutil.NopCloser(strings.NewReader(rawProfile)), nil
+		},
+	)
+
+	gotMeta, err := repo.GetEssentialMetadata(corecharm.MetadataRequest{
+		CharmURL:  curl,
+		Origin:    requestedOrigin,
+		Macaroons: macaroons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotMeta, gc.HasLen, 1)
+	// NOTE: we use pointer equality checks here.
+	c.Assert(gotMeta[0].Meta, gc.Equals, expMeta)
+	c.Assert(gotMeta[0].Config, gc.Equals, expConfig)
+	c.Assert(gotMeta[0].Manifest, gc.Equals, expManifest)
+	// NOTE: we need to use a deep equal check for the lxd profile.
+	c.Assert(gotMeta[0].LXDProfile, gc.DeepEquals, expProfile)
+}
+
+func (s *charmStoreRepositorySuite) TestGetEssentialMetadataWithoutLXDProfile(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	curl := charm.MustParseURL("cs:ubuntu-lite")
+	requestedOrigin := corecharm.Origin{
+		Source:  "charm-store",
+		Channel: &charm.Channel{Risk: "edge"},
+	}
+	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	macaroons := macaroon.Slice{mac}
+
+	expMeta := new(charm.Meta)
+	expConfig := new(charm.Config)
+	expManifest := new(charm.Manifest)
+
+	repo := NewCharmStoreRepository(s.logger, "store-api-endpoint")
+	repo.clientFactory = func(gotStoreURL string, gotChannel csparams.Channel, gotMacaroons macaroon.Slice) (CharmStoreClient, error) {
+		c.Assert(gotStoreURL, gc.Equals, "store-api-endpoint", gc.Commentf("the provided store API endpoint was not passed to the client factory"))
+		c.Assert(gotChannel, gc.Equals, csparams.Channel("edge"), gc.Commentf("the channel from the provided origin was not passed to the client factory"))
+		c.Assert(gotMacaroons, gc.DeepEquals, macaroons, gc.Commentf("the provided macaroons were not passed to the client factory"))
+		return s.client, nil
+	}
+	s.client.EXPECT().Meta(curl, gomock.Any()).DoAndReturn(
+		func(charmURL *charm.URL, dstIface interface{}) (*charm.URL, error) {
+			dst := dstIface.(*corecharm.EssentialMetadata)
+			dst.Meta = expMeta
+			dst.Config = expConfig
+			dst.Manifest = expManifest
+			return charmURL, nil
+		},
+	)
+	s.client.EXPECT().GetFileFromArchive(curl, "lxd-profile.yaml").Return(nil, csparams.ErrNotFound)
+
+	gotMeta, err := repo.GetEssentialMetadata(corecharm.MetadataRequest{
+		CharmURL:  curl,
+		Origin:    requestedOrigin,
+		Macaroons: macaroons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotMeta, gc.HasLen, 1)
+	// NOTE: we use pointer equality checks here.
+	c.Assert(gotMeta[0].Meta, gc.Equals, expMeta)
+	c.Assert(gotMeta[0].Config, gc.Equals, expConfig)
+	c.Assert(gotMeta[0].Manifest, gc.Equals, expManifest)
+	c.Assert(gotMeta[0].LXDProfile, gc.IsNil, gc.Commentf("expected a nil profile when the charm does not provide an lxd profile"))
 }
 
 func (s *charmStoreRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
