@@ -13,6 +13,7 @@ import (
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
+	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -55,7 +57,7 @@ var _ = gc.Suite(&BundleDeployRepositorySuite{})
 func (s *BundleDeployRepositorySuite) SetUpTest(_ *gc.C) {
 	s.deployArgs = make(map[string]application.DeployArgs)
 	s.output = bytes.NewBuffer([]byte{})
-	//logger.SetLogLevel(loggo.TRACE)
+	//logger.SetLogLevel(loggo.DEBUG)
 }
 
 func (s *BundleDeployRepositorySuite) TearDownTest(_ *gc.C) {
@@ -1592,6 +1594,18 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleInvalidMachineContainerTyp
 }
 
 func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedToMachines(c *gc.C) {
+	s.testDeployBundleUnitPlacedToMachines(c)
+}
+
+func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedToMachinesDebug(c *gc.C) {
+	level := logger.EffectiveLogLevel()
+	logger.SetLogLevel(loggo.DEBUG)
+	s.testDeployBundleUnitPlacedToMachines(c)
+	logger.SetLogLevel(level)
+	loggo.ResetLogging()
+}
+
+func (s *BundleDeployRepositorySuite) testDeployBundleUnitPlacedToMachines(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
@@ -1841,6 +1855,45 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *gc.C) {
 		"Deploy of bundle completed.\n"
 
 	c.Check(s.output.String(), gc.Equals, fmt.Sprintf(expectedOutput, mysqlPath, wordpressPath))
+}
+
+func (s *BundleDeployRepositorySuite) TestApplicationsForMachineChange(c *gc.C) {
+	spec := s.bundleDeploySpec()
+	bundleData, err := charm.ReadBundleData(strings.NewReader(machineUnitPlacementBundle))
+	c.Assert(err, jc.ErrorIsNil)
+
+	h := makeBundleHandler(charm.CharmHub, bundleData, spec)
+	err = h.getChanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var count int
+	for _, change := range h.changes {
+		switch change := change.(type) {
+		case *bundlechanges.AddMachineChange:
+			applications := h.applicationsForMachineChange(change)
+			switch change.Params.Machine() {
+			case "0":
+				c.Assert(applications, jc.SameContents, []string{"mysql", "wordpress"})
+				count += 1
+			case "1":
+				c.Assert(applications, jc.SameContents, []string{"wordpress"})
+				count += 1
+			case "2":
+				c.Assert(applications, jc.SameContents, []string{"mysql"})
+				count += 1
+			case "0/lxd/0":
+				c.Assert(applications, jc.SameContents, []string{"mysql"})
+				count += 1
+			case "1/lxd/0":
+				c.Assert(applications, jc.SameContents, []string{"wordpress"})
+				count += 1
+			default:
+				c.Fatalf("%q not expected machine", change.Params.Machine())
+			}
+		}
+	}
+
+	c.Assert(count, gc.Equals, 5, gc.Commentf("All 5 AddMachineChanges not found"))
 }
 
 func (s *BundleDeployRepositorySuite) bundleDeploySpec() bundleDeploySpec {
