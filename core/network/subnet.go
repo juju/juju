@@ -4,6 +4,7 @@
 package network
 
 import (
+	"math/big"
 	"net"
 	"sort"
 	"strings"
@@ -194,6 +195,32 @@ func (s SubnetInfos) GetByCIDR(cidr string) (SubnetInfos, error) {
 			matching = append(matching, sub)
 		}
 	}
+
+	if len(matching) != 0 {
+		return matching, nil
+	}
+
+	// Some providers (e.g. equinix) carve subnets into smaller CIDRs and
+	// assign addresses from the carved subnets to the machines. If we were
+	// not able to find a direct CIDR match fallback to a CIDR is sub-CIDR
+	// of check.
+	firstIP, lastIP, err := IPRangeForCIDR(cidr)
+	if err != nil {
+		return nil, errors.Annotatef(err, "unable to extract first and last IP addresses from CIDR %q", cidr)
+	}
+
+	for _, sub := range s {
+		subNet, err := sub.ParsedCIDRNetwork()
+		if err != nil { // this should not happen; but let's be paranoid.
+			logger.Warningf("unable to parse CIDR %q for subnet %q", sub.CIDR, sub.ID)
+			continue
+		}
+
+		if subNet.Contains(firstIP) && subNet.Contains(lastIP) {
+			matching = append(matching, sub)
+		}
+	}
+
 	return matching, nil
 }
 
@@ -340,4 +367,42 @@ func FilterInFanNetwork(networks []Id) []Id {
 
 func IsInFanNetwork(network Id) bool {
 	return strings.Contains(network.String(), InFan)
+}
+
+// IPRangeForCIDR returns the first and last addresses that correspond to the
+// provided CIDR. The first address will always be the network address. The
+// returned range also includes the broadcast address. For example, a CIDR of
+// 10.0.0.0/24 yields: [10.0.0.0, 10.0.0.255].
+func IPRangeForCIDR(cidr string) (net.IP, net.IP, error) {
+	_, ipNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return net.IP{}, net.IP{}, errors.Trace(err)
+	}
+	ones, numBits := ipNet.Mask.Size()
+
+	// Special case: CIDR specifies a single address (i.e. a /32 or /128
+	// for IPV4 and IPV6 CIDRs accordingly).
+	if ones == numBits {
+		firstIP := ipNet.IP
+		lastIP := make(net.IP, len(firstIP))
+		copy(lastIP, firstIP)
+		return firstIP, lastIP, nil
+	}
+
+	// Calculate number of hosts in network (2^hostBits - 1) or the
+	// equivalent (1 << hostBits) - 1.
+	hostCount := big.NewInt(1)
+	hostCount = hostCount.Lsh(hostCount, uint(numBits-ones))
+	hostCount = hostCount.Sub(hostCount, big.NewInt(1))
+
+	// Calculate last IP in range.
+	lastIPNum := big.NewInt(0).SetBytes([]byte(ipNet.IP))
+	lastIPNum = lastIPNum.Add(lastIPNum, hostCount)
+
+	// Convert last IP into bytes. Since BigInt strips off leading zeroes
+	// we need to prepend them again before casting back to net.IP.
+	lastIPBytes := lastIPNum.Bytes()
+	lastIPBytes = append(make([]byte, len(ipNet.IP)-len(lastIPBytes)), lastIPBytes...)
+
+	return ipNet.IP, net.IP(lastIPBytes), nil
 }
