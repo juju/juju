@@ -4,6 +4,7 @@
 package repository
 
 import (
+	"io"
 	"net/url"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -23,7 +24,9 @@ import (
 // CharmStoreClient describes the API exposed by the charmstore client.
 type CharmStoreClient interface {
 	Get(charmURL *charm.URL, archivePath string) (*charm.CharmArchive, error)
-	ResolveWithPreferredChannel(*charm.URL, csparams.Channel) (*charm.URL, csparams.Channel, []string, error)
+	ResolveWithPreferredChannel(charmURL *charm.URL, channel csparams.Channel) (*charm.URL, csparams.Channel, []string, error)
+	Meta(*charm.URL, interface{}) (*charm.URL, error)
+	GetFileFromArchive(charmURL *charm.URL, filename string) (io.ReadCloser, error)
 }
 
 // CharmStoreRepository provides an API for charm-related operations using charmstore.
@@ -133,6 +136,54 @@ func (c *CharmStoreRepository) GetDownloadURL(charmURL *charm.URL, requestedOrig
 func (c *CharmStoreRepository) ListResources(charmURL *charm.URL, _ corecharm.Origin, _ macaroon.Slice) ([]charmresource.Resource, error) {
 	c.logger.Tracef("ListResources %q", charmURL)
 	return nil, nil
+}
+
+// GetEssentialMetadata resolves each provided MetadataRequest and returns back
+// a slice with the results. The results include the minimum set of metadata
+// that is required for deploying each charm.
+func (c *CharmStoreRepository) GetEssentialMetadata(reqs ...corecharm.MetadataRequest) ([]corecharm.EssentialMetadata, error) {
+	var res = make([]corecharm.EssentialMetadata, len(reqs))
+
+	for reqIdx, req := range reqs {
+		// NOTE(achilleas): due to the way that the charmstore client
+		// was originally implemented we unfortunately need to create a
+		// new client per request.
+		channel := csparams.Channel(req.Origin.Channel.Risk)
+		client, err := c.clientFactory(c.charmstoreURL, channel, req.Macaroons)
+		if err != nil {
+			return nil, errors.Annotatef(err, "obain charmstore client for %q", req.CharmURL)
+		}
+
+		if _, err = client.Meta(req.CharmURL, &res[reqIdx]); err != nil {
+			return nil, errors.Annotatef(err, "retrieving metadata for %q", req.CharmURL)
+		}
+		res[reqIdx].ResolvedOrigin = req.Origin
+
+		// The metadata call does not return back LXD profile
+		// information.  We need to make a separate call to grab it
+		// from within the archive.
+		profileReader, fetchErr := client.GetFileFromArchive(req.CharmURL, "lxd-profile.yaml")
+		if fetchErr != nil {
+			// It's fine if the charm does not provide an lxd profile
+			if errors.Cause(fetchErr) == csparams.ErrNotFound {
+				continue
+			}
+
+			return nil, errors.Annotatef(err, "retrieving metadata for %q", req.CharmURL)
+		}
+
+		res[reqIdx].LXDProfile, err = charm.ReadLXDProfile(profileReader)
+		if cErr := profileReader.Close(); cErr != nil {
+			c.logger.Errorf("unable to close LXD profile reader while retrieving metadata for %q: %v", req.CharmURL, cErr)
+			// NOTE(achilleasa): this is a non-fatal error; if the
+			// profile was successfully read we should continue.
+		}
+		if err != nil {
+			return nil, errors.Annotatef(err, "parsing lxd profile for %q", req.CharmURL)
+		}
+	}
+
+	return res, nil
 }
 
 func makeCharmStoreClient(charmstoreURL string, defaultChannel csparams.Channel, macaroons macaroon.Slice) (CharmStoreClient, error) {
