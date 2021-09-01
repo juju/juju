@@ -12,10 +12,12 @@ import (
 	"syscall"
 
 	corecharm "github.com/juju/charm/v8"
+	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/component/all"
@@ -26,6 +28,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
@@ -1110,6 +1113,48 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 				data: map[string]interface{}{
 					"hook":        "db-relation-broken",
 					"relation-id": 0,
+				},
+			},
+		),
+	})
+}
+
+func (s *UniterSuite) TestUniterRelationErrorsLostRelation(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"ignore pending relation hook when relation deleted while stopped",
+			quickStart{},
+			stopUniter{},
+			custom{func(c *gc.C, ctx *testContext) {
+				us, err := ctx.unit.State()
+				c.Assert(err, jc.ErrorIsNil)
+				data, _ := us.UniterState()
+				opState := operation.State{}
+				err = yaml.Unmarshal([]byte(data), &opState)
+				c.Assert(err, jc.ErrorIsNil)
+				opState.Kind = operation.RunHook
+				opState.Step = operation.Pending
+				opState.Hook = &hook.Info{
+					Kind:              hooks.RelationJoined,
+					RelationId:        1337,
+					RemoteUnit:        "other/9",
+					RemoteApplication: "other",
+				}
+				newData, err := yaml.Marshal(&opState)
+				c.Assert(err, jc.ErrorIsNil)
+				us.SetUniterState(string(newData))
+				err = ctx.unit.SetState(us, state.UnitStateSizeLimits{})
+				c.Assert(err, jc.ErrorIsNil)
+			}},
+			startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}},
+			waitUnitAgent{
+				statusGetter: unitStatusGetter,
+				status:       status.Error,
+				info:         `hook failed: "relation-joined: relation: 1337 not found"`,
+				data: map[string]interface{}{
+					"hook":        "relation-joined",
+					"relation-id": 1337,
+					"remote-unit": "other/9",
 				},
 			},
 		),

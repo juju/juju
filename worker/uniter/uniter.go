@@ -941,6 +941,7 @@ func (u *Uniter) reportHookError(hookInfo hook.Info) error {
 	// hook is interrupted (e.g. unit agent crashes), rather than immediately
 	// after attempting a runHookOp.
 	hookName := string(hookInfo.Kind)
+	hookMessage := string(hookInfo.Kind)
 	statusData := map[string]interface{}{}
 	if hookInfo.Kind.IsRelation() {
 		statusData["relation-id"] = hookInfo.RelationId
@@ -949,12 +950,14 @@ func (u *Uniter) reportHookError(hookInfo hook.Info) error {
 		}
 		relationName, err := u.relationStateTracker.Name(hookInfo.RelationId)
 		if err != nil {
-			return errors.Trace(err)
+			hookMessage = fmt.Sprintf("%s: %v", hookInfo.Kind, err)
+		} else {
+			hookName = fmt.Sprintf("%s-%s", relationName, hookInfo.Kind)
+			hookMessage = hookName
 		}
-		hookName = fmt.Sprintf("%s-%s", relationName, hookInfo.Kind)
 	}
 	statusData["hook"] = hookName
-	statusMessage := fmt.Sprintf("hook failed: %q", hookName)
+	statusMessage := fmt.Sprintf("hook failed: %q", hookMessage)
 	return setAgentStatus(u, status.Error, statusMessage, statusData)
 }
 
