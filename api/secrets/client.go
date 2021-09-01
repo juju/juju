@@ -57,9 +57,9 @@ func (api *Client) ListSecrets(showSecrets bool) ([]SecretDetails, error) {
 				UpdateTime:     r.UpdateTime,
 			},
 		}
-		URL, err := secrets.ParseURL(r.URL)
+		url, err := secrets.ParseURL(r.URL)
 		if err == nil {
-			details.Metadata.URL = URL
+			details.Metadata.URL = url
 		} else {
 			details.Error = err.Error()
 		}

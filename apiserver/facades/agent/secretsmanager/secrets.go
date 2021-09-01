@@ -7,7 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -15,14 +17,18 @@ import (
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/secrets/provider/juju"
+	"github.com/juju/juju/state/watcher"
 )
 
-// SecretsManagerAPI is the backend for the SecretsManager facade.
+// SecretsManagerAPI is the implementation for the SecretsManager facade.
 type SecretsManagerAPI struct {
 	controllerUUID string
 	modelUUID      string
 
+	accessSecret   common.GetAuthFunc
 	secretsService secrets.SecretsService
+	resources      facade.Resources
+	secretsWatcher SecretsWatcher
 }
 
 // NewSecretManagerAPI creates a SecretsManagerAPI.
@@ -41,6 +47,9 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		controllerUUID: context.State().ControllerUUID(),
 		modelUUID:      context.State().ModelUUID(),
 		secretsService: service,
+		resources:      context.Resources(),
+		secretsWatcher: context.State(),
+		accessSecret:   secretAccessor(context.Auth()),
 	}, nil
 }
 
@@ -159,4 +168,48 @@ func (s *SecretsManagerAPI) getSecretValue(ctx context.Context, arg params.GetSe
 		return nil, errors.Trace(err)
 	}
 	return val.EncodedValues(), nil
+}
+
+// WatchSecretsRotationChanges sets up a watcher to notify of changes to secret rotation config.
+func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (params.SecretRotationWatchResults, error) {
+	canAccess, err := s.accessSecret()
+	if err != nil {
+		return params.SecretRotationWatchResults{}, err
+	}
+
+	results := params.SecretRotationWatchResults{
+		Results: make([]params.SecretRotationWatchResult, len(args.Entities)),
+	}
+	one := func(arg params.Entity) (string, []params.SecretRotationChange, error) {
+		ownerTag, err := names.ParseTag(arg.Tag)
+		if err != nil || !canAccess(ownerTag) {
+			return "", nil, apiservererrors.ErrPerm
+		}
+		w := s.secretsWatcher.WatchSecretsRotationChanges(ownerTag.String())
+		if secretChanges, ok := <-w.Changes(); ok {
+			changes := make([]params.SecretRotationChange, len(secretChanges))
+			for i, c := range secretChanges {
+				changes[i] = params.SecretRotationChange{
+					ID:             c.ID,
+					URL:            c.URL.ID(),
+					RotateInterval: c.RotateInterval,
+					LastRotateTime: c.LastRotateTime,
+				}
+			}
+			return s.resources.Register(w), changes, nil
+		}
+		return "", nil, watcher.EnsureErr(w)
+	}
+	for i, arg := range args.Entities {
+		var result params.SecretRotationWatchResult
+		id, changes, err := one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.SecretRotationWatcherId = id
+			result.Changes = changes
+		}
+		results.Results[i] = result
+	}
+	return results, nil
 }
