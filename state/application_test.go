@@ -22,6 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -30,10 +31,13 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/testing"
+	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
@@ -5146,7 +5150,84 @@ deployment:
 	c.Assert(sidecar, jc.IsFalse)
 }
 
-func (s *ApplicationSuite) TestWatchApplicationConfigSettingsHash(c *gc.C) {
+func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
+	// Required to allow charm lookups to return pending charms.
+	err := s.State.UpdateControllerConfig(
+		map[string]interface{}{
+			controller.Features: []interface{}{feature.AsynchronousCharmDownloads},
+		}, nil,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.State.StartSync()
+	w := s.State.WatchApplicationsWithPendingCharms()
+	defer func() { _ = w.Stop() }()
+
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange() // consume initial change set.
+
+	// Add a pending charm without an origin and associate it with the
+	// application. As it is lacking an origin, it should not trigger a
+	// change.
+	dummy1 := s.dummyCharm(c, "cs:quantal/dummy-1")
+	dummy1.SHA256 = ""      // indicates that we don't have the data in the blobstore yet.
+	dummy1.StoragePath = "" // indicates that we don't have the data in the blobstore yet.
+	ch1, err := s.State.AddCharmMetadata(dummy1)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.SetCharm(state.SetCharmConfig{
+		Charm: ch1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Add a pending charm with an origin and associate it with the
+	// application. This should trigger a change.
+	dummy2 := s.dummyCharm(c, "cs:quantal/dummy-2")
+	dummy2.SHA256 = ""      // indicates that we don't have the data in the blobstore yet.
+	dummy2.StoragePath = "" // indicates that we don't have the data in the blobstore yet.
+	ch2, err := s.State.AddCharmMetadata(dummy2)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.SetCharm(state.SetCharmConfig{
+		Charm: ch2,
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-store",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(s.mysql.Name())
+
+	// "Upload" a charm and check that we don't get a notification for it.
+	dummy3 := s.dummyCharm(c, "cs:quantal/dummy-3")
+	ch3, err := s.State.AddCharm(dummy3)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.SetCharm(state.SetCharmConfig{
+		Charm: ch3,
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-store",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+}
+
+func (s *ApplicationSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmInfo {
+	info := state.CharmInfo{
+		Charm:       testcharms.Repo.CharmDir("dummy"),
+		StoragePath: "dummy-1",
+		SHA256:      "dummy-1-sha256",
+		Version:     "dummy-146-g725cfd3-dirty",
+	}
+	if curlOverride != "" {
+		info.ID = charm.MustParseURL(curlOverride)
+	} else {
+		info.ID = charm.MustParseURL(
+			fmt.Sprintf("local:quantal/%s-%d", info.Charm.Meta().Name, info.Charm.Revision()),
+		)
+	}
+	return info
+}
+
+func (s *ApplicationSuite) TestWatch(c *gc.C) {
 	w := s.mysql.WatchConfigSettingsHash()
 	defer testing.AssertStop(c, w)
 

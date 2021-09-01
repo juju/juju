@@ -3555,6 +3555,17 @@ func (a *Application) UnitNames() ([]string, error) {
 	return u, errors.Trace(err)
 }
 
+// CharmPendingToBeDownloaded returns true if the charm referenced by this
+// application is pending to be downloaded.
+func (a *Application) CharmPendingToBeDownloaded() bool {
+	ch, _, err := a.Charm()
+	if err != nil {
+		return false
+	}
+
+	return !ch.IsPlaceholder() && !ch.IsUploaded()
+}
+
 func appUnitNames(st *State, appName string) ([]string, error) {
 	unitsCollection, closer := st.db().GetCollection(unitsC)
 	defer closer()
@@ -3572,4 +3583,33 @@ func appUnitNames(st *State, appName string) ([]string, error) {
 		unitNames[i] = doc.Name
 	}
 	return unitNames, nil
+}
+
+// WatchApplicationsWithPendingCharms returns a watcher that emits the IDs of
+// applications that have a charm origin popoulated and reference a charm that
+// is pending to be downloaded.
+func (st *State) WatchApplicationsWithPendingCharms() StringsWatcher {
+	return newCollectionWatcher(st, colWCfg{
+		col: applicationsC,
+		filter: func(key interface{}) bool {
+			sKey, ok := key.(string)
+			if !ok {
+				return false
+			}
+
+			// We need an application with both a charm URL and
+			// an origin set.trusty
+			app, _ := st.Application(st.localID(sKey))
+			if app == nil || app.CharmOrigin() == nil {
+				return false
+			}
+
+			return app.CharmPendingToBeDownloaded()
+		},
+		// We want to be notified for application documents as soon as
+		// they appear in the collection. As the revno for inserted
+		// docs is 0 we need to set the threshold to -1 so inserted
+		// docs are not ignored by the watcher.
+		revnoThreshold: -1,
+	})
 }

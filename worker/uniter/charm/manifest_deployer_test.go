@@ -7,8 +7,13 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"time"
 
+	"github.com/golang/mock/gomock"
+	ch "github.com/juju/charm/v9"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
@@ -16,6 +21,7 @@ import (
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/charm"
+	"github.com/juju/juju/worker/uniter/charm/mocks"
 )
 
 type ManifestDeployerSuite struct {
@@ -257,4 +263,70 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictRevertRetryDifferentCharm(c *
 	userFile.Check(c, s.targetPath)
 	ft.Removed{"old-file"}.Check(c, s.targetPath)
 	ft.Removed{"bad-file"}.Check(c, s.targetPath)
+}
+
+var _ = gc.Suite(&RetryingBundleReaderSuite{})
+
+type RetryingBundleReaderSuite struct {
+	bundleReader *mocks.MockBundleReader
+	bundleInfo   *mocks.MockBundleInfo
+	bundle       *mocks.MockBundle
+	clock        *testclock.Clock
+	rbr          charm.RetryingBundleReader
+}
+
+func (s *RetryingBundleReaderSuite) TestReadBundleMaxAttemptsExceeded(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	charmURL := ch.MustParseURL("ch:focal/dummy-1")
+	s.bundleInfo.EXPECT().URL().Return(charmURL).AnyTimes()
+	s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any()).Return(nil, errors.NotYetAvailablef("still in the oven")).AnyTimes()
+
+	go func() {
+		// We retry 10 times in total so we need to advance the clock 9
+		// times to exceed the max retry attempts (the first attempt
+		// does not use the clock).
+		for i := 0; i < 9; i++ {
+			c.Assert(s.clock.WaitAdvance(10*time.Second, time.Second, 1), jc.ErrorIsNil)
+		}
+	}()
+
+	_, err := s.rbr.Read(s.bundleInfo, nil)
+	c.Assert(err, gc.ErrorMatches, ".*attempt count exceeded.*")
+}
+
+func (s *RetryingBundleReaderSuite) TestReadBundleEventuallySucceeds(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	charmURL := ch.MustParseURL("ch:focal/dummy-1")
+	s.bundleInfo.EXPECT().URL().Return(charmURL).AnyTimes()
+	gomock.InOrder(
+		s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any()).Return(nil, errors.NotYetAvailablef("still in the oven")),
+		s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any()).Return(s.bundle, nil),
+	)
+
+	go func() {
+		// The first attempt should fail; advance the clock to trigger
+		// another attempt which should succeed.
+		c.Assert(s.clock.WaitAdvance(10*time.Second, time.Second, 1), jc.ErrorIsNil)
+	}()
+
+	got, err := s.rbr.Read(s.bundleInfo, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.Equals, s.bundle)
+}
+
+func (s *RetryingBundleReaderSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.bundleReader = mocks.NewMockBundleReader(ctrl)
+	s.bundleInfo = mocks.NewMockBundleInfo(ctrl)
+	s.bundle = mocks.NewMockBundle(ctrl)
+	s.clock = testclock.NewClock(time.Now())
+	s.rbr = charm.RetryingBundleReader{
+		BundleReader: s.bundleReader,
+		Clock:        s.clock,
+		Logger:       loggo.GetLogger("test"),
+	}
+
+	return ctrl
 }

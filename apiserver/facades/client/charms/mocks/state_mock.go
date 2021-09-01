@@ -45,6 +45,21 @@ func (m *MockBackendState) EXPECT() *MockBackendStateMockRecorder {
 	return m.recorder
 }
 
+// AddCharmMetadata mocks base method.
+func (m *MockBackendState) AddCharmMetadata(arg0 state.CharmInfo) (*state.Charm, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddCharmMetadata", arg0)
+	ret0, _ := ret[0].(*state.Charm)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddCharmMetadata indicates an expected call of AddCharmMetadata.
+func (mr *MockBackendStateMockRecorder) AddCharmMetadata(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharmMetadata", reflect.TypeOf((*MockBackendState)(nil).AddCharmMetadata), arg0)
+}
+
 // AllCharms mocks base method.
 func (m *MockBackendState) AllCharms() ([]*state.Charm, error) {
 	m.ctrl.T.Helper()

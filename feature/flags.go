@@ -45,3 +45,6 @@ const ActionsV2 = "actions-v2"
 
 // Secrets enables the secrets feature.
 const Secrets = "secrets"
+
+// AsynchronousCharmDownloads enables support for asynchronous charm downloads.
+const AsynchronousCharmDownloads = "async-charm-downloads"

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"path/filepath"
 
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
@@ -87,4 +88,15 @@ func (s *DownloaderSuite) TestDownload(c *gc.C) {
 	dir, _ := filepath.Split(filename)
 	c.Assert(filepath.Clean(dir), gc.Equals, tmp)
 	assertFileContents(c, filename, "archive")
+}
+
+func (s *DownloaderSuite) TestDownloadHandles409Responses(c *gc.C) {
+	tmp := c.MkDir()
+	gitjujutesting.Server.Response(409, nil, []byte("archive"))
+	dlr := downloader.New(downloader.NewArgs{})
+	_, err := dlr.Download(downloader.Request{
+		URL:       s.URL(c, "/archive.tgz"),
+		TargetDir: tmp,
+	})
+	c.Assert(err, jc.Satisfies, errors.IsNotYetAvailable)
 }
