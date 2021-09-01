@@ -162,8 +162,8 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 				logger.Errorf("charm %s has no origin, skipping", curl)
 				continue
 			}
-			if origin.Revision == nil || origin.Channel == nil || origin.Platform == nil {
-				logger.Errorf("charm %s has missing revision (%p), channel (%p), or platform (%p), skipping",
+			if origin.ID == "" || origin.Revision == nil || origin.Channel == nil || origin.Platform == nil {
+				logger.Errorf("charm %s has missing id(%s), revision (%p), channel (%p), or platform (%p), skipping",
 					curl, origin.Revision, origin.Channel, origin.Platform)
 				continue
 			}
