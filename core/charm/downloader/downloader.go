@@ -6,6 +6,7 @@ package downloader
 import (
 	"io"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"strings"
 
@@ -35,6 +36,7 @@ type CharmArchive interface {
 
 // CharmRepository provides an API for downloading charms/bundles.
 type CharmRepository interface {
+	GetDownloadURL(*charm.URL, corecharm.Origin, macaroon.Slice) (*url.URL, corecharm.Origin, error)
 	ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice) (*charm.URL, corecharm.Origin, []string, error)
 	DownloadCharm(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error)
 }
@@ -137,7 +139,7 @@ func (d *Downloader) DownloadAndStore(charmURL *charm.URL, requestedOrigin corec
 			if err != nil {
 				return corecharm.Origin{}, errors.Trace(err)
 			}
-			_, resolvedOrigin, _, err := repo.ResolveWithPreferredChannel(charmURL, requestedOrigin, macaroons)
+			_, resolvedOrigin, err := repo.GetDownloadURL(charmURL, requestedOrigin, macaroons)
 			return resolvedOrigin, errors.Trace(err)
 		}
 

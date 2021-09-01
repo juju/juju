@@ -5,6 +5,7 @@ package downloader
 
 import (
 	"io/ioutil"
+	"net/url"
 	"path/filepath"
 
 	"github.com/golang/mock/gomock"
@@ -143,13 +144,14 @@ func (s downloaderSuite) TestCharmAlreadyStored(c *gc.C) {
 
 	curl := charm.MustParseURL("cs:redis-0")
 	requestedOrigin := corecharm.Origin{Source: corecharm.CharmHub, Channel: mustParseChannel(c, "20.04/edge")}
-	knownOrigin := corecharm.Origin{Source: corecharm.CharmHub, Channel: mustParseChannel(c, "20.04/candidate")}
+	knownOrigin := corecharm.Origin{Source: corecharm.CharmHub, ID: "knowncharmhubid", Hash: "knowncharmhash", Channel: mustParseChannel(c, "20.04/candidate")}
 
 	s.storage.EXPECT().PrepareToStoreCharm(curl).Return(
 		NewCharmAlreadyStoredError(curl.String()),
 	)
 	s.repoGetter.EXPECT().GetCharmRepository(corecharm.CharmHub).Return(repoAdapter{s.repo}, nil)
-	s.repo.EXPECT().ResolveWithPreferredChannel(curl, requestedOrigin, nil).Return(curl, knownOrigin, nil, nil)
+	retURL, _ := url.Parse(curl.String())
+	s.repo.EXPECT().GetDownloadURL(curl, requestedOrigin, nil).Return(retURL, knownOrigin, nil)
 
 	dl := s.newDownloader()
 	gotOrigin, err := dl.DownloadAndStore(curl, requestedOrigin, nil, false)
@@ -297,4 +299,8 @@ func (r repoAdapter) DownloadCharm(charmURL *charm.URL, requestedOrigin corechar
 
 func (r repoAdapter) ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice) (*charm.URL, corecharm.Origin, []string, error) {
 	return r.repo.ResolveWithPreferredChannel(charmURL, requestedOrigin, macaroons)
+}
+
+func (r repoAdapter) GetDownloadURL(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice) (*url.URL, corecharm.Origin, error) {
+	return r.repo.GetDownloadURL(charmURL, requestedOrigin, macaroons)
 }
