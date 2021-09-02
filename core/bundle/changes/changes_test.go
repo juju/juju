@@ -3242,6 +3242,16 @@ machines:
 	s.assertParseData(c, content, expected)
 }
 
+func (s *changesSuite) TestAddMachineParamsMachine(c *gc.C) {
+	param := bundlechanges.NewAddMachineParamsMachine("42")
+	c.Assert(param.Machine(), gc.Equals, "42")
+}
+
+func (s *changesSuite) TestAddMachineParamsContainer(c *gc.C) {
+	param := bundlechanges.NewAddMachineParamsContainer("42", "42/lxd/0")
+	c.Assert(param.Machine(), gc.Equals, "42/lxd/0")
+}
+
 func copyParams(value interface{}) interface{} {
 	source := reflect.ValueOf(value).Elem().FieldByName("Params")
 	target := reflect.New(source.Type()).Elem()

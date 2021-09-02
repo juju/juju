@@ -711,7 +711,11 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 
 	p := change.Params
-	curl, err := resolveCharmURL(resolve(p.Charm, h.results), h.defaultCharmSchema)
+	resolved, ok := resolve(p.Charm, h.results)
+	if !ok {
+		return errors.Errorf("attempting to apply %s without prerequisites", change.Description())
+	}
+	curl, err := resolveCharmURL(resolved, h.defaultCharmSchema)
 	if err != nil {
 		return errors.Trace(err)
 	} else if curl == nil {
@@ -993,7 +997,7 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 	}
 
 	deployedApps := func() string {
-		apps := h.applicationsForMachineChange(change.Id())
+		apps := h.applicationsForMachineChange(change)
 		// Note that we *should* always have at least one application
 		// that justifies the creation of this machine. But just in
 		// case, check (see https://pad.lv/1773357).
@@ -1055,12 +1059,15 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 		return errors.Annotatef(r[0].Error, "cannot create machine for holding %s", deployedApps())
 	}
 	machine := r[0].Machine
-	if p.ContainerType == "" {
-		logger.Debugf("created new machine %s for holding %s", machine, deployedApps())
-	} else if p.ParentId == "" {
-		logger.Debugf("created %s container in new machine for holding %s", machine, deployedApps())
-	} else {
-		logger.Debugf("created %s container in machine %s for holding %s", machine, machineParams.ParentId, deployedApps())
+	if logger.IsDebugEnabled() {
+		// Only do the work in for deployedApps, if debugging is enabled.
+		if p.ContainerType == "" {
+			logger.Debugf("created new machine %s for holding %s", machine, deployedApps())
+		} else if p.ParentId == "" {
+			logger.Debugf("created %s container in new machine for holding %s", machine, deployedApps())
+		} else {
+			logger.Debugf("created %s container in machine %s for holding %s", machine, machineParams.ParentId, deployedApps())
+		}
 	}
 	h.results[change.Id()] = machine
 	return nil
@@ -1072,10 +1079,16 @@ func (h *bundleHandler) addRelation(change *bundlechanges.AddRelationChange) err
 		return nil
 	}
 	p := change.Params
-	ep1 := resolveRelation(p.Endpoint1, h.results)
-	ep2 := resolveRelation(p.Endpoint2, h.results)
+	ep1, err := resolveRelation(p.Endpoint1, h.results)
+	if err != nil {
+		return errors.Errorf("attempting to apply %s without prerequists", p.Endpoint1)
+	}
+	ep2, err := resolveRelation(p.Endpoint2, h.results)
+	if err != nil {
+		return errors.Errorf("attempting to apply %s without prerequisites", p.Endpoint2)
+	}
 	// TODO(wallyworld) - CMR support in bundles
-	_, err := h.deployAPI.AddRelation([]string{ep1, ep2}, nil)
+	_, err = h.deployAPI.AddRelation([]string{ep1, ep2}, nil)
 	if err != nil {
 		// TODO(thumper): remove this error check when we add resolving
 		// implicit relations.
@@ -1083,7 +1096,6 @@ func (h *bundleHandler) addRelation(change *bundlechanges.AddRelationChange) err
 			return nil
 		}
 		return errors.Annotatef(err, "cannot add relation between %q and %q", ep1, ep2)
-
 	}
 	return nil
 }
@@ -1095,7 +1107,11 @@ func (h *bundleHandler) addUnit(change *bundlechanges.AddUnitChange) error {
 	}
 
 	p := change.Params
-	applicationName := resolve(p.Application, h.results)
+	applicationName, ok := resolve(p.Application, h.results)
+	if !ok {
+		// programming error
+		return errors.Errorf("attempting to apply %s without prerequisites", change.Description())
+	}
 	var err error
 	var placementArg []*instance.Placement
 	targetMachine := p.To
@@ -1157,7 +1173,11 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	}
 
 	p := change.Params
-	resolvedCharm := resolve(p.Charm, h.results)
+	resolvedCharm, ok := resolve(p.Charm, h.results)
+	if !ok {
+		// programming error
+		return errors.Errorf("attempting to apply %s without prerequisites", change.Description())
+	}
 	curl, err := resolveCharmURL(resolvedCharm, h.defaultCharmSchema)
 	if err != nil {
 		return errors.Trace(err)
@@ -1288,7 +1308,11 @@ func (h *bundleHandler) exposeApplication(change *bundlechanges.ExposeChange) er
 		return nil
 	}
 
-	application := resolve(change.Params.Application, h.results)
+	application, ok := resolve(change.Params.Application, h.results)
+	if !ok {
+		// programming error
+		return errors.Errorf("attempting to apply %s without prerequisites", change.Description())
+	}
 	exposedEndpoints := make(map[string]params.ExposedEndpoint)
 	for endpointName, exposeDetails := range change.Params.ExposedEndpoints {
 		exposedEndpoints[endpointName] = params.ExposedEndpoint{
@@ -1313,7 +1337,11 @@ func (h *bundleHandler) setAnnotations(change *bundlechanges.SetAnnotationsChang
 	if h.dryRun {
 		return nil
 	}
-	eid := resolve(p.Id, h.results)
+	eid, ok := resolve(p.Id, h.results)
+	if !ok {
+		// programming error
+		return errors.Errorf("attempting to apply %s without prerequisites", change.Description())
+	}
 	var tag string
 	switch p.EntityType {
 	case bundlechanges.MachineType:
@@ -1439,39 +1467,29 @@ func (h *bundleHandler) grantOfferAccess(change *bundlechanges.GrantOfferAccessC
 // applicationsForMachineChange returns the names of the applications for which an
 // "addMachine" change is required, as adding machines is required to place
 // units, and units belong to applications.
-// Receive the id of the "addMachine" change.
-func (h *bundleHandler) applicationsForMachineChange(changeID string) []string {
+func (h *bundleHandler) applicationsForMachineChange(change *bundlechanges.AddMachineChange) []string {
 	applications := set.NewStrings()
-mainloop:
+	// If this change is a machine, look for AddUnitParams with matching
+	// baseMachine.  This will cover the machine and containers on it.
+	// If this change is a container, look for AddUnitParams with matching
+	// placement directive.
+	match := change.Params.Machine()
+	matchContainer := names.IsContainerMachine(match)
 	for _, change := range h.changes {
-		for _, required := range change.Requires() {
-			if required != changeID {
+		unitAdd, ok := change.(*bundlechanges.AddUnitChange)
+		if !ok {
+			continue
+		}
+		if matchContainer {
+			if unitAdd.Params.PlacementDescription() != match {
 				continue
 			}
-			switch change := change.(type) {
-			case *bundlechanges.AddMachineChange:
-				// The original machine is a container, and its parent is
-				// another "addMachines" change. Search again using the
-				// parent id.
-				for _, application := range h.applicationsForMachineChange(change.Id()) {
-					applications.Add(application)
-				}
-				continue mainloop
-			case *bundlechanges.AddUnitChange:
-				// We have found the "addUnit" change, which refers to a
-				// application: now resolve the application holding the unit.
-				application := resolve(change.Params.Application, h.results)
-				applications.Add(application)
-				continue mainloop
-			case *bundlechanges.SetAnnotationsChange:
-				// A machine change is always required to set machine
-				// annotations, but this isn't the interesting change here.
-				continue mainloop
-			default:
-				// Should never happen.
-				panic(fmt.Sprintf("unexpected change %T", change))
-			}
+		} else if unitAdd.Params.BaseMachine() != match {
+			continue
 		}
+		// This is for a debug statement, ignore the error.
+		unitApp, _ := names.UnitApplication(unitAdd.Params.Unit())
+		applications.Add(unitApp)
 	}
 	return applications.SortedValues()
 }
@@ -1515,7 +1533,11 @@ func (h *bundleHandler) updateUnitStatus() error {
 // placeholder.
 func (h *bundleHandler) resolveMachine(placeholder string) (string, error) {
 	logger.Debugf("resolveMachine(%q)", placeholder)
-	machineOrUnit := resolve(placeholder, h.results)
+	machineOrUnit, ok := resolve(placeholder, h.results)
+	if !ok {
+		// programming error
+		return "", errors.NotFoundf("machine %s", placeholder)
+	}
 	if !names.IsValidUnit(machineOrUnit) {
 		return machineOrUnit, nil
 	}
@@ -1564,13 +1586,17 @@ func constructNormalizedChannel(channel string) (charm.Channel, error) {
 
 // resolveRelation returns the relation name resolving the included application
 // placeholder.
-func resolveRelation(e string, results map[string]string) string {
+func resolveRelation(e string, results map[string]string) (string, error) {
 	parts := strings.SplitN(e, ":", 2)
-	application := resolve(parts[0], results)
-	if len(parts) == 1 {
-		return application
+	application, ok := resolve(parts[0], results)
+	if !ok {
+		// programming error
+		return "", errors.NotFoundf("application for %s", e)
 	}
-	return fmt.Sprintf("%s:%s", application, parts[1])
+	if len(parts) == 1 {
+		return application, nil
+	}
+	return fmt.Sprintf("%s:%s", application, parts[1]), nil
 }
 
 // resolve returns the real entity name for the bundle entity (for instance a
@@ -1585,13 +1611,14 @@ func resolveRelation(e string, results map[string]string) string {
 // entity already existed in the model, the placeholder value is the actual
 // entity from the model, and in these situations the placeholder value doesn't
 // start with the '$'.
-func resolve(placeholder string, results map[string]string) string {
+func resolve(placeholder string, results map[string]string) (string, bool) {
 	logger.Debugf("resolve %q from %s", placeholder, pretty.Sprint(results))
 	if !strings.HasPrefix(placeholder, "$") {
-		return placeholder
+		return placeholder, true
 	}
 	id := placeholder[1:]
-	return results[id]
+	result, ok := results[id]
+	return result, ok
 }
 
 // applicationRequiresTrust returns true if this app requires the operator to

@@ -432,6 +432,15 @@ type AddMachineParams struct {
 	containerMachineID string
 }
 
+// Machine returns the machine for these params, either the container ID,
+// or the machine ID if it doesn't exist.
+func (a AddMachineParams) Machine() string {
+	if a.containerMachineID == "" {
+		return a.machineID
+	}
+	return a.containerMachineID
+}
+
 // newAddRelationChange creates a new change for adding a relation.
 func newAddRelationChange(params AddRelationParams, requires ...string) *AddRelationChange {
 	return &AddRelationChange{
@@ -689,6 +698,21 @@ type AddUnitParams struct {
 	// to explain why the unit is being placed there.
 	directive   string
 	baseMachine string
+}
+
+// Unit returns the unit name for these params.
+func (a AddUnitParams) Unit() string {
+	return a.unitName
+}
+
+// PlacementDescription returns the placement description for these params.
+func (a AddUnitParams) PlacementDescription() string {
+	return a.placementDescription
+}
+
+// BaseMachine returns the base machine for these params.
+func (a AddUnitParams) BaseMachine() string {
+	return a.baseMachine
 }
 
 // newExposeChange creates a new change for exposing an application.
@@ -1246,7 +1270,6 @@ func (cs *changeset) sorted() ([]Change, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	// convert the sorted change IDs to a sorted slice
 	// of changes
 	var sortedChanges []Change
