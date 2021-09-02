@@ -13,11 +13,11 @@ import (
 
 var (
 	// ProfileDir is the directory where the profile script is written.
-	ProfileDir        = "/etc/profile.d"
-	bashFuncsFilename = "juju-introspection.sh"
+	ProfileDir         = "/etc/profile.d"
+	shellFuncsFilename = "juju-introspection.sh"
 )
 
-// WriteProfileFunctions writes the bashFuncs below to a file in the
+// WriteProfileFunctions writes the shellFuncs below to a file in the
 // /etc/profile.d directory so all bash terminals can easily access the
 // introspection worker.
 func WriteProfileFunctions(profileDir string) error {
@@ -26,17 +26,19 @@ func WriteProfileFunctions(profileDir string) error {
 		return nil
 	}
 	filename := profileFilename(profileDir)
-	if err := ioutil.WriteFile(filename, []byte(bashFuncs), 0644); err != nil {
+	if err := ioutil.WriteFile(filename, []byte(shellFuncs), 0644); err != nil {
 		return errors.Annotate(err, "writing introspection bash funcs")
 	}
 	return nil
 }
 
 func profileFilename(profileDir string) string {
-	return path.Join(profileDir, bashFuncsFilename)
+	return path.Join(profileDir, shellFuncsFilename)
 }
 
-const bashFuncs = `
+// WARNING: This code MUST be compatible with all POSIX shells including
+// /bin/sh and MUST NOT include bash-isms.
+const shellFuncs = `
 juju_agent_call () {
   local agent=$1
   shift
@@ -127,12 +129,11 @@ juju_stop_unit () {
     echo "usage: juju_stop_unit <unit-name> [<unit-name>...]"
     return 1
   fi
-  arr=("$@")
-  local -a args
-  for i in "${arr[@]}"; do
-    args+=("unit=$i")
+  args=""
+  for i in "$@"; do
+    args="$args unit=$i"
   done
-  juju_agent --post units action=stop "${args[@]}"
+  juju_agent --post units action=stop $args
 }
 
 juju_start_unit () {
@@ -141,12 +142,11 @@ juju_start_unit () {
     echo "usage: juju_start_unit <unit-name> [<unit-name>...]"
     return 1
   fi
-  arr=("$@")
-  local -a args
-  for i in "${arr[@]}"; do
-    args+=("unit=$i")
+  args=""
+  for i in "$@"; do
+    args="$args unit=$i"
   done
-  juju_agent --post units action=start "${args[@]}"
+  juju_agent --post units action=start $args
 }
 
 juju_leases () {
@@ -163,8 +163,7 @@ juju_leases () {
     shift
     query="&model=$model"
   fi
-  arr=("$@")
-  for i in "${arr[@]}"; do
+  for i in "$@"; do
     query="$query&app=$i"
   done
   if [ -z "$query" ]; then
