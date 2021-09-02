@@ -39,6 +39,7 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 		CharmID: repositories.CharmID{
 			URL: curl,
 			Origin: state.CharmOrigin{
+				ID:      "mycharmhubid",
 				Channel: &state.Channel{Risk: "stable"},
 				Platform: &state.Platform{
 					Architecture: "amd64",

@@ -185,6 +185,7 @@ func (s CharmhubValidatorSuite) TestValidateApplication(c *gc.C) {
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		ID:       "mycharmhubid",
 		Revision: &revision,
 		Platform: &state.Platform{
 			Architecture: "amd64",
@@ -230,6 +231,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithClientRefreshError(c 
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		ID:       "mycharmhubid",
 		Revision: &revision,
 		Platform: &state.Platform{
 			Architecture: "amd64",
@@ -260,6 +262,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshError(c *gc.C)
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		ID:       "mycharmhubid",
 		Revision: &revision,
 		Platform: &state.Platform{
 			Architecture: "amd64",
@@ -293,6 +296,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshErrorAndForce(
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		ID:       "mycharmhubid",
 		Revision: &revision,
 		Platform: &state.Platform{
 			Architecture: "amd64",
