@@ -40,5 +40,5 @@ func (s *profileSuite) TestLinux(c *gc.C) {
 
 	content, err := ioutil.ReadFile(profileFilename(dir))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(content), gc.Equals, bashFuncs)
+	c.Assert(string(content), gc.Equals, shellFuncs)
 }
