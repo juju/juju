@@ -205,7 +205,7 @@ func (w *socketListener) RegisterHTTPHandlers(
 	handle("/metrics", promhttp.HandlerFor(w.prometheusGatherer, promhttp.HandlerOpts{}))
 	// The trailing slash is kept for metrics because we don't want to
 	// break the metrics exporting that is using the internal charm. Since
-	// we don't know if it is using the exported bash function, or calling
+	// we don't know if it is using the exported shell function, or calling
 	// the introspection endpoint directly.
 	handle("/metrics/", promhttp.HandlerFor(w.prometheusGatherer, promhttp.HandlerOpts{}))
 	// Unit agents don't have a presence recorder to pass in.
