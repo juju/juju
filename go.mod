@@ -50,7 +50,7 @@ require (
 	github.com/juju/ansiterm v0.0.0-20210706145210-9283cdf370b5
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
 	github.com/juju/charm/v9 v9.0.0-20210722104222-d3c79ce32e77
-	github.com/juju/charmrepo/v7 v7.0.0-20210427073450-742f84f1c0ff
+	github.com/juju/charmrepo/v7 v7.0.0-20210901102801-513fb9274dae
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd/v3 v3.0.0-20210809234809-65029dab4cd0
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
