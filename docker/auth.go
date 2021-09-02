@@ -168,11 +168,10 @@ func (rid *ImageRepoDetails) init() error {
 }
 
 func (rid ImageRepoDetails) APIVersion() APIVersion {
-	v := APIVersionV1
-	if !rid.TokenAuthConfig.Empty() {
-		v = APIVersionV2
+	if rid.IsPrivate() {
+		return APIVersionV2
 	}
-	return v
+	return APIVersionV1
 }
 
 func fileExists(p string) (bool, error) {

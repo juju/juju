@@ -32,6 +32,10 @@ func (info imageInfo) AgentVersion() version.Number {
 	return info.version
 }
 
+func (info imageInfo) String() string {
+	return info.version.String()
+}
+
 // NewImageInfo creates an imageInfo.
 func NewImageInfo(ver version.Number) tools.HasVersion {
 	return &imageInfo{version: ver}
