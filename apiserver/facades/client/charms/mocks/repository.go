@@ -70,6 +70,25 @@ func (mr *MockRepositoryMockRecorder) GetDownloadURL(arg0, arg1, arg2 interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDownloadURL", reflect.TypeOf((*MockRepository)(nil).GetDownloadURL), arg0, arg1, arg2)
 }
 
+// GetEssentialMetadata mocks base method.
+func (m *MockRepository) GetEssentialMetadata(arg0 ...charm0.MetadataRequest) ([]charm0.EssentialMetadata, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetEssentialMetadata", varargs...)
+	ret0, _ := ret[0].([]charm0.EssentialMetadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetEssentialMetadata indicates an expected call of GetEssentialMetadata.
+func (mr *MockRepositoryMockRecorder) GetEssentialMetadata(arg0 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEssentialMetadata", reflect.TypeOf((*MockRepository)(nil).GetEssentialMetadata), arg0...)
+}
+
 // ListResources mocks base method.
 func (m *MockRepository) ListResources(arg0 *charm.URL, arg1 charm0.Origin, arg2 macaroon.Slice) ([]resource.Resource, error) {
 	m.ctrl.T.Helper()
