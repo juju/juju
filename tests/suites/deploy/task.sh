@@ -17,6 +17,7 @@ test_deploy() {
 	test_deploy_bundles
 	test_cmr_bundles_export_overlay
 	test_deploy_os
+	test_deploy_revision
 
 	destroy_controller "test-deploy-ctl"
 }
