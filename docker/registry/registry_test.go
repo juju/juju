@@ -82,7 +82,7 @@ func (s *registrySuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Control
 			// registry.Ping()
 			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Header, jc.DeepEquals, http.Header{"Basic": []string{"xxxxx=="}})
+					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic xxxxx=="}})
 					c.Assert(req.Method, gc.Equals, `GET`)
 					c.Assert(req.URL.String(), gc.Equals, `https://quay.io/v1`)
 					return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
@@ -90,25 +90,32 @@ func (s *registrySuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Control
 			),
 		)
 	}
+	s.PatchValue(&registry.DefaultTransport, s.mockRoundTripper)
 
-	reg, err := registry.NewRegistryForTest(s.imageRepoDetails, s.mockRoundTripper)
+	reg, err := registry.New(s.imageRepoDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	return reg, ctrl
 }
 
 func (s *registrySuite) TestPingBasicAuth(c *gc.C) {
-	_, ctrl := s.getRegistry(c)
+	reg, ctrl := s.getRegistry(c)
+	err := reg.Close()
+	c.Assert(err, jc.ErrorIsNil)
 	defer ctrl.Finish()
 }
 
 func (s *registrySuite) TestPingTokenAuth(c *gc.C) {
 	s.tokenAuth = true
-	_, ctrl := s.getRegistry(c)
+	reg, ctrl := s.getRegistry(c)
+	err := reg.Close()
+	c.Assert(err, jc.ErrorIsNil)
 	defer ctrl.Finish()
 }
 
 func (s *registrySuite) TestTagsV1(c *gc.C) {
 	reg, ctrl := s.getRegistry(c)
+	err := reg.Close()
+	c.Assert(err, jc.ErrorIsNil)
 	defer ctrl.Finish()
 
 	data := `

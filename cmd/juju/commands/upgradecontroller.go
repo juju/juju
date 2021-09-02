@@ -64,7 +64,7 @@ See also:
 
 func newUpgradeControllerCommand(options ...modelcmd.WrapControllerOption) cmd.Command {
 	command := &upgradeControllerCommand{}
-	command.registryAPIFunc = registry.NewRegistry
+	command.registryAPIFunc = registry.New
 	return modelcmd.WrapController(command, options...)
 }
 
@@ -305,7 +305,7 @@ func (c *baseUpgradeCommand) initCAASVersions(
 	for _, a := range streamsAgents {
 		streamsVersions.Add(a.Version.Number.String())
 	}
-	logger.Debugf("found available tags: %v", availableTags)
+	logger.Debugf("found available tags: %q", availableTags)
 	var matchingTags tools.Versions
 	for _, t := range availableTags {
 		vers := t.AgentVersion()
