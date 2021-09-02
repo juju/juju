@@ -87,10 +87,19 @@ type BridgeParameters struct {
 }
 
 type Bridge struct {
-	Interfaces    []string `yaml:"interfaces,omitempty,flow"`
-	Interface     `yaml:",inline"`
-	Parameters    BridgeParameters       `yaml:"parameters,omitempty"`
-	OVSParameters map[string]interface{} `yaml:"openvswitch,omitempty"`
+	Interfaces []string `yaml:"interfaces,omitempty,flow"`
+	Interface  `yaml:",inline"`
+	Parameters BridgeParameters `yaml:"parameters,omitempty"`
+
+	// According to the netplan examples, this section typically includes
+	// some OVS-specific configuration bits. However, MAAS may just
+	// include an empty block to indicate the presence of an OVS-managed
+	// bridge (LP1942328). As a workaround, we make this an optional map
+	// so we can tell whether it is present (but empty) vs not being
+	// present.
+	//
+	// See: https://github.com/canonical/netplan/blob/main/examples/openvswitch.yaml
+	OVSParameters *map[string]interface{} `yaml:"openvswitch,omitempty"`
 }
 
 type Route struct {
