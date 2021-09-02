@@ -24,8 +24,7 @@ import (
 var logger = loggo.GetLogger("juju.docker.registry")
 
 const (
-	defaultTimeout      = 15 * time.Second
-	dockerServerAddress = "index.docker.io"
+	defaultTimeout = 15 * time.Second
 )
 
 var (
@@ -33,83 +32,111 @@ var (
 	DefaultTransport = http.DefaultTransport
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/http_mock.go net/http RoundTripper
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/registry_mock.go github.com/juju/juju/docker/registry Registry
+func providers() []func(docker.ImageRepoDetails, http.RoundTripper) RegistryInternal {
+	return []func(docker.ImageRepoDetails, http.RoundTripper) RegistryInternal{
+		newACR,
+		newDockerhub,
+		newGitlab,
+		newGithub,
+		newQuay,
+		newGCR,
+	}
+}
 
-type registry struct {
+func New(repoDetails docker.ImageRepoDetails) (Registry, error) {
+	var provider RegistryInternal = newBase(repoDetails, DefaultTransport)
+	for _, providerNewer := range providers() {
+		p := providerNewer(repoDetails, DefaultTransport)
+		if p.Match() {
+			provider = p
+			break
+		}
+	}
+	if err := initClient(provider); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return provider, nil
+}
+
+type baseClient struct {
 	baseURL     *url.URL
 	client      *http.Client
 	repoDetails *docker.ImageRepoDetails
 }
 
-// Registry provides APIs to interact with the registry.
-type Registry interface {
-	Tags(string) (tools.Versions, error)
-	Close() error
-	Ping() error
-	ImageRepoDetails() docker.ImageRepoDetails
+func initClient(c Initializer) error {
+	if err := c.DecideBaseURL(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := c.WrapTransport(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := c.Ping(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
-// NewRegistry creates a new registry.
-func NewRegistry(repoDetails docker.ImageRepoDetails) (Registry, error) {
-	return newRegistry(repoDetails, DefaultTransport)
-}
-
-func newRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) (Registry, error) {
-	r := &registry{
+func newBase(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) *baseClient {
+	c := &baseClient{
 		repoDetails: &repoDetails,
 		client: &http.Client{
 			Transport: transport,
 			Timeout:   defaultTimeout,
 		},
 	}
-	var err error
-	if r.baseURL, err = r.decideBaseURL(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := newClientWithOpts(r, wrapTransport); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err = r.Ping(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return r, nil
+	return c
 }
 
-type opt func(*registry) error
+func (c *baseClient) Match() bool {
+	return false
+}
 
-func newClientWithOpts(r *registry, ops ...opt) error {
-	for _, op := range ops {
-		if err := op(r); err != nil {
-			return errors.Trace(err)
-		}
+func (c *baseClient) WrapTransport() error {
+	logger.Criticalf("baseClient.WrapTransport")
+	if !c.repoDetails.IsPrivate() {
+		return nil
 	}
+	transport := c.client.Transport
+	if !c.repoDetails.BasicAuthConfig.Empty() {
+		transport = newBasicTransport(
+			transport, c.repoDetails.Username, c.repoDetails.Password, c.repoDetails.Auth,
+		)
+	}
+	c.client.Transport = errorTransport{transport}
 	return nil
 }
 
-func (r *registry) decideBaseURL() (*url.URL, error) {
-	if r.repoDetails.ServerAddress != "" {
-		// TODO(ycliuhw): refactor registry to embed different API version handllers properly.
-		return url.Parse(r.repoDetails.ServerAddress)
+func (c *baseClient) DecideBaseURL() error {
+	logger.Criticalf("baseClient.DecideBaseURL")
+	addr := c.repoDetails.ServerAddress
+	if addr == "" {
+		return errors.NotValidf("empty server address for %q", c.repoDetails.Repository)
 	}
-	url, err := url.Parse(dockerServerAddress)
+	url, err := url.Parse(addr)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	// This "/" matters because docker uses url.String() for the credential key and expects the trailing slash.
-	url.Path = path.Join(url.Path, r.repoDetails.APIVersion().String(), "/")
+	serverAddressURL := *url
+	apiVersion := c.repoDetails.APIVersion().String()
+	if !strings.Contains(url.Path, "/"+apiVersion) {
+		url.Path = path.Join(url.Path, apiVersion)
+	}
 	if url.Scheme == "" {
 		url.Scheme = "https"
 	}
-	r.repoDetails.ServerAddress = url.String() + "/"
-	logger.Tracef("deciding base URL %q", url.String())
-	return url, nil
+	c.baseURL = url
+
+	serverAddressURL.Scheme = ""
+	c.repoDetails.ServerAddress = serverAddressURL.String()
+	logger.Criticalf("baseClient.DecideBaseURL c.baseURL %q, r.repoDetails.ServerAddress %q", c.baseURL, c.repoDetails.ServerAddress)
+	return nil
 }
 
-func (r registry) url(pathTemplate string, args ...interface{}) string {
+func (c baseClient) url(pathTemplate string, args ...interface{}) string {
 	pathSuffix := fmt.Sprintf(pathTemplate, args...)
-	url := *r.baseURL
-	ver := r.repoDetails.APIVersion().String()
+	url := *c.baseURL
+	ver := c.repoDetails.APIVersion().String()
 	if !strings.HasSuffix(strings.TrimRight(url.Path, "/"), ver) {
 		url.Path = path.Join(url.Path, ver)
 	}
@@ -117,30 +144,32 @@ func (r registry) url(pathTemplate string, args ...interface{}) string {
 		url.Scheme = "https"
 	}
 	url.Path = path.Join(url.Path, pathSuffix)
+	logger.Criticalf("baseClient url.Path ===> %q, %q", url.Path, pathSuffix)
+	logger.Criticalf("baseClient c.baseURL ===> %q, url.String() ===> %q", c.baseURL, url.String())
 	return url.String()
 }
 
-// Ping pings the base endpoint.
-func (r registry) Ping() error {
-	url := r.url("/")
-	logger.Debugf("registry ping %q", url)
-	resp, err := r.client.Get(url)
+// Ping pings the baseClient endpoint.
+func (c baseClient) Ping() error {
+	url := c.url("/")
+	logger.Debugf("baseClient ping %q", url)
+	resp, err := c.client.Get(url)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
 	return errors.Trace(err)
 }
 
-func (r registry) ImageRepoDetails() (o docker.ImageRepoDetails) {
-	if r.repoDetails != nil {
-		return *r.repoDetails
+func (c baseClient) ImageRepoDetails() (o docker.ImageRepoDetails) {
+	if c.repoDetails != nil {
+		return *c.repoDetails
 	}
 	return o
 }
 
 // Close closes the transport used by the client.
-func (r *registry) Close() error {
-	if t, ok := r.client.Transport.(*http.Transport); ok {
+func (c *baseClient) Close() error {
+	if t, ok := c.client.Transport.(*http.Transport); ok {
 		t.CloseIdleConnections()
 	}
 	return nil
@@ -172,26 +201,34 @@ type tagsGetter interface {
 	GetTags() []string
 }
 
-// Tags fetches tags for an OCI image.
-func (r registry) Tags(imageName string) (versions tools.Versions, err error) {
-	// TODO: merge ListOperatorImages with registry and refactor registry to embed different API version handllers properly.
-	apiVersion := r.repoDetails.APIVersion()
+func getRepositoryOnly(s string) string {
+	i := strings.IndexRune(s, '/')
+	if i == -1 {
+		return s
+	}
+	return s[i+1:]
+}
 
+// Tags fetches tags for an OCI image.
+func (c baseClient) Tags(imageName string) (versions tools.Versions, err error) {
+	apiVersion := c.repoDetails.APIVersion()
+
+	repo := getRepositoryOnly(c.repoDetails.Repository)
 	if apiVersion == docker.APIVersionV1 {
-		url := r.url("/repositories/%s/%s/tags", r.repoDetails.Repository, imageName)
+		url := c.url("/repositories/%s/%s/tags", repo, imageName)
 		var response tagsResponseV1
-		return r.fetchTags(url, &response)
+		return c.fetchTags(url, &response)
 	}
 	if apiVersion == docker.APIVersionV2 {
-		url := r.url("/%s/%s/tags/list", r.repoDetails.Repository, imageName)
+		url := c.url("/%s/%s/tags/list", repo, imageName)
 		var response tagsResponseV2
-		return r.fetchTags(url, &response)
+		return c.fetchTags(url, &response)
 	}
 	// This should never happen.
 	return nil, nil
 }
 
-func (r registry) fetchTags(url string, res tagsGetter) (versions tools.Versions, err error) {
+func (c baseClient) fetchTags(url string, res tagsGetter) (versions tools.Versions, err error) {
 	pushVersions := func(tags []string) {
 		for _, tag := range tags {
 			v, err := version.Parse(tag)
@@ -203,7 +240,7 @@ func (r registry) fetchTags(url string, res tagsGetter) (versions tools.Versions
 		}
 	}
 	for {
-		url, err = r.getPaginatedJSON(url, &res)
+		url, err = c.getPaginatedJSON(url, &res)
 		switch err {
 		case errNoMorePages:
 			pushVersions(res.GetTags())
@@ -217,8 +254,9 @@ func (r registry) fetchTags(url string, res tagsGetter) (versions tools.Versions
 	}
 }
 
-func (r registry) getPaginatedJSON(url string, response interface{}) (string, error) {
-	resp, err := r.client.Get(url)
+func (c baseClient) getPaginatedJSON(url string, response interface{}) (string, error) {
+	logger.Criticalf("baseClient.getPaginatedJSON url ===> %q", url)
+	resp, err := c.client.Get(url)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
