@@ -57,7 +57,6 @@ var _ = gc.Suite(&BundleDeployRepositorySuite{})
 func (s *BundleDeployRepositorySuite) SetUpTest(_ *gc.C) {
 	s.deployArgs = make(map[string]application.DeployArgs)
 	s.output = bytes.NewBuffer([]byte{})
-	//logger.SetLogLevel(loggo.DEBUG)
 }
 
 func (s *BundleDeployRepositorySuite) TearDownTest(_ *gc.C) {
