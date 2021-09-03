@@ -4,6 +4,8 @@
 package controller_test
 
 import (
+	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	stdtesting "testing"
@@ -610,9 +612,10 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 	gomock.InOrder(
 		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{"Basic": []string{"xxxxx=="}})
+				token := base64.StdEncoding.EncodeToString([]byte("pwd"))
+				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + token}})
 				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://quay.io/v1`)
+				c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v2/`)
 				resps := &http.Response{
 					StatusCode: http.StatusOK,
 					Body:       ioutil.NopCloser(nil),
@@ -635,12 +638,14 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 		{content: "juju-operator-repo", expected: ""},
 		{content: "registry.foo.com", expected: ""},
 		{content: "registry.foo.com/me", expected: ""},
-		{content: `
+		{
+			content: fmt.Sprintf(`
 {
-    "serveraddress": "quay.io",
-    "auth": "xxxxx==",
-    "repository": "test-account"
-}`[1:], expected: "test-account"},
+    "serveraddress": "ghcr.io",
+    "auth": "%s",
+    "repository": "ghcr.io/test-account"
+}`, base64.StdEncoding.EncodeToString([]byte("username:pwd"))),
+			expected: "test-account"},
 	} {
 		if imageRepo.expected == "" {
 			imageRepo.expected = imageRepo.content

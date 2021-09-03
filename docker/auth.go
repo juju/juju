@@ -14,10 +14,13 @@ import (
 	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
+	"github.com/juju/loggo"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/feature"
 )
+
+var logger = loggo.GetLogger("juju.docker")
 
 // APIVersion is the API version type.
 type APIVersion string
@@ -166,6 +169,9 @@ func (rid *ImageRepoDetails) init() error {
 	}
 	return nil
 }
+func (rid ImageRepoDetails) Empty() bool {
+	return rid == ImageRepoDetails{}
+}
 
 func (rid ImageRepoDetails) APIVersion() APIVersion {
 	if rid.IsPrivate() {
@@ -193,6 +199,7 @@ func NewImageRepoDetails(contentOrPath string) (o *ImageRepoDetails, err error) 
 	data := []byte(contentOrPath)
 	isPath, err := fileExists(contentOrPath)
 	if err == nil && isPath {
+		logger.Debugf("reading image repository information from %q", contentOrPath)
 		data, err = ioutil.ReadFile(contentOrPath)
 		if err != nil {
 			return nil, errors.Trace(err)

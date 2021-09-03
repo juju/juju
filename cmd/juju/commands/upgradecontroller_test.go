@@ -4,9 +4,7 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3"
@@ -286,30 +284,13 @@ func (s *UpgradeCAASControllerSuite) upgradeControllerCommand(
 }
 
 func (s *UpgradeCAASControllerSuite) TestUpgrade(c *gc.C) {
-	c.Assert(s.Model.Name(), gc.Equals, "controller")
-	err := s.ControllerStore.SetCurrentModel("kontroll", "")
-	c.Assert(err, jc.ErrorIsNil)
-
-	assertAndMocks := func(tagsInfo []tagInfo) {
-		s.PatchValue(&docker.HttpGet, func(url string, timeout time.Duration) ([]byte, error) {
-			c.Assert(url, gc.Equals, "https://registry.hub.docker.com/v1/repositories/jujusolutions/jujud-operator/tags")
-			c.Assert(timeout, gc.Equals, 30*time.Second)
-			return json.Marshal(tagsInfo)
-		})
-	}
-	s.assertUpgradeTests(c, upgradeCAASControllerTests, assertAndMocks, func() cmd.Command {
-		return s.upgradeControllerCommand(nil, nil)
-	})
-}
-
-func (s *UpgradeCAASControllerSuite) TestUpgradePrivateRegistry(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	controllerCfg := s.ControllerConfig
 	controllerCfg[controller.CAASImageRepo] = `
 {
-    "serveraddress": "quay.io",
+    "serveraddress": "ghcr.io",
     "auth": "xxxxx==",
     "repository": "test-account"
 }`[1:]
@@ -318,7 +299,7 @@ func (s *UpgradeCAASControllerSuite) TestUpgradePrivateRegistry(c *gc.C) {
 	registryAPI := registrymocks.NewMockRegistry(ctrl)
 	registryAPIFunc := func(imageRepo docker.ImageRepoDetails) (registry.Registry, error) {
 		c.Assert(imageRepo.Repository, gc.DeepEquals, "test-account")
-		c.Assert(imageRepo.ServerAddress, gc.DeepEquals, "quay.io")
+		c.Assert(imageRepo.ServerAddress, gc.DeepEquals, "ghcr.io")
 		c.Assert(imageRepo.Auth, gc.DeepEquals, "xxxxx==")
 		c.Assert(imageRepo.IsPrivate(), jc.IsTrue)
 		registryAPIFuncCalled = true
@@ -330,7 +311,7 @@ func (s *UpgradeCAASControllerSuite) TestUpgradePrivateRegistry(c *gc.C) {
 		for _, t := range tagsInfo {
 			v, err := version.Parse(t.Tag)
 			c.Check(err, jc.ErrorIsNil)
-			tags = append(tags, docker.NewImageInfo(v))
+			tags = append(tags, registry.NewImageInfo(v))
 		}
 		gomock.InOrder(
 			controllerAPI.EXPECT().ControllerConfig().Return(controllerCfg, nil),
@@ -340,7 +321,7 @@ func (s *UpgradeCAASControllerSuite) TestUpgradePrivateRegistry(c *gc.C) {
 		)
 	}
 
-	s.assertUpgradeTests(c, upgradeCAASModelTests, assertAndMocks, func() cmd.Command {
+	s.assertUpgradeTests(c, upgradeCAASControllerTests, assertAndMocks, func() cmd.Command {
 		return s.upgradeControllerCommand(controllerAPI, registryAPIFunc)
 	})
 	c.Assert(registryAPIFuncCalled, jc.IsTrue)
