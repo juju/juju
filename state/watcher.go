@@ -1223,7 +1223,7 @@ func (r *Relation) WatchUnits(appName string) (RelationUnitsWatcher, error) {
 	}
 	rsw := watchRelationScope(r.st, r.globalScope(), ep.Role, "")
 	appSettingsKey := relationApplicationSettingsKey(r.Id(), appName)
-	logger.Tracef("Relation.WatchUnits(%q) watching: %q", appName, appSettingsKey)
+	logger.Child("relationunits").Tracef("Relation.WatchUnits(%q) watching: %q", appName, appSettingsKey)
 	return newRelationUnitsWatcher(r.st, rsw, []string{appSettingsKey}), nil
 }
 
@@ -1402,7 +1402,9 @@ func (w *relationUnitsWatcher) loop() (err error) {
 				return watcher.EnsureErr(w.sw)
 			}
 			gotInitialScopeWatcher = true
-			w.logger.Tracef("relationUnitsWatcher %q scope Changes(): %# v", w.sw.prefix, pretty.Formatter(c))
+			if w.logger.IsTraceEnabled() {
+				w.logger.Tracef("relationUnitsWatcher %q scope Changes(): %# v", w.sw.prefix, pretty.Formatter(c))
+			}
 			if err = w.mergeScope(&changes, c); err != nil {
 				return err
 			}
@@ -1439,7 +1441,9 @@ func (w *relationUnitsWatcher) loop() (err error) {
 				out = w.out
 			}
 		case out <- changes:
-			w.logger.Tracef("relationUnitsWatcher %q sent changes %# v", w.sw.prefix, pretty.Formatter(changes))
+			if w.logger.IsTraceEnabled() {
+				w.logger.Tracef("relationUnitsWatcher %q sent changes %# v", w.sw.prefix, pretty.Formatter(changes))
+			}
 			sentInitial = true
 			changes = corewatcher.RelationUnitsChange{}
 			out = nil

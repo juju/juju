@@ -34,6 +34,7 @@ type Logger interface {
 	Infof(string, ...interface{})
 	Debugf(string, ...interface{})
 	Tracef(string, ...interface{})
+	IsTraceEnabled() bool
 
 	Child(string) loggo.Logger
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2/dependency"
+	"github.com/kr/pretty"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -151,9 +152,9 @@ func (r *relationer) CommitHook(hi hook.Info) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = st.UpdateStateForHook(hi)
-	if err != nil {
-		return r.stateMgr.RemoveRelation(st.RelationId, r.unitGetter, map[string]bool{})
+	st.UpdateStateForHook(hi)
+	if r.logger.IsTraceEnabled() {
+		r.logger.Tracef("commit hook %q for %d (remote unit %q): %# v", hi.Kind, hi.RelationId, hi.RemoteUnit, pretty.Formatter(st))
 	}
 	return r.stateMgr.SetRelation(st)
 }

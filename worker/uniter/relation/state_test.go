@@ -241,8 +241,8 @@ func (s *stateSuite) TestWriteMultiHookDepartedJoinedChanged(c *gc.C) {
 	runWriteHookTest(c, st, expectedState, hiChanged)
 }
 
-func (s *stateSuite) TestWriteMultiHookDepartedDepartedBroken(c *gc.C) {
-	c.Logf("relation-departed foo/1 and relation-departed foo/2 and relation-broken")
+func (s *stateSuite) TestWriteMultiHookDepartedDeparted(c *gc.C) {
+	c.Logf("relation-departed foo/1 and relation-departed foo/2")
 
 	// Setup initial state
 	st := s.setupTestState()
@@ -269,16 +269,6 @@ func (s *stateSuite) TestWriteMultiHookDepartedDepartedBroken(c *gc.C) {
 	delete(expectedState.Members, "foo/2")
 
 	runWriteHookTest(c, st, expectedState, hiDeparted2)
-
-	// Setup Broken Hook mocks
-	hiBroken := hook.Info{
-		Kind:              hooks.RelationBroken,
-		RelationId:        123,
-		RemoteApplication: "foo",
-	}
-
-	err := st.UpdateStateForHook(hiBroken)
-	c.Assert(err, gc.NotNil)
 }
 
 func (s *stateSuite) setupTestState() *relation.State {
@@ -297,12 +287,10 @@ func (s *stateSuite) setupTestState() *relation.State {
 func runWriteHookTest(c *gc.C, st, expectedState *relation.State, hi hook.Info) {
 	err := st.Validate(hi)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.UpdateStateForHook(hi)
-	c.Assert(err, jc.ErrorIsNil)
+	st.UpdateStateForHook(hi)
 	c.Assert(*expectedState, jc.DeepEquals, *st)
 	// Check that writing the same change again is OK.
-	err = st.UpdateStateForHook(hi)
-	c.Assert(err, jc.ErrorIsNil)
+	st.UpdateStateForHook(hi)
 	c.Assert(*expectedState, jc.DeepEquals, *st)
 }
 

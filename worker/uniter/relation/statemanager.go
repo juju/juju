@@ -10,6 +10,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -28,7 +29,7 @@ type stateManager struct {
 	mu            sync.Mutex
 }
 
-// RelationState returns a copy of the relation state for
+// Relation returns a copy of the relation state for
 // the given id. Returns NotFound.
 func (m *stateManager) Relation(id int) (*State, error) {
 	m.mu.Lock()
@@ -95,7 +96,7 @@ func (m *stateManager) KnownIDs() []int {
 	return ids
 }
 
-// SetRelationState persists the given state, overwriting the previous
+// SetRelation persists the given state, overwriting the previous
 // state for a given id or creating state at a new id. The change to
 //the manager is only made when the data is successfully saved.
 func (m *stateManager) SetRelation(st *State) error {
@@ -124,6 +125,9 @@ func (m *stateManager) initialize() error {
 		return errors.Trace(err)
 	}
 	m.relationState = make(map[int]State, len(unitState.RelationState))
+	if m.logger.IsTraceEnabled() {
+		m.logger.Tracef("initialising state manager: %# v", pretty.Formatter(unitState.RelationState))
+	}
 	for k, v := range unitState.RelationState {
 		var state State
 		if err = yaml.Unmarshal([]byte(v), &state); err != nil {

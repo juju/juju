@@ -473,7 +473,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			Leadership: uniterleadership.NewResolver(
 				u.logger.Child("leadership"),
 			),
-			CreatedRelations: relation.NewCreatedRelationResolver(u.relationStateTracker),
+			CreatedRelations: relation.NewCreatedRelationResolver(
+				u.relationStateTracker, u.logger.Child("relation")),
 			Relations: relation.NewRelationResolver(
 				u.relationStateTracker, u.unit, u.logger.Child("relation")),
 			Storage: storage.NewResolver(
