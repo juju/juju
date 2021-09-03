@@ -4,8 +4,6 @@
 package charms
 
 import (
-	"io/ioutil"
-	"os"
 	"strings"
 	"sync"
 
@@ -418,7 +416,6 @@ func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.O
 		return corecharm.Origin{}, err
 	}
 
-	// Fetch the charm metadata and add charm entry pending to be downloaded.
 	requestedOrigin := convertParamsOrigin(args.Origin)
 	repo, err := a.getCharmRepository(requestedOrigin.Source)
 	if err != nil {
@@ -435,41 +432,72 @@ func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.O
 	// still need to resolve and return back a suitable origin as charmhub
 	// may refer to the same blob using the same revision in different
 	// channels.
+	//
+	// We need to use GetDownloadURL instead of ResolveWithPreferredChannel
+	// to ensure that the resolved origin has the ID/Hash fields correctly
+	// populated.
 	if _, err := a.backendState.Charm(charmURL); err == nil {
-		_, resolvedOrigin, _, err := repo.ResolveWithPreferredChannel(charmURL, requestedOrigin, macaroons)
+		_, resolvedOrigin, err := repo.GetDownloadURL(charmURL, requestedOrigin, macaroons)
 		return resolvedOrigin, errors.Trace(err)
 	}
 
-	// TODO(achilleasa):
-	// At this stage we are only interested in the charm metadata and lxd
-	// profile. However, the repo does not (yet) support metadata-only
-	// lookups so we will use the download API and extract the metadata
-	// we need.
-	//
-	// This will be rectified as part of the work for the new deploy facade.
-	tmpFile, err := ioutil.TempFile("", "charm-")
+	// Fetch the essential metadata that we require to deploy the charm
+	// without downloading the full archive. The remaining metadata will
+	// be populated once the charm gets downloaded.
+	essentialMeta, err := repo.GetEssentialMetadata(corecharm.MetadataRequest{
+		CharmURL:  charmURL,
+		Origin:    requestedOrigin,
+		Macaroons: macaroons,
+	})
 	if err != nil {
-		return corecharm.Origin{}, errors.Trace(err)
+		return corecharm.Origin{}, errors.Annotatef(err, "retrieving essential metadata for charm %q", charmURL)
 	}
-	_ = tmpFile.Close()
-	defer func() { _ = os.Remove(tmpFile.Name()) }()
-
-	chArchive, resolvedOrigin, err := repo.DownloadCharm(charmURL, requestedOrigin, macaroons, tmpFile.Name())
-	if err != nil {
-		return corecharm.Origin{}, errors.Trace(err)
-	}
+	metaRes := essentialMeta[0]
 
 	_, err = a.backendState.AddCharmMetadata(state.CharmInfo{
-		Charm:    chArchive,
+		Charm:    charmInfoAdapter{metaRes},
 		ID:       charmURL,
 		Macaroon: macaroons,
-		Version:  chArchive.Version(),
 	})
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
 	}
 
-	return resolvedOrigin, nil
+	return metaRes.ResolvedOrigin, nil
+}
+
+// charmInfoAdapter wraps an EssentialMetadata object and implements the
+// charm.Charm interface so it can be passed to state.AddCharm.
+type charmInfoAdapter struct {
+	meta corecharm.EssentialMetadata
+}
+
+func (adapter charmInfoAdapter) Meta() *charm.Meta {
+	return adapter.meta.Meta
+}
+
+func (adapter charmInfoAdapter) Manifest() *charm.Manifest {
+	return adapter.meta.Manifest
+}
+
+func (adapter charmInfoAdapter) Config() *charm.Config {
+	return adapter.meta.Config
+}
+
+func (adapter charmInfoAdapter) LXDProfile() *charm.LXDProfile {
+	return adapter.meta.LXDProfile
+}
+
+func (adapter charmInfoAdapter) Metrics() *charm.Metrics {
+	return nil // not part of the essential metadata
+}
+
+func (adapter charmInfoAdapter) Actions() *charm.Actions {
+	return nil // not part of the essential metadata
+}
+
+func (adapter charmInfoAdapter) Revision() int {
+	return 0 // not part of the essential metadata
 }
 
 // ResolveCharms is not available via the V2 API.
