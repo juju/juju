@@ -182,7 +182,6 @@ func (s *charmStoreRepositorySuite) TestGetEssentialMetadataWithLXDProfile(c *gc
 
 	expMeta := new(charm.Meta)
 	expConfig := new(charm.Config)
-	expManifest := new(charm.Manifest)
 	rawProfile := `
 description: lxd profile for testing, will pass validation
 config:
@@ -216,10 +215,9 @@ devices:
 	}
 	s.client.EXPECT().Meta(curl, gomock.Any()).DoAndReturn(
 		func(charmURL *charm.URL, dstIface interface{}) (*charm.URL, error) {
-			dst := dstIface.(*corecharm.EssentialMetadata)
-			dst.Meta = expMeta
-			dst.Config = expConfig
-			dst.Manifest = expManifest
+			dst := dstIface.(*csMetadataResponse)
+			dst.CharmMetadata = expMeta
+			dst.CharmConfig = expConfig
 			return charmURL, nil
 		},
 	)
@@ -239,7 +237,6 @@ devices:
 	// NOTE: we use pointer equality checks here.
 	c.Assert(gotMeta[0].Meta, gc.Equals, expMeta)
 	c.Assert(gotMeta[0].Config, gc.Equals, expConfig)
-	c.Assert(gotMeta[0].Manifest, gc.Equals, expManifest)
 	// NOTE: we need to use a deep equal check for the lxd profile.
 	c.Assert(gotMeta[0].LXDProfile, gc.DeepEquals, expProfile)
 }
@@ -258,7 +255,6 @@ func (s *charmStoreRepositorySuite) TestGetEssentialMetadataWithoutLXDProfile(c 
 
 	expMeta := new(charm.Meta)
 	expConfig := new(charm.Config)
-	expManifest := new(charm.Manifest)
 
 	repo := NewCharmStoreRepository(s.logger, "store-api-endpoint")
 	repo.clientFactory = func(gotStoreURL string, gotChannel csparams.Channel, gotMacaroons macaroon.Slice) (CharmStoreClient, error) {
@@ -269,10 +265,9 @@ func (s *charmStoreRepositorySuite) TestGetEssentialMetadataWithoutLXDProfile(c 
 	}
 	s.client.EXPECT().Meta(curl, gomock.Any()).DoAndReturn(
 		func(charmURL *charm.URL, dstIface interface{}) (*charm.URL, error) {
-			dst := dstIface.(*corecharm.EssentialMetadata)
-			dst.Meta = expMeta
-			dst.Config = expConfig
-			dst.Manifest = expManifest
+			dst := dstIface.(*csMetadataResponse)
+			dst.CharmMetadata = expMeta
+			dst.CharmConfig = expConfig
 			return charmURL, nil
 		},
 	)
@@ -288,7 +283,6 @@ func (s *charmStoreRepositorySuite) TestGetEssentialMetadataWithoutLXDProfile(c 
 	// NOTE: we use pointer equality checks here.
 	c.Assert(gotMeta[0].Meta, gc.Equals, expMeta)
 	c.Assert(gotMeta[0].Config, gc.Equals, expConfig)
-	c.Assert(gotMeta[0].Manifest, gc.Equals, expManifest)
 	c.Assert(gotMeta[0].LXDProfile, gc.IsNil, gc.Commentf("expected a nil profile when the charm does not provide an lxd profile"))
 }
 
