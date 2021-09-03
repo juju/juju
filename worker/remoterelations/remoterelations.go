@@ -193,7 +193,11 @@ func (w *Worker) Kill() {
 
 // Wait is defined on worker.Worker.
 func (w *Worker) Wait() error {
-	return w.catacomb.Wait()
+	err := w.catacomb.Wait()
+	if err != nil {
+		w.logger.Errorf("error in top level remote relations worker: %v", err)
+	}
+	return err
 }
 
 func (w *Worker) loop() (err error) {

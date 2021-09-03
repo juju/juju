@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/kr/pretty"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api/base"
@@ -247,6 +248,7 @@ func (w *stringsWatcher) Changes() watcher.StringsChannel {
 type relationUnitsWatcher struct {
 	commonWatcher
 	caller                 base.APICaller
+	logger                 loggo.Logger
 	relationUnitsWatcherId string
 	out                    chan watcher.RelationUnitsChange
 }
@@ -254,6 +256,7 @@ type relationUnitsWatcher struct {
 func NewRelationUnitsWatcher(caller base.APICaller, result params.RelationUnitsWatchResult) watcher.RelationUnitsWatcher {
 	w := &relationUnitsWatcher{
 		caller:                 caller,
+		logger:                 logger.Child("relationunits"),
 		relationUnitsWatcherId: result.RelationUnitsWatcherId,
 		out:                    make(chan watcher.RelationUnitsChange),
 	}
@@ -295,6 +298,9 @@ func (w *relationUnitsWatcher) loop(initialChanges params.RelationUnitsChange) e
 		select {
 		// Send the initial event or subsequent change.
 		case w.out <- changes:
+			if w.logger.IsTraceEnabled() {
+				w.logger.Tracef("sent relation units changes %# v", pretty.Formatter(changes))
+			}
 		case <-w.tomb.Dying():
 			return nil
 		}
@@ -333,6 +339,7 @@ type RemoteRelationWatcher interface {
 type remoteRelationWatcher struct {
 	commonWatcher
 	caller                  base.APICaller
+	logger                  loggo.Logger
 	remoteRelationWatcherId string
 	out                     chan params.RemoteRelationChangeEvent
 }
@@ -342,6 +349,7 @@ type remoteRelationWatcher struct {
 func NewRemoteRelationWatcher(caller base.APICaller, result params.RemoteRelationWatchResult) RemoteRelationWatcher {
 	w := &remoteRelationWatcher{
 		caller:                  caller,
+		logger:                  logger.Child("remoterelations"),
 		remoteRelationWatcherId: result.RemoteRelationWatcherId,
 		out:                     make(chan params.RemoteRelationChangeEvent),
 	}
@@ -365,6 +373,9 @@ func (w *remoteRelationWatcher) loop(initialChange params.RemoteRelationChangeEv
 		select {
 		// Send out the initial event or subsequent change.
 		case w.out <- change:
+			if w.logger.IsTraceEnabled() {
+				w.logger.Tracef("sent remote relation change %# v", pretty.Formatter(change))
+			}
 		case <-w.tomb.Dying():
 			return nil
 		}

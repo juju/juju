@@ -4,11 +4,14 @@
 package relation
 
 import (
+	"time"
+
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v2"
+	"github.com/kr/pretty"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -123,6 +126,9 @@ func (r *relationStateTracker) loadInitialState() error {
 		r.relationCreated[rel.Id()] = true
 	}
 
+	if r.logger.IsTraceEnabled() {
+		r.logger.Tracef("initialising relation state tracker: %# v", pretty.Formatter(r.stateMgr.(*stateManager).relationState))
+	}
 	knownUnits := make(map[string]bool)
 	for _, id := range r.stateMgr.KnownIDs() {
 		if rel, ok := activeRelations[id]; ok {
@@ -151,12 +157,20 @@ func (r *relationStateTracker) loadInitialState() error {
 	return nil
 }
 
+func (r *relationStateTracker) relationGone(id int) {
+	delete(r.relationers, id)
+	delete(r.remoteAppName, id)
+	delete(r.isPeerRelation, id)
+	delete(r.relationCreated, id)
+}
+
 // joinRelation causes the unit agent to join the supplied relation, and to
 // store persistent state. It will block until the
 // operation succeeds or fails; or until the abort chan is closed, in which
 // case it will return resolver.ErrLoopAborted.
 func (r *relationStateTracker) joinRelation(rel Relation) (err error) {
-	r.logger.Infof("joining relation %q", rel)
+	unitName := r.unit.Name()
+	r.logger.Tracef("%q (re-)joining: %q", unitName, rel)
 	ru, err := rel.Unit(r.unit.Tag())
 	if err != nil {
 		return errors.Trace(err)
@@ -175,12 +189,15 @@ func (r *relationStateTracker) joinRelation(rel Relation) (err error) {
 			}
 		}
 	}()
+	timeout := time.After(time.Minute)
 	for {
 		select {
 		case <-r.abort:
 			// Should this be a different error? e.g. resolver.ErrAborted, that
 			// Loop translates into ErrLoopAborted?
 			return resolver.ErrLoopAborted
+		case <-timeout:
+			return errors.Errorf("unit watcher for %q failed to trigger joining relation %q", unitName, rel)
 		case _, ok := <-unitWatcher.Changes():
 			if !ok {
 				return errors.New("unit watcher closed")
@@ -192,13 +209,13 @@ func (r *relationStateTracker) joinRelation(rel Relation) (err error) {
 			} else if err != nil {
 				return errors.Trace(err)
 			}
-			r.logger.Infof("joined relation %q", rel)
 			// Leaders get to set the relation status.
 			var isLeader bool
 			isLeader, err = r.leaderCtx.IsLeader()
 			if err != nil {
 				return errors.Trace(err)
 			}
+			r.logger.Debugf("unit %q (leader=%v) entered scope for relation %q", unitName, isLeader, rel)
 			if isLeader {
 				err = rel.SetStatus(relation.Joined)
 				if err != nil {
@@ -212,6 +229,9 @@ func (r *relationStateTracker) joinRelation(rel Relation) (err error) {
 }
 
 func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) error {
+	if r.logger.IsTraceEnabled() {
+		r.logger.Tracef("%q synchronise scopes for remote relations %# v", r.unit.Name(), pretty.Formatter(remote.Relations))
+	}
 	var charmSpec *charm.CharmDir
 	knownUnits := make(map[string]bool)
 	for id, relationSnapshot := range remote.Relations {
@@ -226,6 +246,7 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 					return errors.Trace(err)
 				}
 			}
+			r.logger.Tracef("already seen relation id %v", id)
 			continue
 		}
 
@@ -237,6 +258,8 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 		rel, err := r.st.RelationById(id)
 		if err != nil {
 			if params.IsCodeNotFoundOrCodeUnauthorized(err) {
+				r.relationGone(id)
+				r.logger.Tracef("relation id %v has been removed", id)
 				continue
 			}
 			return errors.Trace(err)
@@ -266,6 +289,8 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 			removeErr := r.stateMgr.RemoveRelation(id, r.st, knownUnits)
 			if !params.IsCodeCannotEnterScope(joinErr) {
 				return errors.Trace(joinErr)
+			} else if errors.IsNotFound(joinErr) {
+				continue
 			} else if removeErr != nil {
 				return errors.Trace(removeErr)
 			}
@@ -404,9 +429,7 @@ func (r *relationStateTracker) CommitHook(hookInfo hook.Info) (err error) {
 		if hookInfo.Kind == hooks.RelationCreated {
 			r.relationCreated[hookInfo.RelationId] = true
 		} else if hookInfo.Kind == hooks.RelationBroken {
-			delete(r.relationers, hookInfo.RelationId)
-			delete(r.relationCreated, hookInfo.RelationId)
-			delete(r.remoteAppName, hookInfo.RelationId)
+			r.relationGone(hookInfo.RelationId)
 		}
 	}()
 	if !hookInfo.Kind.IsRelation() {

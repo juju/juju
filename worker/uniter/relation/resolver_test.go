@@ -1230,7 +1230,7 @@ func (s *relationCreatedResolverSuite) TestCreatedRelationResolverForRelationInS
 		r.EXPECT().RelationCreated(1).Return(true),
 	)
 
-	createdRelationsResolver := relation.NewCreatedRelationResolver(r)
+	createdRelationsResolver := relation.NewCreatedRelationResolver(r, loggo.GetLogger("test"))
 	_, err := createdRelationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation, gc.Commentf("unexpected hook from created relations resolver for already joined relation"))
 }
@@ -1274,7 +1274,7 @@ func (s *relationCreatedResolverSuite) TestCreatedRelationResolverFordRelationNo
 		r.EXPECT().RemoteApplication(1).Return("mysql"),
 	)
 
-	createdRelationsResolver := relation.NewCreatedRelationResolver(r)
+	createdRelationsResolver := relation.NewCreatedRelationResolver(r, loggo.GetLogger("test"))
 	op, err := createdRelationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op, gc.DeepEquals, &mockOperation{
@@ -1304,7 +1304,7 @@ func (s *relationCreatedResolverSuite) TestCreatedRelationsResolverWithPendingHo
 		Life: life.Alive,
 	}
 
-	createdRelationsResolver := relation.NewCreatedRelationResolver(r)
+	createdRelationsResolver := relation.NewCreatedRelationResolver(r, loggo.GetLogger("test"))
 	_, err := createdRelationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(errors.Cause(err), gc.Equals, resolver.ErrNoOperation, gc.Commentf("expected to get ErrNoOperation when a RunHook operation is pending"))
 }
