@@ -8,15 +8,18 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/common"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager/mocks"
 	"github.com/juju/juju/apiserver/params"
 	coresecrets "github.com/juju/juju/core/secrets"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/secrets"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -24,8 +27,15 @@ import (
 type SecretsManagerSuite struct {
 	testing.IsolationSuite
 
-	authorizer     *facademocks.MockAuthorizer
-	secretsService *mocks.MockSecretsService
+	authorizer *facademocks.MockAuthorizer
+	resources  *facademocks.MockResources
+
+	secretsService         *mocks.MockSecretsService
+	secretsWatcherService  *mocks.MockSecretsWatcher
+	secretsRotationWatcher *mocks.MockSecretsRotationWatcher
+	accessSecret           common.GetAuthFunc
+
+	facade *secretsmanager.SecretsManagerAPI
 }
 
 var _ = gc.Suite(&SecretsManagerSuite{})
@@ -38,7 +48,21 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
+	s.resources = facademocks.NewMockResources(ctrl)
+
 	s.secretsService = mocks.NewMockSecretsService(ctrl)
+	s.secretsWatcherService = mocks.NewMockSecretsWatcher(ctrl)
+	s.secretsRotationWatcher = mocks.NewMockSecretsRotationWatcher(ctrl)
+	s.accessSecret = func() (common.AuthFunc, error) {
+		return func(tag names.Tag) bool {
+			return tag.Id() == "app"
+		}, nil
+	}
+	s.expectAuthUnitAgent()
+
+	var err error
+	s.facade, err = secretsmanager.NewTestAPI(s.authorizer, s.resources, s.secretsService, s.secretsWatcherService, s.accessSecret)
+	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
 }
@@ -49,10 +73,6 @@ func (s *SecretsManagerSuite) expectAuthUnitAgent() {
 
 func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	defer s.setup(c).Finish()
-
-	s.expectAuthUnitAgent()
-	facade, err := secretsmanager.NewTestAPI(s.secretsService, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
 
 	p := secrets.CreateParams{
 		Version:        secrets.Version,
@@ -75,7 +95,7 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 		},
 	)
 
-	results, err := facade.CreateSecrets(params.CreateSecretArgs{
+	results, err := s.facade.CreateSecrets(params.CreateSecretArgs{
 		Args: []params.CreateSecretArg{{
 			Type:           "blob",
 			Path:           "app.password",
@@ -103,10 +123,6 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.expectAuthUnitAgent()
-	facade, err := secretsmanager.NewTestAPI(s.secretsService, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
-
 	p := secrets.UpdateParams{
 		RotateInterval: time.Hour,
 		Params:         map[string]interface{}{"param": 1},
@@ -132,7 +148,7 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 	URL2.ControllerUUID = coretesting.ControllerTag.Id()
 	URL2.ModelUUID = "deadbeef-1bad-500d-9000-4b1d0d061111"
 
-	results, err := facade.UpdateSecrets(params.UpdateSecretArgs{
+	results, err := s.facade.UpdateSecrets(params.UpdateSecretArgs{
 		Args: []params.UpdateSecretArg{{
 			URL:            URL.String(),
 			RotateInterval: time.Hour,
@@ -172,10 +188,6 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 func (s *SecretsManagerSuite) TestGetSecretValues(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.expectAuthUnitAgent()
-	facade, err := secretsmanager.NewTestAPI(s.secretsService, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
-
 	data := map[string]string{"foo": "bar"}
 	val := coresecrets.NewSecretValue(data)
 	URL, _ := coresecrets.ParseURL("secret://v1/app.password")
@@ -185,7 +197,7 @@ func (s *SecretsManagerSuite) TestGetSecretValues(c *gc.C) {
 		val, nil,
 	)
 
-	results, err := facade.GetSecretValues(params.GetSecretArgs{
+	results, err := s.facade.GetSecretValues(params.GetSecretArgs{
 		Args: []params.GetSecretArg{{
 			ID: URL.String(),
 		}},
@@ -201,10 +213,6 @@ func (s *SecretsManagerSuite) TestGetSecretValues(c *gc.C) {
 func (s *SecretsManagerSuite) TestGetSecretValuesExplicitUUIDs(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.expectAuthUnitAgent()
-	facade, err := secretsmanager.NewTestAPI(s.secretsService, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
-
 	data := map[string]string{"foo": "bar"}
 	val := coresecrets.NewSecretValue(data)
 	URL, _ := coresecrets.ParseURL("secret://v1/deadbeef-1bad-500d-9000-4b1d0d061111/deadbeef-1bad-500d-9000-4b1d0d062222/app.password")
@@ -214,7 +222,7 @@ func (s *SecretsManagerSuite) TestGetSecretValuesExplicitUUIDs(c *gc.C) {
 		val, nil,
 	)
 
-	results, err := facade.GetSecretValues(params.GetSecretArgs{
+	results, err := s.facade.GetSecretValues(params.GetSecretArgs{
 		Args: []params.GetSecretArg{{
 			ID: URL.String(),
 		}},
@@ -223,6 +231,46 @@ func (s *SecretsManagerSuite) TestGetSecretValuesExplicitUUIDs(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.SecretValueResults{
 		Results: []params.SecretValueResult{{
 			Data: data,
+		}},
+	})
+}
+
+func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.secretsWatcherService.EXPECT().WatchSecretsRotationChanges("application-app").Return(
+		s.secretsRotationWatcher,
+	)
+	s.resources.EXPECT().Register(s.secretsRotationWatcher).Return("1")
+
+	rotateChan := make(chan []corewatcher.SecretRotationChange, 1)
+	rotateChan <- []corewatcher.SecretRotationChange{{
+		ID:             666,
+		URL:            coresecrets.NewSimpleURL(1, "app.password"),
+		RotateInterval: time.Hour,
+		LastRotateTime: time.Time{},
+	}}
+	s.secretsRotationWatcher.EXPECT().Changes().Return(rotateChan)
+
+	result, err := s.facade.WatchSecretsRotationChanges(params.Entities{
+		Entities: []params.Entity{{
+			Tag: "application-app",
+		}, {
+			Tag: "application-foo",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.SecretRotationWatchResults{
+		Results: []params.SecretRotationWatchResult{{
+			SecretRotationWatcherId: "1",
+			Changes: []params.SecretRotationChange{{
+				ID:             666,
+				URL:            "secret://v1/app.password",
+				RotateInterval: time.Hour,
+				LastRotateTime: time.Time{},
+			}},
+		}, {
+			Error: &params.Error{Code: "unauthorized access", Message: "permission denied"},
 		}},
 	})
 }

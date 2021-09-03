@@ -97,3 +97,24 @@ type ListSecretResult struct {
 	UpdateTime     time.Time          `json:"update-time"`
 	Value          *SecretValueResult `json:"value,omitempty"`
 }
+
+// SecretRotationChange describes a change to a secret rotation config.
+type SecretRotationChange struct {
+	ID             int           `json:"secret-id"`
+	URL            string        `json:"url"`
+	RotateInterval time.Duration `json:"rotate-interval"`
+	LastRotateTime time.Time     `json:"last-rotate-time"`
+}
+
+// SecretRotationWatchResult holds secret rotation change events.
+type SecretRotationWatchResult struct {
+	SecretRotationWatcherId string                 `json:"watcher-id"`
+	Changes                 []SecretRotationChange `json:"changes"`
+	Error                   *Error                 `json:"error,omitempty"`
+}
+
+// SecretRotationWatchResults holds the results for any API call which ends up
+// returning a list of SecretRotationWatchResult.
+type SecretRotationWatchResults struct {
+	Results []SecretRotationWatchResult `json:"results"`
+}

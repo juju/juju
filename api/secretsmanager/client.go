@@ -7,8 +7,10 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/watcher"
 )
 
 // Client is the api client for the SecretsManager facade.
@@ -112,4 +114,26 @@ func (c *Client) GetValue(ID string) (secrets.SecretValue, error) {
 		return nil, err
 	}
 	return secrets.NewSecretValue(results.Results[0].Data), nil
+}
+
+// WatchSecretsRotationChanges returns a watcher which serves changes to
+// secrets rotation config for any secrets managed by the specified owner.
+func (c *Client) WatchSecretsRotationChanges(ownerTag string) (watcher.SecretRotationWatcher, error) {
+	var results params.SecretRotationWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: ownerTag}},
+	}
+	err := c.facade.FacadeCall("WatchSecretsRotationChanges", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewSecretsRotationWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
 }
