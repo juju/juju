@@ -4,6 +4,8 @@
 package charms_test
 
 import (
+	"net/url"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
@@ -407,13 +409,33 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownload(c *gc.C) {
 	}, nil)
 	s.state.EXPECT().Charm(curl).Return(nil, errors.NotFoundf("%q", curl))
 	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil)
-	s.repository.EXPECT().DownloadCharm(curl, requestedOrigin, nil, gomock.Any()).Return(s.charmArchive, resolvedOrigin, nil)
-	s.charmArchive.EXPECT().Version().Return("42")
-	s.state.EXPECT().AddCharmMetadata(state.CharmInfo{
-		Charm:   s.charmArchive,
-		ID:      curl,
-		Version: "42",
-	}).Return(nil, nil)
+
+	expMeta := new(charm.Meta)
+	expManifest := new(charm.Manifest)
+	expConfig := new(charm.Config)
+	s.repository.EXPECT().GetEssentialMetadata(corecharm.MetadataRequest{
+		CharmURL: curl,
+		Origin:   requestedOrigin,
+	}).Return([]corecharm.EssentialMetadata{
+		{
+			Meta:           expMeta,
+			Manifest:       expManifest,
+			Config:         expConfig,
+			ResolvedOrigin: resolvedOrigin,
+		},
+	}, nil)
+
+	s.state.EXPECT().AddCharmMetadata(gomock.Any()).DoAndReturn(
+		func(ci state.CharmInfo) (*state.Charm, error) {
+			c.Assert(ci.ID, gc.DeepEquals, curl)
+			// Check that the essential metadata matches what
+			// the repository returned. We use pointer checks here.
+			c.Assert(ci.Charm.Meta(), gc.Equals, expMeta)
+			c.Assert(ci.Charm.Manifest(), gc.Equals, expManifest)
+			c.Assert(ci.Charm.Config(), gc.Equals, expConfig)
+			return nil, nil
+		},
+	)
 
 	api := s.api(c)
 
@@ -440,6 +462,8 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 
 	curl, err := charm.ParseURL("cs:testme-8")
 	c.Assert(err, jc.ErrorIsNil)
+	resURL, err := url.Parse(curl.String())
+	c.Assert(err, jc.ErrorIsNil)
 
 	resolvedOrigin := corecharm.Origin{
 		Source: "charm-store",
@@ -453,7 +477,7 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 	}, nil)
 	s.state.EXPECT().Charm(curl).Return(nil, nil) // a nil error indicates that the charm doc already exists
 	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil)
-	s.repository.EXPECT().ResolveWithPreferredChannel(curl, gomock.Any(), nil).Return(curl, resolvedOrigin, nil, nil)
+	s.repository.EXPECT().GetDownloadURL(curl, gomock.Any(), nil).Return(resURL, resolvedOrigin, nil)
 
 	api := s.api(c)
 

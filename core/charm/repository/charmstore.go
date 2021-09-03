@@ -37,6 +37,15 @@ type CharmStoreRepository struct {
 	clientFactory func(storeURL string, channel csparams.Channel, macaroons macaroon.Slice) (CharmStoreClient, error)
 }
 
+// csMetadataResponse encodes a metadata lookup response from the charmstore API.
+// The client uses reflection to extract the field names from this struct and
+// pass them to the charmstore API. The field names must therefore not change
+// or the metadata request will fail.
+type csMetadataResponse struct {
+	CharmMetadata *charm.Meta
+	CharmConfig   *charm.Config
+}
+
 // NewCharmStoreRepository returns a new repository instance using the provided
 // charmstore client.
 func NewCharmStoreRepository(logger Logger, charmstoreURL string) *CharmStoreRepository {
@@ -155,9 +164,13 @@ func (c *CharmStoreRepository) GetEssentialMetadata(reqs ...corecharm.MetadataRe
 			return nil, errors.Annotatef(err, "obain charmstore client for %q", req.CharmURL)
 		}
 
-		if _, err = client.Meta(req.CharmURL, &res[reqIdx]); err != nil {
+		var csMetaRes csMetadataResponse
+		if _, err = client.Meta(req.CharmURL, &csMetaRes); err != nil {
 			return nil, errors.Annotatef(err, "retrieving metadata for %q", req.CharmURL)
 		}
+
+		res[reqIdx].Meta = csMetaRes.CharmMetadata
+		res[reqIdx].Config = csMetaRes.CharmConfig
 		res[reqIdx].ResolvedOrigin = req.Origin
 
 		// The metadata call does not return back LXD profile

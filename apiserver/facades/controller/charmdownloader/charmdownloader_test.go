@@ -10,6 +10,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -111,7 +112,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharms(c *gc.C) {
 		}),
 		app.EXPECT().SetStatus(status.StatusInfo{
 			Status:  status.Unknown,
-			Message: "downloaded charm",
+			Message: "",
 			Since:   &now,
 		}),
 	)
@@ -129,6 +130,64 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharms(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got.Combine(), jc.ErrorIsNil)
+}
+
+func (s *charmDownloaderSuite) TestDownloadApplicationCharmsSetStatusIfDownloadFails(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	now := s.clk.Now()
+	charmURL := charm.MustParseURL("cs:focal/dummy-1")
+	resolvedOrigin := corecharm.Origin{
+		Source: "charm-hub",
+		Platform: corecharm.Platform{
+			Architecture: arch.DefaultArchitecture,
+		},
+	}
+
+	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	macaroons := macaroon.Slice{mac}
+
+	pendingCharm := NewMockCharm(ctrl)
+	pendingCharm.EXPECT().Macaroon().Return(macaroons, nil)
+	pendingCharm.EXPECT().URL().Return(charmURL)
+
+	app := NewMockApplication(ctrl)
+	app.EXPECT().CharmPendingToBeDownloaded().Return(true)
+	app.EXPECT().Charm().Return(pendingCharm, false, nil)
+	app.EXPECT().CharmOrigin().Return(&resolvedOrigin)
+	gomock.InOrder(
+		app.EXPECT().SetStatus(status.StatusInfo{
+			Status:  status.Maintenance,
+			Message: "downloading charm",
+			Data: map[string]interface{}{
+				"origin":    resolvedOrigin,
+				"charm-url": charmURL,
+				"force":     false,
+			},
+			Since: &now,
+		}),
+		app.EXPECT().SetStatus(status.StatusInfo{
+			Status:  status.Blocked,
+			Message: "unable to download charm",
+			Since:   &now,
+		}),
+	)
+
+	s.authChecker.EXPECT().AuthController().Return(true)
+	s.stateBackend.EXPECT().Application("ufo").Return(app, nil)
+	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, macaroons, false).Return(corecharm.Origin{}, errors.NotFoundf("charm"))
+
+	got, err := s.api.DownloadApplicationCharms(params.Entities{
+		Entities: []params.Entity{
+			{
+				Tag: names.NewApplicationTag("ufo").String(),
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got.Combine(), gc.ErrorMatches, ".*charm not found.*")
 }
 
 func (s *charmDownloaderSuite) setupMocks(c *gc.C) *gomock.Controller {

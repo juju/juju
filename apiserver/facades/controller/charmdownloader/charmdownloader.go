@@ -181,18 +181,37 @@ func (a *CharmDownloaderAPI) downloadApplicationCharm(appTag names.ApplicationTa
 	}
 
 	if _, err := downloader.DownloadAndStore(pendingCharmURL, *resolvedOrigin, macaroons, force); err != nil {
+		now = a.clock.Now()
+		// Update app status; it's fine if this fails as we just want
+		// to report the download error back. Also, we use a fairly
+		// generic error message instead of the actual error to avoid
+		// accidentally leaking any auth-related details that may be
+		// contained in the error.
+		statusErr := app.SetStatus(status.StatusInfo{
+			Status:  status.Blocked,
+			Message: "unable to download charm",
+			Since:   &now,
+		})
+		if statusErr != nil {
+			logger.Errorf("unable to set application status: %v", err)
+		}
 		return errors.Trace(err)
 	}
 
 	// Update app status; it's fine if this fails as the charm has been
 	// stored and can be fetched by the machine agents.
 	now = a.clock.Now()
-	_ = app.SetStatus(status.StatusInfo{
+	statusErr := app.SetStatus(status.StatusInfo{
 		// Let the charm set the application status
-		Status:  status.Unknown,
-		Message: "downloaded charm",
+		Status: status.Unknown,
+		// Just clear the "downloading charm" message to reduce noise
+		// in juju status output.
+		Message: "",
 		Since:   &now,
 	})
+	if statusErr != nil {
+		logger.Errorf("unable to set application status: %v", err)
+	}
 
 	return nil
 }
