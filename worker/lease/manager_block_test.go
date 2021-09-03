@@ -109,14 +109,15 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpiredEarly(c *gc.C) {
 		// it turns out the lease had already been expired by someone else.
 		checker, err := manager.Checker("namespace", "model")
 		c.Assert(err, jc.ErrorIsNil)
-		checker.Token("redis", "redis/99").Check(0, nil)
+		err = checker.Token("redis", "redis/99").Check(0, nil)
+		c.Assert(err, gc.ErrorMatches, "lease not held")
 
 		// Simulate the delayed synchronisation by removing the lease.
 		delete(fix.leases, key("redis"))
 
 		// When we notice that we are out of sync, we should queue up an
 		// expiration and update of blockers after a very short timeout.
-		err = clock.WaitAdvance(time.Millisecond, testing.ShortWait, 1)
+		err = clock.WaitAdvance(time.Second, testing.ShortWait, 1)
 		c.Assert(err, jc.ErrorIsNil)
 
 		err = blockTest.assertUnblocked(c)
@@ -129,11 +130,11 @@ func (s *WaitUntilExpiredSuite) TestMultiple(c *gc.C) {
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
 				Holder: "redis/0",
-				Expiry: offset(time.Second),
+				Expiry: offset(2 * time.Second),
 			},
 			key("store"): {
 				Holder: "store/0",
-				Expiry: offset(time.Second),
+				Expiry: offset(2 * time.Second),
 			},
 		},
 	}
@@ -150,13 +151,14 @@ func (s *WaitUntilExpiredSuite) TestMultiple(c *gc.C) {
 		// Induce a scheduled block check by making an unexpected check.
 		checker, err := manager.Checker("namespace", "model")
 		c.Assert(err, jc.ErrorIsNil)
-		checker.Token("redis", "redis/99").Check(0, nil)
+		err = checker.Token("redis", "redis/99").Check(0, nil)
+		c.Assert(err, gc.ErrorMatches, "lease not held")
 
 		// Deleting the redis lease should cause unblocks for the redis
 		// blockers, but the store blocks should remain.
 		delete(fix.leases, key("redis"))
 
-		err = clock.WaitAdvance(time.Millisecond, testing.ShortWait, 1)
+		err = clock.WaitAdvance(time.Second, testing.ShortWait, 1)
 		c.Assert(err, jc.ErrorIsNil)
 
 		err = redisTest2.assertUnblocked(c)

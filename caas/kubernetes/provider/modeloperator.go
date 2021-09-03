@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/paths"
+	coreresources "github.com/juju/juju/core/resources"
 )
 
 // ModelOperatorBroker defines a broker for Executing Kubernetes ensure
@@ -183,7 +184,8 @@ func ensureModelOperator(
 	modelUUID,
 	agentPath string,
 	config *caas.ModelOperatorConfig,
-	broker ModelOperatorBroker) (err error) {
+	broker ModelOperatorBroker,
+) (err error) {
 
 	ctx := context.TODO()
 	operatorName := modelOperatorName
@@ -264,7 +266,7 @@ func ensureModelOperator(
 		broker.Namespace(),
 		labels,
 		selectorLabels,
-		config.OperatorImagePath,
+		config.ImageDetails,
 		config.Port,
 		modelUUID,
 		service.Name,
@@ -379,18 +381,18 @@ func modelOperatorDeployment(
 	namespace string,
 	labels,
 	selectorLabels map[string]string,
-	operatorImagePath string,
+	operatorImageDetails coreresources.DockerImageDetails,
 	port int32,
 	modelUUID,
 	serviceName,
 	serviceAccountName string,
 	volumes []core.Volume,
 	volumeMounts []core.VolumeMount,
-) (*apps.Deployment, error) {
+) (o *apps.Deployment, err error) {
 	jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud model --model-uuid=%s", modelUUID)
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 
-	return &apps.Deployment{
+	o = &apps.Deployment{
 		ObjectMeta: meta.ObjectMeta{
 			Name:      operatorName,
 			Namespace: namespace,
@@ -413,7 +415,7 @@ func modelOperatorDeployment(
 				},
 				Spec: core.PodSpec{
 					Containers: []core.Container{{
-						Image:           operatorImagePath,
+						Image:           operatorImageDetails.RegistryPath,
 						ImagePullPolicy: core.PullIfNotPresent,
 						Name:            operatorContainerName,
 						WorkingDir:      jujuDataDir,
@@ -458,7 +460,13 @@ func modelOperatorDeployment(
 				},
 			},
 		},
-	}, nil
+	}
+	if operatorImageDetails.IsPrivate() {
+		o.Spec.Template.Spec.ImagePullSecrets = []core.LocalObjectReference{
+			{Name: constants.CAASImageRepoSecretName},
+		}
+	}
+	return o, nil
 }
 
 // ModelOperatorExists indicates if the model operator for the given broker

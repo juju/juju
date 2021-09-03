@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/docker"
 )
 
 type ResourceSuite struct{}
@@ -42,8 +43,12 @@ func (s *ResourceSuite) TestDockerImageDetailsUnmarshalJson(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
 		RegistryPath: "testing@sha256:beef-deed",
-		Username:     "docker-registry",
-		Password:     "fragglerock",
+		ImageRepoDetails: docker.ImageRepoDetails{
+			BasicAuthConfig: docker.BasicAuthConfig{
+				Username: "docker-registry",
+				Password: "fragglerock",
+			},
+		},
 	})
 }
 
@@ -57,7 +62,11 @@ password: fragglerock
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
 		RegistryPath: "testing@sha256:beef-deed",
-		Username:     "docker-registry",
-		Password:     "fragglerock",
+		ImageRepoDetails: docker.ImageRepoDetails{
+			BasicAuthConfig: docker.BasicAuthConfig{
+				Username: "docker-registry",
+				Password: "fragglerock",
+			},
+		},
 	})
 }

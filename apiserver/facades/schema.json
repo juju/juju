@@ -6713,7 +6713,7 @@
                             "type": "string"
                         },
                         "image-repo": {
-                            "type": "string"
+                            "$ref": "#/definitions/DockerImageInfo"
                         },
                         "series": {
                             "type": "string"
@@ -7407,10 +7407,28 @@
                 "DockerImageInfo": {
                     "type": "object",
                     "properties": {
+                        "auth": {
+                            "type": "string"
+                        },
+                        "email": {
+                            "type": "string"
+                        },
+                        "identitytoken": {
+                            "type": "string"
+                        },
                         "image-name": {
                             "type": "string"
                         },
                         "password": {
+                            "type": "string"
+                        },
+                        "registrytoken": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "serveraddress": {
                             "type": "string"
                         },
                         "username": {
@@ -9865,6 +9883,47 @@
         }
     },
     {
+        "Name": "CAASModelConfigManager",
+        "Description": "Facade allows model config manager clients to watch controller config changes and fetch controller config.",
+        "Version": 1,
+        "AvailableTo": [
+            "controller-machine-agent"
+        ],
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "ControllerConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/ControllerConfigResult"
+                        }
+                    }
+                }
+            },
+            "definitions": {
+                "ControllerConfigResult": {
+                    "type": "object",
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "config"
+                    ]
+                }
+            }
+        }
+    },
+    {
         "Name": "CAASModelOperator",
         "Description": "API represents the controller model operator facade.",
         "Version": 1,
@@ -9984,6 +10043,42 @@
                         "value",
                         "type",
                         "scope"
+                    ]
+                },
+                "DockerImageInfo": {
+                    "type": "object",
+                    "properties": {
+                        "auth": {
+                            "type": "string"
+                        },
+                        "email": {
+                            "type": "string"
+                        },
+                        "identitytoken": {
+                            "type": "string"
+                        },
+                        "image-name": {
+                            "type": "string"
+                        },
+                        "password": {
+                            "type": "string"
+                        },
+                        "registrytoken": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "serveraddress": {
+                            "type": "string"
+                        },
+                        "username": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "image-name"
                     ]
                 },
                 "EntityPassword": {
@@ -10118,8 +10213,8 @@
                                 "type": "string"
                             }
                         },
-                        "image-path": {
-                            "type": "string"
+                        "image-details": {
+                            "$ref": "#/definitions/DockerImageInfo"
                         },
                         "version": {
                             "$ref": "#/definitions/Number"
@@ -10128,7 +10223,7 @@
                     "additionalProperties": false,
                     "required": [
                         "api-addresses",
-                        "image-path",
+                        "image-details",
                         "version"
                     ]
                 },
@@ -11708,6 +11803,42 @@
                         "url"
                     ]
                 },
+                "DockerImageInfo": {
+                    "type": "object",
+                    "properties": {
+                        "auth": {
+                            "type": "string"
+                        },
+                        "email": {
+                            "type": "string"
+                        },
+                        "identitytoken": {
+                            "type": "string"
+                        },
+                        "image-name": {
+                            "type": "string"
+                        },
+                        "password": {
+                            "type": "string"
+                        },
+                        "registrytoken": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "serveraddress": {
+                            "type": "string"
+                        },
+                        "username": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "image-name"
+                    ]
+                },
                 "Entities": {
                     "type": "object",
                     "properties": {
@@ -12042,8 +12173,8 @@
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
-                        "image-path": {
-                            "type": "string"
+                        "image-details": {
+                            "$ref": "#/definitions/DockerImageInfo"
                         },
                         "tags": {
                             "type": "object",
@@ -12059,7 +12190,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "image-path",
+                        "image-details",
                         "version",
                         "api-addresses"
                     ]
@@ -39562,7 +39693,7 @@
     },
     {
         "Name": "SecretsManager",
-        "Description": "SecretsManagerAPI is the backend for the SecretsManager facade.",
+        "Description": "SecretsManagerAPI is the implementation for the SecretsManager facade.",
         "Version": 1,
         "AvailableTo": [
             "unit-agent"
@@ -39593,6 +39724,30 @@
                         }
                     },
                     "description": "GetSecretValues returns the secret values for the specified secrets."
+                },
+                "UpdateSecrets": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/UpdateSecretArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResults"
+                        }
+                    },
+                    "description": "UpdateSecrets updates the specified secrets."
+                },
+                "WatchSecretsRotationChanges": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SecretRotationWatchResults"
+                        }
+                    },
+                    "description": "WatchSecretsRotationChanges sets up a watcher to notify of changes to secret rotation config."
                 }
             },
             "definitions": {
@@ -39648,6 +39803,33 @@
                         "args"
                     ]
                 },
+                "Entities": {
+                    "type": "object",
+                    "properties": {
+                        "entities": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Entity"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "entities"
+                    ]
+                },
+                "Entity": {
+                    "type": "object",
+                    "properties": {
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
+                    ]
+                },
                 "Error": {
                     "type": "object",
                     "properties": {
@@ -39698,6 +39880,68 @@
                     "additionalProperties": false,
                     "required": [
                         "args"
+                    ]
+                },
+                "SecretRotationChange": {
+                    "type": "object",
+                    "properties": {
+                        "last-rotate-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "rotate-interval": {
+                            "type": "integer"
+                        },
+                        "secret-id": {
+                            "type": "integer"
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "secret-id",
+                        "url",
+                        "rotate-interval",
+                        "last-rotate-time"
+                    ]
+                },
+                "SecretRotationWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretRotationChange"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id",
+                        "changes"
+                    ]
+                },
+                "SecretRotationWatchResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretRotationWatchResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "SecretValueResult": {
@@ -39760,6 +40004,157 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "UpdateSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "params": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "rotate-interval": {
+                            "type": "integer"
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "url",
+                        "rotate-interval"
+                    ]
+                },
+                "UpdateSecretArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/UpdateSecretArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
+                    ]
+                }
+            }
+        }
+    },
+    {
+        "Name": "SecretsRotationWatcher",
+        "Description": "srvSecretRotationWatcher defines the API wrapping a SecretsRotationWatcher.",
+        "Version": 1,
+        "AvailableTo": [
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
+            "model-user"
+        ],
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "Next": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/SecretRotationWatchResult"
+                        }
+                    },
+                    "description": "Next returns when a change has occurred to an entity of the\ncollection being watched since the most recent call to Next\nor the Watch call that created the srvSecretRotationWatcher."
+                },
+                "Stop": {
+                    "type": "object",
+                    "description": "Stop stops the watcher."
+                }
+            },
+            "definitions": {
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "SecretRotationChange": {
+                    "type": "object",
+                    "properties": {
+                        "last-rotate-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "rotate-interval": {
+                            "type": "integer"
+                        },
+                        "secret-id": {
+                            "type": "integer"
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "secret-id",
+                        "url",
+                        "rotate-interval",
+                        "last-rotate-time"
+                    ]
+                },
+                "SecretRotationWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretRotationChange"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id",
+                        "changes"
                     ]
                 }
             }

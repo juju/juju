@@ -8,6 +8,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/secrets"
@@ -19,10 +20,15 @@ func TestPackage(t *testing.T) {
 }
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretservice.go github.com/juju/juju/secrets SecretsService
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretswatcherservice.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsWatcher
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsrotationwatcher.go github.com/juju/juju/state SecretsRotationWatcher
 
 func NewTestAPI(
-	service secrets.SecretsService,
 	authorizer facade.Authorizer,
+	resources facade.Resources,
+	service secrets.SecretsService,
+	secretsWatcher SecretsWatcher,
+	accessSecret common.GetAuthFunc,
 ) (*SecretsManagerAPI, error) {
 	if !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -31,6 +37,9 @@ func NewTestAPI(
 	return &SecretsManagerAPI{
 		controllerUUID: coretesting.ControllerTag.Id(),
 		modelUUID:      coretesting.ModelTag.Id(),
+		resources:      resources,
 		secretsService: service,
+		secretsWatcher: secretsWatcher,
+		accessSecret:   accessSecret,
 	}, nil
 }

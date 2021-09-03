@@ -100,9 +100,9 @@ func (m *ModelOperatorManager) loop() error {
 		m.modelUUID,
 		m.agentConfig.DataDir(),
 		&caas.ModelOperatorConfig{
-			AgentConf:         agentConfBuf,
-			OperatorImagePath: info.ImagePath,
-			Port:              DefaultModelOperatorPort,
+			AgentConf:    agentConfBuf,
+			ImageDetails: info.ImageDetails,
+			Port:         DefaultModelOperatorPort,
 		},
 	)
 

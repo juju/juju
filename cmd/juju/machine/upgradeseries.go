@@ -4,7 +4,9 @@
 package machine
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -236,6 +238,35 @@ func (c *upgradeSeriesCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
+func (c *upgradeSeriesCommand) trapInterrupt(ctx *cmd.Context) func() {
+	// Handle Ctrl-C during upgrade series.
+	interrupted := make(chan os.Signal, 1)
+	ctx.InterruptNotify(interrupted)
+
+	cancelCtx, cancel := context.WithCancel(context.TODO())
+	go func() {
+		for range interrupted {
+			select {
+			case <-cancelCtx.Done():
+				// Ctrl-C already pressed
+				_, _ = fmt.Fprintln(ctx.Stdout, "\nCtrl-C pressed, cancelling an upgrade-series.")
+				os.Exit(1)
+				return
+			default:
+				// Newline prefix is intentional, so output appears as
+				// "^C\nCtrl-C pressed" instead of "^CCtrl-C pressed".
+				_, _ = fmt.Fprintln(ctx.Stdout, "\nCtrl-C pressed, cancelling an upgrade-series is not recommended. Ctrl-C to proceed anyway.")
+				cancel()
+			}
+		}
+	}()
+
+	return func() {
+		close(interrupted)
+		ctx.StopInterruptNotify(interrupted)
+	}
+}
+
 // UpgradeSeriesPrepare is the interface to the API server endpoint of the same
 // name. Since this function's interface will be mocked as an external test
 // dependency this function should contain minimal logic other than gathering an
@@ -259,6 +290,9 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) (err error
 	if err := c.promptConfirmation(ctx, units); err != nil {
 		return errors.Trace(err)
 	}
+
+	close := c.trapInterrupt(ctx)
+	defer close()
 
 	if err = c.upgradeMachineSeriesClient.UpgradeSeriesPrepare(c.machineNumber, c.series, c.force); err != nil {
 		return c.displayProgressFromError(ctx, err)
@@ -361,16 +395,18 @@ func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context, affectedUnit
 	affectedMsg := ""
 	if len(affectedUnits) > 0 {
 		apps := set.NewStrings()
+		units := set.NewStrings()
 		for _, unit := range affectedUnits {
 			app, err := names.UnitApplication(unit)
 			if err != nil {
 				return errors.Annotatef(err, "deriving application for unit %q", unit)
 			}
-			apps.Add(app)
+			apps.Add(fmt.Sprintf("- %s", app))
+			units.Add(fmt.Sprintf("- %s", unit))
 		}
 
 		affectedMsg = fmt.Sprintf(
-			upgradeSeriesAffectedMsg, strings.Join(affectedUnits, "\n  "), strings.Join(apps.SortedValues(), "\n  "))
+			upgradeSeriesAffectedMsg, strings.Join(units.SortedValues(), "\n  "), strings.Join(apps.SortedValues(), "\n  "))
 	}
 
 	fmt.Fprintf(ctx.Stdout, upgradeSeriesConfirmationMsg, c.machineNumber, c.series, affectedMsg)
@@ -454,6 +490,9 @@ func (c *upgradeSeriesCommand) UpgradeSeriesComplete(ctx *cmd.Context) error {
 	if apiRoot != nil {
 		defer apiRoot.Close()
 	}
+
+	close := c.trapInterrupt(ctx)
+	defer close()
 
 	if err := c.upgradeMachineSeriesClient.UpgradeSeriesComplete(c.machineNumber); err != nil {
 		return errors.Trace(err)

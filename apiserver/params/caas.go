@@ -53,7 +53,7 @@ type CAASApplicationProvisioningInfo struct {
 	Volumes              []KubernetesVolumeParams     `json:"volumes,omitempty"`
 	Devices              []KubernetesDeviceParams     `json:"devices,omitempty"`
 	Series               string                       `json:"series,omitempty"`
-	ImageRepo            string                       `json:"image-repo,omitempty"`
+	ImageRepo            DockerImageInfo              `json:"image-repo,omitempty"`
 	CharmModifiedVersion int                          `json:"charm-modified-version,omitempty"`
 	CharmURL             string                       `json:"charm-url,omitempty"`
 	Error                *Error                       `json:"error,omitempty"`
@@ -85,6 +85,24 @@ type DockerImageInfo struct {
 
 	// Password holds the password used to gain access to a non-public image.
 	Password string `json:"password,omitempty"`
+
+	// Auth is the base64 encoded "username:password" string.
+	Auth string `json:"auth,omitempty" yaml:"auth,omitempty"`
+
+	// IdentityToken is used to authenticate the user and get
+	// an access token for the registry.
+	IdentityToken string `json:"identitytoken,omitempty" yaml:"identitytoken,omitempty"`
+
+	// RegistryToken is a bearer token to be sent to a registry
+	RegistryToken string `json:"registrytoken,omitempty" yaml:"registrytoken,omitempty"`
+
+	Email string `json:"email,omitempty" yaml:"email,omitempty"`
+
+	// ServerAddress is the auth server address.
+	ServerAddress string `json:"serveraddress,omitempty" yaml:"serveraddress,omitempty"`
+
+	// Repository is the namespace of the image repo.
+	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
 }
 
 // CAASApplicationOCIResourceResults holds all the image results for queried applications.

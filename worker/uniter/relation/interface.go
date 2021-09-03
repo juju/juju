@@ -26,7 +26,7 @@ type RelationStateTracker interface {
 	// current relation state.
 	CommitHook(hook.Info) error
 
-	// SyncronizeScopes ensures that the locally tracked relation scopes
+	// SynchronizeScopes ensures that the locally tracked relation scopes
 	// reflect the contents of the remote state snapshot by entering or
 	// exiting scopes as required.
 	SynchronizeScopes(remotestate.Snapshot) error
@@ -153,7 +153,7 @@ type Unit interface {
 	// Watch returns a watcher for observing changes to the unit.
 	Watch() (watcher.NotifyWatcher, error)
 
-	// Destroy, when called on a Alive unit, advances its lifecycle as far as
+	// Destroy when called on a Alive unit, advances its lifecycle as far as
 	// possible; it otherwise has no effect. In most situations, the unit's
 	// life is just set to Dying; but if a principal unit that is not assigned
 	// to a provisioned machine is Destroyed, it will be removed from state

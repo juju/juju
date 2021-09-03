@@ -338,7 +338,13 @@ func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 // Done is part of the ModelOperation interface.
 func (op *DestroyApplicationOperation) Done(err error) error {
 	if err == nil {
-		return err
+		if err := op.eraseHistory(); err != nil {
+			if !op.Force {
+				logger.Errorf("cannot delete history for application %q: %v", op.app, err)
+			}
+			op.AddError(errors.Errorf("force erase application %q history proceeded despite encountering ERROR %v", op.app, err))
+		}
+		return nil
 	}
 	connected, err2 := applicationHasConnectedOffers(op.app.st, op.app.Name())
 	if err2 != nil {
@@ -361,6 +367,17 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 	}
 
 	return errors.Annotatef(err, "cannot destroy application %q", op.app)
+}
+
+func (op *DestroyApplicationOperation) eraseHistory() error {
+	var stop <-chan struct{} // stop not used here yet.
+	if err := eraseStatusHistory(stop, op.app.st, op.app.globalKey()); err != nil {
+		one := errors.Annotate(err, "application")
+		if op.FatalError(one) {
+			return one
+		}
+	}
+	return nil
 }
 
 // destroyOps returns the operations required to destroy the application. If it

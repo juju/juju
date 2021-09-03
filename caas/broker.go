@@ -16,8 +16,10 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/storage"
 )
@@ -210,6 +212,9 @@ type Broker interface {
 	// ApplicationOperatorManager provides an API for deploying operators
 	// for individual applications.
 	ApplicationOperatorManager
+
+	// EnsureImageRepoSecret ensures the image pull secret gets created.
+	EnsureImageRepoSecret(docker.ImageRepoDetails) error
 }
 
 // ApplicationBroker provides an API for accessing the broker interface for
@@ -256,6 +261,9 @@ type ModelOperatorManager interface {
 // ApplicationOperatorManager provides an API for deploying operators for
 // individual applications.
 type ApplicationOperatorManager interface {
+	// Application returns the broker interface for an Application.
+	Application(string, DeploymentType) Application
+
 	// OperatorExists indicates if the operator for the specified
 	// application exists, and whether the operator is terminating.
 	OperatorExists(appName string) (DeploymentState, error)
@@ -273,6 +281,10 @@ type ApplicationOperatorManager interface {
 	// WatchOperator returns a watcher which notifies when there
 	// are changes to the operator of the specified application.
 	WatchOperator(string) (watcher.NotifyWatcher, error)
+
+	// WatchService returns a watcher which notifies when there
+	// are changes to the deployment of the specified application.
+	WatchService(appName string, mode DeploymentMode) (watcher.NotifyWatcher, error)
 }
 
 // Upgrader provides the API to perform upgrades.
@@ -395,8 +407,8 @@ type ModelOperatorConfig struct {
 	// AgentConf is the contents of the agent.conf file.
 	AgentConf []byte
 
-	// OperatorImagePath is the docker registry URL for the image.
-	OperatorImagePath string
+	// ImageDetails is the docker registry URL and auth details for the image.
+	ImageDetails resources.DockerImageDetails
 
 	// Port is the socket port that the operator model will be listening on
 	Port int32
@@ -404,8 +416,8 @@ type ModelOperatorConfig struct {
 
 // OperatorConfig is the config to use when creating an operator.
 type OperatorConfig struct {
-	// OperatorImagePath is the docker registry URL for the image.
-	OperatorImagePath string
+	// ImageDetails is the docker registry URL and auth details for the image.
+	ImageDetails resources.DockerImageDetails
 
 	// Version is the Juju version of the operator image.
 	Version version.Number

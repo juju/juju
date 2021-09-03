@@ -28,12 +28,13 @@ func (cfg *ControllerPodConfig) GetControllerImagePath() (string, error) {
 }
 
 // GetJujuDbOCIImagePath returns the juju-db oci image path.
-func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() string {
-	imageRepo := cfg.Controller.Config.CAASImageRepo()
+func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() (string, error) {
+	imageRepo := cfg.Controller.Config.CAASImageRepo().Repository
 	if imageRepo == "" {
 		imageRepo = JujudOCINamespace
 	}
-	return fmt.Sprintf("%s/%s:%v", imageRepo, JujudbOCIName, JujudbVersion)
+	path := fmt.Sprintf("%s/%s", imageRepo, JujudbOCIName)
+	return tagImagePath(path, JujudbVersion)
 }
 
 // IsJujuOCIImage returns true if the image path is for a Juju operator.
@@ -46,12 +47,16 @@ func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number, bu
 	// First check the deprecated "caas-operator-image-path" config.
 	ver.Build = build
 	imagePath, err := RebuildOldOperatorImagePath(
-		controllerCfg.CAASOperatorImagePath(), ver,
+		controllerCfg.CAASOperatorImagePath().Repository, ver,
 	)
 	if imagePath != "" || err != nil {
 		return imagePath, err
 	}
-	return imageRepoToPath(controllerCfg.CAASImageRepo(), ver)
+	tag := ""
+	if ver != version.Zero {
+		tag = ver.String()
+	}
+	return imageRepoToPath(controllerCfg.CAASImageRepo().Repository, tag)
 }
 
 // RebuildOldOperatorImagePath returns a updated image path for the specified juju version.
@@ -59,10 +64,15 @@ func RebuildOldOperatorImagePath(imagePath string, ver version.Number) (string, 
 	if imagePath == "" {
 		return "", nil
 	}
-	return tagImagePath(imagePath, ver)
+	tag := ""
+	if ver != version.Zero {
+		// ver is always a valid tag.
+		tag = ver.String()
+	}
+	return tagImagePath(imagePath, tag)
 }
 
-func tagImagePath(fullPath string, ver version.Number) (string, error) {
+func tagImagePath(fullPath, tag string) (string, error) {
 	ref, err := reference.Parse(fullPath)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -72,19 +82,18 @@ func tagImagePath(fullPath string, ver version.Number) (string, error) {
 	if !ok {
 		return "", errors.Errorf("unexpected docker image path type, got %T, expected reference.Named", ref)
 	}
-	if ver != version.Zero {
-		// ver is always a valid tag.
-		imageNamed, _ = reference.WithTag(imageNamed, ver.String())
+	if tag != "" {
+		imageNamed, _ = reference.WithTag(imageNamed, tag)
 	}
 	return imageNamed.String(), nil
 }
 
-func imageRepoToPath(imageRepo string, ver version.Number) (string, error) {
+func imageRepoToPath(imageRepo, tag string) (string, error) {
 	if imageRepo == "" {
 		imageRepo = JujudOCINamespace
 	}
 	path := fmt.Sprintf("%s/%s", imageRepo, JujudOCIName)
-	return tagImagePath(path, ver)
+	return tagImagePath(path, tag)
 }
 
 // ImageForBase returns the OCI image path for a generic base.

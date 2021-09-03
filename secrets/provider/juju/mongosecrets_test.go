@@ -60,8 +60,6 @@ func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 	service := juju.NewTestService(s.secretsStore)
 
 	p := secrets.CreateParams{
-		ControllerUUID: coretesting.ControllerTag.Id(),
-		ModelUUID:      coretesting.ModelTag.Id(),
 		Version:        secrets.Version,
 		ProviderLabel:  juju.Provider,
 		Type:           "blob",
@@ -71,8 +69,6 @@ func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 		Data:           map[string]string{"foo": "bar"},
 	}
 	expectedP := state.CreateSecretParams{
-		ControllerUUID: p.ControllerUUID,
-		ModelUUID:      p.ModelUUID,
 		Version:        p.Version,
 		ProviderLabel:  "juju",
 		Type:           p.Type,
@@ -81,9 +77,11 @@ func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 		Params:         p.Params,
 		Data:           p.Data,
 	}
-	URL, _ := coresecrets.ParseURL("secret://v1/app.password")
-	s.secretsStore.EXPECT().CreateSecret(expectedP).DoAndReturn(
-		func(p state.CreateSecretParams) (*coresecrets.SecretMetadata, error) {
+	URL := coresecrets.NewSimpleURL(1, "app.password")
+	URL.ControllerUUID = coretesting.ControllerTag.Id()
+	URL.ModelUUID = coretesting.ModelTag.Id()
+	s.secretsStore.EXPECT().CreateSecret(URL, expectedP).DoAndReturn(
+		func(URL *coresecrets.URL, p state.CreateSecretParams) (*coresecrets.SecretMetadata, error) {
 			md := &coresecrets.SecretMetadata{
 				URL:  URL,
 				Path: "app.password",
@@ -92,7 +90,7 @@ func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 		},
 	)
 
-	resultMeta, err := service.CreateSecret(context.Background(), p)
+	resultMeta, err := service.CreateSecret(context.Background(), URL, p)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resultMeta, jc.DeepEquals, &coresecrets.SecretMetadata{
 		URL:  URL,
@@ -134,15 +132,64 @@ func (s *SecretsManagerSuite) TestUpdateSecret(c *gc.C) {
 	})
 }
 
+func (s *SecretsManagerSuite) TestGetSecret(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	service := juju.NewTestService(s.secretsStore)
+
+	URL, _ := coresecrets.ParseURL("secret://v1/app.password#attr")
+	baseURL := URL.WithAttribute("")
+	md := &coresecrets.SecretMetadata{
+		URL:      baseURL,
+		Revision: 2,
+	}
+	s.secretsStore.EXPECT().GetSecret(baseURL).Return(
+		md, nil,
+	)
+
+	result, err := service.GetSecret(context.Background(), URL)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, md)
+}
+
 func (s *SecretsManagerSuite) TestGetSecretValue(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	service := juju.NewTestService(s.secretsStore)
 
 	URL, _ := coresecrets.ParseURL("secret://v1/app.password")
+	s.secretsStore.EXPECT().GetSecret(URL).Return(
+		&coresecrets.SecretMetadata{
+			URL:      URL,
+			Revision: 2,
+		}, nil,
+	)
 	data := map[string]string{"foo": "bar"}
 	val := coresecrets.NewSecretValue(data)
-	s.secretsStore.EXPECT().GetSecretValue(URL).Return(
+	s.secretsStore.EXPECT().GetSecretValue(URL.WithRevision(2)).Return(
+		val, nil,
+	)
+
+	result, err := service.GetSecretValue(context.Background(), URL)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, val)
+}
+
+func (s *SecretsManagerSuite) TestGetSecretValueSpecificRevision(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	service := juju.NewTestService(s.secretsStore)
+
+	URL, _ := coresecrets.ParseURL("secret://v1/app.password")
+	s.secretsStore.EXPECT().GetSecret(URL).Return(
+		&coresecrets.SecretMetadata{
+			URL:      URL,
+			Revision: 2,
+		}, nil,
+	)
+	data := map[string]string{"foo": "bar"}
+	val := coresecrets.NewSecretValue(data)
+	s.secretsStore.EXPECT().GetSecretValue(URL.WithRevision(2)).Return(
 		val, nil,
 	)
 

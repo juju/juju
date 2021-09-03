@@ -5,36 +5,37 @@
 package mocks
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	io "io"
 	os "os"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
-// MockContext is a mock of Context interface
+// MockContext is a mock of Context interface.
 type MockContext struct {
 	ctrl     *gomock.Controller
 	recorder *MockContextMockRecorder
 }
 
-// MockContextMockRecorder is the mock recorder for MockContext
+// MockContextMockRecorder is the mock recorder for MockContext.
 type MockContextMockRecorder struct {
 	mock *MockContext
 }
 
-// NewMockContext creates a new mock instance
+// NewMockContext creates a new mock instance.
 func NewMockContext(ctrl *gomock.Controller) *MockContext {
 	mock := &MockContext{ctrl: ctrl}
 	mock.recorder = &MockContextMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockContext) EXPECT() *MockContextMockRecorder {
 	return m.recorder
 }
 
-// GetStderr mocks base method
+// GetStderr mocks base method.
 func (m *MockContext) GetStderr() io.Writer {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStderr")
@@ -42,13 +43,13 @@ func (m *MockContext) GetStderr() io.Writer {
 	return ret0
 }
 
-// GetStderr indicates an expected call of GetStderr
+// GetStderr indicates an expected call of GetStderr.
 func (mr *MockContextMockRecorder) GetStderr() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStderr", reflect.TypeOf((*MockContext)(nil).GetStderr))
 }
 
-// GetStdin mocks base method
+// GetStdin mocks base method.
 func (m *MockContext) GetStdin() io.Reader {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStdin")
@@ -56,13 +57,13 @@ func (m *MockContext) GetStdin() io.Reader {
 	return ret0
 }
 
-// GetStdin indicates an expected call of GetStdin
+// GetStdin indicates an expected call of GetStdin.
 func (mr *MockContextMockRecorder) GetStdin() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStdin", reflect.TypeOf((*MockContext)(nil).GetStdin))
 }
 
-// GetStdout mocks base method
+// GetStdout mocks base method.
 func (m *MockContext) GetStdout() io.Writer {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStdout")
@@ -70,31 +71,31 @@ func (m *MockContext) GetStdout() io.Writer {
 	return ret0
 }
 
-// GetStdout indicates an expected call of GetStdout
+// GetStdout indicates an expected call of GetStdout.
 func (mr *MockContextMockRecorder) GetStdout() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStdout", reflect.TypeOf((*MockContext)(nil).GetStdout))
 }
 
-// InterruptNotify mocks base method
+// InterruptNotify mocks base method.
 func (m *MockContext) InterruptNotify(arg0 chan<- os.Signal) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "InterruptNotify", arg0)
 }
 
-// InterruptNotify indicates an expected call of InterruptNotify
+// InterruptNotify indicates an expected call of InterruptNotify.
 func (mr *MockContextMockRecorder) InterruptNotify(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InterruptNotify", reflect.TypeOf((*MockContext)(nil).InterruptNotify), arg0)
 }
 
-// StopInterruptNotify mocks base method
+// StopInterruptNotify mocks base method.
 func (m *MockContext) StopInterruptNotify(arg0 chan<- os.Signal) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "StopInterruptNotify", arg0)
 }
 
-// StopInterruptNotify indicates an expected call of StopInterruptNotify
+// StopInterruptNotify indicates an expected call of StopInterruptNotify.
 func (mr *MockContextMockRecorder) StopInterruptNotify(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopInterruptNotify", reflect.TypeOf((*MockContext)(nil).StopInterruptNotify), arg0)

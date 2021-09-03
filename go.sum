@@ -371,8 +371,8 @@ github.com/hashicorp/golang-lru v0.5.4 h1:YDjusn29QI/Das2iO9M0BHnIbxPeyuCHsjMW+l
 github.com/hashicorp/golang-lru v0.5.4/go.mod h1:iADmTwqILo4mZ8BN3D2Q6+9jd8WM5uGBxy+E8yxSoD4=
 github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
 github.com/hashicorp/raft v1.1.0/go.mod h1:4Ak7FSPnuvmb0GV6vgIAJ4vYT4bek9bb6Q+7HVbyzqM=
-github.com/hashicorp/raft v1.3.2-0.20210622123546-7bba4911cf05 h1:vckY8UNYqOtKnsnXecZWOFyc5YD+kH1qiQQcLG4iCQ4=
-github.com/hashicorp/raft v1.3.2-0.20210622123546-7bba4911cf05/go.mod h1:4Ak7FSPnuvmb0GV6vgIAJ4vYT4bek9bb6Q+7HVbyzqM=
+github.com/hashicorp/raft v1.3.2-0.20210825230038-1a621031eb2b h1:/RdcFlfZTf190O0jAURbRascXbPHz1KFFHfLwFnleUI=
+github.com/hashicorp/raft v1.3.2-0.20210825230038-1a621031eb2b/go.mod h1:4Ak7FSPnuvmb0GV6vgIAJ4vYT4bek9bb6Q+7HVbyzqM=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/im7mortal/kmutex v1.0.1 h1:zAACzjwD+OEknDqnLdvRa/BhzFM872EBwKijviGLc9Q=
@@ -501,8 +501,8 @@ github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93 h1:nlmpG
 github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93/go.mod h1:zrbmo4nBKaiP/Ez3F67ewkMbzGYfXyMvRtbOfuAwG0w=
 github.com/juju/postgrestest v1.1.0/go.mod h1:/n17Y2T6iFozzXwSCO0JYJ5gSiz2caEtSwAjh/uLXDM=
 github.com/juju/proxy v0.0.0-20180516023828-df38202e4713/go.mod h1:8eZt3fxDIlRXkEkf4N4PCNSZzryF6NxULBg07OjDofA=
-github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4 h1:y2eoq0Uof/dWLAXRyKKGOJuF0TEkauPscQI7Q1XQqvM=
-github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4/go.mod h1:8eZt3fxDIlRXkEkf4N4PCNSZzryF6NxULBg07OjDofA=
+github.com/juju/proxy v0.0.0-20210817195502-c6015cfe0258 h1:oQ4i531nGh54FPEkAA5j1rbXPANQjUw84FM9O7EsNOo=
+github.com/juju/proxy v0.0.0-20210817195502-c6015cfe0258/go.mod h1:8eZt3fxDIlRXkEkf4N4PCNSZzryF6NxULBg07OjDofA=
 github.com/juju/pubsub/v2 v2.0.0-20210804115646-050d38a80f5b h1:EwjCZIeRDkUzIM7hFFmq339tBZA5NBXIzOUXM6KR3U8=
 github.com/juju/pubsub/v2 v2.0.0-20210804115646-050d38a80f5b/go.mod h1:+fw+MJGVa006M85prHvwS9pQrCjkkaaH8Ds1wvEMpXQ=
 github.com/juju/qthttptest v0.0.1/go.mod h1://LCf/Ls22/rPw2u1yWukUJvYtfPY4nYpWUl2uZhryo=

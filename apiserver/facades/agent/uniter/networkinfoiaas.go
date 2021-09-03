@@ -29,26 +29,32 @@ type NetInfoAddress interface {
 	DeviceName() string
 
 	// HWAddr returns the hardware address (MAC or Infiniband GUID)
-	// for the the device with which this address is associated.
+	// for the device with which this address is associated.
 	HWAddr() (string, error)
+
+	// ParentDeviceName returns the name of the network device that
+	// is the parent of this one.
+	// An empty string is returned if no parent can be determined.
+	ParentDeviceName() string
 }
 
 type netInfoAddress struct {
 	network.SpaceAddress
 
 	addr *state.Address
+	dev  *state.LinkLayerDevice
 }
 
 // SpaceAddr implements NetInfoAddress by
 // returning the embedded SpaceAddress.
-func (a netInfoAddress) SpaceAddr() network.SpaceAddress {
+func (a *netInfoAddress) SpaceAddr() network.SpaceAddress {
 	return a.SpaceAddress
 }
 
 // DeviceName implements NetInfoAddress by returning the address' device name.
 // For the case where we construct this from the machine's preferred
 // private address, there will be no addr member, so return an empty string.
-func (a netInfoAddress) DeviceName() string {
+func (a *netInfoAddress) DeviceName() string {
 	if a.addr == nil {
 		return ""
 	}
@@ -59,16 +65,42 @@ func (a netInfoAddress) DeviceName() string {
 // the MAC for this address' device.
 // For the case where we construct this from the machine's preferred
 // private address, there will be no addr member, so return a not found error.
-func (a netInfoAddress) HWAddr() (string, error) {
+func (a *netInfoAddress) HWAddr() (string, error) {
 	if a.addr == nil {
 		return "", errors.NotFoundf("device hardware address")
 	}
 
-	dev, err := a.addr.Device()
-	if err != nil {
+	if err := a.ensureDevice(); err != nil {
 		return "", errors.Trace(err)
 	}
-	return dev.MACAddress(), nil
+
+	return a.dev.MACAddress(), nil
+}
+
+// ParentDeviceName implements NetInfoAddress by returning the device name of
+// this NIC's parent. This is used in populateMachineAddresses to sort bridge
+// devices before their bridged NICs. As such, an error return is not useful;
+// just return empty if no determination can be made.
+func (a *netInfoAddress) ParentDeviceName() string {
+	if a.addr == nil {
+		return ""
+	}
+
+	if err := a.ensureDevice(); err != nil {
+		return ""
+	}
+
+	return a.dev.ParentID()
+}
+
+func (a *netInfoAddress) ensureDevice() error {
+	if a.dev != nil {
+		return nil
+	}
+
+	var err error
+	a.dev, err = a.addr.Device()
+	return errors.Trace(err)
 }
 
 // Machine describes methods required for interrogating
@@ -106,7 +138,7 @@ func (m *machine) AllDeviceAddresses(subs network.SubnetInfos) ([]NetInfoAddress
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		res[i] = netInfoAddress{SpaceAddress: spaceAddr, addr: addr}
+		res[i] = &netInfoAddress{SpaceAddress: spaceAddr, addr: addr}
 	}
 	return res, nil
 }
@@ -331,6 +363,14 @@ func (n *NetworkInfoIAAS) populateMachineAddresses() error {
 		order1 := network.SortOrderMostPublic(addr1)
 		order2 := network.SortOrderMostPublic(addr2)
 		if order1 == order2 {
+			// It is possible to get the same address on multiple devices when
+			// we have bridged a device (effectively moving the IP onto the new
+			// bridge), but the instance-poller is maintaining the provider's
+			// view of the interface with the IP against the original device.
+			// In this case, sort parent devices ahead of children.
+			if addr1.Host() == addr2.Host() {
+				return addr1.ParentDeviceName() < addr2.ParentDeviceName()
+			}
 			return addr1.Host() < addr2.Host()
 		}
 		return order1 < order2
@@ -389,7 +429,7 @@ func (n *NetworkInfoIAAS) populateMachineAddresses() error {
 		if privateLinkLayerAddress != nil {
 			n.addAddressToResult(network.AlphaSpaceId, privateLinkLayerAddress)
 		} else {
-			n.addAddressToResult(network.AlphaSpaceId, netInfoAddress{SpaceAddress: privateMachineAddress})
+			n.addAddressToResult(network.AlphaSpaceId, &netInfoAddress{SpaceAddress: privateMachineAddress})
 		}
 	}
 
@@ -407,11 +447,20 @@ func (n *NetworkInfoIAAS) addAddressToResult(spaceID string, address NetInfoAddr
 }
 
 // networkInfoForSpace transforms the addresses in the input space into
-// a NetworkInfoResult to return for for the network info request.
+// a NetworkInfoResult to return for the network info request.
 func (n *NetworkInfoIAAS) networkInfoForSpace(spaceID string) params.NetworkInfoResult {
 	res := params.NetworkInfoResult{}
+	hosts := set.NewStrings()
 
 	for _, addr := range n.machineAddresses[spaceID] {
+		// If we have already added this address, then we are done.
+		// The sort ordering means that we will use a parent device
+		// over its child if we have it on more than one.
+		if hosts.Contains(addr.Host()) {
+			continue
+		}
+		hosts.Add(addr.Host())
+
 		deviceAddr := params.InterfaceAddress{
 			Address: addr.Host(),
 			CIDR:    addr.AddressCIDR(),
@@ -430,7 +479,7 @@ func (n *NetworkInfoIAAS) networkInfoForSpace(spaceID string) params.NetworkInfo
 			continue
 		}
 
-		// Otherwise add a new device.
+		// Otherwise, add a new device.
 		var MAC string
 		mac, err := addr.HWAddr()
 		if err == nil {

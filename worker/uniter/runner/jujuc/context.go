@@ -165,6 +165,9 @@ type ContextUnit interface {
 
 // UpsertArgs specifies args used to create or update a secret.
 type UpsertArgs struct {
+	// Type is the secret type (only used for insert).
+	Type secrets.SecretType
+
 	// Value is the new secret value or nil to not update.
 	Value secrets.SecretValue
 
@@ -179,6 +182,8 @@ type ContextSecrets interface {
 
 	// CreateSecret creates a secret with the specified data.
 	CreateSecret(name string, args *UpsertArgs) (string, error)
+
+	UpdateSecret(name string, args *UpsertArgs) (string, error)
 }
 
 // ContextStatus is the part of a hook context related to the unit's status.

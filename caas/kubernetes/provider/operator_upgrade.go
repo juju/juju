@@ -191,7 +191,9 @@ func operatorUpgrade(
 		return errors.Trace(err)
 	}
 
-	operatorImagePath, err := podcfg.RebuildOldOperatorImagePath(operator.Config.OperatorImagePath, vers)
+	operatorImagePath, err := podcfg.RebuildOldOperatorImagePath(
+		operator.Config.ImageDetails.RegistryPath, vers,
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}
