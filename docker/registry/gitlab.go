@@ -10,29 +10,20 @@ import (
 	"github.com/juju/juju/docker"
 )
 
-type gitlab struct {
+type gitlabContainerRegistry struct {
 	*baseClient
 }
 
-func newGitlab(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
+func newGitlabContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
 	c := newBase(repoDetails, DefaultTransport)
-	return &gitlab{c}
+	return &gitlabContainerRegistry{c}
 }
 
-func (c *gitlab) Match() bool {
+func (c *gitlabContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "registry.gitlab.com")
 }
 
-func (c *gitlab) WrapTransport() error {
-	if !c.repoDetails.IsPrivate() {
-		return nil
-	}
-	transport := c.client.Transport
-	if !c.repoDetails.BasicAuthConfig.Empty() {
-		transport = newTokenTransport(
-			transport, c.repoDetails.Username, c.repoDetails.Password, c.repoDetails.Auth, "",
-		)
-	}
-	c.client.Transport = errorTransport{transport}
-	return nil
+func (c *gitlabContainerRegistry) WrapTransport() error {
+	// TODO(ycliuhw): implement gitlab public registry.
+	return c.baseClient.WrapTransport()
 }

@@ -66,18 +66,18 @@ type tokenTransport struct {
 	username   string
 	password   string
 	authToken  string
-	oAuthToken string
+	OAuthToken string
 }
 
 func newTokenTransport(
-	transport http.RoundTripper, username, password, authToken, oAuthToken string,
+	transport http.RoundTripper, username, password, authToken, OAuthToken string,
 ) http.RoundTripper {
 	return &tokenTransport{
 		transport:  transport,
 		username:   username,
 		password:   password,
 		authToken:  authToken,
-		oAuthToken: oAuthToken,
+		OAuthToken: OAuthToken,
 	}
 }
 
@@ -120,8 +120,8 @@ func (t tokenResponse) token() string {
 	return ""
 }
 
-func (t *tokenTransport) refreshoAuthToken(failedResp *http.Response) error {
-	t.oAuthToken = ""
+func (t *tokenTransport) refreshOAuthToken(failedResp *http.Response) error {
+	t.OAuthToken = ""
 
 	parameters := getChallengeParameters(t.scheme(), failedResp)
 	if parameters == nil {
@@ -168,12 +168,12 @@ func (t *tokenTransport) refreshoAuthToken(failedResp *http.Response) error {
 	if err = decoder.Decode(&tr); err != nil {
 		return fmt.Errorf("unable to decode token response: %s", err)
 	}
-	t.oAuthToken = tr.token()
+	t.OAuthToken = tr.token()
 	return nil
 }
 
 func (t *tokenTransport) authorizeRequest(req *http.Request) error {
-	req.Header.Set("Authorization", fmt.Sprintf("%s %s", t.scheme(), t.oAuthToken))
+	req.Header.Set("Authorization", fmt.Sprintf("%s %s", t.scheme(), t.OAuthToken))
 	return nil
 }
 
@@ -183,15 +183,18 @@ func (t *tokenTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, errors.Trace(err)
 	}
 	resp, err := t.transport.RoundTrip(req)
-	if err != nil || resp == nil || resp.StatusCode != http.StatusUnauthorized {
-		return resp, errors.Trace(err)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	// refresh token and retry.
-	return t.retry(req, resp)
+	if resp != nil && resp.StatusCode == http.StatusUnauthorized {
+		// refresh token and retry.
+		return t.retry(req, resp)
+	}
+	return resp, errors.Trace(err)
 }
 
 func (t *tokenTransport) retry(req *http.Request, prevResp *http.Response) (*http.Response, error) {
-	if err := t.refreshoAuthToken(prevResp); err != nil {
+	if err := t.refreshOAuthToken(prevResp); err != nil {
 		return nil, errors.Annotatef(err, "refreshing OAuth token")
 	}
 	if err := t.authorizeRequest(req); err != nil {
@@ -205,10 +208,14 @@ type errorTransport struct {
 	transport http.RoundTripper
 }
 
+func newErrorTransport(transport http.RoundTripper) http.RoundTripper {
+	return &errorTransport{transport: transport}
+}
+
 // RoundTrip executes a single HTTP transaction, returning a Response for the provided Request.
 func (t errorTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	resp, err := t.transport.RoundTrip(request)
-	logger.Tracef(
+	logger.Criticalf(
 		"errorTransport.RoundTrip request.URL -> %q, request.Header -> %#v, err -> %v",
 		request.URL, request.Header, err,
 	)

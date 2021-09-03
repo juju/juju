@@ -13,16 +13,16 @@ import (
 	"github.com/juju/juju/docker"
 )
 
-type github struct {
+type githubContainerRegistry struct {
 	*baseClient
 }
 
-func newGithub(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
+func newGithubContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
 	c := newBase(repoDetails, DefaultTransport)
-	return &github{c}
+	return &githubContainerRegistry{c}
 }
 
-func (c *github) Match() bool {
+func (c *githubContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "ghcr.io")
 }
 
@@ -42,26 +42,29 @@ func getBearerTokenForGithub(auth string) (string, error) {
 	return base64.StdEncoding.EncodeToString([]byte(token)), nil
 }
 
-func (c *github) WrapTransport() error {
-	if !c.repoDetails.IsPrivate() {
-		return nil
-	}
+func (c *githubContainerRegistry) WrapTransport() error {
 	transport := c.client.Transport
-	if !c.repoDetails.BasicAuthConfig.Empty() {
-		bearerToken, err := getBearerTokenForGithub(c.repoDetails.Auth)
-		if err != nil {
-			return errors.Trace(err)
+	if c.repoDetails.IsPrivate() {
+		if !c.repoDetails.BasicAuthConfig.Empty() {
+			bearerToken, err := getBearerTokenForGithub(c.repoDetails.Auth)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			transport = newTokenTransport(
+				transport, "", "", "", bearerToken,
+			)
 		}
-		transport = newTokenTransport(
-			transport, "", "", "", bearerToken,
-		)
+		if !c.repoDetails.TokenAuthConfig.Empty() {
+			return errors.New("github only supports username and password or auth token")
+		}
 	}
-	c.client.Transport = errorTransport{transport}
+	// TODO(ycliuhw): support github public registry.
+	c.client.Transport = newErrorTransport(transport)
 	return nil
 }
 
 // Ping pings the github endpoint.
-func (c github) Ping() error {
+func (c githubContainerRegistry) Ping() error {
 	url := c.url("/")
 	if !strings.HasSuffix(url, "/") {
 		// github v2 root endpoint requires the trailing slash(otherwise 404 returns).

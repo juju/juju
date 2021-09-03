@@ -30,20 +30,6 @@ func (c *dockerhub) Match() bool {
 	return c.repoDetails.ServerAddress == "" || strings.Contains(c.repoDetails.ServerAddress, "docker")
 }
 
-func (c *dockerhub) WrapTransport() error {
-	if !c.repoDetails.IsPrivate() {
-		return nil
-	}
-	transport := c.client.Transport
-	if !c.repoDetails.BasicAuthConfig.Empty() {
-		transport = newTokenTransport(
-			transport, c.repoDetails.Username, c.repoDetails.Password, c.repoDetails.Auth, "",
-		)
-	}
-	c.client.Transport = errorTransport{transport}
-	return nil
-}
-
 func (c *dockerhub) DecideBaseURL() error {
 	if c.repoDetails.ServerAddress == "" {
 		c.repoDetails.ServerAddress = dockerServerAddress

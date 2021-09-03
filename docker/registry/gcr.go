@@ -12,19 +12,19 @@ import (
 	"github.com/juju/juju/docker"
 )
 
-type gcr struct {
+type googleContainerRegistry struct {
 	*baseClient
 }
 
-func newGCR(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
+func newGoogleContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
 	c := newBase(repoDetails, DefaultTransport)
-	return &gcr{c}
+	return &googleContainerRegistry{c}
 }
 
-func (c *gcr) Match() bool {
+func (c *googleContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "gcr.io")
 }
 
-func (c *gcr) WrapTransport() error {
-	return errors.NotSupportedf("GCR")
+func (c *googleContainerRegistry) WrapTransport() error {
+	return errors.NotSupportedf("googleContainerRegistry")
 }

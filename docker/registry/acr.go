@@ -11,18 +11,20 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/tools"
 )
 
-type acr struct {
+// TODO(ycliuhw): test and verify azureContainerRegistry integration further.
+type azureContainerRegistry struct {
 	*baseClient
 }
 
-func newACR(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
+func newAzureContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
 	c := newBase(repoDetails, DefaultTransport)
-	return &acr{c}
+	return &azureContainerRegistry{c}
 }
 
-func (c *acr) Match() bool {
+func (c *azureContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "azurecr.io")
 }
 
@@ -38,30 +40,47 @@ func getUserNameFromAuthForACR(auth string) (string, error) {
 	return parts[0], nil
 }
 
-func (c *acr) WrapTransport() error {
-	if !c.repoDetails.IsPrivate() {
-		return nil
-	}
+func (c *azureContainerRegistry) WrapTransport() error {
 	transport := c.client.Transport
-	if !c.repoDetails.TokenAuthConfig.Empty() {
-		username := c.repoDetails.Username
-		if username == "" {
-			var err error
-			username, err = getUserNameFromAuthForACR(c.repoDetails.Auth)
-			if err != nil {
-				return errors.Trace(err)
+	if c.repoDetails.IsPrivate() {
+		if !c.repoDetails.TokenAuthConfig.Empty() {
+			username := c.repoDetails.Username
+			if username == "" {
+				var err error
+				username, err = getUserNameFromAuthForACR(c.repoDetails.Auth)
+				if err != nil {
+					return errors.Trace(err)
+				}
 			}
+			password := c.repoDetails.Password
+			if password == "" {
+				password = c.repoDetails.IdentityToken
+			}
+			transport = newTokenTransport(
+				transport,
+				username, password,
+				"", "",
+			)
 		}
-		password := c.repoDetails.Password
-		if password == "" {
-			password = c.repoDetails.IdentityToken
-		}
-		transport = newTokenTransport(
-			transport,
-			username, password,
-			"", "",
-		)
 	}
-	c.client.Transport = errorTransport{transport}
+	c.client.Transport = newErrorTransport(transport)
 	return nil
+}
+
+// Tags fetches tags for an OCI image.
+func (c azureContainerRegistry) Tags(imageName string) (versions tools.Versions, err error) {
+	apiVersion := c.APIVersion()
+
+	if apiVersion == APIVersionV1 {
+		url := c.url("/repositories/%s/tags", imageName)
+		var response tagsResponseV1
+		return c.fetchTags(url, &response)
+	}
+	if apiVersion == APIVersionV2 {
+		url := c.url("/%s/tags/list", imageName)
+		var response tagsResponseV2
+		return c.fetchTags(url, &response)
+	}
+	// This should never happen.
+	return nil, nil
 }

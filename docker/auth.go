@@ -22,20 +22,6 @@ import (
 
 var logger = loggo.GetLogger("juju.docker")
 
-// APIVersion is the API version type.
-type APIVersion string
-
-const (
-	// APIVersionV1 is the API version v1.
-	APIVersionV1 APIVersion = "v1"
-	// APIVersionV2 is the API version v2.
-	APIVersionV2 APIVersion = "v2"
-)
-
-func (v APIVersion) String() string {
-	return string(v)
-}
-
 // TokenAuthConfig contains authorization information for token auth.
 // Juju does not support the docker credential helper because k8s does not support it either.
 // https://kubernetes.io/docs/concepts/containers/images/#configuring-nodes-to-authenticate-to-a-private-registry
@@ -171,13 +157,6 @@ func (rid *ImageRepoDetails) init() error {
 }
 func (rid ImageRepoDetails) Empty() bool {
 	return rid == ImageRepoDetails{}
-}
-
-func (rid ImageRepoDetails) APIVersion() APIVersion {
-	if rid.IsPrivate() {
-		return APIVersionV2
-	}
-	return APIVersionV1
 }
 
 func fileExists(p string) (bool, error) {
