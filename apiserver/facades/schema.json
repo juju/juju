@@ -4270,6 +4270,9 @@
                         "cpu-power": {
                             "type": "integer"
                         },
+                        "instance-role": {
+                            "type": "string"
+                        },
                         "instance-type": {
                             "type": "string"
                         },
@@ -8417,6 +8420,9 @@
                         },
                         "cpu-power": {
                             "type": "integer"
+                        },
+                        "instance-role": {
+                            "type": "string"
                         },
                         "instance-type": {
                             "type": "string"
@@ -14392,6 +14398,9 @@
                         "cpu-power": {
                             "type": "integer"
                         },
+                        "instance-role": {
+                            "type": "string"
+                        },
                         "instance-type": {
                             "type": "string"
                         },
@@ -18579,6 +18588,9 @@
                         "cpu-power": {
                             "type": "integer"
                         },
+                        "instance-role": {
+                            "type": "string"
+                        },
                         "instance-type": {
                             "type": "string"
                         },
@@ -19737,6 +19749,9 @@
                         },
                         "cpu-power": {
                             "type": "integer"
+                        },
+                        "instance-role": {
+                            "type": "string"
                         },
                         "instance-type": {
                             "type": "string"
@@ -24737,6 +24752,9 @@
                         "cpu-power": {
                             "type": "integer"
                         },
+                        "instance-role": {
+                            "type": "string"
+                        },
                         "instance-type": {
                             "type": "string"
                         },
@@ -28664,6 +28682,9 @@
                         },
                         "cpu-power": {
                             "type": "integer"
+                        },
+                        "instance-role": {
+                            "type": "string"
                         },
                         "instance-type": {
                             "type": "string"
@@ -36891,6 +36912,9 @@
                         },
                         "cpu-power": {
                             "type": "integer"
+                        },
+                        "instance-role": {
+                            "type": "string"
                         },
                         "instance-type": {
                             "type": "string"

@@ -46,6 +46,8 @@ type Instance struct {
 	tags                []types.Tag
 	rootDeviceType      types.DeviceType
 	rootDeviceName      string
+
+	iamInstanceProfile *types.IamInstanceProfileSpecification
 }
 
 // TerminateInstances implements ec2.Client.
@@ -175,6 +177,38 @@ func (srv *Server) RunInstances(ctx context.Context, in *ec2.RunInstancesInput, 
 		resp.Instances = append(resp.Instances, inst.ec2instance())
 	}
 	return resp, nil
+}
+
+func (srv *Server) AssociateIamInstanceProfile(
+	ctx context.Context,
+	params *ec2.AssociateIamInstanceProfileInput,
+	opts ...func(*ec2.Options),
+) (*ec2.AssociateIamInstanceProfileOutput, error) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	inst, exists := srv.instances[*params.InstanceId]
+	if !exists {
+		return nil, apiError("InvalidInstanceID.NotFound", "instance %q not found", *params.InstanceId)
+	}
+
+	if inst.state.Name != types.InstanceStateNameRunning {
+		return nil, apiError("Instance %q not in a running state", *params.InstanceId)
+	}
+
+	inst.iamInstanceProfile = params.IamInstanceProfile
+
+	return &ec2.AssociateIamInstanceProfileOutput{
+		IamInstanceProfileAssociation: &types.IamInstanceProfileAssociation{
+			AssociationId: aws.String("test-association"),
+			IamInstanceProfile: &types.IamInstanceProfile{
+				Arn: params.IamInstanceProfile.Arn,
+				Id:  aws.String("iam-id-1234"),
+			},
+			InstanceId: params.InstanceId,
+			State:      types.IamInstanceProfileAssociationStateAssociated,
+		},
+	}, nil
 }
 
 // DescribeInstances implements ec2.Client.

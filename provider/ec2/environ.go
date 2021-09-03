@@ -31,6 +31,7 @@ import (
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	corecontext "github.com/juju/juju/core/context"
 	"github.com/juju/juju/core/instance"
@@ -88,6 +89,9 @@ type environ struct {
 	name  string
 	cloud environscloudspec.CloudSpec
 
+	iamClient     IAMClient
+	iamClientFunc IAMClientFunc
+
 	ec2Client     Client
 	ec2ClientFunc ClientFunc
 
@@ -111,6 +115,7 @@ type environ struct {
 func newEnviron() *environ {
 	return &environ{
 		ec2ClientFunc: clientFunc,
+		iamClientFunc: iamClientFunc,
 	}
 }
 
@@ -177,6 +182,20 @@ func (e *environ) Create(ctx context.ProviderCallContext, args environs.CreatePa
 
 // Bootstrap is part of the Environ interface.
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	// We are going to take a look at the Bootstrap constraints and see if we have to make an instance profile
+	if args.BootstrapConstraints.HasInstanceRole() &&
+		*args.BootstrapConstraints.InstanceRole == awsInstanceProfileAutoCreateVal {
+
+		controllerName, ok := args.ControllerConfig[controller.ControllerName].(string)
+		if !ok {
+			return nil, errors.NewNotValid(nil, "cannot find controller name in config")
+		}
+		instProfile, err := ensureControllerInstanceProfile(ctx.Context(), e.iamClient, controllerName)
+		if err != nil {
+			return nil, err
+		}
+		args.BootstrapConstraints.InstanceRole = instProfile.InstanceProfileName
+	}
 	r, err := common.Bootstrap(ctx, e, callCtx, args)
 	return r, maybeConvertCredentialError(err, callCtx)
 }
@@ -668,10 +687,55 @@ func (e *environ) StartInstance(
 		// Tags currently not supported by EC2
 		AvailabilityZone: &instAZ,
 	}
+
+	if err := e.maybeAttachInstanceProfile(ctx, callback, inst, args.Constraints); err != nil {
+		return nil, err
+	}
+
 	return &environs.StartInstanceResult{
 		Instance: inst,
 		Hardware: &hc,
 	}, nil
+}
+
+// maybeAttachInstanceProfile assesses if an instance profile needs to be
+// attached to an instance based on it's constraints. If the instance
+// constraints do not specify an instance role then this func returns silently.
+func (e *environ) maybeAttachInstanceProfile(
+	ctx context.ProviderCallContext,
+	statusCallback environs.StatusCallbackFunc,
+	instance *sdkInstance,
+	constraints constraints.Value,
+) error {
+	if !constraints.HasInstanceRole() {
+		return nil
+	}
+
+	_ = statusCallback(
+		status.Allocating,
+		fmt.Sprintf("finding aws instance profile %s", *constraints.InstanceRole),
+		nil,
+	)
+	instProfile, err := findInstanceProfileFromName(ctx, e.iamClient, *constraints.InstanceRole)
+	if err != nil {
+		return errors.Annotatef(err, "findining instance profile %s", *constraints.InstanceRole)
+	}
+
+	_ = statusCallback(
+		status.Allocating,
+		fmt.Sprintf("attaching aws instance profile %s", *instProfile.Arn),
+		nil,
+	)
+	if err := setInstanceProfileWithWait(ctx, e.ec2Client, instProfile, instance, e); err != nil {
+		return errors.Annotatef(
+			err,
+			"attaching instance profile %s to instance %s",
+			*instProfile.Arn,
+			instance.Id(),
+		)
+	}
+
+	return nil
 }
 
 func (e *environ) finishInstanceConfig(args *environs.StartInstanceParams, spec *instances.InstanceSpec) error {
@@ -2590,7 +2654,14 @@ func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.Cl
 
 	var err error
 	e.ec2Client, err = e.ec2ClientFunc(ctx, spec, WithHTTPClient(httpClient.Client()))
-	return err
+	if err != nil {
+		return errors.Annotate(err, "creating aws ec2 client")
+	}
+	e.iamClient, err = e.iamClientFunc(ctx, spec, WithHTTPClient(httpClient.Client()))
+	if err != nil {
+		return errors.Annotate(err, "creating aws iam client")
+	}
+	return nil
 }
 
 // SupportsRulesWithIPV6CIDRs returns true if the environment supports
