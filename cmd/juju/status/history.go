@@ -219,6 +219,11 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 			return errors.Errorf("%q is not a valid name for a %s", c.entityName, kind)
 		}
 		tag = names.NewUnitTag(c.entityName)
+	case status.KindApplication, status.KindSAAS:
+		if !names.IsValidApplication(c.entityName) {
+			return errors.Errorf("%q is not a valid name for an application", c.entityName)
+		}
+		tag = names.NewApplicationTag(c.entityName)
 	default:
 		if !names.IsValidMachine(c.entityName) {
 			return errors.Errorf("%q is not a valid name for a %s", c.entityName, kind)

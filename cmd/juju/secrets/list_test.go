@@ -74,12 +74,18 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 
 	URL, err := coresecrets.ParseURL("secret://v1/app.password")
 	c.Assert(err, jc.ErrorIsNil)
+	URL2, err := coresecrets.ParseURL("secret://v1/app.apitoken")
+	c.Assert(err, jc.ErrorIsNil)
 	s.secretsAPI.EXPECT().ListSecrets(true).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				URL: URL, ID: 666, RotateInterval: time.Hour,
 				Version: 1, Revision: 2, Path: "app.password", Provider: "juju"},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
+		}, {
+			Metadata: coresecrets.SecretMetadata{
+				URL: URL2, ID: 667, Version: 1, Revision: 1, Path: "app.apitoken", Provider: "juju"},
+			Error: "boom",
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
@@ -98,6 +104,15 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
   update-time: 0001-01-01T00:00:00Z
   value:
     foo: bar
+- ID: 667
+  URL: secret://v1/app.apitoken
+  revision: 1
+  path: app.apitoken
+  version: 1
+  backend: juju
+  create-time: 0001-01-01T00:00:00Z
+  update-time: 0001-01-01T00:00:00Z
+  error: boom
 `[1:])
 }
 

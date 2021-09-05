@@ -26,3 +26,9 @@ func (c *ContextSecrets) CreateSecret(name string, args *jujuc.UpsertArgs) (stri
 	c.stub.AddCall("CreateSecret", name, args)
 	return "secret://app." + name, nil
 }
+
+// UpdateSecret implements jujuc.ContextSecrets.
+func (c *ContextSecrets) UpdateSecret(name string, args *jujuc.UpsertArgs) (string, error) {
+	c.stub.AddCall("UpdateSecret", name, args)
+	return "secret://app." + name, nil
+}

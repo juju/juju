@@ -18,6 +18,8 @@ import (
 	"github.com/juju/juju/tools"
 )
 
+var logger = loggo.GetLogger("juju.docker")
+
 const (
 	baseRegistryURL = "https://registry.hub.docker.com/v1/repositories"
 )
@@ -30,7 +32,10 @@ func (info imageInfo) AgentVersion() version.Number {
 	return info.version
 }
 
-var logger = loggo.GetLogger("juju.docker")
+// NewImageInfo creates an imageInfo.
+func NewImageInfo(ver version.Number) tools.HasVersion {
+	return &imageInfo{version: ver}
+}
 
 // ListOperatorImages queries the standard docker registry and
 // returns the version tags for images matching imagePath.
@@ -59,7 +64,7 @@ func ListOperatorImages(imagePath string) (tools.Versions, error) {
 			logger.Debugf("ignoring unexpected image tag %q", t.Tag)
 			continue
 		}
-		images = append(images, imageInfo{v})
+		images = append(images, NewImageInfo(v))
 	}
 	return images, nil
 }

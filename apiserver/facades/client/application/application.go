@@ -2090,7 +2090,7 @@ func (api *APIBase) saveRemoteApplication(
 		remoteSpaces[i] = providerSpaceInfoFromParams(space)
 	}
 
-	// If the a remote application with the same name and endpoints from the same
+	// If a remote application with the same name and endpoints from the same
 	// source model already exists, we will use that one.
 	remoteApp, err := api.maybeUpdateExistingApplicationEndpoints(applicationName, sourceModelTag, remoteEps)
 	if err == nil {
@@ -2145,9 +2145,6 @@ func (api *APIBase) maybeUpdateExistingApplicationEndpoints(
 ) (RemoteApplication, error) {
 	existingRemoteApp, err := api.backend.RemoteApplication(applicationName)
 	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
 	if existingRemoteApp.SourceModel().Id() != sourceModelTag.Id() {

@@ -90,6 +90,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"caas-broker-tracker",
 		"caas-firewaller-embedded",
 		"caas-firewaller-legacy",
+		"caas-model-config-manager",
 		"caas-model-operator",
 		"caas-operator-provisioner",
 		"caas-storage-provisioner",
@@ -221,6 +222,8 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"api-config-watcher": {"agent"},
 
 	"caas-broker-tracker": {"agent", "api-caller", "is-responsible-flag"},
+
+	"caas-model-config-manager": {"agent", "api-caller", "caas-broker-tracker", "is-responsible-flag"},
 
 	"caas-firewaller-legacy": {
 		"agent",

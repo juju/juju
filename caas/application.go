@@ -77,17 +77,22 @@ type ApplicationState struct {
 type ApplicationConfig struct {
 	// AgentVersion is the Juju version of the agent image.
 	AgentVersion version.Number
-	// AgentImagePath is the docker registry URL for the image.
+
+	// AgentImagePath is the docker registry URL for the charm container.
 	AgentImagePath string
+
+	// CharmBaseImagePath is the docker registry URL for the workload containers to run pebble.
+	CharmBaseImagePath string
+
+	// IsPrivateImageRepo indicates if the images repositories are private or not.
+	// If they are, we need to set the image pull secret.
+	IsPrivateImageRepo bool
 
 	// CharmModifiedVersion is a monotonically incrementing version number
 	// that represents the version of the charm and resources with regards to
 	// this application. The CAAS provider will pass this to the uniter worker
 	// to ensure the container infrastructure matches the charm.
 	CharmModifiedVersion int
-
-	// CharmBaseImage is the docker image used by the charm.
-	CharmBaseImage resources.DockerImageDetails
 
 	// Containers is the list of containers that make up the container (excluding uniter and init containers).
 	Containers map[string]ContainerConfig

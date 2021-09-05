@@ -5,39 +5,40 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	application "github.com/juju/juju/api/application"
 	charms "github.com/juju/juju/api/common/charms"
 	params "github.com/juju/juju/apiserver/params"
 	cloud "github.com/juju/juju/cloud"
 	names "github.com/juju/names/v4"
-	reflect "reflect"
 )
 
-// MockCloudCredentialAPI is a mock of CloudCredentialAPI interface
+// MockCloudCredentialAPI is a mock of CloudCredentialAPI interface.
 type MockCloudCredentialAPI struct {
 	ctrl     *gomock.Controller
 	recorder *MockCloudCredentialAPIMockRecorder
 }
 
-// MockCloudCredentialAPIMockRecorder is the mock recorder for MockCloudCredentialAPI
+// MockCloudCredentialAPIMockRecorder is the mock recorder for MockCloudCredentialAPI.
 type MockCloudCredentialAPIMockRecorder struct {
 	mock *MockCloudCredentialAPI
 }
 
-// NewMockCloudCredentialAPI creates a new mock instance
+// NewMockCloudCredentialAPI creates a new mock instance.
 func NewMockCloudCredentialAPI(ctrl *gomock.Controller) *MockCloudCredentialAPI {
 	mock := &MockCloudCredentialAPI{ctrl: ctrl}
 	mock.recorder = &MockCloudCredentialAPIMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCloudCredentialAPI) EXPECT() *MockCloudCredentialAPIMockRecorder {
 	return m.recorder
 }
 
-// BestAPIVersion mocks base method
+// BestAPIVersion mocks base method.
 func (m *MockCloudCredentialAPI) BestAPIVersion() int {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BestAPIVersion")
@@ -45,13 +46,13 @@ func (m *MockCloudCredentialAPI) BestAPIVersion() int {
 	return ret0
 }
 
-// BestAPIVersion indicates an expected call of BestAPIVersion
+// BestAPIVersion indicates an expected call of BestAPIVersion.
 func (mr *MockCloudCredentialAPIMockRecorder) BestAPIVersion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BestAPIVersion", reflect.TypeOf((*MockCloudCredentialAPI)(nil).BestAPIVersion))
 }
 
-// Close mocks base method
+// Close mocks base method.
 func (m *MockCloudCredentialAPI) Close() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close")
@@ -59,13 +60,13 @@ func (m *MockCloudCredentialAPI) Close() error {
 	return ret0
 }
 
-// Close indicates an expected call of Close
+// Close indicates an expected call of Close.
 func (mr *MockCloudCredentialAPIMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockCloudCredentialAPI)(nil).Close))
 }
 
-// Cloud mocks base method
+// Cloud mocks base method.
 func (m *MockCloudCredentialAPI) Cloud(arg0 names.CloudTag) (cloud.Cloud, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Cloud", arg0)
@@ -74,13 +75,13 @@ func (m *MockCloudCredentialAPI) Cloud(arg0 names.CloudTag) (cloud.Cloud, error)
 	return ret0, ret1
 }
 
-// Cloud indicates an expected call of Cloud
+// Cloud indicates an expected call of Cloud.
 func (mr *MockCloudCredentialAPIMockRecorder) Cloud(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockCloudCredentialAPI)(nil).Cloud), arg0)
 }
 
-// CredentialContents mocks base method
+// CredentialContents mocks base method.
 func (m *MockCloudCredentialAPI) CredentialContents(arg0, arg1 string, arg2 bool) ([]params.CredentialContentResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CredentialContents", arg0, arg1, arg2)
@@ -89,36 +90,36 @@ func (m *MockCloudCredentialAPI) CredentialContents(arg0, arg1 string, arg2 bool
 	return ret0, ret1
 }
 
-// CredentialContents indicates an expected call of CredentialContents
+// CredentialContents indicates an expected call of CredentialContents.
 func (mr *MockCloudCredentialAPIMockRecorder) CredentialContents(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CredentialContents", reflect.TypeOf((*MockCloudCredentialAPI)(nil).CredentialContents), arg0, arg1, arg2)
 }
 
-// MockApplicationAPI is a mock of ApplicationAPI interface
+// MockApplicationAPI is a mock of ApplicationAPI interface.
 type MockApplicationAPI struct {
 	ctrl     *gomock.Controller
 	recorder *MockApplicationAPIMockRecorder
 }
 
-// MockApplicationAPIMockRecorder is the mock recorder for MockApplicationAPI
+// MockApplicationAPIMockRecorder is the mock recorder for MockApplicationAPI.
 type MockApplicationAPIMockRecorder struct {
 	mock *MockApplicationAPI
 }
 
-// NewMockApplicationAPI creates a new mock instance
+// NewMockApplicationAPI creates a new mock instance.
 func NewMockApplicationAPI(ctrl *gomock.Controller) *MockApplicationAPI {
 	mock := &MockApplicationAPI{ctrl: ctrl}
 	mock.recorder = &MockApplicationAPIMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplicationAPI) EXPECT() *MockApplicationAPIMockRecorder {
 	return m.recorder
 }
 
-// Close mocks base method
+// Close mocks base method.
 func (m *MockApplicationAPI) Close() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close")
@@ -126,13 +127,13 @@ func (m *MockApplicationAPI) Close() error {
 	return ret0
 }
 
-// Close indicates an expected call of Close
+// Close indicates an expected call of Close.
 func (mr *MockApplicationAPIMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockApplicationAPI)(nil).Close))
 }
 
-// UnitsInfo mocks base method
+// UnitsInfo mocks base method.
 func (m *MockApplicationAPI) UnitsInfo(arg0 []names.UnitTag) ([]application.UnitInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnitsInfo", arg0)
@@ -141,36 +142,36 @@ func (m *MockApplicationAPI) UnitsInfo(arg0 []names.UnitTag) ([]application.Unit
 	return ret0, ret1
 }
 
-// UnitsInfo indicates an expected call of UnitsInfo
+// UnitsInfo indicates an expected call of UnitsInfo.
 func (mr *MockApplicationAPIMockRecorder) UnitsInfo(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitsInfo", reflect.TypeOf((*MockApplicationAPI)(nil).UnitsInfo), arg0)
 }
 
-// MockModelAPI is a mock of ModelAPI interface
+// MockModelAPI is a mock of ModelAPI interface.
 type MockModelAPI struct {
 	ctrl     *gomock.Controller
 	recorder *MockModelAPIMockRecorder
 }
 
-// MockModelAPIMockRecorder is the mock recorder for MockModelAPI
+// MockModelAPIMockRecorder is the mock recorder for MockModelAPI.
 type MockModelAPIMockRecorder struct {
 	mock *MockModelAPI
 }
 
-// NewMockModelAPI creates a new mock instance
+// NewMockModelAPI creates a new mock instance.
 func NewMockModelAPI(ctrl *gomock.Controller) *MockModelAPI {
 	mock := &MockModelAPI{ctrl: ctrl}
 	mock.recorder = &MockModelAPIMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelAPI) EXPECT() *MockModelAPIMockRecorder {
 	return m.recorder
 }
 
-// Close mocks base method
+// Close mocks base method.
 func (m *MockModelAPI) Close() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close")
@@ -178,13 +179,13 @@ func (m *MockModelAPI) Close() error {
 	return ret0
 }
 
-// Close indicates an expected call of Close
+// Close indicates an expected call of Close.
 func (mr *MockModelAPIMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockModelAPI)(nil).Close))
 }
 
-// ModelInfo mocks base method
+// ModelInfo mocks base method.
 func (m *MockModelAPI) ModelInfo(arg0 []names.ModelTag) ([]params.ModelInfoResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelInfo", arg0)
@@ -193,36 +194,36 @@ func (m *MockModelAPI) ModelInfo(arg0 []names.ModelTag) ([]params.ModelInfoResul
 	return ret0, ret1
 }
 
-// ModelInfo indicates an expected call of ModelInfo
+// ModelInfo indicates an expected call of ModelInfo.
 func (mr *MockModelAPIMockRecorder) ModelInfo(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelInfo", reflect.TypeOf((*MockModelAPI)(nil).ModelInfo), arg0)
 }
 
-// MockCharmsAPI is a mock of CharmsAPI interface
+// MockCharmsAPI is a mock of CharmsAPI interface.
 type MockCharmsAPI struct {
 	ctrl     *gomock.Controller
 	recorder *MockCharmsAPIMockRecorder
 }
 
-// MockCharmsAPIMockRecorder is the mock recorder for MockCharmsAPI
+// MockCharmsAPIMockRecorder is the mock recorder for MockCharmsAPI.
 type MockCharmsAPIMockRecorder struct {
 	mock *MockCharmsAPI
 }
 
-// NewMockCharmsAPI creates a new mock instance
+// NewMockCharmsAPI creates a new mock instance.
 func NewMockCharmsAPI(ctrl *gomock.Controller) *MockCharmsAPI {
 	mock := &MockCharmsAPI{ctrl: ctrl}
 	mock.recorder = &MockCharmsAPIMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmsAPI) EXPECT() *MockCharmsAPIMockRecorder {
 	return m.recorder
 }
 
-// CharmInfo mocks base method
+// CharmInfo mocks base method.
 func (m *MockCharmsAPI) CharmInfo(arg0 string) (*charms.CharmInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CharmInfo", arg0)
@@ -231,13 +232,13 @@ func (m *MockCharmsAPI) CharmInfo(arg0 string) (*charms.CharmInfo, error) {
 	return ret0, ret1
 }
 
-// CharmInfo indicates an expected call of CharmInfo
+// CharmInfo indicates an expected call of CharmInfo.
 func (mr *MockCharmsAPIMockRecorder) CharmInfo(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmInfo", reflect.TypeOf((*MockCharmsAPI)(nil).CharmInfo), arg0)
 }
 
-// Close mocks base method
+// Close mocks base method.
 func (m *MockCharmsAPI) Close() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close")
@@ -245,7 +246,7 @@ func (m *MockCharmsAPI) Close() error {
 	return ret0
 }
 
-// Close indicates an expected call of Close
+// Close indicates an expected call of Close.
 func (mr *MockCharmsAPIMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockCharmsAPI)(nil).Close))

@@ -231,3 +231,8 @@ func (ctx *RestrictedContext) GetSecret(ID string) (secrets.SecretValue, error) 
 func (ctx *RestrictedContext) CreateSecret(name string, args *UpsertArgs) (string, error) {
 	return "", ErrRestrictedContext
 }
+
+// UpdateSecret implements runner.Context.
+func (ctx *RestrictedContext) UpdateSecret(name string, args *UpsertArgs) (string, error) {
+	return "", ErrRestrictedContext
+}

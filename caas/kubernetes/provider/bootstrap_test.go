@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -62,6 +63,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	controllerName := "controller-1"
 
 	s.BaseSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.PrivateRegistry)
 
 	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
 		config.NameKey:                  "controller-1",
@@ -72,6 +74,12 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.cfg = cfg
 
 	s.controllerCfg = testing.FakeControllerConfig()
+	s.controllerCfg[controller.CAASImageRepo] = `
+{
+    "serveraddress": "quay.io",
+    "auth": "xxxxx==",
+    "repository": "test-account"
+}`[1:]
 	pcfg, err := podcfg.NewBootstrapControllerPodConfig(
 		s.controllerCfg, controllerName, "bionic", constraints.MustParse("root-disk=10000M mem=4000M"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -430,6 +438,22 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 	}
 
+	secretCAASImageRepoData, err := s.controllerCfg.CAASImageRepo().SecretData()
+	c.Assert(err, jc.ErrorIsNil)
+
+	secretCAASImageRepo := &core.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        "juju-image-pull-secret",
+			Namespace:   s.getNamespace(),
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
+		},
+		Type: core.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			core.DockerConfigJsonKey: secretCAASImageRepoData,
+		},
+	}
+
 	emptyConfigMap := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "juju-controller-test-configmap",
@@ -602,7 +626,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "jujusolutions/juju-db:4.4",
+			Image:           "test-account/juju-db:4.4",
 			Command: []string{
 				"/bin/sh",
 			},
@@ -669,7 +693,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "api-server",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "jujusolutions/jujud-operator:" + jujuversion.Current.String() + ".666",
+			Image:           "test-account/jujud-operator:" + jujuversion.Current.String() + ".666",
 			Command: []string{
 				"/bin/sh",
 			},
@@ -688,8 +712,8 @@ mkdir -p $dashboard
 curl -sSf -o $dashboard/dashboard.tar.bz2 --retry 10 'http://dashboard-url' || echo Unable to retrieve Juju Dashboard
 [ -f $dashboard/dashboard.tar.bz2 ] && sha256sum $dashboard/dashboard.tar.bz2 > $dashboard/jujudashboard.sha256
 [ -f $dashboard/jujudashboard.sha256 ] && (grep 'deadbeef' $dashboard/jujudashboard.sha256 && printf %s '{"version":"6.6.6","url":"http://dashboard-url","sha256":"deadbeef","size":999}' > $dashboard/downloaded-dashboard.txt || echo Juju Dashboard checksum mismatch)
-test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/bootstrap-params --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s
-$JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
+test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf || JUJU_DEV_FEATURE_FLAGS=private-registry $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/bootstrap-params --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s
+JUJU_DEV_FEATURE_FLAGS=private-registry $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
 `[1:],
 			},
 			WorkingDir: "/var/lib/juju",
@@ -743,6 +767,13 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 		},
 		AutomountServiceAccountToken: pointer.BoolPtr(true),
 	}
+
+	controllerServiceAccountPatchedWithSecretCAASImageRepo := &core.ServiceAccount{}
+	*controllerServiceAccountPatchedWithSecretCAASImageRepo = *controllerServiceAccount
+	controllerServiceAccountPatchedWithSecretCAASImageRepo.ImagePullSecrets = append(
+		controllerServiceAccountPatchedWithSecretCAASImageRepo.ImagePullSecrets,
+		core.LocalObjectReference{Name: secretCAASImageRepo.Name},
+	)
 
 	controllerServiceCRB := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: v1.ObjectMeta{
@@ -919,6 +950,15 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 		).Return(nil, s.k8sNotFoundError()),
 		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), controllerServiceCRB, gomock.Any()).
 			Return(controllerServiceCRB, nil),
+
+		// ensure secret for caas-image-repo.
+		s.mockSecrets.EXPECT().Create(gomock.Any(), secretCAASImageRepo, gomock.Any()).Return(secretCAASImageRepo, nil),
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), controllerServiceAccount.Name, gomock.Any()).
+			Return(controllerServiceAccount, nil),
+		s.mockServiceAccounts.EXPECT().Update(
+			gomock.Any(), controllerServiceAccountPatchedWithSecretCAASImageRepo, gomock.Any(),
+		).
+			Return(controllerServiceAccountPatchedWithSecretCAASImageRepo, nil),
 
 		// Check the operator storage exists.
 		// first check if <namespace>-<storage-class> exist or not.

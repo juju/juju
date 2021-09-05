@@ -64,7 +64,7 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 	client := apisecrets.NewClient(apiCaller)
 	result, err := client.ListSecrets(true)
 	c.Assert(err, jc.ErrorIsNil)
-	URL := secrets.NewURL(1, "", "", "app.password", "")
+	URL := secrets.NewSimpleURL(1, "app.password")
 	c.Assert(result, jc.DeepEquals, []apisecrets.SecretDetails{{
 		Metadata: secrets.SecretMetadata{
 			URL:            URL,
@@ -100,5 +100,5 @@ func (s *SecretsSuite) TestListSecretsError(c *gc.C) {
 	result, err := client.ListSecrets(true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
-	c.Assert(result[0].Error, gc.ErrorMatches, "boom")
+	c.Assert(result[0].Error, gc.Equals, "boom")
 }

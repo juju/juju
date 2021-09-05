@@ -298,10 +298,10 @@ func (p *provisioner) updateOperatorConfig(appName, password string, prevCfg caa
 			return nil, errors.NotSupportedf("operator storage provider %q", spType)
 		}
 	}
-	p.logger.Debugf("using operator info %+v", info)
+	p.logger.Tracef("using operator info %+v", info)
 
 	cfg := &caas.OperatorConfig{
-		OperatorImagePath:   info.ImagePath,
+		ImageDetails:        info.ImageDetails,
 		Version:             info.Version,
 		ResourceTags:        info.Tags,
 		CharmStorage:        charmStorageParams(info.CharmStorage),

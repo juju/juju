@@ -12,6 +12,7 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/caasmodeloperator"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/resources"
 )
 
 type ModelOperatorSuite struct {
@@ -37,7 +38,7 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
 
 		*(result.(*params.ModelOperatorInfo)) = params.ModelOperatorInfo{
 			APIAddresses: apiAddresses,
-			ImagePath:    imagePath,
+			ImageDetails: params.DockerImageInfo{RegistryPath: imagePath},
 			Version:      ver,
 		}
 		return nil
@@ -48,7 +49,7 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result.APIAddresses, jc.DeepEquals, apiAddresses)
-	c.Assert(result.ImagePath, jc.DeepEquals, imagePath)
+	c.Assert(result.ImageDetails, jc.DeepEquals, resources.DockerImageDetails{RegistryPath: imagePath})
 	c.Assert(result.Version, jc.DeepEquals, ver)
 }
 

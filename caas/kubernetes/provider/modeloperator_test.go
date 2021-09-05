@@ -15,6 +15,8 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/core/resources"
 )
 
 type ModelOperatorSuite struct {
@@ -27,7 +29,7 @@ func (m *ModelOperatorSuite) SetUpTest(c *gc.C) {
 	m.client = fake.NewSimpleClientset()
 }
 
-func (m *ModelOperatorSuite) Test(c *gc.C) {
+func (m *ModelOperatorSuite) assertEnsure(c *gc.C, isPrivateImageRepo bool) {
 	var (
 		ensureConfigMapCalled      = false
 		ensureDeploymentCalled     = false
@@ -43,11 +45,13 @@ func (m *ModelOperatorSuite) Test(c *gc.C) {
 	)
 
 	config := caas.ModelOperatorConfig{
-		AgentConf:         []byte("testconf"),
-		OperatorImagePath: "juju/juju:123",
-		Port:              int32(5497),
+		AgentConf:    []byte("testconf"),
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "juju/juju:123"},
+		Port:         int32(5497),
 	}
-
+	if isPrivateImageRepo {
+		config.ImageDetails.TokenAuthConfig.RegistryToken = "xxxxxxxx==="
+	}
 	bridge := &modelOperatorBrokerBridge{
 		client: m.client,
 		ensureConfigMap: func(cm *core.ConfigMap) ([]func(), error) {
@@ -64,8 +68,12 @@ func (m *ModelOperatorSuite) Test(c *gc.C) {
 			ensureDeploymentCalled = true
 			c.Assert(d.Name, gc.Equals, modelOperatorName)
 			c.Assert(d.Namespace, gc.Equals, namespace)
-			c.Assert(d.Spec.Template.Spec.Containers[0].Image, gc.Equals, config.OperatorImagePath)
+			c.Assert(d.Spec.Template.Spec.Containers[0].Image, gc.Equals, config.ImageDetails.RegistryPath)
 			c.Assert(d.Spec.Template.Spec.Containers[0].Ports[0].ContainerPort, gc.Equals, config.Port)
+			if isPrivateImageRepo {
+				c.Assert(len(d.Spec.Template.Spec.ImagePullSecrets), gc.Equals, 1)
+				c.Assert(d.Spec.Template.Spec.ImagePullSecrets[0].Name, gc.Equals, constants.CAASImageRepoSecretName)
+			}
 			return nil, nil
 		},
 		ensureRole: func(r *rbac.Role) ([]func(), error) {
@@ -155,4 +163,12 @@ func (m *ModelOperatorSuite) Test(c *gc.C) {
 	c.Assert(ensureServiceAccountCalled, jc.IsTrue)
 	c.Assert(ensureServiceCalled, jc.IsTrue)
 	c.Assert(namespaceCalled, jc.IsTrue)
+}
+
+func (m *ModelOperatorSuite) TestDefaultImageRepo(c *gc.C) {
+	m.assertEnsure(c, false)
+}
+
+func (m *ModelOperatorSuite) TestPrivateImageRepo(c *gc.C) {
+	m.assertEnsure(c, true)
 }

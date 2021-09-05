@@ -1234,7 +1234,7 @@ func (r *Relation) WatchUnits(appName string) (RelationUnitsWatcher, error) {
 	}
 	rsw := watchRelationScope(r.st, r.globalScope(), ep.Role, "")
 	appSettingsKey := relationApplicationSettingsKey(r.Id(), appName)
-	logger.Tracef("Relation.WatchUnits(%q) watching: %q", appName, appSettingsKey)
+	logger.Child("relationunits").Tracef("Relation.WatchUnits(%q) watching: %q", appName, appSettingsKey)
 	return newRelationUnitsWatcher(r.st, rsw, []string{appSettingsKey}), nil
 }
 
@@ -1413,7 +1413,9 @@ func (w *relationUnitsWatcher) loop() (err error) {
 				return watcher.EnsureErr(w.sw)
 			}
 			gotInitialScopeWatcher = true
-			w.logger.Tracef("relationUnitsWatcher %q scope Changes(): %# v", w.sw.prefix, pretty.Formatter(c))
+			if w.logger.IsTraceEnabled() {
+				w.logger.Tracef("relationUnitsWatcher %q scope Changes(): %# v", w.sw.prefix, pretty.Formatter(c))
+			}
 			if err = w.mergeScope(&changes, c); err != nil {
 				return err
 			}
@@ -1450,7 +1452,9 @@ func (w *relationUnitsWatcher) loop() (err error) {
 				out = w.out
 			}
 		case out <- changes:
-			w.logger.Tracef("relationUnitsWatcher %q sent changes %# v", w.sw.prefix, pretty.Formatter(changes))
+			if w.logger.IsTraceEnabled() {
+				w.logger.Tracef("relationUnitsWatcher %q sent changes %# v", w.sw.prefix, pretty.Formatter(changes))
+			}
 			sentInitial = true
 			changes = corewatcher.RelationUnitsChange{}
 			out = nil
@@ -1910,7 +1914,7 @@ func (m *Machine) WatchInstanceData() NotifyWatcher {
 	return newEntityWatcher(m.st, instanceDataC, m.doc.DocID)
 }
 
-// WatchControllerInfo returns a NotifyWatcher for the controllers collection
+// WatchControllerInfo returns a StringsWatcher for the controllers collection
 func (st *State) WatchControllerInfo() StringsWatcher {
 	return newCollectionWatcher(st, colWCfg{col: controllerNodesC})
 }
@@ -2954,7 +2958,7 @@ func (w *collectionWatcher) initial() ([]string, error) {
 // Additionally, mergeIds strips the model UUID prefix from the id
 // before emitting it through the watcher.
 func (w *collectionWatcher) mergeIds(changes *[]string, updates map[interface{}]bool) error {
-	return mergeIds(w.backend, changes, updates, w.convertId)
+	return mergeIds(changes, updates, w.convertId)
 }
 
 func (w *collectionWatcher) convertId(id string) (string, error) {
@@ -2973,7 +2977,7 @@ func (w *collectionWatcher) convertId(id string) (string, error) {
 	return id, nil
 }
 
-func mergeIds(st modelBackend, changes *[]string, updates map[interface{}]bool, idconv func(string) (string, error)) error {
+func mergeIds(changes *[]string, updates map[interface{}]bool, idconv func(string) (string, error)) error {
 	for val, idExists := range updates {
 		id, ok := val.(string)
 		if !ok {
@@ -3180,7 +3184,7 @@ func (w *actionNotificationWatcher) filterPendingAndMergeIds(changes *[]string, 
 }
 
 func (w *actionNotificationWatcher) mergeIds(changes *[]string, updates map[interface{}]bool) error {
-	return mergeIds(w.backend, changes, updates, func(id string) (string, error) {
+	return mergeIds(changes, updates, func(id string) (string, error) {
 		return actionNotificationIdToActionId(id), nil
 	})
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -352,6 +353,11 @@ func (*environ) PrecheckInstance(ctx envcontext.ProviderCallContext, params envi
 }
 
 func (*environ) Upgrade(agentTag string, vers version.Number) error {
+	// TODO(ecs): remove from caas.Broker?
+	return nil
+}
+
+func (env *environ) EnsureImageRepoSecret(imageRepo docker.ImageRepoDetails) error {
 	// TODO(ecs): remove from caas.Broker?
 	return nil
 }

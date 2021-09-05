@@ -78,13 +78,13 @@ type Backend interface {
 	// SaveIngressNetworks stores in state the ingress networks for the relation.
 	SaveIngressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)
 
-	// Networks returns the networks for the specified relation.
+	// IngressNetworks returns the networks for the specified relation.
 	IngressNetworks(relationKey string) (state.RelationNetworks, error)
 
 	// ApplicationOfferForUUID returns the application offer for the UUID.
 	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
 
-	// WatchStatus returns a watcher that notifies of changes to the status
+	// WatchOfferStatus returns a watcher that notifies of changes to the status
 	// of the offer.
 	WatchOfferStatus(offerUUID string) (state.NotifyWatcher, error)
 

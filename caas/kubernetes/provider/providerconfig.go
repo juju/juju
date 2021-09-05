@@ -63,14 +63,6 @@ type brokerConfig struct {
 	attrs map[string]interface{}
 }
 
-func (c *brokerConfig) storage() string {
-	return c.attrs[k8sconstants.WorkloadStorageKey].(string)
-}
-
-func (c *brokerConfig) operatorStorage() string {
-	return c.attrs[k8sconstants.OperatorStorageKey].(string)
-}
-
 func (p kubernetesEnvironProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
 	newCfg, err := validateConfig(cfg, old)
 	if err != nil {

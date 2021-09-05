@@ -353,9 +353,9 @@ type ConfigResult struct {
 
 // ModelOperatorInfo
 type ModelOperatorInfo struct {
-	APIAddresses []string       `json:"api-addresses"`
-	ImagePath    string         `json:"image-path"`
-	Version      version.Number `json:"version"`
+	APIAddresses []string        `json:"api-addresses"`
+	ImageDetails DockerImageInfo `json:"image-details"`
+	Version      version.Number  `json:"version"`
 }
 
 // OperatorProvisioningInfoResults holds OperatorProvisioningInfo results.
@@ -365,7 +365,7 @@ type OperatorProvisioningInfoResults struct {
 
 // OperatorProvisioningInfo holds info need to provision an operator.
 type OperatorProvisioningInfo struct {
-	ImagePath    string                      `json:"image-path"`
+	ImageDetails DockerImageInfo             `json:"image-details"`
 	Version      version.Number              `json:"version"`
 	APIAddresses []string                    `json:"api-addresses"`
 	Tags         map[string]string           `json:"tags,omitempty"`

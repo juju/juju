@@ -56,6 +56,9 @@ var commonModelFacadeNames = set.NewStrings(
 	"RemoteRelations",
 	"Resumer",
 	"RetryStrategy",
+	"Secrets",
+	"SecretsManager",
+	"SecretsRotationWatcher",
 	"Singular",
 	"StatusHistory",
 	"Storage",
@@ -79,6 +82,7 @@ var caasModelFacadeNames = set.NewStrings(
 	"CAASOperatorProvisioner",
 	"CAASOperatorUpgrader",
 	"CAASUnitProvisioner",
+	"CAASModelConfigManager",
 
 	// For sidecar applications.
 	"CAASApplication",

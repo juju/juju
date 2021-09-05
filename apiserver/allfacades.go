@@ -80,6 +80,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
+	"github.com/juju/juju/apiserver/facades/controller/caasmodelconfigmanager"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
@@ -188,6 +189,7 @@ func AllFacades() *facade.Registry {
 	reg("CAASUnitProvisioner", 2, caasunitprovisioner.NewStateFacade)
 	reg("CAASApplication", 1, caasapplication.NewStateFacade)
 	reg("CAASApplicationProvisioner", 1, caasapplicationprovisioner.NewStateCAASApplicationProvisionerAPI)
+	reg("CAASModelConfigManager", 1, caasmodelconfigmanager.NewFacade)
 
 	reg("Controller", 3, controller.NewControllerAPIv3)
 	reg("Controller", 4, controller.NewControllerAPIv4)
@@ -358,6 +360,7 @@ func AllFacades() *facade.Registry {
 	regRaw("EntityWatcher", 2, newEntitiesWatcher, reflect.TypeOf((*srvEntitiesWatcher)(nil)))
 	regRaw("MigrationStatusWatcher", 1, newMigrationStatusWatcher, reflect.TypeOf((*srvMigrationStatusWatcher)(nil)))
 	regRaw("ModelSummaryWatcher", 1, newModelSummaryWatcher, reflect.TypeOf((*SrvModelSummaryWatcher)(nil)))
+	regRaw("SecretsRotationWatcher", 1, newSecretsRotationWatcher, reflect.TypeOf((*srvSecretRotationWatcher)(nil)))
 
 	return registry
 }

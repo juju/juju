@@ -12,10 +12,14 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/feature"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 
 type ModelOperatorSuite struct {
+	coretesting.BaseSuite
+
 	authorizer *apiservertesting.FakeAuthorizer
 	api        *caasmodeloperator.API
 	resources  *common.Resources
@@ -25,6 +29,9 @@ type ModelOperatorSuite struct {
 var _ = gc.Suite(&ModelOperatorSuite{})
 
 func (m *ModelOperatorSuite) SetUpTest(c *gc.C) {
+	m.BaseSuite.SetUpTest(c)
+	m.SetFeatureFlags(feature.PrivateRegistry)
+
 	m.resources = common.NewResources()
 
 	m.authorizer = &apiservertesting.FakeAuthorizer{
@@ -33,6 +40,14 @@ func (m *ModelOperatorSuite) SetUpTest(c *gc.C) {
 	}
 
 	m.state = newMockState()
+	m.state.operatorRepo = `
+{
+    "serveraddress": "quay.io",
+    "auth": "xxxxx==",
+    "repository": "test-account"
+}`[1:]
+
+	c.Logf("m.state.1operatorRepo %q", m.state.operatorRepo)
 
 	api, err := caasmodeloperator.NewAPI(m.authorizer, m.resources, m.state, m.state)
 	c.Assert(err, jc.ErrorIsNil)
@@ -49,7 +64,10 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
 
 	imagePath, err := podcfg.GetJujuOCIImagePath(controllerConf, info.Version, version.OfficialBuild)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(imagePath, gc.Equals, info.ImagePath)
+	c.Assert(imagePath, gc.Equals, info.ImageDetails.RegistryPath)
+
+	c.Assert(info.ImageDetails.Auth, gc.Equals, `xxxxx==`)
+	c.Assert(info.ImageDetails.Repository, gc.Equals, `test-account`)
 
 	model, err := m.state.Model()
 	c.Assert(err, jc.ErrorIsNil)

@@ -60,8 +60,7 @@ func (k *kubernetesClient) ensureSecrets(appName string, annotations k8sannotati
 	return cleanUps, nil
 }
 
-// ensureOCIImageSecret ensures a secret exists for use with retrieving images from private registries
-func (k *kubernetesClient) ensureOCIImageSecret(
+func (k *kubernetesClient) ensureOCIImageSecretForApp(
 	imageSecretName,
 	appName string,
 	imageDetails *specs.ImageDetails,
@@ -75,20 +74,35 @@ func (k *kubernetesClient) ensureOCIImageSecret(
 		return errors.Trace(err)
 	}
 
+	logger.Debugf("ensuring docker secret %q", imageSecretName)
+	_, err = k.ensureOCIImageSecret(
+		imageSecretName,
+		getSecretLabels(appName, k.IsLegacyLabels()),
+		secretData, annotations.ToMap(),
+	)
+	return errors.Trace(err)
+}
+
+// ensureOCIImageSecret ensures a secret exists for use with retrieving images from private registries.
+func (k *kubernetesClient) ensureOCIImageSecret(
+	name string,
+	labels map[string]string,
+	secretData []byte,
+	annotations k8sannotations.Annotation,
+) (func(), error) {
 	newSecret := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        imageSecretName,
+			Name:        name,
 			Namespace:   k.namespace,
-			Labels:      getSecretLabels(appName, k.IsLegacyLabels()),
+			Labels:      labels,
 			Annotations: annotations.ToMap()},
 		Type: core.SecretTypeDockerConfigJson,
 		Data: map[string][]byte{
 			core.DockerConfigJsonKey: secretData,
 		},
 	}
-	logger.Debugf("ensuring docker secret %q", imageSecretName)
-	_, err = k.ensureSecret(newSecret)
-	return errors.Trace(err)
+	logger.Debugf("ensuring docker secret %q", name)
+	return k.ensureSecret(newSecret)
 }
 
 func (k *kubernetesClient) ensureSecret(sec *core.Secret) (func(), error) {

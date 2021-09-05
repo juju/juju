@@ -172,6 +172,18 @@ func (s *RemoteApplication) Life() Life {
 	return s.doc.Life
 }
 
+// StatusHistory returns a slice of at most filter.Size StatusInfo items
+// or items as old as filter.Date or items newer than now - filter.Delta time
+// representing past statuses for this remote application.
+func (a *RemoteApplication) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		db:        a.st.db(),
+		globalKey: a.globalKey(),
+		filter:    filter,
+	}
+	return statusHistory(args)
+}
+
 // Spaces returns the remote spaces this application is connected to.
 func (s *RemoteApplication) Spaces() []RemoteSpace {
 	var result []RemoteSpace
@@ -303,6 +315,23 @@ func (op *DestroyRemoteApplicationOperation) Done(err error) error {
 			return errors.Annotatef(err, "cannot destroy remote application %q", op.app)
 		}
 		op.AddError(errors.Errorf("force destroy of remote application %v failed but proceeded despite encountering ERROR %v", op.app, err))
+	}
+	if err := op.eraseHistory(); err != nil {
+		if !op.Force {
+			logger.Errorf("cannot delete history for remote application %q: %v", op.app, err)
+		}
+		op.AddError(errors.Errorf("force erase remote application %q history proceeded despite encountering ERROR %v", op.app, err))
+	}
+	return nil
+}
+
+func (op *DestroyRemoteApplicationOperation) eraseHistory() error {
+	var stop <-chan struct{} // stop not used here yet.
+	if err := eraseStatusHistory(stop, op.app.st, op.app.globalKey()); err != nil {
+		one := errors.Annotate(err, "remote application")
+		if op.FatalError(one) {
+			return one
+		}
 	}
 	return nil
 }
@@ -891,6 +920,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 			},
 		}
 		if !args.IsConsumerProxy {
+			logger.Criticalf("SET STATUS %v", appDoc.Name)
 			statusDoc := statusDoc{
 				ModelUUID: st.ModelUUID(),
 				Status:    status.Unknown,

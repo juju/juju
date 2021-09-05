@@ -19,7 +19,6 @@ func (s *SecretConfigSuite) TestNewSecretConfig(c *gc.C) {
 	err := cfg.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals, &secrets.SecretConfig{
-		Type:           secrets.TypeBlob,
 		Path:           "app.catalog",
 		RotateInterval: 0,
 		Params:         nil,
@@ -31,7 +30,6 @@ func (s *SecretConfigSuite) TestNewPasswordSecretConfig(c *gc.C) {
 	err := cfg.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals, &secrets.SecretConfig{
-		Type:           secrets.TypePassword,
 		Path:           "app.password",
 		RotateInterval: 0,
 		Params: map[string]interface{}{
@@ -39,13 +37,6 @@ func (s *SecretConfigSuite) TestNewPasswordSecretConfig(c *gc.C) {
 			"password-special-chars": true,
 		},
 	})
-}
-
-func (s *SecretConfigSuite) TestSecretConfigInvalidType(c *gc.C) {
-	cfg := secrets.NewPasswordSecretConfig(10, true, "app", "password")
-	cfg.Type = "foo"
-	err := cfg.Validate()
-	c.Assert(err, gc.ErrorMatches, `secret type "foo" not valid`)
 }
 
 func (s *SecretConfigSuite) TestSecretConfigPath(c *gc.C) {
@@ -188,10 +179,7 @@ func (s *SecretURLSuite) TestStringWithRevision(c *gc.C) {
 	c.Assert(str, gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password#attr")
 	URL.Revision = 1
 	str = URL.String()
-	c.Assert(str, gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password#attr")
-	URL.Revision = 2
-	str = URL.String()
-	c.Assert(str, gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password?revision=2#attr")
+	c.Assert(str, gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password?revision=1#attr")
 }
 
 func (s *SecretURLSuite) TestShortString(c *gc.C) {
@@ -231,10 +219,21 @@ func (s *SecretURLSuite) TestWithRevision(c *gc.C) {
 		Attribute:      "attr",
 	}
 	expected = expected.WithRevision(666)
-	c.Assert(expected.ID(), gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password?revision=666")
+	c.Assert(expected.String(), gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password?revision=666#attr")
 }
 
-func (s *SecretURLSuite) TestNewURL(c *gc.C) {
-	URL := secrets.NewURL(1, controllerUUID, modelUUID, "app.password", "attr")
-	c.Assert(URL.String(), gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password#attr")
+func (s *SecretURLSuite) TestWithAttribute(c *gc.C) {
+	expected := &secrets.URL{
+		Version:        "v1",
+		ControllerUUID: controllerUUID,
+		ModelUUID:      modelUUID,
+		Path:           "app.password",
+	}
+	expected = expected.WithAttribute("attr")
+	c.Assert(expected.String(), gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password#attr")
+}
+
+func (s *SecretURLSuite) TestNewSimpleURL(c *gc.C) {
+	URL := secrets.NewSimpleURL(1, "app.password")
+	c.Assert(URL.String(), gc.Equals, "secret://v1/app.password")
 }

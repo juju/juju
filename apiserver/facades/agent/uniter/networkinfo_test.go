@@ -131,10 +131,7 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 	// We need at least one address on the machine itself, because these are
 	// retrieved up-front to use as a fallback when we fail to locate addresses
 	// on link-layer devices.
-	addresses := []network.SpaceAddress{
-		network.NewSpaceAddress("10.2.3.4/16"),
-	}
-	err = machine.SetProviderAddresses(addresses...)
+	err = machine.SetProviderAddresses(network.NewSpaceAddress("10.2.3.4/16"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.addDevicesWithAddresses(c, machine, "10.2.3.4/16", "100.2.3.4/24")
@@ -157,6 +154,68 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 
 	// Sorting should place the public address before the cloud-local one.
 	c.Check(ingress[0], gc.Equals, "100.2.3.4")
+}
+
+func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C) {
+	// Add a single subnet in the alpha space.
+	_, err := s.State.AddSubnet(network.SubnetInfo{
+		CIDR:    "10.2.0.0/16",
+		SpaceID: network.AlphaSpaceId,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	bindings := map[string]string{
+		"":             network.AlphaSpaceName,
+		"server-admin": network.AlphaSpaceName,
+	}
+	app := s.AddTestingApplicationWithBindings(c, "mysql", s.AddTestingCharm(c, "mysql"), bindings)
+
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.AssignToNewMachine(), jc.ErrorIsNil)
+
+	id, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ip := "10.2.3.4/16"
+
+	// We need at least one address on the machine itself, because these are
+	// retrieved up-front to use as a fallback when we fail to locate addresses
+	// on link-layer devices.
+	err = machine.SetProviderAddresses(network.NewSpaceAddress(ip))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a NIC and bridge, but also add the IP to the NIC to simulate
+	// this data coming from the provider via the instance poller.
+	s.createNICAndBridgeWithIP(c, machine, "eth0", "br-eth0", ip)
+	err = machine.SetDevicesAddresses(
+		state.LinkLayerDeviceAddress{
+			DeviceName:   "eth0",
+			CIDRAddress:  ip,
+			ConfigMethod: network.ConfigStatic,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	netInfo := s.newNetworkInfo(c, unit.UnitTag(), nil, nil)
+	result, err := netInfo.ProcessAPIRequest(params.NetworkInfoParams{
+		Unit:      unit.UnitTag().String(),
+		Endpoints: []string{"server-admin"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	res := result.Results
+	c.Assert(res, gc.HasLen, 1)
+
+	binding, ok := res["server-admin"]
+	c.Assert(ok, jc.IsTrue)
+
+	// We should get the bridge and only the bridge for this IP.
+	info := binding.Info
+	c.Assert(info, gc.HasLen, 1)
+	c.Check(info[0].InterfaceName, gc.Equals, "br-eth0")
 }
 
 func (s *networkInfoSuite) TestAPIRequestForRelationIAASHostNameIngressNoEgress(c *gc.C) {
@@ -517,7 +576,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 	gitLab := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitLabCh})
 
 	// Add a local-machine address.
-	// Adding it the the service instead of the container is OK here,
+	// Adding it to the service instead of the container is OK here,
 	// as we are interested in the return from unit.AllAddresses().
 	// It simulates the same thing.
 	// This should never be returned as an ingress address.

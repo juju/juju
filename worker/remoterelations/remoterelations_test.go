@@ -37,7 +37,7 @@ import (
 var _ = gc.Suite(&remoteRelationsSuite{})
 
 type remoteRelationsSuite struct {
-	coretesting.BaseSuite
+	jujutesting.IsolationSuite
 
 	remoteControllerInfo  *api.Info
 	resources             *common.Resources
@@ -49,7 +49,7 @@ type remoteRelationsSuite struct {
 }
 
 func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 
 	s.remoteControllerInfo = &api.Info{
 		Addrs:  []string{"1.2.3.4:1234"},
@@ -317,6 +317,34 @@ func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnChange(c *gc.C) {
 			BakeryVersion:     bakery.LatestVersion,
 		}}}},
 	}
+	s.waitForWorkerStubCalls(c, expected)
+}
+
+func (s *remoteRelationsSuite) TestRemoteWatcherNotFoundError(c *gc.C) {
+	w := s.assertRemoteRelationsWorkers(c)
+	defer workertest.CleanKill(c, w)
+
+	s.stub.ResetCalls()
+
+	s.relationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
+		localApplicationName: "django",
+		localEndpoint: params.RemoteEndpoint{
+			Name:      "db2",
+			Role:      "requires",
+			Interface: "db2",
+		},
+		remoteEndpointName: "data",
+	}
+
+	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher.changes <- []string{"db2:db django:db"}
+
+	expected := []jujutesting.StubCall{
+		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
+	}
+	changeWatcher, ok := s.remoteRelationsFacade.remoteRelationWatcher("token-db2:db django:db")
+	c.Check(ok, jc.IsTrue)
+	changeWatcher.kill(params.Error{Code: params.CodeNotFound})
 	s.waitForWorkerStubCalls(c, expected)
 }
 
