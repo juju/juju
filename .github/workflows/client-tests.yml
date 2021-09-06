@@ -26,13 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macOS-latest is disabled because there is an issue of the tests timing
-        # out. No effort has been done to work out why they currently timeout
-        # on macOS, but we should investigate that to improve our coverage on
-        # other clients.
-        # To turn on macOS, just update the os to include it.
-        # os: [ubuntu-latest, macOS-latest, windows-latest]
-        os: [ubuntu-latest, macOS-latest]
+        os: [ubuntu-latest, macOS-latest, windows-latest]
 
     steps:
 
@@ -41,6 +35,33 @@ jobs:
       with:
         go-version: 1.14
       id: go
+
+    - name: Debug
+      run: |
+        go version
+
+        cat <<EOF > main.go
+        package main
+
+        import (
+          "fmt"
+          "log"
+
+          "github.com/juju/os/v2/series"
+        )
+
+        func main() {
+          s, err := series.HostSeries()
+          if err != nil {
+            log.Fatal(err)
+          }
+
+          fmt.Printf("OS: %q\nSeries: %q\n", series.MustOSFromSeries(s).String(), s)
+        }
+        EOF
+        go mod init main
+        go run main.go
+      shell: bash
 
     - name: Checkout
       uses: actions/checkout@v2
@@ -58,18 +79,6 @@ jobs:
 
         make install-mongo-dependencies
 
-    - name: "Remove Mongo Dependencies: windows-latest"
-      if: (matrix.os == 'windows-latest')
-      uses: crazy-max/ghaction-chocolatey@v1
-      with:
-        args: uninstall mongodb mongodb.install -y --all-versions
-
-    - name: "Install Mongo Dependencies: windows-latest"
-      if: (matrix.os == 'windows-latest')
-      uses: crazy-max/ghaction-chocolatey@v1
-      with:
-        args: install mongodb.install --version=4.0.21 --allow-downgrade
-
     # GitHub runners already have preinstalled version of mongodb, but
     # we specifically need 4.0.21, otherwise our tests will not pass
     - name: "Install Mongo Dependencies: macOS-latest"
@@ -85,19 +94,19 @@ jobs:
         sudo ln -s /usr/local/mongodb/mongod /usr/local/bin/mongod
       shell: bash
 
-    - name: "Test client: macOS-latest"
-      if: (matrix.os == 'macOS-latest')
-      run: |
-        # There is a concurrency issue with macos setup for the "./cmd/juju/..." packages.
-        # So we have to limit amount of used CPUs and therefore parallelization
-        go test -v -p 1 ./cmd/juju/... -check.v
-        go test -v  ./cmd/plugins/... -check.v
-      shell: bash
-
-    - name: "Test client: ubuntu-latest"
+    - name: "Test client: ubuntu"
       if: (matrix.os == 'ubuntu-latest')
       run: |
         # Jenkins can perform the full jujud testing.
         go test -v ./cmd/juju/... -check.v -coverprofile=coverage.txt -covermode=atomic
         go test -v ./cmd/plugins/... -check.v
+      shell: bash
+
+    - name: "Test client: macOS && windows"
+      if: (matrix.os == 'macOS-latest' || matrix.os == 'windows-latest')
+      run: |
+        # There is a concurrency issue with macos setup for the "./cmd/juju/..." packages.
+        # So we have to limit amount of used CPUs and therefore parallelization
+        go test -v -p 1 ./cmd/juju/... -check.v
+        go test -v  ./cmd/plugins/... -check.v
       shell: bash
