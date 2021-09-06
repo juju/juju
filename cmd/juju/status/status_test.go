@@ -5,6 +5,7 @@ package status_test
 
 import (
 	"errors"
+	"runtime"
 	"time"
 
 	"github.com/juju/cmd"
@@ -55,6 +56,9 @@ func (s *MinimalStatusSuite) TestGoodCall(c *gc.C) {
 }
 
 func (s *MinimalStatusSuite) TestGoodCallWatch(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("watch flag not available on windows")
+	}
 	t := time.NewTimer(time.Second)
 	var err error = nil
 	go func() {
