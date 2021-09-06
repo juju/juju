@@ -39,6 +39,7 @@ jobs:
     - name: Debug
       run: |
         go version
+        go env
 
         cat <<EOF > main.go
         package main
@@ -107,6 +108,6 @@ jobs:
       run: |
         # There is a concurrency issue with macos setup for the "./cmd/juju/..." packages.
         # So we have to limit amount of used CPUs and therefore parallelization
-        go test -v -p 1 ./cmd/juju/... -check.v
+        GOARCH=amd64 CGO_ENABLED=0 go test -v -p 1 ./cmd/juju/... -check.v
         go test -v  ./cmd/plugins/... -check.v
       shell: bash

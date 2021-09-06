@@ -429,8 +429,9 @@ func DefaultVersions(conf *config.Config) []version.Binary {
 	}
 	osTypes := set.NewStrings("ubuntu")
 	osTypes.Add(coreos.HostOSTypeName())
+	osTypes.Remove("ubuntu")
 	var versions []version.Binary
-	for _, osType := range osTypes.Values() {
+	for _, osType := range append(osTypes.SortedValues(), "ubuntu") {
 		versions = append(versions, version.Binary{
 			Number:  agentVersion,
 			Arch:    arch.HostArch(),
