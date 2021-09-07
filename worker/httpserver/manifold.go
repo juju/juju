@@ -43,7 +43,8 @@ type ManifoldConfig struct {
 	// We don't use these in the worker, but we want to prevent the
 	// httpserver from starting until they're running so that all of
 	// their handlers are registered.
-	APIServerName string
+	RaftTransportName string
+	APIServerName     string
 
 	AgentName            string
 	Clock                clock.Clock
@@ -71,6 +72,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
+	}
+	if config.RaftTransportName == "" {
+		return errors.NotValidf("empty RaftTransportName")
 	}
 	if config.APIServerName == "" {
 		return errors.NotValidf("empty APIServerName")
@@ -115,6 +119,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.HubName,
 			config.StateName,
 			config.MuxName,
+			config.RaftTransportName,
 			config.APIServerName,
 		},
 		Start: config.start,
@@ -145,6 +150,9 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	// We don't actually need anything from these workers, but we
 	// shouldn't start until they're available.
 	if err := context.Get(config.APIServerName, nil); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := context.Get(config.RaftTransportName, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 

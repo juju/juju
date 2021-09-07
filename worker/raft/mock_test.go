@@ -57,6 +57,15 @@ func (r *mockRaftWorker) LogStore() (raft.LogStore, error) {
 	return r.ls, r.NextErr()
 }
 
+func (r *mockRaftWorker) Kill() {
+	r.MethodCall(r, "Kill")
+}
+
+func (r *mockRaftWorker) Wait() error {
+	r.MethodCall(r, "Wait")
+	return r.NextErr()
+}
+
 type mockLogStore struct {
 	raft.LogStore
 }

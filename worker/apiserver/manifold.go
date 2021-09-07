@@ -4,15 +4,12 @@
 package apiserver
 
 import (
-	"io"
 	"net/http"
 	"strings"
 
-	"github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
@@ -50,13 +47,12 @@ type ManifoldConfig struct {
 	AuditConfigUpdaterName string
 	LeaseManagerName       string
 	RaftTransportName      string
-	RaftName               string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	Hub                               *pubsub.StructuredHub
 	Presence                          presence.Recorder
-	LeaseLog                          io.Writer
+	RaftOpQueue                       Queue
 
 	NewWorker           func(Config) (worker.Worker, error)
 	NewMetricsCollector func() *apiserver.Collector
@@ -100,8 +96,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.RaftTransportName == "" {
 		return errors.NotValidf("empty RaftTransportName")
 	}
-	if config.RaftName == "" {
-		return errors.NotValidf("empty RaftName")
+	if config.RaftOpQueue == nil {
+		return errors.NotValidf("nil RaftOpQueue")
 	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
@@ -114,9 +110,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Presence == nil {
 		return errors.NotValidf("nil Presence")
-	}
-	if config.LeaseLog == nil {
-		return errors.NotValidf("nil LeaseLog")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -145,7 +138,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AuditConfigUpdaterName,
 			config.LeaseManagerName,
 			config.RaftTransportName,
-			config.RaftName,
 		},
 		Start: config.start,
 	}
@@ -219,12 +211,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var r *raft.Raft
-	if err := context.Get(config.RaftName, &r); err != nil {
-		loggo.GetLogger("APISERVER").Criticalf("ERR %v", err)
-		return nil, errors.Trace(err)
-	}
-
 	// Get the state pool after grabbing dependencies so we don't need
 	// to remember to call Done on it if they're not running yet.
 	statePool, err := stTracker.Use()
@@ -242,8 +228,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		jujuCmd := commands.NewJujuCommandWithStore(ctx, store, nil, "", `Type "help" to see a list of commands`, whitelist, true)
 		return cmd.Main(jujuCmd, ctx, strings.Split(cmdPlusARgs, " "))
 	}
-
-	loggo.GetLogger("APISERVER").Criticalf("Success!")
 
 	w, err := config.NewWorker(Config{
 		AgentConfig:                       agent.CurrentConfig(),
@@ -263,8 +247,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		NewServer:                         newServerShim,
 		MetricsCollector:                  metricsCollector,
 		EmbeddedCommand:                   execEmbeddedCommand,
-		Raft:                              r,
-		LeaseLog:                          config.LeaseLog,
+		RaftOpQueue:                       config.RaftOpQueue,
 	})
 	if err != nil {
 		_ = stTracker.Done()

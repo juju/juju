@@ -4,7 +4,6 @@
 package apiserver_test
 
 import (
-	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/apiserver"
+	"github.com/juju/juju/worker/raft/queue"
 )
 
 type workerFixture struct {
@@ -44,6 +44,7 @@ type workerFixture struct {
 	stub                 testing.Stub
 	metricsCollector     *coreapiserver.Collector
 	multiwatcherFactory  multiwatcher.Factory
+	queue                *queue.BlockingOpQueue
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -69,6 +70,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.leaseManager = &struct{ lease.Manager }{}
 	s.metricsCollector = coreapiserver.NewMetricsCollector()
 	s.multiwatcherFactory = &fakeMultiwatcherFactory{}
+	s.queue = queue.NewBlockingOpQueue()
 	s.stub.ResetCalls()
 
 	s.config = apiserver.Config{
@@ -77,7 +79,6 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		Clock:                             s.clock,
 		Controller:                        s.controller,
 		Hub:                               &s.hub,
-		Raft:                              s.raft,
 		Presence:                          presence.New(s.clock),
 		Mux:                               s.mux,
 		MultiwatcherFactory:               s.multiwatcherFactory,
@@ -88,7 +89,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		RestoreStatus:                     func() state.RestoreStatus { return "" },
 		NewServer:                         s.newServer,
 		MetricsCollector:                  s.metricsCollector,
-		LeaseLog:                          ioutil.Discard,
+		RaftOpQueue:                       s.queue,
 	}
 }
 
@@ -153,8 +154,8 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *apiserver.Config) { cfg.NewServer = nil },
 		"nil NewServer not valid",
 	}, {
-		func(cfg *apiserver.Config) { cfg.Raft = nil },
-		"nil Raft not valid",
+		func(cfg *apiserver.Config) { cfg.RaftOpQueue = nil },
+		"nil RaftOpQueue not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)

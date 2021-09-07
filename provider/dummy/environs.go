@@ -22,7 +22,6 @@ import (
 	stdcontext "context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http/httptest"
 	"os"
@@ -32,7 +31,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
@@ -89,6 +87,7 @@ import (
 	"github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/multiwatcher"
+	"github.com/juju/juju/worker/raft/queue"
 )
 
 var logger = loggo.GetLogger("juju.provider.dummy")
@@ -1024,8 +1023,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 					return state.RestoreNotActive
 				},
 				MetricsCollector: apiserver.NewMetricsCollector(),
-				Raft:             &raft.Raft{},
-				LeaseLog:         ioutil.Discard,
+				RaftOpQueue:      queue.NewBlockingOpQueue(),
 			})
 			if err != nil {
 				panic(err)

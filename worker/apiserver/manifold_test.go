@@ -4,11 +4,9 @@
 package apiserver_test
 
 import (
-	"io/ioutil"
 	"net/http"
 	"time"
 
-	"github.com/hashicorp/raft"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -36,6 +34,7 @@ import (
 	"github.com/juju/juju/worker/apiserver"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/lease"
+	"github.com/juju/juju/worker/raft/queue"
 )
 
 type ManifoldSuite struct {
@@ -57,7 +56,7 @@ type ManifoldSuite struct {
 	prometheusRegisterer stubPrometheusRegisterer
 	state                stubStateTracker
 	upgradeGate          stubGateWaiter
-	raft                 *raft.Raft
+	queue                *queue.BlockingOpQueue
 
 	stub testing.Stub
 }
@@ -76,13 +75,13 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
 	s.mux = apiserverhttp.NewMux()
-	s.raft = &raft.Raft{}
 	s.state = stubStateTracker{}
 	s.metricsCollector = coreapiserver.NewMetricsCollector()
 	s.upgradeGate = stubGateWaiter{}
 	s.auditConfig = stubAuditConfig{}
 	s.multiwatcherFactory = &fakeMultiwatcherFactory{}
 	s.leaseManager = &lease.Manager{}
+	s.queue = queue.NewBlockingOpQueue()
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -99,14 +98,13 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AuditConfigUpdaterName:            "auditconfig-updater",
 		LeaseManagerName:                  "lease-manager",
 		RaftTransportName:                 "raft-transport",
-		RaftName:                          "raft",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:                               &s.hub,
 		Presence:                          presence.New(s.clock),
 		NewWorker:                         s.newWorker,
 		NewMetricsCollector:               s.newMetricsCollector,
-		LeaseLog:                          ioutil.Discard,
+		RaftOpQueue:                       s.queue,
 	})
 }
 
@@ -124,7 +122,6 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"auditconfig-updater": s.auditConfig.get,
 		"lease-manager":       s.leaseManager,
 		"raft-transport":      nil,
-		"raft":                s.raft,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -152,7 +149,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 var expectedInputs = []string{
 	"agent", "authenticator", "clock", "modelcache", "multiwatcher", "mux",
 	"restore-status", "state", "upgrade", "auditconfig-updater", "lease-manager",
-	"raft-transport", "raft",
+	"raft-transport",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -224,8 +221,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		LeaseManager:        s.leaseManager,
 		MetricsCollector:    s.metricsCollector,
 		Hub:                 &s.hub,
-		Raft:                s.raft,
-		LeaseLog:            ioutil.Discard,
+		RaftOpQueue:         s.queue,
 	})
 }
 

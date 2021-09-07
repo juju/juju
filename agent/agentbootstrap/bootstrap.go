@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/raft"
+	"github.com/juju/juju/worker/raft/queue"
 )
 
 var logger = loggo.GetLogger("juju.agent.agentbootstrap")
@@ -403,6 +404,7 @@ func initRaft(agentConfig agent.Config) error {
 		StorageDir: raftDir,
 		Logger:     logger,
 		LocalID:    coreraft.ServerID(agentConfig.Tag().Id()),
+		Queue:      queue.NewBlockingOpQueue(),
 	})
 }
 

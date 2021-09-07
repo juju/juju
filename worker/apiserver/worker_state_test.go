@@ -4,8 +4,6 @@
 package apiserver_test
 
 import (
-	"io/ioutil"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -122,7 +120,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		LogSinkConfig:       &logSinkConfig,
 		LeaseManager:        s.leaseManager,
 		MetricsCollector:    s.metricsCollector,
-		Raft:                s.raft,
-		LeaseLog:            ioutil.Discard,
+		RaftOpQueue:         s.queue,
 	})
 }

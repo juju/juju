@@ -79,6 +79,7 @@ import (
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/raft"
+	"github.com/juju/juju/worker/raft/queue"
 	"github.com/juju/juju/worker/raft/raftbackstop"
 	"github.com/juju/juju/worker/raft/raftclusterer"
 	"github.com/juju/juju/worker/raft/raftflag"
@@ -276,6 +277,10 @@ type ManifoldsConfig struct {
 	// LeaseLog represents the internal lease raft log, used to output lease
 	// changes.
 	LeaseLog io.Writer
+
+	// RaftOpQueue represents a way to apply operations on to the raft
+	// instance from the API.
+	RaftOpQueue *queue.BlockingOpQueue
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -678,6 +683,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AuthorityName:        certificateWatcherName,
 			HubName:              centralHubName,
 			StateName:            stateName,
+			RaftTransportName:    raftTransportName,
 			MuxName:              httpServerArgsName,
 			APIServerName:        apiServerName,
 			PrometheusRegisterer: config.PrometheusRegisterer,
@@ -692,30 +698,25 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		apiServerName: ifModelCacheInitialized(apiserver.Manifold(apiserver.ManifoldConfig{
-			AgentName:              agentName,
-			RaftName:               raftName,
-			AuthenticatorName:      httpServerArgsName,
-			ClockName:              clockName,
-			StateName:              stateName,
-			ModelCacheName:         modelCacheName,
-			MultiwatcherName:       multiwatcherName,
-			MuxName:                httpServerArgsName,
-			LeaseManagerName:       leaseManagerName,
-			UpgradeGateName:        upgradeStepsGateName,
-			RestoreStatusName:      restoreWatcherName,
-			AuditConfigUpdaterName: auditConfigUpdaterName,
-			// Synthetic dependency - if raft-transport bounces we
-			// need to bounce api-server too, otherwise http-server
-			// can't shutdown properly.
-			RaftTransportName: raftTransportName,
-
+			AgentName:                         agentName,
+			AuthenticatorName:                 httpServerArgsName,
+			ClockName:                         clockName,
+			StateName:                         stateName,
+			RaftTransportName:                 raftTransportName,
+			ModelCacheName:                    modelCacheName,
+			MultiwatcherName:                  multiwatcherName,
+			MuxName:                           httpServerArgsName,
+			LeaseManagerName:                  leaseManagerName,
+			UpgradeGateName:                   upgradeStepsGateName,
+			RestoreStatusName:                 restoreWatcherName,
+			AuditConfigUpdaterName:            auditConfigUpdaterName,
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 			Hub:                               config.CentralHub,
 			Presence:                          config.PresenceRecorder,
-			LeaseLog:                          config.LeaseLog,
 			NewWorker:                         apiserver.NewWorker,
 			NewMetricsCollector:               apiserver.NewMetricsCollector,
+			RaftOpQueue:                       config.RaftOpQueue,
 		})),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
@@ -765,10 +766,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:            clockName,
 			AgentName:            agentName,
 			TransportName:        raftTransportName,
+			StateName:            stateName,
 			FSM:                  config.LeaseFSM,
 			Logger:               loggo.GetLogger("juju.worker.raft"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            raft.NewWorker,
+			NewTarget:            raft.NewTarget,
+			Queue:                config.RaftOpQueue,
+			LeaseLog:             config.LeaseLog,
 		})),
 
 		raftFlagName: raftflag.Manifold(raftflag.ManifoldConfig{

@@ -611,9 +611,8 @@ func (ctx *facadeContext) SingularClaimer() (lease.Claimer, error) {
 
 func (ctx *facadeContext) Raft() facade.RaftContext {
 	return &raftMediator{
-		raft:         ctx.r.shared.raft,
-		notifyTarget: ctx.r.shared.leaseNotifyTarget,
-		logger:       ctx.r.shared.logger,
+		queue:  ctx.r.shared.raftOpQueue,
+		logger: ctx.r.shared.logger,
 	}
 }
 

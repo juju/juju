@@ -45,7 +45,6 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/pubsub/apiserver"
 	controllermsg "github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/resource"
@@ -144,12 +143,9 @@ type ServerConfig struct {
 	// watcher and the modelcache worker.
 	Controller *cache.Controller
 
-	// Raft is used by the API server to handle leadership claims.
-	Raft Raft
-
-	// LeaseLog is used as the writer for any side effects of the lease
-	// target changes.
-	LeaseLog io.Writer
+	// RaftOpQueue is used by the API to apply operations to the raft
+	// instance.
+	RaftOpQueue Queue
 
 	// UpgradeComplete is a function that reports whether or not
 	// the if the agent running the API server has completed
@@ -250,11 +246,8 @@ func (c ServerConfig) Validate() error {
 	if c.MetricsCollector == nil {
 		return errors.NotValidf("missing MetricsCollector")
 	}
-	if c.Raft == nil {
-		return errors.NotValidf("missing Raft")
-	}
-	if c.LeaseLog == nil {
-		return errors.NotValidf("missing LeaseLog")
+	if c.RaftOpQueue == nil {
+		return errors.NotValidf("missing RaftOpQueue")
 	}
 	return nil
 }
@@ -294,9 +287,6 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 
 	logger := loggo.GetLogger("juju.apiserver")
 
-	leaseTargetLogger := raftlease.NewTargetLogger(cfg.LeaseLog, logger)
-	leaseNotifyTarget := systemState.LeaseNotifyTarget(leaseTargetLogger)
-
 	shared, err := newSharedServerContext(sharedServerConfig{
 		statePool:           cfg.StatePool,
 		controller:          cfg.Controller,
@@ -305,8 +295,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		presence:            cfg.Presence,
 		leaseManager:        cfg.LeaseManager,
 		controllerConfig:    controllerConfig,
-		raft:                cfg.Raft,
-		leaseNotifyTarget:   leaseNotifyTarget,
+		raftOpQueue:         cfg.RaftOpQueue,
 		logger:              logger,
 	})
 	if err != nil {

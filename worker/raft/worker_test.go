@@ -15,8 +15,10 @@ import (
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/raftlease"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/raft"
+	"github.com/juju/juju/worker/raft/queue"
 	"github.com/juju/juju/worker/raft/rafttest"
 	"github.com/juju/juju/worker/raft/raftutil"
 )
@@ -31,12 +33,14 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.fsm = &raft.SimpleFSM{}
 	s.config = raft.Config{
-		FSM:        s.fsm,
-		Logger:     loggo.GetLogger("juju.worker.raft_test"),
-		StorageDir: c.MkDir(),
-		LocalID:    "123",
-		Transport:  s.newTransport("123"),
-		Clock:      testclock.NewClock(time.Time{}),
+		FSM:          s.fsm,
+		Logger:       loggo.GetLogger("juju.worker.raft_test"),
+		StorageDir:   c.MkDir(),
+		LocalID:      "123",
+		Transport:    s.newTransport("123"),
+		Clock:        testclock.NewClock(time.Time{}),
+		Queue:        queue.NewBlockingOpQueue(),
+		NotifyTarget: &struct{ raftlease.NotifyTarget }{},
 	}
 }
 
@@ -80,6 +84,12 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *raft.Config) { cfg.Clock = nil },
 		"nil Clock not valid",
+	}, {
+		func(cfg *raft.Config) { cfg.Queue = nil },
+		"nil Queue not valid",
+	}, {
+		func(cfg *raft.Config) { cfg.NotifyTarget = nil },
+		"nil NotifyTarget not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)

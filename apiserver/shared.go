@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
 )
@@ -56,8 +55,7 @@ type sharedServerContext struct {
 	presence            presence.Recorder
 	leaseManager        lease.Manager
 	logger              loggo.Logger
-	raft                Raft
-	leaseNotifyTarget   raftlease.NotifyTarget
+	raftOpQueue         Queue
 	cancel              <-chan struct{}
 
 	configMutex      sync.RWMutex
@@ -75,8 +73,7 @@ type sharedServerConfig struct {
 	presence            presence.Recorder
 	leaseManager        lease.Manager
 	controllerConfig    jujucontroller.Config
-	raft                Raft
-	leaseNotifyTarget   raftlease.NotifyTarget
+	raftOpQueue         Queue
 	logger              loggo.Logger
 }
 
@@ -102,11 +99,8 @@ func (c *sharedServerConfig) validate() error {
 	if c.controllerConfig == nil {
 		return errors.NotValidf("nil controllerConfig")
 	}
-	if c.raft == nil {
-		return errors.NotValidf("nil raft")
-	}
-	if c.leaseNotifyTarget == nil {
-		return errors.NotValidf("nil leaseNotifyTarget")
+	if c.raftOpQueue == nil {
+		return errors.NotValidf("nil raftOpQueue")
 	}
 	return nil
 }
@@ -124,8 +118,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		leaseManager:        config.leaseManager,
 		logger:              config.logger,
 		controllerConfig:    config.controllerConfig,
-		raft:                config.raft,
-		leaseNotifyTarget:   config.leaseNotifyTarget,
+		raftOpQueue:         config.raftOpQueue,
 	}
 	ctx.features = config.controllerConfig.Features()
 	// We are able to get the current controller config before subscribing to changes

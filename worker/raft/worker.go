@@ -19,6 +19,9 @@ import (
 	"github.com/juju/worker/v2/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/juju/worker/raft/queue"
 	"github.com/juju/juju/worker/raft/raftutil"
 )
 
@@ -73,8 +76,19 @@ var (
 type Logger interface {
 	Warningf(message string, args ...interface{})
 	Errorf(message string, args ...interface{})
+	Debugf(message string, args ...interface{})
 	Tracef(message string, args ...interface{})
 	Logf(level loggo.Level, message string, args ...interface{})
+}
+
+// Queue is a blocking queue to guard access and to serialize raft applications,
+// allowing for client side backoff.
+type Queue interface {
+	// Queue returns the queue of operations. Removing an item from the channel
+	// will unblock to allow another to take it's place.
+	Queue() <-chan queue.Operation
+	// Error places the resulting error for the enqueue to pick it up.
+	Error() chan<- error
 }
 
 // Config is the configuration required for running a raft worker.
@@ -137,6 +151,13 @@ type Config struct {
 
 	// PrometheusRegisterer is used to register the raft metrics.
 	PrometheusRegisterer prometheus.Registerer
+
+	// Queue is a blocking queue to apply raft operations.
+	Queue Queue
+
+	// NotifyTarget is used to notify the changes from the raft operation
+	// applications.
+	NotifyTarget raftlease.NotifyTarget
 }
 
 // Validate validates the raft worker configuration.
@@ -162,6 +183,12 @@ func (config Config) Validate() error {
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
+	if config.Queue == nil {
+		return errors.NotValidf("nil Queue")
+	}
+	if config.NotifyTarget == nil {
+		return errors.NotValidf("nil NotifyTarget")
+	}
 	return nil
 }
 
@@ -176,6 +203,9 @@ func Bootstrap(config Config) error {
 	if config.Transport != nil {
 		return errors.NotValidf("non-nil Transport during Bootstrap")
 	}
+	if config.NotifyTarget != nil {
+		return errors.NotValidf("non-nil NotifyTarget during Bootstrap")
+	}
 
 	// During bootstrap we use an in-memory transport. We just need
 	// to make sure we use the same local address as we'll use later.
@@ -185,6 +215,7 @@ func Bootstrap(config Config) error {
 
 	// During bootstrap, we do not require an FSM.
 	config.FSM = BootstrapFSM{}
+	config.NotifyTarget = BootstrapNotifyTarget{}
 
 	w, err := newWorker(config)
 	if err != nil {
@@ -333,6 +364,7 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	defer func() {
 		if err := r.Shutdown().Error(); err != nil {
 			if loopErr == nil {
@@ -383,10 +415,73 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 					humanize.Time(lastContact), w.config.NoLeaderTimeout)
 				return ErrNoLeaderTimeout
 			}
+		case op := <-w.config.Queue.Queue():
+			// Apply any operation on to the current raft implementation.
+			// This ensures that we serialize the applying of operations onto
+			// the raft state.
+			w.config.Queue.Error() <- w.applyOperation(r, op)
 		case w.raftCh <- r:
 		case w.logStoreCh <- logStore:
 		}
 	}
+}
+
+func (w *Worker) applyOperation(r *raft.Raft, op queue.Operation) error {
+	if state := r.State(); state != raft.Leader {
+		leaderAddress := r.Leader()
+
+		w.config.Logger.Debugf("Attempt to apply the lease failed, we're not the leader. State: %v, Leader: %v", state, leaderAddress)
+
+		// If the leaderAddress is empty, this implies that either we don't
+		// have a leader or there is no raft cluster setup.
+		if leaderAddress == "" {
+			// Return back we don't have a leader and then it's up to the client
+			// to work out what to do next.
+			return NewNotLeaderError("", "")
+		}
+
+		// If we have a leader address, we hope that we can use that leader
+		// address to locate the associate server ID. The server ID can be used
+		// as a mapping for the machine ID.
+		future := r.GetConfiguration()
+		if err := future.Error(); err != nil {
+			return errors.Trace(err)
+		}
+
+		config := future.Configuration()
+
+		// If no leader ID is located that could imply that the leader has gone
+		// away during the raft.State call and the GetConfiguration call. If
+		// this is the case, return the leader address and no leader ID and get
+		// the client to figure out the best approach.
+		var leaderID string
+		for _, server := range config.Servers {
+			if server.Address == leaderAddress {
+				leaderID = string(server.ID)
+				break
+			}
+		}
+
+		return NewNotLeaderError(string(leaderAddress), leaderID)
+	}
+
+	w.config.Logger.Tracef("Applying command %v", string(op.Command))
+
+	future := r.Apply(op.Command, op.Timeout)
+	if err := future.Error(); err != nil {
+		return errors.Trace(err)
+	}
+
+	response := future.Response()
+	fsmResponse, ok := response.(raftlease.FSMResponse)
+	if !ok {
+		// This should never happen.
+		panic(errors.Errorf("programming error: expected an FSMResponse, got %T: %#v", response, response))
+	}
+
+	fsmResponse.Notify(w.config.NotifyTarget)
+
+	return nil
 }
 
 // NewRaftConfig makes a raft config struct from the worker config
@@ -482,3 +577,15 @@ func (BootstrapFSM) Snapshot() (raft.FSMSnapshot, error) {
 func (BootstrapFSM) Restore(io.ReadCloser) error {
 	panic("Restore should not be called during bootstrap")
 }
+
+type BootstrapNotifyTarget struct{}
+
+// Claimed will be called when a new lease has been claimed. Not
+// allowed to return an error because this is purely advisory -
+// the lease claim has still occurred, whether or not the callback
+// succeeds.
+func (BootstrapNotifyTarget) Claimed(lease.Key, string) {}
+
+// Expired will be called when an existing lease has expired. Not
+// allowed to return an error because this is purely advisory.
+func (BootstrapNotifyTarget) Expired(lease.Key) {}
