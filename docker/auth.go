@@ -94,11 +94,13 @@ type ImageRepoDetails struct {
 	ServerAddress string `json:"serveraddress,omitempty" yaml:"serveraddress,omitempty"`
 }
 
+// AuthEqual compares if the provided one equals to current repository detail.
 func (rid ImageRepoDetails) AuthEqual(r ImageRepoDetails) bool {
 	return reflect.DeepEqual(rid.BasicAuthConfig, r.BasicAuthConfig) &&
 		reflect.DeepEqual(rid.TokenAuthConfig, r.TokenAuthConfig)
 }
 
+// IsPrivate checks if the repository detail is private.
 func (rid ImageRepoDetails) IsPrivate() bool {
 	return !rid.BasicAuthConfig.Empty() || !rid.TokenAuthConfig.Empty()
 }
@@ -155,6 +157,8 @@ func (rid *ImageRepoDetails) init() error {
 	}
 	return nil
 }
+
+// Empty checks if the auth information is empty.
 func (rid ImageRepoDetails) Empty() bool {
 	return rid == ImageRepoDetails{}
 }

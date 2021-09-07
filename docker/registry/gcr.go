@@ -21,6 +21,7 @@ func newGoogleContainerRegistry(repoDetails docker.ImageRepoDetails, transport h
 	return &googleContainerRegistry{c}
 }
 
+// Match checks if the repository details matches current provider format.
 func (c *googleContainerRegistry) Match() bool {
 	c.prepare()
 	return strings.Contains(c.repoDetails.ServerAddress, "gcr.io")

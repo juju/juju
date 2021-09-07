@@ -26,11 +26,13 @@ func newDockerhub(repoDetails docker.ImageRepoDetails, transport http.RoundTripp
 	return &dockerhub{c}
 }
 
+// Match checks if the repository details matches current provider format.
 func (c *dockerhub) Match() bool {
 	c.prepare()
 	return c.repoDetails.ServerAddress == "" || strings.Contains(c.repoDetails.ServerAddress, "docker.io")
 }
 
+// DecideBaseURL decides the API url to use.
 func (c *dockerhub) DecideBaseURL() error {
 	c.repoDetails.ServerAddress = dockerServerAddress
 	if err := c.baseClient.DecideBaseURL(); err != nil {

@@ -21,6 +21,7 @@ func newElasticContainerRegistry(repoDetails docker.ImageRepoDetails, transport 
 	return &elasticContainerRegistry{c}
 }
 
+// Match checks if the repository details matches current provider format.
 func (c *elasticContainerRegistry) Match() bool {
 	c.prepare()
 	return strings.Contains(c.repoDetails.ServerAddress, "ecr.aws")

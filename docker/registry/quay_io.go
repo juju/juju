@@ -21,6 +21,7 @@ func newQuayContainerRegistry(repoDetails docker.ImageRepoDetails, transport htt
 	return &quayContainerRegistry{c}
 }
 
+// Match checks if the repository details matches current provider format.
 func (c *quayContainerRegistry) Match() bool {
 	c.prepare()
 	return strings.Contains(c.repoDetails.ServerAddress, "quay.io")

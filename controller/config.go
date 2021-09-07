@@ -861,8 +861,8 @@ func validateCAASImageRepo(imageRepo string) (string, error) {
 		if err != nil {
 			return "", errors.Trace(err)
 		}
+		defer func() { _ = r.Close() }()
 		*imageDetails = r.ImageRepoDetails()
-		func() { _ = r.Close() }()
 	}
 	return imageDetails.String(), nil
 }

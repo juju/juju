@@ -24,6 +24,7 @@ func newAzureContainerRegistry(repoDetails docker.ImageRepoDetails, transport ht
 	return &azureContainerRegistry{c}
 }
 
+// Match checks if the repository details matches current provider format.
 func (c *azureContainerRegistry) Match() bool {
 	c.prepare()
 	return strings.Contains(c.repoDetails.ServerAddress, "azurecr.io")
@@ -43,26 +44,24 @@ func getUserNameFromAuthForACR(auth string) (string, error) {
 
 func (c *azureContainerRegistry) WrapTransport() error {
 	transport := c.client.Transport
-	if c.repoDetails.IsPrivate() {
-		if !c.repoDetails.TokenAuthConfig.Empty() {
-			username := c.repoDetails.Username
-			if username == "" {
-				var err error
-				username, err = getUserNameFromAuthForACR(c.repoDetails.Auth)
-				if err != nil {
-					return errors.Trace(err)
-				}
+	if c.repoDetails.IsPrivate() && !c.repoDetails.TokenAuthConfig.Empty() {
+		username := c.repoDetails.Username
+		if username == "" {
+			var err error
+			username, err = getUserNameFromAuthForACR(c.repoDetails.Auth)
+			if err != nil {
+				return errors.Trace(err)
 			}
-			password := c.repoDetails.Password
-			if password == "" {
-				password = c.repoDetails.IdentityToken
-			}
-			transport = newTokenTransport(
-				transport,
-				username, password,
-				"", "",
-			)
 		}
+		password := c.repoDetails.Password
+		if password == "" {
+			password = c.repoDetails.IdentityToken
+		}
+		transport = newTokenTransport(
+			transport,
+			username, password,
+			"", "",
+		)
 	}
 	c.client.Transport = newErrorTransport(transport)
 	return nil

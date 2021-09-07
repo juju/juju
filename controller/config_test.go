@@ -645,7 +645,7 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
     "auth": "%s",
     "repository": "ghcr.io/test-account"
 }`, base64.StdEncoding.EncodeToString([]byte("username:pwd"))),
-			expected: "test-account"},
+			expected: "ghcr.io/test-account"},
 	} {
 		if imageRepo.expected == "" {
 			imageRepo.expected = imageRepo.content

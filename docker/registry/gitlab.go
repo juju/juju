@@ -19,6 +19,7 @@ func newGitlabContainerRegistry(repoDetails docker.ImageRepoDetails, transport h
 	return &gitlabContainerRegistry{c}
 }
 
+// Match checks if the repository details matches current provider format.
 func (c *gitlabContainerRegistry) Match() bool {
 	c.prepare()
 	return strings.Contains(c.repoDetails.ServerAddress, "registry.gitlab.com")

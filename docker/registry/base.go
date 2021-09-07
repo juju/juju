@@ -76,6 +76,7 @@ func (c *baseClient) prepare() {
 	}
 }
 
+// Match checks if the repository details matches current provider format.
 func (c *baseClient) Match() bool {
 	return false
 }
@@ -109,6 +110,7 @@ func (c *baseClient) WrapTransport() error {
 	return nil
 }
 
+// DecideBaseURL decides the API url to use.
 func (c *baseClient) DecideBaseURL() error {
 	addr := c.repoDetails.ServerAddress
 	if addr == "" {
