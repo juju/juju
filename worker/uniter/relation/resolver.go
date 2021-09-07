@@ -51,9 +51,14 @@ type relationsResolver struct {
 }
 
 // NextOp implements resolver.Resolver.
-func (r *relationsResolver) NextOp(localState resolver.LocalState, remoteState remotestate.Snapshot, opFactory operation.Factory) (operation.Operation, error) {
+func (r *relationsResolver) NextOp(localState resolver.LocalState, remoteState remotestate.Snapshot, opFactory operation.Factory) (_ operation.Operation, err error) {
 	if r.logger.IsTraceEnabled() {
-		r.logger.Tracef("relation resolver next op for new remote state %# v", pretty.Formatter(remoteState))
+		r.logger.Tracef("relation resolver next op for new remote relations %# v", pretty.Formatter(remoteState.Relations))
+		defer func() {
+			if err == resolver.ErrNoOperation {
+				r.logger.Tracef("no relation operation to run")
+			}
+		}()
 	}
 	if err := r.maybeDestroySubordinates(remoteState); err != nil {
 		return nil, errors.Trace(err)
@@ -334,9 +339,14 @@ func (r *createdRelationsResolver) NextOp(
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
-) (operation.Operation, error) {
+) (_ operation.Operation, err error) {
 	if r.logger.IsTraceEnabled() {
-		r.logger.Tracef("create relation resolver next op for new remote state %# v", pretty.Formatter(remoteState))
+		r.logger.Tracef("create relation resolver next op for new remote relations %# v", pretty.Formatter(remoteState.Relations))
+		defer func() {
+			if err == resolver.ErrNoOperation {
+				r.logger.Tracef("no create relation operation to run")
+			}
+		}()
 	}
 	// Nothing to do if not yet installed or if the unit is dying.
 	if !localState.Installed || remoteState.Life == life.Dying {
