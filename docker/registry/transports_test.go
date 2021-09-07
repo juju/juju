@@ -43,7 +43,7 @@ func (s *transportSuite) TestErrorTransport(c *gc.C) {
 	})
 	t := registry.NewErrorTransport(mockRoundTripper)
 	_, err = t.RoundTrip(&http.Request{URL: url})
-	c.Assert(err, gc.ErrorMatches, `non-successful response \(status=403 body="invalid input"\)`)
+	c.Assert(err, gc.ErrorMatches, `non-successful response status=403`)
 }
 
 func (s *transportSuite) TestBasicTransport(c *gc.C) {

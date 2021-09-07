@@ -19,6 +19,7 @@ func providers() []func(docker.ImageRepoDetails, http.RoundTripper) RegistryInte
 		newGithubContainerRegistry,
 		newQuayContainerRegistry,
 		newGoogleContainerRegistry,
+		newElasticContainerRegistry,
 	}
 }
 
@@ -41,6 +42,7 @@ func New(repoDetails docker.ImageRepoDetails) (Registry, error) {
 	for _, providerNewer := range providers() {
 		p := providerNewer(repoDetails, DefaultTransport)
 		if p.Match() {
+			logger.Tracef("found registry client %#v for %#v", p, repoDetails)
 			provider = p
 			break
 		}

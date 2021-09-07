@@ -183,7 +183,7 @@ func (s *githubSuite) TestTagsErrorResponseV1(c *gc.C) {
 		}),
 	)
 	_, err := reg.Tags("jujud-operator")
-	c.Assert(err, gc.ErrorMatches, `Get "https://ghcr.io/v1/repositories/jujuqa/jujud-operator/tags": non-successful response \(status=403 body=.*\)`)
+	c.Assert(err, gc.ErrorMatches, `Get "https://ghcr.io/v1/repositories/jujuqa/jujud-operator/tags": non-successful response status=403`)
 }
 
 func (s *githubSuite) TestTagsErrorResponseV2(c *gc.C) {
@@ -210,5 +210,5 @@ func (s *githubSuite) TestTagsErrorResponseV2(c *gc.C) {
 		}),
 	)
 	_, err := reg.Tags("jujud-operator")
-	c.Assert(err, gc.ErrorMatches, `Get "https://ghcr.io/v2/jujuqa/jujud-operator/tags/list": non-successful response \(status=403 body=.*\)`)
+	c.Assert(err, gc.ErrorMatches, `Get "https://ghcr.io/v2/jujuqa/jujud-operator/tags/list": non-successful response status=403`)
 }

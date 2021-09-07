@@ -212,7 +212,7 @@ func (s *gitlabSuite) TestTagsErrorResponseV1(c *gc.C) {
 		}),
 	)
 	_, err := reg.Tags("jujud-operator")
-	c.Assert(err, gc.ErrorMatches, `Get "https://registry.gitlab.com/v1/repositories/jujuqa/jujud-operator/tags": non-successful response \(status=403 body=.*\)`)
+	c.Assert(err, gc.ErrorMatches, `Get "https://registry.gitlab.com/v1/repositories/jujuqa/jujud-operator/tags": non-successful response status=403`)
 }
 
 func (s *gitlabSuite) TestTagsErrorResponseV2(c *gc.C) {
@@ -238,5 +238,5 @@ func (s *gitlabSuite) TestTagsErrorResponseV2(c *gc.C) {
 		}),
 	)
 	_, err := reg.Tags("jujud-operator")
-	c.Assert(err, gc.ErrorMatches, `Get "https://registry.gitlab.com/v2/jujuqa/jujud-operator/tags/list": non-successful response \(status=403 body=.*\)`)
+	c.Assert(err, gc.ErrorMatches, `Get "https://registry.gitlab.com/v2/jujuqa/jujud-operator/tags/list": non-successful response status=403`)
 }

@@ -25,6 +25,7 @@ func newAzureContainerRegistry(repoDetails docker.ImageRepoDetails, transport ht
 }
 
 func (c *azureContainerRegistry) Match() bool {
+	c.prepare()
 	return strings.Contains(c.repoDetails.ServerAddress, "azurecr.io")
 }
 

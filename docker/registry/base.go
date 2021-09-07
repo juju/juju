@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -61,6 +62,20 @@ func newBase(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) *
 	return c
 }
 
+// prepare does pre-processing before Match().
+func (c *baseClient) prepare() {
+	if c.repoDetails.ServerAddress != "" {
+		return
+	}
+	// We have validated the repository in top level.
+	// It should not raise errors here.
+	named, _ := reference.ParseNormalizedNamed(c.repoDetails.Repository)
+	domain := reference.Domain(named)
+	if domain != "" {
+		c.repoDetails.ServerAddress = domain
+	}
+}
+
 func (c *baseClient) Match() bool {
 	return false
 }
@@ -74,7 +89,6 @@ func (c *baseClient) APIVersion() APIVersion {
 }
 
 func (c *baseClient) WrapTransport() error {
-	logger.Criticalf("baseClient.WrapTransport")
 	transport := c.client.Transport
 	if c.repoDetails.IsPrivate() {
 		if !c.repoDetails.BasicAuthConfig.Empty() {
@@ -96,7 +110,6 @@ func (c *baseClient) WrapTransport() error {
 }
 
 func (c *baseClient) DecideBaseURL() error {
-	logger.Criticalf("baseClient.DecideBaseURL")
 	addr := c.repoDetails.ServerAddress
 	if addr == "" {
 		return errors.NotValidf("empty server address for %q", c.repoDetails.Repository)
@@ -117,7 +130,7 @@ func (c *baseClient) DecideBaseURL() error {
 
 	serverAddressURL.Scheme = ""
 	c.repoDetails.ServerAddress = serverAddressURL.String()
-	logger.Criticalf("baseClient.DecideBaseURL c.baseURL %q, r.repoDetails.ServerAddress %q", c.baseURL, c.repoDetails.ServerAddress)
+	logger.Tracef("baseClient repoDetails %#v", c.repoDetails)
 	return nil
 }
 
@@ -132,8 +145,6 @@ func (c baseClient) url(pathTemplate string, args ...interface{}) string {
 		url.Scheme = "https"
 	}
 	url.Path = path.Join(url.Path, pathSuffix)
-	logger.Criticalf("baseClient url.Path ===> %q, %q", url.Path, pathSuffix)
-	logger.Criticalf("baseClient c.baseURL ===> %q, url.String() ===> %q", c.baseURL, url.String())
 	return url.String()
 }
 
@@ -164,9 +175,8 @@ func (c *baseClient) Close() error {
 }
 
 func (c baseClient) getPaginatedJSON(url string, response interface{}) (string, error) {
-	logger.Criticalf("baseClient.getPaginatedJSON url ===> %q", url)
 	resp, err := c.client.Get(url)
-	logger.Criticalf("getPaginatedJSON err %#v", err)
+	logger.Tracef("getPaginatedJSON for %q, err %v", url, err)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

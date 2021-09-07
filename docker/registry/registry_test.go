@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/docker/registry/mocks"
 )
@@ -19,7 +20,7 @@ type registrySuite struct {
 
 var _ = gc.Suite(&registrySuite{})
 
-func (s *registrySuite) TestNew(c *gc.C) {
+func (s *registrySuite) TestInitClient(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	initializer := mocks.NewMockInitializer(ctrl)
@@ -31,4 +32,28 @@ func (s *registrySuite) TestNew(c *gc.C) {
 	)
 	err := registry.InitClient(initializer)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *registrySuite) TestNewRegistryNotSupported(c *gc.C) {
+
+	imageRepoDetails := docker.ImageRepoDetails{
+		Repository:    "gcr.io/jujuqa-project",
+		ServerAddress: "gcr.io",
+	}
+	_, err := registry.New(imageRepoDetails)
+	c.Assert(err, gc.ErrorMatches, `google container registry not supported`)
+
+	imageRepoDetails = docker.ImageRepoDetails{
+		Repository:    "quay.io/jujuqa-project",
+		ServerAddress: "quay.io",
+	}
+	_, err = registry.New(imageRepoDetails)
+	c.Assert(err, gc.ErrorMatches, `quay.io container registry not supported`)
+
+	imageRepoDetails = docker.ImageRepoDetails{
+		Repository:    "ecr.aws/jujuqa-project",
+		ServerAddress: "ecr.aws",
+	}
+	_, err = registry.New(imageRepoDetails)
+	c.Assert(err, gc.ErrorMatches, `AWS elastic container registry not supported`)
 }

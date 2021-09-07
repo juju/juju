@@ -22,6 +22,7 @@ func newQuayContainerRegistry(repoDetails docker.ImageRepoDetails, transport htt
 }
 
 func (c *quayContainerRegistry) Match() bool {
+	c.prepare()
 	return strings.Contains(c.repoDetails.ServerAddress, "quay.io")
 }
 

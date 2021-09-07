@@ -22,9 +22,10 @@ func newGoogleContainerRegistry(repoDetails docker.ImageRepoDetails, transport h
 }
 
 func (c *googleContainerRegistry) Match() bool {
+	c.prepare()
 	return strings.Contains(c.repoDetails.ServerAddress, "gcr.io")
 }
 
 func (c *googleContainerRegistry) WrapTransport() error {
-	return errors.NotSupportedf("googleContainerRegistry")
+	return errors.NotSupportedf("google container registry")
 }

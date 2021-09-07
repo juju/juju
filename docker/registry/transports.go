@@ -26,7 +26,6 @@ type basicTransport struct {
 func newBasicTransport(
 	transport http.RoundTripper, username string, password string, authToken string,
 ) http.RoundTripper {
-	logger.Criticalf("newBasicTransport %q, %q, %q", username, password, authToken)
 	return &basicTransport{
 		transport: transport,
 		username:  username,
@@ -57,7 +56,7 @@ func (t basicTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, errors.Trace(err)
 	}
 	resp, err := t.transport.RoundTrip(req)
-	logger.Criticalf("basicTransport RoundTrip req.Header => %#v, resp.Header => %#v", req.Header, resp.Header)
+	logger.Tracef("basicTransport req.Header => %#v, resp.Header => %#v", req.Header, resp.Header)
 	return resp, errors.Trace(err)
 }
 
@@ -110,7 +109,6 @@ type tokenResponse struct {
 }
 
 func (t tokenResponse) token() string {
-	logger.Warningf("tokenResponse => %#v", t)
 	if t.AccessToken != "" {
 		return t.AccessToken
 	}
@@ -215,8 +213,8 @@ func newErrorTransport(transport http.RoundTripper) http.RoundTripper {
 // RoundTrip executes a single HTTP transaction, returning a Response for the provided Request.
 func (t errorTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	resp, err := t.transport.RoundTrip(request)
-	logger.Criticalf(
-		"errorTransport.RoundTrip request.URL -> %q, request.Header -> %#v, err -> %v",
+	logger.Tracef(
+		"errorTransport request.URL -> %q, request.Header -> %#v, err -> %v",
 		request.URL, request.Header, err,
 	)
 	if err != nil {
@@ -232,8 +230,9 @@ func handleErrorResponse(resp *http.Response) (*http.Response, error) {
 		if err != nil {
 			return nil, errors.Annotatef(err, "reading bad response body with status code %d", resp.StatusCode)
 		}
-
-		return nil, errors.New(fmt.Sprintf("non-successful response (status=%d body=%q)", resp.StatusCode, body))
+		errMsg := fmt.Sprintf("non-successful response status=%d", resp.StatusCode)
+		logger.Tracef("%s, url %q, body=%q", errMsg, resp.Request.URL.String(), body)
+		return nil, errors.New(errMsg)
 	}
 	return resp, nil
 }
