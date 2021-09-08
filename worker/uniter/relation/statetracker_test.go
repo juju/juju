@@ -516,9 +516,11 @@ func (s *syncScopesSuite) TestSynchronizeScopesJoinRelation(c *gc.C) {
 	c.Assert(rst.RemoteApplication(1), gc.Equals, "mysql")
 }
 
-func (s *syncScopesSuite) TestSynchronizeScopesFailImplementedBy(c *gc.C) {
-	// wordpress unit with mysql relation
-	s.setupCharmDir(c)
+func (s *syncScopesSuite) assertSynchronizeScopesFailImplementedBy(c *gc.C, createCharmDir bool) {
+	if createCharmDir {
+		// wordpress unit with mysql relation
+		s.setupCharmDir(c)
+	}
 	defer s.setupMocks(c).Finish()
 	// Setup for SynchronizeScopes()
 	s.expectRelationById(1)
@@ -530,7 +532,9 @@ func (s *syncScopesSuite) TestSynchronizeScopesFailImplementedBy(c *gc.C) {
 			Interface: "db",
 			Scope:     charm.ScopeGlobal,
 		}}
+	s.expectRelationOtherApplication()
 	s.expectRelationEndpoint(ep)
+	s.expectString()
 
 	rst := s.newSyncScopesStateTracker(c,
 		make(map[int]relation.Relationer),
@@ -553,6 +557,14 @@ func (s *syncScopesSuite) TestSynchronizeScopesFailImplementedBy(c *gc.C) {
 
 	err := rst.SynchronizeScopes(remoteState)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *syncScopesSuite) TestSynchronizeScopesFailImplementedBy(c *gc.C) {
+	s.assertSynchronizeScopesFailImplementedBy(c, true)
+}
+
+func (s *syncScopesSuite) TestSynchronizeScopesIgnoresMissingCharmDir(c *gc.C) {
+	s.assertSynchronizeScopesFailImplementedBy(c, false)
 }
 
 func (s *syncScopesSuite) TestSynchronizeScopesSeenNotDying(c *gc.C) {

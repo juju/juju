@@ -4,6 +4,7 @@
 package relation
 
 import (
+	"os"
 	"time"
 
 	"github.com/juju/charm/v8"
@@ -105,7 +106,7 @@ func (r *relationStateTracker) loadInitialState() error {
 
 	// Keep the relations ordered for reliable testing.
 	var orderedIds []int
-	activeRelations := make(map[int]Relation)
+	isScopeRelations := make(map[int]Relation)
 	relationSuspended := make(map[int]bool)
 	for _, rs := range relationStatus {
 		if !rs.InScope {
@@ -116,7 +117,7 @@ func (r *relationStateTracker) loadInitialState() error {
 			return errors.Trace(err)
 		}
 		relationSuspended[rel.Id()] = rs.Suspended
-		activeRelations[rel.Id()] = rel
+		isScopeRelations[rel.Id()] = rel
 		orderedIds = append(orderedIds, rel.Id())
 
 		// The relation-created hook always fires before joining.
@@ -131,7 +132,8 @@ func (r *relationStateTracker) loadInitialState() error {
 	}
 	knownUnits := make(map[string]bool)
 	for _, id := range r.stateMgr.KnownIDs() {
-		if rel, ok := activeRelations[id]; ok {
+		if rel, ok := isScopeRelations[id]; ok {
+			//shouldJoin := localRelState.Members[rel.]
 			if err := r.joinRelation(rel); err != nil {
 				return errors.Trace(err)
 			}
@@ -146,7 +148,7 @@ func (r *relationStateTracker) loadInitialState() error {
 	}
 
 	for _, id := range orderedIds {
-		rel := activeRelations[id]
+		rel := isScopeRelations[id]
 		if r.stateMgr.RelationFound(id) {
 			continue
 		}
@@ -265,24 +267,32 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 			return errors.Trace(err)
 		}
 
-		// Make sure we ignore relations not implemented by the unit's charm.
-		if charmSpec == nil {
-			if charmSpec, err = charm.ReadCharmDir(r.charmDir); err != nil {
-				return errors.Trace(err)
-			}
-		}
-
 		ep, err := rel.Endpoint()
 		if err != nil {
 			return errors.Trace(err)
-		} else if !ep.ImplementedBy(charmSpec) {
-			r.logger.Warningf("skipping relation with unknown endpoint %q", ep.Name)
-			continue
 		}
-
 		// Keep track of peer relations
 		if ep.Role == charm.RolePeer {
 			r.isPeerRelation[id] = true
+		}
+		// Keep track of the remote application
+		r.remoteAppName[id] = rel.OtherApplication()
+
+		// Make sure we ignore relations not implemented by the unit's charm.
+		if !r.RelationCreated(id) {
+			if charmSpec == nil {
+				charmSpec, err = charm.ReadCharmDir(r.charmDir)
+				if err != nil {
+					if !os.IsNotExist(errors.Cause(err)) {
+						return errors.Trace(err)
+					}
+					r.logger.Warningf("charm deleted, skipping relation endpoint check for %q", rel)
+				}
+			}
+			if charmSpec != nil && !ep.ImplementedBy(charmSpec) {
+				r.logger.Warningf("skipping relation %q with unknown endpoint %q", rel, ep.Name)
+				continue
+			}
 		}
 
 		if joinErr := r.joinRelation(rel); joinErr != nil {
@@ -295,9 +305,6 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 				return errors.Trace(removeErr)
 			}
 		}
-
-		// Keep track of the remote application
-		r.remoteAppName[id] = rel.OtherApplication()
 	}
 
 	if r.subordinate {
