@@ -74,17 +74,6 @@ func registerLocalTests() {
 	gc.Suite(&localNonUSEastSuite{})
 }
 
-var deleteSecurityGroupForTestFunc = func(client ec2.SecurityGroupCleaner, ctx context.ProviderCallContext, group types.GroupIdentifier, _ clock.Clock) error {
-	// With an exponential retry for deleting security groups,
-	// we never return from local live tests.
-	// No need to re-try in tests anyway - just call delete.
-	_, err := client.DeleteSecurityGroup(ctx, &awsec2.DeleteSecurityGroupInput{
-		GroupId:   group.GroupId,
-		GroupName: group.GroupName,
-	})
-	return err
-}
-
 // localLiveSuite runs tests from LiveTests using a fake
 // EC2 server that runs within the test process itself.
 type localLiveSuite struct {
@@ -109,7 +98,6 @@ func (t *localLiveSuite) SetUpSuite(c *gc.C) {
 	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
 	t.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	t.BaseSuite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
 }
@@ -270,7 +258,6 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	t.BaseSuite.PatchValue(&series.HostSeries, func() (string, error) { return jujuversion.DefaultSupportedLTS(), nil })
-	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
 	// TODO(jam) I don't understand why we shouldn't do this.
@@ -564,7 +551,6 @@ func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	insts, err := env.AllRunningInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	idsToStop := make([]instance.Id, len(insts)+1)
@@ -2063,7 +2049,6 @@ func (t *localNonUSEastSuite) SetUpSuite(c *gc.C) {
 
 	t.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	t.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 }
 
 func (t *localNonUSEastSuite) TearDownSuite(c *gc.C) {
