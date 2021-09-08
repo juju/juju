@@ -14,7 +14,6 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
@@ -64,7 +63,7 @@ See also:
 
 func newUpgradeControllerCommand(options ...modelcmd.WrapControllerOption) cmd.Command {
 	command := &upgradeControllerCommand{}
-	command.registryAPIFunc = registry.NewRegistry
+	command.registryAPIFunc = registry.New
 	return modelcmd.WrapController(command, options...)
 }
 
@@ -271,15 +270,13 @@ func (c *upgradeControllerCommand) upgradeCAASController(ctx *cmd.Context) error
 }
 
 func (c *baseUpgradeCommand) listOperatorImages(controllerCfg controller.Config) (tools.Versions, error) {
-	imagePath, err := podcfg.GetJujuOCIImagePath(controllerCfg, version.Zero, 0)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	imageRepoDetails := controllerCfg.CAASImageRepo()
-	if !imageRepoDetails.IsPrivate() {
-		// TODO(ycliuhw): merge ListOperatorImages to Registry API.
-		return docker.ListOperatorImages(imagePath)
+	if imageRepoDetails.Empty() {
+		repoDetails, err := docker.NewImageRepoDetails(podcfg.JujudOCINamespace)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		imageRepoDetails = *repoDetails
 	}
 	reg, err := c.registryAPIFunc(imageRepoDetails)
 	if err != nil {
@@ -305,7 +302,7 @@ func (c *baseUpgradeCommand) initCAASVersions(
 	for _, a := range streamsAgents {
 		streamsVersions.Add(a.Version.Number.String())
 	}
-	logger.Debugf("found available tags: %v", availableTags)
+	logger.Debugf("found available tags: %q", availableTags)
 	var matchingTags tools.Versions
 	for _, t := range availableTags {
 		vers := t.AgentVersion()

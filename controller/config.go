@@ -857,10 +857,11 @@ func validateCAASImageRepo(imageRepo string) (string, error) {
 		return "", errors.Trace(err)
 	}
 	if imageDetails.IsPrivate() {
-		r, err := registry.NewRegistry(*imageDetails)
+		r, err := registry.New(*imageDetails)
 		if err != nil {
 			return "", errors.Trace(err)
 		}
+		defer func() { _ = r.Close() }()
 		*imageDetails = r.ImageRepoDetails()
 	}
 	return imageDetails.String(), nil

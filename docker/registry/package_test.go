@@ -13,4 +13,20 @@ func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
-var NewRegistryForTest = newRegistry
+type (
+	AzureContainerRegistry  = azureContainerRegistry
+	BaseClient              = baseClient
+	Dockerhub               = dockerhub
+	GoogleContainerRegistry = googleContainerRegistry
+	GithubContainerRegistry = githubContainerRegistry
+	GitlabContainerRegistry = gitlabContainerRegistry
+	QuayContainerRegistry   = quayContainerRegistry
+)
+
+var (
+	InitClient = initClient
+
+	NewErrorTransport = newErrorTransport
+	NewBasicTransport = newBasicTransport
+	NewTokenTransport = newTokenTransport
+)

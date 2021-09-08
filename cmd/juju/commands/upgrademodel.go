@@ -82,7 +82,7 @@ See also:
 
 func newUpgradeJujuCommand() cmd.Command {
 	command := &upgradeJujuCommand{}
-	command.registryAPIFunc = registry.NewRegistry
+	command.registryAPIFunc = registry.New
 	return modelcmd.Wrap(command)
 }
 

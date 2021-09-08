@@ -7,13 +7,11 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3"
@@ -47,7 +45,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
@@ -1219,7 +1216,6 @@ type UpgradeCAASModelSuite struct {
 
 func (s *UpgradeCAASModelSuite) SetUpTest(c *gc.C) {
 	s.UpgradeBaseSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.PrivateRegistry)
 	s.resources = common.NewResources()
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
@@ -1279,17 +1275,49 @@ func (s *UpgradeCAASModelSuite) upgradeModelCommand(
 	return newUpgradeJujuCommandForTest(s.ControllerStore, nil, nil, nil, controllerAPI, registryAPINewer)
 }
 
-func (s *UpgradeCAASModelSuite) TestUpgrade(c *gc.C) {
-	assertAndMocks := func(tagsInfo []tagInfo) {
-		s.PatchValue(&docker.HttpGet, func(url string, timeout time.Duration) ([]byte, error) {
-			c.Assert(url, gc.Equals, "https://registry.hub.docker.com/v1/repositories/jujusolutions/jujud-operator/tags")
-			c.Assert(timeout, gc.Equals, 30*time.Second)
-			return json.Marshal(tagsInfo)
-		})
+func (s *UpgradeCAASModelSuite) TestUpgradePublicRegistry(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	controllerCfg := s.ControllerConfig
+	controllerCfg[controller.CAASImageRepo] = `
+{
+    "serveraddress": "ghcr.io",
+    "repository": "ghcr.io/test-account"
+}`[1:]
+	registryAPINewerCalled := false
+	controllerAPI := mocks.NewMockControllerAPI(ctrl)
+	registryAPI := registrymocks.NewMockRegistry(ctrl)
+	registryAPINewer := func(imageRepo docker.ImageRepoDetails) (registry.Registry, error) {
+		c.Assert(imageRepo.Repository, gc.DeepEquals, "ghcr.io/test-account")
+		c.Assert(imageRepo.ServerAddress, gc.DeepEquals, "ghcr.io")
+		c.Assert(imageRepo.IsPrivate(), jc.IsFalse)
+		registryAPINewerCalled = true
+		return registryAPI, nil
 	}
+	modelCfg, err := s.Model.ModelConfig()
+	c.Check(err, jc.ErrorIsNil)
+
+	assertAndMocks := func(tagsInfo []tagInfo) {
+		var tags coretools.Versions
+		for _, t := range tagsInfo {
+			v, err := version.Parse(t.Tag)
+			c.Check(err, jc.ErrorIsNil)
+			tags = append(tags, registry.NewImageInfo(v))
+		}
+		gomock.InOrder(
+			controllerAPI.EXPECT().ModelConfig().Return(modelCfg.AllAttrs(), nil),
+			controllerAPI.EXPECT().ControllerConfig().Return(controllerCfg, nil),
+			registryAPI.EXPECT().Tags("jujud-operator").Return(tags, nil),
+			registryAPI.EXPECT().Close().Return(nil),
+			controllerAPI.EXPECT().Close().Return(nil),
+		)
+	}
+
 	s.assertUpgradeTests(c, upgradeCAASModelTests, assertAndMocks, func() cmd.Command {
-		return s.upgradeModelCommand(nil, nil)
+		return s.upgradeModelCommand(controllerAPI, registryAPINewer)
 	})
+	c.Assert(registryAPINewerCalled, jc.IsTrue)
 }
 
 func (s *UpgradeCAASModelSuite) TestUpgradePrivateRegistry(c *gc.C) {
@@ -1299,17 +1327,17 @@ func (s *UpgradeCAASModelSuite) TestUpgradePrivateRegistry(c *gc.C) {
 	controllerCfg := s.ControllerConfig
 	controllerCfg[controller.CAASImageRepo] = `
 {
-    "serveraddress": "quay.io",
-    "auth": "xxxxx==",
-    "repository": "test-account"
+    "serveraddress": "ghcr.io",
+    "auth": "dXNlcm5hbWU6cHdkCg==",
+    "repository": "ghcr.io/test-account"
 }`[1:]
 	registryAPINewerCalled := false
 	controllerAPI := mocks.NewMockControllerAPI(ctrl)
 	registryAPI := registrymocks.NewMockRegistry(ctrl)
 	registryAPINewer := func(imageRepo docker.ImageRepoDetails) (registry.Registry, error) {
-		c.Assert(imageRepo.Repository, gc.DeepEquals, "test-account")
-		c.Assert(imageRepo.ServerAddress, gc.DeepEquals, "quay.io")
-		c.Assert(imageRepo.Auth, gc.DeepEquals, "xxxxx==")
+		c.Assert(imageRepo.Repository, gc.DeepEquals, "ghcr.io/test-account")
+		c.Assert(imageRepo.ServerAddress, gc.DeepEquals, "ghcr.io")
+		c.Assert(imageRepo.Auth, gc.DeepEquals, "dXNlcm5hbWU6cHdkCg==")
 		c.Assert(imageRepo.IsPrivate(), jc.IsTrue)
 		registryAPINewerCalled = true
 		return registryAPI, nil
@@ -1322,7 +1350,7 @@ func (s *UpgradeCAASModelSuite) TestUpgradePrivateRegistry(c *gc.C) {
 		for _, t := range tagsInfo {
 			v, err := version.Parse(t.Tag)
 			c.Check(err, jc.ErrorIsNil)
-			tags = append(tags, docker.NewImageInfo(v))
+			tags = append(tags, registry.NewImageInfo(v))
 		}
 		gomock.InOrder(
 			controllerAPI.EXPECT().ModelConfig().Return(modelCfg.AllAttrs(), nil),
