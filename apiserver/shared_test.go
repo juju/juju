@@ -6,7 +6,6 @@ package apiserver
 import (
 	"time"
 
-	"github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/multiwatcher"
+	"github.com/juju/juju/worker/raft/queue"
 )
 
 type sharedServerContextSuite struct {
@@ -72,9 +72,6 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	controllerConfig, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	raft := &raft.Raft{}
-	leaseNotifyTarget := noopLeaseNotifyTarget{}
-
 	s.config = sharedServerConfig{
 		statePool:           s.StatePool,
 		controller:          controller,
@@ -83,8 +80,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		presence:            presence.New(clock.WallClock),
 		leaseManager:        &lease.Manager{},
 		controllerConfig:    controllerConfig,
-		raft:                raft,
-		leaseNotifyTarget:   leaseNotifyTarget,
+		raftOpQueue:         queue.NewBlockingOpQueue(),
 		logger:              loggo.GetLogger("test"),
 	}
 }

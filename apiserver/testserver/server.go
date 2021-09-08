@@ -6,12 +6,10 @@ package testserver
 import (
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -31,6 +29,7 @@ import (
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/raft/queue"
 )
 
 // DefaultServerConfig returns the default configuration for starting a test server.
@@ -56,8 +55,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 			return state.RestoreNotActive
 		},
 		MetricsCollector: apiserver.NewMetricsCollector(),
-		Raft:             &raft.Raft{},
-		LeaseLog:         ioutil.Discard,
+		RaftOpQueue:      queue.NewBlockingOpQueue(),
 	}
 }
 
