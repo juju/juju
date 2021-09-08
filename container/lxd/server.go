@@ -4,6 +4,8 @@
 package lxd
 
 import (
+	"net/http"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2/arch"
@@ -319,5 +321,6 @@ func (s *Server) SupportedArches() []string {
 // IsLXDNotFound checks if an error from the LXD API indicates that a requested
 // entity was not found.
 func IsLXDNotFound(err error) bool {
-	return err != nil && err.Error() == "not found"
+	_, result := api.StatusErrorMatch(err, http.StatusNotFound)
+	return result
 }
