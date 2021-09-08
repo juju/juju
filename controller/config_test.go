@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/docker/registry/mocks"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 )
 
@@ -625,8 +624,6 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 		),
 	)
 	s.PatchValue(&registry.DefaultTransport, mockRoundTripper)
-
-	s.SetFeatureFlags(feature.PrivateRegistry)
 
 	type tc struct {
 		content  string

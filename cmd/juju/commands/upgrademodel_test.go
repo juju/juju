@@ -45,7 +45,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
@@ -1217,7 +1216,6 @@ type UpgradeCAASModelSuite struct {
 
 func (s *UpgradeCAASModelSuite) SetUpTest(c *gc.C) {
 	s.UpgradeBaseSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.PrivateRegistry)
 	s.resources = common.NewResources()
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),

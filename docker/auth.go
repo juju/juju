@@ -13,11 +13,8 @@ import (
 
 	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"gopkg.in/yaml.v2"
-
-	"github.com/juju/juju/feature"
 )
 
 var logger = loggo.GetLogger("juju.docker")
@@ -199,11 +196,6 @@ func NewImageRepoDetails(contentOrPath string) (o *ImageRepoDetails, err error) 
 	}
 	if err = o.init(); err != nil {
 		return nil, errors.Trace(err)
-	}
-	if o.IsPrivate() && !featureflag.Enabled(feature.PrivateRegistry) {
-		return nil, errors.New(
-			fmt.Sprintf("private registry support is under development, enable feature flag %q to test it out", feature.PrivateRegistry),
-		)
 	}
 	return o, nil
 }
