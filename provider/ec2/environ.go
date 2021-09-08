@@ -1819,7 +1819,6 @@ func (e *environ) openPortsInGroup(ctx context.ProviderCallContext, name string,
 	ipPerms := rulesToIPPerms(rules)
 	_, err = e.ec2Client.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
 		GroupId:       g.GroupId,
-		GroupName:     g.GroupName,
 		IpPermissions: ipPerms,
 	})
 	if err != nil && ec2ErrCode(err) == "InvalidPermission.Duplicate" {
@@ -1833,7 +1832,6 @@ func (e *environ) openPortsInGroup(ctx context.ProviderCallContext, name string,
 		for i := range ipPerms {
 			_, err := e.ec2Client.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
 				GroupId:       g.GroupId,
-				GroupName:     g.GroupName,
 				IpPermissions: ipPerms[i : i+1],
 			})
 			if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
