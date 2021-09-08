@@ -2888,6 +2888,24 @@ func (s *ApplicationSuite) TestDestroySimple(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *ApplicationSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
+	err := s.mysql.SetStatus(status.StatusInfo{
+		Status: status.Active,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	filter := status.StatusHistoryFilter{Size: 100}
+	agentInfo, err := s.mysql.StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(agentInfo), gc.Equals, 2)
+
+	err = s.mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	agentInfo, err = s.mysql.StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(agentInfo, gc.HasLen, 0)
+}
+
 func (s *ApplicationSuite) TestDestroyStillHasUnits(c *gc.C) {
 	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)

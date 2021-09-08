@@ -162,9 +162,7 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 				mc.AddExpr(`_.IntroductionSecret`, gc.HasLen, 24)
 				mc.AddExpr(`_.Charm`, gc.NotNil)
 				c.Check(config, mc, caas.ApplicationConfig{
-					CharmBaseImage: resources.DockerImageDetails{
-						RegistryPath: "jujusolutions/charm-base:ubuntu-20.04",
-					},
+					CharmBaseImagePath: "jujusolutions/charm-base:ubuntu-20.04",
 					Containers: map[string]caas.ContainerConfig{
 						"test": {
 							Name: "test",

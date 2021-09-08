@@ -128,6 +128,28 @@ func (s *statusHistoryTestSuite) TestNoConflictingFilters(c *gc.C) {
 	c.Assert(r.Results[0].Error.Message, gc.Equals, "cannot validate status history filter: Date and Delta together not valid")
 }
 
+func (s *statusHistoryTestSuite) TestStatusHistoryApplication(c *gc.C) {
+	s.st.appHistory = statusInfoWithDates([]status.StatusInfo{
+		{
+			Status:  status.Maintenance,
+			Message: "working",
+		},
+		{
+			Status:  status.Active,
+			Message: "running",
+		},
+	})
+	h := s.api.StatusHistory(params.StatusHistoryRequests{
+		Requests: []params.StatusHistoryRequest{{
+			Tag:    "application-app",
+			Kind:   status.KindApplication.String(),
+			Filter: params.StatusHistoryFilter{Size: 10},
+		}}})
+	c.Assert(h.Results, gc.HasLen, 1)
+	c.Assert(h.Results[0].Error, gc.IsNil)
+	checkStatusInfo(c, h.Results[0].History.Statuses, reverseStatusInfo(s.st.appHistory))
+}
+
 func (s *statusHistoryTestSuite) TestStatusHistoryUnitOnly(c *gc.C) {
 	s.st.unitHistory = statusInfoWithDates([]status.StatusInfo{
 		{
@@ -248,6 +270,7 @@ func (s *statusHistoryTestSuite) TestStatusHistoryModelOnly(c *gc.C) {
 
 type mockState struct {
 	client.Backend
+	appHistory   []status.StatusInfo
 	unitHistory  []status.StatusInfo
 	agentHistory []status.StatusInfo
 	modelHistory []status.StatusInfo
@@ -279,12 +302,30 @@ func (m *mockState) Unit(name string) (client.Unit, error) {
 	}, nil
 }
 
+func (m *mockState) Application(name string) (client.Application, error) {
+	if name != "app" {
+		return nil, errors.NotFoundf("%v", name)
+	}
+	return &mockApplication{
+		status: m.appHistory,
+	}, nil
+}
+
 type mockModel struct {
 	status statuses
 	client.Model
 }
 
 func (m mockModel) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	return m.status.StatusHistory(filter)
+}
+
+type mockApplication struct {
+	status statuses
+	client.Application
+}
+
+func (m *mockApplication) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	return m.status.StatusHistory(filter)
 }
 

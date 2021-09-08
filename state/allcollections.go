@@ -538,6 +538,13 @@ func allCollections() CollectionSchema {
 			global: true,
 		},
 
+		secretRotateC: {
+			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"owner"},
+			}},
+		},
+
 		// ----------------------
 
 		// Raw-access collections
@@ -654,4 +661,5 @@ const (
 	// Secrets
 	secretMetadataC = "secretMetadata"
 	secretValuesC   = "secretValues"
+	secretRotateC   = "secretRotate"
 )

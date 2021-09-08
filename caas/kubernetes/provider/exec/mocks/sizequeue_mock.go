@@ -5,35 +5,36 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	remotecommand "k8s.io/client-go/tools/remotecommand"
-	reflect "reflect"
 )
 
-// MockSizeGetter is a mock of SizeGetter interface
+// MockSizeGetter is a mock of SizeGetter interface.
 type MockSizeGetter struct {
 	ctrl     *gomock.Controller
 	recorder *MockSizeGetterMockRecorder
 }
 
-// MockSizeGetterMockRecorder is the mock recorder for MockSizeGetter
+// MockSizeGetterMockRecorder is the mock recorder for MockSizeGetter.
 type MockSizeGetterMockRecorder struct {
 	mock *MockSizeGetter
 }
 
-// NewMockSizeGetter creates a new mock instance
+// NewMockSizeGetter creates a new mock instance.
 func NewMockSizeGetter(ctrl *gomock.Controller) *MockSizeGetter {
 	mock := &MockSizeGetter{ctrl: ctrl}
 	mock.recorder = &MockSizeGetterMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSizeGetter) EXPECT() *MockSizeGetterMockRecorder {
 	return m.recorder
 }
 
-// Get mocks base method
+// Get mocks base method.
 func (m *MockSizeGetter) Get(arg0 int) *remotecommand.TerminalSize {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0)
@@ -41,7 +42,7 @@ func (m *MockSizeGetter) Get(arg0 int) *remotecommand.TerminalSize {
 	return ret0
 }
 
-// Get indicates an expected call of Get
+// Get indicates an expected call of Get.
 func (mr *MockSizeGetterMockRecorder) Get(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockSizeGetter)(nil).Get), arg0)

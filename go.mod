@@ -43,7 +43,7 @@ require (
 	github.com/hashicorp/go-immutable-radix v1.3.0 // indirect
 	github.com/hashicorp/go-msgpack v0.5.5
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
-	github.com/hashicorp/raft v1.3.2-0.20210622123546-7bba4911cf05
+	github.com/hashicorp/raft v1.3.2-0.20210825230038-1a621031eb2b
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/imdario/mergo v0.3.10 // indirect
@@ -72,7 +72,7 @@ require (
 	github.com/juju/os/v2 v2.1.2
 	github.com/juju/packaging/v2 v2.0.0-20210628104420-5487e24f1350
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
-	github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4
+	github.com/juju/proxy v0.0.0-20210817195502-c6015cfe0258
 	github.com/juju/pubsub/v2 v2.0.0-20210804115646-050d38a80f5b
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441
 	github.com/juju/replicaset/v2 v2.0.0-20210310024806-bbbdc5f31eb3

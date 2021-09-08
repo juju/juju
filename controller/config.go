@@ -13,15 +13,19 @@ import (
 	"github.com/juju/charmrepo/v7/csclient"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/romulus"
 	"github.com/juju/schema"
 	"github.com/juju/utils/v2"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/docker"
+	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/pki"
 )
+
+var logger = loggo.GetLogger("juju.controller")
 
 const (
 	// MongoProfLow represents the most conservative mongo memory profile.
@@ -424,8 +428,6 @@ var (
 		PublicDNSAddress,
 		JujuHASpace,
 		JujuManagementSpace,
-		CAASOperatorImagePath,
-		CAASImageRepo,
 		Features,
 		MaxCharmStateSize,
 		MaxAgentStateSize,
@@ -832,14 +834,49 @@ func (c Config) JujuManagementSpace() string {
 
 // CAASOperatorImagePath sets the url of the docker image
 // used for the application operator.
-func (c Config) CAASOperatorImagePath() string {
-	return c.asString(CAASOperatorImagePath)
+func (c Config) CAASOperatorImagePath() (o docker.ImageRepoDetails) {
+	str := c.asString(CAASOperatorImagePath)
+	repoDetails, err := docker.NewImageRepoDetails(str)
+	if repoDetails != nil {
+		return *repoDetails
+	}
+	// This should not happen since we have done validation in c.Valiate().
+	logger.Tracef("parsing controller config %q: %q, err %v", CAASOperatorImagePath, str, err)
+	return o
+}
+
+func validateCAASImageRepo(imageRepo string) (string, error) {
+	if imageRepo == "" {
+		return "", nil
+	}
+	imageDetails, err := docker.NewImageRepoDetails(imageRepo)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if err = imageDetails.Validate(); err != nil {
+		return "", errors.Trace(err)
+	}
+	if imageDetails.IsPrivate() {
+		r, err := registry.NewRegistry(*imageDetails)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		*imageDetails = r.ImageRepoDetails()
+	}
+	return imageDetails.String(), nil
 }
 
 // CAASImageRepo sets the url of the docker repo
 // used for the jujud operator and mongo images.
-func (c Config) CAASImageRepo() string {
-	return c.asString(CAASImageRepo)
+func (c Config) CAASImageRepo() (o docker.ImageRepoDetails) {
+	str := c.asString(CAASImageRepo)
+	repoDetails, err := docker.NewImageRepoDetails(str)
+	if repoDetails != nil {
+		return *repoDetails
+	}
+	// This should not happen since we have done validation in c.Valiate().
+	logger.Tracef("parsing controller config %q: %q, err %v", CAASImageRepo, str, err)
+	return o
 }
 
 // MeteringURL returns the URL to use for metering api calls.
@@ -1000,14 +1037,15 @@ func Validate(c Config) error {
 		return errors.Trace(err)
 	}
 
+	var err error
 	if v, ok := c[CAASOperatorImagePath].(string); ok && v != "" {
-		if err := resources.ValidateDockerRegistryPath(v); err != nil {
+		if c[CAASOperatorImagePath], err = validateCAASImageRepo(v); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
 	if v, ok := c[CAASImageRepo].(string); ok && v != "" {
-		if err := resources.ValidateDockerRegistryPath(v); err != nil {
+		if c[CAASImageRepo], err = validateCAASImageRepo(v); err != nil {
 			return errors.Trace(err)
 		}
 	}

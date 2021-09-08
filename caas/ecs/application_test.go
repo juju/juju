@@ -284,10 +284,8 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, assertCal
 
 	c.Assert(app.Ensure(
 		caas.ApplicationConfig{
-			AgentImagePath: "operator/image-path",
-			CharmBaseImage: coreresources.DockerImageDetails{
-				RegistryPath: "ubuntu:20.04",
-			},
+			AgentImagePath:       "operator/image-path",
+			CharmBaseImagePath:   "ubuntu:20.04",
 			CharmModifiedVersion: 9001,
 			Filesystems: []storage.KubernetesFilesystemParams{
 				{

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -63,6 +64,7 @@ See also:
 
 func newUpgradeControllerCommand(options ...modelcmd.WrapControllerOption) cmd.Command {
 	command := &upgradeControllerCommand{}
+	command.registryAPIFunc = registry.NewRegistry
 	return modelcmd.WrapController(command, options...)
 }
 
@@ -112,7 +114,7 @@ func (c *upgradeControllerCommand) getModelConfigAPI() (modelConfigAPI, error) {
 	return modelconfig.NewClient(api), nil
 }
 
-func (c *upgradeControllerCommand) getControllerAPI() (controllerAPI, error) {
+func (c *upgradeControllerCommand) getControllerAPI() (ControllerAPI, error) {
 	if c.controllerAPI != nil {
 		return c.controllerAPI, nil
 	}
@@ -268,6 +270,25 @@ func (c *upgradeControllerCommand) upgradeCAASController(ctx *cmd.Context) error
 	return c.notifyControllerUpgrade(ctx, client, context)
 }
 
+func (c *baseUpgradeCommand) listOperatorImages(controllerCfg controller.Config) (tools.Versions, error) {
+	imagePath, err := podcfg.GetJujuOCIImagePath(controllerCfg, version.Zero, 0)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	imageRepoDetails := controllerCfg.CAASImageRepo()
+	if !imageRepoDetails.IsPrivate() {
+		// TODO(ycliuhw): merge ListOperatorImages to Registry API.
+		return docker.ListOperatorImages(imagePath)
+	}
+	reg, err := c.registryAPIFunc(imageRepoDetails)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer func() { _ = reg.Close() }()
+	return reg.Tags(podcfg.JujudOCIName)
+}
+
 // initCAASVersions collects state relevant to an upgrade decision. The returned
 // agent and client versions, and the list of currently available operator images, will
 // always be accurate; the chosen version, and the flag indicating development
@@ -276,13 +297,9 @@ func (c *baseUpgradeCommand) initCAASVersions(
 	controllerCfg controller.Config, majorVersion int, streamsAgents tools.List,
 ) (tools.Versions, error) {
 	logger.Debugf("searching for agent images with major: %d", majorVersion)
-	imagePath, err := podcfg.GetJujuOCIImagePath(controllerCfg, version.Zero, 0)
+	availableTags, err := c.listOperatorImages(controllerCfg)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	availableTags, err := docker.ListOperatorImages(imagePath)
-	if err != nil {
-		return nil, err
 	}
 	streamsVersions := set.NewStrings()
 	for _, a := range streamsAgents {

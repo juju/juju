@@ -177,10 +177,23 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 		modelConfig,
 	)
 
-	imagePath, err := podcfg.GetJujuOCIImagePath(cfg, vers.ToPatch(), version.OfficialBuild)
-	if err != nil {
+	imageRepo := cfg.CAASImageRepo()
+	imageInfo := params.DockerImageInfo{
+		Username:      imageRepo.Username,
+		Password:      imageRepo.Password,
+		Auth:          imageRepo.Auth,
+		IdentityToken: imageRepo.IdentityToken,
+		RegistryToken: imageRepo.RegistryToken,
+		Email:         imageRepo.Email,
+		Repository:    imageRepo.Repository,
+	}
+
+	if imageInfo.RegistryPath, err = podcfg.GetJujuOCIImagePath(
+		cfg, vers.ToPatch(), version.OfficialBuild,
+	); err != nil {
 		return result, errors.Trace(err)
 	}
+
 	apiAddresses, err := a.APIAddresses()
 	if err == nil && apiAddresses.Error != nil {
 		err = apiAddresses.Error
@@ -208,7 +221,7 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 			}
 		}
 		return params.OperatorProvisioningInfo{
-			ImagePath:    imagePath,
+			ImageDetails: imageInfo,
 			Version:      vers,
 			APIAddresses: apiAddresses.Result,
 			CharmStorage: charmStorageParams,

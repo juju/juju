@@ -914,6 +914,7 @@ func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
 	client := secretsmanager.NewClient(apiCaller)
 	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
 	id, err := hookContext.CreateSecret("password", &jujuc.UpsertArgs{
+		Type:           secrets.TypeBlob,
 		Value:          value,
 		RotateInterval: time.Hour,
 	})

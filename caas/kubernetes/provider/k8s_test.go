@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -1370,7 +1371,7 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 	c.Assert(result.CaasBootstrapFinalizer, gc.NotNil)
 
 	bootstrapParams.BootstrapSeries = "bionic"
-	result, err = s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
+	_, err = s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
@@ -1782,6 +1783,45 @@ func (s *K8sBrokerSuite) TestDestroyController(c *gc.C) {
 	s.assertDestroy(c, true, func() error {
 		return s.broker.DestroyController(context.NewEmptyCloudCallContext(), testing.ControllerTag.Id())
 	})
+}
+
+func (s *K8sBrokerSuite) TestEnsureImageRepoSecret(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	imageRepo := docker.ImageRepoDetails{
+		Repository:    "test-account",
+		ServerAddress: "quay.io",
+		BasicAuthConfig: docker.BasicAuthConfig{
+			Auth: "xxxxx==",
+		},
+	}
+
+	data, err := imageRepo.SecretData()
+	c.Assert(err, jc.ErrorIsNil)
+
+	secret := &core.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "juju-image-pull-secret",
+			Namespace: "test",
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju"},
+			Annotations: map[string]string{
+				"controller.juju.is/id": testing.ControllerTag.Id(),
+				"model.juju.is/id":      testing.ModelTag.Id(),
+			},
+		},
+		Type: core.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			core.DockerConfigJsonKey: data,
+		},
+	}
+
+	gomock.InOrder(
+		s.mockSecrets.EXPECT().Create(gomock.Any(), secret, v1.CreateOptions{}).
+			Return(secret, nil),
+	)
+	err = s.broker.EnsureImageRepoSecret(imageRepo)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
@@ -7882,7 +7922,13 @@ func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClass(c *gc.C) {
 }
 
 func initContainers() []core.Container {
-	jujudCmd := "export JUJU_DATA_DIR=/var/lib/juju\nexport JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools\n\nmkdir -p $JUJU_TOOLS_DIR\ncp /opt/jujud $JUJU_TOOLS_DIR/jujud"
+	jujudCmd := `
+export JUJU_DATA_DIR=/var/lib/juju
+export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
+
+mkdir -p $JUJU_TOOLS_DIR
+cp /opt/jujud $JUJU_TOOLS_DIR/jujud
+`[1:]
 	jujudCmd += `
 initCmd=$($JUJU_TOOLS_DIR/jujud help commands | grep caas-unit-init)
 if test -n "$initCmd"; then

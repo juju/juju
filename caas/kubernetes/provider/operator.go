@@ -23,12 +23,12 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -211,8 +211,8 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 			Ports: []core.ServicePort{
 				{
 					Protocol:   core.ProtocolTCP,
-					Port:       caasconstants.JujuExecServerSocketPort,
-					TargetPort: intstr.FromInt(caasconstants.JujuExecServerSocketPort),
+					Port:       k8sconstants.JujuExecServerSocketPort,
+					TargetPort: intstr.FromInt(k8sconstants.JujuExecServerSocketPort),
 				},
 			},
 		},
@@ -260,8 +260,8 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		appName,
 		svc.Spec.ClusterIP,
 		agentPath,
-		config.OperatorImagePath,
 		config.Version.String(),
+		config.ImageDetails,
 		selectorLabels,
 		annotations.Copy(),
 		sa.GetName(),
@@ -336,8 +336,8 @@ func (k *kubernetesClient) operatorVolumeClaim(
 		}
 		return existingClaim, nil
 	}
-	if storageParams.Provider != constants.StorageProviderType {
-		return nil, errors.Errorf("expected charm storage provider %q, got %q", constants.StorageProviderType, storageParams.Provider)
+	if storageParams.Provider != k8sconstants.StorageProviderType {
+		return nil, errors.Errorf("expected charm storage provider %q, got %q", k8sconstants.StorageProviderType, storageParams.Provider)
 	}
 
 	// Charm needs storage so set it up.
@@ -369,7 +369,7 @@ func (k *kubernetesClient) operatorVolumeClaim(
 }
 
 func (k *kubernetesClient) validateOperatorStorage() (string, error) {
-	storageClass, _ := k.Config().AllAttrs()[constants.OperatorStorageKey].(string)
+	storageClass, _ := k.Config().AllAttrs()[k8sconstants.OperatorStorageKey].(string)
 	if storageClass == "" {
 		return "", errors.NewNotValid(nil, "config without operator-storage value not valid.\nRun juju add-k8s to reimport your k8s cluster.")
 	}
@@ -553,7 +553,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
 	configMapName := operatorConfigMapName(operatorName)
 	err = configMaps.Delete(context.TODO(), configMapName, v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -565,7 +565,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 		configMapName = "juju-" + configMapName
 	}
 	err = configMaps.Delete(context.TODO(), configMapName, v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -608,7 +608,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 		// for operators as the volume is an inseparable part of the operator.
 		for _, volName := range volumeNames {
 			err = pvs.Delete(context.TODO(), volName, v1.DeleteOptions{
-				PropagationPolicy: constants.DefaultPropagationPolicy(),
+				PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 			})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return errors.Annotatef(err, "deleting operator persistent volume %v for %v",
@@ -676,7 +676,9 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 	}
 	for _, container := range opPod.Spec.Containers {
 		if container.Name == operatorContainerName {
-			cfg.OperatorImagePath = container.Image
+			cfg.ImageDetails = resources.DockerImageDetails{
+				RegistryPath: container.Image,
+			}
 			break
 		}
 	}
@@ -714,8 +716,8 @@ func operatorPod(
 	appName,
 	operatorServiceIP,
 	agentPath,
-	operatorImagePath,
 	version string,
+	operatorImageDetails resources.DockerImageDetails,
 	selectorLabels map[string]string,
 	annotations k8sannotations.Annotation,
 	serviceAccountName string,
@@ -731,7 +733,7 @@ func operatorPod(
 	jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud caasoperator --application-name=%s --debug", appName)
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 	mountToken := true
-	return &core.Pod{
+	pod := &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        podName,
 			Annotations: podAnnotations(annotations.Copy()).ToMap(),
@@ -743,7 +745,7 @@ func operatorPod(
 			Containers: []core.Container{{
 				Name:            operatorContainerName,
 				ImagePullPolicy: core.PullIfNotPresent,
-				Image:           operatorImagePath,
+				Image:           operatorImageDetails.RegistryPath,
 				WorkingDir:      jujuDataDir,
 				Command: []string{
 					"/bin/sh",
@@ -759,9 +761,9 @@ func operatorPod(
 				},
 				Env: []core.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
-					{Name: constants.OperatorServiceIPEnvName, Value: operatorServiceIP},
+					{Name: k8sconstants.OperatorServiceIPEnvName, Value: operatorServiceIP},
 					{
-						Name: constants.OperatorPodIPEnvName,
+						Name: k8sconstants.OperatorPodIPEnvName,
 						ValueFrom: &core.EnvVarSource{
 							FieldRef: &core.ObjectFieldSelector{
 								FieldPath: "status.podIP",
@@ -769,7 +771,7 @@ func operatorPod(
 						},
 					},
 					{
-						Name: constants.OperatorNamespaceEnvName,
+						Name: k8sconstants.OperatorNamespaceEnvName,
 						ValueFrom: &core.EnvVarSource{
 							FieldRef: &core.ObjectFieldSelector{
 								FieldPath: "metadata.namespace",
@@ -779,8 +781,8 @@ func operatorPod(
 				},
 				VolumeMounts: []core.VolumeMount{{
 					Name:      configVolName,
-					MountPath: filepath.Join(agent.Dir(agentPath, appTag), constants.TemplateFileNameAgentConf),
-					SubPath:   constants.TemplateFileNameAgentConf,
+					MountPath: filepath.Join(agent.Dir(agentPath, appTag), k8sconstants.TemplateFileNameAgentConf),
+					SubPath:   k8sconstants.TemplateFileNameAgentConf,
 				}, {
 					Name:      configVolName,
 					MountPath: filepath.Join(agent.Dir(agentPath, appTag), caas.OperatorInfoFile),
@@ -796,7 +798,7 @@ func operatorPod(
 						},
 						Items: []core.KeyToPath{{
 							Key:  operatorConfigMapAgentConfKey(appName),
-							Path: constants.TemplateFileNameAgentConf,
+							Path: k8sconstants.TemplateFileNameAgentConf,
 						}, {
 							Key:  caas.OperatorInfoFile,
 							Path: caas.OperatorInfoFile,
@@ -805,7 +807,13 @@ func operatorPod(
 				},
 			}},
 		},
-	}, nil
+	}
+	if operatorImageDetails.IsPrivate() {
+		pod.Spec.ImagePullSecrets = []core.LocalObjectReference{
+			{Name: k8sconstants.CAASImageRepoSecretName},
+		}
+	}
+	return pod, nil
 }
 
 func operatorConfigMapAgentConfKey(appName string) string {

@@ -105,6 +105,7 @@ type secretDisplayDetails struct {
 	ProviderID     string              `json:"backend-id,omitempty" yaml:"backend-id,omitempty"`
 	CreateTime     time.Time           `json:"create-time" yaml:"create-time"`
 	UpdateTime     time.Time           `json:"update-time" yaml:"update-time"`
+	Error          string              `json:"error,omitempty" yaml:"error,omitempty"`
 	Value          *secretValueDetails `json:"value,omitempty" yaml:"value,omitempty"`
 }
 
@@ -140,20 +141,17 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 			Revision:       m.Metadata.Revision,
 			CreateTime:     m.Metadata.CreateTime,
 			UpdateTime:     m.Metadata.UpdateTime,
+			Error:          m.Error,
 		}
 		if c.showSecrets && m.Value != nil {
-			details[i].Value = &secretValueDetails{
-				Error: m.Error,
-			}
-			if m.Error != nil {
-				continue
-			}
+			valueDetails := &secretValueDetails{}
 			val, err := m.Value.Values()
 			if err != nil {
-				details[i].Value.Error = err
+				valueDetails.Error = err
 			} else {
-				details[i].Value.Data = val
+				valueDetails.Data = val
 			}
+			details[i].Value = valueDetails
 		}
 	}
 	return c.out.Write(ctxt, details)

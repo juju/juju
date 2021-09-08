@@ -40,10 +40,15 @@ Create a secret with either a single value or a list of key values.
 If --base64 is specified, the values are already in base64 format and no
 encoding will be performed, otherwise the values will be base64 encoded
 prior to being stored.
+
+Examples:
+    secret-create apitoken 34ae35facd4
+    secret-create --base64 password AA==
+    secret-create --rotate 5d password s3cret 
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:    "secret-create",
-		Args:    "<id> [--base64] [value|key=value...]",
+		Args:    "<id> [value|key=value...]",
 		Purpose: "create a new secret",
 		Doc:     doc,
 	})
@@ -78,6 +83,7 @@ func (c *secretCreateCommand) Init(args []string) error {
 func (c *secretCreateCommand) Run(ctx *cmd.Context) error {
 	value := secrets.NewSecretValue(c.data)
 	id, err := c.ctx.CreateSecret(c.id, &UpsertArgs{
+		Type:           secrets.TypeBlob,
 		Value:          value,
 		RotateInterval: c.rotateInterval,
 	})

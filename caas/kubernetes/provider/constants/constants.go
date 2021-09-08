@@ -39,6 +39,9 @@ const (
 
 	// CAASProviderType is the provider type for k8s.
 	CAASProviderType = "kubernetes"
+
+	// CAASImageRepoSecretName is the name of the secret for image pull.
+	CAASImageRepoSecretName = "juju-image-pull-secret"
 )
 
 // DefaultPropagationPolicy returns the default propagation policy.

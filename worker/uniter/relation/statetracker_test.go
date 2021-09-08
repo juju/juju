@@ -83,6 +83,7 @@ func (s *stateTrackerSuite) TestLoadInitialState(c *gc.C) {
 	s.expectStateMgrRelationFound(1)
 	s.expectRelationerJoin()
 	s.expectRelationSetStatusJoined()
+	s.expectUnitName()
 	s.expectUnitTag()
 	s.expectRelationUnit()
 	s.expectWatch(c)
@@ -127,6 +128,7 @@ func (s *stateTrackerSuite) TestLoadInitialStateInScopeSuspended(c *gc.C) {
 	s.expectStateMgrRelationFound(1)
 	s.expectRelation(relTag)
 	s.expectRelationID(1)
+	s.expectUnitName()
 	s.expectUnitTag()
 	s.expectRelationUnit()
 	s.expectWatch(c)
@@ -483,6 +485,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesJoinRelation(c *gc.C) {
 	s.expectRelationOtherApplication()
 
 	// Setup for joinRelation()
+	s.expectUnitName()
 	s.expectUnitTag()
 	s.expectWatch(c)
 	s.expectRelationerJoin()
@@ -689,6 +692,10 @@ func (s *syncScopesSuite) expectRelationById(id int) {
 //
 func (s *baseStateTrackerSuite) expectUnitTag() {
 	s.unit.EXPECT().Tag().Return(s.unitTag)
+}
+
+func (s *baseStateTrackerSuite) expectUnitName() {
+	s.unit.EXPECT().Name().Return(s.unitTag.Id())
 }
 
 func (s *baseStateTrackerSuite) expectUnitDestroy() {

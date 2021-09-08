@@ -71,7 +71,14 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := time.Now()
+	URL := &coresecrets.URL{
+		Version:        "v1",
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		Path:           "app.password",
+	}
 	metadata := []*coresecrets.SecretMetadata{{
+		URL:            URL,
 		Path:           "app.password",
 		RotateInterval: time.Hour,
 		Version:        1,
@@ -89,12 +96,6 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 	)
 
 	var valueResult *params.SecretValueResult
-	URL := &coresecrets.URL{
-		Version:        "v1",
-		ControllerUUID: coretesting.ControllerTag.Id(),
-		ModelUUID:      coretesting.ModelTag.Id(),
-		Path:           "app.password",
-	}
 	if show {
 		valueResult = &params.SecretValueResult{
 			Data: map[string]string{"foo": "bar"},

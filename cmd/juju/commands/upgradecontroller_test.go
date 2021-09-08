@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
@@ -18,15 +19,21 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/cmd/juju/commands/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/docker/registry"
+	registrymocks "github.com/juju/juju/docker/registry/mocks"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -206,6 +213,7 @@ type UpgradeCAASControllerSuite struct {
 
 func (s *UpgradeCAASControllerSuite) SetUpTest(c *gc.C) {
 	s.UpgradeBaseSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.PrivateRegistry)
 	err := s.ControllerStore.RemoveModel(jujutesting.ControllerName, "admin/controller")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.ControllerStore.UpdateModel(jujutesting.ControllerName, "admin/controller", jujuclient.ModelDetails{
@@ -267,8 +275,12 @@ var upgradeCAASControllerTests = []upgradeTest{{
 	expectVersion:  "1.21.4",
 }}
 
-func (s *UpgradeCAASControllerSuite) upgradeControllerCommand() cmd.Command {
+func (s *UpgradeCAASControllerSuite) upgradeControllerCommand(
+	controllerAPI ControllerAPI, registryAPIFunc registryAPINewer,
+) cmd.Command {
 	cmd := &upgradeControllerCommand{}
+	cmd.controllerAPI = controllerAPI
+	cmd.registryAPIFunc = registryAPIFunc
 	cmd.SetClientStore(s.ControllerStore)
 	return modelcmd.WrapController(cmd)
 }
@@ -278,21 +290,67 @@ func (s *UpgradeCAASControllerSuite) TestUpgrade(c *gc.C) {
 	err := s.ControllerStore.SetCurrentModel("kontroll", "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertUpgradeTests(c, upgradeCAASControllerTests, s.upgradeControllerCommand)
+	assertAndMocks := func(tagsInfo []tagInfo) {
+		s.PatchValue(&docker.HttpGet, func(url string, timeout time.Duration) ([]byte, error) {
+			c.Assert(url, gc.Equals, "https://registry.hub.docker.com/v1/repositories/jujusolutions/jujud-operator/tags")
+			c.Assert(timeout, gc.Equals, 30*time.Second)
+			return json.Marshal(tagsInfo)
+		})
+	}
+	s.assertUpgradeTests(c, upgradeCAASControllerTests, assertAndMocks, func() cmd.Command {
+		return s.upgradeControllerCommand(nil, nil)
+	})
 }
 
-func (s *UpgradeCAASControllerSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest, upgradeJujuCommand upgradeCommandFunc) {
-	type info struct {
-		Tag string `json:"name"`
+func (s *UpgradeCAASControllerSuite) TestUpgradePrivateRegistry(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	controllerCfg := s.ControllerConfig
+	controllerCfg[controller.CAASImageRepo] = `
+{
+    "serveraddress": "quay.io",
+    "auth": "xxxxx==",
+    "repository": "test-account"
+}`[1:]
+	registryAPIFuncCalled := false
+	controllerAPI := mocks.NewMockControllerAPI(ctrl)
+	registryAPI := registrymocks.NewMockRegistry(ctrl)
+	registryAPIFunc := func(imageRepo docker.ImageRepoDetails) (registry.Registry, error) {
+		c.Assert(imageRepo.Repository, gc.DeepEquals, "test-account")
+		c.Assert(imageRepo.ServerAddress, gc.DeepEquals, "quay.io")
+		c.Assert(imageRepo.Auth, gc.DeepEquals, "xxxxx==")
+		c.Assert(imageRepo.IsPrivate(), jc.IsTrue)
+		registryAPIFuncCalled = true
+		return registryAPI, nil
 	}
-	var tagInfo []info
 
-	s.PatchValue(&docker.HttpGet, func(url string, timeout time.Duration) ([]byte, error) {
-		c.Assert(url, gc.Equals, "https://registry.hub.docker.com/v1/repositories/jujusolutions/jujud-operator/tags")
-		c.Assert(timeout, gc.Equals, 30*time.Second)
-		return json.Marshal(tagInfo)
+	assertAndMocks := func(tagsInfo []tagInfo) {
+		var tags coretools.Versions
+		for _, t := range tagsInfo {
+			v, err := version.Parse(t.Tag)
+			c.Check(err, jc.ErrorIsNil)
+			tags = append(tags, docker.NewImageInfo(v))
+		}
+		gomock.InOrder(
+			controllerAPI.EXPECT().ControllerConfig().Return(controllerCfg, nil),
+			registryAPI.EXPECT().Tags("jujud-operator").Return(tags, nil),
+			registryAPI.EXPECT().Close().Return(nil),
+			controllerAPI.EXPECT().Close().Return(nil),
+		)
+	}
+
+	s.assertUpgradeTests(c, upgradeCAASModelTests, assertAndMocks, func() cmd.Command {
+		return s.upgradeControllerCommand(controllerAPI, registryAPIFunc)
 	})
+	c.Assert(registryAPIFuncCalled, jc.IsTrue)
+}
 
+func (s *UpgradeCAASControllerSuite) assertUpgradeTests(
+	c *gc.C, tests []upgradeTest,
+	assertAndMocks func(tagsInfo []tagInfo),
+	upgradeJujuCommand upgradeCommandFunc,
+) {
 	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)
 		s.Reset(c)
@@ -326,10 +384,11 @@ func (s *UpgradeCAASControllerSuite) assertUpgradeTests(c *gc.C, tests []upgrade
 		}
 		err = s.Model.UpdateModelConfig(updateAttrs, nil)
 		c.Assert(err, jc.ErrorIsNil)
-		tagInfo = make([]info, len(test.available))
+		tagsInfo := make([]tagInfo, len(test.available))
 		for i, v := range test.available {
-			tagInfo[i] = info{v}
+			tagsInfo[i] = tagInfo{v}
 		}
+		assertAndMocks(tagsInfo)
 
 		err = com.Run(cmdtesting.Context(c))
 		if test.expectErr != "" {

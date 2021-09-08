@@ -28,6 +28,7 @@ func (*ImportTest) TestImports(c *gc.C) {
 		"core/life",
 		"core/migration",
 		"core/network",
+		"core/secrets",
 		"core/status",
 		//  TODO: these have been brought in from migration and this is BAD.
 		"resource",

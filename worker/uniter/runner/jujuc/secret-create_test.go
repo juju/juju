@@ -33,6 +33,9 @@ func (s *SecretCreateSuite) TestCreateSecretInvalidArgs(c *gc.C) {
 			args: []string{},
 			err:  "ERROR missing secret id",
 		}, {
+			args: []string{"password"},
+			err:  "ERROR missing secret value",
+		}, {
 			args: []string{"password", "s3cret", "foo=bar"},
 			err:  `ERROR key value "foo=bar" not valid when a singular value has already been specified`,
 		}, {
@@ -64,6 +67,7 @@ func (s *SecretCreateSuite) TestCreateSecret(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"data": "c2VjcmV0"})
 	args := &jujuc.UpsertArgs{
+		Type:           coresecrets.TypeBlob,
 		Value:          val,
 		RotateInterval: time.Hour,
 	}
@@ -82,6 +86,7 @@ func (s *SecretCreateSuite) TestCreateSecretBase64(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"token": "key="})
 	args := &jujuc.UpsertArgs{
+		Type:  coresecrets.TypeBlob,
 		Value: val,
 	}
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "CreateSecret", Args: []interface{}{"apikey", args}}})

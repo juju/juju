@@ -22,6 +22,8 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/testing"
 )
@@ -76,6 +78,7 @@ export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 
 mkdir -p $JUJU_TOOLS_DIR
 cp /opt/jujud $JUJU_TOOLS_DIR/jujud
+
 $JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 `[1:],
 			},
@@ -191,7 +194,11 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 		"controller.juju.is/id": testing.ControllerTag.Id(),
 	}
 	labels := map[string]string{"operator.juju.is/name": "gitlab", "operator.juju.is/target": "application"}
-	pod, err := provider.OperatorPod("gitlab", "gitlab", "10666", "/var/lib/juju", "jujusolutions/jujud-operator", "2.99.0", labels, tags, "operator-service-account")
+	pod, err := provider.OperatorPod(
+		"gitlab", "gitlab", "10666", "/var/lib/juju", "2.99.0",
+		resources.DockerImageDetails{RegistryPath: "jujusolutions/jujud-operator"},
+		labels, tags, "operator-service-account",
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pod.Name, gc.Equals, "gitlab")
 	c.Assert(pod.Labels, jc.DeepEquals, labels)
@@ -355,8 +362,8 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		OperatorImagePath: "/path/to/image",
-		Version:           version.MustParse("2.99.0"),
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "/path/to/image"},
+		Version:      version.MustParse("2.99.0"),
 		ResourceTags: map[string]string{
 			"fred":                 "mary",
 			"juju-controller-uuid": testing.ControllerTag.Id(),
@@ -371,7 +378,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
+func (s *K8sBrokerSuite) assertEnsureOperatorCreate(c *gc.C, isPrivateImageRepo bool) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -436,6 +443,11 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 		},
 	}
 	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage", "test-operator", true)
+	if isPrivateImageRepo {
+		statefulSetArg.Spec.Template.Spec.ImagePullSecrets = []core.LocalObjectReference{
+			{Name: k8sconstants.CAASImageRepoSecretName},
+		}
+	}
 
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-test", v1.GetOptions{}).
@@ -465,12 +477,15 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 		s.mockStatefulSets.EXPECT().Create(gomock.Any(), statefulSetArg, v1.CreateOptions{}).
 			Return(statefulSetArg, nil),
 	)
-
+	imageDetails := resources.DockerImageDetails{RegistryPath: "/path/to/image"}
+	if isPrivateImageRepo {
+		imageDetails.TokenAuthConfig.RegistryToken = "xxxxxxxx==="
+	}
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		OperatorImagePath: "/path/to/image",
-		Version:           version.MustParse("2.99.0"),
-		AgentConf:         []byte("agent-conf-data"),
-		OperatorInfo:      []byte("operator-info-data"),
+		ImageDetails: imageDetails,
+		Version:      version.MustParse("2.99.0"),
+		AgentConf:    []byte("agent-conf-data"),
+		OperatorInfo: []byte("operator-info-data"),
 		ResourceTags: map[string]string{
 			"fred":                 "mary",
 			"juju-controller-uuid": testing.ControllerTag.Id(),
@@ -483,6 +498,14 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
+	s.assertEnsureOperatorCreate(c, false)
+}
+
+func (s *K8sBrokerSuite) TestEnsureOperatorCreatePrivateImageRepo(c *gc.C) {
+	s.assertEnsureOperatorCreate(c, true)
 }
 
 func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
@@ -597,10 +620,10 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 	errChan := make(chan error)
 	go func() {
 		errChan <- s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-			OperatorImagePath: "/path/to/image",
-			Version:           version.MustParse("2.99.0"),
-			AgentConf:         []byte("agent-conf-data"),
-			OperatorInfo:      []byte("operator-info-data"),
+			ImageDetails: resources.DockerImageDetails{RegistryPath: "/path/to/image"},
+			Version:      version.MustParse("2.99.0"),
+			AgentConf:    []byte("agent-conf-data"),
+			OperatorInfo: []byte("operator-info-data"),
 			ResourceTags: map[string]string{
 				"fred":                 "mary",
 				"juju-controller-uuid": testing.ControllerTag.Id(),
@@ -745,10 +768,10 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		OperatorImagePath: "/path/to/image",
-		Version:           version.MustParse("2.99.0"),
-		AgentConf:         []byte("agent-conf-data"),
-		OperatorInfo:      []byte("operator-info-data"),
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "/path/to/image"},
+		Version:      version.MustParse("2.99.0"),
+		AgentConf:    []byte("agent-conf-data"),
+		OperatorInfo: []byte("operator-info-data"),
 		ResourceTags: map[string]string{
 			"fred":                 "mary",
 			"juju-controller-uuid": testing.ControllerTag.Id(),
@@ -860,10 +883,10 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *gc.C) {
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		OperatorImagePath: "/path/to/image",
-		Version:           version.MustParse("2.99.0"),
-		AgentConf:         []byte("agent-conf-data"),
-		OperatorInfo:      []byte("operator-info-data"),
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "/path/to/image"},
+		Version:      version.MustParse("2.99.0"),
+		AgentConf:    []byte("agent-conf-data"),
+		OperatorInfo: []byte("operator-info-data"),
 		ResourceTags: map[string]string{
 			"fred":                 "mary",
 			"juju-controller-uuid": testing.ControllerTag.Id(),
@@ -960,8 +983,8 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		OperatorImagePath: "/path/to/image",
-		Version:           version.MustParse("2.99.0"),
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "/path/to/image"},
+		Version:      version.MustParse("2.99.0"),
 		ResourceTags: map[string]string{
 			"fred":                 "mary",
 			"juju-controller-uuid": testing.ControllerTag.Id(),
@@ -1046,7 +1069,7 @@ func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
 	c.Assert(operator.Status.Status, gc.Equals, status.Allocating)
 	c.Assert(operator.Status.Message, gc.Equals, "test message")
 	c.Assert(operator.Config.Version, gc.Equals, version.MustParse("2.99.0"))
-	c.Assert(operator.Config.OperatorImagePath, gc.Equals, "test-image")
+	c.Assert(operator.Config.ImageDetails.RegistryPath, gc.Equals, "test-image")
 	c.Assert(operator.Config.AgentConf, gc.DeepEquals, []byte("agent-conf-data"))
 	c.Assert(operator.Config.OperatorInfo, gc.DeepEquals, []byte("operator-info-data"))
 }

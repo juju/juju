@@ -6,6 +6,8 @@ package ecs
 import (
 	"sync"
 
+	"github.com/juju/juju/docker"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 	jujuclock "github.com/juju/clock"
@@ -352,6 +354,11 @@ func (*environ) PrecheckInstance(ctx envcontext.ProviderCallContext, params envi
 }
 
 func (*environ) Upgrade(agentTag string, vers version.Number) error {
+	// TODO(ecs): remove from caas.Broker?
+	return nil
+}
+
+func (*environ) EnsureImageRepoSecret(imageRepo docker.ImageRepoDetails) error {
 	// TODO(ecs): remove from caas.Broker?
 	return nil
 }

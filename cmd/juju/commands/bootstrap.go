@@ -294,7 +294,7 @@ func (c *bootstrapCommand) configDetails() map[string]interface{} {
 	for key, attr := range bootstrap.BootstrapConfigSchema {
 		result[key] = common.PrintConfigSchema{
 			Description: attr.Description,
-			Type:        fmt.Sprintf("%s", attr.Type),
+			Type:        string(attr.Type),
 		}
 	}
 	return result

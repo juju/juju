@@ -56,7 +56,11 @@ func (w *remoteRelationsWorker) Kill() {
 
 // Wait is defined on worker.Worker
 func (w *remoteRelationsWorker) Wait() error {
-	return w.catacomb.Wait()
+	err := w.catacomb.Wait()
+	if err != nil {
+		w.logger.Errorf("error in remote relations worker for relation %v: %v", w.relationTag.Id(), err)
+	}
+	return err
 }
 
 func (w *remoteRelationsWorker) loop() error {
