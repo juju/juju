@@ -12,9 +12,11 @@ of a workload](https://charmhub.io/about). By encapsulating ops code as a
 reusable container, the operator pattern moves beyond traditional config
 management to allow much more agile operations for complex cloud workloads.
 
-Shared, open source operators **take infrastructure as code to the next level** with community-driven ops and integration code. Reuse of ops code improves
-quality and encourages wider [community engagement and contribution](https://juju.is/about#collaboration). Operators also improve security throughchat.charmhub.io/
-consistent automation. Juju operators are a [community-driven devsecops](https://juju.is/about#automate-everything) approach to open source operations.
+Shared, open source operators **take infrastructure as code to the next level**
+with community-driven ops and integration code. Reuse of ops code improves
+quality and encourages wider [community engagement and contribution](
+https://juju.is/about#collaboration). Operators also improve security
+throughchat.charmhub.io/ consistent automation. Juju operators are a [community-driven devsecops](https://juju.is/about#automate-everything) approach to open source operations.
 
 Juju implements the Kubernetes operator pattern, but is also a **universal
 OLM** that extends the operator pattern to traditional applications (without
@@ -36,7 +38,9 @@ A key focus for Juju is to **simplify operator design, development and
 usage**.  Instead of making very complex operators for specific scenarios,
 Juju encourages devops to make composable operators, each of which drives a
 single Docker image, and which can be reused in different settings.
-[Composable operators](https://juju.is/about#integration-simplicity) enable very rich scenarios to be constructed out of simpler **operators that do one thing and do it well**.
+[Composable operators](https://juju.is/about#integration-simplicity) enable
+very rich scenarios to be constructed out of simpler **operators that do one
+thing and do it well**.
 
 The OLM provides a central mechanism for operator instantiation,
 configuration, upgrades, integration and administration. The OLM provides a
