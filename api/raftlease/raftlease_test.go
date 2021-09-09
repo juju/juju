@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/mocks"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -71,9 +72,10 @@ func (s *RaftLeaseSuite) TestApplyLeaseNotTheLeader(c *gc.C) {
 
 	client := s.newAPI(c)
 	err := client.ApplyLease("do it", time.Second)
-	c.Assert(err, gc.ErrorMatches, "not the leader")
-	c.Assert(params.IsCodeNotLeader(err), jc.IsTrue)
-	c.Assert(err.(*params.Error).Info, gc.DeepEquals, info)
+	c.Assert(err, gc.ErrorMatches, `not currently the leader, try "1"`)
+	c.Assert(apiservererrors.IsNotLeaderError(err), jc.IsTrue)
+	c.Assert(err.(*apiservererrors.NotLeaderError).ServerAddress(), gc.DeepEquals, "10.0.0.8")
+	c.Assert(err.(*apiservererrors.NotLeaderError).ServerID(), gc.DeepEquals, "1")
 }
 
 func (s *RaftLeaseSuite) TestApplyLeaseNotNotTheLeaderError(c *gc.C) {
@@ -98,7 +100,7 @@ func (s *RaftLeaseSuite) TestApplyLeaseNotNotTheLeaderError(c *gc.C) {
 	client := s.newAPI(c)
 	err := client.ApplyLease("do it", time.Second)
 	c.Assert(err, gc.ErrorMatches, "bad request")
-	c.Assert(params.IsCodeNotLeader(err), jc.IsFalse)
+	c.Assert(apiservererrors.IsNotLeaderError(err), jc.IsFalse)
 }
 
 func (s *RaftLeaseSuite) TestApplyLeaseToManyErrors(c *gc.C) {

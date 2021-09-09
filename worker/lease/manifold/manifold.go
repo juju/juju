@@ -134,36 +134,42 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 
 	st := statePool.SystemState()
 
+	config := agent.CurrentConfig()
+	controllerUUID := config.Controller().Id()
+
+	var client raftlease.Client
+
 	metrics := raftlease.NewOperationClientMetrics(clock)
 	/*
-		client := raftlease.NewPubsubClient(raftlease.PubsubClientConfig{
-			Hub:            hub,
-			RequestTopic:   s.config.RequestTopic,
-			Clock:          clock,
-			ForwardTimeout: ForwardTimeout,
-			ClientMetrics:  metrics,
-		})
-	*/
+		if !featureflag.Enabled(feature.RaftAPITransport) {
+			client = raftlease.NewPubsubClient(raftlease.PubsubClientConfig{
+				Hub:            hub,
+				RequestTopic:   s.config.RequestTopic,
+				Clock:          clock,
+				ForwardTimeout: ForwardTimeout,
+				ClientMetrics:  metrics,
+			})
 
-	config := agent.CurrentConfig()
+		} else {*/
 	apiInfo, ok := config.APIInfo()
 	if !ok {
 		return nil, dependency.ErrMissing
 	}
 
-	controllerUUID := config.Controller().Id()
 	apiInfo.ControllerUUID = controllerUUID
 
-	client, err := raftleaseclient.NewClient(raftleaseclient.Config{
-		Hub:       hub,
-		APIInfo:   apiInfo,
-		NewRemote: raftleaseclient.NewRemote,
-		Clock:     clock,
-		Logger:    s.config.Logger,
+	client, err = raftleaseclient.NewClient(raftleaseclient.Config{
+		Hub:           hub,
+		APIInfo:       apiInfo,
+		NewRemote:     raftleaseclient.NewRemote,
+		ClientMetrics: metrics,
+		Clock:         clock,
+		Logger:        s.config.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	//}
 
 	s.store = s.config.NewStore(raftlease.StoreConfig{
 		FSM:              s.config.FSM,

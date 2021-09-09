@@ -40,11 +40,17 @@ type Remote interface {
 	Request(context.Context, *raftlease.Command) error
 }
 
+// ClientMetrics represents the metrics during a client request.
+type ClientMetrics interface {
+	RecordOperation(string, string, time.Time)
+}
+
 type Config struct {
 	APIInfo        *api.Info
 	Hub            *pubsub.StructuredHub
 	ForwardTimeout time.Duration
 	NewRemote      func(RemoteConfig) Remote
+	ClientMetrics  ClientMetrics
 	Clock          clock.Clock
 	Logger         Logger
 }
@@ -62,6 +68,9 @@ func (config Config) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if config.ClientMetrics == nil {
+		return errors.NotValidf("nil ClientMetrics")
 	}
 	return nil
 }
@@ -128,6 +137,7 @@ func NewClient(config Config) (*Client, error) {
 
 // Request attempts to perform a raft lease command against the leader.
 func (c *Client) Request(ctx context.Context, command *raftlease.Command) error {
+	start := c.config.Clock.Now()
 	timeout := c.config.Clock.After(c.config.ForwardTimeout)
 
 	remote, err := c.selectRemote()
@@ -138,7 +148,7 @@ func (c *Client) Request(ctx context.Context, command *raftlease.Command) error 
 	}
 
 	// The following is the generic error if no api servers are found.
-	err = errors.Errorf("no api servers found")
+	err = errors.Annotatef(lease.ErrDropped, "no api servers found")
 
 	// Attempt to request at least 3 times. This isn't a retry of the request
 	// against the same api controller. Instead this is should attempt to find
@@ -146,6 +156,7 @@ func (c *Client) Request(ctx context.Context, command *raftlease.Command) error 
 	for i := 0; i < 2; i++ {
 		select {
 		case <-ctx.Done():
+			c.record(command.Operation, "delivery timeout", start)
 			return lease.ErrTimeout
 		case <-timeout:
 			return lease.ErrTimeout
@@ -160,6 +171,8 @@ func (c *Client) Request(ctx context.Context, command *raftlease.Command) error 
 			c.mutex.Lock()
 			c.lastKnownRemote = remote
 			c.mutex.Unlock()
+
+			c.record(command.Operation, "suucess", start)
 
 			return nil
 		}
@@ -189,6 +202,7 @@ func (c *Client) Request(ctx context.Context, command *raftlease.Command) error 
 		break
 	}
 
+	c.record(command.Operation, "error", start)
 	return errors.Trace(err)
 }
 
@@ -196,6 +210,10 @@ func (c *Client) Request(ctx context.Context, command *raftlease.Command) error 
 func (c *Client) Close() error {
 	c.catacomb.Kill(nil)
 	return c.catacomb.Wait()
+}
+
+func (c *Client) record(operation, result string, start time.Time) {
+	c.config.ClientMetrics.RecordOperation(operation, result, start)
 }
 
 // Attempt to use the last known remote, if that's not around, then just select
@@ -429,9 +447,8 @@ func (r *remote) SetAddress(addr string) {
 // Request performs a request against a specific api.
 func (r *remote) Request(ctx context.Context, command *raftlease.Command) error {
 	if r.client == nil {
-		//return errors.NotFoundf("connection not found")
 		r.config.Logger.Errorf("Dropping command")
-		return nil
+		return lease.ErrDropped
 	}
 
 	bytes, err := command.Marshal()

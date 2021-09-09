@@ -20,8 +20,6 @@ type LeasesSuite struct {
 	testing.IsolationSuite
 
 	appName string
-	machine string
-	pinArgs []interface{}
 }
 
 var _ = gc.Suite(&LeasesSuite{})
