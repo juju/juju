@@ -559,6 +559,39 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
 	c.Assert(r.Errors, gc.IsNil)
 }
 
+func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    revision: 76
+                    channel: candidate
+        `,
+	}
+	r, err := s.facade.GetChangesMapArgs(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Args: map[string]interface{}{
+			"revision": float64(76),
+			"channel":  "candidate",
+			"charm":    "django",
+		},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Args: map[string]interface{}{
+			"application": "django",
+			"channel":     "candidate",
+			"charm":       "$addCharm-0",
+		},
+		Requires: []string{"addCharm-0"},
+	}})
+	c.Assert(r.Errors, gc.IsNil)
+}
+
 func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
