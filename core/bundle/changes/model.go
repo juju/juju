@@ -234,21 +234,21 @@ type Machine struct {
 	Annotations map[string]string
 }
 
-func (m *Model) hasCharm(charm string) bool {
+func (m *Model) hasCharm(charm string, revision int) bool {
 	if len(m.Applications) == 0 {
 		return false
 	}
 	for _, app := range m.Applications {
-		if app.Charm == charm {
+		if app.Charm == charm && ((revision >= 0 && revision == app.Revision) || revision < 0) {
 			return true
 		}
 	}
 	return false
 }
 
-func (m *Model) matchesCharmPermutation(charm, arch, series, channel string, constraintGetter ConstraintGetter) bool {
+func (m *Model) matchesCharmPermutation(charm, arch, series, channel string, revision int, constraintGetter ConstraintGetter) bool {
 	if arch == "" && series == "" && channel == "" {
-		return m.hasCharm(charm)
+		return m.hasCharm(charm, revision)
 	}
 
 	for _, app := range m.Applications {
@@ -263,7 +263,11 @@ func (m *Model) matchesCharmPermutation(charm, arch, series, channel string, con
 			}
 		}
 
-		if app.Charm == charm && appArch == arch && app.Series == series && app.Channel == channel {
+		if app.Charm == charm &&
+			appArch == arch &&
+			app.Series == series &&
+			app.Channel == channel &&
+			((revision >= 0 && revision == app.Revision) || revision < 0) {
 			return true
 		}
 	}
