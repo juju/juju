@@ -5,7 +5,6 @@ package lxd_test
 
 import (
 	"errors"
-	"net/http"
 
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
@@ -272,7 +271,7 @@ func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreated(c *gc.C) {
 		NetworkPut: lxdapi.NetworkPut{Config: netConf},
 	}
 	gomock.InOrder(
-		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(nil, "", lxdapi.StatusErrorf(http.StatusNotFound, "")),
+		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(nil, "", errors.New("not found")),
 		cSvr.EXPECT().CreateNetwork(netCreateReq).Return(nil),
 		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(newNet, "", nil),
 		cSvr.EXPECT().UpdateProfile("default", defaultLegacyProfileWithNIC().Writable(), lxdtesting.ETag).Return(nil),
