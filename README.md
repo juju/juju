@@ -16,7 +16,9 @@ Shared, open source operators **take infrastructure as code to the next level**
 with community-driven ops and integration code. Reuse of ops code improves
 quality and encourages wider [community engagement and contribution](
 https://juju.is/about#collaboration). Operators also improve security
-throughchat.charmhub.io/ consistent automation. Juju operators are a [community-driven devsecops](https://juju.is/about#automate-everything) approach to open source operations.
+throughchat.charmhub.io/ consistent automation. Juju operators are a
+[community-driven devsecops](https://juju.is/about#automate-everything)
+approach to open source operations.
 
 Juju implements the Kubernetes operator pattern, but is also a **universal
 OLM** that extends the operator pattern to traditional applications (without
@@ -89,7 +91,9 @@ to your charm by the framework.
 
 ## Architecture
 
-The Juju client, server and agent are all written in Golang. The standard Juju packaging includes an embedded database for centralised logging and ersistence, but there is no need to manage that database separately.
+The Juju client, server and agent are all written in Golang. The standard Juju
+packaging includes an embedded database for centralised logging and ersistence,
+but there is no need to manage that database separately.
 
 Operators can be written in any language but we do encourage new authors to
 use the Python Operator Framework for ease of contribution, support and
@@ -106,7 +110,13 @@ centralised enterprise grade management and operations systems.
 
 ## Get started
 
-Our community hangs out at the [Charmhub discourse](https://discourse.juju.is/) which serves as a combination mailing list and web forum. Keep up with the news and get a feel for operator engineering and usage there. Get  the Juju CLI on Windows, macOS or Linux with the [install instructions](https://juju.is/docs/installing) and [try the tutorials](https://juju.is/docs/tutorials). All you need is a small K8s cluster, or an Ubuntu machine or VM to run MicroK8s.
+Our community hangs out at the [Charmhub discourse](https://discourse.juju.is/)
+which serves as a combination mailing list and web forum. Keep up with the news
+and get a feel for operator engineering and usage there. Get  the Juju CLI on
+Windows, macOS or Linux with the 
+[install instructions](https://juju.is/docs/installing) and 
+[try the tutorials](https://juju.is/docs/tutorials). All you need is a small
+K8s cluster, or an Ubuntu machine or VM to run MicroK8s.
 
 Read the [documentation](https://juju.is/docs) for a comprehensive reference
 of commands and usage.
