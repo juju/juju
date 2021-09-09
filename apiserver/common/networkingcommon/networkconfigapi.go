@@ -120,8 +120,9 @@ func (api *NetworkConfigAPI) fixUpFanSubnets(networkConfig []params.NetworkConfi
 
 	for i := range networkConfig {
 		for j := range networkConfig[i].Addresses {
+			ip := net.ParseIP(networkConfig[i].Addresses[j].Value)
 			for cidr, fanNet := range fanSubnets {
-				if fanNet != nil && fanNet.Contains(net.ParseIP(networkConfig[i].Addresses[j].Value)) {
+				if fanNet != nil && fanNet.Contains(ip) {
 					networkConfig[i].Addresses[j].CIDR = cidr
 					break
 				}
