@@ -405,8 +405,8 @@ github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7 h1:zEIYPqGRtR6R2
 github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7/go.mod h1:GFZ3KcDmWTesil7L3nuSsN5aeGZuL2pNdUoGWswDTgM=
 github.com/juju/charm/v9 v9.0.0-20210421060150-6a300db18162/go.mod h1:GR/jjdIQ0V9Yss8krrfqy3rRKJabbvDOXXRjfO+110M=
 github.com/juju/charm/v9 v9.0.0-20210427070932-bc9b40c9b0f4/go.mod h1:GR/jjdIQ0V9Yss8krrfqy3rRKJabbvDOXXRjfO+110M=
-github.com/juju/charm/v9 v9.0.0-20210722104222-d3c79ce32e77 h1:yvqGk4cfK+T9FuCO2euIOEsnxBqiDcAl6yVvbot4K4A=
-github.com/juju/charm/v9 v9.0.0-20210722104222-d3c79ce32e77/go.mod h1:GR/jjdIQ0V9Yss8krrfqy3rRKJabbvDOXXRjfO+110M=
+github.com/juju/charm/v9 v9.0.0-20210909151651-7e12eccc1e76 h1:p+2WvoV7paZIcwz2dhsDo8nP7A7OeCMItf1Mk+mwm4U=
+github.com/juju/charm/v9 v9.0.0-20210909151651-7e12eccc1e76/go.mod h1:GR/jjdIQ0V9Yss8krrfqy3rRKJabbvDOXXRjfO+110M=
 github.com/juju/charmrepo/v7 v7.0.0-20210901102801-513fb9274dae h1:TSnFigLC+7oV40UoyVjadtusvavzImpMl35kvAedFCg=
 github.com/juju/charmrepo/v7 v7.0.0-20210901102801-513fb9274dae/go.mod h1:wvP5voVa8s9ap6FSwenJmxw2g5cf8aSgjE8N8LOEwKc=
 github.com/juju/clock v0.0.0-20180524022203-d293bb356ca4/go.mod h1:nD0vlnrUjcjJhqN5WuCWZyzfd5AHZAC9/ajvbSx69xA=
