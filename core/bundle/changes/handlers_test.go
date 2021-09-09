@@ -45,7 +45,7 @@ func (s *resolverSuite) TestAllowUpgradeWithSameChannel(c *gc.C) {
 
 	r := resolver{
 		force: true,
-		charmResolver: func(charm, series, channel, arch string) (string, int, error) {
+		charmResolver: func(string, string, string, string, int) (string, int, error) {
 			return "stable", 1, nil
 		},
 	}
@@ -68,7 +68,7 @@ func (s *resolverSuite) TestAllowUpgradeWithDowngrades(c *gc.C) {
 
 	r := resolver{
 		force: true,
-		charmResolver: func(charm, series, channel, arch string) (string, int, error) {
+		charmResolver: func(string, string, string, string, int) (string, int, error) {
 			return "stable", 1, nil
 		},
 	}
@@ -91,7 +91,7 @@ func (s *resolverSuite) TestAllowUpgradeWithSameRevision(c *gc.C) {
 
 	r := resolver{
 		force: true,
-		charmResolver: func(charm, series, channel, arch string) (string, int, error) {
+		charmResolver: func(string, string, string, string, int) (string, int, error) {
 			return "stable", 1, nil
 		},
 	}
@@ -147,7 +147,7 @@ func (s *resolverSuite) TestAllowUpgradeWithDifferentChannelAndForce(c *gc.C) {
 
 	r := resolver{
 		force: true,
-		charmResolver: func(charm, series, channel, arch string) (string, int, error) {
+		charmResolver: func(string, string, string, string, int) (string, int, error) {
 			return "stable", 1, nil
 		},
 	}

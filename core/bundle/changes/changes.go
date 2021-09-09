@@ -33,7 +33,7 @@ type ConstraintGetter func(string) ArchConstraint
 
 // CharmResolver resolves the channel and revision of a charm from the list of
 // parameters.
-type CharmResolver func(charm string, series string, channel string, arch string) (string, int, error)
+type CharmResolver func(charm, series, channel, arch string, revision int) (string, int, error)
 
 // ChangesConfig is used to provide the required data for determining changes.
 type ChangesConfig struct {
@@ -226,18 +226,21 @@ func (ch *AddCharmChange) Args() (map[string]interface{}, error) {
 
 // Description implements Change.
 func (ch *AddCharmChange) Description() []string {
+	p := ch.Params
 	var series, channel string
-	if ch.Params.Series != "" {
-		series = " for series " + ch.Params.Series
+	if p.Series != "" {
+		series = " for series " + p.Series
 	}
-	if ch.Params.Channel != "" {
-		channel = " from channel " + ch.Params.Channel
+	if p.Revision != nil && *p.Revision >= 0 {
+		channel = fmt.Sprintf(" with revision %d", *p.Revision)
+	} else if p.Channel != "" {
+		channel = " from channel " + p.Channel
 	}
 
 	// If we fail when parsing the url, we can consider it being a name rather
 	// than a URL.
 	var location string
-	name := ch.Params.Charm
+	name := p.Charm
 	if curl, err := charm.ParseURL(name); err == nil {
 		name = curl.Name
 
@@ -247,8 +250,8 @@ func (ch *AddCharmChange) Description() []string {
 		}
 	}
 	var arch string
-	if ch.Params.Architecture != "" {
-		arch = fmt.Sprintf(" with architecture=%s", ch.Params.Architecture)
+	if p.Architecture != "" {
+		arch = fmt.Sprintf(" with architecture=%s", p.Architecture)
 	}
 
 	return []string{fmt.Sprintf("upload charm %s%s%s%s%s", name, location, series, channel, arch)}
@@ -258,6 +261,8 @@ func (ch *AddCharmChange) Description() []string {
 type AddCharmParams struct {
 	// Charm holds the URL of the charm to be added.
 	Charm string `json:"charm"`
+	// Revision holds the revision of the charm to be added.
+	Revision *int `json:"revision,omitempty"`
 	// Series holds the series of the charm to be added
 	// if the charm default is not sufficient.
 	Series string `json:"series,omitempty"`

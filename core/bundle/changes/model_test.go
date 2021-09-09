@@ -35,21 +35,22 @@ func (*modelSuite) TestGetApplication(c *gc.C) {
 
 func (*modelSuite) TestHasCharmNilApplications(c *gc.C) {
 	model := &Model{}
-	c.Assert(model.hasCharm("foo"), jc.IsFalse)
+	c.Assert(model.hasCharm("foo", -1), jc.IsFalse)
 }
 
 func (*modelSuite) TestHasCharm(c *gc.C) {
 	app := &Application{
-		Name:  "foo",
-		Charm: "cs:foo",
+		Name:     "foo",
+		Charm:    "cs:foo",
+		Revision: -1,
 	}
 	model := &Model{
 		Applications: map[string]*Application{
 			"foo": app},
 	}
 	// Match must be exact.
-	c.Assert(model.hasCharm("foo"), jc.IsFalse)
-	c.Assert(model.hasCharm("cs:foo"), jc.IsTrue)
+	c.Assert(model.hasCharm("foo", -1), jc.IsFalse)
+	c.Assert(model.hasCharm("cs:foo", -1), jc.IsTrue)
 }
 
 func (*modelSuite) TestHasRelation(c *gc.C) {
