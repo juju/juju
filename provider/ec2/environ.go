@@ -1859,7 +1859,6 @@ func (e *environ) closePortsInGroup(ctx context.ProviderCallContext, name string
 	}
 	_, err = e.ec2Client.RevokeSecurityGroupIngress(ctx, &ec2.RevokeSecurityGroupIngressInput{
 		GroupId:       g.GroupId,
-		GroupName:     g.GroupName,
 		IpPermissions: rulesToIPPerms(rules),
 	})
 	if err != nil {
@@ -2139,8 +2138,7 @@ var deleteSecurityGroupInsistently = func(client SecurityGroupCleaner, ctx conte
 		Clock:       clock,
 		Func: func() error {
 			_, err := client.DeleteSecurityGroup(ctx, &ec2.DeleteSecurityGroupInput{
-				GroupId:   g.GroupId,
-				GroupName: g.GroupName,
+				GroupId: g.GroupId,
 			})
 			if err == nil || isNotFoundError(err) {
 				logger.Debugf("deleting security group %q", aws.ToString(g.GroupName))
