@@ -356,7 +356,7 @@ func (p *BridgePolicy) determineContainerSpaces(
 
 	spaces := make(corenetwork.SpaceInfos, 0)
 	// Constraints have been left in space name form,
-	// as they are human readable and can be changed.
+	// as they are human-readable and can be changed.
 	for _, spaceName := range cons.IncludeSpaces() {
 		if space := p.spaces.GetByName(spaceName); space != nil {
 			spaces = append(spaces, *space)
@@ -397,19 +397,20 @@ func (p *BridgePolicy) spaceNamesForPrinting(ids set.Strings) string {
 	return strings.Join(names.SortedValues(), ", ")
 }
 
-// inferContainerSpaces tries to find a valid space for the container to be
-// on. This should only be used when the container itself doesn't have any
-// valid constraints on what spaces it should be in.
+// inferContainerSpaces tries to find a valid space for the container to be in.
+// This should only be used when the container itself doesn't have any valid
+// constraints on what spaces it should be in.
 // If containerNetworkingMethod is 'local' we fall back to the default space
 // and use lxdbr0.
 // If this machine is in a single space, then that space is used.
-// Otherwise we return an error.  If this occurs, there is a problem,
-// as a machine should ALWAYS be in a space.
+// If the machine is in multiple spaces, we return an error with the possible
+// spaces that the user can use to constrain connectivity.
 func (p *BridgePolicy) inferContainerSpaces(host Machine, containerId string) (corenetwork.SpaceInfos, error) {
 	if p.containerNetworkingMethod == "local" {
 		alphaInfo := p.spaces.GetByID(corenetwork.AlphaSpaceId)
 		return corenetwork.SpaceInfos{*alphaInfo}, nil
 	}
+
 	hostSpaces, err := host.AllSpaces()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -417,8 +418,7 @@ func (p *BridgePolicy) inferContainerSpaces(host Machine, containerId string) (c
 	namesHostSpaces := p.spaceNamesForPrinting(hostSpaces)
 	logger.Debugf("container %q not qualified to a space, host machine %q is using spaces %s",
 		containerId, host.Id(), namesHostSpaces)
-	// Note: if a machine can be in more than 1 space, this needs
-	// updating with choice criteria.
+
 	if len(hostSpaces) == 1 {
 		hostInfo := p.spaces.GetByID(hostSpaces.Values()[0])
 		return corenetwork.SpaceInfos{*hostInfo}, nil
