@@ -376,12 +376,11 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
 
 	expected := map[string]map[string]string{
 		"eth0": {
-			"hwaddr":    "aa:bb:cc:dd:ee:f0",
-			"name":      "eth0",
-			"nictype":   "bridged",
-			"parent":    "br-eth0",
-			"type":      "nic",
-			"host_name": "1lxd2-0",
+			"hwaddr":  "aa:bb:cc:dd:ee:f0",
+			"name":    "eth0",
+			"nictype": "bridged",
+			"parent":  "br-eth0",
+			"type":    "nic",
 		},
 	}
 

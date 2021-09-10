@@ -293,7 +293,6 @@ func (m *containerManager) networkDevicesFromConfig(netConfig *container.Network
 			"eth0": newNICDevice(
 				"eth0",
 				netConfig.Device,
-				"",
 				corenetwork.GenerateVirtualMACAddress(),
 				netConfig.MTU,
 			),
