@@ -1674,7 +1674,7 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
-	one := func(relTag string, unitTag names.UnitTag, modelSubnets []string) error {
+	one := func(relTag string, unitTag names.UnitTag) error {
 		rel, unit, err := u.getRelationAndUnit(canAccess, relTag, unitTag)
 		if err != nil {
 			return err
@@ -1725,17 +1725,13 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 		}
 		return relUnit.EnterScope(settings)
 	}
-	cfg, err := u.m.ModelConfig()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
 	for i, arg := range args.RelationUnits {
 		tag, err := names.ParseUnitTag(arg.Unit)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = one(arg.Relation, tag, cfg.EgressSubnets())
+		err = one(arg.Relation, tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}

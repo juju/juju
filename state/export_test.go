@@ -401,8 +401,8 @@ func CheckUserExists(st *State, name string) (bool, error) {
 	return st.checkUserExists(name)
 }
 
-func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool, idconv func(string) (string, error)) error {
-	return mergeIds(st, changeset, updates, idconv)
+func WatcherMergeIds(changeset *[]string, updates map[interface{}]bool, idconv func(string) (string, error)) error {
+	return mergeIds(changeset, updates, idconv)
 }
 
 func WatcherEnsureSuffixFn(marker string) func(string) string {

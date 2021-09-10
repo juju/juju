@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -403,10 +404,9 @@ EOF`,
 		Tags:         packetTags,
 	}
 
-	subnetIDs, err := e.getSubnetsToZoneMap(ctx, args)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	// Map requested subnets (due to space constraints) into equinix
+	// reservation IDs.
+	reservationIDs := mapJujuSubnetsToReservationIDs(args.SubnetsToZones)
 
 	allocatedPublicIP := true
 	if args.Constraints.HasAllocatePublicIP() {
@@ -414,10 +414,10 @@ EOF`,
 	}
 
 	var requestedPublicAddr, requestedPrivateAddr bool
-	if len(subnetIDs) != 0 {
-		logger.Debugf("requesting a machine with address in subnet(s): %v", subnetIDs)
-		for _, subnetID := range subnetIDs {
-			net, _, err := e.equinixClient.ProjectIPs.Get(subnetID, &packngo.GetOptions{})
+	if len(reservationIDs) != 0 {
+		logger.Debugf("requesting a machine with addresses from the following reservation IDs: %s", strings.Join(reservationIDs, ", "))
+		for _, reservationID := range reservationIDs {
+			net, _, err := e.equinixClient.ProjectIPs.Get(reservationID, &packngo.GetOptions{})
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -551,16 +551,21 @@ func (e *environ) getPacketInstancesByTag(tags map[string]string) ([]instances.I
 	return toReturn, nil
 }
 
-func (e *environ) getSubnetsToZoneMap(ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
-	var subnetIDs []string
-	for _, subnetList := range args.SubnetsToZones {
+func mapJujuSubnetsToReservationIDs(subnetsToZoneMap []map[network.Id][]string) []string {
+	var reservationIDs []string
+	for _, subnetList := range subnetsToZoneMap {
 		for subnetID := range subnetList {
-			packetSubnetID := strings.TrimPrefix(subnetID.String(), "subnet-")
-			subnetIDs = append(subnetIDs, packetSubnetID)
+			// FAN networks are an internal Juju construct and are
+			// not known to equinix.
+			if network.IsInFanNetwork(subnetID) {
+				continue
+			}
+			packetReservationID := strings.TrimPrefix(subnetID.String(), "subnet-")
+			reservationIDs = append(reservationIDs, packetReservationID)
 		}
 	}
 
-	return subnetIDs, nil
+	return reservationIDs
 }
 
 // supportedInstanceTypes returns the instance types supported by Equnix Metal.

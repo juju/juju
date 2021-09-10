@@ -19,16 +19,23 @@ const (
 type CreateParams struct {
 	ProviderLabel  string
 	Version        int
-	Type           string
+	Type           secrets.SecretType
+	Owner          string
 	Path           string
 	RotateInterval time.Duration
+	Status         secrets.SecretStatus
+	Description    string
+	Tags           map[string]string
 	Params         map[string]interface{}
 	Data           map[string]string
 }
 
 // UpdateParams are used to update a secret.
 type UpdateParams struct {
-	RotateInterval time.Duration
+	RotateInterval *time.Duration
+	Status         *secrets.SecretStatus
+	Description    *string
+	Tags           *map[string]string
 	Params         map[string]interface{}
 	Data           map[string]string
 }

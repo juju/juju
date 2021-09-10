@@ -7,8 +7,10 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/watcher"
 )
 
 // Client is the api client for the SecretsManager facade.
@@ -36,14 +38,26 @@ func (c *Client) Create(cfg *secrets.SecretConfig, secretType secrets.SecretType
 
 	var results params.StringResults
 
+	arg := params.CreateSecretArg{
+		Type:   string(secretType),
+		Path:   cfg.Path,
+		Params: cfg.Params,
+		Data:   data,
+	}
+	if cfg.Status != nil {
+		arg.Status = string(*cfg.Status)
+	}
+	if cfg.RotateInterval != nil {
+		arg.RotateInterval = *cfg.RotateInterval
+	}
+	if cfg.Description != nil {
+		arg.Description = *cfg.Description
+	}
+	if cfg.Tags != nil {
+		arg.Tags = *cfg.Tags
+	}
 	if err := c.facade.FacadeCall("CreateSecrets", params.CreateSecretArgs{
-		Args: []params.CreateSecretArg{{
-			Type:           string(secretType),
-			Path:           cfg.Path,
-			RotateInterval: cfg.RotateInterval,
-			Params:         cfg.Params,
-			Data:           data,
-		}},
+		Args: []params.CreateSecretArg{arg},
 	}, &results); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -72,13 +86,20 @@ func (c *Client) Update(URL *secrets.URL, cfg *secrets.SecretConfig, value secre
 
 	var results params.StringResults
 
+	arg := params.UpdateSecretArg{
+		URL:            URL.ID(),
+		RotateInterval: cfg.RotateInterval,
+		Description:    cfg.Description,
+		Tags:           cfg.Tags,
+		Params:         cfg.Params,
+		Data:           data,
+	}
+	if cfg.Status != nil {
+		statusStr := string(*cfg.Status)
+		arg.Status = &statusStr
+	}
 	if err := c.facade.FacadeCall("UpdateSecrets", params.UpdateSecretArgs{
-		Args: []params.UpdateSecretArg{{
-			URL:            URL.ID(),
-			RotateInterval: cfg.RotateInterval,
-			Params:         cfg.Params,
-			Data:           data,
-		}},
+		Args: []params.UpdateSecretArg{arg},
 	}, &results); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -112,4 +133,26 @@ func (c *Client) GetValue(ID string) (secrets.SecretValue, error) {
 		return nil, err
 	}
 	return secrets.NewSecretValue(results.Results[0].Data), nil
+}
+
+// WatchSecretsRotationChanges returns a watcher which serves changes to
+// secrets rotation config for any secrets managed by the specified owner.
+func (c *Client) WatchSecretsRotationChanges(ownerTag string) (watcher.SecretRotationWatcher, error) {
+	var results params.SecretRotationWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: ownerTag}},
+	}
+	err := c.facade.FacadeCall("WatchSecretsRotationChanges", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewSecretsRotationWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
 }

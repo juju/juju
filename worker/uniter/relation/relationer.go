@@ -151,9 +151,6 @@ func (r *relationer) CommitHook(hi hook.Info) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = st.UpdateStateForHook(hi)
-	if err != nil {
-		return r.stateMgr.RemoveRelation(st.RelationId, r.unitGetter, map[string]bool{})
-	}
+	st.UpdateStateForHook(hi, r.logger)
 	return r.stateMgr.SetRelation(st)
 }

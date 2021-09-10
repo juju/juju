@@ -14,6 +14,23 @@ import (
 	"github.com/juju/errors"
 )
 
+// SecretStatus is the status of a secret.
+type SecretStatus string
+
+const (
+	StatusPending = SecretStatus("pending")
+	StatusActive  = SecretStatus("active")
+)
+
+// IsValid returns true if s is a valid secret status.
+func (s SecretStatus) IsValid() bool {
+	switch s {
+	case StatusActive, StatusPending:
+		return true
+	}
+	return false
+}
+
 // SecretType is the type of a secret.
 // This is used when creating a secret.
 type SecretType string
@@ -23,17 +40,29 @@ const (
 	TypePassword = SecretType("password")
 )
 
-// SecretConfig is used when cresting a secret.
+// IsValid returns true if t is a valid secret type.
+func (t SecretType) IsValid() bool {
+	switch t {
+	case TypeBlob, TypePassword:
+		return true
+	}
+	return false
+}
+
+// SecretConfig is used when creating a secret.
 type SecretConfig struct {
 	Path           string
-	RotateInterval time.Duration
+	RotateInterval *time.Duration
+	Status         *SecretStatus
+	Description    *string
+	Tags           *map[string]string
 	Params         map[string]interface{}
 }
 
 // NewSecretConfig is used to create an application scoped blob secret.
 func NewSecretConfig(nameParts ...string) *SecretConfig {
 	return &SecretConfig{
-		Path: strings.Join(nameParts, "."),
+		Path: strings.Join(nameParts, "/"),
 	}
 }
 
@@ -46,7 +75,7 @@ const (
 // NewPasswordSecretConfig is used to create an application scoped password secret.
 func NewPasswordSecretConfig(length int, specialChars bool, nameParts ...string) *SecretConfig {
 	return &SecretConfig{
-		Path: strings.Join(nameParts, "."),
+		Path: strings.Join(nameParts, "/"),
 		Params: map[string]interface{}{
 			PasswordLength:       length,
 			PasswordSpecialChars: specialChars,
@@ -54,7 +83,13 @@ func NewPasswordSecretConfig(length int, specialChars bool, nameParts ...string)
 	}
 }
 
-var pathRegexp = regexp.MustCompile(`^[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*$`)
+const (
+	// AppSnippet denotes a secret belonging to an application.
+	AppSnippet  = "app"
+	pathSnippet = AppSnippet + `/[a-zA-Z0-9]+(/[a-zA-Z0-9]+)*`
+)
+
+var pathRegexp = regexp.MustCompile("^" + pathSnippet + "$")
 
 // Validate returns an error if the config is not valid.
 func (c *SecretConfig) Validate() error {
@@ -66,7 +101,6 @@ func (c *SecretConfig) Validate() error {
 
 // URL represents a reference to a secret.
 type URL struct {
-	Version        string
 	ControllerUUID string
 	ModelUUID      string
 	Path           string
@@ -76,22 +110,22 @@ type URL struct {
 
 /*
 Example secret URLs:
-	secret://v1/apitoken
-	secret://v1/mariadb.dbpass
-	secret://v1/apache.catalog.password
-	secret://v1/apache.catalog.password?revision=666
-	secret://v1/proxy#key
-	secret://v1/proxy#key?revision=666
-	secret://v1/cfed9630-053e-447a-9751-2dc4ed429d51/myawscredential
-	secret://v1/cfed9630-053e-447a-9751-2dc4ed429d51/11111111-053e-447a-6666-2dc4ed429d51/myawscredential
+	secret://app/gitlab/apitoken
+	secret://app/mariadb/dbpass
+	secret://app/apache/catalog/password
+	secret://app/apache/catalog/password?revision=666
+	secret://app/proxy#key
+	secret://app/proxy#key?revision=666
+	secret://cfed9630-053e-447a-9751-2dc4ed429d51/app/mariadb/password
+	secret://cfed9630-053e-447a-9751-2dc4ed429d51/11111111-053e-447a-6666-2dc4ed429d51/app/mariadb/password
 */
 
 const uuidSnippet = `[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}`
 
 var secretURLParse = regexp.MustCompile(`^` +
 	fmt.Sprintf(
-		`((?P<version>v[1-9])\/)((?P<controllerUUID>%s)\/)?((?P<modelUUID>%s)\/)?(?P<path>[0-9a-zA-Z]+(\.[0-9a-zA-Z]+)*)(?P<revision>\?revision=[0-9]+)?(?P<attribute>#[0-9a-zA-Z]+)?`,
-		uuidSnippet, uuidSnippet) +
+		`((?P<controllerUUID>%s)\/)?((?P<modelUUID>%s)\/)?(?P<path>%s)(?P<revision>\?revision=[0-9]+)?(?P<attribute>#[0-9a-zA-Z]+)?`,
+		uuidSnippet, uuidSnippet, pathSnippet) +
 	`$`)
 
 // ParseURL parses the specified URL string into a URL.
@@ -118,10 +152,9 @@ func ParseURL(str string) (*URL, error) {
 		}
 	}
 	result := &URL{
-		Version:        matches[2],
-		ControllerUUID: matches[4],
-		ModelUUID:      matches[6],
-		Path:           matches[7],
+		ControllerUUID: matches[2],
+		ModelUUID:      matches[4],
+		Path:           matches[5],
 		Attribute:      u.Fragment,
 		Revision:       revision,
 	}
@@ -129,10 +162,9 @@ func ParseURL(str string) (*URL, error) {
 }
 
 // NewSimpleURL returns a URL with the specified path.
-func NewSimpleURL(version int, path string) *URL {
+func NewSimpleURL(path string) *URL {
 	return &URL{
-		Version: fmt.Sprintf("v%d", version),
-		Path:    path,
+		Path: path,
 	}
 }
 
@@ -180,7 +212,7 @@ func (u *URL) String() string {
 	if u == nil {
 		return ""
 	}
-	fullPath := []string{u.Version}
+	var fullPath []string
 	if u.ControllerUUID != "" {
 		fullPath = append(fullPath, u.ControllerUUID)
 	}
@@ -211,6 +243,7 @@ type SecretMetadata struct {
 	Version int
 
 	// These can be updated after creation.
+	Status         SecretStatus
 	Description    string
 	Tags           map[string]string
 	RotateInterval time.Duration

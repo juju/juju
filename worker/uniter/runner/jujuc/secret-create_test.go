@@ -56,20 +56,44 @@ func (s *SecretCreateSuite) TestCreateSecretInvalidArgs(c *gc.C) {
 	}
 }
 
+func durationPtr(d time.Duration) *time.Duration {
+	return &d
+}
+
+func stringPtr(s string) *string {
+	return &s
+}
+
+func statusPtr(s coresecrets.SecretStatus) *coresecrets.SecretStatus {
+	return &s
+}
+
+func tagPtr(t map[string]string) *map[string]string {
+	return &t
+}
+
 func (s *SecretCreateSuite) TestCreateSecret(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	com, err := jujuc.NewCommand(hctx, cmdString("secret-create"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"password", "secret", "--rotate", "1h"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
+		"password", "secret", "--rotate", "1h",
+		"--description", "sssshhhh",
+		"--tag", "foo=bar", "--tag", "hello=world",
+		"--pending",
+	})
 
 	c.Assert(code, gc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"data": "c2VjcmV0"})
 	args := &jujuc.UpsertArgs{
 		Type:           coresecrets.TypeBlob,
 		Value:          val,
-		RotateInterval: time.Hour,
+		RotateInterval: durationPtr(time.Hour),
+		Status:         statusPtr(coresecrets.StatusPending),
+		Description:    stringPtr("sssshhhh"),
+		Tags:           tagPtr(map[string]string{"foo": "bar", "hello": "world"}),
 	}
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "CreateSecret", Args: []interface{}{"password", args}}})
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret://app.password\n")
@@ -86,8 +110,12 @@ func (s *SecretCreateSuite) TestCreateSecretBase64(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"token": "key="})
 	args := &jujuc.UpsertArgs{
-		Type:  coresecrets.TypeBlob,
-		Value: val,
+		Type:           coresecrets.TypeBlob,
+		Value:          val,
+		RotateInterval: durationPtr(0),
+		Description:    stringPtr(""),
+		Status:         statusPtr(coresecrets.StatusActive),
+		Tags:           tagPtr(nil),
 	}
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "CreateSecret", Args: []interface{}{"apikey", args}}})
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret://app.apikey\n")

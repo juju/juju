@@ -23,9 +23,15 @@ type CreateSecretArg struct {
 	Path string `json:"path"`
 	// RotateInterval is how often a secret should be rotated.
 	RotateInterval time.Duration `json:"rotate-interval"`
+	// Status represents the secret's status.
+	Status string `json:"status"`
+	// Description represents the secret's description.
+	Description string `json:"description,omitempty"`
 	// Params are used when generating secrets server side.
 	// See core/secrets/secret.go.
 	Params map[string]interface{} `json:"params,omitempty"`
+	// Tags are the secret tags.
+	Tags map[string]string `json:"tags,omitempty"`
 	// Data is the key values of the secret value itself.
 	Data map[string]string `json:"data,omitempty"`
 }
@@ -40,8 +46,13 @@ type UpdateSecretArg struct {
 	// URL identifies the secret to update.
 	URL string `json:"url"`
 	// RotateInterval is how often a secret should be rotated.
-	// Use a value < 0 to keep the current rotate interval.
-	RotateInterval time.Duration `json:"rotate-interval"`
+	RotateInterval *time.Duration `json:"rotate-interval"`
+	// Status represents the secret's status.
+	Status *string `json:"status"`
+	// Description represents the secret's description.
+	Description *string `json:"description,omitempty"`
+	// Tags are the secret tags.
+	Tags *map[string]string `json:"tags,omitempty"`
 	// Params are used when generating secrets server side.
 	// See core/secrets/secret.go.
 	Params map[string]interface{} `json:"params,omitempty"`
@@ -87,6 +98,7 @@ type ListSecretResult struct {
 	Path           string             `json:"path"`
 	Version        int                `json:"version"`
 	RotateInterval time.Duration      `json:"rotate-interval"`
+	Status         string             `json:"status"`
 	Description    string             `json:"description,omitempty"`
 	Tags           map[string]string  `json:"tags,omitempty"`
 	ID             int                `json:"int"`
@@ -96,4 +108,25 @@ type ListSecretResult struct {
 	CreateTime     time.Time          `json:"create-time"`
 	UpdateTime     time.Time          `json:"update-time"`
 	Value          *SecretValueResult `json:"value,omitempty"`
+}
+
+// SecretRotationChange describes a change to a secret rotation config.
+type SecretRotationChange struct {
+	ID             int           `json:"secret-id"`
+	URL            string        `json:"url"`
+	RotateInterval time.Duration `json:"rotate-interval"`
+	LastRotateTime time.Time     `json:"last-rotate-time"`
+}
+
+// SecretRotationWatchResult holds secret rotation change events.
+type SecretRotationWatchResult struct {
+	SecretRotationWatcherId string                 `json:"watcher-id"`
+	Changes                 []SecretRotationChange `json:"changes"`
+	Error                   *Error                 `json:"error,omitempty"`
+}
+
+// SecretRotationWatchResults holds the results for any API call which ends up
+// returning a list of SecretRotationWatchResult.
+type SecretRotationWatchResults struct {
+	Results []SecretRotationWatchResult `json:"results"`
 }

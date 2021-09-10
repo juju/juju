@@ -4,6 +4,8 @@
 package network_test
 
 import (
+	"net"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -219,21 +221,37 @@ func (*subnetSuite) TestSubnetInfosGetByUnderLayCIDR(c *gc.C) {
 
 func (*subnetSuite) TestSubnetInfosGetByCIDR(c *gc.C) {
 	s := network.SubnetInfos{
-		{ID: "1", CIDR: "10.10.10.0/24", ProviderId: "1"},
-		{ID: "2", CIDR: "10.10.10.0/24", ProviderId: "2"},
-		{ID: "3", CIDR: "20.20.20.0/24"},
+		{ID: "1", CIDR: "10.10.10.0/25", ProviderId: "1"},
+		{ID: "2", CIDR: "10.10.10.0/25", ProviderId: "2"},
+		{ID: "4", CIDR: "20.20.20.0/25"},
 	}
 
 	_, err := s.GetByCIDR("invalid")
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 
-	subs, err := s.GetByCIDR("30.30.30.0/24")
+	subs, err := s.GetByCIDR("30.30.30.0/25")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(subs, gc.HasLen, 0)
 
-	subs, err = s.GetByCIDR("10.10.10.0/24")
+	subs, err = s.GetByCIDR("10.10.10.0/25")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(subs, gc.DeepEquals, s[:2])
+	c.Assert(subs.EqualTo(s[:2]), jc.IsTrue)
+
+	// Check fallback CIDR-in-CIDR matching when CIDR is carved out of a
+	// subnet CIDR.
+	subs, err = s.GetByCIDR("10.10.10.0/31")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subs.EqualTo(s[:2]), jc.IsTrue, gc.Commentf("expected input that is a subset of the subnet CIDRs to be matched to a subnet"))
+
+	// Same check as above but using a different network IP which is still
+	// contained within the 10.10.10.0/25 subnets from the SubnetInfos list.
+	subs, err = s.GetByCIDR("10.10.10.8/31")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subs.EqualTo(s[:2]), jc.IsTrue, gc.Commentf("expected input that is a subset of the subnet CIDRs to be matched to a subnet"))
+
+	subs, err = s.GetByCIDR("10.10.0.0/24")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subs, gc.HasLen, 0, gc.Commentf("expected input that is a superset of the subnet CIDRs not to be matched to any subnet"))
 }
 
 func (*subnetSuite) TestSubnetInfosGetByID(c *gc.C) {
@@ -332,4 +350,51 @@ func (*subnetSuite) TestSubnetInfosAllSubnetInfos(c *gc.C) {
 	allSubs, err := s.AllSubnetInfos()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(allSubs, gc.DeepEquals, s)
+}
+
+func (*subnetSuite) TestIPRangeForCIDR(c *gc.C) {
+	specs := []struct {
+		cidr     string
+		expFirst net.IP
+		expLast  net.IP
+	}{
+		{
+			cidr:     "10.20.30.0/24",
+			expFirst: net.ParseIP("10.20.30.0"),
+			expLast:  net.ParseIP("10.20.30.255"),
+		},
+		{
+			cidr:     "10.20.28.0/22",
+			expFirst: net.ParseIP("10.20.28.0"),
+			expLast:  net.ParseIP("10.20.31.255"),
+		},
+		{
+			cidr:     "10.1.2.42/29",
+			expFirst: net.ParseIP("10.1.2.40"),
+			expLast:  net.ParseIP("10.1.2.47"),
+		},
+		{
+			cidr:     "10.1.2.42/32",
+			expFirst: net.ParseIP("10.1.2.42"),
+			expLast:  net.ParseIP("10.1.2.42"),
+		},
+		{
+			cidr:     "2002::1234:abcd:ffff:c0a8:101/64",
+			expFirst: net.ParseIP("2002:0000:0000:1234:0000:0000:0000:0000"),
+			expLast:  net.ParseIP("2002::1234:ffff:ffff:ffff:ffff"),
+		},
+		{
+			cidr:     "2001:db8:85a3::8a2e:370:7334/128",
+			expFirst: net.ParseIP("2001:0db8:85a3:0000:0000:8a2e:0370:7334"),
+			expLast:  net.ParseIP("2001:0db8:85a3:0000:0000:8a2e:0370:7334"),
+		},
+	}
+
+	for i, spec := range specs {
+		c.Logf("%d. check that range for %q is [%s, %s]", i, spec.cidr, spec.expFirst, spec.expLast)
+		gotFirst, gotLast, err := network.IPRangeForCIDR(spec.cidr)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(gotFirst.String(), gc.Equals, spec.expFirst.String())
+		c.Assert(gotLast.String(), gc.Equals, spec.expLast.String())
+	}
 }

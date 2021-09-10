@@ -33,16 +33,25 @@ Building Juju
 `juju` is written in Go (http://golang.org), a modern, compiled, statically typed,
 concurrent language.
 
+Generally, Juju is built against the most recent version of Go, with the caveat that Go versions are not incremented during a release cycle. This means that `develop` will typically be using the latest version of Go, but any given release branch may lag by one version or so.  Check the `go.mod` file at the root of the project for the targeted version of Go, as this is authoritative.
+
+For example, the following indicates that Go 1.14 is targeted:
+
+```
+module github.com/juju/juju
+
+go 1.14
+```
+
+### Official distribution
+
+Go can be [installed](https://golang.org/doc/install#install) from the official distribution.
+
 ### via snap
 
+[Snap](https://snapcraft.io/go) may also be used to install Go on Linux.
+
     snap install go --channel=1.14/stable --classic
-
-[Snap](https://snapcraft.io/go) is the recommended way to install Go on Linux.
-
-### Other options
-
-See https://golang.org/doc/install#install
-
 
 ## Build Juju and its dependencies
 
@@ -50,7 +59,7 @@ See https://golang.org/doc/install#install
 
     git clone https://github.com/juju/juju.git
 
-Juju does not depend on GOPATH anymore, therefore you can check juju out anywhere.
+Juju uses Go modules and does not depend on GOPATH, therefore you can check juju out anywhere.
 
 ### Change to the Juju source code directory  
 
@@ -161,8 +170,7 @@ external repositories so that Juju is insulated from changes to those repos.
 go mod
 ------
 
-Juju now uses the built in `go mod` tooling to manage dependencies and therfore
-you don't need to do anything to ensure you are building with the correct versions.
+Juju uses Go modules to manage dependencies. Therfore you don't need to do anything to ensure you are building with the correct versions.
 
 Updating dependencies
 ---------------------
@@ -172,8 +180,7 @@ To update a dependency, use `go get -u github.com/the/dependency`.
 Code formatting
 ===============
 
-Go already provides a tool, `go fmt`, that facilitates a standardized
-format to go source code.  The Juju project has one additional policy.
+Go provides a tool, `go fmt`, which facilitates a standardized format to go source code.  The Juju project has one additional policy:
 
 Imports
 -------
@@ -202,7 +209,7 @@ name gets a default short name of just "gc".
 Workflow
 ========
 
-As a project Juju follows a specific workflow:
+As a project, Juju follows a specific workflow:
 
 1. sync with upstream
 2. create a local feature branch
@@ -213,12 +220,12 @@ As a project Juju follows a specific workflow:
 7. auto-merge
 8. continuous-integration
 
-Naturally it is not so linear in practice. Each of these is elaborated below.
+Naturally, it is not so linear in practice. Each of these is elaborated below.
 
 Sync with upstream
 ------------------
 
-First check that the branch is on develop:
+First check that the branch is on `develop`:
 
 ```bash
 git branch
@@ -237,7 +244,7 @@ Feature branches
 ----------------
 
 All development should be done on feature branches based on a current copy of
-develop. So after pulling up your local repo, make a new branch for your work:
+`develop`. So after pulling up your local repo, make a new branch for your work:
 
 ```bash
 git checkout -b new_feature
@@ -249,7 +256,7 @@ Testing
 Some tests may require local lxd to be installed, see
 [installing lxd via snap](https://stgraber.org/2016/10/17/lxd-snap-available/).  
 
-Juju uses the `gocheck` testing framework. `gocheck` is automatically installed
+Juju uses the `gocheck` testing framework, which is automatically installed
 as a dependency of `juju`. You can read more about `gocheck` at
 http://godoc.org/gopkg.in/check.v1. `gocheck` is integrated into the source of
 each package so the standard `go test` command is used to run `gocheck` tests.
@@ -299,12 +306,18 @@ go test github.com/juju/juju
 Testing and MongoDB
 -------------------
 
-Many tests use a standalone instance of mongod as part of their setup. The
-`mongod` binary found in `$PATH` is executed by these suites.
+Many tests use a standalone instance of `mongod` as part of their setup. The
+`mongod` binary found in `$PATH` is executed by these suites.  If you don't already have MongoDB installed, or have difficulty using your installed version to run Juju tests, you may want to install the [`juju-db` snap](https://snapcraft.io/juju-db), which is guaranteed to work with Juju.
 
-Some tests (particularly those under ./store/...) assume a MongoDB instance
+```bash
+sudo snap install juju-db
+sudo snap alias juju-db.mongod mongod
+sudo snap alias juju-db.mongo mongo
+```
+
+Some tests (particularly those under `./store/...`) assume a MongoDB instance
 that supports Javascript for map-reduce functions. These functions are not
-supported by juju-mongodb and the associated tests will fail unless disabled
+supported by `juju-mongodb` and the associated tests will fail unless disabled
 with an environment variable:
 
 ```bash
@@ -323,7 +336,7 @@ git push origin new_feature
 ```
 
 Go to the web page (https://github.com/$YOUR_GITHUB_USERNAME/juju) and hit the
-"Pull Request" button, selecting develop as the target.
+"Pull Request" button, selecting `develop` as the target.
 
 This creates a numbered pull request on the github site, where members of the
 Juju project can see and comment on the changes.

@@ -69,7 +69,7 @@ type History []DetailedStatus
 //
 type HistoryKind string
 
-// IMPORTANT DEV NOTE: when changing this HistoryKind list in anyway, these may need to be revised:
+// IMPORTANT DEV NOTE: when changing this HistoryKind list in any way, these may need to be revised:
 //
 // * HistoryKind.Valid()
 // * AllHistoryKind()
@@ -77,6 +77,10 @@ type HistoryKind string
 const (
 	// KindModel represents the model itself.
 	KindModel HistoryKind = "model"
+	// KindApplication represents an entry for an application.
+	KindApplication HistoryKind = "application"
+	// KindSAAS represents an entry for a saas application.
+	KindSAAS HistoryKind = "saas"
 	// KindUnit represents agent and workload combined.
 	KindUnit HistoryKind = "unit"
 	// KindUnitAgent represent a unit agent status history entry.
@@ -102,6 +106,7 @@ func (k HistoryKind) String() string {
 func (k HistoryKind) Valid() bool {
 	switch k {
 	case KindModel, KindUnit, KindUnitAgent, KindWorkload,
+		KindApplication, KindSAAS,
 		KindMachineInstance, KindMachine,
 		KindContainerInstance, KindContainer:
 		return true
@@ -113,6 +118,8 @@ func (k HistoryKind) Valid() bool {
 func AllHistoryKind() map[HistoryKind]string {
 	return map[HistoryKind]string{
 		KindModel:             "statuses for the model itself",
+		KindApplication:       "statuses for the specified application",
+		KindSAAS:              "statuses for the specified SAAS application",
 		KindUnit:              "statuses for specified unit and its workload",
 		KindUnitAgent:         "statuses from the agent that is managing a unit",
 		KindWorkload:          "statuses for unit's workload",

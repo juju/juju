@@ -27,8 +27,9 @@ type Info struct {
 	// It is only set when Kind indicates a relation hook.
 	RelationId int `yaml:"relation-id,omitempty"`
 
-	// RemoteUnit is the name of the unit that triggered the hook. It is only
-	// set when Kind indicates a relation hook other than relation-broken.
+	// RemoteUnit is the name of the unit that triggered the hook.
+	// It is only set when Kind indicates a relation hook other than
+	// relation-created or relation-broken.
 	RemoteUnit string `yaml:"remote-unit,omitempty"`
 
 	// RemoteApplication is always set if either an app or a unit triggers

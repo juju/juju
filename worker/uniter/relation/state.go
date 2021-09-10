@@ -1,7 +1,7 @@
 // Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// relation implements persistent local storage of a unit's relation state, and
+// Package relation implements persistent local storage of a unit's relation state, and
 // translation of relation changes into hooks that need to be run.
 package relation
 
@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
+	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/worker/uniter/hook"
@@ -98,10 +99,15 @@ func (s *State) Validate(hi hook.Info) (err error) {
 // It must be called after the respective hook was executed successfully.
 // UpdateStateForHook doesn't validate hi but guarantees that successive
 // changes of the same hi are idempotent.
-func (s *State) UpdateStateForHook(hi hook.Info) (err error) {
-	defer errors.DeferredAnnotatef(&err, "failed to write %q hook info for %q in state", hi.Kind, hi.RemoteUnit)
+func (s *State) UpdateStateForHook(hi hook.Info, logger Logger) {
+	if logger.IsTraceEnabled() {
+		defer func() {
+			logger.Tracef("updated relation state %# v\nfor hook %# v", pretty.Formatter(s), pretty.Formatter(hi))
+		}()
+	}
 	if hi.Kind == hooks.RelationBroken {
-		return errors.New("broken relation, remove")
+		// Nothing to do for relation-broken hooks.
+		return
 	}
 	isApp := hi.RemoteUnit == ""
 	// Get a copy of current state to modify, so we only update current
@@ -113,7 +119,7 @@ func (s *State) UpdateStateForHook(hi hook.Info) (err error) {
 		} else {
 			delete(s.Members, hi.RemoteUnit)
 		}
-		return nil
+		return
 	}
 	// Update own state.
 	if isApp {
@@ -126,7 +132,6 @@ func (s *State) UpdateStateForHook(hi hook.Info) (err error) {
 	} else {
 		s.ChangedPending = ""
 	}
-	return nil
 }
 
 func (s *State) YamlString() (string, error) {

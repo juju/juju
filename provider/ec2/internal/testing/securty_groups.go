@@ -48,6 +48,9 @@ func (srv *Server) CreateSecurityGroup(ctx context.Context, in *ec2.CreateSecuri
 func (srv *Server) DeleteSecurityGroup(ctx context.Context, in *ec2.DeleteSecurityGroupInput, opts ...func(*ec2.Options)) (*ec2.DeleteSecurityGroupOutput, error) {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
+	if in.GroupName != nil {
+		return nil, apiError("InvalidParameterValue", "group should only be accessed by id")
+	}
 	g := srv.group(types.GroupIdentifier{
 		GroupId:   in.GroupId,
 		GroupName: in.GroupName,
@@ -94,6 +97,9 @@ func (srv *Server) group(group types.GroupIdentifier) *securityGroup {
 func (srv *Server) AuthorizeSecurityGroupIngress(ctx context.Context, in *ec2.AuthorizeSecurityGroupIngressInput, opts ...func(*ec2.Options)) (*ec2.AuthorizeSecurityGroupIngressOutput, error) {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
+	if in.GroupName != nil {
+		return nil, apiError("InvalidParameterValue", "group should only be accessed by id")
+	}
 	g := srv.group(types.GroupIdentifier{
 		GroupId:   in.GroupId,
 		GroupName: in.GroupName,
@@ -121,6 +127,9 @@ func (srv *Server) AuthorizeSecurityGroupIngress(ctx context.Context, in *ec2.Au
 func (srv *Server) RevokeSecurityGroupIngress(ctx context.Context, in *ec2.RevokeSecurityGroupIngressInput, opts ...func(*ec2.Options)) (*ec2.RevokeSecurityGroupIngressOutput, error) {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
+	if in.GroupName != nil {
+		return nil, apiError("InvalidParameterValue", "group should only be accessed by id")
+	}
 	g := srv.group(types.GroupIdentifier{
 		GroupId:   in.GroupId,
 		GroupName: in.GroupName,

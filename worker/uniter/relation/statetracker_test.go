@@ -83,6 +83,7 @@ func (s *stateTrackerSuite) TestLoadInitialState(c *gc.C) {
 	s.expectStateMgrRelationFound(1)
 	s.expectRelationerJoin()
 	s.expectRelationSetStatusJoined()
+	s.expectUnitName()
 	s.expectUnitTag()
 	s.expectRelationUnit()
 	s.expectWatch(c)
@@ -127,6 +128,7 @@ func (s *stateTrackerSuite) TestLoadInitialStateInScopeSuspended(c *gc.C) {
 	s.expectStateMgrRelationFound(1)
 	s.expectRelation(relTag)
 	s.expectRelationID(1)
+	s.expectUnitName()
 	s.expectUnitTag()
 	s.expectRelationUnit()
 	s.expectWatch(c)
@@ -483,6 +485,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesJoinRelation(c *gc.C) {
 	s.expectRelationOtherApplication()
 
 	// Setup for joinRelation()
+	s.expectUnitName()
 	s.expectUnitTag()
 	s.expectWatch(c)
 	s.expectRelationerJoin()
@@ -513,9 +516,11 @@ func (s *syncScopesSuite) TestSynchronizeScopesJoinRelation(c *gc.C) {
 	c.Assert(rst.RemoteApplication(1), gc.Equals, "mysql")
 }
 
-func (s *syncScopesSuite) TestSynchronizeScopesFailImplementedBy(c *gc.C) {
-	// wordpress unit with mysql relation
-	s.setupCharmDir(c)
+func (s *syncScopesSuite) assertSynchronizeScopesFailImplementedBy(c *gc.C, createCharmDir bool) {
+	if createCharmDir {
+		// wordpress unit with mysql relation
+		s.setupCharmDir(c)
+	}
 	defer s.setupMocks(c).Finish()
 	// Setup for SynchronizeScopes()
 	s.expectRelationById(1)
@@ -527,7 +532,9 @@ func (s *syncScopesSuite) TestSynchronizeScopesFailImplementedBy(c *gc.C) {
 			Interface: "db",
 			Scope:     charm.ScopeGlobal,
 		}}
+	s.expectRelationOtherApplication()
 	s.expectRelationEndpoint(ep)
+	s.expectString()
 
 	rst := s.newSyncScopesStateTracker(c,
 		make(map[int]relation.Relationer),
@@ -550,6 +557,14 @@ func (s *syncScopesSuite) TestSynchronizeScopesFailImplementedBy(c *gc.C) {
 
 	err := rst.SynchronizeScopes(remoteState)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *syncScopesSuite) TestSynchronizeScopesFailImplementedBy(c *gc.C) {
+	s.assertSynchronizeScopesFailImplementedBy(c, true)
+}
+
+func (s *syncScopesSuite) TestSynchronizeScopesIgnoresMissingCharmDir(c *gc.C) {
+	s.assertSynchronizeScopesFailImplementedBy(c, false)
 }
 
 func (s *syncScopesSuite) TestSynchronizeScopesSeenNotDying(c *gc.C) {
@@ -689,6 +704,10 @@ func (s *syncScopesSuite) expectRelationById(id int) {
 //
 func (s *baseStateTrackerSuite) expectUnitTag() {
 	s.unit.EXPECT().Tag().Return(s.unitTag)
+}
+
+func (s *baseStateTrackerSuite) expectUnitName() {
+	s.unit.EXPECT().Name().Return(s.unitTag.Id())
 }
 
 func (s *baseStateTrackerSuite) expectUnitDestroy() {

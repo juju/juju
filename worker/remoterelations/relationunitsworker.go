@@ -69,7 +69,10 @@ func (w *relationUnitsWorker) Kill() {
 // Wait is defined on worker.Worker
 func (w *relationUnitsWorker) Wait() error {
 	err := w.catacomb.Wait()
-	if err != nil && !errors.IsNotFound(err) {
+	if errors.IsNotFound(err) || params.IsCodeNotFound(err) {
+		err = nil
+	}
+	if err != nil {
 		w.logger.Errorf("error in relation units worker for %v: %v", w.relationTag.Id(), err)
 	}
 	return err

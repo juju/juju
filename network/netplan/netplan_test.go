@@ -124,6 +124,23 @@ network:
 `)
 }
 
+func (s *NetplanSuite) TestStructuresWithOptionalOVSBlock(c *gc.C) {
+	checkNetplanRoundTrips(c, `
+network:
+  version: 2
+  renderer: NetworkManager
+  bridges:
+    br0:
+      interfaces: [wlp1s0, switchports]
+      dhcp4: false
+    ovs0:
+      interfaces: [patch0-1, eth0, bond0]
+      addresses:
+      - 10.5.48.11/20
+      openvswitch: {}
+`)
+}
+
 func (s *NetplanSuite) TestSerializationOfEthernetDevicesWithLinkLocalFields(c *gc.C) {
 	np := MustNetplanFromYaml(c, `
 network:
