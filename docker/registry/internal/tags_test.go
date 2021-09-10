@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package registry_test
+package internal_test
 
 import (
 	"io/ioutil"
@@ -13,7 +13,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/docker/registry"
+	"github.com/juju/juju/docker/registry/image"
 	"github.com/juju/juju/tools"
 )
 
@@ -43,9 +43,9 @@ func (s *baseSuite) TestTagsV1(c *gc.C) {
 	vers, err := reg.Tags("jujud-operator")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vers, jc.DeepEquals, tools.Versions{
-		registry.NewImageInfo(version.MustParse("2.9.10.1")),
-		registry.NewImageInfo(version.MustParse("2.9.10.2")),
-		registry.NewImageInfo(version.MustParse("2.9.10")),
+		image.NewImageInfo(version.MustParse("2.9.10.1")),
+		image.NewImageInfo(version.MustParse("2.9.10.2")),
+		image.NewImageInfo(version.MustParse("2.9.10")),
 	})
 }
 
@@ -75,9 +75,9 @@ func (s *baseSuite) TestTagsV2(c *gc.C) {
 	vers, err := reg.Tags("jujud-operator")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vers, jc.DeepEquals, tools.Versions{
-		registry.NewImageInfo(version.MustParse("2.9.10.1")),
-		registry.NewImageInfo(version.MustParse("2.9.10.2")),
-		registry.NewImageInfo(version.MustParse("2.9.10")),
+		image.NewImageInfo(version.MustParse("2.9.10.1")),
+		image.NewImageInfo(version.MustParse("2.9.10.2")),
+		image.NewImageInfo(version.MustParse("2.9.10")),
 	})
 }
 

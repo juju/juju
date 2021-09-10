@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package registry_test
+package internal_test
 
 import (
 	"encoding/base64"
@@ -16,7 +16,8 @@ import (
 
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
-	"github.com/juju/juju/docker/registry/mocks"
+	"github.com/juju/juju/docker/registry/internal"
+	"github.com/juju/juju/docker/registry/internal/mocks"
 )
 
 type baseSuite struct {
@@ -99,11 +100,11 @@ func (s *baseSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controller)
 			),
 		)
 	}
-	s.PatchValue(&registry.DefaultTransport, s.mockRoundTripper)
+	s.PatchValue(&internal.DefaultTransport, s.mockRoundTripper)
 
 	reg, err := registry.New(s.imageRepoDetails)
 	c.Assert(err, jc.ErrorIsNil)
-	_, ok := reg.(*registry.BaseClient)
+	_, ok := reg.(*internal.BaseClient)
 	c.Assert(ok, jc.IsTrue)
 	return reg, ctrl
 }
