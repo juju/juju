@@ -59,13 +59,21 @@ func (s *SecretUpdateSuite) TestUpdateSecret(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("secret-update"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"password", "secret", "--rotate", "1h"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
+		"password", "secret", "--rotate", "1h",
+		"--description", "sssshhhh",
+		"--tag", "foo=bar", "--tag", "hello=world",
+		"--pending",
+	})
 
 	c.Assert(code, gc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"data": "c2VjcmV0"})
 	args := &jujuc.UpsertArgs{
 		Value:          val,
-		RotateInterval: time.Hour,
+		RotateInterval: durationPtr(time.Hour),
+		Status:         statusPtr(coresecrets.StatusPending),
+		Description:    stringPtr("sssshhhh"),
+		Tags:           tagPtr(map[string]string{"foo": "bar", "hello": "world"}),
 	}
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"password", args}}})
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret://app.password\n")
@@ -82,8 +90,9 @@ func (s *SecretUpdateSuite) TestUpdateSecretBase64(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"token": "key="})
 	args := &jujuc.UpsertArgs{
-		Value:          val,
-		RotateInterval: -1,
+		Value:  val,
+		Status: statusPtr(coresecrets.StatusActive),
+		Tags:   tagPtr(nil),
 	}
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"apikey", args}}})
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret://app.apikey\n")
@@ -100,7 +109,9 @@ func (s *SecretUpdateSuite) TestUpdateSecretRotateInterval(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	args := &jujuc.UpsertArgs{
 		Value:          coresecrets.NewSecretValue(nil),
-		RotateInterval: 5 * time.Hour,
+		RotateInterval: durationPtr(5 * time.Hour),
+		Status:         statusPtr(coresecrets.StatusActive),
+		Tags:           tagPtr(nil),
 	}
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"apikey", args}}})
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret://app.apikey\n")

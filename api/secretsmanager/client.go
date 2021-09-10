@@ -38,14 +38,26 @@ func (c *Client) Create(cfg *secrets.SecretConfig, secretType secrets.SecretType
 
 	var results params.StringResults
 
+	arg := params.CreateSecretArg{
+		Type:   string(secretType),
+		Path:   cfg.Path,
+		Params: cfg.Params,
+		Data:   data,
+	}
+	if cfg.Status != nil {
+		arg.Status = string(*cfg.Status)
+	}
+	if cfg.RotateInterval != nil {
+		arg.RotateInterval = *cfg.RotateInterval
+	}
+	if cfg.Description != nil {
+		arg.Description = *cfg.Description
+	}
+	if cfg.Tags != nil {
+		arg.Tags = *cfg.Tags
+	}
 	if err := c.facade.FacadeCall("CreateSecrets", params.CreateSecretArgs{
-		Args: []params.CreateSecretArg{{
-			Type:           string(secretType),
-			Path:           cfg.Path,
-			RotateInterval: cfg.RotateInterval,
-			Params:         cfg.Params,
-			Data:           data,
-		}},
+		Args: []params.CreateSecretArg{arg},
 	}, &results); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -74,13 +86,20 @@ func (c *Client) Update(URL *secrets.URL, cfg *secrets.SecretConfig, value secre
 
 	var results params.StringResults
 
+	arg := params.UpdateSecretArg{
+		URL:            URL.ID(),
+		RotateInterval: cfg.RotateInterval,
+		Description:    cfg.Description,
+		Tags:           cfg.Tags,
+		Params:         cfg.Params,
+		Data:           data,
+	}
+	if cfg.Status != nil {
+		statusStr := string(*cfg.Status)
+		arg.Status = &statusStr
+	}
 	if err := c.facade.FacadeCall("UpdateSecrets", params.UpdateSecretArgs{
-		Args: []params.UpdateSecretArg{{
-			URL:            URL.ID(),
-			RotateInterval: cfg.RotateInterval,
-			Params:         cfg.Params,
-			Data:           data,
-		}},
+		Args: []params.UpdateSecretArg{arg},
 	}, &results); err != nil {
 		return "", errors.Trace(err)
 	}

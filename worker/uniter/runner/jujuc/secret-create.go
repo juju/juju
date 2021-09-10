@@ -22,6 +22,9 @@ type secretCreateCommand struct {
 	id             string
 	asBase64       bool
 	rotateInterval time.Duration
+	pending        bool
+	description    string
+	tags           map[string]string
 	data           map[string]string
 }
 
@@ -44,7 +47,10 @@ prior to being stored.
 Examples:
     secret-create apitoken 34ae35facd4
     secret-create --base64 password AA==
-    secret-create --rotate 5d password s3cret 
+    secret-create --rotate 24h password s3cret 
+    secret-create --tag foo=bar --tag hello=world \
+        --description "my database password" \
+        password s3cret 
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:    "secret-create",
@@ -58,7 +64,11 @@ Examples:
 func (c *secretCreateCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.asBase64, "base64", false,
 		`specify the supplied values are base64 encoded strings`)
+	f.BoolVar(&c.pending, "pending", false,
+		"specify whether the secret should be pending rather than active")
 	f.DurationVar(&c.rotateInterval, "rotate", 0, "how often the secret should be rotated")
+	f.StringVar(&c.description, "description", "", "the secret description")
+	f.Var(cmd.StringMap{&c.tags}, "tag", "tag to apply to the secret")
 }
 
 // Init implements cmd.Command.
@@ -82,10 +92,17 @@ func (c *secretCreateCommand) Init(args []string) error {
 // Run implements cmd.Command.
 func (c *secretCreateCommand) Run(ctx *cmd.Context) error {
 	value := secrets.NewSecretValue(c.data)
+	status := secrets.StatusActive
+	if c.pending {
+		status = secrets.StatusPending
+	}
 	id, err := c.ctx.CreateSecret(c.id, &UpsertArgs{
 		Type:           secrets.TypeBlob,
 		Value:          value,
-		RotateInterval: c.rotateInterval,
+		RotateInterval: &c.rotateInterval,
+		Status:         &status,
+		Description:    &c.description,
+		Tags:           &c.tags,
 	})
 	if err != nil {
 		return err

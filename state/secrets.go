@@ -13,7 +13,6 @@ import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
-	"github.com/juju/names/v4"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/secrets"
@@ -23,23 +22,37 @@ import (
 )
 
 // CreateSecretParams are used to create a secret.
-// TODO(wallyworld) - add tags and description etc
 type CreateSecretParams struct {
 	ProviderLabel  string
 	Version        int
-	Type           string
+	Type           secrets.SecretType
+	Owner          string
 	Path           string
 	RotateInterval time.Duration
+	Description    string
+	Status         secrets.SecretStatus
+	Tags           map[string]string
 	Params         map[string]interface{}
 	Data           secrets.SecretData
 }
 
 // UpdateSecretParams are used to update a secret.
-// TODO(wallyworld) - add tags and description etc
 type UpdateSecretParams struct {
-	RotateInterval time.Duration
+	RotateInterval *time.Duration
+	Description    *string
+	Status         *secrets.SecretStatus
+	Tags           *map[string]string
 	Params         map[string]interface{}
 	Data           secrets.SecretData
+}
+
+func (u *UpdateSecretParams) hasUpdate() bool {
+	return u.RotateInterval != nil ||
+		u.Description != nil ||
+		u.Status != nil ||
+		u.Tags != nil ||
+		len(u.Data) > 0 ||
+		len(u.Params) > 0
 }
 
 // TODO(wallyworld)
@@ -67,6 +80,7 @@ type secretMetadataDoc struct {
 	Owner          string            `bson:"owner"`
 	RotateInterval time.Duration     `bson:"rotate-interval"`
 	Description    string            `bson:"description"`
+	Status         string            `bson:"status"`
 	Tags           map[string]string `bson:"tags"`
 	ID             int               `bson:"id"`
 	Provider       string            `bson:"provider"`
@@ -111,16 +125,15 @@ func (s *secretsStore) secretMetadataDoc(baseURL *secrets.URL, p *CreateSecretPa
 	if interval < 0 {
 		interval = 0
 	}
-	// TODO(wallyworld) - pass in the owner explicitly; for now use the application name
-	owner := names.NewApplicationTag(strings.Split(p.Path, ".")[0])
 	md := &secretMetadataDoc{
 		DocID:          baseURL.String(),
 		Path:           p.Path,
 		Version:        p.Version,
-		Owner:          owner.String(),
+		Owner:          p.Owner,
 		RotateInterval: interval,
-		Description:    "",
-		Tags:           nil,
+		Status:         string(p.Status),
+		Description:    p.Description,
+		Tags:           p.Tags,
 		ID:             id,
 		Provider:       p.ProviderLabel,
 		ProviderID:     "",
@@ -132,8 +145,17 @@ func (s *secretsStore) secretMetadataDoc(baseURL *secrets.URL, p *CreateSecretPa
 }
 
 func (s *secretsStore) updateSecretMetadataDoc(doc *secretMetadataDoc, baseURL *secrets.URL, p *UpdateSecretParams) *secrets.URL {
-	if p.RotateInterval >= 0 {
-		doc.RotateInterval = p.RotateInterval
+	if p.RotateInterval != nil {
+		doc.RotateInterval = *p.RotateInterval
+	}
+	if p.Description != nil {
+		doc.Description = *p.Description
+	}
+	if p.Status != nil {
+		doc.Status = string(*p.Status)
+	}
+	if p.Tags != nil {
+		doc.Tags = *p.Tags
 	}
 	if len(p.Data) > 0 {
 		doc.Revision++
@@ -199,7 +221,7 @@ func (s *secretsStore) UpdateSecret(url *secrets.URL, p UpdateSecretParams) (*se
 	if url.Revision > 0 {
 		return nil, errors.New("cannot specify a revision when updating a secret")
 	}
-	if len(p.Data) == 0 && p.RotateInterval < 0 && len(p.Params) == 0 {
+	if !p.hasUpdate() {
 		return nil, errors.New("must specify a new value or metadata to update a secret")
 	}
 	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
@@ -235,8 +257,8 @@ func (s *secretsStore) UpdateSecret(url *secrets.URL, p UpdateSecretParams) (*se
 				Insert: *valueDoc,
 			})
 		}
-		if p.RotateInterval >= 0 {
-			rotateOps, err := s.secretRotationOps(metadataDoc.ID, url, metadataDoc.Owner, p.RotateInterval)
+		if p.RotateInterval != nil {
+			rotateOps, err := s.secretRotationOps(metadataDoc.ID, url, metadataDoc.Owner, *p.RotateInterval)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -261,6 +283,7 @@ func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc) (*secrets.Secret
 		Path:           doc.Path,
 		Version:        doc.Version,
 		RotateInterval: doc.RotateInterval,
+		Status:         secrets.SecretStatus(doc.Status),
 		Description:    doc.Description,
 		Tags:           doc.Tags,
 		ID:             doc.ID,
