@@ -4,6 +4,7 @@
 package internal
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -27,6 +28,54 @@ func (c *googleContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "gcr.io")
 }
 
+const (
+	googleContainerRegistryUserNameAccessToken = "oauth2accesstoken"
+	googleContainerRegistryUserNameJSONKey     = "_json_key"
+)
+
+var inValidGoogleContainerRegistryUserNameError = errors.NewNotValid(nil,
+	fmt.Sprintf("google container registry has to be either %q or %q",
+		googleContainerRegistryUserNameAccessToken, googleContainerRegistryUserNameJSONKey,
+	),
+)
+
+func validateGoogleContainerRegistryCredential(auth docker.BasicAuthConfig) error {
+	if auth.Username != "" &&
+		auth.Username != googleContainerRegistryUserNameAccessToken &&
+		auth.Username != googleContainerRegistryUserNameJSONKey {
+		return inValidGoogleContainerRegistryUserNameError
+	}
+	if auth.Auth != "" {
+		username, err := getUserNameFromAuth(auth.Auth)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if username != googleContainerRegistryUserNameAccessToken &&
+			username != googleContainerRegistryUserNameJSONKey {
+			return inValidGoogleContainerRegistryUserNameError
+		}
+	}
+
+	return nil
+}
+
 func (c *googleContainerRegistry) WrapTransport() error {
-	return errors.NotSupportedf("google container registry")
+	transport := c.client.Transport
+	if c.repoDetails.IsPrivate() {
+		if !c.repoDetails.BasicAuthConfig.Empty() {
+			if err := validateGoogleContainerRegistryCredential(c.repoDetails.BasicAuthConfig); err != nil {
+				return errors.Trace(err)
+			}
+			transport = newTokenTransport(
+				transport,
+				c.repoDetails.Username, c.repoDetails.Password, c.repoDetails.Auth, "",
+			)
+		}
+		if !c.repoDetails.TokenAuthConfig.Empty() {
+			return errors.New("google container registry only supports username and password or auth token")
+		}
+	}
+	// TODO(ycliuhw): support gcr public registry.
+	c.client.Transport = newErrorTransport(transport)
+	return nil
 }

@@ -30,7 +30,7 @@ func (c *azureContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "azurecr.io")
 }
 
-func getUserNameFromAuthForACR(auth string) (string, error) {
+func getUserNameFromAuth(auth string) (string, error) {
 	content, err := base64.StdEncoding.DecodeString(auth)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -48,7 +48,7 @@ func (c *azureContainerRegistry) WrapTransport() error {
 		username := c.repoDetails.Username
 		if username == "" {
 			var err error
-			username, err = getUserNameFromAuthForACR(c.repoDetails.Auth)
+			username, err = getUserNameFromAuth(c.repoDetails.Auth)
 			if err != nil {
 				return errors.Trace(err)
 			}
