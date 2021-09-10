@@ -29,6 +29,7 @@ type SecretsManagerAPI struct {
 	secretsService secrets.SecretsService
 	resources      facade.Resources
 	secretsWatcher SecretsWatcher
+	authOwner      names.Tag
 }
 
 // NewSecretManagerAPI creates a SecretsManagerAPI.
@@ -36,6 +37,9 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 	if !context.Auth().AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
+	unitOwner := context.Auth().GetAuthTag().(names.UnitTag)
+	owner, _ := names.UnitApplication(unitOwner.Id())
+
 	// For now we just support the Juju secrets provider.
 	service, err := provider.NewSecretProvider(juju.Provider, secrets.ProviderConfig{
 		juju.ParamBackend: context.State(),
@@ -44,6 +48,7 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		return nil, errors.Annotate(err, "creating juju secrets service")
 	}
 	return &SecretsManagerAPI{
+		authOwner:      names.NewApplicationTag(owner),
 		controllerUUID: context.State().ControllerUUID(),
 		modelUUID:      context.State().ModelUUID(),
 		secretsService: service,
@@ -71,24 +76,31 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 	if arg.RotateInterval < 0 {
 		return "", errors.NotValidf("rotate interval %q", arg.RotateInterval)
 	}
+	if !coresecrets.SecretStatus(arg.Status).IsValid() {
+		return "", errors.NotValidf("secret status %q", arg.Status)
+	}
 	if len(arg.Data) == 0 {
 		return "", errors.NotValidf("empty secret value")
 	}
-	URL := coresecrets.NewSimpleURL(secrets.Version, arg.Path)
+	URL := coresecrets.NewSimpleURL(arg.Path)
 	URL.ControllerUUID = s.controllerUUID
 	URL.ModelUUID = s.modelUUID
 	md, err := s.secretsService.CreateSecret(ctx, URL, secrets.CreateParams{
-		Type:           arg.Type,
+		Type:           coresecrets.SecretType(arg.Type),
 		Version:        secrets.Version,
+		Owner:          s.authOwner.String(),
 		Path:           arg.Path,
 		RotateInterval: arg.RotateInterval,
+		Status:         coresecrets.SecretStatus(arg.Status),
+		Description:    arg.Description,
+		Tags:           arg.Tags,
 		Params:         arg.Params,
 		Data:           arg.Data,
 	})
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return md.URL.String(), nil
+	return md.URL.ShortString(), nil
 }
 
 // UpdateSecrets updates the specified secrets.
@@ -103,6 +115,14 @@ func (s *SecretsManagerAPI) UpdateSecrets(args params.UpdateSecretArgs) (params.
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
+}
+
+func secretStatusPtr(in *string) *coresecrets.SecretStatus {
+	if in == nil {
+		return nil
+	}
+	s := coresecrets.SecretStatus(*in)
+	return &s
 }
 
 func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateSecretArg) (string, error) {
@@ -122,20 +142,30 @@ func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateS
 	if URL.ModelUUID != "" && URL.ModelUUID != s.modelUUID {
 		return "", errors.NotValidf("secret URL with model UUID %q", URL.ModelUUID)
 	}
-	if arg.RotateInterval < 0 && len(arg.Data) == 0 {
-		return "", errors.New("either rotate interval or data must be specified")
+	if arg.RotateInterval == nil && arg.Description == nil && arg.Status == nil &&
+		arg.Tags == nil && len(arg.Params) == 0 && len(arg.Data) == 0 {
+		return "", errors.New("at least one attribute to update must be specified")
+	}
+	if arg.RotateInterval != nil && *arg.RotateInterval < 0 {
+		return "", errors.NotValidf("rotate interval %v", *arg.RotateInterval)
+	}
+	if arg.Status != nil && !coresecrets.SecretStatus(*arg.Status).IsValid() {
+		return "", errors.NotValidf("secret status %q", arg.Status)
 	}
 	URL.ControllerUUID = s.controllerUUID
 	URL.ModelUUID = s.modelUUID
 	md, err := s.secretsService.UpdateSecret(ctx, URL, secrets.UpdateParams{
 		RotateInterval: arg.RotateInterval,
+		Status:         secretStatusPtr(arg.Status),
+		Description:    arg.Description,
+		Tags:           arg.Tags,
 		Params:         arg.Params,
 		Data:           arg.Data,
 	})
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return md.URL.WithRevision(md.Revision).String(), nil
+	return md.URL.WithRevision(md.Revision).ShortString(), nil
 }
 
 // GetSecretValues returns the secret values for the specified secrets.

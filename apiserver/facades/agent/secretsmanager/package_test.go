@@ -6,6 +6,7 @@ package secretsmanager
 import (
 	"testing"
 
+	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -35,6 +36,7 @@ func NewTestAPI(
 	}
 
 	return &SecretsManagerAPI{
+		authOwner:      names.NewApplicationTag("app"),
 		controllerUUID: coretesting.ControllerTag.Id(),
 		modelUUID:      coretesting.ModelTag.Id(),
 		resources:      resources,

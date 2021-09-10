@@ -41,8 +41,12 @@ func (s secretsService) CreateSecret(ctx context.Context, URL *coresecrets.URL, 
 		ProviderLabel:  Provider,
 		Version:        p.Version,
 		Type:           p.Type,
+		Owner:          p.Owner,
 		Path:           p.Path,
 		RotateInterval: p.RotateInterval,
+		Description:    p.Description,
+		Status:         p.Status,
+		Tags:           p.Tags,
 		Params:         p.Params,
 		Data:           p.Data,
 	})
@@ -79,6 +83,9 @@ func (s secretsService) ListSecrets(ctx context.Context, filter secrets.Filter) 
 func (s secretsService) UpdateSecret(ctx context.Context, URL *coresecrets.URL, p secrets.UpdateParams) (*coresecrets.SecretMetadata, error) {
 	metadata, err := s.backend.UpdateSecret(URL, state.UpdateSecretParams{
 		RotateInterval: p.RotateInterval,
+		Description:    p.Description,
+		Status:         p.Status,
+		Tags:           p.Tags,
 		Params:         p.Params,
 		Data:           p.Data,
 	})

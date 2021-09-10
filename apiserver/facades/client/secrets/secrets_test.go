@@ -72,16 +72,16 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 
 	now := time.Now()
 	URL := &coresecrets.URL{
-		Version:        "v1",
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
-		Path:           "app.password",
+		Path:           "app/password",
 	}
 	metadata := []*coresecrets.SecretMetadata{{
 		URL:            URL,
-		Path:           "app.password",
+		Path:           "app/password",
 		RotateInterval: time.Hour,
 		Version:        1,
+		Status:         coresecrets.StatusActive,
 		Description:    "shhh",
 		Tags:           map[string]string{"foo": "bar"},
 		ID:             666,
@@ -110,9 +110,10 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
 			URL:            URL.String(),
-			Path:           "app.password",
+			Path:           "app/password",
 			RotateInterval: time.Hour,
 			Version:        1,
+			Status:         "active",
 			Description:    "shhh",
 			Tags:           map[string]string{"foo": "bar"},
 			ID:             666,

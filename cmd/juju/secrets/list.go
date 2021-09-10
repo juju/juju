@@ -93,20 +93,21 @@ type secretValueDetails struct {
 }
 
 type secretDisplayDetails struct {
-	ID             int                 `json:"ID" yaml:"ID"`
-	URL            string              `json:"URL" yaml:"URL"`
-	Revision       int                 `json:"revision" yaml:"revision"`
-	Path           string              `json:"path" yaml:"path"`
-	RotateInterval time.Duration       `json:"rotate-interval,omitempty" yaml:"rotate-interval,omitempty"`
-	Version        int                 `json:"version" yaml:"version"`
-	Description    string              `json:"description,omitempty" yaml:"description,omitempty"`
-	Tags           map[string]string   `json:"tags,omitempty" yaml:"tags,omitempty"`
-	Provider       string              `json:"backend" yaml:"backend"`
-	ProviderID     string              `json:"backend-id,omitempty" yaml:"backend-id,omitempty"`
-	CreateTime     time.Time           `json:"create-time" yaml:"create-time"`
-	UpdateTime     time.Time           `json:"update-time" yaml:"update-time"`
-	Error          string              `json:"error,omitempty" yaml:"error,omitempty"`
-	Value          *secretValueDetails `json:"value,omitempty" yaml:"value,omitempty"`
+	ID             int                  `json:"ID" yaml:"ID"`
+	URL            string               `json:"URL" yaml:"URL"`
+	Revision       int                  `json:"revision" yaml:"revision"`
+	Path           string               `json:"path" yaml:"path"`
+	Status         secrets.SecretStatus `json:"status" yaml:"status"`
+	RotateInterval time.Duration        `json:"rotate-interval,omitempty" yaml:"rotate-interval,omitempty"`
+	Version        int                  `json:"version" yaml:"version"`
+	Description    string               `json:"description,omitempty" yaml:"description,omitempty"`
+	Tags           map[string]string    `json:"tags,omitempty" yaml:"tags,omitempty"`
+	Provider       string               `json:"backend" yaml:"backend"`
+	ProviderID     string               `json:"backend-id,omitempty" yaml:"backend-id,omitempty"`
+	CreateTime     time.Time            `json:"create-time" yaml:"create-time"`
+	UpdateTime     time.Time            `json:"update-time" yaml:"update-time"`
+	Error          string               `json:"error,omitempty" yaml:"error,omitempty"`
+	Value          *secretValueDetails  `json:"value,omitempty" yaml:"value,omitempty"`
 }
 
 // Run implements cmd.Run.
@@ -133,6 +134,7 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 			Path:           m.Metadata.Path,
 			RotateInterval: m.Metadata.RotateInterval,
 			Version:        m.Metadata.Version,
+			Status:         m.Metadata.Status,
 			Description:    m.Metadata.Description,
 			Tags:           m.Metadata.Tags,
 			ID:             m.Metadata.ID,

@@ -19,19 +19,17 @@ func (s *SecretConfigSuite) TestNewSecretConfig(c *gc.C) {
 	err := cfg.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals, &secrets.SecretConfig{
-		Path:           "app.catalog",
-		RotateInterval: 0,
-		Params:         nil,
+		Path:   "app/catalog",
+		Params: nil,
 	})
 }
 
 func (s *SecretConfigSuite) TestNewPasswordSecretConfig(c *gc.C) {
-	cfg := secrets.NewPasswordSecretConfig(10, true, "app", "password")
+	cfg := secrets.NewPasswordSecretConfig(10, true, "app", "mariadb", "password")
 	err := cfg.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals, &secrets.SecretConfig{
-		Path:           "app.password",
-		RotateInterval: 0,
+		Path: "app/mariadb/password",
 		Params: map[string]interface{}{
 			"password-length":        10,
 			"password-special-chars": true,
@@ -78,65 +76,58 @@ func (s *SecretURLSuite) TestParseURL(c *gc.C) {
 			str: "secret://a.b#",
 			err: `secret URL "secret://a.b#" not valid`,
 		}, {
-			str: "secret://app.password?revision=xxx",
-			err: `secret URL "secret://app.password\?revision=xxx" not valid`,
+			str: "secret://app/mariadb/password?revision=xxx",
+			err: `secret revision "xxx" not valid`,
 		}, {
-			str:      "secret://v1/app.password",
-			shortStr: "secret://v1/app.password",
+			str:      "secret://app/mariadb/password",
+			shortStr: "secret://app/mariadb/password",
 			expected: &secrets.URL{
-				Version: "v1",
-				Path:    "app.password",
+				Path: "app/mariadb/password",
 			},
 		}, {
-			str:      "secret://v1/app.password?revision=666",
-			shortStr: "secret://v1/app.password?revision=666",
+			str:      "secret://app/mariadb/password?revision=666",
+			shortStr: "secret://app/mariadb/password?revision=666",
 			expected: &secrets.URL{
-				Version:  "v1",
-				Path:     "app.password",
+				Path:     "app/mariadb/password",
 				Revision: 666,
 			},
 		}, {
-			str:      "secret://v1/app.password#attr",
-			shortStr: "secret://v1/app.password#attr",
+			str:      "secret://app/mariadb/password#attr",
+			shortStr: "secret://app/mariadb/password#attr",
 			expected: &secrets.URL{
-				Version:   "v1",
-				Path:      "app.password",
+				Path:      "app/mariadb/password",
 				Attribute: "attr",
 			},
 		}, {
-			str:      "secret://v1/app.password?revision=666#attr",
-			shortStr: "secret://v1/app.password?revision=666#attr",
+			str:      "secret://app/mariadb/password?revision=666#attr",
+			shortStr: "secret://app/mariadb/password?revision=666#attr",
 			expected: &secrets.URL{
-				Version:   "v1",
-				Path:      "app.password",
+				Path:      "app/mariadb/password",
 				Attribute: "attr",
 				Revision:  666,
 			},
 		}, {
-			str:      "secret://v1/" + controllerUUID + "/app.password",
-			shortStr: "secret://v1/app.password",
+			str:      "secret://" + controllerUUID + "/app/mariadb/password",
+			shortStr: "secret://app/mariadb/password",
 			expected: &secrets.URL{
-				Version:        "v1",
 				ControllerUUID: controllerUUID,
-				Path:           "app.password",
+				Path:           "app/mariadb/password",
 			},
 		}, {
-			str:      "secret://v1/" + controllerUUID + "/" + modelUUID + "/app.password",
-			shortStr: "secret://v1/app.password",
+			str:      "secret://" + controllerUUID + "/" + modelUUID + "/app/mariadb/password",
+			shortStr: "secret://app/mariadb/password",
 			expected: &secrets.URL{
-				Version:        "v1",
 				ControllerUUID: controllerUUID,
 				ModelUUID:      modelUUID,
-				Path:           "app.password",
+				Path:           "app/mariadb/password",
 			},
 		}, {
-			str:      "secret://v1/" + controllerUUID + "/" + modelUUID + "/app.password#attr",
-			shortStr: "secret://v1/app.password#attr",
+			str:      "secret://" + controllerUUID + "/" + modelUUID + "/app/mariadb/password#attr",
+			shortStr: "secret://app/mariadb/password#attr",
 			expected: &secrets.URL{
-				Version:        "v1",
 				ControllerUUID: controllerUUID,
 				ModelUUID:      modelUUID,
-				Path:           "app.password",
+				Path:           "app/mariadb/password",
 				Attribute:      "attr",
 			},
 		},
@@ -154,14 +145,13 @@ func (s *SecretURLSuite) TestParseURL(c *gc.C) {
 
 func (s *SecretURLSuite) TestString(c *gc.C) {
 	expected := &secrets.URL{
-		Version:        "v1",
 		ControllerUUID: controllerUUID,
 		ModelUUID:      modelUUID,
-		Path:           "app.password",
+		Path:           "app/mariadb/password",
 		Attribute:      "attr",
 	}
 	str := expected.String()
-	c.Assert(str, gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password#attr")
+	c.Assert(str, gc.Equals, "secret://"+controllerUUID+"/"+modelUUID+"/app/mariadb/password#attr")
 	url, err := secrets.ParseURL(str)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url, jc.DeepEquals, expected)
@@ -169,29 +159,27 @@ func (s *SecretURLSuite) TestString(c *gc.C) {
 
 func (s *SecretURLSuite) TestStringWithRevision(c *gc.C) {
 	URL := &secrets.URL{
-		Version:        "v1",
 		ControllerUUID: controllerUUID,
 		ModelUUID:      modelUUID,
-		Path:           "app.password",
+		Path:           "app/mariadb/password",
 		Attribute:      "attr",
 	}
 	str := URL.String()
-	c.Assert(str, gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password#attr")
+	c.Assert(str, gc.Equals, "secret://"+controllerUUID+"/"+modelUUID+"/app/mariadb/password#attr")
 	URL.Revision = 1
 	str = URL.String()
-	c.Assert(str, gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password?revision=1#attr")
+	c.Assert(str, gc.Equals, "secret://"+controllerUUID+"/"+modelUUID+"/app/mariadb/password?revision=1#attr")
 }
 
 func (s *SecretURLSuite) TestShortString(c *gc.C) {
 	expected := &secrets.URL{
-		Version:        "v1",
 		ControllerUUID: controllerUUID,
 		ModelUUID:      modelUUID,
-		Path:           "app.password",
+		Path:           "app/mariadb/password",
 		Attribute:      "attr",
 	}
 	str := expected.ShortString()
-	c.Assert(str, gc.Equals, "secret://v1/app.password#attr")
+	c.Assert(str, gc.Equals, "secret://app/mariadb/password#attr")
 	url, err := secrets.ParseURL(str)
 	c.Assert(err, jc.ErrorIsNil)
 	expected.ControllerUUID = ""
@@ -201,39 +189,36 @@ func (s *SecretURLSuite) TestShortString(c *gc.C) {
 
 func (s *SecretURLSuite) TestID(c *gc.C) {
 	expected := &secrets.URL{
-		Version:        "v1",
 		ControllerUUID: controllerUUID,
 		ModelUUID:      modelUUID,
-		Path:           "app.password",
+		Path:           "app/mariadb/password",
 		Attribute:      "attr",
 	}
-	c.Assert(expected.ID(), gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password")
+	c.Assert(expected.ID(), gc.Equals, "secret://"+controllerUUID+"/"+modelUUID+"/app/mariadb/password")
 }
 
 func (s *SecretURLSuite) TestWithRevision(c *gc.C) {
 	expected := &secrets.URL{
-		Version:        "v1",
 		ControllerUUID: controllerUUID,
 		ModelUUID:      modelUUID,
-		Path:           "app.password",
+		Path:           "app/mariadb/password",
 		Attribute:      "attr",
 	}
 	expected = expected.WithRevision(666)
-	c.Assert(expected.String(), gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password?revision=666#attr")
+	c.Assert(expected.String(), gc.Equals, "secret://"+controllerUUID+"/"+modelUUID+"/app/mariadb/password?revision=666#attr")
 }
 
 func (s *SecretURLSuite) TestWithAttribute(c *gc.C) {
 	expected := &secrets.URL{
-		Version:        "v1",
 		ControllerUUID: controllerUUID,
 		ModelUUID:      modelUUID,
-		Path:           "app.password",
+		Path:           "app/mariadb/password",
 	}
 	expected = expected.WithAttribute("attr")
-	c.Assert(expected.String(), gc.Equals, "secret://v1/"+controllerUUID+"/"+modelUUID+"/app.password#attr")
+	c.Assert(expected.String(), gc.Equals, "secret://"+controllerUUID+"/"+modelUUID+"/app/mariadb/password#attr")
 }
 
 func (s *SecretURLSuite) TestNewSimpleURL(c *gc.C) {
-	URL := secrets.NewSimpleURL(1, "app.password")
-	c.Assert(URL.String(), gc.Equals, "secret://v1/app.password")
+	URL := secrets.NewSimpleURL("app/mariadb/password")
+	c.Assert(URL.String(), gc.Equals, "secret://app/mariadb/password")
 }

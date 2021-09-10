@@ -39881,6 +39881,9 @@
                         "rotate-interval": {
                             "type": "integer"
                         },
+                        "status": {
+                            "type": "string"
+                        },
                         "tags": {
                             "type": "object",
                             "patternProperties": {
@@ -39909,6 +39912,7 @@
                         "path",
                         "version",
                         "rotate-interval",
+                        "status",
                         "int",
                         "provider",
                         "revision",
@@ -40034,6 +40038,9 @@
                                 }
                             }
                         },
+                        "description": {
+                            "type": "string"
+                        },
                         "params": {
                             "type": "object",
                             "patternProperties": {
@@ -40049,6 +40056,17 @@
                         "rotate-interval": {
                             "type": "integer"
                         },
+                        "status": {
+                            "type": "string"
+                        },
+                        "tags": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
                         "type": {
                             "type": "string"
                         }
@@ -40057,7 +40075,8 @@
                     "required": [
                         "type",
                         "path",
-                        "rotate-interval"
+                        "rotate-interval",
+                        "status"
                     ]
                 },
                 "CreateSecretArgs": {
@@ -40289,6 +40308,9 @@
                                 }
                             }
                         },
+                        "description": {
+                            "type": "string"
+                        },
                         "params": {
                             "type": "object",
                             "patternProperties": {
@@ -40301,6 +40323,17 @@
                         "rotate-interval": {
                             "type": "integer"
                         },
+                        "status": {
+                            "type": "string"
+                        },
+                        "tags": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
                         "url": {
                             "type": "string"
                         }
@@ -40308,7 +40341,8 @@
                     "additionalProperties": false,
                     "required": [
                         "url",
-                        "rotate-interval"
+                        "rotate-interval",
+                        "status"
                     ]
                 },
                 "UpdateSecretArgs": {
