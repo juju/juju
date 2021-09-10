@@ -468,10 +468,8 @@ const errIPV6NotSupported = `socket: address family not supported by protocol`
 
 // DevicesFromInterfaceInfo uses the input interface info collection to create
 // a map of network device configuration in the LXD format. Names for any
-// networks without a known CIDR are returned in a slice. The machineID arg is
-// used for generating predictable host interface names for the container's
-// ethernet devices.
-func DevicesFromInterfaceInfo(interfaces corenetwork.InterfaceInfos, machineID string) (map[string]device, []string, error) {
+// networks without a known CIDR are returned in a slice.
+func DevicesFromInterfaceInfo(interfaces corenetwork.InterfaceInfos) (map[string]device, []string, error) {
 	nics := make(map[string]device, len(interfaces))
 	var unknown []string
 	for _, v := range interfaces {
@@ -499,8 +497,6 @@ func DevicesFromInterfaceInfo(interfaces corenetwork.InterfaceInfos, machineID s
 // This will involve interrogating the parent device, via the server if it is
 // LXD managed, or via the container.NetworkConfig.DeviceType that this is
 // being generated from.
-// It's important to note, that the host interface will be assigned a random
-// unique value by LXD (https://bugs.launchpad.net/juju/+bug/1932180/comments/5).
 func newNICDevice(deviceName, parentDevice, hwAddr string, mtu int) device {
 	device := map[string]string{
 		"type":    "nic",

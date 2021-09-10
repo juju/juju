@@ -355,7 +355,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *gc.C
 	s.makeManager(c)
 	result, _, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{
 		Interfaces: interfaces,
-	}, "0/lxd/0")
+	})
 
 	c.Assert(err, gc.ErrorMatches, "parent interface name is empty")
 	c.Assert(result, gc.IsNil)
@@ -388,7 +388,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
 	result, unknown, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{
 		Device:     "lxdbr0",
 		Interfaces: interfaces,
-	}, "1/lxd/2")
+	})
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, expected)
@@ -411,7 +411,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfig(c *gc.C) {
 	s.makeManager(c)
 	result, unknown, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{
 		Device: "lxdbr0",
-	}, "1/lxd/2")
+	})
 
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure the resulting hw address isn't empty, but because it's random
@@ -437,7 +437,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigUnknownCIDR(c *gc.C) {
 	_, unknown, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{
 		Device:     "lxdbr0",
 		Interfaces: interfaces,
-	}, "1/lxd/2")
+	})
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(unknown, gc.DeepEquals, []string{"br-eth0"})
@@ -450,7 +450,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigNoInputGetsProfileNICs(c *gc.
 	s.cSvr.EXPECT().GetProfile("default").Return(defaultLegacyProfileWithNIC(), lxdtesting.ETag, nil)
 
 	s.makeManager(c)
-	result, _, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{}, "1/lxd/2")
+	result, _, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := map[string]map[string]string{
