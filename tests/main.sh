@@ -53,6 +53,7 @@ TEST_NAMES="agents \
             manual \
             model \
             network \
+            ovs_maas \
             relations \
             resources \
             smoke \
