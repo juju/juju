@@ -94,7 +94,7 @@ func (c *baseClient) WrapTransport() error {
 	if c.repoDetails.IsPrivate() {
 		if !c.repoDetails.BasicAuthConfig.Empty() {
 			transport = newTokenTransport(
-				transport, c.repoDetails.Username, c.repoDetails.Password, c.repoDetails.Auth, "",
+				transport, c.repoDetails.Username, c.repoDetails.Password, c.repoDetails.Auth, "", false,
 			)
 		}
 		if !c.repoDetails.TokenAuthConfig.Empty() {

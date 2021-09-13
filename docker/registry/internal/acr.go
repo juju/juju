@@ -60,7 +60,7 @@ func (c *azureContainerRegistry) WrapTransport() error {
 		transport = newTokenTransport(
 			transport,
 			username, password,
-			"", "",
+			"", "", false,
 		)
 	}
 	c.client.Transport = newErrorTransport(transport)

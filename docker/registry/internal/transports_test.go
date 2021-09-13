@@ -116,7 +116,7 @@ func (s *transportSuite) TestTokenTransportOAuthTokenProvided(c *gc.C) {
 			},
 		),
 	)
-	t := internal.NewTokenTransport(mockRoundTripper, "", "", "", "OAuth-jwt-token")
+	t := internal.NewTokenTransport(mockRoundTripper, "", "", "", "OAuth-jwt-token", false)
 	_, err = t.RoundTrip(&http.Request{
 		Header: http.Header{},
 		URL:    url,
@@ -171,7 +171,7 @@ func (s *transportSuite) TestTokenTransportTokenRefresh(c *gc.C) {
 			},
 		),
 	)
-	t := internal.NewTokenTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==", "")
+	t := internal.NewTokenTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==", "", false)
 	_, err = t.RoundTrip(&http.Request{
 		Header: http.Header{},
 		URL:    url,
@@ -205,7 +205,7 @@ func (s *transportSuite) TestTokenTransportTokenRefreshFailedRealmMissing(c *gc.
 			},
 		),
 	)
-	t := internal.NewTokenTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==", "")
+	t := internal.NewTokenTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==", "", false)
 	_, err = t.RoundTrip(&http.Request{
 		Header: http.Header{},
 		URL:    url,
@@ -239,7 +239,7 @@ func (s *transportSuite) TestTokenTransportTokenRefreshFailedServiceMissing(c *g
 			},
 		),
 	)
-	t := internal.NewTokenTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==", "")
+	t := internal.NewTokenTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==", "", false)
 	_, err = t.RoundTrip(&http.Request{
 		Header: http.Header{},
 		URL:    url,

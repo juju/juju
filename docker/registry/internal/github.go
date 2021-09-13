@@ -53,7 +53,7 @@ func (c *githubContainerRegistry) WrapTransport() error {
 				return errors.Trace(err)
 			}
 			transport = newTokenTransport(
-				transport, "", "", "", bearerToken,
+				transport, "", "", "", bearerToken, true,
 			)
 		}
 		if !c.repoDetails.TokenAuthConfig.Empty() {
