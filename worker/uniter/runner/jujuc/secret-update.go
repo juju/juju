@@ -22,6 +22,9 @@ type secretUpdateCommand struct {
 	id             string
 	asBase64       bool
 	rotateInterval time.Duration
+	pending        bool
+	description    string
+	tags           map[string]string
 	data           map[string]string
 }
 
@@ -42,8 +45,11 @@ To just update the rotate interval, do not specify any secret value.
 Examples:
     secret-update apitoken 34ae35facd4
     secret-update --base64 password AA==
-    secret-update --rotate 5d password s3cret
-    secret-update --rotate 10d password
+    secret-update --rotate 24h password s3cret
+    secret-update --rotate 48h password
+    secret-update --tag foo=bar --tag hello=world \
+        --description "my database password"
+    secret-update --tag foo=baz new-s3cret 
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:    "secret-update",
@@ -57,7 +63,11 @@ Examples:
 func (c *secretUpdateCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.asBase64, "base64", false,
 		`specify the supplied values are base64 encoded strings`)
+	f.BoolVar(&c.pending, "pending", false,
+		"specify whether the secret should be pending rather than active")
 	f.DurationVar(&c.rotateInterval, "rotate", -1, "how often the secret should be rotated")
+	f.StringVar(&c.description, "description", "", "the secret description")
+	f.Var(cmd.StringMap{&c.tags}, "tag", "tag to apply to the secret")
 }
 
 // Init implements cmd.Command.
@@ -80,10 +90,22 @@ func (c *secretUpdateCommand) Init(args []string) error {
 // Run implements cmd.Command.
 func (c *secretUpdateCommand) Run(ctx *cmd.Context) error {
 	value := secrets.NewSecretValue(c.data)
-	id, err := c.ctx.UpdateSecret(c.id, &UpsertArgs{
-		Value:          value,
-		RotateInterval: c.rotateInterval,
-	})
+	status := secrets.StatusActive
+	if c.pending {
+		status = secrets.StatusPending
+	}
+	args := UpsertArgs{
+		Value:  value,
+		Status: &status,
+		Tags:   &c.tags,
+	}
+	if c.rotateInterval >= 0 {
+		args.RotateInterval = &c.rotateInterval
+	}
+	if c.description != "" {
+		args.Description = &c.description
+	}
+	id, err := c.ctx.UpdateSecret(c.id, &args)
 	if err != nil {
 		return err
 	}

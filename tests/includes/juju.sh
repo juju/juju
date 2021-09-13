@@ -61,7 +61,7 @@ bootstrap() {
 	"localhost" | "lxd")
 		cloud="lxd"
 		;;
-	"lxd-remote" | "vsphere" | "openstack" | "k8s")
+	"lxd-remote" | "vsphere" | "openstack" | "k8s" | "maas")
 		cloud="${BOOTSTRAP_CLOUD}"
 		;;
 	"manual")
@@ -243,14 +243,14 @@ juju_bootstrap() {
 # and shouldn't be used by any of the tests directly.
 pre_bootstrap() {
 	# ensure BOOTSTRAP_ADDITIONAL_ARGS is defined, even if not necessary.
-	export BOOTSTRAP_ADDITIONAL_ARGS=""
+	export BOOTSTRAP_ADDITIONAL_ARGS=${BOOTSTRAP_ADDITIONAL_ARGS:-}
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"vsphere")
 		echo "====> Creating image simplestream metadata for juju ($(green "${version}:${cloud}"))"
 
 		image_streams_dir=${TEST_DIR}/image-streams
 		setup_vsphere_simplestreams "${image_streams_dir}" "${BOOTSTRAP_SERIES}"
-		export BOOTSTRAP_ADDITIONAL_ARGS="--metadata-source ${image_streams_dir}"
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS} --metadata-source ${image_streams_dir}"
 		;;
 	esac
 }

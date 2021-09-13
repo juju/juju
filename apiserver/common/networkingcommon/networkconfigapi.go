@@ -91,33 +91,41 @@ func (api *NetworkConfigAPI) SetObservedNetworkConfig(args params.SetMachineNetw
 	return errors.Trace(api.st.ApplyOperation(api.getModelOp(m, devs)))
 }
 
-// fixUpFanSubnets takes network config and updates
-// Fan subnets with proper CIDR.
-// See network/fan.go for more detail on how Fan overlays
-// are divided into segments.
+// fixUpFanSubnets takes network config and updates any addresses in Fan
+// networks with the CIDR of the zone-specific segments. We need to do this
+// because they are detected on-machine as being in the /8 overlay subnet,
+// which is a superset of the zone segments.
+// See core/network/fan.go for more detail on how Fan overlays are divided
+// into segments.
 func (api *NetworkConfigAPI) fixUpFanSubnets(networkConfig []params.NetworkConfig) ([]params.NetworkConfig, error) {
 	subnets, err := api.st.AllSubnetInfos()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var fanSubnets network.SubnetInfos
+	fanSubnets := make(map[string]*net.IPNet)
 	for _, subnet := range subnets {
 		if subnet.FanOverlay() != "" {
-			fanSubnets = append(fanSubnets, subnet)
-		}
-	}
-	for i := range networkConfig {
-		localIP := net.ParseIP(networkConfig[i].Address)
-
-		for _, sub := range fanSubnets {
-			fanNet, err := sub.ParsedCIDRNetwork()
+			fanSub, err := subnet.ParsedCIDRNetwork()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			if fanNet != nil && fanNet.Contains(localIP) {
-				networkConfig[i].CIDR = sub.CIDR
-				break
+			fanSubnets[subnet.CIDR] = fanSub
+		}
+	}
+
+	if len(fanSubnets) == 0 {
+		return networkConfig, nil
+	}
+
+	for i := range networkConfig {
+		for j := range networkConfig[i].Addresses {
+			ip := net.ParseIP(networkConfig[i].Addresses[j].Value)
+			for cidr, fanNet := range fanSubnets {
+				if fanNet != nil && fanNet.Contains(ip) {
+					networkConfig[i].Addresses[j].CIDR = cidr
+					break
+				}
 			}
 		}
 	}

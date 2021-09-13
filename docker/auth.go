@@ -13,25 +13,11 @@ import (
 
 	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
+	"github.com/juju/loggo"
 	"gopkg.in/yaml.v2"
-
-	"github.com/juju/juju/feature"
 )
 
-// APIVersion is the API version type.
-type APIVersion string
-
-const (
-	// APIVersionV1 is the API version v1.
-	APIVersionV1 APIVersion = "v1"
-	// APIVersionV2 is the API version v2.
-	APIVersionV2 APIVersion = "v2"
-)
-
-func (v APIVersion) String() string {
-	return string(v)
-}
+var logger = loggo.GetLogger("juju.docker")
 
 // TokenAuthConfig contains authorization information for token auth.
 // Juju does not support the docker credential helper because k8s does not support it either.
@@ -105,11 +91,13 @@ type ImageRepoDetails struct {
 	ServerAddress string `json:"serveraddress,omitempty" yaml:"serveraddress,omitempty"`
 }
 
+// AuthEqual compares if the provided one equals to current repository detail.
 func (rid ImageRepoDetails) AuthEqual(r ImageRepoDetails) bool {
 	return reflect.DeepEqual(rid.BasicAuthConfig, r.BasicAuthConfig) &&
 		reflect.DeepEqual(rid.TokenAuthConfig, r.TokenAuthConfig)
 }
 
+// IsPrivate checks if the repository detail is private.
 func (rid ImageRepoDetails) IsPrivate() bool {
 	return !rid.BasicAuthConfig.Empty() || !rid.TokenAuthConfig.Empty()
 }
@@ -167,12 +155,9 @@ func (rid *ImageRepoDetails) init() error {
 	return nil
 }
 
-func (rid ImageRepoDetails) APIVersion() APIVersion {
-	v := APIVersionV1
-	if !rid.TokenAuthConfig.Empty() {
-		v = APIVersionV2
-	}
-	return v
+// Empty checks if the auth information is empty.
+func (rid ImageRepoDetails) Empty() bool {
+	return rid == ImageRepoDetails{}
 }
 
 func fileExists(p string) (bool, error) {
@@ -194,6 +179,7 @@ func NewImageRepoDetails(contentOrPath string) (o *ImageRepoDetails, err error) 
 	data := []byte(contentOrPath)
 	isPath, err := fileExists(contentOrPath)
 	if err == nil && isPath {
+		logger.Debugf("reading image repository information from %q", contentOrPath)
 		data, err = ioutil.ReadFile(contentOrPath)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -210,11 +196,6 @@ func NewImageRepoDetails(contentOrPath string) (o *ImageRepoDetails, err error) 
 	}
 	if err = o.init(); err != nil {
 		return nil, errors.Trace(err)
-	}
-	if o.IsPrivate() && !featureflag.Enabled(feature.PrivateRegistry) {
-		return nil, errors.New(
-			fmt.Sprintf("private registry support is under development, enable feature flag %q to test it out", feature.PrivateRegistry),
-		)
 	}
 	return o, nil
 }

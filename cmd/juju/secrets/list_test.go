@@ -50,11 +50,11 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				ID: 666, RotateInterval: time.Hour,
-				Revision: 2, Path: "app.password", Provider: "juju"},
+				Revision: 2, Path: "app/mariadb/password", Provider: "juju"},
 		}, {
 			Metadata: coresecrets.SecretMetadata{
 				ID:       667,
-				Revision: 1, Path: "app.apitoken", Provider: "juju"},
+				Revision: 1, Path: "app/gitlab/apitoken", Provider: "juju"},
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
@@ -62,9 +62,9 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
-ID   Revision  Rotate  Backend  Path          Age
-666         2  1h      juju     app.password  0001-01-01  
-667         1  never   juju     app.apitoken  0001-01-01  
+ID   Revision  Rotate  Backend  Path                  Age
+666         2  1h      juju     app/mariadb/password  0001-01-01  
+667         1  never   juju     app/gitlab/apitoken   0001-01-01  
 
 `[1:])
 }
@@ -72,19 +72,24 @@ ID   Revision  Rotate  Backend  Path          Age
 func (s *ListSuite) TestListYAML(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	URL, err := coresecrets.ParseURL("secret://v1/app.password")
+	URL, err := coresecrets.ParseURL("secret://app/mariadb/password")
 	c.Assert(err, jc.ErrorIsNil)
-	URL2, err := coresecrets.ParseURL("secret://v1/app.apitoken")
+	URL2, err := coresecrets.ParseURL("secret://app/gitlab/apitoken")
 	c.Assert(err, jc.ErrorIsNil)
 	s.secretsAPI.EXPECT().ListSecrets(true).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				URL: URL, ID: 666, RotateInterval: time.Hour,
-				Version: 1, Revision: 2, Path: "app.password", Provider: "juju"},
+				Version: 1, Revision: 2, Path: "app/mariadb/password", Provider: "juju",
+				Status: coresecrets.StatusActive, Description: "my secret",
+				Tags: map[string]string{"foo": "bar"},
+			},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}, {
 			Metadata: coresecrets.SecretMetadata{
-				URL: URL2, ID: 667, Version: 1, Revision: 1, Path: "app.apitoken", Provider: "juju"},
+				URL: URL2, ID: 667, Version: 1, Revision: 1, Path: "app/gitlab/apitoken", Provider: "juju",
+				Status: coresecrets.StatusPending,
+			},
 			Error: "boom",
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
@@ -94,20 +99,25 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
 - ID: 666
-  URL: secret://v1/app.password
+  URL: secret://app/mariadb/password
   revision: 2
-  path: app.password
+  path: app/mariadb/password
+  status: active
   rotate-interval: 1h0m0s
   version: 1
+  description: my secret
+  tags:
+    foo: bar
   backend: juju
   create-time: 0001-01-01T00:00:00Z
   update-time: 0001-01-01T00:00:00Z
   value:
     foo: bar
 - ID: 667
-  URL: secret://v1/app.apitoken
+  URL: secret://app/gitlab/apitoken
   revision: 1
-  path: app.apitoken
+  path: app/gitlab/apitoken
+  status: pending
   version: 1
   backend: juju
   create-time: 0001-01-01T00:00:00Z
@@ -119,13 +129,15 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 func (s *ListSuite) TestListJSON(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	URL, err := coresecrets.ParseURL("secret://v1/app.password")
+	URL, err := coresecrets.ParseURL("secret://app/mariadb/password")
 	c.Assert(err, jc.ErrorIsNil)
 	s.secretsAPI.EXPECT().ListSecrets(true).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				URL: URL, ID: 666,
-				Version: 1, Revision: 2, Path: "app.password", Provider: "juju"},
+				Version: 1, Revision: 2, Path: "app/mariadb/password", Provider: "juju",
+				Status: coresecrets.StatusActive,
+			},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
@@ -134,6 +146,6 @@ func (s *ListSuite) TestListJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
-[{"ID":666,"URL":"secret://v1/app.password","revision":2,"path":"app.password","version":1,"backend":"juju","create-time":"0001-01-01T00:00:00Z","update-time":"0001-01-01T00:00:00Z","value":{"Data":{"foo":"bar"}}}]
+[{"ID":666,"URL":"secret://app/mariadb/password","revision":2,"path":"app/mariadb/password","status":"active","version":1,"backend":"juju","create-time":"0001-01-01T00:00:00Z","update-time":"0001-01-01T00:00:00Z","value":{"Data":{"foo":"bar"}}}]
 `[1:])
 }

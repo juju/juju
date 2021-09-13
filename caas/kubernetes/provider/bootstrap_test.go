@@ -63,7 +63,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	controllerName := "controller-1"
 
 	s.BaseSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.PrivateRegistry)
+	s.SetFeatureFlags(feature.DeveloperMode)
 
 	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
 		config.NameKey:                  "controller-1",
@@ -712,8 +712,8 @@ mkdir -p $dashboard
 curl -sSf -o $dashboard/dashboard.tar.bz2 --retry 10 'http://dashboard-url' || echo Unable to retrieve Juju Dashboard
 [ -f $dashboard/dashboard.tar.bz2 ] && sha256sum $dashboard/dashboard.tar.bz2 > $dashboard/jujudashboard.sha256
 [ -f $dashboard/jujudashboard.sha256 ] && (grep 'deadbeef' $dashboard/jujudashboard.sha256 && printf %s '{"version":"6.6.6","url":"http://dashboard-url","sha256":"deadbeef","size":999}' > $dashboard/downloaded-dashboard.txt || echo Juju Dashboard checksum mismatch)
-test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf || JUJU_DEV_FEATURE_FLAGS=private-registry $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/bootstrap-params --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s
-JUJU_DEV_FEATURE_FLAGS=private-registry $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
+test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf || JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/bootstrap-params --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s
+JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
 `[1:],
 			},
 			WorkingDir: "/var/lib/juju",

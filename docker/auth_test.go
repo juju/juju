@@ -12,27 +12,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/docker"
-	"github.com/juju/juju/feature"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type authSuite struct {
 	testing.IsolationSuite
-	coretesting.JujuOSEnvSuite
 }
 
 var _ = gc.Suite(&authSuite{})
-
-func (s *authSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-	s.JujuOSEnvSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.PrivateRegistry)
-}
-
-func (s *authSuite) TearDownTest(c *gc.C) {
-	s.IsolationSuite.TearDownTest(c)
-	s.JujuOSEnvSuite.TearDownTest(c)
-}
 
 var quay_io = `
 {

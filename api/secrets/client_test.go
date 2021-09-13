@@ -44,10 +44,11 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.ListSecretResults{})
 		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
 			[]params.ListSecretResult{{
-				URL:            "secret://v1/app.password",
-				Path:           "app.password",
+				URL:            "secret://app/mariadb/password",
+				Path:           "app/password",
 				RotateInterval: time.Hour,
 				Version:        1,
+				Status:         "active",
 				Description:    "shhh",
 				Tags:           map[string]string{"foo": "bar"},
 				ID:             1,
@@ -64,13 +65,14 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 	client := apisecrets.NewClient(apiCaller)
 	result, err := client.ListSecrets(true)
 	c.Assert(err, jc.ErrorIsNil)
-	URL := secrets.NewSimpleURL(1, "app.password")
+	URL := secrets.NewSimpleURL("app/mariadb/password")
 	c.Assert(result, jc.DeepEquals, []apisecrets.SecretDetails{{
 		Metadata: secrets.SecretMetadata{
 			URL:            URL,
-			Path:           "app.password",
+			Path:           "app/password",
 			RotateInterval: time.Hour,
 			Version:        1,
+			Status:         secrets.StatusActive,
 			Description:    "shhh",
 			Tags:           map[string]string{"foo": "bar"},
 			ID:             1,
@@ -88,7 +90,7 @@ func (s *SecretsSuite) TestListSecretsError(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
 			[]params.ListSecretResult{{
-				URL: "secret://v1/app.password",
+				URL: "secret://app/password",
 				Value: &params.SecretValueResult{
 					Error: &params.Error{Message: "boom"},
 				},

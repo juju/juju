@@ -93,12 +93,6 @@ func (s *TxnWatcherSuite) newWatcherWithError(c *gc.C, expect int, watcherError 
 		IteratorFunc:   s.iteratorFunc,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	// Wait for the main loop to have started.
-	select {
-	case <-hub.started:
-	case <-time.After(testing.LongWait):
-		c.Error("txn worker failed to start")
-	}
 	s.AddCleanup(func(c *gc.C) {
 		if watcherError == nil {
 			c.Assert(w.Stop(), jc.ErrorIsNil)
@@ -375,28 +369,24 @@ func (i *fakeIterator) Close() error {
 }
 
 type fakeHub struct {
-	c       *gc.C
-	expect  int
-	values  []watcher.Change
-	started chan struct{}
-	done    chan struct{}
-	error   chan struct{}
+	c      *gc.C
+	expect int
+	values []watcher.Change
+	done   chan struct{}
+	error  chan struct{}
 }
 
 func newFakeHub(c *gc.C, expected int) *fakeHub {
 	return &fakeHub{
-		c:       c,
-		expect:  expected,
-		started: make(chan struct{}),
-		done:    make(chan struct{}),
-		error:   make(chan struct{}),
+		c:      c,
+		expect: expected,
+		done:   make(chan struct{}),
+		error:  make(chan struct{}),
 	}
 }
 
 func (hub *fakeHub) Publish(topic string, data interface{}) func() {
 	switch topic {
-	case watcher.TxnWatcherStarting:
-		close(hub.started)
 	case watcher.TxnWatcherCollection:
 		change := data.(watcher.Change)
 		hub.values = append(hub.values, change)
