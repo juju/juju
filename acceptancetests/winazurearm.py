@@ -48,10 +48,8 @@ class ARMClient:
         self.tenant = tenant
         self.read_only = read_only
         self.credentials = None
-        self.storage = None
         self.resource = None
         self.compute = None
-        self.network = None
 
     def __eq__(self, other):
         # Testing is the common case for checking equality.
@@ -67,18 +65,12 @@ class ARMClient:
         """Delay imports and activation of Azure RM services until needed."""
         from azure.common.credentials import ServicePrincipalCredentials
         from azure.mgmt.resource.resources import ResourceManagementClient
-        from azure.mgmt.storage import StorageManagementClient
         from azure.mgmt.compute import ComputeManagementClient
-        from azure.mgmt.network import NetworkManagementClient
         self.credentials = ServicePrincipalCredentials(
             client_id=self.client_id, secret=self.secret, tenant=self.tenant)
-        self.storage = StorageManagementClient(
-            self.credentials, self.subscription_id)
         self.resource = ResourceManagementClient(
             self.credentials, self.subscription_id)
         self.compute = ComputeManagementClient(
-            self.credentials, self.subscription_id)
-        self.network = NetworkManagementClient(
             self.credentials, self.subscription_id)
 
 

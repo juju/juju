@@ -94,6 +94,7 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			Path:           m.Path,
 			RotateInterval: m.RotateInterval,
 			Version:        m.Version,
+			Status:         string(m.Status),
 			Description:    m.Description,
 			Tags:           m.Tags,
 			ID:             m.ID,

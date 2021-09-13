@@ -5,6 +5,7 @@ package status_test
 
 import (
 	"errors"
+	"runtime"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -50,6 +51,27 @@ func (s *MinimalStatusSuite) runStatus(c *gc.C, args ...string) (*cmd.Context, e
 
 func (s *MinimalStatusSuite) TestGoodCall(c *gc.C) {
 	_, err := s.runStatus(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.clock.waits, gc.HasLen, 0)
+}
+
+func (s *MinimalStatusSuite) TestGoodCallWatch(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("watch flag not available on windows")
+	}
+	t := time.NewTimer(time.Second)
+	var err error = nil
+	go func() {
+		for {
+			select {
+			case <-t.C:
+				return
+			default:
+				_, err = s.runStatus(c, "--watch", "300ms")
+			}
+		}
+	}()
+
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.clock.waits, gc.HasLen, 0)
 }

@@ -48,6 +48,3 @@ const Secrets = "secrets"
 
 // AsynchronousCharmDownloads enables support for asynchronous charm downloads.
 const AsynchronousCharmDownloads = "async-charm-downloads"
-
-// PrivateRegistry enables the private registry feature.
-const PrivateRegistry = "private-registry"

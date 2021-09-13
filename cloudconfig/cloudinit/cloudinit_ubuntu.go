@@ -344,10 +344,8 @@ func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyCo
 }
 
 func (cfg *ubuntuCloudConfig) genSnapStoreProxyCmds(assertions, storeID string) {
-	cfg.AddRunCmd(fmt.Sprintf(
-		`printf '%%s\n' %s > %s`,
-		utils.ShQuote(assertions),
-		"/etc/snap.assertions"))
+	cfg.AddRunTextFile("/etc/snap.assertions", assertions, 0600)
 	cfg.AddRunCmd("snap ack /etc/snap.assertions")
+	cfg.AddRunCmd("rm /etc/snap.assertions")
 	cfg.AddRunCmd("snap set core proxy.store=" + storeID)
 }

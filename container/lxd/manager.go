@@ -179,7 +179,7 @@ func (m *containerManager) getContainerSpec(
 		return ContainerSpec{}, errors.Trace(err)
 	}
 
-	nics, unknown, err := m.networkDevicesFromConfig(networkConfig, instanceConfig.MachineId)
+	nics, unknown, err := m.networkDevicesFromConfig(networkConfig)
 	if err != nil {
 		return ContainerSpec{}, errors.Trace(err)
 	}
@@ -283,15 +283,16 @@ func (m *containerManager) getImageSources() ([]ServerSpec, error) {
 // name, return a single "eth0" device with the bridge as its parent.
 // The last fall-back is to return the NIC devices from the default profile.
 // Names for any networks without a known CIDR are returned in a slice.
-func (m *containerManager) networkDevicesFromConfig(netConfig *container.NetworkConfig, machineID string) (map[string]device, []string, error) {
+// The host interface will be assigned a random unique value by LXD
+// (https://bugs.launchpad.net/juju/+bug/1932180/comments/5).
+func (m *containerManager) networkDevicesFromConfig(netConfig *container.NetworkConfig) (map[string]device, []string, error) {
 	if len(netConfig.Interfaces) > 0 {
-		return DevicesFromInterfaceInfo(netConfig.Interfaces, machineID)
+		return DevicesFromInterfaceInfo(netConfig.Interfaces)
 	} else if netConfig.Device != "" {
 		return map[string]device{
 			"eth0": newNICDevice(
 				"eth0",
 				netConfig.Device,
-				makeHostInterfaceName(machineID, 0),
 				corenetwork.GenerateVirtualMACAddress(),
 				netConfig.MTU,
 			),

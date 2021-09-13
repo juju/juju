@@ -659,7 +659,7 @@ func (s *networkSuite) TestEnableHTTPSListenerWithErrors(c *gc.C) {
 }
 
 func (s *networkSuite) TestNewNICDeviceWithoutMACAddressOrMTUGreaterThanZero(c *gc.C) {
-	device := lxd.NewNICDevice("eth1", "br-eth1", "", "", 0)
+	device := lxd.NewNICDevice("eth1", "br-eth1", "", 0)
 	expected := map[string]string{
 		"name":    "eth1",
 		"nictype": "bridged",
@@ -670,7 +670,7 @@ func (s *networkSuite) TestNewNICDeviceWithoutMACAddressOrMTUGreaterThanZero(c *
 }
 
 func (s *networkSuite) TestNewNICDeviceWithMACAddressButNoMTU(c *gc.C) {
-	device := lxd.NewNICDevice("eth1", "br-eth1", "", "aa:bb:cc:dd:ee:f0", 0)
+	device := lxd.NewNICDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 0)
 	expected := map[string]string{
 		"hwaddr":  "aa:bb:cc:dd:ee:f0",
 		"name":    "eth1",
@@ -682,7 +682,7 @@ func (s *networkSuite) TestNewNICDeviceWithMACAddressButNoMTU(c *gc.C) {
 }
 
 func (s *networkSuite) TestNewNICDeviceWithoutMACAddressButMTUGreaterThanZero(c *gc.C) {
-	device := lxd.NewNICDevice("eth1", "br-eth1", "", "", 1492)
+	device := lxd.NewNICDevice("eth1", "br-eth1", "", 1492)
 	expected := map[string]string{
 		"mtu":     "1492",
 		"name":    "eth1",
@@ -694,7 +694,7 @@ func (s *networkSuite) TestNewNICDeviceWithoutMACAddressButMTUGreaterThanZero(c 
 }
 
 func (s *networkSuite) TestNewNICDeviceWithMACAddressAndMTUGreaterThanZero(c *gc.C) {
-	device := lxd.NewNICDevice("eth1", "br-eth1", "", "aa:bb:cc:dd:ee:f0", 9000)
+	device := lxd.NewNICDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 9000)
 	expected := map[string]string{
 		"hwaddr":  "aa:bb:cc:dd:ee:f0",
 		"mtu":     "9000",
@@ -702,18 +702,6 @@ func (s *networkSuite) TestNewNICDeviceWithMACAddressAndMTUGreaterThanZero(c *gc
 		"nictype": "bridged",
 		"parent":  "br-eth1",
 		"type":    "nic",
-	}
-	c.Assert(device, gc.DeepEquals, expected)
-}
-
-func (s *networkSuite) TestNewNICDeviceWithAssignedHostNICName(c *gc.C) {
-	device := lxd.NewNICDevice("eth1", "br-eth1", "1lxd2-0", "", 0)
-	expected := map[string]string{
-		"name":      "eth1",
-		"nictype":   "bridged",
-		"parent":    "br-eth1",
-		"type":      "nic",
-		"host_name": "1lxd2-0",
 	}
 	c.Assert(device, gc.DeepEquals, expected)
 }

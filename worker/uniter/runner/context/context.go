@@ -778,17 +778,23 @@ func (ctx *HookContext) GetSecret(name string) (coresecrets.SecretValue, error) 
 // CreateSecret creates a secret with the specified data.
 func (ctx *HookContext) CreateSecret(name string, args *jujuc.UpsertArgs) (string, error) {
 	app, _ := names.UnitApplication(ctx.UnitName())
-	cfg := coresecrets.NewSecretConfig(app, name)
+	cfg := coresecrets.NewSecretConfig(coresecrets.AppSnippet, app, name)
 	cfg.RotateInterval = args.RotateInterval
+	cfg.Status = args.Status
+	cfg.Description = args.Description
+	cfg.Tags = args.Tags
 	return ctx.secretFacade.Create(cfg, args.Type, args.Value)
 }
 
 // UpdateSecret creates a secret with the specified data.
 func (ctx *HookContext) UpdateSecret(name string, args *jujuc.UpsertArgs) (string, error) {
 	app, _ := names.UnitApplication(ctx.UnitName())
-	cfg := coresecrets.NewSecretConfig(app, name)
+	cfg := coresecrets.NewSecretConfig(coresecrets.AppSnippet, app, name)
 	cfg.RotateInterval = args.RotateInterval
-	URL := coresecrets.NewSimpleURL(1, cfg.Path)
+	cfg.Status = args.Status
+	cfg.Description = args.Description
+	cfg.Tags = args.Tags
+	URL := coresecrets.NewSimpleURL(cfg.Path)
 	return ctx.secretFacade.Update(URL, cfg, args.Value)
 }
 

@@ -171,8 +171,17 @@ type UpsertArgs struct {
 	// Value is the new secret value or nil to not update.
 	Value secrets.SecretValue
 
-	// RotateInterval is the new rotate interval or -1 to not update.
-	RotateInterval time.Duration
+	// RotateInterval is the new rotate interval or nil to not update.
+	RotateInterval *time.Duration
+
+	// Status is whether a secret is pending or active or nil to not update.
+	Status *secrets.SecretStatus
+
+	// Description describes the secret or nil to not update.
+	Description *string
+
+	// Tags are stored with the secret metadata or nil to not update.
+	Tags *map[string]string
 }
 
 // ContextSecrets is the part of a hook context related to secrets.

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloudconfig/podcfg"
-	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -30,7 +29,6 @@ var _ = gc.Suite(&ModelOperatorSuite{})
 
 func (m *ModelOperatorSuite) SetUpTest(c *gc.C) {
 	m.BaseSuite.SetUpTest(c)
-	m.SetFeatureFlags(feature.PrivateRegistry)
 
 	m.resources = common.NewResources()
 

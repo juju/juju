@@ -561,14 +561,14 @@ func (op *caasOperator) loop() (err error) {
 					if err := op.runner.StopWorker(unitID); err != nil {
 						return errors.Trace(err)
 					}
-					logger.Debugf("removing unit dir for dead unit %q", unitID)
-					// Remove the unit's directory
-					if err := op.removeUnitDir(unitTag); err != nil {
-						return errors.Trace(err)
-					}
 					logger.Debugf("removing dead unit %q", unitID)
 					// Remove the unit from state.
 					if err := op.config.UnitRemover.RemoveUnit(unitID); err != nil {
+						return errors.Trace(err)
+					}
+					logger.Debugf("removing unit dir for dead unit %q", unitID)
+					// Remove the unit's directory
+					if err := op.removeUnitDir(unitTag); err != nil {
 						return errors.Trace(err)
 					}
 					// Nothing to do for a dead unit further.

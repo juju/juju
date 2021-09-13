@@ -310,6 +310,9 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 
 	rawLogStore, err := NewLogStore(w.config.StorageDir, syncMode)
 	if err != nil {
+		// Required logging, as ErrStartTimeout can mask the underlying error
+		// and we never know the original failure.
+		w.config.Logger.Errorf("Failed to setup raw log store, err: %v", err)
 		return errors.Trace(err)
 	}
 
@@ -326,11 +329,17 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 	}
 	snapshotStore, err := NewSnapshotStore(w.config.StorageDir, snapshotRetention, w.config.Logger)
 	if err != nil {
+		// Required logging, as ErrStartTimeout can mask the underlying error
+		// and we never know the original failure.
+		w.config.Logger.Errorf("Failed to setup snapshot store, err: %v", err)
 		return errors.Trace(err)
 	}
 
 	r, err := raft.NewRaft(raftConfig, w.config.FSM, logStore, rawLogStore, snapshotStore, w.config.Transport)
 	if err != nil {
+		// Required logging, as ErrStartTimeout can mask the underlying error
+		// and we never know the original failure.
+		w.config.Logger.Errorf("Failed to setup raft instance, err: %v", err)
 		return errors.Trace(err)
 	}
 	defer func() {

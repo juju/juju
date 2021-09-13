@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -63,11 +64,14 @@ type statusCommand struct {
 	// relations indicates if 'relations' section is displayed
 	relations bool
 
-	// checkProvidedIgnoredFlagF indicates whether ignored options were provided by the user.
+	// checkProvidedIgnoredFlagF indicates whether ignored options were provided by the user
 	checkProvidedIgnoredFlagF func() set.Strings
 
 	// storage indicates if 'storage' section is displayed
 	storage bool
+
+	// watch indicates the time to wait between consecutive status queries
+	watch time.Duration
 }
 
 var usageSummary = `
@@ -134,9 +138,9 @@ Examples:
     # Provide output as valid JSON
     juju status --format=json
 
-Further reading:
-
-    https://juju.is/docs/command/status
+    # Watch the status of the mysql application every five seconds
+	# Only available for unix-based systems.
+    juju status --watch 5s mysql
 
 See also:
 
@@ -167,6 +171,11 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	f.IntVar(&c.retryCount, "retry-count", 3, "Number of times to retry API failures")
 	f.DurationVar(&c.retryDelay, "retry-delay", 100*time.Millisecond, "Time to wait between retry attempts")
+
+	if runtime.GOOS != "windows" {
+		// The watch flag is only available for unix-based systems.
+		f.DurationVar(&c.watch, "watch", 0, "Watch the status every period of time")
+	}
 
 	c.checkProvidedIgnoredFlagF = func() set.Strings {
 		ignoredFlagForNonTabularFormat := set.NewStrings(
@@ -273,9 +282,7 @@ func (c *statusCommand) getStorageInfo(ctx *cmd.Context) (*storage.CombinedStora
 		})
 }
 
-func (c *statusCommand) Run(ctx *cmd.Context) error {
-	defer c.close()
-
+func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 	// Always attempt to get the status at least once, and retry if it fails.
 	status, err := c.getStatus()
 	if err != nil && !modelcmd.IsModelMigratedError(err) {
@@ -377,6 +384,39 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		}
 		ctx.Infof("Nothing matched specified filter%v.", plural())
 	}
+
+	return nil
+}
+
+// clearScreen removes any character from the terminal
+// using ANSI scape characters.
+func clearScreen() {
+	fmt.Printf("\u001Bc")
+}
+
+func (c *statusCommand) Run(ctx *cmd.Context) error {
+	defer c.close()
+
+	if c.watch != 0 {
+		clearScreen()
+	}
+
+	err := c.runStatus(ctx)
+	if err != nil || c.watch == 0 {
+		return err
+	}
+
+	// repeat the call using a ticker
+	ticker := time.NewTicker(c.watch)
+
+	for range ticker.C {
+		clearScreen()
+		err := c.runStatus(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

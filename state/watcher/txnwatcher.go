@@ -31,9 +31,6 @@ type Clock interface {
 }
 
 const (
-	// TxnWatcherStarting is published to the TxnWatcher's hub after it has
-	// fully started up.
-	TxnWatcherStarting = "starting"
 	// TxnWatcherSyncErr is published to the TxnWatcher's hub if there's a
 	// sync error (e.g., an error iterating through the collection's rows).
 	TxnWatcherSyncErr = "sync err"
@@ -287,7 +284,6 @@ func (w *TxnWatcher) loop() error {
 	backoff := backoffStrategy.NewTimer(now)
 	d, _ := backoff.NextSleep(now)
 	next := w.clock.After(d)
-	_ = w.hub.Publish(TxnWatcherStarting, nil)
 	for {
 		select {
 		case <-w.tomb.Dying():

@@ -47,6 +47,7 @@ func (api *Client) ListSecrets(showSecrets bool) ([]SecretDetails, error) {
 				Path:           r.Path,
 				RotateInterval: r.RotateInterval,
 				Version:        r.Version,
+				Status:         secrets.SecretStatus(r.Status),
 				Description:    r.Description,
 				Tags:           r.Tags,
 				ID:             r.ID,

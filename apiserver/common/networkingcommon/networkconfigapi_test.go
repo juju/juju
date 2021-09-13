@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// modelOpRecorder is a no-op model operation that can store the
-// devices passed to to it for later interrogation.
+// modelOpRecorder is a no-op model operation that can store
+// the devices passed to it for later interrogation.
 type modelOpRecorder struct {
 	devs network.InterfaceInfos
 }
@@ -140,7 +140,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigFixesFanSubs(c *gc.C) {
 
 	s.state.EXPECT().AllSubnetInfos().Return(network.SubnetInfos{
 		{
-			CIDR: "0.10.0.0/16",
+			CIDR: "10.10.0.0/16",
 			FanInfo: &network.FanCIDRs{
 				FanLocalUnderlay: "",
 				FanOverlay:       "anything-not-empty",
@@ -155,8 +155,15 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigFixesFanSubs(c *gc.C) {
 			InterfaceName: "eth0",
 			InterfaceType: "ethernet",
 			MACAddress:    "aa:bb:cc:dd:ee:f0",
-			CIDR:          "0.10.1.0/24",
-			Address:       "0.10.0.2",
+			Address:       "10.10.10.2",
+			Addresses: []params.Address{
+				{
+					Value: "10.10.10.2",
+					CIDR:  "10.0.0.0/8",
+					Type:  string(network.IPv4Address),
+					Scope: string(network.ScopeCloudLocal),
+				},
+			},
 		},
 	})
 
@@ -167,7 +174,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigFixesFanSubs(c *gc.C) {
 			MACAddress:    "aa:bb:cc:dd:ee:f0",
 			// Gets the CIDR from the Fan segment.
 			Addresses: network.ProviderAddresses{
-				network.NewProviderAddress("0.10.0.2", network.WithCIDR("0.10.0.0/16")),
+				network.NewProviderAddress("10.10.10.2", network.WithCIDR("10.10.0.0/16")),
 			},
 			GatewayAddress: network.NewProviderAddress(""),
 		},

@@ -884,6 +884,22 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 	})
 }
 
+func durationPtr(d time.Duration) *time.Duration {
+	return &d
+}
+
+func stringPtr(s string) *string {
+	return &s
+}
+
+func statusPtr(s secrets.SecretStatus) *secrets.SecretStatus {
+	return &s
+}
+
+func tagPtr(t map[string]string) *map[string]string {
+	return &t
+}
+
 func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -897,15 +913,18 @@ func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
 		c.Check(arg, gc.DeepEquals, params.CreateSecretArgs{
 			Args: []params.CreateSecretArg{{
 				Type:           "blob",
-				Path:           "wordpress.password",
+				Path:           "app/wordpress/password",
 				RotateInterval: time.Hour,
+				Status:         "active",
+				Description:    "my secret",
+				Tags:           map[string]string{"hello": "world"},
 				Data:           data,
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			[]params.StringResult{{
-				Result: "secret://foo",
+				Result: "secret://app/foo",
 			}},
 		}
 		return nil
@@ -916,8 +935,53 @@ func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
 	id, err := hookContext.CreateSecret("password", &jujuc.UpsertArgs{
 		Type:           secrets.TypeBlob,
 		Value:          value,
-		RotateInterval: time.Hour,
+		RotateInterval: durationPtr(time.Hour),
+		Status:         statusPtr(secrets.StatusActive),
+		Description:    stringPtr("my secret"),
+		Tags:           tagPtr(map[string]string{"hello": "world"}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(id, gc.Equals, "secret://foo")
+	c.Assert(id, gc.Equals, "secret://app/foo")
+}
+
+func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	data := map[string]string{"foo": "bar"}
+	value := secrets.NewSecretValue(data)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "SecretsManager")
+		c.Assert(version, gc.Equals, 0)
+		c.Assert(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "UpdateSecrets")
+		c.Check(arg, gc.DeepEquals, params.UpdateSecretArgs{
+			Args: []params.UpdateSecretArg{{
+				URL:            "secret://app/wordpress/password",
+				RotateInterval: durationPtr(time.Hour),
+				Status:         stringPtr("active"),
+				Description:    stringPtr("my secret"),
+				Tags:           tagPtr(map[string]string{"hello": "world"}),
+				Data:           data,
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		*(result.(*params.StringResults)) = params.StringResults{
+			[]params.StringResult{{
+				Result: "secret://app/wordpress/password",
+			}},
+		}
+		return nil
+	})
+	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
+	client := secretsmanager.NewClient(apiCaller)
+	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
+	id, err := hookContext.UpdateSecret("password", &jujuc.UpsertArgs{
+		Value:          value,
+		RotateInterval: durationPtr(time.Hour),
+		Status:         statusPtr(secrets.StatusActive),
+		Description:    stringPtr("my secret"),
+		Tags:           tagPtr(map[string]string{"hello": "world"}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(id, gc.Equals, "secret://app/wordpress/password")
 }
