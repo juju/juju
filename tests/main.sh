@@ -172,7 +172,7 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:" opt; do
 	l)
 		export BOOTSTRAP_REUSE_LOCAL="${OPTARG}"
 		export BOOTSTRAP_REUSE="true"
-		CLOUD=$(juju show-controller "${OPTARG}" --format=json | jq -r ".[\"${OPTARG}\"] | .details | .cloud")
+		CLOUD=$(juju show-controller "${OPTARG}" --format=json 2>/dev/null | jq -r ".[\"${OPTARG}\"] | .details | .cloud")
 		PROVIDER=$(juju clouds --client 2>/dev/null | grep "${CLOUD}" | awk '{print $4}' | head -n 1)
 		if [[ -z ${PROVIDER} ]]; then
 			PROVIDER="${CLOUD}"
@@ -184,15 +184,15 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:" opt; do
 		export BOOTSTRAP_PROVIDER="${OPTARG}"
 		;;
 	c)
-		PROVIDER=$(juju clouds --client --format=json | jq -r ".[\"${OPTARG}\"] | .type")
+		PROVIDER=$(juju clouds --client --all --format=json 2>/dev/null | jq -r ".[\"${OPTARG}\"] | .type")
 		export BOOTSTRAP_PROVIDER="${PROVIDER}"
-		num_regions=$(juju clouds --client --format=json | jq -r ".[\"${OPTARG}\"] | .regions | length")
+		num_regions=$(juju clouds --client --all --format=json 2>/dev/null | jq -r ".[\"${OPTARG}\"] | .regions | length")
 		if [[ ${num_regions} -gt 1 ]]; then
 			echo "more than 1 region, must specify"
 			exit 1
 		fi
 		CLOUD="${OPTARG}"
-		REGION=$(juju clouds --client --format=json | jq -r ".[\"${CLOUD}\"] | .regions | keys[0]")
+		REGION=$(juju clouds --client --all --format=json 2>/dev/null | jq -r ".[\"${CLOUD}\"] | .regions | keys[0]")
 		export BOOTSTRAP_REGION="${REGION}"
 		export BOOTSTRAP_CLOUD="${CLOUD}"
 		;;
