@@ -19,9 +19,9 @@ var _ = gc.Suite(&MonitorSuite{})
 type MonitorSuite struct {
 	testing.IsolationSuite
 	clock   *testclock.Clock
-	closed  chan (struct{})
-	dead    chan (struct{})
-	broken  chan (struct{})
+	closed  chan struct{}
+	dead    chan struct{}
+	broken  chan struct{}
 	monitor *monitor
 }
 
