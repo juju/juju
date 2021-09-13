@@ -79,6 +79,7 @@ func (c baseClient) fetchTags(url string, res tagsGetter) (versions tools.Versio
 	}
 	for {
 		url, err = c.getPaginatedJSON(url, &res)
+		logger.Tracef("fetching tags %q, response %#v, err %#v", url, res, err)
 		switch err {
 		case errNoMorePages:
 			pushVersions(res.GetTags())

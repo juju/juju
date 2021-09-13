@@ -29,33 +29,29 @@ func (c *googleContainerRegistry) Match() bool {
 }
 
 const (
-	googleContainerRegistryUserNameAccessToken = "oauth2accesstoken"
-	googleContainerRegistryUserNameJSONKey     = "_json_key"
+	googleContainerRegistryUserNameJSONKey = "_json_key"
 )
 
 var inValidGoogleContainerRegistryUserNameError = errors.NewNotValid(nil,
-	fmt.Sprintf("google container registry has to be either %q or %q",
-		googleContainerRegistryUserNameAccessToken, googleContainerRegistryUserNameJSONKey,
+	fmt.Sprintf("google container registry username has to be %q",
+		googleContainerRegistryUserNameJSONKey,
 	),
 )
 
-func validateGoogleContainerRegistryCredential(auth docker.BasicAuthConfig) error {
-	if auth.Username != "" &&
-		auth.Username != googleContainerRegistryUserNameAccessToken &&
-		auth.Username != googleContainerRegistryUserNameJSONKey {
-		return inValidGoogleContainerRegistryUserNameError
+func validateGoogleContainerRegistryCredential(auth docker.BasicAuthConfig) (err error) {
+	if auth.Username == "" && auth.Auth == "" {
+		return errors.NewNotValid(nil, "username or auth token is required")
 	}
+	username := auth.Username
 	if auth.Auth != "" {
-		username, err := getUserNameFromAuth(auth.Auth)
+		username, err = getUserNameFromAuth(auth.Auth)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if username != googleContainerRegistryUserNameAccessToken &&
-			username != googleContainerRegistryUserNameJSONKey {
-			return inValidGoogleContainerRegistryUserNameError
-		}
 	}
-
+	if username != googleContainerRegistryUserNameJSONKey {
+		return inValidGoogleContainerRegistryUserNameError
+	}
 	return nil
 }
 
@@ -68,7 +64,7 @@ func (c *googleContainerRegistry) WrapTransport() error {
 			}
 			transport = newTokenTransport(
 				transport,
-				c.repoDetails.Username, c.repoDetails.Password, c.repoDetails.Auth, "",
+				c.repoDetails.Username, c.repoDetails.Password, c.repoDetails.Auth, "", false,
 			)
 		}
 		if !c.repoDetails.TokenAuthConfig.Empty() {
@@ -78,4 +74,19 @@ func (c *googleContainerRegistry) WrapTransport() error {
 	// TODO(ycliuhw): support gcr public registry.
 	c.client.Transport = newErrorTransport(transport)
 	return nil
+}
+
+// Ping pings the github endpoint.
+func (c googleContainerRegistry) Ping() error {
+	url := c.url("/")
+	if !strings.HasSuffix(url, "/") {
+		// gcr v2 root endpoint requires the trailing slash(otherwise 404 returns).
+		url += "/"
+	}
+	logger.Debugf("gcr ping %q", url)
+	resp, err := c.client.Get(url)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	return errors.Trace(err)
 }
