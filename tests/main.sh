@@ -20,7 +20,7 @@ VERBOSE=1
 RUN_ALL="false"
 SKIP_LIST=""
 RUN_LIST=""
-ARITFACT_FILE=""
+ARTIFACT_FILE=""
 OUTPUT_FILE=""
 
 import_subdir_files() {
@@ -160,7 +160,7 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:" opt; do
 		SKIP_LIST="${OPTARG}"
 		;;
 	a)
-		ARITFACT_FILE="${OPTARG}"
+		ARTIFACT_FILE="${OPTARG}"
 		;;
 	x)
 		OUTPUT_FILE="${OPTARG}"
@@ -279,19 +279,19 @@ cleanup() {
 	echo "==> TEST COMPLETE"
 }
 
-# Move any artifacts to the choosen location
+# Move any artifacts to the chosen location
 archive_logs() {
-	if [[ -z ${ARITFACT_FILE} ]]; then
+	if [[ -z ${ARTIFACT_FILE} ]]; then
 		return
 	fi
 
 	archive_type="${1}"
 
-	echo "==> Test ${archive_type} artifact: ${ARITFACT_FILE}"
+	echo "==> Test ${archive_type} artifact: ${ARTIFACT_FILE}"
 	if [[ -f ${OUTPUT_FILE} ]]; then
 		cp "${OUTPUT_FILE}" "${TEST_DIR}"
 	fi
-	TAR_OUTPUT=$(tar -C "${TEST_DIR}" --transform s/./artifacts/ -zcvf "${ARITFACT_FILE}" ./ 2>&1)
+	TAR_OUTPUT=$(tar -C "${TEST_DIR}" --transform s/./artifacts/ -zcvf "${ARTIFACT_FILE}" ./ 2>&1)
 	# shellcheck disable=SC2181
 	if [[ $? -eq 0 ]]; then
 		echo "==> Test ${archive_type} artifact: COMPLETED"
