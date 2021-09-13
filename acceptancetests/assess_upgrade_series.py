@@ -78,9 +78,7 @@ def reboot_machine(client, machine):
     try:
         client.juju('ssh', (machine, 'sudo shutdown -r now'))
     except subprocess.CalledProcessError as e:
-        if e.returncode != 255:
-            raise e
-        log.info("Ignoring `juju ssh` exit status after triggering reboot")
+        log.info("Ignoring `juju ssh` exit code {} after triggering reboot".format(e.returncode))
 
     log.info("waiting for reboot")
     hostname = client.get_status().get_machine_dns_name(machine)
