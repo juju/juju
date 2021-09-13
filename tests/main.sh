@@ -53,6 +53,7 @@ TEST_NAMES="agents \
             manual \
             model \
             network \
+            ovs_maas \
             relations \
             resources \
             smoke \
@@ -91,7 +92,7 @@ show_help() {
 	echo "¯¯¯¯¯¯"
 	echo "Flags should appear $(red 'before') arguments."
 	echo ""
-	echo "cmd [-h] [-v] [-A] [-s test] [-a file] [-x file] [-r] [-l controller] [-p provider type <lxd|aws|manual|microk8s|vsphere>]"
+	echo "cmd [-h] [-v] [-A] [-s test] [-a file] [-x file] [-r] [-l controller] [-p provider type <lxd|aws|manual|microk8s|vsphere|maas>]"
 	echo ""
 	echo "    $(green './main.sh -h')        Display this help message"
 	echo "    $(green './main.sh -v')        Verbose and debug messages"
@@ -101,7 +102,7 @@ show_help() {
 	echo "    $(green './main.sh -x')        Output file from streaming the output"
 	echo "    $(green './main.sh -r')        Reuse bootstrapped controller between testing suites"
 	echo "    $(green './main.sh -l')        Local bootstrapped controller name to reuse"
-	echo "    $(green './main.sh -p')        Bootstrap provider to use when bootstrapping <lxd|aws|manual|k8s|openstack|vsphere>"
+	echo "    $(green './main.sh -p')        Bootstrap provider to use when bootstrapping <lxd|aws|manual|k8s|openstack|vsphere|maas>"
 	echo "                                     vsphere assumes juju boston vsphere for image metadata generation"
 	echo "                                     openstack assumes providing image data directly is not required"
 	echo "    $(green './main.sh -c')        Cloud name to use when bootstrapping, must be one of provider types listed above"
@@ -171,7 +172,7 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:" opt; do
 	l)
 		export BOOTSTRAP_REUSE_LOCAL="${OPTARG}"
 		export BOOTSTRAP_REUSE="true"
-		CLOUD=$(juju show-controller "${OPTARG}" --format=json | jq -r ".[\"${OPTARG}\"] | .details | .cloud")
+		CLOUD=$(juju show-controller "${OPTARG}" --format=json 2>/dev/null | jq -r ".[\"${OPTARG}\"] | .details | .cloud")
 		PROVIDER=$(juju clouds --client 2>/dev/null | grep "${CLOUD}" | awk '{print $4}' | head -n 1)
 		if [[ -z ${PROVIDER} ]]; then
 			PROVIDER="${CLOUD}"
@@ -183,15 +184,15 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:" opt; do
 		export BOOTSTRAP_PROVIDER="${OPTARG}"
 		;;
 	c)
-		PROVIDER=$(juju clouds --client --format=json | jq -r ".[\"${OPTARG}\"] | .type")
+		PROVIDER=$(juju clouds --client --all --format=json 2>/dev/null | jq -r ".[\"${OPTARG}\"] | .type")
 		export BOOTSTRAP_PROVIDER="${PROVIDER}"
-		num_regions=$(juju clouds --client --format=json | jq -r ".[\"${OPTARG}\"] | .regions | length")
+		num_regions=$(juju clouds --client --all --format=json 2>/dev/null | jq -r ".[\"${OPTARG}\"] | .regions | length")
 		if [[ ${num_regions} -gt 1 ]]; then
 			echo "more than 1 region, must specify"
 			exit 1
 		fi
 		CLOUD="${OPTARG}"
-		REGION=$(juju clouds --client --format=json | jq -r ".[\"${CLOUD}\"] | .regions | keys[0]")
+		REGION=$(juju clouds --client --all --format=json 2>/dev/null | jq -r ".[\"${CLOUD}\"] | .regions | keys[0]")
 		export BOOTSTRAP_REGION="${REGION}"
 		export BOOTSTRAP_CLOUD="${CLOUD}"
 		;;
