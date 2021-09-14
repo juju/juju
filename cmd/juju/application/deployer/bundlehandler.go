@@ -339,9 +339,12 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			if ch.Revision != -1 {
 				return errors.Errorf("cannot specify revision in %q, please use revision", ch)
 			}
-			channel, err := charm.ParseChannelNormalize(spec.Channel)
-			if err != nil {
-				return errors.Errorf("")
+			var channel charm.Channel
+			if spec.Channel != "" {
+				channel, err = charm.ParseChannelNormalize(spec.Channel)
+				if err != nil {
+					return errors.Annotatef(err, "for application %q", spec.Charm)
+				}
 			}
 			if spec.Revision != nil && *spec.Revision != -1 && channel.Empty() {
 				return errors.Errorf("application %q with a revision requires a channel for future upgrades, please use channel", name)
