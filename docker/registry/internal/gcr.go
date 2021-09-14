@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/tools"
 )
 
 type googleContainerRegistry struct {
@@ -55,6 +56,12 @@ func validateGoogleContainerRegistryCredential(auth docker.BasicAuthConfig) (err
 	return nil
 }
 
+// APIVersion returns the registry API version to use.
+func (c *googleContainerRegistry) APIVersion() APIVersion {
+	// google container registry always uses v2.
+	return APIVersionV2
+}
+
 func (c *googleContainerRegistry) WrapTransport() error {
 	transport := c.client.Transport
 	if c.repoDetails.IsPrivate() {
@@ -71,13 +78,26 @@ func (c *googleContainerRegistry) WrapTransport() error {
 			return errors.New("google container registry only supports username and password or auth token")
 		}
 	}
-	// TODO(ycliuhw): support gcr public registry.
 	c.client.Transport = newErrorTransport(transport)
 	return nil
 }
 
+func (c googleContainerRegistry) url(pathTemplate string, args ...interface{}) string {
+	return commonURL(c.APIVersion(), *c.baseURL, pathTemplate, args...)
+}
+
+// DecideBaseURL decides the API url to use.
+func (c *googleContainerRegistry) DecideBaseURL() error {
+	return errors.Trace(decideBaseURLCommon(c.APIVersion(), c.repoDetails, c.baseURL))
+}
+
 // Ping pings the github endpoint.
 func (c googleContainerRegistry) Ping() error {
+	if !c.repoDetails.IsPrivate() {
+		// gcr.io root path requires authentication.
+		// So skip ping for public repositories.
+		return nil
+	}
 	url := c.url("/")
 	if !strings.HasSuffix(url, "/") {
 		// gcr v2 root endpoint requires the trailing slash(otherwise 404 returns).
@@ -89,4 +109,13 @@ func (c googleContainerRegistry) Ping() error {
 		defer resp.Body.Close()
 	}
 	return errors.Trace(err)
+}
+
+// Tags fetches tags for an OCI image.
+func (c googleContainerRegistry) Tags(imageName string) (versions tools.Versions, err error) {
+	// google container registry always uses v2.
+	repo := getRepositoryOnly(c.repoDetails.Repository)
+	url := c.url("/%s/%s/tags/list", repo, imageName)
+	var response tagsResponseV2
+	return c.fetchTags(url, &response)
 }
