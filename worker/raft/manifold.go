@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/state"
 	raftleasestore "github.com/juju/juju/state/raftlease"
 	"github.com/juju/juju/worker/common"
+	"github.com/juju/juju/worker/raft/queue"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -35,6 +36,7 @@ type ManifoldConfig struct {
 	PrometheusRegisterer prometheus.Registerer
 	NewWorker            func(Config) (worker.Worker, error)
 	NewTarget            func(*state.State, raftleasestore.Logger) raftlease.NotifyTarget
+	NewApplyOperation    func(Raft, queue.Operation, raftlease.NotifyTarget, Logger) error
 
 	Queue    Queue
 	LeaseLog io.Writer
@@ -71,6 +73,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.LeaseLog == nil {
 		return errors.NotValidf("nil LeaseLog")
+	}
+	if config.NewApplyOperation == nil {
+		return errors.NotValidf("nil NewApplyOperation")
 	}
 	return nil
 }
@@ -139,6 +144,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Queue:                    config.Queue,
 		NotifyTarget:             notifyTarget,
 		NonSyncedWritesToRaftLog: agentConfig.NonSyncedWritesToRaftLog(),
+		ApplyOperation:           config.NewApplyOperation,
 	})
 	if err != nil {
 		_ = stTracker.Done()

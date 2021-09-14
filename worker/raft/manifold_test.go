@@ -44,6 +44,7 @@ type ManifoldSuite struct {
 	stateTracker *stubStateTracker
 	target       raftlease.NotifyTarget
 	queue        *queue.BlockingOpQueue
+	apply        func(raft.Raft, queue.Operation, raftlease.NotifyTarget, raft.Logger) error
 	stub         testing.Stub
 }
 
@@ -69,6 +70,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.stateTracker = &stubStateTracker{
 		done: make(chan struct{}),
 	}
+	s.apply = func(r raft.Raft, o queue.Operation, nt raftlease.NotifyTarget, l raft.Logger) error {
+		return nil
+	}
 	s.stub.ResetCalls()
 
 	_, transport := coreraft.NewInmemTransport(coreraft.ServerAddress(
@@ -83,16 +87,17 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.context = s.newContext(nil)
 	s.manifold = raft.Manifold(raft.ManifoldConfig{
-		ClockName:     "clock",
-		AgentName:     "agent",
-		TransportName: "transport",
-		StateName:     "state",
-		FSM:           s.fsm,
-		Logger:        s.logger,
-		NewWorker:     s.newWorker,
-		NewTarget:     s.newTarget,
-		LeaseLog:      &noopLeaseLog{},
-		Queue:         s.queue,
+		ClockName:         "clock",
+		AgentName:         "agent",
+		TransportName:     "transport",
+		StateName:         "state",
+		FSM:               s.fsm,
+		Logger:            s.logger,
+		NewWorker:         s.newWorker,
+		NewTarget:         s.newTarget,
+		LeaseLog:          &noopLeaseLog{},
+		Queue:             s.queue,
+		NewApplyOperation: s.apply,
 	})
 }
 
@@ -148,6 +153,10 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.FitsTypeOf, raft.Config{})
 	config := args[0].(raft.Config)
+
+	// We can't compare apply operations functions, so just check it's not nil.
+	c.Assert(config.ApplyOperation, gc.NotNil)
+	config.ApplyOperation = nil
 
 	c.Assert(config, jc.DeepEquals, raft.Config{
 		FSM:          s.fsm,

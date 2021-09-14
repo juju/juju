@@ -4,9 +4,7 @@
 package raft
 
 import (
-	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -76,7 +74,6 @@ var (
 
 // Logger represents the logging methods called.
 type Logger interface {
-	Criticalf(message string, args ...interface{})
 	Warningf(message string, args ...interface{})
 	Errorf(message string, args ...interface{})
 	Debugf(message string, args ...interface{})
@@ -161,6 +158,10 @@ type Config struct {
 	// NotifyTarget is used to notify the changes from the raft operation
 	// applications.
 	NotifyTarget raftlease.NotifyTarget
+
+	// ApplyOperation is used to apply the raft operations on to the raft
+	// instance, before notifying a target of the changes.
+	ApplyOperation func(Raft, queue.Operation, raftlease.NotifyTarget, Logger) error
 }
 
 // Validate validates the raft worker configuration.
@@ -192,6 +193,9 @@ func (config Config) Validate() error {
 	if config.NotifyTarget == nil {
 		return errors.NotValidf("nil NotifyTarget")
 	}
+	if config.ApplyOperation == nil {
+		return errors.NotValidf("nil ApplyOperation")
+	}
 	return nil
 }
 
@@ -209,6 +213,9 @@ func Bootstrap(config Config) error {
 	if config.NotifyTarget != nil {
 		return errors.NotValidf("non-nil NotifyTarget during Bootstrap")
 	}
+	if config.ApplyOperation != nil {
+		return errors.NotValidf("non-nil ApplyOperation during Bootstrap")
+	}
 
 	// During bootstrap we use an in-memory transport. We just need
 	// to make sure we use the same local address as we'll use later.
@@ -219,6 +226,9 @@ func Bootstrap(config Config) error {
 	// During bootstrap, we do not require an FSM.
 	config.FSM = BootstrapFSM{}
 	config.NotifyTarget = BootstrapNotifyTarget{}
+	config.ApplyOperation = func(Raft, queue.Operation, raftlease.NotifyTarget, Logger) error {
+		panic("Apply Operation should not be called during Bootstrap")
+	}
 
 	w, err := newWorker(config)
 	if err != nil {
@@ -342,8 +352,6 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 		w.config.Logger.Warningf(`disabling fsync calls between raft log writes as instructed by the "non-synced-writes-to-raft-log option"`)
 	}
 
-	fmt.Println("^^^^", w.config.StorageDir)
-
 	rawLogStore, err := NewLogStore(w.config.StorageDir, syncMode)
 	if err != nil {
 		return errors.Trace(err)
@@ -369,8 +377,6 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	fmt.Printf("???? %+v\n", r)
 
 	defer func() {
 		if err := r.Shutdown().Error(); err != nil {
@@ -427,88 +433,11 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 			// Apply any operation on to the current raft implementation.
 			// This ensures that we serialize the applying of operations onto
 			// the raft state.
-			w.config.Queue.Error() <- w.applyOperation(r, op)
+			w.config.Queue.Error() <- w.config.ApplyOperation(r, op, w.config.NotifyTarget, w.config.Logger)
 		case w.raftCh <- r:
 		case w.logStoreCh <- logStore:
 		}
 	}
-}
-
-func (w *Worker) applyOperation(r *raft.Raft, op queue.Operation) error {
-	if state := r.State(); state != raft.Leader {
-		leaderAddress := r.Leader()
-
-		w.config.Logger.Debugf("Attempt to apply the lease failed, we're not the leader. State: %v, Leader: %v", state, leaderAddress)
-
-		// If the leaderAddress is empty, this implies that either we don't
-		// have a leader or there is no raft cluster setup.
-		if leaderAddress == "" {
-			// Return back we don't have a leader and then it's up to the client
-			// to work out what to do next.
-			return NewNotLeaderError("", "")
-		}
-
-		// If we have a leader address, we hope that we can use that leader
-		// address to locate the associate server ID. The server ID can be used
-		// as a mapping for the machine ID.
-		future := r.GetConfiguration()
-		if err := future.Error(); err != nil {
-			return errors.Trace(err)
-		}
-
-		config := future.Configuration()
-
-		// If no leader ID is located that could imply that the leader has gone
-		// away during the raft.State call and the GetConfiguration call. If
-		// this is the case, return the leader address and no leader ID and get
-		// the client to figure out the best approach.
-		var leaderID string
-		for _, server := range config.Servers {
-			if server.Address == leaderAddress {
-				leaderID = string(server.ID)
-				break
-			}
-		}
-
-		return NewNotLeaderError(string(leaderAddress), leaderID)
-	}
-
-	fmt.Printf("**** %+v %s\n", r, string(op.Command))
-
-	w.config.Logger.Tracef("Applying command %v", string(op.Command))
-
-	future := r.Apply(op.Command, op.Timeout)
-	if err := future.Error(); err != nil {
-		return errors.Trace(err)
-	}
-
-	response := future.Response()
-	fsmResponse, ok := response.(raftlease.FSMResponse)
-	if !ok {
-		// This should never happen.
-		panic(errors.Errorf("programming error: expected an FSMResponse, got %T: %#v", response, response))
-	}
-	fmt.Println("????? !!", fsmResponse.Error())
-	if err := fsmResponse.Error(); err != nil {
-		return errors.Trace(err)
-	}
-
-	s := r.Snapshot()
-	if s.Error() != nil {
-		fmt.Println("FUCK 1", s.Error())
-		return nil
-	}
-	_, reader, err := s.Open()
-	if err != nil {
-		fmt.Println("FUCK 2", err)
-		return nil
-	}
-	bytes, err := ioutil.ReadAll(reader)
-	fmt.Println("FUCK 3", string(bytes), err)
-
-	fsmResponse.Notify(w.config.NotifyTarget)
-
-	return nil
 }
 
 // NewRaftConfig makes a raft config struct from the worker config

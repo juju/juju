@@ -41,6 +41,9 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		Clock:        testclock.NewClock(time.Time{}),
 		Queue:        queue.NewBlockingOpQueue(),
 		NotifyTarget: &struct{ raftlease.NotifyTarget }{},
+		ApplyOperation: func(r raft.Raft, o queue.Operation, nt raftlease.NotifyTarget, l raft.Logger) error {
+			return nil
+		},
 	}
 }
 
@@ -90,6 +93,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *raft.Config) { cfg.NotifyTarget = nil },
 		"nil NotifyTarget not valid",
+	}, {
+		func(cfg *raft.Config) { cfg.ApplyOperation = nil },
+		"nil ApplyOperation not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)
@@ -121,6 +127,21 @@ func (s *WorkerValidationSuite) TestBootstrapTransport(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "non-nil Transport during Bootstrap not valid")
 }
 
+func (s *WorkerValidationSuite) TestBootstrapNotifyTarget(c *gc.C) {
+	s.config.Transport = nil
+	s.config.FSM = nil
+	err := raft.Bootstrap(s.config)
+	c.Assert(err, gc.ErrorMatches, "non-nil NotifyTarget during Bootstrap not valid")
+}
+
+func (s *WorkerValidationSuite) TestBootstrapApplyOperation(c *gc.C) {
+	s.config.Transport = nil
+	s.config.FSM = nil
+	s.config.NotifyTarget = nil
+	err := raft.Bootstrap(s.config)
+	c.Assert(err, gc.ErrorMatches, "non-nil ApplyOperation during Bootstrap not valid")
+}
+
 type WorkerSuite struct {
 	workerFixture
 	worker *raft.Worker
@@ -140,10 +161,21 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	// Bootstrap before starting the worker.
 	transport := s.config.Transport
 	fsm := s.config.FSM
+	notifyTarget := s.config.NotifyTarget
+	applyOp := s.config.ApplyOperation
+
 	s.config.Transport = nil
 	s.config.FSM = nil
+	s.config.NotifyTarget = nil
+	s.config.ApplyOperation = nil
+
 	err := raft.Bootstrap(s.config)
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.config.Transport = transport
+	s.config.FSM = fsm
+	s.config.NotifyTarget = notifyTarget
+	s.config.ApplyOperation = applyOp
 
 	// Make a new clock so the waits from the bootstrap aren't hanging
 	// around. Use time.Now() as the start so the time can be compared
@@ -152,8 +184,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.config.Clock = s.clock
 	s.config.NoLeaderTimeout = 4 * time.Second
 
-	s.config.Transport = transport
-	s.config.FSM = fsm
 	worker, err := raft.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
@@ -376,13 +406,21 @@ func (s *WorkerTimeoutSuite) SetUpTest(c *gc.C) {
 	// Bootstrap before starting the worker.
 	transport := s.config.Transport
 	fsm := s.config.FSM
+	notifyTarget := s.config.NotifyTarget
+	applyOp := s.config.ApplyOperation
+
 	s.config.Transport = nil
 	s.config.FSM = nil
+	s.config.NotifyTarget = nil
+	s.config.ApplyOperation = nil
+
 	err := raft.Bootstrap(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.config.Transport = transport
 	s.config.FSM = fsm
+	s.config.NotifyTarget = notifyTarget
+	s.config.ApplyOperation = applyOp
 }
 
 func (s *WorkerTimeoutSuite) TestNewWorkerTimesOut(c *gc.C) {

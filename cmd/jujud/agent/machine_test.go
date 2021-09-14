@@ -8,7 +8,6 @@ import (
 	"bytes"
 	stdcontext "context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -1265,8 +1264,6 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 	// Grab responsibility for the model on behalf of another machine.
 	uuid := s.BackingState.ModelUUID()
 	claimSingularRaftLease(c, s.DataDir(), uuid)
-
-	fmt.Println("!!!!!!", s.DataDir())
 
 	// Then run a normal model-tracking test, just checking for
 	// a different set of workers.

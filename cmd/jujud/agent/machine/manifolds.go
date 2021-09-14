@@ -774,6 +774,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewTarget:            raft.NewTarget,
 			Queue:                config.RaftOpQueue,
 			LeaseLog:             config.LeaseLog,
+			NewApplyOperation:    raft.ApplyOperation,
 		})),
 
 		raftFlagName: raftflag.Manifold(raftflag.ManifoldConfig{
