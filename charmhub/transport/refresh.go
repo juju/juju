@@ -14,7 +14,12 @@ type RefreshRequest struct {
 	Context []RefreshRequestContext `json:"context"`
 	Actions []RefreshRequestAction  `json:"actions"`
 	Fields  []string                `json:"fields,omitempty"`
+	Metrics RequestMetrics          `json:"metrics,omitempty"`
 }
+
+// RequestMetrics are a map of key value pairs of metrics for the controller
+// and the model in the request.
+type RequestMetrics map[string]map[string]string
 
 // RefreshRequestContext can request a given context for making multiple
 // requests to one given entity.
@@ -22,11 +27,16 @@ type RefreshRequestContext struct {
 	InstanceKey string `json:"instance-key"`
 	ID          string `json:"id"`
 
-	Revision        int        `json:"revision"`
-	Base            Base       `json:"base,omitempty"`
-	TrackingChannel string     `json:"tracking-channel,omitempty"`
-	RefreshedDate   *time.Time `json:"refresh-date,omitempty"`
+	Revision        int            `json:"revision"`
+	Base            Base           `json:"base,omitempty"`
+	TrackingChannel string         `json:"tracking-channel,omitempty"`
+	RefreshedDate   *time.Time     `json:"refresh-date,omitempty"`
+	Metrics         ContextMetrics `json:"metrics,omitempty"`
 }
+
+// ContextMetrics are a map of key value pairs of metrics for the specific
+// charm/application in the context.
+type ContextMetrics map[string]string
 
 // RefreshRequestAction defines a action to perform against the Refresh API.
 type RefreshRequestAction struct {
