@@ -389,6 +389,55 @@ relations:
     - mariadb:server
 `
 
+func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevisionCharmhub(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectEmptyModelToStart(c)
+	s.expectWatchAll()
+
+	mariadbCurl := charm.MustParseURL("mariadb-k8s")
+	gitlabCurl := charm.MustParseURL("gitlab-k8s")
+	chUnits := []charmUnit{
+		{
+			curl:          mariadbCurl,
+			machineSeries: "kubernetes",
+		},
+		{
+			curl:          gitlabCurl,
+			machineSeries: "kubernetes",
+		},
+	}
+	s.setupMetadataV2CharmUnits(chUnits)
+	s.expectAddRelation([]string{"gitlab:mysql", "mariadb:server"})
+
+	s.runDeploy(c, kubernetesCharmhubGitlabRevisionBundle)
+
+	c.Assert(s.deployArgs, gc.HasLen, 2)
+	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "focal")
+	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "focal")
+
+	str := s.output.String()
+	c.Check(strings.Contains(str, "Located charm \"gitlab-k8s\" in charm-hub, channel new/edge\n"), jc.IsTrue)
+	c.Check(strings.Contains(str, "Located charm \"mariadb-k8s\" in charm-hub, channel old/stable\n"), jc.IsTrue)
+	c.Check(strings.Contains(str, "- upload charm mariadb-k8s from charm-hub with revision 8 with architecture=amd64\n"), jc.IsTrue)
+}
+
+const kubernetesCharmhubGitlabRevisionBundle = `
+bundle: kubernetes
+applications:
+  mariadb:
+    charm: mariadb-k8s
+    scale: 2
+    revision: 8
+    channel: old/stable
+  gitlab:
+    charm: gitlab-k8s
+    scale: 1
+    channel: new/edge
+relations:
+  - - gitlab:mysql
+    - mariadb:server
+`
+
 func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
@@ -1857,6 +1906,9 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *gc.C) {
 }
 
 func (s *BundleDeployRepositorySuite) TestApplicationsForMachineChange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectResolveCharmWithSeries([]string{"xenial"}, nil)
+	s.expectResolveCharmWithSeries([]string{"xenial"}, nil)
 	spec := s.bundleDeploySpec()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(machineUnitPlacementBundle))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2499,7 +2551,7 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *gc.C)
 
 	resolver.EXPECT().ResolveCharm(charmURL, origin, false).Return(charmURL, resolvedOrigin, nil, nil)
 
-	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch)
+	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(channel, gc.DeepEquals, "stable")
 	c.Assert(rev, gc.Equals, rev)
@@ -2531,7 +2583,7 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelWithoutRevision(c *g
 
 	resolver.EXPECT().ResolveCharm(charmURL, origin, false).Return(charmURL, resolvedOrigin, nil, nil)
 
-	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch)
+	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(channel, gc.DeepEquals, "stable")
 	c.Assert(rev, gc.Equals, -1)
@@ -2548,7 +2600,7 @@ func (s *BundleHandlerResolverSuite) TestResolveLocalCharm(c *gc.C) {
 	charmChannel := "stable"
 	arch := "amd64"
 
-	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch)
+	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(channel, gc.DeepEquals, "stable")
 	c.Assert(rev, gc.Equals, -1)
