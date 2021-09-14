@@ -18,6 +18,7 @@ import (
 	path "github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/arch"
+	charmmetrics "github.com/juju/juju/core/charm/metrics"
 )
 
 type RefreshSuite struct {
@@ -197,6 +198,63 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 	})
 }
 
+func (s *RefreshSuite) RefreshWithRequestMetrics(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	baseURL := MustParseURL(c, "http://api.foo.bar")
+
+	path := path.MakePath(baseURL)
+	id := "meshuggah"
+	body := transport.RefreshRequest{
+		Context: []transport.RefreshRequestContext{{
+			InstanceKey: "foo-bar",
+			ID:          id,
+			Revision:    1,
+			Base: transport.Base{
+				Name:         "ubuntu",
+				Channel:      "20.04",
+				Architecture: arch.DefaultArchitecture,
+			},
+			TrackingChannel: "latest/stable",
+		}},
+		Actions: []transport.RefreshRequestAction{{
+			Action:      "refresh",
+			InstanceKey: "foo-bar",
+			ID:          &id,
+		}},
+	}
+
+	config1, err := RefreshOne("foo", 1, "latest/stable", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
+		Architecture: "amd64",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	config1 = DefineInstanceKey(c, config1, "key-foo")
+
+	config2, err := RefreshOne("bar", 2, "latest/edge", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "14.04",
+		Architecture: "amd64",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	config2 = DefineInstanceKey(c, config2, "key-bar")
+
+	config := RefreshMany(config1, config2)
+
+	restClient := NewMockRESTClient(ctrl)
+	s.expectPost(c, restClient, path, id, body)
+
+	metrics := map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string{}
+
+	client := NewRefreshClient(path, restClient, &FakeLogger{})
+	responses, err := client.RefreshWithRequestMetrics(context.TODO(), config, metrics)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(responses), gc.Equals, 1)
+	c.Assert(responses[0].Name, gc.Equals, id)
+}
+
 func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -280,6 +338,49 @@ func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 			TrackingChannel: "latest/stable",
+		}},
+		Actions: []transport.RefreshRequestAction{{
+			Action:      "refresh",
+			InstanceKey: "foo-bar",
+			ID:          &id,
+		}},
+	})
+}
+
+func (s *RefreshConfigSuite) TestRefreshOneWithMetricsBuild(c *gc.C) {
+	id := "foo"
+	config, err := RefreshOne(id, 1, "latest/stable", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
+		Architecture: arch.DefaultArchitecture,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config = DefineInstanceKey(c, config, "foo-bar")
+
+	config, err = AddConfigMetrics(config, map[charmmetrics.MetricKey]string{
+		charmmetrics.Provider:        "openstack",
+		charmmetrics.NumApplications: "4",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	req, _, err := config.Build()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
+		Context: []transport.RefreshRequestContext{{
+			InstanceKey: "foo-bar",
+			ID:          "foo",
+			Revision:    1,
+			Base: transport.Base{
+				Name:         "ubuntu",
+				Channel:      "20.04",
+				Architecture: arch.DefaultArchitecture,
+			},
+			TrackingChannel: "latest/stable",
+			Metrics: map[string]string{
+				"provider":         "openstack",
+				"num-applications": "4",
+			},
 		}},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "refresh",

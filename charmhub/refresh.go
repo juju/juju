@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
+	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	coreseries "github.com/juju/juju/core/series"
 )
 
@@ -99,7 +100,34 @@ func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return c.refresh(ctx, config.Ensure, req, headers)
+}
 
+// RefreshWithRequestMetrics is to get refreshed charm data and provide metrics
+// at the same time.  Used as part of the charm revision updater facade.
+func (c *RefreshClient) RefreshWithRequestMetrics(ctx context.Context, config RefreshConfig, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) ([]transport.RefreshResponse, error) {
+	c.logger.Tracef("RefreshWithRequestMetrics(%s, %+v)", pretty.Sprint(config), metrics)
+	req, headers, err := config.Build()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	m := make(transport.RequestMetrics, 0)
+	for k, v := range metrics {
+		// verify top level "model" and "controller" keys
+		if k != charmmetrics.Controller && k != charmmetrics.Model {
+			return nil, errors.Trace(errors.NotValidf("highlevel metrics label %q", k))
+		}
+		ctxM := make(map[string]string, len(v))
+		for k2, v2 := range v {
+			ctxM[k2.String()] = v2
+		}
+		m[k.String()] = ctxM
+	}
+	req.Metrics = m
+	return c.refresh(ctx, config.Ensure, req, headers)
+}
+
+func (c *RefreshClient) refresh(ctx context.Context, ensure func(responses []transport.RefreshResponse) error, req transport.RefreshRequest, headers Headers) ([]transport.RefreshResponse, error) {
 	httpHeaders := make(http.Header)
 	for k, values := range headers {
 		for _, value := range values {
@@ -120,7 +148,7 @@ func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 	}
 
 	c.logger.Tracef("Refresh() unmarshalled: %s", pretty.Sprint(resp.Results))
-	return resp.Results, config.Ensure(resp.Results)
+	return resp.Results, ensure(resp.Results)
 }
 
 // refreshOne holds the config for making refresh calls to the CharmHub API.
@@ -132,6 +160,7 @@ type refreshOne struct {
 	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
 	instanceKey string
+	metrics     transport.ContextMetrics
 }
 
 // InstanceKey returns the underlying instance key.
@@ -176,6 +205,7 @@ func (c refreshOne) Build() (transport.RefreshRequest, Headers, error) {
 			Revision:        c.Revision,
 			Base:            base,
 			TrackingChannel: c.Channel,
+			Metrics:         c.metrics,
 			// TODO (stickupkid): We need to model the refreshed date. It's
 			// currently optional, but will be required at some point. This
 			// is the installed date of the charm on the system.
@@ -232,6 +262,23 @@ func InstallOneFromRevision(name string, revision int, base RefreshBase) (Refres
 		Revision:    &revision,
 		Base:        base,
 	}, nil
+}
+
+// AddConfigMetrics adds metrics to a refreshOne config.  All values are
+// applied at once, subsequent calls, replace all values.
+func AddConfigMetrics(config RefreshConfig, metrics map[charmmetrics.MetricKey]string) (RefreshConfig, error) {
+	c, ok := config.(refreshOne)
+	if !ok {
+		return config, nil // error?
+	}
+	if len(metrics) < 1 {
+		return c, nil
+	}
+	c.metrics = make(transport.ContextMetrics, 0)
+	for k, v := range metrics {
+		c.metrics[k.String()] = v
+	}
+	return c, nil
 }
 
 // InstallOneFromChannel creates a request config using the channel and not the
