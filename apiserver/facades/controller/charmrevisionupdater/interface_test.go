@@ -19,11 +19,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs/config"
+	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	"github.com/juju/juju/state"
-	statemocks "github.com/juju/juju/state/mocks"
-	"github.com/juju/juju/testing"
 )
 
 func makeApplication(ctrl *gomock.Controller, schema, charmName, charmID, appID string, revision int) charmrevisionupdater.Application {
@@ -57,38 +54,6 @@ func makeApplication(ctrl *gomock.Controller, schema, charmName, charmID, appID 
 	app.EXPECT().ApplicationTag().Return(names.ApplicationTag{Name: appID}).AnyTimes()
 
 	return app
-}
-
-func makeModel(c *gc.C, ctrl *gomock.Controller) charmrevisionupdater.Model {
-	model := mocks.NewMockModel(ctrl)
-	model.EXPECT().CloudName().Return("testcloud").AnyTimes()
-	model.EXPECT().CloudRegion().Return("juju-land").AnyTimes()
-	uuid := testing.ModelTag.Id()
-	cfg, err := config.New(true, map[string]interface{}{
-		"charmhub-url": "https://api.staging.charmhub.io", // not actually used in tests
-		"name":         "model",
-		"type":         "type",
-		"uuid":         uuid,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	model.EXPECT().Config().Return(cfg, nil).AnyTimes()
-	model.EXPECT().IsControllerModel().Return(false).AnyTimes()
-	model.EXPECT().UUID().Return(uuid).AnyTimes()
-	return model
-}
-
-func makeState(c *gc.C, ctrl *gomock.Controller, resources state.Resources) *mocks.MockState {
-	if resources == nil {
-		r := statemocks.NewMockResources(ctrl)
-		r.EXPECT().SetCharmStoreResources(gomock.Any(), gomock.Len(0), gomock.Any()).Return(nil).AnyTimes()
-		resources = r
-	}
-	state := mocks.NewMockState(ctrl)
-	state.EXPECT().Cloud(gomock.Any()).Return(cloud.Cloud{Type: "cloud"}, nil).AnyTimes()
-	state.EXPECT().ControllerUUID().Return("controller-1").AnyTimes()
-	state.EXPECT().Model().Return(makeModel(c, ctrl), nil).AnyTimes()
-	state.EXPECT().Resources().Return(resources, nil).AnyTimes()
-	return state
 }
 
 func makeResource(c *gc.C, name string, revision, size int, hexFingerprint string) resource.Resource {
@@ -146,6 +111,46 @@ func (m charmhubConfigMatcher) Matches(x interface{}) bool {
 
 func (charmhubConfigMatcher) String() string {
 	return "matches config"
+}
+
+// charmhubMetricsMatcher matches the controller and model parts of the metrics, then
+// a value within each part.
+type charmhubMetricsMatcher struct {
+	c *gc.C
+}
+
+func (m charmhubMetricsMatcher) Matches(x interface{}) bool {
+	switch y := x.(type) {
+	case map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string:
+		if len(y) != 2 {
+			return false
+		}
+		for k := range y {
+			if k != charmmetrics.Controller && k != charmmetrics.Model {
+				return false
+			}
+		}
+		controller := y[charmmetrics.Controller]
+		uuid, ok := controller[charmmetrics.UUID]
+		if !ok {
+			return false
+		}
+		m.c.Assert(uuid, gc.Equals, "controller-1")
+
+		model := y[charmmetrics.Model]
+		cloud, ok := model[charmmetrics.Cloud]
+		if !ok {
+			return false
+		}
+		m.c.Assert(cloud, gc.Equals, "cloud")
+	default:
+		return false
+	}
+	return true
+}
+
+func (charmhubMetricsMatcher) String() string {
+	return "matches metrics"
 }
 
 func newFakeCharmstoreClient(st charmrevisionupdater.State) (charmstore.Client, error) {

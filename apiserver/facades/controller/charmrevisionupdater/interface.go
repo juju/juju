@@ -42,6 +42,7 @@ type Model interface {
 	CloudRegion() string
 	Config() (*config.Config, error)
 	IsControllerModel() bool
+	Metrics() (state.ModelMetrics, error)
 	UUID() string
 }
 

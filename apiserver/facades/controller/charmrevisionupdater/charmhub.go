@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/core/charm/metrics"
 )
 
 // charmhubID holds identifying information for several charms for a
@@ -40,12 +41,12 @@ type charmhubResult struct {
 // CharmhubRefreshClient is an interface for the methods of the charmhub
 // client that we need.
 type CharmhubRefreshClient interface {
-	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
+	RefreshWithRequestMetrics(ctx context.Context, config charmhub.RefreshConfig, metrics map[metrics.MetricKey]map[metrics.MetricKey]string) ([]transport.RefreshResponse, error)
 }
 
 // charmhubLatestCharmInfo fetches the latest information about the given
 // charms from charmhub's "charm_refresh" API.
-func charmhubLatestCharmInfo(client CharmhubRefreshClient, ids []charmhubID) ([]charmhubResult, error) {
+func charmhubLatestCharmInfo(client CharmhubRefreshClient, metrics map[metrics.MetricKey]map[metrics.MetricKey]string, ids []charmhubID) ([]charmhubResult, error) {
 	cfgs := make([]charmhub.RefreshConfig, len(ids))
 	for i, id := range ids {
 		base := charmhub.RefreshBase{
@@ -63,7 +64,7 @@ func charmhubLatestCharmInfo(client CharmhubRefreshClient, ids []charmhubID) ([]
 
 	ctx, cancel := context.WithTimeout(context.TODO(), charmhub.RefreshTimeout)
 	defer cancel()
-	responses, err := client.Refresh(ctx, config)
+	responses, err := client.RefreshWithRequestMetrics(ctx, config, metrics)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

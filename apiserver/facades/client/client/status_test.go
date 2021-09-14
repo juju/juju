@@ -826,10 +826,10 @@ func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 
 	s.ctrl = gomock.NewController(c)
 	charmhubClient := mocks.NewMockCharmhubRefreshClient(s.ctrl)
-	charmhubClient.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{
+	charmhubClient.EXPECT().RefreshWithRequestMetrics(gomock.Any(), gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{
 		{Entity: transport.RefreshEntity{Revision: 42}},
 	}, nil)
-	newCharmhubClient := func(st charmrevisionupdater.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error) {
+	newCharmhubClient := func(st charmrevisionupdater.State) (charmrevisionupdater.CharmhubRefreshClient, error) {
 		return charmhubClient, nil
 	}
 
