@@ -4,6 +4,7 @@
 package raft_test
 
 import (
+	"context"
 	"time"
 
 	coreraft "github.com/hashicorp/raft"
@@ -25,13 +26,17 @@ import (
 
 type workerFixture struct {
 	testing.IsolationSuite
-	fsm    *raft.SimpleFSM
-	config raft.Config
+	fsm        *raft.SimpleFSM
+	config     raft.Config
+	queue      *queue.BlockingOpQueue
+	operations chan queue.Operation
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.fsm = &raft.SimpleFSM{}
+	s.queue = queue.NewBlockingOpQueue()
+	s.operations = make(chan queue.Operation)
 	s.config = raft.Config{
 		FSM:          s.fsm,
 		Logger:       loggo.GetLogger("juju.worker.raft_test"),
@@ -39,12 +44,18 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		LocalID:      "123",
 		Transport:    s.newTransport("123"),
 		Clock:        testclock.NewClock(time.Time{}),
-		Queue:        queue.NewBlockingOpQueue(),
+		Queue:        s.queue,
 		NotifyTarget: &struct{ raftlease.NotifyTarget }{},
 		ApplyOperation: func(r raft.Raft, o queue.Operation, nt raftlease.NotifyTarget, l raft.Logger) error {
+			s.operations <- o
 			return nil
 		},
 	}
+}
+
+func (s *workerFixture) TearDownTest(c *gc.C) {
+	close(s.operations)
+	s.IsolationSuite.TearDownTest(c)
 }
 
 func (s *workerFixture) newTransport(address coreraft.ServerAddress) *coreraft.InmemTransport {
@@ -386,6 +397,37 @@ func connectTransports(transports ...coreraft.LoopbackTransport) {
 			}
 			t1.Connect(t2.LocalAddr(), t2)
 		}
+	}
+}
+
+// TestApplyOperation tests that we get a new operation on the queue, not if
+// the operation was processed. That's up to the apply test suite.
+func (s *WorkerSuite) TestApplyOperation(c *gc.C) {
+	cmd := []byte("do it")
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+
+		// We expect at least one operation to come through.
+		for op := range s.operations {
+			c.Assert(op.Command, jc.DeepEquals, cmd)
+			break
+		}
+	}()
+
+	s.waitLeader(c)
+
+	err := s.queue.Enqueue(context.TODO(), queue.Operation{
+		Command: cmd,
+		Timeout: testing.ShortWait,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Error("failed to get applied operation")
 	}
 }
 
