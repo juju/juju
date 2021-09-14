@@ -30,6 +30,10 @@ type baseSuite struct {
 
 var _ = gc.Suite(&baseSuite{})
 
+func (s *baseSuite) getAuthToken(username, password string) string {
+	return base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
+}
+
 func (s *baseSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
@@ -37,7 +41,7 @@ func (s *baseSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controller)
 		Repository:    "example.com/jujuqa",
 		ServerAddress: "example.com",
 	}
-	authToken := base64.StdEncoding.EncodeToString([]byte("username:pwd"))
+	authToken := s.getAuthToken("username", "pwd")
 	if s.isPrivate {
 		s.imageRepoDetails.BasicAuthConfig = docker.BasicAuthConfig{
 			Auth: authToken,

@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-type gitlabSuite struct {
+type googleContainerRegistrySuite struct {
 	testing.IsolationSuite
 
 	mockRoundTripper *mocks.MockRoundTripper
@@ -32,16 +32,16 @@ type gitlabSuite struct {
 	authToken        string
 }
 
-var _ = gc.Suite(&gitlabSuite{})
+var _ = gc.Suite(&googleContainerRegistrySuite{})
 
-func (s *gitlabSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controller) {
+func (s *googleContainerRegistrySuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
 	s.imageRepoDetails = docker.ImageRepoDetails{
-		Repository:    "registry.gitlab.com/jujuqa",
-		ServerAddress: "registry.gitlab.com",
+		Repository:    "gcr.io/jujuqa",
+		ServerAddress: "gcr.io",
 	}
-	s.authToken = base64.StdEncoding.EncodeToString([]byte("username:pwd"))
+	s.authToken = base64.StdEncoding.EncodeToString([]byte("_json_key:pwd"))
 	if s.isPrivate {
 		s.imageRepoDetails.BasicAuthConfig = docker.BasicAuthConfig{
 			Auth: s.authToken,
@@ -56,14 +56,14 @@ func (s *gitlabSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controlle
 				func(req *http.Request) (*http.Response, error) {
 					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer "}})
 					c.Assert(req.Method, gc.Equals, `GET`)
-					c.Assert(req.URL.String(), gc.Equals, `https://registry.gitlab.com/v2`)
+					c.Assert(req.URL.String(), gc.Equals, `https://gcr.io/v2/`)
 					return &http.Response{
 						Request:    req,
 						StatusCode: http.StatusUnauthorized,
 						Body:       ioutil.NopCloser(nil),
 						Header: http.Header{
 							http.CanonicalHeaderKey("WWW-Authenticate"): []string{
-								`Bearer realm="https://gitlab.com/jwt/auth",service="container_registry",scope="repository:jujuqa/jujud-operator:pull",error="invalid_token"`,
+								`Bearer realm="https://gcr.io/v2/token",service="gcr.io",scope="repository:jujuqa/jujud-operator:pull"`,
 							},
 						},
 					}, nil
@@ -74,7 +74,7 @@ func (s *gitlabSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controlle
 				func(req *http.Request) (*http.Response, error) {
 					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
 					c.Assert(req.Method, gc.Equals, `GET`)
-					c.Assert(req.URL.String(), gc.Equals, `https://gitlab.com/jwt/auth?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=container_registry`)
+					c.Assert(req.URL.String(), gc.Equals, `https://gcr.io/v2/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=gcr.io`)
 					return &http.Response{
 						Request:    req,
 						StatusCode: http.StatusOK,
@@ -85,21 +85,10 @@ func (s *gitlabSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controlle
 			// registry.Ping()
 			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `jwt-token`}})
+					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
 					c.Assert(req.Method, gc.Equals, `GET`)
-					c.Assert(req.URL.String(), gc.Equals, `https://registry.gitlab.com/v2`)
+					c.Assert(req.URL.String(), gc.Equals, `https://gcr.io/v2/`)
 					return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
-				},
-			),
-		)
-	} else {
-		gomock.InOrder(
-			// registry.Ping()
-			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Method, gc.Equals, `GET`)
-					c.Assert(req.URL.String(), gc.Equals, `https://registry.gitlab.com/v1`)
-					return &http.Response{Request: req, StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
 				},
 			),
 		)
@@ -108,58 +97,30 @@ func (s *gitlabSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controlle
 
 	reg, err := registry.New(s.imageRepoDetails)
 	c.Assert(err, jc.ErrorIsNil)
-	_, ok := reg.(*internal.GitlabContainerRegistry)
+	_, ok := reg.(*internal.GoogleContainerRegistry)
 	c.Assert(ok, jc.IsTrue)
 	return reg, ctrl
 }
 
-func (s *gitlabSuite) TestPingPublicRepository(c *gc.C) {
-	c.Skip("TODO(ycliuhw): support gitlab public registry")
-	s.isPrivate = false
-	_, ctrl := s.getRegistry(c)
-	ctrl.Finish()
+func (s *googleContainerRegistrySuite) TestInvalidUserName(c *gc.C) {
+	imageRepoDetails := docker.ImageRepoDetails{
+		Repository:    "gcr.io/jujuqa",
+		ServerAddress: "gcr.io",
+		BasicAuthConfig: docker.BasicAuthConfig{
+			Auth: base64.StdEncoding.EncodeToString([]byte("username:pwd")),
+		},
+	}
+	_, err := registry.New(imageRepoDetails)
+	c.Assert(err, gc.ErrorMatches, `google container registry username has to be "_json_key"`)
 }
 
-func (s *gitlabSuite) TestPingPrivateRepository(c *gc.C) {
+func (s *googleContainerRegistrySuite) TestPingPrivateRepository(c *gc.C) {
 	s.isPrivate = true
 	_, ctrl := s.getRegistry(c)
 	ctrl.Finish()
 }
 
-func (s *gitlabSuite) TestTagsV1(c *gc.C) {
-	c.Skip("TODO(ycliuhw): support gitlab public registry")
-	// Use v1 for public repository.
-	s.isPrivate = false
-	reg, ctrl := s.getRegistry(c)
-	defer ctrl.Finish()
-
-	data := `
-[{"name": "2.9.10.1"},{"name": "2.9.10.2"},{"name": "2.9.10"}]
-`[1:]
-
-	gomock.InOrder(
-		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://registry.gitlab.com/v1/repositories/jujuqa/jujud-operator/tags`)
-			resps := &http.Response{
-				Request:    req,
-				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(strings.NewReader(data)),
-			}
-			return resps, nil
-		}),
-	)
-	vers, err := reg.Tags("jujud-operator")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers, jc.DeepEquals, tools.Versions{
-		image.NewImageInfo(version.MustParse("2.9.10.1")),
-		image.NewImageInfo(version.MustParse("2.9.10.2")),
-		image.NewImageInfo(version.MustParse("2.9.10")),
-	})
-}
-
-func (s *gitlabSuite) TestTagsV2(c *gc.C) {
+func (s *googleContainerRegistrySuite) TestTags(c *gc.C) {
 	// Use v2 for private repository.
 	s.isPrivate = true
 	reg, ctrl := s.getRegistry(c)
@@ -170,29 +131,27 @@ func (s *gitlabSuite) TestTagsV2(c *gc.C) {
 `[1:]
 
 	gomock.InOrder(
-		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer "}})
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://registry.gitlab.com/v2/jujuqa/jujud-operator/tags/list`)
-				return &http.Response{
-					Request:    req,
-					StatusCode: http.StatusUnauthorized,
-					Body:       ioutil.NopCloser(nil),
-					Header: http.Header{
-						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
-							`Bearer realm="https://gitlab.com/jwt/auth",service="container_registry",scope="repository:jujuqa/jujud-operator:pull",error="invalid_token"`,
-						},
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer "}})
+			c.Assert(req.Method, gc.Equals, `GET`)
+			c.Assert(req.URL.String(), gc.Equals, `https://gcr.io/v2/jujuqa/jujud-operator/tags/list`)
+			return &http.Response{
+				Request:    req,
+				StatusCode: http.StatusUnauthorized,
+				Body:       ioutil.NopCloser(nil),
+				Header: http.Header{
+					http.CanonicalHeaderKey("WWW-Authenticate"): []string{
+						`Bearer realm="https://gcr.io/v2/token",service="gcr.io",scope="repository:jujuqa/jujud-operator:pull"`,
 					},
-				}, nil
-			},
-		),
+				},
+			}, nil
+		}),
 		// Refresh OAuth Token
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
 				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
 				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://gitlab.com/jwt/auth?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=container_registry`)
+				c.Assert(req.URL.String(), gc.Equals, `https://gcr.io/v2/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=gcr.io`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -203,7 +162,7 @@ func (s *gitlabSuite) TestTagsV2(c *gc.C) {
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
 			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://registry.gitlab.com/v2/jujuqa/jujud-operator/tags/list`)
+			c.Assert(req.URL.String(), gc.Equals, `https://gcr.io/v2/jujuqa/jujud-operator/tags/list`)
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -221,34 +180,7 @@ func (s *gitlabSuite) TestTagsV2(c *gc.C) {
 	})
 }
 
-func (s *gitlabSuite) TestTagsErrorResponseV1(c *gc.C) {
-	c.Skip("TODO(ycliuhw): support gitlab public registry")
-	s.isPrivate = false
-	reg, ctrl := s.getRegistry(c)
-	defer ctrl.Finish()
-
-	data := `
-{"errors":[{"code":"UNAUTHORIZED","message":"authentication required"}]}
-`[1:]
-
-	gomock.InOrder(
-		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://registry.gitlab.com/v1/repositories/jujuqa/jujud-operator/tags`)
-			resps := &http.Response{
-				Request:    req,
-				StatusCode: http.StatusForbidden,
-				Body:       ioutil.NopCloser(strings.NewReader(data)),
-			}
-			return resps, nil
-		}),
-	)
-	_, err := reg.Tags("jujud-operator")
-	c.Assert(err, gc.ErrorMatches, `Get "https://registry.gitlab.com/v1/repositories/jujuqa/jujud-operator/tags": non-successful response status=403`)
-}
-
-func (s *gitlabSuite) TestTagsErrorResponseV2(c *gc.C) {
+func (s *googleContainerRegistrySuite) TestTagsErrorResponse(c *gc.C) {
 	s.isPrivate = true
 	reg, ctrl := s.getRegistry(c)
 	defer ctrl.Finish()
@@ -261,14 +193,14 @@ func (s *gitlabSuite) TestTagsErrorResponseV2(c *gc.C) {
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer "}})
 			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://registry.gitlab.com/v2/jujuqa/jujud-operator/tags/list`)
+			c.Assert(req.URL.String(), gc.Equals, `https://gcr.io/v2/jujuqa/jujud-operator/tags/list`)
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
 				Body:       ioutil.NopCloser(nil),
 				Header: http.Header{
 					http.CanonicalHeaderKey("WWW-Authenticate"): []string{
-						`Bearer realm="https://gitlab.com/jwt/auth",service="container_registry",scope="repository:jujuqa/jujud-operator:pull",error="invalid_token"`,
+						`Bearer realm="https://gcr.io/v2/token",service="gcr.io",scope="repository:jujuqa/jujud-operator:pull"`,
 					},
 				},
 			}, nil
@@ -278,7 +210,7 @@ func (s *gitlabSuite) TestTagsErrorResponseV2(c *gc.C) {
 			func(req *http.Request) (*http.Response, error) {
 				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
 				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://gitlab.com/jwt/auth?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=container_registry`)
+				c.Assert(req.URL.String(), gc.Equals, `https://gcr.io/v2/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=gcr.io`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -286,11 +218,10 @@ func (s *gitlabSuite) TestTagsErrorResponseV2(c *gc.C) {
 				}, nil
 			},
 		),
-
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
 			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://registry.gitlab.com/v2/jujuqa/jujud-operator/tags/list`)
+			c.Assert(req.URL.String(), gc.Equals, `https://gcr.io/v2/jujuqa/jujud-operator/tags/list`)
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusForbidden,
@@ -300,5 +231,5 @@ func (s *gitlabSuite) TestTagsErrorResponseV2(c *gc.C) {
 		}),
 	)
 	_, err := reg.Tags("jujud-operator")
-	c.Assert(err, gc.ErrorMatches, `Get "https://registry.gitlab.com/v2/jujuqa/jujud-operator/tags/list": non-successful response status=403`)
+	c.Assert(err, gc.ErrorMatches, `Get "https://gcr.io/v2/jujuqa/jujud-operator/tags/list": non-successful response status=403`)
 }
