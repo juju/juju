@@ -1906,6 +1906,9 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *gc.C) {
 }
 
 func (s *BundleDeployRepositorySuite) TestApplicationsForMachineChange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectResolveCharmWithSeries([]string{"xenial"}, nil)
+	s.expectResolveCharmWithSeries([]string{"xenial"}, nil)
 	spec := s.bundleDeploySpec()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(machineUnitPlacementBundle))
 	c.Assert(err, jc.ErrorIsNil)
