@@ -55,25 +55,34 @@ func (s *MinimalStatusSuite) TestGoodCall(c *gc.C) {
 	c.Assert(s.clock.waits, gc.HasLen, 0)
 }
 
-func (s *MinimalStatusSuite) TestGoodCallWatch(c *gc.C) {
+func (s *MinimalStatusSuite) TestWatchUntilError(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("watch flag not available on windows")
 	}
-	t := time.NewTimer(time.Second)
-	var err error = nil
-	go func() {
-		for {
-			select {
-			case <-t.C:
-				return
-			default:
-				_, err = s.runStatus(c, "--watch", "300ms")
-			}
-		}
-	}()
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.clock.waits, gc.HasLen, 0)
+	s.statusapi.errors = []error{
+		nil,
+		nil,
+		nil,
+		errors.New("boom"),
+	}
+
+	ctx, err := s.runStatus(c, "--watch", "1ms", "--retry-count", "0")
+	c.Assert(err, gc.ErrorMatches, "boom")
+
+	// We expect the correct output for the first 3 nil errors before termination.
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+Model  Controller  Cloud/Region  Version
+test   test        foo           
+
+Model  Controller  Cloud/Region  Version
+test   test        foo           
+
+Model  Controller  Cloud/Region  Version
+test   test        foo           
+
+`[1:])
+
 }
 
 func (s *MinimalStatusSuite) TestGoodCallWithStorage(c *gc.C) {
@@ -157,11 +166,14 @@ type fakeStatusAPI struct {
 	errors []error
 }
 
-func (f *fakeStatusAPI) Status(patterns []string) (*params.FullStatus, error) {
+func (f *fakeStatusAPI) Status(_ []string) (*params.FullStatus, error) {
 	if len(f.errors) > 0 {
 		err, rest := f.errors[0], f.errors[1:]
 		f.errors = rest
-		return nil, err
+
+		if err != nil {
+			return nil, err
+		}
 	}
 	return f.result, nil
 }
