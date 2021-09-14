@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmstore"
+	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
@@ -40,7 +41,7 @@ type CharmRevisionUpdaterAPI struct {
 }
 
 type newCharmstoreClientFunc func(st State) (charmstore.Client, error)
-type newCharmhubClientFunc func(st State, metadata map[string]string) (CharmhubRefreshClient, error)
+type newCharmhubClientFunc func(st State) (CharmhubRefreshClient, error)
 
 var _ CharmRevisionUpdater = (*CharmRevisionUpdaterAPI)(nil)
 
@@ -56,10 +57,10 @@ func NewCharmRevisionUpdaterAPI(ctx facade.Context) (*CharmRevisionUpdaterAPI, e
 		}
 		return charmstore.NewCachingClient(state.MacaroonCache{MacaroonCacheState: st}, controllerCfg.CharmStoreURL())
 	}
-	newCharmhubClient := func(st State, metadata map[string]string) (CharmhubRefreshClient, error) {
+	newCharmhubClient := func(st State) (CharmhubRefreshClient, error) {
 		// TODO (stickupkid): Get the http transport from the facade context
 		transport := charmhub.DefaultHTTPTransport(logger)
-		return common.CharmhubClient(charmhubClientStateShim{state: st}, transport, logger, metadata)
+		return common.CharmhubClient(charmhubClientStateShim{state: st}, transport, logger)
 	}
 	return NewCharmRevisionUpdaterAPIState(
 		StateShim{State: ctx.State()},
@@ -235,7 +236,7 @@ func (api *CharmRevisionUpdaterAPI) fetchCharmstoreInfos(ids []charmstore.CharmI
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	metadata, err := apiMetadata(api.state)
+	metadata, err := charmstoreApiMetadata(api.state)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -273,15 +274,15 @@ func (api *CharmRevisionUpdaterAPI) fetchCharmstoreInfos(ids []charmstore.CharmI
 }
 
 func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(ids []charmhubID, appInfos []appInfo) ([]latestCharmInfo, error) {
-	metadata, err := apiMetadata(api.state)
+	requestMetrics, err := charmhubRequestMetadata(api.state)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	client, err := api.newCharmhubClient(api.state, metadata)
+	client, err := api.newCharmhubClient(api.state)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	results, err := charmhubLatestCharmInfo(client, ids)
+	results, err := charmhubLatestCharmInfo(client, requestMetrics, ids)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -309,9 +310,9 @@ func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(ids []charmhubID, appInfo
 	return latest, nil
 }
 
-// apiMetadata returns a map containing metadata key/value pairs to
-// send to the charmhub or charmstore API for tracking metrics.
-func apiMetadata(st State) (map[string]string, error) {
+// charmstoreApiMetadata returns a map containing metadata key/value pairs to
+// send to the charmstore API for tracking metrics.
+func charmstoreApiMetadata(st State) (map[string]string, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -330,5 +331,37 @@ func apiMetadata(st State) (map[string]string, error) {
 	} else {
 		metadata["provider"] = cloud.Type
 	}
+	return metadata, nil
+}
+
+// charmstoreApiMetadata returns a map containing metadata key/value pairs to
+// send to the charmhub for tracking metrics.
+func charmhubRequestMetadata(st State) (map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string, error) {
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	metrics, err := model.Metrics()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	metadata := map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string{
+		charmmetrics.Controller: {
+			charmmetrics.JujuVersion: version.Current.String(),
+			charmmetrics.UUID:        metrics.ControllerUUID,
+		},
+		charmmetrics.Model: {
+			charmmetrics.Cloud:           metrics.CloudName,
+			charmmetrics.UUID:            metrics.UUID,
+			charmmetrics.NumApplications: metrics.ApplicationCount,
+			charmmetrics.NumMachines:     metrics.MachineCount,
+			charmmetrics.NumUnits:        metrics.UnitCount,
+			charmmetrics.Provider:        metrics.Provider,
+			charmmetrics.Region:          metrics.CloudRegion,
+		},
+	}
+
 	return metadata, nil
 }
