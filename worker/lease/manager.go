@@ -201,22 +201,30 @@ func (manager *Manager) choose(blocks blocks) error {
 	select {
 	case <-manager.catacomb.Dying():
 		return manager.catacomb.ErrDying()
+
 	case check := <-manager.checks:
 		return manager.handleCheck(check)
+
 	case now := <-manager.timer.Chan():
 		manager.tick(now, blocks)
+
 	case <-manager.expireDone:
 		manager.checkBlocks(blocks)
+
 	case claim := <-manager.claims:
 		manager.startingClaim()
 		go manager.retryingClaim(claim)
+
 	case revoke := <-manager.revokes:
 		manager.startingRevoke()
 		go manager.retryingRevoke(revoke)
+
 	case pin := <-manager.pins:
 		manager.handlePin(pin)
+
 	case unpin := <-manager.unpins:
 		manager.handleUnpin(unpin)
+
 	case block := <-manager.blocks:
 		manager.config.Logger.Tracef("[%s] adding block for: %s", manager.logContext, block.leaseKey.Lease)
 		blocks.add(block)
@@ -273,14 +281,20 @@ func (manager *Manager) retryingClaim(claim claim) {
 	)
 	for a := manager.startRetry(); a.Next(); {
 		success, err = manager.handleClaim(claim)
-		if !lease.IsTimeout(err) && !lease.IsInvalid(err) {
+		if !lease.IsTimeout(err) && !lease.IsInvalid(err) && !lease.IsDropped(err) {
 			break
 		}
 		if a.More() {
-			if lease.IsInvalid(err) {
+			switch {
+			case lease.IsInvalid(err):
 				manager.config.Logger.Tracef("[%s] request by %s for lease %s %v, retrying...",
 					manager.logContext, claim.holderName, claim.leaseKey.Lease, err)
-			} else {
+
+			case lease.IsDropped(err):
+				manager.config.Logger.Tracef("[%s] dropped claim by %s for lease %s, retrying...",
+					manager.logContext, claim.holderName, claim.leaseKey.Lease)
+
+			default:
 				manager.config.Logger.Tracef("[%s] timed out handling claim by %s for lease %s, retrying...",
 					manager.logContext, claim.holderName, claim.leaseKey.Lease)
 			}
@@ -296,15 +310,17 @@ func (manager *Manager) retryingClaim(claim claim) {
 	} else {
 		switch {
 		case lease.IsTimeout(err):
-			claim.respond(lease.ErrTimeout)
 			manager.config.Logger.Warningf("[%s] retrying timed out while handling claim %q for %q",
 				manager.logContext, claim.leaseKey, claim.holderName)
+			claim.respond(lease.ErrTimeout)
+
 		case lease.IsInvalid(err):
 			// We want to see this, but it doesn't indicate something a user
 			// can do something about.
 			manager.config.Logger.Infof("[%s] got %v after %d retries, denying claim %q for %q",
 				manager.logContext, err, maxRetries, claim.leaseKey, claim.holderName)
 			claim.respond(lease.ErrClaimDenied)
+
 		case lease.IsHeld(err):
 			// This can happen in HA if the original check for an extant lease
 			// (against the local node) returned nothing, but the leader FSM
@@ -313,6 +329,16 @@ func (manager *Manager) retryingClaim(claim claim) {
 				"[%s] %s asked for lease %s, held by by another entity; local Raft node may be syncing",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease)
 			claim.respond(lease.ErrClaimDenied)
+
+		case lease.IsDropped(err):
+			// This can happen if there is nobody to process the operation.
+			// Although quite similar to a Timeout, we split the error, to
+			// indicate that a different retry strategy can be employed to help
+			// process a claim in the future.
+			manager.config.Logger.Warningf("[%s] dropped while handling claim %q for %q",
+				manager.logContext, claim.leaseKey, claim.holderName)
+			claim.respond(lease.ErrDropped)
+
 		default:
 			// Stop the main loop because we got an abnormal error
 			manager.catacomb.Kill(errors.Trace(err))
@@ -339,11 +365,13 @@ func (manager *Manager) handleClaim(claim claim) (bool, error) {
 				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
 			action = "claiming"
 			err = store.ClaimLease(claim.leaseKey, request, manager.catacomb.Dying())
+
 		case info.Holder == claim.holderName:
 			manager.config.Logger.Tracef("[%s] %s extending lease %s for %s",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
 			action = "extending"
 			err = store.ExtendLease(claim.leaseKey, request, manager.catacomb.Dying())
+
 		default:
 			// Note: (jam) 2017-10-31) We don't check here if the lease has
 			// expired for the current holder. Should we?
@@ -376,10 +404,16 @@ func (manager *Manager) retryingRevoke(revoke revoke) {
 			break
 		}
 		if a.More() {
-			if lease.IsInvalid(err) {
+			switch {
+			case lease.IsInvalid(err):
 				manager.config.Logger.Tracef("[%s] request by %s for revoking lease %s %v, retrying...",
 					manager.logContext, revoke.holderName, revoke.leaseKey.Lease, err)
-			} else {
+
+			case lease.IsDropped(err):
+				manager.config.Logger.Tracef("[%s] dropped revoke by %s for lease %s, retrying...",
+					manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
+
+			default:
 				manager.config.Logger.Tracef("[%s] timed out handling revoke by %s for lease %s, retrying...",
 					manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
 			}
@@ -400,16 +434,24 @@ func (manager *Manager) retryingRevoke(revoke revoke) {
 			manager.config.Logger.Warningf("[%s] retrying timed out while handling revoke %q for %q",
 				manager.logContext, revoke.leaseKey, revoke.holderName)
 			revoke.respond(lease.ErrTimeout)
+
 		case lease.IsInvalid(err):
 			// we want to see this, but it doesn't indicate something a user can do something about
 			manager.config.Logger.Infof("[%s] got %v after %d retries, revoke %q for %q",
 				manager.logContext, err, maxRetries, revoke.leaseKey, revoke.holderName)
 			revoke.respond(err)
+
 		case lease.IsNotHeld(err):
 			// we want to see this, but it doesn't indicate something a user can do something about
 			manager.config.Logger.Infof("[%s] got %v after %d retries, revoke %q for %q",
 				manager.logContext, err, maxRetries, revoke.leaseKey, revoke.holderName)
 			revoke.respond(err)
+
+		case lease.IsDropped(err):
+			manager.config.Logger.Warningf("[%s] dropped while handling revoke %q for %q",
+				manager.logContext, revoke.leaseKey, revoke.holderName)
+			revoke.respond(lease.ErrDropped)
+
 		default:
 			// Stop the main loop because we got an abnormal error
 			manager.catacomb.Kill(errors.Trace(err))
@@ -432,10 +474,12 @@ func (manager *Manager) handleRevoke(revoke revoke) error {
 			manager.config.Logger.Tracef("[%s] %s asked to revoke lease %s, no lease found",
 				manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
 			return nil
+
 		case info.Holder == revoke.holderName:
 			manager.config.Logger.Tracef("[%s] %s revoking lease %s",
 				manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
 			err = store.RevokeLease(revoke.leaseKey, revoke.holderName, manager.catacomb.Dying())
+
 		default:
 			manager.config.Logger.Tracef("[%s] %s revoking lease %s, held by %s, rejecting",
 				manager.logContext, revoke.holderName, revoke.leaseKey.Lease, info.Holder)

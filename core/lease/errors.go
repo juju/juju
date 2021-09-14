@@ -37,6 +37,11 @@ var (
 	// ErrAborted indicates that the stop channel returned before the operation
 	// succeeded or failed.
 	ErrAborted = errors.New("lease operation aborted")
+
+	// ErrDropped indicated that the underlying request was dropped. This is
+	// indicative of no valid connection to propagate the lease operation to
+	// the leader.
+	ErrDropped = errors.New("lease operation dropped")
 )
 
 // IsInvalid returns whether the specified error represents ErrInvalid
@@ -67,4 +72,10 @@ func IsAborted(err error) bool {
 // (even if it's wrapped).
 func IsNotHeld(err error) bool {
 	return errors.Cause(err) == ErrNotHeld
+}
+
+// IsDropped returns whether the specified error represents ErrErrDropped
+// (even if it's wrapped).
+func IsDropped(err error) bool {
+	return errors.Cause(err) == ErrDropped
 }

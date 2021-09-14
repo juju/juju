@@ -295,6 +295,50 @@ func (s *ClaimSuite) TestExtendLease_Failure_OtherHolder(c *gc.C) {
 	})
 }
 
+func (s *ClaimSuite) TestExtendLease_Failure_Dropped(c *gc.C) {
+	fix := &Fixture{
+		leases: map[corelease.Key]corelease.Info{
+			key("redis"): {
+				Holder: "redis/0",
+				Expiry: offset(time.Second),
+			},
+		},
+		expectCalls: []call{{
+			method: "ExtendLease",
+			args: []interface{}{
+				corelease.Key{
+					Namespace: "namespace",
+					ModelUUID: "modelUUID",
+					Lease:     "redis",
+				},
+				corelease.Request{"redis/0", time.Minute},
+			},
+			err: corelease.ErrDropped,
+			callback: func(leases map[corelease.Key]corelease.Info) {
+				leases[key("redis")] = corelease.Info{
+					Holder: "redis/1",
+					Expiry: offset(time.Second),
+				}
+			},
+		}},
+	}
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
+		// When the Claim starts, it will first get a LeaseInvalid, it will then
+		// wait 50ms before trying again, since it is clear that our Leases map
+		// does not have the most up-to-date information. We then wake up again
+		// and see that our leases have expired and thus let things go.
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
+			c.Check(err, gc.Equals, corelease.ErrClaimDenied)
+			wg.Done()
+		}()
+		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), jc.ErrorIsNil)
+		wg.Wait()
+	})
+}
+
 func (s *ClaimSuite) TestExtendLease_Failure_Error(c *gc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
