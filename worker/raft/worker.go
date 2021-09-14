@@ -73,6 +73,7 @@ var (
 type Logger interface {
 	Warningf(message string, args ...interface{})
 	Errorf(message string, args ...interface{})
+	Infof(message string, args ...interface{})
 	Tracef(message string, args ...interface{})
 	Logf(level loggo.Level, message string, args ...interface{})
 }
