@@ -4,7 +4,9 @@
 package raft
 
 import (
+	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -74,6 +76,7 @@ var (
 
 // Logger represents the logging methods called.
 type Logger interface {
+	Criticalf(message string, args ...interface{})
 	Warningf(message string, args ...interface{})
 	Errorf(message string, args ...interface{})
 	Debugf(message string, args ...interface{})
@@ -339,6 +342,8 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 		w.config.Logger.Warningf(`disabling fsync calls between raft log writes as instructed by the "non-synced-writes-to-raft-log option"`)
 	}
 
+	fmt.Println("^^^^", w.config.StorageDir)
+
 	rawLogStore, err := NewLogStore(w.config.StorageDir, syncMode)
 	if err != nil {
 		return errors.Trace(err)
@@ -364,6 +369,8 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	fmt.Printf("???? %+v\n", r)
 
 	defer func() {
 		if err := r.Shutdown().Error(); err != nil {
@@ -416,6 +423,7 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 				return ErrNoLeaderTimeout
 			}
 		case op := <-w.config.Queue.Queue():
+			w.config.Logger.Tracef("New operation to be applied on raft logs: %v", string(op.Command))
 			// Apply any operation on to the current raft implementation.
 			// This ensures that we serialize the applying of operations onto
 			// the raft state.
@@ -465,6 +473,8 @@ func (w *Worker) applyOperation(r *raft.Raft, op queue.Operation) error {
 		return NewNotLeaderError(string(leaderAddress), leaderID)
 	}
 
+	fmt.Printf("**** %+v %s\n", r, string(op.Command))
+
 	w.config.Logger.Tracef("Applying command %v", string(op.Command))
 
 	future := r.Apply(op.Command, op.Timeout)
@@ -478,6 +488,23 @@ func (w *Worker) applyOperation(r *raft.Raft, op queue.Operation) error {
 		// This should never happen.
 		panic(errors.Errorf("programming error: expected an FSMResponse, got %T: %#v", response, response))
 	}
+	fmt.Println("????? !!", fsmResponse.Error())
+	if err := fsmResponse.Error(); err != nil {
+		return errors.Trace(err)
+	}
+
+	s := r.Snapshot()
+	if s.Error() != nil {
+		fmt.Println("FUCK 1", s.Error())
+		return nil
+	}
+	_, reader, err := s.Open()
+	if err != nil {
+		fmt.Println("FUCK 2", err)
+		return nil
+	}
+	bytes, err := ioutil.ReadAll(reader)
+	fmt.Println("FUCK 3", string(bytes), err)
 
 	fsmResponse.Notify(w.config.NotifyTarget)
 

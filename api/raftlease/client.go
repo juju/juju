@@ -129,6 +129,9 @@ func NewClient(config Config) (*Client, error) {
 	// Wait for at least one server connection.
 	if err := client.initServers(); err != nil {
 		unsubscribe()
+		// Ensure we kill the catacomb to prevent any leaks that might have be
+		// added during the construction.
+		client.catacomb.Kill(err)
 		return nil, errors.Trace(err)
 	}
 
@@ -172,7 +175,7 @@ func (c *Client) Request(ctx context.Context, command *raftlease.Command) error 
 			c.lastKnownRemote = remote
 			c.mutex.Unlock()
 
-			c.record(command.Operation, "suucess", start)
+			c.record(command.Operation, "success", start)
 
 			return nil
 		}
@@ -284,7 +287,9 @@ func (c *Client) loop() error {
 			// Get the primary address for each server ID.
 			addresses := c.gatherAddresses(details)
 			if len(addresses) == 0 {
-				// TODO (stickupkid): Log here.
+				// If there are no addresses, then nothing is routable. In this
+				// case, we'll continue to use the current addresses.
+				c.config.Logger.Errorf("no server addresses found, will continue to use old addresses")
 				continue
 			}
 
@@ -297,7 +302,7 @@ func (c *Client) loop() error {
 
 func (c *Client) initServers() error {
 	if len(c.config.APIInfo.Addrs) == 0 {
-		return errors.NotFoundf("api address")
+		return errors.NotFoundf("api addresses")
 	}
 	for k, address := range c.config.APIInfo.Addrs {
 		info := *c.config.APIInfo

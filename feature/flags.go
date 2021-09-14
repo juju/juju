@@ -53,3 +53,6 @@ const ActionsV2 = "actions-v2"
 
 // Secrets enables the secrets feature.
 const Secrets = "secrets"
+
+// RaftAPITransport enables raft API only transport.
+const RaftAPITransport = "raft-api-transport"

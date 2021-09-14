@@ -26,8 +26,6 @@ import (
 
 type CAASUnitInitSuite struct {
 	coretesting.BaseSuite
-
-	rootDir string
 }
 
 var _ = gc.Suite(&CAASUnitInitSuite{})

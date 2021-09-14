@@ -8,6 +8,7 @@ import (
 	"bytes"
 	stdcontext "context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
@@ -63,6 +65,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/state"
@@ -78,6 +81,7 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationmaster"
 	raftworker "github.com/juju/juju/worker/raft"
+	"github.com/juju/juju/worker/raft/queue"
 	"github.com/juju/juju/worker/storageprovisioner"
 )
 
@@ -119,6 +123,7 @@ func bootstrapRaft(c *gc.C, dataDir string) {
 		StorageDir: filepath.Join(dataDir, "raft"),
 		LocalID:    "0",
 		Logger:     loggo.GetLogger("machine_test.raft"),
+		Queue:      queue.NewBlockingOpQueue(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1257,10 +1262,11 @@ func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 }
 
 func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C) {
-
 	// Grab responsibility for the model on behalf of another machine.
 	uuid := s.BackingState.ModelUUID()
 	claimSingularRaftLease(c, s.DataDir(), uuid)
+
+	fmt.Println("!!!!!!", s.DataDir())
 
 	// Then run a normal model-tracking test, just checking for
 	// a different set of workers.
@@ -1409,4 +1415,11 @@ func startAddressPublisher(suite cleanupSuite, c *gc.C, agent *MachineAgent) {
 		}
 	}()
 	suite.AddCleanup(func(c *gc.C) { close(stop) })
+}
+
+func setFeatureFlags(flags string) {
+	if err := os.Setenv(osenv.JujuFeatureFlagEnvKey, flags); err != nil {
+		panic(err)
+	}
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
