@@ -68,7 +68,8 @@ func (s *cmdExportBundleSuite) TestExportBundle(c *gc.C) {
 series: quantal
 applications:
   logging:
-    charm: cs:quantal/logging-43
+    charm: cs:quantal/logging
+    revision: 43
     options:
       foo: bar
     bindings:
@@ -77,7 +78,8 @@ applications:
       logging-client: alpha
       logging-directory: alpha
   wordpress:
-    charm: cs:quantal/wordpress-23
+    charm: cs:quantal/wordpress
+    revision: 23
     bindings:
       "": alpha
       admin-api: alpha
