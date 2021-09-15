@@ -566,6 +566,10 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 			}
 			return client
 		},
+		SecretRotateWatcherFunc: func(u names.UnitTag, _ chan []string) (worker.Worker, error) {
+			c.Assert(u.String(), gc.Equals, s.unitTag)
+			return &mockRotateSecretsWatcher{}, nil
+		},
 	}
 	ctx.uniter, err = uniter.NewUniter(&uniterParams)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1540,6 +1544,12 @@ func (*mockCharmDirGuard) Unlock() error { return nil }
 
 // Lockdown implements fortress.Guard.
 func (*mockCharmDirGuard) Lockdown(_ fortress.Abort) error { return nil }
+
+type mockRotateSecretsWatcher struct{}
+
+func (w *mockRotateSecretsWatcher) Kill() {}
+
+func (*mockRotateSecretsWatcher) Wait() error { return nil }
 
 type provisionStorage struct{}
 

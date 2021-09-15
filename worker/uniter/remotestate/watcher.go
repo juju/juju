@@ -33,6 +33,9 @@ type Logger interface {
 	Debugf(string, ...interface{})
 }
 
+// SecretRotateWatcherFunc is a function returning a secrets rotation watcher.
+type SecretRotateWatcherFunc func(names.UnitTag, chan []string) (worker.Worker, error)
+
 // RemoteStateWatcher collects unit, application, and application config information
 // from separate state watchers, and updates a Snapshot which is sent on a
 // channel upon change.
@@ -60,6 +63,10 @@ type RemoteStateWatcher struct {
 	workloadEventChannel          <-chan string
 	shutdownChannel               <-chan bool
 
+	secretRotateWatcherFunc SecretRotateWatcherFunc
+	secretRotateWatcher     worker.Worker
+	rotateSecretsChanges    chan []string
+
 	catacomb catacomb.Catacomb
 
 	out     chan struct{}
@@ -84,6 +91,7 @@ type ContainerRunningStatusFunc func(providerID string) (*ContainerRunningStatus
 type WatcherConfig struct {
 	State                         State
 	LeadershipTracker             leadership.Tracker
+	SecretRotateWatcherFunc       SecretRotateWatcherFunc
 	UpdateStatusChannel           UpdateStatusTimerFunc
 	CommandChannel                <-chan string
 	RetryHookChannel              watcher.NotifyChannel
@@ -134,6 +142,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		storageAttachmentWatchers:     make(map[names.StorageTag]*storageAttachmentWatcher),
 		storageAttachmentChanges:      make(chan storageAttachmentChange),
 		leadershipTracker:             config.LeadershipTracker,
+		secretRotateWatcherFunc:       config.SecretRotateWatcherFunc,
 		updateStatusChannel:           config.UpdateStatusChannel,
 		commandChannel:                config.CommandChannel,
 		retryHookChannel:              config.RetryHookChannel,
@@ -479,7 +488,9 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		return w.catacomb.ErrDying()
 	case <-claimLeader.Ready():
 		isLeader := claimLeader.Wait()
-		w.leadershipChanged(isLeader)
+		if err := w.leadershipChanged(isLeader); err != nil {
+			return errors.Trace(err)
+		}
 		if isLeader {
 			waitMinion = w.leadershipTracker.WaitMinion().Ready()
 		} else {
@@ -654,15 +665,26 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 
 		case <-waitMinion:
 			w.logger.Debugf("got leadership change for %v: minion", unitTag.Id())
-			w.leadershipChanged(false)
+			if err := w.leadershipChanged(false); err != nil {
+				return errors.Trace(err)
+			}
 			waitMinion = nil
 			waitLeader = w.leadershipTracker.WaitLeader().Ready()
 
 		case <-waitLeader:
 			w.logger.Debugf("got leadership change for %v: leader", unitTag.Id())
-			w.leadershipChanged(true)
+			if err := w.leadershipChanged(true); err != nil {
+				return errors.Trace(err)
+			}
 			waitLeader = nil
 			waitMinion = w.leadershipTracker.WaitMinion().Ready()
+
+		case urls, ok := <-w.rotateSecretsChanges:
+			if !ok || len(urls) == 0 {
+				continue
+			}
+			w.logger.Warningf("got rotate secret URLS: %q", urls)
+			w.rotateSecretURLs(urls)
 
 		case change := <-w.storageAttachmentChanges:
 			w.logger.Debugf("storage attachment change for %s: %v", w.unit.Tag().Id(), change)
@@ -877,10 +899,39 @@ func (w *RemoteStateWatcher) leaderSettingsChanged() error {
 	return nil
 }
 
-func (w *RemoteStateWatcher) leadershipChanged(isLeader bool) {
+func (w *RemoteStateWatcher) leadershipChanged(isLeader bool) error {
 	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.current.Leader = isLeader
-	w.mu.Unlock()
+	if !isLeader {
+		if w.secretRotateWatcher != nil {
+			_ = worker.Stop(w.secretRotateWatcher)
+		}
+		w.secretRotateWatcher = nil
+		w.rotateSecretsChanges = nil
+		return nil
+	}
+	if w.secretRotateWatcher != nil {
+		return nil
+	}
+	// Allow a generous buffer so a slow unit agent does not
+	// block the upstream worker.
+	w.rotateSecretsChanges = make(chan []string, 100)
+	w.logger.Debugf("starting secrets rotation watcher")
+	watcher, err := w.secretRotateWatcherFunc(w.unit.Tag(), w.rotateSecretsChanges)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(watcher); err != nil {
+		return errors.Trace(err)
+	}
+	w.secretRotateWatcher = watcher
+	return nil
+}
+
+func (w *RemoteStateWatcher) rotateSecretURLs(urls []string) {
+	// TODO(wallyworld)
 }
 
 // relationsChanged responds to application relation changes.

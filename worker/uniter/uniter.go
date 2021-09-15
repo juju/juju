@@ -109,6 +109,10 @@ type Uniter struct {
 
 	hookLock machinelock.Lock
 
+	// secretRotateWatcherFunc returns a watcher that triggers when secrets
+	// created by this unit's application should be rotated.
+	secretRotateWatcherFunc remotestate.SecretRotateWatcherFunc
+
 	Probe Probe
 
 	// TODO(axw) move the runListener and run-command code outside of the
@@ -177,6 +181,7 @@ type UniterParams struct {
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
 	LeadershipTrackerFunc         func(names.UnitTag) leadership.TrackerWorker
+	SecretRotateWatcherFunc       remotestate.SecretRotateWatcherFunc
 	DataDir                       string
 	Downloader                    charm.Downloader
 	MachineLock                   machinelock.Lock
@@ -251,6 +256,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			modelType:                     uniterParams.ModelType,
 			hookLock:                      uniterParams.MachineLock,
 			leadershipTracker:             uniterParams.LeadershipTrackerFunc(uniterParams.UnitTag),
+			secretRotateWatcherFunc:       uniterParams.SecretRotateWatcherFunc,
 			charmDirGuard:                 uniterParams.CharmDirGuard,
 			updateStatusAt:                uniterParams.UpdateStatusSignal,
 			hookRetryStrategy:             uniterParams.HookRetryStrategy,
@@ -382,6 +388,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			remotestate.WatcherConfig{
 				State:                         remotestate.NewAPIState(u.st),
 				LeadershipTracker:             u.leadershipTracker,
+				SecretRotateWatcherFunc:       u.secretRotateWatcherFunc,
 				UnitTag:                       unitTag,
 				UpdateStatusChannel:           u.updateStatusAt,
 				CommandChannel:                u.commandChannel,
