@@ -20,13 +20,12 @@ type azureContainerRegistry struct {
 }
 
 func newAzureContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, DefaultTransport)
+	c := newBase(repoDetails, transport)
 	return &azureContainerRegistry{c}
 }
 
 // Match checks if the repository details matches current provider format.
 func (c *azureContainerRegistry) Match() bool {
-	c.prepare()
 	return strings.Contains(c.repoDetails.ServerAddress, "azurecr.io")
 }
 

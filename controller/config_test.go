@@ -611,8 +611,28 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 	gomock.InOrder(
 		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				token := base64.StdEncoding.EncodeToString([]byte("pwd"))
-				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + token}})
+				c.Assert(req.Method, gc.Equals, `GET`)
+				c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v1`)
+				resps := &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       ioutil.NopCloser(nil),
+				}
+				return resps, nil
+			},
+		),
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Method, gc.Equals, `GET`)
+				c.Assert(req.URL.String(), gc.Equals, `https://registry.foo.com/v1`)
+				resps := &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       ioutil.NopCloser(nil),
+				}
+				return resps, nil
+			},
+		),
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
 				c.Assert(req.Method, gc.Equals, `GET`)
 				c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v2/`)
 				resps := &http.Response{
@@ -633,8 +653,7 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 		//used to reset since we don't have a --reset option
 		{content: "", expected: ""},
 		{content: "juju-operator-repo", expected: ""},
-		{content: "registry.foo.com", expected: ""},
-		{content: "registry.foo.com/me", expected: ""},
+		{content: "registry.foo.com/jujuqa", expected: ""},
 		{
 			content: fmt.Sprintf(`
 {

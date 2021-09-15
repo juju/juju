@@ -8,8 +8,7 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/http_mock.go net/http RoundTripper
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/registry_mock.go github.com/juju/juju/docker/registry/internal Registry,RegistryInternal,Matcher,Initializer
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/registry_mock.go github.com/juju/juju/docker/registry/internal Initializer
 
 // Registry provides APIs to interact with the OCI provider client.
 type Registry interface {

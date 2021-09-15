@@ -40,11 +40,6 @@ func (v APIVersion) String() string {
 	return string(v)
 }
 
-var (
-	// Override for testing.
-	DefaultTransport = http.DefaultTransport
-)
-
 type baseClient struct {
 	baseURL     *url.URL
 	client      *http.Client
@@ -60,6 +55,7 @@ func newBase(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) *
 			Timeout:   defaultTimeout,
 		},
 	}
+	c.prepare()
 	return c
 }
 

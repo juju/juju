@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/docker/registry/internal"
-	"github.com/juju/juju/docker/registry/internal/mocks"
+	"github.com/juju/juju/docker/registry/mocks"
 )
 
 type transportSuite struct {

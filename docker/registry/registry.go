@@ -4,6 +4,8 @@
 package registry
 
 import (
+	"net/http"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -13,16 +15,22 @@ import (
 
 var logger = loggo.GetLogger("juju.docker.registry")
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/registry_mock.go github.com/juju/juju/docker/registry Registry
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/http_mock.go net/http RoundTripper
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/registry_mock.go github.com/juju/juju/docker/registry/internal Registry
 
 // Registry provides APIs to interact with the OCI provider client.
 type Registry = internal.Registry
 
+var (
+	// Override for testing.
+	DefaultTransport = http.DefaultTransport
+)
+
 // New returns a Registry interface providing methods for interacting with registry APIs.
 func New(repoDetails docker.ImageRepoDetails) (Registry, error) {
-	var provider internal.RegistryInternal = internal.NewBase(repoDetails, internal.DefaultTransport)
+	var provider internal.RegistryInternal = internal.NewBase(repoDetails, DefaultTransport)
 	for _, providerNewer := range internal.Providers() {
-		p := providerNewer(repoDetails, internal.DefaultTransport)
+		p := providerNewer(repoDetails, DefaultTransport)
 		if p.Match() {
 			logger.Tracef("found registry client %#v for %#v", p, repoDetails)
 			provider = p

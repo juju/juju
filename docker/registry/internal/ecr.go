@@ -17,13 +17,12 @@ type elasticContainerRegistry struct {
 }
 
 func newElasticContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, DefaultTransport)
+	c := newBase(repoDetails, transport)
 	return &elasticContainerRegistry{c}
 }
 
 // Match checks if the repository details matches current provider format.
 func (c *elasticContainerRegistry) Match() bool {
-	c.prepare()
 	return strings.Contains(c.repoDetails.ServerAddress, "ecr.aws")
 }
 

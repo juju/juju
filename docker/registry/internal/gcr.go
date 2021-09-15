@@ -19,13 +19,12 @@ type googleContainerRegistry struct {
 }
 
 func newGoogleContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, DefaultTransport)
+	c := newBase(repoDetails, transport)
 	return &googleContainerRegistry{c}
 }
 
 // Match checks if the repository details matches current provider format.
 func (c *googleContainerRegistry) Match() bool {
-	c.prepare()
 	return strings.Contains(c.repoDetails.ServerAddress, "gcr.io")
 }
 

@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/docker/registry/image"
 	"github.com/juju/juju/docker/registry/internal"
-	"github.com/juju/juju/docker/registry/internal/mocks"
+	"github.com/juju/juju/docker/registry/mocks"
 	"github.com/juju/juju/tools"
 )
 
@@ -73,7 +73,7 @@ func (s *githubSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controlle
 			),
 		)
 	}
-	s.PatchValue(&internal.DefaultTransport, s.mockRoundTripper)
+	s.PatchValue(&registry.DefaultTransport, s.mockRoundTripper)
 
 	reg, err := registry.New(s.imageRepoDetails)
 	c.Assert(err, jc.ErrorIsNil)
