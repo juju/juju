@@ -4,16 +4,22 @@
 package queue
 
 import (
-	"context"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
+)
+
+var (
+	// ErrDeadlineExceeded is a sentinel error for all exceeded deadlines for
+	// operations.
+	ErrDeadlineExceeded = errors.Errorf("deadline exceeded")
 )
 
 // Operation holds the operations that a queue can hold.
 type Operation struct {
-	Command []byte
-	Timeout time.Duration
+	Command  []byte
+	Deadline time.Time
 }
 
 // BlockingOpQueue holds the operations in a blocking queue. The purpose of this
@@ -22,13 +28,15 @@ type Operation struct {
 type BlockingOpQueue struct {
 	queue chan Operation
 	err   chan error
+	clock clock.Clock
 }
 
 // NewBlockingOpQueue creates a new BlockingOpQueue.
-func NewBlockingOpQueue() *BlockingOpQueue {
+func NewBlockingOpQueue(clock clock.Clock) *BlockingOpQueue {
 	return &BlockingOpQueue{
 		queue: make(chan Operation),
 		err:   make(chan error),
+		clock: clock,
 	}
 }
 
@@ -37,22 +45,19 @@ func NewBlockingOpQueue() *BlockingOpQueue {
 // to be completed.
 // The design of this is to ensure that people calling this will have to
 // correctly handle backing off from enqueueing.
-func (q *BlockingOpQueue) Enqueue(ctx context.Context, op Operation) error {
+func (q *BlockingOpQueue) Enqueue(op Operation) error {
 	// Block adding the operation to the queue, but if the timeout happens
 	// before then, bail out.
 	select {
 	case q.queue <- op:
-	case <-ctx.Done():
-		return ctx.Err()
+	case <-q.clock.After(op.Deadline.Sub(q.clock.Now())):
+		return ErrDeadlineExceeded
 	}
 
-	// Block on the resulting error from the queue.
-	select {
-	case err := <-q.err:
-		return errors.Trace(err)
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	// Block on the resulting error from the queue. We need to ensure that we
+	// wait for the error in a bare channel read otherwise we can deadlock if
+	// queue channel if nobody read the error channel.
+	return errors.Trace(<-q.err)
 }
 
 // Queue returns the queue of operations. Removing an item from the channel
