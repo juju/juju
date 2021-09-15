@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package registry
+package internal
 
 import (
 	"strings"
@@ -9,25 +9,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/docker/registry/image"
 	"github.com/juju/juju/tools"
 )
-
-type imageInfo struct {
-	version version.Number
-}
-
-func (info imageInfo) AgentVersion() version.Number {
-	return info.version
-}
-
-func (info imageInfo) String() string {
-	return info.version.String()
-}
-
-// NewImageInfo creates an imageInfo.
-func NewImageInfo(ver version.Number) tools.HasVersion {
-	return &imageInfo{version: ver}
-}
 
 type tagsResponseLayerV1 struct {
 	Name string `json:"name"`
@@ -90,11 +74,12 @@ func (c baseClient) fetchTags(url string, res tagsGetter) (versions tools.Versio
 				logger.Warningf("ignoring unexpected image tag %q", tag)
 				continue
 			}
-			versions = append(versions, NewImageInfo(v))
+			versions = append(versions, image.NewImageInfo(v))
 		}
 	}
 	for {
 		url, err = c.getPaginatedJSON(url, &res)
+		logger.Tracef("fetching tags %q, response %#v, err %#v", url, res, err)
 		switch err {
 		case errNoMorePages:
 			pushVersions(res.GetTags())

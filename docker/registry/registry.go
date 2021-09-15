@@ -7,39 +7,29 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/docker/registry/internal"
 )
 
-func providers() []func(docker.ImageRepoDetails, http.RoundTripper) RegistryInternal {
-	return []func(docker.ImageRepoDetails, http.RoundTripper) RegistryInternal{
-		newAzureContainerRegistry,
-		newDockerhub,
-		newGitlabContainerRegistry,
-		newGithubContainerRegistry,
-		newQuayContainerRegistry,
-		newGoogleContainerRegistry,
-		newElasticContainerRegistry,
-	}
-}
+var logger = loggo.GetLogger("juju.docker.registry")
 
-func initClient(c Initializer) error {
-	if err := c.DecideBaseURL(); err != nil {
-		return errors.Trace(err)
-	}
-	if err := c.WrapTransport(); err != nil {
-		return errors.Trace(err)
-	}
-	if err := c.Ping(); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/http_mock.go net/http RoundTripper
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/registry_mock.go github.com/juju/juju/docker/registry/internal Registry
+
+// Registry provides APIs to interact with the OCI provider client.
+type Registry = internal.Registry
+
+var (
+	// Override for testing.
+	DefaultTransport = http.DefaultTransport
+)
 
 // New returns a Registry interface providing methods for interacting with registry APIs.
 func New(repoDetails docker.ImageRepoDetails) (Registry, error) {
-	var provider RegistryInternal = newBase(repoDetails, DefaultTransport)
-	for _, providerNewer := range providers() {
+	var provider internal.RegistryInternal = internal.NewBase(repoDetails, DefaultTransport)
+	for _, providerNewer := range internal.Providers() {
 		p := providerNewer(repoDetails, DefaultTransport)
 		if p.Match() {
 			logger.Tracef("found registry client %#v for %#v", p, repoDetails)
@@ -47,7 +37,7 @@ func New(repoDetails docker.ImageRepoDetails) (Registry, error) {
 			break
 		}
 	}
-	if err := initClient(provider); err != nil {
+	if err := internal.InitProvider(provider); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return provider, nil

@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package registry
+package internal
 
 import (
 	"encoding/json"
@@ -56,27 +56,29 @@ func (t basicTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, errors.Trace(err)
 	}
 	resp, err := t.transport.RoundTrip(req)
-	logger.Tracef("basicTransport req.Header => %#v, resp.Header => %#v", req.Header, resp.Header)
+	logger.Tracef("basicTransport %q req.Header => %#v, resp.Header => %#v, %q", req.URL, req.Header, resp.Header, resp.Status)
 	return resp, errors.Trace(err)
 }
 
 type tokenTransport struct {
-	transport  http.RoundTripper
-	username   string
-	password   string
-	authToken  string
-	OAuthToken string
+	transport       http.RoundTripper
+	username        string
+	password        string
+	authToken       string
+	OAuthToken      string
+	reuseOAuthToken bool
 }
 
 func newTokenTransport(
-	transport http.RoundTripper, username, password, authToken, OAuthToken string,
+	transport http.RoundTripper, username, password, authToken, OAuthToken string, reuseOAuthToken bool,
 ) http.RoundTripper {
 	return &tokenTransport{
-		transport:  transport,
-		username:   username,
-		password:   password,
-		authToken:  authToken,
-		OAuthToken: OAuthToken,
+		transport:       transport,
+		username:        username,
+		password:        password,
+		authToken:       authToken,
+		OAuthToken:      OAuthToken,
+		reuseOAuthToken: reuseOAuthToken,
 	}
 }
 
@@ -86,7 +88,7 @@ func (tokenTransport) scheme() string {
 
 func getChallengeParameters(scheme string, resp *http.Response) map[string]string {
 	logger.Tracef(
-		"getting chanllenge parametter for with %q (%q) from %q",
+		"getting chanllenge parametter for %q with scheme %q from %q",
 		resp.Request.URL.String(),
 		scheme, resp.Header[http.CanonicalHeaderKey("WWW-Authenticate")],
 	)
@@ -122,7 +124,7 @@ func (t *tokenTransport) refreshOAuthToken(failedResp *http.Response) error {
 	t.OAuthToken = ""
 
 	parameters := getChallengeParameters(t.scheme(), failedResp)
-	if parameters == nil {
+	if len(parameters) == 0 {
 		return errors.NewForbidden(nil, "failed to refresh bearer token")
 	}
 	realm, ok := parameters["realm"]
@@ -143,7 +145,9 @@ func (t *tokenTransport) refreshOAuthToken(failedResp *http.Response) error {
 		return errors.Trace(err)
 	}
 	q := url.Query()
-	q.Set("scope", scope)
+	if scope != "" {
+		q.Set("scope", scope)
+	}
 	q.Set("service", service)
 	url.RawQuery = q.Encode()
 
@@ -177,6 +181,14 @@ func (t *tokenTransport) authorizeRequest(req *http.Request) error {
 
 // RoundTrip executes a single HTTP transaction, returning a Response for the provided Request.
 func (t *tokenTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	defer func() {
+		if !t.reuseOAuthToken {
+			// We usually do not re-use the OAuth token because echo API call might have different scope.
+			// But some of the provider use long life token and there is no need to refresh.
+			t.OAuthToken = ""
+		}
+	}()
+
 	if err := t.authorizeRequest(req); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -192,6 +204,12 @@ func (t *tokenTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (t *tokenTransport) retry(req *http.Request, prevResp *http.Response) (*http.Response, error) {
+	logger.Tracef(
+		"retrying req => %q, header %#v, previous response => header %#v, status %v",
+		req.URL, req.Header,
+		prevResp.Header, prevResp.Status,
+	)
+
 	if err := t.refreshOAuthToken(prevResp); err != nil {
 		return nil, errors.Annotatef(err, "refreshing OAuth token")
 	}
@@ -213,26 +231,36 @@ func newErrorTransport(transport http.RoundTripper) http.RoundTripper {
 // RoundTrip executes a single HTTP transaction, returning a Response for the provided Request.
 func (t errorTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	resp, err := t.transport.RoundTrip(request)
-	logger.Tracef(
-		"errorTransport request.URL -> %q, request.Header -> %#v, err -> %v",
-		request.URL, request.Header, err,
-	)
 	if err != nil {
 		return resp, err
 	}
+	if resp.StatusCode < 400 {
+		return resp, nil
+	}
+	logger.Tracef(
+		"errorTransport %q, request.Header -> %#v, err -> %v",
+		request.URL, request.Header, err,
+	)
 	return handleErrorResponse(resp)
 }
 
 func handleErrorResponse(resp *http.Response) (*http.Response, error) {
-	if resp.StatusCode >= 400 {
-		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, errors.Annotatef(err, "reading bad response body with status code %d", resp.StatusCode)
-		}
-		errMsg := fmt.Sprintf("non-successful response status=%d", resp.StatusCode)
-		logger.Tracef("%s, url %q, body=%q", errMsg, resp.Request.URL.String(), body)
-		return nil, errors.New(errMsg)
+	if resp.StatusCode < 400 {
+		return resp, nil
 	}
-	return resp, nil
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Annotatef(err, "reading bad response body with status code %d", resp.StatusCode)
+	}
+	errMsg := fmt.Sprintf("non-successful response status=%d", resp.StatusCode)
+	logger.Tracef("%s, url %q, body=%q", errMsg, resp.Request.URL.String(), body)
+	errNew := errors.Errorf
+	switch resp.StatusCode {
+	case http.StatusForbidden:
+		errNew = errors.Forbiddenf
+	case http.StatusUnauthorized:
+		errNew = errors.Unauthorizedf
+	}
+	return nil, errNew(errMsg)
 }

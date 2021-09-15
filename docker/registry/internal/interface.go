@@ -1,15 +1,14 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package registry
+package internal
 
 import (
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/tools"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/http_mock.go net/http RoundTripper
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/registry_mock.go github.com/juju/juju/docker/registry Registry,RegistryInternal,Matcher,Initializer
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/registry_mock.go github.com/juju/juju/docker/registry/internal Initializer
 
 // Registry provides APIs to interact with the OCI provider client.
 type Registry interface {

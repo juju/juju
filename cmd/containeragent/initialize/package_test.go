@@ -83,6 +83,8 @@ func (*importSuite) TestImports(c *gc.C) {
 		"downloader",
 		"docker",
 		"docker/registry",
+		"docker/registry/image",
+		"docker/registry/internal",
 		"environs/cloudspec",
 		"environs/config",
 		"environs/context",

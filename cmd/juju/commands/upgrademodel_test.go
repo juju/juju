@@ -38,6 +38,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
+	"github.com/juju/juju/docker/registry/image"
 	registrymocks "github.com/juju/juju/docker/registry/mocks"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
@@ -1303,7 +1304,7 @@ func (s *UpgradeCAASModelSuite) TestUpgradePublicRegistry(c *gc.C) {
 		for _, t := range tagsInfo {
 			v, err := version.Parse(t.Tag)
 			c.Check(err, jc.ErrorIsNil)
-			tags = append(tags, registry.NewImageInfo(v))
+			tags = append(tags, image.NewImageInfo(v))
 		}
 		gomock.InOrder(
 			controllerAPI.EXPECT().ModelConfig().Return(modelCfg.AllAttrs(), nil),
@@ -1350,7 +1351,7 @@ func (s *UpgradeCAASModelSuite) TestUpgradePrivateRegistry(c *gc.C) {
 		for _, t := range tagsInfo {
 			v, err := version.Parse(t.Tag)
 			c.Check(err, jc.ErrorIsNil)
-			tags = append(tags, registry.NewImageInfo(v))
+			tags = append(tags, image.NewImageInfo(v))
 		}
 		gomock.InOrder(
 			controllerAPI.EXPECT().ModelConfig().Return(modelCfg.AllAttrs(), nil),

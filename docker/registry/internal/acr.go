@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package registry
+package internal
 
 import (
 	"encoding/base64"
@@ -20,24 +20,23 @@ type azureContainerRegistry struct {
 }
 
 func newAzureContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, DefaultTransport)
+	c := newBase(repoDetails, transport)
 	return &azureContainerRegistry{c}
 }
 
 // Match checks if the repository details matches current provider format.
 func (c *azureContainerRegistry) Match() bool {
-	c.prepare()
 	return strings.Contains(c.repoDetails.ServerAddress, "azurecr.io")
 }
 
-func getUserNameFromAuthForACR(auth string) (string, error) {
+func getUserNameFromAuth(auth string) (string, error) {
 	content, err := base64.StdEncoding.DecodeString(auth)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Annotate(err, "doing base64 decode on the auth token")
 	}
 	parts := strings.Split(string(content), ":")
 	if len(parts) < 1 {
-		return "", errors.NotValidf("auth %q", auth)
+		return "", errors.NotValidf("registry auth token")
 	}
 	return parts[0], nil
 }
@@ -48,7 +47,7 @@ func (c *azureContainerRegistry) WrapTransport() error {
 		username := c.repoDetails.Username
 		if username == "" {
 			var err error
-			username, err = getUserNameFromAuthForACR(c.repoDetails.Auth)
+			username, err = getUserNameFromAuth(c.repoDetails.Auth)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -60,7 +59,7 @@ func (c *azureContainerRegistry) WrapTransport() error {
 		transport = newTokenTransport(
 			transport,
 			username, password,
-			"", "",
+			"", "", false,
 		)
 	}
 	c.client.Transport = newErrorTransport(transport)
