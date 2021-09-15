@@ -95,7 +95,7 @@ func (s *workerSuite) expectWorker() {
 	s.facade.EXPECT().WatchSecretsRotationChanges(s.config.SecretOwner.String()).Return(s.rotateWatcher, nil)
 	s.rotateWatcher.EXPECT().Changes().AnyTimes().Return(s.rotateConfigChanges)
 	s.rotateWatcher.EXPECT().Kill().MaxTimes(1)
-	s.rotateWatcher.EXPECT().Wait().Return(nil).MaxTimes(1)
+	s.rotateWatcher.EXPECT().Wait().Return(nil).MinTimes(1)
 }
 
 func (s *workerSuite) TestStartStop(c *gc.C) {
