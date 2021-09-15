@@ -111,7 +111,7 @@ func (s *googleContainerRegistrySuite) TestInvalidUserName(c *gc.C) {
 		},
 	}
 	_, err := registry.New(imageRepoDetails)
-	c.Assert(err, gc.ErrorMatches, `google container registry username has to be "_json_key"`)
+	c.Assert(err, gc.ErrorMatches, `validating the google container registry credential: google container registry username has to be "_json_key"`)
 }
 
 func (s *googleContainerRegistrySuite) TestPingPrivateRepository(c *gc.C) {

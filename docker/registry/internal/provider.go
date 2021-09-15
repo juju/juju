@@ -26,7 +26,7 @@ func Providers() []func(docker.ImageRepoDetails, http.RoundTripper) RegistryInte
 	}
 }
 
-// InitProvider does some initalization steps for a provider.
+// InitProvider does some initialization steps for a provider.
 func InitProvider(c Initializer) error {
 	if err := c.DecideBaseURL(); err != nil {
 		return errors.Trace(err)

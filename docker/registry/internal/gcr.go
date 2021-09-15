@@ -32,7 +32,7 @@ const (
 	googleContainerRegistryUserNameJSONKey = "_json_key"
 )
 
-var inValidGoogleContainerRegistryUserNameError = errors.NewNotValid(nil,
+var invalidGoogleContainerRegistryUserNameError = errors.NewNotValid(nil,
 	fmt.Sprintf("google container registry username has to be %q",
 		googleContainerRegistryUserNameJSONKey,
 	),
@@ -46,11 +46,11 @@ func validateGoogleContainerRegistryCredential(auth docker.BasicAuthConfig) (err
 	if auth.Auth != "" {
 		username, err = getUserNameFromAuth(auth.Auth)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotate(err, "getting username from the google container registry auth token")
 		}
 	}
 	if username != googleContainerRegistryUserNameJSONKey {
-		return inValidGoogleContainerRegistryUserNameError
+		return invalidGoogleContainerRegistryUserNameError
 	}
 	return nil
 }
@@ -66,7 +66,7 @@ func (c *googleContainerRegistry) WrapTransport() error {
 	if c.repoDetails.IsPrivate() {
 		if !c.repoDetails.BasicAuthConfig.Empty() {
 			if err := validateGoogleContainerRegistryCredential(c.repoDetails.BasicAuthConfig); err != nil {
-				return errors.Trace(err)
+				return errors.Annotatef(err, "validating the google container registry credential")
 			}
 			transport = newTokenTransport(
 				transport,

@@ -32,11 +32,11 @@ func (c *azureContainerRegistry) Match() bool {
 func getUserNameFromAuth(auth string) (string, error) {
 	content, err := base64.StdEncoding.DecodeString(auth)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Annotate(err, "doing base64 decode on the auth token")
 	}
 	parts := strings.Split(string(content), ":")
 	if len(parts) < 1 {
-		return "", errors.NotValidf("auth %q", auth)
+		return "", errors.NotValidf("registry auth token")
 	}
 	return parts[0], nil
 }

@@ -114,7 +114,7 @@ func decideBaseURLCommon(version APIVersion, repoDetails *docker.ImageRepoDetail
 	}
 	url, err := url.Parse(addr)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "parsing server address %q", addr)
 	}
 	serverAddressURL := *url
 	apiVersion := version.String()
