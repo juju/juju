@@ -79,6 +79,7 @@ import (
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/raft"
+	"github.com/juju/juju/worker/raft/queue"
 	"github.com/juju/juju/worker/raft/raftbackstop"
 	"github.com/juju/juju/worker/raft/raftclusterer"
 	"github.com/juju/juju/worker/raft/raftflag"
@@ -276,6 +277,10 @@ type ManifoldsConfig struct {
 	// LeaseLog represents the internal lease raft log, used to output lease
 	// changes.
 	LeaseLog io.Writer
+
+	// RaftOpQueue represents a way to apply operations on to the raft
+	// instance from the API.
+	RaftOpQueue *queue.BlockingOpQueue
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -764,10 +769,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:            clockName,
 			AgentName:            agentName,
 			TransportName:        raftTransportName,
+			StateName:            stateName,
 			FSM:                  config.LeaseFSM,
 			Logger:               loggo.GetLogger("juju.worker.raft"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            raft.NewWorker,
+			NewTarget:            raft.NewTarget,
+			Queue:                config.RaftOpQueue,
+			LeaseLog:             config.LeaseLog,
+			NewApplier:           raft.NewApplier,
 		})),
 
 		raftFlagName: raftflag.Manifold(raftflag.ManifoldConfig{

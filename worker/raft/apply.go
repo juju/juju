@@ -45,7 +45,7 @@ type Applier struct {
 }
 
 // NewApplier creates a new Applier.
-func NewApplier(raft Raft, target raftlease.NotifyTarget, clock clock.Clock, logger Logger) *Applier {
+func NewApplier(raft Raft, target raftlease.NotifyTarget, clock clock.Clock, logger Logger) LeaseApplier {
 	return &Applier{
 		raft:         raft,
 		notifyTarget: target,
