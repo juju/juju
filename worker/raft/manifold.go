@@ -4,6 +4,7 @@
 package raft
 
 import (
+	"io"
 	"path/filepath"
 
 	"github.com/hashicorp/raft"
@@ -14,6 +15,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/juju/state"
+	raftleasestore "github.com/juju/juju/state/raftlease"
+	"github.com/juju/juju/worker/common"
+	workerstate "github.com/juju/juju/worker/state"
 )
 
 // ManifoldConfig holds the information necessary to run a raft
@@ -22,11 +28,17 @@ type ManifoldConfig struct {
 	ClockName     string
 	AgentName     string
 	TransportName string
+	StateName     string
 
 	FSM                  raft.FSM
 	Logger               Logger
 	PrometheusRegisterer prometheus.Registerer
 	NewWorker            func(Config) (worker.Worker, error)
+	NewTarget            func(*state.State, raftleasestore.Logger) raftlease.NotifyTarget
+	NewApplier           func(Raft, raftlease.NotifyTarget, clock.Clock, Logger) LeaseApplier
+
+	Queue    Queue
+	LeaseLog io.Writer
 }
 
 // Validate validates the manifold configuration.
@@ -49,6 +61,18 @@ func (config ManifoldConfig) Validate() error {
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
+	if config.Queue == nil {
+		return errors.NotValidf("nil Queue")
+	}
+	if config.NewTarget == nil {
+		return errors.NotValidf("nil NewTarget")
+	}
+	if config.LeaseLog == nil {
+		return errors.NotValidf("nil LeaseLog")
+	}
+	if config.NewApplier == nil {
+		return errors.NotValidf("nil NewApplier")
+	}
 	return nil
 }
 
@@ -59,6 +83,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ClockName,
 			config.AgentName,
 			config.TransportName,
+			config.StateName,
 		},
 		Start:  config.start,
 		Output: raftOutput,
@@ -85,13 +110,26 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var stTracker workerstate.StateTracker
+	if err := context.Get(config.StateName, &stTracker); err != nil {
+		return nil, errors.Trace(err)
+	}
+	statePool, err := stTracker.Use()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	st := statePool.SystemState()
+
 	// TODO(axw) make the directory path configurable, so we can
 	// potentially have multiple Rafts. The dqlite raft should go
 	// in <data-dir>/dqlite.
 	agentConfig := agent.CurrentConfig()
 	raftDir := filepath.Join(agentConfig.DataDir(), "raft")
 
-	return config.NewWorker(Config{
+	notifyTarget := config.NewTarget(st, raftlease.NewTargetLogger(config.LeaseLog, config.Logger))
+
+	w, err := config.NewWorker(Config{
 		FSM:                      config.FSM,
 		Logger:                   config.Logger,
 		StorageDir:               raftDir,
@@ -99,12 +137,22 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Transport:                transport,
 		Clock:                    clk,
 		PrometheusRegisterer:     config.PrometheusRegisterer,
+		Queue:                    config.Queue,
+		NotifyTarget:             notifyTarget,
 		NonSyncedWritesToRaftLog: agentConfig.NonSyncedWritesToRaftLog(),
+		NewApplier:               config.NewApplier,
 	})
+	if err != nil {
+		_ = stTracker.Done()
+		return nil, errors.Trace(err)
+	}
+	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
 }
 
 func raftOutput(in worker.Worker, out interface{}) error {
-	w, ok := in.(withRaftOutputs)
+	// We always expect the in worker to be a common.CleanupWorker, so we need
+	// to unpack it first, to get the underlying worker.
+	w, ok := in.(*common.CleanupWorker).Worker.(withRaftOutputs)
 	if !ok {
 		return errors.Errorf("expected input of type withRaftOutputs, got %T", in)
 	}
@@ -130,4 +178,9 @@ func raftOutput(in worker.Worker, out interface{}) error {
 type withRaftOutputs interface {
 	Raft() (*raft.Raft, error)
 	LogStore() (raft.LogStore, error)
+}
+
+// NewTarget is a shim to construct a raftlease.NotifyTarget for testability.
+func NewTarget(st *state.State, logger raftleasestore.Logger) raftlease.NotifyTarget {
+	return st.LeaseNotifyTarget(logger)
 }
